@@ -1,3 +1,6 @@
+import pytest
+pytest.importorskip("cv2")
+
 from pathlib import Path
 
 import libs.vhs_tuner_core as core
