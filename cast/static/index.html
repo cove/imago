@@ -1,0 +1,1126 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cast Face Review</title>
+    <style>
+      :root {
+        --bg: #f4f7fb;
+        --panel: #ffffff;
+        --ink: #10243d;
+        --muted: #5f738e;
+        --line: #d7e0eb;
+        --brand: #0c6dc0;
+        --brand-2: #09538f;
+        --good: #1f6836;
+        --warn: #926000;
+        --bad: #8f2929;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        color: var(--ink);
+        background: radial-gradient(circle at 100% 0%, #e5f2ff, var(--bg) 45%);
+      }
+
+      .page {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 18px 14px 26px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 29px;
+      }
+
+      .subtitle {
+        margin: 6px 0 0;
+        color: var(--muted);
+      }
+
+      .status {
+        margin-top: 14px;
+        border-radius: 10px;
+        border: 1px solid #c7d8f6;
+        background: #eef4ff;
+        padding: 10px 12px;
+        min-height: 44px;
+        font-size: 14px;
+      }
+
+      .grid {
+        margin-top: 14px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+        gap: 12px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px;
+        box-shadow: 0 8px 24px rgba(16, 36, 61, 0.06);
+      }
+
+      .panel h2 {
+        margin: 0 0 10px;
+        font-size: 18px;
+      }
+
+      .summary-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .pill {
+        background: #edf4ff;
+        border: 1px solid #d4e2f7;
+        border-radius: 999px;
+        padding: 5px 9px;
+        font-size: 13px;
+      }
+
+      .field {
+        margin-bottom: 8px;
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      @media (max-width: 780px) {
+        .row {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      label {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+
+      input,
+      select,
+      textarea,
+      button {
+        width: 100%;
+        border: 1px solid #bcc9db;
+        border-radius: 8px;
+        font: inherit;
+        font-size: 14px;
+        padding: 8px;
+      }
+
+      textarea {
+        resize: vertical;
+        min-height: 70px;
+      }
+
+      button {
+        cursor: pointer;
+        border-color: var(--brand);
+        background: var(--brand);
+        color: #fff;
+      }
+
+      button:hover {
+        background: var(--brand-2);
+      }
+
+      button.secondary {
+        background: #fff;
+        color: var(--brand);
+      }
+
+      button.good {
+        background: #fff;
+        color: var(--good);
+        border-color: var(--good);
+      }
+
+      button.warn {
+        background: #fff;
+        color: var(--warn);
+        border-color: var(--warn);
+      }
+
+      button.bad {
+        background: #fff;
+        color: var(--bad);
+        border-color: var(--bad);
+      }
+
+      .mono {
+        font-family: Consolas, "Courier New", monospace;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+
+      th,
+      td {
+        border-top: 1px solid var(--line);
+        text-align: left;
+        padding: 7px 6px;
+        vertical-align: top;
+      }
+
+      th {
+        color: var(--muted);
+      }
+
+      .crop {
+        width: 86px;
+        height: 86px;
+        object-fit: cover;
+        border-radius: 8px;
+        border: 1px solid #bcc9db;
+        background: #ecf2fa;
+      }
+
+      .face-source-btn {
+        border: none;
+        background: transparent;
+        padding: 0;
+        margin: 0;
+        width: auto;
+        cursor: zoom-in;
+      }
+
+      .actions {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .candidate {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+
+      .candidate button {
+        width: auto;
+        padding: 4px 8px;
+        font-size: 12px;
+      }
+
+      .small {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .modal {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        display: none;
+        background: rgba(0, 0, 0, 0.7);
+        align-items: center;
+        justify-content: center;
+        padding: 12px;
+      }
+
+      .modal.open {
+        display: flex;
+      }
+
+      .modal-card {
+        width: min(96vw, 1400px);
+        max-height: 94vh;
+        overflow: auto;
+        background: #0d1725;
+        border: 1px solid #2d3a4d;
+        border-radius: 12px;
+        padding: 10px;
+      }
+
+      .modal-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: #d6e2f2;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+
+      .modal-head button {
+        width: auto;
+        padding: 6px 10px;
+      }
+
+      .modal-image {
+        width: 100%;
+        height: auto;
+        border-radius: 8px;
+        border: 1px solid #334862;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <h1>Cast Face Review</h1>
+      <p class="subtitle">Detect faces, crop them, and identify who they are across photos and VHS.</p>
+      <div id="status" class="status">Loading...</div>
+
+      <section class="grid">
+        <article class="panel">
+          <h2>Summary</h2>
+          <div class="summary-row">
+            <span class="pill">People: <strong id="count-people">0</strong></span>
+            <span class="pill">Faces: <strong id="count-faces">0</strong></span>
+            <span class="pill">Unknown: <strong id="count-unknown">0</strong></span>
+            <span class="pill">Pending: <strong id="count-pending">0</strong></span>
+          </div>
+          <div class="field" style="margin-top: 10px">
+            <label for="skip-artwork">Skip Statues/Paintings</label>
+            <select id="skip-artwork">
+              <option value="1" selected>Enabled (Recommended)</option>
+              <option value="0">Disabled</option>
+            </select>
+          </div>
+          <div style="margin-top: 10px">
+            <button id="refresh-btn" class="secondary">Refresh State</button>
+            <button id="prune-btn" class="warn" style="margin-top: 8px">
+              Auto-Prune Obvious Non-Faces
+            </button>
+            <button id="reset-pending-btn" class="bad" style="margin-top: 8px">
+              Reset Queue + Unknown Faces
+            </button>
+          </div>
+        </article>
+
+        <article class="panel">
+          <h2>Ingest Photo</h2>
+          <form id="ingest-photo-form">
+            <div class="field">
+              <label for="photo-path">Image Path</label>
+              <input id="photo-path" required placeholder="C:\\path\\to\\photo.jpg" />
+            </div>
+            <div class="row">
+              <div class="field">
+                <label for="photo-min-size">Min Face Size (px)</label>
+                <input id="photo-min-size" type="number" value="40" min="20" />
+              </div>
+              <div class="field">
+                <label for="photo-max-faces">Max Faces</label>
+                <input id="photo-max-faces" type="number" value="50" min="1" />
+              </div>
+            </div>
+            <button type="submit">Detect and Queue Faces</button>
+          </form>
+        </article>
+
+        <article class="panel">
+          <h2>Scan Photo Albums *_View</h2>
+          <form id="ingest-photo-scan-form">
+            <div class="field">
+              <label for="scan-root">Photo Albums Root</label>
+              <input id="scan-root" value="C:\\Users\\covec\\OneDrive\\Cordell, Leslie & Audrey\\Photo Albums" />
+            </div>
+            <div class="row">
+              <div class="field">
+                <label for="scan-glob">View Folder Glob</label>
+                <input id="scan-glob" value="*_View" />
+              </div>
+              <div class="field">
+                <label for="scan-max-files">Max Files (0=all)</label>
+                <input id="scan-max-files" type="number" value="0" min="0" />
+              </div>
+            </div>
+            <div class="row">
+              <div class="field">
+                <label for="scan-min-size">Min Face Size (px)</label>
+                <input id="scan-min-size" type="number" value="40" min="20" />
+              </div>
+              <div class="field">
+                <label for="scan-max-faces">Max Faces Per Photo</label>
+                <input id="scan-max-faces" type="number" value="50" min="1" />
+              </div>
+            </div>
+            <button type="submit">Scan *_View JPG Files and Queue Names</button>
+          </form>
+        </article>
+
+        <article class="panel">
+          <h2>Ingest VHS Video</h2>
+          <form id="ingest-vhs-form">
+            <div class="field">
+              <label for="vhs-path">Video Path</label>
+              <input id="vhs-path" required placeholder="C:\\path\\to\\archive.mkv" />
+            </div>
+            <div class="row">
+              <div class="field">
+                <label for="vhs-sample">Sample Every (sec)</label>
+                <input id="vhs-sample" type="number" value="2" min="0.2" step="0.1" />
+              </div>
+              <div class="field">
+                <label for="vhs-max-duration">Max Duration (sec, 0=all)</label>
+                <input id="vhs-max-duration" type="number" value="180" min="0" step="1" />
+              </div>
+            </div>
+            <div class="row">
+              <div class="field">
+                <label for="vhs-min-size">Min Face Size (px)</label>
+                <input id="vhs-min-size" type="number" value="40" min="20" />
+              </div>
+              <div class="field">
+                <label for="vhs-max-faces">Max Faces</label>
+                <input id="vhs-max-faces" type="number" value="120" min="1" />
+              </div>
+            </div>
+            <button type="submit">Detect and Queue Faces</button>
+          </form>
+        </article>
+
+        <article class="panel">
+          <h2>Create Person</h2>
+          <form id="person-form">
+            <div class="field">
+              <label for="person-name">Display Name</label>
+              <input id="person-name" required />
+            </div>
+            <div class="field">
+              <label for="person-aliases">Aliases (comma-separated)</label>
+              <input id="person-aliases" placeholder="Jim, Jimmy" />
+            </div>
+            <div class="field">
+              <label for="person-notes">Notes</label>
+              <textarea id="person-notes"></textarea>
+            </div>
+            <button type="submit">Create Person</button>
+          </form>
+        </article>
+      </section>
+
+      <section class="panel" style="margin-top: 12px">
+        <h2>Name Next Detected Face</h2>
+        <div id="next-review-empty" class="small">No pending faces right now.</div>
+        <div id="next-review-wrap" style="display: none">
+          <div class="row">
+            <div>
+              <img id="next-review-img" class="crop" alt="next pending face" />
+              <div id="next-review-src" class="small" style="margin-top: 6px"></div>
+            </div>
+            <div>
+              <div class="field">
+                <label for="next-review-name">Who is this?</label>
+                <input id="next-review-name" placeholder="Type a name and press Save Name" />
+              </div>
+              <div class="field">
+                <label for="next-review-select">Or pick an existing person</label>
+                <select id="next-review-select"></select>
+              </div>
+              <div class="actions">
+                <button id="next-save-btn" class="good">Save Name</button>
+                <button id="next-skip-btn" class="warn">Skip</button>
+                <button id="next-reject-btn" class="bad">Reject</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" style="margin-top: 12px">
+        <h2>Pending "Who Is This?" Queue</h2>
+        <table id="review-table">
+          <thead>
+            <tr>
+              <th>Face</th>
+              <th>Source</th>
+              <th>Suggestions</th>
+              <th>Identify</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <section class="panel" style="margin-top: 12px">
+        <h2>Unknown Faces</h2>
+        <table id="unknown-table">
+          <thead>
+            <tr>
+              <th>Face</th>
+              <th>Source</th>
+              <th>Label</th>
+              <th>Queue</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <section class="panel" style="margin-top: 12px">
+        <h2>People</h2>
+        <table id="people-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Aliases</th>
+              <th>ID</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </main>
+
+    <div id="source-modal" class="modal">
+      <div class="modal-card">
+        <div class="modal-head">
+          <div id="source-modal-title" class="small"></div>
+          <button id="source-modal-close" class="secondary">Close</button>
+        </div>
+        <img id="source-modal-image" class="modal-image" alt="source image" />
+      </div>
+    </div>
+
+    <script>
+      const appState = {
+        people: [],
+        faces: [],
+        face_by_id: {},
+        unknown_faces: [],
+        pending_reviews: [],
+        next_review: null,
+      };
+
+      function esc(text) {
+        return String(text || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/\"/g, "&quot;");
+      }
+
+      function shortId(value) {
+        const text = String(value || "");
+        return text ? text.slice(0, 8) : "";
+      }
+
+      function setStatus(message, kind = "info") {
+        const el = document.getElementById("status");
+        el.textContent = String(message || "");
+        if (kind === "error") {
+          el.style.background = "#fdeeee";
+          el.style.borderColor = "#f0b7b7";
+          el.style.color = "#7f2121";
+          return;
+        }
+        if (kind === "success") {
+          el.style.background = "#edf8f1";
+          el.style.borderColor = "#b7dfc4";
+          el.style.color = "#1b5f33";
+          return;
+        }
+        el.style.background = "#eef4ff";
+        el.style.borderColor = "#c7d8f6";
+        el.style.color = "#10243d";
+      }
+
+      function skipArtworkEnabled() {
+        const node = document.getElementById("skip-artwork");
+        const raw = node ? String(node.value || "1").trim() : "1";
+        return raw !== "0";
+      }
+
+      async function api(path, method = "GET", payload = null) {
+        const options = { method };
+        if (payload !== null) {
+          options.headers = { "Content-Type": "application/json" };
+          options.body = JSON.stringify(payload);
+        }
+        const resp = await fetch(path, options);
+        const text = await resp.text();
+        let data = {};
+        try {
+          data = JSON.parse(text || "{}");
+        } catch (error) {
+          throw new Error(`Invalid response: ${text}`);
+        }
+        if (!resp.ok || data.ok === false) {
+          throw new Error(data.error || `Request failed (${resp.status})`);
+        }
+        return data;
+      }
+
+      function personOptions(selected = "") {
+        const options = ['<option value="">Select person...</option>'];
+        for (const person of appState.people) {
+          const pid = String(person.person_id || "");
+          const sel = selected && selected === pid ? " selected" : "";
+          options.push(`<option value="${esc(pid)}"${sel}>${esc(person.display_name)}</option>`);
+        }
+        return options.join("");
+      }
+
+      async function loadState() {
+        const data = await api("/api/state");
+        appState.people = data.people || [];
+        appState.faces = data.faces || [];
+        appState.face_by_id = {};
+        for (const face of appState.faces) {
+          const faceId = String(face.face_id || "");
+          if (faceId) {
+            appState.face_by_id[faceId] = face;
+          }
+        }
+        appState.unknown_faces = data.unknown_faces || [];
+        appState.pending_reviews = data.pending_reviews || [];
+        appState.next_review = appState.pending_reviews.length ? appState.pending_reviews[0] : null;
+
+        const counts = data.counts || {};
+        document.getElementById("count-people").textContent = String(counts.people || 0);
+        document.getElementById("count-faces").textContent = String(counts.faces || 0);
+        document.getElementById("count-unknown").textContent = String(counts.unknown_faces || 0);
+        document.getElementById("count-pending").textContent = String(counts.pending_reviews || 0);
+
+        renderPeople();
+        renderUnknownFaces();
+        renderReviewQueue();
+        renderNextReviewPrompt();
+      }
+
+      function faceCell(face) {
+        const faceId = String(face.face_id || "");
+        const cropUrl = String(face.crop_url || "");
+        const sourceUrl = String(face.source_url || "");
+        const imgTag = cropUrl
+          ? `<img class="crop" src="${esc(cropUrl)}" alt="${esc(faceId)}" />`
+          : '<div class="crop"></div>';
+        const img = sourceUrl
+          ? `<button class="face-source-btn" onclick="openSourceModal('${esc(faceId)}')">${imgTag}</button>`
+          : imgTag;
+        return [
+          `<div>${img}</div>`,
+          `<div class="mono small">${esc(shortId(faceId))}</div>`,
+          `<div class="small">q=${esc(face.quality ?? "-")}</div>`,
+        ].join("");
+      }
+
+      function sourceText(face) {
+        const src = String(face.source_path || "");
+        const ts = String(face.timestamp || "");
+        return `${src}${ts ? ` @ ${ts}` : ""}`;
+      }
+
+      function renderPeople() {
+        const tbody = document.querySelector("#people-table tbody");
+        if (!appState.people.length) {
+          tbody.innerHTML = '<tr><td colspan="3">No people yet.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = appState.people
+          .map((person) => {
+            const aliases = Array.isArray(person.aliases) ? person.aliases.join(", ") : "";
+            return [
+              "<tr>",
+              `<td>${esc(person.display_name)}</td>`,
+              `<td>${esc(aliases)}</td>`,
+              `<td class="mono">${esc(shortId(person.person_id))}</td>`,
+              "</tr>",
+            ].join("");
+          })
+          .join("");
+      }
+
+      function renderUnknownFaces() {
+        const tbody = document.querySelector("#unknown-table tbody");
+        if (!appState.unknown_faces.length) {
+          tbody.innerHTML = '<tr><td colspan="4">No unknown faces.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = appState.unknown_faces
+          .map((face) => {
+            const faceId = String(face.face_id || "");
+            return [
+              "<tr>",
+              `<td>${faceCell(face)}</td>`,
+              `<td>${esc(sourceText(face))}</td>`,
+              `<td>`,
+              `<div class="actions">`,
+              `<select id="unknown-select-${esc(faceId)}">${personOptions()}</select>`,
+              `<button class="good" onclick="assignUnknownFace('${esc(faceId)}')">Assign Person</button>`,
+              `<button class="secondary" onclick="createPersonForFace('${esc(faceId)}')">Create New Person + Assign</button>`,
+              `</div>`,
+              `</td>`,
+              `<td><button class="secondary" onclick="enqueueReview('${esc(faceId)}')">Ask Me</button></td>`,
+              "</tr>",
+            ].join("");
+          })
+          .join("");
+      }
+
+      function renderReviewQueue() {
+        const tbody = document.querySelector("#review-table tbody");
+        if (!appState.pending_reviews.length) {
+          tbody.innerHTML = '<tr><td colspan="4">No pending review items.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = appState.pending_reviews
+          .map((review) => {
+            const face = review.face || {};
+            const reviewId = String(review.review_id || "");
+            const candidates = Array.isArray(review.candidates) ? review.candidates : [];
+            const candidateHtml = candidates.length
+              ? candidates
+                  .map((cand) => {
+                    const label = `${cand.person_name || cand.person_id} (${Number(cand.score || 0).toFixed(4)})`;
+                    return [
+                      '<div class="candidate">',
+                      `<span>${esc(label)}</span>`,
+                      `<button class="good" onclick="resolveReview('${esc(reviewId)}', 'accepted', '${esc(cand.person_id || "")}')">Accept</button>`,
+                      '</div>',
+                    ].join("");
+                  })
+                  .join("")
+              : "<div>No suggestion</div>";
+
+            return [
+              "<tr>",
+              `<td>${faceCell(face)}</td>`,
+              `<td>${esc(sourceText(face))}</td>`,
+              `<td>${candidateHtml}</td>`,
+              `<td>`,
+              `<div class="actions">`,
+              `<select id="review-select-${esc(reviewId)}">${personOptions()}</select>`,
+              `<button class="good" onclick="acceptSelectedReview('${esc(reviewId)}')">Assign Selected</button>`,
+              `<button class="warn" onclick="resolveReview('${esc(reviewId)}', 'skipped')">Skip</button>`,
+              `<button class="bad" onclick="resolveReview('${esc(reviewId)}', 'rejected')">Reject</button>`,
+              `</div>`,
+              `</td>`,
+              "</tr>",
+            ].join("");
+          })
+          .join("");
+      }
+
+      function findPersonByName(name) {
+        const target = String(name || "").trim().toLowerCase();
+        if (!target) {
+          return null;
+        }
+        for (const person of appState.people) {
+          const display = String(person.display_name || "").trim().toLowerCase();
+          if (display === target) {
+            return person;
+          }
+          const aliases = Array.isArray(person.aliases) ? person.aliases : [];
+          for (const alias of aliases) {
+            if (String(alias || "").trim().toLowerCase() === target) {
+              return person;
+            }
+          }
+        }
+        return null;
+      }
+
+      function renderNextReviewPrompt() {
+        const empty = document.getElementById("next-review-empty");
+        const wrap = document.getElementById("next-review-wrap");
+        const select = document.getElementById("next-review-select");
+        const input = document.getElementById("next-review-name");
+        const item = appState.next_review;
+        if (!item) {
+          empty.style.display = "block";
+          wrap.style.display = "none";
+          input.value = "";
+          select.innerHTML = personOptions();
+          return;
+        }
+
+        empty.style.display = "none";
+        wrap.style.display = "block";
+        const face = item.face || {};
+        const img = document.getElementById("next-review-img");
+        img.src = String(face.crop_url || "");
+        img.alt = String(face.face_id || "");
+        document.getElementById("next-review-src").textContent = sourceText(face) || "(unknown source)";
+        select.innerHTML = personOptions();
+      }
+
+      function closeSourceModal() {
+        const modal = document.getElementById("source-modal");
+        const image = document.getElementById("source-modal-image");
+        const title = document.getElementById("source-modal-title");
+        modal.classList.remove("open");
+        image.removeAttribute("src");
+        title.textContent = "";
+      }
+
+      function openSourceModal(faceId) {
+        const face = appState.face_by_id[String(faceId || "")] || null;
+        if (!face) {
+          setStatus("Face not found in current state.", "error");
+          return;
+        }
+        const sourceUrl = String(face.source_url || "");
+        if (!sourceUrl) {
+          setStatus("No source image is available for that face.", "error");
+          return;
+        }
+        const modal = document.getElementById("source-modal");
+        const image = document.getElementById("source-modal-image");
+        const title = document.getElementById("source-modal-title");
+        const timestamp = String(face.timestamp || "");
+        title.textContent = `${face.source_path || ""}${timestamp ? ` @ ${timestamp}` : ""}`;
+        image.src = `${sourceUrl}?highlight=1&max_dim=2200&t=${Date.now()}`;
+        modal.classList.add("open");
+      }
+
+      async function assignFace(faceId, personId) {
+        await api("/api/faces/assign", "POST", { face_id: faceId, person_id: personId || null });
+      }
+
+      async function assignUnknownFace(faceId) {
+        try {
+          const select = document.getElementById(`unknown-select-${faceId}`);
+          const personId = (select && select.value ? String(select.value) : "").trim();
+          if (!personId) {
+            throw new Error("Select a person first.");
+          }
+          await assignFace(faceId, personId);
+          setStatus(`Assigned face ${shortId(faceId)}.`, "success");
+          await loadState();
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      }
+
+      async function createPersonForFace(faceId) {
+        try {
+          const name = window.prompt("New person name:", "");
+          if (!name || !name.trim()) {
+            return;
+          }
+          const resp = await api("/api/people", "POST", { display_name: name.trim(), aliases: [], notes: "" });
+          const personId = String((resp.person || {}).person_id || "");
+          if (!personId) {
+            throw new Error("Failed to create person.");
+          }
+          await assignFace(faceId, personId);
+          setStatus(`Created ${name.trim()} and assigned face ${shortId(faceId)}.`, "success");
+          await loadState();
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      }
+
+      async function enqueueReview(faceId) {
+        try {
+          const result = await api("/api/review/enqueue", "POST", { face_id: faceId, top_k: 3 });
+          setStatus(
+            `Queued review for face ${shortId(faceId)}${result.existing ? " (already pending)" : ""}.`,
+            "success"
+          );
+          await loadState();
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      }
+
+      async function resolveReview(reviewId, status, personId = "") {
+        try {
+          await api("/api/review/resolve", "POST", {
+            review_id: reviewId,
+            status,
+            person_id: personId || null,
+          });
+          setStatus(`Review ${shortId(reviewId)} updated (${status}).`, "success");
+          await loadState();
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      }
+
+      async function acceptSelectedReview(reviewId) {
+        try {
+          const select = document.getElementById(`review-select-${reviewId}`);
+          const personId = (select && select.value ? String(select.value) : "").trim();
+          if (!personId) {
+            throw new Error("Select a person first.");
+          }
+          await resolveReview(reviewId, "accepted", personId);
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      }
+
+      async function saveNextReviewName() {
+        try {
+          const item = appState.next_review;
+          if (!item) {
+            throw new Error("No pending face to label.");
+          }
+          const nameInput = document.getElementById("next-review-name");
+          const select = document.getElementById("next-review-select");
+          const enteredName = String(nameInput.value || "").trim();
+          let personId = String(select.value || "").trim();
+
+          if (enteredName) {
+            const existing = findPersonByName(enteredName);
+            if (existing) {
+              personId = String(existing.person_id || "");
+            } else {
+              const created = await api("/api/people", "POST", {
+                display_name: enteredName,
+                aliases: [],
+                notes: "",
+              });
+              personId = String((created.person || {}).person_id || "");
+            }
+          }
+
+          if (!personId) {
+            throw new Error("Enter a name or select a person.");
+          }
+
+          await resolveReview(String(item.review_id || ""), "accepted", personId);
+          nameInput.value = "";
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      }
+
+      async function skipNextReview() {
+        try {
+          const item = appState.next_review;
+          if (!item) {
+            return;
+          }
+          await resolveReview(String(item.review_id || ""), "skipped");
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      }
+
+      async function rejectNextReview() {
+        try {
+          const item = appState.next_review;
+          if (!item) {
+            return;
+          }
+          await resolveReview(String(item.review_id || ""), "rejected");
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      }
+
+      document.getElementById("refresh-btn").addEventListener("click", async () => {
+        try {
+          await loadState();
+          setStatus("State refreshed.", "success");
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      });
+
+      document.getElementById("source-modal-close").addEventListener("click", () => {
+        closeSourceModal();
+      });
+
+      document.getElementById("source-modal").addEventListener("click", (event) => {
+        if (event.target && event.target.id === "source-modal") {
+          closeSourceModal();
+        }
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          closeSourceModal();
+        }
+      });
+
+      document.getElementById("prune-btn").addEventListener("click", async () => {
+        try {
+          setStatus("Pruning obvious non-faces from pending queue...", "info");
+          const result = await api("/api/review/prune_false_positives", "POST", {
+            skip_artwork: skipArtworkEnabled(),
+          });
+          setStatus(
+            `Pruned ${result.pruned || 0} item(s) out of ${result.checked || 0} checked pending face(s).`,
+            "success"
+          );
+          await loadState();
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      });
+
+      document.getElementById("reset-pending-btn").addEventListener("click", async () => {
+        const confirmed = window.confirm(
+          "Reset pending queue and unknown faces? This will remove unassigned faces and pending review items."
+        );
+        if (!confirmed) {
+          return;
+        }
+        try {
+          setStatus("Resetting pending queue and unknown faces...", "info");
+          const result = await api("/api/reset/pending_unknown", "POST", { remove_crops: true });
+          setStatus(
+            `Reset complete: removed ${result.removed_faces || 0} unknown face(s), ${result.removed_reviews || 0} review item(s), ${result.removed_crops || 0} crop file(s).`,
+            "success"
+          );
+          await loadState();
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      });
+
+      document.getElementById("next-save-btn").addEventListener("click", async (event) => {
+        event.preventDefault();
+        await saveNextReviewName();
+      });
+
+      document.getElementById("next-skip-btn").addEventListener("click", async (event) => {
+        event.preventDefault();
+        await skipNextReview();
+      });
+
+      document.getElementById("next-reject-btn").addEventListener("click", async (event) => {
+        event.preventDefault();
+        await rejectNextReview();
+      });
+
+      document.getElementById("next-review-name").addEventListener("keydown", async (event) => {
+        if (event.key !== "Enter") {
+          return;
+        }
+        event.preventDefault();
+        await saveNextReviewName();
+      });
+
+      document.getElementById("person-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const name = document.getElementById("person-name").value.trim();
+        const aliases = document
+          .getElementById("person-aliases")
+          .value.split(",")
+          .map((part) => part.trim())
+          .filter(Boolean);
+        const notes = document.getElementById("person-notes").value.trim();
+        try {
+          await api("/api/people", "POST", { display_name: name, aliases, notes });
+          event.target.reset();
+          setStatus(`Created person ${name}.`, "success");
+          await loadState();
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      });
+
+      document.getElementById("ingest-photo-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const imagePath = document.getElementById("photo-path").value.trim();
+        const minSize = Number(document.getElementById("photo-min-size").value || 40);
+        const maxFaces = Number(document.getElementById("photo-max-faces").value || 50);
+        try {
+          setStatus("Detecting faces in photo...", "info");
+          const result = await api("/api/ingest/photo", "POST", {
+            image_path: imagePath,
+            min_size: minSize,
+            max_faces: maxFaces,
+            skip_artwork: skipArtworkEnabled(),
+            auto_queue: true,
+            top_k: 3,
+          });
+          setStatus(
+            `Photo ingest done: ${result.faces_created || 0} face(s), ${result.reviews_created || 0} queued for identity review.`,
+            "success"
+          );
+          await loadState();
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      });
+
+      document.getElementById("ingest-photo-scan-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const root = document.getElementById("scan-root").value.trim();
+        const viewGlob = document.getElementById("scan-glob").value.trim() || "*_View";
+        const maxFiles = Number(document.getElementById("scan-max-files").value || 0);
+        const minSize = Number(document.getElementById("scan-min-size").value || 40);
+        const maxFaces = Number(document.getElementById("scan-max-faces").value || 50);
+        try {
+          setStatus("Scanning *_View folders for JPG files and detecting faces...", "info");
+          const result = await api("/api/ingest/photos/scan", "POST", {
+            photo_albums_root: root,
+            view_glob: viewGlob,
+            recursive: true,
+            max_files: maxFiles,
+            min_size: minSize,
+            max_faces_per_photo: maxFaces,
+            skip_artwork: skipArtworkEnabled(),
+            auto_queue: true,
+            top_k: 3,
+          });
+          setStatus(
+            `Scan complete: ${result.photo_files_scanned || 0} photo(s), ${result.faces_created || 0} face(s), ${result.reviews_created || 0} queued for naming.`,
+            "success"
+          );
+          await loadState();
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      });
+
+      document.getElementById("ingest-vhs-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const videoPath = document.getElementById("vhs-path").value.trim();
+        const sampleEverySeconds = Number(document.getElementById("vhs-sample").value || 2);
+        const maxDurationSeconds = Number(document.getElementById("vhs-max-duration").value || 0);
+        const minSize = Number(document.getElementById("vhs-min-size").value || 40);
+        const maxFaces = Number(document.getElementById("vhs-max-faces").value || 120);
+        try {
+          setStatus("Scanning VHS video for faces... this can take a bit.", "info");
+          const result = await api("/api/ingest/vhs", "POST", {
+            video_path: videoPath,
+            sample_every_seconds: sampleEverySeconds,
+            max_duration_seconds: maxDurationSeconds,
+            min_size: minSize,
+            max_faces: maxFaces,
+            skip_artwork: skipArtworkEnabled(),
+            auto_queue: true,
+            top_k: 3,
+          });
+          setStatus(
+            `VHS ingest done: ${result.faces_created || 0} face(s) from ${result.sampled_frames || 0} sampled frame(s), ${result.reviews_created || 0} queued.`,
+            "success"
+          );
+          await loadState();
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      });
+
+      (async () => {
+        try {
+          await loadState();
+          setStatus("Ready.", "success");
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      })();
+    </script>
+  </body>
+</html>

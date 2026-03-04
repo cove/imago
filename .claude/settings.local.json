@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest)",
+      "Bash(py -3.11 -m pytest --version)",
+      "Bash(py -3.12 -m pytest --version)",
+      "Bash(py -3.13 -m pytest --version)"
+    ]
+  }
+}
