@@ -24,7 +24,7 @@ _HERE        = Path(__file__).resolve().parent
 PROJECT_ROOT = _HERE.parent if _HERE.name in {"scripts", "libs"} else _HERE
 sys.path.insert(0, str(PROJECT_ROOT))
 
-ARCHIVE_DIR  = PROJECT_ROOT / "../Archive"
+ARCHIVE_DIR  = PROJECT_ROOT / "../../Archive"
 METADATA_DIR = PROJECT_ROOT / "metadata"
 FPS          = 30000 / 1001
 BORDER       = 3

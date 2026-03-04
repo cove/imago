@@ -118,7 +118,7 @@ if os.getenv("TEST_ENV") == "1":
     CLIPS_DIR = base_dir / "Clips"
     DRIVE_DIR = base_dir.resolve()
 else:
-    base_dir = BASE.parent
+    base_dir = BASE.parent.parent
     METADATA_DIR = BASE / "metadata"
     ARCHIVE_DIR = base_dir / "Archive"
     VIDEOS_DIR = base_dir / "Videos"
