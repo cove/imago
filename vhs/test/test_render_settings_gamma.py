@@ -18,8 +18,8 @@ def test_gamma_profile_loads_archive_and_chapter_overrides() -> None:
     archive_meta_dir = ROOT / "metadata" / archive
     try:
         _path, settings = load_render_settings(archive, create=True)
-        settings["archive_settings"]["gamma_default"] = 1.0
-        settings["archive_settings"]["gamma_ranges"] = [
+        settings["archive_settings"]["gamma_correction_default"] = 1.0
+        settings["archive_settings"]["gamma_correction_ranges"] = [
             {"start_frame": 100, "end_frame": 200, "gamma": 1.3},
             {"start_frame": 210, "end_frame": 260, "gamma": 1.6},
         ]

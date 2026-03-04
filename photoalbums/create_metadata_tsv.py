@@ -237,7 +237,7 @@ def collect_all_metadata(
 
         try:
             rel_path = file_path.relative_to(PHOTO_ALBUMS_DIR)
-            metadata["FilePath"] = str(rel_path)
+            metadata["FilePath"] = str(Path("Photo Albums") / rel_path)
         except ValueError:
             metadata["FilePath"] = str(file_path)
 
