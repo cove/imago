@@ -239,11 +239,14 @@ def _ensure_render_chapter_extract(
         end_frame=end_i,
         debug_frame_numbers=bool(debug_overlay),
     )
-    proc = subprocess.run(
-        [str(x) for x in cmd],
-        capture_output=True,
-        text=True,
-    )
+    try:
+        proc = subprocess.run(
+            [str(x) for x in cmd],
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        return None, f"ffmpeg not found: {cmd[0]}\nRun setup.py to extract ffmpeg binaries."
     if proc.returncode != 0:
         return None, (proc.stderr or proc.stdout or "ffmpeg extraction failed").strip()
     if _video_frame_count(out_path) != expected_frames:
@@ -1350,9 +1353,12 @@ def apply_and_regenerate(
 
 # Chapter list helpers
 def _get_archives() -> list[str]:
-    if not ARCHIVE_DIR.exists():
-        return []
-    return sorted(p.stem for p in ARCHIVE_DIR.glob("*.mkv"))
+    names: set[str] = set()
+    if ARCHIVE_DIR.exists():
+        names.update(p.stem for p in ARCHIVE_DIR.glob("*.mkv"))
+    if METADATA_DIR.exists():
+        names.update(p.name for p in METADATA_DIR.iterdir() if p.is_dir())
+    return sorted(names)
 
 
 def _resolve_archive_video(archive: str) -> Path | None:

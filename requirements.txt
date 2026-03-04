@@ -1,0 +1,19 @@
+# vhs
+openai-whisper==20250625
+torch==2.10.0
+opencv-contrib-python==4.10.0.84
+pandas
+
+# photoalbums
+largestinteriorrectangle
+llvmlite
+numba
+stitching
+Wand
+TiffFile
+Pillow
+watchdog
+
+# shared
+numpy
+pytest
