@@ -1,0 +1,4254 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VHS Tuner</title>
+  <style>
+    :root {
+      --bg: #10141c;
+      --bg-soft: #151c27;
+      --bg-alt: #1a2331;
+      --panel-1: #182231;
+      --panel-2: #111923;
+      --line: #2c394d;
+      --text: #b7c2d3;
+      --text-strong: #f2f6fc;
+      --text-muted: #95a6bc;
+      --accent: #5f8dff;
+      --accent-soft: #4c77dc;
+      --accent-contrast: #dce6ff;
+      --good: #4ac28a;
+      --bad: #e16f7a;
+      --warn: #f5b96c;
+      --overlay: rgba(8, 12, 18, 0.82);
+      --shadow-accent: rgba(95, 141, 255, 0.22);
+      --spark-base: #48a5bc;
+      --spark-hot: #ff9154;
+      --spark-threshold: #ff646e;
+      --spark-window: #6ca0ff;
+      --spark-window-mid: #9dc6ff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background:
+        repeating-linear-gradient(
+          0deg,
+          rgba(124, 152, 193, 0.07) 0px,
+          rgba(124, 152, 193, 0.07) 1px,
+          rgba(0, 0, 0, 0) 2px,
+          rgba(0, 0, 0, 0) 4px
+        ),
+        radial-gradient(1400px 800px at 50% -15%, #1d2b3f 0%, transparent 55%),
+        var(--bg);
+      color: var(--text);
+      font-family: "Consolas", "Lucida Console", "Courier New", monospace;
+      text-shadow: 0 0 4px rgba(41, 52, 70, 0.5);
+    }
+
+    .app {
+      min-height: 100vh;
+      padding: 14px;
+      display: grid;
+      grid-template-rows: auto auto auto 1fr;
+      gap: 10px;
+    }
+
+    .title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 20px;
+      color: var(--text-strong);
+      letter-spacing: 0.8px;
+    }
+    .title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .title-icon {
+      width: 34px;
+      height: 22px;
+      flex: 0 0 auto;
+    }
+    .help-btn {
+      min-width: 84px;
+      border-color: var(--accent);
+      background: var(--bg-alt);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .status {
+      min-height: 24px;
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      background: var(--overlay);
+      font-size: 13px;
+    }
+    .status.hidden {
+      display: none;
+    }
+    .hidden-ui {
+      display: none !important;
+    }
+
+    .status.error {
+      border-color: var(--bad);
+      color: #ffd2d7;
+    }
+
+    .steps {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .step-pill {
+      border: 1px solid var(--line);
+      background: var(--bg-soft);
+      color: var(--text);
+      border-radius: 2px;
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+
+    .step-pill.active {
+      border-color: var(--accent);
+      color: var(--text-strong);
+      background: var(--panel-1);
+      box-shadow: inset 0 0 0 1px var(--shadow-accent);
+    }
+
+    .page { display: none; min-height: 0; }
+    .page.active { display: block; }
+
+    .panel {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, var(--panel-1), var(--panel-2));
+      border-radius: 2px;
+      padding: 10px;
+      min-height: 0;
+    }
+
+    .panel-title {
+      margin: 0 0 10px;
+      font-size: 14px;
+      color: var(--text-strong);
+      letter-spacing: 0.2px;
+    }
+
+    .page-load-layout {
+      height: calc(100vh - 170px);
+      display: grid;
+      gap: 10px;
+      grid-template-columns: 240px minmax(420px, 1fr);
+    }
+
+    .load-main {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .load-main .controls {
+      margin-top: auto;
+      border-top: 1px solid var(--line);
+      padding-top: 10px;
+    }
+
+    .load-main #chapterList {
+      flex: 1 1 auto;
+      max-height: none;
+      min-height: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      overflow: auto;
+      max-height: 100%;
+      padding-right: 2px;
+    }
+
+    .item-btn {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: var(--bg-soft);
+      color: var(--text);
+      border-radius: 2px;
+      padding: 8px;
+      text-align: left;
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1.25;
+    }
+
+    .item-btn:hover { border-color: var(--accent-soft); }
+    .item-btn.active {
+      border-color: var(--accent);
+      background: var(--panel-1);
+      color: var(--text-strong);
+    }
+
+    .chapter-row {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr) minmax(78px, 24%) minmax(64px, 18%);
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .chapter-row .meta {
+      color: var(--text-muted);
+      font-size: 11px;
+      text-align: right;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      line-height: 1.15;
+    }
+
+    .chapter-row .meta-spark {
+      width: 100%;
+      height: 14px;
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      background: var(--bg-alt);
+      overflow: hidden;
+      display: block;
+    }
+
+    .chapter-row .title {
+      font-size: 12px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: inherit;
+    }
+
+    .controls {
+      margin-top: 10px;
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(4, minmax(130px, 1fr));
+    }
+
+    .field {
+      display: grid;
+      gap: 4px;
+      font-size: 12px;
+    }
+
+    .field input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--bg-alt);
+      color: var(--text-strong);
+      padding: 8px;
+    }
+
+    .actions {
+      margin-top: 10px;
+      display: flex;
+      gap: 8px;
+      justify-content: space-between;
+    }
+
+    button.action {
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      background: var(--panel-1);
+      color: var(--text-strong);
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    button.action.primary { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-contrast); }
+    button.action.warn { border-color: var(--warn); }
+    button.action:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .page-review-layout {
+      height: calc(100vh - 170px);
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr) auto;
+      gap: 10px;
+    }
+
+    .review-top {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .review-stats { font-size: 13px; }
+
+    .iqr-box {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      font-size: 12px;
+    }
+
+    .iqr-box input[type="range"] { width: 220px; }
+    .iqr-box input[type="text"] {
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      background: var(--bg-alt);
+      color: var(--text-strong);
+      padding: 6px 8px;
+      min-width: 130px;
+      font-family: inherit;
+      font-size: 12px;
+    }
+    .iqr-box select {
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      background: var(--bg-alt);
+      color: var(--text-strong);
+      padding: 6px 8px;
+      font-family: inherit;
+      font-size: 12px;
+    }
+    .sim-freeze {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-left: 4px;
+      color: var(--text-muted);
+      user-select: none;
+    }
+    .sim-freeze input[type="checkbox"] {
+      width: 14px;
+      height: 14px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .spark-play-btn {
+      min-width: 68px;
+      min-height: 36px;
+      padding-left: 12px;
+      padding-right: 12px;
+      font-weight: 700;
+      line-height: 1;
+      font-size: 13px;
+      letter-spacing: 0.2px;
+      border-width: 2px;
+      box-shadow: inset 0 0 0 1px var(--shadow-accent);
+    }
+
+    .iqr-spark {
+      width: 100%;
+      height: 46px;
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      background: var(--bg-alt);
+      display: block;
+      cursor: ew-resize;
+      user-select: none;
+      touch-action: none;
+    }
+    .iqr-spark.dragging { cursor: grabbing; }
+
+    .spark-panel {
+      display: grid;
+      gap: 4px;
+      align-content: start;
+      min-height: 0;
+    }
+
+    .spark-meta {
+      font-size: 10px;
+      color: var(--text-muted);
+      min-height: 12px;
+    }
+    .people-editor {
+      width: 100%;
+      min-height: 108px;
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      background: var(--bg-alt);
+      color: var(--text-strong);
+      padding: 8px;
+      resize: vertical;
+      font-family: "Consolas", "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .frame-grid {
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      background: var(--overlay);
+      padding: 8px;
+      overflow: auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: 8px;
+      align-content: start;
+      min-height: 0;
+    }
+
+    .flipbook-preview {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: min(50vw, 820px);
+      height: min(50vh, 520px);
+      border: 2px solid var(--accent);
+      border-radius: 3px;
+      background: rgba(5, 10, 16, 0.96);
+      box-shadow: 0 0 0 1px var(--shadow-accent), 0 14px 28px rgba(0, 0, 0, 0.5);
+      display: none;
+      grid-template-rows: minmax(0, 1fr) auto;
+      z-index: 980;
+      overflow: hidden;
+    }
+
+    .flipbook-preview.active {
+      display: grid;
+    }
+
+    .flipbook-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 6px 8px;
+      border-top: 1px solid var(--line);
+      background: var(--panel-1);
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.2px;
+      min-height: 42px;
+    }
+
+    .flipbook-head > span {
+      flex: 0 0 auto;
+    }
+
+    .flipbook-controls {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex: 1 1 auto;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .flipbook-controls button.action {
+      padding: 4px 8px;
+      font-size: 11px;
+      min-width: 36px;
+      line-height: 1;
+    }
+    .flipbook-gamma {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .flipbook-gamma input[type="range"] {
+      width: 130px;
+    }
+
+    .flipbook-frame {
+      margin: 8px 8px 4px 8px;
+      min-height: 0;
+      display: grid;
+      place-items: center;
+      background: #02060c;
+      border: 2px solid var(--line);
+      border-radius: 2px;
+      position: relative;
+      overflow: visible;
+    }
+
+    .flipbook-frame::after {
+      content: "";
+      position: absolute;
+      inset: -3px;
+      border-radius: 5px;
+      pointer-events: none;
+      box-shadow:
+        0 0 14px 4px rgba(95, 141, 255, 0.45),
+        0 0 28px 10px rgba(95, 141, 255, 0.26);
+    }
+
+    .flipbook-frame.good {
+      border-color: var(--good);
+    }
+
+    .flipbook-frame.bad {
+      border-color: var(--bad);
+    }
+
+    .flipbook-frame.paused {
+      cursor: pointer;
+    }
+
+    .flipbook-frame img {
+      max-width: 100%;
+      max-height: 100%;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      image-rendering: auto;
+    }
+
+    .frame-card {
+      border: 2px solid var(--line);
+      border-radius: 2px;
+      background: var(--bg-alt);
+      padding: 6px;
+      display: grid;
+      gap: 4px;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .frame-card.good { border-color: var(--good); }
+    .frame-card.bad { border-color: var(--bad); }
+    .frame-card.playback-current {
+      z-index: 1;
+      outline: 2px solid rgba(110, 170, 255, 1);
+      outline-offset: 2px;
+    }
+    .frame-card.playback-current::before {
+      content: "";
+      position: absolute;
+      inset: -3px;
+      border-radius: 6px;
+      border: 2px solid rgba(95, 141, 255, 0.95);
+      pointer-events: none;
+    }
+    .frame-card.playback-current::after {
+      content: "";
+      position: absolute;
+      inset: -8px;
+      border-radius: 9px;
+      pointer-events: none;
+      box-shadow:
+        0 0 12px 4px rgba(95, 141, 255, 0.7),
+        0 0 24px 10px rgba(95, 141, 255, 0.4),
+        0 0 36px 14px rgba(95, 141, 255, 0.24);
+      animation: frame-current-pulse 1.1s ease-in-out infinite;
+    }
+    .frame-card.replaced {
+      border-style: dashed;
+      box-shadow: inset 0 0 0 1px rgba(245, 185, 108, 0.3);
+    }
+
+    .frame-card img {
+      width: 100%;
+      max-height: 112px;
+      object-fit: contain;
+      background: var(--bg);
+      border-radius: 4px;
+    }
+
+    .frame-label {
+      font-family: "Consolas", "Courier New", monospace;
+      font-size: 11px;
+      line-height: 1.25;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .frame-replace-note {
+      min-height: 13px;
+      font-size: 10px;
+      line-height: 1.2;
+      color: var(--warn);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .page-final-layout {
+      height: calc(100vh - 170px);
+      display: grid;
+      grid-template-rows: 1fr auto;
+      gap: 10px;
+    }
+
+    .summary-box {
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      background: var(--overlay);
+      padding: 10px;
+      white-space: pre-wrap;
+      overflow: auto;
+      font-family: "Consolas", "Courier New", monospace;
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    .overlay {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      display: none;
+      align-items: flex-start;
+      justify-content: flex-end;
+      z-index: 1000;
+      pointer-events: none;
+    }
+
+    .overlay.active { display: flex; }
+
+    .overlay-card {
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      background: var(--panel-1);
+      min-width: 300px;
+      max-width: min(92vw, 420px);
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      pointer-events: auto;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+    }
+
+    .overlay-progress {
+      width: 100%;
+      height: 10px;
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      background: var(--panel-1);
+      overflow: hidden;
+    }
+
+    .overlay-progress-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-soft), var(--accent));
+      transition: width 0.15s linear;
+    }
+
+    .overlay-progress-text {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: right;
+    }
+    .overlay-eta-text {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: right;
+      min-height: 14px;
+    }
+
+    .overlay-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .help-modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: var(--overlay);
+      z-index: 1100;
+    }
+
+    .help-modal.active { display: flex; }
+
+    .help-card {
+      width: min(900px, 96vw);
+      max-height: 90vh;
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      background: var(--panel-1);
+      padding: 12px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 10px;
+    }
+
+    .help-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .help-title {
+      margin: 0;
+      font-size: 16px;
+      color: var(--text-strong);
+      letter-spacing: 0.2px;
+    }
+
+    .help-body {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      padding: 10px;
+      background: var(--overlay);
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .help-body h3 {
+      margin: 10px 0 6px;
+      color: var(--text-strong);
+      font-size: 13px;
+    }
+
+    .help-body p {
+      margin: 0 0 8px;
+    }
+
+    .help-body ol,
+    .help-body ul {
+      margin: 6px 0 10px;
+      padding-left: 18px;
+    }
+
+    .help-body li {
+      margin: 3px 0;
+    }
+
+    .spinner {
+      width: 26px;
+      height: 26px;
+      border: 3px solid var(--line);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes frame-current-pulse {
+      0% { opacity: 0.55; }
+      50% { opacity: 1; }
+      100% { opacity: 0.55; }
+    }
+
+    @media (max-width: 1100px) {
+      .page-load-layout { grid-template-columns: 1fr; height: auto; }
+      .controls { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+      .page-review-layout, .page-final-layout { height: auto; }
+      .frame-grid { min-height: 420px; }
+      .review-top { grid-template-columns: 1fr; }
+      .iqr-box input[type="range"] { width: 180px; }
+      .chapter-row { grid-template-columns: 30px minmax(0, 1fr) minmax(70px, 26%) minmax(58px, 20%); }
+      .flipbook-preview {
+        width: min(92vw, 640px);
+        height: min(45vh, 360px);
+      }
+    }
+
+    #page2:fullscreen {
+      display: block;
+      padding: 10px;
+      background: var(--bg);
+    }
+
+    #page2:fullscreen .page-review-layout {
+      height: calc(100vh - 20px);
+    }
+
+    #page2.flipbook-focus .page-review-layout {
+      height: 100%;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 0;
+    }
+
+    #page2.flipbook-focus .review-top,
+    #page2.flipbook-focus .spark-panel,
+    #page2.flipbook-focus .actions {
+      display: none !important;
+    }
+
+    #page2.flipbook-focus .flipbook-preview {
+      position: static;
+      left: auto;
+      top: auto;
+      transform: none;
+      width: min(100%, 640px);
+      max-width: 640px;
+      height: min(52vh, 480px);
+      max-height: 480px;
+      margin: 0 auto;
+      border-width: 1px;
+      border-style: solid;
+      border-color: var(--line);
+      border-left: none;
+      border-right: none;
+      border-top: none;
+      border-radius: 0;
+      box-shadow: none;
+      z-index: auto;
+    }
+
+    #page2.flipbook-focus .frame-grid {
+      border-left: none;
+      border-right: none;
+      border-bottom: none;
+      border-top: 1px solid var(--line);
+      border-radius: 0;
+    }
+
+    #page2.flipbook-focus:fullscreen {
+      padding: 0;
+    }
+
+    #page2.flipbook-focus:fullscreen .page-review-layout {
+      height: 100vh;
+    }
+
+    body.review-fullscreen-fallback .app {
+      padding: 0;
+      grid-template-rows: 1fr;
+      gap: 0;
+    }
+
+    body.review-fullscreen-fallback .title-row,
+    body.review-fullscreen-fallback .status,
+    body.review-fullscreen-fallback .steps,
+    body.review-fullscreen-fallback #page1,
+    body.review-fullscreen-fallback #page3 {
+      display: none !important;
+    }
+
+    body.review-fullscreen-fallback #page2 {
+      display: block !important;
+      position: fixed;
+      inset: 0;
+      z-index: 900;
+      padding: 12px;
+      background: var(--bg);
+    }
+
+    body.review-fullscreen-fallback #page2 .page-review-layout {
+      height: calc(100vh - 24px);
+    }
+
+    body.review-fullscreen-fallback #page2.flipbook-focus {
+      padding: 0;
+    }
+
+    body.review-fullscreen-fallback #page2.flipbook-focus .page-review-layout {
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="title-row">
+      <div class="title">
+        <svg class="title-icon" viewBox="0 0 68 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="2" y="4" width="64" height="36" rx="2" fill="var(--panel-2)" stroke="var(--accent)" stroke-width="2"/>
+          <rect x="10" y="10" width="48" height="16" rx="1.5" fill="var(--bg)" stroke="var(--accent-soft)" stroke-width="1.3"/>
+          <circle cx="24" cy="18" r="5.3" fill="var(--bg-alt)" stroke="var(--accent)" stroke-width="1.5"/>
+          <circle cx="44" cy="18" r="5.3" fill="var(--bg-alt)" stroke="var(--accent)" stroke-width="1.5"/>
+          <circle cx="24" cy="18" r="1.2" fill="var(--text-muted)"/>
+          <circle cx="44" cy="18" r="1.2" fill="var(--text-muted)"/>
+          <rect x="24" y="32" width="20" height="3" rx="1" fill="var(--accent-soft)"/>
+          <rect x="6" y="8" width="3" height="28" fill="var(--line)"/>
+          <rect x="59" y="8" width="3" height="28" fill="var(--line)"/>
+        </svg>
+        <span>VHS Tuner Wizard</span>
+      </div>
+      <button id="helpBtn" class="action help-btn" type="button">Help</button>
+    </div>
+    <div id="status" class="status"></div>
+    <div id="stepPills" class="steps"></div>
+
+    <section id="page1" class="page active">
+      <div class="page-load-layout">
+        <aside class="panel">
+          <h2 class="panel-title">Archives</h2>
+          <div id="archiveList" class="list"></div>
+        </aside>
+
+        <main class="panel load-main">
+          <h2 class="panel-title">Chapters</h2>
+          <div id="chapterList" class="list"></div>
+
+          <div class="controls">
+            <label class="field">Start Frame
+              <input id="startFrame" type="number" min="0" step="1">
+            </label>
+            <label class="field">End Frame (exclusive)
+              <input id="endFrame" type="number" min="1" step="1">
+            </label>
+            <label class="field">Sample Rate (1 / N, use 1 for all frames)
+              <input id="sampleStride" type="number" min="1" step="1" value="1">
+            </label>
+            <label class="field">Bad Batch Proximity
+              <input id="context" type="number" min="0" step="1" value="10">
+            </label>
+          </div>
+
+          <div class="actions">
+            <span></span>
+            <button id="nextToReview" class="action primary">Next: Load Frames</button>
+          </div>
+        </main>
+      </div>
+    </section>
+
+    <section id="page2" class="page">
+      <div class="page-review-layout">
+        <div class="panel review-top">
+          <div id="reviewStats" class="review-stats">No frames loaded.</div>
+          <div class="iqr-box">
+            <button id="sparkPlayBtn" class="action spark-play-btn" type="button" title="Open fullscreen flipbook">Flipbook</button>
+            <div id="reviewControls" class="iqr-box">
+              <label for="iqrK">IQR k</label>
+              <input id="iqrK" type="range" min="0" max="12" step="0.05" value="3.5">
+              <span id="iqrLabel">3.50</span>
+              <label class="sim-freeze" for="simulateFreezeFrame">
+                <input id="simulateFreezeFrame" type="checkbox">
+                <span>Sim FreezeFrame</span>
+              </label>
+            </div>
+            <div id="gammaControls" class="iqr-box hidden-ui">
+              <label for="gammaLevel">Gamma Correction</label>
+              <input id="gammaLevel" type="range" min="0.05" max="8.00" step="0.01" value="1.00">
+              <span id="gammaLabel">1.00</span>
+              <label for="gammaMode">Mode</label>
+              <select id="gammaMode">
+                <option value="whole">Whole Chapter</option>
+                <option value="regions">Visible Range Regions</option>
+              </select>
+              <button id="gammaApplyVisible" class="action" type="button">Apply Visible Range</button>
+              <button id="gammaClear" class="action warn" type="button">Clear</button>
+            </div>
+            <div id="peopleControls" class="iqr-box hidden-ui">
+              <label for="peopleNames">People</label>
+              <input id="peopleNames" type="text" placeholder="Name1 | Name2">
+              <button id="peopleAddVisible" class="action" type="button">Add Visible Range</button>
+              <button id="peopleClear" class="action warn" type="button">Clear Entries</button>
+            </div>
+            <button id="previewRender" class="action">Preview Render</button>
+            <button id="saveProgressDraft" class="action">Save Progress</button>
+            <button id="toggleFullscreen" class="action">Fullscreen</button>
+          </div>
+        </div>
+        <div class="panel spark-panel">
+          <svg id="iqrSpark" class="iqr-spark" viewBox="0 0 320 68" preserveAspectRatio="none"></svg>
+          <div id="sparkMeta" class="spark-meta"></div>
+          <div id="gammaRangeMeta" class="spark-meta hidden-ui"></div>
+          <div id="peopleMeta" class="spark-meta hidden-ui"></div>
+          <textarea id="peopleEditor" class="people-editor hidden-ui" spellcheck="false" placeholder="00:00:05.000\t00:00:10.000\tJim | Linda"></textarea>
+        </div>
+
+        <div id="flipbookPreview" class="flipbook-preview" aria-hidden="true">
+          <figure id="flipbookFrame" class="flipbook-frame">
+            <img id="flipbookImage" alt="Flipbook playback frame">
+          </figure>
+          <div class="flipbook-head">
+            <span>Flipbook Preview</span>
+            <div class="flipbook-controls">
+              <button id="flipbookRevBtn" class="action" type="button" title="Previous frame">&#9664;&#9664;</button>
+              <button id="flipbookPlayBtn" class="action primary" type="button" title="Play flipbook">&#9654;</button>
+              <button id="flipbookFwdBtn" class="action" type="button" title="Next frame">&#9654;&#9654;</button>
+              <label id="flipbookGammaControls" class="flipbook-gamma hidden-ui" for="flipbookGammaLevel" title="Adjust gamma while in flipbook">
+                <span>Gamma Correction</span>
+                <input id="flipbookGammaLevel" type="range" min="0.05" max="8.00" step="0.01" value="1.00">
+                <span id="flipbookGammaLabel">1.00</span>
+              </label>
+              <label class="sim-freeze" for="flipbookSimFreezeFrame" title="Simulate FreezeFrame replacements in flipbook">
+                <input id="flipbookSimFreezeFrame" type="checkbox">
+                <span>Sim FreezeFrame</span>
+              </label>
+              <button id="flipbookCloseBtn" class="action warn" type="button" title="Close flipbook">Close</button>
+              <span id="flipbookMeta"></span>
+            </div>
+          </div>
+        </div>
+
+        <div id="frameGrid" class="frame-grid"></div>
+
+        <div id="reviewActions" class="actions">
+          <button id="backToLoad" class="action warn">Back</button>
+          <button id="nextToGamma" class="action primary">Next: Gamma Correction</button>
+        </div>
+        <div id="gammaActions" class="actions hidden-ui">
+          <button id="backToReviewFromGamma" class="action warn">Back: Bad Frames</button>
+          <button id="nextToPeople" class="action primary">Next: People Subtitles</button>
+        </div>
+        <div id="peopleActions" class="actions hidden-ui">
+          <button id="backToGammaFromPeople" class="action warn">Back: Gamma Correction</button>
+          <button id="nextToSummary" class="action primary">Next: Summary</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="page3" class="page">
+      <div class="page-final-layout">
+        <div id="summaryBox" class="summary-box">No summary yet.</div>
+        <div class="actions">
+          <button id="backToReview" class="action warn">Back: People Subtitles</button>
+          <button id="saveAndReturn" class="action primary">Save and Return to Chapters</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="overlay" class="overlay">
+    <div class="overlay-card">
+      <div style="display:flex; gap:10px; align-items:center;">
+        <div class="spinner"></div>
+        <strong style="color: var(--text-strong);">Loading</strong>
+      </div>
+      <div id="overlayMsg" style="font-size:13px;">Working...</div>
+      <div class="overlay-progress">
+        <div id="overlayProgressFill" class="overlay-progress-fill"></div>
+      </div>
+      <div id="overlayProgressText" class="overlay-progress-text"></div>
+      <div id="overlayEtaText" class="overlay-eta-text"></div>
+      <div id="overlayCancelWrap" class="overlay-actions" style="display:none;">
+        <button id="overlayCancelBtn" class="action warn" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="helpModal" class="help-modal" role="dialog" aria-modal="true" aria-labelledby="helpTitle" aria-hidden="true">
+    <div class="help-card">
+      <div class="help-head">
+        <h2 id="helpTitle" class="help-title">How To Use The VHS Tuner</h2>
+        <button id="helpCloseBtn" class="action warn" type="button">Close</button>
+      </div>
+      <div class="help-body">
+        <p>This wizard lets you mark bad sampled frames, tune gamma, and author people subtitle ranges. Progress saves write <code>BAD_FRAMES</code> + gamma metadata to <code>metadata/&lt;archive&gt;/render_settings.json</code> and people subtitle ranges to <code>metadata/&lt;archive&gt;/people.tsv</code>. During render, subtitle files are generated from that data.</p>
+
+        <h3>Step 1: Load Chapter</h3>
+        <ol>
+          <li>Select an archive in the left column, then select a chapter.</li>
+          <li>Confirm or edit <code>Start Frame</code> and <code>End Frame (exclusive)</code>.</li>
+          <li>Set <code>Sample Rate (1 / N)</code>: use <code>1</code> for every frame, <code>10</code> for every 10th frame.</li>
+          <li>Set <code>Bad Batch Proximity</code>: how much context around detected bad frames is shown in review.</li>
+          <li>Click <code>Next: Load Frames</code>. The loader can be cancelled while running.</li>
+        </ol>
+
+        <h3>Step 2: Bad Frames + IQR</h3>
+        <ul>
+          <li>Each frame card is color-coded: green is currently good, red is currently bad.</li>
+          <li>Click any frame to toggle its manual override between good and bad.</li>
+          <li>Enable <code>Sim FreezeFrame</code> to preview replacement in real time; dashed card borders mark simulated replacements.</li>
+          <li>Use the <code>IQR k</code> slider to change the automatic threshold. Lower <code>k</code> marks more frames bad; higher <code>k</code> marks fewer.</li>
+          <li>The sparkline shows score distribution and threshold. Drag on it to jump around the grid.</li>
+          <li><code>Fullscreen</code> expands the review panel for faster triage.</li>
+          <li><code>Preview Render</code> runs a real chapter render preview from the current in-memory bad-frame selections, without writing <code>render_settings.json</code> yet.</li>
+        </ul>
+
+        <h3>Step 3: Gamma Correction</h3>
+        <ul>
+          <li>The frame grid and flipbook stay the same, with FreezeFrame simulation applied.</li>
+          <li>The sparkline switches to gamma score mode; the horizontal bar is your selected gamma level.</li>
+          <li>Use <code>Mode = Whole Chapter</code> to apply one gamma value to the full chapter.</li>
+          <li>Use <code>Mode = Visible Range Regions</code> then click <code>Apply Visible Range</code> to add per-range gamma values.</li>
+        </ul>
+
+        <h3>Step 4: People Subtitles</h3>
+        <ul>
+          <li>Scroll the frame grid to the visible frame range where people appear.</li>
+          <li>Enter one or more names (for example <code>Jim | Linda</code>) and click <code>Add Visible Range</code>.</li>
+          <li>Each entry is written in chapter-local time format: <code>HH:MM:SS.mmm</code>.</li>
+          <li>Use <code>Save Progress</code> anytime to persist wizard progress and resume later.</li>
+        </ul>
+
+        <h3>Step 5: Summary + Save</h3>
+        <ol>
+          <li>Click <code>Next: Summary</code> to verify bad-frame, gamma, and people subtitle settings.</li>
+          <li>Click <code>Save and Return to Chapters</code> to persist selected bad frames, gamma ranges, and people subtitle entries.</li>
+          <li>The chapter list refreshes with updated BAD counts after save.</li>
+        </ol>
+
+        <h3>How FreezeFrame Is Applied</h3>
+        <ul>
+          <li>The tuner does not directly edit video pixels. It only writes frame IDs into chapter metadata.</li>
+          <li>In render, the AviSynth script builds <code>FreezeFrame(start, end, source)</code> instructions from those bad-frame ranges.</li>
+          <li>The source frame prefers the next clean frame; if none exists (for example at chapter end), it falls back to the nearest previous clean frame.</li>
+          <li>Adjacent bad-frame IDs are merged into ranges, so contiguous damage is replaced consistently.</li>
+        </ul>
+
+        <h3>Tips</h3>
+        <ul>
+          <li>Start with a coarse sample rate, then reduce it if a chapter needs finer review.</li>
+          <li>If the auto threshold is too aggressive, increase <code>IQR k</code> before manual edits.</li>
+          <li>Manual overrides in the loaded sample set are saved with the chapter when you save.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      archives: [],
+      archive: '',
+      chapters: [],
+      chapter: '',
+      wizardStep: 1,
+      review: null,
+      loadSettings: null,
+      iqrApplySeq: 0,
+      liveIqrPending: false,
+      liveIqrInFlight: false,
+      visibleRange: null,
+      frameImages: new Map(),
+      freezeReplacementMap: new Map(),
+      simulateFreezeFrame: false,
+      simulateFreezeFrameReviewPref: false,
+      gammaScores: new Map(),
+      gammaProfile: {
+        mode: 'whole',
+        defaultGamma: 1.0,
+        level: 1.0,
+        ranges: [],
+        source: 'default',
+      },
+      peopleProfile: {
+        entries: [],
+        source: 'default',
+      },
+    };
+
+    const STEP_DEFS = [
+      { num: 1, label: 'Load Chapter', pageId: 'page1', mode: 'load' },
+      { num: 2, label: 'Bad Frames + IQR', pageId: 'page2', mode: 'review' },
+      { num: 3, label: 'Gamma Correction', pageId: 'page2', mode: 'gamma' },
+      { num: 4, label: 'People Subtitles', pageId: 'page2', mode: 'people' },
+      { num: 5, label: 'Summary + Save', pageId: 'page3', mode: 'summary' },
+    ];
+    const STEP_BY_NUM = new Map(STEP_DEFS.map((step) => [step.num, step]));
+    const STEP_INDEX_BY_NUM = new Map(STEP_DEFS.map((step, index) => [step.num, index]));
+    const STEP_COUNT = STEP_DEFS.length;
+    const STEP_FIRST = STEP_DEFS[0];
+    const STEP_PAGE_IDS = Array.from(new Set(STEP_DEFS.map((step) => step.pageId)));
+    const STEP_MODE_TO_FIRST = new Map();
+    STEP_DEFS.forEach((step) => {
+      if (!STEP_MODE_TO_FIRST.has(step.mode)) {
+        STEP_MODE_TO_FIRST.set(step.mode, step);
+      }
+    });
+
+    const FREEZE_BRIDGE_ALWAYS_GAP = 0;
+    const FREEZE_BRIDGE_SINGLETON_GAP = 0;
+    const FREEZE_SINGLE_FRAME_SOURCE_SKIP = 0;
+    const FREEZE_SOURCE_CLEARANCE = 0;
+
+    const statusEl = document.getElementById('status');
+    const stepPillsEl = document.getElementById('stepPills');
+    const overlayEl = document.getElementById('overlay');
+    const overlayMsgEl = document.getElementById('overlayMsg');
+    const overlayProgressFillEl = document.getElementById('overlayProgressFill');
+    const overlayProgressTextEl = document.getElementById('overlayProgressText');
+    const overlayEtaTextEl = document.getElementById('overlayEtaText');
+    const overlayCancelWrapEl = document.getElementById('overlayCancelWrap');
+    const overlayCancelBtnEl = document.getElementById('overlayCancelBtn');
+    const helpBtnEl = document.getElementById('helpBtn');
+    const helpModalEl = document.getElementById('helpModal');
+    const helpCloseBtnEl = document.getElementById('helpCloseBtn');
+
+    const archiveListEl = document.getElementById('archiveList');
+    const chapterListEl = document.getElementById('chapterList');
+
+    const startFrameEl = document.getElementById('startFrame');
+    const endFrameEl = document.getElementById('endFrame');
+    const sampleStrideEl = document.getElementById('sampleStride');
+    const contextEl = document.getElementById('context');
+
+    const iqrEl = document.getElementById('iqrK');
+    const iqrLabelEl = document.getElementById('iqrLabel');
+    const gammaLevelEl = document.getElementById('gammaLevel');
+    const gammaLabelEl = document.getElementById('gammaLabel');
+    const flipbookGammaControlsEl = document.getElementById('flipbookGammaControls');
+    const flipbookGammaLevelEl = document.getElementById('flipbookGammaLevel');
+    const flipbookGammaLabelEl = document.getElementById('flipbookGammaLabel');
+    const gammaModeEl = document.getElementById('gammaMode');
+    const gammaApplyVisibleBtnEl = document.getElementById('gammaApplyVisible');
+    const gammaClearBtnEl = document.getElementById('gammaClear');
+    const peopleControlsEl = document.getElementById('peopleControls');
+    const peopleNamesEl = document.getElementById('peopleNames');
+    const peopleAddVisibleBtnEl = document.getElementById('peopleAddVisible');
+    const peopleClearBtnEl = document.getElementById('peopleClear');
+    const peopleMetaEl = document.getElementById('peopleMeta');
+    const peopleEditorEl = document.getElementById('peopleEditor');
+    const reviewStatsEl = document.getElementById('reviewStats');
+    const frameGridEl = document.getElementById('frameGrid');
+    const summaryBoxEl = document.getElementById('summaryBox');
+    const iqrSparkEl = document.getElementById('iqrSpark');
+    const sparkMetaEl = document.getElementById('sparkMeta');
+    const gammaRangeMetaEl = document.getElementById('gammaRangeMeta');
+    const sparkPlayBtnEl = document.getElementById('sparkPlayBtn');
+    const page2El = document.getElementById('page2');
+    const fullscreenBtnEl = document.getElementById('toggleFullscreen');
+    const reviewControlsEl = document.getElementById('reviewControls');
+    const gammaControlsEl = document.getElementById('gammaControls');
+    const reviewActionsEl = document.getElementById('reviewActions');
+    const gammaActionsEl = document.getElementById('gammaActions');
+    const peopleActionsEl = document.getElementById('peopleActions');
+    const simulateFreezeFrameEl = document.getElementById('simulateFreezeFrame');
+    const flipbookSimFreezeFrameEl = document.getElementById('flipbookSimFreezeFrame');
+    const flipbookSimFreezeWrapEl = flipbookSimFreezeFrameEl ? flipbookSimFreezeFrameEl.closest('label.sim-freeze') : null;
+    const previewRenderBtnEl = document.getElementById('previewRender');
+    const flipbookPreviewEl = document.getElementById('flipbookPreview');
+    const flipbookMetaEl = document.getElementById('flipbookMeta');
+    const flipbookFrameEl = document.getElementById('flipbookFrame');
+    const flipbookImageEl = document.getElementById('flipbookImage');
+    const flipbookRevBtnEl = document.getElementById('flipbookRevBtn');
+    const flipbookPlayBtnEl = document.getElementById('flipbookPlayBtn');
+    const flipbookFwdBtnEl = document.getElementById('flipbookFwdBtn');
+    const flipbookCloseBtnEl = document.getElementById('flipbookCloseBtn');
+    const saveProgressDraftBtnEl = document.getElementById('saveProgressDraft');
+
+    let autoIqrTimer = null;
+    let visibleRangeRefreshPending = false;
+    let loadProgressPollTimer = null;
+    let previewProgressPollTimer = null;
+    let loadSampleTimingStartAt = 0;
+    let loadSampleTimingStartDone = 0;
+    let progressiveReviewFrameCount = 0;
+    let isChapterLoadInFlight = false;
+    let isPreviewRenderInFlight = false;
+    let sparkDragPointerId = null;
+    let sparkDragRaf = null;
+    let sparkDragClientX = 0;
+    let sparkPlayTimer = null;
+    let sparkPlayFrames = [];
+    let sparkPlayIndex = 0;
+    let flipbookGridCursorIndex = -1;
+    let flipbookToggleInFlight = false;
+    const pendingToggleRequests = new Set();
+    const navActionButtons = new Map();
+    const lockExtraButtons = [
+      previewRenderBtnEl,
+      gammaApplyVisibleBtnEl,
+      gammaClearBtnEl,
+      peopleAddVisibleBtnEl,
+      peopleClearBtnEl,
+      saveProgressDraftBtnEl,
+    ].filter((el) => Boolean(el));
+    let shiftRangeAnchorFid = null;
+
+    function setLoadCancelUi(visible, disabled = false, label = 'Cancel') {
+      if (!overlayCancelWrapEl || !overlayCancelBtnEl) return;
+      overlayCancelWrapEl.style.display = visible ? 'flex' : 'none';
+      overlayCancelBtnEl.disabled = Boolean(disabled);
+      overlayCancelBtnEl.textContent = String(label || 'Cancel');
+    }
+
+    function setStatus(text, isError = false) {
+      const msg = String(text || '').trim();
+      statusEl.textContent = msg;
+      statusEl.classList.toggle('error', Boolean(isError));
+      statusEl.classList.toggle('hidden', msg.length === 0);
+    }
+
+    function reviewHasFrameFid(fid) {
+      const target = Math.trunc(Number(fid));
+      if (!Number.isFinite(target)) return false;
+      const frames = (state.review && Array.isArray(state.review.frames)) ? state.review.frames : [];
+      for (const frame of frames) {
+        const fidVal = Math.trunc(Number(frame && frame.fid));
+        if (Number.isFinite(fidVal) && fidVal === target) return true;
+      }
+      return false;
+    }
+
+    function trackPendingToggleRequest(promiseLike) {
+      if (!promiseLike || typeof promiseLike.then !== 'function') return Promise.resolve();
+      const p = Promise.resolve(promiseLike);
+      pendingToggleRequests.add(p);
+      p.finally(() => {
+        pendingToggleRequests.delete(p);
+      });
+      return p;
+    }
+
+    async function flushPendingToggleRequests() {
+      while (pendingToggleRequests.size > 0) {
+        const batch = Array.from(pendingToggleRequests);
+        if (!batch.length) break;
+        await Promise.allSettled(batch);
+      }
+    }
+
+    function sortFramesByFid(frames) {
+      const arr = Array.isArray(frames) ? frames.slice() : [];
+      arr.sort((a, b) => {
+        const fa = Number(a && a.fid);
+        const fb = Number(b && b.fid);
+        if (!Number.isFinite(fa) && !Number.isFinite(fb)) return 0;
+        if (!Number.isFinite(fa)) return 1;
+        if (!Number.isFinite(fb)) return -1;
+        return fa - fb;
+      });
+      return arr;
+    }
+
+    function setLoading(active, message = 'Working...') {
+      overlayEl.classList.toggle('active', Boolean(active));
+      overlayMsgEl.textContent = message;
+      if (!active) {
+        if (overlayProgressFillEl) overlayProgressFillEl.style.width = '0%';
+        if (overlayProgressTextEl) overlayProgressTextEl.textContent = '';
+        if (overlayEtaTextEl) overlayEtaTextEl.textContent = '';
+        setLoadCancelUi(false);
+      }
+    }
+
+    function openHelpModal() {
+      if (!helpModalEl) return;
+      helpModalEl.classList.add('active');
+      helpModalEl.setAttribute('aria-hidden', 'false');
+      if (helpCloseBtnEl && typeof helpCloseBtnEl.focus === 'function') {
+        helpCloseBtnEl.focus();
+      }
+    }
+
+    function closeHelpModal() {
+      if (!helpModalEl) return;
+      helpModalEl.classList.remove('active');
+      helpModalEl.setAttribute('aria-hidden', 'true');
+      if (helpBtnEl && typeof helpBtnEl.focus === 'function') {
+        helpBtnEl.focus();
+      }
+    }
+
+    function formatClockTime(tsMs) {
+      const d = new Date(Number(tsMs));
+      const h = String(d.getHours()).padStart(2, '0');
+      const m = String(d.getMinutes()).padStart(2, '0');
+      const s = String(d.getSeconds()).padStart(2, '0');
+      return `${h}:${m}:${s}`;
+    }
+
+    function renderReadyAtFromSamples(sampleDone, sampleTotal) {
+      if (!overlayEtaTextEl) return;
+      const done = Math.max(0, Number(sampleDone || 0));
+      const total = Math.max(0, Number(sampleTotal || 0));
+      if (total <= 0) {
+        overlayEtaTextEl.textContent = '';
+        return;
+      }
+      if (done >= total) {
+        overlayEtaTextEl.textContent = `Estimated ready at ${formatClockTime(Date.now())}`;
+        return;
+      }
+      if (done <= 0) {
+        overlayEtaTextEl.textContent = 'Estimating ready time...';
+        return;
+      }
+      if (!loadSampleTimingStartAt) {
+        loadSampleTimingStartAt = Date.now();
+        loadSampleTimingStartDone = done;
+      }
+      const observedFrames = Math.max(0, done - loadSampleTimingStartDone);
+      if (observedFrames < 20) {
+        overlayEtaTextEl.textContent = `Estimating ready time... (${observedFrames}/20 frame sample)`;
+        return;
+      }
+      const elapsedMs = Date.now() - loadSampleTimingStartAt;
+      if (!(elapsedMs > 0)) {
+        overlayEtaTextEl.textContent = '';
+        return;
+      }
+      const framesPerSec = observedFrames / (elapsedMs / 1000);
+      if (!(framesPerSec > 0)) {
+        overlayEtaTextEl.textContent = 'Estimating ready time...';
+        return;
+      }
+      const remaining = Math.max(0, total - done);
+      const etaMs = Date.now() + (remaining / framesPerSec) * 1000;
+      overlayEtaTextEl.textContent = `Estimated ready at ${formatClockTime(etaMs)}`;
+    }
+
+    function setOverlayProgress(value) {
+      const p = Math.max(0, Math.min(100, Number(value) || 0));
+      if (overlayProgressFillEl) overlayProgressFillEl.style.width = `${p.toFixed(1)}%`;
+      if (overlayProgressTextEl) overlayProgressTextEl.textContent = `${Math.round(p)}%`;
+    }
+
+    async function pollLoadProgressOnce() {
+      try {
+        const p = await api('/api/load_progress');
+        const done = Number(p.sample_done || 0);
+        const total = Number(p.sample_total || 0);
+        const msg = String(p.message || '');
+        if (msg) {
+          if (total > 0) {
+            overlayMsgEl.textContent = `${msg} (${done}/${total})`;
+          } else {
+            overlayMsgEl.textContent = msg;
+          }
+        }
+        setOverlayProgress(Number(p.progress || 0));
+        renderReadyAtFromSamples(done, total);
+
+        const live = await api('/api/load_review');
+        const liveReview = live.review || null;
+        const liveFrames = sortFramesByFid((liveReview && Array.isArray(liveReview.frames)) ? liveReview.frames : []);
+        if (liveFrames.length > 0) {
+          state.review = {
+            ...(state.review || {}),
+            threshold: Number(liveReview.threshold || 0),
+            stats: liveReview.stats || {},
+            frames: liveFrames,
+          };
+          updateReviewStatsDisplay();
+          if (liveFrames.length !== progressiveReviewFrameCount) {
+            renderReviewFrames(liveFrames);
+            progressiveReviewFrameCount = liveFrames.length;
+          }
+        }
+      } catch (_err) {
+        // Ignore transient polling errors while main request is in-flight.
+      }
+    }
+
+    function setSimFreezeFrame(enabled) {
+      const next = isGammaStepActive() ? true : Boolean(enabled);
+      state.simulateFreezeFrame = next;
+      if (simulateFreezeFrameEl) {
+        simulateFreezeFrameEl.checked = state.simulateFreezeFrame;
+      }
+      if (flipbookSimFreezeFrameEl) {
+        flipbookSimFreezeFrameEl.checked = state.simulateFreezeFrame;
+      }
+      refreshFreezeSimulation();
+    }
+
+    function updateActionLocks() {
+      const locked = Boolean(isChapterLoadInFlight || isPreviewRenderInFlight);
+      navActionButtons.forEach((el) => {
+        if (el) el.disabled = locked;
+      });
+      lockExtraButtons.forEach((el) => {
+        if (el) el.disabled = locked;
+      });
+    }
+
+    function startLoadProgress(message) {
+      if (loadProgressPollTimer) {
+        window.clearInterval(loadProgressPollTimer);
+        loadProgressPollTimer = null;
+      }
+      setLoading(true, message || 'Loading chapter...');
+      isChapterLoadInFlight = true;
+      updateActionLocks();
+      loadSampleTimingStartAt = 0;
+      loadSampleTimingStartDone = 0;
+      setLoadCancelUi(true, false, 'Cancel');
+      setOverlayProgress(1);
+      renderReadyAtFromSamples(0, 0);
+      progressiveReviewFrameCount = 0;
+      pollLoadProgressOnce();
+      loadProgressPollTimer = window.setInterval(pollLoadProgressOnce, 180);
+    }
+
+    function finishLoadProgress(success = true) {
+      if (loadProgressPollTimer) {
+        window.clearInterval(loadProgressPollTimer);
+        loadProgressPollTimer = null;
+      }
+      setLoadCancelUi(false);
+      if (success) {
+        setOverlayProgress(100);
+        renderReadyAtFromSamples(1, 1);
+        window.setTimeout(() => {
+          setLoading(false);
+        }, 180);
+      } else {
+        setLoading(false);
+      }
+      loadSampleTimingStartAt = 0;
+      loadSampleTimingStartDone = 0;
+      progressiveReviewFrameCount = 0;
+      isChapterLoadInFlight = false;
+      updateActionLocks();
+    }
+
+    async function api(path, method = 'GET', body = null, timeoutMs = 30000) {
+      const timeoutValue = Number(timeoutMs);
+      const useTimeout = Number.isFinite(timeoutValue) && timeoutValue > 0;
+      const effectiveTimeout = useTimeout ? Math.max(1000, timeoutValue) : 0;
+      const controller = useTimeout ? new AbortController() : null;
+      const timer = useTimeout ? window.setTimeout(() => {
+        try {
+          if (controller) controller.abort();
+        } catch (_err) {}
+      }, effectiveTimeout) : null;
+      const options = { method, headers: {} };
+      if (body !== null) {
+        options.headers['Content-Type'] = 'application/json';
+        options.body = JSON.stringify(body);
+      }
+      if (controller) {
+        options.signal = controller.signal;
+      }
+      let res;
+      try {
+        res = await fetch(path, options);
+      } catch (err) {
+        if (err && err.name === 'AbortError') {
+          throw new Error(`Request timed out after ${Math.round(effectiveTimeout / 1000)}s: ${method} ${path}`);
+        }
+        throw err;
+      } finally {
+        if (timer) {
+          window.clearTimeout(timer);
+        }
+      }
+
+      let payload = null;
+      try {
+        payload = await res.json();
+      } catch (_err) {
+        throw new Error(`Invalid server response for ${method} ${path} (HTTP ${res.status}).`);
+      }
+      if (!res.ok || !payload || !payload.ok) {
+        throw new Error((payload && payload.error) || `HTTP ${res.status}`);
+      }
+      return payload;
+    }
+
+    async function pollPreviewProgressOnce() {
+      try {
+        const p = await api('/api/preview_progress');
+        const done = Number(p.frame_done || 0);
+        const total = Number(p.frame_total || 0);
+        const msg = String(p.message || '');
+        if (msg) {
+          if (total > 0) {
+            overlayMsgEl.textContent = `${msg} (${done}/${total})`;
+          } else {
+            overlayMsgEl.textContent = msg;
+          }
+        }
+        setOverlayProgress(Number(p.progress || 0));
+        renderReadyAtFromSamples(done, total);
+      } catch (_err) {
+        // Ignore transient polling errors while main request is in-flight.
+      }
+    }
+
+    function startPreviewProgress(message) {
+      if (previewProgressPollTimer) {
+        window.clearInterval(previewProgressPollTimer);
+        previewProgressPollTimer = null;
+      }
+      setLoading(true, message || 'Rendering chapter preview...');
+      isPreviewRenderInFlight = true;
+      updateActionLocks();
+      loadSampleTimingStartAt = 0;
+      loadSampleTimingStartDone = 0;
+      setOverlayProgress(1);
+      renderReadyAtFromSamples(0, 0);
+      pollPreviewProgressOnce();
+      previewProgressPollTimer = window.setInterval(pollPreviewProgressOnce, 220);
+    }
+
+    function finishPreviewProgress(success = true) {
+      if (previewProgressPollTimer) {
+        window.clearInterval(previewProgressPollTimer);
+        previewProgressPollTimer = null;
+      }
+      if (success) {
+        setOverlayProgress(100);
+        renderReadyAtFromSamples(1, 1);
+        window.setTimeout(() => {
+          setLoading(false);
+        }, 180);
+      } else {
+        setLoading(false);
+      }
+      loadSampleTimingStartAt = 0;
+      loadSampleTimingStartDone = 0;
+      isPreviewRenderInFlight = false;
+      updateActionLocks();
+    }
+
+    function stepDef(rawStep) {
+      const n = Math.trunc(Number(rawStep));
+      return STEP_BY_NUM.get(n) || STEP_FIRST;
+    }
+
+    function stepNumForMode(mode, fallbackStep = STEP_FIRST.num) {
+      const key = String(mode || '').trim();
+      const def = STEP_MODE_TO_FIRST.get(key);
+      return def ? def.num : stepDef(fallbackStep).num;
+    }
+
+    function stepIndex(rawStep) {
+      const def = stepDef(rawStep);
+      const idx = Number(STEP_INDEX_BY_NUM.get(def.num));
+      if (Number.isFinite(idx) && idx >= 0) return idx;
+      return 0;
+    }
+
+    function stepAtOffset(rawStep, offset = 0) {
+      const base = stepIndex(rawStep);
+      const delta = Math.trunc(Number(offset || 0));
+      const idx = _clamp(base + delta, 0, STEP_COUNT - 1);
+      return STEP_DEFS[idx] || STEP_FIRST;
+    }
+
+    function setStepByMode(mode, fallbackStep = STEP_FIRST.num) {
+      setStep(stepNumForMode(mode, fallbackStep));
+    }
+
+    function isReviewMode(mode) {
+      return mode === 'review' || mode === 'gamma' || mode === 'people';
+    }
+
+    function renderStepPills() {
+      if (!stepPillsEl) return;
+      stepPillsEl.innerHTML = '';
+      const activeStepNum = stepDef(state.wizardStep).num;
+      STEP_DEFS.forEach((step, index) => {
+        const pill = document.createElement('div');
+        pill.id = `stepPill${step.num}`;
+        pill.className = 'step-pill';
+        pill.dataset.step = String(step.num);
+        pill.textContent = `${index + 1}/${STEP_COUNT} ${step.label}`;
+        if (step.num === activeStepNum) {
+          pill.classList.add('active');
+        }
+        stepPillsEl.appendChild(pill);
+      });
+    }
+
+    function updateStepPillActive(stepNum) {
+      if (!stepPillsEl || !stepPillsEl.children.length) {
+        renderStepPills();
+        return;
+      }
+      const target = Number(stepNum);
+      stepPillsEl.querySelectorAll('.step-pill').forEach((el) => {
+        const n = Number(el.dataset.step || 0);
+        el.classList.toggle('active', n === target);
+      });
+    }
+
+    function setStep(step) {
+      const previousStep = stepDef(state.wizardStep);
+      const previousGammaMode = previousStep.mode === 'gamma';
+      const targetStep = stepDef(step);
+      state.wizardStep = targetStep.num;
+      const reviewStage = isReviewMode(targetStep.mode);
+      if (!reviewStage) {
+        setFlipbookFocusMode(false);
+        stopSparkWindowPlayback();
+      }
+      if (!reviewStage && isReviewFullscreenActive()) {
+        exitReviewFullscreenIfActive();
+      }
+      STEP_PAGE_IDS.forEach((id) => {
+        const page = document.getElementById(id);
+        if (!page) return;
+        page.classList.toggle('active', id === targetStep.pageId);
+      });
+      updateStepPillActive(targetStep.num);
+      const gammaMode = targetStep.mode === 'gamma';
+      const peopleMode = targetStep.mode === 'people';
+      if (reviewControlsEl) reviewControlsEl.classList.toggle('hidden-ui', gammaMode || peopleMode);
+      if (gammaControlsEl) gammaControlsEl.classList.toggle('hidden-ui', !gammaMode);
+      if (peopleControlsEl) peopleControlsEl.classList.toggle('hidden-ui', !peopleMode);
+      if (reviewActionsEl) reviewActionsEl.classList.toggle('hidden-ui', targetStep.mode !== 'review');
+      if (gammaActionsEl) gammaActionsEl.classList.toggle('hidden-ui', !gammaMode);
+      if (peopleActionsEl) peopleActionsEl.classList.toggle('hidden-ui', !peopleMode);
+      if (gammaRangeMetaEl) gammaRangeMetaEl.classList.toggle('hidden-ui', !gammaMode);
+      if (peopleMetaEl) peopleMetaEl.classList.toggle('hidden-ui', !peopleMode);
+      if (peopleEditorEl) peopleEditorEl.classList.toggle('hidden-ui', !peopleMode);
+      if (flipbookGammaControlsEl) flipbookGammaControlsEl.classList.toggle('hidden-ui', !gammaMode);
+      if (flipbookSimFreezeWrapEl) flipbookSimFreezeWrapEl.classList.toggle('hidden-ui', gammaMode);
+
+      if (gammaMode && !previousGammaMode) {
+        state.simulateFreezeFrameReviewPref = Boolean(state.simulateFreezeFrame);
+        setSimFreezeFrame(true);
+      } else if (!gammaMode && previousGammaMode) {
+        setSimFreezeFrame(Boolean(state.simulateFreezeFrameReviewPref));
+      }
+
+      if (gammaMode) {
+        updateGammaControls();
+        updateGammaRangeMeta();
+      }
+      if (peopleMode) {
+        updatePeopleMeta();
+      }
+      updateFullscreenButton();
+      refreshGammaVisuals();
+      updateReviewStatsDisplay();
+      if (reviewStage && state.review && Array.isArray(state.review.frames) && state.review.frames.length) {
+        window.requestAnimationFrame(() => {
+          scheduleVisibleRangeRefresh();
+          ensureFlipbookReady(false);
+        });
+      }
+    }
+
+    function chapterByTitle(title) {
+      return state.chapters.find(c => c.title === title) || null;
+    }
+
+    function chapterBadMeta(ch) {
+      const bad = Math.max(0, Number(ch.bad || 0));
+      const total = Math.max(1, Number(ch.frames || 0));
+      const pct = Math.max(0, Math.min(100, (100 * bad) / total));
+      const pctText = `${Math.round(pct)}%`;
+      return {
+        bad,
+        total,
+        pct,
+        text: `${ch.time} | BAD ${bad}/${total} (${pctText})`,
+      };
+    }
+
+    function chapterBadSparkSvg(ch) {
+      const badFrames = Array.isArray(ch.bad_frames) ? ch.bad_frames : [];
+      const start = Number(ch.start_frame || 0);
+      const end = Number(ch.end_frame || (start + Math.max(1, Number(ch.frames || 1))));
+      const total = Math.max(1, end - start);
+      const bucketCount = 28;
+      const buckets = new Array(bucketCount).fill(0);
+
+      badFrames.forEach((fidRaw) => {
+        const fid = Number(fidRaw);
+        if (!Number.isFinite(fid) || fid < start || fid >= end) return;
+        const local = fid - start;
+        const idx = Math.min(bucketCount - 1, Math.max(0, Math.floor((local / total) * bucketCount)));
+        buckets[idx] += 1;
+      });
+
+      const peak = Math.max(1, ...buckets);
+      const w = 140;
+      const h = 18;
+      const baseY = h - 3;
+      const topY = 2;
+      const step = w / Math.max(1, bucketCount - 1);
+      const points = buckets
+        .map((v, i) => {
+          const x = i * step;
+          const y = baseY - ((v / peak) * (baseY - topY));
+          return `${x.toFixed(2)},${y.toFixed(2)}`;
+        })
+        .join(' ');
+      const dotSvg = buckets
+        .map((v, i) => {
+          if (v <= 0) return '';
+          const x = i * step;
+          return `<circle cx="${x.toFixed(2)}" cy="${baseY.toFixed(2)}" r="1.35" fill="var(--spark-hot)" opacity="0.98"></circle>`;
+        })
+        .join('');
+
+      return `
+        <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" width="100%" height="100%" aria-hidden="true">
+          <line x1="0" y1="${baseY}" x2="${w}" y2="${baseY}" stroke="var(--line)" stroke-width="1"></line>
+          <polyline points="${points}" fill="none" stroke="var(--spark-base)" stroke-width="1.25" opacity="0.95"></polyline>
+          ${dotSvg}
+        </svg>
+      `;
+    }
+
+    function renderArchives() {
+      archiveListEl.innerHTML = '';
+      state.archives.forEach(name => {
+        const btn = document.createElement('button');
+        btn.className = `item-btn ${name === state.archive ? 'active' : ''}`;
+        btn.textContent = name;
+        btn.addEventListener('click', () => loadArchive(name, null));
+        archiveListEl.appendChild(btn);
+      });
+    }
+
+    function renderChapters() {
+      chapterListEl.innerHTML = '';
+      state.chapters.forEach(ch => {
+        const m = chapterBadMeta(ch);
+        const btn = document.createElement('button');
+        btn.className = `item-btn chapter-row ${ch.title === state.chapter ? 'active' : ''}`;
+        btn.innerHTML = `
+          <div>${String(ch.index).padStart(2, '0')}</div>
+          <div class="title" title="${escapeHtml(ch.title)}">${escapeHtml(ch.title)}</div>
+          <div class="meta-spark" title="BAD frame distribution across chapter">${chapterBadSparkSvg(ch)}</div>
+          <div class="meta" title="Bad frames in chapter">${escapeHtml(m.text)}</div>
+        `;
+        btn.addEventListener('click', () => {
+          state.chapter = ch.title;
+          startFrameEl.value = ch.start_frame;
+          endFrameEl.value = ch.end_frame;
+          renderChapters();
+        });
+        chapterListEl.appendChild(btn);
+      });
+    }
+
+    function statsText(stats, threshold) {
+      return `Bad: ${stats.bad} (${Math.round((100 * stats.bad) / Math.max(1, stats.total))}%) | Good: ${stats.good} | Threshold: ${threshold.toFixed(4)} | Overrides: ${stats.overrides} | n=${stats.total} | shown=${stats.shown}`;
+    }
+
+    function normalizeGammaValue(raw, fallback = 1.0) {
+      const n = Number(raw);
+      const base = Number.isFinite(n) ? n : Number(fallback);
+      return _clamp(base, 0.05, 8.0);
+    }
+
+    function chapterFrameSpan() {
+      const startRaw = Number((state.loadSettings && state.loadSettings.start_frame) ?? startFrameEl.value ?? 0);
+      const endRaw = Number((state.loadSettings && state.loadSettings.end_frame) ?? endFrameEl.value ?? (startRaw + 1));
+      const start = Math.max(0, Math.trunc(Number.isFinite(startRaw) ? startRaw : 0));
+      const end = Math.max(start + 1, Math.trunc(Number.isFinite(endRaw) ? endRaw : (start + 1)));
+      return { start, end };
+    }
+
+    function canonicalizeGammaRanges(rawRanges, options = {}) {
+      const span = chapterFrameSpan();
+      const clampToChapter = options && options.clampToChapter !== false;
+      const rows = [];
+      (Array.isArray(rawRanges) ? rawRanges : []).forEach((item, idx) => {
+        const start = Number(item && item.start_frame);
+        const end = Number(item && item.end_frame);
+        const gamma = normalizeGammaValue(item && item.gamma, 1.0);
+        if (!Number.isFinite(start) || !Number.isFinite(end)) return;
+        let a = Math.trunc(start);
+        let b = Math.trunc(end);
+        if (b <= a) return;
+        if (clampToChapter) {
+          a = Math.max(span.start, a);
+          b = Math.min(span.end, b);
+          if (b <= a) return;
+        }
+        rows.push({ a, b, gamma, idx });
+      });
+      if (!rows.length) return [];
+
+      const cuts = new Set();
+      rows.forEach(r => {
+        cuts.add(Number(r.a));
+        cuts.add(Number(r.b));
+      });
+      const ordered = Array.from(cuts).sort((a, b) => a - b);
+      const resolved = [];
+      for (let i = 0; i < ordered.length - 1; i += 1) {
+        const segA = Math.trunc(ordered[i]);
+        const segB = Math.trunc(ordered[i + 1]);
+        if (segB <= segA) continue;
+        let bestIdx = -1;
+        let bestGamma = null;
+        rows.forEach(r => {
+          if (r.a <= segA && segB <= r.b && r.idx >= bestIdx) {
+            bestIdx = r.idx;
+            bestGamma = r.gamma;
+          }
+        });
+        if (bestGamma === null) continue;
+        if (resolved.length) {
+          const prev = resolved[resolved.length - 1];
+          if (prev.end_frame === segA && Math.abs(Number(prev.gamma) - Number(bestGamma)) < 0.0001) {
+            prev.end_frame = segB;
+            continue;
+          }
+        }
+        resolved.push({
+          start_frame: segA,
+          end_frame: segB,
+          gamma: Number(bestGamma.toFixed(4)),
+        });
+      }
+      return resolved;
+    }
+
+    function normalizeGammaProfile(rawProfile) {
+      const span = chapterFrameSpan();
+      const raw = (rawProfile && typeof rawProfile === 'object') ? rawProfile : {};
+      const defaultGamma = normalizeGammaValue(raw.default_gamma, 1.0);
+      const ranges = canonicalizeGammaRanges(raw.ranges || []);
+      let mode = 'whole';
+      let level = defaultGamma;
+      if (ranges.length === 1 && ranges[0].start_frame <= span.start && ranges[0].end_frame >= span.end) {
+        mode = 'whole';
+        level = normalizeGammaValue(ranges[0].gamma, defaultGamma);
+      } else if (ranges.length > 0) {
+        mode = 'regions';
+        level = normalizeGammaValue(ranges[0].gamma, defaultGamma);
+      }
+      return {
+        mode,
+        defaultGamma,
+        level,
+        ranges,
+        source: String(raw.source || 'default'),
+      };
+    }
+
+    function chapterDurationSeconds() {
+      const span = chapterFrameSpan();
+      return Math.max(0, (Math.max(span.end, span.start + 1) - span.start) * (1001 / 30000));
+    }
+
+    function formatTimestampSeconds(rawSeconds) {
+      const sec = Math.max(0, Number(rawSeconds || 0));
+      const totalMs = Math.round(sec * 1000);
+      const hours = Math.floor(totalMs / 3600000);
+      const minutes = Math.floor((totalMs % 3600000) / 60000);
+      const seconds = Math.floor((totalMs % 60000) / 1000);
+      const millis = Math.max(0, totalMs % 1000);
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(millis).padStart(3, '0')}`;
+    }
+
+    function parseTimestampSeconds(raw) {
+      const text = String(raw || '').trim();
+      if (!text) return null;
+      const cleaned = text.replace(',', '.');
+      const parts = cleaned.split(':');
+      let seconds = NaN;
+      if (parts.length === 1) {
+        seconds = Number(parts[0]);
+      } else if (parts.length === 2) {
+        seconds = (Number(parts[0]) * 60) + Number(parts[1]);
+      } else if (parts.length === 3) {
+        seconds = (Number(parts[0]) * 3600) + (Number(parts[1]) * 60) + Number(parts[2]);
+      }
+      if (!Number.isFinite(seconds) || Number.isNaN(seconds)) return null;
+      return Math.max(0, seconds);
+    }
+
+    function canonicalizePeopleEntries(rawEntries) {
+      const duration = chapterDurationSeconds();
+      const rows = [];
+      (Array.isArray(rawEntries) ? rawEntries : []).forEach((item, idx) => {
+        const startRaw = item && Object.prototype.hasOwnProperty.call(item, 'start_seconds')
+          ? item.start_seconds
+          : (item ? item.start : null);
+        const endRaw = item && Object.prototype.hasOwnProperty.call(item, 'end_seconds')
+          ? item.end_seconds
+          : (item ? item.end : null);
+        const start = parseTimestampSeconds(startRaw);
+        const end = parseTimestampSeconds(endRaw);
+        const people = String((item && item.people) || '').replace(/\s+/g, ' ').trim();
+        if (!people) return;
+        if (start === null || end === null || end <= start) return;
+        const a = _clamp(start, 0, duration);
+        const b = _clamp(end, 0, duration);
+        if (b <= a) return;
+        rows.push({ start: Number(a.toFixed(3)), end: Number(b.toFixed(3)), people, idx });
+      });
+      if (!rows.length) return [];
+      rows.sort((a, b) => {
+        if (a.start !== b.start) return a.start - b.start;
+        if (a.end !== b.end) return a.end - b.end;
+        return a.idx - b.idx;
+      });
+      const out = [];
+      rows.forEach((row) => {
+        if (!out.length) {
+          out.push({
+            start_seconds: row.start,
+            end_seconds: row.end,
+            start: formatTimestampSeconds(row.start),
+            end: formatTimestampSeconds(row.end),
+            people: row.people,
+          });
+          return;
+        }
+        const prev = out[out.length - 1];
+        if (String(prev.people) === row.people && Number(prev.end_seconds) + 0.001 >= row.start) {
+          prev.end_seconds = Number(Math.max(Number(prev.end_seconds), row.end).toFixed(3));
+          prev.end = formatTimestampSeconds(prev.end_seconds);
+          return;
+        }
+        out.push({
+          start_seconds: row.start,
+          end_seconds: row.end,
+          start: formatTimestampSeconds(row.start),
+          end: formatTimestampSeconds(row.end),
+          people: row.people,
+        });
+      });
+      return out;
+    }
+
+    function normalizePeopleProfile(rawProfile) {
+      const raw = (rawProfile && typeof rawProfile === 'object') ? rawProfile : {};
+      return {
+        entries: canonicalizePeopleEntries(raw.entries || []),
+        source: String(raw.source || 'default'),
+      };
+    }
+
+    function peopleEntriesToEditorText(entries) {
+      const rows = canonicalizePeopleEntries(entries);
+      if (!rows.length) return '';
+      return rows
+        .map((row) => `${row.start}\t${row.end}\t${row.people}`)
+        .join('\n');
+    }
+
+    function parsePeopleEditorText(rawText) {
+      const entries = [];
+      const errors = [];
+      const lines = String(rawText || '').split(/\r?\n/);
+      lines.forEach((line, idx) => {
+        const text = String(line || '').trim();
+        if (!text) return;
+        if (/^start\s*[\t,]/i.test(text)) return;
+        const parts = text.includes('\t') ? text.split('\t') : text.split(',');
+        if (parts.length < 3) {
+          errors.push(`Line ${idx + 1}: expected "start<TAB>end<TAB>people".`);
+          return;
+        }
+        entries.push({
+          start: String(parts[0] || '').trim(),
+          end: String(parts[1] || '').trim(),
+          people: String(parts.slice(2).join(',') || '').trim(),
+        });
+      });
+      return { entries: canonicalizePeopleEntries(entries), errors };
+    }
+
+    function refreshPeopleEditorFromState() {
+      if (!peopleEditorEl) return;
+      peopleEditorEl.value = peopleEntriesToEditorText((state.peopleProfile && state.peopleProfile.entries) || []);
+      updatePeopleMeta();
+    }
+
+    function syncPeopleProfileFromEditor(showErrors = true) {
+      if (!peopleEditorEl) {
+        state.peopleProfile = normalizePeopleProfile(state.peopleProfile || null);
+        return true;
+      }
+      const parsed = parsePeopleEditorText(peopleEditorEl.value || '');
+      if (parsed.errors.length) {
+        if (showErrors) {
+          setStatus(parsed.errors[0], true);
+        }
+        return false;
+      }
+      state.peopleProfile = {
+        ...(state.peopleProfile || {}),
+        entries: parsed.entries,
+      };
+      peopleEditorEl.value = peopleEntriesToEditorText(parsed.entries);
+      updatePeopleMeta();
+      return true;
+    }
+
+    function visiblePeopleEntryFromRange(peopleText) {
+      const names = String(peopleText || '').replace(/\s+/g, ' ').trim();
+      if (!names) return null;
+      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) return null;
+      const range = state.visibleRange || _computeVisibleIndexRange();
+      if (!range) return null;
+      const startIdx = _clamp(Number(range.start || 0), 0, state.review.frames.length - 1);
+      const endIdx = _clamp(Number(range.end || startIdx), startIdx, state.review.frames.length - 1);
+      const startFid = Number(state.review.frames[startIdx] && state.review.frames[startIdx].fid);
+      const endFid = Number(state.review.frames[endIdx] && state.review.frames[endIdx].fid);
+      if (!Number.isFinite(startFid) || !Number.isFinite(endFid)) return null;
+      const span = chapterFrameSpan();
+      const localStartFrame = Math.max(0, Math.trunc(Math.min(startFid, endFid) - span.start));
+      const localEndFrameExclusive = Math.max(localStartFrame + 1, Math.trunc(Math.max(startFid, endFid) - span.start + 1));
+      const startSeconds = localStartFrame * (1001 / 30000);
+      const endSeconds = localEndFrameExclusive * (1001 / 30000);
+      return {
+        start_seconds: Number(startSeconds.toFixed(3)),
+        end_seconds: Number(endSeconds.toFixed(3)),
+        start: formatTimestampSeconds(startSeconds),
+        end: formatTimestampSeconds(endSeconds),
+        people: names,
+      };
+    }
+
+    function updatePeopleMeta() {
+      if (!peopleMetaEl) return;
+      if (!isPeopleStepActive()) {
+        peopleMetaEl.textContent = '';
+        return;
+      }
+      const entries = canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
+      if (!entries.length) {
+        peopleMetaEl.textContent = 'People subtitles: no entries yet.';
+        return;
+      }
+      const preview = entries
+        .slice(0, 3)
+        .map((row) => `${row.start}-${row.end} ${row.people}`)
+        .join(' | ');
+      const suffix = entries.length > 3 ? ` | +${entries.length - 3} more` : '';
+      peopleMetaEl.textContent = `People subtitles: ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'} | ${preview}${suffix}`;
+    }
+
+    function gammaRangesForSave() {
+      const span = chapterFrameSpan();
+      if (!state.gammaProfile || typeof state.gammaProfile !== 'object') return [];
+      const mode = String(state.gammaProfile.mode || 'whole');
+      if (mode === 'whole') {
+        const g = normalizeGammaValue(state.gammaProfile.level, state.gammaProfile.defaultGamma || 1.0);
+        if (Math.abs(g - 1.0) < 0.001) return [];
+        return [{ start_frame: span.start, end_frame: span.end, gamma: Number(g.toFixed(4)) }];
+      }
+      return canonicalizeGammaRanges(state.gammaProfile.ranges || []);
+    }
+
+    function updateGammaRangeMeta() {
+      if (!gammaRangeMetaEl) return;
+      if (!isGammaStepActive()) {
+        gammaRangeMetaEl.textContent = '';
+        return;
+      }
+      const mode = String((state.gammaProfile && state.gammaProfile.mode) || 'whole');
+      const ranges = gammaRangesForSave();
+      if (mode === 'whole') {
+        const g = normalizeGammaValue(state.gammaProfile.level, 1.0);
+        gammaRangeMetaEl.textContent = `Whole chapter gamma ${g.toFixed(3)} (${ranges.length ? 'active' : 'no-op at 1.0'})`;
+        return;
+      }
+      if (!ranges.length) {
+        gammaRangeMetaEl.textContent = 'Region mode: no ranges set.';
+        return;
+      }
+      const preview = ranges
+        .slice(0, 3)
+        .map(r => `${r.start_frame}-${r.end_frame}:${Number(r.gamma).toFixed(2)}`)
+        .join(' | ');
+      const suffix = ranges.length > 3 ? ` | +${ranges.length - 3} more` : '';
+      gammaRangeMetaEl.textContent = `Region mode: ${ranges.length} range(s) | ${preview}${suffix}`;
+    }
+
+    function updateGammaControls() {
+      if (!gammaLevelEl || !gammaLabelEl || !gammaModeEl) return;
+      const profile = state.gammaProfile || {};
+      const level = normalizeGammaValue(profile.level, profile.defaultGamma || 1.0);
+      gammaLevelEl.value = level.toFixed(2);
+      gammaLabelEl.textContent = level.toFixed(2);
+      if (flipbookGammaLevelEl) {
+        flipbookGammaLevelEl.value = level.toFixed(2);
+      }
+      if (flipbookGammaLabelEl) {
+        flipbookGammaLabelEl.textContent = level.toFixed(2);
+      }
+      gammaModeEl.value = String(profile.mode || 'whole');
+      const regionMode = gammaModeEl.value === 'regions';
+      if (gammaApplyVisibleBtnEl) gammaApplyVisibleBtnEl.disabled = !regionMode || isChapterLoadInFlight;
+      if (gammaClearBtnEl) gammaClearBtnEl.disabled = isChapterLoadInFlight;
+      updateGammaRangeMeta();
+    }
+
+    function updateReviewStatsDisplay() {
+      if (!reviewStatsEl) return;
+      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) {
+        reviewStatsEl.textContent = 'No frames loaded.';
+        return;
+      }
+      if (isPeopleStepActive()) {
+        const entries = canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
+        reviewStatsEl.textContent = `People Subtitles step | entries ${entries.length} | sampled ${state.review.frames.length}`;
+        return;
+      }
+      if (isGammaStepActive()) {
+        const mode = String((state.gammaProfile && state.gammaProfile.mode) || 'whole');
+        const ranges = gammaRangesForSave();
+        const gammaLevel = normalizeGammaValue(state.gammaProfile && state.gammaProfile.level, 1.0);
+        reviewStatsEl.textContent = `Gamma Correction step | mode ${mode} | level ${gammaLevel.toFixed(3)} | ranges ${ranges.length} | sampled ${state.review.frames.length}`;
+        return;
+      }
+      reviewStatsEl.textContent = statsText(state.review.stats, state.review.threshold);
+    }
+
+    async function estimateGammaScoreFromImage(src) {
+      const imageSrc = String(src || '').trim();
+      if (!imageSrc) return 1.0;
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const w = Math.max(1, Math.min(96, Number(img.naturalWidth || img.width || 96)));
+            const h = Math.max(1, Math.min(72, Number(img.naturalHeight || img.height || 72)));
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            if (!ctx) {
+              resolve(1.0);
+              return;
+            }
+            ctx.drawImage(img, 0, 0, w, h);
+            const data = ctx.getImageData(0, 0, w, h).data || [];
+            let sum = 0;
+            let count = 0;
+            for (let i = 0; i < data.length; i += 4) {
+              const r = Number(data[i] || 0);
+              const g = Number(data[i + 1] || 0);
+              const b = Number(data[i + 2] || 0);
+              const y = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0;
+              sum += y;
+              count += 1;
+            }
+            const avgLuma = count > 0 ? (sum / count) : 0.55;
+            const gammaScore = normalizeGammaValue(0.55 / Math.max(0.05, avgLuma), 1.0);
+            resolve(gammaScore);
+          } catch (_err) {
+            resolve(1.0);
+          }
+        };
+        img.onerror = () => resolve(1.0);
+        img.decoding = 'async';
+        img.src = imageSrc;
+      });
+    }
+
+    async function ensureGammaScores() {
+      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) return;
+      const pending = [];
+      for (const frame of state.review.frames) {
+        const fidKey = String(frame && frame.fid);
+        if (!fidKey) continue;
+        if (state.gammaScores.has(fidKey)) continue;
+        let src = String((frame && frame.image) || state.frameImages.get(fidKey) || '').trim();
+        if (frame && frame.status === 'bad') {
+          const replacementFid = state.freezeReplacementMap.get(fidKey);
+          if (replacementFid !== undefined && replacementFid !== null) {
+            const replacementSrc = String(state.frameImages.get(String(replacementFid)) || '').trim();
+            if (replacementSrc) src = replacementSrc;
+          }
+        }
+        if (!src) continue;
+        pending.push({ fidKey, src });
+      }
+      if (!pending.length) return;
+      for (let i = 0; i < pending.length; i += 1) {
+        const item = pending[i];
+        const score = await estimateGammaScoreFromImage(item.src);
+        state.gammaScores.set(item.fidKey, score);
+        if ((i + 1) % 24 === 0) {
+          await new Promise(resolve => window.setTimeout(resolve, 0));
+        }
+      }
+    }
+
+    function gammaScoreForFrame(frame) {
+      const fidKey = String(frame && frame.fid);
+      if (!fidKey) return 1.0;
+      const cached = Number(state.gammaScores.get(fidKey));
+      if (Number.isFinite(cached) && cached > 0) return cached;
+      return 1.0;
+    }
+
+    function gammaLevelForFrameId(fidRaw) {
+      const fid = Number(fidRaw);
+      if (!Number.isFinite(fid)) return 1.0;
+      const profile = state.gammaProfile || {};
+      const mode = String(profile.mode || 'whole');
+      const defaultGamma = normalizeGammaValue(profile.defaultGamma, 1.0);
+      if (mode === 'whole') {
+        return normalizeGammaValue(profile.level, defaultGamma);
+      }
+      const ranges = canonicalizeGammaRanges(profile.ranges || []);
+      for (const range of ranges) {
+        const start = Number(range.start_frame);
+        const end = Number(range.end_frame);
+        if (fid >= start && fid < end) {
+          return normalizeGammaValue(range.gamma, defaultGamma);
+        }
+      }
+      return defaultGamma;
+    }
+
+    function refreshGammaVisuals() {
+      const gammaOn = isGammaStepActive();
+      frameGridEl.querySelectorAll('.frame-card').forEach(card => {
+        const imgEl = card.querySelector('img');
+        if (!imgEl) return;
+        if (!gammaOn) {
+          imgEl.style.removeProperty('filter');
+          return;
+        }
+        const fid = Number(card.dataset.fid);
+        const gamma = gammaLevelForFrameId(fid);
+        if (Math.abs(gamma - 1.0) < 0.001) {
+          imgEl.style.removeProperty('filter');
+        } else {
+          imgEl.style.filter = `brightness(${gamma.toFixed(3)})`;
+        }
+      });
+
+      if (!flipbookImageEl) return;
+      if (!gammaOn) {
+        flipbookImageEl.style.removeProperty('filter');
+        return;
+      }
+      const frame = sparkPlayFrames[sparkPlayIndex] || null;
+      const fid = Number(frame && frame.fid);
+      const gamma = gammaLevelForFrameId(fid);
+      if (Math.abs(gamma - 1.0) < 0.001) {
+        flipbookImageEl.style.removeProperty('filter');
+      } else {
+        flipbookImageEl.style.filter = `brightness(${gamma.toFixed(3)})`;
+      }
+    }
+
+    function themeVar(name, fallback) {
+      const raw = getComputedStyle(document.documentElement).getPropertyValue(name);
+      const value = String(raw || '').trim();
+      return value || fallback;
+    }
+
+    function renderSparkline(frames, threshold) {
+      if (!iqrSparkEl || !sparkMetaEl) return;
+      const data = Array.isArray(frames) ? frames : [];
+      if (!data.length) {
+        iqrSparkEl.innerHTML = '';
+        sparkMetaEl.textContent = 'No score data loaded.';
+        state.visibleRange = null;
+        return;
+      }
+
+      const w = Math.max(320, Math.floor(iqrSparkEl.clientWidth || 320));
+      const h = 68;
+      const pad = 6;
+      const sparkHot = themeVar('--spark-hot', '#ff9154');
+      const sparkBase = themeVar('--spark-base', '#48a5bc');
+      const sparkThreshold = themeVar('--spark-threshold', '#ff646e');
+      const sparkWindow = themeVar('--spark-window', '#6ca0ff');
+      const sparkWindowMid = themeVar('--spark-window-mid', '#9dc6ff');
+      const scores = data.map(f => Number(f.score || 0));
+      const badCount = data.filter(f => f.status === 'bad').length;
+      const minV = Math.min(...scores, Number(threshold || 0));
+      const maxV = Math.max(...scores, Number(threshold || 0));
+      const span = Math.max(1e-9, maxV - minV);
+
+      const xFor = (i) => {
+        if (scores.length <= 1) return w / 2;
+        return pad + (i * (w - pad * 2)) / (scores.length - 1);
+      };
+      const yFor = (v) => h - pad - ((v - minV) / span) * (h - pad * 2);
+
+      const points = scores.map((v, i) => `${xFor(i).toFixed(2)},${yFor(v).toFixed(2)}`).join(' ');
+      const yThr = yFor(Number(threshold || 0));
+      const yThrClamped = _clamp(yThr, 0, h);
+      iqrSparkEl.setAttribute('viewBox', `0 0 ${w} ${h}`);
+
+      const badDotsSvg = data
+        .map((frame, i) => ({ frame, i }))
+        .filter(({ frame }) => frame.status === 'bad')
+        .map(({ i }) => `<circle cx="${xFor(i).toFixed(2)}" cy="${(h - 2).toFixed(2)}" r="1.8" fill="${sparkHot}" opacity="0.95"></circle>`)
+        .join('');
+
+      let viewportSvg = '';
+      if (state.visibleRange && Number.isFinite(state.visibleRange.start) && Number.isFinite(state.visibleRange.end)) {
+        const startIdx = Math.max(0, Math.min(scores.length - 1, Number(state.visibleRange.start)));
+        const endIdx = Math.max(startIdx, Math.min(scores.length - 1, Number(state.visibleRange.end)));
+        const xStart = xFor(startIdx);
+        const xEnd = xFor(endIdx);
+        const xMid = (xStart + xEnd) / 2;
+        viewportSvg = `
+          <rect x="${Math.min(xStart, xEnd).toFixed(2)}" y="${pad}" width="${Math.max(1, Math.abs(xEnd - xStart)).toFixed(2)}" height="${(h - pad * 2).toFixed(2)}" fill="${sparkWindow}" opacity="0.15"></rect>
+          <line x1="${xStart.toFixed(2)}" y1="${pad}" x2="${xStart.toFixed(2)}" y2="${(h - pad).toFixed(2)}" stroke="${sparkWindow}" stroke-width="1.3" opacity="0.95"></line>
+          <line x1="${xEnd.toFixed(2)}" y1="${pad}" x2="${xEnd.toFixed(2)}" y2="${(h - pad).toFixed(2)}" stroke="${sparkWindow}" stroke-width="1.3" opacity="0.95"></line>
+          <line x1="${xMid.toFixed(2)}" y1="${pad}" x2="${xMid.toFixed(2)}" y2="${(h - pad).toFixed(2)}" stroke="${sparkWindowMid}" stroke-width="1.0" opacity="0.9"></line>
+        `;
+      }
+
+      iqrSparkEl.innerHTML = `
+        <defs>
+          <clipPath id="sparkAboveThresholdClip">
+            <rect x="0" y="0" width="${w}" height="${yThrClamped.toFixed(2)}"></rect>
+          </clipPath>
+        </defs>
+        <polyline points="${points}" fill="none" stroke="${sparkBase}" stroke-width="1.6" opacity="0.95"></polyline>
+        <polyline points="${points}" fill="none" stroke="${sparkHot}" stroke-width="1.9" opacity="0.98" clip-path="url(#sparkAboveThresholdClip)"></polyline>
+        <line x1="${pad}" y1="${yThr.toFixed(2)}" x2="${(w - pad).toFixed(2)}" y2="${yThr.toFixed(2)}" stroke="${sparkThreshold}" stroke-width="1.4" opacity="0.95"></line>
+        ${badDotsSvg}
+        ${viewportSvg}
+      `;
+      if (state.visibleRange) {
+        const start = Math.max(0, Number(state.visibleRange.start)) + 1;
+        const end = Math.max(start, Number(state.visibleRange.end) + 1);
+        sparkMetaEl.textContent = `Scores: min ${minV.toFixed(2)} | max ${maxV.toFixed(2)} | threshold ${Number(threshold || 0).toFixed(2)} | auto bad ${badCount} | view ${start}-${end}/${scores.length}`;
+      } else {
+        sparkMetaEl.textContent = `Scores: min ${minV.toFixed(2)} | max ${maxV.toFixed(2)} | threshold ${Number(threshold || 0).toFixed(2)} | auto bad ${badCount}`;
+      }
+    }
+
+    function renderGammaSparkline(frames, gammaLevel) {
+      if (!iqrSparkEl || !sparkMetaEl) return;
+      const data = Array.isArray(frames) ? frames : [];
+      if (!data.length) {
+        iqrSparkEl.innerHTML = '';
+        sparkMetaEl.textContent = 'No gamma score data loaded.';
+        state.visibleRange = null;
+        return;
+      }
+
+      const w = Math.max(320, Math.floor(iqrSparkEl.clientWidth || 320));
+      const h = 68;
+      const pad = 6;
+      const sparkHot = themeVar('--spark-hot', '#ff9154');
+      const sparkBase = themeVar('--spark-base', '#48a5bc');
+      const sparkThreshold = themeVar('--spark-threshold', '#ff646e');
+      const sparkWindow = themeVar('--spark-window', '#6ca0ff');
+      const sparkWindowMid = themeVar('--spark-window-mid', '#9dc6ff');
+      const level = normalizeGammaValue(gammaLevel, 1.0);
+      const scores = data.map(f => gammaScoreForFrame(f));
+      const aboveCount = scores.filter(v => Number(v) > level).length;
+      const minV = Math.min(...scores, level);
+      const maxV = Math.max(...scores, level);
+      const span = Math.max(1e-9, maxV - minV);
+
+      const xFor = (i) => {
+        if (scores.length <= 1) return w / 2;
+        return pad + (i * (w - pad * 2)) / (scores.length - 1);
+      };
+      const yFor = (v) => h - pad - ((v - minV) / span) * (h - pad * 2);
+      const points = scores.map((v, i) => `${xFor(i).toFixed(2)},${yFor(v).toFixed(2)}`).join(' ');
+      const yLevel = yFor(level);
+      const yLevelClamped = _clamp(yLevel, 0, h);
+      iqrSparkEl.setAttribute('viewBox', `0 0 ${w} ${h}`);
+
+      const hotDotsSvg = data
+        .map((frame, i) => ({ frame, i }))
+        .filter(({ frame }) => gammaScoreForFrame(frame) > level)
+        .map(({ i }) => `<circle cx="${xFor(i).toFixed(2)}" cy="${(h - 2).toFixed(2)}" r="1.8" fill="${sparkHot}" opacity="0.95"></circle>`)
+        .join('');
+
+      let viewportSvg = '';
+      if (state.visibleRange && Number.isFinite(state.visibleRange.start) && Number.isFinite(state.visibleRange.end)) {
+        const startIdx = Math.max(0, Math.min(scores.length - 1, Number(state.visibleRange.start)));
+        const endIdx = Math.max(startIdx, Math.min(scores.length - 1, Number(state.visibleRange.end)));
+        const xStart = xFor(startIdx);
+        const xEnd = xFor(endIdx);
+        const xMid = (xStart + xEnd) / 2;
+        viewportSvg = `
+          <rect x="${Math.min(xStart, xEnd).toFixed(2)}" y="${pad}" width="${Math.max(1, Math.abs(xEnd - xStart)).toFixed(2)}" height="${(h - pad * 2).toFixed(2)}" fill="${sparkWindow}" opacity="0.15"></rect>
+          <line x1="${xStart.toFixed(2)}" y1="${pad}" x2="${xStart.toFixed(2)}" y2="${(h - pad).toFixed(2)}" stroke="${sparkWindow}" stroke-width="1.3" opacity="0.95"></line>
+          <line x1="${xEnd.toFixed(2)}" y1="${pad}" x2="${xEnd.toFixed(2)}" y2="${(h - pad).toFixed(2)}" stroke="${sparkWindow}" stroke-width="1.3" opacity="0.95"></line>
+          <line x1="${xMid.toFixed(2)}" y1="${pad}" x2="${xMid.toFixed(2)}" y2="${(h - pad).toFixed(2)}" stroke="${sparkWindowMid}" stroke-width="1.0" opacity="0.9"></line>
+        `;
+      }
+
+      iqrSparkEl.innerHTML = `
+        <defs>
+          <clipPath id="sparkAboveThresholdClip">
+            <rect x="0" y="0" width="${w}" height="${yLevelClamped.toFixed(2)}"></rect>
+          </clipPath>
+        </defs>
+        <polyline points="${points}" fill="none" stroke="${sparkBase}" stroke-width="1.6" opacity="0.95"></polyline>
+        <polyline points="${points}" fill="none" stroke="${sparkHot}" stroke-width="1.9" opacity="0.98" clip-path="url(#sparkAboveThresholdClip)"></polyline>
+        <line x1="${pad}" y1="${yLevel.toFixed(2)}" x2="${(w - pad).toFixed(2)}" y2="${yLevel.toFixed(2)}" stroke="${sparkThreshold}" stroke-width="1.4" opacity="0.95"></line>
+        ${hotDotsSvg}
+        ${viewportSvg}
+      `;
+      if (state.visibleRange) {
+        const start = Math.max(0, Number(state.visibleRange.start)) + 1;
+        const end = Math.max(start, Number(state.visibleRange.end) + 1);
+        sparkMetaEl.textContent = `Gamma scores: min ${minV.toFixed(2)} | max ${maxV.toFixed(2)} | level ${level.toFixed(2)} | above level ${aboveCount} | view ${start}-${end}/${scores.length}`;
+      } else {
+        sparkMetaEl.textContent = `Gamma scores: min ${minV.toFixed(2)} | max ${maxV.toFixed(2)} | level ${level.toFixed(2)} | above level ${aboveCount}`;
+      }
+    }
+
+    function renderActiveSparkline(frames, threshold) {
+      if (isGammaStepActive()) {
+        renderGammaSparkline(frames, state.gammaProfile && state.gammaProfile.level);
+      } else {
+        renderSparkline(frames, threshold);
+      }
+    }
+
+    function _computeVisibleIndexRange() {
+      const cards = Array.from(frameGridEl.querySelectorAll('.frame-card'));
+      if (!cards.length) return null;
+      const gridRect = frameGridEl.getBoundingClientRect();
+      let minIdx = null;
+      let maxIdx = null;
+      for (let i = 0; i < cards.length; i += 1) {
+        const r = cards[i].getBoundingClientRect();
+        const isVisible = r.bottom > gridRect.top && r.top < gridRect.bottom;
+        if (!isVisible) continue;
+        if (minIdx === null || i < minIdx) minIdx = i;
+        if (maxIdx === null || i > maxIdx) maxIdx = i;
+      }
+      if (minIdx === null || maxIdx === null) return null;
+      return { start: minIdx, end: maxIdx };
+    }
+
+    function refreshVisibleRangeFromGrid() {
+      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) {
+        state.visibleRange = null;
+        return;
+      }
+      const range = _computeVisibleIndexRange();
+      state.visibleRange = range || { start: 0, end: state.review.frames.length - 1 };
+      renderActiveSparkline(state.review.frames, state.review.threshold || 0);
+    }
+
+    function scheduleVisibleRangeRefresh() {
+      if (visibleRangeRefreshPending) return;
+      visibleRangeRefreshPending = true;
+      window.requestAnimationFrame(() => {
+        visibleRangeRefreshPending = false;
+        refreshVisibleRangeFromGrid();
+      });
+    }
+
+    function isReviewStepActive() {
+      return isReviewMode(stepDef(state.wizardStep).mode);
+    }
+
+    function isBadFrameStepActive() {
+      return stepDef(state.wizardStep).mode === 'review';
+    }
+
+    function isGammaStepActive() {
+      return stepDef(state.wizardStep).mode === 'gamma';
+    }
+
+    function isPeopleStepActive() {
+      return stepDef(state.wizardStep).mode === 'people';
+    }
+
+    function isReviewFullscreenActive() {
+      return document.fullscreenElement === page2El || document.body.classList.contains('review-fullscreen-fallback');
+    }
+
+    function setFlipbookFocusMode(active) {
+      if (!page2El) return;
+      page2El.classList.toggle('flipbook-focus', Boolean(active));
+      if (!active) {
+        syncFrameGridPlaybackCursor(-1);
+      }
+    }
+
+    async function ensureReviewFullscreenActive() {
+      if (!page2El || isReviewFullscreenActive()) return;
+      if (document.fullscreenEnabled && page2El.requestFullscreen) {
+        try {
+          await page2El.requestFullscreen();
+          return;
+        } catch (_err) {}
+      }
+      document.body.classList.add('review-fullscreen-fallback');
+    }
+
+    async function exitReviewFullscreenIfActive() {
+      if (document.fullscreenElement === page2El && document.exitFullscreen) {
+        try {
+          await document.exitFullscreen();
+        } catch (_err) {}
+      }
+      if (document.body.classList.contains('review-fullscreen-fallback')) {
+        document.body.classList.remove('review-fullscreen-fallback');
+      }
+    }
+
+    function _clamp(value, minValue, maxValue) {
+      return Math.max(minValue, Math.min(maxValue, Number(value)));
+    }
+
+    function _sparkClientXToIndex(clientX) {
+      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) return null;
+      const rect = iqrSparkEl.getBoundingClientRect();
+      if (!rect.width || rect.width <= 0) return null;
+      const x = _clamp(Number(clientX) - rect.left, 0, rect.width);
+      const ratio = rect.width <= 1 ? 0 : x / rect.width;
+      const maxIndex = Math.max(0, state.review.frames.length - 1);
+      return _clamp(Math.round(ratio * maxIndex), 0, maxIndex);
+    }
+
+    function _scrollFrameGridToIndex(index) {
+      const cards = frameGridEl.querySelectorAll('.frame-card');
+      if (!cards.length) return;
+      const idx = _clamp(Number(index), 0, cards.length - 1);
+      const target = cards[idx];
+      if (!target) return;
+      const top = Math.max(0, target.offsetTop - Math.floor(frameGridEl.clientHeight * 0.12));
+      frameGridEl.scrollTo({ top, behavior: 'auto' });
+      scheduleVisibleRangeRefresh();
+    }
+
+    function _centerFrameCardInGrid(card) {
+      if (!frameGridEl || !card) return;
+
+      const viewportH = Math.max(1, window.innerHeight || document.documentElement.clientHeight || 1);
+      const gridRect = frameGridEl.getBoundingClientRect();
+      if (gridRect.bottom < 0 || gridRect.top > viewportH) {
+        frameGridEl.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' });
+      }
+
+      const cardRect = card.getBoundingClientRect();
+      const padY = Math.max(18, Math.floor(gridRect.height * 0.2));
+      const padX = Math.max(18, Math.floor(gridRect.width * 0.12));
+      const inViewY = cardRect.top >= (gridRect.top + padY) && cardRect.bottom <= (gridRect.bottom - padY);
+      const inViewX = cardRect.left >= (gridRect.left + padX) && cardRect.right <= (gridRect.right - padX);
+      if (inViewY && inViewX) return;
+
+      if (typeof card.scrollIntoView === 'function') {
+        card.scrollIntoView({ block: 'center', inline: 'center', behavior: 'auto' });
+      } else {
+        const top = Math.max(0, card.offsetTop - Math.floor((frameGridEl.clientHeight - card.offsetHeight) / 2));
+        const left = Math.max(0, card.offsetLeft - Math.floor((frameGridEl.clientWidth - card.offsetWidth) / 2));
+        frameGridEl.scrollTo({ top, left, behavior: 'auto' });
+      }
+      scheduleVisibleRangeRefresh();
+    }
+
+    function syncFrameGridPlaybackCursor(index, keepVisible = false) {
+      const cards = Array.from(frameGridEl.querySelectorAll('.frame-card'));
+      if (!cards.length) {
+        flipbookGridCursorIndex = -1;
+        return;
+      }
+      for (const c of cards) c.classList.remove('playback-current');
+      const next = Number(index);
+      if (!Number.isFinite(next) || next < 0) {
+        flipbookGridCursorIndex = -1;
+        return;
+      }
+      const idx = _clamp(next, 0, cards.length - 1);
+      const currentFrame = sparkPlayFrames[idx] || null;
+      const currentFid = currentFrame ? String(currentFrame.fid || '') : '';
+      let gridIdx = idx;
+      if (currentFid) {
+        const byFid = cards.findIndex(c => String(c.dataset.fid || '') === currentFid);
+        if (byFid >= 0) gridIdx = byFid;
+      }
+      const card = cards[gridIdx];
+      if (!card) {
+        flipbookGridCursorIndex = -1;
+        return;
+      }
+      card.classList.add('playback-current');
+      flipbookGridCursorIndex = gridIdx;
+      if (!keepVisible) return;
+      _centerFrameCardInGrid(card);
+    }
+
+    function updateSparkPlayButton() {
+      if (!flipbookPlayBtnEl) return;
+      const playing = Boolean(sparkPlayTimer);
+      flipbookPlayBtnEl.innerHTML = playing ? '&#10074;&#10074;' : '&#9654;';
+      flipbookPlayBtnEl.title = playing ? 'Pause flipbook playback' : 'Play flipbook';
+    }
+
+    function updateFlipbookControls() {
+      const hasFrames = sparkPlayFrames.length > 0;
+      if (flipbookRevBtnEl) {
+        flipbookRevBtnEl.disabled = !hasFrames;
+      }
+      if (flipbookPlayBtnEl) {
+        flipbookPlayBtnEl.disabled = !hasFrames;
+      }
+      if (flipbookFwdBtnEl) {
+        flipbookFwdBtnEl.disabled = !hasFrames;
+      }
+      if (flipbookFrameEl) {
+        const frame = sparkPlayFrames[sparkPlayIndex] || null;
+        flipbookFrameEl.classList.toggle('good', Boolean(frame && frame.status === 'good'));
+        flipbookFrameEl.classList.toggle('bad', Boolean(frame && frame.status === 'bad'));
+        const canToggle = Boolean(frame) && !sparkPlayTimer && !flipbookToggleInFlight;
+        flipbookFrameEl.classList.toggle('paused', canToggle);
+        if (canToggle) {
+          const nextState = frame.status === 'bad' ? 'good' : 'bad';
+          flipbookFrameEl.title = `Click to mark this frame ${nextState.toUpperCase()}`;
+        } else {
+          flipbookFrameEl.removeAttribute('title');
+        }
+      }
+    }
+
+    function setFlipbookVisible(visible) {
+      if (!flipbookPreviewEl) return;
+      const on = Boolean(visible);
+      flipbookPreviewEl.classList.toggle('active', on);
+      flipbookPreviewEl.setAttribute('aria-hidden', on ? 'false' : 'true');
+      if (!on && flipbookMetaEl) {
+        flipbookMetaEl.textContent = '';
+      }
+      if (!on) {
+        if (flipbookImageEl) flipbookImageEl.removeAttribute('src');
+        syncFrameGridPlaybackCursor(-1);
+      }
+      updateFlipbookControls();
+    }
+
+    function _collectFlipbookFramesFromGrid() {
+      const cards = Array.from(frameGridEl.querySelectorAll('.frame-card'));
+      return cards
+        .map(card => {
+          const imgEl = card.querySelector('img');
+          const src = String((imgEl && imgEl.src) || '').trim();
+          if (!src) return null;
+          return {
+            fid: String(card.dataset.fid || ''),
+            label: String(card.dataset.label || ''),
+            status: card.classList.contains('bad') ? 'bad' : 'good',
+            src,
+          };
+        })
+        .filter(Boolean);
+    }
+
+    function renderSparkPlaybackFrame(index, options = {}) {
+      if (!sparkPlayFrames.length || !flipbookImageEl) return;
+      const keepVisible = !(options && options.keepVisible === false);
+      const idx = _clamp(Number(index), 0, sparkPlayFrames.length - 1);
+      const frame = sparkPlayFrames[idx];
+      if (!frame) return;
+      flipbookImageEl.src = frame.src;
+      flipbookImageEl.alt = `Flipbook frame ${frame.fid || idx + 1}`;
+      if (flipbookMetaEl) {
+        const statusTag = frame.status === 'bad' ? 'BAD' : 'GOOD';
+        flipbookMetaEl.textContent = `${idx + 1}/${sparkPlayFrames.length}  G:${frame.fid || '?'}  ${statusTag}`;
+      }
+      sparkPlayIndex = idx;
+      if (flipbookImageEl) {
+        if (isGammaStepActive()) {
+          const gamma = gammaLevelForFrameId(frame.fid);
+          if (Math.abs(gamma - 1.0) < 0.001) {
+            flipbookImageEl.style.removeProperty('filter');
+          } else {
+            flipbookImageEl.style.filter = `brightness(${gamma.toFixed(3)})`;
+          }
+        } else {
+          flipbookImageEl.style.removeProperty('filter');
+        }
+      }
+      syncFrameGridPlaybackCursor(idx, keepVisible);
+      updateFlipbookControls();
+    }
+
+    function syncSparkPlayFramesFromGrid() {
+      if (!sparkPlayFrames.length) return;
+      const current = sparkPlayFrames[sparkPlayIndex] || null;
+      const currentFid = current ? String(current.fid || '') : '';
+      const updated = _collectFlipbookFramesFromGrid();
+      if (!updated.length) return;
+      let nextIndex = _clamp(Number(sparkPlayIndex || 0), 0, updated.length - 1);
+      if (currentFid) {
+        const match = updated.findIndex(f => String(f.fid || '') === currentFid);
+        if (match >= 0) nextIndex = match;
+      }
+      sparkPlayFrames = updated;
+      sparkPlayIndex = nextIndex;
+    }
+
+    function seekFlipbookToFrameId(fid, options = {}) {
+      const fidKey = String(fid || '').trim();
+      if (!fidKey) return false;
+      const keepVisible = !(options && options.keepVisible === false);
+
+      if (sparkPlayFrames.length) {
+        syncSparkPlayFramesFromGrid();
+      } else {
+        sparkPlayFrames = _collectFlipbookFramesFromGrid();
+      }
+      if (!sparkPlayFrames.length) return false;
+
+      const idx = sparkPlayFrames.findIndex(f => String(f.fid || '') === fidKey);
+      if (idx < 0) return false;
+
+      sparkPlayIndex = idx;
+      if (flipbookPreviewEl && flipbookPreviewEl.classList.contains('active')) {
+        renderSparkPlaybackFrame(idx, { keepVisible });
+      }
+      return true;
+    }
+
+    function ensureFlipbookReady(resetIndex = false) {
+      if (!isReviewStepActive()) return;
+      const panelOpen = Boolean(flipbookPreviewEl && flipbookPreviewEl.classList.contains('active'));
+      const shouldSync = panelOpen || Boolean(sparkPlayTimer);
+      if (!shouldSync) return;
+      const collected = _collectFlipbookFramesFromGrid();
+      if (!collected.length) {
+        sparkPlayFrames = [];
+        sparkPlayIndex = 0;
+        setFlipbookVisible(false);
+        return;
+      }
+
+      const current = sparkPlayFrames[sparkPlayIndex] || null;
+      const currentFid = current ? String(current.fid || '') : '';
+      sparkPlayFrames = collected;
+      if (resetIndex) {
+        sparkPlayIndex = 0;
+      } else if (currentFid) {
+        const match = sparkPlayFrames.findIndex(f => String(f.fid || '') === currentFid);
+        if (match >= 0) {
+          sparkPlayIndex = match;
+        } else {
+          sparkPlayIndex = _clamp(Number(sparkPlayIndex || 0), 0, sparkPlayFrames.length - 1);
+        }
+      } else {
+        sparkPlayIndex = _clamp(Number(sparkPlayIndex || 0), 0, sparkPlayFrames.length - 1);
+      }
+
+      if (panelOpen) {
+        renderSparkPlaybackFrame(sparkPlayIndex, { keepVisible: false });
+      }
+      updateSparkPlayButton();
+    }
+
+    function _pauseSparkWindowPlayback() {
+      if (sparkPlayTimer) {
+        window.clearInterval(sparkPlayTimer);
+        sparkPlayTimer = null;
+      }
+      updateSparkPlayButton();
+      updateFlipbookControls();
+    }
+
+    function stopSparkWindowPlayback() {
+      _pauseSparkWindowPlayback();
+      sparkPlayFrames = [];
+      sparkPlayIndex = 0;
+      setFlipbookVisible(false);
+      syncFrameGridPlaybackCursor(-1);
+      updateSparkPlayButton();
+      updateFlipbookControls();
+    }
+
+    function stepSparkWindowRight() {
+      if (!isReviewStepActive()) {
+        stopSparkWindowPlayback();
+        return;
+      }
+      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) {
+        stopSparkWindowPlayback();
+        return;
+      }
+      if (!sparkPlayFrames.length) {
+        sparkPlayFrames = _collectFlipbookFramesFromGrid();
+        if (!sparkPlayFrames.length) {
+          stopSparkWindowPlayback();
+          return;
+        }
+      }
+      if (sparkPlayIndex >= sparkPlayFrames.length - 1) {
+        sparkPlayIndex = 0;
+      } else {
+        sparkPlayIndex += 1;
+      }
+      renderSparkPlaybackFrame(sparkPlayIndex);
+    }
+
+    function stepSparkWindowLeft() {
+      if (!sparkPlayFrames.length) return;
+      if (sparkPlayIndex <= 0) {
+        sparkPlayIndex = sparkPlayFrames.length - 1;
+      } else {
+        sparkPlayIndex -= 1;
+      }
+      renderSparkPlaybackFrame(sparkPlayIndex);
+    }
+
+    function startSparkWindowPlayback() {
+      if (!sparkPlayFrames.length) {
+        sparkPlayFrames = _collectFlipbookFramesFromGrid();
+      }
+      if (!sparkPlayFrames.length) {
+        setStatus('No frame images are available for flipbook playback.', true);
+        return;
+      }
+      sparkPlayIndex = _clamp(Number(sparkPlayIndex || 0), 0, sparkPlayFrames.length - 1);
+      setFlipbookVisible(true);
+      renderSparkPlaybackFrame(sparkPlayIndex);
+      sparkPlayTimer = window.setInterval(stepSparkWindowRight, 100);
+      updateSparkPlayButton();
+      updateFlipbookControls();
+    }
+
+    async function openFlipbookPanel() {
+      if (!isReviewStepActive()) return;
+      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) {
+        setStatus('Load and review frames before opening fullscreen flipbook.', true);
+        return;
+      }
+      sparkPlayFrames = _collectFlipbookFramesFromGrid();
+      if (!sparkPlayFrames.length) {
+        setStatus('No frame images are available for fullscreen flipbook.', true);
+        return;
+      }
+      sparkPlayIndex = _clamp(Number(sparkPlayIndex || 0), 0, sparkPlayFrames.length - 1);
+      setFlipbookFocusMode(true);
+      await ensureReviewFullscreenActive();
+      setFlipbookVisible(true);
+      _pauseSparkWindowPlayback();
+      renderSparkPlaybackFrame(sparkPlayIndex);
+      updateSparkPlayButton();
+      updateFlipbookControls();
+    }
+
+    function toggleSparkWindowPlayback() {
+      if (sparkPlayTimer) {
+        _pauseSparkWindowPlayback();
+        return;
+      }
+      if (!isReviewStepActive()) return;
+      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) return;
+      startSparkWindowPlayback();
+    }
+
+    async function closeFlipbookPanel() {
+      stopSparkWindowPlayback();
+      setFlipbookFocusMode(false);
+      await exitReviewFullscreenIfActive();
+      updateFullscreenButton();
+    }
+
+    function seekFrameGridFromSparkClientX(clientX) {
+      const idx = _sparkClientXToIndex(clientX);
+      if (idx === null) return;
+      _scrollFrameGridToIndex(idx);
+    }
+
+    function queueSparkDragSeek(clientX) {
+      sparkDragClientX = Number(clientX);
+      if (sparkDragRaf) return;
+      sparkDragRaf = window.requestAnimationFrame(() => {
+        sparkDragRaf = null;
+        seekFrameGridFromSparkClientX(sparkDragClientX);
+      });
+    }
+
+    function endSparkDrag() {
+      if (sparkDragRaf) {
+        window.cancelAnimationFrame(sparkDragRaf);
+        sparkDragRaf = null;
+      }
+      if (sparkDragPointerId !== null && iqrSparkEl.releasePointerCapture) {
+        try {
+          iqrSparkEl.releasePointerCapture(sparkDragPointerId);
+        } catch (_err) {}
+      }
+      sparkDragPointerId = null;
+      iqrSparkEl.classList.remove('dragging');
+    }
+
+    function scheduleAutoApplyIqr() {
+      if (!state.review) return;
+      if (autoIqrTimer) window.clearTimeout(autoIqrTimer);
+      autoIqrTimer = window.setTimeout(() => {
+        applyIqr(false);
+      }, 120);
+    }
+
+    function updateFullscreenButton() {
+      if (!fullscreenBtnEl) return;
+      const active = isReviewFullscreenActive();
+      fullscreenBtnEl.textContent = active ? 'Exit Fullscreen' : 'Fullscreen';
+    }
+
+    async function toggleReviewFullscreen() {
+      if (!page2El) return;
+      if (isReviewFullscreenActive()) {
+        setFlipbookFocusMode(false);
+        await exitReviewFullscreenIfActive();
+      } else {
+        await ensureReviewFullscreenActive();
+      }
+      updateFullscreenButton();
+    }
+
+    function rememberFrameImages(frames) {
+      for (const frame of (frames || [])) {
+        if (!frame || frame.fid === undefined || frame.fid === null) continue;
+        const image = frame.image;
+        if (typeof image !== 'string' || !image) continue;
+        state.frameImages.set(String(frame.fid), image);
+      }
+    }
+
+    function _frameListToRanges(frameIds) {
+      const ints = Array.from(
+        new Set(
+          (frameIds || [])
+            .map(v => Number(v))
+            .filter(v => Number.isFinite(v) && v >= 0)
+            .map(v => Math.trunc(v))
+        )
+      ).sort((a, b) => a - b);
+      if (!ints.length) return [];
+      const out = [];
+      let start = ints[0];
+      let prev = ints[0];
+      for (let i = 1; i < ints.length; i += 1) {
+        const f = ints[i];
+        if (f === prev + 1) {
+          prev = f;
+          continue;
+        }
+        out.push([start, prev]);
+        start = f;
+        prev = f;
+      }
+      out.push([start, prev]);
+      return out;
+    }
+
+    function _bridgeBadRanges(ranges) {
+      if (!Array.isArray(ranges) || !ranges.length) return [];
+      const merged = [[Number(ranges[0][0]), Number(ranges[0][1])]];
+      for (let i = 1; i < ranges.length; i += 1) {
+        const a = Number(ranges[i][0]);
+        const b = Number(ranges[i][1]);
+        const last = merged[merged.length - 1];
+        const la = Number(last[0]);
+        const lb = Number(last[1]);
+        const gap = a - lb - 1;
+        const leftLen = lb - la + 1;
+        const rightLen = b - a + 1;
+        const shouldBridge = (
+          gap <= FREEZE_BRIDGE_ALWAYS_GAP ||
+          (gap <= FREEZE_BRIDGE_SINGLETON_GAP && (leftLen === 1 || rightLen === 1))
+        );
+        if (shouldBridge) {
+          last[1] = Math.max(lb, b);
+        } else {
+          merged.push([a, b]);
+        }
+      }
+      return merged;
+    }
+
+    function _mergeRepairRanges(repairs) {
+      if (!Array.isArray(repairs) || !repairs.length) return [];
+      const sorted = repairs
+        .map(item => [Number(item[0]), Number(item[1]), item[2] === null ? null : Number(item[2])])
+        .sort((a, b) => (
+          (a[0] - b[0]) ||
+          (a[1] - b[1]) ||
+          ((a[2] === null ? -1 : a[2]) - (b[2] === null ? -1 : b[2]))
+        ));
+      const merged = [sorted[0]];
+      for (let i = 1; i < sorted.length; i += 1) {
+        const [a, b, src] = sorted[i];
+        const last = merged[merged.length - 1];
+        if (src === last[2] && a <= last[1] + 1) {
+          last[1] = Math.max(last[1], b);
+        } else {
+          merged.push([a, b, src]);
+        }
+      }
+      return merged;
+    }
+
+    function _localBadFramesToRepairs(badFrameIds) {
+      const contiguous = _frameListToRanges(badFrameIds);
+      if (!contiguous.length) return [];
+      const bridged = _bridgeBadRanges(contiguous);
+      return _mergeRepairRanges(bridged.map(([a, b]) => [a, b, null]));
+    }
+
+    function _resolveFreezeRepairs(frames) {
+      const rows = [];
+      for (const frame of (frames || [])) {
+        if (!frame) continue;
+        const fidRaw = Number(frame.fid);
+        if (!Number.isFinite(fidRaw)) continue;
+        rows.push({
+          fid: Math.trunc(fidRaw),
+          status: String(frame.status || ''),
+        });
+      }
+      if (!rows.length) return new Map();
+
+      const badFrameIds = rows.filter(r => r.status === 'bad').map(r => r.fid);
+      const baseRanges = _localBadFramesToRepairs(badFrameIds);
+      if (!baseRanges.length) return new Map();
+
+      const badSet = new Set();
+      for (const [aRaw, bRaw] of baseRanges) {
+        const a = Number(aRaw);
+        const b = Number(bRaw);
+        for (let f = a; f <= b; f += 1) {
+          badSet.add(f);
+        }
+      }
+
+      const sourceCandidates = Array.from(
+        new Set(
+          rows
+            .filter(r => r.status === 'good' && state.frameImages.has(String(r.fid)))
+            .map(r => r.fid)
+        )
+      ).sort((a, b) => a - b);
+      if (!sourceCandidates.length) return new Map();
+
+      const endFrameRaw = Number(state.loadSettings && state.loadSettings.end_frame);
+      let maxSourceFrame = Number.isFinite(endFrameRaw) ? Math.max(0, Math.trunc(endFrameRaw) - 1) : null;
+      if (maxSourceFrame === null) {
+        maxSourceFrame = Math.max(...rows.map(r => r.fid));
+      }
+
+      const clearance = Math.max(0, Number(FREEZE_SOURCE_CLEARANCE) || 0);
+
+      function sourceIsClear(src) {
+        if (badSet.has(src)) return false;
+        if (clearance <= 0) return true;
+        for (let f = src - clearance; f <= src + clearance; f += 1) {
+          if (badSet.has(f)) return false;
+        }
+        return true;
+      }
+
+      function chooseSourceAfter(b, extraSkip = 0) {
+        const minSource = Number(b) + 1 + Math.max(0, Number(extraSkip) || 0);
+        for (const src of sourceCandidates) {
+          if (src < minSource) continue;
+          if (maxSourceFrame !== null && src > maxSourceFrame) return null;
+          if (sourceIsClear(src)) return src;
+        }
+        return null;
+      }
+
+      function chooseSourceBefore(a, extraSkip = 0) {
+        const maxSource = Number(a) - 1 - Math.max(0, Number(extraSkip) || 0);
+        for (let i = sourceCandidates.length - 1; i >= 0; i -= 1) {
+          const src = sourceCandidates[i];
+          if (src > maxSource) continue;
+          if (src < 0) break;
+          if (sourceIsClear(src)) return src;
+        }
+        return null;
+      }
+
+      const resolved = [];
+      for (const [aRaw, bRaw] of baseRanges) {
+        const a = Number(aRaw);
+        const b = Number(bRaw);
+        const span = b - a + 1;
+        const sourceSkip = span === 1 ? FREEZE_SINGLE_FRAME_SOURCE_SKIP : 0;
+        const nextSrc = chooseSourceAfter(b, sourceSkip);
+        const src = nextSrc === null ? chooseSourceBefore(a, sourceSkip) : nextSrc;
+        if (src === null) continue;
+        resolved.push([a, b, src]);
+      }
+
+      const replacementMap = new Map();
+      const merged = _mergeRepairRanges(resolved);
+      for (const [aRaw, bRaw, srcRaw] of merged) {
+        const a = Number(aRaw);
+        const b = Number(bRaw);
+        const src = Number(srcRaw);
+        for (let f = a; f <= b; f += 1) {
+          replacementMap.set(String(f), src);
+        }
+      }
+      return replacementMap;
+    }
+
+    function refreshFreezeSimulation() {
+      const frames = (state.review && Array.isArray(state.review.frames)) ? state.review.frames : [];
+      state.freezeReplacementMap = _resolveFreezeRepairs(frames);
+      const frameLookup = new Map((frames || []).map(f => [String(f.fid), f]));
+
+      frameGridEl.querySelectorAll('.frame-card').forEach(card => {
+        const fidKey = String(card.dataset.fid || '');
+        const frame = frameLookup.get(fidKey);
+        const imgEl = card.querySelector('img');
+        const noteEl = card.querySelector('.frame-replace-note');
+        const originalImage = state.frameImages.get(fidKey) || '';
+        let nextImage = originalImage;
+        let replaced = false;
+        let note = '';
+
+        if (state.simulateFreezeFrame && frame && frame.status === 'bad') {
+          const sourceFid = state.freezeReplacementMap.get(fidKey);
+          if (sourceFid !== undefined && sourceFid !== null) {
+            const sourceKey = String(sourceFid);
+            const sourceImage = state.frameImages.get(sourceKey) || '';
+            if (sourceImage) {
+              nextImage = sourceImage;
+              replaced = true;
+              note = `FreezeFrame sim source G:${sourceKey}`;
+            } else {
+              note = `FreezeFrame sim source G:${sourceKey} not sampled`;
+            }
+          } else {
+            note = 'FreezeFrame sim has no nearby clean source';
+          }
+        }
+
+        if (imgEl) {
+          if (nextImage) {
+            imgEl.src = nextImage;
+          } else if (originalImage) {
+            imgEl.src = originalImage;
+          }
+        }
+        if ((!state.simulateFreezeFrame || !frame || frame.status !== 'bad') && imgEl && originalImage) {
+          imgEl.src = originalImage;
+        }
+
+        card.classList.toggle('replaced', Boolean(replaced));
+        if (noteEl) noteEl.textContent = state.simulateFreezeFrame ? note : '';
+      });
+      ensureFlipbookReady(false);
+      refreshGammaVisuals();
+    }
+
+    function renderReviewFrames(frames) {
+      const orderedFrames = sortFramesByFid(frames);
+      frameGridEl.innerHTML = '';
+      syncFrameGridPlaybackCursor(-1);
+      if (!orderedFrames.length) {
+        state.freezeReplacementMap = new Map();
+        frameGridEl.textContent = 'No frames loaded.';
+        renderActiveSparkline([], 0);
+        return;
+      }
+      rememberFrameImages(orderedFrames);
+      const fragment = document.createDocumentFragment();
+      orderedFrames.forEach(frame => {
+        const frameImage = String(frame.image || state.frameImages.get(String(frame.fid)) || '');
+        const card = document.createElement('div');
+        card.className = `frame-card ${frame.status}`;
+        card.dataset.fid = String(frame.fid);
+        card.dataset.label = String(frame.label || '');
+        card.innerHTML = `
+          <img src="${frameImage}" alt="frame ${frame.fid}">
+          <div class="frame-label">${escapeHtml(frame.label)}</div>
+          <div class="frame-replace-note"></div>
+        `;
+        fragment.appendChild(card);
+      });
+      frameGridEl.appendChild(fragment);
+      refreshFreezeSimulation();
+      renderActiveSparkline(orderedFrames, state.review ? state.review.threshold : 0);
+      scheduleVisibleRangeRefresh();
+      ensureFlipbookReady(true);
+      updateReviewStatsDisplay();
+    }
+
+    function applyFrameUpdates(updates) {
+      const map = new Map((updates || []).map(f => [String(f.fid), f]));
+      rememberFrameImages(updates);
+      frameGridEl.querySelectorAll('.frame-card').forEach(card => {
+        const fid = card.dataset.fid;
+        const update = map.get(fid);
+        if (!update) return;
+        card.classList.toggle('bad', update.status === 'bad');
+        card.classList.toggle('good', update.status === 'good');
+        const label = card.querySelector('.frame-label');
+        if (label) {
+          label.textContent = update.label;
+          card.dataset.label = String(update.label || '');
+        }
+      });
+      ensureFlipbookReady(false);
+    }
+
+    async function loadArchives() {
+      const payload = await api('/api/archives', 'GET', null, 15000);
+      state.archives = payload.archives || [];
+      if (!state.archives.length) {
+        setStatus('No archives found.', true);
+        return;
+      }
+      state.archive = payload.selected || state.archives[0];
+      renderArchives();
+      await loadArchive(state.archive, null);
+    }
+
+    async function loadArchive(archive, chapter) {
+      setLoading(true, `Loading chapter metadata for ${archive}...`);
+      try {
+        const q = new URLSearchParams({ archive });
+        if (chapter) q.set('chapter', chapter);
+        const payload = await api(`/api/archive_state?${q.toString()}`, 'GET', null, 20000);
+        const st = payload.archive_state;
+        state.archive = st.archive;
+        state.chapter = st.chapter;
+        state.chapters = st.chapters || [];
+        startFrameEl.value = st.start_frame;
+        endFrameEl.value = st.end_frame;
+        state.peopleProfile = normalizePeopleProfile(null);
+        refreshPeopleEditorFromState();
+        renderArchives();
+        renderChapters();
+        setStatus(st.status || '');
+      } catch (err) {
+        setStatus(err.message, true);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function loadFrames() {
+      if (isChapterLoadInFlight) {
+        setStatus('A chapter load is already in progress. Cancel it first if you want to change chapters.', true);
+        return;
+      }
+      if (!state.archive || !state.chapter) {
+        setStatus('Select an archive and chapter first.', true);
+        return;
+      }
+
+      const payload = {
+        archive: state.archive,
+        chapter: state.chapter,
+        start_frame: Number(startFrameEl.value || 0),
+        end_frame: Number(endFrameEl.value || 1),
+        sample_stride: Number(sampleStrideEl.value || 1),
+        context: Number(contextEl.value || 10),
+        iqr_k: Number(iqrEl.value || 3.5),
+        strict_sampling: true,
+        exact_extract: true,
+        debug_extract: false,
+      };
+
+      if (autoIqrTimer) {
+        window.clearTimeout(autoIqrTimer);
+        autoIqrTimer = null;
+      }
+      state.iqrApplySeq += 1;
+
+      let loadFailed = false;
+      startLoadProgress('Extracting chapter and sampling frames...');
+      state.gammaScores = new Map();
+      state.gammaProfile = normalizeGammaProfile(null);
+      state.peopleProfile = normalizePeopleProfile(null);
+      if (peopleNamesEl) peopleNamesEl.value = '';
+      state.review = { threshold: 0, stats: { total: 0, bad: 0, good: 0, shown: 0, overrides: 0 }, frames: [] };
+      updateReviewStatsDisplay();
+      renderReviewFrames([]);
+      refreshPeopleEditorFromState();
+      setStepByMode('review');
+      try {
+        const result = await api('/api/load_chapter', 'POST', payload, 0);
+        state.frameImages = new Map();
+        state.gammaScores = new Map();
+        state.freezeReplacementMap = new Map();
+        const finalFrames = sortFramesByFid((result.review && result.review.frames) || []);
+        state.review = {
+          ...result.review,
+          frames: finalFrames,
+        };
+        state.loadSettings = result.settings || null;
+        state.gammaProfile = normalizeGammaProfile(
+          (state.loadSettings && state.loadSettings.gamma_profile) || null
+        );
+        state.peopleProfile = normalizePeopleProfile(
+          (state.loadSettings && state.loadSettings.people_profile) || null
+        );
+        updateGammaControls();
+        refreshPeopleEditorFromState();
+        updateReviewStatsDisplay();
+        renderReviewFrames(state.review.frames);
+        iqrEl.value = String(payload.iqr_k);
+        iqrLabelEl.textContent = Number(payload.iqr_k).toFixed(2);
+        const s = state.loadSettings;
+        const sampledCount = s ? Number(s.sampled_count || 0) : Number(result.review.stats.total || 0);
+        const chapterTotal = s ? Number(s.chapter_frame_count || 0) : Number(result.review.stats.total || 0);
+        const strideText = s ? `1/${s.sample_stride}` : `1/${payload.sample_stride}`;
+        setStatus(
+          `Loaded ${sampledCount} sampled frame(s) of ${chapterTotal} total for ${state.chapter} (stride ${strideText}).`
+        );
+        setStepByMode('review');
+      } catch (err) {
+        loadFailed = true;
+        const msg = String(err?.message || err || 'Load failed.');
+        const cancelled = /cancel/i.test(msg);
+        setStatus(msg, !cancelled);
+      } finally {
+        finishLoadProgress(!loadFailed);
+      }
+    }
+
+    async function applyIqr(isManual = true) {
+      if (isChapterLoadInFlight && isManual) {
+        setStatus('Wait until frame loading finishes before applying IQR manually.', true);
+        return;
+      }
+      if (!state.review) return;
+      if (!isManual && state.liveIqrInFlight) {
+        state.liveIqrPending = true;
+        return;
+      }
+      const k = Number(iqrEl.value || 3.5);
+      iqrLabelEl.textContent = k.toFixed(2);
+      const callSeq = ++state.iqrApplySeq;
+      if (isManual) {
+        setLoading(true, 'Applying IQR threshold...');
+      } else {
+        state.liveIqrInFlight = true;
+        setStatus(`Reprocessing frame statuses (IQR k=${k.toFixed(2)})...`);
+      }
+      try {
+        const result = await api('/api/apply_iqr', 'POST', { iqr_k: k });
+        if (callSeq !== state.iqrApplySeq) return;
+        const review = {
+          ...result.review,
+          frames: sortFramesByFid((result.review && result.review.frames) || []),
+        };
+        const previous = new Map((state.review.frames || []).map(f => [String(f.fid), f.status]));
+        let changed = 0;
+        for (const f of (review.frames || [])) {
+          if (previous.get(String(f.fid)) !== f.status) changed += 1;
+        }
+        reviewStatsEl.textContent = statsText(review.stats, review.threshold);
+        applyFrameUpdates(review.frames);
+        renderActiveSparkline(review.frames, review.threshold);
+        state.review = {
+          ...state.review,
+          stats: review.stats,
+          threshold: review.threshold,
+          frames: review.frames || [],
+        };
+        state.gammaScores = new Map();
+        refreshFreezeSimulation();
+        updateReviewStatsDisplay();
+        setStatus(`Applied IQR k=${k.toFixed(2)} (${changed} frame(s) changed).`);
+      } catch (err) {
+        setStatus(err.message, true);
+      } finally {
+        if (isManual) {
+          setLoading(false);
+        } else {
+          state.liveIqrInFlight = false;
+          if (state.liveIqrPending) {
+            state.liveIqrPending = false;
+            applyIqr(false);
+          }
+        }
+      }
+    }
+
+    function addVisiblePeopleEntry() {
+      const names = String((peopleNamesEl && peopleNamesEl.value) || '').trim();
+      if (!names) {
+        setStatus('Enter people names before adding a visible range entry.', true);
+        return;
+      }
+      const visibleEntry = visiblePeopleEntryFromRange(names);
+      if (!visibleEntry) {
+        setStatus('No visible frame range found for people subtitle entry.', true);
+        return;
+      }
+      if (!syncPeopleProfileFromEditor(true)) return;
+      const next = canonicalizePeopleEntries([
+        ...((state.peopleProfile && state.peopleProfile.entries) || []),
+        visibleEntry,
+      ]);
+      state.peopleProfile = {
+        ...(state.peopleProfile || {}),
+        entries: next,
+      };
+      refreshPeopleEditorFromState();
+      updateReviewStatsDisplay();
+      setStatus(`Added people subtitle: ${visibleEntry.start} - ${visibleEntry.end} | ${visibleEntry.people}`);
+    }
+
+    function clearPeopleEntries() {
+      state.peopleProfile = {
+        ...(state.peopleProfile || {}),
+        entries: [],
+      };
+      if (peopleEditorEl) {
+        peopleEditorEl.value = '';
+      }
+      updatePeopleMeta();
+      updateReviewStatsDisplay();
+      setStatus('Cleared people subtitle entries for this chapter draft.');
+    }
+
+    function visibleGammaRangeFromView() {
+      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) return null;
+      const range = state.visibleRange || _computeVisibleIndexRange();
+      if (!range) return null;
+      const startIdx = _clamp(Number(range.start || 0), 0, state.review.frames.length - 1);
+      const endIdx = _clamp(Number(range.end || startIdx), startIdx, state.review.frames.length - 1);
+      const startFid = Number(state.review.frames[startIdx] && state.review.frames[startIdx].fid);
+      const endFid = Number(state.review.frames[endIdx] && state.review.frames[endIdx].fid);
+      if (!Number.isFinite(startFid) || !Number.isFinite(endFid)) return null;
+      return {
+        start_frame: Math.trunc(Math.min(startFid, endFid)),
+        end_frame: Math.trunc(Math.max(startFid, endFid)) + 1,
+      };
+    }
+
+    function applyGammaVisibleRange() {
+      if (!isGammaStepActive()) return;
+      if (!state.gammaProfile || state.gammaProfile.mode !== 'regions') {
+        setStatus('Set Gamma Correction mode to "Visible Range Regions" before applying ranges.', true);
+        return;
+      }
+      const range = visibleGammaRangeFromView();
+      if (!range) {
+        setStatus('No visible range found to apply gamma.', true);
+        return;
+      }
+      const gamma = normalizeGammaValue(gammaLevelEl && gammaLevelEl.value, state.gammaProfile.level || 1.0);
+      const next = canonicalizeGammaRanges([...(state.gammaProfile.ranges || []), { ...range, gamma }]);
+      state.gammaProfile = {
+        ...(state.gammaProfile || {}),
+        level: gamma,
+        ranges: next,
+      };
+      updateGammaControls();
+      refreshGammaVisuals();
+      renderActiveSparkline(state.review ? state.review.frames : [], state.review ? state.review.threshold : 0);
+      updateReviewStatsDisplay();
+      setStatus(`Applied gamma ${gamma.toFixed(2)} to visible range ${range.start_frame}-${range.end_frame}.`);
+    }
+
+    function clearGammaRanges() {
+      if (!state.gammaProfile) return;
+      const mode = String(state.gammaProfile.mode || 'whole');
+      if (mode === 'whole') {
+        state.gammaProfile.level = 1.0;
+      } else {
+        state.gammaProfile.ranges = [];
+      }
+      updateGammaControls();
+      refreshGammaVisuals();
+      renderActiveSparkline(state.review ? state.review.frames : [], state.review ? state.review.threshold : 0);
+      updateReviewStatsDisplay();
+      setStatus('Cleared gamma adjustments for current mode.');
+    }
+
+    function setActiveGammaLevel(rawValue) {
+      const level = normalizeGammaValue(rawValue, state.gammaProfile.level || 1.0);
+      state.gammaProfile.level = level;
+      updateGammaControls();
+      if (isGammaStepActive()) {
+        refreshGammaVisuals();
+        renderActiveSparkline(state.review ? state.review.frames : [], state.review ? state.review.threshold : 0);
+        updateReviewStatsDisplay();
+        updateGammaRangeMeta();
+      }
+    }
+
+    async function openGammaStep() {
+      if (isChapterLoadInFlight) {
+        setStatus('Wait until frame loading finishes before entering gamma step.', true);
+        return;
+      }
+      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) {
+        setStatus('Load and review frames before entering gamma step.', true);
+        return;
+      }
+      if (state.gammaProfile) {
+        state.gammaProfile.level = normalizeGammaValue(
+          gammaLevelEl ? gammaLevelEl.value : state.gammaProfile.level,
+          state.gammaProfile.level || state.gammaProfile.defaultGamma || 1.0,
+        );
+      }
+      if (pendingToggleRequests.size > 0) {
+        setLoading(true, 'Syncing frame edits...');
+        try {
+          await flushPendingToggleRequests();
+        } finally {
+          setLoading(false);
+        }
+      }
+      setLoading(true, 'Computing gamma scores...');
+      try {
+        await ensureGammaScores();
+      } finally {
+        setLoading(false);
+      }
+      setStepByMode('gamma', stepNumForMode('review'));
+      renderActiveSparkline(state.review.frames, state.review.threshold || 0);
+      updateReviewStatsDisplay();
+    }
+
+    async function openPeopleStep() {
+      if (isChapterLoadInFlight) {
+        setStatus('Wait until frame loading finishes before entering people subtitles step.', true);
+        return;
+      }
+      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) {
+        setStatus('Load and review frames before entering people subtitles step.', true);
+        return;
+      }
+      if (!syncPeopleProfileFromEditor(true)) return;
+      refreshPeopleEditorFromState();
+      setStepByMode('people', stepNumForMode('gamma', stepNumForMode('review')));
+      updateReviewStatsDisplay();
+    }
+
+    async function toggleFrame(fid, options = {}) {
+      const showOverlay = options && options.showOverlay === false ? false : true;
+      const optimistic = options && options.optimistic === true;
+      const fidStr = String(fid);
+      let optimisticSnapshot = null;
+      if (optimistic && isChapterLoadInFlight && state.review && Array.isArray(state.review.frames)) {
+        const idx = state.review.frames.findIndex(f => String(f && f.fid) === fidStr);
+        if (idx >= 0) {
+          const prev = state.review.frames[idx];
+          optimisticSnapshot = { idx, prev: { ...prev } };
+          const nextStatus = prev.status === 'bad' ? 'good' : 'bad';
+          const nextSource = nextStatus === 'bad' ? 'MB' : 'MG';
+          const next = { ...prev, status: nextStatus, source: nextSource };
+          const match = String(prev.label || '').match(/\s(?:MG|MB|AG|AB)\s*$/);
+          if (match) {
+            next.label = String(prev.label || '').replace(/\s(?:MG|MB|AG|AB)\s*$/, ` ${nextSource}`);
+          }
+          state.review.frames[idx] = next;
+          applyFrameUpdates([next]);
+        }
+      }
+      if (showOverlay) {
+        setLoading(true, `Updating frame ${fid}...`);
+      }
+      try {
+        const result = await api('/api/toggle_frame', 'POST', { fid: Number(fid) });
+        const frame = result.frame;
+        if (frame) applyFrameUpdates([frame]);
+        reviewStatsEl.textContent = statsText(result.review.stats, result.review.threshold);
+        if (!isChapterLoadInFlight || !optimistic) {
+          renderActiveSparkline(result.review.frames, result.review.threshold);
+          state.review = {
+            ...state.review,
+            stats: result.review.stats,
+            threshold: result.review.threshold,
+            frames: result.review.frames || [],
+          };
+        } else if (state.review) {
+          state.review = {
+            ...state.review,
+            stats: result.review.stats,
+            threshold: result.review.threshold,
+          };
+        }
+        state.gammaScores = new Map();
+        refreshFreezeSimulation();
+        updateReviewStatsDisplay();
+      } catch (err) {
+        if (optimisticSnapshot && state.review && Array.isArray(state.review.frames)) {
+          const { idx, prev } = optimisticSnapshot;
+          if (idx >= 0 && idx < state.review.frames.length) {
+            state.review.frames[idx] = prev;
+            applyFrameUpdates([prev]);
+          }
+        }
+        setStatus(err.message, true);
+      } finally {
+        if (showOverlay) {
+          setLoading(false);
+        }
+      }
+    }
+
+    async function setFrameRangeStatus(startFid, endFid, status = 'bad', options = {}) {
+      const showOverlay = options && options.showOverlay === false ? false : true;
+      const lo = Math.trunc(Math.min(Number(startFid), Number(endFid)));
+      const hi = Math.trunc(Math.max(Number(startFid), Number(endFid)));
+      if (!Number.isFinite(lo) || !Number.isFinite(hi)) {
+        setStatus('Invalid frame range.', true);
+        return;
+      }
+      if (showOverlay) {
+        setLoading(true, `Updating frames ${lo}-${hi}...`);
+      }
+      try {
+        const result = await api('/api/set_frame_range', 'POST', {
+          start_fid: lo,
+          end_fid: hi,
+          status: String(status || 'bad'),
+        });
+        const review = {
+          ...result.review,
+          frames: sortFramesByFid((result.review && result.review.frames) || []),
+        };
+        reviewStatsEl.textContent = statsText(review.stats, review.threshold);
+        if (!isChapterLoadInFlight) {
+          renderActiveSparkline(review.frames, review.threshold);
+        }
+        applyFrameUpdates(review.frames);
+        state.review = {
+          ...state.review,
+          stats: review.stats,
+          threshold: review.threshold,
+          frames: review.frames || [],
+        };
+        state.gammaScores = new Map();
+        refreshFreezeSimulation();
+        updateReviewStatsDisplay();
+        setStatus(`Marked ${Number(result.updated_count || 0)} frame(s) as ${String(result.status || status)} in ${lo}-${hi}.`);
+      } catch (err) {
+        setStatus(err.message, true);
+      } finally {
+        if (showOverlay) {
+          setLoading(false);
+        }
+      }
+    }
+
+    async function loadSummary() {
+      if (isChapterLoadInFlight) {
+        setStatus('Wait until the current chapter load finishes before building summary.', true);
+        return;
+      }
+      if (!syncPeopleProfileFromEditor(true)) return;
+      if (pendingToggleRequests.size > 0) {
+        setLoading(true, 'Syncing frame edits...');
+        try {
+          await flushPendingToggleRequests();
+        } finally {
+          setLoading(false);
+        }
+      }
+      const saved = await saveProgress({ showOverlay: true, loadingText: 'Saving wizard progress...', silent: true });
+      if (!saved) return;
+      setLoading(true, 'Building summary...');
+      try {
+        const result = await api('/api/summary');
+        summaryBoxEl.textContent = String(result.summary || '').trim();
+        setStepByMode('summary', stepNumForMode('people', stepNumForMode('gamma', stepNumForMode('review'))));
+      } catch (err) {
+        setStatus(err.message, true);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function toggleCurrentFlipbookFrame() {
+      if (sparkPlayTimer) return;
+      if (!flipbookPreviewEl || !flipbookPreviewEl.classList.contains('active')) return;
+      if (flipbookToggleInFlight) return;
+      if (!sparkPlayFrames.length) return;
+      const current = sparkPlayFrames[sparkPlayIndex];
+      const fid = Number(current && current.fid);
+      if (!Number.isFinite(fid)) return;
+      flipbookToggleInFlight = true;
+      updateFlipbookControls();
+      try {
+        await trackPendingToggleRequest(toggleFrame(fid, { showOverlay: false }));
+        syncSparkPlayFramesFromGrid();
+        renderSparkPlaybackFrame(sparkPlayIndex, { keepVisible: false });
+      } finally {
+        flipbookToggleInFlight = false;
+        updateFlipbookControls();
+      }
+    }
+
+    async function previewRender() {
+      if (isChapterLoadInFlight || isPreviewRenderInFlight) {
+        setStatus('Wait until frame loading finishes before preview render.', true);
+        return;
+      }
+      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) {
+        setStatus('Load and review a chapter before running preview render.', true);
+        return;
+      }
+      startPreviewProgress('Rendering chapter preview from current frame selections...');
+      let ok = false;
+      try {
+        const result = await api('/api/preview_render', 'POST', {
+          preview_mode: stepDef(state.wizardStep).mode,
+          gamma_profile: {
+            default_gamma: normalizeGammaValue(state.gammaProfile && state.gammaProfile.defaultGamma, 1.0),
+            ranges: gammaRangesForSave(),
+          },
+        }, 0);
+        const target = result.preview_page_url || result.preview_url || '';
+        if (target) {
+          window.open(target, '_blank', 'noopener');
+        }
+        setStatus(result.message || 'Preview render ready.');
+        ok = true;
+      } catch (err) {
+        setStatus(err.message, true);
+      } finally {
+        finishPreviewProgress(ok);
+      }
+    }
+
+    async function saveProgress(options = {}) {
+      if (isChapterLoadInFlight) {
+        setStatus('Wait until frame loading finishes before saving progress.', true);
+        return false;
+      }
+      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) {
+        setStatus('Load a chapter before saving progress.', true);
+        return false;
+      }
+      if (pendingToggleRequests.size > 0) {
+        await flushPendingToggleRequests();
+      }
+      if (!syncPeopleProfileFromEditor(Boolean(options.showErrors !== false))) {
+        return false;
+      }
+      const peopleEntries = canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
+      const showOverlay = options.showOverlay !== false;
+      const loadingText = String(options.loadingText || 'Saving wizard progress...');
+      const silent = Boolean(options.silent);
+      if (showOverlay) {
+        setLoading(true, loadingText);
+      }
+      try {
+        const result = await api('/api/save_progress', 'POST', {
+          gamma_profile: {
+            default_gamma: normalizeGammaValue(state.gammaProfile && state.gammaProfile.defaultGamma, 1.0),
+            ranges: gammaRangesForSave(),
+          },
+          people_profile: {
+            entries: peopleEntries,
+          },
+        });
+        if (!silent) {
+          setStatus(result.message || 'Progress saved.');
+        }
+        return true;
+      } catch (err) {
+        if (!silent) {
+          setStatus(err.message, true);
+        }
+        return false;
+      } finally {
+        if (showOverlay) {
+          setLoading(false);
+        }
+      }
+    }
+
+    async function saveAndReturn() {
+      if (isChapterLoadInFlight) {
+        setStatus('Wait until frame loading finishes before saving.', true);
+        return;
+      }
+      if (pendingToggleRequests.size > 0) {
+        await flushPendingToggleRequests();
+      }
+      if (!syncPeopleProfileFromEditor(true)) return;
+      const peopleEntries = canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
+      setLoading(true, 'Saving BAD frame, gamma, and people subtitle selections...');
+      try {
+        const result = await api('/api/save', 'POST', {
+          gamma_profile: {
+            default_gamma: normalizeGammaValue(state.gammaProfile && state.gammaProfile.defaultGamma, 1.0),
+            ranges: gammaRangesForSave(),
+          },
+          people_profile: {
+            entries: peopleEntries,
+          },
+        });
+        setStatus(result.message || 'Saved.');
+
+        const st = result.archive_state;
+        state.archive = st.archive;
+        state.chapter = st.chapter;
+        state.chapters = st.chapters || [];
+        startFrameEl.value = st.start_frame;
+        endFrameEl.value = st.end_frame;
+
+        renderArchives();
+        renderChapters();
+        setStepByMode('load');
+      } catch (err) {
+        setStatus(err.message, true);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    function escapeHtml(input) {
+      return String(input)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    const NAV_ACTIONS = [
+      {
+        id: 'nextToReview',
+        run: () => loadFrames(),
+        lockOnLoad: true,
+      },
+      {
+        id: 'backToLoad',
+        run: () => {
+          stopSparkWindowPlayback();
+          setStep(stepAtOffset(state.wizardStep, -1).num);
+        },
+        lockOnLoad: true,
+      },
+      {
+        id: 'nextToGamma',
+        run: async () => {
+          const saved = await saveProgress({
+            showOverlay: true,
+            loadingText: 'Saving review progress...',
+            silent: true,
+          });
+          if (!saved) return;
+          await openGammaStep();
+        },
+        lockOnLoad: true,
+      },
+      {
+        id: 'nextToPeople',
+        run: async () => {
+          const saved = await saveProgress({
+            showOverlay: true,
+            loadingText: 'Saving gamma progress...',
+            silent: true,
+          });
+          if (!saved) return;
+          await openPeopleStep();
+        },
+        lockOnLoad: true,
+      },
+      {
+        id: 'nextToSummary',
+        run: () => loadSummary(),
+        lockOnLoad: true,
+      },
+      {
+        id: 'backToReviewFromGamma',
+        run: () => {
+          stopSparkWindowPlayback();
+          setStep(stepAtOffset(state.wizardStep, -1).num);
+        },
+        lockOnLoad: true,
+      },
+      {
+        id: 'backToGammaFromPeople',
+        run: () => {
+          stopSparkWindowPlayback();
+          setStep(stepAtOffset(state.wizardStep, -1).num);
+        },
+        lockOnLoad: true,
+      },
+      {
+        id: 'backToReview',
+        run: () => {
+          stopSparkWindowPlayback();
+          setStep(stepAtOffset(state.wizardStep, -1).num);
+        },
+        lockOnLoad: true,
+      },
+      {
+        id: 'saveAndReturn',
+        run: () => saveAndReturn(),
+        lockOnLoad: true,
+      },
+    ];
+
+    function bindWizardNavigation() {
+      navActionButtons.clear();
+      NAV_ACTIONS.forEach((entry) => {
+        const el = document.getElementById(entry.id);
+        if (!el) return;
+        if (entry.lockOnLoad) {
+          navActionButtons.set(entry.id, el);
+        }
+        el.addEventListener('click', () => {
+          const result = entry.run();
+          if (result && typeof result.then === 'function') {
+            void result;
+          }
+        });
+      });
+    }
+
+    bindWizardNavigation();
+    previewRenderBtnEl.addEventListener('click', previewRender);
+    fullscreenBtnEl.addEventListener('click', toggleReviewFullscreen);
+    document.addEventListener('fullscreenchange', () => {
+      if (page2El && page2El.classList.contains('flipbook-focus') && !isReviewFullscreenActive()) {
+        stopSparkWindowPlayback();
+        setFlipbookFocusMode(false);
+      }
+      updateFullscreenButton();
+      scheduleVisibleRangeRefresh();
+    });
+    iqrEl.addEventListener('input', () => {
+      iqrLabelEl.textContent = Number(iqrEl.value || 0).toFixed(2);
+      if (isBadFrameStepActive()) {
+        scheduleAutoApplyIqr();
+      }
+    });
+    iqrEl.addEventListener('change', () => {
+      if (isBadFrameStepActive()) {
+        applyIqr(true);
+      }
+    });
+    if (gammaLevelEl) {
+      gammaLevelEl.addEventListener('input', () => {
+        setActiveGammaLevel(gammaLevelEl.value);
+      });
+    }
+    if (flipbookGammaLevelEl) {
+      flipbookGammaLevelEl.addEventListener('input', () => {
+        setActiveGammaLevel(flipbookGammaLevelEl.value);
+      });
+    }
+    if (gammaModeEl) {
+      gammaModeEl.addEventListener('change', () => {
+        const mode = String(gammaModeEl.value || 'whole');
+        state.gammaProfile.mode = mode === 'regions' ? 'regions' : 'whole';
+        updateGammaControls();
+        refreshGammaVisuals();
+        updateReviewStatsDisplay();
+      });
+    }
+    if (gammaApplyVisibleBtnEl) {
+      gammaApplyVisibleBtnEl.addEventListener('click', applyGammaVisibleRange);
+    }
+    if (gammaClearBtnEl) {
+      gammaClearBtnEl.addEventListener('click', clearGammaRanges);
+    }
+    if (peopleAddVisibleBtnEl) {
+      peopleAddVisibleBtnEl.addEventListener('click', addVisiblePeopleEntry);
+    }
+    if (peopleClearBtnEl) {
+      peopleClearBtnEl.addEventListener('click', clearPeopleEntries);
+    }
+    if (peopleEditorEl) {
+      peopleEditorEl.addEventListener('change', () => {
+        syncPeopleProfileFromEditor(false);
+      });
+      peopleEditorEl.addEventListener('blur', () => {
+        syncPeopleProfileFromEditor(false);
+      });
+    }
+    if (saveProgressDraftBtnEl) {
+      saveProgressDraftBtnEl.addEventListener('click', async () => {
+        await saveProgress({ showOverlay: true, loadingText: 'Saving wizard progress...', silent: false });
+      });
+    }
+    if (simulateFreezeFrameEl) {
+      simulateFreezeFrameEl.addEventListener('change', () => {
+        setSimFreezeFrame(Boolean(simulateFreezeFrameEl.checked));
+      });
+    }
+    if (flipbookSimFreezeFrameEl) {
+      flipbookSimFreezeFrameEl.addEventListener('change', () => {
+        setSimFreezeFrame(Boolean(flipbookSimFreezeFrameEl.checked));
+      });
+    }
+
+    frameGridEl.addEventListener('click', (event) => {
+      const card = event.target.closest('.frame-card');
+      if (!card) return;
+      const fid = String(card.dataset.fid || '').trim();
+      const fidNum = Math.trunc(Number(fid));
+      if (!Number.isFinite(fidNum)) return;
+      const flipbookOn = Boolean(flipbookPreviewEl && flipbookPreviewEl.classList.contains('active'));
+      if (sparkPlayTimer) {
+        _pauseSparkWindowPlayback();
+      }
+      if (flipbookOn && fid) {
+        seekFlipbookToFrameId(fid, { keepVisible: false });
+      }
+      if (!isBadFrameStepActive()) {
+        return;
+      }
+      if (event.shiftKey) {
+        if (shiftRangeAnchorFid === null || !reviewHasFrameFid(shiftRangeAnchorFid)) {
+          shiftRangeAnchorFid = fidNum;
+          setStatus(`Range anchor set at frame ${fidNum}. Shift+click another frame to mark the range bad.`);
+          return;
+        }
+        const anchor = Math.trunc(Number(shiftRangeAnchorFid));
+        shiftRangeAnchorFid = fidNum;
+        const showOverlay = !isChapterLoadInFlight && !(page2El && page2El.classList.contains('flipbook-focus'));
+        trackPendingToggleRequest(setFrameRangeStatus(anchor, fidNum, 'bad', { showOverlay }));
+        return;
+      }
+      shiftRangeAnchorFid = fidNum;
+      const showOverlay = !isChapterLoadInFlight && !(page2El && page2El.classList.contains('flipbook-focus'));
+      trackPendingToggleRequest(toggleFrame(fid, { showOverlay, optimistic: isChapterLoadInFlight }));
+    });
+    frameGridEl.addEventListener('scroll', () => {
+      scheduleVisibleRangeRefresh();
+    });
+    overlayCancelBtnEl.addEventListener('click', async () => {
+      if (!loadProgressPollTimer) return;
+      setLoadCancelUi(true, true, 'Cancelling...');
+      try {
+        const result = await api('/api/cancel_load', 'POST', {});
+        if (result && result.message) {
+          overlayMsgEl.textContent = String(result.message);
+        } else {
+          overlayMsgEl.textContent = 'Cancelling load...';
+        }
+      } catch (_err) {
+        overlayMsgEl.textContent = 'Cancelling load...';
+      }
+    });
+    helpBtnEl.addEventListener('click', openHelpModal);
+    helpCloseBtnEl.addEventListener('click', closeHelpModal);
+    helpModalEl.addEventListener('click', (event) => {
+      if (event.target === helpModalEl) {
+        closeHelpModal();
+      }
+    });
+    iqrSparkEl.addEventListener('pointerdown', (event) => {
+      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) return;
+      event.preventDefault();
+      sparkDragPointerId = event.pointerId;
+      iqrSparkEl.classList.add('dragging');
+      if (iqrSparkEl.setPointerCapture) {
+        try {
+          iqrSparkEl.setPointerCapture(event.pointerId);
+        } catch (_err) {}
+      }
+      queueSparkDragSeek(event.clientX);
+    });
+    iqrSparkEl.addEventListener('pointermove', (event) => {
+      if (sparkDragPointerId === null || event.pointerId !== sparkDragPointerId) return;
+      event.preventDefault();
+      queueSparkDragSeek(event.clientX);
+    });
+    iqrSparkEl.addEventListener('pointerup', (event) => {
+      if (sparkDragPointerId === null || event.pointerId !== sparkDragPointerId) return;
+      event.preventDefault();
+      queueSparkDragSeek(event.clientX);
+      endSparkDrag();
+    });
+    iqrSparkEl.addEventListener('pointercancel', () => {
+      endSparkDrag();
+    });
+    iqrSparkEl.addEventListener('lostpointercapture', () => {
+      endSparkDrag();
+    });
+
+    window.addEventListener('load', async () => {
+      iqrLabelEl.textContent = Number(iqrEl.value).toFixed(2);
+      if (gammaLabelEl) gammaLabelEl.textContent = Number(gammaLevelEl.value || 1).toFixed(2);
+      renderStepPills();
+      setStep(state.wizardStep || STEP_FIRST.num);
+      updateSparkPlayButton();
+      updateFullscreenButton();
+      updateActionLocks();
+      updateGammaControls();
+      refreshPeopleEditorFromState();
+      setSimFreezeFrame(state.simulateFreezeFrame);
+      setStatus('Loading archives...');
+      try {
+        await loadArchives();
+      } catch (err) {
+        setStatus(err.message, true);
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      if (state.review && Array.isArray(state.review.frames) && state.review.frames.length) {
+        scheduleVisibleRangeRefresh();
+      }
+    });
+    window.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && helpModalEl && helpModalEl.classList.contains('active')) {
+        event.preventDefault();
+        closeHelpModal();
+      }
+    });
+
+    sparkPlayBtnEl.addEventListener('click', openFlipbookPanel);
+    if (flipbookPlayBtnEl) {
+      flipbookPlayBtnEl.addEventListener('click', () => {
+        toggleSparkWindowPlayback();
+      });
+    }
+    if (flipbookRevBtnEl) {
+      flipbookRevBtnEl.addEventListener('click', () => {
+        if (!sparkPlayFrames.length) {
+          sparkPlayFrames = _collectFlipbookFramesFromGrid();
+          sparkPlayIndex = 0;
+        }
+        if (!sparkPlayFrames.length) return;
+        setFlipbookVisible(true);
+        _pauseSparkWindowPlayback();
+        stepSparkWindowLeft();
+      });
+    }
+    if (flipbookFwdBtnEl) {
+      flipbookFwdBtnEl.addEventListener('click', () => {
+        if (!sparkPlayFrames.length) {
+          sparkPlayFrames = _collectFlipbookFramesFromGrid();
+          sparkPlayIndex = 0;
+        }
+        if (!sparkPlayFrames.length) return;
+        setFlipbookVisible(true);
+        _pauseSparkWindowPlayback();
+        stepSparkWindowRight();
+      });
+    }
+    if (flipbookCloseBtnEl) {
+      flipbookCloseBtnEl.addEventListener('click', () => {
+        closeFlipbookPanel();
+      });
+    }
+    if (flipbookFrameEl) {
+      flipbookFrameEl.addEventListener('click', () => {
+        toggleCurrentFlipbookFrame();
+      });
+    }
+
+    function normalizeWheelToPixels(event) {
+      const mode = Number(event.deltaMode || 0);
+      const dy = Number(event.deltaY || 0);
+      const dx = Number(event.deltaX || 0);
+      const dominant = Math.abs(dy) >= Math.abs(dx) ? dy : dx;
+      if (!dominant) return 0;
+      if (mode === 1) return dominant * 16;
+      if (mode === 2) return dominant * Math.max(320, window.innerHeight || 800);
+      return dominant;
+    }
+
+    function relayWheelToFrameGrid(event) {
+      if (!isReviewStepActive()) return;
+      if (!frameGridEl) return;
+      if (event.target && event.target.closest('input, textarea, select, button')) return;
+
+      const deltaPx = normalizeWheelToPixels(event);
+      if (deltaPx === 0) return;
+      if (event.cancelable) event.preventDefault();
+      frameGridEl.scrollBy({ top: deltaPx * 1.75, behavior: 'auto' });
+      scheduleVisibleRangeRefresh();
+    }
+
+    window.addEventListener('wheel', relayWheelToFrameGrid, { passive: false, capture: true });
+
+    function handleFlipbookArrowStep(event) {
+      if (!isReviewStepActive()) return false;
+      if (!flipbookPreviewEl || !flipbookPreviewEl.classList.contains('active')) return false;
+      if (event.target && event.target.closest('input, textarea, select, button, [contenteditable="true"]')) return false;
+
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return false;
+
+      if (!sparkPlayFrames.length) {
+        sparkPlayFrames = _collectFlipbookFramesFromGrid();
+        sparkPlayIndex = 0;
+      }
+      if (!sparkPlayFrames.length) return false;
+
+      event.preventDefault();
+      _pauseSparkWindowPlayback();
+      if (event.key === 'ArrowLeft') {
+        stepSparkWindowLeft();
+      } else {
+        stepSparkWindowRight();
+      }
+      return true;
+    }
+
+    window.addEventListener('keydown', (event) => {
+      handleFlipbookArrowStep(event);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+;FFMETADATA1
+title=Callahan 04 Archive (VHS Tape)
+
+[CHAPTER]
+TIMEBASE=1001/30000
+START=1500
+END=21078
+title=2001 - Ultrasound - 01 Maxwell Callahan (No Audio) (September 28, 2001)
+AUDIO=off
+DATE_RECORDED=2001-09-28 16:38:00.000 ; UTC
+DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
+RECORDING_LOCATION=US, California, Pasadena
+creation_time=2001-09-28T09:38:00-07:00
+comment=Dr. Claudette McKenzie, Huntington Health Medical Center
+
+[CHAPTER]
+TIMEBASE=1001/30000
+START=21782
+END=28460
+title=2001 - Ultrasound - 02 Maxwell Callahan (No Audio) (December 18, 2001)
+AUDIO=off
+DATE_RECORDED=2001-12-18 18:40:00.000 ; UTC
+DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
+RECORDING_LOCATION=US, California, Pasadena
+creation_time=2001-12-18T10:40:00-08:00
+comment=Dr. Claudette McKenzie, Huntington Health Medical Center

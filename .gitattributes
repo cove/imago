@@ -1,0 +1,2 @@
+vhs/bin/** filter=lfs diff=lfs merge=lfs -text
+vhs/software/** filter=lfs diff=lfs merge=lfs -text

@@ -1,0 +1,10 @@
+largestinteriorrectangle
+llvmlite
+numba
+numpy
+opencv-python
+stitching
+Wand
+TiffFile
+Pillow
+watchdog
