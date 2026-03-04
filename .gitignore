@@ -29,3 +29,10 @@ Thumbs.db
 *.mkv
 Clips/
 Videos/
+
+# Cast local identity data
+cast/data/*.json
+cast/data/*.jsonl
+cast/data/*.tmp
+!cast/data/.gitkeep
+cast/models/*.onnx
