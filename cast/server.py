@@ -373,9 +373,6 @@ class CastHandler(BaseHTTPRequestHandler):
         image = self._resolve_source_image_path(source_path)
         if image is not None:
             return ("image", image)
-        source_type = str(face.get("source_type") or "").strip().lower()
-        if source_type != "vhs":
-            return None
         video = self._resolve_source_video_path(source_path)
         if video is not None:
             return ("video", video)
