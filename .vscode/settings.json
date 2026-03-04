@@ -1,0 +1,21 @@
+{
+    "python.testing.pytestArgs": [
+        "photoalbums/tests",
+        "vhs/test"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "python.defaultInterpreterPath": "${workspaceFolder}/vhs/.venv/Scripts/python.exe",
+    "python.terminal.activateEnvironment": true,
+    "terminal.integrated.profiles.windows": {
+        "vhs": {
+            "source": "PowerShell",
+            "args": ["-NoExit", "-Command", "cd '${workspaceFolder}/vhs'; if (Test-Path '.venv/Scripts/Activate.ps1') { & '.venv/Scripts/Activate.ps1' } else { Write-Warning 'vhs/.venv not found — run: python setup.py' }"]
+        },
+        "photoalbums": {
+            "source": "PowerShell",
+            "args": ["-NoExit", "-Command", "cd '${workspaceFolder}/photoalbums'; if (Test-Path '.venv/Scripts/Activate.ps1') { & '.venv/Scripts/Activate.ps1' } else { Write-Warning 'photoalbums/.venv not found — create it with: python -m venv .venv && .venv/Scripts/pip install -r requirements.txt' }"]
+        }
+    },
+    "terminal.integrated.defaultProfile.windows": "vhs"
+}
