@@ -20,40 +20,40 @@
       <section id="grid" class="grid" aria-live="polite"></section>
       <section id="photobook" class="photobook hidden" aria-live="polite">
         <div class="book-stage">
-          <article class="book-spread">
-            <div class="spread-page left">
+          <article class="book-scene">
+            <section class="page-face left">
               <div id="leftMediaWrap" class="book-media-wrap"></div>
               <div class="book-meta">
                 <h2 id="leftTitle" class="item-title"></h2>
                 <p id="leftCaption" class="item-caption"></p>
               </div>
-            </div>
-            <div class="spread-page right">
+            </section>
+            <section class="page-face right">
               <div id="rightMediaWrap" class="book-media-wrap"></div>
               <div class="book-meta">
                 <h2 id="rightTitle" class="item-title"></h2>
                 <p id="rightCaption" class="item-caption"></p>
               </div>
-            </div>
-          </article>
-          <article id="turnPage" class="turn-page" aria-hidden="true">
-            <div id="turnLeaf" class="turn-leaf">
-              <div class="turn-face turn-front">
-                <div id="turnFrontMediaWrap" class="book-media-wrap turn-media-wrap"></div>
-                <div class="book-meta turn-meta">
-                  <h2 id="turnFrontTitle" class="item-title"></h2>
-                  <p id="turnFrontCaption" class="item-caption"></p>
-                </div>
+            </section>
+            <article id="turnPage" class="turn-page" aria-hidden="true">
+              <div id="turnLeaf" class="turn-leaf">
+                <section class="turn-face turn-front">
+                  <div id="turnFrontMediaWrap" class="book-media-wrap turn-media-wrap"></div>
+                  <div class="book-meta turn-meta">
+                    <h2 id="turnFrontTitle" class="item-title"></h2>
+                    <p id="turnFrontCaption" class="item-caption"></p>
+                  </div>
+                </section>
+                <section class="turn-face turn-back">
+                  <div id="turnBackMediaWrap" class="book-media-wrap turn-media-wrap"></div>
+                  <div class="book-meta turn-meta">
+                    <h2 id="turnBackTitle" class="item-title"></h2>
+                    <p id="turnBackCaption" class="item-caption"></p>
+                  </div>
+                </section>
+                <div class="turn-shade"></div>
               </div>
-              <div class="turn-face turn-back">
-                <div id="turnBackMediaWrap" class="book-media-wrap turn-media-wrap"></div>
-                <div class="book-meta turn-meta">
-                  <h2 id="turnBackTitle" class="item-title"></h2>
-                  <p id="turnBackCaption" class="item-caption"></p>
-                </div>
-              </div>
-              <div class="turn-shade"></div>
-            </div>
+            </article>
           </article>
         </div>
       </section>
