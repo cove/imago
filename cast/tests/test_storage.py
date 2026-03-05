@@ -89,3 +89,17 @@ def test_reset_pending_unknown_keeps_assigned_faces(tmp_path):
     assert reviews[0]["review_id"] == accepted["review_id"]
     assert (crops / "known.jpg").exists()
     assert not (crops / "unknown.jpg").exists()
+
+
+def test_update_person_name(tmp_path):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+
+    person = store.add_person(name="Caria (Friend of Lynda)", aliases=["Caria"], notes="")
+    person_id = str(person["person_id"])
+    updated = store.update_person(person_id, display_name="Carla (Friend of Lynda)")
+
+    assert updated["display_name"] == "Carla (Friend of Lynda)"
+    loaded = store.get_person(person_id)
+    assert loaded is not None
+    assert loaded["display_name"] == "Carla (Friend of Lynda)"

@@ -1,4 +1,4 @@
-from cast.matching import parse_embedding, suggest_people
+from cast.matching import build_person_prototypes, parse_embedding, suggest_people, suggest_people_from_prototypes
 
 
 def test_parse_embedding_from_string():
@@ -19,3 +19,31 @@ def test_suggest_people_prefers_closest_person():
     assert len(results) == 2
     assert results[0]["person_id"] == "person_a"
     assert results[0]["score"] > results[1]["score"]
+
+
+def test_suggest_people_uses_best_exemplar_for_multimodal_person():
+    faces = [
+        {"person_id": "person_b", "embedding": [0.7, 0.7, 0.0], "quality": 0.9},
+        {"person_id": "person_b", "embedding": [0.7, 0.7, 0.0], "quality": 0.9},
+        {"person_id": "person_a", "embedding": [1.0, 0.0, 0.0], "quality": 0.9},
+        {"person_id": "person_a", "embedding": [0.0, 1.0, 0.0], "quality": 0.9},
+    ]
+    results = suggest_people(query_embedding=[0.0, 1.0, 0.0], faces=faces, top_k=2)
+    assert len(results) == 2
+    assert results[0]["person_id"] == "person_a"
+
+
+def test_suggest_people_from_prototypes_matches_direct_suggest():
+    faces = [
+        {"person_id": "a", "embedding": [1.0, 0.0, 0.0], "quality": 0.9},
+        {"person_id": "a", "embedding": [0.9, 0.1, 0.0], "quality": 0.8},
+        {"person_id": "b", "embedding": [0.0, 1.0, 0.0], "quality": 0.9},
+    ]
+    direct = suggest_people(query_embedding=[0.95, 0.05, 0.0], faces=faces, top_k=2)
+    protos = build_person_prototypes(faces)
+    from_proto = suggest_people_from_prototypes(
+        query_embedding=[0.95, 0.05, 0.0],
+        prototypes=protos,
+        top_k=2,
+    )
+    assert [row["person_id"] for row in from_proto] == [row["person_id"] for row in direct]
