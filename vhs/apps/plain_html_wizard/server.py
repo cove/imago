@@ -3,12 +3,15 @@ from __future__ import annotations
 
 import json
 import html
+import importlib
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import uuid
+import wave
 from dataclasses import dataclass, field
 from http import HTTPStatus
 from http.cookies import SimpleCookie
@@ -27,6 +30,7 @@ from common import (
     ARCHIVE_DIR,
     FFMPEG_BIN,
     METADATA_DIR,
+    WHISPER_MODEL_DIR,
     combined_score,
     compute_threshold,
     get_gamma_profile_for_chapter,
@@ -51,6 +55,12 @@ from libs.vhs_tuner_core import (
     TUNER_DEBUG_EXTRACT_ENV,
 )
 from vhs_pipeline.people_prefill import prefill_people_from_cast
+from vhs_pipeline.render_pipeline import subtitle_entries_from_whisper_result
+
+try:
+    import whisper
+except Exception:
+    whisper = None
 
 STATIC_DIR = _HERE / "static"
 INDEX_HTML = STATIC_DIR / "index.html"
@@ -58,7 +68,9 @@ SESSION_COOKIE = "vhs_plain_wizard_sid"
 FPS_NUM = 30000
 FPS_DEN = 1001
 PEOPLE_TSV_HEADER = "start_frame\tend_frame\tpeople"
+SUBTITLES_TSV_HEADER = "start_frame\tend_frame\ttext\tspeaker\tconfidence\tsource"
 DEFAULT_CAST_STORE_DIR = (PROJECT_ROOT.parent / "cast" / "data").resolve()
+WHISPER_MODEL_NAME = "turbo"
 
 
 @dataclass
@@ -102,9 +114,15 @@ class SessionState:
     preview_frame_done: int = 0
     preview_frame_total: int = 0
     preview_video_path: str = ""
+    subtitles_running: bool = False
+    subtitles_progress: float = 0.0
+    subtitles_message: str = ""
+    subtitles_segment_done: int = 0
+    subtitles_segment_total: int = 0
     gamma_default: float = 1.0
     gamma_ranges: list[dict[str, Any]] = field(default_factory=list)
     people_entries: list[dict[str, Any]] = field(default_factory=list)
+    subtitle_entries: list[dict[str, Any]] = field(default_factory=list)
     partial_fids: list[int] = field(default_factory=list)
     partial_b64: list[str] = field(default_factory=list)
     partial_sigs: dict[str, list[float]] = field(
@@ -114,6 +132,10 @@ class SessionState:
 
 _SESSION_LOCK = threading.Lock()
 _SESSIONS: dict[str, SessionState] = {}
+_WHISPER_MODEL_LOCK = threading.Lock()
+_WHISPER_MODEL: Any | None = None
+_WHISPER_TQDM_PATCH_LOCK = threading.Lock()
+_WHISPER_TRANSCRIBE_MODULE: Any | None = None
 
 
 def _set_load_progress(
@@ -156,6 +178,27 @@ def _set_preview_progress(
         session.preview_frame_done = max(0, int(frame_done))
     if frame_total is not None:
         session.preview_frame_total = max(0, int(frame_total))
+
+
+def _set_subtitles_progress(
+    session: SessionState,
+    *,
+    running: bool | None = None,
+    progress: float | None = None,
+    message: str | None = None,
+    segment_done: int | None = None,
+    segment_total: int | None = None,
+) -> None:
+    if running is not None:
+        session.subtitles_running = bool(running)
+    if progress is not None:
+        session.subtitles_progress = max(0.0, min(100.0, float(progress)))
+    if message is not None:
+        session.subtitles_message = str(message)
+    if segment_done is not None:
+        session.subtitles_segment_done = max(0, int(segment_done))
+    if segment_total is not None:
+        session.subtitles_segment_total = max(0, int(segment_total))
 
 
 def _normalize_iqr_k(raw: Any, default: float = 3.5) -> float:
@@ -345,6 +388,101 @@ def _normalize_people_entries_payload(
     return out
 
 
+def _normalize_subtitle_optional_text(raw: Any) -> str:
+    return re.sub(r"\s+", " ", str(raw or "")).strip()
+
+
+def _parse_subtitle_confidence(raw: Any) -> float | None:
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    try:
+        value = float(text)
+    except Exception:
+        return None
+    if not (value == value):
+        return None
+    return max(0.0, min(1.0, float(value)))
+
+
+def _format_subtitle_confidence(raw: Any) -> str:
+    parsed = _parse_subtitle_confidence(raw)
+    if parsed is None:
+        return ""
+    return f"{parsed:.4f}".rstrip("0").rstrip(".")
+
+
+def _normalize_subtitle_entries_payload(
+    raw_entries: Any,
+    *,
+    chapter_duration_seconds: float | None = None,
+) -> list[dict[str, Any]]:
+    rows: list[tuple[float, float, str, str, float | None, str, int]] = []
+    duration = None
+    if chapter_duration_seconds is not None:
+        try:
+            duration = max(0.0, float(chapter_duration_seconds))
+        except Exception:
+            duration = None
+
+    for idx, item in enumerate(list(raw_entries or [])):
+        start_raw = end_raw = text_raw = None
+        speaker_raw = confidence_raw = source_raw = None
+        if isinstance(item, dict):
+            start_raw = item.get("start_seconds", item.get("start"))
+            end_raw = item.get("end_seconds", item.get("end"))
+            text_raw = item.get("text")
+            speaker_raw = item.get("speaker")
+            confidence_raw = item.get("confidence")
+            source_raw = item.get("source")
+        elif isinstance(item, (list, tuple)) and len(item) >= 3:
+            start_raw, end_raw, text_raw = item[0], item[1], item[2]
+            if len(item) >= 4:
+                speaker_raw = item[3]
+            if len(item) >= 5:
+                confidence_raw = item[4]
+            if len(item) >= 6:
+                source_raw = item[5]
+        start = _parse_timestamp_seconds(start_raw)
+        end = _parse_timestamp_seconds(end_raw)
+        if start is None or end is None or end <= start:
+            continue
+        if duration is not None:
+            start = max(0.0, min(duration, float(start)))
+            end = max(0.0, min(duration, float(end)))
+            if end <= start:
+                continue
+        text = _normalize_subtitle_optional_text(text_raw)
+        if not text:
+            continue
+        speaker = _normalize_subtitle_optional_text(speaker_raw)
+        confidence = _parse_subtitle_confidence(confidence_raw)
+        source = _normalize_subtitle_optional_text(source_raw)
+        rows.append((float(start), float(end), text, speaker, confidence, source, int(idx)))
+
+    if not rows:
+        return []
+
+    rows.sort(key=lambda item: (item[0], item[1], item[6]))
+    out: list[dict[str, Any]] = []
+    for start, end, text, speaker, confidence, source, _idx in rows:
+        start_s = round(float(start), 3)
+        end_s = round(float(end), 3)
+        out.append(
+            {
+                "start_seconds": start_s,
+                "end_seconds": end_s,
+                "start": _seconds_to_timestamp(start_s),
+                "end": _seconds_to_timestamp(end_s),
+                "text": text,
+                "speaker": speaker,
+                "confidence": confidence,
+                "source": source,
+            }
+        )
+    return out
+
+
 def _parse_frame_value(raw: Any) -> int | None:
     text = str(raw or "").strip()
     if not text:
@@ -427,6 +565,94 @@ def _write_people_tsv_rows(path: Path, rows: list[tuple[int, int, str]]) -> None
     lines = [PEOPLE_TSV_HEADER]
     for start, end, people in list(rows or []):
         lines.append(f"{int(start)}\t{int(end)}\t{str(people)}")
+    p.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _read_subtitles_tsv_rows(path: Path) -> list[tuple[int, int, str, str, float | None, str]]:
+    rows: list[tuple[int, int, str, str, float | None, str]] = []
+    p = Path(path)
+    if not p.exists():
+        return rows
+    for raw in p.read_text(encoding="utf-8-sig", errors="ignore").splitlines():
+        line = str(raw or "").strip()
+        if not line or line.startswith("#"):
+            continue
+        lower = line.lower()
+        if lower.startswith("start_frame\t") or lower.startswith("start_frame,end_frame"):
+            continue
+        if lower.startswith("start\t") or lower.startswith("start,start"):
+            continue
+        parts = line.split("\t") if "\t" in line else line.split(",")
+        if len(parts) < 3:
+            continue
+        start = _parse_frame_value(parts[0])
+        end = _parse_frame_value(parts[1])
+        text = _normalize_subtitle_optional_text(parts[2])
+        speaker = _normalize_subtitle_optional_text(parts[3]) if len(parts) >= 4 else ""
+        confidence = _parse_subtitle_confidence(parts[4]) if len(parts) >= 5 else None
+        source = _normalize_subtitle_optional_text(parts[5]) if len(parts) >= 6 else ""
+        if start is None or end is None or not text:
+            continue
+        if int(end) <= int(start):
+            if int(end) == int(start):
+                end = int(start) + 1
+            else:
+                continue
+        rows.append((int(start), int(end), text, speaker, confidence, source))
+    return rows
+
+
+def _canonicalize_subtitles_tsv_rows(
+    rows: list[tuple[int, int, str, str, float | None, str]],
+) -> list[tuple[int, int, str, str, float | None, str]]:
+    items = []
+    for start, end, text, speaker, confidence, source in list(rows or []):
+        try:
+            a = int(start)
+            b = int(end)
+        except Exception:
+            continue
+        if int(b) <= int(a):
+            continue
+        subtitle_text = _normalize_subtitle_optional_text(text)
+        if not subtitle_text:
+            continue
+        items.append(
+            (
+                max(0, int(a)),
+                max(0, int(b)),
+                subtitle_text,
+                _normalize_subtitle_optional_text(speaker),
+                _parse_subtitle_confidence(confidence),
+                _normalize_subtitle_optional_text(source),
+            )
+        )
+    if not items:
+        return []
+    items.sort(key=lambda item: (item[0], item[1], item[2].lower(), item[3].lower()))
+    return items
+
+
+def _write_subtitles_tsv_rows(
+    path: Path,
+    rows: list[tuple[int, int, str, str, float | None, str]],
+) -> None:
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    lines = [SUBTITLES_TSV_HEADER]
+    for start, end, text, speaker, confidence, source in list(rows or []):
+        lines.append(
+            "\t".join(
+                [
+                    str(int(start)),
+                    str(int(end)),
+                    _normalize_subtitle_optional_text(text),
+                    _normalize_subtitle_optional_text(speaker),
+                    _format_subtitle_confidence(confidence),
+                    _normalize_subtitle_optional_text(source),
+                ]
+            )
+        )
     p.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -518,6 +744,100 @@ def _save_people_entries_for_chapter(
     return path, len(chapter_rows)
 
 
+def _load_subtitle_entries_for_chapter(archive: str, ch_start: int, ch_end: int) -> list[dict[str, Any]]:
+    archive_name = str(archive or "").strip()
+    if not archive_name:
+        return []
+    path = METADATA_DIR / archive_name / "subtitles.tsv"
+    if not path.exists():
+        return []
+    chapter_start = int(ch_start)
+    chapter_end = int(ch_end)
+    if chapter_end <= chapter_start:
+        return []
+    local_entries = []
+    for start, end, text, speaker, confidence, source in _read_subtitles_tsv_rows(path):
+        lo = max(int(start), int(chapter_start))
+        hi = min(int(end), int(chapter_end))
+        if hi <= lo:
+            continue
+        local_entries.append(
+            {
+                "start_seconds": _frame_to_seconds(max(0, int(lo) - int(chapter_start))),
+                "end_seconds": _frame_to_seconds(max(0, int(hi) - int(chapter_start))),
+                "text": text,
+                "speaker": speaker,
+                "confidence": confidence,
+                "source": source,
+            }
+        )
+    return _normalize_subtitle_entries_payload(
+        local_entries,
+        chapter_duration_seconds=max(0.0, _frame_to_seconds(chapter_end - chapter_start)),
+    )
+
+
+def _save_subtitle_entries_for_chapter(
+    archive: str,
+    ch_start: int,
+    ch_end: int,
+    local_entries: list[dict[str, Any]],
+) -> tuple[Path, int]:
+    archive_name = str(archive or "").strip()
+    path = METADATA_DIR / archive_name / "subtitles.tsv"
+    chapter_start = int(ch_start)
+    chapter_end = int(ch_end)
+    chapter_len = max(1, int(chapter_end) - int(chapter_start))
+    if chapter_end <= chapter_start:
+        _write_subtitles_tsv_rows(path, _canonicalize_subtitles_tsv_rows(_read_subtitles_tsv_rows(path)))
+        return path, 0
+
+    existing = _read_subtitles_tsv_rows(path)
+    kept: list[tuple[int, int, str, str, float | None, str]] = []
+    for start, end, text, speaker, confidence, source in existing:
+        if int(end) <= int(chapter_start) or int(start) >= int(chapter_end):
+            kept.append((int(start), int(end), str(text), str(speaker), confidence, str(source)))
+            continue
+        if int(start) < int(chapter_start):
+            kept.append((int(start), int(chapter_start), str(text), str(speaker), confidence, str(source)))
+        if int(end) > int(chapter_end):
+            kept.append((int(chapter_end), int(end), str(text), str(speaker), confidence, str(source)))
+
+    normalized_local = _normalize_subtitle_entries_payload(
+        local_entries,
+        chapter_duration_seconds=max(0.0, _frame_to_seconds(chapter_len)),
+    )
+    chapter_rows: list[tuple[int, int, str, str, float | None, str]] = []
+    for item in normalized_local:
+        start_local = _parse_timestamp_seconds(item.get("start_seconds", item.get("start")))
+        end_local = _parse_timestamp_seconds(item.get("end_seconds", item.get("end")))
+        if start_local is None or end_local is None or end_local <= start_local:
+            continue
+        text = _normalize_subtitle_optional_text(item.get("text", ""))
+        if not text:
+            continue
+        local_start_frame = max(0, min(chapter_len, _seconds_to_frame(start_local)))
+        local_end_frame = max(0, min(chapter_len, _seconds_to_frame(end_local)))
+        if local_end_frame <= local_start_frame:
+            if local_start_frame >= chapter_len:
+                continue
+            local_end_frame = local_start_frame + 1
+        chapter_rows.append(
+            (
+                int(chapter_start + local_start_frame),
+                int(chapter_start + local_end_frame),
+                text,
+                _normalize_subtitle_optional_text(item.get("speaker", "")),
+                _parse_subtitle_confidence(item.get("confidence")),
+                _normalize_subtitle_optional_text(item.get("source", "")),
+            )
+        )
+
+    merged = _canonicalize_subtitles_tsv_rows([*kept, *chapter_rows])
+    _write_subtitles_tsv_rows(path, merged)
+    return path, len(chapter_rows)
+
+
 def _apply_profiles_from_payload(session: SessionState, payload: dict[str, Any] | None) -> None:
     payload = payload or {}
     raw_gamma_profile = payload.get("gamma_profile")
@@ -549,8 +869,22 @@ def _apply_profiles_from_payload(session: SessionState, payload: dict[str, Any] 
             chapter_duration_seconds=chapter_duration,
         )
 
+    raw_subtitles_profile = payload.get("subtitles_profile")
+    if raw_subtitles_profile is None:
+        raw_subtitles_profile = payload.get("subtitles")
+    if isinstance(raw_subtitles_profile, dict):
+        session.subtitle_entries = _normalize_subtitle_entries_payload(
+            raw_subtitles_profile.get("entries", session.subtitle_entries),
+            chapter_duration_seconds=chapter_duration,
+        )
+    elif isinstance(raw_subtitles_profile, list):
+        session.subtitle_entries = _normalize_subtitle_entries_payload(
+            raw_subtitles_profile,
+            chapter_duration_seconds=chapter_duration,
+        )
 
-def _persist_session_progress(session: SessionState) -> tuple[Path | None, Path, int, int, int]:
+
+def _persist_session_progress(session: SessionState) -> tuple[Path | None, Path, int, int, int, int]:
     out_path, count, analyzed, err = persist_bad_frames_for_chapter(
         archive=session.archive,
         chapter_title=session.chapter,
@@ -584,7 +918,13 @@ def _persist_session_progress(session: SessionState) -> tuple[Path | None, Path,
         ch_end=session.end_frame,
         local_entries=session.people_entries,
     )
-    return out_path, gamma_path, int(count), int(analyzed), int(people_count)
+    _subtitles_path, subtitles_count = _save_subtitle_entries_for_chapter(
+        archive=session.archive,
+        ch_start=session.start_frame,
+        ch_end=session.end_frame,
+        local_entries=session.subtitle_entries,
+    )
+    return out_path, gamma_path, int(count), int(analyzed), int(people_count), int(subtitles_count)
 
 
 def _details_text(chapter_row: dict[str, Any] | None) -> str:
@@ -778,6 +1118,32 @@ def _summary_payload(session: SessionState) -> dict[str, Any]:
         people_lines.append("People subtitle entries: (none)")
     people_text = "\n".join(people_lines)
 
+    subtitle_entries = _normalize_subtitle_entries_payload(
+        session.subtitle_entries,
+        chapter_duration_seconds=max(0.0, _frame_to_seconds(session.end_frame) - _frame_to_seconds(session.start_frame)),
+    )
+    subtitle_lines = []
+    if subtitle_entries:
+        subtitle_lines.append(f"Subtitle entries: {len(subtitle_entries)}")
+        for item in subtitle_entries[:25]:
+            extras = []
+            if str(item.get("speaker", "")).strip():
+                extras.append(f"speaker={item['speaker']}")
+            confidence = _format_subtitle_confidence(item.get("confidence"))
+            if confidence:
+                extras.append(f"confidence={confidence}")
+            if str(item.get("source", "")).strip():
+                extras.append(f"source={item['source']}")
+            suffix = f" ({', '.join(extras)})" if extras else ""
+            subtitle_lines.append(
+                f"- {item['start']} - {item['end']}: {item['text']}{suffix}"
+            )
+        if len(subtitle_entries) > 25:
+            subtitle_lines.append(f"- +{len(subtitle_entries) - 25} more")
+    else:
+        subtitle_lines.append("Subtitle entries: (none)")
+    subtitles_text = "\n".join(subtitle_lines)
+
     summary_text = (
         f"Archive: {session.archive}\n"
         f"Chapter: {session.chapter}\n"
@@ -793,9 +1159,56 @@ def _summary_payload(session: SessionState) -> dict[str, Any]:
         f"Gamma default: {float(session.gamma_default):.3f}\n"
         f"{gamma_text}\n"
         f"{people_text}\n\n"
+        f"{subtitles_text}\n\n"
         f"BAD frame IDs (sampled set):\n{preview or '(none)'}"
     )
     return {"summary": summary_text, "review": review}
+
+
+def _subtitle_prompt_from_people_entries(people_entries: list[dict[str, Any]]) -> str:
+    names: list[str] = []
+    seen: set[str] = set()
+    for item in list(people_entries or []):
+        people_raw = str(item.get("people", "")).strip()
+        if not people_raw:
+            continue
+        for part in re.split(r"\|", people_raw):
+            name = _normalize_subtitle_optional_text(part)
+            if not name:
+                continue
+            key = name.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            names.append(name)
+            if len(names) >= 25:
+                break
+        if len(names) >= 25:
+            break
+    if not names:
+        return ""
+    return (
+        "Transcribe in English. Use these exact spellings when heard: "
+        + ", ".join(names)
+        + "."
+    )
+
+
+def _load_whisper_model() -> Any:
+    global _WHISPER_MODEL
+    if whisper is None:
+        raise RuntimeError("Whisper is unavailable. Install whisper to generate subtitles.")
+    with _WHISPER_MODEL_LOCK:
+        if _WHISPER_MODEL is None:
+            _WHISPER_MODEL = whisper.load_model(WHISPER_MODEL_NAME, download_root=WHISPER_MODEL_DIR)
+        return _WHISPER_MODEL
+
+
+def _load_whisper_transcribe_module() -> Any:
+    global _WHISPER_TRANSCRIBE_MODULE
+    if _WHISPER_TRANSCRIBE_MODULE is None:
+        _WHISPER_TRANSCRIBE_MODULE = importlib.import_module("whisper.transcribe")
+    return _WHISPER_TRANSCRIBE_MODULE
 
 
 class WizardHandler(BaseHTTPRequestHandler):
@@ -1019,6 +1432,19 @@ class WizardHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if parsed.path == "/api/subtitles_progress":
+            self._send_json(
+                {
+                    "ok": True,
+                    "running": bool(session.subtitles_running),
+                    "progress": float(session.subtitles_progress),
+                    "message": str(session.subtitles_message or ""),
+                    "segment_done": int(session.subtitles_segment_done),
+                    "segment_total": int(session.subtitles_segment_total),
+                }
+            )
+            return
+
         if parsed.path == "/api/load_review":
             self._send_json(
                 {
@@ -1109,6 +1535,10 @@ class WizardHandler(BaseHTTPRequestHandler):
             self._handle_people_prefill_cast(session, payload)
             return
 
+        if parsed.path == "/api/subtitles_generate":
+            self._handle_subtitles_generate(session, payload)
+            return
+
         if parsed.path == "/api/save":
             self._handle_save(session, payload)
             return
@@ -1194,6 +1624,7 @@ class WizardHandler(BaseHTTPRequestHandler):
         session.gamma_default = 1.0
         session.gamma_ranges = []
         session.people_entries = []
+        session.subtitle_entries = []
         session.partial_fids = []
         session.partial_b64 = []
         session.partial_sigs = {"chroma": [], "noise": [], "tear": [], "wave": []}
@@ -1361,6 +1792,11 @@ class WizardHandler(BaseHTTPRequestHandler):
             ch_start=session.start_frame,
             ch_end=session.end_frame,
         )
+        session.subtitle_entries = _load_subtitle_entries_for_chapter(
+            archive=session.archive,
+            ch_start=session.start_frame,
+            ch_end=session.end_frame,
+        )
 
         details = {
             "archive": session.archive,
@@ -1393,6 +1829,10 @@ class WizardHandler(BaseHTTPRequestHandler):
             "people_profile": {
                 "entries": list(session.people_entries),
                 "source": "people_tsv",
+            },
+            "subtitles_profile": {
+                "entries": list(session.subtitle_entries),
+                "source": "subtitles_tsv",
             },
         }
 
@@ -1938,6 +2378,252 @@ class WizardHandler(BaseHTTPRequestHandler):
             }
         )
 
+    def _handle_subtitles_generate(self, session: SessionState, payload: dict[str, Any] | None = None) -> None:
+        def fail(message: str) -> None:
+            _set_subtitles_progress(
+                session,
+                running=False,
+                progress=0.0,
+                message=str(message),
+                segment_done=0,
+                segment_total=0,
+            )
+            self._send_error_json(message)
+
+        if not session.archive or not session.chapter:
+            fail("Load a chapter before generating subtitles.")
+            return
+        if int(session.end_frame) <= int(session.start_frame):
+            fail("Invalid chapter frame span for subtitle generation.")
+            return
+        if bool(session.subtitles_running):
+            self._send_error_json("Subtitle generation is already running for this session.")
+            return
+        payload = payload or {}
+        mode = str(payload.get("mode") or "replace").strip().lower()
+        if mode not in {"replace", "append"}:
+            mode = "replace"
+
+        source_video = _resolve_archive_video(session.archive)
+        if not source_video:
+            fail(f"No archive video found for '{session.archive}'.")
+            return
+
+        _set_subtitles_progress(
+            session,
+            running=True,
+            progress=1.0,
+            message="Preparing Whisper subtitle generation...",
+            segment_done=0,
+            segment_total=0,
+        )
+
+        try:
+            model = _load_whisper_model()
+            transcribe_module = _load_whisper_transcribe_module()
+        except Exception as exc:
+            fail(f"Subtitle generation unavailable: {type(exc).__name__}: {exc}")
+            return
+
+        chapter_duration = max(
+            0.0,
+            _frame_to_seconds(session.end_frame) - _frame_to_seconds(session.start_frame),
+        )
+        prompt_text = _subtitle_prompt_from_people_entries(
+            _normalize_people_entries_payload(
+                session.people_entries,
+                chapter_duration_seconds=chapter_duration,
+            )
+        )
+        start_sec = _frame_to_seconds(session.start_frame)
+        end_sec = _frame_to_seconds(session.end_frame)
+
+        _set_subtitles_progress(
+            session,
+            progress=5.0,
+            message="Extracting chapter audio for Whisper...",
+            segment_done=0,
+            segment_total=0,
+        )
+
+        try:
+            with tempfile.TemporaryDirectory(prefix="vhs_subtitles_") as tmp_dir:
+                audio_path = Path(tmp_dir) / "chapter_audio.wav"
+                cmd = [
+                    str(FFMPEG_BIN),
+                    "-nostdin",
+                    "-v",
+                    "error",
+                    "-ss",
+                    f"{start_sec:.3f}",
+                    "-to",
+                    f"{end_sec:.3f}",
+                    "-i",
+                    str(source_video),
+                    "-vn",
+                    "-ac",
+                    "1",
+                    "-ar",
+                    "16000",
+                    "-y",
+                    str(audio_path),
+                ]
+                proc = subprocess.run(
+                    cmd,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+                if proc.returncode != 0 or not audio_path.exists():
+                    detail = (proc.stderr or proc.stdout or "").strip()
+                    raise RuntimeError(detail or "ffmpeg audio extraction failed.")
+
+                segment_total = 0
+                try:
+                    with wave.open(str(audio_path), "rb") as wf:
+                        sample_rate = int(wf.getframerate() or 0)
+                        sample_count = int(wf.getnframes() or 0)
+                    if sample_rate > 0 and sample_count > 0:
+                        duration_sec = float(sample_count) / float(sample_rate)
+                        segment_total = max(1, int(round(duration_sec * 50.0)))
+                except Exception:
+                    segment_total = 0
+
+                _set_subtitles_progress(
+                    session,
+                    progress=20.0,
+                    message="Transcribing audio with Whisper...",
+                    segment_done=0,
+                    segment_total=segment_total,
+                )
+
+                progress_prefix = "Transcribing audio with Whisper..."
+                tqdm_module = getattr(transcribe_module, "tqdm", None)
+                original_tqdm = getattr(tqdm_module, "tqdm", None) if tqdm_module is not None else None
+
+                class _SubtitlesProgressBar:
+                    def __init__(self, *args: Any, **kwargs: Any) -> None:
+                        self._inner = original_tqdm(*args, **kwargs)
+                        total_raw = getattr(self._inner, "total", None)
+                        try:
+                            total_val = float(total_raw)
+                        except Exception:
+                            total_val = float(segment_total or 0)
+                        self._total = max(1.0, total_val) if total_val > 0 else max(1.0, float(segment_total or 1))
+                        _set_subtitles_progress(
+                            session,
+                            progress=20.0,
+                            message=progress_prefix,
+                            segment_done=0,
+                            segment_total=max(1, int(round(self._total))),
+                        )
+
+                    def __enter__(self) -> "_SubtitlesProgressBar":
+                        if hasattr(self._inner, "__enter__"):
+                            self._inner.__enter__()
+                        return self
+
+                    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> Any:
+                        if hasattr(self._inner, "__exit__"):
+                            return self._inner.__exit__(exc_type, exc, tb)
+                        return False
+
+                    def update(self, n: int = 1) -> Any:
+                        out = self._inner.update(n)
+                        done_raw = getattr(self._inner, "n", 0)
+                        try:
+                            done = max(0.0, float(done_raw))
+                        except Exception:
+                            done = 0.0
+                        frac = min(1.0, done / max(1.0, self._total))
+                        _set_subtitles_progress(
+                            session,
+                            progress=20.0 + (frac * 75.0),
+                            message=progress_prefix,
+                            segment_done=max(0, int(round(done))),
+                            segment_total=max(1, int(round(self._total))),
+                        )
+                        return out
+
+                    def close(self) -> Any:
+                        if hasattr(self._inner, "close"):
+                            return self._inner.close()
+                        return None
+
+                    def __iter__(self) -> Any:
+                        return iter(self._inner)
+
+                    def __getattr__(self, name: str) -> Any:
+                        return getattr(self._inner, name)
+
+                with _WHISPER_TQDM_PATCH_LOCK:
+                    if callable(original_tqdm):
+                        setattr(tqdm_module, "tqdm", _SubtitlesProgressBar)
+                    try:
+                        result = model.transcribe(
+                            str(audio_path),
+                            word_timestamps=True,
+                            language="en",
+                            fp16=False,
+                            prompt=str(prompt_text or ""),
+                        )
+                    finally:
+                        if callable(original_tqdm):
+                            setattr(tqdm_module, "tqdm", original_tqdm)
+        except Exception as exc:
+            fail(f"Subtitle generation failed: {type(exc).__name__}: {exc}")
+            return
+
+        _set_subtitles_progress(
+            session,
+            progress=97.0,
+            message="Formatting generated subtitle segments...",
+            segment_done=max(0, int(session.subtitles_segment_total)),
+            segment_total=max(0, int(session.subtitles_segment_total)),
+        )
+
+        generated = _normalize_subtitle_entries_payload(
+            subtitle_entries_from_whisper_result(result),
+            chapter_duration_seconds=chapter_duration,
+        )
+        if generated:
+            if mode == "append":
+                merged = _normalize_subtitle_entries_payload(
+                    [*(session.subtitle_entries or []), *generated],
+                    chapter_duration_seconds=chapter_duration,
+                )
+            else:
+                merged = generated
+            session.subtitle_entries = list(merged)
+            message = (
+                f"Generated {len(generated)} subtitle entr"
+                f"{'y' if len(generated) == 1 else 'ies'} ({mode})."
+            )
+        else:
+            message = "Whisper returned no subtitle segments for this chapter."
+
+        _set_subtitles_progress(
+            session,
+            running=False,
+            progress=100.0,
+            message="Whisper subtitle generation complete.",
+            segment_done=max(0, int(session.subtitles_segment_total)),
+            segment_total=max(0, int(session.subtitles_segment_total)),
+        )
+
+        self._send_json(
+            {
+                "ok": True,
+                "message": message,
+                "generated_count": int(len(generated)),
+                "mode": mode,
+                "subtitles_profile": {
+                    "entries": list(session.subtitle_entries),
+                    "source": "whisper_generate",
+                },
+            }
+        )
+
     def _handle_save(self, session: SessionState, payload: dict[str, Any] | None = None) -> None:
         if not session.fids:
             self._send_error_json("No loaded chapter data yet.")
@@ -1945,12 +2631,13 @@ class WizardHandler(BaseHTTPRequestHandler):
 
         _apply_profiles_from_payload(session, payload)
         try:
-            out_path, gamma_path, count, analyzed, people_count = _persist_session_progress(session)
+            out_path, gamma_path, count, analyzed, people_count, subtitle_count = _persist_session_progress(session)
         except Exception as exc:
             self._send_error_json(str(exc))
             return
         gamma_count = len(session.gamma_ranges)
         people_path = METADATA_DIR / str(session.archive or "").strip() / "people.tsv"
+        subtitles_path = METADATA_DIR / str(session.archive or "").strip() / "subtitles.tsv"
 
         archive_state = _archive_state(session, session.archive, selected_title=session.chapter)
         self._send_json(
@@ -1960,9 +2647,12 @@ class WizardHandler(BaseHTTPRequestHandler):
                     f"Saved BAD_FRAMES for {session.chapter} "
                     f"({int(analyzed)} analyzed, {int(count)} bad). "
                     f"Saved gamma ranges: {int(gamma_count)}. "
-                    f"Saved people entries: {int(people_count)}."
+                    f"Saved people entries: {int(people_count)}. "
+                    f"Saved subtitle entries: {int(subtitle_count)}."
                 ),
-                "metadata_path": str(gamma_path or out_path or people_path) if (gamma_path or out_path or people_path) else "",
+                "metadata_path": str(gamma_path or out_path or subtitles_path or people_path)
+                if (gamma_path or out_path or subtitles_path or people_path)
+                else "",
                 "archive_state": archive_state,
             }
         )
@@ -1973,7 +2663,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             return
         _apply_profiles_from_payload(session, payload)
         try:
-            out_path, gamma_path, count, analyzed, people_count = _persist_session_progress(session)
+            out_path, gamma_path, count, analyzed, people_count, subtitle_count = _persist_session_progress(session)
         except Exception as exc:
             self._send_error_json(str(exc))
             return
@@ -1984,9 +2674,15 @@ class WizardHandler(BaseHTTPRequestHandler):
                     f"Progress saved for {session.chapter}: "
                     f"BAD_FRAMES {int(count)}/{int(analyzed)}, "
                     f"gamma ranges {int(len(session.gamma_ranges))}, "
-                    f"people entries {int(people_count)}."
+                    f"people entries {int(people_count)}, "
+                    f"subtitle entries {int(subtitle_count)}."
                 ),
-                "metadata_path": str(gamma_path or out_path or (METADATA_DIR / str(session.archive or '').strip() / 'people.tsv')),
+                "metadata_path": str(
+                    gamma_path
+                    or out_path
+                    or (METADATA_DIR / str(session.archive or "").strip() / "subtitles.tsv")
+                    or (METADATA_DIR / str(session.archive or "").strip() / "people.tsv")
+                ),
             }
         )
 

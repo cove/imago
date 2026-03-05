@@ -454,6 +454,74 @@
       user-select: none;
       z-index: 2;
     }
+    .subtitle-timeline-bar {
+      position: absolute;
+      height: 18px;
+      border: 1px solid rgba(120, 220, 170, 0.68);
+      border-radius: 2px;
+      background: rgba(85, 165, 128, 0.24);
+      color: var(--text-strong);
+      font-size: 11px;
+      line-height: 16px;
+      padding: 0 5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      user-select: none;
+      pointer-events: auto;
+      cursor: text;
+      z-index: 2;
+    }
+    .subtitle-timeline-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1 1 auto;
+      pointer-events: none;
+    }
+    .subtitle-timeline-delete {
+      border: 1px solid rgba(225, 111, 122, 0.72);
+      border-radius: 2px;
+      background: rgba(225, 111, 122, 0.16);
+      color: #ffd2d7;
+      font-size: 10px;
+      line-height: 1;
+      padding: 1px 3px;
+      cursor: pointer;
+      flex: 0 0 auto;
+      pointer-events: auto;
+    }
+    .subtitle-timeline-delete:hover {
+      background: rgba(225, 111, 122, 0.34);
+    }
+    .subtitle-timeline-input {
+      width: 100%;
+      border: 1px solid rgba(182, 239, 211, 0.82);
+      border-radius: 2px;
+      background: rgba(4, 16, 12, 0.85);
+      color: #d8f7e6;
+      font-size: 11px;
+      line-height: 14px;
+      padding: 0 4px;
+      height: 14px;
+      min-width: 0;
+      outline: none;
+    }
+    .subtitle-timeline-input:focus {
+      border-color: rgba(202, 248, 224, 0.95);
+      box-shadow: 0 0 0 1px rgba(98, 194, 143, 0.34);
+    }
+    .people-timeline-lane-bg.subtitle {
+      background: rgba(14, 34, 26, 0.28);
+    }
+    .people-timeline-lane-label.subtitle {
+      border-color: rgba(120, 220, 170, 0.42);
+      color: rgba(190, 236, 212, 0.92);
+    }
     .people-timeline-bar:active {
       cursor: grabbing;
     }
@@ -573,22 +641,22 @@
       top: 1px;
       right: 1px;
       bottom: 1px;
-      width: 34px;
+      width: 32px;
       border: 1px solid rgba(178, 190, 208, 0.5);
       border-radius: 2px;
       background:
-        linear-gradient(180deg, rgba(214, 221, 231, 0.3), rgba(126, 142, 162, 0.22) 34%, rgba(32, 46, 63, 0.66) 35%, rgba(17, 27, 40, 0.85));
+        linear-gradient(180deg, rgba(214, 221, 231, 0.26), rgba(126, 142, 162, 0.18) 34%, rgba(32, 46, 63, 0.6) 35%, rgba(17, 27, 40, 0.82));
       box-shadow:
         inset 1px 1px 0 rgba(238, 244, 255, 0.28),
         inset -1px -1px 0 rgba(6, 12, 20, 0.65),
         0 0 0 1px rgba(10, 16, 25, 0.4);
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      gap: 2px;
-      padding: 2px 0;
-      cursor: ns-resize;
+      align-items: stretch;
+      justify-content: center;
+      gap: 3px;
+      padding: 3px;
+      cursor: default;
       user-select: none;
       z-index: 8;
       color: #d7dfec;
@@ -605,63 +673,37 @@
       outline: 1px solid var(--accent);
       outline-offset: 1px;
     }
-    .people-timeline-zoom-cap {
-      font-size: 8px;
-      line-height: 1;
-      color: rgba(228, 236, 247, 0.88);
-      text-shadow: 0 1px 0 rgba(8, 14, 22, 0.7);
-      pointer-events: auto;
-      cursor: ns-resize;
+    .people-timeline-zoom-btn {
       width: 100%;
+      border: 1px solid rgba(214, 224, 237, 0.44);
+      border-radius: 2px;
+      background: rgba(18, 30, 44, 0.92);
+      color: #dce6f6;
+      font-size: 13px;
+      line-height: 16px;
+      font-weight: 700;
       text-align: center;
-      padding: 1px 0;
-      border-radius: 1px;
+      padding: 0;
+      cursor: pointer;
+      min-height: 16px;
     }
-    .people-timeline-zoom-cap:hover {
-      background: rgba(210, 221, 238, 0.16);
-    }
-    .people-timeline-zoom-wheel {
-      width: 18px;
-      flex: 1 1 auto;
-      min-height: 34px;
-      border: 1px solid rgba(215, 223, 237, 0.46);
-      border-radius: 7px;
-      background:
-        linear-gradient(90deg, rgba(208, 216, 228, 0.52), rgba(85, 102, 124, 0.42) 22%, rgba(43, 56, 74, 0.86) 50%, rgba(85, 102, 124, 0.42) 78%, rgba(208, 216, 228, 0.52)),
-        repeating-linear-gradient(180deg, rgba(11, 20, 31, 0.18) 0 2px, rgba(226, 233, 245, 0.08) 2px 4px);
-      box-shadow:
-        inset 1px 0 0 rgba(242, 247, 255, 0.22),
-        inset -1px 0 0 rgba(7, 13, 21, 0.72);
-      position: relative;
-      pointer-events: auto;
-      cursor: ns-resize;
-      background-position: 0 calc(var(--wheel-shift, 0px));
-      transform: rotate(calc(var(--wheel-shift, 0px) * 1.3deg));
-      transition: background-position 90ms linear, transform 90ms linear;
-    }
-    .people-timeline-zoom-wheel::after {
-      content: '';
-      position: absolute;
-      left: 50%;
-      top: 4px;
-      bottom: 4px;
-      width: 1px;
-      transform: translateX(-50%);
-      background: rgba(240, 246, 255, 0.2);
+    .people-timeline-zoom-btn:hover {
+      background: rgba(30, 48, 69, 0.96);
     }
     .people-timeline-zoom-readout {
-      min-width: 26px;
-      padding: 0 2px;
+      width: 100%;
+      padding: 0;
       border: 1px solid rgba(220, 228, 240, 0.35);
       border-radius: 2px;
       background: rgba(8, 14, 22, 0.78);
       color: #e4ecfa;
       font-size: 8px;
-      line-height: 11px;
+      line-height: 14px;
       text-align: center;
       letter-spacing: 0.1px;
       pointer-events: auto;
       cursor: pointer;
+      min-height: 14px;
     }
     .people-editor {
       width: 100%;
@@ -675,6 +717,9 @@
       font-family: "Consolas", "Courier New", monospace;
       font-size: 12px;
       line-height: 1.35;
+    }
+    .subtitles-editor {
+      min-height: 150px;
     }
     .frame-grid {
       border: 1px solid var(--line);
@@ -1229,6 +1274,7 @@
               <label for="peopleNames">People</label>
               <input id="peopleNames" type="text" placeholder="Name1 | Name2">
               <button id="peoplePrefillCast" class="action" type="button">Auto-fill From Cast</button>
+              <button id="subtitlesGenerate" class="action" type="button">Generate Subtitles</button>
               <button id="peopleAddVisible" class="action" type="button">Add Visible Range</button>
               <button id="peopleClear" class="action warn" type="button">Clear Entries</button>
             </div>
@@ -1246,7 +1292,6 @@
           <div id="peopleTimeline" class="people-timeline hidden-ui"></div>
           <div id="sparkMeta" class="spark-meta"></div>
           <div id="gammaRangeMeta" class="spark-meta hidden-ui"></div>
-          <div id="peopleMeta" class="spark-meta hidden-ui"></div>
         </div>
 
         <div id="flipbookPreview" class="flipbook-preview" aria-hidden="true">
@@ -1282,7 +1327,7 @@
         </div>
         <div id="gammaActions" class="actions hidden-ui">
           <button id="backToReviewFromGamma" class="action warn">Back: Bad Frames</button>
-          <button id="nextToPeople" class="action primary">Next: People Subtitles</button>
+          <button id="nextToPeople" class="action primary">Next: Subtitles</button>
         </div>
         <div id="peopleActions" class="actions hidden-ui">
           <button id="backToGammaFromPeople" class="action warn">Back: Gamma Correction</button>
@@ -1295,7 +1340,7 @@
       <div class="page-final-layout">
         <div id="summaryBox" class="summary-box">No summary yet.</div>
         <div class="actions">
-          <button id="backToReview" class="action warn">Back: People Subtitles</button>
+          <button id="backToReview" class="action warn">Back: Subtitles</button>
           <button id="saveAndReturn" class="action primary">Save and Return to Chapters</button>
         </div>
       </div>
@@ -1327,7 +1372,7 @@
         <button id="helpCloseBtn" class="action warn" type="button">Close</button>
       </div>
       <div class="help-body">
-        <p>This wizard lets you mark bad sampled frames, tune gamma, and author people subtitle ranges. Progress saves write <code>BAD_FRAMES</code> + gamma metadata to <code>metadata/&lt;archive&gt;/render_settings.json</code> and people subtitle ranges to <code>metadata/&lt;archive&gt;/people.tsv</code>. During render, subtitle files are generated from that data.</p>
+        <p>This wizard lets you mark bad sampled frames, tune gamma, author people subtitle ranges, and edit dialogue subtitles. Progress saves write <code>BAD_FRAMES</code> + gamma metadata to <code>metadata/&lt;archive&gt;/render_settings.json</code>, people subtitle ranges to <code>metadata/&lt;archive&gt;/people.tsv</code>, and dialogue subtitle rows to <code>metadata/&lt;archive&gt;/subtitles.tsv</code>. During render, subtitle files are generated from that data.</p>
 
         <h3>Step 1: Load Chapter</h3>
         <ol>
@@ -1357,16 +1402,19 @@
           <li>Use <code>Mode = Visible Range Regions</code> then click <code>Apply Visible Range</code> to add per-range gamma values.</li>
         </ul>
 
-        <h3>Step 4: People Subtitles</h3>
+        <h3>Step 4: Subtitles</h3>
         <ul>
           <li>Scroll the frame grid to the visible frame range where people appear.</li>
           <li>Optionally click <code>Auto-fill From Cast</code> for a first-pass draft from <code>cast/data</code>.</li>
+          <li>Click <code>Generate Subtitles</code> to auto-transcribe the chapter into timeline subtitle boxes.</li>
+          <li>Double-click a subtitle box to edit text, or click <code>x</code> to delete it.</li>
           <li>Use the timeline scrub slider to move quickly across chapter timecodes.</li>
           <li>Click anywhere on the people timeline to type a name, then press <code>Enter</code> to create a 2s bar.</li>
           <li>Drag a bar to move it, drag left/right grips to resize, double-click a bar to rename, and click <code>x</code> to delete.</li>
-          <li>Use the mouse wheel over the timeline wheel (right edge), or click top/bottom arrows to zoom in/out. Click the zoom value to reset.</li>
+          <li>Use the <code>+</code> and <code>-</code> controls on the timeline right edge to zoom in/out. Click the zoom value to reset.</li>
           <li>Enter one or more names (for example <code>Jim | Linda</code>) and click <code>Add Visible Range</code>.</li>
           <li>Each entry is written in chapter-local time format: <code>HH:MM:SS.mmm</code>.</li>
+          <li>Subtitle confidence/source metadata is preserved for saves and render, but hidden in this tuner view.</li>
           <li>Use <code>Save Progress</code> anytime to persist wizard progress and resume later.</li>
         </ul>
 
@@ -1424,13 +1472,17 @@
         entries: [],
         source: 'default',
       },
+      subtitlesProfile: {
+        entries: [],
+        source: 'default',
+      },
     };
 
     const STEP_DEFS = [
       { num: 1, label: 'Load Chapter', pageId: 'page1', mode: 'load' },
       { num: 2, label: 'Bad Frames + IQR', pageId: 'page2', mode: 'review' },
       { num: 3, label: 'Gamma Correction', pageId: 'page2', mode: 'gamma' },
-      { num: 4, label: 'People Subtitles', pageId: 'page2', mode: 'people' },
+      { num: 4, label: 'Subtitles', pageId: 'page2', mode: 'people' },
       { num: 5, label: 'Summary + Save', pageId: 'page3', mode: 'summary' },
     ];
     const STEP_BY_NUM = new Map(STEP_DEFS.map((step) => [step.num, step]));
@@ -1487,10 +1539,13 @@
     const peopleControlsEl = document.getElementById('peopleControls');
     const peopleNamesEl = document.getElementById('peopleNames');
     const peoplePrefillCastBtnEl = document.getElementById('peoplePrefillCast');
+    const subtitlesGenerateBtnEl = document.getElementById('subtitlesGenerate');
     const peopleAddVisibleBtnEl = document.getElementById('peopleAddVisible');
     const peopleClearBtnEl = document.getElementById('peopleClear');
     const peopleMetaEl = document.getElementById('peopleMeta');
+    const subtitlesMetaEl = document.getElementById('subtitlesMeta');
     const peopleEditorEl = document.getElementById('peopleEditor');
+    const subtitlesEditorEl = document.getElementById('subtitlesEditor');
     const reviewStatsEl = document.getElementById('reviewStats');
     const frameGridEl = document.getElementById('frameGrid');
     const summaryBoxEl = document.getElementById('summaryBox');
@@ -1527,11 +1582,13 @@
     let visibleRangeRefreshPending = false;
     let loadProgressPollTimer = null;
     let previewProgressPollTimer = null;
+    let subtitlesProgressPollTimer = null;
     let loadSampleTimingStartAt = 0;
     let loadSampleTimingStartDone = 0;
     let progressiveReviewFrameCount = 0;
     let isChapterLoadInFlight = false;
     let isPreviewRenderInFlight = false;
+    let isSubtitlesGenerateInFlight = false;
     let sparkDragPointerId = null;
     let sparkDragRaf = null;
     let sparkDragClientX = 0;
@@ -1542,9 +1599,9 @@
     let flipbookToggleInFlight = false;
     let peopleTimelineRenderState = null;
     let peopleTimelineDraft = null;
+    let subtitleTimelineDraft = null;
     let peopleTimelineDrag = null;
     let peopleTimelineZoom = 1.0;
-    let peopleTimelineWheelShift = 0;
     const pendingToggleRequests = new Set();
     const navActionButtons = new Map();
     const lockExtraButtons = [
@@ -1552,6 +1609,7 @@
       gammaApplyVisibleBtnEl,
       gammaClearBtnEl,
       peoplePrefillCastBtnEl,
+      subtitlesGenerateBtnEl,
       peopleAddVisibleBtnEl,
       peopleClearBtnEl,
       saveProgressDraftBtnEl,
@@ -1747,7 +1805,7 @@
     }
 
     function updateActionLocks() {
-      const locked = Boolean(isChapterLoadInFlight || isPreviewRenderInFlight);
+      const locked = Boolean(isChapterLoadInFlight || isPreviewRenderInFlight || isSubtitlesGenerateInFlight);
       navActionButtons.forEach((el) => {
         if (el) el.disabled = locked;
       });
@@ -1896,6 +1954,62 @@
       updateActionLocks();
     }
 
+    async function pollSubtitlesProgressOnce() {
+      try {
+        const p = await api('/api/subtitles_progress');
+        const done = Number(p.segment_done || 0);
+        const total = Number(p.segment_total || 0);
+        const msg = String(p.message || '');
+        if (msg) {
+          if (total > 0) {
+            overlayMsgEl.textContent = `${msg} (${done}/${total})`;
+          } else {
+            overlayMsgEl.textContent = msg;
+          }
+        }
+        setOverlayProgress(Number(p.progress || 0));
+        renderReadyAtFromSamples(done, total);
+      } catch (_err) {
+        // Ignore transient polling errors while main request is in-flight.
+      }
+    }
+
+    function startSubtitlesProgress(message) {
+      if (subtitlesProgressPollTimer) {
+        window.clearInterval(subtitlesProgressPollTimer);
+        subtitlesProgressPollTimer = null;
+      }
+      setLoading(true, message || 'Generating dialogue subtitles with Whisper...');
+      isSubtitlesGenerateInFlight = true;
+      updateActionLocks();
+      loadSampleTimingStartAt = 0;
+      loadSampleTimingStartDone = 0;
+      setOverlayProgress(1);
+      renderReadyAtFromSamples(0, 0);
+      pollSubtitlesProgressOnce();
+      subtitlesProgressPollTimer = window.setInterval(pollSubtitlesProgressOnce, 220);
+    }
+
+    function finishSubtitlesProgress(success = true) {
+      if (subtitlesProgressPollTimer) {
+        window.clearInterval(subtitlesProgressPollTimer);
+        subtitlesProgressPollTimer = null;
+      }
+      if (success) {
+        setOverlayProgress(100);
+        renderReadyAtFromSamples(1, 1);
+        window.setTimeout(() => {
+          setLoading(false);
+        }, 180);
+      } else {
+        setLoading(false);
+      }
+      loadSampleTimingStartAt = 0;
+      loadSampleTimingStartDone = 0;
+      isSubtitlesGenerateInFlight = false;
+      updateActionLocks();
+    }
+
     function stepDef(rawStep) {
       const n = Math.trunc(Number(rawStep));
       return STEP_BY_NUM.get(n) || STEP_FIRST;
@@ -1981,6 +2095,7 @@
       const peopleMode = targetStep.mode === 'people';
       if (!peopleMode) {
         peopleTimelineDraft = null;
+        subtitleTimelineDraft = null;
         peopleTimelineDrag = null;
       }
       if (reviewControlsEl) reviewControlsEl.classList.toggle('hidden-ui', gammaMode || peopleMode);
@@ -1996,6 +2111,7 @@
       if (gammaRangeMetaEl) gammaRangeMetaEl.classList.toggle('hidden-ui', !gammaMode);
       if (peopleMetaEl) peopleMetaEl.classList.toggle('hidden-ui', !peopleMode);
       if (peopleEditorEl) peopleEditorEl.classList.toggle('hidden-ui', !peopleMode);
+      if (subtitlesEditorEl) subtitlesEditorEl.classList.toggle('hidden-ui', !peopleMode);
       if (flipbookGammaControlsEl) flipbookGammaControlsEl.classList.toggle('hidden-ui', !gammaMode);
       if (flipbookSimFreezeWrapEl) flipbookSimFreezeWrapEl.classList.toggle('hidden-ui', gammaMode);
 
@@ -2012,6 +2128,7 @@
       }
       if (peopleMode) {
         updatePeopleMeta();
+        updateSubtitlesMeta();
       }
       updateFullscreenButton();
       refreshGammaVisuals();
@@ -2438,6 +2555,257 @@
       return true;
     }
 
+    function normalizeSubtitleText(raw) {
+      return String(raw || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function parseSubtitleConfidenceValue(raw) {
+      const text = String(raw || '').trim();
+      if (!text) return null;
+      const value = Number(text);
+      if (!Number.isFinite(value)) return null;
+      return _clamp(value, 0, 1);
+    }
+
+    function formatSubtitleConfidenceValue(raw) {
+      const value = parseSubtitleConfidenceValue(raw);
+      if (value === null) return '';
+      return value.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+    }
+
+    function canonicalizeSubtitlesEntries(rawEntries) {
+      const duration = chapterDurationSeconds();
+      const rows = [];
+      (Array.isArray(rawEntries) ? rawEntries : []).forEach((item, idx) => {
+        const startRaw = item && Object.prototype.hasOwnProperty.call(item, 'start_seconds')
+          ? item.start_seconds
+          : (item ? item.start : null);
+        const endRaw = item && Object.prototype.hasOwnProperty.call(item, 'end_seconds')
+          ? item.end_seconds
+          : (item ? item.end : null);
+        const start = parseTimestampSeconds(startRaw);
+        const end = parseTimestampSeconds(endRaw);
+        const text = normalizeSubtitleText(item && item.text);
+        if (start === null || end === null || end <= start || !text) return;
+        const a = _clamp(start, 0, duration);
+        const b = _clamp(end, 0, duration);
+        if (b <= a) return;
+        const speaker = normalizeSubtitleText(item && item.speaker);
+        const confidence = parseSubtitleConfidenceValue(item && item.confidence);
+        const source = normalizeSubtitleText(item && item.source);
+        rows.push({
+          start: Number(a.toFixed(3)),
+          end: Number(b.toFixed(3)),
+          text,
+          speaker,
+          confidence,
+          source,
+          idx: Number(idx || 0),
+        });
+      });
+      rows.sort((a, b) => {
+        if (a.start !== b.start) return a.start - b.start;
+        if (a.end !== b.end) return a.end - b.end;
+        return a.idx - b.idx;
+      });
+      return rows.map((row) => ({
+        start_seconds: row.start,
+        end_seconds: row.end,
+        start: formatTimestampSeconds(row.start),
+        end: formatTimestampSeconds(row.end),
+        text: row.text,
+        speaker: row.speaker || '',
+        confidence: row.confidence,
+        source: row.source || '',
+      }));
+    }
+
+    function normalizeSubtitlesProfile(rawProfile) {
+      const raw = (rawProfile && typeof rawProfile === 'object') ? rawProfile : {};
+      return {
+        entries: canonicalizeSubtitlesEntries(raw.entries || []),
+        source: String(raw.source || 'default'),
+      };
+    }
+
+    function subtitleEntriesToEditorText(entries) {
+      const rows = canonicalizeSubtitlesEntries(entries);
+      if (!rows.length) return '';
+      const includeSpeaker = rows.some((row) => String(row && row.speaker || '').trim().length > 0);
+      const includeConfidence = rows.some((row) => parseSubtitleConfidenceValue(row && row.confidence) !== null);
+      const includeSource = rows.some((row) => String(row && row.source || '').trim().length > 0);
+      return rows
+        .map((row) => {
+          const cols = [row.start, row.end, row.text];
+          if (includeSpeaker || includeConfidence || includeSource) {
+            cols.push(String(row.speaker || '').trim());
+          }
+          if (includeConfidence || includeSource) {
+            cols.push(formatSubtitleConfidenceValue(row.confidence));
+          }
+          if (includeSource) {
+            cols.push(String(row.source || '').trim());
+          }
+          return cols.join('\t');
+        })
+        .join('\n');
+    }
+
+    function parseSubtitlesEditorText(rawText) {
+      const entries = [];
+      const errors = [];
+      const lines = String(rawText || '').split(/\r?\n/);
+      lines.forEach((line, idx) => {
+        const text = String(line || '').trim();
+        if (!text) return;
+        if (/^start\s*[\t,]/i.test(text)) return;
+        const parts = text.includes('\t') ? text.split('\t') : text.split(',');
+        if (parts.length < 3) {
+          errors.push(`Line ${idx + 1}: expected "start<TAB>end<TAB>text[<TAB>speaker<TAB>confidence<TAB>source]".`);
+          return;
+        }
+        const hasTab = text.includes('\t');
+        let subtitleText = '';
+        let speaker = '';
+        let confidence = '';
+        let source = '';
+        if (hasTab) {
+          subtitleText = String(parts[2] || '').trim();
+          speaker = parts.length >= 4 ? String(parts[3] || '').trim() : '';
+          confidence = parts.length >= 5 ? String(parts[4] || '').trim() : '';
+          source = parts.length >= 6 ? String(parts.slice(5).join('\t') || '').trim() : '';
+        } else {
+          subtitleText = String(parts.slice(2).join(',') || '').trim();
+        }
+        entries.push({
+          start: String(parts[0] || '').trim(),
+          end: String(parts[1] || '').trim(),
+          text: subtitleText,
+          speaker,
+          confidence,
+          source,
+        });
+      });
+      return { entries: canonicalizeSubtitlesEntries(entries), errors };
+    }
+
+    function refreshSubtitlesEditorFromState() {
+      subtitleTimelineDraft = null;
+      if (subtitlesEditorEl) {
+        subtitlesEditorEl.value = subtitleEntriesToEditorText((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
+      }
+      updateSubtitlesMeta();
+    }
+
+    function syncSubtitlesProfileFromEditor(showErrors = true) {
+      if (!subtitlesEditorEl) {
+        state.subtitlesProfile = normalizeSubtitlesProfile(state.subtitlesProfile || null);
+        return true;
+      }
+      const parsed = parseSubtitlesEditorText(subtitlesEditorEl.value || '');
+      if (parsed.errors.length) {
+        if (showErrors) {
+          setStatus(parsed.errors[0], true);
+        }
+        return false;
+      }
+      state.subtitlesProfile = {
+        ...(state.subtitlesProfile || {}),
+        entries: parsed.entries,
+      };
+      subtitlesEditorEl.value = subtitleEntriesToEditorText(parsed.entries);
+      updateSubtitlesMeta();
+      return true;
+    }
+
+    function deleteSubtitleTimelineEntry(entryIndex) {
+      const idx = Number(entryIndex);
+      const rows = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
+      if (!Number.isFinite(idx) || idx < 0 || idx >= rows.length) return;
+      const next = rows.slice(0, idx).concat(rows.slice(idx + 1));
+      state.subtitlesProfile = {
+        ...(state.subtitlesProfile || {}),
+        entries: canonicalizeSubtitlesEntries(next),
+      };
+      if (subtitleTimelineDraft) {
+        const draftIdx = Math.trunc(Number(subtitleTimelineDraft.entryIndex));
+        if (draftIdx === idx) {
+          subtitleTimelineDraft = null;
+        } else if (Number.isFinite(draftIdx) && draftIdx > idx) {
+          subtitleTimelineDraft = {
+            ...subtitleTimelineDraft,
+            entryIndex: draftIdx - 1,
+          };
+        }
+      }
+      updateSubtitlesMeta();
+      updateReviewStatsDisplay();
+      setStatus('Deleted subtitle entry.');
+    }
+
+    function editSubtitleTimelineEntry(entryIndex) {
+      const idx = Math.trunc(Number(entryIndex));
+      const rows = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
+      if (!Number.isFinite(idx) || idx < 0 || idx >= rows.length) return;
+      const row = rows[idx];
+      peopleTimelineDraft = null;
+      peopleTimelineDrag = null;
+      subtitleTimelineDraft = {
+        entryIndex: idx,
+        text: String(row && row.text || ''),
+      };
+      renderPeopleTimeline(currentPeopleTimelineCursorSeconds());
+    }
+
+    function clearSubtitleTimelineDraft() {
+      if (!subtitleTimelineDraft) return;
+      subtitleTimelineDraft = null;
+      renderPeopleTimeline(currentPeopleTimelineCursorSeconds());
+    }
+
+    function commitSubtitleTimelineDraft() {
+      if (!subtitleTimelineDraft) return false;
+      const idx = Math.trunc(Number(subtitleTimelineDraft.entryIndex));
+      const rows = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
+      if (!Number.isFinite(idx) || idx < 0 || idx >= rows.length) {
+        subtitleTimelineDraft = null;
+        updateSubtitlesMeta();
+        return false;
+      }
+      const priorText = String(rows[idx] && rows[idx].text || '');
+      const nextText = normalizeSubtitleText(subtitleTimelineDraft.text);
+      if (!nextText) {
+        setStatus('Subtitle text cannot be empty.', true);
+        return false;
+      }
+      if (nextText !== priorText) {
+        rows[idx] = {
+          ...rows[idx],
+          text: nextText,
+        };
+        state.subtitlesProfile = {
+          ...(state.subtitlesProfile || {}),
+          entries: canonicalizeSubtitlesEntries(rows),
+        };
+        updateReviewStatsDisplay();
+        setStatus('Updated subtitle text.');
+      }
+      subtitleTimelineDraft = null;
+      updateSubtitlesMeta();
+      return true;
+    }
+
+    function updateSubtitlesMeta() {
+      if (subtitlesMetaEl) {
+        subtitlesMetaEl.textContent = '';
+      }
+      if (!isPeopleStepActive()) {
+        renderPeopleTimeline();
+        return;
+      }
+      renderPeopleTimeline();
+    }
+
     function visiblePeopleEntryFromRange(peopleText) {
       const names = String(peopleText || '').replace(/\s+/g, ' ').trim();
       if (!names) return null;
@@ -2513,14 +2881,6 @@
       const base = Number(peopleTimelineZoom || 1.0);
       const next = dir > 0 ? (base * factor) : (base / factor);
       const clamped = _clamp(next, 0.25, 12.0);
-      const zoomDelta = clamped - base;
-      if (Math.abs(zoomDelta) > 0.000001) {
-        const spinDir = zoomDelta > 0 ? 1 : -1;
-        peopleTimelineWheelShift += spinDir * 2.5;
-        if (peopleTimelineWheelShift > 2000 || peopleTimelineWheelShift < -2000) {
-          peopleTimelineWheelShift = Number(peopleTimelineWheelShift % 2000);
-        }
-      }
       setPeopleTimelineZoom(clamped);
     }
 
@@ -2622,11 +2982,13 @@
       }
 
       const entries = canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
+      const subtitleEntries = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
       const frames = (state.review && Array.isArray(state.review.frames)) ? state.review.frames : [];
       const duration = Math.max(
         timelineFrameStepSeconds(),
         chapterDurationSeconds(),
-        entries.reduce((mx, row) => Math.max(mx, Number(row.end_seconds || 0)), 0)
+        entries.reduce((mx, row) => Math.max(mx, Number(row.end_seconds || 0)), 0),
+        subtitleEntries.reduce((mx, row) => Math.max(mx, Number(row.end_seconds || 0)), 0)
       );
 
       let currentSec = Number(cursorSeconds);
@@ -2640,6 +3002,32 @@
       }
       currentSec = _clamp(currentSec, 0, duration);
 
+      const subtitleRows = [];
+      const subtitleLaneEnds = [];
+      subtitleEntries
+        .map((row, idx) => ({ ...row, idx: Number(idx || 0) }))
+        .sort((a, b) => {
+          const aStart = Number(a.start_seconds || 0);
+          const bStart = Number(b.start_seconds || 0);
+          if (aStart !== bStart) return aStart - bStart;
+          const aEnd = Number(a.end_seconds || 0);
+          const bEnd = Number(b.end_seconds || 0);
+          if (aEnd !== bEnd) return aEnd - bEnd;
+          return Number(a.idx || 0) - Number(b.idx || 0);
+        })
+        .forEach((row) => {
+          const startSec = Number(row.start_seconds || 0);
+          const endSec = Number(row.end_seconds || 0);
+          if (!Number.isFinite(startSec) || !Number.isFinite(endSec) || endSec <= startSec) return;
+          let lane = 0;
+          while (lane < subtitleLaneEnds.length && startSec < (Number(subtitleLaneEnds[lane]) - 0.001)) {
+            lane += 1;
+          }
+          subtitleLaneEnds[lane] = endSec;
+          subtitleRows.push({ ...row, lane });
+        });
+      const subtitleLaneCount = subtitleRows.length ? Math.max(1, subtitleLaneEnds.length) : 0;
+
       const baseViewportSeconds = Math.max(20, Math.min(180, Math.max(30, duration * 0.14)));
       const minViewportSeconds = Math.min(duration, Math.max(timelineFrameStepSeconds() * 3, 0.2));
       const maxViewportSeconds = Math.max(minViewportSeconds, duration);
@@ -2649,11 +3037,21 @@
         viewportSeconds = Math.max(minViewportSeconds, 0.2);
       }
 
-      const playheadRatio = 0.35;
       const maxWindowStart = Math.max(0, duration - viewportSeconds);
-      let windowStart = currentSec - (viewportSeconds * playheadRatio);
-      windowStart = _clamp(windowStart, 0, maxWindowStart);
-      const windowEnd = windowStart + viewportSeconds;
+      const priorWindowStart = Number(peopleTimelineRenderState && peopleTimelineRenderState.windowStart);
+      let windowStart = Number.isFinite(priorWindowStart)
+        ? _clamp(priorWindowStart, 0, maxWindowStart)
+        : _clamp(currentSec - (viewportSeconds * 0.35), 0, maxWindowStart);
+      let windowEnd = windowStart + viewportSeconds;
+      const leadMargin = viewportSeconds * 0.1;
+      const tailMargin = viewportSeconds * 0.9;
+      if (currentSec < (windowStart + leadMargin)) {
+        windowStart = _clamp(currentSec - leadMargin, 0, maxWindowStart);
+        windowEnd = windowStart + viewportSeconds;
+      } else if (currentSec > (windowStart + tailMargin)) {
+        windowStart = _clamp(currentSec - tailMargin, 0, maxWindowStart);
+        windowEnd = windowStart + viewportSeconds;
+      }
       const windowSpan = Math.max(0.001, windowEnd - windowStart);
 
       const maxLane = entries.reduce((mx, row) => {
@@ -2661,13 +3059,18 @@
         return Math.max(mx, lane);
       }, 0);
       const draftLane = peopleTimelineDraft ? Math.max(0, Math.trunc(Number(peopleTimelineDraft.lane || 0))) : 0;
-      const laneCount = Math.max(1, maxLane + 1, draftLane + 1);
+      const peopleLaneCount = Math.max(1, maxLane + 1, draftLane + 1);
       const laneHeight = 22;
       const topPad = 20;
-      const timelineHeight = Math.max(88, topPad + laneCount * laneHeight + 6);
+      const subtitleSectionGap = subtitleLaneCount > 0 ? 10 : 0;
+      const subtitleTopPad = topPad + peopleLaneCount * laneHeight + subtitleSectionGap;
+      const timelineHeight = Math.max(
+        88,
+        topPad + peopleLaneCount * laneHeight + subtitleSectionGap + subtitleLaneCount * laneHeight + 6
+      );
       peopleTimelineEl.style.height = `${timelineHeight}px`;
 
-      const tracksHtml = Array.from({ length: laneCount }, (_, lane) => {
+      const tracksHtml = Array.from({ length: peopleLaneCount }, (_, lane) => {
         const top = topPad + lane * laneHeight;
         const laneNum = lane + 1;
         const bgClass = lane % 2 === 1 ? ' alt' : '';
@@ -2676,6 +3079,17 @@
           <div class="people-timeline-lane-bg${bgClass}" style="top:${top}px;"></div>
           <div class="people-timeline-track" style="top:${top}px;"></div>
           <div class="people-timeline-lane-label" style="top:${labelTop}px;">L${laneNum}</div>
+        `;
+      }).join('');
+      const subtitleTracksHtml = Array.from({ length: subtitleLaneCount }, (_, lane) => {
+        const top = subtitleTopPad + lane * laneHeight;
+        const laneNum = lane + 1;
+        const bgClass = lane % 2 === 1 ? ' alt' : '';
+        const labelTop = top + 4;
+        return `
+          <div class="people-timeline-lane-bg subtitle${bgClass}" data-subtitle-region="1" style="top:${top}px;"></div>
+          <div class="people-timeline-track" data-subtitle-region="1" style="top:${top}px;"></div>
+          <div class="people-timeline-lane-label subtitle" data-subtitle-region="1" style="top:${labelTop}px;">S${laneNum}</div>
         `;
       }).join('');
 
@@ -2700,6 +3114,35 @@
             <span class="people-timeline-name">${label}</span>
             <button class="people-timeline-delete" type="button" data-delete="1" title="Delete subtitle range">x</button>
             <span class="people-timeline-grip right" data-resize="end" aria-hidden="true"></span>
+          </div>
+        `;
+      }).join('');
+      const subtitleBarsHtml = subtitleRows.map((row) => {
+        const startSec = Number(row.start_seconds || 0);
+        const endSec = Number(row.end_seconds || 0);
+        if (!Number.isFinite(startSec) || !Number.isFinite(endSec) || endSec <= startSec) return '';
+        const clipStart = Math.max(startSec, windowStart);
+        const clipEnd = Math.min(endSec, windowEnd);
+        if (clipEnd <= clipStart) return '';
+        const lane = Math.max(0, Math.trunc(Number(row.lane || 0)));
+        const leftPct = _clamp(((clipStart - windowStart) / windowSpan) * 100, 0, 100);
+        const rightPct = _clamp(((clipEnd - windowStart) / windowSpan) * 100, leftPct, 100);
+        const widthPct = Math.min(100 - leftPct, Math.max(0.8, rightPct - leftPct));
+        const top = subtitleTopPad + (lane * laneHeight) + 2;
+        const label = escapeHtml(String(row.text || ''));
+        const title = escapeHtml(`${formatTimestampSeconds(startSec)}-${formatTimestampSeconds(endSec)}  ${String(row.text || '')}`);
+        const isEditing = Boolean(
+          subtitleTimelineDraft && Number(subtitleTimelineDraft.entryIndex) === Number(row.idx)
+        );
+        const bodyHtml = isEditing
+          ? `<input class="subtitle-timeline-input" type="text" spellcheck="false" data-subtitle-index="${Number(row.idx)}" value="${escapeHtml(String(subtitleTimelineDraft.text || ''))}" aria-label="Edit subtitle text">`
+          : `
+            <span class="subtitle-timeline-name">${label}</span>
+            <button class="subtitle-timeline-delete" type="button" data-subtitle-delete="1" title="Delete subtitle entry">x</button>
+          `;
+        return `
+          <div class="subtitle-timeline-bar" data-subtitle-region="1" data-subtitle-index="${Number(row.idx)}" style="left:${leftPct.toFixed(3)}%;width:${widthPct.toFixed(3)}%;top:${top}px;" title="${title}">
+            ${bodyHtml}
           </div>
         `;
       }).join('');
@@ -2759,15 +3202,16 @@
         <div class="people-timeline-playhead-label" style="left:${playheadPct.toFixed(3)}%;">${headNow}</div>
         ${tracksHtml}
         ${barsHtml}
+        ${subtitleTracksHtml}
+        ${subtitleBarsHtml}
         ${draftHtml}
         ${dragTooltipHtml}
         ${hintHtml}
-        <button class="people-timeline-zoom" type="button" style="--wheel-shift:${Number(peopleTimelineWheelShift || 0).toFixed(2)}px;" title="IRIX-style wheel: scroll or click top/bottom to zoom. Click value to reset.">
-          <span class="people-timeline-zoom-cap up" data-zoom="in" aria-hidden="true">&#9650;</span>
-          <span class="people-timeline-zoom-wheel" data-zoom="wheel" aria-hidden="true"></span>
-          <span class="people-timeline-zoom-cap down" data-zoom="out" aria-hidden="true">&#9660;</span>
-          <span class="people-timeline-zoom-readout" data-zoom="reset">${zoomValue}</span>
-        </button>
+        <div class="people-timeline-zoom" role="group" aria-label="Timeline zoom controls">
+          <button class="people-timeline-zoom-btn" type="button" data-zoom="in" title="Zoom in">+</button>
+          <button class="people-timeline-zoom-readout" type="button" data-zoom="reset" title="Reset zoom">${zoomValue}</button>
+          <button class="people-timeline-zoom-btn" type="button" data-zoom="out" title="Zoom out">-</button>
+        </div>
       `;
 
       peopleTimelineRenderState = {
@@ -2778,11 +3222,21 @@
         zoom: Number(peopleTimelineZoom || 1),
         laneHeight,
         topPad,
-        laneCount,
+        laneCount: peopleLaneCount + subtitleLaneCount,
       };
 
       if (peopleTimelineDraft) {
         const input = peopleTimelineEl.querySelector('.people-timeline-input');
+        if (input && document.activeElement !== input) {
+          try {
+            input.focus({ preventScroll: true });
+            input.select();
+          } catch (_err) {
+            input.focus();
+          }
+        }
+      } else if (subtitleTimelineDraft) {
+        const input = peopleTimelineEl.querySelector('.subtitle-timeline-input');
         if (input && document.activeElement !== input) {
           try {
             input.focus({ preventScroll: true });
@@ -2858,7 +3312,8 @@
       }
       if (isPeopleStepActive()) {
         const entries = canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
-        reviewStatsEl.textContent = `People Subtitles step | entries ${entries.length} | sampled ${state.review.frames.length}`;
+        const subtitleEntries = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
+        reviewStatsEl.textContent = `Subtitles step | people ${entries.length} | dialogue ${subtitleEntries.length} | sampled ${state.review.frames.length}`;
         return;
       }
       if (isGammaStepActive()) {
@@ -4205,8 +4660,10 @@
         startFrameEl.value = st.start_frame;
         endFrameEl.value = st.end_frame;
         state.peopleProfile = normalizePeopleProfile(null);
+        state.subtitlesProfile = normalizeSubtitlesProfile(null);
         peopleTimelineZoom = 1.0;
         refreshPeopleEditorFromState();
+        refreshSubtitlesEditorFromState();
         renderArchives();
         renderChapters();
         setStatus(st.status || '');
@@ -4251,12 +4708,14 @@
       state.gammaScores = new Map();
       state.gammaProfile = normalizeGammaProfile(null);
       state.peopleProfile = normalizePeopleProfile(null);
+      state.subtitlesProfile = normalizeSubtitlesProfile(null);
       peopleTimelineZoom = 1.0;
       if (peopleNamesEl) peopleNamesEl.value = '';
       state.review = { threshold: 0, stats: { total: 0, bad: 0, good: 0, shown: 0, overrides: 0 }, frames: [] };
       updateReviewStatsDisplay();
       renderReviewFrames([]);
       refreshPeopleEditorFromState();
+      refreshSubtitlesEditorFromState();
       setStepByMode('review');
       try {
         const result = await api('/api/load_chapter', 'POST', payload, 0);
@@ -4275,8 +4734,12 @@
         state.peopleProfile = normalizePeopleProfile(
           (state.loadSettings && state.loadSettings.people_profile) || null
         );
+        state.subtitlesProfile = normalizeSubtitlesProfile(
+          (state.loadSettings && state.loadSettings.subtitles_profile) || null
+        );
         updateGammaControls();
         refreshPeopleEditorFromState();
+        refreshSubtitlesEditorFromState();
         updateReviewStatsDisplay();
         renderReviewFrames(state.review.frames);
         iqrEl.value = String(payload.iqr_k);
@@ -4359,7 +4822,7 @@
     }
 
     async function prefillPeopleFromCast() {
-      if (isChapterLoadInFlight || isPreviewRenderInFlight) {
+      if (isChapterLoadInFlight || isPreviewRenderInFlight || isSubtitlesGenerateInFlight) {
         setStatus('Wait until current processing finishes before running Cast prefill.', true);
         return;
       }
@@ -4383,6 +4846,35 @@
         setStatus(err.message, true);
       } finally {
         setLoading(false);
+      }
+    }
+
+    async function generateSubtitlesFromWhisper() {
+      if (isChapterLoadInFlight || isPreviewRenderInFlight || isSubtitlesGenerateInFlight) {
+        setStatus('Wait until current processing finishes before generating subtitles.', true);
+        return;
+      }
+      if (!state.archive || !state.chapter) {
+        setStatus('Load a chapter before generating subtitles.', true);
+        return;
+      }
+      if (!syncPeopleProfileFromEditor(true)) return;
+      if (!syncSubtitlesProfileFromEditor(true)) return;
+      const hasExisting = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []).length > 0;
+      const mode = hasExisting ? 'append' : 'replace';
+      startSubtitlesProgress('Generating dialogue subtitles with Whisper...');
+      let ok = false;
+      try {
+        const result = await api('/api/subtitles_generate', 'POST', { mode }, 0);
+        state.subtitlesProfile = normalizeSubtitlesProfile(result.subtitles_profile || null);
+        refreshSubtitlesEditorFromState();
+        updateReviewStatsDisplay();
+        setStatus(result.message || 'Subtitle generation complete.');
+        ok = true;
+      } catch (err) {
+        setStatus(err.message, true);
+      } finally {
+        finishSubtitlesProgress(ok);
       }
     }
 
@@ -4531,15 +5023,17 @@
 
     async function openPeopleStep() {
       if (isChapterLoadInFlight) {
-        setStatus('Wait until frame loading finishes before entering people subtitles step.', true);
+        setStatus('Wait until frame loading finishes before entering subtitles step.', true);
         return;
       }
       if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) {
-        setStatus('Load and review frames before entering people subtitles step.', true);
+        setStatus('Load and review frames before entering subtitles step.', true);
         return;
       }
       if (!syncPeopleProfileFromEditor(true)) return;
+      if (!syncSubtitlesProfileFromEditor(true)) return;
       refreshPeopleEditorFromState();
+      refreshSubtitlesEditorFromState();
       setStepByMode('people', stepNumForMode('gamma', stepNumForMode('review')));
       updateReviewStatsDisplay();
     }
@@ -4668,6 +5162,7 @@
           setLoading(false);
         }
       }
+      if (!syncSubtitlesProfileFromEditor(true)) return;
       const saved = await saveProgress({ showOverlay: true, loadingText: 'Saving wizard progress...', silent: true });
       if (!saved) return;
       setLoading(true, 'Building summary...');
@@ -4703,7 +5198,7 @@
     }
 
     async function previewRender() {
-      if (isChapterLoadInFlight || isPreviewRenderInFlight) {
+      if (isChapterLoadInFlight || isPreviewRenderInFlight || isSubtitlesGenerateInFlight) {
         setStatus('Wait until frame loading finishes before preview render.', true);
         return;
       }
@@ -4749,7 +5244,11 @@
       if (!syncPeopleProfileFromEditor(Boolean(options.showErrors !== false))) {
         return false;
       }
+      if (!syncSubtitlesProfileFromEditor(Boolean(options.showErrors !== false))) {
+        return false;
+      }
       const peopleEntries = canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
+      const subtitleEntries = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
       const showOverlay = options.showOverlay !== false;
       const loadingText = String(options.loadingText || 'Saving wizard progress...');
       const silent = Boolean(options.silent);
@@ -4764,6 +5263,9 @@
           },
           people_profile: {
             entries: peopleEntries,
+          },
+          subtitles_profile: {
+            entries: subtitleEntries,
           },
         });
         if (!silent) {
@@ -4791,8 +5293,10 @@
         await flushPendingToggleRequests();
       }
       if (!syncPeopleProfileFromEditor(true)) return;
+      if (!syncSubtitlesProfileFromEditor(true)) return;
       const peopleEntries = canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
-      setLoading(true, 'Saving BAD frame, gamma, and people subtitle selections...');
+      const subtitleEntries = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
+      setLoading(true, 'Saving BAD frame, gamma, people, and subtitle selections...');
       try {
         const result = await api('/api/save', 'POST', {
           gamma_profile: {
@@ -4801,6 +5305,9 @@
           },
           people_profile: {
             entries: peopleEntries,
+          },
+          subtitles_profile: {
+            entries: subtitleEntries,
           },
         });
         setStatus(result.message || 'Saved.');
@@ -4811,6 +5318,8 @@
         state.chapters = st.chapters || [];
         startFrameEl.value = st.start_frame;
         endFrameEl.value = st.end_frame;
+        state.subtitlesProfile = normalizeSubtitlesProfile(null);
+        refreshSubtitlesEditorFromState();
 
         renderArchives();
         renderChapters();
@@ -4974,6 +5483,9 @@
     if (peoplePrefillCastBtnEl) {
       peoplePrefillCastBtnEl.addEventListener('click', prefillPeopleFromCast);
     }
+    if (subtitlesGenerateBtnEl) {
+      subtitlesGenerateBtnEl.addEventListener('click', generateSubtitlesFromWhisper);
+    }
     if (peopleAddVisibleBtnEl) {
       peopleAddVisibleBtnEl.addEventListener('click', addVisiblePeopleEntry);
     }
@@ -4986,6 +5498,14 @@
       });
       peopleEditorEl.addEventListener('blur', () => {
         syncPeopleProfileFromEditor(false);
+      });
+    }
+    if (subtitlesEditorEl) {
+      subtitlesEditorEl.addEventListener('change', () => {
+        syncSubtitlesProfileFromEditor(false);
+      });
+      subtitlesEditorEl.addEventListener('blur', () => {
+        syncSubtitlesProfileFromEditor(false);
       });
     }
     if (saveProgressDraftBtnEl) {
@@ -5031,6 +5551,16 @@
           event.preventDefault();
           return;
         }
+        const subtitleDeleteBtn = target.closest('.subtitle-timeline-delete');
+        if (subtitleDeleteBtn) {
+          const bar = subtitleDeleteBtn.closest('.subtitle-timeline-bar');
+          const idx = bar ? Number(bar.dataset.subtitleIndex) : NaN;
+          if (Number.isFinite(idx)) {
+            deleteSubtitleTimelineEntry(idx);
+          }
+          event.preventDefault();
+          return;
+        }
         const deleteBtn = target.closest('.people-timeline-delete');
         if (deleteBtn) {
           const bar = deleteBtn.closest('.people-timeline-bar');
@@ -5043,6 +5573,8 @@
         }
         if (target.closest('.people-timeline-input-wrap')) return;
         if (target.closest('.people-timeline-bar')) return;
+        if (target.closest('.subtitle-timeline-bar')) return;
+        if (target.closest('[data-subtitle-region="1"]')) return;
         if (peopleTimelineDrag) return;
         if (peopleTimelineDraft) {
           commitPeopleTimelineDraft();
@@ -5050,22 +5582,20 @@
         beginPeopleTimelineDraftFromPoint(event.clientX, event.clientY);
       });
 
-      peopleTimelineEl.addEventListener('wheel', (event) => {
-        if (!isPeopleStepActive()) return;
-        const target = event.target;
-        if (!(target instanceof HTMLElement)) return;
-        if (!target.closest('.people-timeline-zoom')) return;
-        const delta = Number(event.deltaY || 0);
-        if (!Number.isFinite(delta) || delta === 0) return;
-        const direction = delta < 0 ? 1 : -1;
-        nudgePeopleTimelineZoom(direction);
-        event.preventDefault();
-      }, { passive: false });
-
       peopleTimelineEl.addEventListener('dblclick', (event) => {
         if (!isPeopleStepActive()) return;
         const target = event.target;
         if (!(target instanceof HTMLElement)) return;
+        if (target.closest('.subtitle-timeline-delete')) return;
+        const subtitleBar = target.closest('.subtitle-timeline-bar');
+        if (subtitleBar) {
+          const idx = Number(subtitleBar.dataset.subtitleIndex);
+          if (Number.isFinite(idx)) {
+            event.preventDefault();
+            editSubtitleTimelineEntry(idx);
+          }
+          return;
+        }
         const bar = target.closest('.people-timeline-bar');
         if (!bar) return;
         const idx = Number(bar.dataset.entryIndex);
@@ -5079,7 +5609,13 @@
         if (!isPeopleStepActive()) return;
         const target = event.target;
         if (!(target instanceof HTMLElement)) return;
-        if (target.closest('.people-timeline-input-wrap') || target.closest('.people-timeline-delete') || target.closest('.people-timeline-zoom')) return;
+        if (
+          target.closest('.people-timeline-input-wrap')
+          || target.closest('.people-timeline-delete')
+          || target.closest('.people-timeline-zoom')
+          || target.closest('.subtitle-timeline-bar')
+          || target.closest('.subtitle-timeline-delete')
+        ) return;
         const bar = target.closest('.people-timeline-bar');
         if (!bar) return;
         const idx = Number(bar.dataset.entryIndex);
@@ -5109,6 +5645,11 @@
       peopleTimelineEl.addEventListener('input', (event) => {
         const target = event.target;
         if (!(target instanceof HTMLInputElement)) return;
+        if (target.classList.contains('subtitle-timeline-input')) {
+          if (!subtitleTimelineDraft) return;
+          subtitleTimelineDraft.text = target.value || '';
+          return;
+        }
         if (!target.classList.contains('people-timeline-input')) return;
         if (!peopleTimelineDraft) return;
         peopleTimelineDraft.text = target.value || '';
@@ -5117,6 +5658,18 @@
       peopleTimelineEl.addEventListener('keydown', (event) => {
         const target = event.target;
         if (!(target instanceof HTMLInputElement)) return;
+        if (target.classList.contains('subtitle-timeline-input')) {
+          if (!subtitleTimelineDraft) return;
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            subtitleTimelineDraft.text = target.value || '';
+            commitSubtitleTimelineDraft();
+          } else if (event.key === 'Escape') {
+            event.preventDefault();
+            clearSubtitleTimelineDraft();
+          }
+          return;
+        }
         if (!target.classList.contains('people-timeline-input')) return;
         if (!peopleTimelineDraft) return;
         if (event.key === 'Enter') {
@@ -5127,6 +5680,15 @@
           event.preventDefault();
           clearPeopleTimelineDraft();
         }
+      });
+
+      peopleTimelineEl.addEventListener('focusout', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement)) return;
+        if (!target.classList.contains('subtitle-timeline-input')) return;
+        if (!subtitleTimelineDraft) return;
+        subtitleTimelineDraft.text = target.value || '';
+        commitSubtitleTimelineDraft();
       });
     }
 
@@ -5235,6 +5797,7 @@
       updateActionLocks();
       updateGammaControls();
       refreshPeopleEditorFromState();
+      refreshSubtitlesEditorFromState();
       updateTimelineScrubUi();
       setSimFreezeFrame(state.simulateFreezeFrame);
       setStatus('Loading archives...');
