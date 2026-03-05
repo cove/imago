@@ -6,6 +6,8 @@ const IMAGE_CACHE_LIMIT = 200;
 const PRELOAD_RADIUS = 12;
 const TURN_DURATION_MS = 1248;
 const TURN_MAX_ANGLE = 164;
+const TURN_STRIP_COUNT_DESKTOP = 48;
+const TURN_STRIP_COUNT_MOBILE = 28;
 
 const state = {
   albums: [],
@@ -15,6 +17,8 @@ const state = {
   turning: false,
   imageCache: new Map(),
   turnRafId: 0,
+  turnFrontStrips: [],
+  turnBackStrips: [],
 };
 
 async function fetchJson(path) {
@@ -231,6 +235,91 @@ function renderBookPage(item, wrapId, titleId, captionId) {
   }
 }
 
+function getTurnStripCount() {
+  const base = window.innerWidth <= 900 ? TURN_STRIP_COUNT_MOBILE : TURN_STRIP_COUNT_DESKTOP;
+  const cores = Number(navigator.hardwareConcurrency || 8);
+  const memoryGb = Number(navigator.deviceMemory || 4);
+  const prefersReducedMotion =
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  let scale = 1;
+  if (cores <= 4) {
+    scale *= 0.65;
+  } else if (cores <= 6) {
+    scale *= 0.82;
+  }
+  if (memoryGb <= 4) {
+    scale *= 0.75;
+  }
+  if (prefersReducedMotion) {
+    scale *= 0.55;
+  }
+
+  const tuned = Math.round(base * scale);
+  return Math.max(12, Math.min(base, tuned));
+}
+
+function buildTurnStripSheet(url, count) {
+  const sheet = document.createElement("div");
+  sheet.className = "turn-strip-sheet";
+  const safeUrl = String(url).replace(/"/g, "%22");
+
+  const strips = [];
+  const safeCount = Math.max(2, count);
+  for (let i = 0; i < safeCount; i += 1) {
+    const strip = document.createElement("div");
+    strip.className = "turn-strip";
+    strip.style.setProperty("--i", String(i));
+    strip.style.setProperty("--strip-count", String(safeCount));
+    strip.style.backgroundImage = `url("${safeUrl}")`;
+    strip.style.backgroundSize = `${safeCount * 100}% 100%`;
+    const pct = (i * 100) / (safeCount - 1);
+    strip.style.backgroundPosition = `${pct}% 50%`;
+    sheet.appendChild(strip);
+    strips.push(strip);
+  }
+  return { sheet, strips };
+}
+
+function renderTurnFace(item, wrapId, titleId, captionId) {
+  const wrap = document.getElementById(wrapId);
+  clearNode(wrap);
+
+  if (titleId) {
+    setText(titleId, item ? item.title || "Untitled" : "");
+  }
+  if (captionId) {
+    setText(captionId, item ? item.caption || "" : "");
+  }
+
+  if (!item) {
+    const blank = document.createElement("p");
+    blank.className = "fallback";
+    blank.textContent = "Blank page";
+    wrap.appendChild(blank);
+    return { media: null, strips: [] };
+  }
+
+  const url = mediaUrlForItem(item);
+  if (item.type === "image" && typeof url === "string" && url) {
+    const built = buildTurnStripSheet(url, getTurnStripCount());
+    wrap.appendChild(built.sheet);
+    return { media: null, strips: built.strips };
+  }
+
+  const media = mediaElementForItem(item, { eager: true });
+  if (!media) {
+    const fallback = document.createElement("p");
+    fallback.className = "fallback";
+    fallback.textContent = "Missing image path/url.";
+    wrap.appendChild(fallback);
+    return { media: null, strips: [] };
+  }
+  wrap.appendChild(media);
+  return { media, strips: [] };
+}
+
 function primeImage(item) {
   if (!item || item.type !== "image") {
     return;
@@ -339,6 +428,34 @@ function setTurnMediaFrame(frontMedia, backMedia, direction, progress) {
   }
 }
 
+function setTurnStripFrame(frontStrips, backStrips, turnSign, progress) {
+  const foldPulse = Math.sin(progress * Math.PI);
+
+  const applyStripSet = (strips, isBack) => {
+    const count = strips.length;
+    if (count <= 0) {
+      return;
+    }
+
+    for (let i = 0; i < count; i += 1) {
+      const strip = strips[i];
+      const u = count <= 1 ? 0 : i / (count - 1); // left -> right
+      const fromSpine = turnSign < 0 ? u : 1 - u;
+      const bend = Math.pow(fromSpine, 1.28);
+      const curve = foldPulse * bend;
+
+      const rotateY = turnSign * -36 * curve * (isBack ? 0.72 : 1.0);
+      const shiftX = turnSign * 46.8 * progress * bend * (isBack ? 0.74 : 1.0);
+      const scaleY = 1 - 0.07 * progress * (0.2 + bend);
+
+      strip.style.transform = `translate3d(${shiftX.toFixed(2)}px,0,0) rotateY(${rotateY.toFixed(2)}deg) scaleY(${scaleY.toFixed(3)})`;
+    }
+  };
+
+  applyStripSet(frontStrips || [], false);
+  applyStripSet(backStrips || [], true);
+}
+
 function resetTurnLayer() {
   if (state.turnRafId) {
     window.cancelAnimationFrame(state.turnRafId);
@@ -361,6 +478,8 @@ function resetTurnLayer() {
   }
   clearNode(frontWrap);
   clearNode(backWrap);
+  state.turnFrontStrips = [];
+  state.turnBackStrips = [];
   setText("turnFrontTitle", "");
   setText("turnFrontCaption", "");
   setText("turnBackTitle", "");
@@ -410,10 +529,12 @@ function turnPage(direction) {
   const turnLeaf = document.getElementById("turnLeaf");
   const turnPair = getTurnPair(items, direction, currentIndex, nextIndex);
 
-  renderBookPage(turnPair.frontItem, "turnFrontMediaWrap", "turnFrontTitle", "turnFrontCaption");
-  renderBookPage(turnPair.backItem, "turnBackMediaWrap", "turnBackTitle", "turnBackCaption");
-  const frontMedia = document.querySelector("#turnFrontMediaWrap .media");
-  const backMedia = document.querySelector("#turnBackMediaWrap .media");
+  const frontRendered = renderTurnFace(turnPair.frontItem, "turnFrontMediaWrap", "turnFrontTitle", "turnFrontCaption");
+  const backRendered = renderTurnFace(turnPair.backItem, "turnBackMediaWrap", "turnBackTitle", "turnBackCaption");
+  const frontMedia = frontRendered.media || document.querySelector("#turnFrontMediaWrap .media");
+  const backMedia = backRendered.media || document.querySelector("#turnBackMediaWrap .media");
+  state.turnFrontStrips = frontRendered.strips || [];
+  state.turnBackStrips = backRendered.strips || [];
 
   turnNode.classList.remove("side-left", "side-right", "active");
   turnNode.classList.add(turnPair.sideClass, "active");
@@ -445,7 +566,11 @@ function turnPage(direction) {
     turnLeaf.style.transform = `rotateY(${angle.toFixed(2)}deg)`;
     turnNode.style.setProperty("--fold-alpha", foldAlpha.toFixed(3));
     turnNode.style.setProperty("--fold-shift", `${foldShift}%`);
-    setTurnMediaFrame(frontMedia, backMedia, direction, eased);
+    if (state.turnFrontStrips.length > 0 || state.turnBackStrips.length > 0) {
+      setTurnStripFrame(state.turnFrontStrips, state.turnBackStrips, turnPair.sign, eased);
+    } else {
+      setTurnMediaFrame(frontMedia, backMedia, direction, eased);
+    }
 
     if (!didSwapSpread && eased >= 0.52) {
       swapToDestinationSpread();

@@ -427,6 +427,9 @@ main {
 .turn-media-wrap {
   height: auto;
   border-bottom: 1px solid var(--line);
+  position: relative;
+  display: block;
+  overflow: hidden;
 }
 
 .turn-meta {
@@ -439,7 +442,39 @@ main {
 
 .turn-page .book-media-wrap .media {
   transform-origin: center center;
+  will-change: transform;
+  width: 100%;
+  height: 100%;
+}
+
+.turn-strip-sheet {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  contain: layout paint style;
+}
+
+.turn-strip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--i) * 100% / var(--strip-count));
+  width: calc(100% / var(--strip-count) + 0.3px);
+  background-repeat: no-repeat;
+  background-position: center center;
   will-change: transform, filter;
+  transform-origin: center center;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+.turn-strip::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.12));
+  mix-blend-mode: soft-light;
 }
 
 .turn-shade {
