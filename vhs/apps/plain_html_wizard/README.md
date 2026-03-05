@@ -26,12 +26,13 @@ Wizard Flow
 3. Gamma Correction
    - set chapter-wide gamma or visible-range gamma regions
 4. People Subtitles
+   - optional first pass: auto-fill ranges from `cast/data` matches
    - add people subtitle ranges from the currently visible frame window
    - entries are editable as chapter-local `HH:MM:SS.mmm` rows
 5. Summary and save
    - review settings/stats
    - save BAD frames + gamma to `render_settings.json`
-   - save people subtitle rows to `people.tsv`
+   - save people subtitle rows to `people.tsv` (archive-global frame ranges)
 
 How To Use The Tuner
 --------------------
@@ -70,10 +71,12 @@ Step 3: Gamma Correction
 Step 4: People Subtitles
 
 - Scroll the frame grid to the time window where people appear.
+- Optional first pass: click `Auto-fill From Cast` to pull draft ranges from `cast/data`.
 - Enter names (for example `Jim | Linda`) and click `Add Visible Range`.
 - Edit rows directly in the people editor:
   - `start<TAB>end<TAB>people`
   - times are chapter-local `HH:MM:SS.mmm`.
+  - on save, these are converted to `start_frame<TAB>end_frame<TAB>people` in `people.tsv`.
 
 Step 5: Summary + save
 

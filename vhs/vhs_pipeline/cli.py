@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
 
 def _append_flag(argv, enabled, *flags):
@@ -111,6 +112,42 @@ def build_parser():
     checksum_parser = subparsers.add_parser("checksum", help="Checksum generation commands")
     checksum_sub = checksum_parser.add_subparsers(dest="checksum_kind", required=True)
     checksum_sub.add_parser("drive", help="Generate drive checksum manifest")
+
+    people_parser = subparsers.add_parser("people", help="People subtitle helper commands")
+    people_sub = people_parser.add_subparsers(dest="people_kind", required=True)
+    people_prefill = people_sub.add_parser(
+        "prefill",
+        help="Use cast database matches to prefill chapter people subtitle ranges",
+    )
+    people_prefill.add_argument("--archive", required=True, help="Archive name (metadata/<archive>)")
+    people_prefill.add_argument("--chapter", required=True, help="Exact chapter title")
+    people_prefill.add_argument(
+        "--cast-store",
+        default=str((Path(__file__).resolve().parents[2] / "cast" / "data")),
+        help="Cast store directory containing people.json and faces.jsonl",
+    )
+    people_prefill.add_argument(
+        "--min-quality",
+        type=float,
+        default=0.40,
+        help="Minimum face quality required from cast faces (default: 0.40)",
+    )
+    people_prefill.add_argument(
+        "--min-name-hits",
+        type=int,
+        default=1,
+        help="Minimum detections per person within chapter window (default: 1)",
+    )
+    people_prefill.add_argument(
+        "--apply",
+        action="store_true",
+        help="Write generated rows into metadata/<archive>/people.tsv",
+    )
+    people_prefill.add_argument(
+        "--audit-file",
+        default=None,
+        help="Optional path to save generated rows as TSV",
+    )
     return parser
 
 
@@ -187,6 +224,20 @@ def main(argv=None):
 
         if args.checksum_kind == "drive":
             return commands.run_generate_drive_checksum()
+
+    if args.group == "people":
+        from vhs_pipeline import commands
+
+        if args.people_kind == "prefill":
+            return commands.run_people_prefill(
+                archive=args.archive,
+                chapter=args.chapter,
+                cast_store=args.cast_store,
+                min_quality=args.min_quality,
+                min_name_hits=args.min_name_hits,
+                apply=bool(args.apply),
+                audit_file=args.audit_file,
+            )
 
     parser.error("Unknown command.")
     return 2
