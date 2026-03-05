@@ -1,5 +1,3 @@
-import re
-import subprocess
 from pathlib import Path
 
 from common import (
@@ -9,26 +7,11 @@ from common import (
     count_totals,
     file_modified_ts,
     list_archive_dirs,
-    parse_filename,
 )
+from exiftool_utils import read_tag, write_tags
+from naming import SCAN_TIFF_RE, format_book_display, parse_album_filename
 
-NEW_NAME_RE = re.compile(
-    r"^[A-Z]{2,}_\d{4}(?:-\d{4})?_B(?:\d{2}|âˆ…)_P\d{2}_S\d{2}\.tif$",
-    re.IGNORECASE,
-)
-
-FILENAME_RE = re.compile(
-    r"(?P<collection>[A-Z]+)_(?P<year>\d{4}(?:-\d{4})?)_B(?P<book>\d{2}|âˆ…)_P(?P<page>\d+)_S\d+",
-    re.IGNORECASE,
-)
-
-
-def parse_album_filename(filename: str):
-    return parse_filename(filename, FILENAME_RE)
-
-
-def format_book_display(book: str) -> str:
-    return book if book == "âˆ…" else f"{int(book):02d}"
+NEW_NAME_RE = SCAN_TIFF_RE
 
 
 def build_header(
@@ -48,16 +31,7 @@ def build_header(
 
 
 def get_tif_tag(tif_path: Path, tag: str) -> str | None:
-    try:
-        result = subprocess.run(
-            ["exiftool", f"-{tag}", "-s3", str(tif_path)],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        return result.stdout.strip()
-    except Exception:
-        return None
+    return read_tag(tif_path, tag)
 
 
 def update_tif_metadata(tif_path: Path, header_text: str) -> bool:
@@ -70,29 +44,26 @@ def update_tif_metadata(tif_path: Path, header_text: str) -> bool:
         return False
 
     if creator_needs_fix:
-        subprocess.run(
-            ["exiftool", "-overwrite_original", "-XMP-dc:Creator=", str(tif_path)],
-            check=True,
+        write_tags(
+            tif_path,
+            clear_tags=["XMP-dc:Creator"],
         )
 
-    subprocess.run(
-        [
-            "exiftool",
-            "-overwrite_original",
-            f"-XMP-dc:Creator={CREATOR}",
-            f"-XMP-dc:Description={header_text}",
-            str(tif_path),
-        ],
-        check=True,
+    write_tags(
+        tif_path,
+        set_tags={
+            "XMP-dc:Creator": CREATOR,
+            "XMP-dc:Description": header_text,
+        },
     )
 
     return True
 
 
-def main() -> None:
+def apply_metadata_to_archives(base_dir: Path = PHOTO_ALBUMS_DIR) -> dict[str, int]:
     updated = skipped = failures = 0
 
-    archive_dirs = list_archive_dirs(PHOTO_ALBUMS_DIR)
+    archive_dirs = list_archive_dirs(base_dir)
 
     print("Counting total pages and scans per book...")
     totals = count_totals(archive_dirs, NEW_NAME_RE, parse_album_filename)
@@ -145,6 +116,11 @@ def main() -> None:
     print("Updated:", updated)
     print("Skipped:", skipped)
     print("Failed:", failures)
+    return {"updated": updated, "skipped": skipped, "failed": failures}
+
+
+def main() -> None:
+    apply_metadata_to_archives(PHOTO_ALBUMS_DIR)
 
 
 if __name__ == "__main__":

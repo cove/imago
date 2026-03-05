@@ -189,6 +189,12 @@ class TestCreateMetadataTSV(unittest.TestCase):
             self.assertIn("FilePath", content.splitlines()[0])
             self.assertIn("Photo Albums/a.tif", content)
 
+    def test_create_metadata_records_empty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            records = create_metadata_tsv.create_metadata_records(base, progress=False)
+        self.assertEqual(records, [])
+
 
 if __name__ == "__main__":
     unittest.main()

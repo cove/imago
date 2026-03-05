@@ -31,11 +31,11 @@ class TestApplyMetadata(unittest.TestCase):
         with mock.patch(
             "apply_metadata.get_tif_tag",
             side_effect=[header, apply_metadata.CREATOR],
-        ), mock.patch("apply_metadata.subprocess.run") as run_mock:
+        ), mock.patch("apply_metadata.write_tags") as write_mock:
             result = apply_metadata.update_tif_metadata(Path("test.tif"), header)
 
         self.assertFalse(result)
-        run_mock.assert_not_called()
+        write_mock.assert_not_called()
 
     def test_update_tif_metadata_duplicate_creator(self):
         header = "EU (1973) - Book 02, Page 05 of 20, Scan S02 of 3 total"
@@ -43,16 +43,16 @@ class TestApplyMetadata(unittest.TestCase):
         with mock.patch(
             "apply_metadata.get_tif_tag",
             side_effect=[header, dup_creator],
-        ), mock.patch("apply_metadata.subprocess.run") as run_mock:
+        ), mock.patch("apply_metadata.write_tags") as write_mock:
             result = apply_metadata.update_tif_metadata(Path("test.tif"), header)
 
         self.assertTrue(result)
-        self.assertEqual(run_mock.call_count, 2)
-        first_args = run_mock.call_args_list[0][0][0]
-        second_args = run_mock.call_args_list[1][0][0]
-        self.assertIn("-XMP-dc:Creator=", first_args)
-        self.assertIn(f"-XMP-dc:Creator={apply_metadata.CREATOR}", second_args)
-        self.assertIn(f"-XMP-dc:Description={header}", second_args)
+        self.assertEqual(write_mock.call_count, 2)
+        first_kwargs = write_mock.call_args_list[0].kwargs
+        second_kwargs = write_mock.call_args_list[1].kwargs
+        self.assertEqual(first_kwargs["clear_tags"], ["XMP-dc:Creator"])
+        self.assertEqual(second_kwargs["set_tags"]["XMP-dc:Creator"], apply_metadata.CREATOR)
+        self.assertEqual(second_kwargs["set_tags"]["XMP-dc:Description"], header)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,5 @@
 import os
 import re
-import subprocess
 import warnings
 from datetime import datetime
 from pathlib import Path
@@ -27,33 +26,23 @@ from common import (
     dir_created_ts,
     list_archive_dirs,
     list_page_scan_groups,
-    parse_filename,
+)
+from exiftool_utils import write_tags
+from naming import (
+    BASE_PAGE_NAME_RE,
+    SCAN_NAME_RE,
+    SCAN_TIFF_RE,
+    parse_album_filename,
 )
 
 MIN_OUTPUT_SIZE = 100 * 1024
 
-NEW_NAME_RE = re.compile(
-    r"^[A-Z]{2,}_\d{4}(?:-\d{4})?_B\d{2}_P\d{2}_S\d{2}\.tif$",
-    re.IGNORECASE,
-)
-
+NEW_NAME_RE = SCAN_TIFF_RE
 DERIVED_RE = re.compile(r"_D(?P<d1>\d{2})_(?P<d2>\d{2})", re.IGNORECASE)
-
-FILENAME_RE = re.compile(
-    r"(?P<collection>[A-Z]+)_(?P<year>\d{4}(?:-\d{4})?)_B(?P<book>\d{2})_P(?P<page>\d+)_S\d+",
-    re.IGNORECASE,
-)
-
-FILENAME_RE_NO_SCAN = re.compile(
-    r"(?P<collection>[A-Z]+)_(?P<year>\d{4}(?:-\d{4})?)_B(?P<book>\d{2})_P(?P<page>\d+)",
-    re.IGNORECASE,
-)
+FILENAME_RE = SCAN_NAME_RE
+FILENAME_RE_NO_SCAN = BASE_PAGE_NAME_RE
 
 IMAGE_EXTS = (".tif", ".tiff", ".jpg", ".jpeg", ".png", ".bmp")
-
-
-def parse_album_filename(filename: str):
-    return parse_filename(filename, FILENAME_RE, FILENAME_RE_NO_SCAN)
 
 
 def _require_image_modules() -> None:
@@ -264,15 +253,12 @@ def list_derived_images(directory: str | Path) -> list[str]:
 def write_jpeg(image, path: str | Path, header_text: str, quality: int = 95) -> None:
     _require_image_modules()
     cv2.imwrite(str(path), image, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
-    subprocess.run(
-        [
-            "exiftool",
-            "-overwrite_original",
-            f"-XMP-dc:Creator={CREATOR}",
-            f"-XMP-dc:Description={header_text}",
-            str(path),
-        ],
-        check=True,
+    write_tags(
+        path,
+        set_tags={
+            "XMP-dc:Creator": CREATOR,
+            "XMP-dc:Description": header_text,
+        },
     )
 
 

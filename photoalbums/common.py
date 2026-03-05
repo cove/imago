@@ -7,17 +7,24 @@ import time
 from pathlib import Path
 from typing import Callable, Iterable, List, Tuple
 
+from naming import PAGE_SCAN_RE as NAME_PAGE_SCAN_RE
+
 CREATOR = "Audrey D. Cordell"
 INCOMING_NAME = "incoming_scan.tif"
+PHOTO_ALBUMS_DIR_ENV = "PHOTOALBUMS_DIR"
+IMAGEMAGICK_DIR_ENV = "PHOTOALBUMS_IMAGEMAGICK_DIR"
 
 FILENAME_PATTERN = re.compile(
     r"^(?P<prefix>.+)_P(?P<page>\d{2})_S(?P<scan>\d{2})\.tif$",
     re.IGNORECASE,
 )
-PAGE_SCAN_RE = re.compile(r"_P(?P<page>\d+)_S(?P<scan>\d+)", re.IGNORECASE)
+PAGE_SCAN_RE = NAME_PAGE_SCAN_RE
 
 
 def get_photo_albums_dir() -> Path:
+    configured = str(os.environ.get(PHOTO_ALBUMS_DIR_ENV, "") or "").strip()
+    if configured:
+        return Path(configured).expanduser()
     if sys.platform.startswith("darwin"):
         home = Path(os.environ["HOME"])
         return home / "Library/CloudStorage/OneDrive-Personal/Cordell, Leslie & Audrey/Photo Albums"
@@ -29,10 +36,22 @@ def get_photo_albums_dir() -> Path:
 PHOTO_ALBUMS_DIR = get_photo_albums_dir()
 
 
-def configure_imagemagick() -> None:
+def get_imagemagick_dir() -> Path | None:
+    configured = str(os.environ.get(IMAGEMAGICK_DIR_ENV, "") or "").strip()
+    if configured:
+        return Path(configured).expanduser()
     if sys.platform.startswith("win"):
-        magick_path = Path(r"C:\Program Files\ImageMagick-7.1.2-Q16-HDRI")
-        os.environ["PATH"] = str(magick_path) + os.pathsep + os.environ["PATH"]
+        return Path(r"C:\Program Files\ImageMagick-7.1.2-Q16-HDRI")
+    return None
+
+
+def configure_imagemagick() -> None:
+    magick_path = get_imagemagick_dir()
+    if magick_path is None:
+        return
+    if not magick_path.exists():
+        return
+    os.environ["PATH"] = str(magick_path) + os.pathsep + os.environ["PATH"]
 
 
 def list_archive_dirs(base_dir: Path) -> List[Path]:

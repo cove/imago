@@ -1,5 +1,4 @@
 import os
-import re
 import warnings
 
 try:
@@ -19,22 +18,10 @@ from common import (
     file_created_ts,
     list_archive_dirs,
     list_page_scan_groups,
-    parse_filename,
 )
+from naming import SCAN_TIFF_RE, parse_album_filename
 
-NEW_NAME_RE = re.compile(
-    r"^[A-Z]{2,}_\d{4}(?:-\d{4})?_B\d{2}_P\d{2}_S\d{2}\.tif$",
-    re.IGNORECASE,
-)
-
-FILENAME_RE = re.compile(
-    r"(?P<collection>[A-Z]+)_(?P<year>\d{4}(?:-\d{4})?)_B(?P<book>\d{2})_P(?P<page>\d+)_S\d+",
-    re.IGNORECASE,
-)
-
-
-def parse_album_filename(filename: str):
-    return parse_filename(filename, FILENAME_RE)
+NEW_NAME_RE = SCAN_TIFF_RE
 
 
 def _require_cv2() -> None:
