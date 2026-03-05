@@ -15,6 +15,11 @@ Internal project name is `viewer`. Branding is configured through `config.json`.
 - `scan_media.py` - Scans local folders and generates `gallery.json`
 - `_headers` - Security headers for static hosts that support it
 
+## Modes
+
+- `Grid`: card gallery for all media (images and videos).
+- `Photobook`: image-only two-page spread view with JS-driven mapped page turn (front/back textures, dynamic fold shading) and left/right arrow navigation.
+
 ## gallery.json shape
 
 For local usage, set `path` to an absolute filesystem file path.

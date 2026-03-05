@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 import argparse
+import errno
 import json
 import mimetypes
+import threading
+from email.utils import formatdate, parsedate_to_datetime
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -13,6 +16,18 @@ from urllib.parse import parse_qs, urlparse
 VIEWER_DIR = Path(__file__).resolve().parent
 GALLERY_PATH = VIEWER_DIR / "gallery.json"
 CHUNK_SIZE = 1024 * 1024
+MEDIA_CACHE_CONTROL = "public, max-age=86400, stale-while-revalidate=604800"
+CLIENT_DISCONNECT_ERRNOS = {
+    errno.EPIPE,           # Broken pipe
+    errno.ECONNRESET,      # Connection reset by peer
+    errno.ECONNABORTED,    # Software caused connection abort
+    10053,                 # WinError WSAECONNABORTED
+    10054,                 # WinError WSAECONNRESET
+}
+
+_GALLERY_CACHE_LOCK = threading.Lock()
+_GALLERY_CACHE_MTIME_NS: Optional[int] = None
+_GALLERY_CACHE_ITEMS: Dict[str, str] = {}
 
 
 def _is_within(path: Path, root: Path) -> bool:
@@ -24,6 +39,14 @@ def _is_within(path: Path, root: Path) -> bool:
 
 
 def _load_gallery_item_paths(gallery_path: Path) -> Dict[str, str]:
+    global _GALLERY_CACHE_MTIME_NS, _GALLERY_CACHE_ITEMS
+    stat = gallery_path.stat()
+    mtime_ns = stat.st_mtime_ns
+
+    with _GALLERY_CACHE_LOCK:
+        if _GALLERY_CACHE_MTIME_NS == mtime_ns and _GALLERY_CACHE_ITEMS:
+            return dict(_GALLERY_CACHE_ITEMS)
+
     raw = json.loads(gallery_path.read_text(encoding="utf-8"))
     albums = raw.get("albums", [])
     out: Dict[str, str] = {}
@@ -37,7 +60,36 @@ def _load_gallery_item_paths(gallery_path: Path) -> Dict[str, str]:
             item_path = item.get("path")
             if item_id and isinstance(item_path, str) and item_path.strip():
                 out[item_id] = item_path.strip()
+
+    with _GALLERY_CACHE_LOCK:
+        _GALLERY_CACHE_MTIME_NS = mtime_ns
+        _GALLERY_CACHE_ITEMS = out
+
     return out
+
+
+def _make_etag(file_size: int, mtime_ns: int) -> str:
+    return f'W/"{file_size:x}-{mtime_ns:x}"'
+
+
+def _etag_matches(header_value: str, etag: str) -> bool:
+    tokens = [token.strip() for token in header_value.split(",") if token.strip()]
+    if "*" in tokens:
+        return True
+    strong = etag[2:] if etag.startswith("W/") else etag
+    return etag in tokens or strong in tokens
+
+
+def _parse_http_date(value: str) -> Optional[float]:
+    if not value:
+        return None
+    try:
+        dt = parsedate_to_datetime(value)
+    except (TypeError, ValueError, IndexError):
+        return None
+    if dt is None:
+        return None
+    return dt.timestamp()
 
 
 def _resolve_item_path(item_id: str, allow_roots: Iterable[Path]) -> Tuple[Optional[Path], str]:
@@ -123,9 +175,47 @@ class ViewerHandler(SimpleHTTPRequestHandler):
             self.send_error(HTTPStatus.NOT_FOUND, err)
             return
 
-        file_size = target.stat().st_size
+        stat = target.stat()
+        file_size = stat.st_size
+        mtime = stat.st_mtime
+        mtime_ns = stat.st_mtime_ns
+        etag = _make_etag(file_size, mtime_ns)
+        last_modified = formatdate(mtime, usegmt=True)
         ctype = mimetypes.guess_type(str(target))[0] or "application/octet-stream"
+
+        if_none_match = self.headers.get("If-None-Match", "")
+        if if_none_match and _etag_matches(if_none_match, etag):
+            self.send_response(HTTPStatus.NOT_MODIFIED)
+            self.send_header("ETag", etag)
+            self.send_header("Last-Modified", last_modified)
+            self.send_header("Cache-Control", MEDIA_CACHE_CONTROL)
+            self.send_header("Accept-Ranges", "bytes")
+            self.end_headers()
+            return
+
+        if_modified_since = self.headers.get("If-Modified-Since", "")
+        if if_modified_since and not if_none_match:
+            since_ts = _parse_http_date(if_modified_since)
+            if since_ts is not None and int(mtime) <= int(since_ts):
+                self.send_response(HTTPStatus.NOT_MODIFIED)
+                self.send_header("ETag", etag)
+                self.send_header("Last-Modified", last_modified)
+                self.send_header("Cache-Control", MEDIA_CACHE_CONTROL)
+                self.send_header("Accept-Ranges", "bytes")
+                self.end_headers()
+                return
+
         range_header = self.headers.get("Range", "")
+        if_range = self.headers.get("If-Range", "").strip()
+        if range_header and if_range:
+            if if_range.startswith(("W/", "\"")):
+                if not _etag_matches(if_range, etag):
+                    range_header = ""
+            else:
+                if_range_ts = _parse_http_date(if_range)
+                if if_range_ts is None or int(mtime) > int(if_range_ts):
+                    range_header = ""
+
         byte_range = None
 
         if range_header:
@@ -137,6 +227,9 @@ class ViewerHandler(SimpleHTTPRequestHandler):
                 self.send_response(HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
                 self.send_header("Content-Range", f"bytes */{file_size}")
                 self.send_header("Accept-Ranges", "bytes")
+                self.send_header("ETag", etag)
+                self.send_header("Last-Modified", last_modified)
+                self.send_header("Cache-Control", MEDIA_CACHE_CONTROL)
                 self.end_headers()
                 return
 
@@ -152,23 +245,34 @@ class ViewerHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(length))
         self.send_header("Accept-Ranges", "bytes")
+        self.send_header("ETag", etag)
+        self.send_header("Last-Modified", last_modified)
         if status == HTTPStatus.PARTIAL_CONTENT:
             self.send_header("Content-Range", f"bytes {start}-{end}/{file_size}")
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", MEDIA_CACHE_CONTROL)
         self.end_headers()
 
         if not send_body:
             return
 
-        with target.open("rb") as handle:
-            handle.seek(start)
-            remaining = length
-            while remaining > 0:
-                chunk = handle.read(min(CHUNK_SIZE, remaining))
-                if not chunk:
-                    break
-                self.wfile.write(chunk)
-                remaining -= len(chunk)
+        try:
+            with target.open("rb") as handle:
+                handle.seek(start)
+                remaining = length
+                while remaining > 0:
+                    chunk = handle.read(min(CHUNK_SIZE, remaining))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    remaining -= len(chunk)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            # Client canceled navigation/seek while media was streaming.
+            return
+        except OSError as exc:
+            if exc.errno in CLIENT_DISCONNECT_ERRNOS:
+                # Expected transient disconnect from browser or remote client.
+                return
+            raise
 
 
 def parse_args() -> argparse.Namespace:

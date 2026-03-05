@@ -2,5 +2,7 @@
   "brandName": "viewer",
   "siteTitle": "Imago Media Viewer",
   "pageTitle": "Imago Viewer",
-  "intro": "Local-first photo and video browser for filesystem media paths."
+  "intro": "Local-first photo and video browser for filesystem media paths.",
+  "defaultMode": "grid"
 }
+
