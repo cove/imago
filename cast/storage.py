@@ -143,6 +143,43 @@ class TextFaceStore:
                 return person
         return None
 
+    def update_person(self, person_id: str, **fields: Any) -> dict[str, Any]:
+        person_key = str(person_id or "").strip()
+        if not person_key:
+            raise ValueError("person_id is required.")
+        now = utc_now_iso()
+        with self._lock:
+            payload = self._read_json(self.people_path)
+            people = payload.get("people", []) if isinstance(payload, dict) else []
+            if not isinstance(people, list):
+                people = []
+            for row in people:
+                if not isinstance(row, dict):
+                    continue
+                if str(row.get("person_id")) != person_key:
+                    continue
+                for key, value in dict(fields or {}).items():
+                    if key in {"person_id", "created_at"}:
+                        continue
+                    if key == "display_name":
+                        clean_name = str(value or "").strip()
+                        if not clean_name:
+                            raise ValueError("Person name is required.")
+                        row[key] = clean_name
+                        continue
+                    if key == "aliases":
+                        if isinstance(value, list):
+                            row[key] = [str(item).strip() for item in value if str(item).strip()]
+                        elif isinstance(value, str):
+                            row[key] = [part.strip() for part in value.split(",") if part.strip()]
+                        continue
+                    if key == "notes":
+                        row[key] = str(value or "").strip()
+                row["updated_at"] = now
+                self._write_json(self.people_path, {"people": people})
+                return dict(row)
+        raise ValueError(f"Unknown person_id: {person_key}")
+
     def list_faces(self) -> list[dict[str, Any]]:
         with self._lock:
             rows = self._read_json(self.faces_path)

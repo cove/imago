@@ -418,7 +418,9 @@
         <div id="next-review-wrap" style="display: none">
           <div class="row">
             <div>
-              <img id="next-review-img" class="crop" alt="next pending face" />
+              <button id="next-review-source-btn" class="face-source-btn" style="display: none">
+                <img id="next-review-img" class="crop" alt="next pending face" />
+              </button>
               <div id="next-review-src" class="small" style="margin-top: 6px"></div>
             </div>
             <div>
@@ -478,6 +480,7 @@
               <th>Name</th>
               <th>Aliases</th>
               <th>ID</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -627,21 +630,79 @@
       function renderPeople() {
         const tbody = document.querySelector("#people-table tbody");
         if (!appState.people.length) {
-          tbody.innerHTML = '<tr><td colspan="3">No people yet.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="4">No people yet.</td></tr>';
           return;
         }
         tbody.innerHTML = appState.people
           .map((person) => {
             const aliases = Array.isArray(person.aliases) ? person.aliases.join(", ") : "";
+            const personId = String(person.person_id || "");
             return [
               "<tr>",
               `<td>${esc(person.display_name)}</td>`,
               `<td>${esc(aliases)}</td>`,
-              `<td class="mono">${esc(shortId(person.person_id))}</td>`,
+              `<td class="mono">${esc(shortId(personId))}</td>`,
+              `<td>`,
+              `<div class="actions">`,
+              `<button class="secondary" onclick="editPersonName('${esc(personId)}')">Edit Name</button>`,
+              `<button class="secondary" onclick="editPersonAliases('${esc(personId)}')">Edit Aliases</button>`,
+              `</div>`,
+              `</td>`,
               "</tr>",
             ].join("");
           })
           .join("");
+      }
+
+      async function editPersonName(personId) {
+        try {
+          const current = appState.people.find((person) => String(person.person_id || "") === String(personId || ""));
+          if (!current) {
+            throw new Error("Person not found in current state.");
+          }
+          const existing = String(current.display_name || "");
+          const next = window.prompt("Edit person name:", existing);
+          if (next === null) {
+            return;
+          }
+          const name = String(next || "").trim();
+          if (!name) {
+            throw new Error("Name cannot be empty.");
+          }
+          if (name === existing) {
+            return;
+          }
+          await api("/api/people/update", "POST", { person_id: personId, display_name: name });
+          setStatus(`Updated person name to ${name}.`, "success");
+          await loadState();
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      }
+
+      async function editPersonAliases(personId) {
+        try {
+          const current = appState.people.find((person) => String(person.person_id || "") === String(personId || ""));
+          if (!current) {
+            throw new Error("Person not found in current state.");
+          }
+          const existingAliases = Array.isArray(current.aliases)
+            ? current.aliases.map((alias) => String(alias || "").trim()).filter(Boolean)
+            : [];
+          const next = window.prompt("Edit aliases (comma-separated):", existingAliases.join(", "));
+          if (next === null) {
+            return;
+          }
+          const aliases = String(next || "")
+            .split(",")
+            .map((part) => part.trim())
+            .filter(Boolean);
+          await api("/api/people/update", "POST", { person_id: personId, aliases });
+          setStatus(`Updated aliases for ${current.display_name || shortId(personId)}.`, "success");
+          await loadState();
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
       }
 
       function renderUnknownFaces() {
@@ -740,12 +801,15 @@
         const wrap = document.getElementById("next-review-wrap");
         const select = document.getElementById("next-review-select");
         const input = document.getElementById("next-review-name");
+        const sourceBtn = document.getElementById("next-review-source-btn");
         const item = appState.next_review;
         if (!item) {
           empty.style.display = "block";
           wrap.style.display = "none";
           input.value = "";
           select.innerHTML = personOptions();
+          sourceBtn.style.display = "none";
+          sourceBtn.onclick = null;
           return;
         }
 
@@ -756,6 +820,13 @@
         img.src = String(face.crop_url || "");
         img.alt = String(face.face_id || "");
         document.getElementById("next-review-src").textContent = sourceText(face) || "(unknown source)";
+        if (String(face.source_url || "").trim() && String(face.face_id || "").trim()) {
+          sourceBtn.style.display = "";
+          sourceBtn.onclick = () => openSourceModal(String(face.face_id || ""));
+        } else {
+          sourceBtn.style.display = "none";
+          sourceBtn.onclick = null;
+        }
         select.innerHTML = personOptions();
       }
 

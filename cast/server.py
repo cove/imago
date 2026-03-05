@@ -10,7 +10,7 @@ from urllib.parse import parse_qs, urlparse
 import cv2
 
 from .ingest import FaceIngestor
-from .matching import parse_embedding, suggest_people
+from .matching import build_person_prototypes, parse_embedding, suggest_people, suggest_people_from_prototypes
 from .storage import TextFaceStore
 
 _HERE = Path(__file__).resolve().parent
@@ -119,11 +119,33 @@ class CastHandler(BaseHTTPRequestHandler):
         *,
         people_by_id: dict[str, dict[str, Any]],
         faces_by_id: dict[str, dict[str, Any]],
+        prototypes: dict[str, dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         face_id = str(review.get("face_id", ""))
         face = faces_by_id.get(face_id, {})
+        status = str(review.get("status", ""))
+        source_candidates = list(review.get("candidates") or [])
+        suggested_person_id = str(review.get("suggested_person_id") or "").strip() or None
+        suggested_score = review.get("suggested_score")
+
+        if status == "pending" and face and prototypes:
+            top_k = max(3, len(source_candidates))
+            try:
+                live_candidates = suggest_people_from_prototypes(
+                    query_embedding=face.get("embedding") or [],
+                    prototypes=prototypes,
+                    top_k=top_k,
+                    min_similarity=-1.0,
+                )
+            except Exception:
+                live_candidates = []
+            if live_candidates:
+                source_candidates = live_candidates
+                suggested_person_id = str(live_candidates[0].get("person_id") or "").strip() or None
+                suggested_score = live_candidates[0].get("score")
+
         candidates = []
-        for row in list(review.get("candidates") or []):
+        for row in source_candidates:
             if not isinstance(row, dict):
                 continue
             person_id = str(row.get("person_id") or "").strip()
@@ -138,15 +160,14 @@ class CastHandler(BaseHTTPRequestHandler):
             )
         decided_person_id = str(review.get("decided_person_id") or "").strip() or None
         decided_person = people_by_id.get(decided_person_id or "")
-        suggested_person_id = str(review.get("suggested_person_id") or "").strip() or None
         suggested_person = people_by_id.get(suggested_person_id or "")
         return {
             "review_id": str(review.get("review_id", "")),
             "face_id": face_id,
-            "status": str(review.get("status", "")),
+            "status": status,
             "suggested_person_id": suggested_person_id,
             "suggested_person_name": str(suggested_person.get("display_name", "")) if suggested_person else "",
-            "suggested_score": review.get("suggested_score"),
+            "suggested_score": suggested_score,
             "decided_person_id": decided_person_id,
             "decided_person_name": str(decided_person.get("display_name", "")) if decided_person else "",
             "candidates": candidates,
@@ -161,10 +182,16 @@ class CastHandler(BaseHTTPRequestHandler):
         reviews = self.store.list_review_items()
         people_by_id = {str(row.get("person_id")): row for row in people}
         faces_by_id = {str(row.get("face_id")): row for row in faces}
+        prototypes = build_person_prototypes(faces)
 
         face_summaries = [self._face_summary(face, people_by_id) for face in faces]
         review_summaries = [
-            self._review_summary(item, people_by_id=people_by_id, faces_by_id=faces_by_id)
+            self._review_summary(
+                item,
+                people_by_id=people_by_id,
+                faces_by_id=faces_by_id,
+                prototypes=prototypes,
+            )
             for item in reviews
         ]
         rejected_face_ids = {
@@ -221,12 +248,18 @@ class CastHandler(BaseHTTPRequestHandler):
         people_by_id = {str(row.get("person_id")): row for row in people}
         faces_by_id = {str(row.get("face_id")): row for row in faces}
         rows = []
+        prototypes = build_person_prototypes(faces)
         for item in reviews:
             status = str(item.get("status") or "").strip().lower()
             if status_filter and status != status_filter:
                 continue
             rows.append(
-                self._review_summary(item, people_by_id=people_by_id, faces_by_id=faces_by_id)
+                self._review_summary(
+                    item,
+                    people_by_id=people_by_id,
+                    faces_by_id=faces_by_id,
+                    prototypes=prototypes,
+                )
             )
         self._send_json({"ok": True, "reviews": rows})
 
@@ -245,6 +278,28 @@ class CastHandler(BaseHTTPRequestHandler):
             notes=str(payload.get("notes") or ""),
         )
         self._send_json({"ok": True, "person": person}, status=HTTPStatus.CREATED)
+
+    def _handle_update_person(self, payload: dict[str, Any]) -> None:
+        person_id = str(payload.get("person_id") or "").strip()
+        if not person_id:
+            self._error("person_id is required.")
+            return
+        updates: dict[str, Any] = {}
+        if "display_name" in payload or "name" in payload:
+            updates["display_name"] = str(payload.get("display_name") or payload.get("name") or "").strip()
+        if "aliases" in payload:
+            updates["aliases"] = payload.get("aliases")
+        if "notes" in payload:
+            updates["notes"] = payload.get("notes")
+        if not updates:
+            self._error("No updates provided.")
+            return
+        try:
+            person = self.store.update_person(person_id, **updates)
+        except Exception as exc:
+            self._error(str(exc))
+            return
+        self._send_json({"ok": True, "person": person})
 
     def _handle_create_face(self, payload: dict[str, Any]) -> None:
         try:
@@ -946,6 +1001,9 @@ class CastHandler(BaseHTTPRequestHandler):
 
         if path == "/api/people":
             self._handle_create_person(payload)
+            return
+        if path == "/api/people/update":
+            self._handle_update_person(payload)
             return
         if path == "/api/faces":
             self._handle_create_face(payload)
