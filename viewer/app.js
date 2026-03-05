@@ -4,8 +4,8 @@ const CONFIG_PATH = "./config.json";
 const GALLERY_PATH = "./gallery.json";
 const IMAGE_CACHE_LIMIT = 200;
 const PRELOAD_RADIUS = 12;
-const TURN_DURATION_MS = 1248;
-const TURN_MAX_ANGLE = 164;
+const TURN_DURATION_MS = 3120;
+const TURN_MAX_ANGLE = 180;
 
 const state = {
   albums: [],
@@ -142,7 +142,16 @@ function getItems(album) {
 }
 
 function getPhotobookItems(album) {
-  return getItems(album).filter((item) => item.type === "image");
+  const isDerivativeDImage = (item) => {
+    const text = [
+      String(item.path || ""),
+      String(item.title || ""),
+      String(item.caption || ""),
+    ].join(" ");
+    return /_D\d{2}_\d{2}(?:\.[A-Za-z0-9]+)?$/i.test(text) || /_D\d{2}_\d{2}_/i.test(text);
+  };
+
+  return getItems(album).filter((item) => item.type === "image" && !isDerivativeDImage(item));
 }
 
 function clampSpreadIndex(items, index) {
@@ -298,6 +307,11 @@ function renderSpread(items) {
   renderBookPage(right, "rightMediaWrap", "rightTitle", "rightCaption");
 }
 
+function renderSpreadPair(leftItem, rightItem) {
+  renderBookPage(leftItem || null, "leftMediaWrap", "leftTitle", "leftCaption");
+  renderBookPage(rightItem || null, "rightMediaWrap", "rightTitle", "rightCaption");
+}
+
 function renderPhotobook(album) {
   const items = getPhotobookItems(album);
   if (items.length === 0) {
@@ -322,20 +336,14 @@ function easeInOutCubic(t) {
 }
 
 function setTurnMediaFrame(frontMedia, backMedia, direction, progress) {
-  const dir = direction === "forward" ? 1 : -1;
-  const skew = dir * progress * 3.4;
-  const frontScale = 1 - progress * 0.26;
-  const backScale = 0.76 + progress * 0.24;
-  const frontBrightness = 1 - progress * 0.36;
-  const backBrightness = 0.74 + progress * 0.3;
-
+  // Keep pages visually stiff during turns: no per-frame media warp.
   if (frontMedia) {
-    frontMedia.style.transform = `scaleX(${frontScale.toFixed(3)}) skewY(${skew.toFixed(2)}deg)`;
-    frontMedia.style.filter = `brightness(${frontBrightness.toFixed(3)}) contrast(1.04)`;
+    frontMedia.style.transform = "";
+    frontMedia.style.filter = "";
   }
   if (backMedia) {
-    backMedia.style.transform = `scaleX(${backScale.toFixed(3)}) skewY(${(-skew * 0.52).toFixed(2)}deg)`;
-    backMedia.style.filter = `brightness(${backBrightness.toFixed(3)}) contrast(1.03)`;
+    backMedia.style.transform = "";
+    backMedia.style.filter = "";
   }
 }
 
@@ -366,8 +374,6 @@ function resetTurnLayer() {
   setText("turnBackTitle", "");
   setText("turnBackCaption", "");
   turnPage.classList.remove("active", "side-left", "side-right");
-  turnPage.style.removeProperty("--fold-alpha");
-  turnPage.style.removeProperty("--fold-shift");
   turnLeaf.style.transform = "rotateY(0deg)";
 }
 
@@ -385,6 +391,19 @@ function getTurnPair(items, direction, currentIndex, nextIndex) {
     frontItem: items[currentIndex] || null,
     backItem: items[nextIndex + 1] || items[nextIndex] || null,
     sign: 1,
+  };
+}
+
+function getTurnBasePair(items, direction, currentIndex, nextIndex) {
+  if (direction === "forward") {
+    return {
+      leftItem: items[currentIndex] || null,
+      rightItem: items[nextIndex + 1] || null,
+    };
+  }
+  return {
+    leftItem: items[nextIndex] || null,
+    rightItem: items[currentIndex + 1] || null,
   };
 }
 
@@ -409,6 +428,10 @@ function turnPage(direction) {
   const turnNode = document.getElementById("turnPage");
   const turnLeaf = document.getElementById("turnLeaf");
   const turnPair = getTurnPair(items, direction, currentIndex, nextIndex);
+  const turnBasePair = getTurnBasePair(items, direction, currentIndex, nextIndex);
+
+  // Render the spread that should exist underneath the turning page from frame 1.
+  renderSpreadPair(turnBasePair.leftItem, turnBasePair.rightItem);
 
   renderBookPage(turnPair.frontItem, "turnFrontMediaWrap", "turnFrontTitle", "turnFrontCaption");
   renderBookPage(turnPair.backItem, "turnBackMediaWrap", "turnBackTitle", "turnBackCaption");
@@ -417,20 +440,10 @@ function turnPage(direction) {
 
   turnNode.classList.remove("side-left", "side-right", "active");
   turnNode.classList.add(turnPair.sideClass, "active");
-  turnNode.style.setProperty("--fold-alpha", "0.22");
-  turnNode.style.setProperty("--fold-shift", "0%");
+  turnLeaf.style.transform = "rotateY(0deg)";
+  setTurnMediaFrame(frontMedia, backMedia, direction, 0);
 
   preloadSpreadWindow(items, nextIndex, PRELOAD_RADIUS + 8);
-
-  let didSwapSpread = false;
-  const swapToDestinationSpread = () => {
-    if (didSwapSpread) {
-      return;
-    }
-    state.bookIndex = nextIndex;
-    renderPhotobook(state.album);
-    didSwapSpread = true;
-  };
 
   const start = performance.now();
   const step = (now) => {
@@ -438,33 +451,29 @@ function turnPage(direction) {
     const t = Math.min(1, elapsed / TURN_DURATION_MS);
     const eased = easeInOutCubic(t);
     const angle = turnPair.sign * TURN_MAX_ANGLE * eased;
-    const foldStrength = Math.sin(eased * Math.PI);
-    const foldAlpha = 0.14 + foldStrength * 0.58;
-    const foldShift = (turnPair.sign * eased * 28).toFixed(2);
 
     turnLeaf.style.transform = `rotateY(${angle.toFixed(2)}deg)`;
-    turnNode.style.setProperty("--fold-alpha", foldAlpha.toFixed(3));
-    turnNode.style.setProperty("--fold-shift", `${foldShift}%`);
     setTurnMediaFrame(frontMedia, backMedia, direction, eased);
-
-    if (!didSwapSpread && eased >= 0.52) {
-      swapToDestinationSpread();
-    }
 
     if (t < 1) {
       state.turnRafId = window.requestAnimationFrame(step);
       return;
     }
 
-    if (!didSwapSpread) {
-      swapToDestinationSpread();
-    }
-    resetTurnLayer();
-    state.turning = false;
-    updateBookControls(items);
+    // Ensure final frame is perfectly laid down before swapping base spread.
+    turnLeaf.style.transform = `rotateY(${(turnPair.sign * TURN_MAX_ANGLE).toFixed(2)}deg)`;
+    setTurnMediaFrame(frontMedia, backMedia, direction, 1);
+    state.bookIndex = nextIndex;
+    renderSpread(items);
+    preloadSpreadWindow(items, state.bookIndex, PRELOAD_RADIUS);
+    state.turnRafId = window.requestAnimationFrame(() => {
+      resetTurnLayer();
+      state.turning = false;
+      updateBookControls(items);
+    });
   };
 
-  state.turnRafId = window.requestAnimationFrame(step);
+  step(start);
 }
 
 function renderAlbum(album) {
