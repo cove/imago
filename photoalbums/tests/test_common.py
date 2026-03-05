@@ -1,3 +1,4 @@
+import os
 import sys
 import tempfile
 import unittest
@@ -144,6 +145,40 @@ class TestCommon(unittest.TestCase):
 
             self.assertTrue(result)
             self.assertTrue(tiff_path.exists())
+
+    def test_get_photo_albums_dir_env_override(self):
+        with mock.patch.dict(
+            "common.os.environ",
+            {common.PHOTO_ALBUMS_DIR_ENV: "D:/Media/Photo Albums"},
+            clear=False,
+        ):
+            result = common.get_photo_albums_dir()
+        self.assertEqual(result, Path("D:/Media/Photo Albums"))
+
+    def test_get_imagemagick_dir_env_override(self):
+        with mock.patch.dict(
+            "common.os.environ",
+            {common.IMAGEMAGICK_DIR_ENV: "D:/Tools/ImageMagick"},
+            clear=False,
+        ):
+            result = common.get_imagemagick_dir()
+        self.assertEqual(result, Path("D:/Tools/ImageMagick"))
+
+    def test_configure_imagemagick_adds_existing_path(self):
+        with tempfile.TemporaryDirectory() as tmp, mock.patch(
+            "common.get_imagemagick_dir",
+            return_value=Path(tmp),
+        ), mock.patch.dict("common.os.environ", {"PATH": "base"}, clear=False):
+            common.configure_imagemagick()
+            self.assertTrue(os.environ["PATH"].startswith(f"{tmp}{os.pathsep}"))
+
+    def test_configure_imagemagick_skips_missing_path(self):
+        with mock.patch(
+            "common.get_imagemagick_dir",
+            return_value=Path("Z:/path/that/does/not/exist"),
+        ), mock.patch.dict("common.os.environ", {"PATH": "base"}, clear=False):
+            common.configure_imagemagick()
+            self.assertEqual(os.environ["PATH"], "base")
 
 
 if __name__ == "__main__":

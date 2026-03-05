@@ -11,6 +11,8 @@ import sys
 from pathlib import Path
 
 from common import CREATOR, PHOTO_ALBUMS_DIR
+from exiftool_utils import read_json_tags
+from naming import DERIVED_NAME_RE, SCAN_NAME_RE
 
 EXIFTOOL_FIELDS = [
     "IFD0:ImageDescription",
@@ -43,39 +45,17 @@ EXIFTOOL_FIELDS = [
 OUTPUT_FILE = "metadata.tsv"
 FILE_EXTENSIONS = {".tif", ".tiff", ".jpg", ".jpeg", ".png", ".mp4"}
 
-SCAN_FILENAME_RE = re.compile(
-    r"(?P<collection>[^_]+)_(?P<year>\d{4}(?:-\d{4})?)_B(?P<book>\d{2})_P(?P<page>\d+)_S(?P<scan>\d+)",
-    re.IGNORECASE,
-)
-
-DERIVED_FILENAME_RE = re.compile(
-    r"(?P<collection>[^_]+)_(?P<year>\d{4}(?:-\d{4})?)_B(?P<book>\d{2})_P(?P<page>\d+)_D(?P<derived>\d{1,2})_(?P<iter>\d{1,2})",
-    re.IGNORECASE,
-)
+SCAN_FILENAME_RE = SCAN_NAME_RE
+DERIVED_FILENAME_RE = DERIVED_NAME_RE
 
 
 def extract_metadata(file_path: Path) -> dict:
     try:
-        result = subprocess.run(
-            [
-                "exiftool",
-                "-json",
-                "-a",
-                "-G1",
-                "-struct",
-                "-charset",
-                "UTF8",
-                *[f"-{tag}" for tag in EXIFTOOL_FIELDS],
-                str(file_path),
-            ],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-
-        metadata = json.loads(result.stdout)
-        return metadata[0] if metadata else {}
+        return read_json_tags(file_path, EXIFTOOL_FIELDS)
     except subprocess.CalledProcessError as exc:
+        print(f"Error reading {file_path}: {exc}")
+        return {}
+    except FileNotFoundError as exc:
         print(f"Error reading {file_path}: {exc}")
         return {}
     except json.JSONDecodeError as exc:
@@ -325,6 +305,30 @@ def write_tsv(all_metadata: list[dict], output_file: str) -> None:
     print(f"Successfully wrote {output_file}")
 
 
+def create_metadata_records(
+    base_dir: Path,
+    *,
+    progress: bool = True,
+    log_summary: bool = False,
+) -> list[dict]:
+    files = find_files(base_dir, FILE_EXTENSIONS)
+    if log_summary:
+        print(f"Found {len(files)} files")
+    if not files:
+        return []
+    if log_summary:
+        print()
+
+    scan_totals_by_dir = build_scan_totals(files)
+    derived_totals_by_dir = build_derived_totals(files)
+    return collect_all_metadata(
+        files,
+        scan_totals_by_dir,
+        derived_totals_by_dir,
+        progress=progress,
+    )
+
+
 def main() -> None:
     try:
         subprocess.run(["exiftool", "-ver"], capture_output=True, check=True)
@@ -346,23 +350,14 @@ def main() -> None:
     print()
 
     print("Scanning for files...")
-    files = find_files(PHOTO_ALBUMS_DIR, FILE_EXTENSIONS)
-    print(f"Found {len(files)} files")
-
-    if not files:
+    all_metadata = create_metadata_records(
+        PHOTO_ALBUMS_DIR,
+        progress=True,
+        log_summary=True,
+    )
+    if not all_metadata:
         print("No files found!")
         sys.exit(0)
-
-    print()
-
-    scan_totals_by_dir = build_scan_totals(files)
-    derived_totals_by_dir = build_derived_totals(files)
-    all_metadata = collect_all_metadata(
-        files,
-        scan_totals_by_dir,
-        derived_totals_by_dir,
-        progress=True,
-    )
 
     print()
     write_tsv(all_metadata, OUTPUT_FILE)
