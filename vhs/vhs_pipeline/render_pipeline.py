@@ -419,6 +419,7 @@ def cleanup_stale_dialogue_files(*paths):
 def srt_to_ass(srt_path, ass_path, font="Calibri", fontsize=40):
     srt_path = Path(srt_path)
     ass_path = Path(ass_path)
+    people_fontsize = max(1, int(round(float(fontsize) * 0.70)))
     ass_header = f"""[Script Info]
 Title: Converted from {srt_path.name}
 ScriptType: v4.00+
@@ -432,6 +433,7 @@ YCbCr Matrix: TV.601
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Default,{font},{fontsize},&H00FFFFFF,&H000000FF,&H00000000,&H64000000,1,0,0,0,100,100,0,0,1,1,0,2,10,10,0,1
+Style: People,{font},{people_fontsize},&H00FFFFFF,&H000000FF,&H00000000,&H64000000,1,1,0,0,100,100,0,0,1,1,0,2,10,10,0,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -440,7 +442,21 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     content = srt_path.read_text(encoding="utf-8")
     pattern = re.compile(r"(\d+)\s+(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\s+(.*?)(?=\n\d+\n|\Z)", re.S)
     for idx, start, end, text in pattern.findall(content):
-        text = text.strip().replace("\n", r"\N")
+        ass_lines = []
+        for raw_line in text.strip().splitlines():
+            line = str(raw_line or "").strip()
+            if not line:
+                continue
+            people_match = re.fullmatch(r"\[(.+)\]", line)
+            if people_match is not None:
+                people_text = re.sub(r"\s+", " ", str(people_match.group(1) or "").strip())
+                if people_text:
+                    ass_lines.append(r"{\rPeople}" + people_text + r"{\rDefault}")
+                continue
+            ass_lines.append(line)
+        if not ass_lines:
+            continue
+        text = ASS_NEWLINE.join(ass_lines)
         start_parts = start.split(":")
         end_parts = end.split(":")
         start_ass = f"{int(start_parts[0])}:{int(start_parts[1]):02d}:{int(start_parts[2].split(',')[0]):02d}.{int(start_parts[2].split(',')[1])//10:02d}"
@@ -671,6 +687,28 @@ def _parse_subtitle_ts(raw):
         return None
     return max(0.0, float(value))
 
+def _parse_subtitle_frame(raw):
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    if not re.fullmatch(r"-?\d+", text):
+        return None
+    try:
+        value = int(text)
+    except Exception:
+        return None
+    if value < 0:
+        return None
+    return int(value)
+
+def _frame_to_subtitle_seconds(frame_id):
+    return float(int(frame_id) * 1001) / 30000.0
+
+def _normalize_people_text(raw):
+    text = re.sub(r"\s+", " ", str(raw or "")).strip()
+    text = re.sub(r"\s*\|\s*", " | ", text)
+    return text
+
 def _to_ass_time(seconds):
     secs = max(0.0, float(seconds))
     h = int(secs // 3600)
@@ -698,50 +736,138 @@ def _load_people_tsv_entries(tsv_path):
     raw = Path(tsv_path).read_text(encoding="utf-8-sig", errors="ignore").splitlines()
     for line in raw:
         text = str(line or "").strip()
-        if not text:
+        if not text or text.startswith("#"):
             continue
-        if text.lower().startswith("start"):
+        lower = text.lower()
+        if lower.startswith("start_frame\t") or lower.startswith("start_frame,end_frame"):
+            continue
+        if lower.startswith("start\t") or lower.startswith("start,end"):
             continue
         parts = text.split("\t") if "\t" in text else text.split(",")
         if len(parts) < 3:
             continue
-        start = _parse_subtitle_ts(parts[0])
-        end = _parse_subtitle_ts(parts[1])
-        people = ",".join(parts[2:]).strip()
-        if start is None or end is None or end <= start or not people:
+        start_frame = _parse_subtitle_frame(parts[0])
+        end_frame = _parse_subtitle_frame(parts[1])
+        people = _normalize_people_text(",".join(parts[2:]))
+        if start_frame is None or end_frame is None or not people:
             continue
-        rows.append((float(start), float(end), str(people)))
+        if end_frame <= start_frame:
+            if int(end_frame) == int(start_frame):
+                end_frame = int(start_frame) + 1
+            else:
+                continue
+        rows.append((int(start_frame), int(end_frame), str(people)))
+    rows.sort(key=lambda item: (item[0], item[1], item[2].lower()))
     return rows
 
-def _clip_people_entries(entries, clip_start=None, clip_end=None):
+def _clip_people_entries(entries, clip_start_frame=None, clip_end_frame=None):
+    start_clip = int(clip_start_frame) if clip_start_frame is not None else None
+    end_clip = int(clip_end_frame) if clip_end_frame is not None else None
+    offset = int(start_clip or 0)
     out = []
-    for start_sec, end_sec, people in list(entries or []):
-        start = float(start_sec)
-        end = float(end_sec)
-        if clip_start is not None:
-            start -= float(clip_start)
-            end -= float(clip_start)
-        if clip_start is not None and clip_end is not None:
-            duration = float(clip_end) - float(clip_start)
-            if end <= 0 or start >= duration:
-                continue
-            if start < 0:
-                start = 0.0
-            if end > duration:
-                end = duration
-        if end <= start:
+    for start_frame, end_frame, people in list(entries or []):
+        lo = int(start_frame)
+        hi = int(end_frame)
+        if start_clip is not None:
+            lo = max(lo, int(start_clip))
+        if end_clip is not None:
+            hi = min(hi, int(end_clip))
+        if hi <= lo:
             continue
-        out.append((float(start), float(end), str(people)))
+        local_start = max(0, lo - offset)
+        local_end = max(0, hi - offset)
+        if local_end <= local_start:
+            continue
+        out.append(
+            (
+                _frame_to_subtitle_seconds(local_start),
+                _frame_to_subtitle_seconds(local_end),
+                _normalize_people_text(people),
+            )
+        )
     return out
 
-def tsv_people_to_srt_vtt(tsv_path, srt_path, vtt_path, clip_start=None, clip_end=None):
-    tsv_path = Path(tsv_path)
-    srt_path = Path(srt_path)
-    vtt_path = Path(vtt_path)
-    entries = _clip_people_entries(
-        _load_people_tsv_entries(tsv_path),
-        clip_start=clip_start,
-        clip_end=clip_end,
+def load_people_entries_for_chapter(tsv_path, chapter_start_frame, chapter_end_frame):
+    return _clip_people_entries(
+        _load_people_tsv_entries(Path(tsv_path)),
+        clip_start_frame=chapter_start_frame,
+        clip_end_frame=chapter_end_frame,
+    )
+
+def _people_text_for_span(people_entries, span_start_sec, span_end_sec):
+    labels = []
+    seen = set()
+    for start_sec, end_sec, people in list(people_entries or []):
+        if float(end_sec) <= float(span_start_sec) or float(start_sec) >= float(span_end_sec):
+            continue
+        label = _normalize_people_text(people)
+        if not label:
+            continue
+        key = label.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        labels.append(label)
+    return " | ".join(labels)
+
+def _parse_srt_cues(content):
+    pattern = re.compile(
+        r"(\d+)\s+(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\s+(.*?)(?=\n\d+\n|\Z)",
+        re.S,
+    )
+    cues = []
+    for _idx, start, end, text in pattern.findall(str(content or "")):
+        start_sec = _parse_subtitle_ts(start)
+        end_sec = _parse_subtitle_ts(end)
+        if start_sec is None or end_sec is None or float(end_sec) <= float(start_sec):
+            continue
+        text_lines = [str(line or "").strip() for line in str(text or "").strip().splitlines()]
+        text_lines = [line for line in text_lines if line]
+        cues.append((float(start_sec), float(end_sec), text_lines))
+    return cues
+
+def _write_srt_cues(path, cues):
+    lines = []
+    for i, (start_sec, end_sec, text_lines) in enumerate(list(cues or []), start=1):
+        body = [str(line) for line in list(text_lines or []) if str(line or "").strip()]
+        if not body:
+            body = [""]
+        lines.extend(
+            [
+                str(i),
+                f"{_to_srt_time(start_sec)} --> {_to_srt_time(end_sec)}",
+                *body,
+                "",
+            ]
+        )
+    Path(path).write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+
+def merge_people_entries_into_srt(srt_path, people_entries):
+    srt_file = Path(srt_path)
+    if not srt_file.exists():
+        return False
+    cues = _parse_srt_cues(srt_file.read_text(encoding="utf-8", errors="ignore"))
+    if not cues:
+        return False
+    merged = []
+    for start_sec, end_sec, text_lines in cues:
+        base_lines = []
+        for line in list(text_lines or []):
+            stripped = str(line or "").strip()
+            if re.fullmatch(r"\[(.+)\]", stripped):
+                continue
+            base_lines.append(stripped)
+        people_text = _people_text_for_span(people_entries, start_sec, end_sec)
+        if people_text:
+            base_lines.append(f"[{people_text}]")
+        merged.append((float(start_sec), float(end_sec), base_lines))
+    _write_srt_cues(srt_file, merged)
+    return True
+
+def write_people_entries_to_srt_vtt(people_entries, srt_path, vtt_path, wrap_in_brackets=False):
+    entries = sorted(
+        list(people_entries or []),
+        key=lambda item: (float(item[0]), float(item[1]), str(item[2]).casefold()),
     )
     if not entries:
         return False
@@ -749,12 +875,15 @@ def tsv_people_to_srt_vtt(tsv_path, srt_path, vtt_path, clip_start=None, clip_en
     srt_lines = []
     vtt_lines = ["WEBVTT", ""]
     for i, (start_sec, end_sec, people) in enumerate(entries, start=1):
-        text = str(people).replace("|", "\n")
+        people_text = _normalize_people_text(people)
+        if not people_text:
+            continue
+        subtitle_text = f"[{people_text}]" if wrap_in_brackets else people_text
         srt_lines.extend(
             [
                 str(i),
                 f"{_to_srt_time(start_sec)} --> {_to_srt_time(end_sec)}",
-                text,
+                subtitle_text,
                 "",
             ]
         )
@@ -762,16 +891,32 @@ def tsv_people_to_srt_vtt(tsv_path, srt_path, vtt_path, clip_start=None, clip_en
             [
                 str(i),
                 f"{_to_vtt_time(start_sec)} --> {_to_vtt_time(end_sec)}",
-                text,
+                subtitle_text,
                 "",
             ]
         )
 
-    srt_path.write_text("\n".join(srt_lines).rstrip() + "\n", encoding="utf-8")
-    vtt_path.write_text("\n".join(vtt_lines).rstrip() + "\n", encoding="utf-8")
+    if len(srt_lines) < 4:
+        return False
+    Path(srt_path).write_text("\n".join(srt_lines).rstrip() + "\n", encoding="utf-8")
+    Path(vtt_path).write_text("\n".join(vtt_lines).rstrip() + "\n", encoding="utf-8")
     return True
 
-def tsv_people_to_ass(tsv_path, ass_path, font="Calibri", fontsize=36, clip_start=None, clip_end=None):
+def tsv_people_to_srt_vtt(tsv_path, srt_path, vtt_path, clip_start_frame=None, clip_end_frame=None):
+    tsv_path = Path(tsv_path)
+    entries = _clip_people_entries(
+        _load_people_tsv_entries(tsv_path),
+        clip_start_frame=clip_start_frame,
+        clip_end_frame=clip_end_frame,
+    )
+    return write_people_entries_to_srt_vtt(
+        entries,
+        srt_path,
+        vtt_path,
+        wrap_in_brackets=True,
+    )
+
+def tsv_people_to_ass(tsv_path, ass_path, font="Calibri", fontsize=36, clip_start_frame=None, clip_end_frame=None):
     tsv_path = Path(tsv_path)
     ass_path = Path(ass_path)
     ass_header = f"""[Script Info]
@@ -793,13 +938,16 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
     entries = _clip_people_entries(
         _load_people_tsv_entries(tsv_path),
-        clip_start=clip_start,
-        clip_end=clip_end,
+        clip_start_frame=clip_start_frame,
+        clip_end_frame=clip_end_frame,
     )
     events = []
     for start_sec, end_sec, people in entries:
+        people_text = _normalize_people_text(people)
+        if not people_text:
+            continue
         events.append(
-            f"Dialogue: 0,{_to_ass_time(start_sec)},{_to_ass_time(end_sec)},People,,0,0,0,,{str(people).replace('|', ASS_NEWLINE)}"
+            f"Dialogue: 0,{_to_ass_time(start_sec)},{_to_ass_time(end_sec)},People,,0,0,0,,{{\\i1}}{people_text}{{\\i0}}"
         )
 
     if not events:
@@ -1194,6 +1342,14 @@ def _run_with_args(args):
         if not chapters:
             print(f"No chapters for {src.name}")
             continue
+        people_tsv = find_people_tsv(archive_name)
+        people_ranges = []
+        if people_tsv:
+            people_ranges = _load_people_tsv_entries(people_tsv)
+            if people_ranges:
+                print(f"Loaded people subtitle ranges: {people_tsv} ({len(people_ranges)} entries)")
+            else:
+                print(f"People TSV has no valid frame-range entries: {people_tsv}")
 
         for ch in chapters:
             ch["duration"] = float(ch.get("end", 0)) - float(ch.get("start", 0))
@@ -1218,15 +1374,17 @@ def _run_with_args(args):
             final_srt = final_dir / f"{safe(title)}.srt"
             final_vtt = final_dir / f"{safe(title)}.vtt"
             final_ass = final_dir / f"{safe(title)}.ass"
-            people_srt = final_dir / f"{safe(title)}.people.srt"
-            people_vtt = final_dir / f"{safe(title)}.people.vtt"
-            people_ass = final_dir / f"{safe(title)}.people.ass"
-            people_tsv = find_people_tsv(archive_name)
+            people_entries = (
+                _clip_people_entries(
+                    people_ranges,
+                    clip_start_frame=chapter_start_frame,
+                    clip_end_frame=chapter_end_frame,
+                )
+                if people_ranges
+                else []
+            )
             include_audio = audio_mode(ch) == "on"
             transcribe_dialogue = include_audio and transcript_mode(archive_name, title) == "on"
-
-            if not transcribe_dialogue:
-                cleanup_stale_dialogue_files(final_srt, final_vtt, final_ass)
 
             if chapter_done(final_file) and not rebuild_selected:
                 print(f"Skipping existing chapter: {title}")
@@ -1411,34 +1569,36 @@ def _run_with_args(args):
                         model = whisper.load_model("turbo", download_root=WHISPER_MODEL_DIR)
                     run(make_extract_audio(extracted, audio))
                     transcribe_audio(model, audio, final_srt, final_vtt, final_dir)
+                    if people_entries:
+                        merge_people_entries_into_srt(final_srt, people_entries)
+                        print(
+                            f"Merged people subtitles into dialogue sidecar: {len(people_entries)} clipped ranges."
+                        )
                     srt_to_ass(final_srt, final_ass)
-                    subtitle_tracks.append({"path": final_ass, "title": "Dialogue", "forced": False})
+                    subtitle_title = "Dialogue + People" if people_entries else "Dialogue"
+                    subtitle_tracks.append({"path": final_ass, "title": subtitle_title, "forced": False})
                 elif include_audio:
                     print("Skipping dialogue transcription (render_settings transcript=off).")
                 else:
                     print("Skipping audio and transcription (AUDIO=off).")
 
-                if people_tsv:
-                    wrote_people_text = tsv_people_to_srt_vtt(
-                        people_tsv,
-                        people_srt,
-                        people_vtt,
-                        clip_start=extract_start_sec,
-                        clip_end=extract_end_sec,
+                if not transcribe_dialogue and people_entries:
+                    wrote_people = write_people_entries_to_srt_vtt(
+                        people_entries,
+                        final_srt,
+                        final_vtt,
+                        wrap_in_brackets=True,
                     )
-                    wrote_people_ass = tsv_people_to_ass(
-                        people_tsv,
-                        people_ass,
-                        clip_start=extract_start_sec,
-                        clip_end=extract_end_sec,
-                    )
-                    if wrote_people_text and wrote_people_ass:
-                        subtitle_tracks.append({"path": people_ass, "title": "People", "forced": False})
-                    else:
-                        cleanup_stale_subtitle_files("people", people_srt, people_vtt, people_ass)
-                        print(f"People TSV had no entries: {people_tsv}")
-                else:
-                    cleanup_stale_subtitle_files("people", people_srt, people_vtt, people_ass)
+                    if wrote_people:
+                        srt_to_ass(final_srt, final_ass)
+                        subtitle_tracks.append({"path": final_ass, "title": "People", "forced": False})
+                        print(
+                            f"Wrote people-only subtitle sidecars from {len(people_entries)} clipped ranges."
+                        )
+                if not subtitle_tracks:
+                    cleanup_stale_dialogue_files(final_srt, final_vtt, final_ass)
+                elif people_tsv and not people_entries:
+                    print(f"No people subtitle ranges overlap this chapter: {people_tsv}")
 
                 print(f"Final encoding...")
                 author = ch.get("author", ffm.get("author"))

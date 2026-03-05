@@ -375,6 +375,294 @@
       color: var(--text-muted);
       min-height: 12px;
     }
+    .timeline-scrub {
+      display: grid;
+      gap: 4px;
+      align-content: start;
+    }
+    .timeline-scrub input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+    .timeline-scrub .spark-meta {
+      min-height: 14px;
+    }
+    .people-timeline {
+      position: relative;
+      min-height: 88px;
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      background: var(--bg-alt);
+      overflow: hidden;
+    }
+    .people-timeline-empty {
+      padding: 10px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .people-timeline-track {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 22px;
+      border-top: 1px solid rgba(149, 166, 188, 0.18);
+      pointer-events: none;
+    }
+    .people-timeline-lane-bg {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 22px;
+      background: rgba(12, 20, 30, 0.2);
+      pointer-events: none;
+    }
+    .people-timeline-lane-bg.alt {
+      background: rgba(18, 30, 44, 0.24);
+    }
+    .people-timeline-lane-label {
+      position: absolute;
+      left: 4px;
+      min-width: 22px;
+      padding: 0 3px;
+      border: 1px solid rgba(149, 166, 188, 0.28);
+      border-radius: 2px;
+      background: rgba(8, 14, 22, 0.86);
+      color: var(--text-muted);
+      font-size: 9px;
+      text-align: center;
+      line-height: 12px;
+      pointer-events: none;
+      z-index: 3;
+    }
+    .people-timeline-bar {
+      position: absolute;
+      height: 18px;
+      border: 1px solid rgba(92, 160, 255, 0.65);
+      border-radius: 2px;
+      background: rgba(95, 141, 255, 0.26);
+      color: var(--text-strong);
+      font-size: 11px;
+      line-height: 16px;
+      padding: 0 5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: grab;
+      user-select: none;
+      z-index: 2;
+    }
+    .people-timeline-bar:active {
+      cursor: grabbing;
+    }
+    .people-timeline-bar.dragging {
+      border-color: rgba(245, 185, 108, 0.95);
+      background: rgba(245, 185, 108, 0.24);
+      z-index: 6;
+    }
+    .people-timeline-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1 1 auto;
+      pointer-events: none;
+    }
+    .people-timeline-grip {
+      width: 7px;
+      align-self: stretch;
+      border-left: 1px solid rgba(220, 230, 255, 0.55);
+      border-right: 1px solid rgba(220, 230, 255, 0.55);
+      background: rgba(220, 230, 255, 0.2);
+      cursor: ew-resize;
+      flex: 0 0 auto;
+      pointer-events: auto;
+    }
+    .people-timeline-grip.left {
+      margin-left: -3px;
+    }
+    .people-timeline-grip.right {
+      margin-right: -3px;
+    }
+    .people-timeline-delete {
+      border: 1px solid rgba(225, 111, 122, 0.72);
+      border-radius: 2px;
+      background: rgba(225, 111, 122, 0.18);
+      color: #ffd2d7;
+      font-size: 10px;
+      line-height: 1;
+      padding: 1px 3px;
+      cursor: pointer;
+      flex: 0 0 auto;
+      pointer-events: auto;
+    }
+    .people-timeline-delete:hover {
+      background: rgba(225, 111, 122, 0.36);
+    }
+    .people-timeline-input-wrap {
+      position: absolute;
+      height: 20px;
+      border: 1px solid rgba(245, 185, 108, 0.92);
+      border-radius: 2px;
+      background: rgba(10, 16, 25, 0.95);
+      padding: 1px 3px;
+      z-index: 8;
+    }
+    .people-timeline-input {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--text-strong);
+      font-size: 11px;
+      font-family: inherit;
+    }
+    .people-timeline-head {
+      position: absolute;
+      top: 2px;
+      left: 6px;
+      right: 38px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--text-muted);
+      pointer-events: none;
+      z-index: 3;
+    }
+    .people-timeline-playhead {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: rgba(245, 185, 108, 0.92);
+      z-index: 4;
+      pointer-events: none;
+    }
+    .people-timeline-playhead-label {
+      position: absolute;
+      top: 2px;
+      transform: translateX(-50%);
+      padding: 1px 5px;
+      border: 1px solid rgba(245, 185, 108, 0.85);
+      border-radius: 2px;
+      background: rgba(10, 16, 25, 0.95);
+      color: #ffd8ad;
+      font-size: 10px;
+      z-index: 5;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .people-timeline-drag-tooltip {
+      position: absolute;
+      transform: translateX(-50%);
+      padding: 2px 6px;
+      border: 1px solid rgba(245, 185, 108, 0.9);
+      border-radius: 2px;
+      background: rgba(10, 16, 25, 0.96);
+      color: #ffd8ad;
+      font-size: 10px;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 9;
+    }
+    .people-timeline-zoom {
+      position: absolute;
+      top: 1px;
+      right: 1px;
+      bottom: 1px;
+      width: 34px;
+      border: 1px solid rgba(178, 190, 208, 0.5);
+      border-radius: 2px;
+      background:
+        linear-gradient(180deg, rgba(214, 221, 231, 0.3), rgba(126, 142, 162, 0.22) 34%, rgba(32, 46, 63, 0.66) 35%, rgba(17, 27, 40, 0.85));
+      box-shadow:
+        inset 1px 1px 0 rgba(238, 244, 255, 0.28),
+        inset -1px -1px 0 rgba(6, 12, 20, 0.65),
+        0 0 0 1px rgba(10, 16, 25, 0.4);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 2px;
+      padding: 2px 0;
+      cursor: ns-resize;
+      user-select: none;
+      z-index: 8;
+      color: #d7dfec;
+      font-family: inherit;
+    }
+    .people-timeline-zoom:hover {
+      border-color: rgba(210, 220, 236, 0.74);
+      box-shadow:
+        inset 1px 1px 0 rgba(244, 248, 255, 0.35),
+        inset -1px -1px 0 rgba(6, 12, 20, 0.72),
+        0 0 0 1px rgba(88, 128, 186, 0.32);
+    }
+    .people-timeline-zoom:focus-visible {
+      outline: 1px solid var(--accent);
+      outline-offset: 1px;
+    }
+    .people-timeline-zoom-cap {
+      font-size: 8px;
+      line-height: 1;
+      color: rgba(228, 236, 247, 0.88);
+      text-shadow: 0 1px 0 rgba(8, 14, 22, 0.7);
+      pointer-events: auto;
+      cursor: ns-resize;
+      width: 100%;
+      text-align: center;
+      padding: 1px 0;
+      border-radius: 1px;
+    }
+    .people-timeline-zoom-cap:hover {
+      background: rgba(210, 221, 238, 0.16);
+    }
+    .people-timeline-zoom-wheel {
+      width: 18px;
+      flex: 1 1 auto;
+      min-height: 34px;
+      border: 1px solid rgba(215, 223, 237, 0.46);
+      border-radius: 7px;
+      background:
+        linear-gradient(90deg, rgba(208, 216, 228, 0.52), rgba(85, 102, 124, 0.42) 22%, rgba(43, 56, 74, 0.86) 50%, rgba(85, 102, 124, 0.42) 78%, rgba(208, 216, 228, 0.52)),
+        repeating-linear-gradient(180deg, rgba(11, 20, 31, 0.18) 0 2px, rgba(226, 233, 245, 0.08) 2px 4px);
+      box-shadow:
+        inset 1px 0 0 rgba(242, 247, 255, 0.22),
+        inset -1px 0 0 rgba(7, 13, 21, 0.72);
+      position: relative;
+      pointer-events: auto;
+      cursor: ns-resize;
+      background-position: 0 calc(var(--wheel-shift, 0px));
+      transform: rotate(calc(var(--wheel-shift, 0px) * 1.3deg));
+      transition: background-position 90ms linear, transform 90ms linear;
+    }
+    .people-timeline-zoom-wheel::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 4px;
+      bottom: 4px;
+      width: 1px;
+      transform: translateX(-50%);
+      background: rgba(240, 246, 255, 0.2);
+    }
+    .people-timeline-zoom-readout {
+      min-width: 26px;
+      padding: 0 2px;
+      border: 1px solid rgba(220, 228, 240, 0.35);
+      border-radius: 2px;
+      background: rgba(8, 14, 22, 0.78);
+      color: #e4ecfa;
+      font-size: 8px;
+      line-height: 11px;
+      text-align: center;
+      letter-spacing: 0.1px;
+      pointer-events: auto;
+      cursor: pointer;
+    }
     .people-editor {
       width: 100%;
       min-height: 108px;
@@ -940,6 +1228,7 @@
             <div id="peopleControls" class="iqr-box hidden-ui">
               <label for="peopleNames">People</label>
               <input id="peopleNames" type="text" placeholder="Name1 | Name2">
+              <button id="peoplePrefillCast" class="action" type="button">Auto-fill From Cast</button>
               <button id="peopleAddVisible" class="action" type="button">Add Visible Range</button>
               <button id="peopleClear" class="action warn" type="button">Clear Entries</button>
             </div>
@@ -950,10 +1239,14 @@
         </div>
         <div class="panel spark-panel">
           <svg id="iqrSpark" class="iqr-spark" viewBox="0 0 320 68" preserveAspectRatio="none"></svg>
+          <div class="timeline-scrub hidden-ui">
+            <input id="timelineScrub" type="range" min="0" max="0" value="0" step="1" aria-label="Timeline scrubber">
+            <div id="timelineScrubMeta" class="spark-meta"></div>
+          </div>
+          <div id="peopleTimeline" class="people-timeline hidden-ui"></div>
           <div id="sparkMeta" class="spark-meta"></div>
           <div id="gammaRangeMeta" class="spark-meta hidden-ui"></div>
           <div id="peopleMeta" class="spark-meta hidden-ui"></div>
-          <textarea id="peopleEditor" class="people-editor hidden-ui" spellcheck="false" placeholder="00:00:05.000\t00:00:10.000\tJim | Linda"></textarea>
         </div>
 
         <div id="flipbookPreview" class="flipbook-preview" aria-hidden="true">
@@ -1067,6 +1360,11 @@
         <h3>Step 4: People Subtitles</h3>
         <ul>
           <li>Scroll the frame grid to the visible frame range where people appear.</li>
+          <li>Optionally click <code>Auto-fill From Cast</code> for a first-pass draft from <code>cast/data</code>.</li>
+          <li>Use the timeline scrub slider to move quickly across chapter timecodes.</li>
+          <li>Click anywhere on the people timeline to type a name, then press <code>Enter</code> to create a 2s bar.</li>
+          <li>Drag a bar to move it, drag left/right grips to resize, double-click a bar to rename, and click <code>x</code> to delete.</li>
+          <li>Use the mouse wheel over the timeline wheel (right edge), or click top/bottom arrows to zoom in/out. Click the zoom value to reset.</li>
           <li>Enter one or more names (for example <code>Jim | Linda</code>) and click <code>Add Visible Range</code>.</li>
           <li>Each entry is written in chapter-local time format: <code>HH:MM:SS.mmm</code>.</li>
           <li>Use <code>Save Progress</code> anytime to persist wizard progress and resume later.</li>
@@ -1151,6 +1449,9 @@
     const FREEZE_BRIDGE_SINGLETON_GAP = 0;
     const FREEZE_SINGLE_FRAME_SOURCE_SKIP = 0;
     const FREEZE_SOURCE_CLEARANCE = 0;
+    const TIMELINE_FPS_NUM = 30000;
+    const TIMELINE_FPS_DEN = 1001;
+    const PEOPLE_TIMELINE_DEFAULT_DURATION_SECONDS = 2.0;
 
     const statusEl = document.getElementById('status');
     const stepPillsEl = document.getElementById('stepPills');
@@ -1185,6 +1486,7 @@
     const gammaClearBtnEl = document.getElementById('gammaClear');
     const peopleControlsEl = document.getElementById('peopleControls');
     const peopleNamesEl = document.getElementById('peopleNames');
+    const peoplePrefillCastBtnEl = document.getElementById('peoplePrefillCast');
     const peopleAddVisibleBtnEl = document.getElementById('peopleAddVisible');
     const peopleClearBtnEl = document.getElementById('peopleClear');
     const peopleMetaEl = document.getElementById('peopleMeta');
@@ -1193,6 +1495,10 @@
     const frameGridEl = document.getElementById('frameGrid');
     const summaryBoxEl = document.getElementById('summaryBox');
     const iqrSparkEl = document.getElementById('iqrSpark');
+    const timelineScrubEl = document.getElementById('timelineScrub');
+    const timelineScrubMetaEl = document.getElementById('timelineScrubMeta');
+    const timelineScrubWrapEl = timelineScrubEl ? timelineScrubEl.closest('.timeline-scrub') : null;
+    const peopleTimelineEl = document.getElementById('peopleTimeline');
     const sparkMetaEl = document.getElementById('sparkMeta');
     const gammaRangeMetaEl = document.getElementById('gammaRangeMeta');
     const sparkPlayBtnEl = document.getElementById('sparkPlayBtn');
@@ -1234,12 +1540,18 @@
     let sparkPlayIndex = 0;
     let flipbookGridCursorIndex = -1;
     let flipbookToggleInFlight = false;
+    let peopleTimelineRenderState = null;
+    let peopleTimelineDraft = null;
+    let peopleTimelineDrag = null;
+    let peopleTimelineZoom = 1.0;
+    let peopleTimelineWheelShift = 0;
     const pendingToggleRequests = new Set();
     const navActionButtons = new Map();
     const lockExtraButtons = [
       previewRenderBtnEl,
       gammaApplyVisibleBtnEl,
       gammaClearBtnEl,
+      peoplePrefillCastBtnEl,
       peopleAddVisibleBtnEl,
       peopleClearBtnEl,
       saveProgressDraftBtnEl,
@@ -1667,12 +1979,20 @@
       updateStepPillActive(targetStep.num);
       const gammaMode = targetStep.mode === 'gamma';
       const peopleMode = targetStep.mode === 'people';
+      if (!peopleMode) {
+        peopleTimelineDraft = null;
+        peopleTimelineDrag = null;
+      }
       if (reviewControlsEl) reviewControlsEl.classList.toggle('hidden-ui', gammaMode || peopleMode);
       if (gammaControlsEl) gammaControlsEl.classList.toggle('hidden-ui', !gammaMode);
       if (peopleControlsEl) peopleControlsEl.classList.toggle('hidden-ui', !peopleMode);
       if (reviewActionsEl) reviewActionsEl.classList.toggle('hidden-ui', targetStep.mode !== 'review');
       if (gammaActionsEl) gammaActionsEl.classList.toggle('hidden-ui', !gammaMode);
       if (peopleActionsEl) peopleActionsEl.classList.toggle('hidden-ui', !peopleMode);
+      if (iqrSparkEl) iqrSparkEl.classList.toggle('hidden-ui', peopleMode);
+      if (sparkMetaEl) sparkMetaEl.classList.toggle('hidden-ui', peopleMode);
+      if (timelineScrubWrapEl) timelineScrubWrapEl.classList.toggle('hidden-ui', !peopleMode);
+      if (peopleTimelineEl) peopleTimelineEl.classList.toggle('hidden-ui', !peopleMode);
       if (gammaRangeMetaEl) gammaRangeMetaEl.classList.toggle('hidden-ui', !gammaMode);
       if (peopleMetaEl) peopleMetaEl.classList.toggle('hidden-ui', !peopleMode);
       if (peopleEditorEl) peopleEditorEl.classList.toggle('hidden-ui', !peopleMode);
@@ -1930,6 +2250,52 @@
       return Math.max(0, seconds);
     }
 
+    function chapterLocalSecondsFromFid(fidRaw) {
+      const fid = Number(fidRaw);
+      if (!Number.isFinite(fid)) return 0;
+      const span = chapterFrameSpan();
+      const localFrame = Math.max(0, Math.trunc(fid) - Number(span.start || 0));
+      return Number(localFrame) * (TIMELINE_FPS_DEN / TIMELINE_FPS_NUM);
+    }
+
+    function chapterTimecodeFromFid(fidRaw) {
+      return formatTimestampSeconds(chapterLocalSecondsFromFid(fidRaw));
+    }
+
+    function formatFrameCardLabel(frame) {
+      if (!frame || frame.fid === undefined || frame.fid === null) return '';
+      const tc = chapterTimecodeFromFid(frame.fid);
+      const score = Number(frame.score);
+      const scoreText = Number.isFinite(score) ? `s=${score.toFixed(2)}` : '';
+      const sourceText = String(frame.source || '').trim();
+      const parts = [tc];
+      if (scoreText) parts.push(scoreText);
+      if (sourceText) parts.push(sourceText.toUpperCase());
+      return parts.join('  ');
+    }
+
+    function visibleRangeTimeText(range, frames) {
+      const data = Array.isArray(frames) ? frames : [];
+      if (!range || !data.length) return '';
+      const startIdx = _clamp(Number(range.start || 0), 0, data.length - 1);
+      const endIdx = _clamp(Number(range.end || startIdx), startIdx, data.length - 1);
+      const startFrame = data[startIdx] || null;
+      const endFrame = data[endIdx] || null;
+      if (!startFrame || !endFrame) return '';
+      return `${chapterTimecodeFromFid(startFrame.fid)}-${chapterTimecodeFromFid(endFrame.fid)}`;
+    }
+
+    function timelineFrameStepSeconds() {
+      return TIMELINE_FPS_DEN / TIMELINE_FPS_NUM;
+    }
+
+    function snapTimelineSeconds(rawSeconds) {
+      const step = timelineFrameStepSeconds();
+      if (!Number.isFinite(step) || step <= 0) return Number(Math.max(0, Number(rawSeconds || 0)).toFixed(3));
+      const sec = Math.max(0, Number(rawSeconds || 0));
+      return Number((Math.round(sec / step) * step).toFixed(3));
+    }
+
     function canonicalizePeopleEntries(rawEntries) {
       const duration = chapterDurationSeconds();
       const rows = [];
@@ -1943,15 +2309,19 @@
         const start = parseTimestampSeconds(startRaw);
         const end = parseTimestampSeconds(endRaw);
         const people = String((item && item.people) || '').replace(/\s+/g, ' ').trim();
+        const laneRaw = item && Object.prototype.hasOwnProperty.call(item, 'lane') ? item.lane : 0;
+        const laneNum = Number(laneRaw);
+        const lane = Number.isFinite(laneNum) ? Math.max(0, Math.trunc(laneNum)) : 0;
         if (!people) return;
         if (start === null || end === null || end <= start) return;
         const a = _clamp(start, 0, duration);
         const b = _clamp(end, 0, duration);
         if (b <= a) return;
-        rows.push({ start: Number(a.toFixed(3)), end: Number(b.toFixed(3)), people, idx });
+        rows.push({ start: Number(a.toFixed(3)), end: Number(b.toFixed(3)), people, lane, idx });
       });
       if (!rows.length) return [];
       rows.sort((a, b) => {
+        if (a.lane !== b.lane) return a.lane - b.lane;
         if (a.start !== b.start) return a.start - b.start;
         if (a.end !== b.end) return a.end - b.end;
         return a.idx - b.idx;
@@ -1965,11 +2335,16 @@
             start: formatTimestampSeconds(row.start),
             end: formatTimestampSeconds(row.end),
             people: row.people,
+            lane: row.lane,
           });
           return;
         }
         const prev = out[out.length - 1];
-        if (String(prev.people) === row.people && Number(prev.end_seconds) + 0.001 >= row.start) {
+        if (
+          String(prev.people) === row.people
+          && Number(prev.lane || 0) === row.lane
+          && Number(prev.end_seconds) + 0.001 >= row.start
+        ) {
           prev.end_seconds = Number(Math.max(Number(prev.end_seconds), row.end).toFixed(3));
           prev.end = formatTimestampSeconds(prev.end_seconds);
           return;
@@ -1980,6 +2355,7 @@
           start: formatTimestampSeconds(row.start),
           end: formatTimestampSeconds(row.end),
           people: row.people,
+          lane: row.lane,
         });
       });
       return out;
@@ -1996,8 +2372,14 @@
     function peopleEntriesToEditorText(entries) {
       const rows = canonicalizePeopleEntries(entries);
       if (!rows.length) return '';
+      const includeLane = rows.some((row) => Number(row && row.lane) > 0);
       return rows
-        .map((row) => `${row.start}\t${row.end}\t${row.people}`)
+        .map((row) => {
+          if (includeLane) {
+            return `${row.start}\t${row.end}\t${row.people}\t${Number(row.lane || 0)}`;
+          }
+          return `${row.start}\t${row.end}\t${row.people}`;
+        })
         .join('\n');
     }
 
@@ -2011,21 +2393,26 @@
         if (/^start\s*[\t,]/i.test(text)) return;
         const parts = text.includes('\t') ? text.split('\t') : text.split(',');
         if (parts.length < 3) {
-          errors.push(`Line ${idx + 1}: expected "start<TAB>end<TAB>people".`);
+          errors.push(`Line ${idx + 1}: expected "start<TAB>end<TAB>people[<TAB>lane]".`);
           return;
         }
+        const hasLane = parts.length >= 4;
+        const laneRaw = hasLane ? String(parts[parts.length - 1] || '').trim() : '';
+        const peopleParts = hasLane ? parts.slice(2, parts.length - 1) : parts.slice(2);
         entries.push({
           start: String(parts[0] || '').trim(),
           end: String(parts[1] || '').trim(),
-          people: String(parts.slice(2).join(',') || '').trim(),
+          people: String(peopleParts.join(',') || '').trim(),
+          lane: laneRaw,
         });
       });
       return { entries: canonicalizePeopleEntries(entries), errors };
     }
 
     function refreshPeopleEditorFromState() {
-      if (!peopleEditorEl) return;
-      peopleEditorEl.value = peopleEntriesToEditorText((state.peopleProfile && state.peopleProfile.entries) || []);
+      if (peopleEditorEl) {
+        peopleEditorEl.value = peopleEntriesToEditorText((state.peopleProfile && state.peopleProfile.entries) || []);
+      }
       updatePeopleMeta();
     }
 
@@ -2045,6 +2432,7 @@
         ...(state.peopleProfile || {}),
         entries: parsed.entries,
       };
+      peopleTimelineDrag = null;
       peopleEditorEl.value = peopleEntriesToEditorText(parsed.entries);
       updatePeopleMeta();
       return true;
@@ -2072,26 +2460,338 @@
         start: formatTimestampSeconds(startSeconds),
         end: formatTimestampSeconds(endSeconds),
         people: names,
+        lane: 0,
       };
     }
 
     function updatePeopleMeta() {
-      if (!peopleMetaEl) return;
-      if (!isPeopleStepActive()) {
-        peopleMetaEl.textContent = '';
-        return;
+      if (peopleMetaEl) {
+        if (!isPeopleStepActive()) {
+          peopleMetaEl.textContent = '';
+        } else {
+          const entries = canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
+          if (!entries.length) {
+            peopleMetaEl.textContent = 'People subtitles: no entries yet.';
+          } else {
+            const preview = entries
+              .slice(0, 3)
+              .map((row) => `${row.start}-${row.end} ${row.people}`)
+              .join(' | ');
+            const suffix = entries.length > 3 ? ` | +${entries.length - 3} more` : '';
+            peopleMetaEl.textContent = `People subtitles: ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'} | ${preview}${suffix}`;
+          }
+        }
       }
+      renderPeopleTimeline();
+    }
+
+    function currentPeopleTimelineCursorSeconds() {
+      const frames = (state.review && Array.isArray(state.review.frames)) ? state.review.frames : [];
+      if (frames.length && timelineScrubEl) {
+        const idx = _clamp(Number(timelineScrubEl.value || 0), 0, frames.length - 1);
+        return chapterLocalSecondsFromFid(frames[idx] && frames[idx].fid);
+      }
+      if (state.visibleRange && frames.length) {
+        const startIdx = _clamp(Number(state.visibleRange.start || 0), 0, frames.length - 1);
+        const endIdx = _clamp(Number(state.visibleRange.end || startIdx), startIdx, frames.length - 1);
+        const centerIdx = _clamp(Math.round((startIdx + endIdx) / 2), 0, frames.length - 1);
+        return chapterLocalSecondsFromFid(frames[centerIdx] && frames[centerIdx].fid);
+      }
+      return 0;
+    }
+
+    function setPeopleTimelineZoom(nextZoom) {
+      const z = _clamp(Number(nextZoom || 1), 0.25, 12.0);
+      peopleTimelineZoom = Number.isFinite(z) ? z : 1.0;
+      renderPeopleTimeline(currentPeopleTimelineCursorSeconds());
+    }
+
+    function nudgePeopleTimelineZoom(direction) {
+      const dir = Number(direction);
+      if (!Number.isFinite(dir) || dir === 0) return;
+      const factor = 1.2;
+      const base = Number(peopleTimelineZoom || 1.0);
+      const next = dir > 0 ? (base * factor) : (base / factor);
+      const clamped = _clamp(next, 0.25, 12.0);
+      const zoomDelta = clamped - base;
+      if (Math.abs(zoomDelta) > 0.000001) {
+        const spinDir = zoomDelta > 0 ? 1 : -1;
+        peopleTimelineWheelShift += spinDir * 2.5;
+        if (peopleTimelineWheelShift > 2000 || peopleTimelineWheelShift < -2000) {
+          peopleTimelineWheelShift = Number(peopleTimelineWheelShift % 2000);
+        }
+      }
+      setPeopleTimelineZoom(clamped);
+    }
+
+    function peopleTimelineSecondsFromClientX(clientX) {
+      if (!peopleTimelineEl || !peopleTimelineRenderState) return null;
+      const rect = peopleTimelineEl.getBoundingClientRect();
+      if (!rect.width || rect.width <= 0) return null;
+      const x = _clamp(Number(clientX) - rect.left, 0, rect.width);
+      const ratio = rect.width <= 1 ? 0 : (x / rect.width);
+      return Number(peopleTimelineRenderState.windowStart || 0) + (ratio * Number(peopleTimelineRenderState.windowSpan || 0));
+    }
+
+    function peopleTimelineLaneFromClientY(clientY) {
+      if (!peopleTimelineEl || !peopleTimelineRenderState) return 0;
+      const rect = peopleTimelineEl.getBoundingClientRect();
+      const topPad = Number(peopleTimelineRenderState.topPad || 20);
+      const laneHeight = Math.max(1, Number(peopleTimelineRenderState.laneHeight || 22));
+      const rel = Number(clientY) - rect.top - topPad;
+      if (!Number.isFinite(rel) || rel <= 0) return 0;
+      return Math.max(0, Math.trunc(rel / laneHeight));
+    }
+
+    function openPeopleTimelineDraft(draft) {
+      if (!draft || typeof draft !== 'object') return;
+      const duration = Math.max(chapterDurationSeconds(), timelineFrameStepSeconds());
+      const minDur = timelineFrameStepSeconds();
+      const maxStart = Math.max(0, duration - minDur);
+      const laneNum = Number(draft.lane);
+      const lane = Number.isFinite(laneNum) ? Math.max(0, Math.trunc(laneNum)) : 0;
+      const start = _clamp(snapTimelineSeconds(draft.start), 0, maxStart);
+      const end = _clamp(
+        snapTimelineSeconds(Math.max(Number(draft.end || 0), start + minDur)),
+        start + minDur,
+        duration
+      );
+      peopleTimelineDraft = {
+        mode: String(draft.mode || 'new') === 'edit' ? 'edit' : 'new',
+        entryIndex: Number.isFinite(Number(draft.entryIndex)) ? Math.trunc(Number(draft.entryIndex)) : null,
+        lane,
+        start,
+        end,
+        text: String(draft.text || '').trim(),
+      };
+      renderPeopleTimeline(currentPeopleTimelineCursorSeconds());
+    }
+
+    function clearPeopleTimelineDraft() {
+      if (!peopleTimelineDraft) return;
+      peopleTimelineDraft = null;
+      renderPeopleTimeline(currentPeopleTimelineCursorSeconds());
+    }
+
+    function commitPeopleTimelineDraft() {
+      if (!peopleTimelineDraft) return false;
+      const text = String(peopleTimelineDraft.text || '').replace(/\s+/g, ' ').trim();
       const entries = canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
-      if (!entries.length) {
-        peopleMetaEl.textContent = 'People subtitles: no entries yet.';
+      if (!text) {
+        peopleTimelineDraft = null;
+        renderPeopleTimeline(currentPeopleTimelineCursorSeconds());
+        return false;
+      }
+
+      if (peopleTimelineDraft.mode === 'edit') {
+        const idx = Number(peopleTimelineDraft.entryIndex);
+        if (Number.isFinite(idx) && idx >= 0 && idx < entries.length) {
+          entries[idx] = {
+            ...entries[idx],
+            people: text,
+            lane: Math.max(0, Math.trunc(Number(entries[idx].lane || 0))),
+          };
+        }
+      } else {
+        entries.push({
+          start_seconds: peopleTimelineDraft.start,
+          end_seconds: peopleTimelineDraft.end,
+          start: formatTimestampSeconds(peopleTimelineDraft.start),
+          end: formatTimestampSeconds(peopleTimelineDraft.end),
+          people: text,
+          lane: peopleTimelineDraft.lane,
+        });
+      }
+      state.peopleProfile = {
+        ...(state.peopleProfile || {}),
+        entries: canonicalizePeopleEntries(entries),
+      };
+      peopleTimelineDraft = null;
+      refreshPeopleEditorFromState();
+      updateReviewStatsDisplay();
+      return true;
+    }
+
+    function renderPeopleTimeline(cursorSeconds = null) {
+      if (!peopleTimelineEl) return;
+      if (!isPeopleStepActive()) {
+        peopleTimelineEl.innerHTML = '';
+        peopleTimelineEl.style.height = '';
+        peopleTimelineRenderState = null;
         return;
       }
-      const preview = entries
-        .slice(0, 3)
-        .map((row) => `${row.start}-${row.end} ${row.people}`)
-        .join(' | ');
-      const suffix = entries.length > 3 ? ` | +${entries.length - 3} more` : '';
-      peopleMetaEl.textContent = `People subtitles: ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'} | ${preview}${suffix}`;
+
+      const entries = canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
+      const frames = (state.review && Array.isArray(state.review.frames)) ? state.review.frames : [];
+      const duration = Math.max(
+        timelineFrameStepSeconds(),
+        chapterDurationSeconds(),
+        entries.reduce((mx, row) => Math.max(mx, Number(row.end_seconds || 0)), 0)
+      );
+
+      let currentSec = Number(cursorSeconds);
+      if (!Number.isFinite(currentSec)) {
+        if (frames.length && timelineScrubEl) {
+          const idx = _clamp(Number(timelineScrubEl.value || 0), 0, frames.length - 1);
+          currentSec = chapterLocalSecondsFromFid(frames[idx] && frames[idx].fid);
+        } else {
+          currentSec = 0;
+        }
+      }
+      currentSec = _clamp(currentSec, 0, duration);
+
+      const baseViewportSeconds = Math.max(20, Math.min(180, Math.max(30, duration * 0.14)));
+      const minViewportSeconds = Math.min(duration, Math.max(timelineFrameStepSeconds() * 3, 0.2));
+      const maxViewportSeconds = Math.max(minViewportSeconds, duration);
+      let viewportSeconds = baseViewportSeconds / Math.max(0.25, Number(peopleTimelineZoom || 1));
+      viewportSeconds = _clamp(viewportSeconds, minViewportSeconds, maxViewportSeconds);
+      if (!Number.isFinite(viewportSeconds) || viewportSeconds <= 0) {
+        viewportSeconds = Math.max(minViewportSeconds, 0.2);
+      }
+
+      const playheadRatio = 0.35;
+      const maxWindowStart = Math.max(0, duration - viewportSeconds);
+      let windowStart = currentSec - (viewportSeconds * playheadRatio);
+      windowStart = _clamp(windowStart, 0, maxWindowStart);
+      const windowEnd = windowStart + viewportSeconds;
+      const windowSpan = Math.max(0.001, windowEnd - windowStart);
+
+      const maxLane = entries.reduce((mx, row) => {
+        const lane = Math.max(0, Math.trunc(Number(row.lane || 0)));
+        return Math.max(mx, lane);
+      }, 0);
+      const draftLane = peopleTimelineDraft ? Math.max(0, Math.trunc(Number(peopleTimelineDraft.lane || 0))) : 0;
+      const laneCount = Math.max(1, maxLane + 1, draftLane + 1);
+      const laneHeight = 22;
+      const topPad = 20;
+      const timelineHeight = Math.max(88, topPad + laneCount * laneHeight + 6);
+      peopleTimelineEl.style.height = `${timelineHeight}px`;
+
+      const tracksHtml = Array.from({ length: laneCount }, (_, lane) => {
+        const top = topPad + lane * laneHeight;
+        const laneNum = lane + 1;
+        const bgClass = lane % 2 === 1 ? ' alt' : '';
+        const labelTop = top + 4;
+        return `
+          <div class="people-timeline-lane-bg${bgClass}" style="top:${top}px;"></div>
+          <div class="people-timeline-track" style="top:${top}px;"></div>
+          <div class="people-timeline-lane-label" style="top:${labelTop}px;">L${laneNum}</div>
+        `;
+      }).join('');
+
+      const barsHtml = entries.map((row, idx) => {
+        const startSec = Number(row.start_seconds);
+        const endSec = Number(row.end_seconds);
+        if (!Number.isFinite(startSec) || !Number.isFinite(endSec) || endSec <= startSec) return '';
+        const clipStart = Math.max(startSec, windowStart);
+        const clipEnd = Math.min(endSec, windowEnd);
+        if (clipEnd <= clipStart) return '';
+        const lane = Math.max(0, Math.trunc(Number(row.lane || 0)));
+        const leftPct = _clamp(((clipStart - windowStart) / windowSpan) * 100, 0, 100);
+        const rightPct = _clamp(((clipEnd - windowStart) / windowSpan) * 100, leftPct, 100);
+        const widthPct = Math.min(100 - leftPct, Math.max(0.8, rightPct - leftPct));
+        const top = topPad + (lane * laneHeight) + 2;
+        const label = escapeHtml(String(row.people || ''));
+        const title = escapeHtml(`${formatTimestampSeconds(startSec)}-${formatTimestampSeconds(endSec)}  ${row.people}`);
+        const dragging = peopleTimelineDrag && Number(peopleTimelineDrag.entryIndex) === idx ? ' dragging' : '';
+        return `
+          <div class="people-timeline-bar${dragging}" data-entry-index="${idx}" data-lane="${lane}" style="left:${leftPct.toFixed(3)}%;width:${widthPct.toFixed(3)}%;top:${top}px;" title="${title}">
+            <span class="people-timeline-grip left" data-resize="start" aria-hidden="true"></span>
+            <span class="people-timeline-name">${label}</span>
+            <button class="people-timeline-delete" type="button" data-delete="1" title="Delete subtitle range">x</button>
+            <span class="people-timeline-grip right" data-resize="end" aria-hidden="true"></span>
+          </div>
+        `;
+      }).join('');
+
+      let draftHtml = '';
+      if (peopleTimelineDraft) {
+        const draftStart = Math.max(windowStart, Number(peopleTimelineDraft.start || 0));
+        const draftEnd = Math.min(windowEnd, Number(peopleTimelineDraft.end || 0));
+        if (draftEnd > draftStart) {
+          const draftLeft = _clamp(((draftStart - windowStart) / windowSpan) * 100, 0, 100);
+          const draftRight = _clamp(((draftEnd - windowStart) / windowSpan) * 100, draftLeft, 100);
+          const draftWidth = Math.min(100 - draftLeft, Math.max(1.2, draftRight - draftLeft));
+          const draftLaneTop = topPad + Math.max(0, Math.trunc(Number(peopleTimelineDraft.lane || 0))) * laneHeight + 1;
+          draftHtml = `
+            <div class="people-timeline-input-wrap" style="left:${draftLeft.toFixed(3)}%;width:${draftWidth.toFixed(3)}%;top:${draftLaneTop}px;">
+              <input class="people-timeline-input" type="text" spellcheck="false" value="${escapeHtml(String(peopleTimelineDraft.text || ''))}" placeholder="Type name(s) and press Enter">
+            </div>
+          `;
+        }
+      }
+
+      let dragTooltipHtml = '';
+      if (peopleTimelineDrag) {
+        const dragIdx = Number(peopleTimelineDrag.entryIndex);
+        if (Number.isFinite(dragIdx) && dragIdx >= 0 && dragIdx < entries.length) {
+          const dragRow = entries[dragIdx];
+          const dragStart = Number(dragRow.start_seconds || 0);
+          const dragEnd = Number(dragRow.end_seconds || 0);
+          if (Number.isFinite(dragStart) && Number.isFinite(dragEnd) && dragEnd > dragStart) {
+            const midSec = _clamp((dragStart + dragEnd) / 2, windowStart, windowEnd);
+            const leftPct = _clamp(((midSec - windowStart) / windowSpan) * 100, 0, 100);
+            const lane = Math.max(0, Math.trunc(Number(dragRow.lane || 0)));
+            const laneTop = topPad + lane * laneHeight;
+            const tooltipTop = Math.max(0, laneTop - 16);
+            const tooltipText = `${formatTimestampSeconds(dragStart)}-${formatTimestampSeconds(dragEnd)} (${formatTimestampSeconds(dragEnd - dragStart)})`;
+            dragTooltipHtml = `<div class="people-timeline-drag-tooltip" style="left:${leftPct.toFixed(3)}%;top:${tooltipTop}px;">${escapeHtml(tooltipText)}</div>`;
+          }
+        }
+      }
+
+      const hintHtml = !entries.length
+        ? '<div class="people-timeline-empty">Click timeline to add a name (Enter to save, drag/resize after).</div>'
+        : '';
+
+      const playheadPct = _clamp(((currentSec - windowStart) / windowSpan) * 100, 0, 100);
+      const headLeft = formatTimestampSeconds(windowStart);
+      const headRight = formatTimestampSeconds(windowEnd);
+      const headNow = formatTimestampSeconds(currentSec);
+      const zoomValue = `x${Number(peopleTimelineZoom || 1).toFixed(2)}`;
+
+      peopleTimelineEl.innerHTML = `
+        <div class="people-timeline-head">
+          <span>${headLeft}</span>
+          <span>${headRight}</span>
+        </div>
+        <div class="people-timeline-playhead" style="left:${playheadPct.toFixed(3)}%;"></div>
+        <div class="people-timeline-playhead-label" style="left:${playheadPct.toFixed(3)}%;">${headNow}</div>
+        ${tracksHtml}
+        ${barsHtml}
+        ${draftHtml}
+        ${dragTooltipHtml}
+        ${hintHtml}
+        <button class="people-timeline-zoom" type="button" style="--wheel-shift:${Number(peopleTimelineWheelShift || 0).toFixed(2)}px;" title="IRIX-style wheel: scroll or click top/bottom to zoom. Click value to reset.">
+          <span class="people-timeline-zoom-cap up" data-zoom="in" aria-hidden="true">&#9650;</span>
+          <span class="people-timeline-zoom-wheel" data-zoom="wheel" aria-hidden="true"></span>
+          <span class="people-timeline-zoom-cap down" data-zoom="out" aria-hidden="true">&#9660;</span>
+          <span class="people-timeline-zoom-readout" data-zoom="reset">${zoomValue}</span>
+        </button>
+      `;
+
+      peopleTimelineRenderState = {
+        windowStart,
+        windowEnd,
+        windowSpan,
+        duration,
+        zoom: Number(peopleTimelineZoom || 1),
+        laneHeight,
+        topPad,
+        laneCount,
+      };
+
+      if (peopleTimelineDraft) {
+        const input = peopleTimelineEl.querySelector('.people-timeline-input');
+        if (input && document.activeElement !== input) {
+          try {
+            input.focus({ preventScroll: true });
+            input.select();
+          } catch (_err) {
+            input.focus();
+          }
+        }
+      }
     }
 
     function gammaRangesForSave() {
@@ -2380,7 +3080,8 @@
       if (state.visibleRange) {
         const start = Math.max(0, Number(state.visibleRange.start)) + 1;
         const end = Math.max(start, Number(state.visibleRange.end) + 1);
-        sparkMetaEl.textContent = `Scores: min ${minV.toFixed(2)} | max ${maxV.toFixed(2)} | threshold ${Number(threshold || 0).toFixed(2)} | auto bad ${badCount} | view ${start}-${end}/${scores.length}`;
+        const viewTc = visibleRangeTimeText(state.visibleRange, data);
+        sparkMetaEl.textContent = `Scores: min ${minV.toFixed(2)} | max ${maxV.toFixed(2)} | threshold ${Number(threshold || 0).toFixed(2)} | auto bad ${badCount} | view ${viewTc || `${start}-${end}/${scores.length}`}`;
       } else {
         sparkMetaEl.textContent = `Scores: min ${minV.toFixed(2)} | max ${maxV.toFixed(2)} | threshold ${Number(threshold || 0).toFixed(2)} | auto bad ${badCount}`;
       }
@@ -2457,7 +3158,8 @@
       if (state.visibleRange) {
         const start = Math.max(0, Number(state.visibleRange.start)) + 1;
         const end = Math.max(start, Number(state.visibleRange.end) + 1);
-        sparkMetaEl.textContent = `Gamma scores: min ${minV.toFixed(2)} | max ${maxV.toFixed(2)} | level ${level.toFixed(2)} | above level ${aboveCount} | view ${start}-${end}/${scores.length}`;
+        const viewTc = visibleRangeTimeText(state.visibleRange, data);
+        sparkMetaEl.textContent = `Gamma scores: min ${minV.toFixed(2)} | max ${maxV.toFixed(2)} | level ${level.toFixed(2)} | above level ${aboveCount} | view ${viewTc || `${start}-${end}/${scores.length}`}`;
       } else {
         sparkMetaEl.textContent = `Gamma scores: min ${minV.toFixed(2)} | max ${maxV.toFixed(2)} | level ${level.toFixed(2)} | above level ${aboveCount}`;
       }
@@ -2469,6 +3171,48 @@
       } else {
         renderSparkline(frames, threshold);
       }
+    }
+
+    function updateTimelineScrubUi() {
+      if (!timelineScrubEl || !timelineScrubMetaEl) return;
+      const frames = (state.review && Array.isArray(state.review.frames)) ? state.review.frames : [];
+      if (!frames.length) {
+        timelineScrubEl.min = '0';
+        timelineScrubEl.max = '0';
+        timelineScrubEl.step = '1';
+        timelineScrubEl.value = '0';
+        timelineScrubEl.disabled = true;
+        timelineScrubMetaEl.textContent = 'Timeline scrub: no sampled frames loaded.';
+        renderPeopleTimeline(0);
+        return;
+      }
+      timelineScrubEl.disabled = false;
+      timelineScrubEl.min = '0';
+      timelineScrubEl.max = String(Math.max(0, frames.length - 1));
+      timelineScrubEl.step = '1';
+
+      const range = state.visibleRange || { start: 0, end: 0 };
+      const startIdx = _clamp(Number(range.start || 0), 0, frames.length - 1);
+      const endIdx = _clamp(Number(range.end || startIdx), startIdx, frames.length - 1);
+      const centerIdx = _clamp(Math.round((startIdx + endIdx) / 2), 0, frames.length - 1);
+      const scrubActive = document.activeElement === timelineScrubEl;
+      if (!scrubActive) {
+        timelineScrubEl.value = String(centerIdx);
+      }
+      let cursorIdx = centerIdx;
+      if (scrubActive) {
+        const activeIdx = Number(timelineScrubEl.value);
+        if (Number.isFinite(activeIdx)) {
+          cursorIdx = _clamp(Math.round(activeIdx), 0, frames.length - 1);
+        }
+      }
+
+      const firstTc = chapterTimecodeFromFid(frames[0] && frames[0].fid);
+      const lastTc = chapterTimecodeFromFid(frames[frames.length - 1] && frames[frames.length - 1].fid);
+      const cursorTc = chapterTimecodeFromFid(frames[cursorIdx] && frames[cursorIdx].fid);
+      const viewTc = visibleRangeTimeText({ start: startIdx, end: endIdx }, frames);
+      timelineScrubMetaEl.textContent = `Timeline: ${cursorTc} (${cursorIdx + 1}/${frames.length}) | view ${viewTc || '-'} | span ${firstTc}-${lastTc}`;
+      renderPeopleTimeline(chapterLocalSecondsFromFid(frames[cursorIdx] && frames[cursorIdx].fid));
     }
 
     function _computeVisibleIndexRange() {
@@ -2496,6 +3240,7 @@
       const range = _computeVisibleIndexRange();
       state.visibleRange = range || { start: 0, end: state.review.frames.length - 1 };
       renderActiveSparkline(state.review.frames, state.review.threshold || 0);
+      updateTimelineScrubUi();
     }
 
     function scheduleVisibleRangeRefresh() {
@@ -2580,6 +3325,177 @@
       const top = Math.max(0, target.offsetTop - Math.floor(frameGridEl.clientHeight * 0.12));
       frameGridEl.scrollTo({ top, behavior: 'auto' });
       scheduleVisibleRangeRefresh();
+    }
+
+    function scrubTimelineToIndex(rawIndex, options = {}) {
+      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) return;
+      const scrollGrid = !(options && options.scrollGrid === false);
+      const forceMeta = Boolean(options && options.forceMeta);
+      const idx = _clamp(Number(rawIndex), 0, state.review.frames.length - 1);
+      if (timelineScrubEl) {
+        timelineScrubEl.value = String(idx);
+      }
+      if (scrollGrid) {
+        _scrollFrameGridToIndex(idx);
+      }
+      const frame = state.review.frames[idx] || null;
+      const cursorSeconds = frame ? chapterLocalSecondsFromFid(frame.fid) : 0;
+      renderPeopleTimeline(cursorSeconds);
+      if (timelineScrubEl && (document.activeElement === timelineScrubEl || forceMeta)) {
+        const tc = frame ? chapterTimecodeFromFid(frame.fid) : '';
+        if (timelineScrubMetaEl) {
+          timelineScrubMetaEl.textContent = `Timeline: ${tc || '?'} (${idx + 1}/${state.review.frames.length})`;
+        }
+      }
+    }
+
+    function beginPeopleTimelineDraftFromPoint(clientX, clientY) {
+      if (!isPeopleStepActive()) return;
+      const secRaw = peopleTimelineSecondsFromClientX(clientX);
+      if (!Number.isFinite(secRaw)) return;
+      const duration = Math.max(chapterDurationSeconds(), timelineFrameStepSeconds());
+      const step = timelineFrameStepSeconds();
+      const start = _clamp(snapTimelineSeconds(secRaw), 0, Math.max(0, duration - step));
+      const end = _clamp(
+        snapTimelineSeconds(start + PEOPLE_TIMELINE_DEFAULT_DURATION_SECONDS),
+        start + step,
+        duration
+      );
+      const lane = peopleTimelineLaneFromClientY(clientY);
+      openPeopleTimelineDraft({
+        mode: 'new',
+        lane,
+        start,
+        end,
+        text: '',
+      });
+    }
+
+    function deletePeopleTimelineEntry(entryIndex) {
+      const idx = Math.trunc(Number(entryIndex));
+      const entries = canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
+      if (!Number.isFinite(idx) || idx < 0 || idx >= entries.length) return;
+      entries.splice(idx, 1);
+      state.peopleProfile = {
+        ...(state.peopleProfile || {}),
+        entries: canonicalizePeopleEntries(entries),
+      };
+      refreshPeopleEditorFromState();
+      updateReviewStatsDisplay();
+    }
+
+    function openPeopleTimelineEdit(entryIndex) {
+      const idx = Math.trunc(Number(entryIndex));
+      const entries = canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
+      if (!Number.isFinite(idx) || idx < 0 || idx >= entries.length) return;
+      const row = entries[idx];
+      openPeopleTimelineDraft({
+        mode: 'edit',
+        entryIndex: idx,
+        lane: Number(row.lane || 0),
+        start: Number(row.start_seconds || 0),
+        end: Number(row.end_seconds || 0),
+        text: String(row.people || ''),
+      });
+    }
+
+    function startPeopleTimelineDrag(event, kind, entryIndex) {
+      if (!isPeopleStepActive()) return;
+      const idx = Math.trunc(Number(entryIndex));
+      const entries = canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
+      if (!Number.isFinite(idx) || idx < 0 || idx >= entries.length) return;
+      const row = entries[idx];
+      const start = Number(row.start_seconds || 0);
+      const end = Number(row.end_seconds || 0);
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return;
+      const grabSecRaw = peopleTimelineSecondsFromClientX(event.clientX);
+      const grabSec = Number.isFinite(grabSecRaw) ? grabSecRaw : start;
+      peopleTimelineDrag = {
+        pointerId: event.pointerId,
+        kind: String(kind || 'move'),
+        entryIndex: idx,
+        baseEntries: entries.map((item) => ({ ...item })),
+        start,
+        end,
+        lane: Math.max(0, Math.trunc(Number(row.lane || 0))),
+        grabOffset: grabSec - start,
+      };
+      peopleTimelineDraft = null;
+      if (peopleTimelineEl && peopleTimelineEl.setPointerCapture) {
+        try {
+          peopleTimelineEl.setPointerCapture(event.pointerId);
+        } catch (_err) {}
+      }
+      event.preventDefault();
+      renderPeopleTimeline(currentPeopleTimelineCursorSeconds());
+    }
+
+    function updatePeopleTimelineDrag(event) {
+      if (!peopleTimelineDrag) return;
+      if (Number(event.pointerId) !== Number(peopleTimelineDrag.pointerId)) return;
+      const secRaw = peopleTimelineSecondsFromClientX(event.clientX);
+      if (!Number.isFinite(secRaw)) return;
+      const step = timelineFrameStepSeconds();
+      const duration = Math.max(
+        chapterDurationSeconds(),
+        Number(peopleTimelineRenderState && peopleTimelineRenderState.duration) || 0,
+        Number(peopleTimelineDrag.end || 0)
+      );
+      const baseStart = Number(peopleTimelineDrag.start || 0);
+      const baseEnd = Number(peopleTimelineDrag.end || 0);
+      const baseDuration = Math.max(step, baseEnd - baseStart);
+      let nextStart = baseStart;
+      let nextEnd = baseEnd;
+      const snappedSec = _clamp(snapTimelineSeconds(secRaw), 0, duration);
+
+      if (peopleTimelineDrag.kind === 'resize-start') {
+        nextStart = _clamp(snappedSec, 0, Math.max(0, baseEnd - step));
+      } else if (peopleTimelineDrag.kind === 'resize-end') {
+        nextEnd = _clamp(snappedSec, Math.min(duration, baseStart + step), duration);
+      } else {
+        nextStart = snapTimelineSeconds(snappedSec - Number(peopleTimelineDrag.grabOffset || 0));
+        nextStart = _clamp(nextStart, 0, Math.max(0, duration - baseDuration));
+        nextEnd = _clamp(snapTimelineSeconds(nextStart + baseDuration), nextStart + step, duration);
+      }
+
+      if (nextEnd <= nextStart) {
+        nextEnd = _clamp(nextStart + step, nextStart + step, duration);
+      }
+
+      const working = (peopleTimelineDrag.baseEntries || []).map((item) => ({ ...item }));
+      if (!working.length) return;
+      if (peopleTimelineDrag.entryIndex < 0 || peopleTimelineDrag.entryIndex >= working.length) return;
+      const target = working[peopleTimelineDrag.entryIndex];
+      target.start_seconds = Number(nextStart.toFixed(3));
+      target.end_seconds = Number(nextEnd.toFixed(3));
+      target.start = formatTimestampSeconds(target.start_seconds);
+      target.end = formatTimestampSeconds(target.end_seconds);
+      target.lane = Math.max(0, Math.trunc(Number(peopleTimelineDrag.lane || target.lane || 0)));
+
+      state.peopleProfile = {
+        ...(state.peopleProfile || {}),
+        entries: working,
+      };
+      renderPeopleTimeline(currentPeopleTimelineCursorSeconds());
+      event.preventDefault();
+    }
+
+    function finishPeopleTimelineDrag(event = null) {
+      if (!peopleTimelineDrag) return;
+      if (event && Number(event.pointerId) !== Number(peopleTimelineDrag.pointerId)) return;
+      const pointerId = Number(peopleTimelineDrag.pointerId);
+      peopleTimelineDrag = null;
+      if (peopleTimelineEl && peopleTimelineEl.releasePointerCapture && Number.isFinite(pointerId)) {
+        try {
+          peopleTimelineEl.releasePointerCapture(pointerId);
+        } catch (_err) {}
+      }
+      state.peopleProfile = {
+        ...(state.peopleProfile || {}),
+        entries: canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []),
+      };
+      refreshPeopleEditorFromState();
+      updateReviewStatsDisplay();
     }
 
     function _centerFrameCardInGrid(card) {
@@ -2697,6 +3613,7 @@
           return {
             fid: String(card.dataset.fid || ''),
             label: String(card.dataset.label || ''),
+            timecode: String(card.dataset.timecode || ''),
             status: card.classList.contains('bad') ? 'bad' : 'good',
             src,
           };
@@ -2711,10 +3628,11 @@
       const frame = sparkPlayFrames[idx];
       if (!frame) return;
       flipbookImageEl.src = frame.src;
-      flipbookImageEl.alt = `Flipbook frame ${frame.fid || idx + 1}`;
+      const tc = String(frame.timecode || chapterTimecodeFromFid(frame.fid) || '');
+      flipbookImageEl.alt = `Flipbook frame ${tc || (idx + 1)}`;
       if (flipbookMetaEl) {
         const statusTag = frame.status === 'bad' ? 'BAD' : 'GOOD';
-        flipbookMetaEl.textContent = `${idx + 1}/${sparkPlayFrames.length}  G:${frame.fid || '?'}  ${statusTag}`;
+        flipbookMetaEl.textContent = `${idx + 1}/${sparkPlayFrames.length}  T:${tc || '?'}  ${statusTag}`;
       }
       sparkPlayIndex = idx;
       if (flipbookImageEl) {
@@ -3212,19 +4130,22 @@
         state.freezeReplacementMap = new Map();
         frameGridEl.textContent = 'No frames loaded.';
         renderActiveSparkline([], 0);
+        updateTimelineScrubUi();
         return;
       }
       rememberFrameImages(orderedFrames);
       const fragment = document.createDocumentFragment();
       orderedFrames.forEach(frame => {
         const frameImage = String(frame.image || state.frameImages.get(String(frame.fid)) || '');
+        const formattedLabel = formatFrameCardLabel(frame);
         const card = document.createElement('div');
         card.className = `frame-card ${frame.status}`;
         card.dataset.fid = String(frame.fid);
-        card.dataset.label = String(frame.label || '');
+        card.dataset.label = String(formattedLabel || '');
+        card.dataset.timecode = chapterTimecodeFromFid(frame.fid);
         card.innerHTML = `
-          <img src="${frameImage}" alt="frame ${frame.fid}">
-          <div class="frame-label">${escapeHtml(frame.label)}</div>
+          <img src="${frameImage}" alt="frame ${chapterTimecodeFromFid(frame.fid)}">
+          <div class="frame-label">${escapeHtml(formattedLabel)}</div>
           <div class="frame-replace-note"></div>
         `;
         fragment.appendChild(card);
@@ -3233,6 +4154,7 @@
       refreshFreezeSimulation();
       renderActiveSparkline(orderedFrames, state.review ? state.review.threshold : 0);
       scheduleVisibleRangeRefresh();
+      updateTimelineScrubUi();
       ensureFlipbookReady(true);
       updateReviewStatsDisplay();
     }
@@ -3247,12 +4169,15 @@
         card.classList.toggle('bad', update.status === 'bad');
         card.classList.toggle('good', update.status === 'good');
         const label = card.querySelector('.frame-label');
+        const formattedLabel = formatFrameCardLabel(update);
         if (label) {
-          label.textContent = update.label;
-          card.dataset.label = String(update.label || '');
+          label.textContent = formattedLabel;
+          card.dataset.label = String(formattedLabel || '');
         }
+        card.dataset.timecode = chapterTimecodeFromFid(update.fid);
       });
       ensureFlipbookReady(false);
+      updateTimelineScrubUi();
     }
 
     async function loadArchives() {
@@ -3280,6 +4205,7 @@
         startFrameEl.value = st.start_frame;
         endFrameEl.value = st.end_frame;
         state.peopleProfile = normalizePeopleProfile(null);
+        peopleTimelineZoom = 1.0;
         refreshPeopleEditorFromState();
         renderArchives();
         renderChapters();
@@ -3325,6 +4251,7 @@
       state.gammaScores = new Map();
       state.gammaProfile = normalizeGammaProfile(null);
       state.peopleProfile = normalizePeopleProfile(null);
+      peopleTimelineZoom = 1.0;
       if (peopleNamesEl) peopleNamesEl.value = '';
       state.review = { threshold: 0, stats: { total: 0, bad: 0, good: 0, shown: 0, overrides: 0 }, frames: [] };
       updateReviewStatsDisplay();
@@ -3431,6 +4358,34 @@
       }
     }
 
+    async function prefillPeopleFromCast() {
+      if (isChapterLoadInFlight || isPreviewRenderInFlight) {
+        setStatus('Wait until current processing finishes before running Cast prefill.', true);
+        return;
+      }
+      if (!state.archive || !state.chapter) {
+        setStatus('Load a chapter before running Cast prefill.', true);
+        return;
+      }
+      if (!syncPeopleProfileFromEditor(true)) return;
+      setLoading(true, 'Generating people subtitle draft from cast database...');
+      try {
+        const result = await api('/api/people_prefill_cast', 'POST', {
+          mode: 'replace',
+        });
+        state.peopleProfile = normalizePeopleProfile(result.people_profile || null);
+        peopleTimelineDraft = null;
+        peopleTimelineDrag = null;
+        refreshPeopleEditorFromState();
+        updateReviewStatsDisplay();
+        setStatus(result.message || 'Cast prefill complete.');
+      } catch (err) {
+        setStatus(err.message, true);
+      } finally {
+        setLoading(false);
+      }
+    }
+
     function addVisiblePeopleEntry() {
       const names = String((peopleNamesEl && peopleNamesEl.value) || '').trim();
       if (!names) {
@@ -3451,12 +4406,16 @@
         ...(state.peopleProfile || {}),
         entries: next,
       };
+      peopleTimelineDraft = null;
+      peopleTimelineDrag = null;
       refreshPeopleEditorFromState();
       updateReviewStatsDisplay();
       setStatus(`Added people subtitle: ${visibleEntry.start} - ${visibleEntry.end} | ${visibleEntry.people}`);
     }
 
     function clearPeopleEntries() {
+      peopleTimelineDraft = null;
+      peopleTimelineDrag = null;
       state.peopleProfile = {
         ...(state.peopleProfile || {}),
         entries: [],
@@ -3607,7 +4566,7 @@
         }
       }
       if (showOverlay) {
-        setLoading(true, `Updating frame ${fid}...`);
+        setLoading(true, `Updating ${chapterTimecodeFromFid(fid)}...`);
       }
       try {
         const result = await api('/api/toggle_frame', 'POST', { fid: Number(fid) });
@@ -3657,7 +4616,7 @@
         return;
       }
       if (showOverlay) {
-        setLoading(true, `Updating frames ${lo}-${hi}...`);
+        setLoading(true, `Updating range ${chapterTimecodeFromFid(lo)}-${chapterTimecodeFromFid(hi)}...`);
       }
       try {
         const result = await api('/api/set_frame_range', 'POST', {
@@ -3683,7 +4642,9 @@
         state.gammaScores = new Map();
         refreshFreezeSimulation();
         updateReviewStatsDisplay();
-        setStatus(`Marked ${Number(result.updated_count || 0)} frame(s) as ${String(result.status || status)} in ${lo}-${hi}.`);
+        setStatus(
+          `Marked ${Number(result.updated_count || 0)} frame(s) as ${String(result.status || status)} in ${chapterTimecodeFromFid(lo)}-${chapterTimecodeFromFid(hi)}.`
+        );
       } catch (err) {
         setStatus(err.message, true);
       } finally {
@@ -4010,6 +4971,9 @@
     if (gammaClearBtnEl) {
       gammaClearBtnEl.addEventListener('click', clearGammaRanges);
     }
+    if (peoplePrefillCastBtnEl) {
+      peoplePrefillCastBtnEl.addEventListener('click', prefillPeopleFromCast);
+    }
     if (peopleAddVisibleBtnEl) {
       peopleAddVisibleBtnEl.addEventListener('click', addVisiblePeopleEntry);
     }
@@ -4039,6 +5003,132 @@
         setSimFreezeFrame(Boolean(flipbookSimFreezeFrameEl.checked));
       });
     }
+    if (timelineScrubEl) {
+      timelineScrubEl.addEventListener('input', () => {
+        scrubTimelineToIndex(timelineScrubEl.value);
+      });
+      timelineScrubEl.addEventListener('change', () => {
+        scrubTimelineToIndex(timelineScrubEl.value);
+      });
+    }
+    if (peopleTimelineEl) {
+      peopleTimelineEl.addEventListener('click', (event) => {
+        if (!isPeopleStepActive()) return;
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const zoomBtn = target.closest('.people-timeline-zoom');
+        if (zoomBtn) {
+          const zoomIn = target.closest('[data-zoom="in"]');
+          const zoomOut = target.closest('[data-zoom="out"]');
+          const zoomReset = target.closest('[data-zoom="reset"]');
+          if (zoomIn) {
+            nudgePeopleTimelineZoom(1);
+          } else if (zoomOut) {
+            nudgePeopleTimelineZoom(-1);
+          } else if (zoomReset) {
+            setPeopleTimelineZoom(1.0);
+          }
+          event.preventDefault();
+          return;
+        }
+        const deleteBtn = target.closest('.people-timeline-delete');
+        if (deleteBtn) {
+          const bar = deleteBtn.closest('.people-timeline-bar');
+          const idx = bar ? Number(bar.dataset.entryIndex) : NaN;
+          if (Number.isFinite(idx)) {
+            deletePeopleTimelineEntry(idx);
+          }
+          event.preventDefault();
+          return;
+        }
+        if (target.closest('.people-timeline-input-wrap')) return;
+        if (target.closest('.people-timeline-bar')) return;
+        if (peopleTimelineDrag) return;
+        if (peopleTimelineDraft) {
+          commitPeopleTimelineDraft();
+        }
+        beginPeopleTimelineDraftFromPoint(event.clientX, event.clientY);
+      });
+
+      peopleTimelineEl.addEventListener('wheel', (event) => {
+        if (!isPeopleStepActive()) return;
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        if (!target.closest('.people-timeline-zoom')) return;
+        const delta = Number(event.deltaY || 0);
+        if (!Number.isFinite(delta) || delta === 0) return;
+        const direction = delta < 0 ? 1 : -1;
+        nudgePeopleTimelineZoom(direction);
+        event.preventDefault();
+      }, { passive: false });
+
+      peopleTimelineEl.addEventListener('dblclick', (event) => {
+        if (!isPeopleStepActive()) return;
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const bar = target.closest('.people-timeline-bar');
+        if (!bar) return;
+        const idx = Number(bar.dataset.entryIndex);
+        if (!Number.isFinite(idx)) return;
+        event.preventDefault();
+        peopleTimelineDrag = null;
+        openPeopleTimelineEdit(idx);
+      });
+
+      peopleTimelineEl.addEventListener('pointerdown', (event) => {
+        if (!isPeopleStepActive()) return;
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        if (target.closest('.people-timeline-input-wrap') || target.closest('.people-timeline-delete') || target.closest('.people-timeline-zoom')) return;
+        const bar = target.closest('.people-timeline-bar');
+        if (!bar) return;
+        const idx = Number(bar.dataset.entryIndex);
+        if (!Number.isFinite(idx)) return;
+        const grip = target.closest('.people-timeline-grip');
+        const resizeKind = grip ? String(grip.dataset.resize || '') : '';
+        const kind = resizeKind === 'start' ? 'resize-start' : (resizeKind === 'end' ? 'resize-end' : 'move');
+        startPeopleTimelineDrag(event, kind, idx);
+      });
+
+      peopleTimelineEl.addEventListener('pointermove', (event) => {
+        updatePeopleTimelineDrag(event);
+      });
+
+      peopleTimelineEl.addEventListener('pointerup', (event) => {
+        finishPeopleTimelineDrag(event);
+      });
+
+      peopleTimelineEl.addEventListener('pointercancel', (event) => {
+        finishPeopleTimelineDrag(event);
+      });
+
+      peopleTimelineEl.addEventListener('lostpointercapture', () => {
+        finishPeopleTimelineDrag();
+      });
+
+      peopleTimelineEl.addEventListener('input', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement)) return;
+        if (!target.classList.contains('people-timeline-input')) return;
+        if (!peopleTimelineDraft) return;
+        peopleTimelineDraft.text = target.value || '';
+      });
+
+      peopleTimelineEl.addEventListener('keydown', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement)) return;
+        if (!target.classList.contains('people-timeline-input')) return;
+        if (!peopleTimelineDraft) return;
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          peopleTimelineDraft.text = target.value || '';
+          commitPeopleTimelineDraft();
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          clearPeopleTimelineDraft();
+        }
+      });
+    }
 
     frameGridEl.addEventListener('click', (event) => {
       const card = event.target.closest('.frame-card');
@@ -4053,13 +5143,22 @@
       if (flipbookOn && fid) {
         seekFlipbookToFrameId(fid, { keepVisible: false });
       }
+      if (isPeopleStepActive()) {
+        const idx = (state.review && Array.isArray(state.review.frames))
+          ? state.review.frames.findIndex(f => String(f && f.fid) === String(fidNum))
+          : -1;
+        if (idx >= 0) {
+          scrubTimelineToIndex(idx, { scrollGrid: false, forceMeta: true });
+        }
+        return;
+      }
       if (!isBadFrameStepActive()) {
         return;
       }
       if (event.shiftKey) {
         if (shiftRangeAnchorFid === null || !reviewHasFrameFid(shiftRangeAnchorFid)) {
           shiftRangeAnchorFid = fidNum;
-          setStatus(`Range anchor set at frame ${fidNum}. Shift+click another frame to mark the range bad.`);
+          setStatus(`Range anchor set at ${chapterTimecodeFromFid(fidNum)}. Shift+click another frame to mark the range bad.`);
           return;
         }
         const anchor = Math.trunc(Number(shiftRangeAnchorFid));
@@ -4136,6 +5235,7 @@
       updateActionLocks();
       updateGammaControls();
       refreshPeopleEditorFromState();
+      updateTimelineScrubUi();
       setSimFreezeFrame(state.simulateFreezeFrame);
       setStatus('Loading archives...');
       try {

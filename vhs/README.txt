@@ -41,6 +41,9 @@ Generate proxies:
 Launch the plain HTML tuner wizard (bad frames + gamma + people subtitles):
 - `python vhs.py tuner`
 
+Prefill chapter people subtitle ranges from cast face matches:
+- `python vhs.py people prefill --archive <archive> --chapter "<chapter title>" --apply`
+
 Render delivery clips/videos (forwards args to render pipeline):
 - `python vhs.py render [render args]`
 
@@ -87,3 +90,15 @@ Each archive now uses `metadata/<archive>/render_settings.json` for render contr
 - `bad_frames_by_chapter`: global BAD frame IDs keyed by exact chapter title.
 
 `render_settings.json` includes a `_comments` object describing each setting category.
+
+People Subtitle TSV
+-------------------
+
+`metadata/<archive>/people.tsv` now uses archive-global frame ranges:
+
+- Header: `start_frame<TAB>end_frame<TAB>people`
+- `end_frame` is exclusive.
+- During `python vhs.py render`, ranges are clipped to each chapter frame span.
+- People labels are merged into chapter subtitle sidecars:
+  - `.srt`: appended below dialogue in brackets, e.g. `[Jim | Linda]`
+  - `.ass`: appended below dialogue in italics

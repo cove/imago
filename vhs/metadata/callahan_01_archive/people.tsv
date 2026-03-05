@@ -1,3 +1,4 @@
-﻿start	end	people
-00:00:12.000	00:00:20.000	Jim; Linda; Gloria
-00:00:20.000	00:00:28.000	Jimmy | Audrey
+start_frame	end_frame	people
+287	395	Lynda
+578	599	Jim; Linda; Gloria
+599	839	Jimmy | Audrey

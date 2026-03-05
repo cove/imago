@@ -50,13 +50,15 @@ from libs.vhs_tuner_core import (
     RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV,
     TUNER_DEBUG_EXTRACT_ENV,
 )
+from vhs_pipeline.people_prefill import prefill_people_from_cast
 
 STATIC_DIR = _HERE / "static"
 INDEX_HTML = STATIC_DIR / "index.html"
 SESSION_COOKIE = "vhs_plain_wizard_sid"
 FPS_NUM = 30000
 FPS_DEN = 1001
-PEOPLE_TSV_HEADER = "start\tend\tpeople"
+PEOPLE_TSV_HEADER = "start_frame\tend_frame\tpeople"
+DEFAULT_CAST_STORE_DIR = (PROJECT_ROOT.parent / "cast" / "data").resolve()
 
 
 @dataclass
@@ -239,6 +241,10 @@ def _frame_to_seconds(frame_id: int) -> float:
     return float(int(frame_id) * FPS_DEN) / float(FPS_NUM)
 
 
+def _seconds_to_frame(seconds: float) -> int:
+    return int(round(max(0.0, float(seconds)) * float(FPS_NUM) / float(FPS_DEN)))
+
+
 def _seconds_to_timestamp(seconds: float) -> str:
     secs = max(0.0, float(seconds))
     total_ms = int(round(secs * 1000.0))
@@ -339,8 +345,23 @@ def _normalize_people_entries_payload(
     return out
 
 
-def _read_people_tsv_rows(path: Path) -> list[tuple[float, float, str]]:
-    rows: list[tuple[float, float, str]] = []
+def _parse_frame_value(raw: Any) -> int | None:
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    if not re.fullmatch(r"-?\d+", text):
+        return None
+    try:
+        value = int(text)
+    except Exception:
+        return None
+    if value < 0:
+        return None
+    return int(value)
+
+
+def _read_people_tsv_rows(path: Path) -> list[tuple[int, int, str]]:
+    rows: list[tuple[int, int, str]] = []
     p = Path(path)
     if not p.exists():
         return rows
@@ -349,60 +370,63 @@ def _read_people_tsv_rows(path: Path) -> list[tuple[float, float, str]]:
         if not line or line.startswith("#"):
             continue
         lower = line.lower()
+        if lower.startswith("start_frame\t") or lower.startswith("start_frame,end_frame"):
+            continue
         if lower.startswith("start\t") or lower.startswith("start,end"):
             continue
         parts = line.split("\t") if "\t" in line else line.split(",")
         if len(parts) < 3:
             continue
-        start = _parse_timestamp_seconds(parts[0])
-        end = _parse_timestamp_seconds(parts[1])
+        start = _parse_frame_value(parts[0])
+        end = _parse_frame_value(parts[1])
         people = re.sub(r"\s+", " ", ",".join(parts[2:]).strip())
-        if start is None or end is None or end <= start or not people:
+        if start is None or end is None or not people:
             continue
-        rows.append((float(start), float(end), str(people)))
+        if int(end) <= int(start):
+            if int(end) == int(start):
+                end = int(start) + 1
+            else:
+                continue
+        rows.append((int(start), int(end), str(people)))
     return rows
 
 
 def _canonicalize_people_tsv_rows(
-    rows: list[tuple[float, float, str]],
-) -> list[tuple[float, float, str]]:
+    rows: list[tuple[int, int, str]],
+) -> list[tuple[int, int, str]]:
     items = []
     for start, end, people in list(rows or []):
         try:
-            a = float(start)
-            b = float(end)
+            a = int(start)
+            b = int(end)
         except Exception:
             continue
-        if not (a == a and b == b):
-            continue
-        if b <= a:
+        if int(b) <= int(a):
             continue
         text = re.sub(r"\s+", " ", str(people or "")).strip()
         if not text:
             continue
-        items.append((max(0.0, a), max(0.0, b), text))
+        items.append((max(0, int(a)), max(0, int(b)), text))
     if not items:
         return []
     items.sort(key=lambda item: (item[0], item[1], item[2].lower()))
-    out: list[tuple[float, float, str]] = []
+    out: list[tuple[int, int, str]] = []
     for start, end, people in items:
         if out:
             prev_start, prev_end, prev_people = out[-1]
-            if prev_people == people and prev_end + 0.001 >= start:
+            if prev_people == people and int(prev_end) >= int(start):
                 out[-1] = (prev_start, max(prev_end, end), prev_people)
                 continue
         out.append((start, end, people))
     return out
 
 
-def _write_people_tsv_rows(path: Path, rows: list[tuple[float, float, str]]) -> None:
+def _write_people_tsv_rows(path: Path, rows: list[tuple[int, int, str]]) -> None:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     lines = [PEOPLE_TSV_HEADER]
     for start, end, people in list(rows or []):
-        lines.append(
-            f"{_seconds_to_timestamp(float(start))}\t{_seconds_to_timestamp(float(end))}\t{str(people)}"
-        )
+        lines.append(f"{int(start)}\t{int(end)}\t{str(people)}")
     p.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -413,26 +437,26 @@ def _load_people_entries_for_chapter(archive: str, ch_start: int, ch_end: int) -
     path = METADATA_DIR / archive_name / "people.tsv"
     if not path.exists():
         return []
-    chapter_start = _frame_to_seconds(ch_start)
-    chapter_end = _frame_to_seconds(ch_end)
+    chapter_start = int(ch_start)
+    chapter_end = int(ch_end)
     if chapter_end <= chapter_start:
         return []
     local_entries = []
     for start, end, people in _read_people_tsv_rows(path):
-        lo = max(float(start), float(chapter_start))
-        hi = min(float(end), float(chapter_end))
+        lo = max(int(start), int(chapter_start))
+        hi = min(int(end), int(chapter_end))
         if hi <= lo:
             continue
         local_entries.append(
             {
-                "start_seconds": max(0.0, lo - chapter_start),
-                "end_seconds": max(0.0, hi - chapter_start),
+                "start_seconds": _frame_to_seconds(max(0, int(lo) - int(chapter_start))),
+                "end_seconds": _frame_to_seconds(max(0, int(hi) - int(chapter_start))),
                 "people": people,
             }
         )
     return _normalize_people_entries_payload(
         local_entries,
-        chapter_duration_seconds=max(0.0, chapter_end - chapter_start),
+        chapter_duration_seconds=max(0.0, _frame_to_seconds(chapter_end - chapter_start)),
     )
 
 
@@ -444,28 +468,29 @@ def _save_people_entries_for_chapter(
 ) -> tuple[Path, int]:
     archive_name = str(archive or "").strip()
     path = METADATA_DIR / archive_name / "people.tsv"
-    chapter_start = _frame_to_seconds(ch_start)
-    chapter_end = _frame_to_seconds(ch_end)
+    chapter_start = int(ch_start)
+    chapter_end = int(ch_end)
+    chapter_len = max(1, int(chapter_end) - int(chapter_start))
     if chapter_end <= chapter_start:
         _write_people_tsv_rows(path, _canonicalize_people_tsv_rows(_read_people_tsv_rows(path)))
         return path, 0
 
     existing = _read_people_tsv_rows(path)
-    kept: list[tuple[float, float, str]] = []
+    kept: list[tuple[int, int, str]] = []
     for start, end, people in existing:
-        if end <= chapter_start or start >= chapter_end:
-            kept.append((float(start), float(end), str(people)))
+        if int(end) <= int(chapter_start) or int(start) >= int(chapter_end):
+            kept.append((int(start), int(end), str(people)))
             continue
-        if start < chapter_start:
-            kept.append((float(start), float(chapter_start), str(people)))
-        if end > chapter_end:
-            kept.append((float(chapter_end), float(end), str(people)))
+        if int(start) < int(chapter_start):
+            kept.append((int(start), int(chapter_start), str(people)))
+        if int(end) > int(chapter_end):
+            kept.append((int(chapter_end), int(end), str(people)))
 
     normalized_local = _normalize_people_entries_payload(
         local_entries,
-        chapter_duration_seconds=max(0.0, chapter_end - chapter_start),
+        chapter_duration_seconds=max(0.0, _frame_to_seconds(chapter_len)),
     )
-    chapter_rows: list[tuple[float, float, str]] = []
+    chapter_rows: list[tuple[int, int, str]] = []
     for item in normalized_local:
         start_local = _parse_timestamp_seconds(item.get("start_seconds", item.get("start")))
         end_local = _parse_timestamp_seconds(item.get("end_seconds", item.get("end")))
@@ -474,10 +499,16 @@ def _save_people_entries_for_chapter(
         people = re.sub(r"\s+", " ", str(item.get("people", "")).strip())
         if not people:
             continue
+        local_start_frame = max(0, min(chapter_len, _seconds_to_frame(start_local)))
+        local_end_frame = max(0, min(chapter_len, _seconds_to_frame(end_local)))
+        if local_end_frame <= local_start_frame:
+            if local_start_frame >= chapter_len:
+                continue
+            local_end_frame = local_start_frame + 1
         chapter_rows.append(
             (
-                float(chapter_start + start_local),
-                float(chapter_start + end_local),
+                int(chapter_start + local_start_frame),
+                int(chapter_start + local_end_frame),
                 str(people),
             )
         )
@@ -1072,6 +1103,10 @@ class WizardHandler(BaseHTTPRequestHandler):
 
         if parsed.path == "/api/preview_render":
             self._handle_preview_render(session, payload)
+            return
+
+        if parsed.path == "/api/people_prefill_cast":
+            self._handle_people_prefill_cast(session, payload)
             return
 
         if parsed.path == "/api/save":
@@ -1836,6 +1871,70 @@ class WizardHandler(BaseHTTPRequestHandler):
                 "preview_url": "/api/preview_video",
                 "preview_page_url": "/preview",
                 "bad_sampled_count": int(len(local_bad)),
+            }
+        )
+
+    def _handle_people_prefill_cast(self, session: SessionState, payload: dict[str, Any] | None = None) -> None:
+        if not session.archive or not session.chapter:
+            self._send_error_json("Load a chapter before running Cast prefill.")
+            return
+        payload = payload or {}
+
+        chapter_duration = max(
+            0.0,
+            _frame_to_seconds(session.end_frame) - _frame_to_seconds(session.start_frame),
+        )
+        mode = str(payload.get("mode") or "replace").strip().lower()
+        if mode not in {"replace", "append"}:
+            mode = "replace"
+        cast_store_raw = str(payload.get("cast_store_dir") or "").strip()
+        cast_store_dir = Path(cast_store_raw) if cast_store_raw else DEFAULT_CAST_STORE_DIR
+        min_quality = payload.get("min_quality", 0.40)
+        min_name_hits = payload.get("min_name_hits", 1)
+        try:
+            result = prefill_people_from_cast(
+                archive=session.archive,
+                chapter_title=session.chapter,
+                cast_store_dir=cast_store_dir,
+                min_quality=float(min_quality),
+                min_name_hits=max(1, int(min_name_hits)),
+            )
+        except Exception as exc:
+            self._send_error_json(f"Cast prefill failed: {type(exc).__name__}: {exc}")
+            return
+
+        generated = _normalize_people_entries_payload(
+            list(result.entries or []),
+            chapter_duration_seconds=chapter_duration,
+        )
+        if generated:
+            if mode == "append":
+                merged = _normalize_people_entries_payload(
+                    [*(session.people_entries or []), *generated],
+                    chapter_duration_seconds=chapter_duration,
+                )
+            else:
+                merged = generated
+            session.people_entries = list(merged)
+            message = (
+                f"Cast prefill added {len(generated)} entr"
+                f"{'y' if len(generated) == 1 else 'ies'} ({mode})."
+            )
+        else:
+            message = "Cast prefill found no confident matches for this chapter."
+
+        self._send_json(
+            {
+                "ok": True,
+                "message": message,
+                "generated_count": int(len(generated)),
+                "mode": mode,
+                "cast_store_dir": str(Path(cast_store_dir)),
+                "stats": dict(result.stats or {}),
+                "people_profile": {
+                    "entries": list(session.people_entries),
+                    "source": "cast_prefill",
+                },
             }
         )
 
