@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Viewer</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p id="brand" class="brand">viewer</p>
+        <h1 id="title" class="title">Media Viewer</h1>
+        <p id="intro" class="intro">Loading...</p>
+      </div>
+      <div class="actions">
+        <label class="label" for="albumSelect">Album</label>
+        <select id="albumSelect"></select>
+      </div>
+    </header>
+
+    <main>
+      <section id="status" class="status"></section>
+      <section id="grid" class="grid" aria-live="polite"></section>
+    </main>
+
+    <template id="cardTemplate">
+      <article class="card">
+        <div class="media-wrap"></div>
+        <div class="meta">
+          <h2 class="item-title"></h2>
+          <p class="item-caption"></p>
+          <div class="item-links">
+            <a class="item-link" target="_blank" rel="noreferrer noopener">Open source</a>
+            <a class="item-link embed-link" target="_blank" rel="noreferrer noopener">Open embed</a>
+          </div>
+        </div>
+      </article>
+    </template>
+
+    <script src="./app.js" defer></script>
+  </body>
+</html>

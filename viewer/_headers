@@ -1,0 +1,5 @@
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: geolocation=(), camera=(), microphone=()
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data: https://drive.google.com https://*.googleusercontent.com https://onedrive.live.com https://*.1drv.com https://*.sharepoint.com; media-src 'self' https://drive.google.com https://*.googleusercontent.com https://onedrive.live.com https://*.1drv.com https://*.sharepoint.com; frame-src https://drive.google.com https://onedrive.live.com https://*.sharepoint.com; object-src 'none'; base-uri 'none'; form-action 'none'
