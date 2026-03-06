@@ -32,6 +32,11 @@
 
     * { box-sizing: border-box; }
 
+    html,
+    body {
+      height: 100%;
+    }
+
     body {
       margin: 0;
       background:
@@ -47,10 +52,15 @@
       color: var(--text);
       font-family: "Consolas", "Lucida Console", "Courier New", monospace;
       text-shadow: 0 0 4px rgba(41, 52, 70, 0.5);
+      min-height: 100vh;
+      min-height: 100dvh;
     }
 
     .app {
       min-height: 100vh;
+      min-height: 100dvh;
+      height: 100vh;
+      height: 100dvh;
       padding: 14px;
       display: grid;
       grid-template-rows: auto auto 1fr;
@@ -127,7 +137,7 @@
       box-shadow: inset 0 0 0 1px var(--shadow-accent);
     }
 
-    .page { display: none; min-height: 0; }
+    .page { display: none; min-height: 0; height: 100%; }
     .page.active { display: block; }
 
     .panel {
@@ -146,7 +156,7 @@
     }
 
     .page-load-layout {
-      height: calc(100vh - 170px);
+      height: 100%;
       display: grid;
       gap: 10px;
       grid-template-columns: 240px minmax(420px, 1fr);
@@ -280,7 +290,7 @@
     button.action:disabled { opacity: 0.55; cursor: not-allowed; }
 
     .page-review-layout {
-      height: calc(100vh - 170px);
+      height: 100%;
       display: grid;
       grid-template-rows: auto auto minmax(0, 1fr) auto;
       gap: 10px;
@@ -917,7 +927,7 @@
       background: rgba(5, 10, 16, 0.96);
       box-shadow: 0 0 0 1px var(--shadow-accent), 0 14px 28px rgba(0, 0, 0, 0.5);
       display: none;
-      grid-template-rows: minmax(0, 1fr) auto;
+      grid-template-rows: minmax(0, 1fr) auto auto;
       z-index: 980;
       overflow: hidden;
     }
@@ -1013,6 +1023,58 @@
       object-fit: contain;
       image-rendering: auto;
     }
+    .flipbook-subtitles {
+      margin: 0 8px 4px 8px;
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      background: rgba(5, 12, 20, 0.84);
+      color: var(--text-strong);
+      font-size: 12px;
+      line-height: 1.35;
+      padding: 6px 8px;
+      min-height: 54px;
+      max-height: 130px;
+      overflow: auto;
+    }
+    .flipbook-subtitles.empty {
+      color: var(--text-muted);
+    }
+    .flipbook-subtitle-row {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      margin: 2px 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .flipbook-subtitle-row.context {
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+    .flipbook-subtitle-time {
+      color: var(--accent-2);
+      font-variant-numeric: tabular-nums;
+      flex: 0 0 auto;
+    }
+    .flipbook-subtitle-speaker {
+      color: var(--accent);
+      font-weight: 700;
+      flex: 0 0 auto;
+    }
+    .flipbook-subtitle-text {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .flipbook-audio {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+    .flipbook-audio input[type="range"] {
+      width: 96px;
+    }
 
     .frame-card {
       border: 2px solid var(--line);
@@ -1085,7 +1147,7 @@
     }
 
     .page-final-layout {
-      height: calc(100vh - 170px);
+      height: 100%;
       display: grid;
       grid-template-rows: 1fr auto;
       gap: 10px;
@@ -1250,9 +1312,9 @@
     }
 
     @media (max-width: 1100px) {
-      .page-load-layout { grid-template-columns: 1fr; height: auto; }
+      .page-load-layout { grid-template-columns: 1fr; height: 100%; }
       .controls { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
-      .page-review-layout, .page-final-layout { height: auto; }
+      .page-review-layout, .page-final-layout { height: 100%; }
       .frame-grid { min-height: 420px; }
       .review-top { grid-template-columns: 1fr; }
       .iqr-box input[type="range"] { width: 180px; }
@@ -1307,6 +1369,7 @@
     }
 
     #page2.flipbook-focus .frame-grid {
+      min-height: 0;
       border-left: none;
       border-right: none;
       border-bottom: none;
@@ -1461,12 +1524,17 @@
           <figure id="flipbookFrame" class="flipbook-frame">
             <img id="flipbookImage" alt="Flipbook playback frame">
           </figure>
+          <div id="flipbookSubtitles" class="flipbook-subtitles empty" aria-live="polite">No subtitle at this frame.</div>
           <div class="flipbook-head">
             <span>Flipbook Preview</span>
             <div class="flipbook-controls">
               <button id="flipbookRevBtn" class="action" type="button" title="Previous frame">&#9664;&#9664;</button>
               <button id="flipbookPlayBtn" class="action primary" type="button" title="Play flipbook">&#9654;</button>
               <button id="flipbookFwdBtn" class="action" type="button" title="Next frame">&#9654;&#9654;</button>
+              <label class="flipbook-audio" for="flipbookVolume" title="Flipbook audio volume">
+                <span>Volume</span>
+                <input id="flipbookVolume" type="range" min="0" max="1" step="0.01" value="1">
+              </label>
               <label id="flipbookGammaControls" class="flipbook-gamma hidden-ui" for="flipbookGammaLevel" title="Adjust gamma while in flipbook">
                 <span>Gamma Correction</span>
                 <input id="flipbookGammaLevel" type="range" min="0.05" max="8.00" step="0.01" value="1.00">
@@ -1479,6 +1547,7 @@
               <button id="flipbookCloseBtn" class="action warn" type="button" title="Close flipbook">Close</button>
               <span id="flipbookMeta"></span>
             </div>
+            <audio id="flipbookAudio" preload="metadata"></audio>
           </div>
         </div>
 
@@ -1669,8 +1738,10 @@
     const FREEZE_SOURCE_CLEARANCE = 0;
     const TIMELINE_FPS_NUM = 30000;
     const TIMELINE_FPS_DEN = 1001;
+    const VHS_FRAME_SECONDS = TIMELINE_FPS_DEN / TIMELINE_FPS_NUM;
+    const VHS_FRAME_MS = VHS_FRAME_SECONDS * 1000;
     const PEOPLE_TIMELINE_DEFAULT_DURATION_SECONDS = 2.0;
-    const PEOPLE_STEP_MIN_FRAME_GRID_PX = 300;
+    const PEOPLE_STEP_MIN_FRAME_GRID_PX = 140;
     const PEOPLE_STEP_SPARK_MIN_PX = 170;
     const PEOPLE_STEP_SPARK_MAX_PX = 380;
 
@@ -1747,6 +1818,9 @@
     const flipbookMetaEl = document.getElementById('flipbookMeta');
     const flipbookFrameEl = document.getElementById('flipbookFrame');
     const flipbookImageEl = document.getElementById('flipbookImage');
+    const flipbookSubtitlesEl = document.getElementById('flipbookSubtitles');
+    const flipbookAudioEl = document.getElementById('flipbookAudio');
+    const flipbookVolumeEl = document.getElementById('flipbookVolume');
     const flipbookRevBtnEl = document.getElementById('flipbookRevBtn');
     const flipbookPlayBtnEl = document.getElementById('flipbookPlayBtn');
     const flipbookFwdBtnEl = document.getElementById('flipbookFwdBtn');
@@ -1772,6 +1846,10 @@
     let sparkPlayTimer = null;
     let sparkPlayFrames = [];
     let sparkPlayIndex = 0;
+    let sparkPlayUseAudioClock = false;
+    let sparkPlayLastTickMs = 0;
+    let sparkPlayAccumulatorMs = 0;
+    let flipbookAudioSrcKey = '';
     let flipbookGridCursorIndex = -1;
     let flipbookToggleInFlight = false;
     let peopleTimelineRenderState = null;
@@ -3128,6 +3206,9 @@
       if (subtitlesEditorEl && !subtitleEditorHasFocus()) {
         renderSubtitlesEditorGrid((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
       }
+      if (flipbookPreviewEl && flipbookPreviewEl.classList.contains('active') && sparkPlayFrames.length) {
+        renderFlipbookSubtitles(flipbookCurrentFrameSeconds());
+      }
       if (!isPeopleStepActive()) {
         renderPeopleTimeline();
         return;
@@ -4410,21 +4491,29 @@
 
     function updatePeopleStepLayoutSizing() {
       if (!frameGridEl || !sparkPanelEl) return;
-      if (!isPeopleStepActive()) {
+      const flipbookFocus = Boolean(page2El && page2El.classList.contains('flipbook-focus'));
+      if (!isPeopleStepActive() || flipbookFocus) {
         frameGridEl.style.removeProperty('min-height');
+        frameGridEl.style.removeProperty('max-height');
+        frameGridEl.style.removeProperty('height');
         sparkPanelEl.style.removeProperty('max-height');
         sparkPanelEl.style.removeProperty('overflow');
         if (subtitlesEditorEl) subtitlesEditorEl.style.removeProperty('max-height');
+        if (reviewLayoutEl) reviewLayoutEl.style.removeProperty('grid-template-rows');
         return;
       }
       const firstCard = frameGridEl.querySelector('.frame-card');
-      const gap = Number.parseFloat(String(window.getComputedStyle(frameGridEl).gap || '8')) || 8;
       const cardHeight = firstCard ? Math.ceil(firstCard.getBoundingClientRect().height) : 146;
       const minGridHeight = Math.max(
         PEOPLE_STEP_MIN_FRAME_GRID_PX,
-        Math.round((cardHeight * 2) + gap + 16)
+        Math.round(cardHeight + 16)
       );
       frameGridEl.style.minHeight = `${minGridHeight}px`;
+      frameGridEl.style.maxHeight = `${minGridHeight}px`;
+      frameGridEl.style.height = `${minGridHeight}px`;
+      if (reviewLayoutEl) {
+        reviewLayoutEl.style.gridTemplateRows = 'auto minmax(0, 1fr) auto auto';
+      }
 
       let maxSparkHeight = PEOPLE_STEP_SPARK_MAX_PX;
       if (reviewLayoutEl) {
@@ -4453,10 +4542,12 @@
 
     function setFlipbookFocusMode(active) {
       if (!page2El) return;
-      page2El.classList.toggle('flipbook-focus', Boolean(active));
-      if (!active) {
+      const on = Boolean(active);
+      page2El.classList.toggle('flipbook-focus', on);
+      if (!on) {
         syncFrameGridPlaybackCursor(-1);
       }
+      updatePeopleStepLayoutSizing();
     }
 
     async function ensureReviewFullscreenActive() {
@@ -4753,6 +4844,9 @@
       if (flipbookFwdBtnEl) {
         flipbookFwdBtnEl.disabled = !hasFrames;
       }
+      if (flipbookVolumeEl) {
+        flipbookVolumeEl.disabled = !hasFrames;
+      }
       if (flipbookFrameEl) {
         const frame = sparkPlayFrames[sparkPlayIndex] || null;
         flipbookFrameEl.classList.toggle('good', Boolean(frame && frame.status === 'good'));
@@ -4768,6 +4862,153 @@
       }
     }
 
+    function resetFlipbookAudioState() {
+      if (flipbookAudioEl) {
+        try {
+          flipbookAudioEl.pause();
+        } catch (_err) {}
+        flipbookAudioEl.removeAttribute('src');
+        flipbookAudioEl.load();
+      }
+      sparkPlayUseAudioClock = false;
+      flipbookAudioSrcKey = '';
+    }
+
+    function applyFlipbookVolume() {
+      if (!flipbookAudioEl) return;
+      const value = Number(flipbookVolumeEl && flipbookVolumeEl.value);
+      const volume = _clamp(Number.isFinite(value) ? value : 1.0, 0, 1);
+      flipbookAudioEl.volume = volume;
+    }
+
+    function flipbookFrameSecondsForIndex(rawIndex) {
+      if (!sparkPlayFrames.length) return 0;
+      const idx = _clamp(Number(rawIndex || 0), 0, sparkPlayFrames.length - 1);
+      const frame = sparkPlayFrames[idx] || null;
+      if (!frame) return 0;
+      return chapterLocalSecondsFromFid(frame.fid);
+    }
+
+    function flipbookCurrentFrameSeconds() {
+      return flipbookFrameSecondsForIndex(sparkPlayIndex);
+    }
+
+    function flipbookIndexFromChapterSeconds(rawSeconds) {
+      if (!sparkPlayFrames.length) return 0;
+      const sec = Math.max(0, Number(rawSeconds || 0));
+      let bestIdx = 0;
+      let bestDist = Number.POSITIVE_INFINITY;
+      for (let i = 0; i < sparkPlayFrames.length; i += 1) {
+        const frame = sparkPlayFrames[i];
+        const frameSec = chapterLocalSecondsFromFid(frame && frame.fid);
+        const dist = Math.abs(frameSec - sec);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestIdx = i;
+        }
+      }
+      return bestIdx;
+    }
+
+    function findSubtitlesAroundSeconds(rawSeconds) {
+      const sec = Math.max(0, Number(rawSeconds || 0));
+      const entries = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
+      const active = [];
+      let prev = null;
+      let next = null;
+      entries.forEach((row) => {
+        const start = Number(row.start_seconds || 0);
+        const end = Number(row.end_seconds || 0);
+        if (start <= (sec + 0.0005) && sec < (end - 0.0005)) {
+          active.push(row);
+          return;
+        }
+        if (end <= sec && (!prev || Number(prev.end_seconds || 0) < end)) {
+          prev = row;
+          return;
+        }
+        if (start > sec && (!next || Number(next.start_seconds || 0) > start)) {
+          next = row;
+        }
+      });
+      return { entries, active, prev, next };
+    }
+
+    function renderFlipbookSubtitles(rawSeconds) {
+      if (!flipbookSubtitlesEl) return;
+      const sec = Math.max(0, Number(rawSeconds || 0));
+      const around = findSubtitlesAroundSeconds(sec);
+      if (!around.entries.length) {
+        flipbookSubtitlesEl.classList.add('empty');
+        flipbookSubtitlesEl.textContent = 'No subtitle entries loaded for this chapter.';
+        return;
+      }
+      if (around.active.length) {
+        const activeHtml = around.active.map((row) => {
+          const speaker = String(row.speaker || '').trim();
+          const speakerHtml = speaker ? `<span class="flipbook-subtitle-speaker">${escapeHtml(speaker)}:</span>` : '';
+          return `
+            <div class="flipbook-subtitle-row">
+              <span class="flipbook-subtitle-time">${escapeHtml(String(row.start || ''))}-${escapeHtml(String(row.end || ''))}</span>
+              ${speakerHtml}
+              <span class="flipbook-subtitle-text">${escapeHtml(String(row.text || ''))}</span>
+            </div>
+          `;
+        }).join('');
+        flipbookSubtitlesEl.classList.remove('empty');
+        flipbookSubtitlesEl.innerHTML = activeHtml;
+        return;
+      }
+      const context = [];
+      if (around.prev) {
+        context.push(
+          `<div class="flipbook-subtitle-row context"><span class="flipbook-subtitle-time">Prev ${escapeHtml(String(around.prev.end || ''))}</span><span class="flipbook-subtitle-text">${escapeHtml(String(around.prev.text || ''))}</span></div>`
+        );
+      }
+      if (around.next) {
+        context.push(
+          `<div class="flipbook-subtitle-row context"><span class="flipbook-subtitle-time">Next ${escapeHtml(String(around.next.start || ''))}</span><span class="flipbook-subtitle-text">${escapeHtml(String(around.next.text || ''))}</span></div>`
+        );
+      }
+      if (!context.length) {
+        context.push('<div class="flipbook-subtitle-row context"><span class="flipbook-subtitle-text">No subtitle at this frame.</span></div>');
+      }
+      flipbookSubtitlesEl.classList.remove('empty');
+      flipbookSubtitlesEl.innerHTML = context.join('');
+    }
+
+    function syncFlipbookAudioToCurrentFrame() {
+      if (!flipbookAudioEl || !sparkPlayFrames.length) return;
+      const target = Math.max(0, flipbookCurrentFrameSeconds());
+      const duration = Number(flipbookAudioEl.duration || chapterDurationSeconds() || 0);
+      const maxSec = duration > 0 ? Math.max(0, duration - 0.01) : target;
+      const seekTo = _clamp(target, 0, maxSec);
+      if (Math.abs(Number(flipbookAudioEl.currentTime || 0) - seekTo) > 0.01) {
+        try {
+          flipbookAudioEl.currentTime = seekTo;
+        } catch (_err) {}
+      }
+    }
+
+    async function ensureFlipbookAudioLoaded(force = false) {
+      if (!flipbookAudioEl || !state.archive || !state.chapter) return false;
+      const key = chapterAudioCacheKey();
+      const audioUrl = `/api/chapter_audio?key=${encodeURIComponent(key)}`;
+      const absoluteAudioUrl = new URL(audioUrl, window.location.href).toString();
+      if (!force && flipbookAudioSrcKey === key && String(flipbookAudioEl.src || '') === absoluteAudioUrl) {
+        applyFlipbookVolume();
+        return true;
+      }
+      flipbookAudioSrcKey = key;
+      flipbookAudioEl.src = absoluteAudioUrl;
+      flipbookAudioEl.preload = 'auto';
+      try {
+        flipbookAudioEl.load();
+      } catch (_err) {}
+      applyFlipbookVolume();
+      return true;
+    }
+
     function setFlipbookVisible(visible) {
       if (!flipbookPreviewEl) return;
       const on = Boolean(visible);
@@ -4778,6 +5019,15 @@
       }
       if (!on) {
         if (flipbookImageEl) flipbookImageEl.removeAttribute('src');
+        if (flipbookSubtitlesEl) {
+          flipbookSubtitlesEl.classList.add('empty');
+          flipbookSubtitlesEl.textContent = 'No subtitle at this frame.';
+        }
+        if (flipbookAudioEl) {
+          try {
+            flipbookAudioEl.pause();
+          } catch (_err) {}
+        }
         syncFrameGridPlaybackCursor(-1);
       }
       updateFlipbookControls();
@@ -4804,11 +5054,13 @@
     function renderSparkPlaybackFrame(index, options = {}) {
       if (!sparkPlayFrames.length || !flipbookImageEl) return;
       const keepVisible = !(options && options.keepVisible === false);
+      const syncAudio = Boolean(options && options.syncAudio);
       const idx = _clamp(Number(index), 0, sparkPlayFrames.length - 1);
       const frame = sparkPlayFrames[idx];
       if (!frame) return;
       flipbookImageEl.src = frame.src;
       const tc = String(frame.timecode || chapterTimecodeFromFid(frame.fid) || '');
+      const frameSeconds = chapterLocalSecondsFromFid(frame.fid);
       flipbookImageEl.alt = `Flipbook frame ${tc || (idx + 1)}`;
       if (flipbookMetaEl) {
         const statusTag = frame.status === 'bad' ? 'BAD' : 'GOOD';
@@ -4827,7 +5079,11 @@
           flipbookImageEl.style.removeProperty('filter');
         }
       }
+      renderFlipbookSubtitles(frameSeconds);
       syncFrameGridPlaybackCursor(idx, keepVisible);
+      if (syncAudio) {
+        syncFlipbookAudioToCurrentFrame();
+      }
       updateFlipbookControls();
     }
 
@@ -4863,7 +5119,7 @@
 
       sparkPlayIndex = idx;
       if (flipbookPreviewEl && flipbookPreviewEl.classList.contains('active')) {
-        renderSparkPlaybackFrame(idx, { keepVisible });
+        renderSparkPlaybackFrame(idx, { keepVisible, syncAudio: !sparkPlayTimer });
       }
       return true;
     }
@@ -4898,16 +5154,29 @@
       }
 
       if (panelOpen) {
-        renderSparkPlaybackFrame(sparkPlayIndex, { keepVisible: false });
+        renderSparkPlaybackFrame(sparkPlayIndex, { keepVisible: false, syncAudio: !sparkPlayTimer });
       }
       updateSparkPlayButton();
     }
 
     function _pauseSparkWindowPlayback() {
       if (sparkPlayTimer) {
-        window.clearInterval(sparkPlayTimer);
+        window.cancelAnimationFrame(sparkPlayTimer);
         sparkPlayTimer = null;
       }
+      if (sparkPlayUseAudioClock && flipbookAudioEl) {
+        const idx = flipbookIndexFromChapterSeconds(Number(flipbookAudioEl.currentTime || 0));
+        renderSparkPlaybackFrame(idx, { syncAudio: false });
+      }
+      sparkPlayUseAudioClock = false;
+      sparkPlayLastTickMs = 0;
+      sparkPlayAccumulatorMs = 0;
+      if (flipbookAudioEl) {
+        try {
+          flipbookAudioEl.pause();
+        } catch (_err) {}
+      }
+      syncFlipbookAudioToCurrentFrame();
       updateSparkPlayButton();
       updateFlipbookControls();
     }
@@ -4943,7 +5212,7 @@
       } else {
         sparkPlayIndex += 1;
       }
-      renderSparkPlaybackFrame(sparkPlayIndex);
+      renderSparkPlaybackFrame(sparkPlayIndex, { syncAudio: !sparkPlayTimer });
     }
 
     function stepSparkWindowLeft() {
@@ -4953,7 +5222,52 @@
       } else {
         sparkPlayIndex -= 1;
       }
-      renderSparkPlaybackFrame(sparkPlayIndex);
+      renderSparkPlaybackFrame(sparkPlayIndex, { syncAudio: !sparkPlayTimer });
+    }
+
+    function runSparkWindowPlaybackFrameClock(timestampMs) {
+      if (!sparkPlayTimer) return;
+      if (!isReviewStepActive()) {
+        stopSparkWindowPlayback();
+        return;
+      }
+      if (!sparkPlayFrames.length) {
+        sparkPlayFrames = _collectFlipbookFramesFromGrid();
+      }
+      if (!sparkPlayFrames.length) {
+        stopSparkWindowPlayback();
+        return;
+      }
+
+      if (sparkPlayUseAudioClock && flipbookAudioEl && !flipbookAudioEl.paused) {
+        const idx = flipbookIndexFromChapterSeconds(Number(flipbookAudioEl.currentTime || 0));
+        if (idx !== sparkPlayIndex) {
+          renderSparkPlaybackFrame(idx, { syncAudio: false });
+        } else {
+          renderFlipbookSubtitles(Number(flipbookAudioEl.currentTime || 0));
+        }
+      } else {
+        if (!sparkPlayLastTickMs) sparkPlayLastTickMs = timestampMs;
+        const delta = Math.max(0, Number(timestampMs) - Number(sparkPlayLastTickMs));
+        sparkPlayLastTickMs = Number(timestampMs);
+        sparkPlayAccumulatorMs += delta;
+        let stepped = false;
+        while (sparkPlayAccumulatorMs >= VHS_FRAME_MS) {
+          sparkPlayAccumulatorMs -= VHS_FRAME_MS;
+          if (sparkPlayIndex >= sparkPlayFrames.length - 1) {
+            sparkPlayIndex = 0;
+          } else {
+            sparkPlayIndex += 1;
+          }
+          stepped = true;
+        }
+        if (stepped) {
+          renderSparkPlaybackFrame(sparkPlayIndex, { syncAudio: false });
+        }
+      }
+
+      if (!sparkPlayTimer) return;
+      sparkPlayTimer = window.requestAnimationFrame(runSparkWindowPlaybackFrameClock);
     }
 
     function startSparkWindowPlayback() {
@@ -4966,8 +5280,24 @@
       }
       sparkPlayIndex = _clamp(Number(sparkPlayIndex || 0), 0, sparkPlayFrames.length - 1);
       setFlipbookVisible(true);
-      renderSparkPlaybackFrame(sparkPlayIndex);
-      sparkPlayTimer = window.setInterval(stepSparkWindowRight, 100);
+      renderSparkPlaybackFrame(sparkPlayIndex, { syncAudio: true });
+      sparkPlayUseAudioClock = false;
+      sparkPlayLastTickMs = 0;
+      sparkPlayAccumulatorMs = 0;
+      sparkPlayTimer = window.requestAnimationFrame(runSparkWindowPlaybackFrameClock);
+      ensureFlipbookAudioLoaded(false).then(async (ok) => {
+        if (!ok || !sparkPlayTimer || !flipbookAudioEl) return;
+        syncFlipbookAudioToCurrentFrame();
+        try {
+          flipbookAudioEl.playbackRate = 1.0;
+          await flipbookAudioEl.play();
+          sparkPlayUseAudioClock = true;
+        } catch (_err) {
+          sparkPlayUseAudioClock = false;
+        }
+      }).catch(() => {
+        sparkPlayUseAudioClock = false;
+      });
       updateSparkPlayButton();
       updateFlipbookControls();
     }
@@ -4988,7 +5318,8 @@
       await ensureReviewFullscreenActive();
       setFlipbookVisible(true);
       _pauseSparkWindowPlayback();
-      renderSparkPlaybackFrame(sparkPlayIndex);
+      renderSparkPlaybackFrame(sparkPlayIndex, { syncAudio: true });
+      ensureFlipbookAudioLoaded(false);
       updateSparkPlayButton();
       updateFlipbookControls();
     }
@@ -5389,6 +5720,7 @@
         state.subtitlesProfile = normalizeSubtitlesProfile(null);
         peopleTimelineZoom = 1.0;
         resetTimelineAudioState();
+        resetFlipbookAudioState();
         refreshPeopleEditorFromState();
         refreshSubtitlesEditorFromState();
         renderArchives();
@@ -5438,6 +5770,7 @@
       state.subtitlesProfile = normalizeSubtitlesProfile(null);
       peopleTimelineZoom = 1.0;
       resetTimelineAudioState();
+      resetFlipbookAudioState();
       state.review = { threshold: 0, stats: { total: 0, bad: 0, good: 0, shown: 0, overrides: 0 }, frames: [] };
       updateReviewStatsDisplay();
       renderReviewFrames([]);
@@ -6586,6 +6919,8 @@
       updateActionLocks();
       updateGammaControls();
       resetTimelineAudioState();
+      resetFlipbookAudioState();
+      applyFlipbookVolume();
       refreshPeopleEditorFromState();
       refreshSubtitlesEditorFromState();
       updateTimelineScrubUi();
@@ -6650,6 +6985,33 @@
     if (flipbookFrameEl) {
       flipbookFrameEl.addEventListener('click', () => {
         toggleCurrentFlipbookFrame();
+      });
+    }
+    if (flipbookVolumeEl) {
+      flipbookVolumeEl.addEventListener('input', () => {
+        applyFlipbookVolume();
+      });
+    }
+    if (flipbookAudioEl) {
+      flipbookAudioEl.addEventListener('loadedmetadata', () => {
+        if (!sparkPlayTimer) {
+          syncFlipbookAudioToCurrentFrame();
+        }
+      });
+      flipbookAudioEl.addEventListener('ended', () => {
+        if (!sparkPlayTimer) return;
+        if (!flipbookAudioEl) return;
+        try {
+          flipbookAudioEl.currentTime = 0;
+        } catch (_err) {}
+        flipbookAudioEl.play().then(() => {
+          sparkPlayUseAudioClock = true;
+        }).catch(() => {
+          sparkPlayUseAudioClock = false;
+        });
+      });
+      flipbookAudioEl.addEventListener('error', () => {
+        sparkPlayUseAudioClock = false;
       });
     }
 
