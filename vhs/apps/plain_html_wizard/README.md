@@ -28,11 +28,13 @@ Wizard Flow
 4. People Subtitles
    - optional first pass: auto-fill ranges from `cast/data` matches
    - add people subtitle ranges from the currently visible frame window
-   - entries are editable as chapter-local `HH:MM:SS.mmm` rows
+   - optional first pass: click `Generate Subtitles` to auto-transcribe chapter dialogue
+   - dialogue subtitle text appears as boxes on the timeline, plus an optional bulk-edit table below it
 5. Summary and save
    - review settings/stats
    - save BAD frames + gamma to `render_settings.json`
-   - save people subtitle rows to `people.tsv` (archive-global frame ranges)
+   - save people subtitle rows to `people.tsv` (archive-global time ranges)
+   - save dialogue subtitle rows to `subtitles.tsv` (archive-global time ranges)
 
 How To Use The Tuner
 --------------------
@@ -72,11 +74,21 @@ Step 4: People Subtitles
 
 - Scroll the frame grid to the time window where people appear.
 - Optional first pass: click `Auto-fill From Cast` to pull draft ranges from `cast/data`.
-- Enter names (for example `Jim | Linda`) and click `Add Visible Range`.
+- Optional dialogue draft: click `Generate Subtitles` to transcribe chapter speech.
+- Double-click a dialogue subtitle box to edit its text; click `x` on the box to delete it.
+- Use the audio waveform strip and its vertical playhead to scrub subtitle timing by ear.
+- Click the play button beside the waveform to audition audio from the current playhead position.
+- Use the `+` and `-` controls on the right side of the timeline to zoom; click the zoom value to reset.
+- Edit dialogue rows in the table below the timeline (one field per cell).
+- Click a row cell to edit start/end/text/speaker/confidence/source values.
+- The table auto-scrolls/highlights around the current timeline cursor as you scrub or scroll frames.
+- Leave the final blank row empty, or fill it to add a new subtitle row.
 - Edit rows directly in the people editor:
   - `start<TAB>end<TAB>people`
   - times are chapter-local `HH:MM:SS.mmm`.
-  - on save, these are converted to `start_frame<TAB>end_frame<TAB>people` in `people.tsv`.
+  - on save, these are converted to archive-global `start<TAB>end<TAB>people` in `people.tsv`.
+- Dialogue subtitles stay synced between timeline boxes and the bulk-edit table.
+- `confidence` and `source` metadata fields are still preserved in `subtitles.tsv` but hidden in tuner UI.
 
 Step 5: Summary + save
 
@@ -86,6 +98,7 @@ Step 5: Summary + save
 4. The tuner saves:
    - `metadata/<archive>/render_settings.json` (`BAD_FRAMES` + gamma)
    - `metadata/<archive>/people.tsv` (people subtitle ranges)
+   - `metadata/<archive>/subtitles.tsv` (dialogue subtitle ranges and optional metadata)
 
 How `BAD_FRAMES` maps to AviSynth `FreezeFrame`
 -----------------------------------------------
