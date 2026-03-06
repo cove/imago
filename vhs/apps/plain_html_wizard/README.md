@@ -18,9 +18,9 @@ Wizard Flow
 
 1. Load chapter
    - choose archive and chapter
-   - set frame span, sample rate (1/N), and bad batch proximity
+   - set bad batch proximity
 2. Review frames
-   - all sampled frames are shown in a grid
+   - all chapter frames are shown in a grid
    - adjust IQR `k` to change the automatic threshold
    - click any frame to flip its manual good/bad override
 3. Gamma Correction
@@ -43,13 +43,8 @@ Step 1: Load chapter
 
 1. Select an archive on the left.
 2. Select a chapter in the chapter list.
-3. Confirm `Start Frame` and `End Frame (exclusive)`.
-4. Set `Sample Rate (1 / N)`:
-   - `1` means inspect every frame.
-   - `10` means inspect every 10th frame.
-5. Set `Bad Batch Proximity`:
-   - controls how much context around detected bad frames is shown.
-6. Click `Next: Load Frames`.
+3. Chapter frame span is loaded directly from chapter metadata.
+4. Click the top `2/5 Bad Frames + IQR` step button to load frames.
 
 Step 2: Review frames + threshold
 
@@ -92,7 +87,7 @@ Step 4: People Subtitles
 
 Step 5: Summary + save
 
-1. Click `Next: Summary`.
+1. Click the top `5/5 Summary + Save` step button.
 2. Confirm bad-frame, gamma, and people subtitle settings.
 3. Click `Save and Return to Chapters`.
 4. The tuner saves:
@@ -125,12 +120,10 @@ Status and cancellation
 Practical workflow tips
 -----------------------
 
-- Start with a coarser sample (`1/5` or `1/10`) to find problem regions quickly.
-- Reduce sample stride (`1/1` or `1/2`) for chapters with dense damage.
 - Tune IQR first, then do manual frame-by-frame overrides.
 
 Notes
 -----
 
-- Render extract behavior is enabled in this plain wizard for frame-exact sampling.
+- Render extract behavior is enabled in this plain wizard for full chapter-frame loading.
 - This is intended for local single-user operation.

@@ -101,13 +101,17 @@ def test_static_html_contains_live_iqr_spark_and_fullscreen_controls() -> None:
     assert "const STEP_MODE_TO_FIRST = new Map();" in html
     assert "const navActionButtons = new Map();" in html
     assert "setStepByMode(" in html
-    assert "setStep(stepAtOffset(state.wizardStep, -1).num);" in html
-    assert "bindWizardNavigation()" in html
+    assert "function navigateToStep(rawStep)" in html
+    assert "stepPillsEl.addEventListener('click'" in html
+    assert "pill.type = 'button';" in html
+    assert 'id="nextToReview"' not in html
+    assert 'id="nextToGamma"' not in html
+    assert 'id="backToLoad"' not in html
+    assert 'id="backToReview"' not in html
 
     assert 'id="iqrK" type="range" min="0" max="12"' in html
     assert 'id="gammaLevel" type="range" min="0.05" max="8.00"' in html
     assert 'id="gammaMode"' in html
-    assert 'id="nextToGamma"' in html
     assert 'id="sparkPlayBtn"' in html
     assert 'id="iqrSpark"' in html
     assert 'id="toggleFullscreen"' in html

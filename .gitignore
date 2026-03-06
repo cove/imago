@@ -27,6 +27,7 @@ Thumbs.db
 # Media / large binaries
 *.mp4
 *.mkv
+/yolo*.pt
 Clips/
 Videos/
 

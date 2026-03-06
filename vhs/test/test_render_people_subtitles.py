@@ -18,6 +18,18 @@ def _write_people_tsv(path: Path, rows: list[tuple[int, int, str]]) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def _write_subtitles_tsv(
+    path: Path,
+    rows: list[tuple[int, int, str, str, str, str]],
+) -> None:
+    lines = ["start_frame\tend_frame\ttext\tspeaker\tconfidence\tsource"]
+    for start_frame, end_frame, text, speaker, confidence, source in rows:
+        lines.append(
+            f"{int(start_frame)}\t{int(end_frame)}\t{text}\t{speaker}\t{confidence}\t{source}"
+        )
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def test_load_people_entries_for_chapter_clips_archive_frame_ranges(tmp_path: Path) -> None:
     people_tsv = tmp_path / "people.tsv"
     _write_people_tsv(
@@ -31,10 +43,13 @@ def test_load_people_entries_for_chapter_clips_archive_frame_ranges(tmp_path: Pa
 
     entries = render_pipeline.load_people_entries_for_chapter(people_tsv, 100, 120)
 
-    assert entries == [
-        (_frame_seconds(0), _frame_seconds(5), "Lynda"),
-        (_frame_seconds(10), _frame_seconds(20), "Jim | Linda"),
-    ]
+    assert len(entries) == 2
+    assert entries[0][0] == pytest.approx(_frame_seconds(0))
+    assert entries[0][1] == pytest.approx(_frame_seconds(5))
+    assert entries[0][2] == "Lynda"
+    assert entries[1][0] == pytest.approx(_frame_seconds(10))
+    assert entries[1][1] == pytest.approx(_frame_seconds(20))
+    assert entries[1][2] == "Jim | Linda"
 
 
 def test_load_people_entries_for_chapter_skips_invalid_rows_and_fixes_single_frame(tmp_path: Path) -> None:
@@ -53,10 +68,13 @@ def test_load_people_entries_for_chapter_skips_invalid_rows_and_fixes_single_fra
 
     entries = render_pipeline.load_people_entries_for_chapter(people_tsv, 100, 120)
 
-    assert entries == [
-        (_frame_seconds(10), _frame_seconds(11), "Single Frame"),
-        (_frame_seconds(11), _frame_seconds(14), "Jim | Linda"),
-    ]
+    assert len(entries) == 2
+    assert entries[0][0] == pytest.approx(_frame_seconds(10))
+    assert entries[0][1] == pytest.approx(_frame_seconds(11))
+    assert entries[0][2] == "Single Frame"
+    assert entries[1][0] == pytest.approx(_frame_seconds(11))
+    assert entries[1][1] == pytest.approx(_frame_seconds(14))
+    assert entries[1][2] == "Jim | Linda"
 
 
 def test_merge_people_entries_into_srt_replaces_prior_people_line_and_dedupes(tmp_path: Path) -> None:
@@ -191,6 +209,70 @@ def test_tsv_people_to_ass_writes_italic_people_lines_with_frame_clipping(tmp_pa
     assert r"{\i1}Outside{\i0}" not in ass_text
 
 
+def test_load_subtitle_entries_for_chapter_clips_and_preserves_optional_fields(tmp_path: Path) -> None:
+    subtitles_tsv = tmp_path / "subtitles.tsv"
+    _write_subtitles_tsv(
+        subtitles_tsv,
+        [
+            (95, 105, "Opening line", "Narrator", "0.91", "whisper"),
+            (110, 135, "Middle line", "", "", "manual"),
+            (150, 160, "Outside", "Host", "0.88", "whisper"),
+        ],
+    )
+
+    entries = render_pipeline.load_subtitle_entries_for_chapter(subtitles_tsv, 100, 120)
+
+    assert len(entries) == 2
+    assert entries[0]["start_seconds"] == pytest.approx(_frame_seconds(0))
+    assert entries[0]["end_seconds"] == pytest.approx(_frame_seconds(5))
+    assert entries[0]["text"] == "Opening line"
+    assert entries[0]["speaker"] == "Narrator"
+    assert entries[0]["confidence"] == pytest.approx(0.91)
+    assert entries[0]["source"] == "whisper"
+
+    assert entries[1]["start_seconds"] == pytest.approx(_frame_seconds(10))
+    assert entries[1]["end_seconds"] == pytest.approx(_frame_seconds(20))
+    assert entries[1]["text"] == "Middle line"
+    assert entries[1]["speaker"] == ""
+    assert entries[1]["confidence"] is None
+    assert entries[1]["source"] == "manual"
+
+
+def test_write_subtitle_entries_to_srt_vtt_writes_ordered_dialogue_entries(tmp_path: Path) -> None:
+    srt_path = tmp_path / "dialogue.srt"
+    vtt_path = tmp_path / "dialogue.vtt"
+    wrote = render_pipeline.write_subtitle_entries_to_srt_vtt(
+        [
+            {
+                "start_seconds": _frame_seconds(20),
+                "end_seconds": _frame_seconds(25),
+                "text": "Second",
+                "speaker": "",
+                "confidence": None,
+                "source": "",
+            },
+            {
+                "start_seconds": _frame_seconds(2),
+                "end_seconds": _frame_seconds(6),
+                "text": "First",
+                "speaker": "Narrator",
+                "confidence": 0.8,
+                "source": "whisper",
+            },
+        ],
+        srt_path,
+        vtt_path,
+    )
+    assert wrote is True
+
+    srt_text = srt_path.read_text(encoding="utf-8")
+    vtt_text = vtt_path.read_text(encoding="utf-8")
+    assert "First" in srt_text
+    assert "Second" in srt_text
+    assert srt_text.find("First") < srt_text.find("Second")
+    assert "WEBVTT" in vtt_text
+
+
 def test_srt_to_ass_italicizes_people_bracket_lines(tmp_path: Path) -> None:
     srt_path = tmp_path / "chapter.srt"
     ass_path = tmp_path / "chapter.ass"
@@ -209,7 +291,7 @@ def test_srt_to_ass_italicizes_people_bracket_lines(tmp_path: Path) -> None:
     assert "[Jim | Linda]" not in ass_text
 
 
-def test_srt_to_ass_scales_people_font_to_70_percent_of_dialogue_size(tmp_path: Path) -> None:
+def test_srt_to_ass_scales_people_font_to_50_percent_of_dialogue_size(tmp_path: Path) -> None:
     srt_path = tmp_path / "chapter.srt"
     ass_path = tmp_path / "chapter.ass"
     srt_path.write_text(
@@ -222,5 +304,5 @@ def test_srt_to_ass_scales_people_font_to_70_percent_of_dialogue_size(tmp_path: 
 
     render_pipeline.srt_to_ass(srt_path, ass_path, fontsize=50)
     ass_text = ass_path.read_text(encoding="utf-8")
-    assert "Style: People,Calibri,35," in ass_text
+    assert "Style: People,Calibri,25," in ass_text
     assert r"{\rPeople}Person Name{\rDefault}" in ass_text

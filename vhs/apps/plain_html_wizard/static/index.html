@@ -122,12 +122,21 @@
     }
 
     .step-pill {
+      appearance: none;
       border: 1px solid var(--line);
       background: var(--bg-soft);
       color: var(--text);
       border-radius: 2px;
       padding: 6px 10px;
       font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      line-height: 1.2;
+    }
+
+    .step-pill:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
     }
 
     .step-pill.active {
@@ -927,7 +936,7 @@
       background: rgba(5, 10, 16, 0.96);
       box-shadow: 0 0 0 1px var(--shadow-accent), 0 14px 28px rgba(0, 0, 0, 0.5);
       display: none;
-      grid-template-rows: minmax(0, 1fr) auto auto;
+      grid-template-rows: minmax(0, 1fr) auto;
       z-index: 980;
       overflow: hidden;
     }
@@ -989,18 +998,19 @@
       border: 2px solid var(--line);
       border-radius: 2px;
       position: relative;
-      overflow: visible;
+      overflow: hidden;
     }
 
     .flipbook-frame::after {
       content: "";
       position: absolute;
-      inset: -3px;
+      inset: 0;
       border-radius: 5px;
+      z-index: 3;
       pointer-events: none;
       box-shadow:
-        0 0 14px 4px rgba(95, 141, 255, 0.45),
-        0 0 28px 10px rgba(95, 141, 255, 0.26);
+        0 0 10px 2px rgba(95, 141, 255, 0.35),
+        0 0 18px 4px rgba(95, 141, 255, 0.22);
     }
 
     .flipbook-frame.good {
@@ -1022,48 +1032,58 @@
       height: 100%;
       object-fit: contain;
       image-rendering: auto;
+      position: relative;
+      z-index: 1;
     }
     .flipbook-subtitles {
-      margin: 0 8px 4px 8px;
-      border: 1px solid var(--line);
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 6%;
+      z-index: 4;
+      pointer-events: none;
+      display: grid;
+      place-items: center;
+      gap: 4px;
+      padding: 0 5%;
+      color: #f8fbff;
+      font-size: clamp(15px, 2.2vw, 28px);
+      line-height: 1.12;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      text-align: center;
+      text-wrap: balance;
+      text-shadow:
+        -2px -2px 0 rgba(0, 0, 0, 0.95),
+        2px -2px 0 rgba(0, 0, 0, 0.95),
+        -2px 2px 0 rgba(0, 0, 0, 0.95),
+        2px 2px 0 rgba(0, 0, 0, 0.95),
+        0 0 8px rgba(0, 0, 0, 0.85);
+    }
+    .flipbook-subtitles-line {
+      display: inline-block;
+      max-width: 96%;
+      background: rgba(0, 0, 0, 0.16);
+      padding: 0 4px;
       border-radius: 2px;
-      background: rgba(5, 12, 20, 0.84);
-      color: var(--text-strong);
-      font-size: 12px;
-      line-height: 1.35;
-      padding: 6px 8px;
-      min-height: 54px;
-      max-height: 130px;
-      overflow: auto;
     }
     .flipbook-subtitles.empty {
-      color: var(--text-muted);
-    }
-    .flipbook-subtitle-row {
-      display: flex;
-      align-items: baseline;
-      gap: 6px;
-      margin: 2px 0;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-    .flipbook-subtitle-row.context {
-      color: var(--text-muted);
-      font-size: 11px;
-    }
-    .flipbook-subtitle-time {
-      color: var(--accent-2);
-      font-variant-numeric: tabular-nums;
-      flex: 0 0 auto;
+      display: none;
     }
     .flipbook-subtitle-speaker {
-      color: var(--accent);
-      font-weight: 700;
-      flex: 0 0 auto;
+      font-weight: 800;
+      margin-right: 6px;
     }
-    .flipbook-subtitle-text {
-      flex: 1 1 auto;
-      min-width: 0;
+    .flipbook-frame::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 32%;
+      z-index: 2;
+      pointer-events: none;
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.34) 65%, rgba(0, 0, 0, 0.56) 100%);
     }
     .flipbook-audio {
       display: inline-flex;
@@ -1074,6 +1094,67 @@
     }
     .flipbook-audio input[type="range"] {
       width: 96px;
+    }
+    .flipbook-subtitle-rail {
+      display: none;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      border-top: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(8, 13, 22, 0.96) 0%, rgba(7, 11, 18, 0.98) 100%);
+      padding: 12px 14px;
+      scrollbar-gutter: stable both-edges;
+      box-sizing: border-box;
+      width: 100%;
+      max-width: none;
+    }
+    .flipbook-subtitle-rail.empty {
+      place-items: center;
+      color: var(--text-muted);
+      font-size: 13px;
+      letter-spacing: 0.2px;
+    }
+    .flipbook-subtitle-rail-row {
+      position: relative;
+      margin: 0 0 8px 0;
+      padding: 8px 10px;
+      border: 1px solid rgba(140, 160, 190, 0.2);
+      border-radius: 4px;
+      background: rgba(5, 9, 15, 0.62);
+      transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+    }
+    .flipbook-subtitle-rail-row:last-child {
+      margin-bottom: 0;
+    }
+    .flipbook-subtitle-rail-row.playback-current {
+      z-index: 1;
+      border-color: rgba(110, 170, 255, 0.95);
+      outline: 3px solid rgba(110, 170, 255, 1);
+      outline-offset: 1px;
+      background: rgba(12, 26, 45, 0.88);
+      box-shadow:
+        0 0 0 1px rgba(95, 141, 255, 0.45) inset,
+        0 0 14px rgba(95, 141, 255, 0.24);
+    }
+    .flipbook-subtitle-rail-time {
+      font-size: 11px;
+      line-height: 1.15;
+      color: var(--text-muted);
+      letter-spacing: 0.2px;
+      margin-bottom: 5px;
+      font-variant-numeric: tabular-nums;
+    }
+    .flipbook-subtitle-rail-text {
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.28;
+      font-weight: 550;
+      word-break: break-word;
+    }
+    .flipbook-subtitle-rail-speaker {
+      color: var(--accent);
+      font-weight: 700;
+      margin-right: 6px;
     }
 
     .frame-card {
@@ -1377,6 +1458,40 @@
       border-radius: 0;
     }
 
+    #page2.flipbook-focus.flipbook-subtitle-mode .frame-grid {
+      display: none;
+    }
+
+    #page2.flipbook-focus.flipbook-subtitle-mode .page-review-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      height: 100%;
+      min-height: 0;
+    }
+
+    #page2.flipbook-focus.flipbook-subtitle-mode .flipbook-preview {
+      width: min(100%, 640px);
+      max-width: 640px;
+      height: min(52vh, 480px);
+      max-height: 480px;
+      margin: 0 auto;
+      flex: 0 0 auto;
+    }
+
+    #page2.flipbook-focus.flipbook-subtitle-mode .flipbook-subtitle-rail {
+      display: block;
+      margin: 0;
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    #page2.flipbook-focus.flipbook-subtitle-mode .flipbook-subtitle-rail.empty {
+      display: grid;
+    }
+
     #page2.flipbook-focus:fullscreen {
       padding: 0;
     }
@@ -1437,25 +1552,6 @@
           <h2 class="panel-title">Chapters</h2>
           <div id="chapterList" class="list"></div>
 
-          <div class="controls">
-            <label class="field">Start Frame
-              <input id="startFrame" type="number" min="0" step="1">
-            </label>
-            <label class="field">End Frame (exclusive)
-              <input id="endFrame" type="number" min="1" step="1">
-            </label>
-            <label class="field">Sample Rate (1 / N, use 1 for all frames)
-              <input id="sampleStride" type="number" min="1" step="1" value="1">
-            </label>
-            <label class="field">Bad Batch Proximity
-              <input id="context" type="number" min="0" step="1" value="10">
-            </label>
-          </div>
-
-          <div class="actions">
-            <span></span>
-            <button id="nextToReview" class="action primary">Next: Load Frames</button>
-          </div>
         </main>
       </div>
     </section>
@@ -1523,8 +1619,8 @@
         <div id="flipbookPreview" class="flipbook-preview" aria-hidden="true">
           <figure id="flipbookFrame" class="flipbook-frame">
             <img id="flipbookImage" alt="Flipbook playback frame">
+            <div id="flipbookSubtitles" class="flipbook-subtitles empty" aria-live="polite"></div>
           </figure>
-          <div id="flipbookSubtitles" class="flipbook-subtitles empty" aria-live="polite">No subtitle at this frame.</div>
           <div class="flipbook-head">
             <span>Flipbook Preview</span>
             <div class="flipbook-controls">
@@ -1551,20 +1647,9 @@
           </div>
         </div>
 
+        <div id="flipbookSubtitleRail" class="flipbook-subtitle-rail" aria-label="Flipbook subtitle transcript"></div>
         <div id="frameGrid" class="frame-grid"></div>
 
-        <div id="reviewActions" class="actions">
-          <button id="backToLoad" class="action warn">Back</button>
-          <button id="nextToGamma" class="action primary">Next: Gamma Correction</button>
-        </div>
-        <div id="gammaActions" class="actions hidden-ui">
-          <button id="backToReviewFromGamma" class="action warn">Back: Bad Frames</button>
-          <button id="nextToPeople" class="action primary">Next: Subtitles</button>
-        </div>
-        <div id="peopleActions" class="actions hidden-ui">
-          <button id="backToGammaFromPeople" class="action warn">Back: Gamma Correction</button>
-          <button id="nextToSummary" class="action primary">Next: Summary</button>
-        </div>
       </div>
     </section>
 
@@ -1572,7 +1657,6 @@
       <div class="page-final-layout">
         <div id="summaryBox" class="summary-box">No summary yet.</div>
         <div class="actions">
-          <button id="backToReview" class="action warn">Back: Subtitles</button>
           <button id="saveAndReturn" class="action primary">Save and Return to Chapters</button>
         </div>
       </div>
@@ -1604,15 +1688,12 @@
         <button id="helpCloseBtn" class="action warn" type="button">Close</button>
       </div>
       <div class="help-body">
-        <p>This wizard lets you mark bad sampled frames, tune gamma, author people subtitle ranges, and edit dialogue subtitles. Progress saves write <code>BAD_FRAMES</code> + gamma metadata to <code>metadata/&lt;archive&gt;/render_settings.json</code>, people subtitle ranges to <code>metadata/&lt;archive&gt;/people.tsv</code>, and dialogue subtitle rows to <code>metadata/&lt;archive&gt;/subtitles.tsv</code>. During render, subtitle files are generated from that data.</p>
+        <p>This wizard lets you mark bad frames, tune gamma, author people subtitle ranges, and edit dialogue subtitles. Progress saves write <code>BAD_FRAMES</code> + gamma metadata to <code>metadata/&lt;archive&gt;/render_settings.json</code>, people subtitle ranges to <code>metadata/&lt;archive&gt;/people.tsv</code>, and dialogue subtitle rows to <code>metadata/&lt;archive&gt;/subtitles.tsv</code>. During render, subtitle files are generated from that data.</p>
 
         <h3>Step 1: Load Chapter</h3>
         <ol>
           <li>Select an archive in the left column, then select a chapter.</li>
-          <li>Confirm or edit <code>Start Frame</code> and <code>End Frame (exclusive)</code>.</li>
-          <li>Set <code>Sample Rate (1 / N)</code>: use <code>1</code> for every frame, <code>10</code> for every 10th frame.</li>
-          <li>Set <code>Bad Batch Proximity</code>: how much context around detected bad frames is shown in review.</li>
-          <li>Click <code>Next: Load Frames</code>. The loader can be cancelled while running.</li>
+          <li>Click the <code>2/5 Bad Frames + IQR</code> step button at the top to load all chapter frames. The loader can be cancelled while running.</li>
         </ol>
 
         <h3>Step 2: Bad Frames + IQR</h3>
@@ -1655,7 +1736,7 @@
 
         <h3>Step 5: Summary + Save</h3>
         <ol>
-          <li>Click <code>Next: Summary</code> to verify bad-frame, gamma, and people subtitle settings.</li>
+          <li>Click the <code>5/5 Summary + Save</code> step button at the top to verify bad-frame, gamma, and people subtitle settings.</li>
           <li>Click <code>Save and Return to Chapters</code> to persist selected bad frames, gamma ranges, and people subtitle entries.</li>
           <li>The chapter list refreshes with updated BAD counts after save.</li>
         </ol>
@@ -1670,9 +1751,8 @@
 
         <h3>Tips</h3>
         <ul>
-          <li>Start with a coarse sample rate, then reduce it if a chapter needs finer review.</li>
           <li>If the auto threshold is too aggressive, increase <code>IQR k</code> before manual edits.</li>
-          <li>Manual overrides in the loaded sample set are saved with the chapter when you save.</li>
+          <li>Manual overrides in the loaded frame set are saved with the chapter when you save.</li>
         </ul>
       </div>
     </div>
@@ -1761,11 +1841,6 @@
     const archiveListEl = document.getElementById('archiveList');
     const chapterListEl = document.getElementById('chapterList');
 
-    const startFrameEl = document.getElementById('startFrame');
-    const endFrameEl = document.getElementById('endFrame');
-    const sampleStrideEl = document.getElementById('sampleStride');
-    const contextEl = document.getElementById('context');
-
     const iqrEl = document.getElementById('iqrK');
     const iqrLabelEl = document.getElementById('iqrLabel');
     const gammaLevelEl = document.getElementById('gammaLevel');
@@ -1807,9 +1882,6 @@
     const fullscreenBtnEl = document.getElementById('toggleFullscreen');
     const reviewControlsEl = document.getElementById('reviewControls');
     const gammaControlsEl = document.getElementById('gammaControls');
-    const reviewActionsEl = document.getElementById('reviewActions');
-    const gammaActionsEl = document.getElementById('gammaActions');
-    const peopleActionsEl = document.getElementById('peopleActions');
     const simulateFreezeFrameEl = document.getElementById('simulateFreezeFrame');
     const flipbookSimFreezeFrameEl = document.getElementById('flipbookSimFreezeFrame');
     const flipbookSimFreezeWrapEl = flipbookSimFreezeFrameEl ? flipbookSimFreezeFrameEl.closest('label.sim-freeze') : null;
@@ -1819,6 +1891,7 @@
     const flipbookFrameEl = document.getElementById('flipbookFrame');
     const flipbookImageEl = document.getElementById('flipbookImage');
     const flipbookSubtitlesEl = document.getElementById('flipbookSubtitles');
+    const flipbookSubtitleRailEl = document.getElementById('flipbookSubtitleRail');
     const flipbookAudioEl = document.getElementById('flipbookAudio');
     const flipbookVolumeEl = document.getElementById('flipbookVolume');
     const flipbookRevBtnEl = document.getElementById('flipbookRevBtn');
@@ -1851,6 +1924,10 @@
     let sparkPlayAccumulatorMs = 0;
     let flipbookAudioSrcKey = '';
     let flipbookGridCursorIndex = -1;
+    let flipbookSubtitleRailRenderKey = '';
+    let flipbookSubtitleRailActiveIndex = -1;
+    let flipbookSubtitleRailManualUntilMs = 0;
+    let flipbookSubtitleRailProgrammaticScroll = false;
     let flipbookToggleInFlight = false;
     let peopleTimelineRenderState = null;
     let peopleTimelineDraft = null;
@@ -2083,13 +2160,18 @@
     }
 
     function updateActionLocks() {
-      const locked = Boolean(isChapterLoadInFlight || isPreviewRenderInFlight || isSubtitlesGenerateInFlight);
+      const locked = isNavigationLocked();
       navActionButtons.forEach((el) => {
         if (el) el.disabled = locked;
       });
       lockExtraButtons.forEach((el) => {
         if (el) el.disabled = locked;
       });
+      if (stepPillsEl) {
+        stepPillsEl.querySelectorAll('.step-pill').forEach((el) => {
+          el.disabled = locked;
+        });
+      }
     }
 
     function startLoadProgress(message) {
@@ -2320,13 +2402,6 @@
       return 0;
     }
 
-    function stepAtOffset(rawStep, offset = 0) {
-      const base = stepIndex(rawStep);
-      const delta = Math.trunc(Number(offset || 0));
-      const idx = _clamp(base + delta, 0, STEP_COUNT - 1);
-      return STEP_DEFS[idx] || STEP_FIRST;
-    }
-
     function setStepByMode(mode, fallbackStep = STEP_FIRST.num) {
       setStep(stepNumForMode(mode, fallbackStep));
     }
@@ -2335,16 +2410,23 @@
       return mode === 'review' || mode === 'gamma' || mode === 'people';
     }
 
+    function isNavigationLocked() {
+      return Boolean(isChapterLoadInFlight || isPreviewRenderInFlight || isSubtitlesGenerateInFlight);
+    }
+
     function renderStepPills() {
       if (!stepPillsEl) return;
       stepPillsEl.innerHTML = '';
       const activeStepNum = stepDef(state.wizardStep).num;
+      const navLocked = isNavigationLocked();
       STEP_DEFS.forEach((step, index) => {
-        const pill = document.createElement('div');
+        const pill = document.createElement('button');
+        pill.type = 'button';
         pill.id = `stepPill${step.num}`;
         pill.className = 'step-pill';
         pill.dataset.step = String(step.num);
         pill.textContent = `${index + 1}/${STEP_COUNT} ${step.label}`;
+        pill.disabled = navLocked;
         if (step.num === activeStepNum) {
           pill.classList.add('active');
         }
@@ -2393,9 +2475,6 @@
       if (reviewControlsEl) reviewControlsEl.classList.toggle('hidden-ui', gammaMode || peopleMode);
       if (gammaControlsEl) gammaControlsEl.classList.toggle('hidden-ui', !gammaMode);
       if (peopleControlsEl) peopleControlsEl.classList.toggle('hidden-ui', !peopleMode);
-      if (reviewActionsEl) reviewActionsEl.classList.toggle('hidden-ui', targetStep.mode !== 'review');
-      if (gammaActionsEl) gammaActionsEl.classList.toggle('hidden-ui', !gammaMode);
-      if (peopleActionsEl) peopleActionsEl.classList.toggle('hidden-ui', !peopleMode);
       if (iqrSparkEl) iqrSparkEl.classList.toggle('hidden-ui', peopleMode);
       if (sparkMetaEl) sparkMetaEl.classList.toggle('hidden-ui', peopleMode);
       if (timelineScrubWrapEl) timelineScrubWrapEl.classList.toggle('hidden-ui', !peopleMode);
@@ -2425,6 +2504,7 @@
       } else if (timelineAudioEl && !timelineAudioEl.paused) {
         timelineAudioEl.pause();
       }
+      updateFlipbookSubtitleRailMode();
       updatePeopleStepLayoutSizing();
       updateTimelineAudioPlayButton();
       updateFullscreenButton();
@@ -2527,8 +2607,6 @@
         `;
         btn.addEventListener('click', () => {
           state.chapter = ch.title;
-          startFrameEl.value = ch.start_frame;
-          endFrameEl.value = ch.end_frame;
           renderChapters();
         });
         chapterListEl.appendChild(btn);
@@ -2546,8 +2624,20 @@
     }
 
     function chapterFrameSpan() {
-      const startRaw = Number((state.loadSettings && state.loadSettings.start_frame) ?? startFrameEl.value ?? 0);
-      const endRaw = Number((state.loadSettings && state.loadSettings.end_frame) ?? endFrameEl.value ?? (startRaw + 1));
+      const selectedChapter = chapterByTitle(state.chapter);
+      const loadSettingsChapter = String((state.loadSettings && state.loadSettings.chapter) || '').trim();
+      const currentChapter = String(state.chapter || '').trim();
+      const hasActiveLoadSettings = Boolean(loadSettingsChapter && loadSettingsChapter === currentChapter);
+      const startRaw = Number(
+        (hasActiveLoadSettings && state.loadSettings && state.loadSettings.start_frame)
+        ?? (selectedChapter && selectedChapter.start_frame)
+        ?? 0
+      );
+      const endRaw = Number(
+        (hasActiveLoadSettings && state.loadSettings && state.loadSettings.end_frame)
+        ?? (selectedChapter && selectedChapter.end_frame)
+        ?? (startRaw + 1)
+      );
       const start = Math.max(0, Math.trunc(Number.isFinite(startRaw) ? startRaw : 0));
       const end = Math.max(start + 1, Math.trunc(Number.isFinite(endRaw) ? endRaw : (start + 1)));
       return { start, end };
@@ -2872,7 +2962,8 @@
     }
 
     function canonicalizeSubtitlesEntries(rawEntries) {
-      const duration = chapterDurationSeconds();
+      const durationRaw = Number(chapterDurationSeconds() || 0);
+      const duration = Number.isFinite(durationRaw) && durationRaw > 0 ? durationRaw : null;
       const rows = [];
       (Array.isArray(rawEntries) ? rawEntries : []).forEach((item, idx) => {
         const startRaw = item && Object.prototype.hasOwnProperty.call(item, 'start_seconds')
@@ -2885,8 +2976,8 @@
         const end = parseTimestampSeconds(endRaw);
         const text = normalizeSubtitleText(item && item.text);
         if (start === null || end === null || end <= start || !text) return;
-        const a = _clamp(start, 0, duration);
-        const b = _clamp(end, 0, duration);
+        const a = duration === null ? Math.max(0, start) : _clamp(start, 0, duration);
+        const b = duration === null ? Math.max(0, end) : _clamp(end, 0, duration);
         if (b <= a) return;
         const speaker = normalizeSubtitleText(item && item.speaker);
         const confidence = parseSubtitleConfidenceValue(item && item.confidence);
@@ -2924,6 +3015,46 @@
         entries: canonicalizeSubtitlesEntries(raw.entries || []),
         source: String(raw.source || 'default'),
       };
+    }
+
+    function subtitlesProfileFromApiResult(result) {
+      const payload = (result && typeof result === 'object') ? result : {};
+      let rawProfile = null;
+      if (payload.subtitles_profile && typeof payload.subtitles_profile === 'object') {
+        rawProfile = payload.subtitles_profile;
+      } else if (payload.subtitles && typeof payload.subtitles === 'object') {
+        rawProfile = payload.subtitles;
+      } else if (payload.profile && typeof payload.profile === 'object') {
+        const nested = payload.profile;
+        if (nested.subtitles_profile && typeof nested.subtitles_profile === 'object') {
+          rawProfile = nested.subtitles_profile;
+        } else if (nested.subtitles && typeof nested.subtitles === 'object') {
+          rawProfile = nested.subtitles;
+        }
+      }
+
+      let profile = normalizeSubtitlesProfile(rawProfile || null);
+      const generatedCount = Math.max(0, Math.trunc(Number(payload.generated_count || payload.count || 0) || 0));
+      if (profile.entries.length > 0 || generatedCount <= 0) {
+        return profile;
+      }
+
+      let fallbackEntries = [];
+      if (rawProfile && Array.isArray(rawProfile.entries)) {
+        fallbackEntries = rawProfile.entries;
+      } else if (Array.isArray(payload.subtitle_entries)) {
+        fallbackEntries = payload.subtitle_entries;
+      } else if (Array.isArray(payload.entries)) {
+        fallbackEntries = payload.entries;
+      }
+      if (!fallbackEntries.length) {
+        return profile;
+      }
+      profile = normalizeSubtitlesProfile({
+        entries: fallbackEntries,
+        source: String((rawProfile && rawProfile.source) || payload.source || 'api_fallback'),
+      });
+      return profile;
     }
 
     function subtitleEditorHasFocus() {
@@ -3253,13 +3384,12 @@
     }
 
     function chapterAudioCacheKey() {
-      const start = Math.trunc(Number(startFrameEl && startFrameEl.value || 0));
-      const end = Math.trunc(Number(endFrameEl && endFrameEl.value || 0));
+      const span = chapterFrameSpan();
       return [
         String(state.archive || '').trim(),
         String(state.chapter || '').trim(),
-        String(start),
-        String(end),
+        String(span.start),
+        String(span.end),
       ].join('|');
     }
 
@@ -4075,14 +4205,14 @@
       if (isPeopleStepActive()) {
         const entries = canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
         const subtitleEntries = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
-        reviewStatsEl.textContent = `Subtitles step | people ${entries.length} | dialogue ${subtitleEntries.length} | sampled ${state.review.frames.length}`;
+        reviewStatsEl.textContent = `Subtitles step | people ${entries.length} | dialogue ${subtitleEntries.length} | loaded ${state.review.frames.length}`;
         return;
       }
       if (isGammaStepActive()) {
         const mode = String((state.gammaProfile && state.gammaProfile.mode) || 'whole');
         const ranges = gammaRangesForSave();
         const gammaLevel = normalizeGammaValue(state.gammaProfile && state.gammaProfile.level, 1.0);
-        reviewStatsEl.textContent = `Gamma Correction step | mode ${mode} | level ${gammaLevel.toFixed(3)} | ranges ${ranges.length} | sampled ${state.review.frames.length}`;
+        reviewStatsEl.textContent = `Gamma Correction step | mode ${mode} | level ${gammaLevel.toFixed(3)} | ranges ${ranges.length} | loaded ${state.review.frames.length}`;
         return;
       }
       reviewStatsEl.textContent = statsText(state.review.stats, state.review.threshold);
@@ -4399,7 +4529,7 @@
         timelineScrubEl.step = '1';
         timelineScrubEl.value = '0';
         timelineScrubEl.disabled = true;
-        timelineScrubMetaEl.textContent = 'Timeline scrub: no sampled frames loaded.';
+        timelineScrubMetaEl.textContent = 'Timeline scrub: no loaded frames available.';
         updateTimelineAudioPlayheadFromIndex(0);
         updateTimelineAudioPlayButton();
         renderPeopleTimeline(0);
@@ -4519,11 +4649,8 @@
       if (reviewLayoutEl) {
         const layoutHeight = Number(reviewLayoutEl.clientHeight || 0);
         const topHeight = reviewTopEl ? Number(reviewTopEl.offsetHeight || 0) : 0;
-        const actionsHeight = (peopleActionsEl && !peopleActionsEl.classList.contains('hidden-ui'))
-          ? Number(peopleActionsEl.offsetHeight || 0)
-          : 0;
         const spare = 26;
-        const derived = layoutHeight - topHeight - actionsHeight - minGridHeight - spare;
+        const derived = layoutHeight - topHeight - minGridHeight - spare;
         if (Number.isFinite(derived)) {
           maxSparkHeight = _clamp(derived, PEOPLE_STEP_SPARK_MIN_PX, PEOPLE_STEP_SPARK_MAX_PX);
         }
@@ -4540,6 +4667,34 @@
       return document.fullscreenElement === page2El || document.body.classList.contains('review-fullscreen-fallback');
     }
 
+    function clearFlipbookSubtitleRail() {
+      if (!flipbookSubtitleRailEl) return;
+      flipbookSubtitleRailEl.classList.remove('empty');
+      flipbookSubtitleRailEl.innerHTML = '';
+      flipbookSubtitleRailRenderKey = '';
+      flipbookSubtitleRailActiveIndex = -1;
+      flipbookSubtitleRailManualUntilMs = 0;
+    }
+
+    function updateFlipbookSubtitleRailMode() {
+      if (!page2El) return;
+      const on = Boolean(
+        page2El.classList.contains('flipbook-focus')
+        && isPeopleStepActive()
+        && flipbookPreviewEl
+        && flipbookPreviewEl.classList.contains('active')
+      );
+      page2El.classList.toggle('flipbook-subtitle-mode', on);
+      if (!on) clearFlipbookSubtitleRail();
+    }
+
+    function markFlipbookSubtitleRailManual(ms = 1400) {
+      const nowMs = (typeof performance !== 'undefined' && performance.now)
+        ? performance.now()
+        : Date.now();
+      flipbookSubtitleRailManualUntilMs = nowMs + Math.max(0, Number(ms || 0));
+    }
+
     function setFlipbookFocusMode(active) {
       if (!page2El) return;
       const on = Boolean(active);
@@ -4547,6 +4702,7 @@
       if (!on) {
         syncFrameGridPlaybackCursor(-1);
       }
+      updateFlipbookSubtitleRailMode();
       updatePeopleStepLayoutSizing();
     }
 
@@ -4910,16 +5066,95 @@
       return bestIdx;
     }
 
+    function loadedFrameSecondsRange() {
+      const chapterDuration = Math.max(0, Number(chapterDurationSeconds() || 0));
+      const fallback = chapterDuration > 0
+        ? { start: 0, end: chapterDuration }
+        : null;
+      const frames = (state.review && Array.isArray(state.review.frames)) ? state.review.frames : [];
+      if (!frames.length) return fallback;
+      let minSec = Number.POSITIVE_INFINITY;
+      let maxSec = Number.NEGATIVE_INFINITY;
+      frames.forEach((frame) => {
+        const sec = chapterLocalSecondsFromFid(frame && frame.fid);
+        if (!Number.isFinite(sec)) return;
+        if (sec < minSec) minSec = sec;
+        if (sec > maxSec) maxSec = sec;
+      });
+      if (!Number.isFinite(minSec) || !Number.isFinite(maxSec)) return fallback;
+      const start = Math.max(0, minSec);
+      const end = Math.max(0, maxSec + timelineFrameStepSeconds());
+      if (fallback && (end <= start || start >= fallback.end || end <= 0)) {
+        return fallback;
+      }
+      return {
+        start,
+        end,
+      };
+    }
+
+    function subtitleEntriesForFlipbook() {
+      const canonical = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
+      if (canonical.length) return canonical;
+      const rawEntries = (state.subtitlesProfile && Array.isArray(state.subtitlesProfile.entries))
+        ? state.subtitlesProfile.entries
+        : [];
+      const fallback = [];
+      rawEntries.forEach((item, idx) => {
+        if (!item || typeof item !== 'object') return;
+        const start = parseTimestampSeconds(item.start_seconds ?? item.start ?? item.begin ?? item.t0);
+        const end = parseTimestampSeconds(item.end_seconds ?? item.end ?? item.stop ?? item.t1);
+        const text = normalizeSubtitleText(
+          item.text ?? item.subtitle ?? item.caption ?? item.line ?? item.value ?? ''
+        );
+        if (start === null || end === null || end <= start || !text) return;
+        const speaker = normalizeSubtitleText(item.speaker ?? item.name ?? '');
+        const confidence = parseSubtitleConfidenceValue(item.confidence ?? item.score);
+        const source = normalizeSubtitleText(item.source ?? item.provider ?? '');
+        const a = Number(start.toFixed(3));
+        const b = Number(end.toFixed(3));
+        fallback.push({
+          start_seconds: a,
+          end_seconds: b,
+          start: formatTimestampSeconds(a),
+          end: formatTimestampSeconds(b),
+          text,
+          speaker,
+          confidence,
+          source,
+          idx: Number(idx || 0),
+        });
+      });
+      fallback.sort((a, b) => {
+        if (a.start_seconds !== b.start_seconds) return a.start_seconds - b.start_seconds;
+        if (a.end_seconds !== b.end_seconds) return a.end_seconds - b.end_seconds;
+        return Number(a.idx || 0) - Number(b.idx || 0);
+      });
+      return fallback.map(({ idx, ...row }) => row);
+    }
+
     function findSubtitlesAroundSeconds(rawSeconds) {
       const sec = Math.max(0, Number(rawSeconds || 0));
-      const entries = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
+      const range = loadedFrameSecondsRange();
+      const allEntries = subtitleEntriesForFlipbook();
+      let entries = allEntries
+        .filter((row) => {
+          if (!range) return true;
+          const start = Number(row.start_seconds || 0);
+          const end = Number(row.end_seconds || 0);
+          return end > range.start && start < range.end;
+        });
+      // If range derivation is off, fall back to available subtitle rows instead of showing empty.
+      if (range && !entries.length && allEntries.length) {
+        entries = allEntries;
+      }
       const active = [];
       let prev = null;
       let next = null;
       entries.forEach((row) => {
         const start = Number(row.start_seconds || 0);
         const end = Number(row.end_seconds || 0);
-        if (start <= (sec + 0.0005) && sec < (end - 0.0005)) {
+        if (start <= (sec + 0.0005) && sec <= (end + 0.0005)) {
           active.push(row);
           return;
         }
@@ -4934,47 +5169,141 @@
       return { entries, active, prev, next };
     }
 
-    function renderFlipbookSubtitles(rawSeconds) {
-      if (!flipbookSubtitlesEl) return;
-      const sec = Math.max(0, Number(rawSeconds || 0));
-      const around = findSubtitlesAroundSeconds(sec);
-      if (!around.entries.length) {
-        flipbookSubtitlesEl.classList.add('empty');
-        flipbookSubtitlesEl.textContent = 'No subtitle entries loaded for this chapter.';
+    function flipbookSubtitleRailEntryKey(entries) {
+      const rows = Array.isArray(entries) ? entries : [];
+      let checksum = 0;
+      for (let i = 0; i < rows.length; i += 1) {
+        const row = rows[i] || {};
+        const startMs = Math.round(Number(row.start_seconds || 0) * 1000);
+        const endMs = Math.round(Number(row.end_seconds || 0) * 1000);
+        const text = String(row.text || '');
+        const speaker = String(row.speaker || '');
+        const textHead = text.length ? text.charCodeAt(0) : 0;
+        const textTail = text.length ? text.charCodeAt(text.length - 1) : 0;
+        checksum = (
+          checksum
+          + ((i + 1) * 17)
+          + (startMs * 31)
+          + (endMs * 13)
+          + (text.length * 7)
+          + (speaker.length * 11)
+          + textHead
+          + textTail
+        ) % 2147483647;
+      }
+      return `${rows.length}|${checksum}`;
+    }
+
+    function flipbookSubtitleRailCenterIndex(around, sec) {
+      const entries = Array.isArray(around && around.entries) ? around.entries : [];
+      if (!entries.length) return -1;
+      if (Array.isArray(around && around.active) && around.active.length) {
+        const idx = entries.indexOf(around.active[0]);
+        if (idx >= 0) return idx;
+      }
+      for (let i = 0; i < entries.length; i += 1) {
+        if (Number(entries[i].start_seconds || 0) > sec) return i;
+      }
+      return entries.length - 1;
+    }
+
+    function renderFlipbookSubtitleRail(rawSeconds, around) {
+      if (!flipbookSubtitleRailEl) return;
+      const railMode = Boolean(page2El && page2El.classList.contains('flipbook-subtitle-mode'));
+      if (!railMode) {
+        clearFlipbookSubtitleRail();
         return;
       }
-      if (around.active.length) {
-        const activeHtml = around.active.map((row) => {
+      const sec = Math.max(0, Number(rawSeconds || 0));
+      const entries = Array.isArray(around && around.entries) ? around.entries : [];
+      if (!entries.length) {
+        flipbookSubtitleRailEl.classList.add('empty');
+        flipbookSubtitleRailEl.textContent = 'No subtitle entries for this chapter.';
+        flipbookSubtitleRailRenderKey = 'empty';
+        flipbookSubtitleRailActiveIndex = -1;
+        return;
+      }
+
+      const nextKey = flipbookSubtitleRailEntryKey(entries);
+      const needRebuild = nextKey !== flipbookSubtitleRailRenderKey;
+      if (needRebuild) {
+        const rowsHtml = entries.map((row, idx) => {
+          const startText = String(row.start || formatTimestampSeconds(Number(row.start_seconds || 0)));
+          const endText = String(row.end || formatTimestampSeconds(Number(row.end_seconds || 0)));
           const speaker = String(row.speaker || '').trim();
-          const speakerHtml = speaker ? `<span class="flipbook-subtitle-speaker">${escapeHtml(speaker)}:</span>` : '';
+          const speakerHtml = speaker
+            ? `<span class="flipbook-subtitle-rail-speaker">${escapeHtml(speaker)}:</span>`
+            : '';
           return `
-            <div class="flipbook-subtitle-row">
-              <span class="flipbook-subtitle-time">${escapeHtml(String(row.start || ''))}-${escapeHtml(String(row.end || ''))}</span>
-              ${speakerHtml}
-              <span class="flipbook-subtitle-text">${escapeHtml(String(row.text || ''))}</span>
+            <div class="flipbook-subtitle-rail-row" data-subtitle-rail-index="${idx}">
+              <div class="flipbook-subtitle-rail-time">${escapeHtml(`${startText} - ${endText}`)}</div>
+              <div class="flipbook-subtitle-rail-text">${speakerHtml}${escapeHtml(String(row.text || ''))}</div>
             </div>
           `;
         }).join('');
-        flipbookSubtitlesEl.classList.remove('empty');
-        flipbookSubtitlesEl.innerHTML = activeHtml;
-        return;
+        flipbookSubtitleRailEl.classList.remove('empty');
+        flipbookSubtitleRailEl.innerHTML = rowsHtml;
+        flipbookSubtitleRailRenderKey = nextKey;
+        flipbookSubtitleRailActiveIndex = -1;
       }
-      const context = [];
-      if (around.prev) {
-        context.push(
-          `<div class="flipbook-subtitle-row context"><span class="flipbook-subtitle-time">Prev ${escapeHtml(String(around.prev.end || ''))}</span><span class="flipbook-subtitle-text">${escapeHtml(String(around.prev.text || ''))}</span></div>`
-        );
+
+      const activeIdx = flipbookSubtitleRailCenterIndex(around, sec);
+      if (activeIdx < 0) return;
+      const previous = flipbookSubtitleRailEl.querySelector('.flipbook-subtitle-rail-row.playback-current');
+      if (previous) previous.classList.remove('playback-current');
+      const activeRow = flipbookSubtitleRailEl.querySelector(`[data-subtitle-rail-index="${activeIdx}"]`);
+      if (!activeRow) return;
+      activeRow.classList.add('playback-current');
+      const railHeight = Number(flipbookSubtitleRailEl.clientHeight || 0);
+      if (railHeight > 0) {
+        const railRect = flipbookSubtitleRailEl.getBoundingClientRect();
+        const rowRect = activeRow.getBoundingClientRect();
+        const rowCenter = Number(flipbookSubtitleRailEl.scrollTop || 0)
+          + (Number(rowRect.top || 0) - Number(railRect.top || 0))
+          + (Number(rowRect.height || 0) / 2);
+        const viewCenter = Number(flipbookSubtitleRailEl.scrollTop || 0) + (railHeight / 2);
+        const driftPx = rowCenter - viewCenter;
+        const nowMs = (typeof performance !== 'undefined' && performance.now)
+          ? performance.now()
+          : Date.now();
+        const manualHold = nowMs < Number(flipbookSubtitleRailManualUntilMs || 0);
+        if (!manualHold && (needRebuild || activeIdx !== flipbookSubtitleRailActiveIndex || Math.abs(driftPx) > 2)) {
+          const maxTop = Math.max(0, Number(flipbookSubtitleRailEl.scrollHeight || 0) - railHeight);
+          const desiredTop = _clamp(Math.round(rowCenter - (railHeight / 2)), 0, maxTop);
+          if (Math.abs(Number(flipbookSubtitleRailEl.scrollTop || 0) - desiredTop) > 1) {
+            flipbookSubtitleRailProgrammaticScroll = true;
+            flipbookSubtitleRailEl.scrollTo({ top: desiredTop, behavior: 'auto' });
+            window.requestAnimationFrame(() => {
+              flipbookSubtitleRailProgrammaticScroll = false;
+            });
+          }
+        }
+      } else {
+        flipbookSubtitleRailActiveIndex = -1;
       }
-      if (around.next) {
-        context.push(
-          `<div class="flipbook-subtitle-row context"><span class="flipbook-subtitle-time">Next ${escapeHtml(String(around.next.start || ''))}</span><span class="flipbook-subtitle-text">${escapeHtml(String(around.next.text || ''))}</span></div>`
-        );
+      flipbookSubtitleRailActiveIndex = activeIdx;
+    }
+
+    function renderFlipbookSubtitles(rawSeconds) {
+      const sec = Math.max(0, Number(rawSeconds || 0));
+      const around = findSubtitlesAroundSeconds(sec);
+      if (flipbookSubtitlesEl) {
+        if (!around.entries.length || !around.active.length) {
+          flipbookSubtitlesEl.classList.add('empty');
+          flipbookSubtitlesEl.innerHTML = '';
+        } else {
+          const activeHtml = around.active.map((row) => {
+            const speaker = String(row.speaker || '').trim();
+            const speakerHtml = speaker
+              ? `<span class="flipbook-subtitle-speaker">${escapeHtml(speaker)}:</span>`
+              : '';
+            return `<div class="flipbook-subtitles-line">${speakerHtml}${escapeHtml(String(row.text || ''))}</div>`;
+          }).join('');
+          flipbookSubtitlesEl.classList.remove('empty');
+          flipbookSubtitlesEl.innerHTML = activeHtml;
+        }
       }
-      if (!context.length) {
-        context.push('<div class="flipbook-subtitle-row context"><span class="flipbook-subtitle-text">No subtitle at this frame.</span></div>');
-      }
-      flipbookSubtitlesEl.classList.remove('empty');
-      flipbookSubtitlesEl.innerHTML = context.join('');
+      renderFlipbookSubtitleRail(sec, around);
     }
 
     function syncFlipbookAudioToCurrentFrame() {
@@ -5014,6 +5343,7 @@
       const on = Boolean(visible);
       flipbookPreviewEl.classList.toggle('active', on);
       flipbookPreviewEl.setAttribute('aria-hidden', on ? 'false' : 'true');
+      updateFlipbookSubtitleRailMode();
       if (!on && flipbookMetaEl) {
         flipbookMetaEl.textContent = '';
       }
@@ -5021,13 +5351,14 @@
         if (flipbookImageEl) flipbookImageEl.removeAttribute('src');
         if (flipbookSubtitlesEl) {
           flipbookSubtitlesEl.classList.add('empty');
-          flipbookSubtitlesEl.textContent = 'No subtitle at this frame.';
+          flipbookSubtitlesEl.innerHTML = '';
         }
         if (flipbookAudioEl) {
           try {
             flipbookAudioEl.pause();
           } catch (_err) {}
         }
+        clearFlipbookSubtitleRail();
         syncFrameGridPlaybackCursor(-1);
       }
       updateFlipbookControls();
@@ -5608,7 +5939,7 @@
               replaced = true;
               note = `FreezeFrame sim source G:${sourceKey}`;
             } else {
-              note = `FreezeFrame sim source G:${sourceKey} not sampled`;
+              note = `FreezeFrame sim source G:${sourceKey} not loaded`;
             }
           } else {
             note = 'FreezeFrame sim has no nearby clean source';
@@ -5714,8 +6045,6 @@
         state.archive = st.archive;
         state.chapter = st.chapter;
         state.chapters = st.chapters || [];
-        startFrameEl.value = st.start_frame;
-        endFrameEl.value = st.end_frame;
         state.peopleProfile = normalizePeopleProfile(null);
         state.subtitlesProfile = normalizeSubtitlesProfile(null);
         peopleTimelineZoom = 1.0;
@@ -5736,23 +6065,17 @@
     async function loadFrames() {
       if (isChapterLoadInFlight) {
         setStatus('A chapter load is already in progress. Cancel it first if you want to change chapters.', true);
-        return;
+        return false;
       }
       if (!state.archive || !state.chapter) {
         setStatus('Select an archive and chapter first.', true);
-        return;
+        return false;
       }
 
       const payload = {
         archive: state.archive,
         chapter: state.chapter,
-        start_frame: Number(startFrameEl.value || 0),
-        end_frame: Number(endFrameEl.value || 1),
-        sample_stride: Number(sampleStrideEl.value || 1),
-        context: Number(contextEl.value || 10),
         iqr_k: Number(iqrEl.value || 3.5),
-        strict_sampling: true,
-        exact_extract: true,
         debug_extract: false,
       };
 
@@ -5763,7 +6086,7 @@
       state.iqrApplySeq += 1;
 
       let loadFailed = false;
-      startLoadProgress('Extracting chapter and sampling frames...');
+      startLoadProgress('Extracting chapter and loading all frames...');
       state.gammaScores = new Map();
       state.gammaProfile = normalizeGammaProfile(null);
       state.peopleProfile = normalizePeopleProfile(null);
@@ -5805,18 +6128,19 @@
         iqrEl.value = String(payload.iqr_k);
         iqrLabelEl.textContent = Number(payload.iqr_k).toFixed(2);
         const s = state.loadSettings;
-        const sampledCount = s ? Number(s.sampled_count || 0) : Number(result.review.stats.total || 0);
+        const loadedCount = s ? Number(s.loaded_count || 0) : Number(result.review.stats.total || 0);
         const chapterTotal = s ? Number(s.chapter_frame_count || 0) : Number(result.review.stats.total || 0);
-        const strideText = s ? `1/${s.sample_stride}` : `1/${payload.sample_stride}`;
         setStatus(
-          `Loaded ${sampledCount} sampled frame(s) of ${chapterTotal} total for ${state.chapter} (stride ${strideText}).`
+          `Loaded ${loadedCount} frame(s) of ${chapterTotal} for ${state.chapter}.`
         );
         setStepByMode('review');
+        return true;
       } catch (err) {
         loadFailed = true;
         const msg = String(err?.message || err || 'Load failed.');
         const cancelled = /cancel/i.test(msg);
         setStatus(msg, !cancelled);
+        return false;
       } finally {
         finishLoadProgress(!loadFailed);
       }
@@ -5926,10 +6250,25 @@
       let ok = false;
       try {
         const result = await api('/api/subtitles_generate', 'POST', { mode }, 0);
-        state.subtitlesProfile = normalizeSubtitlesProfile(result.subtitles_profile || null);
+        state.subtitlesProfile = subtitlesProfileFromApiResult(result);
         refreshSubtitlesEditorFromState();
         updateReviewStatsDisplay();
-        setStatus(result.message || 'Subtitle generation complete.');
+        const appliedCount = canonicalizeSubtitlesEntries(
+          (state.subtitlesProfile && state.subtitlesProfile.entries) || []
+        ).length;
+        if (appliedCount > 0) {
+          setStatus(result.message || `Subtitle generation complete (${appliedCount} entries).`);
+        } else {
+          const generated = Math.max(0, Math.trunc(Number(result.generated_count || 0) || 0));
+          if (generated > 0) {
+            setStatus(
+              `Generated ${generated} subtitle entr${generated === 1 ? 'y' : 'ies'}, but none were loaded into the editor. Try reloading the chapter.`,
+              true
+            );
+          } else {
+            setStatus(result.message || 'Subtitle generation complete.');
+          }
+        }
         ok = true;
       } catch (err) {
         setStatus(err.message, true);
@@ -6023,11 +6362,11 @@
     async function openGammaStep() {
       if (isChapterLoadInFlight) {
         setStatus('Wait until frame loading finishes before entering gamma step.', true);
-        return;
+        return false;
       }
       if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) {
         setStatus('Load and review frames before entering gamma step.', true);
-        return;
+        return false;
       }
       if (state.gammaProfile) {
         state.gammaProfile.level = normalizeGammaValue(
@@ -6052,23 +6391,25 @@
       setStepByMode('gamma', stepNumForMode('review'));
       renderActiveSparkline(state.review.frames, state.review.threshold || 0);
       updateReviewStatsDisplay();
+      return true;
     }
 
     async function openPeopleStep() {
       if (isChapterLoadInFlight) {
         setStatus('Wait until frame loading finishes before entering subtitles step.', true);
-        return;
+        return false;
       }
       if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) {
         setStatus('Load and review frames before entering subtitles step.', true);
-        return;
+        return false;
       }
-      if (!syncPeopleProfileFromEditor(true)) return;
-      if (!syncSubtitlesProfileFromEditor(true)) return;
+      if (!syncPeopleProfileFromEditor(true)) return false;
+      if (!syncSubtitlesProfileFromEditor(true)) return false;
       refreshPeopleEditorFromState();
       refreshSubtitlesEditorFromState();
       setStepByMode('people', stepNumForMode('gamma', stepNumForMode('review')));
       updateReviewStatsDisplay();
+      return true;
     }
 
     async function toggleFrame(fid, options = {}) {
@@ -6184,9 +6525,9 @@
     async function loadSummary() {
       if (isChapterLoadInFlight) {
         setStatus('Wait until the current chapter load finishes before building summary.', true);
-        return;
+        return false;
       }
-      if (!syncPeopleProfileFromEditor(true)) return;
+      if (!syncPeopleProfileFromEditor(true)) return false;
       if (pendingToggleRequests.size > 0) {
         setLoading(true, 'Syncing frame edits...');
         try {
@@ -6195,16 +6536,18 @@
           setLoading(false);
         }
       }
-      if (!syncSubtitlesProfileFromEditor(true)) return;
+      if (!syncSubtitlesProfileFromEditor(true)) return false;
       const saved = await saveProgress({ showOverlay: true, loadingText: 'Saving wizard progress...', silent: true });
-      if (!saved) return;
+      if (!saved) return false;
       setLoading(true, 'Building summary...');
       try {
         const result = await api('/api/summary');
         summaryBoxEl.textContent = String(result.summary || '').trim();
         setStepByMode('summary', stepNumForMode('people', stepNumForMode('gamma', stepNumForMode('review'))));
+        return true;
       } catch (err) {
         setStatus(err.message, true);
+        return false;
       } finally {
         setLoading(false);
       }
@@ -6349,8 +6692,6 @@
         state.archive = st.archive;
         state.chapter = st.chapter;
         state.chapters = st.chapters || [];
-        startFrameEl.value = st.start_frame;
-        endFrameEl.value = st.end_frame;
         state.subtitlesProfile = normalizeSubtitlesProfile(null);
         refreshSubtitlesEditorFromState();
 
@@ -6373,100 +6714,92 @@
         .replace(/'/g, '&#39;');
     }
 
-    const NAV_ACTIONS = [
-      {
-        id: 'nextToReview',
-        run: () => loadFrames(),
-        lockOnLoad: true,
-      },
-      {
-        id: 'backToLoad',
-        run: () => {
-          stopSparkWindowPlayback();
-          setStep(stepAtOffset(state.wizardStep, -1).num);
-        },
-        lockOnLoad: true,
-      },
-      {
-        id: 'nextToGamma',
-        run: async () => {
+    async function navigateToStep(rawStep) {
+      const targetStep = stepDef(rawStep);
+      const activeStep = stepDef(state.wizardStep);
+      if (targetStep.num === activeStep.num) return true;
+
+      if (targetStep.mode === 'load') {
+        stopSparkWindowPlayback();
+        setStep(targetStep.num);
+        return true;
+      }
+
+      let currentStep = stepDef(state.wizardStep);
+      if (currentStep.mode === 'load') {
+        const loaded = await loadFrames();
+        if (!loaded) return false;
+        currentStep = stepDef(state.wizardStep);
+      }
+
+      if (targetStep.mode === 'review') {
+        stopSparkWindowPlayback();
+        setStep(targetStep.num);
+        return true;
+      }
+
+      if (targetStep.mode === 'gamma') {
+        const movingForward = stepIndex(targetStep.num) > stepIndex(currentStep.num);
+        if (movingForward) {
           const saved = await saveProgress({
             showOverlay: true,
             loadingText: 'Saving review progress...',
             silent: true,
           });
-          if (!saved) return;
-          await openGammaStep();
-        },
-        lockOnLoad: true,
-      },
-      {
-        id: 'nextToPeople',
-        run: async () => {
+          if (!saved) return false;
+        }
+        return openGammaStep();
+      }
+
+      if (targetStep.mode === 'people') {
+        const movingForward = stepIndex(targetStep.num) > stepIndex(currentStep.num);
+        if (movingForward) {
+          const loadingText = currentStep.mode === 'gamma'
+            ? 'Saving gamma progress...'
+            : 'Saving review progress...';
           const saved = await saveProgress({
             showOverlay: true,
-            loadingText: 'Saving gamma progress...',
+            loadingText,
             silent: true,
           });
-          if (!saved) return;
-          await openPeopleStep();
-        },
-        lockOnLoad: true,
-      },
-      {
-        id: 'nextToSummary',
-        run: () => loadSummary(),
-        lockOnLoad: true,
-      },
-      {
-        id: 'backToReviewFromGamma',
-        run: () => {
-          stopSparkWindowPlayback();
-          setStep(stepAtOffset(state.wizardStep, -1).num);
-        },
-        lockOnLoad: true,
-      },
-      {
-        id: 'backToGammaFromPeople',
-        run: () => {
-          stopSparkWindowPlayback();
-          setStep(stepAtOffset(state.wizardStep, -1).num);
-        },
-        lockOnLoad: true,
-      },
-      {
-        id: 'backToReview',
-        run: () => {
-          stopSparkWindowPlayback();
-          setStep(stepAtOffset(state.wizardStep, -1).num);
-        },
-        lockOnLoad: true,
-      },
-      {
-        id: 'saveAndReturn',
-        run: () => saveAndReturn(),
-        lockOnLoad: true,
-      },
-    ];
-
-    function bindWizardNavigation() {
-      navActionButtons.clear();
-      NAV_ACTIONS.forEach((entry) => {
-        const el = document.getElementById(entry.id);
-        if (!el) return;
-        if (entry.lockOnLoad) {
-          navActionButtons.set(entry.id, el);
+          if (!saved) return false;
         }
-        el.addEventListener('click', () => {
-          const result = entry.run();
-          if (result && typeof result.then === 'function') {
-            void result;
-          }
-        });
+        return openPeopleStep();
+      }
+
+      if (targetStep.mode === 'summary') {
+        return loadSummary();
+      }
+
+      return false;
+    }
+
+    if (stepPillsEl) {
+      stepPillsEl.addEventListener('click', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const pill = target.closest('.step-pill');
+        if (!(pill instanceof HTMLButtonElement) || pill.disabled) return;
+        const stepNum = Number(pill.dataset.step || 0);
+        if (!Number.isFinite(stepNum)) return;
+        const result = navigateToStep(stepNum);
+        if (result && typeof result.then === 'function') {
+          void result;
+        }
       });
     }
 
-    bindWizardNavigation();
+    const saveAndReturnBtnEl = document.getElementById('saveAndReturn');
+    if (saveAndReturnBtnEl) {
+      navActionButtons.set('saveAndReturn', saveAndReturnBtnEl);
+      saveAndReturnBtnEl.addEventListener('click', () => {
+        const result = saveAndReturn();
+        if (result && typeof result.then === 'function') {
+          void result;
+        }
+      });
+    }
+
     previewRenderBtnEl.addEventListener('click', previewRender);
     fullscreenBtnEl.addEventListener('click', toggleReviewFullscreen);
     document.addEventListener('fullscreenchange', () => {
@@ -6845,6 +7178,21 @@
     frameGridEl.addEventListener('scroll', () => {
       scheduleVisibleRangeRefresh();
     });
+    if (flipbookSubtitleRailEl) {
+      flipbookSubtitleRailEl.addEventListener('wheel', () => {
+        markFlipbookSubtitleRailManual(1400);
+      }, { passive: true });
+      flipbookSubtitleRailEl.addEventListener('pointerdown', () => {
+        markFlipbookSubtitleRailManual(1400);
+      });
+      flipbookSubtitleRailEl.addEventListener('touchstart', () => {
+        markFlipbookSubtitleRailManual(1400);
+      }, { passive: true });
+      flipbookSubtitleRailEl.addEventListener('scroll', () => {
+        if (flipbookSubtitleRailProgrammaticScroll) return;
+        markFlipbookSubtitleRailManual(900);
+      }, { passive: true });
+    }
     overlayCancelBtnEl.addEventListener('click', async () => {
       setLoadCancelUi(true, true, 'Cancelling...');
       try {

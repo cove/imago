@@ -4,7 +4,7 @@
 # transcribing audio to SRT/VTT, converting SRT to ASS subtitles, and encoding final MP4s
 # with embedded metadata and subtitles for access/delivery copies.
 #
-import argparse, shutil, time, re
+import argparse, math, shutil, time, re
 
 try:
     import whisper
@@ -15,6 +15,7 @@ except Exception:
 from common import *
 
 ASS_NEWLINE = "\\N"
+PEOPLE_ASS_FONT_SCALE = 0.50
 BADFRAME_MAX_SPAN_DEFAULT = 1200
 BADFRAME_POST_QTGMC_MULTIPLIER = 1
 BADFRAME_SOURCE_CLEARANCE = 0
@@ -419,7 +420,7 @@ def cleanup_stale_dialogue_files(*paths):
 def srt_to_ass(srt_path, ass_path, font="Calibri", fontsize=40):
     srt_path = Path(srt_path)
     ass_path = Path(ass_path)
-    people_fontsize = max(1, int(round(float(fontsize) * 0.70)))
+    people_fontsize = max(1, int(round(float(fontsize) * PEOPLE_ASS_FONT_SCALE)))
     ass_header = f"""[Script Info]
 Title: Converted from {srt_path.name}
 ScriptType: v4.00+
@@ -701,6 +702,18 @@ def _parse_subtitle_frame(raw):
         return None
     return int(value)
 
+def _parse_tsv_time_or_frame_seconds(raw):
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    # Backward compatibility: old metadata TSV rows used global frame IDs.
+    if re.fullmatch(r"-?\d+", text):
+        frame = _parse_subtitle_frame(text)
+        if frame is None:
+            return None
+        return _frame_to_subtitle_seconds(frame)
+    return _parse_subtitle_ts(text)
+
 def _frame_to_subtitle_seconds(frame_id):
     return float(int(frame_id) * 1001) / 30000.0
 
@@ -708,6 +721,56 @@ def _normalize_people_text(raw):
     text = re.sub(r"\s+", " ", str(raw or "")).strip()
     text = re.sub(r"\s*\|\s*", " | ", text)
     return text
+
+def _normalize_subtitle_text(raw):
+    return re.sub(r"\s+", " ", str(raw or "")).strip()
+
+def _normalize_subtitle_optional_text(raw):
+    text = re.sub(r"\s+", " ", str(raw or "")).strip()
+    return text
+
+def _parse_subtitle_confidence(raw):
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    try:
+        value = float(text)
+    except Exception:
+        return None
+    if not (value == value):
+        return None
+    return max(0.0, min(1.0, float(value)))
+
+def _format_subtitle_confidence(raw):
+    parsed = _parse_subtitle_confidence(raw)
+    if parsed is None:
+        return ""
+    return f"{parsed:.4f}".rstrip("0").rstrip(".")
+
+def _subtitle_prompt_from_people_entries(people_entries):
+    names = []
+    seen = set()
+    for _start_sec, _end_sec, people in list(people_entries or []):
+        for part in re.split(r"\|", str(people or "")):
+            label = _normalize_subtitle_optional_text(part)
+            if not label:
+                continue
+            key = label.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            names.append(label)
+            if len(names) >= 25:
+                break
+        if len(names) >= 25:
+            break
+    if not names:
+        return ""
+    names_text = ", ".join(names)
+    return (
+        "Transcribe in English and preserve these exact name spellings when heard: "
+        f"{names_text}."
+    )
 
 def _to_ass_time(seconds):
     secs = max(0.0, float(seconds))
@@ -746,42 +809,50 @@ def _load_people_tsv_entries(tsv_path):
         parts = text.split("\t") if "\t" in text else text.split(",")
         if len(parts) < 3:
             continue
-        start_frame = _parse_subtitle_frame(parts[0])
-        end_frame = _parse_subtitle_frame(parts[1])
+        start_sec = _parse_tsv_time_or_frame_seconds(parts[0])
+        end_sec = _parse_tsv_time_or_frame_seconds(parts[1])
         people = _normalize_people_text(",".join(parts[2:]))
-        if start_frame is None or end_frame is None or not people:
+        if start_sec is None or end_sec is None or not people:
             continue
-        if end_frame <= start_frame:
-            if int(end_frame) == int(start_frame):
-                end_frame = int(start_frame) + 1
+        if float(end_sec) <= float(start_sec):
+            if abs(float(end_sec) - float(start_sec)) < 1e-9:
+                end_sec = float(start_sec) + _frame_to_subtitle_seconds(1)
             else:
                 continue
-        rows.append((int(start_frame), int(end_frame), str(people)))
+        rows.append((float(start_sec), float(end_sec), str(people)))
     rows.sort(key=lambda item: (item[0], item[1], item[2].lower()))
     return rows
 
 def _clip_people_entries(entries, clip_start_frame=None, clip_end_frame=None):
-    start_clip = int(clip_start_frame) if clip_start_frame is not None else None
-    end_clip = int(clip_end_frame) if clip_end_frame is not None else None
-    offset = int(start_clip or 0)
+    start_clip = (
+        _frame_to_subtitle_seconds(int(clip_start_frame))
+        if clip_start_frame is not None
+        else None
+    )
+    end_clip = (
+        _frame_to_subtitle_seconds(int(clip_end_frame))
+        if clip_end_frame is not None
+        else None
+    )
+    offset = float(start_clip or 0.0)
     out = []
-    for start_frame, end_frame, people in list(entries or []):
-        lo = int(start_frame)
-        hi = int(end_frame)
+    for start_sec, end_sec, people in list(entries or []):
+        lo = float(start_sec)
+        hi = float(end_sec)
         if start_clip is not None:
-            lo = max(lo, int(start_clip))
+            lo = max(lo, float(start_clip))
         if end_clip is not None:
-            hi = min(hi, int(end_clip))
+            hi = min(hi, float(end_clip))
         if hi <= lo:
             continue
-        local_start = max(0, lo - offset)
-        local_end = max(0, hi - offset)
+        local_start = max(0.0, float(lo) - float(offset))
+        local_end = max(0.0, float(hi) - float(offset))
         if local_end <= local_start:
             continue
         out.append(
             (
-                _frame_to_subtitle_seconds(local_start),
-                _frame_to_subtitle_seconds(local_end),
+                float(local_start),
+                float(local_end),
                 _normalize_people_text(people),
             )
         )
@@ -794,11 +865,116 @@ def load_people_entries_for_chapter(tsv_path, chapter_start_frame, chapter_end_f
         clip_end_frame=chapter_end_frame,
     )
 
+def _load_subtitles_tsv_entries(tsv_path):
+    rows = []
+    raw = Path(tsv_path).read_text(encoding="utf-8-sig", errors="ignore").splitlines()
+    for line in raw:
+        text = str(line or "").strip()
+        if not text or text.startswith("#"):
+            continue
+        lower = text.lower()
+        if (
+            lower.startswith("start_frame\t")
+            or lower.startswith("start_frame,start")
+            or lower.startswith("start\t")
+            or lower.startswith("start,end")
+        ):
+            continue
+        parts = text.split("\t") if "\t" in text else text.split(",")
+        if len(parts) < 3:
+            continue
+        start_sec = _parse_tsv_time_or_frame_seconds(parts[0])
+        end_sec = _parse_tsv_time_or_frame_seconds(parts[1])
+        subtitle_text = _normalize_subtitle_text(parts[2])
+        speaker = _normalize_subtitle_optional_text(parts[3]) if len(parts) >= 4 else ""
+        confidence = _parse_subtitle_confidence(parts[4]) if len(parts) >= 5 else None
+        source = _normalize_subtitle_optional_text(parts[5]) if len(parts) >= 6 else ""
+        if start_sec is None or end_sec is None or not subtitle_text:
+            continue
+        if float(end_sec) <= float(start_sec):
+            if abs(float(end_sec) - float(start_sec)) < 1e-9:
+                end_sec = float(start_sec) + _frame_to_subtitle_seconds(1)
+            else:
+                continue
+        rows.append(
+            {
+                "start_seconds": float(start_sec),
+                "end_seconds": float(end_sec),
+                "text": subtitle_text,
+                "speaker": speaker,
+                "confidence": confidence,
+                "source": source,
+            }
+        )
+    rows.sort(
+        key=lambda item: (
+            float(item.get("start_seconds", 0.0)),
+            float(item.get("end_seconds", 0.0)),
+            str(item.get("text", "")).casefold(),
+        )
+    )
+    return rows
+
+def _clip_subtitle_entries(entries, clip_start_frame=None, clip_end_frame=None):
+    start_clip = (
+        _frame_to_subtitle_seconds(int(clip_start_frame))
+        if clip_start_frame is not None
+        else None
+    )
+    end_clip = (
+        _frame_to_subtitle_seconds(int(clip_end_frame))
+        if clip_end_frame is not None
+        else None
+    )
+    offset = float(start_clip or 0.0)
+    out = []
+    for item in list(entries or []):
+        start_sec = float(item.get("start_seconds", 0.0))
+        end_sec = float(item.get("end_seconds", 0.0))
+        lo = float(start_sec)
+        hi = float(end_sec)
+        if start_clip is not None:
+            lo = max(lo, float(start_clip))
+        if end_clip is not None:
+            hi = min(hi, float(end_clip))
+        if hi <= lo:
+            continue
+        local_start = max(0.0, float(lo) - float(offset))
+        local_end = max(0.0, float(hi) - float(offset))
+        if local_end <= local_start:
+            continue
+        text = _normalize_subtitle_text(item.get("text", ""))
+        if not text:
+            continue
+        out.append(
+            {
+                "start_seconds": float(local_start),
+                "end_seconds": float(local_end),
+                "text": text,
+                "speaker": _normalize_subtitle_optional_text(item.get("speaker", "")),
+                "confidence": _parse_subtitle_confidence(item.get("confidence")),
+                "source": _normalize_subtitle_optional_text(item.get("source", "")),
+            }
+        )
+    return out
+
+def load_subtitle_entries_for_chapter(tsv_path, chapter_start_frame, chapter_end_frame):
+    return _clip_subtitle_entries(
+        _load_subtitles_tsv_entries(Path(tsv_path)),
+        clip_start_frame=chapter_start_frame,
+        clip_end_frame=chapter_end_frame,
+    )
+
 def _people_text_for_span(people_entries, span_start_sec, span_end_sec):
     labels = []
     seen = set()
+    eps = 1e-6
     for start_sec, end_sec, people in list(people_entries or []):
-        if float(end_sec) <= float(span_start_sec) or float(start_sec) >= float(span_end_sec):
+        start_v = float(start_sec)
+        end_v = float(end_sec)
+        span_start_v = float(span_start_sec)
+        span_end_v = float(span_end_sec)
+        if end_v <= (span_start_v + eps) or start_v >= (span_end_v - eps):
             continue
         label = _normalize_people_text(people)
         if not label:
@@ -862,6 +1038,42 @@ def merge_people_entries_into_srt(srt_path, people_entries):
             base_lines.append(f"[{people_text}]")
         merged.append((float(start_sec), float(end_sec), base_lines))
     _write_srt_cues(srt_file, merged)
+    return True
+
+def write_subtitle_entries_to_srt_vtt(subtitle_entries, srt_path, vtt_path):
+    entries = []
+    for item in list(subtitle_entries or []):
+        start_sec = _parse_subtitle_ts(item.get("start_seconds", item.get("start")))
+        end_sec = _parse_subtitle_ts(item.get("end_seconds", item.get("end")))
+        text = _normalize_subtitle_text(item.get("text", ""))
+        if start_sec is None or end_sec is None or float(end_sec) <= float(start_sec) or not text:
+            continue
+        entries.append((float(start_sec), float(end_sec), text))
+    entries.sort(key=lambda row: (row[0], row[1], row[2].casefold()))
+    if not entries:
+        return False
+
+    srt_lines = []
+    vtt_lines = ["WEBVTT", ""]
+    for i, (start_sec, end_sec, text) in enumerate(entries, start=1):
+        srt_lines.extend(
+            [
+                str(i),
+                f"{_to_srt_time(start_sec)} --> {_to_srt_time(end_sec)}",
+                text,
+                "",
+            ]
+        )
+        vtt_lines.extend(
+            [
+                str(i),
+                f"{_to_vtt_time(start_sec)} --> {_to_vtt_time(end_sec)}",
+                text,
+                "",
+            ]
+        )
+    Path(srt_path).write_text("\n".join(srt_lines).rstrip() + "\n", encoding="utf-8")
+    Path(vtt_path).write_text("\n".join(vtt_lines).rstrip() + "\n", encoding="utf-8")
     return True
 
 def write_people_entries_to_srt_vtt(people_entries, srt_path, vtt_path, wrap_in_brackets=False):
@@ -1097,15 +1309,31 @@ chapter_end_frame = {int(chapter_end_frame)}
 {gamma_adjust_text}
 '''
 
-def make_extract_audio(temp_extracted, temp_transcript):
-    return [FFMPEG_BIN,
-        "-nostdin", "-v", "error",
-        "-i", str(temp_extracted),
+def make_extract_audio(temp_extracted, temp_transcript, start_sec=None, end_sec=None):
+    cmd = [
+        FFMPEG_BIN,
+        "-nostdin",
+        "-v",
+        "error",
+    ]
+    if start_sec is not None:
+        cmd += ["-ss", f"{float(start_sec):.3f}"]
+    if end_sec is not None:
+        cmd += ["-to", f"{float(end_sec):.3f}"]
+    cmd += [
+        "-i",
+        str(temp_extracted),
         "-vn",
-        "-af", "highpass=f=120,lowpass=f=8000,afftdn=nf=-25,dynaudnorm=f=150:g=13,aresample=16000,loudnorm=I=-16:TP=-1.5:LRA=11",
-        "-c:a", "pcm_s16le",
-        "-ac", "1",
-        "-y", str(temp_transcript)]
+        "-af",
+        "highpass=f=120,lowpass=f=8000,afftdn=nf=-25,dynaudnorm=f=150:g=13,aresample=16000,loudnorm=I=-16:TP=-1.5:LRA=11",
+        "-c:a",
+        "pcm_s16le",
+        "-ac",
+        "1",
+        "-y",
+        str(temp_transcript),
+    ]
+    return cmd
 
 def debug_extracted_frames_enabled(args):
     env_raw = str(os.environ.get(RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV, "")).strip().lower()
@@ -1303,17 +1531,55 @@ def make_deinterlace_ffmpeg_fallback(temp_extracted, temp_qtgmc, no_bob=False):
         "-fflags", "+genpts", "-start_at_zero", "-avoid_negative_ts", "make_zero",
         "-y", str(temp_qtgmc)]
 
-def transcribe_audio(model, temp_transcript, final_srt, final_vtt, final_dir):
+def subtitle_entries_from_whisper_result(result):
+    entries = []
+    segments = list((result or {}).get("segments") or [])
+    for seg in segments:
+        start_sec = _parse_subtitle_ts(seg.get("start"))
+        end_sec = _parse_subtitle_ts(seg.get("end"))
+        text = _normalize_subtitle_text(seg.get("text", ""))
+        if start_sec is None or end_sec is None or float(end_sec) <= float(start_sec) or not text:
+            continue
+        avg_logprob = seg.get("avg_logprob")
+        confidence = None
+        try:
+            if avg_logprob is not None:
+                logprob = float(avg_logprob)
+                if logprob == logprob:
+                    confidence = max(0.0, min(1.0, float(math.exp(logprob))))
+        except Exception:
+            confidence = None
+        entries.append(
+            {
+                "start_seconds": float(start_sec),
+                "end_seconds": float(end_sec),
+                "text": text,
+                "speaker": "",
+                "confidence": confidence,
+                "source": "whisper",
+            }
+        )
+    return entries
+
+def whisper_transcribe(model, audio_path, prompt_text=""):
+    prompt = str(prompt_text or "").strip()
+    return model.transcribe(
+        str(audio_path),
+        word_timestamps=True,
+        language="en",
+        fp16=False,
+        prompt=prompt,
+    )
+
+def transcribe_audio(model, temp_transcript, final_srt, final_vtt, final_dir, prompt_text=""):
     if get_writer is None:
         raise RuntimeError("Whisper is unavailable. Install whisper to generate transcripts.")
-    prompt_text = (
-      ""
-    )
     srt_writer = get_writer("srt", final_dir)
     vtt_writer = get_writer("vtt", final_dir)
-    result = model.transcribe(str(temp_transcript), word_timestamps=True, language="en", fp16=False, prompt=prompt_text)
+    result = whisper_transcribe(model, temp_transcript, prompt_text=prompt_text)
     srt_writer(result, str(final_srt))
     vtt_writer(result, str(final_vtt))
+    return result
 
 def _run_with_args(args):
     model = None
@@ -1349,7 +1615,16 @@ def _run_with_args(args):
             if people_ranges:
                 print(f"Loaded people subtitle ranges: {people_tsv} ({len(people_ranges)} entries)")
             else:
-                print(f"People TSV has no valid frame-range entries: {people_tsv}")
+                print(f"People TSV has no valid time-range entries: {people_tsv}")
+        subtitles_tsv = METADATA_DIR / archive_name / "subtitles.tsv"
+        subtitles_tsv_exists = subtitles_tsv.exists()
+        subtitle_rows = []
+        if subtitles_tsv_exists:
+            subtitle_rows = _load_subtitles_tsv_entries(subtitles_tsv)
+            if subtitle_rows:
+                print(f"Loaded metadata subtitles: {subtitles_tsv} ({len(subtitle_rows)} entries)")
+            else:
+                print(f"Metadata subtitles TSV has no valid time-range entries: {subtitles_tsv}")
 
         for ch in chapters:
             ch["duration"] = float(ch.get("end", 0)) - float(ch.get("start", 0))
@@ -1381,6 +1656,15 @@ def _run_with_args(args):
                     clip_end_frame=chapter_end_frame,
                 )
                 if people_ranges
+                else []
+            )
+            metadata_subtitle_entries = (
+                _clip_subtitle_entries(
+                    subtitle_rows,
+                    clip_start_frame=chapter_start_frame,
+                    clip_end_frame=chapter_end_frame,
+                )
+                if subtitle_rows
                 else []
             )
             include_audio = audio_mode(ch) == "on"
@@ -1557,32 +1841,64 @@ def _run_with_args(args):
                     )
 
                 subtitle_tracks = []
+                used_metadata_subtitles = False
 
-                if transcribe_dialogue:
-                    print(f"Transcribing audio...")
-                    if whisper is None:
-                        raise RuntimeError(
-                            "Whisper is unavailable. Install whisper, or set "
-                            "archive_settings.transcript=off (or chapter override) in render_settings.json."
+                if metadata_subtitle_entries:
+                    wrote_metadata_subtitles = write_subtitle_entries_to_srt_vtt(
+                        metadata_subtitle_entries,
+                        final_srt,
+                        final_vtt,
+                    )
+                    if wrote_metadata_subtitles:
+                        used_metadata_subtitles = True
+                        print(
+                            "Wrote subtitle sidecars from metadata subtitles TSV: "
+                            f"{len(metadata_subtitle_entries)} clipped entries."
                         )
-                    if model is None:
-                        model = whisper.load_model("turbo", download_root=WHISPER_MODEL_DIR)
-                    run(make_extract_audio(extracted, audio))
-                    transcribe_audio(model, audio, final_srt, final_vtt, final_dir)
+                    else:
+                        print("Metadata subtitles were present but yielded no valid cues for this chapter.")
+
+                if used_metadata_subtitles:
                     if people_entries:
                         merge_people_entries_into_srt(final_srt, people_entries)
                         print(
-                            f"Merged people subtitles into dialogue sidecar: {len(people_entries)} clipped ranges."
+                            f"Merged people subtitles into metadata sidecar: {len(people_entries)} clipped ranges."
                         )
                     srt_to_ass(final_srt, final_ass)
-                    subtitle_title = "Dialogue + People" if people_entries else "Dialogue"
+                    subtitle_title = "Subtitles + People" if people_entries else "Subtitles"
                     subtitle_tracks.append({"path": final_ass, "title": subtitle_title, "forced": False})
-                elif include_audio:
-                    print("Skipping dialogue transcription (render_settings transcript=off).")
                 else:
-                    print("Skipping audio and transcription (AUDIO=off).")
+                    if subtitles_tsv_exists and not metadata_subtitle_entries:
+                        print(
+                            "No metadata subtitle entries overlap this chapter; "
+                            f"skipping Whisper fallback because {subtitles_tsv.name} exists."
+                        )
+                    if transcribe_dialogue and not subtitles_tsv_exists:
+                        print(f"Transcribing audio...")
+                        if whisper is None:
+                            raise RuntimeError(
+                                "Whisper is unavailable. Install whisper, or set "
+                                "archive_settings.transcript=off (or chapter override) in render_settings.json."
+                            )
+                        if model is None:
+                            model = whisper.load_model("turbo", download_root=WHISPER_MODEL_DIR)
+                        run(make_extract_audio(extracted, audio))
+                        prompt_text = _subtitle_prompt_from_people_entries(people_entries)
+                        transcribe_audio(model, audio, final_srt, final_vtt, final_dir, prompt_text=prompt_text)
+                        if people_entries:
+                            merge_people_entries_into_srt(final_srt, people_entries)
+                            print(
+                                f"Merged people subtitles into dialogue sidecar: {len(people_entries)} clipped ranges."
+                            )
+                        srt_to_ass(final_srt, final_ass)
+                        subtitle_title = "Dialogue + People" if people_entries else "Dialogue"
+                        subtitle_tracks.append({"path": final_ass, "title": subtitle_title, "forced": False})
+                    elif include_audio and not subtitles_tsv_exists:
+                        print("Skipping dialogue transcription (render_settings transcript=off).")
+                    elif not include_audio:
+                        print("Skipping audio and transcription (AUDIO=off).")
 
-                if not transcribe_dialogue and people_entries:
+                if not subtitle_tracks and people_entries:
                     wrote_people = write_people_entries_to_srt_vtt(
                         people_entries,
                         final_srt,

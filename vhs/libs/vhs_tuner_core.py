@@ -1526,12 +1526,6 @@ def _select_visible_indices(
     return vis
 
 
-def sample_count_from_stride(start_frame: int, end_frame: int, sample_stride: int) -> int:
-    span = max(1, int(end_frame) - int(start_frame))
-    stride = max(1, int(sample_stride))
-    return max(1, min(span, int(np.ceil(span / float(stride)))))
-
-
 def build_review_data(
     *,
     fids: list[int],
@@ -1599,8 +1593,6 @@ def build_finalize_summary(
     sigs: dict[str, np.ndarray],
     overrides: dict[int, str],
     vis_fids: list[int],
-    sample_stride: int,
-    context: int,
     wc: float,
     wn: float,
     wt: float,
@@ -1631,10 +1623,8 @@ def build_finalize_summary(
         f"- Frames sampled: `{len(fids)}`\n"
         f"- Frames currently shown: `{len(vis_fids or [])}`\n"
         f"- BAD already in metadata: `{bad_before}`\n"
-        f"- BAD in sampled set now: `{n_bad}`\n"
+        f"- BAD in loaded set now: `{n_bad}`\n"
         f"- Manual overrides: `{n_ov}`\n"
-        f"- IQR k: `{float(ik):.2f}` (threshold `{float(thr):.3f}`)\n"
-        f"- Sample rate: `1/{max(1, int(sample_stride))}`  |  "
-        f"Bad batch proximity: `{max(0, int(context))}`"
+        f"- IQR k: `{float(ik):.2f}` (threshold `{float(thr):.3f}`)"
     )
     return summary, "`Review complete. Click Save and Return to Chapters.`"

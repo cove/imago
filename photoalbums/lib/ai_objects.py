@@ -1,0 +1,60 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
+
+@dataclass
+class ObjectDetection:
+    label: str
+    score: float
+
+
+class YOLOObjectDetector:
+    def __init__(
+        self,
+        *,
+        model_name: str = "yolo11n.pt",
+        confidence: float = 0.30,
+        max_detections: int = 100,
+    ):
+        try:
+            from ultralytics import YOLO
+        except Exception as exc:  # pragma: no cover - dependency optional
+            raise RuntimeError(
+                "Ultralytics is required for object detection. Install with: pip install ultralytics"
+            ) from exc
+
+        self._model = YOLO(str(model_name))
+        self.confidence = float(confidence)
+        self.max_detections = int(max_detections)
+
+    def detect_image(self, image_path: str | Path) -> list[ObjectDetection]:
+        results = self._model.predict(
+            source=str(image_path),
+            conf=self.confidence,
+            max_det=self.max_detections,
+            verbose=False,
+        )
+        if not results:
+            return []
+        result = results[0]
+        boxes = getattr(result, "boxes", None)
+        if boxes is None:
+            return []
+
+        names = getattr(result, "names", {}) or {}
+        labels_by_name: dict[str, float] = {}
+
+        cls_vals = boxes.cls.tolist() if getattr(boxes, "cls", None) is not None else []
+        conf_vals = boxes.conf.tolist() if getattr(boxes, "conf", None) is not None else []
+        for idx, raw in enumerate(cls_vals):
+            label = str(names.get(int(raw), int(raw)))
+            score = float(conf_vals[idx]) if idx < len(conf_vals) else 0.0
+            current = labels_by_name.get(label)
+            if current is None or score > current:
+                labels_by_name[label] = score
+
+        out = [ObjectDetection(label=label, score=score) for label, score in labels_by_name.items()]
+        out.sort(key=lambda row: row.score, reverse=True)
+        return out

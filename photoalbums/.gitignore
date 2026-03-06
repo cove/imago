@@ -94,7 +94,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# Keep project source under photoalbums/lib/ tracked.
+# lib/
 lib64/
 parts/
 sdist/

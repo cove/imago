@@ -2,9 +2,10 @@ largestinteriorrectangle
 llvmlite
 numba
 numpy
-opencv-python
+opencv-python==4.10.0.84
 stitching
 Wand
 TiffFile
 Pillow
+docstrange
 watchdog
