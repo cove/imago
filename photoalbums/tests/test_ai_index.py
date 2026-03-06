@@ -75,9 +75,27 @@ class TestAIIndex(unittest.TestCase):
             objects=["dog", "car"],
             ocr_text="Hello world from a sign",
         )
-        self.assertIn("People:", text)
-        self.assertIn("Objects:", text)
-        self.assertIn("OCR:", text)
+        self.assertIn("Alice", text)
+        self.assertIn("dog", text)
+        self.assertIn("Visible text reads:", text)
+
+    def test_parse_args_caption_flags(self):
+        args = ai_index.parse_args(
+            [
+                "--caption-engine",
+                "qwen",
+                "--caption-model",
+                "Qwen/Qwen2.5-VL-3B-Instruct",
+                "--caption-max-tokens",
+                "64",
+                "--caption-temperature",
+                "0.1",
+            ]
+        )
+        self.assertEqual(args.caption_engine, "qwen")
+        self.assertEqual(args.caption_model, "Qwen/Qwen2.5-VL-3B-Instruct")
+        self.assertEqual(args.caption_max_tokens, 64)
+        self.assertAlmostEqual(args.caption_temperature, 0.1)
 
 
 if __name__ == "__main__":

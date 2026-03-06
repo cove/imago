@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .ai_caption import DEFAULT_QWEN_CAPTION_MODEL, CaptionEngine, build_template_caption
 from .ai_ocr import OCREngine, extract_keywords
 from .ai_render_settings import find_archive_dir_for_image, load_render_settings, resolve_effective_settings
 from ..common import PHOTO_ALBUMS_DIR
@@ -58,18 +59,7 @@ def discover_images(
 
 
 def build_description(*, people: list[str], objects: list[str], ocr_text: str) -> str:
-    parts: list[str] = []
-    if people:
-        parts.append(f"People: {', '.join(people)}.")
-    if objects:
-        parts.append(f"Objects: {', '.join(objects)}.")
-    clean_ocr = " ".join(str(ocr_text or "").split())
-    if clean_ocr:
-        snippet = clean_ocr[:280].strip()
-        if len(clean_ocr) > len(snippet):
-            snippet += "..."
-        parts.append(f"OCR: {snippet}")
-    return " ".join(parts).strip()
+    return build_template_caption(people=people, objects=objects, ocr_text=ocr_text)
 
 
 def load_manifest(path: Path) -> dict[str, dict[str, Any]]:
@@ -132,6 +122,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="OCR backend.",
     )
     parser.add_argument("--ocr-lang", default="eng", help="OCR language.")
+    parser.add_argument(
+        "--caption-engine",
+        choices=["none", "template", "qwen"],
+        default="template",
+        help="Caption backend for XMP description.",
+    )
+    parser.add_argument(
+        "--caption-model",
+        default=DEFAULT_QWEN_CAPTION_MODEL,
+        help="Model id/path used when caption engine is qwen.",
+    )
+    parser.add_argument("--caption-max-tokens", type=int, default=96, help="Max new tokens for qwen captions.")
+    parser.add_argument("--caption-temperature", type=float, default=0.2, help="Sampling temperature for qwen.")
     parser.add_argument("--max-images", type=int, default=0, help="Optional processing limit.")
     parser.add_argument("--force", action="store_true", help="Ignore manifest and process all files.")
     parser.add_argument("--dry-run", action="store_true", help="Do not write sidecar/manifest.")
@@ -190,6 +193,22 @@ def _init_object_detector(
     )
 
 
+def _init_caption_engine(
+    *,
+    engine: str,
+    model_name: str,
+    max_tokens: int,
+    temperature: float,
+):
+    return CaptionEngine(
+        engine=str(engine),
+        qwen_model=str(model_name),
+        qwen_max_tokens=int(max_tokens),
+        qwen_temperature=float(temperature),
+        fallback_to_template=True,
+    )
+
+
 def _settings_signature(settings: dict[str, Any]) -> str:
     compact = {
         "skip": bool(settings.get("skip", False)),
@@ -202,6 +221,10 @@ def _settings_signature(settings: dict[str, Any]) -> str:
         "min_face_size": int(settings.get("min_face_size", 40)),
         "model": str(settings.get("model", "yolo11n.pt")),
         "creator_tool": str(settings.get("creator_tool", DEFAULT_CREATOR_TOOL)),
+        "caption_engine": str(settings.get("caption_engine", "template")),
+        "caption_model": str(settings.get("caption_model", DEFAULT_QWEN_CAPTION_MODEL)),
+        "caption_max_tokens": int(settings.get("caption_max_tokens", 96)),
+        "caption_temperature": float(settings.get("caption_temperature", 0.2)),
     }
     return json.dumps(compact, sort_keys=True, ensure_ascii=True)
 
@@ -247,6 +270,10 @@ def run(argv: list[str] | None = None) -> int:
         "enable_objects": not bool(args.disable_objects),
         "ocr_engine": str(args.ocr_engine),
         "ocr_lang": str(args.ocr_lang),
+        "caption_engine": str(args.caption_engine),
+        "caption_model": str(args.caption_model),
+        "caption_max_tokens": int(args.caption_max_tokens),
+        "caption_temperature": float(args.caption_temperature),
         "people_threshold": float(args.people_threshold),
         "object_threshold": float(args.object_threshold),
         "min_face_size": int(args.min_face_size),
@@ -259,6 +286,7 @@ def run(argv: list[str] | None = None) -> int:
     people_matcher_cache: dict[tuple[str, float, int], Any] = {}
     object_detector_cache: dict[tuple[str, float], Any] = {}
     ocr_engine_cache: dict[tuple[str, str], OCREngine] = {}
+    caption_engine_cache: dict[tuple[str, str, int, float], CaptionEngine] = {}
 
     processed = 0
     skipped = 0
@@ -290,6 +318,10 @@ def run(argv: list[str] | None = None) -> int:
             effective["enable_people"] = False
         if args.disable_objects:
             effective["enable_objects"] = False
+        effective["caption_engine"] = str(args.caption_engine)
+        effective["caption_model"] = str(args.caption_model)
+        effective["caption_max_tokens"] = int(args.caption_max_tokens)
+        effective["caption_temperature"] = float(args.caption_temperature)
         settings_sig = _settings_signature(effective)
 
         manifest_row = manifest.get(str(image_path))
@@ -357,7 +389,28 @@ def run(argv: list[str] | None = None) -> int:
             people_names = [row.name for row in people_matches]
             object_labels = [row.label for row in object_matches]
             subjects = _clean_list(object_labels + ocr_keywords)
-            description = build_description(
+            caption_key = (
+                str(effective.get("caption_engine", defaults["caption_engine"])),
+                str(effective.get("caption_model", defaults["caption_model"])),
+                int(effective.get("caption_max_tokens", defaults["caption_max_tokens"])),
+                float(effective.get("caption_temperature", defaults["caption_temperature"])),
+            )
+            caption_engine = caption_engine_cache.get(caption_key)
+            if caption_engine is None:
+                caption_engine = _init_caption_engine(
+                    engine=caption_key[0],
+                    model_name=caption_key[1],
+                    max_tokens=int(caption_key[2]),
+                    temperature=float(caption_key[3]),
+                )
+                caption_engine_cache[caption_key] = caption_engine
+            caption_output = caption_engine.generate(
+                image_path=image_path,
+                people=people_names,
+                objects=object_labels,
+                ocr_text=ocr_text,
+            )
+            description = caption_output.text or build_description(
                 people=people_names,
                 objects=object_labels,
                 ocr_text=ocr_text,
@@ -367,10 +420,17 @@ def run(argv: list[str] | None = None) -> int:
                 "people": [{"name": row.name, "score": round(row.score, 5)} for row in people_matches],
                 "objects": [{"label": row.label, "score": round(row.score, 5)} for row in object_matches],
                 "ocr": {
-                    "engine": str(args.ocr_engine),
-                    "language": str(args.ocr_lang),
+                    "engine": str(effective.get("ocr_engine", args.ocr_engine)),
+                    "language": str(effective.get("ocr_lang", args.ocr_lang)),
                     "keywords": ocr_keywords,
                     "chars": len(ocr_text),
+                },
+                "caption": {
+                    "requested_engine": str(caption_key[0]),
+                    "effective_engine": str(caption_output.engine),
+                    "fallback": bool(caption_output.fallback),
+                    "error": str(caption_output.error or "")[:500],
+                    "model": str(caption_key[1] if caption_key[0] == "qwen" else ""),
                 },
             }
 
