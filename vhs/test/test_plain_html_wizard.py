@@ -137,7 +137,8 @@ def test_static_html_contains_live_iqr_spark_and_fullscreen_controls() -> None:
     assert "seekFrameGridFromSparkClientX(" in html
     assert "queueSparkDragSeek(" in html
     assert "toggleSparkWindowPlayback(" in html
-    assert "window.setInterval(stepSparkWindowRight, 100)" in html
+    assert "window.requestAnimationFrame(runSparkWindowPlaybackFrameClock)" in html
+    assert "const VHS_FRAME_MS = VHS_FRAME_SECONDS * 1000;" in html
     assert "sparkPlayBtnEl.addEventListener('click', openFlipbookPanel)" in html
     assert "iqrSparkEl.addEventListener('pointerdown'" in html
     assert "iqrSparkEl.addEventListener('pointermove'" in html
@@ -161,6 +162,11 @@ def test_static_html_contains_live_iqr_spark_and_fullscreen_controls() -> None:
     assert 'id="timelineAudioWave"' in html
     assert 'id="timelineAudioPlayhead"' in html
     assert 'id="timelineAudio"' in html
+    assert 'id="flipbookSubtitles"' in html
+    assert 'id="flipbookAudio"' in html
+    assert 'id="flipbookVolume"' in html
+    assert "renderFlipbookSubtitles(" in html
+    assert "applyFlipbookVolume(" in html
     assert "ensureTimelineAudioLoaded(" in html
     assert "toggleTimelineAudioPlayback(" in html
     assert "people-timeline-audio-underlay" in html
