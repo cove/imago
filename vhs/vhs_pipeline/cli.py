@@ -42,6 +42,15 @@ def build_parser():
     metadata_parser = subparsers.add_parser("metadata", help="Metadata commands")
     metadata_sub = metadata_parser.add_subparsers(dest="metadata_kind", required=True)
     metadata_sub.add_parser("build", help="Generate archive metadata outputs and checksums")
+    metadata_migrate = metadata_sub.add_parser(
+        "migrate-chapters",
+        help="Generate metadata/*/chapters.tsv from chapters.ffmetadata files",
+    )
+    metadata_migrate.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Overwrite existing chapters.tsv files.",
+    )
     metadata_embed = metadata_sub.add_parser(
         "embed",
         help="Embed ffmetadata into existing archive MKV(s) without re-encoding",
@@ -171,6 +180,8 @@ def main(argv=None):
 
         if args.metadata_kind == "build":
             return commands.run_generate_archive_metadata()
+        if args.metadata_kind == "migrate-chapters":
+            return commands.run_convert_ffmetadata_to_chapters_tsv(overwrite=args.overwrite)
         if args.metadata_kind == "embed":
             return commands.run_embed_metadata(args.files)
 

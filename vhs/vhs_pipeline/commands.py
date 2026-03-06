@@ -9,7 +9,10 @@ from vhs_pipeline.convert import (
     convert_umatic_to_archive,
     embed_metadata_into_archives,
 )
-from vhs_pipeline.metadata import generate_archive_metadata
+from vhs_pipeline.metadata import (
+    convert_all_ffmetadata_to_chapters_tsv,
+    generate_archive_metadata,
+)
 from vhs_pipeline.people_prefill import (
     apply_prefill_entries_to_people_tsv,
     prefill_people_from_cast,
@@ -37,6 +40,11 @@ def run_embed_metadata(paths):
 
 def run_generate_archive_metadata():
     return int(generate_archive_metadata() or 0)
+
+
+def run_convert_ffmetadata_to_chapters_tsv(overwrite: bool = False):
+    convert_all_ffmetadata_to_chapters_tsv(overwrite=bool(overwrite))
+    return 0
 
 
 def run_verify_archive(argv):
