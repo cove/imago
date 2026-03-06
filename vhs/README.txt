@@ -25,6 +25,10 @@ Convert source media into archive MKV:
 Build metadata + archive checksums:
 - `python vhs.py metadata build`
 
+Generate `chapters.tsv` masters from existing `chapters.ffmetadata` files:
+- `python vhs.py metadata migrate-chapters [--overwrite]`
+- `python scripts/migrate_chapters_tsv.py [--overwrite]`
+
 Lint metadata and simulate TIMEBASE conversion safety:
 - `python scripts/lint_metadata.py --glob "metadata/bennett*_archive" --simulate-timebase-conversion`
 
@@ -67,7 +71,7 @@ Tracking-loss classifier utility:
 Directory Notes
 ---------------
 
-- `metadata/` contains per-archive metadata (`chapters.ffmetadata`, `render_settings.json`, `people.tsv`, markers, etc.).
+- `metadata/` contains per-archive metadata (`chapters.tsv` master, generated `chapters.ffmetadata`, `render_settings.json`, `people.tsv`, markers, etc.).
 - `vhs_pipeline/` contains command implementations used by `vhs.py`.
 - `legacy_steps/` contains legacy `step_*` entrypoints and historical step docs.
 - `models/`, `software/`, `manuals/`, `screenshots/` contain model/data/tool references.
