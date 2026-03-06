@@ -120,6 +120,9 @@ def test_apply_prefill_entries_to_people_tsv_replaces_chapter_overlap(tmp_path: 
     assert out_path == people_tsv
     assert written == 1
     text = people_tsv.read_text(encoding="utf-8")
+    assert text.splitlines()[0] == "start\tend\tpeople"
     assert "Old Person" not in text
-    assert "300\t360\tJim | Linda" in text
-    assert "1199\t1349\tOutside Chapter" in text
+    assert "00:00:10.000\t00:00:12.000\tJim | Linda" in text
+    outside_start = people_prefill._to_timestamp(people_prefill._frame_to_seconds(1199))
+    outside_end = people_prefill._to_timestamp(people_prefill._frame_to_seconds(1349))
+    assert f"{outside_start}\t{outside_end}\tOutside Chapter" in text

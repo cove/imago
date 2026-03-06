@@ -12,6 +12,7 @@ stitching
 Wand
 TiffFile
 Pillow
+docstrange
 watchdog
 
 # shared

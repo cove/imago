@@ -11,7 +11,7 @@ from common import ARCHIVE_DIR, METADATA_DIR, chapter_frame_bounds, parse_chapte
 
 FPS_NUM = 30000
 FPS_DEN = 1001
-PEOPLE_TSV_HEADER = "start_frame\tend_frame\tpeople"
+PEOPLE_TSV_HEADER = "start\tend\tpeople"
 
 
 def _normalize_token(raw: Any) -> str:
@@ -61,6 +61,21 @@ def _parse_frame(raw: Any) -> int | None:
     if frame < 0:
         return None
     return int(frame)
+
+def _frame_to_seconds(frame: int) -> float:
+    return float(int(frame) * FPS_DEN) / float(FPS_NUM)
+
+def _parse_tsv_time_or_frame_seconds(raw: Any) -> float | None:
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    # Backward compatibility: old files stored archive-global frames.
+    if re.fullmatch(r"-?\d+", text):
+        frame = _parse_frame(text)
+        if frame is None:
+            return None
+        return _frame_to_seconds(frame)
+    return _parse_seconds(text)
 
 
 def _seconds_to_frame(seconds: float) -> int:
@@ -208,8 +223,8 @@ def _estimate_step_seconds(
     return step
 
 
-def _read_people_tsv_rows(path: Path) -> list[tuple[int, int, str]]:
-    rows: list[tuple[int, int, str]] = []
+def _read_people_tsv_rows(path: Path) -> list[tuple[float, float, str]]:
+    rows: list[tuple[float, float, str]] = []
     if not path.exists():
         return rows
     for raw in path.read_text(encoding="utf-8-sig", errors="ignore").splitlines():
@@ -224,56 +239,56 @@ def _read_people_tsv_rows(path: Path) -> list[tuple[int, int, str]]:
         parts = line.split("\t") if "\t" in line else line.split(",")
         if len(parts) < 3:
             continue
-        start = _parse_frame(parts[0])
-        end = _parse_frame(parts[1])
+        start = _parse_tsv_time_or_frame_seconds(parts[0])
+        end = _parse_tsv_time_or_frame_seconds(parts[1])
         people = re.sub(r"\s+", " ", ",".join(parts[2:]).strip())
         if start is None or end is None or not people:
             continue
-        if int(end) <= int(start):
-            if int(end) == int(start):
-                end = int(start) + 1
+        if float(end) <= float(start):
+            if abs(float(end) - float(start)) < 1e-9:
+                end = float(start) + _frame_to_seconds(1)
             else:
                 continue
-        rows.append((int(start), int(end), str(people)))
+        rows.append((float(start), float(end), str(people)))
     return rows
 
 
 def _canonicalize_people_tsv_rows(
-    rows: list[tuple[int, int, str]],
-) -> list[tuple[int, int, str]]:
-    cleaned: list[tuple[int, int, str]] = []
+    rows: list[tuple[float, float, str]],
+) -> list[tuple[float, float, str]]:
+    cleaned: list[tuple[float, float, str]] = []
     for start, end, people in list(rows or []):
         try:
-            a = int(start)
-            b = int(end)
+            a = float(start)
+            b = float(end)
         except Exception:
             continue
-        if int(b) <= int(a):
+        if float(b) <= float(a):
             continue
         text = re.sub(r"\s+", " ", str(people or "")).strip()
         if not text:
             continue
-        cleaned.append((max(0, int(a)), max(0, int(b)), text))
+        cleaned.append((max(0.0, float(a)), max(0.0, float(b)), text))
     if not cleaned:
         return []
 
     cleaned.sort(key=lambda item: (item[0], item[1], item[2].lower()))
-    out: list[tuple[int, int, str]] = []
+    out: list[tuple[float, float, str]] = []
     for start, end, people in cleaned:
         if out:
             prev_start, prev_end, prev_people = out[-1]
-            if prev_people == people and int(prev_end) >= int(start):
-                out[-1] = (prev_start, max(prev_end, end), prev_people)
+            if prev_people == people and float(prev_end) + 0.001 >= float(start):
+                out[-1] = (prev_start, max(float(prev_end), float(end)), prev_people)
                 continue
-        out.append((start, end, people))
+        out.append((round(float(start), 3), round(float(end), 3), people))
     return out
 
 
-def _write_people_tsv_rows(path: Path, rows: list[tuple[int, int, str]]) -> None:
+def _write_people_tsv_rows(path: Path, rows: list[tuple[float, float, str]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [PEOPLE_TSV_HEADER]
     for start, end, people in list(rows or []):
-        lines.append(f"{int(start)}\t{int(end)}\t{people}")
+        lines.append(f"{_to_timestamp(float(start))}\t{_to_timestamp(float(end))}\t{people}")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -495,39 +510,39 @@ def apply_prefill_entries_to_people_tsv(
     entries: list[dict[str, Any]],
 ) -> tuple[Path, int]:
     chapter = _load_chapter_context(archive, chapter_title)
-    chapter_start_frame = int(chapter["start_frame"])
-    chapter_end_frame = int(chapter["end_frame"])
-    chapter_len_frames = max(1, int(chapter_end_frame) - int(chapter_start_frame))
+    chapter_start_sec = float(chapter["start_sec"])
+    chapter_end_sec = float(chapter["end_sec"])
+    chapter_len_sec = max(_frame_to_seconds(1), float(chapter_end_sec) - float(chapter_start_sec))
     tsv_path = METADATA_DIR / str(archive or "").strip() / "people.tsv"
 
     existing = _read_people_tsv_rows(tsv_path)
-    kept: list[tuple[int, int, str]] = []
+    kept: list[tuple[float, float, str]] = []
     for start, end, people in existing:
-        if int(end) <= int(chapter_start_frame) or int(start) >= int(chapter_end_frame):
-            kept.append((int(start), int(end), str(people)))
+        if float(end) <= float(chapter_start_sec) or float(start) >= float(chapter_end_sec):
+            kept.append((float(start), float(end), str(people)))
             continue
-        if int(start) < int(chapter_start_frame):
-            kept.append((int(start), int(chapter_start_frame), str(people)))
-        if int(end) > int(chapter_end_frame):
-            kept.append((int(chapter_end_frame), int(end), str(people)))
+        if float(start) < float(chapter_start_sec):
+            kept.append((float(start), float(chapter_start_sec), str(people)))
+        if float(end) > float(chapter_end_sec):
+            kept.append((float(chapter_end_sec), float(end), str(people)))
 
-    chapter_rows: list[tuple[int, int, str]] = []
+    chapter_rows: list[tuple[float, float, str]] = []
     for item in list(entries or []):
         start_local = _parse_seconds(item.get("start_seconds", item.get("start")))
         end_local = _parse_seconds(item.get("end_seconds", item.get("end")))
         people = re.sub(r"\s+", " ", str(item.get("people") or "").strip())
         if start_local is None or end_local is None or end_local <= start_local or not people:
             continue
-        local_start_frame = max(0, min(chapter_len_frames, _seconds_to_frame(start_local)))
-        local_end_frame = max(0, min(chapter_len_frames, _seconds_to_frame(end_local)))
-        if local_end_frame <= local_start_frame:
-            if local_start_frame >= chapter_len_frames:
+        local_start_sec = max(0.0, min(float(chapter_len_sec), float(start_local)))
+        local_end_sec = max(0.0, min(float(chapter_len_sec), float(end_local)))
+        if local_end_sec <= local_start_sec:
+            if local_start_sec >= float(chapter_len_sec):
                 continue
-            local_end_frame = local_start_frame + 1
+            local_end_sec = min(float(chapter_len_sec), float(local_start_sec) + _frame_to_seconds(1))
         chapter_rows.append(
             (
-                int(chapter_start_frame + local_start_frame),
-                int(chapter_start_frame + local_end_frame),
+                float(chapter_start_sec) + float(local_start_sec),
+                float(chapter_start_sec) + float(local_end_sec),
                 str(people),
             )
         )

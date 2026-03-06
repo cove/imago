@@ -7,6 +7,7 @@ Family media archive for VHS digitization, photo album preservation, and shared 
 - [`vhs/`](vhs/) - VHS tape digitization pipeline: bad-frame detection, gamma correction, subtitle generation, render wizard
 - [`photoalbums/`](photoalbums/) - Scanned photo album pipeline: TIFF processing, metadata embedding, page stitching
 - [`cast/`](cast/) - Shared face identity store + local web review UI (text files)
+- [`viewer/`](viewer/) - Static cloud media site for public Google Drive/OneDrive photo and video links
 
 ## Cast quick start
 
@@ -33,6 +34,16 @@ Default Cast storage files:
 - `cast/data/faces.jsonl`
 - `cast/data/review_queue.jsonl`
 
+## Photoalbums entrypoint
+
+Run photoalbums workflows only via:
+
+- `python photoalbums.py ...`
+- `python -m photoalbums ...` (equivalent)
+
+All `photoalbums/lib/*.py` modules are internal libraries, not user entrypoint scripts.
+Also do not run `photoalbums/cli.py` or `photoalbums/commands.py` directly.
+
 ## Structure
 
 ```
@@ -40,5 +51,9 @@ imago/
   vhs/           <- VHS pipeline (python vhs.py ...)
   photoalbums/   <- Photo album pipeline
   cast/          <- Shared face identity module + web UI
+  viewer/        <- Static cloud media viewer
   cast.py        <- Cast CLI entrypoint
+  photoalbums.py <- Photo Albums CLI entrypoint
 ```
+
+

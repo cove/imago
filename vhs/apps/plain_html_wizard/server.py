@@ -48,14 +48,16 @@ from libs.vhs_tuner_core import (
     build_archive_state,
     extract_frames,
     persist_bad_frames_for_chapter,
-    sample_count_from_stride,
-    select_focus_frame_ids,
     slugify,
     RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV,
     TUNER_DEBUG_EXTRACT_ENV,
 )
 from vhs_pipeline.people_prefill import prefill_people_from_cast
-from vhs_pipeline.render_pipeline import subtitle_entries_from_whisper_result
+from vhs_pipeline.render_pipeline import (
+    make_extract_audio,
+    subtitle_entries_from_whisper_result,
+    whisper_transcribe,
+)
 
 try:
     import whisper
@@ -82,10 +84,6 @@ class SessionState:
 
     start_frame: int = 0
     end_frame: int = 1
-    sample_stride: int = 1
-    context: int = 10
-    strict_sampling: bool = True
-    exact_extract: bool = True
     debug_extract: bool = False
 
     wc: float = 0.25
@@ -1182,11 +1180,10 @@ def _summary_payload(session: SessionState) -> dict[str, Any]:
         f"Archive: {session.archive}\n"
         f"Chapter: {session.chapter}\n"
         f"Frame span: {session.start_frame} - {session.end_frame} (end exclusive)\n"
-        f"Sample stride: 1/{session.sample_stride}\n"
-        f"Bad batch proximity: {session.context}\n"
+        f"Frame load mode: full chapter (all frames)\n"
         f"IQR k: {session.iqr_k:.2f}\n"
         f"Threshold: {review['threshold']:.4f}\n"
-        f"Analyzed samples: {review['stats']['total']}\n"
+        f"Analyzed frames: {review['stats']['total']}\n"
         f"Marked bad: {review['stats']['bad']}\n"
         f"Marked good: {review['stats']['good']}\n"
         f"Manual overrides: {review['stats']['overrides']}\n"
@@ -1194,7 +1191,7 @@ def _summary_payload(session: SessionState) -> dict[str, Any]:
         f"{gamma_text}\n"
         f"{people_text}\n\n"
         f"{subtitles_text}\n\n"
-        f"BAD frame IDs (sampled set):\n{preview or '(none)'}"
+        f"BAD frame IDs (loaded set):\n{preview or '(none)'}"
     )
     return {"summary": summary_text, "review": review}
 
@@ -1767,21 +1764,13 @@ class WizardHandler(BaseHTTPRequestHandler):
         default_end = int(chapter_obj.get("end_frame", default_start + 1))
 
         try:
-            start_raw = int(payload.get("start_frame", default_start))
-            end_raw = int(payload.get("end_frame", default_end))
-            sample_stride = max(1, int(payload.get("sample_stride", session.sample_stride)))
-            context = max(0, int(payload.get("context", session.context)))
             iqr_k = _normalize_iqr_k(payload.get("iqr_k", session.iqr_k), default=session.iqr_k)
         except Exception:
             fail("Invalid numeric load settings.")
             return
 
         session.chapter = chapter
-        session.start_frame, session.end_frame = _normalize_frame_span(start_raw, end_raw)
-        session.sample_stride = sample_stride
-        session.context = context
-        session.strict_sampling = bool(payload.get("strict_sampling", session.strict_sampling))
-        session.exact_extract = bool(payload.get("exact_extract", session.exact_extract))
+        session.start_frame, session.end_frame = _normalize_frame_span(default_start, default_end)
         session.debug_extract = bool(payload.get("debug_extract", session.debug_extract))
         session.iqr_k = iqr_k
         session.preview_video_path = ""
@@ -1811,13 +1800,13 @@ class WizardHandler(BaseHTTPRequestHandler):
 
         if cancelled():
             return
-        n_samp = sample_count_from_stride(session.start_frame, session.end_frame, session.sample_stride)
+        n_frames = max(1, int(session.end_frame) - int(session.start_frame))
         _set_load_progress(
             session,
             progress=4.0,
-            message=f"Target sampled frames: {int(n_samp)}",
+            message=f"Target frames: {int(n_frames)}",
             sample_done=0,
-            sample_total=int(n_samp),
+            sample_total=int(n_frames),
         )
         read_video = video
         frame_read_offset = 0
@@ -1826,35 +1815,32 @@ class WizardHandler(BaseHTTPRequestHandler):
             RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV
         )
 
-        if bool(session.exact_extract):
-            _set_load_progress(session, progress=8.0, message="Extracting chapter segment...")
-            if cancelled():
-                return
-            try:
-                read_video_p, ex_err = _ensure_render_chapter_extract(
-                    source_video=video,
-                    archive=session.archive,
-                    chapter_title=session.chapter,
-                    ch_start=session.start_frame,
-                    ch_end=session.end_frame,
-                    debug_overlay=debug_overlay,
-                )
-            except Exception as exc:
-                fail(f"Render extract failed: {type(exc).__name__}: {exc}")
-                return
-            if ex_err or read_video_p is None:
-                fail(ex_err or "Render extract failed")
-                return
-            read_video = read_video_p
-            frame_read_offset = session.start_frame
-            _set_load_progress(session, progress=28.0, message="Chapter extract ready; sampling frames...")
-        else:
-            _set_load_progress(session, progress=12.0, message="Sampling source video frames...")
+        _set_load_progress(session, progress=8.0, message="Extracting chapter segment...")
+        if cancelled():
+            return
+        try:
+            read_video_p, ex_err = _ensure_render_chapter_extract(
+                source_video=video,
+                archive=session.archive,
+                chapter_title=session.chapter,
+                ch_start=session.start_frame,
+                ch_end=session.end_frame,
+                debug_overlay=debug_overlay,
+            )
+        except Exception as exc:
+            fail(f"Render extract failed: {type(exc).__name__}: {exc}")
+            return
+        if ex_err or read_video_p is None:
+            fail(ex_err or "Render extract failed")
+            return
+        read_video = read_video_p
+        frame_read_offset = session.start_frame
+        _set_load_progress(session, progress=28.0, message="Chapter extract ready; loading frames...")
 
         if cancelled():
             return
-        sample_target = max(1, int(n_samp))
-        stage_start = 30.0 if bool(session.exact_extract) else 14.0
+        frame_target = max(1, int(n_frames))
+        stage_start = 30.0
         stage_end = 92.0
 
         def _sample_progress(frac: float, desc: str | None = None) -> None:
@@ -1864,14 +1850,14 @@ class WizardHandler(BaseHTTPRequestHandler):
             except Exception:
                 f = 0.0
             f = max(0.0, min(1.0, f))
-            done = max(0, min(sample_target, int(round(f * sample_target))))
+            done = max(0, min(frame_target, int(round(f * frame_target))))
             p = stage_start + f * (stage_end - stage_start)
             _set_load_progress(
                 session,
                 progress=p,
-                message=f"Sampling frames {done}/{sample_target}",
+                message=f"Loading frames {done}/{frame_target}",
                 sample_done=done,
-                sample_total=sample_target,
+                sample_total=frame_target,
             )
 
         def _sample_frame(
@@ -1895,7 +1881,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             str(read_video),
             session.start_frame,
             session.end_frame,
-            int(n_samp),
+            int(n_frames),
             session.archive,
             session.chapter,
             frame_read_offset=frame_read_offset,
@@ -1909,43 +1895,10 @@ class WizardHandler(BaseHTTPRequestHandler):
         _set_load_progress(
             session,
             progress=95.0,
-            message=f"Processing sampled frames {sample_target}/{sample_target}",
-            sample_done=sample_target,
-            sample_total=sample_target,
+            message=f"Processing frames {frame_target}/{frame_target}",
+            sample_done=frame_target,
+            sample_total=frame_target,
         )
-
-        if not bool(session.strict_sampling):
-            sc0 = combined_score(sigs, session.wc, session.wn, session.wt, session.ww)
-            thr0 = compute_threshold(sc0, session.t_mode, session.iqr_k, session.tval, session.bpct)
-            focus_fids = select_focus_frame_ids(
-                start=session.start_frame,
-                end=session.end_frame,
-                max_frames=int(n_samp),
-                coarse_fids=fids,
-                coarse_scores=sc0,
-                threshold=thr0,
-                burst_radius=4,
-            )
-            if focus_fids != fids:
-                session.partial_fids = []
-                session.partial_b64 = []
-                session.partial_sigs = {"chroma": [], "noise": [], "tear": [], "wave": []}
-                fids, b64, sigs, err = extract_frames(
-                    str(read_video),
-                    session.start_frame,
-                    session.end_frame,
-                    int(n_samp),
-                    session.archive,
-                    session.chapter,
-                    frame_ids=focus_fids,
-                    frame_read_offset=frame_read_offset,
-                    progress=_sample_progress,
-                    should_cancel=lambda: bool(session.load_cancel_requested),
-                    frame_callback=_sample_frame,
-                )
-                if err or fids is None or b64 is None or sigs is None:
-                    fail(err or "Failed to extract focus frames.")
-                    return
 
         session.fids = [int(x) for x in fids]
         session.b64 = list(b64)
@@ -1979,11 +1932,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             "start_frame": session.start_frame,
             "end_frame": session.end_frame,
             "chapter_frame_count": int(session.end_frame - session.start_frame),
-            "sampled_count": int(len(session.fids)),
-            "sample_stride": session.sample_stride,
-            "context": session.context,
-            "exact_extract": bool(session.exact_extract),
-            "strict_sampling": bool(session.strict_sampling),
+            "loaded_count": int(len(session.fids)),
             "extract_cache": str(
                 _chapter_extract_cache_path(
                     archive=session.archive,
@@ -1993,9 +1942,7 @@ class WizardHandler(BaseHTTPRequestHandler):
                     debug_overlay=debug_overlay,
                     source_video=video,
                 ).parent.name
-            )
-            if bool(session.exact_extract)
-            else "",
+            ),
             "gamma_profile": {
                 "default_gamma": float(session.gamma_default),
                 "ranges": list(session.gamma_ranges),
@@ -2018,7 +1965,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             progress=100.0,
             message=f"Loaded {len(session.fids)} frame(s).",
             sample_done=len(session.fids),
-            sample_total=max(1, int(n_samp)),
+            sample_total=max(1, int(n_frames)),
         )
         session.load_cancel_requested = False
         self._send_json({"ok": True, "review": review, "settings": details})
@@ -2028,7 +1975,7 @@ class WizardHandler(BaseHTTPRequestHandler):
         final_ids = {int(x) for x in session.fids}
         partial_ids = {int(x) for x in session.partial_fids}
         if fid_i not in final_ids and fid_i not in partial_ids:
-            self._send_error_json("Frame is not in the sampled set.")
+            self._send_error_json("Frame is not in the loaded set.")
             return
 
         if session.fids and session.sigs and fid_i in final_ids:
@@ -2076,7 +2023,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             changed += 1
 
         if changed <= 0:
-            self._send_error_json("No sampled frames are currently available in that range.")
+            self._send_error_json("No loaded frames are currently available in that range.")
             return
 
         if session.fids and session.sigs:
@@ -2465,7 +2412,7 @@ class WizardHandler(BaseHTTPRequestHandler):
         msg = (
             f"Preview render ready for {session.chapter}: "
             f"mode={mode_desc}, freeze={'on' if apply_freeze else 'off'}, gamma={'on' if apply_gamma else 'off'}. "
-            f"{len(local_bad)} sampled bad frame(s) applied from current review state. "
+            f"{len(local_bad)} loaded bad frame(s) applied from current review state. "
             f"Source: {source_label}."
         )
         if used_non_windows_fallback and local_bad:
@@ -2485,7 +2432,7 @@ class WizardHandler(BaseHTTPRequestHandler):
                 "preview_path": str(preview_video),
                 "preview_url": "/api/preview_video",
                 "preview_page_url": "/preview",
-                "bad_sampled_count": int(len(local_bad)),
+                "bad_frame_count": int(len(local_bad)),
             }
         )
 
@@ -2636,25 +2583,12 @@ class WizardHandler(BaseHTTPRequestHandler):
         try:
             with tempfile.TemporaryDirectory(prefix="vhs_subtitles_") as tmp_dir:
                 audio_path = Path(tmp_dir) / "chapter_audio.wav"
-                cmd = [
-                    str(FFMPEG_BIN),
-                    "-nostdin",
-                    "-v",
-                    "error",
-                    "-ss",
-                    f"{start_sec:.3f}",
-                    "-to",
-                    f"{end_sec:.3f}",
-                    "-i",
-                    str(source_video),
-                    "-vn",
-                    "-ac",
-                    "1",
-                    "-ar",
-                    "16000",
-                    "-y",
-                    str(audio_path),
-                ]
+                cmd = make_extract_audio(
+                    source_video,
+                    audio_path,
+                    start_sec=start_sec,
+                    end_sec=end_sec,
+                )
                 proc = subprocess.run(
                     cmd,
                     check=False,
@@ -2751,13 +2685,7 @@ class WizardHandler(BaseHTTPRequestHandler):
                     if callable(original_tqdm):
                         setattr(tqdm_module, "tqdm", _SubtitlesProgressBar)
                     try:
-                        result = model.transcribe(
-                            str(audio_path),
-                            word_timestamps=True,
-                            language="en",
-                            fp16=False,
-                            prompt=str(prompt_text or ""),
-                        )
+                        result = whisper_transcribe(model, audio_path, prompt_text=prompt_text)
                     finally:
                         if callable(original_tqdm):
                             setattr(tqdm_module, "tqdm", original_tqdm)
@@ -2815,6 +2743,10 @@ class WizardHandler(BaseHTTPRequestHandler):
                 "generated_count": int(len(generated)),
                 "mode": mode,
                 "subtitles_profile": {
+                    "entries": list(session.subtitle_entries),
+                    "source": "whisper_generate",
+                },
+                "subtitles": {
                     "entries": list(session.subtitle_entries),
                     "source": "whisper_generate",
                 },

@@ -94,11 +94,11 @@ Each archive now uses `metadata/<archive>/render_settings.json` for render contr
 People Subtitle TSV
 -------------------
 
-`metadata/<archive>/people.tsv` now uses archive-global frame ranges:
+`metadata/<archive>/people.tsv` now uses archive-global time ranges:
 
-- Header: `start_frame<TAB>end_frame<TAB>people`
-- `end_frame` is exclusive.
-- During `python vhs.py render`, ranges are clipped to each chapter frame span.
+- Header: `start<TAB>end<TAB>people`
+- Times are `HH:MM:SS.mmm` and `end` is exclusive.
+- During `python vhs.py render`, ranges are clipped to each chapter span.
 - People labels are merged into chapter subtitle sidecars:
   - `.srt`: appended below dialogue in brackets, e.g. `[Jim | Linda]`
   - `.ass`: appended below dialogue in italics

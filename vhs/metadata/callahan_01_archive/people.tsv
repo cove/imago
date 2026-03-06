@@ -1,4 +1,5 @@
-start_frame	end_frame	people
-287	395	Lynda
-578	599	Jim; Linda; Gloria
-599	839	Jimmy | Audrey
+start	end	people
+00:00:08.942	00:00:12.546	Lynda
+00:00:19.286	00:00:19.987	Jim; Linda; Gloria
+00:00:19.987	00:00:27.995	Jimmy | Audrey
+00:04:02.910	00:10:05.906	Gloria|Lynda|Jim|Minister|Kevin

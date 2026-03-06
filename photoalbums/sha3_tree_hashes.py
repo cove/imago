@@ -1,4 +1,4 @@
-import argparse
+﻿import argparse
 import hashlib
 import os
 from pathlib import Path
@@ -6,6 +6,7 @@ from typing import Dict, Iterable, List, Tuple
 
 MANIFEST_NAME = "SHA256SUMS"
 TOP_MANIFEST_NAME = "SHA256SUMS"
+
 
 def iter_files(base_dir: Path) -> Iterable[Path]:
     for root, _, files in os.walk(base_dir):
@@ -30,6 +31,7 @@ def write_manifest(manifest_path: Path, entries: List[Tuple[str, Path]]) -> None
         # BSD-style format, compatible with tools like rhash
         lines.append(f"SHA256 ({rel_path.as_posix()}) = {digest}")
     manifest_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
 
 def parse_manifest(manifest_path: Path) -> List[Tuple[str, Path]]:
     entries: List[Tuple[str, Path]] = []
@@ -123,7 +125,7 @@ def verify_tree(base_dir: Path) -> int:
     return 0
 
 
-def main() -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Generate hierarchical SHA-256 manifests for a Photo Albums directory tree.",
     )
@@ -140,8 +142,11 @@ def main() -> int:
         action="store_true",
         help="Verify hashes against existing manifests instead of generating them.",
     )
+    return parser
 
-    args = parser.parse_args()
+
+def run(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
     base_dir = Path(args.base_dir).expanduser().resolve()
 
     if not base_dir.is_dir():
@@ -161,6 +166,10 @@ def main() -> int:
 
     build_top_manifest(base_dir, sorted(top_entries, key=lambda item: item[1].as_posix()))
     return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    return run(argv)
 
 
 if __name__ == "__main__":
