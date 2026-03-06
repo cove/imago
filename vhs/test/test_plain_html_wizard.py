@@ -14,6 +14,7 @@ from apps.plain_html_wizard.server import (
     _build_review_payload,
     _build_partial_review_payload,
     _normalize_iqr_k,
+    _normalize_subtitle_entries_payload,
     _set_load_progress,
     WizardHandler,
 )
@@ -88,7 +89,7 @@ def test_review_payload_honors_manual_overrides_after_iqr_change() -> None:
 def test_static_html_contains_live_iqr_spark_and_fullscreen_controls() -> None:
     html = INDEX_HTML.read_text(encoding="utf-8")
 
-    assert 'id="helpBtn"' in html
+    assert 'id="helpBtn"' not in html
     assert 'id="helpModal"' in html
     assert 'id="helpCloseBtn"' in html
     assert "openHelpModal()" in html
@@ -130,8 +131,8 @@ def test_static_html_contains_live_iqr_spark_and_fullscreen_controls() -> None:
     assert "api('/api/load_progress')" in html
     assert "api('/api/preview_render', 'POST'" in html
     assert "renderReadyAtFromSamples(" in html
-    assert "Estimated ready at" in html
-    assert "20 frame sample" in html
+    assert "ETA " in html
+    assert "/3 sample" in html
     assert "api('/api/cancel_load', 'POST', {})" in html
     assert "seekFrameGridFromSparkClientX(" in html
     assert "queueSparkDragSeek(" in html
@@ -146,6 +147,35 @@ def test_static_html_contains_live_iqr_spark_and_fullscreen_controls() -> None:
     assert "frame.status === 'bad'" in html
     assert "event.target.closest('.frame-card')" in html
     assert "window.open(target, '_blank', 'noopener')" in html
+    assert 'id="subtitlesGenerate"' in html
+    assert 'id="subtitlesEditor"' in html
+    assert 'id="peopleMeta"' not in html
+    assert 'id="subtitlesMeta"' not in html
+    assert "subtitles-editor-grid" in html
+    assert "active-row" in html
+    assert 'data-sub-field="text"' in html
+    assert "parseSubtitlesEditorGrid(" in html
+    assert "syncSubtitlesEditorToCursor(" in html
+    assert 'id="timelineAudioPlay"' in html
+    assert 'id="timelineAudioTrack"' in html
+    assert 'id="timelineAudioWave"' in html
+    assert 'id="timelineAudioPlayhead"' in html
+    assert 'id="timelineAudio"' in html
+    assert "ensureTimelineAudioLoaded(" in html
+    assert "toggleTimelineAudioPlayback(" in html
+    assert "people-timeline-audio-underlay" in html
+    assert "/api/chapter_audio" in html
+    assert "updatePeopleStepLayoutSizing(" in html
+    assert "data-subtitle-row-delete" in html
+    assert "subtitle-timeline-bar" in html
+    assert "subtitle-timeline-input" in html
+    assert "subtitle-timeline-delete" in html
+    assert "editSubtitleTimelineEntry(" in html
+    assert "window.prompt('Edit subtitle text'" not in html
+    assert "deleteSubtitleTimelineEntry(" in html
+    assert "people-timeline-zoom-btn" in html
+    assert "peopleTimelineEl.addEventListener('wheel'" not in html
+    assert "api('/api/subtitles_generate', 'POST'" in html
     assert "Toggle Good/Bad" not in html
 
 
@@ -238,3 +268,33 @@ def test_set_frame_range_marks_partial_frames_bad() -> None:
     assert int(handler.payload.get("updated_count", 0)) == 3
     for fid in (1001, 1002, 1003):
         assert session.overrides[fid] == "bad"
+
+
+def test_normalize_subtitle_entries_payload_clamps_and_preserves_optional_fields() -> None:
+    rows = _normalize_subtitle_entries_payload(
+        [
+            {
+                "start": "00:00:01.000",
+                "end": "00:00:03.000",
+                "text": " Hello   there ",
+                "speaker": " Narrator ",
+                "confidence": "1.5",
+                "source": " whisper ",
+            },
+            {
+                "start": "00:00:05.000",
+                "end": "00:00:04.000",
+                "text": "invalid",
+            },
+        ],
+        chapter_duration_seconds=4.0,
+    )
+
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["start"] == "00:00:01.000"
+    assert row["end"] == "00:00:03.000"
+    assert row["text"] == "Hello there"
+    assert row["speaker"] == "Narrator"
+    assert row["confidence"] == 1.0
+    assert row["source"] == "whisper"

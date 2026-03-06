@@ -67,8 +67,8 @@ INDEX_HTML = STATIC_DIR / "index.html"
 SESSION_COOKIE = "vhs_plain_wizard_sid"
 FPS_NUM = 30000
 FPS_DEN = 1001
-PEOPLE_TSV_HEADER = "start_frame\tend_frame\tpeople"
-SUBTITLES_TSV_HEADER = "start_frame\tend_frame\ttext\tspeaker\tconfidence\tsource"
+PEOPLE_TSV_HEADER = "start\tend\tpeople"
+SUBTITLES_TSV_HEADER = "start\tend\ttext\tspeaker\tconfidence\tsource"
 DEFAULT_CAST_STORE_DIR = (PROJECT_ROOT.parent / "cast" / "data").resolve()
 WHISPER_MODEL_NAME = "turbo"
 
@@ -114,11 +114,14 @@ class SessionState:
     preview_frame_done: int = 0
     preview_frame_total: int = 0
     preview_video_path: str = ""
+    chapter_audio_path: str = ""
+    chapter_audio_key: str = ""
     subtitles_running: bool = False
     subtitles_progress: float = 0.0
     subtitles_message: str = ""
     subtitles_segment_done: int = 0
     subtitles_segment_total: int = 0
+    subtitles_cancel_requested: bool = False
     gamma_default: float = 1.0
     gamma_ranges: list[dict[str, Any]] = field(default_factory=list)
     people_entries: list[dict[str, Any]] = field(default_factory=list)
@@ -136,6 +139,10 @@ _WHISPER_MODEL_LOCK = threading.Lock()
 _WHISPER_MODEL: Any | None = None
 _WHISPER_TQDM_PATCH_LOCK = threading.Lock()
 _WHISPER_TRANSCRIBE_MODULE: Any | None = None
+
+
+class _SubtitlesCancelledError(Exception):
+    pass
 
 
 def _set_load_progress(
@@ -498,8 +505,21 @@ def _parse_frame_value(raw: Any) -> int | None:
     return int(value)
 
 
-def _read_people_tsv_rows(path: Path) -> list[tuple[int, int, str]]:
-    rows: list[tuple[int, int, str]] = []
+def _parse_tsv_time_or_frame_seconds(raw: Any) -> float | None:
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    # Backward compatibility: old TSV files stored archive-global frames.
+    if re.fullmatch(r"-?\d+", text):
+        frame = _parse_frame_value(text)
+        if frame is None:
+            return None
+        return _frame_to_seconds(int(frame))
+    return _parse_timestamp_seconds(text)
+
+
+def _read_people_tsv_rows(path: Path) -> list[tuple[float, float, str]]:
+    rows: list[tuple[float, float, str]] = []
     p = Path(path)
     if not p.exists():
         return rows
@@ -515,61 +535,63 @@ def _read_people_tsv_rows(path: Path) -> list[tuple[int, int, str]]:
         parts = line.split("\t") if "\t" in line else line.split(",")
         if len(parts) < 3:
             continue
-        start = _parse_frame_value(parts[0])
-        end = _parse_frame_value(parts[1])
+        start = _parse_tsv_time_or_frame_seconds(parts[0])
+        end = _parse_tsv_time_or_frame_seconds(parts[1])
         people = re.sub(r"\s+", " ", ",".join(parts[2:]).strip())
         if start is None or end is None or not people:
             continue
-        if int(end) <= int(start):
-            if int(end) == int(start):
-                end = int(start) + 1
+        if float(end) <= float(start):
+            if abs(float(end) - float(start)) < 1e-9:
+                end = float(start) + _frame_to_seconds(1)
             else:
                 continue
-        rows.append((int(start), int(end), str(people)))
+        rows.append((float(start), float(end), str(people)))
     return rows
 
 
 def _canonicalize_people_tsv_rows(
-    rows: list[tuple[int, int, str]],
-) -> list[tuple[int, int, str]]:
+    rows: list[tuple[float, float, str]],
+) -> list[tuple[float, float, str]]:
     items = []
     for start, end, people in list(rows or []):
         try:
-            a = int(start)
-            b = int(end)
+            a = float(start)
+            b = float(end)
         except Exception:
             continue
-        if int(b) <= int(a):
+        if float(b) <= float(a):
             continue
         text = re.sub(r"\s+", " ", str(people or "")).strip()
         if not text:
             continue
-        items.append((max(0, int(a)), max(0, int(b)), text))
+        items.append((max(0.0, float(a)), max(0.0, float(b)), text))
     if not items:
         return []
     items.sort(key=lambda item: (item[0], item[1], item[2].lower()))
-    out: list[tuple[int, int, str]] = []
+    out: list[tuple[float, float, str]] = []
     for start, end, people in items:
         if out:
             prev_start, prev_end, prev_people = out[-1]
-            if prev_people == people and int(prev_end) >= int(start):
-                out[-1] = (prev_start, max(prev_end, end), prev_people)
+            if prev_people == people and float(prev_end) + 0.001 >= float(start):
+                out[-1] = (prev_start, max(float(prev_end), float(end)), prev_people)
                 continue
-        out.append((start, end, people))
+        out.append((round(float(start), 3), round(float(end), 3), people))
     return out
 
 
-def _write_people_tsv_rows(path: Path, rows: list[tuple[int, int, str]]) -> None:
+def _write_people_tsv_rows(path: Path, rows: list[tuple[float, float, str]]) -> None:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     lines = [PEOPLE_TSV_HEADER]
     for start, end, people in list(rows or []):
-        lines.append(f"{int(start)}\t{int(end)}\t{str(people)}")
+        lines.append(
+            f"{_seconds_to_timestamp(float(start))}\t{_seconds_to_timestamp(float(end))}\t{str(people)}"
+        )
     p.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def _read_subtitles_tsv_rows(path: Path) -> list[tuple[int, int, str, str, float | None, str]]:
-    rows: list[tuple[int, int, str, str, float | None, str]] = []
+def _read_subtitles_tsv_rows(path: Path) -> list[tuple[float, float, str, str, float | None, str]]:
+    rows: list[tuple[float, float, str, str, float | None, str]] = []
     p = Path(path)
     if not p.exists():
         return rows
@@ -580,47 +602,47 @@ def _read_subtitles_tsv_rows(path: Path) -> list[tuple[int, int, str, str, float
         lower = line.lower()
         if lower.startswith("start_frame\t") or lower.startswith("start_frame,end_frame"):
             continue
-        if lower.startswith("start\t") or lower.startswith("start,start"):
+        if lower.startswith("start\t") or lower.startswith("start,end"):
             continue
         parts = line.split("\t") if "\t" in line else line.split(",")
         if len(parts) < 3:
             continue
-        start = _parse_frame_value(parts[0])
-        end = _parse_frame_value(parts[1])
+        start = _parse_tsv_time_or_frame_seconds(parts[0])
+        end = _parse_tsv_time_or_frame_seconds(parts[1])
         text = _normalize_subtitle_optional_text(parts[2])
         speaker = _normalize_subtitle_optional_text(parts[3]) if len(parts) >= 4 else ""
         confidence = _parse_subtitle_confidence(parts[4]) if len(parts) >= 5 else None
         source = _normalize_subtitle_optional_text(parts[5]) if len(parts) >= 6 else ""
         if start is None or end is None or not text:
             continue
-        if int(end) <= int(start):
-            if int(end) == int(start):
-                end = int(start) + 1
+        if float(end) <= float(start):
+            if abs(float(end) - float(start)) < 1e-9:
+                end = float(start) + _frame_to_seconds(1)
             else:
                 continue
-        rows.append((int(start), int(end), text, speaker, confidence, source))
+        rows.append((float(start), float(end), text, speaker, confidence, source))
     return rows
 
 
 def _canonicalize_subtitles_tsv_rows(
-    rows: list[tuple[int, int, str, str, float | None, str]],
-) -> list[tuple[int, int, str, str, float | None, str]]:
+    rows: list[tuple[float, float, str, str, float | None, str]],
+) -> list[tuple[float, float, str, str, float | None, str]]:
     items = []
     for start, end, text, speaker, confidence, source in list(rows or []):
         try:
-            a = int(start)
-            b = int(end)
+            a = float(start)
+            b = float(end)
         except Exception:
             continue
-        if int(b) <= int(a):
+        if float(b) <= float(a):
             continue
         subtitle_text = _normalize_subtitle_optional_text(text)
         if not subtitle_text:
             continue
         items.append(
             (
-                max(0, int(a)),
-                max(0, int(b)),
+                max(0.0, float(a)),
+                max(0.0, float(b)),
                 subtitle_text,
                 _normalize_subtitle_optional_text(speaker),
                 _parse_subtitle_confidence(confidence),
@@ -635,7 +657,7 @@ def _canonicalize_subtitles_tsv_rows(
 
 def _write_subtitles_tsv_rows(
     path: Path,
-    rows: list[tuple[int, int, str, str, float | None, str]],
+    rows: list[tuple[float, float, str, str, float | None, str]],
 ) -> None:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -644,8 +666,8 @@ def _write_subtitles_tsv_rows(
         lines.append(
             "\t".join(
                 [
-                    str(int(start)),
-                    str(int(end)),
+                    _seconds_to_timestamp(float(start)),
+                    _seconds_to_timestamp(float(end)),
                     _normalize_subtitle_optional_text(text),
                     _normalize_subtitle_optional_text(speaker),
                     _format_subtitle_confidence(confidence),
@@ -667,22 +689,24 @@ def _load_people_entries_for_chapter(archive: str, ch_start: int, ch_end: int) -
     chapter_end = int(ch_end)
     if chapter_end <= chapter_start:
         return []
+    chapter_start_sec = _frame_to_seconds(chapter_start)
+    chapter_end_sec = _frame_to_seconds(chapter_end)
     local_entries = []
     for start, end, people in _read_people_tsv_rows(path):
-        lo = max(int(start), int(chapter_start))
-        hi = min(int(end), int(chapter_end))
-        if hi <= lo:
+        lo = max(float(start), float(chapter_start_sec))
+        hi = min(float(end), float(chapter_end_sec))
+        if float(hi) <= float(lo):
             continue
         local_entries.append(
             {
-                "start_seconds": _frame_to_seconds(max(0, int(lo) - int(chapter_start))),
-                "end_seconds": _frame_to_seconds(max(0, int(hi) - int(chapter_start))),
+                "start_seconds": max(0.0, float(lo) - float(chapter_start_sec)),
+                "end_seconds": max(0.0, float(hi) - float(chapter_start_sec)),
                 "people": people,
             }
         )
     return _normalize_people_entries_payload(
         local_entries,
-        chapter_duration_seconds=max(0.0, _frame_to_seconds(chapter_end - chapter_start)),
+        chapter_duration_seconds=max(0.0, float(chapter_end_sec) - float(chapter_start_sec)),
     )
 
 
@@ -696,27 +720,29 @@ def _save_people_entries_for_chapter(
     path = METADATA_DIR / archive_name / "people.tsv"
     chapter_start = int(ch_start)
     chapter_end = int(ch_end)
-    chapter_len = max(1, int(chapter_end) - int(chapter_start))
+    chapter_start_sec = _frame_to_seconds(chapter_start)
+    chapter_end_sec = _frame_to_seconds(chapter_end)
+    chapter_len_sec = max(_frame_to_seconds(1), float(chapter_end_sec) - float(chapter_start_sec))
     if chapter_end <= chapter_start:
         _write_people_tsv_rows(path, _canonicalize_people_tsv_rows(_read_people_tsv_rows(path)))
         return path, 0
 
     existing = _read_people_tsv_rows(path)
-    kept: list[tuple[int, int, str]] = []
+    kept: list[tuple[float, float, str]] = []
     for start, end, people in existing:
-        if int(end) <= int(chapter_start) or int(start) >= int(chapter_end):
-            kept.append((int(start), int(end), str(people)))
+        if float(end) <= float(chapter_start_sec) or float(start) >= float(chapter_end_sec):
+            kept.append((float(start), float(end), str(people)))
             continue
-        if int(start) < int(chapter_start):
-            kept.append((int(start), int(chapter_start), str(people)))
-        if int(end) > int(chapter_end):
-            kept.append((int(chapter_end), int(end), str(people)))
+        if float(start) < float(chapter_start_sec):
+            kept.append((float(start), float(chapter_start_sec), str(people)))
+        if float(end) > float(chapter_end_sec):
+            kept.append((float(chapter_end_sec), float(end), str(people)))
 
     normalized_local = _normalize_people_entries_payload(
         local_entries,
-        chapter_duration_seconds=max(0.0, _frame_to_seconds(chapter_len)),
+        chapter_duration_seconds=max(0.0, float(chapter_len_sec)),
     )
-    chapter_rows: list[tuple[int, int, str]] = []
+    chapter_rows: list[tuple[float, float, str]] = []
     for item in normalized_local:
         start_local = _parse_timestamp_seconds(item.get("start_seconds", item.get("start")))
         end_local = _parse_timestamp_seconds(item.get("end_seconds", item.get("end")))
@@ -725,16 +751,18 @@ def _save_people_entries_for_chapter(
         people = re.sub(r"\s+", " ", str(item.get("people", "")).strip())
         if not people:
             continue
-        local_start_frame = max(0, min(chapter_len, _seconds_to_frame(start_local)))
-        local_end_frame = max(0, min(chapter_len, _seconds_to_frame(end_local)))
-        if local_end_frame <= local_start_frame:
-            if local_start_frame >= chapter_len:
+        local_start_sec = max(0.0, min(float(chapter_len_sec), float(start_local)))
+        local_end_sec = max(0.0, min(float(chapter_len_sec), float(end_local)))
+        if local_end_sec <= local_start_sec:
+            if local_start_sec >= float(chapter_len_sec):
                 continue
-            local_end_frame = local_start_frame + 1
+            local_end_sec = min(float(chapter_len_sec), float(local_start_sec) + _frame_to_seconds(1))
+        global_start_sec = float(chapter_start_sec) + float(local_start_sec)
+        global_end_sec = float(chapter_start_sec) + float(local_end_sec)
         chapter_rows.append(
             (
-                int(chapter_start + local_start_frame),
-                int(chapter_start + local_end_frame),
+                float(global_start_sec),
+                float(global_end_sec),
                 str(people),
             )
         )
@@ -755,16 +783,18 @@ def _load_subtitle_entries_for_chapter(archive: str, ch_start: int, ch_end: int)
     chapter_end = int(ch_end)
     if chapter_end <= chapter_start:
         return []
+    chapter_start_sec = _frame_to_seconds(chapter_start)
+    chapter_end_sec = _frame_to_seconds(chapter_end)
     local_entries = []
     for start, end, text, speaker, confidence, source in _read_subtitles_tsv_rows(path):
-        lo = max(int(start), int(chapter_start))
-        hi = min(int(end), int(chapter_end))
-        if hi <= lo:
+        lo = max(float(start), float(chapter_start_sec))
+        hi = min(float(end), float(chapter_end_sec))
+        if float(hi) <= float(lo):
             continue
         local_entries.append(
             {
-                "start_seconds": _frame_to_seconds(max(0, int(lo) - int(chapter_start))),
-                "end_seconds": _frame_to_seconds(max(0, int(hi) - int(chapter_start))),
+                "start_seconds": max(0.0, float(lo) - float(chapter_start_sec)),
+                "end_seconds": max(0.0, float(hi) - float(chapter_start_sec)),
                 "text": text,
                 "speaker": speaker,
                 "confidence": confidence,
@@ -773,7 +803,7 @@ def _load_subtitle_entries_for_chapter(archive: str, ch_start: int, ch_end: int)
         )
     return _normalize_subtitle_entries_payload(
         local_entries,
-        chapter_duration_seconds=max(0.0, _frame_to_seconds(chapter_end - chapter_start)),
+        chapter_duration_seconds=max(0.0, float(chapter_end_sec) - float(chapter_start_sec)),
     )
 
 
@@ -787,27 +817,29 @@ def _save_subtitle_entries_for_chapter(
     path = METADATA_DIR / archive_name / "subtitles.tsv"
     chapter_start = int(ch_start)
     chapter_end = int(ch_end)
-    chapter_len = max(1, int(chapter_end) - int(chapter_start))
+    chapter_start_sec = _frame_to_seconds(chapter_start)
+    chapter_end_sec = _frame_to_seconds(chapter_end)
+    chapter_len_sec = max(_frame_to_seconds(1), float(chapter_end_sec) - float(chapter_start_sec))
     if chapter_end <= chapter_start:
         _write_subtitles_tsv_rows(path, _canonicalize_subtitles_tsv_rows(_read_subtitles_tsv_rows(path)))
         return path, 0
 
     existing = _read_subtitles_tsv_rows(path)
-    kept: list[tuple[int, int, str, str, float | None, str]] = []
+    kept: list[tuple[float, float, str, str, float | None, str]] = []
     for start, end, text, speaker, confidence, source in existing:
-        if int(end) <= int(chapter_start) or int(start) >= int(chapter_end):
-            kept.append((int(start), int(end), str(text), str(speaker), confidence, str(source)))
+        if float(end) <= float(chapter_start_sec) or float(start) >= float(chapter_end_sec):
+            kept.append((float(start), float(end), str(text), str(speaker), confidence, str(source)))
             continue
-        if int(start) < int(chapter_start):
-            kept.append((int(start), int(chapter_start), str(text), str(speaker), confidence, str(source)))
-        if int(end) > int(chapter_end):
-            kept.append((int(chapter_end), int(end), str(text), str(speaker), confidence, str(source)))
+        if float(start) < float(chapter_start_sec):
+            kept.append((float(start), float(chapter_start_sec), str(text), str(speaker), confidence, str(source)))
+        if float(end) > float(chapter_end_sec):
+            kept.append((float(chapter_end_sec), float(end), str(text), str(speaker), confidence, str(source)))
 
     normalized_local = _normalize_subtitle_entries_payload(
         local_entries,
-        chapter_duration_seconds=max(0.0, _frame_to_seconds(chapter_len)),
+        chapter_duration_seconds=max(0.0, float(chapter_len_sec)),
     )
-    chapter_rows: list[tuple[int, int, str, str, float | None, str]] = []
+    chapter_rows: list[tuple[float, float, str, str, float | None, str]] = []
     for item in normalized_local:
         start_local = _parse_timestamp_seconds(item.get("start_seconds", item.get("start")))
         end_local = _parse_timestamp_seconds(item.get("end_seconds", item.get("end")))
@@ -816,16 +848,18 @@ def _save_subtitle_entries_for_chapter(
         text = _normalize_subtitle_optional_text(item.get("text", ""))
         if not text:
             continue
-        local_start_frame = max(0, min(chapter_len, _seconds_to_frame(start_local)))
-        local_end_frame = max(0, min(chapter_len, _seconds_to_frame(end_local)))
-        if local_end_frame <= local_start_frame:
-            if local_start_frame >= chapter_len:
+        local_start_sec = max(0.0, min(float(chapter_len_sec), float(start_local)))
+        local_end_sec = max(0.0, min(float(chapter_len_sec), float(end_local)))
+        if local_end_sec <= local_start_sec:
+            if local_start_sec >= float(chapter_len_sec):
                 continue
-            local_end_frame = local_start_frame + 1
+            local_end_sec = min(float(chapter_len_sec), float(local_start_sec) + _frame_to_seconds(1))
+        global_start_sec = float(chapter_start_sec) + float(local_start_sec)
+        global_end_sec = float(chapter_start_sec) + float(local_end_sec)
         chapter_rows.append(
             (
-                int(chapter_start + local_start_frame),
-                int(chapter_start + local_end_frame),
+                float(global_start_sec),
+                float(global_end_sec),
                 text,
                 _normalize_subtitle_optional_text(item.get("speaker", "")),
                 _parse_subtitle_confidence(item.get("confidence")),
@@ -1252,15 +1286,22 @@ class WizardHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def _send_video_file(self, path: Path) -> None:
+    def _send_media_file(
+        self,
+        path: Path,
+        *,
+        content_type: str,
+        missing_message: str,
+        empty_message: str,
+    ) -> None:
         p = Path(path)
         if not p.exists() or not p.is_file():
-            self._send_error_json("Preview video is not available.", code=HTTPStatus.NOT_FOUND)
+            self._send_error_json(str(missing_message), code=HTTPStatus.NOT_FOUND)
             return
 
         total_size = int(p.stat().st_size)
         if total_size <= 0:
-            self._send_error_json("Preview video is empty.", code=HTTPStatus.NOT_FOUND)
+            self._send_error_json(str(empty_message), code=HTTPStatus.NOT_FOUND)
             return
 
         start = 0
@@ -1299,7 +1340,7 @@ class WizardHandler(BaseHTTPRequestHandler):
 
         length = (end - start) + 1
         self.send_response(status)
-        self.send_header("Content-Type", "video/mp4")
+        self.send_header("Content-Type", str(content_type))
         self.send_header("Accept-Ranges", "bytes")
         self.send_header("Content-Length", str(length))
         self.send_header("Cache-Control", "no-store")
@@ -1319,6 +1360,110 @@ class WizardHandler(BaseHTTPRequestHandler):
                     break
                 self.wfile.write(chunk)
                 remaining -= len(chunk)
+
+    def _send_video_file(self, path: Path) -> None:
+        self._send_media_file(
+            path,
+            content_type="video/mp4",
+            missing_message="Preview video is not available.",
+            empty_message="Preview video is empty.",
+        )
+
+    def _send_audio_file(self, path: Path) -> None:
+        self._send_media_file(
+            path,
+            content_type="audio/wav",
+            missing_message="Chapter audio is not available.",
+            empty_message="Chapter audio is empty.",
+        )
+
+    def _chapter_audio_cache_key(self, session: SessionState) -> str:
+        return (
+            f"{str(session.archive or '').strip()}|"
+            f"{str(session.chapter or '').strip()}|"
+            f"{int(session.start_frame)}|{int(session.end_frame)}"
+        )
+
+    def _ensure_chapter_audio_file(self, session: SessionState) -> tuple[Path | None, str]:
+        if not str(session.archive or "").strip() or not str(session.chapter or "").strip():
+            return None, "Load a chapter before requesting audio."
+        if int(session.end_frame) <= int(session.start_frame):
+            return None, "Invalid chapter frame span for audio."
+
+        cache_key = self._chapter_audio_cache_key(session)
+        existing_raw = str(session.chapter_audio_path or "").strip()
+        existing = Path(existing_raw) if existing_raw else None
+        if (
+            existing
+            and session.chapter_audio_key == cache_key
+            and existing.exists()
+            and existing.is_file()
+            and int(existing.stat().st_size) > 44
+        ):
+            return existing, ""
+
+        source_video = _resolve_archive_video(session.archive)
+        if not source_video:
+            return None, f"No archive video found for '{session.archive}'."
+
+        start_sec = _frame_to_seconds(session.start_frame)
+        end_sec = _frame_to_seconds(session.end_frame)
+        if float(end_sec) <= float(start_sec):
+            return None, "Invalid chapter time range for audio."
+
+        out_dir = Path(tempfile.gettempdir()) / "vhs_plain_wizard_audio"
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        archive_slug = slugify(str(session.archive or "archive")) or "archive"
+        chapter_slug = slugify(str(session.chapter or "chapter")) or "chapter"
+        key_hash = uuid.uuid5(uuid.NAMESPACE_URL, cache_key).hex[:16]
+        out_name = (
+            f"{archive_slug}_{chapter_slug}_"
+            f"{int(session.start_frame)}_{int(session.end_frame)}_{key_hash}.wav"
+        )
+        out_path = out_dir / out_name
+
+        needs_extract = True
+        try:
+            needs_extract = (not out_path.exists()) or (int(out_path.stat().st_size) <= 44)
+        except Exception:
+            needs_extract = True
+
+        if needs_extract:
+            cmd = [
+                str(FFMPEG_BIN),
+                "-nostdin",
+                "-v",
+                "error",
+                "-ss",
+                f"{float(start_sec):.3f}",
+                "-to",
+                f"{float(end_sec):.3f}",
+                "-i",
+                str(source_video),
+                "-vn",
+                "-ac",
+                "1",
+                "-ar",
+                "16000",
+                "-c:a",
+                "pcm_s16le",
+                "-y",
+                str(out_path),
+            ]
+            proc = subprocess.run(
+                cmd,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if proc.returncode != 0 or not out_path.exists():
+                detail = (proc.stderr or proc.stdout or "").strip()
+                return None, detail or "ffmpeg audio extraction failed."
+
+        session.chapter_audio_key = cache_key
+        session.chapter_audio_path = str(out_path)
+        return out_path, ""
 
     def _preview_page_html(self, session: SessionState) -> str:
         title_text = html.escape(str(session.chapter or "Preview"))
@@ -1380,6 +1525,14 @@ class WizardHandler(BaseHTTPRequestHandler):
                 self._send_error_json("Preview render is not ready yet.", code=HTTPStatus.NOT_FOUND)
                 return
             self._send_video_file(preview_path)
+            return
+
+        if parsed.path == "/api/chapter_audio":
+            audio_path, err = self._ensure_chapter_audio_file(session)
+            if err or audio_path is None:
+                self._send_error_json(err or "Chapter audio is not available.", code=HTTPStatus.NOT_FOUND)
+                return
+            self._send_audio_file(audio_path)
             return
 
         if parsed.path == "/api/archives":
@@ -1486,6 +1639,26 @@ class WizardHandler(BaseHTTPRequestHandler):
                         "Cancel requested... stopping after current frame."
                         if session.load_running
                         else "No active load to cancel."
+                    ),
+                }
+            )
+            return
+
+        if parsed.path == "/api/cancel_subtitles":
+            session.subtitles_cancel_requested = True
+            if session.subtitles_running:
+                _set_subtitles_progress(
+                    session,
+                    message="Cancel requested... stopping after current decode chunk.",
+                )
+            self._send_json(
+                {
+                    "ok": True,
+                    "running": bool(session.subtitles_running),
+                    "message": (
+                        "Cancel requested... stopping after current decode chunk."
+                        if session.subtitles_running
+                        else "No active subtitle generation to cancel."
                     ),
                 }
             )
@@ -1612,6 +1785,8 @@ class WizardHandler(BaseHTTPRequestHandler):
         session.debug_extract = bool(payload.get("debug_extract", session.debug_extract))
         session.iqr_k = iqr_k
         session.preview_video_path = ""
+        session.chapter_audio_path = ""
+        session.chapter_audio_key = ""
         session.fids = []
         session.b64 = []
         session.sigs = {}
@@ -2388,7 +2563,14 @@ class WizardHandler(BaseHTTPRequestHandler):
                 segment_done=0,
                 segment_total=0,
             )
+            session.subtitles_cancel_requested = False
             self._send_error_json(message)
+
+        def cancelled() -> bool:
+            if not bool(session.subtitles_cancel_requested):
+                return False
+            fail("Subtitle generation cancelled.")
+            return True
 
         if not session.archive or not session.chapter:
             fail("Load a chapter before generating subtitles.")
@@ -2409,6 +2591,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             fail(f"No archive video found for '{session.archive}'.")
             return
 
+        session.subtitles_cancel_requested = False
         _set_subtitles_progress(
             session,
             running=True,
@@ -2417,12 +2600,16 @@ class WizardHandler(BaseHTTPRequestHandler):
             segment_done=0,
             segment_total=0,
         )
+        if cancelled():
+            return
 
         try:
             model = _load_whisper_model()
             transcribe_module = _load_whisper_transcribe_module()
         except Exception as exc:
             fail(f"Subtitle generation unavailable: {type(exc).__name__}: {exc}")
+            return
+        if cancelled():
             return
 
         chapter_duration = max(
@@ -2477,6 +2664,8 @@ class WizardHandler(BaseHTTPRequestHandler):
                 if proc.returncode != 0 or not audio_path.exists():
                     detail = (proc.stderr or proc.stdout or "").strip()
                     raise RuntimeError(detail or "ffmpeg audio extraction failed.")
+                if bool(session.subtitles_cancel_requested):
+                    raise _SubtitlesCancelledError("Subtitle generation cancelled.")
 
                 segment_total = 0
                 try:
@@ -2543,6 +2732,8 @@ class WizardHandler(BaseHTTPRequestHandler):
                             segment_done=max(0, int(round(done))),
                             segment_total=max(1, int(round(self._total))),
                         )
+                        if bool(session.subtitles_cancel_requested):
+                            raise _SubtitlesCancelledError("Subtitle generation cancelled.")
                         return out
 
                     def close(self) -> Any:
@@ -2570,6 +2761,11 @@ class WizardHandler(BaseHTTPRequestHandler):
                     finally:
                         if callable(original_tqdm):
                             setattr(tqdm_module, "tqdm", original_tqdm)
+                if bool(session.subtitles_cancel_requested):
+                    raise _SubtitlesCancelledError("Subtitle generation cancelled.")
+        except _SubtitlesCancelledError:
+            fail("Subtitle generation cancelled.")
+            return
         except Exception as exc:
             fail(f"Subtitle generation failed: {type(exc).__name__}: {exc}")
             return
@@ -2610,6 +2806,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             segment_done=max(0, int(session.subtitles_segment_total)),
             segment_total=max(0, int(session.subtitles_segment_total)),
         )
+        session.subtitles_cancel_requested = False
 
         self._send_json(
             {
