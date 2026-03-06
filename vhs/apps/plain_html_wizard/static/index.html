@@ -302,7 +302,7 @@
       height: 100%;
       display: grid;
       grid-template-rows: auto auto minmax(0, 1fr) auto;
-      gap: 10px;
+      gap: 6px;
     }
 
     .review-top {
@@ -384,9 +384,10 @@
 
     .spark-panel {
       display: grid;
-      gap: 4px;
+      gap: 2px;
       align-content: start;
       min-height: 0;
+      padding: 8px 8px 5px;
     }
 
     .spark-meta {
@@ -1570,6 +1571,10 @@
                 <input id="simulateFreezeFrame" type="checkbox">
                 <span>Sim FreezeFrame</span>
               </label>
+              <label class="sim-freeze" for="forceAllFramesGood">
+                <input id="forceAllFramesGood" type="checkbox">
+                <span>Force All Good</span>
+              </label>
             </div>
             <div id="gammaControls" class="iqr-box hidden-ui">
               <label for="gammaLevel">Gamma Correction</label>
@@ -1612,6 +1617,10 @@
             id="subtitlesEditor"
             class="subtitles-editor hidden-ui"
             aria-label="Dialogue subtitles table editor"></div>
+          <div
+            id="splitEditor"
+            class="subtitles-editor hidden-ui"
+            aria-label="Chapter split table editor"></div>
           <div id="sparkMeta" class="spark-meta"></div>
           <div id="gammaRangeMeta" class="spark-meta hidden-ui"></div>
         </div>
@@ -1688,7 +1697,7 @@
         <button id="helpCloseBtn" class="action warn" type="button">Close</button>
       </div>
       <div class="help-body">
-        <p>This wizard lets you mark bad frames, tune gamma, author people subtitle ranges, and edit dialogue subtitles. Progress saves write <code>BAD_FRAMES</code> + gamma metadata to <code>metadata/&lt;archive&gt;/render_settings.json</code>, people subtitle ranges to <code>metadata/&lt;archive&gt;/people.tsv</code>, and dialogue subtitle rows to <code>metadata/&lt;archive&gt;/subtitles.tsv</code>. During render, subtitle files are generated from that data.</p>
+        <p>This wizard lets you mark bad frames, tune gamma, author people subtitle ranges, edit dialogue subtitles, and create chapter split ranges. Progress saves write <code>BAD_FRAMES</code> + gamma metadata to <code>metadata/&lt;archive&gt;/render_settings.json</code>, people subtitle ranges to <code>metadata/&lt;archive&gt;/people.tsv</code>, dialogue subtitle rows to <code>metadata/&lt;archive&gt;/subtitles.tsv</code>, and split rows to <code>metadata/&lt;archive&gt;/chapters.tsv</code>. During render, subtitle files are generated from that data.</p>
 
         <h3>Step 1: Load Chapter</h3>
         <ol>
@@ -1701,6 +1710,7 @@
           <li>Each frame card is color-coded: green is currently good, red is currently bad.</li>
           <li>Click any frame to toggle its manual override between good and bad.</li>
           <li>Enable <code>Sim FreezeFrame</code> to preview replacement in real time; dashed card borders mark simulated replacements.</li>
+          <li>Enable <code>Force All Good</code> to force every loaded frame status to good for preview/save.</li>
           <li>Use the <code>IQR k</code> slider to change the automatic threshold. Lower <code>k</code> marks more frames bad; higher <code>k</code> marks fewer.</li>
           <li>The sparkline shows score distribution and threshold. Drag on it to jump around the grid.</li>
           <li><code>Fullscreen</code> expands the review panel for faster triage.</li>
@@ -1734,10 +1744,16 @@
           <li>Use <code>Save Progress</code> anytime to persist wizard progress and resume later.</li>
         </ul>
 
-        <h3>Step 5: Summary + Save</h3>
+        <h3>Step 5: Split</h3>
+        <ul>
+          <li>Use Split to define chapter sub-ranges with chapter frame numbers (inclusive end frame).</li>
+          <li>Split rows are saved to <code>metadata/&lt;archive&gt;/chapters.tsv</code> with ffmetadata columns.</li>
+        </ul>
+
+        <h3>Step 6: Summary + Save</h3>
         <ol>
-          <li>Click the <code>5/5 Summary + Save</code> step button at the top to verify bad-frame, gamma, and people subtitle settings.</li>
-          <li>Click <code>Save and Return to Chapters</code> to persist selected bad frames, gamma ranges, and people subtitle entries.</li>
+          <li>Click the <code>6/6 Summary + Save</code> step button at the top to verify bad-frame, gamma, subtitles, and split settings.</li>
+          <li>Click <code>Save and Return to Chapters</code> to persist selected bad frames, gamma ranges, people/subtitle rows, and split rows.</li>
           <li>The chapter list refreshes with updated BAD counts after save.</li>
         </ol>
 
@@ -1775,6 +1791,7 @@
       freezeReplacementMap: new Map(),
       simulateFreezeFrame: false,
       simulateFreezeFrameReviewPref: false,
+      forceAllFramesGood: false,
       gammaScores: new Map(),
       gammaProfile: {
         mode: 'whole',
@@ -1791,6 +1808,10 @@
         entries: [],
         source: 'default',
       },
+      splitProfile: {
+        entries: [],
+        source: 'default',
+      },
     };
 
     const STEP_DEFS = [
@@ -1798,7 +1819,8 @@
       { num: 2, label: 'Bad Frames + IQR', pageId: 'page2', mode: 'review' },
       { num: 3, label: 'Gamma Correction', pageId: 'page2', mode: 'gamma' },
       { num: 4, label: 'Subtitles', pageId: 'page2', mode: 'people' },
-      { num: 5, label: 'Summary + Save', pageId: 'page3', mode: 'summary' },
+      { num: 5, label: 'Split', pageId: 'page2', mode: 'split' },
+      { num: 6, label: 'Summary + Save', pageId: 'page3', mode: 'summary' },
     ];
     const STEP_BY_NUM = new Map(STEP_DEFS.map((step) => [step.num, step]));
     const STEP_INDEX_BY_NUM = new Map(STEP_DEFS.map((step, index) => [step.num, index]));
@@ -1859,6 +1881,7 @@
     const subtitlesMetaEl = document.getElementById('subtitlesMeta');
     const peopleEditorEl = document.getElementById('peopleEditor');
     const subtitlesEditorEl = document.getElementById('subtitlesEditor');
+    const splitEditorEl = document.getElementById('splitEditor');
     const reviewStatsEl = document.getElementById('reviewStats');
     const frameGridEl = document.getElementById('frameGrid');
     const summaryBoxEl = document.getElementById('summaryBox');
@@ -1883,6 +1906,7 @@
     const reviewControlsEl = document.getElementById('reviewControls');
     const gammaControlsEl = document.getElementById('gammaControls');
     const simulateFreezeFrameEl = document.getElementById('simulateFreezeFrame');
+    const forceAllFramesGoodEl = document.getElementById('forceAllFramesGood');
     const flipbookSimFreezeFrameEl = document.getElementById('flipbookSimFreezeFrame');
     const flipbookSimFreezeWrapEl = flipbookSimFreezeFrameEl ? flipbookSimFreezeFrameEl.closest('label.sim-freeze') : null;
     const previewRenderBtnEl = document.getElementById('previewRender');
@@ -1954,6 +1978,7 @@
       subtitlesGenerateBtnEl,
       peopleClearBtnEl,
       saveProgressDraftBtnEl,
+      forceAllFramesGoodEl,
     ].filter((el) => Boolean(el));
     let shiftRangeAnchorFid = null;
 
@@ -2136,6 +2161,7 @@
             stats: liveReview.stats || {},
             frames: liveFrames,
           };
+          syncForceAllFramesGoodFromReview(liveReview);
           updateReviewStatsDisplay();
           if (liveFrames.length !== progressiveReviewFrameCount) {
             renderReviewFrames(liveFrames);
@@ -2157,6 +2183,20 @@
         flipbookSimFreezeFrameEl.checked = state.simulateFreezeFrame;
       }
       refreshFreezeSimulation();
+    }
+
+    function setForceAllFramesGoodUi(enabled) {
+      const next = Boolean(enabled);
+      state.forceAllFramesGood = next;
+      if (forceAllFramesGoodEl) {
+        forceAllFramesGoodEl.checked = next;
+      }
+    }
+
+    function syncForceAllFramesGoodFromReview(review) {
+      if (!review || typeof review !== 'object') return;
+      if (!Object.prototype.hasOwnProperty.call(review, 'force_all_frames_good')) return;
+      setForceAllFramesGoodUi(Boolean(review.force_all_frames_good));
     }
 
     function updateActionLocks() {
@@ -2407,7 +2447,7 @@
     }
 
     function isReviewMode(mode) {
-      return mode === 'review' || mode === 'gamma' || mode === 'people';
+      return mode === 'review' || mode === 'gamma' || mode === 'people' || mode === 'split';
     }
 
     function isNavigationLocked() {
@@ -2467,22 +2507,25 @@
       updateStepPillActive(targetStep.num);
       const gammaMode = targetStep.mode === 'gamma';
       const peopleMode = targetStep.mode === 'people';
-      if (!peopleMode) {
+      const splitMode = targetStep.mode === 'split';
+      const timelineMode = peopleMode || splitMode;
+      if (!timelineMode) {
         peopleTimelineDraft = null;
         subtitleTimelineDraft = null;
         peopleTimelineDrag = null;
       }
-      if (reviewControlsEl) reviewControlsEl.classList.toggle('hidden-ui', gammaMode || peopleMode);
+      if (reviewControlsEl) reviewControlsEl.classList.toggle('hidden-ui', gammaMode || timelineMode);
       if (gammaControlsEl) gammaControlsEl.classList.toggle('hidden-ui', !gammaMode);
       if (peopleControlsEl) peopleControlsEl.classList.toggle('hidden-ui', !peopleMode);
-      if (iqrSparkEl) iqrSparkEl.classList.toggle('hidden-ui', peopleMode);
-      if (sparkMetaEl) sparkMetaEl.classList.toggle('hidden-ui', peopleMode);
-      if (timelineScrubWrapEl) timelineScrubWrapEl.classList.toggle('hidden-ui', !peopleMode);
+      if (iqrSparkEl) iqrSparkEl.classList.toggle('hidden-ui', timelineMode);
+      if (sparkMetaEl) sparkMetaEl.classList.toggle('hidden-ui', timelineMode);
+      if (timelineScrubWrapEl) timelineScrubWrapEl.classList.toggle('hidden-ui', !timelineMode);
       if (peopleTimelineEl) peopleTimelineEl.classList.toggle('hidden-ui', !peopleMode);
       if (gammaRangeMetaEl) gammaRangeMetaEl.classList.toggle('hidden-ui', !gammaMode);
       if (peopleMetaEl) peopleMetaEl.classList.toggle('hidden-ui', !peopleMode);
       if (peopleEditorEl) peopleEditorEl.classList.toggle('hidden-ui', !peopleMode);
       if (subtitlesEditorEl) subtitlesEditorEl.classList.toggle('hidden-ui', !peopleMode);
+      if (splitEditorEl) splitEditorEl.classList.toggle('hidden-ui', !splitMode);
       if (flipbookGammaControlsEl) flipbookGammaControlsEl.classList.toggle('hidden-ui', !gammaMode);
       if (flipbookSimFreezeWrapEl) flipbookSimFreezeWrapEl.classList.toggle('hidden-ui', gammaMode);
 
@@ -2501,6 +2544,9 @@
         updatePeopleMeta();
         updateSubtitlesMeta();
         ensureTimelineAudioLoaded(false);
+      } else if (splitMode) {
+        updateSplitMeta();
+        ensureTimelineAudioLoaded(false);
       } else if (timelineAudioEl && !timelineAudioEl.paused) {
         timelineAudioEl.pause();
       }
@@ -2509,6 +2555,7 @@
       updateTimelineAudioPlayButton();
       updateFullscreenButton();
       refreshGammaVisuals();
+      refreshFrameCardLabelsForCurrentMode();
       updateReviewStatsDisplay();
       if (reviewStage && state.review && Array.isArray(state.review.frames) && state.review.frames.length) {
         window.requestAnimationFrame(() => {
@@ -2614,7 +2661,8 @@
     }
 
     function statsText(stats, threshold) {
-      return `Bad: ${stats.bad} (${Math.round((100 * stats.bad) / Math.max(1, stats.total))}%) | Good: ${stats.good} | Threshold: ${threshold.toFixed(4)} | Overrides: ${stats.overrides} | n=${stats.total} | shown=${stats.shown}`;
+      const forceText = state.forceAllFramesGood ? ' | Force Good: ON' : '';
+      return `Bad: ${stats.bad} (${Math.round((100 * stats.bad) / Math.max(1, stats.total))}%) | Good: ${stats.good} | Threshold: ${threshold.toFixed(4)} | Overrides: ${stats.overrides} | n=${stats.total} | shown=${stats.shown}${forceText}`;
     }
 
     function normalizeGammaValue(raw, fallback = 1.0) {
@@ -2628,18 +2676,39 @@
       const loadSettingsChapter = String((state.loadSettings && state.loadSettings.chapter) || '').trim();
       const currentChapter = String(state.chapter || '').trim();
       const hasActiveLoadSettings = Boolean(loadSettingsChapter && loadSettingsChapter === currentChapter);
+      const startSource = hasActiveLoadSettings
+        ? (state.loadSettings && state.loadSettings.start_frame)
+        : (selectedChapter && selectedChapter.start_frame);
+      const endSource = hasActiveLoadSettings
+        ? (state.loadSettings && state.loadSettings.end_frame)
+        : (selectedChapter && selectedChapter.end_frame);
       const startRaw = Number(
-        (hasActiveLoadSettings && state.loadSettings && state.loadSettings.start_frame)
-        ?? (selectedChapter && selectedChapter.start_frame)
+        startSource
         ?? 0
       );
       const endRaw = Number(
-        (hasActiveLoadSettings && state.loadSettings && state.loadSettings.end_frame)
-        ?? (selectedChapter && selectedChapter.end_frame)
+        endSource
         ?? (startRaw + 1)
       );
       const start = Math.max(0, Math.trunc(Number.isFinite(startRaw) ? startRaw : 0));
       const end = Math.max(start + 1, Math.trunc(Number.isFinite(endRaw) ? endRaw : (start + 1)));
+      const frames = (state.review && Array.isArray(state.review.frames)) ? state.review.frames : [];
+      if (frames.length) {
+        let minFid = Number.POSITIVE_INFINITY;
+        let maxFid = Number.NEGATIVE_INFINITY;
+        for (const frame of frames) {
+          const fid = Math.trunc(Number(frame && frame.fid));
+          if (!Number.isFinite(fid)) continue;
+          if (fid < minFid) minFid = fid;
+          if (fid > maxFid) maxFid = fid;
+        }
+        if (Number.isFinite(minFid) && Number.isFinite(maxFid) && maxFid >= minFid) {
+          return {
+            start: Math.max(0, Math.trunc(minFid)),
+            end: Math.max(Math.trunc(minFid) + 1, Math.trunc(maxFid) + 1),
+          };
+        }
+      }
       return { start, end };
     }
 
@@ -2728,6 +2797,41 @@
       return Math.max(0, (Math.max(span.end, span.start + 1) - span.start) * (1001 / 30000));
     }
 
+    function chapterFrameCount() {
+      const span = chapterFrameSpan();
+      return Math.max(1, Math.max(span.end, span.start + 1) - span.start);
+    }
+
+    function formatFrameIndex(rawFrame) {
+      const n = Number(rawFrame);
+      if (!Number.isFinite(n)) return '0';
+      return String(Math.max(0, Math.trunc(n)));
+    }
+
+    function parseFrameIndex(rawFrame) {
+      let text = String(rawFrame ?? '').trim();
+      if (!text) return null;
+      text = text.replace(/^f/i, '');
+      text = text.replace(/[,\s_]/g, '');
+      if (!/^\d+$/.test(text)) return null;
+      const n = Number(text);
+      if (!Number.isFinite(n)) return null;
+      return Math.max(0, Math.trunc(n));
+    }
+
+    function frameIndexFromSeconds(rawSeconds) {
+      const step = timelineFrameStepSeconds();
+      if (!Number.isFinite(step) || step <= 0) return 0;
+      const sec = Math.max(0, Number(rawSeconds || 0));
+      return Math.max(0, Math.trunc(Math.round(sec / step)));
+    }
+
+    function secondsFromFrameIndex(rawFrame) {
+      const step = timelineFrameStepSeconds();
+      if (!Number.isFinite(step) || step <= 0) return 0;
+      return Math.max(0, Math.trunc(Number(rawFrame || 0))) * step;
+    }
+
     function formatTimestampSeconds(rawSeconds) {
       const sec = Math.max(0, Number(rawSeconds || 0));
       const totalMs = Math.round(sec * 1000);
@@ -2739,7 +2843,7 @@
     }
 
     function parseTimestampSeconds(raw) {
-      const text = String(raw || '').trim();
+      const text = String(raw ?? '').trim();
       if (!text) return null;
       const cleaned = text.replace(',', '.');
       const parts = cleaned.split(':');
@@ -2767,9 +2871,98 @@
       return formatTimestampSeconds(chapterLocalSecondsFromFid(fidRaw));
     }
 
+    function chapterLocalFrameFromFid(fidRaw) {
+      const fid = Number(fidRaw);
+      if (!Number.isFinite(fid)) return 0;
+      const span = chapterFrameSpan();
+      return Math.max(0, Math.trunc(fid) - Number(span.start || 0));
+    }
+
+    function splitChapterFrameBounds() {
+      const span = chapterFrameSpan();
+      let start = Math.max(0, Math.trunc(Number(span.start || 0)));
+      let endExclusive = Math.max(start + 1, Math.trunc(Number(span.end || (start + 1))));
+
+      const frames = (state.review && Array.isArray(state.review.frames)) ? state.review.frames : [];
+      if (frames.length) {
+        let minFid = Number.POSITIVE_INFINITY;
+        let maxFid = Number.NEGATIVE_INFINITY;
+        for (const frame of frames) {
+          const fid = Math.trunc(Number(frame && frame.fid));
+          if (!Number.isFinite(fid)) continue;
+          if (fid < minFid) minFid = fid;
+          if (fid > maxFid) maxFid = fid;
+        }
+        if (Number.isFinite(minFid) && Number.isFinite(maxFid) && maxFid >= minFid) {
+          start = Math.max(0, Math.trunc(minFid));
+          endExclusive = Math.max(start + 1, Math.trunc(maxFid) + 1);
+        }
+      }
+      const frameCount = Math.max(1, endExclusive - start);
+      return {
+        start,
+        endExclusive,
+        endInclusive: endExclusive - 1,
+        frameCount,
+      };
+    }
+
+    function splitDisplayStartFrame(localStartFrame) {
+      const bounds = splitChapterFrameBounds();
+      const local = _clamp(Math.trunc(Number(localStartFrame || 0)), 0, bounds.frameCount);
+      return bounds.start + local;
+    }
+
+    function splitDisplayEndFrameInclusive(localEndFrameExclusive, localStartFrame = 0) {
+      const bounds = splitChapterFrameBounds();
+      const localEnd = _clamp(Math.trunc(Number(localEndFrameExclusive || 0)), 0, bounds.frameCount);
+      const localStart = _clamp(Math.trunc(Number(localStartFrame || 0)), 0, bounds.frameCount);
+      const localInclusive = Math.max(localStart, Math.max(0, localEnd - 1));
+      return bounds.start + localInclusive;
+    }
+
+    function parseSplitInputFrameToLocal(rawFrame, options = {}) {
+      const parsed = parseFrameIndex(rawFrame);
+      if (parsed === null) return null;
+      const isEnd = Boolean(options && options.isEnd);
+      const bounds = splitChapterFrameBounds();
+      if (isEnd && parsed === bounds.endExclusive) {
+        return Math.max(0, bounds.frameCount - 1);
+      }
+      const localMax = isEnd ? Math.max(0, bounds.frameCount - 1) : bounds.frameCount;
+      const inLocal = parsed >= 0 && parsed <= localMax;
+      const inGlobal = parsed >= bounds.start && parsed <= bounds.endInclusive;
+      if (inGlobal && (!inLocal || bounds.start > 0)) {
+        return parsed - bounds.start;
+      }
+      if (inLocal) {
+        return parsed;
+      }
+      if (inGlobal) {
+        return parsed - bounds.start;
+      }
+      return null;
+    }
+
+    function timelineLabelFromFid(fidRaw) {
+      if (isSplitStepActive()) {
+        const fid = Number(fidRaw);
+        const frame = Number.isFinite(fid) ? Math.max(0, Math.trunc(fid)) : 0;
+        return `F${frame}`;
+      }
+      return chapterTimecodeFromFid(fidRaw);
+    }
+
+    function formatTimelineSecondsLabel(rawSeconds) {
+      if (isSplitStepActive()) {
+        return `F${splitDisplayStartFrame(frameIndexFromSeconds(rawSeconds))}`;
+      }
+      return formatTimestampSeconds(rawSeconds);
+    }
+
     function formatFrameCardLabel(frame) {
       if (!frame || frame.fid === undefined || frame.fid === null) return '';
-      const tc = chapterTimecodeFromFid(frame.fid);
+      const tc = timelineLabelFromFid(frame.fid);
       const score = Number(frame.score);
       const scoreText = Number.isFinite(score) ? `s=${score.toFixed(2)}` : '';
       const sourceText = String(frame.source || '').trim();
@@ -2787,7 +2980,7 @@
       const startFrame = data[startIdx] || null;
       const endFrame = data[endIdx] || null;
       if (!startFrame || !endFrame) return '';
-      return `${chapterTimecodeFromFid(startFrame.fid)}-${chapterTimecodeFromFid(endFrame.fid)}`;
+      return `${timelineLabelFromFid(startFrame.fid)}-${timelineLabelFromFid(endFrame.fid)}`;
     }
 
     function timelineFrameStepSeconds() {
@@ -3055,6 +3248,287 @@
         source: String((rawProfile && rawProfile.source) || payload.source || 'api_fallback'),
       });
       return profile;
+    }
+
+    function canonicalizeSplitEntries(rawEntries) {
+      const frameCount = splitChapterFrameBounds().frameCount;
+      const rows = [];
+      (Array.isArray(rawEntries) ? rawEntries : []).forEach((item, idx) => {
+        const startRaw = item && Object.prototype.hasOwnProperty.call(item, 'start_frame')
+          ? item.start_frame
+          : (item ? item.start : null);
+        const endRaw = item && Object.prototype.hasOwnProperty.call(item, 'end_frame')
+          ? item.end_frame
+          : (item ? item.end : null);
+        const start = parseFrameIndex(startRaw);
+        const end = parseFrameIndex(endRaw);
+        const title = normalizeSubtitleText(item && (item.title ?? item.text));
+        if (start === null || end === null || end <= start) return;
+        const a = _clamp(start, 0, frameCount);
+        const b = _clamp(end, 0, frameCount);
+        if (b <= a) return;
+        const normalizedTitle = title || `Split ${Math.max(1, Math.trunc(Number(idx || 0)) + 1)}`;
+        rows.push({
+          start_frame: Math.trunc(a),
+          end_frame: Math.trunc(b),
+          title: normalizedTitle,
+          idx: Number(idx || 0),
+        });
+      });
+      rows.sort((a, b) => {
+        if (a.start_frame !== b.start_frame) return a.start_frame - b.start_frame;
+        if (a.end_frame !== b.end_frame) return a.end_frame - b.end_frame;
+        return a.idx - b.idx;
+      });
+      return rows.map((row) => ({
+        start_frame: row.start_frame,
+        end_frame: row.end_frame,
+        start: String(row.start_frame),
+        end: String(row.end_frame),
+        title: row.title,
+      }));
+    }
+
+    function normalizeSplitProfile(rawProfile) {
+      const raw = (rawProfile && typeof rawProfile === 'object') ? rawProfile : {};
+      return {
+        entries: canonicalizeSplitEntries(raw.entries || []),
+        source: String(raw.source || 'default'),
+      };
+    }
+
+    function splitEntriesForTimeline() {
+      return canonicalizeSplitEntries((state.splitProfile && state.splitProfile.entries) || []).map((row, idx) => ({
+        start_frame: Math.max(0, Math.trunc(Number(row.start_frame || 0))),
+        end_frame: Math.max(0, Math.trunc(Number(row.end_frame || 0))),
+        start_seconds: secondsFromFrameIndex(row.start_frame),
+        end_seconds: secondsFromFrameIndex(row.end_frame),
+        text: String(row.title || ''),
+        idx: Number(idx || 0),
+      }));
+    }
+
+    function splitEditorHasFocus() {
+      return Boolean(splitEditorEl && splitEditorEl.contains(document.activeElement));
+    }
+
+    function splitEntriesToEditorRows(entries) {
+      const rows = canonicalizeSplitEntries(entries);
+      const bounds = splitChapterFrameBounds();
+      const mapped = rows.map((row) => ({
+        start: String(splitDisplayStartFrame(row.start_frame)),
+        end: String(splitDisplayEndFrameInclusive(row.end_frame, row.start_frame)),
+        title: String(row.title || ''),
+        isBlank: false,
+      }));
+      let nextStart = String(bounds.start);
+      if (rows.length) {
+        const last = rows[rows.length - 1];
+        const lastEnd = splitDisplayEndFrameInclusive(last.end_frame, last.start_frame);
+        const candidate = Number(lastEnd) + 1;
+        if (Number.isFinite(candidate) && candidate >= bounds.start && candidate <= bounds.endInclusive) {
+          nextStart = String(Math.trunc(candidate));
+        } else {
+          nextStart = '';
+        }
+      }
+      mapped.push({
+        start: nextStart,
+        end: '',
+        title: '',
+        isBlank: true,
+      });
+      return mapped;
+    }
+
+    function renderSplitEditorGrid(entries) {
+      if (!splitEditorEl) return;
+      const rows = splitEntriesToEditorRows(entries);
+      const bodyHtml = rows.map((row, idx) => {
+        const rowNum = idx + 1;
+        const deleteHtml = row.isBlank
+          ? ''
+          : `<button class="subtitles-editor-row-delete" type="button" data-split-row-delete="${idx}" title="Delete split row">x</button>`;
+        return `
+          <tr data-split-row="1" data-split-row-idx="${idx}">
+            <td class="rownum">${rowNum}</td>
+            <td><input class="subtitles-editor-cell start" type="text" spellcheck="false" data-split-field="start" value="${escapeHtml(row.start)}" placeholder="0" aria-label="Split start frame"></td>
+            <td><input class="subtitles-editor-cell end" type="text" spellcheck="false" data-split-field="end" value="${escapeHtml(row.end)}" placeholder="0" aria-label="Split end frame"></td>
+            <td><input class="subtitles-editor-cell text" type="text" spellcheck="false" data-split-field="title" value="${escapeHtml(row.title)}" placeholder="Split title" aria-label="Split title"></td>
+            <td>${deleteHtml}</td>
+          </tr>
+        `;
+      }).join('');
+      splitEditorEl.innerHTML = `
+        <table class="subtitles-editor-grid">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Start Frame</th>
+              <th>End Frame</th>
+              <th>Title</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>${bodyHtml}</tbody>
+        </table>
+        <div class="subtitles-editor-hint">Use chapter frame numbers. End frame is inclusive; next row starts at end + 1. Title is optional.</div>
+      `;
+    }
+
+    function parseSplitEditorGrid() {
+      const entries = [];
+      const errors = [];
+      if (!splitEditorEl) {
+        return { entries: canonicalizeSplitEntries((state.splitProfile && state.splitProfile.entries) || []), errors };
+      }
+      const rowEls = Array.from(splitEditorEl.querySelectorAll('tr[data-split-row="1"]'));
+      rowEls.forEach((rowEl, idx) => {
+        const rowNum = idx + 1;
+        const start = String((rowEl.querySelector('[data-split-field="start"]') && rowEl.querySelector('[data-split-field="start"]').value) || '').trim();
+        const end = String((rowEl.querySelector('[data-split-field="end"]') && rowEl.querySelector('[data-split-field="end"]').value) || '').trim();
+        const title = String((rowEl.querySelector('[data-split-field="title"]') && rowEl.querySelector('[data-split-field="title"]').value) || '').trim();
+        const hasAny = Boolean(start || end || title);
+        if (!hasAny) return;
+        if (start && !end && !title) return;
+        if (!start || !end) {
+          errors.push(`Row ${rowNum}: start frame and end frame are required.`);
+          return;
+        }
+        const startFrameLocal = parseSplitInputFrameToLocal(start, { isEnd: false });
+        const endFrameLocalInclusive = parseSplitInputFrameToLocal(end, { isEnd: true });
+        const endFrameLocal = endFrameLocalInclusive === null ? null : (endFrameLocalInclusive + 1);
+        const bounds = splitChapterFrameBounds();
+        if (startFrameLocal === null || endFrameLocal === null) {
+          errors.push(`Row ${rowNum}: start/end must be valid chapter frame numbers.`);
+          return;
+        }
+        if (
+          startFrameLocal < 0
+          || startFrameLocal >= bounds.frameCount
+          || endFrameLocal <= 0
+          || endFrameLocal > bounds.frameCount
+        ) {
+          errors.push(`Row ${rowNum}: frame range is outside this chapter.`);
+          return;
+        }
+        if (endFrameLocal <= startFrameLocal) {
+          errors.push(`Row ${rowNum}: end frame must be greater than start frame.`);
+          return;
+        }
+        entries.push({ start_frame: startFrameLocal, end_frame: endFrameLocal, title: title || '' });
+      });
+      return { entries: canonicalizeSplitEntries(entries), errors };
+    }
+
+    function syncSplitEditorToCursor(cursorSeconds, options = {}) {
+      if (!splitEditorEl || !isSplitStepActive()) return;
+      const force = Boolean(options && options.force);
+      if (!force && splitEditorHasFocus()) return;
+
+      const rows = canonicalizeSplitEntries((state.splitProfile && state.splitProfile.entries) || []);
+      const rowEls = Array.from(splitEditorEl.querySelectorAll('tr[data-split-row="1"]'));
+      if (!rows.length || !rowEls.length) {
+        rowEls.forEach((rowEl) => rowEl.classList.remove('active-row'));
+        return;
+      }
+      const cursorFrame = frameIndexFromSeconds(cursorSeconds);
+      let targetIdx = 0;
+      if (Number.isFinite(cursorFrame)) {
+        targetIdx = -1;
+        for (let i = 0; i < rows.length; i += 1) {
+          const startFrame = Number(rows[i] && rows[i].start_frame);
+          const endFrame = Number(rows[i] && rows[i].end_frame);
+          if (!Number.isFinite(startFrame) || !Number.isFinite(endFrame)) continue;
+          if (cursorFrame >= startFrame && cursorFrame < endFrame) {
+            targetIdx = i;
+            break;
+          }
+          if (targetIdx < 0 && startFrame >= cursorFrame) {
+            targetIdx = i;
+            break;
+          }
+        }
+        if (targetIdx < 0) {
+          targetIdx = Math.max(0, rows.length - 1);
+        }
+      }
+      rowEls.forEach((rowEl, idx) => {
+        rowEl.classList.toggle('active-row', idx === targetIdx);
+      });
+
+      const targetRow = rowEls[targetIdx];
+      if (!targetRow) return;
+      const headerEl = splitEditorEl.querySelector('thead');
+      const headerHeight = headerEl ? Number(headerEl.getBoundingClientRect().height || 0) : 0;
+      const rowTop = Number(targetRow.offsetTop || 0);
+      const rowHeight = Number(targetRow.offsetHeight || 0);
+      const viewTop = Number(splitEditorEl.scrollTop || 0) + headerHeight;
+      const viewBottom = Number(splitEditorEl.scrollTop || 0) + Number(splitEditorEl.clientHeight || 0);
+      const pad = 18;
+      const outside = rowTop < (viewTop + pad) || (rowTop + rowHeight) > (viewBottom - pad);
+      if (outside) {
+        const desired = Math.max(
+          0,
+          rowTop - Math.max(0, Math.floor((Number(splitEditorEl.clientHeight || 0) - rowHeight) / 2))
+        );
+        splitEditorEl.scrollTo({ top: desired, behavior: 'auto' });
+      }
+    }
+
+    function refreshSplitEditorFromState() {
+      renderSplitEditorGrid((state.splitProfile && state.splitProfile.entries) || []);
+      syncSplitEditorToCursor(currentPeopleTimelineCursorSeconds(), { force: true });
+      updateSplitMeta();
+    }
+
+    function syncSplitProfileFromEditor(showErrors = true) {
+      if (!splitEditorEl) {
+        state.splitProfile = normalizeSplitProfile(state.splitProfile || null);
+        return true;
+      }
+      const parsed = parseSplitEditorGrid();
+      if (parsed.errors.length) {
+        if (showErrors) {
+          setStatus(parsed.errors[0], true);
+        }
+        return false;
+      }
+      state.splitProfile = {
+        ...(state.splitProfile || {}),
+        entries: parsed.entries,
+      };
+      if (!splitEditorHasFocus()) {
+        renderSplitEditorGrid(parsed.entries);
+        syncSplitEditorToCursor(currentPeopleTimelineCursorSeconds(), { force: true });
+      }
+      updateSplitMeta();
+      return true;
+    }
+
+    function deleteSplitEntry(entryIndex) {
+      const idx = Number(entryIndex);
+      const rows = canonicalizeSplitEntries((state.splitProfile && state.splitProfile.entries) || []);
+      if (!Number.isFinite(idx) || idx < 0 || idx >= rows.length) return;
+      const next = rows.slice(0, idx).concat(rows.slice(idx + 1));
+      state.splitProfile = {
+        ...(state.splitProfile || {}),
+        entries: canonicalizeSplitEntries(next),
+      };
+      refreshSplitEditorFromState();
+      updateReviewStatsDisplay();
+      setStatus('Deleted split entry.');
+    }
+
+    function updateSplitMeta() {
+      if (splitEditorEl && !splitEditorHasFocus()) {
+        renderSplitEditorGrid((state.splitProfile && state.splitProfile.entries) || []);
+      }
+      if (!isSplitStepActive()) {
+        renderPeopleTimeline();
+        return;
+      }
+      renderPeopleTimeline();
     }
 
     function subtitleEditorHasFocus() {
@@ -3430,7 +3904,7 @@
     function updateTimelineAudioPlayButton() {
       if (!timelineAudioPlayBtnEl) return;
       const frames = (state.review && Array.isArray(state.review.frames)) ? state.review.frames : [];
-      const canUse = isPeopleStepActive() && frames.length > 0;
+      const canUse = isTimelineStepActive() && frames.length > 0;
       timelineAudioPlayBtnEl.disabled = !canUse;
       if (!canUse) {
         timelineAudioPlayBtnEl.textContent = '▶';
@@ -3599,7 +4073,7 @@
         timelineAudioWaveDurationSec = Math.max(0, Number(decoded.duration || 0));
         timelineAudioWaveKey = key;
         drawTimelineAudioWaveform();
-        if (isPeopleStepActive()) {
+        if (isTimelineStepActive()) {
           renderPeopleTimeline(currentPeopleTimelineCursorSeconds());
         }
         return true;
@@ -3688,7 +4162,7 @@
     }
 
     function beginTimelineAudioScrub(event) {
-      if (!timelineAudioTrackEl || !isPeopleStepActive()) return;
+      if (!timelineAudioTrackEl || !isTimelineStepActive()) return;
       timelineAudioScrubPointerId = event.pointerId;
       timelineAudioScrubActive = true;
       timelineAudioScrubWasPlaying = Boolean(timelineAudioEl && !timelineAudioEl.paused);
@@ -3730,7 +4204,7 @@
     }
 
     async function toggleTimelineAudioPlayback() {
-      if (!timelineAudioEl || !isPeopleStepActive()) return;
+      if (!timelineAudioEl || !isTimelineStepActive()) return;
       await ensureTimelineAudioLoaded(false);
       const targetSec = chapterSecondsFromScrubIndex(Number(timelineScrubEl && timelineScrubEl.value || 0));
       const duration = Number(timelineAudioEl.duration || timelineAudioWaveDurationSec || chapterDurationSeconds());
@@ -3854,15 +4328,20 @@
 
     function renderPeopleTimeline(cursorSeconds = null) {
       if (!peopleTimelineEl) return;
-      if (!isPeopleStepActive()) {
+      if (!isTimelineStepActive()) {
         peopleTimelineEl.innerHTML = '';
         peopleTimelineEl.style.height = '';
         peopleTimelineRenderState = null;
         return;
       }
 
-      const entries = canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
-      const subtitleEntries = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
+      const splitMode = isSplitStepActive();
+      const entries = splitMode
+        ? []
+        : canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
+      const subtitleEntries = splitMode
+        ? splitEntriesForTimeline()
+        : canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
       const frames = (state.review && Array.isArray(state.review.frames)) ? state.review.frames : [];
       const duration = Math.max(
         timelineFrameStepSeconds(),
@@ -3939,7 +4418,7 @@
         return Math.max(mx, lane);
       }, 0);
       const draftLane = peopleTimelineDraft ? Math.max(0, Math.trunc(Number(peopleTimelineDraft.lane || 0))) : 0;
-      const peopleLaneCount = Math.max(1, maxLane + 1, draftLane + 1);
+      const peopleLaneCount = splitMode ? 0 : Math.max(1, maxLane + 1, draftLane + 1);
       const laneHeight = 22;
       const topPad = 20;
       const subtitleSectionGap = subtitleLaneCount > 0 ? 10 : 0;
@@ -3966,10 +4445,11 @@
         const laneNum = lane + 1;
         const bgClass = lane % 2 === 1 ? ' alt' : '';
         const labelTop = top + 4;
+        const laneLabel = splitMode ? `C${laneNum}` : `S${laneNum}`;
         return `
           <div class="people-timeline-lane-bg subtitle${bgClass}" data-subtitle-region="1" style="top:${top}px;"></div>
           <div class="people-timeline-track" data-subtitle-region="1" style="top:${top}px;"></div>
-          <div class="people-timeline-lane-label subtitle" data-subtitle-region="1" style="top:${labelTop}px;">S${laneNum}</div>
+          <div class="people-timeline-lane-label subtitle" data-subtitle-region="1" style="top:${labelTop}px;">${laneLabel}</div>
         `;
       }).join('');
       const audioUnderlayHtml = peopleTimelineAudioUnderlayHtml(
@@ -4019,16 +4499,21 @@
         const widthPct = Math.min(100 - leftPct, Math.max(0.8, rightPct - leftPct));
         const top = subtitleTopPad + (lane * laneHeight) + 2;
         const label = escapeHtml(String(row.text || ''));
-        const title = escapeHtml(`${formatTimestampSeconds(startSec)}-${formatTimestampSeconds(endSec)}  ${String(row.text || '')}`);
+        const spanLabel = splitMode
+          ? `${formatFrameIndex(splitDisplayStartFrame(row.start_frame))}-${formatFrameIndex(splitDisplayEndFrameInclusive(row.end_frame, row.start_frame))}`
+          : `${formatTimestampSeconds(startSec)}-${formatTimestampSeconds(endSec)}`;
+        const title = escapeHtml(`${spanLabel}  ${String(row.text || '')}`);
         const isEditing = Boolean(
-          subtitleTimelineDraft && Number(subtitleTimelineDraft.entryIndex) === Number(row.idx)
+          !splitMode && subtitleTimelineDraft && Number(subtitleTimelineDraft.entryIndex) === Number(row.idx)
         );
         const bodyHtml = isEditing
           ? `<input class="subtitle-timeline-input" type="text" spellcheck="false" data-subtitle-index="${Number(row.idx)}" value="${escapeHtml(String(subtitleTimelineDraft.text || ''))}" aria-label="Edit subtitle text">`
-          : `
-            <span class="subtitle-timeline-name">${label}</span>
-            <button class="subtitle-timeline-delete" type="button" data-subtitle-delete="1" title="Delete subtitle entry">x</button>
-          `;
+          : (splitMode
+            ? `<span class="subtitle-timeline-name">${label}</span>`
+            : `
+              <span class="subtitle-timeline-name">${label}</span>
+              <button class="subtitle-timeline-delete" type="button" data-subtitle-delete="1" title="Delete subtitle entry">x</button>
+            `);
         return `
           <div class="subtitle-timeline-bar" data-subtitle-region="1" data-subtitle-index="${Number(row.idx)}" style="left:${leftPct.toFixed(3)}%;width:${widthPct.toFixed(3)}%;top:${top}px;" title="${title}">
             ${bodyHtml}
@@ -4072,14 +4557,18 @@
         }
       }
 
-      const hintHtml = !entries.length
-        ? '<div class="people-timeline-empty">Click timeline to add a name (Enter to save, drag/resize after).</div>'
-        : '';
+      const hintHtml = splitMode
+        ? (!subtitleRows.length
+          ? '<div class="people-timeline-empty">Add split rows in the table below to create chapter ranges.</div>'
+          : '')
+        : (!entries.length
+          ? '<div class="people-timeline-empty">Click timeline to add a name (Enter to save, drag/resize after).</div>'
+          : '');
 
       const playheadPct = _clamp(((currentSec - windowStart) / windowSpan) * 100, 0, 100);
-      const headLeft = formatTimestampSeconds(windowStart);
-      const headRight = formatTimestampSeconds(windowEnd);
-      const headNow = formatTimestampSeconds(currentSec);
+      const headLeft = formatTimelineSecondsLabel(windowStart);
+      const headRight = formatTimelineSecondsLabel(windowEnd);
+      const headNow = formatTimelineSecondsLabel(currentSec);
       const zoomValue = `x${Number(peopleTimelineZoom || 1).toFixed(2)}`;
 
       peopleTimelineEl.innerHTML = `
@@ -4115,7 +4604,11 @@
         laneCount: peopleLaneCount + subtitleLaneCount,
       };
 
-      syncSubtitlesEditorToCursor(currentSec);
+      if (splitMode) {
+        syncSplitEditorToCursor(currentSec);
+      } else {
+        syncSubtitlesEditorToCursor(currentSec);
+      }
 
       if (peopleTimelineDraft) {
         const input = peopleTimelineEl.querySelector('.people-timeline-input');
@@ -4127,7 +4620,7 @@
             input.focus();
           }
         }
-      } else if (subtitleTimelineDraft) {
+      } else if (!splitMode && subtitleTimelineDraft) {
         const input = peopleTimelineEl.querySelector('.subtitle-timeline-input');
         if (input && document.activeElement !== input) {
           try {
@@ -4206,6 +4699,11 @@
         const entries = canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
         const subtitleEntries = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
         reviewStatsEl.textContent = `Subtitles step | people ${entries.length} | dialogue ${subtitleEntries.length} | loaded ${state.review.frames.length}`;
+        return;
+      }
+      if (isSplitStepActive()) {
+        const splitEntries = canonicalizeSplitEntries((state.splitProfile && state.splitProfile.entries) || []);
+        reviewStatsEl.textContent = `Split step | ranges ${splitEntries.length} | loaded ${state.review.frames.length}`;
         return;
       }
       if (isGammaStepActive()) {
@@ -4556,9 +5054,9 @@
         }
       }
 
-      const firstTc = chapterTimecodeFromFid(frames[0] && frames[0].fid);
-      const lastTc = chapterTimecodeFromFid(frames[frames.length - 1] && frames[frames.length - 1].fid);
-      const cursorTc = chapterTimecodeFromFid(frames[cursorIdx] && frames[cursorIdx].fid);
+      const firstTc = timelineLabelFromFid(frames[0] && frames[0].fid);
+      const lastTc = timelineLabelFromFid(frames[frames.length - 1] && frames[frames.length - 1].fid);
+      const cursorTc = timelineLabelFromFid(frames[cursorIdx] && frames[cursorIdx].fid);
       const viewTc = visibleRangeTimeText({ start: startIdx, end: endIdx }, frames);
       timelineScrubMetaEl.textContent = `Timeline: ${cursorTc} (${cursorIdx + 1}/${frames.length}) | view ${viewTc || '-'} | span ${firstTc}-${lastTc}`;
       updateTimelineAudioPlayheadFromIndex(cursorIdx);
@@ -4619,16 +5117,25 @@
       return stepDef(state.wizardStep).mode === 'people';
     }
 
+    function isSplitStepActive() {
+      return stepDef(state.wizardStep).mode === 'split';
+    }
+
+    function isTimelineStepActive() {
+      return isPeopleStepActive() || isSplitStepActive();
+    }
+
     function updatePeopleStepLayoutSizing() {
       if (!frameGridEl || !sparkPanelEl) return;
       const flipbookFocus = Boolean(page2El && page2El.classList.contains('flipbook-focus'));
-      if (!isPeopleStepActive() || flipbookFocus) {
+      if (!isTimelineStepActive() || flipbookFocus) {
         frameGridEl.style.removeProperty('min-height');
         frameGridEl.style.removeProperty('max-height');
         frameGridEl.style.removeProperty('height');
         sparkPanelEl.style.removeProperty('max-height');
         sparkPanelEl.style.removeProperty('overflow');
         if (subtitlesEditorEl) subtitlesEditorEl.style.removeProperty('max-height');
+        if (splitEditorEl) splitEditorEl.style.removeProperty('max-height');
         if (reviewLayoutEl) reviewLayoutEl.style.removeProperty('grid-template-rows');
         return;
       }
@@ -4660,6 +5167,10 @@
       if (subtitlesEditorEl) {
         const subtitleMax = _clamp(maxSparkHeight - 126, 120, 240);
         subtitlesEditorEl.style.maxHeight = `${Math.round(subtitleMax)}px`;
+      }
+      if (splitEditorEl) {
+        const splitMax = _clamp(maxSparkHeight - 126, 120, 240);
+        splitEditorEl.style.maxHeight = `${Math.round(splitMax)}px`;
       }
     }
 
@@ -4769,7 +5280,7 @@
       const cursorSeconds = frame ? chapterLocalSecondsFromFid(frame.fid) : 0;
       renderPeopleTimeline(cursorSeconds);
       if (timelineScrubEl && (document.activeElement === timelineScrubEl || forceMeta)) {
-        const tc = frame ? chapterTimecodeFromFid(frame.fid) : '';
+        const tc = frame ? timelineLabelFromFid(frame.fid) : '';
         if (timelineScrubMetaEl) {
           timelineScrubMetaEl.textContent = `Timeline: ${tc || '?'} (${idx + 1}/${state.review.frames.length})`;
         }
@@ -5094,6 +5605,18 @@
     }
 
     function subtitleEntriesForFlipbook() {
+      if (isSplitStepActive()) {
+        return splitEntriesForTimeline().map((row) => ({
+          start_seconds: Number(row.start_seconds || 0),
+          end_seconds: Number(row.end_seconds || 0),
+          start: formatFrameIndex(splitDisplayStartFrame(row.start_frame)),
+          end: formatFrameIndex(splitDisplayEndFrameInclusive(row.end_frame, row.start_frame)),
+          text: String(row.text || ''),
+          speaker: '',
+          confidence: null,
+          source: '',
+        }));
+      }
       const canonical = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
       if (canonical.length) return canonical;
       const rawEntries = (state.subtitlesProfile && Array.isArray(state.subtitlesProfile.entries))
@@ -5209,6 +5732,10 @@
 
     function renderFlipbookSubtitleRail(rawSeconds, around) {
       if (!flipbookSubtitleRailEl) return;
+      if (isSplitStepActive()) {
+        clearFlipbookSubtitleRail();
+        return;
+      }
       const railMode = Boolean(page2El && page2El.classList.contains('flipbook-subtitle-mode'));
       if (!railMode) {
         clearFlipbookSubtitleRail();
@@ -5285,6 +5812,14 @@
     }
 
     function renderFlipbookSubtitles(rawSeconds) {
+      if (isSplitStepActive()) {
+        if (flipbookSubtitlesEl) {
+          flipbookSubtitlesEl.classList.add('empty');
+          flipbookSubtitlesEl.innerHTML = '';
+        }
+        clearFlipbookSubtitleRail();
+        return;
+      }
       const sec = Math.max(0, Number(rawSeconds || 0));
       const around = findSubtitlesAroundSeconds(sec);
       if (flipbookSubtitlesEl) {
@@ -5390,7 +5925,7 @@
       const frame = sparkPlayFrames[idx];
       if (!frame) return;
       flipbookImageEl.src = frame.src;
-      const tc = String(frame.timecode || chapterTimecodeFromFid(frame.fid) || '');
+      const tc = String(frame.timecode || timelineLabelFromFid(frame.fid) || '');
       const frameSeconds = chapterLocalSecondsFromFid(frame.fid);
       flipbookImageEl.alt = `Flipbook frame ${tc || (idx + 1)}`;
       if (flipbookMetaEl) {
@@ -5984,9 +6519,9 @@
         card.className = `frame-card ${frame.status}`;
         card.dataset.fid = String(frame.fid);
         card.dataset.label = String(formattedLabel || '');
-        card.dataset.timecode = chapterTimecodeFromFid(frame.fid);
+        card.dataset.timecode = timelineLabelFromFid(frame.fid);
         card.innerHTML = `
-          <img src="${frameImage}" alt="frame ${chapterTimecodeFromFid(frame.fid)}">
+          <img src="${frameImage}" alt="frame ${timelineLabelFromFid(frame.fid)}">
           <div class="frame-label">${escapeHtml(formattedLabel)}</div>
           <div class="frame-replace-note"></div>
         `;
@@ -6017,10 +6552,28 @@
           label.textContent = formattedLabel;
           card.dataset.label = String(formattedLabel || '');
         }
-        card.dataset.timecode = chapterTimecodeFromFid(update.fid);
+        card.dataset.timecode = timelineLabelFromFid(update.fid);
       });
       ensureFlipbookReady(false);
       updateTimelineScrubUi();
+    }
+
+    function refreshFrameCardLabelsForCurrentMode() {
+      if (!frameGridEl) return;
+      const frameMap = new Map(((state.review && state.review.frames) || []).map((f) => [String(f && f.fid), f]));
+      frameGridEl.querySelectorAll('.frame-card').forEach((card) => {
+        const fid = String(card.dataset.fid || '').trim();
+        if (!fid) return;
+        const frame = frameMap.get(fid);
+        if (!frame) return;
+        const labelEl = card.querySelector('.frame-label');
+        const formattedLabel = formatFrameCardLabel(frame);
+        if (labelEl) {
+          labelEl.textContent = formattedLabel;
+        }
+        card.dataset.label = String(formattedLabel || '');
+        card.dataset.timecode = timelineLabelFromFid(frame.fid);
+      });
     }
 
     async function loadArchives() {
@@ -6047,11 +6600,13 @@
         state.chapters = st.chapters || [];
         state.peopleProfile = normalizePeopleProfile(null);
         state.subtitlesProfile = normalizeSubtitlesProfile(null);
+        state.splitProfile = normalizeSplitProfile(null);
         peopleTimelineZoom = 1.0;
         resetTimelineAudioState();
         resetFlipbookAudioState();
         refreshPeopleEditorFromState();
         refreshSubtitlesEditorFromState();
+        refreshSplitEditorFromState();
         renderArchives();
         renderChapters();
         setStatus(st.status || '');
@@ -6077,6 +6632,7 @@
         chapter: state.chapter,
         iqr_k: Number(iqrEl.value || 3.5),
         debug_extract: false,
+        force_all_frames_good: Boolean(state.forceAllFramesGood),
       };
 
       if (autoIqrTimer) {
@@ -6091,6 +6647,7 @@
       state.gammaProfile = normalizeGammaProfile(null);
       state.peopleProfile = normalizePeopleProfile(null);
       state.subtitlesProfile = normalizeSubtitlesProfile(null);
+      state.splitProfile = normalizeSplitProfile(null);
       peopleTimelineZoom = 1.0;
       resetTimelineAudioState();
       resetFlipbookAudioState();
@@ -6099,6 +6656,7 @@
       renderReviewFrames([]);
       refreshPeopleEditorFromState();
       refreshSubtitlesEditorFromState();
+      refreshSplitEditorFromState();
       setStepByMode('review');
       try {
         const result = await api('/api/load_chapter', 'POST', payload, 0);
@@ -6110,6 +6668,7 @@
           ...result.review,
           frames: finalFrames,
         };
+        syncForceAllFramesGoodFromReview(result.review || {});
         state.loadSettings = result.settings || null;
         state.gammaProfile = normalizeGammaProfile(
           (state.loadSettings && state.loadSettings.gamma_profile) || null
@@ -6120,9 +6679,13 @@
         state.subtitlesProfile = normalizeSubtitlesProfile(
           (state.loadSettings && state.loadSettings.subtitles_profile) || null
         );
+        state.splitProfile = normalizeSplitProfile(
+          (state.loadSettings && state.loadSettings.split_profile) || null
+        );
         updateGammaControls();
         refreshPeopleEditorFromState();
         refreshSubtitlesEditorFromState();
+        refreshSplitEditorFromState();
         updateReviewStatsDisplay();
         renderReviewFrames(state.review.frames);
         iqrEl.value = String(payload.iqr_k);
@@ -6166,12 +6729,16 @@
         setStatus(`Reprocessing frame statuses (IQR k=${k.toFixed(2)})...`);
       }
       try {
-        const result = await api('/api/apply_iqr', 'POST', { iqr_k: k });
+        const result = await api('/api/apply_iqr', 'POST', {
+          iqr_k: k,
+          force_all_frames_good: Boolean(state.forceAllFramesGood),
+        });
         if (callSeq !== state.iqrApplySeq) return;
         const review = {
           ...result.review,
           frames: sortFramesByFid((result.review && result.review.frames) || []),
         };
+        syncForceAllFramesGoodFromReview(review);
         const previous = new Map((state.review.frames || []).map(f => [String(f.fid), f.status]));
         let changed = 0;
         for (const f of (review.frames || [])) {
@@ -6412,7 +6979,77 @@
       return true;
     }
 
+    async function openSplitStep() {
+      if (isChapterLoadInFlight) {
+        setStatus('Wait until frame loading finishes before entering split step.', true);
+        return false;
+      }
+      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) {
+        setStatus('Load and review frames before entering split step.', true);
+        return false;
+      }
+      if (!syncSplitProfileFromEditor(true)) return false;
+      refreshSplitEditorFromState();
+      setStepByMode('split', stepNumForMode('people', stepNumForMode('gamma', stepNumForMode('review'))));
+      updateReviewStatsDisplay();
+      return true;
+    }
+
+    async function applyForceAllFramesGood(enabled, options = {}) {
+      const next = Boolean(enabled);
+      const previous = Boolean(state.forceAllFramesGood);
+      if (isChapterLoadInFlight || isPreviewRenderInFlight || isSubtitlesGenerateInFlight) {
+        setForceAllFramesGoodUi(previous);
+        setStatus('Wait until active tasks finish before toggling Force All Good.', true);
+        return;
+      }
+      setForceAllFramesGoodUi(next);
+
+      const showOverlay = options && options.showOverlay === false ? false : true;
+      if (showOverlay) {
+        setLoading(true, next ? 'Forcing all loaded frames to good...' : 'Restoring frame classification...');
+      }
+      try {
+        const result = await api('/api/set_force_all_good', 'POST', { enabled: next });
+        const review = {
+          ...(result.review || {}),
+          frames: sortFramesByFid((result.review && result.review.frames) || []),
+        };
+        syncForceAllFramesGoodFromReview(review);
+        state.review = {
+          ...(state.review || {}),
+          stats: review.stats || { total: 0, bad: 0, good: 0, shown: 0, overrides: 0 },
+          threshold: Number(review.threshold || 0),
+          frames: review.frames || [],
+        };
+        if (Array.isArray(state.review.frames) && state.review.frames.length) {
+          reviewStatsEl.textContent = statsText(state.review.stats, state.review.threshold);
+          if (!isChapterLoadInFlight) {
+            renderActiveSparkline(state.review.frames, state.review.threshold);
+          }
+          applyFrameUpdates(state.review.frames);
+        } else {
+          renderReviewFrames([]);
+        }
+        state.gammaScores = new Map();
+        refreshFreezeSimulation();
+        updateReviewStatsDisplay();
+        setStatus(next ? 'Force All Good enabled for current loaded frames.' : 'Force All Good disabled.');
+      } catch (err) {
+        setForceAllFramesGoodUi(previous);
+        setStatus(err.message, true);
+      } finally {
+        if (showOverlay) {
+          setLoading(false);
+        }
+      }
+    }
+
     async function toggleFrame(fid, options = {}) {
+      if (state.forceAllFramesGood) {
+        setStatus('Disable Force All Good before editing frame statuses.', true);
+        return;
+      }
       const showOverlay = options && options.showOverlay === false ? false : true;
       const optimistic = options && options.optimistic === true;
       const fidStr = String(fid);
@@ -6438,6 +7075,7 @@
       }
       try {
         const result = await api('/api/toggle_frame', 'POST', { fid: Number(fid) });
+        syncForceAllFramesGoodFromReview(result.review || {});
         const frame = result.frame;
         if (frame) applyFrameUpdates([frame]);
         reviewStatsEl.textContent = statsText(result.review.stats, result.review.threshold);
@@ -6476,6 +7114,10 @@
     }
 
     async function setFrameRangeStatus(startFid, endFid, status = 'bad', options = {}) {
+      if (state.forceAllFramesGood) {
+        setStatus('Disable Force All Good before editing frame statuses.', true);
+        return;
+      }
       const showOverlay = options && options.showOverlay === false ? false : true;
       const lo = Math.trunc(Math.min(Number(startFid), Number(endFid)));
       const hi = Math.trunc(Math.max(Number(startFid), Number(endFid)));
@@ -6496,6 +7138,7 @@
           ...result.review,
           frames: sortFramesByFid((result.review && result.review.frames) || []),
         };
+        syncForceAllFramesGoodFromReview(review);
         reviewStatsEl.textContent = statsText(review.stats, review.threshold);
         if (!isChapterLoadInFlight) {
           renderActiveSparkline(review.frames, review.threshold);
@@ -6537,13 +7180,14 @@
         }
       }
       if (!syncSubtitlesProfileFromEditor(true)) return false;
+      if (!syncSplitProfileFromEditor(true)) return false;
       const saved = await saveProgress({ showOverlay: true, loadingText: 'Saving wizard progress...', silent: true });
       if (!saved) return false;
       setLoading(true, 'Building summary...');
       try {
         const result = await api('/api/summary');
         summaryBoxEl.textContent = String(result.summary || '').trim();
-        setStepByMode('summary', stepNumForMode('people', stepNumForMode('gamma', stepNumForMode('review'))));
+        setStepByMode('summary', stepNumForMode('split', stepNumForMode('people', stepNumForMode('gamma', stepNumForMode('review')))));
         return true;
       } catch (err) {
         setStatus(err.message, true);
@@ -6554,6 +7198,10 @@
     }
 
     async function toggleCurrentFlipbookFrame() {
+      if (state.forceAllFramesGood) {
+        setStatus('Disable Force All Good before editing frame statuses.', true);
+        return;
+      }
       if (sparkPlayTimer) return;
       if (!flipbookPreviewEl || !flipbookPreviewEl.classList.contains('active')) return;
       if (flipbookToggleInFlight) return;
@@ -6587,6 +7235,7 @@
       try {
         const result = await api('/api/preview_render', 'POST', {
           preview_mode: stepDef(state.wizardStep).mode,
+          force_all_frames_good: Boolean(state.forceAllFramesGood),
           gamma_profile: {
             default_gamma: normalizeGammaValue(state.gammaProfile && state.gammaProfile.defaultGamma, 1.0),
             ranges: gammaRangesForSave(),
@@ -6623,8 +7272,12 @@
       if (!syncSubtitlesProfileFromEditor(Boolean(options.showErrors !== false))) {
         return false;
       }
+      if (!syncSplitProfileFromEditor(Boolean(options.showErrors !== false))) {
+        return false;
+      }
       const peopleEntries = canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
       const subtitleEntries = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
+      const splitEntries = canonicalizeSplitEntries((state.splitProfile && state.splitProfile.entries) || []);
       const showOverlay = options.showOverlay !== false;
       const loadingText = String(options.loadingText || 'Saving wizard progress...');
       const silent = Boolean(options.silent);
@@ -6633,6 +7286,7 @@
       }
       try {
         const result = await api('/api/save_progress', 'POST', {
+          force_all_frames_good: Boolean(state.forceAllFramesGood),
           gamma_profile: {
             default_gamma: normalizeGammaValue(state.gammaProfile && state.gammaProfile.defaultGamma, 1.0),
             ranges: gammaRangesForSave(),
@@ -6642,6 +7296,9 @@
           },
           subtitles_profile: {
             entries: subtitleEntries,
+          },
+          split_profile: {
+            entries: splitEntries,
           },
         });
         if (!silent) {
@@ -6670,11 +7327,14 @@
       }
       if (!syncPeopleProfileFromEditor(true)) return;
       if (!syncSubtitlesProfileFromEditor(true)) return;
+      if (!syncSplitProfileFromEditor(true)) return;
       const peopleEntries = canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
       const subtitleEntries = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
+      const splitEntries = canonicalizeSplitEntries((state.splitProfile && state.splitProfile.entries) || []);
       setLoading(true, 'Saving BAD frame, gamma, people, and subtitle selections...');
       try {
         const result = await api('/api/save', 'POST', {
+          force_all_frames_good: Boolean(state.forceAllFramesGood),
           gamma_profile: {
             default_gamma: normalizeGammaValue(state.gammaProfile && state.gammaProfile.defaultGamma, 1.0),
             ranges: gammaRangesForSave(),
@@ -6685,6 +7345,9 @@
           subtitles_profile: {
             entries: subtitleEntries,
           },
+          split_profile: {
+            entries: splitEntries,
+          },
         });
         setStatus(result.message || 'Saved.');
 
@@ -6693,7 +7356,9 @@
         state.chapter = st.chapter;
         state.chapters = st.chapters || [];
         state.subtitlesProfile = normalizeSubtitlesProfile(null);
+        state.splitProfile = normalizeSplitProfile(null);
         refreshSubtitlesEditorFromState();
+        refreshSplitEditorFromState();
 
         renderArchives();
         renderChapters();
@@ -6765,6 +7430,22 @@
           if (!saved) return false;
         }
         return openPeopleStep();
+      }
+
+      if (targetStep.mode === 'split') {
+        const movingForward = stepIndex(targetStep.num) > stepIndex(currentStep.num);
+        if (movingForward) {
+          const loadingText = currentStep.mode === 'people'
+            ? 'Saving subtitles progress...'
+            : (currentStep.mode === 'gamma' ? 'Saving gamma progress...' : 'Saving review progress...');
+          const saved = await saveProgress({
+            showOverlay: true,
+            loadingText,
+            silent: true,
+          });
+          if (!saved) return false;
+        }
+        return openSplitStep();
       }
 
       if (targetStep.mode === 'summary') {
@@ -6897,6 +7578,65 @@
         syncSubtitlesProfileFromEditor(false);
       });
     }
+    if (splitEditorEl) {
+      splitEditorEl.addEventListener('click', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const deleteBtn = target.closest('[data-split-row-delete]');
+        if (!deleteBtn) return;
+        syncSplitProfileFromEditor(false);
+        const idx = Number(deleteBtn.getAttribute('data-split-row-delete'));
+        if (Number.isFinite(idx)) {
+          deleteSplitEntry(idx);
+        }
+        event.preventDefault();
+      });
+      splitEditorEl.addEventListener('keydown', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement)) return;
+        if (!target.classList.contains('subtitles-editor-cell')) return;
+        if (!target.hasAttribute('data-split-field')) return;
+        if (event.key !== 'Enter') return;
+        const rowEl = target.closest('tr[data-split-row="1"]');
+        const rowIdx = rowEl ? Math.max(0, Math.trunc(Number(rowEl.getAttribute('data-split-row-idx') || 0))) : 0;
+        const field = String(target.getAttribute('data-split-field') || '');
+        if (field === 'start' && rowEl) {
+          const endInput = rowEl.querySelector('[data-split-field="end"]');
+          if (endInput instanceof HTMLInputElement && !String(endInput.value || '').trim()) {
+            endInput.focus();
+            endInput.select();
+            event.preventDefault();
+            return;
+          }
+        }
+        const ok = syncSplitProfileFromEditor(true);
+        if (ok) {
+          refreshSplitEditorFromState();
+          const nextStart = splitEditorEl.querySelector(
+            `tr[data-split-row="1"][data-split-row-idx="${rowIdx + 1}"] [data-split-field="start"]`
+          );
+          if (nextStart instanceof HTMLInputElement) {
+            nextStart.focus();
+            nextStart.select();
+          }
+        }
+        event.preventDefault();
+      });
+      splitEditorEl.addEventListener('change', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        if (!target.classList.contains('subtitles-editor-cell')) return;
+        if (!target.hasAttribute('data-split-field')) return;
+        syncSplitProfileFromEditor(false);
+      });
+      splitEditorEl.addEventListener('focusout', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        if (!target.classList.contains('subtitles-editor-cell')) return;
+        if (!target.hasAttribute('data-split-field')) return;
+        syncSplitProfileFromEditor(false);
+      });
+    }
     if (saveProgressDraftBtnEl) {
       saveProgressDraftBtnEl.addEventListener('click', async () => {
         await saveProgress({ showOverlay: true, loadingText: 'Saving wizard progress...', silent: false });
@@ -6905,6 +7645,11 @@
     if (simulateFreezeFrameEl) {
       simulateFreezeFrameEl.addEventListener('change', () => {
         setSimFreezeFrame(Boolean(simulateFreezeFrameEl.checked));
+      });
+    }
+    if (forceAllFramesGoodEl) {
+      forceAllFramesGoodEl.addEventListener('change', async () => {
+        await applyForceAllFramesGood(Boolean(forceAllFramesGoodEl.checked));
       });
     }
     if (flipbookSimFreezeFrameEl) {
@@ -6953,7 +7698,7 @@
         updateTimelineAudioPlayButton();
       });
       timelineAudioEl.addEventListener('timeupdate', () => {
-        if (!isPeopleStepActive()) return;
+        if (!isTimelineStepActive()) return;
         if (timelineAudioScrubActive) return;
         const sec = Number(timelineAudioEl.currentTime || 0);
         if (!Number.isFinite(sec)) return;
@@ -6963,7 +7708,7 @@
     }
     if (peopleTimelineEl) {
       peopleTimelineEl.addEventListener('click', (event) => {
-        if (!isPeopleStepActive()) return;
+        if (!isTimelineStepActive()) return;
         const target = event.target;
         if (!(target instanceof HTMLElement)) return;
         const zoomBtn = target.closest('.people-timeline-zoom');
@@ -6979,6 +7724,9 @@
             setPeopleTimelineZoom(1.0);
           }
           event.preventDefault();
+          return;
+        }
+        if (isSplitStepActive()) {
           return;
         }
         const subtitleDeleteBtn = target.closest('.subtitle-timeline-delete');
@@ -7025,7 +7773,8 @@
       });
 
       peopleTimelineEl.addEventListener('dblclick', (event) => {
-        if (!isPeopleStepActive()) return;
+        if (!isTimelineStepActive()) return;
+        if (isSplitStepActive()) return;
         const target = event.target;
         if (!(target instanceof HTMLElement)) return;
         if (target.closest('.subtitle-timeline-delete')) return;
@@ -7147,7 +7896,7 @@
       if (flipbookOn && fid) {
         seekFlipbookToFrameId(fid, { keepVisible: false });
       }
-      if (isPeopleStepActive()) {
+      if (isTimelineStepActive()) {
         const idx = (state.review && Array.isArray(state.review.frames))
           ? state.review.frames.findIndex(f => String(f && f.fid) === String(fidNum))
           : -1;
@@ -7157,6 +7906,10 @@
         return;
       }
       if (!isBadFrameStepActive()) {
+        return;
+      }
+      if (state.forceAllFramesGood) {
+        setStatus('Disable Force All Good before editing frame statuses.', true);
         return;
       }
       if (event.shiftKey) {
@@ -7271,8 +8024,10 @@
       applyFlipbookVolume();
       refreshPeopleEditorFromState();
       refreshSubtitlesEditorFromState();
+      refreshSplitEditorFromState();
       updateTimelineScrubUi();
       setSimFreezeFrame(state.simulateFreezeFrame);
+      setForceAllFramesGoodUi(state.forceAllFramesGood);
       setStatus('Loading archives...');
       try {
         await loadArchives();

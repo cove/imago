@@ -52,6 +52,7 @@ Step 2: Review frames + threshold
   - green border = currently good
   - red border = currently bad
 - Click a frame card to toggle its manual override.
+- Use `Force All Good` to force every loaded frame status to good.
 - Use the `IQR k` slider to adjust auto-threshold:
   - lower `k` marks more frames as bad
   - higher `k` marks fewer frames as bad

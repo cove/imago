@@ -18,6 +18,86 @@ _STATIC = _HERE / "static"
 _INDEX = _STATIC / "index.html"
 DEFAULT_PHOTO_ALBUMS_ROOT = "C:/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums"
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
+DEFAULT_MIN_SIMILARITY = 0.72
+DEFAULT_MIN_MARGIN = 0.015
+DEFAULT_MIN_FACE_QUALITY = 0.20
+DEFAULT_MIN_SAMPLE_COUNT = 2
+
+
+def _coerce_float(value: Any, default: float) -> float:
+    if value is None:
+        return float(default)
+    try:
+        text = str(value).strip()
+    except Exception:
+        return float(default)
+    if not text:
+        return float(default)
+    try:
+        return float(text)
+    except Exception:
+        return float(default)
+
+
+def _coerce_int(value: Any, default: int) -> int:
+    if value is None:
+        return int(default)
+    try:
+        text = str(value).strip()
+    except Exception:
+        return int(default)
+    if not text:
+        return int(default)
+    try:
+        return int(float(text))
+    except Exception:
+        return int(default)
+
+
+def choose_suggested_candidate(
+    *,
+    candidates: list[dict[str, Any]],
+    face_quality: Any,
+    min_similarity: float = DEFAULT_MIN_SIMILARITY,
+    min_margin: float = DEFAULT_MIN_MARGIN,
+    min_face_quality: float = DEFAULT_MIN_FACE_QUALITY,
+    min_sample_count: int = DEFAULT_MIN_SAMPLE_COUNT,
+) -> tuple[dict[str, Any] | None, float]:
+    normalized: list[dict[str, Any]] = []
+    for row in list(candidates or []):
+        if not isinstance(row, dict):
+            continue
+        person_id = str(row.get("person_id") or "").strip()
+        if not person_id:
+            continue
+        normalized.append(
+            {
+                **row,
+                "person_id": person_id,
+                "score": _coerce_float(row.get("score"), -1.0),
+                "sample_count": max(0, _coerce_int(row.get("sample_count"), 0)),
+            }
+        )
+    if not normalized:
+        return None, 0.0
+
+    normalized.sort(key=lambda row: float(row.get("score", -1.0)), reverse=True)
+    top = dict(normalized[0])
+    top_score = _coerce_float(top.get("score"), -1.0)
+    second_score = _coerce_float(normalized[1].get("score"), -1.0) if len(normalized) > 1 else -1.0
+    margin = float(top_score - second_score) if len(normalized) > 1 else max(0.0, float(top_score))
+    quality = _coerce_float(face_quality, 0.0)
+    sample_count = max(0, _coerce_int(top.get("sample_count"), 0))
+    required_sample_count = max(1, _coerce_int(min_sample_count, DEFAULT_MIN_SAMPLE_COUNT))
+    if top_score < float(min_similarity):
+        return None, margin
+    if margin < float(min_margin):
+        return None, margin
+    if quality < float(min_face_quality):
+        return None, margin
+    if sample_count < int(required_sample_count):
+        return None, margin
+    return top, margin
 
 
 class CastHTTPServer(ThreadingHTTPServer):
@@ -127,6 +207,8 @@ class CastHandler(BaseHTTPRequestHandler):
         source_candidates = list(review.get("candidates") or [])
         suggested_person_id = str(review.get("suggested_person_id") or "").strip() or None
         suggested_score = review.get("suggested_score")
+        suggested_margin = None
+        suggested_confident = bool(suggested_person_id)
 
         if status == "pending" and face and prototypes:
             top_k = max(3, len(source_candidates))
@@ -141,8 +223,23 @@ class CastHandler(BaseHTTPRequestHandler):
                 live_candidates = []
             if live_candidates:
                 source_candidates = live_candidates
-                suggested_person_id = str(live_candidates[0].get("person_id") or "").strip() or None
-                suggested_score = live_candidates[0].get("score")
+        if status == "pending":
+            suggested, margin = choose_suggested_candidate(
+                candidates=source_candidates,
+                face_quality=face.get("quality") if isinstance(face, dict) else None,
+                min_similarity=DEFAULT_MIN_SIMILARITY,
+                min_margin=DEFAULT_MIN_MARGIN,
+                min_face_quality=DEFAULT_MIN_FACE_QUALITY,
+                min_sample_count=DEFAULT_MIN_SAMPLE_COUNT,
+            )
+            suggested_confident = suggested is not None
+            suggested_margin = float(margin)
+            if suggested is None:
+                suggested_person_id = None
+                suggested_score = None
+            else:
+                suggested_person_id = str(suggested.get("person_id") or "").strip() or None
+                suggested_score = float(suggested.get("score")) if suggested.get("score") is not None else None
 
         candidates = []
         for row in source_candidates:
@@ -168,6 +265,8 @@ class CastHandler(BaseHTTPRequestHandler):
             "suggested_person_id": suggested_person_id,
             "suggested_person_name": str(suggested_person.get("display_name", "")) if suggested_person else "",
             "suggested_score": suggested_score,
+            "suggested_margin": suggested_margin,
+            "suggested_confident": bool(suggested_confident),
             "decided_person_id": decided_person_id,
             "decided_person_name": str(decided_person.get("display_name", "")) if decided_person else "",
             "candidates": candidates,
@@ -336,6 +435,17 @@ class CastHandler(BaseHTTPRequestHandler):
             return
         self._send_json({"ok": True, "face": face})
 
+    def _suggestion_policy_from_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "min_similarity": _coerce_float(payload.get("min_similarity"), DEFAULT_MIN_SIMILARITY),
+            "min_margin": _coerce_float(payload.get("min_margin"), DEFAULT_MIN_MARGIN),
+            "min_face_quality": _coerce_float(payload.get("min_face_quality"), DEFAULT_MIN_FACE_QUALITY),
+            "min_sample_count": max(
+                1,
+                _coerce_int(payload.get("min_sample_count"), DEFAULT_MIN_SAMPLE_COUNT),
+            ),
+        }
+
     def _find_pending_review_for_face(self, face_id: str) -> dict[str, Any] | None:
         for row in self.store.list_review_items():
             if str(row.get("face_id")) == str(face_id) and str(row.get("status")) == "pending":
@@ -347,7 +457,10 @@ class CastHandler(BaseHTTPRequestHandler):
         *,
         face_id: str,
         top_k: int = 3,
-        min_similarity: float = -1.0,
+        min_similarity: float = DEFAULT_MIN_SIMILARITY,
+        min_margin: float = DEFAULT_MIN_MARGIN,
+        min_face_quality: float = DEFAULT_MIN_FACE_QUALITY,
+        min_sample_count: int = DEFAULT_MIN_SAMPLE_COUNT,
     ) -> tuple[dict[str, Any], bool]:
         existing = self._find_pending_review_for_face(face_id)
         if existing:
@@ -364,7 +477,15 @@ class CastHandler(BaseHTTPRequestHandler):
             )
         except Exception:
             candidates = []
-        suggested = candidates[0] if candidates else {}
+        suggested, _margin = choose_suggested_candidate(
+            candidates=candidates,
+            face_quality=face.get("quality") if isinstance(face, dict) else None,
+            min_similarity=float(min_similarity),
+            min_margin=float(min_margin),
+            min_face_quality=float(min_face_quality),
+            min_sample_count=int(min_sample_count),
+        )
+        suggested = suggested or {}
         review = self.store.add_review_item(
             face_id=face_id,
             candidates=candidates,
@@ -502,8 +623,8 @@ class CastHandler(BaseHTTPRequestHandler):
             cap.release()
 
     def _handle_suggest(self, payload: dict[str, Any]) -> None:
-        top_k = int(payload.get("top_k") or 3)
-        min_similarity = float(payload.get("min_similarity") or -1.0)
+        top_k = max(1, _coerce_int(payload.get("top_k"), 3))
+        min_similarity = _coerce_float(payload.get("min_similarity"), DEFAULT_MIN_SIMILARITY)
         try:
             query = parse_embedding(payload.get("embedding"))
         except Exception as exc:
@@ -514,8 +635,8 @@ class CastHandler(BaseHTTPRequestHandler):
             candidates = suggest_people(
                 query_embedding=query,
                 faces=faces,
-                top_k=max(1, top_k),
-                min_similarity=min_similarity,
+                top_k=int(top_k),
+                min_similarity=float(min_similarity),
             )
         except Exception as exc:
             self._error(str(exc))
@@ -532,13 +653,16 @@ class CastHandler(BaseHTTPRequestHandler):
         if not face_id:
             self._error("face_id is required.")
             return
-        top_k = int(payload.get("top_k") or 3)
-        min_similarity = float(payload.get("min_similarity") or -1.0)
+        top_k = max(1, _coerce_int(payload.get("top_k"), 3))
+        policy = self._suggestion_policy_from_payload(payload)
         try:
             review, existing = self._enqueue_review_for_face(
                 face_id=face_id,
                 top_k=top_k,
-                min_similarity=min_similarity,
+                min_similarity=float(policy["min_similarity"]),
+                min_margin=float(policy["min_margin"]),
+                min_face_quality=float(policy["min_face_quality"]),
+                min_sample_count=int(policy["min_sample_count"]),
             )
         except Exception as exc:
             self._error(str(exc))
@@ -683,8 +807,8 @@ class CastHandler(BaseHTTPRequestHandler):
             "False",
         }
         auto_queue = str(payload.get("auto_queue", "1")).strip() not in {"0", "false", "False"}
-        top_k = int(payload.get("top_k") or 3)
-        min_similarity = float(payload.get("min_similarity") or -1.0)
+        top_k = max(1, _coerce_int(payload.get("top_k"), 3))
+        policy = self._suggestion_policy_from_payload(payload)
 
         try:
             path = self._resolve_media_path(image_path)
@@ -710,7 +834,10 @@ class CastHandler(BaseHTTPRequestHandler):
                     _review, existing = self._enqueue_review_for_face(
                         face_id=face_id,
                         top_k=top_k,
-                        min_similarity=min_similarity,
+                        min_similarity=float(policy["min_similarity"]),
+                        min_margin=float(policy["min_margin"]),
+                        min_face_quality=float(policy["min_face_quality"]),
+                        min_sample_count=int(policy["min_sample_count"]),
                     )
                     if existing:
                         reviews_reused += 1
@@ -747,8 +874,8 @@ class CastHandler(BaseHTTPRequestHandler):
             "False",
         }
         auto_queue = str(payload.get("auto_queue", "1")).strip() not in {"0", "false", "False"}
-        top_k = int(payload.get("top_k") or 3)
-        min_similarity = float(payload.get("min_similarity") or -1.0)
+        top_k = max(1, _coerce_int(payload.get("top_k"), 3))
+        policy = self._suggestion_policy_from_payload(payload)
 
         try:
             path = self._resolve_media_path(video_path)
@@ -777,7 +904,10 @@ class CastHandler(BaseHTTPRequestHandler):
                     _review, existing = self._enqueue_review_for_face(
                         face_id=face_id,
                         top_k=top_k,
-                        min_similarity=min_similarity,
+                        min_similarity=float(policy["min_similarity"]),
+                        min_margin=float(policy["min_margin"]),
+                        min_face_quality=float(policy["min_face_quality"]),
+                        min_sample_count=int(policy["min_sample_count"]),
                     )
                     if existing:
                         reviews_reused += 1
@@ -815,8 +945,8 @@ class CastHandler(BaseHTTPRequestHandler):
             "False",
         }
         auto_queue = str(payload.get("auto_queue", "1")).strip() not in {"0", "false", "False"}
-        top_k = int(payload.get("top_k") or 3)
-        min_similarity = float(payload.get("min_similarity") or -1.0)
+        top_k = max(1, _coerce_int(payload.get("top_k"), 3))
+        policy = self._suggestion_policy_from_payload(payload)
 
         try:
             result = self.server.ingestor.ingest_photo_album_views(
@@ -844,7 +974,10 @@ class CastHandler(BaseHTTPRequestHandler):
                     _review, existing = self._enqueue_review_for_face(
                         face_id=face_id,
                         top_k=top_k,
-                        min_similarity=min_similarity,
+                        min_similarity=float(policy["min_similarity"]),
+                        min_margin=float(policy["min_margin"]),
+                        min_face_quality=float(policy["min_face_quality"]),
+                        min_sample_count=int(policy["min_sample_count"]),
                     )
                     if existing:
                         reviews_reused += 1

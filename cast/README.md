@@ -27,6 +27,7 @@ Open `http://127.0.0.1:8093`.
 - Save cropped face images under `cast/data/crops/`
 - Auto-enqueue each detected face into a "who is this?" review queue
 - Let you assign an existing person or type a new name to create+assign immediately
+- Only auto-suggest an identity when confidence gates pass (score margin, face quality, sample count)
 - Auto-prune obvious non-face detections from the pending queue
 - Reset pending queue + unknown faces to start fresh
 - Optional "Skip Statues/Paintings" ingest mode (enabled by default in UI)

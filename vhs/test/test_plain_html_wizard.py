@@ -13,6 +13,7 @@ from apps.plain_html_wizard.server import (
     SessionState,
     _build_review_payload,
     _build_partial_review_payload,
+    _selected_bad_frame_ids,
     _normalize_iqr_k,
     _normalize_subtitle_entries_payload,
     _set_load_progress,
@@ -86,6 +87,21 @@ def test_review_payload_honors_manual_overrides_after_iqr_change() -> None:
     assert frame["source"] == "MG"
 
 
+def test_review_payload_force_all_frames_good_marks_everything_good() -> None:
+    session = _make_session()
+    session.iqr_k = 0.0
+    baseline = _build_review_payload(session, include_images=False)
+    assert baseline["stats"]["bad"] > 0
+
+    session.force_all_frames_good = True
+    forced = _build_review_payload(session, include_images=False)
+    assert forced["force_all_frames_good"] is True
+    assert forced["stats"]["bad"] == 0
+    assert forced["stats"]["good"] == forced["stats"]["total"]
+    assert all(str(frame["status"]) == "good" for frame in forced["frames"])
+    assert _selected_bad_frame_ids(session) == []
+
+
 def test_static_html_contains_live_iqr_spark_and_fullscreen_controls() -> None:
     html = INDEX_HTML.read_text(encoding="utf-8")
 
@@ -110,6 +126,7 @@ def test_static_html_contains_live_iqr_spark_and_fullscreen_controls() -> None:
     assert 'id="backToReview"' not in html
 
     assert 'id="iqrK" type="range" min="0" max="12"' in html
+    assert 'id="forceAllFramesGood" type="checkbox"' in html
     assert 'id="gammaLevel" type="range" min="0.05" max="8.00"' in html
     assert 'id="gammaMode"' in html
     assert 'id="sparkPlayBtn"' in html
@@ -134,6 +151,7 @@ def test_static_html_contains_live_iqr_spark_and_fullscreen_controls() -> None:
     assert "pollLoadProgressOnce()" in html
     assert "api('/api/load_progress')" in html
     assert "api('/api/preview_render', 'POST'" in html
+    assert "api('/api/set_force_all_good', 'POST'" in html
     assert "renderReadyAtFromSamples(" in html
     assert "ETA " in html
     assert "/3 sample" in html
@@ -256,6 +274,27 @@ def test_toggle_frame_allows_partial_frames_before_full_load() -> None:
     frame_after = next(f for f in handler.payload["review"]["frames"] if int(f["fid"]) == 1001)
     assert str(frame_after["status"]) != status_before
     assert session.overrides[1001] == ("good" if status_before == "bad" else "bad")
+
+
+def test_toggle_frame_rejected_when_force_all_frames_good_enabled() -> None:
+    session = SessionState(
+        start_frame=1000,
+        partial_fids=[1000],
+        partial_b64=[""],
+        partial_sigs={
+            "chroma": [0.1],
+            "noise": [0.0],
+            "tear": [0.0],
+            "wave": [0.0],
+        },
+        force_all_frames_good=True,
+    )
+    handler = _HandlerStub()
+    WizardHandler._handle_toggle_frame(handler, session, 1000)
+
+    assert handler.payload is None
+    assert handler.error is not None
+    assert "Force all frames good" in handler.error
 
 
 def test_set_frame_range_marks_partial_frames_bad() -> None:
