@@ -300,6 +300,7 @@ def _persist_visible_bad_frames(
     ik: float,
     tv: float,
     bp: float,
+    force_all_frames_good: bool = False,
 ) -> tuple[Path | None, int]:
     if not archive or not chapter_title or not fids or not sigs:
         return None, 0
@@ -325,13 +326,16 @@ def _persist_visible_bad_frames(
         fid_i = int(fid)
         if not (start <= fid_i < end):
             continue
-        ov = overrides.get(fid_i)
-        if ov == "bad":
-            is_bad = True
-        elif ov == "good":
+        if bool(force_all_frames_good):
             is_bad = False
         else:
-            is_bad = bool(float(sc) >= float(thr))
+            ov = overrides.get(fid_i)
+            if ov == "bad":
+                is_bad = True
+            elif ov == "good":
+                is_bad = False
+            else:
+                is_bad = bool(float(sc) >= float(thr))
         if is_bad:
             existing_global_bad.add(int(fid_i))
         else:
@@ -363,6 +367,7 @@ def persist_bad_frames_for_chapter(
     tv: float,
     bp: float,
     progress=None,
+    force_all_frames_good: bool = False,
 ) -> tuple[Path | None, int, int, str]:
     _ = progress
     start, end = _normalize_frame_span(ch_start, ch_end)
@@ -388,6 +393,7 @@ def persist_bad_frames_for_chapter(
         ik=ik,
         tv=tv,
         bp=bp,
+        force_all_frames_good=bool(force_all_frames_good),
     )
     return path, int(count), analyzed, ""
 

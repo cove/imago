@@ -5,6 +5,7 @@ import json
 import html
 import importlib
 import re
+import csv
 import shutil
 import subprocess
 import sys
@@ -34,6 +35,7 @@ from common import (
     combined_score,
     compute_threshold,
     get_gamma_profile_for_chapter,
+    parse_chapters,
     update_chapter_gamma_in_render_settings,
 )
 from libs.vhs_tuner_core import (
@@ -71,6 +73,8 @@ FPS_NUM = 30000
 FPS_DEN = 1001
 PEOPLE_TSV_HEADER = "start\tend\tpeople"
 SUBTITLES_TSV_HEADER = "start\tend\ttext\tspeaker\tconfidence\tsource"
+CHAPTERS_TSV_PREFIX_COLUMNS = ["parent_chapter", "start_frame", "end_frame"]
+CHAPTER_FFMETADATA_COMPUTED_KEYS = {"start_raw", "end_raw", "timebase_num", "timebase_den"}
 DEFAULT_CAST_STORE_DIR = (PROJECT_ROOT.parent / "cast" / "data").resolve()
 WHISPER_MODEL_NAME = "turbo"
 
@@ -99,6 +103,7 @@ class SessionState:
     b64: list[str] = field(default_factory=list)
     sigs: dict[str, np.ndarray] = field(default_factory=dict)
     overrides: dict[int, str] = field(default_factory=dict)
+    force_all_frames_good: bool = False
     threshold: float = 0.0
     load_running: bool = False
     load_progress: float = 0.0
@@ -124,6 +129,7 @@ class SessionState:
     gamma_ranges: list[dict[str, Any]] = field(default_factory=list)
     people_entries: list[dict[str, Any]] = field(default_factory=list)
     subtitle_entries: list[dict[str, Any]] = field(default_factory=list)
+    split_entries: list[dict[str, Any]] = field(default_factory=list)
     partial_fids: list[int] = field(default_factory=list)
     partial_b64: list[str] = field(default_factory=list)
     partial_sigs: dict[str, list[float]] = field(
@@ -212,6 +218,19 @@ def _normalize_iqr_k(raw: Any, default: float = 3.5) -> float:
     except Exception:
         value = float(default)
     return max(0.0, min(12.0, float(value)))
+
+
+def _normalize_payload_bool(raw: Any, default: bool = False) -> bool:
+    if raw is None:
+        return bool(default)
+    if isinstance(raw, bool):
+        return bool(raw)
+    text = str(raw).strip().lower()
+    if text in {"1", "true", "yes", "on"}:
+        return True
+    if text in {"0", "false", "no", "off"}:
+        return False
+    return bool(default)
 
 def _normalize_gamma_value(raw: Any, default: float = 1.0) -> float:
     try:
@@ -303,7 +322,7 @@ def _seconds_to_timestamp(seconds: float) -> str:
 
 
 def _parse_timestamp_seconds(raw: Any) -> float | None:
-    text = str(raw or "").strip()
+    text = str(raw if raw is not None else "").strip()
     if not text:
         return None
     text = text.replace(",", ".")
@@ -394,11 +413,11 @@ def _normalize_people_entries_payload(
 
 
 def _normalize_subtitle_optional_text(raw: Any) -> str:
-    return re.sub(r"\s+", " ", str(raw or "")).strip()
+    return re.sub(r"\s+", " ", str(raw if raw is not None else "")).strip()
 
 
 def _parse_subtitle_confidence(raw: Any) -> float | None:
-    text = str(raw or "").strip()
+    text = str(raw if raw is not None else "").strip()
     if not text:
         return None
     try:
@@ -488,8 +507,363 @@ def _normalize_subtitle_entries_payload(
     return out
 
 
+def _chapters_ffmetadata_path(archive: str) -> Path:
+    return METADATA_DIR / str(archive or "").strip() / "chapters.ffmetadata"
+
+
+def _chapters_tsv_path(archive: str) -> Path:
+    return METADATA_DIR / str(archive or "").strip() / "chapters.tsv"
+
+
+def _normalize_split_entries_payload(
+    raw_entries: Any,
+    *,
+    chapter_frame_count: int | None = None,
+) -> list[dict[str, Any]]:
+    rows: list[tuple[int, int, str, int]] = []
+    frame_cap: int | None = None
+    if chapter_frame_count is not None:
+        try:
+            frame_cap = max(0, int(chapter_frame_count))
+        except Exception:
+            frame_cap = None
+
+    for idx, item in enumerate(list(raw_entries or [])):
+        start_raw = end_raw = title_raw = None
+        if isinstance(item, dict):
+            start_raw = item.get("start_frame", item.get("start"))
+            end_raw = item.get("end_frame", item.get("end"))
+            title_raw = item.get("title", item.get("text"))
+        elif isinstance(item, (list, tuple)) and len(item) >= 3:
+            start_raw, end_raw, title_raw = item[0], item[1], item[2]
+
+        start = _parse_frame_value(start_raw)
+        end = _parse_frame_value(end_raw)
+        if start is None or end is None or end <= start:
+            continue
+        if frame_cap is not None:
+            start = max(0, min(int(frame_cap), int(start)))
+            end = max(0, min(int(frame_cap), int(end)))
+            if end <= start:
+                continue
+        title = _normalize_subtitle_optional_text(title_raw)
+        if not title:
+            continue
+        rows.append((int(start), int(end), title, int(idx)))
+
+    if not rows:
+        return []
+
+    rows.sort(key=lambda item: (item[0], item[1], item[3]))
+    out: list[dict[str, Any]] = []
+    for start_frame, end_frame, title, _idx in rows:
+        out.append(
+            {
+                "start_frame": int(start_frame),
+                "end_frame": int(end_frame),
+                "start": str(int(start_frame)),
+                "end": str(int(end_frame)),
+                "title": str(title),
+            }
+        )
+    return out
+
+
+def _default_split_entries_for_chapter(chapter_title: str, chapter_frame_count: int) -> list[dict[str, Any]]:
+    frame_count = max(1, int(chapter_frame_count))
+    title = _normalize_subtitle_optional_text(chapter_title) or "Split 1"
+    return [
+        {
+            "start_frame": 0,
+            "end_frame": int(frame_count),
+            "start": "0",
+            "end": str(int(frame_count)),
+            "title": title,
+        }
+    ]
+
+
+def _read_chapters_tsv_rows(path: Path) -> tuple[list[str], list[dict[str, str]]]:
+    p = Path(path)
+    if not p.exists():
+        return [], []
+    with p.open("r", encoding="utf-8-sig", errors="ignore", newline="") as fh:
+        reader = csv.DictReader(fh, delimiter="\t")
+        raw_header = list(reader.fieldnames or [])
+        header: list[str] = []
+        seen: set[str] = set()
+        for col in raw_header:
+            key = str(col or "").strip()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            header.append(key)
+        rows: list[dict[str, str]] = []
+        for raw_row in reader:
+            row: dict[str, str] = {}
+            has_any = False
+            for col in header:
+                value = str((raw_row or {}).get(col, "") or "").strip()
+                row[col] = value
+                if value:
+                    has_any = True
+            if has_any:
+                rows.append(row)
+    return header, rows
+
+
+def _write_chapters_tsv_rows(path: Path, columns: list[str], rows: list[dict[str, Any]]) -> None:
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    header: list[str] = []
+    seen: set[str] = set()
+    for col in list(columns or []):
+        key = str(col or "").strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        header.append(key)
+    with p.open("w", encoding="utf-8", newline="") as fh:
+        writer = csv.DictWriter(
+            fh,
+            fieldnames=header,
+            delimiter="\t",
+            lineterminator="\n",
+            extrasaction="ignore",
+        )
+        writer.writeheader()
+        for raw_row in list(rows or []):
+            row = {col: str((raw_row or {}).get(col, "") or "") for col in header}
+            writer.writerow(row)
+
+
+def _chapters_ffmetadata_context(
+    archive: str,
+    chapter_title: str,
+) -> tuple[dict[str, Any], list[str], list[str], dict[str, Any] | None]:
+    ffmetadata: dict[str, Any] = {}
+    chapters: list[dict[str, Any]] = []
+    ffmeta_path = _chapters_ffmetadata_path(archive)
+    if ffmeta_path.exists():
+        try:
+            ffmetadata, chapters = parse_chapters(ffmeta_path)
+        except Exception:
+            ffmetadata, chapters = {}, []
+
+    global_fields: list[str] = []
+    seen_global: set[str] = set()
+    for key in list(ffmetadata.keys()):
+        col = str(key or "").strip().lower()
+        if not col or col in seen_global:
+            continue
+        seen_global.add(col)
+        global_fields.append(col)
+
+    chapter_fields: list[str] = []
+    seen_chapter: set[str] = set()
+    for ch in list(chapters or []):
+        if not isinstance(ch, dict):
+            continue
+        for key in list(ch.keys()):
+            col = str(key or "").strip().lower()
+            if not col or col in CHAPTER_FFMETADATA_COMPUTED_KEYS or col in seen_chapter:
+                continue
+            seen_chapter.add(col)
+            chapter_fields.append(col)
+
+    chapter_key = str(chapter_title or "").strip()
+    parent = next(
+        (
+            ch
+            for ch in list(chapters or [])
+            if str((ch or {}).get("title", "")).strip() == chapter_key
+        ),
+        None,
+    )
+    return ffmetadata, chapter_fields, global_fields, parent
+
+
+def _load_split_entries_for_chapter(
+    archive: str,
+    chapter_title: str,
+    ch_start: int,
+    ch_end: int,
+) -> list[dict[str, Any]]:
+    archive_name = str(archive or "").strip()
+    chapter_key = str(chapter_title or "").strip()
+    chapter_start = int(ch_start)
+    chapter_end = int(ch_end)
+    chapter_frame_count = max(1, int(chapter_end) - int(chapter_start))
+    if not archive_name or chapter_end <= chapter_start:
+        return _default_split_entries_for_chapter(chapter_key, chapter_frame_count)
+
+    header, rows = _read_chapters_tsv_rows(_chapters_tsv_path(archive_name))
+    _ = header
+    if not rows:
+        return _default_split_entries_for_chapter(chapter_key, chapter_frame_count)
+
+    local_entries: list[dict[str, Any]] = []
+    for row in list(rows):
+        parent_key = str((row or {}).get("parent_chapter", "") or "").strip()
+        if parent_key and chapter_key and parent_key != chapter_key:
+            continue
+
+        start_frame = _parse_frame_value((row or {}).get("start_frame", (row or {}).get("start")))
+        end_frame = _parse_frame_value((row or {}).get("end_frame", (row or {}).get("end")))
+        if start_frame is None or end_frame is None or end_frame <= start_frame:
+            continue
+
+        lo = max(int(chapter_start), int(start_frame))
+        hi = min(int(chapter_end), int(end_frame))
+        if hi <= lo:
+            continue
+
+        title = _normalize_subtitle_optional_text(
+            (row or {}).get("title", (row or {}).get("split_title", (row or {}).get("chapter_title", "")))
+        )
+        if not title:
+            title = chapter_key or f"Split {len(local_entries) + 1}"
+        local_entries.append(
+            {
+                "start_frame": int(lo) - int(chapter_start),
+                "end_frame": int(hi) - int(chapter_start),
+                "title": title,
+            }
+        )
+
+    normalized = _normalize_split_entries_payload(
+        local_entries,
+        chapter_frame_count=chapter_frame_count,
+    )
+    if normalized:
+        return normalized
+    return _default_split_entries_for_chapter(chapter_key, chapter_frame_count)
+
+
+def _save_split_entries_for_chapter(
+    archive: str,
+    chapter_title: str,
+    ch_start: int,
+    ch_end: int,
+    local_entries: list[dict[str, Any]],
+) -> tuple[Path, int]:
+    archive_name = str(archive or "").strip()
+    chapter_key = str(chapter_title or "").strip()
+    chapter_start = int(ch_start)
+    chapter_end = int(ch_end)
+    chapter_frame_count = max(1, int(chapter_end) - int(chapter_start))
+    path = _chapters_tsv_path(archive_name)
+    if not archive_name:
+        return path, 0
+    if chapter_end <= chapter_start:
+        _write_chapters_tsv_rows(path, CHAPTERS_TSV_PREFIX_COLUMNS + ["title"], [])
+        return path, 0
+
+    normalized_local = _normalize_split_entries_payload(
+        local_entries,
+        chapter_frame_count=chapter_frame_count,
+    )
+    existing_header, existing_rows = _read_chapters_tsv_rows(path)
+
+    kept_rows: list[dict[str, Any]] = []
+    for row in list(existing_rows):
+        parent_key = str((row or {}).get("parent_chapter", "") or "").strip()
+        if parent_key and chapter_key and parent_key == chapter_key:
+            continue
+        if not parent_key:
+            start_frame = _parse_frame_value((row or {}).get("start_frame", (row or {}).get("start")))
+            end_frame = _parse_frame_value((row or {}).get("end_frame", (row or {}).get("end")))
+            if (
+                start_frame is not None
+                and end_frame is not None
+                and end_frame > start_frame
+                and int(chapter_start) <= int(start_frame)
+                and int(end_frame) <= int(chapter_end)
+            ):
+                continue
+        kept_rows.append(dict(row or {}))
+
+    ffmetadata, chapter_fields, global_fields, parent_chapter = _chapters_ffmetadata_context(archive_name, chapter_key)
+    chapter_defaults: dict[str, str] = {}
+    if isinstance(parent_chapter, dict):
+        for key in chapter_fields:
+            if key in CHAPTER_FFMETADATA_COMPUTED_KEYS:
+                continue
+            if key == "start":
+                if parent_chapter.get("start_raw") is not None:
+                    chapter_defaults[key] = str(int(parent_chapter.get("start_raw")))
+                else:
+                    chapter_defaults[key] = str(int(round(float(parent_chapter.get("start", chapter_start)))))
+            elif key == "end":
+                if parent_chapter.get("end_raw") is not None:
+                    chapter_defaults[key] = str(int(parent_chapter.get("end_raw")))
+                else:
+                    chapter_defaults[key] = str(int(round(float(parent_chapter.get("end", chapter_end)))))
+            elif key == "title":
+                chapter_defaults[key] = chapter_key
+            else:
+                chapter_defaults[key] = str(parent_chapter.get(key, "") or "").strip()
+
+    new_rows: list[dict[str, Any]] = []
+    for idx, item in enumerate(list(normalized_local or [])):
+        local_start = int(item.get("start_frame", 0))
+        local_end = int(item.get("end_frame", 0))
+        if local_end <= local_start:
+            continue
+        global_start = int(chapter_start) + int(local_start)
+        global_end = int(chapter_start) + int(local_end)
+        title = _normalize_subtitle_optional_text(item.get("title")) or chapter_key or f"Split {idx + 1}"
+        row: dict[str, Any] = {
+            "parent_chapter": chapter_key,
+            "start_frame": str(int(global_start)),
+            "end_frame": str(int(global_end)),
+        }
+        for key in chapter_fields:
+            if key == "start":
+                row[key] = str(int(global_start))
+            elif key == "end":
+                row[key] = str(int(global_end))
+            elif key == "title":
+                row[key] = title
+            else:
+                row[key] = str(chapter_defaults.get(key, "") or "")
+        if "title" not in chapter_fields:
+            row["title"] = title
+        for key in global_fields:
+            row[f"ffmeta_{key}"] = str(ffmetadata.get(key, "") or "").strip()
+        new_rows.append(row)
+
+    merged_rows = [*kept_rows, *new_rows]
+    columns: list[str] = []
+    seen_columns: set[str] = set()
+
+    def _add_col(raw_col: Any) -> None:
+        col = str(raw_col or "").strip()
+        if not col or col in seen_columns:
+            return
+        seen_columns.add(col)
+        columns.append(col)
+
+    for col in CHAPTERS_TSV_PREFIX_COLUMNS:
+        _add_col(col)
+    for col in chapter_fields:
+        _add_col(col)
+    if "title" not in seen_columns:
+        _add_col("title")
+    for col in global_fields:
+        _add_col(f"ffmeta_{col}")
+    for col in list(existing_header or []):
+        _add_col(col)
+    for row in merged_rows:
+        for col in list((row or {}).keys()):
+            _add_col(col)
+
+    _write_chapters_tsv_rows(path, columns, merged_rows)
+    return path, len(new_rows)
+
+
 def _parse_frame_value(raw: Any) -> int | None:
-    text = str(raw or "").strip()
+    text = str(raw if raw is not None else "").strip()
     if not text:
         return None
     if not re.fullmatch(r"-?\d+", text):
@@ -504,7 +878,7 @@ def _parse_frame_value(raw: Any) -> int | None:
 
 
 def _parse_tsv_time_or_frame_seconds(raw: Any) -> float | None:
-    text = str(raw or "").strip()
+    text = str(raw if raw is not None else "").strip()
     if not text:
         return None
     # Backward compatibility: old TSV files stored archive-global frames.
@@ -872,6 +1246,12 @@ def _save_subtitle_entries_for_chapter(
 
 def _apply_profiles_from_payload(session: SessionState, payload: dict[str, Any] | None) -> None:
     payload = payload or {}
+    if "force_all_frames_good" in payload:
+        session.force_all_frames_good = _normalize_payload_bool(
+            payload.get("force_all_frames_good"),
+            default=session.force_all_frames_good,
+        )
+
     raw_gamma_profile = payload.get("gamma_profile")
     if raw_gamma_profile is None:
         raw_gamma_profile = payload.get("gamma")
@@ -915,8 +1295,23 @@ def _apply_profiles_from_payload(session: SessionState, payload: dict[str, Any] 
             chapter_duration_seconds=chapter_duration,
         )
 
+    chapter_frame_count = max(1, int(session.end_frame) - int(session.start_frame))
+    raw_split_profile = payload.get("split_profile")
+    if raw_split_profile is None:
+        raw_split_profile = payload.get("split")
+    if isinstance(raw_split_profile, dict):
+        session.split_entries = _normalize_split_entries_payload(
+            raw_split_profile.get("entries", session.split_entries),
+            chapter_frame_count=chapter_frame_count,
+        )
+    elif isinstance(raw_split_profile, list):
+        session.split_entries = _normalize_split_entries_payload(
+            raw_split_profile,
+            chapter_frame_count=chapter_frame_count,
+        )
 
-def _persist_session_progress(session: SessionState) -> tuple[Path | None, Path, int, int, int, int]:
+
+def _persist_session_progress(session: SessionState) -> tuple[Path | None, Path, Path, int, int, int, int, int]:
     out_path, count, analyzed, err = persist_bad_frames_for_chapter(
         archive=session.archive,
         chapter_title=session.chapter,
@@ -934,6 +1329,7 @@ def _persist_session_progress(session: SessionState) -> tuple[Path | None, Path,
         tv=session.tval,
         bp=session.bpct,
         progress=None,
+        force_all_frames_good=bool(session.force_all_frames_good),
     )
     if err:
         raise RuntimeError(str(err))
@@ -956,7 +1352,23 @@ def _persist_session_progress(session: SessionState) -> tuple[Path | None, Path,
         ch_end=session.end_frame,
         local_entries=session.subtitle_entries,
     )
-    return out_path, gamma_path, int(count), int(analyzed), int(people_count), int(subtitles_count)
+    split_path, split_count = _save_split_entries_for_chapter(
+        archive=session.archive,
+        chapter_title=session.chapter,
+        ch_start=session.start_frame,
+        ch_end=session.end_frame,
+        local_entries=session.split_entries,
+    )
+    return (
+        out_path,
+        gamma_path,
+        split_path,
+        int(count),
+        int(analyzed),
+        int(people_count),
+        int(subtitles_count),
+        int(split_count),
+    )
 
 
 def _details_text(chapter_row: dict[str, Any] | None) -> str:
@@ -1011,6 +1423,8 @@ def _archive_state(session: SessionState, archive: str, selected_title: str | No
 
 
 def _frame_status(session: SessionState, fid: int, score: float, thr: float) -> tuple[str, str]:
+    if bool(session.force_all_frames_good):
+        return "good", "FG"
     ov = session.overrides.get(int(fid))
     if ov == "bad":
         return "bad", "MB"
@@ -1026,6 +1440,7 @@ def _build_review_payload(session: SessionState, include_images: bool) -> dict[s
         return {
             "threshold": 0.0,
             "stats": {"total": 0, "bad": 0, "good": 0, "shown": 0, "overrides": 0},
+            "force_all_frames_good": bool(session.force_all_frames_good),
             "frames": [],
         }
 
@@ -1061,6 +1476,7 @@ def _build_review_payload(session: SessionState, include_images: bool) -> dict[s
             "shown": total,
             "overrides": int(len(session.overrides)),
         },
+        "force_all_frames_good": bool(session.force_all_frames_good),
         "frames": frames,
     }
 
@@ -1078,6 +1494,7 @@ def _build_partial_review_payload(session: SessionState, include_images: bool) -
         return {
             "threshold": 0.0,
             "stats": {"total": 0, "bad": 0, "good": 0, "shown": 0, "overrides": 0},
+            "force_all_frames_good": bool(session.force_all_frames_good),
             "frames": [],
         }
     tmp = SessionState()
@@ -1091,6 +1508,7 @@ def _build_partial_review_payload(session: SessionState, include_images: bool) -
         "wave": np.asarray(session.partial_sigs["wave"][:total], dtype=np.float64),
     }
     tmp.overrides = dict(session.overrides)
+    tmp.force_all_frames_good = bool(session.force_all_frames_good)
     tmp.wc = float(session.wc)
     tmp.wn = float(session.wn)
     tmp.wt = float(session.wt)
@@ -1176,6 +1594,23 @@ def _summary_payload(session: SessionState) -> dict[str, Any]:
         subtitle_lines.append("Subtitle entries: (none)")
     subtitles_text = "\n".join(subtitle_lines)
 
+    split_entries = _normalize_split_entries_payload(
+        session.split_entries,
+        chapter_frame_count=max(1, int(session.end_frame) - int(session.start_frame)),
+    )
+    split_lines = []
+    if split_entries:
+        split_lines.append(f"Split entries: {len(split_entries)}")
+        for item in split_entries[:25]:
+            split_lines.append(
+                f"- {int(item['start_frame'])}-{int(item['end_frame'])} (local frames): {str(item['title'])}"
+            )
+        if len(split_entries) > 25:
+            split_lines.append(f"- +{len(split_entries) - 25} more")
+    else:
+        split_lines.append("Split entries: (none)")
+    split_text = "\n".join(split_lines)
+
     summary_text = (
         f"Archive: {session.archive}\n"
         f"Chapter: {session.chapter}\n"
@@ -1187,10 +1622,12 @@ def _summary_payload(session: SessionState) -> dict[str, Any]:
         f"Marked bad: {review['stats']['bad']}\n"
         f"Marked good: {review['stats']['good']}\n"
         f"Manual overrides: {review['stats']['overrides']}\n"
+        f"Force all frames good: {'on' if session.force_all_frames_good else 'off'}\n"
         f"Gamma default: {float(session.gamma_default):.3f}\n"
         f"{gamma_text}\n"
         f"{people_text}\n\n"
         f"{subtitles_text}\n\n"
+        f"{split_text}\n\n"
         f"BAD frame IDs (loaded set):\n{preview or '(none)'}"
     )
     return {"summary": summary_text, "review": review}
@@ -1355,7 +1792,12 @@ class WizardHandler(BaseHTTPRequestHandler):
                 chunk = fh.read(min(chunk_size, remaining))
                 if not chunk:
                     break
-                self.wfile.write(chunk)
+                try:
+                    self.wfile.write(chunk)
+                except (BrokenPipeError, ConnectionResetError):
+                    # Client disconnected mid-stream (common when media element
+                    # seeks/cancels range requests). Treat as non-fatal.
+                    return
                 remaining -= len(chunk)
 
     def _send_video_file(self, path: Path) -> None:
@@ -1666,8 +2108,17 @@ class WizardHandler(BaseHTTPRequestHandler):
                 self._send_error_json("No loaded chapter data yet.")
                 return
             session.iqr_k = _normalize_iqr_k(payload.get("iqr_k", session.iqr_k), default=session.iqr_k)
+            if "force_all_frames_good" in payload:
+                session.force_all_frames_good = _normalize_payload_bool(
+                    payload.get("force_all_frames_good"),
+                    default=session.force_all_frames_good,
+                )
             review = _build_review_payload(session, include_images=False)
             self._send_json({"ok": True, "review": review})
+            return
+
+        if parsed.path == "/api/set_force_all_good":
+            self._handle_set_force_all_good(session, payload)
             return
 
         if parsed.path == "/api/toggle_frame":
@@ -1773,6 +2224,10 @@ class WizardHandler(BaseHTTPRequestHandler):
         session.start_frame, session.end_frame = _normalize_frame_span(default_start, default_end)
         session.debug_extract = bool(payload.get("debug_extract", session.debug_extract))
         session.iqr_k = iqr_k
+        session.force_all_frames_good = _normalize_payload_bool(
+            payload.get("force_all_frames_good"),
+            default=session.force_all_frames_good,
+        )
         session.preview_video_path = ""
         session.chapter_audio_path = ""
         session.chapter_audio_key = ""
@@ -1789,6 +2244,7 @@ class WizardHandler(BaseHTTPRequestHandler):
         session.gamma_ranges = []
         session.people_entries = []
         session.subtitle_entries = []
+        session.split_entries = []
         session.partial_fids = []
         session.partial_b64 = []
         session.partial_sigs = {"chroma": [], "noise": [], "tear": [], "wave": []}
@@ -1925,12 +2381,19 @@ class WizardHandler(BaseHTTPRequestHandler):
             ch_start=session.start_frame,
             ch_end=session.end_frame,
         )
+        session.split_entries = _load_split_entries_for_chapter(
+            archive=session.archive,
+            chapter_title=session.chapter,
+            ch_start=session.start_frame,
+            ch_end=session.end_frame,
+        )
 
         details = {
             "archive": session.archive,
             "chapter": session.chapter,
             "start_frame": session.start_frame,
             "end_frame": session.end_frame,
+            "force_all_frames_good": bool(session.force_all_frames_good),
             "chapter_frame_count": int(session.end_frame - session.start_frame),
             "loaded_count": int(len(session.fids)),
             "extract_cache": str(
@@ -1956,6 +2419,10 @@ class WizardHandler(BaseHTTPRequestHandler):
                 "entries": list(session.subtitle_entries),
                 "source": "subtitles_tsv",
             },
+            "split_profile": {
+                "entries": list(session.split_entries),
+                "source": "chapters_tsv",
+            },
         }
 
         review = _build_review_payload(session, include_images=True)
@@ -1971,6 +2438,9 @@ class WizardHandler(BaseHTTPRequestHandler):
         self._send_json({"ok": True, "review": review, "settings": details})
 
     def _handle_toggle_frame(self, session: SessionState, fid: int) -> None:
+        if bool(session.force_all_frames_good):
+            self._send_error_json("Disable 'Force all frames good' before editing frame statuses.")
+            return
         fid_i = int(fid)
         final_ids = {int(x) for x in session.fids}
         partial_ids = {int(x) for x in session.partial_fids}
@@ -2003,6 +2473,9 @@ class WizardHandler(BaseHTTPRequestHandler):
         self._send_json({"ok": True, "frame": updated, "review": frame_state})
 
     def _handle_set_frame_range(self, session: SessionState, start_fid: int, end_fid: int, status: str) -> None:
+        if bool(session.force_all_frames_good):
+            self._send_error_json("Disable 'Force all frames good' before editing frame statuses.")
+            return
         lo = int(min(int(start_fid), int(end_fid)))
         hi = int(max(int(start_fid), int(end_fid)))
         target_status = "good" if str(status).strip().lower() == "good" else "bad"
@@ -2039,6 +2512,22 @@ class WizardHandler(BaseHTTPRequestHandler):
                 "updated_count": int(changed),
             }
         )
+
+    def _handle_set_force_all_good(self, session: SessionState, payload: dict[str, Any] | None = None) -> None:
+        payload = payload or {}
+        enabled = _normalize_payload_bool(
+            payload.get("enabled", payload.get("force_all_frames_good", False)),
+            default=session.force_all_frames_good,
+        )
+        session.force_all_frames_good = bool(enabled)
+
+        if session.fids and session.sigs:
+            review = _build_review_payload(session, include_images=False)
+        elif session.partial_fids:
+            review = _build_partial_review_payload(session, include_images=False)
+        else:
+            review = _build_review_payload(session, include_images=False)
+        self._send_json({"ok": True, "review": review})
 
     def _run_cmd(self, cmd: list[Any], label: str) -> tuple[bool, str]:
         proc = subprocess.run(
@@ -2128,6 +2617,11 @@ class WizardHandler(BaseHTTPRequestHandler):
 
         payload = payload or {}
         preview_mode = str(payload.get("preview_mode", "") or "").strip().lower()
+        if "force_all_frames_good" in payload:
+            session.force_all_frames_good = _normalize_payload_bool(
+                payload.get("force_all_frames_good"),
+                default=session.force_all_frames_good,
+            )
         apply_freeze = True
         apply_gamma = True
         if preview_mode == "review":
@@ -2408,7 +2902,7 @@ class WizardHandler(BaseHTTPRequestHandler):
         _set_stage_progress(stage_idx, chapter_len, stage_label)
 
         session.preview_video_path = str(preview_video.resolve())
-        mode_desc = preview_mode if preview_mode in {"review", "gamma", "people", "summary"} else "combined"
+        mode_desc = preview_mode if preview_mode in {"review", "gamma", "people", "split", "summary"} else "combined"
         msg = (
             f"Preview render ready for {session.chapter}: "
             f"mode={mode_desc}, freeze={'on' if apply_freeze else 'off'}, gamma={'on' if apply_gamma else 'off'}. "
@@ -2760,13 +3254,16 @@ class WizardHandler(BaseHTTPRequestHandler):
 
         _apply_profiles_from_payload(session, payload)
         try:
-            out_path, gamma_path, count, analyzed, people_count, subtitle_count = _persist_session_progress(session)
+            out_path, gamma_path, split_path, count, analyzed, people_count, subtitle_count, split_count = (
+                _persist_session_progress(session)
+            )
         except Exception as exc:
             self._send_error_json(str(exc))
             return
         gamma_count = len(session.gamma_ranges)
         people_path = METADATA_DIR / str(session.archive or "").strip() / "people.tsv"
         subtitles_path = METADATA_DIR / str(session.archive or "").strip() / "subtitles.tsv"
+        chapters_path = METADATA_DIR / str(session.archive or "").strip() / "chapters.tsv"
 
         archive_state = _archive_state(session, session.archive, selected_title=session.chapter)
         self._send_json(
@@ -2777,10 +3274,11 @@ class WizardHandler(BaseHTTPRequestHandler):
                     f"({int(analyzed)} analyzed, {int(count)} bad). "
                     f"Saved gamma ranges: {int(gamma_count)}. "
                     f"Saved people entries: {int(people_count)}. "
-                    f"Saved subtitle entries: {int(subtitle_count)}."
+                    f"Saved subtitle entries: {int(subtitle_count)}. "
+                    f"Saved split entries: {int(split_count)}."
                 ),
-                "metadata_path": str(gamma_path or out_path or subtitles_path or people_path)
-                if (gamma_path or out_path or subtitles_path or people_path)
+                "metadata_path": str(split_path or gamma_path or out_path or chapters_path or subtitles_path or people_path)
+                if (split_path or gamma_path or out_path or chapters_path or subtitles_path or people_path)
                 else "",
                 "archive_state": archive_state,
             }
@@ -2792,7 +3290,9 @@ class WizardHandler(BaseHTTPRequestHandler):
             return
         _apply_profiles_from_payload(session, payload)
         try:
-            out_path, gamma_path, count, analyzed, people_count, subtitle_count = _persist_session_progress(session)
+            out_path, gamma_path, split_path, count, analyzed, people_count, subtitle_count, split_count = (
+                _persist_session_progress(session)
+            )
         except Exception as exc:
             self._send_error_json(str(exc))
             return
@@ -2804,10 +3304,13 @@ class WizardHandler(BaseHTTPRequestHandler):
                     f"BAD_FRAMES {int(count)}/{int(analyzed)}, "
                     f"gamma ranges {int(len(session.gamma_ranges))}, "
                     f"people entries {int(people_count)}, "
-                    f"subtitle entries {int(subtitle_count)}."
+                    f"subtitle entries {int(subtitle_count)}, "
+                    f"split entries {int(split_count)}."
                 ),
                 "metadata_path": str(
-                    gamma_path
+                    split_path
+                    or (METADATA_DIR / str(session.archive or "").strip() / "chapters.tsv")
+                    or gamma_path
                     or out_path
                     or (METADATA_DIR / str(session.archive or "").strip() / "subtitles.tsv")
                     or (METADATA_DIR / str(session.archive or "").strip() / "people.tsv")
