@@ -11,9 +11,15 @@ from common import update_chapter_bad_frames_in_render_settings
 from apps.plain_html_wizard import server as wizard_server
 from libs.vhs_tuner_core import _chapter_bad_overrides
 from apps.plain_html_wizard.server import (
+    CONTACT_SHEET_COLUMNS,
     SessionState,
     _build_review_payload,
+    _build_contact_sheet_bytes,
     _build_partial_review_payload,
+    _decode_frame_image_data_url,
+    _frame_image_url,
+    _frame_contact_sheet_url,
+    _lookup_frame_image_data_url,
     _load_split_entries_for_chapter,
     _selected_bad_frame_ids,
     _normalize_iqr_k,
@@ -105,6 +111,99 @@ def test_review_payload_force_all_frames_good_marks_everything_good() -> None:
     assert _selected_bad_frame_ids(session) == []
 
 
+def test_review_payload_can_emit_frame_image_urls() -> None:
+    session = _make_session()
+    session.b64 = ["data:image/jpeg;base64,AA=="] * len(session.fids)
+
+    review = _build_review_payload(
+        session,
+        include_images=True,
+        image_url_builder=_frame_image_url,
+    )
+
+    assert review["frames"]
+    first = review["frames"][0]
+    assert first["image"].startswith(f"/api/frame_image?fid={session.fids[0]}")
+
+
+def test_frame_image_lookup_and_decode_supports_partial_frames() -> None:
+    session = SessionState(
+        partial_fids=[1000, 1001],
+        partial_b64=[
+            "data:image/jpeg;base64,AA==",
+            "data:image/jpeg;base64,AQ==",
+        ],
+    )
+
+    data_url = _lookup_frame_image_data_url(session, 1001)
+    decoded = _decode_frame_image_data_url(data_url)
+
+    assert data_url == "data:image/jpeg;base64,AQ=="
+    assert decoded == ("image/jpeg", b"\x01")
+
+
+def test_contact_sheet_builder_returns_jpeg_bytes() -> None:
+    session = SessionState(
+        partial_fids=[1000, 1001],
+        partial_b64=[
+            "data:image/jpeg;base64,AA==",
+            "data:image/jpeg;base64,AQ==",
+        ],
+    )
+
+    built = _build_contact_sheet_bytes(
+        session,
+        start_index=0,
+        count=2,
+        columns=CONTACT_SHEET_COLUMNS,
+    )
+
+    assert built is not None
+    content_type, payload = built
+    assert content_type == "image/jpeg"
+    assert len(payload) > 0
+    assert _frame_contact_sheet_url(0, count=2, columns=CONTACT_SHEET_COLUMNS).startswith("/api/frame_contact_sheet?")
+
+
+def test_contact_sheet_builder_can_fill_later_visible_range_from_video(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = SessionState(
+        archive="demo_archive",
+        chapter="Demo Chapter",
+        start_frame=1000,
+        end_frame=1010,
+        partial_fids=[1000, 1001],
+        partial_b64=[
+            "data:image/jpeg;base64,AA==",
+            "data:image/jpeg;base64,AQ==",
+        ],
+        frame_source_video_path="chapter_extract.mp4",
+        frame_source_read_offset=1000,
+    )
+    calls: dict[str, list[int]] = {}
+
+    def _fake_load_from_video(session_arg: SessionState, frame_ids: list[int]) -> dict[int, str]:
+        assert session_arg is session
+        calls["frame_ids"] = list(frame_ids)
+        return {
+            1004: "data:image/jpeg;base64,AA==",
+            1005: "data:image/jpeg;base64,AQ==",
+        }
+
+    monkeypatch.setattr(wizard_server, "_load_contact_sheet_images_from_video", _fake_load_from_video)
+
+    built = _build_contact_sheet_bytes(
+        session,
+        start_index=4,
+        count=2,
+        columns=CONTACT_SHEET_COLUMNS,
+    )
+
+    assert built is not None
+    assert calls["frame_ids"] == [1004, 1005]
+
+
 def test_static_html_contains_live_iqr_spark_and_fullscreen_controls() -> None:
     html = INDEX_HTML.read_text(encoding="utf-8")
 
@@ -145,6 +244,12 @@ def test_static_html_contains_live_iqr_spark_and_fullscreen_controls() -> None:
     assert "normalizeWheelToPixels(" in html
     assert "window.addEventListener('wheel', relayWheelToFrameGrid, { passive: false, capture: true })" in html
     assert "frameGridEl.scrollBy({ top: deltaPx * 1.75, behavior: 'auto' })" in html
+    assert "const sprite = frameContactSheetSpecForIndex(frameIndex, gridMetrics);" in html
+    assert "return { image: '', sprite, replaced: false, note: '' };" in html
+    assert ".frame-card.loading .frame-thumb-sprite {" in html
+    assert "opacity: 0.94;" in html
+    assert "bottom: 12px;" in html
+    assert ": !isChapterLoadInFlight;" in html
     assert 'id="overlayProgressFill"' in html
     assert 'id="overlayProgressText"' in html
     assert 'id="overlayEtaText"' in html
@@ -169,7 +274,16 @@ def test_static_html_contains_live_iqr_spark_and_fullscreen_controls() -> None:
     assert "iqrSparkEl.addEventListener('pointermove'" in html
     assert "frameGridEl.scrollTo({ top, behavior: 'auto' })" in html
     assert "const sparkThreshold = themeVar('--spark-threshold', '#ff646e');" in html
-    assert 'clipPath id="sparkAboveThresholdClip"' in html
+    assert "function applySparklineCache(cache, frames)" in html
+    assert "function buildReviewSparklineCache(frames, threshold)" in html
+    assert "function buildGammaSparklineCache(frames, gammaLevel)" in html
+    assert "replaceGammaScores(new Map());" in html
+    assert "const FRAME_GRID_CONTACT_SHEET_PREFETCH_AHEAD = 2;" in html
+    assert "function prefetchVisibleFrameSheets(metricsRaw = null, rangeRaw = null)" in html
+    assert "prefetchFrameContactSheet(next.url);" in html
+    assert "const FLIPBOOK_AUDIO_CLOCK_STALL_FRAMES = 8;" in html
+    assert "sparkPlayAudioClockStallCount += 1;" in html
+    assert "return tc;" in html
     assert "frame.status === 'bad'" in html
     assert "event.target.closest('.frame-card')" in html
     assert "window.open(target, '_blank', 'noopener')" in html

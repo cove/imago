@@ -848,13 +848,23 @@
       border: 1px solid var(--line);
       border-radius: 2px;
       background: var(--overlay);
-      padding: 8px;
       overflow: auto;
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-      gap: 8px;
-      align-content: start;
+      display: block;
+      position: relative;
       min-height: 0;
+    }
+    .frame-grid-sizer {
+      position: relative;
+      width: 100%;
+      min-height: 100%;
+    }
+    .frame-grid-items {
+      position: absolute;
+      inset: 0;
+    }
+    .frame-grid-empty {
+      padding: 8px;
+      color: var(--text-muted);
     }
 
     .flipbook-preview {
@@ -1096,9 +1106,12 @@
       background: var(--bg-alt);
       padding: 6px;
       display: grid;
+      grid-template-rows: 112px minmax(13px, auto) minmax(13px, auto);
       gap: 4px;
       cursor: pointer;
-      position: relative;
+      position: absolute;
+      box-sizing: border-box;
+      height: 149px;
     }
 
     .frame-card.good { border-color: var(--good); }
@@ -1132,13 +1145,38 @@
       border-style: dashed;
       box-shadow: inset 0 0 0 1px rgba(245, 185, 108, 0.3);
     }
+    .frame-card.loading {
+      border-color: rgba(96, 116, 148, 0.7);
+      background: linear-gradient(180deg, rgba(12, 18, 28, 0.92) 0%, rgba(10, 15, 24, 0.96) 100%);
+      cursor: default;
+    }
+    .frame-card.loading .frame-thumb-wrap {
+      background: linear-gradient(90deg, rgba(18, 28, 42, 0.9) 0%, rgba(30, 44, 66, 0.96) 50%, rgba(18, 28, 42, 0.9) 100%);
+      background-size: 220% 100%;
+      animation: frame-loading-sweep 1.3s linear infinite;
+    }
+    .frame-card.loading .frame-thumb-sprite {
+      opacity: 0.94;
+    }
+    .frame-card.loading .frame-label,
+    .frame-card.loading .frame-replace-note {
+      color: var(--text-muted);
+    }
 
-    .frame-card img {
+    .frame-thumb-wrap {
       width: 100%;
-      max-height: 112px;
-      object-fit: contain;
+      height: 112px;
       background: var(--bg);
       border-radius: 4px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+
+    .frame-thumb-sprite {
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: contain;
     }
 
     .frame-label {
@@ -1181,10 +1219,10 @@
 
     .overlay {
       position: fixed;
-      top: 12px;
+      bottom: 12px;
       right: 12px;
       display: none;
-      align-items: flex-start;
+      align-items: flex-end;
       justify-content: flex-end;
       z-index: 1000;
       pointer-events: none;
@@ -1323,6 +1361,10 @@
       0% { opacity: 0.55; }
       50% { opacity: 1; }
       100% { opacity: 0.55; }
+    }
+    @keyframes frame-loading-sweep {
+      0% { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
     }
 
     @media (max-width: 1100px) {
@@ -1642,10 +1684,10 @@
         <h3>Step 1: Load Chapter</h3>
         <ol>
           <li>Select an archive in the left column, then select a chapter.</li>
-          <li>Click the <code>2/7 Bad Frames + IQR</code> step button at the top to load all chapter frames. The loader can be cancelled while running.</li>
+          <li>Click the <code>2/7 Bad Frames</code> step button at the top to load all chapter frames. The loader can be cancelled while running.</li>
         </ol>
 
-        <h3>Step 2: Bad Frames + IQR</h3>
+        <h3>Step 2: Bad Frames</h3>
         <ul>
           <li>Each frame card is color-coded: green is currently good, red is currently bad.</li>
           <li>Click any frame to toggle its manual override between good and bad.</li>
@@ -1718,6 +1760,11 @@
   </div>
 
   <script>
+    const FRAME_SHEET_DEFAULT_CHUNK_SIZE = 512;
+    const FRAME_SHEET_DEFAULT_COLUMNS = 8;
+    const FRAME_SHEET_DEFAULT_THUMB_WIDTH = 160;
+    const FRAME_SHEET_DEFAULT_THUMB_HEIGHT = 120;
+
     const state = {
       archives: [],
       archive: '',
@@ -1732,6 +1779,13 @@
       visibleRange: null,
       frameImages: new Map(),
       freezeReplacementMap: new Map(),
+      frameSheetConfig: {
+        rev: '',
+        chunkSize: FRAME_SHEET_DEFAULT_CHUNK_SIZE,
+        columns: FRAME_SHEET_DEFAULT_COLUMNS,
+        thumbWidth: FRAME_SHEET_DEFAULT_THUMB_WIDTH,
+        thumbHeight: FRAME_SHEET_DEFAULT_THUMB_HEIGHT,
+      },
       simulateFreezeFrame: false,
       simulateFreezeFrameReviewPref: false,
       forceAllFramesGood: false,
@@ -1755,11 +1809,25 @@
         entries: [],
         source: 'default',
       },
+      sparklineCache: {
+        mode: '',
+        key: '',
+        viewBox: '0 0 320 68',
+        defsSvg: '',
+        baseSvg: '',
+        metaBase: '',
+        totalCount: 0,
+        width: 320,
+        height: 68,
+        pad: 6,
+      },
+      reviewSparklineVersion: 0,
+      gammaSparklineVersion: 0,
     };
 
     const STEP_DEFS = [
       { num: 1, label: 'Load Chapter', pageId: 'page1', mode: 'load' },
-      { num: 2, label: 'Bad Frames + IQR', pageId: 'page2', mode: 'review' },
+      { num: 2, label: 'Bad Frames', pageId: 'page2', mode: 'review' },
       { num: 3, label: 'Gamma Correction', pageId: 'page2', mode: 'gamma' },
       { num: 4, label: 'People', pageId: 'page2', mode: 'people' },
       { num: 5, label: 'Subtitles', pageId: 'page2', mode: 'subtitles' },
@@ -1790,6 +1858,18 @@
     const PEOPLE_STEP_MIN_FRAME_GRID_PX = 220;
     const PEOPLE_STEP_SPARK_MIN_PX = 220;
     const PEOPLE_STEP_SPARK_MAX_PX = 380;
+    const FRAME_GRID_CARD_MIN_WIDTH_PX = 170;
+    const FRAME_GRID_CARD_HEIGHT_PX = 149;
+    const FRAME_GRID_GAP_PX = 8;
+    const FRAME_GRID_PADDING_PX = 8;
+    const FRAME_GRID_OVERSCAN_ROWS = 3;
+    const FRAME_GRID_CONTACT_SHEET_MIN_ROWS = 4;
+    const FRAME_GRID_CONTACT_SHEET_PREFETCH_AHEAD = 2;
+    const LOAD_PROGRESS_POLL_MS = 400;
+    const LOAD_REVIEW_POLL_MIN_MS = 1200;
+    const LOAD_REVIEW_POLL_MIN_FRAME_DELTA = 48;
+    const FLIPBOOK_AUDIO_CLOCK_STALL_EPSILON = 0.002;
+    const FLIPBOOK_AUDIO_CLOCK_STALL_FRAMES = 8;
 
     const statusEl = document.getElementById('status');
     const stepPillsEl = document.getElementById('stepPills');
@@ -1872,12 +1952,19 @@
     let autoIqrTimer = null;
     let visibleRangeRefreshPending = false;
     let loadProgressPollTimer = null;
+    let loadProgressPollInFlight = false;
     let previewProgressPollTimer = null;
     let subtitlesProgressPollTimer = null;
     let loadSampleTimingStartAt = 0;
     let loadSampleTimingStartDone = 0;
     let overlayProgressStartedAt = 0;
     let progressiveReviewFrameCount = 0;
+    let progressiveLoadOverlayDismissed = false;
+    let loadProgressMessage = '';
+    let loadProgressDone = 0;
+    let loadProgressTotal = 0;
+    let lastLoadReviewPollAt = 0;
+    let lastLoadReviewSampleDone = -1;
     let isChapterLoadInFlight = false;
     let isPreviewRenderInFlight = false;
     let isSubtitlesGenerateInFlight = false;
@@ -1891,6 +1978,8 @@
     let sparkPlayUseAudioClock = false;
     let sparkPlayLastTickMs = 0;
     let sparkPlayAccumulatorMs = 0;
+    let sparkPlayAudioClockLastTime = -1;
+    let sparkPlayAudioClockStallCount = 0;
     let flipbookAudioSrcKey = '';
     let flipbookGridCursorIndex = -1;
     let flipbookSubtitleRailRenderKey = '';
@@ -1913,6 +2002,13 @@
     let timelineAudioScrubWasPlaying = false;
     let timelineAudioLastScrubSeconds = 0;
     let timelineAudioLastScrubAt = 0;
+    let frameGridSizerEl = null;
+    let frameGridItemsEl = null;
+    let frameGridRenderedStart = -1;
+    let frameGridRenderedEnd = -1;
+    let frameGridRenderedLayoutKey = '';
+    let frameSheetPrefetchDone = new Set();
+    let frameSheetPrefetchPending = new Map();
     const pendingToggleRequests = new Set();
     const navActionButtons = new Map();
     const lockExtraButtons = [
@@ -1947,7 +2043,7 @@
       const frames = (state.review && Array.isArray(state.review.frames)) ? state.review.frames : [];
       for (const frame of frames) {
         const fidVal = Math.trunc(Number(frame && frame.fid));
-        if (Number.isFinite(fidVal) && fidVal === target) return true;
+        if (Number.isFinite(fidVal) && fidVal === target && isReviewFrameLoaded(frame)) return true;
       }
       return false;
     }
@@ -1981,6 +2077,175 @@
         return fa - fb;
       });
       return arr;
+    }
+
+    function isReviewFrameLoaded(frame) {
+      if (!frame || frame.fid === undefined || frame.fid === null) return false;
+      if (frame.loading === true || frame.placeholder === true) return false;
+      const status = String(frame.status || '').trim().toLowerCase();
+      return status === 'good' || status === 'bad';
+    }
+
+    function buildReviewPlaceholderFrame(fidRaw) {
+      const fid = Math.max(0, Math.trunc(Number(fidRaw || 0)));
+      return {
+        fid,
+        status: 'loading',
+        source: '',
+        score: null,
+        loading: true,
+        placeholder: true,
+      };
+    }
+
+    function reviewLoadedFrames(framesRaw = null) {
+      const frames = Array.isArray(framesRaw)
+        ? framesRaw
+        : ((state.review && Array.isArray(state.review.frames)) ? state.review.frames : []);
+      const out = [];
+      for (const frame of frames) {
+        if (isReviewFrameLoaded(frame)) out.push(frame);
+      }
+      return out;
+    }
+
+    function reviewLoadedFrameCount(framesRaw = null) {
+      if (!framesRaw && state.review && Number.isFinite(Number(state.review.loadedCount))) {
+        return Math.max(0, Math.trunc(Number(state.review.loadedCount)));
+      }
+      return reviewLoadedFrames(framesRaw).length;
+    }
+
+    function mergeReviewFramesIntoChapterSpan(loadedFramesRaw, existingFramesRaw = null) {
+      const loadedFrames = sortFramesByFid(reviewLoadedFrames(loadedFramesRaw));
+      const span = chapterFrameSpan();
+      const start = Math.max(0, Math.trunc(Number(span.start || 0)));
+      const end = Math.max(start, Math.trunc(Number(span.end || start)));
+      const totalCount = Math.max(0, end - start);
+      if (totalCount <= 0) {
+        return {
+          frames: loadedFrames,
+          loadedCount: loadedFrames.length,
+          totalCount: loadedFrames.length,
+        };
+      }
+
+      const existingFrames = Array.isArray(existingFramesRaw) ? existingFramesRaw : null;
+      const frames = (existingFrames && existingFrames.length === totalCount)
+        ? existingFrames.slice()
+        : Array.from({ length: totalCount }, (_unused, index) => buildReviewPlaceholderFrame(start + index));
+
+      for (let index = 0; index < totalCount; index += 1) {
+        const current = frames[index];
+        if (!current || !Number.isFinite(Number(current.fid))) {
+          frames[index] = buildReviewPlaceholderFrame(start + index);
+          continue;
+        }
+        if (!isReviewFrameLoaded(current)) {
+          frames[index] = buildReviewPlaceholderFrame(start + index);
+        }
+      }
+
+      for (const frame of loadedFrames) {
+        const fid = Math.trunc(Number(frame && frame.fid));
+        if (!Number.isFinite(fid)) continue;
+        const index = fid - start;
+        if (index < 0 || index >= totalCount) continue;
+        frames[index] = {
+          ...frame,
+          loading: false,
+          placeholder: false,
+        };
+      }
+
+      return {
+        frames,
+        loadedCount: loadedFrames.length,
+        totalCount,
+      };
+    }
+
+    function normalizeReviewState(reviewRaw, existingFramesRaw = null) {
+      const review = reviewRaw && typeof reviewRaw === 'object' ? reviewRaw : {};
+      const merged = mergeReviewFramesIntoChapterSpan(review.frames || [], existingFramesRaw);
+      return {
+        ...review,
+        frames: merged.frames,
+        loadedCount: merged.loadedCount,
+        totalCount: merged.totalCount,
+      };
+    }
+
+    function setReviewState(reviewRaw, existingFramesRaw = null) {
+      const normalized = normalizeReviewState(reviewRaw, existingFramesRaw);
+      state.review = {
+        ...(state.review || {}),
+        ...normalized,
+        frames: normalized.frames,
+        loadedCount: normalized.loadedCount,
+        totalCount: normalized.totalCount,
+      };
+      invalidateReviewSparklineCache();
+      return state.review;
+    }
+
+    function patchReviewFramesIntoState(updatesRaw) {
+      const updates = sortFramesByFid(updatesRaw);
+      const span = chapterFrameSpan();
+      const start = Math.max(0, Math.trunc(Number(span.start || 0)));
+      const end = Math.max(start, Math.trunc(Number(span.end || start)));
+      const totalCount = Math.max(0, end - start);
+      let frames = (state.review && Array.isArray(state.review.frames))
+        ? state.review.frames.slice()
+        : [];
+      if (!frames.length && totalCount > 0) {
+        frames = Array.from({ length: totalCount }, (_unused, index) => buildReviewPlaceholderFrame(start + index));
+      }
+      if (totalCount > 0 && frames.length !== totalCount) {
+        frames = mergeReviewFramesIntoChapterSpan(reviewLoadedFrames(frames), frames).frames;
+      }
+      if (!frames.length && !updates.length) {
+        return setReviewState({ ...(state.review || {}), frames: [] }, null);
+      }
+      if (!frames.length) {
+        frames = updates.slice();
+      }
+      for (const update of updates) {
+        const fid = Math.trunc(Number(update && update.fid));
+        if (!Number.isFinite(fid)) continue;
+        const index = totalCount > 0 ? (fid - start) : frames.findIndex((frame) => Number(frame && frame.fid) === fid);
+        if (!Number.isFinite(index) || index < 0) continue;
+        if (index >= frames.length) continue;
+        frames[index] = {
+          ...update,
+          loading: false,
+          placeholder: false,
+        };
+      }
+      return setReviewState(
+        {
+          ...(state.review || {}),
+          frames,
+          loadedCount: reviewLoadedFrameCount(frames),
+          totalCount: frames.length,
+        },
+        frames,
+      );
+    }
+
+    function normalizeFrameSheetConfig(rawConfig) {
+      const raw = rawConfig && typeof rawConfig === 'object' ? rawConfig : {};
+      const chunkSize = Math.max(1, Math.trunc(Number(raw.chunk_size || raw.chunkSize || FRAME_SHEET_DEFAULT_CHUNK_SIZE)));
+      const columns = Math.max(1, Math.trunc(Number(raw.columns || FRAME_SHEET_DEFAULT_COLUMNS)));
+      const thumbWidth = Math.max(1, Math.trunc(Number(raw.thumb_width || raw.thumbWidth || FRAME_SHEET_DEFAULT_THUMB_WIDTH)));
+      const thumbHeight = Math.max(1, Math.trunc(Number(raw.thumb_height || raw.thumbHeight || FRAME_SHEET_DEFAULT_THUMB_HEIGHT)));
+      return {
+        rev: String(raw.rev || ''),
+        chunkSize,
+        columns,
+        thumbWidth,
+        thumbHeight,
+      };
     }
 
     function setLoading(active, message = 'Working...') {
@@ -2080,12 +2345,41 @@
       if (overlayProgressTextEl) overlayProgressTextEl.textContent = `${Math.round(p)}%`;
     }
 
+    function maybeDismissLoadOverlayForProgressiveFrames(frameCountRaw) {
+      const frameCount = Math.max(0, Math.trunc(Number(frameCountRaw || 0)));
+      if (!isChapterLoadInFlight) return;
+      if (progressiveLoadOverlayDismissed) return;
+      if (frameCount <= 0) return;
+      progressiveLoadOverlayDismissed = true;
+      setLoading(false);
+      updateReviewStatsDisplay();
+    }
+
+    function clearLoadProgressPollTimer() {
+      if (!loadProgressPollTimer) return;
+      window.clearTimeout(loadProgressPollTimer);
+      loadProgressPollTimer = null;
+    }
+
+    function scheduleLoadProgressPoll(delayMs = LOAD_PROGRESS_POLL_MS) {
+      if (!isChapterLoadInFlight) return;
+      clearLoadProgressPollTimer();
+      loadProgressPollTimer = window.setTimeout(() => {
+        pollLoadProgressOnce();
+      }, Math.max(0, Math.trunc(Number(delayMs) || 0)));
+    }
+
     async function pollLoadProgressOnce() {
+      if (!isChapterLoadInFlight || loadProgressPollInFlight) return;
+      loadProgressPollInFlight = true;
       try {
         const p = await api('/api/load_progress');
         const done = Number(p.sample_done || 0);
         const total = Number(p.sample_total || 0);
         const msg = String(p.message || '');
+        loadProgressDone = Math.max(0, Math.trunc(done));
+        loadProgressTotal = Math.max(0, Math.trunc(total));
+        loadProgressMessage = msg;
         if (msg) {
           if (total > 0) {
             overlayMsgEl.textContent = `${msg} (${done}/${total})`;
@@ -2095,26 +2389,50 @@
         }
         setOverlayProgress(Number(p.progress || 0));
         renderReadyAtFromSamples(done, total);
+        updateReviewStatsDisplay();
 
-        const live = await api('/api/load_review');
-        const liveReview = live.review || null;
-        const liveFrames = sortFramesByFid((liveReview && Array.isArray(liveReview.frames)) ? liveReview.frames : []);
-        if (liveFrames.length > 0) {
-          state.review = {
-            ...(state.review || {}),
-            threshold: Number(liveReview.threshold || 0),
-            stats: liveReview.stats || {},
-            frames: liveFrames,
-          };
-          syncForceAllFramesGoodFromReview(liveReview);
-          updateReviewStatsDisplay();
-          if (liveFrames.length !== progressiveReviewFrameCount) {
-            renderReviewFrames(liveFrames);
-            progressiveReviewFrameCount = liveFrames.length;
+        const now = Date.now();
+        const sampleDelta = done - lastLoadReviewSampleDone;
+        const shouldRefreshLiveReview = done > 0 && (
+          progressiveReviewFrameCount <= 0 ||
+          done >= total ||
+          lastLoadReviewSampleDone < 0 ||
+          sampleDelta >= LOAD_REVIEW_POLL_MIN_FRAME_DELTA ||
+          (now - lastLoadReviewPollAt) >= LOAD_REVIEW_POLL_MIN_MS
+        );
+        if (shouldRefreshLiveReview) {
+          const live = await api('/api/load_review');
+          lastLoadReviewPollAt = now;
+          lastLoadReviewSampleDone = done;
+          const liveReview = live.review || null;
+          const liveFrames = sortFramesByFid((liveReview && Array.isArray(liveReview.frames)) ? liveReview.frames : []);
+          if (liveFrames.length > 0) {
+            state.frameSheetConfig = normalizeFrameSheetConfig(live.contact_sheet || state.frameSheetConfig);
+            setReviewState(
+              {
+                ...(state.review || {}),
+                threshold: Number(liveReview.threshold || 0),
+                stats: liveReview.stats || {},
+                frames: liveFrames,
+              },
+              state.review && Array.isArray(state.review.frames) ? state.review.frames : null
+            );
+            syncForceAllFramesGoodFromReview(liveReview);
+            updateReviewStatsDisplay();
+            if (liveFrames.length !== progressiveReviewFrameCount) {
+              renderReviewFrames(liveFrames);
+              progressiveReviewFrameCount = liveFrames.length;
+              maybeDismissLoadOverlayForProgressiveFrames(liveFrames.length);
+            }
           }
         }
       } catch (_err) {
         // Ignore transient polling errors while main request is in-flight.
+      } finally {
+        loadProgressPollInFlight = false;
+        if (isChapterLoadInFlight) {
+          scheduleLoadProgressPoll(LOAD_PROGRESS_POLL_MS);
+        }
       }
     }
 
@@ -2145,27 +2463,32 @@
     }
 
     function updateActionLocks() {
-      const locked = isNavigationLocked();
+      const locked = Boolean(isChapterLoadInFlight || isPreviewRenderInFlight || isSubtitlesGenerateInFlight);
+      const forceGoodLocked = Boolean(isPreviewRenderInFlight || isSubtitlesGenerateInFlight);
       navActionButtons.forEach((el) => {
         if (el) el.disabled = locked;
       });
       lockExtraButtons.forEach((el) => {
-        if (el) el.disabled = locked;
+        if (!el) return;
+        if (el === forceAllFramesGoodEl) {
+          el.disabled = forceGoodLocked;
+          return;
+        }
+        el.disabled = locked;
       });
       if (stepPillsEl) {
         stepPillsEl.querySelectorAll('.step-pill').forEach((el) => {
-          el.disabled = locked;
+          const step = stepDef(Number(el.dataset.step || 0));
+          el.disabled = isStepPillDisabled(step);
         });
       }
     }
 
     function startLoadProgress(message) {
-      if (loadProgressPollTimer) {
-        window.clearInterval(loadProgressPollTimer);
-        loadProgressPollTimer = null;
-      }
+      clearLoadProgressPollTimer();
       setLoading(true, message || 'Loading chapter...');
       isChapterLoadInFlight = true;
+      loadProgressPollInFlight = false;
       updateActionLocks();
       loadSampleTimingStartAt = 0;
       loadSampleTimingStartDone = 0;
@@ -2175,15 +2498,17 @@
       setOverlayProgress(1);
       renderReadyAtFromSamples(0, 0);
       progressiveReviewFrameCount = 0;
+      progressiveLoadOverlayDismissed = false;
+      loadProgressMessage = '';
+      loadProgressDone = 0;
+      loadProgressTotal = 0;
+      lastLoadReviewPollAt = 0;
+      lastLoadReviewSampleDone = -1;
       pollLoadProgressOnce();
-      loadProgressPollTimer = window.setInterval(pollLoadProgressOnce, 180);
     }
 
     function finishLoadProgress(success = true) {
-      if (loadProgressPollTimer) {
-        window.clearInterval(loadProgressPollTimer);
-        loadProgressPollTimer = null;
-      }
+      clearLoadProgressPollTimer();
       setLoadCancelUi(false);
       if (success) {
         setOverlayProgress(100);
@@ -2199,7 +2524,15 @@
       overlayProgressStartedAt = 0;
       activeCancelableTask = '';
       progressiveReviewFrameCount = 0;
+      progressiveLoadOverlayDismissed = false;
+      loadProgressMessage = '';
+      loadProgressDone = 0;
+      loadProgressTotal = 0;
       isChapterLoadInFlight = false;
+      loadProgressPollInFlight = false;
+      lastLoadReviewPollAt = 0;
+      lastLoadReviewSampleDone = -1;
+      updateReviewStatsDisplay();
       updateActionLocks();
     }
 
@@ -2396,14 +2729,20 @@
     }
 
     function isNavigationLocked() {
-      return Boolean(isChapterLoadInFlight || isPreviewRenderInFlight || isSubtitlesGenerateInFlight);
+      return Boolean(isPreviewRenderInFlight || isSubtitlesGenerateInFlight);
+    }
+
+    function isStepPillDisabled(step) {
+      const target = stepDef(step);
+      if (isNavigationLocked()) return true;
+      if (!isChapterLoadInFlight) return false;
+      return target.mode === 'gamma' || target.mode === 'summary';
     }
 
     function renderStepPills() {
       if (!stepPillsEl) return;
       stepPillsEl.innerHTML = '';
       const activeStepNum = stepDef(state.wizardStep).num;
-      const navLocked = isNavigationLocked();
       STEP_DEFS.forEach((step, index) => {
         const pill = document.createElement('button');
         pill.type = 'button';
@@ -2411,7 +2750,7 @@
         pill.className = 'step-pill';
         pill.dataset.step = String(step.num);
         pill.textContent = `${index + 1}/${STEP_COUNT} ${step.label}`;
-        pill.disabled = navLocked;
+        pill.disabled = isStepPillDisabled(step);
         if (step.num === activeStepNum) {
           pill.classList.add('active');
         }
@@ -2911,6 +3250,9 @@
     function formatFrameCardLabel(frame) {
       if (!frame || frame.fid === undefined || frame.fid === null) return '';
       const tc = timelineLabelFromFid(frame.fid);
+      if (!isReviewFrameLoaded(frame)) {
+        return tc;
+      }
       const score = Number(frame.score);
       const scoreText = Number.isFinite(score) ? `s=${score.toFixed(2)}` : '';
       const sourceText = String(frame.source || '').trim();
@@ -4607,35 +4949,49 @@
       updateGammaRangeMeta();
     }
 
+    function reviewLoadProgressSuffix() {
+      if (!isChapterLoadInFlight) return '';
+      const done = Math.max(0, Math.trunc(Number(loadProgressDone || 0)));
+      const total = Math.max(0, Math.trunc(Number(loadProgressTotal || 0)));
+      if (total > 0) return ` | loading ${done}/${total}`;
+      const msg = String(loadProgressMessage || '').trim();
+      return msg ? ` | ${msg}` : ' | loading...';
+    }
+
     function updateReviewStatsDisplay() {
       if (!reviewStatsEl) return;
+      const frames = currentReviewFrames();
+      const totalCount = frames.length;
+      const loadedCount = reviewLoadedFrameCount(frames);
       if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) {
-        reviewStatsEl.textContent = 'No frames loaded.';
+        const suffix = reviewLoadProgressSuffix();
+        reviewStatsEl.textContent = suffix ? `Loading frames progressively${suffix}` : 'No frames loaded.';
         return;
       }
+      const loadSuffix = reviewLoadProgressSuffix();
       if (isPeopleStepActive()) {
         const entries = canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
-        reviewStatsEl.textContent = `People step | rows ${entries.length} | loaded ${state.review.frames.length}`;
+        reviewStatsEl.textContent = `People step | rows ${entries.length} | loaded ${loadedCount}/${totalCount}${loadSuffix}`;
         return;
       }
       if (isSubtitlesStepActive()) {
         const subtitleEntries = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
-        reviewStatsEl.textContent = `Subtitles step | dialogue ${subtitleEntries.length} | loaded ${state.review.frames.length}`;
+        reviewStatsEl.textContent = `Subtitles step | dialogue ${subtitleEntries.length} | loaded ${loadedCount}/${totalCount}${loadSuffix}`;
         return;
       }
       if (isSplitStepActive()) {
         const splitEntries = canonicalizeSplitEntries((state.splitProfile && state.splitProfile.entries) || []);
-        reviewStatsEl.textContent = `Chapters step | ranges ${splitEntries.length} | loaded ${state.review.frames.length}`;
+        reviewStatsEl.textContent = `Chapters step | ranges ${splitEntries.length} | loaded ${loadedCount}/${totalCount}${loadSuffix}`;
         return;
       }
       if (isGammaStepActive()) {
         const mode = String((state.gammaProfile && state.gammaProfile.mode) || 'whole');
         const ranges = gammaRangesForSave();
         const gammaLevel = normalizeGammaValue(state.gammaProfile && state.gammaProfile.level, 1.0);
-        reviewStatsEl.textContent = `Gamma Correction step | mode ${mode} | level ${gammaLevel.toFixed(3)} | ranges ${ranges.length} | loaded ${state.review.frames.length}`;
+        reviewStatsEl.textContent = `Gamma Correction step | mode ${mode} | level ${gammaLevel.toFixed(3)} | ranges ${ranges.length} | loaded ${loadedCount}/${totalCount}${loadSuffix}`;
         return;
       }
-      reviewStatsEl.textContent = statsText(state.review.stats, state.review.threshold);
+      reviewStatsEl.textContent = `${statsText(state.review.stats, state.review.threshold)}${loadSuffix}`;
     }
 
     async function estimateGammaScoreFromImage(src) {
@@ -4684,14 +5040,15 @@
       if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) return;
       const pending = [];
       for (const frame of state.review.frames) {
+        if (!isReviewFrameLoaded(frame)) continue;
         const fidKey = String(frame && frame.fid);
         if (!fidKey) continue;
         if (state.gammaScores.has(fidKey)) continue;
-        let src = String((frame && frame.image) || state.frameImages.get(fidKey) || '').trim();
+        let src = frameImageSrcForFid(fidKey, frame && frame.image);
         if (frame && frame.status === 'bad') {
           const replacementFid = state.freezeReplacementMap.get(fidKey);
           if (replacementFid !== undefined && replacementFid !== null) {
-            const replacementSrc = String(state.frameImages.get(String(replacementFid)) || '').trim();
+            const replacementSrc = frameImageSrcForFid(replacementFid);
             if (replacementSrc) src = replacementSrc;
           }
         }
@@ -4707,6 +5064,7 @@
           await new Promise(resolve => window.setTimeout(resolve, 0));
         }
       }
+      invalidateGammaSparklineCache();
     }
 
     function gammaScoreForFrame(frame) {
@@ -4739,21 +5097,7 @@
 
     function refreshGammaVisuals() {
       const gammaOn = isGammaStepActive();
-      frameGridEl.querySelectorAll('.frame-card').forEach(card => {
-        const imgEl = card.querySelector('img');
-        if (!imgEl) return;
-        if (!gammaOn) {
-          imgEl.style.removeProperty('filter');
-          return;
-        }
-        const fid = Number(card.dataset.fid);
-        const gamma = gammaLevelForFrameId(fid);
-        if (Math.abs(gamma - 1.0) < 0.001) {
-          imgEl.style.removeProperty('filter');
-        } else {
-          imgEl.style.filter = `brightness(${gamma.toFixed(3)})`;
-        }
-      });
+      renderFrameGridWindow(true);
 
       if (!flipbookImageEl) return;
       if (!gammaOn) {
@@ -4776,160 +5120,378 @@
       return value || fallback;
     }
 
+    function resetSparklineCache() {
+      state.sparklineCache = {
+        mode: '',
+        key: '',
+        viewBox: '0 0 320 68',
+        defsSvg: '',
+        baseSvg: '',
+        metaBase: '',
+        totalCount: 0,
+        width: 320,
+        height: 68,
+        pad: 6,
+      };
+    }
+
+    function invalidateSparklineCache(mode = '') {
+      const targetMode = String(mode || '').trim();
+      if (!targetMode || String(state.sparklineCache.mode || '') === targetMode) {
+        resetSparklineCache();
+      }
+    }
+
+    function invalidateReviewSparklineCache() {
+      state.reviewSparklineVersion = Math.max(0, Math.trunc(Number(state.reviewSparklineVersion || 0))) + 1;
+      state.gammaSparklineVersion = Math.max(0, Math.trunc(Number(state.gammaSparklineVersion || 0))) + 1;
+      invalidateSparklineCache();
+    }
+
+    function invalidateGammaSparklineCache() {
+      state.gammaSparklineVersion = Math.max(0, Math.trunc(Number(state.gammaSparklineVersion || 0))) + 1;
+      invalidateSparklineCache('gamma');
+    }
+
+    function replaceGammaScores(nextMap = null) {
+      state.gammaScores = nextMap instanceof Map ? nextMap : new Map();
+      invalidateGammaSparklineCache();
+    }
+
+    function sparklineViewportOverlaySvg(cache, range) {
+      const totalCount = Math.max(0, Math.trunc(Number(cache && cache.totalCount || 0)));
+      if (!range || totalCount <= 0) return '';
+      const w = Math.max(1, Number(cache && cache.width || 320));
+      const h = Math.max(1, Number(cache && cache.height || 68));
+      const pad = Math.max(0, Number(cache && cache.pad || 6));
+      const sparkWindow = themeVar('--spark-window', '#6ca0ff');
+      const sparkWindowMid = themeVar('--spark-window-mid', '#9dc6ff');
+      const xFor = (i) => {
+        if (totalCount <= 1) return w / 2;
+        return pad + (i * (w - pad * 2)) / (totalCount - 1);
+      };
+      const startIdx = Math.max(0, Math.min(totalCount - 1, Number(range.start)));
+      const endIdx = Math.max(startIdx, Math.min(totalCount - 1, Number(range.end)));
+      const xStart = xFor(startIdx);
+      const xEnd = xFor(endIdx);
+      const xMid = (xStart + xEnd) / 2;
+      return `
+        <rect x="${Math.min(xStart, xEnd).toFixed(2)}" y="${pad}" width="${Math.max(1, Math.abs(xEnd - xStart)).toFixed(2)}" height="${(h - pad * 2).toFixed(2)}" fill="${sparkWindow}" opacity="0.15"></rect>
+        <line x1="${xStart.toFixed(2)}" y1="${pad}" x2="${xStart.toFixed(2)}" y2="${(h - pad).toFixed(2)}" stroke="${sparkWindow}" stroke-width="1.3" opacity="0.95"></line>
+        <line x1="${xEnd.toFixed(2)}" y1="${pad}" x2="${xEnd.toFixed(2)}" y2="${(h - pad).toFixed(2)}" stroke="${sparkWindow}" stroke-width="1.3" opacity="0.95"></line>
+        <line x1="${xMid.toFixed(2)}" y1="${pad}" x2="${xMid.toFixed(2)}" y2="${(h - pad).toFixed(2)}" stroke="${sparkWindowMid}" stroke-width="1.0" opacity="0.9"></line>
+      `;
+    }
+
+    function sparklineMetaText(cache, frames) {
+      const base = String(cache && cache.metaBase || '').trim();
+      if (!base) return '';
+      if (!state.visibleRange) return base;
+      const data = Array.isArray(frames) ? frames : [];
+      const totalCount = data.length;
+      if (!totalCount) return base;
+      const start = Math.max(0, Number(state.visibleRange.start)) + 1;
+      const end = Math.max(start, Number(state.visibleRange.end) + 1);
+      const viewTc = visibleRangeTimeText(state.visibleRange, data);
+      return `${base} | view ${viewTc || `${start}-${end}/${totalCount}`}`;
+    }
+
+    function applySparklineCache(cache, frames) {
+      if (!iqrSparkEl || !sparkMetaEl) return;
+      const nextCache = cache && typeof cache === 'object' ? cache : null;
+      if (!nextCache) {
+        iqrSparkEl.innerHTML = '';
+        sparkMetaEl.textContent = '';
+        resetSparklineCache();
+        return;
+      }
+      if (String(iqrSparkEl.getAttribute('viewBox') || '') !== String(nextCache.viewBox || '')) {
+        iqrSparkEl.setAttribute('viewBox', String(nextCache.viewBox || '0 0 320 68'));
+      }
+      const overlaySvg = sparklineViewportOverlaySvg(nextCache, state.visibleRange);
+      const nextMarkup = `
+        ${String(nextCache.defsSvg || '').trim() ? `<defs>${nextCache.defsSvg}</defs>` : ''}
+        <g data-spark-base="1">${nextCache.baseSvg || ''}</g>
+        <g data-spark-overlay="1">${overlaySvg}</g>
+      `;
+      if (
+        String(state.sparklineCache.key || '') !== String(nextCache.key || '')
+        || iqrSparkEl.querySelector('[data-spark-overlay="1"]') === null
+      ) {
+        iqrSparkEl.innerHTML = nextMarkup;
+      } else {
+        const overlayLayer = iqrSparkEl.querySelector('[data-spark-overlay="1"]');
+        if (overlayLayer) {
+          overlayLayer.innerHTML = overlaySvg;
+        } else {
+          iqrSparkEl.innerHTML = nextMarkup;
+        }
+      }
+      sparkMetaEl.textContent = sparklineMetaText(nextCache, frames);
+      state.sparklineCache = nextCache;
+    }
+
+    function buildReviewSparklineCache(frames, threshold) {
+      const data = Array.isArray(frames) ? frames : [];
+      const totalCount = data.length;
+      const w = Math.max(320, Math.floor(iqrSparkEl.clientWidth || 320));
+      const h = 68;
+      const pad = 6;
+      const key = `review:${state.reviewSparklineVersion}:${w}`;
+      const loaded = [];
+      for (let i = 0; i < data.length; i += 1) {
+        const frame = data[i];
+        if (!isReviewFrameLoaded(frame)) continue;
+        loaded.push({ index: i, frame });
+      }
+      const sparkHot = themeVar('--spark-hot', '#ff9154');
+      const sparkBase = themeVar('--spark-base', '#48a5bc');
+      const sparkThreshold = themeVar('--spark-threshold', '#ff646e');
+      const bucketCount = Math.max(48, Math.floor(w - (pad * 2)));
+      const xFor = (i) => {
+        if (totalCount <= 1) return w / 2;
+        return pad + (i * (w - pad * 2)) / (totalCount - 1);
+      };
+      if (!loaded.length) {
+        return {
+          mode: 'review',
+          key,
+          viewBox: `0 0 ${w} ${h}`,
+          defsSvg: '',
+          baseSvg: `<rect x="${pad}" y="${pad}" width="${Math.max(1, w - (pad * 2)).toFixed(2)}" height="${(h - pad * 2).toFixed(2)}" fill="${sparkBase}" opacity="0.06"></rect>`,
+          metaBase: `Scores: loading 0/${totalCount}`,
+          totalCount,
+          width: w,
+          height: h,
+          pad,
+        };
+      }
+
+      const scores = loaded.map(({ frame }) => Number(frame.score || 0));
+      const badCount = loaded.filter(({ frame }) => frame.status === 'bad').length;
+      const minV = Math.min(...scores, Number(threshold || 0));
+      const maxV = Math.max(...scores, Number(threshold || 0));
+      const span = Math.max(1e-9, maxV - minV);
+      const yFor = (v) => h - pad - ((v - minV) / span) * (h - pad * 2);
+      const points = downsampleSparkSeries(scores, bucketCount)
+        .map((point) => `${xFor(loaded[point.index].index).toFixed(2)},${yFor(point.value).toFixed(2)}`)
+        .join(' ');
+      const yThr = yFor(Number(threshold || 0));
+      const yThrClamped = _clamp(yThr, 0, h);
+      const clipId = 'sparkAboveThresholdClipReview';
+      const badDotsSvg = downsampleMarkerIndexes(
+        loaded.map(({ frame }) => frame.status === 'bad'),
+        bucketCount,
+      )
+        .map((index) => `<circle cx="${xFor(loaded[index].index).toFixed(2)}" cy="${(h - 2).toFixed(2)}" r="1.8" fill="${sparkHot}" opacity="0.95"></circle>`)
+        .join('');
+      let unloadedSvg = '';
+      if (loaded.length < totalCount) {
+        const firstUnloadedIndex = Math.max(0, loaded[loaded.length - 1].index + 1);
+        const xStart = xFor(firstUnloadedIndex);
+        unloadedSvg = `<rect x="${xStart.toFixed(2)}" y="${pad}" width="${Math.max(1, (w - pad) - xStart).toFixed(2)}" height="${(h - pad * 2).toFixed(2)}" fill="${sparkBase}" opacity="0.05"></rect>`;
+      }
+      return {
+        mode: 'review',
+        key,
+        viewBox: `0 0 ${w} ${h}`,
+        defsSvg: `<clipPath id="${clipId}"><rect x="0" y="0" width="${w}" height="${yThrClamped.toFixed(2)}"></rect></clipPath>`,
+        baseSvg: `
+          ${unloadedSvg}
+          <polyline points="${points}" fill="none" stroke="${sparkBase}" stroke-width="1.6" opacity="0.95"></polyline>
+          <polyline points="${points}" fill="none" stroke="${sparkHot}" stroke-width="1.9" opacity="0.98" clip-path="url(#${clipId})"></polyline>
+          <line x1="${pad}" y1="${yThr.toFixed(2)}" x2="${(w - pad).toFixed(2)}" y2="${yThr.toFixed(2)}" stroke="${sparkThreshold}" stroke-width="1.4" opacity="0.95"></line>
+          ${badDotsSvg}
+        `,
+        metaBase: `Scores: min ${minV.toFixed(2)} | max ${maxV.toFixed(2)} | threshold ${Number(threshold || 0).toFixed(2)} | auto bad ${badCount} | loaded ${loaded.length}/${totalCount}`,
+        totalCount,
+        width: w,
+        height: h,
+        pad,
+      };
+    }
+
+    function buildGammaSparklineCache(frames, gammaLevel) {
+      const data = Array.isArray(frames) ? frames : [];
+      const totalCount = data.length;
+      const w = Math.max(320, Math.floor(iqrSparkEl.clientWidth || 320));
+      const h = 68;
+      const pad = 6;
+      const level = normalizeGammaValue(gammaLevel, 1.0);
+      const key = `gamma:${state.gammaSparklineVersion}:${w}:${level.toFixed(3)}`;
+      const loaded = [];
+      for (let i = 0; i < data.length; i += 1) {
+        const frame = data[i];
+        if (!isReviewFrameLoaded(frame)) continue;
+        loaded.push({ index: i, frame });
+      }
+      const sparkHot = themeVar('--spark-hot', '#ff9154');
+      const sparkBase = themeVar('--spark-base', '#48a5bc');
+      const sparkThreshold = themeVar('--spark-threshold', '#ff646e');
+      const bucketCount = Math.max(48, Math.floor(w - (pad * 2)));
+      const xFor = (i) => {
+        if (totalCount <= 1) return w / 2;
+        return pad + (i * (w - pad * 2)) / (totalCount - 1);
+      };
+      if (!loaded.length) {
+        return {
+          mode: 'gamma',
+          key,
+          viewBox: `0 0 ${w} ${h}`,
+          defsSvg: '',
+          baseSvg: `<rect x="${pad}" y="${pad}" width="${Math.max(1, w - (pad * 2)).toFixed(2)}" height="${(h - pad * 2).toFixed(2)}" fill="${sparkBase}" opacity="0.06"></rect>`,
+          metaBase: `Gamma scores: loading 0/${totalCount}`,
+          totalCount,
+          width: w,
+          height: h,
+          pad,
+        };
+      }
+
+      const scores = loaded.map(({ frame }) => gammaScoreForFrame(frame));
+      const aboveCount = scores.filter((value) => Number(value) > level).length;
+      const minV = Math.min(...scores, level);
+      const maxV = Math.max(...scores, level);
+      const span = Math.max(1e-9, maxV - minV);
+      const yFor = (v) => h - pad - ((v - minV) / span) * (h - pad * 2);
+      const points = downsampleSparkSeries(scores, bucketCount)
+        .map((point) => `${xFor(loaded[point.index].index).toFixed(2)},${yFor(point.value).toFixed(2)}`)
+        .join(' ');
+      const yLevel = yFor(level);
+      const yLevelClamped = _clamp(yLevel, 0, h);
+      const clipId = 'sparkAboveThresholdClipGamma';
+      const hotDotsSvg = downsampleMarkerIndexes(
+        loaded.map(({ frame }) => gammaScoreForFrame(frame) > level),
+        bucketCount,
+      )
+        .map((index) => `<circle cx="${xFor(loaded[index].index).toFixed(2)}" cy="${(h - 2).toFixed(2)}" r="1.8" fill="${sparkHot}" opacity="0.95"></circle>`)
+        .join('');
+      let unloadedSvg = '';
+      if (loaded.length < totalCount) {
+        const firstUnloadedIndex = Math.max(0, loaded[loaded.length - 1].index + 1);
+        const xStart = xFor(firstUnloadedIndex);
+        unloadedSvg = `<rect x="${xStart.toFixed(2)}" y="${pad}" width="${Math.max(1, (w - pad) - xStart).toFixed(2)}" height="${(h - pad * 2).toFixed(2)}" fill="${sparkBase}" opacity="0.05"></rect>`;
+      }
+      return {
+        mode: 'gamma',
+        key,
+        viewBox: `0 0 ${w} ${h}`,
+        defsSvg: `<clipPath id="${clipId}"><rect x="0" y="0" width="${w}" height="${yLevelClamped.toFixed(2)}"></rect></clipPath>`,
+        baseSvg: `
+          ${unloadedSvg}
+          <polyline points="${points}" fill="none" stroke="${sparkBase}" stroke-width="1.6" opacity="0.95"></polyline>
+          <polyline points="${points}" fill="none" stroke="${sparkHot}" stroke-width="1.9" opacity="0.98" clip-path="url(#${clipId})"></polyline>
+          <line x1="${pad}" y1="${yLevel.toFixed(2)}" x2="${(w - pad).toFixed(2)}" y2="${yLevel.toFixed(2)}" stroke="${sparkThreshold}" stroke-width="1.4" opacity="0.95"></line>
+          ${hotDotsSvg}
+        `,
+        metaBase: `Gamma scores: min ${minV.toFixed(2)} | max ${maxV.toFixed(2)} | level ${level.toFixed(2)} | above level ${aboveCount} | loaded ${loaded.length}/${totalCount}`,
+        totalCount,
+        width: w,
+        height: h,
+        pad,
+      };
+    }
+
+    function downsampleSparkSeries(values, maxBuckets) {
+      const nums = Array.isArray(values) ? values.map((value) => Number(value || 0)) : [];
+      const bucketCount = Math.max(1, Math.trunc(Number(maxBuckets || 1)));
+      if (nums.length <= Math.max(2, bucketCount * 2)) {
+        return nums.map((value, index) => ({ index, value }));
+      }
+      const points = [];
+      let lastIndex = -1;
+      for (let bucket = 0; bucket < bucketCount; bucket += 1) {
+        const start = Math.floor((bucket * nums.length) / bucketCount);
+        const end = Math.max(start + 1, Math.floor(((bucket + 1) * nums.length) / bucketCount));
+        let minVal = nums[start];
+        let maxVal = nums[start];
+        let minIdx = start;
+        let maxIdx = start;
+        for (let i = start + 1; i < end; i += 1) {
+          const value = nums[i];
+          if (value < minVal) {
+            minVal = value;
+            minIdx = i;
+          }
+          if (value > maxVal) {
+            maxVal = value;
+            maxIdx = i;
+          }
+        }
+        const ordered = minIdx <= maxIdx
+          ? [{ index: minIdx, value: minVal }, { index: maxIdx, value: maxVal }]
+          : [{ index: maxIdx, value: maxVal }, { index: minIdx, value: minVal }];
+        for (const point of ordered) {
+          if (point.index === lastIndex) continue;
+          points.push(point);
+          lastIndex = point.index;
+        }
+      }
+      return points;
+    }
+
+    function downsampleMarkerIndexes(flags, maxBuckets) {
+      const bools = Array.isArray(flags) ? flags.map(Boolean) : [];
+      const bucketCount = Math.max(1, Math.trunc(Number(maxBuckets || 1)));
+      if (bools.length <= bucketCount) {
+        return bools.map((on, index) => (on ? index : null)).filter((index) => index !== null);
+      }
+      const out = [];
+      for (let bucket = 0; bucket < bucketCount; bucket += 1) {
+        const start = Math.floor((bucket * bools.length) / bucketCount);
+        const end = Math.max(start + 1, Math.floor(((bucket + 1) * bools.length) / bucketCount));
+        let hit = false;
+        for (let i = start; i < end; i += 1) {
+          if (!bools[i]) continue;
+          hit = true;
+          break;
+        }
+        if (hit) {
+          out.push(Math.floor((start + Math.max(start, end - 1)) / 2));
+        }
+      }
+      return out;
+    }
+
     function renderSparkline(frames, threshold) {
       if (!iqrSparkEl || !sparkMetaEl) return;
       const data = Array.isArray(frames) ? frames : [];
       if (!data.length) {
-        iqrSparkEl.innerHTML = '';
+        applySparklineCache(null, []);
         sparkMetaEl.textContent = 'No score data loaded.';
         state.visibleRange = null;
         return;
       }
-
-      const w = Math.max(320, Math.floor(iqrSparkEl.clientWidth || 320));
-      const h = 68;
-      const pad = 6;
-      const sparkHot = themeVar('--spark-hot', '#ff9154');
-      const sparkBase = themeVar('--spark-base', '#48a5bc');
-      const sparkThreshold = themeVar('--spark-threshold', '#ff646e');
-      const sparkWindow = themeVar('--spark-window', '#6ca0ff');
-      const sparkWindowMid = themeVar('--spark-window-mid', '#9dc6ff');
-      const scores = data.map(f => Number(f.score || 0));
-      const badCount = data.filter(f => f.status === 'bad').length;
-      const minV = Math.min(...scores, Number(threshold || 0));
-      const maxV = Math.max(...scores, Number(threshold || 0));
-      const span = Math.max(1e-9, maxV - minV);
-
-      const xFor = (i) => {
-        if (scores.length <= 1) return w / 2;
-        return pad + (i * (w - pad * 2)) / (scores.length - 1);
-      };
-      const yFor = (v) => h - pad - ((v - minV) / span) * (h - pad * 2);
-
-      const points = scores.map((v, i) => `${xFor(i).toFixed(2)},${yFor(v).toFixed(2)}`).join(' ');
-      const yThr = yFor(Number(threshold || 0));
-      const yThrClamped = _clamp(yThr, 0, h);
-      iqrSparkEl.setAttribute('viewBox', `0 0 ${w} ${h}`);
-
-      const badDotsSvg = data
-        .map((frame, i) => ({ frame, i }))
-        .filter(({ frame }) => frame.status === 'bad')
-        .map(({ i }) => `<circle cx="${xFor(i).toFixed(2)}" cy="${(h - 2).toFixed(2)}" r="1.8" fill="${sparkHot}" opacity="0.95"></circle>`)
-        .join('');
-
-      let viewportSvg = '';
-      if (state.visibleRange && Number.isFinite(state.visibleRange.start) && Number.isFinite(state.visibleRange.end)) {
-        const startIdx = Math.max(0, Math.min(scores.length - 1, Number(state.visibleRange.start)));
-        const endIdx = Math.max(startIdx, Math.min(scores.length - 1, Number(state.visibleRange.end)));
-        const xStart = xFor(startIdx);
-        const xEnd = xFor(endIdx);
-        const xMid = (xStart + xEnd) / 2;
-        viewportSvg = `
-          <rect x="${Math.min(xStart, xEnd).toFixed(2)}" y="${pad}" width="${Math.max(1, Math.abs(xEnd - xStart)).toFixed(2)}" height="${(h - pad * 2).toFixed(2)}" fill="${sparkWindow}" opacity="0.15"></rect>
-          <line x1="${xStart.toFixed(2)}" y1="${pad}" x2="${xStart.toFixed(2)}" y2="${(h - pad).toFixed(2)}" stroke="${sparkWindow}" stroke-width="1.3" opacity="0.95"></line>
-          <line x1="${xEnd.toFixed(2)}" y1="${pad}" x2="${xEnd.toFixed(2)}" y2="${(h - pad).toFixed(2)}" stroke="${sparkWindow}" stroke-width="1.3" opacity="0.95"></line>
-          <line x1="${xMid.toFixed(2)}" y1="${pad}" x2="${xMid.toFixed(2)}" y2="${(h - pad).toFixed(2)}" stroke="${sparkWindowMid}" stroke-width="1.0" opacity="0.9"></line>
-        `;
-      }
-
-      iqrSparkEl.innerHTML = `
-        <defs>
-          <clipPath id="sparkAboveThresholdClip">
-            <rect x="0" y="0" width="${w}" height="${yThrClamped.toFixed(2)}"></rect>
-          </clipPath>
-        </defs>
-        <polyline points="${points}" fill="none" stroke="${sparkBase}" stroke-width="1.6" opacity="0.95"></polyline>
-        <polyline points="${points}" fill="none" stroke="${sparkHot}" stroke-width="1.9" opacity="0.98" clip-path="url(#sparkAboveThresholdClip)"></polyline>
-        <line x1="${pad}" y1="${yThr.toFixed(2)}" x2="${(w - pad).toFixed(2)}" y2="${yThr.toFixed(2)}" stroke="${sparkThreshold}" stroke-width="1.4" opacity="0.95"></line>
-        ${badDotsSvg}
-        ${viewportSvg}
-      `;
-      if (state.visibleRange) {
-        const start = Math.max(0, Number(state.visibleRange.start)) + 1;
-        const end = Math.max(start, Number(state.visibleRange.end) + 1);
-        const viewTc = visibleRangeTimeText(state.visibleRange, data);
-        sparkMetaEl.textContent = `Scores: min ${minV.toFixed(2)} | max ${maxV.toFixed(2)} | threshold ${Number(threshold || 0).toFixed(2)} | auto bad ${badCount} | view ${viewTc || `${start}-${end}/${scores.length}`}`;
-      } else {
-        sparkMetaEl.textContent = `Scores: min ${minV.toFixed(2)} | max ${maxV.toFixed(2)} | threshold ${Number(threshold || 0).toFixed(2)} | auto bad ${badCount}`;
-      }
+      const width = Math.max(320, Math.floor(iqrSparkEl.clientWidth || 320));
+      const cacheKey = `review:${state.reviewSparklineVersion}:${width}`;
+      const nextCache = (
+        String(state.sparklineCache.mode || '') === 'review'
+        && String(state.sparklineCache.key || '') === cacheKey
+      )
+        ? state.sparklineCache
+        : buildReviewSparklineCache(data, threshold);
+      applySparklineCache(nextCache, data);
     }
 
     function renderGammaSparkline(frames, gammaLevel) {
       if (!iqrSparkEl || !sparkMetaEl) return;
       const data = Array.isArray(frames) ? frames : [];
       if (!data.length) {
-        iqrSparkEl.innerHTML = '';
+        applySparklineCache(null, []);
         sparkMetaEl.textContent = 'No gamma score data loaded.';
         state.visibleRange = null;
         return;
       }
-
-      const w = Math.max(320, Math.floor(iqrSparkEl.clientWidth || 320));
-      const h = 68;
-      const pad = 6;
-      const sparkHot = themeVar('--spark-hot', '#ff9154');
-      const sparkBase = themeVar('--spark-base', '#48a5bc');
-      const sparkThreshold = themeVar('--spark-threshold', '#ff646e');
-      const sparkWindow = themeVar('--spark-window', '#6ca0ff');
-      const sparkWindowMid = themeVar('--spark-window-mid', '#9dc6ff');
+      const width = Math.max(320, Math.floor(iqrSparkEl.clientWidth || 320));
       const level = normalizeGammaValue(gammaLevel, 1.0);
-      const scores = data.map(f => gammaScoreForFrame(f));
-      const aboveCount = scores.filter(v => Number(v) > level).length;
-      const minV = Math.min(...scores, level);
-      const maxV = Math.max(...scores, level);
-      const span = Math.max(1e-9, maxV - minV);
-
-      const xFor = (i) => {
-        if (scores.length <= 1) return w / 2;
-        return pad + (i * (w - pad * 2)) / (scores.length - 1);
-      };
-      const yFor = (v) => h - pad - ((v - minV) / span) * (h - pad * 2);
-      const points = scores.map((v, i) => `${xFor(i).toFixed(2)},${yFor(v).toFixed(2)}`).join(' ');
-      const yLevel = yFor(level);
-      const yLevelClamped = _clamp(yLevel, 0, h);
-      iqrSparkEl.setAttribute('viewBox', `0 0 ${w} ${h}`);
-
-      const hotDotsSvg = data
-        .map((frame, i) => ({ frame, i }))
-        .filter(({ frame }) => gammaScoreForFrame(frame) > level)
-        .map(({ i }) => `<circle cx="${xFor(i).toFixed(2)}" cy="${(h - 2).toFixed(2)}" r="1.8" fill="${sparkHot}" opacity="0.95"></circle>`)
-        .join('');
-
-      let viewportSvg = '';
-      if (state.visibleRange && Number.isFinite(state.visibleRange.start) && Number.isFinite(state.visibleRange.end)) {
-        const startIdx = Math.max(0, Math.min(scores.length - 1, Number(state.visibleRange.start)));
-        const endIdx = Math.max(startIdx, Math.min(scores.length - 1, Number(state.visibleRange.end)));
-        const xStart = xFor(startIdx);
-        const xEnd = xFor(endIdx);
-        const xMid = (xStart + xEnd) / 2;
-        viewportSvg = `
-          <rect x="${Math.min(xStart, xEnd).toFixed(2)}" y="${pad}" width="${Math.max(1, Math.abs(xEnd - xStart)).toFixed(2)}" height="${(h - pad * 2).toFixed(2)}" fill="${sparkWindow}" opacity="0.15"></rect>
-          <line x1="${xStart.toFixed(2)}" y1="${pad}" x2="${xStart.toFixed(2)}" y2="${(h - pad).toFixed(2)}" stroke="${sparkWindow}" stroke-width="1.3" opacity="0.95"></line>
-          <line x1="${xEnd.toFixed(2)}" y1="${pad}" x2="${xEnd.toFixed(2)}" y2="${(h - pad).toFixed(2)}" stroke="${sparkWindow}" stroke-width="1.3" opacity="0.95"></line>
-          <line x1="${xMid.toFixed(2)}" y1="${pad}" x2="${xMid.toFixed(2)}" y2="${(h - pad).toFixed(2)}" stroke="${sparkWindowMid}" stroke-width="1.0" opacity="0.9"></line>
-        `;
-      }
-
-      iqrSparkEl.innerHTML = `
-        <defs>
-          <clipPath id="sparkAboveThresholdClip">
-            <rect x="0" y="0" width="${w}" height="${yLevelClamped.toFixed(2)}"></rect>
-          </clipPath>
-        </defs>
-        <polyline points="${points}" fill="none" stroke="${sparkBase}" stroke-width="1.6" opacity="0.95"></polyline>
-        <polyline points="${points}" fill="none" stroke="${sparkHot}" stroke-width="1.9" opacity="0.98" clip-path="url(#sparkAboveThresholdClip)"></polyline>
-        <line x1="${pad}" y1="${yLevel.toFixed(2)}" x2="${(w - pad).toFixed(2)}" y2="${yLevel.toFixed(2)}" stroke="${sparkThreshold}" stroke-width="1.4" opacity="0.95"></line>
-        ${hotDotsSvg}
-        ${viewportSvg}
-      `;
-      if (state.visibleRange) {
-        const start = Math.max(0, Number(state.visibleRange.start)) + 1;
-        const end = Math.max(start, Number(state.visibleRange.end) + 1);
-        const viewTc = visibleRangeTimeText(state.visibleRange, data);
-        sparkMetaEl.textContent = `Gamma scores: min ${minV.toFixed(2)} | max ${maxV.toFixed(2)} | level ${level.toFixed(2)} | above level ${aboveCount} | view ${viewTc || `${start}-${end}/${scores.length}`}`;
-      } else {
-        sparkMetaEl.textContent = `Gamma scores: min ${minV.toFixed(2)} | max ${maxV.toFixed(2)} | level ${level.toFixed(2)} | above level ${aboveCount}`;
-      }
+      const cacheKey = `gamma:${state.gammaSparklineVersion}:${width}:${level.toFixed(3)}`;
+      const nextCache = (
+        String(state.sparklineCache.mode || '') === 'gamma'
+        && String(state.sparklineCache.key || '') === cacheKey
+      )
+        ? state.sparklineCache
+        : buildGammaSparklineCache(data, gammaLevel);
+      applySparklineCache(nextCache, data);
     }
 
     function renderActiveSparkline(frames, threshold) {
@@ -4987,20 +5549,12 @@
     }
 
     function _computeVisibleIndexRange() {
-      const cards = Array.from(frameGridEl.querySelectorAll('.frame-card'));
-      if (!cards.length) return null;
-      const gridRect = frameGridEl.getBoundingClientRect();
-      let minIdx = null;
-      let maxIdx = null;
-      for (let i = 0; i < cards.length; i += 1) {
-        const r = cards[i].getBoundingClientRect();
-        const isVisible = r.bottom > gridRect.top && r.top < gridRect.bottom;
-        if (!isVisible) continue;
-        if (minIdx === null || i < minIdx) minIdx = i;
-        if (maxIdx === null || i > maxIdx) maxIdx = i;
-      }
-      if (minIdx === null || maxIdx === null) return null;
-      return { start: minIdx, end: maxIdx };
+      const frames = currentReviewFrames();
+      if (!frameGridEl || !frames.length) return null;
+      const metrics = frameGridMetrics(frames.length);
+      const range = frameGridVisibleIndexRange(metrics, 0);
+      if (!range) return null;
+      return { start: range.visibleStart, end: range.visibleEnd };
     }
 
     function refreshVisibleRangeFromGrid() {
@@ -5012,6 +5566,7 @@
       state.visibleRange = range || { start: 0, end: state.review.frames.length - 1 };
       renderActiveSparkline(state.review.frames, state.review.threshold || 0);
       updateTimelineScrubUi();
+      prefetchVisibleFrameSheets(null, state.visibleRange);
     }
 
     function scheduleVisibleRangeRefresh() {
@@ -5019,6 +5574,7 @@
       visibleRangeRefreshPending = true;
       window.requestAnimationFrame(() => {
         visibleRangeRefreshPending = false;
+        renderFrameGridWindow();
         refreshVisibleRangeFromGrid();
       });
     }
@@ -5065,8 +5621,7 @@
         if (reviewLayoutEl) reviewLayoutEl.style.removeProperty('grid-template-rows');
         return;
       }
-      const firstCard = frameGridEl.querySelector('.frame-card');
-      const cardHeight = firstCard ? Math.ceil(firstCard.getBoundingClientRect().height) : 146;
+      const cardHeight = FRAME_GRID_CARD_HEIGHT_PX;
       let minGridHeight = Math.max(
         PEOPLE_STEP_MIN_FRAME_GRID_PX,
         Math.round((cardHeight * 1.85) + 24)
@@ -5169,6 +5724,79 @@
       return Math.max(minValue, Math.min(maxValue, Number(value)));
     }
 
+    function ensureFrameGridVirtualElements() {
+      if (!frameGridEl) return null;
+      if (frameGridSizerEl && frameGridItemsEl) return { sizer: frameGridSizerEl, items: frameGridItemsEl };
+      frameGridEl.innerHTML = '';
+      frameGridSizerEl = document.createElement('div');
+      frameGridSizerEl.className = 'frame-grid-sizer';
+      frameGridItemsEl = document.createElement('div');
+      frameGridItemsEl.className = 'frame-grid-items';
+      frameGridSizerEl.appendChild(frameGridItemsEl);
+      frameGridEl.appendChild(frameGridSizerEl);
+      return { sizer: frameGridSizerEl, items: frameGridItemsEl };
+    }
+
+    function currentReviewFrames() {
+      return (state.review && Array.isArray(state.review.frames)) ? state.review.frames : [];
+    }
+
+    function frameGridMetrics(frameCountRaw) {
+      const frameCount = Math.max(0, Math.trunc(Number(frameCountRaw || 0)));
+      const viewportWidth = Math.max(1, Number(frameGridEl && frameGridEl.clientWidth) || 1);
+      const innerWidth = Math.max(1, viewportWidth - (FRAME_GRID_PADDING_PX * 2));
+      const columnCount = Math.max(
+        1,
+        Math.floor((innerWidth + FRAME_GRID_GAP_PX) / (FRAME_GRID_CARD_MIN_WIDTH_PX + FRAME_GRID_GAP_PX))
+      );
+      const itemWidth = Math.max(
+        120,
+        Math.floor((innerWidth - (Math.max(0, columnCount - 1) * FRAME_GRID_GAP_PX)) / columnCount)
+      );
+      const rowCount = Math.max(1, Math.ceil(frameCount / columnCount));
+      const rowStride = FRAME_GRID_CARD_HEIGHT_PX + FRAME_GRID_GAP_PX;
+      const totalHeight = (
+        (FRAME_GRID_PADDING_PX * 2)
+        + (rowCount * FRAME_GRID_CARD_HEIGHT_PX)
+        + (Math.max(0, rowCount - 1) * FRAME_GRID_GAP_PX)
+      );
+      return {
+        frameCount,
+        columnCount,
+        itemWidth,
+        itemHeight: FRAME_GRID_CARD_HEIGHT_PX,
+        rowCount,
+        rowStride,
+        totalHeight,
+      };
+    }
+
+    function frameGridVisibleIndexRange(metrics, overscanRows = 0) {
+      if (!metrics || metrics.frameCount <= 0) return null;
+      const scrollTop = Math.max(0, Number(frameGridEl && frameGridEl.scrollTop) || 0);
+      const viewportHeight = Math.max(1, Number(frameGridEl && frameGridEl.clientHeight) || 1);
+      const topPx = Math.max(0, scrollTop - FRAME_GRID_PADDING_PX);
+      const bottomPx = Math.max(0, (scrollTop + viewportHeight) - FRAME_GRID_PADDING_PX);
+      const firstVisibleRow = Math.max(0, Math.floor(topPx / metrics.rowStride));
+      const lastVisibleRow = Math.min(
+        metrics.rowCount - 1,
+        Math.floor(Math.max(topPx, bottomPx - 1) / metrics.rowStride)
+      );
+      const startRow = Math.max(0, firstVisibleRow - Math.max(0, overscanRows));
+      const endRow = Math.min(metrics.rowCount - 1, lastVisibleRow + Math.max(0, overscanRows));
+      const start = Math.max(0, startRow * metrics.columnCount);
+      const end = Math.min(
+        metrics.frameCount - 1,
+        ((endRow + 1) * metrics.columnCount) - 1
+      );
+      const visibleStart = Math.max(0, firstVisibleRow * metrics.columnCount);
+      const visibleEnd = Math.min(
+        metrics.frameCount - 1,
+        ((lastVisibleRow + 1) * metrics.columnCount) - 1
+      );
+      return { start, end, visibleStart, visibleEnd };
+    }
+
     function _sparkClientXToIndex(clientX) {
       if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) return null;
       const rect = iqrSparkEl.getBoundingClientRect();
@@ -5180,12 +5808,17 @@
     }
 
     function _scrollFrameGridToIndex(index) {
-      const cards = frameGridEl.querySelectorAll('.frame-card');
-      if (!cards.length) return;
-      const idx = _clamp(Number(index), 0, cards.length - 1);
-      const target = cards[idx];
-      if (!target) return;
-      const top = Math.max(0, target.offsetTop - Math.floor(frameGridEl.clientHeight * 0.12));
+      const frames = currentReviewFrames();
+      if (!frameGridEl || !frames.length) return;
+      const metrics = frameGridMetrics(frames.length);
+      const idx = _clamp(Number(index), 0, frames.length - 1);
+      const row = Math.floor(idx / metrics.columnCount);
+      const top = Math.max(
+        0,
+        FRAME_GRID_PADDING_PX
+          + (row * metrics.rowStride)
+          - Math.floor(frameGridEl.clientHeight * 0.12)
+      );
       frameGridEl.scrollTo({ top, behavior: 'auto' });
       scheduleVisibleRangeRefresh();
     }
@@ -5389,34 +6022,24 @@
     }
 
     function syncFrameGridPlaybackCursor(index, keepVisible = false) {
-      const cards = Array.from(frameGridEl.querySelectorAll('.frame-card'));
-      if (!cards.length) {
+      const frames = currentReviewFrames();
+      if (!frames.length) {
         flipbookGridCursorIndex = -1;
+        renderFrameGridWindow(true);
         return;
       }
-      for (const c of cards) c.classList.remove('playback-current');
       const next = Number(index);
       if (!Number.isFinite(next) || next < 0) {
         flipbookGridCursorIndex = -1;
+        renderFrameGridWindow(true);
         return;
       }
-      const idx = _clamp(next, 0, cards.length - 1);
-      const currentFrame = sparkPlayFrames[idx] || null;
-      const currentFid = currentFrame ? String(currentFrame.fid || '') : '';
-      let gridIdx = idx;
-      if (currentFid) {
-        const byFid = cards.findIndex(c => String(c.dataset.fid || '') === currentFid);
-        if (byFid >= 0) gridIdx = byFid;
+      const idx = _clamp(next, 0, frames.length - 1);
+      flipbookGridCursorIndex = idx;
+      if (keepVisible) {
+        _scrollFrameGridToIndex(idx);
       }
-      const card = cards[gridIdx];
-      if (!card) {
-        flipbookGridCursorIndex = -1;
-        return;
-      }
-      card.classList.add('playback-current');
-      flipbookGridCursorIndex = gridIdx;
-      if (!keepVisible) return;
-      _centerFrameCardInGrid(card);
+      renderFrameGridWindow(true);
     }
 
     function updateSparkPlayButton() {
@@ -5508,7 +6131,7 @@
       const fallback = chapterDuration > 0
         ? { start: 0, end: chapterDuration }
         : null;
-      const frames = (state.review && Array.isArray(state.review.frames)) ? state.review.frames : [];
+      const frames = reviewLoadedFrames();
       if (!frames.length) return fallback;
       let minSec = Number.POSITIVE_INFINITY;
       let maxSec = Number.NEGATIVE_INFINITY;
@@ -5840,17 +6463,16 @@
     }
 
     function _collectFlipbookFramesFromGrid() {
-      const cards = Array.from(frameGridEl.querySelectorAll('.frame-card'));
-      return cards
-        .map(card => {
-          const imgEl = card.querySelector('img');
-          const src = String((imgEl && imgEl.src) || '').trim();
+      return reviewLoadedFrames()
+        .map((frame) => {
+          const display = frameDisplayModel(frame);
+          const src = String(display.image || '').trim();
           if (!src) return null;
           return {
-            fid: String(card.dataset.fid || ''),
-            label: String(card.dataset.label || ''),
-            timecode: String(card.dataset.timecode || ''),
-            status: card.classList.contains('bad') ? 'bad' : 'good',
+            fid: String((frame && frame.fid !== undefined && frame.fid !== null) ? frame.fid : ''),
+            label: String(formatFrameCardLabel(frame) || ''),
+            timecode: String(timelineLabelFromFid(frame.fid) || ''),
+            status: String(frame.status || 'good'),
             src,
           };
         })
@@ -5977,6 +6599,8 @@
       sparkPlayUseAudioClock = false;
       sparkPlayLastTickMs = 0;
       sparkPlayAccumulatorMs = 0;
+      sparkPlayAudioClockLastTime = -1;
+      sparkPlayAudioClockStallCount = 0;
       if (flipbookAudioEl) {
         try {
           flipbookAudioEl.pause();
@@ -6046,11 +6670,31 @@
       }
 
       if (sparkPlayUseAudioClock && flipbookAudioEl && !flipbookAudioEl.paused) {
-        const idx = flipbookIndexFromChapterSeconds(Number(flipbookAudioEl.currentTime || 0));
-        if (idx !== sparkPlayIndex) {
-          renderSparkPlaybackFrame(idx, { syncAudio: false });
+        const audioTime = Math.max(0, Number(flipbookAudioEl.currentTime || 0));
+        const advanced = (
+          sparkPlayAudioClockLastTime < 0
+          || Math.abs(audioTime - sparkPlayAudioClockLastTime) > FLIPBOOK_AUDIO_CLOCK_STALL_EPSILON
+        );
+        if (advanced) {
+          sparkPlayAudioClockLastTime = audioTime;
+          sparkPlayAudioClockStallCount = 0;
+          const idx = flipbookIndexFromChapterSeconds(audioTime);
+          if (idx !== sparkPlayIndex) {
+            renderSparkPlaybackFrame(idx, { syncAudio: false });
+          } else {
+            renderFlipbookSubtitles(audioTime);
+          }
         } else {
-          renderFlipbookSubtitles(Number(flipbookAudioEl.currentTime || 0));
+          sparkPlayAudioClockStallCount += 1;
+          if (sparkPlayAudioClockStallCount >= FLIPBOOK_AUDIO_CLOCK_STALL_FRAMES) {
+            sparkPlayUseAudioClock = false;
+            sparkPlayLastTickMs = Number(timestampMs || 0);
+            sparkPlayAccumulatorMs = 0;
+            sparkPlayAudioClockLastTime = -1;
+            sparkPlayAudioClockStallCount = 0;
+          } else {
+            renderFlipbookSubtitles(audioTime);
+          }
         }
       } else {
         if (!sparkPlayLastTickMs) sparkPlayLastTickMs = timestampMs;
@@ -6090,6 +6734,8 @@
       sparkPlayUseAudioClock = false;
       sparkPlayLastTickMs = 0;
       sparkPlayAccumulatorMs = 0;
+      sparkPlayAudioClockLastTime = -1;
+      sparkPlayAudioClockStallCount = 0;
       sparkPlayTimer = window.requestAnimationFrame(runSparkWindowPlaybackFrameClock);
       ensureFlipbookAudioLoaded(false).then(async (ok) => {
         if (!ok || !sparkPlayTimer || !flipbookAudioEl) return;
@@ -6098,11 +6744,17 @@
           flipbookAudioEl.playbackRate = 1.0;
           await flipbookAudioEl.play();
           sparkPlayUseAudioClock = true;
+          sparkPlayAudioClockLastTime = Math.max(0, Number(flipbookAudioEl.currentTime || 0));
+          sparkPlayAudioClockStallCount = 0;
         } catch (_err) {
           sparkPlayUseAudioClock = false;
+          sparkPlayAudioClockLastTime = -1;
+          sparkPlayAudioClockStallCount = 0;
         }
       }).catch(() => {
         sparkPlayUseAudioClock = false;
+        sparkPlayAudioClockLastTime = -1;
+        sparkPlayAudioClockStallCount = 0;
       });
       updateSparkPlayButton();
       updateFlipbookControls();
@@ -6110,7 +6762,7 @@
 
     async function openFlipbookPanel() {
       if (!isReviewStepActive()) return;
-      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) {
+      if (!reviewLoadedFrameCount()) {
         setStatus('Load and review frames before opening fullscreen flipbook.', true);
         return;
       }
@@ -6136,7 +6788,7 @@
         return;
       }
       if (!isReviewStepActive()) return;
-      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) return;
+      if (!reviewLoadedFrameCount()) return;
       startSparkWindowPlayback();
     }
 
@@ -6208,6 +6860,18 @@
         if (typeof image !== 'string' || !image) continue;
         state.frameImages.set(String(frame.fid), image);
       }
+    }
+
+    function resetFrameSheetPrefetchState() {
+      frameSheetPrefetchDone = new Set();
+      frameSheetPrefetchPending.forEach((img) => {
+        if (!img) return;
+        try {
+          img.onload = null;
+          img.onerror = null;
+        } catch (_err) {}
+      });
+      frameSheetPrefetchPending = new Map();
     }
 
     function _frameListToRanges(frameIds) {
@@ -6320,7 +6984,7 @@
       const sourceCandidates = Array.from(
         new Set(
           rows
-            .filter(r => r.status === 'good' && state.frameImages.has(String(r.fid)))
+            .filter(r => r.status === 'good' && frameImageSrcForFid(r.fid))
             .map(r => r.fid)
         )
       ).sort((a, b) => a - b);
@@ -6389,87 +7053,360 @@
       return replacementMap;
     }
 
-    function refreshFreezeSimulation() {
-      const frames = (state.review && Array.isArray(state.review.frames)) ? state.review.frames : [];
-      state.freezeReplacementMap = _resolveFreezeRepairs(frames);
-      const frameLookup = new Map((frames || []).map(f => [String(f.fid), f]));
+    function buildFrameImageUrl(fidRaw) {
+      const fid = Math.trunc(Number(fidRaw));
+      if (!Number.isFinite(fid) || fid < 0) return '';
+      const params = new URLSearchParams({ fid: String(fid) });
+      const config = normalizeFrameSheetConfig(state.frameSheetConfig || null);
+      if (config.rev) params.set('rev', String(config.rev));
+      return `/api/frame_image?${params.toString()}`;
+    }
 
-      frameGridEl.querySelectorAll('.frame-card').forEach(card => {
-        const fidKey = String(card.dataset.fid || '');
-        const frame = frameLookup.get(fidKey);
-        const imgEl = card.querySelector('img');
-        const noteEl = card.querySelector('.frame-replace-note');
-        const originalImage = state.frameImages.get(fidKey) || '';
-        let nextImage = originalImage;
-        let replaced = false;
-        let note = '';
+    function frameImageSrcForFid(fidRaw, fallback = '') {
+      const fidKey = String(fidRaw || '').trim();
+      if (!fidKey) return String(fallback || '').trim();
+      const remembered = String(state.frameImages.get(fidKey) || '').trim();
+      if (remembered) return remembered;
+      const fallbackSrc = String(fallback || '').trim();
+      if (fallbackSrc) return fallbackSrc;
+      return buildFrameImageUrl(fidKey);
+    }
 
-        if (state.simulateFreezeFrame && frame && frame.status === 'bad') {
-          const sourceFid = state.freezeReplacementMap.get(fidKey);
-          if (sourceFid !== undefined && sourceFid !== null) {
-            const sourceKey = String(sourceFid);
-            const sourceImage = state.frameImages.get(sourceKey) || '';
-            if (sourceImage) {
-              nextImage = sourceImage;
-              replaced = true;
-              note = `FreezeFrame sim source G:${sourceKey}`;
-            } else {
-              note = `FreezeFrame sim source G:${sourceKey} not loaded`;
-            }
-          } else {
-            note = 'FreezeFrame sim has no nearby clean source';
-          }
+    function reviewFrameIndexByFid(fidRaw) {
+      const target = Math.trunc(Number(fidRaw));
+      if (!Number.isFinite(target)) return -1;
+      const frames = currentReviewFrames();
+      let lo = 0;
+      let hi = frames.length - 1;
+      while (lo <= hi) {
+        const mid = Math.floor((lo + hi) / 2);
+        const midFid = Math.trunc(Number(frames[mid] && frames[mid].fid));
+        if (!Number.isFinite(midFid)) return -1;
+        if (midFid === target) return mid;
+        if (midFid < target) {
+          lo = mid + 1;
+        } else {
+          hi = mid - 1;
         }
+      }
+      return -1;
+    }
 
-        if (imgEl) {
-          if (nextImage) {
-            imgEl.src = nextImage;
-          } else if (originalImage) {
-            imgEl.src = originalImage;
-          }
-        }
-        if ((!state.simulateFreezeFrame || !frame || frame.status !== 'bad') && imgEl && originalImage) {
-          imgEl.src = originalImage;
-        }
+    function frameGridContactSheetPlan(metricsRaw = null) {
+      const config = normalizeFrameSheetConfig(state.frameSheetConfig || null);
+      const maxCount = Math.max(1, Math.trunc(Number(config.chunkSize || FRAME_SHEET_DEFAULT_CHUNK_SIZE)));
+      const metrics = metricsRaw && typeof metricsRaw === 'object' ? metricsRaw : null;
+      const columns = Math.max(
+        1,
+        Math.trunc(Number((metrics && metrics.columnCount) || config.columns || FRAME_SHEET_DEFAULT_COLUMNS))
+      );
+      const rowStride = Math.max(
+        1,
+        Number((metrics && metrics.rowStride) || (FRAME_GRID_CARD_HEIGHT_PX + FRAME_GRID_GAP_PX))
+      );
+      const viewportHeight = Math.max(
+        rowStride,
+        Number((frameGridEl && frameGridEl.clientHeight) || rowStride)
+      );
+      const visibleRows = Math.max(1, Math.ceil(viewportHeight / rowStride));
+      const targetRows = Math.max(FRAME_GRID_CONTACT_SHEET_MIN_ROWS, visibleRows + (FRAME_GRID_OVERSCAN_ROWS * 2));
+      const maxRows = Math.max(1, Math.floor(maxCount / columns));
+      const rows = Math.max(1, Math.min(targetRows, maxRows));
+      const count = Math.max(columns, Math.min(maxCount, columns * rows));
+      return {
+        rev: String(config.rev || ''),
+        columns,
+        rows,
+        count,
+        thumbWidth: Math.max(1, Math.trunc(Number(config.thumbWidth || FRAME_SHEET_DEFAULT_THUMB_WIDTH))),
+        thumbHeight: Math.max(1, Math.trunc(Number(config.thumbHeight || FRAME_SHEET_DEFAULT_THUMB_HEIGHT))),
+      };
+    }
 
-        card.classList.toggle('replaced', Boolean(replaced));
-        if (noteEl) noteEl.textContent = state.simulateFreezeFrame ? note : '';
+    function frameContactSheetSpecForIndex(indexRaw, metricsRaw = null) {
+      const index = Math.trunc(Number(indexRaw));
+      const frames = currentReviewFrames();
+      if (!Number.isFinite(index) || index < 0 || index >= frames.length) return null;
+      const plan = frameGridContactSheetPlan(metricsRaw);
+      const columns = Math.max(1, Math.trunc(Number(plan.columns || FRAME_SHEET_DEFAULT_COLUMNS)));
+      const chunkSize = Math.max(columns, Math.trunc(Number(plan.count || FRAME_SHEET_DEFAULT_CHUNK_SIZE)));
+      const sheetStart = Math.floor(index / chunkSize) * chunkSize;
+      const sheet = frameContactSheetSpecForSheetStart(sheetStart, metricsRaw);
+      if (!sheet) return null;
+      const offset = index - sheet.start;
+      return {
+        ...sheet,
+        col: offset % sheet.columns,
+        row: Math.floor(offset / sheet.columns),
+      };
+    }
+
+    function frameContactSheetSpecForSheetStart(startIndexRaw, metricsRaw = null) {
+      const startIndex = Math.trunc(Number(startIndexRaw));
+      const frames = currentReviewFrames();
+      if (!Number.isFinite(startIndex) || startIndex < 0 || startIndex >= frames.length) return null;
+      const plan = frameGridContactSheetPlan(metricsRaw);
+      const columns = Math.max(1, Math.trunc(Number(plan.columns || FRAME_SHEET_DEFAULT_COLUMNS)));
+      const chunkSize = Math.max(columns, Math.trunc(Number(plan.count || FRAME_SHEET_DEFAULT_CHUNK_SIZE)));
+      const start = Math.floor(startIndex / chunkSize) * chunkSize;
+      const count = Math.max(columns, Math.min(chunkSize, frames.length - start));
+      const rows = Math.max(1, Math.ceil(count / columns));
+      const params = new URLSearchParams({
+        start: String(start),
+        count: String(count),
+        columns: String(columns),
       });
+      if (plan.rev) params.set('rev', String(plan.rev));
+      return {
+        start,
+        count,
+        url: `/api/frame_contact_sheet?${params.toString()}`,
+        columns,
+        rows,
+        thumbWidth: plan.thumbWidth,
+        thumbHeight: plan.thumbHeight,
+      };
+    }
+
+    function prefetchFrameContactSheet(urlRaw) {
+      const url = String(urlRaw || '').trim();
+      if (!url) return;
+      if (frameSheetPrefetchDone.has(url) || frameSheetPrefetchPending.has(url)) return;
+      const img = new Image();
+      img.decoding = 'async';
+      img.loading = 'eager';
+      img.onload = () => {
+        frameSheetPrefetchPending.delete(url);
+        frameSheetPrefetchDone.add(url);
+      };
+      img.onerror = () => {
+        frameSheetPrefetchPending.delete(url);
+      };
+      frameSheetPrefetchPending.set(url, img);
+      img.src = url;
+    }
+
+    function prefetchVisibleFrameSheets(metricsRaw = null, rangeRaw = null) {
+      const frames = currentReviewFrames();
+      if (!frames.length) return;
+      const metrics = metricsRaw && typeof metricsRaw === 'object' ? metricsRaw : frameGridMetrics(frames.length);
+      const range = rangeRaw && typeof rangeRaw === 'object' ? rangeRaw : _computeVisibleIndexRange();
+      if (!range) return;
+      const endIndex = _clamp(Number(range.end || 0), 0, frames.length - 1);
+      const current = frameContactSheetSpecForIndex(endIndex, metrics);
+      if (!current) return;
+      const stride = Math.max(1, Math.trunc(Number(current.count || 1)));
+      for (let i = 1; i <= FRAME_GRID_CONTACT_SHEET_PREFETCH_AHEAD; i += 1) {
+        const nextStart = current.start + (stride * i);
+        const next = frameContactSheetSpecForSheetStart(nextStart, metrics);
+        if (!next || !next.url) break;
+        prefetchFrameContactSheet(next.url);
+      }
+    }
+
+    function spriteAxisPercent(position, total) {
+      const count = Math.max(1, Math.trunc(Number(total || 1)));
+      const idx = Math.max(0, Math.trunc(Number(position || 0)));
+      if (count <= 1) return '0%';
+      return `${((idx / (count - 1)) * 100).toFixed(4)}%`;
+    }
+
+    function frameThumbContainSize(boxWidthRaw, thumbWidthRaw, thumbHeightRaw) {
+      const boxWidth = Math.max(1, Number(boxWidthRaw || 1));
+      const boxHeight = 112;
+      const thumbWidth = Math.max(1, Number(thumbWidthRaw || FRAME_SHEET_DEFAULT_THUMB_WIDTH));
+      const thumbHeight = Math.max(1, Number(thumbHeightRaw || FRAME_SHEET_DEFAULT_THUMB_HEIGHT));
+      const ratio = thumbWidth / thumbHeight;
+      let width = boxWidth;
+      let height = width / ratio;
+      if (height > boxHeight) {
+        height = boxHeight;
+        width = height * ratio;
+      }
+      return {
+        width: Math.max(1, Math.round(width)),
+        height: Math.max(1, Math.round(height)),
+      };
+    }
+
+    function applyFrameThumbVisual(thumbEl, display, boxWidthRaw) {
+      if (!thumbEl) return;
+      const sprite = display && display.sprite ? display.sprite : null;
+      const size = frameThumbContainSize(
+        boxWidthRaw,
+        sprite ? sprite.thumbWidth : FRAME_SHEET_DEFAULT_THUMB_WIDTH,
+        sprite ? sprite.thumbHeight : FRAME_SHEET_DEFAULT_THUMB_HEIGHT,
+      );
+      thumbEl.style.width = `${size.width}px`;
+      thumbEl.style.height = `${size.height}px`;
+      thumbEl.style.backgroundRepeat = 'no-repeat';
+      if (sprite && sprite.url) {
+        thumbEl.style.backgroundImage = `url("${sprite.url}")`;
+        thumbEl.style.backgroundSize = `${sprite.columns * 100}% ${sprite.rows * 100}%`;
+        thumbEl.style.backgroundPosition = `${spriteAxisPercent(sprite.col, sprite.columns)} ${spriteAxisPercent(sprite.row, sprite.rows)}`;
+      } else {
+        const image = String(display && display.image || '').trim();
+        thumbEl.style.backgroundImage = image ? `url("${image}")` : 'none';
+        thumbEl.style.backgroundSize = 'contain';
+        thumbEl.style.backgroundPosition = 'center';
+      }
+    }
+
+    function frameDisplayModel(frame, frameIndex = -1, gridMetrics = null) {
+      const fidKey = String((frame && frame.fid !== undefined && frame.fid !== null) ? frame.fid : '').trim();
+      const sprite = frameContactSheetSpecForIndex(frameIndex, gridMetrics);
+      if (!isReviewFrameLoaded(frame)) {
+        return { image: '', sprite, replaced: false, note: '' };
+      }
+      const originalImage = frameImageSrcForFid(fidKey, frame && frame.image);
+      let image = originalImage;
+      let nextSprite = sprite;
+      let replaced = false;
+      let note = '';
+      if (state.simulateFreezeFrame && frame && frame.status === 'bad') {
+        const sourceFid = state.freezeReplacementMap.get(fidKey);
+        if (sourceFid !== undefined && sourceFid !== null) {
+          const sourceKey = String(sourceFid);
+          const sourceImage = frameImageSrcForFid(sourceKey);
+          const sourceIndex = reviewFrameIndexByFid(sourceFid);
+          const sourceSprite = frameContactSheetSpecForIndex(sourceIndex, gridMetrics);
+          if (sourceImage) {
+            image = sourceImage;
+            nextSprite = sourceSprite;
+            replaced = true;
+            note = `FreezeFrame sim source G:${sourceKey}`;
+          } else {
+            note = `FreezeFrame sim source G:${sourceKey} not loaded`;
+          }
+        } else {
+          note = 'FreezeFrame sim has no nearby clean source';
+        }
+      }
+      return { image, sprite: nextSprite, replaced, note };
+    }
+
+    function renderFrameGridWindow(force = false) {
+      const frames = currentReviewFrames();
+      if (!frameGridEl) return;
+      if (!frames.length) {
+        frameGridEl.innerHTML = 'No frames loaded.';
+        frameGridSizerEl = null;
+        frameGridItemsEl = null;
+        frameGridRenderedStart = -1;
+        frameGridRenderedEnd = -1;
+        frameGridRenderedLayoutKey = '';
+        return;
+      }
+
+      const nodes = ensureFrameGridVirtualElements();
+      if (!nodes || !nodes.sizer || !nodes.items) return;
+      const metrics = frameGridMetrics(frames.length);
+      const layoutKey = `${metrics.columnCount}:${metrics.itemWidth}:${frames.length}`;
+      const range = frameGridVisibleIndexRange(metrics, FRAME_GRID_OVERSCAN_ROWS);
+      if (!range) return;
+
+      nodes.sizer.style.height = `${metrics.totalHeight}px`;
+      if (
+        !force
+        && frameGridRenderedStart === range.start
+        && frameGridRenderedEnd === range.end
+        && frameGridRenderedLayoutKey === layoutKey
+      ) {
+        return;
+      }
+
+      frameGridRenderedStart = range.start;
+      frameGridRenderedEnd = range.end;
+      frameGridRenderedLayoutKey = layoutKey;
+
+      const fragment = document.createDocumentFragment();
+      for (let i = range.start; i <= range.end; i += 1) {
+        const frame = frames[i];
+        if (!frame) continue;
+        const loaded = isReviewFrameLoaded(frame);
+        const col = i % metrics.columnCount;
+        const row = Math.floor(i / metrics.columnCount);
+        const left = FRAME_GRID_PADDING_PX + (col * (metrics.itemWidth + FRAME_GRID_GAP_PX));
+        const top = FRAME_GRID_PADDING_PX + (row * metrics.rowStride);
+        const formattedLabel = formatFrameCardLabel(frame);
+        const display = frameDisplayModel(frame, i, metrics);
+        const card = document.createElement('div');
+        card.className = `frame-card ${loaded ? frame.status : 'loading'}`;
+        if (display.replaced) card.classList.add('replaced');
+        if (i === flipbookGridCursorIndex) card.classList.add('playback-current');
+        card.dataset.index = String(i);
+        card.dataset.fid = String(frame.fid);
+        card.dataset.loaded = loaded ? '1' : '0';
+        card.dataset.label = String(formattedLabel || '');
+        card.dataset.timecode = timelineLabelFromFid(frame.fid);
+        card.style.left = `${left}px`;
+        card.style.top = `${top}px`;
+        card.style.width = `${metrics.itemWidth}px`;
+        card.style.height = `${metrics.itemHeight}px`;
+        const thumbWrap = document.createElement('div');
+        thumbWrap.className = 'frame-thumb-wrap';
+        const thumbEl = document.createElement('div');
+        thumbEl.className = 'frame-thumb-sprite';
+        applyFrameThumbVisual(thumbEl, display, Math.max(1, metrics.itemWidth - 12));
+        thumbWrap.appendChild(thumbEl);
+        const labelEl = document.createElement('div');
+        labelEl.className = 'frame-label';
+        labelEl.textContent = formattedLabel;
+        const noteEl = document.createElement('div');
+        noteEl.className = 'frame-replace-note';
+        noteEl.textContent = loaded
+          ? (state.simulateFreezeFrame ? display.note : '')
+          : display.note;
+        card.appendChild(thumbWrap);
+        card.appendChild(labelEl);
+        card.appendChild(noteEl);
+        if (loaded && isGammaStepActive()) {
+          const gamma = gammaLevelForFrameId(frame.fid);
+          if (Math.abs(gamma - 1.0) < 0.001) {
+            thumbEl.style.removeProperty('filter');
+          } else {
+            thumbEl.style.filter = `brightness(${gamma.toFixed(3)})`;
+          }
+        }
+        fragment.appendChild(card);
+      }
+      nodes.items.replaceChildren(fragment);
+    }
+
+    function refreshFreezeSimulation() {
+      const frames = currentReviewFrames();
+      state.freezeReplacementMap = _resolveFreezeRepairs(frames);
+      renderFrameGridWindow(true);
       ensureFlipbookReady(false);
-      refreshGammaVisuals();
     }
 
     function renderReviewFrames(frames) {
-      const orderedFrames = sortFramesByFid(frames);
-      frameGridEl.innerHTML = '';
-      syncFrameGridPlaybackCursor(-1);
-      if (!orderedFrames.length) {
+      const review = setReviewState(
+        {
+          ...(state.review || {}),
+          frames: frames || [],
+        },
+        state.review && Array.isArray(state.review.frames) ? state.review.frames : null
+      );
+      const mergedFrames = currentReviewFrames();
+      if (!mergedFrames.length) {
         state.freezeReplacementMap = new Map();
         frameGridEl.textContent = 'No frames loaded.';
+        frameGridSizerEl = null;
+        frameGridItemsEl = null;
+        frameGridRenderedStart = -1;
+        frameGridRenderedEnd = -1;
+        frameGridRenderedLayoutKey = '';
+        flipbookGridCursorIndex = -1;
         renderActiveSparkline([], 0);
         updateTimelineScrubUi();
         return;
       }
-      rememberFrameImages(orderedFrames);
-      const fragment = document.createDocumentFragment();
-      orderedFrames.forEach(frame => {
-        const frameImage = String(frame.image || state.frameImages.get(String(frame.fid)) || '');
-        const formattedLabel = formatFrameCardLabel(frame);
-        const card = document.createElement('div');
-        card.className = `frame-card ${frame.status}`;
-        card.dataset.fid = String(frame.fid);
-        card.dataset.label = String(formattedLabel || '');
-        card.dataset.timecode = timelineLabelFromFid(frame.fid);
-        card.innerHTML = `
-          <img src="${frameImage}" alt="frame ${timelineLabelFromFid(frame.fid)}">
-          <div class="frame-label">${escapeHtml(formattedLabel)}</div>
-          <div class="frame-replace-note"></div>
-        `;
-        fragment.appendChild(card);
-      });
-      frameGridEl.appendChild(fragment);
-      refreshFreezeSimulation();
-      renderActiveSparkline(orderedFrames, state.review ? state.review.threshold : 0);
+      rememberFrameImages(reviewLoadedFrames(mergedFrames));
+      flipbookGridCursorIndex = -1;
+      state.freezeReplacementMap = _resolveFreezeRepairs(mergedFrames);
+      renderFrameGridWindow(true);
+      renderActiveSparkline(mergedFrames, review ? review.threshold : 0);
       updatePeopleStepLayoutSizing();
       scheduleVisibleRangeRefresh();
       updateTimelineScrubUi();
@@ -6478,42 +7415,18 @@
     }
 
     function applyFrameUpdates(updates) {
-      const map = new Map((updates || []).map(f => [String(f.fid), f]));
       rememberFrameImages(updates);
-      frameGridEl.querySelectorAll('.frame-card').forEach(card => {
-        const fid = card.dataset.fid;
-        const update = map.get(fid);
-        if (!update) return;
-        card.classList.toggle('bad', update.status === 'bad');
-        card.classList.toggle('good', update.status === 'good');
-        const label = card.querySelector('.frame-label');
-        const formattedLabel = formatFrameCardLabel(update);
-        if (label) {
-          label.textContent = formattedLabel;
-          card.dataset.label = String(formattedLabel || '');
-        }
-        card.dataset.timecode = timelineLabelFromFid(update.fid);
-      });
+      if (Array.isArray(updates) && updates.length) {
+        patchReviewFramesIntoState(updates);
+      }
+      renderFrameGridWindow(true);
       ensureFlipbookReady(false);
       updateTimelineScrubUi();
     }
 
     function refreshFrameCardLabelsForCurrentMode() {
       if (!frameGridEl) return;
-      const frameMap = new Map(((state.review && state.review.frames) || []).map((f) => [String(f && f.fid), f]));
-      frameGridEl.querySelectorAll('.frame-card').forEach((card) => {
-        const fid = String(card.dataset.fid || '').trim();
-        if (!fid) return;
-        const frame = frameMap.get(fid);
-        if (!frame) return;
-        const labelEl = card.querySelector('.frame-label');
-        const formattedLabel = formatFrameCardLabel(frame);
-        if (labelEl) {
-          labelEl.textContent = formattedLabel;
-        }
-        card.dataset.label = String(formattedLabel || '');
-        card.dataset.timecode = timelineLabelFromFid(frame.fid);
-      });
+      renderFrameGridWindow(true);
     }
 
     async function loadArchives() {
@@ -6541,6 +7454,8 @@
         state.peopleProfile = normalizePeopleProfile(null);
         state.subtitlesProfile = normalizeSubtitlesProfile(null);
         state.splitProfile = normalizeSplitProfile(null);
+        state.frameSheetConfig = normalizeFrameSheetConfig(null);
+        resetFrameSheetPrefetchState();
         peopleTimelineZoom = 1.0;
         resetTimelineAudioState();
         resetFlipbookAudioState();
@@ -6583,15 +7498,17 @@
 
       let loadFailed = false;
       startLoadProgress('Extracting chapter and loading all frames...');
-      state.gammaScores = new Map();
+      replaceGammaScores(new Map());
       state.gammaProfile = normalizeGammaProfile(null);
       state.peopleProfile = normalizePeopleProfile(null);
       state.subtitlesProfile = normalizeSubtitlesProfile(null);
       state.splitProfile = normalizeSplitProfile(null);
+      state.frameSheetConfig = normalizeFrameSheetConfig(null);
+      resetFrameSheetPrefetchState();
       peopleTimelineZoom = 1.0;
       resetTimelineAudioState();
       resetFlipbookAudioState();
-      state.review = { threshold: 0, stats: { total: 0, bad: 0, good: 0, shown: 0, overrides: 0 }, frames: [] };
+      setReviewState({ threshold: 0, stats: { total: 0, bad: 0, good: 0, shown: 0, overrides: 0 }, frames: [] }, null);
       updateReviewStatsDisplay();
       renderReviewFrames([]);
       refreshPeopleEditorFromState();
@@ -6601,15 +7518,19 @@
       try {
         const result = await api('/api/load_chapter', 'POST', payload, 0);
         state.frameImages = new Map();
-        state.gammaScores = new Map();
+        replaceGammaScores(new Map());
         state.freezeReplacementMap = new Map();
         const finalFrames = sortFramesByFid((result.review && result.review.frames) || []);
-        state.review = {
+        setReviewState({
           ...result.review,
           frames: finalFrames,
-        };
+        }, state.review && Array.isArray(state.review.frames) ? state.review.frames : null);
         syncForceAllFramesGoodFromReview(result.review || {});
         state.loadSettings = result.settings || null;
+        state.frameSheetConfig = normalizeFrameSheetConfig(
+          (state.loadSettings && state.loadSettings.contact_sheet) || null
+        );
+        resetFrameSheetPrefetchState();
         state.gammaProfile = normalizeGammaProfile(
           (state.loadSettings && state.loadSettings.gamma_profile) || null
         );
@@ -6686,14 +7607,17 @@
         }
         reviewStatsEl.textContent = statsText(review.stats, review.threshold);
         applyFrameUpdates(review.frames);
-        renderActiveSparkline(review.frames, review.threshold);
-        state.review = {
-          ...state.review,
-          stats: review.stats,
-          threshold: review.threshold,
-          frames: review.frames || [],
-        };
-        state.gammaScores = new Map();
+        setReviewState(
+          {
+            ...(state.review || {}),
+            stats: review.stats,
+            threshold: review.threshold,
+            frames: review.frames || [],
+          },
+          state.review && Array.isArray(state.review.frames) ? state.review.frames : null
+        );
+        renderActiveSparkline(state.review.frames, review.threshold);
+        replaceGammaScores(new Map());
         refreshFreezeSimulation();
         updateReviewStatsDisplay();
         setStatus(`Applied IQR k=${k.toFixed(2)} (${changed} frame(s) changed).`);
@@ -6828,6 +7752,7 @@
         level: gamma,
         ranges: next,
       };
+      invalidateGammaSparklineCache();
       updateGammaControls();
       refreshGammaVisuals();
       renderActiveSparkline(state.review ? state.review.frames : [], state.review ? state.review.threshold : 0);
@@ -6843,6 +7768,7 @@
       } else {
         state.gammaProfile.ranges = [];
       }
+      invalidateGammaSparklineCache();
       updateGammaControls();
       refreshGammaVisuals();
       renderActiveSparkline(state.review ? state.review.frames : [], state.review ? state.review.threshold : 0);
@@ -6853,6 +7779,7 @@
     function setActiveGammaLevel(rawValue) {
       const level = normalizeGammaValue(rawValue, state.gammaProfile.level || 1.0);
       state.gammaProfile.level = level;
+      invalidateGammaSparklineCache();
       updateGammaControls();
       if (isGammaStepActive()) {
         refreshGammaVisuals();
@@ -6867,7 +7794,7 @@
         setStatus('Wait until frame loading finishes before entering gamma step.', true);
         return false;
       }
-      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) {
+      if (!reviewLoadedFrameCount()) {
         setStatus('Load and review frames before entering gamma step.', true);
         return false;
       }
@@ -6898,11 +7825,7 @@
     }
 
     async function openPeopleStep() {
-      if (isChapterLoadInFlight) {
-        setStatus('Wait until frame loading finishes before entering people step.', true);
-        return false;
-      }
-      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) {
+      if (!reviewLoadedFrameCount()) {
         setStatus('Load and review frames before entering people step.', true);
         return false;
       }
@@ -6914,11 +7837,7 @@
     }
 
     async function openSubtitlesStep() {
-      if (isChapterLoadInFlight) {
-        setStatus('Wait until frame loading finishes before entering subtitles step.', true);
-        return false;
-      }
-      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) {
+      if (!reviewLoadedFrameCount()) {
         setStatus('Load and review frames before entering subtitles step.', true);
         return false;
       }
@@ -6930,11 +7849,7 @@
     }
 
     async function openSplitStep() {
-      if (isChapterLoadInFlight) {
-        setStatus('Wait until frame loading finishes before entering chapters step.', true);
-        return false;
-      }
-      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) {
+      if (!reviewLoadedFrameCount()) {
         setStatus('Load and review frames before entering chapters step.', true);
         return false;
       }
@@ -6948,14 +7863,16 @@
     async function applyForceAllFramesGood(enabled, options = {}) {
       const next = Boolean(enabled);
       const previous = Boolean(state.forceAllFramesGood);
-      if (isChapterLoadInFlight || isPreviewRenderInFlight || isSubtitlesGenerateInFlight) {
+      if (isPreviewRenderInFlight || isSubtitlesGenerateInFlight) {
         setForceAllFramesGoodUi(previous);
         setStatus('Wait until active tasks finish before toggling Force All Good.', true);
         return;
       }
       setForceAllFramesGoodUi(next);
 
-      const showOverlay = options && options.showOverlay === false ? false : true;
+      const showOverlay = options && Object.prototype.hasOwnProperty.call(options, 'showOverlay')
+        ? Boolean(options.showOverlay)
+        : !isChapterLoadInFlight;
       if (showOverlay) {
         setLoading(true, next ? 'Forcing all loaded frames to good...' : 'Restoring frame classification...');
       }
@@ -6966,12 +7883,12 @@
           frames: sortFramesByFid((result.review && result.review.frames) || []),
         };
         syncForceAllFramesGoodFromReview(review);
-        state.review = {
+        setReviewState({
           ...(state.review || {}),
           stats: review.stats || { total: 0, bad: 0, good: 0, shown: 0, overrides: 0 },
           threshold: Number(review.threshold || 0),
           frames: review.frames || [],
-        };
+        }, state.review && Array.isArray(state.review.frames) ? state.review.frames : null);
         if (Array.isArray(state.review.frames) && state.review.frames.length) {
           reviewStatsEl.textContent = statsText(state.review.stats, state.review.threshold);
           if (!isChapterLoadInFlight) {
@@ -6981,7 +7898,7 @@
         } else {
           renderReviewFrames([]);
         }
-        state.gammaScores = new Map();
+        replaceGammaScores(new Map());
         refreshFreezeSimulation();
         updateReviewStatsDisplay();
         setStatus(next ? 'Force All Good enabled for current loaded frames.' : 'Force All Good disabled.');
@@ -7030,13 +7947,16 @@
         if (frame) applyFrameUpdates([frame]);
         reviewStatsEl.textContent = statsText(result.review.stats, result.review.threshold);
         if (!isChapterLoadInFlight || !optimistic) {
-          renderActiveSparkline(result.review.frames, result.review.threshold);
-          state.review = {
-            ...state.review,
-            stats: result.review.stats,
-            threshold: result.review.threshold,
-            frames: result.review.frames || [],
-          };
+          setReviewState(
+            {
+              ...(state.review || {}),
+              stats: result.review.stats,
+              threshold: result.review.threshold,
+              frames: result.review.frames || [],
+            },
+            state.review && Array.isArray(state.review.frames) ? state.review.frames : null
+          );
+          renderActiveSparkline(state.review.frames, result.review.threshold);
         } else if (state.review) {
           state.review = {
             ...state.review,
@@ -7044,7 +7964,7 @@
             threshold: result.review.threshold,
           };
         }
-        state.gammaScores = new Map();
+        replaceGammaScores(new Map());
         refreshFreezeSimulation();
         updateReviewStatsDisplay();
       } catch (err) {
@@ -7090,17 +8010,20 @@
         };
         syncForceAllFramesGoodFromReview(review);
         reviewStatsEl.textContent = statsText(review.stats, review.threshold);
-        if (!isChapterLoadInFlight) {
-          renderActiveSparkline(review.frames, review.threshold);
-        }
         applyFrameUpdates(review.frames);
-        state.review = {
-          ...state.review,
-          stats: review.stats,
-          threshold: review.threshold,
-          frames: review.frames || [],
-        };
-        state.gammaScores = new Map();
+        setReviewState(
+          {
+            ...(state.review || {}),
+            stats: review.stats,
+            threshold: review.threshold,
+            frames: review.frames || [],
+          },
+          state.review && Array.isArray(state.review.frames) ? state.review.frames : null
+        );
+        if (!isChapterLoadInFlight) {
+          renderActiveSparkline(state.review.frames, review.threshold);
+        }
+        replaceGammaScores(new Map());
         refreshFreezeSimulation();
         updateReviewStatsDisplay();
         setStatus(
@@ -7176,7 +8099,7 @@
         setStatus('Wait until frame loading finishes before preview render.', true);
         return;
       }
-      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) {
+      if (!reviewLoadedFrameCount()) {
         setStatus('Load and review a chapter before running preview render.', true);
         return;
       }
@@ -7209,7 +8132,7 @@
         setStatus('Wait until frame loading finishes before saving progress.', true);
         return false;
       }
-      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) {
+      if (!reviewLoadedFrameCount()) {
         setStatus('Load a chapter before saving progress.', true);
         return false;
       }
@@ -7344,8 +8267,12 @@
 
       let currentStep = stepDef(state.wizardStep);
       if (currentStep.mode === 'load') {
-        const loaded = await loadFrames();
-        if (!loaded) return false;
+        if (isChapterLoadInFlight) {
+          setStepByMode('review');
+        } else {
+          const loaded = await loadFrames();
+          if (!loaded) return false;
+        }
         currentStep = stepDef(state.wizardStep);
       }
 
@@ -7370,7 +8297,7 @@
 
       if (targetStep.mode === 'people') {
         const movingForward = stepIndex(targetStep.num) > stepIndex(currentStep.num);
-        if (movingForward) {
+        if (movingForward && !isChapterLoadInFlight) {
           const loadingText = currentStep.mode === 'gamma'
             ? 'Saving gamma progress...'
             : 'Saving review progress...';
@@ -7386,7 +8313,7 @@
 
       if (targetStep.mode === 'subtitles') {
         const movingForward = stepIndex(targetStep.num) > stepIndex(currentStep.num);
-        if (movingForward) {
+        if (movingForward && !isChapterLoadInFlight) {
           const loadingText = currentStep.mode === 'people'
             ? 'Saving people progress...'
             : (currentStep.mode === 'gamma' ? 'Saving gamma progress...' : 'Saving review progress...');
@@ -7402,7 +8329,7 @@
 
       if (targetStep.mode === 'split') {
         const movingForward = stepIndex(targetStep.num) > stepIndex(currentStep.num);
-        if (movingForward) {
+        if (movingForward && !isChapterLoadInFlight) {
           const loadingText = currentStep.mode === 'subtitles'
             ? 'Saving subtitles progress...'
             : (currentStep.mode === 'people'
@@ -7486,8 +8413,12 @@
       gammaModeEl.addEventListener('change', () => {
         const mode = String(gammaModeEl.value || 'whole');
         state.gammaProfile.mode = mode === 'regions' ? 'regions' : 'whole';
+        invalidateGammaSparklineCache();
         updateGammaControls();
         refreshGammaVisuals();
+        if (isGammaStepActive()) {
+          renderActiveSparkline(state.review ? state.review.frames : [], state.review ? state.review.threshold : 0);
+        }
         updateReviewStatsDisplay();
       });
     }
@@ -7893,11 +8824,12 @@
       const fid = String(card.dataset.fid || '').trim();
       const fidNum = Math.trunc(Number(fid));
       if (!Number.isFinite(fidNum)) return;
+      const loaded = String(card.dataset.loaded || '') === '1';
       const flipbookOn = Boolean(flipbookPreviewEl && flipbookPreviewEl.classList.contains('active'));
       if (sparkPlayTimer) {
         _pauseSparkWindowPlayback();
       }
-      if (flipbookOn && fid) {
+      if (flipbookOn && fid && loaded) {
         seekFlipbookToFrameId(fid, { keepVisible: false });
       }
       if (isTimelineStepActive()) {
@@ -7910,6 +8842,10 @@
         return;
       }
       if (!isBadFrameStepActive()) {
+        return;
+      }
+      if (!loaded) {
+        setStatus(`Frame ${chapterTimecodeFromFid(fidNum)} has not loaded yet.`);
         return;
       }
       if (state.forceAllFramesGood) {

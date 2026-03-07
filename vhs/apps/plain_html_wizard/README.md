@@ -44,9 +44,9 @@ Step 1: Load chapter
 1. Select an archive on the left.
 2. Select a chapter in the chapter list.
 3. Chapter frame span is loaded directly from chapter metadata.
-4. Click the top `2/5 Bad Frames + IQR` step button to load frames.
+4. Click the top `2/7 Bad Frames` step button to load frames.
 
-Step 2: Review frames + threshold
+Step 2: Bad Frames
 
 - Frame colors:
   - green border = currently good
