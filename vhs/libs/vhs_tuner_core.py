@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import csv
 import gzip
 import hashlib
 import io
@@ -13,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from fractions import Fraction
 from pathlib import Path
 
 import cv2
@@ -84,6 +86,189 @@ def load_archive_chapters(path: Path) -> list[dict]:
 
 # Backward-compatible alias for older callers.
 parse_ffmetadata_chapters = load_archive_chapters
+
+
+def _metadata_archive_dir(archive: str) -> Path:
+    return METADATA_DIR / str(archive or "").strip()
+
+
+def _chapters_tsv_path(archive: str) -> Path:
+    return _metadata_archive_dir(archive) / "chapters.tsv"
+
+
+def _chapters_ffmetadata_path(archive: str) -> Path:
+    return _metadata_archive_dir(archive) / "chapters.ffmetadata"
+
+
+def _parse_int_value(raw: object) -> int | None:
+    text = str(raw if raw is not None else "").strip()
+    if not text or not re.fullmatch(r"-?\d+", text):
+        return None
+    try:
+        return int(text)
+    except Exception:
+        return None
+
+
+def _parse_float_value(raw: object) -> float | None:
+    text = str(raw if raw is not None else "").strip()
+    if not text:
+        return None
+    try:
+        return float(text)
+    except Exception:
+        return None
+
+
+def _parse_timebase_value(raw: object) -> tuple[int, int] | None:
+    text = str(raw if raw is not None else "").strip()
+    if not text:
+        return None
+    try:
+        if "/" in text:
+            num_s, den_s = text.split("/", 1)
+            num = int(num_s.strip())
+            den = int(den_s.strip())
+        else:
+            num = int(text)
+            den = 1
+    except Exception:
+        return None
+    if den == 0:
+        return None
+    if den < 0:
+        num = -num
+        den = -den
+    return int(num), int(den)
+
+
+def _read_chapters_tsv_rows(path: Path) -> list[dict[str, str]]:
+    p = Path(path)
+    if not p.exists():
+        return []
+    rows: list[dict[str, str]] = []
+    with p.open("r", encoding="utf-8-sig", errors="ignore", newline="") as fh:
+        reader = csv.DictReader(fh, delimiter="\t")
+        for raw in reader:
+            row: dict[str, str] = {}
+            has_any = False
+            for key, value in (raw or {}).items():
+                k = str(key or "").strip()
+                if not k:
+                    continue
+                v = str(value or "").strip()
+                row[k] = v
+                if v:
+                    has_any = True
+            if has_any:
+                rows.append(row)
+    return rows
+
+
+def _chapter_from_tsv_row(archive: str, row: dict[str, str]) -> dict | None:
+    lower = {str(k or "").strip().lower(): str(v or "").strip() for k, v in dict(row or {}).items()}
+    title = str(
+        lower.get("title")
+        or lower.get("chaptertitle")
+        or lower.get("chapter_title")
+        or ""
+    ).strip()
+    if not title:
+        return None
+
+    start_frame = _parse_int_value(lower.get("start_frame"))
+    end_frame = _parse_int_value(lower.get("end_frame"))
+    start_sec: float | None = None
+    end_sec: float | None = None
+
+    if start_frame is None or end_frame is None:
+        tb = _parse_timebase_value(lower.get("timebase"))
+        start_raw = _parse_int_value(lower.get("start_raw"))
+        end_raw = _parse_int_value(lower.get("end_raw"))
+        if start_raw is None:
+            start_raw = _parse_int_value(lower.get("start"))
+        if end_raw is None:
+            end_raw = _parse_int_value(lower.get("end"))
+
+        if tb is not None and start_raw is not None and end_raw is not None:
+            tb_num, tb_den = tb
+            start_sec = float(Fraction(int(start_raw), 1) * Fraction(int(tb_num), int(tb_den)))
+            end_sec = float(Fraction(int(end_raw), 1) * Fraction(int(tb_num), int(tb_den)))
+            start_frame, end_frame = chapter_frame_bounds(
+                {
+                    "start_raw": int(start_raw),
+                    "end_raw": int(end_raw),
+                    "timebase_num": int(tb_num),
+                    "timebase_den": int(tb_den),
+                },
+                fps_num=30000,
+                fps_den=1001,
+            )
+        else:
+            if tb is None and start_raw is not None and end_raw is not None:
+                start_frame = int(start_raw)
+                end_frame = int(end_raw)
+            if start_frame is None or end_frame is None:
+                start_seconds = _parse_float_value(lower.get("start_seconds"))
+                end_seconds = _parse_float_value(lower.get("end_seconds"))
+                if start_seconds is None:
+                    start_seconds = _parse_float_value(lower.get("start"))
+                if end_seconds is None:
+                    end_seconds = _parse_float_value(lower.get("end"))
+                if start_seconds is not None and end_seconds is not None:
+                    start_sec = float(start_seconds)
+                    end_sec = float(end_seconds)
+                    start_frame = int(round(float(start_seconds) * 30000.0 / 1001.0))
+                    end_frame = int(round(float(end_seconds) * 30000.0 / 1001.0))
+
+    if start_frame is None or end_frame is None:
+        return None
+
+    start_i, end_i = _normalize_frame_span(int(start_frame), int(end_frame))
+    if start_sec is None:
+        start_sec = float(start_i) * 1001.0 / 30000.0
+    if end_sec is None:
+        end_sec = float(end_i) * 1001.0 / 30000.0
+
+    return {
+        "title": title,
+        "start_sec": float(start_sec),
+        "end_sec": float(end_sec),
+        "start_frame": int(start_i),
+        "end_frame": int(end_i),
+        "bad_frames": get_bad_frames_for_chapter(str(archive or ""), title),
+    }
+
+
+def load_archive_chapters_tsv(path: Path, archive: str) -> list[dict]:
+    rows = _read_chapters_tsv_rows(path)
+    out: list[dict] = []
+    for row in rows:
+        parsed = _chapter_from_tsv_row(archive, row)
+        if parsed is None:
+            continue
+        out.append(parsed)
+    return out
+
+
+def _load_archive_chapters_for_ui(archive: str) -> tuple[list[dict], str]:
+    archive_name = str(archive or "").strip()
+    if not archive_name:
+        return [], ""
+
+    tsv_path = _chapters_tsv_path(archive_name)
+    if tsv_path.exists():
+        chapters = load_archive_chapters_tsv(tsv_path, archive=archive_name)
+        if chapters:
+            return chapters, "chapters.tsv"
+
+    ffmetadata_path = _chapters_ffmetadata_path(archive_name)
+    if ffmetadata_path.exists():
+        chapters = load_archive_chapters(ffmetadata_path)
+        if chapters:
+            return chapters, "chapters.ffmetadata"
+
+    return [], ""
 
 
 def _normalize_frame_span(ch_start: int, ch_end: int) -> tuple[int, int]:
@@ -1373,16 +1558,17 @@ def _resolve_archive_video(archive: str) -> Path | None:
     return proxy if proxy.exists() else mkv if mkv.exists() else None
 
 CHAPTER_SELECT_LABEL = "-- select chapter --"
-CHAPTER_MISSING_LABEL = "-- no chapters file found --"
+CHAPTER_MISSING_LABEL = "-- no chapters metadata found --"
 
-def _get_chapter_titles(archive: str) -> list[str]:
+def _get_chapter_titles(archive: str, chapters: list[dict] | None = None) -> list[str]:
     if not archive:
         return [CHAPTER_SELECT_LABEL]
-    cf = METADATA_DIR / archive / "chapters.ffmetadata"
-    if not cf.exists():
+    chapter_rows = list(chapters or [])
+    if not chapter_rows:
+        chapter_rows, _source = _load_archive_chapters_for_ui(archive)
+    if not chapter_rows:
         return [CHAPTER_MISSING_LABEL]
-    chapters = load_archive_chapters(cf)
-    return [CHAPTER_SELECT_LABEL] + [ch["title"] for ch in chapters]
+    return [CHAPTER_SELECT_LABEL] + [str(ch.get("title", "")) for ch in chapter_rows if str(ch.get("title", ""))]
 
 def _find_chapter(chapters: list[dict], title: str) -> dict | None:
     return next((c for c in chapters if c["title"] == title), None)
@@ -1447,9 +1633,8 @@ def build_archive_state(
     archive: str,
     selected_title: str | None = None,
 ) -> dict:
-    titles = _get_chapter_titles(archive)
-    cf = METADATA_DIR / archive / "chapters.ffmetadata" if archive else None
-    chapters = load_archive_chapters(cf) if cf and cf.exists() else []
+    chapters, chapter_source = _load_archive_chapters_for_ui(archive)
+    titles = _get_chapter_titles(archive, chapters=chapters)
     chapter_titles = [str(ch.get("title", "")) for ch in chapters if str(ch.get("title", ""))]
     chapter_rows, compact_rows = _chapter_rows(chapters)
 
@@ -1463,12 +1648,16 @@ def build_archive_state(
     end_frame = int(picked["end_frame"]) if picked else None
     details = _chapter_details_md(picked)
 
+    tsv_exists = bool(archive and _chapters_tsv_path(archive).exists())
+    ffmeta_exists = bool(archive and _chapters_ffmetadata_path(archive).exists())
     if chapter_titles:
         status = ""
-    elif titles and titles[0] == CHAPTER_MISSING_LABEL:
-        status = "`No chapters.ffmetadata found for selected archive.`"
+    elif chapter_source == "chapters.tsv" or tsv_exists:
+        status = "`No chapters available in chapters.tsv for selected archive.`"
+    elif chapter_source == "chapters.ffmetadata" or ffmeta_exists:
+        status = "`No chapters available in chapters.ffmetadata for selected archive.`"
     else:
-        status = "`No chapters available for selected archive.`"
+        status = "`No chapters metadata found for selected archive.`"
 
     return {
         "titles": titles,
