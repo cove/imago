@@ -571,7 +571,7 @@ def _normalize_split_entries_payload(
 
 def _default_split_entries_for_chapter(chapter_title: str, chapter_frame_count: int) -> list[dict[str, Any]]:
     frame_count = max(1, int(chapter_frame_count))
-    title = _normalize_subtitle_optional_text(chapter_title) or "Split 1"
+    title = _normalize_subtitle_optional_text(chapter_title) or "Chapter 1"
     return [
         {
             "start_frame": 0,
@@ -722,7 +722,7 @@ def _load_split_entries_for_chapter(
             (row or {}).get("title", (row or {}).get("split_title", (row or {}).get("chapter_title", "")))
         )
         if not title:
-            title = chapter_key or f"Split {len(local_entries) + 1}"
+            title = chapter_key or f"Chapter {len(local_entries) + 1}"
         local_entries.append(
             {
                 "start_frame": int(lo) - int(chapter_start),
@@ -812,7 +812,7 @@ def _save_split_entries_for_chapter(
             continue
         global_start = int(chapter_start) + int(local_start)
         global_end = int(chapter_start) + int(local_end)
-        title = _normalize_subtitle_optional_text(item.get("title")) or chapter_key or f"Split {idx + 1}"
+        title = _normalize_subtitle_optional_text(item.get("title")) or chapter_key or f"Chapter {idx + 1}"
         row: dict[str, Any] = {
             "parent_chapter": chapter_key,
             "start_frame": str(int(global_start)),
@@ -1600,7 +1600,7 @@ def _summary_payload(session: SessionState) -> dict[str, Any]:
     )
     split_lines = []
     if split_entries:
-        split_lines.append(f"Split entries: {len(split_entries)}")
+        split_lines.append(f"Chapter entries: {len(split_entries)}")
         for item in split_entries[:25]:
             split_lines.append(
                 f"- {int(item['start_frame'])}-{int(item['end_frame'])} (local frames): {str(item['title'])}"
@@ -1608,7 +1608,7 @@ def _summary_payload(session: SessionState) -> dict[str, Any]:
         if len(split_entries) > 25:
             split_lines.append(f"- +{len(split_entries) - 25} more")
     else:
-        split_lines.append("Split entries: (none)")
+        split_lines.append("Chapter entries: (none)")
     split_text = "\n".join(split_lines)
 
     summary_text = (

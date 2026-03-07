@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from .model_store import HF_MODEL_CACHE_DIR
+
 
 DEFAULT_QWEN_CAPTION_MODEL = "Qwen/Qwen2.5-VL-3B-Instruct"
 
@@ -124,10 +126,17 @@ class QwenLocalCaptioner:
                 "Qwen captioning requires transformers and torch. Install with: pip install transformers torch"
             ) from exc
 
-        self._processor = AutoProcessor.from_pretrained(self.model_name, trust_remote_code=True)
+        HF_MODEL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        cache_dir = str(HF_MODEL_CACHE_DIR)
+        self._processor = AutoProcessor.from_pretrained(
+            self.model_name,
+            trust_remote_code=True,
+            cache_dir=cache_dir,
+        )
         load_kwargs = {
             "trust_remote_code": True,
             "device_map": "auto",
+            "cache_dir": cache_dir,
         }
         # Prefer dtype over torch_dtype to avoid deprecation warnings on newer transformers.
         try:
