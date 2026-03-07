@@ -1,6 +1,9 @@
 #!/usr/bin/env python3.11
 from __future__ import annotations
 
+import base64
+import binascii
+import bisect
 import json
 import html
 import importlib
@@ -14,16 +17,19 @@ import tempfile
 import threading
 import uuid
 import wave
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from http import HTTPStatus
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import parse_qs, urlparse
 from contextlib import redirect_stdout
 
+import cv2
 import numpy as np
+from PIL import Image, ImageOps
 
 _HERE = Path(__file__).resolve().parent
 PROJECT_ROOT = _HERE.parent.parent
@@ -41,6 +47,7 @@ from common import (
     update_chapter_gamma_in_render_settings,
 )
 from libs.vhs_tuner_core import (
+    _bgr_to_jpeg_b64,
     _chapter_bad_overrides,
     _chapter_extract_cache_path,
     _ensure_render_chapter_extract,
@@ -51,6 +58,7 @@ from libs.vhs_tuner_core import (
     _resolve_archive_video,
     build_archive_state,
     extract_frames,
+    load_cached_signals,
     persist_bad_frames_for_chapter,
     slugify,
     RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV,
@@ -91,6 +99,11 @@ CHAPTERS_TSV_META_COLUMNS = [
 CHAPTER_FFMETADATA_COMPUTED_KEYS = {"start_raw", "end_raw", "timebase_num", "timebase_den"}
 DEFAULT_CAST_STORE_DIR = (PROJECT_ROOT.parent / "cast" / "data").resolve()
 WHISPER_MODEL_NAME = "turbo"
+CONTACT_SHEET_TILE_WIDTH = 160
+CONTACT_SHEET_TILE_HEIGHT = 120
+CONTACT_SHEET_CHUNK_SIZE = 512
+CONTACT_SHEET_COLUMNS = 8
+CONTACT_SHEET_CACHE_LIMIT = 64
 
 
 @dataclass
@@ -149,10 +162,14 @@ class SessionState:
     partial_sigs: dict[str, list[float]] = field(
         default_factory=lambda: {"chroma": [], "noise": [], "tear": [], "wave": []}
     )
+    frame_source_video_path: str = ""
+    frame_source_read_offset: int = 0
 
 
 _SESSION_LOCK = threading.Lock()
 _SESSIONS: dict[str, SessionState] = {}
+_FRAME_CONTACT_SHEET_CACHE_LOCK = threading.Lock()
+_FRAME_CONTACT_SHEET_CACHE: OrderedDict[str, tuple[str, bytes]] = OrderedDict()
 _WHISPER_MODEL_LOCK = threading.Lock()
 _WHISPER_MODEL: Any | None = None
 _WHISPER_TQDM_PATCH_LOCK = threading.Lock()
@@ -1604,7 +1621,268 @@ def _frame_status(session: SessionState, fid: int, score: float, thr: float) -> 
     return "good", "AG"
 
 
-def _build_review_payload(session: SessionState, include_images: bool) -> dict[str, Any]:
+def _frame_image_url(fid: int, *, cache_key: str = "") -> str:
+    suffix = f"&rev={cache_key}" if str(cache_key or "").strip() else ""
+    return f"/api/frame_image?fid={int(fid)}{suffix}"
+
+
+def _frame_contact_sheet_url(
+    start_index: int,
+    *,
+    count: int,
+    columns: int,
+    cache_key: str = "",
+) -> str:
+    suffix = f"&rev={cache_key}" if str(cache_key or "").strip() else ""
+    return (
+        f"/api/frame_contact_sheet?start={int(start_index)}"
+        f"&count={int(count)}&columns={int(columns)}{suffix}"
+    )
+
+
+def _lookup_frame_image_data_url(session: SessionState, fid: int) -> str:
+    fid_i = int(fid)
+
+    def _lookup(fids: list[int], images: list[str]) -> str:
+        if not fids or not images:
+            return ""
+        idx = bisect.bisect_left(fids, fid_i)
+        if idx < len(fids) and int(fids[idx]) == fid_i and idx < len(images):
+            return str(images[idx] or "")
+        return ""
+
+    return _lookup(session.fids, session.b64) or _lookup(session.partial_fids, session.partial_b64)
+
+
+def _decode_frame_image_data_url(data_url: str) -> tuple[str, bytes] | None:
+    text = str(data_url or "").strip()
+    if not text:
+        return None
+    match = re.match(r"^data:(?P<content_type>[^;]+);base64,(?P<payload>.+)$", text, flags=re.IGNORECASE)
+    if not match:
+        return None
+    try:
+        payload = base64.b64decode(match.group("payload"), validate=True)
+    except (binascii.Error, ValueError):
+        return None
+    if not payload:
+        return None
+    return str(match.group("content_type") or "image/jpeg"), payload
+
+
+def _frame_image_cache_key(session: SessionState) -> str:
+    archive = slugify(str(session.archive or "").strip()) or "archive"
+    chapter = slugify(str(session.chapter or "").strip()) or "chapter"
+    return f"{archive}_{chapter}_{int(session.start_frame)}_{int(session.end_frame)}"
+
+
+def _contact_sheet_config_payload(session: SessionState) -> dict[str, Any]:
+    return {
+        "rev": _frame_image_cache_key(session),
+        "chunk_size": int(CONTACT_SHEET_CHUNK_SIZE),
+        "columns": int(CONTACT_SHEET_COLUMNS),
+        "thumb_width": int(CONTACT_SHEET_TILE_WIDTH),
+        "thumb_height": int(CONTACT_SHEET_TILE_HEIGHT),
+    }
+
+
+def _chapter_frame_count(session: SessionState) -> int:
+    return max(0, int(session.end_frame) - int(session.start_frame))
+
+
+def _contact_sheet_frame_ids(session: SessionState, *, start_index: int, count: int) -> list[int]:
+    total = _chapter_frame_count(session)
+    if total <= 0:
+        return []
+    start = max(0, int(start_index))
+    end = min(total, start + max(1, int(count)))
+    if start >= end:
+        return []
+    chapter_start = int(session.start_frame)
+    return [chapter_start + offset for offset in range(start, end)]
+
+
+def _load_contact_sheet_images_from_video(
+    session: SessionState,
+    frame_ids: list[int],
+) -> dict[int, str]:
+    video_path_raw = str(session.frame_source_video_path or "").strip()
+    if not video_path_raw or not frame_ids:
+        return {}
+    video_path = Path(video_path_raw)
+    if not video_path.exists():
+        return {}
+
+    unique_ids = sorted({int(fid) for fid in frame_ids})
+    cache_fids, _cache_sigs, cached_thumbs = load_cached_signals(
+        str(session.archive or ""),
+        str(session.chapter or ""),
+        video_path=video_path,
+        start_frame=int(session.start_frame),
+        end_frame=int(session.end_frame),
+        frame_read_offset=int(session.frame_source_read_offset),
+    )
+    _ = cache_fids
+    cached_lookup = dict(cached_thumbs or {})
+
+    out: dict[int, str] = {}
+    missing: list[int] = []
+    for fid in unique_ids:
+        cached = str(cached_lookup.get(int(fid), "") or "")
+        if cached:
+            out[int(fid)] = cached
+        else:
+            missing.append(int(fid))
+    if not missing:
+        return out
+
+    cap = cv2.VideoCapture(str(video_path))
+    if not cap.isOpened():
+        cap.release()
+        return out
+    try:
+        read_offset = int(session.frame_source_read_offset)
+        for fid in missing:
+            read_fid = int(fid) - read_offset
+            if read_fid < 0:
+                bgr = np.zeros((240, 320, 3), dtype=np.uint8)
+            else:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, int(read_fid))
+                ok, read_bgr = cap.read()
+                if not ok or read_bgr is None:
+                    bgr = np.zeros((240, 320, 3), dtype=np.uint8)
+                else:
+                    bgr = read_bgr
+            out[int(fid)] = _bgr_to_jpeg_b64(bgr)
+    finally:
+        cap.release()
+    return out
+
+
+def _contact_sheet_image_data_urls(
+    session: SessionState,
+    *,
+    start_index: int,
+    count: int,
+) -> list[str]:
+    frame_ids = _contact_sheet_frame_ids(
+        session,
+        start_index=int(start_index),
+        count=int(count),
+    )
+    if not frame_ids:
+        return []
+
+    image_lookup: dict[int, str] = {}
+    missing: list[int] = []
+    for fid in frame_ids:
+        data_url = str(_lookup_frame_image_data_url(session, fid) or "")
+        if data_url:
+            image_lookup[int(fid)] = data_url
+        else:
+            missing.append(int(fid))
+    if missing:
+        image_lookup.update(_load_contact_sheet_images_from_video(session, missing))
+    return [str(image_lookup.get(int(fid), "") or "") for fid in frame_ids]
+
+
+def _fit_thumb_to_contact_tile(data_url: str) -> Image.Image:
+    fallback = Image.new("RGB", (int(CONTACT_SHEET_TILE_WIDTH), int(CONTACT_SHEET_TILE_HEIGHT)), (0, 0, 0))
+    decoded = _decode_frame_image_data_url(data_url)
+    if decoded is None:
+        return fallback
+    _content_type, payload = decoded
+    try:
+        with Image.open(io.BytesIO(payload)) as img:
+            src = img.convert("RGB")
+    except Exception:
+        return fallback
+
+    fitted = Image.new("RGB", (int(CONTACT_SHEET_TILE_WIDTH), int(CONTACT_SHEET_TILE_HEIGHT)), (0, 0, 0))
+    contained = ImageOps.contain(src, (int(CONTACT_SHEET_TILE_WIDTH), int(CONTACT_SHEET_TILE_HEIGHT)))
+    offset_x = max(0, (int(CONTACT_SHEET_TILE_WIDTH) - int(contained.width)) // 2)
+    offset_y = max(0, (int(CONTACT_SHEET_TILE_HEIGHT) - int(contained.height)) // 2)
+    fitted.paste(contained, (offset_x, offset_y))
+    return fitted
+
+
+def _build_contact_sheet_bytes(
+    session: SessionState,
+    *,
+    start_index: int,
+    count: int,
+    columns: int,
+) -> tuple[str, bytes] | None:
+    images = _contact_sheet_image_data_urls(
+        session,
+        start_index=int(start_index),
+        count=int(count),
+    )
+    if not images:
+        return None
+    start = max(0, int(start_index))
+    max_count = max(1, int(count))
+    cols = max(1, int(columns))
+    actual_count = max(0, min(len(images), max_count))
+    if actual_count <= 0:
+        return None
+    rows = max(1, (actual_count + cols - 1) // cols)
+    canvas = Image.new(
+        "RGB",
+        (int(CONTACT_SHEET_TILE_WIDTH) * cols, int(CONTACT_SHEET_TILE_HEIGHT) * rows),
+        (0, 0, 0),
+    )
+    for local_index, data_url in enumerate(images[:actual_count]):
+        tile = _fit_thumb_to_contact_tile(str(data_url or ""))
+        x = (local_index % cols) * int(CONTACT_SHEET_TILE_WIDTH)
+        y = (local_index // cols) * int(CONTACT_SHEET_TILE_HEIGHT)
+        canvas.paste(tile, (x, y))
+
+    out = io.BytesIO()
+    canvas.save(out, format="JPEG", quality=72, optimize=True)
+    return "image/jpeg", out.getvalue()
+
+
+def _cached_contact_sheet_bytes(
+    session: SessionState,
+    *,
+    start_index: int,
+    count: int,
+    columns: int,
+) -> tuple[str, bytes] | None:
+    cache_key = (
+        f"{_frame_image_cache_key(session)}|"
+        f"{int(start_index)}|{int(count)}|{int(columns)}"
+    )
+    with _FRAME_CONTACT_SHEET_CACHE_LOCK:
+        cached = _FRAME_CONTACT_SHEET_CACHE.get(cache_key)
+        if cached is not None:
+            _FRAME_CONTACT_SHEET_CACHE.move_to_end(cache_key)
+            return cached
+
+    built = _build_contact_sheet_bytes(
+        session,
+        start_index=int(start_index),
+        count=int(count),
+        columns=int(columns),
+    )
+    if built is None:
+        return None
+
+    with _FRAME_CONTACT_SHEET_CACHE_LOCK:
+        _FRAME_CONTACT_SHEET_CACHE[cache_key] = built
+        _FRAME_CONTACT_SHEET_CACHE.move_to_end(cache_key)
+        while len(_FRAME_CONTACT_SHEET_CACHE) > int(CONTACT_SHEET_CACHE_LIMIT):
+            _FRAME_CONTACT_SHEET_CACHE.popitem(last=False)
+    return built
+
+
+def _build_review_payload(
+    session: SessionState,
+    include_images: bool,
+    *,
+    image_url_builder: Callable[[int], str] | None = None,
+) -> dict[str, Any]:
     if not session.fids or not session.sigs:
         return {
             "threshold": 0.0,
@@ -1632,7 +1910,11 @@ def _build_review_payload(session: SessionState, include_images: bool) -> dict[s
             "label": f"G:{int(fid)}  L:{max(0, int(fid) - int(session.start_frame))}  s={score:.2f}  {source}",
         }
         if include_images:
-            frame_item["image"] = session.b64[i]
+            frame_item["image"] = (
+                image_url_builder(int(fid))
+                if callable(image_url_builder)
+                else session.b64[i]
+            )
         frames.append(frame_item)
 
     total = len(session.fids)
@@ -1650,7 +1932,12 @@ def _build_review_payload(session: SessionState, include_images: bool) -> dict[s
     }
 
 
-def _build_partial_review_payload(session: SessionState, include_images: bool) -> dict[str, Any]:
+def _build_partial_review_payload(
+    session: SessionState,
+    include_images: bool,
+    *,
+    image_url_builder: Callable[[int], str] | None = None,
+) -> dict[str, Any]:
     total = min(
         len(session.partial_fids),
         len(session.partial_b64),
@@ -1686,7 +1973,7 @@ def _build_partial_review_payload(session: SessionState, include_images: bool) -
     tmp.iqr_k = float(session.iqr_k)
     tmp.tval = float(session.tval)
     tmp.bpct = float(session.bpct)
-    return _build_review_payload(tmp, include_images=include_images)
+    return _build_review_payload(tmp, include_images=include_images, image_url_builder=image_url_builder)
 
 
 def _selected_bad_frame_ids(session: SessionState) -> list[int]:
@@ -1888,6 +2175,27 @@ class WizardHandler(BaseHTTPRequestHandler):
             self.send_header("Set-Cookie", self._set_cookie)
         self.end_headers()
         self.wfile.write(data)
+
+    def _send_bytes(
+        self,
+        data: bytes,
+        *,
+        content_type: str,
+        code: int = HTTPStatus.OK,
+        cache_control: str = "no-store",
+    ) -> None:
+        raw = bytes(data or b"")
+        self.send_response(code)
+        self.send_header("Content-Type", str(content_type))
+        self.send_header("Content-Length", str(len(raw)))
+        self.send_header("Cache-Control", str(cache_control))
+        if self._set_cookie:
+            self.send_header("Set-Cookie", self._set_cookie)
+        self.end_headers()
+        try:
+            self.wfile.write(raw)
+        except (BrokenPipeError, ConnectionResetError):
+            return
 
     def _send_media_file(
         self,
@@ -2143,6 +2451,59 @@ class WizardHandler(BaseHTTPRequestHandler):
             self._send_audio_file(audio_path)
             return
 
+        if parsed.path == "/api/frame_image":
+            params = parse_qs(parsed.query)
+            raw_fid = str((params.get("fid", [""])[0] or "").strip())
+            if not raw_fid or not re.fullmatch(r"-?\d+", raw_fid):
+                self._send_error_json("Missing or invalid frame id.", code=HTTPStatus.BAD_REQUEST)
+                return
+            data_url = _lookup_frame_image_data_url(session, int(raw_fid))
+            decoded = _decode_frame_image_data_url(data_url)
+            if decoded is None:
+                self._send_error_json("Frame image is not available.", code=HTTPStatus.NOT_FOUND)
+                return
+            content_type, payload = decoded
+            self._send_bytes(
+                payload,
+                content_type=content_type,
+                cache_control="private, max-age=3600, immutable",
+            )
+            return
+
+        if parsed.path == "/api/frame_contact_sheet":
+            params = parse_qs(parsed.query)
+            raw_start = str((params.get("start", [""])[0] or "").strip())
+            raw_count = str((params.get("count", [""])[0] or "").strip())
+            raw_columns = str((params.get("columns", [""])[0] or "").strip())
+            if (
+                not raw_start
+                or not raw_count
+                or not re.fullmatch(r"-?\d+", raw_start)
+                or not re.fullmatch(r"-?\d+", raw_count)
+                or (raw_columns and not re.fullmatch(r"-?\d+", raw_columns))
+            ):
+                self._send_error_json("Missing or invalid contact sheet parameters.", code=HTTPStatus.BAD_REQUEST)
+                return
+            start_index = max(0, int(raw_start))
+            count = max(1, int(raw_count))
+            columns = max(1, int(raw_columns or CONTACT_SHEET_COLUMNS))
+            built = _cached_contact_sheet_bytes(
+                session,
+                start_index=start_index,
+                count=count,
+                columns=columns,
+            )
+            if built is None:
+                self._send_error_json("Frame contact sheet is not available.", code=HTTPStatus.NOT_FOUND)
+                return
+            content_type, payload = built
+            self._send_bytes(
+                payload,
+                content_type=content_type,
+                cache_control="private, max-age=3600, immutable",
+            )
+            return
+
         if parsed.path == "/api/archives":
             archives = _get_archives()
             selected = session.archive if session.archive in archives else (archives[0] if archives else "")
@@ -2211,7 +2572,11 @@ class WizardHandler(BaseHTTPRequestHandler):
                 {
                     "ok": True,
                     "running": bool(session.load_running),
-                    "review": _build_partial_review_payload(session, include_images=True),
+                    "contact_sheet": _contact_sheet_config_payload(session),
+                    "review": _build_partial_review_payload(
+                        session,
+                        include_images=False,
+                    ),
                 }
             )
             return
@@ -2417,11 +2782,15 @@ class WizardHandler(BaseHTTPRequestHandler):
         session.partial_fids = []
         session.partial_b64 = []
         session.partial_sigs = {"chroma": [], "noise": [], "tear": [], "wave": []}
+        session.frame_source_video_path = ""
+        session.frame_source_read_offset = 0
 
         video = _resolve_archive_video(session.archive)
         if not video:
             fail(f"No archive video found for '{session.archive}'.")
             return
+        session.frame_source_video_path = str(video)
+        session.frame_source_read_offset = 0
 
         if cancelled():
             return
@@ -2460,6 +2829,8 @@ class WizardHandler(BaseHTTPRequestHandler):
             return
         read_video = read_video_p
         frame_read_offset = session.start_frame
+        session.frame_source_video_path = str(read_video)
+        session.frame_source_read_offset = int(frame_read_offset)
         _set_load_progress(session, progress=28.0, message="Chapter extract ready; loading frames...")
 
         if cancelled():
@@ -2565,6 +2936,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             "force_all_frames_good": bool(session.force_all_frames_good),
             "chapter_frame_count": int(session.end_frame - session.start_frame),
             "loaded_count": int(len(session.fids)),
+            "contact_sheet": _contact_sheet_config_payload(session),
             "extract_cache": str(
                 _chapter_extract_cache_path(
                     archive=session.archive,
@@ -2594,7 +2966,10 @@ class WizardHandler(BaseHTTPRequestHandler):
             },
         }
 
-        review = _build_review_payload(session, include_images=True)
+        review = _build_review_payload(
+            session,
+            include_images=False,
+        )
         _set_load_progress(
             session,
             running=False,
