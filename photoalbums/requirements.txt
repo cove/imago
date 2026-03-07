@@ -8,4 +8,8 @@ Wand
 TiffFile
 Pillow
 docstrange
+torch==2.10.0
+transformers
+ultralytics
 watchdog
+pytest

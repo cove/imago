@@ -21,6 +21,8 @@ from pathlib import Path
 
 BASE = Path(__file__).parent.resolve()
 FFMPEG_DIR = None
+MODES_DIR = BASE.parent / "modes" / "vhs"
+WHISPER_MODEL_DIR = MODES_DIR / "WhisperModel"
 
 def _resolve_command(cmd_name, bundled_path=None):
     """
@@ -54,14 +56,12 @@ if sys.platform == "win32":
     FFPROBE_BIN = FFMPEG_DIR / "ffprobe.exe"
     B3SUM_BIN = BASE / "bin" / "b3sum_windows_x64_bin.exe"
     MEDIAINFO_BIN = BASE / "bin" / "MediaInfo.exe"
-    WHISPER_MODEL_DIR = BASE / "models" / "WhisperModel"
 elif sys.platform == "darwin":
     FFMPEG_DIR = BASE / "bin"
     FFMPEG_BIN = FFMPEG_DIR / "ffmpeg-8.0.1.darwin.arm64"
     FFPROBE_BIN = FFMPEG_DIR / "ffprobe-8.0.1.darwin.arm64"
     B3SUM_BIN = BASE / "bin" / "b3sum"
     MEDIAINFO_BIN = "mediainfo"
-    WHISPER_MODEL_DIR = BASE / "models" / "WhisperModel"
 elif sys.platform.startswith("linux"):
     ffmpeg_override = os.getenv("FFMPEG_BIN")
     ffprobe_override = os.getenv("FFPROBE_BIN")
@@ -99,11 +99,12 @@ elif sys.platform.startswith("linux"):
         mediainfo_cmd, _ = _resolve_command("mediainfo")
 
     MEDIAINFO_BIN = mediainfo_cmd
-    WHISPER_MODEL_DIR = BASE / "models" / "WhisperModel"
     # Prefer ffmpeg folder for PATH augmentation; fall back to ffprobe folder.
     FFMPEG_DIR = ffmpeg_dir or ffprobe_dir
 else:
     raise Exception(f"Unsupported platform: {sys.platform}")
+
+WHISPER_MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
 # ---------------------------------------------------------
 # Project Directories (shared between scripts)

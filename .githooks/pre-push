@@ -1,0 +1,20 @@
+#!/bin/sh
+set -eu
+
+# Preserve Git LFS pre-push behavior when git-lfs is available.
+if command -v git-lfs >/dev/null 2>&1; then
+  git lfs pre-push "$@"
+fi
+
+repo_root="$(git rev-parse --show-toplevel)"
+echo "[pre-push] Running test suite..."
+
+if command -v pwsh >/dev/null 2>&1; then
+  pwsh -NoProfile -ExecutionPolicy Bypass -File "$repo_root/scripts/test.ps1" -q
+elif command -v powershell.exe >/dev/null 2>&1; then
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$repo_root/scripts/test.ps1" -q
+elif command -v powershell >/dev/null 2>&1; then
+  powershell -NoProfile -ExecutionPolicy Bypass -File "$repo_root/scripts/test.ps1" -q
+else
+  python -m pytest "$repo_root/cast/tests" "$repo_root/photoalbums/tests" "$repo_root/vhs/test" -q
+fi
