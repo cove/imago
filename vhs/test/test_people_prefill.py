@@ -19,6 +19,15 @@ def _write_chapters(path: Path) -> None:
     )
 
 
+def _write_split_chapters_tsv(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "parent_chapter\tstart\tend\ttimebase\ttitle\n"
+        "Example Parent\t0\t900\t1001/30000\tExample Split\n",
+        encoding="utf-8",
+    )
+
+
 def test_prefill_people_from_cast_uses_chapter_clip_matches(tmp_path: Path) -> None:
     metadata_dir = tmp_path / "metadata"
     archive_dir = tmp_path / "archive"
@@ -77,6 +86,51 @@ def test_prefill_people_from_cast_uses_chapter_clip_matches(tmp_path: Path) -> N
     first = result.entries[0]
     assert first["people"] == "Jim | Linda"
     assert float(first["end_seconds"]) > float(first["start_seconds"])
+
+
+def test_prefill_people_from_cast_falls_back_to_chapters_tsv_for_split_titles(tmp_path: Path) -> None:
+    metadata_dir = tmp_path / "metadata"
+    archive_dir = tmp_path / "archive"
+    cast_dir = tmp_path / "cast_data"
+    _write_chapters(metadata_dir / "demo_archive" / "chapters.ffmetadata")
+    _write_split_chapters_tsv(metadata_dir / "demo_archive" / "chapters.tsv")
+
+    cast_dir.mkdir(parents=True, exist_ok=True)
+    (cast_dir / "people.json").write_text(
+        json.dumps({"people": [{"person_id": "p1", "display_name": "Jim"}]}),
+        encoding="utf-8",
+    )
+    (cast_dir / "faces.jsonl").write_text(
+        json.dumps(
+            {
+                "source_type": "vhs",
+                "source_path": str(tmp_path / "Clips" / "Example Split.mp4"),
+                "timestamp": "00:00:10.000",
+                "person_id": "p1",
+                "quality": 0.9,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    old_meta = people_prefill.METADATA_DIR
+    old_archive = people_prefill.ARCHIVE_DIR
+    try:
+        people_prefill.METADATA_DIR = metadata_dir
+        people_prefill.ARCHIVE_DIR = archive_dir
+        result = people_prefill.prefill_people_from_cast(
+            archive="demo_archive",
+            chapter_title="Example Split",
+            cast_store_dir=cast_dir,
+            min_quality=0.1,
+        )
+    finally:
+        people_prefill.METADATA_DIR = old_meta
+        people_prefill.ARCHIVE_DIR = old_archive
+
+    assert result.entries
+    assert result.entries[0]["people"] == "Jim"
 
 
 def test_apply_prefill_entries_to_people_tsv_replaces_chapter_overlap(tmp_path: Path) -> None:

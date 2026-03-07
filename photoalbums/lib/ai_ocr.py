@@ -38,7 +38,6 @@ class OCREngine:
     def __init__(self, *, engine: str = "docstrange", language: str = "eng"):
         self.engine = str(engine or "none").strip().lower()
         self.language = str(language or "eng").strip() or "eng"
-        self._paddle = None
         self._docstrange = None
 
         if self.engine == "none":
@@ -62,12 +61,6 @@ class OCREngine:
                 ocr_enabled=True,
             )
             return
-        if self.engine == "paddle":
-            from paddleocr import PaddleOCR  # pylint: disable=import-outside-toplevel
-            # PaddleOCR expects "en" rather than "eng".
-            paddle_lang = "en" if self.language.lower() == "eng" else self.language
-            self._paddle = PaddleOCR(use_angle_cls=True, lang=paddle_lang)
-            return
         raise ValueError(f"Unsupported OCR engine: {self.engine}")
 
     def read_text(self, image_path: str | Path) -> str:
@@ -85,17 +78,6 @@ class OCREngine:
             if not text and hasattr(result, "extract_markdown"):
                 text = str(result.extract_markdown() or "").strip()
             return text
-        if self.engine == "paddle":
-            lines: list[str] = []
-            result = self._paddle.ocr(str(path), cls=True) or []
-            for block in result:
-                for row in list(block or []):
-                    if len(row) < 2:
-                        continue
-                    parsed = row[1]
-                    if isinstance(parsed, (list, tuple)) and parsed:
-                        lines.append(str(parsed[0] or "").strip())
-            return "\n".join([line for line in lines if line]).strip()
         return ""
 
 

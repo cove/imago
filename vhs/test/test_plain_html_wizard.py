@@ -8,14 +8,17 @@ import shutil
 import numpy as np
 
 from common import update_chapter_bad_frames_in_render_settings
+from apps.plain_html_wizard import server as wizard_server
 from libs.vhs_tuner_core import _chapter_bad_overrides
 from apps.plain_html_wizard.server import (
     SessionState,
     _build_review_payload,
     _build_partial_review_payload,
+    _load_split_entries_for_chapter,
     _selected_bad_frame_ids,
     _normalize_iqr_k,
     _normalize_subtitle_entries_payload,
+    _save_split_entries_for_chapter,
     _set_load_progress,
     WizardHandler,
 )
@@ -172,13 +175,17 @@ def test_static_html_contains_live_iqr_spark_and_fullscreen_controls() -> None:
     assert "window.open(target, '_blank', 'noopener')" in html
     assert 'id="subtitlesGenerate"' in html
     assert 'id="subtitlesEditor"' in html
-    assert 'id="peopleMeta"' not in html
-    assert 'id="subtitlesMeta"' not in html
+    assert 'id="peopleMeta"' in html
+    assert 'id="subtitlesMeta"' in html
     assert "subtitles-editor-grid" in html
     assert "active-row" in html
     assert 'data-sub-field="text"' in html
     assert "parseSubtitlesEditorGrid(" in html
     assert "syncSubtitlesEditorToCursor(" in html
+    assert "const peopleMetaEl = document.getElementById('peopleMeta');" in html
+    assert "const subtitlesMetaEl = document.getElementById('subtitlesMeta');" in html
+    assert "peopleMetaEl.classList.toggle('hidden-ui', !peopleMode)" in html
+    assert "subtitlesMetaEl.classList.toggle('hidden-ui', !subtitlesMode)" in html
     assert 'id="timelineAudioPlay"' in html
     assert 'id="timelineAudioTrack"' in html
     assert 'id="timelineAudioWave"' in html
@@ -347,3 +354,108 @@ def test_normalize_subtitle_entries_payload_clamps_and_preserves_optional_fields
     assert row["speaker"] == "Narrator"
     assert row["confidence"] == 1.0
     assert row["source"] == "whisper"
+
+
+def test_save_split_entries_writes_start_end_columns(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(wizard_server, "METADATA_DIR", tmp_path)
+
+    archive = "demo_archive"
+    chapter = "Parent Chapter"
+    archive_dir = tmp_path / archive
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    (archive_dir / "chapters.ffmetadata").write_text(
+        "\n".join(
+            [
+                ";FFMETADATA1",
+                "title=Demo Archive",
+                "",
+                "[CHAPTER]",
+                "TIMEBASE=1001/30000",
+                "START=100",
+                "END=200",
+                f"title={chapter}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    path, count = _save_split_entries_for_chapter(
+        archive,
+        chapter,
+        100,
+        200,
+        [
+            {"start_frame": 0, "end_frame": 25, "title": "Part 1"},
+            {"start_frame": 25, "end_frame": 80, "title": "Part 2"},
+        ],
+    )
+
+    assert count == 2
+    lines = path.read_text(encoding="utf-8").splitlines()
+    assert lines[0].startswith("__ffmeta_header\t__ffmeta_order\t__chapter_order\t__chapter_index\tffmeta_title\tTIMEBASE\tSTART\tEND\ttitle")
+    assert "parent_chapter" not in lines[0]
+    assert "start_frame" not in lines[0]
+    assert lines[1].split("\t")[5:9] == ["1001/30000", "100", "200", chapter]
+    assert lines[2].split("\t")[5:9] == ["1001/30000", "100", "125", "Part 1"]
+    assert lines[3].split("\t")[5:9] == ["1001/30000", "125", "180", "Part 2"]
+
+
+def test_load_split_entries_reads_canonical_chapters_tsv(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(wizard_server, "METADATA_DIR", tmp_path)
+
+    archive = "demo_archive"
+    chapter = "Parent Chapter"
+    archive_dir = tmp_path / archive
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    (archive_dir / "chapters.tsv").write_text(
+        "\n".join(
+            [
+                "__ffmeta_header\t__ffmeta_order\t__chapter_order\t__chapter_index\tffmeta_title\tTIMEBASE\tSTART\tEND\ttitle",
+                f";FFMETADATA1\ttitle\tTIMEBASE|START|END|title\t1\tDemo Archive\t1001/30000\t100\t200\t{chapter}",
+                ";FFMETADATA1\ttitle\tTIMEBASE|START|END|title\t2\tDemo Archive\t1001/30000\t100\t125\tPart 1",
+                ";FFMETADATA1\ttitle\tTIMEBASE|START|END|title\t3\tDemo Archive\t1001/30000\t125\t180\tPart 2",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    rows = _load_split_entries_for_chapter(archive, chapter, 100, 200)
+
+    assert rows == [
+        {"start_frame": 0, "end_frame": 25, "start": "0", "end": "25", "title": "Part 1"},
+        {"start_frame": 25, "end_frame": 80, "start": "25", "end": "80", "title": "Part 2"},
+    ]
+
+
+def test_load_split_entries_accepts_legacy_start_frame_columns(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(wizard_server, "METADATA_DIR", tmp_path)
+
+    archive = "demo_archive"
+    chapter = "Parent Chapter"
+    archive_dir = tmp_path / archive
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    (archive_dir / "chapters.tsv").write_text(
+        "\n".join(
+            [
+                "parent_chapter\tstart_frame\tend_frame\ttitle",
+                f"{chapter}\t100\t125\tPart 1",
+                f"{chapter}\t125\t180\tPart 2",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    rows = _load_split_entries_for_chapter(archive, chapter, 100, 200)
+
+    assert rows == [
+        {"start_frame": 0, "end_frame": 25, "start": "0", "end": "25", "title": "Part 1"},
+        {"start_frame": 25, "end_frame": 80, "start": "25", "end": "80", "title": "Part 2"},
+    ]

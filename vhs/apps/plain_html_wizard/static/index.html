@@ -558,74 +558,6 @@
       user-select: none;
       z-index: 2;
     }
-    .subtitle-timeline-bar {
-      position: absolute;
-      height: 18px;
-      border: 1px solid rgba(120, 220, 170, 0.68);
-      border-radius: 2px;
-      background: rgba(85, 165, 128, 0.24);
-      color: var(--text-strong);
-      font-size: 11px;
-      line-height: 16px;
-      padding: 0 5px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      user-select: none;
-      pointer-events: auto;
-      cursor: text;
-      z-index: 2;
-    }
-    .subtitle-timeline-name {
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      flex: 1 1 auto;
-      pointer-events: none;
-    }
-    .subtitle-timeline-delete {
-      border: 1px solid rgba(225, 111, 122, 0.72);
-      border-radius: 2px;
-      background: rgba(225, 111, 122, 0.16);
-      color: #ffd2d7;
-      font-size: 10px;
-      line-height: 1;
-      padding: 1px 3px;
-      cursor: pointer;
-      flex: 0 0 auto;
-      pointer-events: auto;
-    }
-    .subtitle-timeline-delete:hover {
-      background: rgba(225, 111, 122, 0.34);
-    }
-    .subtitle-timeline-input {
-      width: 100%;
-      border: 1px solid rgba(182, 239, 211, 0.82);
-      border-radius: 2px;
-      background: rgba(4, 16, 12, 0.85);
-      color: #d8f7e6;
-      font-size: 11px;
-      line-height: 14px;
-      padding: 0 4px;
-      height: 14px;
-      min-width: 0;
-      outline: none;
-    }
-    .subtitle-timeline-input:focus {
-      border-color: rgba(202, 248, 224, 0.95);
-      box-shadow: 0 0 0 1px rgba(98, 194, 143, 0.34);
-    }
-    .people-timeline-lane-bg.subtitle {
-      background: rgba(14, 34, 26, 0.28);
-    }
-    .people-timeline-lane-label.subtitle {
-      border-color: rgba(120, 220, 170, 0.42);
-      color: rgba(190, 236, 212, 0.92);
-    }
     .people-timeline-bar:active {
       cursor: grabbing;
     }
@@ -1590,8 +1522,10 @@
             </div>
             <div id="peopleControls" class="iqr-box hidden-ui">
               <button id="peoplePrefillCast" class="action" type="button">Auto-fill From Cast</button>
-              <button id="subtitlesGenerate" class="action" type="button">Generate Subtitles</button>
               <button id="peopleClear" class="action warn" type="button">Clear Entries</button>
+            </div>
+            <div id="subtitlesControls" class="iqr-box hidden-ui">
+              <button id="subtitlesGenerate" class="action" type="button">Generate Subtitles</button>
             </div>
             <button id="previewRender" class="action">Preview Render</button>
             <button id="saveProgressDraft" class="action">Save Progress</button>
@@ -1613,6 +1547,12 @@
             <div id="timelineScrubMeta" class="spark-meta"></div>
           </div>
           <div id="peopleTimeline" class="people-timeline hidden-ui"></div>
+          <div id="peopleMeta" class="spark-meta hidden-ui"></div>
+          <div
+            id="peopleEditor"
+            class="subtitles-editor hidden-ui"
+            aria-label="People subtitle table editor"></div>
+          <div id="subtitlesMeta" class="spark-meta hidden-ui"></div>
           <div
             id="subtitlesEditor"
             class="subtitles-editor hidden-ui"
@@ -1702,7 +1642,7 @@
         <h3>Step 1: Load Chapter</h3>
         <ol>
           <li>Select an archive in the left column, then select a chapter.</li>
-          <li>Click the <code>2/5 Bad Frames + IQR</code> step button at the top to load all chapter frames. The loader can be cancelled while running.</li>
+          <li>Click the <code>2/7 Bad Frames + IQR</code> step button at the top to load all chapter frames. The loader can be cancelled while running.</li>
         </ol>
 
         <h3>Step 2: Bad Frames + IQR</h3>
@@ -1725,34 +1665,37 @@
           <li>Use <code>Mode = Visible Range Regions</code> then click <code>Apply Visible Range</code> to add per-range gamma values.</li>
         </ul>
 
-        <h3>Step 4: Subtitles</h3>
+        <h3>Step 4: People</h3>
         <ul>
-          <li>Scroll the frame grid to the visible frame range where people appear.</li>
           <li>Optionally click <code>Auto-fill From Cast</code> for a first-pass draft from <code>cast/data</code>.</li>
-          <li>Click <code>Generate Subtitles</code> to auto-transcribe the chapter into timeline subtitle boxes.</li>
-          <li>Double-click a subtitle box to edit text, or click <code>x</code> to delete it.</li>
+          <li>Use the people table to edit <code>start</code>, <code>end</code>, and <code>people</code> rows for <code>people.tsv</code>.</li>
+          <li>The people table auto-scrolls/highlights around the current timeline cursor while you scrub.</li>
+          <li>Leave the final blank row empty, or fill it to add a new people row.</li>
+          <li>Use <code>Clear Entries</code> to remove all people rows for the current chapter draft.</li>
+          <li>Use <code>Save Progress</code> anytime to persist people rows and resume later.</li>
+        </ul>
+
+        <h3>Step 5: Subtitles</h3>
+        <ul>
+          <li>Click <code>Generate Subtitles</code> to auto-transcribe the chapter into the subtitle table.</li>
           <li>Use the audio waveform strip to scrub with the vertical playhead and align subtitle timing by ear.</li>
           <li>Click the play button beside the waveform to audition audio from the current playhead.</li>
           <li>Use the subtitle table below the timeline to edit each field cell-by-cell.</li>
           <li>The subtitle table auto-scrolls/highlights to follow the timeline cursor while you scrub.</li>
           <li>Use the timeline scrub slider to move quickly across chapter timecodes.</li>
-          <li>Click anywhere on the people timeline to type a name, then press <code>Enter</code> to create a 2s bar.</li>
-          <li>Drag a bar to move it, drag left/right grips to resize, double-click a bar to rename, and click <code>x</code> to delete.</li>
-          <li>Use the <code>+</code> and <code>-</code> controls on the timeline right edge to zoom in/out. Click the zoom value to reset.</li>
           <li>Each entry is written in chapter-local time format: <code>HH:MM:SS.mmm</code>.</li>
           <li>Subtitle confidence/source metadata is preserved for saves and render, but hidden in this tuner view.</li>
-          <li>Use <code>Save Progress</code> anytime to persist wizard progress and resume later.</li>
         </ul>
 
-        <h3>Step 5: Chapters</h3>
+        <h3>Step 6: Chapters</h3>
         <ul>
           <li>Use Chapters to define chapter sub-ranges with chapter frame numbers (inclusive end frame).</li>
           <li>Chapter rows are saved to <code>metadata/&lt;archive&gt;/chapters.tsv</code> with ffmetadata columns.</li>
         </ul>
 
-        <h3>Step 6: Summary + Save</h3>
+        <h3>Step 7: Summary + Save</h3>
         <ol>
-          <li>Click the <code>6/6 Summary + Save</code> step button at the top to verify bad-frame, gamma, subtitles, and chapter settings.</li>
+          <li>Click the <code>7/7 Summary + Save</code> step button at the top to verify bad-frame, gamma, subtitles, and chapter settings.</li>
           <li>Click <code>Save and Return to Chapters</code> to persist selected bad frames, gamma ranges, people/subtitle rows, and chapter rows.</li>
           <li>The chapter list refreshes with updated BAD counts after save.</li>
         </ol>
@@ -1818,9 +1761,10 @@
       { num: 1, label: 'Load Chapter', pageId: 'page1', mode: 'load' },
       { num: 2, label: 'Bad Frames + IQR', pageId: 'page2', mode: 'review' },
       { num: 3, label: 'Gamma Correction', pageId: 'page2', mode: 'gamma' },
-      { num: 4, label: 'Subtitles', pageId: 'page2', mode: 'people' },
-      { num: 5, label: 'Chapters', pageId: 'page2', mode: 'split' },
-      { num: 6, label: 'Summary + Save', pageId: 'page3', mode: 'summary' },
+      { num: 4, label: 'People', pageId: 'page2', mode: 'people' },
+      { num: 5, label: 'Subtitles', pageId: 'page2', mode: 'subtitles' },
+      { num: 6, label: 'Chapters', pageId: 'page2', mode: 'split' },
+      { num: 7, label: 'Summary + Save', pageId: 'page3', mode: 'summary' },
     ];
     const STEP_BY_NUM = new Map(STEP_DEFS.map((step) => [step.num, step]));
     const STEP_INDEX_BY_NUM = new Map(STEP_DEFS.map((step, index) => [step.num, index]));
@@ -1843,8 +1787,8 @@
     const VHS_FRAME_SECONDS = TIMELINE_FPS_DEN / TIMELINE_FPS_NUM;
     const VHS_FRAME_MS = VHS_FRAME_SECONDS * 1000;
     const PEOPLE_TIMELINE_DEFAULT_DURATION_SECONDS = 2.0;
-    const PEOPLE_STEP_MIN_FRAME_GRID_PX = 140;
-    const PEOPLE_STEP_SPARK_MIN_PX = 170;
+    const PEOPLE_STEP_MIN_FRAME_GRID_PX = 220;
+    const PEOPLE_STEP_SPARK_MIN_PX = 220;
     const PEOPLE_STEP_SPARK_MAX_PX = 380;
 
     const statusEl = document.getElementById('status');
@@ -1874,6 +1818,7 @@
     const gammaApplyVisibleBtnEl = document.getElementById('gammaApplyVisible');
     const gammaClearBtnEl = document.getElementById('gammaClear');
     const peopleControlsEl = document.getElementById('peopleControls');
+    const subtitlesControlsEl = document.getElementById('subtitlesControls');
     const peoplePrefillCastBtnEl = document.getElementById('peoplePrefillCast');
     const subtitlesGenerateBtnEl = document.getElementById('subtitlesGenerate');
     const peopleClearBtnEl = document.getElementById('peopleClear');
@@ -2447,7 +2392,7 @@
     }
 
     function isReviewMode(mode) {
-      return mode === 'review' || mode === 'gamma' || mode === 'people' || mode === 'split';
+      return mode === 'review' || mode === 'gamma' || mode === 'people' || mode === 'subtitles' || mode === 'split';
     }
 
     function isNavigationLocked() {
@@ -2507,8 +2452,9 @@
       updateStepPillActive(targetStep.num);
       const gammaMode = targetStep.mode === 'gamma';
       const peopleMode = targetStep.mode === 'people';
+      const subtitlesMode = targetStep.mode === 'subtitles';
       const splitMode = targetStep.mode === 'split';
-      const timelineMode = peopleMode || splitMode;
+      const timelineMode = peopleMode || subtitlesMode || splitMode;
       if (!timelineMode) {
         peopleTimelineDraft = null;
         subtitleTimelineDraft = null;
@@ -2517,14 +2463,16 @@
       if (reviewControlsEl) reviewControlsEl.classList.toggle('hidden-ui', gammaMode || timelineMode);
       if (gammaControlsEl) gammaControlsEl.classList.toggle('hidden-ui', !gammaMode);
       if (peopleControlsEl) peopleControlsEl.classList.toggle('hidden-ui', !peopleMode);
+      if (subtitlesControlsEl) subtitlesControlsEl.classList.toggle('hidden-ui', !subtitlesMode);
       if (iqrSparkEl) iqrSparkEl.classList.toggle('hidden-ui', timelineMode);
       if (sparkMetaEl) sparkMetaEl.classList.toggle('hidden-ui', timelineMode);
       if (timelineScrubWrapEl) timelineScrubWrapEl.classList.toggle('hidden-ui', !timelineMode);
-      if (peopleTimelineEl) peopleTimelineEl.classList.toggle('hidden-ui', !peopleMode);
+      if (peopleTimelineEl) peopleTimelineEl.classList.add('hidden-ui');
       if (gammaRangeMetaEl) gammaRangeMetaEl.classList.toggle('hidden-ui', !gammaMode);
       if (peopleMetaEl) peopleMetaEl.classList.toggle('hidden-ui', !peopleMode);
       if (peopleEditorEl) peopleEditorEl.classList.toggle('hidden-ui', !peopleMode);
-      if (subtitlesEditorEl) subtitlesEditorEl.classList.toggle('hidden-ui', !peopleMode);
+      if (subtitlesMetaEl) subtitlesMetaEl.classList.toggle('hidden-ui', !subtitlesMode);
+      if (subtitlesEditorEl) subtitlesEditorEl.classList.toggle('hidden-ui', !subtitlesMode);
       if (splitEditorEl) splitEditorEl.classList.toggle('hidden-ui', !splitMode);
       if (flipbookGammaControlsEl) flipbookGammaControlsEl.classList.toggle('hidden-ui', !gammaMode);
       if (flipbookSimFreezeWrapEl) flipbookSimFreezeWrapEl.classList.toggle('hidden-ui', gammaMode);
@@ -3067,50 +3015,94 @@
       };
     }
 
-    function peopleEntriesToEditorText(entries) {
+    function renderPeopleEditorGrid(entries) {
+      if (!peopleEditorEl) return;
       const rows = canonicalizePeopleEntries(entries);
-      if (!rows.length) return '';
-      const includeLane = rows.some((row) => Number(row && row.lane) > 0);
-      return rows
-        .map((row) => {
-          if (includeLane) {
-            return `${row.start}\t${row.end}\t${row.people}\t${Number(row.lane || 0)}`;
-          }
-          return `${row.start}\t${row.end}\t${row.people}`;
-        })
-        .join('\n');
+      const withBlank = rows.concat([{ start: '', end: '', people: '' }]);
+      const body = withBlank.map((row, idx) => {
+        const deleteBtn = idx < rows.length
+          ? `<button class="subtitles-editor-row-delete" type="button" data-people-row-delete="${idx}" title="Delete people row">x</button>`
+          : '';
+        return `
+          <tr data-people-row="1">
+            <td class="rownum">${idx + 1}</td>
+            <td><input class="subtitles-editor-cell start" type="text" spellcheck="false" data-people-field="start" value="${escapeHtml(String(row.start || ''))}" placeholder="00:00:00.000" aria-label="People start"></td>
+            <td><input class="subtitles-editor-cell end" type="text" spellcheck="false" data-people-field="end" value="${escapeHtml(String(row.end || ''))}" placeholder="00:00:00.000" aria-label="People end"></td>
+            <td><input class="subtitles-editor-cell text" type="text" spellcheck="false" data-people-field="people" value="${escapeHtml(String(row.people || ''))}" placeholder="Person or people" aria-label="People names"></td>
+            <td>${deleteBtn}</td>
+          </tr>
+        `;
+      }).join('');
+      peopleEditorEl.innerHTML = `
+        <table class="subtitles-editor-grid">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Start</th>
+              <th>End</th>
+              <th>People</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>${body}</tbody>
+        </table>
+        <div class="subtitles-editor-hint">Edits save to <code>people.tsv</code> as <code>start</code>, <code>end</code>, and <code>people</code>.</div>
+      `;
     }
 
-    function parsePeopleEditorText(rawText) {
-      const entries = [];
+    function parsePeopleEditorGrid() {
       const errors = [];
-      const lines = String(rawText || '').split(/\r?\n/);
-      lines.forEach((line, idx) => {
-        const text = String(line || '').trim();
-        if (!text) return;
-        if (/^start\s*[\t,]/i.test(text)) return;
-        const parts = text.includes('\t') ? text.split('\t') : text.split(',');
-        if (parts.length < 3) {
-          errors.push(`Line ${idx + 1}: expected "start<TAB>end<TAB>people[<TAB>lane]".`);
+      if (!peopleEditorEl) {
+        return { entries: canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []), errors };
+      }
+      const rowEls = Array.from(peopleEditorEl.querySelectorAll('tr[data-people-row="1"]'));
+      const entries = [];
+      rowEls.forEach((rowEl, idx) => {
+        const startEl = rowEl.querySelector('[data-people-field="start"]');
+        const endEl = rowEl.querySelector('[data-people-field="end"]');
+        const peopleEl = rowEl.querySelector('[data-people-field="people"]');
+        const start = String(startEl && startEl.value || '').trim();
+        const end = String(endEl && endEl.value || '').trim();
+        const people = String(peopleEl && peopleEl.value || '').trim();
+        if (!start && !end && !people) return;
+        if (!start || !end || !people) {
+          errors.push(`People row ${idx + 1}: start, end, and people are required.`);
           return;
         }
-        const hasLane = parts.length >= 4;
-        const laneRaw = hasLane ? String(parts[parts.length - 1] || '').trim() : '';
-        const peopleParts = hasLane ? parts.slice(2, parts.length - 1) : parts.slice(2);
-        entries.push({
-          start: String(parts[0] || '').trim(),
-          end: String(parts[1] || '').trim(),
-          people: String(peopleParts.join(',') || '').trim(),
-          lane: laneRaw,
-        });
+        entries.push({ start, end, people });
       });
       return { entries: canonicalizePeopleEntries(entries), errors };
     }
 
+    function syncPeopleEditorToCursor(cursorSeconds, options = {}) {
+      if (!peopleEditorEl || !isPeopleStepActive()) return;
+      const force = Boolean(options.force);
+      const rows = canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
+      const rowEls = Array.from(peopleEditorEl.querySelectorAll('tr[data-people-row="1"]'));
+      if (!rows.length || !rowEls.length) return;
+      let activeIdx = rows.findIndex((row) => (
+        Number(row.start_seconds) <= cursorSeconds + 0.001
+        && Number(row.end_seconds) >= cursorSeconds - 0.001
+      ));
+      if (activeIdx < 0) activeIdx = rows.findIndex((row) => Number(row.start_seconds) > cursorSeconds);
+      if (activeIdx < 0) activeIdx = Math.max(0, rows.length - 1);
+      rowEls.forEach((rowEl, idx) => {
+        rowEl.classList.toggle('active-row', idx === activeIdx);
+      });
+      if (!force) return;
+      const target = rowEls[activeIdx];
+      if (!target) return;
+      const headerEl = peopleEditorEl.querySelector('thead');
+      const headerHeight = Number(headerEl && headerEl.getBoundingClientRect().height || 0);
+      const rowTop = Number(target.offsetTop || 0);
+      const rowHeight = Number(target.getBoundingClientRect().height || 0);
+      const desired = Math.max(0, rowTop - Math.max(0, Math.floor((Number(peopleEditorEl.clientHeight || 0) - rowHeight) / 2)) - headerHeight);
+      peopleEditorEl.scrollTo({ top: desired, behavior: 'auto' });
+    }
+
     function refreshPeopleEditorFromState() {
-      if (peopleEditorEl) {
-        peopleEditorEl.value = peopleEntriesToEditorText((state.peopleProfile && state.peopleProfile.entries) || []);
-      }
+      renderPeopleEditorGrid((state.peopleProfile && state.peopleProfile.entries) || []);
+      syncPeopleEditorToCursor(currentPeopleTimelineCursorSeconds(), { force: true });
       updatePeopleMeta();
     }
 
@@ -3119,7 +3111,7 @@
         state.peopleProfile = normalizePeopleProfile(state.peopleProfile || null);
         return true;
       }
-      const parsed = parsePeopleEditorText(peopleEditorEl.value || '');
+      const parsed = parsePeopleEditorGrid();
       if (parsed.errors.length) {
         if (showErrors) {
           setStatus(parsed.errors[0], true);
@@ -3131,7 +3123,8 @@
         entries: parsed.entries,
       };
       peopleTimelineDrag = null;
-      peopleEditorEl.value = peopleEntriesToEditorText(parsed.entries);
+      renderPeopleEditorGrid(parsed.entries);
+      syncPeopleEditorToCursor(currentPeopleTimelineCursorSeconds(), { force: true });
       updatePeopleMeta();
       return true;
     }
@@ -3640,7 +3633,7 @@
     }
 
     function syncSubtitlesEditorToCursor(cursorSeconds, options = {}) {
-      if (!subtitlesEditorEl || !isPeopleStepActive()) return;
+      if (!subtitlesEditorEl || !isSubtitlesStepActive()) return;
       const force = Boolean(options && options.force);
       if (!force && subtitleEditorHasFocus()) return;
 
@@ -3806,17 +3799,27 @@
 
     function updateSubtitlesMeta() {
       if (subtitlesMetaEl) {
-        subtitlesMetaEl.textContent = '';
+        if (!isSubtitlesStepActive()) {
+          subtitlesMetaEl.textContent = '';
+        } else {
+          const entries = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
+          if (!entries.length) {
+            subtitlesMetaEl.textContent = 'Dialogue subtitles: no entries yet.';
+          } else {
+            const preview = entries
+              .slice(0, 3)
+              .map((row) => `${row.start}-${row.end} ${row.text}`)
+              .join(' | ');
+            const suffix = entries.length > 3 ? ` | +${entries.length - 3} more` : '';
+            subtitlesMetaEl.textContent = `Dialogue subtitles: ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'} | ${preview}${suffix}`;
+          }
+        }
       }
       if (subtitlesEditorEl && !subtitleEditorHasFocus()) {
         renderSubtitlesEditorGrid((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
       }
       if (flipbookPreviewEl && flipbookPreviewEl.classList.contains('active') && sparkPlayFrames.length) {
         renderFlipbookSubtitles(flipbookCurrentFrameSeconds());
-      }
-      if (!isPeopleStepActive()) {
-        renderPeopleTimeline();
-        return;
       }
       renderPeopleTimeline();
     }
@@ -3828,14 +3831,14 @@
         } else {
           const entries = canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
           if (!entries.length) {
-            peopleMetaEl.textContent = 'People subtitles: no entries yet.';
+            peopleMetaEl.textContent = 'People rows: no entries yet.';
           } else {
             const preview = entries
               .slice(0, 3)
               .map((row) => `${row.start}-${row.end} ${row.people}`)
               .join(' | ');
             const suffix = entries.length > 3 ? ` | +${entries.length - 3} more` : '';
-            peopleMetaEl.textContent = `People subtitles: ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'} | ${preview}${suffix}`;
+            peopleMetaEl.textContent = `People rows: ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'} | ${preview}${suffix}`;
           }
         }
       }
@@ -4361,32 +4364,6 @@
       }
       currentSec = _clamp(currentSec, 0, duration);
 
-      const subtitleRows = [];
-      const subtitleLaneEnds = [];
-      subtitleEntries
-        .map((row, idx) => ({ ...row, idx: Number(idx || 0) }))
-        .sort((a, b) => {
-          const aStart = Number(a.start_seconds || 0);
-          const bStart = Number(b.start_seconds || 0);
-          if (aStart !== bStart) return aStart - bStart;
-          const aEnd = Number(a.end_seconds || 0);
-          const bEnd = Number(b.end_seconds || 0);
-          if (aEnd !== bEnd) return aEnd - bEnd;
-          return Number(a.idx || 0) - Number(b.idx || 0);
-        })
-        .forEach((row) => {
-          const startSec = Number(row.start_seconds || 0);
-          const endSec = Number(row.end_seconds || 0);
-          if (!Number.isFinite(startSec) || !Number.isFinite(endSec) || endSec <= startSec) return;
-          let lane = 0;
-          while (lane < subtitleLaneEnds.length && startSec < (Number(subtitleLaneEnds[lane]) - 0.001)) {
-            lane += 1;
-          }
-          subtitleLaneEnds[lane] = endSec;
-          subtitleRows.push({ ...row, lane });
-        });
-      const subtitleLaneCount = subtitleRows.length ? Math.max(1, subtitleLaneEnds.length) : 0;
-
       const baseViewportSeconds = Math.max(20, Math.min(180, Math.max(30, duration * 0.14)));
       const minViewportSeconds = Math.min(duration, Math.max(timelineFrameStepSeconds() * 3, 0.2));
       const maxViewportSeconds = Math.max(minViewportSeconds, duration);
@@ -4421,11 +4398,9 @@
       const peopleLaneCount = splitMode ? 0 : Math.max(1, maxLane + 1, draftLane + 1);
       const laneHeight = 22;
       const topPad = 20;
-      const subtitleSectionGap = subtitleLaneCount > 0 ? 10 : 0;
-      const subtitleTopPad = topPad + peopleLaneCount * laneHeight + subtitleSectionGap;
       const timelineHeight = Math.max(
         88,
-        topPad + peopleLaneCount * laneHeight + subtitleSectionGap + subtitleLaneCount * laneHeight + 6
+        topPad + peopleLaneCount * laneHeight + 6
       );
       peopleTimelineEl.style.height = `${timelineHeight}px`;
 
@@ -4440,26 +4415,14 @@
           <div class="people-timeline-lane-label" style="top:${labelTop}px;">L${laneNum}</div>
         `;
       }).join('');
-      const subtitleTracksHtml = Array.from({ length: subtitleLaneCount }, (_, lane) => {
-        const top = subtitleTopPad + lane * laneHeight;
-        const laneNum = lane + 1;
-        const bgClass = lane % 2 === 1 ? ' alt' : '';
-        const labelTop = top + 4;
-        const laneLabel = splitMode ? `C${laneNum}` : `S${laneNum}`;
-        return `
-          <div class="people-timeline-lane-bg subtitle${bgClass}" data-subtitle-region="1" style="top:${top}px;"></div>
-          <div class="people-timeline-track" data-subtitle-region="1" style="top:${top}px;"></div>
-          <div class="people-timeline-lane-label subtitle" data-subtitle-region="1" style="top:${labelTop}px;">${laneLabel}</div>
-        `;
-      }).join('');
       const audioUnderlayHtml = peopleTimelineAudioUnderlayHtml(
         windowStart,
         windowSpan,
         topPad,
         laneHeight,
         peopleLaneCount,
-        subtitleTopPad,
-        subtitleLaneCount
+        topPad + peopleLaneCount * laneHeight,
+        0
       );
 
       const barsHtml = entries.map((row, idx) => {
@@ -4486,41 +4449,6 @@
           </div>
         `;
       }).join('');
-      const subtitleBarsHtml = subtitleRows.map((row) => {
-        const startSec = Number(row.start_seconds || 0);
-        const endSec = Number(row.end_seconds || 0);
-        if (!Number.isFinite(startSec) || !Number.isFinite(endSec) || endSec <= startSec) return '';
-        const clipStart = Math.max(startSec, windowStart);
-        const clipEnd = Math.min(endSec, windowEnd);
-        if (clipEnd <= clipStart) return '';
-        const lane = Math.max(0, Math.trunc(Number(row.lane || 0)));
-        const leftPct = _clamp(((clipStart - windowStart) / windowSpan) * 100, 0, 100);
-        const rightPct = _clamp(((clipEnd - windowStart) / windowSpan) * 100, leftPct, 100);
-        const widthPct = Math.min(100 - leftPct, Math.max(0.8, rightPct - leftPct));
-        const top = subtitleTopPad + (lane * laneHeight) + 2;
-        const label = escapeHtml(String(row.text || ''));
-        const spanLabel = splitMode
-          ? `${formatFrameIndex(splitDisplayStartFrame(row.start_frame))}-${formatFrameIndex(splitDisplayEndFrameInclusive(row.end_frame, row.start_frame))}`
-          : `${formatTimestampSeconds(startSec)}-${formatTimestampSeconds(endSec)}`;
-        const title = escapeHtml(`${spanLabel}  ${String(row.text || '')}`);
-        const isEditing = Boolean(
-          !splitMode && subtitleTimelineDraft && Number(subtitleTimelineDraft.entryIndex) === Number(row.idx)
-        );
-        const bodyHtml = isEditing
-          ? `<input class="subtitle-timeline-input" type="text" spellcheck="false" data-subtitle-index="${Number(row.idx)}" value="${escapeHtml(String(subtitleTimelineDraft.text || ''))}" aria-label="Edit subtitle text">`
-          : (splitMode
-            ? `<span class="subtitle-timeline-name">${label}</span>`
-            : `
-              <span class="subtitle-timeline-name">${label}</span>
-              <button class="subtitle-timeline-delete" type="button" data-subtitle-delete="1" title="Delete subtitle entry">x</button>
-            `);
-        return `
-          <div class="subtitle-timeline-bar" data-subtitle-region="1" data-subtitle-index="${Number(row.idx)}" style="left:${leftPct.toFixed(3)}%;width:${widthPct.toFixed(3)}%;top:${top}px;" title="${title}">
-            ${bodyHtml}
-          </div>
-        `;
-      }).join('');
-
       let draftHtml = '';
       if (peopleTimelineDraft) {
         const draftStart = Math.max(windowStart, Number(peopleTimelineDraft.start || 0));
@@ -4558,7 +4486,7 @@
       }
 
       const hintHtml = splitMode
-        ? (!subtitleRows.length
+        ? (!subtitleEntries.length
           ? '<div class="people-timeline-empty">Add chapter rows in the table below to create chapter ranges.</div>'
           : '')
         : (!entries.length
@@ -4581,8 +4509,6 @@
         ${tracksHtml}
         ${audioUnderlayHtml}
         ${barsHtml}
-        ${subtitleTracksHtml}
-        ${subtitleBarsHtml}
         ${draftHtml}
         ${dragTooltipHtml}
         ${hintHtml}
@@ -4601,10 +4527,12 @@
         zoom: Number(peopleTimelineZoom || 1),
         laneHeight,
         topPad,
-        laneCount: peopleLaneCount + subtitleLaneCount,
+        laneCount: peopleLaneCount,
       };
 
-      if (splitMode) {
+      if (isPeopleStepActive()) {
+        syncPeopleEditorToCursor(currentSec, { force: true });
+      } else if (splitMode) {
         syncSplitEditorToCursor(currentSec);
       } else {
         syncSubtitlesEditorToCursor(currentSec);
@@ -4612,16 +4540,6 @@
 
       if (peopleTimelineDraft) {
         const input = peopleTimelineEl.querySelector('.people-timeline-input');
-        if (input && document.activeElement !== input) {
-          try {
-            input.focus({ preventScroll: true });
-            input.select();
-          } catch (_err) {
-            input.focus();
-          }
-        }
-      } else if (!splitMode && subtitleTimelineDraft) {
-        const input = peopleTimelineEl.querySelector('.subtitle-timeline-input');
         if (input && document.activeElement !== input) {
           try {
             input.focus({ preventScroll: true });
@@ -4697,8 +4615,12 @@
       }
       if (isPeopleStepActive()) {
         const entries = canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
+        reviewStatsEl.textContent = `People step | rows ${entries.length} | loaded ${state.review.frames.length}`;
+        return;
+      }
+      if (isSubtitlesStepActive()) {
         const subtitleEntries = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
-        reviewStatsEl.textContent = `Subtitles step | people ${entries.length} | dialogue ${subtitleEntries.length} | loaded ${state.review.frames.length}`;
+        reviewStatsEl.textContent = `Subtitles step | dialogue ${subtitleEntries.length} | loaded ${state.review.frames.length}`;
         return;
       }
       if (isSplitStepActive()) {
@@ -5117,12 +5039,16 @@
       return stepDef(state.wizardStep).mode === 'people';
     }
 
+    function isSubtitlesStepActive() {
+      return stepDef(state.wizardStep).mode === 'subtitles';
+    }
+
     function isSplitStepActive() {
       return stepDef(state.wizardStep).mode === 'split';
     }
 
     function isTimelineStepActive() {
-      return isPeopleStepActive() || isSplitStepActive();
+      return isPeopleStepActive() || isSubtitlesStepActive() || isSplitStepActive();
     }
 
     function updatePeopleStepLayoutSizing() {
@@ -5141,35 +5067,35 @@
       }
       const firstCard = frameGridEl.querySelector('.frame-card');
       const cardHeight = firstCard ? Math.ceil(firstCard.getBoundingClientRect().height) : 146;
-      const minGridHeight = Math.max(
+      let minGridHeight = Math.max(
         PEOPLE_STEP_MIN_FRAME_GRID_PX,
-        Math.round(cardHeight + 16)
+        Math.round((cardHeight * 1.85) + 24)
       );
-      frameGridEl.style.minHeight = `${minGridHeight}px`;
-      frameGridEl.style.maxHeight = `${minGridHeight}px`;
-      frameGridEl.style.height = `${minGridHeight}px`;
-      if (reviewLayoutEl) {
-        reviewLayoutEl.style.gridTemplateRows = 'auto minmax(0, 1fr) auto auto';
-      }
-
       let maxSparkHeight = PEOPLE_STEP_SPARK_MAX_PX;
       if (reviewLayoutEl) {
         const layoutHeight = Number(reviewLayoutEl.clientHeight || 0);
         const topHeight = reviewTopEl ? Number(reviewTopEl.offsetHeight || 0) : 0;
         const spare = 26;
-        const derived = layoutHeight - topHeight - minGridHeight - spare;
-        if (Number.isFinite(derived)) {
-          maxSparkHeight = _clamp(derived, PEOPLE_STEP_SPARK_MIN_PX, PEOPLE_STEP_SPARK_MAX_PX);
+        const available = layoutHeight - topHeight - spare;
+        if (Number.isFinite(available) && available > 0) {
+          maxSparkHeight = _clamp(Math.round(available * 0.42), PEOPLE_STEP_SPARK_MIN_PX, PEOPLE_STEP_SPARK_MAX_PX);
+          minGridHeight = Math.max(minGridHeight, Math.round(available - maxSparkHeight));
         }
+      }
+      frameGridEl.style.minHeight = `${minGridHeight}px`;
+      frameGridEl.style.maxHeight = `${minGridHeight}px`;
+      frameGridEl.style.height = `${minGridHeight}px`;
+      if (reviewLayoutEl) {
+        reviewLayoutEl.style.gridTemplateRows = 'auto auto minmax(0, 1fr)';
       }
       sparkPanelEl.style.maxHeight = `${Math.round(maxSparkHeight)}px`;
       sparkPanelEl.style.overflow = 'auto';
       if (subtitlesEditorEl) {
-        const subtitleMax = _clamp(maxSparkHeight - 126, 120, 240);
+        const subtitleMax = _clamp(Math.round(maxSparkHeight - 92), 180, 320);
         subtitlesEditorEl.style.maxHeight = `${Math.round(subtitleMax)}px`;
       }
       if (splitEditorEl) {
-        const splitMax = _clamp(maxSparkHeight - 126, 120, 240);
+        const splitMax = _clamp(Math.round(maxSparkHeight - 92), 180, 320);
         splitEditorEl.style.maxHeight = `${Math.round(splitMax)}px`;
       }
     }
@@ -5191,7 +5117,7 @@
       if (!page2El) return;
       const on = Boolean(
         page2El.classList.contains('flipbook-focus')
-        && isPeopleStepActive()
+        && (isPeopleStepActive() || isSubtitlesStepActive())
         && flipbookPreviewEl
         && flipbookPreviewEl.classList.contains('active')
       );
@@ -5617,6 +5543,18 @@
           source: '',
         }));
       }
+      if (isPeopleStepActive()) {
+        return canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []).map((row) => ({
+          start_seconds: Number(row.start_seconds || 0),
+          end_seconds: Number(row.end_seconds || 0),
+          start: String(row.start || formatTimestampSeconds(Number(row.start_seconds || 0))),
+          end: String(row.end || formatTimestampSeconds(Number(row.end_seconds || 0))),
+          text: String(row.people || ''),
+          speaker: '',
+          confidence: null,
+          source: '',
+        }));
+      }
       const canonical = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
       if (canonical.length) return canonical;
       const rawEntries = (state.subtitlesProfile && Array.isArray(state.subtitlesProfile.entries))
@@ -5745,7 +5683,9 @@
       const entries = Array.isArray(around && around.entries) ? around.entries : [];
       if (!entries.length) {
         flipbookSubtitleRailEl.classList.add('empty');
-        flipbookSubtitleRailEl.textContent = 'No subtitle entries for this chapter.';
+        flipbookSubtitleRailEl.textContent = isPeopleStepActive()
+          ? 'No people entries for this chapter.'
+          : 'No subtitle entries for this chapter.';
         flipbookSubtitleRailRenderKey = 'empty';
         flipbookSubtitleRailActiveIndex = -1;
         return;
@@ -6809,7 +6749,6 @@
         setStatus('Load a chapter before generating subtitles.', true);
         return;
       }
-      if (!syncPeopleProfileFromEditor(true)) return;
       if (!syncSubtitlesProfileFromEditor(true)) return;
       const hasExisting = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []).length > 0;
       const mode = hasExisting ? 'append' : 'replace';
@@ -6851,12 +6790,9 @@
         ...(state.peopleProfile || {}),
         entries: [],
       };
-      if (peopleEditorEl) {
-        peopleEditorEl.value = '';
-      }
-      updatePeopleMeta();
+      refreshPeopleEditorFromState();
       updateReviewStatsDisplay();
-      setStatus('Cleared people subtitle entries for this chapter draft.');
+      setStatus('Cleared people rows for this chapter draft.');
     }
 
     function visibleGammaRangeFromView() {
@@ -6963,6 +6899,22 @@
 
     async function openPeopleStep() {
       if (isChapterLoadInFlight) {
+        setStatus('Wait until frame loading finishes before entering people step.', true);
+        return false;
+      }
+      if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) {
+        setStatus('Load and review frames before entering people step.', true);
+        return false;
+      }
+      if (!syncPeopleProfileFromEditor(true)) return false;
+      refreshPeopleEditorFromState();
+      setStepByMode('people', stepNumForMode('gamma', stepNumForMode('review')));
+      updateReviewStatsDisplay();
+      return true;
+    }
+
+    async function openSubtitlesStep() {
+      if (isChapterLoadInFlight) {
         setStatus('Wait until frame loading finishes before entering subtitles step.', true);
         return false;
       }
@@ -6970,11 +6922,9 @@
         setStatus('Load and review frames before entering subtitles step.', true);
         return false;
       }
-      if (!syncPeopleProfileFromEditor(true)) return false;
       if (!syncSubtitlesProfileFromEditor(true)) return false;
-      refreshPeopleEditorFromState();
       refreshSubtitlesEditorFromState();
-      setStepByMode('people', stepNumForMode('gamma', stepNumForMode('review')));
+      setStepByMode('subtitles', stepNumForMode('people', stepNumForMode('gamma', stepNumForMode('review'))));
       updateReviewStatsDisplay();
       return true;
     }
@@ -6990,7 +6940,7 @@
       }
       if (!syncSplitProfileFromEditor(true)) return false;
       refreshSplitEditorFromState();
-      setStepByMode('split', stepNumForMode('people', stepNumForMode('gamma', stepNumForMode('review'))));
+      setStepByMode('split', stepNumForMode('subtitles', stepNumForMode('people', stepNumForMode('gamma', stepNumForMode('review')))));
       updateReviewStatsDisplay();
       return true;
     }
@@ -7187,7 +7137,7 @@
       try {
         const result = await api('/api/summary');
         summaryBoxEl.textContent = String(result.summary || '').trim();
-        setStepByMode('summary', stepNumForMode('split', stepNumForMode('people', stepNumForMode('gamma', stepNumForMode('review')))));
+        setStepByMode('summary', stepNumForMode('split', stepNumForMode('subtitles', stepNumForMode('people', stepNumForMode('gamma', stepNumForMode('review'))))));
         return true;
       } catch (err) {
         setStatus(err.message, true);
@@ -7355,8 +7305,10 @@
         state.archive = st.archive;
         state.chapter = st.chapter;
         state.chapters = st.chapters || [];
+        state.peopleProfile = normalizePeopleProfile(null);
         state.subtitlesProfile = normalizeSubtitlesProfile(null);
         state.splitProfile = normalizeSplitProfile(null);
+        refreshPeopleEditorFromState();
         refreshSubtitlesEditorFromState();
         refreshSplitEditorFromState();
 
@@ -7432,12 +7384,30 @@
         return openPeopleStep();
       }
 
-      if (targetStep.mode === 'split') {
+      if (targetStep.mode === 'subtitles') {
         const movingForward = stepIndex(targetStep.num) > stepIndex(currentStep.num);
         if (movingForward) {
           const loadingText = currentStep.mode === 'people'
-            ? 'Saving subtitles progress...'
+            ? 'Saving people progress...'
             : (currentStep.mode === 'gamma' ? 'Saving gamma progress...' : 'Saving review progress...');
+          const saved = await saveProgress({
+            showOverlay: true,
+            loadingText,
+            silent: true,
+          });
+          if (!saved) return false;
+        }
+        return openSubtitlesStep();
+      }
+
+      if (targetStep.mode === 'split') {
+        const movingForward = stepIndex(targetStep.num) > stepIndex(currentStep.num);
+        if (movingForward) {
+          const loadingText = currentStep.mode === 'subtitles'
+            ? 'Saving subtitles progress...'
+            : (currentStep.mode === 'people'
+              ? 'Saving people progress...'
+              : (currentStep.mode === 'gamma' ? 'Saving gamma progress...' : 'Saving review progress...'));
           const saved = await saveProgress({
             showOverlay: true,
             loadingText,
@@ -7537,10 +7507,44 @@
       peopleClearBtnEl.addEventListener('click', clearPeopleEntries);
     }
     if (peopleEditorEl) {
-      peopleEditorEl.addEventListener('change', () => {
+      peopleEditorEl.addEventListener('click', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const deleteBtn = target.closest('[data-people-row-delete]');
+        if (!deleteBtn) return;
         syncPeopleProfileFromEditor(false);
+        const idx = Number(deleteBtn.getAttribute('data-people-row-delete'));
+        const entries = canonicalizePeopleEntries((state.peopleProfile && state.peopleProfile.entries) || []);
+        if (Number.isFinite(idx) && idx >= 0 && idx < entries.length) {
+          entries.splice(idx, 1);
+          state.peopleProfile = {
+            ...(state.peopleProfile || {}),
+            entries: canonicalizePeopleEntries(entries),
+          };
+          refreshPeopleEditorFromState();
+          updateReviewStatsDisplay();
+        }
+        event.preventDefault();
       });
-      peopleEditorEl.addEventListener('blur', () => {
+      peopleEditorEl.addEventListener('keydown', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement)) return;
+        if (!target.classList.contains('subtitles-editor-cell')) return;
+        if (event.key !== 'Enter') return;
+        target.blur();
+        event.preventDefault();
+      });
+      peopleEditorEl.addEventListener('change', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement)) return;
+        if (!target.classList.contains('subtitles-editor-cell')) return;
+        syncPeopleProfileFromEditor(false);
+        updateReviewStatsDisplay();
+      });
+      peopleEditorEl.addEventListener('focusout', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement)) return;
+        if (!target.classList.contains('subtitles-editor-cell')) return;
         syncPeopleProfileFromEditor(false);
       });
     }

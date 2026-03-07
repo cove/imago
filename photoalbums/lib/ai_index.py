@@ -103,6 +103,12 @@ def needs_processing(path: Path, manifest_row: dict[str, Any] | None, force: boo
     return int(stat.st_size) != recorded_size or int(stat.st_mtime_ns) != recorded_mtime
 
 
+def should_skip_existing_sidecar(image_path: Path, *, force: bool) -> bool:
+    if force:
+        return False
+    return image_path.with_suffix(".xmp").exists()
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Index photo album images with cast people matching, YOLO objects, OCR, and XMP sidecars.",
@@ -111,13 +117,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--cast-store", default=str(DEFAULT_CAST_STORE), help="Cast store directory.")
     parser.add_argument("--manifest", default=str(DEFAULT_MANIFEST_PATH), help="JSONL state file path.")
     parser.add_argument("--creator-tool", default=DEFAULT_CREATOR_TOOL, help="XMP CreatorTool value.")
-    parser.add_argument("--model", default="yolo11n.pt", help="Ultralytics model path/name.")
+    parser.add_argument("--model", default="models/yolo11n.pt", help="Ultralytics model path/name.")
     parser.add_argument("--object-threshold", type=float, default=0.30, help="Object detection confidence.")
     parser.add_argument("--people-threshold", type=float, default=0.72, help="Face similarity threshold.")
     parser.add_argument("--min-face-size", type=int, default=40, help="Minimum face size in pixels.")
     parser.add_argument(
         "--ocr-engine",
-        choices=["none", "docstrange", "paddle"],
+        choices=["none", "docstrange"],
         default="docstrange",
         help="OCR backend.",
     )
@@ -125,7 +131,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--caption-engine",
         choices=["none", "template", "qwen"],
-        default="template",
+        default="none",
         help="Caption backend for XMP description.",
     )
     parser.add_argument(
@@ -219,7 +225,7 @@ def _settings_signature(settings: dict[str, Any]) -> str:
         "people_threshold": float(settings.get("people_threshold", 0.72)),
         "object_threshold": float(settings.get("object_threshold", 0.30)),
         "min_face_size": int(settings.get("min_face_size", 40)),
-        "model": str(settings.get("model", "yolo11n.pt")),
+        "model": str(settings.get("model", "models/yolo11n.pt")),
         "creator_tool": str(settings.get("creator_tool", DEFAULT_CREATOR_TOOL)),
         "caption_engine": str(settings.get("caption_engine", "template")),
         "caption_model": str(settings.get("caption_model", DEFAULT_QWEN_CAPTION_MODEL)),
@@ -293,6 +299,7 @@ def run(argv: list[str] | None = None) -> int:
     failures = 0
 
     for idx, image_path in enumerate(files, 1):
+        sidecar_path = image_path.with_suffix(".xmp")
         archive_dir = find_archive_dir_for_image(image_path)
         settings_file: Path | None = None
         loaded_settings: dict[str, Any] | None = None
@@ -329,6 +336,11 @@ def run(argv: list[str] | None = None) -> int:
             old_sig = str(manifest_row.get("settings_signature") or "")
             if old_sig != settings_sig:
                 manifest_row = None
+        if should_skip_existing_sidecar(image_path, force=bool(args.force)):
+            skipped += 1
+            if args.verbose:
+                print(f"[{idx}/{len(files)}] skip  {image_path.name} (sidecar exists)")
+            continue
         if not needs_processing(image_path, manifest_row, bool(args.force)):
             skipped += 1
             if args.verbose:
@@ -434,7 +446,6 @@ def run(argv: list[str] | None = None) -> int:
                 },
             }
 
-            sidecar_path = image_path.with_suffix(".xmp")
             if not args.dry_run:
                 write_xmp_sidecar(
                     sidecar_path,

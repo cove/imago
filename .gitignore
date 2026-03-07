@@ -13,6 +13,7 @@ env/
 
 # Testing
 .pytest_cache/
+.tmp/
 .coverage
 htmlcov/
 .hypothesis/
@@ -32,6 +33,8 @@ Clips/
 Videos/
 
 # Downloaded AI models
+models/**
+!models/.gitkeep
 modes/**
 !modes/.gitkeep
 

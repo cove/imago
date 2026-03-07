@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 SETTINGS_FILENAME = "render_settings.json"
-OCR_ENGINES = {"none", "docstrange", "paddle"}
+OCR_ENGINES = {"none", "docstrange"}
 
 
 def render_settings_path(archive_dir: str | Path) -> Path:
@@ -98,7 +98,7 @@ def _normalize_settings_block(raw: dict[str, Any], defaults: dict[str, Any]) -> 
         ),
         "model": _normalize_text(
             block.get("model"),
-            str(defaults.get("model", "yolo11n.pt")),
+            str(defaults.get("model", "models/yolo11n.pt")),
         ),
         "creator_tool": _normalize_text(
             block.get("creator_tool"),
