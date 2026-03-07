@@ -31,9 +31,12 @@ Thumbs.db
 Clips/
 Videos/
 
+# Downloaded AI models
+modes/**
+!modes/.gitkeep
+
 # Cast local identity data
 cast/data/*.json
 cast/data/*.jsonl
 cast/data/*.tmp
 !cast/data/.gitkeep
-cast/models/*.onnx

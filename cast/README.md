@@ -19,6 +19,12 @@ python cast.py web
 
 Open `http://127.0.0.1:8093`.
 
+## Tests
+
+```powershell
+.\scripts\test.ps1 -q
+```
+
 ## What the UI can do now
 
 - Ingest a photo path and auto-detect faces
@@ -35,6 +41,6 @@ Open `http://127.0.0.1:8093`.
 
 ## Notes
 
-- Primary detection uses OpenCV YuNet (auto-downloads model on first run), with cascade fallback.
+- Primary detection uses OpenCV YuNet (auto-downloads model on first run to `../modes/cast/`), with cascade fallback.
 - Matching uses cosine similarity over lightweight grayscale embeddings.
 - This scaffold is designed for small local archives (for example up to a few dozen people).

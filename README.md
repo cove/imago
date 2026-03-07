@@ -9,6 +9,26 @@ Family media archive for VHS digitization, photo album preservation, and shared 
 - [`cast/`](cast/) - Shared face identity store + local web review UI (text files)
 - [`viewer/`](viewer/) - Static cloud media site for public Google Drive/OneDrive photo and video links
 
+## Tests
+
+Run all project tests from repo root:
+
+- `.\scripts\test.ps1 -q`
+
+Enable the repo pre-push hook (runs this test suite before push):
+
+- `git config core.hooksPath .githooks`
+
+Run a single project test suite (same command shape in each project):
+
+- `.\cast\scripts\test.ps1 -q`
+- `.\photoalbums\scripts\test.ps1 -q`
+- `.\vhs\scripts\test.ps1 -q`
+
+## AI Model Storage
+
+Downloaded AI model weights are stored under the repo-level `modes/` directory.
+
 ## Cast quick start
 
 1. Initialize files:

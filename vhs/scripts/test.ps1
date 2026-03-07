@@ -1,9 +1,10 @@
 $ErrorActionPreference = "Stop"
 
-$py = Join-Path $PSScriptRoot "..\\.venv\\Scripts\\python.exe"
+$repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\\..")
+$py = Join-Path $repoRoot ".venv\\Scripts\\python.exe"
 if (-not (Test-Path $py)) {
   $py = "python"
 }
 
-& $py -m pytest @args
+& $py -m pytest (Join-Path $repoRoot "vhs\\test") @args
 exit $LASTEXITCODE

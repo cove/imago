@@ -13,6 +13,8 @@ YUNET_MODEL_URL = (
     "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/"
     "face_detection_yunet_2023mar.onnx"
 )
+REPO_ROOT = Path(__file__).resolve().parents[1]
+CAST_MODEL_DIR = REPO_ROOT / "modes" / "cast"
 
 
 def _timestamp_from_seconds(seconds: float) -> str:
@@ -148,7 +150,7 @@ class FaceIngestor:
         self._profile = cv2.CascadeClassifier(str(profile_path))
         self._upper_body = cv2.CascadeClassifier(str(upper_body_path))
 
-        model_dir = Path(__file__).resolve().parent / "models"
+        model_dir = CAST_MODEL_DIR
         model_path = model_dir / "face_detection_yunet_2023mar.onnx"
         self._yunet = None
         self._yunet_score_threshold = 0.86

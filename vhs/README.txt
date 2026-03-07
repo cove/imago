@@ -74,7 +74,7 @@ Directory Notes
 - `metadata/` contains per-archive metadata (`chapters.tsv` master, generated `chapters.ffmetadata`, `render_settings.json`, `people.tsv`, markers, etc.).
 - `vhs_pipeline/` contains command implementations used by `vhs.py`.
 - `legacy_steps/` contains legacy `step_*` entrypoints and historical step docs.
-- `models/`, `software/`, `manuals/`, `screenshots/` contain model/data/tool references.
+- `../modes/`, `software/`, `manuals/`, `screenshots/` contain model/data/tool references.
 
 Platform Notes
 --------------

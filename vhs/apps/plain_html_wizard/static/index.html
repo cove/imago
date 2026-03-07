@@ -1697,7 +1697,7 @@
         <button id="helpCloseBtn" class="action warn" type="button">Close</button>
       </div>
       <div class="help-body">
-        <p>This wizard lets you mark bad frames, tune gamma, author people subtitle ranges, edit dialogue subtitles, and create chapter split ranges. Progress saves write <code>BAD_FRAMES</code> + gamma metadata to <code>metadata/&lt;archive&gt;/render_settings.json</code>, people subtitle ranges to <code>metadata/&lt;archive&gt;/people.tsv</code>, dialogue subtitle rows to <code>metadata/&lt;archive&gt;/subtitles.tsv</code>, and split rows to <code>metadata/&lt;archive&gt;/chapters.tsv</code>. During render, subtitle files are generated from that data.</p>
+        <p>This wizard lets you mark bad frames, tune gamma, author people subtitle ranges, edit dialogue subtitles, and create chapter ranges. Progress saves write <code>BAD_FRAMES</code> + gamma metadata to <code>metadata/&lt;archive&gt;/render_settings.json</code>, people subtitle ranges to <code>metadata/&lt;archive&gt;/people.tsv</code>, dialogue subtitle rows to <code>metadata/&lt;archive&gt;/subtitles.tsv</code>, and chapter rows to <code>metadata/&lt;archive&gt;/chapters.tsv</code>. During render, subtitle files are generated from that data.</p>
 
         <h3>Step 1: Load Chapter</h3>
         <ol>
@@ -1744,16 +1744,16 @@
           <li>Use <code>Save Progress</code> anytime to persist wizard progress and resume later.</li>
         </ul>
 
-        <h3>Step 5: Split</h3>
+        <h3>Step 5: Chapters</h3>
         <ul>
-          <li>Use Split to define chapter sub-ranges with chapter frame numbers (inclusive end frame).</li>
-          <li>Split rows are saved to <code>metadata/&lt;archive&gt;/chapters.tsv</code> with ffmetadata columns.</li>
+          <li>Use Chapters to define chapter sub-ranges with chapter frame numbers (inclusive end frame).</li>
+          <li>Chapter rows are saved to <code>metadata/&lt;archive&gt;/chapters.tsv</code> with ffmetadata columns.</li>
         </ul>
 
         <h3>Step 6: Summary + Save</h3>
         <ol>
-          <li>Click the <code>6/6 Summary + Save</code> step button at the top to verify bad-frame, gamma, subtitles, and split settings.</li>
-          <li>Click <code>Save and Return to Chapters</code> to persist selected bad frames, gamma ranges, people/subtitle rows, and split rows.</li>
+          <li>Click the <code>6/6 Summary + Save</code> step button at the top to verify bad-frame, gamma, subtitles, and chapter settings.</li>
+          <li>Click <code>Save and Return to Chapters</code> to persist selected bad frames, gamma ranges, people/subtitle rows, and chapter rows.</li>
           <li>The chapter list refreshes with updated BAD counts after save.</li>
         </ol>
 
@@ -1819,7 +1819,7 @@
       { num: 2, label: 'Bad Frames + IQR', pageId: 'page2', mode: 'review' },
       { num: 3, label: 'Gamma Correction', pageId: 'page2', mode: 'gamma' },
       { num: 4, label: 'Subtitles', pageId: 'page2', mode: 'people' },
-      { num: 5, label: 'Split', pageId: 'page2', mode: 'split' },
+      { num: 5, label: 'Chapters', pageId: 'page2', mode: 'split' },
       { num: 6, label: 'Summary + Save', pageId: 'page3', mode: 'summary' },
     ];
     const STEP_BY_NUM = new Map(STEP_DEFS.map((step) => [step.num, step]));
@@ -3267,7 +3267,7 @@
         const a = _clamp(start, 0, frameCount);
         const b = _clamp(end, 0, frameCount);
         if (b <= a) return;
-        const normalizedTitle = title || `Split ${Math.max(1, Math.trunc(Number(idx || 0)) + 1)}`;
+        const normalizedTitle = title || `Chapter ${Math.max(1, Math.trunc(Number(idx || 0)) + 1)}`;
         rows.push({
           start_frame: Math.trunc(a),
           end_frame: Math.trunc(b),
@@ -3352,9 +3352,9 @@
         return `
           <tr data-split-row="1" data-split-row-idx="${idx}">
             <td class="rownum">${rowNum}</td>
-            <td><input class="subtitles-editor-cell start" type="text" spellcheck="false" data-split-field="start" value="${escapeHtml(row.start)}" placeholder="0" aria-label="Split start frame"></td>
-            <td><input class="subtitles-editor-cell end" type="text" spellcheck="false" data-split-field="end" value="${escapeHtml(row.end)}" placeholder="0" aria-label="Split end frame"></td>
-            <td><input class="subtitles-editor-cell text" type="text" spellcheck="false" data-split-field="title" value="${escapeHtml(row.title)}" placeholder="Split title" aria-label="Split title"></td>
+            <td><input class="subtitles-editor-cell start" type="text" spellcheck="false" data-split-field="start" value="${escapeHtml(row.start)}" placeholder="0" aria-label="Chapter start frame"></td>
+            <td><input class="subtitles-editor-cell end" type="text" spellcheck="false" data-split-field="end" value="${escapeHtml(row.end)}" placeholder="0" aria-label="Chapter end frame"></td>
+            <td><input class="subtitles-editor-cell text" type="text" spellcheck="false" data-split-field="title" value="${escapeHtml(row.title)}" placeholder="Chapter title" aria-label="Chapter title"></td>
             <td>${deleteHtml}</td>
           </tr>
         `;
@@ -4559,7 +4559,7 @@
 
       const hintHtml = splitMode
         ? (!subtitleRows.length
-          ? '<div class="people-timeline-empty">Add split rows in the table below to create chapter ranges.</div>'
+          ? '<div class="people-timeline-empty">Add chapter rows in the table below to create chapter ranges.</div>'
           : '')
         : (!entries.length
           ? '<div class="people-timeline-empty">Click timeline to add a name (Enter to save, drag/resize after).</div>'
@@ -4703,7 +4703,7 @@
       }
       if (isSplitStepActive()) {
         const splitEntries = canonicalizeSplitEntries((state.splitProfile && state.splitProfile.entries) || []);
-        reviewStatsEl.textContent = `Split step | ranges ${splitEntries.length} | loaded ${state.review.frames.length}`;
+        reviewStatsEl.textContent = `Chapters step | ranges ${splitEntries.length} | loaded ${state.review.frames.length}`;
         return;
       }
       if (isGammaStepActive()) {
@@ -6981,11 +6981,11 @@
 
     async function openSplitStep() {
       if (isChapterLoadInFlight) {
-        setStatus('Wait until frame loading finishes before entering split step.', true);
+        setStatus('Wait until frame loading finishes before entering chapters step.', true);
         return false;
       }
       if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) {
-        setStatus('Load and review frames before entering split step.', true);
+        setStatus('Load and review frames before entering chapters step.', true);
         return false;
       }
       if (!syncSplitProfileFromEditor(true)) return false;
