@@ -49,7 +49,7 @@ class TestAIRenderSettings(unittest.TestCase):
                 "people_threshold": 0.72,
                 "object_threshold": 0.30,
                 "min_face_size": 40,
-                "model": "yolo11n.pt",
+                "model": "models/yolo11n.pt",
                 "creator_tool": "tool-default",
             }
 
@@ -95,7 +95,7 @@ class TestAIRenderSettings(unittest.TestCase):
                 "people_threshold": 0.72,
                 "object_threshold": 0.30,
                 "min_face_size": 40,
-                "model": "yolo11n.pt",
+                "model": "models/yolo11n.pt",
                 "creator_tool": "tool-default",
             }
             payload = {"archive_settings": {"ocr_engine": "tesseract"}}

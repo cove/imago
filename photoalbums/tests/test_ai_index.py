@@ -69,6 +69,16 @@ class TestAIIndex(unittest.TestCase):
             image.write_bytes(b"abcd")
             self.assertTrue(ai_index.needs_processing(image, row, force=False))
 
+    def test_should_skip_existing_sidecar(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "a.jpg"
+            image.write_bytes(b"abc")
+            self.assertFalse(ai_index.should_skip_existing_sidecar(image, force=False))
+
+            image.with_suffix(".xmp").write_text("existing", encoding="utf-8")
+            self.assertTrue(ai_index.should_skip_existing_sidecar(image, force=False))
+            self.assertFalse(ai_index.should_skip_existing_sidecar(image, force=True))
+
     def test_build_description(self):
         text = ai_index.build_description(
             people=["Alice", "Bob"],
@@ -96,6 +106,11 @@ class TestAIIndex(unittest.TestCase):
         self.assertEqual(args.caption_model, "Qwen/Qwen2.5-VL-3B-Instruct")
         self.assertEqual(args.caption_max_tokens, 64)
         self.assertAlmostEqual(args.caption_temperature, 0.1)
+
+    def test_parse_args_defaults_disable_qwen_and_use_docstrange(self):
+        args = ai_index.parse_args([])
+        self.assertEqual(args.caption_engine, "none")
+        self.assertEqual(args.ocr_engine, "docstrange")
 
 
 if __name__ == "__main__":

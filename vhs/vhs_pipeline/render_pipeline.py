@@ -5,6 +5,8 @@
 # with embedded metadata and subtitles for access/delivery copies.
 #
 import argparse, math, shutil, time, re
+import sys
+from pathlib import Path
 
 try:
     import whisper
@@ -12,6 +14,18 @@ try:
 except Exception:
     whisper = None
     get_writer = None
+
+# Ensure `from common import *` resolves to vhs/common.py even when the
+# process cwd/rootdir is the monorepo root (e.g. VS Code pytest adapter).
+_VHS_ROOT = Path(__file__).resolve().parents[1]
+if str(_VHS_ROOT) not in sys.path:
+    sys.path.insert(0, str(_VHS_ROOT))
+_cached_common = sys.modules.get("common")
+if _cached_common is not None:
+    _cached_common_file = Path(getattr(_cached_common, "__file__", "") or "").resolve()
+    expected_common = (_VHS_ROOT / "common.py").resolve()
+    if _cached_common_file != expected_common:
+        del sys.modules["common"]
 from common import *
 
 ASS_NEWLINE = "\\N"

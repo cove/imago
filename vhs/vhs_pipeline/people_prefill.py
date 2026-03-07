@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import csv
 import json
 import re
 from dataclasses import dataclass
+from fractions import Fraction
 from pathlib import Path
 from statistics import median
 from typing import Any
@@ -121,34 +123,111 @@ def _chapter_boundary_seconds(chapter: dict[str, Any], boundary: str) -> float:
     return float(chapter.get(boundary, 0.0) or 0.0)
 
 
-def _load_chapter_context(archive: str, chapter_title: str) -> dict[str, Any]:
-    chapters_path = METADATA_DIR / str(archive or "").strip() / "chapters.ffmetadata"
+def _parse_timebase(raw: Any) -> tuple[int, int] | None:
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    try:
+        if "/" in text:
+            num_s, den_s = text.split("/", 1)
+            num = int(num_s.strip())
+            den = int(den_s.strip())
+        else:
+            num = int(text)
+            den = 1
+    except Exception:
+        return None
+    if den == 0:
+        return None
+    if den < 0:
+        num = -num
+        den = -den
+    return int(num), int(den)
+
+
+def _load_chapter_context_from_tsv(archive: str, chapter_title: str) -> dict[str, Any] | None:
+    chapters_path = METADATA_DIR / str(archive or "").strip() / "chapters.tsv"
     if not chapters_path.exists():
-        raise FileNotFoundError(f"Missing chapters.ffmetadata: {chapters_path}")
-    _ffm, chapters = parse_chapters(chapters_path)
+        return None
     target = str(chapter_title or "").strip()
-    chapter = next(
-        (row for row in chapters if str(row.get("title", "")).strip() == target),
-        None,
-    )
-    if chapter is None:
-        raise ValueError(f"Unknown chapter title for archive '{archive}': {target}")
-    start_sec = _chapter_boundary_seconds(chapter, "start")
-    end_sec = _chapter_boundary_seconds(chapter, "end")
-    start_frame, end_frame = chapter_frame_bounds(chapter, fps_num=FPS_NUM, fps_den=FPS_DEN)
-    if end_sec <= start_sec:
-        raise ValueError(f"Invalid chapter bounds for '{target}'.")
-    if int(end_frame) <= int(start_frame):
-        raise ValueError(f"Invalid chapter frame bounds for '{target}'.")
-    return {
-        "archive": str(archive or "").strip(),
-        "title": target,
-        "start_sec": float(start_sec),
-        "end_sec": float(end_sec),
-        "duration_sec": float(end_sec - start_sec),
-        "start_frame": int(start_frame),
-        "end_frame": int(end_frame),
-    }
+    if not target:
+        return None
+    with chapters_path.open("r", encoding="utf-8-sig", errors="ignore", newline="") as fh:
+        reader = csv.DictReader(fh, delimiter="\t")
+        for raw_row in reader:
+            row = {str(k or "").strip().lower(): str(v or "").strip() for k, v in (raw_row or {}).items()}
+            if str(row.get("title") or "").strip() != target:
+                continue
+
+            tb = _parse_timebase(row.get("timebase"))
+            start_raw_text = str(row.get("start_raw") or row.get("start") or "").strip()
+            end_raw_text = str(row.get("end_raw") or row.get("end") or "").strip()
+            if not tb or not re.fullmatch(r"-?\d+", start_raw_text) or not re.fullmatch(r"-?\d+", end_raw_text):
+                continue
+
+            tb_num, tb_den = tb
+            start_raw = int(start_raw_text)
+            end_raw = int(end_raw_text)
+            start_sec = float(Fraction(start_raw) * Fraction(tb_num, tb_den))
+            end_sec = float(Fraction(end_raw) * Fraction(tb_num, tb_den))
+            start_frame, end_frame = chapter_frame_bounds(
+                {
+                    "start_raw": start_raw,
+                    "end_raw": end_raw,
+                    "timebase_num": tb_num,
+                    "timebase_den": tb_den,
+                },
+                fps_num=FPS_NUM,
+                fps_den=FPS_DEN,
+            )
+            if end_sec <= start_sec or int(end_frame) <= int(start_frame):
+                continue
+            return {
+                "archive": str(archive or "").strip(),
+                "title": target,
+                "start_sec": float(start_sec),
+                "end_sec": float(end_sec),
+                "duration_sec": float(end_sec - start_sec),
+                "start_frame": int(start_frame),
+                "end_frame": int(end_frame),
+            }
+    return None
+
+
+def _load_chapter_context(archive: str, chapter_title: str) -> dict[str, Any]:
+    target = str(chapter_title or "").strip()
+    chapters_path = METADATA_DIR / str(archive or "").strip() / "chapters.ffmetadata"
+    if chapters_path.exists():
+        _ffm, chapters = parse_chapters(chapters_path)
+        chapter = next(
+            (row for row in chapters if str(row.get("title", "")).strip() == target),
+            None,
+        )
+        if chapter is not None:
+            start_sec = _chapter_boundary_seconds(chapter, "start")
+            end_sec = _chapter_boundary_seconds(chapter, "end")
+            start_frame, end_frame = chapter_frame_bounds(chapter, fps_num=FPS_NUM, fps_den=FPS_DEN)
+            if end_sec <= start_sec:
+                raise ValueError(f"Invalid chapter bounds for '{target}'.")
+            if int(end_frame) <= int(start_frame):
+                raise ValueError(f"Invalid chapter frame bounds for '{target}'.")
+            return {
+                "archive": str(archive or "").strip(),
+                "title": target,
+                "start_sec": float(start_sec),
+                "end_sec": float(end_sec),
+                "duration_sec": float(end_sec - start_sec),
+                "start_frame": int(start_frame),
+                "end_frame": int(end_frame),
+            }
+
+    tsv_context = _load_chapter_context_from_tsv(archive, target)
+    if tsv_context is not None:
+        return tsv_context
+
+    if not chapters_path.exists():
+        raise FileNotFoundError(f"Missing chapter metadata for archive '{archive}'.")
+    raise ValueError(f"Unknown chapter title for archive '{archive}': {target}")
 
 
 def _source_path_key(path: str | Path) -> str:

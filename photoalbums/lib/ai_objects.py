@@ -11,7 +11,7 @@ from .model_store import YOLO_MODEL_DIR
 def _resolve_model_reference(model_name: str) -> tuple[str, Path | None]:
     text = str(model_name or "").strip()
     if not text:
-        text = "yolo11n.pt"
+        text = "models/yolo11n.pt"
 
     path = Path(text).expanduser()
     # Keep explicit paths unchanged so callers can still opt into custom models.
@@ -45,7 +45,7 @@ class YOLOObjectDetector:
     def __init__(
         self,
         *,
-        model_name: str = "yolo11n.pt",
+        model_name: str = "models/yolo11n.pt",
         confidence: float = 0.30,
         max_detections: int = 100,
     ):
@@ -60,7 +60,7 @@ class YOLOObjectDetector:
         if model_dir is None:
             self._model = YOLO(model_ref)
         else:
-            # When downloading stock YOLO weights, keep them under repo-root modes/.
+            # When downloading stock YOLO weights, keep them under repo-root models/.
             with _pushd(model_dir):
                 self._model = YOLO(model_ref)
         self.confidence = float(confidence)

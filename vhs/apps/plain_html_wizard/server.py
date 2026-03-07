@@ -6,6 +6,7 @@ import html
 import importlib
 import re
 import csv
+import io
 import shutil
 import subprocess
 import sys
@@ -20,6 +21,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
+from contextlib import redirect_stdout
 
 import numpy as np
 
@@ -55,6 +57,7 @@ from libs.vhs_tuner_core import (
     TUNER_DEBUG_EXTRACT_ENV,
 )
 from vhs_pipeline.people_prefill import prefill_people_from_cast
+from vhs_pipeline.metadata import ffmetadata_to_chapters_tsv
 from vhs_pipeline.render_pipeline import (
     make_extract_audio,
     subtitle_entries_from_whisper_result,
@@ -73,7 +76,18 @@ FPS_NUM = 30000
 FPS_DEN = 1001
 PEOPLE_TSV_HEADER = "start\tend\tpeople"
 SUBTITLES_TSV_HEADER = "start\tend\ttext\tspeaker\tconfidence\tsource"
-CHAPTERS_TSV_PREFIX_COLUMNS = ["parent_chapter", "start_frame", "end_frame"]
+TSV_META_HEADER_COL = "__ffmeta_header"
+TSV_META_GLOBAL_ORDER_COL = "__ffmeta_order"
+TSV_META_CHAPTER_ORDER_COL = "__chapter_order"
+TSV_META_CHAPTER_INDEX_COL = "__chapter_index"
+TSV_FFMETA_PREFIX = "ffmeta_"
+TSV_META_PREFIX = "__"
+CHAPTERS_TSV_META_COLUMNS = [
+    TSV_META_HEADER_COL,
+    TSV_META_GLOBAL_ORDER_COL,
+    TSV_META_CHAPTER_ORDER_COL,
+    TSV_META_CHAPTER_INDEX_COL,
+]
 CHAPTER_FFMETADATA_COMPUTED_KEYS = {"start_raw", "end_raw", "timebase_num", "timebase_den"}
 DEFAULT_CAST_STORE_DIR = (PROJECT_ROOT.parent / "cast" / "data").resolve()
 WHISPER_MODEL_NAME = "turbo"
@@ -637,6 +651,120 @@ def _write_chapters_tsv_rows(path: Path, columns: list[str], rows: list[dict[str
             writer.writerow(row)
 
 
+def _row_ci_get(row: dict[str, Any], *names: str) -> Any:
+    lowered: dict[str, Any] = {}
+    for key, value in dict(row or {}).items():
+        text = str(key or "").strip().lower()
+        if text and text not in lowered:
+            lowered[text] = value
+    for name in names:
+        key = str(name or "").strip().lower()
+        if key in lowered:
+            return lowered[key]
+    return None
+
+
+def _chapter_row_bounds(row: dict[str, Any]) -> tuple[int | None, int | None]:
+    start_raw = _row_ci_get(row, "start", "start_frame")
+    end_raw = _row_ci_get(row, "end", "end_frame")
+    return _parse_frame_value(start_raw), _parse_frame_value(end_raw)
+
+
+def _chapter_row_title(row: dict[str, Any]) -> str:
+    return _normalize_subtitle_optional_text(
+        _row_ci_get(row, "title", "split_title", "chapter_title", "chaptertitle")
+    )
+
+
+def _chapter_row_is_exact_parent(
+    row: dict[str, Any],
+    chapter_title: str,
+    chapter_start: int,
+    chapter_end: int,
+) -> bool:
+    row_start, row_end = _chapter_row_bounds(row)
+    row_title = _chapter_row_title(row)
+    return (
+        row_start is not None
+        and row_end is not None
+        and int(row_start) == int(chapter_start)
+        and int(row_end) == int(chapter_end)
+        and row_title == str(chapter_title or "").strip()
+    )
+
+
+def _chapter_order_keys_for_row(row: dict[str, Any], header: list[str]) -> list[str]:
+    raw = str((row or {}).get(TSV_META_CHAPTER_ORDER_COL, "") or "").strip()
+    ordered = [part.strip() for part in raw.split("|") if str(part or "").strip()]
+    if ordered:
+        return ordered
+    out: list[str] = []
+    seen: set[str] = set()
+    for col in list(header or []):
+        key = str(col or "").strip()
+        if (
+            not key
+            or key == "parent_chapter"
+            or key.startswith(TSV_META_PREFIX)
+            or key.startswith(TSV_FFMETA_PREFIX)
+            or key in seen
+        ):
+            continue
+        seen.add(key)
+        out.append(key)
+    return out
+
+
+def _canonical_chapters_base(path: Path, archive_name: str) -> tuple[list[str], list[dict[str, str]]]:
+    header, rows = _read_chapters_tsv_rows(path)
+    if TSV_META_HEADER_COL in set(header):
+        return header, rows
+    ffmeta_path = _chapters_ffmetadata_path(archive_name)
+    if not ffmeta_path.exists():
+        return header, rows
+    with tempfile.TemporaryDirectory(prefix="chapters_tsv_base_") as td:
+        tmp_path = Path(td) / "chapters.tsv"
+        with redirect_stdout(io.StringIO()):
+            ffmetadata_to_chapters_tsv(ffmeta_path, tmp_path)
+        return _read_chapters_tsv_rows(tmp_path)
+
+
+def _canonical_child_row_from_parent(
+    parent_row: dict[str, Any],
+    header: list[str],
+    global_start: int,
+    global_end: int,
+    title: str,
+) -> dict[str, Any]:
+    row = {str(k): v for k, v in dict(parent_row or {}).items() if str(k or "").strip() != "parent_chapter"}
+    chapter_keys = _chapter_order_keys_for_row(parent_row, header)
+    if not row.get(TSV_META_HEADER_COL):
+        row[TSV_META_HEADER_COL] = ";FFMETADATA1"
+    for key in chapter_keys:
+        lowered = str(key or "").strip().lower()
+        if lowered == "start":
+            row[key] = str(int(global_start))
+        elif lowered == "end":
+            row[key] = str(int(global_end))
+        elif lowered == "title":
+            row[key] = str(title)
+    if not any(str(key or "").strip().lower() == "title" for key in chapter_keys):
+        row["title"] = str(title)
+        chapter_keys.append("title")
+    row[TSV_META_CHAPTER_ORDER_COL] = "|".join(chapter_keys)
+    row[TSV_META_CHAPTER_INDEX_COL] = ""
+    return row
+
+
+def _reindex_canonical_chapter_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for idx, raw in enumerate(list(rows or []), start=1):
+        row = dict(raw or {})
+        row[TSV_META_CHAPTER_INDEX_COL] = str(int(idx))
+        out.append(row)
+    return out
+
+
 def _chapters_ffmetadata_context(
     archive: str,
     chapter_title: str,
@@ -704,13 +832,16 @@ def _load_split_entries_for_chapter(
 
     local_entries: list[dict[str, Any]] = []
     for row in list(rows):
-        parent_key = str((row or {}).get("parent_chapter", "") or "").strip()
+        parent_key = _normalize_subtitle_optional_text(_row_ci_get(row, "parent_chapter"))
         if parent_key and chapter_key and parent_key != chapter_key:
             continue
 
-        start_frame = _parse_frame_value((row or {}).get("start_frame", (row or {}).get("start")))
-        end_frame = _parse_frame_value((row or {}).get("end_frame", (row or {}).get("end")))
+        start_frame, end_frame = _chapter_row_bounds(row)
         if start_frame is None or end_frame is None or end_frame <= start_frame:
+            continue
+        if int(start_frame) < int(chapter_start) or int(end_frame) > int(chapter_end):
+            continue
+        if int(start_frame) == int(chapter_start) and int(end_frame) == int(chapter_end):
             continue
 
         lo = max(int(chapter_start), int(start_frame))
@@ -718,9 +849,7 @@ def _load_split_entries_for_chapter(
         if hi <= lo:
             continue
 
-        title = _normalize_subtitle_optional_text(
-            (row or {}).get("title", (row or {}).get("split_title", (row or {}).get("chapter_title", "")))
-        )
+        title = _chapter_row_title(row)
         if not title:
             title = chapter_key or f"Chapter {len(local_entries) + 1}"
         local_entries.append(
@@ -756,32 +885,24 @@ def _save_split_entries_for_chapter(
     if not archive_name:
         return path, 0
     if chapter_end <= chapter_start:
-        _write_chapters_tsv_rows(path, CHAPTERS_TSV_PREFIX_COLUMNS + ["title"], [])
+        _write_chapters_tsv_rows(path, CHAPTERS_TSV_META_COLUMNS + ["title"], [])
         return path, 0
 
     normalized_local = _normalize_split_entries_payload(
         local_entries,
         chapter_frame_count=chapter_frame_count,
     )
-    existing_header, existing_rows = _read_chapters_tsv_rows(path)
-
-    kept_rows: list[dict[str, Any]] = []
-    for row in list(existing_rows):
-        parent_key = str((row or {}).get("parent_chapter", "") or "").strip()
-        if parent_key and chapter_key and parent_key == chapter_key:
-            continue
-        if not parent_key:
-            start_frame = _parse_frame_value((row or {}).get("start_frame", (row or {}).get("start")))
-            end_frame = _parse_frame_value((row or {}).get("end_frame", (row or {}).get("end")))
-            if (
-                start_frame is not None
-                and end_frame is not None
-                and end_frame > start_frame
-                and int(chapter_start) <= int(start_frame)
-                and int(end_frame) <= int(chapter_end)
-            ):
-                continue
-        kept_rows.append(dict(row or {}))
+    default_single = _default_split_entries_for_chapter(chapter_key, chapter_frame_count)
+    if (
+        len(normalized_local) == 1
+        and len(default_single) == 1
+        and int(normalized_local[0].get("start_frame", -1)) == int(default_single[0].get("start_frame", -2))
+        and int(normalized_local[0].get("end_frame", -1)) == int(default_single[0].get("end_frame", -2))
+        and _normalize_subtitle_optional_text(normalized_local[0].get("title"))
+        == _normalize_subtitle_optional_text(default_single[0].get("title"))
+    ):
+        normalized_local = []
+    existing_header, existing_rows = _canonical_chapters_base(path, archive_name)
 
     ffmetadata, chapter_fields, global_fields, parent_chapter = _chapters_ffmetadata_context(archive_name, chapter_key)
     chapter_defaults: dict[str, str] = {}
@@ -804,36 +925,83 @@ def _save_split_entries_for_chapter(
             else:
                 chapter_defaults[key] = str(parent_chapter.get(key, "") or "").strip()
 
-    new_rows: list[dict[str, Any]] = []
-    for idx, item in enumerate(list(normalized_local or [])):
-        local_start = int(item.get("start_frame", 0))
-        local_end = int(item.get("end_frame", 0))
-        if local_end <= local_start:
-            continue
-        global_start = int(chapter_start) + int(local_start)
-        global_end = int(chapter_start) + int(local_end)
-        title = _normalize_subtitle_optional_text(item.get("title")) or chapter_key or f"Chapter {idx + 1}"
-        row: dict[str, Any] = {
-            "parent_chapter": chapter_key,
-            "start_frame": str(int(global_start)),
-            "end_frame": str(int(global_end)),
-        }
-        for key in chapter_fields:
-            if key == "start":
-                row[key] = str(int(global_start))
-            elif key == "end":
-                row[key] = str(int(global_end))
-            elif key == "title":
-                row[key] = title
-            else:
-                row[key] = str(chapter_defaults.get(key, "") or "")
-        if "title" not in chapter_fields:
-            row["title"] = title
+    parent_row = next(
+        (
+            dict(row or {})
+            for row in list(existing_rows)
+            if _chapter_row_is_exact_parent(row, chapter_key, chapter_start, chapter_end)
+        ),
+        None,
+    )
+    if parent_row is None:
+        parent_row = {}
+        parent_row[TSV_META_HEADER_COL] = ";FFMETADATA1"
+        parent_row[TSV_META_GLOBAL_ORDER_COL] = "|".join(global_fields)
+        chapter_order = [key for key in chapter_fields if key not in CHAPTER_FFMETADATA_COMPUTED_KEYS]
+        parent_row[TSV_META_CHAPTER_ORDER_COL] = "|".join(chapter_order)
         for key in global_fields:
-            row[f"ffmeta_{key}"] = str(ffmetadata.get(key, "") or "").strip()
-        new_rows.append(row)
+            parent_row[f"{TSV_FFMETA_PREFIX}{key}"] = str(ffmetadata.get(key, "") or "").strip()
+        for key in chapter_order:
+            if key == "start":
+                parent_row[key] = str(int(chapter_start))
+            elif key == "end":
+                parent_row[key] = str(int(chapter_end))
+            elif key == "title":
+                parent_row[key] = chapter_key
+            else:
+                parent_row[key] = str(chapter_defaults.get(key, "") or "")
+        if "title" not in {str(k).strip().lower() for k in chapter_order}:
+            parent_row["title"] = chapter_key
 
-    merged_rows = [*kept_rows, *new_rows]
+    merged_rows: list[dict[str, Any]] = []
+    inserted_children = False
+    for raw_row in list(existing_rows):
+        row = dict(raw_row or {})
+        start_frame, end_frame = _chapter_row_bounds(row)
+        inside_current = (
+            start_frame is not None
+            and end_frame is not None
+            and end_frame > start_frame
+            and int(chapter_start) <= int(start_frame)
+            and int(end_frame) <= int(chapter_end)
+        )
+        if _chapter_row_is_exact_parent(row, chapter_key, chapter_start, chapter_end):
+            merged_rows.append(row)
+            if not inserted_children:
+                for idx, item in enumerate(list(normalized_local or [])):
+                    local_start = int(item.get("start_frame", 0))
+                    local_end = int(item.get("end_frame", 0))
+                    if local_end <= local_start:
+                        continue
+                    global_start = int(chapter_start) + int(local_start)
+                    global_end = int(chapter_start) + int(local_end)
+                    title = _normalize_subtitle_optional_text(item.get("title")) or chapter_key or f"Chapter {idx + 1}"
+                    merged_rows.append(
+                        _canonical_child_row_from_parent(parent_row, existing_header, global_start, global_end, title)
+                    )
+                inserted_children = True
+            continue
+        if inside_current:
+            continue
+        merged_rows.append(row)
+
+    if not any(_chapter_row_is_exact_parent(row, chapter_key, chapter_start, chapter_end) for row in merged_rows):
+        merged_rows.append(parent_row)
+        if not inserted_children:
+            for idx, item in enumerate(list(normalized_local or [])):
+                local_start = int(item.get("start_frame", 0))
+                local_end = int(item.get("end_frame", 0))
+                if local_end <= local_start:
+                    continue
+                global_start = int(chapter_start) + int(local_start)
+                global_end = int(chapter_start) + int(local_end)
+                title = _normalize_subtitle_optional_text(item.get("title")) or chapter_key or f"Chapter {idx + 1}"
+                merged_rows.append(
+                    _canonical_child_row_from_parent(parent_row, existing_header, global_start, global_end, title)
+                )
+            inserted_children = True
+
+    merged_rows = _reindex_canonical_chapter_rows(merged_rows)
     columns: list[str] = []
     seen_columns: set[str] = set()
 
@@ -844,14 +1012,15 @@ def _save_split_entries_for_chapter(
         seen_columns.add(col)
         columns.append(col)
 
-    for col in CHAPTERS_TSV_PREFIX_COLUMNS:
+    for col in CHAPTERS_TSV_META_COLUMNS:
         _add_col(col)
-    for col in chapter_fields:
-        _add_col(col)
-    if "title" not in seen_columns:
-        _add_col("title")
     for col in global_fields:
-        _add_col(f"ffmeta_{col}")
+        _add_col(f"{TSV_FFMETA_PREFIX}{col}")
+    chapter_order_template = _chapter_order_keys_for_row(parent_row, existing_header)
+    for col in chapter_order_template:
+        _add_col(col)
+    if "title" not in {str(c).strip().lower() for c in chapter_order_template}:
+        _add_col("title")
     for col in list(existing_header or []):
         _add_col(col)
     for row in merged_rows:
@@ -859,7 +1028,7 @@ def _save_split_entries_for_chapter(
             _add_col(col)
 
     _write_chapters_tsv_rows(path, columns, merged_rows)
-    return path, len(new_rows)
+    return path, len(normalized_local)
 
 
 def _parse_frame_value(raw: Any) -> int | None:
@@ -2902,7 +3071,7 @@ class WizardHandler(BaseHTTPRequestHandler):
         _set_stage_progress(stage_idx, chapter_len, stage_label)
 
         session.preview_video_path = str(preview_video.resolve())
-        mode_desc = preview_mode if preview_mode in {"review", "gamma", "people", "split", "summary"} else "combined"
+        mode_desc = preview_mode if preview_mode in {"review", "gamma", "people", "subtitles", "split", "summary"} else "combined"
         msg = (
             f"Preview render ready for {session.chapter}: "
             f"mode={mode_desc}, freeze={'on' if apply_freeze else 'off'}, gamma={'on' if apply_gamma else 'off'}. "
