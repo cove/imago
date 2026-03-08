@@ -461,7 +461,7 @@ def _chapter_bad_overrides(
     # Seed per-session overrides from persisted chapter BAD_FRAMES so a chapter
     # reload reflects previously saved decisions in the sampled frame view.
     start, end = _normalize_frame_span(ch_start, ch_end)
-    bad_frames = get_bad_frames_for_chapter(str(archive or ""), str(chapter_title or ""))
+    bad_frames = get_bad_frames_for_chapter(str(archive or ""), str(chapter_title or ""), ch_start=start, ch_end=end)
     out: dict[int, str] = {}
     for fid in (bad_frames or []):
         try:

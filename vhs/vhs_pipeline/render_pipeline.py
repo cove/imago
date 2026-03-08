@@ -1824,7 +1824,6 @@ def _run_with_args(args):
 
                         gamma_profile = get_gamma_profile_for_chapter(
                             archive=str(archive_name or ""),
-                            chapter_title=str(title or ""),
                             ch_start=chapter_start_frame,
                             ch_end=chapter_end_frame,
                         )

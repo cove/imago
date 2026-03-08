@@ -9,15 +9,8 @@ from vhs_pipeline import render_pipeline
 def _write_chapters(path: Path, title: str, start_frame: int, end_frame: int) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        ";FFMETADATA1\n"
-        "title=Demo Tape\n"
-        "[CHAPTER]\n"
-        "TIMEBASE=1001/30000\n"
-        f"START={int(start_frame)}\n"
-        f"END={int(end_frame)}\n"
-        f"TITLE={title}\n"
-        "creation_time=1995-03-18T00:00:00Z\n"
-        "location=Seattle\n",
+        "__chapter_index\tTIMEBASE\tSTART\tEND\ttitle\n"
+        f"1\t1001/30000\t{int(start_frame)}\t{int(end_frame)}\t{title}\n",
         encoding="utf-8",
     )
 
@@ -56,7 +49,7 @@ def _configure_render_env(monkeypatch, tmp_path: Path, transcript_mode: str) -> 
     (archive_dir / f"{archive_name}.mkv").write_bytes(b"stub")
 
     archive_meta = metadata_dir / archive_name
-    _write_chapters(archive_meta / "chapters.ffmetadata", chapter_title, 300, 360)
+    _write_chapters(archive_meta / "chapters.tsv", chapter_title, 300, 360)
     (archive_meta / "filter.avs").write_text("c = last\nc\n", encoding="ascii")
     _write_people_tsv(archive_meta / "people.tsv")
 
