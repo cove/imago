@@ -7,7 +7,7 @@ import shutil
 
 import numpy as np
 
-from common import update_chapter_bad_frames_in_render_settings
+from common import merge_bad_frames_in_render_settings
 from apps.plain_html_wizard import server as wizard_server
 from libs.vhs_tuner_core import _chapter_bad_overrides
 from apps.plain_html_wizard.server import (
@@ -358,10 +358,7 @@ def test_chapter_bad_overrides_load_saved_bad_frames_from_render_settings() -> N
     title = "Unit Chapter"
     archive_meta_dir = ROOT / "metadata" / archive
     try:
-        update_chapter_bad_frames_in_render_settings(
-            archive,
-            {title: [100, 105, 205]},
-        )
+        merge_bad_frames_in_render_settings(archive, [100, 105, 205])
         overrides = _chapter_bad_overrides(
             archive=archive,
             chapter_title=title,

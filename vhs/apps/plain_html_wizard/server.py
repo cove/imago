@@ -46,7 +46,7 @@ from common import (
     get_transcript_mode_for_chapter,
     parse_chapters,
     update_chapter_gamma_in_render_settings,
-    update_chapter_transcript_in_render_settings,
+    update_chapter_transcript_in_chapters_tsv,
 )
 from libs.vhs_tuner_core import (
     _bgr_to_jpeg_b64,
@@ -844,9 +844,12 @@ def _load_split_entries_for_chapter(
 ) -> list[dict[str, Any]]:
     """Load the split/sub-clip entries for the chapter editor.
 
-    Chapters are flat, independent ranges in the archive — there is no parent-child
-    hierarchy. This looks up the chapter's own TSV row by title + start_frame and
-    returns it as a single local entry so the split editor shows the current bounds.
+    Looks up sub-chapter rows that belong to the given chapter and returns them
+    normalized to local (chapter-relative) frame coordinates.
+
+    Legacy format: rows have a ``parent_chapter`` column linking them to the parent.
+    Canonical format: rows that fall within [ch_start, ch_end] and are not the
+    parent chapter row itself are treated as sub-chapters.
     """
     archive_name = str(archive or "").strip()
     chapter_key = str(chapter_title or "").strip()
@@ -860,24 +863,49 @@ def _load_split_entries_for_chapter(
     if not rows:
         return _default_split_entries_for_chapter(chapter_key, chapter_frame_count)
 
-    # Find this chapter's own row (first match by title + start_frame).
-    for row in list(rows):
-        if not _chapter_row_matches(row, chapter_key, chapter_start):
-            continue
-        start_frame, end_frame = _chapter_row_bounds(row)
-        if start_frame is None or end_frame is None or end_frame <= start_frame:
-            continue
-        lo = int(chapter_start)
-        hi = int(end_frame)
-        if hi <= lo:
-            continue
-        title = _chapter_row_title(row) or chapter_key
-        return _normalize_split_entries_payload(
-            [{"start_frame": 0, "end_frame": hi - lo, "title": title}],
-            chapter_frame_count=chapter_frame_count,
-        ) or _default_split_entries_for_chapter(chapter_key, chapter_frame_count)
+    sub_entries: list[dict[str, Any]] = []
 
-    return _default_split_entries_for_chapter(chapter_key, chapter_frame_count)
+    # Legacy format: rows have a parent_chapter column.
+    is_legacy = any(_row_ci_get(row, "parent_chapter") is not None for row in rows)
+
+    if is_legacy:
+        for row in rows:
+            parent = _row_ci_get(row, "parent_chapter")
+            if str(parent or "").strip() != chapter_key:
+                continue
+            start_frame, end_frame = _chapter_row_bounds(row)
+            if start_frame is None or end_frame is None or end_frame <= start_frame:
+                continue
+            title = _chapter_row_title(row) or chapter_key
+            sub_entries.append({
+                "start_frame": int(start_frame) - chapter_start,
+                "end_frame": int(end_frame) - chapter_start,
+                "title": title,
+            })
+    else:
+        # Canonical format: find rows within [chapter_start, chapter_end] that are
+        # not the parent chapter row itself.
+        for row in rows:
+            if _chapter_row_matches(row, chapter_key, chapter_start):
+                continue
+            start_frame, end_frame = _chapter_row_bounds(row)
+            if start_frame is None or end_frame is None or end_frame <= start_frame:
+                continue
+            if int(start_frame) >= chapter_start and int(end_frame) <= chapter_end:
+                title = _chapter_row_title(row) or chapter_key
+                sub_entries.append({
+                    "start_frame": int(start_frame) - chapter_start,
+                    "end_frame": int(end_frame) - chapter_start,
+                    "title": title,
+                })
+
+    if not sub_entries:
+        return _default_split_entries_for_chapter(chapter_key, chapter_frame_count)
+
+    return _normalize_split_entries_payload(
+        sub_entries,
+        chapter_frame_count=chapter_frame_count,
+    ) or _default_split_entries_for_chapter(chapter_key, chapter_frame_count)
 
 
 def _save_split_entries_for_chapter(
@@ -1500,7 +1528,8 @@ def _persist_session_progress(session: SessionState) -> tuple[Path | None, Path,
 
     gamma_path = update_chapter_gamma_in_render_settings(
         archive=session.archive,
-        chapter_title=session.chapter,
+        ch_start=session.start_frame,
+        ch_end=session.end_frame,
         gamma_ranges=session.gamma_ranges,
         default_gamma=session.gamma_default,
     )
@@ -2890,7 +2919,6 @@ class WizardHandler(BaseHTTPRequestHandler):
         session.sigs = dict(sigs)
         gamma_profile = get_gamma_profile_for_chapter(
             archive=session.archive,
-            chapter_title=session.chapter,
             ch_start=session.start_frame,
             ch_end=session.end_frame,
         )
@@ -3830,7 +3858,7 @@ class WizardHandler(BaseHTTPRequestHandler):
         raw = (payload or {}).get("auto_transcript", "off")
         mode = "on" if str(raw).strip().lower() in {"on", "true", "1", "yes"} else "off"
         try:
-            update_chapter_transcript_in_render_settings(
+            update_chapter_transcript_in_chapters_tsv(
                 session.archive,
                 session.chapter,
                 transcript=mode,

@@ -57,12 +57,12 @@ def audio_mode(chapter):
         return "off"
     return "on"
 
-def transcript_mode(archive_name, chapter_title):
-    mode = get_transcript_mode_for_chapter(
-        archive=str(archive_name or ""),
-        chapter_title=str(chapter_title or ""),
-    )
-    return "on" if str(mode).strip().lower() == "on" else "off"
+def transcript_mode(chapter):
+    raw = (chapter or {}).get("transcript")
+    mode = str(raw).strip().lower() if raw is not None else "off"
+    if mode in {"off", "false", "0", "no", "none", ""}:
+        return "off"
+    return "on"
 
 def title_selected(title, filters, exact=False):
     if not filters:
@@ -1595,6 +1595,38 @@ def transcribe_audio(model, temp_transcript, final_srt, final_vtt, final_dir, pr
     vtt_writer(result, str(final_vtt))
     return result
 
+def _ensure_derived_metadata_current(meta_dir):
+    """Regenerate chapters.ffmetadata, markers.tsv, and markers.mkvchapters.xml from chapters.tsv if stale."""
+    from vhs_pipeline.metadata import (
+        generate_ffmetadata_from_chapters_tsv,
+        generate_tsv_metadata,
+        generate_mkv_chapters_xml,
+    )
+    chapters_tsv = Path(meta_dir) / "chapters.tsv"
+    if not chapters_tsv.exists():
+        return
+    tsv_mtime = chapters_tsv.stat().st_mtime
+    derived = [
+        (Path(meta_dir) / "chapters.ffmetadata", generate_ffmetadata_from_chapters_tsv),
+        (Path(meta_dir) / "markers.tsv", generate_tsv_metadata),
+        (Path(meta_dir) / "markers.mkvchapters.xml", generate_mkv_chapters_xml),
+    ]
+    if any(not p.exists() or p.stat().st_mtime < tsv_mtime for p, _ in derived):
+        print(f"  Derived metadata is stale; regenerating from {chapters_tsv.name}")
+        for p, gen_fn in derived:
+            gen_fn(chapters_tsv, p)
+
+
+def _load_chapters_from_tsv(chapters_tsv_path):
+    """Load chapters from master chapters.tsv, returning (ffmeta, chapters) compatible with parse_chapters format."""
+    from vhs_pipeline.metadata import _load_master_chapters, _chapter_seconds
+    ffmeta, chapters = _load_master_chapters(Path(chapters_tsv_path))
+    for ch in chapters:
+        ch["start"] = _chapter_seconds(ch, "start")
+        ch["end"] = _chapter_seconds(ch, "end")
+    return ffmeta, chapters
+
+
 def _run_with_args(args):
     model = None
     rebuild_selected = bool(args.title)
@@ -1612,13 +1644,14 @@ def _run_with_args(args):
             if not any(f in stem_text for f in archive_filters):
                 continue
         archive_name = src.stem
-        chapters_file = METADATA_DIR / archive_name / "chapters.ffmetadata"
-        if not chapters_file.exists():
-            print(f"Skipping {src.name}: no metadata found {chapters_file}")
+        chapters_tsv = METADATA_DIR / archive_name / "chapters.tsv"
+        if not chapters_tsv.exists():
+            print(f"Skipping {src.name}: no metadata found {chapters_tsv}")
             continue
+        _ensure_derived_metadata_current(METADATA_DIR / archive_name)
         _settings_path, _render_settings = load_render_settings(archive_name, create=True)
 
-        ffm, chapters = parse_chapters(chapters_file)
+        ffm, chapters = _load_chapters_from_tsv(chapters_tsv)
         if not chapters:
             print(f"No chapters for {src.name}")
             continue
@@ -1682,7 +1715,7 @@ def _run_with_args(args):
                 else []
             )
             include_audio = audio_mode(ch) == "on"
-            transcribe_dialogue = include_audio and transcript_mode(archive_name, title) == "on"
+            transcribe_dialogue = include_audio and transcript_mode(ch) == "on"
 
             if chapter_done(final_file) and not rebuild_selected:
                 print(f"Skipping existing chapter: {title}")

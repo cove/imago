@@ -43,7 +43,7 @@ from common import (
     parse_bad_frames_csv,
     parse_chapters,
     require_non_empty,
-    update_chapter_bad_frames_in_render_settings,
+    merge_bad_frames_in_render_settings,
 )
 
 
@@ -646,13 +646,14 @@ def _run_with_config(config: TrackingLossConfig):
         bad_frames=bad_frames,
     )
     archive_name = str(config.archive or "").strip()
-    touched_path = update_chapter_bad_frames_in_render_settings(archive_name, chapter_updates)
+    flat_bad_frames = [f for frames in chapter_updates.values() for f in frames]
+    touched_path = merge_bad_frames_in_render_settings(archive_name, flat_bad_frames)
     touched = len(chapter_updates)
     print(
-        f"Updated chapter bad_frames in render settings: {touched_path} "
-        f"({touched} chapter block(s) updated)"
+        f"Updated bad_frames in render settings: {touched_path} "
+        f"({touched} chapter(s) evaluated, {len(flat_bad_frames)} frame(s) added)"
     )
-    print("Outputs:                render_settings.json (bad_frames_by_chapter) only")
+    print("Outputs:                render_settings.json (bad_frames) only")
 
     return {
         "chapters_file":          chapters_file,

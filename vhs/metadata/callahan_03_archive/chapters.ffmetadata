@@ -162,7 +162,7 @@ comment=
 TIMEBASE=1001/30000
 START=48333
 END=51787
-title=2000 - Ryan 4 to 11 Months - 15 Bill playing with Ryan on Mother's Day 
+title=2000 - Ryan 4 to 11 Months - 15 Bill playing with Ryan on Mother's Day
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 RECORDING_LOCATION=US
 location=/
@@ -173,13 +173,21 @@ comment=
 TIMEBASE=1001/30000
 START=51788
 END=55314
-title=2000 - Ryan 4 to 11 Months - 16 Gloria playing with Ryan on Mother's Day 
+title=2000 - Ryan 4 to 11 Months - 16 Gloria playing with Ryan on Mother's Day
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 RECORDING_LOCATION=US
 location=/
 creation_time=2000
 comment=
 
-
-
-
+[CHAPTER]
+TIMEBASE=1001/30000
+START=31980
+END=34570
+title=1995 - Lynda & Jim's Wedding - 05 Nuptuals (March 18, 1995)
+DATE_RECORDED=2000; UTC
+DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
+RECORDING_LOCATION=US, California, Altadena
+location=+38.0794477-122.2095686/1993 Beverly Dr, Pasadena, CA 91104
+creation_time=2000
+comment=Extensive drop outs and loss of tracking
