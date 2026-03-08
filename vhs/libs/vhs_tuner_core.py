@@ -166,7 +166,12 @@ def _read_chapters_tsv_rows(path: Path) -> list[dict[str, str]]:
 
 
 def _chapter_from_tsv_row(archive: str, row: dict[str, str]) -> dict | None:
-    lower = {str(k or "").strip().lower(): str(v or "").strip() for k, v in dict(row or {}).items()}
+    lower: dict[str, str] = {}
+    for _k, _v in dict(row or {}).items():
+        _key = str(_k or "").strip().lower()
+        _val = str(_v or "").strip()
+        if _key and (_key not in lower or _val):
+            lower[_key] = _val
     title = str(
         lower.get("title")
         or lower.get("chaptertitle")
@@ -830,6 +835,7 @@ def extract_frames(
 
     read_offset = int(frame_read_offset)
     n_total = max(1, len(frame_ids))
+    prev_read_fid: int | None = None
     for idx, fid in enumerate(frame_ids):
         if callable(should_cancel) and bool(should_cancel()):
             if cap is not None:
@@ -854,8 +860,11 @@ def extract_frames(
                         cap.release()
                         cap = None
                         return None, None, None, f"Cannot open video: {video_path}"
-                cap.set(cv2.CAP_PROP_POS_FRAMES, int(read_fid))
+                # Skip seek when frames are sequential — cap is already at the right position
+                if prev_read_fid is None or read_fid != prev_read_fid + 1:
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, int(read_fid))
                 ok, read_bgr = cap.read()
+                prev_read_fid = read_fid
                 if not ok or read_bgr is None:
                     bgr = np.zeros((240, 320, 3), dtype=np.uint8)
                 else:

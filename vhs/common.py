@@ -938,6 +938,35 @@ def get_transcript_mode_for_chapter(archive: str, chapter_title: str) -> str:
         return _normalize_transcript_mode(override.get("transcript"), default=base)
     return base
 
+def update_chapter_transcript_in_render_settings(
+    archive: str,
+    chapter_title: str,
+    *,
+    transcript: str,
+) -> Path:
+    path, settings = load_render_settings(archive, create=True)
+    title = str(chapter_title or "").strip()
+    if not title:
+        return save_render_settings(archive, settings)
+
+    archive_settings = dict(settings.get("archive_settings") or {})
+    archive_default = _normalize_transcript_mode(archive_settings.get("transcript", "off"), default="off")
+    chapter_settings = dict(settings.get("chapter_settings") or {})
+    chapter_cfg = dict(chapter_settings.get(title) or {})
+
+    normalized = _normalize_transcript_mode(transcript, default=archive_default)
+    if normalized == archive_default:
+        chapter_cfg.pop("transcript", None)
+    else:
+        chapter_cfg["transcript"] = normalized
+
+    if chapter_cfg:
+        chapter_settings[title] = chapter_cfg
+    else:
+        chapter_settings.pop(title, None)
+    settings["chapter_settings"] = chapter_settings
+    return save_render_settings(archive, settings)
+
 def load_bad_frames_by_chapter(path):
     bad_by_title = {}
     _ffm, chapters = parse_chapters(Path(path))
