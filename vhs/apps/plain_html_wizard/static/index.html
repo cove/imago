@@ -39,16 +39,7 @@
 
     body {
       margin: 0;
-      background:
-        repeating-linear-gradient(
-          0deg,
-          rgba(124, 152, 193, 0.07) 0px,
-          rgba(124, 152, 193, 0.07) 1px,
-          rgba(0, 0, 0, 0) 2px,
-          rgba(0, 0, 0, 0) 4px
-        ),
-        radial-gradient(1400px 800px at 50% -15%, #1d2b3f 0%, transparent 55%),
-        var(--bg);
+      background: var(--bg);
       color: var(--text);
       font-family: "Consolas", "Lucida Console", "Courier New", monospace;
       text-shadow: 0 0 4px rgba(41, 52, 70, 0.5);
@@ -113,6 +104,13 @@
     .status.error {
       border-color: var(--bad);
       color: #ffd2d7;
+    }
+
+    .steps-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
     }
 
     .steps {
@@ -968,7 +966,8 @@
       cursor: pointer;
     }
 
-    .flipbook-frame img {
+    .flipbook-frame img,
+    .flipbook-frame canvas {
       max-width: 100%;
       max-height: 100%;
       width: 100%;
@@ -1114,8 +1113,8 @@
       height: 149px;
     }
 
-    .frame-card.good { border-color: var(--good); }
-    .frame-card.bad { border-color: var(--bad); }
+    .bad-frame-step .frame-card.good { border-color: var(--good); }
+    .bad-frame-step .frame-card.bad { border-color: var(--bad); }
     .frame-card.playback-current {
       z-index: 1;
       outline: 2px solid rgba(110, 170, 255, 1);
@@ -1147,13 +1146,12 @@
     }
     .frame-card.loading {
       border-color: rgba(96, 116, 148, 0.7);
-      background: linear-gradient(180deg, rgba(12, 18, 28, 0.92) 0%, rgba(10, 15, 24, 0.96) 100%);
+      background: var(--bg-alt);
       cursor: default;
     }
     .frame-card.loading .frame-thumb-wrap {
-      background: linear-gradient(90deg, rgba(18, 28, 42, 0.9) 0%, rgba(30, 44, 66, 0.96) 50%, rgba(18, 28, 42, 0.9) 100%);
-      background-size: 220% 100%;
-      animation: frame-loading-sweep 1.3s linear infinite;
+      background: transparent;
+      border: 1px solid rgba(96, 116, 148, 0.3);
     }
     .frame-card.loading .frame-thumb-sprite {
       opacity: 0.94;
@@ -1164,6 +1162,7 @@
     }
 
     .frame-thumb-wrap {
+      position: relative;
       width: 100%;
       height: 112px;
       background: var(--bg);
@@ -1357,15 +1356,31 @@
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    .load-spinner {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-soft);
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      padding: 6px;
+      z-index: 200;
+    }
+    .load-spinner.active { display: flex; }
+    .load-spinner .spinner { width: 18px; height: 18px; border-width: 2px; }
+
+    .review-top-left { display: flex; gap: 8px; align-items: center; min-width: 0; }
+    .review-top-left #reviewStats { min-width: 0; }
     @keyframes frame-current-pulse {
       0% { opacity: 0.55; }
       50% { opacity: 1; }
       100% { opacity: 0.55; }
     }
-    @keyframes frame-loading-sweep {
-      0% { background-position: 100% 0; }
-      100% { background-position: -100% 0; }
-    }
+
 
     @media (max-width: 1100px) {
       .page-load-layout { grid-template-columns: 1fr; height: 100%; }
@@ -1514,11 +1529,15 @@
 <body>
   <div class="app">
     <div id="status" class="status"></div>
-    <div id="stepPills" class="steps"></div>
+    <div class="steps-row">
+      <button id="backToChaptersBtn" class="step-pill hidden-ui" type="button">&larr; Back</button>
+      <div id="stepPills" class="steps hidden-ui"></div>
+    </div>
 
     <section id="page1" class="page active">
       <div class="page-load-layout">
         <aside class="panel">
+          <button id="loadChapterBtn" class="action primary" type="button" style="margin-bottom:10px;">Load Chapter</button>
           <h2 class="panel-title">Archives</h2>
           <div id="archiveList" class="list"></div>
         </aside>
@@ -1534,7 +1553,9 @@
     <section id="page2" class="page">
       <div class="page-review-layout">
         <div class="panel review-top">
-          <div id="reviewStats" class="review-stats">No frames loaded.</div>
+          <div class="review-top-left">
+            <div id="reviewStats" class="review-stats">No frames loaded.</div>
+          </div>
           <div class="iqr-box">
             <button id="sparkPlayBtn" class="action spark-play-btn" type="button" title="Open fullscreen flipbook">Flipbook</button>
             <div id="reviewControls" class="iqr-box">
@@ -1568,6 +1589,7 @@
             </div>
             <div id="subtitlesControls" class="iqr-box hidden-ui">
               <button id="subtitlesGenerate" class="action" type="button">Generate Subtitles</button>
+              <label class="iqr-box-label"><input type="checkbox" id="subtitlesAutoTranscript"> Auto Transcript</label>
             </div>
             <button id="previewRender" class="action">Preview Render</button>
             <button id="saveProgressDraft" class="action">Save Progress</button>
@@ -1609,7 +1631,7 @@
 
         <div id="flipbookPreview" class="flipbook-preview" aria-hidden="true">
           <figure id="flipbookFrame" class="flipbook-frame">
-            <img id="flipbookImage" alt="Flipbook playback frame">
+            <canvas id="flipbookImage" width="160" height="120" aria-label="Flipbook playback frame"></canvas>
             <div id="flipbookSubtitles" class="flipbook-subtitles empty" aria-live="polite"></div>
           </figure>
           <div class="flipbook-head">
@@ -1652,6 +1674,10 @@
         </div>
       </div>
     </section>
+  </div>
+
+  <div id="loadSpinner" class="load-spinner" aria-hidden="true" aria-label="Loading frames">
+    <div class="spinner"></div>
   </div>
 
   <div id="overlay" class="overlay">
@@ -1805,6 +1831,7 @@
         entries: [],
         source: 'default',
       },
+      autoTranscript: false,
       splitProfile: {
         entries: [],
         source: 'default',
@@ -1901,6 +1928,7 @@
     const subtitlesControlsEl = document.getElementById('subtitlesControls');
     const peoplePrefillCastBtnEl = document.getElementById('peoplePrefillCast');
     const subtitlesGenerateBtnEl = document.getElementById('subtitlesGenerate');
+    const subtitlesAutoTranscriptEl = document.getElementById('subtitlesAutoTranscript');
     const peopleClearBtnEl = document.getElementById('peopleClear');
     const peopleMetaEl = document.getElementById('peopleMeta');
     const subtitlesMetaEl = document.getElementById('subtitlesMeta');
@@ -1948,6 +1976,9 @@
     const flipbookFwdBtnEl = document.getElementById('flipbookFwdBtn');
     const flipbookCloseBtnEl = document.getElementById('flipbookCloseBtn');
     const saveProgressDraftBtnEl = document.getElementById('saveProgressDraft');
+    const loadChapterBtnEl = document.getElementById('loadChapterBtn');
+    const backToChaptersBtnEl = document.getElementById('backToChaptersBtn');
+    const loadSpinnerEl = document.getElementById('loadSpinner');
 
     let autoIqrTimer = null;
     let visibleRangeRefreshPending = false;
@@ -1960,6 +1991,10 @@
     let overlayProgressStartedAt = 0;
     let progressiveReviewFrameCount = 0;
     let progressiveLoadOverlayDismissed = false;
+    let imageFetchedRanges = []; // sorted [{start, end}] frame index ranges fetched for display
+    let imageFetchVersion = 0;   // incremented on each change — used to bust sparkline cache
+    const chapterSparkSvgCache = new Map(); // key → svg string, keyed by chapter data hash
+    const chapterButtonCache = new Map();   // title → button element
     let loadProgressMessage = '';
     let loadProgressDone = 0;
     let loadProgressTotal = 0;
@@ -2009,9 +2044,11 @@
     let frameGridRenderedLayoutKey = '';
     let frameSheetPrefetchDone = new Set();
     let frameSheetPrefetchPending = new Map();
+    let frameSheetImageObjects = new Map(); // contact sheet URL -> loaded Image (kept alive for canvas drawImage)
     const pendingToggleRequests = new Set();
     const navActionButtons = new Map();
     const lockExtraButtons = [
+      loadChapterBtnEl,
       previewRenderBtnEl,
       gammaApplyVisibleBtnEl,
       gammaClearBtnEl,
@@ -2086,6 +2123,37 @@
       return status === 'good' || status === 'bad';
     }
 
+    function _recordImageFetchedRange(startRaw, endRaw) {
+      const s = Math.max(0, Math.trunc(Number(startRaw)));
+      const e = Math.max(s, Math.trunc(Number(endRaw)));
+      if (imageFetchedRanges.some((r) => r.start <= s && r.end >= e)) return;
+      imageFetchedRanges.push({ start: s, end: e });
+      imageFetchedRanges.sort((a, b) => a.start - b.start);
+      const merged = [];
+      for (const r of imageFetchedRanges) {
+        if (merged.length && r.start <= merged[merged.length - 1].end + 1) {
+          merged[merged.length - 1].end = Math.max(merged[merged.length - 1].end, r.end);
+        } else {
+          merged.push({ start: r.start, end: r.end });
+        }
+      }
+      imageFetchedRanges = merged;
+      imageFetchVersion += 1;
+    }
+
+    function _isImageFetchedIndex(index) {
+      let lo = 0;
+      let hi = imageFetchedRanges.length - 1;
+      while (lo <= hi) {
+        const mid = (lo + hi) >>> 1;
+        const r = imageFetchedRanges[mid];
+        if (index < r.start) { hi = mid - 1; }
+        else if (index > r.end) { lo = mid + 1; }
+        else { return true; }
+      }
+      return false;
+    }
+
     function buildReviewPlaceholderFrame(fidRaw) {
       const fid = Math.max(0, Math.trunc(Number(fidRaw || 0)));
       return {
@@ -2128,6 +2196,11 @@
           loadedCount: loadedFrames.length,
           totalCount: loadedFrames.length,
         };
+      }
+
+      // Fast path: if all frames are loaded, skip building a 65k placeholder array.
+      if (loadedFrames.length === totalCount) {
+        return { frames: loadedFrames, loadedCount: totalCount, totalCount };
       }
 
       const existingFrames = Array.isArray(existingFramesRaw) ? existingFramesRaw : null;
@@ -2487,6 +2560,7 @@
     function startLoadProgress(message) {
       clearLoadProgressPollTimer();
       setLoading(true, message || 'Loading chapter...');
+      if (loadSpinnerEl) loadSpinnerEl.classList.add('active');
       isChapterLoadInFlight = true;
       loadProgressPollInFlight = false;
       updateActionLocks();
@@ -2499,6 +2573,8 @@
       renderReadyAtFromSamples(0, 0);
       progressiveReviewFrameCount = 0;
       progressiveLoadOverlayDismissed = false;
+      imageFetchedRanges = [];
+      imageFetchVersion = 0;
       loadProgressMessage = '';
       loadProgressDone = 0;
       loadProgressTotal = 0;
@@ -2509,6 +2585,7 @@
 
     function finishLoadProgress(success = true) {
       clearLoadProgressPollTimer();
+      if (loadSpinnerEl) loadSpinnerEl.classList.remove('active');
       setLoadCancelUi(false);
       if (success) {
         setOverlayProgress(100);
@@ -2525,6 +2602,8 @@
       activeCancelableTask = '';
       progressiveReviewFrameCount = 0;
       progressiveLoadOverlayDismissed = false;
+      imageFetchedRanges = [];
+      imageFetchVersion = 0;
       loadProgressMessage = '';
       loadProgressDone = 0;
       loadProgressTotal = 0;
@@ -2743,13 +2822,14 @@
       if (!stepPillsEl) return;
       stepPillsEl.innerHTML = '';
       const activeStepNum = stepDef(state.wizardStep).num;
-      STEP_DEFS.forEach((step, index) => {
+      const visibleSteps = STEP_DEFS.filter((step) => step.mode !== 'load');
+      visibleSteps.forEach((step, index) => {
         const pill = document.createElement('button');
         pill.type = 'button';
         pill.id = `stepPill${step.num}`;
         pill.className = 'step-pill';
         pill.dataset.step = String(step.num);
-        pill.textContent = `${index + 1}/${STEP_COUNT} ${step.label}`;
+        pill.textContent = `${index + 1}/${visibleSteps.length} ${step.label}`;
         pill.disabled = isStepPillDisabled(step);
         if (step.num === activeStepNum) {
           pill.classList.add('active');
@@ -2789,6 +2869,9 @@
         page.classList.toggle('active', id === targetStep.pageId);
       });
       updateStepPillActive(targetStep.num);
+      const isLoadStep = targetStep.mode === 'load';
+      if (stepPillsEl) stepPillsEl.classList.toggle('hidden-ui', isLoadStep);
+      if (backToChaptersBtnEl) backToChaptersBtnEl.classList.toggle('hidden-ui', isLoadStep);
       const gammaMode = targetStep.mode === 'gamma';
       const peopleMode = targetStep.mode === 'people';
       const subtitlesMode = targetStep.mode === 'subtitles';
@@ -2813,6 +2896,7 @@
       if (subtitlesMetaEl) subtitlesMetaEl.classList.toggle('hidden-ui', !subtitlesMode);
       if (subtitlesEditorEl) subtitlesEditorEl.classList.toggle('hidden-ui', !subtitlesMode);
       if (splitEditorEl) splitEditorEl.classList.toggle('hidden-ui', !splitMode);
+      if (page2El) page2El.classList.toggle('bad-frame-step', targetStep.mode === 'review');
       if (flipbookGammaControlsEl) flipbookGammaControlsEl.classList.toggle('hidden-ui', !gammaMode);
       if (flipbookSimFreezeWrapEl) flipbookSimFreezeWrapEl.classList.toggle('hidden-ui', gammaMode);
 
@@ -2872,6 +2956,8 @@
 
     function chapterBadSparkSvg(ch) {
       const badFrames = Array.isArray(ch.bad_frames) ? ch.bad_frames : [];
+      const cacheKey = `${ch.title}:${ch.start_frame}:${ch.end_frame}:${badFrames.length}`;
+      if (chapterSparkSvgCache.has(cacheKey)) return chapterSparkSvgCache.get(cacheKey);
       const start = Number(ch.start_frame || 0);
       const end = Number(ch.end_frame || (start + Math.max(1, Number(ch.frames || 1))));
       const total = Math.max(1, end - start);
@@ -2903,17 +2989,19 @@
         .map((v, i) => {
           if (v <= 0) return '';
           const x = i * step;
-          return `<circle cx="${x.toFixed(2)}" cy="${baseY.toFixed(2)}" r="1.35" fill="var(--spark-hot)" opacity="0.98"></circle>`;
+          return `<circle cx="${x.toFixed(2)}" cy="${baseY.toFixed(2)}" r="1.35" fill="var(--bad)" opacity="0.98"></circle>`;
         })
         .join('');
 
-      return `
+      const svg = `
         <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" width="100%" height="100%" aria-hidden="true">
           <line x1="0" y1="${baseY}" x2="${w}" y2="${baseY}" stroke="var(--line)" stroke-width="1"></line>
           <polyline points="${points}" fill="none" stroke="var(--spark-base)" stroke-width="1.25" opacity="0.95"></polyline>
           ${dotSvg}
         </svg>
       `;
+      chapterSparkSvgCache.set(cacheKey, svg);
+      return svg;
     }
 
     function renderArchives() {
@@ -2928,8 +3016,19 @@
     }
 
     function renderChapters() {
-      chapterListEl.innerHTML = '';
-      state.chapters.forEach(ch => {
+      const chapters = state.chapters || [];
+      // Fast path: if the list hasn't changed, just toggle the active class
+      if (chapterButtonCache.size === chapters.length
+          && chapters.every(ch => chapterButtonCache.has(ch.title))) {
+        chapterButtonCache.forEach((btn, title) => {
+          btn.classList.toggle('active', title === state.chapter);
+        });
+        return;
+      }
+      // Full rebuild: chapter list changed (new archive loaded)
+      chapterButtonCache.clear();
+      const fragment = document.createDocumentFragment();
+      chapters.forEach(ch => {
         const m = chapterBadMeta(ch);
         const btn = document.createElement('button');
         btn.className = `item-btn chapter-row ${ch.title === state.chapter ? 'active' : ''}`;
@@ -2943,8 +3042,10 @@
           state.chapter = ch.title;
           renderChapters();
         });
-        chapterListEl.appendChild(btn);
+        chapterButtonCache.set(ch.title, btn);
+        fragment.appendChild(btn);
       });
+      chapterListEl.replaceChildren(fragment);
     }
 
     function statsText(stats, threshold) {
@@ -2979,6 +3080,13 @@
       );
       const start = Math.max(0, Math.trunc(Number.isFinite(startRaw) ? startRaw : 0));
       const end = Math.max(start + 1, Math.trunc(Number.isFinite(endRaw) ? endRaw : (start + 1)));
+      // If we have authoritative chapter metadata (selectedChapter or loadSettings), use it
+      // directly. Only fall back to deriving the span from loaded frames' min/max fid when
+      // no chapter metadata is available, to avoid inheriting a stale span from a previously
+      // loaded chapter when switching between chapters.
+      if (selectedChapter || hasActiveLoadSettings) {
+        return { start, end };
+      }
       const frames = (state.review && Array.isArray(state.review.frames)) ? state.review.frames : [];
       if (frames.length) {
         let minFid = Number.POSITIVE_INFINITY;
@@ -3232,7 +3340,7 @@
     }
 
     function timelineLabelFromFid(fidRaw) {
-      if (isSplitStepActive()) {
+      if (isSplitStepActive() || isBadFrameStepActive() || isGammaStepActive()) {
         const fid = Number(fidRaw);
         const frame = Number.isFinite(fid) ? Math.max(0, Math.trunc(fid)) : 0;
         return `F${frame}`;
@@ -3243,6 +3351,10 @@
     function formatTimelineSecondsLabel(rawSeconds) {
       if (isSplitStepActive()) {
         return `F${splitDisplayStartFrame(frameIndexFromSeconds(rawSeconds))}`;
+      }
+      if (isBadFrameStepActive() || isGammaStepActive()) {
+        const span = chapterFrameSpan();
+        return `F${Math.trunc(Number(span.start || 0)) + frameIndexFromSeconds(rawSeconds)}`;
       }
       return formatTimestampSeconds(rawSeconds);
     }
@@ -5237,7 +5349,7 @@
       const w = Math.max(320, Math.floor(iqrSparkEl.clientWidth || 320));
       const h = 68;
       const pad = 6;
-      const key = `review:${state.reviewSparklineVersion}:${w}`;
+      const key = `review:${state.reviewSparklineVersion}:${imageFetchVersion}:${w}`;
       const loaded = [];
       for (let i = 0; i < data.length; i += 1) {
         const frame = data[i];
@@ -5247,6 +5359,8 @@
       const sparkHot = themeVar('--spark-hot', '#ff9154');
       const sparkBase = themeVar('--spark-base', '#48a5bc');
       const sparkThreshold = themeVar('--spark-threshold', '#ff646e');
+      const sparkBad = themeVar('--bad', '#e16f7a');
+      const sparkGood = themeVar('--good', '#4ac28a');
       const bucketCount = Math.max(48, Math.floor(w - (pad * 2)));
       const xFor = (i) => {
         if (totalCount <= 1) return w / 2;
@@ -5279,12 +5393,33 @@
       const yThr = yFor(Number(threshold || 0));
       const yThrClamped = _clamp(yThr, 0, h);
       const clipId = 'sparkAboveThresholdClipReview';
-      const badDotsSvg = downsampleMarkerIndexes(
-        loaded.map(({ frame }) => frame.status === 'bad'),
-        bucketCount,
-      )
-        .map((index) => `<circle cx="${xFor(loaded[index].index).toFixed(2)}" cy="${(h - 2).toFixed(2)}" r="1.8" fill="${sparkHot}" opacity="0.95"></circle>`)
-        .join('');
+      // Pixel-accurate frame bar: map every frame to its x pixel, bad wins over good wins over fetched.
+      // Run-length encoded into rects — O(w) elements, no frames missed.
+      const barY = h - 3;
+      const barH = 3;
+      const pixelColor = new Uint8Array(w); // 0=none, 1=fetched, 2=good, 3=bad
+      for (let i = 0; i < data.length; i += 1) {
+        const px = Math.round(xFor(i));
+        if (px < 0 || px >= w) continue;
+        const frame = data[i];
+        if (isReviewFrameLoaded(frame)) {
+          if (frame.status === 'bad') { pixelColor[px] = 3; }
+          else if (pixelColor[px] < 2) { pixelColor[px] = 2; }
+        } else if (_isImageFetchedIndex(i) && pixelColor[px] === 0) {
+          pixelColor[px] = 1;
+        }
+      }
+      let frameBarSvg = '';
+      for (let i = 0; i < w;) {
+        const c = pixelColor[i];
+        if (!c) { i += 1; continue; }
+        let j = i + 1;
+        while (j < w && pixelColor[j] === c) j += 1;
+        const fill = c === 3 ? sparkBad : c === 2 ? sparkGood : '#839496';
+        const opacity = c === 3 ? '0.95' : c === 2 ? '0.82' : '0.55';
+        frameBarSvg += `<rect x="${i}" y="${barY}" width="${j - i}" height="${barH}" fill="${fill}" opacity="${opacity}"></rect>`;
+        i = j;
+      }
       let unloadedSvg = '';
       if (loaded.length < totalCount) {
         const firstUnloadedIndex = Math.max(0, loaded[loaded.length - 1].index + 1);
@@ -5301,7 +5436,7 @@
           <polyline points="${points}" fill="none" stroke="${sparkBase}" stroke-width="1.6" opacity="0.95"></polyline>
           <polyline points="${points}" fill="none" stroke="${sparkHot}" stroke-width="1.9" opacity="0.98" clip-path="url(#${clipId})"></polyline>
           <line x1="${pad}" y1="${yThr.toFixed(2)}" x2="${(w - pad).toFixed(2)}" y2="${yThr.toFixed(2)}" stroke="${sparkThreshold}" stroke-width="1.4" opacity="0.95"></line>
-          ${badDotsSvg}
+          ${frameBarSvg}
         `,
         metaBase: `Scores: min ${minV.toFixed(2)} | max ${maxV.toFixed(2)} | threshold ${Number(threshold || 0).toFixed(2)} | auto bad ${badCount} | loaded ${loaded.length}/${totalCount}`,
         totalCount,
@@ -5360,12 +5495,29 @@
       const yLevel = yFor(level);
       const yLevelClamped = _clamp(yLevel, 0, h);
       const clipId = 'sparkAboveThresholdClipGamma';
-      const hotDotsSvg = downsampleMarkerIndexes(
-        loaded.map(({ frame }) => gammaScoreForFrame(frame) > level),
-        bucketCount,
-      )
-        .map((index) => `<circle cx="${xFor(loaded[index].index).toFixed(2)}" cy="${(h - 2).toFixed(2)}" r="1.8" fill="${sparkHot}" opacity="0.95"></circle>`)
-        .join('');
+      // Pixel-accurate gamma bar: hot (above level) wins over normal.
+      const barY = h - 3;
+      const barH = 3;
+      const pixelColor = new Uint8Array(w); // 0=none, 1=normal, 2=hot
+      for (let i = 0; i < loaded.length; i += 1) {
+        const { index, frame } = loaded[i];
+        const px = Math.round(xFor(index));
+        if (px < 0 || px >= w) continue;
+        const hot = gammaScoreForFrame(frame) > level;
+        if (hot) { pixelColor[px] = 2; }
+        else if (pixelColor[px] === 0) { pixelColor[px] = 1; }
+      }
+      let gammaBarSvg = '';
+      for (let i = 0; i < w;) {
+        const c = pixelColor[i];
+        if (!c) { i += 1; continue; }
+        let j = i + 1;
+        while (j < w && pixelColor[j] === c) j += 1;
+        const fill = c === 2 ? sparkHot : sparkBase;
+        const opacity = c === 2 ? '0.95' : '0.45';
+        gammaBarSvg += `<rect x="${i}" y="${barY}" width="${j - i}" height="${barH}" fill="${fill}" opacity="${opacity}"></rect>`;
+        i = j;
+      }
       let unloadedSvg = '';
       if (loaded.length < totalCount) {
         const firstUnloadedIndex = Math.max(0, loaded[loaded.length - 1].index + 1);
@@ -5382,7 +5534,7 @@
           <polyline points="${points}" fill="none" stroke="${sparkBase}" stroke-width="1.6" opacity="0.95"></polyline>
           <polyline points="${points}" fill="none" stroke="${sparkHot}" stroke-width="1.9" opacity="0.98" clip-path="url(#${clipId})"></polyline>
           <line x1="${pad}" y1="${yLevel.toFixed(2)}" x2="${(w - pad).toFixed(2)}" y2="${yLevel.toFixed(2)}" stroke="${sparkThreshold}" stroke-width="1.4" opacity="0.95"></line>
-          ${hotDotsSvg}
+          ${gammaBarSvg}
         `,
         metaBase: `Gamma scores: min ${minV.toFixed(2)} | max ${maxV.toFixed(2)} | level ${level.toFixed(2)} | above level ${aboveCount} | loaded ${loaded.length}/${totalCount}`,
         totalCount,
@@ -5463,7 +5615,7 @@
         return;
       }
       const width = Math.max(320, Math.floor(iqrSparkEl.clientWidth || 320));
-      const cacheKey = `review:${state.reviewSparklineVersion}:${width}`;
+      const cacheKey = `review:${state.reviewSparklineVersion}:${imageFetchVersion}:${width}`;
       const nextCache = (
         String(state.sparklineCache.mode || '') === 'review'
         && String(state.sparklineCache.key || '') === cacheKey
@@ -6112,18 +6264,15 @@
     function flipbookIndexFromChapterSeconds(rawSeconds) {
       if (!sparkPlayFrames.length) return 0;
       const sec = Math.max(0, Number(rawSeconds || 0));
-      let bestIdx = 0;
-      let bestDist = Number.POSITIVE_INFINITY;
-      for (let i = 0; i < sparkPlayFrames.length; i += 1) {
-        const frame = sparkPlayFrames[i];
-        const frameSec = chapterLocalSecondsFromFid(frame && frame.fid);
-        const dist = Math.abs(frameSec - sec);
-        if (dist < bestDist) {
-          bestDist = dist;
-          bestIdx = i;
-        }
-      }
-      return bestIdx;
+      // O(1): frames are ordered by fid which maps linearly to time, so interpolate directly.
+      const first = sparkPlayFrames[0];
+      const last = sparkPlayFrames[sparkPlayFrames.length - 1];
+      const startFid = Math.trunc(Number((first && first.fid) || 0));
+      const endFid = Math.trunc(Number((last && last.fid) || startFid));
+      const targetFid = startFid + Math.round(sec * TIMELINE_FPS_NUM / TIMELINE_FPS_DEN);
+      const fidRange = Math.max(1, endFid - startFid);
+      const fraction = (targetFid - startFid) / fidRange;
+      return _clamp(Math.round(fraction * (sparkPlayFrames.length - 1)), 0, sparkPlayFrames.length - 1);
     }
 
     function loadedFrameSecondsRange() {
@@ -6446,7 +6595,12 @@
         flipbookMetaEl.textContent = '';
       }
       if (!on) {
-        if (flipbookImageEl) flipbookImageEl.removeAttribute('src');
+        if (flipbookImageEl) {
+          try {
+            const _ctx = flipbookImageEl.getContext('2d');
+            if (_ctx) _ctx.clearRect(0, 0, flipbookImageEl.width, flipbookImageEl.height);
+          } catch (_err) { flipbookImageEl.removeAttribute('src'); }
+        }
         if (flipbookSubtitlesEl) {
           flipbookSubtitlesEl.classList.add('empty');
           flipbookSubtitlesEl.innerHTML = '';
@@ -6463,20 +6617,9 @@
     }
 
     function _collectFlipbookFramesFromGrid() {
-      return reviewLoadedFrames()
-        .map((frame) => {
-          const display = frameDisplayModel(frame);
-          const src = String(display.image || '').trim();
-          if (!src) return null;
-          return {
-            fid: String((frame && frame.fid !== undefined && frame.fid !== null) ? frame.fid : ''),
-            label: String(formatFrameCardLabel(frame) || ''),
-            timecode: String(timelineLabelFromFid(frame.fid) || ''),
-            status: String(frame.status || 'good'),
-            src,
-          };
-        })
-        .filter(Boolean);
+      // Return loaded frames directly — image src, label, timecode are computed on demand
+      // in renderSparkPlaybackFrame to avoid O(n) precomputation for large frame sets.
+      return reviewLoadedFrames();
     }
 
     function renderSparkPlaybackFrame(index, options = {}) {
@@ -6486,10 +6629,40 @@
       const idx = _clamp(Number(index), 0, sparkPlayFrames.length - 1);
       const frame = sparkPlayFrames[idx];
       if (!frame) return;
-      flipbookImageEl.src = frame.src;
-      const tc = String(frame.timecode || timelineLabelFromFid(frame.fid) || '');
+      const fidKey = String((frame.fid !== undefined && frame.fid !== null) ? frame.fid : '');
+      const tc = String(timelineLabelFromFid(frame.fid) || '');
       const frameSeconds = chapterLocalSecondsFromFid(frame.fid);
-      flipbookImageEl.alt = `Flipbook frame ${tc || (idx + 1)}`;
+      // Render frame: prefer contact-sheet sprite (already browser-cached from grid) via canvas
+      // drawImage — zero network requests during playback. Fall back to URL-based img load.
+      const _fIdx = _flipbookFrameGlobalIndex(frame.fid);
+      const _sprite = _fIdx >= 0 ? frameContactSheetSpecForIndex(_fIdx) : null;
+      const _sheetImg = _sprite
+        ? (frameSheetImageObjects.get(_sprite.url) || frameSheetPrefetchPending.get(_sprite.url))
+        : null;
+      if (_sheetImg && _sheetImg.complete && _sheetImg.naturalWidth > 0) {
+        const ctx = flipbookImageEl.getContext && flipbookImageEl.getContext('2d');
+        if (ctx) {
+          const sx = _sprite.col * _sprite.thumbWidth;
+          const sy = _sprite.row * _sprite.thumbHeight;
+          ctx.drawImage(_sheetImg, sx, sy, _sprite.thumbWidth, _sprite.thumbHeight,
+            0, 0, flipbookImageEl.width, flipbookImageEl.height);
+        }
+      } else {
+        // Fallback: individual frame URL (first-time load or contact sheet not yet ready).
+        // After the first request the browser caches the response; subsequent loads are instant.
+        const src = frameImageSrcForFid(fidKey, frame.image);
+        if (src) {
+          const _fallbackImg = new Image();
+          const _capturedIdx = idx;
+          _fallbackImg.onload = () => {
+            if (sparkPlayIndex !== _capturedIdx) return;
+            const ctx2 = flipbookImageEl.getContext && flipbookImageEl.getContext('2d');
+            if (ctx2) ctx2.drawImage(_fallbackImg, 0, 0, flipbookImageEl.width, flipbookImageEl.height);
+          };
+          _fallbackImg.src = src;
+        }
+      }
+      flipbookImageEl.setAttribute('aria-label', `Flipbook frame ${tc || (idx + 1)}`);
       if (flipbookMetaEl) {
         const statusTag = frame.status === 'bad' ? 'BAD' : 'GOOD';
         flipbookMetaEl.textContent = `${idx + 1}/${sparkPlayFrames.length}  T:${tc || '?'}  ${statusTag}`;
@@ -6723,6 +6896,7 @@
     function startSparkWindowPlayback() {
       if (!sparkPlayFrames.length) {
         sparkPlayFrames = _collectFlipbookFramesFromGrid();
+        _prefetchFlipbookContactSheets(sparkPlayFrames);
       }
       if (!sparkPlayFrames.length) {
         setStatus('No frame images are available for flipbook playback.', true);
@@ -6760,6 +6934,35 @@
       updateFlipbookControls();
     }
 
+    function _flipbookFrameGlobalIndex(fid) {
+      const span = chapterFrameSpan();
+      const startFid = Math.trunc(Number(span.start || 0));
+      const frameIndex = Math.trunc(Number(fid)) - startFid;
+      const frames = currentReviewFrames();
+      if (frameIndex < 0 || frameIndex >= frames.length) return -1;
+      return frameIndex;
+    }
+
+    function _prefetchFlipbookContactSheets(frames) {
+      const span = chapterFrameSpan();
+      const startFid = Math.trunc(Number(span.start || 0));
+      const plan = frameGridContactSheetPlan();
+      const chunkSize = Math.max(
+        Math.max(1, Math.trunc(Number(plan.columns || FRAME_SHEET_DEFAULT_COLUMNS))),
+        Math.trunc(Number(plan.count || FRAME_SHEET_DEFAULT_CHUNK_SIZE))
+      );
+      const seen = new Set();
+      for (const frame of (frames || [])) {
+        const frameIndex = Math.trunc(Number(frame.fid)) - startFid;
+        if (frameIndex < 0) continue;
+        const sheetStart = Math.floor(frameIndex / chunkSize) * chunkSize;
+        if (seen.has(sheetStart)) continue;
+        seen.add(sheetStart);
+        const spec = frameContactSheetSpecForSheetStart(sheetStart);
+        if (spec && spec.url) prefetchFrameContactSheet(spec.url);
+      }
+    }
+
     async function openFlipbookPanel() {
       if (!isReviewStepActive()) return;
       if (!reviewLoadedFrameCount()) {
@@ -6771,6 +6974,7 @@
         setStatus('No frame images are available for fullscreen flipbook.', true);
         return;
       }
+      _prefetchFlipbookContactSheets(sparkPlayFrames);
       sparkPlayIndex = _clamp(Number(sparkPlayIndex || 0), 0, sparkPlayFrames.length - 1);
       setFlipbookFocusMode(true);
       await ensureReviewFullscreenActive();
@@ -6872,6 +7076,7 @@
         } catch (_err) {}
       });
       frameSheetPrefetchPending = new Map();
+      frameSheetImageObjects = new Map();
     }
 
     function _frameListToRanges(frameIds) {
@@ -7178,6 +7383,7 @@
       img.onload = () => {
         frameSheetPrefetchPending.delete(url);
         frameSheetPrefetchDone.add(url);
+        frameSheetImageObjects.set(url, img); // keep alive for canvas drawImage
       };
       img.onerror = () => {
         frameSheetPrefetchPending.delete(url);
@@ -7192,14 +7398,20 @@
       const metrics = metricsRaw && typeof metricsRaw === 'object' ? metricsRaw : frameGridMetrics(frames.length);
       const range = rangeRaw && typeof rangeRaw === 'object' ? rangeRaw : _computeVisibleIndexRange();
       if (!range) return;
+      const startIndex = _clamp(Number(range.start || 0), 0, frames.length - 1);
       const endIndex = _clamp(Number(range.end || 0), 0, frames.length - 1);
+      // Record visible range tiles for buffer indicator
+      const startSpec = frameContactSheetSpecForIndex(startIndex, metrics);
+      if (startSpec) _recordImageFetchedRange(startSpec.start, startSpec.start + startSpec.count - 1);
       const current = frameContactSheetSpecForIndex(endIndex, metrics);
       if (!current) return;
+      _recordImageFetchedRange(current.start, current.start + current.count - 1);
       const stride = Math.max(1, Math.trunc(Number(current.count || 1)));
       for (let i = 1; i <= FRAME_GRID_CONTACT_SHEET_PREFETCH_AHEAD; i += 1) {
         const nextStart = current.start + (stride * i);
         const next = frameContactSheetSpecForSheetStart(nextStart, metrics);
         if (!next || !next.url) break;
+        _recordImageFetchedRange(next.start, next.start + next.count - 1);
         prefetchFrameContactSheet(next.url);
       }
     }
@@ -7540,6 +7752,8 @@
         state.subtitlesProfile = normalizeSubtitlesProfile(
           (state.loadSettings && state.loadSettings.subtitles_profile) || null
         );
+        state.autoTranscript = (state.loadSettings && state.loadSettings.auto_transcript) === 'on';
+        if (subtitlesAutoTranscriptEl) subtitlesAutoTranscriptEl.checked = state.autoTranscript;
         state.splitProfile = normalizeSplitProfile(
           (state.loadSettings && state.loadSettings.split_profile) || null
         );
@@ -7876,27 +8090,69 @@
       if (showOverlay) {
         setLoading(true, next ? 'Forcing all loaded frames to good...' : 'Restoring frame classification...');
       }
+      // Save a compact snapshot of current frame statuses before enabling force,
+      // so we can restore them locally when disabling without a server round-trip.
+      if (next && state.review && Array.isArray(state.review.frames)) {
+        const snap = new Map();
+        for (const f of state.review.frames) {
+          if (f && !f.placeholder && !f.loading) snap.set(Number(f.fid), { status: f.status, source: f.source });
+        }
+        state._preForceFrameStatuses = snap;
+      }
       try {
         const result = await api('/api/set_force_all_good', 'POST', { enabled: next });
-        const review = {
-          ...(result.review || {}),
-          frames: sortFramesByFid((result.review && result.review.frames) || []),
-        };
-        syncForceAllFramesGoodFromReview(review);
-        setReviewState({
-          ...(state.review || {}),
-          stats: review.stats || { total: 0, bad: 0, good: 0, shown: 0, overrides: 0 },
-          threshold: Number(review.threshold || 0),
-          frames: review.frames || [],
-        }, state.review && Array.isArray(state.review.frames) ? state.review.frames : null);
-        if (Array.isArray(state.review.frames) && state.review.frames.length) {
-          reviewStatsEl.textContent = statsText(state.review.stats, state.review.threshold);
-          if (!isChapterLoadInFlight) {
-            renderActiveSparkline(state.review.frames, state.review.threshold);
+        const reviewRaw = result.review || {};
+        syncForceAllFramesGoodFromReview(reviewRaw);
+        const serverFrames = (result.review != null && 'frames' in result.review) ? result.review.frames : undefined;
+        if (serverFrames === null) {
+          // Fast path: server skipped frame serialization; patch statuses locally.
+          const existingFrames = (state.review && Array.isArray(state.review.frames)) ? state.review.frames : [];
+          let patchedFrames;
+          if (next) {
+            patchedFrames = existingFrames.map(f =>
+              (!f || f.placeholder || f.loading) ? f : { ...f, status: 'good', source: 'FG' }
+            );
+          } else {
+            const snapshot = state._preForceFrameStatuses;
+            patchedFrames = existingFrames.map(f => {
+              if (!f || f.placeholder || f.loading) return f;
+              const saved = snapshot && snapshot.get(Number(f.fid));
+              return saved ? { ...f, status: saved.status, source: saved.source } : f;
+            });
+            state._preForceFrameStatuses = null;
           }
-          applyFrameUpdates(state.review.frames);
+          state.review = {
+            ...(state.review || {}),
+            stats: reviewRaw.stats || (state.review && state.review.stats) || { total: 0, bad: 0, good: 0, shown: 0, overrides: 0 },
+            threshold: Number(reviewRaw.threshold != null ? reviewRaw.threshold : ((state.review && state.review.threshold) || 0)),
+            frames: patchedFrames,
+          };
+          invalidateReviewSparklineCache();
+          if (patchedFrames.length) {
+            reviewStatsEl.textContent = statsText(state.review.stats, state.review.threshold);
+            if (!isChapterLoadInFlight) renderActiveSparkline(state.review.frames, state.review.threshold);
+            renderFrameGridWindow(true);
+          }
         } else {
-          renderReviewFrames([]);
+          const review = {
+            ...reviewRaw,
+            frames: sortFramesByFid(reviewRaw.frames || []),
+          };
+          setReviewState({
+            ...(state.review || {}),
+            stats: review.stats || { total: 0, bad: 0, good: 0, shown: 0, overrides: 0 },
+            threshold: Number(review.threshold || 0),
+            frames: review.frames || [],
+          }, state.review && Array.isArray(state.review.frames) ? state.review.frames : null);
+          if (Array.isArray(state.review.frames) && state.review.frames.length) {
+            reviewStatsEl.textContent = statsText(state.review.stats, state.review.threshold);
+            if (!isChapterLoadInFlight) {
+              renderActiveSparkline(state.review.frames, state.review.threshold);
+            }
+            applyFrameUpdates(state.review.frames);
+          } else {
+            renderReviewFrames([]);
+          }
         }
         replaceGammaScores(new Map());
         refreshFreezeSimulation();
@@ -8378,6 +8634,20 @@
       });
     }
 
+    if (loadChapterBtnEl) {
+      loadChapterBtnEl.addEventListener('click', () => {
+        const result = navigateToStep(stepNumForMode('review'));
+        if (result && typeof result.then === 'function') void result;
+      });
+    }
+
+    if (backToChaptersBtnEl) {
+      backToChaptersBtnEl.addEventListener('click', () => {
+        const result = navigateToStep(stepNumForMode('load'));
+        if (result && typeof result.then === 'function') void result;
+      });
+    }
+
     previewRenderBtnEl.addEventListener('click', previewRender);
     fullscreenBtnEl.addEventListener('click', toggleReviewFullscreen);
     document.addEventListener('fullscreenchange', () => {
@@ -8430,6 +8700,19 @@
     }
     if (peoplePrefillCastBtnEl) {
       peoplePrefillCastBtnEl.addEventListener('click', prefillPeopleFromCast);
+    }
+    if (subtitlesAutoTranscriptEl) {
+      subtitlesAutoTranscriptEl.addEventListener('change', async () => {
+        const enabled = subtitlesAutoTranscriptEl.checked;
+        state.autoTranscript = enabled;
+        try {
+          await api('/api/set_auto_transcript', 'POST', { auto_transcript: enabled ? 'on' : 'off' });
+        } catch (err) {
+          setStatus('Failed to update Auto Transcript setting: ' + String(err));
+          subtitlesAutoTranscriptEl.checked = !enabled;
+          state.autoTranscript = !enabled;
+        }
+      });
     }
     if (subtitlesGenerateBtnEl) {
       subtitlesGenerateBtnEl.addEventListener('click', generateSubtitlesFromWhisper);
@@ -8833,6 +9116,35 @@
         seekFlipbookToFrameId(fid, { keepVisible: false });
       }
       if (isTimelineStepActive()) {
+        if (isPeopleStepActive() || isSubtitlesStepActive()) {
+          const timecode = chapterTimecodeFromFid(fidNum);
+          const editorEl = isPeopleStepActive() ? peopleEditorEl : subtitlesEditorEl;
+          const rowSelector = isPeopleStepActive() ? 'tr[data-people-row="1"]' : 'tr[data-sub-row="1"]';
+          const fieldAttr = isPeopleStepActive() ? 'data-people-field' : 'data-sub-field';
+          if (editorEl && timecode) {
+            const rows = Array.from(editorEl.querySelectorAll(rowSelector));
+            let targetRow = null;
+            for (let i = rows.length - 1; i >= 0; i--) {
+              const startInput = rows[i].querySelector(`[${fieldAttr}="start"]`);
+              const endInput = rows[i].querySelector(`[${fieldAttr}="end"]`);
+              if ((startInput && !startInput.value.trim()) || (endInput && !endInput.value.trim())) {
+                targetRow = rows[i];
+                break;
+              }
+            }
+            if (targetRow) {
+              const startInput = targetRow.querySelector(`[${fieldAttr}="start"]`);
+              const endInput = targetRow.querySelector(`[${fieldAttr}="end"]`);
+              if (startInput && !startInput.value.trim()) {
+                startInput.value = timecode;
+                startInput.dispatchEvent(new Event('change', { bubbles: true }));
+              } else if (endInput && !endInput.value.trim()) {
+                endInput.value = timecode;
+                endInput.dispatchEvent(new Event('change', { bubbles: true }));
+              }
+            }
+          }
+        }
         const idx = (state.review && Array.isArray(state.review.frames))
           ? state.review.frames.findIndex(f => String(f && f.fid) === String(fidNum))
           : -1;

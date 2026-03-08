@@ -43,8 +43,10 @@ from common import (
     combined_score,
     compute_threshold,
     get_gamma_profile_for_chapter,
+    get_transcript_mode_for_chapter,
     parse_chapters,
     update_chapter_gamma_in_render_settings,
+    update_chapter_transcript_in_render_settings,
 )
 from libs.vhs_tuner_core import (
     _bgr_to_jpeg_b64,
@@ -156,6 +158,7 @@ class SessionState:
     gamma_ranges: list[dict[str, Any]] = field(default_factory=list)
     people_entries: list[dict[str, Any]] = field(default_factory=list)
     subtitle_entries: list[dict[str, Any]] = field(default_factory=list)
+    auto_transcript: str = "off"
     split_entries: list[dict[str, Any]] = field(default_factory=list)
     partial_fids: list[int] = field(default_factory=list)
     partial_b64: list[str] = field(default_factory=list)
@@ -693,19 +696,18 @@ def _chapter_row_title(row: dict[str, Any]) -> str:
     )
 
 
-def _chapter_row_is_exact_parent(
-    row: dict[str, Any],
-    chapter_title: str,
-    chapter_start: int,
-    chapter_end: int,
-) -> bool:
-    row_start, row_end = _chapter_row_bounds(row)
+def _chapter_row_matches(row: dict[str, Any], chapter_title: str, chapter_start: int) -> bool:
+    """True when a TSV row represents the given chapter (matched by title + start_frame).
+
+    Chapters are flat, independent ranges in the archive — there is no parent-child
+    relationship. A row is considered "the same chapter" when title and start_frame
+    both match, regardless of end_frame (which may have been updated).
+    """
+    row_start, _row_end = _chapter_row_bounds(row)
     row_title = _chapter_row_title(row)
     return (
         row_start is not None
-        and row_end is not None
         and int(row_start) == int(chapter_start)
-        and int(row_end) == int(chapter_end)
         and row_title == str(chapter_title or "").strip()
     )
 
@@ -746,15 +748,21 @@ def _canonical_chapters_base(path: Path, archive_name: str) -> tuple[list[str], 
         return _read_chapters_tsv_rows(tmp_path)
 
 
-def _canonical_child_row_from_parent(
-    parent_row: dict[str, Any],
+def _build_chapter_row_from_template(
+    template_row: dict[str, Any],
     header: list[str],
     global_start: int,
     global_end: int,
     title: str,
 ) -> dict[str, Any]:
-    row = {str(k): v for k, v in dict(parent_row or {}).items() if str(k or "").strip() != "parent_chapter"}
-    chapter_keys = _chapter_order_keys_for_row(parent_row, header)
+    """Build a new chapter row by copying a template row and updating start, end, and title.
+
+    Chapters are flat, independent ranges — this simply creates a new row with the
+    correct bounds and title, inheriting metadata fields (archive name, dates, etc.)
+    from the template.
+    """
+    row = dict(template_row or {})
+    chapter_keys = _chapter_order_keys_for_row(template_row, header)
     if not row.get(TSV_META_HEADER_COL):
         row[TSV_META_HEADER_COL] = ";FFMETADATA1"
     for key in chapter_keys:
@@ -834,6 +842,12 @@ def _load_split_entries_for_chapter(
     ch_start: int,
     ch_end: int,
 ) -> list[dict[str, Any]]:
+    """Load the split/sub-clip entries for the chapter editor.
+
+    Chapters are flat, independent ranges in the archive — there is no parent-child
+    hierarchy. This looks up the chapter's own TSV row by title + start_frame and
+    returns it as a single local entry so the split editor shows the current bounds.
+    """
     archive_name = str(archive or "").strip()
     chapter_key = str(chapter_title or "").strip()
     chapter_start = int(ch_start)
@@ -842,47 +856,27 @@ def _load_split_entries_for_chapter(
     if not archive_name or chapter_end <= chapter_start:
         return _default_split_entries_for_chapter(chapter_key, chapter_frame_count)
 
-    header, rows = _read_chapters_tsv_rows(_chapters_tsv_path(archive_name))
-    _ = header
+    _header, rows = _read_chapters_tsv_rows(_chapters_tsv_path(archive_name))
     if not rows:
         return _default_split_entries_for_chapter(chapter_key, chapter_frame_count)
 
-    local_entries: list[dict[str, Any]] = []
+    # Find this chapter's own row (first match by title + start_frame).
     for row in list(rows):
-        parent_key = _normalize_subtitle_optional_text(_row_ci_get(row, "parent_chapter"))
-        if parent_key and chapter_key and parent_key != chapter_key:
+        if not _chapter_row_matches(row, chapter_key, chapter_start):
             continue
-
         start_frame, end_frame = _chapter_row_bounds(row)
         if start_frame is None or end_frame is None or end_frame <= start_frame:
             continue
-        if int(start_frame) < int(chapter_start) or int(end_frame) > int(chapter_end):
-            continue
-        if int(start_frame) == int(chapter_start) and int(end_frame) == int(chapter_end):
-            continue
-
-        lo = max(int(chapter_start), int(start_frame))
-        hi = min(int(chapter_end), int(end_frame))
+        lo = int(chapter_start)
+        hi = int(end_frame)
         if hi <= lo:
             continue
+        title = _chapter_row_title(row) or chapter_key
+        return _normalize_split_entries_payload(
+            [{"start_frame": 0, "end_frame": hi - lo, "title": title}],
+            chapter_frame_count=chapter_frame_count,
+        ) or _default_split_entries_for_chapter(chapter_key, chapter_frame_count)
 
-        title = _chapter_row_title(row)
-        if not title:
-            title = chapter_key or f"Chapter {len(local_entries) + 1}"
-        local_entries.append(
-            {
-                "start_frame": int(lo) - int(chapter_start),
-                "end_frame": int(hi) - int(chapter_start),
-                "title": title,
-            }
-        )
-
-    normalized = _normalize_split_entries_payload(
-        local_entries,
-        chapter_frame_count=chapter_frame_count,
-    )
-    if normalized:
-        return normalized
     return _default_split_entries_for_chapter(chapter_key, chapter_frame_count)
 
 
@@ -909,131 +903,115 @@ def _save_split_entries_for_chapter(
         local_entries,
         chapter_frame_count=chapter_frame_count,
     )
-    default_single = _default_split_entries_for_chapter(chapter_key, chapter_frame_count)
-    if (
-        len(normalized_local) == 1
-        and len(default_single) == 1
-        and int(normalized_local[0].get("start_frame", -1)) == int(default_single[0].get("start_frame", -2))
-        and int(normalized_local[0].get("end_frame", -1)) == int(default_single[0].get("end_frame", -2))
-        and _normalize_subtitle_optional_text(normalized_local[0].get("title"))
-        == _normalize_subtitle_optional_text(default_single[0].get("title"))
-    ):
-        normalized_local = []
     existing_header, existing_rows = _canonical_chapters_base(path, archive_name)
 
-    ffmetadata, chapter_fields, global_fields, parent_chapter = _chapters_ffmetadata_context(archive_name, chapter_key)
-    chapter_defaults: dict[str, str] = {}
-    if isinstance(parent_chapter, dict):
-        for key in chapter_fields:
-            if key in CHAPTER_FFMETADATA_COMPUTED_KEYS:
+    ffmetadata, chapter_fields, global_fields, ffmeta_chapter = _chapters_ffmetadata_context(archive_name, chapter_key)
+
+    # Build the list of (global_start, global_end, title) entries to upsert.
+    # Each is an independent chapter range — no parent-child relationship.
+    entries_to_save: list[tuple[int, int, str]] = []
+    if normalized_local:
+        for idx, item in enumerate(list(normalized_local)):
+            local_start = int(item.get("start_frame", 0))
+            local_end = int(item.get("end_frame", 0))
+            if local_end <= local_start:
                 continue
-            if key == "start":
-                if parent_chapter.get("start_raw") is not None:
-                    chapter_defaults[key] = str(int(parent_chapter.get("start_raw")))
-                else:
-                    chapter_defaults[key] = str(int(round(float(parent_chapter.get("start", chapter_start)))))
-            elif key == "end":
-                if parent_chapter.get("end_raw") is not None:
-                    chapter_defaults[key] = str(int(parent_chapter.get("end_raw")))
-                else:
-                    chapter_defaults[key] = str(int(round(float(parent_chapter.get("end", chapter_end)))))
-            elif key == "title":
-                chapter_defaults[key] = chapter_key
-            else:
-                chapter_defaults[key] = str(parent_chapter.get(key, "") or "").strip()
+            global_start = chapter_start + local_start
+            global_end = chapter_start + local_end
+            title = _normalize_subtitle_optional_text(item.get("title")) or chapter_key or f"Chapter {idx + 1}"
+            entries_to_save.append((global_start, global_end, title))
+    if not entries_to_save:
+        entries_to_save.append((chapter_start, chapter_end, chapter_key))
 
-    parent_row = next(
-        (
-            dict(row or {})
-            for row in list(existing_rows)
-            if _chapter_row_is_exact_parent(row, chapter_key, chapter_start, chapter_end)
-        ),
-        None,
-    )
-    if parent_row is None:
-        parent_row = {}
-        parent_row[TSV_META_HEADER_COL] = ";FFMETADATA1"
-        parent_row[TSV_META_GLOBAL_ORDER_COL] = "|".join(global_fields)
+    # Map (title, start_frame) → (global_start, global_end, title) for the entries we're saving.
+    entries_key_map: dict[tuple[str, int], tuple[int, int, str]] = {
+        (title, global_start): (global_start, global_end, title)
+        for global_start, global_end, title in entries_to_save
+    }
+
+    # Build a template row for constructing new rows that don't yet exist in the TSV.
+    # Use any existing row as the base so metadata fields (archive name, dates, etc.) are inherited.
+    # Fall back to building from ffmetadata when no existing rows are available.
+    template_row: dict[str, Any] = {}
+    existing_template = next((dict(r) for r in existing_rows if r), None)
+    if existing_template is not None:
+        template_row = existing_template
+    else:
+        chapter_defaults: dict[str, str] = {}
+        if isinstance(ffmeta_chapter, dict):
+            for key in chapter_fields:
+                if key in CHAPTER_FFMETADATA_COMPUTED_KEYS:
+                    continue
+                if key == "start":
+                    chapter_defaults[key] = str(int(chapter_start))
+                elif key == "end":
+                    chapter_defaults[key] = str(int(chapter_end))
+                elif key == "title":
+                    chapter_defaults[key] = chapter_key
+                else:
+                    chapter_defaults[key] = str(ffmeta_chapter.get(key, "") or "").strip()
+        template_row[TSV_META_HEADER_COL] = ";FFMETADATA1"
+        template_row[TSV_META_GLOBAL_ORDER_COL] = "|".join(global_fields)
         chapter_order = [key for key in chapter_fields if key not in CHAPTER_FFMETADATA_COMPUTED_KEYS]
-        parent_row[TSV_META_CHAPTER_ORDER_COL] = "|".join(chapter_order)
+        template_row[TSV_META_CHAPTER_ORDER_COL] = "|".join(chapter_order)
         for key in global_fields:
-            parent_row[f"{TSV_FFMETA_PREFIX}{key}"] = str(ffmetadata.get(key, "") or "").strip()
+            template_row[f"{TSV_FFMETA_PREFIX}{key}"] = str(ffmetadata.get(key, "") or "").strip()
         for key in chapter_order:
-            if key == "start":
-                parent_row[key] = str(int(chapter_start))
-            elif key == "end":
-                parent_row[key] = str(int(chapter_end))
-            elif key == "title":
-                parent_row[key] = chapter_key
-            else:
-                parent_row[key] = str(chapter_defaults.get(key, "") or "")
+            template_row[key] = str(chapter_defaults.get(key, "") or "")
         if "title" not in {str(k).strip().lower() for k in chapter_order}:
-            parent_row["title"] = chapter_key
+            template_row["title"] = chapter_key
 
+    # Merge: chapters are flat, independent ranges — no parent-child dropping.
+    # For each entry being saved: update end_frame on first title+start match,
+    # and drop any duplicate rows for that same entry.
+    # All other existing rows are kept exactly as-is.
+    placed: set[tuple[str, int]] = set()
     merged_rows: list[dict[str, Any]] = []
-    inserted_children = False
     for raw_row in list(existing_rows):
         row = dict(raw_row or {})
-        start_frame, end_frame = _chapter_row_bounds(row)
-        inside_current = (
-            start_frame is not None
-            and end_frame is not None
-            and end_frame > start_frame
-            and int(chapter_start) <= int(start_frame)
-            and int(end_frame) <= int(chapter_end)
-        )
-        if _chapter_row_is_exact_parent(row, chapter_key, chapter_start, chapter_end):
+        start_frame, _end_frame = _chapter_row_bounds(row)
+        row_title = _chapter_row_title(row)
+        key = (row_title, start_frame)
+        if key in entries_key_map:
+            if key not in placed:
+                # First match: update end_frame to the new value and keep.
+                _, new_end, _ = entries_key_map[key]
+                updated = dict(row)
+                for k in list(updated.keys()):
+                    if str(k).strip().lower() in {"end", "end_frame"}:
+                        updated[k] = str(int(new_end))
+                merged_rows.append(updated)
+                placed.add(key)
+            # else: duplicate row for the same entry — drop it.
+        else:
             merged_rows.append(row)
-            if not inserted_children:
-                for idx, item in enumerate(list(normalized_local or [])):
-                    local_start = int(item.get("start_frame", 0))
-                    local_end = int(item.get("end_frame", 0))
-                    if local_end <= local_start:
-                        continue
-                    global_start = int(chapter_start) + int(local_start)
-                    global_end = int(chapter_start) + int(local_end)
-                    title = _normalize_subtitle_optional_text(item.get("title")) or chapter_key or f"Chapter {idx + 1}"
-                    merged_rows.append(
-                        _canonical_child_row_from_parent(parent_row, existing_header, global_start, global_end, title)
-                    )
-                inserted_children = True
-            continue
-        if inside_current:
-            continue
-        merged_rows.append(row)
 
-    if not any(_chapter_row_is_exact_parent(row, chapter_key, chapter_start, chapter_end) for row in merged_rows):
-        merged_rows.append(parent_row)
-        if not inserted_children:
-            for idx, item in enumerate(list(normalized_local or [])):
-                local_start = int(item.get("start_frame", 0))
-                local_end = int(item.get("end_frame", 0))
-                if local_end <= local_start:
-                    continue
-                global_start = int(chapter_start) + int(local_start)
-                global_end = int(chapter_start) + int(local_end)
-                title = _normalize_subtitle_optional_text(item.get("title")) or chapter_key or f"Chapter {idx + 1}"
-                merged_rows.append(
-                    _canonical_child_row_from_parent(parent_row, existing_header, global_start, global_end, title)
-                )
-            inserted_children = True
+    # Append new rows for entries not yet present in the TSV.
+    for global_start, global_end, title in entries_to_save:
+        if (title, global_start) not in placed:
+            merged_rows.append(
+                _build_chapter_row_from_template(template_row, existing_header, global_start, global_end, title)
+            )
 
     merged_rows = _reindex_canonical_chapter_rows(merged_rows)
     columns: list[str] = []
     seen_columns: set[str] = set()
+    seen_columns_lower: set[str] = set()
 
     def _add_col(raw_col: Any) -> None:
         col = str(raw_col or "").strip()
-        if not col or col in seen_columns:
+        col_lower = col.lower()
+        if not col or col in seen_columns or col_lower in seen_columns_lower:
             return
         seen_columns.add(col)
+        seen_columns_lower.add(col_lower)
         columns.append(col)
 
     for col in CHAPTERS_TSV_META_COLUMNS:
         _add_col(col)
     for col in global_fields:
         _add_col(f"{TSV_FFMETA_PREFIX}{col}")
-    chapter_order_template = _chapter_order_keys_for_row(parent_row, existing_header)
+    chapter_order_template = _chapter_order_keys_for_row(template_row, existing_header)
     for col in chapter_order_template:
         _add_col(col)
     if "title" not in {str(c).strip().lower() for c in chapter_order_template}:
@@ -1045,7 +1023,7 @@ def _save_split_entries_for_chapter(
             _add_col(col)
 
     _write_chapters_tsv_rows(path, columns, merged_rows)
-    return path, len(normalized_local)
+    return path, len(entries_to_save)
 
 
 def _parse_frame_value(raw: Any) -> int | None:
@@ -1745,15 +1723,12 @@ def _load_contact_sheet_images_from_video(
         for fid in missing:
             read_fid = int(fid) - read_offset
             if read_fid < 0:
-                bgr = np.zeros((240, 320, 3), dtype=np.uint8)
-            else:
-                cap.set(cv2.CAP_PROP_POS_FRAMES, int(read_fid))
-                ok, read_bgr = cap.read()
-                if not ok or read_bgr is None:
-                    bgr = np.zeros((240, 320, 3), dtype=np.uint8)
-                else:
-                    bgr = read_bgr
-            out[int(fid)] = _bgr_to_jpeg_b64(bgr)
+                continue  # frame before video start — leave missing so tile is not cached
+            cap.set(cv2.CAP_PROP_POS_FRAMES, int(read_fid))
+            ok, read_bgr = cap.read()
+            if not ok or read_bgr is None:
+                continue  # read failure — leave missing so tile is not cached
+            out[int(fid)] = _bgr_to_jpeg_b64(read_bgr)
     finally:
         cap.release()
     return out
@@ -1812,20 +1787,22 @@ def _build_contact_sheet_bytes(
     start_index: int,
     count: int,
     columns: int,
-) -> tuple[str, bytes] | None:
+) -> tuple[tuple[str, bytes] | None, bool]:
+    """Returns (result, all_loaded). all_loaded=False means some frames failed — don't cache."""
     images = _contact_sheet_image_data_urls(
         session,
         start_index=int(start_index),
         count=int(count),
     )
     if not images:
-        return None
+        return None, False
     start = max(0, int(start_index))
     max_count = max(1, int(count))
     cols = max(1, int(columns))
     actual_count = max(0, min(len(images), max_count))
     if actual_count <= 0:
-        return None
+        return None, False
+    all_loaded = all(img for img in images[:actual_count])
     rows = max(1, (actual_count + cols - 1) // cols)
     canvas = Image.new(
         "RGB",
@@ -1840,7 +1817,7 @@ def _build_contact_sheet_bytes(
 
     out = io.BytesIO()
     canvas.save(out, format="JPEG", quality=72, optimize=True)
-    return "image/jpeg", out.getvalue()
+    return ("image/jpeg", out.getvalue()), all_loaded
 
 
 def _cached_contact_sheet_bytes(
@@ -1849,7 +1826,8 @@ def _cached_contact_sheet_bytes(
     start_index: int,
     count: int,
     columns: int,
-) -> tuple[str, bytes] | None:
+) -> tuple[tuple[str, bytes] | None, bool]:
+    """Returns (result, all_loaded). all_loaded=True means the sheet is complete and safe to cache."""
     cache_key = (
         f"{_frame_image_cache_key(session)}|"
         f"{int(start_index)}|{int(count)}|{int(columns)}"
@@ -1858,23 +1836,24 @@ def _cached_contact_sheet_bytes(
         cached = _FRAME_CONTACT_SHEET_CACHE.get(cache_key)
         if cached is not None:
             _FRAME_CONTACT_SHEET_CACHE.move_to_end(cache_key)
-            return cached
+            return cached, True
 
-    built = _build_contact_sheet_bytes(
+    built, all_loaded = _build_contact_sheet_bytes(
         session,
         start_index=int(start_index),
         count=int(count),
         columns=int(columns),
     )
     if built is None:
-        return None
+        return None, False
 
-    with _FRAME_CONTACT_SHEET_CACHE_LOCK:
-        _FRAME_CONTACT_SHEET_CACHE[cache_key] = built
-        _FRAME_CONTACT_SHEET_CACHE.move_to_end(cache_key)
-        while len(_FRAME_CONTACT_SHEET_CACHE) > int(CONTACT_SHEET_CACHE_LIMIT):
-            _FRAME_CONTACT_SHEET_CACHE.popitem(last=False)
-    return built
+    if all_loaded:
+        with _FRAME_CONTACT_SHEET_CACHE_LOCK:
+            _FRAME_CONTACT_SHEET_CACHE[cache_key] = built
+            _FRAME_CONTACT_SHEET_CACHE.move_to_end(cache_key)
+            while len(_FRAME_CONTACT_SHEET_CACHE) > int(CONTACT_SHEET_CACHE_LIMIT):
+                _FRAME_CONTACT_SHEET_CACHE.popitem(last=False)
+    return built, all_loaded
 
 
 def _build_review_payload(
@@ -2460,6 +2439,11 @@ class WizardHandler(BaseHTTPRequestHandler):
             data_url = _lookup_frame_image_data_url(session, int(raw_fid))
             decoded = _decode_frame_image_data_url(data_url)
             if decoded is None:
+                # Thumbnail not in session cache — fetch on-demand from video (same path as contact sheet)
+                fid_images = _load_contact_sheet_images_from_video(session, [int(raw_fid)])
+                data_url = str(fid_images.get(int(raw_fid), "") or "")
+                decoded = _decode_frame_image_data_url(data_url)
+            if decoded is None:
                 self._send_error_json("Frame image is not available.", code=HTTPStatus.NOT_FOUND)
                 return
             content_type, payload = decoded
@@ -2487,7 +2471,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             start_index = max(0, int(raw_start))
             count = max(1, int(raw_count))
             columns = max(1, int(raw_columns or CONTACT_SHEET_COLUMNS))
-            built = _cached_contact_sheet_bytes(
+            built, sheet_complete = _cached_contact_sheet_bytes(
                 session,
                 start_index=start_index,
                 count=count,
@@ -2500,7 +2484,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             self._send_bytes(
                 payload,
                 content_type=content_type,
-                cache_control="private, max-age=3600, immutable",
+                cache_control="private, max-age=3600, immutable" if sheet_complete else "no-store",
             )
             return
 
@@ -2694,6 +2678,10 @@ class WizardHandler(BaseHTTPRequestHandler):
             self._handle_subtitles_generate(session, payload)
             return
 
+        if parsed.path == "/api/set_auto_transcript":
+            self._handle_set_auto_transcript(session, payload)
+            return
+
         if parsed.path == "/api/save":
             self._handle_save(session, payload)
             return
@@ -2880,6 +2868,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             int(n_frames),
             session.archive,
             session.chapter,
+            include_thumbs=False,
             frame_read_offset=frame_read_offset,
             progress=_sample_progress,
             should_cancel=lambda: bool(session.load_cancel_requested),
@@ -2921,6 +2910,10 @@ class WizardHandler(BaseHTTPRequestHandler):
             ch_start=session.start_frame,
             ch_end=session.end_frame,
         )
+        session.auto_transcript = get_transcript_mode_for_chapter(
+            archive=session.archive,
+            chapter_title=session.chapter,
+        )
         session.split_entries = _load_split_entries_for_chapter(
             archive=session.archive,
             chapter_title=session.chapter,
@@ -2960,6 +2953,7 @@ class WizardHandler(BaseHTTPRequestHandler):
                 "entries": list(session.subtitle_entries),
                 "source": "subtitles_tsv",
             },
+            "auto_transcript": str(session.auto_transcript),
             "split_profile": {
                 "entries": list(session.split_entries),
                 "source": "chapters_tsv",
@@ -3066,11 +3060,49 @@ class WizardHandler(BaseHTTPRequestHandler):
         session.force_all_frames_good = bool(enabled)
 
         if session.fids and session.sigs:
-            review = _build_review_payload(session, include_images=False)
+            # Fast path: compute stats without building the full per-frame list.
+            # The client updates frame statuses locally using its pre-force snapshot.
+            scores = combined_score(session.sigs, session.wc, session.wn, session.wt, session.ww)
+            thr = float(compute_threshold(scores, session.t_mode, session.iqr_k, session.tval, session.bpct))
+            session.threshold = thr
+            total = len(session.fids)
+            if enabled:
+                bad = 0
+            else:
+                scores_arr = np.asarray(scores, dtype=np.float64)
+                bad = int(np.sum(scores_arr >= thr))
+                fids_list = session.fids
+                for fid_key, ov in session.overrides.items():
+                    fid = int(fid_key)
+                    idx = bisect.bisect_left(fids_list, fid)
+                    if idx < total and fids_list[idx] == fid:
+                        auto_is_bad = bool(float(scores_arr[idx]) >= thr)
+                        if ov == "good" and auto_is_bad:
+                            bad -= 1
+                        elif ov == "bad" and not auto_is_bad:
+                            bad += 1
+                bad = max(0, bad)
+            review = {
+                "threshold": round(thr, 4),
+                "stats": {
+                    "total": total,
+                    "bad": int(bad),
+                    "good": int(total - bad),
+                    "shown": total,
+                    "overrides": int(len(session.overrides)),
+                },
+                "force_all_frames_good": bool(session.force_all_frames_good),
+                "frames": None,
+            }
         elif session.partial_fids:
             review = _build_partial_review_payload(session, include_images=False)
         else:
-            review = _build_review_payload(session, include_images=False)
+            review = {
+                "threshold": 0.0,
+                "stats": {"total": 0, "bad": 0, "good": 0, "shown": 0, "overrides": 0},
+                "force_all_frames_good": bool(session.force_all_frames_good),
+                "frames": None,
+            }
         self._send_json({"ok": True, "review": review})
 
     def _run_cmd(self, cmd: list[Any], label: str) -> tuple[bool, str]:
@@ -3790,6 +3822,24 @@ class WizardHandler(BaseHTTPRequestHandler):
                 },
             }
         )
+
+    def _handle_set_auto_transcript(self, session: SessionState, payload: dict[str, Any] | None = None) -> None:
+        if not session.archive or not session.chapter:
+            self._send_error_json("No loaded chapter data yet.")
+            return
+        raw = (payload or {}).get("auto_transcript", "off")
+        mode = "on" if str(raw).strip().lower() in {"on", "true", "1", "yes"} else "off"
+        try:
+            update_chapter_transcript_in_render_settings(
+                session.archive,
+                session.chapter,
+                transcript=mode,
+            )
+        except Exception as exc:
+            self._send_error_json(str(exc))
+            return
+        session.auto_transcript = mode
+        self._send_json({"ok": True, "auto_transcript": mode})
 
     def _handle_save(self, session: SessionState, payload: dict[str, Any] | None = None) -> None:
         if not session.fids:

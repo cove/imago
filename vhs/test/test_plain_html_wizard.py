@@ -159,7 +159,9 @@ def test_contact_sheet_builder_returns_jpeg_bytes() -> None:
     )
 
     assert built is not None
-    content_type, payload = built
+    result, all_loaded = built
+    assert result is not None
+    content_type, payload = result
     assert content_type == "image/jpeg"
     assert len(payload) > 0
     assert _frame_contact_sheet_url(0, count=2, columns=CONTACT_SHEET_COLUMNS).startswith("/api/frame_contact_sheet?")
