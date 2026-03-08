@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from common import chapter_frame_bounds, load_bad_frames_by_chapter_from_render_settings, parse_chapters
+from common import chapter_frame_bounds, get_bad_frames_for_chapter, parse_chapters
 from vhs_pipeline import render_pipeline
 
 
@@ -16,15 +16,14 @@ def test_rice_toss_render_settings_sources_are_clean_and_in_bounds() -> None:
     if not chapters_path.exists() or not settings_path.exists():
         return
 
-    bad_by_title = load_bad_frames_by_chapter_from_render_settings(ARCHIVE)
-    bad_global = sorted(int(f) for f in (bad_by_title.get(RICE_TOSS_TITLE) or []))
-    assert bad_global, "Rice Toss bad frame list is empty in render_settings.json."
-
-    _ffm, chapters = parse_chapters(chapters_path)
+    _, chapters = parse_chapters(chapters_path)
     chapter = next((c for c in chapters if str(c.get("title", "")).strip() == RICE_TOSS_TITLE), None)
     assert chapter is not None, "Rice Toss chapter title not found in chapters.ffmetadata."
 
     start_frame, end_frame = chapter_frame_bounds(chapter, fps_num=30000, fps_den=1001)
+    bad_global = get_bad_frames_for_chapter(ARCHIVE, RICE_TOSS_TITLE, ch_start=start_frame, ch_end=end_frame)
+    assert bad_global, "Rice Toss bad frame list is empty in render_settings.json."
+
     max_local = int(end_frame) - int(start_frame) - 1
     assert max_local >= 0
 

@@ -55,7 +55,7 @@ if sys.platform == "win32":
     FFMPEG_BIN = FFMPEG_DIR / "ffmpeg.exe"
     FFPROBE_BIN = FFMPEG_DIR / "ffprobe.exe"
     B3SUM_BIN = BASE / "bin" / "b3sum_windows_x64_bin.exe"
-    MEDIAINFO_BIN = BASE / "bin" / "MediaInfo.exe"
+    MEDIAINFO_BIN = BASE / "software" / "Windows" / "MediaInfo" / "MediaInfo.exe"
 elif sys.platform == "darwin":
     FFMPEG_DIR = BASE / "bin"
     FFMPEG_BIN = FFMPEG_DIR / "ffmpeg-8.0.1.darwin.arm64"
@@ -469,29 +469,23 @@ GAMMA_CORRECTION_RANGES_KEY = "gamma_correction_ranges"
 
 def _render_settings_template() -> dict:
     return {
-        "version": 1,
+        "version": 2,
         "_comments": {
             "archive_settings": (
                 "Archive-wide defaults applied to render behavior for all chapters."
             ),
-            "chapter_settings": (
-                "Optional per-chapter overrides keyed by exact chapter title."
-            ),
-            "bad_frames_by_chapter": (
-                "Per-chapter BAD frame IDs in global archive frame numbering."
+            "bad_frames": (
+                "Global archive frame IDs that are bad and will be repaired."
             ),
             "gamma_correction_ranges": (
                 "Gamma correction ranges use global frame IDs: start_frame inclusive, end_frame exclusive."
             ),
         },
         "archive_settings": {
-            "transcript": "off",
-            "inherit_bad_frames_from_overlaps": False,
             "gamma_correction_default": 1.0,
             "gamma_correction_ranges": [],
         },
-        "chapter_settings": {},
-        "bad_frames_by_chapter": {},
+        "bad_frames": [],
     }
 
 def _normalize_transcript_mode(raw: object, default: str = "off") -> str:
@@ -501,18 +495,6 @@ def _normalize_transcript_mode(raw: object, default: str = "off") -> str:
     if mode in {"on", "true", "1", "yes", "force", "auto"}:
         return "on"
     return str(default).strip().lower() if str(default).strip() else "off"
-
-def _normalize_bool(raw: object, default: bool = False) -> bool:
-    if isinstance(raw, bool):
-        return bool(raw)
-    if raw is None:
-        return bool(default)
-    text = str(raw).strip().lower()
-    if text in {"1", "true", "yes", "on"}:
-        return True
-    if text in {"0", "false", "no", "off"}:
-        return False
-    return bool(default)
 
 def _normalize_gamma_value(raw: object, default: float = 1.0) -> float:
     try:
@@ -625,65 +607,62 @@ def _gamma_ranges_from_cfg(cfg: dict) -> list[dict[str, float | int]]:
         return _canonicalize_gamma_ranges(cfg.get(GAMMA_CORRECTION_RANGES_KEY, []))
     return []
 
+def _migrate_v1_to_v2(data: dict) -> dict:
+    """Migrate a v1 render_settings dict to v2 in memory."""
+    out = dict(_render_settings_template())
+    old_archive = dict(data.get("archive_settings") or {})
+    old_chapter_settings = dict(data.get("chapter_settings") or {})
+    old_bad_by_chapter = dict(data.get("bad_frames_by_chapter") or {})
+
+    # Archive gamma: carry forward
+    out["archive_settings"][GAMMA_CORRECTION_DEFAULT_KEY] = _gamma_default_from_cfg(old_archive, default=1.0)
+    archive_ranges = list(_gamma_ranges_from_cfg(old_archive))
+
+    # Merge chapter-level gamma overrides into archive ranges
+    for _, raw_cfg in old_chapter_settings.items():
+        cfg = dict(raw_cfg or {}) if isinstance(raw_cfg, dict) else {}
+        ch_ranges = _gamma_ranges_from_cfg(cfg)
+        if ch_ranges:
+            archive_ranges = archive_ranges + ch_ranges
+
+    out["archive_settings"][GAMMA_CORRECTION_RANGES_KEY] = _canonicalize_gamma_ranges(archive_ranges)
+
+    # Flatten bad_frames_by_chapter → sorted deduplicated bad_frames list
+    merged: set[int] = set()
+    for vals in old_bad_by_chapter.values():
+        for item in list(vals or []):
+            try:
+                fid = int(item)
+            except Exception:
+                continue
+            if fid >= 0:
+                merged.add(fid)
+    out["bad_frames"] = sorted(merged)
+
+    return out
+
+
 def load_render_settings(archive: str, create: bool = False) -> tuple[Path, dict]:
     path = render_settings_path(archive)
     if path.exists():
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
             if isinstance(data, dict):
-                out = dict(_render_settings_template())
-                out.update(data)
-                template_comments = dict(_render_settings_template().get("_comments") or {})
-                existing_comments = dict(out.get("_comments") or {})
-                if "gamma_ranges" in existing_comments and "gamma_correction_ranges" not in existing_comments:
-                    existing_comments["gamma_correction_ranges"] = existing_comments.get("gamma_ranges")
-                existing_comments.pop("gamma_ranges", None)
-                merged_comments = dict(template_comments)
-                merged_comments.update(existing_comments)
-                out["_comments"] = merged_comments
+                version = int(data.get("version") or 1)
+                if version < 2:
+                    out = _migrate_v1_to_v2(data)
+                else:
+                    out = dict(_render_settings_template())
+                    out.update(data)
                 out["archive_settings"] = dict(out.get("archive_settings") or {})
-                out["chapter_settings"] = dict(out.get("chapter_settings") or {})
-                out["bad_frames_by_chapter"] = dict(out.get("bad_frames_by_chapter") or {})
-                out["archive_settings"]["transcript"] = _normalize_transcript_mode(
-                    out["archive_settings"].get("transcript", "off"),
-                    default="off",
+                out["archive_settings"][GAMMA_CORRECTION_DEFAULT_KEY] = _gamma_default_from_cfg(
+                    out["archive_settings"], default=1.0,
                 )
-                out["archive_settings"]["inherit_bad_frames_from_overlaps"] = _normalize_bool(
-                    out["archive_settings"].get("inherit_bad_frames_from_overlaps", False),
-                    default=False,
+                out["archive_settings"][GAMMA_CORRECTION_RANGES_KEY] = _gamma_ranges_from_cfg(
+                    out["archive_settings"],
                 )
-                archive_gamma_default = _gamma_default_from_cfg(out["archive_settings"], default=1.0)
-                archive_gamma_ranges = _gamma_ranges_from_cfg(out["archive_settings"])
-                out["archive_settings"][GAMMA_CORRECTION_DEFAULT_KEY] = float(archive_gamma_default)
-                out["archive_settings"][GAMMA_CORRECTION_RANGES_KEY] = archive_gamma_ranges
-                normalized_chapter_settings = {}
-                archive_gamma_default = float(out["archive_settings"][GAMMA_CORRECTION_DEFAULT_KEY])
-                for raw_title, raw_cfg in dict(out["chapter_settings"] or {}).items():
-                    title = str(raw_title or "").strip()
-                    if not title:
-                        continue
-                    cfg = dict(raw_cfg or {}) if isinstance(raw_cfg, dict) else {}
-                    if "transcript" in cfg:
-                        cfg["transcript"] = _normalize_transcript_mode(
-                            cfg.get("transcript"),
-                            default=out["archive_settings"]["transcript"],
-                        )
-                    has_gamma_default = GAMMA_CORRECTION_DEFAULT_KEY in cfg
-                    has_gamma_ranges = GAMMA_CORRECTION_RANGES_KEY in cfg
-                    if has_gamma_default or has_gamma_ranges:
-                        cfg[GAMMA_CORRECTION_DEFAULT_KEY] = _gamma_default_from_cfg(
-                            cfg,
-                            default=archive_gamma_default,
-                        )
-                        cfg[GAMMA_CORRECTION_RANGES_KEY] = _gamma_ranges_from_cfg(cfg)
-                        if (
-                            not cfg[GAMMA_CORRECTION_RANGES_KEY]
-                            and abs(float(cfg[GAMMA_CORRECTION_DEFAULT_KEY]) - archive_gamma_default) < 1e-6
-                        ):
-                            cfg.pop(GAMMA_CORRECTION_DEFAULT_KEY, None)
-                            cfg.pop(GAMMA_CORRECTION_RANGES_KEY, None)
-                    normalized_chapter_settings[title] = cfg
-                out["chapter_settings"] = normalized_chapter_settings
+                bad = out.get("bad_frames") or []
+                out["bad_frames"] = sorted({int(x) for x in bad if int(x) >= 0})
                 return path, out
         except Exception:
             pass
@@ -697,172 +676,92 @@ def save_render_settings(archive: str, settings: dict) -> Path:
     path = render_settings_path(archive)
     payload = dict(_render_settings_template())
     payload.update(dict(settings or {}))
-    template_comments = dict(_render_settings_template().get("_comments") or {})
-    existing_comments = dict(payload.get("_comments") or {})
-    if "gamma_ranges" in existing_comments and "gamma_correction_ranges" not in existing_comments:
-        existing_comments["gamma_correction_ranges"] = existing_comments.get("gamma_ranges")
-    existing_comments.pop("gamma_ranges", None)
-    merged_comments = dict(template_comments)
-    merged_comments.update(existing_comments)
-    payload["_comments"] = merged_comments
+    payload["_comments"] = dict(_render_settings_template().get("_comments") or {})
     payload["archive_settings"] = dict(payload.get("archive_settings") or {})
-    payload["chapter_settings"] = dict(payload.get("chapter_settings") or {})
-    payload["bad_frames_by_chapter"] = dict(payload.get("bad_frames_by_chapter") or {})
-    payload["archive_settings"]["transcript"] = _normalize_transcript_mode(
-        payload["archive_settings"].get("transcript", "off"),
-        default="off",
-    )
-    payload["archive_settings"]["inherit_bad_frames_from_overlaps"] = _normalize_bool(
-        payload["archive_settings"].get("inherit_bad_frames_from_overlaps", False),
-        default=False,
-    )
     payload["archive_settings"][GAMMA_CORRECTION_DEFAULT_KEY] = _gamma_default_from_cfg(
-        payload["archive_settings"],
-        default=1.0,
+        payload["archive_settings"], default=1.0,
     )
     payload["archive_settings"][GAMMA_CORRECTION_RANGES_KEY] = _gamma_ranges_from_cfg(
         payload["archive_settings"],
     )
-
-    archive_gamma_default = float(payload["archive_settings"][GAMMA_CORRECTION_DEFAULT_KEY])
-    cleaned_chapter_settings = {}
-    for raw_title, raw_cfg in dict(payload.get("chapter_settings") or {}).items():
-        title = str(raw_title or "").strip()
-        if not title:
-            continue
-        cfg = dict(raw_cfg or {}) if isinstance(raw_cfg, dict) else {}
-        if "transcript" in cfg:
-            cfg["transcript"] = _normalize_transcript_mode(
-                cfg.get("transcript"),
-                default=payload["archive_settings"]["transcript"],
-            )
-        has_gamma_default = GAMMA_CORRECTION_DEFAULT_KEY in cfg
-        has_gamma_ranges = GAMMA_CORRECTION_RANGES_KEY in cfg
-        if has_gamma_default or has_gamma_ranges:
-            cfg[GAMMA_CORRECTION_DEFAULT_KEY] = _gamma_default_from_cfg(
-                cfg,
-                default=archive_gamma_default,
-            )
-            cfg[GAMMA_CORRECTION_RANGES_KEY] = _gamma_ranges_from_cfg(cfg)
-            if (
-                not cfg[GAMMA_CORRECTION_RANGES_KEY]
-                and abs(float(cfg[GAMMA_CORRECTION_DEFAULT_KEY]) - archive_gamma_default) < 1e-6
-            ):
-                cfg.pop(GAMMA_CORRECTION_DEFAULT_KEY, None)
-                cfg.pop(GAMMA_CORRECTION_RANGES_KEY, None)
-        cleaned_chapter_settings[title] = cfg
-    payload["chapter_settings"] = cleaned_chapter_settings
-
+    bad = payload.get("bad_frames") or []
+    payload["bad_frames"] = sorted({int(x) for x in bad if int(x) >= 0})
+    # Drop any stale v1 keys
+    payload.pop("chapter_settings", None)
+    payload.pop("bad_frames_by_chapter", None)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return path
 
-def load_bad_frames_by_chapter_from_render_settings(archive: str) -> dict[str, list[int]]:
+def load_bad_frames_from_render_settings(archive: str) -> list[int]:
     _path, settings = load_render_settings(archive, create=False)
-    raw_map = dict(settings.get("bad_frames_by_chapter") or {})
-    out: dict[str, list[int]] = {}
-    for title, vals in raw_map.items():
-        key = str(title or "").strip()
-        if not key:
-            continue
-        parsed = []
-        seen = set()
-        for item in list(vals or []):
-            try:
-                fid = int(item)
-            except Exception:
-                continue
-            if fid < 0 or fid in seen:
-                continue
-            seen.add(fid)
-            parsed.append(fid)
-        parsed.sort()
-        out[key] = parsed
-    return out
+    return list(settings.get("bad_frames") or [])
 
-def inherit_bad_frames_from_overlaps_enabled(archive: str) -> bool:
-    _path, settings = load_render_settings(archive, create=False)
-    archive_settings = dict(settings.get("archive_settings") or {})
-    return _normalize_bool(
-        archive_settings.get("inherit_bad_frames_from_overlaps", False),
-        default=False,
-    )
-
-def get_bad_frames_for_chapter(archive: str, chapter_title: str) -> list[int]:
+def get_bad_frames_for_chapter(
+    archive: str,
+    chapter_title: str,
+    *,
+    ch_start: int | None = None,
+    ch_end: int | None = None,
+) -> list[int]:
+    all_bad = load_bad_frames_from_render_settings(archive)
+    if not all_bad:
+        return []
+    if ch_start is not None and ch_end is not None:
+        return [f for f in all_bad if ch_start <= f < ch_end]
     title = str(chapter_title or "").strip()
     if not title:
         return []
-    by_title = load_bad_frames_by_chapter_from_render_settings(archive)
-    direct = list(by_title.get(title, []))
-    if not inherit_bad_frames_from_overlaps_enabled(archive):
-        return direct
+    for ext in ("chapters.tsv", "chapters.ffmetadata"):
+        chapters_path = METADATA_DIR / str(archive or "").strip() / ext
+        if chapters_path.exists():
+            _, chapters = parse_chapters(chapters_path)
+            chapter_obj = next(
+                (ch for ch in chapters if str(ch.get("title", "")).strip() == title),
+                None,
+            )
+            if chapter_obj is not None:
+                start_frame, end_frame = chapter_frame_bounds(chapter_obj, fps_num=30000, fps_den=1001)
+                return [f for f in all_bad if start_frame <= f < end_frame]
+    return []
 
-    chapters_path = METADATA_DIR / str(archive or "").strip() / "chapters.ffmetadata"
-    if not chapters_path.exists():
-        return direct
-    _ffm, chapters = parse_chapters(chapters_path)
-    chapter_obj = next(
-        (ch for ch in chapters if str(ch.get("title", "")).strip() == title),
-        None,
-    )
-    if chapter_obj is None:
-        return direct
-
-    start_frame, end_frame = chapter_frame_bounds(chapter_obj, fps_num=30000, fps_den=1001)
-    merged = {int(x) for x in direct if int(x) >= 0}
-    for vals in by_title.values():
-        for item in list(vals or []):
-            try:
-                fid = int(item)
-            except Exception:
-                continue
-            if start_frame <= fid < end_frame:
-                merged.add(fid)
-    return sorted(merged)
-
-def update_chapter_bad_frames_in_render_settings(
-    archive: str,
-    chapter_bad_frames: dict[str, list[int]],
-) -> Path:
-    path, settings = load_render_settings(archive, create=True)
-    by_title = dict(settings.get("bad_frames_by_chapter") or {})
-    for title, vals in dict(chapter_bad_frames or {}).items():
-        key = str(title or "").strip()
-        if not key:
+def merge_bad_frames_in_render_settings(archive: str, new_frames) -> Path:
+    _path, settings = load_render_settings(archive, create=True)
+    existing = set(settings.get("bad_frames") or [])
+    for item in list(new_frames or []):
+        try:
+            fid = int(item)
+        except Exception:
             continue
-        frame_vals = sorted({int(x) for x in (vals or []) if int(x) >= 0})
-        by_title[key] = frame_vals
-    settings["bad_frames_by_chapter"] = by_title
+        if fid >= 0:
+            existing.add(fid)
+    settings["bad_frames"] = sorted(existing)
+    return save_render_settings(archive, settings)
+
+def replace_chapter_bad_frames_in_render_settings(
+    archive: str,
+    ch_start: int,
+    ch_end: int,
+    new_frames: list[int],
+) -> Path:
+    _, settings = load_render_settings(archive, create=True)
+    existing = [f for f in (settings.get("bad_frames") or []) if not (ch_start <= f < ch_end)]
+    new_valid = sorted({int(f) for f in (new_frames or []) if ch_start <= int(f) < ch_end})
+    settings["bad_frames"] = sorted(set(existing) | set(new_valid))
     return save_render_settings(archive, settings)
 
 def get_gamma_profile_for_chapter(
     archive: str,
-    chapter_title: str,
+    _chapter_title: str = "",
     *,
     ch_start: int | None = None,
     ch_end: int | None = None,
 ) -> dict[str, object]:
     _path, settings = load_render_settings(archive, create=False)
     archive_settings = dict(settings.get("archive_settings") or {})
-    chapter_settings = dict(settings.get("chapter_settings") or {})
-    title = str(chapter_title or "").strip()
 
-    archive_default = _gamma_default_from_cfg(archive_settings, default=1.0)
-    archive_ranges = _gamma_ranges_from_cfg(archive_settings)
-    effective_default = float(archive_default)
-    effective_ranges = list(archive_ranges)
-    source = "archive"
-
-    chapter_cfg = chapter_settings.get(title) if title else None
-    if isinstance(chapter_cfg, dict):
-        has_gamma_default = GAMMA_CORRECTION_DEFAULT_KEY in chapter_cfg
-        has_gamma_ranges = GAMMA_CORRECTION_RANGES_KEY in chapter_cfg
-        if has_gamma_default:
-            effective_default = _gamma_default_from_cfg(chapter_cfg, default=archive_default)
-            source = "chapter"
-        if has_gamma_ranges:
-            effective_ranges = _gamma_ranges_from_cfg(chapter_cfg)
-            source = "chapter"
+    effective_default = _gamma_default_from_cfg(archive_settings, default=1.0)
+    effective_ranges = _gamma_ranges_from_cfg(archive_settings)
 
     if ch_start is not None and ch_end is not None:
         effective_ranges = _clip_gamma_ranges_to_span(
@@ -873,8 +772,7 @@ def get_gamma_profile_for_chapter(
     else:
         effective_ranges = _canonicalize_gamma_ranges(effective_ranges)
 
-    if source == "archive" and not effective_ranges and abs(float(effective_default) - float(archive_default)) < 1e-6:
-        source = "default"
+    source = "archive" if effective_ranges else "default"
 
     return {
         "default_gamma": float(effective_default),
@@ -882,90 +780,101 @@ def get_gamma_profile_for_chapter(
         "source": source,
     }
 
+def _clip_ranges_outside_span(
+    ranges: list[dict],
+    ch_start: int,
+    ch_end: int,
+) -> list[dict]:
+    """Return archive ranges with the [ch_start, ch_end) span excised."""
+    result = []
+    for r in ranges:
+        a, b, g = int(r["start_frame"]), int(r["end_frame"]), float(r["gamma"])
+        if a < ch_start:
+            result.append({"start_frame": a, "end_frame": min(b, ch_start), "gamma": g})
+        if b > ch_end:
+            result.append({"start_frame": max(a, ch_end), "end_frame": b, "gamma": g})
+    return result
+
 def update_chapter_gamma_in_render_settings(
     archive: str,
-    chapter_title: str,
+    _chapter_title: str = "",
     *,
+    ch_start: int | None = None,
+    ch_end: int | None = None,
     gamma_ranges,
     default_gamma: float | None = None,
 ) -> Path:
-    path, settings = load_render_settings(archive, create=True)
-    title = str(chapter_title or "").strip()
-    if not title:
-        return save_render_settings(archive, settings)
-
+    _, settings = load_render_settings(archive, create=True)
     archive_settings = dict(settings.get("archive_settings") or {})
     archive_default = _gamma_default_from_cfg(archive_settings, default=1.0)
-    chapter_settings = dict(settings.get("chapter_settings") or {})
-    chapter_cfg = dict(chapter_settings.get(title) or {})
+    existing_ranges = _gamma_ranges_from_cfg(archive_settings)
 
-    normalized_ranges = _canonicalize_gamma_ranges(gamma_ranges)
-    if default_gamma is None:
-        if GAMMA_CORRECTION_DEFAULT_KEY in chapter_cfg:
-            next_default = _gamma_default_from_cfg(chapter_cfg, default=archive_default)
-        else:
-            next_default = float(archive_default)
+    # Remove archive ranges within the chapter span so the new ones take over
+    if ch_start is not None and ch_end is not None:
+        outside = _clip_ranges_outside_span(existing_ranges, ch_start, ch_end)
     else:
+        outside = list(existing_ranges)
+
+    new_ranges = list(_canonicalize_gamma_ranges(gamma_ranges))
+
+    # If chapter default differs from archive default, add a base range for the span
+    if default_gamma is not None and ch_start is not None and ch_end is not None:
         next_default = _normalize_gamma_value(default_gamma, default=archive_default)
+        if abs(next_default - float(archive_default)) >= 1e-6:
+            new_ranges = [{"start_frame": ch_start, "end_frame": ch_end, "gamma": next_default}] + new_ranges
 
-    if normalized_ranges:
-        chapter_cfg[GAMMA_CORRECTION_RANGES_KEY] = normalized_ranges
-    else:
-        chapter_cfg.pop(GAMMA_CORRECTION_RANGES_KEY, None)
-
-    if abs(float(next_default) - float(archive_default)) < 1e-6:
-        chapter_cfg.pop(GAMMA_CORRECTION_DEFAULT_KEY, None)
-    else:
-        chapter_cfg[GAMMA_CORRECTION_DEFAULT_KEY] = float(next_default)
-
-    if chapter_cfg:
-        chapter_settings[title] = chapter_cfg
-    else:
-        chapter_settings.pop(title, None)
-    settings["chapter_settings"] = chapter_settings
+    merged = _canonicalize_gamma_ranges(outside + new_ranges)
+    archive_settings[GAMMA_CORRECTION_RANGES_KEY] = merged
+    archive_settings[GAMMA_CORRECTION_DEFAULT_KEY] = float(archive_default)
+    settings["archive_settings"] = archive_settings
     return save_render_settings(archive, settings)
 
 def get_transcript_mode_for_chapter(archive: str, chapter_title: str) -> str:
-    _path, settings = load_render_settings(archive, create=False)
-    archive_defaults = dict(settings.get("archive_settings") or {})
-    chapter_settings = dict(settings.get("chapter_settings") or {})
+    import csv as _csv
+    tsv_path = METADATA_DIR / str(archive or "").strip() / "chapters.tsv"
+    if not tsv_path.exists():
+        return "off"
     title = str(chapter_title or "").strip()
-    base = _normalize_transcript_mode(archive_defaults.get("transcript", "off"), default="off")
-    if not title:
-        return base
-    override = chapter_settings.get(title)
-    if isinstance(override, dict) and "transcript" in override:
-        return _normalize_transcript_mode(override.get("transcript"), default=base)
-    return base
+    with tsv_path.open("r", encoding="utf-8-sig", errors="ignore", newline="") as fh:
+        for row in _csv.DictReader(fh, delimiter="\t"):
+            if str((row or {}).get("title", "")).strip() == title:
+                return _normalize_transcript_mode((row or {}).get("transcript", "off"))
+    return "off"
 
-def update_chapter_transcript_in_render_settings(
+def update_chapter_transcript_in_chapters_tsv(
     archive: str,
     chapter_title: str,
     *,
     transcript: str,
 ) -> Path:
-    path, settings = load_render_settings(archive, create=True)
+    import csv as _csv
+    tsv_path = METADATA_DIR / str(archive or "").strip() / "chapters.tsv"
+    if not tsv_path.exists():
+        return tsv_path
     title = str(chapter_title or "").strip()
-    if not title:
-        return save_render_settings(archive, settings)
-
-    archive_settings = dict(settings.get("archive_settings") or {})
-    archive_default = _normalize_transcript_mode(archive_settings.get("transcript", "off"), default="off")
-    chapter_settings = dict(settings.get("chapter_settings") or {})
-    chapter_cfg = dict(chapter_settings.get(title) or {})
-
-    normalized = _normalize_transcript_mode(transcript, default=archive_default)
-    if normalized == archive_default:
-        chapter_cfg.pop("transcript", None)
-    else:
-        chapter_cfg["transcript"] = normalized
-
-    if chapter_cfg:
-        chapter_settings[title] = chapter_cfg
-    else:
-        chapter_settings.pop(title, None)
-    settings["chapter_settings"] = chapter_settings
-    return save_render_settings(archive, settings)
+    normalized = _normalize_transcript_mode(transcript)
+    with tsv_path.open("r", encoding="utf-8-sig", errors="ignore", newline="") as fh:
+        reader = _csv.DictReader(fh, delimiter="\t")
+        fieldnames = list(reader.fieldnames or [])
+        rows = list(reader)
+    if "transcript" not in fieldnames:
+        fieldnames.append("transcript")
+    updated = False
+    for row in rows:
+        if str((row or {}).get("title", "")).strip() == title:
+            row["transcript"] = normalized
+            updated = True
+    if not updated:
+        return tsv_path
+    with tsv_path.open("w", encoding="utf-8", newline="") as fh:
+        writer = _csv.DictWriter(
+            fh, fieldnames=fieldnames, delimiter="\t",
+            lineterminator="\n", extrasaction="ignore", restval="",
+        )
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
+    return tsv_path
 
 def load_bad_frames_by_chapter(path):
     bad_by_title = {}

@@ -134,14 +134,13 @@ comment=Reception at Gloria Dilbeck's home
 TIMEBASE=1001/30000
 START=34077
 END=34504
-title=1995 - Jim & Linda Wedding - 12 Reception Wedding Cake with Gloria Dilbeck & Beverly Callahan (March 18, 1995)
+title=1995 - Jim & Linda Wedding - 12 Reception Wedding Cake with Gloria Dilbeck & Beverly Warner (March 18, 1995)
 DATE_RECORDED=1995-03-19 00:06:00.000 ; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 RECORDING_LOCATION=US, California, Altadena
 location=+34.18653-118.12936+388.24/Gloria Dilbeck's Home, 1034 Beverly Way, Altadena, CA 91001
 creation_time=1995-03-18T16:06:00-08:00
 comment=Reception at Gloria Dilbeck's home
-
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -154,7 +153,6 @@ RECORDING_LOCATION=US, California, Altadena
 location=+34.18653-118.12936+388.24/Gloria Dilbeck's Home, 1034 Beverly Way, Altadena, CA 91001
 creation_time=1995-03-18T16:06:00-08:00
 comment=Reception at Gloria Dilbeck's home
-
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -172,7 +170,7 @@ comment=Linda & Jimmy showing wedding rings
 TIMEBASE=1001/30000
 START=37541
 END=38752
-title=1995 - Jim & Linda Wedding - 15 Reception Speech by Kevin Callahan (March 18, 1995)
+title=1995 - Jim & Linda Wedding - 15 Reception Speech by Kevin Warner (March 18, 1995)
 DATE_RECORDED=1995-03-19 01:45:00.000 ; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 RECORDING_LOCATION=US, California, Altadena
@@ -195,7 +193,7 @@ comment=Head table with Linda, Jimmy and Gloria
 TIMEBASE=1001/30000
 START=39555
 END=39766
-title=1995 - Jim & Linda Wedding - 17 Reception Beverly Callahan & June Cordell (March 18, 1995)
+title=1995 - Jim & Linda Wedding - 17 Reception Beverly Warner & June Cordell (March 18, 1995)
 DATE_RECORDED=1995-03-19 01:48:00.000 ; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 RECORDING_LOCATION=US, California, Altadena
@@ -206,7 +204,7 @@ comment=Guests eating and drinking
 [CHAPTER]
 TIMEBASE=1001/30000
 START=39791
-END=40509
+END=40494
 title=1995 - Jim & Linda Wedding - 18 Reception Toast and Photos (March 18, 1995)
 DATE_RECORDED=1995-03-19 02:13:00.000 ; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
@@ -265,6 +263,18 @@ comment=Linda & Jimmy eat first pice of cake and getting it allover their faces
 
 [CHAPTER]
 TIMEBASE=1001/30000
+START=63773
+END=64628
+title=1995 - Jim & Linda Wedding - 24 Reception Post Cake Smash (March 18, 1995)
+DATE_RECORDED=1995-03-19 03:13:00.000 ; UTC
+DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
+RECORDING_LOCATION=US, California, Altadena
+location=+34.18653-118.12936+388.24/Gloria Dilbeck's Home, 1034 Beverly Way, Altadena, CA 91001
+creation_time=1995-03-18T19:13:00-08:00
+comment=Linda & Jimmy post cake smash
+
+[CHAPTER]
+TIMEBASE=1001/30000
 START=62237
 END=63772
 title=1995 - Jim & Linda Wedding - 23 Reception Cleaning up After Cake Smash (March 18, 1995)
@@ -274,18 +284,6 @@ RECORDING_LOCATION=US, California, Altadena
 location=+34.18653-118.12936+388.24/Gloria Dilbeck's Home, 1034 Beverly Way, Altadena, CA 91001
 creation_time=1995-03-18T19:10:00-08:00
 comment=Linda & Jimmy using napkins to clean cake off their faces
-
-[CHAPTER]
-TIMEBASE=1001/30000
-START=63773
-END=64654
-title=1995 - Jim & Linda Wedding - 24 Reception Post Cake Smash (March 18, 1995)
-DATE_RECORDED=1995-03-19 03:13:00.000 ; UTC
-DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
-RECORDING_LOCATION=US, California, Altadena
-location=+34.18653-118.12936+388.24/Gloria Dilbeck's Home, 1034 Beverly Way, Altadena, CA 91001
-creation_time=1995-03-18T19:13:00-08:00
-comment=Linda & Jimmy post cake smash
 
 [CHAPTER]
 TIMEBASE=1001/30000

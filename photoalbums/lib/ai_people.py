@@ -100,6 +100,8 @@ class CastPeopleMatcher:
         image = cv2.imread(str(path))
         if image is None:
             return []
+        if image.ndim == 2 or (image.ndim == 3 and image.shape[2] == 1):
+            image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
 
         h, w = image.shape[:2]
         by_name: dict[str, float] = {}

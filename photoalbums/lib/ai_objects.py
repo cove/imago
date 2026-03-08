@@ -67,8 +67,14 @@ class YOLOObjectDetector:
         self.max_detections = int(max_detections)
 
     def detect_image(self, image_path: str | Path) -> list[ObjectDetection]:
+        import cv2
+
+        img = cv2.imread(str(image_path))
+        if img is not None and (img.ndim == 2 or (img.ndim == 3 and img.shape[2] == 1)):
+            img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        source = img if img is not None else str(image_path)
         results = self._model.predict(
-            source=str(image_path),
+            source=source,
             conf=self.confidence,
             max_det=self.max_detections,
             verbose=False,

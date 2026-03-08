@@ -189,6 +189,27 @@
       overflow-y: auto;
     }
 
+    .load-aside {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .load-aside .list {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    #page1 {
+      position: relative;
+    }
+
+    .load-chapter-fab {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+    }
+
     .list {
       display: flex;
       flex-direction: column;
@@ -763,8 +784,8 @@
     }
     .subtitles-editor-grid {
       width: 100%;
-      min-width: 900px;
       border-collapse: collapse;
+      table-layout: fixed;
       font-family: "Consolas", "Courier New", monospace;
       font-size: 12px;
       line-height: 1.3;
@@ -782,8 +803,12 @@
     .subtitles-editor-grid th,
     .subtitles-editor-grid td {
       border-bottom: 1px solid var(--line);
-      padding: 4px 6px;
+      padding: 2px 3px;
       vertical-align: middle;
+    }
+    .subtitles-editor-grid td:has(.subtitles-editor-cell.confidence),
+    .subtitles-editor-grid td:has(.subtitles-editor-cell.source) {
+      display: none;
     }
     .subtitles-editor-grid tr.active-row td {
       background: rgba(95, 141, 255, 0.14);
@@ -796,6 +821,7 @@
     }
     .subtitles-editor-cell {
       width: 100%;
+      box-sizing: border-box;
       border: 1px solid transparent;
       border-radius: 2px;
       background: rgba(7, 12, 20, 0.45);
@@ -809,16 +835,9 @@
       border-color: var(--accent);
       background: rgba(11, 21, 33, 0.8);
     }
-    .subtitles-editor-cell.start,
-    .subtitles-editor-cell.end {
-      min-width: 118px;
-    }
-    .subtitles-editor-cell.text {
-      min-width: 280px;
-    }
-    .subtitles-editor-cell.confidence {
-      min-width: 86px;
-      text-align: right;
+    .subtitles-editor-cell.confidence,
+    .subtitles-editor-cell.source {
+      display: none;
     }
     .subtitles-editor-row-delete {
       width: 20px;
@@ -1218,10 +1237,10 @@
 
     .overlay {
       position: fixed;
-      bottom: 12px;
-      right: 12px;
+      top: 10px;
+      right: 10px;
       display: none;
-      align-items: flex-end;
+      align-items: flex-start;
       justify-content: flex-end;
       z-index: 1000;
       pointer-events: none;
@@ -1240,6 +1259,7 @@
       gap: 10px;
       pointer-events: auto;
       box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+      margin-top: 44px;
     }
 
     .overlay-progress {
@@ -1536,8 +1556,7 @@
 
     <section id="page1" class="page active">
       <div class="page-load-layout">
-        <aside class="panel">
-          <button id="loadChapterBtn" class="action primary" type="button" style="margin-bottom:10px;">Load Chapter</button>
+        <aside class="panel load-aside">
           <h2 class="panel-title">Archives</h2>
           <div id="archiveList" class="list"></div>
         </aside>
@@ -1548,6 +1567,7 @@
 
         </main>
       </div>
+      <button id="loadChapterBtn" class="action primary load-chapter-fab" type="button">Load Chapter</button>
     </section>
 
     <section id="page2" class="page">
@@ -3050,7 +3070,7 @@
 
     function statsText(stats, threshold) {
       const forceText = state.forceAllFramesGood ? ' | Force Good: ON' : '';
-      return `Bad: ${stats.bad} (${Math.round((100 * stats.bad) / Math.max(1, stats.total))}%) | Good: ${stats.good} | Threshold: ${threshold.toFixed(4)} | Overrides: ${stats.overrides} | n=${stats.total} | shown=${stats.shown}${forceText}`;
+      return `Bad: ${stats.bad} (${Math.round((100 * stats.bad) / Math.max(1, stats.total))}%) | Good: ${stats.good} | Overrides: ${stats.overrides}${forceText}`;
     }
 
     function normalizeGammaValue(raw, fallback = 1.0) {
@@ -3491,11 +3511,11 @@
         <table class="subtitles-editor-grid">
           <thead>
             <tr>
-              <th>#</th>
-              <th>Start</th>
-              <th>End</th>
+              <th style="width:34px">#</th>
+              <th style="width:110px">Start</th>
+              <th style="width:110px">End</th>
               <th>People</th>
-              <th></th>
+              <th style="width:26px"></th>
             </tr>
           </thead>
           <tbody>${body}</tbody>
@@ -3810,11 +3830,11 @@
         <table class="subtitles-editor-grid">
           <thead>
             <tr>
-              <th>#</th>
-              <th>Start Frame</th>
-              <th>End Frame</th>
+              <th style="width:34px">#</th>
+              <th style="width:110px">Start Frame</th>
+              <th style="width:110px">End Frame</th>
               <th>Title</th>
-              <th></th>
+              <th style="width:26px"></th>
             </tr>
           </thead>
           <tbody>${bodyHtml}</tbody>
@@ -4030,14 +4050,14 @@
         <table class="subtitles-editor-grid">
           <thead>
             <tr>
-              <th>#</th>
-              <th>Start</th>
-              <th>End</th>
+              <th style="width:34px">#</th>
+              <th style="width:110px">Start</th>
+              <th style="width:110px">End</th>
               <th>Text</th>
-              <th>Speaker</th>
-              <th>Confidence</th>
-              <th>Source</th>
-              <th></th>
+              <th style="width:100px">Speaker</th>
+              <th style="display:none">Confidence</th>
+              <th style="display:none">Source</th>
+              <th style="width:26px"></th>
             </tr>
           </thead>
           <tbody>${bodyHtml}</tbody>
@@ -5097,10 +5117,7 @@
         return;
       }
       if (isGammaStepActive()) {
-        const mode = String((state.gammaProfile && state.gammaProfile.mode) || 'whole');
-        const ranges = gammaRangesForSave();
-        const gammaLevel = normalizeGammaValue(state.gammaProfile && state.gammaProfile.level, 1.0);
-        reviewStatsEl.textContent = `Gamma Correction step | mode ${mode} | level ${gammaLevel.toFixed(3)} | ranges ${ranges.length} | loaded ${loadedCount}/${totalCount}${loadSuffix}`;
+        reviewStatsEl.textContent = '';
         return;
       }
       reviewStatsEl.textContent = `${statsText(state.review.stats, state.review.threshold)}${loadSuffix}`;
@@ -7772,6 +7789,7 @@
           `Loaded ${loadedCount} frame(s) of ${chapterTotal} for ${state.chapter}.`
         );
         setStepByMode('review');
+        void ensureTimelineAudioLoaded(false);
         return true;
       } catch (err) {
         loadFailed = true;

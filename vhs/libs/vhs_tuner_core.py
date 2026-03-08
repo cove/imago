@@ -54,7 +54,7 @@ from common import (
     get_bad_frames_for_chapter,
     make_extract_chapter,
     parse_chapters,
-    update_chapter_bad_frames_in_render_settings,
+    replace_chapter_bad_frames_in_render_settings,
 )
 
 # ===============================================================================
@@ -532,9 +532,11 @@ def _persist_visible_bad_frames(
             existing_global_bad.discard(int(fid_i))
 
     out_global = sorted(existing_global_bad)
-    out_path = update_chapter_bad_frames_in_render_settings(
+    out_path = replace_chapter_bad_frames_in_render_settings(
         str(archive or ""),
-        {str(chapter_title): out_global},
+        start,
+        end,
+        out_global,
     )
     return out_path, len(out_global)
 

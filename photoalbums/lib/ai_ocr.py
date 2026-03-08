@@ -60,6 +60,11 @@ class OCREngine:
                 include_images=False,
                 ocr_enabled=True,
             )
+            self._docstrange_simple = ImageProcessor(
+                preserve_layout=False,
+                include_images=False,
+                ocr_enabled=True,
+            )
             return
         raise ValueError(f"Unsupported OCR engine: {self.engine}")
 
@@ -68,7 +73,40 @@ class OCREngine:
         if self.engine == "none":
             return ""
         if self.engine == "docstrange":
-            result = self._docstrange.process(str(path))
+            import tempfile
+
+            from PIL import Image
+
+            Image.MAX_IMAGE_PIXELS = None
+            process_path = str(path)
+            tmp = None
+            if path.suffix.lower() in {".tif", ".tiff"}:
+                try:
+                    img = Image.open(path)
+                    if img.mode not in ("RGB", "RGBA"):
+                        img = img.convert("RGB")
+                    tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+                    img.save(tmp.name)
+                    tmp.close()
+                    process_path = tmp.name
+                except Exception:
+                    pass
+
+            try:
+                result = self._docstrange.process(process_path)
+                if result is None or not (hasattr(result, "extract_text") or hasattr(result, "extract_markdown")):
+                    result = self._docstrange_simple.process(process_path)
+            except Exception:
+                try:
+                    result = self._docstrange_simple.process(process_path)
+                except Exception:
+                    return ""
+            finally:
+                if tmp is not None:
+                    try:
+                        os.unlink(tmp.name)
+                    except Exception:
+                        pass
             if result is None:
                 return ""
 
