@@ -1,4 +1,5 @@
 import sys
+import threading
 from pathlib import Path
 
 _VHS_ROOT = str(Path(__file__).parents[1].resolve())
@@ -7,6 +8,28 @@ _VHS_TEST = str(Path(__file__).parent.resolve())
 # Add vhs/ to sys.path so tests can import vhs_pipeline, common, libs, apps, etc.
 if _VHS_ROOT not in sys.path:
     sys.path.insert(0, _VHS_ROOT)
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "playwright: mark test as requiring a live browser (Playwright)")
+
+
+try:
+    import pytest
+    from http.server import ThreadingHTTPServer
+    from apps.plain_html_wizard.server import WizardHandler
+
+    @pytest.fixture(scope="session")
+    def live_server():
+        server = ThreadingHTTPServer(("127.0.0.1", 0), WizardHandler)
+        port = server.server_address[1]
+        t = threading.Thread(target=server.serve_forever, daemon=True)
+        t.start()
+        yield f"http://127.0.0.1:{port}"
+        server.shutdown()
+
+except Exception:
+    pass
 
 
 def pytest_collect_file(parent, file_path):
