@@ -505,12 +505,12 @@ def test_save_split_entries_writes_start_end_columns(tmp_path: Path, monkeypatch
 
     assert count == 2
     lines = path.read_text(encoding="utf-8").splitlines()
-    assert lines[0].startswith("__ffmeta_header\t__ffmeta_order\t__chapter_order\t__chapter_index\tffmeta_title\tTIMEBASE\tSTART\tEND\ttitle")
+    assert lines[0].startswith("__chapter_index\tffmeta_title\tTIMEBASE\tSTART\tEND\ttitle")
     assert "parent_chapter" not in lines[0]
     assert "start_frame" not in lines[0]
-    assert lines[1].split("\t")[5:9] == ["1001/30000", "100", "200", chapter]
-    assert lines[2].split("\t")[5:9] == ["1001/30000", "100", "125", "Part 1"]
-    assert lines[3].split("\t")[5:9] == ["1001/30000", "125", "180", "Part 2"]
+    assert lines[1].split("\t")[2:6] == ["1001/30000", "100", "200", chapter]
+    assert lines[2].split("\t")[2:6] == ["1001/30000", "100", "125", "Part 1"]
+    assert lines[3].split("\t")[2:6] == ["1001/30000", "125", "180", "Part 2"]
 
 
 def test_load_split_entries_reads_canonical_chapters_tsv(
@@ -526,10 +526,10 @@ def test_load_split_entries_reads_canonical_chapters_tsv(
     (archive_dir / "chapters.tsv").write_text(
         "\n".join(
             [
-                "__ffmeta_header\t__ffmeta_order\t__chapter_order\t__chapter_index\tffmeta_title\tTIMEBASE\tSTART\tEND\ttitle",
-                f";FFMETADATA1\ttitle\tTIMEBASE|START|END|title\t1\tDemo Archive\t1001/30000\t100\t200\t{chapter}",
-                ";FFMETADATA1\ttitle\tTIMEBASE|START|END|title\t2\tDemo Archive\t1001/30000\t100\t125\tPart 1",
-                ";FFMETADATA1\ttitle\tTIMEBASE|START|END|title\t3\tDemo Archive\t1001/30000\t125\t180\tPart 2",
+                "__chapter_index\tffmeta_title\tTIMEBASE\tSTART\tEND\ttitle",
+                f"1\tDemo Archive\t1001/30000\t100\t200\t{chapter}",
+                "2\tDemo Archive\t1001/30000\t100\t125\tPart 1",
+                "3\tDemo Archive\t1001/30000\t125\t180\tPart 2",
             ]
         )
         + "\n",

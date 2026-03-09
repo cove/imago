@@ -18,9 +18,6 @@ from common import (
     write_sha3_manifest,
 )
 
-TSV_META_HEADER_COL = "__ffmeta_header"
-TSV_META_GLOBAL_ORDER_COL = "__ffmeta_order"
-TSV_META_CHAPTER_ORDER_COL = "__chapter_order"
 TSV_META_CHAPTER_INDEX_COL = "__chapter_index"
 TSV_FFMETA_PREFIX = "ffmeta_"
 TSV_META_PREFIX = "__"
@@ -60,20 +57,6 @@ def _parse_timebase(value: str) -> tuple[int, int] | None:
         den = -den
     return int(num), int(den)
 
-
-def _split_order(raw: Any) -> list[str]:
-    text = _as_text(raw).strip()
-    if not text:
-        return []
-    out: list[str] = []
-    seen: set[str] = set()
-    for token in text.split("|"):
-        key = str(token or "").strip()
-        if not key or key in seen:
-            continue
-        seen.add(key)
-        out.append(key)
-    return out
 
 
 def _sort_rows_by_index(rows: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -196,19 +179,11 @@ def ffmetadata_to_chapters_tsv(ffmetadata_path: Path, out_path: Path | None = No
         chapter_rows = [[]]
 
     for idx, chapter in enumerate(chapter_rows, start=1):
-        chapter_order: list[str] = []
         chapter_values: dict[str, str] = {}
         for key, value in list(chapter or []):
-            if key not in chapter_order:
-                chapter_order.append(key)
             chapter_values[key] = value
 
-        row: dict[str, Any] = {
-            TSV_META_HEADER_COL: header_line or ";FFMETADATA1",
-            TSV_META_GLOBAL_ORDER_COL: "|".join(global_order),
-            TSV_META_CHAPTER_ORDER_COL: "|".join(chapter_order),
-            TSV_META_CHAPTER_INDEX_COL: str(int(idx)),
-        }
+        row: dict[str, Any] = {TSV_META_CHAPTER_INDEX_COL: str(int(idx))}
         for key in global_order:
             row[f"{TSV_FFMETA_PREFIX}{key}"] = global_values.get(key, "")
         for key in chapter_columns:
@@ -216,9 +191,6 @@ def ffmetadata_to_chapters_tsv(ffmetadata_path: Path, out_path: Path | None = No
         rows.append(row)
 
     columns = [
-        TSV_META_HEADER_COL,
-        TSV_META_GLOBAL_ORDER_COL,
-        TSV_META_CHAPTER_ORDER_COL,
         TSV_META_CHAPTER_INDEX_COL,
         *[f"{TSV_FFMETA_PREFIX}{key}" for key in global_order],
         *chapter_columns,
@@ -251,16 +223,11 @@ def convert_all_ffmetadata_to_chapters_tsv(
     return int(count)
 
 
-def _chapter_keys_for_row(row: dict[str, str], header: list[str]) -> list[str]:
-    ordered = _split_order((row or {}).get(TSV_META_CHAPTER_ORDER_COL, ""))
-    if ordered:
-        return ordered
-    out: list[str] = []
-    for key in list(header or []):
-        if key.startswith(TSV_META_PREFIX) or key.startswith(TSV_FFMETA_PREFIX):
-            continue
-        out.append(key)
-    return out
+def _chapter_keys_for_row(header: list[str]) -> list[str]:
+    return [
+        key for key in list(header or [])
+        if key and not key.startswith(TSV_META_PREFIX) and not key.startswith(TSV_FFMETA_PREFIX)
+    ]
 
 
 def generate_ffmetadata_from_chapters_tsv(chapters_tsv_path: Path, out_path: Path) -> Path:
@@ -272,28 +239,11 @@ def generate_ffmetadata_from_chapters_tsv(chapters_tsv_path: Path, out_path: Pat
         print(f"  Generated FFmetadata: {out_path}")
         return Path(out_path)
 
-    ffmeta_header = ""
-    for row in rows_sorted:
-        candidate = _as_text((row or {}).get(TSV_META_HEADER_COL)).strip()
-        if candidate:
-            ffmeta_header = candidate
-            break
-    if not ffmeta_header:
-        ffmeta_header = ";FFMETADATA1"
-    if not ffmeta_header.startswith(";"):
-        ffmeta_header = f";{ffmeta_header}"
-
-    global_order: list[str] = []
-    for row in rows_sorted:
-        global_order = _split_order((row or {}).get(TSV_META_GLOBAL_ORDER_COL, ""))
-        if global_order:
-            break
-    if not global_order:
-        global_order = [
-            str(col)[len(TSV_FFMETA_PREFIX):]
-            for col in list(header or [])
-            if str(col or "").startswith(TSV_FFMETA_PREFIX)
-        ]
+    global_order: list[str] = [
+        str(col)[len(TSV_FFMETA_PREFIX):]
+        for col in list(header or [])
+        if str(col or "").startswith(TSV_FFMETA_PREFIX)
+    ]
 
     global_values: dict[str, str] = {}
     for key in global_order:
@@ -306,30 +256,17 @@ def generate_ffmetadata_from_chapters_tsv(chapters_tsv_path: Path, out_path: Pat
                 break
         global_values[key] = chosen
 
-    lines: list[str] = [ffmeta_header]
+    lines: list[str] = [";FFMETADATA1"]
     for key in global_order:
         lines.append(f"{key}={global_values.get(key, '')}")
     if rows_sorted:
         lines.append("")
 
     for idx, row in enumerate(rows_sorted):
-        chapter_keys = _chapter_keys_for_row(row, header)
-        emitted: set[str] = set()
         lines.append("[CHAPTER]")
-        for key in chapter_keys:
-            if key.startswith(TSV_META_PREFIX) or key.startswith(TSV_FFMETA_PREFIX):
-                continue
-            emitted.add(key)
-            lines.append(f"{key}={_as_text((row or {}).get(key, ''))}")
-
         for key in list(header or []):
             key_text = str(key or "").strip()
-            if (
-                not key_text
-                or key_text in emitted
-                or key_text.startswith(TSV_META_PREFIX)
-                or key_text.startswith(TSV_FFMETA_PREFIX)
-            ):
+            if not key_text or key_text.startswith(TSV_META_PREFIX) or key_text.startswith(TSV_FFMETA_PREFIX):
                 continue
             value = _as_text((row or {}).get(key_text, ""))
             if value != "":
@@ -365,7 +302,7 @@ def _load_master_chapters(chapters_tsv_path: Path) -> tuple[dict[str, str], list
 
     chapters: list[dict[str, Any]] = []
     for row in rows_sorted:
-        chapter_keys = _chapter_keys_for_row(row, header)
+        chapter_keys = _chapter_keys_for_row(header)
         chapter: dict[str, Any] = {}
         for key in chapter_keys:
             key_text = str(key or "").strip()

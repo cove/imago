@@ -5185,13 +5185,12 @@
         pending.push({ fidKey, src });
       }
       if (!pending.length) return;
-      for (let i = 0; i < pending.length; i += 1) {
-        const item = pending[i];
-        const score = await estimateGammaScoreFromImage(item.src);
-        state.gammaScores.set(item.fidKey, score);
-        if ((i + 1) % 24 === 0) {
-          await new Promise(resolve => window.setTimeout(resolve, 0));
-        }
+      const CONCURRENCY = 16;
+      for (let i = 0; i < pending.length; i += CONCURRENCY) {
+        const batch = pending.slice(i, i + CONCURRENCY);
+        const scores = await Promise.all(batch.map(item => estimateGammaScoreFromImage(item.src)));
+        scores.forEach((score, j) => state.gammaScores.set(batch[j].fidKey, score));
+        await new Promise(resolve => window.setTimeout(resolve, 0));
       }
       invalidateGammaSparklineCache();
     }

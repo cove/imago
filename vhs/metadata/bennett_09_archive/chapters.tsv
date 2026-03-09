@@ -1,5 +1,5 @@
-__ffmeta_header	__ffmeta_order	__chapter_order	__chapter_index	ffmeta_author	ffmeta_title	TIMEBASE	START	END	title	creation_time	location	transcript
-;FFMETADATA1	author|title	TIMEBASE|START|END|title|creation_time|location	1	Terrance J. Bennett	Bennett 09 Archive (VHS-C Tape)	1/1	6	267	1992 - Dennis The Menace Playground in Monterey, California #2 (1992)	1992-01-01T00:00:00-08:00	+36.597562-121.886724+4.2672/777 Pearl St, Monterey, CA 93940	
-;FFMETADATA1	author|title	TIMEBASE|START|END|title|creation_time	2	Terrance J. Bennett	Bennett 09 Archive (VHS-C Tape)	1/1	278	1136	1992 - Anat & Joe's Wedding Berkeley (1992)	1992-01-01T00:00:00-08:00		
-;FFMETADATA1	author|title	TIMEBASE|START|END|title|creation_time	3	Terrance J. Bennett	Bennett 09 Archive (VHS-C Tape)	1/1	1117	1477	1992 - Michael 21st Birthday at Mark & Florine's Condo (July 4, 1992)	1992-07-01T00:00:00-07:00		
-;FFMETADATA1	author|title	TIMEBASE|START|END|title|creation_time|location	4	Terrance J. Bennett	Bennett 09 Archive (VHS-C Tape)	1/1	1478	1755	1992 - Asia's 5th Birthday at Gerrish Swim & Tennis Club #1 (August 13, 1992)	1992-08-13T00:00:00-07:00	+34.174082-118.094512+283.09/2713 New York Dr, Pasadena, CA 91107	
+__chapter_index	ffmeta_author	ffmeta_title	TIMEBASE	START	END	title	creation_time	location	transcript
+1	Terrance J. Bennett	Bennett 09 Archive (VHS-C Tape)	1/1	6	267	1992 - Dennis The Menace Playground in Monterey, California #2 (1992)	1992-01-01T00:00:00-08:00	+36.597562-121.886724+4.2672/777 Pearl St, Monterey, CA 93940	
+2	Terrance J. Bennett	Bennett 09 Archive (VHS-C Tape)	1/1	278	1136	1992 - Anat & Joe's Wedding Berkeley (1992)	1992-01-01T00:00:00-08:00		
+3	Terrance J. Bennett	Bennett 09 Archive (VHS-C Tape)	1/1	1117	1477	1992 - Michael 21st Birthday at Mark & Florine's Condo (July 4, 1992)	1992-07-01T00:00:00-07:00		
+4	Terrance J. Bennett	Bennett 09 Archive (VHS-C Tape)	1/1	1478	1755	1992 - Asia's 5th Birthday at Gerrish Swim & Tennis Club #1 (August 13, 1992)	1992-08-13T00:00:00-07:00	+34.174082-118.094512+283.09/2713 New York Dr, Pasadena, CA 91107	

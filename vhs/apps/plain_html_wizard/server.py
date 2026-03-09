@@ -86,16 +86,10 @@ FPS_NUM = 30000
 FPS_DEN = 1001
 PEOPLE_TSV_HEADER = "start\tend\tpeople"
 SUBTITLES_TSV_HEADER = "start\tend\ttext\tspeaker\tconfidence\tsource"
-TSV_META_HEADER_COL = "__ffmeta_header"
-TSV_META_GLOBAL_ORDER_COL = "__ffmeta_order"
-TSV_META_CHAPTER_ORDER_COL = "__chapter_order"
 TSV_META_CHAPTER_INDEX_COL = "__chapter_index"
 TSV_FFMETA_PREFIX = "ffmeta_"
 TSV_META_PREFIX = "__"
 CHAPTERS_TSV_META_COLUMNS = [
-    TSV_META_HEADER_COL,
-    TSV_META_GLOBAL_ORDER_COL,
-    TSV_META_CHAPTER_ORDER_COL,
     TSV_META_CHAPTER_INDEX_COL,
 ]
 CHAPTER_FFMETADATA_COMPUTED_KEYS = {"start_raw", "end_raw", "timebase_num", "timebase_den"}
@@ -712,13 +706,9 @@ def _chapter_row_matches(row: dict[str, Any], chapter_title: str, chapter_start:
     )
 
 
-def _chapter_order_keys_for_row(row: dict[str, Any], header: list[str]) -> list[str]:
-    raw = str((row or {}).get(TSV_META_CHAPTER_ORDER_COL, "") or "").strip()
-    ordered = [part.strip() for part in raw.split("|") if str(part or "").strip()]
-    if ordered:
-        return ordered
-    out: list[str] = []
+def _chapter_order_keys_for_row(header: list[str]) -> list[str]:
     seen: set[str] = set()
+    out: list[str] = []
     for col in list(header or []):
         key = str(col or "").strip()
         if (
@@ -736,7 +726,7 @@ def _chapter_order_keys_for_row(row: dict[str, Any], header: list[str]) -> list[
 
 def _canonical_chapters_base(path: Path, archive_name: str) -> tuple[list[str], list[dict[str, str]]]:
     header, rows = _read_chapters_tsv_rows(path)
-    if TSV_META_HEADER_COL in set(header):
+    if rows:
         return header, rows
     ffmeta_path = _chapters_ffmetadata_path(archive_name)
     if not ffmeta_path.exists():
@@ -762,9 +752,7 @@ def _build_chapter_row_from_template(
     from the template.
     """
     row = dict(template_row or {})
-    chapter_keys = _chapter_order_keys_for_row(template_row, header)
-    if not row.get(TSV_META_HEADER_COL):
-        row[TSV_META_HEADER_COL] = ";FFMETADATA1"
+    chapter_keys = _chapter_order_keys_for_row(header)
     for key in chapter_keys:
         lowered = str(key or "").strip().lower()
         if lowered == "start":
@@ -775,8 +763,6 @@ def _build_chapter_row_from_template(
             row[key] = str(title)
     if not any(str(key or "").strip().lower() == "title" for key in chapter_keys):
         row["title"] = str(title)
-        chapter_keys.append("title")
-    row[TSV_META_CHAPTER_ORDER_COL] = "|".join(chapter_keys)
     row[TSV_META_CHAPTER_INDEX_COL] = ""
     return row
 
@@ -978,10 +964,7 @@ def _save_split_entries_for_chapter(
                     chapter_defaults[key] = chapter_key
                 else:
                     chapter_defaults[key] = str(ffmeta_chapter.get(key, "") or "").strip()
-        template_row[TSV_META_HEADER_COL] = ";FFMETADATA1"
-        template_row[TSV_META_GLOBAL_ORDER_COL] = "|".join(global_fields)
         chapter_order = [key for key in chapter_fields if key not in CHAPTER_FFMETADATA_COMPUTED_KEYS]
-        template_row[TSV_META_CHAPTER_ORDER_COL] = "|".join(chapter_order)
         for key in global_fields:
             template_row[f"{TSV_FFMETA_PREFIX}{key}"] = str(ffmetadata.get(key, "") or "").strip()
         for key in chapter_order:
@@ -1039,7 +1022,7 @@ def _save_split_entries_for_chapter(
         _add_col(col)
     for col in global_fields:
         _add_col(f"{TSV_FFMETA_PREFIX}{col}")
-    chapter_order_template = _chapter_order_keys_for_row(template_row, existing_header)
+    chapter_order_template = _chapter_order_keys_for_row(existing_header)
     for col in chapter_order_template:
         _add_col(col)
     if "title" not in {str(c).strip().lower() for c in chapter_order_template}:
