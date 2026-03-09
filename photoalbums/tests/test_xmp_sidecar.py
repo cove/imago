@@ -26,6 +26,17 @@ class TestXMPSidecar(unittest.TestCase):
                 description="People: Alice, Bob. Objects: dog, park.",
                 ocr_text="Welcome to the park",
                 detections_payload={"objects": [{"label": "dog", "score": 0.9}]},
+                subphotos=[
+                    {
+                        "index": 1,
+                        "bounds": {"x": 10, "y": 20, "width": 300, "height": 200},
+                        "description": "A dog in the park.",
+                        "ocr_text": "park sign",
+                        "people": ["Alice"],
+                        "subjects": ["dog", "park"],
+                        "detections": {"objects": [{"label": "dog", "score": 0.9}]},
+                    }
+                ],
             )
 
             self.assertTrue(out.exists())
@@ -36,6 +47,9 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertIn("dog", xml)
             self.assertIn("imago-test", xml)
             self.assertIn("Welcome to the park", xml)
+            self.assertIn("SubPhotos", xml)
+            self.assertIn("A dog in the park.", xml)
+            self.assertIn("park sign", xml)
 
 
 if __name__ == "__main__":

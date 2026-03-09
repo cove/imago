@@ -9,11 +9,11 @@ from .model_store import HF_MODEL_CACHE_DIR
 DEFAULT_QWEN_CAPTION_MODEL = "Qwen/Qwen2.5-VL-3B-Instruct"
 
 
-def _clean_text(value: str) -> str:
+def clean_text(value: str) -> str:
     return " ".join(str(value or "").split()).strip()
 
 
-def _join_human(values: list[str]) -> str:
+def join_human(values: list[str]) -> str:
     clean = [str(item or "").strip() for item in values if str(item or "").strip()]
     if not clean:
         return ""
@@ -24,7 +24,7 @@ def _join_human(values: list[str]) -> str:
     return f"{', '.join(clean[:-1])}, and {clean[-1]}"
 
 
-def _dedupe(values: list[str]) -> list[str]:
+def dedupe(values: list[str]) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
     for raw in values:
@@ -40,19 +40,19 @@ def _dedupe(values: list[str]) -> list[str]:
 
 
 def build_template_caption(*, people: list[str], objects: list[str], ocr_text: str) -> str:
-    people_list = _dedupe(people)
-    object_list = _dedupe(objects)
-    text = _clean_text(ocr_text)
+    people_list = dedupe(people)
+    object_list = dedupe(objects)
+    text = clean_text(ocr_text)
 
     parts: list[str] = []
     if people_list and object_list:
         parts.append(
-            f"This photo appears to show {_join_human(people_list)} with {_join_human(object_list)} in view."
+            f"This photo appears to show {join_human(people_list)} with {join_human(object_list)} in view."
         )
     elif people_list:
-        parts.append(f"This photo appears to show {_join_human(people_list)}.")
+        parts.append(f"This photo appears to show {join_human(people_list)}.")
     elif object_list:
-        parts.append(f"This photo includes {_join_human(object_list)}.")
+        parts.append(f"This photo includes {join_human(object_list)}.")
     else:
         parts.append("This photo was indexed with no confident people or object matches.")
 
@@ -64,19 +64,45 @@ def build_template_caption(*, people: list[str], objects: list[str], ocr_text: s
     return " ".join(parts).strip()
 
 
+def build_page_caption(*, photo_count: int, people: list[str], objects: list[str], ocr_text: str) -> str:
+    count = max(1, int(photo_count))
+    people_list = dedupe(people)
+    object_list = dedupe(objects)
+    text = clean_text(ocr_text)
+
+    parts = [f"This album page contains {count} photo(s)."]
+    if people_list and object_list:
+        parts.append(
+            f"Across the page, it appears to show {join_human(people_list)} with {join_human(object_list)} in view."
+        )
+    elif people_list:
+        parts.append(f"Across the page, it appears to show {join_human(people_list)}.")
+    elif object_list:
+        parts.append(f"Across the page, visible objects include {join_human(object_list)}.")
+    else:
+        parts.append("Across the page, no confident people or object matches were found.")
+
+    if text:
+        snippet = text[:220].strip()
+        if len(text) > len(snippet):
+            snippet += "..."
+        parts.append(f'Visible text on the page reads: "{snippet}".')
+    return " ".join(parts).strip()
+
+
 def _build_qwen_prompt(*, people: list[str], objects: list[str], ocr_text: str) -> str:
-    people_list = _dedupe(people)
-    object_list = _dedupe(objects)
-    text = _clean_text(ocr_text)
+    people_list = dedupe(people)
+    object_list = dedupe(objects)
+    text = clean_text(ocr_text)
     lines = [
         "Write one or two concise factual sentences describing this photo.",
         "Do not invent details that are not visible.",
         "Use the context below only as hints and prefer what you can see in the image.",
     ]
     if people_list:
-        lines.append(f"Known people matches: {_join_human(people_list)}.")
+        lines.append(f"Known people matches: {join_human(people_list)}.")
     if object_list:
-        lines.append(f"Detected objects: {_join_human(object_list)}.")
+        lines.append(f"Detected objects: {join_human(object_list)}.")
     if text:
         snippet = text[:220].strip()
         if len(text) > len(snippet):
@@ -87,7 +113,7 @@ def _build_qwen_prompt(*, people: list[str], objects: list[str], ocr_text: str) 
 
 
 def _normalize_caption(value: str) -> str:
-    text = _clean_text(value)
+    text = clean_text(value)
     if not text:
         return ""
     lowered = text.lower()

@@ -24,6 +24,17 @@ class TestAICaption(unittest.TestCase):
         self.assertIn("bus", text)
         self.assertIn("Visible text reads:", text)
 
+    def test_page_caption_mentions_photo_count_and_page_text(self):
+        text = ai_caption.build_page_caption(
+            photo_count=2,
+            people=["Alice", "Bob"],
+            objects=["bus", "chair"],
+            ocr_text="Welcome to Beijing station",
+        )
+        self.assertIn("contains 2 photo(s)", text)
+        self.assertIn("Across the page", text)
+        self.assertIn("Visible text on the page reads:", text)
+
     def test_caption_engine_none_returns_empty_text(self):
         engine = ai_caption.CaptionEngine(engine="none")
         out = engine.generate(
