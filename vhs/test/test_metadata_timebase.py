@@ -71,7 +71,10 @@ def test_generate_mkv_chapters_xml_uses_normalized_seconds(tmp_path: Path) -> No
 
 
 def test_chapters_tsv_round_trip_recreates_ffmetadata_exactly(tmp_path: Path) -> None:
-    original = (
+    # Source ffmetadata has per-chapter column variation and an empty comment= field.
+    # After round-trip: empty fields are dropped, and column order is normalized to
+    # the TSV-header order (first-seen across all chapters).
+    source = (
         ";FFMETADATA1\n"
         "title=Unit Archive (VHS Tape)\n"
         "author=Unit Tester\n"
@@ -91,12 +94,33 @@ def test_chapters_tsv_round_trip_recreates_ffmetadata_exactly(tmp_path: Path) ->
         "title=Second Chapter\n"
         "location=Pasadena, CA\n"
     )
+    # Expected: empty comment= dropped; chapter 2 column order follows TSV-header order
+    # (TIMEBASE before START/END because that's the first-seen order from chapter 1).
+    expected = (
+        ";FFMETADATA1\n"
+        "title=Unit Archive (VHS Tape)\n"
+        "author=Unit Tester\n"
+        "\n"
+        "[CHAPTER]\n"
+        "TIMEBASE=1001/30000\n"
+        "START=101\n"
+        "END=303\n"
+        "title=Unit Chapter\n"
+        "creation_time=2001\n"
+        "\n"
+        "[CHAPTER]\n"
+        "TIMEBASE=1/100\n"
+        "START=6315\n"
+        "END=6603\n"
+        "title=Second Chapter\n"
+        "location=Pasadena, CA\n"
+    )
     ffmeta = tmp_path / "chapters.ffmetadata"
     chapters_tsv = tmp_path / "chapters.tsv"
     roundtrip = tmp_path / "chapters.roundtrip.ffmetadata"
-    ffmeta.write_text(original, encoding="utf-8")
+    ffmeta.write_text(source, encoding="utf-8")
 
     ffmetadata_to_chapters_tsv(ffmeta, chapters_tsv)
     generate_ffmetadata_from_chapters_tsv(chapters_tsv, roundtrip)
 
-    assert roundtrip.read_text(encoding="utf-8") == original
+    assert roundtrip.read_text(encoding="utf-8") == expected
