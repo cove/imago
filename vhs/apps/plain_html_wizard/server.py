@@ -2413,6 +2413,16 @@ class WizardHandler(BaseHTTPRequestHandler):
             self._send_text(INDEX_HTML.read_text(encoding="utf-8"), content_type="text/html; charset=utf-8")
             return
 
+        if parsed.path.endswith((".js", ".css")) and "/" not in parsed.path.lstrip("/"):
+            static_path = STATIC_DIR / parsed.path.lstrip("/")
+            print(f"[static] path={parsed.path!r} resolved={static_path} exists={static_path.exists()}", flush=True)
+            if not static_path.exists() or not static_path.is_file():
+                self._send_text("Not found", code=HTTPStatus.NOT_FOUND)
+                return
+            content_type = "application/javascript; charset=utf-8" if parsed.path.endswith(".js") else "text/css; charset=utf-8"
+            self._send_text(static_path.read_text(encoding="utf-8"), content_type=content_type)
+            return
+
         if parsed.path == "/preview":
             preview_raw = str(session.preview_video_path or "").strip()
             preview_path = Path(preview_raw) if preview_raw else None
