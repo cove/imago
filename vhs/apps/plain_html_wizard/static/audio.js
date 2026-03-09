@@ -673,7 +673,7 @@ function renderPeopleTimeline(cursorSeconds = null) {
   } else if (splitMode) {
     syncSplitEditorToCursor(currentSec);
   } else {
-    syncSubtitlesEditorToCursor(currentSec);
+    syncSubtitlesEditorToCursor(currentSec, { force: true });
   }
 
   if (peopleTimelineDraft) {
