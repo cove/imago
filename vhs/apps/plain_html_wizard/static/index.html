@@ -3491,6 +3491,7 @@
 
     function renderPeopleEditorGrid(entries) {
       if (!peopleEditorEl) return;
+      const savedScroll = peopleEditorEl.scrollTop;
       const rows = canonicalizePeopleEntries(entries);
       const withBlank = rows.concat([{ start: '', end: '', people: '' }]);
       const body = withBlank.map((row, idx) => {
@@ -3522,6 +3523,7 @@
         </table>
         <div class="subtitles-editor-hint">Edits save to <code>people.tsv</code> as <code>start</code>, <code>end</code>, and <code>people</code>.</div>
       `;
+      peopleEditorEl.scrollTop = savedScroll;
     }
 
     function parsePeopleEditorGrid() {
@@ -3597,8 +3599,9 @@
         entries: parsed.entries,
       };
       peopleTimelineDrag = null;
-      renderPeopleEditorGrid(parsed.entries);
-      syncPeopleEditorToCursor(currentPeopleTimelineCursorSeconds(), { force: true });
+      if (!peopleEditorHasFocus()) {
+        renderPeopleEditorGrid(parsed.entries);
+      }
       updatePeopleMeta();
       return true;
     }
@@ -4002,6 +4005,10 @@
       return Boolean(subtitlesEditorEl && subtitlesEditorEl.contains(document.activeElement));
     }
 
+    function peopleEditorHasFocus() {
+      return Boolean(peopleEditorEl && peopleEditorEl.contains(document.activeElement));
+    }
+
     function subtitleEntriesToEditorRows(entries) {
       const rows = canonicalizeSubtitlesEntries(entries);
       const mapped = rows.map((row) => ({
@@ -4027,6 +4034,7 @@
 
     function renderSubtitlesEditorGrid(entries) {
       if (!subtitlesEditorEl) return;
+      const savedScroll = subtitlesEditorEl.scrollTop;
       const rows = subtitleEntriesToEditorRows(entries);
       const bodyHtml = rows.map((row, idx) => {
         const rowNum = idx + 1;
@@ -4064,6 +4072,7 @@
         </table>
         <div class="subtitles-editor-hint">Click each cell to edit fields. Leave the last blank row empty or fill it to add a new subtitle.</div>
       `;
+      subtitlesEditorEl.scrollTop = savedScroll;
     }
 
     function parseSubtitlesEditorGrid() {
@@ -4109,7 +4118,7 @@
     function syncSubtitlesEditorToCursor(cursorSeconds, options = {}) {
       if (!subtitlesEditorEl || !isSubtitlesStepActive()) return;
       const force = Boolean(options && options.force);
-      if (!force && subtitleEditorHasFocus()) return;
+      if (subtitleEditorHasFocus()) return;
 
       const rows = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
       const rowEls = Array.from(subtitlesEditorEl.querySelectorAll('tr[data-sub-row="1"]'));
@@ -4144,6 +4153,7 @@
         rowEl.classList.toggle('active-row', idx === targetIdx);
       });
 
+      if (!force) return;
       const targetRow = rowEls[targetIdx];
       if (!targetRow) return;
       const headerEl = subtitlesEditorEl.querySelector('thead');
@@ -4188,7 +4198,6 @@
       };
       if (!subtitleEditorHasFocus()) {
         renderSubtitlesEditorGrid(parsed.entries);
-        syncSubtitlesEditorToCursor(currentPeopleTimelineCursorSeconds(), { force: true });
       }
       updateSubtitlesMeta();
       return true;
@@ -8769,14 +8778,13 @@
         const target = event.target;
         if (!(target instanceof HTMLInputElement)) return;
         if (!target.classList.contains('subtitles-editor-cell')) return;
-        syncPeopleProfileFromEditor(false);
-        updateReviewStatsDisplay();
+        setTimeout(() => { syncPeopleProfileFromEditor(false); updateReviewStatsDisplay(); }, 0);
       });
       peopleEditorEl.addEventListener('focusout', (event) => {
         const target = event.target;
         if (!(target instanceof HTMLInputElement)) return;
         if (!target.classList.contains('subtitles-editor-cell')) return;
-        syncPeopleProfileFromEditor(false);
+        setTimeout(() => { syncPeopleProfileFromEditor(false); }, 0);
       });
     }
     if (subtitlesEditorEl) {
@@ -8804,13 +8812,13 @@
         const target = event.target;
         if (!(target instanceof HTMLElement)) return;
         if (!target.classList.contains('subtitles-editor-cell')) return;
-        syncSubtitlesProfileFromEditor(false);
+        setTimeout(() => { syncSubtitlesProfileFromEditor(false); }, 0);
       });
       subtitlesEditorEl.addEventListener('focusout', (event) => {
         const target = event.target;
         if (!(target instanceof HTMLElement)) return;
         if (!target.classList.contains('subtitles-editor-cell')) return;
-        syncSubtitlesProfileFromEditor(false);
+        setTimeout(() => { syncSubtitlesProfileFromEditor(false); }, 0);
       });
     }
     if (splitEditorEl) {
