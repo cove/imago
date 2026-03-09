@@ -81,6 +81,7 @@ except Exception:
 
 STATIC_DIR = _HERE / "static"
 INDEX_HTML = STATIC_DIR / "index.html"
+_STATIC_FILE_CACHE: dict[str, tuple[str, bytes]] = {}  # path -> (content_type, bytes)
 SESSION_COOKIE = "vhs_plain_wizard_sid"
 FPS_NUM = 30000
 FPS_DEN = 1001
@@ -2129,6 +2130,9 @@ def _load_whisper_transcribe_module() -> Any:
 class WizardHandler(BaseHTTPRequestHandler):
     server_version = "VHSTuner/1.0"
 
+    def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
+        pass  # suppress per-request stderr noise
+
     def _ensure_session(self) -> SessionState:
         self._set_cookie: str | None = None
         cookies = SimpleCookie(self.headers.get("Cookie", ""))
@@ -2414,13 +2418,17 @@ class WizardHandler(BaseHTTPRequestHandler):
             return
 
         if parsed.path.endswith((".js", ".css")) and "/" not in parsed.path.lstrip("/"):
-            static_path = STATIC_DIR / parsed.path.lstrip("/")
-            print(f"[static] path={parsed.path!r} resolved={static_path} exists={static_path.exists()}", flush=True)
-            if not static_path.exists() or not static_path.is_file():
-                self._send_text("Not found", code=HTTPStatus.NOT_FOUND)
-                return
-            content_type = "application/javascript; charset=utf-8" if parsed.path.endswith(".js") else "text/css; charset=utf-8"
-            self._send_text(static_path.read_text(encoding="utf-8"), content_type=content_type)
+            cache_key = parsed.path.lstrip("/")
+            cached = _STATIC_FILE_CACHE.get(cache_key)
+            if cached is None:
+                static_path = STATIC_DIR / cache_key
+                if not static_path.exists() or not static_path.is_file():
+                    self._send_text("Not found", code=HTTPStatus.NOT_FOUND)
+                    return
+                content_type = "application/javascript; charset=utf-8" if parsed.path.endswith(".js") else "text/css; charset=utf-8"
+                cached = (content_type, static_path.read_bytes())
+                _STATIC_FILE_CACHE[cache_key] = cached
+            self._send_bytes(cached[1], content_type=cached[0], cache_control="no-store")
             return
 
         if parsed.path == "/preview":
@@ -3935,7 +3943,9 @@ class WizardHandler(BaseHTTPRequestHandler):
 
 
 def run(host: str = "0.0.0.0", port: int = 8092) -> None:
+    import socket
     server = ThreadingHTTPServer((host, int(port)), WizardHandler)
+    server.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
     print(f"VHS Tuner running at http://{host}:{port}")
     try:
         server.serve_forever()
