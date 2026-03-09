@@ -1,3 +1,7 @@
+let subtitleEditorProgrammaticScroll = false;
+let subtitleEditorUserScrolling = false;
+let _subtitleEditorUserScrollTimer = null;
+
 function normalizeSubtitleText(raw) {
   return String(raw || '').replace(/\s+/g, ' ').trim();
 }
@@ -545,7 +549,7 @@ function syncSubtitlesEditorToCursor(cursorSeconds, options = {}) {
     rowEl.classList.toggle('active-row', idx === targetIdx);
   });
 
-  if (!force) return;
+  if (!force || subtitleEditorUserScrolling) return;
   const targetRow = rowEls[targetIdx];
   if (!targetRow) return;
   const headerEl = subtitlesEditorEl.querySelector('thead');
@@ -561,6 +565,7 @@ function syncSubtitlesEditorToCursor(cursorSeconds, options = {}) {
       0,
       rowTop - Math.max(0, Math.floor((Number(subtitlesEditorEl.clientHeight || 0) - rowHeight) / 2))
     );
+    subtitleEditorProgrammaticScroll = true;
     subtitlesEditorEl.scrollTo({ top: desired, behavior: 'auto' });
   }
 }

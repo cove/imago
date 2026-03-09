@@ -1145,6 +1145,34 @@ if (subtitlesEditorEl) {
     if (!target.classList.contains('subtitles-editor-cell')) return;
     setTimeout(() => { syncSubtitlesProfileFromEditor(false); }, 0);
   });
+  subtitlesEditorEl.addEventListener('scroll', () => {
+    if (subtitleEditorProgrammaticScroll) {
+      subtitleEditorProgrammaticScroll = false;
+      return;
+    }
+    subtitleEditorUserScrolling = true;
+    clearTimeout(_subtitleEditorUserScrollTimer);
+    _subtitleEditorUserScrollTimer = setTimeout(() => { subtitleEditorUserScrolling = false; }, 600);
+    const rows = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
+    const rowEls = Array.from(subtitlesEditorEl.querySelectorAll('tr[data-sub-row="1"]'));
+    if (!rows.length || !rowEls.length) return;
+    const headerEl = subtitlesEditorEl.querySelector('thead');
+    const headerHeight = headerEl ? Number(headerEl.getBoundingClientRect().height || 0) : 0;
+    const viewTop = Number(subtitlesEditorEl.scrollTop || 0) + headerHeight;
+    let visibleIdx = 0;
+    for (let i = 0; i < rowEls.length; i += 1) {
+      if (Number(rowEls[i].offsetTop || 0) >= viewTop - 1) {
+        visibleIdx = i;
+        break;
+      }
+      visibleIdx = i;
+    }
+    const row = rows[visibleIdx];
+    if (!row) return;
+    const sec = Number(row.start_seconds);
+    if (!Number.isFinite(sec)) return;
+    scrubTimelineToIndex(scrubIndexFromChapterSeconds(sec), { scrollGrid: true });
+  });
 }
 if (splitEditorEl) {
   splitEditorEl.addEventListener('click', (event) => {
@@ -1735,6 +1763,7 @@ function relayWheelToFrameGrid(event) {
   if (!isReviewStepActive()) return;
   if (!frameGridEl) return;
   if (event.target && event.target.closest('input, textarea, select, button')) return;
+  if (event.target && event.target.closest('.subtitles-editor')) return;
 
   const deltaPx = normalizeWheelToPixels(event);
   if (deltaPx === 0) return;
