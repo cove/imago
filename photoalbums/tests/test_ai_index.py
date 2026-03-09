@@ -113,17 +113,34 @@ class TestAIIndex(unittest.TestCase):
                 "64",
                 "--caption-temperature",
                 "0.1",
+                "--caption-max-edge",
+                "1024",
+                "--qwen-attn-implementation",
+                "sdpa",
+                "--qwen-min-pixels",
+                "131072",
+                "--qwen-max-pixels",
+                "524288",
             ]
         )
         self.assertEqual(args.caption_engine, "qwen")
         self.assertEqual(args.caption_model, "Qwen/Qwen2.5-VL-3B-Instruct")
         self.assertEqual(args.caption_max_tokens, 64)
         self.assertAlmostEqual(args.caption_temperature, 0.1)
+        self.assertEqual(args.caption_max_edge, 1024)
+        self.assertEqual(args.qwen_attn_implementation, "sdpa")
+        self.assertEqual(args.qwen_min_pixels, 131072)
+        self.assertEqual(args.qwen_max_pixels, 524288)
 
-    def test_parse_args_defaults_disable_qwen_and_use_docstrange(self):
+    def test_parse_args_defaults_use_blip_and_docstrange(self):
         args = ai_index.parse_args([])
-        self.assertEqual(args.caption_engine, "none")
+        self.assertEqual(args.caption_engine, "blip")
+        self.assertEqual(args.caption_model, "")
         self.assertEqual(args.ocr_engine, "docstrange")
+        self.assertEqual(args.qwen_attn_implementation, "auto")
+        self.assertEqual(args.qwen_min_pixels, 0)
+        self.assertEqual(args.qwen_max_pixels, 0)
+        self.assertEqual(args.caption_max_edge, 0)
 
 
 if __name__ == "__main__":

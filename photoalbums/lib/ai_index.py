@@ -7,10 +7,11 @@ from pathlib import Path
 from typing import Any
 
 from .ai_caption import (
-    DEFAULT_QWEN_CAPTION_MODEL,
     CaptionEngine,
     build_page_caption,
     build_template_caption,
+    normalize_qwen_attn_implementation,
+    resolve_caption_model,
 )
 from .ai_ocr import OCREngine, extract_keywords
 from .ai_page_layout import PreparedImageLayout, classify_image_kind, prepare_image_layout
@@ -129,6 +130,16 @@ def needs_processing(path: Path, manifest_row: dict[str, Any] | None, force: boo
     return not sidecar_path.exists()
 
 
+def _explicit_cli_flags(argv: list[str] | None) -> set[str]:
+    flags: set[str] = set()
+    for item in list(argv or []):
+        text = str(item or "")
+        if not text.startswith("--"):
+            continue
+        flags.add(text.split("=", 1)[0])
+    return flags
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Index photo album images with cast people matching, YOLO objects, OCR, and XMP sidecars.",
@@ -150,17 +161,41 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--ocr-lang", default="eng", help="OCR language.")
     parser.add_argument(
         "--caption-engine",
-        choices=["none", "template", "qwen"],
-        default="none",
+        choices=["none", "template", "blip", "qwen"],
+        default="blip",
         help="Caption backend for XMP description.",
     )
     parser.add_argument(
         "--caption-model",
-        default=DEFAULT_QWEN_CAPTION_MODEL,
-        help="Model id/path used when caption engine is qwen.",
+        default="",
+        help="Optional model id/path used by the selected caption engine.",
     )
-    parser.add_argument("--caption-max-tokens", type=int, default=96, help="Max new tokens for qwen captions.")
+    parser.add_argument("--caption-max-tokens", type=int, default=96, help="Max new tokens for caption models.")
     parser.add_argument("--caption-temperature", type=float, default=0.2, help="Sampling temperature for qwen.")
+    parser.add_argument(
+        "--caption-max-edge",
+        type=int,
+        default=0,
+        help="Optional long-edge cap, in pixels, applied only during caption generation.",
+    )
+    parser.add_argument(
+        "--qwen-attn-implementation",
+        choices=["auto", "sdpa", "flash_attention_2", "eager"],
+        default="auto",
+        help="Attention implementation for Qwen captioning. flash_attention_2 is only useful on compatible GPUs.",
+    )
+    parser.add_argument(
+        "--qwen-min-pixels",
+        type=int,
+        default=0,
+        help="Optional Qwen processor min_pixels value. Use 0 to keep the model default.",
+    )
+    parser.add_argument(
+        "--qwen-max-pixels",
+        type=int,
+        default=0,
+        help="Optional Qwen processor max_pixels value. Use 0 to keep the model default.",
+    )
     parser.add_argument("--max-images", type=int, default=0, help="Optional processing limit.")
     parser.add_argument("--force", action="store_true", help="Ignore manifest and process all files.")
     parser.add_argument("--dry-run", action="store_true", help="Do not write sidecar/manifest.")
@@ -225,17 +260,30 @@ def _init_caption_engine(
     model_name: str,
     max_tokens: int,
     temperature: float,
+    qwen_attn_implementation: str,
+    qwen_min_pixels: int,
+    qwen_max_pixels: int,
+    max_image_edge: int,
 ):
     return CaptionEngine(
         engine=str(engine),
-        qwen_model=str(model_name),
-        qwen_max_tokens=int(max_tokens),
-        qwen_temperature=float(temperature),
+        model_name=str(model_name),
+        max_tokens=int(max_tokens),
+        temperature=float(temperature),
+        qwen_attn_implementation=str(qwen_attn_implementation),
+        qwen_min_pixels=int(qwen_min_pixels),
+        qwen_max_pixels=int(qwen_max_pixels),
+        max_image_edge=int(max_image_edge),
         fallback_to_template=True,
     )
 
 
 def _settings_signature(settings: dict[str, Any]) -> str:
+    caption_engine = str(settings.get("caption_engine", "blip"))
+    caption_model = resolve_caption_model(
+        caption_engine,
+        str(settings.get("caption_model", "")),
+    )
     compact = {
         "processor_signature": PROCESSOR_SIGNATURE,
         "skip": bool(settings.get("skip", False)),
@@ -249,10 +297,16 @@ def _settings_signature(settings: dict[str, Any]) -> str:
         "min_face_size": int(settings.get("min_face_size", 40)),
         "model": str(settings.get("model", "models/yolo11n.pt")),
         "creator_tool": str(settings.get("creator_tool", DEFAULT_CREATOR_TOOL)),
-        "caption_engine": str(settings.get("caption_engine", "template")),
-        "caption_model": str(settings.get("caption_model", DEFAULT_QWEN_CAPTION_MODEL)),
+        "caption_engine": caption_engine,
+        "caption_model": caption_model,
         "caption_max_tokens": int(settings.get("caption_max_tokens", 96)),
         "caption_temperature": float(settings.get("caption_temperature", 0.2)),
+        "caption_max_edge": int(settings.get("caption_max_edge", 0)),
+        "qwen_attn_implementation": normalize_qwen_attn_implementation(
+            str(settings.get("qwen_attn_implementation", "auto"))
+        ),
+        "qwen_min_pixels": int(settings.get("qwen_min_pixels", 0)),
+        "qwen_max_pixels": int(settings.get("qwen_max_pixels", 0)),
     }
     return json.dumps(compact, sort_keys=True, ensure_ascii=True)
 
@@ -319,7 +373,7 @@ def _run_image_analysis(
             effective_engine=str(caption_output.engine),
             fallback=bool(caption_output.fallback),
             error=str(caption_output.error or ""),
-            model=str(requested_caption_model if requested_caption_engine == "qwen" else ""),
+            model=str(requested_caption_model if requested_caption_engine in {"qwen", "blip"} else ""),
         ),
     }
     return ImageAnalysis(
@@ -429,6 +483,7 @@ def _build_page_payload(
 
 def run(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    explicit_flags = _explicit_cli_flags(argv)
     photos_root = Path(args.photos_root).expanduser().resolve()
     manifest_path = Path(args.manifest).expanduser().resolve()
 
@@ -470,9 +525,13 @@ def run(argv: list[str] | None = None) -> int:
         "ocr_lang": str(args.ocr_lang),
         "page_split_mode": "auto",
         "caption_engine": str(args.caption_engine),
-        "caption_model": str(args.caption_model),
+        "caption_model": resolve_caption_model(str(args.caption_engine), str(args.caption_model)),
         "caption_max_tokens": int(args.caption_max_tokens),
         "caption_temperature": float(args.caption_temperature),
+        "caption_max_edge": int(args.caption_max_edge),
+        "qwen_attn_implementation": normalize_qwen_attn_implementation(str(args.qwen_attn_implementation)),
+        "qwen_min_pixels": int(args.qwen_min_pixels),
+        "qwen_max_pixels": int(args.qwen_max_pixels),
         "people_threshold": float(args.people_threshold),
         "object_threshold": float(args.object_threshold),
         "min_face_size": int(args.min_face_size),
@@ -485,7 +544,7 @@ def run(argv: list[str] | None = None) -> int:
     people_matcher_cache: dict[tuple[str, float, int], Any] = {}
     object_detector_cache: dict[tuple[str, float], Any] = {}
     ocr_engine_cache: dict[tuple[str, str], OCREngine] = {}
-    caption_engine_cache: dict[tuple[str, str, int, float], CaptionEngine] = {}
+    caption_engine_cache: dict[tuple[str, str, int, float, str, int, int, int], CaptionEngine] = {}
 
     processed = 0
     skipped = 0
@@ -518,10 +577,26 @@ def run(argv: list[str] | None = None) -> int:
             effective["enable_people"] = False
         if args.disable_objects:
             effective["enable_objects"] = False
-        effective["caption_engine"] = str(args.caption_engine)
-        effective["caption_model"] = str(args.caption_model)
-        effective["caption_max_tokens"] = int(args.caption_max_tokens)
-        effective["caption_temperature"] = float(args.caption_temperature)
+        if "--caption-engine" in explicit_flags:
+            effective["caption_engine"] = str(args.caption_engine)
+        if "--caption-model" in explicit_flags:
+            effective["caption_model"] = str(args.caption_model)
+        if "--caption-max-tokens" in explicit_flags:
+            effective["caption_max_tokens"] = int(args.caption_max_tokens)
+        if "--caption-temperature" in explicit_flags:
+            effective["caption_temperature"] = float(args.caption_temperature)
+        if "--caption-max-edge" in explicit_flags:
+            effective["caption_max_edge"] = int(args.caption_max_edge)
+        if "--qwen-attn-implementation" in explicit_flags:
+            effective["qwen_attn_implementation"] = normalize_qwen_attn_implementation(str(args.qwen_attn_implementation))
+        if "--qwen-min-pixels" in explicit_flags:
+            effective["qwen_min_pixels"] = int(args.qwen_min_pixels)
+        if "--qwen-max-pixels" in explicit_flags:
+            effective["qwen_max_pixels"] = int(args.qwen_max_pixels)
+        effective["caption_model"] = resolve_caption_model(
+            str(effective.get("caption_engine", defaults["caption_engine"])),
+            str(effective.get("caption_model", defaults["caption_model"])),
+        )
         settings_sig = _settings_signature(effective)
 
         manifest_row = manifest.get(str(image_path))
@@ -586,6 +661,10 @@ def run(argv: list[str] | None = None) -> int:
                 str(effective.get("caption_model", defaults["caption_model"])),
                 int(effective.get("caption_max_tokens", defaults["caption_max_tokens"])),
                 float(effective.get("caption_temperature", defaults["caption_temperature"])),
+                str(effective.get("qwen_attn_implementation", defaults["qwen_attn_implementation"])),
+                int(effective.get("qwen_min_pixels", defaults["qwen_min_pixels"])),
+                int(effective.get("qwen_max_pixels", defaults["qwen_max_pixels"])),
+                int(effective.get("caption_max_edge", defaults["caption_max_edge"])),
             )
             caption_engine = caption_engine_cache.get(caption_key)
             if caption_engine is None:
@@ -594,6 +673,10 @@ def run(argv: list[str] | None = None) -> int:
                     model_name=caption_key[1],
                     max_tokens=int(caption_key[2]),
                     temperature=float(caption_key[3]),
+                    qwen_attn_implementation=caption_key[4],
+                    qwen_min_pixels=int(caption_key[5]),
+                    qwen_max_pixels=int(caption_key[6]),
+                    max_image_edge=int(caption_key[7]),
                 )
                 caption_engine_cache[caption_key] = caption_engine
 

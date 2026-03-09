@@ -6,7 +6,9 @@ from pathlib import Path
 from .model_store import HF_MODEL_CACHE_DIR
 
 
+DEFAULT_BLIP_CAPTION_MODEL = "Salesforce/blip-image-captioning-base"
 DEFAULT_QWEN_CAPTION_MODEL = "Qwen/Qwen2.5-VL-3B-Instruct"
+QWEN_ATTN_IMPLEMENTATIONS = {"auto", "sdpa", "flash_attention_2", "eager"}
 
 
 def clean_text(value: str) -> str:
@@ -122,6 +124,124 @@ def _normalize_caption(value: str) -> str:
     return text
 
 
+def resolve_caption_model(engine: str, model_name: str) -> str:
+    normalized = str(engine or "").strip().lower()
+    text = str(model_name or "").strip()
+    if text:
+        return text
+    if normalized == "qwen":
+        return DEFAULT_QWEN_CAPTION_MODEL
+    if normalized == "blip":
+        return DEFAULT_BLIP_CAPTION_MODEL
+    return ""
+
+
+def normalize_qwen_attn_implementation(value: str, default: str = "auto") -> str:
+    text = str(value or "").strip().lower()
+    if text in QWEN_ATTN_IMPLEMENTATIONS:
+        return text
+    fallback = str(default or "auto").strip().lower()
+    if fallback in QWEN_ATTN_IMPLEMENTATIONS:
+        return fallback
+    return "auto"
+
+
+def _resize_caption_image(image, max_image_edge: int):
+    if int(max_image_edge) <= 0:
+        return image
+    width, height = image.size
+    longest = max(width, height)
+    if longest <= int(max_image_edge):
+        return image
+    scale = float(max_image_edge) / float(longest)
+    new_size = (
+        max(1, int(round(width * scale))),
+        max(1, int(round(height * scale))),
+    )
+    resampling = getattr(getattr(image, "Resampling", None), "LANCZOS", None)
+    if resampling is None:
+        try:
+            from PIL import Image  # pylint: disable=import-outside-toplevel
+
+            resampling = getattr(getattr(Image, "Resampling", Image), "LANCZOS")
+        except Exception:  # pragma: no cover - Pillow always present in runtime
+            resampling = 1
+    return image.resize(new_size, resampling)
+
+
+class BlipLocalCaptioner:
+    def __init__(
+        self,
+        *,
+        model_name: str = DEFAULT_BLIP_CAPTION_MODEL,
+        max_new_tokens: int = 64,
+        max_image_edge: int = 0,
+    ):
+        self.model_name = resolve_caption_model("blip", model_name)
+        self.max_new_tokens = max(8, int(max_new_tokens))
+        self.max_image_edge = max(0, int(max_image_edge))
+        self._processor = None
+        self._model = None
+        self._torch = None
+        self._device = "cpu"
+
+    def _ensure_loaded(self) -> None:
+        if self._processor is not None and self._model is not None:
+            return
+        try:
+            import torch  # pylint: disable=import-outside-toplevel
+            from transformers import (  # pylint: disable=import-outside-toplevel
+                BlipForConditionalGeneration,
+                BlipProcessor,
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                "BLIP captioning requires transformers and torch. Install with: pip install transformers torch"
+            ) from exc
+
+        HF_MODEL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        cache_dir = str(HF_MODEL_CACHE_DIR)
+        self._processor = BlipProcessor.from_pretrained(self.model_name, cache_dir=cache_dir)
+        self._model = BlipForConditionalGeneration.from_pretrained(self.model_name, cache_dir=cache_dir)
+        self._model.eval()
+        self._torch = torch
+        if torch.cuda.is_available():
+            self._device = "cuda"
+            self._model = self._model.to(self._device)
+
+    def describe(
+        self,
+        image_path: str | Path,
+        *,
+        people: list[str],
+        objects: list[str],
+        ocr_text: str,
+    ) -> str:
+        del people, objects, ocr_text
+        self._ensure_loaded()
+        from PIL import Image  # pylint: disable=import-outside-toplevel
+
+        image = Image.open(str(image_path)).convert("RGB")
+        try:
+            working_image = _resize_caption_image(image, self.max_image_edge)
+            inputs = self._processor(images=working_image, return_tensors="pt")
+            for key, value in list(inputs.items()):
+                if hasattr(value, "to"):
+                    inputs[key] = value.to(self._device)
+            with self._torch.inference_mode():
+                generated_ids = self._model.generate(
+                    **inputs,
+                    max_new_tokens=self.max_new_tokens,
+                    num_beams=3,
+                )
+            decoded = self._processor.batch_decode(generated_ids, skip_special_tokens=True)
+            return _normalize_caption(decoded[0] if decoded else "")
+        finally:
+            if "working_image" in locals() and working_image is not image:
+                working_image.close()
+            image.close()
+
+
 class QwenLocalCaptioner:
     def __init__(
         self,
@@ -129,13 +249,22 @@ class QwenLocalCaptioner:
         model_name: str = DEFAULT_QWEN_CAPTION_MODEL,
         max_new_tokens: int = 96,
         temperature: float = 0.2,
+        attn_implementation: str = "auto",
+        min_pixels: int = 0,
+        max_pixels: int = 0,
+        max_image_edge: int = 0,
     ):
         self.model_name = str(model_name or DEFAULT_QWEN_CAPTION_MODEL).strip() or DEFAULT_QWEN_CAPTION_MODEL
         self.max_new_tokens = max(8, int(max_new_tokens))
         self.temperature = max(0.0, float(temperature))
+        self.attn_implementation = normalize_qwen_attn_implementation(attn_implementation)
+        self.min_pixels = max(0, int(min_pixels))
+        self.max_pixels = max(0, int(max_pixels))
+        self.max_image_edge = max(0, int(max_image_edge))
         self._processor = None
         self._model = None
         self._torch = None
+        self._resolved_attn_implementation = "auto"
 
     def _ensure_loaded(self) -> None:
         if self._processor is not None and self._model is not None:
@@ -154,16 +283,31 @@ class QwenLocalCaptioner:
 
         HF_MODEL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
         cache_dir = str(HF_MODEL_CACHE_DIR)
+        processor_kwargs = {
+            "trust_remote_code": True,
+            "cache_dir": cache_dir,
+        }
+        if self.min_pixels > 0:
+            processor_kwargs["min_pixels"] = int(self.min_pixels)
+        if self.max_pixels > 0:
+            processor_kwargs["max_pixels"] = int(self.max_pixels)
         self._processor = AutoProcessor.from_pretrained(
             self.model_name,
-            trust_remote_code=True,
-            cache_dir=cache_dir,
+            **processor_kwargs,
         )
         load_kwargs = {
             "trust_remote_code": True,
             "device_map": "auto",
             "cache_dir": cache_dir,
         }
+        resolved_attn = "auto"
+        if self.attn_implementation != "auto":
+            if self.attn_implementation == "flash_attention_2" and not torch.cuda.is_available():
+                resolved_attn = "auto"
+            else:
+                resolved_attn = self.attn_implementation
+                load_kwargs["attn_implementation"] = resolved_attn
+        self._resolved_attn_implementation = resolved_attn
         # Prefer dtype over torch_dtype to avoid deprecation warnings on newer transformers.
         try:
             self._model = AutoModelForVision2Seq.from_pretrained(
@@ -207,6 +351,7 @@ class QwenLocalCaptioner:
         prompt = _build_qwen_prompt(people=people, objects=objects, ocr_text=ocr_text)
         image = Image.open(str(image_path)).convert("RGB")
         try:
+            working_image = _resize_caption_image(image, self.max_image_edge)
             if hasattr(self._processor, "apply_chat_template"):
                 messages = [
                     {
@@ -227,7 +372,7 @@ class QwenLocalCaptioner:
 
             inputs = self._processor(
                 text=[prompt_text],
-                images=[image],
+                images=[working_image],
                 padding=True,
                 return_tensors="pt",
             )
@@ -262,6 +407,8 @@ class QwenLocalCaptioner:
             )
             return _normalize_caption(decoded[0] if decoded else "")
         finally:
+            if "working_image" in locals() and working_image is not image:
+                working_image.close()
             image.close()
 
 
@@ -277,21 +424,29 @@ class CaptionEngine:
     def __init__(
         self,
         *,
-        engine: str = "template",
-        qwen_model: str = DEFAULT_QWEN_CAPTION_MODEL,
-        qwen_max_tokens: int = 96,
-        qwen_temperature: float = 0.2,
+        engine: str = "blip",
+        model_name: str = "",
+        max_tokens: int = 96,
+        temperature: float = 0.2,
+        qwen_attn_implementation: str = "auto",
+        qwen_min_pixels: int = 0,
+        qwen_max_pixels: int = 0,
+        max_image_edge: int = 0,
         fallback_to_template: bool = True,
     ):
-        normalized = str(engine or "template").strip().lower()
-        if normalized not in {"none", "template", "qwen"}:
+        normalized = str(engine or "blip").strip().lower()
+        if normalized not in {"none", "template", "blip", "qwen"}:
             raise ValueError(f"Unsupported caption engine: {engine}")
         self.engine = normalized
         self.fallback_to_template = bool(fallback_to_template)
-        self._qwen = None
-        self._qwen_model = str(qwen_model or DEFAULT_QWEN_CAPTION_MODEL).strip() or DEFAULT_QWEN_CAPTION_MODEL
-        self._qwen_max_tokens = int(qwen_max_tokens)
-        self._qwen_temperature = float(qwen_temperature)
+        self._captioner = None
+        self._model_name = resolve_caption_model(normalized, model_name)
+        self._max_tokens = int(max_tokens)
+        self._temperature = float(temperature)
+        self._qwen_attn_implementation = normalize_qwen_attn_implementation(qwen_attn_implementation)
+        self._qwen_min_pixels = max(0, int(qwen_min_pixels))
+        self._qwen_max_pixels = max(0, int(qwen_max_pixels))
+        self._max_image_edge = max(0, int(max_image_edge))
 
     def generate(
         self,
@@ -306,28 +461,44 @@ class CaptionEngine:
             return CaptionOutput(text="", engine="none")
         if self.engine == "template":
             return CaptionOutput(text=template, engine="template")
-        if self._qwen is None:
-            self._qwen = QwenLocalCaptioner(
-                model_name=self._qwen_model,
-                max_new_tokens=self._qwen_max_tokens,
-                temperature=self._qwen_temperature,
-            )
+        if self._captioner is None:
+            if self.engine == "blip":
+                self._captioner = BlipLocalCaptioner(
+                    model_name=self._model_name,
+                    max_new_tokens=self._max_tokens,
+                    max_image_edge=self._max_image_edge,
+                )
+            else:
+                self._captioner = QwenLocalCaptioner(
+                    model_name=self._model_name,
+                    max_new_tokens=self._max_tokens,
+                    temperature=self._temperature,
+                    attn_implementation=self._qwen_attn_implementation,
+                    min_pixels=self._qwen_min_pixels,
+                    max_pixels=self._qwen_max_pixels,
+                    max_image_edge=self._max_image_edge,
+                )
         try:
-            caption = self._qwen.describe(
+            caption = self._captioner.describe(
                 image_path=image_path,
                 people=people,
                 objects=objects,
                 ocr_text=ocr_text,
             )
             if caption:
-                return CaptionOutput(text=caption, engine="qwen")
+                return CaptionOutput(text=caption, engine=self.engine)
             if not self.fallback_to_template:
-                return CaptionOutput(text="", engine="qwen", fallback=True, error="Qwen returned empty output.")
+                return CaptionOutput(
+                    text="",
+                    engine=self.engine,
+                    fallback=True,
+                    error=f"{self.engine.upper()} returned empty output.",
+                )
             return CaptionOutput(
                 text=template,
                 engine="template",
                 fallback=True,
-                error="Qwen returned empty output.",
+                error=f"{self.engine.upper()} returned empty output.",
             )
         except Exception as exc:
             if not self.fallback_to_template:

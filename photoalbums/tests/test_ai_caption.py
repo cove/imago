@@ -62,6 +62,54 @@ class TestAICaption(unittest.TestCase):
         self.assertIn("model offline", out.error)
         self.assertIn("Alice", out.text)
 
+    def test_blip_falls_back_to_template_on_error(self):
+        fake_blip = mock.Mock()
+        fake_blip.describe.side_effect = RuntimeError("cpu path failed")
+        with mock.patch("photoalbums.lib.ai_caption.BlipLocalCaptioner", return_value=fake_blip):
+            engine = ai_caption.CaptionEngine(engine="blip")
+            out = engine.generate(
+                image_path="sample.jpg",
+                people=["Alice"],
+                objects=["car"],
+                ocr_text="",
+            )
+        self.assertEqual(out.engine, "template")
+        self.assertTrue(out.fallback)
+        self.assertIn("cpu path failed", out.error)
+        self.assertIn("Alice", out.text)
+
+    def test_qwen_engine_forwards_cpu_tuning_settings(self):
+        fake_qwen = mock.Mock()
+        fake_qwen.describe.return_value = "caption text"
+        with mock.patch("photoalbums.lib.ai_caption.QwenLocalCaptioner", return_value=fake_qwen) as ctor:
+            engine = ai_caption.CaptionEngine(
+                engine="qwen",
+                model_name="Qwen/Qwen2-VL-2B-Instruct",
+                max_tokens=64,
+                temperature=0.1,
+                qwen_attn_implementation="sdpa",
+                qwen_min_pixels=131072,
+                qwen_max_pixels=524288,
+                max_image_edge=1024,
+            )
+            out = engine.generate(
+                image_path="sample.jpg",
+                people=["Alice"],
+                objects=["car"],
+                ocr_text="",
+            )
+        ctor.assert_called_once_with(
+            model_name="Qwen/Qwen2-VL-2B-Instruct",
+            max_new_tokens=64,
+            temperature=0.1,
+            attn_implementation="sdpa",
+            min_pixels=131072,
+            max_pixels=524288,
+            max_image_edge=1024,
+        )
+        self.assertEqual(out.engine, "qwen")
+        self.assertEqual(out.text, "caption text")
+
 
 if __name__ == "__main__":
     unittest.main()
