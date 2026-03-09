@@ -47,6 +47,14 @@ class TestAIRenderSettings(unittest.TestCase):
                 "ocr_engine": "docstrange",
                 "ocr_lang": "eng",
                 "page_split_mode": "auto",
+                "caption_engine": "blip",
+                "caption_model": "",
+                "caption_max_tokens": 96,
+                "caption_temperature": 0.2,
+                "caption_max_edge": 0,
+                "qwen_attn_implementation": "auto",
+                "qwen_min_pixels": 0,
+                "qwen_max_pixels": 0,
                 "people_threshold": 0.72,
                 "object_threshold": 0.30,
                 "min_face_size": 40,
@@ -60,12 +68,15 @@ class TestAIRenderSettings(unittest.TestCase):
                     "ocr_engine": "none",
                     "model": "yolo11x.pt",
                     "page_split_mode": "off",
+                    "qwen_attn_implementation": "sdpa",
+                    "qwen_max_pixels": 262144,
                 },
                 "image_settings": {
                     "img1.jpg": {
                         "enable_people": True,
                         "people_threshold": 0.88,
                         "creator_tool": "tool-image",
+                        "caption_max_edge": 960,
                     }
                 },
             }
@@ -78,6 +89,9 @@ class TestAIRenderSettings(unittest.TestCase):
             self.assertTrue(effective["enable_objects"])
             self.assertEqual(effective["ocr_engine"], "none")
             self.assertEqual(effective["page_split_mode"], "off")
+            self.assertEqual(effective["qwen_attn_implementation"], "sdpa")
+            self.assertEqual(effective["qwen_max_pixels"], 262144)
+            self.assertEqual(effective["caption_max_edge"], 960)
             self.assertAlmostEqual(effective["people_threshold"], 0.88)
             self.assertEqual(effective["model"], "yolo11x.pt")
             self.assertEqual(effective["creator_tool"], "tool-image")
@@ -96,6 +110,14 @@ class TestAIRenderSettings(unittest.TestCase):
                 "ocr_engine": "docstrange",
                 "ocr_lang": "eng",
                 "page_split_mode": "auto",
+                "caption_engine": "blip",
+                "caption_model": "",
+                "caption_max_tokens": 96,
+                "caption_temperature": 0.2,
+                "caption_max_edge": 0,
+                "qwen_attn_implementation": "auto",
+                "qwen_min_pixels": 0,
+                "qwen_max_pixels": 0,
                 "people_threshold": 0.72,
                 "object_threshold": 0.30,
                 "min_face_size": 40,

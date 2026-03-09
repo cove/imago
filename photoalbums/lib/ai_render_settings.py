@@ -7,6 +7,8 @@ from typing import Any
 SETTINGS_FILENAME = "render_settings.json"
 OCR_ENGINES = {"none", "docstrange"}
 PAGE_SPLIT_MODES = {"auto", "off"}
+CAPTION_ENGINES = {"none", "template", "blip", "qwen"}
+QWEN_ATTN_IMPLEMENTATIONS = {"auto", "sdpa", "flash_attention_2", "eager"}
 
 
 def render_settings_path(archive_dir: str | Path) -> Path:
@@ -69,6 +71,26 @@ def _normalize_page_split_mode(value: Any, default: str) -> str:
     return "auto"
 
 
+def _normalize_caption_engine(value: Any, default: str) -> str:
+    text = str(value or "").strip().lower()
+    if text in CAPTION_ENGINES:
+        return text
+    fallback = str(default or "blip").strip().lower()
+    if fallback in CAPTION_ENGINES:
+        return fallback
+    return "blip"
+
+
+def _normalize_qwen_attn_implementation(value: Any, default: str) -> str:
+    text = str(value or "").strip().lower()
+    if text in QWEN_ATTN_IMPLEMENTATIONS:
+        return text
+    fallback = str(default or "auto").strip().lower()
+    if fallback in QWEN_ATTN_IMPLEMENTATIONS:
+        return fallback
+    return "auto"
+
+
 def _normalize_settings_block(raw: dict[str, Any], defaults: dict[str, Any]) -> dict[str, Any]:
     block = dict(raw or {})
     return {
@@ -92,6 +114,48 @@ def _normalize_settings_block(raw: dict[str, Any], defaults: dict[str, Any]) -> 
         "page_split_mode": _normalize_page_split_mode(
             block.get("page_split_mode"),
             str(defaults.get("page_split_mode", "auto")),
+        ),
+        "caption_engine": _normalize_caption_engine(
+            block.get("caption_engine"),
+            str(defaults.get("caption_engine", "blip")),
+        ),
+        "caption_model": _normalize_text(
+            block.get("caption_model"),
+            str(defaults.get("caption_model", "")),
+        ),
+        "caption_max_tokens": _normalize_int(
+            block.get("caption_max_tokens"),
+            int(defaults.get("caption_max_tokens", 96)),
+            min_value=8,
+            max_value=4096,
+        ),
+        "caption_temperature": _normalize_float(
+            block.get("caption_temperature"),
+            float(defaults.get("caption_temperature", 0.2)),
+            min_value=0.0,
+            max_value=2.0,
+        ),
+        "caption_max_edge": _normalize_int(
+            block.get("caption_max_edge"),
+            int(defaults.get("caption_max_edge", 0)),
+            min_value=0,
+            max_value=8192,
+        ),
+        "qwen_attn_implementation": _normalize_qwen_attn_implementation(
+            block.get("qwen_attn_implementation"),
+            str(defaults.get("qwen_attn_implementation", "auto")),
+        ),
+        "qwen_min_pixels": _normalize_int(
+            block.get("qwen_min_pixels"),
+            int(defaults.get("qwen_min_pixels", 0)),
+            min_value=0,
+            max_value=32_000_000,
+        ),
+        "qwen_max_pixels": _normalize_int(
+            block.get("qwen_max_pixels"),
+            int(defaults.get("qwen_max_pixels", 0)),
+            min_value=0,
+            max_value=32_000_000,
         ),
         "people_threshold": _normalize_float(
             block.get("people_threshold"),

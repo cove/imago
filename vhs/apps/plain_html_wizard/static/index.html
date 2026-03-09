@@ -4285,17 +4285,7 @@
         if (!isSubtitlesStepActive()) {
           subtitlesMetaEl.textContent = '';
         } else {
-          const entries = canonicalizeSubtitlesEntries((state.subtitlesProfile && state.subtitlesProfile.entries) || []);
-          if (!entries.length) {
-            subtitlesMetaEl.textContent = 'Dialogue subtitles: no entries yet.';
-          } else {
-            const preview = entries
-              .slice(0, 3)
-              .map((row) => `${row.start}-${row.end} ${row.text}`)
-              .join(' | ');
-            const suffix = entries.length > 3 ? ` | +${entries.length - 3} more` : '';
-            subtitlesMetaEl.textContent = `Dialogue subtitles: ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'} | ${preview}${suffix}`;
-          }
+          subtitlesMetaEl.textContent = '';
         }
       }
       if (subtitlesEditorEl && !subtitleEditorHasFocus()) {
@@ -5199,9 +5189,12 @@
         const batch = pending.slice(i, i + CONCURRENCY);
         const scores = await Promise.all(batch.map(item => estimateGammaScoreFromImage(item.src)));
         scores.forEach((score, j) => state.gammaScores.set(batch[j].fidKey, score));
+        invalidateGammaSparklineCache();
+        if (isGammaStepActive() && state.review) {
+          renderActiveSparkline(state.review.frames, state.review.threshold || 0);
+        }
         await new Promise(resolve => window.setTimeout(resolve, 0));
       }
-      invalidateGammaSparklineCache();
     }
 
     function gammaScoreForFrame(frame) {
@@ -5798,38 +5791,16 @@
         if (reviewLayoutEl) reviewLayoutEl.style.removeProperty('grid-template-rows');
         return;
       }
-      const cardHeight = FRAME_GRID_CARD_HEIGHT_PX;
-      let minGridHeight = Math.max(
-        PEOPLE_STEP_MIN_FRAME_GRID_PX,
-        Math.round((cardHeight * 1.85) + 24)
-      );
-      let maxSparkHeight = PEOPLE_STEP_SPARK_MAX_PX;
       if (reviewLayoutEl) {
-        const layoutHeight = Number(reviewLayoutEl.clientHeight || 0);
-        const topHeight = reviewTopEl ? Number(reviewTopEl.offsetHeight || 0) : 0;
-        const spare = 26;
-        const available = layoutHeight - topHeight - spare;
-        if (Number.isFinite(available) && available > 0) {
-          maxSparkHeight = _clamp(Math.round(available * 0.42), PEOPLE_STEP_SPARK_MIN_PX, PEOPLE_STEP_SPARK_MAX_PX);
-          minGridHeight = Math.max(minGridHeight, Math.round(available - maxSparkHeight));
-        }
+        reviewLayoutEl.style.gridTemplateRows = 'auto 1fr 1fr';
       }
-      frameGridEl.style.minHeight = `${minGridHeight}px`;
-      frameGridEl.style.maxHeight = `${minGridHeight}px`;
-      frameGridEl.style.height = `${minGridHeight}px`;
-      if (reviewLayoutEl) {
-        reviewLayoutEl.style.gridTemplateRows = 'auto auto minmax(0, 1fr)';
-      }
-      sparkPanelEl.style.maxHeight = `${Math.round(maxSparkHeight)}px`;
+      frameGridEl.style.minHeight = `${PEOPLE_STEP_MIN_FRAME_GRID_PX}px`;
+      frameGridEl.style.removeProperty('max-height');
+      frameGridEl.style.removeProperty('height');
+      sparkPanelEl.style.removeProperty('max-height');
       sparkPanelEl.style.overflow = 'auto';
-      if (subtitlesEditorEl) {
-        const subtitleMax = _clamp(Math.round(maxSparkHeight - 92), 180, 320);
-        subtitlesEditorEl.style.maxHeight = `${Math.round(subtitleMax)}px`;
-      }
-      if (splitEditorEl) {
-        const splitMax = _clamp(Math.round(maxSparkHeight - 92), 180, 320);
-        splitEditorEl.style.maxHeight = `${Math.round(splitMax)}px`;
-      }
+      if (subtitlesEditorEl) subtitlesEditorEl.style.removeProperty('max-height');
+      if (splitEditorEl) splitEditorEl.style.removeProperty('max-height');
     }
 
     function isReviewFullscreenActive() {
@@ -7793,9 +7764,7 @@
         const s = state.loadSettings;
         const loadedCount = s ? Number(s.loaded_count || 0) : Number(result.review.stats.total || 0);
         const chapterTotal = s ? Number(s.chapter_frame_count || 0) : Number(result.review.stats.total || 0);
-        setStatus(
-          `Loaded ${loadedCount} frame(s) of ${chapterTotal} for ${state.chapter}.`
-        );
+        setStatus('');
         setStepByMode('review');
         void ensureTimelineAudioLoaded(false);
         return true;
@@ -8052,15 +8021,10 @@
           setLoading(false);
         }
       }
-      setLoading(true, 'Computing gamma scores...');
-      try {
-        await ensureGammaScores();
-      } finally {
-        setLoading(false);
-      }
       setStepByMode('gamma', stepNumForMode('review'));
       renderActiveSparkline(state.review.frames, state.review.threshold || 0);
       updateReviewStatsDisplay();
+      ensureGammaScores();
       return true;
     }
 
