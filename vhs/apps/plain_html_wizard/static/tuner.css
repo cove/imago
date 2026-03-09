@@ -334,6 +334,18 @@
       font-size: 12px;
     }
 
+    .review-top > .iqr-box {
+      flex-wrap: nowrap;
+    }
+
+    #reviewControls,
+    #gammaControls,
+    #peopleControls,
+    #subtitlesControls {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
     .iqr-box input[type="range"] { width: 220px; }
     .iqr-box input[type="text"] {
       border: 1px solid var(--line);
