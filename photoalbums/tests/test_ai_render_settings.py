@@ -46,6 +46,7 @@ class TestAIRenderSettings(unittest.TestCase):
                 "enable_objects": True,
                 "ocr_engine": "docstrange",
                 "ocr_lang": "eng",
+                "page_split_mode": "auto",
                 "people_threshold": 0.72,
                 "object_threshold": 0.30,
                 "min_face_size": 40,
@@ -58,6 +59,7 @@ class TestAIRenderSettings(unittest.TestCase):
                     "enable_people": False,
                     "ocr_engine": "none",
                     "model": "yolo11x.pt",
+                    "page_split_mode": "off",
                 },
                 "image_settings": {
                     "img1.jpg": {
@@ -75,6 +77,7 @@ class TestAIRenderSettings(unittest.TestCase):
             self.assertTrue(effective["enable_people"])
             self.assertTrue(effective["enable_objects"])
             self.assertEqual(effective["ocr_engine"], "none")
+            self.assertEqual(effective["page_split_mode"], "off")
             self.assertAlmostEqual(effective["people_threshold"], 0.88)
             self.assertEqual(effective["model"], "yolo11x.pt")
             self.assertEqual(effective["creator_tool"], "tool-image")
@@ -92,6 +95,7 @@ class TestAIRenderSettings(unittest.TestCase):
                 "enable_objects": True,
                 "ocr_engine": "docstrange",
                 "ocr_lang": "eng",
+                "page_split_mode": "auto",
                 "people_threshold": 0.72,
                 "object_threshold": 0.30,
                 "min_face_size": 40,

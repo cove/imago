@@ -55,6 +55,41 @@ def _add_alt_text(parent: ET.Element, tag: str, value: str) -> None:
     item.text = text
 
 
+def _add_simple_text(parent: ET.Element, tag: str, value: str | int | float) -> None:
+    text = str(value)
+    field = ET.SubElement(parent, tag)
+    field.text = text
+
+
+def _add_subphotos(parent: ET.Element, subphotos: list[dict]) -> None:
+    if not subphotos:
+        return
+    field = ET.SubElement(parent, f"{{{IMAGO_NS}}}SubPhotos")
+    seq = ET.SubElement(field, f"{{{RDF_NS}}}Seq")
+    for row in subphotos:
+        item = ET.SubElement(seq, f"{{{RDF_NS}}}li")
+        item.set(f"{{{RDF_NS}}}parseType", "Resource")
+        _add_simple_text(item, f"{{{IMAGO_NS}}}Index", int(row.get("index", 0)))
+        bounds = dict(row.get("bounds") or {})
+        _add_simple_text(item, f"{{{IMAGO_NS}}}X", int(bounds.get("x", 0)))
+        _add_simple_text(item, f"{{{IMAGO_NS}}}Y", int(bounds.get("y", 0)))
+        _add_simple_text(item, f"{{{IMAGO_NS}}}Width", int(bounds.get("width", 0)))
+        _add_simple_text(item, f"{{{IMAGO_NS}}}Height", int(bounds.get("height", 0)))
+        _add_alt_text(item, f"{{{IMAGO_NS}}}Description", str(row.get("description") or ""))
+        ocr_text = str(row.get("ocr_text") or "").strip()
+        if ocr_text:
+            _add_simple_text(item, f"{{{IMAGO_NS}}}OCRText", ocr_text)
+        _add_bag(item, f"{{{IMAGO_NS}}}People", _dedupe(list(row.get("people") or [])))
+        _add_bag(item, f"{{{IMAGO_NS}}}Subjects", _dedupe(list(row.get("subjects") or [])))
+        detections = row.get("detections")
+        if detections:
+            _add_simple_text(
+                item,
+                f"{{{IMAGO_NS}}}Detections",
+                json.dumps(detections, ensure_ascii=False, sort_keys=True),
+            )
+
+
 def build_xmp_tree(
     *,
     creator_tool: str,
@@ -63,6 +98,7 @@ def build_xmp_tree(
     description: str,
     ocr_text: str,
     detections_payload: dict | None = None,
+    subphotos: list[dict] | None = None,
 ) -> ET.ElementTree:
     xmpmeta = ET.Element(f"{{{X_NS}}}xmpmeta")
     rdf = ET.SubElement(xmpmeta, f"{{{RDF_NS}}}RDF")
@@ -84,6 +120,8 @@ def build_xmp_tree(
     if detections_payload:
         payload = ET.SubElement(desc, f"{{{IMAGO_NS}}}Detections")
         payload.text = json.dumps(detections_payload, ensure_ascii=False, sort_keys=True)
+    if subphotos:
+        _add_subphotos(desc, list(subphotos))
 
     tree = ET.ElementTree(xmpmeta)
     ET.indent(tree, space="  ")
@@ -99,6 +137,7 @@ def write_xmp_sidecar(
     description: str,
     ocr_text: str,
     detections_payload: dict | None = None,
+    subphotos: list[dict] | None = None,
 ) -> Path:
     path = Path(sidecar_path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -109,6 +148,7 @@ def write_xmp_sidecar(
         description=description,
         ocr_text=ocr_text,
         detections_payload=detections_payload,
+        subphotos=subphotos,
     )
     tree.write(path, encoding="utf-8", xml_declaration=True)
     return path

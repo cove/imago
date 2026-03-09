@@ -2,11 +2,18 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .ai_caption import DEFAULT_QWEN_CAPTION_MODEL, CaptionEngine, build_template_caption
+from .ai_caption import (
+    DEFAULT_QWEN_CAPTION_MODEL,
+    CaptionEngine,
+    build_page_caption,
+    build_template_caption,
+)
 from .ai_ocr import OCREngine, extract_keywords
+from .ai_page_layout import PreparedImageLayout, classify_image_kind, prepare_image_layout
 from .ai_render_settings import find_archive_dir_for_image, load_render_settings, resolve_effective_settings
 from ..common import PHOTO_ALBUMS_DIR
 from .xmp_sidecar import write_xmp_sidecar
@@ -15,6 +22,19 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp"}
 DEFAULT_CREATOR_TOOL = "imago-photoalbums-ai-index"
 DEFAULT_MANIFEST_PATH = Path(__file__).resolve().parents[1] / "data" / "ai_index_manifest.jsonl"
 DEFAULT_CAST_STORE = Path(__file__).resolve().parents[2] / "cast" / "data"
+PROCESSOR_SIGNATURE = "page_split_v1"
+
+
+@dataclass
+class ImageAnalysis:
+    image_path: Path
+    people_names: list[str]
+    object_labels: list[str]
+    ocr_text: str
+    ocr_keywords: list[str]
+    subjects: list[str]
+    description: str
+    payload: dict[str, Any]
 
 
 def _clean_list(values: list[str]) -> list[str]:
@@ -100,13 +120,13 @@ def needs_processing(path: Path, manifest_row: dict[str, Any] | None, force: boo
         return False
     recorded_size = int(manifest_row.get("size", -1))
     recorded_mtime = int(manifest_row.get("mtime_ns", -1))
-    return int(stat.st_size) != recorded_size or int(stat.st_mtime_ns) != recorded_mtime
-
-
-def should_skip_existing_sidecar(image_path: Path, *, force: bool) -> bool:
-    if force:
-        return False
-    return image_path.with_suffix(".xmp").exists()
+    if int(stat.st_size) != recorded_size or int(stat.st_mtime_ns) != recorded_mtime:
+        return True
+    sidecar_path = path.with_suffix(".xmp")
+    recorded_sidecar = str(manifest_row.get("sidecar_path") or "").strip()
+    if recorded_sidecar and recorded_sidecar != str(sidecar_path):
+        return True
+    return not sidecar_path.exists()
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -217,11 +237,13 @@ def _init_caption_engine(
 
 def _settings_signature(settings: dict[str, Any]) -> str:
     compact = {
+        "processor_signature": PROCESSOR_SIGNATURE,
         "skip": bool(settings.get("skip", False)),
         "enable_people": bool(settings.get("enable_people", True)),
         "enable_objects": bool(settings.get("enable_objects", True)),
         "ocr_engine": str(settings.get("ocr_engine", "none")),
         "ocr_lang": str(settings.get("ocr_lang", "eng")),
+        "page_split_mode": str(settings.get("page_split_mode", "auto")),
         "people_threshold": float(settings.get("people_threshold", 0.72)),
         "object_threshold": float(settings.get("object_threshold", 0.30)),
         "min_face_size": int(settings.get("min_face_size", 40)),
@@ -233,6 +255,176 @@ def _settings_signature(settings: dict[str, Any]) -> str:
         "caption_temperature": float(settings.get("caption_temperature", 0.2)),
     }
     return json.dumps(compact, sort_keys=True, ensure_ascii=True)
+
+
+def _build_caption_metadata(
+    *,
+    requested_engine: str,
+    effective_engine: str,
+    fallback: bool,
+    error: str,
+    model: str,
+) -> dict[str, Any]:
+    return {
+        "requested_engine": str(requested_engine),
+        "effective_engine": str(effective_engine),
+        "fallback": bool(fallback),
+        "error": str(error or "")[:500],
+        "model": str(model or ""),
+    }
+
+
+def _run_image_analysis(
+    *,
+    image_path: Path,
+    people_matcher: Any,
+    object_detector: Any,
+    ocr_engine: OCREngine,
+    caption_engine: CaptionEngine,
+    requested_caption_engine: str,
+    requested_caption_model: str,
+    ocr_engine_name: str,
+    ocr_language: str,
+) -> ImageAnalysis:
+    people_matches = people_matcher.match_image(image_path) if people_matcher else []
+    object_matches = object_detector.detect_image(image_path) if object_detector else []
+    ocr_text = ocr_engine.read_text(image_path)
+    ocr_keywords = extract_keywords(ocr_text, max_keywords=15)
+
+    people_names = [row.name for row in people_matches]
+    object_labels = [row.label for row in object_matches]
+    subjects = _clean_list(object_labels + ocr_keywords)
+    caption_output = caption_engine.generate(
+        image_path=image_path,
+        people=people_names,
+        objects=object_labels,
+        ocr_text=ocr_text,
+    )
+    description = caption_output.text or build_description(
+        people=people_names,
+        objects=object_labels,
+        ocr_text=ocr_text,
+    )
+    payload = {
+        "people": [{"name": row.name, "score": round(row.score, 5)} for row in people_matches],
+        "objects": [{"label": row.label, "score": round(row.score, 5)} for row in object_matches],
+        "ocr": {
+            "engine": str(ocr_engine_name),
+            "language": str(ocr_language),
+            "keywords": ocr_keywords,
+            "chars": len(ocr_text),
+        },
+        "caption": _build_caption_metadata(
+            requested_engine=requested_caption_engine,
+            effective_engine=str(caption_output.engine),
+            fallback=bool(caption_output.fallback),
+            error=str(caption_output.error or ""),
+            model=str(requested_caption_model if requested_caption_engine == "qwen" else ""),
+        ),
+    }
+    return ImageAnalysis(
+        image_path=image_path,
+        people_names=people_names,
+        object_labels=object_labels,
+        ocr_text=ocr_text,
+        ocr_keywords=ocr_keywords,
+        subjects=subjects,
+        description=description,
+        payload=payload,
+    )
+
+
+def _aggregate_best_rows(results: list[ImageAnalysis], section: str, key_name: str) -> list[dict[str, Any]]:
+    best: dict[str, float] = {}
+    for result in results:
+        for row in list(result.payload.get(section) or []):
+            name = str(row.get(key_name) or "").strip()
+            if not name:
+                continue
+            score = float(row.get("score") or 0.0)
+            current = best.get(name)
+            if current is None or score > current:
+                best[name] = score
+    out = [{key_name: name, "score": round(score, 5)} for name, score in best.items()]
+    out.sort(key=lambda row: (-float(row.get("score") or 0.0), str(row.get(key_name) or "").casefold()))
+    return out
+
+
+def _layout_payload(layout: PreparedImageLayout) -> dict[str, Any]:
+    return {
+        "kind": str(layout.kind),
+        "page_like": bool(layout.page_like),
+        "split_mode": str(layout.split_mode),
+        "content_bounds": layout.content_bounds.as_dict(),
+        "footer_trimmed": bool(layout.footer_trimmed),
+        "split_applied": bool(layout.split_applied),
+        "fallback_used": bool(layout.fallback_used),
+    }
+
+
+def _build_flat_payload(layout: PreparedImageLayout, analysis: ImageAnalysis) -> dict[str, Any]:
+    payload = dict(analysis.payload)
+    payload["layout"] = _layout_payload(layout)
+    payload["subphotos"] = []
+    return payload
+
+
+def _build_page_payload(
+    *,
+    layout: PreparedImageLayout,
+    sub_results: list[ImageAnalysis],
+    page_ocr_text: str,
+    page_ocr_keywords: list[str],
+    requested_caption_engine: str,
+) -> tuple[list[str], list[str], list[str], str, dict[str, Any], list[dict[str, Any]]]:
+    aggregate_people = _aggregate_best_rows(sub_results, "people", "name")
+    aggregate_objects = _aggregate_best_rows(sub_results, "objects", "label")
+    people_names = [str(row["name"]) for row in aggregate_people]
+    object_labels = [str(row["label"]) for row in aggregate_objects]
+
+    subphoto_rows: list[dict[str, Any]] = []
+    page_subjects: list[str] = list(page_ocr_keywords)
+    for prepared, result in zip(layout.subphotos, sub_results):
+        page_subjects.extend(result.subjects)
+        subphoto_rows.append(
+            {
+                "index": int(prepared.index),
+                "bounds": prepared.bounds.as_dict(),
+                "description": result.description,
+                "ocr_text": result.ocr_text,
+                "people": result.people_names,
+                "subjects": result.subjects,
+                "detections": result.payload,
+            }
+        )
+
+    subjects = _clean_list(page_subjects)
+    description = build_page_caption(
+        photo_count=len(sub_results),
+        people=people_names,
+        objects=object_labels,
+        ocr_text=page_ocr_text,
+    )
+    payload = {
+        "layout": _layout_payload(layout),
+        "people": aggregate_people,
+        "objects": aggregate_objects,
+        "ocr": {
+            "engine": str(sub_results[0].payload["ocr"]["engine"]) if sub_results else "",
+            "language": str(sub_results[0].payload["ocr"]["language"]) if sub_results else "",
+            "keywords": page_ocr_keywords,
+            "chars": len(page_ocr_text),
+        },
+        "caption": _build_caption_metadata(
+            requested_engine=requested_caption_engine,
+            effective_engine="page-summary",
+            fallback=False,
+            error="",
+            model="",
+        ),
+        "subphotos": subphoto_rows,
+    }
+    return people_names, object_labels, subjects, description, payload, subphoto_rows
 
 
 def run(argv: list[str] | None = None) -> int:
@@ -276,6 +468,7 @@ def run(argv: list[str] | None = None) -> int:
         "enable_objects": not bool(args.disable_objects),
         "ocr_engine": str(args.ocr_engine),
         "ocr_lang": str(args.ocr_lang),
+        "page_split_mode": "auto",
         "caption_engine": str(args.caption_engine),
         "caption_model": str(args.caption_model),
         "caption_max_tokens": int(args.caption_max_tokens),
@@ -336,11 +529,6 @@ def run(argv: list[str] | None = None) -> int:
             old_sig = str(manifest_row.get("settings_signature") or "")
             if old_sig != settings_sig:
                 manifest_row = None
-        if should_skip_existing_sidecar(image_path, force=bool(args.force)):
-            skipped += 1
-            if args.verbose:
-                print(f"[{idx}/{len(files)}] skip  {image_path.name} (sidecar exists)")
-            continue
         if not needs_processing(image_path, manifest_row, bool(args.force)):
             skipped += 1
             if args.verbose:
@@ -393,14 +581,6 @@ def run(argv: list[str] | None = None) -> int:
                 ocr_engine = OCREngine(engine=ocr_key[0], language=ocr_key[1])
                 ocr_engine_cache[ocr_key] = ocr_engine
 
-            people_matches = people_matcher.match_image(image_path) if people_matcher else []
-            object_matches = object_detector.detect_image(image_path) if object_detector else []
-            ocr_text = ocr_engine.read_text(image_path)
-            ocr_keywords = extract_keywords(ocr_text, max_keywords=15)
-
-            people_names = [row.name for row in people_matches]
-            object_labels = [row.label for row in object_matches]
-            subjects = _clean_list(object_labels + ocr_keywords)
             caption_key = (
                 str(effective.get("caption_engine", defaults["caption_engine"])),
                 str(effective.get("caption_model", defaults["caption_model"])),
@@ -416,46 +596,94 @@ def run(argv: list[str] | None = None) -> int:
                     temperature=float(caption_key[3]),
                 )
                 caption_engine_cache[caption_key] = caption_engine
-            caption_output = caption_engine.generate(
-                image_path=image_path,
-                people=people_names,
-                objects=object_labels,
-                ocr_text=ocr_text,
-            )
-            description = caption_output.text or build_description(
-                people=people_names,
-                objects=object_labels,
-                ocr_text=ocr_text,
-            )
 
-            payload = {
-                "people": [{"name": row.name, "score": round(row.score, 5)} for row in people_matches],
-                "objects": [{"label": row.label, "score": round(row.score, 5)} for row in object_matches],
-                "ocr": {
-                    "engine": str(effective.get("ocr_engine", args.ocr_engine)),
-                    "language": str(effective.get("ocr_lang", args.ocr_lang)),
-                    "keywords": ocr_keywords,
-                    "chars": len(ocr_text),
-                },
-                "caption": {
-                    "requested_engine": str(caption_key[0]),
-                    "effective_engine": str(caption_output.engine),
-                    "fallback": bool(caption_output.fallback),
-                    "error": str(caption_output.error or "")[:500],
-                    "model": str(caption_key[1] if caption_key[0] == "qwen" else ""),
-                },
-            }
+            with prepare_image_layout(
+                image_path,
+                split_mode=str(effective.get("page_split_mode", defaults["page_split_mode"])),
+            ) as layout:
+                creator_tool = str(effective.get("creator_tool", args.creator_tool))
+                person_names: list[str]
+                subjects: list[str]
+                description: str
+                ocr_text: str
+                payload: dict[str, Any]
+                subphotos_xml: list[dict[str, Any]] | None = None
+                people_count = 0
+                object_count = 0
+                analysis_mode = "single_image"
+                split_applied = False
+                subphoto_count = 0
 
-            if not args.dry_run:
-                write_xmp_sidecar(
-                    sidecar_path,
-                    creator_tool=str(effective.get("creator_tool", args.creator_tool)),
-                    person_names=people_names,
-                    subjects=subjects,
-                    description=description,
-                    ocr_text=ocr_text,
-                    detections_payload=payload,
-                )
+                if layout.page_like and layout.split_mode == "auto":
+                    sub_results = [
+                        _run_image_analysis(
+                            image_path=subphoto.path,
+                            people_matcher=people_matcher,
+                            object_detector=object_detector,
+                            ocr_engine=ocr_engine,
+                            caption_engine=caption_engine,
+                            requested_caption_engine=str(caption_key[0]),
+                            requested_caption_model=str(caption_key[1]),
+                            ocr_engine_name=ocr_key[0],
+                            ocr_language=ocr_key[1],
+                        )
+                        for subphoto in layout.subphotos
+                    ]
+                    page_ocr_text = ocr_engine.read_text(layout.content_path)
+                    page_ocr_keywords = extract_keywords(page_ocr_text, max_keywords=15)
+                    (
+                        person_names,
+                        object_labels,
+                        subjects,
+                        description,
+                        payload,
+                        subphotos_xml,
+                    ) = _build_page_payload(
+                        layout=layout,
+                        sub_results=sub_results,
+                        page_ocr_text=page_ocr_text,
+                        page_ocr_keywords=page_ocr_keywords,
+                        requested_caption_engine=str(caption_key[0]),
+                    )
+                    people_count = len(person_names)
+                    object_count = len(object_labels)
+                    ocr_text = page_ocr_text
+                    analysis_mode = "page_subphotos"
+                    split_applied = bool(layout.split_applied)
+                    subphoto_count = len(sub_results)
+                else:
+                    analysis_target = layout.content_path if layout.page_like else image_path
+                    analysis = _run_image_analysis(
+                        image_path=analysis_target,
+                        people_matcher=people_matcher,
+                        object_detector=object_detector,
+                        ocr_engine=ocr_engine,
+                        caption_engine=caption_engine,
+                        requested_caption_engine=str(caption_key[0]),
+                        requested_caption_model=str(caption_key[1]),
+                        ocr_engine_name=ocr_key[0],
+                        ocr_language=ocr_key[1],
+                    )
+                    person_names = analysis.people_names
+                    subjects = analysis.subjects
+                    description = analysis.description
+                    ocr_text = analysis.ocr_text
+                    payload = _build_flat_payload(layout, analysis)
+                    people_count = len(analysis.people_names)
+                    object_count = len(analysis.object_labels)
+                    analysis_mode = "page_flat" if layout.page_like else "single_image"
+
+                if not args.dry_run:
+                    write_xmp_sidecar(
+                        sidecar_path,
+                        creator_tool=creator_tool,
+                        person_names=person_names,
+                        subjects=subjects,
+                        description=description,
+                        ocr_text=ocr_text,
+                        detections_payload=payload,
+                        subphotos=subphotos_xml,
+                    )
 
             stat = image_path.stat()
             manifest[str(image_path)] = {
@@ -463,9 +691,13 @@ def run(argv: list[str] | None = None) -> int:
                 "size": int(stat.st_size),
                 "mtime_ns": int(stat.st_mtime_ns),
                 "sidecar_path": str(sidecar_path),
-                "people_count": int(len(people_names)),
-                "object_count": int(len(object_labels)),
+                "people_count": int(people_count),
+                "object_count": int(object_count),
                 "ocr_chars": int(len(ocr_text)),
+                "analysis_mode": str(analysis_mode),
+                "split_applied": bool(split_applied),
+                "subphoto_count": int(subphoto_count),
+                "processor_signature": PROCESSOR_SIGNATURE,
                 "settings_signature": settings_sig,
                 "render_settings_path": str(settings_file) if settings_file is not None else "",
             }

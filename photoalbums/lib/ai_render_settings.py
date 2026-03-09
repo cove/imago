@@ -6,6 +6,7 @@ from typing import Any
 
 SETTINGS_FILENAME = "render_settings.json"
 OCR_ENGINES = {"none", "docstrange"}
+PAGE_SPLIT_MODES = {"auto", "off"}
 
 
 def render_settings_path(archive_dir: str | Path) -> Path:
@@ -58,6 +59,16 @@ def _normalize_ocr_engine(value: Any, default: str) -> str:
     return "none"
 
 
+def _normalize_page_split_mode(value: Any, default: str) -> str:
+    text = str(value or "").strip().lower()
+    if text in PAGE_SPLIT_MODES:
+        return text
+    fallback = str(default or "auto").strip().lower()
+    if fallback in PAGE_SPLIT_MODES:
+        return fallback
+    return "auto"
+
+
 def _normalize_settings_block(raw: dict[str, Any], defaults: dict[str, Any]) -> dict[str, Any]:
     block = dict(raw or {})
     return {
@@ -77,6 +88,10 @@ def _normalize_settings_block(raw: dict[str, Any], defaults: dict[str, Any]) -> 
         "ocr_lang": _normalize_text(
             block.get("ocr_lang"),
             str(defaults.get("ocr_lang", "eng")),
+        ),
+        "page_split_mode": _normalize_page_split_mode(
+            block.get("page_split_mode"),
+            str(defaults.get("page_split_mode", "auto")),
         ),
         "people_threshold": _normalize_float(
             block.get("people_threshold"),

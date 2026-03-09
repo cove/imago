@@ -61,23 +61,36 @@ class TestAIIndex(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "a.jpg"
             image.write_bytes(b"abc")
+            image.with_suffix(".xmp").write_text("existing", encoding="utf-8")
             stat = image.stat()
-            row = {"image_path": str(image), "size": stat.st_size, "mtime_ns": stat.st_mtime_ns}
+            row = {
+                "image_path": str(image),
+                "size": stat.st_size,
+                "mtime_ns": stat.st_mtime_ns,
+                "sidecar_path": str(image.with_suffix(".xmp")),
+            }
             self.assertFalse(ai_index.needs_processing(image, row, force=False))
             self.assertTrue(ai_index.needs_processing(image, row, force=True))
 
             image.write_bytes(b"abcd")
             self.assertTrue(ai_index.needs_processing(image, row, force=False))
 
-    def test_should_skip_existing_sidecar(self):
+    def test_needs_processing_requires_current_sidecar(self):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "a.jpg"
             image.write_bytes(b"abc")
-            self.assertFalse(ai_index.should_skip_existing_sidecar(image, force=False))
+            stat = image.stat()
+            row = {
+                "image_path": str(image),
+                "size": stat.st_size,
+                "mtime_ns": stat.st_mtime_ns,
+                "sidecar_path": str(image.with_suffix(".xmp")),
+            }
+            self.assertTrue(ai_index.needs_processing(image, row, force=False))
 
             image.with_suffix(".xmp").write_text("existing", encoding="utf-8")
-            self.assertTrue(ai_index.should_skip_existing_sidecar(image, force=False))
-            self.assertFalse(ai_index.should_skip_existing_sidecar(image, force=True))
+            self.assertFalse(ai_index.needs_processing(image, row, force=False))
+            self.assertTrue(ai_index.needs_processing(image, row, force=True))
 
     def test_build_description(self):
         text = ai_index.build_description(
