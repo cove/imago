@@ -95,12 +95,15 @@ def subtitle_page(page, live_server):
 
 def test_scrub_timeline_scrolls_subtitle_editor(subtitle_page):
     """Scrubbing to the last frame should scroll the subtitle editor to the last row."""
-    scroll_before = subtitle_page.evaluate("() => subtitlesEditorEl.scrollTop")
-    assert scroll_before == 0
+    assert subtitle_page.evaluate("() => subtitlesEditorEl.scrollTop") == 0
 
-    subtitle_page.evaluate(f"() => scrubTimelineToIndex({_FRAME_COUNT - 1})")
+    # Read scrollTop inside the same evaluate() call so the rAF-deferred
+    # refreshVisibleRangeFromGrid() cannot fire and reset it before we check.
+    scroll_after = subtitle_page.evaluate(f"""() => {{
+        scrubTimelineToIndex({_FRAME_COUNT - 1});
+        return subtitlesEditorEl.scrollTop;
+    }}""")
 
-    scroll_after = subtitle_page.evaluate("() => subtitlesEditorEl.scrollTop")
     assert scroll_after > 0, (
         "Subtitle editor should scroll down when the timeline is scrubbed to the last frame"
     )
@@ -130,18 +133,27 @@ def test_programmatic_scroll_does_not_lock_future_syncs(subtitle_page):
     A programmatic scroll triggered by scrubTimelineToIndex() must NOT set
     subtitleEditorUserScrolling=true, which would block the next sync.
     """
-    # Scrub to last frame — triggers programmatic scrollTo on the editor.
-    subtitle_page.evaluate(f"() => scrubTimelineToIndex({_FRAME_COUNT - 1})")
+    last = _FRAME_COUNT - 1
 
-    # The user-scrolling lock must be clear.
-    locked = subtitle_page.evaluate("() => subtitleEditorUserScrolling")
-    assert locked is False, (
+    # Scrub to last frame and capture flag + scrollTop before rAF fires.
+    result = subtitle_page.evaluate(f"""() => {{
+        scrubTimelineToIndex({last});
+        return {{
+            scrollTop: subtitlesEditorEl.scrollTop,
+            userScrolling: subtitleEditorUserScrolling,
+        }};
+    }}""")
+
+    assert result["scrollTop"] > 0, "Editor should scroll to last row"
+    assert result["userScrolling"] is False, (
         "subtitleEditorUserScrolling should be False after a programmatic scroll"
     )
 
-    # Scrubbing back to 0 should scroll the editor back to the top.
-    subtitle_page.evaluate("() => scrubTimelineToIndex(0)")
-    scroll = subtitle_page.evaluate("() => subtitlesEditorEl.scrollTop")
-    assert scroll == 0, (
+    # Scrubbing back to 0 should move the editor back to the top.
+    scroll_back = subtitle_page.evaluate("""() => {
+        scrubTimelineToIndex(0);
+        return subtitlesEditorEl.scrollTop;
+    }""")
+    assert scroll_back == 0, (
         "Subtitle editor should return to top when scrubbed back to frame 0"
     )
