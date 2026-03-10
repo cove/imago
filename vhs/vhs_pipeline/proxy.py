@@ -8,20 +8,24 @@ from common import ARCHIVE_DIR, FFMPEG_BIN, METADATA_DIR, run
 PROXY_FPS = "30000/1001"
 
 
-def build_proxy_command(src: Path, ffmetadata_path: Path, proxy: Path) -> list[str]:
+def build_proxy_command(
+    src: Path, ffmetadata_path: Path, proxy: Path, show_frame_number: bool = False
+) -> list[str]:
     # Keep frame-index lockstep with archive while reducing proxy size.
-    font_expr = ""
-    win_font = Path("C:/Windows/Fonts/consola.ttf")
-    if win_font.exists():
-        font_expr = "fontfile='C\\:/Windows/Fonts/consola.ttf'"
-    drawtext = (
-        "drawtext="
-        + "text='frame=%{eif\\:n\\:d}'"
-        + (f":{font_expr}" if font_expr else "")
-        + ":x=16:y=16:fontsize=24:"
-        + "fontcolor=white:box=1:boxcolor=black@0.55:borderw=2"
-    )
-    vf = f"scale=iw/2:ih/2:flags=lanczos,setpts=N/(30000/1001*TB),{drawtext}"
+    vf = "scale=iw/2:ih/2:flags=lanczos,setpts=N/(30000/1001*TB)"
+    if show_frame_number:
+        font_expr = ""
+        win_font = Path("C:/Windows/Fonts/consola.ttf")
+        if win_font.exists():
+            font_expr = "fontfile='C\\:/Windows/Fonts/consola.ttf'"
+        drawtext = (
+            "drawtext="
+            + "text='frame=%{eif\\:n\\:d}'"
+            + (f":{font_expr}" if font_expr else "")
+            + ":x=16:y=16:fontsize=24:"
+            + "fontcolor=white:box=1:boxcolor=black@0.55:borderw=2"
+        )
+        vf += f",{drawtext}"
     return [
         str(FFMPEG_BIN),
         "-nostdin",
@@ -76,7 +80,7 @@ def build_proxy_command(src: Path, ffmetadata_path: Path, proxy: Path) -> list[s
     ]
 
 
-def make_proxies():
+def make_proxies(show_frame_number: bool = False):
     print(f"Generating PROXY {ARCHIVE_DIR}\n")
     count = 0
     for src in ARCHIVE_DIR.glob("*.mkv"):
@@ -93,7 +97,7 @@ def make_proxies():
             continue
 
         print(f"Processing: {src.name} {proxy.name}")
-        run(build_proxy_command(src, ffmetadata_path, proxy))
+        run(build_proxy_command(src, ffmetadata_path, proxy, show_frame_number=show_frame_number))
         count += 1
 
     print(f"Created {count} proxies.")

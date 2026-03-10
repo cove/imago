@@ -98,7 +98,6 @@ title=1995 - Lynda & Jim's Wedding - 10 Reception Guests (March 18, 1995)
 DATE_RECORDED=1995-03-18 23:12:00.000 ; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=1995-03-18T15:12:00-08:00
-comment=
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -118,7 +117,6 @@ title=1995 - Lynda & Jim's Wedding - 12 Reception Drinks (March 18, 1995)
 DATE_RECORDED=1995-03-18 23:12:00.000 ; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=1995-03-18T15:12:00-08:00
-comment=
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -128,7 +126,6 @@ title=1995 - Lynda & Jim's Wedding - 13 Reception Jerry Cordell, Poly Grant, Dol
 DATE_RECORDED=1995-03-18 23:12:00.000 ; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=1995-03-18T15:12:00-08:00
-comment=
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -138,7 +135,6 @@ title=1995 - Lynda & Jim's Wedding - 14 Reception Wedding Plaque & Cake (March 1
 DATE_RECORDED=1995-03-18 23:12:00.000 ; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=1995-03-18T15:12:00-08:00
-comment=
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -148,7 +144,6 @@ title=1995 - Lynda & Jim's Wedding - 15 Reception Lynda & Jimmy Dancing (March 1
 DATE_RECORDED=1995-03-18 23:12:00.000 ; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=1995-03-18T15:12:00-08:00
-comment=
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -158,4 +153,15 @@ title=1995 - Lynda & Jim's Wedding - 16 Reception Dancing (March 18, 1995)
 DATE_RECORDED=1995-03-18 23:12:00.000 ; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=1995-03-18T15:12:00-08:00
-comment=
+
+[CHAPTER]
+TIMEBASE=1001/30000
+START=41985
+END=43280
+title=1995 - Jim & Linda Wedding - 06 Nuptials (March 18, 1995)
+DATE_RECORDED=1995; UTC
+DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
+RECORDING_LOCATION=US, California, Pasadena
+location=+34.15756-118.13637+274.03/Church of Truth, 690 E Orange Grove Blvd, Pasadena, CA 91104
+creation_time=1995
+comment=Church of Truth, 690 E Orange Grove Blvd, Pasadena, CA 91104

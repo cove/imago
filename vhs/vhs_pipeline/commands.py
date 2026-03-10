@@ -51,8 +51,8 @@ def run_verify_archive(argv):
     return int(verify_archive(argv) or 0)
 
 
-def run_make_proxies():
-    return int(make_proxies() or 0)
+def run_make_proxies(show_frame_number: bool = False):
+    return int(make_proxies(show_frame_number=show_frame_number) or 0)
 
 
 def run_make_videos(argv):
