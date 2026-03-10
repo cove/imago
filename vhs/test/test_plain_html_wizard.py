@@ -207,7 +207,13 @@ def test_contact_sheet_builder_can_fill_later_visible_range_from_video(
 
 
 def test_static_html_contains_live_iqr_spark_and_fullscreen_controls() -> None:
-    html = INDEX_HTML.read_text(encoding="utf-8")
+    static_dir = INDEX_HTML.parent
+    html = "\n".join(
+        f.read_text(encoding="utf-8")
+        for f in sorted(static_dir.glob("*.html"))
+        + sorted(static_dir.glob("*.css"))
+        + sorted(static_dir.glob("*.js"))
+    )
 
     assert 'id="helpBtn"' not in html
     assert 'id="helpModal"' in html

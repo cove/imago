@@ -57,7 +57,13 @@ def build_parser():
     )
     metadata_embed.add_argument("files", nargs="+", help="Archive MKV file(s)")
 
-    subparsers.add_parser("proxy", help="Generate proxy MP4 files")
+    proxy_parser = subparsers.add_parser("proxy", help="Generate proxy MP4 files")
+    proxy_parser.add_argument(
+        "--frame-number",
+        action="store_true",
+        default=False,
+        help="Burn frame number into proxy video (default: off)",
+    )
     tuner_parser = subparsers.add_parser("tuner", help="Launch the plain HTML VHS tuner web UI")
     tuner_parser.add_argument("--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)")
     tuner_parser.add_argument("--port", type=int, default=8092, help="Bind port (default: 8092)")
@@ -188,7 +194,7 @@ def main(argv=None):
     if args.group == "proxy":
         from vhs_pipeline import commands
 
-        return commands.run_make_proxies()
+        return commands.run_make_proxies(show_frame_number=args.frame_number)
 
     if args.group == "tuner":
         from vhs_pipeline import commands

@@ -2133,6 +2133,14 @@ class WizardHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
         pass  # suppress per-request stderr noise
 
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        # Silence expected client-disconnect errors (aborted/reset connections)
+        import sys
+        exc = sys.exc_info()[1]
+        if isinstance(exc, (ConnectionAbortedError, ConnectionResetError, BrokenPipeError)):
+            return
+        super().handle_error(request, client_address)
+
     def _ensure_session(self) -> SessionState:
         self._set_cookie: str | None = None
         cookies = SimpleCookie(self.headers.get("Cookie", ""))
