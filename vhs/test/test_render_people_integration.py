@@ -35,7 +35,7 @@ def _write_subtitles_tsv(path: Path) -> None:
     )
 
 
-def _configure_render_env(monkeypatch, tmp_path: Path, transcript_mode: str) -> tuple[Path, Path]:
+def _configure_render_env(monkeypatch, tmp_path: Path, transcript_mode: str) -> tuple[Path, Path, list]:
     archive_dir = tmp_path / "Archive"
     metadata_dir = tmp_path / "metadata"
     videos_dir = tmp_path / "Videos"
@@ -57,7 +57,13 @@ def _configure_render_env(monkeypatch, tmp_path: Path, transcript_mode: str) -> 
     monkeypatch.setattr(render_pipeline, "METADATA_DIR", metadata_dir)
     monkeypatch.setattr(render_pipeline, "VIDEOS_DIR", videos_dir)
     monkeypatch.setattr(render_pipeline, "CLIPS_DIR", clips_dir)
-    monkeypatch.setattr(render_pipeline, "run", lambda *args, **kwargs: None)
+    run_calls = []
+
+    def _fake_run(*args, **kwargs):
+        run_calls.append((args, kwargs))
+        return None
+
+    monkeypatch.setattr(render_pipeline, "run", _fake_run)
     monkeypatch.setattr(render_pipeline, "assert_expected_frame_count", lambda *args, **kwargs: None)
     monkeypatch.setattr(render_pipeline, "chapter_done", lambda *_args, **_kwargs: False)
     monkeypatch.setattr(render_pipeline, "transcript_mode", lambda *_args, **_kwargs: str(transcript_mode))
@@ -92,11 +98,11 @@ def _configure_render_env(monkeypatch, tmp_path: Path, transcript_mode: str) -> 
         )
 
     monkeypatch.setattr(render_pipeline, "transcribe_audio", _fake_transcribe)
-    return clips_dir, Path(chapter_title)
+    return clips_dir, Path(chapter_title), run_calls
 
 
 def test_run_pipeline_merges_people_into_transcribed_sidecars(monkeypatch, tmp_path: Path) -> None:
-    clips_dir, chapter_title = _configure_render_env(monkeypatch, tmp_path, transcript_mode="on")
+    clips_dir, chapter_title, _run_calls = _configure_render_env(monkeypatch, tmp_path, transcript_mode="on")
     args = argparse.Namespace(
         archive=["demo_archive"],
         title=[str(chapter_title)],
@@ -123,7 +129,7 @@ def test_run_pipeline_merges_people_into_transcribed_sidecars(monkeypatch, tmp_p
 
 
 def test_run_pipeline_writes_people_only_sidecars_when_transcript_off(monkeypatch, tmp_path: Path) -> None:
-    clips_dir, chapter_title = _configure_render_env(monkeypatch, tmp_path, transcript_mode="off")
+    clips_dir, chapter_title, _run_calls = _configure_render_env(monkeypatch, tmp_path, transcript_mode="off")
     args = argparse.Namespace(
         archive=["demo_archive"],
         title=[str(chapter_title)],
@@ -150,7 +156,7 @@ def test_run_pipeline_writes_people_only_sidecars_when_transcript_off(monkeypatc
 
 
 def test_run_pipeline_prefers_metadata_subtitles_over_whisper_generation(monkeypatch, tmp_path: Path) -> None:
-    clips_dir, chapter_title = _configure_render_env(monkeypatch, tmp_path, transcript_mode="on")
+    clips_dir, chapter_title, _run_calls = _configure_render_env(monkeypatch, tmp_path, transcript_mode="on")
     subtitles_tsv = tmp_path / "metadata" / "demo_archive" / "subtitles.tsv"
     _write_subtitles_tsv(subtitles_tsv)
 
@@ -179,3 +185,19 @@ def test_run_pipeline_prefers_metadata_subtitles_over_whisper_generation(monkeyp
 
     ass_text = out_ass.read_text(encoding="utf-8")
     assert r"Metadata subtitle line\N{\rPeople}Lynda{\rDefault}" in ass_text
+
+
+def test_run_make_subtitles_skips_video_rendering(monkeypatch, tmp_path: Path) -> None:
+    clips_dir, chapter_title, run_calls = _configure_render_env(monkeypatch, tmp_path, transcript_mode="on")
+
+    render_pipeline.run_make_subtitles(
+        archive_filters=["demo_archive"],
+        title_filters=[str(chapter_title)],
+        title_exact=True,
+    )
+
+    out_srt = clips_dir / f"{chapter_title}.srt"
+    out_ass = clips_dir / f"{chapter_title}.ass"
+    assert out_srt.exists()
+    assert out_ass.exists()
+    assert len(run_calls) == 2

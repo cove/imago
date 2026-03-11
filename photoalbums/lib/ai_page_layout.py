@@ -111,6 +111,8 @@ def _load_image_bgr(image_path: Path):
         raise RuntimeError(f"Could not read image: {image_path}")
     if image.ndim == 2:
         image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    elif image.ndim == 3 and image.shape[2] == 1:
+        image = cv2.cvtColor(image.squeeze(axis=2), cv2.COLOR_GRAY2BGR)
     elif image.ndim == 3 and image.shape[2] == 4:
         image = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
     return image

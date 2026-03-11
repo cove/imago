@@ -958,8 +958,8 @@ function renderChapters() {
   // Fast path: if the list hasn't changed, just toggle the active class
   if (chapterButtonCache.size === chapters.length
       && chapters.every(ch => chapterButtonCache.has(ch.title))) {
-    chapterButtonCache.forEach((btn, title) => {
-      btn.classList.toggle('active', title === state.chapter);
+    chapterButtonCache.forEach((el, title) => {
+      el.classList.toggle('active', title === state.chapter);
     });
     return;
   }
@@ -968,22 +968,132 @@ function renderChapters() {
   const fragment = document.createDocumentFragment();
   chapters.forEach(ch => {
     const m = chapterBadMeta(ch);
-    const btn = document.createElement('button');
-    btn.className = `item-btn chapter-row ${ch.title === state.chapter ? 'active' : ''}`;
-    btn.innerHTML = `
-      <div>${String(ch.index).padStart(2, '0')}</div>
-      <div class="title" title="${escapeHtml(ch.title)}">${escapeHtml(ch.title)}</div>
-      <div class="meta-spark" title="BAD frame distribution across chapter">${chapterBadSparkSvg(ch)}</div>
-      <div class="meta" title="Bad frames in chapter">${escapeHtml(m.text)}</div>
-    `;
-    btn.addEventListener('click', () => {
+    const row = document.createElement('div');
+    row.className = `item-btn chapter-row ${ch.title === state.chapter ? 'active' : ''}`;
+    row.setAttribute('role', 'button');
+    row.setAttribute('tabindex', '0');
+
+    const idxEl = document.createElement('div');
+    idxEl.textContent = String(ch.index).padStart(2, '0');
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'title';
+    titleEl.title = ch.title;
+    titleEl.textContent = ch.title;
+
+    const actionsEl = document.createElement('div');
+    actionsEl.className = 'chapter-row-actions';
+
+    const loadBtn = document.createElement('button');
+    loadBtn.className = 'action chapter-load-btn';
+    loadBtn.type = 'button';
+    loadBtn.textContent = 'Load';
+    loadBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      state.chapter = ch.title;
+      renderChapters();
+      const result = navigateToStep(stepNumForMode('review'));
+      if (result && typeof result.then === 'function') void result;
+    });
+
+    const renameBtn = document.createElement('button');
+    renameBtn.className = 'action chapter-rename-btn';
+    renameBtn.type = 'button';
+    renameBtn.title = 'Rename chapter';
+    renameBtn.textContent = '✎';
+    renameBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      startRenameChapter(ch, titleEl, actionsEl, loadBtn, renameBtn);
+    });
+
+    actionsEl.appendChild(loadBtn);
+    actionsEl.appendChild(renameBtn);
+
+    row.appendChild(idxEl);
+    row.appendChild(titleEl);
+    row.appendChild(actionsEl);
+
+    row.addEventListener('click', () => {
       state.chapter = ch.title;
       renderChapters();
     });
-    chapterButtonCache.set(ch.title, btn);
-    fragment.appendChild(btn);
+    row.addEventListener('keydown', (e) => {
+      if (e.target instanceof HTMLInputElement) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        state.chapter = ch.title;
+        renderChapters();
+      }
+    });
+
+    chapterButtonCache.set(ch.title, row);
+    fragment.appendChild(row);
   });
   chapterListEl.replaceChildren(fragment);
+}
+
+function startRenameChapter(ch, titleEl, actionsEl, loadBtn, renameBtn) {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'chapter-rename-input';
+  input.value = ch.title;
+  titleEl.textContent = '';
+  titleEl.appendChild(input);
+  input.focus();
+  input.select();
+
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'action chapter-save-rename-btn';
+  saveBtn.title = 'Save rename';
+  saveBtn.textContent = '✓';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'action warn chapter-cancel-rename-btn';
+  cancelBtn.title = 'Cancel rename';
+  cancelBtn.textContent = '✗';
+
+  function cancelRename() {
+    titleEl.textContent = '';
+    titleEl.title = ch.title;
+    titleEl.textContent = ch.title;
+    actionsEl.replaceChildren(loadBtn, renameBtn);
+  }
+
+  async function doSave() {
+    const newTitle = input.value.trim();
+    if (!newTitle || newTitle === ch.title) { cancelRename(); return; }
+    saveBtn.disabled = true;
+    cancelBtn.disabled = true;
+    await saveRenameChapter(state.archive, ch.title, newTitle);
+  }
+
+  saveBtn.addEventListener('click', (e) => { e.stopPropagation(); void doSave(); });
+  cancelBtn.addEventListener('click', (e) => { e.stopPropagation(); cancelRename(); });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); void doSave(); }
+    if (e.key === 'Escape') { e.preventDefault(); cancelRename(); }
+  });
+
+  actionsEl.replaceChildren(saveBtn, cancelBtn);
+}
+
+async function saveRenameChapter(archive, oldTitle, newTitle) {
+  setLoading(true, `Renaming "${oldTitle}" → "${newTitle}"…`);
+  try {
+    const result = await api('/api/rename_chapter', 'POST', { archive, old_title: oldTitle, new_title: newTitle }, 120000);
+    if (!result.ok) throw new Error(result.error || 'Rename failed.');
+    const renamed = result.renamed_files || [];
+    setStatus(renamed.length
+      ? `Renamed ${renamed.length} file(s): ${renamed.join(', ')}`
+      : 'Chapter renamed (no rendered files found).'
+    );
+    await loadArchive(archive, newTitle);
+  } catch (err) {
+    setStatus(String(err.message || 'Rename failed.'), true);
+    setLoading(false);
+  }
 }
 
 function statsText(stats, threshold) {

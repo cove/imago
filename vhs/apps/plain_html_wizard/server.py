@@ -37,14 +37,17 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from common import (
     ARCHIVE_DIR,
+    CLIPS_DIR,
     FFMPEG_BIN,
     METADATA_DIR,
+    VIDEOS_DIR,
     WHISPER_MODEL_DIR,
     combined_score,
     compute_threshold,
     get_gamma_profile_for_chapter,
     get_transcript_mode_for_chapter,
     parse_chapters,
+    safe,
     update_chapter_gamma_in_render_settings,
     update_chapter_transcript_in_chapters_tsv,
 )
@@ -542,6 +545,48 @@ def _chapters_ffmetadata_path(archive: str) -> Path:
 
 def _chapters_tsv_path(archive: str) -> Path:
     return METADATA_DIR / str(archive or "").strip() / "chapters.tsv"
+
+
+def _rename_chapter_outputs(old_title: str, new_title: str) -> list[str]:
+    """Rename rendered output files and remux MP4 to update embedded title metadata."""
+    old_safe = safe(old_title)
+    new_safe = safe(new_title)
+    renamed: list[str] = []
+    for output_dir in [VIDEOS_DIR, CLIPS_DIR]:
+        if not output_dir:
+            continue
+        old_mp4 = output_dir / f"{old_safe}.mp4"
+        if not old_mp4.exists() or old_mp4.stat().st_size <= 100_000:
+            continue
+        # Rename subtitle sidecars
+        for ext in (".srt", ".vtt", ".ass"):
+            old_f = output_dir / f"{old_safe}{ext}"
+            new_f = output_dir / f"{new_safe}{ext}"
+            if old_f.exists():
+                old_f.rename(new_f)
+                renamed.append(new_f.name)
+        # Remux MP4 to update embedded title metadata (stream copy, no re-encode)
+        new_mp4 = output_dir / f"{new_safe}.mp4"
+        tmp_mp4 = output_dir / f"{new_safe}_renametmp.mp4"
+        result = subprocess.run(
+            [str(FFMPEG_BIN), "-y", "-i", str(old_mp4), "-c", "copy",
+             "-metadata", f"title={new_title}", str(tmp_mp4)],
+            capture_output=True,
+        )
+        if result.returncode == 0:
+            old_mp4.unlink()
+            tmp_mp4.rename(new_mp4)
+        else:
+            tmp_mp4.unlink(missing_ok=True)
+            old_mp4.rename(new_mp4)
+        renamed.append(new_mp4.name)
+        # Rename temp dir if it still exists
+        old_temp = output_dir / f"{old_safe}_temp"
+        new_temp = output_dir / f"{new_safe}_temp"
+        if old_temp.exists() and not new_temp.exists():
+            old_temp.rename(new_temp)
+        break
+    return renamed
 
 
 def _normalize_split_entries_payload(
@@ -2726,6 +2771,44 @@ class WizardHandler(BaseHTTPRequestHandler):
 
         if parsed.path == "/api/save_progress":
             self._handle_save_progress(session, payload)
+            return
+
+        if parsed.path == "/api/rename_chapter":
+            archive = str(payload.get("archive", "")).strip()
+            old_title = str(payload.get("old_title", "")).strip()
+            new_title = str(payload.get("new_title", "")).strip()
+            if not archive or not old_title or not new_title:
+                self._send_error_json("Missing archive, old_title, or new_title.")
+                return
+            if old_title == new_title:
+                self._send_json({"ok": True, "old_title": old_title, "new_title": new_title, "renamed_files": []})
+                return
+            tsv_path = _chapters_tsv_path(archive)
+            if not tsv_path.exists():
+                self._send_error_json(f"No chapters.tsv found for archive: {archive}")
+                return
+            header, rows = _read_chapters_tsv_rows(tsv_path)
+            title_key = next((k for k in header if k.strip().lower() == "title"), None)
+            if not title_key:
+                self._send_error_json("chapters.tsv has no 'title' column.")
+                return
+            matched = False
+            for row in rows:
+                if row.get(title_key, "").strip() == old_title:
+                    row[title_key] = new_title
+                    matched = True
+                    break
+            if not matched:
+                self._send_error_json(f"Chapter not found: {old_title!r}")
+                return
+            _write_chapters_tsv_rows(tsv_path, header, rows)
+            renamed_files = _rename_chapter_outputs(old_title, new_title)
+            self._send_json({
+                "ok": True,
+                "old_title": old_title,
+                "new_title": new_title,
+                "renamed_files": renamed_files,
+            })
             return
 
         self._send_error_json("Not found", code=HTTPStatus.NOT_FOUND)

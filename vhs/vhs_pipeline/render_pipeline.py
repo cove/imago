@@ -1630,6 +1630,7 @@ def _load_chapters_from_tsv(chapters_tsv_path):
 def _run_with_args(args):
     model = None
     rebuild_selected = bool(args.title)
+    subtitles_only = bool(getattr(args, "subtitles_only", False))
     debug_extracted_frames = debug_extracted_frames_enabled(args)
     if debug_extracted_frames:
         print(
@@ -1717,11 +1718,11 @@ def _run_with_args(args):
             include_audio = audio_mode(ch) == "on"
             transcribe_dialogue = include_audio and transcript_mode(ch) == "on"
 
-            if chapter_done(final_file) and not rebuild_selected:
+            if chapter_done(final_file) and not rebuild_selected and not subtitles_only:
                 print(f"Skipping existing chapter: {title}")
                 cur_count += 1
                 continue
-            if chapter_done(final_file) and rebuild_selected:
+            if chapter_done(final_file) and rebuild_selected and not subtitles_only:
                 print(f"Rebuilding matched chapter: {title}")
 
             # inline temp path creation
@@ -1752,139 +1753,144 @@ def _run_with_args(args):
             chapter_len = max(0, int(chapter_end_frame) - int(chapter_start_frame))
 
             try:
-                print(f"Extracting chapter...")
-                run(
-                    make_extract_chapter(
-                        src,
-                        extract_start_sec,
-                        extract_end_sec,
-                        extracted,
-                        start_frame=chapter_start_frame,
-                        end_frame=chapter_end_frame,
-                        debug_frame_numbers=debug_extracted_frames,
+                needs_extracted_media = (not subtitles_only) or (
+                    transcribe_dialogue and not subtitles_tsv_exists and not metadata_subtitle_entries
+                )
+                if needs_extracted_media:
+                    print(f"Extracting chapter...")
+                    run(
+                        make_extract_chapter(
+                            src,
+                            extract_start_sec,
+                            extract_end_sec,
+                            extracted,
+                            start_frame=chapter_start_frame,
+                            end_frame=chapter_end_frame,
+                            debug_frame_numbers=debug_extracted_frames,
+                        )
                     )
-                )
-                assert_expected_frame_count(
-                    extracted,
-                    chapter_len,
-                    f"extracted chapter '{title}'",
-                )
+                    assert_expected_frame_count(
+                        extracted,
+                        chapter_len,
+                        f"extracted chapter '{title}'",
+                    )
 
-                print(f"Applying video filters...")
-                if sys.platform == "win32":
-                    if filter_script.exists():
-                        global_bad = get_bad_frames_for_chapter(archive_name, str(title))
-                        manual_source_frames_global = [
-                            f for f in global_bad if chapter_start_frame <= int(f) < chapter_end_frame
-                        ]
-                        manual_source_frames = [
-                            int(f) - int(chapter_start_frame) for f in manual_source_frames_global
-                        ]
-                        manual_repairs = local_bad_frames_to_repairs(manual_source_frames)
-                        marked_count = len(set(int(f) for f in manual_source_frames))
-                        repaired_count = sum((int(b) - int(a) + 1) for a, b, _src in manual_repairs)
-                        freeze_input = extracted
-                        if manual_source_frames_global:
-                            print(
-                                f"Render settings bad frame(s): {len(manual_source_frames)} -> "
-                                + ",".join(str(f) for f in manual_source_frames[:12])
-                                + ("..." if len(manual_source_frames) > 12 else "")
-                            )
-                            if repaired_count > marked_count:
+                if not subtitles_only:
+                    print(f"Applying video filters...")
+                    if sys.platform == "win32":
+                        if filter_script.exists():
+                            global_bad = get_bad_frames_for_chapter(archive_name, str(title))
+                            manual_source_frames_global = [
+                                f for f in global_bad if chapter_start_frame <= int(f) < chapter_end_frame
+                            ]
+                            manual_source_frames = [
+                                int(f) - int(chapter_start_frame) for f in manual_source_frames_global
+                            ]
+                            manual_repairs = local_bad_frames_to_repairs(manual_source_frames)
+                            marked_count = len(set(int(f) for f in manual_source_frames))
+                            repaired_count = sum((int(b) - int(a) + 1) for a, b, _src in manual_repairs)
+                            freeze_input = extracted
+                            if manual_source_frames_global:
                                 print(
-                                    "Expanded freeze target coverage by "
-                                    f"{repaired_count - marked_count} frame(s) via gap bridging "
-                                    f"(always<={BADFRAME_BRIDGE_ALWAYS_GAP}, "
-                                    f"singleton<={BADFRAME_BRIDGE_SINGLETON_GAP})."
+                                    f"Render settings bad frame(s): {len(manual_source_frames)} -> "
+                                    + ",".join(str(f) for f in manual_source_frames[:12])
+                                    + ("..." if len(manual_source_frames) > 12 else "")
                                 )
-                            freeze_script = make_freeze_only_avs(
-                                extracted,
-                                bad_source_frames=manual_source_frames,
-                                bad_repair_ranges=manual_repairs,
+                                if repaired_count > marked_count:
+                                    print(
+                                        "Expanded freeze target coverage by "
+                                        f"{repaired_count - marked_count} frame(s) via gap bridging "
+                                        f"(always<={BADFRAME_BRIDGE_ALWAYS_GAP}, "
+                                        f"singleton<={BADFRAME_BRIDGE_SINGLETON_GAP})."
+                                    )
+                                freeze_script = make_freeze_only_avs(
+                                    extracted,
+                                    bad_source_frames=manual_source_frames,
+                                    bad_repair_ranges=manual_repairs,
+                                    chapter_start_frame=chapter_start_frame,
+                                    chapter_end_frame=chapter_end_frame,
+                                    source_clearance=BADFRAME_SOURCE_CLEARANCE,
+                                )
+                                freeze_lines = freeze_script.count("FreezeFrame(")
+                                print(
+                                    "AVS freeze stage: "
+                                    f"freeze_lines={freeze_lines}, "
+                                    f"source_clearance={BADFRAME_SOURCE_CLEARANCE}"
+                                )
+                                freeze_avs.write_text(freeze_script, encoding="ascii")
+                                run(make_render_avs_ffv1(freeze_avs, extracted, repaired_extracted))
+                                assert_expected_frame_count(
+                                    repaired_extracted,
+                                    chapter_len,
+                                    f"repaired extracted chapter '{title}'",
+                                )
+                                freeze_input = repaired_extracted
+                            else:
+                                print("No bad frames listed in render_settings; no freeze-frame repairs applied.")
+
+                            gamma_profile = get_gamma_profile_for_chapter(
+                                archive=str(archive_name or ""),
+                                ch_start=chapter_start_frame,
+                                ch_end=chapter_end_frame,
+                            )
+                            gamma_default = float(gamma_profile.get("default_gamma", GAMMA_DEFAULT))
+                            gamma_ranges = list(gamma_profile.get("ranges", []))
+
+                            script = make_create_avs(
+                                freeze_input,
+                                filter_script,
+                                bad_source_frames=[],
+                                bad_repair_ranges=[],
                                 chapter_start_frame=chapter_start_frame,
                                 chapter_end_frame=chapter_end_frame,
-                                source_clearance=BADFRAME_SOURCE_CLEARANCE,
+                                gamma_default=gamma_default,
+                                gamma_ranges=gamma_ranges,
+                                no_bob=args.no_bob,
+                                source_clearance=0,
                             )
-                            freeze_lines = freeze_script.count("FreezeFrame(")
+                            freeze_count = script.count("FreezeFrame(")
+                            filter_has_qtgmc = False
+                            try:
+                                filter_has_qtgmc = "QTGMC(" in filter_script.read_text(
+                                    encoding="utf-8", errors="ignore"
+                                )
+                            except Exception:
+                                pass
                             print(
-                                "AVS freeze stage: "
-                                f"freeze_lines={freeze_lines}, "
-                                f"source_clearance={BADFRAME_SOURCE_CLEARANCE}"
-                            )
-                            freeze_avs.write_text(freeze_script, encoding="ascii")
-                            run(make_render_avs_ffv1(freeze_avs, extracted, repaired_extracted))
+                                "AVS pipeline: "
+                                    f"freeze_lines={freeze_count}, "
+                                    f"filter_script={filter_script.name}, "
+                                    f"filter_has_qtgmc={filter_has_qtgmc}, "
+                                    f"filter_input={Path(freeze_input).name}"
+                                )
+                            avs.write_text(script, encoding="ascii")
+                            run(make_deinterlace(avs, freeze_input, qtgmc))
                             assert_expected_frame_count(
-                                repaired_extracted,
+                                qtgmc,
                                 chapter_len,
-                                f"repaired extracted chapter '{title}'",
+                                f"qtgmc chapter '{title}'",
                             )
-                            freeze_input = repaired_extracted
                         else:
-                            print("No bad frames listed in render_settings; no freeze-frame repairs applied.")
-
-                        gamma_profile = get_gamma_profile_for_chapter(
-                            archive=str(archive_name or ""),
-                            ch_start=chapter_start_frame,
-                            ch_end=chapter_end_frame,
-                        )
-                        gamma_default = float(gamma_profile.get("default_gamma", GAMMA_DEFAULT))
-                        gamma_ranges = list(gamma_profile.get("ranges", []))
-
-                        script = make_create_avs(
-                            freeze_input,
-                            filter_script,
-                            bad_source_frames=[],
-                            bad_repair_ranges=[],
-                            chapter_start_frame=chapter_start_frame,
-                            chapter_end_frame=chapter_end_frame,
-                            gamma_default=gamma_default,
-                            gamma_ranges=gamma_ranges,
-                            no_bob=args.no_bob,
-                            source_clearance=0,
-                        )
-                        freeze_count = script.count("FreezeFrame(")
-                        filter_has_qtgmc = False
-                        try:
-                            filter_has_qtgmc = "QTGMC(" in filter_script.read_text(
-                                encoding="utf-8", errors="ignore"
-                            )
-                        except Exception:
-                            pass
+                            print("Skipping since there's no filter script for this archive...")
+                            shutil.copy(extracted, qtgmc)
+                    elif os.environ.get("TEST_ENV"):
+                        print("Skipping deinterlacing for test run...")
+                        shutil.copy(extracted, qtgmc)
+                    else:
                         print(
-                            "AVS pipeline: "
-                                f"freeze_lines={freeze_count}, "
-                                f"filter_script={filter_script.name}, "
-                                f"filter_has_qtgmc={filter_has_qtgmc}, "
-                                f"filter_input={Path(freeze_input).name}"
+                            "AviSynth/QTGMC is Windows-only. "
+                            f"Using FFmpeg bwdif fallback on {sys.platform}."
+                        )
+                        if filter_script.exists():
+                            print(
+                                f"Skipping AviSynth filter script on this platform: {filter_script.name}"
                             )
-                        avs.write_text(script, encoding="ascii")
-                        run(make_deinterlace(avs, freeze_input, qtgmc))
+                        run(make_deinterlace_ffmpeg_fallback(extracted, qtgmc, no_bob=args.no_bob))
                         assert_expected_frame_count(
                             qtgmc,
                             chapter_len,
-                            f"qtgmc chapter '{title}'",
+                            f"fallback chapter '{title}'",
                         )
-                    else:
-                        print("Skipping since there's no filter script for this archive...")
-                        shutil.copy(extracted, qtgmc)
-                elif os.environ.get("TEST_ENV"):
-                    print("Skipping deinterlacing for test run...")
-                    shutil.copy(extracted, qtgmc)
-                else:
-                    print(
-                        "AviSynth/QTGMC is Windows-only. "
-                        f"Using FFmpeg bwdif fallback on {sys.platform}."
-                    )
-                    if filter_script.exists():
-                        print(
-                            f"Skipping AviSynth filter script on this platform: {filter_script.name}"
-                        )
-                    run(make_deinterlace_ffmpeg_fallback(extracted, qtgmc, no_bob=args.no_bob))
-                    assert_expected_frame_count(
-                        qtgmc,
-                        chapter_len,
-                        f"fallback chapter '{title}'",
-                    )
 
                 subtitle_tracks = []
                 used_metadata_subtitles = False
@@ -1962,6 +1968,11 @@ def _run_with_args(args):
                 elif people_tsv and not people_entries:
                     print(f"No people subtitle ranges overlap this chapter: {people_tsv}")
 
+                if subtitles_only:
+                    print("Subtitle generation complete; skipping final video encoding.")
+                    cur_count += 1
+                    continue
+
                 print(f"Final encoding...")
                 author = ch.get("author", ffm.get("author"))
                 archive_tape_title = ffm.get("title")
@@ -2001,6 +2012,23 @@ def run_make_videos(
         title=list(title_filters or []),
         title_exact=False,
         no_bob=bool(no_bob),
+    )
+    _run_with_args(args)
+
+
+def run_make_subtitles(
+    *,
+    archive_filters=None,
+    title_filters=None,
+    title_exact=False,
+):
+    args = argparse.Namespace(
+        archive=list(archive_filters or []),
+        title=list(title_filters or []),
+        title_exact=bool(title_exact),
+        no_bob=False,
+        subtitles_only=True,
+        debug_extracted_frames=False,
     )
     _run_with_args(args)
 
