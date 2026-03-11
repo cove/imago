@@ -20,6 +20,7 @@ from ..common import PHOTO_ALBUMS_DIR
 from .xmp_sidecar import write_xmp_sidecar
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp"}
+MIN_EXISTING_SIDECAR_BYTES = 100
 DEFAULT_CREATOR_TOOL = "imago-photoalbums-ai-index"
 DEFAULT_MANIFEST_PATH = Path(__file__).resolve().parents[1] / "data" / "ai_index_manifest.jsonl"
 DEFAULT_CAST_STORE = Path(__file__).resolve().parents[2] / "cast" / "data"
@@ -112,8 +113,20 @@ def save_manifest(path: Path, rows: dict[str, dict[str, Any]]) -> None:
     path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
 
 
+def has_valid_sidecar(path: Path) -> bool:
+    sidecar_path = path.with_suffix(".xmp")
+    try:
+        return sidecar_path.is_file() and int(sidecar_path.stat().st_size) > MIN_EXISTING_SIDECAR_BYTES
+    except FileNotFoundError:
+        return False
+
+
 def needs_processing(path: Path, manifest_row: dict[str, Any] | None, force: bool) -> bool:
-    if force or manifest_row is None:
+    if force:
+        return True
+    if has_valid_sidecar(path):
+        return False
+    if manifest_row is None:
         return True
     try:
         stat = path.stat()
@@ -127,7 +140,7 @@ def needs_processing(path: Path, manifest_row: dict[str, Any] | None, force: boo
     recorded_sidecar = str(manifest_row.get("sidecar_path") or "").strip()
     if recorded_sidecar and recorded_sidecar != str(sidecar_path):
         return True
-    return not sidecar_path.exists()
+    return True
 
 
 def _explicit_cli_flags(argv: list[str] | None) -> set[str]:
@@ -756,7 +769,7 @@ def run(argv: list[str] | None = None) -> int:
                     object_count = len(analysis.object_labels)
                     analysis_mode = "page_flat" if layout.page_like else "single_image"
 
-                if not args.dry_run:
+                if not args.dry_run and not sidecar_path.exists():
                     write_xmp_sidecar(
                         sidecar_path,
                         creator_tool=creator_tool,

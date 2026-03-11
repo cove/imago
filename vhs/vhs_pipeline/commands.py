@@ -19,7 +19,7 @@ from vhs_pipeline.people_prefill import (
     write_prefill_audit_tsv,
 )
 from vhs_pipeline.proxy import make_proxies
-from vhs_pipeline.render import run_render
+from vhs_pipeline.render import run_render, run_render_subtitles
 from apps.plain_html_wizard.server import run as run_tuner_server
 
 
@@ -57,6 +57,17 @@ def run_make_proxies(show_frame_number: bool = False):
 
 def run_make_videos(argv):
     return int(run_render(argv) or 0)
+
+
+def run_make_subtitles(*, archive_filters=None, title_filters=None, title_exact: bool = False):
+    return int(
+        run_render_subtitles(
+            archive_filters=archive_filters,
+            title_filters=title_filters,
+            title_exact=title_exact,
+        )
+        or 0
+    )
 
 
 def run_generate_drive_checksum():

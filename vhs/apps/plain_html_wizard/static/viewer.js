@@ -1757,9 +1757,7 @@ function renderFrameGridWindow(force = false) {
     labelEl.textContent = formattedLabel;
     const noteEl = document.createElement('div');
     noteEl.className = 'frame-replace-note';
-    noteEl.textContent = loaded
-      ? (state.simulateFreezeFrame ? display.note : '')
-      : display.note;
+    noteEl.textContent = loaded ? '' : display.note;
     card.appendChild(thumbWrap);
     card.appendChild(labelEl);
     card.appendChild(noteEl);

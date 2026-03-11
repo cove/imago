@@ -76,6 +76,27 @@ def build_parser():
         nargs=argparse.REMAINDER,
         help="Optional args forwarded to the render pipeline.",
     )
+    subtitles_parser = subparsers.add_parser(
+        "subtitles",
+        help="Generate subtitle sidecars without re-rendering videos",
+    )
+    subtitles_parser.add_argument(
+        "--archive",
+        action="append",
+        default=[],
+        help="Only process archive names containing this substring (case-insensitive). Repeatable.",
+    )
+    subtitles_parser.add_argument(
+        "--title",
+        action="append",
+        default=[],
+        help="Only process chapter titles containing this substring (case-insensitive). Repeatable.",
+    )
+    subtitles_parser.add_argument(
+        "--title-exact",
+        action="store_true",
+        help="Match --title filters exactly (case-insensitive) instead of substring match.",
+    )
     compare_parser = subparsers.add_parser(
         "compare",
         help="Create side-by-side original vs processed chapter comparisons",
@@ -208,6 +229,15 @@ def main(argv=None):
         if render_argv and render_argv[0] == "--":
             render_argv = render_argv[1:]
         return commands.run_make_videos(render_argv)
+
+    if args.group == "subtitles":
+        from vhs_pipeline import commands
+
+        return commands.run_make_subtitles(
+            archive_filters=args.archive,
+            title_filters=args.title,
+            title_exact=bool(args.title_exact),
+        )
 
     if args.group == "compare":
         from vhs_pipeline import commands

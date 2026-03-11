@@ -2,7 +2,10 @@ import json
 import sys
 import tempfile
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MODULE_ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +18,19 @@ from photoalbums.lib import ai_index
 
 
 class TestAIIndex(unittest.TestCase):
+    def _valid_sidecar_text(self) -> str:
+        return "x" * (ai_index.MIN_EXISTING_SIDECAR_BYTES + 1)
+
+    @contextmanager
+    def _mock_layout(self, image: Path):
+        yield SimpleNamespace(
+            page_like=False,
+            split_mode="manual",
+            split_applied=False,
+            subphotos=[],
+            content_path=image,
+        )
+
     def test_discover_images_archive_and_view(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
@@ -61,7 +77,7 @@ class TestAIIndex(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "a.jpg"
             image.write_bytes(b"abc")
-            image.with_suffix(".xmp").write_text("existing", encoding="utf-8")
+            image.with_suffix(".xmp").write_text(self._valid_sidecar_text(), encoding="utf-8")
             stat = image.stat()
             row = {
                 "image_path": str(image),
@@ -73,7 +89,7 @@ class TestAIIndex(unittest.TestCase):
             self.assertTrue(ai_index.needs_processing(image, row, force=True))
 
             image.write_bytes(b"abcd")
-            self.assertTrue(ai_index.needs_processing(image, row, force=False))
+            self.assertFalse(ai_index.needs_processing(image, row, force=False))
 
     def test_needs_processing_requires_current_sidecar(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -88,9 +104,115 @@ class TestAIIndex(unittest.TestCase):
             }
             self.assertTrue(ai_index.needs_processing(image, row, force=False))
 
-            image.with_suffix(".xmp").write_text("existing", encoding="utf-8")
+            image.with_suffix(".xmp").write_text(self._valid_sidecar_text(), encoding="utf-8")
             self.assertFalse(ai_index.needs_processing(image, row, force=False))
             self.assertTrue(ai_index.needs_processing(image, row, force=True))
+
+    def test_needs_processing_skips_when_manifest_missing_but_valid_sidecar_exists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "a.jpg"
+            image.write_bytes(b"abc")
+            image.with_suffix(".xmp").write_text(self._valid_sidecar_text(), encoding="utf-8")
+
+            self.assertFalse(ai_index.needs_processing(image, None, force=False))
+            self.assertTrue(ai_index.needs_processing(image, None, force=True))
+
+    def test_needs_processing_ignores_tiny_sidecar(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "a.jpg"
+            image.write_bytes(b"abc")
+            image.with_suffix(".xmp").write_text("tiny", encoding="utf-8")
+
+            self.assertTrue(ai_index.needs_processing(image, None, force=False))
+
+    def test_run_does_not_overwrite_existing_sidecar(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            photos = base / "Family_View"
+            photos.mkdir()
+            image = photos / "a.jpg"
+            image.write_bytes(b"abc")
+            sidecar = image.with_suffix(".xmp")
+            original = self._valid_sidecar_text()
+            sidecar.write_text(original, encoding="utf-8")
+            manifest = base / "manifest.jsonl"
+
+            analysis = ai_index.ImageAnalysis(
+                image_path=image,
+                people_names=["Alice"],
+                object_labels=["dog"],
+                ocr_text="hello",
+                ocr_keywords=["hello"],
+                subjects=["dog"],
+                description="Alice with a dog",
+                payload={
+                    "people": [{"name": "Alice"}],
+                    "objects": [{"label": "dog"}],
+                    "ocr": {"engine": "none", "language": "eng"},
+                    "caption": {"engine": "template"},
+                },
+            )
+
+            with (
+                mock.patch.object(ai_index, "prepare_image_layout", side_effect=lambda *args, **kwargs: self._mock_layout(image)),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--manifest",
+                        str(manifest),
+                        "--include-view",
+                        "--force",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "none",
+                        "--caption-engine",
+                        "template",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            write_mock.assert_not_called()
+            self.assertEqual(sidecar.read_text(encoding="utf-8"), original)
+
+    def test_run_skips_processing_when_valid_sidecar_exists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            photos = base / "Family_View"
+            photos.mkdir()
+            image = photos / "a.jpg"
+            image.write_bytes(b"abc")
+            image.with_suffix(".xmp").write_text(self._valid_sidecar_text(), encoding="utf-8")
+            manifest = base / "manifest.jsonl"
+
+            with (
+                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--manifest",
+                        str(manifest),
+                        "--include-view",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "none",
+                        "--caption-engine",
+                        "template",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            analysis_mock.assert_not_called()
+            write_mock.assert_not_called()
 
     def test_build_description(self):
         text = ai_index.build_description(
