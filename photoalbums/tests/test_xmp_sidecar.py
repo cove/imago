@@ -24,6 +24,7 @@ class TestXMPSidecar(unittest.TestCase):
                 person_names=["Alice", "Bob", "Alice"],
                 subjects=["dog", "park", "dog"],
                 description="People: Alice, Bob. Objects: dog, park.",
+                source_text="Family_2020_B01_P01_S01.tif; Family_2020_B01_P01_S02.tif",
                 ocr_text="Welcome to the park",
                 detections_payload={"objects": [{"label": "dog", "score": 0.9}]},
                 subphotos=[
@@ -47,6 +48,7 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertIn("dog", xml)
             self.assertIn("imago-test", xml)
             self.assertIn("Welcome to the park", xml)
+            self.assertIn("Family_2020_B01_P01_S01.tif", xml)
             self.assertIn("SubPhotos", xml)
             self.assertIn("A dog in the park.", xml)
             self.assertIn("park sign", xml)
