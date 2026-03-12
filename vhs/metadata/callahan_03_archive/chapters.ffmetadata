@@ -130,7 +130,7 @@ comment=Gloria, Jim
 TIMEBASE=1001/30000
 START=42178
 END=44617
-title=2000 - Ryan 4 to 11 Months - 13 Linda playing with Ryan on Sofa
+title=2000 - Ryan 4 to 11 Months - 13 Lynda playing with Ryan on Sofa
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 RECORDING_LOCATION=US
 location=/
@@ -166,14 +166,3 @@ RECORDING_LOCATION=US
 location=/
 creation_time=2000
 
-[CHAPTER]
-TIMEBASE=1001/30000
-START=31980
-END=34570
-title=1995 - Lynda & Jim's Wedding - 05 Nuptuals (March 18, 1995)
-DATE_RECORDED=2000; UTC
-DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
-RECORDING_LOCATION=US, California, Altadena
-location=+38.0794477-122.2095686/1993 Beverly Dr, Pasadena, CA 91104
-creation_time=2000
-comment=Extensive drop outs and loss of tracking

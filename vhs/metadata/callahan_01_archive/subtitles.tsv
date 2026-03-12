@@ -1,7 +1,7 @@
 start	end	text	speaker	confidence	source
 00:18:58.096	00:18:59.336	What do you want us to say?		0.5782	whisper
 00:18:59.616	00:19:06.616	I'm not going to say you're waiting for it!		0.5782	whisper
-00:19:06.676	00:19:09.296	I don't mean it because of the idea, because of you!	Gloira	0.5782	whisper
+00:19:06.676	00:19:09.296	I don't mean it because of the idea, because of you!	Gloria	0.5782	whisper
 00:19:09.436	00:19:10.356	You snooze, you lose!	Gloria	0.5782	whisper
 00:20:54.558	00:20:59.958	Jimmy and Linda, behave down there, come on, be serious.		0.7882	whisper
 00:21:01.538	00:21:05.518	You guys are beautiful, and I'm sure everybody feels the same way.		0.7882	whisper
