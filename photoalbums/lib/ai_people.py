@@ -6,9 +6,9 @@ import sys
 from typing import Any
 
 
-def _import_cast_modules() -> tuple[Any, Any, Any, Any, Any, Any]:
+def _import_cast_modules() -> tuple[Any, Any, Any, Any, Any, Any, Any]:
     try:
-        from cast.ingest import FaceIngestor, _expand_box, compute_simple_embedding
+        from cast.ingest import FaceIngestor, _expand_box, compute_simple_embedding, compute_arcface_embedding
         from cast.matching import build_person_prototypes, suggest_people_from_prototypes
         from cast.storage import TextFaceStore
 
@@ -16,6 +16,7 @@ def _import_cast_modules() -> tuple[Any, Any, Any, Any, Any, Any]:
             FaceIngestor,
             _expand_box,
             compute_simple_embedding,
+            compute_arcface_embedding,
             build_person_prototypes,
             suggest_people_from_prototypes,
             TextFaceStore,
@@ -24,7 +25,7 @@ def _import_cast_modules() -> tuple[Any, Any, Any, Any, Any, Any]:
         repo_root = Path(__file__).resolve().parents[2]
         if str(repo_root) not in sys.path:
             sys.path.insert(0, str(repo_root))
-        from cast.ingest import FaceIngestor, _expand_box, compute_simple_embedding
+        from cast.ingest import FaceIngestor, _expand_box, compute_simple_embedding, compute_arcface_embedding
         from cast.matching import build_person_prototypes, suggest_people_from_prototypes
         from cast.storage import TextFaceStore
 
@@ -32,6 +33,7 @@ def _import_cast_modules() -> tuple[Any, Any, Any, Any, Any, Any]:
             FaceIngestor,
             _expand_box,
             compute_simple_embedding,
+            compute_arcface_embedding,
             build_person_prototypes,
             suggest_people_from_prototypes,
             TextFaceStore,
@@ -49,12 +51,14 @@ class CastPeopleMatcher:
         self,
         *,
         cast_store_dir: str | Path,
-        min_similarity: float = 0.72,
+        min_similarity: float = 0.40,
+        min_margin: float = 0.06,
         min_face_size: int = 40,
         max_faces: int = 40,
         skip_artwork: bool = True,
     ):
         self.min_similarity = float(min_similarity)
+        self.min_margin = float(min_margin)
         self.min_face_size = int(min_face_size)
         self.max_faces = int(max_faces)
         self.skip_artwork = bool(skip_artwork)
@@ -63,6 +67,7 @@ class CastPeopleMatcher:
             face_ingestor_cls,
             expand_box_fn,
             embed_fn,
+            arcface_embed_fn,
             build_prototypes_fn,
             suggest_fn,
             store_cls,
@@ -70,6 +75,7 @@ class CastPeopleMatcher:
 
         self._expand_box = expand_box_fn
         self._embed = embed_fn
+        self._arcface_embed = arcface_embed_fn
         self._suggest = suggest_fn
 
         self._store = store_cls(Path(cast_store_dir))
@@ -113,15 +119,21 @@ class CastPeopleMatcher:
                 continue
             if not self._ingestor.is_valid_face_crop(crop, skip_artwork=self.skip_artwork):
                 continue
-            embedding = self._embed(crop)
+            embedding = self._arcface_embed(crop) or self._embed(crop)
             suggestions = self._suggest(
                 query_embedding=embedding,
                 prototypes=self._prototypes,
-                top_k=1,
+                top_k=3,
                 min_similarity=self.min_similarity,
             )
             if not suggestions:
                 continue
+            # Skip ambiguous matches where the top two candidates are too close
+            if len(suggestions) >= 2:
+                top_score = float(suggestions[0].get("score") or 0.0)
+                second_score = float(suggestions[1].get("score") or 0.0)
+                if (top_score - second_score) < self.min_margin:
+                    continue
             top = suggestions[0]
             person_id = str(top.get("person_id") or "").strip()
             name = self._person_name_by_id.get(person_id, "")

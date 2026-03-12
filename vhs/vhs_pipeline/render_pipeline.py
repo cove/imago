@@ -545,6 +545,129 @@ def chapter_exact_time_bounds(chapter):
     s, e = chapter_global_frame_bounds(chapter)
     return (s * 1001.0 / 30000.0, e * 1001.0 / 30000.0)
 
+
+def _chapter_tsv_column_name(columns, wanted, fallback):
+    wanted_text = str(wanted or "").strip().lower()
+    for col in list(columns or []):
+        key = str(col or "").strip()
+        if key.lower() == wanted_text:
+            return key
+    return str(fallback)
+
+
+def _output_title_prefix(output_title):
+    text = str(output_title or "").strip()
+    if not text:
+        return ""
+    match = re.match(r"^(?P<prefix>.+)\s-\s(?P<index>\d{1,3})\s+(?P<name>.+)$", text)
+    if not match:
+        return ""
+    return str(match.group("prefix") or "").strip()
+
+
+def _shorten_output_chapter_title(chapter_title, output_title):
+    title_text = str(chapter_title or "").strip()
+    prefix = _output_title_prefix(output_title)
+    if not title_text or not prefix:
+        return title_text
+
+    prefix_token = f"{prefix} - "
+    if not title_text.startswith(prefix_token):
+        return title_text
+
+    remainder = title_text[len(prefix_token):].strip()
+    remainder = re.sub(r"^\d{1,3}\s+", "", remainder).strip()
+    return remainder or title_text
+
+
+def _clip_chapter_rows(master_header, master_rows, source_chapters, *, clip_start_frame, clip_end_frame):
+    if len(list(master_rows or [])) != len(list(source_chapters or [])):
+        raise ValueError("Master chapter rows and parsed chapters must stay in lockstep.")
+
+    clip_start = int(clip_start_frame)
+    clip_end = int(clip_end_frame)
+    if clip_end <= clip_start:
+        return []
+
+    timebase_col = _chapter_tsv_column_name(master_header, "TIMEBASE", "TIMEBASE")
+    start_col = _chapter_tsv_column_name(master_header, "START", "START")
+    end_col = _chapter_tsv_column_name(master_header, "END", "END")
+    selected_rows = []
+
+    for index, (raw_row, chapter) in enumerate(zip(list(master_rows or []), list(source_chapters or []))):
+        chapter_start, chapter_end = chapter_global_frame_bounds(chapter)
+        if chapter_end <= chapter_start:
+            continue
+        if chapter_start < clip_start or chapter_end > clip_end:
+            continue
+
+        selected_rows.append((int(chapter_start), int(chapter_end), int(index), dict(raw_row or {})))
+
+    if len(selected_rows) > 1:
+        # MP4 chapter tracks are effectively linear. Drop full-span container rows and
+        # later overlapping duplicates so the final chapter list stays usable in players.
+        non_container_rows = [
+            item for item in selected_rows if not (item[0] == clip_start and item[1] == clip_end)
+        ]
+        if non_container_rows:
+            selected_rows = non_container_rows
+
+        ordered_rows = sorted(selected_rows, key=lambda item: (item[0], item[1], item[2]))
+        linear_rows = []
+        last_end = None
+        for chapter_start, chapter_end, index, row in ordered_rows:
+            if last_end is not None and chapter_start < last_end:
+                if chapter_end <= last_end:
+                    continue
+                continue
+            linear_rows.append((chapter_start, chapter_end, index, row))
+            last_end = chapter_end
+        selected_rows = linear_rows
+
+    normalized_rows = []
+    for chapter_start, chapter_end, _index, row in selected_rows:
+        row[timebase_col] = "1001/30000"
+        row[start_col] = str(max(0, int(chapter_start) - clip_start))
+        row[end_col] = str(max(0, int(chapter_end) - clip_start))
+        normalized_rows.append(row)
+
+    return normalized_rows
+
+
+def write_output_chapter_ffmetadata(
+    master_header,
+    master_rows,
+    source_chapters,
+    *,
+    clip_start_frame,
+    clip_end_frame,
+    output_title=None,
+    out_path,
+):
+    from vhs_pipeline.metadata import _write_chapters_tsv_rows, generate_ffmetadata_from_chapters_tsv
+
+    out = Path(out_path)
+    selected_rows = _clip_chapter_rows(
+        master_header,
+        master_rows,
+        source_chapters,
+        clip_start_frame=clip_start_frame,
+        clip_end_frame=clip_end_frame,
+    )
+    if not selected_rows:
+        out.write_text(";FFMETADATA1\n", encoding="utf-8")
+        return 0
+
+    title_col = _chapter_tsv_column_name(master_header, "title", "title")
+    if output_title:
+        for row in selected_rows:
+            row[title_col] = _shorten_output_chapter_title(row.get(title_col, ""), output_title)
+
+    temp_tsv = out.with_suffix(".chapters.tsv")
+    _write_chapters_tsv_rows(temp_tsv, list(master_header or []), selected_rows)
+    generate_ffmetadata_from_chapters_tsv(temp_tsv, out)
+    return len(selected_rows)
+
 def map_bad_ranges_to_chapter_local_frames(global_ranges, chapter):
     if not global_ranges:
         return []
@@ -1426,23 +1549,44 @@ def _subtitle_io(subtitle_tracks):
 
 def build_filmed_comment(author, creation_time, location, archive_tape_title, start_hms, end_hms):
     author_text = "" if author is None else str(author).strip()
+    location_text = "" if location is None else str(location).strip()
+    if location_text.lower() in {"none", "null"}:
+        location_text = ""
+    at_location = f" at {location_text}" if location_text else ""
     if not author_text or author_text.lower() in {"none", "null"}:
-        head = f"Filmed on {creation_time} at {location}"
+        head = f"Filmed on {creation_time}{at_location}"
     else:
-        head = f"Filmed by {author_text} on {creation_time} at {location}"
+        head = f"Filmed by {author_text} on {creation_time}{at_location}"
     return f"{head}, original tape {archive_tape_title} @ {start_hms}-{end_hms} "
 
-def make_encode_final_x265(temp_qtgmc, subtitle_tracks, final_file, author, title, archive_tape_title, start_hms, end_hms, creation_time, location, include_audio=True):
+def make_encode_final_x265(
+    temp_qtgmc,
+    subtitle_tracks,
+    final_file,
+    author,
+    title,
+    archive_tape_title,
+    start_hms,
+    end_hms,
+    creation_time,
+    location,
+    chapter_metadata_path=None,
+    include_audio=True,
+):
     subtitle_tracks = subtitle_tracks or []
     sub_inputs, sub_outputs = _subtitle_io(subtitle_tracks)
     comment = build_filmed_comment(author, creation_time, location, archive_tape_title, start_hms, end_hms)
+    metadata_inputs = []
+    metadata_input_index = None
+    if chapter_metadata_path:
+        metadata_input_index = 1 + len(subtitle_tracks)
+        metadata_inputs = ["-f", "ffmetadata", "-i", str(chapter_metadata_path)]
     cmd = [FFMPEG_BIN,
         "-nostdin",
         "-v", "error",
         "-i", str(temp_qtgmc),
         *sub_inputs,
-        "-map_metadata", "-1",
-        "-map_chapters", "-1",
+        *metadata_inputs,
         "-pix_fmt", "yuv420p",
         "-fps_mode:v:0", "passthrough",
         "-c:v", "libx265", "-crf", "20", "-preset", "slow",
@@ -1451,6 +1595,10 @@ def make_encode_final_x265(temp_qtgmc, subtitle_tracks, final_file, author, titl
         "-tag:v", "hvc1", "-brand", "mp42",
         "-map", "0:v:0",
     ]
+    if metadata_input_index is None:
+        cmd += ["-map_metadata", "-1", "-map_chapters", "-1"]
+    else:
+        cmd += ["-map_metadata", str(metadata_input_index), "-map_chapters", str(metadata_input_index)]
     if include_audio:
         cmd += [
             "-c:a", "aac", "-b:a", "96k", "-ar", "48000", "-ac", "1",
@@ -1473,22 +1621,43 @@ def make_encode_final_x265(temp_qtgmc, subtitle_tracks, final_file, author, titl
         cmd += ["-metadata:s:a:0", "language=eng"]
     return cmd
 
-def make_encode_final_x264(temp_qtgmc, subtitle_tracks, final_file, author, title, archive_tape_title, start_hms, end_hms, creation_time, location, include_audio=True):
+def make_encode_final_x264(
+    temp_qtgmc,
+    subtitle_tracks,
+    final_file,
+    author,
+    title,
+    archive_tape_title,
+    start_hms,
+    end_hms,
+    creation_time,
+    location,
+    chapter_metadata_path=None,
+    include_audio=True,
+):
     subtitle_tracks = subtitle_tracks or []
     sub_inputs, sub_outputs = _subtitle_io(subtitle_tracks)
     comment = build_filmed_comment(author, creation_time, location, archive_tape_title, start_hms, end_hms)
+    metadata_inputs = []
+    metadata_input_index = None
+    if chapter_metadata_path:
+        metadata_input_index = 1 + len(subtitle_tracks)
+        metadata_inputs = ["-f", "ffmetadata", "-i", str(chapter_metadata_path)]
     cmd = [FFMPEG_BIN,
         "-nostdin",
         "-v", "error",
         "-i", str(temp_qtgmc),
         *sub_inputs,
-        "-map_metadata", "-1",
-        "-map_chapters", "-1",
+        *metadata_inputs,
         "-pix_fmt", "yuv420p",
         "-fps_mode:v:0", "passthrough",
         "-c:v", "libx264", "-preset", "slow", "-crf", "18", "-profile:v", "high", "-level", "4.0", "-tune", "grain",
         "-map", "0:v:0",
     ]
+    if metadata_input_index is None:
+        cmd += ["-map_metadata", "-1", "-map_chapters", "-1"]
+    else:
+        cmd += ["-map_metadata", str(metadata_input_index), "-map_chapters", str(metadata_input_index)]
     if include_audio:
         cmd += [
             "-c:a", "aac", "-b:a", "96k", "-ar", "48000", "-ac", "1",
@@ -1652,8 +1821,12 @@ def _run_with_args(args):
         _ensure_derived_metadata_current(METADATA_DIR / archive_name)
         _settings_path, _render_settings = load_render_settings(archive_name, create=True)
 
-        ffm, chapters = _load_chapters_from_tsv(chapters_tsv)
-        if not chapters:
+        from vhs_pipeline.metadata import _read_chapters_tsv_rows, _sort_rows_by_index
+
+        master_header, master_rows = _read_chapters_tsv_rows(chapters_tsv)
+        master_rows = _sort_rows_by_index(master_rows)
+        ffm, all_chapters = _load_chapters_from_tsv(chapters_tsv)
+        if not all_chapters:
             print(f"No chapters for {src.name}")
             continue
         people_tsv = find_people_tsv(archive_name)
@@ -1674,9 +1847,9 @@ def _run_with_args(args):
             else:
                 print(f"Metadata subtitles TSV has no valid time-range entries: {subtitles_tsv}")
 
-        for ch in chapters:
+        for ch in all_chapters:
             ch["duration"] = float(ch.get("end", 0)) - float(ch.get("start", 0))
-        chapters.sort(key=lambda x: x["duration"])
+        chapters = sorted(all_chapters, key=lambda x: x["duration"])
         chapters = [ch for ch in chapters if title_selected(ch.get("title"), args.title, exact=bool(args.title_exact))]
         if args.title and not chapters:
             print(f"Skipping {src.name}: no chapters matched --title filter(s).")
@@ -1980,10 +2153,27 @@ def _run_with_args(args):
                 end_hms = format_hms(end_sec)
                 ctime = ch.get("creation_time")
                 location = ch.get("location")
+                chapter_metadata_file = temp_dir / "output_chapters.ffmetadata"
+                chapter_count = write_output_chapter_ffmetadata(
+                    master_header,
+                    master_rows,
+                    all_chapters,
+                    clip_start_frame=chapter_start_frame,
+                    clip_end_frame=chapter_end_frame,
+                    output_title=title,
+                    out_path=chapter_metadata_file,
+                )
+                if chapter_count > 0:
+                    print(f"Prepared chapter metadata for output clip: {chapter_count} chapter(s).")
+                else:
+                    chapter_metadata_file = None
+                    print("No chapter metadata overlaps this output clip; encoding without embedded chapters.")
 
                 cmd = make_encode_final_x264(
                     qtgmc, subtitle_tracks, final_file, author, title, archive_tape_title,
-                    start_hms, end_hms, ctime, location, include_audio=include_audio
+                    start_hms, end_hms, ctime, location,
+                    chapter_metadata_path=chapter_metadata_file,
+                    include_audio=include_audio,
                 )
                 run(cmd)
 

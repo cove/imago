@@ -48,6 +48,52 @@ def compute_simple_embedding(face_bgr: np.ndarray, out_size: int = 32) -> list[f
     return [float(item) for item in vec.tolist()]
 
 
+_insightface_app = None
+
+
+def _get_insightface_app() -> object | None:
+    """Lazy-load InsightFace FaceAnalysis singleton. Downloads buffalo_l model on first call."""
+    global _insightface_app
+    if _insightface_app is not None:
+        return _insightface_app
+    try:
+        from insightface.app import FaceAnalysis  # type: ignore[import]
+        app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
+        app.prepare(ctx_id=-1)
+        _insightface_app = app
+        return _insightface_app
+    except Exception:
+        return None
+
+
+def compute_arcface_embedding(face_bgr: np.ndarray) -> list[float] | None:
+    """
+    Compute a 512-dim L2-normalized ArcFace embedding using InsightFace.
+    Returns None if InsightFace is unavailable or no face is found in the crop.
+    Falls back to compute_simple_embedding() via the caller.
+    """
+    if face_bgr is None or face_bgr.size == 0:
+        return None
+    try:
+        app = _get_insightface_app()
+        if app is None:
+            return None
+        faces = app.get(face_bgr)
+        if not faces:
+            return None
+        face = max(faces, key=lambda f: float(getattr(f, "det_score", 0.0) or 0.0))
+        emb = getattr(face, "embedding", None)
+        if emb is None or len(emb) == 0:
+            return None
+        vec = np.asarray(emb, dtype=np.float32)
+        norm = float(np.linalg.norm(vec))
+        if norm > 1e-12:
+            vec = vec / norm
+        return [float(v) for v in vec.tolist()]
+    except Exception:
+        return None
+
+
 def estimate_face_quality(face_bgr: np.ndarray) -> float:
     if face_bgr is None or face_bgr.size == 0:
         return 0.0
@@ -616,7 +662,7 @@ class FaceIngestor:
                 continue
             if not self.is_valid_face_crop(crop, skip_artwork=skip_artwork):
                 continue
-            embedding = compute_simple_embedding(crop)
+            embedding = compute_arcface_embedding(crop) or compute_simple_embedding(crop)
             quality = estimate_face_quality(crop)
             face = self.store.add_face(
                 embedding=embedding,
@@ -688,7 +734,7 @@ class FaceIngestor:
                         continue
                     if not self.is_valid_face_crop(crop, skip_artwork=skip_artwork):
                         continue
-                    embedding = compute_simple_embedding(crop)
+                    embedding = compute_arcface_embedding(crop) or compute_simple_embedding(crop)
                     quality = estimate_face_quality(crop)
                     timestamp = _timestamp_from_seconds(seconds)
                     face = self.store.add_face(

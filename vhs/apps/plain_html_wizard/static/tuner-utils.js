@@ -200,6 +200,20 @@ function setReviewState(reviewRaw, existingFramesRaw = null) {
   return state.review;
 }
 
+function replaceReviewState(reviewRaw) {
+  const review = reviewRaw && typeof reviewRaw === 'object' ? reviewRaw : {};
+  const frames = sortFramesByFid(Array.isArray(review.frames) ? review.frames : []);
+  state.review = {
+    ...(state.review || {}),
+    ...review,
+    frames,
+    loadedCount: reviewLoadedFrameCount(frames),
+    totalCount: frames.length,
+  };
+  invalidateReviewSparklineCache();
+  return state.review;
+}
+
 function patchReviewFramesIntoState(updatesRaw) {
   const updates = sortFramesByFid(updatesRaw);
   const span = chapterFrameSpan();
@@ -401,6 +415,15 @@ async function pollLoadProgressOnce() {
     setOverlayProgress(Number(p.progress || 0));
     renderReadyAtFromSamples(done, total);
     updateReviewStatsDisplay();
+
+    if (p.people_profile && state.peopleProfile && state.peopleProfile.source === 'default') {
+      state.peopleProfile = normalizePeopleProfile(p.people_profile);
+      refreshPeopleEditorFromState();
+    }
+    if (p.subtitles_profile && state.subtitlesProfile && state.subtitlesProfile.source === 'default') {
+      state.subtitlesProfile = normalizeSubtitlesProfile(p.subtitles_profile);
+      refreshSubtitlesEditorFromState();
+    }
 
     const now = Date.now();
     const sampleDelta = done - lastLoadReviewSampleDone;
@@ -879,6 +902,21 @@ function chapterByTitle(title) {
   return state.chapters.find(c => c.title === title) || null;
 }
 
+function isRequestedChapterAlreadyLoaded(archiveRaw = state.archive, chapterRaw = state.chapter) {
+  const requestedArchive = String(archiveRaw || '').trim();
+  const requestedChapter = String(chapterRaw || '').trim();
+  const loadedArchive = String((state.loadSettings && state.loadSettings.archive) || '').trim();
+  const loadedChapter = String((state.loadSettings && state.loadSettings.chapter) || '').trim();
+  return Boolean(
+    requestedArchive
+    && requestedChapter
+    && loadedArchive
+    && loadedChapter
+    && requestedArchive === loadedArchive
+    && requestedChapter === loadedChapter
+  );
+}
+
 function chapterBadMeta(ch) {
   const bad = Math.max(0, Number(ch.bad || 0));
   const total = Math.max(1, Number(ch.frames || 0));
@@ -1100,4 +1138,3 @@ function statsText(stats, threshold) {
   const forceText = state.forceAllFramesGood ? ' | Force Good: ON' : '';
   return `Bad: ${stats.bad} (${Math.round((100 * stats.bad) / Math.max(1, stats.total))}%) | Good: ${stats.good} | Overrides: ${stats.overrides}${forceText}`;
 }
-

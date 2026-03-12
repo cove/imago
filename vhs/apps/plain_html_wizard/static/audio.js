@@ -777,7 +777,7 @@ function updateReviewStatsDisplay() {
   }
   if (isSplitStepActive()) {
     const splitEntries = canonicalizeSplitEntries((state.splitProfile && state.splitProfile.entries) || []);
-    reviewStatsEl.textContent = `Chapters step | ranges ${splitEntries.length} | loaded ${loadedCount}/${totalCount}${loadSuffix}`;
+    reviewStatsEl.textContent = `Chapter step | range ${splitEntries.length} | loaded ${loadedCount}/${totalCount}${loadSuffix}`;
     return;
   }
   if (isGammaStepActive()) {
@@ -914,4 +914,3 @@ function themeVar(name, fallback) {
   const value = String(raw || '').trim();
   return value || fallback;
 }
-

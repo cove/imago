@@ -58,6 +58,7 @@ async function loadFrames() {
     debug_extract: false,
     force_all_frames_good: Boolean(state.forceAllFramesGood),
   };
+  const reloadingLoadedChapter = isRequestedChapterAlreadyLoaded(state.archive, state.chapter);
 
   if (autoIqrTimer) {
     window.clearTimeout(autoIqrTimer);
@@ -67,22 +68,32 @@ async function loadFrames() {
 
   let loadFailed = false;
   startLoadProgress('Extracting chapter and loading all frames...');
-  replaceGammaScores(new Map());
-  state.gammaProfile = normalizeGammaProfile(null);
-  state.peopleProfile = normalizePeopleProfile(null);
-  state.subtitlesProfile = normalizeSubtitlesProfile(null);
-  state.splitProfile = normalizeSplitProfile(null);
-  state.frameSheetConfig = normalizeFrameSheetConfig(null);
-  resetFrameSheetPrefetchState();
-  peopleTimelineZoom = 1.0;
-  resetTimelineAudioState();
-  resetFlipbookAudioState();
-  setReviewState({ threshold: 0, stats: { total: 0, bad: 0, good: 0, shown: 0, overrides: 0 }, frames: [] }, null);
-  updateReviewStatsDisplay();
-  renderReviewFrames([]);
-  refreshPeopleEditorFromState();
-  refreshSubtitlesEditorFromState();
-  refreshSplitEditorFromState();
+  if (!reloadingLoadedChapter) {
+    // Switching chapter should blank the review surface immediately so old contact sheets never flash.
+    state.frameImages = new Map();
+    state.freezeReplacementMap = new Map();
+    state.loadSettings = null;
+    replaceGammaScores(new Map());
+    state.gammaProfile = normalizeGammaProfile(null);
+    state.peopleProfile = normalizePeopleProfile(null);
+    state.subtitlesProfile = normalizeSubtitlesProfile(null);
+    state.splitProfile = normalizeSplitProfile(null);
+    state.frameSheetConfig = normalizeFrameSheetConfig(null);
+    resetFrameSheetPrefetchState();
+    peopleTimelineZoom = 1.0;
+    resetTimelineAudioState();
+    resetFlipbookAudioState();
+    replaceReviewState({
+      threshold: 0,
+      stats: { total: 0, bad: 0, good: 0, shown: 0, overrides: 0 },
+      frames: [],
+    });
+    updateReviewStatsDisplay();
+    renderReviewFrames([], { suppressPlaceholderMerge: true });
+    refreshPeopleEditorFromState();
+    refreshSubtitlesEditorFromState();
+    refreshSplitEditorFromState();
+  }
   setStepByMode('review');
   try {
     const result = await api('/api/load_chapter', 'POST', payload, 0);
@@ -415,7 +426,7 @@ async function openSubtitlesStep() {
 
 async function openSplitStep() {
   if (!reviewLoadedFrameCount()) {
-    setStatus('Load and review frames before entering chapters step.', true);
+    setStatus('Load and review frames before entering chapter step.', true);
     return false;
   }
   if (!syncSplitProfileFromEditor(true)) return false;
@@ -1175,18 +1186,6 @@ if (subtitlesEditorEl) {
   });
 }
 if (splitEditorEl) {
-  splitEditorEl.addEventListener('click', (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
-    const deleteBtn = target.closest('[data-split-row-delete]');
-    if (!deleteBtn) return;
-    syncSplitProfileFromEditor(false);
-    const idx = Number(deleteBtn.getAttribute('data-split-row-delete'));
-    if (Number.isFinite(idx)) {
-      deleteSplitEntry(idx);
-    }
-    event.preventDefault();
-  });
   splitEditorEl.addEventListener('keydown', (event) => {
     const target = event.target;
     if (!(target instanceof HTMLInputElement)) return;
@@ -1575,6 +1574,14 @@ if (flipbookSubtitleRailEl) {
     if (flipbookSubtitleRailProgrammaticScroll) return;
     markFlipbookSubtitleRailManual(900);
   }, { passive: true });
+  flipbookSubtitleRailEl.addEventListener('click', (e) => {
+    const row = e.target.closest('[data-subtitle-start-seconds]');
+    if (!row) return;
+    const startSeconds = parseFloat(row.getAttribute('data-subtitle-start-seconds'));
+    if (!Number.isFinite(startSeconds)) return;
+    const frameIdx = flipbookIndexFromChapterSeconds(startSeconds);
+    renderSparkPlaybackFrame(frameIdx, { keepVisible: true });
+  });
 }
 overlayCancelBtnEl.addEventListener('click', async () => {
   setLoadCancelUi(true, true, 'Cancelling...');
@@ -1670,7 +1677,13 @@ window.addEventListener('resize', () => {
   updatePeopleStepLayoutSizing();
   drawTimelineAudioWaveform();
   if (state.review && Array.isArray(state.review.frames) && state.review.frames.length) {
-    scheduleVisibleRangeRefresh();
+    // Skip the grid re-render while the flipbook is in focus mode: the grid is not visible
+    // and the resize is typically from entering/exiting fullscreen. The grid will be
+    // re-rendered correctly when the flipbook closes (exitReviewFullscreenIfActive fires
+    // another resize at that point).
+    if (!isFlipbookFocusModeActive()) {
+      scheduleVisibleRangeRefresh();
+    }
   }
 });
 window.addEventListener('keydown', (event) => {

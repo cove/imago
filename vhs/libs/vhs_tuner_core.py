@@ -48,6 +48,7 @@ except ImportError:
     _HAS_TRACKING = False
 
 from common import (
+    FFPROBE_BIN,
     chapter_frame_bounds,
     combined_score,
     compute_threshold,
@@ -315,6 +316,7 @@ def _source_signature_token(source: str | Path | None) -> str:
         marker = f"{resolved}|missing"
     return hashlib.blake2b(marker.encode("utf-8"), digest_size=8).hexdigest()
 
+
 def _cleanup_tuner_cache(force: bool = False) -> None:
     global _LAST_CACHE_CLEANUP_TS
     now = time.time()
@@ -381,15 +383,72 @@ def _chapter_extract_cache_path(
     start_i, end_i = _normalize_frame_span(ch_start, ch_end)
     mode = "debug" if bool(debug_overlay) else "clean"
     source_sig = _source_signature_token(source_video)
-    stem = f"{archive}__{slugify(chapter_title)}__{start_i}_{end_i}__{mode}__{source_sig}"
-    return TUNER_EXTRACT_DIR / stem / "extracted.mkv"
+    key_raw = "|".join(
+        [
+            str(archive or "").strip(),
+            str(chapter_title or "").strip(),
+            str(int(start_i)),
+            str(int(end_i)),
+            str(mode),
+            str(source_sig),
+        ]
+    )
+    key = hashlib.sha256(key_raw.encode("utf-8")).hexdigest()[:16]
+    return TUNER_EXTRACT_DIR / key / "extracted.mkv"
+
+def _probe_video_frame_count(path: Path) -> int:
+    p = Path(path)
+    if not p.exists():
+        return 0
+    cmd = [
+        str(FFPROBE_BIN),
+        "-v", "error",
+        "-count_frames",
+        "-select_streams", "v:0",
+        "-show_entries", "stream=nb_read_frames,nb_frames",
+        "-of", "default=noprint_wrappers=1",
+        str(p),
+    ]
+    try:
+        out = subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT)
+    except Exception:
+        return 0
+    counts: dict[str, int] = {}
+    for raw in str(out or "").splitlines():
+        line = str(raw or "").strip()
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        token = str(value or "").strip()
+        if not token or token.upper() == "N/A":
+            continue
+        try:
+            parsed = int(token)
+        except Exception:
+            continue
+        if parsed > 0:
+            counts[str(key or "").strip()] = int(parsed)
+    return int(counts.get("nb_read_frames") or counts.get("nb_frames") or 0)
 
 def _video_frame_count(path: Path) -> int:
-    cap = cv2.VideoCapture(str(path))
+    p = Path(path)
+    probed = _probe_video_frame_count(p)
+    if probed > 0:
+        return int(probed)
+    cap = cv2.VideoCapture(str(p))
     if not cap.isOpened():
         return 0
     try:
-        return max(0, int(cap.get(cv2.CAP_PROP_FRAME_COUNT)))
+        metadata_count = max(0, int(cap.get(cv2.CAP_PROP_FRAME_COUNT)))
+        if metadata_count > 0:
+            return int(metadata_count)
+        decoded_count = 0
+        while True:
+            ok, _frame = cap.read()
+            if not ok:
+                break
+            decoded_count += 1
+        return int(decoded_count)
     finally:
         cap.release()
 
@@ -439,10 +498,16 @@ def _ensure_render_chapter_extract(
         return None, f"ffmpeg not found: {cmd[0]}\nRun setup.py to extract ffmpeg binaries."
     if proc.returncode != 0:
         return None, (proc.stderr or proc.stdout or "ffmpeg extraction failed").strip()
-    if _video_frame_count(out_path) != expected_frames:
+    actual_frames = _video_frame_count(out_path)
+    if actual_frames != expected_frames:
+        actual_note = (
+            f", got {actual_frames}"
+            if actual_frames > 0
+            else ", could not determine actual frame count"
+        )
         return None, (
             f"Extracted chapter frame count mismatch for {out_path.name}: "
-            f"expected {expected_frames}"
+            f"expected {expected_frames}{actual_note}"
         )
     return out_path, ""
 
@@ -610,9 +675,8 @@ def _signals_cache_path(
             str(source_sig),
         ]
     )
-    key = hashlib.sha256(key_raw.encode("utf-8")).hexdigest()[:24]
-    stem = f"{slugify(archive) or 'archive'}__{slugify(ch_title) or 'chapter'}__{key}"
-    return TUNER_FRAME_CACHE_DIR / f"{stem}.json.gz"
+    key = hashlib.sha256(key_raw.encode("utf-8")).hexdigest()[:16]
+    return TUNER_FRAME_CACHE_DIR / f"{key}.json.gz"
 
 def load_cached_signals(
     archive: str,
@@ -1159,6 +1223,197 @@ def select_focus_frame_ids(
     if len(ordered) > budget:
         ordered = ordered[:budget]
     return ordered
+
+
+# ===============================================================================
+# AI-Agent Analysis Helpers
+# ===============================================================================
+
+
+def suggest_iqr_k(scores: np.ndarray) -> dict:
+    """
+    Suggest an optimal IQR k value by finding the natural gap between good/bad frames.
+
+    Iterates k from 0.5 to 8.0, measuring the score gap between the lowest bad
+    frame and the highest good frame at each threshold. A wide gap means the
+    threshold sits in a clean valley; gap_score = gap_width * log2(1 + bad_count)
+    rewards gaps that also capture a meaningful number of bad frames.
+
+    Returns suggested_k, a confidence in [0, 1], and the top 5 k candidates.
+    """
+    import math
+
+    v = np.sort(np.asarray(scores, dtype=np.float64).ravel())
+    v = v[np.isfinite(v)]
+    if v.size < 4:
+        return {
+            "suggested_k": 3.5,
+            "confidence": 0.0,
+            "threshold_at_k": float(v[-1]) if v.size else 0.0,
+            "bad_count_at_k": 0,
+            "percent_bad_at_k": 0.0,
+            "candidates": [],
+        }
+
+    q1 = float(np.percentile(v, 25))
+    q3 = float(np.percentile(v, 75))
+    iqr = q3 - q1
+    if iqr < 1e-9:
+        return {
+            "suggested_k": 3.5,
+            "confidence": 0.0,
+            "threshold_at_k": float(q3),
+            "bad_count_at_k": 0,
+            "percent_bad_at_k": 0.0,
+            "candidates": [],
+        }
+
+    candidates = []
+    for k_int in range(2, 33):  # k = 0.5 to 8.0 in steps of 0.25
+        k = k_int * 0.25
+        thr = q3 + k * iqr
+        above = v[v >= thr]
+        below = v[v < thr]
+        bad_count = len(above)
+        if bad_count == 0 or len(below) == 0:
+            gap = 0.0
+        else:
+            gap = max(0.0, float(above[0]) - float(below[-1]))
+        gap_score = gap * math.log2(1.0 + bad_count)
+        candidates.append({
+            "k": round(k, 2),
+            "threshold": round(float(thr), 4),
+            "bad_count": int(bad_count),
+            "gap_width": round(gap, 4),
+            "gap_score": round(gap_score, 4),
+        })
+
+    candidates.sort(key=lambda x: x["gap_score"], reverse=True)
+    best = candidates[0]
+    second = candidates[1] if len(candidates) > 1 else best
+    confidence = 1.0 - (second["gap_score"] / (best["gap_score"] + 1e-9))
+    confidence = max(0.0, min(1.0, round(confidence, 3)))
+
+    return {
+        "suggested_k": best["k"],
+        "confidence": confidence,
+        "threshold_at_k": best["threshold"],
+        "bad_count_at_k": best["bad_count"],
+        "percent_bad_at_k": round(100.0 * best["bad_count"] / len(v), 2),
+        "candidates": candidates[:5],
+    }
+
+
+def find_spike_regions(
+    fids: list[int],
+    scores: np.ndarray,
+    threshold: float,
+    context_frames: int = 8,
+) -> list[dict]:
+    """
+    Find contiguous windows around frames that exceed the score threshold.
+
+    Each bad frame is expanded by context_frames on each side; overlapping
+    windows are merged. Returns regions sorted by start_fid, each with peak
+    score, peak fid, and count of bad frames within the region.
+    """
+    if not fids:
+        return []
+
+    fids_arr = np.asarray(fids, dtype=np.int64)
+    scores_arr = np.asarray(scores, dtype=np.float64)
+    bad_indices = list(np.where(scores_arr >= float(threshold))[0])
+
+    if not bad_indices:
+        return []
+
+    n = len(fids)
+    include: set[int] = set()
+    for idx in bad_indices:
+        lo = max(0, int(idx) - context_frames)
+        hi = min(n - 1, int(idx) + context_frames)
+        include.update(range(lo, hi + 1))
+
+    sorted_indices = sorted(include)
+    raw_regions: list[tuple[int, int]] = []
+    region_start = sorted_indices[0]
+    region_end = sorted_indices[0]
+    for idx in sorted_indices[1:]:
+        if idx == region_end + 1:
+            region_end = idx
+        else:
+            raw_regions.append((region_start, region_end))
+            region_start = idx
+            region_end = idx
+    raw_regions.append((region_start, region_end))
+
+    result = []
+    for i, (lo_idx, hi_idx) in enumerate(raw_regions):
+        region_fids = fids_arr[lo_idx : hi_idx + 1]
+        region_scores = scores_arr[lo_idx : hi_idx + 1]
+        bad_in_region = int(np.sum(region_scores >= float(threshold)))
+        peak_local = int(np.argmax(region_scores))
+        result.append({
+            "region_index": i,
+            "start_fid": int(region_fids[0]),
+            "end_fid": int(region_fids[-1]),
+            "frame_count": int(len(region_fids)),
+            "peak_score": round(float(region_scores[peak_local]), 4),
+            "peak_fid": int(region_fids[peak_local]),
+            "bad_frame_count": bad_in_region,
+        })
+
+    return result
+
+
+def estimate_gamma_from_frames(b64_frames: list[str]) -> dict:
+    """
+    Estimate optimal gamma from base64-encoded JPEG thumbnails.
+
+    Analyzes the LAB L-channel median luminance across sampled frames and
+    computes the gamma needed to bring median luminance to a target of 0.45
+    (normalized). Returns suggested gamma clamped to [0.3, 3.0].
+    """
+    import math as _math
+    import base64 as _base64
+
+    TARGET_NORMALIZED = 0.45
+    luminances: list[float] = []
+    for b64 in b64_frames:
+        try:
+            raw_b64 = b64.split(",", 1)[1] if b64.startswith("data:") else b64
+            raw = _base64.b64decode(raw_b64)
+            buf = np.frombuffer(raw, dtype=np.uint8)
+            bgr = cv2.imdecode(buf, cv2.IMREAD_COLOR)
+            if bgr is None:
+                continue
+            lab = cv2.cvtColor(bgr, cv2.COLOR_BGR2LAB)
+            mean_l = float(np.mean(lab[:, :, 0].astype(np.float32)))
+            luminances.append(mean_l)
+        except Exception:
+            continue
+
+    if not luminances:
+        return {"suggested_gamma": 1.0, "median_luminance_normalized": 0.0, "sample_count": 0}
+
+    median_l = float(np.median(luminances))
+    median_norm = median_l / 255.0
+
+    if median_norm <= 0.01 or median_norm >= 0.99:
+        suggested = 1.0
+    else:
+        try:
+            suggested = _math.log(TARGET_NORMALIZED) / _math.log(median_norm)
+        except (ValueError, ZeroDivisionError):
+            suggested = 1.0
+    suggested = max(0.3, min(3.0, round(suggested, 2)))
+
+    return {
+        "suggested_gamma": suggested,
+        "median_luminance_normalized": round(median_norm, 3),
+        "sample_count": len(luminances),
+    }
+
 
 # ===============================================================================
 # SVG Sparklines  - timeline charts with horizontal red cut line

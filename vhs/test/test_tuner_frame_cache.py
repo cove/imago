@@ -116,3 +116,94 @@ def test_cache_keys_change_when_source_video_changes(tmp_path: Path) -> None:
     assert signals_path_after != signals_path_before
     assert extract_path_after != extract_path_before
 
+
+def test_cache_paths_stay_short_for_long_chapter_titles(tmp_path: Path) -> None:
+    video = tmp_path / "source.mkv"
+    video.write_bytes(b"a")
+    title = (
+        "2001 - Dilbeck's Movie - The Hemmings Great Race at Union Station Kansas City "
+        "& Topeaka, Missouri (Atlanta, Georgia to Pasadena, California)"
+    )
+
+    extract_path = core._chapter_extract_cache_path(
+        archive="callahan_05_archive",
+        chapter_title=title,
+        ch_start=28289,
+        ch_end=31308,
+        debug_overlay=False,
+        source_video=video,
+    )
+    signals_path = core._signals_cache_path(
+        archive="callahan_05_archive",
+        ch_title=title,
+        video_path=video,
+        start_frame=28289,
+        end_frame=31308,
+        frame_read_offset=0,
+    )
+
+    assert len(str(extract_path)) < 240
+    assert len(str(signals_path)) < 240
+
+
+def test_video_frame_count_prefers_ffprobe_over_opencv_metadata(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    video = tmp_path / "extract.mkv"
+    video.write_bytes(b"x")
+
+    class _Cap:
+        def isOpened(self) -> bool:
+            return True
+
+        def get(self, _prop: int) -> int:
+            return 3018
+
+        def release(self) -> None:
+            return None
+
+    def _fake_check_output(cmd: list[str], text: bool, stderr: object) -> str:
+        assert str(video) == str(cmd[-1])
+        return "nb_frames=3018\nnb_read_frames=3019\n"
+
+    monkeypatch.setattr(core.subprocess, "check_output", _fake_check_output)
+    monkeypatch.setattr(core.cv2, "VideoCapture", lambda _path: _Cap())
+
+    assert core._video_frame_count(video) == 3019
+
+
+def test_video_frame_count_decodes_when_probe_and_metadata_are_unavailable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    video = tmp_path / "extract.mkv"
+    video.write_bytes(b"x")
+
+    class _Cap:
+        def __init__(self) -> None:
+            self._remaining = 3
+
+        def isOpened(self) -> bool:
+            return True
+
+        def get(self, _prop: int) -> int:
+            return 0
+
+        def read(self) -> tuple[bool, object | None]:
+            if self._remaining <= 0:
+                return False, None
+            self._remaining -= 1
+            return True, object()
+
+        def release(self) -> None:
+            return None
+
+    def _raise_check_output(*_args, **_kwargs):
+        raise RuntimeError("ffprobe unavailable")
+
+    monkeypatch.setattr(core.subprocess, "check_output", _raise_check_output)
+    monkeypatch.setattr(core.cv2, "VideoCapture", lambda _path: _Cap())
+
+    assert core._video_frame_count(video) == 3
+

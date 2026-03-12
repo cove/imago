@@ -6,9 +6,16 @@ function normalizeGammaValue(raw, fallback = 1.0) {
 
 function chapterFrameSpan() {
   const selectedChapter = chapterByTitle(state.chapter);
+  const loadSettingsArchive = String((state.loadSettings && state.loadSettings.archive) || '').trim();
   const loadSettingsChapter = String((state.loadSettings && state.loadSettings.chapter) || '').trim();
+  const currentArchive = String(state.archive || '').trim();
   const currentChapter = String(state.chapter || '').trim();
-  const hasActiveLoadSettings = Boolean(loadSettingsChapter && loadSettingsChapter === currentChapter);
+  const hasActiveLoadSettings = Boolean(
+    loadSettingsArchive
+    && loadSettingsChapter
+    && loadSettingsArchive === currentArchive
+    && loadSettingsChapter === currentChapter
+  );
   const startSource = hasActiveLoadSettings
     ? (state.loadSettings && state.loadSettings.start_frame)
     : (selectedChapter && selectedChapter.start_frame);
@@ -340,4 +347,3 @@ function snapTimelineSeconds(rawSeconds) {
   const sec = Math.max(0, Number(rawSeconds || 0));
   return Number((Math.round(sec / step) * step).toFixed(3));
 }
-

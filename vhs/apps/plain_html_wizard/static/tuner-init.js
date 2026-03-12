@@ -70,7 +70,7 @@ const STEP_DEFS = [
   { num: 3, label: 'Gamma Correction', pageId: 'page2', mode: 'gamma' },
   { num: 4, label: 'People', pageId: 'page2', mode: 'people' },
   { num: 5, label: 'Subtitles', pageId: 'page2', mode: 'subtitles' },
-  { num: 6, label: 'Chapters', pageId: 'page2', mode: 'split' },
+  { num: 6, label: 'Chapter', pageId: 'page2', mode: 'split' },
   { num: 7, label: 'Summary + Save', pageId: 'page3', mode: 'summary' },
 ];
 const STEP_BY_NUM = new Map(STEP_DEFS.map((step) => [step.num, step]));
@@ -271,4 +271,3 @@ const lockExtraButtons = [
   forceAllFramesGoodEl,
 ].filter((el) => Boolean(el));
 let shiftRangeAnchorFid = null;
-

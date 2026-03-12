@@ -62,10 +62,13 @@ from libs.vhs_tuner_core import (
     _normalize_frame_span,
     _resolve_archive_video,
     build_archive_state,
+    estimate_gamma_from_frames,
     extract_frames,
+    find_spike_regions,
     load_cached_signals,
     persist_bad_frames_for_chapter,
     slugify,
+    suggest_iqr_k,
     RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV,
     TUNER_DEBUG_EXTRACT_ENV,
 )
@@ -138,6 +141,7 @@ class SessionState:
     load_sample_done: int = 0
     load_sample_total: int = 0
     load_cancel_requested: bool = False
+    load_meta_ready: bool = False
     preview_running: bool = False
     preview_progress: float = 0.0
     preview_message: str = ""
@@ -1019,9 +1023,14 @@ def _save_split_entries_for_chapter(
             template_row["title"] = chapter_key
 
     # Merge: chapters are flat, independent ranges — no parent-child dropping.
-    # For each entry being saved: update end_frame on first title+start match,
-    # and drop any duplicate rows for that same entry.
+    # For exact title+start matches, update the existing row in place.
+    # When saving a single entry for the loaded chapter, treat it as editing that
+    # loaded row in place even if its start/title changed in the editor.
     # All other existing rows are kept exactly as-is.
+    single_entry_update = len(entries_to_save) == 1
+    single_entry = entries_to_save[0] if single_entry_update else None
+    loaded_chapter_key = (chapter_key, chapter_start)
+    replaced_loaded_chapter = False
     placed: set[tuple[str, int]] = set()
     merged_rows: list[dict[str, Any]] = []
     for raw_row in list(existing_rows):
@@ -1031,15 +1040,21 @@ def _save_split_entries_for_chapter(
         key = (row_title, start_frame)
         if key in entries_key_map:
             if key not in placed:
-                # First match: update end_frame to the new value and keep.
-                _, new_end, _ = entries_key_map[key]
-                updated = dict(row)
-                for k in list(updated.keys()):
-                    if str(k).strip().lower() in {"end", "end_frame"}:
-                        updated[k] = str(int(new_end))
-                merged_rows.append(updated)
-                placed.add(key)
+                new_start, new_end, new_title = entries_key_map[key]
+                merged_rows.append(
+                    _build_chapter_row_from_template(row, existing_header, new_start, new_end, new_title)
+                )
+                placed.add((new_title, new_start))
             # else: duplicate row for the same entry — drop it.
+        elif single_entry_update and key == loaded_chapter_key and single_entry is not None:
+            if not replaced_loaded_chapter:
+                new_start, new_end, new_title = single_entry
+                merged_rows.append(
+                    _build_chapter_row_from_template(row, existing_header, new_start, new_end, new_title)
+                )
+                placed.add((new_title, new_start))
+                replaced_loaded_chapter = True
+            # else: duplicate row for the loaded chapter — drop it.
         else:
             merged_rows.append(row)
 
@@ -2596,16 +2611,24 @@ class WizardHandler(BaseHTTPRequestHandler):
             return
 
         if parsed.path == "/api/load_progress":
-            self._send_json(
-                {
-                    "ok": True,
-                    "running": bool(session.load_running),
-                    "progress": float(session.load_progress),
-                    "message": str(session.load_message or ""),
-                    "sample_done": int(session.load_sample_done),
-                    "sample_total": int(session.load_sample_total),
+            progress_payload: dict[str, Any] = {
+                "ok": True,
+                "running": bool(session.load_running),
+                "progress": float(session.load_progress),
+                "message": str(session.load_message or ""),
+                "sample_done": int(session.load_sample_done),
+                "sample_total": int(session.load_sample_total),
+            }
+            if session.load_meta_ready:
+                progress_payload["people_profile"] = {
+                    "entries": list(session.people_entries),
+                    "source": "people_tsv",
                 }
-            )
+                progress_payload["subtitles_profile"] = {
+                    "entries": list(session.subtitle_entries),
+                    "source": "subtitles_tsv",
+                }
+            self._send_json(progress_payload)
             return
 
         if parsed.path == "/api/preview_progress":
@@ -2646,6 +2669,173 @@ class WizardHandler(BaseHTTPRequestHandler):
                     ),
                 }
             )
+            return
+
+        # -----------------------------------------------------------------------
+        # AI-agent endpoints  (/api/ai/*)
+        # -----------------------------------------------------------------------
+
+        if parsed.path == "/api/ai/signal_data":
+            if not session.fids or not session.sigs:
+                self._send_error_json("No loaded chapter data yet.")
+                return
+            scores = combined_score(session.sigs, session.wc, session.wn, session.wt, session.ww)
+            thr = float(compute_threshold(scores, session.t_mode, session.iqr_k, session.tval, session.bpct))
+            bad = sum(1 for i, fid in enumerate(session.fids) if _frame_status(session, int(fid), float(scores[i]), thr)[0] == "bad")
+            self._send_json({
+                "ok": True,
+                "archive": str(session.archive),
+                "chapter": str(session.chapter),
+                "start_frame": int(session.start_frame),
+                "end_frame": int(session.end_frame),
+                "iqr_k": float(session.iqr_k),
+                "threshold": round(thr, 4),
+                "fids": [int(f) for f in session.fids],
+                "scores": [round(float(s), 4) for s in scores],
+                "signals": {k: [round(float(x), 4) for x in v] for k, v in session.sigs.items()},
+                "stats": {
+                    "total": len(session.fids),
+                    "bad": bad,
+                    "good": len(session.fids) - bad,
+                    "overrides": len(session.overrides),
+                },
+            })
+            return
+
+        if parsed.path == "/api/ai/suggest_k":
+            if not session.fids or not session.sigs:
+                self._send_error_json("No loaded chapter data yet.")
+                return
+            scores = combined_score(session.sigs, session.wc, session.wn, session.wt, session.ww)
+            current_thr = float(compute_threshold(scores, session.t_mode, session.iqr_k, session.tval, session.bpct))
+            current_bad = sum(1 for i, fid in enumerate(session.fids) if _frame_status(session, int(fid), float(scores[i]), current_thr)[0] == "bad")
+            result = suggest_iqr_k(scores)
+            result.update({
+                "ok": True,
+                "current_k": float(session.iqr_k),
+                "current_threshold": round(current_thr, 4),
+                "current_bad_count": current_bad,
+            })
+            self._send_json(result)
+            return
+
+        if parsed.path == "/api/ai/spike_regions":
+            if not session.fids or not session.sigs:
+                self._send_error_json("No loaded chapter data yet.")
+                return
+            params = parse_qs(parsed.query)
+            context = int((params.get("context", ["8"])[0] or "8"))
+            scores = combined_score(session.sigs, session.wc, session.wn, session.wt, session.ww)
+            thr = float(compute_threshold(scores, session.t_mode, session.iqr_k, session.tval, session.bpct))
+            regions = find_spike_regions(session.fids, scores, thr, context_frames=context)
+            total_bad = sum(r["bad_frame_count"] for r in regions)
+            self._send_json({
+                "ok": True,
+                "threshold": round(thr, 4),
+                "iqr_k": float(session.iqr_k),
+                "total_bad_frames": total_bad,
+                "total_regions": len(regions),
+                "regions": regions,
+            })
+            return
+
+        if parsed.path == "/api/ai/frames_in_region":
+            if not session.fids or not session.sigs:
+                self._send_error_json("No loaded chapter data yet.")
+                return
+            params = parse_qs(parsed.query)
+            try:
+                start_fid = int(params.get("start_fid", ["0"])[0])
+                end_fid = int(params.get("end_fid", ["0"])[0])
+            except (ValueError, IndexError):
+                self._send_error_json("start_fid and end_fid are required integers.")
+                return
+            scores = combined_score(session.sigs, session.wc, session.wn, session.wt, session.ww)
+            thr = float(compute_threshold(scores, session.t_mode, session.iqr_k, session.tval, session.bpct))
+            # Find index range within session.fids
+            idx_start = bisect.bisect_left(session.fids, start_fid)
+            idx_end = bisect.bisect_right(session.fids, end_fid) - 1
+            if idx_start > idx_end or idx_start >= len(session.fids):
+                self._send_json({"ok": True, "frames": [], "contact_sheet_url": ""})
+                return
+            frames_out = []
+            for i in range(idx_start, idx_end + 1):
+                fid = int(session.fids[i])
+                score = float(scores[i])
+                status, source = _frame_status(session, fid, score, thr)
+                sigs_at = {k: round(float(v[i]), 4) for k, v in session.sigs.items() if i < len(v)}
+                frames_out.append({
+                    "fid": fid,
+                    "local_frame": max(0, fid - int(session.start_frame)),
+                    "score": round(score, 4),
+                    "status": status,
+                    "source": source,
+                    "image_url": _frame_image_url(fid),
+                    "signals": sigs_at,
+                })
+            count = idx_end - idx_start + 1
+            contact_url = _frame_contact_sheet_url(idx_start, count=count, columns=8)
+            self._send_json({
+                "ok": True,
+                "frames": frames_out,
+                "contact_sheet_url": contact_url,
+            })
+            return
+
+        if parsed.path == "/api/ai/chapter_state":
+            if not session.fids:
+                self._send_error_json("No loaded chapter data yet.")
+                return
+            scores = combined_score(session.sigs, session.wc, session.wn, session.wt, session.ww)
+            thr = float(compute_threshold(scores, session.t_mode, session.iqr_k, session.tval, session.bpct))
+            bad = sum(1 for i, fid in enumerate(session.fids) if _frame_status(session, int(fid), float(scores[i]), thr)[0] == "bad")
+            # Build boundary frame URLs: first, last, first+5, last-5
+            fids = session.fids
+            n = len(fids)
+            boundary_urls = {
+                "first": _frame_image_url(int(fids[0])),
+                "first_plus_5": _frame_image_url(int(fids[min(5, n - 1)])),
+                "last_minus_5": _frame_image_url(int(fids[max(0, n - 6)])),
+                "last": _frame_image_url(int(fids[-1])),
+            }
+            self._send_json({
+                "ok": True,
+                "archive": str(session.archive),
+                "chapter": str(session.chapter),
+                "start_frame": int(session.start_frame),
+                "end_frame": int(session.end_frame),
+                "duration_frames": int(session.end_frame) - int(session.start_frame),
+                "iqr_k": float(session.iqr_k),
+                "threshold": round(thr, 4),
+                "bad_frame_count": bad,
+                "force_all_frames_good": bool(session.force_all_frames_good),
+                "gamma_default": float(session.gamma_default),
+                "gamma_ranges": list(session.gamma_ranges),
+                "people_entries": list(session.people_entries),
+                "subtitle_entries": list(session.subtitle_entries),
+                "split_entries": list(session.split_entries),
+                "auto_transcript": str(session.auto_transcript),
+                "boundary_frame_urls": boundary_urls,
+            })
+            return
+
+        if parsed.path == "/api/ai/suggest_gamma":
+            if not session.fids or not session.b64:
+                self._send_error_json("No loaded chapter data yet.")
+                return
+            # Sample ~32 frames from the middle third of the chapter
+            n = len(session.b64)
+            lo = n // 3
+            hi = 2 * n // 3
+            mid_b64 = session.b64[lo:hi]
+            step = max(1, len(mid_b64) // 32)
+            sample = mid_b64[::step][:32]
+            result = estimate_gamma_from_frames(sample)
+            result.update({
+                "ok": True,
+                "current_gamma_default": float(session.gamma_default),
+            })
+            self._send_json(result)
             return
 
         self._send_error_json("Not found", code=HTTPStatus.NOT_FOUND)
@@ -2893,6 +3083,41 @@ class WizardHandler(BaseHTTPRequestHandler):
         session.partial_sigs = {"chroma": [], "noise": [], "tear": [], "wave": []}
         session.frame_source_video_path = ""
         session.frame_source_read_offset = 0
+        session.load_meta_ready = False
+
+        # Load metadata from disk early — fast TSV reads that don't require frame extraction.
+        gamma_profile = get_gamma_profile_for_chapter(
+            archive=session.archive,
+            ch_start=session.start_frame,
+            ch_end=session.end_frame,
+        )
+        session.gamma_default = _normalize_gamma_value(gamma_profile.get("default_gamma", 1.0), default=1.0)
+        session.gamma_ranges = _normalize_gamma_ranges_payload(
+            gamma_profile.get("ranges", []),
+            ch_start=session.start_frame,
+            ch_end=session.end_frame,
+        )
+        session.people_entries = _load_people_entries_for_chapter(
+            archive=session.archive,
+            ch_start=session.start_frame,
+            ch_end=session.end_frame,
+        )
+        session.subtitle_entries = _load_subtitle_entries_for_chapter(
+            archive=session.archive,
+            ch_start=session.start_frame,
+            ch_end=session.end_frame,
+        )
+        session.auto_transcript = get_transcript_mode_for_chapter(
+            archive=session.archive,
+            chapter_title=session.chapter,
+        )
+        session.split_entries = _load_split_entries_for_chapter(
+            archive=session.archive,
+            chapter_title=session.chapter,
+            ch_start=session.start_frame,
+            ch_end=session.end_frame,
+        )
+        session.load_meta_ready = True
 
         video = _resolve_archive_video(session.archive)
         if not video:
@@ -3009,37 +3234,6 @@ class WizardHandler(BaseHTTPRequestHandler):
         session.fids = [int(x) for x in fids]
         session.b64 = list(b64)
         session.sigs = dict(sigs)
-        gamma_profile = get_gamma_profile_for_chapter(
-            archive=session.archive,
-            ch_start=session.start_frame,
-            ch_end=session.end_frame,
-        )
-        session.gamma_default = _normalize_gamma_value(gamma_profile.get("default_gamma", 1.0), default=1.0)
-        session.gamma_ranges = _normalize_gamma_ranges_payload(
-            gamma_profile.get("ranges", []),
-            ch_start=session.start_frame,
-            ch_end=session.end_frame,
-        )
-        session.people_entries = _load_people_entries_for_chapter(
-            archive=session.archive,
-            ch_start=session.start_frame,
-            ch_end=session.end_frame,
-        )
-        session.subtitle_entries = _load_subtitle_entries_for_chapter(
-            archive=session.archive,
-            ch_start=session.start_frame,
-            ch_end=session.end_frame,
-        )
-        session.auto_transcript = get_transcript_mode_for_chapter(
-            archive=session.archive,
-            chapter_title=session.chapter,
-        )
-        session.split_entries = _load_split_entries_for_chapter(
-            archive=session.archive,
-            chapter_title=session.chapter,
-            ch_start=session.start_frame,
-            ch_end=session.end_frame,
-        )
 
         details = {
             "archive": session.archive,
