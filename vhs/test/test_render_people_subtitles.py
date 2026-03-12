@@ -98,7 +98,7 @@ def test_merge_people_entries_into_srt_replaces_prior_people_line_and_dedupes(tm
     assert merged is True
 
     merged_text = srt_path.read_text(encoding="utf-8")
-    assert "Hello there\n[Jim | Linda | Audrey]" in merged_text
+    assert "Hello there\n[Jim \u00b7 Linda \u00b7 Audrey]" in merged_text
     assert "[Old Person]" not in merged_text
     assert merged_text.count("[") == 1
 
@@ -118,7 +118,7 @@ def test_write_people_entries_to_srt_vtt_wraps_and_sorts_entries(tmp_path: Path)
     vtt_path = tmp_path / "people.vtt"
     wrote = render_pipeline.write_people_entries_to_srt_vtt(
         [
-            (_frame_seconds(10), _frame_seconds(12), "Lynda"),
+            (_frame_seconds(10), _frame_seconds(12), "Jim|Linda"),
             (_frame_seconds(2), _frame_seconds(4), "Audrey"),
             (_frame_seconds(6), _frame_seconds(7), " "),
         ],
@@ -131,8 +131,9 @@ def test_write_people_entries_to_srt_vtt_wraps_and_sorts_entries(tmp_path: Path)
     srt_text = srt_path.read_text(encoding="utf-8")
     vtt_text = vtt_path.read_text(encoding="utf-8")
     assert "[Audrey]" in srt_text
-    assert "[Lynda]" in srt_text
-    assert srt_text.find("[Audrey]") < srt_text.find("[Lynda]")
+    assert "[Jim \u00b7 Linda]" in srt_text
+    assert "[Jim \u00b7 Linda]" in vtt_text
+    assert srt_text.find("[Audrey]") < srt_text.find("[Jim \u00b7 Linda]")
     assert "[ ]" not in srt_text
     assert "WEBVTT" in vtt_text
 
@@ -157,7 +158,7 @@ def test_tsv_people_to_srt_vtt_uses_frame_clipping_and_brackets(tmp_path: Path) 
         people_tsv,
         [
             (90, 105, "Lynda"),
-            (110, 120, "Jim"),
+            (110, 120, "Jim|Linda"),
             (140, 150, "Outside"),
         ],
     )
@@ -179,7 +180,7 @@ def test_tsv_people_to_srt_vtt_uses_frame_clipping_and_brackets(tmp_path: Path) 
     assert first_span in srt_text
     assert second_span in srt_text
     assert "[Lynda]" in srt_text
-    assert "[Jim]" in srt_text
+    assert "[Jim \u00b7 Linda]" in srt_text
     assert "[Outside]" not in srt_text
 
 
@@ -205,7 +206,7 @@ def test_tsv_people_to_ass_writes_italic_people_lines_with_frame_clipping(tmp_pa
 
     ass_text = ass_path.read_text(encoding="utf-8")
     assert r"{\i1}Lynda{\i0}" in ass_text
-    assert r"{\i1}Jim | Linda{\i0}" in ass_text
+    assert r"{\i1}Jim · Linda{\i0}" in ass_text
     assert r"{\i1}Outside{\i0}" not in ass_text
 
 
@@ -287,7 +288,7 @@ def test_srt_to_ass_italicizes_people_bracket_lines(tmp_path: Path) -> None:
     render_pipeline.srt_to_ass(srt_path, ass_path)
 
     ass_text = ass_path.read_text(encoding="utf-8")
-    assert r"Hello there\N{\rPeople}Jim | Linda{\rDefault}" in ass_text
+    assert r"Hello there\N{\rPeople}Jim · Linda{\rDefault}" in ass_text
     assert "[Jim | Linda]" not in ass_text
 
 
