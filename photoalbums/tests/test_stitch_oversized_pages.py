@@ -95,6 +95,64 @@ class TestStitchOversizedPages(unittest.TestCase):
             },
         )
 
+    def test_linear_pair_fallback_stitches_split_page(self):
+        try:
+            import cv2
+            import numpy as np
+        except Exception as exc:
+            self.skipTest(f"cv2/numpy unavailable: {exc}")
+
+        background = np.array([214, 206, 190], dtype=np.uint8)
+        page = np.empty((420, 720, 3), dtype=np.uint8)
+        page[:] = background
+        for y in range(0, page.shape[0], 12):
+            page[y : y + 1] = background - np.array([10, 10, 10], dtype=np.uint8)
+
+        cv2.rectangle(page, (20, 30), (180, 180), (40, 220, 40), -1)
+        cv2.rectangle(page, (250, 70), (470, 220), (200, 90, 90), -1)
+        cv2.rectangle(page, (520, 220), (690, 390), (40, 40, 220), -1)
+        cv2.putText(
+            page,
+            "CENTER",
+            (270, 285),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1.0,
+            (24, 24, 24),
+            2,
+            cv2.LINE_AA,
+        )
+
+        left_scan = page[:, :440].copy()
+        right_scan = page[:, 280:].copy()
+        shifted_right = np.empty_like(right_scan)
+        shifted_right[:] = background
+        shifted_right[18:] = right_scan[:-18]
+
+        stitched = sop._stitch_linear_pair_images([left_scan, shifted_right])
+
+        self.assertGreater(stitched.shape[1], left_scan.shape[1])
+        self.assertGreater(int(stitched[:, :140, 1].max()), 200)
+        self.assertGreater(int(stitched[:, -160:, 2].max()), 200)
+
+    def test_read_stitch_image_falls_back_to_magick(self):
+        try:
+            import numpy as np
+        except Exception as exc:
+            self.skipTest(f"numpy unavailable: {exc}")
+
+        fake = np.zeros((10, 20, 3), dtype=np.uint8)
+        with mock.patch("stitch_oversized_pages.cv2.imread", return_value=None), mock.patch(
+            "stitch_oversized_pages._read_with_pillow",
+            side_effect=RuntimeError("pillow failed"),
+        ), mock.patch(
+            "stitch_oversized_pages._read_with_magick",
+            return_value=fake,
+        ) as magick_mock:
+            result = sop._read_stitch_image("C:/Photos/bad-extension.jpg")
+
+        self.assertIs(result, fake)
+        magick_mock.assert_called_once_with("C:/Photos/bad-extension.jpg")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,15 +1,9 @@
 import os
-import warnings
 
 try:
     import cv2
 except Exception:
     cv2 = None
-
-try:
-    from stitching import AffineStitcher
-except Exception:
-    AffineStitcher = None
 
 from common import (
     PHOTO_ALBUMS_DIR,
@@ -20,6 +14,10 @@ from common import (
     list_page_scan_groups,
 )
 from naming import SCAN_TIFF_RE, parse_album_filename
+try:
+    from stitch_oversized_pages import build_stitched_image
+except Exception:
+    from .stitch_oversized_pages import build_stitched_image
 
 NEW_NAME_RE = SCAN_TIFF_RE
 
@@ -27,12 +25,6 @@ NEW_NAME_RE = SCAN_TIFF_RE
 def _require_cv2() -> None:
     if cv2 is None:
         raise RuntimeError("cv2 is required to validate images.")
-
-
-def _require_stitcher() -> None:
-    if AffineStitcher is None:
-        raise RuntimeError("stitching package is required to validate stitches.")
-
 
 def validate_single(tif_path: str) -> None:
     _require_cv2()
@@ -48,46 +40,7 @@ def validate_single(tif_path: str) -> None:
 
 def validate_stitch(files, stitcher_factory=None) -> None:
     print("Validating stitch:", [os.path.basename(f) for f in files])
-
-    attempts = [
-        {"detector": "sift", "confidence_threshold": 0.3},
-        {"detector": "brisk", "confidence_threshold": 0.1},
-    ]
-
-    if stitcher_factory is None:
-        _require_stitcher()
-        stitcher_factory = AffineStitcher
-
-    result = None
-    partial_warning = None
-    for cfg in attempts:
-        try:
-            with warnings.catch_warnings(record=True) as caught:
-                warnings.simplefilter("always")
-                result = stitcher_factory(**cfg).stitch(files)
-            partial_warning = next(
-                (
-                    w
-                    for w in caught
-                    if "not all images are included in the final panorama"
-                    in str(w.message).lower()
-                ),
-                None,
-            )
-            if partial_warning is not None:
-                result = None
-                continue
-            if result is not None and result.size:
-                break
-        except Exception:
-            pass
-
-    if result is None:
-        if partial_warning is not None:
-            raise RuntimeError(
-                "Stitching produced a partial panorama (not all scans were included)",
-            )
-        raise RuntimeError("All stitching attempts failed")
+    build_stitched_image(files, stitcher_factory=stitcher_factory)
 
 
 def main() -> None:

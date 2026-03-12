@@ -1,5 +1,7 @@
 import os
 import re
+import subprocess
+import tempfile
 import warnings
 from datetime import datetime
 from pathlib import Path
@@ -7,13 +9,14 @@ from pathlib import Path
 try:
     import cv2
     import numpy as np
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image, ImageDraw, ImageFont, ImageOps
 except Exception:
     cv2 = None
     np = None
     Image = None
     ImageDraw = None
     ImageFont = None
+    ImageOps = None
 
 try:
     from stitching import AffineStitcher
@@ -23,6 +26,7 @@ except Exception:
 from common import (
     CREATOR,
     PHOTO_ALBUMS_DIR,
+    configure_imagemagick,
     dir_created_ts,
     list_archive_dirs,
     list_page_scan_groups,
@@ -43,6 +47,26 @@ FILENAME_RE = SCAN_NAME_RE
 FILENAME_RE_NO_SCAN = BASE_PAGE_NAME_RE
 
 IMAGE_EXTS = (".tif", ".tiff", ".jpg", ".jpeg", ".png", ".bmp")
+
+AFFINE_STITCH_ATTEMPTS = (
+    {"detector": "sift", "confidence_threshold": 0.3},
+    {"detector": "sift", "confidence_threshold": 0.1},
+    {"detector": "akaze", "confidence_threshold": 0.3},
+    {"detector": "akaze", "confidence_threshold": 0.1},
+    {"detector": "brisk", "confidence_threshold": 0.1},
+)
+
+LINEAR_FALLBACK_TARGET_WIDTH = 640
+LINEAR_FALLBACK_MIN_OVERLAP_FRAC = 0.08
+LINEAR_FALLBACK_MAX_OVERLAP_FRAC = 0.42
+LINEAR_FALLBACK_MAX_VERTICAL_SHIFT_FRAC = 0.08
+LINEAR_FALLBACK_MIN_SHARED_HEIGHT_FRAC = 0.6
+LINEAR_FALLBACK_MIN_DETAIL_FRAC = 0.05
+LINEAR_FALLBACK_OVERLAP_STEP = 12
+LINEAR_FALLBACK_VERTICAL_STEP = 4
+LINEAR_FALLBACK_REFINE_OVERLAP_RADIUS = 12
+LINEAR_FALLBACK_REFINE_VERTICAL_RADIUS = 4
+LINEAR_FALLBACK_EXPANSION_RATIO = 1.02
 
 
 def _require_image_modules() -> None:
@@ -125,6 +149,337 @@ def build_derived_output_name(base: str) -> str:
 def output_is_valid(path: str | Path, min_size: int = MIN_OUTPUT_SIZE) -> bool:
     path = Path(path)
     return path.exists() and path.stat().st_size > min_size
+
+
+def _ensure_bgr_image(image):
+    _require_image_modules()
+    if image is None:
+        raise RuntimeError("Could not read image")
+    if image.ndim == 2:
+        return cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    if image.shape[2] == 4:
+        return cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
+    return image
+
+
+def _read_with_pillow(path: str | Path):
+    _require_image_modules()
+    with Image.open(path) as img:
+        img.load()
+        if ImageOps is not None:
+            img = ImageOps.exif_transpose(img)
+        if img.mode == "RGBA":
+            arr = np.array(img)
+            return cv2.cvtColor(arr, cv2.COLOR_RGBA2BGR)
+        if img.mode not in {"RGB", "L"}:
+            img = img.convert("RGB")
+        arr = np.array(img)
+        if img.mode == "L":
+            return cv2.cvtColor(arr, cv2.COLOR_GRAY2BGR)
+        return cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
+
+
+def _read_with_magick(path: str | Path):
+    _require_image_modules()
+    configure_imagemagick()
+    fd, tmp_name = tempfile.mkstemp(suffix=".png")
+    os.close(fd)
+    tmp_path = Path(tmp_name)
+    try:
+        subprocess.run(
+            [
+                "magick",
+                str(path),
+                "-auto-orient",
+                str(tmp_path),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        image = cv2.imread(str(tmp_path), cv2.IMREAD_UNCHANGED)
+        return _ensure_bgr_image(image)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
+def _read_stitch_image(path: str | Path):
+    _require_image_modules()
+    image = cv2.imread(str(path), cv2.IMREAD_UNCHANGED)
+    if image is not None:
+        return _ensure_bgr_image(image)
+
+    last_exc = None
+    try:
+        return _read_with_pillow(path)
+    except Exception as exc:
+        last_exc = exc
+
+    try:
+        return _read_with_magick(path)
+    except Exception as exc:
+        if last_exc is not None:
+            raise RuntimeError("Could not read image") from exc
+        raise RuntimeError("Could not read image") from exc
+
+
+def _stitcher_factory(stitcher_factory=None):
+    if stitcher_factory is not None:
+        return stitcher_factory
+    _require_stitcher()
+    return AffineStitcher
+
+
+def _estimate_background_color(image, border: int = 80) -> tuple[int, int, int]:
+    h, w = image.shape[:2]
+    border = max(8, min(border, h // 4, w // 4))
+    samples = np.concatenate(
+        [
+            image[:border].reshape(-1, 3),
+            image[-border:].reshape(-1, 3),
+            image[:, :border].reshape(-1, 3),
+            image[:, -border:].reshape(-1, 3),
+        ],
+        axis=0,
+    )
+    color = np.median(samples, axis=0)
+    return tuple(int(c) for c in color.tolist())
+
+
+def _build_overlap_feature_map(image):
+    background = np.asarray(_estimate_background_color(image), dtype=np.float32)
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    high_pass = np.abs(gray - cv2.GaussianBlur(gray, (0, 0), 3))
+    color_dist = np.linalg.norm(image.astype(np.float32) - background, axis=2)
+    feature_map = (color_dist * 0.7) + (high_pass * 1.8)
+    return cv2.GaussianBlur(feature_map, (0, 0), 1.0)
+
+
+def _score_linear_overlap(
+    left_map,
+    right_map,
+    overlap: int,
+    dy: int,
+) -> float | None:
+    height = left_map.shape[0]
+    y_left = max(0, dy)
+    y_right = max(0, -dy)
+    shared_height = min(height - y_left, right_map.shape[0] - y_right)
+    if shared_height < int(height * LINEAR_FALLBACK_MIN_SHARED_HEIGHT_FRAC):
+        return None
+
+    left_strip = left_map[y_left : y_left + shared_height, left_map.shape[1] - overlap :]
+    right_strip = right_map[y_right : y_right + shared_height, :overlap]
+    if left_strip.size == 0 or right_strip.size == 0:
+        return None
+
+    left_thresh = float(np.percentile(left_strip, 70))
+    right_thresh = float(np.percentile(right_strip, 70))
+    detail_mask = (left_strip > left_thresh) | (right_strip > right_thresh)
+    if float(detail_mask.mean()) < LINEAR_FALLBACK_MIN_DETAIL_FRAC:
+        return None
+
+    diff = np.abs(left_strip - right_strip)
+    return float(diff[detail_mask].mean())
+
+
+def _search_linear_overlap(left_img, right_img) -> tuple[float, int, int]:
+    width = max(left_img.shape[1], right_img.shape[1])
+    scale = min(1.0, LINEAR_FALLBACK_TARGET_WIDTH / max(width, 1))
+    if scale < 1.0:
+        left_small = cv2.resize(
+            left_img,
+            (max(1, int(left_img.shape[1] * scale)), max(1, int(left_img.shape[0] * scale))),
+            interpolation=cv2.INTER_AREA,
+        )
+        right_small = cv2.resize(
+            right_img,
+            (max(1, int(right_img.shape[1] * scale)), max(1, int(right_img.shape[0] * scale))),
+            interpolation=cv2.INTER_AREA,
+        )
+    else:
+        left_small = left_img
+        right_small = right_img
+
+    left_map = _build_overlap_feature_map(left_small)
+    right_map = _build_overlap_feature_map(right_small)
+
+    min_overlap = max(8, int(min(left_map.shape[1], right_map.shape[1]) * LINEAR_FALLBACK_MIN_OVERLAP_FRAC))
+    max_overlap = max(
+        min_overlap,
+        int(min(left_map.shape[1], right_map.shape[1]) * LINEAR_FALLBACK_MAX_OVERLAP_FRAC),
+    )
+    max_dy = int(max(left_map.shape[0], right_map.shape[0]) * LINEAR_FALLBACK_MAX_VERTICAL_SHIFT_FRAC)
+
+    best: tuple[float, int, int] | None = None
+    for overlap in range(min_overlap, max_overlap + 1, LINEAR_FALLBACK_OVERLAP_STEP):
+        for dy in range(-max_dy, max_dy + 1, LINEAR_FALLBACK_VERTICAL_STEP):
+            score = _score_linear_overlap(left_map, right_map, overlap, dy)
+            if score is None:
+                continue
+            candidate = (score, overlap, dy)
+            if best is None or candidate < best:
+                best = candidate
+
+    if best is None:
+        raise RuntimeError("Linear overlap search could not find a shared region")
+
+    _, coarse_overlap, coarse_dy = best
+    refine_overlap_min = max(min_overlap, coarse_overlap - LINEAR_FALLBACK_REFINE_OVERLAP_RADIUS)
+    refine_overlap_max = min(max_overlap, coarse_overlap + LINEAR_FALLBACK_REFINE_OVERLAP_RADIUS)
+    refine_dy_min = max(-max_dy, coarse_dy - LINEAR_FALLBACK_REFINE_VERTICAL_RADIUS)
+    refine_dy_max = min(max_dy, coarse_dy + LINEAR_FALLBACK_REFINE_VERTICAL_RADIUS)
+    for overlap in range(refine_overlap_min, refine_overlap_max + 1, 2):
+        for dy in range(refine_dy_min, refine_dy_max + 1):
+            score = _score_linear_overlap(left_map, right_map, overlap, dy)
+            if score is None:
+                continue
+            candidate = (score, overlap, dy)
+            if candidate < best:
+                best = candidate
+
+    score, overlap, dy = best
+    return score, int(round(overlap / scale)), int(round(dy / scale))
+
+
+def _compose_linear_pair(left_img, right_img, overlap: int, dy: int):
+    left_h, left_w = left_img.shape[:2]
+    right_h, right_w = right_img.shape[:2]
+    overlap = max(1, min(overlap, left_w - 1, right_w - 1))
+    x_right = left_w - overlap
+    min_y = min(0, dy)
+    max_y = max(left_h, dy + right_h)
+    out_h = max_y - min_y
+    out_w = max(left_w, x_right + right_w)
+
+    fill_color = tuple(
+        int(c)
+        for c in np.median(
+            np.vstack(
+                [
+                    np.asarray(_estimate_background_color(left_img), dtype=np.float32),
+                    np.asarray(_estimate_background_color(right_img), dtype=np.float32),
+                ]
+            ),
+            axis=0,
+        ).tolist()
+    )
+    out = np.empty((out_h, out_w, 3), dtype=np.uint8)
+    out[:] = fill_color
+
+    y_left = -min_y
+    y_right = dy - min_y
+    out[y_left : y_left + left_h, :left_w] = left_img
+
+    right_roi = out[y_right : y_right + right_h, x_right : x_right + right_w]
+    if overlap > 0:
+        left_overlap = right_roi[:, :overlap]
+        right_overlap = right_img[:, :overlap]
+        alpha = np.linspace(1.0, 0.0, overlap, dtype=np.float32)[None, :, None]
+        blended = (left_overlap.astype(np.float32) * alpha) + (
+            right_overlap.astype(np.float32) * (1.0 - alpha)
+        )
+        right_roi[:, :overlap] = np.clip(blended, 0, 255).astype(np.uint8)
+    right_roi[:, overlap:] = right_img[:, overlap:]
+    return out
+
+
+def _result_expands_canvas(result, images) -> bool:
+    shape = getattr(result, "shape", None)
+    if not isinstance(shape, tuple) or len(shape) < 2:
+        return True
+    base_h = max(img.shape[0] for img in images)
+    base_w = max(img.shape[1] for img in images)
+    return (
+        shape[1] >= int(base_w * LINEAR_FALLBACK_EXPANSION_RATIO)
+        or shape[0] >= int(base_h * LINEAR_FALLBACK_EXPANSION_RATIO)
+    )
+
+
+def _stitch_linear_pair_images(images):
+    _require_image_modules()
+    if len(images) != 2:
+        raise RuntimeError("Linear page fallback only supports two scans")
+
+    cv2.ocl.setUseOpenCL(False)
+    normalized = [_ensure_bgr_image(img) for img in images]
+    candidates = []
+    for left_idx, right_idx in ((0, 1), (1, 0)):
+        score, overlap, dy = _search_linear_overlap(
+            normalized[left_idx],
+            normalized[right_idx],
+        )
+        composed = _compose_linear_pair(
+            normalized[left_idx],
+            normalized[right_idx],
+            overlap,
+            dy,
+        )
+        candidates.append((score, composed))
+
+    candidates.sort(key=lambda item: item[0])
+    return candidates[0][1]
+
+
+def build_stitched_image(files, stitcher_factory=None):
+    stitcher_factory = _stitcher_factory(stitcher_factory)
+    attempts = [dict(cfg) for cfg in AFFINE_STITCH_ATTEMPTS]
+
+    partial_warning = None
+    last_exc: Exception | None = None
+    loaded_images = None
+
+    def ensure_loaded_images():
+        nonlocal loaded_images
+        if loaded_images is None:
+            loaded_images = [_read_stitch_image(path) for path in files]
+        return loaded_images
+
+    for cfg in attempts:
+        try:
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                result = stitcher_factory(**cfg).stitch(files)
+            partial_warning = next(
+                (
+                    w
+                    for w in caught
+                    if "not all images are included in the final panorama"
+                    in str(w.message).lower()
+                ),
+                None,
+            )
+            if partial_warning is not None:
+                result = None
+                continue
+            if result is not None and getattr(result, "size", 0):
+                shape = getattr(result, "shape", None)
+                if (not isinstance(shape, tuple) or len(shape) < 2) or _result_expands_canvas(
+                    result,
+                    ensure_loaded_images(),
+                ):
+                    return result
+        except Exception as exc:
+            last_exc = exc
+
+    if len(files) == 2:
+        try:
+            fallback = _stitch_linear_pair_images(ensure_loaded_images())
+            if getattr(fallback, "size", 0) and _result_expands_canvas(
+                fallback,
+                ensure_loaded_images(),
+            ):
+                return fallback
+        except Exception as exc:
+            last_exc = exc
+
+    if partial_warning is not None:
+        raise RuntimeError(
+            "Stitching produced a partial panorama (not all scans were included)",
+        )
+    if last_exc is not None:
+        raise RuntimeError("All stitching attempts failed") from last_exc
+    raise RuntimeError("All stitching attempts failed")
 
 
 def get_view_dirname(path: str | Path) -> str:
@@ -290,14 +645,7 @@ def tif_to_jpg(tif_path: str, output_dir: str) -> None:
         print(f"{collection} B{book} P{int(page):02d} OK")
         return
 
-    img = cv2.imread(tif_path, cv2.IMREAD_UNCHANGED)
-    if img is None:
-        raise RuntimeError("Could not read image")
-
-    if img.ndim == 2:
-        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-    elif img.shape[2] == 4:
-        img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+    img = _read_stitch_image(tif_path)
 
     img = add_bottom_header(
         img,
@@ -330,14 +678,7 @@ def derived_to_jpg(src_path: str, output_dir: str) -> None:
             print(f"{out_name} OK")
         return
 
-    img = cv2.imread(src_path, cv2.IMREAD_UNCHANGED)
-    if img is None:
-        return
-
-    if img.ndim == 2:
-        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-    elif img.shape[2] == 4:
-        img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+    img = _read_stitch_image(src_path)
 
     desc = ""
     if collection != "Unknown":
@@ -358,7 +699,6 @@ def derived_to_jpg(src_path: str, output_dir: str) -> None:
 
 
 def stitch(files, output_dir: str) -> None:
-    _require_stitcher()
     _require_image_modules()
     os.makedirs(output_dir, exist_ok=True)
 
@@ -377,43 +717,7 @@ def stitch(files, output_dir: str) -> None:
         print(f"{collection} B{book} P{int(page):02d} OK")
         return
 
-    attempts = [
-       # {"detector": "sift", "confidence_threshold": 0.5},
-        {"detector": "sift", "confidence_threshold": 0.3},
-        {"detector": "sift", "confidence_threshold": 0.1},
-        {"detector": "brisk", "confidence_threshold": 0.1},
-    ]
-
-    result = None
-    partial_warning = None
-    for cfg in attempts:
-        try:
-            with warnings.catch_warnings(record=True) as caught:
-                warnings.simplefilter("always")
-                result = AffineStitcher(**cfg).stitch(files)
-            partial_warning = next(
-                (
-                    w
-                    for w in caught
-                    if "not all images are included in the final panorama"
-                    in str(w.message).lower()
-                ),
-                None,
-            )
-            if partial_warning is not None:
-                result = None
-                continue
-            if result is not None and result.size:
-                break
-        except Exception:
-            pass
-
-    if result is None:
-        if partial_warning is not None:
-            raise RuntimeError(
-                "Stitching produced a partial panorama (not all scans were included)",
-            )
-        raise RuntimeError("All stitching attempts failed")
+    result = build_stitched_image(files)
 
     write_jpeg(
         result,
