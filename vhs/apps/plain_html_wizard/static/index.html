@@ -35,7 +35,7 @@
           <div class="review-top-left">
             <div id="reviewStats" class="review-stats">No frames loaded.</div>
           </div>
-          <div class="iqr-box">
+          <div class="iqr-box review-toolbar">
             <button id="sparkPlayBtn" class="action spark-play-btn" type="button" title="Open fullscreen flipbook">Flipbook</button>
             <div id="reviewControls" class="iqr-box">
               <label for="iqrK">IQR k</label>
@@ -59,8 +59,10 @@
                 <option value="whole">Whole Chapter</option>
                 <option value="regions">Visible Range Regions</option>
               </select>
-              <button id="gammaApplyVisible" class="action" type="button">Apply Visible Range</button>
-              <button id="gammaClear" class="action warn" type="button">Clear</button>
+              <div class="gamma-actions">
+                <button id="gammaApplyVisible" class="action" type="button">Apply Visible Range</button>
+                <button id="gammaClear" class="action warn" type="button">Clear</button>
+              </div>
             </div>
             <div id="peopleControls" class="iqr-box hidden-ui">
               <button id="peoplePrefillCast" class="action" type="button">Auto-fill From Cast</button>
@@ -70,9 +72,11 @@
               <button id="subtitlesGenerate" class="action" type="button">Generate Subtitles</button>
               <label class="iqr-box-label"><input type="checkbox" id="subtitlesAutoTranscript"> Auto Transcript</label>
             </div>
-            <button id="previewRender" class="action">Preview Render</button>
-            <button id="saveProgressDraft" class="action">Save Progress</button>
-            <button id="toggleFullscreen" class="action">Fullscreen</button>
+            <div class="review-toolbar-actions">
+              <button id="previewRender" class="action">Preview Render</button>
+              <button id="saveProgressDraft" class="action">Save Progress</button>
+              <button id="toggleFullscreen" class="action">Fullscreen</button>
+            </div>
           </div>
         </div>
         <div class="panel spark-panel">
