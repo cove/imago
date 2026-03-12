@@ -120,11 +120,11 @@ def test_run_pipeline_merges_people_into_transcribed_sidecars(monkeypatch, tmp_p
 
     srt_text = out_srt.read_text(encoding="utf-8")
     assert "Hello there\n[Lynda]" in srt_text
-    assert "General Kenobi\n[Jim | Linda]" in srt_text
+    assert "General Kenobi\n[Jim \u00b7 Linda]" in srt_text
 
     ass_text = out_ass.read_text(encoding="utf-8")
     assert r"Hello there\N{\rPeople}Lynda{\rDefault}" in ass_text
-    assert r"General Kenobi\N{\rPeople}Jim | Linda{\rDefault}" in ass_text
+    assert r"General Kenobi\N{\rPeople}Jim · Linda{\rDefault}" in ass_text
     assert "[Lynda]" not in ass_text
 
 
@@ -141,18 +141,22 @@ def test_run_pipeline_writes_people_only_sidecars_when_transcript_off(monkeypatc
     render_pipeline._run_with_args(args)
 
     out_srt = clips_dir / f"{chapter_title}.srt"
+    out_vtt = clips_dir / f"{chapter_title}.vtt"
     out_ass = clips_dir / f"{chapter_title}.ass"
     assert out_srt.exists()
+    assert out_vtt.exists()
     assert out_ass.exists()
 
     srt_text = out_srt.read_text(encoding="utf-8")
+    vtt_text = out_vtt.read_text(encoding="utf-8")
     assert "[Lynda]" in srt_text
-    assert "[Jim | Linda]" in srt_text
+    assert "[Jim \u00b7 Linda]" in srt_text
+    assert "[Jim \u00b7 Linda]" in vtt_text
     assert "Hello there" not in srt_text
 
     ass_text = out_ass.read_text(encoding="utf-8")
     assert r"{\rPeople}Lynda{\rDefault}" in ass_text
-    assert r"{\rPeople}Jim | Linda{\rDefault}" in ass_text
+    assert r"{\rPeople}Jim · Linda{\rDefault}" in ass_text
 
 
 def test_run_pipeline_prefers_metadata_subtitles_over_whisper_generation(monkeypatch, tmp_path: Path) -> None:

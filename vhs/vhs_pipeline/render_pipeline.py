@@ -29,6 +29,7 @@ if _cached_common is not None:
 from common import *
 
 ASS_NEWLINE = "\\N"
+PEOPLE_DISPLAY_SEPARATOR = " \u00b7 "
 PEOPLE_ASS_FONT_SCALE = 0.50
 BADFRAME_MAX_SPAN_DEFAULT = 1200
 BADFRAME_POST_QTGMC_MULTIPLIER = 1
@@ -464,7 +465,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 continue
             people_match = re.fullmatch(r"\[(.+)\]", line)
             if people_match is not None:
-                people_text = re.sub(r"\s+", " ", str(people_match.group(1) or "").strip())
+                people_text = _format_people_display_text(people_match.group(1))
                 if people_text:
                     ass_lines.append(r"{\rPeople}" + people_text + r"{\rDefault}")
                 continue
@@ -859,6 +860,12 @@ def _normalize_people_text(raw):
     text = re.sub(r"\s*\|\s*", " | ", text)
     return text
 
+def _format_people_display_text(raw):
+    text = _normalize_people_text(raw)
+    if not text:
+        return ""
+    return re.sub(r"\s*\|\s*", PEOPLE_DISPLAY_SEPARATOR, text)
+
 def _normalize_subtitle_text(raw):
     return re.sub(r"\s+", " ", str(raw or "")).strip()
 
@@ -1121,7 +1128,12 @@ def _people_text_for_span(people_entries, span_start_sec, span_end_sec):
             continue
         seen.add(key)
         labels.append(label)
-    return " | ".join(labels)
+    display_labels = []
+    for label in labels:
+        display_text = _format_people_display_text(label)
+        if display_text:
+            display_labels.append(display_text)
+    return PEOPLE_DISPLAY_SEPARATOR.join(display_labels)
 
 def _parse_srt_cues(content):
     pattern = re.compile(
@@ -1224,7 +1236,7 @@ def write_people_entries_to_srt_vtt(people_entries, srt_path, vtt_path, wrap_in_
     srt_lines = []
     vtt_lines = ["WEBVTT", ""]
     for i, (start_sec, end_sec, people) in enumerate(entries, start=1):
-        people_text = _normalize_people_text(people)
+        people_text = _format_people_display_text(people)
         if not people_text:
             continue
         subtitle_text = f"[{people_text}]" if wrap_in_brackets else people_text
@@ -1292,7 +1304,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     )
     events = []
     for start_sec, end_sec, people in entries:
-        people_text = _normalize_people_text(people)
+        people_text = _format_people_display_text(people)
         if not people_text:
             continue
         events.append(
