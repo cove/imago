@@ -179,18 +179,18 @@
       </ChapterDisplay>
     </ChapterAtom>
     <ChapterAtom>
-      <ChapterTimeStart>00:35:27.892</ChapterTimeStart>
-      <ChapterTimeEnd>00:35:56.421</ChapterTimeEnd>
-      <ChapterDisplay>
-        <ChapterString>1995 - Jim &amp; Linda Wedding - 24 Reception Post Cake Smash (March 18, 1995)</ChapterString>
-        <ChapterLanguage>und</ChapterLanguage>
-      </ChapterDisplay>
-    </ChapterAtom>
-    <ChapterAtom>
       <ChapterTimeStart>00:34:36.641</ChapterTimeStart>
       <ChapterTimeEnd>00:35:27.859</ChapterTimeEnd>
       <ChapterDisplay>
         <ChapterString>1995 - Jim &amp; Linda Wedding - 23 Reception Cleaning up After Cake Smash (March 18, 1995)</ChapterString>
+        <ChapterLanguage>und</ChapterLanguage>
+      </ChapterDisplay>
+    </ChapterAtom>
+    <ChapterAtom>
+      <ChapterTimeStart>00:35:27.892</ChapterTimeStart>
+      <ChapterTimeEnd>00:35:56.421</ChapterTimeEnd>
+      <ChapterDisplay>
+        <ChapterString>1995 - Jim &amp; Linda Wedding - 24 Reception Post Cake Smash (March 18, 1995)</ChapterString>
         <ChapterLanguage>und</ChapterLanguage>
       </ChapterDisplay>
     </ChapterAtom>
