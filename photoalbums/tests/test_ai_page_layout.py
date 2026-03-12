@@ -54,18 +54,8 @@ class TestAIPageLayout(unittest.TestCase):
             image[720:, :] = 0
             cv2.putText(
                 image,
-                "Creator: Audrey D. Cordell",
-                (90, 790),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1.0,
-                (255, 255, 255),
-                2,
-                cv2.LINE_AA,
-            )
-            cv2.putText(
-                image,
                 "Stitched: 2026-03-08 14:00:00",
-                (90, 845),
+                (90, 790),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 1.0,
                 (255, 255, 255),

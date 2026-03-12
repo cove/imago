@@ -80,6 +80,11 @@ def extract_scan_numbers(files: list[str]) -> list[int]:
     return scan_nums
 
 
+def build_source_filenames_text(files: list[str]) -> str:
+    names = [os.path.basename(str(path)) for path in files if str(path).strip()]
+    return "; ".join(names)
+
+
 def build_detail_description(
     collection: str,
     year: str,
@@ -137,7 +142,7 @@ def get_view_dirname(path: str | Path) -> str:
     return str(Path(path).parent / f"{base_no_archive}_View")
 
 
-def add_bottom_header(image, author: str, date_text: str, header_text: str, margin: int = 15):
+def add_bottom_header(image, date_text: str, header_text: str, margin: int = 15):
     _require_image_modules()
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     pil_image = Image.fromarray(image_rgb)
@@ -197,8 +202,8 @@ def add_bottom_header(image, author: str, date_text: str, header_text: str, marg
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
 
-    small_bbox = draw_temp.textbbox((0, 0), author, font=small_font)
-    small_text_height = small_bbox[3] - small_bbox[1]
+    date_bbox = draw_temp.textbbox((0, 0), date_text, font=small_font)
+    small_text_height = date_bbox[3] - date_bbox[1]
 
     line_spacing = margin * 2
     footer_height = text_height + small_text_height + (margin * 4) + line_spacing
@@ -214,9 +219,6 @@ def add_bottom_header(image, author: str, date_text: str, header_text: str, marg
     draw.text((x1, y1), header_text, fill="white", font=font)
 
     y2 = y1 + text_height + line_spacing
-    draw.text((margin, y2), author, fill="white", font=small_font)
-
-    date_bbox = draw_temp.textbbox((0, 0), date_text, font=small_font)
     date_width = date_bbox[2] - date_bbox[0]
     draw.text((width - date_width - margin, y2), date_text, fill="white", font=small_font)
 
@@ -250,22 +252,32 @@ def list_derived_images(directory: str | Path) -> list[str]:
     return files
 
 
-def write_jpeg(image, path: str | Path, header_text: str, quality: int = 95) -> None:
+def write_jpeg(
+    image,
+    path: str | Path,
+    header_text: str,
+    quality: int = 95,
+    extra_tags: dict[str, str] | None = None,
+) -> None:
     _require_image_modules()
     cv2.imwrite(str(path), image, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
+    tags = {
+        "XMP-dc:Creator": CREATOR,
+        "XMP-dc:Description": header_text,
+    }
+    for tag, value in dict(extra_tags or {}).items():
+        if str(tag or "").strip() and str(value or "").strip():
+            tags[str(tag)] = str(value)
     write_tags(
         path,
-        set_tags={
-            "XMP-dc:Creator": CREATOR,
-            "XMP-dc:Description": header_text,
-        },
+        set_tags=tags,
     )
 
 
 def tif_to_jpg(tif_path: str, output_dir: str) -> None:
     _require_image_modules()
     os.makedirs(output_dir, exist_ok=True)
-    collection, year, book, page = parse_album_filename(tif_path)
+    collection, year, book, page = parse_album_filename(os.path.basename(tif_path))
     out = os.path.join(
         output_dir,
         f"{collection}_{year}_B{book}_P{int(page):02d}.jpg",
@@ -289,7 +301,6 @@ def tif_to_jpg(tif_path: str, output_dir: str) -> None:
 
     img = add_bottom_header(
         img,
-        f"Creator: {CREATOR}",
         f"Stitched: {datetime.now():%Y-%m-%d %H:%M:%S}",
         jpg_header,
     )
@@ -351,7 +362,7 @@ def stitch(files, output_dir: str) -> None:
     _require_image_modules()
     os.makedirs(output_dir, exist_ok=True)
 
-    collection, year, book, page = parse_album_filename(files[0])
+    collection, year, book, page = parse_album_filename(os.path.basename(files[0]))
 
     out = os.path.join(
         output_dir,
@@ -360,6 +371,7 @@ def stitch(files, output_dir: str) -> None:
 
     scan_nums = extract_scan_numbers(files)
     header = build_scan_header(collection, year, book, int(page), scan_nums)
+    source_text = build_source_filenames_text(files)
 
     if output_is_valid(out):
         print(f"{collection} B{book} P{int(page):02d} OK")
@@ -403,14 +415,12 @@ def stitch(files, output_dir: str) -> None:
             )
         raise RuntimeError("All stitching attempts failed")
 
-    result = add_bottom_header(
+    write_jpeg(
         result,
-        f"Creator: {CREATOR}",
-        f"Stitched: {datetime.now():%Y-%m-%d %H:%M:%S}",
+        out,
         header,
+        extra_tags={"XMP-dc:Source": source_text} if source_text else None,
     )
-
-    write_jpeg(result, out, header)
 
     print(f"{collection} B{book} P{int(page):02d} OK")
 

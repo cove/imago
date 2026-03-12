@@ -17,6 +17,7 @@ from .ai_ocr import OCREngine, extract_keywords
 from .ai_page_layout import PreparedImageLayout, classify_image_kind, prepare_image_layout
 from .ai_render_settings import find_archive_dir_for_image, load_render_settings, resolve_effective_settings
 from ..common import PHOTO_ALBUMS_DIR
+from ..exiftool_utils import read_tag
 from .xmp_sidecar import write_xmp_sidecar
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp"}
@@ -24,7 +25,7 @@ MIN_EXISTING_SIDECAR_BYTES = 100
 DEFAULT_CREATOR_TOOL = "imago-photoalbums-ai-index"
 DEFAULT_MANIFEST_PATH = Path(__file__).resolve().parents[1] / "data" / "ai_index_manifest.jsonl"
 DEFAULT_CAST_STORE = Path(__file__).resolve().parents[2] / "cast" / "data"
-PROCESSOR_SIGNATURE = "page_split_v1"
+PROCESSOR_SIGNATURE = "page_split_v2_source_merge"
 
 
 @dataclass
@@ -121,26 +122,52 @@ def has_valid_sidecar(path: Path) -> bool:
         return False
 
 
-def needs_processing(path: Path, manifest_row: dict[str, Any] | None, force: bool) -> bool:
-    if force:
-        return True
-    if has_valid_sidecar(path):
+def has_current_sidecar(path: Path) -> bool:
+    sidecar_path = path.with_suffix(".xmp")
+    try:
+        if not has_valid_sidecar(path):
+            return False
+        return int(sidecar_path.stat().st_mtime_ns) >= int(path.stat().st_mtime_ns)
+    except FileNotFoundError:
         return False
-    if manifest_row is None:
+
+
+def read_embedded_source_text(path: Path) -> str:
+    return str(read_tag(path, "XMP-dc:Source") or "").strip()
+
+
+def needs_processing(
+    path: Path,
+    manifest_row: dict[str, Any] | None,
+    force: bool,
+    *,
+    reprocess_required: bool = False,
+) -> bool:
+    if force:
         return True
     try:
         stat = path.stat()
     except FileNotFoundError:
         return False
-    recorded_size = int(manifest_row.get("size", -1))
-    recorded_mtime = int(manifest_row.get("mtime_ns", -1))
-    if int(stat.st_size) != recorded_size or int(stat.st_mtime_ns) != recorded_mtime:
+    if reprocess_required:
         return True
     sidecar_path = path.with_suffix(".xmp")
-    recorded_sidecar = str(manifest_row.get("sidecar_path") or "").strip()
-    if recorded_sidecar and recorded_sidecar != str(sidecar_path):
+    if manifest_row is not None:
+        recorded_sidecar = str(manifest_row.get("sidecar_path") or "").strip()
+        if recorded_sidecar and recorded_sidecar != str(sidecar_path):
+            return True
+        if str(manifest_row.get("processor_signature") or "") != PROCESSOR_SIGNATURE:
+            return True
+        recorded_size = int(manifest_row.get("size", -1))
+        recorded_mtime = int(manifest_row.get("mtime_ns", -1))
+        if int(stat.st_size) != recorded_size or int(stat.st_mtime_ns) != recorded_mtime:
+            return True
+        return not has_current_sidecar(path)
+    if has_current_sidecar(path):
+        return False
+    if not has_valid_sidecar(path):
         return True
-    return True
+    return int(sidecar_path.stat().st_mtime_ns) < int(stat.st_mtime_ns)
 
 
 def _explicit_cli_flags(argv: list[str] | None) -> set[str]:
@@ -613,11 +640,17 @@ def run(argv: list[str] | None = None) -> int:
         settings_sig = _settings_signature(effective)
 
         manifest_row = manifest.get(str(image_path))
+        reprocess_required = False
         if manifest_row is not None:
             old_sig = str(manifest_row.get("settings_signature") or "")
             if old_sig != settings_sig:
-                manifest_row = None
-        if not needs_processing(image_path, manifest_row, bool(args.force)):
+                reprocess_required = True
+        if not needs_processing(
+            image_path,
+            manifest_row,
+            bool(args.force),
+            reprocess_required=reprocess_required,
+        ):
             skipped += 1
             if args.verbose:
                 print(f"[{idx}/{len(files)}] skip  {image_path.name}")
@@ -709,6 +742,7 @@ def run(argv: list[str] | None = None) -> int:
                 analysis_mode = "single_image"
                 split_applied = False
                 subphoto_count = 0
+                source_text = read_embedded_source_text(image_path)
 
                 if layout.page_like and layout.split_mode == "auto":
                     sub_results = [
@@ -769,13 +803,14 @@ def run(argv: list[str] | None = None) -> int:
                     object_count = len(analysis.object_labels)
                     analysis_mode = "page_flat" if layout.page_like else "single_image"
 
-                if not args.dry_run and not sidecar_path.exists():
+                if not args.dry_run:
                     write_xmp_sidecar(
                         sidecar_path,
                         creator_tool=creator_tool,
                         person_names=person_names,
                         subjects=subjects,
                         description=description,
+                        source_text=source_text,
                         ocr_text=ocr_text,
                         detections_payload=payload,
                         subphotos=subphotos_xml,

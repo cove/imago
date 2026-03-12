@@ -96,6 +96,7 @@ def build_xmp_tree(
     person_names: list[str],
     subjects: list[str],
     description: str,
+    source_text: str,
     ocr_text: str,
     detections_payload: dict | None = None,
     subphotos: list[dict] | None = None,
@@ -108,6 +109,7 @@ def build_xmp_tree(
     _add_bag(desc, f"{{{DC_NS}}}subject", _dedupe(subjects))
     _add_bag(desc, f"{{{IPTC_EXT_NS}}}PersonInImage", _dedupe(person_names))
     _add_alt_text(desc, f"{{{DC_NS}}}description", description)
+    _add_simple_text(desc, f"{{{DC_NS}}}source", str(source_text or "").strip())
 
     creator = ET.SubElement(desc, f"{{{XMP_NS}}}CreatorTool")
     creator.text = str(creator_tool or "").strip() or "imago-photoalbums-ai-index"
@@ -136,6 +138,7 @@ def write_xmp_sidecar(
     subjects: list[str],
     description: str,
     ocr_text: str,
+    source_text: str = "",
     detections_payload: dict | None = None,
     subphotos: list[dict] | None = None,
 ) -> Path:
@@ -146,6 +149,7 @@ def write_xmp_sidecar(
         person_names=person_names,
         subjects=subjects,
         description=description,
+        source_text=source_text,
         ocr_text=ocr_text,
         detections_payload=detections_payload,
         subphotos=subphotos,

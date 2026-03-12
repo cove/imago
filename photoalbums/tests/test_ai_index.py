@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -77,19 +78,22 @@ class TestAIIndex(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "a.jpg"
             image.write_bytes(b"abc")
-            image.with_suffix(".xmp").write_text(self._valid_sidecar_text(), encoding="utf-8")
+            sidecar = image.with_suffix(".xmp")
+            sidecar.write_text(self._valid_sidecar_text(), encoding="utf-8")
             stat = image.stat()
             row = {
                 "image_path": str(image),
                 "size": stat.st_size,
                 "mtime_ns": stat.st_mtime_ns,
-                "sidecar_path": str(image.with_suffix(".xmp")),
+                "sidecar_path": str(sidecar),
+                "processor_signature": ai_index.PROCESSOR_SIGNATURE,
             }
             self.assertFalse(ai_index.needs_processing(image, row, force=False))
             self.assertTrue(ai_index.needs_processing(image, row, force=True))
 
-            image.write_bytes(b"abcd")
-            self.assertFalse(ai_index.needs_processing(image, row, force=False))
+            next_ns = max(sidecar.stat().st_mtime_ns, image.stat().st_mtime_ns) + 5_000_000
+            os.utime(image, ns=(next_ns, next_ns))
+            self.assertTrue(ai_index.needs_processing(image, row, force=False))
 
     def test_needs_processing_requires_current_sidecar(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -101,6 +105,7 @@ class TestAIIndex(unittest.TestCase):
                 "size": stat.st_size,
                 "mtime_ns": stat.st_mtime_ns,
                 "sidecar_path": str(image.with_suffix(".xmp")),
+                "processor_signature": ai_index.PROCESSOR_SIGNATURE,
             }
             self.assertTrue(ai_index.needs_processing(image, row, force=False))
 
@@ -125,7 +130,7 @@ class TestAIIndex(unittest.TestCase):
 
             self.assertTrue(ai_index.needs_processing(image, None, force=False))
 
-    def test_run_does_not_overwrite_existing_sidecar(self):
+    def test_run_force_rewrites_existing_sidecar_and_merges_embedded_source(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             photos = base / "Family_View"
@@ -157,6 +162,7 @@ class TestAIIndex(unittest.TestCase):
                 mock.patch.object(ai_index, "prepare_image_layout", side_effect=lambda *args, **kwargs: self._mock_layout(image)),
                 mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
                 mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch.object(ai_index, "read_embedded_source_text", return_value="Family_2020_B01_P01_S01.tif; Family_2020_B01_P01_S02.tif"),
                 mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
             ):
                 result = ai_index.run(
@@ -177,7 +183,11 @@ class TestAIIndex(unittest.TestCase):
                 )
 
             self.assertEqual(result, 0)
-            write_mock.assert_not_called()
+            write_mock.assert_called_once()
+            self.assertEqual(
+                write_mock.call_args.kwargs["source_text"],
+                "Family_2020_B01_P01_S01.tif; Family_2020_B01_P01_S02.tif",
+            )
             self.assertEqual(sidecar.read_text(encoding="utf-8"), original)
 
     def test_run_skips_processing_when_valid_sidecar_exists(self):
@@ -213,6 +223,76 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(result, 0)
             analysis_mock.assert_not_called()
             write_mock.assert_not_called()
+
+    def test_run_rewrites_sidecar_when_image_is_newer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            photos = base / "Family_View"
+            photos.mkdir()
+            image = photos / "a.jpg"
+            image.write_bytes(b"abc")
+            sidecar = image.with_suffix(".xmp")
+            sidecar.write_text(self._valid_sidecar_text(), encoding="utf-8")
+            manifest = base / "manifest.jsonl"
+
+            stat = image.stat()
+            ai_index.save_manifest(
+                manifest,
+                {
+                    str(image): {
+                        "image_path": str(image),
+                        "size": int(stat.st_size),
+                        "mtime_ns": int(stat.st_mtime_ns),
+                        "sidecar_path": str(sidecar),
+                        "processor_signature": ai_index.PROCESSOR_SIGNATURE,
+                        "settings_signature": "",
+                    }
+                },
+            )
+
+            next_ns = max(sidecar.stat().st_mtime_ns, image.stat().st_mtime_ns) + 5_000_000
+            os.utime(image, ns=(next_ns, next_ns))
+
+            analysis = ai_index.ImageAnalysis(
+                image_path=image,
+                people_names=["Alice"],
+                object_labels=["dog"],
+                ocr_text="hello",
+                ocr_keywords=["hello"],
+                subjects=["dog"],
+                description="Alice with a dog",
+                payload={
+                    "people": [{"name": "Alice"}],
+                    "objects": [{"label": "dog"}],
+                    "ocr": {"engine": "none", "language": "eng"},
+                    "caption": {"engine": "template"},
+                },
+            )
+
+            with (
+                mock.patch.object(ai_index, "prepare_image_layout", side_effect=lambda *args, **kwargs: self._mock_layout(image)),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--manifest",
+                        str(manifest),
+                        "--include-view",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "none",
+                        "--caption-engine",
+                        "template",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            write_mock.assert_called_once()
 
     def test_build_description(self):
         text = ai_index.build_description(
