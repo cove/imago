@@ -1158,6 +1158,11 @@
       border-radius: 4px;
       background: rgba(5, 9, 15, 0.62);
       transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+      cursor: pointer;
+    }
+    .flipbook-subtitle-rail-row:hover {
+      border-color: rgba(140, 160, 190, 0.5);
+      background: rgba(15, 25, 40, 0.75);
     }
     .flipbook-subtitle-rail-row:last-child {
       margin-bottom: 0;

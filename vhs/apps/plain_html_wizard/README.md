@@ -90,7 +90,7 @@ Step 5: Summary + save
 
 1. Click the top `5/5 Summary + Save` step button.
 2. Confirm bad-frame, gamma, and people subtitle settings.
-3. Click `Save and Return to Chapters`.
+3. Click `Save and Return to Chapter`.
 4. The tuner saves:
    - `metadata/<archive>/render_settings.json` (`BAD_FRAMES` + gamma)
    - `metadata/<archive>/people.tsv` (people subtitle ranges)

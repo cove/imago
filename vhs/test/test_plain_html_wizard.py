@@ -1,3 +1,5 @@
+import csv
+
 import pytest
 pytest.importorskip("numpy")
 pytest.importorskip("cv2")
@@ -48,6 +50,39 @@ def _make_session() -> SessionState:
     return SessionState(fids=fids, sigs=sigs, overrides={})
 
 
+def _write_single_chapter_tsv(path: Path, title: str, start_frame: int, end_frame: int) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "\n".join(
+            [
+                "__chapter_index\tffmeta_title\tTIMEBASE\tSTART\tEND\ttitle",
+                f"1\tDemo Archive\t1001/30000\t{int(start_frame)}\t{int(end_frame)}\t{title}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _make_loaded_wizard_session(archive: str, chapter: str, start_frame: int, end_frame: int) -> SessionState:
+    frame_count = max(1, int(end_frame) - int(start_frame))
+    return SessionState(
+        archive=archive,
+        chapter=chapter,
+        start_frame=int(start_frame),
+        end_frame=int(end_frame),
+        fids=list(range(int(start_frame), int(end_frame))),
+        b64=["data:image/jpeg;base64,AA=="] * frame_count,
+        sigs={
+            "chroma": np.linspace(0.1, 0.4, frame_count, dtype=np.float64),
+            "noise": np.zeros(frame_count, dtype=np.float64),
+            "tear": np.zeros(frame_count, dtype=np.float64),
+            "wave": np.zeros(frame_count, dtype=np.float64),
+        },
+        overrides={},
+    )
+
+
 class _HandlerStub:
     def __init__(self) -> None:
         self.payload = None
@@ -60,6 +95,20 @@ class _HandlerStub:
     def _send_error_json(self, message, code=400) -> None:
         _ = code
         self.error = str(message)
+
+
+class _PostHandlerStub(_HandlerStub):
+    def __init__(self, path: str, payload: dict, session: SessionState | None = None) -> None:
+        super().__init__()
+        self.path = str(path)
+        self._payload = dict(payload)
+        self._session = session or SessionState()
+
+    def _ensure_session(self) -> SessionState:
+        return self._session
+
+    def _read_json(self) -> dict:
+        return dict(self._payload)
 
 
 def test_normalize_iqr_k_clamps_and_parses() -> None:
@@ -300,6 +349,12 @@ def test_static_html_contains_live_iqr_spark_and_fullscreen_controls() -> None:
     assert 'id="peopleMeta"' in html
     assert 'id="subtitlesMeta"' in html
     assert "subtitles-editor-grid" in html
+    assert "label: 'Chapter'" in html
+    assert "Save and Return to Chapter" in html
+    assert "Use the Chapter step to edit the loaded chapter range" in html
+    assert "Chapter step | range" in html
+    assert "data-split-row-delete" not in html
+    assert "next row starts at end + 1" not in html
     assert "active-row" in html
     assert 'data-sub-field="text"' in html
     assert "parseSubtitlesEditorGrid(" in html
@@ -519,6 +574,50 @@ def test_save_split_entries_writes_start_end_columns(tmp_path: Path, monkeypatch
     assert lines[3].split("\t")[2:6] == ["1001/30000", "125", "180", "Part 2"]
 
 
+def test_save_split_entries_updates_single_existing_chapter_in_place(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(wizard_server, "METADATA_DIR", tmp_path)
+
+    archive = "demo_archive"
+    chapter = "Parent Chapter"
+    archive_dir = tmp_path / archive
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    (archive_dir / "chapters.tsv").write_text(
+        "\n".join(
+            [
+                "__chapter_index\tffmeta_title\tTIMEBASE\tSTART\tEND\ttitle",
+                "1\tDemo Archive\t1001/30000\t100\t200\tParent Chapter",
+                "2\tDemo Archive\t1001/30000\t300\t400\tOther Chapter",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    path, count = _save_split_entries_for_chapter(
+        archive,
+        chapter,
+        100,
+        200,
+        [
+            {"start_frame": 20, "end_frame": 80, "title": "Updated Chapter"},
+        ],
+    )
+
+    assert count == 1
+    with path.open("r", encoding="utf-8", newline="") as fh:
+        rows = list(csv.DictReader(fh, delimiter="\t"))
+
+    assert len(rows) == 2
+    assert rows[0]["title"] == "Updated Chapter"
+    assert rows[0]["START"] == "120"
+    assert rows[0]["END"] == "180"
+    assert rows[1]["title"] == "Other Chapter"
+    assert not any(row["title"] == "Parent Chapter" for row in rows)
+
+
 def test_load_split_entries_reads_canonical_chapters_tsv(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -578,3 +677,473 @@ def test_load_split_entries_accepts_legacy_start_frame_columns(
         {"start_frame": 0, "end_frame": 25, "start": "0", "end": "25", "title": "Part 1"},
         {"start_frame": 25, "end_frame": 80, "start": "25", "end": "80", "title": "Part 2"},
     ]
+
+
+def test_handle_load_chapter_populates_session_from_video_and_metadata(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    metadata_dir = tmp_path / "metadata"
+    archive_dir = tmp_path / "Archive"
+    archive_name = "demo_archive"
+    chapter = "Example Chapter"
+    archive_meta = metadata_dir / archive_name
+    archive_meta.mkdir(parents=True, exist_ok=True)
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    _write_single_chapter_tsv(archive_meta / "chapters.tsv", chapter, 100, 103)
+    (archive_dir / f"{archive_name}_proxy.mp4").write_bytes(b"mp4")
+
+    wizard_server._write_people_tsv_rows(
+        archive_meta / "people.tsv",
+        [
+            (
+                wizard_server._frame_to_seconds(99),
+                wizard_server._frame_to_seconds(101),
+                "Lynda",
+            ),
+            (
+                wizard_server._frame_to_seconds(101),
+                wizard_server._frame_to_seconds(103),
+                "Jim | Linda",
+            ),
+        ],
+    )
+    wizard_server._write_subtitles_tsv_rows(
+        archive_meta / "subtitles.tsv",
+        [
+            (
+                wizard_server._frame_to_seconds(100),
+                wizard_server._frame_to_seconds(102),
+                "Opening line",
+                "Narrator",
+                0.9,
+                "manual",
+            )
+        ],
+    )
+
+    extract_path = tmp_path / "extracts" / "chapter_extract.mp4"
+    extract_path.parent.mkdir(parents=True, exist_ok=True)
+    extract_path.write_bytes(b"extract")
+
+    monkeypatch.setattr(wizard_server, "METADATA_DIR", metadata_dir)
+    monkeypatch.setattr(wizard_server, "ARCHIVE_DIR", archive_dir)
+    monkeypatch.setattr(
+        wizard_server,
+        "_resolve_archive_video",
+        lambda archive: archive_dir / f"{archive}_proxy.mp4",
+    )
+    monkeypatch.setattr(
+        wizard_server,
+        "_archive_state",
+        lambda session_arg, archive, selected_title=None: {
+            "archive": archive,
+            "chapter": selected_title or chapter,
+            "status": "",
+            "details": "",
+            "start_frame": 100,
+            "end_frame": 103,
+            "chapters": [],
+        }
+        if not (
+            setattr(session_arg, "archive", archive)
+            or setattr(session_arg, "chapter", selected_title or chapter)
+            or setattr(
+                session_arg,
+                "chapters",
+                [{"title": chapter, "start_frame": 100, "end_frame": 103}],
+            )
+            or setattr(session_arg, "chapter_rows", [])
+            or setattr(session_arg, "start_frame", 100)
+            or setattr(session_arg, "end_frame", 103)
+        )
+        else {},
+    )
+    monkeypatch.setattr(
+        wizard_server,
+        "_ensure_render_chapter_extract",
+        lambda **_kwargs: (extract_path, None),
+    )
+    monkeypatch.setattr(
+        wizard_server,
+        "get_gamma_profile_for_chapter",
+        lambda **_kwargs: {
+            "default_gamma": 1.25,
+            "ranges": [{"start_frame": 100, "end_frame": 102, "gamma": 1.4}],
+            "source": "render_settings",
+        },
+    )
+    monkeypatch.setattr(
+        wizard_server,
+        "get_transcript_mode_for_chapter",
+        lambda **_kwargs: "append",
+    )
+
+    def _fake_extract_frames(
+        source_video,
+        start_frame,
+        end_frame,
+        n_frames,
+        archive,
+        chapter_title,
+        include_thumbs=False,
+        frame_read_offset=0,
+        progress=None,
+        should_cancel=None,
+        frame_callback=None,
+    ):
+        assert Path(source_video) == extract_path
+        assert start_frame == 100
+        assert end_frame == 103
+        assert n_frames == 3
+        assert archive == archive_name
+        assert chapter_title == chapter
+        assert include_thumbs is False
+        assert frame_read_offset == 100
+        assert callable(should_cancel)
+        if callable(progress):
+            progress(0.5, "half")
+        if callable(frame_callback):
+            frame_callback(100, "data:image/jpeg;base64,AA==", 0.1, 0.0, 0.0, 0.0, 1, 3)
+            frame_callback(101, "data:image/jpeg;base64,AQ==", 0.2, 0.0, 0.0, 0.0, 2, 3)
+        sigs = {
+            "chroma": np.array([0.1, 0.2, 0.3], dtype=np.float64),
+            "noise": np.zeros(3, dtype=np.float64),
+            "tear": np.zeros(3, dtype=np.float64),
+            "wave": np.zeros(3, dtype=np.float64),
+        }
+        return [100, 101, 102], ["data:image/jpeg;base64,AA=="] * 3, sigs, None
+
+    monkeypatch.setattr(wizard_server, "extract_frames", _fake_extract_frames)
+
+    session = SessionState(
+        preview_video_path="stale_preview.mp4",
+        chapter_audio_path="stale.wav",
+        chapter_audio_key="stale",
+        people_entries=[{"people": "Stale"}],
+        subtitle_entries=[{"text": "Stale"}],
+        split_entries=[{"title": "Stale"}],
+    )
+    handler = _HandlerStub()
+
+    WizardHandler._handle_load_chapter(
+        handler,
+        session,
+        {
+            "archive": archive_name,
+            "chapter": chapter,
+            "iqr_k": 2.5,
+            "force_all_frames_good": True,
+        },
+    )
+
+    assert handler.error is None
+    assert handler.payload is not None
+    assert handler.payload["ok"] is True
+    assert session.archive == archive_name
+    assert session.chapter == chapter
+    assert session.start_frame == 100
+    assert session.end_frame == 103
+    assert session.iqr_k == 2.5
+    assert session.force_all_frames_good is True
+    assert session.frame_source_video_path == str(extract_path)
+    assert session.frame_source_read_offset == 100
+    assert session.preview_video_path == ""
+    assert session.chapter_audio_path == ""
+    assert session.chapter_audio_key == ""
+    assert session.fids == [100, 101, 102]
+    assert session.partial_fids == [100, 101]
+    assert session.gamma_default == 1.25
+    assert session.auto_transcript == "append"
+    assert [row["people"] for row in session.people_entries] == ["Lynda", "Jim | Linda"]
+    assert [row["text"] for row in session.subtitle_entries] == ["Opening line"]
+    assert handler.payload["settings"]["loaded_count"] == 3
+    assert handler.payload["settings"]["start_frame"] == 100
+    assert handler.payload["settings"]["end_frame"] == 103
+    assert handler.payload["settings"]["gamma_profile"]["source"] == "render_settings"
+    assert handler.payload["settings"]["people_profile"]["entries"] == session.people_entries
+    assert handler.payload["settings"]["subtitles_profile"]["entries"] == session.subtitle_entries
+
+
+def test_handle_load_chapter_reports_missing_archive_video(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    metadata_dir = tmp_path / "metadata"
+    archive_name = "demo_archive"
+    chapter = "Example Chapter"
+    _write_single_chapter_tsv(metadata_dir / archive_name / "chapters.tsv", chapter, 100, 103)
+
+    monkeypatch.setattr(wizard_server, "METADATA_DIR", metadata_dir)
+    monkeypatch.setattr(wizard_server, "ARCHIVE_DIR", tmp_path / "Archive")
+    monkeypatch.setattr(
+        wizard_server,
+        "_archive_state",
+        lambda session_arg, archive, selected_title=None: {
+            "archive": archive,
+            "chapter": selected_title or chapter,
+            "status": "",
+            "details": "",
+            "start_frame": 100,
+            "end_frame": 103,
+            "chapters": [],
+        }
+        if not (
+            setattr(session_arg, "archive", archive)
+            or setattr(session_arg, "chapter", selected_title or chapter)
+            or setattr(
+                session_arg,
+                "chapters",
+                [{"title": chapter, "start_frame": 100, "end_frame": 103}],
+            )
+            or setattr(session_arg, "chapter_rows", [])
+            or setattr(session_arg, "start_frame", 100)
+            or setattr(session_arg, "end_frame", 103)
+        )
+        else {},
+    )
+
+    session = SessionState()
+    handler = _HandlerStub()
+
+    WizardHandler._handle_load_chapter(
+        handler,
+        session,
+        {
+            "archive": archive_name,
+            "chapter": chapter,
+        },
+    )
+
+    assert handler.payload is None
+    assert handler.error == f"No archive video found for '{archive_name}'."
+    assert session.load_running is False
+    assert session.load_progress == 0.0
+    assert session.load_message == f"No archive video found for '{archive_name}'."
+    assert session.frame_source_video_path == ""
+
+
+def test_handle_save_progress_persists_people_subtitles_and_split_profiles(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    metadata_dir = tmp_path / "metadata"
+    archive_name = "demo_archive"
+    chapter = "Example Chapter"
+    archive_meta = metadata_dir / archive_name
+    archive_meta.mkdir(parents=True, exist_ok=True)
+    _write_single_chapter_tsv(archive_meta / "chapters.tsv", chapter, 100, 200)
+
+    wizard_server._write_people_tsv_rows(
+        archive_meta / "people.tsv",
+        [
+            (
+                wizard_server._frame_to_seconds(80),
+                wizard_server._frame_to_seconds(90),
+                "Before Chapter",
+            ),
+            (
+                wizard_server._frame_to_seconds(220),
+                wizard_server._frame_to_seconds(230),
+                "Outside Chapter",
+            ),
+        ],
+    )
+    wizard_server._write_subtitles_tsv_rows(
+        archive_meta / "subtitles.tsv",
+        [
+            (
+                wizard_server._frame_to_seconds(80),
+                wizard_server._frame_to_seconds(90),
+                "Old subtitle",
+                "",
+                None,
+                "manual",
+            ),
+            (
+                wizard_server._frame_to_seconds(220),
+                wizard_server._frame_to_seconds(230),
+                "Outside subtitle",
+                "",
+                None,
+                "manual",
+            ),
+        ],
+    )
+
+    render_settings = archive_meta / "render_settings.json"
+    render_settings.write_text("{}", encoding="utf-8")
+
+    monkeypatch.setattr(wizard_server, "METADATA_DIR", metadata_dir)
+    monkeypatch.setattr(
+        wizard_server,
+        "persist_bad_frames_for_chapter",
+        lambda **kwargs: (render_settings, 2, len(kwargs["fids"]), None),
+    )
+    monkeypatch.setattr(
+        wizard_server,
+        "update_chapter_gamma_in_render_settings",
+        lambda **_kwargs: render_settings,
+    )
+
+    session = _make_loaded_wizard_session(archive_name, chapter, 100, 200)
+    handler = _HandlerStub()
+
+    WizardHandler._handle_save_progress(
+        handler,
+        session,
+        {
+            "force_all_frames_good": True,
+            "gamma_profile": {
+                "default_gamma": 1.2,
+                "ranges": [{"start_frame": 110, "end_frame": 120, "gamma": 1.4}],
+            },
+            "people_profile": {
+                "entries": [
+                    {"start": "00:00:00.000", "end": "00:00:01.000", "people": "Jim | Linda"},
+                ]
+            },
+            "subtitles_profile": {
+                "entries": [
+                    {
+                        "start": "00:00:00.000",
+                        "end": "00:00:01.500",
+                        "text": "Hello there",
+                        "speaker": "Narrator",
+                        "confidence": 0.9,
+                        "source": "manual",
+                    }
+                ]
+            },
+            "split_profile": {
+                "entries": [
+                    {"start": "0", "end": "40", "title": "Part 1"},
+                    {"start": "40", "end": "100", "title": "Part 2"},
+                ]
+            },
+        },
+    )
+
+    assert handler.error is None
+    assert handler.payload is not None
+    assert handler.payload["ok"] is True
+    assert "people entries 1" in handler.payload["message"]
+    assert "subtitle entries 1" in handler.payload["message"]
+    assert "split entries 2" in handler.payload["message"]
+    assert session.force_all_frames_good is True
+    assert session.gamma_default == 1.2
+    assert len(session.gamma_ranges) == 1
+
+    people_local = wizard_server._load_people_entries_for_chapter(archive_name, 100, 200)
+    subtitles_local = wizard_server._load_subtitle_entries_for_chapter(archive_name, 100, 200)
+    assert [row["people"] for row in people_local] == ["Jim | Linda"]
+    assert [row["text"] for row in subtitles_local] == ["Hello there"]
+
+    people_rows = wizard_server._read_people_tsv_rows(archive_meta / "people.tsv")
+    subtitles_rows = wizard_server._read_subtitles_tsv_rows(archive_meta / "subtitles.tsv")
+    chapters_text = (archive_meta / "chapters.tsv").read_text(encoding="utf-8")
+    assert any(row[2] == "Outside Chapter" for row in people_rows)
+    assert any(row[2] == "Outside subtitle" for row in subtitles_rows)
+    assert "Part 1" in chapters_text
+    assert "Part 2" in chapters_text
+
+
+def test_handle_save_returns_archive_state_and_counts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    metadata_dir = tmp_path / "metadata"
+    archive_name = "demo_archive"
+    chapter = "Example Chapter"
+    archive_meta = metadata_dir / archive_name
+    archive_meta.mkdir(parents=True, exist_ok=True)
+    _write_single_chapter_tsv(archive_meta / "chapters.tsv", chapter, 100, 200)
+
+    render_settings = archive_meta / "render_settings.json"
+    render_settings.write_text("{}", encoding="utf-8")
+
+    monkeypatch.setattr(wizard_server, "METADATA_DIR", metadata_dir)
+    monkeypatch.setattr(
+        wizard_server,
+        "persist_bad_frames_for_chapter",
+        lambda **kwargs: (render_settings, 3, len(kwargs["fids"]), None),
+    )
+    monkeypatch.setattr(
+        wizard_server,
+        "update_chapter_gamma_in_render_settings",
+        lambda **_kwargs: render_settings,
+    )
+    monkeypatch.setattr(
+        wizard_server,
+        "_archive_state",
+        lambda _session, archive, selected_title=None: {
+            "archive": archive,
+            "chapter": selected_title,
+            "status": "",
+            "details": "stub",
+            "start_frame": 100,
+            "end_frame": 200,
+            "chapters": [{"title": selected_title}],
+        },
+    )
+
+    session = _make_loaded_wizard_session(archive_name, chapter, 100, 200)
+    handler = _HandlerStub()
+
+    WizardHandler._handle_save(
+        handler,
+        session,
+        {
+            "people_profile": {"entries": [{"start": "0", "end": "1", "people": "Jim"}]},
+            "subtitles_profile": {
+                "entries": [{"start": "0", "end": "1", "text": "Hello", "speaker": "", "source": "manual"}]
+            },
+            "split_profile": {"entries": [{"start": "0", "end": "100", "title": "Example Chapter"}]},
+        },
+    )
+
+    assert handler.error is None
+    assert handler.payload is not None
+    assert handler.payload["ok"] is True
+    assert "Saved people entries: 1." in handler.payload["message"]
+    assert "Saved subtitle entries: 1." in handler.payload["message"]
+    assert handler.payload["archive_state"]["archive"] == archive_name
+    assert handler.payload["archive_state"]["chapter"] == chapter
+    assert handler.payload["metadata_path"] == str(archive_meta / "chapters.tsv")
+
+
+def test_do_post_rename_chapter_updates_tsv_and_returns_files(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    metadata_dir = tmp_path / "metadata"
+    archive_name = "demo_archive"
+    archive_meta = metadata_dir / archive_name
+    archive_meta.mkdir(parents=True, exist_ok=True)
+    _write_single_chapter_tsv(archive_meta / "chapters.tsv", "Old Title", 100, 200)
+
+    monkeypatch.setattr(wizard_server, "METADATA_DIR", metadata_dir)
+    monkeypatch.setattr(
+        wizard_server,
+        "_rename_chapter_outputs",
+        lambda old_title, new_title: [f"{wizard_server.safe(new_title)}.mp4"],
+    )
+
+    handler = _PostHandlerStub(
+        "/api/rename_chapter",
+        {
+            "archive": archive_name,
+            "old_title": "Old Title",
+            "new_title": "New Title",
+        },
+    )
+
+    WizardHandler.do_POST(handler)
+
+    assert handler.error is None
+    assert handler.payload is not None
+    assert handler.payload["ok"] is True
+    assert handler.payload["renamed_files"] == [f"{wizard_server.safe('New Title')}.mp4"]
+    chapters_text = (archive_meta / "chapters.tsv").read_text(encoding="utf-8")
+    assert "New Title" in chapters_text
+    assert "Old Title" not in chapters_text

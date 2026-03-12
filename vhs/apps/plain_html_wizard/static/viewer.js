@@ -2,6 +2,10 @@ function isReviewFullscreenActive() {
   return document.fullscreenElement === page2El || document.body.classList.contains('review-fullscreen-fallback');
 }
 
+function isFlipbookFocusModeActive() {
+  return Boolean(page2El && page2El.classList.contains('flipbook-focus'));
+}
+
 function clearFlipbookSubtitleRail() {
   if (!flipbookSubtitleRailEl) return;
   flipbookSubtitleRailEl.classList.remove('empty');
@@ -665,7 +669,7 @@ function renderFlipbookSubtitleRail(rawSeconds, around) {
         ? `<span class="flipbook-subtitle-rail-speaker">${escapeHtml(speaker)}:</span>`
         : '';
       return `
-        <div class="flipbook-subtitle-rail-row" data-subtitle-rail-index="${idx}">
+        <div class="flipbook-subtitle-rail-row" data-subtitle-rail-index="${idx}" data-subtitle-start-seconds="${Number(row.start_seconds || 0)}">
           <div class="flipbook-subtitle-rail-time">${escapeHtml(`${startText} - ${endText}`)}</div>
           <div class="flipbook-subtitle-rail-text">${speakerHtml}${escapeHtml(String(row.text || ''))}</div>
         </div>
@@ -823,9 +827,19 @@ function renderSparkPlaybackFrame(index, options = {}) {
   const fidKey = String((frame.fid !== undefined && frame.fid !== null) ? frame.fid : '');
   const tc = String(timelineLabelFromFid(frame.fid) || '');
   const frameSeconds = chapterLocalSecondsFromFid(frame.fid);
+  // Apply freeze frame simulation: bad frames display their clean source frame instead.
+  let displayFid = frame.fid;
+  let isFrozen = false;
+  if (state.simulateFreezeFrame && frame.status === 'bad' && state.freezeReplacementMap) {
+    const sourceFid = state.freezeReplacementMap.get(fidKey);
+    if (sourceFid !== undefined && sourceFid !== null) {
+      displayFid = sourceFid;
+      isFrozen = true;
+    }
+  }
   // Render frame: prefer contact-sheet sprite (already browser-cached from grid) via canvas
   // drawImage — zero network requests during playback. Fall back to URL-based img load.
-  const _fIdx = _flipbookFrameGlobalIndex(frame.fid);
+  const _fIdx = _flipbookFrameGlobalIndex(displayFid);
   const _sprite = _fIdx >= 0 ? frameContactSheetSpecForIndex(_fIdx) : null;
   const _sheetImg = _sprite
     ? (frameSheetImageObjects.get(_sprite.url) || frameSheetPrefetchPending.get(_sprite.url))
@@ -839,23 +853,37 @@ function renderSparkPlaybackFrame(index, options = {}) {
         0, 0, flipbookImageEl.width, flipbookImageEl.height);
     }
   } else {
-    // Fallback: individual frame URL (first-time load or contact sheet not yet ready).
-    // After the first request the browser caches the response; subsequent loads are instant.
-    const src = frameImageSrcForFid(fidKey, frame.image);
-    if (src) {
-      const _fallbackImg = new Image();
-      const _capturedIdx = idx;
-      _fallbackImg.onload = () => {
-        if (sparkPlayIndex !== _capturedIdx) return;
-        const ctx2 = flipbookImageEl.getContext && flipbookImageEl.getContext('2d');
-        if (ctx2) ctx2.drawImage(_fallbackImg, 0, 0, flipbookImageEl.width, flipbookImageEl.height);
-      };
-      _fallbackImg.src = src;
+    // Secondary: any already-loaded contact sheet (e.g. the metrics-based grid sheet)
+    // that happens to cover the target frame. This gives an immediate draw while the
+    // preferred no-metrics sheet is still loading in the background.
+    const _anySheet = _findAnyLoadedSheetForFrameIndex(_fIdx);
+    if (_anySheet) {
+      const ctx = flipbookImageEl.getContext && flipbookImageEl.getContext('2d');
+      if (ctx) {
+        const sx = _anySheet.col * _anySheet.thumbWidth;
+        const sy = _anySheet.row * _anySheet.thumbHeight;
+        ctx.drawImage(_anySheet.img, sx, sy, _anySheet.thumbWidth, _anySheet.thumbHeight,
+          0, 0, flipbookImageEl.width, flipbookImageEl.height);
+      }
+    } else {
+      // Fallback: individual frame URL. After the first request the browser caches it.
+      const displayFidKey = String((displayFid !== undefined && displayFid !== null) ? displayFid : '');
+      const src = frameImageSrcForFid(displayFidKey, isFrozen ? '' : frame.image);
+      if (src) {
+        const _fallbackImg = new Image();
+        const _capturedIdx = idx;
+        _fallbackImg.onload = () => {
+          if (sparkPlayIndex !== _capturedIdx) return;
+          const ctx2 = flipbookImageEl.getContext && flipbookImageEl.getContext('2d');
+          if (ctx2) ctx2.drawImage(_fallbackImg, 0, 0, flipbookImageEl.width, flipbookImageEl.height);
+        };
+        _fallbackImg.src = src;
+      }
     }
   }
   flipbookImageEl.setAttribute('aria-label', `Flipbook frame ${tc || (idx + 1)}`);
   if (flipbookMetaEl) {
-    const statusTag = frame.status === 'bad' ? 'BAD' : 'GOOD';
+    const statusTag = isFrozen ? 'FROZEN' : (frame.status === 'bad' ? 'BAD' : 'GOOD');
     flipbookMetaEl.textContent = `${idx + 1}/${sparkPlayFrames.length}  T:${tc || '?'}  ${statusTag}`;
   }
   sparkPlayIndex = idx;
@@ -1270,6 +1298,36 @@ function resetFrameSheetPrefetchState() {
   frameSheetImageObjects = new Map();
 }
 
+// Return sprite data from any already-loaded contact sheet that covers frameIndex,
+// regardless of the sheet's column count or chunk size. Used as a fallback when the
+// preferred no-metrics sheet hasn't finished loading yet.
+function _findAnyLoadedSheetForFrameIndex(frameIndex) {
+  if (!Number.isFinite(frameIndex) || frameIndex < 0) return null;
+  const config = normalizeFrameSheetConfig(state.frameSheetConfig || null);
+  const thumbWidth = Math.max(1, Math.trunc(Number(config.thumbWidth || FRAME_SHEET_DEFAULT_THUMB_WIDTH)));
+  const thumbHeight = Math.max(1, Math.trunc(Number(config.thumbHeight || FRAME_SHEET_DEFAULT_THUMB_HEIGHT)));
+  for (const [url, img] of frameSheetImageObjects) {
+    if (!img || !img.complete || !img.naturalWidth) continue;
+    try {
+      const params = new URL(url, window.location.href).searchParams;
+      const start = Math.trunc(Number(params.get('start') || 0));
+      const count = Math.trunc(Number(params.get('count') || 0));
+      const columns = Math.max(1, Math.trunc(Number(params.get('columns') || FRAME_SHEET_DEFAULT_COLUMNS)));
+      if (frameIndex >= start && frameIndex < start + count) {
+        const offset = frameIndex - start;
+        return {
+          img,
+          col: offset % columns,
+          row: Math.floor(offset / columns),
+          thumbWidth,
+          thumbHeight,
+        };
+      }
+    } catch (_unused) { /* malformed URL, skip */ }
+  }
+  return null;
+}
+
 function _frameListToRanges(frameIds) {
   const ints = Array.from(
     new Set(
@@ -1500,14 +1558,16 @@ function frameGridContactSheetPlan(metricsRaw = null) {
     1,
     Number((metrics && metrics.rowStride) || (FRAME_GRID_CARD_HEIGHT_PX + FRAME_GRID_GAP_PX))
   );
-  const viewportHeight = Math.max(
-    rowStride,
-    Number((frameGridEl && frameGridEl.clientHeight) || rowStride)
-  );
-  const visibleRows = Math.max(1, Math.ceil(viewportHeight / rowStride));
-  const targetRows = Math.max(FRAME_GRID_CONTACT_SHEET_MIN_ROWS, visibleRows + (FRAME_GRID_OVERSCAN_ROWS * 2));
   const maxRows = Math.max(1, Math.floor(maxCount / columns));
-  const rows = Math.max(1, Math.min(targetRows, maxRows));
+  // When metrics are provided (grid display), size the sheet to the visible viewport so
+  // it covers just enough rows. When called without metrics (flipbook canvas path), always
+  // use the full chunk size so the URL is stable across layout/viewport changes.
+  const rows = metrics ? (() => {
+    const viewportHeight = Math.max(rowStride, Number((frameGridEl && frameGridEl.clientHeight) || rowStride));
+    const visibleRows = Math.max(1, Math.ceil(viewportHeight / rowStride));
+    const targetRows = Math.max(FRAME_GRID_CONTACT_SHEET_MIN_ROWS, visibleRows + (FRAME_GRID_OVERSCAN_ROWS * 2));
+    return Math.max(1, Math.min(targetRows, maxRows));
+  })() : maxRows;
   const count = Math.max(columns, Math.min(maxCount, columns * rows));
   return {
     rev: String(config.rev || ''),
@@ -1598,6 +1658,20 @@ function prefetchVisibleFrameSheets(metricsRaw = null, rangeRaw = null) {
   if (!current) return;
   _recordImageFetchedRange(current.start, current.start + current.count - 1);
   const stride = Math.max(1, Math.trunc(Number(current.count || 1)));
+  // Prefetch visible-range contact sheets using no-metrics so URLs match renderSparkPlaybackFrame
+  // (which also uses no metrics → config-based columns). This populates frameSheetImageObjects
+  // so the flipbook canvas can draw immediately without a fallback reload.
+  const _fbVisStart = frameContactSheetSpecForIndex(startIndex);
+  const _fbVisEnd = frameContactSheetSpecForIndex(endIndex);
+  if (_fbVisStart) {
+    const _fbStride = Math.max(1, Math.trunc(Number(_fbVisStart.count || 1)));
+    const _fbEndStart = _fbVisEnd ? _fbVisEnd.start : _fbVisStart.start;
+    for (let s = _fbVisStart.start; s <= _fbEndStart; s += _fbStride) {
+      const sheet = frameContactSheetSpecForSheetStart(s);
+      if (sheet && sheet.url) prefetchFrameContactSheet(sheet.url);
+    }
+  }
+  // Look-ahead prefetch (metrics-based URLs for CSS grid scroll performance)
   for (let i = 1; i <= FRAME_GRID_CONTACT_SHEET_PREFETCH_AHEAD; i += 1) {
     const nextStart = current.start + (stride * i);
     const next = frameContactSheetSpecForSheetStart(nextStart, metrics);
@@ -1781,14 +1855,7 @@ function refreshFreezeSimulation() {
   ensureFlipbookReady(false);
 }
 
-function renderReviewFrames(frames) {
-  const review = setReviewState(
-    {
-      ...(state.review || {}),
-      frames: frames || [],
-    },
-    state.review && Array.isArray(state.review.frames) ? state.review.frames : null
-  );
+function clearRenderedReviewFrames() {
   const mergedFrames = currentReviewFrames();
   if (!mergedFrames.length) {
     state.freezeReplacementMap = new Map();
@@ -1801,8 +1868,27 @@ function renderReviewFrames(frames) {
     flipbookGridCursorIndex = -1;
     renderActiveSparkline([], 0);
     updateTimelineScrubUi();
-    return;
+    return true;
   }
+  return false;
+}
+
+function renderReviewFrames(frames, options = {}) {
+  const suppressPlaceholderMerge = Boolean(options && options.suppressPlaceholderMerge);
+  const review = suppressPlaceholderMerge
+    ? replaceReviewState({
+      ...(state.review || {}),
+      frames: frames || [],
+    })
+    : setReviewState(
+      {
+        ...(state.review || {}),
+        frames: frames || [],
+      },
+      state.review && Array.isArray(state.review.frames) ? state.review.frames : null
+    );
+  const mergedFrames = currentReviewFrames();
+  if (clearRenderedReviewFrames()) return;
   rememberFrameImages(reviewLoadedFrames(mergedFrames));
   flipbookGridCursorIndex = -1;
   state.freezeReplacementMap = _resolveFreezeRepairs(mergedFrames);
@@ -1829,4 +1915,3 @@ function refreshFrameCardLabelsForCurrentMode() {
   if (!frameGridEl) return;
   renderFrameGridWindow(true);
 }
-

@@ -36,7 +36,13 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 - Make focused, minimal changes.
 - Avoid introducing extra abstraction unless it reduces real maintenance cost.
 - Update docs/help text when behavior or naming changes.
-- Validate changed Python modules with `python -m py_compile` when possible.
+
+## Python Environment
+
+- For Python commands in this repo, do not rely on PATH-resolved `python`.
+- Use the repo virtualenv interpreter: `C:\Users\covec\Videos\imago\.venv\Scripts\python.exe`.
+- From the repo root, prefer `.\.venv\Scripts\python.exe -m ...` for test, lint, and validation commands.
+- Validate changed Python modules with `.\.venv\Scripts\python.exe -m py_compile` when possible.
 
 ## Git Hygiene
 

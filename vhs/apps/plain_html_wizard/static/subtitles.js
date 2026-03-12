@@ -146,7 +146,7 @@ function canonicalizeSplitEntries(rawEntries) {
     if (a.end_frame !== b.end_frame) return a.end_frame - b.end_frame;
     return a.idx - b.idx;
   });
-  return rows.map((row) => ({
+  return rows.slice(0, 1).map((row) => ({
     start_frame: row.start_frame,
     end_frame: row.end_frame,
     start: String(row.start_frame),
@@ -181,47 +181,27 @@ function splitEditorHasFocus() {
 function splitEntriesToEditorRows(entries) {
   const rows = canonicalizeSplitEntries(entries);
   const bounds = splitChapterFrameBounds();
-  const mapped = rows.map((row) => ({
+  const row = rows[0] || {
+    start_frame: 0,
+    end_frame: bounds.frameCount,
+    title: String(state.chapter || ''),
+  };
+  return [{
     start: String(splitDisplayStartFrame(row.start_frame)),
     end: String(splitDisplayEndFrameInclusive(row.end_frame, row.start_frame)),
     title: String(row.title || ''),
-    isBlank: false,
-  }));
-  let nextStart = String(bounds.start);
-  if (rows.length) {
-    const last = rows[rows.length - 1];
-    const lastEnd = splitDisplayEndFrameInclusive(last.end_frame, last.start_frame);
-    const candidate = Number(lastEnd) + 1;
-    if (Number.isFinite(candidate) && candidate >= bounds.start && candidate <= bounds.endInclusive) {
-      nextStart = String(Math.trunc(candidate));
-    } else {
-      nextStart = '';
-    }
-  }
-  mapped.push({
-    start: nextStart,
-    end: '',
-    title: '',
-    isBlank: true,
-  });
-  return mapped;
+  }];
 }
 
 function renderSplitEditorGrid(entries) {
   if (!splitEditorEl) return;
   const rows = splitEntriesToEditorRows(entries);
   const bodyHtml = rows.map((row, idx) => {
-    const rowNum = idx + 1;
-    const deleteHtml = row.isBlank
-      ? ''
-      : `<button class="subtitles-editor-row-delete" type="button" data-split-row-delete="${idx}" title="Delete split row">x</button>`;
     return `
       <tr data-split-row="1" data-split-row-idx="${idx}">
-        <td class="rownum">${rowNum}</td>
         <td><input class="subtitles-editor-cell start" type="text" spellcheck="false" data-split-field="start" value="${escapeHtml(row.start)}" placeholder="0" aria-label="Chapter start frame"></td>
         <td><input class="subtitles-editor-cell end" type="text" spellcheck="false" data-split-field="end" value="${escapeHtml(row.end)}" placeholder="0" aria-label="Chapter end frame"></td>
         <td><input class="subtitles-editor-cell text" type="text" spellcheck="false" data-split-field="title" value="${escapeHtml(row.title)}" placeholder="Chapter title" aria-label="Chapter title"></td>
-        <td>${deleteHtml}</td>
       </tr>
     `;
   }).join('');
@@ -229,16 +209,14 @@ function renderSplitEditorGrid(entries) {
     <table class="subtitles-editor-grid">
       <thead>
         <tr>
-          <th style="width:34px">#</th>
           <th style="width:110px">Start Frame</th>
           <th style="width:110px">End Frame</th>
           <th>Title</th>
-          <th style="width:26px"></th>
         </tr>
       </thead>
       <tbody>${bodyHtml}</tbody>
     </table>
-    <div class="subtitles-editor-hint">Use chapter frame numbers. End frame is inclusive; next row starts at end + 1. Title is optional.</div>
+    <div class="subtitles-editor-hint">Edit the loaded chapter range with archive frame numbers. End frame is inclusive. Title is optional.</div>
   `;
 }
 
@@ -370,20 +348,6 @@ function syncSplitProfileFromEditor(showErrors = true) {
   }
   updateSplitMeta();
   return true;
-}
-
-function deleteSplitEntry(entryIndex) {
-  const idx = Number(entryIndex);
-  const rows = canonicalizeSplitEntries((state.splitProfile && state.splitProfile.entries) || []);
-  if (!Number.isFinite(idx) || idx < 0 || idx >= rows.length) return;
-  const next = rows.slice(0, idx).concat(rows.slice(idx + 1));
-  state.splitProfile = {
-    ...(state.splitProfile || {}),
-    entries: canonicalizeSplitEntries(next),
-  };
-  refreshSplitEditorFromState();
-  updateReviewStatsDisplay();
-  setStatus('Deleted split entry.');
 }
 
 function updateSplitMeta() {
@@ -729,4 +693,3 @@ function currentPeopleTimelineCursorSeconds() {
   }
   return 0;
 }
-

@@ -22,7 +22,7 @@
         </aside>
 
         <main class="panel load-main">
-          <h2 class="panel-title">Chapters</h2>
+          <h2 class="panel-title">Chapter</h2>
           <div id="chapterList" class="list"></div>
 
         </main>
@@ -153,7 +153,7 @@
       <div class="page-final-layout">
         <div id="summaryBox" class="summary-box">No summary yet.</div>
         <div class="actions">
-          <button id="saveAndReturn" class="action primary">Save and Return to Chapters</button>
+          <button id="saveAndReturn" class="action primary">Save and Return to Chapter</button>
         </div>
       </div>
     </section>
@@ -238,16 +238,16 @@
           <li>Subtitle confidence/source metadata is preserved for saves and render, but hidden in this tuner view.</li>
         </ul>
 
-        <h3>Step 6: Chapters</h3>
+        <h3>Step 6: Chapter</h3>
         <ul>
-          <li>Use Chapters to define chapter sub-ranges with chapter frame numbers (inclusive end frame).</li>
+          <li>Use the Chapter step to edit the loaded chapter range with archive frame numbers (inclusive end frame).</li>
           <li>Chapter rows are saved to <code>metadata/&lt;archive&gt;/chapters.tsv</code> with ffmetadata columns.</li>
         </ul>
 
         <h3>Step 7: Summary + Save</h3>
         <ol>
           <li>Click the <code>7/7 Summary + Save</code> step button at the top to verify bad-frame, gamma, subtitles, and chapter settings.</li>
-          <li>Click <code>Save and Return to Chapters</code> to persist selected bad frames, gamma ranges, people/subtitle rows, and chapter rows.</li>
+          <li>Click <code>Save and Return to Chapter</code> to persist selected bad frames, gamma ranges, people/subtitle rows, and chapter rows.</li>
           <li>The chapter list refreshes with updated BAD counts after save.</li>
         </ol>
 
