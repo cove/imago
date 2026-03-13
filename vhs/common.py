@@ -5,7 +5,6 @@
 # - Sets up project directories for archives, videos, clips, and metadata.
 # - Provides safe filename sanitization, HMS formatting, and subprocess wrappers.
 # - Reads FFmetadata chapters and parses them into Python dicts.
-# - Maintains a metadata_by_title cache for fast lookup.
 # - Checks if chapter files are done based on size and existence.
 # - Measures media duration via ffprobe.
 #
@@ -220,12 +219,6 @@ def resolve_path(path_value, base_dir=None):
     base = Path(base_dir) if base_dir is not None else BASE
     return (base / path).resolve()
 
-def resolve_optional_path(path_value, default_path, base_dir=None):
-    text = str(path_value or "").strip()
-    if text:
-        return resolve_path(text, base_dir=base_dir)
-    return Path(default_path)
-
 def require_non_empty(text, field_name):
     value = str(text or "").strip()
     if not value:
@@ -237,16 +230,6 @@ def apply_config_overrides(config, **overrides):
     if not cleaned:
         return config
     return dataclass_replace(config, **cleaned)
-
-def read_ffmetadata_title(path):
-    with path.open() as f:
-        for line in f:
-            line = line.strip()
-            if line.startswith("[CHAPTER]"):
-                break
-            if line.startswith("title="):
-                return line.split("=", 1)[1].strip()
-    return ""
 
 from fractions import Fraction
 
@@ -876,16 +859,6 @@ def update_chapter_transcript_in_chapters_tsv(
             writer.writerow(row)
     return tsv_path
 
-def load_bad_frames_by_chapter(path):
-    bad_by_title = {}
-    _ffm, chapters = parse_chapters(Path(path))
-    for ch in chapters:
-        title = str(ch.get("title", "")).strip()
-        if not title:
-            continue
-        bad_by_title[title] = parse_bad_frames_csv(ch.get("bad_frames", ""))
-    return bad_by_title
-
 _FRAME_LIST_KEYS = (
     "bad_frames",
     "bad_frame_override",
@@ -1003,40 +976,6 @@ def update_chapter_bad_frames_in_ffmetadata(path, chapter_bad_frames):
         for title, vals in (chapter_bad_frames or {}).items()
     }
     return update_chapter_frame_lists_in_ffmetadata(path, mapped)
-
-metadata_by_title = {}
-def load_all_metadata():
-    for dirpath in METADATA_DIR.glob("*"):
-        chapters_file = dirpath / "chapters.ffmetadata"
-        if not chapters_file.exists():
-            continue
-
-        # Parse chapters metadata
-        global_meta, chapters = parse_chapters(chapters_file)
-
-        # Load comments.txt if it exists
-        comments_file = dirpath / "comments.txt"
-        comments = []
-        if comments_file.exists():
-            with comments_file.open("r", encoding="utf-8") as f:
-                comments = [line.strip() for line in f if line.strip()]
-
-        # Populate metadata_by_title
-        for chap_data in chapters:
-            ch_title = chap_data.get("title").strip()
-            entry = {
-                "global": global_meta,
-                "chapter": chap_data,
-                "path": chapters_file,
-                "comments": comments  # new field
-            }
-            metadata_by_title[ch_title] = entry
-
-def get_metadata_for_video(title):
-    entry = metadata_by_title.get(title)
-    if entry:
-        return entry["global"], entry["chapter"]
-    return None, None
 
 def is_chapter_done(final_file):
     if not final_file.exists():

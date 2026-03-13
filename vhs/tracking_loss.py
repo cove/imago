@@ -350,16 +350,6 @@ def parse_existing_bad_frames_from_chapters(chapters):
     return bad
 
 
-def expand_ranges_to_set(ranges, min_frame, max_frame):
-    out = set()
-    if max_frame < min_frame:
-        return out
-    for s, e in ranges:
-        for fi in range(max(min_frame, s), min(max_frame, e) + 1):
-            out.add(fi)
-    return out
-
-
 def ranges_from_sorted_frames(frame_ids):
     if not frame_ids:
         return []
@@ -419,22 +409,6 @@ def load_scores_tsv(path):
     return ([r[0] for r in rows], [r[1] for r in rows],
             [r[2] for r in rows], [r[3] for r in rows],
             [r[4] for r in rows], [r[5] for r in rows])
-
-
-def pick_evenly_spaced_samples(frame_ids, count):
-    ordered = [int(x) for x in frame_ids]
-    count   = max(0, int(count))
-    if count <= 0 or not ordered:
-        return []
-    if count >= len(ordered):
-        return ordered
-    seen, chosen = set(), []
-    for idx in np.linspace(0, len(ordered) - 1, num=count, dtype=int):
-        fi = ordered[int(idx)]
-        if fi not in seen:
-            seen.add(fi)
-            chosen.append(fi)
-    return chosen
 
 
 def finite_stats(values):

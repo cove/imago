@@ -63,10 +63,6 @@ def log_ok(message: str) -> None:
     print(_colorize(message, COLOR_GREEN))
 
 
-def log_warn(message: str) -> None:
-    print(_colorize(message, COLOR_YELLOW))
-
-
 def log_error(message: str) -> None:
     print(_colorize(message, COLOR_RED))
 
