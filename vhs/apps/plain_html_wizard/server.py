@@ -3261,6 +3261,8 @@ class WizardHandler(BaseHTTPRequestHandler):
             RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV
         )
 
+        # Build a frame-accurate review extract first; later frame IDs and
+        # manual bad-frame edits are defined relative to this exact span.
         _set_load_progress(session, progress=8.0, message="Extracting chapter segment...")
         if cancelled():
             return
@@ -3687,6 +3689,8 @@ class WizardHandler(BaseHTTPRequestHandler):
         debug_overlay = bool(session.debug_extract) or _env_truthy(TUNER_DEBUG_EXTRACT_ENV) or _env_truthy(
             RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV
         )
+        # Preview generation reuses the same frame-accurate chapter extract as
+        # the review flow so frame indices stay aligned across the tuner.
         extracted, ex_err = _ensure_render_chapter_extract(
             source_video=source_video,
             archive=session.archive,

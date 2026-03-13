@@ -44,7 +44,7 @@ from common import (
     combined_score,
     compute_threshold,
     get_bad_frames_for_chapter,
-    make_extract_chapter,
+    make_frame_accurate_extract_chapter,
     parse_chapters,
     replace_chapter_bad_frames_in_render_settings,
 )
@@ -468,9 +468,12 @@ def _ensure_render_chapter_extract(
     if out_path.exists() and _video_frame_count(out_path) == expected_frames:
         return out_path, ""
 
+    # The tuner reviews and labels individual frames, so this extract must stay
+    # frame-accurate with respect to [ch_start, ch_end). A stream-copy trim is
+    # faster but can drift to nearby keyframes and break bad-frame review.
     start_sec = float(start_i) * 1001.0 / 30000.0
     end_sec = float(end_i) * 1001.0 / 30000.0
-    cmd = make_extract_chapter(
+    cmd = make_frame_accurate_extract_chapter(
         source_video,
         start_sec,
         end_sec,

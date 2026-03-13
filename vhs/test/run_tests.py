@@ -326,11 +326,11 @@ def test_step_6_badframe_sidecar_mapping():
     sys.modules.pop("whisper", None)
     sys.modules.pop("whisper.utils", None)
 
-def test_common_make_extract_chapter_shared():
-    print("Testing common.make_extract_chapter shared extraction builder...")
+def test_common_make_frame_accurate_extract_chapter_shared():
+    print("Testing common.make_frame_accurate_extract_chapter shared extraction builder...")
     step_6_make_videos = import_step_6_module()
 
-    cmd_common = make_extract_chapter(
+    cmd_common = make_frame_accurate_extract_chapter(
         "C:/tmp/in.mkv",
         1.0,
         2.0,
@@ -353,7 +353,7 @@ def test_common_make_extract_chapter_shared():
     assert "select='between(n\\,6205\\,6209)'" in vf
     assert "drawtext=" not in vf
 
-    cmd_dbg = make_extract_chapter(
+    cmd_dbg = make_frame_accurate_extract_chapter(
         "C:/tmp/in.mkv",
         1.0,
         2.0,
@@ -366,7 +366,7 @@ def test_common_make_extract_chapter_shared():
     assert "drawtext=" in vf_dbg
     assert "global=%{eif\\:n+6205\\:d}" in vf_dbg
 
-    print("Test common.make_extract_chapter shared extraction builder: PASSED.")
+    print("Test common.make_frame_accurate_extract_chapter shared extraction builder: PASSED.")
     del sys.modules['step_6_make_videos']
     sys.modules.pop("whisper", None)
     sys.modules.pop("whisper.utils", None)
@@ -2210,7 +2210,7 @@ def test_runtime_scripts_do_not_generate_framemd5():
 
 def main():
     print("Running tests...")
-    test_common_make_extract_chapter_shared()
+    test_common_make_frame_accurate_extract_chapter_shared()
     test_step_4_generate_archive_metadata()
     test_step_6_make_videos()
     test_step_6_title_filter_and_rebuild()

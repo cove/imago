@@ -155,7 +155,7 @@ def run(cmd, cwd=None):
     print("Command: " + " ".join(map(str, cmd)))
     subprocess.run([str(c) for c in cmd], check=True, cwd=cwd)
 
-def make_extract_chapter(
+def make_frame_accurate_extract_chapter(
     src,
     start,
     end,
@@ -167,9 +167,13 @@ def make_extract_chapter(
     """
     Frame-exact chapter extraction command builder.
     Uses select+setpts for exact frame slicing and optional drawtext overlay.
+
+    Important: the VHS tuner relies on this path being frame-accurate. Do not
+    replace it with a faster `-ss/-to -c copy` style trim unless the caller is
+    explicitly opting into non-frame-accurate behavior.
     """
     if start_frame is None or end_frame is None:
-        raise ValueError("make_extract_chapter requires start_frame and end_frame.")
+        raise ValueError("make_frame_accurate_extract_chapter requires start_frame and end_frame.")
     s_frame = int(start_frame)
     e_frame = int(end_frame)
     if e_frame <= s_frame:
