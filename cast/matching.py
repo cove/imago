@@ -37,14 +37,6 @@ def normalize_embedding(vec: np.ndarray) -> np.ndarray:
     return arr / norm
 
 
-def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
-    left = normalize_embedding(a)
-    right = normalize_embedding(b)
-    if left.shape != right.shape:
-        raise ValueError("Embeddings must have the same dimensions.")
-    return float(np.dot(left, right))
-
-
 def _coerce_float(value: Any, default: float) -> float:
     if value is None:
         return float(default)

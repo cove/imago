@@ -31,7 +31,6 @@ from common import *
 ASS_NEWLINE = "\\N"
 PEOPLE_DISPLAY_SEPARATOR = " \u00b7 "
 PEOPLE_ASS_FONT_SCALE = 0.50
-BADFRAME_MAX_SPAN_DEFAULT = 1200
 BADFRAME_POST_QTGMC_MULTIPLIER = 1
 BADFRAME_SOURCE_CLEARANCE = 0
 RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV = "RENDER_DEBUG_EXTRACT_FRAME_NUMBERS"
@@ -39,9 +38,6 @@ RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV = "RENDER_DEBUG_EXTRACT_FRAME_NUMBERS"
 # independent so source selection stays local to nearby clean frames.
 BADFRAME_BRIDGE_ALWAYS_GAP = 0
 BADFRAME_BRIDGE_SINGLETON_GAP = 0
-# Auto source selection prefers forward clean frames and falls back to prior
-# clean frames when a bad run reaches the chapter end.
-BADFRAME_SPLIT_BURSTS_ACROSS_NEIGHBORS = False
 # For single-frame repairs, skip a short lookahead/behind window before picking
 # source to avoid using immediately adjacent frames that are often still unstable.
 BADFRAME_SINGLE_FRAME_SOURCE_SKIP = 0
@@ -1570,68 +1566,6 @@ def build_filmed_comment(author, creation_time, location, archive_tape_title, st
     else:
         head = f"Filmed by {author_text} on {creation_time}{at_location}"
     return f"{head}, original tape {archive_tape_title} @ {start_hms}-{end_hms} "
-
-def make_encode_final_x265(
-    temp_qtgmc,
-    subtitle_tracks,
-    final_file,
-    author,
-    title,
-    archive_tape_title,
-    start_hms,
-    end_hms,
-    creation_time,
-    location,
-    chapter_metadata_path=None,
-    include_audio=True,
-):
-    subtitle_tracks = subtitle_tracks or []
-    sub_inputs, sub_outputs = _subtitle_io(subtitle_tracks)
-    comment = build_filmed_comment(author, creation_time, location, archive_tape_title, start_hms, end_hms)
-    metadata_inputs = []
-    metadata_input_index = None
-    if chapter_metadata_path:
-        metadata_input_index = 1 + len(subtitle_tracks)
-        metadata_inputs = ["-f", "ffmetadata", "-i", str(chapter_metadata_path)]
-    cmd = [FFMPEG_BIN,
-        "-nostdin",
-        "-v", "error",
-        "-i", str(temp_qtgmc),
-        *sub_inputs,
-        *metadata_inputs,
-        "-pix_fmt", "yuv420p",
-        "-fps_mode:v:0", "passthrough",
-        "-c:v", "libx265", "-crf", "20", "-preset", "slow",
-        "-profile:v", "main", "-level", "4.0",
-        "-x265-params", "log-level=0",
-        "-tag:v", "hvc1", "-brand", "mp42",
-        "-map", "0:v:0",
-    ]
-    if metadata_input_index is None:
-        cmd += ["-map_metadata", "-1", "-map_chapters", "-1"]
-    else:
-        cmd += ["-map_metadata", str(metadata_input_index), "-map_chapters", str(metadata_input_index)]
-    if include_audio:
-        cmd += [
-            "-c:a", "aac", "-b:a", "96k", "-ar", "48000", "-ac", "1",
-            "-af", "highpass=f=80,lowpass=f=14000,afftdn=nf=-25,loudnorm=I=-16:TP=-1.5:LRA=11",
-            "-map", "0:a:0?",
-        ]
-    else:
-        cmd += ["-an"]
-    cmd += [
-        *sub_outputs,
-        "-metadata", f"title={title}",
-        "-metadata", f"comment={comment}",
-        "-metadata", f"creation_time={creation_time}",
-        "-metadata", f"location={location}",
-        "-fflags", "+genpts", "-start_at_zero", "-avoid_negative_ts", "make_zero",
-        "-movflags", "+faststart+use_metadata_tags",
-        "-y", str(final_file),
-    ]
-    if include_audio:
-        cmd += ["-metadata:s:a:0", "language=eng"]
-    return cmd
 
 def make_encode_final_x264(
     temp_qtgmc,
