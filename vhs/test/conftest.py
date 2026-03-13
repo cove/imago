@@ -2,6 +2,8 @@ import sys
 import threading
 from pathlib import Path
 
+import pytest
+
 _VHS_ROOT = str(Path(__file__).parents[1].resolve())
 _VHS_TEST = str(Path(__file__).parent.resolve())
 
@@ -14,22 +16,32 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "playwright: mark test as requiring a live browser (Playwright)")
 
 
-try:
-    import pytest
+def _ensure_vhs_common_precedence() -> None:
+    if _VHS_ROOT in sys.path:
+        sys.path.remove(_VHS_ROOT)
+    sys.path.insert(0, _VHS_ROOT)
+    _cached = sys.modules.get("common")
+    if _cached is not None:
+        _cached_file = getattr(_cached, "__file__", "") or ""
+        if not _cached_file.startswith(_VHS_ROOT):
+            del sys.modules["common"]
+
+
+@pytest.fixture(scope="session")
+def live_server():
     from http.server import ThreadingHTTPServer
+
+    _ensure_vhs_common_precedence()
     from apps.plain_html_wizard.server import WizardHandler
 
-    @pytest.fixture(scope="session")
-    def live_server():
-        server = ThreadingHTTPServer(("127.0.0.1", 0), WizardHandler)
-        port = server.server_address[1]
-        t = threading.Thread(target=server.serve_forever, daemon=True)
-        t.start()
+    server = ThreadingHTTPServer(("127.0.0.1", 0), WizardHandler)
+    port = server.server_address[1]
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+    try:
         yield f"http://127.0.0.1:{port}"
+    finally:
         server.shutdown()
-
-except Exception:
-    pass
 
 
 def pytest_collect_file(parent, file_path):
@@ -41,12 +53,5 @@ def pytest_collect_file(parent, file_path):
     """
     if not str(file_path).startswith(_VHS_TEST):
         return None
-    if _VHS_ROOT in sys.path:
-        sys.path.remove(_VHS_ROOT)
-    sys.path.insert(0, _VHS_ROOT)
-    _cached = sys.modules.get("common")
-    if _cached is not None:
-        _cached_file = getattr(_cached, "__file__", "") or ""
-        if not _cached_file.startswith(_VHS_ROOT):
-            del sys.modules["common"]
+    _ensure_vhs_common_precedence()
     return None
