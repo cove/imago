@@ -3077,6 +3077,21 @@ class WizardHandler(BaseHTTPRequestHandler):
             })
             return
 
+        if parsed.path == "/api/perf_report":
+            prof_client_path = str(os.environ.get("VHS_PROFILE_CLIENT", "")).strip()
+            if not prof_client_path:
+                self._send_json({"ok": False, "error": "Client profiling not enabled on server"})
+                return
+            entry = {**payload, "_server_ts": __import__("time").time()}
+            try:
+                with open(prof_client_path, "a", encoding="utf-8") as fh:
+                    fh.write(json.dumps(entry, separators=(",", ":")) + "\n")
+            except Exception as exc:
+                self._send_error_json(f"Failed to write profile: {exc}")
+                return
+            self._send_json({"ok": True})
+            return
+
         self._send_error_json("Not found", code=HTTPStatus.NOT_FOUND)
 
     def _handle_load_chapter(self, session: SessionState, payload: dict[str, Any]) -> None:
@@ -4311,6 +4326,9 @@ def run(host: str = "0.0.0.0", port: int = 8092) -> None:
     prof_path = str(os.environ.get("VHS_PROFILE_FRAMES", "")).strip()
     if prof_path:
         print(f"Frame profiling enabled — writing to: {prof_path}")
+    prof_client_path = str(os.environ.get("VHS_PROFILE_CLIENT", "")).strip()
+    if prof_client_path:
+        print(f"Client profiling enabled — writing to: {prof_client_path}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
