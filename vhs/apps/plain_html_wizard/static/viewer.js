@@ -1644,8 +1644,13 @@ function prefetchFrameContactSheet(urlRaw) {
 }
 
 function prefetchVisibleFrameSheets(metricsRaw = null, rangeRaw = null) {
+  performance.mark('prefetchVisibleFrameSheets:s');
   const frames = currentReviewFrames();
-  if (!frames.length) return;
+  if (!frames.length) {
+    performance.mark('prefetchVisibleFrameSheets:e');
+    try { performance.measure('prefetchVisibleFrameSheets', 'prefetchVisibleFrameSheets:s', 'prefetchVisibleFrameSheets:e'); } catch(_) {}
+    return;
+  }
   const metrics = metricsRaw && typeof metricsRaw === 'object' ? metricsRaw : frameGridMetrics(frames.length);
   const range = rangeRaw && typeof rangeRaw === 'object' ? rangeRaw : _computeVisibleIndexRange();
   if (!range) return;
@@ -1679,6 +1684,8 @@ function prefetchVisibleFrameSheets(metricsRaw = null, rangeRaw = null) {
     _recordImageFetchedRange(next.start, next.start + next.count - 1);
     prefetchFrameContactSheet(next.url);
   }
+  performance.mark('prefetchVisibleFrameSheets:e');
+  try { performance.measure('prefetchVisibleFrameSheets', 'prefetchVisibleFrameSheets:s', 'prefetchVisibleFrameSheets:e'); } catch(_) {}
 }
 
 function spriteAxisPercent(position, total) {
@@ -1763,8 +1770,13 @@ function frameDisplayModel(frame, frameIndex = -1, gridMetrics = null) {
 }
 
 function renderFrameGridWindow(force = false) {
+  performance.mark('renderFrameGridWindow:s');
   const frames = currentReviewFrames();
-  if (!frameGridEl) return;
+  if (!frameGridEl) {
+    performance.mark('renderFrameGridWindow:e');
+    try { performance.measure('renderFrameGridWindow', 'renderFrameGridWindow:s', 'renderFrameGridWindow:e'); } catch(_) {}
+    return;
+  }
   if (!frames.length) {
     frameGridEl.innerHTML = 'No frames loaded.';
     frameGridSizerEl = null;
@@ -1846,6 +1858,9 @@ function renderFrameGridWindow(force = false) {
     fragment.appendChild(card);
   }
   nodes.items.replaceChildren(fragment);
+  performance.mark('renderFrameGridWindow:e');
+  try { performance.measure('renderFrameGridWindow', 'renderFrameGridWindow:s', 'renderFrameGridWindow:e'); } catch(_) {}
+  _scheduleClientPerfUpload();
 }
 
 function refreshFreezeSimulation() {
@@ -1914,4 +1929,63 @@ function applyFrameUpdates(updates) {
 function refreshFrameCardLabelsForCurrentMode() {
   if (!frameGridEl) return;
   renderFrameGridWindow(true);
+}
+
+// --- Client performance profiling ---
+// Enabled automatically when the server has VHS_PROFILE_CLIENT set.
+// Collects performance.measure() entries and resource timing for contact sheet
+// fetches, then POSTs a snapshot to /api/perf_report 3s after the last render.
+
+let _clientPerfUploadTimer = null;
+const _clientPerfResourceLog = [];
+
+if (typeof PerformanceObserver !== 'undefined') {
+  try {
+    const _perfObs = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        if (entry.name && entry.name.includes('/api/frame_contact_sheet')) {
+          _clientPerfResourceLog.push({
+            url: entry.name,
+            start: Math.round(entry.startTime * 10) / 10,
+            duration: Math.round(entry.duration * 10) / 10,
+            responseStart: Math.round((entry.responseStart || 0) * 10) / 10,
+            transferSize: entry.transferSize || 0,
+          });
+        }
+      }
+    });
+    _perfObs.observe({ type: 'resource', buffered: true });
+  } catch (_) {}
+}
+
+function _scheduleClientPerfUpload() {
+  if (_clientPerfUploadTimer !== null) clearTimeout(_clientPerfUploadTimer);
+  _clientPerfUploadTimer = setTimeout(_uploadClientPerf, 3000);
+}
+
+function _uploadClientPerf() {
+  _clientPerfUploadTimer = null;
+  const measures = performance.getEntriesByType('measure')
+    .filter(e => e.name === 'renderFrameGridWindow' || e.name === 'prefetchVisibleFrameSheets')
+    .map(e => ({
+      name: e.name,
+      start: Math.round(e.startTime * 10) / 10,
+      duration: Math.round(e.duration * 10) / 10,
+    }));
+  if (!measures.length && !_clientPerfResourceLog.length) return;
+  const body = {
+    ts: Date.now(),
+    userAgent: navigator.userAgent,
+    measures,
+    resources: _clientPerfResourceLog.slice(),
+  };
+  fetch('/api/perf_report', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).catch(() => {});
+  // Clear so next upload only contains new data
+  performance.clearMeasures('renderFrameGridWindow');
+  performance.clearMeasures('prefetchVisibleFrameSheets');
+  _clientPerfResourceLog.length = 0;
 }
