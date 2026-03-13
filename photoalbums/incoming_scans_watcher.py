@@ -37,7 +37,6 @@ WATCH_ROOT = str(PHOTO_ALBUMS_DIR)
 
 COLOR_GREEN = "\x1b[32m"
 COLOR_RED = "\x1b[31m"
-COLOR_YELLOW = "\x1b[33m"
 COLOR_RESET = "\x1b[0m"
 
 if sys.platform.startswith("win"):

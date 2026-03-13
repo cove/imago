@@ -212,13 +212,6 @@ def make_extract_chapter(
         "-y", str(dest),
     ]
 
-def resolve_path(path_value, base_dir=None):
-    path = Path(path_value).expanduser()
-    if path.is_absolute():
-        return path
-    base = Path(base_dir) if base_dir is not None else BASE
-    return (base / path).resolve()
-
 def require_non_empty(text, field_name):
     value = str(text or "").strip()
     if not value:

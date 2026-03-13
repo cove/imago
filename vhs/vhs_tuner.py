@@ -2,7 +2,7 @@
 """
 Legacy VHS tuner module compatibility shim.
 
-The Gradio UI has been removed. Use:
+The tuner now uses the plain HTML wizard. Use:
   python vhs.py tuner
 
 This module re-exports core tuner helpers for existing scripts/tests and
