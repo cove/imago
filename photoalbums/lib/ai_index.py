@@ -435,11 +435,24 @@ def _run_image_analysis(
     requested_caption_model: str,
     ocr_engine_name: str,
     ocr_language: str,
+    people_hint_text: str = "",
+    people_source_path: Path | None = None,
+    people_bbox_offset: tuple[int, int] = (0, 0),
 ) -> ImageAnalysis:
-    people_matches = people_matcher.match_image(image_path) if people_matcher else []
-    object_matches = object_detector.detect_image(image_path) if object_detector else []
     ocr_text = ocr_engine.read_text(image_path)
     ocr_keywords = extract_keywords(ocr_text, max_keywords=15)
+    combined_hint_text = " ".join(part for part in [str(people_hint_text or "").strip(), ocr_text] if part).strip()
+    people_matches = (
+        people_matcher.match_image(
+            image_path,
+            source_path=people_source_path or image_path,
+            bbox_offset=people_bbox_offset,
+            hint_text=combined_hint_text,
+        )
+        if people_matcher
+        else []
+    )
+    object_matches = object_detector.detect_image(image_path) if object_detector else []
 
     people_names = [row.name for row in people_matches]
     object_labels = [row.label for row in object_matches]
@@ -456,7 +469,16 @@ def _run_image_analysis(
         ocr_text=ocr_text,
     )
     payload = {
-        "people": [{"name": row.name, "score": round(row.score, 5)} for row in people_matches],
+        "people": [
+            {
+                "name": row.name,
+                "score": round(row.score, 5),
+                "certainty": round(float(getattr(row, "certainty", row.score)), 5),
+                "reviewed_by_human": bool(getattr(row, "reviewed_by_human", False)),
+                "face_id": str(getattr(row, "face_id", "") or ""),
+            }
+            for row in people_matches
+        ],
         "objects": [{"label": row.label, "score": round(row.score, 5)} for row in object_matches],
         "ocr": {
             "engine": str(ocr_engine_name),
@@ -510,6 +532,20 @@ def _layout_payload(layout: PreparedImageLayout) -> dict[str, Any]:
         "split_applied": bool(layout.split_applied),
         "fallback_used": bool(layout.fallback_used),
     }
+
+
+def _bounds_offset(bounds: Any) -> tuple[int, int]:
+    if hasattr(bounds, "x") and hasattr(bounds, "y"):
+        return int(getattr(bounds, "x")), int(getattr(bounds, "y"))
+    if hasattr(bounds, "as_dict"):
+        try:
+            payload = dict(bounds.as_dict())
+        except Exception:
+            payload = {}
+        return int(payload.get("x", 0) or 0), int(payload.get("y", 0) or 0)
+    if isinstance(bounds, dict):
+        return int(bounds.get("x", 0) or 0), int(bounds.get("y", 0) or 0)
+    return 0, 0
 
 
 def _build_flat_payload(layout: PreparedImageLayout, analysis: ImageAnalysis) -> dict[str, Any]:
@@ -665,6 +701,7 @@ def run(argv: list[str] | None = None) -> int:
     processed = 0
     skipped = 0
     failures = 0
+    processed_cast_manifest_keys: set[str] = set()
 
     for idx, image_path in enumerate(files, 1):
         sidecar_path = image_path.with_suffix(".xmp")
@@ -724,12 +761,33 @@ def run(argv: list[str] | None = None) -> int:
         )
         settings_sig = _settings_signature(effective)
 
+        people_matcher = None
+        current_cast_signature = ""
+        if bool(effective.get("enable_people", True)):
+            people_key = (
+                str(Path(args.cast_store).resolve()),
+                float(effective.get("people_threshold", defaults["people_threshold"])),
+                int(effective.get("min_face_size", defaults["min_face_size"])),
+            )
+            people_matcher = people_matcher_cache.get(people_key)
+            if people_matcher is None:
+                people_matcher = _init_people_matcher(
+                    cast_store=Path(args.cast_store),
+                    min_similarity=float(people_key[1]),
+                    min_face_size=int(people_key[2]),
+                )
+                people_matcher_cache[people_key] = people_matcher
+            current_cast_signature = str(people_matcher.store_signature())
+
         manifest_row = manifest.get(str(image_path))
         reprocess_required = False
         if manifest_row is not None:
             old_sig = str(manifest_row.get("settings_signature") or "")
             if old_sig != settings_sig:
                 reprocess_required = True
+            elif bool(effective.get("enable_people", True)):
+                if str(manifest_row.get("cast_store_signature") or "") != current_cast_signature:
+                    reprocess_required = True
         if not needs_processing(
             image_path,
             manifest_row,
@@ -748,22 +806,6 @@ def run(argv: list[str] | None = None) -> int:
             continue
 
         try:
-            people_matcher = None
-            if bool(effective.get("enable_people", True)):
-                people_key = (
-                    str(Path(args.cast_store).resolve()),
-                    float(effective.get("people_threshold", defaults["people_threshold"])),
-                    int(effective.get("min_face_size", defaults["min_face_size"])),
-                )
-                people_matcher = people_matcher_cache.get(people_key)
-                if people_matcher is None:
-                    people_matcher = _init_people_matcher(
-                        cast_store=Path(args.cast_store),
-                        min_similarity=float(people_key[1]),
-                        min_face_size=int(people_key[2]),
-                    )
-                    people_matcher_cache[people_key] = people_matcher
-
             object_detector = None
             if bool(effective.get("enable_objects", True)):
                 object_key = (
@@ -834,6 +876,8 @@ def run(argv: list[str] | None = None) -> int:
                 source_text = read_embedded_source_text(image_path)
 
                 if layout.page_like and layout.split_mode == "auto":
+                    page_ocr_text = ocr_engine.read_text(layout.content_path)
+                    page_ocr_keywords = extract_keywords(page_ocr_text, max_keywords=15)
                     sub_results = [
                         _run_image_analysis(
                             image_path=subphoto.path,
@@ -845,11 +889,12 @@ def run(argv: list[str] | None = None) -> int:
                             requested_caption_model=str(caption_key[1]),
                             ocr_engine_name=ocr_key[0],
                             ocr_language=ocr_key[1],
+                            people_hint_text=page_ocr_text,
+                            people_source_path=image_path,
+                            people_bbox_offset=_bounds_offset(subphoto.bounds),
                         )
                         for subphoto in layout.subphotos
                     ]
-                    page_ocr_text = ocr_engine.read_text(layout.content_path)
-                    page_ocr_keywords = extract_keywords(page_ocr_text, max_keywords=15)
                     (
                         person_names,
                         object_labels,
@@ -899,6 +944,8 @@ def run(argv: list[str] | None = None) -> int:
                         requested_caption_model=str(caption_key[1]),
                         ocr_engine_name=ocr_key[0],
                         ocr_language=ocr_key[1],
+                        people_source_path=image_path,
+                        people_bbox_offset=_bounds_offset(layout.content_bounds) if layout.page_like else (0, 0),
                     )
                     person_names = analysis.people_names
                     subjects = analysis.subjects
@@ -922,6 +969,8 @@ def run(argv: list[str] | None = None) -> int:
                         subphotos=subphotos_xml,
                     )
 
+            if people_matcher is not None:
+                current_cast_signature = str(people_matcher.store_signature())
             stat = image_path.stat()
             manifest[str(image_path)] = {
                 "image_path": str(image_path),
@@ -936,8 +985,11 @@ def run(argv: list[str] | None = None) -> int:
                 "subphoto_count": int(subphoto_count),
                 "processor_signature": PROCESSOR_SIGNATURE,
                 "settings_signature": settings_sig,
+                "cast_store_signature": current_cast_signature if bool(effective.get("enable_people", True)) else "",
                 "render_settings_path": str(settings_file) if settings_file is not None else "",
             }
+            if bool(effective.get("enable_people", True)):
+                processed_cast_manifest_keys.add(str(image_path))
             processed += 1
             if stdout_only:
                 caption_meta = dict(payload.get("caption") or {}) if isinstance(payload, dict) else {}
@@ -952,6 +1004,13 @@ def run(argv: list[str] | None = None) -> int:
             emit_error(f"[{idx}/{len(files)}] fail  {image_path.name}: {exc}")
 
     if not dry_run:
+        if processed_cast_manifest_keys and people_matcher_cache:
+            final_cast_signature = str(next(iter(people_matcher_cache.values())).store_signature())
+            for image_key in processed_cast_manifest_keys:
+                row = manifest.get(image_key)
+                if not isinstance(row, dict):
+                    continue
+                row["cast_store_signature"] = final_cast_signature
         save_manifest(manifest_path, manifest)
 
     if not stdout_only:

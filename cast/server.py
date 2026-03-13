@@ -10,8 +10,14 @@ from urllib.parse import parse_qs, urlparse
 import cv2
 
 from .ingest import FaceIngestor
-from .matching import build_person_prototypes, parse_embedding, suggest_people, suggest_people_from_prototypes
-from .storage import TextFaceStore
+from .matching import (
+    build_person_prototypes,
+    choose_suggested_candidate,
+    parse_embedding,
+    suggest_people,
+    suggest_people_from_prototypes,
+)
+from .storage import TextFaceStore, face_is_human_reviewed, face_review_status
 
 _HERE = Path(__file__).resolve().parent
 _STATIC = _HERE / "static"
@@ -54,50 +60,19 @@ def _coerce_int(value: Any, default: int) -> int:
         return int(default)
 
 
-def choose_suggested_candidate(
-    *,
-    candidates: list[dict[str, Any]],
-    face_quality: Any,
-    min_similarity: float = DEFAULT_MIN_SIMILARITY,
-    min_margin: float = DEFAULT_MIN_MARGIN,
-    min_face_quality: float = DEFAULT_MIN_FACE_QUALITY,
-    min_sample_count: int = DEFAULT_MIN_SAMPLE_COUNT,
-) -> tuple[dict[str, Any] | None, float]:
-    normalized: list[dict[str, Any]] = []
-    for row in list(candidates or []):
-        if not isinstance(row, dict):
-            continue
-        person_id = str(row.get("person_id") or "").strip()
-        if not person_id:
-            continue
-        normalized.append(
-            {
-                **row,
-                "person_id": person_id,
-                "score": _coerce_float(row.get("score"), -1.0),
-                "sample_count": max(0, _coerce_int(row.get("sample_count"), 0)),
-            }
-        )
-    if not normalized:
-        return None, 0.0
-
-    normalized.sort(key=lambda row: float(row.get("score", -1.0)), reverse=True)
-    top = dict(normalized[0])
-    top_score = _coerce_float(top.get("score"), -1.0)
-    second_score = _coerce_float(normalized[1].get("score"), -1.0) if len(normalized) > 1 else -1.0
-    margin = float(top_score - second_score) if len(normalized) > 1 else max(0.0, float(top_score))
-    quality = _coerce_float(face_quality, 0.0)
-    sample_count = max(0, _coerce_int(top.get("sample_count"), 0))
-    required_sample_count = max(1, _coerce_int(min_sample_count, DEFAULT_MIN_SAMPLE_COUNT))
-    if top_score < float(min_similarity):
-        return None, margin
-    if margin < float(min_margin):
-        return None, margin
-    if quality < float(min_face_quality):
-        return None, margin
-    if sample_count < int(required_sample_count):
-        return None, margin
-    return top, margin
+def _coerce_bool(value: Any, default: bool = False) -> bool:
+    if value is None:
+        return bool(default)
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if not text:
+        return bool(default)
+    if text in {"1", "true", "yes", "on"}:
+        return True
+    if text in {"0", "false", "no", "off"}:
+        return False
+    return bool(default)
 
 
 class CastHTTPServer(ThreadingHTTPServer):
@@ -176,6 +151,7 @@ class CastHandler(BaseHTTPRequestHandler):
         crop_rel = str(face.get("crop_path") or "").strip()
         crop_abs = (self.store.root_dir / crop_rel).resolve() if crop_rel else None
         crop_exists = bool(crop_abs and crop_abs.exists())
+        review_status = face_review_status(face)
         return {
             "face_id": face_id,
             "person_id": person_id,
@@ -189,6 +165,8 @@ class CastHandler(BaseHTTPRequestHandler):
             "crop_url": f"/api/faces/{face_id}/crop" if crop_exists else "",
             "source_url": f"/api/faces/{face_id}/source" if source_ref else "",
             "source_is_image": source_kind == "image",
+            "reviewed_by_human": bool(face_is_human_reviewed(face)),
+            "review_status": review_status,
             "created_at": str(face.get("created_at", "")),
             "updated_at": str(face.get("updated_at", "")),
         }
@@ -293,15 +271,10 @@ class CastHandler(BaseHTTPRequestHandler):
             )
             for item in reviews
         ]
-        rejected_face_ids = {
-            str(item.get("face_id"))
-            for item in review_summaries
-            if str(item.get("status", "")).strip().lower() == "rejected"
-        }
         unknown_faces = [
             row
             for row in face_summaries
-            if (not row.get("person_id")) and (str(row.get("face_id")) not in rejected_face_ids)
+            if (not row.get("person_id")) and str(row.get("review_status") or "").strip().lower() not in {"ignored", "rejected"}
         ]
         pending_reviews = [row for row in review_summaries if row.get("status") == "pending"]
         return {
@@ -425,14 +398,29 @@ class CastHandler(BaseHTTPRequestHandler):
     def _handle_assign_face(self, payload: dict[str, Any]) -> None:
         face_id = str(payload.get("face_id") or "").strip()
         person_id = str(payload.get("person_id") or "").strip() or None
+        has_reviewed_flag = "reviewed_by_human" in payload
+        reviewed_by_human = _coerce_bool(payload.get("reviewed_by_human"), False) if has_reviewed_flag else None
+        review_status = str(payload.get("review_status") or "").strip().lower() or None
         if not face_id:
             self._error("face_id is required.")
             return
         try:
-            face = self.store.assign_face(face_id, person_id)
+            face = self.store.assign_face(
+                face_id,
+                person_id,
+                reviewed_by_human=reviewed_by_human,
+                review_status=review_status,
+            )
         except Exception as exc:
             self._error(str(exc))
             return
+        if reviewed_by_human:
+            pending_status = "accepted" if str(face.get("person_id") or "").strip() else str(review_status or "skipped")
+            self._resolve_pending_reviews_for_face(
+                face_id,
+                status=pending_status,
+                decided_person_id=str(face.get("person_id") or "").strip() or None,
+            )
         self._send_json({"ok": True, "face": face})
 
     def _suggestion_policy_from_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -452,6 +440,27 @@ class CastHandler(BaseHTTPRequestHandler):
                 return row
         return None
 
+    def _resolve_pending_reviews_for_face(
+        self,
+        face_id: str,
+        *,
+        status: str,
+        decided_person_id: str | None,
+    ) -> None:
+        for row in self.store.list_review_items():
+            if str(row.get("face_id")) != str(face_id):
+                continue
+            if str(row.get("status") or "").strip().lower() != "pending":
+                continue
+            try:
+                self.store.resolve_review_item(
+                    review_id=str(row.get("review_id") or ""),
+                    status=status,
+                    decided_person_id=decided_person_id,
+                )
+            except Exception:
+                continue
+
     def _enqueue_review_for_face(
         self,
         *,
@@ -468,6 +477,8 @@ class CastHandler(BaseHTTPRequestHandler):
         face = self.store.get_face(face_id)
         if not face:
             raise ValueError("Unknown face_id.")
+        if face_review_status(face) in {"ignored", "rejected"}:
+            raise ValueError("Face is already marked ignored/rejected.")
         try:
             candidates = suggest_people(
                 query_embedding=face.get("embedding") or [],
@@ -702,7 +713,23 @@ class CastHandler(BaseHTTPRequestHandler):
         assigned_face = None
         if status == "accepted":
             try:
-                assigned_face = self.store.assign_face(str(updated_review.get("face_id")), person_id)
+                assigned_face = self.store.assign_face(
+                    str(updated_review.get("face_id")),
+                    person_id,
+                    reviewed_by_human=True,
+                    review_status="confirmed",
+                )
+            except Exception as exc:
+                self._error(f"Review updated but face assignment failed: {exc}")
+                return
+        elif status in {"ignored", "rejected"}:
+            try:
+                assigned_face = self.store.assign_face(
+                    str(updated_review.get("face_id")),
+                    None,
+                    reviewed_by_human=True,
+                    review_status=status,
+                )
             except Exception as exc:
                 self._error(f"Review updated but face assignment failed: {exc}")
                 return
@@ -758,6 +785,12 @@ class CastHandler(BaseHTTPRequestHandler):
                 review_id=review_id,
                 status="rejected",
                 decided_person_id=None,
+            )
+            self.store.assign_face(
+                face_id,
+                None,
+                reviewed_by_human=True,
+                review_status="rejected",
             )
             pruned += 1
 
