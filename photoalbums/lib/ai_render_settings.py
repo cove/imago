@@ -7,7 +7,7 @@ from typing import Any
 SETTINGS_FILENAME = "render_settings.json"
 OCR_ENGINES = {"none", "docstrange"}
 PAGE_SPLIT_MODES = {"auto", "off"}
-CAPTION_ENGINES = {"none", "template", "blip", "qwen"}
+CAPTION_ENGINES = {"none", "template", "blip", "qwen", "lmstudio"}
 QWEN_ATTN_IMPLEMENTATIONS = {"auto", "sdpa", "flash_attention_2", "eager"}
 
 
@@ -122,6 +122,14 @@ def _normalize_settings_block(raw: dict[str, Any], defaults: dict[str, Any]) -> 
         "caption_model": _normalize_text(
             block.get("caption_model"),
             str(defaults.get("caption_model", "")),
+        ),
+        "caption_prompt": _normalize_text(
+            block.get("caption_prompt", block.get("qwen_prompt")),
+            str(defaults.get("caption_prompt", "")),
+        ),
+        "lmstudio_base_url": _normalize_text(
+            block.get("lmstudio_base_url"),
+            str(defaults.get("lmstudio_base_url", "http://127.0.0.1:1234/v1")),
         ),
         "caption_max_tokens": _normalize_int(
             block.get("caption_max_tokens"),

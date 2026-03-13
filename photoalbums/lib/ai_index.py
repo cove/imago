@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from .ai_caption import (
     CaptionEngine,
+    DEFAULT_LMSTUDIO_MAX_NEW_TOKENS,
     build_page_caption,
     build_template_caption,
+    normalize_lmstudio_base_url,
     normalize_qwen_attn_implementation,
     resolve_caption_model,
 )
@@ -180,6 +183,19 @@ def _explicit_cli_flags(argv: list[str] | None) -> set[str]:
     return flags
 
 
+def _resolve_caption_prompt(prompt_text: str, prompt_file: str) -> str:
+    file_text = str(prompt_file or "").strip()
+    if file_text:
+        path = Path(file_text).expanduser()
+        try:
+            return path.read_text(encoding="utf-8").strip()
+        except FileNotFoundError as exc:
+            raise SystemExit(f"Caption prompt file does not exist: {path}") from exc
+        except OSError as exc:
+            raise SystemExit(f"Could not read caption prompt file {path}: {exc}") from exc
+    return str(prompt_text or "").strip()
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Index photo album images with cast people matching, YOLO objects, OCR, and XMP sidecars.",
@@ -201,7 +217,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--ocr-lang", default="eng", help="OCR language.")
     parser.add_argument(
         "--caption-engine",
-        choices=["none", "template", "blip", "qwen"],
+        choices=["none", "template", "blip", "qwen", "lmstudio"],
         default="blip",
         help="Caption backend for XMP description.",
     )
@@ -209,6 +225,35 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--caption-model",
         default="",
         help="Optional model id/path used by the selected caption engine.",
+    )
+    parser.add_argument(
+        "--caption-prompt",
+        dest="caption_prompt",
+        default="",
+        help="Exact prompt text for model captioning. When set, built-in prompt hints are disabled.",
+    )
+    parser.add_argument(
+        "--caption-prompt-file",
+        dest="caption_prompt_file",
+        default="",
+        help="Read exact model caption prompt text from a file. Overrides --caption-prompt when set.",
+    )
+    parser.add_argument(
+        "--qwen-prompt",
+        dest="caption_prompt",
+        default=argparse.SUPPRESS,
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--qwen-prompt-file",
+        dest="caption_prompt_file",
+        default=argparse.SUPPRESS,
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--lmstudio-base-url",
+        default="http://127.0.0.1:1234/v1",
+        help="Base URL for the LM Studio OpenAI-compatible API.",
     )
     parser.add_argument("--caption-max-tokens", type=int, default=96, help="Max new tokens for caption models.")
     parser.add_argument("--caption-temperature", type=float, default=0.2, help="Sampling temperature for qwen.")
@@ -239,6 +284,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--max-images", type=int, default=0, help="Optional processing limit.")
     parser.add_argument("--force", action="store_true", help="Ignore manifest and process all files.")
     parser.add_argument("--dry-run", action="store_true", help="Do not write sidecar/manifest.")
+    parser.add_argument(
+        "--stdout",
+        action="store_true",
+        help="Print generated caption text to stdout only. Implies --dry-run and forced reprocessing.",
+    )
     parser.add_argument("--include-view", action="store_true", help="Include files in *_View folders.")
     parser.add_argument(
         "--include-archive",
@@ -298,21 +348,25 @@ def _init_caption_engine(
     *,
     engine: str,
     model_name: str,
+    caption_prompt: str,
     max_tokens: int,
     temperature: float,
     qwen_attn_implementation: str,
     qwen_min_pixels: int,
     qwen_max_pixels: int,
+    lmstudio_base_url: str,
     max_image_edge: int,
 ):
     return CaptionEngine(
         engine=str(engine),
         model_name=str(model_name),
+        caption_prompt=str(caption_prompt),
         max_tokens=int(max_tokens),
         temperature=float(temperature),
         qwen_attn_implementation=str(qwen_attn_implementation),
         qwen_min_pixels=int(qwen_min_pixels),
         qwen_max_pixels=int(qwen_max_pixels),
+        lmstudio_base_url=str(lmstudio_base_url),
         max_image_edge=int(max_image_edge),
         fallback_to_template=True,
     )
@@ -339,9 +393,11 @@ def _settings_signature(settings: dict[str, Any]) -> str:
         "creator_tool": str(settings.get("creator_tool", DEFAULT_CREATOR_TOOL)),
         "caption_engine": caption_engine,
         "caption_model": caption_model,
+        "caption_prompt": str(settings.get("caption_prompt", "")),
         "caption_max_tokens": int(settings.get("caption_max_tokens", 96)),
         "caption_temperature": float(settings.get("caption_temperature", 0.2)),
         "caption_max_edge": int(settings.get("caption_max_edge", 0)),
+        "lmstudio_base_url": normalize_lmstudio_base_url(str(settings.get("lmstudio_base_url", "http://127.0.0.1:1234/v1"))),
         "qwen_attn_implementation": normalize_qwen_attn_implementation(
             str(settings.get("qwen_attn_implementation", "auto"))
         ),
@@ -413,7 +469,7 @@ def _run_image_analysis(
             effective_engine=str(caption_output.engine),
             fallback=bool(caption_output.fallback),
             error=str(caption_output.error or ""),
-            model=str(requested_caption_model if requested_caption_engine in {"qwen", "blip"} else ""),
+            model=str(requested_caption_model if requested_caption_engine in {"qwen", "blip", "lmstudio"} else ""),
         ),
     }
     return ImageAnalysis(
@@ -524,8 +580,22 @@ def _build_page_payload(
 def run(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     explicit_flags = _explicit_cli_flags(argv)
+    requested_caption_prompt = _resolve_caption_prompt(
+        str(getattr(args, "caption_prompt", "")),
+        str(getattr(args, "caption_prompt_file", "")),
+    )
     photos_root = Path(args.photos_root).expanduser().resolve()
     manifest_path = Path(args.manifest).expanduser().resolve()
+    stdout_only = bool(args.stdout)
+    force_processing = bool(args.force or stdout_only)
+    dry_run = bool(args.dry_run or stdout_only)
+
+    def emit_info(message: str) -> None:
+        if not stdout_only:
+            print(message)
+
+    def emit_error(message: str) -> None:
+        print(message, file=sys.stderr if stdout_only else sys.stdout)
 
     if not photos_root.is_dir():
         raise SystemExit(f"Photo root is not a directory: {photos_root}")
@@ -553,9 +623,13 @@ def run(argv: list[str] | None = None) -> int:
     if args.max_images and args.max_images > 0:
         files = files[: int(args.max_images)]
 
-    print(f"Discovered {len(files)} image files")
+    emit_info(f"Discovered {len(files)} image files")
     if not files:
         return 0
+
+    default_caption_max_tokens = int(args.caption_max_tokens)
+    if "--caption-max-tokens" not in explicit_flags and str(args.caption_engine) == "lmstudio":
+        default_caption_max_tokens = max(default_caption_max_tokens, int(DEFAULT_LMSTUDIO_MAX_NEW_TOKENS))
 
     defaults = {
         "skip": False,
@@ -566,9 +640,11 @@ def run(argv: list[str] | None = None) -> int:
         "page_split_mode": "auto",
         "caption_engine": str(args.caption_engine),
         "caption_model": resolve_caption_model(str(args.caption_engine), str(args.caption_model)),
-        "caption_max_tokens": int(args.caption_max_tokens),
+        "caption_prompt": str(requested_caption_prompt),
+        "caption_max_tokens": int(default_caption_max_tokens),
         "caption_temperature": float(args.caption_temperature),
         "caption_max_edge": int(args.caption_max_edge),
+        "lmstudio_base_url": normalize_lmstudio_base_url(str(args.lmstudio_base_url)),
         "qwen_attn_implementation": normalize_qwen_attn_implementation(str(args.qwen_attn_implementation)),
         "qwen_min_pixels": int(args.qwen_min_pixels),
         "qwen_max_pixels": int(args.qwen_max_pixels),
@@ -584,7 +660,7 @@ def run(argv: list[str] | None = None) -> int:
     people_matcher_cache: dict[tuple[str, float, int], Any] = {}
     object_detector_cache: dict[tuple[str, float], Any] = {}
     ocr_engine_cache: dict[tuple[str, str], OCREngine] = {}
-    caption_engine_cache: dict[tuple[str, str, int, float, str, int, int, int], CaptionEngine] = {}
+    caption_engine_cache: dict[tuple[str, str, str, int, float, str, str, int, int, int], CaptionEngine] = {}
 
     processed = 0
     skipped = 0
@@ -621,12 +697,21 @@ def run(argv: list[str] | None = None) -> int:
             effective["caption_engine"] = str(args.caption_engine)
         if "--caption-model" in explicit_flags:
             effective["caption_model"] = str(args.caption_model)
+        if (
+            "--caption-prompt" in explicit_flags
+            or "--qwen-prompt" in explicit_flags
+            or "--caption-prompt-file" in explicit_flags
+            or "--qwen-prompt-file" in explicit_flags
+        ):
+            effective["caption_prompt"] = str(requested_caption_prompt)
         if "--caption-max-tokens" in explicit_flags:
             effective["caption_max_tokens"] = int(args.caption_max_tokens)
         if "--caption-temperature" in explicit_flags:
             effective["caption_temperature"] = float(args.caption_temperature)
         if "--caption-max-edge" in explicit_flags:
             effective["caption_max_edge"] = int(args.caption_max_edge)
+        if "--lmstudio-base-url" in explicit_flags:
+            effective["lmstudio_base_url"] = normalize_lmstudio_base_url(str(args.lmstudio_base_url))
         if "--qwen-attn-implementation" in explicit_flags:
             effective["qwen_attn_implementation"] = normalize_qwen_attn_implementation(str(args.qwen_attn_implementation))
         if "--qwen-min-pixels" in explicit_flags:
@@ -648,17 +733,17 @@ def run(argv: list[str] | None = None) -> int:
         if not needs_processing(
             image_path,
             manifest_row,
-            bool(args.force),
+            force_processing,
             reprocess_required=reprocess_required,
         ):
             skipped += 1
-            if args.verbose:
+            if args.verbose and not stdout_only:
                 print(f"[{idx}/{len(files)}] skip  {image_path.name}")
             continue
 
         if bool(effective.get("skip", False)):
             skipped += 1
-            if args.verbose:
+            if args.verbose and not stdout_only:
                 print(f"[{idx}/{len(files)}] skip  {image_path.name} (render_settings skip=true)")
             continue
 
@@ -705,8 +790,10 @@ def run(argv: list[str] | None = None) -> int:
             caption_key = (
                 str(effective.get("caption_engine", defaults["caption_engine"])),
                 str(effective.get("caption_model", defaults["caption_model"])),
+                str(effective.get("caption_prompt", defaults["caption_prompt"])),
                 int(effective.get("caption_max_tokens", defaults["caption_max_tokens"])),
                 float(effective.get("caption_temperature", defaults["caption_temperature"])),
+                str(effective.get("lmstudio_base_url", defaults["lmstudio_base_url"])),
                 str(effective.get("qwen_attn_implementation", defaults["qwen_attn_implementation"])),
                 int(effective.get("qwen_min_pixels", defaults["qwen_min_pixels"])),
                 int(effective.get("qwen_max_pixels", defaults["qwen_max_pixels"])),
@@ -717,12 +804,14 @@ def run(argv: list[str] | None = None) -> int:
                 caption_engine = _init_caption_engine(
                     engine=caption_key[0],
                     model_name=caption_key[1],
-                    max_tokens=int(caption_key[2]),
-                    temperature=float(caption_key[3]),
-                    qwen_attn_implementation=caption_key[4],
-                    qwen_min_pixels=int(caption_key[5]),
-                    qwen_max_pixels=int(caption_key[6]),
-                    max_image_edge=int(caption_key[7]),
+                    caption_prompt=caption_key[2],
+                    max_tokens=int(caption_key[3]),
+                    temperature=float(caption_key[4]),
+                    lmstudio_base_url=caption_key[5],
+                    qwen_attn_implementation=caption_key[6],
+                    qwen_min_pixels=int(caption_key[7]),
+                    qwen_max_pixels=int(caption_key[8]),
+                    max_image_edge=int(caption_key[9]),
                 )
                 caption_engine_cache[caption_key] = caption_engine
 
@@ -775,6 +864,23 @@ def run(argv: list[str] | None = None) -> int:
                         page_ocr_keywords=page_ocr_keywords,
                         requested_caption_engine=str(caption_key[0]),
                     )
+                    requested_caption_prompt = str(effective.get("caption_prompt", defaults["caption_prompt"])).strip()
+                    if str(caption_key[0]) in {"qwen", "lmstudio"} and requested_caption_prompt:
+                        page_caption_output = caption_engine.generate(
+                            image_path=layout.content_path,
+                            people=person_names,
+                            objects=object_labels,
+                            ocr_text=page_ocr_text,
+                        )
+                        if page_caption_output.text:
+                            description = page_caption_output.text
+                        payload["caption"] = _build_caption_metadata(
+                            requested_engine=str(caption_key[0]),
+                            effective_engine=str(page_caption_output.engine),
+                            fallback=bool(page_caption_output.fallback),
+                            error=str(page_caption_output.error or ""),
+                            model=str(caption_key[1]),
+                        )
                     people_count = len(person_names)
                     object_count = len(object_labels)
                     ocr_text = page_ocr_text
@@ -803,7 +909,7 @@ def run(argv: list[str] | None = None) -> int:
                     object_count = len(analysis.object_labels)
                     analysis_mode = "page_flat" if layout.page_like else "single_image"
 
-                if not args.dry_run:
+                if not dry_run:
                     write_xmp_sidecar(
                         sidecar_path,
                         creator_tool=creator_tool,
@@ -833,19 +939,27 @@ def run(argv: list[str] | None = None) -> int:
                 "render_settings_path": str(settings_file) if settings_file is not None else "",
             }
             processed += 1
-            print(f"[{idx}/{len(files)}] ok    {image_path.name}")
+            if stdout_only:
+                caption_meta = dict(payload.get("caption") or {}) if isinstance(payload, dict) else {}
+                fallback_error = str(caption_meta.get("error") or "").strip()
+                if bool(caption_meta.get("fallback")) and fallback_error:
+                    emit_error(f"[{idx}/{len(files)}] warn  {image_path.name}: caption fallback: {fallback_error}")
+                print(f"{image_path.name}: {description}" if description else image_path.name)
+            else:
+                print(f"[{idx}/{len(files)}] ok    {image_path.name}")
         except Exception as exc:
             failures += 1
-            print(f"[{idx}/{len(files)}] fail  {image_path.name}: {exc}")
+            emit_error(f"[{idx}/{len(files)}] fail  {image_path.name}: {exc}")
 
-    if not args.dry_run:
+    if not dry_run:
         save_manifest(manifest_path, manifest)
 
-    print("\nSummary")
-    print(f"- Processed: {processed}")
-    print(f"- Skipped:   {skipped}")
-    print(f"- Failed:    {failures}")
-    print(f"- Manifest:  {manifest_path}")
+    if not stdout_only:
+        print("\nSummary")
+        print(f"- Processed: {processed}")
+        print(f"- Skipped:   {skipped}")
+        print(f"- Failed:    {failures}")
+        print(f"- Manifest:  {manifest_path}")
     return 1 if failures else 0
 
 

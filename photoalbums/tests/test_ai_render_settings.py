@@ -49,9 +49,11 @@ class TestAIRenderSettings(unittest.TestCase):
                 "page_split_mode": "auto",
                 "caption_engine": "blip",
                 "caption_model": "",
+                "caption_prompt": "",
                 "caption_max_tokens": 96,
                 "caption_temperature": 0.2,
                 "caption_max_edge": 0,
+                "lmstudio_base_url": "http://127.0.0.1:1234/v1",
                 "qwen_attn_implementation": "auto",
                 "qwen_min_pixels": 0,
                 "qwen_max_pixels": 0,
@@ -70,6 +72,7 @@ class TestAIRenderSettings(unittest.TestCase):
                     "page_split_mode": "off",
                     "qwen_attn_implementation": "sdpa",
                     "qwen_max_pixels": 262144,
+                    "qwen_prompt": "Legacy prompt alias",
                 },
                 "image_settings": {
                     "img1.jpg": {
@@ -77,6 +80,7 @@ class TestAIRenderSettings(unittest.TestCase):
                         "people_threshold": 0.88,
                         "creator_tool": "tool-image",
                         "caption_max_edge": 960,
+                        "lmstudio_base_url": "http://localhost:1234",
                     }
                 },
             }
@@ -91,7 +95,9 @@ class TestAIRenderSettings(unittest.TestCase):
             self.assertEqual(effective["page_split_mode"], "off")
             self.assertEqual(effective["qwen_attn_implementation"], "sdpa")
             self.assertEqual(effective["qwen_max_pixels"], 262144)
+            self.assertEqual(effective["caption_prompt"], "Legacy prompt alias")
             self.assertEqual(effective["caption_max_edge"], 960)
+            self.assertEqual(effective["lmstudio_base_url"], "http://localhost:1234")
             self.assertAlmostEqual(effective["people_threshold"], 0.88)
             self.assertEqual(effective["model"], "yolo11x.pt")
             self.assertEqual(effective["creator_tool"], "tool-image")
@@ -112,9 +118,11 @@ class TestAIRenderSettings(unittest.TestCase):
                 "page_split_mode": "auto",
                 "caption_engine": "blip",
                 "caption_model": "",
+                "caption_prompt": "",
                 "caption_max_tokens": 96,
                 "caption_temperature": 0.2,
                 "caption_max_edge": 0,
+                "lmstudio_base_url": "http://127.0.0.1:1234/v1",
                 "qwen_attn_implementation": "auto",
                 "qwen_min_pixels": 0,
                 "qwen_max_pixels": 0,
