@@ -257,6 +257,7 @@ let frameGridRenderedLayoutKey = '';
 let frameSheetPrefetchDone = new Set();
 let frameSheetPrefetchPending = new Map();
 let frameSheetImageObjects = new Map(); // contact sheet URL -> loaded Image (kept alive for canvas drawImage)
+let frameSheetRanges = new Map(); // contact sheet URL -> {start, count, columns} (pre-parsed for fast lookup)
 const pendingToggleRequests = new Set();
 const navActionButtons = new Map();
 const lockExtraButtons = [

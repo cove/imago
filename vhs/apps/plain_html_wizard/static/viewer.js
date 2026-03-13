@@ -375,16 +375,31 @@ function syncFrameGridPlaybackCursor(index, keepVisible = false) {
     renderFrameGridWindow(true);
     return;
   }
-  const next = Number(index);
-  if (!Number.isFinite(next) || next < 0) {
+  const nextRaw = Number(index);
+  if (!Number.isFinite(nextRaw) || nextRaw < 0) {
     flipbookGridCursorIndex = -1;
     renderFrameGridWindow(true);
     return;
   }
-  const idx = _clamp(next, 0, frames.length - 1);
-  flipbookGridCursorIndex = idx;
+  const idx = _clamp(nextRaw, 0, frames.length - 1);
   if (keepVisible) {
     _scrollFrameGridToIndex(idx);
+  }
+  const prevIdx = flipbookGridCursorIndex;
+  flipbookGridCursorIndex = idx;
+  // Fast path: toggle the class on just the two affected cards without rebuilding the fragment.
+  if (frameGridItemsEl && prevIdx !== idx) {
+    if (prevIdx >= 0) {
+      const prevCard = frameGridItemsEl.querySelector(`[data-index="${prevIdx}"]`);
+      if (prevCard) prevCard.classList.remove('playback-current');
+    }
+    const nextCard = frameGridItemsEl.querySelector(`[data-index="${idx}"]`);
+    if (nextCard) {
+      nextCard.classList.add('playback-current');
+      return;
+    }
+  } else if (frameGridItemsEl && prevIdx === idx) {
+    return;
   }
   renderFrameGridWindow(true);
 }
@@ -840,7 +855,9 @@ function renderSparkPlaybackFrame(index, options = {}) {
   // Render frame: prefer contact-sheet sprite (already browser-cached from grid) via canvas
   // drawImage — zero network requests during playback. Fall back to URL-based img load.
   const _fIdx = _flipbookFrameGlobalIndex(displayFid);
-  const _sprite = _fIdx >= 0 ? frameContactSheetSpecForIndex(_fIdx) : null;
+  // Use metrics-based URL so it matches the sheets already loaded by the grid display,
+  // avoiding a separate count=512 download just for the flipbook canvas.
+  const _sprite = _fIdx >= 0 ? frameContactSheetSpecForIndex(_fIdx, frameGridMetrics(currentReviewFrames().length)) : null;
   const _sheetImg = _sprite
     ? (frameSheetImageObjects.get(_sprite.url) || frameSheetPrefetchPending.get(_sprite.url))
     : null;
@@ -1296,6 +1313,7 @@ function resetFrameSheetPrefetchState() {
   });
   frameSheetPrefetchPending = new Map();
   frameSheetImageObjects = new Map();
+  frameSheetRanges = new Map();
 }
 
 // Return sprite data from any already-loaded contact sheet that covers frameIndex,
@@ -1306,24 +1324,18 @@ function _findAnyLoadedSheetForFrameIndex(frameIndex) {
   const config = normalizeFrameSheetConfig(state.frameSheetConfig || null);
   const thumbWidth = Math.max(1, Math.trunc(Number(config.thumbWidth || FRAME_SHEET_DEFAULT_THUMB_WIDTH)));
   const thumbHeight = Math.max(1, Math.trunc(Number(config.thumbHeight || FRAME_SHEET_DEFAULT_THUMB_HEIGHT)));
-  for (const [url, img] of frameSheetImageObjects) {
+  for (const [url, range] of frameSheetRanges) {
+    if (frameIndex < range.start || frameIndex >= range.start + range.count) continue;
+    const img = frameSheetImageObjects.get(url);
     if (!img || !img.complete || !img.naturalWidth) continue;
-    try {
-      const params = new URL(url, window.location.href).searchParams;
-      const start = Math.trunc(Number(params.get('start') || 0));
-      const count = Math.trunc(Number(params.get('count') || 0));
-      const columns = Math.max(1, Math.trunc(Number(params.get('columns') || FRAME_SHEET_DEFAULT_COLUMNS)));
-      if (frameIndex >= start && frameIndex < start + count) {
-        const offset = frameIndex - start;
-        return {
-          img,
-          col: offset % columns,
-          row: Math.floor(offset / columns),
-          thumbWidth,
-          thumbHeight,
-        };
-      }
-    } catch (_unused) { /* malformed URL, skip */ }
+    const offset = frameIndex - range.start;
+    return {
+      img,
+      col: offset % range.columns,
+      row: Math.floor(offset / range.columns),
+      thumbWidth,
+      thumbHeight,
+    };
   }
   return null;
 }
@@ -1635,6 +1647,14 @@ function prefetchFrameContactSheet(urlRaw) {
     frameSheetPrefetchPending.delete(url);
     frameSheetPrefetchDone.add(url);
     frameSheetImageObjects.set(url, img); // keep alive for canvas drawImage
+    try {
+      const p = new URL(url, window.location.href).searchParams;
+      frameSheetRanges.set(url, {
+        start: Math.trunc(Number(p.get('start') || 0)),
+        count: Math.trunc(Number(p.get('count') || 0)),
+        columns: Math.max(1, Math.trunc(Number(p.get('columns') || FRAME_SHEET_DEFAULT_COLUMNS))),
+      });
+    } catch (_unused) {}
   };
   img.onerror = () => {
     frameSheetPrefetchPending.delete(url);
@@ -1663,20 +1683,7 @@ function prefetchVisibleFrameSheets(metricsRaw = null, rangeRaw = null) {
   if (!current) return;
   _recordImageFetchedRange(current.start, current.start + current.count - 1);
   const stride = Math.max(1, Math.trunc(Number(current.count || 1)));
-  // Prefetch visible-range contact sheets using no-metrics so URLs match renderSparkPlaybackFrame
-  // (which also uses no metrics → config-based columns). This populates frameSheetImageObjects
-  // so the flipbook canvas can draw immediately without a fallback reload.
-  const _fbVisStart = frameContactSheetSpecForIndex(startIndex);
-  const _fbVisEnd = frameContactSheetSpecForIndex(endIndex);
-  if (_fbVisStart) {
-    const _fbStride = Math.max(1, Math.trunc(Number(_fbVisStart.count || 1)));
-    const _fbEndStart = _fbVisEnd ? _fbVisEnd.start : _fbVisStart.start;
-    for (let s = _fbVisStart.start; s <= _fbEndStart; s += _fbStride) {
-      const sheet = frameContactSheetSpecForSheetStart(s);
-      if (sheet && sheet.url) prefetchFrameContactSheet(sheet.url);
-    }
-  }
-  // Look-ahead prefetch (metrics-based URLs for CSS grid scroll performance)
+  // Look-ahead prefetch (metrics-based URLs for CSS grid scroll performance and flipbook canvas)
   for (let i = 1; i <= FRAME_GRID_CONTACT_SHEET_PREFETCH_AHEAD; i += 1) {
     const nextStart = current.start + (stride * i);
     const next = frameContactSheetSpecForSheetStart(nextStart, metrics);
