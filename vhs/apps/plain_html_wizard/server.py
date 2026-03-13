@@ -171,6 +171,22 @@ class SessionState:
     )
     frame_source_video_path: str = ""
     frame_source_read_offset: int = 0
+    # Persistent VideoCapture reused across contact-sheet requests for the same video.
+    # Access only while holding _video_cap_lock.
+    _video_cap: Any = field(default=None, repr=False, compare=False)
+    _video_cap_path: str = field(default="", repr=False, compare=False)
+    _video_cap_last_fid: int = field(default=-1, repr=False, compare=False)
+    _video_cap_lock: Any = field(default_factory=threading.Lock, repr=False, compare=False)
+
+
+def _close_session_video_cap(session: "SessionState") -> None:
+    """Release the session's cached VideoCapture if open. Call when switching videos."""
+    with session._video_cap_lock:
+        if session._video_cap is not None:
+            session._video_cap.release()
+            session._video_cap = None
+            session._video_cap_path = ""
+            session._video_cap_last_fid = -1
 
 
 _SESSION_LOCK = threading.Lock()
@@ -1822,23 +1838,34 @@ def _load_contact_sheet_images_from_video(
     if not missing:
         return out
 
-    cap = cv2.VideoCapture(str(video_path))
-    if not cap.isOpened():
-        cap.release()
-        return out
-    try:
+    video_path_str = str(video_path)
+    with session._video_cap_lock:
+        # Reuse the session's VideoCapture if it's already open for this video.
+        if (session._video_cap is None
+                or session._video_cap_path != video_path_str
+                or not session._video_cap.isOpened()):
+            if session._video_cap is not None:
+                session._video_cap.release()
+            session._video_cap = cv2.VideoCapture(video_path_str)
+            session._video_cap_path = video_path_str
+            session._video_cap_last_fid = -1
+            if not session._video_cap.isOpened():
+                session._video_cap.release()
+                session._video_cap = None
+                return out
+        cap = session._video_cap
         read_offset = int(session.frame_source_read_offset)
-        prev_read_fid: int | None = None
+        prev_read_fid = session._video_cap_last_fid
         for fid in missing:
             read_fid = int(fid) - read_offset
             if read_fid < 0:
-                prev_read_fid = None
+                prev_read_fid = -1
                 continue  # frame before video start — leave missing so tile is not cached
-            if prev_read_fid is None or read_fid != prev_read_fid + 1:
+            if prev_read_fid < 0 or read_fid != prev_read_fid + 1:
                 cap.set(cv2.CAP_PROP_POS_FRAMES, int(read_fid))
             ok, read_bgr = cap.read()
             if not ok or read_bgr is None:
-                prev_read_fid = None
+                prev_read_fid = -1
                 continue  # read failure — leave missing so tile is not cached
             prev_read_fid = read_fid
             # Return PIL Image directly — avoids JPEG encode/decode roundtrip in the contact sheet path
@@ -1846,8 +1873,7 @@ def _load_contact_sheet_images_from_video(
             thumb_h = int(160 * h / max(w, 1))
             thumb_bgr = cv2.resize(read_bgr, (160, thumb_h), interpolation=cv2.INTER_AREA)
             out[int(fid)] = Image.fromarray(cv2.cvtColor(thumb_bgr, cv2.COLOR_BGR2RGB))
-    finally:
-        cap.release()
+        session._video_cap_last_fid = prev_read_fid
     return out
 
 
@@ -3155,6 +3181,7 @@ class WizardHandler(BaseHTTPRequestHandler):
         session.preview_video_path = ""
         session.chapter_audio_path = ""
         session.chapter_audio_key = ""
+        _close_session_video_cap(session)
         session.fids = []
         session.b64 = []
         session.sigs = {}

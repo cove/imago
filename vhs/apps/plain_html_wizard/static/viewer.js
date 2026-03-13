@@ -1963,6 +1963,14 @@ function _scheduleClientPerfUpload() {
   _clientPerfUploadTimer = setTimeout(_uploadClientPerf, 3000);
 }
 
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'P' && e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+    if (_clientPerfUploadTimer !== null) { clearTimeout(_clientPerfUploadTimer); _clientPerfUploadTimer = null; }
+    _uploadClientPerf();
+    console.log('[perf] profile snapshot uploaded');
+  }
+});
+
 function _uploadClientPerf() {
   _clientPerfUploadTimer = null;
   const measures = performance.getEntriesByType('measure')

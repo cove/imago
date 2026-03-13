@@ -2185,44 +2185,15 @@ def test_update_chapter_bad_frames_omits_empty_line():
     print("Test BAD_FRAMES empty updates remove BAD_FRAMES line: PASSED.")
 
 
-def test_vhs_tuner_ui_defaults_and_controls():
-    print("Testing vhs_tuner UI defaults and control layout...")
+def test_vhs_tuner_plain_wizard_entrypoint():
+    print("Testing vhs_tuner plain HTML wizard entrypoint...")
     src = (ROOT / "vhs_tuner.py").read_text(encoding="utf-8", errors="ignore")
 
-    assert 'n_sl = gr.Slider(20, 10000, value=400, step=10, label="n")' in src
-    assert 'context_sl = gr.Slider(0, 200, value=10, step=1, label="Frames Around Bad")' in src
-    assert 'strict_sampling_cb = gr.Checkbox(label="Strict Sampling", value=True)' in src
-    assert 'exact_extract_cb = gr.Checkbox(label="Use Step6 Extract", value=True)' in src
-    assert 'debug_extract_cb = gr.Checkbox(label="Debug Frame IDs", value=False)' in src
-    assert 'thumb_ids_cb = gr.Checkbox(label="Show IDs On Images", value=False)' in src
-    assert 'with gr.Tabs(elem_id="vhs-main-tabs", selected="chapters-tab"):' in src
-    assert 'status_md = gr.Markdown("`Select a chapter and click Load Selected Chapter.`")' in src
-    assert "chapter_table = gr.Dataframe(" in src
-    assert 'elem_id="vhs-chapter-table"' in src
-    assert 'with gr.Tab("Frames", id="frames-tab"):' in src
-    assert 'apply_btn = gr.Button("Apply", variant="primary")' in src
-    assert "apply_btn.click(on_save_bad_frames, _SAVE_INS, [status_md])" in src
-    assert 'choices=["toggle", "bad", "good", "clear"]' in src
-    assert "if not bool(strict_sampling):" in src
-    assert "_ensure_step6_chapter_extract(" in src
-    assert "frame_read_offset=frame_read_offset" in src
-    assert "show_frame_labels=bool(show_image_ids)" in src
-    assert "yield _status_only(" in src
-    assert 'spark_chroma = gr.HTML(_E_SIG, elem_classes=["vhs-spark"])' in src
-    assert 'spark_score = gr.HTML(_E_SCORE, elem_classes=["vhs-spark", "vhs-spark-score"])' in src
-    assert 'with gr.Row(elem_id="vhs-tuning-grid", equal_height=True):' in src
-    assert 'gr.Markdown("Range & Sample", elem_classes=["vhs-widget-title"])' in src
-    assert 'gr.Markdown("Signal Weights", elem_classes=["vhs-widget-title"])' in src
-    assert 'gr.Markdown("Threshold", elem_classes=["vhs-widget-title"])' in src
-    assert 'gr.Markdown("Grid", elem_classes=["vhs-widget-title"])' in src
-    assert 'reload_btn = gr.Button("Reload", variant="secondary")' not in src
-    assert 'mark_mode_dd = gr.Dropdown(' not in src
-    assert 'mark_mode="toggle"' in src
+    assert "from apps.plain_html_wizard.server import run as run_plain_wizard" in src
+    assert 'run_plain_wizard(host="0.0.0.0", port=8092)' in src
+    assert "from libs.vhs_tuner_core import *" in src
 
-    assert "Apply & Regenerate" not in src
-    assert "fstep_sl  =" not in src
-
-    print("Test vhs_tuner UI defaults and control layout: PASSED.")
+    print("Test vhs_tuner plain HTML wizard entrypoint: PASSED.")
 
 def test_runtime_scripts_do_not_generate_framemd5():
     print("Testing runtime scripts do not generate framemd5/md5 temp outputs...")
@@ -2268,7 +2239,7 @@ def main():
     test_vhs_tuner_chapter_bad_overrides_half_open_range()
     test_update_chapter_bad_frames_preserves_untouched_chapters()
     test_update_chapter_bad_frames_omits_empty_line()
-    test_vhs_tuner_ui_defaults_and_controls()
+    test_vhs_tuner_plain_wizard_entrypoint()
     test_runtime_scripts_do_not_generate_framemd5()
 
 if __name__ == "__main__":

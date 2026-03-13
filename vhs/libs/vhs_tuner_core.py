@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import base64
 import csv
+import base64
 import gzip
 import hashlib
 import io
@@ -19,7 +19,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from PIL import Image, ImageDraw, ImageOps
+from PIL import Image
 
 # -- Project paths -------------------------------------------------------------
 _HERE        = Path(__file__).resolve().parent
@@ -29,7 +29,6 @@ sys.path.insert(0, str(PROJECT_ROOT))
 ARCHIVE_DIR  = PROJECT_ROOT / "../../Archive"
 METADATA_DIR = PROJECT_ROOT / "metadata"
 FPS          = 30000 / 1001
-BORDER       = 3
 TUNER_CACHE_ROOT = Path(os.environ.get("VHS_TUNER_CACHE_DIR") or (Path(tempfile.gettempdir()) / "vhs_tuner_cache"))
 TUNER_EXTRACT_DIR = TUNER_CACHE_ROOT / "extracts"
 TUNER_FRAME_CACHE_DIR = TUNER_CACHE_ROOT / "frame_samples"
@@ -38,14 +37,6 @@ RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV = "RENDER_DEBUG_EXTRACT_FRAME_NUMBERS"
 TUNER_FRAME_CACHE_VERSION = 1
 _CACHE_SIGNAL_KEYS = ("chroma", "noise", "tear", "wave")
 _LAST_CACHE_CLEANUP_TS = 0.0
-
-try:
-    from tracking_loss import TrackingLossConfig, run_tracking_loss_classification
-    _HAS_TRACKING = True
-except ImportError:
-    TrackingLossConfig = None            # type: ignore
-    run_tracking_loss_classification = None  # type: ignore
-    _HAS_TRACKING = False
 
 from common import (
     FFPROBE_BIN,
@@ -822,12 +813,6 @@ def save_cached_signals(
         return
     _cleanup_tuner_cache()
 
-def load_overrides(archive: str, ch_title: str) -> dict[int, str]:
-    return {}
-
-def save_overrides(archive: str, ch_title: str, overrides: dict[int, str]) -> None:
-    return None
-
 def _compute_signals(bgr: np.ndarray, crop: int = 50) -> tuple[float, float, float, float]:
     h, w = bgr.shape[:2]
     y0 = min(crop, max(0, h-1)); y1 = max(y0+1, h-crop)
@@ -1173,58 +1158,6 @@ def apply_manual_click_override(
     return new_ov, {"fid": int(fid), "ts": int(ts)}, srv_dbg
 
 
-def select_focus_frame_ids(
-    *,
-    start: int,
-    end: int,
-    max_frames: int,
-    coarse_fids: list[int],
-    coarse_scores: np.ndarray,
-    threshold: float,
-    burst_radius: int = 4,
-) -> list[int]:
-    """
-    Build a weighted frame list that prioritizes contiguous context around
-    detected bad frames while keeping total count <= max_frames.
-    """
-    budget = max(1, int(max_frames))
-    s, e = _normalize_frame_span(start, end)
-    radius = max(1, int(burst_radius))
-
-    bad_candidates: list[tuple[int, float]] = []
-    for fid, sc in zip(coarse_fids, coarse_scores):
-        if float(sc) >= float(threshold):
-            bad_candidates.append((int(fid), float(sc)))
-    bad_candidates.sort(key=lambda x: x[1], reverse=True)
-
-    selected: set[int] = set()
-    # Add full contiguous neighborhoods (no sampling in chosen windows).
-    for fid, _sc in bad_candidates:
-        lo = max(s, fid - radius)
-        hi = min(e - 1, fid + radius)
-        needed = [f for f in range(lo, hi + 1) if f not in selected]
-        if len(selected) + len(needed) > budget:
-            continue
-        selected.update(needed)
-        if len(selected) >= budget:
-            break
-
-    # Fill remaining budget with uniform samples across the full range.
-    if len(selected) < budget:
-        fill_n = budget - len(selected)
-        baseline = np.linspace(s, e - 1, fill_n, dtype=int).tolist()
-        for f in baseline:
-            selected.add(int(f))
-            if len(selected) >= budget:
-                break
-
-    # Final clamp by deterministic order.
-    ordered = sorted(selected)
-    if len(ordered) > budget:
-        ordered = ordered[:budget]
-    return ordered
-
-
 # ===============================================================================
 # AI-Agent Analysis Helpers
 # ===============================================================================
@@ -1547,267 +1480,6 @@ def build_sparklines_html(
 
     return sc_chroma, sc_noise, sc_tear, sc_wave, sc_score
 
-# ===============================================================================
-# Frame grid HTML
-# ===============================================================================
-
-# NOTE: _GRID_JS is intentionally empty - the actual JS lives in a static
-# gr.HTML component that is never included in event outputs, so it survives
-# grid rebuilds. Cells call window.vhsToggleFrame(fid) via inline onclick.
-_GRID_JS = ""
-
-def build_grid_html(
-    frames_b64: list[str],
-    fids: list[int],
-    scores: np.ndarray,
-    overrides: dict[int, str],
-    threshold: float,
-    cols: int,
-    thumb_w: int,
-    chapter_start_frame: int = 0,
-) -> str:
-    if not fids:
-        return "<p style='color:#666;font-family:monospace;padding:20px'>No frames loaded.</p>"
-
-    cells = []
-    for b64, fid, sc in zip(frames_b64, fids, scores):
-        local_fid = int(fid) - int(chapter_start_frame)
-        ov    = overrides.get(int(fid))
-        auto_bad = bool(float(sc) >= float(threshold))
-        bad = (ov == "bad") or (ov != "good" and auto_bad)
-        color = "#e03030" if bad else "#30c870"
-        if ov == "bad":
-            badge = " MANUAL_BAD"
-        elif ov == "good":
-            badge = " MANUAL_GOOD"
-        else:
-            badge = " AUTO_BAD" if auto_bad else " AUTO_GOOD"
-        label = f"#{local_fid} {sc:.2f}{badge}"
-        cells.append(
-            f'<div class="vhs-cell" data-fid="{fid}" onclick="if(window.vhsToggleFrame){{window.vhsToggleFrame({fid});}} return false;"'
-            f' title="local {local_fid} | global {fid} | score {sc:.4f} | click to toggle">'
-            f'<div class="vhs-wrap" style="border-color:{color}">'
-            f'<img src="{b64}" class="vhs-thumb"/></div>'
-            f'<div class="vhs-lbl" style="color:{color}">{label}</div>'
-            f'</div>'
-        )
-
-    return f"""
-{_GRID_JS}
-<style>
-  .vhs-grid {{
-    display:grid;
-    grid-template-columns:repeat({cols},{thumb_w}px);
-    gap:5px; background:#0d0d0d; padding:8px;
-  }}
-  .vhs-cell {{ display:flex; flex-direction:column; align-items:center;
-               cursor:pointer; user-select:none; }}
-  .vhs-cell:hover .vhs-wrap {{ opacity:0.75; transform:scale(1.03); }}
-  .vhs-wrap {{ border:{BORDER}px solid; line-height:0;
-               transition:opacity .1s, transform .1s; }}
-  .vhs-thumb {{ display:block; width:{thumb_w}px; }}
-  .vhs-lbl {{ font-family:'Courier New',monospace; font-size:9px;
-              margin-top:2px; white-space:nowrap; }}
-</style>
-<div class="vhs-grid">{''.join(cells)}</div>
-"""
-
-def build_gallery_items(
-    frames_b64: list[str],
-    fids: list[int],
-    scores: np.ndarray,
-    overrides: dict[int, str],
-    threshold: float,
-    chapter_start_frame: int,
-    show_frame_labels: bool = False,
-) -> list[tuple[Image.Image, str]]:
-    items: list[tuple[Image.Image, str]] = []
-    for b64, fid, sc in zip(frames_b64, fids, scores):
-        # Gradio Gallery.select in v6 rejects data: URIs in event payload.
-        # Convert to in-memory PIL images so selected items are cache-safe.
-        try:
-            payload = b64.split(",", 1)[1] if "," in b64 else b64
-            img = Image.open(io.BytesIO(base64.b64decode(payload))).convert("RGB")
-        except Exception:
-            img = Image.new("RGB", (160, 90), (20, 20, 20))
-        ov = overrides.get(int(fid))
-        auto_bad = bool(float(sc) >= float(threshold))
-        is_bad = (ov == "bad") or (ov != "good" and auto_bad)
-        if ov == "bad":
-            state_short = "MB"   # manual bad override
-        elif ov == "good":
-            state_short = "MG"   # manual good override
-        else:
-            state_short = "AB" if auto_bad else "AG"
-        color = "#e03030" if is_bad else "#30c870"
-        local_fid = int(fid) - int(chapter_start_frame)
-
-        if bool(show_frame_labels):
-            # Optional burn-in for quick global/local visual verification.
-            overlay_lines = [f"G:{int(fid)}", f"L:{local_fid}"]
-            draw = ImageDraw.Draw(img)
-            pad_x = 3
-            pad_y = 2
-            line_gap = 1
-            line_sizes = []
-            for line in overlay_lines:
-                if hasattr(draw, "textbbox"):
-                    x0, y0, x1, y1 = draw.textbbox((0, 0), line)
-                    line_sizes.append((x1 - x0, y1 - y0))
-                else:
-                    line_sizes.append(draw.textsize(line))
-            box_w = max((w for w, _ in line_sizes), default=0) + (2 * pad_x)
-            box_h = sum((h for _, h in line_sizes)) + (line_gap * (len(overlay_lines) - 1)) + (2 * pad_y)
-            draw.rectangle((0, 0, box_w, box_h), fill=(0, 0, 0))
-            y = pad_y
-            for line, (_, h) in zip(overlay_lines, line_sizes):
-                draw.text((pad_x, y), line, fill=(255, 255, 255))
-                y += h + line_gap
-
-        # Restore fast visual scanning: colored border per frame state.
-        styled = ImageOps.expand(img, border=BORDER, fill=color)
-        items.append((styled, f"G:{int(fid)}  L:{local_fid}  s={sc:.2f}  {state_short}"))
-    return items
-
-# ===============================================================================
-# Preview video: ffmpeg burn-in  G/L/S  (global frame, local frame, score)
-# ===============================================================================
-
-def _write_score_ass(path: Path, fids: list[int], scores: np.ndarray,
-                     chapter_start_frame: int, fps: float,
-                     total_local_frames: int) -> None:
-    score_map   = {int(f): float(s) for f, s in zip(fids, scores)}
-    sorted_fids = sorted(score_map)
-    if not sorted_fids:
-        path.write_text("", encoding="utf-8"); return
-
-    def _t(lf: int) -> str:
-        secs = max(0.0, lf / fps)
-        h = int(secs//3600); m = int((secs%3600)//60); s = secs%60
-        return f"{h}:{m:02d}:{int(s):02d}.{int((s%1)*100):02d}"
-
-    events = []
-    for i, fid in enumerate(sorted_fids):
-        lo = max(0, fid - chapter_start_frame)
-        hi = (sorted_fids[i+1] - chapter_start_frame
-              if i+1 < len(sorted_fids) else total_local_frames + 60)
-        events.append(f"Dialogue: 0,{_t(lo)},{_t(hi)},Sc,,0,0,0,,S:{score_map[fid]:.2f}")
-
-    path.write_text(
-        "[Script Info]\nScriptType: v4.00+\nPlayResX: 1280\nPlayResY: 720\n\n"
-        "[V4+ Styles]\nFormat: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,"
-        "OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,"
-        "Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding\n"
-        "Style: Sc,Courier New,18,&H00FFFFFF,&H000000FF,&H00000000,&H99000000,"
-        "1,0,0,0,100,100,0,0,1,2,0,7,6,6,36,1\n\n"
-        "[Events]\nFormat: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text\n"
-        + "\n".join(events),
-        encoding="utf-8",
-    )
-
-def make_preview_video(input_path: str | Path, output_path: str | Path,
-                       chapter_start_frame: int, fids: list[int],
-                       scores: np.ndarray, fps: float = FPS) -> Path:
-    input_path  = Path(input_path)
-    output_path = Path(output_path)
-    ass_path    = output_path.with_suffix(".score_overlay.ass")
-
-    cap   = cv2.VideoCapture(str(input_path))
-    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) if cap.isOpened() else 0
-    cap.release()
-
-    if fids and len(scores) == len(fids):
-        _write_score_ass(ass_path, fids, scores, chapter_start_frame, fps, total)
-    else:
-        ass_path.write_text("", encoding="utf-8")
-
-    offset = int(chapter_start_frame)
-    font_candidates = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
-        "/System/Library/Fonts/Menlo.ttc",
-        "C\\:/Windows/Fonts/cour.ttf",
-    ]
-    font_path = next((f for f in font_candidates if Path(f).exists()), "")
-    font_arg  = f"fontfile={font_path}:" if font_path else ""
-
-    vf_parts = [
-        "scale=iw/2:ih/2",
-        f"subtitles='{ass_path}'",
-        (f"drawtext={font_arg}fontsize=16:fontcolor=white:x=6:y=6:"
-         f"box=1:boxcolor=black@0.75:boxborderw=3:"
-         f"text='G\\:%{{eif\\:n+{offset}\\:d\\:7}} L\\:%{{n}}'"),
-    ]
-
-    def _run(vf: str) -> bool:
-        return subprocess.run(
-            ["ffmpeg", "-nostdin", "-y", "-i", str(input_path),
-             "-vf", vf, "-c:v", "libx264", "-crf", "22", "-preset", "fast",
-             "-c:a", "aac", "-b:a", "128k", str(output_path)],
-            capture_output=True,
-        ).returncode == 0
-
-    if not _run(",".join(vf_parts)):
-        if not _run(",".join([vf_parts[0], vf_parts[2]])):
-            _run(vf_parts[0])
-
-    try: ass_path.unlink()
-    except Exception: pass
-    return output_path
-
-# ===============================================================================
-# Apply: run tracking_loss and write BAD_FRAMES into render_settings.json
-# ===============================================================================
-
-def apply_and_regenerate(
-    archive: str, ch_title: str,
-    ch_start: int, ch_end: int,
-    w_chroma: float, w_noise: float, w_tear: float, w_wave: float,
-    iqr_mult: float, frame_step: int,
-) -> str:
-    ch_text = str(ch_title or "").strip().lower()
-    if (not archive or not ch_title
-            or "select chapter" in ch_text
-            or "no chapters" in ch_text):
-        return "No chapter selected."
-
-    logs: list[str] = []
-
-    if not _HAS_TRACKING:
-        return "\n".join(logs) + "\ntracking_loss module not found."
-
-    proxy = ARCHIVE_DIR / f"{archive}_proxy.mp4"
-    mkv   = ARCHIVE_DIR / f"{archive}.mkv"
-    video = str(proxy if proxy.exists() else mkv if mkv.exists() else "")
-    if not video:
-        return "\n".join(logs) + f"\nNo video found for '{archive}'."
-
-    logs.append(f"tracking_loss frames {ch_start}-{ch_end} step={frame_step}...")
-    config = TrackingLossConfig(  # type: ignore[call-arg]
-        archive=archive,
-        video=video,
-        chapters_file=str(_chapters_file_path(archive)),
-        start_frame=ch_start,
-        max_frame=ch_end,
-        frame_step=max(1, frame_step),
-        weight_chroma=w_chroma,
-        weight_noise=w_noise,
-        weight_tear=w_tear,
-        weight_wave=w_wave,
-        iqr_mult=iqr_mult,
-        threshold_window_size=1000,
-    )
-    try:
-        result = run_tracking_loss_classification(config=config)  # type: ignore
-        logs.append("tracking_loss wrote BAD_FRAMES into render_settings.json")
-        logs.append(f"Updated chapter blocks: {int(result.get('updated_chapters', 0))}")
-    except Exception as exc:
-        logs.append(f"tracking_loss failed: {exc}")
-        return "\n".join(logs)
-
-    logs.append("render pipeline reads BAD_FRAMES from render_settings.json")
-    return "\n".join(logs)
-
 # Chapter list helpers
 def _get_archives() -> list[str]:
     names: set[str] = set()
@@ -1938,154 +1610,3 @@ def build_archive_state(
         "status": status,
     }
 
-
-def _frame_is_bad(
-    fid: int,
-    score: float,
-    threshold: float,
-    overrides: dict[int, str] | None,
-) -> bool:
-    ov = (overrides or {}).get(int(fid))
-    if ov == "bad":
-        return True
-    if ov == "good":
-        return False
-    return bool(float(score) >= float(threshold))
-
-
-def _select_visible_indices(
-    fids: list[int],
-    bad_fids: list[int],
-    context: int,
-) -> list[int]:
-    if not fids:
-        return []
-    if not bad_fids:
-        # Fallback: show sampled frames when detector finds no bad frames.
-        return list(range(len(fids)))
-    ctx = max(0, int(context))
-    if ctx <= 0:
-        bad_set = {int(f) for f in bad_fids}
-        return [i for i, fid in enumerate(fids) if int(fid) in bad_set]
-    spans = sorted((int(fid) - ctx, int(fid) + ctx) for fid in bad_fids)
-    merged: list[list[int]] = []
-    for lo, hi in spans:
-        if not merged or lo > merged[-1][1] + 1:
-            merged.append([lo, hi])
-        else:
-            merged[-1][1] = max(merged[-1][1], hi)
-    vis: list[int] = []
-    j = 0
-    for i, fid in enumerate(fids):
-        x = int(fid)
-        while j < len(merged) and x > merged[j][1]:
-            j += 1
-        if j >= len(merged):
-            break
-        if merged[j][0] <= x <= merged[j][1]:
-            vis.append(i)
-    return vis
-
-
-def build_review_data(
-    *,
-    fids: list[int],
-    b64: list[str],
-    sigs: dict[str, np.ndarray],
-    overrides: dict[int, str],
-    wc: float,
-    wn: float,
-    wt: float,
-    ww: float,
-    t_mode: str,
-    iqr_k: float,
-    tval: float,
-    bpct: float,
-    context: int,
-    chapter_start_frame: int,
-    show_image_ids: bool,
-) -> tuple[list[tuple[Image.Image, str]], str, str, str, str, str, str, list[int]]:
-    if not fids or not b64:
-        return [], "*(no frames loaded)*", _sparkline_svg(np.array([]), None, "", height=24), _sparkline_svg(np.array([]), None, "", height=24), _sparkline_svg(np.array([]), None, "", height=24), _sparkline_svg(np.array([]), None, "", height=24), _sparkline_svg(np.array([]), None, "", height=32), []
-    sc = combined_score(sigs, wc, wn, wt, ww)
-    thr = compute_threshold(sc, t_mode, iqr_k, tval, bpct)
-    bad_fids = [
-        int(fid)
-        for fid, s in zip(fids, sc)
-        if _frame_is_bad(int(fid), float(s), float(thr), overrides)
-    ]
-    vis_idx = _select_visible_indices(fids, bad_fids, int(context))
-    vis_fids = [int(fids[i]) for i in vis_idx]
-    vis_b64 = [b64[i] for i in vis_idx]
-    vis_sc = np.array([sc[i] for i in vis_idx], dtype=np.float64)
-    gallery_items = build_gallery_items(
-        vis_b64,
-        vis_fids,
-        vis_sc,
-        overrides,
-        thr,
-        chapter_start_frame=int(chapter_start_frame),
-        show_frame_labels=bool(show_image_ids),
-    )
-    n_bad = sum(
-        _frame_is_bad(int(f), float(s), float(thr), overrides)
-        for f, s in zip(fids, sc)
-    )
-    n_ov = sum(1 for f in fids if int(f) in (overrides or {}))
-    stats = (
-        f" **Bad:** {n_bad} ({100*n_bad/max(1,len(fids)):.0f}%) | "
-        f" **Good:** {len(fids)-n_bad} | "
-        f"**Threshold:** {thr:.3f} | "
-        f" **Overrides:** {n_ov} | n={len(fids)} | shown={len(vis_fids)}"
-    )
-    sc_ch, sc_no, sc_te, sc_wa, sc_sc = build_sparklines_html(
-        sigs, sc, thr, wc, wn, wt, ww
-    )
-    return gallery_items, stats, sc_ch, sc_no, sc_te, sc_wa, sc_sc, vis_fids
-
-
-def build_finalize_summary(
-    *,
-    chapter_title: str,
-    chapter: dict | None,
-    ch_start: int,
-    ch_end: int,
-    fids: list[int],
-    sigs: dict[str, np.ndarray],
-    overrides: dict[int, str],
-    vis_fids: list[int],
-    wc: float,
-    wn: float,
-    wt: float,
-    ww: float,
-    tm: str,
-    ik: float,
-    tv: float,
-    bp: float,
-) -> tuple[str, str]:
-    if not fids or not sigs:
-        return (
-            "`No sampled frames loaded yet.`",
-            "ERROR:  Load a chapter before finalizing.",
-        )
-    scores = combined_score(sigs, wc, wn, wt, ww)
-    thr = compute_threshold(scores, tm, ik, tv, bp)
-    n_bad = sum(
-        1 for fid, sc in zip(fids, scores)
-        if _frame_is_bad(int(fid), float(sc), float(thr), overrides or {})
-    )
-    n_ov = sum(1 for fid in fids if int(fid) in (overrides or {}))
-    chapter_frames = _chapter_frame_count(chapter) if chapter else max(1, int(ch_end) - int(ch_start))
-    bad_before = _chapter_bad_count(chapter) if chapter else 0
-    summary = (
-        f"### Final Stats\n"
-        f"- Chapter: **{chapter_title}**\n"
-        f"- Chapter total frames: `{chapter_frames}`\n"
-        f"- Frames sampled: `{len(fids)}`\n"
-        f"- Frames currently shown: `{len(vis_fids or [])}`\n"
-        f"- BAD already in metadata: `{bad_before}`\n"
-        f"- BAD in loaded set now: `{n_bad}`\n"
-        f"- Manual overrides: `{n_ov}`\n"
-        f"- IQR k: `{float(ik):.2f}` (threshold `{float(thr):.3f}`)"
-    )
-    return summary, "`Review complete. Click Save and Return to Chapters.`"
