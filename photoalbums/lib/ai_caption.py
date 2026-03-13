@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+import base64
+import io
+import json
+import re
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -7,7 +13,25 @@ from .model_store import HF_MODEL_CACHE_DIR
 
 
 DEFAULT_BLIP_CAPTION_MODEL = "Salesforce/blip-image-captioning-base"
-DEFAULT_QWEN_CAPTION_MODEL = "Qwen/Qwen2.5-VL-3B-Instruct"
+DEFAULT_QWEN_CAPTION_MODEL = "Qwen/Qwen3.5-4B"
+DEFAULT_QWEN_AUTO_MAX_IMAGE_EDGE = 1280
+DEFAULT_QWEN_AUTO_MAX_PIXELS = 786_432
+DEFAULT_LMSTUDIO_MAX_NEW_TOKENS = 256
+DEFAULT_LMSTUDIO_BASE_URL = "http://127.0.0.1:1234/v1"
+DEFAULT_LMSTUDIO_TIMEOUT_SECONDS = 180.0
+DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE = 2048
+LMSTUDIO_VISION_MODEL_HINTS = (
+    "vl",
+    "vision",
+    "llava",
+    "minicpm",
+    "moondream",
+    "pixtral",
+    "internvl",
+    "phi-3.5-vision",
+    "phi-4-multimodal",
+    "qvq",
+)
 QWEN_ATTN_IMPLEMENTATIONS = {"auto", "sdpa", "flash_attention_2", "eager"}
 
 
@@ -55,8 +79,6 @@ def build_template_caption(*, people: list[str], objects: list[str], ocr_text: s
         parts.append(f"This photo appears to show {join_human(people_list)}.")
     elif object_list:
         parts.append(f"This photo includes {join_human(object_list)}.")
-    else:
-        parts.append("This photo was indexed with no confident people or object matches.")
 
     if text:
         snippet = text[:180].strip()
@@ -81,8 +103,6 @@ def build_page_caption(*, photo_count: int, people: list[str], objects: list[str
         parts.append(f"Across the page, it appears to show {join_human(people_list)}.")
     elif object_list:
         parts.append(f"Across the page, visible objects include {join_human(object_list)}.")
-    else:
-        parts.append("Across the page, no confident people or object matches were found.")
 
     if text:
         snippet = text[:220].strip()
@@ -97,9 +117,7 @@ def _build_qwen_prompt(*, people: list[str], objects: list[str], ocr_text: str) 
     object_list = dedupe(objects)
     text = clean_text(ocr_text)
     lines = [
-        "Write one or two concise factual sentences describing this photo.",
-        "Do not invent details that are not visible.",
-        "Use the context below only as hints and prefer what you can see in the image.",
+        "Describe this photo in detail",
     ]
     if people_list:
         lines.append(f"Known people matches: {join_human(people_list)}.")
@@ -115,12 +133,19 @@ def _build_qwen_prompt(*, people: list[str], objects: list[str], ocr_text: str) 
 
 
 def _normalize_caption(value: str) -> str:
-    text = clean_text(value)
+    text = str(value or "").strip()
     if not text:
         return ""
-    lowered = text.lower()
-    if lowered.startswith("assistant:"):
+    if text.lower().startswith("assistant:"):
         text = text.split(":", 1)[1].strip()
+    text = re.sub(
+        r"^\s*the user wants\b.*?(?:\n\s*\n|(?=\*\*1\.)|(?=1\.)|(?=\-\s)|(?=\*\s)|$)",
+        "",
+        text,
+        flags=re.IGNORECASE | re.DOTALL,
+    ).strip()
+    text = re.sub(r"^\s*<think>.*?</think>\s*", "", text, flags=re.DOTALL | re.IGNORECASE)
+    text = clean_text(text.replace("<think>", " ").replace("</think>", " "))
     return text
 
 
@@ -167,6 +192,198 @@ def _resize_caption_image(image, max_image_edge: int):
         except Exception:  # pragma: no cover - Pillow always present in runtime
             resampling = 1
     return image.resize(new_size, resampling)
+
+
+def normalize_lmstudio_base_url(value: str, default: str = DEFAULT_LMSTUDIO_BASE_URL) -> str:
+    text = str(value or "").strip() or str(default or DEFAULT_LMSTUDIO_BASE_URL)
+    text = text.rstrip("/")
+    if text.endswith("/v1"):
+        return text
+    return f"{text}/v1"
+
+
+def _resolve_local_hf_snapshot(model_name: str) -> Path | None:
+    text = str(model_name or "").strip()
+    if "/" not in text:
+        return None
+    repo_dir = HF_MODEL_CACHE_DIR / f"models--{text.replace('/', '--')}" / "snapshots"
+    if not repo_dir.is_dir():
+        return None
+    for snapshot in sorted(repo_dir.iterdir()):
+        if not snapshot.is_dir():
+            continue
+        if (snapshot / "config.json").exists() and (
+            (snapshot / "preprocessor_config.json").exists() or (snapshot / "processor_config.json").exists()
+        ):
+            return snapshot
+    return None
+
+
+def _load_qwen_transformers():
+    try:
+        import torch  # pylint: disable=import-outside-toplevel
+        from transformers import (  # pylint: disable=import-outside-toplevel
+            AutoModelForImageTextToText,
+            AutoProcessor,
+        )
+    except Exception as exc:
+        raise RuntimeError(
+            "Qwen captioning requires a compatible transformers/torch install."
+        ) from exc
+
+    try:
+        from transformers import AutoModelForVision2Seq  # pylint: disable=import-outside-toplevel
+    except Exception:
+        AutoModelForVision2Seq = None
+
+    return torch, AutoProcessor, AutoModelForVision2Seq, AutoModelForImageTextToText
+
+
+def _build_data_url(image_path: str | Path, max_image_edge: int) -> str:
+    from PIL import Image  # pylint: disable=import-outside-toplevel
+
+    path = Path(image_path)
+    image = Image.open(str(path)).convert("RGB")
+    try:
+        working_image = _resize_caption_image(image, max_image_edge)
+        buffer = io.BytesIO()
+        if path.suffix.lower() == ".png":
+            mime = "image/png"
+            working_image.save(buffer, format="PNG")
+        else:
+            mime = "image/jpeg"
+            working_image.save(buffer, format="JPEG", quality=95)
+        data = base64.b64encode(buffer.getvalue()).decode("ascii")
+        return f"data:{mime};base64,{data}"
+    finally:
+        if "working_image" in locals() and working_image is not image:
+            working_image.close()
+        image.close()
+
+
+def _decode_lmstudio_text(value: object) -> str:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        parts: list[str] = []
+        for item in value:
+            if isinstance(item, str):
+                parts.append(item)
+                continue
+            if not isinstance(item, dict):
+                continue
+            text = item.get("text")
+            if text:
+                parts.append(str(text))
+        return "\n".join(part for part in parts if part).strip()
+    return ""
+
+
+def _lmstudio_request_json(url: str, *, payload: dict | None = None, timeout: float) -> dict:
+    body = None if payload is None else json.dumps(payload).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=body,
+        method="POST" if payload is not None else "GET",
+        headers={"Content-Type": "application/json"} if payload is not None else {},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=float(timeout)) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        details = exc.read().decode("utf-8", errors="replace").strip()
+        message = details or f"HTTP {exc.code}"
+        raise RuntimeError(f"LM Studio request failed: {message}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"LM Studio is unreachable at {url}: {exc.reason}") from exc
+
+
+def _select_lmstudio_model(base_url: str, requested_model: str, timeout: float) -> str:
+    text = str(requested_model or "").strip()
+    if text:
+        return text
+    payload = _lmstudio_request_json(f"{base_url}/models", timeout=timeout)
+    model_ids = [
+        str(row.get("id") or "").strip()
+        for row in list(payload.get("data") or [])
+        if str(row.get("id") or "").strip()
+    ]
+    if not model_ids:
+        raise RuntimeError("LM Studio did not return any models. Load a model or pass --caption-model.")
+    for model_id in model_ids:
+        lowered = model_id.casefold()
+        if any(hint in lowered for hint in LMSTUDIO_VISION_MODEL_HINTS):
+            return model_id
+    return model_ids[0]
+
+
+class LMStudioCaptioner:
+    def __init__(
+        self,
+        *,
+        model_name: str = "",
+        prompt_text: str = "",
+        max_new_tokens: int = DEFAULT_LMSTUDIO_MAX_NEW_TOKENS,
+        temperature: float = 0.2,
+        base_url: str = DEFAULT_LMSTUDIO_BASE_URL,
+        timeout_seconds: float = DEFAULT_LMSTUDIO_TIMEOUT_SECONDS,
+        max_image_edge: int = 0,
+    ):
+        self.model_name = str(model_name or "").strip()
+        self.prompt_text = str(prompt_text or "").strip()
+        self.max_new_tokens = max(8, int(max_new_tokens))
+        self.temperature = max(0.0, float(temperature))
+        self.base_url = normalize_lmstudio_base_url(base_url)
+        self.timeout_seconds = max(5.0, float(timeout_seconds))
+        self.max_image_edge = max(0, int(max_image_edge))
+        self._resolved_model_name = ""
+
+    def _resolve_model_name(self) -> str:
+        if self._resolved_model_name:
+            return self._resolved_model_name
+        self._resolved_model_name = _select_lmstudio_model(
+            self.base_url,
+            self.model_name,
+            self.timeout_seconds,
+        )
+        return self._resolved_model_name
+
+    def describe(
+        self,
+        image_path: str | Path,
+        *,
+        people: list[str],
+        objects: list[str],
+        ocr_text: str,
+    ) -> str:
+        prompt = self.prompt_text or _build_qwen_prompt(people=people, objects=objects, ocr_text=ocr_text)
+        resize_edge = int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
+        image_url = _build_data_url(image_path, resize_edge)
+        payload = {
+            "model": self._resolve_model_name(),
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": image_url}},
+                    ],
+                }
+            ],
+            "max_tokens": int(self.max_new_tokens),
+            "temperature": float(self.temperature),
+            "stream": False,
+        }
+        response = _lmstudio_request_json(
+            f"{self.base_url}/chat/completions",
+            payload=payload,
+            timeout=self.timeout_seconds,
+        )
+        choices = list(response.get("choices") or [])
+        if not choices:
+            return ""
+        message = dict(choices[0].get("message") or {})
+        return _normalize_caption(_decode_lmstudio_text(message.get("content")))
 
 
 class BlipLocalCaptioner:
@@ -247,6 +464,7 @@ class QwenLocalCaptioner:
         self,
         *,
         model_name: str = DEFAULT_QWEN_CAPTION_MODEL,
+        prompt_text: str = "",
         max_new_tokens: int = 96,
         temperature: float = 0.2,
         attn_implementation: str = "auto",
@@ -255,6 +473,7 @@ class QwenLocalCaptioner:
         max_image_edge: int = 0,
     ):
         self.model_name = str(model_name or DEFAULT_QWEN_CAPTION_MODEL).strip() or DEFAULT_QWEN_CAPTION_MODEL
+        self.prompt_text = str(prompt_text or "").strip()
         self.max_new_tokens = max(8, int(max_new_tokens))
         self.temperature = max(0.0, float(temperature))
         self.attn_implementation = normalize_qwen_attn_implementation(attn_implementation)
@@ -269,36 +488,32 @@ class QwenLocalCaptioner:
     def _ensure_loaded(self) -> None:
         if self._processor is not None and self._model is not None:
             return
-        try:
-            import torch  # pylint: disable=import-outside-toplevel
-            from transformers import (  # pylint: disable=import-outside-toplevel
-                AutoModelForImageTextToText,
-                AutoModelForVision2Seq,
-                AutoProcessor,
-            )
-        except Exception as exc:
-            raise RuntimeError(
-                "Qwen captioning requires transformers and torch. Install with: pip install transformers torch"
-            ) from exc
+        torch, AutoProcessor, AutoModelForVision2Seq, AutoModelForImageTextToText = _load_qwen_transformers()
 
         HF_MODEL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
         cache_dir = str(HF_MODEL_CACHE_DIR)
+        local_snapshot = _resolve_local_hf_snapshot(self.model_name)
+        model_ref = str(local_snapshot) if local_snapshot is not None else self.model_name
+        local_files_only = local_snapshot is not None
         processor_kwargs = {
             "trust_remote_code": True,
             "cache_dir": cache_dir,
+            "local_files_only": local_files_only,
         }
         if self.min_pixels > 0:
             processor_kwargs["min_pixels"] = int(self.min_pixels)
-        if self.max_pixels > 0:
-            processor_kwargs["max_pixels"] = int(self.max_pixels)
+        processor_kwargs["max_pixels"] = (
+            int(self.max_pixels) if self.max_pixels > 0 else int(DEFAULT_QWEN_AUTO_MAX_PIXELS)
+        )
         self._processor = AutoProcessor.from_pretrained(
-            self.model_name,
+            model_ref,
             **processor_kwargs,
         )
         load_kwargs = {
             "trust_remote_code": True,
             "device_map": "auto",
             "cache_dir": cache_dir,
+            "local_files_only": local_files_only,
         }
         resolved_attn = "auto"
         if self.attn_implementation != "auto":
@@ -309,32 +524,42 @@ class QwenLocalCaptioner:
                 load_kwargs["attn_implementation"] = resolved_attn
         self._resolved_attn_implementation = resolved_attn
         # Prefer dtype over torch_dtype to avoid deprecation warnings on newer transformers.
-        try:
-            self._model = AutoModelForVision2Seq.from_pretrained(
-                self.model_name,
-                dtype="auto",
-                **load_kwargs,
-            )
-        except TypeError:
-            self._model = AutoModelForVision2Seq.from_pretrained(
-                self.model_name,
-                torch_dtype="auto",
-                **load_kwargs,
-            )
-        except Exception:
+        vision_exc = None
+        if AutoModelForVision2Seq is not None:
+            try:
+                self._model = AutoModelForVision2Seq.from_pretrained(
+                    model_ref,
+                    dtype="auto",
+                    **load_kwargs,
+                )
+            except TypeError:
+                self._model = AutoModelForVision2Seq.from_pretrained(
+                    model_ref,
+                    torch_dtype="auto",
+                    **load_kwargs,
+                )
+            except Exception as exc:
+                vision_exc = exc
+        if self._model is None:
             # Fallback for environments where Vision2Seq auto-mapping is unavailable.
             try:
                 self._model = AutoModelForImageTextToText.from_pretrained(
-                    self.model_name,
+                    model_ref,
                     dtype="auto",
                     **load_kwargs,
                 )
             except TypeError:
                 self._model = AutoModelForImageTextToText.from_pretrained(
-                    self.model_name,
+                    model_ref,
                     torch_dtype="auto",
                     **load_kwargs,
                 )
+            except Exception as exc:
+                if vision_exc is not None:
+                    raise RuntimeError(
+                        "Qwen model loading failed for both AutoModelForVision2Seq and AutoModelForImageTextToText."
+                    ) from exc
+                raise
         self._torch = torch
 
     def describe(
@@ -348,10 +573,11 @@ class QwenLocalCaptioner:
         self._ensure_loaded()
         from PIL import Image  # pylint: disable=import-outside-toplevel
 
-        prompt = _build_qwen_prompt(people=people, objects=objects, ocr_text=ocr_text)
+        prompt = self.prompt_text or _build_qwen_prompt(people=people, objects=objects, ocr_text=ocr_text)
         image = Image.open(str(image_path)).convert("RGB")
         try:
-            working_image = _resize_caption_image(image, self.max_image_edge)
+            resize_edge = int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_QWEN_AUTO_MAX_IMAGE_EDGE)
+            working_image = _resize_caption_image(image, resize_edge)
             if hasattr(self._processor, "apply_chat_template"):
                 messages = [
                     {
@@ -362,11 +588,19 @@ class QwenLocalCaptioner:
                         ],
                     }
                 ]
-                prompt_text = self._processor.apply_chat_template(
-                    messages,
-                    tokenize=False,
-                    add_generation_prompt=True,
-                )
+                try:
+                    prompt_text = self._processor.apply_chat_template(
+                        messages,
+                        tokenize=False,
+                        add_generation_prompt=True,
+                        chat_template_kwargs={"enable_thinking": False},
+                    )
+                except TypeError:
+                    prompt_text = self._processor.apply_chat_template(
+                        messages,
+                        tokenize=False,
+                        add_generation_prompt=True,
+                    )
             else:
                 prompt_text = prompt
 
@@ -426,26 +660,30 @@ class CaptionEngine:
         *,
         engine: str = "blip",
         model_name: str = "",
+        caption_prompt: str = "",
         max_tokens: int = 96,
         temperature: float = 0.2,
         qwen_attn_implementation: str = "auto",
         qwen_min_pixels: int = 0,
         qwen_max_pixels: int = 0,
+        lmstudio_base_url: str = DEFAULT_LMSTUDIO_BASE_URL,
         max_image_edge: int = 0,
         fallback_to_template: bool = True,
     ):
         normalized = str(engine or "blip").strip().lower()
-        if normalized not in {"none", "template", "blip", "qwen"}:
+        if normalized not in {"none", "template", "blip", "qwen", "lmstudio"}:
             raise ValueError(f"Unsupported caption engine: {engine}")
         self.engine = normalized
         self.fallback_to_template = bool(fallback_to_template)
         self._captioner = None
         self._model_name = resolve_caption_model(normalized, model_name)
+        self._caption_prompt = str(caption_prompt or "").strip()
         self._max_tokens = int(max_tokens)
         self._temperature = float(temperature)
         self._qwen_attn_implementation = normalize_qwen_attn_implementation(qwen_attn_implementation)
         self._qwen_min_pixels = max(0, int(qwen_min_pixels))
         self._qwen_max_pixels = max(0, int(qwen_max_pixels))
+        self._lmstudio_base_url = normalize_lmstudio_base_url(lmstudio_base_url)
         self._max_image_edge = max(0, int(max_image_edge))
 
     def generate(
@@ -468,9 +706,19 @@ class CaptionEngine:
                     max_new_tokens=self._max_tokens,
                     max_image_edge=self._max_image_edge,
                 )
+            elif self.engine == "lmstudio":
+                self._captioner = LMStudioCaptioner(
+                    model_name=self._model_name,
+                    prompt_text=self._caption_prompt,
+                    max_new_tokens=self._max_tokens,
+                    temperature=self._temperature,
+                    base_url=self._lmstudio_base_url,
+                    max_image_edge=self._max_image_edge,
+                )
             else:
                 self._captioner = QwenLocalCaptioner(
                     model_name=self._model_name,
+                    prompt_text=self._caption_prompt,
                     max_new_tokens=self._max_tokens,
                     temperature=self._temperature,
                     attn_implementation=self._qwen_attn_implementation,

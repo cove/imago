@@ -294,6 +294,333 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(result, 0)
             write_mock.assert_called_once()
 
+    def test_run_stdout_prints_caption_only_and_skips_writes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            photos = base / "Family_View"
+            photos.mkdir()
+            image = photos / "a.jpg"
+            image.write_bytes(b"abc")
+            manifest = base / "manifest.jsonl"
+
+            analysis = ai_index.ImageAnalysis(
+                image_path=image,
+                people_names=["Alice"],
+                object_labels=["dog"],
+                ocr_text="hello",
+                ocr_keywords=["hello"],
+                subjects=["dog"],
+                description="Alice with a dog",
+                payload={
+                    "people": [{"name": "Alice"}],
+                    "objects": [{"label": "dog"}],
+                    "ocr": {"engine": "none", "language": "eng"},
+                    "caption": {"engine": "qwen"},
+                },
+            )
+
+            with (
+                mock.patch.object(ai_index, "prepare_image_layout", side_effect=lambda *args, **kwargs: self._mock_layout(image)),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+                mock.patch.object(ai_index, "save_manifest") as save_mock,
+                mock.patch("builtins.print") as print_mock,
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--manifest",
+                        str(manifest),
+                        "--include-view",
+                        "--stdout",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "none",
+                        "--caption-engine",
+                        "qwen",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            write_mock.assert_not_called()
+            save_mock.assert_not_called()
+            print_mock.assert_called_once_with("a.jpg: Alice with a dog")
+
+    def test_run_stdout_emits_caption_fallback_warning(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            photos = base / "Family_View"
+            photos.mkdir()
+            image = photos / "a.jpg"
+            image.write_bytes(b"abc")
+            manifest = base / "manifest.jsonl"
+
+            analysis = ai_index.ImageAnalysis(
+                image_path=image,
+                people_names=[],
+                object_labels=[],
+                ocr_text="",
+                ocr_keywords=[],
+                subjects=[],
+                description="Fallback caption text",
+                payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {"engine": "none", "language": "eng"},
+                    "caption": {
+                        "requested_engine": "qwen",
+                        "effective_engine": "template",
+                        "fallback": True,
+                        "error": "model offline",
+                        "model": "Qwen/Qwen3.5-4B",
+                    },
+                },
+            )
+
+            with (
+                mock.patch.object(ai_index, "prepare_image_layout", side_effect=lambda *args, **kwargs: self._mock_layout(image)),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch("builtins.print") as print_mock,
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--manifest",
+                        str(manifest),
+                        "--include-view",
+                        "--stdout",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "none",
+                        "--caption-engine",
+                        "qwen",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            print_mock.assert_has_calls(
+                [
+                    mock.call("[1/1] warn  a.jpg: caption fallback: model offline", file=sys.stderr),
+                    mock.call("a.jpg: Fallback caption text"),
+                ]
+            )
+            self.assertEqual(print_mock.call_count, 2)
+
+    def test_run_stdout_prints_filename_only_for_empty_description(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            photos = base / "Family_View"
+            photos.mkdir()
+            image = photos / "a.jpg"
+            image.write_bytes(b"abc")
+            manifest = base / "manifest.jsonl"
+
+            analysis = ai_index.ImageAnalysis(
+                image_path=image,
+                people_names=[],
+                object_labels=[],
+                ocr_text="",
+                ocr_keywords=[],
+                subjects=[],
+                description="",
+                payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {"engine": "none", "language": "eng"},
+                    "caption": {
+                        "requested_engine": "lmstudio",
+                        "effective_engine": "template",
+                        "fallback": True,
+                        "error": "model offline",
+                        "model": "qwen2.5-vl-instruct",
+                    },
+                },
+            )
+
+            with (
+                mock.patch.object(ai_index, "prepare_image_layout", side_effect=lambda *args, **kwargs: self._mock_layout(image)),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch("builtins.print") as print_mock,
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--manifest",
+                        str(manifest),
+                        "--include-view",
+                        "--stdout",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "none",
+                        "--caption-engine",
+                        "lmstudio",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            print_mock.assert_has_calls(
+                [
+                    mock.call("[1/1] warn  a.jpg: caption fallback: model offline", file=sys.stderr),
+                    mock.call("a.jpg"),
+                ]
+            )
+            self.assertEqual(print_mock.call_count, 2)
+
+    def test_run_stdout_uses_qwen_prompt_for_page_like_description(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            photos = base / "Family_View"
+            photos.mkdir()
+            image = photos / "Family_1986_B02_P01.jpg"
+            image.write_bytes(b"abc")
+            manifest = base / "manifest.jsonl"
+
+            content_bounds = SimpleNamespace(as_dict=lambda: {"x": 0, "y": 0, "width": 100, "height": 100})
+            subphoto_bounds = SimpleNamespace(as_dict=lambda: {"x": 0, "y": 0, "width": 80, "height": 80})
+
+            @contextmanager
+            def mock_page_layout(*args, **kwargs):
+                yield SimpleNamespace(
+                    kind="page_view",
+                    split_mode="auto",
+                    content_bounds=content_bounds,
+                    content_path=image,
+                    original_path=image,
+                    page_like=True,
+                    footer_trimmed=False,
+                    split_applied=False,
+                    fallback_used=True,
+                    subphotos=[SimpleNamespace(index=1, bounds=subphoto_bounds, path=image)],
+                )
+
+            analysis = ai_index.ImageAnalysis(
+                image_path=image,
+                people_names=[],
+                object_labels=[],
+                ocr_text="",
+                ocr_keywords=[],
+                subjects=[],
+                description="Subphoto caption",
+                payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {"engine": "none", "language": "eng", "keywords": [], "chars": 0},
+                    "caption": {
+                        "requested_engine": "qwen",
+                        "effective_engine": "qwen",
+                        "fallback": False,
+                        "error": "",
+                        "model": "Qwen/Qwen3.5-4B",
+                    },
+                },
+            )
+            fake_caption_engine = mock.Mock()
+            fake_caption_engine.generate.return_value = SimpleNamespace(
+                text="Describe this page exactly",
+                engine="qwen",
+                fallback=False,
+                error="",
+            )
+            fake_ocr_engine = mock.Mock()
+            fake_ocr_engine.read_text.return_value = ""
+
+            with (
+                mock.patch.object(ai_index, "prepare_image_layout", side_effect=mock_page_layout),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index, "_init_caption_engine", return_value=fake_caption_engine),
+                mock.patch.object(ai_index, "OCREngine", return_value=fake_ocr_engine),
+                mock.patch.object(ai_index, "extract_keywords", return_value=[]),
+                mock.patch("builtins.print") as print_mock,
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--manifest",
+                        str(manifest),
+                        "--include-view",
+                        "--stdout",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "none",
+                        "--caption-engine",
+                        "qwen",
+                        "--caption-prompt",
+                        "describe this photo in detail",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            fake_caption_engine.generate.assert_called_once_with(
+                image_path=image,
+                people=[],
+                objects=[],
+                ocr_text="",
+            )
+            print_mock.assert_called_once_with("Family_1986_B02_P01.jpg: Describe this page exactly")
+
+    def test_run_stdout_forces_processing_even_when_sidecar_exists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            photos = base / "Family_View"
+            photos.mkdir()
+            image = photos / "a.jpg"
+            image.write_bytes(b"abc")
+            image.with_suffix(".xmp").write_text(self._valid_sidecar_text(), encoding="utf-8")
+            manifest = base / "manifest.jsonl"
+
+            analysis = ai_index.ImageAnalysis(
+                image_path=image,
+                people_names=[],
+                object_labels=[],
+                ocr_text="",
+                ocr_keywords=[],
+                subjects=[],
+                description="Caption from stdout mode",
+                payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {"engine": "none", "language": "eng"},
+                    "caption": {"engine": "qwen"},
+                },
+            )
+
+            with (
+                mock.patch.object(ai_index, "prepare_image_layout", side_effect=lambda *args, **kwargs: self._mock_layout(image)),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis) as analysis_mock,
+                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch("builtins.print"),
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--manifest",
+                        str(manifest),
+                        "--include-view",
+                        "--stdout",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "none",
+                        "--caption-engine",
+                        "qwen",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            analysis_mock.assert_called_once()
+
     def test_build_description(self):
         text = ai_index.build_description(
             people=["Alice", "Bob"],
@@ -304,13 +631,31 @@ class TestAIIndex(unittest.TestCase):
         self.assertIn("dog", text)
         self.assertIn("Visible text reads:", text)
 
+    def test_resolve_caption_prompt_reads_file_and_overrides_inline_text(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            prompt_file = Path(tmp) / "prompt.txt"
+            prompt_file.write_text("Describe this image from file.\n", encoding="utf-8")
+            text = ai_index._resolve_caption_prompt("Inline prompt", str(prompt_file))
+        self.assertEqual(text, "Describe this image from file.")
+
+    def test_resolve_caption_prompt_exits_for_missing_file(self):
+        with self.assertRaises(SystemExit) as exc:
+            ai_index._resolve_caption_prompt("", "/tmp/definitely-missing-caption-prompt.txt")
+        self.assertIn("Caption prompt file does not exist", str(exc.exception))
+
     def test_parse_args_caption_flags(self):
         args = ai_index.parse_args(
             [
                 "--caption-engine",
-                "qwen",
+                "lmstudio",
                 "--caption-model",
-                "Qwen/Qwen2.5-VL-3B-Instruct",
+                "qwen2.5-vl-instruct",
+                "--caption-prompt",
+                "Describe this exact image",
+                "--caption-prompt-file",
+                "/tmp/prompt.txt",
+                "--lmstudio-base-url",
+                "http://localhost:1234",
                 "--caption-max-tokens",
                 "64",
                 "--caption-temperature",
@@ -325,8 +670,11 @@ class TestAIIndex(unittest.TestCase):
                 "524288",
             ]
         )
-        self.assertEqual(args.caption_engine, "qwen")
-        self.assertEqual(args.caption_model, "Qwen/Qwen2.5-VL-3B-Instruct")
+        self.assertEqual(args.caption_engine, "lmstudio")
+        self.assertEqual(args.caption_model, "qwen2.5-vl-instruct")
+        self.assertEqual(args.caption_prompt, "Describe this exact image")
+        self.assertEqual(args.caption_prompt_file, "/tmp/prompt.txt")
+        self.assertEqual(args.lmstudio_base_url, "http://localhost:1234")
         self.assertEqual(args.caption_max_tokens, 64)
         self.assertAlmostEqual(args.caption_temperature, 0.1)
         self.assertEqual(args.caption_max_edge, 1024)
@@ -338,11 +686,44 @@ class TestAIIndex(unittest.TestCase):
         args = ai_index.parse_args([])
         self.assertEqual(args.caption_engine, "blip")
         self.assertEqual(args.caption_model, "")
+        self.assertEqual(args.caption_prompt, "")
+        self.assertEqual(args.caption_prompt_file, "")
+        self.assertEqual(args.lmstudio_base_url, "http://127.0.0.1:1234/v1")
         self.assertEqual(args.ocr_engine, "docstrange")
+        self.assertFalse(args.stdout)
         self.assertEqual(args.qwen_attn_implementation, "auto")
         self.assertEqual(args.qwen_min_pixels, 0)
         self.assertEqual(args.qwen_max_pixels, 0)
         self.assertEqual(args.caption_max_edge, 0)
+
+    def test_init_caption_engine_forwards_caption_prompt(self):
+        with mock.patch.object(ai_index, "CaptionEngine") as engine_ctor:
+            ai_index._init_caption_engine(
+                engine="lmstudio",
+                model_name="qwen2.5-vl-instruct",
+                caption_prompt="Describe this exact image",
+                max_tokens=64,
+                temperature=0.1,
+                qwen_attn_implementation="sdpa",
+                qwen_min_pixels=131072,
+                qwen_max_pixels=524288,
+                lmstudio_base_url="http://localhost:1234",
+                max_image_edge=1024,
+            )
+
+        engine_ctor.assert_called_once_with(
+            engine="lmstudio",
+            model_name="qwen2.5-vl-instruct",
+            caption_prompt="Describe this exact image",
+            max_tokens=64,
+            temperature=0.1,
+            qwen_attn_implementation="sdpa",
+            qwen_min_pixels=131072,
+            qwen_max_pixels=524288,
+            lmstudio_base_url="http://localhost:1234",
+            max_image_edge=1024,
+            fallback_to_template=True,
+        )
 
 
 if __name__ == "__main__":

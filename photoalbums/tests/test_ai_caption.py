@@ -1,4 +1,6 @@
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -14,6 +16,20 @@ from photoalbums.lib import ai_caption
 
 
 class TestAICaption(unittest.TestCase):
+    def test_normalize_caption_strips_qwen_thinking_output(self):
+        text = ai_caption._normalize_caption(
+            "assistant: <think>Reason through the image.</think> Two people are standing beside a car."
+        )
+        self.assertEqual(text, "Two people are standing beside a car.")
+
+    def test_normalize_caption_strips_model_request_preamble(self):
+        text = ai_caption._normalize_caption(
+            "The user wants a detailed description of the provided image.\n\n"
+            "**1. Visual Analysis:**\n"
+            "- Blue textured cover."
+        )
+        self.assertEqual(text, "**1. Visual Analysis:** - Blue textured cover.")
+
     def test_template_caption_includes_expected_sections(self):
         text = ai_caption.build_template_caption(
             people=["Alice", "Bob"],
@@ -23,6 +39,14 @@ class TestAICaption(unittest.TestCase):
         self.assertIn("Alice", text)
         self.assertIn("bus", text)
         self.assertIn("Visible text reads:", text)
+
+    def test_template_caption_returns_empty_when_no_signals_exist(self):
+        text = ai_caption.build_template_caption(
+            people=[],
+            objects=[],
+            ocr_text="",
+        )
+        self.assertEqual(text, "")
 
     def test_page_caption_mentions_photo_count_and_page_text(self):
         text = ai_caption.build_page_caption(
@@ -34,6 +58,15 @@ class TestAICaption(unittest.TestCase):
         self.assertIn("contains 2 photo(s)", text)
         self.assertIn("Across the page", text)
         self.assertIn("Visible text on the page reads:", text)
+
+    def test_page_caption_omits_no_match_sentence(self):
+        text = ai_caption.build_page_caption(
+            photo_count=1,
+            people=[],
+            objects=[],
+            ocr_text="",
+        )
+        self.assertEqual(text, "This album page contains 1 photo(s).")
 
     def test_caption_engine_none_returns_empty_text(self):
         engine = ai_caption.CaptionEngine(engine="none")
@@ -84,7 +117,8 @@ class TestAICaption(unittest.TestCase):
         with mock.patch("photoalbums.lib.ai_caption.QwenLocalCaptioner", return_value=fake_qwen) as ctor:
             engine = ai_caption.CaptionEngine(
                 engine="qwen",
-                model_name="Qwen/Qwen2-VL-2B-Instruct",
+                model_name="Qwen/Qwen3.5-4B",
+                caption_prompt="Describe this exact image",
                 max_tokens=64,
                 temperature=0.1,
                 qwen_attn_implementation="sdpa",
@@ -99,7 +133,8 @@ class TestAICaption(unittest.TestCase):
                 ocr_text="",
             )
         ctor.assert_called_once_with(
-            model_name="Qwen/Qwen2-VL-2B-Instruct",
+            model_name="Qwen/Qwen3.5-4B",
+            prompt_text="Describe this exact image",
             max_new_tokens=64,
             temperature=0.1,
             attn_implementation="sdpa",
@@ -109,6 +144,94 @@ class TestAICaption(unittest.TestCase):
         )
         self.assertEqual(out.engine, "qwen")
         self.assertEqual(out.text, "caption text")
+
+    def test_qwen_loader_uses_local_snapshot_and_safe_max_pixels(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cache_dir = Path(tmp)
+            snapshot = cache_dir / "models--Qwen--Qwen3.5-4B" / "snapshots" / "abc123"
+            snapshot.mkdir(parents=True)
+            (snapshot / "config.json").write_text("{}", encoding="utf-8")
+            (snapshot / "preprocessor_config.json").write_text("{}", encoding="utf-8")
+
+            fake_processor_cls = mock.Mock()
+            fake_processor = mock.Mock()
+            fake_processor_cls.from_pretrained.return_value = fake_processor
+
+            fake_model_cls = mock.Mock()
+            fake_model = mock.Mock()
+            fake_model_cls.from_pretrained.return_value = fake_model
+
+            fake_torch = mock.Mock()
+            fake_torch.cuda.is_available.return_value = False
+
+            with (
+                mock.patch.object(ai_caption, "HF_MODEL_CACHE_DIR", cache_dir),
+                mock.patch.object(
+                    ai_caption,
+                    "_load_qwen_transformers",
+                    return_value=(fake_torch, fake_processor_cls, None, fake_model_cls),
+                ),
+            ):
+                captioner = ai_caption.QwenLocalCaptioner(model_name="Qwen/Qwen3.5-4B")
+                captioner._ensure_loaded()
+
+            processor_kwargs = fake_processor_cls.from_pretrained.call_args.kwargs
+            self.assertTrue(processor_kwargs["local_files_only"])
+            self.assertEqual(processor_kwargs["max_pixels"], ai_caption.DEFAULT_QWEN_AUTO_MAX_PIXELS)
+
+            model_kwargs = fake_model_cls.from_pretrained.call_args.kwargs
+            self.assertTrue(model_kwargs["local_files_only"])
+
+    def test_lmstudio_captioner_posts_chat_completion_request(self):
+        response_payload = {
+            "choices": [
+                {
+                    "message": {
+                        "content": "A crowded collage of travel snapshots."
+                    }
+                }
+            ]
+        }
+
+        class _FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read(self):
+                return json.dumps(response_payload).encode("utf-8")
+
+        def fake_urlopen(request, timeout):
+            self.assertEqual(timeout, ai_caption.DEFAULT_LMSTUDIO_TIMEOUT_SECONDS)
+            self.assertTrue(request.full_url.endswith("/chat/completions"))
+            payload = json.loads(request.data.decode("utf-8"))
+            self.assertEqual(payload["model"], "qwen2.5-vl")
+            self.assertEqual(payload["messages"][0]["content"][0]["text"], "Describe this exact image")
+            self.assertTrue(payload["messages"][0]["content"][1]["image_url"]["url"].startswith("data:image/jpeg;base64,"))
+            return _FakeResponse()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            image_path = Path(tmp) / "sample.jpg"
+            image_path.write_bytes(b"not-a-real-jpeg")
+            with (
+                mock.patch.object(ai_caption, "_build_data_url", return_value="data:image/jpeg;base64,abc123"),
+                mock.patch.object(ai_caption, "_select_lmstudio_model", return_value="qwen2.5-vl"),
+                mock.patch.object(ai_caption.urllib.request, "urlopen", side_effect=fake_urlopen),
+            ):
+                captioner = ai_caption.LMStudioCaptioner(
+                    prompt_text="Describe this exact image",
+                    base_url="http://127.0.0.1:1234",
+                )
+                text = captioner.describe(
+                    image_path=image_path,
+                    people=[],
+                    objects=[],
+                    ocr_text="",
+                )
+
+        self.assertEqual(text, "A crowded collage of travel snapshots.")
 
 
 if __name__ == "__main__":
