@@ -565,7 +565,8 @@
               <div class="actions">
                 <button id="next-save-btn" class="good">Save Name</button>
                 <button id="next-skip-btn" class="warn">Skip</button>
-                <button id="next-reject-btn" class="bad">Reject</button>
+                <button id="next-ignore-btn" class="secondary">Ignore Future</button>
+                <button id="next-reject-btn" class="bad">Reject Face</button>
               </div>
             </div>
           </div>
@@ -848,6 +849,7 @@
               `<select id="unknown-select-${esc(faceId)}">${personOptions()}</select>`,
               `<button class="good" onclick="assignUnknownFace('${esc(faceId)}')">Assign Person</button>`,
               `<button class="secondary" onclick="createPersonForFace('${esc(faceId)}')">Create New Person + Assign</button>`,
+              `<button class="secondary" onclick="ignoreUnknownFace('${esc(faceId)}')">Ignore Future</button>`,
               `</div>`,
               `</td>`,
               `<td><button class="secondary" onclick="enqueueReview('${esc(faceId)}')">Ask Me</button></td>`,
@@ -892,7 +894,8 @@
               `<select id="review-select-${esc(reviewId)}">${personOptions()}</select>`,
               `<button class="good" onclick="acceptSelectedReview('${esc(reviewId)}')">Assign Selected</button>`,
               `<button class="warn" onclick="resolveReview('${esc(reviewId)}', 'skipped')">Skip</button>`,
-              `<button class="bad" onclick="resolveReview('${esc(reviewId)}', 'rejected')">Reject</button>`,
+              `<button class="secondary" onclick="resolveReview('${esc(reviewId)}', 'ignored')">Ignore Future</button>`,
+              `<button class="bad" onclick="resolveReview('${esc(reviewId)}', 'rejected')">Reject Face</button>`,
               `</div>`,
               `</td>`,
               "</tr>",
@@ -985,7 +988,12 @@
       }
 
       async function assignFace(faceId, personId) {
-        await api("/api/faces/assign", "POST", { face_id: faceId, person_id: personId || null });
+        await api("/api/faces/assign", "POST", {
+          face_id: faceId,
+          person_id: personId || null,
+          reviewed_by_human: true,
+          review_status: personId ? "confirmed" : "",
+        });
       }
 
       async function assignUnknownFace(faceId) {
@@ -1062,6 +1070,21 @@
         }
       }
 
+      async function ignoreUnknownFace(faceId) {
+        try {
+          await api("/api/faces/assign", "POST", {
+            face_id: faceId,
+            person_id: null,
+            reviewed_by_human: true,
+            review_status: "ignored",
+          });
+          setStatus(`Ignored face ${shortId(faceId)} for future matching.`, "success");
+          await loadState();
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      }
+
       async function saveNextReviewName() {
         try {
           const item = appState.next_review;
@@ -1117,6 +1140,18 @@
             return;
           }
           await resolveReview(String(item.review_id || ""), "rejected");
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      }
+
+      async function ignoreNextReview() {
+        try {
+          const item = appState.next_review;
+          if (!item) {
+            return;
+          }
+          await resolveReview(String(item.review_id || ""), "ignored");
         } catch (error) {
           setStatus(error.message, "error");
         }
@@ -1196,6 +1231,11 @@
       document.getElementById("next-reject-btn").addEventListener("click", async (event) => {
         event.preventDefault();
         await rejectNextReview();
+      });
+
+      document.getElementById("next-ignore-btn").addEventListener("click", async (event) => {
+        event.preventDefault();
+        await ignoreNextReview();
       });
 
       document.getElementById("next-review-name").addEventListener("keydown", async (event) => {

@@ -130,6 +130,57 @@ class TestAIIndex(unittest.TestCase):
 
             self.assertTrue(ai_index.needs_processing(image, None, force=False))
 
+    def test_run_image_analysis_passes_people_context(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "a.jpg"
+            image.write_bytes(b"abc")
+            people_matcher = mock.Mock()
+            people_matcher.match_image.return_value = [
+                SimpleNamespace(
+                    name="Alice",
+                    score=0.92,
+                    certainty=0.92,
+                    reviewed_by_human=False,
+                    face_id="face-1",
+                )
+            ]
+            object_detector = mock.Mock()
+            object_detector.detect_image.return_value = []
+            ocr_engine = mock.Mock()
+            ocr_engine.read_text.return_value = "Dolores Cordell"
+            caption_engine = mock.Mock()
+            caption_engine.generate.return_value = SimpleNamespace(
+                text="Caption text",
+                engine="template",
+                fallback=False,
+                error="",
+            )
+
+            analysis = ai_index._run_image_analysis(
+                image_path=image,
+                people_matcher=people_matcher,
+                object_detector=object_detector,
+                ocr_engine=ocr_engine,
+                caption_engine=caption_engine,
+                requested_caption_engine="template",
+                requested_caption_model="",
+                ocr_engine_name="none",
+                ocr_language="eng",
+                people_hint_text="Page caption",
+                people_source_path=Path(tmp) / "original.jpg",
+                people_bbox_offset=(12, 34),
+            )
+
+            people_matcher.match_image.assert_called_once_with(
+                image,
+                source_path=Path(tmp) / "original.jpg",
+                bbox_offset=(12, 34),
+                hint_text="Page caption Dolores Cordell",
+            )
+            self.assertEqual(analysis.people_names, ["Alice"])
+            self.assertEqual(analysis.payload["people"][0]["face_id"], "face-1")
+            self.assertFalse(analysis.payload["people"][0]["reviewed_by_human"])
+
     def test_run_force_rewrites_existing_sidecar_and_merges_embedded_source(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
@@ -293,6 +344,60 @@ class TestAIIndex(unittest.TestCase):
 
             self.assertEqual(result, 0)
             write_mock.assert_called_once()
+
+    def test_run_records_final_cast_store_signature(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            photos = base / "Family_View"
+            photos.mkdir()
+            image = photos / "a.jpg"
+            image.write_bytes(b"abc")
+            manifest = base / "manifest.jsonl"
+
+            analysis = ai_index.ImageAnalysis(
+                image_path=image,
+                people_names=["Alice"],
+                object_labels=[],
+                ocr_text="hello",
+                ocr_keywords=["hello"],
+                subjects=["hello"],
+                description="Alice",
+                payload={
+                    "people": [{"name": "Alice"}],
+                    "objects": [],
+                    "ocr": {"engine": "none", "language": "eng"},
+                    "caption": {"engine": "template"},
+                },
+            )
+            fake_matcher = mock.Mock()
+            fake_matcher.store_signature.side_effect = ["sig-before", "sig-after", "sig-final"]
+
+            with (
+                mock.patch.object(ai_index, "_init_people_matcher", return_value=fake_matcher),
+                mock.patch.object(ai_index, "prepare_image_layout", side_effect=lambda *args, **kwargs: self._mock_layout(image)),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--manifest",
+                        str(manifest),
+                        "--include-view",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "none",
+                        "--caption-engine",
+                        "template",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            write_mock.assert_called_once()
+            rows = ai_index.load_manifest(manifest)
+            self.assertEqual(rows[str(image)]["cast_store_signature"], "sig-final")
 
     def test_run_stdout_prints_caption_only_and_skips_writes(self):
         with tempfile.TemporaryDirectory() as tmp:

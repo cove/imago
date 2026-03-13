@@ -45,6 +45,36 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.dot(left, right))
 
 
+def _coerce_float(value: Any, default: float) -> float:
+    if value is None:
+        return float(default)
+    try:
+        text = str(value).strip()
+    except Exception:
+        return float(default)
+    if not text:
+        return float(default)
+    try:
+        return float(text)
+    except Exception:
+        return float(default)
+
+
+def _coerce_int(value: Any, default: int) -> int:
+    if value is None:
+        return int(default)
+    try:
+        text = str(value).strip()
+    except Exception:
+        return int(default)
+    if not text:
+        return int(default)
+    try:
+        return int(float(text))
+    except Exception:
+        return int(default)
+
+
 def build_person_prototypes(
     faces: list[dict[str, Any]],
 ) -> dict[str, dict[str, Any]]:
@@ -158,3 +188,49 @@ def suggest_people_from_prototypes(
         )
     results.sort(key=lambda row: row["score"], reverse=True)
     return results[: max(1, int(top_k))]
+
+
+def choose_suggested_candidate(
+    *,
+    candidates: list[dict[str, Any]],
+    face_quality: Any,
+    min_similarity: float,
+    min_margin: float,
+    min_face_quality: float,
+    min_sample_count: int,
+) -> tuple[dict[str, Any] | None, float]:
+    normalized: list[dict[str, Any]] = []
+    for row in list(candidates or []):
+        if not isinstance(row, dict):
+            continue
+        person_id = str(row.get("person_id") or "").strip()
+        if not person_id:
+            continue
+        normalized.append(
+            {
+                **row,
+                "person_id": person_id,
+                "score": _coerce_float(row.get("score"), -1.0),
+                "sample_count": max(0, _coerce_int(row.get("sample_count"), 0)),
+            }
+        )
+    if not normalized:
+        return None, 0.0
+
+    normalized.sort(key=lambda row: float(row.get("score", -1.0)), reverse=True)
+    top = dict(normalized[0])
+    top_score = _coerce_float(top.get("score"), -1.0)
+    second_score = _coerce_float(normalized[1].get("score"), -1.0) if len(normalized) > 1 else -1.0
+    margin = float(top_score - second_score) if len(normalized) > 1 else max(0.0, float(top_score))
+    quality = _coerce_float(face_quality, 0.0)
+    sample_count = max(0, _coerce_int(top.get("sample_count"), 0))
+    required_sample_count = max(1, _coerce_int(min_sample_count, 1))
+    if top_score < float(min_similarity):
+        return None, margin
+    if margin < float(min_margin):
+        return None, margin
+    if quality < float(min_face_quality):
+        return None, margin
+    if sample_count < int(required_sample_count):
+        return None, margin
+    return top, margin

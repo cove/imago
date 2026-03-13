@@ -4,9 +4,11 @@ from __future__ import annotations
 import base64
 import binascii
 import bisect
+import cProfile
 import json
 import html
 import importlib
+import os
 import re
 import csv
 import io
@@ -175,6 +177,10 @@ _SESSION_LOCK = threading.Lock()
 _SESSIONS: dict[str, SessionState] = {}
 _FRAME_CONTACT_SHEET_CACHE_LOCK = threading.Lock()
 _FRAME_CONTACT_SHEET_CACHE: OrderedDict[str, tuple[str, bytes]] = OrderedDict()
+_SIGNALS_MEMO_LOCK = threading.Lock()
+_SIGNALS_MEMO_KEY: tuple | None = None
+_SIGNALS_MEMO_VAL: tuple | None = None
+_PROF_LOCK = threading.Lock()
 _WHISPER_MODEL_LOCK = threading.Lock()
 _WHISPER_MODEL: Any | None = None
 _WHISPER_TQDM_PATCH_LOCK = threading.Lock()
@@ -1753,10 +1759,39 @@ def _contact_sheet_frame_ids(session: SessionState, *, start_index: int, count: 
     return [chapter_start + offset for offset in range(start, end)]
 
 
+def _cached_load_signals(
+    archive: str,
+    chapter: str,
+    *,
+    video_path: Path,
+    start_frame: int,
+    end_frame: int,
+    frame_read_offset: int,
+) -> tuple:
+    """Memoized wrapper around load_cached_signals — avoids re-reading the gzip file
+    on every contact sheet chunk request within a single session."""
+    global _SIGNALS_MEMO_KEY, _SIGNALS_MEMO_VAL
+    key = (archive, chapter, str(video_path), start_frame, end_frame, frame_read_offset)
+    with _SIGNALS_MEMO_LOCK:
+        if _SIGNALS_MEMO_KEY == key and _SIGNALS_MEMO_VAL is not None:
+            return _SIGNALS_MEMO_VAL
+    result = load_cached_signals(
+        archive, chapter,
+        video_path=video_path,
+        start_frame=start_frame,
+        end_frame=end_frame,
+        frame_read_offset=frame_read_offset,
+    )
+    with _SIGNALS_MEMO_LOCK:
+        _SIGNALS_MEMO_KEY = key
+        _SIGNALS_MEMO_VAL = result
+    return result
+
+
 def _load_contact_sheet_images_from_video(
     session: SessionState,
     frame_ids: list[int],
-) -> dict[int, str]:
+) -> dict[int, str | Image.Image]:
     video_path_raw = str(session.frame_source_video_path or "").strip()
     if not video_path_raw or not frame_ids:
         return {}
@@ -1765,7 +1800,7 @@ def _load_contact_sheet_images_from_video(
         return {}
 
     unique_ids = sorted({int(fid) for fid in frame_ids})
-    cache_fids, _cache_sigs, cached_thumbs = load_cached_signals(
+    cache_fids, _cache_sigs, cached_thumbs = _cached_load_signals(
         str(session.archive or ""),
         str(session.chapter or ""),
         video_path=video_path,
@@ -1776,7 +1811,7 @@ def _load_contact_sheet_images_from_video(
     _ = cache_fids
     cached_lookup = dict(cached_thumbs or {})
 
-    out: dict[int, str] = {}
+    out: dict[int, str | Image.Image] = {}
     missing: list[int] = []
     for fid in unique_ids:
         cached = str(cached_lookup.get(int(fid), "") or "")
@@ -1793,15 +1828,24 @@ def _load_contact_sheet_images_from_video(
         return out
     try:
         read_offset = int(session.frame_source_read_offset)
+        prev_read_fid: int | None = None
         for fid in missing:
             read_fid = int(fid) - read_offset
             if read_fid < 0:
+                prev_read_fid = None
                 continue  # frame before video start — leave missing so tile is not cached
-            cap.set(cv2.CAP_PROP_POS_FRAMES, int(read_fid))
+            if prev_read_fid is None or read_fid != prev_read_fid + 1:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, int(read_fid))
             ok, read_bgr = cap.read()
             if not ok or read_bgr is None:
+                prev_read_fid = None
                 continue  # read failure — leave missing so tile is not cached
-            out[int(fid)] = _bgr_to_jpeg_b64(read_bgr)
+            prev_read_fid = read_fid
+            # Return PIL Image directly — avoids JPEG encode/decode roundtrip in the contact sheet path
+            h, w = read_bgr.shape[:2]
+            thumb_h = int(160 * h / max(w, 1))
+            thumb_bgr = cv2.resize(read_bgr, (160, thumb_h), interpolation=cv2.INTER_AREA)
+            out[int(fid)] = Image.fromarray(cv2.cvtColor(thumb_bgr, cv2.COLOR_BGR2RGB))
     finally:
         cap.release()
     return out
@@ -1812,7 +1856,7 @@ def _contact_sheet_image_data_urls(
     *,
     start_index: int,
     count: int,
-) -> list[str]:
+) -> list[str | Image.Image]:
     frame_ids = _contact_sheet_frame_ids(
         session,
         start_index=int(start_index),
@@ -1821,7 +1865,7 @@ def _contact_sheet_image_data_urls(
     if not frame_ids:
         return []
 
-    image_lookup: dict[int, str] = {}
+    image_lookup: dict[int, str | Image.Image] = {}
     missing: list[int] = []
     for fid in frame_ids:
         data_url = str(_lookup_frame_image_data_url(session, fid) or "")
@@ -1831,25 +1875,39 @@ def _contact_sheet_image_data_urls(
             missing.append(int(fid))
     if missing:
         image_lookup.update(_load_contact_sheet_images_from_video(session, missing))
-    return [str(image_lookup.get(int(fid), "") or "") for fid in frame_ids]
+    return [image_lookup.get(int(fid), "") or "" for fid in frame_ids]
+
+
+def _fit_pil_to_contact_tile(img: Image.Image) -> Image.Image:
+    """Fit a PIL Image (already decoded) into the contact sheet tile. No JPEG decode step."""
+    tw, th = int(CONTACT_SHEET_TILE_WIDTH), int(CONTACT_SHEET_TILE_HEIGHT)
+    if img.size == (tw, th):
+        return img  # already the right size — no copy, no resize, no paste needed
+    fitted = Image.new("RGB", (tw, th), (0, 0, 0))
+    contained = ImageOps.contain(img, (tw, th))
+    offset_x = max(0, (tw - contained.width) // 2)
+    offset_y = max(0, (th - contained.height) // 2)
+    fitted.paste(contained, (offset_x, offset_y))
+    return fitted
 
 
 def _fit_thumb_to_contact_tile(data_url: str) -> Image.Image:
-    fallback = Image.new("RGB", (int(CONTACT_SHEET_TILE_WIDTH), int(CONTACT_SHEET_TILE_HEIGHT)), (0, 0, 0))
+    tw, th = int(CONTACT_SHEET_TILE_WIDTH), int(CONTACT_SHEET_TILE_HEIGHT)
     decoded = _decode_frame_image_data_url(data_url)
     if decoded is None:
-        return fallback
+        return Image.new("RGB", (tw, th), (0, 0, 0))
     _content_type, payload = decoded
     try:
         with Image.open(io.BytesIO(payload)) as img:
-            src = img.convert("RGB")
+            src = img.copy()  # JPEG thumbnails from our encoder are always RGB — no convert needed
     except Exception:
-        return fallback
-
-    fitted = Image.new("RGB", (int(CONTACT_SHEET_TILE_WIDTH), int(CONTACT_SHEET_TILE_HEIGHT)), (0, 0, 0))
-    contained = ImageOps.contain(src, (int(CONTACT_SHEET_TILE_WIDTH), int(CONTACT_SHEET_TILE_HEIGHT)))
-    offset_x = max(0, (int(CONTACT_SHEET_TILE_WIDTH) - int(contained.width)) // 2)
-    offset_y = max(0, (int(CONTACT_SHEET_TILE_HEIGHT) - int(contained.height)) // 2)
+        return Image.new("RGB", (tw, th), (0, 0, 0))
+    if src.size == (tw, th):
+        return src  # already the right size — skip resize and paste
+    fitted = Image.new("RGB", (tw, th), (0, 0, 0))
+    contained = ImageOps.contain(src, (tw, th))
+    offset_x = max(0, (tw - contained.width) // 2)
+    offset_y = max(0, (th - contained.height) // 2)
     fitted.paste(contained, (offset_x, offset_y))
     return fitted
 
@@ -1882,14 +1940,17 @@ def _build_contact_sheet_bytes(
         (int(CONTACT_SHEET_TILE_WIDTH) * cols, int(CONTACT_SHEET_TILE_HEIGHT) * rows),
         (0, 0, 0),
     )
-    for local_index, data_url in enumerate(images[:actual_count]):
-        tile = _fit_thumb_to_contact_tile(str(data_url or ""))
+    for local_index, item in enumerate(images[:actual_count]):
+        if isinstance(item, Image.Image):
+            tile = _fit_pil_to_contact_tile(item)
+        else:
+            tile = _fit_thumb_to_contact_tile(str(item or ""))
         x = (local_index % cols) * int(CONTACT_SHEET_TILE_WIDTH)
         y = (local_index // cols) * int(CONTACT_SHEET_TILE_HEIGHT)
         canvas.paste(tile, (x, y))
 
     out = io.BytesIO()
-    canvas.save(out, format="JPEG", quality=72, optimize=True)
+    canvas.save(out, format="JPEG", quality=72)
     return ("image/jpeg", out.getvalue()), all_loaded
 
 
@@ -1911,12 +1972,27 @@ def _cached_contact_sheet_bytes(
             _FRAME_CONTACT_SHEET_CACHE.move_to_end(cache_key)
             return cached, True
 
-    built, all_loaded = _build_contact_sheet_bytes(
-        session,
-        start_index=int(start_index),
-        count=int(count),
-        columns=int(columns),
-    )
+    prof_path = str(os.environ.get("VHS_PROFILE_FRAMES", "")).strip()
+    if prof_path and _PROF_LOCK.acquire(blocking=False):
+        try:
+            _profiler = cProfile.Profile()
+            built, all_loaded = _profiler.runcall(
+                _build_contact_sheet_bytes,
+                session,
+                start_index=int(start_index),
+                count=int(count),
+                columns=int(columns),
+            )
+            _profiler.dump_stats(prof_path)
+        finally:
+            _PROF_LOCK.release()
+    else:
+        built, all_loaded = _build_contact_sheet_bytes(
+            session,
+            start_index=int(start_index),
+            count=int(count),
+            columns=int(columns),
+        )
     if built is None:
         return None, False
 
@@ -4232,6 +4308,9 @@ def run(host: str = "0.0.0.0", port: int = 8092) -> None:
     server = ThreadingHTTPServer((host, int(port)), WizardHandler)
     server.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
     print(f"VHS Tuner running at http://{host}:{port}")
+    prof_path = str(os.environ.get("VHS_PROFILE_FRAMES", "")).strip()
+    if prof_path:
+        print(f"Frame profiling enabled — writing to: {prof_path}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

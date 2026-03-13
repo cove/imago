@@ -53,6 +53,46 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertIn("A dog in the park.", xml)
             self.assertIn("park sign", xml)
 
+    def test_write_xmp_sidecar_merges_existing_fields_in_place(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            out.write_text(
+                """<?xml version="1.0" encoding="utf-8"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:custom="https://example.com/custom/1.0/">
+  <rdf:RDF>
+    <rdf:Description rdf:about="">
+      <custom:KeepMe>Preserve this field</custom:KeepMe>
+      <dc:description>
+        <rdf:Alt>
+          <rdf:li xml:lang="x-default">Old description</rdf:li>
+        </rdf:Alt>
+      </dc:description>
+    </rdf:Description>
+  </rdf:RDF>
+</x:xmpmeta>
+""",
+                encoding="utf-8",
+            )
+
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=["Dolores Cordell"],
+                subjects=["baby"],
+                description="Updated description",
+                source_text="Family_1986_B01_P02_S01.tif",
+                ocr_text="Dolores Cordell",
+                detections_payload={"people": [{"name": "Dolores Cordell", "score": 0.95}]},
+                subphotos=[],
+            )
+
+            root = ET.parse(out).getroot()
+            xml = ET.tostring(root, encoding="unicode")
+            self.assertIn("Preserve this field", xml)
+            self.assertIn("Updated description", xml)
+            self.assertIn("Dolores Cordell", xml)
+            self.assertNotIn("Old description", xml)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -24,6 +24,56 @@ def _json_default(path: Path) -> Any:
     return []
 
 
+FACE_REVIEW_STATUSES = {"confirmed", "ignored", "rejected"}
+
+
+def normalize_face_review_status(value: Any, *, person_id: Any = None) -> str:
+    text = str(value or "").strip().lower()
+    if not text:
+        return "confirmed" if str(person_id or "").strip() else ""
+    if text not in FACE_REVIEW_STATUSES:
+        raise ValueError(
+            "review_status must be one of: confirmed, ignored, rejected"
+        )
+    if text == "confirmed" and not str(person_id or "").strip():
+        raise ValueError("confirmed review_status requires a person_id")
+    return text
+
+
+def face_review_status(face: dict[str, Any]) -> str:
+    if not isinstance(face, dict):
+        return ""
+    person_id = str(face.get("person_id") or "").strip()
+    raw = str(face.get("review_status") or "").strip().lower()
+    if raw in FACE_REVIEW_STATUSES:
+        return "confirmed" if raw == "confirmed" and person_id else raw
+    reviewed = face.get("reviewed_by_human")
+    if isinstance(reviewed, bool):
+        return "confirmed" if reviewed and person_id else ""
+    if person_id:
+        # Legacy rows with an assigned identity were created via manual review.
+        return "confirmed"
+    return ""
+
+
+def face_is_human_reviewed(face: dict[str, Any]) -> bool:
+    if not isinstance(face, dict):
+        return False
+    reviewed = face.get("reviewed_by_human")
+    if isinstance(reviewed, bool):
+        return reviewed
+    return face_review_status(face) in FACE_REVIEW_STATUSES
+
+
+def normalize_face_record(face: dict[str, Any]) -> dict[str, Any]:
+    row = dict(face or {})
+    row["person_id"] = str(row.get("person_id") or "").strip() or None
+    row["reviewed_by_human"] = bool(face_is_human_reviewed(row))
+    row["review_status"] = face_review_status(row)
+    row["reviewed_at"] = str(row.get("reviewed_at") or "").strip()
+    return row
+
+
 class TextFaceStore:
     """Small file-backed store for people, faces, and review queue."""
 
@@ -185,13 +235,23 @@ class TextFaceStore:
             rows = self._read_json(self.faces_path)
             if not isinstance(rows, list):
                 return []
-            return [dict(row) for row in rows if isinstance(row, dict)]
+            return [normalize_face_record(row) for row in rows if isinstance(row, dict)]
 
     def get_face(self, face_id: str) -> dict[str, Any] | None:
         for face in self.list_faces():
             if str(face.get("face_id")) == str(face_id):
                 return face
         return None
+
+    def list_faces_for_source(self, source_path: str) -> list[dict[str, Any]]:
+        source_key = str(source_path or "").strip()
+        if not source_key:
+            return []
+        return [
+            row
+            for row in self.list_faces()
+            if str(row.get("source_path") or "").strip() == source_key
+        ]
 
     def add_face(
         self,
@@ -220,6 +280,9 @@ class TextFaceStore:
             "embedding": parsed_embedding,
             "crop_path": str(crop_path or "").strip(),
             "metadata": dict(metadata or {}),
+            "reviewed_by_human": False,
+            "review_status": "",
+            "reviewed_at": "",
             "created_at": now,
             "updated_at": now,
         }
@@ -229,7 +292,7 @@ class TextFaceStore:
                 rows = []
             rows.append(row)
             self._write_json(self.faces_path, rows)
-        return dict(row)
+        return normalize_face_record(row)
 
     def update_face(self, face_id: str, **fields: Any) -> dict[str, Any]:
         face_key = str(face_id or "").strip()
@@ -248,18 +311,40 @@ class TextFaceStore:
                 for key, value in dict(fields or {}).items():
                     if key in {"face_id", "created_at"}:
                         continue
+                    if key == "reviewed_by_human":
+                        row[key] = bool(value)
+                        continue
+                    if key == "review_status":
+                        row[key] = normalize_face_review_status(
+                            value,
+                            person_id=row.get("person_id"),
+                        )
+                        continue
+                    if key == "reviewed_at":
+                        row[key] = str(value or "").strip()
+                        continue
                     row[key] = value
                 row["updated_at"] = now
                 self._write_json(self.faces_path, rows)
-                return dict(row)
+                return normalize_face_record(row)
         raise ValueError(f"Unknown face_id: {face_key}")
 
-    def assign_face(self, face_id: str, person_id: str | None) -> dict[str, Any]:
+    def assign_face(
+        self,
+        face_id: str,
+        person_id: str | None,
+        *,
+        reviewed_by_human: bool | None = None,
+        review_status: str | None = None,
+    ) -> dict[str, Any]:
         face_key = str(face_id or "").strip()
         if not face_key:
             raise ValueError("face_id is required.")
         person_key = str(person_id or "").strip() or None
         now = utc_now_iso()
+        normalized_status: str | None = None
+        if review_status is not None:
+            normalized_status = normalize_face_review_status(review_status, person_id=person_key)
         with self._lock:
             rows = self._read_json(self.faces_path)
             if not isinstance(rows, list):
@@ -270,9 +355,21 @@ class TextFaceStore:
                 if str(row.get("face_id")) != face_key:
                     continue
                 row["person_id"] = person_key
+                if normalized_status is not None:
+                    row["review_status"] = normalized_status
+                    if normalized_status in {"ignored", "rejected"}:
+                        row["person_id"] = None
+                elif reviewed_by_human is True and person_key:
+                    row["review_status"] = "confirmed"
+                if reviewed_by_human is not None:
+                    row["reviewed_by_human"] = bool(reviewed_by_human)
+                    row["reviewed_at"] = now if bool(reviewed_by_human) else ""
+                elif normalized_status in FACE_REVIEW_STATUSES:
+                    row["reviewed_by_human"] = True
+                    row["reviewed_at"] = now
                 row["updated_at"] = now
                 self._write_json(self.faces_path, rows)
-                return dict(row)
+                return normalize_face_record(row)
         raise ValueError(f"Unknown face_id: {face_key}")
 
     def list_review_items(self) -> list[dict[str, Any]]:
@@ -325,8 +422,8 @@ class TextFaceStore:
     ) -> dict[str, Any]:
         review_key = str(review_id or "").strip()
         clean_status = str(status or "").strip().lower()
-        if clean_status not in {"accepted", "rejected", "skipped"}:
-            raise ValueError("status must be one of: accepted, rejected, skipped")
+        if clean_status not in {"accepted", "rejected", "ignored", "skipped"}:
+            raise ValueError("status must be one of: accepted, rejected, ignored, skipped")
         now = utc_now_iso()
         person_key = str(decided_person_id or "").strip() or None
         with self._lock:
@@ -345,6 +442,19 @@ class TextFaceStore:
                 self._write_json(self.review_path, rows)
                 return dict(row)
         raise ValueError(f"Unknown review_id: {review_key}")
+
+    def store_signature(self) -> str:
+        with self._lock:
+            parts: list[str] = []
+            for path in (self.people_path, self.faces_path, self.review_path):
+                try:
+                    stat = path.stat()
+                    parts.append(
+                        f"{path.name}:{int(stat.st_size)}:{int(stat.st_mtime_ns)}"
+                    )
+                except FileNotFoundError:
+                    parts.append(f"{path.name}:missing")
+            return "|".join(parts)
 
     def reset_pending_unknown(self, *, remove_crops: bool = True) -> dict[str, int]:
         removed_faces = 0
@@ -367,7 +477,8 @@ class TextFaceStore:
                     continue
                 face_id = str(row.get("face_id") or "").strip()
                 person_id = str(row.get("person_id") or "").strip()
-                if person_id:
+                review_status = face_review_status(row)
+                if person_id or review_status in {"ignored", "rejected"}:
                     kept_faces.append(row)
                     continue
                 if face_id:

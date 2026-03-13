@@ -229,7 +229,12 @@ def label_photo(
         primary_name = parts[0]
         person = resolve_or_create_person(primary_name, store)
         if face_id:
-            store.assign_face(face_id, str(person.get("person_id")))
+            store.assign_face(
+                face_id,
+                str(person.get("person_id")),
+                reviewed_by_human=True,
+                review_status="confirmed",
+            )
 
         for name in parts:
             if name not in confirmed_names:
