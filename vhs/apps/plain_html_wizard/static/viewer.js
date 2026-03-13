@@ -1318,16 +1318,28 @@ function resetFrameSheetPrefetchState() {
 
 // Return sprite data from any already-loaded contact sheet that covers frameIndex,
 // regardless of the sheet's column count or chunk size. Used as a fallback when the
-// preferred no-metrics sheet hasn't finished loading yet.
+// preferred contact sheet hasn't finished loading yet.
+// frameSheetRanges is used as a parse cache; URLs not yet in the cache are parsed on first use.
 function _findAnyLoadedSheetForFrameIndex(frameIndex) {
   if (!Number.isFinite(frameIndex) || frameIndex < 0) return null;
   const config = normalizeFrameSheetConfig(state.frameSheetConfig || null);
   const thumbWidth = Math.max(1, Math.trunc(Number(config.thumbWidth || FRAME_SHEET_DEFAULT_THUMB_WIDTH)));
   const thumbHeight = Math.max(1, Math.trunc(Number(config.thumbHeight || FRAME_SHEET_DEFAULT_THUMB_HEIGHT)));
-  for (const [url, range] of frameSheetRanges) {
-    if (frameIndex < range.start || frameIndex >= range.start + range.count) continue;
-    const img = frameSheetImageObjects.get(url);
+  for (const [url, img] of frameSheetImageObjects) {
     if (!img || !img.complete || !img.naturalWidth) continue;
+    let range = frameSheetRanges.get(url);
+    if (!range) {
+      try {
+        const p = new URL(url, window.location.href).searchParams;
+        range = {
+          start: Math.trunc(Number(p.get('start') || 0)),
+          count: Math.trunc(Number(p.get('count') || 0)),
+          columns: Math.max(1, Math.trunc(Number(p.get('columns') || FRAME_SHEET_DEFAULT_COLUMNS))),
+        };
+        frameSheetRanges.set(url, range);
+      } catch (_unused) { continue; }
+    }
+    if (frameIndex < range.start || frameIndex >= range.start + range.count) continue;
     const offset = frameIndex - range.start;
     return {
       img,
