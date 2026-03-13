@@ -1878,7 +1878,7 @@ def _run_with_args(args):
                 if needs_extracted_media:
                     print(f"Extracting chapter...")
                     run(
-                        make_extract_chapter(
+                        make_frame_accurate_extract_chapter(
                             src,
                             extract_start_sec,
                             extract_end_sec,
