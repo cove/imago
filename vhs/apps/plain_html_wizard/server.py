@@ -46,10 +46,12 @@ from common import (
     WHISPER_MODEL_DIR,
     combined_score,
     compute_threshold,
+    get_audio_sync_offset_for_chapter,
     get_gamma_profile_for_chapter,
     get_transcript_mode_for_chapter,
     parse_chapters,
     safe,
+    update_chapter_audio_sync_in_render_settings,
     update_chapter_gamma_in_render_settings,
     update_chapter_transcript_in_chapters_tsv,
 )
@@ -160,6 +162,9 @@ class SessionState:
     subtitles_cancel_requested: bool = False
     gamma_default: float = 1.0
     gamma_ranges: list[dict[str, Any]] = field(default_factory=list)
+    audio_sync_offset: float = 0.0
+    audio_sync_audio_path: str = ""
+    audio_sync_audio_key: str = ""
     people_entries: list[dict[str, Any]] = field(default_factory=list)
     subtitle_entries: list[dict[str, Any]] = field(default_factory=list)
     auto_transcript: str = "off"
@@ -1524,6 +1529,13 @@ def _apply_profiles_from_payload(session: SessionState, payload: dict[str, Any] 
             ch_end=session.end_frame,
         )
 
+    raw_audio_sync = payload.get("audio_sync_profile")
+    if isinstance(raw_audio_sync, dict):
+        try:
+            session.audio_sync_offset = float(raw_audio_sync.get("offset_seconds", session.audio_sync_offset))
+        except Exception:
+            pass
+
     chapter_duration = max(0.0, _frame_to_seconds(session.end_frame) - _frame_to_seconds(session.start_frame))
     raw_people_profile = payload.get("people_profile")
     if raw_people_profile is None:
@@ -1617,6 +1629,12 @@ def _persist_session_progress(session: SessionState) -> tuple[Path | None, Path,
         ch_start=session.start_frame,
         ch_end=session.end_frame,
         local_entries=session.split_entries,
+    )
+    update_chapter_audio_sync_in_render_settings(
+        archive=session.archive,
+        ch_start=session.start_frame,
+        ch_end=session.end_frame,
+        offset_seconds=session.audio_sync_offset,
     )
     return (
         out_path,
@@ -2546,6 +2564,99 @@ class WizardHandler(BaseHTTPRequestHandler):
         session.chapter_audio_path = str(out_path)
         return out_path, ""
 
+    _AUDIO_SYNC_PAD_SECONDS = 5.0
+
+    def _audio_sync_cache_key(self, session: SessionState) -> str:
+        return (
+            f"sync|{str(session.archive or '').strip()}|"
+            f"{str(session.chapter or '').strip()}|"
+            f"{int(session.start_frame)}|{int(session.end_frame)}"
+        )
+
+    def _ensure_audio_sync_file(self, session: SessionState) -> tuple[Path | None, str, float, float]:
+        """Extract audio with ±AUDIO_SYNC_PAD_SECONDS buffer around the chapter.
+
+        Returns (path, error_msg, padded_start_sec, chapter_start_sec).
+        padded_start_sec is the actual start of the audio file (= chapter_start - pad, clamped to 0).
+        chapter_start_sec is where within the audio file the chapter video begins.
+        """
+        if not str(session.archive or "").strip() or not str(session.chapter or "").strip():
+            return None, "Load a chapter before requesting audio sync.", 0.0, 0.0
+        if int(session.end_frame) <= int(session.start_frame):
+            return None, "Invalid chapter frame span for audio sync.", 0.0, 0.0
+
+        cache_key = self._audio_sync_cache_key(session)
+        existing_raw = str(session.audio_sync_audio_path or "").strip()
+        existing = Path(existing_raw) if existing_raw else None
+        pad = self._AUDIO_SYNC_PAD_SECONDS
+        chapter_start_sec = _frame_to_seconds(session.start_frame)
+        chapter_end_sec = _frame_to_seconds(session.end_frame)
+        padded_start = max(0.0, float(chapter_start_sec) - pad)
+        padded_end = float(chapter_end_sec) + pad
+        video_offset = float(chapter_start_sec) - padded_start  # seconds into audio file where chapter starts
+
+        if (
+            existing
+            and session.audio_sync_audio_key == cache_key
+            and existing.exists()
+            and existing.is_file()
+            and int(existing.stat().st_size) > 44
+        ):
+            return existing, "", padded_start, video_offset
+
+        source_video = _resolve_archive_video(session.archive)
+        if not source_video:
+            return None, f"No archive video found for '{session.archive}'.", 0.0, 0.0
+
+        out_dir = Path(tempfile.gettempdir()) / "vhs_plain_wizard_audio"
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        archive_slug = slugify(str(session.archive or "archive")) or "archive"
+        chapter_slug = slugify(str(session.chapter or "chapter")) or "chapter"
+        key_hash = uuid.uuid5(uuid.NAMESPACE_URL, cache_key).hex[:16]
+        out_name = (
+            f"sync_{archive_slug}_{chapter_slug}_"
+            f"{int(session.start_frame)}_{int(session.end_frame)}_{key_hash}.wav"
+        )
+        out_path = out_dir / out_name
+
+        needs_extract = True
+        try:
+            needs_extract = (not out_path.exists()) or (int(out_path.stat().st_size) <= 44)
+        except Exception:
+            needs_extract = True
+
+        if needs_extract:
+            cmd = [
+                str(FFMPEG_BIN),
+                "-nostdin",
+                "-v",
+                "error",
+                "-ss",
+                f"{float(padded_start):.3f}",
+                "-to",
+                f"{float(padded_end):.3f}",
+                "-i",
+                str(source_video),
+                "-vn",
+                "-ac",
+                "1",
+                "-ar",
+                "16000",
+                "-c:a",
+                "pcm_s16le",
+                "-y",
+                str(out_path),
+            ]
+            proc = subprocess.run(cmd, check=False, capture_output=True, text=True)
+            if proc.returncode != 0 or not out_path.exists():
+                detail = (proc.stderr or proc.stdout or "").strip()
+                return None, detail or "ffmpeg audio sync extraction failed.", 0.0, 0.0
+
+        session.audio_sync_audio_key = cache_key
+        session.audio_sync_audio_path = str(out_path)
+        return out_path, "", padded_start, video_offset
+
     def _preview_page_html(self, session: SessionState) -> str:
         title_text = html.escape(str(session.chapter or "Preview"))
         return (
@@ -2628,6 +2739,30 @@ class WizardHandler(BaseHTTPRequestHandler):
                 self._send_error_json(err or "Chapter audio is not available.", code=HTTPStatus.NOT_FOUND)
                 return
             self._send_audio_file(audio_path)
+            return
+
+        if parsed.path == "/api/audio_sync_info":
+            sync_path, err, padded_start, video_offset = self._ensure_audio_sync_file(session)
+            if err or sync_path is None:
+                self._send_error_json(err or "Audio sync file is not available.", code=HTTPStatus.NOT_FOUND)
+                return
+            chapter_duration = _frame_to_seconds(session.end_frame) - _frame_to_seconds(session.start_frame)
+            self._send_json({
+                "ok": True,
+                "padded_start_sec": float(padded_start),
+                "video_offset_sec": float(video_offset),
+                "chapter_duration_sec": float(chapter_duration),
+                "pad_seconds": float(self._AUDIO_SYNC_PAD_SECONDS),
+                "offset_seconds": float(session.audio_sync_offset),
+            })
+            return
+
+        if parsed.path == "/api/audio_sync_audio":
+            sync_path, err, _padded_start, _video_offset = self._ensure_audio_sync_file(session)
+            if err or sync_path is None:
+                self._send_error_json(err or "Audio sync file is not available.", code=HTTPStatus.NOT_FOUND)
+                return
+            self._send_audio_file(sync_path)
             return
 
         if parsed.path == "/api/frame_image":
@@ -3193,6 +3328,9 @@ class WizardHandler(BaseHTTPRequestHandler):
         )
         session.gamma_default = 1.0
         session.gamma_ranges = []
+        session.audio_sync_offset = 0.0
+        session.audio_sync_audio_path = ""
+        session.audio_sync_audio_key = ""
         session.people_entries = []
         session.subtitle_entries = []
         session.split_entries = []
@@ -3212,6 +3350,11 @@ class WizardHandler(BaseHTTPRequestHandler):
         session.gamma_default = _normalize_gamma_value(gamma_profile.get("default_gamma", 1.0), default=1.0)
         session.gamma_ranges = _normalize_gamma_ranges_payload(
             gamma_profile.get("ranges", []),
+            ch_start=session.start_frame,
+            ch_end=session.end_frame,
+        )
+        session.audio_sync_offset = get_audio_sync_offset_for_chapter(
+            archive=session.archive,
             ch_start=session.start_frame,
             ch_end=session.end_frame,
         )
@@ -3378,6 +3521,9 @@ class WizardHandler(BaseHTTPRequestHandler):
                 "default_gamma": float(session.gamma_default),
                 "ranges": list(session.gamma_ranges),
                 "source": str(gamma_profile.get("source", "default")),
+            },
+            "audio_sync_profile": {
+                "offset_seconds": float(session.audio_sync_offset),
             },
             "people_profile": {
                 "entries": list(session.people_entries),

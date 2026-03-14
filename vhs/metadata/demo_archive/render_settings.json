@@ -1,13 +1,15 @@
 {
-  "version": 2,
+  "version": 3,
   "_comments": {
     "archive_settings": "Archive-wide defaults applied to render behavior for all chapters.",
     "bad_frames": "Global archive frame IDs that are bad and will be repaired.",
-    "gamma_correction_ranges": "Gamma correction ranges use global frame IDs: start_frame inclusive, end_frame exclusive."
+    "gamma_correction_ranges": "Gamma correction ranges use global frame IDs: start_frame inclusive, end_frame exclusive.",
+    "audio_sync_offsets": "Per-range audio sync offsets in seconds (positive = delay audio, negative = advance audio). Ranges use global archive frame IDs: start_frame inclusive, end_frame exclusive."
   },
   "archive_settings": {
     "gamma_correction_default": 1.0,
     "gamma_correction_ranges": []
   },
-  "bad_frames": []
+  "bad_frames": [],
+  "audio_sync_offsets": []
 }

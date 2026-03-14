@@ -56,7 +56,7 @@ _INJECT_STATE_JS = f"""
         source: 'test',
     }};
 
-    state.wizardStep = 5;  // 'subtitles' step
+    state.wizardStep = 6;  // 'subtitles' step
 
     // Sync the range-input with our fake frame count.
     if (timelineScrubEl) {{

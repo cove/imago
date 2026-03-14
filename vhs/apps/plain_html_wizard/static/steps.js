@@ -125,6 +125,11 @@ async function loadFrames() {
     state.splitProfile = normalizeSplitProfile(
       (state.loadSettings && state.loadSettings.split_profile) || null
     );
+    const rawAudioSync = state.loadSettings && state.loadSettings.audio_sync_profile;
+    state.audioSyncOffset = (rawAudioSync && typeof rawAudioSync.offset_seconds === 'number')
+      ? rawAudioSync.offset_seconds
+      : 0.0;
+    if (typeof updateAudioSyncOffsetLabel === 'function') updateAudioSyncOffsetLabel();
     updateGammaControls();
     refreshPeopleEditorFromState();
     refreshSubtitlesEditorFromState();
@@ -782,6 +787,9 @@ async function saveProgress(options = {}) {
         default_gamma: normalizeGammaValue(state.gammaProfile && state.gammaProfile.defaultGamma, 1.0),
         ranges: gammaRangesForSave(),
       },
+      audio_sync_profile: {
+        offset_seconds: typeof state.audioSyncOffset === 'number' ? state.audioSyncOffset : 0.0,
+      },
       people_profile: {
         entries: peopleEntries,
       },
@@ -829,6 +837,9 @@ async function saveAndReturn() {
       gamma_profile: {
         default_gamma: normalizeGammaValue(state.gammaProfile && state.gammaProfile.defaultGamma, 1.0),
         ranges: gammaRangesForSave(),
+      },
+      audio_sync_profile: {
+        offset_seconds: typeof state.audioSyncOffset === 'number' ? state.audioSyncOffset : 0.0,
       },
       people_profile: {
         entries: peopleEntries,
@@ -900,12 +911,27 @@ async function navigateToStep(rawStep) {
     return true;
   }
 
-  if (targetStep.mode === 'gamma') {
+  if (targetStep.mode === 'audio_sync') {
     const movingForward = stepIndex(targetStep.num) > stepIndex(currentStep.num);
     if (movingForward) {
       const saved = await saveProgress({
         showOverlay: true,
         loadingText: 'Saving review progress...',
+        silent: true,
+      });
+      if (!saved) return false;
+    }
+    setStep(targetStep.num);
+    if (typeof openAudioSyncStep === 'function') await openAudioSyncStep();
+    return true;
+  }
+
+  if (targetStep.mode === 'gamma') {
+    const movingForward = stepIndex(targetStep.num) > stepIndex(currentStep.num);
+    if (movingForward) {
+      const saved = await saveProgress({
+        showOverlay: true,
+        loadingText: currentStep.mode === 'audio_sync' ? 'Saving audio sync...' : 'Saving review progress...',
         silent: true,
       });
       if (!saved) return false;
@@ -918,7 +944,7 @@ async function navigateToStep(rawStep) {
     if (movingForward && !isChapterLoadInFlight) {
       const loadingText = currentStep.mode === 'gamma'
         ? 'Saving gamma progress...'
-        : 'Saving review progress...';
+        : (currentStep.mode === 'audio_sync' ? 'Saving audio sync...' : 'Saving review progress...');
       const saved = await saveProgress({
         showOverlay: true,
         loadingText,
@@ -934,7 +960,8 @@ async function navigateToStep(rawStep) {
     if (movingForward && !isChapterLoadInFlight) {
       const loadingText = currentStep.mode === 'people'
         ? 'Saving people progress...'
-        : (currentStep.mode === 'gamma' ? 'Saving gamma progress...' : 'Saving review progress...');
+        : (currentStep.mode === 'gamma' ? 'Saving gamma progress...'
+          : (currentStep.mode === 'audio_sync' ? 'Saving audio sync...' : 'Saving review progress...'));
       const saved = await saveProgress({
         showOverlay: true,
         loadingText,
@@ -952,7 +979,8 @@ async function navigateToStep(rawStep) {
         ? 'Saving subtitles progress...'
         : (currentStep.mode === 'people'
           ? 'Saving people progress...'
-          : (currentStep.mode === 'gamma' ? 'Saving gamma progress...' : 'Saving review progress...'));
+          : (currentStep.mode === 'gamma' ? 'Saving gamma progress...'
+            : (currentStep.mode === 'audio_sync' ? 'Saving audio sync...' : 'Saving review progress...')));
       const saved = await saveProgress({
         showOverlay: true,
         loadingText,
