@@ -111,9 +111,21 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "jiayuguan fort, jiayuguan city, gansu province, china": {
+    "query": "Jiayuguan Fort, Jiayuguan City, Gansu Province, China",
+    "status": "miss"
+  },
   "jiayuguan fort, jiayuguan, gansu, china": {
     "query": "Jiayuguan Fort, Jiayuguan, Gansu, China",
     "status": "miss"
+  },
+  "jiayuguan, gansu, china": {
+    "display_name": "嘉峪关市, 甘肃省, 735100, 中国",
+    "latitude": "39.7722294",
+    "longitude": "98.2885388",
+    "query": "Jiayuguan, Gansu, China",
+    "source": "nominatim",
+    "status": "ok"
   },
   "jokhang temple, lhasa, tibet, china": {
     "display_name": "ཇོ་ཁང། 大昭寺, 八廓街, བར་སྐོར། 八廓街, 八廓社区, 八廓街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
