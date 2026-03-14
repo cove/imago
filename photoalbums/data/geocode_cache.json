@@ -1,7 +1,43 @@
 {
+  "chendou, sichuan province, china": {
+    "query": "Chendou, Sichuan Province, China",
+    "status": "miss"
+  },
   "chenou, henan province, china": {
     "query": "Chenou, Henan Province, China",
     "status": "miss"
+  },
+  "dragon gate, china": {
+    "display_name": "龙门, 千步崖, 碧鸡街道, 西山区, 昆明市, 云南省, 650228, 中国",
+    "latitude": "24.9521671",
+    "longitude": "102.6390210",
+    "query": "Dragon Gate, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "garden hotel, canton (guangzhou), china": {
+    "display_name": "花园酒店, 华乐街道, 越秀区, 广州市, 广东省, 中国",
+    "latitude": "23.1376682",
+    "longitude": "113.2809544",
+    "query": "Garden Hotel, Canton (Guangzhou), China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "hong kong airport": {
+    "display_name": "機場 Airport, 翔天徑 Sky Plaza Drive, 赤鱲角 Chek Lap Kok, 大嶼山 Lantau, 離島區 Islands District, 新界 New Territories, 香港 Hong Kong, 中国",
+    "latitude": "22.3161669",
+    "longitude": "113.9365027",
+    "query": "Hong Kong Airport",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "hong kong, china": {
+    "display_name": "香港 Hong Kong, 中国",
+    "latitude": "22.2792968",
+    "longitude": "114.1628907",
+    "query": "Hong Kong, China",
+    "source": "nominatim",
+    "status": "ok"
   },
   "hua qing hot springs, xi'an, shaanxi, china": {
     "query": "Hua Qing Hot Springs, Xi'an, Shaanxi, China",
@@ -15,6 +51,22 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "kunming hotel, kunming, yunnan province, china": {
+    "display_name": "昆明饭店, 白塔路, 拓东街道, 盘龙区, 昆明市, 云南省, 650051, 中国",
+    "latitude": "25.0418068",
+    "longitude": "102.7232123",
+    "query": "Kunming Hotel, Kunming, Yunnan Province, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "kunming hotel, kunming, yunnan, china": {
+    "display_name": "昆明饭店, 白塔路, 拓东街道, 盘龙区, 昆明市, 云南省, 650051, 中国",
+    "latitude": "25.0418068",
+    "longitude": "102.7232123",
+    "query": "Kunming Hotel, Kunming, Yunnan, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "lhasa, tibet, china": {
     "display_name": "拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
     "latitude": "29.6542054",
@@ -22,6 +74,18 @@
     "query": "Lhasa, Tibet, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "mogao caves, dunhuang, gansu, china": {
+    "display_name": "莫高窟, 慈氏塔广场, 敦煌市, 酒泉市, 甘肃省, 736200, 中国",
+    "latitude": "40.0373163",
+    "longitude": "94.8042114",
+    "query": "Mogao Caves, Dunhuang, Gansu, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "portala palace, lhasa, tibet, china": {
+    "query": "Portala Palace, Lhasa, Tibet, China",
+    "status": "miss"
   },
   "potala palace, lasa, tibet, china": {
     "display_name": "布达拉宫 ཕོ་བྲང་པོ་ཏ་ལ།, 康昂北路东段, 吉崩岗街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
@@ -36,6 +100,54 @@
     "latitude": "29.6575676",
     "longitude": "91.1170188",
     "query": "Potala Palace, Lhasa, Tibet, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "sera monastery, lhasa, tibet, china": {
+    "display_name": "སེ་ར་དགོན། 色拉寺, 色拉北路, སྔགས་པ་གླིང་ཁའི་སྡེ་ཁུལ། 阿坝林卡社区, 娘热街道 ཉང་བྲན་ཁྲོམ་གཞུང།, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
+    "latitude": "29.6978525",
+    "longitude": "91.1328962",
+    "query": "Sera Monastery, Lhasa, Tibet, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "sera monastery, tibet, china": {
+    "display_name": "སེ་ར་དགོན། 色拉寺, 色拉北路, སྔགས་པ་གླིང་ཁའི་སྡེ་ཁུལ། 阿坝林卡社区, 娘热街道 ཉང་བྲན་ཁྲོམ་གཞུང།, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
+    "latitude": "29.6978525",
+    "longitude": "91.1328962",
+    "query": "Sera Monastery, Tibet, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "stone forest, kunming, yunnan province, china": {
+    "display_name": "石林风景区, 阿诗玛北路, 石林彝族自治县, 昆明市, 云南省, 652200, 中国",
+    "latitude": "24.8156992",
+    "longitude": "103.3245807",
+    "query": "Stone Forest, Kunming, Yunnan Province, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "victoria peak, hong kong": {
+    "display_name": "扯旗山 Victoria Peak, 香港 Hong Kong, 999077, 中国",
+    "latitude": "22.2760386",
+    "longitude": "114.1454573",
+    "query": "Victoria Peak, Hong Kong",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "victoria peak, hong kong, china": {
+    "display_name": "扯旗山 Victoria Peak, 香港 Hong Kong, 999077, 中国",
+    "latitude": "22.2760386",
+    "longitude": "114.1454573",
+    "query": "Victoria Peak, Hong Kong, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "zhuhai, guangdong, china": {
+    "display_name": "珠海市, 广东省, 中国",
+    "latitude": "22.2737340",
+    "longitude": "113.5721327",
+    "query": "Zhuhai, Guangdong, China",
     "source": "nominatim",
     "status": "ok"
   }

@@ -1396,7 +1396,11 @@
             person_id: personId || null,
           });
           applyResolvedReviewLocally(reviewId, status, result);
-          setStatus(`Review ${shortId(reviewId)} updated (${status}).`, "success");
+          if (result.xmp_warning) {
+            setStatus(`Review ${shortId(reviewId)} updated (${status}) — warning: ${result.xmp_warning}`, "error");
+          } else {
+            setStatus(`Review ${shortId(reviewId)} updated (${status}).`, "success");
+          }
           scheduleStateRefresh();
         } catch (error) {
           setStatus(error.message, "error");

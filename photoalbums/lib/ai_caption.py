@@ -576,22 +576,26 @@ def _build_qwen_prompt(
             lines.append(f"Album classification hint: {context.label}.")
         if context.focus and context.kind == ALBUM_KIND_PHOTO_ESSAY:
             lines.append(f"Album focus hint: {context.focus}.")
-    lines.append("Never mention raw file names, folder names, or internal ids like B02, P01, Archive, or View in the caption.")
-    lines.append("Use decisive language. Do not use hedges like appears, seems, likely, or maybe.")
-    lines.append("Use OCR text and page captions to infer location only when the evidence is high confidence.")
+    lines.append("Use decisive language. Never hedge with appears, seems, likely, or maybe.")
+    lines.append("Never mention raw file names, folder names, or internal IDs such as B02, P01, Archive, or View.")
+    lines.append("If any visible text is not in English, preserve it exactly and include an English translation.")
+    lines.append("Location rules:")
+    lines.append("- Infer location from OCR text only when evidence is high confidence.")
+    lines.append("- When location is clear, name the landmark, town, province, and country.")
+    lines.append("- When evidence is imprecise, give the best city, state or province, and country.")
+    lines.append("- When evidence is weak or conflicting, say the location is uncertain.")
+    lines.append("- Do not invent GPS coordinates unless explicitly visible in the image or OCR text.")
     lines.append(
-        "If visible text is not in English, preserve the original text as shown and also include explicit English translations in the caption."
+        "- Correct misspelled, outdated, or truncated place names using context clues (album region, photo content); "
+        "for example, 'Chendou' or 'Chengdo' in a China album showing pandas → Chengdu."
     )
-    lines.append(
-        "If the location is clear enough to geocode confidently, name the specific place clearly, such as a landmark, museum, cave site, town, province, and country."
-    )
-    lines.append("Do not invent exact GPS coordinates unless they are explicitly visible in the image or OCR text.")
-    lines.append("If the evidence is less precise, include the best city, state or province, and country instead of exact GPS.")
-    lines.append("If the location evidence is weak or conflicting, say that the location is uncertain instead of inventing one.")
     if people_list:
-        lines.append(f"Known people matches: {join_human(people_list)}.")
+        lines.append(f"Known people: {join_human(people_list)}.")
     if object_list:
         lines.append(f"Detected objects: {join_human(object_list)}.")
+    lines.append(
+        'Hyphen-separated lowercase names in OCR text (e.g. "leslie-tommy-robert") list people left to right: Leslie, Tommy, Robert.'
+    )
     if text:
         snippet = text[:220].strip()
         if len(text) > len(snippet):
@@ -809,20 +813,24 @@ def _build_combined_qwen_prompt(
             lines.append(f"Album classification hint: {context.label}.")
         if context.focus and context.kind == ALBUM_KIND_PHOTO_ESSAY:
             lines.append(f"Album focus hint: {context.focus}.")
-    lines.append("Never mention raw file names, folder names, or internal ids like B02, P01, Archive, or View in the description.")
-    lines.append("Use decisive language. Do not use hedges like appears, seems, likely, or maybe.")
-    lines.append("Use album hints and OCR text to infer location only when evidence is high confidence.")
+    lines.append("Use decisive language. Never hedge with appears, seems, likely, or maybe.")
+    lines.append("Never mention raw file names, folder names, or internal IDs such as B02, P01, Archive, or View.")
+    lines.append("When extracting text, preserve any non-English text exactly. In the description, include an English translation.")
+    lines.append("Location rules:")
+    lines.append("- Infer location from OCR text only when evidence is high confidence.")
+    lines.append("- When location is clear, name the landmark, town, province, and country.")
+    lines.append("- When evidence is imprecise, give the best city, state or province, and country.")
+    lines.append("- When evidence is weak or conflicting, say the location is uncertain.")
+    lines.append("- Do not invent GPS coordinates unless explicitly visible in the image or OCR text.")
     lines.append(
-        "When extracting visible text, preserve any non-English text exactly as shown. In the description, include explicit English translations of the non-English text."
+        "- Correct misspelled, outdated, or truncated place names using context clues (album region, photo content); "
+        "for example, 'Chendou' or 'Chengdo' in a China album showing pandas → Chengdu."
     )
     lines.append(
-        "If the location is clear enough to geocode confidently, name the specific place clearly, such as a landmark, museum, cave site, town, province, and country."
+        'Hyphen-separated lowercase names in visible text (e.g. "leslie-tommy-robert") list people left to right: Leslie, Tommy, Robert.'
     )
-    lines.append("Do not invent exact GPS coordinates unless they are explicitly visible in the image or OCR text.")
-    lines.append("If the evidence is less precise, include the best city, state or province, and country.")
-    lines.append("If the location evidence is weak or conflicting, say location is uncertain.")
     if people_list:
-        lines.append(f"Known people matches: {join_human(people_list)}.")
+        lines.append(f"Known people: {join_human(people_list)}.")
     if object_list:
         lines.append(f"Detected objects: {join_human(object_list)}.")
     lines.append("Reply using exactly this format:")
