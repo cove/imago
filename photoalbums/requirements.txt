@@ -7,7 +7,7 @@ stitching
 Wand
 TiffFile
 Pillow
-docstrange
+chardet<6
 torch==2.10.0
 transformers
 ultralytics

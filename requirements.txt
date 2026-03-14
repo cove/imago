@@ -5,7 +5,7 @@ opencv-contrib-python==4.10.0.84
 # photoalbums
 Pillow
 TiffFile
-docstrange
+chardet<6
 largestinteriorrectangle
 llvmlite
 numba

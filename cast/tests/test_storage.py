@@ -183,3 +183,44 @@ def test_reset_pending_unknown_keeps_human_reviewed_ignored_faces(tmp_path):
     assert face_review_status(faces[0]) == "ignored"
     assert (crops / "ignored.jpg").exists()
     assert not (crops / "pending.jpg").exists()
+
+
+def test_defer_review_item_keeps_pending_and_moves_item_to_back(tmp_path):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+
+    first_face = store.add_face(
+        embedding=[0.1, 0.2, 0.3],
+        source_type="photo",
+        source_path="photoalbums/first.jpg",
+    )
+    second_face = store.add_face(
+        embedding=[0.2, 0.3, 0.4],
+        source_type="photo",
+        source_path="photoalbums/second.jpg",
+    )
+    first_review = store.add_review_item(
+        face_id=first_face["face_id"],
+        candidates=[],
+        suggested_person_id=None,
+        suggested_score=None,
+        status="pending",
+    )
+    second_review = store.add_review_item(
+        face_id=second_face["face_id"],
+        candidates=[],
+        suggested_person_id=None,
+        suggested_score=None,
+        status="pending",
+    )
+
+    deferred = store.defer_review_item(first_review["review_id"])
+    assert deferred["status"] == "pending"
+    assert deferred["skip_count"] == 1
+    assert deferred["last_skipped_at"]
+
+    reviews = store.list_review_items()
+    assert [row["review_id"] for row in reviews] == [
+        second_review["review_id"],
+        first_review["review_id"],
+    ]

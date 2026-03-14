@@ -14,6 +14,10 @@ from photoalbums.lib import ai_page_layout
 
 
 class TestAIPageLayout(unittest.TestCase):
+    def test_normalize_page_split_mode_defaults_to_off(self):
+        self.assertEqual(ai_page_layout.normalize_page_split_mode(None), "off")
+        self.assertEqual(ai_page_layout.normalize_page_split_mode("invalid"), "off")
+
     def test_classify_image_kind_recognizes_page_variants(self):
         self.assertEqual(
             ai_page_layout.classify_image_kind(Path("Family_View") / "Family_2020_B01_P01.jpg"),

@@ -1,0 +1,42 @@
+{
+  "chenou, henan province, china": {
+    "query": "Chenou, Henan Province, China",
+    "status": "miss"
+  },
+  "hua qing hot springs, xi'an, shaanxi, china": {
+    "query": "Hua Qing Hot Springs, Xi'an, Shaanxi, China",
+    "status": "miss"
+  },
+  "jokhang temple, lhasa, tibet, china": {
+    "display_name": "ཇོ་ཁང། 大昭寺, 八廓街, བར་སྐོར། 八廓街, 八廓社区, 八廓街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
+    "latitude": "29.6528598",
+    "longitude": "91.1317978",
+    "query": "Jokhang Temple, Lhasa, Tibet, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "lhasa, tibet, china": {
+    "display_name": "拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
+    "latitude": "29.6542054",
+    "longitude": "91.1173015",
+    "query": "Lhasa, Tibet, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "potala palace, lasa, tibet, china": {
+    "display_name": "布达拉宫 ཕོ་བྲང་པོ་ཏ་ལ།, 康昂北路东段, 吉崩岗街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
+    "latitude": "29.6575676",
+    "longitude": "91.1170188",
+    "query": "Potala Palace, Lasa, Tibet, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "potala palace, lhasa, tibet, china": {
+    "display_name": "布达拉宫 ཕོ་བྲང་པོ་ཏ་ལ།, 康昂北路东段, 吉崩岗街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
+    "latitude": "29.6575676",
+    "longitude": "91.1170188",
+    "query": "Potala Palace, Lhasa, Tibet, China",
+    "source": "nominatim",
+    "status": "ok"
+  }
+}

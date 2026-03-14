@@ -8,6 +8,7 @@ X_NS = "adobe:ns:meta/"
 RDF_NS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
 DC_NS = "http://purl.org/dc/elements/1.1/"
 XMP_NS = "http://ns.adobe.com/xap/1.0/"
+EXIF_NS = "http://ns.adobe.com/exif/1.0/"
 IPTC_EXT_NS = "http://iptc.org/std/Iptc4xmpExt/2008-02-29/"
 IMAGO_NS = "https://imago.local/ns/1.0/"
 
@@ -15,6 +16,7 @@ ET.register_namespace("x", X_NS)
 ET.register_namespace("rdf", RDF_NS)
 ET.register_namespace("dc", DC_NS)
 ET.register_namespace("xmp", XMP_NS)
+ET.register_namespace("exif", EXIF_NS)
 ET.register_namespace("Iptc4xmpExt", IPTC_EXT_NS)
 ET.register_namespace("imago", IMAGO_NS)
 
@@ -68,6 +70,44 @@ def _add_simple_text(parent: ET.Element, tag: str, value: str | int | float) -> 
     field.text = text
 
 
+def _format_xmp_gps_coordinate(value: str | float | int, *, axis: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    decimal = float(text)
+    if axis == "lat":
+        hemisphere = "N" if decimal >= 0 else "S"
+    else:
+        hemisphere = "E" if decimal >= 0 else "W"
+    absolute = abs(decimal)
+    degrees = int(absolute)
+    minutes = (absolute - float(degrees)) * 60.0
+    minute_text = f"{minutes:.5f}".rstrip("0").rstrip(".")
+    if not minute_text:
+        minute_text = "0"
+    return f"{degrees},{minute_text}{hemisphere}"
+
+
+def _set_gps_fields(parent: ET.Element, gps_latitude: str, gps_longitude: str) -> None:
+    lat_text = str(gps_latitude or "").strip()
+    lon_text = str(gps_longitude or "").strip()
+    if lat_text and lon_text:
+        _set_simple_text(parent, f"{{{EXIF_NS}}}GPSLatitude", _format_xmp_gps_coordinate(lat_text, axis="lat"))
+        _set_simple_text(parent, f"{{{EXIF_NS}}}GPSLongitude", _format_xmp_gps_coordinate(lon_text, axis="lon"))
+        _set_simple_text(parent, f"{{{EXIF_NS}}}GPSMapDatum", "WGS-84")
+        _set_simple_text(parent, f"{{{EXIF_NS}}}GPSVersionID", "2.3.0.0")
+        return
+    for tag in (
+        f"{{{EXIF_NS}}}GPSLatitude",
+        f"{{{EXIF_NS}}}GPSLongitude",
+        f"{{{EXIF_NS}}}GPSMapDatum",
+        f"{{{EXIF_NS}}}GPSVersionID",
+    ):
+        existing = parent.find(tag)
+        if existing is not None:
+            parent.remove(existing)
+
+
 def _add_subphotos(parent: ET.Element, subphotos: list[dict]) -> None:
     if not subphotos:
         return
@@ -103,6 +143,9 @@ def build_xmp_tree(
     person_names: list[str],
     subjects: list[str],
     description: str,
+    album_title: str,
+    gps_latitude: str,
+    gps_longitude: str,
     source_text: str,
     ocr_text: str,
     detections_payload: dict | None = None,
@@ -116,6 +159,13 @@ def build_xmp_tree(
     _add_bag(desc, f"{{{DC_NS}}}subject", _dedupe(subjects))
     _add_bag(desc, f"{{{IPTC_EXT_NS}}}PersonInImage", _dedupe(person_names))
     _add_alt_text(desc, f"{{{DC_NS}}}description", description)
+    if str(album_title or "").strip():
+        _add_simple_text(desc, f"{{{IMAGO_NS}}}AlbumTitle", str(album_title or "").strip())
+    if str(gps_latitude or "").strip() and str(gps_longitude or "").strip():
+        _add_simple_text(desc, f"{{{EXIF_NS}}}GPSLatitude", _format_xmp_gps_coordinate(gps_latitude, axis="lat"))
+        _add_simple_text(desc, f"{{{EXIF_NS}}}GPSLongitude", _format_xmp_gps_coordinate(gps_longitude, axis="lon"))
+        _add_simple_text(desc, f"{{{EXIF_NS}}}GPSMapDatum", "WGS-84")
+        _add_simple_text(desc, f"{{{EXIF_NS}}}GPSVersionID", "2.3.0.0")
     _add_simple_text(desc, f"{{{DC_NS}}}source", str(source_text or "").strip())
 
     creator = ET.SubElement(desc, f"{{{XMP_NS}}}CreatorTool")
@@ -210,6 +260,119 @@ def _set_subphotos(parent: ET.Element, subphotos: list[dict] | None) -> None:
     _add_subphotos(parent, list(subphotos))
 
 
+def _get_rdf_desc(tree: ET.ElementTree) -> ET.Element | None:
+    root = tree.getroot()
+    rdf = root.find(_RDF_ROOT)
+    if rdf is None:
+        return None
+    return rdf.find(_RDF_DESC)
+
+
+def _get_alt_text(parent: ET.Element, tag: str) -> str:
+    field = parent.find(tag)
+    if field is None:
+        return ""
+    alt = field.find(_RDF_ALT)
+    if alt is None:
+        return ""
+    for item in alt.findall(_RDF_LI):
+        text = str(item.text or "").strip()
+        if text:
+            return text
+    return ""
+
+
+def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
+    path = Path(sidecar_path)
+    if not path.is_file():
+        return None
+    try:
+        tree = ET.parse(path)
+    except ET.ParseError:
+        return None
+    desc = _get_rdf_desc(tree)
+    if desc is None:
+        return None
+    detections_text = str(desc.findtext(f"{{{IMAGO_NS}}}Detections", default="") or "").strip()
+    detections_payload: dict[str, object] | None = None
+    if detections_text:
+        try:
+            parsed = json.loads(detections_text)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, dict):
+            detections_payload = parsed
+    return {
+        "creator_tool": str(desc.findtext(f"{{{XMP_NS}}}CreatorTool", default="") or "").strip(),
+        "description": _get_alt_text(desc, f"{{{DC_NS}}}description"),
+        "album_title": str(desc.findtext(f"{{{IMAGO_NS}}}AlbumTitle", default="") or "").strip(),
+        "gps_latitude": str(desc.findtext(f"{{{EXIF_NS}}}GPSLatitude", default="") or "").strip(),
+        "gps_longitude": str(desc.findtext(f"{{{EXIF_NS}}}GPSLongitude", default="") or "").strip(),
+        "ocr_text": str(desc.findtext(f"{{{IMAGO_NS}}}OCRText", default="") or "").strip(),
+        "detections": detections_payload,
+    }
+
+
+def sidecar_has_expected_ai_fields(
+    sidecar_path: str | Path,
+    *,
+    creator_tool: str,
+    enable_people: bool,
+    enable_objects: bool,
+    ocr_engine: str,
+    caption_engine: str,
+) -> bool:
+    state = read_ai_sidecar_state(sidecar_path)
+    if not isinstance(state, dict):
+        return False
+    expected_creator = str(creator_tool or "").strip()
+    if expected_creator and str(state.get("creator_tool") or "").strip() != expected_creator:
+        return False
+    detections = state.get("detections")
+    if not isinstance(detections, dict):
+        return False
+    if bool(enable_people) and not isinstance(detections.get("people"), list):
+        return False
+    if bool(enable_objects) and not isinstance(detections.get("objects"), list):
+        return False
+    if str(ocr_engine or "").strip().lower() != "none" and not isinstance(detections.get("ocr"), dict):
+        return False
+    caption_name = str(caption_engine or "").strip().lower()
+    if caption_name != "none" and not isinstance(detections.get("caption"), dict):
+        return False
+    description = str(state.get("description") or "").strip()
+    if description:
+        try:
+            from .ai_caption import _looks_like_reasoning_or_prompt_echo  # pylint: disable=import-outside-toplevel
+        except Exception:  # pragma: no cover - defensive import fallback
+            _looks_like_reasoning_or_prompt_echo = None
+        if _looks_like_reasoning_or_prompt_echo is not None and _looks_like_reasoning_or_prompt_echo(description):
+            return False
+    ocr_text = str(state.get("ocr_text") or "").strip()
+    if ocr_text:
+        try:
+            from .ai_ocr import _looks_like_ocr_reasoning  # pylint: disable=import-outside-toplevel
+        except Exception:  # pragma: no cover - defensive import fallback
+            _looks_like_ocr_reasoning = None
+        if _looks_like_ocr_reasoning is not None and _looks_like_ocr_reasoning(ocr_text):
+            return False
+    if caption_name != "none":
+        caption = detections.get("caption")
+        ocr = detections.get("ocr")
+        has_signal = False
+        if isinstance(detections.get("people"), list) and detections.get("people"):
+            has_signal = True
+        elif isinstance(detections.get("objects"), list) and detections.get("objects"):
+            has_signal = True
+        elif isinstance(ocr, dict) and int(ocr.get("chars") or 0) > 0:
+            has_signal = True
+        elif isinstance(caption, dict) and str(caption.get("effective_engine") or "").strip() == "page-summary":
+            has_signal = True
+        if has_signal and not description:
+            return False
+    return True
+
+
 def _merge_xmp_tree(
     tree: ET.ElementTree,
     *,
@@ -217,6 +380,9 @@ def _merge_xmp_tree(
     person_names: list[str],
     subjects: list[str],
     description: str,
+    album_title: str,
+    gps_latitude: str,
+    gps_longitude: str,
     source_text: str,
     ocr_text: str,
     detections_payload: dict | None = None,
@@ -226,6 +392,8 @@ def _merge_xmp_tree(
     _set_bag(desc, f"{{{DC_NS}}}subject", subjects)
     _set_bag(desc, f"{{{IPTC_EXT_NS}}}PersonInImage", person_names)
     _set_alt_text(desc, f"{{{DC_NS}}}description", description)
+    _set_simple_text(desc, f"{{{IMAGO_NS}}}AlbumTitle", str(album_title or "").strip())
+    _set_gps_fields(desc, gps_latitude, gps_longitude)
     _set_simple_text(desc, f"{{{DC_NS}}}source", str(source_text or "").strip())
     _set_simple_text(desc, f"{{{XMP_NS}}}CreatorTool", str(creator_tool or "").strip() or "imago-photoalbums-ai-index")
     clean_ocr = str(ocr_text or "").strip()
@@ -251,6 +419,9 @@ def write_xmp_sidecar(
     subjects: list[str],
     description: str,
     ocr_text: str,
+    album_title: str = "",
+    gps_latitude: str = "",
+    gps_longitude: str = "",
     source_text: str = "",
     detections_payload: dict | None = None,
     subphotos: list[dict] | None = None,
@@ -269,6 +440,9 @@ def write_xmp_sidecar(
             person_names=person_names,
             subjects=subjects,
             description=description,
+            album_title=album_title,
+            gps_latitude=gps_latitude,
+            gps_longitude=gps_longitude,
             source_text=source_text,
             ocr_text=ocr_text,
             detections_payload=detections_payload,
@@ -281,6 +455,9 @@ def write_xmp_sidecar(
             person_names=person_names,
             subjects=subjects,
             description=description,
+            album_title=album_title,
+            gps_latitude=gps_latitude,
+            gps_longitude=gps_longitude,
             source_text=source_text,
             ocr_text=ocr_text,
             detections_payload=detections_payload,

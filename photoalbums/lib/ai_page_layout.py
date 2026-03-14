@@ -53,14 +53,14 @@ class PreparedImageLayout:
     subphotos: list[PreparedSubPhoto]
 
 
-def normalize_page_split_mode(value: object, default: str = "auto") -> str:
+def normalize_page_split_mode(value: object, default: str = "off") -> str:
     text = str(value or "").strip().lower()
     if text in PAGE_SPLIT_MODES:
         return text
-    fallback = str(default or "auto").strip().lower()
+    fallback = str(default or "off").strip().lower()
     if fallback in PAGE_SPLIT_MODES:
         return fallback
-    return "auto"
+    return "off"
 
 
 def classify_image_kind(image_path: str | Path) -> str:

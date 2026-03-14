@@ -66,6 +66,13 @@ Also do not run `photoalbums/cli.py` or `photoalbums/commands.py` directly.
 
 The photoalbums AI index has built-in Audrey/Leslie Cordell album hints:
 `Family*` collections are described as `Family Photo Album`, geography-named collections are described as `Photo Essay`, and likely blue/white title covers with matching OCR are treated as album cover/title pages.
+Canonical album titles are inferred from cover OCR and reused across later pages, and printed cover titles from `P00`/`P01` are now reused in caption prompts so descriptions can prefer the exact book name as printed, such as `Mainland China Book 11`, instead of raw filename-style identifiers.
+When captions mention non-English visible text, the AI index now asks the model for explicit English translations and appends those translations in the final caption text.
+When captions identify a place clearly, the AI index now asks the model for a geocoding-ready place name, resolves it online, and writes the resulting GPS into standard Exif XMP GPS fields (`exif:GPSLatitude`, `exif:GPSLongitude`, `exif:GPSMapDatum`, `exif:GPSVersionID`) so photo software can read location data directly from the sidecar.
+Page segmentation is off by default during AI indexing. Set `page_split_mode` to `auto` in `render_settings.json` only for archives where sub-photo splitting is explicitly desired.
+Images larger than 30 MB are processed through a temporary scaled-down copy for OCR/object/caption models to keep AI indexing stable on oversized pages.
+
+Photoalbums OCR now uses a local Qwen vision model by default. Download the model into `models/photoalbums/hf` first, or point `QWEN_OCR_MODEL` at a local model path before running `photoalbums ai`.
 
 ## Structure
 

@@ -1,20 +1,32 @@
 from __future__ import annotations
 
-import urllib.request
+import warnings
 from pathlib import Path
 from typing import Any
 
 import cv2
 import numpy as np
 
+# Suppress FutureWarnings from insightface internals (third-party library noise).
+warnings.filterwarnings(
+    "ignore",
+    message=r"`rcond` parameter will change",
+    category=FutureWarning,
+    module=r"insightface",
+)
+warnings.filterwarnings(
+    "ignore",
+    message=r"`estimate` is deprecated",
+    category=FutureWarning,
+    module=r"insightface",
+)
+
 from .storage import TextFaceStore
 
-YUNET_MODEL_URL = (
-    "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/"
-    "face_detection_yunet_2023mar.onnx"
-)
-REPO_ROOT = Path(__file__).resolve().parents[1]
-CAST_MODEL_DIR = REPO_ROOT / "modes" / "cast"
+CURRENT_FACE_EMBEDDING_MODEL = "insightface.buffalo_l.arcface_512"
+CURRENT_FACE_DETECTOR_MODEL = "insightface.buffalo_l.detector"
+FALLBACK_FACE_EMBEDDING_MODEL = "imago.simple_grayscale_32_v1"
+FALLBACK_FACE_DETECTOR_MODEL = "opencv.haar_frontalface_default"
 
 
 def _timestamp_from_seconds(seconds: float) -> str:
@@ -49,21 +61,30 @@ def compute_simple_embedding(face_bgr: np.ndarray, out_size: int = 32) -> list[f
 
 
 _insightface_app = None
+_insightface_app_error = ""
 
 
 def _get_insightface_app() -> object | None:
     """Lazy-load InsightFace FaceAnalysis singleton. Downloads buffalo_l model on first call."""
-    global _insightface_app
+    global _insightface_app, _insightface_app_error
     if _insightface_app is not None:
         return _insightface_app
     try:
         from insightface.app import FaceAnalysis  # type: ignore[import]
         app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
         app.prepare(ctx_id=-1)
+        _insightface_app_error = ""
         _insightface_app = app
         return _insightface_app
-    except Exception:
+    except Exception as exc:
+        _insightface_app_error = f"{type(exc).__name__}: {exc}"
         return None
+
+
+def insightface_load_error() -> str:
+    if _insightface_app is None:
+        _get_insightface_app()
+    return str(_insightface_app_error or "").strip()
 
 
 def compute_arcface_embedding(face_bgr: np.ndarray) -> list[float] | None:
@@ -167,22 +188,10 @@ def quantized_unique_colors(image_bgr: np.ndarray, *, levels: int = 8) -> int:
     return int(np.unique(flat, axis=0).shape[0])
 
 
-def _ensure_yunet_model(model_path: Path) -> bool:
-    if model_path.exists():
-        return True
-    model_path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        with urllib.request.urlopen(YUNET_MODEL_URL, timeout=20) as response:
-            data = response.read()
-        model_path.write_bytes(data)
-    except Exception:
-        return False
-    return model_path.exists()
-
-
 class FaceIngestor:
-    def __init__(self, store: TextFaceStore):
+    def __init__(self, store: TextFaceStore, *, require_primary_model: bool = False):
         self.store = store
+        self.require_primary_model = bool(require_primary_model)
         cascades = Path(cv2.data.haarcascades)
         face_path = cascades / "haarcascade_frontalface_default.xml"
         strict_face_path = cascades / "haarcascade_frontalface_alt2.xml"
@@ -195,25 +204,10 @@ class FaceIngestor:
         self._eye = cv2.CascadeClassifier(str(eye_path))
         self._profile = cv2.CascadeClassifier(str(profile_path))
         self._upper_body = cv2.CascadeClassifier(str(upper_body_path))
-
-        model_dir = CAST_MODEL_DIR
-        model_path = model_dir / "face_detection_yunet_2023mar.onnx"
-        self._yunet = None
-        self._yunet_score_threshold = 0.86
-        self._yunet_verify_threshold = 0.90
+        self._insightface = _get_insightface_app()
+        self._insightface_score_threshold = 0.40
+        self._insightface_verify_threshold = 0.32
         self.skip_artwork_default = True
-        if _ensure_yunet_model(model_path):
-            try:
-                self._yunet = cv2.FaceDetectorYN_create(
-                    str(model_path),
-                    "",
-                    (320, 320),
-                    float(self._yunet_score_threshold),
-                    0.3,
-                    5000,
-                )
-            except Exception:
-                self._yunet = None
 
         if self._cascade.empty():
             raise RuntimeError(f"Unable to load face cascade: {face_path}")
@@ -225,6 +219,54 @@ class FaceIngestor:
             raise RuntimeError(f"Unable to load profile cascade: {profile_path}")
         if self._upper_body.empty():
             raise RuntimeError(f"Unable to load upper-body cascade: {upper_body_path}")
+
+    def runtime_status(self) -> dict[str, Any]:
+        primary_available = self._insightface is not None
+        load_error = insightface_load_error()
+        if primary_available:
+            message = (
+                "InsightFace buffalo_l is active for new ingest."
+            )
+        elif self.require_primary_model:
+            message = (
+                "InsightFace buffalo_l is unavailable, so new ingest is blocked instead of "
+                "falling back to OpenCV Haar cascades."
+            )
+        else:
+            message = (
+                "InsightFace buffalo_l is unavailable. Cast will fall back to OpenCV Haar "
+                "cascades for ingest in this mode."
+            )
+        return {
+            "primary_required": bool(self.require_primary_model),
+            "primary_available": bool(primary_available),
+            "can_ingest": bool(primary_available or not self.require_primary_model),
+            "fallback_active": bool(not primary_available),
+            "active_detector_model": (
+                CURRENT_FACE_DETECTOR_MODEL
+                if primary_available
+                else FALLBACK_FACE_DETECTOR_MODEL
+            ),
+            "active_embedding_model": (
+                CURRENT_FACE_EMBEDDING_MODEL
+                if primary_available
+                else FALLBACK_FACE_EMBEDDING_MODEL
+            ),
+            "load_error": load_error,
+            "message": message,
+        }
+
+    def _ensure_primary_model_ready(self) -> None:
+        if not self.require_primary_model or self._insightface is not None:
+            return
+        detail = insightface_load_error()
+        message = (
+            "InsightFace buffalo_l is unavailable. Cast ingest is configured to require the "
+            "primary face model and will not silently fall back to OpenCV Haar cascades."
+        )
+        if detail:
+            message = f"{message} Load error: {detail}"
+        raise RuntimeError(message)
 
     def looks_like_artwork_face(self, crop_bgr: np.ndarray) -> bool:
         if crop_bgr is None or crop_bgr.size == 0:
@@ -298,106 +340,129 @@ class FaceIngestor:
             return False
         return True
 
-    def _yunet_detect_rows(
+    def _insightface_face_box(
         self,
-        image_bgr: np.ndarray,
-        *,
-        score_threshold: float,
-    ) -> np.ndarray:
-        detector = self._yunet
-        if detector is None or image_bgr is None or image_bgr.size == 0:
-            return np.empty((0, 15), dtype=np.float32)
-        h, w = image_bgr.shape[:2]
-        if h < 12 or w < 12:
-            return np.empty((0, 15), dtype=np.float32)
-        try:
-            detector.setInputSize((int(w), int(h)))
-            _ok, faces = detector.detect(image_bgr)
-        except cv2.error:
-            return np.empty((0, 15), dtype=np.float32)
-        rows = np.asarray(faces) if faces is not None else np.empty((0, 15), dtype=np.float32)
-        if rows.size == 0:
-            return np.empty((0, 15), dtype=np.float32)
-        if rows.ndim == 1:
-            rows = rows.reshape(1, -1)
-        out_rows = []
-        for row in rows:
-            if int(len(row)) < 15:
-                continue
-            score = float(row[14])
-            if score < float(score_threshold):
-                continue
-            out_rows.append(np.asarray(row, dtype=np.float32))
-        if not out_rows:
-            return np.empty((0, 15), dtype=np.float32)
-        return np.vstack(out_rows)
-
-    def _yunet_row_to_box(
-        self,
-        row: np.ndarray,
+        face: Any,
         *,
         image_w: int,
         image_h: int,
     ) -> tuple[int, int, int, int] | None:
-        if row is None or int(len(row)) < 4:
+        try:
+            bbox = getattr(face, "bbox", None)
+        except Exception:
+            bbox = None
+        if bbox is None:
             return None
-        x = int(round(float(row[0])))
-        y = int(round(float(row[1])))
-        w = int(round(float(row[2])))
-        h = int(round(float(row[3])))
+        row = np.asarray(bbox, dtype=np.float32).reshape(-1)
+        if row.size < 4:
+            return None
+        x0 = int(round(float(row[0])))
+        y0 = int(round(float(row[1])))
+        x1 = int(round(float(row[2])))
+        y1 = int(round(float(row[3])))
+        x = max(0, min(x0, int(image_w) - 1))
+        y = max(0, min(y0, int(image_h) - 1))
+        x2 = max(x + 1, min(x1, int(image_w)))
+        y2 = max(y + 1, min(y1, int(image_h)))
+        w = int(x2 - x)
+        h = int(y2 - y)
         if w <= 0 or h <= 0:
             return None
-        x = max(0, min(x, int(image_w) - 1))
-        y = max(0, min(y, int(image_h) - 1))
-        x2 = max(x + 1, min(x + w, int(image_w)))
-        y2 = max(y + 1, min(y + h, int(image_h)))
-        ww = int(x2 - x)
-        hh = int(y2 - y)
-        if ww <= 0 or hh <= 0:
-            return None
-        return int(x), int(y), int(ww), int(hh)
+        return int(x), int(y), int(w), int(h)
 
-    def _yunet_landmarks_plausible(
+    def _insightface_face_keypoints(self, face: Any) -> np.ndarray | None:
+        try:
+            kps = getattr(face, "kps", None)
+        except Exception:
+            kps = None
+        if kps is None:
+            return None
+        try:
+            points = np.asarray(kps, dtype=np.float32).reshape(-1, 2)
+        except Exception:
+            return None
+        if points.shape[0] < 5:
+            return None
+        return points[:5, :]
+
+    def _insightface_has_face_geometry(
         self,
-        row: np.ndarray,
-        box: tuple[int, int, int, int],
+        face: Any,
+        *,
+        image_w: int,
+        image_h: int,
+        require_center: bool = False,
     ) -> bool:
-        if row is None or int(len(row)) < 15:
+        box = self._insightface_face_box(face, image_w=image_w, image_h=image_h)
+        if box is None:
             return False
-        x, y, w, h = [int(v) for v in box]
-        if w <= 0 or h <= 0:
-            return False
-        lx, ly = float(row[4]), float(row[5])
-        rx, ry = float(row[6]), float(row[7])
-        nx, ny = float(row[8]), float(row[9])
-        mlx, mly = float(row[10]), float(row[11])
-        mrx, mry = float(row[12]), float(row[13])
-        if not (lx < rx and mlx < mrx):
-            return False
-        eye_y_delta = abs(ly - ry)
-        if eye_y_delta > float(h) * 0.22:
-            return False
-        eye_mid_y = float(ly + ry) * 0.5
-        mouth_mid_y = float(mly + mry) * 0.5
-        if not (eye_mid_y < ny < mouth_mid_y):
-            return False
-        if (mouth_mid_y - eye_mid_y) < float(h) * 0.16:
-            return False
-        eye_distance = abs(rx - lx)
-        if eye_distance < float(w) * 0.16 or eye_distance > float(w) * 0.90:
+        x, y, w, h = box
+        if require_center:
+            area_ratio = float(w * h) / float(max(1, image_w * image_h))
+            if area_ratio < 0.10 or area_ratio > 0.98:
+                return False
+            cx = float(x + (w * 0.5))
+            cy = float(y + (h * 0.5))
+            if abs(cx - (float(image_w) * 0.5)) > float(image_w) * 0.34:
+                return False
+            if abs(cy - (float(image_h) * 0.48)) > float(image_h) * 0.36:
+                return False
+
+        points = self._insightface_face_keypoints(face)
+        if points is None:
+            return True
+
+        if not np.isfinite(points).all():
             return False
         margin_x = float(w) * 0.18
-        margin_y = float(h) * 0.20
-        min_x = float(x) - margin_x
-        max_x = float(x + w) + margin_x
-        min_y = float(y) - margin_y
-        max_y = float(y + h) + margin_y
-        for px, py in [(lx, ly), (rx, ry), (nx, ny), (mlx, mly), (mrx, mry)]:
-            if px < min_x or px > max_x or py < min_y or py > max_y:
-                return False
+        margin_y = float(h) * 0.18
+        x0 = float(x) - margin_x
+        x1 = float(x + w) + margin_x
+        y0 = float(y) - margin_y
+        y1 = float(y + h) + margin_y
+        if np.any(points[:, 0] < x0) or np.any(points[:, 0] > x1):
+            return False
+        if np.any(points[:, 1] < y0) or np.any(points[:, 1] > y1):
+            return False
+
+        left_eye, right_eye, nose, left_mouth, right_mouth = [points[index] for index in range(5)]
+        if float(left_eye[0]) >= float(right_eye[0]):
+            return False
+        if float(left_mouth[0]) >= float(right_mouth[0]):
+            return False
+
+        eye_center = (left_eye + right_eye) * 0.5
+        mouth_center = (left_mouth + right_mouth) * 0.5
+        if float(eye_center[1]) >= float(nose[1]):
+            return False
+        if float(nose[1]) >= float(mouth_center[1]):
+            return False
+        if float(eye_center[1]) > float(y) + (float(h) * 0.60):
+            return False
+        if float(mouth_center[1]) < float(y) + (float(h) * 0.38):
+            return False
+
+        inter_eye = float(np.linalg.norm(right_eye - left_eye))
+        mouth_width = float(np.linalg.norm(right_mouth - left_mouth))
+        if inter_eye < float(w) * 0.16 or inter_eye > float(w) * 0.86:
+            return False
+        if mouth_width < float(w) * 0.12 or mouth_width > float(w) * 0.90:
+            return False
+
+        eye_mouth_span = float(mouth_center[1] - eye_center[1])
+        if eye_mouth_span < float(h) * 0.18 or eye_mouth_span > float(h) * 0.84:
+            return False
+        if abs(float(left_eye[1] - right_eye[1])) > float(h) * 0.22:
+            return False
+        if abs(float(left_mouth[1] - right_mouth[1])) > float(h) * 0.22:
+            return False
+        if abs(float(nose[0] - eye_center[0])) > float(w) * 0.24:
+            return False
+        if abs(float(nose[0] - mouth_center[0])) > float(w) * 0.20:
+            return False
         return True
 
-    def _detect_yunet(
+    def _insightface_detect(
         self,
         image_bgr: np.ndarray,
         *,
@@ -405,35 +470,40 @@ class FaceIngestor:
         score_threshold: float | None = None,
         require_center: bool = False,
     ) -> list[tuple[int, int, int, int]]:
-        h, w = image_bgr.shape[:2]
-        rows = self._yunet_detect_rows(
-            image_bgr,
-            score_threshold=float(
-                self._yunet_score_threshold if score_threshold is None else score_threshold
-            ),
-        )
-        if rows.size == 0:
+        app = self._insightface
+        if app is None or image_bgr is None or image_bgr.size == 0:
             return []
+        h, w = image_bgr.shape[:2]
+        if h < 12 or w < 12:
+            return []
+        try:
+            faces = list(app.get(image_bgr) or [])
+        except Exception:
+            return []
+        threshold = float(
+            self._insightface_score_threshold if score_threshold is None else score_threshold
+        )
         out: list[tuple[int, int, int, int]] = []
-        for row in rows:
-            box = self._yunet_row_to_box(row, image_w=int(w), image_h=int(h))
+        for face in faces:
+            try:
+                score = float(getattr(face, "det_score", 0.0) or 0.0)
+            except Exception:
+                score = 0.0
+            if score < threshold:
+                continue
+            box = self._insightface_face_box(face, image_w=int(w), image_h=int(h))
             if box is None:
                 continue
             x, y, ww, hh = box
             if min(ww, hh) < int(max(1, int(min_size))):
                 continue
-            if not self._yunet_landmarks_plausible(row, box):
+            if not self._insightface_has_face_geometry(
+                face,
+                image_w=int(w),
+                image_h=int(h),
+                require_center=require_center,
+            ):
                 continue
-            if require_center:
-                area_ratio = float(ww * hh) / float(max(1, w * h))
-                if area_ratio < 0.10 or area_ratio > 0.98:
-                    continue
-                cx = float(x + (ww * 0.5))
-                cy = float(y + (hh * 0.5))
-                if abs(cx - (float(w) * 0.5)) > float(w) * 0.34:
-                    continue
-                if abs(cy - (float(h) * 0.48)) > float(h) * 0.36:
-                    continue
             out.append((int(x), int(y), int(ww), int(hh)))
         return out
 
@@ -556,11 +626,11 @@ class FaceIngestor:
         aspect = float(w) / float(max(1, h))
         if aspect < 0.55 or aspect > 1.75:
             return False
-        if self._yunet is not None:
-            confirmed = self._detect_yunet(
+        if self._insightface is not None:
+            confirmed = self._insightface_detect(
                 crop_bgr,
                 min_size=max(18, min(int(h), int(w)) // 6),
-                score_threshold=float(self._yunet_verify_threshold),
+                score_threshold=float(self._insightface_verify_threshold),
                 require_center=True,
             )
             if not confirmed:
@@ -571,8 +641,8 @@ class FaceIngestor:
         profile_hit = self._has_profile_face(gray)
         strict_hit = self._has_strict_frontal_face(gray)
         upper_body_hit = self._looks_like_upper_body(gray)
-        if self._yunet is not None:
-            # YuNet confirmation already passed; keep this as weak secondary check only.
+        if self._insightface is not None:
+            # InsightFace confirmation already passed; keep this as weak secondary check only.
             if upper_body_hit and not strict_hit:
                 return False
             return True
@@ -590,8 +660,8 @@ class FaceIngestor:
         return signal >= 2
 
     def _detect(self, image_bgr: np.ndarray, *, min_size: int = 40) -> list[tuple[int, int, int, int]]:
-        if self._yunet is not None:
-            return self._detect_yunet(image_bgr, min_size=int(min_size))
+        if self._insightface is not None:
+            return self._insightface_detect(image_bgr, min_size=int(min_size))
 
         gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
         gray = cv2.equalizeHist(gray)
@@ -635,6 +705,7 @@ class FaceIngestor:
         max_faces: int = 50,
         skip_artwork: bool | None = None,
     ) -> list[dict[str, Any]]:
+        self._ensure_primary_model_ready()
         path = Path(image_path)
         if not path.exists():
             raise FileNotFoundError(f"Photo file does not exist: {path}")
@@ -662,8 +733,19 @@ class FaceIngestor:
                 continue
             if not self.is_valid_face_crop(crop, skip_artwork=skip_artwork):
                 continue
-            embedding = compute_arcface_embedding(crop) or compute_simple_embedding(crop)
+            arcface_embedding = compute_arcface_embedding(crop)
+            embedding = arcface_embedding or compute_simple_embedding(crop)
             quality = estimate_face_quality(crop)
+            detector_model = (
+                CURRENT_FACE_DETECTOR_MODEL
+                if self._insightface is not None
+                else FALLBACK_FACE_DETECTOR_MODEL
+            )
+            embedding_model = (
+                CURRENT_FACE_EMBEDDING_MODEL
+                if arcface_embedding is not None
+                else FALLBACK_FACE_EMBEDDING_MODEL
+            )
             face = self.store.add_face(
                 embedding=embedding,
                 source_type="photo",
@@ -671,7 +753,11 @@ class FaceIngestor:
                 timestamp="",
                 bbox=[int(x), int(y), int(w), int(h)],
                 quality=quality,
-                metadata={"ingest": "photo"},
+                metadata={
+                    "ingest": "photo",
+                    "detector_model": detector_model,
+                    "embedding_model": embedding_model,
+                },
             )
             crop_rel = self._save_crop(str(face.get("face_id")), crop)
             face = self.store.update_face(str(face.get("face_id")), crop_path=crop_rel)
@@ -689,6 +775,7 @@ class FaceIngestor:
         max_duration_seconds: float = 0.0,
         skip_artwork: bool | None = None,
     ) -> dict[str, Any]:
+        self._ensure_primary_model_ready()
         path = Path(video_path)
         if not path.exists():
             raise FileNotFoundError(f"Video file does not exist: {path}")
@@ -734,9 +821,20 @@ class FaceIngestor:
                         continue
                     if not self.is_valid_face_crop(crop, skip_artwork=skip_artwork):
                         continue
-                    embedding = compute_arcface_embedding(crop) or compute_simple_embedding(crop)
+                    arcface_embedding = compute_arcface_embedding(crop)
+                    embedding = arcface_embedding or compute_simple_embedding(crop)
                     quality = estimate_face_quality(crop)
                     timestamp = _timestamp_from_seconds(seconds)
+                    detector_model = (
+                        CURRENT_FACE_DETECTOR_MODEL
+                        if self._insightface is not None
+                        else FALLBACK_FACE_DETECTOR_MODEL
+                    )
+                    embedding_model = (
+                        CURRENT_FACE_EMBEDDING_MODEL
+                        if arcface_embedding is not None
+                        else FALLBACK_FACE_EMBEDDING_MODEL
+                    )
                     face = self.store.add_face(
                         embedding=embedding,
                         source_type="vhs",
@@ -748,6 +846,8 @@ class FaceIngestor:
                             "ingest": "vhs",
                             "frame_index": int(frame_idx),
                             "fps": round(float(fps), 5),
+                            "detector_model": detector_model,
+                            "embedding_model": embedding_model,
                         },
                     )
                     crop_rel = self._save_crop(str(face.get("face_id")), crop)
@@ -809,6 +909,7 @@ class FaceIngestor:
         max_files: int = 0,
         skip_artwork: bool | None = None,
     ) -> dict[str, Any]:
+        self._ensure_primary_model_ready()
         photo_files = self.iter_photo_files(
             photo_albums_root=photo_albums_root,
             view_glob=view_glob,

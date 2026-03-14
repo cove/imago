@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+import base64
+import io
+import json
+import math
 import os
 import re
-import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
+
+from .model_store import HF_MODEL_CACHE_DIR
 
 STOPWORDS = {
     "the",
@@ -33,110 +40,519 @@ STOPWORDS = {
     "image",
 }
 
+DEFAULT_QWEN_OCR_MODEL = "Qwen/Qwen2.5-VL-3B-Instruct"
+DEFAULT_QWEN_OCR_MAX_NEW_TOKENS = 768
+DEFAULT_QWEN_OCR_MAX_PIXELS = 4_194_304
+DEFAULT_QWEN_OCR_MAX_IMAGE_EDGE = 2048
+DEFAULT_LMSTUDIO_OCR_BASE_URL = "http://192.168.4.72:1234/v1"
+DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS = 180.0
+DEFAULT_QWEN_OCR_PROMPT = (
+    "Extract all visible text from this image.\n"
+    "- Return only the extracted text.\n"
+    "- Preserve line breaks when they are visually clear.\n"
+    "- Do not describe the image.\n"
+    "- If there is no readable text, return an empty string."
+)
+_LEGACY_OCR_ENGINE_ALIASES = {
+    "docstrange": "qwen",
+}
+_NO_TEXT_RESPONSES = {
+    "none",
+    "no text",
+    "no visible text",
+    "no readable text",
+    "there is no text",
+    "there is no visible text",
+    "there is no readable text",
+    "no text visible",
+}
+_OCR_REASONING_MARKERS = (
+    "the user wants",
+    "analyze the image",
+    "transcribe the text found",
+    "refine the transcription",
+    "let's look",
+    "looking closer",
+    "actually,",
+    "wait,",
+    "no clear text",
+)
+
+
+def _normalize_lmstudio_ocr_base_url(value: str) -> str:
+    text = str(value or "").strip() or DEFAULT_LMSTUDIO_OCR_BASE_URL
+    text = text.rstrip("/")
+    if not text.endswith("/v1"):
+        text = f"{text}/v1"
+    return text
+
+
+def _lmstudio_ocr_post(base_url: str, payload: dict, timeout: float) -> dict:
+    body = json.dumps(payload).encode("utf-8")
+    request = urllib.request.Request(
+        f"{base_url}/chat/completions",
+        data=body,
+        method="POST",
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=float(timeout)) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        details = exc.read().decode("utf-8", errors="replace").strip()
+        raise RuntimeError(f"LM Studio OCR request failed: {details or f'HTTP {exc.code}'}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"LM Studio is unreachable at {base_url}: {exc.reason}") from exc
+
+
+def _lmstudio_ocr_select_model(base_url: str, timeout: float) -> str:
+    request = urllib.request.Request(f"{base_url}/models", method="GET")
+    try:
+        with urllib.request.urlopen(request, timeout=float(timeout)) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"LM Studio is unreachable at {base_url}: {exc.reason}") from exc
+    model_ids = [
+        str(row.get("id") or "").strip()
+        for row in list(data.get("data") or [])
+        if str(row.get("id") or "").strip()
+    ]
+    if not model_ids:
+        raise RuntimeError("LM Studio did not return any models. Load a model in LM Studio first.")
+    return model_ids[0]
+
+
+def _build_ocr_data_url(image_path, max_image_edge: int, max_pixels: int) -> str:
+    from PIL import Image  # pylint: disable=import-outside-toplevel
+
+    path = Path(image_path)
+    image = Image.open(str(path)).convert("RGB")
+    try:
+        working = _resize_for_ocr(image, max_image_edge, max_pixels)
+        buf = io.BytesIO()
+        if path.suffix.lower() == ".png":
+            mime = "image/png"
+            working.save(buf, format="PNG")
+        else:
+            mime = "image/jpeg"
+            working.save(buf, format="JPEG", quality=95)
+        data = base64.b64encode(buf.getvalue()).decode("ascii")
+        return f"data:{mime};base64,{data}"
+    finally:
+        if "working" in locals() and working is not image:
+            working.close()
+        image.close()
+
+
+def _normalize_ocr_engine(value: str) -> str:
+    text = str(value or "none").strip().lower()
+    return _LEGACY_OCR_ENGINE_ALIASES.get(text, text)
+
+
+def _looks_like_ocr_reasoning(value: str) -> bool:
+    text = str(value or "").strip()
+    if not text:
+        return False
+    lowered = text.casefold()
+    marker_hits = sum(1 for marker in _OCR_REASONING_MARKERS if marker in lowered)
+    if marker_hits >= 2:
+        return True
+    if lowered.startswith("the user wants"):
+        return True
+    if re.search(r"^\s*\d+\.\s+\*\*", text):
+        return True
+    return False
+
+
+def _normalize_ocr_text(value: object) -> str:
+    if isinstance(value, list):
+        parts: list[str] = []
+        for item in value:
+            if isinstance(item, str):
+                parts.append(item)
+                continue
+            if not isinstance(item, dict):
+                continue
+            text = str(item.get("text") or "").strip()
+            if text:
+                parts.append(text)
+        value = "\n".join(parts)
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if text.lower().startswith("assistant:"):
+        text = text.split(":", 1)[1].strip()
+    if text.startswith("```"):
+        lines = text.splitlines()
+        if lines:
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        text = "\n".join(lines).strip()
+    text = re.sub(r"^\s*<think>.*?</think>\s*", "", text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(
+        r"^\s*(?:the (?:visible|extracted) text(?: in (?:the )?image)? is|extracted text|ocr text)\s*:\s*",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    ).strip()
+    if text.casefold() in _NO_TEXT_RESPONSES:
+        return ""
+    if _looks_like_ocr_reasoning(text):
+        return ""
+    return text
+
+
+def _lmstudio_ocr_response_format() -> dict[str, object]:
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "ocr_payload",
+            "strict": "true",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "text": {
+                        "type": "string",
+                    }
+                },
+                "required": ["text"],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
+def _decode_lmstudio_text(value: object) -> str:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        parts: list[str] = []
+        for item in value:
+            if isinstance(item, str):
+                parts.append(item)
+                continue
+            if not isinstance(item, dict):
+                continue
+            text = item.get("text")
+            if text:
+                parts.append(str(text))
+        return "\n".join(part for part in parts if part).strip()
+    return ""
+
+
+def _extract_structured_json_payload(text: str) -> dict[str, object] | None:
+    raw = str(text or "").strip()
+    if not raw:
+        return None
+    decoder = json.JSONDecoder()
+    for idx, char in enumerate(raw):
+        if char != "{":
+            continue
+        try:
+            payload, _end = decoder.raw_decode(raw[idx:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            return payload
+    return None
+
+
+def _parse_lmstudio_structured_ocr(value: object, *, finish_reason: str = "") -> str:
+    raw = _decode_lmstudio_text(value)
+    text = str(raw or "").strip()
+    finish_note = f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
+    if not text:
+        raise RuntimeError(
+            "LM Studio returned empty structured OCR content. "
+            "Check that the loaded model supports structured output and that the LM Studio server is current."
+            f"{finish_note}"
+        )
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        payload = _extract_structured_json_payload(text)
+        if payload is None:
+            snippet = text[:180] + ("..." if len(text) > 180 else "")
+            raise RuntimeError(
+                f"LM Studio returned invalid structured OCR JSON: {exc.msg}; raw={snippet!r}.{finish_note}"
+            ) from exc
+    if not isinstance(payload, dict):
+        snippet = text[:180] + ("..." if len(text) > 180 else "")
+        raise RuntimeError(
+            f"LM Studio returned structured OCR JSON that is not an object; raw={snippet!r}.{finish_note}"
+        )
+    extracted = payload.get("text")
+    if not isinstance(extracted, str):
+        snippet = text[:180] + ("..." if len(text) > 180 else "")
+        raise RuntimeError(
+            f"LM Studio structured OCR JSON is missing a text string; raw={snippet!r}.{finish_note}"
+        )
+    return _normalize_ocr_text(extracted)
+
+
+def _resize_for_ocr(image, max_image_edge: int, max_pixels: int):
+    width, height = image.size
+    working = image
+    longest = max(width, height)
+    if int(max_image_edge) > 0 and longest > int(max_image_edge):
+        scale = float(max_image_edge) / float(longest)
+        new_size = (
+            max(1, int(round(width * scale))),
+            max(1, int(round(height * scale))),
+        )
+        resampling = getattr(getattr(image, "Resampling", None), "LANCZOS", None)
+        if resampling is None:
+            try:
+                from PIL import Image  # pylint: disable=import-outside-toplevel
+
+                resampling = getattr(getattr(Image, "Resampling", Image), "LANCZOS")
+            except Exception:  # pragma: no cover
+                resampling = 1
+        working = image.resize(new_size, resampling)
+        width, height = working.size
+
+    pixels = int(width) * int(height)
+    if int(max_pixels) > 0 and pixels > int(max_pixels):
+        scale = math.sqrt(float(max_pixels) / float(max(1, pixels)))
+        new_size = (
+            max(1, int(round(width * scale))),
+            max(1, int(round(height * scale))),
+        )
+        resampling = getattr(getattr(working, "Resampling", None), "LANCZOS", None)
+        if resampling is None:
+            try:
+                from PIL import Image  # pylint: disable=import-outside-toplevel
+
+                resampling = getattr(getattr(Image, "Resampling", Image), "LANCZOS")
+            except Exception:  # pragma: no cover
+                resampling = 1
+        resized = working.resize(new_size, resampling)
+        if working is not image:
+            working.close()
+        working = resized
+    return working
+
+
+def _resolve_local_hf_snapshot(model_name: str) -> Path | None:
+    text = str(model_name or "").strip()
+    if "/" not in text:
+        return None
+    repo_dir = HF_MODEL_CACHE_DIR / f"models--{text.replace('/', '--')}" / "snapshots"
+    if not repo_dir.is_dir():
+        return None
+    for snapshot in sorted(repo_dir.iterdir()):
+        if not snapshot.is_dir():
+            continue
+        if (snapshot / "config.json").exists() and (
+            (snapshot / "preprocessor_config.json").exists() or (snapshot / "processor_config.json").exists()
+        ):
+            return snapshot
+    return None
+
+
+def _resolve_local_model_ref(model_name: str) -> tuple[str, bool]:
+    text = str(model_name or DEFAULT_QWEN_OCR_MODEL).strip() or DEFAULT_QWEN_OCR_MODEL
+    candidate = Path(text).expanduser()
+    if candidate.exists():
+        return str(candidate), True
+    local_snapshot = _resolve_local_hf_snapshot(text)
+    if local_snapshot is not None:
+        return str(local_snapshot), True
+    raise RuntimeError(
+        "Qwen OCR is configured for local-only inference. "
+        "Download the model into the local Hugging Face cache under models/photoalbums/hf "
+        f"or set QWEN_OCR_MODEL to a local model path. Current model: {text}"
+    )
+
+
+def _load_qwen_transformers():
+    try:
+        import torch  # pylint: disable=import-outside-toplevel
+        from transformers import (  # pylint: disable=import-outside-toplevel
+            AutoModelForImageTextToText,
+            AutoProcessor,
+        )
+    except Exception as exc:
+        raise RuntimeError(
+            "Qwen OCR requires a compatible local transformers/torch install."
+        ) from exc
+    return torch, AutoProcessor, AutoModelForImageTextToText
+
 
 class OCREngine:
-    def __init__(self, *, engine: str = "docstrange", language: str = "eng"):
-        self.engine = str(engine or "none").strip().lower()
+    def __init__(self, *, engine: str = "qwen", language: str = "eng", base_url: str = ""):
+        self.engine = _normalize_ocr_engine(engine)
         self.language = str(language or "eng").strip() or "eng"
-        self._docstrange = None
+        self.base_url = _normalize_lmstudio_ocr_base_url(base_url) if self.engine == "lmstudio" else ""
+        self._model_name = str(os.environ.get("QWEN_OCR_MODEL") or DEFAULT_QWEN_OCR_MODEL).strip()
+        self._processor = None
+        self._model = None
+        self._torch = None
+        self._lmstudio_model: str = ""
 
-        if self.engine == "none":
+        if self.engine in {"none", "qwen", "lmstudio"}:
             return
-        if self.engine == "docstrange":
-            _ensure_utf8_console_streams()
-            try:
-                from docstrange.config import InternalConfig  # pylint: disable=import-outside-toplevel
-                from docstrange.processors.image_processor import ImageProcessor  # pylint: disable=import-outside-toplevel
-            except Exception as exc:  # pragma: no cover - dependency optional
-                raise RuntimeError(
-                    "Docstrange local OCR engine is unavailable. Install with: pip install docstrange easyocr"
-                ) from exc
+        raise ValueError(f"Unsupported OCR engine: {engine}")
 
-            # Force local OCR provider to avoid cloud API processing paths.
-            InternalConfig.ocr_provider = "neural"
-            self._docstrange = ImageProcessor(
-                # With docstrange neural OCR, layout mode is the stable local CPU path.
-                preserve_layout=True,
-                include_images=False,
-                ocr_enabled=True,
-            )
-            self._docstrange_simple = ImageProcessor(
-                preserve_layout=False,
-                include_images=False,
-                ocr_enabled=True,
-            )
+    def _ensure_loaded(self) -> None:
+        if self.engine != "qwen":
             return
-        raise ValueError(f"Unsupported OCR engine: {self.engine}")
+        if self._processor is not None and self._model is not None:
+            return
+
+        torch, AutoProcessor, AutoModelForImageTextToText = _load_qwen_transformers()
+
+        HF_MODEL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        model_ref, local_files_only = _resolve_local_model_ref(self._model_name)
+        cache_dir = str(HF_MODEL_CACHE_DIR)
+        self._processor = AutoProcessor.from_pretrained(
+            model_ref,
+            trust_remote_code=True,
+            cache_dir=cache_dir,
+            local_files_only=local_files_only,
+            max_pixels=DEFAULT_QWEN_OCR_MAX_PIXELS,
+        )
+        load_kwargs = {
+            "trust_remote_code": True,
+            "device_map": "auto",
+            "cache_dir": cache_dir,
+            "local_files_only": local_files_only,
+        }
+        try:
+            self._model = AutoModelForImageTextToText.from_pretrained(
+                model_ref,
+                dtype="auto",
+                **load_kwargs,
+            )
+        except TypeError:
+            self._model = AutoModelForImageTextToText.from_pretrained(
+                model_ref,
+                torch_dtype="auto",
+                **load_kwargs,
+            )
+        self._torch = torch
+
+    def _read_text_lmstudio(self, image_path: str | Path) -> str:
+        if not self._lmstudio_model:
+            self._lmstudio_model = _lmstudio_ocr_select_model(self.base_url, DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS)
+        data_url = _build_ocr_data_url(image_path, DEFAULT_QWEN_OCR_MAX_IMAGE_EDGE, DEFAULT_QWEN_OCR_MAX_PIXELS)
+        payload = {
+            "model": self._lmstudio_model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an OCR engine. "
+                        "Return only valid JSON matching the response_format schema. "
+                        "Put the extracted text in the text field. "
+                        "Do not describe the image, show reasoning, or add extra fields."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image_url", "image_url": {"url": data_url}},
+                        {"type": "text", "text": DEFAULT_QWEN_OCR_PROMPT},
+                    ],
+                }
+            ],
+            "response_format": _lmstudio_ocr_response_format(),
+            "max_tokens": DEFAULT_QWEN_OCR_MAX_NEW_TOKENS,
+            "temperature": 0.0,
+            "stream": False,
+        }
+        response = _lmstudio_ocr_post(self.base_url, payload, DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS)
+        choices = list(response.get("choices") or [])
+        if not choices:
+            return ""
+        message = dict(choices[0].get("message") or {})
+        return _parse_lmstudio_structured_ocr(
+            message.get("content"),
+            finish_reason=str(choices[0].get("finish_reason") or ""),
+        )
 
     def read_text(self, image_path: str | Path) -> str:
         path = Path(image_path)
         if self.engine == "none":
             return ""
-        if self.engine == "docstrange":
-            import tempfile
+        if self.engine == "lmstudio":
+            return self._read_text_lmstudio(path)
+        if self.engine != "qwen":
+            return ""
 
-            from PIL import Image
+        self._ensure_loaded()
 
-            Image.MAX_IMAGE_PIXELS = None
-            process_path = str(path)
-            tmp = None
-            if path.suffix.lower() in {".tif", ".tiff"}:
-                try:
-                    img = Image.open(path)
-                    if img.mode not in ("RGB", "RGBA"):
-                        img = img.convert("RGB")
-                    tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-                    img.save(tmp.name)
-                    tmp.close()
-                    process_path = tmp.name
-                except Exception:
-                    pass
+        from PIL import Image  # pylint: disable=import-outside-toplevel
 
-            try:
-                result = self._docstrange.process(process_path)
-                if result is None or not (hasattr(result, "extract_text") or hasattr(result, "extract_markdown")):
-                    result = self._docstrange_simple.process(process_path)
-            except Exception:
-                try:
-                    result = self._docstrange_simple.process(process_path)
-                except Exception:
-                    return ""
-            finally:
-                if tmp is not None:
-                    try:
-                        os.unlink(tmp.name)
-                    except Exception:
-                        pass
-            if result is None:
-                return ""
-
-            text = ""
-            if hasattr(result, "extract_text"):
-                text = str(result.extract_text() or "").strip()
-            if not text and hasattr(result, "extract_markdown"):
-                text = str(result.extract_markdown() or "").strip()
-            return text
-        return ""
-
-
-def _ensure_utf8_console_streams() -> None:
-    if os.name != "nt":
-        return
-    for stream_name in ("stdout", "stderr"):
-        stream = getattr(sys, stream_name, None)
-        if stream is None:
-            continue
-        reconfigure = getattr(stream, "reconfigure", None)
-        if not callable(reconfigure):
-            continue
-        encoding = str(getattr(stream, "encoding", "") or "").lower()
-        if encoding == "utf-8":
-            continue
+        image = Image.open(str(path)).convert("RGB")
         try:
-            reconfigure(encoding="utf-8", errors="replace")
-        except Exception:
-            # Some stream wrappers do not allow reconfiguration.
-            pass
+            working_image = _resize_for_ocr(
+                image,
+                DEFAULT_QWEN_OCR_MAX_IMAGE_EDGE,
+                DEFAULT_QWEN_OCR_MAX_PIXELS,
+            )
+            if hasattr(self._processor, "apply_chat_template"):
+                messages = [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "image"},
+                            {"type": "text", "text": DEFAULT_QWEN_OCR_PROMPT},
+                        ],
+                    }
+                ]
+                try:
+                    prompt_text = self._processor.apply_chat_template(
+                        messages,
+                        tokenize=False,
+                        add_generation_prompt=True,
+                        chat_template_kwargs={"enable_thinking": False},
+                    )
+                except TypeError:
+                    prompt_text = self._processor.apply_chat_template(
+                        messages,
+                        tokenize=False,
+                        add_generation_prompt=True,
+                    )
+            else:
+                prompt_text = DEFAULT_QWEN_OCR_PROMPT
+
+            inputs = self._processor(
+                text=[prompt_text],
+                images=[working_image],
+                padding=True,
+                return_tensors="pt",
+            )
+
+            device = getattr(self._model, "device", None)
+            if device is not None:
+                for key, value in list(inputs.items()):
+                    if hasattr(value, "to"):
+                        inputs[key] = value.to(device)
+
+            with self._torch.inference_mode():
+                generated_ids = self._model.generate(
+                    **inputs,
+                    max_new_tokens=DEFAULT_QWEN_OCR_MAX_NEW_TOKENS,
+                    do_sample=False,
+                )
+
+            input_ids = inputs.get("input_ids")
+            if hasattr(generated_ids, "shape") and input_ids is not None and hasattr(input_ids, "shape"):
+                prompt_tokens = int(input_ids.shape[-1])
+                generated_ids = generated_ids[:, prompt_tokens:]
+
+            decoded = self._processor.batch_decode(
+                generated_ids,
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=True,
+            )
+            return _normalize_ocr_text(decoded[0] if decoded else "")
+        finally:
+            if "working_image" in locals() and working_image is not image:
+                working_image.close()
+            image.close()
 
 
 def extract_keywords(text: str, *, max_keywords: int = 15) -> list[str]:

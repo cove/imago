@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -41,7 +42,7 @@ def test_detect_handles_numpy_multirow_output(tmp_path):
     store = TextFaceStore(tmp_path / "cast_data")
     store.ensure_files()
     ingestor = FaceIngestor(store)
-    ingestor._yunet = None
+    ingestor._insightface = None
 
     class FakeCascade:
         def detectMultiScale(self, *_args, **_kwargs):
@@ -76,6 +77,7 @@ def test_ingest_photo_skips_flat_false_positive_detection(tmp_path):
     store = TextFaceStore(tmp_path / "cast_data")
     store.ensure_files()
     ingestor = FaceIngestor(store)
+    ingestor._insightface = None
 
     class FakeCascade:
         def detectMultiScale(self, *_args, **_kwargs):
@@ -96,6 +98,7 @@ def test_ingest_photo_skips_torso_like_false_positive_detection(tmp_path):
     store = TextFaceStore(tmp_path / "cast_data")
     store.ensure_files()
     ingestor = FaceIngestor(store)
+    ingestor._insightface = None
 
     class FakeCascade:
         def detectMultiScale(self, *_args, **_kwargs):
@@ -113,27 +116,6 @@ def test_ingest_photo_skips_torso_like_false_positive_detection(tmp_path):
     assert created == []
 
 
-def test_yunet_landmark_geometry_rejects_nonsense(tmp_path):
-    store = TextFaceStore(tmp_path / "cast_data")
-    store.ensure_files()
-    ingestor = FaceIngestor(store)
-
-    box = (10, 10, 80, 80)
-    row = np.asarray(
-        [
-            10, 10, 80, 80,  # bbox
-            55, 30,          # left eye (bad: right of right eye)
-            30, 30,          # right eye
-            42, 35,          # nose
-            25, 55,          # mouth left
-            58, 56,          # mouth right
-            0.99,            # score
-        ],
-        dtype=np.float32,
-    )
-    assert ingestor._yunet_landmarks_plausible(row, box) is False
-
-
 def test_looks_like_artwork_face_flags_letter_shape(tmp_path):
     store = TextFaceStore(tmp_path / "cast_data")
     store.ensure_files()
@@ -148,7 +130,7 @@ def test_detect_handles_opencv_cascade_error(tmp_path):
     store = TextFaceStore(tmp_path / "cast_data")
     store.ensure_files()
     ingestor = FaceIngestor(store)
-    ingestor._yunet = None
+    ingestor._insightface = None
 
     class BrokenCascade:
         def detectMultiScale(self, *_args, **_kwargs):
@@ -160,6 +142,66 @@ def test_detect_handles_opencv_cascade_error(tmp_path):
     image = np.zeros((120, 160, 3), dtype=np.uint8)
     boxes = ingestor._detect(image, min_size=40)
     assert boxes == []
+
+
+def test_insightface_detect_rejects_bad_landmark_geometry(tmp_path):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+    ingestor = FaceIngestor(store)
+
+    bad_face = SimpleNamespace(
+        bbox=np.asarray([20, 20, 100, 120], dtype=np.float32),
+        det_score=0.97,
+        kps=np.asarray(
+            [
+                [42, 88],
+                [78, 36],
+                [62, 60],
+                [40, 94],
+                [82, 66],
+            ],
+            dtype=np.float32,
+        ),
+    )
+
+    class FakeInsightFace:
+        def get(self, *_args, **_kwargs):
+            return [bad_face]
+
+    ingestor._insightface = FakeInsightFace()
+    image = np.zeros((180, 160, 3), dtype=np.uint8)
+    boxes = ingestor._detect(image, min_size=40)
+    assert boxes == []
+
+
+def test_insightface_detect_accepts_plausible_landmark_geometry(tmp_path):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+    ingestor = FaceIngestor(store)
+
+    good_face = SimpleNamespace(
+        bbox=np.asarray([20, 20, 100, 120], dtype=np.float32),
+        det_score=0.97,
+        kps=np.asarray(
+            [
+                [45, 55],
+                [78, 54],
+                [62, 73],
+                [48, 95],
+                [76, 96],
+            ],
+            dtype=np.float32,
+        ),
+    )
+
+    class FakeInsightFace:
+        def get(self, *_args, **_kwargs):
+            return [good_face]
+
+    ingestor._insightface = FakeInsightFace()
+    image = np.zeros((180, 160, 3), dtype=np.uint8)
+    boxes = ingestor._detect(image, min_size=40)
+    assert boxes == [(20, 20, 80, 100)]
 
 
 def test_ingest_photo_rejects_directory_path(tmp_path):
@@ -175,3 +217,21 @@ def test_ingest_photo_rejects_directory_path(tmp_path):
         assert False, "Expected IsADirectoryError"
     except IsADirectoryError:
         pass
+
+
+def test_ingest_photo_requires_primary_model_when_configured(tmp_path):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+    ingestor = FaceIngestor(store, require_primary_model=True)
+    ingestor._insightface = None
+
+    image_path = tmp_path / "photo.jpg"
+    image = np.zeros((120, 120, 3), dtype=np.uint8)
+    cv2.rectangle(image, (30, 30), (90, 90), (220, 220, 220), -1)
+    cv2.imwrite(str(image_path), image)
+
+    try:
+        ingestor.ingest_photo(image_path=image_path, max_faces=5)
+        assert False, "Expected RuntimeError"
+    except RuntimeError as exc:
+        assert "InsightFace buffalo_l is unavailable" in str(exc)

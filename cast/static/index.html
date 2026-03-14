@@ -94,6 +94,33 @@
         background: rgba(56, 21, 26, 0.74);
       }
 
+      .runtime-banner {
+        margin-top: 10px;
+        border: 1px solid var(--line);
+        border-radius: 2px;
+        padding: 8px 10px;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .runtime-banner.good {
+        border-color: var(--good);
+        color: #d5fbe8;
+        background: rgba(20, 50, 39, 0.74);
+      }
+
+      .runtime-banner.warn {
+        border-color: var(--warn);
+        color: #ffe4bf;
+        background: rgba(76, 58, 32, 0.7);
+      }
+
+      .runtime-banner.bad {
+        border-color: var(--bad);
+        color: #ffd2d7;
+        background: rgba(56, 21, 26, 0.74);
+      }
+
       .grid {
         margin-top: 12px;
         display: grid;
@@ -115,6 +142,52 @@
         font-size: 14px;
         color: var(--text-strong);
         letter-spacing: 0.2px;
+      }
+
+      .queue-toolbar {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+
+      .queue-toolbar button {
+        width: auto;
+        min-width: 150px;
+      }
+
+      details.panel {
+        padding: 0;
+        overflow: hidden;
+      }
+
+      details.panel > summary {
+        cursor: pointer;
+        list-style: none;
+        padding: 10px;
+        color: var(--text-strong);
+        font-size: 14px;
+        user-select: none;
+      }
+
+      details.panel > summary::-webkit-details-marker {
+        display: none;
+      }
+
+      details.panel > summary::after {
+        content: "Show";
+        float: right;
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+
+      details.panel[open] > summary::after {
+        content: "Hide";
+      }
+
+      .details-body {
+        padding: 0 10px 10px;
+        border-top: 1px solid var(--line);
       }
 
       .summary-row {
@@ -409,141 +482,28 @@
   <body>
     <main class="page">
       <h1>Cast Face Review</h1>
-      <p class="subtitle">Detect faces, crop them, and identify who they are across photos and VHS.</p>
+      <p class="subtitle">Queue-first review: name faces, skip uncertain ones, and reject false positives.</p>
       <div id="status" class="status">Loading...</div>
 
-      <section class="grid">
-        <article class="panel">
-          <h2>Summary</h2>
-          <div class="summary-row">
-            <span class="pill">People: <strong id="count-people">0</strong></span>
-            <span class="pill">Faces: <strong id="count-faces">0</strong></span>
-            <span class="pill">Unknown: <strong id="count-unknown">0</strong></span>
-            <span class="pill">Pending: <strong id="count-pending">0</strong></span>
-          </div>
-          <div class="field" style="margin-top: 10px">
-            <label for="skip-artwork">Skip Statues/Paintings</label>
-            <select id="skip-artwork">
-              <option value="1" selected>Enabled (Recommended)</option>
-              <option value="0">Disabled</option>
-            </select>
-          </div>
-          <div style="margin-top: 10px">
-            <button id="refresh-btn" class="secondary">Refresh State</button>
-            <button id="prune-btn" class="warn" style="margin-top: 8px">
-              Auto-Prune Obvious Non-Faces
-            </button>
-            <button id="reset-pending-btn" class="bad" style="margin-top: 8px">
-              Reset Queue + Unknown Faces
-            </button>
-          </div>
-        </article>
-
-        <article class="panel">
-          <h2>Ingest Photo</h2>
-          <form id="ingest-photo-form">
-            <div class="field">
-              <label for="photo-path">Image Path</label>
-              <input id="photo-path" required placeholder="C:\\path\\to\\photo.jpg" />
-            </div>
-            <div class="row">
-              <div class="field">
-                <label for="photo-min-size">Min Face Size (px)</label>
-                <input id="photo-min-size" type="number" value="40" min="20" />
-              </div>
-              <div class="field">
-                <label for="photo-max-faces">Max Faces</label>
-                <input id="photo-max-faces" type="number" value="50" min="1" />
-              </div>
-            </div>
-            <button type="submit">Detect and Queue Faces</button>
-          </form>
-        </article>
-
-        <article class="panel">
-          <h2>Scan Photo Albums *_View</h2>
-          <form id="ingest-photo-scan-form">
-            <div class="field">
-              <label for="scan-root">Photo Albums Root</label>
-              <input id="scan-root" value="C:\\Users\\covec\\OneDrive\\Cordell, Leslie & Audrey\\Photo Albums" />
-            </div>
-            <div class="row">
-              <div class="field">
-                <label for="scan-glob">View Folder Glob</label>
-                <input id="scan-glob" value="*_View" />
-              </div>
-              <div class="field">
-                <label for="scan-max-files">Max Files (0=all)</label>
-                <input id="scan-max-files" type="number" value="0" min="0" />
-              </div>
-            </div>
-            <div class="row">
-              <div class="field">
-                <label for="scan-min-size">Min Face Size (px)</label>
-                <input id="scan-min-size" type="number" value="40" min="20" />
-              </div>
-              <div class="field">
-                <label for="scan-max-faces">Max Faces Per Photo</label>
-                <input id="scan-max-faces" type="number" value="50" min="1" />
-              </div>
-            </div>
-            <button type="submit">Scan *_View JPG Files and Queue Names</button>
-          </form>
-        </article>
-
-        <article class="panel">
-          <h2>Ingest VHS Video</h2>
-          <form id="ingest-vhs-form">
-            <div class="field">
-              <label for="vhs-path">Video Path</label>
-              <input id="vhs-path" required placeholder="C:\\path\\to\\archive.mkv" />
-            </div>
-            <div class="row">
-              <div class="field">
-                <label for="vhs-sample">Sample Every (sec)</label>
-                <input id="vhs-sample" type="number" value="2" min="0.2" step="0.1" />
-              </div>
-              <div class="field">
-                <label for="vhs-max-duration">Max Duration (sec, 0=all)</label>
-                <input id="vhs-max-duration" type="number" value="180" min="0" step="1" />
-              </div>
-            </div>
-            <div class="row">
-              <div class="field">
-                <label for="vhs-min-size">Min Face Size (px)</label>
-                <input id="vhs-min-size" type="number" value="40" min="20" />
-              </div>
-              <div class="field">
-                <label for="vhs-max-faces">Max Faces</label>
-                <input id="vhs-max-faces" type="number" value="120" min="1" />
-              </div>
-            </div>
-            <button type="submit">Detect and Queue Faces</button>
-          </form>
-        </article>
-
-        <article class="panel">
-          <h2>Create Person</h2>
-          <form id="person-form">
-            <div class="field">
-              <label for="person-name">Display Name</label>
-              <input id="person-name" required />
-            </div>
-            <div class="field">
-              <label for="person-aliases">Aliases (comma-separated)</label>
-              <input id="person-aliases" placeholder="Jim, Jimmy" />
-            </div>
-            <div class="field">
-              <label for="person-notes">Notes</label>
-              <textarea id="person-notes"></textarea>
-            </div>
-            <button type="submit">Create Person</button>
-          </form>
-        </article>
+      <section class="panel" style="margin-top: 12px">
+        <h2>Queue Overview</h2>
+        <div class="summary-row">
+          <span class="pill">People: <strong id="count-people">0</strong></span>
+          <span class="pill">Faces: <strong id="count-faces">0</strong></span>
+          <span class="pill">Unknown: <strong id="count-unknown">0</strong></span>
+          <span class="pill">Pending: <strong id="count-pending">0</strong></span>
+          <span class="pill">Legacy: <strong id="count-legacy">0</strong></span>
+          <span class="pill">Detector: <strong id="runtime-detector">-</strong></span>
+          <span class="pill">Embedding: <strong id="runtime-embedding">-</strong></span>
+        </div>
+        <div id="runtime-banner" class="runtime-banner" style="display: none"></div>
+        <div class="queue-toolbar">
+          <button id="refresh-btn" class="secondary">Refresh Queue</button>
+        </div>
       </section>
 
       <section class="panel" style="margin-top: 12px">
-        <h2>Name Next Detected Face</h2>
+        <h2>Review Next Face</h2>
         <div id="next-review-empty" class="small">No pending faces right now.</div>
         <div id="next-review-wrap" style="display: none">
           <div class="row">
@@ -563,10 +523,34 @@
                 <select id="next-review-select"></select>
               </div>
               <div class="actions">
-                <button id="next-save-btn" class="good">Save Name</button>
-                <button id="next-skip-btn" class="warn">Skip</button>
-                <button id="next-ignore-btn" class="secondary">Ignore Future</button>
-                <button id="next-reject-btn" class="bad">Reject Face</button>
+                <button
+                  id="next-save-btn"
+                  class="good"
+                  title="Save this face as the typed or selected person and mark it as human-reviewed."
+                >
+                  Save Name
+                </button>
+                <button
+                  id="next-skip-btn"
+                  class="warn"
+                  title="Leave this face in the review queue and come back to it later."
+                >
+                  Skip For Now
+                </button>
+                <button
+                  id="next-ignore-btn"
+                  class="secondary"
+                  title="This is a real face, but stop asking to identify it in future passes."
+                >
+                  Ignore This Face
+                </button>
+                <button
+                  id="next-reject-btn"
+                  class="bad"
+                  title="Mark this detection as a false positive because it is not actually a face."
+                >
+                  Not a Face
+                </button>
               </div>
             </div>
           </div>
@@ -574,7 +558,7 @@
       </section>
 
       <section class="panel" style="margin-top: 12px">
-        <h2>Pending "Who Is This?" Queue</h2>
+        <h2>Pending Queue</h2>
         <table id="review-table">
           <thead>
             <tr>
@@ -588,35 +572,163 @@
         </table>
       </section>
 
-      <section class="panel" style="margin-top: 12px">
-        <h2>Unknown Faces</h2>
-        <table id="unknown-table">
-          <thead>
-            <tr>
-              <th>Face</th>
-              <th>Source</th>
-              <th>Label</th>
-              <th>Queue</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </section>
+      <details class="panel" style="margin-top: 12px">
+        <summary>Manual Review Helpers</summary>
+        <div class="details-body">
+          <p class="small">Use these tools when a face is not already in the main queue workflow.</p>
+          <section class="panel" style="margin-top: 10px">
+            <h2>Unknown Faces</h2>
+            <table id="unknown-table">
+              <thead>
+                <tr>
+                  <th>Face</th>
+                  <th>Source</th>
+                  <th>Label</th>
+                  <th>Queue</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </section>
 
-      <section class="panel" style="margin-top: 12px">
-        <h2>People</h2>
-        <table id="people-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Aliases</th>
-              <th>ID</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </section>
+          <section class="panel" style="margin-top: 10px">
+            <h2>People</h2>
+            <table id="people-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Aliases</th>
+                  <th>ID</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </section>
+        </div>
+      </details>
+
+      <details class="panel" style="margin-top: 12px">
+        <summary>Ingest And Maintenance</summary>
+        <div class="details-body">
+          <div class="field" style="margin-top: 10px">
+            <label for="skip-artwork">Skip Statues/Paintings</label>
+            <select id="skip-artwork">
+              <option value="1" selected>Enabled (Recommended)</option>
+              <option value="0">Disabled</option>
+            </select>
+          </div>
+
+          <div class="queue-toolbar" style="margin-bottom: 10px">
+            <button id="prune-btn" class="warn">Auto-Prune Obvious Non-Faces</button>
+            <button id="reset-pending-btn" class="bad">Reset Queue + Unknown Faces</button>
+          </div>
+
+          <div class="grid" style="margin-top: 0">
+            <article class="panel">
+              <h2>Ingest Photo</h2>
+              <form id="ingest-photo-form">
+                <div class="field">
+                  <label for="photo-path">Image Path</label>
+                  <input id="photo-path" required placeholder="C:\\path\\to\\photo.jpg" />
+                </div>
+                <div class="row">
+                  <div class="field">
+                    <label for="photo-min-size">Min Face Size (px)</label>
+                    <input id="photo-min-size" type="number" value="40" min="20" />
+                  </div>
+                  <div class="field">
+                    <label for="photo-max-faces">Max Faces</label>
+                    <input id="photo-max-faces" type="number" value="50" min="1" />
+                  </div>
+                </div>
+                <button type="submit">Detect and Queue Faces</button>
+              </form>
+            </article>
+
+            <article class="panel">
+              <h2>Scan Photo Albums *_View</h2>
+              <form id="ingest-photo-scan-form">
+                <div class="field">
+                  <label for="scan-root">Photo Albums Root</label>
+                  <input id="scan-root" value="C:\\Users\\covec\\OneDrive\\Cordell, Leslie & Audrey\\Photo Albums" />
+                </div>
+                <div class="row">
+                  <div class="field">
+                    <label for="scan-glob">View Folder Glob</label>
+                    <input id="scan-glob" value="*_View" />
+                  </div>
+                  <div class="field">
+                    <label for="scan-max-files">Max Files (0=all)</label>
+                    <input id="scan-max-files" type="number" value="0" min="0" />
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="field">
+                    <label for="scan-min-size">Min Face Size (px)</label>
+                    <input id="scan-min-size" type="number" value="40" min="20" />
+                  </div>
+                  <div class="field">
+                    <label for="scan-max-faces">Max Faces Per Photo</label>
+                    <input id="scan-max-faces" type="number" value="50" min="1" />
+                  </div>
+                </div>
+                <button type="submit">Scan *_View JPG Files and Queue Names</button>
+              </form>
+            </article>
+
+            <article class="panel">
+              <h2>Ingest VHS Video</h2>
+              <form id="ingest-vhs-form">
+                <div class="field">
+                  <label for="vhs-path">Video Path</label>
+                  <input id="vhs-path" required placeholder="C:\\path\\to\\archive.mkv" />
+                </div>
+                <div class="row">
+                  <div class="field">
+                    <label for="vhs-sample">Sample Every (sec)</label>
+                    <input id="vhs-sample" type="number" value="2" min="0.2" step="0.1" />
+                  </div>
+                  <div class="field">
+                    <label for="vhs-max-duration">Max Duration (sec, 0=all)</label>
+                    <input id="vhs-max-duration" type="number" value="180" min="0" step="1" />
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="field">
+                    <label for="vhs-min-size">Min Face Size (px)</label>
+                    <input id="vhs-min-size" type="number" value="40" min="20" />
+                  </div>
+                  <div class="field">
+                    <label for="vhs-max-faces">Max Faces</label>
+                    <input id="vhs-max-faces" type="number" value="120" min="1" />
+                  </div>
+                </div>
+                <button type="submit">Detect and Queue Faces</button>
+              </form>
+            </article>
+
+            <article class="panel">
+              <h2>Create Person</h2>
+              <form id="person-form">
+                <div class="field">
+                  <label for="person-name">Display Name</label>
+                  <input id="person-name" required />
+                </div>
+                <div class="field">
+                  <label for="person-aliases">Aliases (comma-separated)</label>
+                  <input id="person-aliases" placeholder="Jim, Jimmy" />
+                </div>
+                <div class="field">
+                  <label for="person-notes">Notes</label>
+                  <textarea id="person-notes"></textarea>
+                </div>
+                <button type="submit">Create Person</button>
+              </form>
+            </article>
+          </div>
+        </div>
+      </details>
     </main>
 
     <div id="source-modal" class="modal">
@@ -636,8 +748,27 @@
         face_by_id: {},
         unknown_faces: [],
         pending_reviews: [],
+        skipped_review_ids: new Set(),
+        counts: { people: 0, faces: 0, unknown_faces: 0, pending_reviews: 0, legacy_faces: 0 },
+        runtime: {},
         next_review: null,
       };
+      const TOOLTIP_SAVE_NAME =
+        "Save this face as the typed or selected person and mark it as human-reviewed.";
+      const TOOLTIP_ASSIGN_PERSON =
+        "Assign this face to the selected person and mark the match as human-reviewed.";
+      const TOOLTIP_CREATE_AND_ASSIGN =
+        "Create a new person record, assign this face to them, and mark it as human-reviewed.";
+      const TOOLTIP_QUEUE_FOR_REVIEW =
+        "Add this face to the 'Who Is This?' review queue.";
+      const TOOLTIP_SKIP_FOR_NOW =
+        "Leave this face in the review queue and come back to it later.";
+      const TOOLTIP_IGNORE_FACE =
+        "This is a real face, but stop asking to identify it in future passes.";
+      const TOOLTIP_NOT_A_FACE =
+        "Mark this detection as a false positive because it is not actually a face.";
+      const TOOLTIP_ACCEPT_SUGGESTION =
+        "Use this suggested person and mark the match as human-reviewed.";
 
       function esc(text) {
         return String(text || "")
@@ -674,12 +805,20 @@
       }
 
       async function api(path, method = "GET", payload = null) {
-        const options = { method };
+        const verb = String(method || "GET").toUpperCase();
+        let url = String(path || "");
+        const options = {
+          method: verb,
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache" },
+        };
         if (payload !== null) {
-          options.headers = { "Content-Type": "application/json" };
+          options.headers["Content-Type"] = "application/json";
           options.body = JSON.stringify(payload);
+        } else if (verb === "GET") {
+          url += `${url.includes("?") ? "&" : "?"}_=${Date.now()}`;
         }
-        const resp = await fetch(path, options);
+        const resp = await fetch(url, options);
         const text = await resp.text();
         let data = {};
         try {
@@ -703,6 +842,162 @@
         return options.join("");
       }
 
+      function runtimeLabel(modelId) {
+        const text = String(modelId || "").trim();
+        if (!text) {
+          return "-";
+        }
+        if (text === "insightface.buffalo_l.detector") {
+          return "buffalo_l";
+        }
+        if (text === "insightface.buffalo_l.arcface_512") {
+          return "buffalo_l";
+        }
+        if (text === "opencv.haar_frontalface_default") {
+          return "OpenCV Haar";
+        }
+        if (text === "imago.simple_grayscale_32_v1") {
+          return "simple grayscale";
+        }
+        return text;
+      }
+
+      function updateDisplayedCounts() {
+        const counts = appState.counts || {};
+        document.getElementById("count-people").textContent = String(counts.people || appState.people.length || 0);
+        document.getElementById("count-faces").textContent = String(counts.faces || appState.faces.length || 0);
+        document.getElementById("count-unknown").textContent = String(
+          counts.unknown_faces ?? appState.unknown_faces.length ?? 0
+        );
+        document.getElementById("count-pending").textContent = String(
+          counts.pending_reviews ?? appState.pending_reviews.length ?? 0
+        );
+        document.getElementById("count-legacy").textContent = String(counts.legacy_faces || 0);
+        document.getElementById("runtime-detector").textContent = runtimeLabel(
+          (appState.runtime || {}).active_detector_model
+        );
+        document.getElementById("runtime-embedding").textContent = runtimeLabel(
+          (appState.runtime || {}).active_embedding_model
+        );
+      }
+
+      function renderRuntimeStatus() {
+        const banner = document.getElementById("runtime-banner");
+        const runtime = appState.runtime || {};
+        const legacyFaces = Number((appState.counts || {}).legacy_faces || 0);
+        const canIngest = runtime.can_ingest !== false;
+        const lines = [];
+        let kind = "good";
+
+        if (runtime.message) {
+          lines.push(String(runtime.message));
+        }
+        if (!runtime.primary_available) {
+          kind = "bad";
+          if (runtime.load_error) {
+            lines.push(`Load error: ${runtime.load_error}`);
+          }
+        } else if (legacyFaces > 0) {
+          kind = "warn";
+          lines.push(
+            `${legacyFaces} stored face row(s) are legacy detections and may not reflect the active InsightFace model.`
+          );
+        }
+
+        banner.className = `runtime-banner ${kind}`;
+        banner.innerHTML = lines.map((line) => `<div>${esc(line)}</div>`).join("");
+        banner.style.display = lines.length ? "block" : "none";
+
+        for (const selector of [
+          "#ingest-photo-form button[type='submit']",
+          "#ingest-photo-scan-form button[type='submit']",
+          "#ingest-vhs-form button[type='submit']",
+        ]) {
+          const button = document.querySelector(selector);
+          if (!button) {
+            continue;
+          }
+          button.disabled = !canIngest;
+          button.title = canIngest
+            ? ""
+            : "Install InsightFace buffalo_l in this venv before running new ingest.";
+        }
+      }
+
+      function chooseNextReview() {
+        for (const review of appState.pending_reviews) {
+          const reviewId = String(review.review_id || "");
+          if (!appState.skipped_review_ids.has(reviewId)) {
+            return review;
+          }
+        }
+        return null;
+      }
+
+      function pruneSkippedReviewIds() {
+        const pendingIds = new Set(appState.pending_reviews.map((review) => String(review.review_id || "")));
+        const retained = new Set();
+        for (const reviewId of appState.skipped_review_ids) {
+          if (pendingIds.has(reviewId)) {
+            retained.add(reviewId);
+          }
+        }
+        appState.skipped_review_ids = retained;
+      }
+
+      function removeUnknownFaceFromState(faceId) {
+        const key = String(faceId || "");
+        if (!key) {
+          return;
+        }
+        appState.unknown_faces = appState.unknown_faces.filter((face) => String(face.face_id || "") !== key);
+      }
+
+      function removePendingReviewsForFace(faceId) {
+        const key = String(faceId || "");
+        if (!key) {
+          return;
+        }
+        appState.pending_reviews = appState.pending_reviews.filter((review) => {
+          const reviewFaceId = String((review.face || {}).face_id || review.face_id || "");
+          const keep = reviewFaceId !== key;
+          if (!keep) {
+            appState.skipped_review_ids.delete(String(review.review_id || ""));
+          }
+          return keep;
+        });
+      }
+
+      function refreshReviewUi() {
+        pruneSkippedReviewIds();
+        appState.counts = {
+          ...(appState.counts || {}),
+          unknown_faces: appState.unknown_faces.length,
+          pending_reviews: appState.pending_reviews.length,
+        };
+        appState.next_review = chooseNextReview();
+        updateDisplayedCounts();
+        renderRuntimeStatus();
+        renderUnknownFaces();
+        renderReviewQueue();
+        renderNextReviewPrompt();
+      }
+
+      let refreshStateTimer = null;
+      function scheduleStateRefresh(delayMs = 250) {
+        if (refreshStateTimer) {
+          clearTimeout(refreshStateTimer);
+        }
+        refreshStateTimer = setTimeout(async () => {
+          refreshStateTimer = null;
+          try {
+            await loadState();
+          } catch (error) {
+            setStatus(`State refresh is taking too long: ${error.message}`, "error");
+          }
+        }, Math.max(0, Number(delayMs) || 0));
+      }
+
       async function loadState() {
         const data = await api("/api/state");
         appState.people = data.people || [];
@@ -716,14 +1011,13 @@
         }
         appState.unknown_faces = data.unknown_faces || [];
         appState.pending_reviews = data.pending_reviews || [];
-        appState.next_review = appState.pending_reviews.length ? appState.pending_reviews[0] : null;
+        appState.counts = data.counts || {};
+        appState.runtime = data.runtime || {};
+        pruneSkippedReviewIds();
+        appState.next_review = chooseNextReview();
 
-        const counts = data.counts || {};
-        document.getElementById("count-people").textContent = String(counts.people || 0);
-        document.getElementById("count-faces").textContent = String(counts.faces || 0);
-        document.getElementById("count-unknown").textContent = String(counts.unknown_faces || 0);
-        document.getElementById("count-pending").textContent = String(counts.pending_reviews || 0);
-
+        updateDisplayedCounts();
+        renderRuntimeStatus();
         renderPeople();
         renderUnknownFaces();
         renderReviewQueue();
@@ -847,12 +1141,12 @@
               `<td>`,
               `<div class="actions">`,
               `<select id="unknown-select-${esc(faceId)}">${personOptions()}</select>`,
-              `<button class="good" onclick="assignUnknownFace('${esc(faceId)}')">Assign Person</button>`,
-              `<button class="secondary" onclick="createPersonForFace('${esc(faceId)}')">Create New Person + Assign</button>`,
-              `<button class="secondary" onclick="ignoreUnknownFace('${esc(faceId)}')">Ignore Future</button>`,
+              `<button class="good" title="${esc(TOOLTIP_ASSIGN_PERSON)}" onclick="assignUnknownFace('${esc(faceId)}')">Assign Person</button>`,
+              `<button class="secondary" title="${esc(TOOLTIP_CREATE_AND_ASSIGN)}" onclick="createPersonForFace('${esc(faceId)}')">Create + Assign Person</button>`,
+              `<button class="secondary" title="${esc(TOOLTIP_IGNORE_FACE)}" onclick="ignoreUnknownFace('${esc(faceId)}')">Ignore This Face</button>`,
               `</div>`,
               `</td>`,
-              `<td><button class="secondary" onclick="enqueueReview('${esc(faceId)}')">Ask Me</button></td>`,
+              `<td><button class="secondary" title="${esc(TOOLTIP_QUEUE_FOR_REVIEW)}" onclick="enqueueReview('${esc(faceId)}')">Queue for Review</button></td>`,
               "</tr>",
             ].join("");
           })
@@ -877,7 +1171,7 @@
                     return [
                       '<div class="candidate">',
                       `<span>${esc(label)}</span>`,
-                      `<button class="good" onclick="resolveReview('${esc(reviewId)}', 'accepted', '${esc(cand.person_id || "")}')">Accept</button>`,
+                      `<button class="good" title="${esc(TOOLTIP_ACCEPT_SUGGESTION)}" onclick="resolveReview('${esc(reviewId)}', 'accepted', '${esc(cand.person_id || "")}')">Use Suggestion</button>`,
                       '</div>',
                     ].join("");
                   })
@@ -892,10 +1186,10 @@
               `<td>`,
               `<div class="actions">`,
               `<select id="review-select-${esc(reviewId)}">${personOptions()}</select>`,
-              `<button class="good" onclick="acceptSelectedReview('${esc(reviewId)}')">Assign Selected</button>`,
-              `<button class="warn" onclick="resolveReview('${esc(reviewId)}', 'skipped')">Skip</button>`,
-              `<button class="secondary" onclick="resolveReview('${esc(reviewId)}', 'ignored')">Ignore Future</button>`,
-              `<button class="bad" onclick="resolveReview('${esc(reviewId)}', 'rejected')">Reject Face</button>`,
+              `<button class="good" title="${esc(TOOLTIP_ASSIGN_PERSON)}" onclick="acceptSelectedReview('${esc(reviewId)}')">Assign Selected</button>`,
+              `<button class="warn" title="${esc(TOOLTIP_SKIP_FOR_NOW)}" onclick="resolveReview('${esc(reviewId)}', 'skipped')">Skip For Now</button>`,
+              `<button class="secondary" title="${esc(TOOLTIP_IGNORE_FACE)}" onclick="resolveReview('${esc(reviewId)}', 'ignored')">Ignore This Face</button>`,
+              `<button class="bad" title="${esc(TOOLTIP_NOT_A_FACE)}" onclick="resolveReview('${esc(reviewId)}', 'rejected')">Not a Face</button>`,
               `</div>`,
               `</td>`,
               "</tr>",
@@ -1005,7 +1299,10 @@
           }
           await assignFace(faceId, personId);
           setStatus(`Assigned face ${shortId(faceId)}.`, "success");
-          await loadState();
+          removeUnknownFaceFromState(faceId);
+          removePendingReviewsForFace(faceId);
+          refreshReviewUi();
+          scheduleStateRefresh();
         } catch (error) {
           setStatus(error.message, "error");
         }
@@ -1024,7 +1321,10 @@
           }
           await assignFace(faceId, personId);
           setStatus(`Created ${name.trim()} and assigned face ${shortId(faceId)}.`, "success");
-          await loadState();
+          removeUnknownFaceFromState(faceId);
+          removePendingReviewsForFace(faceId);
+          refreshReviewUi();
+          scheduleStateRefresh();
         } catch (error) {
           setStatus(error.message, "error");
         }
@@ -1037,21 +1337,67 @@
             `Queued review for face ${shortId(faceId)}${result.existing ? " (already pending)" : ""}.`,
             "success"
           );
-          await loadState();
+          scheduleStateRefresh();
         } catch (error) {
           setStatus(error.message, "error");
         }
       }
 
+      function applyResolvedReviewLocally(reviewId, status, result) {
+        const key = String(reviewId || "");
+        const reviewIndex = appState.pending_reviews.findIndex((review) => String(review.review_id || "") === key);
+        const existingReview = reviewIndex >= 0 ? appState.pending_reviews[reviewIndex] : null;
+        const updatedReview =
+          result && result.review && typeof result.review === "object" ? { ...result.review } : {};
+        const faceId = String(
+          ((existingReview || {}).face || {}).face_id ||
+            updatedReview.face_id ||
+            ((result || {}).face || {}).face_id ||
+            ""
+        );
+
+        if (status === "skipped") {
+          const mergedReview = existingReview
+            ? {
+                ...existingReview,
+                ...updatedReview,
+                face: existingReview.face || updatedReview.face || null,
+              }
+            : updatedReview;
+          if (reviewIndex >= 0) {
+            appState.pending_reviews.splice(reviewIndex, 1);
+          }
+          if (mergedReview && Object.keys(mergedReview).length) {
+            appState.pending_reviews.push(mergedReview);
+          }
+          appState.skipped_review_ids.add(key);
+          refreshReviewUi();
+          return;
+        }
+
+        if (reviewIndex >= 0) {
+          appState.pending_reviews.splice(reviewIndex, 1);
+        }
+        appState.skipped_review_ids.delete(key);
+
+        if (status === "ignored" || status === "rejected" || status === "accepted") {
+          removeUnknownFaceFromState(faceId);
+        }
+
+        refreshReviewUi();
+      }
+
       async function resolveReview(reviewId, status, personId = "") {
         try {
-          await api("/api/review/resolve", "POST", {
+          setStatus(`Updating review ${shortId(reviewId)}...`, "info");
+          const result = await api("/api/review/resolve", "POST", {
             review_id: reviewId,
             status,
             person_id: personId || null,
           });
+          applyResolvedReviewLocally(reviewId, status, result);
           setStatus(`Review ${shortId(reviewId)} updated (${status}).`, "success");
-          await loadState();
+          scheduleStateRefresh();
         } catch (error) {
           setStatus(error.message, "error");
         }
@@ -1079,7 +1425,10 @@
             review_status: "ignored",
           });
           setStatus(`Ignored face ${shortId(faceId)} for future matching.`, "success");
-          await loadState();
+          removeUnknownFaceFromState(faceId);
+          removePendingReviewsForFace(faceId);
+          refreshReviewUi();
+          scheduleStateRefresh();
         } catch (error) {
           setStatus(error.message, "error");
         }
@@ -1347,6 +1696,18 @@
         } catch (error) {
           setStatus(error.message, "error");
         }
+      });
+
+      Object.assign(window, {
+        openSourceModal,
+        editPersonName,
+        editPersonAliases,
+        assignUnknownFace,
+        createPersonForFace,
+        ignoreUnknownFace,
+        enqueueReview,
+        resolveReview,
+        acceptSelectedReview,
       });
 
       (async () => {

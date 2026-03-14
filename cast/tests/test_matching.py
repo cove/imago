@@ -47,3 +47,27 @@ def test_suggest_people_from_prototypes_matches_direct_suggest():
         top_k=2,
     )
     assert [row["person_id"] for row in from_proto] == [row["person_id"] for row in direct]
+
+
+def test_build_person_prototypes_filters_faces_by_embedding_model():
+    faces = [
+        {
+            "person_id": "new_person",
+            "embedding": [1.0, 0.0, 0.0],
+            "quality": 0.9,
+            "metadata": {"embedding_model": "insightface.buffalo_l.arcface_512"},
+        },
+        {
+            "person_id": "legacy_person",
+            "embedding": [0.0, 1.0, 0.0],
+            "quality": 0.9,
+            "metadata": {"embedding_model": "legacy.arcface"},
+        },
+    ]
+
+    protos = build_person_prototypes(
+        faces,
+        allowed_embedding_model_ids={"insightface.buffalo_l.arcface_512"},
+    )
+
+    assert set(protos) == {"new_person"}

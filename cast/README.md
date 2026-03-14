@@ -41,6 +41,7 @@ Open `http://127.0.0.1:8093`.
 
 ## Notes
 
-- Primary detection uses OpenCV YuNet (auto-downloads model on first run to `../modes/cast/`), with cascade fallback.
-- Matching uses cosine similarity over lightweight grayscale embeddings.
+- Cast web ingest and `cast.py label-photos` now require InsightFace `buffalo_l` and will refuse to ingest if it is unavailable instead of silently falling back to OpenCV Haar cascades.
+- The web UI shows the active detector/embedding stack and warns when stored face rows are legacy detections from an older model path.
+- Matching uses cosine similarity over stored face embeddings.
 - This scaffold is designed for small local archives (for example up to a few dozen people).

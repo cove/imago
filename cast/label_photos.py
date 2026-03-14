@@ -5,7 +5,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterator
 
-from .matching import suggest_people
+from .ingest import CURRENT_FACE_EMBEDDING_MODEL
+from .matching import face_embedding_model, suggest_people
 from .storage import TextFaceStore
 from .xmp_writer import merge_persons_xmp, read_person_in_image
 
@@ -55,6 +56,8 @@ def get_ai_suggestions(
     emb = face.get("embedding")
     if emb is None:
         return []
+    if face_embedding_model(face) != CURRENT_FACE_EMBEDDING_MODEL:
+        return []
     all_faces = [f for f in store.list_faces() if f.get("person_id")]
     if not all_faces:
         return []
@@ -64,6 +67,7 @@ def get_ai_suggestions(
             faces=all_faces,
             top_k=int(top_k),
             min_similarity=float(min_similarity),
+            allowed_embedding_model_ids={CURRENT_FACE_EMBEDDING_MODEL},
         )
     except Exception:
         return []

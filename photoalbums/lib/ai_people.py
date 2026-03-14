@@ -12,6 +12,10 @@ import numpy as np
 def _import_cast_modules() -> tuple[Any, ...]:
     try:
         from cast.ingest import (
+            CURRENT_FACE_DETECTOR_MODEL,
+            CURRENT_FACE_EMBEDDING_MODEL,
+            FALLBACK_FACE_DETECTOR_MODEL,
+            FALLBACK_FACE_EMBEDDING_MODEL,
             FaceIngestor,
             _expand_box,
             compute_arcface_embedding,
@@ -28,6 +32,10 @@ def _import_cast_modules() -> tuple[Any, ...]:
         from cast.storage import TextFaceStore, face_is_human_reviewed, face_review_status
 
         return (
+            CURRENT_FACE_DETECTOR_MODEL,
+            CURRENT_FACE_EMBEDDING_MODEL,
+            FALLBACK_FACE_DETECTOR_MODEL,
+            FALLBACK_FACE_EMBEDDING_MODEL,
             FaceIngestor,
             _expand_box,
             compute_arcface_embedding,
@@ -47,6 +55,10 @@ def _import_cast_modules() -> tuple[Any, ...]:
         if str(repo_root) not in sys.path:
             sys.path.insert(0, str(repo_root))
         from cast.ingest import (
+            CURRENT_FACE_DETECTOR_MODEL,
+            CURRENT_FACE_EMBEDDING_MODEL,
+            FALLBACK_FACE_DETECTOR_MODEL,
+            FALLBACK_FACE_EMBEDDING_MODEL,
             FaceIngestor,
             _expand_box,
             compute_arcface_embedding,
@@ -63,6 +75,10 @@ def _import_cast_modules() -> tuple[Any, ...]:
         from cast.storage import TextFaceStore, face_is_human_reviewed, face_review_status
 
         return (
+            CURRENT_FACE_DETECTOR_MODEL,
+            CURRENT_FACE_EMBEDDING_MODEL,
+            FALLBACK_FACE_DETECTOR_MODEL,
+            FALLBACK_FACE_EMBEDDING_MODEL,
             FaceIngestor,
             _expand_box,
             compute_arcface_embedding,
@@ -162,6 +178,10 @@ class CastPeopleMatcher:
         self.review_top_k = int(review_top_k)
 
         (
+            current_detector_model,
+            current_embedding_model,
+            fallback_detector_model,
+            fallback_embedding_model,
             face_ingestor_cls,
             expand_box_fn,
             arcface_embed_fn,
@@ -177,6 +197,11 @@ class CastPeopleMatcher:
             face_review_status_fn,
         ) = _import_cast_modules()
 
+        self._current_detector_model = str(current_detector_model)
+        self._current_embedding_model = str(current_embedding_model)
+        self._fallback_detector_model = str(fallback_detector_model)
+        self._fallback_embedding_model = str(fallback_embedding_model)
+        self._active_embedding_models = {self._current_embedding_model}
         self._expand_box = expand_box_fn
         self._arcface_embed = arcface_embed_fn
         self._embed = embed_fn
@@ -200,6 +225,33 @@ class CastPeopleMatcher:
         self._ignored_embeddings: list[np.ndarray] = []
         self._prototypes: dict[str, dict[str, Any]] = {}
         self._reload_state()
+
+    def _face_embedding_model(self, face: dict[str, Any]) -> str:
+        metadata = face.get("metadata")
+        if not isinstance(metadata, dict):
+            return ""
+        return str(metadata.get("embedding_model") or "").strip()
+
+    def _face_uses_active_model(self, face: dict[str, Any]) -> bool:
+        return self._face_embedding_model(face) in self._active_embedding_models
+
+    def _model_metadata(self, *, source_path: str, analysis_image_path: str, arcface_embedding: Any) -> dict[str, Any]:
+        metadata = {
+            "ingest": "photoalbums_ai",
+            "detector_model": (
+                self._current_detector_model
+                if getattr(self._ingestor, "_insightface", None) is not None
+                else self._fallback_detector_model
+            ),
+            "embedding_model": (
+                self._current_embedding_model
+                if arcface_embedding is not None
+                else self._fallback_embedding_model
+            ),
+        }
+        if str(analysis_image_path).strip() and str(analysis_image_path).strip() != str(source_path).strip():
+            metadata["analysis_image_path"] = str(analysis_image_path)
+        return metadata
 
     def _reload_state(self) -> None:
         faces = self._store.list_faces()
@@ -225,7 +277,7 @@ class CastPeopleMatcher:
             if source_key:
                 faces_by_source.setdefault(source_key, []).append(face)
             status = str(self._face_review_status(face) or "").strip().lower()
-            if status == "ignored":
+            if status == "ignored" and self._face_uses_active_model(face):
                 emb = self._normalize_embedding_safe(face.get("embedding"))
                 if emb is not None:
                     ignored_embeddings.append(emb)
@@ -234,10 +286,15 @@ class CastPeopleMatcher:
                 continue
             if status in {"ignored", "rejected"}:
                 continue
+            if not self._face_uses_active_model(face):
+                continue
             known_faces.append(face)
         self._faces_by_source = faces_by_source
         self._ignored_embeddings = ignored_embeddings
-        self._prototypes = self._build_prototypes(known_faces)
+        self._prototypes = self._build_prototypes(
+            known_faces,
+            allowed_embedding_model_ids=self._active_embedding_models,
+        )
 
     def _maybe_refresh(self) -> None:
         current = self._store.store_signature()
@@ -314,11 +371,14 @@ class CastPeopleMatcher:
         bbox: list[int],
         analysis_image_path: str,
     ) -> dict[str, Any]:
-        embedding = self._arcface_embed(crop_bgr) or self._embed(crop_bgr)
+        arcface_embedding = self._arcface_embed(crop_bgr)
+        embedding = arcface_embedding or self._embed(crop_bgr)
         quality = self._estimate_quality(crop_bgr)
-        metadata = {"ingest": "photoalbums_ai"}
-        if str(analysis_image_path).strip() and str(analysis_image_path).strip() != str(source_path).strip():
-            metadata["analysis_image_path"] = str(analysis_image_path)
+        metadata = self._model_metadata(
+            source_path=source_path,
+            analysis_image_path=analysis_image_path,
+            arcface_embedding=arcface_embedding,
+        )
         face = self._store.add_face(
             embedding=embedding,
             source_type="photo",
@@ -331,6 +391,41 @@ class CastPeopleMatcher:
         crop_rel = self._ingestor._save_crop(str(face.get("face_id")), crop_bgr)
         face = self._store.update_face(str(face.get("face_id")), crop_path=crop_rel)
         return self._remember_face(face)
+
+    def _refresh_face_record(
+        self,
+        face: dict[str, Any],
+        *,
+        crop_bgr,
+        bbox: list[int],
+        analysis_image_path: str,
+    ) -> dict[str, Any]:
+        face_id = str(face.get("face_id") or "").strip()
+        if not face_id:
+            return dict(face)
+        source_path = str(face.get("source_path") or "").strip()
+        arcface_embedding = self._arcface_embed(crop_bgr)
+        embedding = arcface_embedding or self._embed(crop_bgr)
+        quality = self._estimate_quality(crop_bgr)
+        metadata = dict(face.get("metadata") or {})
+        metadata.update(
+            self._model_metadata(
+                source_path=source_path,
+                analysis_image_path=analysis_image_path,
+                arcface_embedding=arcface_embedding,
+            )
+        )
+        updated = self._store.update_face(
+            face_id,
+            bbox=[int(v) for v in bbox[:4]],
+            embedding=embedding,
+            quality=quality,
+            metadata=metadata,
+        )
+        updated = self._ensure_crop(updated, crop_bgr)
+        # Legacy reviewed/ignored rows need to re-enter the active prototype cache immediately.
+        self._reload_state()
+        return updated
 
     def _hint_bonus_by_person_id(self, hint_text: str) -> dict[str, float]:
         normalized = _normalize_hint_text(hint_text)
@@ -456,7 +551,15 @@ class CastPeopleMatcher:
                     analysis_image_path=str(path),
                 )
             else:
-                face = self._ensure_crop(face, crop)
+                if self._face_uses_active_model(face):
+                    face = self._ensure_crop(face, crop)
+                else:
+                    face = self._refresh_face_record(
+                        face,
+                        crop_bgr=crop,
+                        bbox=absolute_bbox,
+                        analysis_image_path=str(path),
+                    )
 
             review_status = str(self._face_review_status(face) or "").strip().lower()
             if review_status in {"ignored", "rejected"}:
