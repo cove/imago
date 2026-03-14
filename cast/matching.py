@@ -12,6 +12,15 @@ _MAX_COUNT_BOOST = 0.005
 _COUNT_BOOST_CAP = 12
 
 
+def face_embedding_model(face: dict[str, Any]) -> str:
+    if not isinstance(face, dict):
+        return ""
+    metadata = face.get("metadata")
+    if not isinstance(metadata, dict):
+        return ""
+    return str(metadata.get("embedding_model") or "").strip()
+
+
 def parse_embedding(raw: Any) -> np.ndarray:
     if isinstance(raw, np.ndarray):
         arr = raw.astype(np.float32).reshape(-1)
@@ -69,11 +78,16 @@ def _coerce_int(value: Any, default: int) -> int:
 
 def build_person_prototypes(
     faces: list[dict[str, Any]],
+    *,
+    allowed_embedding_model_ids: set[str] | None = None,
 ) -> dict[str, dict[str, Any]]:
     buckets: dict[str, list[tuple[float, np.ndarray]]] = {}
     for face in list(faces or []):
         if not isinstance(face, dict):
             continue
+        if allowed_embedding_model_ids is not None:
+            if face_embedding_model(face) not in allowed_embedding_model_ids:
+                continue
         person_id = str(face.get("person_id") or "").strip()
         if not person_id:
             continue
@@ -122,8 +136,12 @@ def suggest_people(
     faces: list[dict[str, Any]],
     top_k: int = 3,
     min_similarity: float = -1.0,
+    allowed_embedding_model_ids: set[str] | None = None,
 ) -> list[dict[str, Any]]:
-    prototypes = build_person_prototypes(faces)
+    prototypes = build_person_prototypes(
+        faces,
+        allowed_embedding_model_ids=allowed_embedding_model_ids,
+    )
     return suggest_people_from_prototypes(
         query_embedding=query_embedding,
         prototypes=prototypes,

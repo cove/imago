@@ -28,7 +28,26 @@ class TestAICaption(unittest.TestCase):
             "**1. Visual Analysis:**\n"
             "- Blue textured cover."
         )
-        self.assertEqual(text, "**1. Visual Analysis:** - Blue textured cover.")
+        self.assertEqual(text, "")
+
+    def test_normalize_caption_extracts_final_caption_from_drafting_marker(self):
+        text = ai_caption._normalize_caption(
+            "The user wants a detailed description of the provided photo. "
+            "Based on the rules: - It is a cover page. "
+            "I need to combine these details into a plain text caption. "
+            "Drafting the description: This image shows the cover of a photo album book."
+        )
+        self.assertEqual(text, "This image shows the cover of a photo album book.")
+
+    def test_normalize_caption_rejects_prompt_echo_reasoning(self):
+        text = ai_caption._normalize_caption(
+            "The user wants a detailed caption for the provided photo collage. "
+            "**1. Analyze the Input Data:** "
+            "* **Filename:** `China_1986_B02_P02_stitched.jpg` "
+            "* **Detected Objects:** Person, car, chair. "
+            "**2. Synthesize the Visual Content:**"
+        )
+        self.assertEqual(text, "")
 
     def test_template_caption_includes_expected_sections(self):
         text = ai_caption.build_template_caption(
@@ -75,6 +94,20 @@ class TestAICaption(unittest.TestCase):
         self.assertIn("cover or title page", text)
         self.assertIn("Visible title text reads:", text)
         self.assertIn("MAINLAND CHINA 1986 BOOK 11", text)
+        self.assertIn("BOOK 11 is a typo for Book II (2)", text)
+
+    def test_infer_album_title_prefers_cover_text_and_romanizes_book_number(self):
+        text = ai_caption.infer_album_title(
+            image_path=Path("Photo Albums") / "China_1986_B02_View" / "China_1986_B02_P01.jpg",
+            ocr_text="MAINLAND CHINA\n1986\nBOOK 11",
+        )
+        self.assertEqual(text, "Mainland China Book II")
+
+    def test_infer_printed_album_title_preserves_cover_book_label(self):
+        text = ai_caption.infer_printed_album_title(
+            ocr_text="MAINLAND CHINA\n1986\nBOOK 11",
+        )
+        self.assertEqual(text, "Mainland China Book 11")
 
     def test_infer_album_context_detects_family_album_from_path(self):
         context = ai_caption.infer_album_context(
@@ -115,9 +148,31 @@ class TestAICaption(unittest.TestCase):
             ocr_text="",
             source_path=Path("Photo Albums") / "Family_1980-1985_B08_View" / "Family_1980-1985_B08_P01.jpg",
         )
+        self.assertIn("Album title hint:", prompt)
         self.assertIn("Cordell Photo Albums rules:", prompt)
         self.assertIn("Family Photo Album", prompt)
         self.assertIn("Photo Essay", prompt)
+        self.assertIn("Preserve visible book labels exactly as shown", prompt)
+        self.assertIn("BOOK 11 is a typo for Book II (2)", prompt)
+        self.assertIn("high confidence", prompt)
+        self.assertIn("preserve the original text as shown", prompt)
+        self.assertIn("English translation", prompt)
+        self.assertIn("GPS coordinates", prompt)
+        self.assertNotIn("Filename hint:", prompt)
+        self.assertNotIn("Folder hint:", prompt)
+
+    def test_build_qwen_prompt_prefers_printed_cover_title_when_available(self):
+        prompt = ai_caption._build_qwen_prompt(
+            people=[],
+            objects=[],
+            ocr_text="",
+            source_path=Path("Photo Albums") / "China_1986_B02_View" / "China_1986_B02_P02.jpg",
+            album_title="Mainland China Book II",
+            printed_album_title="Mainland China Book 11",
+        )
+        self.assertIn("Album title hint: Mainland China Book 11.", prompt)
+        self.assertIn("Canonical album title hint: Mainland China Book II.", prompt)
+        self.assertIn("prefer the printed cover title", prompt)
 
     def test_looks_like_album_cover_detects_blue_title_page(self):
         try:
@@ -194,6 +249,7 @@ class TestAICaption(unittest.TestCase):
             min_pixels=0,
             max_pixels=0,
             max_image_edge=0,
+            stream=False,
         )
         self.assertEqual(engine.engine, "qwen")
         self.assertEqual(out.engine, "template")
@@ -203,7 +259,7 @@ class TestAICaption(unittest.TestCase):
 
     def test_qwen_engine_forwards_cpu_tuning_settings(self):
         fake_qwen = mock.Mock()
-        fake_qwen.describe.return_value = "caption text"
+        fake_qwen.describe.return_value = ai_caption.CaptionDetails(text="caption text")
         with mock.patch("photoalbums.lib.ai_caption.QwenLocalCaptioner", return_value=fake_qwen) as ctor:
             engine = ai_caption.CaptionEngine(
                 engine="qwen",
@@ -231,6 +287,7 @@ class TestAICaption(unittest.TestCase):
             min_pixels=131072,
             max_pixels=524288,
             max_image_edge=1024,
+            stream=False,
         )
         self.assertEqual(out.engine, "qwen")
         self.assertEqual(out.text, "caption text")
@@ -259,7 +316,7 @@ class TestAICaption(unittest.TestCase):
                 mock.patch.object(
                     ai_caption,
                     "_load_qwen_transformers",
-                    return_value=(fake_torch, fake_processor_cls, None, fake_model_cls),
+                    return_value=(fake_torch, fake_processor_cls, fake_model_cls),
                 ),
             ):
                 captioner = ai_caption.QwenLocalCaptioner(model_name="Qwen/Qwen2.5-VL-3B-Instruct")
@@ -283,7 +340,15 @@ class TestAICaption(unittest.TestCase):
             "choices": [
                 {
                     "message": {
-                        "content": "A crowded collage of travel snapshots."
+                        "content": json.dumps(
+                            {
+                                "caption": "A crowded collage of travel snapshots.",
+                                "translations": [],
+                                "gps_latitude": "",
+                                "gps_longitude": "",
+                                "location_name": "",
+                            }
+                        )
                     }
                 }
             ]
@@ -304,8 +369,15 @@ class TestAICaption(unittest.TestCase):
             self.assertTrue(request.full_url.endswith("/chat/completions"))
             payload = json.loads(request.data.decode("utf-8"))
             self.assertEqual(payload["model"], "qwen2.5-vl")
-            self.assertEqual(payload["messages"][0]["content"][0]["text"], "Describe this exact image")
-            self.assertTrue(payload["messages"][0]["content"][1]["image_url"]["url"].startswith("data:image/jpeg;base64,"))
+            self.assertEqual(payload["response_format"]["type"], "json_schema")
+            self.assertEqual(payload["response_format"]["json_schema"]["name"], "caption_payload")
+            self.assertEqual(payload["response_format"]["json_schema"]["strict"], "true")
+            self.assertEqual(payload["messages"][1]["content"][0]["text"], "Describe this exact image")
+            self.assertTrue(payload["messages"][1]["content"][1]["image_url"]["url"].startswith("data:image/jpeg;base64,"))
+            self.assertIn("translations", payload["response_format"]["json_schema"]["schema"]["properties"])
+            self.assertIn("gps_latitude", payload["response_format"]["json_schema"]["schema"]["properties"])
+            self.assertIn("gps_longitude", payload["response_format"]["json_schema"]["schema"]["properties"])
+            self.assertIn("location_name", payload["response_format"]["json_schema"]["schema"]["properties"])
             return _FakeResponse()
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -320,15 +392,99 @@ class TestAICaption(unittest.TestCase):
                     prompt_text="Describe this exact image",
                     base_url="http://127.0.0.1:1234",
                 )
-                text = captioner.describe(
+                details = captioner.describe(
                     image_path=image_path,
                     people=[],
                     objects=[],
                     ocr_text="",
                 )
 
-        self.assertEqual(text, "A crowded collage of travel snapshots.")
+        self.assertEqual(details.text, "A crowded collage of travel snapshots.")
+        self.assertEqual(details.gps_latitude, "")
+        self.assertEqual(details.gps_longitude, "")
+        self.assertEqual(details.location_name, "")
 
+    def test_parse_lmstudio_structured_caption_rejects_invalid_json(self):
+        with self.assertRaises(RuntimeError) as exc:
+            ai_caption._parse_lmstudio_structured_caption("not json", finish_reason="stop")
+        self.assertIn("raw='not json'", str(exc.exception))
+        self.assertIn("finish_reason=stop", str(exc.exception))
+
+    def test_parse_lmstudio_structured_caption_rejects_empty_content(self):
+        with self.assertRaises(RuntimeError) as exc:
+            ai_caption._parse_lmstudio_structured_caption("", finish_reason="length")
+        self.assertIn("finish_reason=length", str(exc.exception))
+
+    def test_parse_lmstudio_structured_caption_extracts_json_after_think_prefix(self):
+        details = ai_caption._parse_lmstudio_structured_caption(
+            '<think>{ "caption": "A blue album cover labeled MAINLAND CHINA 1986 BOOK 11.", "translations": [], "gps_latitude": "", "gps_longitude": "", "location_name": "" }',
+            finish_reason="stop",
+        )
+        self.assertEqual(details.text, "A blue album cover labeled MAINLAND CHINA 1986 BOOK 11.")
+
+    def test_parse_lmstudio_structured_caption_appends_explicit_translation_note(self):
+        details = ai_caption._parse_lmstudio_structured_caption(
+            json.dumps(
+                {
+                    "caption": "A museum sign welcomes visitors to a Dunhuang exhibition.",
+                    "translations": [
+                        {
+                            "original": "敦煌",
+                            "english": "Dunhuang",
+                        }
+                    ],
+                    "gps_latitude": "",
+                    "gps_longitude": "",
+                    "location_name": "",
+                }
+            ),
+            source_path=Path("Photo Albums") / "China_1986_B02_View" / "China_1986_B02_P02_stitched.jpg",
+            album_title="Mainland China Book II",
+        )
+        text = details.text
+        self.assertIn('Visible non-English text includes "敦煌" ("Dunhuang").', text)
+
+    def test_compose_model_caption_replaces_filename_like_album_reference(self):
+        text = ai_caption._compose_model_caption(
+            "A photo essay page from a China_1986_B02_Archive album documenting Dunhuang.",
+            source_path=Path("Photo Albums") / "China_1986_B02_Archive" / "China_1986_B02_P02_stitched.jpg",
+            album_title="Mainland China Book II",
+        )
+        self.assertIn("Mainland China Book II", text)
+        self.assertNotIn("China_1986_B02_Archive", text)
+
+    def test_compose_model_caption_prefers_printed_cover_title_over_canonical_title(self):
+        text = ai_caption._compose_model_caption(
+            "A photo essay page from Mainland China Book II documenting Dunhuang.",
+            source_path=Path("Photo Albums") / "China_1986_B02_View" / "China_1986_B02_P02_stitched.jpg",
+            album_title="Mainland China Book II",
+            printed_album_title="Mainland China Book 11",
+        )
+        self.assertIn("Mainland China Book 11", text)
+        self.assertNotIn("Mainland China Book II", text)
+
+    def test_extract_caption_gps_coordinates_parses_dms_pair(self):
+        latitude, longitude = ai_caption._extract_caption_gps_coordinates(
+            "Mogao Caves in Dunhuang, Gansu Province, China (39°47′15″N 100°18′26″E)."
+        )
+        self.assertEqual(latitude, "39.7875")
+        self.assertEqual(longitude, "100.307222")
+
+    def test_parse_lmstudio_structured_caption_prefers_structured_gps_fields(self):
+        details = ai_caption._parse_lmstudio_structured_caption(
+            json.dumps(
+                {
+                    "caption": "The Mogao Caves entrance in Dunhuang.",
+                    "translations": [],
+                    "gps_latitude": "39.7875",
+                    "gps_longitude": "100.307222",
+                    "location_name": "Mogao Caves, Dunhuang, Gansu, China",
+                }
+            )
+        )
+        self.assertEqual(details.gps_latitude, "39.7875")
+        self.assertEqual(details.gps_longitude, "100.307222")
+        self.assertEqual(details.location_name, "Mogao Caves, Dunhuang, Gansu, China")
 
 if __name__ == "__main__":
     unittest.main()

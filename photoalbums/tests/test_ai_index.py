@@ -140,6 +140,21 @@ class TestAIIndex(unittest.TestCase):
 
             self.assertTrue(ai_index.needs_processing(image, None, force=False))
 
+    def test_prepare_ai_model_image_scales_when_threshold_exceeded(self):
+        try:
+            from PIL import Image
+        except Exception as exc:  # pragma: no cover - dependency optional
+            self.skipTest(f"pillow unavailable: {exc}")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "a.png"
+            Image.new("RGB", (240, 180), color="white").save(image)
+            with mock.patch.object(ai_index, "AI_MODEL_MAX_SOURCE_BYTES", 1):
+                with ai_index._prepare_ai_model_image(image) as prepared:
+                    self.assertNotEqual(prepared, image)
+                    self.assertTrue(prepared.exists())
+                    self.assertEqual(prepared.suffix.lower(), ".jpg")
+
     def test_run_image_analysis_passes_people_context(self):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "a.jpg"
@@ -191,6 +206,145 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(analysis.payload["people"][0]["face_id"], "face-1")
             self.assertFalse(analysis.payload["people"][0]["reviewed_by_human"])
 
+    def test_run_image_analysis_uses_scaled_image_for_ocr_objects_and_caption_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "a.jpg"
+            image.write_bytes(b"abc")
+            scaled = Path(tmp) / "scaled.jpg"
+            scaled.write_bytes(b"scaled")
+            people_matcher = mock.Mock()
+            people_matcher.match_image.return_value = []
+            object_detector = mock.Mock()
+            object_detector.detect_image.return_value = []
+            ocr_engine = mock.Mock()
+            ocr_engine.read_text.return_value = "hello"
+            caption_engine = mock.Mock()
+            caption_engine.generate.return_value = SimpleNamespace(
+                text="Caption text",
+                engine="template",
+                fallback=False,
+                error="",
+            )
+
+            @contextmanager
+            def fake_prepare(_path):
+                yield scaled
+
+            with mock.patch.object(ai_index, "_prepare_ai_model_image", side_effect=fake_prepare):
+                ai_index._run_image_analysis(
+                    image_path=image,
+                    people_matcher=people_matcher,
+                    object_detector=object_detector,
+                    ocr_engine=ocr_engine,
+                    caption_engine=caption_engine,
+                    requested_caption_engine="template",
+                    requested_caption_model="",
+                    ocr_engine_name="none",
+                    ocr_language="eng",
+                )
+
+            people_matcher.match_image.assert_called_once_with(
+                image,
+                source_path=image,
+                bbox_offset=(0, 0),
+                hint_text="hello",
+            )
+            ocr_engine.read_text.assert_called_once_with(scaled)
+            object_detector.detect_image.assert_called_once_with(scaled)
+            caption_engine.generate.assert_called_once_with(
+                image_path=scaled,
+                people=[],
+                objects=[],
+                ocr_text="hello",
+                source_path=image,
+                album_title="",
+                printed_album_title="",
+            )
+
+    def test_run_image_analysis_records_gps_location_from_caption_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "a.jpg"
+            image.write_bytes(b"abc")
+            people_matcher = mock.Mock()
+            people_matcher.match_image.return_value = []
+            object_detector = mock.Mock()
+            object_detector.detect_image.return_value = []
+            ocr_engine = mock.Mock()
+            ocr_engine.read_text.return_value = ""
+            caption_engine = mock.Mock()
+            caption_engine.generate.return_value = SimpleNamespace(
+                text="Mogao Caves in Dunhuang, China (39°47′15″N 100°18′26″E).",
+                engine="lmstudio",
+                gps_latitude="39.7875",
+                gps_longitude="100.307222",
+                fallback=False,
+                error="",
+            )
+
+            analysis = ai_index._run_image_analysis(
+                image_path=image,
+                people_matcher=people_matcher,
+                object_detector=object_detector,
+                ocr_engine=ocr_engine,
+                caption_engine=caption_engine,
+                requested_caption_engine="lmstudio",
+                requested_caption_model="",
+                ocr_engine_name="none",
+                ocr_language="eng",
+            )
+
+            self.assertEqual(analysis.payload["location"]["gps_latitude"], 39.7875)
+            self.assertEqual(analysis.payload["location"]["gps_longitude"], 100.307222)
+
+    def test_run_image_analysis_geocodes_structured_location_name(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "a.jpg"
+            image.write_bytes(b"abc")
+            people_matcher = mock.Mock()
+            people_matcher.match_image.return_value = []
+            object_detector = mock.Mock()
+            object_detector.detect_image.return_value = []
+            ocr_engine = mock.Mock()
+            ocr_engine.read_text.return_value = ""
+            caption_engine = mock.Mock()
+            caption_engine.generate.return_value = SimpleNamespace(
+                text="The entrance to the Mogao Caves in Dunhuang.",
+                engine="lmstudio",
+                gps_latitude="",
+                gps_longitude="",
+                location_name="Mogao Caves, Dunhuang, Gansu, China",
+                fallback=False,
+                error="",
+            )
+            geocoder = mock.Mock()
+            geocoder.geocode.return_value = SimpleNamespace(
+                query="Mogao Caves, Dunhuang, Gansu, China",
+                latitude="39.9361",
+                longitude="94.8076",
+                display_name="Mogao Caves, Dunhuang, Jiuquan, Gansu, China",
+                source="nominatim",
+            )
+
+            analysis = ai_index._run_image_analysis(
+                image_path=image,
+                people_matcher=people_matcher,
+                object_detector=object_detector,
+                ocr_engine=ocr_engine,
+                caption_engine=caption_engine,
+                requested_caption_engine="lmstudio",
+                requested_caption_model="",
+                ocr_engine_name="none",
+                ocr_language="eng",
+                geocoder=geocoder,
+            )
+
+            geocoder.geocode.assert_called_once_with("Mogao Caves, Dunhuang, Gansu, China")
+            self.assertEqual(analysis.payload["location"]["query"], "Mogao Caves, Dunhuang, Gansu, China")
+            self.assertEqual(analysis.payload["location"]["display_name"], "Mogao Caves, Dunhuang, Jiuquan, Gansu, China")
+            self.assertEqual(analysis.payload["location"]["gps_latitude"], 39.9361)
+            self.assertEqual(analysis.payload["location"]["gps_longitude"], 94.8076)
+            self.assertEqual(analysis.payload["location"]["source"], "nominatim")
+
     def test_build_page_payload_uses_cover_caption_for_fallback_text_page(self):
         content_bounds = SimpleNamespace(as_dict=lambda: {"x": 0, "y": 0, "width": 100, "height": 100})
         subphoto_bounds = SimpleNamespace(as_dict=lambda: {"x": 0, "y": 0, "width": 100, "height": 100})
@@ -217,7 +371,7 @@ class TestAIIndex(unittest.TestCase):
             payload={
                 "people": [],
                 "objects": [],
-                "ocr": {"engine": "docstrange", "language": "eng", "keywords": [], "chars": 27},
+                "ocr": {"engine": "qwen", "language": "eng", "keywords": [], "chars": 27},
                 "caption": {"engine": "template"},
             },
         )
@@ -231,6 +385,7 @@ class TestAIIndex(unittest.TestCase):
         )
 
         self.assertIn("cover or title page", description)
+        self.assertIn("Mainland China Book 11", description)
         self.assertIn("Photo Essay", description)
         self.assertNotIn("contains 1 photo(s)", description)
 
@@ -263,7 +418,7 @@ class TestAIIndex(unittest.TestCase):
             payload={
                 "people": [],
                 "objects": [],
-                "ocr": {"engine": "docstrange", "language": "eng", "keywords": [], "chars": 0},
+                "ocr": {"engine": "qwen", "language": "eng", "keywords": [], "chars": 0},
                 "caption": {"engine": "template"},
             },
         )
@@ -276,7 +431,46 @@ class TestAIIndex(unittest.TestCase):
             requested_caption_engine="template",
         )
 
-        self.assertIn("Family Photo Album page contains 2 photo(s).", description)
+        self.assertIn("This page from Family Book VIII, a Family Photo Album, contains 2 photo(s).", description)
+
+    def test_build_flat_page_description_uses_cover_caption_with_book_note_on_fallback(self):
+        layout = SimpleNamespace(
+            original_path=Path("China_1986_B02_P01.jpg"),
+            content_path=Path("page.jpg"),
+        )
+        analysis = ai_index.ImageAnalysis(
+            image_path=Path("page.jpg"),
+            people_names=[],
+            object_labels=[],
+            ocr_text="MAINLAND CHINA 1986 BOOK 11",
+            ocr_keywords=["mainland", "china", "1986", "book"],
+            subjects=["mainland", "china", "1986", "book"],
+            description='Visible text reads: "MAINLAND CHINA 1986 BOOK 11".',
+            payload={
+                "people": [],
+                "objects": [],
+                "ocr": {"engine": "lmstudio", "language": "eng", "keywords": ["mainland"], "chars": 27},
+                "caption": {
+                    "requested_engine": "lmstudio",
+                    "effective_engine": "template",
+                    "fallback": True,
+                    "error": "LM Studio returned invalid structured caption JSON: Expecting value",
+                    "model": "",
+                },
+            },
+        )
+
+        with mock.patch.object(ai_index, "looks_like_album_cover", return_value=True):
+            description = ai_index._build_flat_page_description(
+                layout=layout,
+                analysis=analysis,
+                requested_caption_engine="lmstudio",
+            )
+
+        self.assertIn("cover or title page", description)
+        self.assertIn("Mainland China Book 11", description)
+        self.assertIn("MAINLAND CHINA 1986 BOOK 11", description)
+        self.assertIn("BOOK 11 is a typo for Book II (2)", description)
 
     def test_run_force_rewrites_existing_sidecar_and_merges_embedded_source(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -332,6 +526,7 @@ class TestAIIndex(unittest.TestCase):
 
             self.assertEqual(result, 0)
             write_mock.assert_called_once()
+            self.assertEqual(write_mock.call_args.kwargs["album_title"], "Family Book I")
             self.assertEqual(
                 write_mock.call_args.kwargs["source_text"],
                 "Family_2020_B01_P01_S01.tif; Family_2020_B01_P01_S02.tif",
@@ -752,7 +947,7 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(result, 0)
             print_mock.assert_has_calls(
                 [
-                    mock.call("[1/1] warn  a.jpg: caption fallback: model offline", file=sys.stderr),
+                    mock.call("[1/1] warn  a.jpg: caption fallback: model offline", file=sys.stderr, flush=True),
                     mock.call("a.jpg: Fallback caption text"),
                 ]
             )
@@ -815,13 +1010,13 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(result, 0)
             print_mock.assert_has_calls(
                 [
-                    mock.call("[1/1] warn  a.jpg: caption fallback: model offline", file=sys.stderr),
+                    mock.call("[1/1] warn  a.jpg: caption fallback: model offline", file=sys.stderr, flush=True),
                     mock.call("a.jpg"),
                 ]
             )
             self.assertEqual(print_mock.call_count, 2)
 
-    def test_run_stdout_uses_qwen_prompt_for_page_like_description(self):
+    def test_run_stdout_uses_built_in_qwen_prompt_for_page_like_description(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             photos = base / "Family_View"
@@ -901,8 +1096,6 @@ class TestAIIndex(unittest.TestCase):
                         "none",
                         "--caption-engine",
                         "qwen",
-                        "--caption-prompt",
-                        "describe this photo in detail",
                     ]
                 )
 
@@ -913,8 +1106,152 @@ class TestAIIndex(unittest.TestCase):
                 objects=[],
                 ocr_text="",
                 source_path=image,
+                album_title="Family Book II",
+                printed_album_title="",
             )
             print_mock.assert_called_once_with("Family_1986_B02_P01.jpg: Describe this page exactly")
+
+    def test_run_stdout_keeps_page_summary_when_page_caption_falls_back(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            photos = base / "China_1986_B02_View"
+            photos.mkdir()
+            image = photos / "China_1986_B02_P01.jpg"
+            image.write_bytes(b"abc")
+            manifest = base / "manifest.jsonl"
+
+            content_bounds = SimpleNamespace(as_dict=lambda: {"x": 0, "y": 0, "width": 100, "height": 100})
+            subphoto_bounds = SimpleNamespace(as_dict=lambda: {"x": 0, "y": 0, "width": 80, "height": 80})
+
+            @contextmanager
+            def mock_page_layout(*args, **kwargs):
+                yield SimpleNamespace(
+                    kind="page_view",
+                    split_mode="auto",
+                    content_bounds=content_bounds,
+                    content_path=image,
+                    original_path=image,
+                    page_like=True,
+                    footer_trimmed=False,
+                    split_applied=False,
+                    fallback_used=True,
+                    subphotos=[SimpleNamespace(index=1, bounds=subphoto_bounds, path=image)],
+                )
+
+            analysis = ai_index.ImageAnalysis(
+                image_path=image,
+                people_names=[],
+                object_labels=[],
+                ocr_text="MAINLAND CHINA 1986 BOOK 11",
+                ocr_keywords=["mainland", "china", "1986", "book"],
+                subjects=["mainland", "china", "1986", "book"],
+                description="Subphoto caption",
+                payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {"engine": "lmstudio", "language": "eng", "keywords": [], "chars": 27},
+                    "caption": {
+                        "requested_engine": "lmstudio",
+                        "effective_engine": "template",
+                        "fallback": True,
+                        "error": "LMSTUDIO returned empty output.",
+                        "model": "",
+                    },
+                },
+            )
+            fake_caption_engine = mock.Mock()
+            fake_caption_engine.generate.return_value = SimpleNamespace(
+                text='Visible text reads: "MAINLAND CHINA 1986 BOOK 11".',
+                engine="template",
+                fallback=True,
+                error="LMSTUDIO returned empty output.",
+            )
+            fake_ocr_engine = mock.Mock()
+            fake_ocr_engine.read_text.return_value = "MAINLAND CHINA 1986 BOOK 11"
+
+            with (
+                mock.patch.object(ai_index, "prepare_image_layout", side_effect=mock_page_layout),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index, "_init_caption_engine", return_value=fake_caption_engine),
+                mock.patch.object(ai_index, "OCREngine", return_value=fake_ocr_engine),
+                mock.patch("builtins.print") as print_mock,
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--manifest",
+                        str(manifest),
+                        "--include-view",
+                        "--stdout",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "lmstudio",
+                        "--caption-engine",
+                        "lmstudio",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            print_mock.assert_has_calls(
+                [
+                    mock.call(
+                        "[1/1] warn  China_1986_B02_P01.jpg: caption fallback: LMSTUDIO returned empty output.",
+                        file=sys.stderr,
+                        flush=True,
+                    ),
+                    mock.call(
+                        'China_1986_B02_P01.jpg: This is the cover or title page of Mainland China Book 11, a Photo Essay. Visible title text reads: "MAINLAND CHINA 1986 BOOK 11". BOOK 11 is a typo for Book II (2).'
+                    ),
+                ]
+            )
+
+    def test_resolve_album_title_hint_prefers_existing_cover_sidecar(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            album_dir = base / "China_1986_B02_View"
+            album_dir.mkdir()
+            image = album_dir / "China_1986_B02_P02_stitched.jpg"
+            image.write_bytes(b"abc")
+            xmp_sidecar.write_xmp_sidecar(
+                album_dir / "China_1986_B02_P01.xmp",
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="This is the cover or title page of Mainland China Book II, a Photo Essay.",
+                album_title="Mainland China Book II",
+                source_text="",
+                ocr_text="MAINLAND CHINA 1986 BOOK 11",
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                subphotos=[],
+            )
+
+            title = ai_index._resolve_album_title_hint(image, {})
+            self.assertEqual(title, "Mainland China Book II")
+
+    def test_resolve_album_printed_title_hint_prefers_existing_p00_cover_sidecar(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            album_dir = base / "China_1986_B02_View"
+            album_dir.mkdir()
+            image = album_dir / "China_1986_B02_P02_stitched.jpg"
+            image.write_bytes(b"abc")
+            xmp_sidecar.write_xmp_sidecar(
+                album_dir / "China_1986_B02_P00.xmp",
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="This is the cover or title page of Mainland China Book II, a Photo Essay.",
+                album_title="Mainland China Book II",
+                source_text="",
+                ocr_text="MAINLAND CHINA 1986 BOOK 11",
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                subphotos=[],
+            )
+
+            title = ai_index._resolve_album_printed_title_hint(image, {})
+            self.assertEqual(title, "Mainland China Book 11")
 
     def test_run_stdout_forces_processing_even_when_sidecar_exists(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1029,14 +1366,14 @@ class TestAIIndex(unittest.TestCase):
         self.assertEqual(args.qwen_min_pixels, 131072)
         self.assertEqual(args.qwen_max_pixels, 524288)
 
-    def test_parse_args_defaults_use_qwen_and_docstrange(self):
+    def test_parse_args_defaults_use_qwen_and_qwen_ocr(self):
         args = ai_index.parse_args([])
-        self.assertEqual(args.caption_engine, "qwen")
+        self.assertEqual(args.caption_engine, "lmstudio")
         self.assertEqual(args.caption_model, "")
         self.assertEqual(args.caption_prompt, "")
         self.assertEqual(args.caption_prompt_file, "")
-        self.assertEqual(args.lmstudio_base_url, "http://127.0.0.1:1234/v1")
-        self.assertEqual(args.ocr_engine, "docstrange")
+        self.assertEqual(args.lmstudio_base_url, "http://192.168.4.72:1234/v1")
+        self.assertEqual(args.ocr_engine, "lmstudio")
         self.assertFalse(args.stdout)
         self.assertEqual(args.qwen_attn_implementation, "auto")
         self.assertEqual(args.qwen_min_pixels, 0)
@@ -1070,6 +1407,7 @@ class TestAIIndex(unittest.TestCase):
             lmstudio_base_url="http://localhost:1234",
             max_image_edge=1024,
             fallback_to_template=True,
+            stream=False,
         )
 
 

@@ -443,6 +443,31 @@ class TextFaceStore:
                 return dict(row)
         raise ValueError(f"Unknown review_id: {review_key}")
 
+    def defer_review_item(self, review_id: str) -> dict[str, Any]:
+        review_key = str(review_id or "").strip()
+        if not review_key:
+            raise ValueError("review_id is required.")
+        now = utc_now_iso()
+        with self._lock:
+            rows = self._read_json(self.review_path)
+            if not isinstance(rows, list):
+                rows = []
+            for index, row in enumerate(rows):
+                if not isinstance(row, dict):
+                    continue
+                if str(row.get("review_id")) != review_key:
+                    continue
+                row["status"] = "pending"
+                row["skip_count"] = int(row.get("skip_count") or 0) + 1
+                row["last_skipped_at"] = now
+                row["updated_at"] = now
+                moved = dict(row)
+                rows.pop(index)
+                rows.append(moved)
+                self._write_json(self.review_path, rows)
+                return dict(moved)
+        raise ValueError(f"Unknown review_id: {review_key}")
+
     def store_signature(self) -> str:
         with self._lock:
             parts: list[str] = []

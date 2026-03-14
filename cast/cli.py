@@ -80,7 +80,7 @@ def main(argv: list[str] | None = None) -> int:
             for e in str(args.extensions).split(",")
             if e.strip()
         )
-        ingestor = FaceIngestor(store)
+        ingestor = FaceIngestor(store, require_primary_model=True)
         run_label_photos(
             Path(args.directory),
             store,

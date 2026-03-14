@@ -5,9 +5,9 @@ from pathlib import Path
 from typing import Any
 
 SETTINGS_FILENAME = "render_settings.json"
-OCR_ENGINES = {"none", "docstrange"}
+OCR_ENGINES = {"none", "qwen", "lmstudio"}
 PAGE_SPLIT_MODES = {"auto", "off"}
-CAPTION_ENGINES = {"none", "template", "blip", "qwen", "lmstudio"}
+CAPTION_ENGINES = {"none", "template", "qwen", "lmstudio"}
 QWEN_ATTN_IMPLEMENTATIONS = {"auto", "sdpa", "flash_attention_2", "eager"}
 
 
@@ -53,9 +53,13 @@ def _normalize_text(value: Any, default: str) -> str:
 
 def _normalize_ocr_engine(value: Any, default: str) -> str:
     text = str(value or "").strip().lower()
+    if text == "docstrange":
+        text = "qwen"
     if text in OCR_ENGINES:
         return text
     fallback = str(default or "none").strip().lower()
+    if fallback == "docstrange":
+        fallback = "qwen"
     if fallback in OCR_ENGINES:
         return fallback
     return "none"
@@ -65,20 +69,24 @@ def _normalize_page_split_mode(value: Any, default: str) -> str:
     text = str(value or "").strip().lower()
     if text in PAGE_SPLIT_MODES:
         return text
-    fallback = str(default or "auto").strip().lower()
+    fallback = str(default or "off").strip().lower()
     if fallback in PAGE_SPLIT_MODES:
         return fallback
-    return "auto"
+    return "off"
 
 
 def _normalize_caption_engine(value: Any, default: str) -> str:
     text = str(value or "").strip().lower()
+    if text == "blip":
+        return "qwen"
     if text in CAPTION_ENGINES:
         return text
-    fallback = str(default or "blip").strip().lower()
+    fallback = str(default or "qwen").strip().lower()
+    if fallback == "blip":
+        fallback = "qwen"
     if fallback in CAPTION_ENGINES:
         return fallback
-    return "blip"
+    return "qwen"
 
 
 def _normalize_qwen_attn_implementation(value: Any, default: str) -> str:
@@ -113,11 +121,11 @@ def _normalize_settings_block(raw: dict[str, Any], defaults: dict[str, Any]) -> 
         ),
         "page_split_mode": _normalize_page_split_mode(
             block.get("page_split_mode"),
-            str(defaults.get("page_split_mode", "auto")),
+            str(defaults.get("page_split_mode", "off")),
         ),
         "caption_engine": _normalize_caption_engine(
             block.get("caption_engine"),
-            str(defaults.get("caption_engine", "blip")),
+            str(defaults.get("caption_engine", "qwen")),
         ),
         "caption_model": _normalize_text(
             block.get("caption_model"),

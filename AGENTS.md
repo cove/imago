@@ -6,6 +6,7 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 
 - Prefer forward-only changes.
 - Do not add backward compatibility by default.
+- Do not fall back.
 - When schema/config formats change, migrate all project data forward in the same change.
 - If backward compatibility is requested, implement it only when explicitly asked.
 

@@ -9,10 +9,11 @@ from urllib.parse import parse_qs, urlparse
 
 import cv2
 
-from .ingest import FaceIngestor
+from .ingest import CURRENT_FACE_EMBEDDING_MODEL, FaceIngestor
 from .matching import (
     build_person_prototypes,
     choose_suggested_candidate,
+    face_embedding_model,
     parse_embedding,
     suggest_people,
     suggest_people_from_prototypes,
@@ -28,6 +29,7 @@ DEFAULT_MIN_SIMILARITY = 0.72
 DEFAULT_MIN_MARGIN = 0.015
 DEFAULT_MIN_FACE_QUALITY = 0.20
 DEFAULT_MIN_SAMPLE_COUNT = 2
+ACTIVE_EMBEDDING_MODELS = {CURRENT_FACE_EMBEDDING_MODEL}
 
 
 def _coerce_float(value: Any, default: float) -> float:
@@ -78,7 +80,7 @@ def _coerce_bool(value: Any, default: bool = False) -> bool:
 class CastHTTPServer(ThreadingHTTPServer):
     def __init__(self, host: str, port: int, store: TextFaceStore):
         self.store = store
-        self.ingestor = FaceIngestor(store)
+        self.ingestor = FaceIngestor(store, require_primary_model=True)
         super().__init__((host, int(port)), CastHandler)
 
 
@@ -114,6 +116,9 @@ class CastHandler(BaseHTTPRequestHandler):
         data = json.dumps(payload, ensure_ascii=True).encode("utf-8")
         self.send_response(int(status))
         self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -122,6 +127,9 @@ class CastHandler(BaseHTTPRequestHandler):
         data = text.encode("utf-8")
         self.send_response(int(status))
         self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -139,6 +147,14 @@ class CastHandler(BaseHTTPRequestHandler):
     def _error(self, message: str, status: int = 400) -> None:
         self._send_json({"ok": False, "error": str(message)}, status=int(status))
 
+    def _face_detector_model(self, face: dict[str, Any]) -> str:
+        if not isinstance(face, dict):
+            return ""
+        metadata = face.get("metadata")
+        if not isinstance(metadata, dict):
+            return ""
+        return str(metadata.get("detector_model") or "").strip()
+
     def _face_summary(self, face: dict[str, Any], people_by_id: dict[str, dict[str, Any]]) -> dict[str, Any]:
         person_id = str(face.get("person_id") or "").strip() or None
         person = people_by_id.get(person_id or "")
@@ -146,11 +162,8 @@ class CastHandler(BaseHTTPRequestHandler):
         dim = len(embedding) if isinstance(embedding, list) else 0
         face_id = str(face.get("face_id", ""))
         source_path = str(face.get("source_path", ""))
-        source_ref = self._resolve_face_source_path(face)
-        source_kind = str(source_ref[0]) if source_ref else ""
+        source_kind = self._face_source_kind(face)
         crop_rel = str(face.get("crop_path") or "").strip()
-        crop_abs = (self.store.root_dir / crop_rel).resolve() if crop_rel else None
-        crop_exists = bool(crop_abs and crop_abs.exists())
         review_status = face_review_status(face)
         return {
             "face_id": face_id,
@@ -162,8 +175,8 @@ class CastHandler(BaseHTTPRequestHandler):
             "quality": face.get("quality"),
             "embedding_dim": int(dim),
             "crop_path": crop_rel,
-            "crop_url": f"/api/faces/{face_id}/crop" if crop_exists else "",
-            "source_url": f"/api/faces/{face_id}/source" if source_ref else "",
+            "crop_url": f"/api/faces/{face_id}/crop" if crop_rel else "",
+            "source_url": f"/api/faces/{face_id}/source" if source_path else "",
             "source_is_image": source_kind == "image",
             "reviewed_by_human": bool(face_is_human_reviewed(face)),
             "review_status": review_status,
@@ -188,7 +201,9 @@ class CastHandler(BaseHTTPRequestHandler):
         suggested_margin = None
         suggested_confident = bool(suggested_person_id)
 
-        if status == "pending" and face and prototypes:
+        if status == "pending" and face and face_embedding_model(face) not in ACTIVE_EMBEDDING_MODELS:
+            source_candidates = []
+        elif status == "pending" and face and prototypes and not source_candidates:
             top_k = max(3, len(source_candidates))
             try:
                 live_candidates = suggest_people_from_prototypes(
@@ -259,7 +274,14 @@ class CastHandler(BaseHTTPRequestHandler):
         reviews = self.store.list_review_items()
         people_by_id = {str(row.get("person_id")): row for row in people}
         faces_by_id = {str(row.get("face_id")): row for row in faces}
-        prototypes = build_person_prototypes(faces)
+        prototypes = build_person_prototypes(
+            faces,
+            allowed_embedding_model_ids=ACTIVE_EMBEDDING_MODELS,
+        )
+        legacy_faces = 0
+        for face in faces:
+            if not self._face_detector_model(face) or face_embedding_model(face) not in ACTIVE_EMBEDDING_MODELS:
+                legacy_faces += 1
 
         face_summaries = [self._face_summary(face, people_by_id) for face in faces]
         review_summaries = [
@@ -284,12 +306,14 @@ class CastHandler(BaseHTTPRequestHandler):
                 "faces": len(face_summaries),
                 "unknown_faces": len(unknown_faces),
                 "pending_reviews": len(pending_reviews),
+                "legacy_faces": int(legacy_faces),
             },
             "people": people,
             "faces": face_summaries,
             "unknown_faces": unknown_faces,
             "reviews": review_summaries,
             "pending_reviews": pending_reviews,
+            "runtime": self.server.ingestor.runtime_status(),
         }
 
     def _handle_get_state(self) -> None:
@@ -320,7 +344,10 @@ class CastHandler(BaseHTTPRequestHandler):
         people_by_id = {str(row.get("person_id")): row for row in people}
         faces_by_id = {str(row.get("face_id")): row for row in faces}
         rows = []
-        prototypes = build_person_prototypes(faces)
+        prototypes = build_person_prototypes(
+            faces,
+            allowed_embedding_model_ids=ACTIVE_EMBEDDING_MODELS,
+        )
         for item in reviews:
             status = str(item.get("status") or "").strip().lower()
             if status_filter and status != status_filter:
@@ -479,15 +506,18 @@ class CastHandler(BaseHTTPRequestHandler):
             raise ValueError("Unknown face_id.")
         if face_review_status(face) in {"ignored", "rejected"}:
             raise ValueError("Face is already marked ignored/rejected.")
-        try:
-            candidates = suggest_people(
-                query_embedding=face.get("embedding") or [],
-                faces=self.store.list_faces(),
-                top_k=max(1, int(top_k)),
-                min_similarity=float(min_similarity),
-            )
-        except Exception:
-            candidates = []
+        candidates: list[dict[str, Any]] = []
+        if face_embedding_model(face) in ACTIVE_EMBEDDING_MODELS:
+            try:
+                candidates = suggest_people(
+                    query_embedding=face.get("embedding") or [],
+                    faces=self.store.list_faces(),
+                    top_k=max(1, int(top_k)),
+                    min_similarity=float(min_similarity),
+                    allowed_embedding_model_ids=ACTIVE_EMBEDDING_MODELS,
+                )
+            except Exception:
+                candidates = []
         suggested, _margin = choose_suggested_candidate(
             candidates=candidates,
             face_quality=face.get("quality") if isinstance(face, dict) else None,
@@ -564,6 +594,17 @@ class CastHandler(BaseHTTPRequestHandler):
         if video is not None:
             return ("video", video)
         return None
+
+    def _face_source_kind(self, face: dict[str, Any]) -> str:
+        source_type = str(face.get("source_type") or "").strip().lower()
+        if source_type == "vhs":
+            return "video"
+        source_path = str(face.get("source_path") or "").strip().lower()
+        if source_path and Path(source_path).suffix.lower() in IMAGE_SUFFIXES:
+            return "image"
+        if source_path:
+            return "video"
+        return ""
 
     def _parse_timestamp_seconds(self, raw_timestamp: Any) -> float | None:
         text = str(raw_timestamp or "").strip()
@@ -648,6 +689,7 @@ class CastHandler(BaseHTTPRequestHandler):
                 faces=faces,
                 top_k=int(top_k),
                 min_similarity=float(min_similarity),
+                allowed_embedding_model_ids=ACTIVE_EMBEDDING_MODELS,
             )
         except Exception as exc:
             self._error(str(exc))
@@ -701,6 +743,14 @@ class CastHandler(BaseHTTPRequestHandler):
             if not person_id:
                 self._error("person_id is required for accepted decisions with no suggestion.")
                 return
+        if status == "skipped":
+            try:
+                updated_review = self.store.defer_review_item(review_id)
+            except Exception as exc:
+                self._error(str(exc))
+                return
+            self._send_json({"ok": True, "review": updated_review, "face": None})
+            return
         try:
             updated_review = self.store.resolve_review_item(
                 review_id=review_id,
