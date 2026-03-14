@@ -579,7 +579,18 @@ def _build_qwen_prompt(
             lines.append(f"Album focus hint: {context.focus}.")
     lines.append("Use decisive language. Never hedge with appears, seems, likely, or maybe.")
     lines.append("Never mention raw file names, folder names, or internal IDs such as B02, P01, Archive, or View.")
-    lines.append("If any visible text is not in English, preserve it exactly and include an English translation.")
+    lines.append(
+        "If any visible text is not in English, preserve the original characters exactly in the caption, "
+        "then add an English translation in parentheses immediately after each non-English phrase — "
+        "for example: '敦煌历史文物展览 (Dunhuang Historical Relics Exhibition)'."
+    )
+    lines.append(
+        "Text visible in the image should make sense with the photo subjects: "
+        "if a word appears cut off at a scan edge, misspelled, or truncated, "
+        "infer the correct word from what is visible in the photo "
+        "(e.g., 'Chendo' on a sign next to panda and red panda photos → 'Chengdu', word cut off at scan edge). "
+        "Apply this to all text, not just place names."
+    )
     lines.append("Location rules:")
     lines.append("- Infer location from OCR text only when evidence is high confidence.")
     lines.append("- When location is clear, name the landmark, town, province, and country.")
@@ -588,7 +599,7 @@ def _build_qwen_prompt(
     lines.append("- Do not invent GPS coordinates unless explicitly visible in the image or OCR text.")
     lines.append(
         "- Correct misspelled, outdated, or truncated place names using context clues (album region, photo content); "
-        "for example, 'Chendou' or 'Chengdo' in a China album showing pandas → Chengdu."
+        "words may be cut off at scan edges — use visible photo subjects to complete them."
     )
     if people_list:
         lines.append(f"Known people: {join_human(people_list)}.")
@@ -817,7 +828,18 @@ def _build_combined_qwen_prompt(
             lines.append(f"Album focus hint: {context.focus}.")
     lines.append("Use decisive language. Never hedge with appears, seems, likely, or maybe.")
     lines.append("Never mention raw file names, folder names, or internal IDs such as B02, P01, Archive, or View.")
-    lines.append("When extracting text, preserve any non-English text exactly. In the description, include an English translation.")
+    lines.append(
+        "When the visible text contains non-English characters, copy them exactly in the TEXT section. "
+        "In the DESCRIPTION sentence, follow each non-English phrase with its English translation in parentheses — "
+        "for example: '时间：上午8—11时 (Time: 8–11 AM)'."
+    )
+    lines.append(
+        "Text visible in the image should make sense with the photo subjects: "
+        "if a word appears cut off at a scan edge, misspelled, or truncated, "
+        "infer the correct word from what is visible in the photo "
+        "(e.g., 'Chendo' on a sign next to panda and red panda photos → 'Chengdu', word cut off at scan edge). "
+        "Apply this to all text, not just place names."
+    )
     lines.append("Location rules:")
     lines.append("- Infer location from OCR text only when evidence is high confidence.")
     lines.append("- When location is clear, name the landmark, town, province, and country.")
@@ -826,7 +848,7 @@ def _build_combined_qwen_prompt(
     lines.append("- Do not invent GPS coordinates unless explicitly visible in the image or OCR text.")
     lines.append(
         "- Correct misspelled, outdated, or truncated place names using context clues (album region, photo content); "
-        "for example, 'Chendou' or 'Chengdo' in a China album showing pandas → Chengdu."
+        "words may be cut off at scan edges — use visible photo subjects to complete them."
     )
     lines.append(
         'Hyphen-separated lowercase names in visible text (e.g. "leslie-tommy-robert") list people left to right: Leslie, Tommy, Robert.'

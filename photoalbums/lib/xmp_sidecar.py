@@ -150,6 +150,7 @@ def build_xmp_tree(
     ocr_text: str,
     detections_payload: dict | None = None,
     subphotos: list[dict] | None = None,
+    stitch_key: str = "",
 ) -> ET.ElementTree:
     xmpmeta = ET.Element(f"{{{X_NS}}}xmpmeta")
     rdf = ET.SubElement(xmpmeta, _RDF_ROOT)
@@ -181,6 +182,10 @@ def build_xmp_tree(
         payload.text = json.dumps(detections_payload, ensure_ascii=False, sort_keys=True)
     if subphotos:
         _add_subphotos(desc, list(subphotos))
+    clean_stitch_key = str(stitch_key or "").strip()
+    if clean_stitch_key:
+        sk = ET.SubElement(desc, f"{{{IMAGO_NS}}}StitchKey")
+        sk.text = clean_stitch_key
 
     tree = ET.ElementTree(xmpmeta)
     ET.indent(tree, space="  ")
@@ -309,6 +314,7 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
         "gps_latitude": str(desc.findtext(f"{{{EXIF_NS}}}GPSLatitude", default="") or "").strip(),
         "gps_longitude": str(desc.findtext(f"{{{EXIF_NS}}}GPSLongitude", default="") or "").strip(),
         "ocr_text": str(desc.findtext(f"{{{IMAGO_NS}}}OCRText", default="") or "").strip(),
+        "stitch_key": str(desc.findtext(f"{{{IMAGO_NS}}}StitchKey", default="") or "").strip(),
         "detections": detections_payload,
     }
 
@@ -387,6 +393,7 @@ def _merge_xmp_tree(
     ocr_text: str,
     detections_payload: dict | None = None,
     subphotos: list[dict] | None = None,
+    stitch_key: str = "",
 ) -> ET.ElementTree:
     desc = _get_or_create_rdf_desc(tree)
     _set_bag(desc, f"{{{DC_NS}}}subject", subjects)
@@ -407,6 +414,7 @@ def _merge_xmp_tree(
     else:
         _set_simple_text(desc, f"{{{IMAGO_NS}}}Detections", "")
     _set_subphotos(desc, subphotos)
+    _set_simple_text(desc, f"{{{IMAGO_NS}}}StitchKey", str(stitch_key or "").strip())
     ET.indent(tree, space="  ")
     return tree
 
@@ -425,6 +433,7 @@ def write_xmp_sidecar(
     source_text: str = "",
     detections_payload: dict | None = None,
     subphotos: list[dict] | None = None,
+    stitch_key: str = "",
 ) -> Path:
     path = Path(sidecar_path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -447,6 +456,7 @@ def write_xmp_sidecar(
             ocr_text=ocr_text,
             detections_payload=detections_payload,
             subphotos=subphotos,
+            stitch_key=stitch_key,
         )
     else:
         tree = _merge_xmp_tree(
@@ -462,6 +472,7 @@ def write_xmp_sidecar(
             ocr_text=ocr_text,
             detections_payload=detections_payload,
             subphotos=subphotos,
+            stitch_key=stitch_key,
         )
     tree.write(path, encoding="utf-8", xml_declaration=True)
     return path
