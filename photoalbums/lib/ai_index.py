@@ -701,6 +701,15 @@ def _prepare_ai_model_image(image_path: Path):
         temp_dir.cleanup()
 
 
+def _get_image_dimensions(image_path: Path) -> tuple[int, int]:
+    try:
+        from PIL import Image as _PIL_Image  # pylint: disable=import-outside-toplevel
+        with _PIL_Image.open(image_path) as img:
+            return img.width, img.height
+    except Exception:
+        return 0, 0
+
+
 def _run_image_analysis(
     *,
     image_path: Path,
@@ -802,6 +811,7 @@ def _run_image_analysis(
                 "certainty": round(float(getattr(row, "certainty", row.score)), 5),
                 "reviewed_by_human": bool(getattr(row, "reviewed_by_human", False)),
                 "face_id": str(getattr(row, "face_id", "") or ""),
+                **({"bbox": [int(v) for v in row.bbox[:4]]} if getattr(row, "bbox", None) else {}),
             }
             for row in people_matches
         ],
@@ -844,17 +854,17 @@ def _run_image_analysis(
 
 
 def _aggregate_best_rows(results: list[ImageAnalysis], section: str, key_name: str) -> list[dict[str, Any]]:
-    best: dict[str, float] = {}
+    best_rows: dict[str, dict[str, Any]] = {}
     for result in results:
         for row in list(result.payload.get(section) or []):
             name = str(row.get(key_name) or "").strip()
             if not name:
                 continue
             score = float(row.get("score") or 0.0)
-            current = best.get(name)
-            if current is None or score > current:
-                best[name] = score
-    out = [{key_name: name, "score": round(score, 5)} for name, score in best.items()]
+            current = best_rows.get(name)
+            if current is None or score > float(current.get("score") or 0.0):
+                best_rows[name] = dict(row)
+    out = list(best_rows.values())
     out.sort(key=lambda row: (-float(row.get("score") or 0.0), str(row.get(key_name) or "").casefold()))
     return out
 
@@ -1213,6 +1223,7 @@ def _run_scan_stitch_pass(
                 if stdout_only:
                     print(f"{path.name}: {combined_description}")
                 elif not dry_run:
+                    stitch_img_w, stitch_img_h = _get_image_dimensions(path)
                     write_xmp_sidecar(
                         sidecar_path,
                         creator_tool=str(state.get("creator_tool") or creator_tool),
@@ -1226,6 +1237,8 @@ def _run_scan_stitch_pass(
                         ocr_text=combined_ocr,
                         detections_payload=det or None,
                         stitch_key="true",
+                        image_width=stitch_img_w,
+                        image_height=stitch_img_h,
                     )
 
         except Exception as exc:
@@ -1689,6 +1702,7 @@ def run(argv: list[str] | None = None) -> int:
 
                 if not dry_run:
                     location_payload = dict(payload.get("location") or {}) if isinstance(payload, dict) else {}
+                    img_w, img_h = _get_image_dimensions(image_path)
                     write_xmp_sidecar(
                         sidecar_path,
                         creator_tool=creator_tool,
@@ -1702,6 +1716,8 @@ def run(argv: list[str] | None = None) -> int:
                         ocr_text=ocr_text,
                         detections_payload=payload,
                         subphotos=subphotos_xml,
+                        image_width=img_w,
+                        image_height=img_h,
                     )
 
             if people_matcher is not None:

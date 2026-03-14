@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 import re
 import sys
@@ -150,6 +150,7 @@ class PersonMatch:
     face_id: str = ""
     certainty: float = 0.0
     reviewed_by_human: bool = False
+    bbox: list = field(default_factory=list)
 
 
 class CastPeopleMatcher:
@@ -576,6 +577,7 @@ class CastPeopleMatcher:
                         face_id=str(face.get("face_id") or ""),
                         certainty=1.0,
                         reviewed_by_human=True,
+                        bbox=list(face.get("bbox") or []),
                     )
                     if current is None or candidate.certainty > current.certainty or candidate.score > current.score:
                         by_name[name] = candidate
@@ -617,6 +619,7 @@ class CastPeopleMatcher:
                         face_id=str(face.get("face_id") or ""),
                         certainty=min(0.99, max(0.0, score)),
                         reviewed_by_human=False,
+                        bbox=list(face.get("bbox") or []),
                     )
                     if (
                         current is None

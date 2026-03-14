@@ -11,6 +11,9 @@ XMP_NS = "http://ns.adobe.com/xap/1.0/"
 EXIF_NS = "http://ns.adobe.com/exif/1.0/"
 IPTC_EXT_NS = "http://iptc.org/std/Iptc4xmpExt/2008-02-29/"
 IMAGO_NS = "https://imago.local/ns/1.0/"
+MWG_RS_NS = "http://www.metadataworkinggroup.com/schemas/regions/"
+ST_AREA_NS = "http://ns.adobe.com/xmp/schemata/area/"
+ST_DIM_NS = "http://ns.adobe.com/xap/1.0/sType/Dimensions#"
 
 ET.register_namespace("x", X_NS)
 ET.register_namespace("rdf", RDF_NS)
@@ -19,6 +22,9 @@ ET.register_namespace("xmp", XMP_NS)
 ET.register_namespace("exif", EXIF_NS)
 ET.register_namespace("Iptc4xmpExt", IPTC_EXT_NS)
 ET.register_namespace("imago", IMAGO_NS)
+ET.register_namespace("mwg-rs", MWG_RS_NS)
+ET.register_namespace("stArea", ST_AREA_NS)
+ET.register_namespace("stDim", ST_DIM_NS)
 
 _RDF_ROOT = f"{{{RDF_NS}}}RDF"
 _RDF_DESC = f"{{{RDF_NS}}}Description"
@@ -137,6 +143,65 @@ def _add_subphotos(parent: ET.Element, subphotos: list[dict]) -> None:
             )
 
 
+def _add_face_regions(
+    parent: ET.Element,
+    people: list[dict],
+    image_width: int,
+    image_height: int,
+) -> None:
+    if not people or image_width <= 0 or image_height <= 0:
+        return
+    region_entries = []
+    for person in people:
+        name = str(person.get("name") or "").strip()
+        bbox = list(person.get("bbox") or [])
+        if not name or len(bbox) < 4:
+            continue
+        x, y, w, h = [int(v) for v in bbox[:4]]
+        if w <= 0 or h <= 0:
+            continue
+        cx = (x + w / 2) / image_width
+        cy = (y + h / 2) / image_height
+        nw = w / image_width
+        nh = h / image_height
+        region_entries.append((name, cx, cy, nw, nh))
+    if not region_entries:
+        return
+    ri = ET.SubElement(parent, f"{{{MWG_RS_NS}}}RegionInfo")
+    ri.set(f"{{{RDF_NS}}}parseType", "Resource")
+    dims = ET.SubElement(ri, f"{{{MWG_RS_NS}}}AppliedToDimensions")
+    dims.set(f"{{{RDF_NS}}}parseType", "Resource")
+    ET.SubElement(dims, f"{{{ST_DIM_NS}}}w").text = str(image_width)
+    ET.SubElement(dims, f"{{{ST_DIM_NS}}}h").text = str(image_height)
+    ET.SubElement(dims, f"{{{ST_DIM_NS}}}unit").text = "pixel"
+    region_list = ET.SubElement(ri, f"{{{MWG_RS_NS}}}RegionList")
+    bag = ET.SubElement(region_list, _RDF_BAG)
+    for name, cx, cy, nw, nh in region_entries:
+        li = ET.SubElement(bag, _RDF_LI)
+        li.set(f"{{{RDF_NS}}}parseType", "Resource")
+        ET.SubElement(li, f"{{{MWG_RS_NS}}}Name").text = name
+        ET.SubElement(li, f"{{{MWG_RS_NS}}}Type").text = "Face"
+        area = ET.SubElement(li, f"{{{MWG_RS_NS}}}Area")
+        area.set(f"{{{RDF_NS}}}parseType", "Resource")
+        ET.SubElement(area, f"{{{ST_AREA_NS}}}x").text = f"{cx:.6f}"
+        ET.SubElement(area, f"{{{ST_AREA_NS}}}y").text = f"{cy:.6f}"
+        ET.SubElement(area, f"{{{ST_AREA_NS}}}w").text = f"{nw:.6f}"
+        ET.SubElement(area, f"{{{ST_AREA_NS}}}h").text = f"{nh:.6f}"
+        ET.SubElement(area, f"{{{ST_AREA_NS}}}unit").text = "normalized"
+
+
+def _set_face_regions(
+    parent: ET.Element,
+    people: list[dict],
+    image_width: int,
+    image_height: int,
+) -> None:
+    existing = parent.find(f"{{{MWG_RS_NS}}}RegionInfo")
+    if existing is not None:
+        parent.remove(existing)
+    _add_face_regions(parent, people, image_width, image_height)
+
+
 def build_xmp_tree(
     *,
     creator_tool: str,
@@ -151,6 +216,8 @@ def build_xmp_tree(
     detections_payload: dict | None = None,
     subphotos: list[dict] | None = None,
     stitch_key: str = "",
+    image_width: int = 0,
+    image_height: int = 0,
 ) -> ET.ElementTree:
     xmpmeta = ET.Element(f"{{{X_NS}}}xmpmeta")
     rdf = ET.SubElement(xmpmeta, _RDF_ROOT)
@@ -180,6 +247,12 @@ def build_xmp_tree(
     if detections_payload:
         payload = ET.SubElement(desc, f"{{{IMAGO_NS}}}Detections")
         payload.text = json.dumps(detections_payload, ensure_ascii=False, sort_keys=True)
+    _add_face_regions(
+        desc,
+        list((detections_payload or {}).get("people") or []),
+        image_width,
+        image_height,
+    )
     if subphotos:
         _add_subphotos(desc, list(subphotos))
     clean_stitch_key = str(stitch_key or "").strip()
@@ -339,6 +412,12 @@ def sidecar_has_expected_ai_fields(
         return False
     if bool(enable_people) and not isinstance(detections.get("people"), list):
         return False
+    if bool(enable_people) and isinstance(detections.get("people"), list) and detections["people"]:
+        if not any(
+            isinstance(p, dict) and isinstance(p.get("bbox"), list) and len(p["bbox"]) >= 4
+            for p in detections["people"]
+        ):
+            return False
     if bool(enable_objects) and not isinstance(detections.get("objects"), list):
         return False
     if str(ocr_engine or "").strip().lower() != "none" and not isinstance(detections.get("ocr"), dict):
@@ -394,6 +473,8 @@ def _merge_xmp_tree(
     detections_payload: dict | None = None,
     subphotos: list[dict] | None = None,
     stitch_key: str = "",
+    image_width: int = 0,
+    image_height: int = 0,
 ) -> ET.ElementTree:
     desc = _get_or_create_rdf_desc(tree)
     _set_bag(desc, f"{{{DC_NS}}}subject", subjects)
@@ -413,6 +494,12 @@ def _merge_xmp_tree(
         )
     else:
         _set_simple_text(desc, f"{{{IMAGO_NS}}}Detections", "")
+    _set_face_regions(
+        desc,
+        list((detections_payload or {}).get("people") or []),
+        image_width,
+        image_height,
+    )
     _set_subphotos(desc, subphotos)
     _set_simple_text(desc, f"{{{IMAGO_NS}}}StitchKey", str(stitch_key or "").strip())
     ET.indent(tree, space="  ")
@@ -434,6 +521,8 @@ def write_xmp_sidecar(
     detections_payload: dict | None = None,
     subphotos: list[dict] | None = None,
     stitch_key: str = "",
+    image_width: int = 0,
+    image_height: int = 0,
 ) -> Path:
     path = Path(sidecar_path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -457,6 +546,8 @@ def write_xmp_sidecar(
             detections_payload=detections_payload,
             subphotos=subphotos,
             stitch_key=stitch_key,
+            image_width=image_width,
+            image_height=image_height,
         )
     else:
         tree = _merge_xmp_tree(
@@ -473,6 +564,8 @@ def write_xmp_sidecar(
             detections_payload=detections_payload,
             subphotos=subphotos,
             stitch_key=stitch_key,
+            image_width=image_width,
+            image_height=image_height,
         )
     tree.write(path, encoding="utf-8", xml_declaration=True)
     return path
