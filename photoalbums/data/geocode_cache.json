@@ -27,6 +27,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "chengdu, sichuan, china; tibet, china": {
+    "query": "Chengdu, Sichuan, China; Tibet, China",
+    "status": "miss"
+  },
   "chenou, henan province, china": {
     "query": "Chenou, Henan Province, China",
     "status": "miss"
@@ -36,6 +40,14 @@
     "latitude": "24.9521671",
     "longitude": "102.6390210",
     "query": "Dragon Gate, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "dunhuang cultural centre, dunhuang, gansu, china": {
+    "display_name": "敦煌市文化馆, 鸣山路, 沙州镇, 敦煌市, 酒泉市, 甘肃省, 736200, 中国",
+    "latitude": "40.1230849",
+    "longitude": "94.6626234",
+    "query": "Dunhuang Cultural Centre, Dunhuang, Gansu, China",
     "source": "nominatim",
     "status": "ok"
   },
@@ -64,6 +76,14 @@
     "latitude": "22.3161669",
     "longitude": "113.9365027",
     "query": "Hong Kong Airport",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "hong kong airport, hong kong, china": {
+    "display_name": "香港國際機場 Hong Kong International Airport, 文東路 Man Tung Road, 東涌市中心 Tung Chung Town Centre, 大嶼山 Lantau, 離島區 Islands District, 新界 New Territories, 香港 Hong Kong, 中国",
+    "latitude": "22.3125986",
+    "longitude": "113.9172999",
+    "query": "Hong Kong Airport, Hong Kong, China",
     "source": "nominatim",
     "status": "ok"
   },
@@ -163,6 +183,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "new world hotel and space museum, hong kong": {
+    "query": "New World Hotel and Space Museum, Hong Kong",
+    "status": "miss"
+  },
   "okhang temple and potala palace, lasa, tibet, china": {
     "query": "Okhang Temple and Potala Palace, Lasa, Tibet, China",
     "status": "miss"
@@ -246,6 +270,10 @@
     "query": "Tibet, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "victoria peak tram, hong kong, china": {
+    "query": "Victoria Peak Tram, Hong Kong, China",
+    "status": "miss"
   },
   "victoria peak, hong kong": {
     "display_name": "扯旗山 Victoria Peak, 香港 Hong Kong, 999077, 中国",
