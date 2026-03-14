@@ -50,6 +50,18 @@
                 <span>Force All Good</span>
               </label>
             </div>
+            <div id="audioSyncControls" class="iqr-box hidden-ui">
+              <span id="audioSyncOffsetLabel" class="audio-sync-offset-label">Offset: 0.00s</span>
+              <div class="audio-sync-buttons">
+                <button id="audioSyncMinus1" class="action" type="button" title="Shift audio -1.0s">-1.0s</button>
+                <button id="audioSyncMinus01" class="action" type="button" title="Shift audio -0.1s">-0.1s</button>
+                <button id="audioSyncMinus001" class="action" type="button" title="Shift audio -0.01s">-0.01s</button>
+                <button id="audioSyncReset" class="action warn" type="button" title="Reset offset to 0">Reset</button>
+                <button id="audioSyncPlus001" class="action" type="button" title="Shift audio +0.01s">+0.01s</button>
+                <button id="audioSyncPlus01" class="action" type="button" title="Shift audio +0.1s">+0.1s</button>
+                <button id="audioSyncPlus1" class="action" type="button" title="Shift audio +1.0s">+1.0s</button>
+              </div>
+            </div>
             <div id="gammaControls" class="iqr-box hidden-ui">
               <label for="gammaLevel">Gamma Correction</label>
               <input id="gammaLevel" type="range" min="0.05" max="8.00" step="0.01" value="1.00">
@@ -92,6 +104,18 @@
             </div>
             <input id="timelineScrub" type="range" min="0" max="0" value="0" step="1" aria-label="Timeline scrubber">
             <div id="timelineScrubMeta" class="spark-meta"></div>
+          </div>
+          <div id="audioSyncPanel" class="audio-sync-panel hidden-ui">
+            <div class="audio-sync-waveform-wrap">
+              <canvas id="audioSyncWave" class="audio-sync-wave" aria-label="Audio sync waveform"></canvas>
+              <div id="audioSyncPlayhead" class="audio-sync-playhead" aria-hidden="true"></div>
+              <div id="audioSyncWindow" class="audio-sync-window" aria-hidden="true"></div>
+            </div>
+            <div class="audio-sync-meta">
+              <button id="audioSyncPlayBtn" class="action" type="button" title="Play/pause audio sync preview">&#9654;</button>
+              <span id="audioSyncMeta" class="spark-meta"></span>
+              <audio id="audioSyncAudio" preload="none"></audio>
+            </div>
           </div>
           <div id="peopleTimeline" class="people-timeline hidden-ui"></div>
           <div id="peopleMeta" class="spark-meta hidden-ui"></div>
@@ -193,7 +217,7 @@
         <h3>Step 1: Load Chapter</h3>
         <ol>
           <li>Select an archive in the left column, then select a chapter.</li>
-          <li>Click the <code>2/7 Bad Frames</code> step button at the top to load all chapter frames. The loader can be cancelled while running.</li>
+          <li>Click the <code>2/8 Bad Frames</code> step button at the top to load all chapter frames. The loader can be cancelled while running.</li>
         </ol>
 
         <h3>Step 2: Bad Frames</h3>
@@ -208,7 +232,18 @@
           <li><code>Preview Render</code> runs a real chapter render preview from the current in-memory bad-frame selections, without writing <code>render_settings.json</code> yet.</li>
         </ul>
 
-        <h3>Step 3: Gamma Correction</h3>
+        <h3>Step 3: Audio Sync</h3>
+        <ul>
+          <li>Use this step to correct audio/video sync drift caused by VHS tracking problems during digitization.</li>
+          <li>The waveform shows ±5s of audio around the chapter. The shaded region marks where the chapter video frames fall at the current offset.</li>
+          <li>Use <code>-0.1s</code> / <code>+0.1s</code> for coarse adjustment, <code>-0.01s</code> / <code>+0.01s</code> for fine tuning.</li>
+          <li>Use <code>-1.0s</code> / <code>+1.0s</code> for large drifts. Positive offset delays the audio; negative offset advances it.</li>
+          <li>Play the flipbook and listen to confirm sync. Use <code>Reset</code> to return to 0.00s.</li>
+          <li>The offset is saved per chapter range to <code>metadata/&lt;archive&gt;/render_settings.json</code>.</li>
+          <li>Chapters that are already in sync can be skipped — the default offset of 0.00s means no adjustment.</li>
+        </ul>
+
+        <h3>Step 4: Gamma Correction</h3>
         <ul>
           <li>The frame grid and flipbook stay the same, with FreezeFrame simulation applied.</li>
           <li>The sparkline switches to gamma score mode; the horizontal bar is your selected gamma level.</li>
@@ -216,7 +251,7 @@
           <li>Use <code>Mode = Visible Range Regions</code> then click <code>Apply Visible Range</code> to add per-range gamma values.</li>
         </ul>
 
-        <h3>Step 4: People</h3>
+        <h3>Step 5: People</h3>
         <ul>
           <li>Optionally click <code>Auto-fill From Cast</code> for a first-pass draft from <code>cast/data</code>.</li>
           <li>Use the people table to edit <code>start</code>, <code>end</code>, and <code>people</code> rows for <code>people.tsv</code>.</li>
@@ -226,7 +261,7 @@
           <li>Use <code>Save Progress</code> anytime to persist people rows and resume later.</li>
         </ul>
 
-        <h3>Step 5: Subtitles</h3>
+        <h3>Step 6: Subtitles</h3>
         <ul>
           <li>Click <code>Generate Subtitles</code> to auto-transcribe the chapter into the subtitle table.</li>
           <li>Use the audio waveform strip to scrub with the vertical playhead and align subtitle timing by ear.</li>
@@ -238,13 +273,13 @@
           <li>Subtitle confidence/source metadata is preserved for saves and render, but hidden in this tuner view.</li>
         </ul>
 
-        <h3>Step 6: Chapter</h3>
+        <h3>Step 7: Chapter</h3>
         <ul>
           <li>Use the Chapter step to edit the loaded chapter range with archive frame numbers (inclusive end frame).</li>
           <li>Chapter rows are saved to <code>metadata/&lt;archive&gt;/chapters.tsv</code> with ffmetadata columns.</li>
         </ul>
 
-        <h3>Step 7: Summary + Save</h3>
+        <h3>Step 8: Summary + Save</h3>
         <ol>
           <li>Click the <code>7/7 Summary + Save</code> step button at the top to verify bad-frame, gamma, subtitles, and chapter settings.</li>
           <li>Click <code>Save and Return to Chapter</code> to persist selected bad frames, gamma ranges, people/subtitle rows, and chapter rows.</li>
@@ -271,6 +306,7 @@
   <script src="tuner-init.js"></script>
   <script src="tuner-utils.js"></script>
   <script src="gamma.js"></script>
+  <script src="audio-sync.js"></script>
   <script src="people.js"></script>
   <script src="subtitles.js"></script>
   <script src="audio.js"></script>

@@ -1876,6 +1876,13 @@ def _run_with_args(args):
                     transcribe_dialogue and not subtitles_tsv_exists and not metadata_subtitle_entries
                 )
                 if needs_extracted_media:
+                    audio_sync_offset = get_audio_sync_offset_for_chapter(
+                        archive_name,
+                        ch_start=chapter_start_frame,
+                        ch_end=chapter_end_frame,
+                    )
+                    if abs(audio_sync_offset) >= 1e-6:
+                        print(f"Audio sync offset: {audio_sync_offset:+.3f}s")
                     print(f"Extracting chapter...")
                     run(
                         make_frame_accurate_extract_chapter(
@@ -1886,6 +1893,7 @@ def _run_with_args(args):
                             start_frame=chapter_start_frame,
                             end_frame=chapter_end_frame,
                             debug_frame_numbers=debug_extracted_frames,
+                            audio_offset_seconds=audio_sync_offset,
                         )
                     )
                     assert_expected_frame_count(

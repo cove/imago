@@ -765,7 +765,7 @@ function setStepByMode(mode, fallbackStep = STEP_FIRST.num) {
 }
 
 function isReviewMode(mode) {
-  return mode === 'review' || mode === 'gamma' || mode === 'people' || mode === 'subtitles' || mode === 'split';
+  return mode === 'review' || mode === 'audio_sync' || mode === 'gamma' || mode === 'people' || mode === 'subtitles' || mode === 'split';
 }
 
 function isNavigationLocked() {
@@ -833,6 +833,7 @@ function setStep(step) {
   const isLoadStep = targetStep.mode === 'load';
   if (stepPillsEl) stepPillsEl.classList.toggle('hidden-ui', isLoadStep);
   if (backToChaptersBtnEl) backToChaptersBtnEl.classList.toggle('hidden-ui', isLoadStep);
+  const audioSyncMode = targetStep.mode === 'audio_sync';
   const gammaMode = targetStep.mode === 'gamma';
   const peopleMode = targetStep.mode === 'people';
   const subtitlesMode = targetStep.mode === 'subtitles';
@@ -843,13 +844,19 @@ function setStep(step) {
     subtitleTimelineDraft = null;
     peopleTimelineDrag = null;
   }
-  if (reviewControlsEl) reviewControlsEl.classList.toggle('hidden-ui', gammaMode || timelineMode);
+  // Hide audio sync step if leaving it
+  if (!audioSyncMode && typeof hideAudioSyncStep === 'function') hideAudioSyncStep();
+  const audioSyncControlsEl2 = document.getElementById('audioSyncControls');
+  const audioSyncPanelEl2 = document.getElementById('audioSyncPanel');
+  if (audioSyncControlsEl2) audioSyncControlsEl2.classList.toggle('hidden-ui', !audioSyncMode);
+  if (audioSyncPanelEl2) audioSyncPanelEl2.classList.toggle('hidden-ui', !audioSyncMode);
+  if (reviewControlsEl) reviewControlsEl.classList.toggle('hidden-ui', audioSyncMode || gammaMode || timelineMode);
   if (gammaControlsEl) gammaControlsEl.classList.toggle('hidden-ui', !gammaMode);
   if (peopleControlsEl) peopleControlsEl.classList.toggle('hidden-ui', !peopleMode);
   if (subtitlesControlsEl) subtitlesControlsEl.classList.toggle('hidden-ui', !subtitlesMode);
-  if (iqrSparkEl) iqrSparkEl.classList.toggle('hidden-ui', timelineMode);
-  if (sparkMetaEl) sparkMetaEl.classList.toggle('hidden-ui', timelineMode);
-  if (timelineScrubWrapEl) timelineScrubWrapEl.classList.toggle('hidden-ui', !timelineMode);
+  if (iqrSparkEl) iqrSparkEl.classList.toggle('hidden-ui', audioSyncMode || timelineMode);
+  if (sparkMetaEl) sparkMetaEl.classList.toggle('hidden-ui', audioSyncMode || timelineMode);
+  if (timelineScrubWrapEl) timelineScrubWrapEl.classList.toggle('hidden-ui', audioSyncMode || !timelineMode);
   if (peopleTimelineEl) peopleTimelineEl.classList.add('hidden-ui');
   if (gammaRangeMetaEl) gammaRangeMetaEl.classList.toggle('hidden-ui', !gammaMode);
   if (peopleMetaEl) peopleMetaEl.classList.toggle('hidden-ui', !peopleMode);

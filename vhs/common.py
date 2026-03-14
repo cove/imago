@@ -163,6 +163,7 @@ def make_frame_accurate_extract_chapter(
     start_frame=None,
     end_frame=None,
     debug_frame_numbers=False,
+    audio_offset_seconds=0.0,
 ):
     """
     Frame-exact chapter extraction command builder.
@@ -199,7 +200,21 @@ def make_frame_accurate_extract_chapter(
         )
     vf_select = ",".join(vf_filters)
 
-    af_trim = f"atrim=start={float(start):.6f}:end={float(end):.6f},asetpts=PTS-STARTPTS"
+    offset = float(audio_offset_seconds or 0.0)
+    chapter_dur = max(0.001, float(end) - float(start))
+    audio_start_raw = float(start) + offset
+    audio_end_raw = float(end) + offset
+    silence_prepend_sec = max(0.0, -audio_start_raw)  # > 0 only when offset pushes start < 0
+    audio_start_clamped = max(0.0, audio_start_raw)
+    # Build audio filter: trim → optional silence prepend → pad end to chapter duration
+    af_parts = [
+        f"atrim=start={audio_start_clamped:.6f}:end={max(audio_start_clamped + 0.001, audio_end_raw):.6f}",
+        "asetpts=PTS-STARTPTS",
+    ]
+    if silence_prepend_sec > 1e-4:
+        af_parts.append(f"adelay={silence_prepend_sec * 1000:.1f}:all=1")
+    af_parts.append(f"apad=whole_dur={chapter_dur:.6f}")
+    af_trim = ",".join(af_parts)
     return [
         FFMPEG_BIN,
         "-nostdin",
@@ -446,10 +461,11 @@ def render_settings_path(archive: str) -> Path:
 
 GAMMA_CORRECTION_DEFAULT_KEY = "gamma_correction_default"
 GAMMA_CORRECTION_RANGES_KEY = "gamma_correction_ranges"
+AUDIO_SYNC_OFFSETS_KEY = "audio_sync_offsets"
 
 def _render_settings_template() -> dict:
     return {
-        "version": 2,
+        "version": 3,
         "_comments": {
             "archive_settings": (
                 "Archive-wide defaults applied to render behavior for all chapters."
@@ -460,12 +476,17 @@ def _render_settings_template() -> dict:
             "gamma_correction_ranges": (
                 "Gamma correction ranges use global frame IDs: start_frame inclusive, end_frame exclusive."
             ),
+            "audio_sync_offsets": (
+                "Per-range audio sync offsets in seconds (positive = delay audio, negative = advance audio). "
+                "Ranges use global archive frame IDs: start_frame inclusive, end_frame exclusive."
+            ),
         },
         "archive_settings": {
             "gamma_correction_default": 1.0,
             "gamma_correction_ranges": [],
         },
         "bad_frames": [],
+        "audio_sync_offsets": [],
     }
 
 def _normalize_transcript_mode(raw: object, default: str = "off") -> str:
@@ -622,6 +643,45 @@ def _migrate_v1_to_v2(data: dict) -> dict:
     return out
 
 
+def _canonicalize_audio_sync_offsets(raw_offsets) -> list[dict]:
+    """Normalize audio_sync_offsets to sorted, non-overlapping frame ranges."""
+    entries = []
+    for item in list(raw_offsets or []):
+        if not isinstance(item, dict):
+            continue
+        try:
+            a = int(item["start_frame"])
+            b = int(item["end_frame"])
+            offset = float(item["offset_seconds"])
+        except Exception:
+            continue
+        if b <= a:
+            continue
+        entries.append((a, b, offset))
+    entries.sort(key=lambda e: e[0])
+    # Merge adjacent entries with identical offset
+    merged = []
+    for a, b, offset in entries:
+        if merged and merged[-1][1] == a and abs(merged[-1][2] - offset) < 1e-9:
+            prev_a, _prev_b, prev_off = merged[-1]
+            merged[-1] = (prev_a, b, prev_off)
+        else:
+            merged.append((a, b, offset))
+    return [
+        {"start_frame": int(a), "end_frame": int(b), "offset_seconds": round(offset, 4)}
+        for a, b, offset in merged
+    ]
+
+
+def _migrate_v2_to_v3(data: dict) -> dict:
+    """Migrate a v2 render_settings dict to v3 in memory (adds audio_sync_offsets)."""
+    out = dict(data)
+    out["version"] = 3
+    if "audio_sync_offsets" not in out:
+        out["audio_sync_offsets"] = []
+    return out
+
+
 def load_render_settings(archive: str, create: bool = False) -> tuple[Path, dict]:
     path = render_settings_path(archive)
     if path.exists():
@@ -634,6 +694,8 @@ def load_render_settings(archive: str, create: bool = False) -> tuple[Path, dict
                 else:
                     out = dict(_render_settings_template())
                     out.update(data)
+                if int(out.get("version") or 2) < 3:
+                    out = _migrate_v2_to_v3(out)
                 out["archive_settings"] = dict(out.get("archive_settings") or {})
                 out["archive_settings"][GAMMA_CORRECTION_DEFAULT_KEY] = _gamma_default_from_cfg(
                     out["archive_settings"], default=1.0,
@@ -643,6 +705,9 @@ def load_render_settings(archive: str, create: bool = False) -> tuple[Path, dict
                 )
                 bad = out.get("bad_frames") or []
                 out["bad_frames"] = sorted({int(x) for x in bad if int(x) >= 0})
+                out[AUDIO_SYNC_OFFSETS_KEY] = _canonicalize_audio_sync_offsets(
+                    out.get(AUDIO_SYNC_OFFSETS_KEY) or []
+                )
                 return path, out
         except Exception:
             pass
@@ -666,6 +731,9 @@ def save_render_settings(archive: str, settings: dict) -> Path:
     )
     bad = payload.get("bad_frames") or []
     payload["bad_frames"] = sorted({int(x) for x in bad if int(x) >= 0})
+    payload[AUDIO_SYNC_OFFSETS_KEY] = _canonicalize_audio_sync_offsets(
+        payload.get(AUDIO_SYNC_OFFSETS_KEY) or []
+    )
     # Drop any stale v1 keys
     payload.pop("chapter_settings", None)
     payload.pop("bad_frames_by_chapter", None)
@@ -676,6 +744,57 @@ def save_render_settings(archive: str, settings: dict) -> Path:
 def load_bad_frames_from_render_settings(archive: str) -> list[int]:
     _path, settings = load_render_settings(archive, create=False)
     return list(settings.get("bad_frames") or [])
+
+def get_audio_sync_offset_for_chapter(
+    archive: str,
+    ch_start: int,
+    ch_end: int,
+) -> float:
+    """Return the audio sync offset (seconds) for the frame range [ch_start, ch_end).
+
+    Uses the last matching entry whose range overlaps the chapter midpoint.
+    Returns 0.0 if no entry applies.
+    """
+    _path, settings = load_render_settings(archive, create=False)
+    offsets = _canonicalize_audio_sync_offsets(settings.get(AUDIO_SYNC_OFFSETS_KEY) or [])
+    if not offsets:
+        return 0.0
+    mid = (int(ch_start) + int(ch_end)) // 2
+    result = 0.0
+    for entry in offsets:
+        a = int(entry["start_frame"])
+        b = int(entry["end_frame"])
+        if a <= mid < b:
+            result = float(entry["offset_seconds"])
+    return result
+
+def update_chapter_audio_sync_in_render_settings(
+    archive: str,
+    ch_start: int,
+    ch_end: int,
+    offset_seconds: float,
+) -> Path:
+    """Set (or clear) the audio sync offset for the frame range [ch_start, ch_end)."""
+    _, settings = load_render_settings(archive, create=True)
+    existing = _canonicalize_audio_sync_offsets(settings.get(AUDIO_SYNC_OFFSETS_KEY) or [])
+    # Remove any existing entries that overlap [ch_start, ch_end)
+    kept = []
+    for entry in existing:
+        a = int(entry["start_frame"])
+        b = int(entry["end_frame"])
+        if b <= ch_start or a >= ch_end:
+            kept.append(entry)
+        else:
+            # Preserve portions outside the chapter span
+            if a < ch_start:
+                kept.append({"start_frame": a, "end_frame": ch_start, "offset_seconds": entry["offset_seconds"]})
+            if b > ch_end:
+                kept.append({"start_frame": ch_end, "end_frame": b, "offset_seconds": entry["offset_seconds"]})
+    # Add the new entry only if offset is non-zero
+    if abs(float(offset_seconds)) >= 1e-6:
+        kept.append({"start_frame": int(ch_start), "end_frame": int(ch_end), "offset_seconds": float(offset_seconds)})
+    settings[AUDIO_SYNC_OFFSETS_KEY] = _canonicalize_audio_sync_offsets(kept)
+    return save_render_settings(archive, settings)
 
 def get_bad_frames_for_chapter(
     archive: str,

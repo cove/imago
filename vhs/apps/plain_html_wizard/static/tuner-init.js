@@ -67,11 +67,12 @@ const state = {
 const STEP_DEFS = [
   { num: 1, label: 'Load Chapter', pageId: 'page1', mode: 'load' },
   { num: 2, label: 'Bad Frames', pageId: 'page2', mode: 'review' },
-  { num: 3, label: 'Gamma Correction', pageId: 'page2', mode: 'gamma' },
-  { num: 4, label: 'People', pageId: 'page2', mode: 'people' },
-  { num: 5, label: 'Subtitles', pageId: 'page2', mode: 'subtitles' },
-  { num: 6, label: 'Chapter', pageId: 'page2', mode: 'split' },
-  { num: 7, label: 'Summary + Save', pageId: 'page3', mode: 'summary' },
+  { num: 3, label: 'Audio Sync', pageId: 'page2', mode: 'audio_sync' },
+  { num: 4, label: 'Gamma Correction', pageId: 'page2', mode: 'gamma' },
+  { num: 5, label: 'People', pageId: 'page2', mode: 'people' },
+  { num: 6, label: 'Subtitles', pageId: 'page2', mode: 'subtitles' },
+  { num: 7, label: 'Chapter', pageId: 'page2', mode: 'split' },
+  { num: 8, label: 'Summary + Save', pageId: 'page3', mode: 'summary' },
 ];
 const STEP_BY_NUM = new Map(STEP_DEFS.map((step) => [step.num, step]));
 const STEP_INDEX_BY_NUM = new Map(STEP_DEFS.map((step, index) => [step.num, index]));
