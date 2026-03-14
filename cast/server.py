@@ -19,6 +19,7 @@ from .matching import (
     suggest_people_from_prototypes,
 )
 from .storage import TextFaceStore, face_is_human_reviewed, face_review_status
+from .xmp_writer import merge_persons_xmp, read_person_in_image
 
 _HERE = Path(__file__).resolve().parent
 _STATIC = _HERE / "static"
@@ -771,6 +772,24 @@ class CastHandler(BaseHTTPRequestHandler):
                 )
             except Exception as exc:
                 self._error(f"Review updated but face assignment failed: {exc}")
+                return
+            # Write the confirmed name back to the source image's XMP sidecar.
+            try:
+                source_path = str(assigned_face.get("source_path") or "").strip()
+                person = self.store.get_person(person_id)
+                display_name = str(person.get("display_name") or "").strip() if person else ""
+                if source_path and display_name:
+                    img_path = Path(source_path)
+                    xmp_path = img_path.with_suffix(".xmp")
+                    existing = read_person_in_image(xmp_path)
+                    if display_name.casefold() not in {n.casefold() for n in existing}:
+                        merge_persons_xmp(xmp_path, existing + [display_name], creator_tool="cast-review")
+            except Exception as exc:
+                # XMP write is best-effort; don't fail the review response.
+                xmp_warning = f"XMP write-back failed: {exc}"
+                import sys
+                print(f"[cast] {xmp_warning}", file=sys.stderr)
+                self._send_json({"ok": True, "review": updated_review, "face": assigned_face, "xmp_warning": xmp_warning})
                 return
         elif status in {"ignored", "rejected"}:
             try:
