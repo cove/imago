@@ -41,11 +41,11 @@ STOPWORDS = {
 }
 
 DEFAULT_QWEN_OCR_MODEL = "Qwen/Qwen2.5-VL-3B-Instruct"
-DEFAULT_QWEN_OCR_MAX_NEW_TOKENS = 768
+DEFAULT_QWEN_OCR_MAX_NEW_TOKENS = 262144
 DEFAULT_QWEN_OCR_MAX_PIXELS = 4_194_304
 DEFAULT_QWEN_OCR_MAX_IMAGE_EDGE = 2048
 DEFAULT_LMSTUDIO_OCR_BASE_URL = "http://192.168.4.72:1234/v1"
-DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS = 180.0
+DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS = 300.0
 DEFAULT_QWEN_OCR_PROMPT = (
     "Extract all visible text from this image.\n"
     "- Return only the extracted text.\n"
@@ -241,6 +241,20 @@ def _decode_lmstudio_text(value: object) -> str:
     return ""
 
 
+def _recover_truncated_ocr_text(raw: str) -> str | None:
+    """Extract partial text from a truncated JSON response (finish_reason=length)."""
+    match = re.search(r'"text"\s*:\s*"', raw)
+    if not match:
+        return None
+    fragment = raw[match.end():]
+    # Strip trailing incomplete escape sequences (e.g. \u4, \u, or lone \)
+    fragment = re.sub(r'\\(?:[uU][0-9a-fA-F]{0,3}|.?)$', '', fragment)
+    try:
+        return json.loads('"' + fragment + '"')
+    except json.JSONDecodeError:
+        return None
+
+
 def _extract_structured_json_payload(text: str) -> dict[str, object] | None:
     raw = str(text or "").strip()
     if not raw:
@@ -273,6 +287,10 @@ def _parse_lmstudio_structured_ocr(value: object, *, finish_reason: str = "") ->
     except json.JSONDecodeError as exc:
         payload = _extract_structured_json_payload(text)
         if payload is None:
+            if str(finish_reason or "").strip() == "length":
+                recovered = _recover_truncated_ocr_text(text)
+                if recovered is not None:
+                    return _normalize_ocr_text(recovered)
             snippet = text[:180] + ("..." if len(text) > 180 else "")
             raise RuntimeError(
                 f"LM Studio returned invalid structured OCR JSON: {exc.msg}; raw={snippet!r}.{finish_note}"
