@@ -31,7 +31,7 @@ from .ai_geocode import NominatimGeocoder
 from .ai_render_settings import find_archive_dir_for_image, load_render_settings, resolve_effective_settings
 from ..common import PHOTO_ALBUMS_DIR
 from ..exiftool_utils import read_tag
-from ..naming import parse_album_filename
+from ..naming import parse_album_filename, SCAN_NAME_RE
 from .xmp_sidecar import read_ai_sidecar_state, sidecar_has_expected_ai_fields, write_xmp_sidecar
 
 def _format_eta(completed_times: list[float], remaining: int) -> str:
@@ -464,6 +464,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Ignore per-archive render_settings.json overrides.",
     )
     parser.add_argument("--verbose", action="store_true", help="Verbose logging.")
+    parser.add_argument(
+        "--stitch-scans",
+        action="store_true",
+        help=(
+            "After individual processing, combine OCR text across _S#.tif scans of the same page "
+            "and re-run the caption engine so cut-off text at scan edges is reconstructed. "
+            "Updates XMP sidecars for all scans in each group."
+        ),
+    )
     parser.add_argument(
         "--extensions",
         default=",".join(sorted(IMAGE_EXTENSIONS)),
@@ -1019,6 +1028,220 @@ def _build_flat_page_description(
     return analysis.description
 
 
+def _scan_page_key(image_path: Path) -> str | None:
+    """Return a page-level grouping key for _S# scan files (same P##, different S##).
+
+    Returns None for files that don't match the scan naming pattern.
+    """
+    match = SCAN_NAME_RE.search(image_path.name)
+    if not match:
+        return None
+    return (
+        f"{match.group('collection')}_{match.group('year')}"
+        f"_B{match.group('book')}_P{match.group('page')}"
+    ).casefold()
+
+
+def _scan_number(image_path: Path) -> int:
+    """Return the S## scan number for ordering within a page group."""
+    match = SCAN_NAME_RE.search(image_path.name)
+    if not match:
+        return 0
+    try:
+        return int(match.group("scan"))
+    except (ValueError, IndexError):
+        return 0
+
+
+def _run_scan_stitch_pass(
+    files: list[Path],
+    *,
+    caption_engine: CaptionEngine,
+    requested_caption_engine: str,
+    creator_tool: str,
+    dry_run: bool,
+    stdout_only: bool,
+    album_title_cache: dict[str, str],
+    printed_album_title_cache: dict[str, str],
+    geocoder: NominatimGeocoder | None,
+) -> int:
+    """Group _S# scan files by page, combine OCR text, re-run caption, update XMPs.
+
+    Only files whose names match the _S## scan pattern are considered. Groups with a
+    single scan are skipped. OCR text from all scans is joined in scan-number order so
+    that text cut off at the right edge of S01 and continued on S02 is reconstructed
+    before the caption model sees it.
+    """
+    # Build page groups from all candidate files
+    groups: dict[str, list[Path]] = {}
+    for path in files:
+        key = _scan_page_key(path)
+        if key is not None:
+            groups.setdefault(key, []).append(path)
+
+    failures = 0
+    for key in sorted(groups):
+        group_paths = sorted(groups[key], key=_scan_number)
+        if len(group_paths) < 2:
+            continue
+
+        # Read XMP state for every scan in the group
+        states: list[dict] = []
+        for path in group_paths:
+            state = read_ai_sidecar_state(path.with_suffix(".xmp"))
+            states.append(state if isinstance(state, dict) else {})
+
+        # Skip if every scan already carries the stitch-applied flag
+        if all(str(s.get("stitch_key") or "").strip() == "true" for s in states):
+            if not stdout_only:
+                names_str = " + ".join(p.name for p in group_paths)
+                print(f"  stitch skip  {names_str} (already stitched)")
+            continue
+
+        # Combine OCR text in scan order
+        ocr_parts = [str(s.get("ocr_text") or "").strip() for s in states]
+        combined_ocr = " ".join(p for p in ocr_parts if p).strip()
+
+        # Aggregate people and objects across all scans (union, preserving order)
+        all_people: list[str] = []
+        all_objects: list[str] = []
+        for s in states:
+            det = s.get("detections") or {}
+            if isinstance(det, dict):
+                all_people += [
+                    str(d.get("name") or "")
+                    for d in list(det.get("people") or [])
+                    if isinstance(d, dict) and d.get("name")
+                ]
+                all_objects += [
+                    str(d.get("label") or "")
+                    for d in list(det.get("objects") or [])
+                    if isinstance(d, dict) and d.get("label")
+                ]
+        person_names = _clean_list(all_people)
+        object_labels = _clean_list(all_objects)
+
+        primary_path = group_paths[0]
+        primary_state = states[0]
+        album_title = (
+            str(primary_state.get("album_title") or "").strip()
+            or _resolve_album_title_hint(primary_path, album_title_cache)
+        )
+        printed_album_title = _resolve_album_printed_title_hint(primary_path, printed_album_title_cache)
+
+        names_str = " + ".join(p.name for p in group_paths)
+        if not stdout_only:
+            print(f"  stitch  {names_str}", end="", flush=True)
+
+        try:
+            # Re-run caption with the combined OCR text; use S01 image as representative
+            if requested_caption_engine in {"qwen", "lmstudio"}:
+                with _prepare_ai_model_image(primary_path) as model_image_path:
+                    caption_output = caption_engine.generate(
+                        image_path=model_image_path,
+                        people=person_names,
+                        objects=object_labels,
+                        ocr_text=combined_ocr,
+                        source_path=primary_path,
+                        album_title=album_title,
+                        printed_album_title=printed_album_title,
+                    )
+                combined_description = caption_output.text or build_description(
+                    people=person_names,
+                    objects=object_labels,
+                    ocr_text=combined_ocr,
+                )
+                gps_latitude = str(getattr(caption_output, "gps_latitude", "") or "").strip()
+                gps_longitude = str(getattr(caption_output, "gps_longitude", "") or "").strip()
+                location_name = str(getattr(caption_output, "location_name", "") or "").strip()
+            else:
+                # Template / none: rebuild description from combined OCR without AI
+                album_context = infer_album_context(
+                    image_path=primary_path,
+                    ocr_text=combined_ocr,
+                    allow_ocr=True,
+                    album_title=album_title,
+                    printed_album_title=printed_album_title,
+                )
+                combined_description = build_page_caption(
+                    photo_count=max(1, sum(
+                        len(list((s.get("detections") or {}).get("subphotos") or []))
+                        for s in states
+                    )),
+                    people=person_names,
+                    objects=object_labels,
+                    ocr_text=combined_ocr,
+                    album_context=album_context,
+                )
+                gps_latitude = ""
+                gps_longitude = ""
+                location_name = ""
+
+            location_payload = _resolve_location_payload(
+                geocoder=geocoder,
+                gps_latitude=gps_latitude,
+                gps_longitude=gps_longitude,
+                location_name=location_name,
+            )
+            combined_ocr_keywords = extract_keywords(combined_ocr, max_keywords=15)
+
+            # Write combined caption + combined OCR to every scan's XMP,
+            # marking each with stitch_key="true" to record that the pass has run.
+            for path, state in zip(group_paths, states):
+                sidecar_path = path.with_suffix(".xmp")
+                source_text = read_embedded_source_text(path)
+                det = dict(state.get("detections") or {})
+                # Refresh OCR metadata in the detections payload
+                if isinstance(det.get("ocr"), dict):
+                    det["ocr"] = dict(det["ocr"])
+                    det["ocr"]["chars"] = len(combined_ocr)
+                    det["ocr"]["keywords"] = combined_ocr_keywords
+                subjects = _clean_list(
+                    object_labels
+                    + [str(k) for k in combined_ocr_keywords if k]
+                )
+                final_gps_lat = str(
+                    (location_payload or {}).get("gps_latitude")
+                    or state.get("gps_latitude")
+                    or ""
+                )
+                final_gps_lon = str(
+                    (location_payload or {}).get("gps_longitude")
+                    or state.get("gps_longitude")
+                    or ""
+                )
+                if stdout_only:
+                    print(f"{path.name}: {combined_description}")
+                elif not dry_run:
+                    write_xmp_sidecar(
+                        sidecar_path,
+                        creator_tool=str(state.get("creator_tool") or creator_tool),
+                        person_names=person_names,
+                        subjects=subjects,
+                        description=combined_description,
+                        album_title=album_title,
+                        gps_latitude=final_gps_lat,
+                        gps_longitude=final_gps_lon,
+                        source_text=source_text,
+                        ocr_text=combined_ocr,
+                        detections_payload=det or None,
+                        stitch_key="true",
+                    )
+
+        except Exception as exc:
+            failures += 1
+            if not stdout_only:
+                print()
+            msg = f"  stitch fail  {names_str}: {exc}"
+            print(msg, file=sys.stderr if stdout_only else sys.stdout, flush=True)
+            continue
+
+        if not stdout_only:
+            print(f"\r  stitch ok    {names_str}", flush=True)
+
+    return failures
+
+
 def run(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     explicit_flags = _explicit_cli_flags(argv)
@@ -1532,13 +1755,56 @@ def run(argv: list[str] | None = None) -> int:
                 row["cast_store_signature"] = final_cast_signature
         save_manifest(manifest_path, manifest)
 
+    stitch_failures = 0
+    if bool(getattr(args, "stitch_scans", False)):
+        emit_info("\nScan stitch pass")
+        # Use the defaults-based caption engine (or initialise one if none was created yet)
+        stitch_caption_key = (
+            str(defaults["caption_engine"]),
+            str(defaults["caption_model"]),
+            str(defaults["caption_prompt"]),
+            int(defaults["caption_max_tokens"]),
+            float(defaults["caption_temperature"]),
+            str(defaults["lmstudio_base_url"]),
+            str(defaults["qwen_attn_implementation"]),
+            int(defaults["qwen_min_pixels"]),
+            int(defaults["qwen_max_pixels"]),
+            int(defaults["caption_max_edge"]),
+        )
+        stitch_caption_engine = caption_engine_cache.get(stitch_caption_key)
+        if stitch_caption_engine is None:
+            stitch_caption_engine = _init_caption_engine(
+                engine=stitch_caption_key[0],
+                model_name=stitch_caption_key[1],
+                caption_prompt=stitch_caption_key[2],
+                max_tokens=int(stitch_caption_key[3]),
+                temperature=float(stitch_caption_key[4]),
+                lmstudio_base_url=stitch_caption_key[5],
+                qwen_attn_implementation=stitch_caption_key[6],
+                qwen_min_pixels=int(stitch_caption_key[7]),
+                qwen_max_pixels=int(stitch_caption_key[8]),
+                max_image_edge=int(stitch_caption_key[9]),
+                stream=not stdout_only,
+            )
+        stitch_failures = _run_scan_stitch_pass(
+            files,
+            caption_engine=stitch_caption_engine,
+            requested_caption_engine=str(defaults["caption_engine"]),
+            creator_tool=str(defaults["creator_tool"]),
+            dry_run=dry_run,
+            stdout_only=stdout_only,
+            album_title_cache=album_title_cache,
+            printed_album_title_cache=printed_album_title_cache,
+            geocoder=geocoder,
+        )
+
     if not stdout_only:
         print("\nSummary")
         print(f"- Processed: {processed}")
         print(f"- Skipped:   {skipped}")
-        print(f"- Failed:    {failures}")
+        print(f"- Failed:    {failures + stitch_failures}")
         print(f"- Manifest:  {manifest_path}")
-    return 1 if failures else 0
+    return 1 if (failures or stitch_failures) else 0
 
 
 def main() -> None:
