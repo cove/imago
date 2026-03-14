@@ -10,8 +10,11 @@ from typing import Any
 from .ai_caption import (
     CaptionEngine,
     DEFAULT_LMSTUDIO_MAX_NEW_TOKENS,
+    build_cover_page_caption,
     build_page_caption,
     build_template_caption,
+    infer_album_context,
+    looks_like_album_cover,
     normalize_lmstudio_base_url,
     normalize_qwen_attn_implementation,
     resolve_caption_model,
@@ -21,7 +24,7 @@ from .ai_page_layout import PreparedImageLayout, classify_image_kind, prepare_im
 from .ai_render_settings import find_archive_dir_for_image, load_render_settings, resolve_effective_settings
 from ..common import PHOTO_ALBUMS_DIR
 from ..exiftool_utils import read_tag
-from .xmp_sidecar import write_xmp_sidecar
+from .xmp_sidecar import sidecar_has_expected_ai_fields, write_xmp_sidecar
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp"}
 MIN_EXISTING_SIDECAR_BYTES = 100
@@ -217,8 +220,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--ocr-lang", default="eng", help="OCR language.")
     parser.add_argument(
         "--caption-engine",
-        choices=["none", "template", "blip", "qwen", "lmstudio"],
-        default="blip",
+        choices=["none", "template", "qwen", "lmstudio"],
+        default="qwen",
         help="Caption backend for XMP description.",
     )
     parser.add_argument(
@@ -373,7 +376,7 @@ def _init_caption_engine(
 
 
 def _settings_signature(settings: dict[str, Any]) -> str:
-    caption_engine = str(settings.get("caption_engine", "blip"))
+    caption_engine = str(settings.get("caption_engine", "qwen"))
     caption_model = resolve_caption_model(
         caption_engine,
         str(settings.get("caption_model", "")),
@@ -438,6 +441,7 @@ def _run_image_analysis(
     people_hint_text: str = "",
     people_source_path: Path | None = None,
     people_bbox_offset: tuple[int, int] = (0, 0),
+    caption_source_path: Path | None = None,
 ) -> ImageAnalysis:
     ocr_text = ocr_engine.read_text(image_path)
     ocr_keywords = extract_keywords(ocr_text, max_keywords=15)
@@ -462,6 +466,7 @@ def _run_image_analysis(
         people=people_names,
         objects=object_labels,
         ocr_text=ocr_text,
+        source_path=caption_source_path or people_source_path or image_path,
     )
     description = caption_output.text or build_description(
         people=people_names,
@@ -491,7 +496,7 @@ def _run_image_analysis(
             effective_engine=str(caption_output.engine),
             fallback=bool(caption_output.fallback),
             error=str(caption_output.error or ""),
-            model=str(requested_caption_model if requested_caption_engine in {"qwen", "blip", "lmstudio"} else ""),
+            model=str(requested_caption_model if requested_caption_engine in {"qwen", "lmstudio"} else ""),
         ),
     }
     return ImageAnalysis(
@@ -567,6 +572,11 @@ def _build_page_payload(
     aggregate_objects = _aggregate_best_rows(sub_results, "objects", "label")
     people_names = [str(row["name"]) for row in aggregate_people]
     object_labels = [str(row["label"]) for row in aggregate_objects]
+    album_context = infer_album_context(
+        image_path=layout.original_path,
+        ocr_text=page_ocr_text,
+        allow_ocr=True,
+    )
 
     subphoto_rows: list[dict[str, Any]] = []
     page_subjects: list[str] = list(page_ocr_keywords)
@@ -585,12 +595,37 @@ def _build_page_payload(
         )
 
     subjects = _clean_list(page_subjects)
-    description = build_page_caption(
-        photo_count=len(sub_results),
-        people=people_names,
-        objects=object_labels,
-        ocr_text=page_ocr_text,
+    likely_cover_page = (
+        (
+            bool(getattr(layout, "fallback_used", False))
+            and len(sub_results) == 1
+            and not people_names
+            and not object_labels
+            and bool(str(page_ocr_text or "").strip())
+        )
+        or (
+            not people_names
+            and not object_labels
+            and looks_like_album_cover(
+                layout.content_path,
+                ocr_text=page_ocr_text,
+                album_context=album_context,
+            )
+        )
     )
+    if likely_cover_page:
+        description = build_cover_page_caption(
+            ocr_text=page_ocr_text,
+            album_context=album_context,
+        )
+    else:
+        description = build_page_caption(
+            photo_count=len(sub_results),
+            people=people_names,
+            objects=object_labels,
+            ocr_text=page_ocr_text,
+            album_context=album_context,
+        )
     payload = {
         "layout": _layout_payload(layout),
         "people": aggregate_people,
@@ -760,6 +795,7 @@ def run(argv: list[str] | None = None) -> int:
             str(effective.get("caption_model", defaults["caption_model"])),
         )
         settings_sig = _settings_signature(effective)
+        creator_tool = str(effective.get("creator_tool", args.creator_tool))
 
         people_matcher = None
         current_cast_signature = ""
@@ -781,6 +817,15 @@ def run(argv: list[str] | None = None) -> int:
 
         manifest_row = manifest.get(str(image_path))
         reprocess_required = False
+        if has_valid_sidecar(image_path) and not sidecar_has_expected_ai_fields(
+            sidecar_path,
+            creator_tool=creator_tool,
+            enable_people=bool(effective.get("enable_people", True)),
+            enable_objects=bool(effective.get("enable_objects", True)),
+            ocr_engine=str(effective.get("ocr_engine", defaults["ocr_engine"])),
+            caption_engine=str(effective.get("caption_engine", defaults["caption_engine"])),
+        ):
+            reprocess_required = True
         if manifest_row is not None:
             old_sig = str(manifest_row.get("settings_signature") or "")
             if old_sig != settings_sig:
@@ -861,7 +906,6 @@ def run(argv: list[str] | None = None) -> int:
                 image_path,
                 split_mode=str(effective.get("page_split_mode", defaults["page_split_mode"])),
             ) as layout:
-                creator_tool = str(effective.get("creator_tool", args.creator_tool))
                 person_names: list[str]
                 subjects: list[str]
                 description: str
@@ -892,6 +936,7 @@ def run(argv: list[str] | None = None) -> int:
                             people_hint_text=page_ocr_text,
                             people_source_path=image_path,
                             people_bbox_offset=_bounds_offset(subphoto.bounds),
+                            caption_source_path=image_path,
                         )
                         for subphoto in layout.subphotos
                     ]
@@ -916,6 +961,7 @@ def run(argv: list[str] | None = None) -> int:
                             people=person_names,
                             objects=object_labels,
                             ocr_text=page_ocr_text,
+                            source_path=layout.original_path,
                         )
                         if page_caption_output.text:
                             description = page_caption_output.text
@@ -946,6 +992,7 @@ def run(argv: list[str] | None = None) -> int:
                         ocr_language=ocr_key[1],
                         people_source_path=image_path,
                         people_bbox_offset=_bounds_offset(layout.content_bounds) if layout.page_like else (0, 0),
+                        caption_source_path=image_path if layout.page_like else analysis_target,
                     )
                     person_names = analysis.people_names
                     subjects = analysis.subjects
