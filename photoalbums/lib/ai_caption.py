@@ -572,6 +572,7 @@ def _build_qwen_prompt(
         lines.append(
             "- Preserve visible book labels exactly as shown. Do not silently normalize them. If a label uses digit 1 characters for a Roman numeral volume, keep the visible label and note that it is a typo; for example, BOOK 11 is a typo for Book II (2)."
         )
+        lines.append("- When quoting any visible text, preserve the original text as shown.")
         if context.label:
             lines.append(f"Album classification hint: {context.label}.")
         if context.focus and context.kind == ALBUM_KIND_PHOTO_ESSAY:
@@ -809,6 +810,7 @@ def _build_combined_qwen_prompt(
         lines.append(
             "- Preserve visible book labels exactly as shown. Do not silently normalize them. If a label uses digit 1 characters for a Roman numeral volume, keep the visible label and note that it is a typo; for example, BOOK 11 is a typo for Book II (2)."
         )
+        lines.append("- When quoting any visible text, preserve the original text as shown.")
         if context.label:
             lines.append(f"Album classification hint: {context.label}.")
         if context.focus and context.kind == ALBUM_KIND_PHOTO_ESSAY:
