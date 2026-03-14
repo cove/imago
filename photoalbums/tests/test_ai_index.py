@@ -8,6 +8,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
+import cv2
+import numpy as np
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MODULE_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -15,7 +18,10 @@ if str(REPO_ROOT) not in sys.path:
 if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
+from cast.storage import TextFaceStore
 from photoalbums.lib import ai_index
+from photoalbums.lib.ai_people import CastPeopleMatcher
+from photoalbums.lib import xmp_sidecar
 
 
 class TestAIIndex(unittest.TestCase):
@@ -25,9 +31,13 @@ class TestAIIndex(unittest.TestCase):
     @contextmanager
     def _mock_layout(self, image: Path):
         yield SimpleNamespace(
+            kind="single_image",
             page_like=False,
             split_mode="manual",
+            content_bounds=SimpleNamespace(as_dict=lambda: {"x": 0, "y": 0, "width": 0, "height": 0}),
+            footer_trimmed=False,
             split_applied=False,
+            fallback_used=False,
             subphotos=[],
             content_path=image,
         )
@@ -181,6 +191,93 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(analysis.payload["people"][0]["face_id"], "face-1")
             self.assertFalse(analysis.payload["people"][0]["reviewed_by_human"])
 
+    def test_build_page_payload_uses_cover_caption_for_fallback_text_page(self):
+        content_bounds = SimpleNamespace(as_dict=lambda: {"x": 0, "y": 0, "width": 100, "height": 100})
+        subphoto_bounds = SimpleNamespace(as_dict=lambda: {"x": 0, "y": 0, "width": 100, "height": 100})
+        layout = SimpleNamespace(
+            kind="page_view",
+            page_like=True,
+            split_mode="auto",
+            content_bounds=content_bounds,
+            content_path=Path("page.jpg"),
+            original_path=Path("China_1986_B02_P01.jpg"),
+            footer_trimmed=False,
+            split_applied=False,
+            fallback_used=True,
+            subphotos=[SimpleNamespace(index=1, bounds=subphoto_bounds, path=Path("page.jpg"))],
+        )
+        sub_result = ai_index.ImageAnalysis(
+            image_path=Path("page.jpg"),
+            people_names=[],
+            object_labels=[],
+            ocr_text="MAINLAND CHINA 1986 BOOK 11",
+            ocr_keywords=["mainland", "china", "1986", "book"],
+            subjects=["mainland", "china", "1986", "book"],
+            description="Subphoto caption",
+            payload={
+                "people": [],
+                "objects": [],
+                "ocr": {"engine": "docstrange", "language": "eng", "keywords": [], "chars": 27},
+                "caption": {"engine": "template"},
+            },
+        )
+
+        _people, _objects, _subjects, description, _payload, _subphotos = ai_index._build_page_payload(
+            layout=layout,
+            sub_results=[sub_result],
+            page_ocr_text="MAINLAND CHINA 1986 BOOK 11",
+            page_ocr_keywords=["mainland", "china", "1986", "book"],
+            requested_caption_engine="template",
+        )
+
+        self.assertIn("cover or title page", description)
+        self.assertIn("Photo Essay", description)
+        self.assertNotIn("contains 1 photo(s)", description)
+
+    def test_build_page_payload_marks_family_album_pages(self):
+        content_bounds = SimpleNamespace(as_dict=lambda: {"x": 0, "y": 0, "width": 100, "height": 100})
+        subphoto_bounds = SimpleNamespace(as_dict=lambda: {"x": 0, "y": 0, "width": 50, "height": 50})
+        layout = SimpleNamespace(
+            kind="page_view",
+            page_like=True,
+            split_mode="auto",
+            content_bounds=content_bounds,
+            content_path=Path("family_page.jpg"),
+            original_path=Path("Family_View") / "Family_1980-1985_B08_P12.jpg",
+            footer_trimmed=False,
+            split_applied=True,
+            fallback_used=False,
+            subphotos=[
+                SimpleNamespace(index=1, bounds=subphoto_bounds, path=Path("photo1.jpg")),
+                SimpleNamespace(index=2, bounds=subphoto_bounds, path=Path("photo2.jpg")),
+            ],
+        )
+        sub_result = ai_index.ImageAnalysis(
+            image_path=Path("photo1.jpg"),
+            people_names=[],
+            object_labels=[],
+            ocr_text="",
+            ocr_keywords=[],
+            subjects=[],
+            description="Subphoto caption",
+            payload={
+                "people": [],
+                "objects": [],
+                "ocr": {"engine": "docstrange", "language": "eng", "keywords": [], "chars": 0},
+                "caption": {"engine": "template"},
+            },
+        )
+
+        _people, _objects, _subjects, description, _payload, _subphotos = ai_index._build_page_payload(
+            layout=layout,
+            sub_results=[sub_result, sub_result],
+            page_ocr_text="",
+            page_ocr_keywords=[],
+            requested_caption_engine="template",
+        )
+
+        self.assertIn("Family Photo Album page contains 2 photo(s).", description)
+
     def test_run_force_rewrites_existing_sidecar_and_merges_embedded_source(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
@@ -248,7 +345,28 @@ class TestAIIndex(unittest.TestCase):
             photos.mkdir()
             image = photos / "a.jpg"
             image.write_bytes(b"abc")
-            image.with_suffix(".xmp").write_text(self._valid_sidecar_text(), encoding="utf-8")
+            xmp_sidecar.write_xmp_sidecar(
+                image.with_suffix(".xmp"),
+                creator_tool="imago-photoalbums-ai-index",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+                detections_payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {"engine": "none", "language": "eng", "keywords": [], "chars": 0},
+                    "caption": {
+                        "requested_engine": "template",
+                        "effective_engine": "template",
+                        "fallback": False,
+                        "error": "",
+                        "model": "",
+                    },
+                },
+                subphotos=[],
+            )
             manifest = base / "manifest.jsonl"
 
             with (
@@ -274,6 +392,75 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(result, 0)
             analysis_mock.assert_not_called()
             write_mock.assert_not_called()
+
+    def test_run_reprocesses_current_sidecar_when_ai_fields_are_incomplete(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            photos = base / "Family_View"
+            photos.mkdir()
+            image = photos / "a.jpg"
+            image.write_bytes(b"abc")
+            sidecar = image.with_suffix(".xmp")
+            sidecar.write_text(
+                """<?xml version="1.0" encoding="utf-8"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:xmp="http://ns.adobe.com/xap/1.0/">
+  <rdf:RDF>
+    <rdf:Description rdf:about="">
+      <xmp:CreatorTool>imago-photoalbums-ai-index</xmp:CreatorTool>
+      <dc:description>
+        <rdf:Alt>
+          <rdf:li xml:lang="x-default">Old description</rdf:li>
+        </rdf:Alt>
+      </dc:description>
+    </rdf:Description>
+  </rdf:RDF>
+</x:xmpmeta>
+""",
+                encoding="utf-8",
+            )
+            manifest = base / "manifest.jsonl"
+
+            analysis = ai_index.ImageAnalysis(
+                image_path=image,
+                people_names=[],
+                object_labels=[],
+                ocr_text="hello",
+                ocr_keywords=["hello"],
+                subjects=["hello"],
+                description="Updated description",
+                payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {"engine": "none", "language": "eng", "keywords": ["hello"], "chars": 5},
+                    "caption": {"engine": "template"},
+                },
+            )
+
+            with (
+                mock.patch.object(ai_index, "prepare_image_layout", side_effect=lambda *args, **kwargs: self._mock_layout(image)),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis) as analysis_mock,
+                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--manifest",
+                        str(manifest),
+                        "--include-view",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "none",
+                        "--caption-engine",
+                        "template",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            analysis_mock.assert_called_once()
+            write_mock.assert_called_once()
 
     def test_run_rewrites_sidecar_when_image_is_newer(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -399,6 +586,60 @@ class TestAIIndex(unittest.TestCase):
             rows = ai_index.load_manifest(manifest)
             self.assertEqual(rows[str(image)]["cast_store_signature"], "sig-final")
 
+    def test_run_enqueues_unmatched_face_in_cast_queue(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            photos = base / "Family_View"
+            photos.mkdir()
+            image = photos / "a.jpg"
+            frame = np.zeros((120, 120, 3), dtype=np.uint8)
+            cv2.rectangle(frame, (10, 10), (70, 70), (220, 220, 220), -1)
+            cv2.imwrite(str(image), frame)
+            manifest = base / "manifest.jsonl"
+            cast_store = base / "cast_data"
+            store = TextFaceStore(cast_store)
+            store.ensure_files()
+            matcher = CastPeopleMatcher(cast_store_dir=cast_store, max_faces=1)
+
+            with (
+                mock.patch.object(ai_index, "_init_people_matcher", return_value=matcher),
+                mock.patch.object(ai_index, "prepare_image_layout", side_effect=lambda *args, **kwargs: self._mock_layout(image)),
+                mock.patch.object(ai_index, "read_embedded_source_text", return_value=""),
+                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+                mock.patch.object(matcher, "_detect_faces", return_value=[(10, 10, 40, 40)]),
+                mock.patch.object(matcher._ingestor, "is_valid_face_crop", return_value=True),
+                mock.patch.object(matcher, "_arcface_embed", return_value=[1.0, 0.0, 0.0]),
+                mock.patch.object(matcher, "_estimate_quality", return_value=0.93),
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--cast-store",
+                        str(cast_store),
+                        "--manifest",
+                        str(manifest),
+                        "--include-view",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "none",
+                        "--caption-engine",
+                        "template",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            write_mock.assert_called_once()
+
+            faces = store.list_faces()
+            reviews = store.list_review_items()
+
+            self.assertEqual(len(faces), 1)
+            self.assertEqual(str(faces[0]["source_path"]), str(image))
+            self.assertEqual(len(reviews), 1)
+            self.assertEqual(str(reviews[0]["face_id"]), str(faces[0]["face_id"]))
+            self.assertEqual(str(reviews[0]["status"]), "pending")
+
     def test_run_stdout_prints_caption_only_and_skips_writes(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
@@ -480,7 +721,7 @@ class TestAIIndex(unittest.TestCase):
                         "effective_engine": "template",
                         "fallback": True,
                         "error": "model offline",
-                        "model": "Qwen/Qwen3.5-4B",
+                        "model": "Qwen/Qwen2.5-VL-3B-Instruct",
                     },
                 },
             )
@@ -624,7 +865,7 @@ class TestAIIndex(unittest.TestCase):
                         "effective_engine": "qwen",
                         "fallback": False,
                         "error": "",
-                        "model": "Qwen/Qwen3.5-4B",
+                        "model": "Qwen/Qwen2.5-VL-3B-Instruct",
                     },
                 },
             )
@@ -671,6 +912,7 @@ class TestAIIndex(unittest.TestCase):
                 people=[],
                 objects=[],
                 ocr_text="",
+                source_path=image,
             )
             print_mock.assert_called_once_with("Family_1986_B02_P01.jpg: Describe this page exactly")
 
@@ -787,9 +1029,9 @@ class TestAIIndex(unittest.TestCase):
         self.assertEqual(args.qwen_min_pixels, 131072)
         self.assertEqual(args.qwen_max_pixels, 524288)
 
-    def test_parse_args_defaults_use_blip_and_docstrange(self):
+    def test_parse_args_defaults_use_qwen_and_docstrange(self):
         args = ai_index.parse_args([])
-        self.assertEqual(args.caption_engine, "blip")
+        self.assertEqual(args.caption_engine, "qwen")
         self.assertEqual(args.caption_model, "")
         self.assertEqual(args.caption_prompt, "")
         self.assertEqual(args.caption_prompt_file, "")

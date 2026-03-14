@@ -64,6 +64,9 @@ Run photoalbums workflows only via:
 All `photoalbums/lib/*.py` modules are internal libraries, not user entrypoint scripts.
 Also do not run `photoalbums/cli.py` or `photoalbums/commands.py` directly.
 
+The photoalbums AI index has built-in Audrey/Leslie Cordell album hints:
+`Family*` collections are described as `Family Photo Album`, geography-named collections are described as `Photo Essay`, and likely blue/white title covers with matching OCR are treated as album cover/title pages.
+
 ## Structure
 
 ```

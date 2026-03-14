@@ -9,11 +9,14 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..naming import parse_album_filename
 from .model_store import HF_MODEL_CACHE_DIR
 
 
-DEFAULT_BLIP_CAPTION_MODEL = "Salesforce/blip-image-captioning-base"
-DEFAULT_QWEN_CAPTION_MODEL = "Qwen/Qwen3.5-4B"
+DEFAULT_QWEN_CAPTION_MODEL = "Qwen/Qwen2.5-VL-3B-Instruct"
+LEGACY_QWEN_CAPTION_MODEL_ALIASES = {
+    "qwen/qwen3.5-4b": DEFAULT_QWEN_CAPTION_MODEL,
+}
 DEFAULT_QWEN_AUTO_MAX_IMAGE_EDGE = 1280
 DEFAULT_QWEN_AUTO_MAX_PIXELS = 786_432
 DEFAULT_LMSTUDIO_MAX_NEW_TOKENS = 256
@@ -33,6 +36,32 @@ LMSTUDIO_VISION_MODEL_HINTS = (
     "qvq",
 )
 QWEN_ATTN_IMPLEMENTATIONS = {"auto", "sdpa", "flash_attention_2", "eager"}
+ALBUM_KIND_FAMILY = "family_photo_album"
+ALBUM_KIND_PHOTO_ESSAY = "photo_essay"
+_ALBUM_REGION_HINTS = (
+    ("eastern europe", "Eastern Europe"),
+    ("south america", "South America"),
+    ("panama canal", "Panama Canal"),
+    ("china", "China"),
+    ("egypt", "Egypt"),
+    ("england", "England"),
+    ("europe", "Europe"),
+    ("italy", "Italy"),
+    ("morocco", "Morocco"),
+    ("mexico", "Mexico"),
+    ("orient", "Orient"),
+    ("panama", "Panama"),
+    ("portugal", "Portugal"),
+    ("russia", "Russia"),
+    ("spain", "Spain"),
+)
+
+
+@dataclass(frozen=True)
+class AlbumContext:
+    kind: str = ""
+    label: str = ""
+    focus: str = ""
 
 
 def clean_text(value: str) -> str:
@@ -65,6 +94,157 @@ def dedupe(values: list[str]) -> list[str]:
     return out
 
 
+def _split_camel_case(value: str) -> str:
+    return re.sub(r"(?<=[a-z])(?=[A-Z])", " ", str(value or ""))
+
+
+def _humanize_hint_text(value: str) -> str:
+    return clean_text(_split_camel_case(value).replace("_", " ").replace("-", " "))
+
+
+def _normalized_hint_text(value: str) -> str:
+    return _humanize_hint_text(value).casefold()
+
+
+def _extract_collection_hint(image_path: str | Path | None) -> str:
+    if image_path is None:
+        return ""
+    path = Path(image_path)
+    if path.name:
+        collection, _year, _book, _page = parse_album_filename(path.name)
+        if collection != "Unknown":
+            return _humanize_hint_text(collection)
+    for candidate in (path.parent.name, path.parent.parent.name if path.parent != path else ""):
+        text = str(candidate or "").strip()
+        if not text:
+            continue
+        if text.lower().startswith("imago-page-"):
+            continue
+        for suffix in ("_Archive", "_View"):
+            if text.endswith(suffix):
+                text = text[: -len(suffix)]
+                break
+        collection, _year, _book, _page = parse_album_filename(text)
+        if collection != "Unknown":
+            return _humanize_hint_text(collection)
+        match = re.search(r"(?P<collection>.+?)_\d{4}(?:-\d{4})?_B", text, flags=re.IGNORECASE)
+        if match:
+            return _humanize_hint_text(match.group("collection"))
+        if text.casefold() not in {"photo albums", "photoalbums"}:
+            return _humanize_hint_text(text)
+    return ""
+
+
+def _find_region_hints(*values: str) -> list[str]:
+    haystack = " ".join(_normalized_hint_text(value) for value in values if str(value or "").strip())
+    if not haystack:
+        return []
+    matches: list[str] = []
+    seen: set[str] = set()
+    for needle, label in _ALBUM_REGION_HINTS:
+        pattern = rf"(?<![a-z]){re.escape(needle)}(?![a-z])"
+        if not re.search(pattern, haystack):
+            continue
+        key = label.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        matches.append(label)
+    return matches
+
+
+def infer_album_context(
+    *,
+    image_path: str | Path | None = None,
+    ocr_text: str = "",
+    allow_ocr: bool = True,
+) -> AlbumContext:
+    collection_hint = _extract_collection_hint(image_path)
+    path_hint = _humanize_hint_text(str(image_path or ""))
+    signals = [collection_hint, path_hint]
+    if allow_ocr:
+        signals.append(ocr_text)
+    normalized = " ".join(_normalized_hint_text(value) for value in signals if str(value or "").strip())
+    if not normalized:
+        return AlbumContext()
+    if re.search(r"(?<![a-z])family(?![a-z])", normalized):
+        return AlbumContext(
+            kind=ALBUM_KIND_FAMILY,
+            label="Family Photo Album",
+            focus="Family",
+        )
+    region_hints = _find_region_hints(*signals)
+    if region_hints:
+        return AlbumContext(
+            kind=ALBUM_KIND_PHOTO_ESSAY,
+            label="Photo Essay",
+            focus=join_human(region_hints),
+        )
+    return AlbumContext()
+
+
+def _should_apply_album_prompt_rules(source_path: str | Path | None, album_context: AlbumContext) -> bool:
+    if album_context.kind:
+        return True
+    if source_path is None:
+        return False
+    joined = " ".join(str(part or "").casefold() for part in Path(source_path).parts)
+    return "photo albums" in joined or "cordell" in joined
+
+
+def _looks_like_uniform_cover_color(image_path: str | Path) -> bool:
+    try:
+        import cv2  # pylint: disable=import-outside-toplevel
+        import numpy as np  # pylint: disable=import-outside-toplevel
+    except Exception:
+        return False
+
+    image = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
+    if image is None or image.size == 0:
+        return False
+
+    height, width = image.shape[:2]
+    longest = max(height, width)
+    if longest > 512:
+        scale = 512.0 / float(longest)
+        resized = cv2.resize(
+            image,
+            (
+                max(1, int(round(width * scale))),
+                max(1, int(round(height * scale))),
+            ),
+            interpolation=cv2.INTER_AREA,
+        )
+    else:
+        resized = image
+
+    pixels = resized.reshape(-1, 3).astype("float32")
+    if pixels.size == 0:
+        return False
+
+    mean = pixels.mean(axis=0)
+    delta = np.abs(pixels - mean)
+    uniform_ratio = float((delta.max(axis=1) <= 45.0).mean())
+    blue_dominant = bool(mean[0] >= 95.0 and mean[0] >= mean[1] + 18.0 and mean[0] >= mean[2] + 18.0)
+    white_dominant = bool(float(mean.min()) >= 170.0)
+    return uniform_ratio >= 0.72 and (blue_dominant or white_dominant)
+
+
+def looks_like_album_cover(
+    image_path: str | Path,
+    *,
+    ocr_text: str,
+    album_context: AlbumContext | None = None,
+) -> bool:
+    text = clean_text(ocr_text)
+    if not text:
+        return False
+    context = album_context or infer_album_context(image_path=image_path, ocr_text=text, allow_ocr=True)
+    if not context.kind:
+        return False
+    return _looks_like_uniform_cover_color(image_path)
+
+
 def build_template_caption(*, people: list[str], objects: list[str], ocr_text: str) -> str:
     people_list = dedupe(people)
     object_list = dedupe(objects)
@@ -88,13 +268,28 @@ def build_template_caption(*, people: list[str], objects: list[str], ocr_text: s
     return " ".join(parts).strip()
 
 
-def build_page_caption(*, photo_count: int, people: list[str], objects: list[str], ocr_text: str) -> str:
+def build_page_caption(
+    *,
+    photo_count: int,
+    people: list[str],
+    objects: list[str],
+    ocr_text: str,
+    album_context: AlbumContext | None = None,
+) -> str:
     count = max(1, int(photo_count))
     people_list = dedupe(people)
     object_list = dedupe(objects)
     text = clean_text(ocr_text)
+    context = album_context or AlbumContext()
 
-    parts = [f"This album page contains {count} photo(s)."]
+    if context.kind == ALBUM_KIND_FAMILY:
+        parts = [f"This Family Photo Album page contains {count} photo(s)."]
+    elif context.kind == ALBUM_KIND_PHOTO_ESSAY:
+        parts = [f"This Photo Essay page contains {count} photo(s)."]
+    else:
+        parts = [f"This album page contains {count} photo(s)."]
+    if context.kind == ALBUM_KIND_PHOTO_ESSAY and context.focus:
+        parts.append(f"The album title suggests {context.focus}.")
     if people_list and object_list:
         parts.append(
             f"Across the page, it appears to show {join_human(people_list)} with {join_human(object_list)} in view."
@@ -112,13 +307,55 @@ def build_page_caption(*, photo_count: int, people: list[str], objects: list[str
     return " ".join(parts).strip()
 
 
-def _build_qwen_prompt(*, people: list[str], objects: list[str], ocr_text: str) -> str:
+def build_cover_page_caption(*, ocr_text: str, album_context: AlbumContext | None = None) -> str:
+    text = clean_text(ocr_text)
+    context = album_context or AlbumContext()
+    if context.kind == ALBUM_KIND_FAMILY:
+        parts = ["This appears to be the cover or title page of a Family Photo Album."]
+    elif context.kind == ALBUM_KIND_PHOTO_ESSAY:
+        parts = ["This appears to be the cover or title page of a Photo Essay."]
+        if context.focus:
+            parts.append(f"The title suggests {context.focus}.")
+    else:
+        parts = ["This appears to be the cover or title page of the album book."]
+    if text:
+        snippet = text[:220].strip()
+        if len(text) > len(snippet):
+            snippet += "..."
+        parts.append(f'Visible title text reads: "{snippet}".')
+    return " ".join(parts).strip()
+
+
+def _build_qwen_prompt(
+    *,
+    people: list[str],
+    objects: list[str],
+    ocr_text: str,
+    source_path: str | Path | None = None,
+) -> str:
     people_list = dedupe(people)
     object_list = dedupe(objects)
     text = clean_text(ocr_text)
+    context = infer_album_context(image_path=source_path, ocr_text=ocr_text, allow_ocr=True)
     lines = [
         "Describe this photo in detail",
     ]
+    if source_path is not None:
+        path = Path(source_path)
+        lines.append(f"Filename hint: {path.name}.")
+        if path.parent.name:
+            lines.append(f"Folder hint: {path.parent.name}.")
+    if _should_apply_album_prompt_rules(source_path, context):
+        lines.append("Cordell Photo Albums rules:")
+        lines.append("- If the folder or file name contains Family, describe it as a Family Photo Album.")
+        lines.append("- If the folder or file name contains a country or region name, describe it as a Photo Essay.")
+        lines.append(
+            "- If the image is mostly a solid blue or white cover with title text naming a country, region, or family, describe it as the cover of the photo album book."
+        )
+        if context.label:
+            lines.append(f"Album classification hint: {context.label}.")
+        if context.focus and context.kind == ALBUM_KIND_PHOTO_ESSAY:
+            lines.append(f"Album focus hint: {context.focus}.")
     if people_list:
         lines.append(f"Known people matches: {join_human(people_list)}.")
     if object_list:
@@ -151,13 +388,17 @@ def _normalize_caption(value: str) -> str:
 
 def resolve_caption_model(engine: str, model_name: str) -> str:
     normalized = str(engine or "").strip().lower()
+    if normalized == "blip":
+        normalized = "qwen"
     text = str(model_name or "").strip()
+    if text and normalized == "qwen":
+        alias = LEGACY_QWEN_CAPTION_MODEL_ALIASES.get(text.casefold())
+        if alias:
+            return alias
     if text:
         return text
     if normalized == "qwen":
         return DEFAULT_QWEN_CAPTION_MODEL
-    if normalized == "blip":
-        return DEFAULT_BLIP_CAPTION_MODEL
     return ""
 
 
@@ -355,8 +596,14 @@ class LMStudioCaptioner:
         people: list[str],
         objects: list[str],
         ocr_text: str,
+        source_path: str | Path | None = None,
     ) -> str:
-        prompt = self.prompt_text or _build_qwen_prompt(people=people, objects=objects, ocr_text=ocr_text)
+        prompt = self.prompt_text or _build_qwen_prompt(
+            people=people,
+            objects=objects,
+            ocr_text=ocr_text,
+            source_path=source_path or image_path,
+        )
         resize_edge = int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
         image_url = _build_data_url(image_path, resize_edge)
         payload = {
@@ -384,79 +631,6 @@ class LMStudioCaptioner:
             return ""
         message = dict(choices[0].get("message") or {})
         return _normalize_caption(_decode_lmstudio_text(message.get("content")))
-
-
-class BlipLocalCaptioner:
-    def __init__(
-        self,
-        *,
-        model_name: str = DEFAULT_BLIP_CAPTION_MODEL,
-        max_new_tokens: int = 64,
-        max_image_edge: int = 0,
-    ):
-        self.model_name = resolve_caption_model("blip", model_name)
-        self.max_new_tokens = max(8, int(max_new_tokens))
-        self.max_image_edge = max(0, int(max_image_edge))
-        self._processor = None
-        self._model = None
-        self._torch = None
-        self._device = "cpu"
-
-    def _ensure_loaded(self) -> None:
-        if self._processor is not None and self._model is not None:
-            return
-        try:
-            import torch  # pylint: disable=import-outside-toplevel
-            from transformers import (  # pylint: disable=import-outside-toplevel
-                BlipForConditionalGeneration,
-                BlipProcessor,
-            )
-        except Exception as exc:
-            raise RuntimeError(
-                "BLIP captioning requires transformers and torch. Install with: pip install transformers torch"
-            ) from exc
-
-        HF_MODEL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        cache_dir = str(HF_MODEL_CACHE_DIR)
-        self._processor = BlipProcessor.from_pretrained(self.model_name, cache_dir=cache_dir)
-        self._model = BlipForConditionalGeneration.from_pretrained(self.model_name, cache_dir=cache_dir)
-        self._model.eval()
-        self._torch = torch
-        if torch.cuda.is_available():
-            self._device = "cuda"
-            self._model = self._model.to(self._device)
-
-    def describe(
-        self,
-        image_path: str | Path,
-        *,
-        people: list[str],
-        objects: list[str],
-        ocr_text: str,
-    ) -> str:
-        del people, objects, ocr_text
-        self._ensure_loaded()
-        from PIL import Image  # pylint: disable=import-outside-toplevel
-
-        image = Image.open(str(image_path)).convert("RGB")
-        try:
-            working_image = _resize_caption_image(image, self.max_image_edge)
-            inputs = self._processor(images=working_image, return_tensors="pt")
-            for key, value in list(inputs.items()):
-                if hasattr(value, "to"):
-                    inputs[key] = value.to(self._device)
-            with self._torch.inference_mode():
-                generated_ids = self._model.generate(
-                    **inputs,
-                    max_new_tokens=self.max_new_tokens,
-                    num_beams=3,
-                )
-            decoded = self._processor.batch_decode(generated_ids, skip_special_tokens=True)
-            return _normalize_caption(decoded[0] if decoded else "")
-        finally:
-            if "working_image" in locals() and working_image is not image:
-                working_image.close()
-            image.close()
 
 
 class QwenLocalCaptioner:
@@ -569,11 +743,17 @@ class QwenLocalCaptioner:
         people: list[str],
         objects: list[str],
         ocr_text: str,
+        source_path: str | Path | None = None,
     ) -> str:
         self._ensure_loaded()
         from PIL import Image  # pylint: disable=import-outside-toplevel
 
-        prompt = self.prompt_text or _build_qwen_prompt(people=people, objects=objects, ocr_text=ocr_text)
+        prompt = self.prompt_text or _build_qwen_prompt(
+            people=people,
+            objects=objects,
+            ocr_text=ocr_text,
+            source_path=source_path or image_path,
+        )
         image = Image.open(str(image_path)).convert("RGB")
         try:
             resize_edge = int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_QWEN_AUTO_MAX_IMAGE_EDGE)
@@ -658,7 +838,7 @@ class CaptionEngine:
     def __init__(
         self,
         *,
-        engine: str = "blip",
+        engine: str = "qwen",
         model_name: str = "",
         caption_prompt: str = "",
         max_tokens: int = 96,
@@ -670,8 +850,10 @@ class CaptionEngine:
         max_image_edge: int = 0,
         fallback_to_template: bool = True,
     ):
-        normalized = str(engine or "blip").strip().lower()
-        if normalized not in {"none", "template", "blip", "qwen", "lmstudio"}:
+        normalized = str(engine or "qwen").strip().lower()
+        if normalized == "blip":
+            normalized = "qwen"
+        if normalized not in {"none", "template", "qwen", "lmstudio"}:
             raise ValueError(f"Unsupported caption engine: {engine}")
         self.engine = normalized
         self.fallback_to_template = bool(fallback_to_template)
@@ -693,6 +875,7 @@ class CaptionEngine:
         people: list[str],
         objects: list[str],
         ocr_text: str,
+        source_path: str | Path | None = None,
     ) -> CaptionOutput:
         template = build_template_caption(people=people, objects=objects, ocr_text=ocr_text)
         if self.engine == "none":
@@ -700,13 +883,7 @@ class CaptionEngine:
         if self.engine == "template":
             return CaptionOutput(text=template, engine="template")
         if self._captioner is None:
-            if self.engine == "blip":
-                self._captioner = BlipLocalCaptioner(
-                    model_name=self._model_name,
-                    max_new_tokens=self._max_tokens,
-                    max_image_edge=self._max_image_edge,
-                )
-            elif self.engine == "lmstudio":
+            if self.engine == "lmstudio":
                 self._captioner = LMStudioCaptioner(
                     model_name=self._model_name,
                     prompt_text=self._caption_prompt,
@@ -732,6 +909,7 @@ class CaptionEngine:
                 people=people,
                 objects=objects,
                 ocr_text=ocr_text,
+                source_path=source_path or image_path,
             )
             if caption:
                 return CaptionOutput(text=caption, engine=self.engine)
