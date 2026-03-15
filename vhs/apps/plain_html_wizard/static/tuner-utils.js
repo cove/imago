@@ -865,6 +865,7 @@ function setStep(step) {
   if (subtitlesEditorEl) subtitlesEditorEl.classList.toggle('hidden-ui', !subtitlesMode);
   if (splitEditorEl) splitEditorEl.classList.toggle('hidden-ui', !splitMode);
   if (page2El) page2El.classList.toggle('bad-frame-step', targetStep.mode === 'review');
+  if (page2El) page2El.classList.toggle('audio-sync-step', audioSyncMode);
   if (flipbookGammaControlsEl) flipbookGammaControlsEl.classList.toggle('hidden-ui', !gammaMode);
   if (flipbookSimFreezeWrapEl) flipbookSimFreezeWrapEl.classList.toggle('hidden-ui', gammaMode);
 

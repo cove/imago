@@ -2774,10 +2774,15 @@ class WizardHandler(BaseHTTPRequestHandler):
             data_url = _lookup_frame_image_data_url(session, int(raw_fid))
             decoded = _decode_frame_image_data_url(data_url)
             if decoded is None:
-                # Thumbnail not in session cache — fetch on-demand from video (same path as contact sheet)
+                # Thumbnail not in session cache — fetch on-demand from video
                 fid_images = _load_contact_sheet_images_from_video(session, [int(raw_fid)])
-                data_url = str(fid_images.get(int(raw_fid), "") or "")
-                decoded = _decode_frame_image_data_url(data_url)
+                fid_result = fid_images.get(int(raw_fid))
+                if isinstance(fid_result, Image.Image):
+                    out_buf = io.BytesIO()
+                    fid_result.save(out_buf, format="JPEG", quality=85)
+                    decoded = ("image/jpeg", out_buf.getvalue())
+                elif isinstance(fid_result, str):
+                    decoded = _decode_frame_image_data_url(fid_result)
             if decoded is None:
                 self._send_error_json("Frame image is not available.", code=HTTPStatus.NOT_FOUND)
                 return

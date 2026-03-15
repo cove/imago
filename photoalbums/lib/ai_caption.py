@@ -1295,6 +1295,13 @@ def _parse_lmstudio_structured_caption_payload(
             "Check that the loaded model supports structured output and that the LM Studio server is current."
             f"{finish_note}"
         )
+    # Strip <think>...</think> blocks produced by reasoning models so that intermediate
+    # JSON objects inside the thinking block are not mistaken for the structured response.
+    # If stripping empties the text, keep the original so _extract_structured_json_payload
+    # can still find JSON embedded inside an unclosed <think> block.
+    stripped = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
+    if stripped:
+        text = stripped
     try:
         payload = json.loads(text)
     except json.JSONDecodeError as exc:

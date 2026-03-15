@@ -1,5 +1,5 @@
 // audio-sync.js — Audio Sync step logic (Step 3)
-// Depends on: tuner-init.js (state, api), tuner-utils.js (api), viewer.js (_clamp)
+// Depends on: tuner-init.js (state, api), tuner-utils.js (api), viewer.js (renderFrameToCanvas, flipbookIndexFromChapterSeconds)
 
 'use strict';
 
@@ -12,6 +12,7 @@ const audioSyncPanelEl = document.getElementById('audioSyncPanel');
 const audioSyncWaveEl = document.getElementById('audioSyncWave');
 const audioSyncPlayheadEl = document.getElementById('audioSyncPlayhead');
 const audioSyncWindowEl = document.getElementById('audioSyncWindow');
+const audioSyncFrameEl = document.getElementById('audioSyncFrame');
 const audioSyncPlayBtnEl = document.getElementById('audioSyncPlayBtn');
 const audioSyncMetaEl = document.getElementById('audioSyncMeta');
 const audioSyncAudioEl = document.getElementById('audioSyncAudio');
@@ -32,7 +33,6 @@ let audioSyncTotalDurationSec = 0;   // duration of the buffered WAV file
 let audioSyncVideoOffsetSec = 0;     // seconds into the WAV where chapter video starts
 let audioSyncChapterDurationSec = 0; // duration of the chapter video
 let audioSyncPadSeconds = 5.0;       // pad amount on each side (from server)
-let audioSyncWaveformRaf = null;
 let audioSyncDrawPending = false;
 
 // ---------------------------------------------------------------------------
@@ -103,10 +103,6 @@ function drawAudioSyncWaveform() {
   // Window shading: the region of the audio that aligns with chapter video at current offset
   if (audioSyncTotalDurationSec > 0) {
     const offset = audioSyncOffsetSeconds();
-    // The chapter video plays from audioSyncVideoOffsetSec into the audio file.
-    // With a positive offset we delay audio: the chapter maps to a later portion.
-    // Window = [videoOffsetSec + offset, videoOffsetSec + offset + chapterDuration]
-    // But clamped to [0, totalDuration].
     const winStart = _audioSyncClamp(audioSyncVideoOffsetSec + offset, 0, audioSyncTotalDurationSec);
     const winEnd = _audioSyncClamp(winStart + audioSyncChapterDurationSec, 0, audioSyncTotalDurationSec);
     const x1 = (winStart / audioSyncTotalDurationSec) * wCss;
@@ -165,6 +161,54 @@ function updateAudioSyncPlayhead() {
   const t = Number(audioSyncAudioEl.currentTime || 0);
   const frac = _audioSyncClamp(t / audioSyncTotalDurationSec, 0, 1);
   audioSyncPlayheadEl.style.left = `${(frac * 100).toFixed(3)}%`;
+}
+
+// ---------------------------------------------------------------------------
+// Inline video frame display
+// ---------------------------------------------------------------------------
+function _audioSyncChapterSecondsFromAudioTime(audioTime) {
+  const offset = audioSyncOffsetSeconds();
+  return Math.max(0, Number(audioTime) - (audioSyncVideoOffsetSec + offset));
+}
+
+let _audioSyncFrameSeq = 0;
+
+function _loadAudioSyncFrame(fid) {
+  if (!audioSyncFrameEl) return;
+  const seq = ++_audioSyncFrameSeq;
+  const src = `/api/frame_image?fid=${Math.trunc(Number(fid))}`;
+  const img = new Image();
+  img.onload = () => {
+    if (seq !== _audioSyncFrameSeq) return; // stale — a newer frame was requested
+    const ctx = audioSyncFrameEl.getContext('2d');
+    if (ctx) {
+      ctx.clearRect(0, 0, audioSyncFrameEl.width, audioSyncFrameEl.height);
+      ctx.drawImage(img, 0, 0, audioSyncFrameEl.width, audioSyncFrameEl.height);
+    }
+  };
+  img.src = src;
+}
+
+function _audioSyncFidFromChapterSec(chapterSec) {
+  if (typeof chapterFrameSpan !== 'function') return null;
+  const span = chapterFrameSpan();
+  if (!span || span.start === undefined) return null;
+  const fps = TIMELINE_FPS_NUM / TIMELINE_FPS_DEN;
+  return Math.max(span.start, Math.min(span.end - 1, Math.round(span.start + chapterSec * fps)));
+}
+
+function updateAudioSyncVideoFrame() {
+  if (!audioSyncFrameEl) return;
+  const audioTime = Number((audioSyncAudioEl && audioSyncAudioEl.currentTime) || 0);
+  const chapterSec = _audioSyncChapterSecondsFromAudioTime(audioTime);
+  const fid = _audioSyncFidFromChapterSec(chapterSec);
+  if (fid !== null) _loadAudioSyncFrame(fid);
+}
+
+function showAudioSyncFrameAtChapterStart() {
+  if (!audioSyncFrameEl) return;
+  const fid = _audioSyncFidFromChapterSec(0);
+  if (fid !== null) _loadAudioSyncFrame(fid);
 }
 
 // ---------------------------------------------------------------------------
@@ -363,7 +407,9 @@ async function openAudioSyncStep() {
   showAudioSyncStep();
   updateAudioSyncOffsetLabel();
   scheduleAudioSyncDraw();
+  showAudioSyncFrameAtChapterStart();
   await loadAudioSyncAudio();
+  showAudioSyncFrameAtChapterStart(); // retry after load (audio info may update chapterStart)
   return true;
 }
 
@@ -373,15 +419,59 @@ async function openAudioSyncStep() {
 if (audioSyncAudioEl) {
   audioSyncAudioEl.addEventListener('timeupdate', () => {
     updateAudioSyncPlayhead();
+    updateAudioSyncVideoFrame();
   });
   audioSyncAudioEl.addEventListener('ended', () => {
     if (audioSyncPlayBtnEl) audioSyncPlayBtnEl.textContent = '▶';
     updateAudioSyncPlayhead();
+    showAudioSyncFrameAtChapterStart();
   });
   audioSyncAudioEl.addEventListener('pause', () => {
     if (audioSyncPlayBtnEl) audioSyncPlayBtnEl.textContent = '▶';
   });
 }
+
+// ---------------------------------------------------------------------------
+// Waveform click / drag seeking
+// ---------------------------------------------------------------------------
+let _audioSyncWaveDragging = false;
+
+function _audioSyncSeekFromClientX(clientX) {
+  if (!audioSyncWaveEl || audioSyncTotalDurationSec <= 0) return;
+  const rect = audioSyncWaveEl.getBoundingClientRect();
+  const frac = _audioSyncClamp((clientX - rect.left) / Math.max(1, rect.width), 0, 1);
+  if (audioSyncAudioEl) {
+    audioSyncAudioEl.currentTime = frac * audioSyncTotalDurationSec;
+  }
+  updateAudioSyncPlayhead();
+  updateAudioSyncVideoFrame();
+}
+
+if (audioSyncWaveEl) {
+  audioSyncWaveEl.addEventListener('mousedown', (e) => {
+    _audioSyncWaveDragging = true;
+    _audioSyncSeekFromClientX(e.clientX);
+    e.preventDefault();
+  });
+  audioSyncWaveEl.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    _audioSyncWaveDragging = true;
+    _audioSyncSeekFromClientX(e.touches[0].clientX);
+    e.preventDefault();
+  }, { passive: false });
+}
+
+window.addEventListener('mousemove', (e) => {
+  if (!_audioSyncWaveDragging) return;
+  _audioSyncSeekFromClientX(e.clientX);
+});
+window.addEventListener('mouseup', () => { _audioSyncWaveDragging = false; });
+window.addEventListener('touchmove', (e) => {
+  if (!_audioSyncWaveDragging || e.touches.length !== 1) return;
+  _audioSyncSeekFromClientX(e.touches[0].clientX);
+  e.preventDefault();
+}, { passive: false });
+window.addEventListener('touchend', () => { _audioSyncWaveDragging = false; });
 
 // ---------------------------------------------------------------------------
 // Button event listeners

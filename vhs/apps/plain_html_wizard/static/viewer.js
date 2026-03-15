@@ -924,6 +924,48 @@ function renderSparkPlaybackFrame(index, options = {}) {
   updateFlipbookControls();
 }
 
+// Render a chapter frame by index to an arbitrary canvas element.
+// Used by the audio sync step for its inline frame display.
+function renderFrameToCanvas(frameIndex, targetCanvas) {
+  if (!targetCanvas) return;
+  const frames = currentReviewFrames();
+  if (!frames.length) return;
+  const idx = _clamp(Math.round(Number(frameIndex)), 0, frames.length - 1);
+  const frame = frames[idx];
+  if (!frame) return;
+  const displayFid = frame.fid;
+  const _fIdx = _flipbookFrameGlobalIndex(displayFid);
+  const _sprite = _fIdx >= 0
+    ? frameContactSheetSpecForIndex(_fIdx, frameGridMetrics(frames.length))
+    : null;
+  const _sheetImg = _sprite
+    ? (frameSheetImageObjects.get(_sprite.url) || frameSheetPrefetchPending.get(_sprite.url))
+    : null;
+  const drawToCtx = (ctx, img, sx, sy, sw, sh) => {
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetCanvas.width, targetCanvas.height);
+  };
+  if (_sheetImg && _sheetImg.complete && _sheetImg.naturalWidth > 0) {
+    const ctx = targetCanvas.getContext('2d');
+    if (ctx) drawToCtx(ctx, _sheetImg, _sprite.col * _sprite.thumbWidth, _sprite.row * _sprite.thumbHeight, _sprite.thumbWidth, _sprite.thumbHeight);
+  } else {
+    const _anySheet = _findAnyLoadedSheetForFrameIndex(_fIdx);
+    if (_anySheet) {
+      const ctx = targetCanvas.getContext('2d');
+      if (ctx) drawToCtx(ctx, _anySheet.img, _anySheet.col * _anySheet.thumbWidth, _anySheet.row * _anySheet.thumbHeight, _anySheet.thumbWidth, _anySheet.thumbHeight);
+    } else {
+      const src = frameImageSrcForFid(String(displayFid ?? ''), frame.image);
+      if (src) {
+        const img = new Image();
+        img.onload = () => {
+          const ctx2 = targetCanvas.getContext('2d');
+          if (ctx2) ctx2.drawImage(img, 0, 0, targetCanvas.width, targetCanvas.height);
+        };
+        img.src = src;
+      }
+    }
+  }
+}
+
 function syncSparkPlayFramesFromGrid() {
   if (!sparkPlayFrames.length) return;
   const current = sparkPlayFrames[sparkPlayIndex] || null;
@@ -1234,6 +1276,7 @@ function toggleSparkWindowPlayback() {
 
 async function closeFlipbookPanel() {
   stopSparkWindowPlayback();
+  setFlipbookVisible(false);
   setFlipbookFocusMode(false);
   await exitReviewFullscreenIfActive();
   updateFullscreenButton();
