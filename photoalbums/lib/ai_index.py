@@ -808,11 +808,7 @@ def _run_image_analysis(
         objects=object_labels,
         ocr_text=ocr_text,
     )
-    if people_matcher and hasattr(people_matcher, "queue_caption_unknown"):
-        people_matcher.queue_caption_unknown(
-            source_path=people_source_path or image_path,
-            caption=description,
-        )
+
     payload = {
         "people": [
             {
