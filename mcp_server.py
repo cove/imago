@@ -11,6 +11,7 @@ from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 
+from mcp_console import start_console
 from mcp_job_runner import JobRunner
 
 REPO_ROOT = Path(__file__).resolve().parent
@@ -25,6 +26,7 @@ MANIFEST_DEFAULT = str(REPO_ROOT / "photoalbums" / "data" / "ai_index_manifest.j
 
 mcp = FastMCP("imago")
 runner = JobRunner()
+start_console(runner)
 
 
 # ── Job management ─────────────────────────────────────────────────────────────
