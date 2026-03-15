@@ -631,174 +631,15 @@ def _build_qwen_prompt(
         if len(text) > len(snippet):
             snippet += "..."
         lines.append(f'OCR text hint: "{snippet}".')
-    lines.append("Return plain text only.")
+    lines.append("Output a JSON object only. No markdown, no labels, no text outside the JSON.")
+    lines.append('Use this exact schema: {"caption": "...", "location_name": "...", "gps_latitude": "...", "gps_longitude": "...", "translations": [{"original": "...", "english": "..."}]}')
+    lines.append("caption: a detailed description of the photo using only declarative statements.")
+    lines.append("location_name: a concise geocoding query like 'Mogao Caves, Dunhuang, Gansu, China', or empty string.")
+    lines.append("gps_latitude / gps_longitude: decimal degree strings only if exact coordinates are explicitly visible in the image or OCR text, otherwise empty strings.")
+    lines.append("translations: array of non-English text found in the image with English translations, or empty array.")
     return "\n".join(lines)
 
 
-_CAPTION_TAIL_MARKERS = (
-    "drafting the description:",
-    "drafting the caption:",
-    "final description:",
-    "final caption:",
-    "description:",
-    "caption:",
-)
-_CAPTION_REASONING_MARKERS = (
-    "the user wants",
-    "analyze the input data",
-    "visual analysis",
-    "synthesize the visual content",
-    "filename hint",
-    "folder hint",
-    "album title hint",
-    "ocr/text in image",
-    "ocr text hint",
-    "detected objects",
-    "album classification hint",
-    "album focus hint",
-    "cordell photo albums rules",
-    "based on the rules",
-    "i need to",
-    "i should",
-)
-
-_RAW_ALBUM_IDENTIFIER_RE = re.compile(
-    r"\b[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9-]+){2,}\b"
-)
-
-
-def _extract_caption_tail(value: str) -> str:
-    text = str(value or "")
-    lowered = text.casefold()
-    for marker in _CAPTION_TAIL_MARKERS:
-        idx = lowered.rfind(marker)
-        if idx == -1:
-            continue
-        tail = text[idx + len(marker) :].strip()
-        if tail:
-            return tail
-    return text
-
-
-def _looks_like_reasoning_or_prompt_echo(value: str) -> bool:
-    text = clean_text(value)
-    if not text:
-        return False
-    lowered = text.casefold()
-    marker_hits = sum(1 for marker in _CAPTION_REASONING_MARKERS if marker in lowered)
-    if marker_hits >= 2:
-        return True
-    if text.startswith(("**1.", "1.", "* **filename:**", "- **filename:**")):
-        return True
-    if re.search(r"(?:^|\s)(?:\*\*|\*|-)?\s*(?:filename|folder|ocr/text in image|detected objects)\s*:", lowered):
-        return True
-    if re.search(r"(?:^|\s)(?:\*\*|\*|-)?\s*(?:album classification hint|album focus hint)\s*:", lowered):
-        return True
-    return False
-
-
-def _normalize_caption(value: str) -> str:
-    text = str(value or "").strip()
-    if not text:
-        return ""
-    if text.lower().startswith("assistant:"):
-        text = text.split(":", 1)[1].strip()
-    if text.startswith("```"):
-        lines = text.splitlines()
-        if lines:
-            lines = lines[1:]
-        if lines and lines[-1].strip() == "```":
-            lines = lines[:-1]
-        text = "\n".join(lines).strip()
-    text = re.sub(
-        r"^\s*the user wants\b.*?(?:\n\s*\n|(?=\*\*1\.)|(?=1\.)|(?=\-\s)|(?=\*\s)|$)",
-        "",
-        text,
-        flags=re.IGNORECASE | re.DOTALL,
-    ).strip()
-    text = re.sub(r"^\s*<think>.*?</think>\s*", "", text, flags=re.DOTALL | re.IGNORECASE)
-    text = text.replace("<think>", " ").replace("</think>", " ")
-    tail = _extract_caption_tail(text)
-    if tail != text:
-        text = tail
-    text = clean_text(text)
-    if _looks_like_reasoning_or_prompt_echo(text):
-        return ""
-    return text
-
-
-def _normalize_caption_style(
-    text: str,
-    *,
-    source_path: str | Path | None = None,
-    album_title: str = "",
-    printed_album_title: str = "",
-) -> str:
-    value = clean_text(text)
-    if not value:
-        return ""
-    replacements = (
-        (r"\bThis appears to be\b", "This is"),
-        (r"\bit appears to show\b", "it shows"),
-        (r"\bappears to show\b", "shows"),
-        (r"\bappears to depict\b", "depicts"),
-        (r"\bappears to feature\b", "features"),
-        (r"\bappears to contain\b", "contains"),
-        (r"\bappears to be\b", "is"),
-        (r"\bseems to show\b", "shows"),
-        (r"\bseems to depict\b", "depicts"),
-        (r"\bseems to be\b", "is"),
-        (r"\blikely shows\b", "shows"),
-    )
-    for pattern, replacement in replacements:
-        value = re.sub(pattern, replacement, value, flags=re.IGNORECASE)
-
-    resolved_canonical_title = clean_text(album_title) or infer_album_title(image_path=source_path)
-    preferred_album_title = clean_text(printed_album_title) or resolved_canonical_title
-    candidate_tokens: list[str] = []
-    if source_path is not None:
-        path = Path(source_path)
-        candidate_tokens.extend(
-            [
-                path.name,
-                path.stem,
-                path.parent.name,
-                path.parent.name.removesuffix("_Archive").removesuffix("_View"),
-            ]
-        )
-    for raw in candidate_tokens:
-        token = str(raw or "").strip()
-        if not token:
-            continue
-        if preferred_album_title:
-            value = re.sub(re.escape(token), preferred_album_title, value, flags=re.IGNORECASE)
-        else:
-            value = re.sub(re.escape(token), _humanize_hint_text(token), value, flags=re.IGNORECASE)
-
-    if (
-        preferred_album_title
-        and resolved_canonical_title
-        and preferred_album_title.casefold() != resolved_canonical_title.casefold()
-    ):
-        value = re.sub(re.escape(resolved_canonical_title), preferred_album_title, value, flags=re.IGNORECASE)
-        collection_hint = _extract_collection_hint(source_path)
-        book_match = re.search(r"\bBook\s+([A-Z0-9]+)\b", resolved_canonical_title, flags=re.IGNORECASE)
-        if collection_hint and book_match:
-            collection_variant = f"{collection_hint} Book {str(book_match.group(1) or '').strip()}"
-            value = re.sub(rf"\b{re.escape(collection_variant)}\b", preferred_album_title, value, flags=re.IGNORECASE)
-
-    if preferred_album_title:
-        value = _RAW_ALBUM_IDENTIFIER_RE.sub(
-            lambda match: preferred_album_title if re.search(r"_\d{4}(?:-\d{4})?_B\d{2}", match.group(0)) else match.group(0),
-            value,
-        )
-        value = re.sub(
-            rf"\b{re.escape(preferred_album_title)}\s+album\b",
-            preferred_album_title,
-            value,
-            flags=re.IGNORECASE,
-        )
-    return clean_text(value)
 
 
 def _build_combined_qwen_prompt(
@@ -887,49 +728,14 @@ def _build_combined_qwen_prompt(
         lines.append(f"Known people: {join_human(people_list)}.")
     if object_list:
         lines.append(f"Detected objects: {join_human(object_list)}.")
-    lines.append("Reply using exactly this format:")
-    lines.append("TEXT:")
-    lines.append("<visible text or leave blank>")
-    lines.append("DESCRIPTION:")
-    lines.append("<one sentence>")
+    lines.append("Output a JSON object only. No markdown, no labels, no text outside the JSON.")
+    lines.append('Use this exact schema: {"ocr_text": "...", "caption": "...", "location_name": "...", "gps_latitude": "...", "gps_longitude": "..."}')
+    lines.append("ocr_text: all visible text in the image exactly as shown, or empty string if none.")
+    lines.append("caption: one sentence describing the scene using only declarative statements.")
+    lines.append("location_name: a concise geocoding query, or empty string if unknown.")
+    lines.append("gps_latitude / gps_longitude: decimal degree strings only if explicitly visible, otherwise empty strings.")
     return "\n".join(lines)
 
-
-def _parse_combined_qwen_output(raw: str) -> tuple[str, str]:
-    """Parse a TEXT:/DESCRIPTION: response into (ocr_text, caption)."""
-    text = str(raw or "").strip()
-    if text.lower().startswith("assistant:"):
-        text = text.split(":", 1)[1].strip()
-    lines = text.splitlines()
-    text_start = -1
-    desc_start = -1
-    text_inline = ""
-    desc_inline = ""
-    for i, line in enumerate(lines):
-        stripped = line.strip()
-        upper = stripped.upper()
-        if upper.startswith("TEXT:") and text_start == -1:
-            text_start = i
-            text_inline = stripped[5:].strip()
-        elif upper.startswith("DESCRIPTION:") and desc_start == -1:
-            desc_start = i
-            desc_inline = stripped[12:].strip()
-    ocr_parts: list[str] = []
-    desc_parts: list[str] = []
-    if text_start == -1 and desc_start == -1:
-        return "", _normalize_caption(text)
-    if text_start != -1:
-        if text_inline:
-            ocr_parts.append(text_inline)
-        end = desc_start if desc_start != -1 and desc_start > text_start else len(lines)
-        ocr_parts.extend(lines[text_start + 1 : end])
-    if desc_start != -1:
-        if desc_inline:
-            desc_parts.append(desc_inline)
-        desc_parts.extend(lines[desc_start + 1 :])
-    ocr_text = _normalize_ocr_text("\n".join(ocr_parts).strip())
-    caption = _normalize_caption("\n".join(desc_parts).strip())
-    return ocr_text, caption
 
 
 def resolve_caption_model(engine: str, model_name: str) -> str:
@@ -1222,64 +1028,6 @@ def _normalize_gps_value(value: str, *, axis: str) -> str:
     return _format_decimal_coordinate(decimal)
 
 
-def _extract_caption_gps_coordinates(text: str) -> tuple[str, str]:
-    value = str(text or "")
-    if not value:
-        return "", ""
-    dms_matches = list(
-        re.finditer(
-            r"(?P<deg>\d{1,3})\s*[°º]\s*(?P<min>\d{1,2})\s*[′']\s*(?P<sec>\d{1,2}(?:\.\d+)?)?\s*[″\"]?\s*(?P<hem>[NSEW])",
-            value,
-            flags=re.IGNORECASE,
-        )
-    )
-    if len(dms_matches) >= 2:
-        lat = ""
-        lon = ""
-        for match in dms_matches:
-            raw = match.group(0)
-            hemisphere = str(match.group("hem") or "").upper()
-            normalized = _normalize_gps_value(raw, axis="lat" if hemisphere in {"N", "S"} else "lon")
-            if hemisphere in {"N", "S"} and not lat:
-                lat = normalized
-            if hemisphere in {"E", "W"} and not lon:
-                lon = normalized
-        if lat and lon:
-            return lat, lon
-    decimal_pair = re.search(
-        r"\b(?P<lat>[+-]?\d{1,2}(?:\.\d+)?)\s*,\s*(?P<lon>[+-]?\d{1,3}(?:\.\d+)?)\b",
-        value.replace("−", "-"),
-    )
-    if decimal_pair:
-        return (
-            _normalize_gps_value(str(decimal_pair.group("lat") or ""), axis="lat"),
-            _normalize_gps_value(str(decimal_pair.group("lon") or ""), axis="lon"),
-        )
-    return "", ""
-
-
-def _compose_model_caption(
-    caption: str,
-    *,
-    translations: list[tuple[str, str]] | None = None,
-    source_path: str | Path | None = None,
-    album_title: str = "",
-    printed_album_title: str = "",
-) -> str:
-    text = _normalize_caption(caption)
-    text = _normalize_caption_style(
-        text,
-        source_path=source_path,
-        album_title=album_title,
-        printed_album_title=printed_album_title,
-    )
-    note = _build_translation_note(text, list(translations or []))
-    if note:
-        if text and text[-1] not in ".!?":
-            text += "."
-        text = f"{text} {note}".strip()
-    return clean_text(text)
-
 
 def _parse_lmstudio_structured_caption_payload(
     value: object,
@@ -1355,30 +1103,70 @@ class CaptionDetails:
         return False
 
 
+def _parse_qwen_json_output(raw: str) -> CaptionDetails:
+    """Parse structured JSON output from a Qwen model inference, with plain-text fallback."""
+    text = str(raw or "").strip()
+    stripped = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
+    if stripped:
+        text = stripped
+    payload = _extract_structured_json_payload(text)
+    if payload is not None:
+        caption = payload.get("caption")
+        if isinstance(caption, str) and caption.strip():
+            translations = _normalize_structured_translations(payload.get("translations"))
+            gps_latitude = _normalize_gps_value(str(payload.get("gps_latitude") or ""), axis="lat")
+            gps_longitude = _normalize_gps_value(str(payload.get("gps_longitude") or ""), axis="lon")
+            location_name = clean_text(payload.get("location_name"))
+            note = _build_translation_note(caption, translations)
+            if note:
+                if caption and caption[-1] not in ".!?":
+                    caption += "."
+                caption = f"{caption} {note}".strip()
+            return CaptionDetails(
+                text=clean_text(caption),
+                gps_latitude=gps_latitude,
+                gps_longitude=gps_longitude,
+                location_name=location_name,
+            )
+    return CaptionDetails(text=clean_text(text))
+
+
+def _parse_qwen_combined_json_output(raw: str) -> tuple[str, str]:
+    """Parse structured JSON output from a combined OCR+caption Qwen inference.
+    Returns (ocr_text, caption_text).
+    """
+    text = str(raw or "").strip()
+    stripped = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
+    if stripped:
+        text = stripped
+    payload = _extract_structured_json_payload(text)
+    if payload is not None:
+        ocr_text = _normalize_ocr_text(str(payload.get("ocr_text") or ""))
+        caption = payload.get("caption")
+        if isinstance(caption, str) and caption.strip():
+            return ocr_text, clean_text(caption)
+    return "", clean_text(text)
+
+
 def _parse_lmstudio_structured_caption(
     value: object,
     *,
     finish_reason: str = "",
-    source_path: str | Path | None = None,
-    album_title: str = "",
-    printed_album_title: str = "",
 ) -> CaptionDetails:
     caption, translations, gps_latitude, gps_longitude, location_name = _parse_lmstudio_structured_caption_payload(
         value,
         finish_reason=finish_reason,
     )
-    text = _compose_model_caption(
-        caption,
-        translations=translations,
-        source_path=source_path,
-        album_title=album_title,
-        printed_album_title=printed_album_title,
-    )
-    extracted_latitude, extracted_longitude = _extract_caption_gps_coordinates(text)
+    text = clean_text(caption)
+    note = _build_translation_note(text, translations)
+    if note:
+        if text and text[-1] not in ".!?":
+            text += "."
+        text = f"{text} {note}".strip()
     return CaptionDetails(
-        text=text,
-        gps_latitude=gps_latitude or extracted_latitude,
-        gps_longitude=gps_longitude or extracted_longitude,
+        text=clean_text(text),
+        gps_latitude=gps_latitude,
+        gps_longitude=gps_longitude,
         location_name=location_name,
     )
 
@@ -1557,9 +1345,6 @@ class LMStudioCaptioner:
             print(f"\r\033[K", end="", flush=True)
             return _parse_lmstudio_structured_caption(
                 "".join(tokens),
-                source_path=source_path or image_path,
-                album_title=album_title,
-                printed_album_title=printed_album_title,
             )
         response = _lmstudio_request_json(
             f"{self.base_url}/chat/completions",
@@ -1573,9 +1358,6 @@ class LMStudioCaptioner:
         return _parse_lmstudio_structured_caption(
             message.get("content"),
             finish_reason=str(choices[0].get("finish_reason") or ""),
-            source_path=source_path or image_path,
-            album_title=album_title,
-            printed_album_title=printed_album_title,
         )
 
 
@@ -1682,14 +1464,7 @@ class QwenLocalCaptioner:
             printed_album_title=printed_album_title,
             photo_count=photo_count,
         )
-        text = _compose_model_caption(
-            self._infer_raw(image_path, prompt),
-            source_path=source_path or image_path,
-            album_title=album_title,
-            printed_album_title=printed_album_title,
-        )
-        gps_latitude, gps_longitude = _extract_caption_gps_coordinates(text)
-        return CaptionDetails(text=text, gps_latitude=gps_latitude, gps_longitude=gps_longitude, location_name="")
+        return _parse_qwen_json_output(self._infer_raw(image_path, prompt))
 
     def _infer_raw(self, image_path: str | Path, prompt: str, max_new_tokens: int | None = None) -> str:
         """Run a single inference pass and return the raw decoded string."""
@@ -1780,14 +1555,7 @@ class QwenLocalCaptioner:
         )
         max_tokens = self.max_new_tokens + DEFAULT_QWEN_OCR_MAX_NEW_TOKENS
         raw = self._infer_raw(image_path, prompt, max_new_tokens=max_tokens)
-        ocr_text, caption = _parse_combined_qwen_output(raw)
-        text = _compose_model_caption(
-            caption,
-            source_path=source_path or image_path,
-            album_title=album_title,
-            printed_album_title=printed_album_title,
-        )
-        return ocr_text, text
+        return _parse_qwen_combined_json_output(raw)
 
 
 @dataclass
@@ -1891,12 +1659,11 @@ class CaptionEngine:
         if self.engine == "none":
             return CaptionOutput(text="", engine="none")
         if self.engine == "template":
-            gps_latitude, gps_longitude = _extract_caption_gps_coordinates(template)
             return CaptionOutput(
                 text=template,
                 engine="template",
-                gps_latitude=gps_latitude,
-                gps_longitude=gps_longitude,
+                gps_latitude="",
+                gps_longitude="",
                 location_name="",
             )
         self._ensure_captioner()
@@ -1967,12 +1734,11 @@ class CaptionEngine:
                 photo_count=photo_count,
             )
             if caption:
-                gps_latitude, gps_longitude = _extract_caption_gps_coordinates(caption)
                 return CaptionOutput(
                     text=caption,
                     engine=self.engine,
-                    gps_latitude=gps_latitude,
-                    gps_longitude=gps_longitude,
+                    gps_latitude="",
+                    gps_longitude="",
                     location_name="",
                 ), ocr_text
             template = build_template_caption(
