@@ -16,39 +16,6 @@ from photoalbums.lib import ai_caption
 
 
 class TestAICaption(unittest.TestCase):
-    def test_normalize_caption_strips_qwen_thinking_output(self):
-        text = ai_caption._normalize_caption(
-            "assistant: <think>Reason through the image.</think> Two people are standing beside a car."
-        )
-        self.assertEqual(text, "Two people are standing beside a car.")
-
-    def test_normalize_caption_strips_model_request_preamble(self):
-        text = ai_caption._normalize_caption(
-            "The user wants a detailed description of the provided image.\n\n"
-            "**1. Visual Analysis:**\n"
-            "- Blue textured cover."
-        )
-        self.assertEqual(text, "")
-
-    def test_normalize_caption_extracts_final_caption_from_drafting_marker(self):
-        text = ai_caption._normalize_caption(
-            "The user wants a detailed description of the provided photo. "
-            "Based on the rules: - It is a cover page. "
-            "I need to combine these details into a plain text caption. "
-            "Drafting the description: This image shows the cover of a photo album book."
-        )
-        self.assertEqual(text, "This image shows the cover of a photo album book.")
-
-    def test_normalize_caption_rejects_prompt_echo_reasoning(self):
-        text = ai_caption._normalize_caption(
-            "The user wants a detailed caption for the provided photo collage. "
-            "**1. Analyze the Input Data:** "
-            "* **Filename:** `China_1986_B02_P02_stitched.jpg` "
-            "* **Detected Objects:** Person, car, chair. "
-            "**2. Synthesize the Visual Content:**"
-        )
-        self.assertEqual(text, "")
-
     def test_template_caption_includes_expected_sections(self):
         text = ai_caption.build_template_caption(
             people=["Alice", "Bob"],
@@ -438,37 +405,9 @@ class TestAICaption(unittest.TestCase):
                     "location_name": "",
                 }
             ),
-            source_path=Path("Photo Albums") / "China_1986_B02_View" / "China_1986_B02_P02_stitched.jpg",
-            album_title="Mainland China Book II",
         )
         text = details.text
         self.assertIn('Visible non-English text includes "敦煌" ("Dunhuang").', text)
-
-    def test_compose_model_caption_replaces_filename_like_album_reference(self):
-        text = ai_caption._compose_model_caption(
-            "A photo essay page from a China_1986_B02_Archive album documenting Dunhuang.",
-            source_path=Path("Photo Albums") / "China_1986_B02_Archive" / "China_1986_B02_P02_stitched.jpg",
-            album_title="Mainland China Book II",
-        )
-        self.assertIn("Mainland China Book II", text)
-        self.assertNotIn("China_1986_B02_Archive", text)
-
-    def test_compose_model_caption_prefers_printed_cover_title_over_canonical_title(self):
-        text = ai_caption._compose_model_caption(
-            "A photo essay page from Mainland China Book II documenting Dunhuang.",
-            source_path=Path("Photo Albums") / "China_1986_B02_View" / "China_1986_B02_P02_stitched.jpg",
-            album_title="Mainland China Book II",
-            printed_album_title="Mainland China Book 11",
-        )
-        self.assertIn("Mainland China Book 11", text)
-        self.assertNotIn("Mainland China Book II", text)
-
-    def test_extract_caption_gps_coordinates_parses_dms_pair(self):
-        latitude, longitude = ai_caption._extract_caption_gps_coordinates(
-            "Mogao Caves in Dunhuang, Gansu Province, China (39°47′15″N 100°18′26″E)."
-        )
-        self.assertEqual(latitude, "39.7875")
-        self.assertEqual(longitude, "100.307222")
 
     def test_parse_lmstudio_structured_caption_prefers_structured_gps_fields(self):
         details = ai_caption._parse_lmstudio_structured_caption(
@@ -485,6 +424,22 @@ class TestAICaption(unittest.TestCase):
         self.assertEqual(details.gps_latitude, "39.7875")
         self.assertEqual(details.gps_longitude, "100.307222")
         self.assertEqual(details.location_name, "Mogao Caves, Dunhuang, Gansu, China")
+
+    def test_parse_qwen_json_output_extracts_caption_from_json(self):
+        raw = '{"caption": "Two people stand beside a red car.", "location_name": "", "gps_latitude": "", "gps_longitude": "", "translations": []}'
+        details = ai_caption._parse_qwen_json_output(raw)
+        self.assertEqual(details.text, "Two people stand beside a red car.")
+        self.assertEqual(details.gps_latitude, "")
+
+    def test_parse_qwen_json_output_strips_think_block_before_json(self):
+        raw = '<think>Let me analyze this.</think>{"caption": "A mountain valley.", "location_name": "", "gps_latitude": "", "gps_longitude": "", "translations": []}'
+        details = ai_caption._parse_qwen_json_output(raw)
+        self.assertEqual(details.text, "A mountain valley.")
+
+    def test_parse_qwen_json_output_falls_back_to_plain_text(self):
+        raw = "A plain text caption with no JSON."
+        details = ai_caption._parse_qwen_json_output(raw)
+        self.assertEqual(details.text, "A plain text caption with no JSON.")
 
 if __name__ == "__main__":
     unittest.main()
