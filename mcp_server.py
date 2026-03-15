@@ -26,7 +26,7 @@ MANIFEST_DEFAULT = str(REPO_ROOT / "photoalbums" / "data" / "ai_index_manifest.j
 
 mcp = FastMCP("imago")
 runner = JobRunner()
-start_console(runner)
+start_console(runner, host="0.0.0.0")
 
 
 # ── Job management ─────────────────────────────────────────────────────────────
