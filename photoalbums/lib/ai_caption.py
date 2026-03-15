@@ -1103,6 +1103,44 @@ class CaptionDetails:
         return False
 
 
+_CAPTION_REASONING_MARKERS = (
+    "the user wants",
+    "analyze the input data",
+    "visual analysis",
+    "synthesize the visual content",
+    "filename hint",
+    "folder hint",
+    "album title hint",
+    "ocr/text in image",
+    "ocr text hint",
+    "detected objects",
+    "album classification hint",
+    "album focus hint",
+    "cordell photo albums rules",
+    "based on the rules",
+    "i need to",
+    "i should",
+)
+
+
+def _looks_like_reasoning_or_prompt_echo(value: str) -> bool:
+    """Return True if the text looks like a model reasoning trace or prompt echo rather than a caption."""
+    text = clean_text(value)
+    if not text:
+        return False
+    lowered = text.casefold()
+    marker_hits = sum(1 for marker in _CAPTION_REASONING_MARKERS if marker in lowered)
+    if marker_hits >= 2:
+        return True
+    if text.startswith(("**1.", "1.", "* **filename:**", "- **filename:**")):
+        return True
+    if re.search(r"(?:^|\s)(?:\*\*|\*|-)?\s*(?:filename|folder|ocr/text in image|detected objects)\s*:", lowered):
+        return True
+    if re.search(r"(?:^|\s)(?:\*\*|\*|-)?\s*(?:album classification hint|album focus hint)\s*:", lowered):
+        return True
+    return False
+
+
 def _parse_qwen_json_output(raw: str) -> CaptionDetails:
     """Parse structured JSON output from a Qwen model inference, with plain-text fallback."""
     text = str(raw or "").strip()
