@@ -173,9 +173,13 @@ class TestCommon(unittest.TestCase):
             onedrive_root = Path(tmp) / "OneDriveCompany"
             expected = onedrive_root / common.PHOTO_ALBUMS_SUBPATH
 
+            # _first_existing_path is mocked to None so the real OneDrive on
+            # the host (if it exists) doesn't shadow the expected preferred path.
             with mock.patch.object(common.sys, "platform", "win32"), mock.patch(
                 "common.Path.home", return_value=Path(tmp) / "home"
-            ), mock.patch.dict("common.os.environ", {"OneDrive": str(onedrive_root)}, clear=False):
+            ), mock.patch.dict("common.os.environ", {"OneDrive": str(onedrive_root)}, clear=False), mock.patch(
+                "common._first_existing_path", return_value=None
+            ):
                 result = common.get_photo_albums_dir()
 
         self.assertEqual(result, expected)
