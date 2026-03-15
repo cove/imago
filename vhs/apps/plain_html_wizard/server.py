@@ -2310,7 +2310,7 @@ def _load_whisper_transcribe_module() -> Any:
 class WizardHandler(BaseHTTPRequestHandler):
     server_version = "VHSTuner/1.0"
 
-    def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
+    def log_message(self, _format: str, *args: Any) -> None:
         pass  # suppress per-request stderr noise
 
     def handle_error(self, request: Any, client_address: Any) -> None:

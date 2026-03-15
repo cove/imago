@@ -95,20 +95,6 @@ def _import_cast_modules() -> tuple[Any, ...]:
         )
 
 
-_UNNAMED_PERSON_RE = re.compile(
-    r'\b(?:a|an)\s+'
-    r'(?:(?:young|elderly|old|middle[- ]aged|tall|short|heavyset|slender|thin|'
-    r'unidentified|unknown|male|female|other|second|third|additional|accompanying|'
-    r'nearby|standing|seated|smiling|laughing|older|another)\s+)*'
-    r'(?:man|woman|boy|girl|person|individual|companion|figure|gentleman|lady|'
-    r'teen(?:ager)?|friend|child|adult|bystander|tourist|visitor|guide)\b',
-    re.IGNORECASE,
-)
-
-
-def _has_unnamed_person(caption: str) -> bool:
-    return bool(_UNNAMED_PERSON_RE.search(str(caption or "")))
-
 
 def _normalize_hint_text(value: str) -> str:
     text = re.sub(r"[^a-z0-9]+", " ", str(value or "").lower())
@@ -652,49 +638,3 @@ class CastPeopleMatcher:
         out = list(by_name.values())
         out.sort(key=lambda row: (-float(row.certainty), -float(row.score), row.name.casefold()))
         return out
-
-    def queue_caption_unknown(
-        self,
-        *,
-        source_path: str | Path,
-        caption: str,
-    ) -> bool:
-        """
-        If the caption mentions an unnamed person, create a placeholder face record and
-        queue it for Cast review so the user can provide the name.
-
-        Returns True if a new review was queued, False if skipped (already pending or no match).
-        """
-        if not _has_unnamed_person(caption):
-            return False
-        source_str = str(source_path or "").strip()
-        if not source_str:
-            return False
-        self._maybe_refresh()
-        # Skip if there is already a pending caption_unknown review for this source.
-        for face in self._store.list_faces():
-            meta = face.get("metadata") or {}
-            if str(meta.get("ingest") or "") != "caption_unknown":
-                continue
-            if str(face.get("source_path") or "").strip() != source_str:
-                continue
-            face_id = str(face.get("face_id") or "").strip()
-            for review in self._store.list_review_items():
-                if str(review.get("face_id") or "").strip() == face_id:
-                    if str(review.get("status") or "").strip().lower() == "pending":
-                        return False
-        face = self._store.add_face(
-            embedding=[],
-            source_type="photo",
-            source_path=source_str,
-            timestamp="",
-            bbox=[],
-            quality=None,
-            metadata={
-                "ingest": "caption_unknown",
-                "caption": str(caption or "")[:500],
-            },
-        )
-        self._queue_for_review(face, [])
-        self._store_signature = self._store.store_signature()
-        return True

@@ -6,9 +6,10 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 
 - Prefer forward-only changes.
 - Do not add backward compatibility by default.
-- Do not fall back.
+- Do not add fall backs, just fail.
 - When schema/config formats change, migrate all project data forward in the same change.
 - If backward compatibility is requested, implement it only when explicitly asked.
+- Limit code file sizes to about 500 lines, if they go over that size, then ask about refactoring.
 
 ## Data and Schema Migrations
 
