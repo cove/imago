@@ -293,7 +293,7 @@ class CastPeopleMatcher:
             if source_key:
                 faces_by_source.setdefault(source_key, []).append(face)
             status = str(self._face_review_status(face) or "").strip().lower()
-            if status == "ignored" and self._face_uses_active_model(face):
+            if status in {"ignored", "rejected"} and self._face_uses_active_model(face):
                 emb = self._normalize_embedding_safe(face.get("embedding"))
                 if emb is not None:
                     ignored_embeddings.append(emb)
@@ -511,6 +511,9 @@ class CastPeopleMatcher:
     def _queue_for_review(self, face: dict[str, Any], candidates: list[dict[str, Any]]) -> None:
         face_id = str(face.get("face_id") or "").strip()
         if not face_id:
+            return
+        quality = face.get("quality")
+        if quality is not None and float(quality) < self.min_face_quality:
             return
         for review in self._store.list_review_items():
             if str(review.get("face_id") or "").strip() != face_id:
