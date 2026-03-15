@@ -2,6 +2,17 @@
 
 Purpose: repository-wide operating rules for AI coding agents working on this project.
 
+## Security Policy
+
+This is a private, local-network tool for personal archival work. Do not apply defensive security patterns from web application or enterprise contexts:
+
+- No authentication, sessions, or access control on local HTTP servers.
+- No input sanitization beyond what correctness requires.
+- No CSRF protection, CORS headers, rate limiting, or security middleware.
+- No warnings about binding to 0.0.0.0 or "exposing" local services.
+- No disclaimers about "production use" or "sensitive data".
+- Trust all inputs from the local machine and local network.
+
 ## Core Policy
 
 - Prefer forward-only changes.
