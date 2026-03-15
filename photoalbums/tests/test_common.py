@@ -155,6 +155,31 @@ class TestCommon(unittest.TestCase):
             result = common.get_photo_albums_dir()
         self.assertEqual(result, Path("D:/Media/Photo Albums"))
 
+    def test_get_photo_albums_dir_darwin_prefers_existing_cloudstorage_root(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fake_home = Path(tmp)
+            expected = fake_home / "Library" / "CloudStorage" / "OneDrive-Personal" / common.PHOTO_ALBUMS_SUBPATH
+            expected.mkdir(parents=True)
+
+            with mock.patch.object(common.sys, "platform", "darwin"), mock.patch(
+                "common.Path.home", return_value=fake_home
+            ), mock.patch.dict("common.os.environ", {}, clear=False):
+                result = common.get_photo_albums_dir()
+
+        self.assertEqual(result, expected)
+
+    def test_get_photo_albums_dir_windows_uses_onedrive_env_root(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            onedrive_root = Path(tmp) / "OneDriveCompany"
+            expected = onedrive_root / common.PHOTO_ALBUMS_SUBPATH
+
+            with mock.patch.object(common.sys, "platform", "win32"), mock.patch(
+                "common.Path.home", return_value=Path(tmp) / "home"
+            ), mock.patch.dict("common.os.environ", {"OneDrive": str(onedrive_root)}, clear=False):
+                result = common.get_photo_albums_dir()
+
+        self.assertEqual(result, expected)
+
     def test_get_imagemagick_dir_env_override(self):
         with mock.patch.dict(
             "common.os.environ",
@@ -179,6 +204,17 @@ class TestCommon(unittest.TestCase):
         ), mock.patch.dict("common.os.environ", {"PATH": "base"}, clear=False):
             common.configure_imagemagick()
             self.assertEqual(os.environ["PATH"], "base")
+
+    def test_open_image_fullscreen_uses_open_on_macos(self):
+        proc = object()
+        with mock.patch.object(common.sys, "platform", "darwin"), mock.patch(
+            "common.subprocess.Popen",
+            return_value=proc,
+        ) as popen_mock:
+            result = common.open_image_fullscreen("/tmp/sample.jpg")
+
+        self.assertIs(result, proc)
+        popen_mock.assert_called_once_with(["open", "/tmp/sample.jpg"])
 
 
 if __name__ == "__main__":

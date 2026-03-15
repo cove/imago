@@ -7,12 +7,16 @@ import time
 from pathlib import Path
 from typing import Callable, Iterable, List, Tuple
 
-from naming import PAGE_SCAN_RE as NAME_PAGE_SCAN_RE
+try:
+    from .naming import PAGE_SCAN_RE as NAME_PAGE_SCAN_RE
+except ImportError:
+    from naming import PAGE_SCAN_RE as NAME_PAGE_SCAN_RE
 
 CREATOR = "Audrey D. Cordell"
 INCOMING_NAME = "incoming_scan.tif"
 PHOTO_ALBUMS_DIR_ENV = "PHOTOALBUMS_DIR"
 IMAGEMAGICK_DIR_ENV = "PHOTOALBUMS_IMAGEMAGICK_DIR"
+PHOTO_ALBUMS_SUBPATH = Path("Cordell, Leslie & Audrey") / "Photo Albums"
 
 FILENAME_PATTERN = re.compile(
     r"^(?P<prefix>.+)_P(?P<page>\d{2})_S(?P<scan>\d{2})\.tif$",
@@ -21,16 +25,54 @@ FILENAME_PATTERN = re.compile(
 PAGE_SCAN_RE = NAME_PAGE_SCAN_RE
 
 
+def _first_existing_path(candidates: Iterable[Path]) -> Path | None:
+    seen: set[str] = set()
+    for candidate in candidates:
+        key = str(candidate)
+        if key in seen:
+            continue
+        seen.add(key)
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _onedrive_roots(home: Path) -> list[Path]:
+    roots: list[Path] = []
+    for env_name in ("OneDrive", "OneDriveConsumer", "OneDriveCommercial"):
+        configured = str(os.environ.get(env_name, "") or "").strip()
+        if configured:
+            roots.append(Path(configured).expanduser())
+
+    roots.append(home / "OneDrive")
+
+    cloud_storage = home / "Library" / "CloudStorage"
+    roots.append(cloud_storage / "OneDrive-Personal")
+    if cloud_storage.is_dir():
+        roots.extend(sorted(path for path in cloud_storage.glob("OneDrive*") if path.is_dir()))
+
+    return roots
+
+
 def get_photo_albums_dir() -> Path:
     configured = str(os.environ.get(PHOTO_ALBUMS_DIR_ENV, "") or "").strip()
     if configured:
         return Path(configured).expanduser()
-    if sys.platform.startswith("darwin"):
-        home = Path(os.environ["HOME"])
-        return home / "Library/CloudStorage/OneDrive-Personal/Cordell, Leslie & Audrey/Photo Albums"
+
+    home = Path.home()
+    onedrive_roots = _onedrive_roots(home)
+    preferred = home / "Library" / "CloudStorage" / "OneDrive-Personal" / PHOTO_ALBUMS_SUBPATH
     if sys.platform.startswith("win"):
-        return Path("C:/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums")
-    raise NotImplementedError("Unsupported platform")
+        preferred_root = onedrive_roots[0] if onedrive_roots else (home / "OneDrive")
+        preferred = preferred_root / PHOTO_ALBUMS_SUBPATH
+
+    candidates = [preferred]
+    candidates.extend(root / PHOTO_ALBUMS_SUBPATH for root in onedrive_roots)
+
+    existing = _first_existing_path(candidates)
+    if existing is not None:
+        return existing
+    return preferred
 
 
 PHOTO_ALBUMS_DIR = get_photo_albums_dir()
@@ -213,11 +255,25 @@ def list_page_scans_for_page(directory: str | Path, page_num: int) -> List[str]:
 
 
 def open_image_fullscreen(path: str, fallback_to_default: bool = False):
-    xnview = Path(r"C:\Program Files\XnViewMP\xnviewmp.exe")
-    if xnview.exists():
-        return subprocess.Popen([str(xnview), path])
-    if fallback_to_default and sys.platform.startswith("win"):
-        os.startfile(path)
+    if sys.platform.startswith("win"):
+        xnview = Path(r"C:\Program Files\XnViewMP\xnviewmp.exe")
+        if xnview.exists():
+            return subprocess.Popen([str(xnview), path])
+        if fallback_to_default:
+            os.startfile(path)
+        return None
+
+    if sys.platform.startswith("darwin"):
+        try:
+            return subprocess.Popen(["open", path])
+        except Exception:
+            return None
+
+    if fallback_to_default:
+        try:
+            return subprocess.Popen(["xdg-open", path])
+        except Exception:
+            return None
     return None
 
 
