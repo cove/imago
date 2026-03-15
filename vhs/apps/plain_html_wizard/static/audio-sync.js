@@ -164,51 +164,65 @@ function updateAudioSyncPlayhead() {
 }
 
 // ---------------------------------------------------------------------------
-// Inline video frame display
+// Inline video frame display — RAF-driven, contact-sheet backed
 // ---------------------------------------------------------------------------
 function _audioSyncChapterSecondsFromAudioTime(audioTime) {
   const offset = audioSyncOffsetSeconds();
   return Math.max(0, Number(audioTime) - (audioSyncVideoOffsetSec + offset));
 }
 
-let _audioSyncFrameSeq = 0;
-
-function _loadAudioSyncFrame(fid) {
-  if (!audioSyncFrameEl) return;
-  const seq = ++_audioSyncFrameSeq;
-  const src = `/api/frame_image?fid=${Math.trunc(Number(fid))}`;
-  const img = new Image();
-  img.onload = () => {
-    if (seq !== _audioSyncFrameSeq) return; // stale — a newer frame was requested
-    const ctx = audioSyncFrameEl.getContext('2d');
-    if (ctx) {
-      ctx.clearRect(0, 0, audioSyncFrameEl.width, audioSyncFrameEl.height);
-      ctx.drawImage(img, 0, 0, audioSyncFrameEl.width, audioSyncFrameEl.height);
-    }
-  };
-  img.src = src;
+// Convert chapter-local seconds → index into currentReviewFrames().
+function _audioSyncFrameIdxFromChapterSec(chapterSec) {
+  if (typeof chapterFrameSpan !== 'function') return 0;
+  const span = chapterFrameSpan();
+  if (!span || span.start === undefined) return 0;
+  const fps = TIMELINE_FPS_NUM / TIMELINE_FPS_DEN;
+  const targetFid = Math.round(span.start + Math.max(0, chapterSec) * fps);
+  const clampedFid = Math.max(span.start, Math.min(span.end - 1, targetFid));
+  const frames = typeof currentReviewFrames === 'function' ? currentReviewFrames() : [];
+  return Math.max(0, Math.min(frames.length - 1, clampedFid - span.start));
 }
 
-function _audioSyncFidFromChapterSec(chapterSec) {
-  if (typeof chapterFrameSpan !== 'function') return null;
-  const span = chapterFrameSpan();
-  if (!span || span.start === undefined) return null;
-  const fps = TIMELINE_FPS_NUM / TIMELINE_FPS_DEN;
-  return Math.max(span.start, Math.min(span.end - 1, Math.round(span.start + chapterSec * fps)));
+// Draw the given frame index into the preview canvas via contact-sheet sprites.
+function _drawAudioSyncFrameIdx(frameIdx) {
+  if (!audioSyncFrameEl) return;
+  if (typeof renderFrameToCanvas === 'function') {
+    renderFrameToCanvas(frameIdx, audioSyncFrameEl);
+  }
 }
 
 function updateAudioSyncVideoFrame() {
   if (!audioSyncFrameEl) return;
   const audioTime = Number((audioSyncAudioEl && audioSyncAudioEl.currentTime) || 0);
   const chapterSec = _audioSyncChapterSecondsFromAudioTime(audioTime);
-  const fid = _audioSyncFidFromChapterSec(chapterSec);
-  if (fid !== null) _loadAudioSyncFrame(fid);
+  _drawAudioSyncFrameIdx(_audioSyncFrameIdxFromChapterSec(chapterSec));
 }
 
 function showAudioSyncFrameAtChapterStart() {
-  if (!audioSyncFrameEl) return;
-  const fid = _audioSyncFidFromChapterSec(0);
-  if (fid !== null) _loadAudioSyncFrame(fid);
+  _drawAudioSyncFrameIdx(0);
+}
+
+// RAF loop — runs while audio is playing to drive smooth frame updates.
+let _audioSyncRafId = null;
+
+function _audioSyncRafTick() {
+  _audioSyncRafId = null;
+  if (!audioSyncAudioEl || audioSyncAudioEl.paused) return;
+  updateAudioSyncVideoFrame();
+  updateAudioSyncPlayhead();
+  _audioSyncRafId = requestAnimationFrame(_audioSyncRafTick);
+}
+
+function _startAudioSyncRaf() {
+  if (_audioSyncRafId !== null) return;
+  _audioSyncRafId = requestAnimationFrame(_audioSyncRafTick);
+}
+
+function _stopAudioSyncRaf() {
+  if (_audioSyncRafId !== null) {
+    cancelAnimationFrame(_audioSyncRafId);
+    _audioSyncRafId = null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -368,6 +382,7 @@ function toggleAudioSyncPlayback() {
   audioSyncAudioEl.currentTime = startInAudio;
   audioSyncAudioEl.play().catch(() => {});
   if (audioSyncPlayBtnEl) audioSyncPlayBtnEl.textContent = '||';
+  _startAudioSyncRaf();
 
   // Stop at chapter end
   const stopAt = endInAudio;
@@ -392,6 +407,7 @@ function showAudioSyncStep() {
 }
 
 function hideAudioSyncStep() {
+  _stopAudioSyncRaf();
   if (audioSyncControlsEl) audioSyncControlsEl.classList.add('hidden-ui');
   if (audioSyncPanelEl) audioSyncPanelEl.classList.add('hidden-ui');
   if (audioSyncAudioEl && !audioSyncAudioEl.paused) {
@@ -407,9 +423,10 @@ async function openAudioSyncStep() {
   showAudioSyncStep();
   updateAudioSyncOffsetLabel();
   scheduleAudioSyncDraw();
+  if (typeof ensureAudioSyncFramesReady === 'function') ensureAudioSyncFramesReady();
   showAudioSyncFrameAtChapterStart();
   await loadAudioSyncAudio();
-  showAudioSyncFrameAtChapterStart(); // retry after load (audio info may update chapterStart)
+  showAudioSyncFrameAtChapterStart();
   return true;
 }
 
@@ -419,14 +436,20 @@ async function openAudioSyncStep() {
 if (audioSyncAudioEl) {
   audioSyncAudioEl.addEventListener('timeupdate', () => {
     updateAudioSyncPlayhead();
-    updateAudioSyncVideoFrame();
+    // Frame updates during playback are driven by the RAF loop (_audioSyncRafTick).
+    // Update here only when paused (e.g. after a waveform seek).
+    if (audioSyncAudioEl.paused) updateAudioSyncVideoFrame();
   });
   audioSyncAudioEl.addEventListener('ended', () => {
     if (audioSyncPlayBtnEl) audioSyncPlayBtnEl.textContent = '▶';
     updateAudioSyncPlayhead();
     showAudioSyncFrameAtChapterStart();
   });
+  audioSyncAudioEl.addEventListener('play', () => {
+    _startAudioSyncRaf();
+  });
   audioSyncAudioEl.addEventListener('pause', () => {
+    _stopAudioSyncRaf();
     if (audioSyncPlayBtnEl) audioSyncPlayBtnEl.textContent = '▶';
   });
 }
