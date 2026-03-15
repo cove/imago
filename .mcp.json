@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "imago": {
+      "command": "C:\\Users\\covec\\Videos\\imago\\.venv\\Scripts\\python.exe",
+      "args": ["C:\\Users\\covec\\Videos\\imago\\mcp_server.py"],
+      "cwd": "C:\\Users\\covec\\Videos\\imago"
+    }
+  }
+}
