@@ -360,6 +360,33 @@ def _get_alt_text(parent: ET.Element, tag: str) -> str:
     return ""
 
 
+def read_person_in_image(sidecar_path: str | Path) -> list[str]:
+    """Return Iptc4xmpExt:PersonInImage names from an XMP sidecar. Returns [] on any error."""
+    _PERSON_TAG = f"{{{IPTC_EXT_NS}}}PersonInImage"
+    try:
+        path = Path(sidecar_path)
+        if not path.is_file():
+            return []
+        tree = ET.parse(path)
+        desc = _get_rdf_desc(tree)
+        if desc is None:
+            return []
+        names: list[str] = []
+        person_elem = desc.find(_PERSON_TAG)
+        if person_elem is None:
+            return []
+        bag = person_elem.find(_RDF_BAG)
+        if bag is None:
+            return []
+        for li in bag.findall(_RDF_LI):
+            text = (li.text or "").strip()
+            if text:
+                names.append(text)
+        return _dedupe(names)
+    except Exception:
+        return []
+
+
 def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
     path = Path(sidecar_path)
     if not path.is_file():

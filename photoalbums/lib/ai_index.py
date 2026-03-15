@@ -32,7 +32,7 @@ from .ai_render_settings import find_archive_dir_for_image, load_render_settings
 from ..common import PHOTO_ALBUMS_DIR
 from ..exiftool_utils import read_tag
 from ..naming import parse_album_filename, SCAN_NAME_RE
-from .xmp_sidecar import read_ai_sidecar_state, sidecar_has_expected_ai_fields, write_xmp_sidecar
+from .xmp_sidecar import read_ai_sidecar_state, read_person_in_image, sidecar_has_expected_ai_fields, write_xmp_sidecar
 
 def _format_eta(completed_times: list[float], remaining: int) -> str:
     if not completed_times or remaining <= 0:
@@ -80,7 +80,7 @@ AI_MODEL_MAX_SOURCE_BYTES = 30 * 1024 * 1024
 DEFAULT_CREATOR_TOOL = "imago-photoalbums-ai-index"
 DEFAULT_MANIFEST_PATH = Path(__file__).resolve().parents[1] / "data" / "ai_index_manifest.jsonl"
 DEFAULT_CAST_STORE = Path(__file__).resolve().parents[2] / "cast" / "data"
-PROCESSOR_SIGNATURE = "page_split_v12_geocoded_place_queries"
+PROCESSOR_SIGNATURE = "page_split_v13_page_scan_caption_hint"
 
 
 @dataclass
@@ -729,8 +729,11 @@ def _run_image_analysis(
     printed_album_title: str = "",
     geocoder: NominatimGeocoder | None = None,
     step_fn=None,
+    extra_people_names: list[str] | None = None,
+    is_page_scan: bool = False,
 ) -> ImageAnalysis:
     use_combined = ocr_engine.engine == "qwen" and caption_engine.engine == "qwen"
+    page_photo_count = 0 if is_page_scan else 1
 
     with _prepare_ai_model_image(image_path) as model_image_path:
         if use_combined:
@@ -749,7 +752,7 @@ def _run_image_analysis(
             if step_fn:
                 step_fn("objects")
             object_matches = object_detector.detect_image(model_image_path) if object_detector else []
-            people_names = [row.name for row in people_matches]
+            people_names = _clean_list([row.name for row in people_matches] + list(extra_people_names or []))
             object_labels = [row.label for row in object_matches]
             if step_fn:
                 step_fn("ocr+caption")
@@ -760,6 +763,7 @@ def _run_image_analysis(
                 source_path=caption_source_path or people_source_path or image_path,
                 album_title=album_title,
                 printed_album_title=printed_album_title,
+                photo_count=page_photo_count,
             )
             ocr_keywords = extract_keywords(ocr_text, max_keywords=15)
         else:
@@ -783,7 +787,7 @@ def _run_image_analysis(
             if step_fn:
                 step_fn("objects")
             object_matches = object_detector.detect_image(model_image_path) if object_detector else []
-            people_names = [row.name for row in people_matches]
+            people_names = _clean_list([row.name for row in people_matches] + list(extra_people_names or []))
             object_labels = [row.label for row in object_matches]
             if step_fn:
                 step_fn("caption")
@@ -795,6 +799,7 @@ def _run_image_analysis(
                 source_path=caption_source_path or people_source_path or image_path,
                 album_title=album_title,
                 printed_album_title=printed_album_title,
+                photo_count=page_photo_count,
             )
 
     subjects = _clean_list(object_labels + ocr_keywords)
@@ -803,6 +808,11 @@ def _run_image_analysis(
         objects=object_labels,
         ocr_text=ocr_text,
     )
+    if people_matcher and hasattr(people_matcher, "queue_caption_unknown"):
+        people_matcher.queue_caption_unknown(
+            source_path=people_source_path or image_path,
+            caption=description,
+        )
     payload = {
         "people": [
             {
@@ -1351,6 +1361,7 @@ def run(argv: list[str] | None = None) -> int:
 
     for idx, image_path in enumerate(files, 1):
         sidecar_path = image_path.with_suffix(".xmp")
+        existing_xmp_people = read_person_in_image(sidecar_path)
         archive_dir = find_archive_dir_for_image(image_path)
         settings_file: Path | None = None
         loaded_settings: dict[str, Any] | None = None
@@ -1623,6 +1634,7 @@ def run(argv: list[str] | None = None) -> int:
                                 source_path=layout.original_path,
                                 album_title=page_album_title,
                                 printed_album_title=page_printed_album_title,
+                                photo_count=len(sub_results),
                             )
                         if page_caption_output.text and not page_caption_output.fallback:
                             description = page_caption_output.text
@@ -1669,6 +1681,8 @@ def run(argv: list[str] | None = None) -> int:
                         printed_album_title=printed_album_title_hint,
                         geocoder=geocoder,
                         step_fn=set_step,
+                        extra_people_names=existing_xmp_people,
+                        is_page_scan=layout.page_like,
                     )
                     resolved_album_title = infer_album_title(
                         image_path=image_path,
@@ -1681,7 +1695,7 @@ def run(argv: list[str] | None = None) -> int:
                     )
                     _store_album_title_hint(image_path, album_title_cache, resolved_album_title)
                     _store_album_printed_title_hint(image_path, printed_album_title_cache, resolved_printed_album_title)
-                    person_names = analysis.people_names
+                    person_names = _clean_list(analysis.people_names + existing_xmp_people)
                     subjects = analysis.subjects
                     description = (
                         _build_flat_page_description(

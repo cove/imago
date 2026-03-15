@@ -1,7 +1,67 @@
 {
+  "algeciras, spain": {
+    "display_name": "Algeciras, Campo de Gibraltar, Cádiz, Andalucía, España",
+    "latitude": "36.1311725",
+    "longitude": "-5.4473991",
+    "query": "Algeciras, Spain",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "alicante, spain": {
+    "display_name": "Alacant / Alicante, l'Alacantí, Alacant / Alicante, Comunitat Valenciana, España",
+    "latitude": "38.3436365",
+    "longitude": "-0.4881708",
+    "query": "Alicante, Spain",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "austrian parliament building, vienna, austria; schönbrunn gloriette, vienna, austria": {
+    "query": "Austrian Parliament Building, Vienna, Austria; Schönbrunn Gloriette, Vienna, Austria",
+    "status": "miss"
+  },
+  "avila, spain": {
+    "display_name": "Ávila, Castilla y León, España",
+    "latitude": "40.6564780",
+    "longitude": "-4.7002172",
+    "query": "Avila, Spain",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "budapest, hungary": {
+    "display_name": "Budapest, Közép-Magyarország, Magyarország",
+    "latitude": "47.4813896",
+    "longitude": "19.1460941",
+    "query": "Budapest, Hungary",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "canton, guangdong, china": {
+    "display_name": "广州市, 广东省, 中国",
+    "latitude": "23.1288454",
+    "longitude": "113.2590064",
+    "query": "Canton, Guangdong, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "cathedral nueva, salamanca, spain; plaza de españa, seville, spain": {
+    "query": "Cathedral Nueva, Salamanca, Spain; Plaza de España, Seville, Spain",
+    "status": "miss"
+  },
+  "ceuta and fes, morocco": {
+    "query": "Ceuta and Fes, Morocco",
+    "status": "miss"
+  },
   "chendou, sichuan province, china": {
     "query": "Chendou, Sichuan Province, China",
     "status": "miss"
+  },
+  "chengdu zoo, sichuan province, china": {
+    "display_name": "动物园, 昭觉寺南路, 青龙街道, 成华区, 成都市, 四川省, 610081, 中国",
+    "latitude": "30.7160252",
+    "longitude": "104.1007793",
+    "query": "Chengdu Zoo, Sichuan Province, China",
+    "source": "nominatim",
+    "status": "ok"
   },
   "chengdu zoo, sichuan, china": {
     "display_name": "动物园, 昭觉寺南路, 青龙街道, 成华区, 成都市, 四川省, 610081, 中国",
@@ -31,6 +91,14 @@
     "query": "Chengdu, Sichuan, China; Tibet, China",
     "status": "miss"
   },
+  "chenou, china": {
+    "display_name": "陈塸镇, 高平市, 晋城市, 山西省, 中国",
+    "latitude": "35.8487717",
+    "longitude": "113.0343470",
+    "query": "Chenou, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "chenou, henan province, china": {
     "query": "Chenou, Henan Province, China",
     "status": "miss"
@@ -42,6 +110,22 @@
     "query": "Dragon Gate, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "dubrovnik cathedral, dubrovnik, croatia (formerly yugoslavia)": {
+    "query": "Dubrovnik Cathedral, Dubrovnik, Croatia (formerly Yugoslavia)",
+    "status": "miss"
+  },
+  "dubrovnik, croatia": {
+    "display_name": "Grad Dubrovnik, Dubrovačko-neretvanska županija, Hrvatska",
+    "latitude": "42.6491029",
+    "longitude": "18.0939501",
+    "query": "Dubrovnik, Croatia",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "dubrovnik, yugoslavia": {
+    "query": "Dubrovnik, Yugoslavia",
+    "status": "miss"
   },
   "dunhuang cultural centre, dunhuang, gansu, china": {
     "display_name": "敦煌市文化馆, 鸣山路, 沙州镇, 敦煌市, 酒泉市, 甘肃省, 736200, 中国",
@@ -55,6 +139,18 @@
     "query": "Dunhuang Hotel, Dunhuang Cultural Centre, Dunhuang, Gansu, China",
     "status": "miss"
   },
+  "fes, morocco": {
+    "display_name": "Fès ⴼⴰⵙ فاس, Pachalik du Fes باشوية فاس, Préfecture de Fès عمالة فاس, Fès-Meknès ⴼⴰⵙ-ⵎⴽⵏⴰⵙ فاس-مكناس, Maroc ⵍⵎⵖⵔⵉⴱ المغرب",
+    "latitude": "34.0346534",
+    "longitude": "-5.0161926",
+    "query": "Fes, Morocco",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "fisherman's bastion and matthias church, budapest, hungary": {
+    "query": "Fisherman's Bastion and Matthias Church, Budapest, Hungary",
+    "status": "miss"
+  },
   "garden hotel, canton (guangzhou), china": {
     "display_name": "花园酒店, 华乐街道, 越秀区, 广州市, 广东省, 中国",
     "latitude": "23.1376682",
@@ -63,11 +159,35 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "garden hotel, canton, china": {
+    "display_name": "花园酒店, 华乐街道, 越秀区, 广州市, 广东省, 中国",
+    "latitude": "23.1376682",
+    "longitude": "113.2809544",
+    "query": "Garden Hotel, Canton, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "gran via, madrid, spain": {
+    "display_name": "Gran Vía, Palacio, Centro, Madrid, Comunidad de Madrid, 28013, España",
+    "latitude": "40.4231233",
+    "longitude": "-3.7104199",
+    "query": "Gran Via, Madrid, Spain",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "great wall, gansu province, china": {
     "display_name": "长城第一墩景区, 文殊镇, 郊区, 嘉峪关市, 甘肃省, 中国",
     "latitude": "39.7487369",
     "longitude": "98.2108330",
     "query": "Great Wall, Gansu Province, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "hong kong": {
+    "display_name": "香港 Hong Kong, 中国",
+    "latitude": "22.3492155",
+    "longitude": "114.1857978",
+    "query": "Hong Kong",
     "source": "nominatim",
     "status": "ok"
   },
@@ -87,6 +207,30 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "hong kong harbour, hong kong": {
+    "display_name": "香港會議展覽中心 Hong Kong Convention and Exhibition Centre, 港灣道 Harbour Road, 灣仔 Wan Chai, 灣仔區 Wan Chai District, 香港島 Hong Kong Island, 香港 Hong Kong, 999077, 中国",
+    "latitude": "22.2826248",
+    "longitude": "114.1730688",
+    "query": "Hong Kong Harbour, Hong Kong",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "hong kong international airport, hong kong": {
+    "display_name": "香港國際機場 Hong Kong International Airport, 暢達路 Cheong Tat Road, 赤鱲角 Chek Lap Kok, 大嶼山 Lantau, 離島區 Islands District, 新界 New Territories, 香港 Hong Kong, 中国",
+    "latitude": "22.3125986",
+    "longitude": "113.9172999",
+    "query": "Hong Kong International Airport, Hong Kong",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "hong kong international airport, hong kong, china": {
+    "display_name": "香港國際機場 Hong Kong International Airport, 文東路 Man Tung Road, 東涌市中心 Tung Chung Town Centre, 大嶼山 Lantau, 離島區 Islands District, 新界 New Territories, 香港 Hong Kong, 中国",
+    "latitude": "22.3125986",
+    "longitude": "113.9172999",
+    "query": "Hong Kong International Airport, Hong Kong, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "hong kong, china": {
     "display_name": "香港 Hong Kong, 中国",
     "latitude": "22.2792968",
@@ -99,8 +243,16 @@
     "query": "Hua Qing Hot Springs and Qin Ling Mountains, China",
     "status": "miss"
   },
+  "hua qing hot springs, china": {
+    "query": "Hua Qing Hot Springs, China",
+    "status": "miss"
+  },
   "hua qing hot springs, xi'an, shaanxi, china": {
     "query": "Hua Qing Hot Springs, Xi'an, Shaanxi, China",
+    "status": "miss"
+  },
+  "jiayu pass, gansu, china": {
+    "query": "Jiayu Pass, Gansu, China",
     "status": "miss"
   },
   "jiayuguan city, gansu province, china": {
@@ -108,6 +260,14 @@
     "latitude": "39.7722294",
     "longitude": "98.2885388",
     "query": "Jiayuguan City, Gansu Province, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "jiayuguan city, gansu, china": {
+    "display_name": "嘉峪关市, 甘肃省, 735100, 中国",
+    "latitude": "39.7722294",
+    "longitude": "98.2885388",
+    "query": "Jiayuguan City, Gansu, China",
     "source": "nominatim",
     "status": "ok"
   },
@@ -127,6 +287,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "jokhang temple and potala palace, lasa, tibet": {
+    "query": "Jokhang Temple and Potala Palace, Lasa, Tibet",
+    "status": "miss"
+  },
+  "jokhang temple and potala palace, lasa, tibet, china": {
+    "query": "Jokhang Temple and Potala Palace, Lasa, Tibet, China",
+    "status": "miss"
+  },
   "jokhang temple, lhasa, tibet, china": {
     "display_name": "ཇོ་ཁང། 大昭寺, 八廓街, བར་སྐོར། 八廓街, 八廓社区, 八廓街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
     "latitude": "29.6528598",
@@ -134,6 +302,14 @@
     "query": "Jokhang Temple, Lhasa, Tibet, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "karnten and salzburg, austria": {
+    "query": "Karnten and Salzburg, Austria",
+    "status": "miss"
+  },
+  "klagenfurt and salzburg, austria": {
+    "query": "Klagenfurt and Salzburg, Austria",
+    "status": "miss"
   },
   "kunming hotel, kunming, yunnan province, china": {
     "display_name": "昆明饭店, 白塔路, 拓东街道, 盘龙区, 昆明市, 云南省, 650051, 中国",
@@ -183,9 +359,41 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "madrid and salamanca, spain": {
+    "display_name": "Plaza de Madrid, Salesas, Salamanca, Castilla y León, 37005, España",
+    "latitude": "40.9756335",
+    "longitude": "-5.6594477",
+    "query": "Madrid and Salamanca, Spain",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "madrid, spain": {
+    "display_name": "Madrid, Comunidad de Madrid, España",
+    "latitude": "40.4167820",
+    "longitude": "-3.7035070",
+    "query": "Madrid, Spain",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "market place in lhasa, tibet, china": {
     "query": "Market Place in Lhasa, Tibet, China",
     "status": "miss"
+  },
+  "medina, fes, morocco": {
+    "display_name": "Fès-Médina ⴼⴰⵙ-ⵎⴷⵉⵏⴰ فاس-المدينة, Arrondissement de Fès-Médina مقاطعة فاس المدينة, Fès ⴼⴰⵙ فاس, Pachalik du Fes باشوية فاس, Préfecture de Fès عمالة فاس, Fès-Meknès ⴼⴰⵙ-ⵎⴽⵏⴰⵙ فاس-مكناس, 30120, Maroc ⵍⵎⵖⵔⵉⴱ المغرب",
+    "latitude": "34.0631192",
+    "longitude": "-4.9737999",
+    "query": "Medina, Fes, Morocco",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "medina, morocco": {
+    "display_name": "Medina ⵎⴷⵉⵏⴰ المدينة, Arrondissement de Marrakech-Medina مقاطعة مراكش المدينة, Marrakech ⵎⵕⵕⴰⴽⵯⵛ مراكش, Pachalik de Marrakech, Préfecture de Marrakech عمالة مراكش, Marrakech-Safi ⵎⵕⵕⴰⴽⵛ-ⴰⵙⴼⵉ مراكش-أسفي, 40030, Maroc ⵍⵎⵖⵔⵉⴱ المغرب",
+    "latitude": "31.6329766",
+    "longitude": "-7.9884912",
+    "query": "Medina, Morocco",
+    "source": "nominatim",
+    "status": "ok"
   },
   "mogao caves, dunhuang, gansu, china": {
     "display_name": "莫高窟, 慈氏塔广场, 敦煌市, 酒泉市, 甘肃省, 736200, 中国",
@@ -195,17 +403,61 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "mostar, bosnia and herzegovina": {
+    "display_name": "Mostar, MZ Centar II, Grad Mostar, Hercegovačko-neretvanska županija (kanton), Federacija Bosne i Hercegovine, Bosna i Hercegovina / Босна и Херцеговина",
+    "latitude": "43.3435855",
+    "longitude": "17.8076584",
+    "query": "Mostar, Bosnia and Herzegovina",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "mostar, yugoslavia": {
+    "query": "Mostar, Yugoslavia",
+    "status": "miss"
+  },
   "new world hotel and space museum, hong kong": {
     "query": "New World Hotel and Space Museum, Hong Kong",
     "status": "miss"
+  },
+  "new world hotel, hong kong, china": {
+    "display_name": "千禧新世界香港酒店 New World Millennium Hong Kong Hotel, 72, 麼地道 Mody Road, 尖沙咀東 East Tsim Sha Tsui, 油尖旺區 Yau Tsim Mong District, 九龍 Kowloon, 香港 Hong Kong, 中国",
+    "latitude": "22.2994543",
+    "longitude": "114.1796977",
+    "query": "New World Hotel, Hong Kong, China",
+    "source": "nominatim",
+    "status": "ok"
   },
   "okhang temple and potala palace, lasa, tibet, china": {
     "query": "Okhang Temple and Potala Palace, Lasa, Tibet, China",
     "status": "miss"
   },
+  "oxford street, london, uk": {
+    "display_name": "Oxford Street, Marylebone, City of Westminster, Greater London, England, W1C 1LX, United Kingdom",
+    "latitude": "51.5134858",
+    "longitude": "-0.1583865",
+    "query": "Oxford Street, London, UK",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "plaza mayor, madrid, spain": {
+    "display_name": "Plaza Mayor, Barrio de los Austrias, Sol, Centro, Madrid, Comunidad de Madrid, 28012, España",
+    "latitude": "40.4153949",
+    "longitude": "-3.7069974",
+    "query": "Plaza Mayor, Madrid, Spain",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "portala palace, lhasa, tibet, china": {
     "query": "Portala Palace, Lhasa, Tibet, China",
     "status": "miss"
+  },
+  "potala palace, lasa, tibet": {
+    "display_name": "布达拉宫 ཕོ་བྲང་པོ་ཏ་ལ།, 康昂北路东段, 吉崩岗街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
+    "latitude": "29.6575676",
+    "longitude": "91.1170188",
+    "query": "Potala Palace, Lasa, Tibet",
+    "source": "nominatim",
+    "status": "ok"
   },
   "potala palace, lasa, tibet, china": {
     "display_name": "布达拉宫 ཕོ་བྲང་པོ་ཏ་ལ།, 康昂北路东段, 吉崩岗街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
@@ -231,6 +483,70 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "prague, czech republic": {
+    "display_name": "Praha, Česko",
+    "latitude": "50.0850112",
+    "longitude": "14.4265172",
+    "query": "Prague, Czech Republic",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "prague, czechoslovakia": {
+    "display_name": "Former State Bank of Czechoslovakia, Staré zámecké schody, Malá Strana, obvod Praha 1, Praha, 118 01, Česko",
+    "latitude": "50.0918742",
+    "longitude": "14.4089231",
+    "query": "Prague, Czechoslovakia",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "regent street, london, england; zagreb, yugoslavia": {
+    "query": "Regent Street, London, England; Zagreb, Yugoslavia",
+    "status": "miss"
+  },
+  "rock of gibraltar, la linea de la concepcion, spain": {
+    "query": "Rock of Gibraltar, La Linea de la Concepcion, Spain",
+    "status": "miss"
+  },
+  "salamanca and seville, spain": {
+    "query": "Salamanca and Seville, Spain",
+    "status": "miss"
+  },
+  "salamanca, spain": {
+    "display_name": "Salamanca, Castilla y León, España",
+    "latitude": "40.9651572",
+    "longitude": "-5.6640182",
+    "query": "Salamanca, Spain",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "salzburg, austria; prague, czechoslovakia": {
+    "query": "Salzburg, Austria; Prague, Czechoslovakia",
+    "status": "miss"
+  },
+  "santa cruz quarters, seville, spain": {
+    "query": "Santa Cruz Quarters, Seville, Spain",
+    "status": "miss"
+  },
+  "sarajevo and mostar, yugoslavia": {
+    "query": "Sarajevo and Mostar, Yugoslavia",
+    "status": "miss"
+  },
+  "sarajevo, yugoslavia": {
+    "display_name": "Tito Sarajevo - Yugoslavia, Ferhadija, Sarajevo, MZ \"Ferhadija\", Općina Stari Grad, Grad Sarajevo, Kanton Sarajevo, Federacija Bosne i Hercegovine, 71144, Bosna i Hercegovina / Босна и Херцеговина",
+    "latitude": "43.8588492",
+    "longitude": "18.4242763",
+    "query": "Sarajevo, Yugoslavia",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "sera monastery, lasa, tibet, china": {
+    "display_name": "སེ་ར་དགོན། 色拉寺, 色拉北路, སྔགས་པ་གླིང་ཁའི་སྡེ་ཁུལ། 阿坝林卡社区, 娘热街道 ཉང་བྲན་ཁྲོམ་གཞུང།, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
+    "latitude": "29.6978525",
+    "longitude": "91.1328962",
+    "query": "Sera Monastery, Lasa, Tibet, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "sera monastery, lhasa, tibet, china": {
     "display_name": "སེ་ར་དགོན། 色拉寺, 色拉北路, སྔགས་པ་གླིང་ཁའི་སྡེ་ཁུལ། 阿坝林卡社区, 娘热街道 ཉང་བྲན་ཁྲོམ་གཞུང།, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
     "latitude": "29.6978525",
@@ -247,11 +563,47 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "seville cathedral, seville, spain": {
+    "display_name": "Catedral de Sevilla, Calle Fray Ceferino González, Santa Cruz, Casco Antiguo, Sevilla, Andalucía, 41004, España",
+    "latitude": "37.3859150",
+    "longitude": "-5.9931406",
+    "query": "Seville Cathedral, Seville, Spain",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "seville, spain": {
+    "display_name": "Sevilla, Andalucía, España",
+    "latitude": "37.3886303",
+    "longitude": "-5.9953403",
+    "query": "Seville, Spain",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "spain square, seville, spain": {
+    "query": "Spain Square, Seville, Spain",
+    "status": "miss"
+  },
   "stone forest, kunming, yunnan province, china": {
     "display_name": "石林风景区, 阿诗玛北路, 石林彝族自治县, 昆明市, 云南省, 652200, 中国",
     "latitude": "24.8156992",
     "longitude": "103.3245807",
     "query": "Stone Forest, Kunming, Yunnan Province, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "stone forest, kunming, yunnan, china": {
+    "display_name": "石林风景区, 阿诗玛北路, 石林彝族自治县, 昆明市, 云南省, 652200, 中国",
+    "latitude": "24.8156992",
+    "longitude": "103.3245807",
+    "query": "Stone Forest, Kunming, Yunnan, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "strait of gibraltar, spain": {
+    "display_name": "Estrecho de Gibraltar / Détroit de Gibraltar / مضيق جبل طارق, España",
+    "latitude": "35.9496629",
+    "longitude": "-5.6366664",
+    "query": "Strait of Gibraltar, Spain",
     "source": "nominatim",
     "status": "ok"
   },
@@ -275,6 +627,26 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "terracotta army, xi'an, shaanxi, china": {
+    "display_name": "兵马俑连接线, 临潼区, 西安市, 陕西省, 710600, 中国",
+    "latitude": "34.4084177",
+    "longitude": "109.2369663",
+    "query": "Terracotta Army, Xi'an, Shaanxi, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "the stone forest, kunming, yunnan province, china": {
+    "display_name": "The Minor Stone Forest, 阿诗玛北路, 石林彝族自治县, 昆明市, 云南省, 652200, 中国",
+    "latitude": "24.8193006",
+    "longitude": "103.3259782",
+    "query": "The Stone Forest, Kunming, Yunnan Province, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "the wild goose pagoda, xi'an, shaanxi, china": {
+    "query": "The Wild Goose Pagoda, Xi'an, Shaanxi, China",
+    "status": "miss"
+  },
   "tibet, china": {
     "display_name": "西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 中国",
     "latitude": "29.8556443",
@@ -295,6 +667,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "victoria peak, hong kong harbour, hong kong, china": {
+    "query": "Victoria Peak, Hong Kong Harbour, Hong Kong, China",
+    "status": "miss"
+  },
   "victoria peak, hong kong, china": {
     "display_name": "扯旗山 Victoria Peak, 香港 Hong Kong, 999077, 中国",
     "latitude": "22.2760386",
@@ -302,6 +678,18 @@
     "query": "Victoria Peak, Hong Kong, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "vienna city hall and stadtpark, vienna, austria": {
+    "query": "Vienna City Hall and Stadtpark, Vienna, Austria",
+    "status": "miss"
+  },
+  "vienna, austria and budapest, hungary": {
+    "query": "Vienna, Austria and Budapest, Hungary",
+    "status": "miss"
+  },
+  "vnik, yugoslavia": {
+    "query": "Vnik, Yugoslavia",
+    "status": "miss"
   },
   "wild goose pagoda, xi'an, shaanxi, china": {
     "display_name": "大雁塔, 雁塔西步行街, 大雁塔街道, 雁塔区, 西安市, 陕西省, 710064, 中国",
@@ -326,6 +714,26 @@
     "query": "Yellow River at Lanzhou, Gansu, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "yellow river, lanzhou, gansu, china": {
+    "display_name": "深安黄河大桥, 赵家庄社区, 刘家堡, 刘家堡街道, 安宁区, 兰州市, 甘肃省, 730070, 中国",
+    "latitude": "36.0962221",
+    "longitude": "103.6869430",
+    "query": "Yellow River, Lanzhou, Gansu, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "zagreb, austria": {
+    "display_name": "Veleposlanstvo Republike Austrije, 80, Radnička cesta, Mjesni odbor Sigečica, Gradska četvrt Trnje, Zagreb, Grad Zagreb, 10000, Hrvatska",
+    "latitude": "45.8008730",
+    "longitude": "16.0072220",
+    "query": "Zagreb, Austria",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "zagreb, yugoslavia; karnten, austria": {
+    "query": "Zagreb, Yugoslavia; Karnten, Austria",
+    "status": "miss"
   },
   "zhuhai, guangdong, china": {
     "display_name": "珠海市, 广东省, 中国",

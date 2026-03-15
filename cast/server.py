@@ -784,6 +784,7 @@ class CastHandler(BaseHTTPRequestHandler):
                     existing = read_person_in_image(xmp_path)
                     if display_name.casefold() not in {n.casefold() for n in existing}:
                         merge_persons_xmp(xmp_path, existing + [display_name], creator_tool="cast-review")
+
             except Exception as exc:
                 # XMP write is best-effort; don't fail the review response.
                 xmp_warning = f"XMP write-back failed: {exc}"
