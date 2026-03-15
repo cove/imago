@@ -1241,6 +1241,12 @@ function _prefetchFlipbookContactSheets(frames) {
   }
 }
 
+// Called by the audio sync step to pre-fetch all contact sheets for smooth playback.
+function ensureAudioSyncFramesReady() {
+  const frames = currentReviewFrames();
+  if (frames.length) _prefetchFlipbookContactSheets(frames);
+}
+
 async function openFlipbookPanel() {
   if (!isReviewStepActive()) return;
   if (!reviewLoadedFrameCount()) {
