@@ -489,6 +489,60 @@
       color: var(--text-muted);
       min-height: 12px;
     }
+
+    /* Audio sync panel */
+    .audio-sync-panel {
+      display: grid;
+      gap: 4px;
+    }
+    .audio-sync-waveform-wrap {
+      position: relative;
+      height: 72px;
+      cursor: pointer;
+    }
+    .audio-sync-wave {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .audio-sync-playhead {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: rgba(200, 220, 255, 0.7);
+      pointer-events: none;
+    }
+    .audio-sync-frame {
+      display: block;
+      max-width: 480px;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      background: #000;
+      border: 1px solid var(--line);
+      border-radius: 2px;
+    }
+    #page2.audio-sync-step #frameGrid {
+      display: none;
+    }
+    .audio-sync-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+    }
+    .audio-sync-offset-label {
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      min-width: 72px;
+    }
+    .audio-sync-buttons {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
     .timeline-scrub {
       display: grid;
       gap: 4px;

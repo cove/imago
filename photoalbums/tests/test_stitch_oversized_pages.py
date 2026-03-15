@@ -60,7 +60,7 @@ class TestStitchOversizedPages(unittest.TestCase):
         view = sop.get_view_dirname(base)
         self.assertEqual(Path(view), Path("C:/Photos/EU_1973_B02_View"))
 
-    def test_stitch_writes_metadata_without_burning_footer(self):
+    def test_stitch_writes_metadata(self):
         files = [
             "C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_S01.tif",
             "C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_S02.tif",
@@ -77,15 +77,12 @@ class TestStitchOversizedPages(unittest.TestCase):
         ), mock.patch(
             "stitch_oversized_pages.AffineStitcher"
         ) as stitcher_mock, mock.patch(
-            "stitch_oversized_pages.add_bottom_header"
-        ) as footer_mock, mock.patch(
             "stitch_oversized_pages.write_jpeg"
         ) as write_mock:
             stitcher_mock.return_value.stitch.return_value = fake_result
 
             sop.stitch(files, tmp)
 
-        footer_mock.assert_not_called()
         write_mock.assert_called_once_with(
             fake_result,
             str(Path(tmp) / "EU_1973_B02_P05_stitched.jpg"),

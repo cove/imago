@@ -3,19 +3,16 @@ import re
 import subprocess
 import tempfile
 import warnings
-from datetime import datetime
 from pathlib import Path
 
 try:
     import cv2
     import numpy as np
-    from PIL import Image, ImageDraw, ImageFont, ImageOps
+    from PIL import Image, ImageOps
 except Exception:
     cv2 = None
     np = None
     Image = None
-    ImageDraw = None
-    ImageFont = None
     ImageOps = None
 
 try:
@@ -497,90 +494,6 @@ def get_view_dirname(path: str | Path) -> str:
     return str(Path(path).parent / f"{base_no_archive}_View")
 
 
-def add_bottom_header(image, date_text: str, header_text: str, margin: int = 15):
-    _require_image_modules()
-    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    pil_image = Image.fromarray(image_rgb)
-
-    width, height = pil_image.size
-
-    font_size = 60
-    small_font_size = 48
-
-    font_paths = [
-        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
-        "/Library/Fonts/Arial Unicode.ttf",
-        "/System/Library/Fonts/STHeiti Light.ttc",
-        "/System/Library/Fonts/Apple Symbols.ttf",
-        "/System/Library/Fonts/Helvetica.ttc",
-        "/System/Library/Fonts/SFNS.ttf",
-        "C:/Windows/Fonts/arial.ttf",
-        "C:/Windows/Fonts/seguisym.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-    ]
-
-    font = None
-    small_font = None
-    for font_path in font_paths:
-        try:
-            if os.path.exists(font_path):
-                font = ImageFont.truetype(font_path, font_size)
-                small_font = ImageFont.truetype(font_path, small_font_size)
-                break
-        except Exception:
-            continue
-
-    if font is None:
-        font = ImageFont.load_default()
-        small_font = ImageFont.load_default()
-
-    temp_img = Image.new("RGB", (1, 1))
-    draw_temp = ImageDraw.Draw(temp_img)
-
-    bbox = draw_temp.textbbox((0, 0), header_text, font=font)
-    text_width = bbox[2] - bbox[0]
-    text_height = bbox[3] - bbox[1]
-
-    while text_width > width - 40 and font_size > 20:
-        font_size = int(font_size * 0.9)
-        small_font_size = int(font_size * 0.8)
-        try:
-            for font_path in font_paths:
-                if os.path.exists(font_path):
-                    font = ImageFont.truetype(font_path, font_size)
-                    small_font = ImageFont.truetype(font_path, small_font_size)
-                    break
-        except Exception:
-            pass
-        bbox = draw_temp.textbbox((0, 0), header_text, font=font)
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
-
-    date_bbox = draw_temp.textbbox((0, 0), date_text, font=small_font)
-    small_text_height = date_bbox[3] - date_bbox[1]
-
-    line_spacing = margin * 2
-    footer_height = text_height + small_text_height + (margin * 4) + line_spacing
-    new_height = height + footer_height
-
-    new_image = Image.new("RGB", (width, new_height), color="black")
-    new_image.paste(pil_image, (0, 0))
-
-    draw = ImageDraw.Draw(new_image)
-
-    y1 = height + margin * 2
-    x1 = (width - text_width) // 2
-    draw.text((x1, y1), header_text, fill="white", font=font)
-
-    y2 = y1 + text_height + line_spacing
-    date_width = date_bbox[2] - date_bbox[0]
-    draw.text((width - date_width - margin, y2), date_text, fill="white", font=small_font)
-
-    result = np.array(new_image)
-    return cv2.cvtColor(result, cv2.COLOR_RGB2BGR)
-
-
 def list_page_scans(directory: str | Path):
     return list_page_scan_groups(directory, NEW_NAME_RE)
 
@@ -646,12 +559,6 @@ def tif_to_jpg(tif_path: str, output_dir: str) -> None:
         return
 
     img = _read_stitch_image(tif_path)
-
-    img = add_bottom_header(
-        img,
-        f"Stitched: {datetime.now():%Y-%m-%d %H:%M:%S}",
-        jpg_header,
-    )
 
     write_jpeg(img, out, jpg_header)
 
