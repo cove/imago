@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find \"C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums\" -name *.xmp -type f)",
+      "Bash(find \"C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums\" -name *.xmp -exec grep -l \"SubPhotos\\\\|subphotos\" {})",
+      "Bash(2)",
+      "Bash(find \"C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums\" -name *.xmp -exec grep -l subphotos:s*[s*{ {})"
+    ]
+  }
+}
