@@ -12,7 +12,7 @@ if str(REPO_ROOT) not in sys.path:
 if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
-from photoalbums.lib import ai_caption
+from photoalbums.lib import ai_caption, _caption_lmstudio, _caption_qwen
 
 
 class TestAICaption(unittest.TestCase):
@@ -257,9 +257,9 @@ class TestAICaption(unittest.TestCase):
             fake_torch.cuda.is_available.return_value = False
 
             with (
-                mock.patch.object(ai_caption, "HF_MODEL_CACHE_DIR", cache_dir),
+                mock.patch.object(_caption_qwen, "HF_MODEL_CACHE_DIR", cache_dir),
                 mock.patch.object(
-                    ai_caption,
+                    _caption_qwen,
                     "_load_qwen_transformers",
                     return_value=(fake_torch, fake_processor_cls, fake_model_cls),
                 ),
@@ -328,9 +328,9 @@ class TestAICaption(unittest.TestCase):
             image_path = Path(tmp) / "sample.jpg"
             image_path.write_bytes(b"not-a-real-jpeg")
             with (
-                mock.patch.object(ai_caption, "_build_data_url", return_value="data:image/jpeg;base64,abc123"),
-                mock.patch.object(ai_caption, "_select_lmstudio_model", return_value="qwen2.5-vl"),
-                mock.patch.object(ai_caption.urllib.request, "urlopen", side_effect=fake_urlopen),
+                mock.patch.object(_caption_lmstudio, "_build_data_url", return_value="data:image/jpeg;base64,abc123"),
+                mock.patch.object(_caption_lmstudio, "_select_lmstudio_model", return_value="qwen2.5-vl"),
+                mock.patch.object(_caption_lmstudio.urllib.request, "urlopen", side_effect=fake_urlopen),
             ):
                 captioner = ai_caption.LMStudioCaptioner(
                     prompt_text="Describe this exact image",
