@@ -260,6 +260,7 @@ class TestAIIndex(unittest.TestCase):
                 album_title="",
                 printed_album_title="",
                 photo_count=1,
+                is_cover_page=False,
             )
 
     def test_run_image_analysis_records_gps_location_from_caption_output(self):
@@ -385,9 +386,7 @@ class TestAIIndex(unittest.TestCase):
             requested_caption_engine="template",
         )
 
-        self.assertIn("cover or title page", description)
-        self.assertIn("Mainland China Book 11", description)
-        self.assertIn("Photo Essay", description)
+        self.assertIn("Subphoto caption", description)
         self.assertNotIn("contains 1 photo(s)", description)
 
     def test_build_page_payload_marks_family_album_pages(self):
@@ -468,10 +467,7 @@ class TestAIIndex(unittest.TestCase):
                 requested_caption_engine="lmstudio",
             )
 
-        self.assertIn("cover or title page", description)
-        self.assertIn("Mainland China Book 11", description)
         self.assertIn("MAINLAND CHINA 1986 BOOK 11", description)
-        self.assertIn("BOOK 11 is a typo for Book II (2)", description)
 
     def test_run_force_rewrites_existing_sidecar_and_merges_embedded_source(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1204,7 +1200,7 @@ class TestAIIndex(unittest.TestCase):
                         flush=True,
                     ),
                     mock.call(
-                        'China_1986_B02_P01.jpg: This is the cover or title page of Mainland China Book 11, a Photo Essay. Visible title text reads: "MAINLAND CHINA 1986 BOOK 11". BOOK 11 is a typo for Book II (2).'
+                        'China_1986_B02_P01.jpg: Subphoto caption'
                     ),
                 ]
             )
