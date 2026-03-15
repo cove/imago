@@ -89,7 +89,7 @@ gets back a job ID, and you can monitor progress in the console at `http://0.0.0
 
 ### Job Console
 
-Open `http://localhost:8091` in a browser to see:
+Open `http://0.0.0.0:8091` (or your machine's IP) in a browser to see:
 - All jobs with status, duration, and a live pulsing indicator for running jobs
 - Log tail for any selected job (auto-refreshes every 2s)
 - Cancel button for running jobs
