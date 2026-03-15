@@ -543,6 +543,7 @@ def _build_qwen_prompt(
     source_path: str | Path | None = None,
     album_title: str = "",
     printed_album_title: str = "",
+    photo_count: int = 1,
 ) -> str:
     people_list = dedupe(people)
     object_list = dedupe(objects)
@@ -554,9 +555,22 @@ def _build_qwen_prompt(
         album_title=album_title,
         printed_album_title=printed_album_title,
     )
-    lines = [
-        "Describe this photo in detail",
-    ]
+    if photo_count > 1:
+        lines = [
+            f"This album page contains {photo_count} separate photos arranged as a collage or grid.",
+            "Describe each photo individually: what it shows, who or what is in it, and where it is located.",
+            "Do not blend locations or subjects from different photos into a single description.",
+        ]
+    elif photo_count == 0:
+        lines = [
+            "This is a scan of an album page that may contain one or more individual photos.",
+            "If you see multiple distinct photos, describe each one separately with its own location.",
+            "Do not blend subjects or locations from different photos into a single description.",
+        ]
+    else:
+        lines = [
+            "Describe this photo in detail",
+        ]
     if context.title:
         lines.append(f"Album title hint: {context.title}.")
     if context.canonical_title and context.title and context.canonical_title.casefold() != context.title.casefold():
@@ -600,6 +614,10 @@ def _build_qwen_prompt(
     lines.append(
         "- Correct misspelled, outdated, or truncated place names using context clues (album region, photo content); "
         "words may be cut off at scan edges — use visible photo subjects to complete them."
+    )
+    lines.append(
+        "- Only use place names for well-known, widely documented locations (cities, provinces, landmarks); "
+        "avoid inferring obscure townships or villages — if you cannot confidently name a specific city, fall back to province and country."
     )
     if people_list:
         lines.append(f"Known people: {join_human(people_list)}.")
@@ -790,6 +808,7 @@ def _build_combined_qwen_prompt(
     source_path: str | Path | None = None,
     album_title: str = "",
     printed_album_title: str = "",
+    photo_count: int = 1,
 ) -> str:
     """Prompt that requests both OCR text and a caption in a single inference."""
     people_list = dedupe(people)
@@ -801,11 +820,18 @@ def _build_combined_qwen_prompt(
         album_title=album_title,
         printed_album_title=printed_album_title,
     )
-    lines = [
-        "Analyze this photo. Do both tasks:",
-        "1. Extract all visible text exactly as it appears. If there is none, write nothing.",
-        "2. Write one sentence describing the scene.",
-    ]
+    if photo_count == 0:
+        lines = [
+            "This is a scan of an album page that may contain one or more individual photos. Do both tasks:",
+            "1. Extract all visible text exactly as it appears. If there is none, write nothing.",
+            "2. Write one sentence per photo; if multiple distinct photos are visible, describe each separately.",
+        ]
+    else:
+        lines = [
+            "Analyze this photo. Do both tasks:",
+            "1. Extract all visible text exactly as it appears. If there is none, write nothing.",
+            "2. Write one sentence describing the scene.",
+        ]
     if context.title:
         lines.append(f"Album title hint: {context.title}.")
     if context.canonical_title and context.title and context.canonical_title.casefold() != context.title.casefold():
@@ -849,6 +875,10 @@ def _build_combined_qwen_prompt(
     lines.append(
         "- Correct misspelled, outdated, or truncated place names using context clues (album region, photo content); "
         "words may be cut off at scan edges — use visible photo subjects to complete them."
+    )
+    lines.append(
+        "- Only use place names for well-known, widely documented locations (cities, provinces, landmarks); "
+        "avoid inferring obscure townships or villages — if you cannot confidently name a specific city, fall back to province and country."
     )
     lines.append(
         'Hyphen-separated lowercase names in visible text (e.g. "leslie-tommy-robert") list people left to right: Leslie, Tommy, Robert.'
@@ -1463,6 +1493,7 @@ class LMStudioCaptioner:
         source_path: str | Path | None = None,
         album_title: str = "",
         printed_album_title: str = "",
+        photo_count: int = 1,
     ) -> CaptionDetails:
         prompt = self.prompt_text or _build_qwen_prompt(
             people=people,
@@ -1471,6 +1502,7 @@ class LMStudioCaptioner:
             source_path=source_path or image_path,
             album_title=album_title,
             printed_album_title=printed_album_title,
+            photo_count=photo_count,
         )
         resize_edge = int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
         image_url = _build_data_url(image_path, resize_edge)
@@ -1631,6 +1663,7 @@ class QwenLocalCaptioner:
         source_path: str | Path | None = None,
         album_title: str = "",
         printed_album_title: str = "",
+        photo_count: int = 1,
     ) -> CaptionDetails:
         self._ensure_loaded()
         prompt = self.prompt_text or _build_qwen_prompt(
@@ -1640,6 +1673,7 @@ class QwenLocalCaptioner:
             source_path=source_path or image_path,
             album_title=album_title,
             printed_album_title=printed_album_title,
+            photo_count=photo_count,
         )
         text = _compose_model_caption(
             self._infer_raw(image_path, prompt),
@@ -1725,6 +1759,7 @@ class QwenLocalCaptioner:
         source_path: str | Path | None = None,
         album_title: str = "",
         printed_album_title: str = "",
+        photo_count: int = 1,
     ) -> tuple[str, str]:
         """Single inference that returns (ocr_text, caption)."""
         self._ensure_loaded()
@@ -1734,6 +1769,7 @@ class QwenLocalCaptioner:
             source_path=source_path or image_path,
             album_title=album_title,
             printed_album_title=printed_album_title,
+            photo_count=photo_count,
         )
         max_tokens = self.max_new_tokens + DEFAULT_QWEN_OCR_MAX_NEW_TOKENS
         raw = self._infer_raw(image_path, prompt, max_new_tokens=max_tokens)
@@ -1830,6 +1866,7 @@ class CaptionEngine:
         source_path: str | Path | None = None,
         album_title: str = "",
         printed_album_title: str = "",
+        photo_count: int = 1,
     ) -> CaptionOutput:
         context = infer_album_context(
             image_path=source_path or image_path,
@@ -1865,6 +1902,7 @@ class CaptionEngine:
                 source_path=source_path or image_path,
                 album_title=album_title,
                 printed_album_title=printed_album_title,
+                photo_count=photo_count,
             )
             if caption.text:
                 return CaptionOutput(
@@ -1904,6 +1942,7 @@ class CaptionEngine:
         source_path: str | Path | None = None,
         album_title: str = "",
         printed_album_title: str = "",
+        photo_count: int = 1,
     ) -> tuple[CaptionOutput, str]:
         """Single Qwen inference for both OCR and caption. Returns (CaptionOutput, ocr_text).
         Only valid when engine == 'qwen'. Falls back to empty ocr_text on error."""
@@ -1918,6 +1957,7 @@ class CaptionEngine:
                 source_path=source_path or image_path,
                 album_title=album_title,
                 printed_album_title=printed_album_title,
+                photo_count=photo_count,
             )
             if caption:
                 gps_latitude, gps_longitude = _extract_caption_gps_coordinates(caption)

@@ -1030,7 +1030,9 @@
         const sourceUrl = String(face.source_url || "");
         const imgTag = cropUrl
           ? `<img class="crop" src="${esc(cropUrl)}" alt="${esc(faceId)}" />`
-          : '<div class="crop"></div>';
+          : sourceUrl
+            ? `<img class="crop" src="${esc(sourceUrl)}?max_dim=200" alt="${esc(faceId)}" />`
+            : '<div class="crop"></div>';
         const img = sourceUrl
           ? `<button class="face-source-btn" onclick="openSourceModal('${esc(faceId)}')">${imgTag}</button>`
           : imgTag;
@@ -1239,7 +1241,9 @@
         wrap.style.display = "block";
         const face = item.face || {};
         const img = document.getElementById("next-review-img");
-        img.src = String(face.crop_url || "");
+        const cropUrl = String(face.crop_url || "");
+        const sourceUrlFallback = String(face.source_url || "");
+        img.src = cropUrl || (sourceUrlFallback ? `${sourceUrlFallback}?max_dim=400` : "");
         img.alt = String(face.face_id || "");
         document.getElementById("next-review-src").textContent = sourceText(face) || "(unknown source)";
         if (String(face.source_url || "").trim() && String(face.face_id || "").trim()) {

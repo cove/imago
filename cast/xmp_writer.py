@@ -8,13 +8,16 @@ X_NS = "adobe:ns:meta/"
 RDF_NS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
 XMP_NS = "http://ns.adobe.com/xap/1.0/"
 IPTC_EXT_NS = "http://iptc.org/std/Iptc4xmpExt/2008-02-29/"
+DC_NS = "http://purl.org/dc/elements/1.1/"
 
 ET.register_namespace("x", X_NS)
 ET.register_namespace("rdf", RDF_NS)
 ET.register_namespace("xmp", XMP_NS)
 ET.register_namespace("Iptc4xmpExt", IPTC_EXT_NS)
+ET.register_namespace("dc", DC_NS)
 
 _PERSON_TAG = f"{{{IPTC_EXT_NS}}}PersonInImage"
+_DC_DESC_TAG = f"{{{DC_NS}}}description"
 _RDF_BAG = f"{{{RDF_NS}}}Bag"
 _RDF_LI = f"{{{RDF_NS}}}li"
 _RDF_DESC = f"{{{RDF_NS}}}Description"

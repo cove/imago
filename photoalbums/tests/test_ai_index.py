@@ -259,6 +259,7 @@ class TestAIIndex(unittest.TestCase):
                 source_path=image,
                 album_title="",
                 printed_album_title="",
+                photo_count=1,
             )
 
     def test_run_image_analysis_records_gps_location_from_caption_output(self):
@@ -1108,6 +1109,7 @@ class TestAIIndex(unittest.TestCase):
                 source_path=image,
                 album_title="Family Book II",
                 printed_album_title="",
+                photo_count=1,
             )
             print_mock.assert_called_once_with("Family_1986_B02_P01.jpg: Describe this page exactly")
 
