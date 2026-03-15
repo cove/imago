@@ -14,9 +14,7 @@ from .model_store import HF_MODEL_CACHE_DIR
 from .ai_ocr import (
     DEFAULT_QWEN_OCR_MAX_IMAGE_EDGE,
     DEFAULT_QWEN_OCR_MAX_NEW_TOKENS,
-    DEFAULT_QWEN_OCR_MAX_PIXELS,
     _normalize_ocr_text,
-    _resize_for_ocr,
 )
 
 
@@ -24,13 +22,11 @@ DEFAULT_QWEN_CAPTION_MODEL = "Qwen/Qwen2.5-VL-3B-Instruct"
 LEGACY_QWEN_CAPTION_MODEL_ALIASES = {
     "qwen/qwen3.5-4b": DEFAULT_QWEN_CAPTION_MODEL,
 }
-DEFAULT_QWEN_AUTO_MAX_IMAGE_EDGE = 1280
 DEFAULT_QWEN_AUTO_MAX_PIXELS = 786_432
 DEFAULT_LMSTUDIO_MAX_NEW_TOKENS = 256
 DEFAULT_LMSTUDIO_BASE_URL = "http://192.168.4.72:1234/v1"
 DEFAULT_LMSTUDIO_TIMEOUT_SECONDS = 180.0
 DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE = 2048
-DEFAULT_GPS_MAP_DATUM = "WGS-84"
 LMSTUDIO_VISION_MODEL_HINTS = (
     "vl",
     "vision",
@@ -490,49 +486,82 @@ def build_page_caption(
     return " ".join(parts).strip()
 
 
-def _book_label_note(ocr_text: str) -> str:
-    text = clean_text(ocr_text)
-    if not text:
-        return ""
-    match = re.search(r"\bBOOK\s+([1I]{1,6})\b", text, flags=re.IGNORECASE)
-    if not match:
-        return ""
-    raw = str(match.group(1) or "").strip().upper()
-    if not raw or "1" not in raw:
-        return ""
-    roman = _romanize_book_token(raw)
-    if not roman or set(roman) != {"I"}:
-        return ""
-    arabic = len(roman)
-    return f'BOOK {raw} is a typo for Book {roman} ({arabic}).'
 
-
-def build_cover_page_caption(*, ocr_text: str, album_context: AlbumContext | None = None) -> str:
-    text = clean_text(ocr_text)
-    context = album_context or AlbumContext()
-    if context.title and context.kind == ALBUM_KIND_FAMILY:
-        parts = [f"This is the cover or title page of {context.title}, a Family Photo Album."]
-    elif context.title and context.kind == ALBUM_KIND_PHOTO_ESSAY:
-        parts = [f"This is the cover or title page of {context.title}, a Photo Essay."]
-    elif context.title:
-        parts = [f"This is the cover or title page of {context.title}."]
-    elif context.kind == ALBUM_KIND_FAMILY:
-        parts = ["This is the cover or title page of a Family Photo Album."]
-    elif context.kind == ALBUM_KIND_PHOTO_ESSAY:
-        parts = ["This is the cover or title page of a Photo Essay."]
-        if context.focus:
-            parts.append(f"The title suggests {context.focus}.")
+def _build_shared_prompt_rules(
+    *,
+    context: AlbumContext,
+    source_path: str | Path | None,
+    people_list: list[str],
+    object_list: list[str],
+    combined: bool = False,
+    is_cover_page: bool = False,
+) -> list[str]:
+    lines: list[str] = []
+    if is_cover_page:
+        lines.append("This image is an album cover or title page.")
+    if context.title:
+        lines.append(f"Album title hint: {context.title}.")
+    if context.canonical_title and context.title and context.canonical_title.casefold() != context.title.casefold():
+        lines.append(f"Canonical album title hint: {context.canonical_title}.")
+        lines.append("When naming the album in the caption, prefer the printed cover title over the normalized title.")
+    if _should_apply_album_prompt_rules(source_path, context):
+        lines.append("Cordell Photo Albums rules:")
+        lines.append("- If the album is a family collection, describe it as a Family Photo Album.")
+        lines.append("- If the album title names a country or region, describe it as a Photo Essay.")
+        lines.append(
+            "- If the image is mostly a solid blue or white cover with title text naming a country, region, or family, describe it as the cover of the photo album book."
+        )
+        lines.append(
+            "- Preserve visible book labels exactly as shown. Do not silently normalize them. If a label uses digit 1 characters for a Roman numeral volume, keep the visible label and note that it is a typo; for example, BOOK 11 is a typo for Book II (2)."
+        )
+        lines.append("- When quoting any visible text, preserve the original text as shown.")
+        if context.label:
+            lines.append(f"Album classification hint: {context.label}.")
+        if context.focus and context.kind == ALBUM_KIND_PHOTO_ESSAY:
+            lines.append(f"Album focus hint: {context.focus}.")
+    lines.append("Use decisive language. Never hedge with appears, seems, likely, or maybe.")
+    lines.append("Never mention raw file names, folder names, or internal IDs such as B02, P01, Archive, or View.")
+    if combined:
+        lines.append(
+            "When the visible text contains non-English characters, copy them exactly in the ocr_text field. "
+            "In the caption, follow each non-English phrase with its English translation in parentheses — "
+            "for example: '时间：上午8—11时 (Time: 8–11 AM)'."
+        )
     else:
-        parts = ["This is the cover or title page of the album book."]
-    if text:
-        snippet = text[:220].strip()
-        if len(text) > len(snippet):
-            snippet += "..."
-        parts.append(f'Visible title text reads: "{snippet}".')
-        book_note = _book_label_note(text)
-        if book_note:
-            parts.append(book_note)
-    return " ".join(parts).strip()
+        lines.append(
+            "If any visible text is not in English, preserve the original characters exactly in the caption, "
+            "then add an English translation in parentheses immediately after each non-English phrase — "
+            "for example: '敦煌历史文物展览 (Dunhuang Historical Relics Exhibition)'."
+        )
+    lines.append(
+        "Text visible in the image should make sense with the photo subjects: "
+        "if a word appears cut off at a scan edge, misspelled, or truncated, "
+        "infer the correct word from what is visible in the photo "
+        "(e.g., 'Chendo' on a sign next to panda or red panda photos → 'Chengdu', word cut off at scan edge). "
+        "Apply this to all text, not just place names."
+    )
+    lines.append("Location rules:")
+    lines.append("- Infer location from OCR text only when evidence is high confidence.")
+    lines.append("- When location is clear, name the landmark, town, province, and country.")
+    lines.append("- When evidence is imprecise, give the best city, state or province, and country.")
+    lines.append("- When evidence is weak or conflicting, say the location is uncertain.")
+    lines.append("- Do not invent GPS coordinates unless explicitly visible in the image or OCR text.")
+    lines.append(
+        "- Correct misspelled, outdated, or truncated place names using context clues (album region, photo content); "
+        "words may be cut off at scan edges — use visible photo subjects to complete them."
+    )
+    lines.append(
+        "- Only use place names for well-known, widely documented locations (cities, provinces, landmarks); "
+        "avoid inferring obscure townships or villages — if you cannot confidently name a specific city, fall back to province and country."
+    )
+    lines.append(
+        'Hyphen-separated lowercase names in OCR text (e.g. "leslie-tommy-robert") list people left to right: Leslie, Tommy, Robert.'
+    )
+    if people_list:
+        lines.append(f"Known people: {join_human(people_list)}.")
+    if object_list:
+        lines.append(f"Detected objects: {join_human(object_list)}.")
+    return lines
 
 
 def _build_qwen_prompt(
@@ -544,6 +573,7 @@ def _build_qwen_prompt(
     album_title: str = "",
     printed_album_title: str = "",
     photo_count: int = 1,
+    is_cover_page: bool = False,
 ) -> str:
     people_list = dedupe(people)
     object_list = dedupe(objects)
@@ -568,78 +598,25 @@ def _build_qwen_prompt(
             "Do not blend subjects or locations from different photos into a single description.",
         ]
     else:
-        lines = [
-            "Describe this photo in detail",
-        ]
-    if context.title:
-        lines.append(f"Album title hint: {context.title}.")
-    if context.canonical_title and context.title and context.canonical_title.casefold() != context.title.casefold():
-        lines.append(f"Canonical album title hint: {context.canonical_title}.")
-        lines.append("When naming the album in the caption, prefer the printed cover title over the normalized title.")
-    if _should_apply_album_prompt_rules(source_path, context):
-        lines.append("Cordell Photo Albums rules:")
-        lines.append("- If the album is a family collection, describe it as a Family Photo Album.")
-        lines.append("- If the album title names a country or region, describe it as a Photo Essay.")
-        lines.append(
-            "- If the image is mostly a solid blue or white cover with title text naming a country, region, or family, describe it as the cover of the photo album book."
-        )
-        lines.append(
-            "- Preserve visible book labels exactly as shown. Do not silently normalize them. If a label uses digit 1 characters for a Roman numeral volume, keep the visible label and note that it is a typo; for example, BOOK 11 is a typo for Book II (2)."
-        )
-        lines.append("- When quoting any visible text, preserve the original text as shown.")
-        if context.label:
-            lines.append(f"Album classification hint: {context.label}.")
-        if context.focus and context.kind == ALBUM_KIND_PHOTO_ESSAY:
-            lines.append(f"Album focus hint: {context.focus}.")
-    lines.append("Use decisive language. Never hedge with appears, seems, likely, or maybe.")
-    lines.append("Never mention raw file names, folder names, or internal IDs such as B02, P01, Archive, or View.")
-    lines.append(
-        "If any visible text is not in English, preserve the original characters exactly in the caption, "
-        "then add an English translation in parentheses immediately after each non-English phrase — "
-        "for example: '敦煌历史文物展览 (Dunhuang Historical Relics Exhibition)'."
-    )
-    lines.append(
-        "Text visible in the image should make sense with the photo subjects: "
-        "if a word appears cut off at a scan edge, misspelled, or truncated, "
-        "infer the correct word from what is visible in the photo "
-        "(e.g., 'Chendo' on a sign next to panda and red panda photos → 'Chengdu', word cut off at scan edge). "
-        "Apply this to all text, not just place names."
-    )
-    lines.append("Location rules:")
-    lines.append("- Infer location from OCR text only when evidence is high confidence.")
-    lines.append("- When location is clear, name the landmark, town, province, and country.")
-    lines.append("- When evidence is imprecise, give the best city, state or province, and country.")
-    lines.append("- When evidence is weak or conflicting, say the location is uncertain.")
-    lines.append("- Do not invent GPS coordinates unless explicitly visible in the image or OCR text.")
-    lines.append(
-        "- Correct misspelled, outdated, or truncated place names using context clues (album region, photo content); "
-        "words may be cut off at scan edges — use visible photo subjects to complete them."
-    )
-    lines.append(
-        "- Only use place names for well-known, widely documented locations (cities, provinces, landmarks); "
-        "avoid inferring obscure townships or villages — if you cannot confidently name a specific city, fall back to province and country."
-    )
-    if people_list:
-        lines.append(f"Known people: {join_human(people_list)}.")
-    if object_list:
-        lines.append(f"Detected objects: {join_human(object_list)}.")
-    lines.append(
-        'Hyphen-separated lowercase names in OCR text (e.g. "leslie-tommy-robert") list people left to right: Leslie, Tommy, Robert.'
-    )
+        lines = ["Describe this photo in detail"]
+    lines.extend(_build_shared_prompt_rules(
+        context=context,
+        source_path=source_path,
+        people_list=people_list,
+        object_list=object_list,
+        is_cover_page=is_cover_page,
+    ))
     if text:
         snippet = text[:220].strip()
         if len(text) > len(snippet):
             snippet += "..."
         lines.append(f'OCR text hint: "{snippet}".')
     lines.append("Output a JSON object only. No markdown, no labels, no text outside the JSON.")
-    lines.append('Use this exact schema: {"caption": "...", "location_name": "...", "gps_latitude": "...", "gps_longitude": "...", "translations": [{"original": "...", "english": "..."}]}')
+    lines.append('Use this exact schema: {"caption": "...", "location_name": "...", "gps_latitude": "...", "gps_longitude": "..."}')
     lines.append("caption: a detailed description of the photo using only declarative statements.")
     lines.append("location_name: a concise geocoding query like 'Mogao Caves, Dunhuang, Gansu, China', or empty string.")
     lines.append("gps_latitude / gps_longitude: decimal degree strings only if exact coordinates are explicitly visible in the image or OCR text, otherwise empty strings.")
-    lines.append("translations: array of non-English text found in the image with English translations, or empty array.")
     return "\n".join(lines)
-
-
 
 
 def _build_combined_qwen_prompt(
@@ -650,6 +627,7 @@ def _build_combined_qwen_prompt(
     album_title: str = "",
     printed_album_title: str = "",
     photo_count: int = 1,
+    is_cover_page: bool = False,
 ) -> str:
     """Prompt that requests both OCR text and a caption in a single inference."""
     people_list = dedupe(people)
@@ -673,61 +651,14 @@ def _build_combined_qwen_prompt(
             "1. Extract all visible text exactly as it appears. If there is none, write nothing.",
             "2. Write one sentence describing the scene.",
         ]
-    if context.title:
-        lines.append(f"Album title hint: {context.title}.")
-    if context.canonical_title and context.title and context.canonical_title.casefold() != context.title.casefold():
-        lines.append(f"Canonical album title hint: {context.canonical_title}.")
-        lines.append("When naming the album in the description, prefer the printed cover title over the normalized title.")
-    if _should_apply_album_prompt_rules(source_path, context):
-        lines.append("Cordell Photo Albums rules:")
-        lines.append("- If the album is a family collection, describe it as a Family Photo Album.")
-        lines.append("- If the album title names a country or region, describe it as a Photo Essay.")
-        lines.append(
-            "- If the image is mostly a solid blue or white cover with title text naming a country, region, or family, describe it as the cover of the photo album book."
-        )
-        lines.append(
-            "- Preserve visible book labels exactly as shown. Do not silently normalize them. If a label uses digit 1 characters for a Roman numeral volume, keep the visible label and note that it is a typo; for example, BOOK 11 is a typo for Book II (2)."
-        )
-        lines.append("- When quoting any visible text, preserve the original text as shown.")
-        if context.label:
-            lines.append(f"Album classification hint: {context.label}.")
-        if context.focus and context.kind == ALBUM_KIND_PHOTO_ESSAY:
-            lines.append(f"Album focus hint: {context.focus}.")
-    lines.append("Use decisive language. Never hedge with appears, seems, likely, or maybe.")
-    lines.append("Never mention raw file names, folder names, or internal IDs such as B02, P01, Archive, or View.")
-    lines.append(
-        "When the visible text contains non-English characters, copy them exactly in the TEXT section. "
-        "In the DESCRIPTION sentence, follow each non-English phrase with its English translation in parentheses — "
-        "for example: '时间：上午8—11时 (Time: 8–11 AM)'."
-    )
-    lines.append(
-        "Text visible in the image should make sense with the photo subjects: "
-        "if a word appears cut off at a scan edge, misspelled, or truncated, "
-        "infer the correct word from what is visible in the photo "
-        "(e.g., 'Chendo' on a sign next to panda and red panda photos → 'Chengdu', word cut off at scan edge). "
-        "Apply this to all text, not just place names."
-    )
-    lines.append("Location rules:")
-    lines.append("- Infer location from OCR text only when evidence is high confidence.")
-    lines.append("- When location is clear, name the landmark, town, province, and country.")
-    lines.append("- When evidence is imprecise, give the best city, state or province, and country.")
-    lines.append("- When evidence is weak or conflicting, say the location is uncertain.")
-    lines.append("- Do not invent GPS coordinates unless explicitly visible in the image or OCR text.")
-    lines.append(
-        "- Correct misspelled, outdated, or truncated place names using context clues (album region, photo content); "
-        "words may be cut off at scan edges — use visible photo subjects to complete them."
-    )
-    lines.append(
-        "- Only use place names for well-known, widely documented locations (cities, provinces, landmarks); "
-        "avoid inferring obscure townships or villages — if you cannot confidently name a specific city, fall back to province and country."
-    )
-    lines.append(
-        'Hyphen-separated lowercase names in visible text (e.g. "leslie-tommy-robert") list people left to right: Leslie, Tommy, Robert.'
-    )
-    if people_list:
-        lines.append(f"Known people: {join_human(people_list)}.")
-    if object_list:
-        lines.append(f"Detected objects: {join_human(object_list)}.")
+    lines.extend(_build_shared_prompt_rules(
+        context=context,
+        source_path=source_path,
+        people_list=people_list,
+        object_list=object_list,
+        combined=True,
+        is_cover_page=is_cover_page,
+    ))
     lines.append("Output a JSON object only. No markdown, no labels, no text outside the JSON.")
     lines.append('Use this exact schema: {"ocr_text": "...", "caption": "...", "location_name": "...", "gps_latitude": "...", "gps_longitude": "..."}')
     lines.append("ocr_text: all visible text in the image exactly as shown, or empty string if none.")
@@ -876,32 +807,12 @@ def _lmstudio_caption_response_format() -> dict[str, object]:
             "schema": {
                 "type": "object",
                 "properties": {
-                    "caption": {
-                        "type": "string",
-                    },
-                    "translations": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "original": {"type": "string"},
-                                "english": {"type": "string"},
-                            },
-                            "required": ["original", "english"],
-                            "additionalProperties": False,
-                        },
-                    },
-                    "gps_latitude": {
-                        "type": "string",
-                    },
-                    "gps_longitude": {
-                        "type": "string",
-                    },
-                    "location_name": {
-                        "type": "string",
-                    },
+                    "caption": {"type": "string"},
+                    "gps_latitude": {"type": "string"},
+                    "gps_longitude": {"type": "string"},
+                    "location_name": {"type": "string"},
                 },
-                "required": ["caption", "translations", "gps_latitude", "gps_longitude", "location_name"],
+                "required": ["caption", "gps_latitude", "gps_longitude", "location_name"],
                 "additionalProperties": False,
             },
         },
@@ -934,39 +845,6 @@ def _extract_structured_json_payload(text: str) -> dict[str, object] | None:
             return payload
     return None
 
-
-def _normalize_structured_translations(value: object) -> list[tuple[str, str]]:
-    if not isinstance(value, list):
-        return []
-    rows: list[tuple[str, str]] = []
-    seen: set[tuple[str, str]] = set()
-    for row in value:
-        if not isinstance(row, dict):
-            continue
-        original = clean_text(row.get("original"))
-        english = clean_text(row.get("english"))
-        if not original or not english or original.casefold() == english.casefold():
-            continue
-        key = (original.casefold(), english.casefold())
-        if key in seen:
-            continue
-        seen.add(key)
-        rows.append((original, english))
-    return rows
-
-
-def _build_translation_note(caption: str, translations: list[tuple[str, str]]) -> str:
-    if not translations:
-        return ""
-    caption_lower = str(caption or "").casefold()
-    rows: list[str] = []
-    for original, english in translations[:6]:
-        if original.casefold() in caption_lower and english.casefold() in caption_lower:
-            continue
-        rows.append(f'"{original}" ("{english}")')
-    if not rows:
-        return ""
-    return f"Visible non-English text includes {join_human(rows)}."
 
 
 def _format_decimal_coordinate(value: float) -> str:
@@ -1070,11 +948,10 @@ def _parse_lmstudio_structured_caption_payload(
         raise RuntimeError(
             f"LM Studio structured caption JSON is missing a caption string; raw={preview!r}.{finish_note}"
         )
-    translations = _normalize_structured_translations(payload.get("translations"))
     gps_latitude = _normalize_gps_value(str(payload.get("gps_latitude") or ""), axis="lat")
     gps_longitude = _normalize_gps_value(str(payload.get("gps_longitude") or ""), axis="lon")
     location_name = clean_text(payload.get("location_name"))
-    return caption, translations, gps_latitude, gps_longitude, location_name
+    return caption, gps_latitude, gps_longitude, location_name
 
 
 @dataclass(frozen=True)
@@ -1151,15 +1028,9 @@ def _parse_qwen_json_output(raw: str) -> CaptionDetails:
     if payload is not None:
         caption = payload.get("caption")
         if isinstance(caption, str) and caption.strip():
-            translations = _normalize_structured_translations(payload.get("translations"))
             gps_latitude = _normalize_gps_value(str(payload.get("gps_latitude") or ""), axis="lat")
             gps_longitude = _normalize_gps_value(str(payload.get("gps_longitude") or ""), axis="lon")
             location_name = clean_text(payload.get("location_name"))
-            note = _build_translation_note(caption, translations)
-            if note:
-                if caption and caption[-1] not in ".!?":
-                    caption += "."
-                caption = f"{caption} {note}".strip()
             return CaptionDetails(
                 text=clean_text(caption),
                 gps_latitude=gps_latitude,
@@ -1191,18 +1062,12 @@ def _parse_lmstudio_structured_caption(
     *,
     finish_reason: str = "",
 ) -> CaptionDetails:
-    caption, translations, gps_latitude, gps_longitude, location_name = _parse_lmstudio_structured_caption_payload(
+    caption, gps_latitude, gps_longitude, location_name = _parse_lmstudio_structured_caption_payload(
         value,
         finish_reason=finish_reason,
     )
-    text = clean_text(caption)
-    note = _build_translation_note(text, translations)
-    if note:
-        if text and text[-1] not in ".!?":
-            text += "."
-        text = f"{text} {note}".strip()
     return CaptionDetails(
-        text=clean_text(text),
+        text=clean_text(caption),
         gps_latitude=gps_latitude,
         gps_longitude=gps_longitude,
         location_name=location_name,
@@ -1327,6 +1192,7 @@ class LMStudioCaptioner:
         album_title: str = "",
         printed_album_title: str = "",
         photo_count: int = 1,
+        is_cover_page: bool = False,
     ) -> CaptionDetails:
         prompt = self.prompt_text or _build_qwen_prompt(
             people=people,
@@ -1336,6 +1202,7 @@ class LMStudioCaptioner:
             album_title=album_title,
             printed_album_title=printed_album_title,
             photo_count=photo_count,
+            is_cover_page=is_cover_page,
         )
         resize_edge = int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
         image_url = _build_data_url(image_path, resize_edge)
@@ -1348,8 +1215,7 @@ class LMStudioCaptioner:
                         "You are a photo caption writer. "
                         "Return only valid JSON matching the response_format schema. "
                         "Put the final caption text in the caption field. "
-                        "Put any non-English text translations in the translations array using original and english fields. "
-                        "Use an empty translations array when there is no non-English text. "
+                        "If any visible text is not in English, add an English translation in parentheses directly after each non-English phrase in the caption — for example: '敦煌历史文物展览 (Dunhuang Historical Relics Exhibition)'. "
                         "If the location is known confidently enough for online geocoding, set location_name to a concise English geocoding query such as 'Mogao Caves, Dunhuang, Gansu, China'. "
                         "Only set gps_latitude and gps_longitude when exact coordinates are explicitly visible in the image or OCR text. "
                         "If the exact GPS is not explicitly known, set both GPS fields to empty strings. "
@@ -1425,7 +1291,6 @@ class QwenLocalCaptioner:
         self._processor = None
         self._model = None
         self._torch = None
-        self._resolved_attn_implementation = "auto"
 
     def _ensure_loaded(self) -> None:
         if self._processor is not None and self._model is not None:
@@ -1464,7 +1329,6 @@ class QwenLocalCaptioner:
             else:
                 resolved_attn = self.attn_implementation
                 load_kwargs["attn_implementation"] = resolved_attn
-        self._resolved_attn_implementation = resolved_attn
         # Prefer dtype over torch_dtype to avoid deprecation warnings on newer transformers.
         try:
             self._model = AutoModelForImageTextToText.from_pretrained(
@@ -1491,6 +1355,7 @@ class QwenLocalCaptioner:
         album_title: str = "",
         printed_album_title: str = "",
         photo_count: int = 1,
+        is_cover_page: bool = False,
     ) -> CaptionDetails:
         self._ensure_loaded()
         prompt = self.prompt_text or _build_qwen_prompt(
@@ -1501,6 +1366,7 @@ class QwenLocalCaptioner:
             album_title=album_title,
             printed_album_title=printed_album_title,
             photo_count=photo_count,
+            is_cover_page=is_cover_page,
         )
         return _parse_qwen_json_output(self._infer_raw(image_path, prompt))
 
@@ -1580,6 +1446,7 @@ class QwenLocalCaptioner:
         album_title: str = "",
         printed_album_title: str = "",
         photo_count: int = 1,
+        is_cover_page: bool = False,
     ) -> tuple[str, str]:
         """Single inference that returns (ocr_text, caption)."""
         self._ensure_loaded()
@@ -1590,6 +1457,7 @@ class QwenLocalCaptioner:
             album_title=album_title,
             printed_album_title=printed_album_title,
             photo_count=photo_count,
+            is_cover_page=is_cover_page,
         )
         max_tokens = self.max_new_tokens + DEFAULT_QWEN_OCR_MAX_NEW_TOKENS
         raw = self._infer_raw(image_path, prompt, max_new_tokens=max_tokens)
@@ -1680,6 +1548,7 @@ class CaptionEngine:
         album_title: str = "",
         printed_album_title: str = "",
         photo_count: int = 1,
+        is_cover_page: bool = False,
     ) -> CaptionOutput:
         context = infer_album_context(
             image_path=source_path or image_path,
@@ -1715,6 +1584,7 @@ class CaptionEngine:
                 album_title=album_title,
                 printed_album_title=printed_album_title,
                 photo_count=photo_count,
+                is_cover_page=is_cover_page,
             )
             if caption.text:
                 return CaptionOutput(
@@ -1755,6 +1625,7 @@ class CaptionEngine:
         album_title: str = "",
         printed_album_title: str = "",
         photo_count: int = 1,
+        is_cover_page: bool = False,
     ) -> tuple[CaptionOutput, str]:
         """Single Qwen inference for both OCR and caption. Returns (CaptionOutput, ocr_text).
         Only valid when engine == 'qwen'. Falls back to empty ocr_text on error."""
@@ -1770,6 +1641,7 @@ class CaptionEngine:
                 album_title=album_title,
                 printed_album_title=printed_album_title,
                 photo_count=photo_count,
+                is_cover_page=is_cover_page,
             )
             if caption:
                 return CaptionOutput(

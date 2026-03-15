@@ -75,6 +75,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "bampo village, china": {
+    "query": "Bampo Village, China",
+    "status": "miss"
+  },
   "bath abbey and city of bath, bath, somerset, england": {
     "query": "Bath Abbey and City of Bath, Bath, Somerset, England",
     "status": "miss"
@@ -271,6 +275,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "canton, china": {
+    "display_name": "广州市, 广东省, 中国",
+    "latitude": "23.1288454",
+    "longitude": "113.2590064",
+    "query": "Canton, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "canton, guangdong, china": {
     "display_name": "广州市, 广东省, 中国",
     "latitude": "23.1288454",
@@ -305,6 +317,10 @@
   },
   "chendou, sichuan province, china": {
     "query": "Chendou, Sichuan Province, China",
+    "status": "miss"
+  },
+  "chendou, tibet autonomous region, china": {
+    "query": "Chendou, Tibet Autonomous Region, China",
     "status": "miss"
   },
   "chengdu zoo, chengdu, sichuan, china": {
@@ -819,6 +835,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "great wall of china, qi lian mountains, china": {
+    "query": "Great Wall of China, Qi Lian Mountains, China",
+    "status": "miss"
+  },
   "great wall, gansu province, china": {
     "display_name": "长城第一墩景区, 文殊镇, 郊区, 嘉峪关市, 甘肃省, 中国",
     "latitude": "39.7487369",
@@ -919,6 +939,14 @@
     "query": "Hua Qing Hot Springs, Xi'an, Shaanxi, China",
     "status": "miss"
   },
+  "hua ting temple, china": {
+    "display_name": "华亭寺, 西山黑森林林道, 龙门, 碧鸡街道, 西山区, 昆明市, 云南省, 650228, 中国",
+    "latitude": "24.9733549",
+    "longitude": "102.6259775",
+    "query": "Hua Ting Temple, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "innsbruck, austria": {
     "display_name": "Innsbruck, Tirol, Österreich",
     "latitude": "47.2654296",
@@ -958,6 +986,14 @@
   "jiayuguan fort, jiayuguan, gansu, china": {
     "query": "Jiayuguan Fort, Jiayuguan, Gansu, China",
     "status": "miss"
+  },
+  "jiayuguan great wall, jiayuguan, gansu, china": {
+    "display_name": "嘉峪关长城博物馆, 关城北路, 峪泉镇, 郊区, 嘉峪关市, 甘肃省, 中国",
+    "latitude": "39.8069228",
+    "longitude": "98.2199634",
+    "query": "Jiayuguan Great Wall, Jiayuguan, Gansu, China",
+    "source": "nominatim",
+    "status": "ok"
   },
   "jiayuguan pass, jiayuguan city, gansu province, china": {
     "display_name": "嘉峪关售票处, 关城北路, 峪泉镇, 郊区, 嘉峪关市, 甘肃省, 中国",
@@ -1092,6 +1128,14 @@
     "latitude": "29.6542054",
     "longitude": "91.1173015",
     "query": "Lasa, Tibet, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "lhasa hotel, lhasa, tibet, china": {
+    "display_name": "InterContinental Lhasa Paradise, an IHG Hotel, 纳金路, 纳如社区, 纳金街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
+    "latitude": "29.6577657",
+    "longitude": "91.1877072",
+    "query": "Lhasa Hotel, Lhasa, Tibet, China",
     "source": "nominatim",
     "status": "ok"
   },
@@ -1321,6 +1365,10 @@
   },
   "new world hotel and space museum, hong kong": {
     "query": "New World Hotel and Space Museum, Hong Kong",
+    "status": "miss"
+  },
+  "new world hotel and space museum, hong kong, china": {
+    "query": "New World Hotel and Space Museum, Hong Kong, China",
     "status": "miss"
   },
   "new world hotel and the space museum, hong kong": {
@@ -2247,6 +2295,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "xian, shaanxi, china": {
+    "display_name": "中国建设银行, 6, 群贤路, 唐延社区, 丈八街道, 雁塔区, 西安市, 陕西省, 710000, 中国",
+    "latitude": "34.2423367",
+    "longitude": "108.8854197",
+    "query": "Xian, Shaanxi, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "yellow river at lanzhou, gansu, china": {
     "display_name": "雁滩黄河大桥, 雁北街道, 城关区, 兰州市, 甘肃省, 730046, 中国",
     "latitude": "36.0738634",
@@ -2260,6 +2316,14 @@
     "latitude": "36.0962221",
     "longitude": "103.6869430",
     "query": "Yellow River, Lanzhou, Gansu, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "yungang grottoes, datong, shanxi, china": {
+    "display_name": "云冈石窟, S339, 云冈镇, 云冈区, 大同市, 山西省, 中国",
+    "latitude": "40.1126526",
+    "longitude": "113.1304412",
+    "query": "Yungang Grottoes, Datong, Shanxi, China",
     "source": "nominatim",
     "status": "ok"
   },

@@ -14,7 +14,6 @@ from typing import Any
 from .ai_caption import (
     CaptionEngine,
     DEFAULT_LMSTUDIO_MAX_NEW_TOKENS,
-    build_cover_page_caption,
     build_page_caption,
     build_template_caption,
     infer_album_context,
@@ -791,6 +790,7 @@ def _run_image_analysis(
             object_labels = [row.label for row in object_matches]
             if step_fn:
                 step_fn("caption")
+            is_cover_page = is_page_scan and looks_like_album_cover(image_path, ocr_text=ocr_text)
             caption_output = caption_engine.generate(
                 image_path=model_image_path,
                 people=people_names,
@@ -800,6 +800,7 @@ def _run_image_analysis(
                 album_title=album_title,
                 printed_album_title=printed_album_title,
                 photo_count=page_photo_count,
+                is_cover_page=is_cover_page,
             )
 
     subjects = _clean_list(object_labels + ocr_keywords)
@@ -947,26 +948,11 @@ def _build_page_payload(
         )
 
     subjects = _clean_list(page_subjects)
-    likely_cover_page = (
-        (
-            bool(getattr(layout, "fallback_used", False))
-            and len(sub_results) == 1
-            and not people_names
-            and not object_labels
-            and bool(str(page_ocr_text or "").strip())
-        )
-        or (
-            not people_names
-            and not object_labels
-            and looks_like_album_cover(
-                layout.content_path,
-                ocr_text=page_ocr_text,
-                album_context=album_context,
-            )
-        )
-    )
-    if likely_cover_page:
-        description = build_cover_page_caption(
+    if len(sub_results) == 1:
+        description = sub_results[0].description or build_page_caption(
+            photo_count=1,
+            people=people_names,
+            objects=object_labels,
             ocr_text=page_ocr_text,
             album_context=album_context,
         )
@@ -1018,21 +1004,6 @@ def _build_flat_page_description(
         album_title=album_title,
         printed_album_title=printed_album_title,
     )
-    likely_cover_page = (
-        not analysis.people_names
-        and not analysis.object_labels
-        and bool(str(analysis.ocr_text or "").strip())
-        and looks_like_album_cover(
-            layout.content_path,
-            ocr_text=analysis.ocr_text,
-            album_context=album_context,
-        )
-    )
-    if likely_cover_page:
-        return build_cover_page_caption(
-            ocr_text=analysis.ocr_text,
-            album_context=album_context,
-        )
     if fallback_used or effective_engine in {"template", "none"} or str(requested_caption_engine).strip().lower() in {"template", "none"}:
         return build_page_caption(
             photo_count=1,

@@ -88,7 +88,7 @@ class CastHTTPServer(ThreadingHTTPServer):
 class CastHandler(BaseHTTPRequestHandler):
     server: CastHTTPServer  # type: ignore[assignment]
 
-    def log_message(self, format: str, *args: Any) -> None:
+    def log_message(self, _format: str, *args: Any) -> None:
         return
 
     @property

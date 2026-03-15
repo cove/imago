@@ -54,15 +54,6 @@ class TestAICaption(unittest.TestCase):
         )
         self.assertEqual(text, "This album page contains 1 photo(s).")
 
-    def test_cover_page_caption_mentions_cover_and_title_text(self):
-        text = ai_caption.build_cover_page_caption(
-            ocr_text="MAINLAND CHINA 1986 BOOK 11",
-        )
-        self.assertIn("cover or title page", text)
-        self.assertIn("Visible title text reads:", text)
-        self.assertIn("MAINLAND CHINA 1986 BOOK 11", text)
-        self.assertIn("BOOK 11 is a typo for Book II (2)", text)
-
     def test_infer_album_title_prefers_cover_text_and_romanizes_book_number(self):
         text = ai_caption.infer_album_title(
             image_path=Path("Photo Albums") / "China_1986_B02_View" / "China_1986_B02_P01.jpg",
@@ -94,19 +85,6 @@ class TestAICaption(unittest.TestCase):
         self.assertIn("Eastern Europe", context.focus)
         self.assertIn("Spain", context.focus)
         self.assertIn("Morocco", context.focus)
-
-    def test_cover_page_caption_mentions_photo_essay_when_context_present(self):
-        context = ai_caption.AlbumContext(
-            kind=ai_caption.ALBUM_KIND_PHOTO_ESSAY,
-            label="Photo Essay",
-            focus="China",
-        )
-        text = ai_caption.build_cover_page_caption(
-            ocr_text="MAINLAND CHINA 1986 BOOK 11",
-            album_context=context,
-        )
-        self.assertIn("Photo Essay", text)
-        self.assertIn("China", text)
 
     def test_build_qwen_prompt_includes_cordell_album_rules(self):
         prompt = ai_caption._build_qwen_prompt(
@@ -310,7 +288,6 @@ class TestAICaption(unittest.TestCase):
                         "content": json.dumps(
                             {
                                 "caption": "A crowded collage of travel snapshots.",
-                                "translations": [],
                                 "gps_latitude": "",
                                 "gps_longitude": "",
                                 "location_name": "",
@@ -341,7 +318,7 @@ class TestAICaption(unittest.TestCase):
             self.assertEqual(payload["response_format"]["json_schema"]["strict"], "true")
             self.assertEqual(payload["messages"][1]["content"][0]["text"], "Describe this exact image")
             self.assertTrue(payload["messages"][1]["content"][1]["image_url"]["url"].startswith("data:image/jpeg;base64,"))
-            self.assertIn("translations", payload["response_format"]["json_schema"]["schema"]["properties"])
+            self.assertNotIn("translations", payload["response_format"]["json_schema"]["schema"]["properties"])
             self.assertIn("gps_latitude", payload["response_format"]["json_schema"]["schema"]["properties"])
             self.assertIn("gps_longitude", payload["response_format"]["json_schema"]["schema"]["properties"])
             self.assertIn("location_name", payload["response_format"]["json_schema"]["schema"]["properties"])
@@ -384,37 +361,16 @@ class TestAICaption(unittest.TestCase):
 
     def test_parse_lmstudio_structured_caption_extracts_json_after_think_prefix(self):
         details = ai_caption._parse_lmstudio_structured_caption(
-            '<think>{ "caption": "A blue album cover labeled MAINLAND CHINA 1986 BOOK 11.", "translations": [], "gps_latitude": "", "gps_longitude": "", "location_name": "" }',
+            '<think>{ "caption": "A blue album cover labeled MAINLAND CHINA 1986 BOOK 11.", "gps_latitude": "", "gps_longitude": "", "location_name": "" }',
             finish_reason="stop",
         )
         self.assertEqual(details.text, "A blue album cover labeled MAINLAND CHINA 1986 BOOK 11.")
-
-    def test_parse_lmstudio_structured_caption_appends_explicit_translation_note(self):
-        details = ai_caption._parse_lmstudio_structured_caption(
-            json.dumps(
-                {
-                    "caption": "A museum sign welcomes visitors to a Dunhuang exhibition.",
-                    "translations": [
-                        {
-                            "original": "敦煌",
-                            "english": "Dunhuang",
-                        }
-                    ],
-                    "gps_latitude": "",
-                    "gps_longitude": "",
-                    "location_name": "",
-                }
-            ),
-        )
-        text = details.text
-        self.assertIn('Visible non-English text includes "敦煌" ("Dunhuang").', text)
 
     def test_parse_lmstudio_structured_caption_prefers_structured_gps_fields(self):
         details = ai_caption._parse_lmstudio_structured_caption(
             json.dumps(
                 {
                     "caption": "The Mogao Caves entrance in Dunhuang.",
-                    "translations": [],
                     "gps_latitude": "39.7875",
                     "gps_longitude": "100.307222",
                     "location_name": "Mogao Caves, Dunhuang, Gansu, China",
@@ -426,13 +382,13 @@ class TestAICaption(unittest.TestCase):
         self.assertEqual(details.location_name, "Mogao Caves, Dunhuang, Gansu, China")
 
     def test_parse_qwen_json_output_extracts_caption_from_json(self):
-        raw = '{"caption": "Two people stand beside a red car.", "location_name": "", "gps_latitude": "", "gps_longitude": "", "translations": []}'
+        raw = '{"caption": "Two people stand beside a red car.", "location_name": "", "gps_latitude": "", "gps_longitude": ""}'
         details = ai_caption._parse_qwen_json_output(raw)
         self.assertEqual(details.text, "Two people stand beside a red car.")
         self.assertEqual(details.gps_latitude, "")
 
     def test_parse_qwen_json_output_strips_think_block_before_json(self):
-        raw = '<think>Let me analyze this.</think>{"caption": "A mountain valley.", "location_name": "", "gps_latitude": "", "gps_longitude": "", "translations": []}'
+        raw = '<think>Let me analyze this.</think>{"caption": "A mountain valley.", "location_name": "", "gps_latitude": "", "gps_longitude": ""}'
         details = ai_caption._parse_qwen_json_output(raw)
         self.assertEqual(details.text, "A mountain valley.")
 
