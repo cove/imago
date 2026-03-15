@@ -56,3 +56,116 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 
 - Ask for a decision only when truly ambiguous.
 - Otherwise choose the simplest forward-moving implementation consistent with these rules.
+
+---
+
+## MCP Server
+
+The repo exposes a unified MCP server (`mcp_server.py`) registered via `.mcp.json`.
+It surfaces all three projects as callable tools and provides a background job runner
+for long-running operations.
+
+### Registration
+
+`.mcp.json` at the repo root registers the server with Claude Code automatically.
+Restart Claude Code (or approve the server prompt) to activate it.
+
+For Claude Desktop or other MCP clients, add to your config:
+
+```json
+{
+  "mcpServers": {
+    "imago": {
+      "command": "C:\\Users\\covec\\Videos\\imago\\.venv\\Scripts\\python.exe",
+      "args": ["C:\\Users\\covec\\Videos\\imago\\mcp_server.py"],
+      "cwd": "C:\\Users\\covec\\Videos\\imago"
+    }
+  }
+}
+```
+
+### Job Runner Pattern
+
+Long-running tools return a **job ID** immediately. Use the job tools to track progress:
+
+```
+job_id = photoalbums_ai_index(photos_root="D:/Albums")
+job_status(job_id)          # status + last 30 log lines
+job_logs(job_id, 200)       # full log tail
+job_cancel(job_id)          # terminate the process
+job_list()                  # all jobs, newest first
+```
+
+Job logs are persisted to `mcp/jobs/<job_id>.log`. State survives server restarts
+(jobs interrupted mid-run are marked `"interrupted"`).
+
+---
+
+### Cast Tools
+
+| Tool | Type | Description |
+|---|---|---|
+| `cast_list_people` | immediate | List all people (name, aliases, notes, face count) |
+| `cast_list_reviews` | immediate | List review queue items; filter by `status_filter` (`pending`/`resolved`/`ignored`) |
+| `cast_start_web` | job | Start the Cast review web UI on port 8093 |
+
+**Cast web UI** (`cast_start_web`): runs until cancelled with `job_cancel()`.
+Open `http://localhost:8093` to review and assign face identities.
+
+---
+
+### Photoalbums Tools
+
+| Tool | Type | Description |
+|---|---|---|
+| `photoalbums_manifest_summary` | immediate | Image counts grouped by processing state |
+| `photoalbums_ai_index` | job | Run full AI pipeline (people → objects → OCR → captions → geocoding → XMP) |
+| `photoalbums_compress` | job | Compress TIFF scans in-place |
+| `photoalbums_stitch` | job | Build (or validate) stitched album page outputs |
+
+**`photoalbums_ai_index` key parameters:**
+
+| Parameter | Default | Notes |
+|---|---|---|
+| `photos_root` | *(required)* | Root directory to scan |
+| `caption_engine` | `"qwen"` | `"qwen"` or `"lmstudio"` |
+| `ocr_engine` | `"qwen"` | `"qwen"` or `"lmstudio"` |
+| `force` | `false` | Re-process all images, ignoring manifest |
+| `disable_people` | `false` | Skip Cast face-matching step |
+| `disable_objects` | `false` | Skip YOLO object detection |
+| `disable_ocr` | `false` | Skip OCR extraction |
+| `geocode_skip` | `false` | Skip Nominatim geocoding |
+| `max_images` | `0` | Limit images processed (0 = unlimited) |
+| `dry_run` | `false` | Preview without writing files |
+| `extra_args` | `null` | Raw CLI args, e.g. `["--verbose"]` |
+
+---
+
+### VHS Tools
+
+| Tool | Type | Description |
+|---|---|---|
+| `vhs_start_tuner` | job | Start the VHS Tuner web UI on port 8092 |
+| `vhs_convert_avi` | job | Convert AVI capture files to lossless archive MKV |
+| `vhs_convert_umatic` | job | Convert U-matic/ProRes MOV files to archive MKV |
+| `vhs_generate_proxies` | job | Generate half-resolution proxy MP4s |
+| `vhs_metadata_build` | job | Generate archive metadata outputs and checksums |
+| `vhs_render` | job | Run full delivery render pipeline |
+| `vhs_generate_subtitles` | job | Generate subtitle sidecars via Whisper |
+| `vhs_generate_comparison` | job | Render side-by-side original vs. processed video |
+| `vhs_verify_archive` | job | Verify archive checksum manifest (`sha3` or `blake3`) |
+| `vhs_people_prefill` | job | Prefill chapter people metadata from Cast store |
+
+**VHS Tuner** (`vhs_start_tuner`): runs until cancelled with `job_cancel()`.
+Open `http://localhost:8092` for the interactive frame-review and gamma-correction UI.
+
+**Typical VHS pipeline sequence:**
+```
+vhs_convert_avi(files=["capture.avi"])          # → job_id
+vhs_metadata_build()                            # → job_id
+vhs_generate_proxies()                          # → job_id
+vhs_start_tuner()                               # → job_id  (open browser, tune)
+vhs_render(render_args=["--archive", "foo"])    # → job_id
+vhs_generate_subtitles(archive="foo")           # → job_id
+vhs_verify_archive()                            # → job_id
+```
