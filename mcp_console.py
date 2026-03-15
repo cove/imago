@@ -307,5 +307,5 @@ def start_console(
     handler_class = type("Handler", (_Handler,), {"runner": runner})
     server = ThreadingHTTPServer((host, port), handler_class)
     Thread(target=server.serve_forever, daemon=True, name="mcp-console").start()
-    print(f"Job console: http://localhost:{port}")
+    print(f"Job console: http://{host}:{port}")
     return server

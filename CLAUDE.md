@@ -65,6 +65,35 @@ The repo exposes a unified MCP server (`mcp_server.py`) registered via `.mcp.jso
 It surfaces all three projects as callable tools and provides a background job runner
 for long-running operations.
 
+### Starting the Server
+
+The MCP server starts automatically when Claude Code opens this project (via `.mcp.json`).
+The job console starts with it on port 8091.
+
+To start manually:
+```bash
+.venv/Scripts/python.exe mcp_server.py
+```
+
+### Starting Jobs
+
+Jobs are started by asking Claude to call an MCP tool. Examples:
+
+> "Start an AI index job on D:/Albums"
+> "Convert capture.avi to archive MKV"
+> "Show me all running jobs"
+> "Tail the logs for job a1b2c3d4"
+
+Claude calls the appropriate tool (e.g. `photoalbums_ai_index`, `vhs_convert_avi`),
+gets back a job ID, and you can monitor progress in the console at `http://0.0.0.0:8091`.
+
+### Job Console
+
+Open `http://localhost:8091` in a browser to see:
+- All jobs with status, duration, and a live pulsing indicator for running jobs
+- Log tail for any selected job (auto-refreshes every 2s)
+- Cancel button for running jobs
+
 ### Registration
 
 `.mcp.json` at the repo root registers the server with Claude Code automatically.
