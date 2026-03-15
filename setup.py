@@ -17,7 +17,7 @@ BASE = Path(__file__).parent.resolve()
 if sys.platform == "win32":
     VENV_DIR = BASE / ".venv"
 elif sys.platform == "darwin":
-    VENV_DIR = BASE / "venv-mac"
+    VENV_DIR = BASE / ".venv"
 elif sys.platform.startswith("linux"):
     VENV_DIR = BASE / "venv-linux"
 else:
