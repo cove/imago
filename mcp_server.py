@@ -86,6 +86,30 @@ def job_cancel(job_id: str) -> dict:
     return runner.cancel(job_id)
 
 
+@mcp.resource("jobs://index")
+def jobs_index_resource() -> str:
+    """All known background jobs with status and log resource URIs.
+
+    Discoverable in LM Studio under Resources. This is the entry point —
+    read it to find job IDs, then read individual logs via job://<job_id>/logs.
+    """
+    jobs = runner.list_jobs()
+    if not jobs:
+        return "No jobs found."
+    lines = ["# Imago Background Jobs", ""]
+    for job in jobs:
+        job_id = job["id"]
+        lines += [
+            f"## {job['name']}",
+            f"- ID: `{job_id}`",
+            f"- Status: {job['status']}",
+            f"- Log resource URI: `job://{job_id}/logs`",
+            f"- Web stream: http://{CONSOLE_HOST}:{CONSOLE_PORT}/api/jobs/{job_id}/stream",
+            "",
+        ]
+    return "\n".join(lines)
+
+
 @mcp.resource("job://{job_id}/logs")
 def job_log_resource(job_id: str) -> str:
     """Full log output for a job, readable as an MCP resource.

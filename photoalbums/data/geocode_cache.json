@@ -31,6 +31,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "alhambra, granada, spain": {
+    "display_name": "Alhambra, Cuesta del Rey Chico, Barranco del Abogado, San Matías - Realejo, Centro, Granada, Comarca de la Vega de Granada, Granada, Andalucía, 18009, España",
+    "latitude": "37.1760548",
+    "longitude": "-3.5881101",
+    "query": "Alhambra, Granada, Spain",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "alicante, spain": {
     "display_name": "Alacant / Alicante, l'Alacantí, Alacant / Alicante, Comunitat Valenciana, España",
     "latitude": "38.3436365",
@@ -683,6 +691,22 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "egypt": {
+    "display_name": "مصر",
+    "latitude": "26.2540493",
+    "longitude": "29.2675469",
+    "query": "Egypt",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "egypt desert": {
+    "display_name": "الصحراء الشرقي, المنيا, مصر",
+    "latitude": "27.9634960",
+    "longitude": "31.9818700",
+    "query": "Egypt desert",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "ely cathedral, cambridgeshire, england": {
     "display_name": "Ely Cathedral, The College ('Oister Lane), Ely, East Cambridgeshire, Cambridgeshire, Cambridgeshire and Peterborough, England, CB7 4DL, United Kingdom",
     "latitude": "52.3986555",
@@ -771,6 +795,26 @@
     "query": "Gatwick Airport, Croydon, London, England",
     "status": "miss"
   },
+  "giza plateau, cairo, egypt": {
+    "query": "Giza Plateau, Cairo, Egypt",
+    "status": "miss"
+  },
+  "giza plateau, egypt": {
+    "query": "Giza Plateau, Egypt",
+    "status": "miss"
+  },
+  "giza pyramid complex, giza, egypt": {
+    "query": "Giza Pyramid Complex, Giza, Egypt",
+    "status": "miss"
+  },
+  "giza pyramids, cairo, egypt": {
+    "display_name": "Pyramids of Giza archeological site, طريق القاهرة, الفيوم الصحراوى, كفرة نصار, الجيزة, 12559, مصر",
+    "latitude": "29.9652269",
+    "longitude": "31.1142547",
+    "query": "Giza Pyramids, Cairo, Egypt",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "glasgow cathedral and glasgow university, scotland, uk": {
     "query": "Glasgow Cathedral and Glasgow University, Scotland, UK",
     "status": "miss"
@@ -833,6 +877,26 @@
   },
   "great hall of winchester, winchester, hampshire, england": {
     "query": "Great Hall of Winchester, Winchester, Hampshire, England",
+    "status": "miss"
+  },
+  "great pyramid of giza, egypt": {
+    "display_name": "هرم خوفو, Cheops-Osirion-Sphinx Tunnel, نزلة البطران, الجيزة, 12125, مصر",
+    "latitude": "29.9791647",
+    "longitude": "31.1342133",
+    "query": "Great Pyramid of Giza, Egypt",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "great sphinx of giza, cairo, egypt": {
+    "query": "Great Sphinx of Giza, Cairo, Egypt",
+    "status": "miss"
+  },
+  "great sphinx of giza, giza governorate, egypt": {
+    "query": "Great Sphinx of Giza, Giza Governorate, Egypt",
+    "status": "miss"
+  },
+  "great sphinx of giza, giza, egypt": {
+    "query": "Great Sphinx of Giza, Giza, Egypt",
     "status": "miss"
   },
   "great wall fort, jiayuguan, gansu, china": {
@@ -1114,6 +1178,14 @@
   "klagenfurt and salzburg, austria": {
     "query": "Klagenfurt and Salzburg, Austria",
     "status": "miss"
+  },
+  "kom ombo, egypt": {
+    "display_name": "كوم أمبو, أسوان, 81611, مصر",
+    "latitude": "24.4762478",
+    "longitude": "32.9495225",
+    "query": "Kom Ombo, Egypt",
+    "source": "nominatim",
+    "status": "ok"
   },
   "kunming hotel, kunming, yunnan province, china": {
     "display_name": "昆明饭店, 白塔路, 拓东街道, 盘龙区, 昆明市, 云南省, 650051, 中国",
@@ -1848,6 +1920,14 @@
     "latitude": "37.3859150",
     "longitude": "-5.9931406",
     "query": "Seville Cathedral, Seville, Spain",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "seville, andalusia, spain": {
+    "display_name": "Sevilla, Andalucía, España",
+    "latitude": "37.3886303",
+    "longitude": "-5.9953403",
+    "query": "Seville, Andalusia, Spain",
     "source": "nominatim",
     "status": "ok"
   },
