@@ -25,16 +25,16 @@ class JobRunner:
         self._load_state()
 
     def _load_state(self) -> None:
-        if not JOBS_STATE.exists():
-            return
-        try:
-            data = json.loads(JOBS_STATE.read_text(encoding="utf-8"))
-            for job in data.values():
-                if job["status"] in ("pending", "running"):
-                    job["status"] = "interrupted"
-            self._jobs = data
-        except Exception:
-            self._jobs = {}
+        if JOBS_STATE.exists():
+            try:
+                data = json.loads(JOBS_STATE.read_text(encoding="utf-8"))
+                for job in data.values():
+                    if job["status"] in ("pending", "running"):
+                        job["status"] = "interrupted"
+                self._jobs = data
+            except Exception:
+                self._jobs = {}
+        self._save_state()  # always write back: creates file if missing, persists interrupted status
 
     def _save_state(self) -> None:
         JOBS_STATE.write_text(json.dumps(self._jobs, indent=2), encoding="utf-8")
@@ -74,6 +74,8 @@ class JobRunner:
             cwd=cwd or str(REPO_ROOT),
             env=env,
         )
+
+        job["pid"] = proc.pid
 
         with self._lock:
             self._jobs[job_id] = job

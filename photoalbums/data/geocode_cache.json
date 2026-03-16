@@ -387,6 +387,14 @@
     "query": "Chenou, Henan Province, China",
     "status": "miss"
   },
+  "china": {
+    "display_name": "中国",
+    "latitude": "35.0000740",
+    "longitude": "104.9999270",
+    "query": "China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "chipping campden and broadway, cotswolds, england": {
     "query": "Chipping Campden and Broadway, Cotswolds, England",
     "status": "miss"
@@ -638,6 +646,10 @@
     "query": "Dunhuang, Gansu, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "eastern europe, spain, or morocco": {
+    "query": "Eastern Europe, Spain, or Morocco",
+    "status": "miss"
   },
   "edinburgh castle, edinburgh, scotland": {
     "display_name": "Edinburgh Castle, Castlehill, Old Town, City of Edinburgh, Alba / Scotland, EH1 2NG, United Kingdom",
@@ -947,6 +959,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "inner mongolia, china": {
+    "display_name": "内蒙古自治区 ᠦᠪᠦᠷ ᠮᠣᠩᠭᠤᠯ ᠤᠨ ᠥᠪᠡᠷᠲᠡᠭᠡᠨ ᠵᠠᠰᠠᠬᠣ ᠣᠷᠣᠨ, 中国",
+    "latitude": "43.2443242",
+    "longitude": "114.3251664",
+    "query": "Inner Mongolia, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "innsbruck, austria": {
     "display_name": "Innsbruck, Tirol, Österreich",
     "latitude": "47.2654296",
@@ -1108,6 +1128,14 @@
     "latitude": "25.0418068",
     "longitude": "102.7232123",
     "query": "Kunming Hotel, Kunming, Yunnan, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "la concha beach, san sebastián, spain": {
+    "display_name": "Kontxa hondartza, Centro, Donostia / San Sebastián, Gipuzkoa, Euskadi, España",
+    "latitude": "43.3177013",
+    "longitude": "-1.9863684",
+    "query": "La Concha Beach, San Sebastián, Spain",
     "source": "nominatim",
     "status": "ok"
   },
@@ -1303,6 +1331,14 @@
     "query": "Madrid, Spain; Royal Palace, Madrid, Spain; Plaza Mayor, Salamanca, Spain",
     "status": "miss"
   },
+  "mainland china": {
+    "display_name": "Mainland China, Shalimar Morya Park, Off New Link Road, Adarsh Nagar, Jogeshwari West, K/W Ward, Mumbai Zone 3, Mumbai, Mumbai Suburban District, Maharashtra, 400053, India",
+    "latitude": "19.1414769",
+    "longitude": "72.8323049",
+    "query": "Mainland China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "mainz, germany; cairo, egypt": {
     "query": "Mainz, Germany; Cairo, Egypt",
     "status": "miss"
@@ -1322,6 +1358,14 @@
   "market place, lhasa, tibet, china": {
     "query": "Market Place, Lhasa, Tibet, China",
     "status": "miss"
+  },
+  "marrakech, morocco": {
+    "display_name": "Marrakech ⵎⵕⵕⴰⴽⵯⵛ مراكش, Pachalik de Marrakech, Préfecture de Marrakech عمالة مراكش, Marrakech-Safi ⵎⵕⵕⴰⴽⵛ-ⴰⵙⴼⵉ مراكش-أسفي, Maroc ⵍⵎⵖⵔⵉⴱ المغرب",
+    "latitude": "31.6258257",
+    "longitude": "-7.9891608",
+    "query": "Marrakech, Morocco",
+    "source": "nominatim",
+    "status": "ok"
   },
   "medina, fes, morocco": {
     "display_name": "Fès-Médina ⴼⴰⵙ-ⵎⴷⵉⵏⴰ فاس-المدينة, Arrondissement de Fès-Médina مقاطعة فاس المدينة, Fès ⴼⴰⵙ فاس, Pachalik du Fes باشوية فاس, Préfecture de Fès عمالة فاس, Fès-Meknès ⴼⴰⵙ-ⵎⴽⵏⴰⵙ فاس-مكناس, 30120, Maroc ⵍⵎⵖⵔⵉⴱ المغرب",
@@ -1344,6 +1388,14 @@
     "latitude": "40.0373163",
     "longitude": "94.8042114",
     "query": "Mogao Caves, Dunhuang, Gansu, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "morocco": {
+    "display_name": "Maroc ⵍⵎⵖⵔⵉⴱ المغرب",
+    "latitude": "28.3347722",
+    "longitude": "-10.3713379",
+    "query": "Morocco",
     "source": "nominatim",
     "status": "ok"
   },
@@ -1631,6 +1683,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "rural china": {
+    "display_name": "中华人民共和国农业农村部, 农展馆南路, 麦子店街道, 朝阳区, 北京市, 100026, 中国",
+    "latitude": "39.9331167",
+    "longitude": "116.4576852",
+    "query": "Rural China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "salamanca and seville, spain": {
     "query": "Salamanca and Seville, Spain",
     "status": "miss"
@@ -1738,6 +1798,10 @@
     "query": "Sarajevo, Yugoslavia",
     "source": "nominatim",
     "status": "ok"
+  },
+  "savanna, east africa": {
+    "query": "Savanna, East Africa",
+    "status": "miss"
   },
   "scarborough, north yorkshire, england": {
     "display_name": "Scarborough, North Yorkshire, York and North Yorkshire, England, YO11 1LP, United Kingdom",
@@ -1854,6 +1918,14 @@
   "southport, merseyside, england": {
     "query": "Southport, Merseyside, England",
     "status": "miss"
+  },
+  "spain": {
+    "display_name": "España",
+    "latitude": "39.3260685",
+    "longitude": "-4.8379791",
+    "query": "Spain",
+    "source": "nominatim",
+    "status": "ok"
   },
   "spain square, seville, spain": {
     "query": "Spain Square, Seville, Spain",
