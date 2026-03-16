@@ -1,0 +1,13 @@
+[MASTER]
+# Only enable the duplicate-code checker (R0801); ignore all other messages.
+disable=all
+enable=R0801
+recursive=yes
+
+[SIMILARITIES]
+# Minimum number of identical lines to flag as duplicate.
+min-similarity-lines=6
+# Strip comments and docstrings before comparing.
+ignore-comments=yes
+ignore-docstrings=yes
+ignore-imports=yes
