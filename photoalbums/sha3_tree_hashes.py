@@ -1,4 +1,4 @@
-﻿import argparse
+import argparse
 import hashlib
 import os
 from pathlib import Path
@@ -42,7 +42,7 @@ def parse_manifest(manifest_path: Path) -> List[Tuple[str, Path]]:
         if not line.startswith("SHA256 (") or ") = " not in line:
             raise ValueError(f"Invalid manifest line in {manifest_path}: {line}")
         prefix = "SHA256 ("
-        path_part, digest = line[len(prefix):].split(") = ", 1)
+        path_part, digest = line[len(prefix) :].split(") = ", 1)
         entries.append((digest.strip(), Path(path_part)))
     return entries
 
@@ -164,7 +164,9 @@ def run(argv: list[str] | None = None) -> int:
             for digest, rel_path in album_entries
         )
 
-    build_top_manifest(base_dir, sorted(top_entries, key=lambda item: item[1].as_posix()))
+    build_top_manifest(
+        base_dir, sorted(top_entries, key=lambda item: item[1].as_posix())
+    )
     return 0
 
 

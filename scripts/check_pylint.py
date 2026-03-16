@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 """Run pylint duplicate-code check. Defaults to scanning all three sub-packages."""
+
 import sys
 
 if len(sys.argv) == 1:

@@ -5,7 +5,9 @@ def test_store_round_trip(tmp_path):
     store = TextFaceStore(tmp_path / "cast_data")
     store.ensure_files()
 
-    person = store.add_person(name="Jim Bennett", aliases=["Jimmy"], notes="Test person")
+    person = store.add_person(
+        name="Jim Bennett", aliases=["Jimmy"], notes="Test person"
+    )
     assert person["display_name"] == "Jim Bennett"
 
     face = store.add_face(
@@ -23,7 +25,9 @@ def test_store_round_trip(tmp_path):
 
     review = store.add_review_item(
         face_id=face["face_id"],
-        candidates=[{"person_id": person["person_id"], "score": 0.92, "sample_count": 1}],
+        candidates=[
+            {"person_id": person["person_id"], "score": 0.92, "sample_count": 1}
+        ],
         suggested_person_id=person["person_id"],
         suggested_score=0.92,
     )
@@ -128,7 +132,9 @@ def test_update_person_name(tmp_path):
     store = TextFaceStore(tmp_path / "cast_data")
     store.ensure_files()
 
-    person = store.add_person(name="Caria (Friend of Lynda)", aliases=["Caria"], notes="")
+    person = store.add_person(
+        name="Caria (Friend of Lynda)", aliases=["Caria"], notes=""
+    )
     person_id = str(person["person_id"])
     updated = store.update_person(person_id, display_name="Carla (Friend of Lynda)")
 

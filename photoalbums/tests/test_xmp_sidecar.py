@@ -94,7 +94,9 @@ class TestXMPSidecar(unittest.TestCase):
                 gps_longitude="100.307222",
                 source_text="Family_1986_B01_P02_S01.tif",
                 ocr_text="Dolores Cordell",
-                detections_payload={"people": [{"name": "Dolores Cordell", "score": 0.95}]},
+                detections_payload={
+                    "people": [{"name": "Dolores Cordell", "score": 0.95}]
+                },
                 subphotos=[],
             )
 
@@ -107,7 +109,9 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertIn("39,47.25N", xml)
             self.assertNotIn("Old description", xml)
 
-    def test_sidecar_has_expected_ai_fields_detects_complete_and_incomplete_sidecars(self):
+    def test_sidecar_has_expected_ai_fields_detects_complete_and_incomplete_sidecars(
+        self,
+    ):
         with tempfile.TemporaryDirectory() as tmp:
             complete = Path(tmp) / "complete.xmp"
             incomplete = Path(tmp) / "incomplete.xmp"
@@ -124,8 +128,19 @@ class TestXMPSidecar(unittest.TestCase):
                 detections_payload={
                     "people": [],
                     "objects": [],
-                    "ocr": {"engine": "qwen", "language": "eng", "chars": 27, "keywords": ["mainland"]},
-                    "caption": {"requested_engine": "template", "effective_engine": "template", "fallback": False, "error": "", "model": ""},
+                    "ocr": {
+                        "engine": "qwen",
+                        "language": "eng",
+                        "chars": 27,
+                        "keywords": ["mainland"],
+                    },
+                    "caption": {
+                        "requested_engine": "template",
+                        "effective_engine": "template",
+                        "fallback": False,
+                        "error": "",
+                        "model": "",
+                    },
                 },
                 subphotos=[],
             )
@@ -187,8 +202,19 @@ class TestXMPSidecar(unittest.TestCase):
                 detections_payload={
                     "people": [],
                     "objects": [{"label": "person", "score": 0.84}],
-                    "ocr": {"engine": "lmstudio", "language": "eng", "chars": 0, "keywords": []},
-                    "caption": {"requested_engine": "lmstudio", "effective_engine": "lmstudio", "fallback": False, "error": "", "model": ""},
+                    "ocr": {
+                        "engine": "lmstudio",
+                        "language": "eng",
+                        "chars": 0,
+                        "keywords": [],
+                    },
+                    "caption": {
+                        "requested_engine": "lmstudio",
+                        "effective_engine": "lmstudio",
+                        "fallback": False,
+                        "error": "",
+                        "model": "",
+                    },
                 },
                 subphotos=[],
             )
@@ -223,8 +249,19 @@ class TestXMPSidecar(unittest.TestCase):
                 detections_payload={
                     "people": [],
                     "objects": [],
-                    "ocr": {"engine": "lmstudio", "language": "eng", "chars": 120, "keywords": []},
-                    "caption": {"requested_engine": "template", "effective_engine": "template", "fallback": False, "error": "", "model": ""},
+                    "ocr": {
+                        "engine": "lmstudio",
+                        "language": "eng",
+                        "chars": 120,
+                        "keywords": [],
+                    },
+                    "caption": {
+                        "requested_engine": "template",
+                        "effective_engine": "template",
+                        "fallback": False,
+                        "error": "",
+                        "model": "",
+                    },
                 },
                 subphotos=[],
             )
@@ -254,11 +291,17 @@ class TestXMPSidecar(unittest.TestCase):
                 gps_longitude="100.307222",
                 source_text="",
                 ocr_text="MAINLAND CHINA 1986 BOOK 11",
-                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                detections_payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {},
+                    "caption": {},
+                },
                 subphotos=[],
             )
 
             state = xmp_sidecar.read_ai_sidecar_state(sidecar)
+            assert state is not None
             self.assertEqual(state["album_title"], "Mainland China Book II")
             self.assertEqual(state["gps_latitude"], "39,47.25N")
             self.assertEqual(state["gps_longitude"], "100,18.43332E")

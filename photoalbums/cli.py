@@ -1,7 +1,6 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import argparse
-
 
 AI_STEP_LINES = [
     "AI pipeline steps:",
@@ -59,21 +58,33 @@ def build_parser() -> argparse.ArgumentParser:
 
     metadata_parser = subparsers.add_parser("metadata", help="Metadata commands")
     metadata_sub = metadata_parser.add_subparsers(dest="metadata_kind", required=True)
-    metadata_sub.add_parser("apply", help="Apply standardized metadata tags to TIFF scans")
+    metadata_sub.add_parser(
+        "apply", help="Apply standardized metadata tags to TIFF scans"
+    )
     metadata_sub.add_parser("tsv", help="Export archive metadata into metadata.tsv")
 
     subparsers.add_parser("compress", help="Compress TIFF scans in-place where needed")
 
-    stitch_parser = subparsers.add_parser("stitch", help="Stitch and render album page outputs")
+    stitch_parser = subparsers.add_parser(
+        "stitch", help="Stitch and render album page outputs"
+    )
     stitch_sub = stitch_parser.add_subparsers(dest="stitch_kind", required=True)
     stitch_sub.add_parser("build", help="Build stitched and derived JPEG outputs")
-    stitch_sub.add_parser("validate", help="Validate source scan stitchability without writing outputs")
+    stitch_sub.add_parser(
+        "validate", help="Validate source scan stitchability without writing outputs"
+    )
 
-    subparsers.add_parser("watch", help="Watch for incoming scans and auto-process them")
+    subparsers.add_parser(
+        "watch", help="Watch for incoming scans and auto-process them"
+    )
 
-    checksum_parser = subparsers.add_parser("checksum", help="Checksum manifest commands")
+    checksum_parser = subparsers.add_parser(
+        "checksum", help="Checksum manifest commands"
+    )
     checksum_sub = checksum_parser.add_subparsers(dest="checksum_kind", required=True)
-    checksum_tree = checksum_sub.add_parser("tree", help="Generate or verify SHA256 tree manifests")
+    checksum_tree = checksum_sub.add_parser(
+        "tree", help="Generate or verify SHA256 tree manifests"
+    )
     checksum_tree.add_argument(
         "base_dir",
         nargs="?",
@@ -134,7 +145,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.group == "checksum":
         if args.checksum_kind == "tree":
-            return commands.run_checksum_tree(base_dir=args.base_dir, verify=bool(args.verify))
+            return commands.run_checksum_tree(
+                base_dir=args.base_dir, verify=bool(args.verify)
+            )
 
     parser.error("Unknown command.")
     return 2

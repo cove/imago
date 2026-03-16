@@ -29,7 +29,9 @@ def _normalize_bool(value: Any, default: bool) -> bool:
     return bool(default)
 
 
-def _normalize_float(value: Any, default: float, *, min_value: float, max_value: float) -> float:
+def _normalize_float(
+    value: Any, default: float, *, min_value: float, max_value: float
+) -> float:
     try:
         parsed = float(value)
     except Exception:
@@ -80,7 +82,9 @@ def _normalize_caption_engine(value: Any, default: str) -> str:
     return "qwen"
 
 
-def _normalize_settings_block(raw: dict[str, Any], defaults: dict[str, Any]) -> dict[str, Any]:
+def _normalize_settings_block(
+    raw: dict[str, Any], defaults: dict[str, Any]
+) -> dict[str, Any]:
     block = dict(raw or {})
     return {
         "skip": _normalize_bool(block.get("skip"), bool(defaults.get("skip", False))),
@@ -139,7 +143,7 @@ def _normalize_settings_block(raw: dict[str, Any], defaults: dict[str, Any]) -> 
             max_value=8192,
         ),
         "qwen_attn_implementation": normalize_qwen_attn_implementation(
-            block.get("qwen_attn_implementation"),
+            str(block.get("qwen_attn_implementation") or ""),
             str(defaults.get("qwen_attn_implementation", "auto")),
         ),
         "qwen_min_pixels": _normalize_int(
@@ -232,7 +236,9 @@ def load_render_settings(
                 continue
             if not isinstance(value, dict):
                 continue
-            image_settings[filename] = _normalize_settings_block(value, normalized_archive)
+            image_settings[filename] = _normalize_settings_block(
+                value, normalized_archive
+            )
 
     return path, {
         "version": int(payload.get("version") or 1),

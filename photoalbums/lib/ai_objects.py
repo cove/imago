@@ -90,7 +90,9 @@ class YOLOObjectDetector:
         labels_by_name: dict[str, float] = {}
 
         cls_vals = boxes.cls.tolist() if getattr(boxes, "cls", None) is not None else []
-        conf_vals = boxes.conf.tolist() if getattr(boxes, "conf", None) is not None else []
+        conf_vals = (
+            boxes.conf.tolist() if getattr(boxes, "conf", None) is not None else []
+        )
         for idx, raw in enumerate(cls_vals):
             label = str(names.get(int(raw), int(raw)))
             score = float(conf_vals[idx]) if idx < len(conf_vals) else 0.0
@@ -98,6 +100,9 @@ class YOLOObjectDetector:
             if current is None or score > current:
                 labels_by_name[label] = score
 
-        out = [ObjectDetection(label=label, score=score) for label, score in labels_by_name.items()]
+        out = [
+            ObjectDetection(label=label, score=score)
+            for label, score in labels_by_name.items()
+        ]
         out.sort(key=lambda row: row.score, reverse=True)
         return out

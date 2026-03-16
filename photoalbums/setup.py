@@ -46,7 +46,9 @@ def install_requirements():
 
     python_bin = get_python_bin()
     print("Installing requirements from requirements.txt ...")
-    subprocess.check_call([str(python_bin), "-m", "pip", "install", "-r", str(REQ_FILE)])
+    subprocess.check_call(
+        [str(python_bin), "-m", "pip", "install", "-r", str(REQ_FILE)]
+    )
     print("Requirements installed.")
 
 

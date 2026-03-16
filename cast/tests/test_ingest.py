@@ -55,7 +55,7 @@ def test_detect_handles_numpy_multirow_output(tmp_path):
                 dtype=np.int32,
             )
 
-    ingestor._cascade = FakeCascade()
+    ingestor._cascade = FakeCascade()  # type: ignore[assignment]
     image = np.zeros((120, 160, 3), dtype=np.uint8)
     boxes = ingestor._detect(image, min_size=20)
     assert boxes == [(10, 20, 40, 50), (30, 35, 25, 25)]
@@ -83,7 +83,7 @@ def test_ingest_photo_skips_flat_false_positive_detection(tmp_path):
         def detectMultiScale(self, *_args, **_kwargs):
             return np.asarray([[10, 10, 50, 50]], dtype=np.int32)
 
-    ingestor._cascade = FakeCascade()
+    ingestor._cascade = FakeCascade()  # type: ignore[assignment]
 
     image_path = tmp_path / "solid_blue.jpg"
     image = np.zeros((120, 120, 3), dtype=np.uint8)
@@ -104,7 +104,7 @@ def test_ingest_photo_skips_torso_like_false_positive_detection(tmp_path):
         def detectMultiScale(self, *_args, **_kwargs):
             return np.asarray([[20, 20, 120, 120]], dtype=np.int32)
 
-    ingestor._cascade = FakeCascade()
+    ingestor._cascade = FakeCascade()  # type: ignore[assignment]
 
     image_path = tmp_path / "torso_like.jpg"
     image = np.zeros((220, 180, 3), dtype=np.uint8)
@@ -138,7 +138,7 @@ def test_detect_handles_opencv_cascade_error(tmp_path):
                 "OpenCV(4.10.0) ... error: (-215:Assertion failed) 0 <= scaleIdx ..."
             )
 
-    ingestor._cascade = BrokenCascade()
+    ingestor._cascade = BrokenCascade()  # type: ignore[assignment]
     image = np.zeros((120, 160, 3), dtype=np.uint8)
     boxes = ingestor._detect(image, min_size=40)
     assert boxes == []

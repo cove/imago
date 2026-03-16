@@ -59,7 +59,9 @@ def run_make_videos(argv):
     return int(run_render(argv) or 0)
 
 
-def run_make_subtitles(*, archive_filters=None, title_filters=None, title_exact: bool = False):
+def run_make_subtitles(
+    *, archive_filters=None, title_filters=None, title_exact: bool = False
+):
     return int(
         run_render_subtitles(
             archive_filters=archive_filters,
@@ -140,4 +142,3 @@ def run_people_prefill(
         print("Dry run only. Use --apply to write metadata/<archive>/people.tsv.")
 
     return 0
-

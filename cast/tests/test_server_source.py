@@ -14,10 +14,16 @@ from cast.storage import TextFaceStore
 def _write_test_video(tmp_path: Path) -> tuple[Path, float]:
     size = (320, 240)
     fps = 10.0
-    codecs = [("sample_mjpg.avi", "MJPG"), ("sample_xvid.avi", "XVID"), ("sample_mp4v.mp4", "mp4v")]
+    codecs = [
+        ("sample_mjpg.avi", "MJPG"),
+        ("sample_xvid.avi", "XVID"),
+        ("sample_mp4v.mp4", "mp4v"),
+    ]
     for filename, fourcc_name in codecs:
         path = tmp_path / filename
-        writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*fourcc_name), fps, size)
+        writer = cv2.VideoWriter(
+            str(path), cv2.VideoWriter_fourcc(*fourcc_name), fps, size
+        )
         if not writer.isOpened():
             writer.release()
             continue
@@ -123,7 +129,9 @@ def test_source_video_endpoint_and_state_source_url_for_vhs(tmp_path):
             highlighted_data = response.read()
             highlighted_ctype = str(response.headers.get("Content-Type", ""))
 
-        plain_img = cv2.imdecode(np.frombuffer(plain_data, dtype=np.uint8), cv2.IMREAD_COLOR)
+        plain_img = cv2.imdecode(
+            np.frombuffer(plain_data, dtype=np.uint8), cv2.IMREAD_COLOR
+        )
         highlighted_img = cv2.imdecode(
             np.frombuffer(highlighted_data, dtype=np.uint8),
             cv2.IMREAD_COLOR,

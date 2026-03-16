@@ -65,7 +65,9 @@ def test_matcher_refreshes_legacy_reviewed_face_to_current_model(tmp_path, monke
     assert refreshed["review_status"] == "confirmed"
 
 
-def test_match_image_bbox_uses_original_image_coords_not_rescaled(tmp_path, monkeypatch):
+def test_match_image_bbox_uses_original_image_coords_not_rescaled(
+    tmp_path, monkeypatch
+):
     """Bounding box in PersonMatch and the face store must be in original-image pixel space.
 
     When a large image is processed, a rescaled copy may be used for AI caption/OCR models.
@@ -116,9 +118,9 @@ def test_match_image_bbox_uses_original_image_coords_not_rescaled(tmp_path, monk
     def _size_aware_detect(image_bgr):
         h, w = image_bgr.shape[:2]
         if w == 400 and h == 300:
-            return [(100, 75, 80, 80)]   # correct: original image
+            return [(100, 75, 80, 80)]  # correct: original image
         if w == 200 and h == 150:
-            return [(50, 37, 40, 40)]    # wrong: rescaled image
+            return [(50, 37, 40, 40)]  # wrong: rescaled image
         return []
 
     monkeypatch.setattr(matcher, "_detect_faces", _size_aware_detect)

@@ -4,7 +4,23 @@
       "Bash(python -m pytest)",
       "Bash(py -3.11 -m pytest --version)",
       "Bash(py -3.12 -m pytest --version)",
-      "Bash(py -3.13 -m pytest --version)"
+      "Bash(py -3.13 -m pytest --version)",
+      "Bash(.venv/Scripts/python.exe scripts/check_vulture.py)",
+      "Bash(.venv/Scripts/python.exe scripts/check_pylint.py)",
+      "Bash(.venv/Scripts/python.exe -m flake8 --jobs 1 photoalbums vhs cast)",
+      "Bash(.venv/Scripts/python.exe -m pylint --rcfile=.pylintrc photoalbums vhs cast)",
+      "Bash(.venv/Scripts/python.exe -m pylint --rcfile=.pylintrc --disable=all --enable=R0801 photoalbums vhs cast)",
+      "Bash(python3 -c \"s=''    _dedupe, read_ai_sidecar_state, read_person_in_image, sidecar_has_expected_ai_fields, write_xmp_sidecar,''; print\\(len\\(s\\)\\)\")",
+      "Bash(.venv/Scripts/python.exe -m flake8 --jobs 1 --select=E302,E303,E305,E203,E128,E131,E501 photoalbums/lib/ai_index.py cast/server.py vhs/vhs_pipeline/render_pipeline.py photoalbums/lib/ai_page_layout.py photoalbums/lib/_caption_lmstudio.py photoalbums/lib/_caption_prompts.py photoalbums/lib/ai_caption.py cast/ingest.py)",
+      "Bash(.venv/Scripts/python.exe -m flake8 --jobs 1 --select=E131 vhs/vhs_pipeline/render_pipeline.py)",
+      "Bash(echo \"Exit code: $?\")",
+      "Bash(.venv/Scripts/python.exe -m pyright)",
+      "Bash(.venv/Scripts/pip.exe list:*)",
+      "Bash(.venv/Scripts/pip.exe index:*)",
+      "Bash(.venv/Scripts/pip.exe install:*)",
+      "Bash(.venv/Scripts/python.exe -c \":*)",
+      "Bash(.venv/Scripts/python.exe -m py_compile cast/ingest.py cast/server.py cast/xmp_writer.py photoalbums/lib/_caption_qwen.py photoalbums/stitch_oversized_pages.py vhs/apps/plain_html_wizard/server.py vhs/libs/vhs_tuner_core.py vhs/test/run_tests.py vhs/test/test_render_settings_gamma.py vhs/vhs_pipeline/metadata.py vhs/vhs_pipeline/render_pipeline.py)",
+      "Bash(echo \"EXIT: $?\")"
     ]
   }
 }

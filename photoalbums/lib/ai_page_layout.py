@@ -92,7 +92,9 @@ def _require_cv2():
     try:
         import cv2
     except Exception as exc:  # pragma: no cover - dependency optional in tests
-        raise RuntimeError("opencv-python is required for page layout analysis.") from exc
+        raise RuntimeError(
+            "opencv-python is required for page layout analysis."
+        ) from exc
     return cv2
 
 
@@ -174,10 +176,7 @@ def _intersects_or_touches(a: LayoutBounds, b: LayoutBounds, gap: int = 12) -> b
     bx1 = b.x + b.width
     by1 = b.y + b.height
     return not (
-        ax1 + gap < b.x
-        or bx1 + gap < a.x
-        or ay1 + gap < b.y
-        or by1 + gap < a.y
+        ax1 + gap < b.x or bx1 + gap < a.x or ay1 + gap < b.y or by1 + gap < a.y
     )
 
 
@@ -201,7 +200,11 @@ def _merge_boxes(boxes: list[LayoutBounds]) -> list[LayoutBounds]:
             combined = current
             kept: list[LayoutBounds] = []
             for other in merged:
-                if _intersects_or_touches(combined, other) or _contains(combined, other) or _contains(other, combined):
+                if (
+                    _intersects_or_touches(combined, other)
+                    or _contains(combined, other)
+                    or _contains(other, combined)
+                ):
                     x0 = min(combined.x, other.x)
                     y0 = min(combined.y, other.y)
                     x1 = max(combined.x + combined.width, other.x + other.width)
@@ -229,7 +232,9 @@ def _sort_boxes(boxes: list[LayoutBounds]) -> list[LayoutBounds]:
         for idx, anchor in enumerate(anchors):
             if abs(box.y - anchor) <= row_tolerance:
                 rows[idx].append(box)
-                anchors[idx] = int(round(sum(item.y for item in rows[idx]) / len(rows[idx])))
+                anchors[idx] = int(
+                    round(sum(item.y for item in rows[idx]) / len(rows[idx]))
+                )
                 placed = True
                 break
         if not placed:
@@ -292,7 +297,11 @@ def _detect_photo_regions(image, content_bounds: LayoutBounds) -> list[LayoutBou
         boxes.append(LayoutBounds(x0 + rx, y0 + ry, rw, rh))
 
     boxes = _merge_boxes(boxes)
-    boxes = [box for box in boxes if _bounds_area(box) < int(_bounds_area(content_bounds) * _MAX_WHOLE_PAGE_RATIO)]
+    boxes = [
+        box
+        for box in boxes
+        if _bounds_area(box) < int(_bounds_area(content_bounds) * _MAX_WHOLE_PAGE_RATIO)
+    ]
     boxes = _sort_boxes(boxes)
     return boxes[:_MAX_REGION_COUNT]
 
@@ -343,12 +352,19 @@ def prepare_image_layout(
         fallback_used = False
 
         if normalized_mode == "auto":
-            for idx, bounds in enumerate(_detect_photo_regions(image, content_bounds), 1):
-                crop = image[bounds.y : bounds.y + bounds.height, bounds.x : bounds.x + bounds.width]
+            for idx, bounds in enumerate(
+                _detect_photo_regions(image, content_bounds), 1
+            ):
+                crop = image[
+                    bounds.y : bounds.y + bounds.height,
+                    bounds.x : bounds.x + bounds.width,
+                ]
                 if crop.size == 0:
                     continue
                 crop_path = _write_png(tmp_dir / f"photo_{idx:02d}.png", crop)
-                subphotos.append(PreparedSubPhoto(index=idx, bounds=bounds, path=crop_path))
+                subphotos.append(
+                    PreparedSubPhoto(index=idx, bounds=bounds, path=crop_path)
+                )
             split_applied = bool(subphotos)
             if not subphotos:
                 fallback_used = True

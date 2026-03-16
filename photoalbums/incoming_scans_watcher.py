@@ -19,6 +19,7 @@ except Exception:
     class FileSystemEventHandler:
         pass
 
+
 from common import (
     FILENAME_PATTERN,
     INCOMING_NAME,
@@ -81,6 +82,7 @@ def alert_beep() -> None:
         print("\a", end="", flush=True)
 
     if sys.platform.startswith("win"):
+
         def _popup():
             try:
                 import ctypes

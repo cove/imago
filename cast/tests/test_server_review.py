@@ -66,7 +66,9 @@ def test_review_skip_keeps_item_pending_and_moves_it_to_end(tmp_path):
         assert payload["review"]["status"] == "pending"
         assert payload["review"]["skip_count"] == 1
 
-        with urlopen(f"http://127.0.0.1:{port}/api/review?status=pending", timeout=10) as response:
+        with urlopen(
+            f"http://127.0.0.1:{port}/api/review?status=pending", timeout=10
+        ) as response:
             reviews_payload = json.loads(response.read().decode("utf-8"))
         assert [row["review_id"] for row in reviews_payload["reviews"]] == [
             second_review["review_id"],
@@ -137,7 +139,10 @@ def test_state_reports_runtime_and_legacy_face_count(tmp_path):
         assert payload["runtime"]["primary_required"] is True
         assert payload["runtime"]["primary_available"] is False
         assert payload["runtime"]["can_ingest"] is False
-        assert payload["runtime"]["active_detector_model"] == "opencv.haar_frontalface_default"
+        assert (
+            payload["runtime"]["active_detector_model"]
+            == "opencv.haar_frontalface_default"
+        )
     finally:
         server.shutdown()
         server.server_close()

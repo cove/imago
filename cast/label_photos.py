@@ -37,7 +37,8 @@ def get_faces_for_photo(source_path: str, store: TextFaceStore) -> list[dict[str
     """Return existing face records for a photo path (avoids re-ingesting)."""
     normalized = str(source_path).replace("\\", "/")
     return [
-        f for f in store.list_faces()
+        f
+        for f in store.list_faces()
         if str(f.get("source_path", "")).replace("\\", "/") == normalized
     ]
 
@@ -81,7 +82,13 @@ def get_ai_suggestions(
         name = people_by_id.get(person_id, "")
         if not name:
             continue
-        out.append({"person_id": person_id, "display_name": name, "score": float(r.get("score", 0.0))})
+        out.append(
+            {
+                "person_id": person_id,
+                "display_name": name,
+                "score": float(r.get("score", 0.0)),
+            }
+        )
     return out
 
 
@@ -98,7 +105,7 @@ def resolve_or_create_person(name: str, store: TextFaceStore) -> dict[str, Any]:
         for alias in list(person.get("aliases") or []):
             if str(alias).casefold() == key:
                 return person
-    return store.add_person(display_name=name)
+    return store.add_person(name=name)
 
 
 def open_crop_for_viewing(crop_path: Path) -> None:
@@ -107,6 +114,7 @@ def open_crop_for_viewing(crop_path: Path) -> None:
     if sys.platform == "win32":
         try:
             import os
+
             os.startfile(str(crop_path))
             print("  [Opening in default viewer...]")
         except Exception:
@@ -247,7 +255,9 @@ def label_photo(
         faces_labeled += 1
 
     if not confirmed_names:
-        return LabelResult(photo_path=photo_path, status="skipped_by_user", faces_labeled=0)
+        return LabelResult(
+            photo_path=photo_path, status="skipped_by_user", faces_labeled=0
+        )
 
     merge_persons_xmp(xmp_path, confirmed_names)
     print(f"\n  Saved: {', '.join(confirmed_names)} → {xmp_path.name}")

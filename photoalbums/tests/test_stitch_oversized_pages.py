@@ -70,9 +70,7 @@ class TestStitchOversizedPages(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp, mock.patch(
             "stitch_oversized_pages._require_stitcher"
-        ), mock.patch(
-            "stitch_oversized_pages._require_image_modules"
-        ), mock.patch(
+        ), mock.patch("stitch_oversized_pages._require_image_modules"), mock.patch(
             "stitch_oversized_pages.output_is_valid", return_value=False
         ), mock.patch(
             "stitch_oversized_pages.AffineStitcher"
@@ -138,7 +136,9 @@ class TestStitchOversizedPages(unittest.TestCase):
             self.skipTest(f"numpy unavailable: {exc}")
 
         fake = np.zeros((10, 20, 3), dtype=np.uint8)
-        with mock.patch("stitch_oversized_pages.cv2.imread", return_value=None), mock.patch(
+        with mock.patch(
+            "stitch_oversized_pages.cv2.imread", return_value=None
+        ), mock.patch(
             "stitch_oversized_pages._read_with_pillow",
             side_effect=RuntimeError("pillow failed"),
         ), mock.patch(

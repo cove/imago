@@ -11,7 +11,6 @@ from pathlib import Path
 
 from ._caption_album import clean_text
 
-
 DEFAULT_LMSTUDIO_MAX_NEW_TOKENS = 256
 DEFAULT_LMSTUDIO_BASE_URL = "http://192.168.4.72:1234/v1"
 DEFAULT_LMSTUDIO_TIMEOUT_SECONDS = 180.0
@@ -87,9 +86,15 @@ def _looks_like_reasoning_or_prompt_echo(value: str) -> bool:
         return True
     if text.startswith(("**1.", "1.", "* **filename:**", "- **filename:**")):
         return True
-    if re.search(r"(?:^|\s)(?:\*\*|\*|-)?\s*(?:filename|folder|ocr/text in image|detected objects)\s*:", lowered):
+    if re.search(
+        r"(?:^|\s)(?:\*\*|\*|-)?\s*(?:filename|folder|ocr/text in image|detected objects)\s*:",
+        lowered,
+    ):
         return True
-    if re.search(r"(?:^|\s)(?:\*\*|\*|-)?\s*(?:album classification hint|album focus hint)\s*:", lowered):
+    if re.search(
+        r"(?:^|\s)(?:\*\*|\*|-)?\s*(?:album classification hint|album focus hint)\s*:",
+        lowered,
+    ):
         return True
     return False
 
@@ -160,7 +165,9 @@ def _parse_dms_coordinate(value: str) -> float | None:
     return decimal
 
 
-def _parse_decimal_coordinate(value: str, *, positive_hemisphere: str, negative_hemisphere: str) -> float | None:
+def _parse_decimal_coordinate(
+    value: str, *, positive_hemisphere: str, negative_hemisphere: str
+) -> float | None:
     text = clean_text(value).replace("−", "-")
     if not text:
         return None
@@ -189,9 +196,13 @@ def _normalize_gps_value(value: str, *, axis: str) -> str:
         decimal = _parse_dms_coordinate(text)
     if decimal is None:
         if axis == "lat":
-            decimal = _parse_decimal_coordinate(text, positive_hemisphere="N", negative_hemisphere="S")
+            decimal = _parse_decimal_coordinate(
+                text, positive_hemisphere="N", negative_hemisphere="S"
+            )
         else:
-            decimal = _parse_decimal_coordinate(text, positive_hemisphere="E", negative_hemisphere="W")
+            decimal = _parse_decimal_coordinate(
+                text, positive_hemisphere="E", negative_hemisphere="W"
+            )
     if decimal is None:
         return ""
     return _format_decimal_coordinate(decimal)
@@ -251,7 +262,12 @@ def _lmstudio_caption_response_format() -> dict[str, object]:
                     "gps_longitude": {"type": "string"},
                     "location_name": {"type": "string"},
                 },
-                "required": ["caption", "gps_latitude", "gps_longitude", "location_name"],
+                "required": [
+                    "caption",
+                    "gps_latitude",
+                    "gps_longitude",
+                    "location_name",
+                ],
                 "additionalProperties": False,
             },
         },
@@ -272,10 +288,12 @@ def _parse_lmstudio_structured_caption_payload(
     value: object,
     *,
     finish_reason: str = "",
-) -> tuple[str, list[tuple[str, str]], str, str, str]:
+) -> tuple[str, str, str, str]:
     raw = _decode_lmstudio_text(value)
     text = str(raw or "").strip()
-    finish_note = f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
+    finish_note = (
+        f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
+    )
     if not text:
         raise RuntimeError(
             "LM Studio returned empty structured caption content. "
@@ -286,7 +304,9 @@ def _parse_lmstudio_structured_caption_payload(
     # JSON objects inside the thinking block are not mistaken for the structured response.
     # If stripping empties the text, keep the original so _extract_structured_json_payload
     # can still find JSON embedded inside an unclosed <think> block.
-    stripped = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
+    stripped = re.sub(
+        r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE
+    ).strip()
     if stripped:
         text = stripped
     try:
@@ -309,9 +329,13 @@ def _parse_lmstudio_structured_caption_payload(
         raise RuntimeError(
             f"LM Studio structured caption JSON is missing a caption string; raw={preview!r}.{finish_note}"
         )
-    gps_latitude = _normalize_gps_value(str(payload.get("gps_latitude") or ""), axis="lat")
-    gps_longitude = _normalize_gps_value(str(payload.get("gps_longitude") or ""), axis="lon")
-    location_name = clean_text(payload.get("location_name"))
+    gps_latitude = _normalize_gps_value(
+        str(payload.get("gps_latitude") or ""), axis="lat"
+    )
+    gps_longitude = _normalize_gps_value(
+        str(payload.get("gps_longitude") or ""), axis="lon"
+    )
+    location_name = clean_text(str(payload.get("location_name") or ""))
     return caption, gps_latitude, gps_longitude, location_name
 
 
@@ -320,9 +344,11 @@ def _parse_lmstudio_structured_caption(
     *,
     finish_reason: str = "",
 ) -> CaptionDetails:
-    caption, gps_latitude, gps_longitude, location_name = _parse_lmstudio_structured_caption_payload(
-        value,
-        finish_reason=finish_reason,
+    caption, gps_latitude, gps_longitude, location_name = (
+        _parse_lmstudio_structured_caption_payload(
+            value,
+            finish_reason=finish_reason,
+        )
     )
     return CaptionDetails(
         text=clean_text(caption),
@@ -332,7 +358,9 @@ def _parse_lmstudio_structured_caption(
     )
 
 
-def _lmstudio_request_json(url: str, *, payload: dict | None = None, timeout: float) -> dict:
+def _lmstudio_request_json(
+    url: str, *, payload: dict | None = None, timeout: float
+) -> dict:
     body = None if payload is None else json.dumps(payload).encode("utf-8")
     request = urllib.request.Request(
         url,
@@ -398,7 +426,9 @@ def _select_lmstudio_model(base_url: str, requested_model: str, timeout: float) 
         if str(row.get("id") or "").strip()
     ]
     if not model_ids:
-        raise RuntimeError("LM Studio did not return any models. Load a model or pass --caption-model.")
+        raise RuntimeError(
+            "LM Studio did not return any models. Load a model or pass --caption-model."
+        )
     for model_id in model_ids:
         lowered = model_id.casefold()
         if any(hint in lowered for hint in LMSTUDIO_VISION_MODEL_HINTS):
@@ -406,7 +436,9 @@ def _select_lmstudio_model(base_url: str, requested_model: str, timeout: float) 
     return model_ids[0]
 
 
-def normalize_lmstudio_base_url(value: str, default: str = DEFAULT_LMSTUDIO_BASE_URL) -> str:
+def normalize_lmstudio_base_url(
+    value: str, default: str = DEFAULT_LMSTUDIO_BASE_URL
+) -> str:
     text = str(value or "").strip() or str(default or DEFAULT_LMSTUDIO_BASE_URL)
     text = text.rstrip("/")
     if text.endswith("/v1"):
@@ -453,7 +485,11 @@ class LMStudioCaptioner:
         *,
         prompt: str,
     ) -> CaptionDetails:
-        resize_edge = int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
+        resize_edge = (
+            int(self.max_image_edge)
+            if self.max_image_edge > 0
+            else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
+        )
         image_url = _build_data_url(image_path, resize_edge)
         payload = {
             "model": self._resolve_model_name(),
@@ -464,9 +500,13 @@ class LMStudioCaptioner:
                         "You are a photo caption writer. "
                         "Return only valid JSON matching the response_format schema. "
                         "Put the final caption text in the caption field. "
-                        "If any visible text is not in English, add an English translation in parentheses directly after each non-English phrase in the caption — for example: '敦煌历史文物展览 (Dunhuang Historical Relics Exhibition)'. "
-                        "If the location is known confidently enough for online geocoding, set location_name to a concise English geocoding query such as 'Mogao Caves, Dunhuang, Gansu, China'. "
-                        "Only set gps_latitude and gps_longitude when exact coordinates are explicitly visible in the image or OCR text. "
+                        "If any visible text is not in English, add an English translation in parentheses "
+                        "directly after each non-English phrase in the caption — for example: "
+                        "'敦煌历史文物展览 (Dunhuang Historical Relics Exhibition)'. "
+                        "If the location is known confidently enough for online geocoding, set location_name "
+                        "to a concise English geocoding query such as 'Mogao Caves, Dunhuang, Gansu, China'. "
+                        "Only set gps_latitude and gps_longitude when exact coordinates are explicitly "
+                        "visible in the image or OCR text. "
                         "If the exact GPS is not explicitly known, set both GPS fields to empty strings. "
                         "If no confident geocoding query is available, set location_name to an empty string. "
                         "Never mention raw filenames, folder names, or internal ids. "
@@ -479,7 +519,7 @@ class LMStudioCaptioner:
                         {"type": "text", "text": prompt},
                         {"type": "image_url", "image_url": {"url": image_url}},
                     ],
-                }
+                },
             ],
             "response_format": _lmstudio_caption_response_format(),
             "max_tokens": int(self.max_new_tokens),
@@ -487,7 +527,11 @@ class LMStudioCaptioner:
             "stream": self.stream,
         }
         if self.stream:
-            print(f"  Running LM Studio model ({self._resolve_model_name()})...", end="", flush=True)
+            print(
+                f"  Running LM Studio model ({self._resolve_model_name()})...",
+                end="",
+                flush=True,
+            )
             tokens: list[str] = []
             for token in _lmstudio_stream_tokens(
                 f"{self.base_url}/chat/completions",
@@ -495,7 +539,7 @@ class LMStudioCaptioner:
                 self.timeout_seconds,
             ):
                 tokens.append(token)
-            print(f"\r\033[K", end="", flush=True)
+            print("\r\033[K", end="", flush=True)
             return _parse_lmstudio_structured_caption(
                 "".join(tokens),
             )

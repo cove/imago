@@ -25,6 +25,17 @@ _RDF_ROOT = f"{{{RDF_NS}}}RDF"
 _XMP_CREATOR = f"{{{XMP_NS}}}CreatorTool"
 
 
+def _get_rdf_desc(tree: ET.ElementTree) -> ET.Element | None:  # type: ignore[type-arg]
+    """Return the rdf:Description element from an XMP tree, or None."""
+    root = tree.getroot()
+    if root is None:
+        return None
+    rdf_rdf = root.find(_RDF_ROOT)
+    if rdf_rdf is None:
+        return None
+    return rdf_rdf.find(_RDF_DESC)
+
+
 def _dedupe(names: list[str]) -> list[str]:
     first_seen: dict[str, str] = {}
     for raw in names:
@@ -45,7 +56,7 @@ def read_person_in_image(sidecar_path: Path) -> list[str]:
         if not path.is_file():
             return []
         tree = ET.parse(str(path))
-        desc = _get_rdf_desc(tree)
+        desc = _get_rdf_desc(tree)  # type: ignore[arg-type]
         if desc is None:
             return []
         person_elem = desc.find(_PERSON_TAG)
@@ -86,7 +97,7 @@ def merge_persons_xmp(
         except ET.ParseError:
             tree = None
         if tree is not None:
-            _merge_into_tree(tree, names)
+            _merge_into_tree(tree, names)  # type: ignore[arg-type]
             tree.write(str(sidecar_path), encoding="UTF-8", xml_declaration=True)
             return sidecar_path
 
@@ -95,14 +106,15 @@ def merge_persons_xmp(
     return sidecar_path
 
 
-def _merge_into_tree(tree: ET.ElementTree, names: list[str]) -> None:
+def _merge_into_tree(tree: ET.ElementTree, names: list[str]) -> None:  # type: ignore[type-arg]
     """Update or create the PersonInImage bag inside an existing XMP tree."""
     root = tree.getroot()
+    assert root is not None
 
     # Find or create the rdf:RDF element
     rdf_rdf = root.find(_RDF_ROOT)
     if rdf_rdf is None:
-        rdf_rdf = ET.SubElement(root, _RDF_ROOT)
+        rdf_rdf = ET.SubElement(root, _RDF_ROOT)  # type: ignore[arg-type]
 
     # Find or create rdf:Description inside rdf:RDF
     desc = rdf_rdf.find(_RDF_DESC)
@@ -136,7 +148,7 @@ def _write_minimal(
     xmpmeta = ET.Element(f"{{{X_NS}}}xmpmeta")
     xmpmeta.set(f"{{{X_NS}}}xmptk", creator_tool)
     rdf_rdf = ET.SubElement(xmpmeta, _RDF_ROOT)
-    rdf_rdf.set(f"xmlns:rdf", RDF_NS)
+    rdf_rdf.set("xmlns:rdf", RDF_NS)
     desc = ET.SubElement(rdf_rdf, _RDF_DESC)
     desc.set(f"{{{RDF_NS}}}about", "")
 

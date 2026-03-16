@@ -16,6 +16,7 @@ if str(ROOT) not in sys.path:
 
 os.environ["TEST_ENV"] = "1"
 from common import *
+
 TESTDATA_DIR = BASE / "test" / "test_data"
 TEST_ARCHIVE_FIXTURE = TESTDATA_DIR / "test_01_archive.mkv"
 os.environ["PYTHONPATH"] = str(BASE)
@@ -33,16 +34,19 @@ def import_legacy_step(short_name: str):
     sys.modules[short_name] = module
     return module
 
+
 def _require_test_archive_fixture(test_name: str) -> bool:
     if TEST_ARCHIVE_FIXTURE.exists():
         return True
     print(f"Skipping {test_name}: missing fixture {TEST_ARCHIVE_FIXTURE}")
     return False
 
+
 def _ensure_test_archive_metadata_dir() -> Path:
     p = METADATA_DIR / "test_01_archive"
     p.mkdir(parents=True, exist_ok=True)
     return p
+
 
 def _framemd5_hashes(path: Path):
     hashes = []
@@ -54,30 +58,55 @@ def _framemd5_hashes(path: Path):
             hashes.append(parts[5])
     return hashes
 
+
 def _encode_frame_id_token(frame_id: int):
     fid = int(frame_id) & 0xFFFF
     chk = (fid ^ (fid >> 8) ^ 0x5A) & 0xFF
     return ((fid << 8) | chk) & 0xFFFFFF
 
+
 def _draw_frame_id_overlay(frame, frame_id, x, y, bits=24, cell_w=20, cell_h=28):
     import cv2
+
     token = _encode_frame_id_token(frame_id)
     box_w = bits * cell_w
     box_h = cell_h + 64
     cv2.rectangle(frame, (x - 10, y - 52), (x + box_w + 10, y + box_h), (0, 0, 0), -1)
     text = str(int(frame_id))
-    cv2.putText(frame, text, (x, y - 16), cv2.FONT_HERSHEY_SIMPLEX, 1.8, (255, 255, 255), 5, cv2.LINE_AA)
-    cv2.putText(frame, text, (x, y - 16), cv2.FONT_HERSHEY_SIMPLEX, 1.8, (32, 32, 32), 2, cv2.LINE_AA)
+    cv2.putText(
+        frame,
+        text,
+        (x, y - 16),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1.8,
+        (255, 255, 255),
+        5,
+        cv2.LINE_AA,
+    )
+    cv2.putText(
+        frame,
+        text,
+        (x, y - 16),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1.8,
+        (32, 32, 32),
+        2,
+        cv2.LINE_AA,
+    )
     for i in range(bits):
         bit_index = bits - 1 - i
         bit = (token >> bit_index) & 1
         px = x + (i * cell_w)
         color = (255, 255, 255) if bit else (0, 0, 0)
         cv2.rectangle(frame, (px, y), (px + cell_w - 2, y + cell_h - 2), color, -1)
-        cv2.rectangle(frame, (px, y), (px + cell_w - 2, y + cell_h - 2), (96, 96, 96), 1)
+        cv2.rectangle(
+            frame, (px, y), (px + cell_w - 2, y + cell_h - 2), (96, 96, 96), 1
+        )
+
 
 def _decode_frame_id_overlay(frame, x, y, bits=24, cell_w=20, cell_h=28):
     import cv2
+
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     token = 0
     for i in range(bits):
@@ -97,6 +126,7 @@ def _decode_frame_id_overlay(frame, x, y, bits=24, cell_w=20, cell_h=28):
     ok = chk == expected_chk
     return frame_id, ok
 
+
 def _map_overlay_geometry_callahan01_to_filtered(x, y, cell_w, cell_h):
     # callahan_01 filter: Crop(10,2,-8,-10) then LanczosResize(640,480)
     src_w, src_h = 720, 480
@@ -111,6 +141,7 @@ def _map_overlay_geometry_callahan01_to_filtered(x, y, cell_w, cell_h):
     fw = max(1, int(round(cell_w * sx)))
     fh = max(1, int(round(cell_h * sy)))
     return fx, fy, fw, fh
+
 
 def import_step_6_module():
     def _install_whisper_stub():
@@ -127,6 +158,7 @@ def import_step_6_module():
         def _get_writer(_fmt, _out_dir):
             def _writer(_result, out_path):
                 Path(out_path).write_text("", encoding="utf-8")
+
             return _writer
 
         whisper_stub.load_model = _load_model
@@ -151,12 +183,15 @@ def import_step_6_module():
 
     return import_legacy_step("step_6_make_videos")
 
+
 def test_step_4_generate_archive_metadata():
     print("Testing step_4_generate_archive_metadata.py...")
     if not _require_test_archive_fixture("test_step_4_generate_archive_metadata"):
         return
     shutil.copy(TEST_ARCHIVE_FIXTURE, ARCHIVE_DIR / "test_01_archive.mkv")
-    step_3_generate_archive_metadata = import_legacy_step("step_3_generate_archive_metadata")
+    step_3_generate_archive_metadata = import_legacy_step(
+        "step_3_generate_archive_metadata"
+    )
     assert step_3_generate_archive_metadata.main() is None
     assert step_3_generate_archive_metadata.ARCHIVE_CHECKSUM_FILE.stat().st_size > 50
     assert (ARCHIVE_DIR / "test_01_archive_mediainfo.txt").stat().st_size > 50
@@ -167,8 +202,11 @@ def test_step_4_generate_archive_metadata():
     (ARCHIVE_DIR / "test_01_archive_mediainfo.txt").unlink()
     (ARCHIVE_DIR / "test_01_archive_mediainfo.xml").unlink()
     (METADATA_DIR / "test_01_archive" / "markers.tsv").unlink(missing_ok=True)
-    (METADATA_DIR / "test_01_archive" / "markers.mkvchapters.xml").unlink(missing_ok=True)
-    del sys.modules['step_3_generate_archive_metadata']
+    (METADATA_DIR / "test_01_archive" / "markers.mkvchapters.xml").unlink(
+        missing_ok=True
+    )
+    del sys.modules["step_3_generate_archive_metadata"]
+
 
 def test_step_6_make_videos():
     print("Testing step_6_make_videos.py...")
@@ -184,9 +222,10 @@ def test_step_6_make_videos():
     (CLIPS_DIR / "Test Video 01.vtt").unlink(missing_ok=True)
     (CLIPS_DIR / "Test Video 01.ass").unlink(missing_ok=True)
     (ARCHIVE_DIR / "test_01_archive.mkv").unlink(missing_ok=True)
-    del sys.modules['step_6_make_videos']
+    del sys.modules["step_6_make_videos"]
     sys.modules.pop("whisper", None)
     sys.modules.pop("whisper.utils", None)
+
 
 def test_step_6_title_filter_and_rebuild():
     print("Testing step_6_make_videos title filter and rebuild...")
@@ -214,9 +253,10 @@ def test_step_6_title_filter_and_rebuild():
     (CLIPS_DIR / "Test Video 01.vtt").unlink(missing_ok=True)
     (CLIPS_DIR / "Test Video 01.ass").unlink(missing_ok=True)
     (ARCHIVE_DIR / "test_01_archive.mkv").unlink(missing_ok=True)
-    del sys.modules['step_6_make_videos']
+    del sys.modules["step_6_make_videos"]
     sys.modules.pop("whisper", None)
     sys.modules.pop("whisper.utils", None)
+
 
 def test_step_6_badframe_sidecar_mapping():
     print("Testing step_6_make_videos badframe sidecar mapping...")
@@ -229,11 +269,18 @@ def test_step_6_badframe_sidecar_mapping():
     }
     assert step_6_make_videos.chapter_global_frame_bounds(chapter) == (1000, 1010)
     rounded_chapter = {"start": 19.319, "end": 206.506}
-    assert step_6_make_videos.chapter_global_frame_bounds(rounded_chapter) == (579, 6189)
-    exact_start, exact_end = step_6_make_videos.chapter_exact_time_bounds(rounded_chapter)
+    assert step_6_make_videos.chapter_global_frame_bounds(rounded_chapter) == (
+        579,
+        6189,
+    )
+    exact_start, exact_end = step_6_make_videos.chapter_exact_time_bounds(
+        rounded_chapter
+    )
     assert abs(exact_start - (579 * 1001.0 / 30000.0)) < 1e-9
     assert abs(exact_end - (6189 * 1001.0 / 30000.0)) < 1e-9
-    local = step_6_make_videos.map_bad_ranges_to_chapter_local_frames([(999, 1002), (1010, 1015)], chapter)
+    local = step_6_make_videos.map_bad_ranges_to_chapter_local_frames(
+        [(999, 1002), (1010, 1015)], chapter
+    )
     assert local == [0, 1, 2]
     assert local == [0, 1, 2]
 
@@ -265,7 +312,9 @@ def test_step_6_badframe_sidecar_mapping():
     try:
         try:
             step_6_make_videos.load_badframe_repairs(tmp_invalid_tsv)
-            raise AssertionError("Expected ValueError for invalid frame_quality sidecar schema.")
+            raise AssertionError(
+                "Expected ValueError for invalid frame_quality sidecar schema."
+            )
         except ValueError:
             pass
     finally:
@@ -285,7 +334,9 @@ def test_step_6_badframe_sidecar_mapping():
         repairs = step_6_make_videos.load_badframe_repairs(tmp_repairs_tsv)
         assert (1000, 1002, None) in repairs
         assert (1005, 1005, None) in repairs
-        chapter_local = step_6_make_videos.map_bad_repairs_to_chapter_local_ranges(repairs, chapter)
+        chapter_local = step_6_make_videos.map_bad_repairs_to_chapter_local_ranges(
+            repairs, chapter
+        )
         assert chapter_local == [(0, 2, None), (5, 5, None)]
     finally:
         tmp_repairs_tsv.unlink(missing_ok=True)
@@ -322,12 +373,15 @@ def test_step_6_badframe_sidecar_mapping():
         tmp_local_tsv.unlink(missing_ok=True)
 
     print("Test step_6_make_videos badframe sidecar mapping: PASSED.")
-    del sys.modules['step_6_make_videos']
+    del sys.modules["step_6_make_videos"]
     sys.modules.pop("whisper", None)
     sys.modules.pop("whisper.utils", None)
 
+
 def test_common_make_frame_accurate_extract_chapter_shared():
-    print("Testing common.make_frame_accurate_extract_chapter shared extraction builder...")
+    print(
+        "Testing common.make_frame_accurate_extract_chapter shared extraction builder..."
+    )
     step_6_make_videos = import_step_6_module()
 
     cmd_common = make_frame_accurate_extract_chapter(
@@ -366,10 +420,13 @@ def test_common_make_frame_accurate_extract_chapter_shared():
     assert "drawtext=" in vf_dbg
     assert "global=%{eif\\:n+6205\\:d}" in vf_dbg
 
-    print("Test common.make_frame_accurate_extract_chapter shared extraction builder: PASSED.")
-    del sys.modules['step_6_make_videos']
+    print(
+        "Test common.make_frame_accurate_extract_chapter shared extraction builder: PASSED."
+    )
+    del sys.modules["step_6_make_videos"]
     sys.modules.pop("whisper", None)
     sys.modules.pop("whisper.utils", None)
+
 
 def test_step_6_badframe_repair_injection_and_comment():
     print("Testing step_6_make_videos badframe repair injection and filmed comment...")
@@ -400,7 +457,9 @@ def test_step_6_badframe_repair_injection_and_comment():
 
     try:
         step_6_make_videos._build_badframe_freezeframe_lines([(6, 8, 20), (8, 10, 30)])
-        raise AssertionError("Expected RuntimeError for overlapping FreezeFrame ranges.")
+        raise AssertionError(
+            "Expected RuntimeError for overlapping FreezeFrame ranges."
+        )
     except RuntimeError as e:
         assert "overlapping FreezeFrame ranges" in str(e)
 
@@ -437,12 +496,19 @@ def test_step_6_badframe_repair_injection_and_comment():
     assert "Filmed by" not in c_none
 
     c_name = step_6_make_videos.build_filmed_comment(
-        "Jim", "1995-03-18T19:25:00-08:00", "Altadena", "Tape 01", "00:01:00", "00:02:00"
+        "Jim",
+        "1995-03-18T19:25:00-08:00",
+        "Altadena",
+        "Tape 01",
+        "00:01:00",
+        "00:02:00",
     )
     assert c_name.startswith("Filmed by Jim on ")
 
-    print("Test step_6_make_videos badframe repair injection and filmed comment: PASSED.")
-    del sys.modules['step_6_make_videos']
+    print(
+        "Test step_6_make_videos badframe repair injection and filmed comment: PASSED."
+    )
+    del sys.modules["step_6_make_videos"]
     sys.modules.pop("whisper", None)
     sys.modules.pop("whisper.utils", None)
 
@@ -522,9 +588,10 @@ def test_step_6_badframe_split_strategy_logic_paths():
     assert r == [(357, 371, 373)]
 
     print("Test step_6_make_videos badframe split strategy logic paths: PASSED.")
-    del sys.modules['step_6_make_videos']
+    del sys.modules["step_6_make_videos"]
     sys.modules.pop("whisper", None)
     sys.modules.pop("whisper.utils", None)
+
 
 def test_step_6_badframe_gap_bridging_policy():
     print("Testing step_6_make_videos BAD_FRAMES gap-bridging policy...")
@@ -532,7 +599,9 @@ def test_step_6_badframe_gap_bridging_policy():
 
     # Real-world style sparse pattern around chapter-05 trouble spot:
     # singleton -> gap 5 -> burst -> gap 1 -> burst should bridge to one run.
-    repairs = step_6_make_videos.local_bad_frames_to_repairs([210, 216, 217, 218, 220, 221, 222])
+    repairs = step_6_make_videos.local_bad_frames_to_repairs(
+        [210, 216, 217, 218, 220, 221, 222]
+    )
     assert repairs == [(210, 222, None)]
 
     # Gap=1 should always bridge even without singleton on either side.
@@ -558,24 +627,119 @@ def test_step_6_badframe_gap_bridging_policy():
     assert repairs == [(48, 49, None)]
 
     print("Test step_6_make_videos BAD_FRAMES gap-bridging policy: PASSED.")
-    del sys.modules['step_6_make_videos']
+    del sys.modules["step_6_make_videos"]
     sys.modules.pop("whisper", None)
     sys.modules.pop("whisper.utils", None)
 
+
 def test_step_6_badframe_randomized_generation_100_cases():
-    print("Testing step_6_make_videos badframe resolver with 100 pre-generated patterns...")
+    print(
+        "Testing step_6_make_videos badframe resolver with 100 pre-generated patterns..."
+    )
     step_6_make_videos = import_step_6_module()
 
     pregenerated_cases = [
         (18, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]),
         (19, []),
-        (36, [1, 2, 3, 6, 7, 8, 11, 12, 13, 15, 17, 18, 19, 20, 22, 23, 24, 25, 28, 29, 31, 32, 33, 34, 35]),
+        (
+            36,
+            [
+                1,
+                2,
+                3,
+                6,
+                7,
+                8,
+                11,
+                12,
+                13,
+                15,
+                17,
+                18,
+                19,
+                20,
+                22,
+                23,
+                24,
+                25,
+                28,
+                29,
+                31,
+                32,
+                33,
+                34,
+                35,
+            ],
+        ),
         (14, []),
         (12, [1, 2, 3, 5, 6, 7, 8, 11]),
         (50, [0, 8, 10, 11, 14, 16, 17, 18, 20, 21, 34, 35, 36, 37, 38, 39, 41, 45]),
         (21, [0, 2, 3, 4, 10, 12, 14, 17, 18, 19, 20]),
-        (37, [0, 2, 3, 4, 5, 6, 8, 9, 10, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24, 25, 26, 27, 28, 31, 32, 33, 34, 35]),
-        (45, [1, 2, 3, 4, 6, 7, 9, 10, 12, 13, 14, 20, 21, 22, 23, 25, 26, 27, 30, 31, 33, 34, 35, 42, 44]),
+        (
+            37,
+            [
+                0,
+                2,
+                3,
+                4,
+                5,
+                6,
+                8,
+                9,
+                10,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                24,
+                25,
+                26,
+                27,
+                28,
+                31,
+                32,
+                33,
+                34,
+                35,
+            ],
+        ),
+        (
+            45,
+            [
+                1,
+                2,
+                3,
+                4,
+                6,
+                7,
+                9,
+                10,
+                12,
+                13,
+                14,
+                20,
+                21,
+                22,
+                23,
+                25,
+                26,
+                27,
+                30,
+                31,
+                33,
+                34,
+                35,
+                42,
+                44,
+            ],
+        ),
         (25, [2, 5, 21, 23]),
         (12, [4, 5]),
         (31, [0, 5, 6, 9, 12, 13, 16, 17, 19, 20, 21, 24, 25, 26, 28, 29, 30]),
@@ -585,30 +749,306 @@ def test_step_6_badframe_randomized_generation_100_cases():
         (46, [0, 1, 4, 6, 12, 13, 15, 17, 19, 22, 23, 28, 29, 34, 36, 38, 41, 42, 45]),
         (15, []),
         (17, [9, 10]),
-        (27, [0, 1, 2, 3, 4, 5, 6, 8, 10, 11, 12, 13, 14, 16, 17, 18, 20, 21, 22, 24, 26]),
+        (
+            27,
+            [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                8,
+                10,
+                11,
+                12,
+                13,
+                14,
+                16,
+                17,
+                18,
+                20,
+                21,
+                22,
+                24,
+                26,
+            ],
+        ),
         (42, [3, 4, 5, 6, 11, 17, 18, 19, 20, 25, 29, 34, 35, 37]),
         (19, [6, 9, 12, 14, 15, 18]),
         (25, [1, 3, 6, 10, 13, 14, 17, 20, 22, 23]),
         (23, [0, 1, 2, 3, 4, 6, 7, 8, 10, 12, 13, 15, 16, 17, 18, 19, 22]),
-        (40, [0, 1, 2, 3, 5, 6, 8, 9, 10, 11, 12, 13, 14, 17, 19, 20, 21, 22, 24, 25, 26, 27, 28, 31, 32, 33, 35, 36, 37]),
+        (
+            40,
+            [
+                0,
+                1,
+                2,
+                3,
+                5,
+                6,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                17,
+                19,
+                20,
+                21,
+                22,
+                24,
+                25,
+                26,
+                27,
+                28,
+                31,
+                32,
+                33,
+                35,
+                36,
+                37,
+            ],
+        ),
         (11, [0, 1, 2, 3, 4, 5, 6, 8, 9, 10]),
-        (21, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]),
+        (
+            21,
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+        ),
         (10, []),
-        (48, [0, 1, 2, 5, 10, 11, 12, 13, 14, 15, 16, 19, 20, 23, 25, 27, 30, 31, 36, 39, 40, 45, 47]),
+        (
+            48,
+            [
+                0,
+                1,
+                2,
+                5,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                19,
+                20,
+                23,
+                25,
+                27,
+                30,
+                31,
+                36,
+                39,
+                40,
+                45,
+                47,
+            ],
+        ),
         (11, []),
         (23, [0, 1, 2, 3, 5, 8, 11, 14, 17, 21]),
-        (31, [0, 1, 2, 3, 7, 8, 9, 10, 11, 12, 13, 14, 15, 18, 19, 20, 22, 23, 25, 27, 30]),
+        (
+            31,
+            [
+                0,
+                1,
+                2,
+                3,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                18,
+                19,
+                20,
+                22,
+                23,
+                25,
+                27,
+                30,
+            ],
+        ),
         (28, [26]),
-        (42, [1, 2, 3, 5, 6, 7, 8, 9, 10, 12, 13, 14, 17, 18, 20, 21, 22, 23, 24, 25, 26, 28, 29, 31, 33, 35, 36, 37, 38, 39, 41]),
-        (29, [0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 23, 24, 25, 27]),
+        (
+            42,
+            [
+                1,
+                2,
+                3,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                12,
+                13,
+                14,
+                17,
+                18,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                28,
+                29,
+                31,
+                33,
+                35,
+                36,
+                37,
+                38,
+                39,
+                41,
+            ],
+        ),
+        (
+            29,
+            [
+                0,
+                1,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                21,
+                23,
+                24,
+                25,
+                27,
+            ],
+        ),
         (38, [10, 12, 14, 16, 24, 37]),
-        (42, [0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 13, 14, 15, 16, 19, 20, 21, 22, 23, 27, 29, 30, 32, 33, 34, 35, 36, 37, 38, 39, 41]),
+        (
+            42,
+            [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                11,
+                13,
+                14,
+                15,
+                16,
+                19,
+                20,
+                21,
+                22,
+                23,
+                27,
+                29,
+                30,
+                32,
+                33,
+                34,
+                35,
+                36,
+                37,
+                38,
+                39,
+                41,
+            ],
+        ),
         (13, [6]),
-        (37, [2, 5, 6, 8, 9, 10, 11, 12, 13, 15, 16, 17, 19, 20, 23, 24, 25, 26, 27, 28, 29, 30, 32, 33, 34, 36]),
+        (
+            37,
+            [
+                2,
+                5,
+                6,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                15,
+                16,
+                17,
+                19,
+                20,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                30,
+                32,
+                33,
+                34,
+                36,
+            ],
+        ),
         (36, [0, 6, 7, 16, 17, 25, 33]),
         (35, [3, 6, 7, 8, 11, 16, 18, 29]),
         (38, [5, 18, 30, 33]),
-        (38, [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 18, 19, 20, 21, 22, 23, 24, 26, 27, 28, 29, 30, 31, 33, 34, 35, 36]),
+        (
+            38,
+            [
+                0,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                15,
+                16,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                26,
+                27,
+                28,
+                29,
+                30,
+                31,
+                33,
+                34,
+                35,
+                36,
+            ],
+        ),
         (31, [3, 4, 5, 8, 9, 13, 14, 16, 18, 19, 22, 24]),
         (20, [0, 3, 6, 9, 12, 16]),
         (45, [0, 1, 8, 9, 11, 13, 15, 19, 35, 39]),
@@ -617,56 +1057,620 @@ def test_step_6_badframe_randomized_generation_100_cases():
         (38, [0, 2, 4, 6, 7, 10, 11, 13, 22, 26, 27, 30, 31, 34, 35, 36]),
         (49, [1, 9, 10, 12, 17, 24, 26, 27, 33, 40, 42, 45, 48]),
         (37, [1, 2, 3, 4, 7, 8, 9, 16, 17, 19, 27, 28, 29, 31, 32]),
-        (43, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42]),
+        (
+            43,
+            [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                30,
+                31,
+                32,
+                33,
+                34,
+                35,
+                36,
+                37,
+                38,
+                39,
+                40,
+                41,
+                42,
+            ],
+        ),
         (30, []),
         (36, [7, 8, 29, 33]),
-        (38, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 24, 25, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37]),
+        (
+            38,
+            [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                16,
+                17,
+                19,
+                24,
+                25,
+                27,
+                28,
+                29,
+                30,
+                31,
+                32,
+                33,
+                34,
+                35,
+                36,
+                37,
+            ],
+        ),
         (35, [1, 4, 6, 7, 8, 11, 17, 19, 22, 23, 28]),
-        (29, [0, 1, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 20, 21, 23, 24, 26, 27]),
+        (
+            29,
+            [
+                0,
+                1,
+                3,
+                4,
+                5,
+                6,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                16,
+                17,
+                19,
+                20,
+                21,
+                23,
+                24,
+                26,
+                27,
+            ],
+        ),
         (21, [0, 1, 2, 4, 6, 7, 9, 10, 11, 12, 13, 16, 17, 18, 19, 20]),
         (32, [0, 2, 4, 5, 8, 11, 12, 16, 19, 20, 22, 26, 29, 30, 31]),
         (35, [1, 2, 3, 4, 6, 7, 8, 16, 20, 24, 26, 30, 31]),
         (15, [0, 1, 2, 4, 5, 7, 9]),
         (10, [1]),
         (21, [0, 1, 3, 5, 6, 7, 10, 11, 12, 15, 16, 17, 19, 20]),
-        (30, [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 15, 17, 18, 19, 20, 21, 22, 23, 27, 28, 29]),
-        (38, [0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 32, 33, 34, 35, 36, 37]),
-        (49, [0, 1, 3, 4, 7, 9, 10, 13, 15, 16, 24, 26, 29, 34, 35, 36, 37, 38, 39, 42, 44, 45]),
+        (
+            30,
+            [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                8,
+                9,
+                10,
+                12,
+                15,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                27,
+                28,
+                29,
+            ],
+        ),
+        (
+            38,
+            [
+                0,
+                1,
+                2,
+                3,
+                4,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                29,
+                30,
+                31,
+                32,
+                33,
+                34,
+                35,
+                36,
+                37,
+            ],
+        ),
+        (
+            49,
+            [
+                0,
+                1,
+                3,
+                4,
+                7,
+                9,
+                10,
+                13,
+                15,
+                16,
+                24,
+                26,
+                29,
+                34,
+                35,
+                36,
+                37,
+                38,
+                39,
+                42,
+                44,
+                45,
+            ],
+        ),
         (33, [0, 7, 8, 14, 16, 23, 29, 31]),
         (30, [0, 6, 8, 20, 28]),
         (21, [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]),
         (31, [0, 3, 5, 6, 8, 16, 22, 23, 25]),
         (13, [0, 1, 7, 11]),
         (30, [0, 1, 2, 5, 6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 20, 21, 23, 24, 28, 29]),
-        (50, [0, 1, 2, 3, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 19, 20, 21, 22, 23, 24, 25, 26, 28, 29, 30, 31, 32, 36, 37, 38, 40, 41, 44, 45, 46, 47]),
+        (
+            50,
+            [
+                0,
+                1,
+                2,
+                3,
+                5,
+                6,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                28,
+                29,
+                30,
+                31,
+                32,
+                36,
+                37,
+                38,
+                40,
+                41,
+                44,
+                45,
+                46,
+                47,
+            ],
+        ),
         (15, [0, 2, 4, 6, 7, 10]),
         (13, [9]),
-        (49, [4, 9, 10, 13, 14, 15, 16, 18, 21, 22, 23, 31, 32, 33, 34, 35, 37, 39, 40, 47, 48]),
-        (29, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]),
+        (
+            49,
+            [
+                4,
+                9,
+                10,
+                13,
+                14,
+                15,
+                16,
+                18,
+                21,
+                22,
+                23,
+                31,
+                32,
+                33,
+                34,
+                35,
+                37,
+                39,
+                40,
+                47,
+                48,
+            ],
+        ),
+        (
+            29,
+            [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+            ],
+        ),
         (21, []),
-        (28, [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 14, 15, 16, 17, 18, 19, 20, 22, 23, 24, 25, 26, 27]),
+        (
+            28,
+            [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+            ],
+        ),
         (43, [1, 2, 3, 10, 11, 16, 23, 26, 30, 32, 33, 37, 39, 40]),
         (41, [11, 39]),
-        (33, [0, 1, 2, 3, 6, 7, 8, 9, 10, 11, 13, 15, 16, 19, 20, 21, 22, 23, 24, 25, 26, 27, 29, 30, 31, 32]),
+        (
+            33,
+            [
+                0,
+                1,
+                2,
+                3,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                13,
+                15,
+                16,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                29,
+                30,
+                31,
+                32,
+            ],
+        ),
         (23, [1, 2, 3, 5, 7, 8, 10, 13, 14, 15, 17, 18, 19, 20, 22]),
         (37, [0, 3, 4, 6, 7, 8, 10, 11, 13, 19, 24, 27, 28, 29, 31, 32, 35, 36]),
         (20, [1, 3, 9, 10, 11, 14, 15]),
         (13, [3, 6, 9]),
-        (37, [0, 1, 3, 4, 5, 8, 9, 10, 12, 13, 16, 17, 18, 20, 22, 23, 27, 28, 30, 31, 32, 34, 35, 36]),
+        (
+            37,
+            [
+                0,
+                1,
+                3,
+                4,
+                5,
+                8,
+                9,
+                10,
+                12,
+                13,
+                16,
+                17,
+                18,
+                20,
+                22,
+                23,
+                27,
+                28,
+                30,
+                31,
+                32,
+                34,
+                35,
+                36,
+            ],
+        ),
         (16, [0, 1, 4, 7, 9, 10, 14]),
-        (30, [0, 1, 2, 3, 5, 6, 7, 9, 11, 12, 13, 14, 15, 17, 18, 20, 21, 22, 23, 24, 26, 27, 28, 29]),
-        (40, [1, 2, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 19, 23, 24, 25, 28, 31, 32, 33, 34, 35, 36, 37, 38, 39]),
-        (35, [0, 1, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 19, 20, 23, 24, 25, 26, 28, 29, 30, 31, 33]),
+        (
+            30,
+            [
+                0,
+                1,
+                2,
+                3,
+                5,
+                6,
+                7,
+                9,
+                11,
+                12,
+                13,
+                14,
+                15,
+                17,
+                18,
+                20,
+                21,
+                22,
+                23,
+                24,
+                26,
+                27,
+                28,
+                29,
+            ],
+        ),
+        (
+            40,
+            [
+                1,
+                2,
+                4,
+                5,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                17,
+                18,
+                19,
+                23,
+                24,
+                25,
+                28,
+                31,
+                32,
+                33,
+                34,
+                35,
+                36,
+                37,
+                38,
+                39,
+            ],
+        ),
+        (
+            35,
+            [
+                0,
+                1,
+                3,
+                4,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                17,
+                19,
+                20,
+                23,
+                24,
+                25,
+                26,
+                28,
+                29,
+                30,
+                31,
+                33,
+            ],
+        ),
         (40, [1, 8, 10, 12, 30, 34, 37]),
         (36, [0, 1, 2, 5, 8, 20, 24, 25, 28, 30]),
         (44, [0, 1, 2, 3, 4, 11, 13, 16, 17, 18, 24, 32, 34, 35, 39]),
         (47, [2, 3, 4, 11, 13, 17, 18, 20, 22, 23, 26, 36, 38, 41, 42, 44]),
         (12, [0, 3, 4, 5, 7, 8, 9]),
         (42, [0, 2, 4, 14, 18, 22, 24, 26, 27, 30, 34, 36, 37, 38, 40, 41]),
-        (29, [0, 1, 2, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 26, 27, 28]),
+        (
+            29,
+            [
+                0,
+                1,
+                2,
+                4,
+                5,
+                6,
+                7,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                26,
+                27,
+                28,
+            ],
+        ),
         (31, [2, 4, 6, 8, 10, 13, 15, 16, 18, 21, 22, 23, 24, 27]),
-        (28, [0, 1, 3, 5, 6, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 23, 24, 25, 26, 27]),
-        (42, [0, 1, 3, 4, 5, 6, 8, 9, 10, 11, 12, 15, 17, 18, 21, 22, 23, 25, 27, 29, 30, 32, 34, 35, 36, 37, 38, 39, 41]),
+        (
+            28,
+            [
+                0,
+                1,
+                3,
+                5,
+                6,
+                8,
+                9,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                21,
+                23,
+                24,
+                25,
+                26,
+                27,
+            ],
+        ),
+        (
+            42,
+            [
+                0,
+                1,
+                3,
+                4,
+                5,
+                6,
+                8,
+                9,
+                10,
+                11,
+                12,
+                15,
+                17,
+                18,
+                21,
+                22,
+                23,
+                25,
+                27,
+                29,
+                30,
+                32,
+                34,
+                35,
+                36,
+                37,
+                38,
+                39,
+                41,
+            ],
+        ),
     ]
     assert len(pregenerated_cases) == 100
 
@@ -701,7 +1705,9 @@ def test_step_6_badframe_randomized_generation_100_cases():
 
         for a, b in _bad_ranges_from_frames(bad_set):
             span = b - a + 1
-            skip = step_6_make_videos.BADFRAME_SINGLE_FRAME_SOURCE_SKIP if span == 1 else 0
+            skip = (
+                step_6_make_videos.BADFRAME_SINGLE_FRAME_SOURCE_SKIP if span == 1 else 0
+            )
 
             next_src = b + 1 + skip
             while next_src < frame_count and next_src in bad_set:
@@ -721,7 +1727,9 @@ def test_step_6_badframe_randomized_generation_100_cases():
         return unrepaired
 
     for case_idx, (frame_count, bad_frames) in enumerate(pregenerated_cases):
-        bad_frames = sorted({int(f) for f in bad_frames if 0 <= int(f) < int(frame_count)})
+        bad_frames = sorted(
+            {int(f) for f in bad_frames if 0 <= int(f) < int(frame_count)}
+        )
 
         bad_set = set(bad_frames)
         with contextlib.redirect_stdout(io.StringIO()):
@@ -754,7 +1762,9 @@ def test_step_6_badframe_randomized_generation_100_cases():
                 f"expected={sorted(expected_repaired)} actual={sorted(repaired_targets)}"
             )
 
-        lines = step_6_make_videos._build_badframe_freezeframe_lines(resolved, frame_multiplier=1)
+        lines = step_6_make_videos._build_badframe_freezeframe_lines(
+            resolved, frame_multiplier=1
+        )
         if not resolved:
             assert lines == ""
         else:
@@ -764,7 +1774,9 @@ def test_step_6_badframe_randomized_generation_100_cases():
                 m = re.search(r"FreezeFrame\((\d+),(\d+),(\d+)\)", line)
                 if m:
                     line_ranges.append(tuple(int(v) for v in m.groups()))
-            expected_line_ranges = [(int(a), int(b), int(src)) for (a, b, src) in resolved]
+            expected_line_ranges = [
+                (int(a), int(b), int(src)) for (a, b, src) in resolved
+            ]
             assert line_ranges == expected_line_ranges
 
         shown = _simulate_shown_frames(frame_count, resolved)
@@ -777,9 +1789,10 @@ def test_step_6_badframe_randomized_generation_100_cases():
                 assert shown[fi] == fi
 
     print("Test step_6_make_videos badframe randomized generation (100 cases): PASSED.")
-    del sys.modules['step_6_make_videos']
+    del sys.modules["step_6_make_videos"]
     sys.modules.pop("whisper", None)
     sys.modules.pop("whisper.utils", None)
+
 
 def test_step_6_badframe_exhaustive_small_patterns_no_overlap():
     print("Testing step_6_make_videos exhaustive small-pattern overlap safety...")
@@ -806,7 +1819,9 @@ def test_step_6_badframe_exhaustive_small_patterns_no_overlap():
         unrepaired = set()
         for a, b in _bad_ranges_from_frames(bad_set):
             span = b - a + 1
-            skip = step_6_make_videos.BADFRAME_SINGLE_FRAME_SOURCE_SKIP if span == 1 else 0
+            skip = (
+                step_6_make_videos.BADFRAME_SINGLE_FRAME_SOURCE_SKIP if span == 1 else 0
+            )
 
             next_src = b + 1 + skip
             while next_src < frame_count and next_src in bad_set:
@@ -877,9 +1892,10 @@ def test_step_6_badframe_exhaustive_small_patterns_no_overlap():
 
     assert total_patterns == (1 << 10) + (1 << 11) + (1 << 12)
     print("Test step_6_make_videos exhaustive small-pattern overlap safety: PASSED.")
-    del sys.modules['step_6_make_videos']
+    del sys.modules["step_6_make_videos"]
     sys.modules.pop("whisper", None)
     sys.modules.pop("whisper.utils", None)
+
 
 def test_step_6_make_create_avs_includes_chapter_bounds():
     print("Testing step_6_make_videos AVS generation with chapter bounds...")
@@ -903,7 +1919,7 @@ def test_step_6_make_create_avs_includes_chapter_bounds():
         assert "expected_frames = 100" in script
         assert "c.FrameCount >= (expected_frames * 2 - 2)" in script
         assert "c = c.SelectEven()" in script
-        filter_import = script.find('_tmp_filter.avs')
+        filter_import = script.find("_tmp_filter.avs")
         first_freeze = script.find("FreezeFrame(")
         assert first_freeze >= 0
         assert filter_import >= 0
@@ -913,9 +1929,10 @@ def test_step_6_make_create_avs_includes_chapter_bounds():
         tmp_filter.unlink(missing_ok=True)
 
     print("Test step_6_make_videos AVS generation with chapter bounds: PASSED.")
-    del sys.modules['step_6_make_videos']
+    del sys.modules["step_6_make_videos"]
     sys.modules.pop("whisper", None)
     sys.modules.pop("whisper.utils", None)
+
 
 def test_step_6_make_freeze_only_avs_generation():
     print("Testing step_6_make_videos freeze-only AVS generation...")
@@ -946,12 +1963,15 @@ def test_step_6_make_freeze_only_avs_generation():
     assert "c = last" in empty_script
 
     print("Test step_6_make_videos freeze-only AVS generation: PASSED.")
-    del sys.modules['step_6_make_videos']
+    del sys.modules["step_6_make_videos"]
     sys.modules.pop("whisper", None)
     sys.modules.pop("whisper.utils", None)
 
+
 def test_step_6_make_extract_chapter_debug_overlay():
-    print("Testing step_6_make_videos extracted-frame debug overlay command generation...")
+    print(
+        "Testing step_6_make_videos extracted-frame debug overlay command generation..."
+    )
     step_6_make_videos = import_step_6_module()
 
     cmd = step_6_make_videos.make_extract_chapter(
@@ -1007,8 +2027,10 @@ def test_step_6_make_extract_chapter_debug_overlay():
         else:
             os.environ[env_key] = old_env
 
-    print("Test step_6_make_videos extracted-frame debug overlay command generation: PASSED.")
-    del sys.modules['step_6_make_videos']
+    print(
+        "Test step_6_make_videos extracted-frame debug overlay command generation: PASSED."
+    )
+    del sys.modules["step_6_make_videos"]
     sys.modules.pop("whisper", None)
     sys.modules.pop("whisper.utils", None)
 
@@ -1021,8 +2043,10 @@ def test_step_6_real_badframes_do_not_pick_bad_sources():
     frame_quality_tsv = real_meta / "frame_quality.tsv"
     chapters_file = real_meta / "chapters.ffmetadata"
     if not frame_quality_tsv.exists() or not chapters_file.exists():
-        print("Skipping real frame-quality source-picking test: callahan_01 metadata not present.")
-        del sys.modules['step_6_make_videos']
+        print(
+            "Skipping real frame-quality source-picking test: callahan_01 metadata not present."
+        )
+        del sys.modules["step_6_make_videos"]
         sys.modules.pop("whisper", None)
         sys.modules.pop("whisper.utils", None)
         return
@@ -1038,7 +2062,9 @@ def test_step_6_real_badframes_do_not_pick_bad_sources():
         if max_local < 0:
             continue
 
-        local_repairs = step_6_make_videos.map_bad_repairs_to_chapter_local_ranges(repairs, ch)
+        local_repairs = step_6_make_videos.map_bad_repairs_to_chapter_local_ranges(
+            repairs, ch
+        )
         if not local_repairs:
             continue
 
@@ -1069,29 +2095,37 @@ def test_step_6_real_badframes_do_not_pick_bad_sources():
         if len(violations) >= 20:
             break
 
-    assert not violations, "Badframe source-picking violations found: " + repr(violations[:20])
+    assert not violations, "Badframe source-picking violations found: " + repr(
+        violations[:20]
+    )
     print("Test step_6_make_videos real badframes source picking: PASSED.")
-    del sys.modules['step_6_make_videos']
+    del sys.modules["step_6_make_videos"]
     sys.modules.pop("whisper", None)
     sys.modules.pop("whisper.utils", None)
 
 
 def test_step_6_frame_quality_ingest_exact_archive01():
-    print("Testing step_6_make_videos exact ingest from archive-01 frame_quality.tsv...")
+    print(
+        "Testing step_6_make_videos exact ingest from archive-01 frame_quality.tsv..."
+    )
     step_6_make_videos = import_step_6_module()
     try:
         real_meta = ROOT / "metadata" / "callahan_01_archive"
         frame_quality_tsv = real_meta / "frame_quality.tsv"
         chapters_file = real_meta / "chapters.ffmetadata"
         if not frame_quality_tsv.exists() or not chapters_file.exists():
-            print("Skipping exact frame-quality ingest test: callahan_01 metadata not present.")
+            print(
+                "Skipping exact frame-quality ingest test: callahan_01 metadata not present."
+            )
             return
 
         # Exact bad-frame set from source TSV.
         bad_exact = set()
         idx_frame = 0
         idx_bad = 2
-        for raw in frame_quality_tsv.read_text(encoding="utf-8", errors="ignore").splitlines():
+        for raw in frame_quality_tsv.read_text(
+            encoding="utf-8", errors="ignore"
+        ).splitlines():
             s = raw.strip()
             if not s or s.startswith("#"):
                 continue
@@ -1127,18 +2161,23 @@ def test_step_6_frame_quality_ingest_exact_archive01():
         for ch in chapters:
             start, end = step_6_make_videos.chapter_global_frame_bounds(ch)
             expect_local = {
-                f - start for f in bad_exact
-                if start <= f <= max(start, end - 1)
+                f - start for f in bad_exact if start <= f <= max(start, end - 1)
             }
-            got_local = set(step_6_make_videos.map_bad_ranges_to_chapter_local_frames(raw_ranges, ch))
+            got_local = set(
+                step_6_make_videos.map_bad_ranges_to_chapter_local_frames(
+                    raw_ranges, ch
+                )
+            )
             assert got_local == expect_local, (
                 f"chapter mapping mismatch for '{ch.get('title', '')}': "
                 f"missing={sorted(expect_local - got_local)[:10]} "
                 f"extra={sorted(got_local - expect_local)[:10]}"
             )
-        print("Test step_6_make_videos exact ingest from archive-01 frame_quality.tsv: PASSED.")
+        print(
+            "Test step_6_make_videos exact ingest from archive-01 frame_quality.tsv: PASSED."
+        )
     finally:
-        del sys.modules['step_6_make_videos']
+        del sys.modules["step_6_make_videos"]
         sys.modules.pop("whisper", None)
         sys.modules.pop("whisper.utils", None)
 
@@ -1146,15 +2185,23 @@ def test_step_6_frame_quality_ingest_exact_archive01():
 def test_step_6_proxy_badframes_overlay_e2e():
     print("Testing step_6_make_videos proxy overlay + OpenCV decode badframe safety...")
     if os.getenv("RUN_PROXY_BADFRAME_E2E", "0").strip() != "1":
-        print("Skipping proxy overlay E2E test. Set RUN_PROXY_BADFRAME_E2E=1 to enable.")
+        print(
+            "Skipping proxy overlay E2E test. Set RUN_PROXY_BADFRAME_E2E=1 to enable."
+        )
         return
 
-    keep_outputs = os.getenv("RUN_PROXY_BADFRAME_E2E_KEEP", "1").strip() not in {"0", "false", "False"}
+    keep_outputs = os.getenv("RUN_PROXY_BADFRAME_E2E_KEEP", "1").strip() not in {
+        "0",
+        "false",
+        "False",
+    }
 
     try:
         import cv2  # noqa: F401
     except Exception:
-        print("Skipping proxy overlay E2E test: OpenCV (cv2) is unavailable in this Python.")
+        print(
+            "Skipping proxy overlay E2E test: OpenCV (cv2) is unavailable in this Python."
+        )
         return
 
     step_6_make_videos = import_step_6_module()
@@ -1163,8 +2210,14 @@ def test_step_6_proxy_badframes_overlay_e2e():
         meta_dir = ROOT / "metadata" / "callahan_01_archive"
         filter_src = meta_dir / "filter.avs"
         frame_quality_src = meta_dir / "frame_quality.tsv"
-        if not proxy_path.exists() or not filter_src.exists() or not frame_quality_src.exists():
-            print("Skipping proxy overlay E2E test: archive proxy/filter/frame_quality not found.")
+        if (
+            not proxy_path.exists()
+            or not filter_src.exists()
+            or not frame_quality_src.exists()
+        ):
+            print(
+                "Skipping proxy overlay E2E test: archive proxy/filter/frame_quality not found."
+            )
             return
 
         frame_start = 0
@@ -1188,17 +2241,32 @@ def test_step_6_proxy_badframes_overlay_e2e():
         shutil.copy(filter_src, filter_copy)
         shutil.copy(frame_quality_src, frame_quality_copy)
 
-        vf_select = f"select='between(n\\,{frame_start}\\,{frame_end})',setpts=N/FRAME_RATE/TB"
+        vf_select = (
+            f"select='between(n\\,{frame_start}\\,{frame_end})',setpts=N/FRAME_RATE/TB"
+        )
         subprocess.run(
             [
-                str(FFMPEG_BIN), "-nostdin", "-v", "error",
-                "-i", str(proxy_path),
-                "-vf", vf_select,
-                "-map", "0:v:0",
-                "-c:v", "libx264", "-crf", "0", "-preset", "ultrafast",
-                "-pix_fmt", "yuv420p",
+                str(FFMPEG_BIN),
+                "-nostdin",
+                "-v",
+                "error",
+                "-i",
+                str(proxy_path),
+                "-vf",
+                vf_select,
+                "-map",
+                "0:v:0",
+                "-c:v",
+                "libx264",
+                "-crf",
+                "0",
+                "-preset",
+                "ultrafast",
+                "-pix_fmt",
+                "yuv420p",
                 "-an",
-                "-y", str(clip_path),
+                "-y",
+                str(clip_path),
             ],
             check=True,
         )
@@ -1206,22 +2274,35 @@ def test_step_6_proxy_badframes_overlay_e2e():
         # Verify extracted frame order/identity exactly matches selected source frames.
         subprocess.run(
             [
-                str(FFMPEG_BIN), "-nostdin", "-v", "error",
-                "-i", str(proxy_path),
-                "-vf", vf_select,
+                str(FFMPEG_BIN),
+                "-nostdin",
+                "-v",
+                "error",
+                "-i",
+                str(proxy_path),
+                "-vf",
+                vf_select,
                 "-an",
-                "-f", "framemd5",
-                "-y", str(src_md5),
+                "-f",
+                "framemd5",
+                "-y",
+                str(src_md5),
             ],
             check=True,
         )
         subprocess.run(
             [
-                str(FFMPEG_BIN), "-nostdin", "-v", "error",
-                "-i", str(clip_path),
+                str(FFMPEG_BIN),
+                "-nostdin",
+                "-v",
+                "error",
+                "-i",
+                str(clip_path),
                 "-an",
-                "-f", "framemd5",
-                "-y", str(clip_md5),
+                "-f",
+                "framemd5",
+                "-y",
+                str(clip_md5),
             ],
             check=True,
         )
@@ -1233,6 +2314,7 @@ def test_step_6_proxy_badframes_overlay_e2e():
 
         # Draw frame IDs on every frame so downstream filter output can be decoded.
         import cv2
+
         cap = cv2.VideoCapture(str(clip_path))
         assert cap.isOpened(), f"Unable to open extracted clip: {clip_path}"
         fps = cap.get(cv2.CAP_PROP_FPS)
@@ -1240,7 +2322,9 @@ def test_step_6_proxy_badframes_overlay_e2e():
             fps = 30000.0 / 1001.0
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        assert width == 720 and height == 480, f"Unexpected proxy frame size: {width}x{height}"
+        assert (
+            width == 720 and height == 480
+        ), f"Unexpected proxy frame size: {width}x{height}"
 
         bits = 24
         cell_w = 20
@@ -1260,7 +2344,9 @@ def test_step_6_proxy_badframes_overlay_e2e():
             ok, frame = cap.read()
             assert ok, f"Extracted clip ended early at frame {idx}."
             frame_id = frame_start + idx
-            _draw_frame_id_overlay(frame, frame_id, draw_x, draw_y, bits=bits, cell_w=cell_w, cell_h=cell_h)
+            _draw_frame_id_overlay(
+                frame, frame_id, draw_x, draw_y, bits=bits, cell_w=cell_w, cell_h=cell_h
+            )
             writer.write(frame)
         extra_ok, _extra = cap.read()
         cap.release()
@@ -1270,13 +2356,29 @@ def test_step_6_proxy_badframes_overlay_e2e():
         # Add a short silent audio track so FFmpegSource2/AVS can open this clip reliably.
         subprocess.run(
             [
-                str(FFMPEG_BIN), "-nostdin", "-v", "error",
-                "-i", str(numbered_video_only_path),
-                "-f", "lavfi", "-i", "anullsrc=r=48000:cl=mono",
+                str(FFMPEG_BIN),
+                "-nostdin",
+                "-v",
+                "error",
+                "-i",
+                str(numbered_video_only_path),
+                "-f",
+                "lavfi",
+                "-i",
+                "anullsrc=r=48000:cl=mono",
                 "-shortest",
-                "-map", "0:v:0", "-map", "1:a:0",
-                "-c:v", "copy", "-c:a", "aac", "-b:a", "64k",
-                "-y", str(numbered_path),
+                "-map",
+                "0:v:0",
+                "-map",
+                "1:a:0",
+                "-c:v",
+                "copy",
+                "-c:a",
+                "aac",
+                "-b:a",
+                "64k",
+                "-y",
+                str(numbered_path),
             ],
             check=True,
         )
@@ -1302,7 +2404,9 @@ def test_step_6_proxy_badframes_overlay_e2e():
             "start": 0.0,
             "end": (frame_end + 1) * 1001.0 / 30000.0,
         }
-        local_repairs = step_6_make_videos.map_bad_repairs_to_chapter_local_ranges(repairs, fake_chapter)
+        local_repairs = step_6_make_videos.map_bad_repairs_to_chapter_local_ranges(
+            repairs, fake_chapter
+        )
         script_text = step_6_make_videos.make_create_avs(
             str(numbered_path),
             filter_copy,
@@ -1315,12 +2419,23 @@ def test_step_6_proxy_badframes_overlay_e2e():
 
         subprocess.run(
             [
-                str(FFMPEG_BIN), "-nostdin", "-v", "error",
-                "-i", str(avs_path),
+                str(FFMPEG_BIN),
+                "-nostdin",
+                "-v",
+                "error",
+                "-i",
+                str(avs_path),
                 "-an",
-                "-c:v", "libx264", "-crf", "0", "-preset", "ultrafast",
-                "-pix_fmt", "yuv420p",
-                "-y", str(filtered_path),
+                "-c:v",
+                "libx264",
+                "-crf",
+                "0",
+                "-preset",
+                "ultrafast",
+                "-pix_fmt",
+                "yuv420p",
+                "-y",
+                str(filtered_path),
             ],
             check=True,
         )
@@ -1334,7 +2449,9 @@ def test_step_6_proxy_badframes_overlay_e2e():
             for f in range(lo, hi + 1):
                 bad_set.add(f)
 
-        rx, ry, rw, rh = _map_overlay_geometry_callahan01_to_filtered(draw_x, draw_y, cell_w, cell_h)
+        rx, ry, rw, rh = _map_overlay_geometry_callahan01_to_filtered(
+            draw_x, draw_y, cell_w, cell_h
+        )
         cap_out = cv2.VideoCapture(str(filtered_path))
         assert cap_out.isOpened(), f"Unable to open filtered clip: {filtered_path}"
         violations = []
@@ -1344,7 +2461,9 @@ def test_step_6_proxy_badframes_overlay_e2e():
             if not ok:
                 violations.append((idx, "missing_frame"))
                 break
-            shown_id, valid = _decode_frame_id_overlay(frame, rx, ry, bits=bits, cell_w=rw, cell_h=rh)
+            shown_id, valid = _decode_frame_id_overlay(
+                frame, rx, ry, bits=bits, cell_w=rw, cell_h=rh
+            )
             if not valid:
                 decode_failures.append((idx, shown_id))
                 if len(decode_failures) >= 20:
@@ -1356,38 +2475,51 @@ def test_step_6_proxy_badframes_overlay_e2e():
                     break
         cap_out.release()
 
-        assert not decode_failures, (
-            "Failed to decode frame-id overlay in filtered clip: "
-            + repr(decode_failures[:20])
+        assert (
+            not decode_failures
+        ), "Failed to decode frame-id overlay in filtered clip: " + repr(
+            decode_failures[:20]
         )
-        assert not violations, (
-            "Filtered output displayed bad source frame IDs: "
-            + repr(violations[:20])
+        assert (
+            not violations
+        ), "Filtered output displayed bad source frame IDs: " + repr(violations[:20])
+        print(
+            "Test step_6_make_videos proxy overlay + OpenCV decode badframe safety: PASSED."
         )
-        print("Test step_6_make_videos proxy overlay + OpenCV decode badframe safety: PASSED.")
 
         if not keep_outputs:
             shutil.rmtree(work_dir, ignore_errors=True)
     finally:
-        del sys.modules['step_6_make_videos']
+        del sys.modules["step_6_make_videos"]
         sys.modules.pop("whisper", None)
         sys.modules.pop("whisper.utils", None)
+
 
 def test_step_6_qtgmc_freezeframe_long_e2e():
     print("Testing step_6_make_videos QTGMC + FreezeFrame long-range drift safety...")
     if os.getenv("RUN_QTGMC_FREEZE_E2E", "0").strip() != "1":
-        print("Skipping QTGMC FreezeFrame E2E test. Set RUN_QTGMC_FREEZE_E2E=1 to enable.")
+        print(
+            "Skipping QTGMC FreezeFrame E2E test. Set RUN_QTGMC_FREEZE_E2E=1 to enable."
+        )
         return
     if sys.platform != "win32":
-        print("Skipping QTGMC FreezeFrame E2E test: AviSynth/QTGMC path is Windows-only.")
+        print(
+            "Skipping QTGMC FreezeFrame E2E test: AviSynth/QTGMC path is Windows-only."
+        )
         return
 
-    keep_outputs = os.getenv("RUN_QTGMC_FREEZE_E2E_KEEP", "1").strip() not in {"0", "false", "False"}
+    keep_outputs = os.getenv("RUN_QTGMC_FREEZE_E2E_KEEP", "1").strip() not in {
+        "0",
+        "false",
+        "False",
+    }
 
     try:
         import cv2  # noqa: F401
     except Exception:
-        print("Skipping QTGMC FreezeFrame E2E test: OpenCV (cv2) is unavailable in this Python.")
+        print(
+            "Skipping QTGMC FreezeFrame E2E test: OpenCV (cv2) is unavailable in this Python."
+        )
         return
 
     step_6_make_videos = import_step_6_module()
@@ -1400,7 +2532,9 @@ def test_step_6_qtgmc_freezeframe_long_e2e():
         frame_start = int(os.getenv("RUN_QTGMC_FREEZE_E2E_START", "12000"))
         frame_end = int(os.getenv("RUN_QTGMC_FREEZE_E2E_END", str(frame_start + 6999)))
         if frame_end < frame_start:
-            raise AssertionError("RUN_QTGMC_FREEZE_E2E_END must be >= RUN_QTGMC_FREEZE_E2E_START.")
+            raise AssertionError(
+                "RUN_QTGMC_FREEZE_E2E_END must be >= RUN_QTGMC_FREEZE_E2E_START."
+            )
         frame_count = frame_end - frame_start + 1
         if frame_count < 6000:
             raise AssertionError(
@@ -1420,7 +2554,9 @@ def test_step_6_qtgmc_freezeframe_long_e2e():
         src_md5 = work_dir / f"{stem}_src.md5"
         clip_md5 = work_dir / f"{stem}_clip.md5"
 
-        vf_select = f"select='between(n\\,{frame_start}\\,{frame_end})',setpts=N/FRAME_RATE/TB"
+        vf_select = (
+            f"select='between(n\\,{frame_start}\\,{frame_end})',setpts=N/FRAME_RATE/TB"
+        )
         extract_start_sec = frame_start * 1001.0 / 30000.0
         extract_end_sec = (frame_end + 1) * 1001.0 / 30000.0
         subprocess.run(
@@ -1437,22 +2573,35 @@ def test_step_6_qtgmc_freezeframe_long_e2e():
 
         subprocess.run(
             [
-                str(FFMPEG_BIN), "-nostdin", "-v", "error",
-                "-i", str(proxy_path),
-                "-vf", vf_select,
+                str(FFMPEG_BIN),
+                "-nostdin",
+                "-v",
+                "error",
+                "-i",
+                str(proxy_path),
+                "-vf",
+                vf_select,
                 "-an",
-                "-f", "framemd5",
-                "-y", str(src_md5),
+                "-f",
+                "framemd5",
+                "-y",
+                str(src_md5),
             ],
             check=True,
         )
         subprocess.run(
             [
-                str(FFMPEG_BIN), "-nostdin", "-v", "error",
-                "-i", str(clip_path),
+                str(FFMPEG_BIN),
+                "-nostdin",
+                "-v",
+                "error",
+                "-i",
+                str(clip_path),
                 "-an",
-                "-f", "framemd5",
-                "-y", str(clip_md5),
+                "-f",
+                "framemd5",
+                "-y",
+                str(clip_md5),
             ],
             check=True,
         )
@@ -1460,9 +2609,12 @@ def test_step_6_qtgmc_freezeframe_long_e2e():
         clip_hashes = _framemd5_hashes(clip_md5)
         assert len(src_hashes) == frame_count
         assert len(clip_hashes) == frame_count
-        assert src_hashes == clip_hashes, "Extracted long clip frame order/content mismatch."
+        assert (
+            src_hashes == clip_hashes
+        ), "Extracted long clip frame order/content mismatch."
 
         import cv2
+
         cap = cv2.VideoCapture(str(clip_path))
         assert cap.isOpened(), f"Unable to open extracted clip: {clip_path}"
         fps = cap.get(cv2.CAP_PROP_FPS)
@@ -1470,7 +2622,9 @@ def test_step_6_qtgmc_freezeframe_long_e2e():
             fps = 30000.0 / 1001.0
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        assert width == 720 and height == 480, f"Unexpected proxy frame size: {width}x{height}"
+        assert (
+            width == 720 and height == 480
+        ), f"Unexpected proxy frame size: {width}x{height}"
 
         bits = 24
         cell_w = 20
@@ -1490,7 +2644,9 @@ def test_step_6_qtgmc_freezeframe_long_e2e():
             ok, frame = cap.read()
             assert ok, f"Extracted clip ended early at frame {idx}."
             frame_id = frame_start + idx
-            _draw_frame_id_overlay(frame, frame_id, draw_x, draw_y, bits=bits, cell_w=cell_w, cell_h=cell_h)
+            _draw_frame_id_overlay(
+                frame, frame_id, draw_x, draw_y, bits=bits, cell_w=cell_w, cell_h=cell_h
+            )
             writer.write(frame)
         extra_ok, _extra = cap.read()
         cap.release()
@@ -1499,13 +2655,29 @@ def test_step_6_qtgmc_freezeframe_long_e2e():
 
         subprocess.run(
             [
-                str(FFMPEG_BIN), "-nostdin", "-v", "error",
-                "-i", str(numbered_video_only_path),
-                "-f", "lavfi", "-i", "anullsrc=r=48000:cl=mono",
+                str(FFMPEG_BIN),
+                "-nostdin",
+                "-v",
+                "error",
+                "-i",
+                str(numbered_video_only_path),
+                "-f",
+                "lavfi",
+                "-i",
+                "anullsrc=r=48000:cl=mono",
                 "-shortest",
-                "-map", "0:v:0", "-map", "1:a:0",
-                "-c:v", "copy", "-c:a", "aac", "-b:a", "64k",
-                "-y", str(numbered_path),
+                "-map",
+                "0:v:0",
+                "-map",
+                "1:a:0",
+                "-c:v",
+                "copy",
+                "-c:a",
+                "aac",
+                "-b:a",
+                "64k",
+                "-y",
+                str(numbered_path),
             ],
             check=True,
         )
@@ -1532,7 +2704,9 @@ def test_step_6_qtgmc_freezeframe_long_e2e():
             bad_repair_ranges=[(a, b, None) for a, b in bad_ranges_local],
             max_source_frame=frame_count - 1,
         )
-        assert resolved_local_repairs, "No resolved badframe repairs generated for long-range E2E."
+        assert (
+            resolved_local_repairs
+        ), "No resolved badframe repairs generated for long-range E2E."
 
         expected_local_shown = list(range(frame_count))
         for a, b, src in resolved_local_repairs:
@@ -1543,7 +2717,7 @@ def test_step_6_qtgmc_freezeframe_long_e2e():
         filter_path.write_text(
             "c = last\n"
             "c = c.AssumeTFF()\n"
-            "c = QTGMC(Preset=\"Very Fast\", FPSDivisor=2)\n"
+            'c = QTGMC(Preset="Very Fast", FPSDivisor=2)\n'
             "c\n",
             encoding="ascii",
         )
@@ -1556,18 +2730,33 @@ def test_step_6_qtgmc_freezeframe_long_e2e():
             chapter_end_frame=frame_count,
             no_bob=True,
         )
-        assert "FreezeFrame(" in script_text, "AVS script is missing FreezeFrame repair lines."
-        assert filter_path.name in script_text, "AVS script does not import the QTGMC filter script."
+        assert (
+            "FreezeFrame(" in script_text
+        ), "AVS script is missing FreezeFrame repair lines."
+        assert (
+            filter_path.name in script_text
+        ), "AVS script does not import the QTGMC filter script."
         avs_path.write_text(script_text, encoding="ascii")
 
         subprocess.run(
             [
-                str(FFMPEG_BIN), "-nostdin", "-v", "error",
-                "-i", str(avs_path),
+                str(FFMPEG_BIN),
+                "-nostdin",
+                "-v",
+                "error",
+                "-i",
+                str(avs_path),
                 "-an",
-                "-c:v", "libx264", "-crf", "0", "-preset", "ultrafast",
-                "-pix_fmt", "yuv420p",
-                "-y", str(filtered_path),
+                "-c:v",
+                "libx264",
+                "-crf",
+                "0",
+                "-preset",
+                "ultrafast",
+                "-pix_fmt",
+                "yuv420p",
+                "-y",
+                str(filtered_path),
             ],
             check=True,
         )
@@ -1596,33 +2785,41 @@ def test_step_6_qtgmc_freezeframe_long_e2e():
                     break
         cap_out.release()
 
-        assert not decode_failures, (
-            "Failed to decode frame-id overlay in QTGMC filtered long clip: "
-            + repr(decode_failures[:20])
+        assert (
+            not decode_failures
+        ), "Failed to decode frame-id overlay in QTGMC filtered long clip: " + repr(
+            decode_failures[:20]
         )
-        assert not mismatches, (
-            "QTGMC+FreezeFrame long-range drift/mapping mismatch: "
-            + repr(mismatches[:20])
+        assert (
+            not mismatches
+        ), "QTGMC+FreezeFrame long-range drift/mapping mismatch: " + repr(
+            mismatches[:20]
         )
-        print("Test step_6_make_videos QTGMC + FreezeFrame long-range drift safety: PASSED.")
+        print(
+            "Test step_6_make_videos QTGMC + FreezeFrame long-range drift safety: PASSED."
+        )
 
         if not keep_outputs:
             shutil.rmtree(work_dir, ignore_errors=True)
     finally:
-        del sys.modules['step_6_make_videos']
+        del sys.modules["step_6_make_videos"]
         sys.modules.pop("whisper", None)
         sys.modules.pop("whisper.utils", None)
 
+
 def test_step_drive_checksums():
     print("Testing step_7_generate_drive_checksum.py...")
-    step_7_generate_drive_checksum = import_legacy_step("step_7_generate_drive_checksum")
+    step_7_generate_drive_checksum = import_legacy_step(
+        "step_7_generate_drive_checksum"
+    )
     assert step_7_generate_drive_checksum.main() is None
     step_8_verify_drive_checksum = import_legacy_step("step_8_verify_drive_checksum")
     assert step_8_verify_drive_checksum.main() is None
     print("Test step_drive_checksums: PASSED.")
     DRIVE_CHECKSUM_FILE.unlink()
-    del sys.modules['step_7_generate_drive_checksum']
-    del sys.modules['step_8_verify_drive_checksum']
+    del sys.modules["step_7_generate_drive_checksum"]
+    del sys.modules["step_8_verify_drive_checksum"]
+
 
 def test_sha3_generate_and_verify():
     print("Testing SHA3-256 generate + verify...")
@@ -1641,6 +2838,7 @@ def test_sha3_generate_and_verify():
     test_root.rmdir()
     print("Test SHA3-256 generate + verify: PASSED.")
 
+
 def test_blake3_verify_only():
     print("Testing BLAKE3 verify (legacy)...")
     test_root = ARCHIVE_DIR / "_blake3_test"
@@ -1652,7 +2850,9 @@ def test_blake3_verify_only():
     old_cwd = os.getcwd()
     os.chdir(test_root)
     try:
-        r = subprocess.run([str(B3SUM_BIN), test_file.name], capture_output=True, text=True)
+        r = subprocess.run(
+            [str(B3SUM_BIN), test_file.name], capture_output=True, text=True
+        )
         assert r.returncode == 0
         manifest.write_text(r.stdout, encoding="utf-8")
     finally:
@@ -1665,6 +2865,7 @@ def test_blake3_verify_only():
     test_file.unlink()
     test_root.rmdir()
     print("Test BLAKE3 verify (legacy): PASSED.")
+
 
 def test_vhs_tuner_toggle_override_cycle():
     print("Testing vhs_tuner frame-toggle override cycle...")
@@ -1682,24 +2883,64 @@ def test_vhs_tuner_toggle_override_cycle():
     # auto-good -> force bad -> clear
     # auto-bad  -> force good -> clear
     overrides = vhs_tuner.toggle_frame_override(
-        fid=100, fids=fids, sigs=sigs, overrides={},
-        wc=1.0, wn=0.0, wt=0.0, ww=0.0, tm="value", ik=3.5, tv=0.0, bp=10.0,
+        fid=100,
+        fids=fids,
+        sigs=sigs,
+        overrides={},
+        wc=1.0,
+        wn=0.0,
+        wt=0.0,
+        ww=0.0,
+        tm="value",
+        ik=3.5,
+        tv=0.0,
+        bp=10.0,
     )
     assert overrides.get(100) == "bad"
     overrides = vhs_tuner.toggle_frame_override(
-        fid=100, fids=fids, sigs=sigs, overrides=overrides,
-        wc=1.0, wn=0.0, wt=0.0, ww=0.0, tm="value", ik=3.5, tv=0.0, bp=10.0,
+        fid=100,
+        fids=fids,
+        sigs=sigs,
+        overrides=overrides,
+        wc=1.0,
+        wn=0.0,
+        wt=0.0,
+        ww=0.0,
+        tm="value",
+        ik=3.5,
+        tv=0.0,
+        bp=10.0,
     )
     assert 100 not in overrides
 
     overrides = vhs_tuner.toggle_frame_override(
-        fid=102, fids=fids, sigs=sigs, overrides={},
-        wc=1.0, wn=0.0, wt=0.0, ww=0.0, tm="value", ik=3.5, tv=0.0, bp=10.0,
+        fid=102,
+        fids=fids,
+        sigs=sigs,
+        overrides={},
+        wc=1.0,
+        wn=0.0,
+        wt=0.0,
+        ww=0.0,
+        tm="value",
+        ik=3.5,
+        tv=0.0,
+        bp=10.0,
     )
     assert overrides.get(102) == "good"
     overrides = vhs_tuner.toggle_frame_override(
-        fid=102, fids=fids, sigs=sigs, overrides=overrides,
-        wc=1.0, wn=0.0, wt=0.0, ww=0.0, tm="value", ik=3.5, tv=0.0, bp=10.0,
+        fid=102,
+        fids=fids,
+        sigs=sigs,
+        overrides=overrides,
+        wc=1.0,
+        wn=0.0,
+        wt=0.0,
+        ww=0.0,
+        tm="value",
+        ik=3.5,
+        tv=0.0,
+        bp=10.0,
     )
     assert 102 not in overrides
 
@@ -1707,7 +2948,7 @@ def test_vhs_tuner_toggle_override_cycle():
     scores = vhs_tuner.combined_score(sigs, 1.0, 0.0, 0.0, 0.0)
     thr = vhs_tuner.compute_threshold(scores, "value", 3.5, 0.0, 10.0)
     sc_ch, sc_no, sc_te, sc_wa, _ = vhs_tuner.build_sparklines_html(
-        sigs=sigs, scores=scores, threshold=thr, wc=0.2, wn=0.3, wt=0.4, ww=0.5
+        sigs=sigs, scores=scores, threshold=thr, wc=0.2, wn=0.3, wt=0.4, ww=0.5  # type: ignore[arg-type]
     )
     for svg in (sc_ch, sc_no, sc_te, sc_wa):
         assert 'stroke="#e03030"' in svg
@@ -1761,8 +3002,14 @@ def test_vhs_tuner_manual_click_persists_bad_frames():
                 chapter_title="Unit Chapter",
                 ch_start=1000,
                 ch_end=1100,
-                wc=1.0, wn=0.0, wt=0.0, ww=0.0,
-                tm="value", ik=3.5, tv=1.0, bp=10.0,
+                wc=1.0,
+                wn=0.0,
+                wt=0.0,
+                ww=0.0,
+                tm="value",
+                ik=3.5,
+                tv=1.0,
+                bp=10.0,
                 last_click_event={"fid": -1, "ts": -1},
             )
             assert overrides.get(1000) == "bad", dbg
@@ -1779,8 +3026,14 @@ def test_vhs_tuner_manual_click_persists_bad_frames():
                 fids=fids,
                 sigs=sigs,
                 overrides=overrides,
-                wc=1.0, wn=0.0, wt=0.0, ww=0.0,
-                tm="value", ik=3.5, tv=1.0, bp=10.0,
+                wc=1.0,
+                wn=0.0,
+                wt=0.0,
+                ww=0.0,
+                tm="value",
+                ik=3.5,
+                tv=1.0,
+                bp=10.0,
             )
             chapters = vhs_tuner.load_archive_chapters(cf)
             ch = vhs_tuner._find_chapter(chapters, "Unit Chapter")
@@ -1797,8 +3050,14 @@ def test_vhs_tuner_manual_click_persists_bad_frames():
                 chapter_title="Unit Chapter",
                 ch_start=1000,
                 ch_end=1100,
-                wc=1.0, wn=0.0, wt=0.0, ww=0.0,
-                tm="value", ik=3.5, tv=1.0, bp=10.0,
+                wc=1.0,
+                wn=0.0,
+                wt=0.0,
+                ww=0.0,
+                tm="value",
+                ik=3.5,
+                tv=1.0,
+                bp=10.0,
                 last_click_event=last_click,
             )
             assert 1000 not in overrides2, dbg2
@@ -1810,8 +3069,14 @@ def test_vhs_tuner_manual_click_persists_bad_frames():
                 fids=fids,
                 sigs=sigs,
                 overrides=overrides2,
-                wc=1.0, wn=0.0, wt=0.0, ww=0.0,
-                tm="value", ik=3.5, tv=1.0, bp=10.0,
+                wc=1.0,
+                wn=0.0,
+                wt=0.0,
+                ww=0.0,
+                tm="value",
+                ik=3.5,
+                tv=1.0,
+                bp=10.0,
             )
             chapters = vhs_tuner.load_archive_chapters(cf)
             ch = vhs_tuner._find_chapter(chapters, "Unit Chapter")
@@ -1848,8 +3113,14 @@ def test_vhs_tuner_click_dedupe_prevents_double_toggle():
                 chapter_title="Unit Chapter",
                 ch_start=1000,
                 ch_end=1100,
-                wc=1.0, wn=0.0, wt=0.0, ww=0.0,
-                tm="value", ik=3.5, tv=1.0, bp=10.0,
+                wc=1.0,
+                wn=0.0,
+                wt=0.0,
+                ww=0.0,
+                tm="value",
+                ik=3.5,
+                tv=1.0,
+                bp=10.0,
                 last_click_event={"fid": -1, "ts": -1},
             )
             assert overrides.get(1000) == "bad", dbg
@@ -1863,8 +3134,14 @@ def test_vhs_tuner_click_dedupe_prevents_double_toggle():
                 chapter_title="Unit Chapter",
                 ch_start=1000,
                 ch_end=1100,
-                wc=1.0, wn=0.0, wt=0.0, ww=0.0,
-                tm="value", ik=3.5, tv=1.0, bp=10.0,
+                wc=1.0,
+                wn=0.0,
+                wt=0.0,
+                ww=0.0,
+                tm="value",
+                ik=3.5,
+                tv=1.0,
+                bp=10.0,
                 last_click_event=last_click,
             )
             assert overrides2 == overrides
@@ -1904,8 +3181,14 @@ def test_vhs_tuner_manual_click_modes_bad_and_good():
                 chapter_title="Unit Chapter",
                 ch_start=1000,
                 ch_end=1100,
-                wc=1.0, wn=0.0, wt=0.0, ww=0.0,
-                tm="value", ik=3.5, tv=1.0, bp=10.0,
+                wc=1.0,
+                wn=0.0,
+                wt=0.0,
+                ww=0.0,
+                tm="value",
+                ik=3.5,
+                tv=1.0,
+                bp=10.0,
                 mark_mode="bad",
                 last_click_event={"fid": -1, "ts": -1},
             )
@@ -1918,10 +3201,18 @@ def test_vhs_tuner_manual_click_modes_bad_and_good():
                 fids=fids,
                 sigs=sigs,
                 overrides=ov_bad,
-                wc=1.0, wn=0.0, wt=0.0, ww=0.0,
-                tm="value", ik=3.5, tv=1.0, bp=10.0,
+                wc=1.0,
+                wn=0.0,
+                wt=0.0,
+                ww=0.0,
+                tm="value",
+                ik=3.5,
+                tv=1.0,
+                bp=10.0,
             )
-            ch = vhs_tuner._find_chapter(vhs_tuner.load_archive_chapters(cf), "Unit Chapter")
+            ch = vhs_tuner._find_chapter(
+                vhs_tuner.load_archive_chapters(cf), "Unit Chapter"
+            )
             assert ch is not None
             assert ch.get("bad_frames", []) == [1000]
             text = cf.read_text(encoding="utf-8")
@@ -1938,8 +3229,14 @@ def test_vhs_tuner_manual_click_modes_bad_and_good():
                 chapter_title="Unit Chapter",
                 ch_start=1000,
                 ch_end=1100,
-                wc=1.0, wn=0.0, wt=0.0, ww=0.0,
-                tm="value", ik=3.5, tv=1.0, bp=10.0,
+                wc=1.0,
+                wn=0.0,
+                wt=0.0,
+                ww=0.0,
+                tm="value",
+                ik=3.5,
+                tv=1.0,
+                bp=10.0,
                 mark_mode="good",
                 last_click_event=last_bad,
             )
@@ -1952,10 +3249,18 @@ def test_vhs_tuner_manual_click_modes_bad_and_good():
                 fids=fids,
                 sigs=sigs,
                 overrides=ov_good,
-                wc=1.0, wn=0.0, wt=0.0, ww=0.0,
-                tm="value", ik=3.5, tv=1.0, bp=10.0,
+                wc=1.0,
+                wn=0.0,
+                wt=0.0,
+                ww=0.0,
+                tm="value",
+                ik=3.5,
+                tv=1.0,
+                bp=10.0,
             )
-            ch = vhs_tuner._find_chapter(vhs_tuner.load_archive_chapters(cf), "Unit Chapter")
+            ch = vhs_tuner._find_chapter(
+                vhs_tuner.load_archive_chapters(cf), "Unit Chapter"
+            )
             assert ch is not None
             assert ch.get("bad_frames", []) == []
             text = cf.read_text(encoding="utf-8")
@@ -1972,8 +3277,14 @@ def test_vhs_tuner_manual_click_modes_bad_and_good():
                 chapter_title="Unit Chapter",
                 ch_start=1000,
                 ch_end=1100,
-                wc=1.0, wn=0.0, wt=0.0, ww=0.0,
-                tm="value", ik=3.5, tv=1.0, bp=10.0,
+                wc=1.0,
+                wn=0.0,
+                wt=0.0,
+                ww=0.0,
+                tm="value",
+                ik=3.5,
+                tv=1.0,
+                bp=10.0,
                 mark_mode="clear",
                 last_click_event=last_good,
             )
@@ -1986,8 +3297,14 @@ def test_vhs_tuner_manual_click_modes_bad_and_good():
                 fids=fids,
                 sigs=sigs,
                 overrides=ov_clear,
-                wc=1.0, wn=0.0, wt=0.0, ww=0.0,
-                tm="value", ik=3.5, tv=1.0, bp=10.0,
+                wc=1.0,
+                wn=0.0,
+                wt=0.0,
+                ww=0.0,
+                tm="value",
+                ik=3.5,
+                tv=1.0,
+                bp=10.0,
             )
             text = cf.read_text(encoding="utf-8")
             assert "BAD_FRAME_OVERRIDE=" not in text
@@ -2024,17 +3341,23 @@ def test_vhs_tuner_auto_and_manual_persist_to_bad_frames():
                 fids=fids,
                 sigs=sigs,
                 overrides={1000: "bad"},
-                wc=1.0, wn=0.0, wt=0.0, ww=0.0,
-                tm="value", ik=3.5, tv=0.0, bp=10.0,
+                wc=1.0,
+                wn=0.0,
+                wt=0.0,
+                ww=0.0,
+                tm="value",
+                ik=3.5,
+                tv=0.0,
+                bp=10.0,
             )
             chapters = vhs_tuner.load_archive_chapters(cf)
             ch = vhs_tuner._find_chapter(chapters, "Unit Chapter")
             assert ch is not None
             out = set(int(x) for x in ch.get("bad_frames", []))
             # Existing unsampled values preserved + manual + auto (global IDs).
-            assert {1000, 1001, 1005, 1007}.issubset(out), (
-                f"persisted BAD_FRAMES missing expected values: {sorted(out)}"
-            )
+            assert {1000, 1001, 1005, 1007}.issubset(
+                out
+            ), f"persisted BAD_FRAMES missing expected values: {sorted(out)}"
         finally:
             vhs_tuner.METADATA_DIR = old_meta
 
@@ -2153,7 +3476,10 @@ def test_update_chapter_bad_frames_preserves_untouched_chapters():
         assert touched == 1
 
         _ffm, chapters = parse_chapters(cf)
-        by_title = {str(ch.get("title", "")).strip(): str(ch.get("bad_frames", "")).strip() for ch in chapters}
+        by_title = {
+            str(ch.get("title", "")).strip(): str(ch.get("bad_frames", "")).strip()
+            for ch in chapters
+        }
         assert by_title.get("Chap A") == "9,10"
         assert by_title.get("Chap B") == "3,4"
 
@@ -2195,18 +3521,26 @@ def test_vhs_tuner_plain_wizard_entrypoint():
 
     print("Test vhs_tuner plain HTML wizard entrypoint: PASSED.")
 
+
 def test_runtime_scripts_do_not_generate_framemd5():
     print("Testing runtime scripts do not generate framemd5/md5 temp outputs...")
-    step6_src = (ROOT / "legacy_steps" / "step_6_make_videos.py").read_text(
-        encoding="utf-8",
-        errors="ignore",
-    ).lower()
-    tuner_src = (ROOT / "vhs_tuner.py").read_text(encoding="utf-8", errors="ignore").lower()
+    step6_src = (
+        (ROOT / "legacy_steps" / "step_6_make_videos.py")
+        .read_text(
+            encoding="utf-8",
+            errors="ignore",
+        )
+        .lower()
+    )
+    tuner_src = (
+        (ROOT / "vhs_tuner.py").read_text(encoding="utf-8", errors="ignore").lower()
+    )
     assert "framemd5" not in step6_src
     assert "framemd5" not in tuner_src
     assert ".md5" not in step6_src
     assert ".md5" not in tuner_src
     print("Test runtime scripts do not generate framemd5/md5 temp outputs: PASSED.")
+
 
 def main():
     print("Running tests...")
@@ -2241,6 +3575,7 @@ def main():
     test_update_chapter_bad_frames_omits_empty_line()
     test_vhs_tuner_plain_wizard_entrypoint()
     test_runtime_scripts_do_not_generate_framemd5()
+
 
 if __name__ == "__main__":
     main()

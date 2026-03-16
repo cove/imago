@@ -88,7 +88,9 @@ def test_prefill_people_from_cast_uses_chapter_clip_matches(tmp_path: Path) -> N
     assert float(first["end_seconds"]) > float(first["start_seconds"])
 
 
-def test_prefill_people_from_cast_falls_back_to_chapters_tsv_for_split_titles(tmp_path: Path) -> None:
+def test_prefill_people_from_cast_falls_back_to_chapters_tsv_for_split_titles(
+    tmp_path: Path,
+) -> None:
     metadata_dir = tmp_path / "metadata"
     archive_dir = tmp_path / "archive"
     cast_dir = tmp_path / "cast_data"
@@ -133,7 +135,9 @@ def test_prefill_people_from_cast_falls_back_to_chapters_tsv_for_split_titles(tm
     assert result.entries[0]["people"] == "Jim"
 
 
-def test_apply_prefill_entries_to_people_tsv_replaces_chapter_overlap(tmp_path: Path) -> None:
+def test_apply_prefill_entries_to_people_tsv_replaces_chapter_overlap(
+    tmp_path: Path,
+) -> None:
     metadata_dir = tmp_path / "metadata"
     archive_dir = tmp_path / "archive"
     archive_name = "demo_archive"

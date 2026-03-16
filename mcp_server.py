@@ -3,6 +3,7 @@
 Run with:  python mcp_server.py
 Or register in Claude Desktop / any MCP client.
 """
+
 from __future__ import annotations
 
 import json
@@ -267,12 +268,18 @@ def photoalbums_ai_index(
         extra_args: Additional raw CLI arguments (e.g. ['--verbose']).
     """
     args = [
-        PYTHON, PHOTOALBUMS_SCRIPT,
-        "ai", "index",
-        "--photos-root", photos_root,
-        "--cast-store", cast_store,
-        "--caption-engine", caption_engine,
-        "--ocr-engine", ocr_engine,
+        PYTHON,
+        PHOTOALBUMS_SCRIPT,
+        "ai",
+        "index",
+        "--photos-root",
+        photos_root,
+        "--cast-store",
+        cast_store,
+        "--caption-engine",
+        caption_engine,
+        "--ocr-engine",
+        ocr_engine,
     ]
     if force:
         args.append("--force")
@@ -305,11 +312,15 @@ def photoalbums_compress(photos_root: str = PHOTOS_ROOT_DEFAULT) -> dict:
         photos_root: Root directory containing TIFF scans.
     """
     args = [PYTHON, PHOTOALBUMS_SCRIPT, "compress", "--photos-root", photos_root]
-    return _job_started(runner.start(f"photoalbums_compress:{Path(photos_root).name}", args))
+    return _job_started(
+        runner.start(f"photoalbums_compress:{Path(photos_root).name}", args)
+    )
 
 
 @mcp.tool()
-def photoalbums_stitch(photos_root: str = PHOTOS_ROOT_DEFAULT, validate_only: bool = False) -> dict:
+def photoalbums_stitch(
+    photos_root: str = PHOTOS_ROOT_DEFAULT, validate_only: bool = False
+) -> dict:
     """Start a job to stitch album page outputs. Returns a job ID.
 
     Args:
@@ -317,8 +328,17 @@ def photoalbums_stitch(photos_root: str = PHOTOS_ROOT_DEFAULT, validate_only: bo
         validate_only: Only validate stitchability without writing outputs.
     """
     subcommand = "validate" if validate_only else "build"
-    args = [PYTHON, PHOTOALBUMS_SCRIPT, "stitch", subcommand, "--photos-root", photos_root]
-    return _job_started(runner.start(f"photoalbums_stitch_{subcommand}:{Path(photos_root).name}", args))
+    args = [
+        PYTHON,
+        PHOTOALBUMS_SCRIPT,
+        "stitch",
+        subcommand,
+        "--photos-root",
+        photos_root,
+    ]
+    return _job_started(
+        runner.start(f"photoalbums_stitch_{subcommand}:{Path(photos_root).name}", args)
+    )
 
 
 # ── VHS: job-launching tools ───────────────────────────────────────────────────
@@ -430,7 +450,9 @@ def vhs_generate_comparison(
     args = [PYTHON, VHS_SCRIPT, "compare", "--archive", archive, "--title", title]
     if extra_args:
         args.extend(extra_args)
-    return _job_started(runner.start(f"vhs_compare:{archive}/{title}", args, cwd=VHS_DIR))
+    return _job_started(
+        runner.start(f"vhs_compare:{archive}/{title}", args, cwd=VHS_DIR)
+    )
 
 
 @mcp.tool()
@@ -453,7 +475,9 @@ def vhs_verify_archive(
 
 
 @mcp.tool()
-def vhs_people_prefill(archive: str, chapter: str, cast_store: str = CAST_STORE_DEFAULT) -> dict:
+def vhs_people_prefill(
+    archive: str, chapter: str, cast_store: str = CAST_STORE_DEFAULT
+) -> dict:
     """Start a job to prefill people metadata for a VHS chapter from the Cast store. Returns a job ID.
 
     Args:
@@ -462,13 +486,20 @@ def vhs_people_prefill(archive: str, chapter: str, cast_store: str = CAST_STORE_
         cast_store: Path to cast data directory.
     """
     args = [
-        PYTHON, VHS_SCRIPT,
-        "people", "prefill-cast",
-        "--archive", archive,
-        "--chapter", chapter,
-        "--cast-store", cast_store,
+        PYTHON,
+        VHS_SCRIPT,
+        "people",
+        "prefill-cast",
+        "--archive",
+        archive,
+        "--chapter",
+        chapter,
+        "--cast-store",
+        cast_store,
     ]
-    return _job_started(runner.start(f"vhs_people_prefill:{archive}/{chapter}", args, cwd=VHS_DIR))
+    return _job_started(
+        runner.start(f"vhs_people_prefill:{archive}/{chapter}", args, cwd=VHS_DIR)
+    )
 
 
 if __name__ == "__main__":
@@ -482,15 +513,22 @@ if __name__ == "__main__":
         default="stdio",
         help="Transport: stdio (Claude Code), sse (legacy SSE at /sse), http (streamable-HTTP at /mcp)",
     )
-    parser.add_argument("--host", default="0.0.0.0",
-        help="Bind host (default: 0.0.0.0)")
-    parser.add_argument("--port", type=int, default=8090,
-        help="Bind port (default: 8090)")
-    parser.add_argument("--console-host", default=None,
-        help="Advertised hostname for job console URLs returned to clients (e.g. 192.168.4.26)")
+    parser.add_argument(
+        "--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)"
+    )
+    parser.add_argument(
+        "--port", type=int, default=8090, help="Bind port (default: 8090)"
+    )
+    parser.add_argument(
+        "--console-host",
+        default=None,
+        help="Advertised hostname for job console URLs returned to clients (e.g. 192.168.4.26)",
+    )
     args = parser.parse_args()
 
-    CONSOLE_HOST = args.console_host or args.host  # noqa: F841 - read via module globals
+    CONSOLE_HOST = (
+        args.console_host or args.host
+    )  # noqa: F841 - read via module globals
     if args.transport != "stdio":
         start_console(runner, host=args.host, port=CONSOLE_PORT)
         print(f"Job console:     http://{CONSOLE_HOST}:{CONSOLE_PORT}", file=sys.stderr)
@@ -501,10 +539,16 @@ if __name__ == "__main__":
         mcp.settings.transport_security = None  # allow connections from any host
 
     if args.transport == "sse":
-        print(f"MCP SSE server:  http://{args.host}:{args.port}/sse  (configure LM Studio with this URL)", file=sys.stderr)
+        print(
+            f"MCP SSE server:  http://{args.host}:{args.port}/sse  (configure LM Studio with this URL)",
+            file=sys.stderr,
+        )
         mcp.run(transport="sse")
     elif args.transport == "http":
-        print(f"MCP HTTP server: http://{args.host}:{args.port}/mcp  (configure LM Studio with this URL)", file=sys.stderr)
+        print(
+            f"MCP HTTP server: http://{args.host}:{args.port}/mcp  (configure LM Studio with this URL)",
+            file=sys.stderr,
+        )
         mcp.run(transport="streamable-http")
     else:
         mcp.run(transport="stdio")

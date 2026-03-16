@@ -1,4 +1,5 @@
 import pytest
+
 pytest.importorskip("numpy")
 pytest.importorskip("cv2")
 
@@ -18,7 +19,9 @@ def _sample_sigs() -> dict[str, np.ndarray]:
     }
 
 
-def test_cached_signals_round_trip_and_chapter_span_invalidation(tmp_path: Path, monkeypatch) -> None:
+def test_cached_signals_round_trip_and_chapter_span_invalidation(
+    tmp_path: Path, monkeypatch
+) -> None:
     monkeypatch.setattr(core, "TUNER_CACHE_ROOT", tmp_path)
     monkeypatch.setattr(core, "TUNER_FRAME_CACHE_DIR", tmp_path / "frame_samples")
 
@@ -206,4 +209,3 @@ def test_video_frame_count_decodes_when_probe_and_metadata_are_unavailable(
     monkeypatch.setattr(core.cv2, "VideoCapture", lambda _path: _Cap())
 
     assert core._video_frame_count(video) == 3
-

@@ -81,12 +81,16 @@ def test_subtitle_rail_rows_have_start_seconds_attribute(subtitle_rail_page):
             flipbookSubtitleRailEl.querySelectorAll('[data-subtitle-start-seconds]')
         ).map(el => parseFloat(el.getAttribute('data-subtitle-start-seconds')));
     }""")
-    assert rows == [0.0, 2.0, 4.0], (
-        f"Expected start_seconds [0.0, 2.0, 4.0] on rail rows, got {rows}"
-    )
+    assert rows == [
+        0.0,
+        2.0,
+        4.0,
+    ], f"Expected start_seconds [0.0, 2.0, 4.0] on rail rows, got {rows}"
 
 
-def test_clicking_subtitle_rail_row_calls_render_with_correct_seconds(subtitle_rail_page):
+def test_clicking_subtitle_rail_row_calls_render_with_correct_seconds(
+    subtitle_rail_page,
+):
     """Clicking a subtitle rail row must call renderSparkPlaybackFrame at the right time."""
     result = subtitle_rail_page.evaluate("""() => {
         let capturedIdx = null;
@@ -104,7 +108,9 @@ def test_clicking_subtitle_rail_row_calls_render_with_correct_seconds(subtitle_r
         window.renderSparkPlaybackFrame = orig;
         return { called: capturedIdx !== null, idx: capturedIdx };
     }""")
-    assert result["called"], "renderSparkPlaybackFrame was not called after clicking a subtitle row"
+    assert result[
+        "called"
+    ], "renderSparkPlaybackFrame was not called after clicking a subtitle row"
 
 
 def test_clicking_subtitle_rail_row_uses_start_seconds_for_seek(subtitle_rail_page):
@@ -149,6 +155,6 @@ def test_clicking_child_element_in_row_also_seeks(subtitle_rail_page):
         window.renderSparkPlaybackFrame = orig;
         return { called: capturedIdx !== null };
     }""")
-    assert result["called"], (
-        "renderSparkPlaybackFrame was not called when clicking a child element inside a subtitle row"
-    )
+    assert result[
+        "called"
+    ], "renderSparkPlaybackFrame was not called when clicking a child element inside a subtitle row"

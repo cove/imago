@@ -58,7 +58,6 @@ def _parse_timebase(value: str) -> tuple[int, int] | None:
     return int(num), int(den)
 
 
-
 def _sort_rows_by_index(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     indexed: list[tuple[int, int, dict[str, str]]] = []
     for pos, row in enumerate(list(rows or [])):
@@ -93,7 +92,9 @@ def _read_chapters_tsv_rows(path: Path) -> tuple[list[str], list[dict[str, str]]
     return header, rows
 
 
-def _write_chapters_tsv_rows(path: Path, columns: list[str], rows: list[dict[str, Any]]) -> None:
+def _write_chapters_tsv_rows(
+    path: Path, columns: list[str], rows: list[dict[str, Any]]
+) -> None:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     header: list[str] = []
@@ -114,10 +115,14 @@ def _write_chapters_tsv_rows(path: Path, columns: list[str], rows: list[dict[str
         )
         writer.writeheader()
         for raw_row in list(rows or []):
-            writer.writerow({col: _as_text((raw_row or {}).get(col, "")) for col in header})
+            writer.writerow(
+                {col: _as_text((raw_row or {}).get(col, "")) for col in header}
+            )
 
 
-def _parse_ffmetadata_raw(path: Path) -> tuple[str, list[tuple[str, str]], list[list[tuple[str, str]]]]:
+def _parse_ffmetadata_raw(
+    path: Path,
+) -> tuple[str, list[tuple[str, str]], list[list[tuple[str, str]]]]:
     lines = Path(path).read_text(encoding="utf-8-sig").splitlines()
     header = ";FFMETADATA1"
     globals_list: list[tuple[str, str]] = []
@@ -151,9 +156,13 @@ def _parse_ffmetadata_raw(path: Path) -> tuple[str, list[tuple[str, str]], list[
     return header, globals_list, chapters
 
 
-def ffmetadata_to_chapters_tsv(ffmetadata_path: Path, out_path: Path | None = None) -> Path:
+def ffmetadata_to_chapters_tsv(
+    ffmetadata_path: Path, out_path: Path | None = None
+) -> Path:
     source = Path(ffmetadata_path)
-    target = Path(out_path) if out_path is not None else (source.parent / "chapters.tsv")
+    target = (
+        Path(out_path) if out_path is not None else (source.parent / "chapters.tsv")
+    )
     header_line, globals_list, chapter_lists = _parse_ffmetadata_raw(source)
 
     global_order: list[str] = []
@@ -210,7 +219,9 @@ def convert_all_ffmetadata_to_chapters_tsv(
         print(f"Metadata root not found: {root}")
         return 0
     count = 0
-    for archive_dir in sorted([p for p in root.iterdir() if p.is_dir()], key=lambda p: p.name.lower()):
+    for archive_dir in sorted(
+        [p for p in root.iterdir() if p.is_dir()], key=lambda p: p.name.lower()
+    ):
         ffmeta = archive_dir / "chapters.ffmetadata"
         tsv = archive_dir / "chapters.tsv"
         if not ffmeta.exists():
@@ -225,12 +236,17 @@ def convert_all_ffmetadata_to_chapters_tsv(
 
 def _chapter_keys_for_row(header: list[str]) -> list[str]:
     return [
-        key for key in list(header or [])
-        if key and not key.startswith(TSV_META_PREFIX) and not key.startswith(TSV_FFMETA_PREFIX)
+        key
+        for key in list(header or [])
+        if key
+        and not key.startswith(TSV_META_PREFIX)
+        and not key.startswith(TSV_FFMETA_PREFIX)
     ]
 
 
-def generate_ffmetadata_from_chapters_tsv(chapters_tsv_path: Path, out_path: Path) -> Path:
+def generate_ffmetadata_from_chapters_tsv(
+    chapters_tsv_path: Path, out_path: Path
+) -> Path:
     header, rows = _read_chapters_tsv_rows(Path(chapters_tsv_path))
     rows_sorted = _sort_rows_by_index(rows)
 
@@ -240,7 +256,7 @@ def generate_ffmetadata_from_chapters_tsv(chapters_tsv_path: Path, out_path: Pat
         return Path(out_path)
 
     global_order: list[str] = [
-        str(col)[len(TSV_FFMETA_PREFIX):]
+        str(col)[len(TSV_FFMETA_PREFIX) :]
         for col in list(header or [])
         if str(col or "").startswith(TSV_FFMETA_PREFIX)
     ]
@@ -266,7 +282,11 @@ def generate_ffmetadata_from_chapters_tsv(chapters_tsv_path: Path, out_path: Pat
         lines.append("[CHAPTER]")
         for key in list(header or []):
             key_text = str(key or "").strip()
-            if not key_text or key_text.startswith(TSV_META_PREFIX) or key_text.startswith(TSV_FFMETA_PREFIX):
+            if (
+                not key_text
+                or key_text.startswith(TSV_META_PREFIX)
+                or key_text.startswith(TSV_FFMETA_PREFIX)
+            ):
                 continue
             value = _as_text((row or {}).get(key_text, ""))
             if value != "":
@@ -281,7 +301,9 @@ def generate_ffmetadata_from_chapters_tsv(chapters_tsv_path: Path, out_path: Pat
     return out
 
 
-def _load_master_chapters(chapters_tsv_path: Path) -> tuple[dict[str, str], list[dict[str, Any]]]:
+def _load_master_chapters(
+    chapters_tsv_path: Path,
+) -> tuple[dict[str, str], list[dict[str, Any]]]:
     header, rows = _read_chapters_tsv_rows(chapters_tsv_path)
     rows_sorted = _sort_rows_by_index(rows)
     ffmeta: dict[str, str] = {}
@@ -371,7 +393,9 @@ def _load_master_chapters(chapters_tsv_path: Path) -> tuple[dict[str, str], list
                 pass
 
         if not _as_text(chapter.get("title")).strip():
-            alt = _as_text(chapter.get("chaptertitle") or chapter.get("chapter_title")).strip()
+            alt = _as_text(
+                chapter.get("chaptertitle") or chapter.get("chapter_title")
+            ).strip()
             if alt:
                 chapter["title"] = alt
 
@@ -391,7 +415,7 @@ def _chapter_seconds(chapter: dict, boundary: str) -> float:
     except Exception:
         pass
     try:
-        return float(chapter.get(f"{boundary}_seconds"))
+        return float(chapter.get(f"{boundary}_seconds") or 0.0)
     except Exception:
         pass
     return float(chapter.get(boundary, 0.0) or 0.0)
@@ -462,7 +486,10 @@ def generate_mkv_chapters_xml(chapters_tsv_path: Path, out_path: Path):
 
 def write_mediainfo_outputs(input_path: Path, output_dir: Path):
     source = Path(input_path)
-    outputs = [("Text", f"{source.stem}_mediainfo.txt"), ("XML", f"{source.stem}_mediainfo.xml")]
+    outputs = [
+        ("Text", f"{source.stem}_mediainfo.txt"),
+        ("XML", f"{source.stem}_mediainfo.xml"),
+    ]
 
     for fmt, filename in outputs:
         out_path = output_dir / filename
@@ -533,4 +560,3 @@ def main(argv=None):
 
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv[1:]))
-

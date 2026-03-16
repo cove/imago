@@ -1,8 +1,9 @@
 [MASTER]
-# Only enable the duplicate-code checker (R0801); ignore all other messages.
+recursive=yes
+
+[MESSAGES CONTROL]
 disable=all
 enable=R0801
-recursive=yes
 
 [SIMILARITIES]
 # Minimum number of identical lines to flag as duplicate.

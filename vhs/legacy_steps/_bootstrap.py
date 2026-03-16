@@ -9,4 +9,3 @@ def ensure_project_root_on_path():
     root_text = str(project_root)
     if root_text not in sys.path:
         sys.path.insert(0, root_text)
-

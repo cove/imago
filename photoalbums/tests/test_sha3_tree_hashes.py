@@ -36,7 +36,8 @@ class TestSha3TreeHashes(unittest.TestCase):
             hashes.build_album_manifest(album, entries)
 
             top_entries = [
-                (digest, album.relative_to(base) / rel_path) for digest, rel_path in entries
+                (digest, album.relative_to(base) / rel_path)
+                for digest, rel_path in entries
             ]
             hashes.build_top_manifest(base, top_entries)
 

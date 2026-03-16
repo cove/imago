@@ -31,7 +31,11 @@ def _import_cast_modules() -> tuple[Any, ...]:
             parse_embedding,
             suggest_people_from_prototypes,
         )
-        from cast.storage import TextFaceStore, face_is_human_reviewed, face_review_status
+        from cast.storage import (
+            TextFaceStore,
+            face_is_human_reviewed,
+            face_review_status,
+        )
 
         return (
             CURRENT_FACE_DETECTOR_MODEL,
@@ -74,7 +78,11 @@ def _import_cast_modules() -> tuple[Any, ...]:
             parse_embedding,
             suggest_people_from_prototypes,
         )
-        from cast.storage import TextFaceStore, face_is_human_reviewed, face_review_status
+        from cast.storage import (
+            TextFaceStore,
+            face_is_human_reviewed,
+            face_review_status,
+        )
 
         return (
             CURRENT_FACE_DETECTOR_MODEL,
@@ -97,7 +105,6 @@ def _import_cast_modules() -> tuple[Any, ...]:
         )
 
 
-
 def _normalize_hint_text(value: str) -> str:
     text = re.sub(r"[^a-z0-9]+", " ", str(value or "").lower())
     return f" {' '.join(text.split())} ".strip() + " "
@@ -107,7 +114,10 @@ def _dedupe_variants(values: list[str]) -> tuple[str, ...]:
     return tuple(_dedupe(values))
 
 
-def _box_iou(left: list[int] | tuple[int, int, int, int], right: list[int] | tuple[int, int, int, int]) -> float:
+def _box_iou(
+    left: list[int] | tuple[int, int, int, int],
+    right: list[int] | tuple[int, int, int, int],
+) -> float:
     lx, ly, lw, lh = [int(v) for v in left[:4]]
     rx, ry, rw, rh = [int(v) for v in right[:4]]
     if lw <= 0 or lh <= 0 or rw <= 0 or rh <= 0:
@@ -228,7 +238,9 @@ class CastPeopleMatcher:
     def _face_uses_active_model(self, face: dict[str, Any]) -> bool:
         return self._face_embedding_model(face) in self._active_embedding_models
 
-    def _model_metadata(self, *, source_path: str, analysis_image_path: str, arcface_embedding: Any) -> dict[str, Any]:
+    def _model_metadata(
+        self, *, source_path: str, analysis_image_path: str, arcface_embedding: Any
+    ) -> dict[str, Any]:
         metadata = {
             "ingest": "photoalbums_ai",
             "detector_model": (
@@ -242,7 +254,10 @@ class CastPeopleMatcher:
                 else self._fallback_embedding_model
             ),
         }
-        if str(analysis_image_path).strip() and str(analysis_image_path).strip() != str(source_path).strip():
+        if (
+            str(analysis_image_path).strip()
+            and str(analysis_image_path).strip() != str(source_path).strip()
+        ):
             metadata["analysis_image_path"] = str(analysis_image_path)
         return metadata
 
@@ -253,11 +268,13 @@ class CastPeopleMatcher:
         self._person_name_by_id = {
             str(row.get("person_id")): str(row.get("display_name"))
             for row in people
-            if str(row.get("person_id") or "").strip() and str(row.get("display_name") or "").strip()
+            if str(row.get("person_id") or "").strip()
+            and str(row.get("display_name") or "").strip()
         }
         self._person_variants_by_id = {
             str(row.get("person_id")): _dedupe_variants(
-                [str(row.get("display_name") or "")] + [str(item or "") for item in list(row.get("aliases") or [])]
+                [str(row.get("display_name") or "")]
+                + [str(item or "") for item in list(row.get("aliases") or [])]
             )
             for row in people
             if str(row.get("person_id") or "").strip()
@@ -327,7 +344,9 @@ class CastPeopleMatcher:
         self._store_signature = self._store.store_signature()
         return dict(face)
 
-    def _find_existing_face(self, *, source_path: str, bbox: list[int]) -> dict[str, Any] | None:
+    def _find_existing_face(
+        self, *, source_path: str, bbox: list[int]
+    ) -> dict[str, Any] | None:
         best_face: dict[str, Any] | None = None
         best_iou = 0.0
         for face in self._faces_by_source.get(str(source_path or "").strip(), []):
@@ -445,11 +464,15 @@ class CastPeopleMatcher:
                 bonuses[person_id] = best
         return bonuses
 
-    def _apply_hint_scores(self, candidates: list[dict[str, Any]], hint_text: str) -> list[dict[str, Any]]:
+    def _apply_hint_scores(
+        self, candidates: list[dict[str, Any]], hint_text: str
+    ) -> list[dict[str, Any]]:
         if not candidates:
             return []
         bonuses = self._hint_bonus_by_person_id(hint_text)
-        strong_hint_ids = {person_id for person_id, bonus in bonuses.items() if bonus >= 0.05}
+        strong_hint_ids = {
+            person_id for person_id, bonus in bonuses.items() if bonus >= 0.05
+        }
         adjusted: list[dict[str, Any]] = []
         for row in candidates:
             if not isinstance(row, dict):
@@ -485,7 +508,9 @@ class CastPeopleMatcher:
                 return True
         return False
 
-    def _queue_for_review(self, face: dict[str, Any], candidates: list[dict[str, Any]]) -> None:
+    def _queue_for_review(
+        self, face: dict[str, Any], candidates: list[dict[str, Any]]
+    ) -> None:
         face_id = str(face.get("face_id") or "").strip()
         if not face_id:
             return
@@ -534,7 +559,9 @@ class CastPeopleMatcher:
             crop = image[y0:y1, x0:x1]
             if crop is None or crop.size == 0:
                 continue
-            if not self._ingestor.is_valid_face_crop(crop, skip_artwork=self.skip_artwork):
+            if not self._ingestor.is_valid_face_crop(
+                crop, skip_artwork=self.skip_artwork
+            ):
                 continue
 
             absolute_bbox = _offset_box((x, y, ww, hh), bbox_offset)
@@ -562,7 +589,11 @@ class CastPeopleMatcher:
                 continue
 
             person_id = str(face.get("person_id") or "").strip()
-            if person_id and self._face_is_human_reviewed(face) and review_status == "confirmed":
+            if (
+                person_id
+                and self._face_is_human_reviewed(face)
+                and review_status == "confirmed"
+            ):
                 name = self._person_name_by_id.get(person_id, "")
                 if name:
                     current = by_name.get(name)
@@ -574,11 +605,17 @@ class CastPeopleMatcher:
                         reviewed_by_human=True,
                         bbox=list(face.get("bbox") or []),
                     )
-                    if current is None or candidate.certainty > current.certainty or candidate.score > current.score:
+                    if (
+                        current is None
+                        or candidate.certainty > current.certainty
+                        or candidate.score > current.score
+                    ):
                         by_name[name] = candidate
                 continue
 
-            embedding = face.get("embedding") or self._arcface_embed(crop) or self._embed(crop)
+            embedding = (
+                face.get("embedding") or self._arcface_embed(crop) or self._embed(crop)
+            )
             if self._matches_ignored_face(embedding):
                 continue
 
@@ -619,7 +656,10 @@ class CastPeopleMatcher:
                     if (
                         current is None
                         or candidate.certainty > current.certainty
-                        or (candidate.certainty == current.certainty and candidate.score > current.score)
+                        or (
+                            candidate.certainty == current.certainty
+                            and candidate.score > current.score
+                        )
                     ):
                         by_name[name] = candidate
                     continue
@@ -627,5 +667,11 @@ class CastPeopleMatcher:
             self._queue_for_review(face, candidates)
 
         out = list(by_name.values())
-        out.sort(key=lambda row: (-float(row.certainty), -float(row.score), row.name.casefold()))
+        out.sort(
+            key=lambda row: (
+                -float(row.certainty),
+                -float(row.score),
+                row.name.casefold(),
+            )
+        )
         return out

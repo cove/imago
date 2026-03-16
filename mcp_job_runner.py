@@ -1,4 +1,5 @@
 """Background job runner for long-running CLI processes."""
+
 from __future__ import annotations
 
 import json
@@ -147,7 +148,10 @@ class JobRunner:
         if not proc:
             return {"error": f"Job {job_id} is not running (status: {job['status']})"}
         proc.terminate()
-        return {"ok": True, "message": f"Sent terminate to job {job_id} ({job['name']})"}
+        return {
+            "ok": True,
+            "message": f"Sent terminate to job {job_id} ({job['name']})",
+        }
 
     def list_jobs(self) -> list[dict]:
         """List all jobs, newest first, without log content."""

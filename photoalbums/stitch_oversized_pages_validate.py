@@ -14,6 +14,7 @@ from common import (
     list_page_scan_groups,
 )
 from naming import SCAN_TIFF_RE, parse_album_filename
+
 try:
     from stitch_oversized_pages import build_stitched_image
 except Exception:
@@ -25,6 +26,7 @@ NEW_NAME_RE = SCAN_TIFF_RE
 def _require_cv2() -> None:
     if cv2 is None:
         raise RuntimeError("cv2 is required to validate images.")
+
 
 def validate_single(tif_path: str) -> None:
     _require_cv2()

@@ -3,7 +3,6 @@ from pathlib import Path
 from common import chapter_frame_bounds, get_bad_frames_for_chapter, parse_chapters
 from vhs_pipeline import render_pipeline
 
-
 ARCHIVE = "callahan_01_archive"
 RICE_TOSS_TITLE = "1995 - Jim & Linda Wedding - 10 Rice Toss Send-Off (March 18, 1995)"
 
@@ -17,22 +16,35 @@ def test_rice_toss_render_settings_sources_are_clean_and_in_bounds() -> None:
         return
 
     _, chapters = parse_chapters(chapters_path)
-    chapter = next((c for c in chapters if str(c.get("title", "")).strip() == RICE_TOSS_TITLE), None)
-    assert chapter is not None, "Rice Toss chapter title not found in chapters.ffmetadata."
+    chapter = next(
+        (c for c in chapters if str(c.get("title", "")).strip() == RICE_TOSS_TITLE),
+        None,
+    )
+    assert (
+        chapter is not None
+    ), "Rice Toss chapter title not found in chapters.ffmetadata."
 
     start_frame, end_frame = chapter_frame_bounds(chapter, fps_num=30000, fps_den=1001)
-    bad_global = get_bad_frames_for_chapter(ARCHIVE, RICE_TOSS_TITLE, ch_start=start_frame, ch_end=end_frame)
+    bad_global = get_bad_frames_for_chapter(
+        ARCHIVE, RICE_TOSS_TITLE, ch_start=start_frame, ch_end=end_frame
+    )
     assert bad_global, "Rice Toss bad frame list is empty in render_settings.json."
 
     max_local = int(end_frame) - int(start_frame) - 1
     assert max_local >= 0
 
     local_bad = sorted(
-        {int(f) - int(start_frame) for f in bad_global if int(start_frame) <= int(f) < int(end_frame)}
+        {
+            int(f) - int(start_frame)
+            for f in bad_global
+            if int(start_frame) <= int(f) < int(end_frame)
+        }
     )
     assert local_bad, "Rice Toss has no in-bounds BAD_FRAMES after chapter mapping."
 
-    local_repairs = render_pipeline.local_bad_frames_to_repairs(local_bad, max_frame=max_local)
+    local_repairs = render_pipeline.local_bad_frames_to_repairs(
+        local_bad, max_frame=max_local
+    )
     resolved = render_pipeline._resolve_badframe_repair_ranges(
         bad_repair_ranges=local_repairs,
         max_source_frame=max_local,

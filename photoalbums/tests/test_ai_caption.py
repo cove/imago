@@ -56,7 +56,9 @@ class TestAICaption(unittest.TestCase):
 
     def test_infer_album_title_prefers_cover_text_and_romanizes_book_number(self):
         text = ai_caption.infer_album_title(
-            image_path=Path("Photo Albums") / "China_1986_B02_View" / "China_1986_B02_P01.jpg",
+            image_path=Path("Photo Albums")
+            / "China_1986_B02_View"
+            / "China_1986_B02_P01.jpg",
             ocr_text="MAINLAND CHINA\n1986\nBOOK 11",
         )
         self.assertEqual(text, "Mainland China Book II")
@@ -77,7 +79,9 @@ class TestAICaption(unittest.TestCase):
 
     def test_infer_album_context_detects_photo_essay_from_collection_name(self):
         context = ai_caption.infer_album_context(
-            image_path=Path("Photo Albums") / "EasternEuropeSpainMorocco_1988_B00_View" / "EasternEuropeSpainMorocco_1988_B00_P01.jpg",
+            image_path=Path("Photo Albums")
+            / "EasternEuropeSpainMorocco_1988_B00_View"
+            / "EasternEuropeSpainMorocco_1988_B00_P01.jpg",
             allow_ocr=False,
         )
         self.assertEqual(context.kind, ai_caption.ALBUM_KIND_PHOTO_ESSAY)
@@ -91,7 +95,9 @@ class TestAICaption(unittest.TestCase):
             people=[],
             objects=[],
             ocr_text="",
-            source_path=Path("Photo Albums") / "Family_1980-1985_B08_View" / "Family_1980-1985_B08_P01.jpg",
+            source_path=Path("Photo Albums")
+            / "Family_1980-1985_B08_View"
+            / "Family_1980-1985_B08_P01.jpg",
         )
         self.assertIn("Album title hint:", prompt)
         self.assertIn("Cordell Photo Albums rules:", prompt)
@@ -111,7 +117,9 @@ class TestAICaption(unittest.TestCase):
             people=[],
             objects=[],
             ocr_text="",
-            source_path=Path("Photo Albums") / "China_1986_B02_View" / "China_1986_B02_P02.jpg",
+            source_path=Path("Photo Albums")
+            / "China_1986_B02_View"
+            / "China_1986_B02_P02.jpg",
             album_title="Mainland China Book II",
             printed_album_title="Mainland China Book 11",
         )
@@ -161,7 +169,9 @@ class TestAICaption(unittest.TestCase):
     def test_qwen_falls_back_to_template_on_error(self):
         fake_qwen = mock.Mock()
         fake_qwen.describe.side_effect = RuntimeError("model offline")
-        with mock.patch("photoalbums.lib.ai_caption.QwenLocalCaptioner", return_value=fake_qwen):
+        with mock.patch(
+            "photoalbums.lib.ai_caption.QwenLocalCaptioner", return_value=fake_qwen
+        ):
             engine = ai_caption.CaptionEngine(engine="qwen")
             out = engine.generate(
                 image_path="sample.jpg",
@@ -177,7 +187,9 @@ class TestAICaption(unittest.TestCase):
     def test_legacy_blip_alias_routes_to_qwen_and_falls_back_to_template_on_error(self):
         fake_qwen = mock.Mock()
         fake_qwen.describe.side_effect = RuntimeError("model offline")
-        with mock.patch("photoalbums.lib.ai_caption.QwenLocalCaptioner", return_value=fake_qwen) as ctor:
+        with mock.patch(
+            "photoalbums.lib.ai_caption.QwenLocalCaptioner", return_value=fake_qwen
+        ) as ctor:
             engine = ai_caption.CaptionEngine(engine="blip")
             out = engine.generate(
                 image_path="sample.jpg",
@@ -205,7 +217,9 @@ class TestAICaption(unittest.TestCase):
     def test_qwen_engine_forwards_cpu_tuning_settings(self):
         fake_qwen = mock.Mock()
         fake_qwen.describe.return_value = ai_caption.CaptionDetails(text="caption text")
-        with mock.patch("photoalbums.lib.ai_caption.QwenLocalCaptioner", return_value=fake_qwen) as ctor:
+        with mock.patch(
+            "photoalbums.lib.ai_caption.QwenLocalCaptioner", return_value=fake_qwen
+        ) as ctor:
             engine = ai_caption.CaptionEngine(
                 engine="qwen",
                 model_name="Qwen/Qwen2.5-VL-3B-Instruct",
@@ -240,7 +254,12 @@ class TestAICaption(unittest.TestCase):
     def test_qwen_loader_uses_local_snapshot_and_safe_max_pixels(self):
         with tempfile.TemporaryDirectory() as tmp:
             cache_dir = Path(tmp)
-            snapshot = cache_dir / "models--Qwen--Qwen2.5-VL-3B-Instruct" / "snapshots" / "abc123"
+            snapshot = (
+                cache_dir
+                / "models--Qwen--Qwen2.5-VL-3B-Instruct"
+                / "snapshots"
+                / "abc123"
+            )
             snapshot.mkdir(parents=True)
             (snapshot / "config.json").write_text("{}", encoding="utf-8")
             (snapshot / "preprocessor_config.json").write_text("{}", encoding="utf-8")
@@ -264,12 +283,16 @@ class TestAICaption(unittest.TestCase):
                     return_value=(fake_torch, fake_processor_cls, fake_model_cls),
                 ),
             ):
-                captioner = ai_caption.QwenLocalCaptioner(model_name="Qwen/Qwen2.5-VL-3B-Instruct")
+                captioner = ai_caption.QwenLocalCaptioner(
+                    model_name="Qwen/Qwen2.5-VL-3B-Instruct"
+                )
                 captioner._ensure_loaded()
 
             processor_kwargs = fake_processor_cls.from_pretrained.call_args.kwargs
             self.assertTrue(processor_kwargs["local_files_only"])
-            self.assertEqual(processor_kwargs["max_pixels"], ai_caption.DEFAULT_QWEN_AUTO_MAX_PIXELS)
+            self.assertEqual(
+                processor_kwargs["max_pixels"], ai_caption.DEFAULT_QWEN_AUTO_MAX_PIXELS
+            )
 
             model_kwargs = fake_model_cls.from_pretrained.call_args.kwargs
             self.assertTrue(model_kwargs["local_files_only"])
@@ -314,23 +337,58 @@ class TestAICaption(unittest.TestCase):
             payload = json.loads(request.data.decode("utf-8"))
             self.assertEqual(payload["model"], "qwen2.5-vl")
             self.assertEqual(payload["response_format"]["type"], "json_schema")
-            self.assertEqual(payload["response_format"]["json_schema"]["name"], "caption_payload")
-            self.assertEqual(payload["response_format"]["json_schema"]["strict"], "true")
-            self.assertEqual(payload["messages"][1]["content"][0]["text"], "Describe this exact image")
-            self.assertTrue(payload["messages"][1]["content"][1]["image_url"]["url"].startswith("data:image/jpeg;base64,"))
-            self.assertNotIn("translations", payload["response_format"]["json_schema"]["schema"]["properties"])
-            self.assertIn("gps_latitude", payload["response_format"]["json_schema"]["schema"]["properties"])
-            self.assertIn("gps_longitude", payload["response_format"]["json_schema"]["schema"]["properties"])
-            self.assertIn("location_name", payload["response_format"]["json_schema"]["schema"]["properties"])
+            self.assertEqual(
+                payload["response_format"]["json_schema"]["name"], "caption_payload"
+            )
+            self.assertEqual(
+                payload["response_format"]["json_schema"]["strict"], "true"
+            )
+            self.assertEqual(
+                payload["messages"][1]["content"][0]["text"],
+                "Describe this exact image",
+            )
+            self.assertTrue(
+                payload["messages"][1]["content"][1]["image_url"]["url"].startswith(
+                    "data:image/jpeg;base64,"
+                )
+            )
+            self.assertNotIn(
+                "translations",
+                payload["response_format"]["json_schema"]["schema"]["properties"],
+            )
+            self.assertIn(
+                "gps_latitude",
+                payload["response_format"]["json_schema"]["schema"]["properties"],
+            )
+            self.assertIn(
+                "gps_longitude",
+                payload["response_format"]["json_schema"]["schema"]["properties"],
+            )
+            self.assertIn(
+                "location_name",
+                payload["response_format"]["json_schema"]["schema"]["properties"],
+            )
             return _FakeResponse()
 
         with tempfile.TemporaryDirectory() as tmp:
             image_path = Path(tmp) / "sample.jpg"
             image_path.write_bytes(b"not-a-real-jpeg")
             with (
-                mock.patch.object(_caption_lmstudio, "_build_data_url", return_value="data:image/jpeg;base64,abc123"),
-                mock.patch.object(_caption_lmstudio, "_select_lmstudio_model", return_value="qwen2.5-vl"),
-                mock.patch.object(_caption_lmstudio.urllib.request, "urlopen", side_effect=fake_urlopen),
+                mock.patch.object(
+                    _caption_lmstudio,
+                    "_build_data_url",
+                    return_value="data:image/jpeg;base64,abc123",
+                ),
+                mock.patch.object(
+                    _caption_lmstudio,
+                    "_select_lmstudio_model",
+                    return_value="qwen2.5-vl",
+                ),
+                mock.patch.object(
+                    _caption_lmstudio.urllib.request,
+                    "urlopen",
+                    side_effect=fake_urlopen,
+                ),
             ):
                 captioner = ai_caption.LMStudioCaptioner(
                     prompt_text="Describe this exact image",
@@ -348,7 +406,9 @@ class TestAICaption(unittest.TestCase):
 
     def test_parse_lmstudio_structured_caption_rejects_invalid_json(self):
         with self.assertRaises(RuntimeError) as exc:
-            ai_caption._parse_lmstudio_structured_caption("not json", finish_reason="stop")
+            ai_caption._parse_lmstudio_structured_caption(
+                "not json", finish_reason="stop"
+            )
         self.assertIn("raw='not json'", str(exc.exception))
         self.assertIn("finish_reason=stop", str(exc.exception))
 
@@ -362,7 +422,9 @@ class TestAICaption(unittest.TestCase):
             '<think>{ "caption": "A blue album cover labeled MAINLAND CHINA 1986 BOOK 11.", "gps_latitude": "", "gps_longitude": "", "location_name": "" }',
             finish_reason="stop",
         )
-        self.assertEqual(details.text, "A blue album cover labeled MAINLAND CHINA 1986 BOOK 11.")
+        self.assertEqual(
+            details.text, "A blue album cover labeled MAINLAND CHINA 1986 BOOK 11."
+        )
 
     def test_parse_lmstudio_structured_caption_prefers_structured_gps_fields(self):
         details = ai_caption._parse_lmstudio_structured_caption(
@@ -394,6 +456,7 @@ class TestAICaption(unittest.TestCase):
         raw = "A plain text caption with no JSON."
         details = ai_caption._parse_qwen_json_output(raw)
         self.assertEqual(details.text, "A plain text caption with no JSON.")
+
 
 if __name__ == "__main__":
     unittest.main()

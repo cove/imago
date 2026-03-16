@@ -6,6 +6,7 @@ tailing logs, and cancelling running processes.
 Runs as a background thread inside the MCP server process so it shares
 the same JobRunner instance and can cancel jobs directly.
 """
+
 from __future__ import annotations
 
 import json
@@ -266,7 +267,9 @@ class _Handler(BaseHTTPRequestHandler):
             return []
         try:
             data = json.loads(_JOBS_STATE.read_text(encoding="utf-8"))
-            return sorted(data.values(), key=lambda j: j.get("started_at", ""), reverse=True)
+            return sorted(
+                data.values(), key=lambda j: j.get("started_at", ""), reverse=True
+            )
         except Exception:
             return []
 
@@ -301,7 +304,9 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             log_path = Path(job["log_file"])
             if log_path.exists():
-                lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+                lines = log_path.read_text(
+                    encoding="utf-8", errors="replace"
+                ).splitlines()
                 logs = "\n".join(lines[-last_n:])
             else:
                 logs = "(no output yet)"
@@ -321,7 +326,9 @@ class _Handler(BaseHTTPRequestHandler):
                 self._json({"error": f"Job {job_id} not found"})
                 return
             if job.get("status") not in ("running", "pending"):
-                self._json({"error": f"Job {job_id} is not running (status: {job['status']})"})
+                self._json(
+                    {"error": f"Job {job_id} is not running (status: {job['status']})"}
+                )
                 return
             pid = job.get("pid")
             if not pid:
@@ -329,7 +336,9 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             try:
                 os.kill(pid, signal.SIGTERM)
-                self._json({"ok": True, "message": f"Sent SIGTERM to job {job_id} (pid {pid})"})
+                self._json(
+                    {"ok": True, "message": f"Sent SIGTERM to job {job_id} (pid {pid})"}
+                )
             except OSError as exc:
                 self._json({"error": str(exc)})
         else:
@@ -351,7 +360,9 @@ class _Handler(BaseHTTPRequestHandler):
         try:
             while True:
                 if log_path.exists():
-                    lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+                    lines = log_path.read_text(
+                        encoding="utf-8", errors="replace"
+                    ).splitlines()
                     for line in lines[sent:]:
                         self.wfile.write(f"data: {line}\n\n".encode())
                         sent += 1

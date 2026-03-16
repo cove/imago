@@ -4,6 +4,7 @@ Truncate a video to a specific duration without re-encoding.
 Usage:
     python truncate_video.py input.mp4 01:04:28
 """
+
 import sys
 from pathlib import Path
 
@@ -20,6 +21,7 @@ elif sys.platform == "darwin":
     FFPROBE = FFMPEG_DIR / "ffprobe-8.0.1.darwin.arm64"
 else:
     raise Exception(f"Unsupported platform: {sys.platform}")
+
 
 def main():
     if len(sys.argv) != 3:
@@ -38,16 +40,27 @@ def main():
     print(f"Trimming {input_file.name} -> {output_file.name} (duration: {duration})")
 
     import subprocess
-    subprocess.run([
-        str(FFMPEG),
-        "-nostdin", "-v", "error",
-        "-i", str(input_file),
-        "-t", duration,
-        "-c", "copy",
-        "-y", str(output_file)
-    ], check=True)
+
+    subprocess.run(
+        [
+            str(FFMPEG),
+            "-nostdin",
+            "-v",
+            "error",
+            "-i",
+            str(input_file),
+            "-t",
+            duration,
+            "-c",
+            "copy",
+            "-y",
+            str(output_file),
+        ],
+        check=True,
+    )
 
     print("Done.")
+
 
 if __name__ == "__main__":
     main()
