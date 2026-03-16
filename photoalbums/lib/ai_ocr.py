@@ -49,9 +49,11 @@ DEFAULT_LMSTUDIO_OCR_BASE_URL = "http://192.168.4.72:1234/v1"
 DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS = 300.0
 DEFAULT_QWEN_OCR_PROMPT = (
     "Extract all visible text from this image.\n"
-    "- Return only the extracted text.\n"
+    "- Return only the extracted text, copied exactly as it appears.\n"
     "- Preserve line breaks when they are visually clear.\n"
     "- Do not describe the image.\n"
+    "- Do not invent, guess, or fill in text that is not clearly visible.\n"
+    "- Do not use placeholder or example text such as 'The quick brown fox' or 'Lorem ipsum'.\n"
     "- If there is no readable text, return an empty string."
 )
 _LEGACY_OCR_ENGINE_ALIASES = {

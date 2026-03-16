@@ -1015,6 +1015,10 @@
     "query": "Hua Qing Hot Springs, Xi'an, Shaanxi, China",
     "status": "miss"
   },
+  "hua qing hot springs, xi'an, shaanxi, china; qin ling mountains, shaanxi, china": {
+    "query": "Hua Qing Hot Springs, Xi'an, Shaanxi, China; Qin Ling Mountains, Shaanxi, China",
+    "status": "miss"
+  },
   "hua ting temple, china": {
     "display_name": "华亭寺, 西山黑森林林道, 龙门, 碧鸡街道, 西山区, 昆明市, 云南省, 650228, 中国",
     "latitude": "24.9733549",
@@ -1762,6 +1766,10 @@
     "query": "Rural China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "rural china, possibly yunnan or guizhou province": {
+    "query": "Rural China, possibly Yunnan or Guizhou Province",
+    "status": "miss"
   },
   "salamanca and seville, spain": {
     "query": "Salamanca and Seville, Spain",

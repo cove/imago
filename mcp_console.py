@@ -27,8 +27,7 @@ DEFAULT_PORT = 8091
 
 # ── HTML console ───────────────────────────────────────────────────────────────
 
-_HTML = """\
-<!DOCTYPE html>
+_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -70,7 +69,7 @@ _HTML = """\
   .btn-cancel { font-size: 10px; padding: 2px 8px; border-radius: 3px; border: 1px solid #555;
                 background: transparent; color: #bbb; cursor: pointer; }
   .btn-cancel:hover { border-color: #f85149; color: #f85149; }
-  .empty { padding: 24px 12px; text-align: center; font-size: 12px; color: #555; }
+  .empty { padding: 24px 12px; text-align: center; font-size: 12px; color: #888; }
 
   /* Log panel */
   .log-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
@@ -157,7 +156,10 @@ _HTML = """\
       const r = await fetch('/api/jobs');
       jobs = await r.json();
       renderJobList();
-    } catch (e) { /* server may be starting */ }
+    } catch (e) {
+      const el = document.getElementById('job-list');
+      if (el && !jobs.length) el.innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+    }
   }
 
   function renderJobList() {

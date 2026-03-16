@@ -24,13 +24,24 @@ class JobRunner:
         self._log_handles: dict[str, object] = {}
         self._load_state()
 
+    @staticmethod
+    def _pid_alive(pid: int) -> bool:
+        """Return True if the process with given PID is still running."""
+        try:
+            os.kill(pid, 0)
+            return True
+        except OSError:
+            return False
+
     def _load_state(self) -> None:
         if JOBS_STATE.exists():
             try:
                 data = json.loads(JOBS_STATE.read_text(encoding="utf-8"))
                 for job in data.values():
                     if job["status"] in ("pending", "running"):
-                        job["status"] = "interrupted"
+                        pid = job.get("pid")
+                        if not pid or not self._pid_alive(pid):
+                            job["status"] = "interrupted"
                 self._jobs = data
             except Exception:
                 self._jobs = {}

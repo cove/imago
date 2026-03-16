@@ -10,6 +10,7 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 - When schema/config formats change, migrate all project data forward in the same change.
 - If backward compatibility is requested, implement it only when explicitly asked.
 - Limit code file sizes to about 500 lines, if they go over that size, then ask about refactoring.
+- Do not use brittle regex and string replaacments to edit AI model responses, improve the prompt instead to get the correct output.
 
 ## Data and Schema Migrations
 
