@@ -244,6 +244,24 @@ def _recover_truncated_ocr_text(raw: str) -> str | None:
         return None
 
 
+def _fix_json_escaping(text: str) -> str:
+    """Fix common JSON escaping issues that can cause parsing failures."""
+    # Fix excessive backslash escaping that can occur in OCR responses
+    # Replace sequences like \\\\\\\\\ with proper escaping
+    text = re.sub(r'\\\\\\\\\\\\', r'\\', text)
+    text = re.sub(r'\\\\\\\\', r'\\', text)
+    text = re.sub(r'\\\\', r'\\', text)
+    
+    # Fix other common escaping issues
+    text = re.sub(r'\\\\"', r'"', text)
+    text = re.sub(r'\\"', r'"', text)
+    
+    # Remove any remaining invalid escape sequences that aren't valid JSON escapes
+    text = re.sub(r'\\[^"\\/bfnrtu]', r'', text)
+    
+    return text
+
+
 def _parse_lmstudio_structured_ocr(value: object, *, finish_reason: str = "") -> str:
     raw = _decode_lmstudio_text(value)
     text = str(raw or "").strip()
@@ -259,16 +277,21 @@ def _parse_lmstudio_structured_ocr(value: object, *, finish_reason: str = "") ->
     try:
         payload = json.loads(text)
     except json.JSONDecodeError as exc:
-        payload = _extract_structured_json_payload(text)
-        if payload is None:
-            if str(finish_reason or "").strip() == "length":
-                recovered = _recover_truncated_ocr_text(text)
-                if recovered is not None:
-                    return _normalize_ocr_text(recovered)
-            snippet = text[:180] + ("..." if len(text) > 180 else "")
-            raise RuntimeError(
-                f"LM Studio returned invalid structured OCR JSON: {exc.msg}; raw={snippet!r}.{finish_note}"
-            ) from exc
+        # Try to fix common JSON escaping issues before falling back to extraction
+        fixed_text = _fix_json_escaping(text)
+        try:
+            payload = json.loads(fixed_text)
+        except json.JSONDecodeError:
+            payload = _extract_structured_json_payload(text)
+            if payload is None:
+                if str(finish_reason or "").strip() == "length":
+                    recovered = _recover_truncated_ocr_text(text)
+                    if recovered is not None:
+                        return _normalize_ocr_text(recovered)
+                snippet = text[:180] + ("..." if len(text) > 180 else "")
+                raise RuntimeError(
+                    f"LM Studio returned invalid structured OCR JSON: {exc.msg}; raw={snippet!r}.{finish_note}"
+                ) from exc
     if not isinstance(payload, dict):
         snippet = text[:180] + ("..." if len(text) > 180 else "")
         raise RuntimeError(
