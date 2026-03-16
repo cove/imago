@@ -270,7 +270,7 @@ def _build_qwen_prompt(
     )
     lines.append(
         'Use this exact schema: {"caption": "...", "location_name": "...",'
-        ' "gps_latitude": "...", "gps_longitude": "..."}'
+        ' "gps_latitude": "...", "gps_longitude": "...", "name_suggestions": [...]}'
     )
     lines.append(
         "caption: a detailed description of the photo using only declarative statements."
@@ -282,6 +282,14 @@ def _build_qwen_prompt(
     lines.append(
         "gps_latitude / gps_longitude: decimal degree strings only if exact coordinates are "
         "explicitly visible in the image or OCR text, otherwise empty strings."
+    )
+    lines.append(
+        "name_suggestions: an array of objects with 'name', 'confidence', 'source', and 'context' fields. "
+        "Extract names from visible text, labels, or contextual clues. "
+        "Include names that appear in signs, documents, clothing, or other visible elements. "
+        "Set confidence between 0.0 and 1.0 based on clarity and context. "
+        "Set source to 'visible_text', 'contextual_clue', or 'label'. "
+        "Set context to describe where the name was found."
     )
     return "\n".join(lines)
 
@@ -333,7 +341,7 @@ def _build_combined_qwen_prompt(
     )
     lines.append(
         'Use this exact schema: {"ocr_text": "...", "caption": "...", "location_name": "...",'
-        ' "gps_latitude": "...", "gps_longitude": "..."}'
+        ' "gps_latitude": "...", "gps_longitude": "...", "name_suggestions": [...]}'
     )
     lines.append(
         "ocr_text: all visible text in the image exactly as shown, or empty string if none."
@@ -347,6 +355,14 @@ def _build_combined_qwen_prompt(
     lines.append(
         "gps_latitude / gps_longitude: decimal degree strings only if explicitly visible, "
         "otherwise empty strings."
+    )
+    lines.append(
+        "name_suggestions: an array of objects with 'name', 'confidence', 'source', and 'context' fields. "
+        "Extract names from visible text, labels, or contextual clues. "
+        "Include names that appear in signs, documents, clothing, or other visible elements. "
+        "Set confidence between 0.0 and 1.0 based on clarity and context. "
+        "Set source to 'visible_text', 'contextual_clue', or 'label'. "
+        "Set context to describe where the name was found."
     )
     return "\n".join(lines)
 

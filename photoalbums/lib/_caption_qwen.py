@@ -57,7 +57,7 @@ def _parse_qwen_json_output(raw: str) -> CaptionDetails:
     """Parse structured JSON output from a Qwen model inference, with plain-text fallback."""
     text = str(raw or "").strip()
     stripped = re.sub(
-        r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE
+        r"<tool_call>.*?<tool_call>", "", text, flags=re.DOTALL | re.IGNORECASE
     ).strip()
     if stripped:
         text = stripped
@@ -72,22 +72,24 @@ def _parse_qwen_json_output(raw: str) -> CaptionDetails:
                 str(payload.get("gps_longitude") or ""), axis="lon"
             )
             location_name = clean_text(str(payload.get("location_name") or ""))
+            name_suggestions = list(payload.get("name_suggestions") or [])
             return CaptionDetails(
                 text=clean_text(caption),
                 gps_latitude=gps_latitude,
                 gps_longitude=gps_longitude,
                 location_name=location_name,
+                name_suggestions=name_suggestions,
             )
     return CaptionDetails(text=clean_text(text))
 
 
-def _parse_qwen_combined_json_output(raw: str) -> tuple[str, str]:
+def _parse_qwen_combined_json_output(raw: str) -> tuple[str, str, list[dict[str, object]]]:
     """Parse structured JSON output from a combined OCR+caption Qwen inference.
-    Returns (ocr_text, caption_text).
+    Returns (ocr_text, caption_text, name_suggestions).
     """
     text = str(raw or "").strip()
     stripped = re.sub(
-        r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE
+        r"<tool_call>.*?<tool_call>", "", text, flags=re.DOTALL | re.IGNORECASE
     ).strip()
     if stripped:
         text = stripped
@@ -95,9 +97,10 @@ def _parse_qwen_combined_json_output(raw: str) -> tuple[str, str]:
     if payload is not None:
         ocr_text = _normalize_ocr_text(str(payload.get("ocr_text") or ""))
         caption = payload.get("caption")
+        name_suggestions = list(payload.get("name_suggestions") or [])
         if isinstance(caption, str) and caption.strip():
-            return ocr_text, clean_text(caption)
-    return "", clean_text(text)
+            return ocr_text, clean_text(caption), name_suggestions
+    return "", clean_text(text), []
 
 
 class QwenLocalCaptioner:
@@ -303,8 +306,8 @@ class QwenLocalCaptioner:
         printed_album_title: str = "",
         photo_count: int = 1,
         is_cover_page: bool = False,
-    ) -> tuple[str, str]:
-        """Single inference that returns (ocr_text, caption)."""
+    ) -> tuple[str, str, list[dict[str, object]]]:
+        """Single inference that returns (ocr_text, caption, name_suggestions)."""
         self._ensure_loaded()
         prompt = _build_combined_qwen_prompt(
             people=people,
