@@ -9,6 +9,9 @@ the same JobRunner instance and can cancel jobs directly.
 from __future__ import annotations
 
 import json
+import os
+import signal
+import time
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -17,6 +20,8 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from mcp_job_runner import JobRunner
+
+_JOBS_STATE = Path(__file__).resolve().parent / "mcp" / "jobs" / "jobs.json"
 
 DEFAULT_PORT = 8091
 
@@ -124,6 +129,8 @@ _HTML = """\
 <script>
   let selectedId = null;
   let jobs = [];
+  let logLines = [];       // accumulated lines for selected job
+  let activeStream = null; // current EventSource
 
   function badge(status) {
     return `<span class="badge badge-${status}">${status}</span>`;
@@ -182,34 +189,48 @@ _HTML = """\
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
+  function renderLogLines() {
+    const body = document.getElementById('log-body');
+    const autoScroll = document.getElementById('auto-scroll').checked;
+    const atBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 40;
+    const n = parseInt(document.getElementById('log-lines').value, 10);
+    const visible = logLines.slice(-n);
+    body.innerHTML = `<pre>${escHtml(visible.join('\n') || '(no output yet)')}</pre>`;
+    if (autoScroll && atBottom) body.scrollTop = body.scrollHeight;
+  }
+
+  function openStream(id) {
+    if (activeStream) { activeStream.close(); activeStream = null; }
+    logLines = [];
+    const job = jobs.find(j => j.id === id);
+    if (!job) return;
+    document.getElementById('log-title').textContent = `${job.name}  [${id}]`;
+    renderLogLines();
+
+    const es = new EventSource(`/api/jobs/${id}/stream`);
+    activeStream = es;
+
+    es.onmessage = (e) => {
+      logLines.push(e.data);
+      renderLogLines();
+    };
+
+    es.addEventListener('done', () => {
+      es.close();
+      activeStream = null;
+      fetchJobs(); // refresh status badge
+    });
+
+    es.onerror = () => {
+      es.close();
+      activeStream = null;
+    };
+  }
+
   function selectJob(id) {
     selectedId = id;
     renderJobList();
-    fetchLogs();
-  }
-
-  async function fetchLogs() {
-    if (!selectedId) return;
-    const job = jobs.find(j => j.id === selectedId);
-    if (!job) return;
-
-    const n = document.getElementById('log-lines').value;
-    try {
-      const r = await fetch(`/api/jobs/${selectedId}/logs?last=${n}`);
-      const data = await r.json();
-      const body = document.getElementById('log-body');
-      const title = document.getElementById('log-title');
-      title.textContent = `${job.name}  [${job.id}]`;
-
-      const autoScroll = document.getElementById('auto-scroll').checked;
-      const atBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 40;
-
-      body.innerHTML = `<pre>${escHtml(data.logs || '(no output yet)')}</pre>`;
-
-      if (autoScroll && (job.status === 'running' || atBottom)) {
-        body.scrollTop = body.scrollHeight;
-      }
-    } catch (e) {}
+    openStream(id);
   }
 
   async function cancelJob(id, ev) {
@@ -219,15 +240,12 @@ _HTML = """\
     await fetchJobs();
   }
 
-  document.getElementById('log-lines').addEventListener('change', fetchLogs);
+  document.getElementById('log-lines').addEventListener('change', renderLogLines);
 
-  // Tick: refresh job list and logs every 2s
-  async function tick() {
-    await fetchJobs();
-    await fetchLogs();
-  }
-  tick();
-  setInterval(tick, 2000);
+  // Poll job list every 2s to pick up new jobs and update status badges.
+  // Log content is streamed via SSE — no log polling needed.
+  setInterval(fetchJobs, 2000);
+  fetchJobs();
 </script>
 </body>
 </html>
@@ -238,17 +256,35 @@ _HTML = """\
 
 
 class _Handler(BaseHTTPRequestHandler):
-    runner: JobRunner  # injected at class creation time
+
+    @staticmethod
+    def _read_jobs() -> list[dict]:
+        """Read all jobs from the shared jobs.json on disk."""
+        if not _JOBS_STATE.exists():
+            return []
+        try:
+            data = json.loads(_JOBS_STATE.read_text(encoding="utf-8"))
+            return sorted(data.values(), key=lambda j: j.get("started_at", ""), reverse=True)
+        except Exception:
+            return []
+
+    @staticmethod
+    def _read_job(job_id: str) -> dict | None:
+        if not _JOBS_STATE.exists():
+            return None
+        try:
+            return json.loads(_JOBS_STATE.read_text(encoding="utf-8")).get(job_id)
+        except Exception:
+            return None
 
     def do_GET(self) -> None:
         path = self.path.split("?")[0]
         if path in ("/", "/index.html"):
             self._html()
         elif path == "/api/jobs":
-            self._json(self.runner.list_jobs())
+            self._json(self._read_jobs())
         elif path.startswith("/api/jobs/") and path.endswith("/logs"):
             job_id = path.split("/")[3]
-            # Parse ?last=N from query string
             last_n = 200
             if "?" in self.path:
                 for part in self.path.split("?", 1)[1].split("&"):
@@ -257,7 +293,20 @@ class _Handler(BaseHTTPRequestHandler):
                             last_n = int(part[5:])
                         except ValueError:
                             pass
-            self._json({"logs": self.runner.logs(job_id, last_n)})
+            job = self._read_job(job_id)
+            if not job:
+                self.send_error(HTTPStatus.NOT_FOUND)
+                return
+            log_path = Path(job["log_file"])
+            if log_path.exists():
+                lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+                logs = "\n".join(lines[-last_n:])
+            else:
+                logs = "(no output yet)"
+            self._json({"logs": logs})
+        elif path.startswith("/api/jobs/") and path.endswith("/stream"):
+            job_id = path.split("/")[3]
+            self._stream_logs(job_id)
         else:
             self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -265,9 +314,54 @@ class _Handler(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
         if path.startswith("/api/jobs/") and path.endswith("/cancel"):
             job_id = path.split("/")[3]
-            self._json(self.runner.cancel(job_id))
+            job = self._read_job(job_id)
+            if not job:
+                self._json({"error": f"Job {job_id} not found"})
+                return
+            if job.get("status") not in ("running", "pending"):
+                self._json({"error": f"Job {job_id} is not running (status: {job['status']})"})
+                return
+            pid = job.get("pid")
+            if not pid:
+                self._json({"error": f"Job {job_id} has no PID recorded"})
+                return
+            try:
+                os.kill(pid, signal.SIGTERM)
+                self._json({"ok": True, "message": f"Sent SIGTERM to job {job_id} (pid {pid})"})
+            except OSError as exc:
+                self._json({"error": str(exc)})
         else:
             self.send_error(HTTPStatus.NOT_FOUND)
+
+    def _stream_logs(self, job_id: str) -> None:
+        """Stream job log lines as SSE events until the job finishes."""
+        job = self._read_job(job_id)
+        if not job:
+            self.send_error(HTTPStatus.NOT_FOUND)
+            return
+        log_path = Path(job["log_file"])
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("X-Accel-Buffering", "no")
+        self.end_headers()
+        sent = 0
+        try:
+            while True:
+                if log_path.exists():
+                    lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+                    for line in lines[sent:]:
+                        self.wfile.write(f"data: {line}\n\n".encode())
+                        sent += 1
+                    self.wfile.flush()
+                status = (self._read_job(job_id) or {}).get("status", "")
+                if status not in ("running", "pending"):
+                    self.wfile.write(b"event: done\ndata: \n\n")
+                    self.wfile.flush()
+                    break
+                time.sleep(0.5)
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # client disconnected
 
     def _html(self) -> None:
         body = _HTML.encode()
@@ -293,19 +387,17 @@ class _Handler(BaseHTTPRequestHandler):
 
 
 def start_console(
-    runner: JobRunner,
+    runner: "JobRunner | None" = None,
     host: str = "0.0.0.0",
     port: int = DEFAULT_PORT,
 ) -> ThreadingHTTPServer:
     """Start the job console HTTP server in a daemon thread.
 
-    Shares the same JobRunner instance as the MCP server, so cancel works
-    without any cross-process signalling.
+    Reads job state from mcp/jobs/jobs.json so it works across processes.
+    The runner parameter is accepted for backwards compatibility but unused.
 
     Returns the server object (call .shutdown() to stop it).
     """
-    handler_class = type("Handler", (_Handler,), {"runner": runner})
-    server = ThreadingHTTPServer((host, port), handler_class)
+    server = ThreadingHTTPServer((host, port), _Handler)
     Thread(target=server.serve_forever, daemon=True, name="mcp-console").start()
-    print(f"Job console: http://{host}:{port}")
     return server

@@ -49,26 +49,12 @@ def _format_eta(completed_times: list[float], remaining: int) -> str:
 
 
 def _progress_ticker(prefix: str, interval: float = 0.5):
-    """Returns (stop, set_step). Prints elapsed time + current step on the current line until stopped."""
-    step: list[str] = [""]
-    stop_event = threading.Event()
-    start = time.monotonic()
-
-    def _run() -> None:
-        while not stop_event.wait(interval):
-            elapsed = time.monotonic() - start
-            step_str = f"  [{step[0]}]" if step[0] else ""
-            print(f"\r{prefix}{step_str}  ({elapsed:.1f}s)", end="", flush=True)
-
-    thread = threading.Thread(target=_run, daemon=True)
-    thread.start()
-
+    """Returns (stop, set_step). Prints each step as a new line."""
     def set_step(name: str) -> None:
-        step[0] = name
+        print(f"  {prefix}  [{name}]", flush=True)
 
     def stop() -> None:
-        stop_event.set()
-        thread.join()
+        pass
 
     return stop, set_step
 
@@ -1434,7 +1420,7 @@ def run(argv: list[str] | None = None) -> int:
             eta_str = _format_eta(completed_times, len(files) - idx + 1)
             eta_part = f"  {eta_str}" if eta_str else ""
             prefix = f"[{idx}/{len(files)}]{eta_part}  {image_path.name}"
-            print(f"\r{prefix}", end="", flush=True)
+            print(prefix, flush=True)
             stop_ticker, set_step = _progress_ticker(prefix)
         album_title_hint = _resolve_album_title_hint(image_path, album_title_cache)
         printed_album_title_hint = _resolve_album_printed_title_hint(image_path, printed_album_title_cache)
@@ -1721,7 +1707,7 @@ def run(argv: list[str] | None = None) -> int:
             else:
                 eta_str = _format_eta(completed_times, len(files) - idx)
                 eta_part = f"  {eta_str}" if eta_str else ""
-                print(f"\r[{idx}/{len(files)}]{eta_part}  ok    {image_path.name}", flush=True)
+                print(f"[{idx}/{len(files)}]{eta_part}  ok    {image_path.name}", flush=True)
         except Exception as exc:
             failures += 1
             if stop_ticker is not None:

@@ -44,3 +44,6 @@ cast/data/*.json
 cast/data/*.jsonl
 cast/data/*.tmp
 !cast/data/.gitkeep
+
+# MCP job runtime state
+mcp/jobs/
