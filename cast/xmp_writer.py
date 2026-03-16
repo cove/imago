@@ -26,18 +26,12 @@ _XMP_CREATOR = f"{{{XMP_NS}}}CreatorTool"
 
 
 def _dedupe(names: list[str]) -> list[str]:
-    out: list[str] = []
-    seen: set[str] = set()
+    first_seen: dict[str, str] = {}
     for raw in names:
-        item = str(raw or "").strip()
-        if not item:
-            continue
-        key = item.casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(item)
-    return out
+        clean = str(raw or "").strip()
+        if clean:
+            first_seen.setdefault(clean.casefold(), clean)
+    return list(first_seen.values())
 
 
 def read_person_in_image(sidecar_path: Path) -> list[str]:
@@ -47,21 +41,21 @@ def read_person_in_image(sidecar_path: Path) -> list[str]:
     is malformed, or has no people.
     """
     try:
-        sidecar_path = Path(sidecar_path)
-        if not sidecar_path.exists():
+        path = Path(sidecar_path)
+        if not path.is_file():
             return []
-        tree = ET.parse(str(sidecar_path))
-        root = tree.getroot()
-        names: list[str] = []
-        for elem in root.iter(_PERSON_TAG):
-            bag = elem.find(_RDF_BAG)
-            if bag is None:
-                continue
-            for li in bag.findall(_RDF_LI):
-                text = (li.text or "").strip()
-                if text:
-                    names.append(text)
-        return _dedupe(names)
+        tree = ET.parse(str(path))
+        desc = _get_rdf_desc(tree)
+        if desc is None:
+            return []
+        person_elem = desc.find(_PERSON_TAG)
+        if person_elem is None:
+            return []
+        bag = person_elem.find(_RDF_BAG)
+        if bag is None:
+            return []
+        raw_names = [(li.text or "").strip() for li in bag.findall(_RDF_LI)]
+        return _dedupe([n for n in raw_names if n])
     except Exception:
         return []
 

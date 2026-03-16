@@ -31,7 +31,7 @@ from .ai_render_settings import find_archive_dir_for_image, load_render_settings
 from ..common import PHOTO_ALBUMS_DIR
 from ..exiftool_utils import read_tag
 from ..naming import parse_album_filename, SCAN_NAME_RE
-from .xmp_sidecar import read_ai_sidecar_state, read_person_in_image, sidecar_has_expected_ai_fields, write_xmp_sidecar
+from .xmp_sidecar import _dedupe, read_ai_sidecar_state, read_person_in_image, sidecar_has_expected_ai_fields, write_xmp_sidecar
 
 def _format_eta(completed_times: list[float], remaining: int) -> str:
     if not completed_times or remaining <= 0:
@@ -93,20 +93,6 @@ class ImageAnalysis:
     description: str
     payload: dict[str, Any]
 
-
-def _clean_list(values: list[str]) -> list[str]:
-    out: list[str] = []
-    seen: set[str] = set()
-    for raw in values:
-        item = str(raw or "").strip()
-        if not item:
-            continue
-        key = item.casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(item)
-    return out
 
 
 def discover_images(
@@ -751,7 +737,7 @@ def _run_image_analysis(
             if step_fn:
                 step_fn("objects")
             object_matches = object_detector.detect_image(model_image_path) if object_detector else []
-            people_names = _clean_list([row.name for row in people_matches] + list(extra_people_names or []))
+            people_names = _dedupe([row.name for row in people_matches] + list(extra_people_names or []))
             object_labels = [row.label for row in object_matches]
             if step_fn:
                 step_fn("ocr+caption")
@@ -786,7 +772,7 @@ def _run_image_analysis(
             if step_fn:
                 step_fn("objects")
             object_matches = object_detector.detect_image(model_image_path) if object_detector else []
-            people_names = _clean_list([row.name for row in people_matches] + list(extra_people_names or []))
+            people_names = _dedupe([row.name for row in people_matches] + list(extra_people_names or []))
             object_labels = [row.label for row in object_matches]
             if step_fn:
                 step_fn("caption")
@@ -803,7 +789,7 @@ def _run_image_analysis(
                 is_cover_page=is_cover_page,
             )
 
-    subjects = _clean_list(object_labels + ocr_keywords)
+    subjects = _dedupe(object_labels + ocr_keywords)
     description = caption_output.text or build_description(
         people=people_names,
         objects=object_labels,
@@ -947,7 +933,7 @@ def _build_page_payload(
             }
         )
 
-    subjects = _clean_list(page_subjects)
+    subjects = _dedupe(page_subjects)
     if len(sub_results) == 1:
         description = sub_results[0].description or build_page_caption(
             photo_count=1,
@@ -1105,8 +1091,8 @@ def _run_scan_stitch_pass(
                     for d in list(det.get("objects") or [])
                     if isinstance(d, dict) and d.get("label")
                 ]
-        person_names = _clean_list(all_people)
-        object_labels = _clean_list(all_objects)
+        person_names = _dedupe(all_people)
+        object_labels = _dedupe(all_objects)
 
         primary_path = group_paths[0]
         primary_state = states[0]
@@ -1183,7 +1169,7 @@ def _run_scan_stitch_pass(
                     det["ocr"] = dict(det["ocr"])
                     det["ocr"]["chars"] = len(combined_ocr)
                     det["ocr"]["keywords"] = combined_ocr_keywords
-                subjects = _clean_list(
+                subjects = _dedupe(
                     object_labels
                     + [str(k) for k in combined_ocr_keywords if k]
                 )
@@ -1662,7 +1648,7 @@ def run(argv: list[str] | None = None) -> int:
                     )
                     _store_album_title_hint(image_path, album_title_cache, resolved_album_title)
                     _store_album_printed_title_hint(image_path, printed_album_title_cache, resolved_printed_album_title)
-                    person_names = _clean_list(analysis.people_names + existing_xmp_people)
+                    person_names = _dedupe(analysis.people_names + existing_xmp_people)
                     subjects = analysis.subjects
                     description = (
                         _build_flat_page_description(

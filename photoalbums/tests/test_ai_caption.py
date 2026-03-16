@@ -338,9 +338,7 @@ class TestAICaption(unittest.TestCase):
                 )
                 details = captioner.describe(
                     image_path=image_path,
-                    people=[],
-                    objects=[],
-                    ocr_text="",
+                    prompt="Describe this exact image",
                 )
 
         self.assertEqual(details.text, "A crowded collage of travel snapshots.")

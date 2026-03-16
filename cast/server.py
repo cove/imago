@@ -11,6 +11,8 @@ import cv2
 
 from .ingest import CURRENT_FACE_EMBEDDING_MODEL, FaceIngestor
 from .matching import (
+    _coerce_float,
+    _coerce_int,
     build_person_prototypes,
     choose_suggested_candidate,
     face_embedding_model,
@@ -32,35 +34,6 @@ DEFAULT_MIN_FACE_QUALITY = 0.20
 DEFAULT_MIN_SAMPLE_COUNT = 2
 ACTIVE_EMBEDDING_MODELS = {CURRENT_FACE_EMBEDDING_MODEL}
 
-
-def _coerce_float(value: Any, default: float) -> float:
-    if value is None:
-        return float(default)
-    try:
-        text = str(value).strip()
-    except Exception:
-        return float(default)
-    if not text:
-        return float(default)
-    try:
-        return float(text)
-    except Exception:
-        return float(default)
-
-
-def _coerce_int(value: Any, default: int) -> int:
-    if value is None:
-        return int(default)
-    try:
-        text = str(value).strip()
-    except Exception:
-        return int(default)
-    if not text:
-        return int(default)
-    try:
-        return int(float(text))
-    except Exception:
-        return int(default)
 
 
 def _coerce_bool(value: Any, default: bool = False) -> bool:

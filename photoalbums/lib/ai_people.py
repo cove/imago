@@ -8,6 +8,8 @@ from typing import Any
 
 import numpy as np
 
+from .xmp_sidecar import _dedupe
+
 
 def _import_cast_modules() -> tuple[Any, ...]:
     try:
@@ -102,18 +104,7 @@ def _normalize_hint_text(value: str) -> str:
 
 
 def _dedupe_variants(values: list[str]) -> tuple[str, ...]:
-    out: list[str] = []
-    seen: set[str] = set()
-    for raw in values:
-        item = str(raw or "").strip()
-        if not item:
-            continue
-        key = item.casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(item)
-    return tuple(out)
+    return tuple(_dedupe(values))
 
 
 def _box_iou(left: list[int] | tuple[int, int, int, int], right: list[int] | tuple[int, int, int, int]) -> float:

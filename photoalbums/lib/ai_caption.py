@@ -36,6 +36,7 @@ from ._caption_lmstudio import (
 )
 from ._caption_prompts import (
     _build_combined_qwen_prompt,
+    _build_describe_prompt,
     _build_qwen_prompt,
     _build_shared_prompt_rules,
     _should_apply_album_prompt_rules,
@@ -182,17 +183,21 @@ class CaptionEngine:
                 location_name="",
             )
         self._ensure_captioner()
+        prompt = _build_describe_prompt(
+            self._caption_prompt,
+            people=people,
+            objects=objects,
+            ocr_text=ocr_text,
+            source_path=source_path or image_path,
+            album_title=album_title,
+            printed_album_title=printed_album_title,
+            photo_count=photo_count,
+            is_cover_page=is_cover_page,
+        )
         try:
             caption = self._captioner.describe(
                 image_path=image_path,
-                people=people,
-                objects=objects,
-                ocr_text=ocr_text,
-                source_path=source_path or image_path,
-                album_title=album_title,
-                printed_album_title=printed_album_title,
-                photo_count=photo_count,
-                is_cover_page=is_cover_page,
+                prompt=prompt,
             )
             if caption.text:
                 return CaptionOutput(
@@ -240,17 +245,17 @@ class CaptionEngine:
         if self.engine != "qwen":
             return CaptionOutput(text="", engine=self.engine, fallback=True, error="generate_combined requires qwen engine"), ""
         self._ensure_captioner()
+        _kw = {
+            "people": people,
+            "objects": objects,
+            "source_path": source_path or image_path,
+            "album_title": album_title,
+            "printed_album_title": printed_album_title,
+            "photo_count": photo_count,
+            "is_cover_page": is_cover_page,
+        }
         try:
-            ocr_text, caption = self._captioner.describe_combined(
-                image_path=image_path,
-                people=people,
-                objects=objects,
-                source_path=source_path or image_path,
-                album_title=album_title,
-                printed_album_title=printed_album_title,
-                photo_count=photo_count,
-                is_cover_page=is_cover_page,
-            )
+            ocr_text, caption = self._captioner.describe_combined(image_path=image_path, **_kw)
             if caption:
                 return CaptionOutput(
                     text=caption,

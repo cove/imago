@@ -273,3 +273,27 @@ def _build_combined_qwen_prompt(
     lines.append("location_name: a concise geocoding query, or empty string if unknown.")
     lines.append("gps_latitude / gps_longitude: decimal degree strings only if explicitly visible, otherwise empty strings.")
     return "\n".join(lines)
+
+
+def _build_describe_prompt(
+    prompt_text: str,
+    *,
+    people: list[str],
+    objects: list[str],
+    ocr_text: str,
+    source_path: str | Path | None,
+    album_title: str,
+    printed_album_title: str,
+    photo_count: int,
+    is_cover_page: bool,
+) -> str:
+    return prompt_text or _build_qwen_prompt(
+        people=people,
+        objects=objects,
+        ocr_text=ocr_text,
+        source_path=source_path,
+        album_title=album_title,
+        printed_album_title=printed_album_title,
+        photo_count=photo_count,
+        is_cover_page=is_cover_page,
+    )
