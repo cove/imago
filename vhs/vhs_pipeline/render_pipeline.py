@@ -26,7 +26,7 @@ if _cached_common is not None:
     expected_common = (_VHS_ROOT / "common.py").resolve()
     if _cached_common_file != expected_common:
         del sys.modules["common"]
-from common import *
+from common import *  # noqa: F401,F403,F405
 
 ASS_NEWLINE = "\\N"
 PEOPLE_DISPLAY_SEPARATOR = " \u00b7 "
@@ -44,8 +44,10 @@ BADFRAME_SINGLE_FRAME_SOURCE_SKIP = 0
 ENABLE_DESCRATCH_PLUGIN = True
 GAMMA_DEFAULT = 1.0
 
+
 def chapter_done(final_file):
     return final_file.exists() and final_file.stat().st_size > 100_000
+
 
 def audio_mode(chapter):
     raw = chapter.get("audio")
@@ -54,12 +56,14 @@ def audio_mode(chapter):
         return "off"
     return "on"
 
+
 def transcript_mode(chapter):
     raw = (chapter or {}).get("transcript")
     mode = str(raw).strip().lower() if raw is not None else "off"
     if mode in {"off", "false", "0", "no", "none", ""}:
         return "off"
     return "on"
+
 
 def title_selected(title, filters, exact=False):
     if not filters:
@@ -76,8 +80,11 @@ def title_selected(title, filters, exact=False):
             return True
     return False
 
+
 def parse_args(argv=None):
-    p = argparse.ArgumentParser(description="Render delivery videos/clips from archive chapters.")
+    p = argparse.ArgumentParser(
+        description="Render delivery videos/clips from archive chapters."
+    )
     p.add_argument(
         "--archive",
         action="append",
@@ -112,6 +119,7 @@ def parse_args(argv=None):
         ),
     )
     return p.parse_args(argv)
+
 
 def _normalize_bad_repair_ranges(bad_source_frames=None, bad_repair_ranges=None):
     ranges = []
@@ -152,6 +160,7 @@ def _normalize_bad_repair_ranges(bad_source_frames=None, bad_repair_ranges=None)
         if not ranges:
             return []
     return ranges
+
 
 def _resolve_badframe_repair_ranges(
     bad_source_frames=None,
@@ -242,6 +251,7 @@ def _resolve_badframe_repair_ranges(
 
     return _merge_badframe_repairs(resolved_ranges)
 
+
 def _build_badframe_freezeframe_lines(resolved_ranges, frame_multiplier=1):
     if not resolved_ranges:
         return ""
@@ -272,6 +282,7 @@ def _build_badframe_freezeframe_lines(resolved_ranges, frame_multiplier=1):
     fix_lines.append("c")
     return "\n".join(fix_lines) + "\n"
 
+
 def _normalize_gamma_value(raw, default=GAMMA_DEFAULT):
     try:
         value = float(raw)
@@ -280,6 +291,7 @@ def _normalize_gamma_value(raw, default=GAMMA_DEFAULT):
     if not (value == value):
         value = float(default)
     return max(0.05, min(8.0, float(value)))
+
 
 def _normalize_gamma_range_entries(gamma_ranges):
     out = []
@@ -301,6 +313,7 @@ def _normalize_gamma_range_entries(gamma_ranges):
         g = _normalize_gamma_value(gamma, default=GAMMA_DEFAULT)
         out.append((a, b, g, idx))
     return out
+
 
 def _resolve_gamma_segments_for_chapter(
     *,
@@ -341,12 +354,17 @@ def _resolve_gamma_segments_for_chapter(
             if a <= seg_a and seg_b <= b and idx >= winner_idx:
                 gamma = float(g)
                 winner_idx = idx
-        if segments and segments[-1][1] == seg_a and abs(float(segments[-1][2]) - float(gamma)) < 1e-6:
+        if (
+            segments
+            and segments[-1][1] == seg_a
+            and abs(float(segments[-1][2]) - float(gamma)) < 1e-6
+        ):
             prev_a, _prev_b, prev_g = segments[-1]
             segments[-1] = (prev_a, seg_b, prev_g)
         else:
             segments.append((seg_a, seg_b, gamma))
     return segments
+
 
 def _build_gamma_adjustment_lines(
     *,
@@ -367,7 +385,11 @@ def _build_gamma_adjustment_lines(
     if all(abs(float(gamma) - 1.0) < 1e-6 for _a, _b, gamma in segments):
         return ""
 
-    if len(segments) == 1 and int(segments[0][0]) == 0 and int(segments[0][1]) >= chapter_len:
+    if (
+        len(segments) == 1
+        and int(segments[0][0]) == 0
+        and int(segments[0][1]) >= chapter_len
+    ):
         gamma = float(segments[0][2])
         if abs(gamma - 1.0) < 1e-6:
             return ""
@@ -389,13 +411,15 @@ def _build_gamma_adjustment_lines(
         if abs(float(gamma) - 1.0) < 1e-6:
             out.append(f"g_out = g_out ++ c.Trim({ia},{ib})")
         else:
-            out.append(
-                "g_out = g_out ++ "
-                f"c.Trim({ia},{ib}).SmoothLevels(16, {float(gamma):.4f}, 255, 16, 235, limiter=1, tvrange=true, dither=0)"
+            smooth = (
+                f"c.Trim({ia},{ib}).SmoothLevels("
+                f"16, {float(gamma):.4f}, 255, 16, 235, limiter=1, tvrange=true, dither=0)"
             )
+            out.append("g_out = g_out ++ " + smooth)
     out.append("c = g_out")
     out.append("c")
     return "\n".join(out) + "\n"
+
 
 def build_badframe_prefilter_lines(bad_source_frames=None, bad_repair_ranges=None):
     resolved_ranges = _resolve_badframe_repair_ranges(
@@ -403,6 +427,7 @@ def build_badframe_prefilter_lines(bad_source_frames=None, bad_repair_ranges=Non
         bad_repair_ranges=bad_repair_ranges,
     )
     return _build_badframe_freezeframe_lines(resolved_ranges, frame_multiplier=1)
+
 
 def build_badframe_postfilter_lines(bad_source_frames=None, bad_repair_ranges=None):
     resolved_ranges = _resolve_badframe_repair_ranges(
@@ -413,6 +438,7 @@ def build_badframe_postfilter_lines(bad_source_frames=None, bad_repair_ranges=No
         resolved_ranges,
         frame_multiplier=BADFRAME_POST_QTGMC_MULTIPLIER,
     )
+
 
 def cleanup_stale_subtitle_files(label, *paths):
     removed = []
@@ -425,34 +451,41 @@ def cleanup_stale_subtitle_files(label, *paths):
         tag = str(label or "subtitle").strip() or "subtitle"
         print(f"Removed stale {tag} subtitle files: " + ", ".join(removed))
 
+
 def cleanup_stale_dialogue_files(*paths):
     cleanup_stale_subtitle_files("dialogue", *paths)
+
+
+_ASS_V4_STYLES_FORMAT = (
+    "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour,"
+    " BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle,"
+    " BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding"
+)
+
 
 def srt_to_ass(srt_path, ass_path, font="Calibri", fontsize=40):
     srt_path = Path(srt_path)
     ass_path = Path(ass_path)
     people_fontsize = max(1, int(round(float(fontsize) * PEOPLE_ASS_FONT_SCALE)))
-    ass_header = f"""[Script Info]
-Title: Converted from {srt_path.name}
-ScriptType: v4.00+
-Collisions: Normal
-PlayResX: 1280
-PlayResY: 720
-WrapStyle: 0
-ScaledBorderAndShadow: yes
-YCbCr Matrix: TV.601
-
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{font},{fontsize},&H00FFFFFF,&H000000FF,&H00000000,&H64000000,1,0,0,0,100,100,0,0,1,1,0,2,10,10,0,1
-Style: People,{font},{people_fontsize},&H00FFFFFF,&H000000FF,&H00000000,&H64000000,1,1,0,0,100,100,0,0,1,1,0,2,10,10,0,1
-
-[Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-"""
+    ass_header = (
+        f"[Script Info]\nTitle: Converted from {srt_path.name}\nScriptType: v4.00+\n"
+        "Collisions: Normal\nPlayResX: 1280\nPlayResY: 720\nWrapStyle: 0\n"
+        "ScaledBorderAndShadow: yes\nYCbCr Matrix: TV.601\n\n[V4+ Styles]\n\n\n"
+        + _ASS_V4_STYLES_FORMAT
+        + "\n"
+        + f"Style: Default,{font},{fontsize},"
+        "&H00FFFFFF,&H000000FF,&H00000000,&H64000000,1,0,0,0,100,100,0,0,1,1,0,2,10,10,0,1\n"
+        + f"Style: People,{font},{people_fontsize},"
+        "&H00FFFFFF,&H000000FF,&H00000000,&H64000000,1,1,0,0,100,100,0,0,1,1,0,2,10,10,0,1\n"
+        "\n[Events]\n"
+        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+    )
     lines = []
     content = srt_path.read_text(encoding="utf-8")
-    pattern = re.compile(r"(\d+)\s+(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\s+(.*?)(?=\n\d+\n|\Z)", re.S)
+    pattern = re.compile(
+        r"(\d+)\s+(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\s+(.*?)(?=\n\d+\n|\Z)",
+        re.S,
+    )
     for idx, start, end, text in pattern.findall(content):
         ass_lines = []
         for raw_line in text.strip().splitlines():
@@ -471,14 +504,22 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         text = ASS_NEWLINE.join(ass_lines)
         start_parts = start.split(":")
         end_parts = end.split(":")
-        start_ass = f"{int(start_parts[0])}:{int(start_parts[1]):02d}:{int(start_parts[2].split(',')[0]):02d}.{int(start_parts[2].split(',')[1])//10:02d}"
-        end_ass = f"{int(end_parts[0])}:{int(end_parts[1]):02d}:{int(end_parts[2].split(',')[0]):02d}.{int(end_parts[2].split(',')[1])//10:02d}"
+        start_ass = (
+            f"{int(start_parts[0])}:{int(start_parts[1]):02d}:"
+            f"{int(start_parts[2].split(',')[0]):02d}.{int(start_parts[2].split(',')[1])//10:02d}"
+        )
+        end_ass = (
+            f"{int(end_parts[0])}:{int(end_parts[1]):02d}:"
+            f"{int(end_parts[2].split(',')[0]):02d}.{int(end_parts[2].split(',')[1])//10:02d}"
+        )
         lines.append(f"Dialogue: 0,{start_ass},{end_ass},Default,,0,0,0,,{text}")
     ass_path.write_text(ass_header + "\n".join(lines), encoding="utf-8")
+
 
 def find_people_tsv(archive_name):
     path = METADATA_DIR / archive_name / "people.tsv"
     return path if path.exists() else None
+
 
 def _merge_badframe_repairs(repairs):
     if not repairs:
@@ -492,6 +533,7 @@ def _merge_badframe_repairs(repairs):
         else:
             merged.append((a, b, src))
     return merged
+
 
 def _bridge_bad_ranges(ranges):
     if not ranges:
@@ -515,6 +557,7 @@ def _bridge_bad_ranges(ranges):
             merged.append((a, b))
     return merged
 
+
 def local_bad_frames_to_repairs(local_bad_frames, max_frame=None):
     frames = sorted({int(f) for f in (local_bad_frames or []) if int(f) >= 0})
     if not frames:
@@ -532,9 +575,11 @@ def local_bad_frames_to_repairs(local_bad_frames, max_frame=None):
     out = [(a, b, None) for a, b in bridged]
     return _merge_badframe_repairs(out)
 
+
 def chapter_global_frame_bounds(chapter):
     # Use exact rational math when raw ffmetadata ticks are available.
     return chapter_frame_bounds(chapter, fps_num=30000, fps_den=1001)
+
 
 def chapter_exact_time_bounds(chapter):
     # Derive extraction time bounds from integer frame bounds to avoid
@@ -572,14 +617,18 @@ def _shorten_output_chapter_title(chapter_title, output_title):
     if not title_text.startswith(prefix_token):
         return title_text
 
-    remainder = title_text[len(prefix_token):].strip()
+    remainder = title_text[len(prefix_token) :].strip()
     remainder = re.sub(r"^\d{1,3}\s+", "", remainder).strip()
     return remainder or title_text
 
 
-def _clip_chapter_rows(master_header, master_rows, source_chapters, *, clip_start_frame, clip_end_frame):
+def _clip_chapter_rows(
+    master_header, master_rows, source_chapters, *, clip_start_frame, clip_end_frame
+):
     if len(list(master_rows or [])) != len(list(source_chapters or [])):
-        raise ValueError("Master chapter rows and parsed chapters must stay in lockstep.")
+        raise ValueError(
+            "Master chapter rows and parsed chapters must stay in lockstep."
+        )
 
     clip_start = int(clip_start_frame)
     clip_end = int(clip_end_frame)
@@ -591,25 +640,33 @@ def _clip_chapter_rows(master_header, master_rows, source_chapters, *, clip_star
     end_col = _chapter_tsv_column_name(master_header, "END", "END")
     selected_rows = []
 
-    for index, (raw_row, chapter) in enumerate(zip(list(master_rows or []), list(source_chapters or []))):
+    for index, (raw_row, chapter) in enumerate(
+        zip(list(master_rows or []), list(source_chapters or []))
+    ):
         chapter_start, chapter_end = chapter_global_frame_bounds(chapter)
         if chapter_end <= chapter_start:
             continue
         if chapter_start < clip_start or chapter_end > clip_end:
             continue
 
-        selected_rows.append((int(chapter_start), int(chapter_end), int(index), dict(raw_row or {})))
+        selected_rows.append(
+            (int(chapter_start), int(chapter_end), int(index), dict(raw_row or {}))
+        )
 
     if len(selected_rows) > 1:
         # MP4 chapter tracks are effectively linear. Drop full-span container rows and
         # later overlapping duplicates so the final chapter list stays usable in players.
         non_container_rows = [
-            item for item in selected_rows if not (item[0] == clip_start and item[1] == clip_end)
+            item
+            for item in selected_rows
+            if not (item[0] == clip_start and item[1] == clip_end)
         ]
         if non_container_rows:
             selected_rows = non_container_rows
 
-        ordered_rows = sorted(selected_rows, key=lambda item: (item[0], item[1], item[2]))
+        ordered_rows = sorted(
+            selected_rows, key=lambda item: (item[0], item[1], item[2])
+        )
         linear_rows = []
         last_end = None
         for chapter_start, chapter_end, index, row in ordered_rows:
@@ -641,7 +698,10 @@ def write_output_chapter_ffmetadata(
     output_title=None,
     out_path,
 ):
-    from vhs_pipeline.metadata import _write_chapters_tsv_rows, generate_ffmetadata_from_chapters_tsv
+    from vhs_pipeline.metadata import (
+        _write_chapters_tsv_rows,
+        generate_ffmetadata_from_chapters_tsv,
+    )
 
     out = Path(out_path)
     selected_rows = _clip_chapter_rows(
@@ -658,12 +718,15 @@ def write_output_chapter_ffmetadata(
     title_col = _chapter_tsv_column_name(master_header, "title", "title")
     if output_title:
         for row in selected_rows:
-            row[title_col] = _shorten_output_chapter_title(row.get(title_col, ""), output_title)
+            row[title_col] = _shorten_output_chapter_title(
+                row.get(title_col, ""), output_title
+            )
 
     temp_tsv = out.with_suffix(".chapters.tsv")
     _write_chapters_tsv_rows(temp_tsv, list(master_header or []), selected_rows)
     generate_ffmetadata_from_chapters_tsv(temp_tsv, out)
     return len(selected_rows)
+
 
 def map_bad_ranges_to_chapter_local_frames(global_ranges, chapter):
     if not global_ranges:
@@ -680,6 +743,7 @@ def map_bad_ranges_to_chapter_local_frames(global_ranges, chapter):
         for f in range(lo, hi + 1):
             out.add(f - start)
     return sorted(out)
+
 
 def map_bad_repairs_to_chapter_local_ranges(global_repairs, chapter):
     if not global_repairs:
@@ -743,8 +807,10 @@ def load_badframe_repairs(tsv_path, chapter_title=None, chapter_start_frame=None
 
     header = [str(x).strip().lower() for x in rows[0]]
     data_rows = rows[1:]
-    has_global_schema = ("frame" in header and "bad_frame" in header)
-    has_local_schema = ("chapter" in header and "local_frame" in header and "bad_frame" in header)
+    has_global_schema = "frame" in header and "bad_frame" in header
+    has_local_schema = (
+        "chapter" in header and "local_frame" in header and "bad_frame" in header
+    )
     if not has_global_schema and not has_local_schema:
         raise ValueError(
             "Invalid frame_quality sidecar schema. "
@@ -802,6 +868,7 @@ def load_badframe_ranges(tsv_path, chapter_title=None, chapter_start_frame=None)
     )
     return [(int(a), int(b)) for a, b, _src in repairs]
 
+
 def _parse_subtitle_ts(raw):
     text = str(raw or "").strip().replace(",", ".")
     if not text:
@@ -822,6 +889,7 @@ def _parse_subtitle_ts(raw):
         return None
     return max(0.0, float(value))
 
+
 def _parse_subtitle_frame(raw):
     text = str(raw or "").strip()
     if not text:
@@ -836,6 +904,7 @@ def _parse_subtitle_frame(raw):
         return None
     return int(value)
 
+
 def _parse_tsv_time_or_frame_seconds(raw):
     text = str(raw or "").strip()
     if not text:
@@ -848,13 +917,16 @@ def _parse_tsv_time_or_frame_seconds(raw):
         return _frame_to_subtitle_seconds(frame)
     return _parse_subtitle_ts(text)
 
+
 def _frame_to_subtitle_seconds(frame_id):
     return float(int(frame_id) * 1001) / 30000.0
+
 
 def _normalize_people_text(raw):
     text = re.sub(r"\s+", " ", str(raw or "")).strip()
     text = re.sub(r"\s*\|\s*", " | ", text)
     return text
+
 
 def _format_people_display_text(raw):
     text = _normalize_people_text(raw)
@@ -862,12 +934,15 @@ def _format_people_display_text(raw):
         return ""
     return re.sub(r"\s*\|\s*", PEOPLE_DISPLAY_SEPARATOR, text)
 
+
 def _normalize_subtitle_text(raw):
     return re.sub(r"\s+", " ", str(raw or "")).strip()
+
 
 def _normalize_subtitle_optional_text(raw):
     text = re.sub(r"\s+", " ", str(raw or "")).strip()
     return text
+
 
 def _parse_subtitle_confidence(raw):
     text = str(raw or "").strip()
@@ -881,11 +956,13 @@ def _parse_subtitle_confidence(raw):
         return None
     return max(0.0, min(1.0, float(value)))
 
+
 def _format_subtitle_confidence(raw):
     parsed = _parse_subtitle_confidence(raw)
     if parsed is None:
         return ""
     return f"{parsed:.4f}".rstrip("0").rstrip(".")
+
 
 def _subtitle_prompt_from_people_entries(people_entries):
     names = []
@@ -912,6 +989,7 @@ def _subtitle_prompt_from_people_entries(people_entries):
         f"{names_text}."
     )
 
+
 def _to_ass_time(seconds):
     secs = max(0.0, float(seconds))
     h = int(secs // 3600)
@@ -924,6 +1002,7 @@ def _to_ass_time(seconds):
         cs = 0
     return f"{h}:{m:02d}:{ss:02d}.{cs:02d}"
 
+
 def _to_srt_time(seconds):
     total_ms = int(round(max(0.0, float(seconds)) * 1000.0))
     h, rem = divmod(total_ms, 3_600_000)
@@ -931,8 +1010,10 @@ def _to_srt_time(seconds):
     s, ms = divmod(rem, 1000)
     return f"{int(h):02d}:{int(m):02d}:{int(s):02d},{int(ms):03d}"
 
+
 def _to_vtt_time(seconds):
     return _to_srt_time(seconds).replace(",", ".")
+
 
 def _load_people_tsv_entries(tsv_path):
     rows = []
@@ -942,7 +1023,9 @@ def _load_people_tsv_entries(tsv_path):
         if not text or text.startswith("#"):
             continue
         lower = text.lower()
-        if lower.startswith("start_frame\t") or lower.startswith("start_frame,end_frame"):
+        if lower.startswith("start_frame\t") or lower.startswith(
+            "start_frame,end_frame"
+        ):
             continue
         if lower.startswith("start\t") or lower.startswith("start,end"):
             continue
@@ -962,6 +1045,7 @@ def _load_people_tsv_entries(tsv_path):
         rows.append((float(start_sec), float(end_sec), str(people)))
     rows.sort(key=lambda item: (item[0], item[1], item[2].lower()))
     return rows
+
 
 def _clip_people_entries(entries, clip_start_frame=None, clip_end_frame=None):
     start_clip = (
@@ -998,12 +1082,14 @@ def _clip_people_entries(entries, clip_start_frame=None, clip_end_frame=None):
         )
     return out
 
+
 def load_people_entries_for_chapter(tsv_path, chapter_start_frame, chapter_end_frame):
     return _clip_people_entries(
         _load_people_tsv_entries(Path(tsv_path)),
         clip_start_frame=chapter_start_frame,
         clip_end_frame=chapter_end_frame,
     )
+
 
 def _load_subtitles_tsv_entries(tsv_path):
     rows = []
@@ -1055,6 +1141,7 @@ def _load_subtitles_tsv_entries(tsv_path):
     )
     return rows
 
+
 def _clip_subtitle_entries(entries, clip_start_frame=None, clip_end_frame=None):
     start_clip = (
         _frame_to_subtitle_seconds(int(clip_start_frame))
@@ -1098,12 +1185,14 @@ def _clip_subtitle_entries(entries, clip_start_frame=None, clip_end_frame=None):
         )
     return out
 
+
 def load_subtitle_entries_for_chapter(tsv_path, chapter_start_frame, chapter_end_frame):
     return _clip_subtitle_entries(
         _load_subtitles_tsv_entries(Path(tsv_path)),
         clip_start_frame=chapter_start_frame,
         clip_end_frame=chapter_end_frame,
     )
+
 
 def _people_text_for_span(people_entries, span_start_sec, span_end_sec):
     labels = []
@@ -1131,6 +1220,7 @@ def _people_text_for_span(people_entries, span_start_sec, span_end_sec):
             display_labels.append(display_text)
     return PEOPLE_DISPLAY_SEPARATOR.join(display_labels)
 
+
 def _parse_srt_cues(content):
     pattern = re.compile(
         r"(\d+)\s+(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\s+(.*?)(?=\n\d+\n|\Z)",
@@ -1142,10 +1232,13 @@ def _parse_srt_cues(content):
         end_sec = _parse_subtitle_ts(end)
         if start_sec is None or end_sec is None or float(end_sec) <= float(start_sec):
             continue
-        text_lines = [str(line or "").strip() for line in str(text or "").strip().splitlines()]
+        text_lines = [
+            str(line or "").strip() for line in str(text or "").strip().splitlines()
+        ]
         text_lines = [line for line in text_lines if line]
         cues.append((float(start_sec), float(end_sec), text_lines))
     return cues
+
 
 def _write_srt_cues(path, cues):
     lines = []
@@ -1162,6 +1255,7 @@ def _write_srt_cues(path, cues):
             ]
         )
     Path(path).write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+
 
 def merge_people_entries_into_srt(srt_path, people_entries):
     srt_file = Path(srt_path)
@@ -1185,13 +1279,19 @@ def merge_people_entries_into_srt(srt_path, people_entries):
     _write_srt_cues(srt_file, merged)
     return True
 
+
 def write_subtitle_entries_to_srt_vtt(subtitle_entries, srt_path, vtt_path):
     entries = []
     for item in list(subtitle_entries or []):
         start_sec = _parse_subtitle_ts(item.get("start_seconds", item.get("start")))
         end_sec = _parse_subtitle_ts(item.get("end_seconds", item.get("end")))
         text = _normalize_subtitle_text(item.get("text", ""))
-        if start_sec is None or end_sec is None or float(end_sec) <= float(start_sec) or not text:
+        if (
+            start_sec is None
+            or end_sec is None
+            or float(end_sec) <= float(start_sec)
+            or not text
+        ):
             continue
         entries.append((float(start_sec), float(end_sec), text))
     entries.sort(key=lambda row: (row[0], row[1], row[2].casefold()))
@@ -1221,7 +1321,10 @@ def write_subtitle_entries_to_srt_vtt(subtitle_entries, srt_path, vtt_path):
     Path(vtt_path).write_text("\n".join(vtt_lines).rstrip() + "\n", encoding="utf-8")
     return True
 
-def write_people_entries_to_srt_vtt(people_entries, srt_path, vtt_path, wrap_in_brackets=False):
+
+def write_people_entries_to_srt_vtt(
+    people_entries, srt_path, vtt_path, wrap_in_brackets=False
+):
     entries = sorted(
         list(people_entries or []),
         key=lambda item: (float(item[0]), float(item[1]), str(item[2]).casefold()),
@@ -1259,7 +1362,10 @@ def write_people_entries_to_srt_vtt(people_entries, srt_path, vtt_path, wrap_in_
     Path(vtt_path).write_text("\n".join(vtt_lines).rstrip() + "\n", encoding="utf-8")
     return True
 
-def tsv_people_to_srt_vtt(tsv_path, srt_path, vtt_path, clip_start_frame=None, clip_end_frame=None):
+
+def tsv_people_to_srt_vtt(
+    tsv_path, srt_path, vtt_path, clip_start_frame=None, clip_end_frame=None
+):
     tsv_path = Path(tsv_path)
     entries = _clip_people_entries(
         _load_people_tsv_entries(tsv_path),
@@ -1273,26 +1379,28 @@ def tsv_people_to_srt_vtt(tsv_path, srt_path, vtt_path, clip_start_frame=None, c
         wrap_in_brackets=True,
     )
 
-def tsv_people_to_ass(tsv_path, ass_path, font="Calibri", fontsize=36, clip_start_frame=None, clip_end_frame=None):
+
+def tsv_people_to_ass(
+    tsv_path,
+    ass_path,
+    font="Calibri",
+    fontsize=36,
+    clip_start_frame=None,
+    clip_end_frame=None,
+):
     tsv_path = Path(tsv_path)
     ass_path = Path(ass_path)
-    ass_header = f"""[Script Info]
-Title: People in frame ({tsv_path.name})
-ScriptType: v4.00+
-Collisions: Normal
-PlayResX: 1280
-PlayResY: 720
-WrapStyle: 0
-ScaledBorderAndShadow: yes
-YCbCr Matrix: TV.601
-
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: People,{font},{fontsize},&H00FFFFFF,&H000000FF,&H00000000,&H64000000,0,1,0,0,100,100,0,0,1,1,0,5,10,10,10,1
-
-[Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-"""
+    ass_header = (
+        f"[Script Info]\nTitle: People in frame ({tsv_path.name})\nScriptType: v4.00+\n"
+        "Collisions: Normal\nPlayResX: 1280\nPlayResY: 720\nWrapStyle: 0\n"
+        "ScaledBorderAndShadow: yes\nYCbCr Matrix: TV.601\n\n[V4+ Styles]\n"
+        + _ASS_V4_STYLES_FORMAT
+        + "\n"
+        + f"Style: People,{font},{fontsize},"
+        "&H00FFFFFF,&H000000FF,&H00000000,&H64000000,0,1,0,0,100,100,0,0,1,1,0,5,10,10,10,1\n"
+        "\n[Events]\n"
+        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+    )
     entries = _clip_people_entries(
         _load_people_tsv_entries(tsv_path),
         clip_start_frame=clip_start_frame,
@@ -1304,7 +1412,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         if not people_text:
             continue
         events.append(
-            f"Dialogue: 0,{_to_ass_time(start_sec)},{_to_ass_time(end_sec)},People,,0,0,0,,{{\\i1}}{people_text}{{\\i0}}"
+            f"Dialogue: 0,{_to_ass_time(start_sec)},{_to_ass_time(end_sec)},"
+            f"People,,0,0,0,,{{\\i1}}{people_text}{{\\i0}}"
         )
 
     if not events:
@@ -1313,8 +1422,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     ass_path.write_text(ass_header + "\n".join(events), encoding="utf-8")
     return True
 
+
 def make_create_avs(
-    temp_extracted: str,
+    temp_extracted: str | Path,
     avs_filter_path: Path,
     bad_source_frames=None,
     bad_repair_ranges=None,
@@ -1364,7 +1474,7 @@ if (c.FrameCount >= (expected_frames * 2 - 2) && c.FrameCount <= (expected_frame
                 descratch_lines.append(f'LoadPlugin("{dll_path.as_posix()}")')
                 break  # only load one (64-bit preferred; skip 32-bit)
     descratch_block = ("\n".join(descratch_lines) + "\n") if descratch_lines else ""
-    script_text = f'''
+    script_text = f"""
 LoadPlugin("{QTGMC_DIR}/ffms2.dll") 
 LoadPlugin("{QTGMC_DIR}/masktools2.dll") 
 LoadPlugin("{QTGMC_DIR}/Rgtools.dll") 
@@ -1387,19 +1497,20 @@ Import("{filter_import_path}")
 {cadence_guard_text}
 {gamma_adjust_text}
 {no_bob_text}
-'''
+"""
     import_marker = f'Import("{filter_import_path}")'
     imp_idx = script_text.find(import_marker)
     if imp_idx >= 0:
-        post_import = script_text[imp_idx + len(import_marker):]
+        post_import = script_text[imp_idx + len(import_marker) :]
         if "FreezeFrame(" in post_import:
             raise RuntimeError(
                 "Invalid AVS generation: FreezeFrame lines found after filter import."
             )
     return script_text
 
+
 def make_freeze_only_avs(
-    temp_extracted: str,
+    temp_extracted: str | Path,
     bad_source_frames=None,
     bad_repair_ranges=None,
     chapter_start_frame=0,
@@ -1422,16 +1533,17 @@ def make_freeze_only_avs(
     )
     if not freeze_text:
         freeze_text = "c = last\nc\n"
-    return f'''
+    return f"""
 LoadPlugin("{QTGMC_DIR}/ffms2.dll")
 FFmpegSource2("{temp_extracted}", atrack=-1)
 chapter_start_frame = {int(chapter_start_frame)}
 chapter_end_frame = {int(chapter_end_frame)}
 {freeze_text}
-'''
+"""
+
 
 def make_gamma_only_avs(
-    temp_extracted: str,
+    temp_extracted: str | Path,
     chapter_start_frame=0,
     chapter_end_frame=0,
     gamma_default=GAMMA_DEFAULT,
@@ -1445,14 +1557,15 @@ def make_gamma_only_avs(
     )
     if not gamma_adjust_text:
         gamma_adjust_text = "c = last\nc\n"
-    return f'''
+    return f"""
 LoadPlugin("{QTGMC_DIR}/ffms2.dll")
 LoadPlugin("{QTGMC_DIR}/SmoothAdjust.dll")
 FFmpegSource2("{temp_extracted}", atrack=-1)
 chapter_start_frame = {int(chapter_start_frame)}
 chapter_end_frame = {int(chapter_end_frame)}
 {gamma_adjust_text}
-'''
+"""
+
 
 def make_extract_audio(temp_extracted, temp_transcript, start_sec=None, end_sec=None):
     cmd = [
@@ -1470,7 +1583,10 @@ def make_extract_audio(temp_extracted, temp_transcript, start_sec=None, end_sec=
         str(temp_extracted),
         "-vn",
         "-af",
-        "highpass=f=120,lowpass=f=8000,afftdn=nf=-25,dynaudnorm=f=150:g=13,aresample=16000,loudnorm=I=-16:TP=-1.5:LRA=11",
+        (
+            "highpass=f=120,lowpass=f=8000,afftdn=nf=-25,"
+            "dynaudnorm=f=150:g=13,aresample=16000,loudnorm=I=-16:TP=-1.5:LRA=11"
+        ),
         "-c:a",
         "pcm_s16le",
         "-ac",
@@ -1480,10 +1596,14 @@ def make_extract_audio(temp_extracted, temp_transcript, start_sec=None, end_sec=
     ]
     return cmd
 
+
 def debug_extracted_frames_enabled(args):
-    env_raw = str(os.environ.get(RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV, "")).strip().lower()
+    env_raw = (
+        str(os.environ.get(RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV, "")).strip().lower()
+    )
     env_on = env_raw in {"1", "true", "yes", "on"}
     return bool(getattr(args, "debug_extracted_frames", False) or env_on)
+
 
 def probe_video_frame_count(path):
     p = Path(path)
@@ -1491,11 +1611,15 @@ def probe_video_frame_count(path):
         return 0
     cmd = [
         FFPROBE_BIN,
-        "-v", "error",
+        "-v",
+        "error",
         "-count_frames",
-        "-select_streams", "v:0",
-        "-show_entries", "stream=nb_read_frames,nb_frames",
-        "-of", "default=noprint_wrappers=1:nokey=1",
+        "-select_streams",
+        "v:0",
+        "-show_entries",
+        "stream=nb_read_frames,nb_frames",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
         str(p),
     ]
     try:
@@ -1514,6 +1638,7 @@ def probe_video_frame_count(path):
             return int(v)
     return 0
 
+
 def assert_expected_frame_count(path, expected_frames, context_label):
     exp = max(0, int(expected_frames))
     if exp <= 0:
@@ -1531,6 +1656,7 @@ def assert_expected_frame_count(path, expected_frames, context_label):
     raise RuntimeError(
         f"Frame-count drift detected for {context_label}: expected {exp}, got {actual}.{hint}"
     )
+
 
 def _subtitle_io(subtitle_tracks):
     input_args = []
@@ -1555,7 +1681,10 @@ def _subtitle_io(subtitle_tracks):
             output_args += [f"-disposition:s:{i}", "forced"]
     return input_args, output_args
 
-def build_filmed_comment(author, creation_time, location, archive_tape_title, start_hms, end_hms):
+
+def build_filmed_comment(
+    author, creation_time, location, archive_tape_title, start_hms, end_hms
+):
     author_text = "" if author is None else str(author).strip()
     location_text = "" if location is None else str(location).strip()
     if location_text.lower() in {"none", "null"}:
@@ -1566,6 +1695,7 @@ def build_filmed_comment(author, creation_time, location, archive_tape_title, st
     else:
         head = f"Filmed by {author_text} on {creation_time}{at_location}"
     return f"{head}, original tape {archive_tape_title} @ {start_hms}-{end_hms} "
+
 
 def make_encode_final_x264(
     temp_qtgmc,
@@ -1583,82 +1713,175 @@ def make_encode_final_x264(
 ):
     subtitle_tracks = subtitle_tracks or []
     sub_inputs, sub_outputs = _subtitle_io(subtitle_tracks)
-    comment = build_filmed_comment(author, creation_time, location, archive_tape_title, start_hms, end_hms)
+    comment = build_filmed_comment(
+        author, creation_time, location, archive_tape_title, start_hms, end_hms
+    )
     metadata_inputs = []
     metadata_input_index = None
     if chapter_metadata_path:
         metadata_input_index = 1 + len(subtitle_tracks)
         metadata_inputs = ["-f", "ffmetadata", "-i", str(chapter_metadata_path)]
-    cmd = [FFMPEG_BIN,
+    cmd = [
+        FFMPEG_BIN,
         "-nostdin",
-        "-v", "error",
-        "-i", str(temp_qtgmc),
+        "-v",
+        "error",
+        "-i",
+        str(temp_qtgmc),
         *sub_inputs,
         *metadata_inputs,
-        "-pix_fmt", "yuv420p",
-        "-fps_mode:v:0", "passthrough",
-        "-c:v", "libx264", "-preset", "slow", "-crf", "18", "-profile:v", "high", "-level", "4.0", "-tune", "grain",
-        "-map", "0:v:0",
+        "-pix_fmt",
+        "yuv420p",
+        "-fps_mode:v:0",
+        "passthrough",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "slow",
+        "-crf",
+        "18",
+        "-profile:v",
+        "high",
+        "-level",
+        "4.0",
+        "-tune",
+        "grain",
+        "-map",
+        "0:v:0",
     ]
     if metadata_input_index is None:
         cmd += ["-map_metadata", "-1", "-map_chapters", "-1"]
     else:
-        cmd += ["-map_metadata", str(metadata_input_index), "-map_chapters", str(metadata_input_index)]
+        cmd += [
+            "-map_metadata",
+            str(metadata_input_index),
+            "-map_chapters",
+            str(metadata_input_index),
+        ]
     if include_audio:
         cmd += [
-            "-c:a", "aac", "-b:a", "96k", "-ar", "48000", "-ac", "1",
-            "-af", "highpass=f=80,lowpass=f=14000,afftdn=nf=-25,loudnorm=I=-16:TP=-1.5:LRA=11",
-            "-map", "0:a:0?",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "96k",
+            "-ar",
+            "48000",
+            "-ac",
+            "1",
+            "-af",
+            "highpass=f=80,lowpass=f=14000,afftdn=nf=-25,loudnorm=I=-16:TP=-1.5:LRA=11",
+            "-map",
+            "0:a:0?",
         ]
     else:
         cmd += ["-an"]
     cmd += [
         *sub_outputs,
-        "-metadata", f"title={title}",
-        "-metadata", f"comment={comment}",
-        "-metadata", f"creation_time={creation_time}",
-        "-metadata", f"location={location}",
-        "-fflags", "+genpts", "-start_at_zero", "-avoid_negative_ts", "make_zero",
-        "-movflags", "+faststart+use_metadata_tags",
-        "-y", str(final_file),
+        "-metadata",
+        f"title={title}",
+        "-metadata",
+        f"comment={comment}",
+        "-metadata",
+        f"creation_time={creation_time}",
+        "-metadata",
+        f"location={location}",
+        "-fflags",
+        "+genpts",
+        "-start_at_zero",
+        "-avoid_negative_ts",
+        "make_zero",
+        "-movflags",
+        "+faststart+use_metadata_tags",
+        "-y",
+        str(final_file),
     ]
     if include_audio:
         cmd += ["-metadata:s:a:0", "language=eng"]
     return cmd
 
+
 def make_render_avs_ffv1(temp_avs, temp_audio_src, temp_out):
-    return [FFMPEG_BIN,
+    return [
+        FFMPEG_BIN,
         "-nostdin",
-        "-v", "error",
-        "-i", str(temp_avs),
-        "-i", str(temp_audio_src),
-        "-pix_fmt", "yuv422p",
-        "-fps_mode:v:0", "passthrough",
-        "-map", "0:v:0", "-c:v", "ffv1",
-        "-level", "3", "-coder", "1", "-context", "1",
-        "-map", "1:a:0?", "-c:a", "copy",
-        "-fflags", "+genpts", "-start_at_zero", "-avoid_negative_ts", "make_zero",
-        "-y", str(temp_out)]
+        "-v",
+        "error",
+        "-i",
+        str(temp_avs),
+        "-i",
+        str(temp_audio_src),
+        "-pix_fmt",
+        "yuv422p",
+        "-fps_mode:v:0",
+        "passthrough",
+        "-map",
+        "0:v:0",
+        "-c:v",
+        "ffv1",
+        "-level",
+        "3",
+        "-coder",
+        "1",
+        "-context",
+        "1",
+        "-map",
+        "1:a:0?",
+        "-c:a",
+        "copy",
+        "-fflags",
+        "+genpts",
+        "-start_at_zero",
+        "-avoid_negative_ts",
+        "make_zero",
+        "-y",
+        str(temp_out),
+    ]
+
 
 def make_deinterlace(temp_avs, temp_extracted, temp_qtgmc):
     return make_render_avs_ffv1(temp_avs, temp_extracted, temp_qtgmc)
+
 
 def make_deinterlace_ffmpeg_fallback(temp_extracted, temp_qtgmc, no_bob=False):
     # Cross-platform fallback when AviSynth/QTGMC is unavailable.
     # Bob output has been removed; always emit one frame per input frame.
     bwdif_mode = "send_frame"
-    return [FFMPEG_BIN,
+    return [
+        FFMPEG_BIN,
         "-nostdin",
-        "-v", "error",
-        "-i", str(temp_extracted),
-        "-vf", f"bwdif=mode={bwdif_mode}:parity=auto:deint=interlaced",
-        "-pix_fmt", "yuv422p",
-        "-fps_mode:v:0", "passthrough",
-        "-map", "0:v:0", "-c:v", "ffv1",
-        "-level", "3", "-coder", "1", "-context", "1",
-        "-map", "0:a:0?", "-c:a", "copy",
-        "-fflags", "+genpts", "-start_at_zero", "-avoid_negative_ts", "make_zero",
-        "-y", str(temp_qtgmc)]
+        "-v",
+        "error",
+        "-i",
+        str(temp_extracted),
+        "-vf",
+        f"bwdif=mode={bwdif_mode}:parity=auto:deint=interlaced",
+        "-pix_fmt",
+        "yuv422p",
+        "-fps_mode:v:0",
+        "passthrough",
+        "-map",
+        "0:v:0",
+        "-c:v",
+        "ffv1",
+        "-level",
+        "3",
+        "-coder",
+        "1",
+        "-context",
+        "1",
+        "-map",
+        "0:a:0?",
+        "-c:a",
+        "copy",
+        "-fflags",
+        "+genpts",
+        "-start_at_zero",
+        "-avoid_negative_ts",
+        "make_zero",
+        "-y",
+        str(temp_qtgmc),
+    ]
+
 
 def subtitle_entries_from_whisper_result(result):
     entries = []
@@ -1667,7 +1890,12 @@ def subtitle_entries_from_whisper_result(result):
         start_sec = _parse_subtitle_ts(seg.get("start"))
         end_sec = _parse_subtitle_ts(seg.get("end"))
         text = _normalize_subtitle_text(seg.get("text", ""))
-        if start_sec is None or end_sec is None or float(end_sec) <= float(start_sec) or not text:
+        if (
+            start_sec is None
+            or end_sec is None
+            or float(end_sec) <= float(start_sec)
+            or not text
+        ):
             continue
         avg_logprob = seg.get("avg_logprob")
         confidence = None
@@ -1690,6 +1918,7 @@ def subtitle_entries_from_whisper_result(result):
         )
     return entries
 
+
 def whisper_transcribe(model, audio_path, prompt_text=""):
     prompt = str(prompt_text or "").strip()
     return model.transcribe(
@@ -1700,15 +1929,21 @@ def whisper_transcribe(model, audio_path, prompt_text=""):
         prompt=prompt,
     )
 
-def transcribe_audio(model, temp_transcript, final_srt, final_vtt, final_dir, prompt_text=""):
+
+def transcribe_audio(
+    model, temp_transcript, final_srt, final_vtt, final_dir, prompt_text=""
+):
     if get_writer is None:
-        raise RuntimeError("Whisper is unavailable. Install whisper to generate transcripts.")
+        raise RuntimeError(
+            "Whisper is unavailable. Install whisper to generate transcripts."
+        )
     srt_writer = get_writer("srt", final_dir)
     vtt_writer = get_writer("vtt", final_dir)
     result = whisper_transcribe(model, temp_transcript, prompt_text=prompt_text)
-    srt_writer(result, str(final_srt))
-    vtt_writer(result, str(final_vtt))
+    srt_writer(result, str(final_srt))  # type: ignore[call-arg]
+    vtt_writer(result, str(final_vtt))  # type: ignore[call-arg]
     return result
+
 
 def _ensure_derived_metadata_current(meta_dir):
     """Regenerate chapters.ffmetadata, markers.tsv, and markers.mkvchapters.xml from chapters.tsv if stale."""
@@ -1717,6 +1952,7 @@ def _ensure_derived_metadata_current(meta_dir):
         generate_tsv_metadata,
         generate_mkv_chapters_xml,
     )
+
     chapters_tsv = Path(meta_dir) / "chapters.tsv"
     if not chapters_tsv.exists():
         return
@@ -1735,6 +1971,7 @@ def _ensure_derived_metadata_current(meta_dir):
 def _load_chapters_from_tsv(chapters_tsv_path):
     """Load chapters from master chapters.tsv, returning (ffmeta, chapters) compatible with parse_chapters format."""
     from vhs_pipeline.metadata import _load_master_chapters, _chapter_seconds
+
     ffmeta, chapters = _load_master_chapters(Path(chapters_tsv_path))
     for ch in chapters:
         ch["start"] = _chapter_seconds(ch, "start")
@@ -1753,7 +1990,11 @@ def _run_with_args(args):
             f"{RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV}=1 or --debug-extracted-frames"
         )
 
-    archive_filters = [str(x or "").strip().lower() for x in (args.archive or []) if str(x or "").strip()]
+    archive_filters = [
+        str(x or "").strip().lower()
+        for x in (args.archive or [])
+        if str(x or "").strip()
+    ]
     for src in ARCHIVE_DIR.glob("*.mkv"):
         if archive_filters:
             stem_text = src.stem.strip().lower()
@@ -1765,7 +2006,9 @@ def _run_with_args(args):
             print(f"Skipping {src.name}: no metadata found {chapters_tsv}")
             continue
         _ensure_derived_metadata_current(METADATA_DIR / archive_name)
-        _settings_path, _render_settings = load_render_settings(archive_name, create=True)
+        _settings_path, _render_settings = load_render_settings(
+            archive_name, create=True
+        )
 
         from vhs_pipeline.metadata import _read_chapters_tsv_rows, _sort_rows_by_index
 
@@ -1780,7 +2023,9 @@ def _run_with_args(args):
         if people_tsv:
             people_ranges = _load_people_tsv_entries(people_tsv)
             if people_ranges:
-                print(f"Loaded people subtitle ranges: {people_tsv} ({len(people_ranges)} entries)")
+                print(
+                    f"Loaded people subtitle ranges: {people_tsv} ({len(people_ranges)} entries)"
+                )
             else:
                 print(f"People TSV has no valid time-range entries: {people_tsv}")
         subtitles_tsv = METADATA_DIR / archive_name / "subtitles.tsv"
@@ -1789,14 +2034,22 @@ def _run_with_args(args):
         if subtitles_tsv_exists:
             subtitle_rows = _load_subtitles_tsv_entries(subtitles_tsv)
             if subtitle_rows:
-                print(f"Loaded metadata subtitles: {subtitles_tsv} ({len(subtitle_rows)} entries)")
+                print(
+                    f"Loaded metadata subtitles: {subtitles_tsv} ({len(subtitle_rows)} entries)"
+                )
             else:
-                print(f"Metadata subtitles TSV has no valid time-range entries: {subtitles_tsv}")
+                print(
+                    f"Metadata subtitles TSV has no valid time-range entries: {subtitles_tsv}"
+                )
 
         for ch in all_chapters:
             ch["duration"] = float(ch.get("end", 0)) - float(ch.get("start", 0))
         chapters = sorted(all_chapters, key=lambda x: x["duration"])
-        chapters = [ch for ch in chapters if title_selected(ch.get("title"), args.title, exact=bool(args.title_exact))]
+        chapters = [
+            ch
+            for ch in chapters
+            if title_selected(ch.get("title"), args.title, exact=bool(args.title_exact))
+        ]
         if args.title and not chapters:
             print(f"Skipping {src.name}: no chapters matched --title filter(s).")
             continue
@@ -1873,7 +2126,9 @@ def _run_with_args(args):
 
             try:
                 needs_extracted_media = (not subtitles_only) or (
-                    transcribe_dialogue and not subtitles_tsv_exists and not metadata_subtitle_entries
+                    transcribe_dialogue
+                    and not subtitles_tsv_exists
+                    and not metadata_subtitle_entries
                 )
                 if needs_extracted_media:
                     audio_sync_offset = get_audio_sync_offset_for_chapter(
@@ -1883,7 +2138,7 @@ def _run_with_args(args):
                     )
                     if abs(audio_sync_offset) >= 1e-6:
                         print(f"Audio sync offset: {audio_sync_offset:+.3f}s")
-                    print(f"Extracting chapter...")
+                    print("Extracting chapter...")
                     run(
                         make_frame_accurate_extract_chapter(
                             src,
@@ -1903,24 +2158,37 @@ def _run_with_args(args):
                     )
 
                 if not subtitles_only:
-                    print(f"Applying video filters...")
+                    print("Applying video filters...")
                     if sys.platform == "win32":
                         if filter_script.exists():
-                            global_bad = get_bad_frames_for_chapter(archive_name, str(title))
+                            global_bad = get_bad_frames_for_chapter(
+                                archive_name, str(title)
+                            )
                             manual_source_frames_global = [
-                                f for f in global_bad if chapter_start_frame <= int(f) < chapter_end_frame
+                                f
+                                for f in global_bad
+                                if chapter_start_frame <= int(f) < chapter_end_frame
                             ]
                             manual_source_frames = [
-                                int(f) - int(chapter_start_frame) for f in manual_source_frames_global
+                                int(f) - int(chapter_start_frame)
+                                for f in manual_source_frames_global
                             ]
-                            manual_repairs = local_bad_frames_to_repairs(manual_source_frames)
-                            marked_count = len(set(int(f) for f in manual_source_frames))
-                            repaired_count = sum((int(b) - int(a) + 1) for a, b, _src in manual_repairs)
+                            manual_repairs = local_bad_frames_to_repairs(
+                                manual_source_frames
+                            )
+                            marked_count = len(
+                                set(int(f) for f in manual_source_frames)
+                            )
+                            repaired_count = sum(
+                                (int(b) - int(a) + 1) for a, b, _src in manual_repairs
+                            )
                             freeze_input = extracted
                             if manual_source_frames_global:
                                 print(
                                     f"Render settings bad frame(s): {len(manual_source_frames)} -> "
-                                    + ",".join(str(f) for f in manual_source_frames[:12])
+                                    + ",".join(
+                                        str(f) for f in manual_source_frames[:12]
+                                    )
                                     + ("..." if len(manual_source_frames) > 12 else "")
                                 )
                                 if repaired_count > marked_count:
@@ -1945,7 +2213,11 @@ def _run_with_args(args):
                                     f"source_clearance={BADFRAME_SOURCE_CLEARANCE}"
                                 )
                                 freeze_avs.write_text(freeze_script, encoding="ascii")
-                                run(make_render_avs_ffv1(freeze_avs, extracted, repaired_extracted))
+                                run(
+                                    make_render_avs_ffv1(
+                                        freeze_avs, extracted, repaired_extracted
+                                    )
+                                )
                                 assert_expected_frame_count(
                                     repaired_extracted,
                                     chapter_len,
@@ -1953,14 +2225,18 @@ def _run_with_args(args):
                                 )
                                 freeze_input = repaired_extracted
                             else:
-                                print("No bad frames listed in render_settings; no freeze-frame repairs applied.")
+                                print(
+                                    "No bad frames listed in render_settings; no freeze-frame repairs applied."
+                                )
 
                             gamma_profile = get_gamma_profile_for_chapter(
                                 archive=str(archive_name or ""),
                                 ch_start=chapter_start_frame,
                                 ch_end=chapter_end_frame,
                             )
-                            gamma_default = float(gamma_profile.get("default_gamma", GAMMA_DEFAULT))
+                            gamma_default = float(
+                                gamma_profile.get("default_gamma", GAMMA_DEFAULT)
+                            )
                             gamma_ranges = list(gamma_profile.get("ranges", []))
 
                             script = make_create_avs(
@@ -1985,11 +2261,11 @@ def _run_with_args(args):
                                 pass
                             print(
                                 "AVS pipeline: "
-                                    f"freeze_lines={freeze_count}, "
-                                    f"filter_script={filter_script.name}, "
-                                    f"filter_has_qtgmc={filter_has_qtgmc}, "
-                                    f"filter_input={Path(freeze_input).name}"
-                                )
+                                f"freeze_lines={freeze_count}, "
+                                f"filter_script={filter_script.name}, "
+                                f"filter_has_qtgmc={filter_has_qtgmc}, "
+                                f"filter_input={Path(freeze_input).name}"
+                            )
                             avs.write_text(script, encoding="ascii")
                             run(make_deinterlace(avs, freeze_input, qtgmc))
                             assert_expected_frame_count(
@@ -1998,7 +2274,9 @@ def _run_with_args(args):
                                 f"qtgmc chapter '{title}'",
                             )
                         else:
-                            print("Skipping since there's no filter script for this archive...")
+                            print(
+                                "Skipping since there's no filter script for this archive..."
+                            )
                             shutil.copy(extracted, qtgmc)
                     elif os.environ.get("TEST_ENV"):
                         print("Skipping deinterlacing for test run...")
@@ -2012,7 +2290,11 @@ def _run_with_args(args):
                             print(
                                 f"Skipping AviSynth filter script on this platform: {filter_script.name}"
                             )
-                        run(make_deinterlace_ffmpeg_fallback(extracted, qtgmc, no_bob=args.no_bob))
+                        run(
+                            make_deinterlace_ffmpeg_fallback(
+                                extracted, qtgmc, no_bob=args.no_bob
+                            )
+                        )
                         assert_expected_frame_count(
                             qtgmc,
                             chapter_len,
@@ -2035,7 +2317,9 @@ def _run_with_args(args):
                             f"{len(metadata_subtitle_entries)} clipped entries."
                         )
                     else:
-                        print("Metadata subtitles were present but yielded no valid cues for this chapter.")
+                        print(
+                            "Metadata subtitles were present but yielded no valid cues for this chapter."
+                        )
 
                 if used_metadata_subtitles:
                     if people_entries:
@@ -2044,8 +2328,12 @@ def _run_with_args(args):
                             f"Merged people subtitles into metadata sidecar: {len(people_entries)} clipped ranges."
                         )
                     srt_to_ass(final_srt, final_ass)
-                    subtitle_title = "Subtitles + People" if people_entries else "Subtitles"
-                    subtitle_tracks.append({"path": final_ass, "title": subtitle_title, "forced": False})
+                    subtitle_title = (
+                        "Subtitles + People" if people_entries else "Subtitles"
+                    )
+                    subtitle_tracks.append(
+                        {"path": final_ass, "title": subtitle_title, "forced": False}
+                    )
                 else:
                     if subtitles_tsv_exists and not metadata_subtitle_entries:
                         print(
@@ -2053,27 +2341,48 @@ def _run_with_args(args):
                             f"skipping Whisper fallback because {subtitles_tsv.name} exists."
                         )
                     if transcribe_dialogue and not subtitles_tsv_exists:
-                        print(f"Transcribing audio...")
+                        print("Transcribing audio...")
                         if whisper is None:
                             raise RuntimeError(
                                 "Whisper is unavailable. Install whisper, or set "
                                 "archive_settings.transcript=off (or chapter override) in render_settings.json."
                             )
                         if model is None:
-                            model = whisper.load_model("turbo", download_root=WHISPER_MODEL_DIR)
+                            model = whisper.load_model(
+                                "turbo", download_root=str(WHISPER_MODEL_DIR)
+                            )
                         run(make_extract_audio(extracted, audio))
-                        prompt_text = _subtitle_prompt_from_people_entries(people_entries)
-                        transcribe_audio(model, audio, final_srt, final_vtt, final_dir, prompt_text=prompt_text)
+                        prompt_text = _subtitle_prompt_from_people_entries(
+                            people_entries
+                        )
+                        transcribe_audio(
+                            model,
+                            audio,
+                            final_srt,
+                            final_vtt,
+                            final_dir,
+                            prompt_text=prompt_text,
+                        )
                         if people_entries:
                             merge_people_entries_into_srt(final_srt, people_entries)
                             print(
                                 f"Merged people subtitles into dialogue sidecar: {len(people_entries)} clipped ranges."
                             )
                         srt_to_ass(final_srt, final_ass)
-                        subtitle_title = "Dialogue + People" if people_entries else "Dialogue"
-                        subtitle_tracks.append({"path": final_ass, "title": subtitle_title, "forced": False})
+                        subtitle_title = (
+                            "Dialogue + People" if people_entries else "Dialogue"
+                        )
+                        subtitle_tracks.append(
+                            {
+                                "path": final_ass,
+                                "title": subtitle_title,
+                                "forced": False,
+                            }
+                        )
                     elif include_audio and not subtitles_tsv_exists:
-                        print("Skipping dialogue transcription (render_settings transcript=off).")
+                        print(
+                            "Skipping dialogue transcription (render_settings transcript=off)."
+                        )
                     elif not include_audio:
                         print("Skipping audio and transcription (AUDIO=off).")
 
@@ -2086,21 +2395,27 @@ def _run_with_args(args):
                     )
                     if wrote_people:
                         srt_to_ass(final_srt, final_ass)
-                        subtitle_tracks.append({"path": final_ass, "title": "People", "forced": False})
+                        subtitle_tracks.append(
+                            {"path": final_ass, "title": "People", "forced": False}
+                        )
                         print(
                             f"Wrote people-only subtitle sidecars from {len(people_entries)} clipped ranges."
                         )
                 if not subtitle_tracks:
                     cleanup_stale_dialogue_files(final_srt, final_vtt, final_ass)
                 elif people_tsv and not people_entries:
-                    print(f"No people subtitle ranges overlap this chapter: {people_tsv}")
+                    print(
+                        f"No people subtitle ranges overlap this chapter: {people_tsv}"
+                    )
 
                 if subtitles_only:
-                    print("Subtitle generation complete; skipping final video encoding.")
+                    print(
+                        "Subtitle generation complete; skipping final video encoding."
+                    )
                     cur_count += 1
                     continue
 
-                print(f"Final encoding...")
+                print("Final encoding...")
                 author = ch.get("author", ffm.get("author"))
                 archive_tape_title = ffm.get("title")
                 start_hms = format_hms(start_sec)
@@ -2118,14 +2433,26 @@ def _run_with_args(args):
                     out_path=chapter_metadata_file,
                 )
                 if chapter_count > 0:
-                    print(f"Prepared chapter metadata for output clip: {chapter_count} chapter(s).")
+                    print(
+                        f"Prepared chapter metadata for output clip: {chapter_count} chapter(s)."
+                    )
                 else:
                     chapter_metadata_file = None
-                    print("No chapter metadata overlaps this output clip; encoding without embedded chapters.")
+                    print(
+                        "No chapter metadata overlaps this output clip; encoding without embedded chapters."
+                    )
 
                 cmd = make_encode_final_x264(
-                    qtgmc, subtitle_tracks, final_file, author, title, archive_tape_title,
-                    start_hms, end_hms, ctime, location,
+                    qtgmc,
+                    subtitle_tracks,
+                    final_file,
+                    author,
+                    title,
+                    archive_tape_title,
+                    start_hms,
+                    end_hms,
+                    ctime,
+                    location,
                     chapter_metadata_path=chapter_metadata_file,
                     include_audio=include_audio,
                 )
@@ -2134,7 +2461,10 @@ def _run_with_args(args):
             finally:
                 os.chdir(original_cwd)
                 keep_temp = str(os.getenv("RENDER_KEEP_TEMP", "0")).strip().lower() in {
-                    "1", "true", "yes", "on"
+                    "1",
+                    "true",
+                    "yes",
+                    "on",
                 }
                 if keep_temp:
                     print(f"Keeping temp dir for inspection: {temp_dir}")
@@ -2143,7 +2473,7 @@ def _run_with_args(args):
 
             cur_count += 1
 
-        print(f"All done")
+        print("All done")
 
 
 def run_make_videos(
@@ -2180,6 +2510,7 @@ def run_make_subtitles(
 def main(argv=None):
     args = parse_args(argv)
     _run_with_args(args)
+
 
 if __name__ == "__main__":
     main()

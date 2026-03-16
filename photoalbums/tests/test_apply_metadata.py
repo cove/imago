@@ -51,7 +51,9 @@ class TestApplyMetadata(unittest.TestCase):
         first_kwargs = write_mock.call_args_list[0].kwargs
         second_kwargs = write_mock.call_args_list[1].kwargs
         self.assertEqual(first_kwargs["clear_tags"], ["XMP-dc:Creator"])
-        self.assertEqual(second_kwargs["set_tags"]["XMP-dc:Creator"], apply_metadata.CREATOR)
+        self.assertEqual(
+            second_kwargs["set_tags"]["XMP-dc:Creator"], apply_metadata.CREATOR
+        )
         self.assertEqual(second_kwargs["set_tags"]["XMP-dc:Description"], header)
 
 

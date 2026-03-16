@@ -1,6 +1,5 @@
 import contextlib
 import json
-import os
 import sys
 import tempfile
 import unittest
@@ -35,7 +34,12 @@ class TestAIOcr(unittest.TestCase):
     def test_qwen_ocr_uses_local_snapshot(self):
         with tempfile.TemporaryDirectory() as tmp:
             cache_dir = Path(tmp)
-            snapshot = cache_dir / "models--Qwen--Qwen2.5-VL-3B-Instruct" / "snapshots" / "abc123"
+            snapshot = (
+                cache_dir
+                / "models--Qwen--Qwen2.5-VL-3B-Instruct"
+                / "snapshots"
+                / "abc123"
+            )
             snapshot.mkdir(parents=True)
             (snapshot / "config.json").write_text("{}", encoding="utf-8")
             (snapshot / "preprocessor_config.json").write_text("{}", encoding="utf-8")
@@ -63,7 +67,9 @@ class TestAIOcr(unittest.TestCase):
 
             processor_kwargs = fake_processor_cls.from_pretrained.call_args.kwargs
             self.assertTrue(processor_kwargs["local_files_only"])
-            self.assertEqual(processor_kwargs["max_pixels"], ai_ocr.DEFAULT_QWEN_OCR_MAX_PIXELS)
+            self.assertEqual(
+                processor_kwargs["max_pixels"], ai_ocr.DEFAULT_QWEN_OCR_MAX_PIXELS
+            )
 
             model_kwargs = fake_model_cls.from_pretrained.call_args.kwargs
             self.assertTrue(model_kwargs["local_files_only"])
@@ -71,7 +77,12 @@ class TestAIOcr(unittest.TestCase):
     def test_qwen_ocr_reads_text_locally(self):
         with tempfile.TemporaryDirectory() as tmp:
             cache_dir = Path(tmp)
-            snapshot = cache_dir / "models--Qwen--Qwen2.5-VL-3B-Instruct" / "snapshots" / "abc123"
+            snapshot = (
+                cache_dir
+                / "models--Qwen--Qwen2.5-VL-3B-Instruct"
+                / "snapshots"
+                / "abc123"
+            )
             snapshot.mkdir(parents=True)
             (snapshot / "config.json").write_text("{}", encoding="utf-8")
             (snapshot / "preprocessor_config.json").write_text("{}", encoding="utf-8")
@@ -86,7 +97,9 @@ class TestAIOcr(unittest.TestCase):
             fake_processor = mock.Mock()
             fake_processor.apply_chat_template.return_value = "OCR PROMPT"
             fake_processor.return_value = {"input_ids": fake_input_ids}
-            fake_processor.batch_decode.return_value = ["assistant: MAINLAND CHINA\n1986 BOOK 11"]
+            fake_processor.batch_decode.return_value = [
+                "assistant: MAINLAND CHINA\n1986 BOOK 11"
+            ]
 
             fake_processor_cls = mock.Mock()
             fake_processor_cls.from_pretrained.return_value = fake_processor
@@ -115,7 +128,9 @@ class TestAIOcr(unittest.TestCase):
             self.assertEqual(text, "MAINLAND CHINA\n1986 BOOK 11")
             fake_processor.apply_chat_template.assert_called_once()
             prompt_messages = fake_processor.apply_chat_template.call_args.args[0]
-            self.assertEqual(prompt_messages[0]["content"][1]["text"], ai_ocr.DEFAULT_QWEN_OCR_PROMPT)
+            self.assertEqual(
+                prompt_messages[0]["content"][1]["text"], ai_ocr.DEFAULT_QWEN_OCR_PROMPT
+            )
 
     def test_qwen_ocr_normalizes_no_text_response(self):
         self.assertEqual(ai_ocr._normalize_ocr_text("No visible text"), "")
@@ -141,7 +156,9 @@ class TestAIOcr(unittest.TestCase):
                 {
                     "finish_reason": "stop",
                     "message": {
-                        "content": json.dumps({"text": "MAINLAND CHINA\n1986\nBOOK 11"}),
+                        "content": json.dumps(
+                            {"text": "MAINLAND CHINA\n1986\nBOOK 11"}
+                        ),
                     },
                 }
             ]
@@ -161,18 +178,30 @@ class TestAIOcr(unittest.TestCase):
             self.assertTrue(request.full_url.endswith("/chat/completions"))
             payload = json.loads(request.data.decode("utf-8"))
             self.assertEqual(payload["response_format"]["type"], "json_schema")
-            self.assertEqual(payload["response_format"]["json_schema"]["name"], "ocr_payload")
+            self.assertEqual(
+                payload["response_format"]["json_schema"]["name"], "ocr_payload"
+            )
             return _FakeResponse()
 
         with tempfile.TemporaryDirectory() as tmp:
             image_path = Path(tmp) / "sample.jpg"
             Image.new("RGB", (320, 240), color="white").save(image_path)
             with (
-                mock.patch.object(ai_ocr, "_build_ocr_data_url", return_value="data:image/jpeg;base64,abc123"),
-                mock.patch.object(ai_ocr, "_lmstudio_ocr_select_model", return_value="qwen2.5-vl"),
-                mock.patch.object(ai_ocr.urllib.request, "urlopen", side_effect=fake_urlopen),
+                mock.patch.object(
+                    ai_ocr,
+                    "_build_ocr_data_url",
+                    return_value="data:image/jpeg;base64,abc123",
+                ),
+                mock.patch.object(
+                    ai_ocr, "_lmstudio_ocr_select_model", return_value="qwen2.5-vl"
+                ),
+                mock.patch.object(
+                    ai_ocr.urllib.request, "urlopen", side_effect=fake_urlopen
+                ),
             ):
-                ocr = ai_ocr.OCREngine(engine="lmstudio", base_url="http://127.0.0.1:1234")
+                ocr = ai_ocr.OCREngine(
+                    engine="lmstudio", base_url="http://127.0.0.1:1234"
+                )
                 text = ocr.read_text(image_path)
 
         self.assertEqual(text, "MAINLAND CHINA\n1986\nBOOK 11")

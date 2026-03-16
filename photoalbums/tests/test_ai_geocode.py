@@ -40,20 +40,33 @@ class TestAIGeocode(unittest.TestCase):
 
             def fake_urlopen(request, timeout):
                 self.assertEqual(timeout, ai_geocode.DEFAULT_GEOCODER_TIMEOUT_SECONDS)
-                self.assertTrue(request.full_url.startswith("https://nominatim.openstreetmap.org/search?"))
+                self.assertTrue(
+                    request.full_url.startswith(
+                        "https://nominatim.openstreetmap.org/search?"
+                    )
+                )
                 self.assertIn("format=jsonv2", request.full_url)
                 self.assertIn("limit=1", request.full_url)
-                self.assertIn("Mogao+Caves%2C+Dunhuang%2C+Gansu%2C+China", request.full_url)
-                self.assertEqual(request.headers["User-agent"], ai_geocode.DEFAULT_GEOCODER_USER_AGENT)
+                self.assertIn(
+                    "Mogao+Caves%2C+Dunhuang%2C+Gansu%2C+China", request.full_url
+                )
+                self.assertEqual(
+                    request.headers["User-agent"],
+                    ai_geocode.DEFAULT_GEOCODER_USER_AGENT,
+                )
                 return _FakeResponse()
 
             geocoder = ai_geocode.NominatimGeocoder(cache_path=cache_path)
-            with mock.patch.object(ai_geocode.urllib.request, "urlopen", side_effect=fake_urlopen):
+            with mock.patch.object(
+                ai_geocode.urllib.request, "urlopen", side_effect=fake_urlopen
+            ):
                 result = geocoder.geocode("Mogao Caves, Dunhuang, Gansu, China")
 
             self.assertEqual(result.latitude, "39.9361")
             self.assertEqual(result.longitude, "94.8076")
-            self.assertEqual(result.display_name, "Mogao Caves, Dunhuang, Jiuquan, Gansu, China")
+            self.assertEqual(
+                result.display_name, "Mogao Caves, Dunhuang, Jiuquan, Gansu, China"
+            )
             self.assertTrue(cache_path.exists())
             cached = json.loads(cache_path.read_text(encoding="utf-8"))
             self.assertIn("mogao caves, dunhuang, gansu, china", cached)
@@ -78,7 +91,9 @@ class TestAIGeocode(unittest.TestCase):
             )
             geocoder = ai_geocode.NominatimGeocoder(cache_path=cache_path)
 
-            with mock.patch.object(ai_geocode.urllib.request, "urlopen") as urlopen_mock:
+            with mock.patch.object(
+                ai_geocode.urllib.request, "urlopen"
+            ) as urlopen_mock:
                 result = geocoder.geocode("Mogao Caves, Dunhuang, Gansu, China")
 
             urlopen_mock.assert_not_called()

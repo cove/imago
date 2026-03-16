@@ -37,7 +37,9 @@ def _timestamp_from_seconds(seconds: float) -> str:
     return f"{int(hours):02d}:{int(minutes):02d}:{int(whole_seconds):02d}.{int(millis):03d}"
 
 
-def _expand_box(x: int, y: int, w: int, h: int, width: int, height: int, margin: float = 0.22) -> tuple[int, int, int, int]:
+def _expand_box(
+    x: int, y: int, w: int, h: int, width: int, height: int, margin: float = 0.22
+) -> tuple[int, int, int, int]:
     grow_w = int(round(float(w) * float(margin)))
     grow_h = int(round(float(h) * float(margin)))
     x0 = max(0, int(x) - grow_w)
@@ -52,7 +54,9 @@ def compute_simple_embedding(face_bgr: np.ndarray, out_size: int = 32) -> list[f
         return []
     gray = cv2.cvtColor(face_bgr, cv2.COLOR_BGR2GRAY)
     gray = cv2.equalizeHist(gray)
-    resized = cv2.resize(gray, (int(out_size), int(out_size)), interpolation=cv2.INTER_AREA)
+    resized = cv2.resize(
+        gray, (int(out_size), int(out_size)), interpolation=cv2.INTER_AREA
+    )
     vec = resized.astype(np.float32).reshape(-1) / 255.0
     norm = float(np.linalg.norm(vec))
     if norm > 1e-12:
@@ -71,6 +75,7 @@ def _get_insightface_app() -> object | None:
         return _insightface_app
     try:
         from insightface.app import FaceAnalysis  # type: ignore[import]
+
         app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
         app.prepare(ctx_id=-1)
         _insightface_app_error = ""
@@ -165,7 +170,7 @@ def _cascade_rows(raw: Any) -> np.ndarray:
 def grayscale_entropy(gray_u8: np.ndarray) -> float:
     if gray_u8 is None or gray_u8.size == 0:
         return 0.0
-    hist = cv2.calcHist([gray_u8], [0], None, [256], [0, 256]).reshape(-1)
+    hist = cv2.calcHist([gray_u8], [0], None, [256], [0, 256]).reshape(-1)  # type: ignore[arg-type]
     total = float(np.sum(hist))
     if total <= 0.0:
         return 0.0
@@ -192,7 +197,7 @@ class FaceIngestor:
     def __init__(self, store: TextFaceStore, *, require_primary_model: bool = False):
         self.store = store
         self.require_primary_model = bool(require_primary_model)
-        cascades = Path(cv2.data.haarcascades)
+        cascades = Path(str(cv2.data.haarcascades))
         face_path = cascades / "haarcascade_frontalface_default.xml"
         strict_face_path = cascades / "haarcascade_frontalface_alt2.xml"
         eye_path = cascades / "haarcascade_eye_tree_eyeglasses.xml"
@@ -212,7 +217,9 @@ class FaceIngestor:
         if self._cascade.empty():
             raise RuntimeError(f"Unable to load face cascade: {face_path}")
         if self._strict_face.empty():
-            raise RuntimeError(f"Unable to load strict face cascade: {strict_face_path}")
+            raise RuntimeError(
+                f"Unable to load strict face cascade: {strict_face_path}"
+            )
         if self._eye.empty():
             raise RuntimeError(f"Unable to load eye cascade: {eye_path}")
         if self._profile.empty():
@@ -224,9 +231,7 @@ class FaceIngestor:
         primary_available = self._insightface is not None
         load_error = insightface_load_error()
         if primary_available:
-            message = (
-                "InsightFace buffalo_l is active for new ingest."
-            )
+            message = "InsightFace buffalo_l is active for new ingest."
         elif self.require_primary_model:
             message = (
                 "InsightFace buffalo_l is unavailable, so new ingest is blocked instead of "
@@ -286,12 +291,7 @@ class FaceIngestor:
 
         cr = ycrcb[:, :, 1].astype(np.float32)
         cb = ycrcb[:, :, 2].astype(np.float32)
-        skin_mask = (
-            (cr > 133.0)
-            & (cr < 173.0)
-            & (cb > 77.0)
-            & (cb < 127.0)
-        )
+        skin_mask = (cr > 133.0) & (cr < 173.0) & (cb > 77.0) & (cb < 127.0)
         skin_ratio = float(np.mean(skin_mask))
 
         score = 0.0
@@ -335,7 +335,9 @@ class FaceIngestor:
             return False
         if not self._passes_face_sanity(crop_bgr):
             return False
-        artwork_mode = self.skip_artwork_default if skip_artwork is None else bool(skip_artwork)
+        artwork_mode = (
+            self.skip_artwork_default if skip_artwork is None else bool(skip_artwork)
+        )
         if artwork_mode and self.looks_like_artwork_face(crop_bgr):
             return False
         return True
@@ -425,7 +427,9 @@ class FaceIngestor:
         if np.any(points[:, 1] < y0) or np.any(points[:, 1] > y1):
             return False
 
-        left_eye, right_eye, nose, left_mouth, right_mouth = [points[index] for index in range(5)]
+        left_eye, right_eye, nose, left_mouth, right_mouth = [
+            points[index] for index in range(5)
+        ]
         if float(left_eye[0]) >= float(right_eye[0]):
             return False
         if float(left_mouth[0]) >= float(right_mouth[0]):
@@ -481,7 +485,9 @@ class FaceIngestor:
         except Exception:
             return []
         threshold = float(
-            self._insightface_score_threshold if score_threshold is None else score_threshold
+            self._insightface_score_threshold
+            if score_threshold is None
+            else score_threshold
         )
         out: list[tuple[int, int, int, int]] = []
         for face in faces:
@@ -659,7 +665,9 @@ class FaceIngestor:
             signal -= 2
         return signal >= 2
 
-    def _detect(self, image_bgr: np.ndarray, *, min_size: int = 40) -> list[tuple[int, int, int, int]]:
+    def _detect(
+        self, image_bgr: np.ndarray, *, min_size: int = 40
+    ) -> list[tuple[int, int, int, int]]:
         if self._insightface is not None:
             return self._insightface_detect(image_bgr, min_size=int(min_size))
 
@@ -851,7 +859,9 @@ class FaceIngestor:
                         },
                     )
                     crop_rel = self._save_crop(str(face.get("face_id")), crop)
-                    face = self.store.update_face(str(face.get("face_id")), crop_path=crop_rel)
+                    face = self.store.update_face(
+                        str(face.get("face_id")), crop_path=crop_rel
+                    )
                     created.append(face)
                 if max_faces > 0 and len(created) >= int(max_faces):
                     break

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 """Run vulture with a raised recursion limit to handle deeply nested files."""
+
 import sys
 
 sys.setrecursionlimit(5000)

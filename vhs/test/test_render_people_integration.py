@@ -35,7 +35,9 @@ def _write_subtitles_tsv(path: Path) -> None:
     )
 
 
-def _configure_render_env(monkeypatch, tmp_path: Path, transcript_mode: str) -> tuple[Path, Path, list]:
+def _configure_render_env(
+    monkeypatch, tmp_path: Path, transcript_mode: str
+) -> tuple[Path, Path, list]:
     archive_dir = tmp_path / "Archive"
     metadata_dir = tmp_path / "metadata"
     videos_dir = tmp_path / "Videos"
@@ -64,9 +66,17 @@ def _configure_render_env(monkeypatch, tmp_path: Path, transcript_mode: str) -> 
         return None
 
     monkeypatch.setattr(render_pipeline, "run", _fake_run)
-    monkeypatch.setattr(render_pipeline, "assert_expected_frame_count", lambda *args, **kwargs: None)
-    monkeypatch.setattr(render_pipeline, "chapter_done", lambda *_args, **_kwargs: False)
-    monkeypatch.setattr(render_pipeline, "transcript_mode", lambda *_args, **_kwargs: str(transcript_mode))
+    monkeypatch.setattr(
+        render_pipeline, "assert_expected_frame_count", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        render_pipeline, "chapter_done", lambda *_args, **_kwargs: False
+    )
+    monkeypatch.setattr(
+        render_pipeline,
+        "transcript_mode",
+        lambda *_args, **_kwargs: str(transcript_mode),
+    )
 
     class _WhisperStub:
         @staticmethod
@@ -75,7 +85,9 @@ def _configure_render_env(monkeypatch, tmp_path: Path, transcript_mode: str) -> 
 
     monkeypatch.setattr(render_pipeline, "whisper", _WhisperStub)
 
-    def _fake_transcribe(_model, _audio, final_srt, final_vtt, _final_dir, prompt_text=None):
+    def _fake_transcribe(
+        _model, _audio, final_srt, final_vtt, _final_dir, prompt_text=None
+    ):
         _ = prompt_text
         Path(final_srt).write_text(
             "1\n"
@@ -101,8 +113,12 @@ def _configure_render_env(monkeypatch, tmp_path: Path, transcript_mode: str) -> 
     return clips_dir, Path(chapter_title), run_calls
 
 
-def test_run_pipeline_merges_people_into_transcribed_sidecars(monkeypatch, tmp_path: Path) -> None:
-    clips_dir, chapter_title, _run_calls = _configure_render_env(monkeypatch, tmp_path, transcript_mode="on")
+def test_run_pipeline_merges_people_into_transcribed_sidecars(
+    monkeypatch, tmp_path: Path
+) -> None:
+    clips_dir, chapter_title, _run_calls = _configure_render_env(
+        monkeypatch, tmp_path, transcript_mode="on"
+    )
     args = argparse.Namespace(
         archive=["demo_archive"],
         title=[str(chapter_title)],
@@ -128,8 +144,12 @@ def test_run_pipeline_merges_people_into_transcribed_sidecars(monkeypatch, tmp_p
     assert "[Lynda]" not in ass_text
 
 
-def test_run_pipeline_writes_people_only_sidecars_when_transcript_off(monkeypatch, tmp_path: Path) -> None:
-    clips_dir, chapter_title, _run_calls = _configure_render_env(monkeypatch, tmp_path, transcript_mode="off")
+def test_run_pipeline_writes_people_only_sidecars_when_transcript_off(
+    monkeypatch, tmp_path: Path
+) -> None:
+    clips_dir, chapter_title, _run_calls = _configure_render_env(
+        monkeypatch, tmp_path, transcript_mode="off"
+    )
     args = argparse.Namespace(
         archive=["demo_archive"],
         title=[str(chapter_title)],
@@ -159,13 +179,19 @@ def test_run_pipeline_writes_people_only_sidecars_when_transcript_off(monkeypatc
     assert r"{\rPeople}Jim · Linda{\rDefault}" in ass_text
 
 
-def test_run_pipeline_prefers_metadata_subtitles_over_whisper_generation(monkeypatch, tmp_path: Path) -> None:
-    clips_dir, chapter_title, _run_calls = _configure_render_env(monkeypatch, tmp_path, transcript_mode="on")
+def test_run_pipeline_prefers_metadata_subtitles_over_whisper_generation(
+    monkeypatch, tmp_path: Path
+) -> None:
+    clips_dir, chapter_title, _run_calls = _configure_render_env(
+        monkeypatch, tmp_path, transcript_mode="on"
+    )
     subtitles_tsv = tmp_path / "metadata" / "demo_archive" / "subtitles.tsv"
     _write_subtitles_tsv(subtitles_tsv)
 
     def _should_not_transcribe(*_args, **_kwargs):
-        raise AssertionError("transcribe_audio should not be called when metadata subtitles.tsv exists")
+        raise AssertionError(
+            "transcribe_audio should not be called when metadata subtitles.tsv exists"
+        )
 
     monkeypatch.setattr(render_pipeline, "transcribe_audio", _should_not_transcribe)
     args = argparse.Namespace(
@@ -192,7 +218,9 @@ def test_run_pipeline_prefers_metadata_subtitles_over_whisper_generation(monkeyp
 
 
 def test_run_make_subtitles_skips_video_rendering(monkeypatch, tmp_path: Path) -> None:
-    clips_dir, chapter_title, run_calls = _configure_render_env(monkeypatch, tmp_path, transcript_mode="on")
+    clips_dir, chapter_title, run_calls = _configure_render_env(
+        monkeypatch, tmp_path, transcript_mode="on"
+    )
 
     render_pipeline.run_make_subtitles(
         archive_filters=["demo_archive"],

@@ -1,4 +1,5 @@
 """Tests for _rename_chapter_outputs in the VHS tuner server."""
+
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -8,10 +9,10 @@ import pytest
 from apps.plain_html_wizard.server import _rename_chapter_outputs
 from common import safe
 
-
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_mp4(path: Path, size: int = 200_000) -> None:
     """Write a stub MP4 file large enough to pass the 100 KB guard."""
@@ -31,6 +32,7 @@ def _make_sidecars(dir_: Path, stem: str) -> list[Path]:
 # fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def videos_dir(tmp_path: Path, monkeypatch):
     d = tmp_path / "videos"
@@ -43,6 +45,7 @@ def videos_dir(tmp_path: Path, monkeypatch):
 # ---------------------------------------------------------------------------
 # subtitle sidecar rename
 # ---------------------------------------------------------------------------
+
 
 def test_subtitle_sidecars_are_renamed(videos_dir: Path, monkeypatch) -> None:
     old_title = "Model A Chapter"
@@ -63,6 +66,7 @@ def test_subtitle_sidecars_are_renamed(videos_dir: Path, monkeypatch) -> None:
             tmp = Path(cmd[-1])
             tmp.write_bytes(b"\x00" * 200_000)
             return mock_result
+
         mock_run.side_effect = fake_ffmpeg
         _rename_chapter_outputs(old_title, new_title)
 
@@ -74,6 +78,7 @@ def test_subtitle_sidecars_are_renamed(videos_dir: Path, monkeypatch) -> None:
 # ---------------------------------------------------------------------------
 # MP4 remux path (ffmpeg succeeds)
 # ---------------------------------------------------------------------------
+
 
 def test_mp4_renamed_and_old_deleted_on_ffmpeg_success(videos_dir: Path) -> None:
     old_title = "Model A Chapter"
@@ -104,6 +109,7 @@ def test_mp4_renamed_and_old_deleted_on_ffmpeg_success(videos_dir: Path) -> None
 # MP4 fallback rename (ffmpeg fails)
 # ---------------------------------------------------------------------------
 
+
 def test_mp4_renamed_without_remux_on_ffmpeg_failure(videos_dir: Path) -> None:
     old_title = "Model A Chapter"
     new_title = "Model A Roadster"
@@ -126,6 +132,7 @@ def test_mp4_renamed_without_remux_on_ffmpeg_failure(videos_dir: Path) -> None:
 # ---------------------------------------------------------------------------
 # ffmetadata title argument
 # ---------------------------------------------------------------------------
+
 
 def test_ffmpeg_called_with_correct_title_metadata(videos_dir: Path) -> None:
     old_title = "Model A Chapter"
@@ -156,6 +163,7 @@ def test_ffmpeg_called_with_correct_title_metadata(videos_dir: Path) -> None:
 # skip file below size guard
 # ---------------------------------------------------------------------------
 
+
 def test_small_mp4_is_skipped(videos_dir: Path) -> None:
     old_title = "Model A Chapter"
     new_title = "Model A Roadster"
@@ -173,6 +181,7 @@ def test_small_mp4_is_skipped(videos_dir: Path) -> None:
 # ---------------------------------------------------------------------------
 # temp dir rename
 # ---------------------------------------------------------------------------
+
 
 def test_temp_dir_is_renamed(videos_dir: Path) -> None:
     old_title = "Model A Chapter"
@@ -202,6 +211,7 @@ def test_temp_dir_is_renamed(videos_dir: Path) -> None:
 # ---------------------------------------------------------------------------
 # no-op when source file missing
 # ---------------------------------------------------------------------------
+
 
 def test_returns_empty_when_no_mp4_found(videos_dir: Path) -> None:
     result = _rename_chapter_outputs("Ghost Chapter", "Ghost Roadster")

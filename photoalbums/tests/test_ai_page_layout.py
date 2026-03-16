@@ -20,15 +20,21 @@ class TestAIPageLayout(unittest.TestCase):
 
     def test_classify_image_kind_recognizes_page_variants(self):
         self.assertEqual(
-            ai_page_layout.classify_image_kind(Path("Family_View") / "Family_2020_B01_P01.jpg"),
+            ai_page_layout.classify_image_kind(
+                Path("Family_View") / "Family_2020_B01_P01.jpg"
+            ),
             "page_view",
         )
         self.assertEqual(
-            ai_page_layout.classify_image_kind(Path("Family_Archive") / "Family_2020_B01_P01_S01.tif"),
+            ai_page_layout.classify_image_kind(
+                Path("Family_Archive") / "Family_2020_B01_P01_S01.tif"
+            ),
             "page_scan",
         )
         self.assertEqual(
-            ai_page_layout.classify_image_kind(Path("Family_View") / "Family_2020_B01_P01_D01_01.jpg"),
+            ai_page_layout.classify_image_kind(
+                Path("Family_View") / "Family_2020_B01_P01_D01_01.jpg"
+            ),
             "detail",
         )
 
@@ -77,11 +83,12 @@ class TestAIPageLayout(unittest.TestCase):
                 self.assertFalse(layout.fallback_used)
                 self.assertEqual(len(layout.subphotos), 2)
                 self.assertLess(layout.content_bounds.height, image.shape[0])
-                self.assertLess(layout.subphotos[0].bounds.x, layout.subphotos[1].bounds.x)
+                self.assertLess(
+                    layout.subphotos[0].bounds.x, layout.subphotos[1].bounds.x
+                )
                 self.assertTrue(layout.content_path.exists())
                 self.assertTrue(layout.subphotos[0].path.exists())
                 self.assertTrue(layout.subphotos[1].path.exists())
-
 
     def test_prepare_image_layout_handles_grayscale_tif(self):
         try:

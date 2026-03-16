@@ -11,6 +11,7 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 - If backward compatibility is requested, implement it only when explicitly asked.
 - Limit code file sizes to about 500 lines, if they go over that size, then ask about refactoring.
 - Do not use brittle regex and string replaacments to edit AI model responses, improve the prompt instead to get the correct output.
+- Use `python -m black` to automatically enforce formatting. 
 
 ## Data and Schema Migrations
 
@@ -43,7 +44,7 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 ## Python Environment
 
 - For Python commands in this repo, do not rely on PATH-resolved `python`.
-- Use the repo virtualenv interpreter: `C:\Users\covec\Videos\imago\.venv\Scripts\python.exe`.
+- Use the repo virtualenv interpreter: `.\.venv\Scripts\python.exe`.
 - From the repo root, prefer `.\.venv\Scripts\python.exe -m ...` for test, lint, and validation commands.
 - Validate changed Python modules with `.\.venv\Scripts\python.exe -m py_compile` when possible.
 
@@ -57,3 +58,5 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 
 - Ask for a decision only when truly ambiguous.
 - Otherwise choose the simplest forward-moving implementation consistent with these rules.
+- If there are lint errors that require many exceptions, ask what to do, we may want to releax the linter.
+

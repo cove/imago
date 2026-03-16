@@ -1,4 +1,9 @@
-from cast.matching import build_person_prototypes, parse_embedding, suggest_people, suggest_people_from_prototypes
+from cast.matching import (
+    build_person_prototypes,
+    parse_embedding,
+    suggest_people,
+    suggest_people_from_prototypes,
+)
 
 
 def test_parse_embedding_from_string():
@@ -46,7 +51,9 @@ def test_suggest_people_from_prototypes_matches_direct_suggest():
         prototypes=protos,
         top_k=2,
     )
-    assert [row["person_id"] for row in from_proto] == [row["person_id"] for row in direct]
+    assert [row["person_id"] for row in from_proto] == [
+        row["person_id"] for row in direct
+    ]
 
 
 def test_build_person_prototypes_filters_faces_by_embedding_model():

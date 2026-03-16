@@ -240,13 +240,14 @@ def _estimate_background_color(image, border: int = 80) -> tuple[int, int, int]:
         axis=0,
     )
     color = np.median(samples, axis=0)
-    return tuple(int(c) for c in color.tolist())
+    b, g, r = (int(c) for c in color.tolist())
+    return (b, g, r)
 
 
 def _build_overlap_feature_map(image):
     background = np.asarray(_estimate_background_color(image), dtype=np.float32)
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY).astype(np.float32)
-    high_pass = np.abs(gray - cv2.GaussianBlur(gray, (0, 0), 3))
+    high_pass = np.abs(gray - cv2.GaussianBlur(gray, (0, 0), 3))  # type: ignore[arg-type]
     color_dist = np.linalg.norm(image.astype(np.float32) - background, axis=2)
     feature_map = (color_dist * 0.7) + (high_pass * 1.8)
     return cv2.GaussianBlur(feature_map, (0, 0), 1.0)
@@ -265,7 +266,9 @@ def _score_linear_overlap(
     if shared_height < int(height * LINEAR_FALLBACK_MIN_SHARED_HEIGHT_FRAC):
         return None
 
-    left_strip = left_map[y_left : y_left + shared_height, left_map.shape[1] - overlap :]
+    left_strip = left_map[
+        y_left : y_left + shared_height, left_map.shape[1] - overlap :
+    ]
     right_strip = right_map[y_right : y_right + shared_height, :overlap]
     if left_strip.size == 0 or right_strip.size == 0:
         return None
@@ -286,12 +289,18 @@ def _search_linear_overlap(left_img, right_img) -> tuple[float, int, int]:
     if scale < 1.0:
         left_small = cv2.resize(
             left_img,
-            (max(1, int(left_img.shape[1] * scale)), max(1, int(left_img.shape[0] * scale))),
+            (
+                max(1, int(left_img.shape[1] * scale)),
+                max(1, int(left_img.shape[0] * scale)),
+            ),
             interpolation=cv2.INTER_AREA,
         )
         right_small = cv2.resize(
             right_img,
-            (max(1, int(right_img.shape[1] * scale)), max(1, int(right_img.shape[0] * scale))),
+            (
+                max(1, int(right_img.shape[1] * scale)),
+                max(1, int(right_img.shape[0] * scale)),
+            ),
             interpolation=cv2.INTER_AREA,
         )
     else:
@@ -301,12 +310,24 @@ def _search_linear_overlap(left_img, right_img) -> tuple[float, int, int]:
     left_map = _build_overlap_feature_map(left_small)
     right_map = _build_overlap_feature_map(right_small)
 
-    min_overlap = max(8, int(min(left_map.shape[1], right_map.shape[1]) * LINEAR_FALLBACK_MIN_OVERLAP_FRAC))
+    min_overlap = max(
+        8,
+        int(
+            min(left_map.shape[1], right_map.shape[1])
+            * LINEAR_FALLBACK_MIN_OVERLAP_FRAC
+        ),
+    )
     max_overlap = max(
         min_overlap,
-        int(min(left_map.shape[1], right_map.shape[1]) * LINEAR_FALLBACK_MAX_OVERLAP_FRAC),
+        int(
+            min(left_map.shape[1], right_map.shape[1])
+            * LINEAR_FALLBACK_MAX_OVERLAP_FRAC
+        ),
     )
-    max_dy = int(max(left_map.shape[0], right_map.shape[0]) * LINEAR_FALLBACK_MAX_VERTICAL_SHIFT_FRAC)
+    max_dy = int(
+        max(left_map.shape[0], right_map.shape[0])
+        * LINEAR_FALLBACK_MAX_VERTICAL_SHIFT_FRAC
+    )
 
     best: tuple[float, int, int] | None = None
     for overlap in range(min_overlap, max_overlap + 1, LINEAR_FALLBACK_OVERLAP_STEP):
@@ -322,8 +343,12 @@ def _search_linear_overlap(left_img, right_img) -> tuple[float, int, int]:
         raise RuntimeError("Linear overlap search could not find a shared region")
 
     _, coarse_overlap, coarse_dy = best
-    refine_overlap_min = max(min_overlap, coarse_overlap - LINEAR_FALLBACK_REFINE_OVERLAP_RADIUS)
-    refine_overlap_max = min(max_overlap, coarse_overlap + LINEAR_FALLBACK_REFINE_OVERLAP_RADIUS)
+    refine_overlap_min = max(
+        min_overlap, coarse_overlap - LINEAR_FALLBACK_REFINE_OVERLAP_RADIUS
+    )
+    refine_overlap_max = min(
+        max_overlap, coarse_overlap + LINEAR_FALLBACK_REFINE_OVERLAP_RADIUS
+    )
     refine_dy_min = max(-max_dy, coarse_dy - LINEAR_FALLBACK_REFINE_VERTICAL_RADIUS)
     refine_dy_max = min(max_dy, coarse_dy + LINEAR_FALLBACK_REFINE_VERTICAL_RADIUS)
     for overlap in range(refine_overlap_min, refine_overlap_max + 1, 2):
@@ -387,9 +412,8 @@ def _result_expands_canvas(result, images) -> bool:
         return True
     base_h = max(img.shape[0] for img in images)
     base_w = max(img.shape[1] for img in images)
-    return (
-        shape[1] >= int(base_w * LINEAR_FALLBACK_EXPANSION_RATIO)
-        or shape[0] >= int(base_h * LINEAR_FALLBACK_EXPANSION_RATIO)
+    return shape[1] >= int(base_w * LINEAR_FALLBACK_EXPANSION_RATIO) or shape[0] >= int(
+        base_h * LINEAR_FALLBACK_EXPANSION_RATIO
     )
 
 
@@ -451,7 +475,9 @@ def build_stitched_image(files, stitcher_factory=None):
                 continue
             if result is not None and getattr(result, "size", 0):
                 shape = getattr(result, "shape", None)
-                if (not isinstance(shape, tuple) or len(shape) < 2) or _result_expands_canvas(
+                if (
+                    not isinstance(shape, tuple) or len(shape) < 2
+                ) or _result_expands_canvas(
                     result,
                     ensure_loaded_images(),
                 ):
@@ -595,7 +621,9 @@ def derived_to_jpg(src_path: str, output_dir: str) -> None:
     quality = 80
     write_jpeg(img, out, desc, quality=quality)
 
-    while os.path.exists(out) and os.path.getsize(out) >= original_size and quality > 40:
+    while (
+        os.path.exists(out) and os.path.getsize(out) >= original_size and quality > 40
+    ):
         quality -= 10
         write_jpeg(img, out, desc, quality=quality)
 

@@ -11,7 +11,11 @@ import urllib.request
 from pathlib import Path
 
 from .model_store import HF_MODEL_CACHE_DIR
-from ._caption_lmstudio import _decode_lmstudio_text, _extract_structured_json_payload, _lanczos_resize
+from ._caption_lmstudio import (
+    _decode_lmstudio_text,
+    _extract_structured_json_payload,
+    _lanczos_resize,
+)
 
 STOPWORDS = {
     "the",
@@ -103,9 +107,13 @@ def _lmstudio_ocr_post(base_url: str, payload: dict, timeout: float) -> dict:
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         details = exc.read().decode("utf-8", errors="replace").strip()
-        raise RuntimeError(f"LM Studio OCR request failed: {details or f'HTTP {exc.code}'}") from exc
+        raise RuntimeError(
+            f"LM Studio OCR request failed: {details or f'HTTP {exc.code}'}"
+        ) from exc
     except urllib.error.URLError as exc:
-        raise RuntimeError(f"LM Studio is unreachable at {base_url}: {exc.reason}") from exc
+        raise RuntimeError(
+            f"LM Studio is unreachable at {base_url}: {exc.reason}"
+        ) from exc
 
 
 def _lmstudio_ocr_select_model(base_url: str, timeout: float) -> str:
@@ -114,14 +122,18 @@ def _lmstudio_ocr_select_model(base_url: str, timeout: float) -> str:
         with urllib.request.urlopen(request, timeout=float(timeout)) as response:
             data = json.loads(response.read().decode("utf-8"))
     except urllib.error.URLError as exc:
-        raise RuntimeError(f"LM Studio is unreachable at {base_url}: {exc.reason}") from exc
+        raise RuntimeError(
+            f"LM Studio is unreachable at {base_url}: {exc.reason}"
+        ) from exc
     model_ids = [
         str(row.get("id") or "").strip()
         for row in list(data.get("data") or [])
         if str(row.get("id") or "").strip()
     ]
     if not model_ids:
-        raise RuntimeError("LM Studio did not return any models. Load a model in LM Studio first.")
+        raise RuntimeError(
+            "LM Studio did not return any models. Load a model in LM Studio first."
+        )
     return model_ids[0]
 
 
@@ -182,7 +194,9 @@ def _normalize_ocr_text(value: object) -> str:
         if lines and lines[-1].strip() == "```":
             lines = lines[:-1]
         text = "\n".join(lines).strip()
-    text = re.sub(r"^\s*<think>.*?</think>\s*", "", text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(
+        r"^\s*<think>.*?</think>\s*", "", text, flags=re.DOTALL | re.IGNORECASE
+    )
     text = re.sub(
         r"^\s*(?:the (?:visible|extracted) text(?: in (?:the )?image)? is|extracted text|ocr text)\s*:\s*",
         "",
@@ -221,9 +235,9 @@ def _recover_truncated_ocr_text(raw: str) -> str | None:
     match = re.search(r'"text"\s*:\s*"', raw)
     if not match:
         return None
-    fragment = raw[match.end():]
+    fragment = raw[match.end() :]
     # Strip trailing incomplete escape sequences (e.g. \u4, \u, or lone \)
-    fragment = re.sub(r'\\(?:[uU][0-9a-fA-F]{0,3}|.?)$', '', fragment)
+    fragment = re.sub(r"\\(?:[uU][0-9a-fA-F]{0,3}|.?)$", "", fragment)
     try:
         return json.loads('"' + fragment + '"')
     except json.JSONDecodeError:
@@ -233,7 +247,9 @@ def _recover_truncated_ocr_text(raw: str) -> str | None:
 def _parse_lmstudio_structured_ocr(value: object, *, finish_reason: str = "") -> str:
     raw = _decode_lmstudio_text(value)
     text = str(raw or "").strip()
-    finish_note = f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
+    finish_note = (
+        f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
+    )
     if not text:
         raise RuntimeError(
             "LM Studio returned empty structured OCR content. "
@@ -313,7 +329,8 @@ def _resolve_local_hf_snapshot(model_name: str) -> Path | None:
         if not snapshot.is_dir():
             continue
         if (snapshot / "config.json").exists() and (
-            (snapshot / "preprocessor_config.json").exists() or (snapshot / "processor_config.json").exists()
+            (snapshot / "preprocessor_config.json").exists()
+            or (snapshot / "processor_config.json").exists()
         ):
             return snapshot
     return None
@@ -349,11 +366,19 @@ def _load_qwen_transformers():
 
 
 class OCREngine:
-    def __init__(self, *, engine: str = "qwen", language: str = "eng", base_url: str = ""):
+    def __init__(
+        self, *, engine: str = "qwen", language: str = "eng", base_url: str = ""
+    ):
         self.engine = _normalize_ocr_engine(engine)
         self.language = str(language or "eng").strip() or "eng"
-        self.base_url = _normalize_lmstudio_ocr_base_url(base_url) if self.engine == "lmstudio" else ""
-        self._model_name = str(os.environ.get("QWEN_OCR_MODEL") or DEFAULT_QWEN_OCR_MODEL).strip()
+        self.base_url = (
+            _normalize_lmstudio_ocr_base_url(base_url)
+            if self.engine == "lmstudio"
+            else ""
+        )
+        self._model_name = str(
+            os.environ.get("QWEN_OCR_MODEL") or DEFAULT_QWEN_OCR_MODEL
+        ).strip()
         self._processor = None
         self._model = None
         self._torch = None
@@ -387,13 +412,19 @@ class OCREngine:
             "cache_dir": cache_dir,
             "local_files_only": local_files_only,
         }
-        self._model = _load_hf_model(AutoModelForImageTextToText, model_ref, **load_kwargs)
+        self._model = _load_hf_model(
+            AutoModelForImageTextToText, model_ref, **load_kwargs
+        )
         self._torch = torch
 
     def _read_text_lmstudio(self, image_path: str | Path) -> str:
         if not self._lmstudio_model:
-            self._lmstudio_model = _lmstudio_ocr_select_model(self.base_url, DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS)
-        data_url = _build_ocr_data_url(image_path, DEFAULT_QWEN_OCR_MAX_IMAGE_EDGE, DEFAULT_QWEN_OCR_MAX_PIXELS)
+            self._lmstudio_model = _lmstudio_ocr_select_model(
+                self.base_url, DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS
+            )
+        data_url = _build_ocr_data_url(
+            image_path, DEFAULT_QWEN_OCR_MAX_IMAGE_EDGE, DEFAULT_QWEN_OCR_MAX_PIXELS
+        )
         payload = {
             "model": self._lmstudio_model,
             "messages": [
@@ -412,14 +443,16 @@ class OCREngine:
                         {"type": "image_url", "image_url": {"url": data_url}},
                         {"type": "text", "text": DEFAULT_QWEN_OCR_PROMPT},
                     ],
-                }
+                },
             ],
             "response_format": _lmstudio_ocr_response_format(),
             "max_tokens": DEFAULT_QWEN_OCR_MAX_NEW_TOKENS,
             "temperature": 0.0,
             "stream": False,
         }
-        response = _lmstudio_ocr_post(self.base_url, payload, DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS)
+        response = _lmstudio_ocr_post(
+            self.base_url, payload, DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS
+        )
         choices = list(response.get("choices") or [])
         if not choices:
             return ""
@@ -496,7 +529,11 @@ class OCREngine:
                 )
 
             input_ids = inputs.get("input_ids")
-            if hasattr(generated_ids, "shape") and input_ids is not None and hasattr(input_ids, "shape"):
+            if (
+                hasattr(generated_ids, "shape")
+                and input_ids is not None
+                and hasattr(input_ids, "shape")
+            ):
                 prompt_tokens = int(input_ids.shape[-1])
                 generated_ids = generated_ids[:, prompt_tokens:]
 

@@ -17,8 +17,9 @@ ARCHIVE_DIR = BASE / "package_archive"
 # Target wheels (feel free to adjust)
 TARGETS = [
     ("macosx_13_0_arm64", "311", "cp311"),
-    ("win_amd64",          "311", "cp311"),
+    ("win_amd64", "311", "cp311"),
 ]
+
 
 def run(cmd):
     """Run a command and return True if it succeeds, False otherwise."""
@@ -27,6 +28,7 @@ def run(cmd):
         return True
     except subprocess.CalledProcessError:
         return False
+
 
 def freeze_packages():
     ARCHIVE_DIR.mkdir(exist_ok=True)
@@ -52,14 +54,22 @@ def freeze_packages():
             print(f"  Trying wheel for {platform}...")
 
             cmd = [
-                sys.executable, "-m", "pip", "download",
-                "--dest", str(ARCHIVE_DIR),
-                "--platform", platform,
-                "--python-version", pyver,
-                "--implementation", "cp",
-                "--abi", abi,
+                sys.executable,
+                "-m",
+                "pip",
+                "download",
+                "--dest",
+                str(ARCHIVE_DIR),
+                "--platform",
+                platform,
+                "--python-version",
+                pyver,
+                "--implementation",
+                "cp",
+                "--abi",
+                abi,
                 "--only-binary=:all:",
-                name_only
+                name_only,
             ]
 
             if run(cmd):
@@ -70,9 +80,13 @@ def freeze_packages():
 
         # Download source distribution (universal)
         src_cmd = [
-            sys.executable, "-m", "pip", "download",
-            "--dest", str(ARCHIVE_DIR),
-            name_only
+            sys.executable,
+            "-m",
+            "pip",
+            "download",
+            "--dest",
+            str(ARCHIVE_DIR),
+            name_only,
         ]
 
         if run(src_cmd):
@@ -81,6 +95,7 @@ def freeze_packages():
             print("  [x] could not download ANY distribution for", name_only)
 
     print("\nAll packages archived.")
+
 
 if __name__ == "__main__":
     freeze_packages()

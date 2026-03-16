@@ -49,7 +49,9 @@ def install_requirements():
         return
     python_bin = get_python_bin()
     print("Installing requirements from requirements.txt ...")
-    subprocess.check_call([str(python_bin), "-m", "pip", "install", "-r", str(REQ_FILE)])
+    subprocess.check_call(
+        [str(python_bin), "-m", "pip", "install", "-r", str(REQ_FILE)]
+    )
     print("Requirements installed.")
 
 
@@ -78,7 +80,11 @@ def _extract_tar_member(archive_path, member_suffix, output_path, executable=Fal
         raise FileNotFoundError(f"Archive not found: {archive}")
     with tarfile.open(archive, mode="r:*") as tf:
         member = next(
-            (m for m in tf.getmembers() if m.isfile() and m.name.endswith(member_suffix)),
+            (
+                m
+                for m in tf.getmembers()
+                if m.isfile() and m.name.endswith(member_suffix)
+            ),
             None,
         )
         if member is None:
@@ -114,17 +120,23 @@ def install_linux_binary_archives():
     if not sys.platform.startswith("linux"):
         return
     if not LINUX_FFMPEG_ARCHIVE.exists():
-        print(f"Linux ffmpeg archive missing from vhs/bin/: {LINUX_FFMPEG_ARCHIVE.name}")
+        print(
+            f"Linux ffmpeg archive missing from vhs/bin/: {LINUX_FFMPEG_ARCHIVE.name}"
+        )
         print("Skipping binary extraction.")
         return
     ffmpeg_bin = BIN_DIR / "ffmpeg"
     ffprobe_bin = BIN_DIR / "ffprobe"
     if _needs_refresh(ffmpeg_bin, [LINUX_FFMPEG_ARCHIVE]):
         print(f"Extracting ffmpeg from {LINUX_FFMPEG_ARCHIVE.name} ...")
-        _extract_tar_member(LINUX_FFMPEG_ARCHIVE, "/ffmpeg", ffmpeg_bin, executable=True)
+        _extract_tar_member(
+            LINUX_FFMPEG_ARCHIVE, "/ffmpeg", ffmpeg_bin, executable=True
+        )
     if _needs_refresh(ffprobe_bin, [LINUX_FFMPEG_ARCHIVE]):
         print(f"Extracting ffprobe from {LINUX_FFMPEG_ARCHIVE.name} ...")
-        _extract_tar_member(LINUX_FFMPEG_ARCHIVE, "/ffprobe", ffprobe_bin, executable=True)
+        _extract_tar_member(
+            LINUX_FFMPEG_ARCHIVE, "/ffprobe", ffprobe_bin, executable=True
+        )
     print("Linux ffmpeg binaries extracted to vhs/bin/.")
     if shutil.which("mediainfo") is None:
         print(

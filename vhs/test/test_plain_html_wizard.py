@@ -1,6 +1,7 @@
 import csv
 
 import pytest
+
 pytest.importorskip("numpy")
 pytest.importorskip("cv2")
 
@@ -31,7 +32,6 @@ from apps.plain_html_wizard.server import (
     WizardHandler,
 )
 
-
 ROOT = Path(__file__).resolve().parents[1]
 INDEX_HTML = ROOT / "apps" / "plain_html_wizard" / "static" / "index.html"
 
@@ -50,7 +50,9 @@ def _make_session() -> SessionState:
     return SessionState(fids=fids, sigs=sigs, overrides={})
 
 
-def _write_single_chapter_tsv(path: Path, title: str, start_frame: int, end_frame: int) -> None:
+def _write_single_chapter_tsv(
+    path: Path, title: str, start_frame: int, end_frame: int
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         "\n".join(
@@ -64,7 +66,9 @@ def _write_single_chapter_tsv(path: Path, title: str, start_frame: int, end_fram
     )
 
 
-def _make_loaded_wizard_session(archive: str, chapter: str, start_frame: int, end_frame: int) -> SessionState:
+def _make_loaded_wizard_session(
+    archive: str, chapter: str, start_frame: int, end_frame: int
+) -> SessionState:
     frame_count = max(1, int(end_frame) - int(start_frame))
     return SessionState(
         archive=archive,
@@ -98,7 +102,9 @@ class _HandlerStub:
 
 
 class _PostHandlerStub(_HandlerStub):
-    def __init__(self, path: str, payload: dict, session: SessionState | None = None) -> None:
+    def __init__(
+        self, path: str, payload: dict, session: SessionState | None = None
+    ) -> None:
         super().__init__()
         self.path = str(path)
         self._payload = dict(payload)
@@ -213,7 +219,9 @@ def test_contact_sheet_builder_returns_jpeg_bytes() -> None:
     content_type, payload = result
     assert content_type == "image/jpeg"
     assert len(payload) > 0
-    assert _frame_contact_sheet_url(0, count=2, columns=CONTACT_SHEET_COLUMNS).startswith("/api/frame_contact_sheet?")
+    assert _frame_contact_sheet_url(
+        0, count=2, columns=CONTACT_SHEET_COLUMNS
+    ).startswith("/api/frame_contact_sheet?")
 
 
 def test_contact_sheet_builder_can_fill_later_visible_range_from_video(
@@ -234,7 +242,9 @@ def test_contact_sheet_builder_can_fill_later_visible_range_from_video(
     )
     calls: dict[str, list[int]] = {}
 
-    def _fake_load_from_video(session_arg: SessionState, frame_ids: list[int]) -> dict[int, str]:
+    def _fake_load_from_video(
+        session_arg: SessionState, frame_ids: list[int]
+    ) -> dict[int, str]:
         assert session_arg is session
         calls["frame_ids"] = list(frame_ids)
         return {
@@ -242,7 +252,9 @@ def test_contact_sheet_builder_can_fill_later_visible_range_from_video(
             1005: "data:image/jpeg;base64,AQ==",
         }
 
-    monkeypatch.setattr(wizard_server, "_load_contact_sheet_images_from_video", _fake_load_from_video)
+    monkeypatch.setattr(
+        wizard_server, "_load_contact_sheet_images_from_video", _fake_load_from_video
+    )
 
     built = _build_contact_sheet_bytes(
         session,
@@ -299,9 +311,14 @@ def test_static_html_contains_live_iqr_spark_and_fullscreen_controls() -> None:
     assert "scheduleVisibleRangeRefresh()" in html
     assert "frameGridEl.addEventListener('scroll'" in html
     assert "normalizeWheelToPixels(" in html
-    assert "window.addEventListener('wheel', relayWheelToFrameGrid, { passive: false, capture: true })" in html
+    assert (
+        "window.addEventListener('wheel', relayWheelToFrameGrid, { passive: false, capture: true })"
+        in html
+    )
     assert "frameGridEl.scrollBy({ top: deltaPx * 1.75, behavior: 'auto' })" in html
-    assert "const sprite = frameContactSheetSpecForIndex(frameIndex, gridMetrics);" in html
+    assert (
+        "const sprite = frameContactSheetSpecForIndex(frameIndex, gridMetrics);" in html
+    )
     assert "return { image: '', sprite, replaced: false, note: '' };" in html
     assert ".frame-card.loading .frame-thumb-sprite {" in html
     assert "opacity: 0.94;" in html
@@ -336,7 +353,10 @@ def test_static_html_contains_live_iqr_spark_and_fullscreen_controls() -> None:
     assert "function buildGammaSparklineCache(frames, gammaLevel)" in html
     assert "replaceGammaScores(new Map());" in html
     assert "const FRAME_GRID_CONTACT_SHEET_PREFETCH_AHEAD = 2;" in html
-    assert "function prefetchVisibleFrameSheets(metricsRaw = null, rangeRaw = null)" in html
+    assert (
+        "function prefetchVisibleFrameSheets(metricsRaw = null, rangeRaw = null)"
+        in html
+    )
     assert "prefetchFrameContactSheet(next.url);" in html
     assert "const FLIPBOOK_AUDIO_CLOCK_STALL_FRAMES = 8;" in html
     assert "sparkPlayAudioClockStallCount += 1;" in html
@@ -407,7 +427,9 @@ def test_set_load_progress_updates_and_clamps_state() -> None:
     assert session.load_sample_done == 42
     assert session.load_sample_total == 100
 
-    _set_load_progress(session, running=False, progress=-7.0, sample_done=-2, sample_total=-9)
+    _set_load_progress(
+        session, running=False, progress=-7.0, sample_done=-2, sample_total=-9
+    )
     assert session.load_running is False
     assert session.load_progress == 0.0
     assert session.load_sample_done == 0
@@ -452,7 +474,9 @@ def test_toggle_frame_allows_partial_frames_before_full_load() -> None:
 
     assert handler.error is None
     assert handler.payload is not None
-    frame_after = next(f for f in handler.payload["review"]["frames"] if int(f["fid"]) == 1001)
+    frame_after = next(
+        f for f in handler.payload["review"]["frames"] if int(f["fid"]) == 1001
+    )
     assert str(frame_after["status"]) != status_before
     assert session.overrides[1001] == ("good" if status_before == "bad" else "bad")
 
@@ -500,7 +524,9 @@ def test_set_frame_range_marks_partial_frames_bad() -> None:
         assert session.overrides[fid] == "bad"
 
 
-def test_normalize_subtitle_entries_payload_clamps_and_preserves_optional_fields() -> None:
+def test_normalize_subtitle_entries_payload_clamps_and_preserves_optional_fields() -> (
+    None
+):
     rows = _normalize_subtitle_entries_payload(
         [
             {
@@ -530,7 +556,9 @@ def test_normalize_subtitle_entries_payload_clamps_and_preserves_optional_fields
     assert row["source"] == "whisper"
 
 
-def test_save_split_entries_writes_start_end_columns(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_save_split_entries_writes_start_end_columns(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(wizard_server, "METADATA_DIR", tmp_path)
 
     archive = "demo_archive"
@@ -566,7 +594,9 @@ def test_save_split_entries_writes_start_end_columns(tmp_path: Path, monkeypatch
 
     assert count == 2
     lines = path.read_text(encoding="utf-8").splitlines()
-    assert lines[0].startswith("__chapter_index\tffmeta_title\tTIMEBASE\tSTART\tEND\ttitle")
+    assert lines[0].startswith(
+        "__chapter_index\tffmeta_title\tTIMEBASE\tSTART\tEND\ttitle"
+    )
     assert "parent_chapter" not in lines[0]
     assert "start_frame" not in lines[0]
     assert lines[1].split("\t")[2:6] == ["1001/30000", "100", "200", chapter]
@@ -644,8 +674,20 @@ def test_load_split_entries_reads_canonical_chapters_tsv(
     rows = _load_split_entries_for_chapter(archive, chapter, 100, 200)
 
     assert rows == [
-        {"start_frame": 0, "end_frame": 25, "start": "0", "end": "25", "title": "Part 1"},
-        {"start_frame": 25, "end_frame": 80, "start": "25", "end": "80", "title": "Part 2"},
+        {
+            "start_frame": 0,
+            "end_frame": 25,
+            "start": "0",
+            "end": "25",
+            "title": "Part 1",
+        },
+        {
+            "start_frame": 25,
+            "end_frame": 80,
+            "start": "25",
+            "end": "80",
+            "title": "Part 2",
+        },
     ]
 
 
@@ -674,8 +716,20 @@ def test_load_split_entries_accepts_legacy_start_frame_columns(
     rows = _load_split_entries_for_chapter(archive, chapter, 100, 200)
 
     assert rows == [
-        {"start_frame": 0, "end_frame": 25, "start": "0", "end": "25", "title": "Part 1"},
-        {"start_frame": 25, "end_frame": 80, "start": "25", "end": "80", "title": "Part 2"},
+        {
+            "start_frame": 0,
+            "end_frame": 25,
+            "start": "0",
+            "end": "25",
+            "title": "Part 1",
+        },
+        {
+            "start_frame": 25,
+            "end_frame": 80,
+            "start": "25",
+            "end": "80",
+            "title": "Part 2",
+        },
     ]
 
 
@@ -736,28 +790,30 @@ def test_handle_load_chapter_populates_session_from_video_and_metadata(
     monkeypatch.setattr(
         wizard_server,
         "_archive_state",
-        lambda session_arg, archive, selected_title=None: {
-            "archive": archive,
-            "chapter": selected_title or chapter,
-            "status": "",
-            "details": "",
-            "start_frame": 100,
-            "end_frame": 103,
-            "chapters": [],
-        }
-        if not (
-            setattr(session_arg, "archive", archive)
-            or setattr(session_arg, "chapter", selected_title or chapter)
-            or setattr(
-                session_arg,
-                "chapters",
-                [{"title": chapter, "start_frame": 100, "end_frame": 103}],
+        lambda session_arg, archive, selected_title=None: (
+            {
+                "archive": archive,
+                "chapter": selected_title or chapter,
+                "status": "",
+                "details": "",
+                "start_frame": 100,
+                "end_frame": 103,
+                "chapters": [],
+            }
+            if not (
+                setattr(session_arg, "archive", archive)
+                or setattr(session_arg, "chapter", selected_title or chapter)
+                or setattr(
+                    session_arg,
+                    "chapters",
+                    [{"title": chapter, "start_frame": 100, "end_frame": 103}],
+                )
+                or setattr(session_arg, "chapter_rows", [])
+                or setattr(session_arg, "start_frame", 100)
+                or setattr(session_arg, "end_frame", 103)
             )
-            or setattr(session_arg, "chapter_rows", [])
-            or setattr(session_arg, "start_frame", 100)
-            or setattr(session_arg, "end_frame", 103)
-        )
-        else {},
+            else {}
+        ),
     )
     monkeypatch.setattr(
         wizard_server,
@@ -861,8 +917,14 @@ def test_handle_load_chapter_populates_session_from_video_and_metadata(
     assert handler.payload["settings"]["start_frame"] == 100
     assert handler.payload["settings"]["end_frame"] == 103
     assert handler.payload["settings"]["gamma_profile"]["source"] == "render_settings"
-    assert handler.payload["settings"]["people_profile"]["entries"] == session.people_entries
-    assert handler.payload["settings"]["subtitles_profile"]["entries"] == session.subtitle_entries
+    assert (
+        handler.payload["settings"]["people_profile"]["entries"]
+        == session.people_entries
+    )
+    assert (
+        handler.payload["settings"]["subtitles_profile"]["entries"]
+        == session.subtitle_entries
+    )
 
 
 def test_handle_load_chapter_reports_missing_archive_video(
@@ -872,35 +934,39 @@ def test_handle_load_chapter_reports_missing_archive_video(
     metadata_dir = tmp_path / "metadata"
     archive_name = "demo_archive"
     chapter = "Example Chapter"
-    _write_single_chapter_tsv(metadata_dir / archive_name / "chapters.tsv", chapter, 100, 103)
+    _write_single_chapter_tsv(
+        metadata_dir / archive_name / "chapters.tsv", chapter, 100, 103
+    )
 
     monkeypatch.setattr(wizard_server, "METADATA_DIR", metadata_dir)
     monkeypatch.setattr(wizard_server, "ARCHIVE_DIR", tmp_path / "Archive")
     monkeypatch.setattr(
         wizard_server,
         "_archive_state",
-        lambda session_arg, archive, selected_title=None: {
-            "archive": archive,
-            "chapter": selected_title or chapter,
-            "status": "",
-            "details": "",
-            "start_frame": 100,
-            "end_frame": 103,
-            "chapters": [],
-        }
-        if not (
-            setattr(session_arg, "archive", archive)
-            or setattr(session_arg, "chapter", selected_title or chapter)
-            or setattr(
-                session_arg,
-                "chapters",
-                [{"title": chapter, "start_frame": 100, "end_frame": 103}],
+        lambda session_arg, archive, selected_title=None: (
+            {
+                "archive": archive,
+                "chapter": selected_title or chapter,
+                "status": "",
+                "details": "",
+                "start_frame": 100,
+                "end_frame": 103,
+                "chapters": [],
+            }
+            if not (
+                setattr(session_arg, "archive", archive)
+                or setattr(session_arg, "chapter", selected_title or chapter)
+                or setattr(
+                    session_arg,
+                    "chapters",
+                    [{"title": chapter, "start_frame": 100, "end_frame": 103}],
+                )
+                or setattr(session_arg, "chapter_rows", [])
+                or setattr(session_arg, "start_frame", 100)
+                or setattr(session_arg, "end_frame", 103)
             )
-            or setattr(session_arg, "chapter_rows", [])
-            or setattr(session_arg, "start_frame", 100)
-            or setattr(session_arg, "end_frame", 103)
-        )
-        else {},
+            else {}
+        ),
     )
 
     session = SessionState()
@@ -1000,7 +1066,11 @@ def test_handle_save_progress_persists_people_subtitles_and_split_profiles(
             },
             "people_profile": {
                 "entries": [
-                    {"start": "00:00:00.000", "end": "00:00:01.000", "people": "Jim | Linda"},
+                    {
+                        "start": "00:00:00.000",
+                        "end": "00:00:01.000",
+                        "people": "Jim | Linda",
+                    },
                 ]
             },
             "subtitles_profile": {
@@ -1034,13 +1104,19 @@ def test_handle_save_progress_persists_people_subtitles_and_split_profiles(
     assert session.gamma_default == 1.2
     assert len(session.gamma_ranges) == 1
 
-    people_local = wizard_server._load_people_entries_for_chapter(archive_name, 100, 200)
-    subtitles_local = wizard_server._load_subtitle_entries_for_chapter(archive_name, 100, 200)
+    people_local = wizard_server._load_people_entries_for_chapter(
+        archive_name, 100, 200
+    )
+    subtitles_local = wizard_server._load_subtitle_entries_for_chapter(
+        archive_name, 100, 200
+    )
     assert [row["people"] for row in people_local] == ["Jim | Linda"]
     assert [row["text"] for row in subtitles_local] == ["Hello there"]
 
     people_rows = wizard_server._read_people_tsv_rows(archive_meta / "people.tsv")
-    subtitles_rows = wizard_server._read_subtitles_tsv_rows(archive_meta / "subtitles.tsv")
+    subtitles_rows = wizard_server._read_subtitles_tsv_rows(
+        archive_meta / "subtitles.tsv"
+    )
     chapters_text = (archive_meta / "chapters.tsv").read_text(encoding="utf-8")
     assert any(row[2] == "Outside Chapter" for row in people_rows)
     assert any(row[2] == "Outside subtitle" for row in subtitles_rows)
@@ -1094,11 +1170,23 @@ def test_handle_save_returns_archive_state_and_counts(
         handler,
         session,
         {
-            "people_profile": {"entries": [{"start": "0", "end": "1", "people": "Jim"}]},
-            "subtitles_profile": {
-                "entries": [{"start": "0", "end": "1", "text": "Hello", "speaker": "", "source": "manual"}]
+            "people_profile": {
+                "entries": [{"start": "0", "end": "1", "people": "Jim"}]
             },
-            "split_profile": {"entries": [{"start": "0", "end": "100", "title": "Example Chapter"}]},
+            "subtitles_profile": {
+                "entries": [
+                    {
+                        "start": "0",
+                        "end": "1",
+                        "text": "Hello",
+                        "speaker": "",
+                        "source": "manual",
+                    }
+                ]
+            },
+            "split_profile": {
+                "entries": [{"start": "0", "end": "100", "title": "Example Chapter"}]
+            },
         },
     )
 
@@ -1143,7 +1231,9 @@ def test_do_post_rename_chapter_updates_tsv_and_returns_files(
     assert handler.error is None
     assert handler.payload is not None
     assert handler.payload["ok"] is True
-    assert handler.payload["renamed_files"] == [f"{wizard_server.safe('New Title')}.mp4"]
+    assert handler.payload["renamed_files"] == [
+        f"{wizard_server.safe('New Title')}.mp4"
+    ]
     chapters_text = (archive_meta / "chapters.tsv").read_text(encoding="utf-8")
     assert "New Title" in chapters_text
     assert "Old Title" not in chapters_text

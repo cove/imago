@@ -75,6 +75,7 @@ def freeze_page(page, live_server):
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
+
 def _render_and_read_meta(page, frame_index):
     """Render a specific flipbook frame and return flipbookMetaEl.textContent."""
     return page.evaluate(f"""() => {{
@@ -114,6 +115,7 @@ def _render_and_capture_image_src(page, frame_index):
 
 
 # ── tests ─────────────────────────────────────────────────────────────────────
+
 
 def test_sim_off_bad_frame_shows_BAD(freeze_page):
     """With sim disabled, a bad frame must be labelled BAD."""
@@ -168,9 +170,9 @@ def test_toggle_sim_off_reverts_frozen_to_BAD(freeze_page):
 #   fid 10 → index 0  → col=0, row=0 → sx=   0, sy=0
 #   fid 12 → index 2  → col=2, row=0 → sx= 320, sy=0
 
-_SPRITE_SX_SOURCE = 0    # sx for fid 10 (source frame, index 0)
-_SPRITE_SX_BAD    = 320  # sx for fid 12 (bad   frame, index 2)
-_SPRITE_SY        = 0    # both frames are in row 0
+_SPRITE_SX_SOURCE = 0  # sx for fid 10 (source frame, index 0)
+_SPRITE_SX_BAD = 320  # sx for fid 12 (bad   frame, index 2)
+_SPRITE_SY = 0  # both frames are in row 0
 
 _SETUP_SPRITE_STATE_JS = """
 () => {
@@ -224,25 +226,27 @@ def _render_and_capture_drawimage(page, frame_index):
 
 # ── canvas image source tests ─────────────────────────────────────────────────
 
+
 def test_sim_on_canvas_uses_source_frame_image(freeze_page):
     """With sim on, the fallback image loader must use the SOURCE frame's image data."""
     freeze_page.evaluate("() => { state.simulateFreezeFrame = true; }")
     src = _render_and_capture_image_src(freeze_page, 2)  # fid 12 (bad), source = fid 10
-    assert src == "data:image/jpeg;base64,SOURCEFRAME", (
-        f"Canvas should load source frame image, got: {src!r}"
-    )
+    assert (
+        src == "data:image/jpeg;base64,SOURCEFRAME"
+    ), f"Canvas should load source frame image, got: {src!r}"
 
 
 def test_sim_off_canvas_uses_bad_frame_image(freeze_page):
     """With sim off, the fallback image loader must use the BAD frame's own image data."""
     freeze_page.evaluate("() => { state.simulateFreezeFrame = false; }")
     src = _render_and_capture_image_src(freeze_page, 2)  # fid 12 (bad)
-    assert src == "data:image/jpeg;base64,BADFRAME", (
-        f"Canvas should load bad frame's own image when sim is off, got: {src!r}"
-    )
+    assert (
+        src == "data:image/jpeg;base64,BADFRAME"
+    ), f"Canvas should load bad frame's own image when sim is off, got: {src!r}"
 
 
 # ── canvas sprite (contact-sheet) path tests ──────────────────────────────────
+
 
 def test_sim_on_sprite_uses_source_frame_coordinates(freeze_page):
     """
@@ -251,11 +255,13 @@ def test_sim_on_sprite_uses_source_frame_coordinates(freeze_page):
     """
     freeze_page.evaluate(_SETUP_SPRITE_STATE_JS)
     freeze_page.evaluate("() => { state.simulateFreezeFrame = true; }")
-    draw = _render_and_capture_drawimage(freeze_page, 2)  # fid 12 (bad), source = fid 10
+    draw = _render_and_capture_drawimage(
+        freeze_page, 2
+    )  # fid 12 (bad), source = fid 10
     assert draw is not None, "drawImage was not called — sprite path did not fire"
-    assert draw["sx"] == _SPRITE_SX_SOURCE, (
-        f"Expected sx={_SPRITE_SX_SOURCE} (source frame col 0), got sx={draw['sx']}"
-    )
+    assert (
+        draw["sx"] == _SPRITE_SX_SOURCE
+    ), f"Expected sx={_SPRITE_SX_SOURCE} (source frame col 0), got sx={draw['sx']}"
     assert draw["sy"] == _SPRITE_SY
 
 
@@ -268,7 +274,7 @@ def test_sim_off_sprite_uses_bad_frame_coordinates(freeze_page):
     freeze_page.evaluate("() => { state.simulateFreezeFrame = false; }")
     draw = _render_and_capture_drawimage(freeze_page, 2)  # fid 12 (bad)
     assert draw is not None, "drawImage was not called — sprite path did not fire"
-    assert draw["sx"] == _SPRITE_SX_BAD, (
-        f"Expected sx={_SPRITE_SX_BAD} (bad frame col 2), got sx={draw['sx']}"
-    )
+    assert (
+        draw["sx"] == _SPRITE_SX_BAD
+    ), f"Expected sx={_SPRITE_SX_BAD} (bad frame col 2), got sx={draw['sx']}"
     assert draw["sy"] == _SPRITE_SY

@@ -32,9 +32,7 @@ def normalize_face_review_status(value: Any, *, person_id: Any = None) -> str:
     if not text:
         return "confirmed" if str(person_id or "").strip() else ""
     if text not in FACE_REVIEW_STATUSES:
-        raise ValueError(
-            "review_status must be one of: confirmed, ignored, rejected"
-        )
+        raise ValueError("review_status must be one of: confirmed, ignored, rejected")
     if text == "confirmed" and not str(person_id or "").strip():
         raise ValueError("confirmed review_status requires a person_id")
     return text
@@ -170,7 +168,9 @@ class TextFaceStore:
         clean_name = str(name or "").strip()
         if not clean_name:
             raise ValueError("Person name is required.")
-        clean_aliases = [str(item).strip() for item in (aliases or []) if str(item).strip()]
+        clean_aliases = [
+            str(item).strip() for item in (aliases or []) if str(item).strip()
+        ]
         now = utc_now_iso()
         row = {
             "person_id": str(uuid.uuid4()),
@@ -219,9 +219,15 @@ class TextFaceStore:
                         continue
                     if key == "aliases":
                         if isinstance(value, list):
-                            row[key] = [str(item).strip() for item in value if str(item).strip()]
+                            row[key] = [
+                                str(item).strip() for item in value if str(item).strip()
+                            ]
                         elif isinstance(value, str):
-                            row[key] = [part.strip() for part in value.split(",") if part.strip()]
+                            row[key] = [
+                                part.strip()
+                                for part in value.split(",")
+                                if part.strip()
+                            ]
                         continue
                     if key == "notes":
                         row[key] = str(value or "").strip()
@@ -344,7 +350,9 @@ class TextFaceStore:
         now = utc_now_iso()
         normalized_status: str | None = None
         if review_status is not None:
-            normalized_status = normalize_face_review_status(review_status, person_id=person_key)
+            normalized_status = normalize_face_review_status(
+                review_status, person_id=person_key
+            )
         with self._lock:
             rows = self._read_json(self.faces_path)
             if not isinstance(rows, list):
@@ -391,14 +399,20 @@ class TextFaceStore:
         face_key = str(face_id or "").strip()
         if not face_key:
             raise ValueError("face_id is required.")
-        suggested_key = str(suggested_person_id).strip() if suggested_person_id is not None else ""
+        suggested_key = (
+            str(suggested_person_id).strip() if suggested_person_id is not None else ""
+        )
         now = utc_now_iso()
         row = {
             "review_id": str(uuid.uuid4()),
             "face_id": face_key,
-            "candidates": [dict(item) for item in (candidates or []) if isinstance(item, dict)],
+            "candidates": [
+                dict(item) for item in (candidates or []) if isinstance(item, dict)
+            ],
             "suggested_person_id": suggested_key or None,
-            "suggested_score": float(suggested_score) if suggested_score is not None else None,
+            "suggested_score": (
+                float(suggested_score) if suggested_score is not None else None
+            ),
             "status": str(status or "pending").strip().lower(),
             "decided_person_id": None,
             "decided_at": "",
@@ -423,7 +437,9 @@ class TextFaceStore:
         review_key = str(review_id or "").strip()
         clean_status = str(status or "").strip().lower()
         if clean_status not in {"accepted", "rejected", "ignored", "skipped"}:
-            raise ValueError("status must be one of: accepted, rejected, ignored, skipped")
+            raise ValueError(
+                "status must be one of: accepted, rejected, ignored, skipped"
+            )
         now = utc_now_iso()
         person_key = str(decided_person_id or "").strip() or None
         with self._lock:

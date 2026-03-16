@@ -4,7 +4,7 @@ import urllib.request  # noqa: F401 — kept at module level for test patching v
 from dataclasses import dataclass
 from pathlib import Path
 
-from ._caption_album import (
+from ._caption_album import (  # noqa: F401
     ALBUM_KIND_FAMILY,
     ALBUM_KIND_PHOTO_ESSAY,
     AlbumContext,
@@ -16,7 +16,7 @@ from ._caption_album import (
     join_human,
     looks_like_album_cover,
 )
-from ._caption_lmstudio import (
+from ._caption_lmstudio import (  # noqa: F401
     DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE,
     DEFAULT_LMSTUDIO_BASE_URL,
     DEFAULT_LMSTUDIO_MAX_NEW_TOKENS,
@@ -34,7 +34,7 @@ from ._caption_lmstudio import (
     _select_lmstudio_model,
     normalize_lmstudio_base_url,
 )
-from ._caption_prompts import (
+from ._caption_prompts import (  # noqa: F401
     _build_combined_qwen_prompt,
     _build_describe_prompt,
     _build_qwen_prompt,
@@ -43,7 +43,7 @@ from ._caption_prompts import (
     build_page_caption,
     build_template_caption,
 )
-from ._caption_qwen import (
+from ._caption_qwen import (  # noqa: F401
     DEFAULT_QWEN_AUTO_MAX_PIXELS,
     DEFAULT_QWEN_CAPTION_MODEL,
     LEGACY_QWEN_CAPTION_MODEL_ALIASES,
@@ -113,7 +113,9 @@ class CaptionEngine:
         self._caption_prompt = str(caption_prompt or "").strip()
         self._max_tokens = int(max_tokens)
         self._temperature = float(temperature)
-        self._qwen_attn_implementation = normalize_qwen_attn_implementation(qwen_attn_implementation)
+        self._qwen_attn_implementation = normalize_qwen_attn_implementation(
+            qwen_attn_implementation
+        )
         self._qwen_min_pixels = max(0, int(qwen_min_pixels))
         self._qwen_max_pixels = max(0, int(qwen_max_pixels))
         self._lmstudio_base_url = normalize_lmstudio_base_url(lmstudio_base_url)
@@ -226,7 +228,9 @@ class CaptionEngine:
         except Exception as exc:
             if not self.fallback_to_template:
                 raise
-            return CaptionOutput(text=template, engine="template", fallback=True, error=str(exc))
+            return CaptionOutput(
+                text=template, engine="template", fallback=True, error=str(exc)
+            )
 
     def generate_combined(
         self,
@@ -243,7 +247,15 @@ class CaptionEngine:
         """Single Qwen inference for both OCR and caption. Returns (CaptionOutput, ocr_text).
         Only valid when engine == 'qwen'. Falls back to empty ocr_text on error."""
         if self.engine != "qwen":
-            return CaptionOutput(text="", engine=self.engine, fallback=True, error="generate_combined requires qwen engine"), ""
+            return (
+                CaptionOutput(
+                    text="",
+                    engine=self.engine,
+                    fallback=True,
+                    error="generate_combined requires qwen engine",
+                ),
+                "",
+            )
         self._ensure_captioner()
         _kw = {
             "people": people,
@@ -255,15 +267,20 @@ class CaptionEngine:
             "is_cover_page": is_cover_page,
         }
         try:
-            ocr_text, caption = self._captioner.describe_combined(image_path=image_path, **_kw)
+            ocr_text, caption = self._captioner.describe_combined(
+                image_path=image_path, **_kw
+            )
             if caption:
-                return CaptionOutput(
-                    text=caption,
-                    engine=self.engine,
-                    gps_latitude="",
-                    gps_longitude="",
-                    location_name="",
-                ), ocr_text
+                return (
+                    CaptionOutput(
+                        text=caption,
+                        engine=self.engine,
+                        gps_latitude="",
+                        gps_longitude="",
+                        location_name="",
+                    ),
+                    ocr_text,
+                )
             template = build_template_caption(
                 people=people,
                 objects=[],
@@ -276,9 +293,19 @@ class CaptionEngine:
                     printed_album_title=printed_album_title,
                 ),
             )
-            return CaptionOutput(
-                text=template, engine="template", fallback=True,
-                error="Qwen combined returned empty description.",
-            ), ocr_text
+            return (
+                CaptionOutput(
+                    text=template,
+                    engine="template",
+                    fallback=True,
+                    error="Qwen combined returned empty description.",
+                ),
+                ocr_text,
+            )
         except Exception as exc:
-            return CaptionOutput(text="", engine="template", fallback=True, error=str(exc)), ""
+            return (
+                CaptionOutput(
+                    text="", engine="template", fallback=True, error=str(exc)
+                ),
+                "",
+            )

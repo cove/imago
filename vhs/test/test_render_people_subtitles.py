@@ -30,7 +30,9 @@ def _write_subtitles_tsv(
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def test_load_people_entries_for_chapter_clips_archive_frame_ranges(tmp_path: Path) -> None:
+def test_load_people_entries_for_chapter_clips_archive_frame_ranges(
+    tmp_path: Path,
+) -> None:
     people_tsv = tmp_path / "people.tsv"
     _write_people_tsv(
         people_tsv,
@@ -52,7 +54,9 @@ def test_load_people_entries_for_chapter_clips_archive_frame_ranges(tmp_path: Pa
     assert entries[1][2] == "Jim | Linda"
 
 
-def test_load_people_entries_for_chapter_skips_invalid_rows_and_fixes_single_frame(tmp_path: Path) -> None:
+def test_load_people_entries_for_chapter_skips_invalid_rows_and_fixes_single_frame(
+    tmp_path: Path,
+) -> None:
     people_tsv = tmp_path / "people.tsv"
     people_tsv.write_text(
         "start_frame\tend_frame\tpeople\n"
@@ -77,13 +81,12 @@ def test_load_people_entries_for_chapter_skips_invalid_rows_and_fixes_single_fra
     assert entries[1][2] == "Jim | Linda"
 
 
-def test_merge_people_entries_into_srt_replaces_prior_people_line_and_dedupes(tmp_path: Path) -> None:
+def test_merge_people_entries_into_srt_replaces_prior_people_line_and_dedupes(
+    tmp_path: Path,
+) -> None:
     srt_path = tmp_path / "chapter.srt"
     srt_path.write_text(
-        "1\n"
-        "00:00:00,000 --> 00:00:03,000\n"
-        "Hello there\n"
-        "[Old Person]\n",
+        "1\n" "00:00:00,000 --> 00:00:03,000\n" "Hello there\n" "[Old Person]\n",
         encoding="utf-8",
     )
 
@@ -103,17 +106,27 @@ def test_merge_people_entries_into_srt_replaces_prior_people_line_and_dedupes(tm
     assert merged_text.count("[") == 1
 
 
-def test_merge_people_entries_into_srt_returns_false_for_missing_or_invalid_srt(tmp_path: Path) -> None:
+def test_merge_people_entries_into_srt_returns_false_for_missing_or_invalid_srt(
+    tmp_path: Path,
+) -> None:
     missing = tmp_path / "missing.srt"
-    assert render_pipeline.merge_people_entries_into_srt(missing, [(0.0, 1.0, "Jim")]) is False
+    assert (
+        render_pipeline.merge_people_entries_into_srt(missing, [(0.0, 1.0, "Jim")])
+        is False
+    )
 
     invalid = tmp_path / "invalid.srt"
     invalid.write_text("not an srt file", encoding="utf-8")
-    assert render_pipeline.merge_people_entries_into_srt(invalid, [(0.0, 1.0, "Jim")]) is False
+    assert (
+        render_pipeline.merge_people_entries_into_srt(invalid, [(0.0, 1.0, "Jim")])
+        is False
+    )
     assert invalid.read_text(encoding="utf-8") == "not an srt file"
 
 
-def test_write_people_entries_to_srt_vtt_wraps_and_sorts_entries(tmp_path: Path) -> None:
+def test_write_people_entries_to_srt_vtt_wraps_and_sorts_entries(
+    tmp_path: Path,
+) -> None:
     srt_path = tmp_path / "people.srt"
     vtt_path = tmp_path / "people.vtt"
     wrote = render_pipeline.write_people_entries_to_srt_vtt(
@@ -138,7 +151,9 @@ def test_write_people_entries_to_srt_vtt_wraps_and_sorts_entries(tmp_path: Path)
     assert "WEBVTT" in vtt_text
 
 
-def test_write_people_entries_to_srt_vtt_returns_false_when_all_entries_empty(tmp_path: Path) -> None:
+def test_write_people_entries_to_srt_vtt_returns_false_when_all_entries_empty(
+    tmp_path: Path,
+) -> None:
     srt_path = tmp_path / "people.srt"
     vtt_path = tmp_path / "people.vtt"
     wrote = render_pipeline.write_people_entries_to_srt_vtt(
@@ -184,7 +199,9 @@ def test_tsv_people_to_srt_vtt_uses_frame_clipping_and_brackets(tmp_path: Path) 
     assert "[Outside]" not in srt_text
 
 
-def test_tsv_people_to_ass_writes_italic_people_lines_with_frame_clipping(tmp_path: Path) -> None:
+def test_tsv_people_to_ass_writes_italic_people_lines_with_frame_clipping(
+    tmp_path: Path,
+) -> None:
     people_tsv = tmp_path / "people.tsv"
     _write_people_tsv(
         people_tsv,
@@ -210,7 +227,9 @@ def test_tsv_people_to_ass_writes_italic_people_lines_with_frame_clipping(tmp_pa
     assert r"{\i1}Outside{\i0}" not in ass_text
 
 
-def test_load_subtitle_entries_for_chapter_clips_and_preserves_optional_fields(tmp_path: Path) -> None:
+def test_load_subtitle_entries_for_chapter_clips_and_preserves_optional_fields(
+    tmp_path: Path,
+) -> None:
     subtitles_tsv = tmp_path / "subtitles.tsv"
     _write_subtitles_tsv(
         subtitles_tsv,
@@ -239,7 +258,9 @@ def test_load_subtitle_entries_for_chapter_clips_and_preserves_optional_fields(t
     assert entries[1]["source"] == "manual"
 
 
-def test_write_subtitle_entries_to_srt_vtt_writes_ordered_dialogue_entries(tmp_path: Path) -> None:
+def test_write_subtitle_entries_to_srt_vtt_writes_ordered_dialogue_entries(
+    tmp_path: Path,
+) -> None:
     srt_path = tmp_path / "dialogue.srt"
     vtt_path = tmp_path / "dialogue.vtt"
     wrote = render_pipeline.write_subtitle_entries_to_srt_vtt(
@@ -278,10 +299,7 @@ def test_srt_to_ass_italicizes_people_bracket_lines(tmp_path: Path) -> None:
     srt_path = tmp_path / "chapter.srt"
     ass_path = tmp_path / "chapter.ass"
     srt_path.write_text(
-        "1\n"
-        "00:00:00,000 --> 00:00:02,000\n"
-        "Hello there\n"
-        "[Jim | Linda]\n",
+        "1\n" "00:00:00,000 --> 00:00:02,000\n" "Hello there\n" "[Jim | Linda]\n",
         encoding="utf-8",
     )
 
@@ -292,14 +310,13 @@ def test_srt_to_ass_italicizes_people_bracket_lines(tmp_path: Path) -> None:
     assert "[Jim | Linda]" not in ass_text
 
 
-def test_srt_to_ass_scales_people_font_to_50_percent_of_dialogue_size(tmp_path: Path) -> None:
+def test_srt_to_ass_scales_people_font_to_50_percent_of_dialogue_size(
+    tmp_path: Path,
+) -> None:
     srt_path = tmp_path / "chapter.srt"
     ass_path = tmp_path / "chapter.ass"
     srt_path.write_text(
-        "1\n"
-        "00:00:00,000 --> 00:00:02,000\n"
-        "Dialogue line\n"
-        "[Person Name]\n",
+        "1\n" "00:00:00,000 --> 00:00:02,000\n" "Dialogue line\n" "[Person Name]\n",
         encoding="utf-8",
     )
 

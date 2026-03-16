@@ -40,7 +40,11 @@ def update_tif_metadata(tif_path: Path, header_text: str) -> bool:
 
     creator_needs_fix = bool(current_creator and current_creator.count(CREATOR) > 1)
 
-    if current_desc == header_text and not creator_needs_fix and current_creator == CREATOR:
+    if (
+        current_desc == header_text
+        and not creator_needs_fix
+        and current_creator == CREATOR
+    ):
         return False
 
     if creator_needs_fix:
@@ -86,7 +90,9 @@ def apply_metadata_to_archives(base_dir: Path = PHOTO_ALBUMS_DIR) -> dict[str, i
         key = f"{collection}_{year}_B{book}"
         total_pages = totals.get(key, {}).get("total_pages", 0)
         page_num = int(page)
-        total_scans_for_page = totals.get(key, {}).get("page_scans", {}).get(page_num, 1)
+        total_scans_for_page = (
+            totals.get(key, {}).get("page_scans", {}).get(page_num, 1)
+        )
 
         scan_match = PAGE_SCAN_RE.search(tif_path.name)
         scan_num = int(scan_match.group("scan")) if scan_match else 1

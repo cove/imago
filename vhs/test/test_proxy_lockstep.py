@@ -29,7 +29,9 @@ def test_build_proxy_command_can_show_frame_numbers(tmp_path: Path) -> None:
     assert "frame=%{eif\\:n\\:d}" in joined
 
 
-def test_make_proxies_invokes_ffmpeg_with_lockstep_command(tmp_path: Path, monkeypatch) -> None:
+def test_make_proxies_invokes_ffmpeg_with_lockstep_command(
+    tmp_path: Path, monkeypatch
+) -> None:
     archive_dir = tmp_path / "Archive"
     metadata_dir = tmp_path / "metadata"
     archive_dir.mkdir(parents=True, exist_ok=True)
@@ -55,9 +57,15 @@ def test_make_proxies_invokes_ffmpeg_with_lockstep_command(tmp_path: Path, monke
     assert rc == 0
     assert "cmd" in captured
     cmd = captured["cmd"]
-    vf_parts = [part for part in cmd if "scale=iw/2:ih/2:flags=lanczos,setpts=N/(30000/1001*TB)" in part]
+    vf_parts = [
+        part
+        for part in cmd
+        if "scale=iw/2:ih/2:flags=lanczos,setpts=N/(30000/1001*TB)" in part
+    ]
     assert vf_parts, "Expected lockstep half-scale filter chain in ffmpeg command."
-    assert not any("drawtext=" in part for part in vf_parts), "Did not expect frame number drawtext in default proxy filter chain."
+    assert not any(
+        "drawtext=" in part for part in vf_parts
+    ), "Did not expect frame number drawtext in default proxy filter chain."
     assert "30000/1001" in cmd
 
 
@@ -87,6 +95,12 @@ def test_make_proxies_can_include_frame_numbers(tmp_path: Path, monkeypatch) -> 
     assert rc == 0
     assert "cmd" in captured
     cmd = captured["cmd"]
-    vf_parts = [part for part in cmd if "scale=iw/2:ih/2:flags=lanczos,setpts=N/(30000/1001*TB)" in part]
+    vf_parts = [
+        part
+        for part in cmd
+        if "scale=iw/2:ih/2:flags=lanczos,setpts=N/(30000/1001*TB)" in part
+    ]
     assert vf_parts, "Expected lockstep half-scale filter chain in ffmpeg command."
-    assert any("drawtext=" in part for part in vf_parts), "Expected frame number drawtext when enabled."
+    assert any(
+        "drawtext=" in part for part in vf_parts
+    ), "Expected frame number drawtext when enabled."

@@ -41,7 +41,9 @@ def _write_prefixed_multi_chapter_tsv(path: Path) -> None:
     )
 
 
-def test_write_output_chapter_ffmetadata_keeps_single_matching_chapter(tmp_path: Path) -> None:
+def test_write_output_chapter_ffmetadata_keeps_single_matching_chapter(
+    tmp_path: Path,
+) -> None:
     chapters_tsv = tmp_path / "chapters.tsv"
     _write_multi_chapter_tsv(chapters_tsv)
     header, rows = _read_chapters_tsv_rows(chapters_tsv)
@@ -73,7 +75,9 @@ def test_write_output_chapter_ffmetadata_keeps_single_matching_chapter(tmp_path:
     )
 
 
-def test_write_output_chapter_ffmetadata_drops_container_and_overlapping_duplicates(tmp_path: Path) -> None:
+def test_write_output_chapter_ffmetadata_drops_container_and_overlapping_duplicates(
+    tmp_path: Path,
+) -> None:
     chapters_tsv = tmp_path / "chapters.tsv"
     _write_overlapping_multi_chapter_tsv(chapters_tsv)
     header, rows = _read_chapters_tsv_rows(chapters_tsv)
@@ -98,7 +102,9 @@ def test_write_output_chapter_ffmetadata_drops_container_and_overlapping_duplica
     assert "title=Outro\n" in text
 
 
-def test_write_output_chapter_ffmetadata_shortens_repeated_movie_prefix(tmp_path: Path) -> None:
+def test_write_output_chapter_ffmetadata_shortens_repeated_movie_prefix(
+    tmp_path: Path,
+) -> None:
     chapters_tsv = tmp_path / "chapters.tsv"
     _write_prefixed_multi_chapter_tsv(chapters_tsv)
     header, rows = _read_chapters_tsv_rows(chapters_tsv)
@@ -124,26 +130,31 @@ def test_write_output_chapter_ffmetadata_shortens_repeated_movie_prefix(tmp_path
     assert "title=2001 - Dilbeck's Movie - 03 Outro" not in text
 
 
-def test_make_encode_final_x264_maps_clip_chapters_after_subtitle_inputs(tmp_path: Path) -> None:
+def test_make_encode_final_x264_maps_clip_chapters_after_subtitle_inputs(
+    tmp_path: Path,
+) -> None:
     qtgmc = tmp_path / "qtgmc.mkv"
     subtitle = tmp_path / "dialogue.ass"
     clip_ffmeta = tmp_path / "clip.ffmetadata"
     final_file = tmp_path / "out.mp4"
 
-    cmd = [str(x) for x in render_pipeline.make_encode_final_x264(
-        qtgmc,
-        [{"path": subtitle, "title": "Dialogue", "forced": False}],
-        final_file,
-        "Unit Tester",
-        "Unit Clip",
-        "Unit Archive",
-        "00:00:10",
-        "00:00:20",
-        "2001",
-        "Pasadena, CA",
-        chapter_metadata_path=clip_ffmeta,
-        include_audio=True,
-    )]
+    cmd = [
+        str(x)
+        for x in render_pipeline.make_encode_final_x264(
+            qtgmc,
+            [{"path": subtitle, "title": "Dialogue", "forced": False}],
+            final_file,
+            "Unit Tester",
+            "Unit Clip",
+            "Unit Archive",
+            "00:00:10",
+            "00:00:20",
+            "2001",
+            "Pasadena, CA",
+            chapter_metadata_path=clip_ffmeta,
+            include_audio=True,
+        )
+    ]
 
     ffmeta_pos = cmd.index("ffmetadata")
     assert cmd[ffmeta_pos - 1] == "-f"
@@ -154,7 +165,9 @@ def test_make_encode_final_x264_maps_clip_chapters_after_subtitle_inputs(tmp_pat
     assert "1:s:0" in cmd
 
 
-def test_run_pipeline_embeds_all_chapters_within_full_movie_range(monkeypatch, tmp_path: Path) -> None:
+def test_run_pipeline_embeds_all_chapters_within_full_movie_range(
+    monkeypatch, tmp_path: Path
+) -> None:
     archive_dir = tmp_path / "Archive"
     metadata_dir = tmp_path / "metadata"
     videos_dir = tmp_path / "Videos"
@@ -183,9 +196,15 @@ def test_run_pipeline_embeds_all_chapters_within_full_movie_range(monkeypatch, t
     monkeypatch.setattr(render_pipeline, "VIDEOS_DIR", videos_dir)
     monkeypatch.setattr(render_pipeline, "CLIPS_DIR", clips_dir)
     monkeypatch.setattr(render_pipeline, "run", _fake_run)
-    monkeypatch.setattr(render_pipeline, "assert_expected_frame_count", lambda *args, **kwargs: None)
-    monkeypatch.setattr(render_pipeline, "chapter_done", lambda *_args, **_kwargs: False)
-    monkeypatch.setattr(render_pipeline, "transcript_mode", lambda *_args, **_kwargs: "off")
+    monkeypatch.setattr(
+        render_pipeline, "assert_expected_frame_count", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        render_pipeline, "chapter_done", lambda *_args, **_kwargs: False
+    )
+    monkeypatch.setattr(
+        render_pipeline, "transcript_mode", lambda *_args, **_kwargs: "off"
+    )
     monkeypatch.setenv("RENDER_KEEP_TEMP", "1")
 
     args = argparse.Namespace(
@@ -209,17 +228,9 @@ def test_run_pipeline_embeds_all_chapters_within_full_movie_range(monkeypatch, t
 
     assert ffmeta_text.count("[CHAPTER]") == 2
     assert (
-        "[CHAPTER]\n"
-        "TIMEBASE=1001/30000\n"
-        "START=0\n"
-        "END=40\n"
-        "title=Intro\n"
+        "[CHAPTER]\n" "TIMEBASE=1001/30000\n" "START=0\n" "END=40\n" "title=Intro\n"
     ) in ffmeta_text
     assert (
-        "[CHAPTER]\n"
-        "TIMEBASE=1001/30000\n"
-        "START=40\n"
-        "END=120\n"
-        "title=Outro\n"
+        "[CHAPTER]\n" "TIMEBASE=1001/30000\n" "START=40\n" "END=120\n" "title=Outro\n"
     ) in ffmeta_text
     assert "title=Full Movie\n" not in ffmeta_text

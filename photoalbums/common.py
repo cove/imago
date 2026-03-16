@@ -49,7 +49,9 @@ def _onedrive_roots(home: Path) -> list[Path]:
     cloud_storage = home / "Library" / "CloudStorage"
     roots.append(cloud_storage / "OneDrive-Personal")
     if cloud_storage.is_dir():
-        roots.extend(sorted(path for path in cloud_storage.glob("OneDrive*") if path.is_dir()))
+        roots.extend(
+            sorted(path for path in cloud_storage.glob("OneDrive*") if path.is_dir())
+        )
 
     return roots
 
@@ -61,7 +63,9 @@ def get_photo_albums_dir() -> Path:
 
     home = Path.home()
     onedrive_roots = _onedrive_roots(home)
-    preferred = home / "Library" / "CloudStorage" / "OneDrive-Personal" / PHOTO_ALBUMS_SUBPATH
+    preferred = (
+        home / "Library" / "CloudStorage" / "OneDrive-Personal" / PHOTO_ALBUMS_SUBPATH
+    )
     if sys.platform.startswith("win"):
         preferred_root = onedrive_roots[0] if onedrive_roots else (home / "OneDrive")
         preferred = preferred_root / PHOTO_ALBUMS_SUBPATH
@@ -108,7 +112,12 @@ def parse_filename(
     for pattern in patterns:
         m = pattern.search(filename)
         if m:
-            return m.group("collection"), m.group("year"), m.group("book"), m.group("page")
+            return (
+                m.group("collection"),
+                m.group("year"),
+                m.group("book"),
+                m.group("page"),
+            )
     return default
 
 
@@ -146,7 +155,9 @@ def count_totals(
     for key, data in totals.items():
         unique_count = len(data["pages"])
         highest_page = data["max_page"]
-        data["total_pages"] = highest_page if unique_count != highest_page else unique_count
+        data["total_pages"] = (
+            highest_page if unique_count != highest_page else unique_count
+        )
         del data["pages"]
         del data["max_page"]
 
@@ -183,7 +194,9 @@ def derive_prefix(dir_path: str | Path) -> str:
     return base
 
 
-def get_next_filename(watch_dir: str | Path, filename_pattern: re.Pattern = FILENAME_PATTERN) -> str:
+def get_next_filename(
+    watch_dir: str | Path, filename_pattern: re.Pattern = FILENAME_PATTERN
+) -> str:
     watch_path = Path(watch_dir)
     files = [f.name for f in watch_path.iterdir() if f.suffix.lower() == ".tif"]
     valid_files = [f for f in files if filename_pattern.match(f)]
@@ -196,6 +209,7 @@ def get_next_filename(watch_dir: str | Path, filename_pattern: re.Pattern = FILE
     last_file = valid_files[-1]
 
     match = filename_pattern.match(last_file)
+    assert match is not None  # last_file was pre-filtered by the same pattern
     prefix = match.group("prefix")
     page = int(match.group("page"))
     scan = int(match.group("scan"))
@@ -213,9 +227,13 @@ def get_next_filename(watch_dir: str | Path, filename_pattern: re.Pattern = FILE
     return f"{prefix}_P{page:02d}_S{scan:02d}.tif"
 
 
-def list_page_scan_groups(directory: str | Path, name_re: re.Pattern) -> List[List[str]]:
+def list_page_scan_groups(
+    directory: str | Path, name_re: re.Pattern
+) -> List[List[str]]:
     dir_path = Path(directory)
-    files = [f.name for f in dir_path.iterdir() if f.is_file() and name_re.fullmatch(f.name)]
+    files = [
+        f.name for f in dir_path.iterdir() if f.is_file() and name_re.fullmatch(f.name)
+    ]
 
     def key(name: str) -> Tuple[int, int]:
         m = PAGE_SCAN_RE.search(name)

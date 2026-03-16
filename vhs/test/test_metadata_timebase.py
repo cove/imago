@@ -28,14 +28,18 @@ def _write_ffmetadata(path: Path, *, timebase: str, start: int, end: int) -> Non
     )
 
 
-def _write_master_chapters_tsv(path: Path, *, timebase: str, start: int, end: int) -> Path:
+def _write_master_chapters_tsv(
+    path: Path, *, timebase: str, start: int, end: int
+) -> Path:
     ffmeta = path.parent / "chapters.ffmetadata"
     _write_ffmetadata(ffmeta, timebase=timebase, start=start, end=end)
     ffmetadata_to_chapters_tsv(ffmeta, path)
     return path
 
 
-def test_generate_tsv_metadata_uses_normalized_seconds_for_1001_30000(tmp_path: Path) -> None:
+def test_generate_tsv_metadata_uses_normalized_seconds_for_1001_30000(
+    tmp_path: Path,
+) -> None:
     chapters_tsv = tmp_path / "chapters.tsv"
     out = tmp_path / "markers.tsv"
     _write_master_chapters_tsv(chapters_tsv, timebase="1001/30000", start=101, end=303)
@@ -47,7 +51,9 @@ def test_generate_tsv_metadata_uses_normalized_seconds_for_1001_30000(tmp_path: 
     assert row[4] == "10.11"
 
 
-def test_generate_tsv_metadata_uses_normalized_seconds_for_1_100(tmp_path: Path) -> None:
+def test_generate_tsv_metadata_uses_normalized_seconds_for_1_100(
+    tmp_path: Path,
+) -> None:
     chapters_tsv = tmp_path / "chapters.tsv"
     out = tmp_path / "markers.tsv"
     _write_master_chapters_tsv(chapters_tsv, timebase="1/100", start=6315, end=6603)

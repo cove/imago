@@ -108,7 +108,9 @@ def build_person_prototypes(
     for person_id, pairs in buckets.items():
         if not pairs:
             continue
-        ranked = sorted(pairs, key=lambda row: row[0], reverse=True)[:_MAX_SAMPLES_PER_PERSON]
+        ranked = sorted(pairs, key=lambda row: row[0], reverse=True)[
+            :_MAX_SAMPLES_PER_PERSON
+        ]
         vectors = [row[1] for row in ranked]
         dims = {tuple(vec.shape) for vec in vectors}
         if len(dims) != 1:
@@ -180,7 +182,9 @@ def suggest_people_from_prototypes(
             exemplar_score = prototype_score
 
         sample_count = int(details.get("count", 0))
-        normalized_count = float(min(_COUNT_BOOST_CAP, max(0, sample_count))) / float(_COUNT_BOOST_CAP)
+        normalized_count = float(min(_COUNT_BOOST_CAP, max(0, sample_count))) / float(
+            _COUNT_BOOST_CAP
+        )
         count_boost = normalized_count * float(_MAX_COUNT_BOOST)
         score = (
             (float(_PROTOTYPE_WEIGHT) * prototype_score)
@@ -230,8 +234,14 @@ def choose_suggested_candidate(
     normalized.sort(key=lambda row: float(row.get("score", -1.0)), reverse=True)
     top = dict(normalized[0])
     top_score = _coerce_float(top.get("score"), -1.0)
-    second_score = _coerce_float(normalized[1].get("score"), -1.0) if len(normalized) > 1 else -1.0
-    margin = float(top_score - second_score) if len(normalized) > 1 else max(0.0, float(top_score))
+    second_score = (
+        _coerce_float(normalized[1].get("score"), -1.0) if len(normalized) > 1 else -1.0
+    )
+    margin = (
+        float(top_score - second_score)
+        if len(normalized) > 1
+        else max(0.0, float(top_score))
+    )
     quality = _coerce_float(face_quality, 0.0)
     sample_count = max(0, _coerce_int(top.get("sample_count"), 0))
     required_sample_count = max(1, _coerce_int(min_sample_count, 1))

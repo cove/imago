@@ -137,9 +137,11 @@ class TestCommon(unittest.TestCase):
             tiff_path = Path(tmp) / "sample.tif"
             tiff_path.write_bytes(b"data")
 
-            with mock.patch("common.tiff_needs_conversion", return_value=True), mock.patch(
-                "common.validate_pixels", return_value=True
-            ), mock.patch("common.subprocess.run") as run_mock:
+            with mock.patch(
+                "common.tiff_needs_conversion", return_value=True
+            ), mock.patch("common.validate_pixels", return_value=True), mock.patch(
+                "common.subprocess.run"
+            ) as run_mock:
                 run_mock.return_value = mock.Mock()
                 result = common.process_tiff_in_place(tiff_path, log_error=print)
 
@@ -158,7 +160,13 @@ class TestCommon(unittest.TestCase):
     def test_get_photo_albums_dir_darwin_prefers_existing_cloudstorage_root(self):
         with tempfile.TemporaryDirectory() as tmp:
             fake_home = Path(tmp)
-            expected = fake_home / "Library" / "CloudStorage" / "OneDrive-Personal" / common.PHOTO_ALBUMS_SUBPATH
+            expected = (
+                fake_home
+                / "Library"
+                / "CloudStorage"
+                / "OneDrive-Personal"
+                / common.PHOTO_ALBUMS_SUBPATH
+            )
             expected.mkdir(parents=True)
 
             with mock.patch.object(common.sys, "platform", "darwin"), mock.patch(
@@ -177,7 +185,9 @@ class TestCommon(unittest.TestCase):
             # the host (if it exists) doesn't shadow the expected preferred path.
             with mock.patch.object(common.sys, "platform", "win32"), mock.patch(
                 "common.Path.home", return_value=Path(tmp) / "home"
-            ), mock.patch.dict("common.os.environ", {"OneDrive": str(onedrive_root)}, clear=False), mock.patch(
+            ), mock.patch.dict(
+                "common.os.environ", {"OneDrive": str(onedrive_root)}, clear=False
+            ), mock.patch(
                 "common._first_existing_path", return_value=None
             ):
                 result = common.get_photo_albums_dir()

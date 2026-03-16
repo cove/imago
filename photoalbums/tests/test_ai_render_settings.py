@@ -88,8 +88,12 @@ class TestAIRenderSettings(unittest.TestCase):
             settings_path = archive / "render_settings.json"
             settings_path.write_text(json.dumps(payload), encoding="utf-8")
 
-            _path, loaded = ars.load_render_settings(archive, defaults=defaults, create=False)
-            effective = ars.resolve_effective_settings(image, defaults=defaults, loaded=loaded)
+            _path, loaded = ars.load_render_settings(
+                archive, defaults=defaults, create=False
+            )
+            effective = ars.resolve_effective_settings(
+                image, defaults=defaults, loaded=loaded
+            )
             self.assertTrue(effective["enable_people"])
             self.assertTrue(effective["enable_objects"])
             self.assertEqual(effective["ocr_engine"], "none")
@@ -123,8 +127,12 @@ class TestAIRenderSettings(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            _path, loaded = ars.load_render_settings(archive, defaults=defaults, create=False)
-            effective = ars.resolve_effective_settings(image, defaults=defaults, loaded=loaded)
+            _path, loaded = ars.load_render_settings(
+                archive, defaults=defaults, create=False
+            )
+            effective = ars.resolve_effective_settings(
+                image, defaults=defaults, loaded=loaded
+            )
 
             self.assertEqual(effective["ocr_engine"], "lmstudio")
 
@@ -135,6 +143,7 @@ class TestAIRenderSettings(unittest.TestCase):
             loaded=None,
         )
         self.assertEqual(effective["page_split_mode"], "off")
+
 
 if __name__ == "__main__":
     unittest.main()

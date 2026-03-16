@@ -12,7 +12,9 @@ _PHOTOALBUMS = str(_ROOT / "photoalbums")
 if _PHOTOALBUMS not in sys.path:
     sys.path.insert(0, _PHOTOALBUMS)
 import common as _pa_common  # noqa: E402
+
 _common_modules: dict = {_PHOTOALBUMS: _pa_common}
+
 
 # vhs common is captured lazily (after vhs/test/conftest.py imports it).
 def pytest_collect_file(parent, file_path):

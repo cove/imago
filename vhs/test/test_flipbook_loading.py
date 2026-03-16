@@ -25,10 +25,10 @@ pytest.importorskip("playwright")
 # columns=6 metrics-based sheet URL: start=0, count=30, columns=6
 #   → fid 10 index 0: col=0%6=0, row=0  sx=  0 sy=0
 #   → fid 12 index 2: col=2%6=2, row=0  sx=320 sy=0
-_METRICS_SHEET_URL     = '/api/frame_contact_sheet?start=0&count=30&columns=6'
-_METRICS_SX_INDEX_0   = 0    # col 0  (fid 10 / source)
-_METRICS_SX_INDEX_2   = 320  # col 2  (fid 12 / bad)
-_METRICS_SY           = 0
+_METRICS_SHEET_URL = "/api/frame_contact_sheet?start=0&count=30&columns=6"
+_METRICS_SX_INDEX_0 = 0  # col 0  (fid 10 / source)
+_METRICS_SX_INDEX_2 = 320  # col 2  (fid 12 / bad)
+_METRICS_SY = 0
 
 _BASE_INJECT_JS = """
 () => {
@@ -85,6 +85,7 @@ def loading_page(page, live_server):
 
 # ── Fix 1: resize suppression ─────────────────────────────────────────────────
 
+
 def test_flipbook_focus_mode_active_when_class_present(loading_page):
     """isFlipbookFocusModeActive() must reflect the flipbook-focus class on page2El."""
     result = loading_page.evaluate("""() => ({
@@ -116,11 +117,13 @@ def test_resize_skips_grid_render_in_flipbook_focus_mode(loading_page):
         };
     }""")
     loading_page.evaluate("() => window.dispatchEvent(new Event('resize'))")
-    loading_page.wait_for_timeout(120)  # let the rAF in scheduleVisibleRangeRefresh fire
+    loading_page.wait_for_timeout(
+        120
+    )  # let the rAF in scheduleVisibleRangeRefresh fire
     count = loading_page.evaluate("() => window._gridRenderCount || 0")
-    assert count == 0, (
-        f"renderFrameGridWindow must not be called during flipbook focus mode, called {count}x"
-    )
+    assert (
+        count == 0
+    ), f"renderFrameGridWindow must not be called during flipbook focus mode, called {count}x"
 
 
 def test_resize_triggers_grid_render_without_flipbook_focus(loading_page):
@@ -137,12 +140,13 @@ def test_resize_triggers_grid_render_without_flipbook_focus(loading_page):
     loading_page.evaluate("() => window.dispatchEvent(new Event('resize'))")
     loading_page.wait_for_timeout(120)
     count = loading_page.evaluate("() => window._gridRenderCount || 0")
-    assert count > 0, (
-        "renderFrameGridWindow must be called on resize when flipbook is not in focus mode"
-    )
+    assert (
+        count > 0
+    ), "renderFrameGridWindow must be called on resize when flipbook is not in focus mode"
 
 
 # ── Fix 2: _findAnyLoadedSheetForFrameIndex ───────────────────────────────────
+
 
 def test_find_any_sheet_returns_correct_sprite_for_covered_frame(loading_page):
     """_findAnyLoadedSheetForFrameIndex must return col/row for a frame covered by a loaded sheet."""
@@ -165,9 +169,13 @@ def test_find_any_sheet_returns_correct_sprite_for_covered_frame(loading_page):
 
 def test_find_any_sheet_returns_null_for_uncovered_frame(loading_page):
     """_findAnyLoadedSheetForFrameIndex must return null when no loaded sheet covers the frame."""
-    loading_page.evaluate(_make_fake_sheet_js(_METRICS_SHEET_URL))  # covers indices 0-29
+    loading_page.evaluate(
+        _make_fake_sheet_js(_METRICS_SHEET_URL)
+    )  # covers indices 0-29
     result = loading_page.evaluate("() => _findAnyLoadedSheetForFrameIndex(30)")
-    assert result is None, f"Index 30 is outside start=0 count=30, expected null, got {result!r}"
+    assert (
+        result is None
+    ), f"Index 30 is outside start=0 count=30, expected null, got {result!r}"
 
 
 def test_find_any_sheet_returns_null_when_no_sheets_loaded(loading_page):
@@ -177,6 +185,7 @@ def test_find_any_sheet_returns_null_when_no_sheets_loaded(loading_page):
 
 
 # ── Fix 2: secondary sheet used in renderSparkPlaybackFrame ──────────────────
+
 
 def _capture_drawimage_with_secondary_sheet(page, frame_index, sim_on):
     """
@@ -207,10 +216,12 @@ def test_secondary_sheet_draws_source_coords_when_sim_on(loading_page):
     """
     loading_page.evaluate(_make_fake_sheet_js(_METRICS_SHEET_URL))
     draw = _capture_drawimage_with_secondary_sheet(loading_page, 2, sim_on=True)
-    assert draw is not None, "drawImage was not called — secondary sheet path did not fire"
-    assert draw["sx"] == _METRICS_SX_INDEX_0, (
-        f"Expected sx={_METRICS_SX_INDEX_0} (source frame col 0), got {draw['sx']}"
-    )
+    assert (
+        draw is not None
+    ), "drawImage was not called — secondary sheet path did not fire"
+    assert (
+        draw["sx"] == _METRICS_SX_INDEX_0
+    ), f"Expected sx={_METRICS_SX_INDEX_0} (source frame col 0), got {draw['sx']}"
     assert draw["sy"] == _METRICS_SY
 
 
@@ -221,10 +232,12 @@ def test_secondary_sheet_draws_bad_frame_coords_when_sim_off(loading_page):
     """
     loading_page.evaluate(_make_fake_sheet_js(_METRICS_SHEET_URL))
     draw = _capture_drawimage_with_secondary_sheet(loading_page, 2, sim_on=False)
-    assert draw is not None, "drawImage was not called — secondary sheet path did not fire"
-    assert draw["sx"] == _METRICS_SX_INDEX_2, (
-        f"Expected sx={_METRICS_SX_INDEX_2} (bad frame col 2), got {draw['sx']}"
-    )
+    assert (
+        draw is not None
+    ), "drawImage was not called — secondary sheet path did not fire"
+    assert (
+        draw["sx"] == _METRICS_SX_INDEX_2
+    ), f"Expected sx={_METRICS_SX_INDEX_2} (bad frame col 2), got {draw['sx']}"
     assert draw["sy"] == _METRICS_SY
 
 
@@ -262,6 +275,6 @@ def test_url_fallback_used_when_no_sheets_loaded(loading_page):
     }""")
     # No sheets loaded → secondary path also misses → URL fallback fires
     assert captured["src"] is not None, "URL fallback should have set Image.src"
-    assert captured["drawCalled"] is False, (
-        "drawImage should NOT be called synchronously when using the URL-fallback path"
-    )
+    assert (
+        captured["drawCalled"] is False
+    ), "drawImage should NOT be called synchronously when using the URL-fallback path"

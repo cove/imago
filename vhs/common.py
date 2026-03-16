@@ -23,6 +23,7 @@ FFMPEG_DIR = None
 MODES_DIR = BASE.parent / "modes" / "vhs"
 WHISPER_MODEL_DIR = MODES_DIR / "WhisperModel"
 
+
 def _resolve_command(cmd_name, bundled_path=None):
     """
     Resolve an executable command, preferring a bundled path, then PATH lookup.
@@ -42,12 +43,14 @@ def _resolve_command(cmd_name, bundled_path=None):
     # Keep a simple command token fallback so subprocess can still try PATH.
     return Path(cmd_name), None
 
+
 def _command_exists(cmd):
     cmd_text = str(cmd)
     p = Path(cmd_text)
     if p.is_absolute() or "/" in cmd_text or "\\" in cmd_text:
         return p.exists()
     return shutil.which(cmd_text) is not None
+
 
 if sys.platform == "win32":
     FFMPEG_DIR = BASE / "software" / "Windows" / "FFmpeg-QTGMC Easy 2025.01.11"
@@ -71,7 +74,11 @@ elif sys.platform.startswith("linux"):
         FFMPEG_BIN = Path(ffmpeg_override)
         ffmpeg_dir = (
             Path(ffmpeg_override).parent
-            if (Path(ffmpeg_override).is_absolute() or "/" in ffmpeg_override or "\\" in ffmpeg_override)
+            if (
+                Path(ffmpeg_override).is_absolute()
+                or "/" in ffmpeg_override
+                or "\\" in ffmpeg_override
+            )
             else None
         )
     else:
@@ -81,7 +88,11 @@ elif sys.platform.startswith("linux"):
         FFPROBE_BIN = Path(ffprobe_override)
         ffprobe_dir = (
             Path(ffprobe_override).parent
-            if (Path(ffprobe_override).is_absolute() or "/" in ffprobe_override or "\\" in ffprobe_override)
+            if (
+                Path(ffprobe_override).is_absolute()
+                or "/" in ffprobe_override
+                or "\\" in ffprobe_override
+            )
             else None
         )
     else:
@@ -142,8 +153,10 @@ if FFMPEG_DIR:
 # Shared FFmpeg Settings
 # ---------------------------------------------------------
 
+
 def safe(s):
     return s.translate(str.maketrans(r'<>:"/\|?*', "_________"))
+
 
 def format_hms(seconds):
     h = int(seconds // 3600)
@@ -151,9 +164,11 @@ def format_hms(seconds):
     s = int(seconds % 60)
     return f"{h:02d}:{m:02d}:{s:02d}"
 
+
 def run(cmd, cwd=None):
     print("Command: " + " ".join(map(str, cmd)))
     subprocess.run([str(c) for c in cmd], check=True, cwd=cwd)
+
 
 def make_frame_accurate_extract_chapter(
     src,
@@ -174,7 +189,9 @@ def make_frame_accurate_extract_chapter(
     explicitly opting into non-frame-accurate behavior.
     """
     if start_frame is None or end_frame is None:
-        raise ValueError("make_frame_accurate_extract_chapter requires start_frame and end_frame.")
+        raise ValueError(
+            "make_frame_accurate_extract_chapter requires start_frame and end_frame."
+        )
     s_frame = int(start_frame)
     e_frame = int(end_frame)
     if e_frame <= s_frame:
@@ -204,7 +221,9 @@ def make_frame_accurate_extract_chapter(
     chapter_dur = max(0.001, float(end) - float(start))
     audio_start_raw = float(start) + offset
     audio_end_raw = float(end) + offset
-    silence_prepend_sec = max(0.0, -audio_start_raw)  # > 0 only when offset pushes start < 0
+    silence_prepend_sec = max(
+        0.0, -audio_start_raw
+    )  # > 0 only when offset pushes start < 0
     audio_start_clamped = max(0.0, audio_start_raw)
     # Build audio filter: trim → optional silence prepend → pad end to chapter duration
     af_parts = [
@@ -218,18 +237,43 @@ def make_frame_accurate_extract_chapter(
     return [
         FFMPEG_BIN,
         "-nostdin",
-        "-v", "error",
-        "-i", str(src),
-        "-vf", vf_select,
-        "-af", af_trim,
-        "-map", "0:v:0", "-map", "0:a:0?",
-        "-fps_mode:v:0", "passthrough",
-        "-c:v", "ffv1",
-        "-level", "3", "-coder", "1", "-context", "1",
-        "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "1",
-        "-fflags", "+genpts", "-start_at_zero", "-avoid_negative_ts", "make_zero",
-        "-y", str(dest),
+        "-v",
+        "error",
+        "-i",
+        str(src),
+        "-vf",
+        vf_select,
+        "-af",
+        af_trim,
+        "-map",
+        "0:v:0",
+        "-map",
+        "0:a:0?",
+        "-fps_mode:v:0",
+        "passthrough",
+        "-c:v",
+        "ffv1",
+        "-level",
+        "3",
+        "-coder",
+        "1",
+        "-context",
+        "1",
+        "-c:a",
+        "pcm_s16le",
+        "-ar",
+        "48000",
+        "-ac",
+        "1",
+        "-fflags",
+        "+genpts",
+        "-start_at_zero",
+        "-avoid_negative_ts",
+        "make_zero",
+        "-y",
+        str(dest),
     ]
+
 
 def require_non_empty(text, field_name):
     value = str(text or "").strip()
@@ -237,11 +281,13 @@ def require_non_empty(text, field_name):
         raise ValueError(f"{field_name} cannot be empty.")
     return value
 
+
 def apply_config_overrides(config, **overrides):
     cleaned = {k: v for k, v in overrides.items() if v is not None}
     if not cleaned:
         return config
     return dataclass_replace(config, **cleaned)
+
 
 from fractions import Fraction
 
@@ -250,6 +296,7 @@ def _np():
     import numpy as np  # type: ignore
 
     return np
+
 
 def _parse_timebase_fraction(text):
     raw = str(text or "").strip()
@@ -267,12 +314,14 @@ def _parse_timebase_fraction(text):
         den = -den
     return int(num), int(den)
 
+
 def _round_fraction_nearest_int(frac):
     frac = Fraction(frac)
     if frac >= 0:
         return int((frac.numerator * 2 + frac.denominator) // (2 * frac.denominator))
     pos = -frac
     return -int((pos.numerator * 2 + pos.denominator) // (2 * pos.denominator))
+
 
 def chapter_frame_bounds(chapter, fps_num=30000, fps_den=1001):
     """
@@ -289,11 +338,14 @@ def chapter_frame_bounds(chapter, fps_num=30000, fps_den=1001):
         s = _round_fraction_nearest_int(Fraction(s_raw) * tb * fps)
         e = _round_fraction_nearest_int(Fraction(e_raw) * tb * fps)
     except Exception:
-        s = int(round(float(chapter.get("start", 0.0)) * float(fps_num) / float(fps_den)))
+        s = int(
+            round(float(chapter.get("start", 0.0)) * float(fps_num) / float(fps_den))
+        )
         e = int(round(float(chapter.get("end", 0.0)) * float(fps_num) / float(fps_den)))
     if e < s:
         e = s
     return int(s), int(e)
+
 
 def parse_chapters(path):
     chapters = []
@@ -357,6 +409,7 @@ def parse_chapters(path):
 
     return ffmetadata, chapters
 
+
 def parse_bad_frames_csv(text):
     vals = []
     seen = set()
@@ -375,6 +428,7 @@ def parse_bad_frames_csv(text):
     vals.sort()
     return vals
 
+
 def robust_zscore(values, return_stats=False):
     np = _np()
     vals = np.asarray(values, dtype=np.float64)
@@ -389,6 +443,7 @@ def robust_zscore(values, return_stats=False):
         return z, center, scale
     return z
 
+
 def combine_signal_scores(
     chroma_scores,
     noise_scores,
@@ -401,7 +456,12 @@ def combine_signal_scores(
     include_norm=False,
 ):
     np = _np()
-    w_sum = float(weight_chroma) + float(weight_noise) + float(weight_tear) + float(weight_wave)
+    w_sum = (
+        float(weight_chroma)
+        + float(weight_noise)
+        + float(weight_tear)
+        + float(weight_wave)
+    )
     if w_sum <= 0:
         raise ValueError("At least one signal weight must be > 0.")
     chroma_z, cc, cs = robust_zscore(chroma_scores, return_stats=True)
@@ -425,6 +485,7 @@ def combine_signal_scores(
     }
     return score, norm
 
+
 def combined_score(sigs, wc, wn, wt, ww):
     return combine_signal_scores(
         sigs["chroma"],
@@ -437,6 +498,7 @@ def combined_score(sigs, wc, wn, wt, ww):
         ww,
         include_norm=False,
     )
+
 
 def compute_threshold(scores, mode, iqr_mult, thresh_val, bad_pct):
     np = _np()
@@ -452,16 +514,20 @@ def compute_threshold(scores, mode, iqr_mult, thresh_val, bad_pct):
         return float(thresh_val)
     return float(np.quantile(v, 1.0 - float(bad_pct) / 100.0))
 
+
 def format_bad_frames_csv(frame_ids):
     vals = sorted({int(x) for x in (frame_ids or []) if int(x) >= 0})
     return ",".join(str(v) for v in vals)
 
+
 def render_settings_path(archive: str) -> Path:
     return METADATA_DIR / str(archive or "").strip() / "render_settings.json"
+
 
 GAMMA_CORRECTION_DEFAULT_KEY = "gamma_correction_default"
 GAMMA_CORRECTION_RANGES_KEY = "gamma_correction_ranges"
 AUDIO_SYNC_OFFSETS_KEY = "audio_sync_offsets"
+
 
 def _render_settings_template() -> dict:
     return {
@@ -489,6 +555,7 @@ def _render_settings_template() -> dict:
         "audio_sync_offsets": [],
     }
 
+
 def _normalize_transcript_mode(raw: object, default: str = "off") -> str:
     mode = str(raw if raw is not None else default).strip().lower()
     if mode in {"off", "false", "0", "no", "skip", "none"}:
@@ -496,6 +563,7 @@ def _normalize_transcript_mode(raw: object, default: str = "off") -> str:
     if mode in {"on", "true", "1", "yes", "force", "auto"}:
         return "on"
     return str(default).strip().lower() if str(default).strip() else "off"
+
 
 def _normalize_gamma_value(raw: object, default: float = 1.0) -> float:
     try:
@@ -505,6 +573,7 @@ def _normalize_gamma_value(raw: object, default: float = 1.0) -> float:
     if not (value == value):  # NaN
         value = float(default)
     return max(0.05, min(8.0, float(value)))
+
 
 def _canonicalize_gamma_ranges(raw_ranges) -> list[dict[str, float | int]]:
     entries: list[tuple[int, int, float, int]] = []
@@ -553,7 +622,11 @@ def _canonicalize_gamma_ranges(raw_ranges) -> list[dict[str, float | int]]:
                 winner_gamma = g
         if winner_gamma is None:
             continue
-        if resolved and resolved[-1][1] == seg_a and abs(float(resolved[-1][2]) - float(winner_gamma)) < 1e-6:
+        if (
+            resolved
+            and resolved[-1][1] == seg_a
+            and abs(float(resolved[-1][2]) - float(winner_gamma)) < 1e-6
+        ):
             prev_a, _prev_b, prev_g = resolved[-1]
             resolved[-1] = (prev_a, seg_b, prev_g)
         else:
@@ -568,6 +641,7 @@ def _canonicalize_gamma_ranges(raw_ranges) -> list[dict[str, float | int]]:
         for a, b, g in resolved
         if int(b) > int(a)
     ]
+
 
 def _clip_gamma_ranges_to_span(
     ranges,
@@ -591,15 +665,21 @@ def _clip_gamma_ranges_to_span(
         rb = min(end, b)
         if rb <= ra:
             continue
-        clipped.append({"start_frame": int(ra), "end_frame": int(rb), "gamma": float(g)})
+        clipped.append(
+            {"start_frame": int(ra), "end_frame": int(rb), "gamma": float(g)}
+        )
     return _canonicalize_gamma_ranges(clipped)
+
 
 def _gamma_default_from_cfg(cfg: dict, default: float = 1.0) -> float:
     if not isinstance(cfg, dict):
         return _normalize_gamma_value(default, default=1.0)
     if GAMMA_CORRECTION_DEFAULT_KEY in cfg:
-        return _normalize_gamma_value(cfg.get(GAMMA_CORRECTION_DEFAULT_KEY), default=default)
+        return _normalize_gamma_value(
+            cfg.get(GAMMA_CORRECTION_DEFAULT_KEY), default=default
+        )
     return _normalize_gamma_value(default, default=1.0)
+
 
 def _gamma_ranges_from_cfg(cfg: dict) -> list[dict[str, float | int]]:
     if not isinstance(cfg, dict):
@@ -607,6 +687,7 @@ def _gamma_ranges_from_cfg(cfg: dict) -> list[dict[str, float | int]]:
     if GAMMA_CORRECTION_RANGES_KEY in cfg:
         return _canonicalize_gamma_ranges(cfg.get(GAMMA_CORRECTION_RANGES_KEY, []))
     return []
+
 
 def _migrate_v1_to_v2(data: dict) -> dict:
     """Migrate a v1 render_settings dict to v2 in memory."""
@@ -616,7 +697,9 @@ def _migrate_v1_to_v2(data: dict) -> dict:
     old_bad_by_chapter = dict(data.get("bad_frames_by_chapter") or {})
 
     # Archive gamma: carry forward
-    out["archive_settings"][GAMMA_CORRECTION_DEFAULT_KEY] = _gamma_default_from_cfg(old_archive, default=1.0)
+    out["archive_settings"][GAMMA_CORRECTION_DEFAULT_KEY] = _gamma_default_from_cfg(
+        old_archive, default=1.0
+    )
     archive_ranges = list(_gamma_ranges_from_cfg(old_archive))
 
     # Merge chapter-level gamma overrides into archive ranges
@@ -626,7 +709,9 @@ def _migrate_v1_to_v2(data: dict) -> dict:
         if ch_ranges:
             archive_ranges = archive_ranges + ch_ranges
 
-    out["archive_settings"][GAMMA_CORRECTION_RANGES_KEY] = _canonicalize_gamma_ranges(archive_ranges)
+    out["archive_settings"][GAMMA_CORRECTION_RANGES_KEY] = _canonicalize_gamma_ranges(
+        archive_ranges
+    )
 
     # Flatten bad_frames_by_chapter → sorted deduplicated bad_frames list
     merged: set[int] = set()
@@ -697,11 +782,16 @@ def load_render_settings(archive: str, create: bool = False) -> tuple[Path, dict
                 if int(out.get("version") or 2) < 3:
                     out = _migrate_v2_to_v3(out)
                 out["archive_settings"] = dict(out.get("archive_settings") or {})
-                out["archive_settings"][GAMMA_CORRECTION_DEFAULT_KEY] = _gamma_default_from_cfg(
-                    out["archive_settings"], default=1.0,
+                out["archive_settings"][GAMMA_CORRECTION_DEFAULT_KEY] = (
+                    _gamma_default_from_cfg(
+                        out["archive_settings"],
+                        default=1.0,
+                    )
                 )
-                out["archive_settings"][GAMMA_CORRECTION_RANGES_KEY] = _gamma_ranges_from_cfg(
-                    out["archive_settings"],
+                out["archive_settings"][GAMMA_CORRECTION_RANGES_KEY] = (
+                    _gamma_ranges_from_cfg(
+                        out["archive_settings"],
+                    )
                 )
                 bad = out.get("bad_frames") or []
                 out["bad_frames"] = sorted({int(x) for x in bad if int(x) >= 0})
@@ -717,6 +807,7 @@ def load_render_settings(archive: str, create: bool = False) -> tuple[Path, dict
         path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     return path, data
 
+
 def save_render_settings(archive: str, settings: dict) -> Path:
     path = render_settings_path(archive)
     payload = dict(_render_settings_template())
@@ -724,7 +815,8 @@ def save_render_settings(archive: str, settings: dict) -> Path:
     payload["_comments"] = dict(_render_settings_template().get("_comments") or {})
     payload["archive_settings"] = dict(payload.get("archive_settings") or {})
     payload["archive_settings"][GAMMA_CORRECTION_DEFAULT_KEY] = _gamma_default_from_cfg(
-        payload["archive_settings"], default=1.0,
+        payload["archive_settings"],
+        default=1.0,
     )
     payload["archive_settings"][GAMMA_CORRECTION_RANGES_KEY] = _gamma_ranges_from_cfg(
         payload["archive_settings"],
@@ -741,9 +833,11 @@ def save_render_settings(archive: str, settings: dict) -> Path:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return path
 
+
 def load_bad_frames_from_render_settings(archive: str) -> list[int]:
     _path, settings = load_render_settings(archive, create=False)
     return list(settings.get("bad_frames") or [])
+
 
 def get_audio_sync_offset_for_chapter(
     archive: str,
@@ -756,7 +850,9 @@ def get_audio_sync_offset_for_chapter(
     Returns 0.0 if no entry applies.
     """
     _path, settings = load_render_settings(archive, create=False)
-    offsets = _canonicalize_audio_sync_offsets(settings.get(AUDIO_SYNC_OFFSETS_KEY) or [])
+    offsets = _canonicalize_audio_sync_offsets(
+        settings.get(AUDIO_SYNC_OFFSETS_KEY) or []
+    )
     if not offsets:
         return 0.0
     mid = (int(ch_start) + int(ch_end)) // 2
@@ -768,6 +864,7 @@ def get_audio_sync_offset_for_chapter(
             result = float(entry["offset_seconds"])
     return result
 
+
 def update_chapter_audio_sync_in_render_settings(
     archive: str,
     ch_start: int,
@@ -776,7 +873,9 @@ def update_chapter_audio_sync_in_render_settings(
 ) -> Path:
     """Set (or clear) the audio sync offset for the frame range [ch_start, ch_end)."""
     _, settings = load_render_settings(archive, create=True)
-    existing = _canonicalize_audio_sync_offsets(settings.get(AUDIO_SYNC_OFFSETS_KEY) or [])
+    existing = _canonicalize_audio_sync_offsets(
+        settings.get(AUDIO_SYNC_OFFSETS_KEY) or []
+    )
     # Remove any existing entries that overlap [ch_start, ch_end)
     kept = []
     for entry in existing:
@@ -787,14 +886,33 @@ def update_chapter_audio_sync_in_render_settings(
         else:
             # Preserve portions outside the chapter span
             if a < ch_start:
-                kept.append({"start_frame": a, "end_frame": ch_start, "offset_seconds": entry["offset_seconds"]})
+                kept.append(
+                    {
+                        "start_frame": a,
+                        "end_frame": ch_start,
+                        "offset_seconds": entry["offset_seconds"],
+                    }
+                )
             if b > ch_end:
-                kept.append({"start_frame": ch_end, "end_frame": b, "offset_seconds": entry["offset_seconds"]})
+                kept.append(
+                    {
+                        "start_frame": ch_end,
+                        "end_frame": b,
+                        "offset_seconds": entry["offset_seconds"],
+                    }
+                )
     # Add the new entry only if offset is non-zero
     if abs(float(offset_seconds)) >= 1e-6:
-        kept.append({"start_frame": int(ch_start), "end_frame": int(ch_end), "offset_seconds": float(offset_seconds)})
+        kept.append(
+            {
+                "start_frame": int(ch_start),
+                "end_frame": int(ch_end),
+                "offset_seconds": float(offset_seconds),
+            }
+        )
     settings[AUDIO_SYNC_OFFSETS_KEY] = _canonicalize_audio_sync_offsets(kept)
     return save_render_settings(archive, settings)
+
 
 def get_bad_frames_for_chapter(
     archive: str,
@@ -820,9 +938,12 @@ def get_bad_frames_for_chapter(
                 None,
             )
             if chapter_obj is not None:
-                start_frame, end_frame = chapter_frame_bounds(chapter_obj, fps_num=30000, fps_den=1001)
+                start_frame, end_frame = chapter_frame_bounds(
+                    chapter_obj, fps_num=30000, fps_den=1001
+                )
                 return [f for f in all_bad if start_frame <= f < end_frame]
     return []
+
 
 def merge_bad_frames_in_render_settings(archive: str, new_frames) -> Path:
     _path, settings = load_render_settings(archive, create=True)
@@ -837,6 +958,7 @@ def merge_bad_frames_in_render_settings(archive: str, new_frames) -> Path:
     settings["bad_frames"] = sorted(existing)
     return save_render_settings(archive, settings)
 
+
 def replace_chapter_bad_frames_in_render_settings(
     archive: str,
     ch_start: int,
@@ -844,10 +966,15 @@ def replace_chapter_bad_frames_in_render_settings(
     new_frames: list[int],
 ) -> Path:
     _, settings = load_render_settings(archive, create=True)
-    existing = [f for f in (settings.get("bad_frames") or []) if not (ch_start <= f < ch_end)]
-    new_valid = sorted({int(f) for f in (new_frames or []) if ch_start <= int(f) < ch_end})
+    existing = [
+        f for f in (settings.get("bad_frames") or []) if not (ch_start <= f < ch_end)
+    ]
+    new_valid = sorted(
+        {int(f) for f in (new_frames or []) if ch_start <= int(f) < ch_end}
+    )
     settings["bad_frames"] = sorted(set(existing) | set(new_valid))
     return save_render_settings(archive, settings)
+
 
 def get_gamma_profile_for_chapter(
     archive: str,
@@ -879,6 +1006,7 @@ def get_gamma_profile_for_chapter(
         "source": source,
     }
 
+
 def _clip_ranges_outside_span(
     ranges: list[dict],
     ch_start: int,
@@ -893,6 +1021,7 @@ def _clip_ranges_outside_span(
         if b > ch_end:
             result.append({"start_frame": max(a, ch_end), "end_frame": b, "gamma": g})
     return result
+
 
 def update_chapter_gamma_in_render_settings(
     archive: str,
@@ -920,7 +1049,9 @@ def update_chapter_gamma_in_render_settings(
     if default_gamma is not None and ch_start is not None and ch_end is not None:
         next_default = _normalize_gamma_value(default_gamma, default=archive_default)
         if abs(next_default - float(archive_default)) >= 1e-6:
-            new_ranges = [{"start_frame": ch_start, "end_frame": ch_end, "gamma": next_default}] + new_ranges
+            new_ranges = [
+                {"start_frame": ch_start, "end_frame": ch_end, "gamma": next_default}
+            ] + new_ranges
 
     merged = _canonicalize_gamma_ranges(outside + new_ranges)
     archive_settings[GAMMA_CORRECTION_RANGES_KEY] = merged
@@ -928,8 +1059,10 @@ def update_chapter_gamma_in_render_settings(
     settings["archive_settings"] = archive_settings
     return save_render_settings(archive, settings)
 
+
 def get_transcript_mode_for_chapter(archive: str, chapter_title: str) -> str:
     import csv as _csv
+
     tsv_path = METADATA_DIR / str(archive or "").strip() / "chapters.tsv"
     if not tsv_path.exists():
         return "off"
@@ -940,6 +1073,7 @@ def get_transcript_mode_for_chapter(archive: str, chapter_title: str) -> str:
                 return _normalize_transcript_mode((row or {}).get("transcript", "off"))
     return "off"
 
+
 def update_chapter_transcript_in_chapters_tsv(
     archive: str,
     chapter_title: str,
@@ -947,6 +1081,7 @@ def update_chapter_transcript_in_chapters_tsv(
     transcript: str,
 ) -> Path:
     import csv as _csv
+
     tsv_path = METADATA_DIR / str(archive or "").strip() / "chapters.tsv"
     if not tsv_path.exists():
         return tsv_path
@@ -967,13 +1102,18 @@ def update_chapter_transcript_in_chapters_tsv(
         return tsv_path
     with tsv_path.open("w", encoding="utf-8", newline="") as fh:
         writer = _csv.DictWriter(
-            fh, fieldnames=fieldnames, delimiter="\t",
-            lineterminator="\n", extrasaction="ignore", restval="",
+            fh,
+            fieldnames=fieldnames,
+            delimiter="\t",
+            lineterminator="\n",
+            extrasaction="ignore",
+            restval="",
         )
         writer.writeheader()
         for row in rows:
             writer.writerow(row)
     return tsv_path
+
 
 _FRAME_LIST_KEYS = (
     "bad_frames",
@@ -981,9 +1121,11 @@ _FRAME_LIST_KEYS = (
     "good_frame_override",
 )
 
+
 def _normalize_frame_list_key(key):
     k = str(key or "").strip().lower()
     return k if k in _FRAME_LIST_KEYS else ""
+
 
 def update_chapter_frame_lists_in_ffmetadata(path, chapter_frame_lists):
     """
@@ -1082,6 +1224,7 @@ def update_chapter_frame_lists_in_ffmetadata(path, chapter_frame_lists):
     p.write_text("\n".join(out) + "\n", encoding="utf-8")
     return touched
 
+
 def update_chapter_bad_frames_in_ffmetadata(path, chapter_bad_frames):
     """
     Update BAD_FRAMES lines in chapters.ffmetadata in-place.
@@ -1093,6 +1236,7 @@ def update_chapter_bad_frames_in_ffmetadata(path, chapter_bad_frames):
     }
     return update_chapter_frame_lists_in_ffmetadata(path, mapped)
 
+
 def is_chapter_done(final_file):
     if not final_file.exists():
         return False
@@ -1102,28 +1246,41 @@ def is_chapter_done(final_file):
 
     return True
 
+
 def duration(path):
     try:
         out = subprocess.check_output(
-            [FFPROBE_BIN, "-v", "error", "-show_entries", "format=duration",
-             "-of", "default=noprint_wrappers=1:nokey=1", str(path)],
+            [
+                FFPROBE_BIN,
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                str(path),
+            ],
             text=True,
         ).strip()
         return float(out) if out else 0
     except:
         return 0
 
+
 # ---------------------------------------------------------
 # Utility helpers
 # ---------------------------------------------------------
+
 
 def ensure_ffmpeg_exists():
     if not _command_exists(FFMPEG_BIN):
         raise FileNotFoundError(f"FFmpeg not found at {FFMPEG_BIN}")
 
+
 # ---------------------------------------------------------
 # SHA3-256 Checksums
 # ---------------------------------------------------------
+
 
 def sha3sum_file(path: Path, chunk_size: int = 1024 * 1024) -> str:
     hasher = hashlib.sha3_256()
@@ -1131,6 +1288,7 @@ def sha3sum_file(path: Path, chunk_size: int = 1024 * 1024) -> str:
         for chunk in iter(lambda: f.read(chunk_size), b""):
             hasher.update(chunk)
     return hasher.hexdigest()
+
 
 def write_sha3_manifest(root_dir, manifest_path, relative_base=None, ignore_fn=None):
     root_dir = Path(root_dir)
@@ -1156,6 +1314,7 @@ def write_sha3_manifest(root_dir, manifest_path, relative_base=None, ignore_fn=N
             out.write(f"{digest}  {rel_path}\n")
 
     print("Checksums written to:", manifest_path)
+
 
 def verify_sha3_manifest(root_dir, manifest_path):
     root_dir = Path(root_dir)
@@ -1203,6 +1362,7 @@ def verify_sha3_manifest(root_dir, manifest_path):
     print(f"{failures} FILES FAILED VERIFICATION")
     return 1
 
+
 def verify_blake3_manifest(root_dir, manifest_path):
     if not _command_exists(B3SUM_BIN):
         print(f"ERROR: b3sum not found at {B3SUM_BIN}")
@@ -1223,6 +1383,7 @@ def verify_blake3_manifest(root_dir, manifest_path):
 
     return r.returncode
 
+
 def detect_manifest_algo(manifest_path):
     name = Path(manifest_path).name.lower()
     if "blake3" in name:
@@ -1230,6 +1391,7 @@ def detect_manifest_algo(manifest_path):
     if "sha3" in name:
         return "sha3"
     return None
+
 
 def verify_manifest(root_dir, manifest_path, algo="auto"):
     algo = (algo or "auto").lower()

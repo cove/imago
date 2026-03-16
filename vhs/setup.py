@@ -28,6 +28,7 @@ BIN_DIR = BASE / "bin"
 
 LINUX_FFMPEG_ARCHIVE = BIN_DIR / "ffmpeg-release-amd64-static.tar.xz"
 
+
 def create_venv():
     if VENV_DIR.exists():
         print("Virtual environment already exists:", VENV_DIR)
@@ -38,11 +39,13 @@ def create_venv():
     builder.create(VENV_DIR)
     print("Done.")
 
+
 def get_python_bin():
     """Return path to python inside venv."""
     if sys.platform == "win32":
         return VENV_DIR / "Scripts" / "python.exe"
     return VENV_DIR / "bin" / "python"
+
 
 def install_requirements():
     if not REQ_FILE.exists():
@@ -51,9 +54,12 @@ def install_requirements():
 
     python_bin = get_python_bin()
     print("Installing requirements from requirements.txt ...")
-    subprocess.check_call([str(python_bin), "-m", "pip", "install", "-r", str(REQ_FILE)])
+    subprocess.check_call(
+        [str(python_bin), "-m", "pip", "install", "-r", str(REQ_FILE)]
+    )
     print("Python requirements installed.")
     print("All requirements installed.")
+
 
 def _needs_refresh(target_path, source_paths):
     target = Path(target_path)
@@ -66,12 +72,14 @@ def _needs_refresh(target_path, source_paths):
             return True
     return False
 
+
 def _safe_chmod(path, mode):
     try:
         os.chmod(path, mode)
     except PermissionError:
         # Some shared/mounted filesystems do not support chmod; continue anyway.
         pass
+
 
 def _extract_tar_member(archive_path, member_suffix, output_path, executable=False):
     archive = Path(archive_path)
@@ -86,11 +94,15 @@ def _extract_tar_member(archive_path, member_suffix, output_path, executable=Fal
                 member = m
                 break
         if member is None:
-            raise RuntimeError(f"Member '{member_suffix}' not found in archive: {archive.name}")
+            raise RuntimeError(
+                f"Member '{member_suffix}' not found in archive: {archive.name}"
+            )
 
         src = tf.extractfile(member)
         if src is None:
-            raise RuntimeError(f"Unable to extract member '{member.name}' from: {archive.name}")
+            raise RuntimeError(
+                f"Unable to extract member '{member.name}' from: {archive.name}"
+            )
         out.parent.mkdir(parents=True, exist_ok=True)
         with open(out, "wb") as dst:
             shutil.copyfileobj(src, dst)
@@ -99,6 +111,7 @@ def _extract_tar_member(archive_path, member_suffix, output_path, executable=Fal
         _safe_chmod(out, 0o755)
     else:
         _safe_chmod(out, 0o644)
+
 
 def install_linux_binary_archives():
     if not sys.platform.startswith("linux"):
@@ -114,11 +127,15 @@ def install_linux_binary_archives():
 
     if _needs_refresh(ffmpeg_bin, [LINUX_FFMPEG_ARCHIVE]):
         print(f"Extracting ffmpeg from {LINUX_FFMPEG_ARCHIVE.name} ...")
-        _extract_tar_member(LINUX_FFMPEG_ARCHIVE, "/ffmpeg", ffmpeg_bin, executable=True)
+        _extract_tar_member(
+            LINUX_FFMPEG_ARCHIVE, "/ffmpeg", ffmpeg_bin, executable=True
+        )
 
     if _needs_refresh(ffprobe_bin, [LINUX_FFMPEG_ARCHIVE]):
         print(f"Extracting ffprobe from {LINUX_FFMPEG_ARCHIVE.name} ...")
-        _extract_tar_member(LINUX_FFMPEG_ARCHIVE, "/ffprobe", ffprobe_bin, executable=True)
+        _extract_tar_member(
+            LINUX_FFMPEG_ARCHIVE, "/ffprobe", ffprobe_bin, executable=True
+        )
 
     print("Linux ffmpeg binaries extracted to bin/.")
     if shutil.which("mediainfo") is None:
@@ -129,11 +146,13 @@ def install_linux_binary_archives():
     else:
         print("Found system 'mediainfo' on PATH.")
 
+
 def main():
     create_venv()
     install_linux_binary_archives()
     install_requirements()
     print("Environment setup complete.")
+
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,16 @@
+{
+  "include": ["photoalbums", "vhs", "cast"],
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "basic",
+  "reportMissingImports": "warning",
+  "reportMissingModuleSource": "none",
+  "reportMissingTypeStubs": "none",
+  "reportPrivateImportUsage": "none",
+  "reportOptionalMemberAccess": "warning",
+  "reportAttributeAccessIssue": "warning",
+  "reportOptionalCall": "warning",
+  "reportArgumentType": "warning",
+  "reportAssignmentType": "warning"
+}

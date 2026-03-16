@@ -75,6 +75,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "label-photos":
         from .label_photos import run_label_photos
         from .ingest import FaceIngestor
+
         extensions = tuple(
             e.strip() if e.strip().startswith(".") else f".{e.strip()}"
             for e in str(args.extensions).split(",")

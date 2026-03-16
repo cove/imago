@@ -22,14 +22,17 @@ import numpy as np
 from PIL import Image
 
 # -- Project paths -------------------------------------------------------------
-_HERE        = Path(__file__).resolve().parent
+_HERE = Path(__file__).resolve().parent
 PROJECT_ROOT = _HERE.parent if _HERE.name in {"scripts", "libs"} else _HERE
 sys.path.insert(0, str(PROJECT_ROOT))
 
-ARCHIVE_DIR  = PROJECT_ROOT / "../../Archive"
+ARCHIVE_DIR = PROJECT_ROOT / "../../Archive"
 METADATA_DIR = PROJECT_ROOT / "metadata"
-FPS          = 30000 / 1001
-TUNER_CACHE_ROOT = Path(os.environ.get("VHS_TUNER_CACHE_DIR") or (Path(tempfile.gettempdir()) / "vhs_tuner_cache"))
+FPS = 30000 / 1001
+TUNER_CACHE_ROOT = Path(
+    os.environ.get("VHS_TUNER_CACHE_DIR")
+    or (Path(tempfile.gettempdir()) / "vhs_tuner_cache")
+)
 TUNER_EXTRACT_DIR = TUNER_CACHE_ROOT / "extracts"
 TUNER_FRAME_CACHE_DIR = TUNER_CACHE_ROOT / "frame_samples"
 TUNER_DEBUG_EXTRACT_ENV = "VHS_TUNER_DEBUG_EXTRACT_FRAMES"
@@ -53,6 +56,7 @@ from common import (
 # Chapter / metadata helpers
 # ===============================================================================
 
+
 def load_archive_chapters(path: Path) -> list[dict]:
     # Keep chapter frame mapping identical to the render pipeline.
     path = Path(path)
@@ -75,6 +79,7 @@ def load_archive_chapters(path: Path) -> list[dict]:
             }
         )
     return result
+
 
 # Backward-compatible alias for older callers.
 parse_ffmetadata_chapters = load_archive_chapters
@@ -189,8 +194,12 @@ def _chapter_from_tsv_row(archive: str, row: dict[str, str]) -> dict | None:
 
         if tb is not None and start_raw is not None and end_raw is not None:
             tb_num, tb_den = tb
-            start_sec = float(Fraction(int(start_raw), 1) * Fraction(int(tb_num), int(tb_den)))
-            end_sec = float(Fraction(int(end_raw), 1) * Fraction(int(tb_num), int(tb_den)))
+            start_sec = float(
+                Fraction(int(start_raw), 1) * Fraction(int(tb_num), int(tb_den))
+            )
+            end_sec = float(
+                Fraction(int(end_raw), 1) * Fraction(int(tb_num), int(tb_den))
+            )
             start_frame, end_frame = chapter_frame_bounds(
                 {
                     "start_raw": int(start_raw),
@@ -278,9 +287,11 @@ def _normalize_frame_span(ch_start: int, ch_end: int) -> tuple[int, int]:
         end = start + 1
     return start, end
 
+
 def _env_truthy(name: str) -> bool:
     raw = str(os.environ.get(name, "")).strip().lower()
     return raw in {"1", "true", "yes", "on"}
+
 
 def _env_int(name: str, default: int, minimum: int) -> int:
     raw = str(os.environ.get(name, "")).strip()
@@ -291,6 +302,7 @@ def _env_int(name: str, default: int, minimum: int) -> int:
     except Exception:
         return max(minimum, int(default))
     return max(minimum, val)
+
 
 def _source_signature_token(source: str | Path | None) -> str:
     if source is None:
@@ -311,7 +323,9 @@ def _source_signature_token(source: str | Path | None) -> str:
 def _cleanup_tuner_cache(force: bool = False) -> None:
     global _LAST_CACHE_CLEANUP_TS
     now = time.time()
-    interval_sec = _env_int("VHS_TUNER_CACHE_CLEANUP_INTERVAL_SEC", default=300, minimum=30)
+    interval_sec = _env_int(
+        "VHS_TUNER_CACHE_CLEANUP_INTERVAL_SEC", default=300, minimum=30
+    )
     if not force and (now - _LAST_CACHE_CLEANUP_TS) < float(interval_sec):
         return
     _LAST_CACHE_CLEANUP_TS = now
@@ -321,7 +335,11 @@ def _cleanup_tuner_cache(force: bool = False) -> None:
         return
 
     ttl_days = _env_int("VHS_TUNER_CACHE_TTL_DAYS", default=14, minimum=1)
-    max_bytes = _env_int("VHS_TUNER_CACHE_MAX_BYTES", default=2 * 1024 * 1024 * 1024, minimum=64 * 1024 * 1024)
+    max_bytes = _env_int(
+        "VHS_TUNER_CACHE_MAX_BYTES",
+        default=2 * 1024 * 1024 * 1024,
+        minimum=64 * 1024 * 1024,
+    )
     cutoff = now - (float(ttl_days) * 86400.0)
 
     files: list[tuple[float, int, Path]] = []
@@ -363,6 +381,7 @@ def _cleanup_tuner_cache(force: bool = False) -> None:
         except Exception:
             continue
 
+
 def _chapter_extract_cache_path(
     archive: str,
     chapter_title: str,
@@ -387,17 +406,22 @@ def _chapter_extract_cache_path(
     key = hashlib.sha256(key_raw.encode("utf-8")).hexdigest()[:16]
     return TUNER_EXTRACT_DIR / key / "extracted.mkv"
 
+
 def _probe_video_frame_count(path: Path) -> int:
     p = Path(path)
     if not p.exists():
         return 0
     cmd = [
         str(FFPROBE_BIN),
-        "-v", "error",
+        "-v",
+        "error",
         "-count_frames",
-        "-select_streams", "v:0",
-        "-show_entries", "stream=nb_read_frames,nb_frames",
-        "-of", "default=noprint_wrappers=1",
+        "-select_streams",
+        "v:0",
+        "-show_entries",
+        "stream=nb_read_frames,nb_frames",
+        "-of",
+        "default=noprint_wrappers=1",
         str(p),
     ]
     try:
@@ -421,6 +445,7 @@ def _probe_video_frame_count(path: Path) -> int:
             counts[str(key or "").strip()] = int(parsed)
     return int(counts.get("nb_read_frames") or counts.get("nb_frames") or 0)
 
+
 def _video_frame_count(path: Path) -> int:
     p = Path(path)
     probed = _probe_video_frame_count(p)
@@ -442,6 +467,7 @@ def _video_frame_count(path: Path) -> int:
         return int(decoded_count)
     finally:
         cap.release()
+
 
 def _ensure_render_chapter_extract(
     *,
@@ -489,7 +515,10 @@ def _ensure_render_chapter_extract(
             text=True,
         )
     except FileNotFoundError:
-        return None, f"ffmpeg not found: {cmd[0]}\nRun setup.py to extract ffmpeg binaries."
+        return (
+            None,
+            f"ffmpeg not found: {cmd[0]}\nRun setup.py to extract ffmpeg binaries.",
+        )
     if proc.returncode != 0:
         return None, (proc.stderr or proc.stdout or "ffmpeg extraction failed").strip()
     actual_frames = _video_frame_count(out_path)
@@ -505,11 +534,14 @@ def _ensure_render_chapter_extract(
         )
     return out_path, ""
 
+
 def slugify(title: str) -> str:
     return re.sub(r"[^\w]+", "_", str(title).strip()).strip("_").lower()
 
+
 def _chapters_file_path(archive: str) -> Path:
     return METADATA_DIR / str(archive or "").strip() / "chapters.ffmetadata"
+
 
 def _chapter_bad_overrides(
     archive: str,
@@ -520,9 +552,11 @@ def _chapter_bad_overrides(
     # Seed per-session overrides from persisted chapter BAD_FRAMES so a chapter
     # reload reflects previously saved decisions in the sampled frame view.
     start, end = _normalize_frame_span(ch_start, ch_end)
-    bad_frames = get_bad_frames_for_chapter(str(archive or ""), str(chapter_title or ""), ch_start=start, ch_end=end)
+    bad_frames = get_bad_frames_for_chapter(
+        str(archive or ""), str(chapter_title or ""), ch_start=start, ch_end=end
+    )
     out: dict[int, str] = {}
-    for fid in (bad_frames or []):
+    for fid in bad_frames or []:
         try:
             fi = int(fid)
         except Exception:
@@ -563,9 +597,7 @@ def _persist_visible_bad_frames(
 
     start, end = _normalize_frame_span(ch_start, ch_end)
     existing_global_bad = {
-        int(x)
-        for x in ch.get("bad_frames", [])
-        if start <= int(x) < end
+        int(x) for x in ch.get("bad_frames", []) if start <= int(x) < end
     }
 
     scores = combined_score(sigs, wc, wn, wt, ww)
@@ -648,6 +680,7 @@ def persist_bad_frames_for_chapter(
     )
     return path, int(count), analyzed, ""
 
+
 def _signals_cache_path(
     archive: str,
     ch_title: str,
@@ -671,6 +704,7 @@ def _signals_cache_path(
     )
     key = hashlib.sha256(key_raw.encode("utf-8")).hexdigest()[:16]
     return TUNER_FRAME_CACHE_DIR / f"{key}.json.gz"
+
 
 def load_cached_signals(
     archive: str,
@@ -741,6 +775,7 @@ def load_cached_signals(
     except Exception:
         pass
     return fids, out_sigs, thumbs
+
 
 def save_cached_signals(
     archive: str,
@@ -816,39 +851,59 @@ def save_cached_signals(
         return
     _cleanup_tuner_cache()
 
-def _compute_signals(bgr: np.ndarray, crop: int = 50) -> tuple[float, float, float, float]:
+
+def _compute_signals(
+    bgr: np.ndarray, crop: int = 50
+) -> tuple[float, float, float, float]:
     h, w = bgr.shape[:2]
-    y0 = min(crop, max(0, h-1)); y1 = max(y0+1, h-crop)
-    x0 = min(crop, max(0, w-1)); x1 = max(x0+1, w-crop)
+    y0 = min(crop, max(0, h - 1))
+    y1 = max(y0 + 1, h - crop)
+    x0 = min(crop, max(0, w - 1))
+    x1 = max(x0 + 1, w - crop)
     roi = bgr[y0:y1, x0:x1]
     if roi.size == 0:
         roi = bgr
-    s           = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)[:, :, 1].astype(np.float32)
+    s = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)[:, :, 1].astype(np.float32)
     chroma_loss = 1.0 - float(np.mean(s) / 255.0)
-    gray        = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY).astype(np.float32)
-    row_vars    = np.var(gray, axis=1)
-    mean_var    = float(np.mean(row_vars))
-    noise       = float(np.std(row_vars) / mean_var) if mean_var > 1e-6 else 0.0
-    tear        = (float(np.percentile(np.abs(gray[1:] - gray[:-1]).mean(axis=1), 95))
-                   if gray.shape[0] > 1 else 0.0)
-    row_sums    = gray.sum(axis=1)
-    cols_idx    = np.arange(gray.shape[1], dtype=np.float32)
-    row_com     = (gray @ cols_idx) / np.maximum(row_sums, 1e-6)
-    wave        = (float(np.std(row_com - np.convolve(row_com, np.ones(5)/5, mode="same")))
-                   if row_com.shape[0] >= 5 else float(np.std(row_com)))
+    gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    row_vars = np.var(gray, axis=1)
+    mean_var = float(np.mean(row_vars))
+    noise = float(np.std(row_vars) / mean_var) if mean_var > 1e-6 else 0.0
+    tear = (
+        float(np.percentile(np.abs(gray[1:] - gray[:-1]).mean(axis=1), 95))
+        if gray.shape[0] > 1
+        else 0.0
+    )
+    row_sums = gray.sum(axis=1)
+    cols_idx = np.arange(gray.shape[1], dtype=np.float32)
+    row_com = (gray @ cols_idx) / np.maximum(row_sums, 1e-6)
+    wave = (
+        float(np.std(row_com - np.convolve(row_com, np.ones(5) / 5, mode="same")))
+        if row_com.shape[0] >= 5
+        else float(np.std(row_com))
+    )
     return chroma_loss, noise, tear, wave
+
 
 def _bgr_to_jpeg_b64(bgr: np.ndarray, width: int = 160) -> str:
     h, w = bgr.shape[:2]
-    thumb = cv2.resize(bgr, (width, int(width * h / max(w, 1))), interpolation=cv2.INTER_AREA)
+    thumb = cv2.resize(
+        bgr, (width, int(width * h / max(w, 1))), interpolation=cv2.INTER_AREA
+    )
     buf = io.BytesIO()
-    Image.fromarray(cv2.cvtColor(thumb, cv2.COLOR_BGR2RGB)).save(buf, format="JPEG", quality=72)
+    Image.fromarray(cv2.cvtColor(thumb, cv2.COLOR_BGR2RGB)).save(
+        buf, format="JPEG", quality=72
+    )
     return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
+
 
 def extract_frames(
     video_path: str,
-    start: int, end: int, n: int,
-    archive: str, ch_title: str,
+    start: int,
+    end: int,
+    n: int,
+    archive: str,
+    ch_title: str,
     frame_ids: list[int] | None = None,
     include_thumbs: bool = True,
     frame_read_offset: int = 0,
@@ -866,7 +921,8 @@ def extract_frames(
         if not frame_ids:
             target_n = max(1, min(int(n), max(1, end_i - start_i)))
             frame_ids = np.linspace(start_i, end_i - 1, target_n, dtype=int).tolist()
-    frame_set             = set(frame_ids)
+    assert frame_ids is not None
+    frame_set = set(frame_ids)
 
     cached_fids, cached_sigs, cached_thumbs = load_cached_signals(
         archive,
@@ -928,7 +984,9 @@ def extract_frames(
             if cached_thumb:
                 frame_thumb = cached_thumb
             else:
-                frame_thumb = _bgr_to_jpeg_b64(bgr if bgr is not None else np.zeros((240, 320, 3), dtype=np.uint8))
+                frame_thumb = _bgr_to_jpeg_b64(
+                    bgr if bgr is not None else np.zeros((240, 320, 3), dtype=np.uint8)
+                )
                 thumb_lookup[int(fid)] = frame_thumb
             frames_b64.append(frame_thumb)
         else:
@@ -939,13 +997,19 @@ def extract_frames(
             no = float(c["noise"])
             te = float(c["tear"])
             wa = float(c["wave"])
-            chroma_s.append(ch); noise_s.append(no)
-            tear_s.append(te);   wave_s.append(wa)
+            chroma_s.append(ch)
+            noise_s.append(no)
+            tear_s.append(te)
+            wave_s.append(wa)
         else:
-            compute_bgr = bgr if bgr is not None else np.zeros((240, 320, 3), dtype=np.uint8)
+            compute_bgr = (
+                bgr if bgr is not None else np.zeros((240, 320, 3), dtype=np.uint8)
+            )
             ch, no, te, wa = _compute_signals(compute_bgr)
-            chroma_s.append(ch); noise_s.append(no)
-            tear_s.append(te);   wave_s.append(wa)
+            chroma_s.append(ch)
+            noise_s.append(no)
+            tear_s.append(te)
+            wave_s.append(wa)
         if callable(frame_callback):
             frame_callback(
                 int(fid),
@@ -963,9 +1027,9 @@ def extract_frames(
 
     sigs: dict[str, np.ndarray] = {
         "chroma": np.array(chroma_s, dtype=np.float64),
-        "noise":  np.array(noise_s,  dtype=np.float64),
-        "tear":   np.array(tear_s,   dtype=np.float64),
-        "wave":   np.array(wave_s,   dtype=np.float64),
+        "noise": np.array(noise_s, dtype=np.float64),
+        "tear": np.array(tear_s, dtype=np.float64),
+        "wave": np.array(wave_s, dtype=np.float64),
     }
 
     # Merge into persistent cache
@@ -977,7 +1041,7 @@ def extract_frames(
                 all_fids_l.append(fid)
                 for k, arr in cached_sigs.items():
                     all_sigs_l[k].append(float(arr[i]))
-    order       = list(np.argsort(all_fids_l))
+    order = list(np.argsort(all_fids_l))
     sorted_fids = [all_fids_l[i] for i in order]
     sorted_sigs = {k: np.array([v[i] for i in order]) for k, v in all_sigs_l.items()}
     save_cached_signals(
@@ -994,9 +1058,11 @@ def extract_frames(
 
     return frame_ids, frames_b64, sigs, ""
 
+
 # ===============================================================================
 # Scoring / thresholding (shared in common.py)
 # ===============================================================================
+
 
 def toggle_frame_override(
     fid: int,
@@ -1026,6 +1092,7 @@ def toggle_frame_override(
     else:
         del out[int(fid)]
     return out
+
 
 def set_frame_override_mode(
     fid: int,
@@ -1125,14 +1192,24 @@ def apply_manual_click_override(
     try:
         fid, ts = _parse_click_payload(raw_click)
     except Exception:
-        return current, dict(last_click_event or {}), f"ignored: invalid payload '{raw_click}'"
+        return (
+            current,
+            dict(last_click_event or {}),
+            f"ignored: invalid payload '{raw_click}'",
+        )
 
     if fid not in {int(x) for x in fids}:
-        return current, dict(last_click_event or {}), f"ignored: frame {fid} not in sampled set"
+        return (
+            current,
+            dict(last_click_event or {}),
+            f"ignored: frame {fid} not in sampled set",
+        )
 
     if _should_dedupe_click(fid=fid, ts=ts, last_click_event=last_click_event):
-        return current, dict(last_click_event or {}), (
-            f"ignored: duplicate click fid={fid} ts={ts}"
+        return (
+            current,
+            dict(last_click_event or {}),
+            (f"ignored: duplicate click fid={fid} ts={ts}"),
         )
 
     before = current.get(fid)
@@ -1216,13 +1293,15 @@ def suggest_iqr_k(scores: np.ndarray) -> dict:
         else:
             gap = max(0.0, float(above[0]) - float(below[-1]))
         gap_score = gap * math.log2(1.0 + bad_count)
-        candidates.append({
-            "k": round(k, 2),
-            "threshold": round(float(thr), 4),
-            "bad_count": int(bad_count),
-            "gap_width": round(gap, 4),
-            "gap_score": round(gap_score, 4),
-        })
+        candidates.append(
+            {
+                "k": round(k, 2),
+                "threshold": round(float(thr), 4),
+                "bad_count": int(bad_count),
+                "gap_width": round(gap, 4),
+                "gap_score": round(gap_score, 4),
+            }
+        )
 
     candidates.sort(key=lambda x: x["gap_score"], reverse=True)
     best = candidates[0]
@@ -1289,15 +1368,17 @@ def find_spike_regions(
         region_scores = scores_arr[lo_idx : hi_idx + 1]
         bad_in_region = int(np.sum(region_scores >= float(threshold)))
         peak_local = int(np.argmax(region_scores))
-        result.append({
-            "region_index": i,
-            "start_fid": int(region_fids[0]),
-            "end_fid": int(region_fids[-1]),
-            "frame_count": int(len(region_fids)),
-            "peak_score": round(float(region_scores[peak_local]), 4),
-            "peak_fid": int(region_fids[peak_local]),
-            "bad_frame_count": bad_in_region,
-        })
+        result.append(
+            {
+                "region_index": i,
+                "start_fid": int(region_fids[0]),
+                "end_fid": int(region_fids[-1]),
+                "frame_count": int(len(region_fids)),
+                "peak_score": round(float(region_scores[peak_local]), 4),
+                "peak_fid": int(region_fids[peak_local]),
+                "bad_frame_count": bad_in_region,
+            }
+        )
 
     return result
 
@@ -1330,7 +1411,11 @@ def estimate_gamma_from_frames(b64_frames: list[str]) -> dict:
             continue
 
     if not luminances:
-        return {"suggested_gamma": 1.0, "median_luminance_normalized": 0.0, "sample_count": 0}
+        return {
+            "suggested_gamma": 1.0,
+            "median_luminance_normalized": 0.0,
+            "sample_count": 0,
+        }
 
     median_l = float(np.median(luminances))
     median_norm = median_l / 255.0
@@ -1355,6 +1440,7 @@ def estimate_gamma_from_frames(b64_frames: list[str]) -> dict:
 # SVG Sparklines  - timeline charts with horizontal red cut line
 # ===============================================================================
 
+
 def _sparkline_svg(
     values: np.ndarray,
     threshold: float | None = None,
@@ -1376,14 +1462,14 @@ def _sparkline_svg(
             f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {SVG_W} {height}" '
             f'style="background:#0a0a0a;display:block;width:220px;max-width:100%;border-radius:2px;margin-bottom:3px">'
             f'<text x="4" y="14" font-family="Courier New" font-size="9" fill="#444">{label}</text>'
-            f'</svg>'
+            f"</svg>"
         )
 
-    vmin   = float(v.min())
-    vmax   = float(v.max())
+    vmin = float(v.min())
+    vmax = float(v.max())
     vrange = (vmax - vmin) or 1.0
-    n      = len(v)
-    PAD    = 3  # top padding so high points aren't clipped
+    n = len(v)
+    PAD = 3  # top padding so high points aren't clipped
 
     def _x(i: int) -> float:
         return i / max(n - 1, 1) * SVG_W
@@ -1418,15 +1504,19 @@ def _sparkline_svg(
         f'style="background:#0a0a0a;display:block;width:220px;max-width:100%;border-radius:2px;margin-bottom:3px">'
         f'<polygon points="{area_pts}" fill="{line_color}" opacity="0.12"/>'
         f'<polyline points="{pts}" fill="none" stroke="{line_color}" stroke-width="1.3" opacity="0.85"/>'
-        f'{tline}{lbl}'
-        f'</svg>'
+        f"{tline}{lbl}"
+        f"</svg>"
     )
+
 
 def build_sparklines_html(
     sigs: dict,
     scores: np.ndarray,
     threshold: float,
-    wc: float, wn: float, wt: float, ww: float,
+    wc: float,
+    wn: float,
+    wt: float,
+    ww: float,
 ) -> tuple[str, str, str, str, str]:
     """
     Returns (spark_chroma, spark_noise, spark_tear, spark_wave, spark_score).
@@ -1435,6 +1525,7 @@ def build_sparklines_html(
     The line opacity tracks the current weight (dim when weight is low).
     The composite score sparkline carries the red threshold line.
     """
+
     def _col(w: float) -> str:
         alpha = 0.25 + 0.75 * min(1.0, w / 0.5)
         return f"rgba(39,168,90,{alpha:.2f})"
@@ -1478,10 +1569,12 @@ def build_sparklines_html(
         height=24,
         line_color=_col(ww),
     )
-    sc_score  = _sparkline_svg(scores, threshold, "composite score",
-                                height=32, line_color="#5599dd")
+    sc_score = _sparkline_svg(
+        scores, threshold, "composite score", height=32, line_color="#5599dd"
+    )
 
     return sc_chroma, sc_noise, sc_tear, sc_wave, sc_score
+
 
 # Chapter list helpers
 def _get_archives() -> list[str]:
@@ -1498,8 +1591,10 @@ def _resolve_archive_video(archive: str) -> Path | None:
     mkv = ARCHIVE_DIR / f"{archive}.mkv"
     return proxy if proxy.exists() else mkv if mkv.exists() else None
 
+
 CHAPTER_SELECT_LABEL = "-- select chapter --"
 CHAPTER_MISSING_LABEL = "-- no chapters metadata found --"
+
 
 def _get_chapter_titles(archive: str, chapters: list[dict] | None = None) -> list[str]:
     if not archive:
@@ -1509,10 +1604,14 @@ def _get_chapter_titles(archive: str, chapters: list[dict] | None = None) -> lis
         chapter_rows, _source = _load_archive_chapters_for_ui(archive)
     if not chapter_rows:
         return [CHAPTER_MISSING_LABEL]
-    return [CHAPTER_SELECT_LABEL] + [str(ch.get("title", "")) for ch in chapter_rows if str(ch.get("title", ""))]
+    return [CHAPTER_SELECT_LABEL] + [
+        str(ch.get("title", "")) for ch in chapter_rows if str(ch.get("title", ""))
+    ]
+
 
 def _find_chapter(chapters: list[dict], title: str) -> dict | None:
     return next((c for c in chapters if c["title"] == title), None)
+
 
 def _fmt_hms(total_sec: float) -> str:
     sec_i = max(0, int(round(float(total_sec))))
@@ -1521,6 +1620,7 @@ def _fmt_hms(total_sec: float) -> str:
     s = sec_i % 60
     return f"{h:02d}:{m:02d}:{s:02d}"
 
+
 def _chapter_frame_count(ch: dict) -> int:
     start_i, end_i = _normalize_frame_span(
         int(ch.get("start_frame", 0)),
@@ -1528,17 +1628,17 @@ def _chapter_frame_count(ch: dict) -> int:
     )
     return max(0, end_i - start_i)
 
+
 def _chapter_bad_count(ch: dict) -> int:
     start_i, end_i = _normalize_frame_span(
         int(ch.get("start_frame", 0)),
         int(ch.get("end_frame", 0)),
     )
     bad = [
-        int(x)
-        for x in (ch.get("bad_frames", []) or [])
-        if start_i <= int(x) < end_i
+        int(x) for x in (ch.get("bad_frames", []) or []) if start_i <= int(x) < end_i
     ]
     return len(bad)
+
 
 def _chapter_rows(chapters: list[dict]) -> tuple[list[list], list[list]]:
     rows: list[list] = []
@@ -1551,6 +1651,7 @@ def _chapter_rows(chapters: list[dict]) -> tuple[list[list], list[list]]:
         rows.append([idx + 1, title, _fmt_hms(dur), frame_count, bad_count])
         compact_rows.append([idx + 1, bad_count])
     return rows, compact_rows
+
 
 def _chapter_details_md(ch: dict | None) -> str:
     if not ch:
@@ -1576,13 +1677,19 @@ def build_archive_state(
 ) -> dict:
     chapters, chapter_source = _load_archive_chapters_for_ui(archive)
     titles = _get_chapter_titles(archive, chapters=chapters)
-    chapter_titles = [str(ch.get("title", "")) for ch in chapters if str(ch.get("title", ""))]
+    chapter_titles = [
+        str(ch.get("title", "")) for ch in chapters if str(ch.get("title", ""))
+    ]
     chapter_rows, compact_rows = _chapter_rows(chapters)
 
     if selected_title and str(selected_title) in chapter_titles:
         chapter_value = str(selected_title)
     else:
-        chapter_value = chapter_titles[0] if chapter_titles else (titles[0] if titles else CHAPTER_SELECT_LABEL)
+        chapter_value = (
+            chapter_titles[0]
+            if chapter_titles
+            else (titles[0] if titles else CHAPTER_SELECT_LABEL)
+        )
 
     picked = _find_chapter(chapters, chapter_value)
     start_frame = int(picked["start_frame"]) if picked else None
@@ -1612,4 +1719,3 @@ def build_archive_state(
         "details": details,
         "status": status,
     }
-

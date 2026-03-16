@@ -226,7 +226,9 @@ def collect_all_metadata(
         if scan_match:
             page_num = int(scan_match.group("page"))
             scan_num = int(scan_match.group("scan"))
-            total_scans = scan_totals_by_dir.get(file_path.parent, {}).get(page_num, scan_num)
+            total_scans = scan_totals_by_dir.get(file_path.parent, {}).get(
+                page_num, scan_num
+            )
             metadata["XMP-dc:Description"] = build_scan_description(
                 scan_match.group("collection"),
                 scan_match.group("year"),
@@ -236,7 +238,9 @@ def collect_all_metadata(
                 total_scans,
             )
             keywords = split_camel_keywords(scan_match.group("collection"))
-            metadata["IPTC:Keywords"] = merge_keywords(metadata.get("IPTC:Keywords"), keywords)
+            metadata["IPTC:Keywords"] = merge_keywords(
+                metadata.get("IPTC:Keywords"), keywords
+            )
         elif derived_match:
             page_num = int(derived_match.group("page"))
             iter_num = int(derived_match.group("iter"))
@@ -256,7 +260,9 @@ def collect_all_metadata(
                 total_iters,
             )
             keywords = split_camel_keywords(derived_match.group("collection"))
-            metadata["IPTC:Keywords"] = merge_keywords(metadata.get("IPTC:Keywords"), keywords)
+            metadata["IPTC:Keywords"] = merge_keywords(
+                metadata.get("IPTC:Keywords"), keywords
+            )
         else:
             metadata["XMP-dc:Description"] = ""
         metadata["XMP-dc:Creator"] = CREATOR
@@ -265,7 +271,11 @@ def collect_all_metadata(
 
         for key, value in metadata.items():
             if value not in ("", None, [], {}):
-                if "keyword" in key.lower() or "subject" in key.lower() or "tag" in key.lower():
+                if (
+                    "keyword" in key.lower()
+                    or "subject" in key.lower()
+                    or "tag" in key.lower()
+                ):
                     keyword_fields_found.add(key)
 
     if keyword_fields_found:
@@ -286,10 +296,14 @@ def write_tsv(all_metadata: list[dict], output_file: str) -> None:
 
     fields = ["FilePath"] + EXIFTOOL_FIELDS
 
-    print(f"\nWriting {len(all_metadata)} records with {len(fields)} fields to {output_file}")
+    print(
+        f"\nWriting {len(all_metadata)} records with {len(fields)} fields to {output_file}"
+    )
 
     with open(output_file, "w", newline="", encoding="utf-8") as tsvfile:
-        writer = csv.DictWriter(tsvfile, fieldnames=fields, delimiter="\t", extrasaction="ignore")
+        writer = csv.DictWriter(
+            tsvfile, fieldnames=fields, delimiter="\t", extrasaction="ignore"
+        )
         writer.writeheader()
 
         for metadata in all_metadata:

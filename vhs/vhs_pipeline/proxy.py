@@ -97,7 +97,11 @@ def make_proxies(show_frame_number: bool = False):
             continue
 
         print(f"Processing: {src.name} {proxy.name}")
-        run(build_proxy_command(src, ffmetadata_path, proxy, show_frame_number=show_frame_number))
+        run(
+            build_proxy_command(
+                src, ffmetadata_path, proxy, show_frame_number=show_frame_number
+            )
+        )
         count += 1
 
     print(f"Created {count} proxies.")
@@ -112,4 +116,3 @@ def main(argv=None):
 
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv[1:]))
-

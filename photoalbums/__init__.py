@@ -1,1 +1,1 @@
-﻿"""Photo albums pipeline package."""
+"""Photo albums pipeline package."""

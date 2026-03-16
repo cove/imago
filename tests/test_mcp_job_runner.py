@@ -1,4 +1,5 @@
 """Tests for MCP job runner persistence and console integration."""
+
 import http.client
 import json
 import sys
@@ -14,12 +15,14 @@ if str(ROOT) not in sys.path:
 import mcp_job_runner
 import mcp_console
 
-
 _FAKE_JOB = {
-    "id": "abc12345", "name": "test_job", "command": "...",
+    "id": "abc12345",
+    "name": "test_job",
+    "command": "...",
     "status": "running",
     "started_at": "2026-03-16T00:00:00+00:00",
-    "ended_at": None, "exit_code": None,
+    "ended_at": None,
+    "exit_code": None,
     "log_file": "abc12345.log",
     "pid": 99999,
 }
@@ -58,8 +61,10 @@ class TestJobRunnerPersistence(unittest.TestCase):
         """A runner starting with no pre-existing jobs.json should create it."""
         self.assertFalse(self.jobs_state.exists())
         mcp_job_runner.JobRunner()
-        self.assertTrue(self.jobs_state.exists(),
-                        "jobs.json should be created on startup even when there are no jobs")
+        self.assertTrue(
+            self.jobs_state.exists(),
+            "jobs.json should be created on startup even when there are no jobs",
+        )
         self.assertEqual(self._read_disk_jobs(), {})
 
     def test_load_state_marks_running_as_interrupted_on_disk(self):
@@ -70,14 +75,19 @@ class TestJobRunnerPersistence(unittest.TestCase):
 
         data = self._read_disk_jobs()
         self.assertEqual(
-            data["abc12345"]["status"], "interrupted",
-            "_load_state() must write interrupted status back to disk so the console sees it"
+            data["abc12345"]["status"],
+            "interrupted",
+            "_load_state() must write interrupted status back to disk so the console sees it",
         )
 
     def test_load_state_preserves_completed_jobs(self):
         """Completed/failed jobs should be left unchanged on restart."""
-        job = dict(_FAKE_JOB, status="completed",
-                   ended_at="2026-03-16T00:01:00+00:00", exit_code=0)
+        job = dict(
+            _FAKE_JOB,
+            status="completed",
+            ended_at="2026-03-16T00:01:00+00:00",
+            exit_code=0,
+        )
         self._write_fake_jobs({"abc12345": job})
 
         mcp_job_runner.JobRunner()
@@ -90,7 +100,9 @@ class TestJobRunnerPersistence(unittest.TestCase):
     def test_start_writes_job_to_disk_immediately(self):
         """start() must write the new job to jobs.json before returning."""
         runner = mcp_job_runner.JobRunner()
-        job_id = runner.start("test", [sys.executable, "-c", "import time; time.sleep(5)"])
+        job_id = runner.start(
+            "test", [sys.executable, "-c", "import time; time.sleep(5)"]
+        )
         try:
             self.assertTrue(self.jobs_state.exists())
             data = self._read_disk_jobs()
@@ -117,12 +129,15 @@ class TestJobRunnerPersistence(unittest.TestCase):
     def test_console_reads_jobs_written_by_runner(self):
         """_Handler._read_jobs() must see jobs written by JobRunner.start()."""
         runner = mcp_job_runner.JobRunner()
-        job_id = runner.start("test", [sys.executable, "-c", "import time; time.sleep(5)"])
+        job_id = runner.start(
+            "test", [sys.executable, "-c", "import time; time.sleep(5)"]
+        )
         try:
             jobs = mcp_console._Handler._read_jobs()
             ids = [j["id"] for j in jobs]
-            self.assertIn(job_id, ids,
-                          "Console should see the running job written by start()")
+            self.assertIn(
+                job_id, ids, "Console should see the running job written by start()"
+            )
         finally:
             runner.cancel(job_id)
 
