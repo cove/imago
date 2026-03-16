@@ -8,9 +8,7 @@ import json
 import sys
 from pathlib import Path
 
-# Add the project root to the path
-project_root = Path(__file__).parent
-sys.path.insert(0, str(project_root))
+# Run from project root - no path modification needed
 
 def test_prompt_templates():
     """Test that the enhanced prompt templates include name extraction instructions."""
@@ -152,7 +150,7 @@ def test_qwen_json_parsing():
         result = _parse_qwen_json_output(sample_json)
         print(f"  Caption: {result.text}")
         print(f"  Name suggestions: {len(result.name_suggestions)}")
-        if result.name_suggestions:
+        if result.name_suggestions and isinstance(result.name_suggestions, list) and len(result.name_suggestions) > 0:
             print(f"  First suggestion: {result.name_suggestions[0]}")
         return len(result.name_suggestions) == 2
     except Exception as e:
