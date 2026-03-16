@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 import re
 import sys
-from typing import Any
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -675,3 +675,43 @@ class CastPeopleMatcher:
             )
         )
         return out
+
+    def match_image_with_ai_hints(
+        self,
+        image_path: str | Path,
+        *,
+        source_path: str | Path | None = None,
+        bbox_offset: tuple[int, int] = (0, 0),
+        ai_name_suggestions: List[Dict[str, Any]] = None,
+    ) -> list[PersonMatch]:
+        """Enhanced face matching that incorporates AI-derived name suggestions."""
+        if ai_name_suggestions is None:
+            ai_name_suggestions = []
+        
+        # Build enhanced hint text from AI suggestions
+        enhanced_hints = []
+        for suggestion in ai_name_suggestions:
+            name = suggestion.get("name", "")
+            confidence = suggestion.get("confidence", 0.0)
+            source = suggestion.get("source", "")
+            context = suggestion.get("context", "")
+            
+            if name and confidence > 0.5:  # Only use high-confidence suggestions
+                enhanced_hints.append(f"{name}")
+                if source == "visible_text":
+                    enhanced_hints.append(f"Name found in visible text: {name}")
+                elif source == "cast_database":
+                    enhanced_hints.append(f"Face match from database: {name}")
+        
+        enhanced_hint_text = " ".join(enhanced_hints)
+        
+        # Combine with any existing hint text
+        combined_hint_text = f"{enhanced_hint_text} {source_path or ''}".strip()
+        
+        # Use the regular matching with enhanced hints
+        return self.match_image(
+            image_path=image_path,
+            source_path=source_path,
+            bbox_offset=bbox_offset,
+            hint_text=combined_hint_text,
+        )
