@@ -179,7 +179,7 @@ face_matches = matcher.match_image_with_ai_hints(
 1. **Improved Face Matching Accuracy**: AI-derived name suggestions provide additional hints for face matching algorithms
 2. **Enhanced Caption Quality**: Captions include extracted names from visible text and contextual clues
 3. **Better OCR Utilization**: Leverages OCR text beyond simple text extraction
-4. **Cultural Sensitivity**: Handles Chinese name patterns and hyphenated names common in photo albums
+4. **Pattern Recognition**: Handles Chinese name patterns and hyphenated names common in photo albums
 5. **Confidence-Based Filtering**: Only high-confidence suggestions are used to avoid noise
 6. **Integration Ready**: Seamlessly integrates with existing Cast database and face matching workflows
 

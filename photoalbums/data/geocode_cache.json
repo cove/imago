@@ -75,6 +75,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "aqueducts, europe": {
+    "query": "Aqueducts, Europe",
+    "status": "miss"
+  },
   "arch of constantine, rome, italy": {
     "display_name": "Arco di Costantino, Piazza dell'Arco di Costantino, Celio, Municipio Roma I, Roma, Roma Capitale, Lazio, 00184, Italia",
     "latitude": "41.8897622",
@@ -261,6 +265,10 @@
   },
   "border of france & switzerland": {
     "query": "Border of France & Switzerland",
+    "status": "miss"
+  },
+  "bosphorus strait, istanbul, turkey": {
+    "query": "Bosphorus Strait, Istanbul, Turkey",
     "status": "miss"
   },
   "bowness, lake district, england": {
@@ -823,6 +831,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "dolmabahçe palace, istanbul, turkey": {
+    "display_name": "Dolmabahçe Sarayı, Vişnezade Mahallesi, Beşiktaş, İstanbul, Marmara Bölgesi, 34357, Türkiye",
+    "latitude": "41.0389605",
+    "longitude": "28.9997735",
+    "query": "Dolmabahçe Palace, Istanbul, Turkey",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "dorset, england": {
     "display_name": "Dorset, England, United Kingdom",
     "latitude": "50.7968369",
@@ -1158,6 +1174,10 @@
     "query": "Fleet Street, London, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "galata bridge & new mosque, istanbul, turkey": {
+    "query": "Galata Bridge & New Mosque, Istanbul, Turkey",
+    "status": "miss"
   },
   "garden hotel, canton (guangzhou), china": {
     "display_name": "花园酒店, 华乐街道, 越秀区, 广州市, 广东省, 中国",
@@ -1551,6 +1571,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "istanbul, turkey": {
+    "display_name": "İstanbul, Fatih, İstanbul, Marmara Bölgesi, 34122, Türkiye",
+    "latitude": "41.0063810",
+    "longitude": "28.9758715",
+    "query": "Istanbul, Turkey",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "jia yuguan, gansu, china": {
     "query": "Jia Yuguan, Gansu, China",
     "status": "miss"
@@ -1654,6 +1682,14 @@
   "karnten and salzburg, austria": {
     "query": "Karnten and Salzburg, Austria",
     "status": "miss"
+  },
+  "kavala, greece": {
+    "display_name": "Καβάλα, Δήμος Καβάλας, Περιφερειακή Ενότητα Καβάλας, Περιφέρεια Ανατολικής Μακεδονίας και Θράκης, Αποκεντρωμένη Διοίκηση Μακεδονίας - Θράκης, 653 02, Ελλάς",
+    "latitude": "40.9369224",
+    "longitude": "24.4122766",
+    "query": "Kavala, Greece",
+    "source": "nominatim",
+    "status": "ok"
   },
   "keble college and all souls college, oxford, england": {
     "query": "Keble College and All Souls College, Oxford, England",
@@ -3386,6 +3422,14 @@
   "tomb of emperor qin shi huangdi, xi'an, shaanxi, china": {
     "query": "Tomb of Emperor Qin Shi Huangdi, Xi'an, Shaanxi, China",
     "status": "miss"
+  },
+  "topkapi palace, istanbul, turkey": {
+    "display_name": "Topkapi Sarayı, Harem Ağaları Taşlığı, Cankurtaran Mahallesi, İstanbul, Fatih, İstanbul, Marmara Bölgesi, 34122, Türkiye",
+    "latitude": "41.0113440",
+    "longitude": "28.9832034",
+    "query": "Topkapi Palace, Istanbul, Turkey",
+    "source": "nominatim",
+    "status": "ok"
   },
   "torquay, devon, england": {
     "display_name": "Torquay, Torbay, Devon and Torbay, England, TQ1 1TR, United Kingdom",
