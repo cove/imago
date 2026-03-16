@@ -291,6 +291,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "canton, guangdong province, china": {
+    "display_name": "广州市, 广东省, 中国",
+    "latitude": "23.1288454",
+    "longitude": "113.2590064",
+    "query": "Canton, Guangdong Province, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "canton, guangdong, china": {
     "display_name": "广州市, 广东省, 中国",
     "latitude": "23.1288454",
@@ -352,6 +360,14 @@
     "latitude": "30.7160252",
     "longitude": "104.1007793",
     "query": "Chengdu Zoo, Sichuan, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "chengdu, china": {
+    "display_name": "成都市, 四川省, 中国",
+    "latitude": "30.6598670",
+    "longitude": "104.0633150",
+    "query": "Chengdu, China",
     "source": "nominatim",
     "status": "ok"
   },
@@ -967,6 +983,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "hong kong harbour": {
+    "display_name": "Hong Kong Harbour, 2184, Cheshire Bridge Road, Lindbergh, Atlanta, Fulton County, Georgia, 30324, United States",
+    "latitude": "33.8145164",
+    "longitude": "-84.3537826",
+    "query": "Hong Kong Harbour",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "hong kong harbour and victoria peak tram, hong kong": {
     "query": "Hong Kong Harbour and Victoria Peak Tram, Hong Kong",
     "status": "miss"
@@ -1011,6 +1035,10 @@
     "query": "Hua Qing Hot Springs, China",
     "status": "miss"
   },
+  "hua qing hot springs, shandong province, china": {
+    "query": "Hua Qing Hot Springs, Shandong Province, China",
+    "status": "miss"
+  },
   "hua qing hot springs, xi'an, shaanxi, china": {
     "query": "Hua Qing Hot Springs, Xi'an, Shaanxi, China",
     "status": "miss"
@@ -1027,6 +1055,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "hua ting temple, dunhuang, gansu, china": {
+    "query": "HUA TING TEMPLE, Dunhuang, Gansu, China",
+    "status": "miss"
+  },
   "inner mongolia, china": {
     "display_name": "内蒙古自治区 ᠦᠪᠦᠷ ᠮᠣᠩᠭᠤᠯ ᠤᠨ ᠥᠪᠡᠷᠲᠡᠭᠡᠨ ᠵᠠᠰᠠᠬᠣ ᠣᠷᠣᠨ, 中国",
     "latitude": "43.2443242",
@@ -1042,6 +1074,10 @@
     "query": "Innsbruck, Austria",
     "source": "nominatim",
     "status": "ok"
+  },
+  "jia yuguan, gansu, china": {
+    "query": "Jia Yuguan, Gansu, China",
+    "status": "miss"
   },
   "jiayu pass, gansu, china": {
     "query": "Jiayu Pass, Gansu, China",
@@ -1065,6 +1101,10 @@
   },
   "jiayuguan fort and great wall, jiayuguan, gansu, china": {
     "query": "Jiayuguan Fort and Great Wall, Jiayuguan, Gansu, China",
+    "status": "miss"
+  },
+  "jiayuguan fort, gansu, china": {
+    "query": "Jiayuguan Fort, Gansu, China",
     "status": "miss"
   },
   "jiayuguan fort, jiayuguan city, gansu province, china": {
@@ -1207,6 +1247,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "kunming, yunnan, china": {
+    "display_name": "昆明市, 云南省, 中国",
+    "latitude": "25.0399353",
+    "longitude": "102.7169061",
+    "query": "Kunming, Yunnan, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "la concha beach, san sebastián, spain": {
     "display_name": "Kontxa hondartza, Centro, Donostia / San Sebastián, Gipuzkoa, Euskadi, España",
     "latitude": "43.3177013",
@@ -1240,6 +1288,14 @@
     "latitude": "29.6577657",
     "longitude": "91.1877072",
     "query": "Lhasa Hotel, Lhasa, Tibet, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "lhasa, tibet": {
+    "display_name": "拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
+    "latitude": "29.6542054",
+    "longitude": "91.1173015",
+    "query": "Lhasa, Tibet",
     "source": "nominatim",
     "status": "ok"
   },
@@ -1655,8 +1711,16 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "portala palace, lhasa, tibet": {
+    "query": "Portala Palace, Lhasa, Tibet",
+    "status": "miss"
+  },
   "portala palace, lhasa, tibet, china": {
     "query": "Portala Palace, Lhasa, Tibet, China",
+    "status": "miss"
+  },
+  "portala palace, tibet, china": {
+    "query": "Portala Palace, Tibet, China",
     "status": "miss"
   },
   "potala palace, lasa, tibet": {
@@ -1672,6 +1736,14 @@
     "latitude": "29.6575676",
     "longitude": "91.1170188",
     "query": "Potala Palace, Lasa, Tibet, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "potala palace, lhasa, tibet": {
+    "display_name": "布达拉宫 ཕོ་བྲང་པོ་ཏ་ལ།, 康昂北路东段, 吉崩岗街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
+    "latitude": "29.6575676",
+    "longitude": "91.1170188",
+    "query": "Potala Palace, Lhasa, Tibet",
     "source": "nominatim",
     "status": "ok"
   },
@@ -1713,6 +1785,10 @@
   },
   "priory church, christchurch, hampshire, england": {
     "query": "Priory Church, Christchurch, Hampshire, England",
+    "status": "miss"
+  },
+  "puzhou district, gansu, china": {
+    "query": "Puzhou District, Gansu, China",
     "status": "miss"
   },
   "queen street, cardiff, wales; swansea, wales": {
@@ -1899,6 +1975,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "sera monastery, gansu, china": {
+    "query": "Sera Monastery, Gansu, China",
+    "status": "miss"
+  },
   "sera monastery, lasa, tibet, china": {
     "display_name": "སེ་ར་དགོན། 色拉寺, 色拉北路, སྔགས་པ་གླིང་ཁའི་སྡེ་ཁུལ། 阿坝林卡社区, 娘热街道 ཉང་བྲན་ཁྲོམ་གཞུང།, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
     "latitude": "29.6978525",
@@ -2074,6 +2154,14 @@
   "statford-upon-avon, england": {
     "query": "Statford-upon-Avon, England",
     "status": "miss"
+  },
+  "stone forest, china": {
+    "display_name": "石林风景区, 阿诗玛北路, 石林彝族自治县, 昆明市, 云南省, 652200, 中国",
+    "latitude": "24.8156992",
+    "longitude": "103.3245807",
+    "query": "Stone Forest, China",
+    "source": "nominatim",
+    "status": "ok"
   },
   "stone forest, kunming, yunnan province, china": {
     "display_name": "石林风景区, 阿诗玛北路, 石林彝族自治县, 昆明市, 云南省, 652200, 中国",
@@ -2303,6 +2391,10 @@
     "query": "Tyrolean Alps, Austria",
     "status": "miss"
   },
+  "uncertain, china": {
+    "query": "Uncertain, China",
+    "status": "miss"
+  },
   "vatican city, rome, italy": {
     "query": "Vatican City, Rome, Italy",
     "status": "miss"
@@ -2385,6 +2477,10 @@
   },
   "welsh folk museum, newport, wales, uk": {
     "query": "Welsh Folk Museum, Newport, Wales, UK",
+    "status": "miss"
+  },
+  "west end of the great wall, jiyuguan city, gansu province, china": {
+    "query": "West End of the Great Wall, Jiyuguan City, Gansu Province, China",
     "status": "miss"
   },
   "white cliffs of dover, england, united kingdom": {
