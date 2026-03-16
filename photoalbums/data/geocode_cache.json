@@ -2011,6 +2011,10 @@
     "query": "The Hospital of St. Cross, Winchester, Hampshire, England",
     "status": "miss"
   },
+  "the new hong kong bank, victoria peak, hong kong": {
+    "query": "The New Hong Kong Bank, Victoria Peak, Hong Kong",
+    "status": "miss"
+  },
   "the new hong kong bank, victoria peak, hong kong, china": {
     "query": "The New Hong Kong Bank, Victoria Peak, Hong Kong, China",
     "status": "miss"
