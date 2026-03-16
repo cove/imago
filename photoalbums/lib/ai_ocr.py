@@ -11,6 +11,7 @@ import urllib.request
 from pathlib import Path
 
 from .model_store import HF_MODEL_CACHE_DIR
+from ._caption_lmstudio import _decode_lmstudio_text, _extract_structured_json_payload, _lanczos_resize
 
 STOPWORDS = {
     "the",
@@ -166,17 +167,7 @@ def _looks_like_ocr_reasoning(value: str) -> bool:
 
 def _normalize_ocr_text(value: object) -> str:
     if isinstance(value, list):
-        parts: list[str] = []
-        for item in value:
-            if isinstance(item, str):
-                parts.append(item)
-                continue
-            if not isinstance(item, dict):
-                continue
-            text = str(item.get("text") or "").strip()
-            if text:
-                parts.append(text)
-        value = "\n".join(parts)
+        value = _decode_lmstudio_text(value)
     text = str(value or "").strip()
     if not text:
         return ""
@@ -223,24 +214,6 @@ def _lmstudio_ocr_response_format() -> dict[str, object]:
     }
 
 
-def _decode_lmstudio_text(value: object) -> str:
-    if isinstance(value, str):
-        return value
-    if isinstance(value, list):
-        parts: list[str] = []
-        for item in value:
-            if isinstance(item, str):
-                parts.append(item)
-                continue
-            if not isinstance(item, dict):
-                continue
-            text = item.get("text")
-            if text:
-                parts.append(str(text))
-        return "\n".join(part for part in parts if part).strip()
-    return ""
-
-
 def _recover_truncated_ocr_text(raw: str) -> str | None:
     """Extract partial text from a truncated JSON response (finish_reason=length)."""
     match = re.search(r'"text"\s*:\s*"', raw)
@@ -253,23 +226,6 @@ def _recover_truncated_ocr_text(raw: str) -> str | None:
         return json.loads('"' + fragment + '"')
     except json.JSONDecodeError:
         return None
-
-
-def _extract_structured_json_payload(text: str) -> dict[str, object] | None:
-    raw = str(text or "").strip()
-    if not raw:
-        return None
-    decoder = json.JSONDecoder()
-    for idx, char in enumerate(raw):
-        if char != "{":
-            continue
-        try:
-            payload, _end = decoder.raw_decode(raw[idx:])
-        except json.JSONDecodeError:
-            continue
-        if isinstance(payload, dict):
-            return payload
-    return None
 
 
 def _parse_lmstudio_structured_ocr(value: object, *, finish_reason: str = "") -> str:
@@ -319,15 +275,7 @@ def _resize_for_ocr(image, max_image_edge: int, max_pixels: int):
             max(1, int(round(width * scale))),
             max(1, int(round(height * scale))),
         )
-        resampling = getattr(getattr(image, "Resampling", None), "LANCZOS", None)
-        if resampling is None:
-            try:
-                from PIL import Image  # pylint: disable=import-outside-toplevel
-
-                resampling = getattr(getattr(Image, "Resampling", Image), "LANCZOS")
-            except Exception:  # pragma: no cover
-                resampling = 1
-        working = image.resize(new_size, resampling)
+        working = _lanczos_resize(image, new_size)
         width, height = working.size
 
     pixels = int(width) * int(height)
@@ -337,19 +285,19 @@ def _resize_for_ocr(image, max_image_edge: int, max_pixels: int):
             max(1, int(round(width * scale))),
             max(1, int(round(height * scale))),
         )
-        resampling = getattr(getattr(working, "Resampling", None), "LANCZOS", None)
-        if resampling is None:
-            try:
-                from PIL import Image  # pylint: disable=import-outside-toplevel
-
-                resampling = getattr(getattr(Image, "Resampling", Image), "LANCZOS")
-            except Exception:  # pragma: no cover
-                resampling = 1
-        resized = working.resize(new_size, resampling)
+        resized = _lanczos_resize(working, new_size)
         if working is not image:
             working.close()
         working = resized
     return working
+
+
+def _load_hf_model(cls, model_ref: str, **load_kwargs):
+    """Load a HuggingFace model, falling back from dtype= to torch_dtype= for older transformers."""
+    try:
+        return cls.from_pretrained(model_ref, dtype="auto", **load_kwargs)
+    except TypeError:
+        return cls.from_pretrained(model_ref, torch_dtype="auto", **load_kwargs)
 
 
 def _resolve_local_hf_snapshot(model_name: str) -> Path | None:
@@ -437,18 +385,7 @@ class OCREngine:
             "cache_dir": cache_dir,
             "local_files_only": local_files_only,
         }
-        try:
-            self._model = AutoModelForImageTextToText.from_pretrained(
-                model_ref,
-                dtype="auto",
-                **load_kwargs,
-            )
-        except TypeError:
-            self._model = AutoModelForImageTextToText.from_pretrained(
-                model_ref,
-                torch_dtype="auto",
-                **load_kwargs,
-            )
+        self._model = _load_hf_model(AutoModelForImageTextToText, model_ref, **load_kwargs)
         self._torch = torch
 
     def _read_text_lmstudio(self, image_path: str | Path) -> str:

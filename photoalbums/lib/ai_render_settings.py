@@ -4,11 +4,12 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .ai_page_layout import normalize_page_split_mode
+from ._caption_qwen import normalize_qwen_attn_implementation
+
 SETTINGS_FILENAME = "render_settings.json"
 OCR_ENGINES = {"none", "qwen", "lmstudio"}
-PAGE_SPLIT_MODES = {"auto", "off"}
 CAPTION_ENGINES = {"none", "template", "qwen", "lmstudio"}
-QWEN_ATTN_IMPLEMENTATIONS = {"auto", "sdpa", "flash_attention_2", "eager"}
 
 
 def render_settings_path(archive_dir: str | Path) -> Path:
@@ -65,16 +66,6 @@ def _normalize_ocr_engine(value: Any, default: str) -> str:
     return "none"
 
 
-def _normalize_page_split_mode(value: Any, default: str) -> str:
-    text = str(value or "").strip().lower()
-    if text in PAGE_SPLIT_MODES:
-        return text
-    fallback = str(default or "off").strip().lower()
-    if fallback in PAGE_SPLIT_MODES:
-        return fallback
-    return "off"
-
-
 def _normalize_caption_engine(value: Any, default: str) -> str:
     text = str(value or "").strip().lower()
     if text == "blip":
@@ -87,16 +78,6 @@ def _normalize_caption_engine(value: Any, default: str) -> str:
     if fallback in CAPTION_ENGINES:
         return fallback
     return "qwen"
-
-
-def _normalize_qwen_attn_implementation(value: Any, default: str) -> str:
-    text = str(value or "").strip().lower()
-    if text in QWEN_ATTN_IMPLEMENTATIONS:
-        return text
-    fallback = str(default or "auto").strip().lower()
-    if fallback in QWEN_ATTN_IMPLEMENTATIONS:
-        return fallback
-    return "auto"
 
 
 def _normalize_settings_block(raw: dict[str, Any], defaults: dict[str, Any]) -> dict[str, Any]:
@@ -119,7 +100,7 @@ def _normalize_settings_block(raw: dict[str, Any], defaults: dict[str, Any]) -> 
             block.get("ocr_lang"),
             str(defaults.get("ocr_lang", "eng")),
         ),
-        "page_split_mode": _normalize_page_split_mode(
+        "page_split_mode": normalize_page_split_mode(
             block.get("page_split_mode"),
             str(defaults.get("page_split_mode", "off")),
         ),
@@ -157,7 +138,7 @@ def _normalize_settings_block(raw: dict[str, Any], defaults: dict[str, Any]) -> 
             min_value=0,
             max_value=8192,
         ),
-        "qwen_attn_implementation": _normalize_qwen_attn_implementation(
+        "qwen_attn_implementation": normalize_qwen_attn_implementation(
             block.get("qwen_attn_implementation"),
             str(defaults.get("qwen_attn_implementation", "auto")),
         ),

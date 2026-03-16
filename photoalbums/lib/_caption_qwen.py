@@ -7,10 +7,12 @@ from .model_store import HF_MODEL_CACHE_DIR
 from .ai_ocr import (
     DEFAULT_QWEN_OCR_MAX_IMAGE_EDGE,
     DEFAULT_QWEN_OCR_MAX_NEW_TOKENS,
+    _load_hf_model,
     _normalize_ocr_text,
+    _resolve_local_hf_snapshot,
 )
 from ._caption_album import clean_text
-from ._caption_prompts import _build_combined_qwen_prompt, _build_qwen_prompt
+from ._caption_prompts import _build_combined_qwen_prompt
 from ._caption_lmstudio import (
     CaptionDetails,
     _extract_structured_json_payload,
@@ -26,23 +28,6 @@ LEGACY_QWEN_CAPTION_MODEL_ALIASES = {
 }
 DEFAULT_QWEN_AUTO_MAX_PIXELS = 786_432
 QWEN_ATTN_IMPLEMENTATIONS = {"auto", "sdpa", "flash_attention_2", "eager"}
-
-
-def _resolve_local_hf_snapshot(model_name: str) -> Path | None:
-    text = str(model_name or "").strip()
-    if "/" not in text:
-        return None
-    repo_dir = HF_MODEL_CACHE_DIR / f"models--{text.replace('/', '--')}" / "snapshots"
-    if not repo_dir.is_dir():
-        return None
-    for snapshot in sorted(repo_dir.iterdir()):
-        if not snapshot.is_dir():
-            continue
-        if (snapshot / "config.json").exists() and (
-            (snapshot / "preprocessor_config.json").exists() or (snapshot / "processor_config.json").exists()
-        ):
-            return snapshot
-    return None
 
 
 def _load_qwen_transformers():
@@ -174,44 +159,16 @@ class QwenLocalCaptioner:
                 resolved_attn = self.attn_implementation
                 load_kwargs["attn_implementation"] = resolved_attn
         # Prefer dtype over torch_dtype to avoid deprecation warnings on newer transformers.
-        try:
-            self._model = AutoModelForImageTextToText.from_pretrained(
-                model_ref,
-                dtype="auto",
-                **load_kwargs,
-            )
-        except TypeError:
-            self._model = AutoModelForImageTextToText.from_pretrained(
-                model_ref,
-                torch_dtype="auto",
-                **load_kwargs,
-            )
+        self._model = _load_hf_model(AutoModelForImageTextToText, model_ref, **load_kwargs)
         self._torch = torch
 
     def describe(
         self,
         image_path: str | Path,
         *,
-        people: list[str],
-        objects: list[str],
-        ocr_text: str,
-        source_path: str | Path | None = None,
-        album_title: str = "",
-        printed_album_title: str = "",
-        photo_count: int = 1,
-        is_cover_page: bool = False,
+        prompt: str,
     ) -> CaptionDetails:
         self._ensure_loaded()
-        prompt = self.prompt_text or _build_qwen_prompt(
-            people=people,
-            objects=objects,
-            ocr_text=ocr_text,
-            source_path=source_path or image_path,
-            album_title=album_title,
-            printed_album_title=printed_album_title,
-            photo_count=photo_count,
-            is_cover_page=is_cover_page,
-        )
         return _parse_qwen_json_output(self._infer_raw(image_path, prompt))
 
     def _infer_raw(self, image_path: str | Path, prompt: str, max_new_tokens: int | None = None) -> str:

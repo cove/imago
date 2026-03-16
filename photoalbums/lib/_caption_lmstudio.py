@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ._caption_album import clean_text
-from ._caption_prompts import _build_qwen_prompt
 
 
 DEFAULT_LMSTUDIO_MAX_NEW_TOKENS = 256
@@ -112,6 +111,18 @@ def _extract_structured_json_payload(text: str) -> dict[str, object] | None:
     return None
 
 
+def _lanczos_resize(image, new_size: tuple[int, int]):
+    resampling = getattr(getattr(image, "Resampling", None), "LANCZOS", None)
+    if resampling is None:
+        try:
+            from PIL import Image  # pylint: disable=import-outside-toplevel
+
+            resampling = getattr(getattr(Image, "Resampling", Image), "LANCZOS")
+        except Exception:  # pragma: no cover - Pillow always present in runtime
+            resampling = 1
+    return image.resize(new_size, resampling)
+
+
 def _resize_caption_image(image, max_image_edge: int):
     if int(max_image_edge) <= 0:
         return image
@@ -124,15 +135,7 @@ def _resize_caption_image(image, max_image_edge: int):
         max(1, int(round(width * scale))),
         max(1, int(round(height * scale))),
     )
-    resampling = getattr(getattr(image, "Resampling", None), "LANCZOS", None)
-    if resampling is None:
-        try:
-            from PIL import Image  # pylint: disable=import-outside-toplevel
-
-            resampling = getattr(getattr(Image, "Resampling", Image), "LANCZOS")
-        except Exception:  # pragma: no cover - Pillow always present in runtime
-            resampling = 1
-    return image.resize(new_size, resampling)
+    return _lanczos_resize(image, new_size)
 
 
 def _format_decimal_coordinate(value: float) -> str:
@@ -448,25 +451,8 @@ class LMStudioCaptioner:
         self,
         image_path: str | Path,
         *,
-        people: list[str],
-        objects: list[str],
-        ocr_text: str,
-        source_path: str | Path | None = None,
-        album_title: str = "",
-        printed_album_title: str = "",
-        photo_count: int = 1,
-        is_cover_page: bool = False,
+        prompt: str,
     ) -> CaptionDetails:
-        prompt = self.prompt_text or _build_qwen_prompt(
-            people=people,
-            objects=objects,
-            ocr_text=ocr_text,
-            source_path=source_path or image_path,
-            album_title=album_title,
-            printed_album_title=printed_album_title,
-            photo_count=photo_count,
-            is_cover_page=is_cover_page,
-        )
         resize_edge = int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
         image_url = _build_data_url(image_path, resize_edge)
         payload = {
