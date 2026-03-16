@@ -53,6 +53,7 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 - Do not revert unrelated local changes.
 - Commit only files related to the requested task unless asked otherwise.
 - Use clear commit messages that describe behavior change.
+- Git hooks are configured to run tests, don't use `--no-verify` to skip tests, instead fix the errors if there are any.
 
 ## If Unsure
 
