@@ -958,7 +958,7 @@ def _run_image_analysis(
             )
 
     _faces_detected = (
-        int(getattr(people_matcher, "last_faces_detected", 0))
+        (_v if isinstance(_v := getattr(people_matcher, "last_faces_detected", 0), int) else 0)
         if people_matcher
         else 0
     )
@@ -1679,7 +1679,7 @@ def run(argv: list[str] | None = None) -> int:
                         hint_text=existing_ocr_text,
                     ) if people_matcher else []
                     pu_faces_detected = (
-                        int(getattr(people_matcher, "last_faces_detected", 0))
+                        (_v if isinstance(_v := getattr(people_matcher, "last_faces_detected", 0), int) else 0)
                         if people_matcher else 0
                     )
                     pu_person_names = _dedupe(

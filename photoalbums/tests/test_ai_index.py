@@ -275,6 +275,7 @@ class TestAIIndex(unittest.TestCase):
                 printed_album_title="",
                 photo_count=1,
                 is_cover_page=False,
+                people_positions={},
             )
 
     def test_run_image_analysis_records_gps_location_from_caption_output(self):
@@ -477,14 +478,11 @@ class TestAIIndex(unittest.TestCase):
                 sub_results=[sub_result, sub_result],
                 page_ocr_text="",
                 page_ocr_keywords=[],
-                requested_caption_engine="template",
+                requested_caption_engine="none",
             )
         )
 
-        self.assertIn(
-            "This page from Family Book VIII, a Family Photo Album, contains 2 photo(s).",
-            description,
-        )
+        self.assertEqual(description, "")
 
     def test_build_flat_page_description_uses_cover_caption_with_book_note_on_fallback(
         self,
@@ -520,12 +518,7 @@ class TestAIIndex(unittest.TestCase):
             },
         )
 
-        with mock.patch.object(ai_index, "looks_like_album_cover", return_value=True):
-            description = ai_index._build_flat_page_description(
-                layout=layout,
-                analysis=analysis,
-                requested_caption_engine="lmstudio",
-            )
+        description = ai_index._build_flat_page_description(analysis=analysis)
 
         self.assertIn("MAINLAND CHINA 1986 BOOK 11", description)
 
@@ -589,7 +582,7 @@ class TestAIIndex(unittest.TestCase):
                         "--ocr-engine",
                         "none",
                         "--caption-engine",
-                        "template",
+                        "none",
                     ]
                 )
 
@@ -656,7 +649,7 @@ class TestAIIndex(unittest.TestCase):
                         "--ocr-engine",
                         "none",
                         "--caption-engine",
-                        "template",
+                        "none",
                     ]
                 )
 
@@ -738,7 +731,7 @@ class TestAIIndex(unittest.TestCase):
                         "--ocr-engine",
                         "none",
                         "--caption-engine",
-                        "template",
+                        "none",
                     ]
                 )
 
@@ -819,7 +812,7 @@ class TestAIIndex(unittest.TestCase):
                         "--ocr-engine",
                         "none",
                         "--caption-engine",
-                        "template",
+                        "none",
                     ]
                 )
 
@@ -885,7 +878,7 @@ class TestAIIndex(unittest.TestCase):
                         "--ocr-engine",
                         "none",
                         "--caption-engine",
-                        "template",
+                        "none",
                     ]
                 )
 
@@ -946,7 +939,7 @@ class TestAIIndex(unittest.TestCase):
                         "--ocr-engine",
                         "none",
                         "--caption-engine",
-                        "template",
+                        "none",
                     ]
                 )
 
@@ -1518,16 +1511,6 @@ class TestAIIndex(unittest.TestCase):
 
             self.assertEqual(result, 0)
             analysis_mock.assert_called_once()
-
-    def test_build_description(self):
-        text = ai_index.build_description(
-            people=["Alice", "Bob"],
-            objects=["dog", "car"],
-            ocr_text="Hello world from a sign",
-        )
-        self.assertIn("Alice", text)
-        self.assertIn("dog", text)
-        self.assertIn("Visible text reads:", text)
 
     def test_resolve_caption_prompt_reads_file_and_overrides_inline_text(self):
         with tempfile.TemporaryDirectory() as tmp:
