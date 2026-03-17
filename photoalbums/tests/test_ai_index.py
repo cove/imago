@@ -1051,7 +1051,7 @@ class TestAIIndex(unittest.TestCase):
                         "effective_engine": "template",
                         "fallback": True,
                         "error": "model offline",
-                        "model": "Qwen/Qwen2.5-VL-3B-Instruct",
+                        "model": "qwen/qwen3.5-9b",
                     },
                 },
             )
@@ -1230,7 +1230,7 @@ class TestAIIndex(unittest.TestCase):
                         "effective_engine": "qwen",
                         "fallback": False,
                         "error": "",
-                        "model": "Qwen/Qwen2.5-VL-3B-Instruct",
+                        "model": "qwen/qwen3.5-9b",
                     },
                 },
             )
@@ -1622,7 +1622,6 @@ class TestAIIndex(unittest.TestCase):
             qwen_max_pixels=524288,
             lmstudio_base_url="http://localhost:1234",
             max_image_edge=1024,
-            fallback_to_template=True,
             stream=False,
         )
 

@@ -7,6 +7,7 @@ from .model_store import HF_MODEL_CACHE_DIR
 from .ai_ocr import (
     DEFAULT_QWEN_OCR_MAX_IMAGE_EDGE,
     DEFAULT_QWEN_OCR_MAX_NEW_TOKENS,
+    DEFAULT_QWEN_OCR_MODEL,
     _load_hf_model,
     _normalize_ocr_text,
     _resolve_local_hf_snapshot,
@@ -20,10 +21,7 @@ from ._caption_lmstudio import (
     _resize_caption_image,
 )
 
-DEFAULT_QWEN_CAPTION_MODEL = "Qwen/Qwen2.5-VL-3B-Instruct"
-LEGACY_QWEN_CAPTION_MODEL_ALIASES = {
-    "qwen/qwen3.5-4b": DEFAULT_QWEN_CAPTION_MODEL,
-}
+DEFAULT_QWEN_CAPTION_MODEL = DEFAULT_QWEN_OCR_MODEL
 DEFAULT_QWEN_AUTO_MAX_PIXELS = 786_432
 QWEN_ATTN_IMPLEMENTATIONS = {"auto", "sdpa", "flash_attention_2", "eager"}
 
@@ -304,8 +302,8 @@ class QwenLocalCaptioner:
         source_path: str | Path | None = None,
         album_title: str = "",
         printed_album_title: str = "",
-        photo_count: int = 1,
         is_cover_page: bool = False,
+        people_positions: dict[str, str] | None = None,
     ) -> tuple[str, str, list[dict[str, object]]]:
         """Single inference that returns (ocr_text, caption, name_suggestions)."""
         self._ensure_loaded()
@@ -315,8 +313,8 @@ class QwenLocalCaptioner:
             source_path=source_path or image_path,
             album_title=album_title,
             printed_album_title=printed_album_title,
-            photo_count=photo_count,
             is_cover_page=is_cover_page,
+            people_positions=people_positions,
         )
         max_tokens = self.max_new_tokens + DEFAULT_QWEN_OCR_MAX_NEW_TOKENS
         raw = self._infer_raw(image_path, prompt, max_new_tokens=max_tokens)
