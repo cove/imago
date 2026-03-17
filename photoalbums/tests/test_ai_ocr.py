@@ -36,7 +36,7 @@ class TestAIOcr(unittest.TestCase):
             cache_dir = Path(tmp)
             snapshot = (
                 cache_dir
-                / "models--Qwen--Qwen2.5-VL-3B-Instruct"
+                / "models--qwen--qwen3.5-9b"
                 / "snapshots"
                 / "abc123"
             )
@@ -79,7 +79,7 @@ class TestAIOcr(unittest.TestCase):
             cache_dir = Path(tmp)
             snapshot = (
                 cache_dir
-                / "models--Qwen--Qwen2.5-VL-3B-Instruct"
+                / "models--qwen--qwen3.5-9b"
                 / "snapshots"
                 / "abc123"
             )
