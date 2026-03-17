@@ -13,9 +13,6 @@ from typing import Any
 from .ai_caption import (
     CaptionEngine,
     DEFAULT_LMSTUDIO_MAX_NEW_TOKENS,
-    build_page_caption,
-    build_template_caption,
-    infer_album_context,
     infer_printed_album_title,
     infer_album_title,
     looks_like_album_cover,
@@ -33,7 +30,7 @@ from .ai_render_settings import (
 )
 from ..common import PHOTO_ALBUMS_DIR
 from ..exiftool_utils import read_tag
-from ..naming import parse_album_filename, SCAN_NAME_RE
+from ..naming import DERIVED_NAME_RE, SCAN_TIFF_RE, parse_album_filename, SCAN_NAME_RE
 from .xmp_sidecar import (
     _dedupe,
     read_ai_sidecar_state,
@@ -70,6 +67,38 @@ def _progress_ticker(prefix: str, _interval: float = 0.5):
     return stop, set_step
 
 
+def _compute_people_positions(
+    people_matches: list, image_path: Path
+) -> dict[str, str]:
+    """Return a dict mapping each identified person's name to a position label.
+
+    Uses the face bbox (absolute pixels in the image's coordinate space) and
+    the image dimensions to produce a human-readable location like 'upper-left'.
+    """
+    from ._caption_prompts import _position_label  # pylint: disable=import-outside-toplevel
+
+    try:
+        from PIL import Image as _PILImage  # pylint: disable=import-outside-toplevel
+
+        with _PILImage.open(str(image_path)) as _img:
+            img_w, img_h = _img.size
+    except Exception:
+        return {}
+    positions: dict[str, str] = {}
+    for match in people_matches:
+        name = str(getattr(match, "name", "") or "").strip()
+        bbox = list(getattr(match, "bbox", None) or [])
+        if not name or len(bbox) < 4 or img_w <= 0 or img_h <= 0:
+            continue
+        x, y, w, h = bbox[:4]
+        cx = (x + w / 2) / img_w
+        cy = (y + h / 2) / img_h
+        label = _position_label(float(cx), float(cy))
+        if label:
+            positions[name] = label
+    return positions
+
+
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp"}
 MIN_EXISTING_SIDECAR_BYTES = 100
 AI_MODEL_MAX_SOURCE_BYTES = 30 * 1024 * 1024
@@ -91,6 +120,7 @@ class ImageAnalysis:
     subjects: list[str]
     description: str
     payload: dict[str, Any]
+    faces_detected: int = 0
 
 
 def discover_images(
@@ -119,8 +149,6 @@ def discover_images(
     return files
 
 
-def build_description(*, people: list[str], objects: list[str], ocr_text: str) -> str:
-    return build_template_caption(people=people, objects=objects, ocr_text=ocr_text)
 
 
 def _album_identity_key(image_path: Path) -> str:
@@ -296,6 +324,32 @@ def read_embedded_source_text(path: Path) -> str:
     return str(read_tag(path, "XMP-dc:Source") or "").strip()
 
 
+def _derived_source_text(image_path: Path) -> str:
+    """Return a semicolon-separated dc:source string for a D## derived image.
+
+    Finds the sibling _Archive directory and lists all S## TIF files for the
+    same page number, e.g. "China_1986_B02_P17_S01.tif; China_1986_B02_P17_S02.tif".
+    Returns "" if the image is not a derived file or no archive scans are found.
+    """
+    m = DERIVED_NAME_RE.search(image_path.name)
+    if not m:
+        return ""
+    page = str(m.group("page"))
+    archive_dir = find_archive_dir_for_image(image_path)
+    if archive_dir is None or not archive_dir.is_dir():
+        return ""
+    page_int = int(page)
+    scans: list[Path] = sorted(
+        p
+        for p in archive_dir.iterdir()
+        for sm in (SCAN_TIFF_RE.match(p.name),)
+        if sm and int(sm.group("page")) == page_int
+    )
+    if not scans:
+        return ""
+    return "; ".join(p.name for p in scans)
+
+
 def needs_processing(
     path: Path,
     manifest_row: dict[str, Any] | None,
@@ -403,7 +457,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--ocr-lang", default="eng", help="OCR language.")
     parser.add_argument(
         "--caption-engine",
-        choices=["none", "template", "qwen", "lmstudio"],
+        choices=["none", "qwen", "lmstudio"],
         default="lmstudio",
         help="Caption backend for XMP description.",
     )
@@ -479,6 +533,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--max-images", type=int, default=0, help="Optional processing limit."
+    )
+    parser.add_argument(
+        "--photo",
+        default="",
+        help="Process a single photo file. Bypasses discovery and implies --force.",
+    )
+    parser.add_argument(
+        "--album",
+        default="",
+        help="Filter to photos whose parent directory name contains this substring (case-insensitive).",
+    )
+    parser.add_argument(
+        "--photo-offset",
+        type=int,
+        default=0,
+        help="Skip first N discovered images. Use with --max-images to process a range.",
     )
     parser.add_argument(
         "--force", action="store_true", help="Ignore manifest and process all files."
@@ -586,7 +656,6 @@ def _init_caption_engine(
         qwen_max_pixels=int(qwen_max_pixels),
         lmstudio_base_url=str(lmstudio_base_url),
         max_image_edge=int(max_image_edge),
-        fallback_to_template=True,
         stream=stream,
     )
 
@@ -823,6 +892,7 @@ def _run_image_analysis(
             people_names = _dedupe(
                 [row.name for row in people_matches] + list(extra_people_names or [])
             )
+            people_positions = _compute_people_positions(people_matches, image_path)
             object_labels = [row.label for row in object_matches]
             if step_fn:
                 step_fn("ocr+caption")
@@ -834,6 +904,7 @@ def _run_image_analysis(
                 album_title=album_title,
                 printed_album_title=printed_album_title,
                 photo_count=page_photo_count,
+                people_positions=people_positions,
             )
             ocr_keywords = extract_keywords(ocr_text, max_keywords=15)
         else:
@@ -866,6 +937,7 @@ def _run_image_analysis(
             people_names = _dedupe(
                 [row.name for row in people_matches] + list(extra_people_names or [])
             )
+            people_positions = _compute_people_positions(people_matches, image_path)
             object_labels = [row.label for row in object_matches]
             if step_fn:
                 step_fn("caption")
@@ -882,14 +954,17 @@ def _run_image_analysis(
                 printed_album_title=printed_album_title,
                 photo_count=page_photo_count,
                 is_cover_page=is_cover_page,
+                people_positions=people_positions,
             )
 
-    subjects = _dedupe(object_labels + ocr_keywords)
-    description = caption_output.text or build_description(
-        people=people_names,
-        objects=object_labels,
-        ocr_text=ocr_text,
+    _faces_detected = (
+        int(getattr(people_matcher, "last_faces_detected", 0))
+        if people_matcher
+        else 0
     )
+
+    subjects = _dedupe(object_labels + ocr_keywords)
+    description = caption_output.text
 
     payload = {
         "people": [
@@ -912,6 +987,7 @@ def _run_image_analysis(
         ],
         "ocr": {
             "engine": str(ocr_engine_name),
+            "model": str(ocr_engine.effective_model_name),
             "language": str(ocr_language),
             "keywords": ocr_keywords,
             "chars": len(ocr_text),
@@ -921,13 +997,11 @@ def _run_image_analysis(
             effective_engine=str(caption_output.engine),
             fallback=bool(caption_output.fallback),
             error=str(caption_output.error or ""),
-            model=str(
-                requested_caption_model
-                if requested_caption_engine in {"qwen", "lmstudio"}
-                else ""
-            ),
+            model=str(caption_engine.effective_model_name),
         ),
     }
+    if object_detector is not None:
+        payload["object_model"] = str(object_detector.model_name)
     gps_latitude = str(getattr(caption_output, "gps_latitude", "") or "").strip()
     gps_longitude = str(getattr(caption_output, "gps_longitude", "") or "").strip()
     location_name = str(getattr(caption_output, "location_name", "") or "").strip()
@@ -948,6 +1022,7 @@ def _run_image_analysis(
         subjects=subjects,
         description=description,
         payload=payload,
+        faces_detected=_faces_detected,
     )
 
 
@@ -1023,14 +1098,6 @@ def _build_page_payload(
     aggregate_objects = _aggregate_best_rows(sub_results, "objects", "label")
     people_names = [str(row["name"]) for row in aggregate_people]
     object_labels = [str(row["label"]) for row in aggregate_objects]
-    album_context = infer_album_context(
-        image_path=layout.original_path,
-        ocr_text=page_ocr_text,
-        allow_ocr=True,
-        album_title=album_title,
-        printed_album_title=printed_album_title,
-    )
-
     subphoto_rows: list[dict[str, Any]] = []
     page_subjects: list[str] = list(page_ocr_keywords)
     for prepared, result in zip(layout.subphotos, sub_results):
@@ -1049,21 +1116,9 @@ def _build_page_payload(
 
     subjects = _dedupe(page_subjects)
     if len(sub_results) == 1:
-        description = sub_results[0].description or build_page_caption(
-            photo_count=1,
-            people=people_names,
-            objects=object_labels,
-            ocr_text=page_ocr_text,
-            album_context=album_context,
-        )
+        description = sub_results[0].description
     else:
-        description = build_page_caption(
-            photo_count=len(sub_results),
-            people=people_names,
-            objects=object_labels,
-            ocr_text=page_ocr_text,
-            album_context=album_context,
-        )
+        description = ""
     payload = {
         "layout": _layout_payload(layout),
         "people": aggregate_people,
@@ -1090,40 +1145,7 @@ def _build_page_payload(
     return people_names, object_labels, subjects, description, payload, subphoto_rows
 
 
-def _build_flat_page_description(
-    *,
-    layout: PreparedImageLayout,
-    analysis: ImageAnalysis,
-    requested_caption_engine: str,
-    album_title: str = "",
-    printed_album_title: str = "",
-) -> str:
-    caption_meta = (
-        dict(analysis.payload.get("caption") or {})
-        if isinstance(analysis.payload, dict)
-        else {}
-    )
-    fallback_used = bool(caption_meta.get("fallback"))
-    effective_engine = str(caption_meta.get("effective_engine") or "").strip().lower()
-    album_context = infer_album_context(
-        image_path=layout.original_path,
-        ocr_text=analysis.ocr_text,
-        allow_ocr=True,
-        album_title=album_title,
-        printed_album_title=printed_album_title,
-    )
-    if (
-        fallback_used
-        or effective_engine in {"template", "none"}
-        or str(requested_caption_engine).strip().lower() in {"template", "none"}
-    ):
-        return build_page_caption(
-            photo_count=1,
-            people=analysis.people_names,
-            objects=analysis.object_labels,
-            ocr_text=analysis.ocr_text,
-            album_context=album_context,
-        )
+def _build_flat_page_description(*, analysis: ImageAnalysis) -> str:
     return analysis.description
 
 
@@ -1246,11 +1268,7 @@ def _run_scan_stitch_pass(
                         album_title=album_title,
                         printed_album_title=printed_album_title,
                     )
-                combined_description = caption_output.text or build_description(
-                    people=person_names,
-                    objects=object_labels,
-                    ocr_text=combined_ocr,
-                )
+                combined_description = caption_output.text
                 gps_latitude = str(
                     getattr(caption_output, "gps_latitude", "") or ""
                 ).strip()
@@ -1261,29 +1279,7 @@ def _run_scan_stitch_pass(
                     getattr(caption_output, "location_name", "") or ""
                 ).strip()
             else:
-                # Template / none: rebuild description from combined OCR without AI
-                album_context = infer_album_context(
-                    image_path=primary_path,
-                    ocr_text=combined_ocr,
-                    allow_ocr=True,
-                    album_title=album_title,
-                    printed_album_title=printed_album_title,
-                )
-                combined_description = build_page_caption(
-                    photo_count=max(
-                        1,
-                        sum(
-                            len(
-                                list((s.get("detections") or {}).get("subphotos") or [])
-                            )
-                            for s in states
-                        ),
-                    ),
-                    people=person_names,
-                    objects=object_labels,
-                    ocr_text=combined_ocr,
-                    album_context=album_context,
-                )
+                combined_description = ""
                 gps_latitude = ""
                 gps_longitude = ""
                 location_name = ""
@@ -1396,14 +1392,29 @@ def run(argv: list[str] | None = None) -> int:
     if not ext_set:
         ext_set = set(IMAGE_EXTENSIONS)
 
-    files = discover_images(
-        photos_root,
-        include_archive=include_archive,
-        include_view=include_view,
-        extensions=ext_set,
-    )
-    if args.max_images and args.max_images > 0:
-        files = files[: int(args.max_images)]
+    single_photo = str(args.photo or "").strip()
+    if single_photo:
+        photo_path = Path(single_photo).expanduser().resolve()
+        if not photo_path.is_file():
+            raise SystemExit(f"Photo not found: {photo_path}")
+        files = [photo_path]
+        force_processing = True
+    else:
+        files = discover_images(
+            photos_root,
+            include_archive=include_archive,
+            include_view=include_view,
+            extensions=ext_set,
+        )
+        album_filter = str(args.album or "").strip()
+        if album_filter:
+            album_lower = album_filter.casefold()
+            files = [f for f in files if album_lower in f.parent.name.casefold()]
+        photo_offset = int(args.photo_offset or 0)
+        if photo_offset > 0:
+            files = files[photo_offset:]
+        if args.max_images and args.max_images > 0:
+            files = files[: int(args.max_images)]
 
     emit_info(f"Discovered {len(files)} image files")
     if not files:
@@ -1548,8 +1559,13 @@ def run(argv: list[str] | None = None) -> int:
                 people_matcher_cache[people_key] = people_matcher
             current_cast_signature = str(people_matcher.store_signature())
 
+        existing_sidecar_state: dict | None = None
+        if has_valid_sidecar(image_path):
+            existing_sidecar_state = read_ai_sidecar_state(sidecar_path)
+
         manifest_row = manifest.get(str(image_path))
         reprocess_required = False
+        people_update_only = False
         if has_valid_sidecar(image_path) and not sidecar_has_expected_ai_fields(
             sidecar_path,
             creator_tool=creator_tool,
@@ -1570,13 +1586,21 @@ def run(argv: list[str] | None = None) -> int:
                     str(manifest_row.get("cast_store_signature") or "")
                     != current_cast_signature
                 ):
-                    reprocess_required = True
-        if not needs_processing(
+                    # Cast changed: only re-run people+caption if faces were detected here.
+                    # None means old XMP without the flag — treat conservatively as True.
+                    _pd = (existing_sidecar_state or {}).get("people_detected")
+                    if _pd is True or _pd is None:
+                        people_update_only = True
+                    # _pd is False → no faces in this image, cast change is irrelevant
+
+        needs_full = needs_processing(
             image_path,
             manifest_row,
             force_processing,
             reprocess_required=reprocess_required,
-        ):
+        )
+
+        if not needs_full and not people_update_only:
             skipped += 1
             if args.verbose and not stdout_only:
                 print(f"[{idx}/{len(files)}] skip  {image_path.name}")
@@ -1589,6 +1613,182 @@ def run(argv: list[str] | None = None) -> int:
                     f"[{idx}/{len(files)}] skip  {image_path.name} (render_settings skip=true)"
                 )
             continue
+
+        # ── Fast path: cast changed but only people+caption need updating ──────
+        if not needs_full and people_update_only and not stdout_only:
+            state = existing_sidecar_state
+            if not isinstance(state, dict):
+                needs_full = True  # fall through to full processing
+            else:
+                file_start = time.monotonic()
+                det = state.get("detections") or {}
+                existing_ocr_text = str(state.get("ocr_text") or "").strip()
+                existing_ocr_keywords = list(
+                    (det.get("ocr") or {}).get("keywords") or []
+                )
+                existing_object_rows = [
+                    r for r in list(det.get("objects") or []) if isinstance(r, dict)
+                ]
+                existing_object_labels = [
+                    str(r.get("label") or "")
+                    for r in existing_object_rows
+                    if r.get("label")
+                ]
+                existing_location = dict(det.get("location") or {})
+
+                eta_str = _format_eta(completed_times, len(files) - idx + 1)
+                eta_part = f"  {eta_str}" if eta_str else ""
+                prefix = f"[{idx}/{len(files)}]{eta_part}  {image_path.name}"
+                print(prefix, flush=True)
+                _pu_stop, _pu_step = _progress_ticker(prefix)
+
+                try:
+                    caption_key = (
+                        str(effective.get("caption_engine", defaults["caption_engine"])),
+                        str(effective.get("caption_model", defaults["caption_model"])),
+                        str(effective.get("caption_prompt", defaults["caption_prompt"])),
+                        int(effective.get("caption_max_tokens", defaults["caption_max_tokens"])),
+                        float(effective.get("caption_temperature", defaults["caption_temperature"])),
+                        str(effective.get("lmstudio_base_url", defaults["lmstudio_base_url"])),
+                        str(effective.get("qwen_attn_implementation", defaults["qwen_attn_implementation"])),
+                        int(effective.get("qwen_min_pixels", defaults["qwen_min_pixels"])),
+                        int(effective.get("qwen_max_pixels", defaults["qwen_max_pixels"])),
+                        int(effective.get("caption_max_edge", defaults["caption_max_edge"])),
+                    )
+                    pu_caption_engine = caption_engine_cache.get(caption_key)
+                    if pu_caption_engine is None:
+                        pu_caption_engine = _init_caption_engine(
+                            engine=caption_key[0],
+                            model_name=caption_key[1],
+                            caption_prompt=caption_key[2],
+                            max_tokens=int(caption_key[3]),
+                            temperature=float(caption_key[4]),
+                            lmstudio_base_url=caption_key[5],
+                            qwen_attn_implementation=caption_key[6],
+                            qwen_min_pixels=int(caption_key[7]),
+                            qwen_max_pixels=int(caption_key[8]),
+                            max_image_edge=int(caption_key[9]),
+                            stream=True,
+                        )
+                        caption_engine_cache[caption_key] = pu_caption_engine
+
+                    _pu_step("people")
+                    pu_people_matches = people_matcher.match_image(
+                        image_path,
+                        source_path=image_path,
+                        hint_text=existing_ocr_text,
+                    ) if people_matcher else []
+                    pu_faces_detected = (
+                        int(getattr(people_matcher, "last_faces_detected", 0))
+                        if people_matcher else 0
+                    )
+                    pu_person_names = _dedupe(
+                        [r.name for r in pu_people_matches] + existing_xmp_people
+                    )
+                    pu_people_positions = _compute_people_positions(
+                        pu_people_matches, image_path
+                    )
+
+                    _pu_step("caption")
+                    pu_album_title = _resolve_album_title_hint(image_path, album_title_cache)
+                    pu_printed_title = _resolve_album_printed_title_hint(
+                        image_path, printed_album_title_cache
+                    )
+                    with _prepare_ai_model_image(image_path) as pu_model_path:
+                        pu_caption_out = pu_caption_engine.generate(
+                            image_path=pu_model_path,
+                            people=pu_person_names,
+                            objects=existing_object_labels,
+                            ocr_text=existing_ocr_text,
+                            source_path=image_path,
+                            album_title=pu_album_title,
+                            printed_album_title=pu_printed_title,
+                            people_positions=pu_people_positions,
+                        )
+                    pu_description = pu_caption_out.text
+
+                    pu_people_payload = [
+                        {
+                            "name": r.name,
+                            "score": round(r.score, 5),
+                            "certainty": round(float(getattr(r, "certainty", r.score)), 5),
+                            "reviewed_by_human": bool(getattr(r, "reviewed_by_human", False)),
+                            "face_id": str(getattr(r, "face_id", "") or ""),
+                            **(
+                                {"bbox": [int(v) for v in r.bbox[:4]]}
+                                if getattr(r, "bbox", None)
+                                else {}
+                            ),
+                        }
+                        for r in pu_people_matches
+                    ]
+                    pu_caption_payload = _build_caption_metadata(
+                        requested_engine=str(caption_key[0]),
+                        effective_engine=str(pu_caption_out.engine),
+                        fallback=bool(pu_caption_out.fallback),
+                        error=str(pu_caption_out.error or ""),
+                        model=str(caption_key[1] if caption_key[0] in {"qwen", "lmstudio"} else ""),
+                    )
+                    pu_updated_det = {
+                        **det,
+                        "people": pu_people_payload,
+                        "caption": pu_caption_payload,
+                    }
+                    pu_subjects = _dedupe(existing_object_labels + existing_ocr_keywords)
+                    pu_source_text = read_embedded_source_text(image_path) or _derived_source_text(image_path)
+
+                    pu_people_detected = pu_faces_detected > 0 or len(pu_person_names) > 0
+                    pu_people_identified = len(pu_person_names) > 0
+
+                    if not dry_run:
+                        pu_img_w, pu_img_h = _get_image_dimensions(image_path)
+                        write_xmp_sidecar(
+                            sidecar_path,
+                            creator_tool=creator_tool,
+                            person_names=pu_person_names,
+                            subjects=pu_subjects,
+                            description=pu_description,
+                            album_title=pu_album_title,
+                            gps_latitude=str(existing_location.get("gps_latitude") or ""),
+                            gps_longitude=str(existing_location.get("gps_longitude") or ""),
+                            source_text=pu_source_text,
+                            ocr_text=existing_ocr_text,
+                            detections_payload=pu_updated_det,
+                            stitch_key=str(state.get("stitch_key") or ""),
+                            image_width=pu_img_w,
+                            image_height=pu_img_h,
+                            ocr_ran=bool(state.get("ocr_ran") or True),
+                            people_detected=pu_people_detected,
+                            people_identified=pu_people_identified,
+                        )
+
+                    current_cast_signature = str(people_matcher.store_signature())
+                    existing_manifest_row = manifest.get(str(image_path)) or {}
+                    manifest[str(image_path)] = {
+                        **existing_manifest_row,
+                        "cast_store_signature": current_cast_signature,
+                        "people_count": len(pu_person_names),
+                    }
+                    if bool(effective.get("enable_people", True)):
+                        processed_cast_manifest_keys.add(str(image_path))
+
+                    processed += 1
+                    completed_times.append(time.monotonic() - file_start)
+                    _pu_stop()
+                    eta_str2 = _format_eta(completed_times, len(files) - idx)
+                    eta_part2 = f"  {eta_str2}" if eta_str2 else ""
+                    print(
+                        f"[{idx}/{len(files)}]{eta_part2}  ok    {image_path.name}",
+                        flush=True,
+                    )
+                except Exception as exc:
+                    failures += 1
+                    _pu_stop()
+                    emit_error(f"[{idx}/{len(files)}] fail  {image_path.name}: {exc}")
+
+                if not needs_full:
+                    continue
+        # ─────────────────────────────────────────────────────────────────────
 
         file_start = time.monotonic()
         stop_ticker = None
@@ -1695,7 +1895,7 @@ def run(argv: list[str] | None = None) -> int:
                 analysis_mode = "single_image"
                 split_applied = False
                 subphoto_count = 0
-                source_text = read_embedded_source_text(image_path)
+                source_text = read_embedded_source_text(image_path) or _derived_source_text(image_path)
                 album_title_hint = (
                     _store_album_title_hint(
                         image_path,
@@ -1883,13 +2083,7 @@ def run(argv: list[str] | None = None) -> int:
                     person_names = _dedupe(analysis.people_names + existing_xmp_people)
                     subjects = analysis.subjects
                     description = (
-                        _build_flat_page_description(
-                            layout=layout,
-                            analysis=analysis,
-                            requested_caption_engine=str(caption_key[0]),
-                            album_title=resolved_album_title,
-                            printed_album_title=resolved_printed_album_title,
-                        )
+                        _build_flat_page_description(analysis=analysis)
                         if layout.page_like
                         else analysis.description
                     )
@@ -1898,6 +2092,19 @@ def run(argv: list[str] | None = None) -> int:
                     people_count = len(analysis.people_names)
                     object_count = len(analysis.object_labels)
                     analysis_mode = "page_flat" if layout.page_like else "single_image"
+
+                # Compute per-stage tracking flags for the XMP
+                _ocr_ran_flag = (
+                    str(effective.get("ocr_engine", defaults["ocr_engine"])).lower() != "none"
+                )
+                if analysis_mode == "page_subphotos":
+                    _total_faces = sum(r.faces_detected for r in sub_results)
+                    _people_detected_flag = _total_faces > 0 or len(person_names) > 0
+                else:
+                    _people_detected_flag = (
+                        analysis.faces_detected > 0 or len(person_names) > 0
+                    )
+                _people_identified_flag = len(person_names) > 0
 
                 if not dry_run:
                     location_payload = (
@@ -1923,6 +2130,9 @@ def run(argv: list[str] | None = None) -> int:
                         subphotos=subphotos_xml,
                         image_width=img_w,
                         image_height=img_h,
+                        ocr_ran=_ocr_ran_flag,
+                        people_detected=_people_detected_flag,
+                        people_identified=_people_identified_flag,
                     )
 
             if people_matcher is not None:

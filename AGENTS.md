@@ -11,6 +11,7 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 - If backward compatibility is requested, implement it only when explicitly asked.
 - Limit code file sizes to about 500 lines, if they go over that size, then ask about refactoring.
 - Do not use brittle regex and string replaacments to edit AI model responses, improve the prompt instead to get the correct output.
+- Do not write code for input or output from AI model requests or responses, prefer to write prompts to .skill files.
 - Use `python -m black` to automatically enforce formatting. 
 
 ## Data and Schema Migrations
