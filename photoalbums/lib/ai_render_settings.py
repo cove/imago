@@ -9,7 +9,7 @@ from ._caption_qwen import normalize_qwen_attn_implementation
 
 SETTINGS_FILENAME = "render_settings.json"
 OCR_ENGINES = {"none", "qwen", "lmstudio"}
-CAPTION_ENGINES = {"none", "template", "qwen", "lmstudio"}
+CAPTION_ENGINES = {"none", "qwen", "lmstudio"}
 
 
 def render_settings_path(archive_dir: str | Path) -> Path:

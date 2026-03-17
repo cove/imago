@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from ._caption_album import (
-    ALBUM_KIND_FAMILY,
     ALBUM_KIND_PHOTO_ESSAY,
     AlbumContext,
     clean_text,
@@ -11,6 +11,90 @@ from ._caption_album import (
     infer_album_context,
     join_human,
 )
+
+# ---------------------------------------------------------------------------
+# Position helpers
+# ---------------------------------------------------------------------------
+
+
+def _position_label(cx: float, cy: float) -> str:
+    """Return a human-readable position label from normalised centre coordinates.
+
+    cx and cy are in [0, 1] where (0, 0) is the top-left corner.
+    """
+    v = "upper" if cy < 0.4 else ("lower" if cy > 0.6 else "centre")
+    h = "left" if cx < 0.4 else ("right" if cx > 0.6 else "centre")
+    if v == "centre" and h == "centre":
+        return "centre"
+    if v == "centre":
+        return h
+    if h == "centre":
+        return v
+    return f"{v}-{h}"
+
+
+# ---------------------------------------------------------------------------
+# Skill file loader
+# ---------------------------------------------------------------------------
+
+_SKILL_FILE = Path(__file__).parent.parent.parent / "Cordell_Photo_Albums.skill"
+_SKILL_CACHE: dict[str, list[str]] | None = None
+
+
+def _parse_skill(path: Path) -> dict[str, list[str]]:
+    """Parse a .skill file into {section_name: [lines]}."""
+    sections: dict[str, list[str]] = {}
+    current: str | None = None
+    with open(path, encoding="utf-8") as f:
+        for raw in f:
+            stripped = raw.rstrip()
+            if stripped.startswith("## ") and not stripped.startswith("### "):
+                current = stripped[3:].strip()
+                sections.setdefault(current, [])
+            elif current is not None and stripped.strip() and not stripped.strip().startswith("#"):
+                sections[current].append(stripped.strip())
+    return sections
+
+
+def _skill() -> dict[str, list[str]]:
+    global _SKILL_CACHE
+    if _SKILL_CACHE is None:
+        _SKILL_CACHE = _parse_skill(_SKILL_FILE) if _SKILL_FILE.exists() else {}
+    return _SKILL_CACHE
+
+
+def _section(*names: str, **kwargs: str) -> list[str]:
+    """Return lines from one or more named skill sections with {var} substitution.
+
+    Lines where any substituted variable resolves to an empty string are dropped.
+    """
+    lines: list[str] = []
+    skill = _skill()
+    for name in names:
+        for raw in skill.get(name, []):
+            rendered, drop = _render_line(raw, kwargs)
+            if not drop:
+                lines.append(rendered)
+    return lines
+
+
+def _render_line(text: str, vars: dict[str, str]) -> tuple[str, bool]:
+    """Substitute {var} patterns. Returns (rendered, drop) where drop=True if any var was empty."""
+    drop = False
+
+    def replace(m: re.Match) -> str:
+        nonlocal drop
+        val = vars.get(m.group(1), "")
+        if not val:
+            drop = True
+        return val
+
+    return re.sub(r"\{(\w+)\}", replace, text), drop
+
+
+# ---------------------------------------------------------------------------
+# Prompt assembly
+# ---------------------------------------------------------------------------
 
 
 def _should_apply_album_prompt_rules(
@@ -24,90 +108,6 @@ def _should_apply_album_prompt_rules(
     return "photo albums" in joined or "cordell" in joined
 
 
-def build_template_caption(
-    *,
-    people: list[str],
-    objects: list[str],
-    ocr_text: str,
-    album_context: AlbumContext | None = None,
-) -> str:
-    people_list = dedupe(people)
-    object_list = dedupe(objects)
-    text = clean_text(ocr_text)
-    context = album_context or AlbumContext()
-
-    parts: list[str] = []
-    subject_prefix = (
-        f"This image from {context.title}" if context.title else "This photo"
-    )
-    if people_list and object_list:
-        parts.append(
-            f"{subject_prefix} shows {join_human(people_list)} with {join_human(object_list)} in view."
-        )
-    elif people_list:
-        parts.append(f"{subject_prefix} shows {join_human(people_list)}.")
-    elif object_list:
-        parts.append(f"{subject_prefix} includes {join_human(object_list)}.")
-
-    if text:
-        snippet = text[:180].strip()
-        if len(text) > len(snippet):
-            snippet += "..."
-        parts.append(f'Visible text reads: "{snippet}".')
-    return " ".join(parts).strip()
-
-
-def build_page_caption(
-    *,
-    photo_count: int,
-    people: list[str],
-    objects: list[str],
-    ocr_text: str,
-    album_context: AlbumContext | None = None,
-) -> str:
-    count = max(1, int(photo_count))
-    people_list = dedupe(people)
-    object_list = dedupe(objects)
-    text = clean_text(ocr_text)
-    context = album_context or AlbumContext()
-
-    if context.title and context.kind == ALBUM_KIND_FAMILY:
-        parts = [
-            f"This page from {context.title}, a Family Photo Album, contains {count} photo(s)."
-        ]
-    elif context.title and context.kind == ALBUM_KIND_PHOTO_ESSAY:
-        parts = [
-            f"This page from {context.title}, a Photo Essay, contains {count} photo(s)."
-        ]
-    elif context.title:
-        parts = [f"This page from {context.title} contains {count} photo(s)."]
-    elif context.kind == ALBUM_KIND_FAMILY:
-        parts = [f"This Family Photo Album page contains {count} photo(s)."]
-    elif context.kind == ALBUM_KIND_PHOTO_ESSAY:
-        parts = [f"This Photo Essay page contains {count} photo(s)."]
-    else:
-        parts = [f"This album page contains {count} photo(s)."]
-    if not context.title and context.kind == ALBUM_KIND_PHOTO_ESSAY and context.focus:
-        parts.append(f"The album title suggests {context.focus}.")
-    if people_list and object_list:
-        parts.append(
-            f"Across the page, it shows {join_human(people_list)} with {join_human(object_list)} in view."
-        )
-    elif people_list:
-        parts.append(f"Across the page, it shows {join_human(people_list)}.")
-    elif object_list:
-        parts.append(
-            f"Across the page, visible objects include {join_human(object_list)}."
-        )
-
-    if text:
-        snippet = text[:220].strip()
-        if len(text) > len(snippet):
-            snippet += "..."
-        parts.append(f'Visible text on the page reads: "{snippet}".')
-    return " ".join(parts).strip()
-
-
 def _build_shared_prompt_rules(
     *,
     context: AlbumContext,
@@ -116,103 +116,52 @@ def _build_shared_prompt_rules(
     object_list: list[str],
     combined: bool = False,
     is_cover_page: bool = False,
+    people_positions: dict[str, str] | None = None,
 ) -> list[str]:
     lines: list[str] = []
+
     if is_cover_page:
-        lines.append("This image is an album cover or title page.")
+        lines.extend(_section("Cover Page"))
+
     if context.title:
-        lines.append(f"Album title hint: {context.title}.")
+        lines.extend(_section("Album Title", album_title=context.title))
+
     if (
         context.canonical_title
         and context.title
         and context.canonical_title.casefold() != context.title.casefold()
     ):
-        lines.append(f"Canonical album title hint: {context.canonical_title}.")
-        lines.append(
-            "When naming the album in the caption, prefer the printed cover title over the normalized title."
-        )
+        lines.extend(_section("Canonical Title", canonical_title=context.canonical_title))
+
     if _should_apply_album_prompt_rules(source_path, context):
-        lines.append("Cordell Photo Albums rules:")
-        lines.append(
-            "- If the album is a family collection, describe it as a Family Photo Album."
-        )
-        lines.append(
-            "- If the album title names a country or region, describe it as a Photo Essay."
-        )
-        lines.append(
-            "- If the image is mostly a solid blue or white cover with title text naming a country, "
-            "region, or family, describe it as the cover of the photo album book."
-        )
-        lines.append(
-            "- Preserve visible book labels exactly as shown. Do not silently normalize them. "
-            "If a label uses digit 1 characters for a Roman numeral volume, keep the visible label "
-            "and note that it is a typo; for example, BOOK 11 is a typo for Book II (2)."
-        )
-        lines.append(
-            "- When quoting any visible text, preserve the original text as shown."
-        )
+        lines.extend(_section("Album Classification"))
         if context.label:
-            lines.append(f"Album classification hint: {context.label}.")
+            lines.extend(_section("Album Label", album_label=context.label))
         if context.focus and context.kind == ALBUM_KIND_PHOTO_ESSAY:
-            lines.append(f"Album focus hint: {context.focus}.")
-    lines.append(
-        "Use decisive language. Never hedge with appears, seems, likely, or maybe."
-    )
-    lines.append(
-        "Never mention raw file names, folder names, or internal IDs such as B02, P01, Archive, or View."
-    )
-    if combined:
-        lines.append(
-            "When the visible text contains non-English characters, copy them exactly in the ocr_text field. "
-            "In the caption, follow each non-English phrase with its English translation in parentheses — "
-            "for example: '时间：上午8—11时 (Time: 8–11 AM)'."
-        )
-    else:
-        lines.append(
-            "If any visible text is not in English, preserve the original characters exactly in the caption, "
-            "then add an English translation in parentheses immediately after each non-English phrase — "
-            "for example: '敦煌历史文物展览 (Dunhuang Historical Relics Exhibition)'."
-        )
-    lines.append(
-        "Text visible in the image should make sense with the photo subjects: "
-        "if a word appears cut off at a scan edge, misspelled, or truncated, "
-        "infer the correct word from what is visible in the photo "
-        "(e.g., 'Chendo' on a sign next to panda or red panda photos → 'Chengdu', word cut off at scan edge). "
-        "Apply this to all text, not just place names."
-    )
-    lines.append("Location rules:")
-    lines.append(
-        "- Infer location from OCR text only when evidence is high confidence."
-    )
-    lines.append(
-        "- When location is clear, name the landmark, town, province, and country."
-    )
-    lines.append(
-        "- When evidence is imprecise, give the best city, state or province, and country."
-    )
-    lines.append(
-        "- When evidence is weak or conflicting, say the location is uncertain."
-    )
-    lines.append(
-        "- Do not invent GPS coordinates unless explicitly visible in the image or OCR text."
-    )
-    lines.append(
-        "- Correct misspelled, outdated, or truncated place names using context clues (album region, photo content); "
-        "words may be cut off at scan edges — use visible photo subjects to complete them."
-    )
-    lines.append(
-        "- Only use place names for well-known, widely documented locations (cities, provinces, landmarks); "
-        "avoid inferring obscure townships or villages — if you cannot confidently name a specific city, "
-        "fall back to province and country."
-    )
-    lines.append(
-        'Hyphen-separated lowercase names in OCR text (e.g. "leslie-tommy-robert") '
-        "list people left to right: Leslie, Tommy, Robert."
-    )
+            lines.extend(_section("Album Focus", album_focus=context.focus))
+
+    lines.extend(_section("Language Style"))
+    lines.extend(_section("Text Handling Combined" if combined else "Text Handling"))
+    lines.extend(_section("Text Scan"))
+    lines.extend(_section("Location Rules"))
+    lines.extend(_section("People Identification"))
+
     if people_list:
-        lines.append(f"Known people: {join_human(people_list)}.")
+        if people_positions:
+            entries = [
+                f"{name} ({people_positions[name]})" if name in people_positions else name
+                for name in people_list
+            ]
+            lines.append(
+                f"Known people in this image (deduplicate before referencing): {', '.join(entries)}."
+            )
+        else:
+            lines.append(f"Known people: {join_human(people_list)}.")
+        lines.append("Refer to these people by name in the caption wherever they appear.")
+
     if object_list:
         lines.append(f"Detected objects: {join_human(object_list)}.")
+
     return lines
 
 
@@ -224,8 +173,8 @@ def _build_qwen_prompt(
     source_path: str | Path | None = None,
     album_title: str = "",
     printed_album_title: str = "",
-    photo_count: int = 1,
     is_cover_page: bool = False,
+    people_positions: dict[str, str] | None = None,
 ) -> str:
     people_list = dedupe(people)
     object_list = dedupe(objects)
@@ -237,20 +186,7 @@ def _build_qwen_prompt(
         album_title=album_title,
         printed_album_title=printed_album_title,
     )
-    if photo_count > 1:
-        lines = [
-            f"This album page contains {photo_count} separate photos arranged as a collage or grid.",
-            "Describe each photo individually: what it shows, who or what is in it, and where it is located.",
-            "Do not blend locations or subjects from different photos into a single description.",
-        ]
-    elif photo_count == 0:
-        lines = [
-            "This is a scan of an album page that may contain one or more individual photos.",
-            "If you see multiple distinct photos, describe each one separately with its own location.",
-            "Do not blend subjects or locations from different photos into a single description.",
-        ]
-    else:
-        lines = ["Describe this photo in detail"]
+    lines = _section("Preamble Describe")
     lines.extend(
         _build_shared_prompt_rules(
             context=context,
@@ -258,6 +194,7 @@ def _build_qwen_prompt(
             people_list=people_list,
             object_list=object_list,
             is_cover_page=is_cover_page,
+            people_positions=people_positions,
         )
     )
     if text:
@@ -265,24 +202,7 @@ def _build_qwen_prompt(
         if len(text) > len(snippet):
             snippet += "..."
         lines.append(f'OCR text hint: "{snippet}".')
-    lines.append(
-        "Output a JSON object only. No markdown, no labels, no text outside the JSON."
-    )
-    lines.append(
-        'Use this exact schema: {"caption": "...", "location_name": "...",'
-        ' "gps_latitude": "...", "gps_longitude": "..."}'
-    )
-    lines.append(
-        "caption: a detailed description of the photo using only declarative statements."
-    )
-    lines.append(
-        "location_name: a concise geocoding query like 'Mogao Caves, Dunhuang, Gansu, China', "
-        "or empty string."
-    )
-    lines.append(
-        "gps_latitude / gps_longitude: decimal degree strings only if exact coordinates are "
-        "explicitly visible in the image or OCR text, otherwise empty strings."
-    )
+    lines.extend(_section("Output Format"))
     return "\n".join(lines)
 
 
@@ -293,8 +213,8 @@ def _build_combined_qwen_prompt(
     source_path: str | Path | None = None,
     album_title: str = "",
     printed_album_title: str = "",
-    photo_count: int = 1,
     is_cover_page: bool = False,
+    people_positions: dict[str, str] | None = None,
 ) -> str:
     """Prompt that requests both OCR text and a caption in a single inference."""
     people_list = dedupe(people)
@@ -306,18 +226,7 @@ def _build_combined_qwen_prompt(
         album_title=album_title,
         printed_album_title=printed_album_title,
     )
-    if photo_count == 0:
-        lines = [
-            "This is a scan of an album page that may contain one or more individual photos. Do both tasks:",
-            "1. Extract all visible text exactly as it appears. If there is none, write nothing.",
-            "2. Write one sentence per photo; if multiple distinct photos are visible, describe each separately.",
-        ]
-    else:
-        lines = [
-            "Analyze this photo. Do both tasks:",
-            "1. Extract all visible text exactly as it appears. If there is none, write nothing.",
-            "2. Write one sentence describing the scene.",
-        ]
+    lines = _section("Preamble Combined")
     lines.extend(
         _build_shared_prompt_rules(
             context=context,
@@ -326,28 +235,10 @@ def _build_combined_qwen_prompt(
             object_list=object_list,
             combined=True,
             is_cover_page=is_cover_page,
+            people_positions=people_positions,
         )
     )
-    lines.append(
-        "Output a JSON object only. No markdown, no labels, no text outside the JSON."
-    )
-    lines.append(
-        'Use this exact schema: {"ocr_text": "...", "caption": "...", "location_name": "...",'
-        ' "gps_latitude": "...", "gps_longitude": "..."}'
-    )
-    lines.append(
-        "ocr_text: all visible text in the image exactly as shown, or empty string if none."
-    )
-    lines.append(
-        "caption: one sentence describing the scene using only declarative statements."
-    )
-    lines.append(
-        "location_name: a concise geocoding query, or empty string if unknown."
-    )
-    lines.append(
-        "gps_latitude / gps_longitude: decimal degree strings only if explicitly visible, "
-        "otherwise empty strings."
-    )
+    lines.extend(_section("Output Format Combined"))
     return "\n".join(lines)
 
 
@@ -360,8 +251,8 @@ def _build_describe_prompt(
     source_path: str | Path | None,
     album_title: str,
     printed_album_title: str,
-    photo_count: int,
     is_cover_page: bool,
+    people_positions: dict[str, str] | None = None,
 ) -> str:
     return prompt_text or _build_qwen_prompt(
         people=people,
@@ -370,6 +261,6 @@ def _build_describe_prompt(
         source_path=source_path,
         album_title=album_title,
         printed_album_title=printed_album_title,
-        photo_count=photo_count,
         is_cover_page=is_cover_page,
+        people_positions=people_positions,
     )

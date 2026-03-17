@@ -3749,5 +3749,11 @@
     39061,
     40891
   ],
-  "audio_sync_offsets": []
+  "audio_sync_offsets": [
+    {
+      "start_frame": 18131,
+      "end_frame": 21417,
+      "offset_seconds": 5.0
+    }
+  ]
 }

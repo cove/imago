@@ -392,6 +392,33 @@
         font-size: 12px;
       }
 
+      .name-hints {
+        margin-top: 8px;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+
+      .name-hints-label {
+        margin-bottom: 4px;
+      }
+
+      .name-hint-btn {
+        display: inline-block;
+        margin: 2px 4px 2px 0;
+        padding: 3px 8px;
+        background: rgba(95, 141, 255, 0.12);
+        border: 1px solid var(--accent-soft);
+        border-radius: 2px;
+        color: var(--accent-contrast);
+        font-size: 12px;
+        cursor: pointer;
+        font-family: inherit;
+      }
+
+      .name-hint-btn:hover {
+        background: rgba(95, 141, 255, 0.25);
+      }
+
       .small {
         font-size: 12px;
         color: var(--text-muted);
@@ -514,6 +541,7 @@
               <div id="next-review-src" class="small" style="margin-top: 6px"></div>
             </div>
             <div>
+              <div id="next-review-hints" class="name-hints" style="display: none"></div>
               <div class="field">
                 <label for="next-review-name">Who is this?</label>
                 <input id="next-review-name" placeholder="Type a name and press Save Name" />
@@ -1166,6 +1194,7 @@
             const face = review.face || {};
             const reviewId = String(review.review_id || "");
             const candidates = Array.isArray(review.candidates) ? review.candidates : [];
+            const nameHints = Array.isArray(review.name_hints) ? review.name_hints : [];
             const candidateHtml = candidates.length
               ? candidates
                   .map((cand) => {
@@ -1179,12 +1208,30 @@
                   })
                   .join("")
               : "<div>No suggestion</div>";
+            const hintsHtml = nameHints.length
+              ? [
+                  '<div class="name-hints" style="margin-top:6px">',
+                  '<div class="name-hints-label">Caption hints:</div>',
+                  nameHints
+                    .map((h) => {
+                      const name = esc(String(h.name || ""));
+                      const src = esc(String(h.source || "").replace(/_/g, " "));
+                      const pid = esc(String(h.person_id || ""));
+                      if (pid) {
+                        return `<button class="name-hint-btn" title="From ${src}" onclick="resolveReview('${esc(reviewId)}', 'accepted', '${pid}')">${name}</button>`;
+                      }
+                      return `<span class="name-hint-btn" title="From ${src} (not in Cast)">${name}</span>`;
+                    })
+                    .join(""),
+                  '</div>',
+                ].join("")
+              : "";
 
             return [
               "<tr>",
               `<td>${faceCell(face)}</td>`,
               `<td>${esc(sourceText(face))}</td>`,
-              `<td>${candidateHtml}</td>`,
+              `<td>${candidateHtml}${hintsHtml}</td>`,
               `<td>`,
               `<div class="actions">`,
               `<select id="review-select-${esc(reviewId)}">${personOptions()}</select>`,
@@ -1254,6 +1301,33 @@
           sourceBtn.onclick = null;
         }
         select.innerHTML = personOptions();
+
+        // Show name hints as clickable buttons that pre-fill the name input
+        const hintsContainer = document.getElementById("next-review-hints");
+        const hints = Array.isArray(item.name_hints) ? item.name_hints : [];
+        if (hints.length > 0) {
+          const btns = hints
+            .map((h) => {
+              const label = esc(String(h.name || ""));
+              const src = esc(String(h.source || ""));
+              const title = src ? `From ${src.replace(/_/g, " ")}` : "Suggested name";
+              return `<button class="name-hint-btn" title="${title}" onclick="applyNameHint('${label}')">${label}</button>`;
+            })
+            .join("");
+          hintsContainer.innerHTML = `<div class="name-hints-label">Suggested from caption:</div>${btns}`;
+          hintsContainer.style.display = "block";
+        } else {
+          hintsContainer.innerHTML = "";
+          hintsContainer.style.display = "none";
+        }
+      }
+
+      function applyNameHint(name) {
+        const input = document.getElementById("next-review-name");
+        if (input) {
+          input.value = name;
+          input.focus();
+        }
       }
 
       function closeSourceModal() {

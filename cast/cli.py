@@ -28,6 +28,15 @@ def build_parser() -> argparse.ArgumentParser:
     web = subparsers.add_parser("web", help="Run local Cast web UI.")
     web.add_argument("--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)")
     web.add_argument("--port", type=int, default=8093, help="Bind port (default: 8093)")
+    web.add_argument(
+        "--lmstudio-url",
+        default="",
+        help=(
+            "Base URL of a running LM Studio instance. "
+            "Defaults to the standard imago LM Studio URL. "
+            "Pass an empty string to disable description rewrites."
+        ),
+    )
 
     label = subparsers.add_parser(
         "label-photos",
@@ -70,7 +79,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "init":
         return cmd_init(store)
     if args.command == "web":
-        run_web(host=str(args.host), port=int(args.port), store=store)
+        run_web(
+            host=str(args.host),
+            port=int(args.port),
+            store=store,
+            lmstudio_url=str(getattr(args, "lmstudio_url", "") or ""),
+        )
         return 0
     if args.command == "label-photos":
         from .label_photos import run_label_photos

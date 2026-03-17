@@ -244,6 +244,9 @@ def photoalbums_ai_index(
     geocode_skip: bool = False,
     include_view: bool = False,
     max_images: int = 0,
+    photo: Optional[str] = None,
+    album: Optional[str] = None,
+    photo_offset: int = 0,
     dry_run: bool = False,
     extra_args: Optional[list[str]] = None,
 ) -> dict:
@@ -264,6 +267,9 @@ def photoalbums_ai_index(
         geocode_skip: Skip geocoding step.
         include_view: Also process files in *_View folders.
         max_images: Limit number of images to process (0 = unlimited).
+        photo: Path to a single photo file to process (bypasses discovery, implies force).
+        album: Filter to photos whose parent directory name contains this substring (case-insensitive).
+        photo_offset: Skip first N discovered images (use with max_images to process a range).
         dry_run: Preview operations without writing any files.
         extra_args: Additional raw CLI arguments (e.g. ['--verbose']).
     """
@@ -293,6 +299,12 @@ def photoalbums_ai_index(
         args.append("--geocode-skip-none")
     if include_view:
         args.append("--include-view")
+    if photo:
+        args += ["--photo", photo]
+    if album:
+        args += ["--album", album]
+    if photo_offset:
+        args += ["--photo-offset", str(photo_offset)]
     if max_images:
         args += ["--max-images", str(max_images)]
     if dry_run:

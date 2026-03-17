@@ -222,6 +222,7 @@ class CastPeopleMatcher:
         self._ingestor = face_ingestor_cls(self._store)
 
         self._store_signature = ""
+        self.last_faces_detected: int = 0
         self._person_name_by_id: dict[str, str] = {}
         self._person_variants_by_id: dict[str, tuple[str, ...]] = {}
         self._faces_by_source: dict[str, list[dict[str, Any]]] = {}
@@ -464,6 +465,99 @@ class CastPeopleMatcher:
                 bonuses[person_id] = best
         return bonuses
 
+    def _find_person_id_by_name(self, name: str) -> str | None:
+        """Return the person_id if `name` matches any Cast person's display name or alias."""
+        target = _normalize_hint_text(name).strip()
+        if not target or len(target) < 2:
+            return None
+        for person_id, variants in self._person_variants_by_id.items():
+            for variant in variants:
+                phrase = _normalize_hint_text(variant).strip()
+                if phrase and phrase == target:
+                    return person_id
+        return None
+
+    def _build_face_name_hints(
+        self,
+        hint_text: str,
+        source_path: str,
+        face_index: int,
+        total_faces: int,
+    ) -> list[dict[str, Any]]:
+        """Build name hints for a specific face from OCR/hint text and filename.
+
+        Hyphen-separated sequences (e.g. "Karl-Billy-Leslie") are assigned
+        positionally when the count matches total_faces; otherwise all names
+        are shown as non-positional hints. Individual Cast person names found
+        anywhere in hint_text are also included.
+        """
+        hints: list[dict[str, Any]] = []
+        seen_names: set[str] = set()
+
+        def _add(name: str, person_id: str | None, confidence: float, source: str) -> None:
+            key = name.casefold()
+            if key in seen_names:
+                return
+            seen_names.add(key)
+            hints.append(
+                {
+                    "name": name,
+                    "person_id": person_id,
+                    "confidence": confidence,
+                    "source": source,
+                }
+            )
+
+        # 1. Hyphen-separated sequences in hint_text
+        for seq_match in re.finditer(
+            r"\b([a-zA-Z]{2,}(?:-[a-zA-Z]{2,})+)\b", hint_text
+        ):
+            parts = [p.strip() for p in seq_match.group(0).split("-") if len(p.strip()) >= 2]
+            if len(parts) < 2:
+                continue
+            if len(parts) == total_faces:
+                # Positional: this face gets the name at its left-to-right index
+                name = parts[face_index].title()
+                person_id = self._find_person_id_by_name(name)
+                _add(name, person_id, 0.85 if person_id else 0.65, "positional_caption")
+            else:
+                for name_raw in parts:
+                    name = name_raw.title()
+                    person_id = self._find_person_id_by_name(name)
+                    _add(name, person_id, 0.65 if person_id else 0.45, "caption")
+
+        # 2. Individual Cast person names found in hint_text
+        normalized = _normalize_hint_text(hint_text)
+        for person_id, variants in self._person_variants_by_id.items():
+            for variant in variants:
+                phrase = _normalize_hint_text(variant).strip()
+                if not phrase:
+                    continue
+                if f" {phrase} " in normalized:
+                    name = self._person_name_by_id.get(person_id, variant)
+                    _add(name, person_id, 0.5, "caption")
+                    break
+
+        # 3. Hyphen-separated sequences in the source filename stem
+        stem = Path(source_path).stem
+        stem_parts = [
+            p.strip()
+            for p in stem.split("-")
+            if re.match(r"^[a-zA-Z]{2,}$", p.strip())
+        ]
+        if len(stem_parts) >= 2:
+            if len(stem_parts) == total_faces:
+                name = stem_parts[face_index].title()
+                person_id = self._find_person_id_by_name(name)
+                _add(name, person_id, 0.85 if person_id else 0.65, "positional_filename")
+            else:
+                for name_raw in stem_parts:
+                    name = name_raw.title()
+                    person_id = self._find_person_id_by_name(name)
+                    _add(name, person_id, 0.65 if person_id else 0.45, "filename")
+
+        return hints
+
     def _apply_hint_scores(
         self, candidates: list[dict[str, Any]], hint_text: str
     ) -> list[dict[str, Any]]:
@@ -509,7 +603,11 @@ class CastPeopleMatcher:
         return False
 
     def _queue_for_review(
-        self, face: dict[str, Any], candidates: list[dict[str, Any]]
+        self,
+        face: dict[str, Any],
+        candidates: list[dict[str, Any]],
+        *,
+        name_hints: list[dict[str, Any]] | None = None,
     ) -> None:
         face_id = str(face.get("face_id") or "").strip()
         if not face_id:
@@ -528,6 +626,7 @@ class CastPeopleMatcher:
             suggested_person_id=None,
             suggested_score=None,
             status="pending",
+            name_hints=name_hints or [],
         )
         self._store_signature = self._store.store_signature()
 
@@ -554,15 +653,24 @@ class CastPeopleMatcher:
         height, width = image.shape[:2]
         by_name: dict[str, PersonMatch] = {}
 
-        for x, y, ww, hh in self._detect_faces(image):
+        # Collect valid faces sorted left-to-right for positional name hint assignment.
+        all_detected = self._detect_faces(image)
+        all_detected_sorted = sorted(all_detected, key=lambda f: f[0])
+        valid_faces: list[tuple[int, int, int, int]] = []
+        for x, y, ww, hh in all_detected_sorted:
             x0, y0, x1, y1 = self._expand_box(x, y, ww, hh, width, height)
             crop = image[y0:y1, x0:x1]
             if crop is None or crop.size == 0:
                 continue
-            if not self._ingestor.is_valid_face_crop(
-                crop, skip_artwork=self.skip_artwork
-            ):
+            if not self._ingestor.is_valid_face_crop(crop, skip_artwork=self.skip_artwork):
                 continue
+            valid_faces.append((x, y, ww, hh))
+        total_valid = len(valid_faces)
+        self.last_faces_detected = total_valid
+
+        for face_rank, (x, y, ww, hh) in enumerate(valid_faces):
+            x0, y0, x1, y1 = self._expand_box(x, y, ww, hh, width, height)
+            crop = image[y0:y1, x0:x1]
 
             absolute_bbox = _offset_box((x, y, ww, hh), bbox_offset)
             face = self._find_existing_face(source_path=source_key, bbox=absolute_bbox)
@@ -664,7 +772,13 @@ class CastPeopleMatcher:
                         by_name[name] = candidate
                     continue
 
-            self._queue_for_review(face, candidates)
+            name_hints = self._build_face_name_hints(
+                hint_text=hint_text,
+                source_path=source_key,
+                face_index=face_rank,
+                total_faces=total_valid,
+            )
+            self._queue_for_review(face, candidates, name_hints=name_hints)
 
         out = list(by_name.values())
         out.sort(
@@ -675,3 +789,4 @@ class CastPeopleMatcher:
             )
         )
         return out
+

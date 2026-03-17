@@ -63,6 +63,7 @@ class YOLOObjectDetector:
             # When downloading stock YOLO weights, keep them under repo-root models/.
             with _pushd(model_dir):
                 self._model = YOLO(model_ref)
+        self.model_name = str(model_name or "models/yolo11n.pt")
         self.confidence = float(confidence)
         self.max_detections = int(max_detections)
 

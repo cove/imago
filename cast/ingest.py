@@ -441,7 +441,7 @@ class FaceIngestor:
             return False
         if float(nose[1]) >= float(mouth_center[1]):
             return False
-        if float(eye_center[1]) > float(y) + (float(h) * 0.60):
+        if float(eye_center[1]) > float(y) + (float(h) * 0.72):
             return False
         if float(mouth_center[1]) < float(y) + (float(h) * 0.38):
             return False
