@@ -12,7 +12,7 @@ if str(REPO_ROOT) not in sys.path:
 if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
-from photoalbums.lib import ai_caption, _caption_lmstudio, _caption_qwen
+from photoalbums.lib import ai_caption, _caption_lmstudio, _caption_qwen, ai_ocr
 
 
 class TestAICaption(unittest.TestCase):
@@ -218,7 +218,7 @@ class TestAICaption(unittest.TestCase):
             cache_dir = Path(tmp)
             snapshot = (
                 cache_dir
-                / "models--Qwen--Qwen2.5-VL-3B-Instruct"
+                / "models--qwen--qwen3.5-9b"
                 / "snapshots"
                 / "abc123"
             )
@@ -239,6 +239,7 @@ class TestAICaption(unittest.TestCase):
 
             with (
                 mock.patch.object(_caption_qwen, "HF_MODEL_CACHE_DIR", cache_dir),
+                mock.patch.object(ai_ocr, "HF_MODEL_CACHE_DIR", cache_dir),
                 mock.patch.object(
                     _caption_qwen,
                     "_load_qwen_transformers",
