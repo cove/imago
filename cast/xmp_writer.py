@@ -19,6 +19,7 @@ ET.register_namespace("dc", DC_NS)
 _PERSON_TAG = f"{{{IPTC_EXT_NS}}}PersonInImage"
 _DC_DESC_TAG = f"{{{DC_NS}}}description"
 _RDF_BAG = f"{{{RDF_NS}}}Bag"
+_RDF_ALT = f"{{{RDF_NS}}}Alt"
 _RDF_LI = f"{{{RDF_NS}}}li"
 _RDF_DESC = f"{{{RDF_NS}}}Description"
 _RDF_ROOT = f"{{{RDF_NS}}}RDF"
@@ -43,6 +44,30 @@ def _dedupe(names: list[str]) -> list[str]:
         if clean:
             first_seen.setdefault(clean.casefold(), clean)
     return list(first_seen.values())
+
+
+def read_xmp_description(sidecar_path: Path | str) -> str:
+    """Read dc:description alt-text from an XMP sidecar. Returns '' on any error."""
+    try:
+        path = Path(sidecar_path)
+        if not path.is_file():
+            return ""
+        tree = ET.parse(str(path))
+        desc = _get_rdf_desc(tree)  # type: ignore[arg-type]
+        if desc is None:
+            return ""
+        desc_elem = desc.find(_DC_DESC_TAG)
+        if desc_elem is None:
+            return ""
+        alt = desc_elem.find(_RDF_ALT)
+        if alt is not None:
+            for li in alt.findall(_RDF_LI):
+                text = (li.text or "").strip()
+                if text:
+                    return text
+        return (desc_elem.text or "").strip()
+    except Exception:
+        return ""
 
 
 def read_person_in_image(sidecar_path: Path) -> list[str]:
@@ -76,13 +101,14 @@ def merge_persons_xmp(
     person_names: list[str],
     *,
     creator_tool: str = "cast-label-photos",
+    description: str | None = None,
 ) -> Path:
     """
     Write PersonInImage names to a .xmp sidecar.
 
     - If the sidecar already exists, only the Iptc4xmpExt:PersonInImage bag is
       updated; all other fields (dc:description, dc:subject, imago:*, etc.) are
-      preserved untouched.
+      preserved untouched, unless `description` is provided.
     - If the sidecar does not exist, a minimal XMP file is created containing
       only PersonInImage and xmp:CreatorTool.
 
@@ -97,16 +123,21 @@ def merge_persons_xmp(
         except ET.ParseError:
             tree = None
         if tree is not None:
-            _merge_into_tree(tree, names)  # type: ignore[arg-type]
+            _merge_into_tree(tree, names, description=description)  # type: ignore[arg-type]
             tree.write(str(sidecar_path), encoding="UTF-8", xml_declaration=True)
             return sidecar_path
 
     # No existing sidecar (or parse failure) — write a minimal file
-    _write_minimal(sidecar_path, names, creator_tool=creator_tool)
+    _write_minimal(sidecar_path, names, creator_tool=creator_tool, description=description)
     return sidecar_path
 
 
-def _merge_into_tree(tree: ET.ElementTree, names: list[str]) -> None:  # type: ignore[type-arg]
+def _merge_into_tree(
+    tree: ET.ElementTree,  # type: ignore[type-arg]
+    names: list[str],
+    *,
+    description: str | None = None,
+) -> None:
     """Update or create the PersonInImage bag inside an existing XMP tree."""
     root = tree.getroot()
     assert root is not None
@@ -135,12 +166,34 @@ def _merge_into_tree(tree: ET.ElementTree, names: list[str]) -> None:  # type: i
         li = ET.SubElement(bag, _RDF_LI)
         li.text = name
 
+    # Optionally update the dc:description alt-text
+    if description is not None:
+        clean = description.strip()
+        desc_elem = desc.find(_DC_DESC_TAG)
+        if clean:
+            if desc_elem is None:
+                desc_elem = ET.SubElement(desc, _DC_DESC_TAG)
+            alt = desc_elem.find(_RDF_ALT)
+            if alt is None:
+                desc_elem.clear()
+                alt = ET.SubElement(desc_elem, _RDF_ALT)
+            else:
+                # Remove existing li items
+                for li in list(alt.findall(_RDF_LI)):
+                    alt.remove(li)
+            li = ET.SubElement(alt, _RDF_LI)
+            li.set("{http://www.w3.org/XML/1998/namespace}lang", "x-default")
+            li.text = clean
+        elif desc_elem is not None:
+            desc.remove(desc_elem)
+
 
 def _write_minimal(
     sidecar_path: Path,
     names: list[str],
     *,
     creator_tool: str,
+    description: str | None = None,
 ) -> None:
     """Create a minimal XMP sidecar with only PersonInImage and CreatorTool."""
     sidecar_path.parent.mkdir(parents=True, exist_ok=True)
@@ -160,6 +213,15 @@ def _write_minimal(
     for name in names:
         li = ET.SubElement(bag, _RDF_LI)
         li.text = name
+
+    if description:
+        clean = description.strip()
+        if clean:
+            desc_elem = ET.SubElement(desc, _DC_DESC_TAG)
+            alt = ET.SubElement(desc_elem, _RDF_ALT)
+            li = ET.SubElement(alt, _RDF_LI)
+            li.set("{http://www.w3.org/XML/1998/namespace}lang", "x-default")
+            li.text = clean
 
     tree = ET.ElementTree(xmpmeta)
     tree.write(str(sidecar_path), encoding="UTF-8", xml_declaration=True)

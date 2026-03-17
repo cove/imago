@@ -7,6 +7,7 @@ from .model_store import HF_MODEL_CACHE_DIR
 from .ai_ocr import (
     DEFAULT_QWEN_OCR_MAX_IMAGE_EDGE,
     DEFAULT_QWEN_OCR_MAX_NEW_TOKENS,
+    DEFAULT_QWEN_OCR_MODEL,
     _load_hf_model,
     _normalize_ocr_text,
     _resolve_local_hf_snapshot,
@@ -20,10 +21,7 @@ from ._caption_lmstudio import (
     _resize_caption_image,
 )
 
-DEFAULT_QWEN_CAPTION_MODEL = "Qwen/Qwen2.5-VL-3B-Instruct"
-LEGACY_QWEN_CAPTION_MODEL_ALIASES = {
-    "qwen/qwen3.5-4b": DEFAULT_QWEN_CAPTION_MODEL,
-}
+DEFAULT_QWEN_CAPTION_MODEL = DEFAULT_QWEN_OCR_MODEL
 DEFAULT_QWEN_AUTO_MAX_PIXELS = 786_432
 QWEN_ATTN_IMPLEMENTATIONS = {"auto", "sdpa", "flash_attention_2", "eager"}
 
@@ -57,7 +55,7 @@ def _parse_qwen_json_output(raw: str) -> CaptionDetails:
     """Parse structured JSON output from a Qwen model inference, with plain-text fallback."""
     text = str(raw or "").strip()
     stripped = re.sub(
-        r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE
+        r"<tool_call>.*?<tool_call>", "", text, flags=re.DOTALL | re.IGNORECASE
     ).strip()
     if stripped:
         text = stripped
@@ -72,22 +70,24 @@ def _parse_qwen_json_output(raw: str) -> CaptionDetails:
                 str(payload.get("gps_longitude") or ""), axis="lon"
             )
             location_name = clean_text(str(payload.get("location_name") or ""))
+            name_suggestions = list(payload.get("name_suggestions") or [])
             return CaptionDetails(
                 text=clean_text(caption),
                 gps_latitude=gps_latitude,
                 gps_longitude=gps_longitude,
                 location_name=location_name,
+                name_suggestions=name_suggestions,
             )
     return CaptionDetails(text=clean_text(text))
 
 
-def _parse_qwen_combined_json_output(raw: str) -> tuple[str, str]:
+def _parse_qwen_combined_json_output(raw: str) -> tuple[str, str, list[dict[str, object]]]:
     """Parse structured JSON output from a combined OCR+caption Qwen inference.
-    Returns (ocr_text, caption_text).
+    Returns (ocr_text, caption_text, name_suggestions).
     """
     text = str(raw or "").strip()
     stripped = re.sub(
-        r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE
+        r"<tool_call>.*?<tool_call>", "", text, flags=re.DOTALL | re.IGNORECASE
     ).strip()
     if stripped:
         text = stripped
@@ -95,9 +95,10 @@ def _parse_qwen_combined_json_output(raw: str) -> tuple[str, str]:
     if payload is not None:
         ocr_text = _normalize_ocr_text(str(payload.get("ocr_text") or ""))
         caption = payload.get("caption")
+        name_suggestions = list(payload.get("name_suggestions") or [])
         if isinstance(caption, str) and caption.strip():
-            return ocr_text, clean_text(caption)
-    return "", clean_text(text)
+            return ocr_text, clean_text(caption), name_suggestions
+    return "", clean_text(text), []
 
 
 class QwenLocalCaptioner:
@@ -301,10 +302,10 @@ class QwenLocalCaptioner:
         source_path: str | Path | None = None,
         album_title: str = "",
         printed_album_title: str = "",
-        photo_count: int = 1,
         is_cover_page: bool = False,
-    ) -> tuple[str, str]:
-        """Single inference that returns (ocr_text, caption)."""
+        people_positions: dict[str, str] | None = None,
+    ) -> tuple[str, str, list[dict[str, object]]]:
+        """Single inference that returns (ocr_text, caption, name_suggestions)."""
         self._ensure_loaded()
         prompt = _build_combined_qwen_prompt(
             people=people,
@@ -312,8 +313,8 @@ class QwenLocalCaptioner:
             source_path=source_path or image_path,
             album_title=album_title,
             printed_album_title=printed_album_title,
-            photo_count=photo_count,
             is_cover_page=is_cover_page,
+            people_positions=people_positions,
         )
         max_tokens = self.max_new_tokens + DEFAULT_QWEN_OCR_MAX_NEW_TOKENS
         raw = self._infer_raw(image_path, prompt, max_new_tokens=max_tokens)

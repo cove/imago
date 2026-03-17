@@ -230,6 +230,9 @@ def build_xmp_tree(
     stitch_key: str = "",
     image_width: int = 0,
     image_height: int = 0,
+    ocr_ran: bool = False,
+    people_detected: bool = False,
+    people_identified: bool = False,
 ) -> ET.ElementTree:
     xmpmeta = ET.Element(f"{{{X_NS}}}xmpmeta")
     rdf = ET.SubElement(xmpmeta, _RDF_ROOT)
@@ -283,6 +286,10 @@ def build_xmp_tree(
     if clean_stitch_key:
         sk = ET.SubElement(desc, f"{{{IMAGO_NS}}}StitchKey")
         sk.text = clean_stitch_key
+
+    _add_simple_text(desc, f"{{{IMAGO_NS}}}OcrRan", str(ocr_ran).lower())
+    _add_simple_text(desc, f"{{{IMAGO_NS}}}PeopleDetected", str(people_detected).lower())
+    _add_simple_text(desc, f"{{{IMAGO_NS}}}PeopleIdentified", str(people_identified).lower())
 
     tree = ET.ElementTree(xmpmeta)
     ET.indent(tree, space="  ")
@@ -392,6 +399,14 @@ def _get_alt_text(parent: ET.Element, tag: str) -> str:
     return ""
 
 
+def _read_xmp_bool(desc: ET.Element, tag: str) -> bool | None:
+    """Return True/False if the tag is present with a boolean value, else None if absent."""
+    raw = desc.findtext(tag)
+    if raw is None:
+        return None
+    return str(raw or "").strip().lower() == "true"
+
+
 def read_person_in_image(sidecar_path: str | Path) -> list[str]:
     """Return Iptc4xmpExt:PersonInImage names from an XMP sidecar. Returns [] on any error."""
     _PERSON_TAG = f"{{{IPTC_EXT_NS}}}PersonInImage"
@@ -462,6 +477,9 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
             desc.findtext(f"{{{IMAGO_NS}}}StitchKey", default="") or ""
         ).strip(),
         "detections": detections_payload,
+        "ocr_ran": _read_xmp_bool(desc, f"{{{IMAGO_NS}}}OcrRan"),
+        "people_detected": _read_xmp_bool(desc, f"{{{IMAGO_NS}}}PeopleDetected"),
+        "people_identified": _read_xmp_bool(desc, f"{{{IMAGO_NS}}}PeopleIdentified"),
     }
 
 
@@ -571,6 +589,9 @@ def _merge_xmp_tree(
     stitch_key: str = "",
     image_width: int = 0,
     image_height: int = 0,
+    ocr_ran: bool = False,
+    people_detected: bool = False,
+    people_identified: bool = False,
 ) -> ET.ElementTree:
     desc = _get_or_create_rdf_desc(tree)
     _set_bag(desc, f"{{{DC_NS}}}subject", subjects)
@@ -602,6 +623,9 @@ def _merge_xmp_tree(
     )
     _set_subphotos(desc, subphotos)
     _set_simple_text(desc, f"{{{IMAGO_NS}}}StitchKey", str(stitch_key or "").strip())
+    _set_simple_text(desc, f"{{{IMAGO_NS}}}OcrRan", str(ocr_ran).lower(), allow_empty=True)
+    _set_simple_text(desc, f"{{{IMAGO_NS}}}PeopleDetected", str(people_detected).lower(), allow_empty=True)
+    _set_simple_text(desc, f"{{{IMAGO_NS}}}PeopleIdentified", str(people_identified).lower(), allow_empty=True)
     ET.indent(tree, space="  ")
     return tree
 
@@ -623,6 +647,9 @@ def write_xmp_sidecar(
     stitch_key: str = "",
     image_width: int = 0,
     image_height: int = 0,
+    ocr_ran: bool = False,
+    people_detected: bool = False,
+    people_identified: bool = False,
 ) -> Path:
     path = Path(sidecar_path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -648,6 +675,9 @@ def write_xmp_sidecar(
             stitch_key=stitch_key,
             image_width=image_width,
             image_height=image_height,
+            ocr_ran=ocr_ran,
+            people_detected=people_detected,
+            people_identified=people_identified,
         )
     else:
         tree = _merge_xmp_tree(
@@ -666,6 +696,9 @@ def write_xmp_sidecar(
             stitch_key=stitch_key,
             image_width=image_width,
             image_height=image_height,
+            ocr_ran=ocr_ran,
+            people_detected=people_detected,
+            people_identified=people_identified,
         )
     tree.write(path, encoding="utf-8", xml_declaration=True)
     return path

@@ -12,48 +12,10 @@ if str(REPO_ROOT) not in sys.path:
 if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
-from photoalbums.lib import ai_caption, _caption_lmstudio, _caption_qwen
+from photoalbums.lib import ai_caption, _caption_lmstudio, _caption_qwen, ai_ocr
 
 
 class TestAICaption(unittest.TestCase):
-    def test_template_caption_includes_expected_sections(self):
-        text = ai_caption.build_template_caption(
-            people=["Alice", "Bob"],
-            objects=["bus", "chair"],
-            ocr_text="Welcome to Beijing station",
-        )
-        self.assertIn("Alice", text)
-        self.assertIn("bus", text)
-        self.assertIn("Visible text reads:", text)
-
-    def test_template_caption_returns_empty_when_no_signals_exist(self):
-        text = ai_caption.build_template_caption(
-            people=[],
-            objects=[],
-            ocr_text="",
-        )
-        self.assertEqual(text, "")
-
-    def test_page_caption_mentions_photo_count_and_page_text(self):
-        text = ai_caption.build_page_caption(
-            photo_count=2,
-            people=["Alice", "Bob"],
-            objects=["bus", "chair"],
-            ocr_text="Welcome to Beijing station",
-        )
-        self.assertIn("contains 2 photo(s)", text)
-        self.assertIn("Across the page", text)
-        self.assertIn("Visible text on the page reads:", text)
-
-    def test_page_caption_omits_no_match_sentence(self):
-        text = ai_caption.build_page_caption(
-            photo_count=1,
-            people=[],
-            objects=[],
-            ocr_text="",
-        )
-        self.assertEqual(text, "This album page contains 1 photo(s).")
-
     def test_infer_album_title_prefers_cover_text_and_romanizes_book_number(self):
         text = ai_caption.infer_album_title(
             image_path=Path("Photo Albums")
@@ -166,7 +128,7 @@ class TestAICaption(unittest.TestCase):
         self.assertEqual(out.text, "")
         self.assertEqual(out.engine, "none")
 
-    def test_qwen_falls_back_to_template_on_error(self):
+    def test_qwen_returns_empty_on_error(self):
         fake_qwen = mock.Mock()
         fake_qwen.describe.side_effect = RuntimeError("model offline")
         with mock.patch(
@@ -179,12 +141,12 @@ class TestAICaption(unittest.TestCase):
                 objects=["car"],
                 ocr_text="",
             )
-        self.assertEqual(out.engine, "template")
+        self.assertEqual(out.engine, "qwen")
         self.assertTrue(out.fallback)
         self.assertIn("model offline", out.error)
-        self.assertIn("Alice", out.text)
+        self.assertEqual(out.text, "")
 
-    def test_legacy_blip_alias_routes_to_qwen_and_falls_back_to_template_on_error(self):
+    def test_legacy_blip_alias_routes_to_qwen_and_returns_empty_on_error(self):
         fake_qwen = mock.Mock()
         fake_qwen.describe.side_effect = RuntimeError("model offline")
         with mock.patch(
@@ -209,10 +171,10 @@ class TestAICaption(unittest.TestCase):
             stream=False,
         )
         self.assertEqual(engine.engine, "qwen")
-        self.assertEqual(out.engine, "template")
+        self.assertEqual(out.engine, "qwen")
         self.assertTrue(out.fallback)
         self.assertIn("model offline", out.error)
-        self.assertIn("Alice", out.text)
+        self.assertEqual(out.text, "")
 
     def test_qwen_engine_forwards_cpu_tuning_settings(self):
         fake_qwen = mock.Mock()
@@ -222,7 +184,7 @@ class TestAICaption(unittest.TestCase):
         ) as ctor:
             engine = ai_caption.CaptionEngine(
                 engine="qwen",
-                model_name="Qwen/Qwen2.5-VL-3B-Instruct",
+                model_name="qwen/qwen3.5-9b",
                 caption_prompt="Describe this exact image",
                 max_tokens=64,
                 temperature=0.1,
@@ -238,7 +200,7 @@ class TestAICaption(unittest.TestCase):
                 ocr_text="",
             )
         ctor.assert_called_once_with(
-            model_name="Qwen/Qwen2.5-VL-3B-Instruct",
+            model_name="qwen/qwen3.5-9b",
             prompt_text="Describe this exact image",
             max_new_tokens=64,
             temperature=0.1,
@@ -256,7 +218,7 @@ class TestAICaption(unittest.TestCase):
             cache_dir = Path(tmp)
             snapshot = (
                 cache_dir
-                / "models--Qwen--Qwen2.5-VL-3B-Instruct"
+                / "models--qwen--qwen3.5-9b"
                 / "snapshots"
                 / "abc123"
             )
@@ -277,6 +239,7 @@ class TestAICaption(unittest.TestCase):
 
             with (
                 mock.patch.object(_caption_qwen, "HF_MODEL_CACHE_DIR", cache_dir),
+                mock.patch.object(ai_ocr, "HF_MODEL_CACHE_DIR", cache_dir),
                 mock.patch.object(
                     _caption_qwen,
                     "_load_qwen_transformers",
@@ -284,7 +247,7 @@ class TestAICaption(unittest.TestCase):
                 ),
             ):
                 captioner = ai_caption.QwenLocalCaptioner(
-                    model_name="Qwen/Qwen2.5-VL-3B-Instruct"
+                    model_name="qwen/qwen3.5-9b"
                 )
                 captioner._ensure_loaded()
 
@@ -296,12 +259,6 @@ class TestAICaption(unittest.TestCase):
 
             model_kwargs = fake_model_cls.from_pretrained.call_args.kwargs
             self.assertTrue(model_kwargs["local_files_only"])
-
-    def test_legacy_qwen_model_alias_resolves_to_supported_default(self):
-        self.assertEqual(
-            ai_caption.resolve_caption_model("qwen", "Qwen/Qwen3.5-4B"),
-            ai_caption.DEFAULT_QWEN_CAPTION_MODEL,
-        )
 
     def test_lmstudio_captioner_posts_chat_completion_request(self):
         response_payload = {
@@ -425,6 +382,18 @@ class TestAICaption(unittest.TestCase):
         self.assertEqual(
             details.text, "A blue album cover labeled MAINLAND CHINA 1986 BOOK 11."
         )
+
+    def test_parse_lmstudio_structured_caption_strips_closed_think_block(self):
+        # Thinking models like QwQ emit <think>reasoning</think> before the JSON payload.
+        details = ai_caption._parse_lmstudio_structured_caption(
+            '<think>Let me analyze the image carefully. I can see several photographs of a Chinese Opera performance in Lanzhou and travel scenes.</think>'
+            '{ "caption": "A photo album page from Mainland China Book 11 displays five distinct photographs documenting a Chinese Opera performance in Lanzhou.", '
+            '"gps_latitude": "", "gps_longitude": "", "location_name": "Lanzhou, Gansu, China" }',
+            finish_reason="stop",
+        )
+        self.assertIn("Lanzhou", details.text)
+        self.assertEqual(details.location_name, "Lanzhou, Gansu, China")
+        self.assertNotIn("<think>", details.text)
 
     def test_parse_lmstudio_structured_caption_prefers_structured_gps_fields(self):
         details = ai_caption._parse_lmstudio_structured_caption(

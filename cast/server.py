@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import sys
+import urllib.request
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -21,7 +23,7 @@ from .matching import (
     suggest_people_from_prototypes,
 )
 from .storage import TextFaceStore, face_is_human_reviewed, face_review_status
-from .xmp_writer import merge_persons_xmp, read_person_in_image
+from .xmp_writer import merge_persons_xmp, read_person_in_image, read_xmp_description
 
 _HERE = Path(__file__).resolve().parent
 _STATIC = _HERE / "static"
@@ -30,11 +32,66 @@ DEFAULT_PHOTO_ALBUMS_ROOT = (
     "C:/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums"
 )
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
+DEFAULT_LMSTUDIO_URL = "http://192.168.4.72:1234/v1"
 DEFAULT_MIN_SIMILARITY = 0.72
 DEFAULT_MIN_MARGIN = 0.015
 DEFAULT_MIN_FACE_QUALITY = 0.20
 DEFAULT_MIN_SAMPLE_COUNT = 2
 ACTIVE_EMBEDDING_MODELS = {CURRENT_FACE_EMBEDDING_MODEL}
+
+
+def _rewrite_description_via_lmstudio(
+    description: str,
+    person_names: list[str],
+    *,
+    base_url: str,
+) -> str | None:
+    """Best-effort: ask LM Studio to substitute generic references with actual names.
+
+    Returns the updated description string, or None if the call fails or is skipped.
+    """
+    if not description or not person_names:
+        return None
+    names_str = ", ".join(person_names)
+    prompt = (
+        "You are editing a photo description. "
+        "Some people in the photo are now identified by name. "
+        "Where the description uses a generic or collective reference to a person "
+        "(any phrase that does not use a name, regardless of how many people it refers to), "
+        "replace it with the actual name if you can confidently determine which person is meant. "
+        "If there are more people in the description than known names, substitute only what "
+        "is unambiguous and leave the rest as a generic reference. "
+        "Do not add, remove, or invent any detail beyond substituting names. "
+        "Return only the updated description with no explanation.\n\n"
+        f"Known people in this photo: {names_str}\n\n"
+        f"Description: {description}"
+    )
+    payload = json.dumps(
+        {
+            "model": "loaded-model",
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 256,
+            "temperature": 0.1,
+            "stream": False,
+        }
+    ).encode("utf-8")
+    req = urllib.request.Request(
+        f"{base_url.rstrip('/')}/chat/completions",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+            text = str(
+                result.get("choices", [{}])[0].get("message", {}).get("content", "") or ""
+            ).strip()
+            if text:
+                return text
+    except Exception as exc:
+        print(f"[cast] description rewrite skipped: {exc}", file=sys.stderr)
+    return None
 
 
 def _coerce_bool(value: Any, default: bool = False) -> bool:
@@ -53,9 +110,16 @@ def _coerce_bool(value: Any, default: bool = False) -> bool:
 
 
 class CastHTTPServer(ThreadingHTTPServer):
-    def __init__(self, host: str, port: int, store: TextFaceStore):
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        store: TextFaceStore,
+        lmstudio_url: str = DEFAULT_LMSTUDIO_URL,
+    ):
         self.store = store
         self.ingestor = FaceIngestor(store, require_primary_model=True)
+        self.lmstudio_url = str(lmstudio_url or DEFAULT_LMSTUDIO_URL).strip()
         super().__init__((host, int(port)), CastHandler)
 
 
@@ -68,6 +132,10 @@ class CastHandler(BaseHTTPRequestHandler):
     @property
     def store(self) -> TextFaceStore:
         return self.server.store
+
+    @property
+    def lmstudio_url(self) -> str:
+        return self.server.lmstudio_url
 
     def _read_json(self) -> dict[str, Any]:
         try:
@@ -241,6 +309,9 @@ class CastHandler(BaseHTTPRequestHandler):
         decided_person_id = str(review.get("decided_person_id") or "").strip() or None
         decided_person = people_by_id.get(decided_person_id or "")
         suggested_person = people_by_id.get(suggested_person_id or "")
+        name_hints = [
+            dict(h) for h in (review.get("name_hints") or []) if isinstance(h, dict)
+        ]
         return {
             "review_id": str(review.get("review_id", "")),
             "face_id": face_id,
@@ -259,6 +330,7 @@ class CastHandler(BaseHTTPRequestHandler):
                 str(decided_person.get("display_name", "")) if decided_person else ""
             ),
             "candidates": candidates,
+            "name_hints": name_hints,
             "created_at": str(review.get("created_at", "")),
             "updated_at": str(review.get("updated_at", "")),
             "face": self._face_summary(face, people_by_id) if face else None,
@@ -811,7 +883,8 @@ class CastHandler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self._error(f"Review updated but face assignment failed: {exc}")
                 return
-            # Write the confirmed name back to the source image's XMP sidecar.
+            # Write the confirmed name back to the source image's XMP sidecar,
+            # and optionally rewrite the description to use the actual name.
             try:
                 assert person_id is not None  # guaranteed by early-return at line ~720
                 source_path = str(assigned_face.get("source_path") or "").strip()
@@ -823,18 +896,30 @@ class CastHandler(BaseHTTPRequestHandler):
                     img_path = Path(source_path)
                     xmp_path = img_path.with_suffix(".xmp")
                     existing = read_person_in_image(xmp_path)
-                    if display_name.casefold() not in {n.casefold() for n in existing}:
-                        merge_persons_xmp(
-                            xmp_path,
-                            existing + [display_name],
-                            creator_tool="cast-review",
-                        )
+                    all_names = (
+                        existing
+                        if display_name.casefold() in {n.casefold() for n in existing}
+                        else existing + [display_name]
+                    )
+                    updated_description: str | None = None
+                    if self.lmstudio_url:
+                        old_desc = read_xmp_description(xmp_path)
+                        if old_desc:
+                            updated_description = _rewrite_description_via_lmstudio(
+                                old_desc,
+                                all_names,
+                                base_url=self.lmstudio_url,
+                            )
+                    merge_persons_xmp(
+                        xmp_path,
+                        all_names,
+                        creator_tool="cast-review",
+                        description=updated_description,
+                    )
 
             except Exception as exc:
                 # XMP write is best-effort; don't fail the review response.
                 xmp_warning = f"XMP write-back failed: {exc}"
-                import sys
-
                 print(f"[cast] {xmp_warning}", file=sys.stderr)
                 self._send_json(
                     {
@@ -1375,10 +1460,13 @@ class CastHandler(BaseHTTPRequestHandler):
         self._not_found()
 
 
-def run(host: str, port: int, store: TextFaceStore) -> None:
-    server = CastHTTPServer(host=host, port=port, store=store)
+def run(
+    host: str, port: int, store: TextFaceStore, lmstudio_url: str = DEFAULT_LMSTUDIO_URL
+) -> None:
+    server = CastHTTPServer(host=host, port=port, store=store, lmstudio_url=lmstudio_url)
     print(f"Cast web UI running at http://{host}:{int(port)}")
     print(f"Store directory: {store.root_dir}")
+    print(f"LM Studio URL: {server.lmstudio_url} (description rewrite on face confirm)")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

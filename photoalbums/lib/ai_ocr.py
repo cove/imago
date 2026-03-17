@@ -45,7 +45,7 @@ STOPWORDS = {
     "image",
 }
 
-DEFAULT_QWEN_OCR_MODEL = "Qwen/Qwen2.5-VL-3B-Instruct"
+DEFAULT_QWEN_OCR_MODEL = "qwen/qwen3.5-9b"
 DEFAULT_QWEN_OCR_MAX_NEW_TOKENS = 5128
 DEFAULT_QWEN_OCR_MAX_PIXELS = 4_194_304
 DEFAULT_QWEN_OCR_MAX_IMAGE_EDGE = 2048
@@ -410,6 +410,15 @@ class OCREngine:
         if self.engine in {"none", "qwen", "lmstudio"}:
             return
         raise ValueError(f"Unsupported OCR engine: {engine}")
+
+    @property
+    def effective_model_name(self) -> str:
+        """Return the actual model name used, resolved after any lazy API lookup."""
+        if self.engine == "qwen":
+            return str(self._model_name)
+        if self.engine == "lmstudio":
+            return str(self._lmstudio_model or "")
+        return ""
 
     def _ensure_loaded(self) -> None:
         if self.engine != "qwen":

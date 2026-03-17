@@ -35,6 +35,11 @@ class CaptionDetails:
     gps_latitude: str = ""
     gps_longitude: str = ""
     location_name: str = ""
+    name_suggestions: list[dict[str, object]] = None
+
+    def __post_init__(self):
+        if self.name_suggestions is None:
+            object.__setattr__(self, 'name_suggestions', [])
 
     def __str__(self) -> str:
         return self.text
@@ -49,6 +54,7 @@ class CaptionDetails:
                 and self.gps_latitude == other.gps_latitude
                 and self.gps_longitude == other.gps_longitude
                 and self.location_name == other.location_name
+                and self.name_suggestions == other.name_suggestions
             )
         if isinstance(other, str):
             return self.text == other
@@ -261,6 +267,20 @@ def _lmstudio_caption_response_format() -> dict[str, object]:
                     "gps_latitude": {"type": "string"},
                     "gps_longitude": {"type": "string"},
                     "location_name": {"type": "string"},
+                    "name_suggestions": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "confidence": {"type": "number"},
+                                "source": {"type": "string"},
+                                "context": {"type": "string"}
+                            },
+                            "required": ["name", "confidence", "source"],
+                            "additionalProperties": False
+                        }
+                    }
                 },
                 "required": [
                     "caption",
@@ -288,7 +308,7 @@ def _parse_lmstudio_structured_caption_payload(
     value: object,
     *,
     finish_reason: str = "",
-) -> tuple[str, str, str, str]:
+) -> tuple[str, str, str, str, list[dict[str, object]]]:
     raw = _decode_lmstudio_text(value)
     text = str(raw or "").strip()
     finish_note = (
@@ -300,12 +320,15 @@ def _parse_lmstudio_structured_caption_payload(
             "Check that the loaded model supports structured output and that the LM Studio server is current."
             f"{finish_note}"
         )
-    # Strip <think>...</think> blocks produced by reasoning models so that intermediate
-    # JSON objects inside the thinking block are not mistaken for the structured response.
-    # If stripping empties the text, keep the original so _extract_structured_json_payload
-    # can still find JSON embedded inside an unclosed <think> block.
+    # Strip <think>...</think> and <tool_call>...<tool_call> blocks produced by reasoning
+    # models so that intermediate JSON objects inside the thinking block are not mistaken
+    # for the structured response.  If stripping empties the text, keep the original so
+    # _extract_structured_json_payload can still find JSON embedded inside an unclosed block.
     stripped = re.sub(
         r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE
+    ).strip()
+    stripped = re.sub(
+        r"<tool_call>.*?<tool_call>", "", stripped or text, flags=re.DOTALL | re.IGNORECASE
     ).strip()
     if stripped:
         text = stripped
@@ -336,7 +359,8 @@ def _parse_lmstudio_structured_caption_payload(
         str(payload.get("gps_longitude") or ""), axis="lon"
     )
     location_name = clean_text(str(payload.get("location_name") or ""))
-    return caption, gps_latitude, gps_longitude, location_name
+    name_suggestions = list(payload.get("name_suggestions") or [])
+    return caption, gps_latitude, gps_longitude, location_name, name_suggestions
 
 
 def _parse_lmstudio_structured_caption(
@@ -344,7 +368,7 @@ def _parse_lmstudio_structured_caption(
     *,
     finish_reason: str = "",
 ) -> CaptionDetails:
-    caption, gps_latitude, gps_longitude, location_name = (
+    caption, gps_latitude, gps_longitude, location_name, name_suggestions = (
         _parse_lmstudio_structured_caption_payload(
             value,
             finish_reason=finish_reason,
@@ -355,6 +379,7 @@ def _parse_lmstudio_structured_caption(
         gps_latitude=gps_latitude,
         gps_longitude=gps_longitude,
         location_name=location_name,
+        name_suggestions=name_suggestions,
     )
 
 
@@ -502,9 +527,9 @@ class LMStudioCaptioner:
                         "Put the final caption text in the caption field. "
                         "If any visible text is not in English, add an English translation in parentheses "
                         "directly after each non-English phrase in the caption — for example: "
-                        "'敦煌历史文物展览 (Dunhuang Historical Relics Exhibition)'. "
+                        "'[non-English phrase] (English translation)'. "
                         "If the location is known confidently enough for online geocoding, set location_name "
-                        "to a concise English geocoding query such as 'Mogao Caves, Dunhuang, Gansu, China'. "
+                        "to a concise English geocoding query such as 'Landmark, City, Country'. "
                         "Only set gps_latitude and gps_longitude when exact coordinates are explicitly "
                         "visible in the image or OCR text. "
                         "If the exact GPS is not explicitly known, set both GPS fields to empty strings. "

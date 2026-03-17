@@ -395,6 +395,7 @@ class TextFaceStore:
         suggested_person_id: str | None,
         suggested_score: float | None,
         status: str = "pending",
+        name_hints: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         face_key = str(face_id or "").strip()
         if not face_key:
@@ -418,6 +419,9 @@ class TextFaceStore:
             "decided_at": "",
             "created_at": now,
             "updated_at": now,
+            "name_hints": [
+                dict(h) for h in (name_hints or []) if isinstance(h, dict)
+            ],
         }
         with self._lock:
             rows = self._read_json(self.review_path)
