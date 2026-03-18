@@ -148,3 +148,42 @@ def test_match_image_bbox_uses_original_image_coords_not_rescaled(
         f"Stored face bbox should be in original (400x300) coordinates, "
         f"got {face_record['bbox']} — likely face detection ran on a rescaled image"
     )
+
+
+def test_new_face_is_added_to_cast_store(tmp_path, monkeypatch):
+    """A face not yet in the Cast store should be added via store.add_face().
+
+    This covers the path where match_image() detects a face that has no existing
+    record, creates one, and queues it for review — so the face shows up in Cast.
+    """
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+
+    image_path = tmp_path / "page.jpg"
+    image = np.zeros((120, 120, 3), dtype=np.uint8)
+    cv2.rectangle(image, (10, 10), (70, 70), (220, 220, 220), -1)
+    cv2.imwrite(str(image_path), image)
+
+    matcher = CastPeopleMatcher(cast_store_dir=store.root_dir, max_faces=5)
+    monkeypatch.setattr(matcher, "_detect_faces", lambda image_bgr: [(10, 10, 60, 60)])
+    monkeypatch.setattr(
+        matcher._ingestor,
+        "is_valid_face_crop",
+        lambda crop_bgr, skip_artwork=True: True,
+    )
+    monkeypatch.setattr(matcher, "_arcface_embed", lambda crop_bgr: [1.0, 0.0, 0.0])
+    monkeypatch.setattr(matcher, "_embed", lambda crop_bgr: [1.0, 0.0, 0.0])
+    monkeypatch.setattr(matcher, "_estimate_quality", lambda crop_bgr: 0.80)
+    monkeypatch.setattr(
+        matcher._ingestor, "_save_crop", lambda face_id, crop_bgr: f"crops/{face_id}.jpg"
+    )
+
+    assert store.list_faces() == [], "store should be empty before match_image"
+
+    matcher.match_image(image_path, source_path=image_path)
+
+    faces = store.list_faces()
+    assert len(faces) == 1, f"Expected 1 face added to Cast store, got {len(faces)}"
+    assert faces[0]["source_type"] == "photo"
+    assert faces[0]["source_path"] == str(image_path)
+    assert faces[0]["bbox"] == [10, 10, 60, 60]
