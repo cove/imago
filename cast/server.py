@@ -945,11 +945,6 @@ class CastHandler(BaseHTTPRequestHandler):
 
     def _handle_prune_false_positives(self, payload: dict[str, Any]) -> None:
         max_items = int(payload.get("max_items") or 0)
-        skip_artwork = str(payload.get("skip_artwork", "1")).strip() not in {
-            "0",
-            "false",
-            "False",
-        }
         pending = [
             row
             for row in self.store.list_review_items()
@@ -984,7 +979,6 @@ class CastHandler(BaseHTTPRequestHandler):
             looks_valid = bool(
                 self.server.ingestor.is_valid_face_crop(
                     image,
-                    skip_artwork=skip_artwork,
                 )
             )
             if looks_valid:
@@ -1007,7 +1001,6 @@ class CastHandler(BaseHTTPRequestHandler):
                 "ok": True,
                 "checked": int(checked),
                 "pruned": int(pruned),
-                "skip_artwork": bool(skip_artwork),
                 "remaining_pending": int(
                     len(
                         [
@@ -1042,11 +1035,6 @@ class CastHandler(BaseHTTPRequestHandler):
         source_path = payload.get("source_path")
         min_size = int(payload.get("min_size") or 40)
         max_faces = int(payload.get("max_faces") or 50)
-        skip_artwork = str(payload.get("skip_artwork", "1")).strip() not in {
-            "0",
-            "false",
-            "False",
-        }
         auto_queue = str(payload.get("auto_queue", "1")).strip() not in {
             "0",
             "false",
@@ -1062,7 +1050,6 @@ class CastHandler(BaseHTTPRequestHandler):
                 source_path=str(source_path or path),
                 min_size=min_size,
                 max_faces=max_faces,
-                skip_artwork=skip_artwork,
             )
         except Exception as exc:
             self._error(str(exc))
@@ -1103,7 +1090,6 @@ class CastHandler(BaseHTTPRequestHandler):
                 "reviews_created": int(reviews_created),
                 "reviews_reused": int(reviews_reused),
                 "source_path": str(path),
-                "skip_artwork": bool(skip_artwork),
             },
             status=HTTPStatus.CREATED,
         )
@@ -1115,11 +1101,6 @@ class CastHandler(BaseHTTPRequestHandler):
         max_faces = int(payload.get("max_faces") or 120)
         sample_every_seconds = float(payload.get("sample_every_seconds") or 2.0)
         max_duration_seconds = float(payload.get("max_duration_seconds") or 0.0)
-        skip_artwork = str(payload.get("skip_artwork", "1")).strip() not in {
-            "0",
-            "false",
-            "False",
-        }
         auto_queue = str(payload.get("auto_queue", "1")).strip() not in {
             "0",
             "false",
@@ -1137,7 +1118,6 @@ class CastHandler(BaseHTTPRequestHandler):
                 min_size=min_size,
                 max_faces=max_faces,
                 max_duration_seconds=max_duration_seconds,
-                skip_artwork=skip_artwork,
             )
         except Exception as exc:
             self._error(str(exc))
@@ -1180,7 +1160,6 @@ class CastHandler(BaseHTTPRequestHandler):
                 "reviews_created": int(reviews_created),
                 "reviews_reused": int(reviews_reused),
                 "source_path": str(path),
-                "skip_artwork": bool(skip_artwork),
             },
             status=HTTPStatus.CREATED,
         )
@@ -1196,11 +1175,6 @@ class CastHandler(BaseHTTPRequestHandler):
         min_size = int(payload.get("min_size") or 40)
         max_faces_per_photo = int(payload.get("max_faces_per_photo") or 50)
         max_files = int(payload.get("max_files") or 0)
-        skip_artwork = str(payload.get("skip_artwork", "1")).strip() not in {
-            "0",
-            "false",
-            "False",
-        }
         auto_queue = str(payload.get("auto_queue", "1")).strip() not in {
             "0",
             "false",
@@ -1217,7 +1191,6 @@ class CastHandler(BaseHTTPRequestHandler):
                 min_size=min_size,
                 max_faces_per_photo=max_faces_per_photo,
                 max_files=max_files,
-                skip_artwork=skip_artwork,
             )
         except Exception as exc:
             self._error(str(exc))
@@ -1262,7 +1235,6 @@ class CastHandler(BaseHTTPRequestHandler):
                 "photo_albums_root": str(result.get("photo_albums_root", root_dir)),
                 "view_glob": str(result.get("view_glob", view_glob)),
                 "top_photos": top_photos,
-                "skip_artwork": bool(skip_artwork),
             },
             status=HTTPStatus.CREATED,
         )

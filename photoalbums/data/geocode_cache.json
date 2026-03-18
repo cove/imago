@@ -23,11 +23,27 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "abu simbel, aswan governorate, egypt": {
+    "display_name": "معبدا أبو سمبل, شارع المعبد, مدينة أبو سمبل, أسوان, 81525, مصر",
+    "latitude": "22.3371195",
+    "longitude": "31.6257973",
+    "query": "Abu Simbel, Aswan Governorate, Egypt",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "abu simbel, egypt": {
     "display_name": "معبدا أبو سمبل, شارع المعبد, مدينة أبو سمبل, أسوان, 81525, مصر",
     "latitude": "22.3371195",
     "longitude": "31.6257973",
     "query": "Abu Simbel, Egypt",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "agadir, morocco": {
+    "display_name": "Agadir ⴰⴳⴰⴷⵉⵔ أكادير, Pachalik d'Agadir ⵍⴱⴰⵛⴰⵡⵉⵢⴰ ⵏ ⴰⴳⴰⴷⵉⵔ باشوية أكادير, Préfecture d'Agadir Ida-Outanane ⵍⵄⴰⵎⴰⵍⴰ ⵏ ⴰⴳⴰⴷⵉⵔ ⵉⴷⴰ ⵡⵜⴰⵏⴰⵏ عمالة أكادير إدا وتنان, Souss-Massa ⵙⵓⵙⵙ-ⵎⴰⵙⵙⴰ سوس-ماسة, Maroc ⵍⵎⵖⵔⵉⴱ المغرب",
+    "latitude": "30.4205162",
+    "longitude": "-9.5838532",
+    "query": "Agadir, Morocco",
     "source": "nominatim",
     "status": "ok"
   },
@@ -84,6 +100,18 @@
     "latitude": "41.8897622",
     "longitude": "12.4906668",
     "query": "Arch of Constantine, Rome, Italy",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "asablanca, morocco": {
+    "query": "Asablanca, Morocco",
+    "status": "miss"
+  },
+  "aswan dam, aswan, egypt": {
+    "display_name": "السد العالى, أسوان, مصر",
+    "latitude": "23.9704099",
+    "longitude": "32.8748956",
+    "query": "Aswan Dam, Aswan, Egypt",
     "source": "nominatim",
     "status": "ok"
   },
@@ -194,6 +222,14 @@
   "bavarian alps, austria": {
     "query": "Bavarian Alps, Austria",
     "status": "miss"
+  },
+  "beckenham junction station, beckenham, england": {
+    "display_name": "Beckenham Junction Station, Rectory Road, Beckenham, London Borough of Bromley, Greater London, England, BR3 1HP, United Kingdom",
+    "latitude": "51.4107963",
+    "longitude": "-0.0268650",
+    "query": "Beckenham Junction Station, Beckenham, England",
+    "source": "nominatim",
+    "status": "ok"
   },
   "beckenham, england": {
     "display_name": "Beckenham, London Borough of Bromley, Greater London, England, BR3 1DZ, United Kingdom",
@@ -307,6 +343,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "brighton and dover, england": {
+    "query": "Brighton and Dover, England",
+    "status": "miss"
+  },
   "brighton and southampton, england": {
     "query": "Brighton and Southampton, England",
     "status": "miss"
@@ -419,11 +459,39 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "buda castle funicular, budapest, hungary": {
+    "query": "Buda Castle Funicular, Budapest, Hungary",
+    "status": "miss"
+  },
+  "buda castle hill, budapest, hungary": {
+    "display_name": "Mercure Budapest Castle Hill, 41-43, Krisztina körút, Krisztinaváros, I. kerület, Budapest, Közép-Magyarország, 1013, Magyarország",
+    "latitude": "47.4987031",
+    "longitude": "19.0272273",
+    "query": "Buda Castle Hill, Budapest, Hungary",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "buda castle, budapest, hungary": {
+    "display_name": "Budavári Palota, Sikló utca, Buda, Víziváros, I. kerület, Budapest, Közép-Magyarország, 1013, Magyarország",
+    "latitude": "47.4959913",
+    "longitude": "19.0398008",
+    "query": "Buda Castle, Budapest, Hungary",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "budapest, hungary": {
     "display_name": "Budapest, Közép-Magyarország, Magyarország",
     "latitude": "47.4813896",
     "longitude": "19.1460941",
     "query": "Budapest, Hungary",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "cairo tower, cairo, egypt": {
+    "display_name": "برج القاهرة, شارع البرج, باب اللوق, القاهرة, 11111, مصر",
+    "latitude": "30.0460136",
+    "longitude": "31.2243131",
+    "query": "Cairo Tower, Cairo, Egypt",
     "source": "nominatim",
     "status": "ok"
   },
@@ -475,6 +543,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "canterbury, dover, england": {
+    "display_name": "Canterbury Road, Denton with Wootton, Denton, Dover, Kent, England, CT4 6QX, United Kingdom",
+    "latitude": "51.1883571",
+    "longitude": "1.1796033",
+    "query": "Canterbury, Dover, England",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "canterbury, england": {
     "display_name": "Canterbury, Kent, England, United Kingdom",
     "latitude": "51.2800275",
@@ -496,6 +572,14 @@
     "latitude": "23.1612069",
     "longitude": "113.3481027",
     "query": "Canton (Guangzhou), Guangdong, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "canton (guangzhou), hong kong, china": {
+    "display_name": "知识城, 九佛街道, 黄埔区, 广州市, 广东省, 中国",
+    "latitude": "23.3944452",
+    "longitude": "113.4892430",
+    "query": "Canton (Guangzhou), Hong Kong, China",
     "source": "nominatim",
     "status": "ok"
   },
@@ -555,6 +639,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "cathedral nueva, salamanca, spain": {
+    "query": "Cathedral Nueva, Salamanca, Spain",
+    "status": "miss"
+  },
   "cathedral nueva, salamanca, spain; plaza de españa, seville, spain": {
     "query": "Cathedral Nueva, Salamanca, Spain; Plaza de España, Seville, Spain",
     "status": "miss"
@@ -563,6 +651,26 @@
     "query": "Ceuta and Fes, Morocco",
     "status": "miss"
   },
+  "ceuta, morocco": {
+    "display_name": "Rue Ceuta سبتة الشارع, Colline de l'Enzar سيرو إنزار, Fnideq ⴼⵏⵉⴷⴰⵇ الفنيدق, Pachalik de Fnideq باشوية الفنيدق, Préfecture de M'diq-Fnideq عمالة المضيق الفنيدق, Tanger-Tétouan-Al Hoceïma ⵟⴰⵏⵊ-ⵟⵉⵜⴰⵡⵉⵏ-ⵍⵃⵓⵙⵉⵎⴰ طنجة تطوان الحسيمة, 93102, Maroc ⵍⵎⵖⵔⵉⴱ المغرب",
+    "latitude": "35.8708999",
+    "longitude": "-5.3546014",
+    "query": "Ceuta, Morocco",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "ceuta, morocco; fes, morocco": {
+    "query": "Ceuta, Morocco; Fes, Morocco",
+    "status": "miss"
+  },
+  "chain bridge, budapest, hungary": {
+    "display_name": "Széchenyi lánchíd, 24498;14397;14398;14400, Széchenyi lánchíd, Buda, Víziváros, I. kerület, Budapest, Közép-Magyarország, 1013, Magyarország",
+    "latitude": "47.4989791",
+    "longitude": "19.0436494",
+    "query": "Chain Bridge, Budapest, Hungary",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "chendou, sichuan province, china": {
     "query": "Chendou, Sichuan Province, China",
     "status": "miss"
@@ -570,6 +678,14 @@
   "chendou, tibet autonomous region, china": {
     "query": "Chendou, Tibet Autonomous Region, China",
     "status": "miss"
+  },
+  "chendu, china": {
+    "display_name": "成都市, 四川省, 中国",
+    "latitude": "30.6598670",
+    "longitude": "104.0633150",
+    "query": "Chendu, China",
+    "source": "nominatim",
+    "status": "ok"
   },
   "chengdu zoo, chengdu, sichuan, china": {
     "display_name": "动物园, 荆竹西路, 青龙街道, 成华区, 成都市, 四川省, 610081, 中国",
@@ -655,6 +771,10 @@
     "query": "Chipping Campden and Broadway, Cotswolds, England",
     "status": "miss"
   },
+  "christchurch priory church, christchurch, dorset, england": {
+    "query": "Christchurch Priory Church, Christchurch, Dorset, England",
+    "status": "miss"
+  },
   "christchurch priory, christchurch, england": {
     "display_name": "Christchurch Priory, Quay Road, Purewell, Christchurch, Bournemouth, Christchurch and Poole, England, BH23 1BU, United Kingdom",
     "latitude": "50.7321405",
@@ -733,6 +853,10 @@
   },
   "cockington - torquay, cornwall, england": {
     "query": "Cockington - Torquay, Cornwall, England",
+    "status": "miss"
+  },
+  "cockington, cornwall, england": {
+    "query": "Cockington, Cornwall, England",
     "status": "miss"
   },
   "cockington, torquay, cornwall, england": {
@@ -971,6 +1095,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "dubrovnik cathedral, dubrovnik, croatia": {
+    "query": "Dubrovnik Cathedral, Dubrovnik, Croatia",
+    "status": "miss"
+  },
   "dubrovnik cathedral, dubrovnik, croatia (formerly yugoslavia)": {
     "query": "Dubrovnik Cathedral, Dubrovnik, Croatia (formerly Yugoslavia)",
     "status": "miss"
@@ -993,6 +1121,10 @@
   },
   "dubrovnik, dalmatia, croatia (then yugoslavia)": {
     "query": "Dubrovnik, Dalmatia, Croatia (then Yugoslavia)",
+    "status": "miss"
+  },
+  "dubrovnik, dalmatia, yugoslavia": {
+    "query": "Dubrovnik, Dalmatia, Yugoslavia",
     "status": "miss"
   },
   "dubrovnik, dubrovnik-neretva county, croatia": {
@@ -1107,6 +1239,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "elephant island, aswan, egypt": {
+    "query": "Elephant Island, Aswan, Egypt",
+    "status": "miss"
+  },
   "elephant island, egypt": {
     "query": "Elephant Island, Egypt",
     "status": "miss"
@@ -1191,6 +1327,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "exeter cathedral, devon, england": {
+    "display_name": "Exeter Cathedral, Cathedral Close, Newtown, Exeter, Devon, Devon and Torbay, England, EX1 1AJ, United Kingdom",
+    "latitude": "50.7225231",
+    "longitude": "-3.5298454",
+    "query": "Exeter Cathedral, Devon, England",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "exeter cathedral, england": {
     "display_name": "Exeter Cathedral, Cathedral Close, Newtown, Exeter, Devon, Devon and Torbay, England, EX1 1AJ, United Kingdom",
     "latitude": "50.7225231",
@@ -1239,6 +1383,14 @@
     "query": "Fisherman's Bastion and Matthias Church, Budapest, Hungary",
     "status": "miss"
   },
+  "fisherman's bastion, budapest, hungary": {
+    "display_name": "Halászbástya, Gimnázium utca, Buda, Víziváros, I. kerület, Budapest, Közép-Magyarország, 1014, Magyarország",
+    "latitude": "47.5023053",
+    "longitude": "19.0346998",
+    "query": "Fisherman's Bastion, Budapest, Hungary",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "fleet street, london": {
     "display_name": "Fleet Street, Blackfriars, City of London, Greater London, England, EC4A 2AG, United Kingdom",
     "latitude": "51.5138921",
@@ -1283,6 +1435,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "garden hotel, guangzhou, guangdong, china": {
+    "display_name": "花园酒店, 华乐街道, 越秀区, 广州市, 广东省, 中国",
+    "latitude": "23.1376682",
+    "longitude": "113.2809544",
+    "query": "Garden Hotel, Guangzhou, Guangdong, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "gatwick airport, croydon, london, england": {
     "query": "Gatwick Airport, Croydon, London, England",
     "status": "miss"
@@ -1314,6 +1474,14 @@
   "giza pyramid complex, giza, egypt": {
     "query": "Giza Pyramid Complex, Giza, Egypt",
     "status": "miss"
+  },
+  "giza pyramids - cairo, egypt": {
+    "display_name": "Pyramids of Giza archeological site, طريق القاهرة, الفيوم الصحراوى, كفرة نصار, الجيزة, 12559, مصر",
+    "latitude": "29.9652269",
+    "longitude": "31.1142547",
+    "query": "Giza Pyramids - Cairo, Egypt",
+    "source": "nominatim",
+    "status": "ok"
   },
   "giza pyramids, cairo, egypt": {
     "display_name": "Pyramids of Giza archeological site, طريق القاهرة, الفيوم الصحراوى, كفرة نصار, الجيزة, 12559, مصر",
@@ -1551,6 +1719,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "hong kong harbour, victoria peak tram, hong kong, china": {
+    "query": "Hong Kong Harbour, Victoria Peak Tram, Hong Kong, China",
+    "status": "miss"
+  },
   "hong kong international airport, hong kong": {
     "display_name": "香港國際機場 Hong Kong International Airport, 暢達路 Cheong Tat Road, 赤鱲角 Chek Lap Kok, 大嶼山 Lantau, 離島區 Islands District, 新界 New Territories, 香港 Hong Kong, 中国",
     "latitude": "22.3125986",
@@ -1625,6 +1797,10 @@
   },
   "humber bridge, scarborough, england": {
     "query": "Humber Bridge, Scarborough, England",
+    "status": "miss"
+  },
+  "hungarian parliament building, buda castle hill, budapest, hungary": {
+    "query": "Hungarian Parliament Building, Buda Castle Hill, Budapest, Hungary",
     "status": "miss"
   },
   "hydra, greece": {
@@ -1825,6 +2001,10 @@
   },
   "karnten and salzburg, austria": {
     "query": "Karnten and Salzburg, Austria",
+    "status": "miss"
+  },
+  "karnten, austria; salzburg, austria": {
+    "query": "Karnten, Austria; Salzburg, Austria",
     "status": "miss"
   },
   "kavala, greece": {
@@ -2291,6 +2471,14 @@
     "query": "Lucerne, Switzerland; Montreux, Switzerland; Lake Geneva, Switzerland; Border of France & Switzerland; Parm House, France",
     "status": "miss"
   },
+  "luxor temple, luxor, egypt": {
+    "display_name": "معبد الأقصر, شارع البوسطة, مدينه الاقصر, الأقصر, 85951, مصر",
+    "latitude": "25.6995250",
+    "longitude": "32.6390695",
+    "query": "Luxor Temple, Luxor, Egypt",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "luxor, egypt": {
     "display_name": "الأقصر, 85951, مصر",
     "latitude": "25.7020960",
@@ -2418,6 +2606,10 @@
     "query": "Mausoleum of the First Qin Emperor, Xi'an, Shaanxi, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "medina of fes, morocco": {
+    "query": "Medina of Fes, Morocco",
+    "status": "miss"
   },
   "medina, fes, morocco": {
     "display_name": "Fès-Médina ⴼⴰⵙ-ⵎⴷⵉⵏⴰ فاس-المدينة, Arrondissement de Fès-Médina مقاطعة فاس المدينة, Fès ⴼⴰⵙ فاس, Pachalik du Fes باشوية فاس, Préfecture de Fès عمالة فاس, Fès-Meknès ⴼⴰⵙ-ⵎⴽⵏⴰⵙ فاس-مكناس, 30120, Maroc ⵍⵎⵖⵔⵉⴱ المغرب",
@@ -2639,6 +2831,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "oxford street, london, united kingdom": {
+    "display_name": "Oxford Street, Marylebone, City of Westminster, Greater London, England, W1C 1LX, United Kingdom",
+    "latitude": "51.5134858",
+    "longitude": "-0.1583865",
+    "query": "Oxford Street, London, United Kingdom",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "oxford, england": {
     "display_name": "Oxford, Oxfordshire, England, United Kingdom",
     "latitude": "51.7520131",
@@ -2687,6 +2887,10 @@
     "query": "Parliament Buildings, London, England",
     "status": "miss"
   },
+  "parliament buildings, london, uk": {
+    "query": "Parliament Buildings, London, UK",
+    "status": "miss"
+  },
   "pembroke, england": {
     "display_name": "Pembroke, Sally Port Gardens, Brompton, Gillingham, Medway, England, ME4 4UH, United Kingdom",
     "latitude": "51.3977787",
@@ -2715,6 +2919,14 @@
     "query": "Perith and Keswick, Cumbria, England, UK",
     "status": "miss"
   },
+  "pest, budapest, hungary": {
+    "display_name": "Pest, Belváros, V. kerület, Budapest, Közép-Magyarország, 1052, Magyarország",
+    "latitude": "47.4942216",
+    "longitude": "19.0529846",
+    "query": "Pest, Budapest, Hungary",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "pest, hungary": {
     "display_name": "Pest, Belváros, V. kerület, Budapest, Közép-Magyarország, 1052, Magyarország",
     "latitude": "47.4942216",
@@ -2742,6 +2954,14 @@
   "pevensy castle, england": {
     "query": "Pevensy Castle, England",
     "status": "miss"
+  },
+  "philae temple, aswan, egypt": {
+    "display_name": "معبد فيلة, 25, شاش, أسوان, 81531, مصر",
+    "latitude": "24.0252548",
+    "longitude": "32.8841893",
+    "query": "Philae Temple, Aswan, Egypt",
+    "source": "nominatim",
+    "status": "ok"
   },
   "plaza de españa, seville, spain": {
     "display_name": "Plaza de España, El Prado-Parque de María Luisa, Distrito Sur, Sevilla, Andalucía, 41004, España",
@@ -2806,6 +3026,10 @@
     "query": "Polperro, Cornwall, United Kingdom",
     "source": "nominatim",
     "status": "ok"
+  },
+  "portala palace, china": {
+    "query": "Portala Palace, China",
+    "status": "miss"
   },
   "portala palace, lhasa, tibet": {
     "query": "Portala Palace, Lhasa, Tibet",
@@ -3291,6 +3515,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "seville cathedral, seville, andalusia, spain": {
+    "display_name": "Catedral de Sevilla, Calle Fray Ceferino González, Santa Cruz, Casco Antiguo, Sevilla, Andalucía, 41004, España",
+    "latitude": "37.3859150",
+    "longitude": "-5.9931406",
+    "query": "Seville Cathedral, Seville, Andalusia, Spain",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "seville cathedral, seville, spain": {
     "display_name": "Catedral de Sevilla, Calle Fray Ceferino González, Santa Cruz, Casco Antiguo, Sevilla, Andalucía, 41004, España",
     "latitude": "37.3859150",
@@ -3324,6 +3556,14 @@
     "latitude": "52.1938833",
     "longitude": "-1.7080084",
     "query": "Shakespeare's Birthplace, Stratford-upon-Avon, England",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "shigatse, tibet, china": {
+    "display_name": "日喀则市 གཞིས་ཀ་རྩེ་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 中国",
+    "latitude": "29.1058406",
+    "longitude": "86.8753983",
+    "query": "Shigatse, Tibet, China",
     "source": "nominatim",
     "status": "ok"
   },
@@ -3427,6 +3667,14 @@
     "query": "Spain Square, Seville, Spain",
     "status": "miss"
   },
+  "st ives, cornwall, england": {
+    "display_name": "St. Ives, Cornwall, England, United Kingdom",
+    "latitude": "50.2149064",
+    "longitude": "-5.4795083",
+    "query": "St Ives, Cornwall, England",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "st john's college, cambridge, england": {
     "display_name": "St John's College, Mount Pleasant Walk, Cambridge, Cambridgeshire, Cambridgeshire and Peterborough, England, CB3 0BW, United Kingdom",
     "latitude": "52.2087631",
@@ -3464,6 +3712,14 @@
     "latitude": "50.2149064",
     "longitude": "-5.4795083",
     "query": "St. Ives, Cornwall, England",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "st. michael's mount, cornwall, england": {
+    "display_name": "St. Michael's Mount, Marazion, Cornwall, England, United Kingdom",
+    "latitude": "50.1184017",
+    "longitude": "-5.4776453",
+    "query": "St. Michael's Mount, Cornwall, England",
     "source": "nominatim",
     "status": "ok"
   },
@@ -3631,6 +3887,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "temple of ramases ii, abu simbel, egypt": {
+    "query": "Temple of Ramases II, Abu Simbel, Egypt",
+    "status": "miss"
+  },
   "terracotta army museum, xi'an, china": {
     "query": "Terracotta Army Museum, Xi'an, China",
     "status": "miss"
@@ -3771,8 +4031,16 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "tibetan monastery, tibet, china": {
+    "query": "Tibetan Monastery, Tibet, China",
+    "status": "miss"
+  },
   "tomb of aga khan iii": {
     "query": "Tomb of Aga Khan III",
+    "status": "miss"
+  },
+  "tomb of aga khan iii, cairo, egypt": {
+    "query": "Tomb of Aga Khan III, Cairo, Egypt",
     "status": "miss"
   },
   "tomb of emperor qin shi huangdi, xi'an, china": {
@@ -3815,11 +4083,27 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "torquay, devon, united kingdom": {
+    "display_name": "Torquay, Torbay, Devon and Torbay, England, TQ1 1TR, United Kingdom",
+    "latitude": "50.4652392",
+    "longitude": "-3.5211361",
+    "query": "Torquay, Devon, United Kingdom",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "torre abbey sands, torquay, devon, england": {
     "display_name": "Torre Abbey Sands, Torre, Torquay, Torbay, Devon and Torbay, England, United Kingdom",
     "latitude": "50.4616634",
     "longitude": "-3.5370200",
     "query": "Torre Abbey Sands, Torquay, Devon, England",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "tower bridge, london, england": {
+    "display_name": "Tower Bridge, Dead Man's Hole, East Smithfield, Tower Hill, Wapping, London Borough of Tower Hamlets, Greater London, England, E1W 1LE, United Kingdom",
+    "latitude": "51.5055158",
+    "longitude": "-0.0753665",
+    "query": "Tower Bridge, London, England",
     "source": "nominatim",
     "status": "ok"
   },
@@ -3947,6 +4231,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "victoria embankment, london, england": {
+    "display_name": "Victoria Embankment, St Clement Danes, Covent Garden, City of Westminster, Greater London, England, WC2R 2NS, United Kingdom",
+    "latitude": "51.5106223",
+    "longitude": "-0.1152020",
+    "query": "Victoria Embankment, London, England",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "victoria embankment, london, uk": {
     "display_name": "Victoria Embankment, St Clement Danes, Covent Garden, City of Westminster, Greater London, England, WC2R 2NS, United Kingdom",
     "latitude": "51.5106416",
@@ -4014,6 +4306,14 @@
   "vnik, yugoslavia": {
     "query": "Vnik, Yugoslavia",
     "status": "miss"
+  },
+  "wantage - kenilworth, england": {
+    "display_name": "Wantage, 1, Castle Hill, Castle Green, Kenilworth, Warwick, Warwickshire, England, CV8 1NB, United Kingdom",
+    "latitude": "52.3491817",
+    "longitude": "-1.5876649",
+    "query": "Wantage - Kenilworth, England",
+    "source": "nominatim",
+    "status": "ok"
   },
   "wantage, england": {
     "display_name": "Wantage, Vale of White Horse, Oxfordshire, England, United Kingdom",

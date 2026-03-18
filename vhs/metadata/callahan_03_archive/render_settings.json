@@ -3754,6 +3754,21 @@
       "start_frame": 18131,
       "end_frame": 21417,
       "offset_seconds": 5.0
+    },
+    {
+      "start_frame": 21610,
+      "end_frame": 25379,
+      "offset_seconds": 5.0
+    },
+    {
+      "start_frame": 31980,
+      "end_frame": 34570,
+      "offset_seconds": 4.8
+    },
+    {
+      "start_frame": 42178,
+      "end_frame": 44617,
+      "offset_seconds": 5.0
     }
   ]
 }

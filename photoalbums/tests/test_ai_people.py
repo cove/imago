@@ -46,7 +46,7 @@ def test_matcher_refreshes_legacy_reviewed_face_to_current_model(tmp_path, monke
     monkeypatch.setattr(
         matcher._ingestor,
         "is_valid_face_crop",
-        lambda crop_bgr, skip_artwork=True: True,
+        lambda crop_bgr: True,
     )
     monkeypatch.setattr(matcher, "_arcface_embed", lambda crop_bgr: [1.0, 0.0, 0.0])
     monkeypatch.setattr(matcher, "_embed", lambda crop_bgr: [0.2, 0.8, 0.0])
@@ -127,7 +127,7 @@ def test_match_image_bbox_uses_original_image_coords_not_rescaled(
     monkeypatch.setattr(
         matcher._ingestor,
         "is_valid_face_crop",
-        lambda crop_bgr, skip_artwork=True: True,
+        lambda crop_bgr: True,
     )
     monkeypatch.setattr(matcher, "_arcface_embed", lambda crop_bgr: [1.0, 0.0, 0.0])
     monkeypatch.setattr(matcher, "_embed", lambda crop_bgr: [1.0, 0.0, 0.0])
@@ -169,7 +169,7 @@ def test_new_face_is_added_to_cast_store(tmp_path, monkeypatch):
     monkeypatch.setattr(
         matcher._ingestor,
         "is_valid_face_crop",
-        lambda crop_bgr, skip_artwork=True: True,
+        lambda crop_bgr: True,
     )
     monkeypatch.setattr(matcher, "_arcface_embed", lambda crop_bgr: [1.0, 0.0, 0.0])
     monkeypatch.setattr(matcher, "_embed", lambda crop_bgr: [1.0, 0.0, 0.0])

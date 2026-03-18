@@ -164,7 +164,6 @@ class CastPeopleMatcher:
         min_margin: float = 0.06,
         min_face_size: int = 40,
         max_faces: int = 40,
-        skip_artwork: bool = True,
         min_face_quality: float = 0.20,
         min_sample_count: int = 2,
         ignore_similarity: float = 0.88,
@@ -174,7 +173,6 @@ class CastPeopleMatcher:
         self.min_margin = float(min_margin)
         self.min_face_size = int(min_face_size)
         self.max_faces = int(max_faces)
-        self.skip_artwork = bool(skip_artwork)
         self.min_face_quality = float(min_face_quality)
         self.min_sample_count = int(min_sample_count)
         self.ignore_similarity = float(ignore_similarity)
@@ -662,7 +660,7 @@ class CastPeopleMatcher:
             crop = image[y0:y1, x0:x1]
             if crop is None or crop.size == 0:
                 continue
-            if not self._ingestor.is_valid_face_crop(crop, skip_artwork=self.skip_artwork):
+            if not self._ingestor.is_valid_face_crop(crop):
                 continue
             valid_faces.append((x, y, ww, hh))
         total_valid = len(valid_faces)

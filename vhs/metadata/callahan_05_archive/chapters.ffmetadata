@@ -3,21 +3,13 @@ title=Callahan 05 Archive (VHS Tape)
 
 [CHAPTER]
 TIMEBASE=1001/30000
-START=461
-END=59570
-title=2001 - Dilbeck's Movie - 00 Full Movie
-DATE_RECORDED=2001; UTC
-DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
-creation_time=2001
-
-[CHAPTER]
-TIMEBASE=1001/30000
 START=813
 END=5957
 title=2001 - Dilbeck's Movie - 01 Intro & Coyote Crossing At Agua Caliente
 DATE_RECORDED=2001; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=2001
+transcript=on
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -27,6 +19,7 @@ title=2001 - Dilbeck's Movie - 02 Eddi, Jack, Walt & Darleen
 DATE_RECORDED=2001; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=2001
+transcript=on
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -36,6 +29,7 @@ title=2001 - Dilbeck's Movie - 03 Ryan, Lynda, Jim & Jennifer at Callahan Home i
 DATE_RECORDED=2001; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=2001
+transcript=on
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -45,6 +39,7 @@ title=2001 - Dilbeck's Movie - 04 The Bunny Museum (1933 Jefferson Dr, Pasadena,
 DATE_RECORDED=2001; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=2001
+transcript=on
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -54,6 +49,7 @@ title=2001 - Dilbeck's Movie - 05 Installing Bridge at Loyd Dilbeck's Farm, with
 DATE_RECORDED=2001; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=2001
+transcript=on
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -63,15 +59,17 @@ title=2001 - Dilbeck's Movie - 06 The Arabia Steamboat Museum in Kansas City, Mi
 DATE_RECORDED=2001; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=2001
+transcript=on
 
 [CHAPTER]
 TIMEBASE=1001/30000
-START=28289
+START=29073
 END=31308
 title=2001 - Dilbeck's Movie - 07 The Hemmings Great Race at Union Station Kansas City & Topeka, Missouri (Atlanta, Georgia to Pasadena, California)
 DATE_RECORDED=2001; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=2001
+transcript=on
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -81,6 +79,7 @@ title=2001 - Dilbeck's Movie - 08 Darleen Dilbeck, Linda Petrie with Baby Son
 DATE_RECORDED=2001; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=2001
+transcript=on
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -90,6 +89,7 @@ title=2001 - Dilbeck's Movie - 09 Pig-N-Ford Model T Races, Tillamook County Fai
 DATE_RECORDED=2001; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=2001
+transcript=on
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -99,6 +99,7 @@ title=2001 - Dilbeck's Movie - 10 Vintage Car Pinewood Derby
 DATE_RECORDED=2001; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=2001
+transcript=on
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -108,15 +109,17 @@ title=2001 - Dilbeck's Movie - 11 Demolition Derby, Tillamook County Fair, Tilla
 DATE_RECORDED=2001; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=2001
+transcript=on
 
 [CHAPTER]
 TIMEBASE=1001/30000
 START=43054
 END=44937
-title=2001 - Dilbeck's Movie - 12 Baja Bug & Ford Model T Roadster Restoration
+title=2001 - Dilbeck's Movie - 12 Baja Bug & Ford Model A Roadster Restoration
 DATE_RECORDED=2001; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=2001
+transcript=on
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -126,6 +129,7 @@ title=2001 - Dilbeck's Movie - 13 Darleen selecting tree to cut down at Beaver A
 DATE_RECORDED=2001; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=2001
+transcript=on
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -135,6 +139,7 @@ title=2001 - Dilbeck's Movie - 14 Jim, Darleen, Lynda & Ryan decorating Christma
 DATE_RECORDED=2001; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=2001
+transcript=on
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -144,6 +149,7 @@ title=2001 - Dilbeck's Movie - 15 Loyd filming Lynda, Darleen, Jim & Ryan in Kid
 DATE_RECORDED=2001; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=2001
+transcript=on
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -153,6 +159,7 @@ title=2001 - Dilbeck's Movie - 16 Ryan & Robbie playing in front of Callahan Hom
 DATE_RECORDED=2001; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=2001
+transcript=on
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -162,6 +169,7 @@ title=2001 - Dilbeck's Movie - 17 Robbie & Ryan open presents in front of Callah
 DATE_RECORDED=2001; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=2001
+transcript=on
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -171,6 +179,7 @@ title=2001 - Dilbeck's Movie - 18 Loyd, Dennis, and Jennifer Dilbeck with Ryan C
 DATE_RECORDED=2001; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=2001
+transcript=on
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -180,6 +189,7 @@ title=2001 - Dilbeck's Movie - 19 Lynda, Gloria, Jim & Ryan, Christmas at Callah
 DATE_RECORDED=2001; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=2001
+transcript=on
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -189,6 +199,7 @@ title=2001 - Dilbeck's Movie - 20 Dilbeck Family & Friends (Darlene, Bertha, Joa
 DATE_RECORDED=2001; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=2001
+transcript=on
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -198,6 +209,7 @@ title=2001 - Dilbeck's Movie - 21 Baja Bug in Desert
 DATE_RECORDED=2001; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=2001
+transcript=on
 
 [CHAPTER]
 TIMEBASE=1001/30000
@@ -207,12 +219,4 @@ title=2001 - Dilbeck's Movie - 22 Outro
 DATE_RECORDED=2001; UTC
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 creation_time=2001
-
-[CHAPTER]
-TIMEBASE=1001/30000
-START=29073
-END=31308
-title=2001 - Dilbeck's Movie - The Hemmings Great Race at Union Station Kansas City & Topeka, Missouri (Atlanta, Georgia to Pasadena, California)
-DATE_RECORDED=2001; UTC
-DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
-creation_time=2001
+transcript=on

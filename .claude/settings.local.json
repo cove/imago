@@ -58,7 +58,14 @@
       "Bash(python -m pytest photoalbums/tests/test_ai_index.py photoalbums/tests/test_ai_caption.py -q)",
       "Bash(python -m pytest photoalbums/tests/test_ai_index.py::TestAIIndex::test_run_image_analysis_passes_people_context -q)",
       "Bash(python -m pytest photoalbums/tests/test_ai_index.py::TestAIIndex::test_run_image_analysis_uses_scaled_image_for_ocr_objects_and_caption_only -q)",
-      "Bash(python -m pytest photoalbums/tests/test_ai_caption.py::TestAICaption::test_qwen_loader_uses_local_snapshot_and_safe_max_pixels photoalbums/tests/test_ai_ocr.py::TestAIOcr::test_qwen_ocr_reads_text_locally photoalbums/tests/test_ai_ocr.py::TestAIOcr::test_qwen_ocr_uses_local_snapshot -x -q)"
+      "Bash(python -m pytest photoalbums/tests/test_ai_caption.py::TestAICaption::test_qwen_loader_uses_local_snapshot_and_safe_max_pixels photoalbums/tests/test_ai_ocr.py::TestAIOcr::test_qwen_ocr_reads_text_locally photoalbums/tests/test_ai_ocr.py::TestAIOcr::test_qwen_ocr_uses_local_snapshot -x -q)",
+      "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_ai_index.py photoalbums/tests/test_ai_page_layout.py -x -q)",
+      "Bash(python -m pytest photoalbums/tests/test_ai_people.py::test_new_face_is_added_to_cast_store -xvs)",
+      "Bash(python -m pytest photoalbums/tests/test_ai_people.py -x -q)",
+      "Bash(find . -name \"*.py\" -type f -exec grep -l \"prepare\\\\|det_size\\\\|det_thresh\" {})",
+      "mcp__imago__job_status",
+      "Bash(python -m pytest photoalbums/tests/ cast/tests/ -x -q)",
+      "Bash(python -m pytest cast/tests/ photoalbums/tests/ -x -q)"
     ]
   }
 }
