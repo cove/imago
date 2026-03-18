@@ -47,7 +47,6 @@ class PreparedImageLayout:
     content_path: Path
     original_path: Path
     page_like: bool
-    footer_trimmed: bool
     split_applied: bool
     fallback_used: bool
     subphotos: list[PreparedSubPhoto]
@@ -98,13 +97,6 @@ def _require_cv2():
     return cv2
 
 
-def _require_numpy():
-    try:
-        import numpy as np
-    except Exception as exc:  # pragma: no cover - dependency optional in tests
-        raise RuntimeError("numpy is required for page layout analysis.") from exc
-    return np
-
 
 def _load_image_bgr(image_path: Path):
     cv2 = _require_cv2()
@@ -128,42 +120,6 @@ def _write_png(path: Path, image) -> Path:
         raise RuntimeError(f"Could not write temp PNG: {path}")
     return path
 
-
-def _detect_footer_bounds(image) -> tuple[LayoutBounds, bool]:
-    np = _require_numpy()
-    cv2 = _require_cv2()
-
-    height, width = image.shape[:2]
-    if height < 200 or width < 200:
-        return LayoutBounds(0, 0, width, height), False
-
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    signal = (gray > 24).mean(axis=1)
-    window = max(9, min(31, height // 45))
-    kernel = np.ones(window, dtype=float) / float(window)
-    smooth = np.convolve(signal, kernel, mode="same")
-
-    min_trim = max(20, int(height * 0.05))
-    max_trim = max(min_trim, int(height * 0.35))
-    search_start = int(height * 0.55)
-    content_bottom = height
-
-    for row in range(search_start, height - min_trim):
-        footer_mean = float(smooth[row:].mean()) if row < len(smooth) else 1.0
-        above_start = max(0, row - max(10, window * 2))
-        above_mean = float(smooth[above_start:row].mean()) if row > above_start else 0.0
-        trimmed = height - row
-        if trimmed < min_trim or trimmed > max_trim:
-            continue
-        if above_mean >= 0.16 and footer_mean <= 0.10:
-            footer = gray[row:, :]
-            if footer.size and float(footer.mean()) <= 45.0:
-                content_bottom = row
-                break
-
-    if content_bottom >= height:
-        return LayoutBounds(0, 0, width, height), False
-    return LayoutBounds(0, 0, width, content_bottom), True
 
 
 def _bounds_area(bounds: LayoutBounds) -> int:
@@ -325,7 +281,6 @@ def prepare_image_layout(
             content_path=path,
             original_path=path,
             page_like=False,
-            footer_trimmed=False,
             split_applied=False,
             fallback_used=False,
             subphotos=[],
@@ -335,9 +290,6 @@ def prepare_image_layout(
     image = _load_image_bgr(path)
     height, width = image.shape[:2]
     content_bounds = LayoutBounds(0, 0, width, height)
-    footer_trimmed = False
-    if kind == "page_view":
-        content_bounds, footer_trimmed = _detect_footer_bounds(image)
 
     with tempfile.TemporaryDirectory(prefix="imago-page-") as tmp_dir_name:
         tmp_dir = Path(tmp_dir_name)
@@ -384,7 +336,6 @@ def prepare_image_layout(
             content_path=content_path,
             original_path=path,
             page_like=True,
-            footer_trimmed=footer_trimmed,
             split_applied=split_applied,
             fallback_used=fallback_used,
             subphotos=subphotos,

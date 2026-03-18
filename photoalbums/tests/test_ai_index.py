@@ -37,7 +37,6 @@ class TestAIIndex(unittest.TestCase):
             content_bounds=SimpleNamespace(
                 as_dict=lambda: {"x": 0, "y": 0, "width": 0, "height": 0}
             ),
-            footer_trimmed=False,
             split_applied=False,
             fallback_used=False,
             subphotos=[],

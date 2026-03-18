@@ -59,16 +59,6 @@ creation_time=2000
 TIMEBASE=1001/30000
 START=21610
 END=25379
-title=2000 - Ryan 4 to 11 Months - 06 Lynda playing with Ryan on floor
-DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
-RECORDING_LOCATION=US
-location=/
-creation_time=2000
-
-[CHAPTER]
-TIMEBASE=1001/30000
-START=21610
-END=25379
 title=2000 - Ryan 4 to 11 Months - 07 Lynda playing with Ryan on floor
 DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 RECORDING_LOCATION=US
@@ -165,4 +155,3 @@ DATE_DIGITIZED=2026-02-13 06:47:44.756 ; UTC
 RECORDING_LOCATION=US
 location=/
 creation_time=2000
-

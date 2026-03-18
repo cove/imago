@@ -77,7 +77,7 @@ def _get_insightface_app() -> object | None:
         from insightface.app import FaceAnalysis  # type: ignore[import]
 
         app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
-        app.prepare(ctx_id=-1)
+        app.prepare(ctx_id=-1, det_thresh=0.18, det_size=(640, 640))
         _insightface_app_error = ""
         _insightface_app = app
         return _insightface_app
@@ -134,9 +134,9 @@ def estimate_face_quality(face_bgr: np.ndarray) -> float:
 def crop_has_visual_detail(
     face_bgr: np.ndarray,
     *,
-    min_std: float = 6.0,
-    min_dynamic_range: float = 18.0,
-    min_laplacian_var: float = 4.0,
+    min_std: float = 3.0,              # was 6.0
+    min_dynamic_range: float = 12.0,   # was 18.0
+    min_laplacian_var: float = 2.0,    # was 4.0
 ) -> bool:
     """Reject obvious flat-color false positives from Haar detections."""
     if face_bgr is None or face_bgr.size == 0:
@@ -156,42 +156,6 @@ def crop_has_visual_detail(
     return True
 
 
-def _cascade_rows(raw: Any) -> np.ndarray:
-    if raw is None:
-        return np.empty((0, 4), dtype=np.int32)
-    rows = np.asarray(raw)
-    if rows.size == 0:
-        return np.empty((0, 4), dtype=np.int32)
-    if rows.ndim == 1:
-        rows = rows.reshape(1, -1)
-    return rows
-
-
-def grayscale_entropy(gray_u8: np.ndarray) -> float:
-    if gray_u8 is None or gray_u8.size == 0:
-        return 0.0
-    hist = cv2.calcHist([gray_u8], [0], None, [256], [0, 256]).reshape(-1)  # type: ignore[arg-type]
-    total = float(np.sum(hist))
-    if total <= 0.0:
-        return 0.0
-    probs = hist / total
-    probs = probs[probs > 0.0]
-    if probs.size == 0:
-        return 0.0
-    return float(-np.sum(probs * np.log2(probs)))
-
-
-def quantized_unique_colors(image_bgr: np.ndarray, *, levels: int = 8) -> int:
-    if image_bgr is None or image_bgr.size == 0:
-        return 0
-    h, w = image_bgr.shape[:2]
-    side = max(16, min(40, int(min(h, w))))
-    small = cv2.resize(image_bgr, (side, side), interpolation=cv2.INTER_AREA)
-    step = max(1, int(256 // max(2, int(levels))))
-    quant = (small // step).astype(np.uint8)
-    flat = quant.reshape(-1, 3)
-    return int(np.unique(flat, axis=0).shape[0])
-
 
 class FaceIngestor:
     def __init__(self, store: TextFaceStore, *, require_primary_model: bool = False):
@@ -199,33 +163,11 @@ class FaceIngestor:
         self.require_primary_model = bool(require_primary_model)
         cascades = Path(str(cv2.data.haarcascades))
         face_path = cascades / "haarcascade_frontalface_default.xml"
-        strict_face_path = cascades / "haarcascade_frontalface_alt2.xml"
-        eye_path = cascades / "haarcascade_eye_tree_eyeglasses.xml"
-        profile_path = cascades / "haarcascade_profileface.xml"
-        upper_body_path = cascades / "haarcascade_upperbody.xml"
-
         self._cascade = cv2.CascadeClassifier(str(face_path))
-        self._strict_face = cv2.CascadeClassifier(str(strict_face_path))
-        self._eye = cv2.CascadeClassifier(str(eye_path))
-        self._profile = cv2.CascadeClassifier(str(profile_path))
-        self._upper_body = cv2.CascadeClassifier(str(upper_body_path))
         self._insightface = _get_insightface_app()
-        self._insightface_score_threshold = 0.40
-        self._insightface_verify_threshold = 0.32
-        self.skip_artwork_default = True
-
+        self._insightface_score_threshold = 0.10
         if self._cascade.empty():
             raise RuntimeError(f"Unable to load face cascade: {face_path}")
-        if self._strict_face.empty():
-            raise RuntimeError(
-                f"Unable to load strict face cascade: {strict_face_path}"
-            )
-        if self._eye.empty():
-            raise RuntimeError(f"Unable to load eye cascade: {eye_path}")
-        if self._profile.empty():
-            raise RuntimeError(f"Unable to load profile cascade: {profile_path}")
-        if self._upper_body.empty():
-            raise RuntimeError(f"Unable to load upper-body cascade: {upper_body_path}")
 
     def runtime_status(self) -> dict[str, Any]:
         primary_available = self._insightface is not None
@@ -273,425 +215,70 @@ class FaceIngestor:
             message = f"{message} Load error: {detail}"
         raise RuntimeError(message)
 
-    def looks_like_artwork_face(self, crop_bgr: np.ndarray) -> bool:
-        if crop_bgr is None or crop_bgr.size == 0:
-            return False
-        gray = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2GRAY)
-        hsv = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2HSV)
-        ycrcb = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2YCrCb)
-
-        sat = hsv[:, :, 1].astype(np.float32)
-        sat_mean = float(np.mean(sat))
-        sat_std = float(np.std(sat))
-        lap_var = float(cv2.Laplacian(gray, cv2.CV_32F).var())
-        entropy = float(grayscale_entropy(gray))
-        edges = cv2.Canny(gray, 60, 150)
-        edge_density = float(np.mean(edges > 0))
-        unique_colors = int(quantized_unique_colors(crop_bgr, levels=8))
-
-        cr = ycrcb[:, :, 1].astype(np.float32)
-        cb = ycrcb[:, :, 2].astype(np.float32)
-        skin_mask = (cr > 133.0) & (cr < 173.0) & (cb > 77.0) & (cb < 127.0)
-        skin_ratio = float(np.mean(skin_mask))
-
-        score = 0.0
-        if skin_ratio < 0.05:
-            score += 0.30
-        if sat_mean < 38.0:
-            score += 0.18
-        if sat_std < 24.0:
-            score += 0.12
-        if lap_var < 24.0:
-            score += 0.16
-        if entropy < 4.8:
-            score += 0.12
-        if edge_density > 0.20:
-            score += 0.10
-        if edge_density < 0.04 and sat_mean < 34.0:
-            score += 0.08
-        if unique_colors < 50:
-            score += 0.10
-
-        eye_count = self._count_eyes(gray)
-        strict_hit = self._has_strict_frontal_face(gray)
-        profile_hit = self._has_profile_face(gray)
-        if eye_count >= 2 and (strict_hit or profile_hit):
-            score -= 0.22
-        if skin_ratio > 0.09:
-            score -= 0.20
-        if lap_var > 36.0 and entropy > 5.2:
-            score -= 0.06
-        if sat_mean > 45.0 and sat_std > 20.0:
-            score -= 0.06
-        return bool(score >= 0.68)
-
     def is_valid_face_crop(
         self,
-        crop_bgr: np.ndarray,
-        *,
-        skip_artwork: bool | None = None,
+        crop_bgr: np.ndarray
     ) -> bool:
         if not crop_has_visual_detail(crop_bgr):
-            return False
-        if not self._passes_face_sanity(crop_bgr):
-            return False
-        artwork_mode = (
-            self.skip_artwork_default if skip_artwork is None else bool(skip_artwork)
-        )
-        if artwork_mode and self.looks_like_artwork_face(crop_bgr):
-            return False
-        return True
-
-    def _insightface_face_box(
-        self,
-        face: Any,
-        *,
-        image_w: int,
-        image_h: int,
-    ) -> tuple[int, int, int, int] | None:
-        try:
-            bbox = getattr(face, "bbox", None)
-        except Exception:
-            bbox = None
-        if bbox is None:
-            return None
-        row = np.asarray(bbox, dtype=np.float32).reshape(-1)
-        if row.size < 4:
-            return None
-        x0 = int(round(float(row[0])))
-        y0 = int(round(float(row[1])))
-        x1 = int(round(float(row[2])))
-        y1 = int(round(float(row[3])))
-        x = max(0, min(x0, int(image_w) - 1))
-        y = max(0, min(y0, int(image_h) - 1))
-        x2 = max(x + 1, min(x1, int(image_w)))
-        y2 = max(y + 1, min(y1, int(image_h)))
-        w = int(x2 - x)
-        h = int(y2 - y)
-        if w <= 0 or h <= 0:
-            return None
-        return int(x), int(y), int(w), int(h)
-
-    def _insightface_face_keypoints(self, face: Any) -> np.ndarray | None:
-        try:
-            kps = getattr(face, "kps", None)
-        except Exception:
-            kps = None
-        if kps is None:
-            return None
-        try:
-            points = np.asarray(kps, dtype=np.float32).reshape(-1, 2)
-        except Exception:
-            return None
-        if points.shape[0] < 5:
-            return None
-        return points[:5, :]
-
-    def _insightface_has_face_geometry(
-        self,
-        face: Any,
-        *,
-        image_w: int,
-        image_h: int,
-        require_center: bool = False,
-    ) -> bool:
-        box = self._insightface_face_box(face, image_w=image_w, image_h=image_h)
-        if box is None:
-            return False
-        x, y, w, h = box
-        if require_center:
-            area_ratio = float(w * h) / float(max(1, image_w * image_h))
-            if area_ratio < 0.10 or area_ratio > 0.98:
-                return False
-            cx = float(x + (w * 0.5))
-            cy = float(y + (h * 0.5))
-            if abs(cx - (float(image_w) * 0.5)) > float(image_w) * 0.34:
-                return False
-            if abs(cy - (float(image_h) * 0.48)) > float(image_h) * 0.36:
-                return False
-
-        points = self._insightface_face_keypoints(face)
-        if points is None:
-            return True
-
-        if not np.isfinite(points).all():
-            return False
-        margin_x = float(w) * 0.18
-        margin_y = float(h) * 0.18
-        x0 = float(x) - margin_x
-        x1 = float(x + w) + margin_x
-        y0 = float(y) - margin_y
-        y1 = float(y + h) + margin_y
-        if np.any(points[:, 0] < x0) or np.any(points[:, 0] > x1):
-            return False
-        if np.any(points[:, 1] < y0) or np.any(points[:, 1] > y1):
-            return False
-
-        left_eye, right_eye, nose, left_mouth, right_mouth = [
-            points[index] for index in range(5)
-        ]
-        if float(left_eye[0]) >= float(right_eye[0]):
-            return False
-        if float(left_mouth[0]) >= float(right_mouth[0]):
-            return False
-
-        eye_center = (left_eye + right_eye) * 0.5
-        mouth_center = (left_mouth + right_mouth) * 0.5
-        if float(eye_center[1]) >= float(nose[1]):
-            return False
-        if float(nose[1]) >= float(mouth_center[1]):
-            return False
-        if float(eye_center[1]) > float(y) + (float(h) * 0.72):
-            return False
-        if float(mouth_center[1]) < float(y) + (float(h) * 0.38):
-            return False
-
-        inter_eye = float(np.linalg.norm(right_eye - left_eye))
-        mouth_width = float(np.linalg.norm(right_mouth - left_mouth))
-        if inter_eye < float(w) * 0.16 or inter_eye > float(w) * 0.86:
-            return False
-        if mouth_width < float(w) * 0.12 or mouth_width > float(w) * 0.90:
-            return False
-
-        eye_mouth_span = float(mouth_center[1] - eye_center[1])
-        if eye_mouth_span < float(h) * 0.18 or eye_mouth_span > float(h) * 0.84:
-            return False
-        if abs(float(left_eye[1] - right_eye[1])) > float(h) * 0.22:
-            return False
-        if abs(float(left_mouth[1] - right_mouth[1])) > float(h) * 0.22:
-            return False
-        if abs(float(nose[0] - eye_center[0])) > float(w) * 0.24:
-            return False
-        if abs(float(nose[0] - mouth_center[0])) > float(w) * 0.20:
-            return False
-        return True
-
-    def _insightface_detect(
-        self,
-        image_bgr: np.ndarray,
-        *,
-        min_size: int = 40,
-        score_threshold: float | None = None,
-        require_center: bool = False,
-    ) -> list[tuple[int, int, int, int]]:
-        app = self._insightface
-        if app is None or image_bgr is None or image_bgr.size == 0:
-            return []
-        h, w = image_bgr.shape[:2]
-        if h < 12 or w < 12:
-            return []
-        try:
-            faces = list(app.get(image_bgr) or [])
-        except Exception:
-            return []
-        threshold = float(
-            self._insightface_score_threshold
-            if score_threshold is None
-            else score_threshold
-        )
-        out: list[tuple[int, int, int, int]] = []
-        for face in faces:
-            try:
-                score = float(getattr(face, "det_score", 0.0) or 0.0)
-            except Exception:
-                score = 0.0
-            if score < threshold:
-                continue
-            box = self._insightface_face_box(face, image_w=int(w), image_h=int(h))
-            if box is None:
-                continue
-            x, y, ww, hh = box
-            if min(ww, hh) < int(max(1, int(min_size))):
-                continue
-            if not self._insightface_has_face_geometry(
-                face,
-                image_w=int(w),
-                image_h=int(h),
-                require_center=require_center,
-            ):
-                continue
-            out.append((int(x), int(y), int(ww), int(hh)))
-        return out
-
-    def _safe_detect(
-        self,
-        cascade: cv2.CascadeClassifier,
-        gray: np.ndarray,
-        *,
-        scale_factor: float,
-        min_neighbors: int,
-        min_size: int,
-    ) -> np.ndarray:
-        if gray is None or gray.size == 0:
-            return np.empty((0, 4), dtype=np.int32)
-        h, w = gray.shape[:2]
-        if h < 2 or w < 2:
-            return np.empty((0, 4), dtype=np.int32)
-        side = int(max(1, int(min_size)))
-        if side > min(h, w):
-            return np.empty((0, 4), dtype=np.int32)
-        try:
-            raw = cascade.detectMultiScale(
-                gray,
-                scaleFactor=float(scale_factor),
-                minNeighbors=int(min_neighbors),
-                minSize=(int(side), int(side)),
-                flags=cv2.CASCADE_SCALE_IMAGE,
-            )
-        except cv2.error:
-            return np.empty((0, 4), dtype=np.int32)
-        return _cascade_rows(raw)
-
-    def _count_eyes(self, gray_face: np.ndarray) -> int:
-        h, w = gray_face.shape[:2]
-        if h < 20 or w < 20:
-            return 0
-        top = gray_face[: max(1, int(h * 0.72)), :]
-        min_eye = max(8, min(top.shape[0], top.shape[1]) // 8)
-        eyes = self._safe_detect(
-            self._eye,
-            top,
-            scale_factor=1.1,
-            min_neighbors=4,
-            min_size=int(min_eye),
-        )
-        return int(len(eyes))
-
-    def _has_profile_face(self, gray_face: np.ndarray) -> bool:
-        h, w = gray_face.shape[:2]
-        if h < 24 or w < 24:
-            return False
-        min_side = max(18, min(h, w) // 3)
-        prof = self._safe_detect(
-            self._profile,
-            gray_face,
-            scale_factor=1.1,
-            min_neighbors=4,
-            min_size=int(min_side),
-        )
-        if len(prof) > 0:
-            return True
-        flipped = cv2.flip(gray_face, 1)
-        prof_flip = self._safe_detect(
-            self._profile,
-            flipped,
-            scale_factor=1.1,
-            min_neighbors=4,
-            min_size=int(min_side),
-        )
-        return len(prof_flip) > 0
-
-    def _has_strict_frontal_face(self, gray_face: np.ndarray) -> bool:
-        h, w = gray_face.shape[:2]
-        if h < 28 or w < 28:
-            return False
-        min_side = max(22, min(h, w) // 3)
-        rows = self._safe_detect(
-            self._strict_face,
-            gray_face,
-            scale_factor=1.05,
-            min_neighbors=6,
-            min_size=int(min_side),
-        )
-        if rows.size == 0:
-            return False
-        cx = float(w) * 0.5
-        cy = float(h) * 0.45
-        for row in rows:
-            if int(len(row)) < 4:
-                continue
-            x, y, ww, hh = [int(v) for v in row[:4]]
-            if ww <= 0 or hh <= 0:
-                continue
-            rcx = float(x + (ww * 0.5))
-            rcy = float(y + (hh * 0.5))
-            if abs(rcx - cx) <= float(w) * 0.28 and abs(rcy - cy) <= float(h) * 0.32:
-                return True
-        return False
-
-    def _looks_like_upper_body(self, gray_face: np.ndarray) -> bool:
-        h, w = gray_face.shape[:2]
-        if h < 28 or w < 28:
-            return False
-        min_side = max(18, min(h, w) // 3)
-        rows = self._safe_detect(
-            self._upper_body,
-            gray_face,
-            scale_factor=1.1,
-            min_neighbors=3,
-            min_size=int(min_side),
-        )
-        return len(rows) > 0
-
-    def _passes_face_sanity(self, crop_bgr: np.ndarray) -> bool:
-        if crop_bgr is None or crop_bgr.size == 0:
             return False
         h, w = crop_bgr.shape[:2]
         if h < 24 or w < 24:
             return False
         aspect = float(w) / float(max(1, h))
-        if aspect < 0.55 or aspect > 1.75:
-            return False
-        if self._insightface is not None:
-            confirmed = self._insightface_detect(
-                crop_bgr,
-                min_size=max(18, min(int(h), int(w)) // 6),
-                score_threshold=float(self._insightface_verify_threshold),
-                require_center=True,
-            )
-            if not confirmed:
-                return False
-
-        gray = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2GRAY)
-        eye_count = self._count_eyes(gray)
-        profile_hit = self._has_profile_face(gray)
-        strict_hit = self._has_strict_frontal_face(gray)
-        upper_body_hit = self._looks_like_upper_body(gray)
-        if self._insightface is not None:
-            # InsightFace confirmation already passed; keep this as weak secondary check only.
-            if upper_body_hit and not strict_hit:
-                return False
-            return True
-        signal = 0
-        if eye_count >= 2:
-            signal += 2
-        elif eye_count == 1:
-            signal += 1
-        if profile_hit:
-            signal += 1
-        if strict_hit:
-            signal += 2
-        if upper_body_hit:
-            signal -= 2
-        return signal >= 2
+        return 0.50 <= aspect <= 2.0
 
     def _detect(
         self, image_bgr: np.ndarray, *, min_size: int = 40
     ) -> list[tuple[int, int, int, int]]:
+        if image_bgr is None or image_bgr.size == 0:
+            return []
+        h, w = image_bgr.shape[:2]
         if self._insightface is not None:
-            return self._insightface_detect(image_bgr, min_size=int(min_size))
-
+            if h < 12 or w < 12:
+                return []
+            try:
+                faces = list(self._insightface.get(image_bgr) or [])
+            except Exception:
+                return []
+            out: list[tuple[int, int, int, int]] = []
+            for face in faces:
+                score = float(getattr(face, "det_score", 0.0) or 0.0)
+                if score < self._insightface_score_threshold:
+                    continue
+                try:
+                    bbox = np.asarray(getattr(face, "bbox"), dtype=np.float32).reshape(-1)
+                except Exception:
+                    continue
+                if bbox.size < 4:
+                    continue
+                x = int(max(0, min(round(float(bbox[0])), w - 1)))
+                y = int(max(0, min(round(float(bbox[1])), h - 1)))
+                x2 = int(max(x + 1, min(round(float(bbox[2])), w)))
+                y2 = int(max(y + 1, min(round(float(bbox[3])), h)))
+                fw, fh = x2 - x, y2 - y
+                if min(fw, fh) < max(1, int(min_size)):
+                    continue
+                out.append((x, y, fw, fh))
+            return out
+        # Haar cascade fallback
         gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
         gray = cv2.equalizeHist(gray)
-        rows = self._safe_detect(
-            self._cascade,
-            gray,
-            scale_factor=1.1,
-            min_neighbors=5,
-            min_size=int(min_size),
-        )
-        if rows.size == 0:
+        side = int(max(1, min_size))
+        if side > min(h, w):
             return []
-
-        out = []
-        for row in rows:
-            if int(len(row)) < 4:
-                continue
-            x, y, w, h = [int(v) for v in row]
-            if w <= 0 or h <= 0:
-                continue
-            out.append((x, y, w, h))
-        return out
+        try:
+            raw = self._cascade.detectMultiScale(
+                gray, scaleFactor=1.1, minNeighbors=5,
+                minSize=(side, side), flags=cv2.CASCADE_SCALE_IMAGE,
+            )
+        except cv2.error:
+            return []
+        if raw is None or np.asarray(raw).size == 0:
+            return []
+        rows = np.asarray(raw)
+        if rows.ndim == 1:
+            rows = rows.reshape(1, -1)
+        return [(int(r[0]), int(r[1]), int(r[2]), int(r[3])) for r in rows if int(r[2]) > 0 and int(r[3]) > 0]
 
     def _save_crop(self, face_id: str, crop_bgr: np.ndarray) -> str:
         crops_dir = self.store.root_dir / "crops"
@@ -711,7 +298,6 @@ class FaceIngestor:
         source_path: str | None = None,
         min_size: int = 40,
         max_faces: int = 50,
-        skip_artwork: bool | None = None,
     ) -> list[dict[str, Any]]:
         self._ensure_primary_model_ready()
         path = Path(image_path)
@@ -739,7 +325,7 @@ class FaceIngestor:
             crop = image[y0:y1, x0:x1]
             if crop is None or crop.size == 0:
                 continue
-            if not self.is_valid_face_crop(crop, skip_artwork=skip_artwork):
+            if not self.is_valid_face_crop(crop):
                 continue
             arcface_embedding = compute_arcface_embedding(crop)
             embedding = arcface_embedding or compute_simple_embedding(crop)
@@ -781,7 +367,6 @@ class FaceIngestor:
         min_size: int = 40,
         max_faces: int = 120,
         max_duration_seconds: float = 0.0,
-        skip_artwork: bool | None = None,
     ) -> dict[str, Any]:
         self._ensure_primary_model_ready()
         path = Path(video_path)
@@ -827,7 +412,7 @@ class FaceIngestor:
                     crop = frame[y0:y1, x0:x1]
                     if crop is None or crop.size == 0:
                         continue
-                    if not self.is_valid_face_crop(crop, skip_artwork=skip_artwork):
+                    if not self.is_valid_face_crop(crop):
                         continue
                     arcface_embedding = compute_arcface_embedding(crop)
                     embedding = arcface_embedding or compute_simple_embedding(crop)
@@ -917,7 +502,6 @@ class FaceIngestor:
         min_size: int = 40,
         max_faces_per_photo: int = 50,
         max_files: int = 0,
-        skip_artwork: bool | None = None,
     ) -> dict[str, Any]:
         self._ensure_primary_model_ready()
         photo_files = self.iter_photo_files(
@@ -937,7 +521,6 @@ class FaceIngestor:
                 source_path=str(photo_path),
                 min_size=min_size,
                 max_faces=max_faces_per_photo,
-                skip_artwork=skip_artwork,
             )
             all_faces.extend(created)
             per_photo.append(

@@ -612,7 +612,6 @@ def _init_people_matcher(
         cast_store_dir=cast_store,
         min_similarity=float(min_similarity),
         min_face_size=int(min_face_size),
-        skip_artwork=True,
     )
 
 
@@ -1055,7 +1054,6 @@ def _layout_payload(layout: PreparedImageLayout) -> dict[str, Any]:
         "page_like": bool(layout.page_like),
         "split_mode": str(layout.split_mode),
         "content_bounds": layout.content_bounds.as_dict(),
-        "footer_trimmed": bool(layout.footer_trimmed),
         "split_applied": bool(layout.split_applied),
         "fallback_used": bool(layout.fallback_used),
     }

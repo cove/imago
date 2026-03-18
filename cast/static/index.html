@@ -639,13 +639,7 @@
       <details class="panel" style="margin-top: 12px">
         <summary>Ingest And Maintenance</summary>
         <div class="details-body">
-          <div class="field" style="margin-top: 10px">
-            <label for="skip-artwork">Skip Statues/Paintings</label>
-            <select id="skip-artwork">
-              <option value="1" selected>Enabled (Recommended)</option>
-              <option value="0">Disabled</option>
-            </select>
-          </div>
+
 
           <div class="queue-toolbar" style="margin-bottom: 10px">
             <button id="prune-btn" class="warn">Auto-Prune Obvious Non-Faces</button>
@@ -824,12 +818,6 @@
           return;
         }
         el.classList.add("info");
-      }
-
-      function skipArtworkEnabled() {
-        const node = document.getElementById("skip-artwork");
-        const raw = node ? String(node.value || "1").trim() : "1";
-        return raw !== "0";
       }
 
       async function api(path, method = "GET", payload = null) {
@@ -1617,7 +1605,7 @@
         try {
           setStatus("Pruning obvious non-faces from pending queue...", "info");
           const result = await api("/api/review/prune_false_positives", "POST", {
-            skip_artwork: skipArtworkEnabled(),
+
           });
           setStatus(
             `Pruned ${result.pruned || 0} item(s) out of ${result.checked || 0} checked pending face(s).`,
@@ -1707,7 +1695,7 @@
             image_path: imagePath,
             min_size: minSize,
             max_faces: maxFaces,
-            skip_artwork: skipArtworkEnabled(),
+
             auto_queue: true,
             top_k: 3,
           });
@@ -1737,7 +1725,7 @@
             max_files: maxFiles,
             min_size: minSize,
             max_faces_per_photo: maxFaces,
-            skip_artwork: skipArtworkEnabled(),
+
             auto_queue: true,
             top_k: 3,
           });
@@ -1766,7 +1754,7 @@
             max_duration_seconds: maxDurationSeconds,
             min_size: minSize,
             max_faces: maxFaces,
-            skip_artwork: skipArtworkEnabled(),
+
             auto_queue: true,
             top_k: 3,
           });
