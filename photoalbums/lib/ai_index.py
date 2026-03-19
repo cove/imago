@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import hashlib
 import json
 import re
 import sys
@@ -22,6 +23,7 @@ from .ai_caption import (
     normalize_qwen_attn_implementation,
     resolve_caption_model,
 )
+from .ai_model_settings import default_ocr_model
 from .ai_ocr import OCREngine, extract_keywords
 from .ai_page_layout import PreparedImageLayout, prepare_image_layout
 from .ai_geocode import NominatimGeocoder
@@ -109,7 +111,7 @@ DEFAULT_MANIFEST_PATH = (
     Path(__file__).resolve().parents[1] / "data" / "ai_index_manifest.jsonl"
 )
 DEFAULT_CAST_STORE = Path(__file__).resolve().parents[2] / "cast" / "data"
-PROCESSOR_SIGNATURE = "page_split_v15_people_location_followups"
+PROCESSOR_SIGNATURE = "page_split_v16_archive_stitched_ocr"
 
 
 @dataclass
@@ -123,6 +125,16 @@ class ImageAnalysis:
     description: str
     payload: dict[str, Any]
     faces_detected: int = 0
+
+
+@dataclass(frozen=True)
+class ArchiveScanOCRAuthority:
+    page_key: str
+    group_paths: tuple[Path, ...]
+    signature: str
+    ocr_text: str
+    ocr_keywords: tuple[str, ...]
+    ocr_hash: str
 
 
 def discover_images(
@@ -477,6 +489,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="lmstudio",
         help="OCR backend.",
     )
+    parser.add_argument(
+        "--ocr-model",
+        default=default_ocr_model(),
+        help="Optional model id/path used by the selected OCR engine.",
+    )
     parser.add_argument("--ocr-lang", default="eng", help="OCR language.")
     parser.add_argument(
         "--caption-engine",
@@ -608,9 +625,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--stitch-scans",
         action="store_true",
         help=(
-            "After individual processing, combine OCR text across _S#.tif scans of the same page "
-            "and re-run the caption engine so cut-off text at scan edges is reconstructed. "
-            "Updates XMP sidecars for all scans in each group."
+            "Deprecated. Multi-scan archive page OCR now uses a temporary stitched composite "
+            "during normal processing."
         ),
     )
     parser.add_argument(
@@ -696,6 +712,7 @@ def _settings_signature(settings: dict[str, Any]) -> str:
         "people_recovery_mode": str(settings.get("people_recovery_mode", "off")),
         "ocr_engine": str(settings.get("ocr_engine", "none")),
         "ocr_lang": str(settings.get("ocr_lang", "eng")),
+        "ocr_model": str(settings.get("ocr_model", "")),
         "page_split_mode": str(settings.get("page_split_mode", "off")),
         "people_threshold": float(settings.get("people_threshold", 0.72)),
         "object_threshold": float(settings.get("object_threshold", 0.30)),
@@ -739,6 +756,22 @@ def _build_caption_metadata(
         "people_present": bool(people_present),
         "estimated_people_count": max(0, int(estimated_people_count)),
     }
+
+
+def _refresh_detection_model_metadata(
+    detections: dict[str, Any] | None,
+    *,
+    ocr_model: str,
+    caption_model: str,
+) -> dict[str, Any]:
+    updated = dict(detections or {})
+    ocr_payload = dict(updated.get("ocr") or {})
+    ocr_payload["model"] = str(ocr_model or "")
+    updated["ocr"] = ocr_payload
+    caption_payload = dict(updated.get("caption") or {})
+    caption_payload["model"] = str(caption_model or "")
+    updated["caption"] = caption_payload
+    return updated
 
 
 _COORDINATE_LABEL_RE = re.compile(
@@ -1298,8 +1331,13 @@ def _run_image_analysis(
     step_fn=None,
     extra_people_names: list[str] | None = None,
     is_page_scan: bool = False,
+    ocr_text_override: str | None = None,
 ) -> ImageAnalysis:
-    use_combined = ocr_engine.engine == "qwen" and caption_engine.engine == "qwen"
+    use_combined = (
+        ocr_text_override is None
+        and ocr_engine.engine == "qwen"
+        and caption_engine.engine == "qwen"
+    )
     page_photo_count = 0 if is_page_scan else 1
 
     with _prepare_ai_model_image(image_path) as model_image_path:
@@ -1374,9 +1412,12 @@ def _run_image_analysis(
                 step_fn=step_fn,
             )
         else:
-            if step_fn:
+            if step_fn and ocr_text_override is None:
                 step_fn("ocr")
-            ocr_text = ocr_engine.read_text(model_image_path)
+            if ocr_text_override is None:
+                ocr_text = ocr_engine.read_text(model_image_path)
+            else:
+                ocr_text = str(ocr_text_override or "").strip()
             ocr_keywords = extract_keywords(ocr_text, max_keywords=15)
             combined_hint_text = " ".join(
                 part for part in [str(people_hint_text or "").strip(), ocr_text] if part
@@ -1697,6 +1738,10 @@ def _build_flat_page_description(*, analysis: ImageAnalysis) -> str:
     return analysis.description
 
 
+def _hash_text(value: str) -> str:
+    return hashlib.sha1(str(value or "").encode("utf-8")).hexdigest()
+
+
 def _scan_page_key(image_path: Path) -> str | None:
     """Return a page-level grouping key for _S# scan files (same P##, different S##).
 
@@ -1720,6 +1765,98 @@ def _scan_number(image_path: Path) -> int:
         return int(match.group("scan"))
     except (ValueError, IndexError):
         return 0
+
+
+def _scan_group_paths(image_path: Path) -> list[Path]:
+    page_key = _scan_page_key(image_path)
+    if page_key is None:
+        return [image_path]
+    group_paths = [
+        path
+        for path in image_path.parent.iterdir()
+        if path.is_file()
+        and path.suffix.lower() in {".tif", ".tiff"}
+        and _scan_page_key(path) == page_key
+    ]
+    group_paths.sort(key=_scan_number)
+    return group_paths or [image_path]
+
+
+def _scan_group_signature(group_paths: list[Path]) -> str:
+    parts: list[str] = []
+    for path in group_paths:
+        stat = path.stat()
+        parts.append(f"{path.name}:{int(stat.st_size)}:{int(stat.st_mtime_ns)}")
+    return _hash_text("|".join(parts))
+
+
+def _resolve_archive_scan_authoritative_ocr(
+    *,
+    image_path: Path,
+    group_paths: list[Path],
+    group_signature: str,
+    ocr_engine: OCREngine,
+    cache: dict[str, ArchiveScanOCRAuthority],
+    step_fn=None,
+) -> ArchiveScanOCRAuthority:
+    page_key = _scan_page_key(image_path)
+    if page_key is None or len(group_paths) < 2:
+        raise RuntimeError(
+            f"Authoritative stitched OCR requires a multi-scan archive page: {image_path}"
+        )
+    cached = cache.get(page_key)
+    if cached is not None and cached.signature == group_signature:
+        return cached
+
+    if step_fn:
+        step_fn("stitch")
+    from ..stitch_oversized_pages import (  # pylint: disable=import-outside-toplevel
+        build_stitched_image,
+    )
+
+    try:
+        import cv2  # pylint: disable=import-outside-toplevel
+    except Exception as exc:  # pragma: no cover - dependency optional in tests
+        raise RuntimeError(
+            "opencv-python is required for stitched archive OCR."
+        ) from exc
+
+    with tempfile.TemporaryDirectory(prefix="imago-archive-ocr-") as tmp_dir_name:
+        stitched = build_stitched_image([str(path) for path in group_paths])
+        tmp_path = Path(tmp_dir_name) / f"{group_paths[0].stem}_ocr_stitched.jpg"
+        wrote_temp_image = False
+        if hasattr(cv2, "imwrite"):
+            wrote_temp_image = bool(cv2.imwrite(str(tmp_path), stitched))
+        else:
+            try:
+                from PIL import Image  # pylint: disable=import-outside-toplevel
+
+                rgb_image = stitched[:, :, ::-1] if len(stitched.shape) == 3 else stitched
+                Image.fromarray(rgb_image).save(
+                    tmp_path, format="JPEG", quality=95
+                )
+                wrote_temp_image = True
+            except Exception:
+                wrote_temp_image = False
+        if not wrote_temp_image:
+            raise RuntimeError(
+                f"Could not write temporary stitched OCR image: {tmp_path}"
+            )
+        if step_fn:
+            step_fn("ocr")
+        with _prepare_ai_model_image(tmp_path) as model_image_path:
+            ocr_text = ocr_engine.read_text(model_image_path)
+
+    result = ArchiveScanOCRAuthority(
+        page_key=page_key,
+        group_paths=tuple(group_paths),
+        signature=group_signature,
+        ocr_text=ocr_text,
+        ocr_keywords=tuple(extract_keywords(ocr_text, max_keywords=15)),
+        ocr_hash=_hash_text(ocr_text),
+    )
+    cache[page_key] = result
+    return result
 
 
 def _run_scan_stitch_pass(
@@ -1993,6 +2130,7 @@ def run(argv: list[str] | None = None) -> int:
         "people_recovery_mode": str(args.people_recovery_mode),
         "ocr_engine": str(args.ocr_engine),
         "ocr_lang": str(args.ocr_lang),
+        "ocr_model": str(args.ocr_model),
         "page_split_mode": "off",
         "caption_engine": str(args.caption_engine),
         "caption_model": resolve_caption_model(
@@ -2019,10 +2157,11 @@ def run(argv: list[str] | None = None) -> int:
     archive_settings_cache: dict[str, tuple[Path, dict[str, Any]]] = {}
     people_matcher_cache: dict[tuple[str, float, int], Any] = {}
     object_detector_cache: dict[tuple[str, float], Any] = {}
-    ocr_engine_cache: dict[tuple[str, str, str], OCREngine] = {}
+    ocr_engine_cache: dict[tuple[str, str, str, str], OCREngine] = {}
     caption_engine_cache: dict[
         tuple[str, str, str, int, float, str, str, int, int, int], CaptionEngine
     ] = {}
+    archive_scan_ocr_cache: dict[str, ArchiveScanOCRAuthority] = {}
     album_title_cache: dict[str, str] = {}
     printed_album_title_cache: dict[str, str] = {}
     geocoder = NominatimGeocoder()
@@ -2063,6 +2202,8 @@ def run(argv: list[str] | None = None) -> int:
             effective["enable_objects"] = False
         if "--ocr-engine" in explicit_flags:
             effective["ocr_engine"] = str(args.ocr_engine)
+        if "--ocr-model" in explicit_flags:
+            effective["ocr_model"] = str(args.ocr_model)
         if "--caption-engine" in explicit_flags:
             effective["caption_engine"] = str(args.caption_engine)
         if "--caption-model" in explicit_flags:
@@ -2121,6 +2262,21 @@ def run(argv: list[str] | None = None) -> int:
         if has_valid_sidecar(image_path):
             existing_sidecar_state = read_ai_sidecar_state(sidecar_path)
 
+        existing_sidecar_ocr_hash = _hash_text(
+            str((existing_sidecar_state or {}).get("ocr_text") or "")
+        )
+        multi_scan_group_paths = _scan_group_paths(image_path)
+        archive_stitched_ocr_required = (
+            str(effective.get("ocr_engine", defaults["ocr_engine"])).strip().lower()
+            != "none"
+            and len(multi_scan_group_paths) > 1
+        )
+        multi_scan_group_signature = (
+            _scan_group_signature(multi_scan_group_paths)
+            if archive_stitched_ocr_required
+            else ""
+        )
+
         manifest_row = manifest.get(str(image_path))
         reprocess_required = False
         people_update_only = False
@@ -2137,6 +2293,23 @@ def run(argv: list[str] | None = None) -> int:
             ),
         ):
             reprocess_required = True
+        if archive_stitched_ocr_required:
+            manifest_source = str(
+                (manifest_row or {}).get("ocr_authority_source") or ""
+            ).strip()
+            manifest_signature = str(
+                (manifest_row or {}).get("ocr_authority_signature") or ""
+            ).strip()
+            manifest_hash = str(
+                (manifest_row or {}).get("ocr_authority_hash") or ""
+            ).strip()
+            if (
+                manifest_source != "archive_stitched"
+                or manifest_signature != multi_scan_group_signature
+                or not manifest_hash
+                or manifest_hash != existing_sidecar_ocr_hash
+            ):
+                reprocess_required = True
         if manifest_row is not None:
             old_sig = str(manifest_row.get("settings_signature") or "")
             if old_sig != settings_sig:
@@ -2387,11 +2560,30 @@ def run(argv: list[str] | None = None) -> int:
                         people_present=pu_people_present,
                         estimated_people_count=pu_estimated_people_count,
                     )
-                    pu_updated_det = {
-                        **det,
-                        "people": pu_people_payload,
-                        "caption": pu_caption_payload,
-                    }
+                    pu_ocr_model = str(
+                        dict(det.get("ocr") or {}).get("model")
+                        or (
+                            effective.get("ocr_model", defaults["ocr_model"])
+                            if str(
+                                effective.get("ocr_engine", defaults["ocr_engine"])
+                            ).strip().lower()
+                            in {"qwen", "lmstudio"}
+                            else ""
+                        )
+                    )
+                    pu_updated_det = _refresh_detection_model_metadata(
+                        {
+                            **det,
+                            "people": pu_people_payload,
+                            "caption": pu_caption_payload,
+                        },
+                        ocr_model=pu_ocr_model,
+                        caption_model=(
+                            str(pu_caption_engine.effective_model_name)
+                            if str(caption_key[0]).strip().lower() in {"qwen", "lmstudio"}
+                            else ""
+                        ),
+                    )
                     pu_subjects = _dedupe(
                         existing_object_labels + existing_ocr_keywords
                     )
@@ -2423,6 +2615,9 @@ def run(argv: list[str] | None = None) -> int:
                             ocr_text=existing_ocr_text,
                             detections_payload=pu_updated_det,
                             stitch_key=str(state.get("stitch_key") or ""),
+                            ocr_authority_source=str(
+                                state.get("ocr_authority_source") or ""
+                            ),
                             image_width=pu_img_w,
                             image_height=pu_img_h,
                             ocr_ran=bool(state.get("ocr_ran") or True),
@@ -2492,6 +2687,7 @@ def run(argv: list[str] | None = None) -> int:
             ocr_key = (
                 str(effective.get("ocr_engine", defaults["ocr_engine"])),
                 str(effective.get("ocr_lang", defaults["ocr_lang"])),
+                str(effective.get("ocr_model", defaults["ocr_model"])),
                 normalize_lmstudio_base_url(
                     str(
                         effective.get(
@@ -2503,9 +2699,23 @@ def run(argv: list[str] | None = None) -> int:
             ocr_engine = ocr_engine_cache.get(ocr_key)
             if ocr_engine is None:
                 ocr_engine = OCREngine(
-                    engine=ocr_key[0], language=ocr_key[1], base_url=ocr_key[2]
+                    engine=ocr_key[0],
+                    language=ocr_key[1],
+                    model_name=ocr_key[2],
+                    base_url=ocr_key[3],
                 )
                 ocr_engine_cache[ocr_key] = ocr_engine
+
+            scan_ocr_authority: ArchiveScanOCRAuthority | None = None
+            if archive_stitched_ocr_required:
+                scan_ocr_authority = _resolve_archive_scan_authoritative_ocr(
+                    image_path=image_path,
+                    group_paths=multi_scan_group_paths,
+                    group_signature=multi_scan_group_signature,
+                    ocr_engine=ocr_engine,
+                    cache=archive_scan_ocr_cache,
+                    step_fn=set_step,
+                )
 
             caption_key = (
                 str(effective.get("caption_engine", defaults["caption_engine"])),
@@ -2590,15 +2800,19 @@ def run(argv: list[str] | None = None) -> int:
                 )
 
                 if layout.page_like and layout.split_mode == "auto":
-                    with _prepare_ai_model_image(
-                        layout.content_path
-                    ) as page_model_image:
-                        if set_step:
-                            set_step("ocr")
-                        page_ocr_text = ocr_engine.read_text(page_model_image)
-                        page_ocr_keywords = extract_keywords(
-                            page_ocr_text, max_keywords=15
-                        )
+                    if scan_ocr_authority is not None:
+                        page_ocr_text = scan_ocr_authority.ocr_text
+                        page_ocr_keywords = list(scan_ocr_authority.ocr_keywords)
+                    else:
+                        with _prepare_ai_model_image(
+                            layout.content_path
+                        ) as page_model_image:
+                            if set_step:
+                                set_step("ocr")
+                            page_ocr_text = ocr_engine.read_text(page_model_image)
+                            page_ocr_keywords = extract_keywords(
+                                page_ocr_text, max_keywords=15
+                            )
                     sub_results = [
                         _run_image_analysis(
                             image_path=subphoto.path,
@@ -2781,6 +2995,11 @@ def run(argv: list[str] | None = None) -> int:
                         step_fn=set_step,
                         extra_people_names=existing_xmp_people,
                         is_page_scan=layout.page_like,
+                        ocr_text_override=(
+                            scan_ocr_authority.ocr_text
+                            if scan_ocr_authority is not None
+                            else None
+                        ),
                     )
                     resolved_album_title = infer_album_title(
                         image_path=image_path,
@@ -2811,6 +3030,20 @@ def run(argv: list[str] | None = None) -> int:
                     people_count = len(analysis.people_names)
                     object_count = len(analysis.object_labels)
                     analysis_mode = "page_flat" if layout.page_like else "single_image"
+
+                payload = _refresh_detection_model_metadata(
+                    payload,
+                    ocr_model=(
+                        str(ocr_engine.effective_model_name)
+                        if str(ocr_key[0]).strip().lower() in {"qwen", "lmstudio"}
+                        else ""
+                    ),
+                    caption_model=(
+                        str(caption_engine.effective_model_name)
+                        if str(caption_key[0]).strip().lower() in {"qwen", "lmstudio"}
+                        else ""
+                    ),
+                )
 
                 # Compute per-stage tracking flags for the XMP
                 _ocr_ran_flag = (
@@ -2848,6 +3081,11 @@ def run(argv: list[str] | None = None) -> int:
                         ocr_text=ocr_text,
                         detections_payload=payload,
                         subphotos=subphotos_xml,
+                        ocr_authority_source=(
+                            "archive_stitched"
+                            if scan_ocr_authority is not None
+                            else ""
+                        ),
                         image_width=img_w,
                         image_height=img_h,
                         ocr_ran=_ocr_ran_flag,
@@ -2871,6 +3109,19 @@ def run(argv: list[str] | None = None) -> int:
                 "subphoto_count": int(subphoto_count),
                 "processor_signature": PROCESSOR_SIGNATURE,
                 "settings_signature": settings_sig,
+                "ocr_authority_source": (
+                    "archive_stitched" if scan_ocr_authority is not None else ""
+                ),
+                "ocr_authority_signature": (
+                    str(scan_ocr_authority.signature)
+                    if scan_ocr_authority is not None
+                    else ""
+                ),
+                "ocr_authority_hash": (
+                    str(scan_ocr_authority.ocr_hash)
+                    if scan_ocr_authority is not None
+                    else ""
+                ),
                 "cast_store_signature": (
                     current_cast_signature
                     if bool(effective.get("enable_people", True))
@@ -2929,45 +3180,8 @@ def run(argv: list[str] | None = None) -> int:
 
     stitch_failures = 0
     if bool(getattr(args, "stitch_scans", False)):
-        emit_info("\nScan stitch pass")
-        # Use the defaults-based caption engine (or initialise one if none was created yet)
-        stitch_caption_key = (
-            str(defaults["caption_engine"]),
-            str(defaults["caption_model"]),
-            str(defaults["caption_prompt"]),
-            int(defaults["caption_max_tokens"]),
-            float(defaults["caption_temperature"]),
-            str(defaults["lmstudio_base_url"]),
-            str(defaults["qwen_attn_implementation"]),
-            int(defaults["qwen_min_pixels"]),
-            int(defaults["qwen_max_pixels"]),
-            int(defaults["caption_max_edge"]),
-        )
-        stitch_caption_engine = caption_engine_cache.get(stitch_caption_key)
-        if stitch_caption_engine is None:
-            stitch_caption_engine = _init_caption_engine(
-                engine=stitch_caption_key[0],
-                model_name=stitch_caption_key[1],
-                caption_prompt=stitch_caption_key[2],
-                max_tokens=int(stitch_caption_key[3]),
-                temperature=float(stitch_caption_key[4]),
-                lmstudio_base_url=stitch_caption_key[5],
-                qwen_attn_implementation=stitch_caption_key[6],
-                qwen_min_pixels=int(stitch_caption_key[7]),
-                qwen_max_pixels=int(stitch_caption_key[8]),
-                max_image_edge=int(stitch_caption_key[9]),
-                stream=not stdout_only,
-            )
-        stitch_failures = _run_scan_stitch_pass(
-            files,
-            caption_engine=stitch_caption_engine,
-            requested_caption_engine=str(defaults["caption_engine"]),
-            creator_tool=str(defaults["creator_tool"]),
-            dry_run=dry_run,
-            stdout_only=stdout_only,
-            album_title_cache=album_title_cache,
-            printed_album_title_cache=printed_album_title_cache,
-            geocoder=geocoder,
+        emit_info(
+            "Scan stitch pass skipped: archive scan OCR stitching now happens during normal processing."
         )
 
     if not stdout_only:

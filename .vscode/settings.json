@@ -1,5 +1,6 @@
 {
     "python.testing.pytestArgs": [
+        "cast/tests",
         "photoalbums/tests",
         "vhs/test"
     ],
@@ -10,7 +11,11 @@
     "terminal.integrated.profiles.windows": {
         "imago": {
             "source": "PowerShell",
-            "args": ["-NoExit", "-Command", "if (Test-Path '${workspaceFolder}/.venv/Scripts/Activate.ps1') { & '${workspaceFolder}/.venv/Scripts/Activate.ps1' } else { Write-Warning '.venv not found — run: python setup.py' }"]
+            "args": [
+                "-NoExit",
+                "-Command",
+                "$justDir = Join-Path '${workspaceFolder}' 'software\\just\\Windows\\x86_64'; if (Test-Path $justDir) { $env:PATH = \"$justDir;$env:PATH\" }; if (Test-Path '${workspaceFolder}/.venv/Scripts/Activate.ps1') { & '${workspaceFolder}/.venv/Scripts/Activate.ps1' } else { Write-Warning '.venv not found - run: uv sync' }"
+            ]
         }
     },
     "terminal.integrated.defaultProfile.windows": "imago",

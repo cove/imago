@@ -27,12 +27,34 @@ def _load_rembg() -> tuple[Any, Any]:
     return _REMBG_REMOVE, _REMBG_NEW_SESSION
 
 
+def _load_onnxruntime() -> Any | None:
+    try:
+        import onnxruntime as ort  # type: ignore[import]
+    except Exception:
+        return None
+    return ort
+
+
+def _rembg_providers() -> list[str]:
+    ort = _load_onnxruntime()
+    if ort is None:
+        return ["CPUExecutionProvider"]
+    available = set(ort.get_available_providers())
+    if "DmlExecutionProvider" in available:
+        return ["DmlExecutionProvider", "CPUExecutionProvider"]
+    if "CUDAExecutionProvider" in available:
+        return ["CUDAExecutionProvider", "CPUExecutionProvider"]
+    if "ROCMExecutionProvider" in available:
+        return ["ROCMExecutionProvider", "CPUExecutionProvider"]
+    return ["CPUExecutionProvider"]
+
+
 def _get_rembg_session() -> Any:
     global _REMBG_SESSION
     if _REMBG_SESSION is not None:
         return _REMBG_SESSION
     _remove, new_session = _load_rembg()
-    _REMBG_SESSION = new_session()
+    _REMBG_SESSION = new_session(providers=_rembg_providers())
     return _REMBG_SESSION
 
 

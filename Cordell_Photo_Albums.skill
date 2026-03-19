@@ -45,7 +45,7 @@ Output ONLY valid JSON — no markdown, no explanations, no extra keys, no text 
 
 ## Album Classification Rules (apply in this order)
 Cordell Photo Albums rules:
-1. If the image is clearly an album cover or title page → use Cover Page preamble.
+1. If the image is clearly an album cover → use Cover Page preamble.
 2. If visible album title or hint names a country or region → classify as Photo Essay.
 3. If the collection is clearly familial (title contains family names or is generic family-oriented) → classify as Family Photo Album.
 4. Solid blue/white cover with title text naming country/region/family → describe as “the cover of the photo album book”.

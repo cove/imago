@@ -47,6 +47,7 @@ class TestAIRenderSettings(unittest.TestCase):
                 "people_recovery_mode": "auto",
                 "ocr_engine": "qwen",
                 "ocr_lang": "eng",
+                "ocr_model": "qwen/qwen3.5-9b",
                 "page_split_mode": "auto",
                 "caption_engine": "qwen",
                 "caption_model": "",
@@ -101,6 +102,7 @@ class TestAIRenderSettings(unittest.TestCase):
             self.assertTrue(effective["enable_objects"])
             self.assertEqual(effective["people_recovery_mode"], "off")
             self.assertEqual(effective["ocr_engine"], "none")
+            self.assertEqual(effective["ocr_model"], "qwen/qwen3.5-9b")
             self.assertEqual(effective["page_split_mode"], "off")
             self.assertEqual(effective["caption_engine"], "qwen")
             self.assertEqual(effective["qwen_attn_implementation"], "sdpa")
@@ -122,6 +124,7 @@ class TestAIRenderSettings(unittest.TestCase):
             defaults = {
                 "ocr_engine": "lmstudio",
                 "ocr_lang": "eng",
+                "ocr_model": "qwen2.5-vl-instruct",
                 "caption_engine": "lmstudio",
                 "lmstudio_base_url": "http://127.0.0.1:1234/v1",
             }
@@ -139,6 +142,7 @@ class TestAIRenderSettings(unittest.TestCase):
             )
 
             self.assertEqual(effective["ocr_engine"], "lmstudio")
+            self.assertEqual(effective["ocr_model"], "qwen2.5-vl-instruct")
 
     def test_resolve_effective_settings_defaults_page_split_mode_to_off(self):
         effective = ars.resolve_effective_settings(

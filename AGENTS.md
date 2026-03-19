@@ -12,7 +12,7 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 - Limit code file sizes to about 500 lines, if they go over that size, then ask about refactoring.
 - Do not use brittle regex and string replaacments to edit AI model responses, improve the prompt instead to get the correct output.
 - Do not write code for input or output from AI model requests or responses, prefer to write prompts to .skill files.
-- Use `python -m black` to automatically enforce formatting. 
+- Use `uv run ruff format` to automatically enforce formatting.
 
 ## Data and Schema Migrations
 
@@ -45,9 +45,9 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 ## Python Environment
 
 - For Python commands in this repo, do not rely on PATH-resolved `python`.
-- Use the repo virtualenv interpreter: `.\.venv\Scripts\python.exe`.
-- From the repo root, prefer `.\.venv\Scripts\python.exe -m ...` for test, lint, and validation commands.
-- Validate changed Python modules with `.\.venv\Scripts\python.exe -m py_compile` when possible.
+- Use `uv sync` from the repo root to create or update the project environment.
+- From the repo root, prefer `uv run ...` for test, lint, and validation commands.
+- Validate changed Python modules with `uv run python -m py_compile` when possible.
 
 ## Git Hygiene
 

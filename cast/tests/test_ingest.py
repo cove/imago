@@ -1,9 +1,11 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 
 import cv2
 
+from cast import ingest
 from cast.ingest import FaceIngestor, crop_has_visual_detail
 from cast.storage import TextFaceStore
 
@@ -142,3 +144,17 @@ def test_ingest_photo_requires_primary_model_when_configured(tmp_path):
         assert False, "Expected RuntimeError"
     except RuntimeError as exc:
         assert "InsightFace buffalo_l is unavailable" in str(exc)
+
+
+def test_resolve_haarcascade_dir_falls_back_to_cv2_data_dir_neighbor(tmp_path, monkeypatch):
+    cv2_dir = tmp_path / "cv2"
+    data_dir = cv2_dir / "data"
+    data_dir.mkdir(parents=True)
+
+    monkeypatch.setattr(
+        ingest,
+        "cv2",
+        SimpleNamespace(__file__=str(cv2_dir / "__init__.py"), data=SimpleNamespace()),
+    )
+
+    assert ingest._resolve_haarcascade_dir() == data_dir

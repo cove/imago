@@ -1,0 +1,63 @@
+[project]
+name = "imago"
+version = "0.1.0"
+description = "Family media archive for VHS digitization, photo album preservation, and shared face IDs."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "chardet<6",
+    "insightface",
+    "largestinteriorrectangle",
+    "llvmlite",
+    "numba",
+    "numpy",
+    "onnxruntime",
+    "opencv-contrib-python==4.10.0.84",
+    "openai-whisper==20250625",
+    "pandas",
+    "pillow",
+    "rembg[cpu]",
+    "stitching",
+    "tifffile",
+    "torch==2.10.0",
+    "tqdm",
+    "transformers",
+    "ultralytics",
+    "wand",
+    "watchdog",
+]
+
+[dependency-groups]
+dev = [
+    "opencv-stubs",
+    "pylint",
+    "pyright",
+    "pytest",
+    "radon",
+    "ruff",
+    "skylos",
+    "vulture",
+]
+
+[tool.uv]
+package = false
+exclude-dependencies = ["opencv-python", "opencv-python-headless"]
+
+[tool.pytest.ini_options]
+testpaths = ["cast/tests", "photoalbums/tests", "vhs/test"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+exclude = [".venv", "__pycache__"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint]
+select = ["C90", "E4", "E7", "E9", "F"]
+ignore = ["E203", "E501", "F403", "F405"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10

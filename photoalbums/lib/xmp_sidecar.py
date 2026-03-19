@@ -228,6 +228,7 @@ def build_xmp_tree(
     detections_payload: dict | None = None,
     subphotos: list[dict] | None = None,
     stitch_key: str = "",
+    ocr_authority_source: str = "",
     image_width: int = 0,
     image_height: int = 0,
     ocr_ran: bool = False,
@@ -268,6 +269,10 @@ def build_xmp_tree(
     if clean_ocr:
         ocr = ET.SubElement(desc, f"{{{IMAGO_NS}}}OCRText")
         ocr.text = clean_ocr
+    clean_ocr_authority_source = str(ocr_authority_source or "").strip()
+    if clean_ocr_authority_source:
+        ocr_source = ET.SubElement(desc, f"{{{IMAGO_NS}}}OCRAuthoritySource")
+        ocr_source.text = clean_ocr_authority_source
 
     if detections_payload:
         payload = ET.SubElement(desc, f"{{{IMAGO_NS}}}Detections")
@@ -477,6 +482,9 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
         "ocr_text": str(
             desc.findtext(f"{{{IMAGO_NS}}}OCRText", default="") or ""
         ).strip(),
+        "ocr_authority_source": str(
+            desc.findtext(f"{{{IMAGO_NS}}}OCRAuthoritySource", default="") or ""
+        ).strip(),
         "stitch_key": str(
             desc.findtext(f"{{{IMAGO_NS}}}StitchKey", default="") or ""
         ).strip(),
@@ -591,6 +599,7 @@ def _merge_xmp_tree(
     detections_payload: dict | None = None,
     subphotos: list[dict] | None = None,
     stitch_key: str = "",
+    ocr_authority_source: str = "",
     image_width: int = 0,
     image_height: int = 0,
     ocr_ran: bool = False,
@@ -611,6 +620,11 @@ def _merge_xmp_tree(
     )
     clean_ocr = str(ocr_text or "").strip()
     _set_simple_text(desc, f"{{{IMAGO_NS}}}OCRText", clean_ocr)
+    _set_simple_text(
+        desc,
+        f"{{{IMAGO_NS}}}OCRAuthoritySource",
+        str(ocr_authority_source or "").strip(),
+    )
     if detections_payload:
         _set_simple_text(
             desc,
@@ -661,6 +675,7 @@ def write_xmp_sidecar(
     detections_payload: dict | None = None,
     subphotos: list[dict] | None = None,
     stitch_key: str = "",
+    ocr_authority_source: str = "",
     image_width: int = 0,
     image_height: int = 0,
     ocr_ran: bool = False,
@@ -689,6 +704,7 @@ def write_xmp_sidecar(
             detections_payload=detections_payload,
             subphotos=subphotos,
             stitch_key=stitch_key,
+            ocr_authority_source=ocr_authority_source,
             image_width=image_width,
             image_height=image_height,
             ocr_ran=ocr_ran,
@@ -710,6 +726,7 @@ def write_xmp_sidecar(
             detections_payload=detections_payload,
             subphotos=subphotos,
             stitch_key=stitch_key,
+            ocr_authority_source=ocr_authority_source,
             image_width=image_width,
             image_height=image_height,
             ocr_ran=ocr_ran,

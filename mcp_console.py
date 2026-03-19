@@ -39,14 +39,20 @@ _HTML = r"""<!DOCTYPE html>
   body { font-family: system-ui, sans-serif; background: #111; color: #ddd;
          display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
   header { padding: 10px 16px; background: #1a1a1a; border-bottom: 1px solid #333;
-           display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+           display: flex; align-items: center; gap: 12px; flex-shrink: 0; flex-wrap: wrap; }
   header h1 { font-size: 15px; font-weight: 600; color: #eee; letter-spacing: .02em; }
   header .subtitle { font-size: 12px; color: #666; }
   .main { display: flex; flex: 1; overflow: hidden; }
+  .mobile-nav { display: none; padding: 8px 12px; gap: 8px; border-bottom: 1px solid #222;
+                background: #141414; }
+  .mobile-nav button { flex: 1; min-height: 40px; padding: 8px 10px; border-radius: 8px;
+                       border: 1px solid #333; background: #1b1b1b; color: #aaa;
+                       font-size: 12px; font-weight: 600; cursor: pointer; }
+  .mobile-nav button.active { background: #243046; color: #eef4ff; border-color: #4a7fc1; }
 
   /* Job list */
   .job-list { width: 340px; flex-shrink: 0; border-right: 1px solid #2a2a2a;
-              display: flex; flex-direction: column; overflow: hidden; }
+              display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
   .job-list-header { padding: 8px 12px; font-size: 11px; font-weight: 600;
                      color: #666; text-transform: uppercase; letter-spacing: .08em;
                      border-bottom: 1px solid #222; background: #161616; flex-shrink: 0; }
@@ -70,15 +76,17 @@ _HTML = r"""<!DOCTYPE html>
   .btn-cancel { font-size: 10px; padding: 2px 8px; border-radius: 3px; border: 1px solid #555;
                 background: transparent; color: #bbb; cursor: pointer; }
   .btn-cancel:hover { border-color: #f85149; color: #f85149; }
+  .btn-cancel:active { transform: translateY(1px); }
   .empty { padding: 24px 12px; text-align: center; font-size: 12px; color: #888; }
 
   /* Log panel */
-  .log-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .log-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
   .log-header { padding: 8px 14px; border-bottom: 1px solid #222; background: #161616;
                 display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
   .log-header .log-title { font-size: 12px; font-weight: 500; color: #ccc; flex: 1;
                             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .log-header .log-controls { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .log-header .log-controls { display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+                              flex-wrap: wrap; justify-content: flex-end; }
   .log-header label { font-size: 11px; color: #666; display: flex; align-items: center; gap: 4px; cursor: pointer; }
   .log-header select { font-size: 11px; background: #222; color: #aaa; border: 1px solid #333;
                        border-radius: 3px; padding: 2px 4px; }
@@ -91,6 +99,20 @@ _HTML = r"""<!DOCTYPE html>
   .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%;
          background: #3fb950; margin-right: 6px; animation: pulse 1.5s infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  @media (max-width: 900px) {
+    body { overflow: auto; }
+    .mobile-nav { display: flex; }
+    .main { position: relative; }
+    .job-list, .log-panel { width: 100%; flex: 1 1 100%; border-right: 0; }
+    .job-list { border-bottom: 1px solid #222; }
+    .main.mobile-jobs .log-panel { display: none; }
+    .main.mobile-logs .job-list { display: none; }
+    .log-header { align-items: flex-start; flex-direction: column; }
+    .log-header .log-title { width: 100%; white-space: normal; }
+    .log-header .log-controls { width: 100%; justify-content: space-between; }
+    .job-item .job-meta { flex-wrap: wrap; }
+    .btn-cancel { min-height: 32px; padding: 4px 10px; }
+  }
 </style>
 </head>
 <body>
@@ -98,7 +120,11 @@ _HTML = r"""<!DOCTYPE html>
   <h1>Imago Job Console</h1>
   <span class="subtitle">mcp/jobs &bull; auto-refreshes every 2s</span>
 </header>
-<div class="main">
+<div class="mobile-nav" id="mobile-nav">
+  <button type="button" id="mobile-show-jobs" onclick="setMobilePanel('jobs')">Jobs</button>
+  <button type="button" id="mobile-show-logs" onclick="setMobilePanel('logs')">Logs</button>
+</div>
+<div class="main" id="main">
   <div class="job-list">
     <div class="job-list-header">Jobs</div>
     <div class="job-list-body" id="job-list"></div>
@@ -131,6 +157,28 @@ _HTML = r"""<!DOCTYPE html>
   let jobs = [];
   let logLines = [];       // accumulated lines for selected job
   let activeStream = null; // current EventSource
+  let mobilePanel = 'jobs';
+
+  function isMobileLayout() {
+    return window.matchMedia('(max-width: 900px)').matches;
+  }
+
+  function updateMobileNav() {
+    const main = document.getElementById('main');
+    const jobsBtn = document.getElementById('mobile-show-jobs');
+    const logsBtn = document.getElementById('mobile-show-logs');
+    const current = isMobileLayout() ? mobilePanel : 'desktop';
+    main.classList.toggle('mobile-jobs', current === 'jobs');
+    main.classList.toggle('mobile-logs', current === 'logs');
+    jobsBtn.classList.toggle('active', current === 'jobs');
+    logsBtn.classList.toggle('active', current === 'logs');
+    logsBtn.disabled = !selectedId;
+  }
+
+  function setMobilePanel(panel) {
+    mobilePanel = panel === 'logs' && !selectedId ? 'jobs' : panel;
+    updateMobileNav();
+  }
 
   function badge(status) {
     return `<span class="badge badge-${status}">${status}</span>`;
@@ -234,6 +282,7 @@ _HTML = r"""<!DOCTYPE html>
     selectedId = id;
     renderJobList();
     openStream(id);
+    if (isMobileLayout()) setMobilePanel('logs');
   }
 
   async function cancelJob(id, ev) {
@@ -244,10 +293,12 @@ _HTML = r"""<!DOCTYPE html>
   }
 
   document.getElementById('log-lines').addEventListener('change', renderLogLines);
+  window.addEventListener('resize', updateMobileNav);
 
   // Poll job list every 2s to pick up new jobs and update status badges.
   // Log content is streamed via SSE — no log polling needed.
   setInterval(fetchJobs, 2000);
+  updateMobileNav();
   fetchJobs();
 </script>
 </body>
@@ -259,7 +310,6 @@ _HTML = r"""<!DOCTYPE html>
 
 
 class _Handler(BaseHTTPRequestHandler):
-
     @staticmethod
     def _read_jobs() -> list[dict]:
         """Read all jobs from the shared jobs.json on disk."""
@@ -267,9 +317,7 @@ class _Handler(BaseHTTPRequestHandler):
             return []
         try:
             data = json.loads(_JOBS_STATE.read_text(encoding="utf-8"))
-            return sorted(
-                data.values(), key=lambda j: j.get("started_at", ""), reverse=True
-            )
+            return sorted(data.values(), key=lambda j: j.get("started_at", ""), reverse=True)
         except Exception:
             return []
 
@@ -304,9 +352,7 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             log_path = Path(job["log_file"])
             if log_path.exists():
-                lines = log_path.read_text(
-                    encoding="utf-8", errors="replace"
-                ).splitlines()
+                lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
                 logs = "\n".join(lines[-last_n:])
             else:
                 logs = "(no output yet)"
@@ -326,9 +372,7 @@ class _Handler(BaseHTTPRequestHandler):
                 self._json({"error": f"Job {job_id} not found"})
                 return
             if job.get("status") not in ("running", "pending"):
-                self._json(
-                    {"error": f"Job {job_id} is not running (status: {job['status']})"}
-                )
+                self._json({"error": f"Job {job_id} is not running (status: {job['status']})"})
                 return
             pid = job.get("pid")
             if not pid:
@@ -336,9 +380,7 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             try:
                 os.kill(pid, signal.SIGTERM)
-                self._json(
-                    {"ok": True, "message": f"Sent SIGTERM to job {job_id} (pid {pid})"}
-                )
+                self._json({"ok": True, "message": f"Sent SIGTERM to job {job_id} (pid {pid})"})
             except OSError as exc:
                 self._json({"error": str(exc)})
         else:
@@ -360,9 +402,7 @@ class _Handler(BaseHTTPRequestHandler):
         try:
             while True:
                 if log_path.exists():
-                    lines = log_path.read_text(
-                        encoding="utf-8", errors="replace"
-                    ).splitlines()
+                    lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
                     for line in lines[sent:]:
                         self.wfile.write(f"data: {line}\n\n".encode())
                         sent += 1

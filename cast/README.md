@@ -13,8 +13,8 @@ This module is text-file based and keeps three files in `cast/data/` by default:
 ## Run web UI
 
 ```bash
-python cast.py init
-python cast.py web
+uv run python cast.py init
+uv run python cast.py web
 ```
 
 Open `http://127.0.0.1:8093`.

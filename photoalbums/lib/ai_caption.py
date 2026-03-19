@@ -4,6 +4,7 @@ import urllib.request  # noqa: F401 — kept at module level for test patching v
 from dataclasses import dataclass
 from pathlib import Path
 
+from .ai_model_settings import default_caption_model
 from ._caption_album import (  # noqa: F401
     ALBUM_KIND_FAMILY,
     ALBUM_KIND_PHOTO_ESSAY,
@@ -63,6 +64,9 @@ def resolve_caption_model(engine: str, model_name: str) -> str:
     text = str(model_name or "").strip()
     if text:
         return text
+    configured = default_caption_model()
+    if configured:
+        return configured
     if normalized == "qwen":
         return DEFAULT_QWEN_CAPTION_MODEL
     return ""

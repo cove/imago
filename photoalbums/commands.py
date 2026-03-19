@@ -76,4 +76,4 @@ def run_checksum_tree(*, base_dir: str, verify: bool) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit("Internal module. Run: python photoalbums.py ...")
+    raise SystemExit("Internal module. Run: uv run python photoalbums.py ...")

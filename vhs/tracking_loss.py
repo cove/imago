@@ -195,17 +195,11 @@ def assign_frames_to_chapters(indices, chapters):
     spans = [max(1, int(ch["end"]) - int(ch["start"])) for ch in chapters]
     result = []
     for fi in indices:
-        cands = [
-            ci
-            for ci, ch in enumerate(chapters)
-            if int(ch["start"]) <= int(fi) < int(ch["end"])
-        ]
+        cands = [ci for ci, ch in enumerate(chapters) if int(ch["start"]) <= int(fi) < int(ch["end"])]
         if not cands:
             result.append(-1)
         else:
-            result.append(
-                min(cands, key=lambda ci: (spans[ci], int(chapters[ci]["start"])))
-            )
+            result.append(min(cands, key=lambda ci: (spans[ci], int(chapters[ci]["start"]))))
     return result
 
 
@@ -334,11 +328,7 @@ def score_video_frames(
         raise RuntimeError(f"Unable to read frame count: {video_path}")
 
     start = max(0, int(start_frame))
-    end = (
-        total_frames - 1
-        if int(max_frame) < 0
-        else min(total_frames - 1, int(max_frame))
-    )
+    end = total_frames - 1 if int(max_frame) < 0 else min(total_frames - 1, int(max_frame))
     step = max(1, int(frame_step))
     if start > end:
         cap.release()
@@ -354,9 +344,7 @@ def score_video_frames(
         if not ok:
             break
         if ((frame_idx - start) % step) == 0:
-            ch, no, te, wa = compute_tracking_signals(
-                frame_bgr, crop_top, crop_bottom, crop_left, crop_right
-            )
+            ch, no, te, wa = compute_tracking_signals(frame_bgr, crop_top, crop_bottom, crop_left, crop_right)
             indices.append(int(frame_idx))
             chroma_scores.append(ch)
             noise_scores.append(no)
@@ -428,9 +416,7 @@ def _try_parse_float(text):
 def load_scores_tsv(path):
     """Load a previously saved per-frame scores TSV (supports old/new column names)."""
     rows, header_map = [], {}
-    for raw_line in (
-        Path(path).read_text(encoding="utf-8", errors="ignore").splitlines()
-    ):
+    for raw_line in Path(path).read_text(encoding="utf-8", errors="ignore").splitlines():
         line = raw_line.strip()
         if not line:
             continue
@@ -509,13 +495,9 @@ def build_chapter_bad_frame_updates(chapters, evaluated_indices, bad_frames):
 def _run_with_config(config: TrackingLossConfig):
     archive_name = require_non_empty(config.archive, "archive")
 
-    video_path = (
-        Path(config.video) if config.video else (ARCHIVE_DIR / f"{archive_name}.mkv")
-    )
+    video_path = Path(config.video) if config.video else (ARCHIVE_DIR / f"{archive_name}.mkv")
     chapters_file = (
-        Path(config.chapters_file)
-        if config.chapters_file
-        else (METADATA_DIR / archive_name / "chapters.ffmetadata")
+        Path(config.chapters_file) if config.chapters_file else (METADATA_DIR / archive_name / "chapters.ffmetadata")
     )
     scores_tsv = Path(config.scores_tsv) if config.scores_tsv else None
 
@@ -528,9 +510,7 @@ def _run_with_config(config: TrackingLossConfig):
     if scores_tsv:
         if not scores_tsv.exists():
             raise FileNotFoundError(f"Scores TSV not found: {scores_tsv}")
-        indices, scores, chroma_scores, noise_scores, tear_scores, wave_scores = (
-            load_scores_tsv(scores_tsv)
-        )
+        indices, scores, chroma_scores, noise_scores, tear_scores, wave_scores = load_scores_tsv(scores_tsv)
         start_frame, end_frame = min(indices), max(indices)
         if video_path.exists():
             cap = cv2.VideoCapture(str(video_path))
@@ -592,10 +572,7 @@ def _run_with_config(config: TrackingLossConfig):
         for ch in chapters:
             print(f"  [{ch['start']:>7} - {ch['end']:>7}]  {ch.get('title', '?')}")
     else:
-        print(
-            f"WARNING: chapters file not found ({chapters_file}); "
-            "using single window over all frames."
-        )
+        print(f"WARNING: chapters file not found ({chapters_file}); using single window over all frames.")
 
     # Per-chapter IQR thresholds - now uses config.iqr_mult
     thresholds, chapter_ids, window_info = compute_per_frame_thresholds(
@@ -606,15 +583,9 @@ def _run_with_config(config: TrackingLossConfig):
         iqr_mult=iqr_mult,
     )
 
-    print(
-        f"\nThreshold windows (Q3 + {iqr_mult}xIQR, window={config.threshold_window_size} frames):"
-    )
+    print(f"\nThreshold windows (Q3 + {iqr_mult}xIQR, window={config.threshold_window_size} frames):")
     for wi in window_info:
-        print(
-            f"  {wi['title'][:55]:<55}  "
-            f"frames={wi['frame_count_in_window']:>6}  "
-            f"threshold={wi['threshold']:>8.4f}"
-        )
+        print(f"  {wi['title'][:55]:<55}  frames={wi['frame_count_in_window']:>6}  threshold={wi['threshold']:>8.4f}")
 
     # Classify
     labels = ["bad" if s >= t else "good" for s, t in zip(scores_np, thresholds)]
@@ -626,9 +597,7 @@ def _run_with_config(config: TrackingLossConfig):
     # Existing chapter-metadata comparison (before writing updates).
     existing_bad_eval = set()
     if raw_chapters:
-        existing_bad_eval = evaluated_set.intersection(
-            parse_existing_bad_frames_from_chapters(raw_chapters)
-        )
+        existing_bad_eval = evaluated_set.intersection(parse_existing_bad_frames_from_chapters(raw_chapters))
 
     # In-memory run summary (not written to disk).
     summary = {
@@ -640,10 +609,7 @@ def _run_with_config(config: TrackingLossConfig):
         "evaluated_frame_end": int(end_frame),
         "evaluated_frame_step": int(max(1, config.frame_step)),
         "evaluated_frames": int(len(indices)),
-        "crop": {
-            k: int(getattr(config, f"crop_{k}"))
-            for k in ("top", "bottom", "left", "right")
-        },
+        "crop": {k: int(getattr(config, f"crop_{k}")) for k in ("top", "bottom", "left", "right")},
         "signals": {
             "description": {
                 "chroma_loss": "1 - mean(HSV saturation)/255; high = desaturated/grey",
@@ -681,7 +647,7 @@ def _run_with_config(config: TrackingLossConfig):
         "predicted_bad_ranges": int(len(bad_ranges)),
         "png_samples": {
             "enabled": False,
-            "note": "PNG sample export is disabled; use `python vhs.py tuner` for frame review.",
+            "note": "PNG sample export is disabled; use `uv run python vhs.py tuner` for frame review.",
             "review_output_dir": None,
             "review_manifest": None,
             "bad": {"requested": 0, "written": 0, "failed": []},
@@ -747,9 +713,7 @@ def _run_with_config(config: TrackingLossConfig):
 
 
 def parse_args(argv=None):
-    p = argparse.ArgumentParser(
-        description="Classify bad VHS frames using per-chapter IQR thresholding."
-    )
+    p = argparse.ArgumentParser(description="Classify bad VHS frames using per-chapter IQR thresholding.")
     p.add_argument("--archive", default=DEFAULT_ARCHIVE)
     p.add_argument("--video", default="")
     p.add_argument("--chapters-file", default="")
@@ -802,9 +766,7 @@ def args_to_config(args):
     )
 
 
-def run_tracking_loss_classification(
-    config: TrackingLossConfig | None = None, **overrides
-):
+def run_tracking_loss_classification(config: TrackingLossConfig | None = None, **overrides):
     resolved = config or DEFAULT_CONFIG
     if overrides:
         resolved = apply_config_overrides(resolved, **overrides)

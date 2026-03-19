@@ -119,6 +119,10 @@ def _normalize_settings_block(
             block.get("ocr_lang"),
             str(defaults.get("ocr_lang", "eng")),
         ),
+        "ocr_model": _normalize_text(
+            block.get("ocr_model"),
+            str(defaults.get("ocr_model", "")),
+        ),
         "page_split_mode": normalize_page_split_mode(
             block.get("page_split_mode"),
             str(defaults.get("page_split_mode", "off")),

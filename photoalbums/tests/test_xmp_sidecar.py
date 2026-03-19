@@ -62,6 +62,26 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertIn("A dog in the park.", xml)
             self.assertIn("park sign", xml)
 
+    def test_write_xmp_sidecar_round_trips_ocr_authority_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="MAINLAND CHINA 1986 BOOK 11",
+                ocr_authority_source="archive_stitched",
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                subphotos=[],
+            )
+
+            state = xmp_sidecar.read_ai_sidecar_state(out)
+            assert state is not None
+            self.assertEqual(state["ocr_authority_source"], "archive_stitched")
+
     def test_write_xmp_sidecar_merges_existing_fields_in_place(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "image.xmp"
