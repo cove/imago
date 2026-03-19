@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 
 from .xmp_sidecar import _dedupe
+from .ai_people_preprocess import build_rembg_bgr
 
 
 def _import_cast_modules() -> tuple[Any, ...]:
@@ -238,7 +239,12 @@ class CastPeopleMatcher:
         return self._face_embedding_model(face) in self._active_embedding_models
 
     def _model_metadata(
-        self, *, source_path: str, analysis_image_path: str, arcface_embedding: Any
+        self,
+        *,
+        source_path: str,
+        analysis_image_path: str,
+        arcface_embedding: Any,
+        analysis_variant: str,
     ) -> dict[str, Any]:
         metadata = {
             "ingest": "photoalbums_ai",
@@ -252,6 +258,8 @@ class CastPeopleMatcher:
                 if arcface_embedding is not None
                 else self._fallback_embedding_model
             ),
+            "analysis_variant": str(analysis_variant or "original").strip()
+            or "original",
         }
         if (
             str(analysis_image_path).strip()
@@ -344,7 +352,7 @@ class CastPeopleMatcher:
         return dict(face)
 
     def _find_existing_face(
-        self, *, source_path: str, bbox: list[int]
+        self, *, source_path: str, bbox: list[int], min_iou: float = 0.55
     ) -> dict[str, Any] | None:
         best_face: dict[str, Any] | None = None
         best_iou = 0.0
@@ -357,7 +365,7 @@ class CastPeopleMatcher:
                 continue
             best_face = face
             best_iou = overlap
-        if best_face is None or best_iou < 0.55:
+        if best_face is None or best_iou < float(min_iou):
             return None
         return dict(best_face)
 
@@ -381,6 +389,7 @@ class CastPeopleMatcher:
         source_path: str,
         bbox: list[int],
         analysis_image_path: str,
+        analysis_variant: str,
     ) -> dict[str, Any]:
         arcface_embedding = self._arcface_embed(crop_bgr)
         embedding = arcface_embedding or self._embed(crop_bgr)
@@ -389,6 +398,7 @@ class CastPeopleMatcher:
             source_path=source_path,
             analysis_image_path=analysis_image_path,
             arcface_embedding=arcface_embedding,
+            analysis_variant=analysis_variant,
         )
         face = self._store.add_face(
             embedding=embedding,
@@ -410,6 +420,7 @@ class CastPeopleMatcher:
         crop_bgr,
         bbox: list[int],
         analysis_image_path: str,
+        analysis_variant: str,
     ) -> dict[str, Any]:
         face_id = str(face.get("face_id") or "").strip()
         if not face_id:
@@ -424,6 +435,7 @@ class CastPeopleMatcher:
                 source_path=source_path,
                 analysis_image_path=analysis_image_path,
                 arcface_embedding=arcface_embedding,
+                analysis_variant=analysis_variant,
             )
         )
         updated = self._store.update_face(
@@ -492,7 +504,9 @@ class CastPeopleMatcher:
         hints: list[dict[str, Any]] = []
         seen_names: set[str] = set()
 
-        def _add(name: str, person_id: str | None, confidence: float, source: str) -> None:
+        def _add(
+            name: str, person_id: str | None, confidence: float, source: str
+        ) -> None:
             key = name.casefold()
             if key in seen_names:
                 return
@@ -510,7 +524,9 @@ class CastPeopleMatcher:
         for seq_match in re.finditer(
             r"\b([a-zA-Z]{2,}(?:-[a-zA-Z]{2,})+)\b", hint_text
         ):
-            parts = [p.strip() for p in seq_match.group(0).split("-") if len(p.strip()) >= 2]
+            parts = [
+                p.strip() for p in seq_match.group(0).split("-") if len(p.strip()) >= 2
+            ]
             if len(parts) < 2:
                 continue
             if len(parts) == total_faces:
@@ -539,15 +555,15 @@ class CastPeopleMatcher:
         # 3. Hyphen-separated sequences in the source filename stem
         stem = Path(source_path).stem
         stem_parts = [
-            p.strip()
-            for p in stem.split("-")
-            if re.match(r"^[a-zA-Z]{2,}$", p.strip())
+            p.strip() for p in stem.split("-") if re.match(r"^[a-zA-Z]{2,}$", p.strip())
         ]
         if len(stem_parts) >= 2:
             if len(stem_parts) == total_faces:
                 name = stem_parts[face_index].title()
                 person_id = self._find_person_id_by_name(name)
-                _add(name, person_id, 0.85 if person_id else 0.65, "positional_filename")
+                _add(
+                    name, person_id, 0.85 if person_id else 0.65, "positional_filename"
+                )
             else:
                 for name_raw in stem_parts:
                     name = name_raw.title()
@@ -628,6 +644,14 @@ class CastPeopleMatcher:
         )
         self._store_signature = self._store.store_signature()
 
+    def _analysis_image(self, image_bgr, analysis_variant: str):
+        variant = str(analysis_variant or "original").strip().lower() or "original"
+        if variant == "original":
+            return image_bgr
+        if variant == "rembg":
+            return build_rembg_bgr(image_bgr)
+        raise ValueError(f"Unsupported analysis variant: {analysis_variant}")
+
     def match_image(
         self,
         image_path: str | Path,
@@ -635,6 +659,9 @@ class CastPeopleMatcher:
         source_path: str | Path | None = None,
         bbox_offset: tuple[int, int] = (0, 0),
         hint_text: str = "",
+        analysis_variant: str = "original",
+        match_iou: float = 0.55,
+        refresh_active_face: bool = False,
     ) -> list[PersonMatch]:
         self._maybe_refresh()
 
@@ -646,10 +673,14 @@ class CastPeopleMatcher:
             return []
         if image.ndim == 2 or (image.ndim == 3 and image.shape[2] == 1):
             image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        image = self._analysis_image(image, analysis_variant)
 
         source_key = str(source_path or path)
         height, width = image.shape[:2]
         by_name: dict[str, PersonMatch] = {}
+        normalized_variant = (
+            str(analysis_variant or "original").strip().lower() or "original"
+        )
 
         # Collect valid faces sorted left-to-right for positional name hint assignment.
         all_detected = self._detect_faces(image)
@@ -671,16 +702,35 @@ class CastPeopleMatcher:
             crop = image[y0:y1, x0:x1]
 
             absolute_bbox = _offset_box((x, y, ww, hh), bbox_offset)
-            face = self._find_existing_face(source_path=source_key, bbox=absolute_bbox)
+            face = self._find_existing_face(
+                source_path=source_key,
+                bbox=absolute_bbox,
+                min_iou=float(match_iou),
+            )
             if face is None:
                 face = self._create_face_record(
                     crop_bgr=crop,
                     source_path=source_key,
                     bbox=absolute_bbox,
                     analysis_image_path=str(path),
+                    analysis_variant=normalized_variant,
                 )
             else:
-                if self._face_uses_active_model(face):
+                review_status = (
+                    str(self._face_review_status(face) or "").strip().lower()
+                )
+                person_id = str(face.get("person_id") or "").strip()
+                face_is_locked = (
+                    review_status == "confirmed"
+                    and bool(person_id)
+                    and self._face_is_human_reviewed(face)
+                )
+                should_refresh_active = (
+                    bool(refresh_active_face)
+                    and review_status not in {"ignored", "rejected"}
+                    and not face_is_locked
+                )
+                if self._face_uses_active_model(face) and not should_refresh_active:
                     face = self._ensure_crop(face, crop)
                 else:
                     face = self._refresh_face_record(
@@ -688,6 +738,7 @@ class CastPeopleMatcher:
                         crop_bgr=crop,
                         bbox=absolute_bbox,
                         analysis_image_path=str(path),
+                        analysis_variant=normalized_variant,
                     )
 
             review_status = str(self._face_review_status(face) or "").strip().lower()
@@ -788,3 +839,20 @@ class CastPeopleMatcher:
         )
         return out
 
+    def match_image_recovery(
+        self,
+        image_path: str | Path,
+        *,
+        source_path: str | Path | None = None,
+        bbox_offset: tuple[int, int] = (0, 0),
+        hint_text: str = "",
+    ) -> list[PersonMatch]:
+        return self.match_image(
+            image_path,
+            source_path=source_path,
+            bbox_offset=bbox_offset,
+            hint_text=hint_text,
+            analysis_variant="rembg",
+            match_iou=0.30,
+            refresh_active_face=True,
+        )

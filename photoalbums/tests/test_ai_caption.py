@@ -216,12 +216,7 @@ class TestAICaption(unittest.TestCase):
     def test_qwen_loader_uses_local_snapshot_and_safe_max_pixels(self):
         with tempfile.TemporaryDirectory() as tmp:
             cache_dir = Path(tmp)
-            snapshot = (
-                cache_dir
-                / "models--qwen--qwen3.5-9b"
-                / "snapshots"
-                / "abc123"
-            )
+            snapshot = cache_dir / "models--qwen--qwen3.5-9b" / "snapshots" / "abc123"
             snapshot.mkdir(parents=True)
             (snapshot / "config.json").write_text("{}", encoding="utf-8")
             (snapshot / "preprocessor_config.json").write_text("{}", encoding="utf-8")
@@ -246,9 +241,7 @@ class TestAICaption(unittest.TestCase):
                     return_value=(fake_torch, fake_processor_cls, fake_model_cls),
                 ),
             ):
-                captioner = ai_caption.QwenLocalCaptioner(
-                    model_name="qwen/qwen3.5-9b"
-                )
+                captioner = ai_caption.QwenLocalCaptioner(model_name="qwen/qwen3.5-9b")
                 captioner._ensure_loaded()
 
             processor_kwargs = fake_processor_cls.from_pretrained.call_args.kwargs
@@ -268,8 +261,6 @@ class TestAICaption(unittest.TestCase):
                         "content": json.dumps(
                             {
                                 "caption": "A crowded collage of travel snapshots.",
-                                "gps_latitude": "",
-                                "gps_longitude": "",
                                 "location_name": "",
                             }
                         )
@@ -314,15 +305,15 @@ class TestAICaption(unittest.TestCase):
                 payload["response_format"]["json_schema"]["schema"]["properties"],
             )
             self.assertIn(
+                "location_name",
+                payload["response_format"]["json_schema"]["schema"]["properties"],
+            )
+            self.assertNotIn(
                 "gps_latitude",
                 payload["response_format"]["json_schema"]["schema"]["properties"],
             )
-            self.assertIn(
+            self.assertNotIn(
                 "gps_longitude",
-                payload["response_format"]["json_schema"]["schema"]["properties"],
-            )
-            self.assertIn(
-                "location_name",
                 payload["response_format"]["json_schema"]["schema"]["properties"],
             )
             return _FakeResponse()
@@ -361,6 +352,154 @@ class TestAICaption(unittest.TestCase):
         self.assertEqual(details.gps_longitude, "")
         self.assertEqual(details.location_name, "")
 
+    def test_lmstudio_captioner_posts_people_count_request(self):
+        response_payload = {
+            "choices": [
+                {
+                    "message": {
+                        "content": json.dumps(
+                            {
+                                "people_present": True,
+                                "estimated_people_count": 4,
+                            }
+                        )
+                    }
+                }
+            ]
+        }
+
+        class _FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read(self):
+                return json.dumps(response_payload).encode("utf-8")
+
+        def fake_urlopen(request, timeout):
+            self.assertEqual(timeout, ai_caption.DEFAULT_LMSTUDIO_TIMEOUT_SECONDS)
+            self.assertTrue(request.full_url.endswith("/chat/completions"))
+            payload = json.loads(request.data.decode("utf-8"))
+            self.assertEqual(payload["model"], "qwen2.5-vl")
+            self.assertEqual(
+                payload["response_format"]["json_schema"]["name"],
+                "people_count_payload",
+            )
+            self.assertEqual(
+                payload["messages"][1]["content"][0]["text"],
+                "Count the visible people",
+            )
+            return _FakeResponse()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            image_path = Path(tmp) / "sample.jpg"
+            image_path.write_bytes(b"not-a-real-jpeg")
+            with (
+                mock.patch.object(
+                    _caption_lmstudio,
+                    "_build_data_url",
+                    return_value="data:image/jpeg;base64,abc123",
+                ),
+                mock.patch.object(
+                    _caption_lmstudio,
+                    "_select_lmstudio_model",
+                    return_value="qwen2.5-vl",
+                ),
+                mock.patch.object(
+                    _caption_lmstudio.urllib.request,
+                    "urlopen",
+                    side_effect=fake_urlopen,
+                ),
+            ):
+                captioner = ai_caption.LMStudioCaptioner(
+                    prompt_text="Describe this exact image",
+                    base_url="http://127.0.0.1:1234",
+                )
+                details = captioner.estimate_people(
+                    image_path=image_path,
+                    prompt="Count the visible people",
+                )
+
+        self.assertTrue(details.people_present)
+        self.assertEqual(details.estimated_people_count, 4)
+
+    def test_lmstudio_captioner_posts_location_request(self):
+        response_payload = {
+            "choices": [
+                {
+                    "message": {
+                        "content": json.dumps(
+                            {
+                                "location_name": "Mogao Caves, Dunhuang, Gansu, China",
+                                "gps_latitude": "39.9361",
+                                "gps_longitude": "94.8076",
+                            }
+                        )
+                    }
+                }
+            ]
+        }
+
+        class _FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read(self):
+                return json.dumps(response_payload).encode("utf-8")
+
+        def fake_urlopen(request, timeout):
+            self.assertEqual(timeout, ai_caption.DEFAULT_LMSTUDIO_TIMEOUT_SECONDS)
+            self.assertTrue(request.full_url.endswith("/chat/completions"))
+            payload = json.loads(request.data.decode("utf-8"))
+            self.assertEqual(payload["model"], "qwen2.5-vl")
+            self.assertEqual(
+                payload["response_format"]["json_schema"]["name"],
+                "location_payload",
+            )
+            self.assertEqual(
+                payload["messages"][1]["content"][0]["text"],
+                "Resolve the location",
+            )
+            return _FakeResponse()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            image_path = Path(tmp) / "sample.jpg"
+            image_path.write_bytes(b"not-a-real-jpeg")
+            with (
+                mock.patch.object(
+                    _caption_lmstudio,
+                    "_build_data_url",
+                    return_value="data:image/jpeg;base64,abc123",
+                ),
+                mock.patch.object(
+                    _caption_lmstudio,
+                    "_select_lmstudio_model",
+                    return_value="qwen2.5-vl",
+                ),
+                mock.patch.object(
+                    _caption_lmstudio.urllib.request,
+                    "urlopen",
+                    side_effect=fake_urlopen,
+                ),
+            ):
+                captioner = ai_caption.LMStudioCaptioner(
+                    prompt_text="Describe this exact image",
+                    base_url="http://127.0.0.1:1234",
+                )
+                details = captioner.estimate_location(
+                    image_path=image_path,
+                    prompt="Resolve the location",
+                )
+
+        self.assertEqual(details.location_name, "Mogao Caves, Dunhuang, Gansu, China")
+        self.assertEqual(details.gps_latitude, "39.9361")
+        self.assertEqual(details.gps_longitude, "94.8076")
+
     def test_parse_lmstudio_structured_caption_rejects_invalid_json(self):
         with self.assertRaises(RuntimeError) as exc:
             ai_caption._parse_lmstudio_structured_caption(
@@ -386,7 +525,7 @@ class TestAICaption(unittest.TestCase):
     def test_parse_lmstudio_structured_caption_strips_closed_think_block(self):
         # Thinking models like QwQ emit <think>reasoning</think> before the JSON payload.
         details = ai_caption._parse_lmstudio_structured_caption(
-            '<think>Let me analyze the image carefully. I can see several photographs of a Chinese Opera performance in Lanzhou and travel scenes.</think>'
+            "<think>Let me analyze the image carefully. I can see several photographs of a Chinese Opera performance in Lanzhou and travel scenes.</think>"
             '{ "caption": "A photo album page from Mainland China Book 11 displays five distinct photographs documenting a Chinese Opera performance in Lanzhou.", '
             '"gps_latitude": "", "gps_longitude": "", "location_name": "Lanzhou, Gansu, China" }',
             finish_reason="stop",
@@ -394,6 +533,17 @@ class TestAICaption(unittest.TestCase):
         self.assertIn("Lanzhou", details.text)
         self.assertEqual(details.location_name, "Lanzhou, Gansu, China")
         self.assertNotIn("<think>", details.text)
+
+    def test_parse_lmstudio_structured_caption_prefers_last_valid_payload(self):
+        details = ai_caption._parse_lmstudio_structured_caption(
+            '{ "caption": {"effective_engine": "lmstudio"} }'
+            '\n{"caption": "Four people stand together outdoors in front of a brick house.", "location_name": ""}',
+            finish_reason="stop",
+        )
+        self.assertEqual(
+            details.text,
+            "Four people stand together outdoors in front of a brick house.",
+        )
 
     def test_parse_lmstudio_structured_caption_prefers_structured_gps_fields(self):
         details = ai_caption._parse_lmstudio_structured_caption(

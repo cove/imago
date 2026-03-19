@@ -44,6 +44,7 @@ class TestAIRenderSettings(unittest.TestCase):
                 "skip": False,
                 "enable_people": True,
                 "enable_objects": True,
+                "people_recovery_mode": "auto",
                 "ocr_engine": "qwen",
                 "ocr_lang": "eng",
                 "page_split_mode": "auto",
@@ -67,6 +68,7 @@ class TestAIRenderSettings(unittest.TestCase):
             payload = {
                 "archive_settings": {
                     "enable_people": False,
+                    "people_recovery_mode": "always",
                     "ocr_engine": "none",
                     "model": "yolo11x.pt",
                     "page_split_mode": "off",
@@ -78,6 +80,7 @@ class TestAIRenderSettings(unittest.TestCase):
                 "image_settings": {
                     "img1.jpg": {
                         "enable_people": True,
+                        "people_recovery_mode": "off",
                         "people_threshold": 0.88,
                         "creator_tool": "tool-image",
                         "caption_max_edge": 960,
@@ -96,6 +99,7 @@ class TestAIRenderSettings(unittest.TestCase):
             )
             self.assertTrue(effective["enable_people"])
             self.assertTrue(effective["enable_objects"])
+            self.assertEqual(effective["people_recovery_mode"], "off")
             self.assertEqual(effective["ocr_engine"], "none")
             self.assertEqual(effective["page_split_mode"], "off")
             self.assertEqual(effective["caption_engine"], "qwen")

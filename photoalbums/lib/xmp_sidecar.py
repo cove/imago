@@ -288,8 +288,12 @@ def build_xmp_tree(
         sk.text = clean_stitch_key
 
     _add_simple_text(desc, f"{{{IMAGO_NS}}}OcrRan", str(ocr_ran).lower())
-    _add_simple_text(desc, f"{{{IMAGO_NS}}}PeopleDetected", str(people_detected).lower())
-    _add_simple_text(desc, f"{{{IMAGO_NS}}}PeopleIdentified", str(people_identified).lower())
+    _add_simple_text(
+        desc, f"{{{IMAGO_NS}}}PeopleDetected", str(people_detected).lower()
+    )
+    _add_simple_text(
+        desc, f"{{{IMAGO_NS}}}PeopleIdentified", str(people_identified).lower()
+    )
 
     tree = ET.ElementTree(xmpmeta)
     ET.indent(tree, space="  ")
@@ -623,9 +627,21 @@ def _merge_xmp_tree(
     )
     _set_subphotos(desc, subphotos)
     _set_simple_text(desc, f"{{{IMAGO_NS}}}StitchKey", str(stitch_key or "").strip())
-    _set_simple_text(desc, f"{{{IMAGO_NS}}}OcrRan", str(ocr_ran).lower(), allow_empty=True)
-    _set_simple_text(desc, f"{{{IMAGO_NS}}}PeopleDetected", str(people_detected).lower(), allow_empty=True)
-    _set_simple_text(desc, f"{{{IMAGO_NS}}}PeopleIdentified", str(people_identified).lower(), allow_empty=True)
+    _set_simple_text(
+        desc, f"{{{IMAGO_NS}}}OcrRan", str(ocr_ran).lower(), allow_empty=True
+    )
+    _set_simple_text(
+        desc,
+        f"{{{IMAGO_NS}}}PeopleDetected",
+        str(people_detected).lower(),
+        allow_empty=True,
+    )
+    _set_simple_text(
+        desc,
+        f"{{{IMAGO_NS}}}PeopleIdentified",
+        str(people_identified).lower(),
+        allow_empty=True,
+    )
     ET.indent(tree, space="  ")
     return tree
 

@@ -13,5 +13,6 @@
             "args": ["-NoExit", "-Command", "if (Test-Path '${workspaceFolder}/.venv/Scripts/Activate.ps1') { & '${workspaceFolder}/.venv/Scripts/Activate.ps1' } else { Write-Warning '.venv not found — run: python setup.py' }"]
         }
     },
-    "terminal.integrated.defaultProfile.windows": "imago"
+    "terminal.integrated.defaultProfile.windows": "imago",
+    "chatgpt.commentCodeLensEnabled": false
 }

@@ -1,4 +1,18 @@
 {
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.command' | { read -r cmd; echo \"$cmd\" | grep -qE '^git commit' && git diff --cached --name-only --diff-filter=ACM | grep -E '\\.py$' | xargs -r .venv/Scripts/python -m black 2>/dev/null || true; }",
+            "statusMessage": "Running black on staged Python files..."
+          }
+        ]
+      }
+    ]
+  },
   "permissions": {
     "allow": [
       "Bash(find \"C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums\" -name *.xmp -type f)",

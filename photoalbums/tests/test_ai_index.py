@@ -149,6 +149,47 @@ class TestAIIndex(unittest.TestCase):
 
             self.assertTrue(ai_index.needs_processing(image, None, force=False))
 
+    def test_sidecar_has_lmstudio_caption_error(self):
+        self.assertTrue(
+            ai_index._sidecar_has_lmstudio_caption_error(
+                {
+                    "detections": {
+                        "caption": {
+                            "requested_engine": "lmstudio",
+                            "effective_engine": "lmstudio",
+                            "error": "model offline",
+                        }
+                    }
+                }
+            )
+        )
+        self.assertFalse(
+            ai_index._sidecar_has_lmstudio_caption_error(
+                {
+                    "detections": {
+                        "caption": {
+                            "requested_engine": "lmstudio",
+                            "effective_engine": "lmstudio",
+                            "error": "",
+                        }
+                    }
+                }
+            )
+        )
+        self.assertFalse(
+            ai_index._sidecar_has_lmstudio_caption_error(
+                {
+                    "detections": {
+                        "caption": {
+                            "requested_engine": "qwen",
+                            "effective_engine": "qwen",
+                            "error": "model offline",
+                        }
+                    }
+                }
+            )
+        )
+
     def test_prepare_ai_model_image_scales_when_threshold_exceeded(self):
         try:
             from PIL import Image
@@ -277,7 +318,7 @@ class TestAIIndex(unittest.TestCase):
                 people_positions={},
             )
 
-    def test_run_image_analysis_records_gps_location_from_caption_output(self):
+    def test_run_image_analysis_records_gps_location_from_ocr_text(self):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "a.jpg"
             image.write_bytes(b"abc")
@@ -286,13 +327,16 @@ class TestAIIndex(unittest.TestCase):
             object_detector = mock.Mock()
             object_detector.detect_image.return_value = []
             ocr_engine = mock.Mock()
-            ocr_engine.read_text.return_value = ""
+            ocr_engine.read_text.return_value = (
+                "Latitude: 39.7875\nLongitude: 100.307222"
+            )
             caption_engine = mock.Mock()
             caption_engine.generate.return_value = SimpleNamespace(
                 text="Mogao Caves in Dunhuang, China (39°47′15″N 100°18′26″E).",
                 engine="lmstudio",
-                gps_latitude="39.7875",
-                gps_longitude="100.307222",
+                gps_latitude="",
+                gps_longitude="",
+                location_name="",
                 fallback=False,
                 error="",
             )
@@ -368,6 +412,217 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(analysis.payload["location"]["gps_latitude"], 39.9361)
             self.assertEqual(analysis.payload["location"]["gps_longitude"], 94.8076)
             self.assertEqual(analysis.payload["location"]["source"], "nominatim")
+
+    def test_run_image_analysis_merges_lmstudio_location_metadata(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "a.jpg"
+            image.write_bytes(b"abc")
+            people_matcher = mock.Mock()
+            people_matcher.match_image.return_value = []
+            object_detector = mock.Mock()
+            object_detector.detect_image.return_value = []
+            ocr_engine = mock.Mock()
+            ocr_engine.read_text.return_value = ""
+            caption_engine = mock.Mock()
+            caption_engine.generate.return_value = SimpleNamespace(
+                text="A rocky desert landscape.",
+                engine="lmstudio",
+                location_name="",
+                fallback=False,
+                error="",
+            )
+            caption_engine.estimate_location.return_value = SimpleNamespace(
+                gps_latitude="39.9361",
+                gps_longitude="94.8076",
+                location_name="Mogao Caves, Dunhuang, Gansu, China",
+                fallback=False,
+                error="",
+            )
+
+            analysis = ai_index._run_image_analysis(
+                image_path=image,
+                people_matcher=people_matcher,
+                object_detector=object_detector,
+                ocr_engine=ocr_engine,
+                caption_engine=caption_engine,
+                requested_caption_engine="lmstudio",
+                requested_caption_model="qwen3.5-35b-a3b",
+                ocr_engine_name="none",
+                ocr_language="eng",
+            )
+
+            self.assertEqual(analysis.payload["location"]["gps_latitude"], 39.9361)
+            self.assertEqual(analysis.payload["location"]["gps_longitude"], 94.8076)
+            self.assertEqual(
+                analysis.payload["location"]["query"],
+                "Mogao Caves, Dunhuang, Gansu, China",
+            )
+            caption_engine.estimate_location.assert_called_once()
+
+    def test_run_image_analysis_prefers_explicit_ocr_gps_over_model_location(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "a.jpg"
+            image.write_bytes(b"abc")
+            people_matcher = mock.Mock()
+            people_matcher.match_image.return_value = []
+            object_detector = mock.Mock()
+            object_detector.detect_image.return_value = []
+            ocr_engine = mock.Mock()
+            ocr_engine.read_text.return_value = (
+                "Latitude: 39.7875\nLongitude: 100.307222"
+            )
+            caption_engine = mock.Mock()
+            caption_engine.generate.return_value = SimpleNamespace(
+                text="A scenic location.",
+                engine="lmstudio",
+                location_name="",
+                fallback=False,
+                error="",
+            )
+            caption_engine.estimate_location.return_value = SimpleNamespace(
+                gps_latitude="39.9361",
+                gps_longitude="94.8076",
+                location_name="Mogao Caves, Dunhuang, Gansu, China",
+                fallback=False,
+                error="",
+            )
+
+            analysis = ai_index._run_image_analysis(
+                image_path=image,
+                people_matcher=people_matcher,
+                object_detector=object_detector,
+                ocr_engine=ocr_engine,
+                caption_engine=caption_engine,
+                requested_caption_engine="lmstudio",
+                requested_caption_model="qwen3.5-35b-a3b",
+                ocr_engine_name="none",
+                ocr_language="eng",
+            )
+
+            self.assertEqual(analysis.payload["location"]["gps_latitude"], 39.7875)
+            self.assertEqual(analysis.payload["location"]["gps_longitude"], 100.307222)
+            self.assertEqual(
+                analysis.payload["location"]["query"],
+                "Mogao Caves, Dunhuang, Gansu, China",
+            )
+
+    def test_run_image_analysis_runs_people_recovery_and_reruns_caption(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "a.jpg"
+            image.write_bytes(b"abc")
+
+            class _Matcher:
+                def __init__(self):
+                    self.last_faces_detected = 0
+                    self.match_calls = 0
+                    self.recovery_calls = 0
+
+                def match_image(self, *_args, **_kwargs):
+                    self.match_calls += 1
+                    self.last_faces_detected = 0
+                    return []
+
+                def match_image_recovery(self, *_args, **_kwargs):
+                    self.recovery_calls += 1
+                    self.last_faces_detected = 1
+                    return [
+                        SimpleNamespace(
+                            name="Alice",
+                            score=0.97,
+                            certainty=0.97,
+                            reviewed_by_human=False,
+                            face_id="face-2",
+                            bbox=[10, 10, 20, 20],
+                        )
+                    ]
+
+            people_matcher = _Matcher()
+            object_detector = mock.Mock()
+            object_detector.detect_image.return_value = [
+                SimpleNamespace(label="person", score=0.91)
+            ]
+            ocr_engine = mock.Mock()
+            ocr_engine.read_text.return_value = (
+                "Latitude: 39.7875\nLongitude: 100.307222"
+            )
+            caption_engine = mock.Mock()
+            caption_engine.generate.side_effect = [
+                SimpleNamespace(
+                    text="First caption",
+                    engine="template",
+                    fallback=False,
+                    error="",
+                ),
+                SimpleNamespace(
+                    text="Caption with Alice",
+                    engine="template",
+                    fallback=False,
+                    error="",
+                ),
+            ]
+
+            analysis = ai_index._run_image_analysis(
+                image_path=image,
+                people_matcher=people_matcher,
+                object_detector=object_detector,
+                ocr_engine=ocr_engine,
+                caption_engine=caption_engine,
+                requested_caption_engine="template",
+                requested_caption_model="",
+                ocr_engine_name="none",
+                ocr_language="eng",
+                people_recovery_mode="auto",
+            )
+
+            self.assertEqual(people_matcher.match_calls, 1)
+            self.assertEqual(people_matcher.recovery_calls, 1)
+            self.assertEqual(caption_engine.generate.call_count, 2)
+            self.assertEqual(analysis.people_names, ["Alice"])
+            self.assertEqual(analysis.description, "Caption with Alice")
+            self.assertEqual(analysis.faces_detected, 1)
+            self.assertTrue(analysis.payload["caption"]["people_present"])
+            self.assertEqual(analysis.payload["caption"]["estimated_people_count"], 1)
+
+    def test_run_image_analysis_merges_lmstudio_people_count(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "a.jpg"
+            image.write_bytes(b"abc")
+            people_matcher = mock.Mock()
+            people_matcher.match_image.return_value = []
+            object_detector = mock.Mock()
+            object_detector.detect_image.return_value = []
+            ocr_engine = mock.Mock()
+            ocr_engine.read_text.return_value = ""
+            caption_engine = mock.Mock()
+            caption_engine.generate.return_value = SimpleNamespace(
+                text="Four people stand together outdoors.",
+                engine="lmstudio",
+                location_name="",
+                fallback=False,
+                error="",
+            )
+            caption_engine.estimate_people.return_value = SimpleNamespace(
+                people_present=True,
+                estimated_people_count=4,
+                fallback=False,
+                error="",
+            )
+
+            analysis = ai_index._run_image_analysis(
+                image_path=image,
+                people_matcher=people_matcher,
+                object_detector=object_detector,
+                ocr_engine=ocr_engine,
+                caption_engine=caption_engine,
+                requested_caption_engine="lmstudio",
+                requested_caption_model="qwen3.5-35b-a3b",
+                ocr_engine_name="none",
+                ocr_language="eng",
+            )
+
+            self.assertTrue(analysis.payload["caption"]["people_present"])
+            self.assertEqual(analysis.payload["caption"]["estimated_people_count"], 4)
+            caption_engine.estimate_people.assert_called_once()
 
     def test_build_page_payload_uses_cover_caption_for_fallback_text_page(self):
         content_bounds = SimpleNamespace(
@@ -731,6 +986,103 @@ class TestAIIndex(unittest.TestCase):
                         "none",
                         "--caption-engine",
                         "none",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            analysis_mock.assert_called_once()
+            write_mock.assert_called_once()
+
+    def test_run_reprocesses_current_sidecar_when_lmstudio_caption_error_exists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            photos = base / "Family_View"
+            photos.mkdir()
+            image = photos / "a.jpg"
+            image.write_bytes(b"abc")
+            xmp_sidecar.write_xmp_sidecar(
+                image.with_suffix(".xmp"),
+                creator_tool="imago-photoalbums-ai-index",
+                person_names=[],
+                subjects=[],
+                description="Old description",
+                source_text="",
+                ocr_text="",
+                detections_payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {
+                        "engine": "none",
+                        "language": "eng",
+                        "keywords": [],
+                        "chars": 0,
+                    },
+                    "caption": {
+                        "requested_engine": "lmstudio",
+                        "effective_engine": "lmstudio",
+                        "fallback": True,
+                        "error": "model offline",
+                        "model": "qwen2.5-vl",
+                    },
+                },
+                subphotos=[],
+            )
+            manifest = base / "manifest.jsonl"
+
+            analysis = ai_index.ImageAnalysis(
+                image_path=image,
+                people_names=[],
+                object_labels=[],
+                ocr_text="",
+                ocr_keywords=[],
+                subjects=[],
+                description="Updated description",
+                payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {
+                        "engine": "none",
+                        "language": "eng",
+                        "keywords": [],
+                        "chars": 0,
+                    },
+                    "caption": {
+                        "requested_engine": "lmstudio",
+                        "effective_engine": "lmstudio",
+                        "fallback": False,
+                        "error": "",
+                        "model": "qwen2.5-vl",
+                    },
+                },
+            )
+
+            with (
+                mock.patch.object(
+                    ai_index,
+                    "prepare_image_layout",
+                    side_effect=lambda *args, **kwargs: self._mock_layout(image),
+                ),
+                mock.patch.object(
+                    ai_index, "_run_image_analysis", return_value=analysis
+                ) as analysis_mock,
+                mock.patch.object(
+                    ai_index, "_build_flat_payload", return_value=analysis.payload
+                ),
+                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--manifest",
+                        str(manifest),
+                        "--include-view",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "none",
+                        "--caption-engine",
+                        "lmstudio",
                     ]
                 )
 

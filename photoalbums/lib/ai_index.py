@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import re
 import sys
 import tempfile
 import time
@@ -16,6 +17,7 @@ from .ai_caption import (
     infer_printed_album_title,
     infer_album_title,
     looks_like_album_cover,
+    _normalize_gps_value,
     normalize_lmstudio_base_url,
     normalize_qwen_attn_implementation,
     resolve_caption_model,
@@ -67,15 +69,15 @@ def _progress_ticker(prefix: str, _interval: float = 0.5):
     return stop, set_step
 
 
-def _compute_people_positions(
-    people_matches: list, image_path: Path
-) -> dict[str, str]:
+def _compute_people_positions(people_matches: list, image_path: Path) -> dict[str, str]:
     """Return a dict mapping each identified person's name to a position label.
 
     Uses the face bbox (absolute pixels in the image's coordinate space) and
     the image dimensions to produce a human-readable location like 'upper-left'.
     """
-    from ._caption_prompts import _position_label  # pylint: disable=import-outside-toplevel
+    from ._caption_prompts import (
+        _position_label,
+    )  # pylint: disable=import-outside-toplevel
 
     try:
         from PIL import Image as _PILImage  # pylint: disable=import-outside-toplevel
@@ -107,7 +109,7 @@ DEFAULT_MANIFEST_PATH = (
     Path(__file__).resolve().parents[1] / "data" / "ai_index_manifest.jsonl"
 )
 DEFAULT_CAST_STORE = Path(__file__).resolve().parents[2] / "cast" / "data"
-PROCESSOR_SIGNATURE = "page_split_v13_page_scan_caption_hint"
+PROCESSOR_SIGNATURE = "page_split_v15_people_location_followups"
 
 
 @dataclass
@@ -147,8 +149,6 @@ def discover_images(
             continue
     files.sort()
     return files
-
-
 
 
 def _album_identity_key(image_path: Path) -> str:
@@ -412,6 +412,23 @@ def _resolve_caption_prompt(prompt_text: str, prompt_file: str) -> str:
     return str(prompt_text or "").strip()
 
 
+def _sidecar_has_lmstudio_caption_error(state: dict[str, Any] | None) -> bool:
+    if not isinstance(state, dict):
+        return False
+    detections = state.get("detections")
+    if not isinstance(detections, dict):
+        return False
+    caption = detections.get("caption")
+    if not isinstance(caption, dict):
+        return False
+    error_text = str(caption.get("error") or "").strip()
+    if not error_text:
+        return False
+    requested_engine = str(caption.get("requested_engine") or "").strip().lower()
+    effective_engine = str(caption.get("effective_engine") or "").strip().lower()
+    return "lmstudio" in {requested_engine, effective_engine}
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Index photo album images with cast people matching, YOLO objects, OCR, and XMP sidecars.",
@@ -444,6 +461,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=float,
         default=0.72,
         help="Face similarity threshold.",
+    )
+    parser.add_argument(
+        "--people-recovery-mode",
+        choices=["off", "auto", "always"],
+        default="auto",
+        help="Optional second people pass after caption using rembg when people may be missing.",
     )
     parser.add_argument(
         "--min-face-size", type=int, default=40, help="Minimum face size in pixels."
@@ -670,6 +693,7 @@ def _settings_signature(settings: dict[str, Any]) -> str:
         "skip": bool(settings.get("skip", False)),
         "enable_people": bool(settings.get("enable_people", True)),
         "enable_objects": bool(settings.get("enable_objects", True)),
+        "people_recovery_mode": str(settings.get("people_recovery_mode", "off")),
         "ocr_engine": str(settings.get("ocr_engine", "none")),
         "ocr_lang": str(settings.get("ocr_lang", "eng")),
         "page_split_mode": str(settings.get("page_split_mode", "off")),
@@ -703,6 +727,8 @@ def _build_caption_metadata(
     fallback: bool,
     error: str,
     model: str,
+    people_present: bool = False,
+    estimated_people_count: int = 0,
 ) -> dict[str, Any]:
     return {
         "requested_engine": str(requested_engine),
@@ -710,7 +736,417 @@ def _build_caption_metadata(
         "fallback": bool(fallback),
         "error": str(error or "")[:500],
         "model": str(model or ""),
+        "people_present": bool(people_present),
+        "estimated_people_count": max(0, int(estimated_people_count)),
     }
+
+
+_COORDINATE_LABEL_RE = re.compile(
+    r"\b(?P<label>lat(?:itude)?|lon(?:gitude)?|long)\b\s*[:=]?\s*"
+    r"(?P<value>.+?)(?=(?:\b(?:lat(?:itude)?|lon(?:gitude)?|long)\b)|[\n\r;]|$)",
+    flags=re.IGNORECASE,
+)
+_COORDINATE_HEMISPHERE_RE = re.compile(
+    r"(?:\d{1,3}(?:\.\d+)?\s*[NSEW])"
+    r"|(?:\d{1,3}\s*[°º]\s*\d{1,2}\s*[′']\s*\d{1,2}(?:\.\d+)?\s*[″\"]?\s*[NSEW])",
+    flags=re.IGNORECASE,
+)
+
+
+def _estimate_people_from_detections(
+    *,
+    people_matches: list | None = None,
+    people_names: list[str] | None = None,
+    object_labels: list[str] | None = None,
+    faces_detected: int = 0,
+) -> tuple[bool, int]:
+    object_person_count = sum(
+        1
+        for label in list(object_labels or [])
+        if str(label).strip().casefold() == "person"
+    )
+    estimated_people_count = max(
+        0,
+        int(faces_detected or 0),
+        len(list(people_matches or [])),
+        len(list(people_names or [])),
+        int(object_person_count),
+    )
+    return estimated_people_count > 0, estimated_people_count
+
+
+def _merge_people_estimates(
+    *,
+    local_people_present: bool,
+    local_estimated_people_count: int,
+    model_people_present: bool,
+    model_estimated_people_count: int,
+) -> tuple[bool, int]:
+    estimated_people_count = max(
+        0,
+        int(local_estimated_people_count),
+        int(model_estimated_people_count),
+    )
+    people_present = bool(
+        local_people_present or model_people_present or estimated_people_count > 0
+    )
+    return people_present, estimated_people_count
+
+
+def _merge_location_estimates(
+    *,
+    local_gps_latitude: str,
+    local_gps_longitude: str,
+    model_gps_latitude: str,
+    model_gps_longitude: str,
+    model_location_name: str,
+) -> tuple[str, str, str]:
+    lat_text = str(local_gps_latitude or "").strip()
+    lon_text = str(local_gps_longitude or "").strip()
+    if lat_text and lon_text:
+        return lat_text, lon_text, str(model_location_name or "").strip()
+    model_lat = str(model_gps_latitude or "").strip()
+    model_lon = str(model_gps_longitude or "").strip()
+    return model_lat, model_lon, str(model_location_name or "").strip()
+
+
+def _resolve_people_count_metadata(
+    *,
+    requested_caption_engine: str,
+    caption_engine: Any,
+    model_image_path: Path,
+    people: list[str],
+    objects: list[str],
+    ocr_text: str,
+    source_path: Path,
+    album_title: str,
+    printed_album_title: str,
+    people_positions: dict[str, str],
+    local_people_present: bool,
+    local_estimated_people_count: int,
+) -> tuple[bool, int]:
+    if str(requested_caption_engine or "").strip().lower() != "lmstudio":
+        return local_people_present, local_estimated_people_count
+    estimate_people = getattr(caption_engine, "estimate_people", None)
+    if not callable(estimate_people):
+        return local_people_present, local_estimated_people_count
+    try:
+        result = estimate_people(
+            image_path=model_image_path,
+            people=people,
+            objects=objects,
+            ocr_text=ocr_text,
+            source_path=source_path,
+            album_title=album_title,
+            printed_album_title=printed_album_title,
+            people_positions=people_positions,
+        )
+    except Exception:
+        return local_people_present, local_estimated_people_count
+    fallback = getattr(result, "fallback", False)
+    if not isinstance(fallback, bool) or fallback:
+        return local_people_present, local_estimated_people_count
+    model_people_present = getattr(result, "people_present", False)
+    model_estimated_people_count = getattr(result, "estimated_people_count", 0)
+    if not isinstance(model_people_present, bool):
+        model_people_present = False
+    if isinstance(model_estimated_people_count, bool):
+        model_estimated_people_count = 0
+    try:
+        model_estimated_people_count = max(0, int(model_estimated_people_count or 0))
+    except Exception:
+        model_estimated_people_count = 0
+    return _merge_people_estimates(
+        local_people_present=local_people_present,
+        local_estimated_people_count=local_estimated_people_count,
+        model_people_present=model_people_present,
+        model_estimated_people_count=model_estimated_people_count,
+    )
+
+
+def _resolve_location_metadata(
+    *,
+    requested_caption_engine: str,
+    caption_engine: Any,
+    model_image_path: Path,
+    people: list[str],
+    objects: list[str],
+    ocr_text: str,
+    source_path: Path,
+    album_title: str,
+    printed_album_title: str,
+    is_cover_page: bool,
+    people_positions: dict[str, str],
+    fallback_location_name: str,
+) -> tuple[str, str, str]:
+    local_gps_latitude, local_gps_longitude = _extract_explicit_gps_from_text(ocr_text)
+    if str(requested_caption_engine or "").strip().lower() != "lmstudio":
+        return (
+            local_gps_latitude,
+            local_gps_longitude,
+            str(fallback_location_name or "").strip(),
+        )
+    estimate_location = getattr(caption_engine, "estimate_location", None)
+    if not callable(estimate_location):
+        return (
+            local_gps_latitude,
+            local_gps_longitude,
+            str(fallback_location_name or "").strip(),
+        )
+    try:
+        result = estimate_location(
+            image_path=model_image_path,
+            people=people,
+            objects=objects,
+            ocr_text=ocr_text,
+            source_path=source_path,
+            album_title=album_title,
+            printed_album_title=printed_album_title,
+            is_cover_page=is_cover_page,
+            people_positions=people_positions,
+        )
+    except Exception:
+        return (
+            local_gps_latitude,
+            local_gps_longitude,
+            str(fallback_location_name or "").strip(),
+        )
+    fallback = getattr(result, "fallback", False)
+    if not isinstance(fallback, bool) or fallback:
+        return (
+            local_gps_latitude,
+            local_gps_longitude,
+            str(fallback_location_name or "").strip(),
+        )
+    return _merge_location_estimates(
+        local_gps_latitude=local_gps_latitude,
+        local_gps_longitude=local_gps_longitude,
+        model_gps_latitude=str(getattr(result, "gps_latitude", "") or "").strip(),
+        model_gps_longitude=str(getattr(result, "gps_longitude", "") or "").strip(),
+        model_location_name=(
+            str(getattr(result, "location_name", "") or "").strip()
+            or str(fallback_location_name or "").strip()
+        ),
+    )
+
+
+def _extract_explicit_gps_from_text(text: str) -> tuple[str, str]:
+    raw = str(text or "").strip()
+    if not raw:
+        return "", ""
+
+    lat_text = ""
+    lon_text = ""
+    for match in _COORDINATE_LABEL_RE.finditer(raw):
+        label = str(match.group("label") or "").casefold()
+        axis = "lat" if label.startswith("lat") else "lon"
+        value = _normalize_gps_value(str(match.group("value") or ""), axis=axis)
+        if not value:
+            continue
+        if axis == "lat" and not lat_text:
+            lat_text = value
+        if axis == "lon" and not lon_text:
+            lon_text = value
+        if lat_text and lon_text:
+            return lat_text, lon_text
+
+    for match in _COORDINATE_HEMISPHERE_RE.finditer(raw):
+        value = str(match.group(0) or "").strip()
+        if not value:
+            continue
+        upper_value = value.upper()
+        if any(marker in upper_value for marker in ("N", "S")) and not lat_text:
+            lat_text = _normalize_gps_value(value, axis="lat")
+        if any(marker in upper_value for marker in ("E", "W")) and not lon_text:
+            lon_text = _normalize_gps_value(value, axis="lon")
+        if lat_text and lon_text:
+            return lat_text, lon_text
+
+    return ("", "") if not (lat_text and lon_text) else (lat_text, lon_text)
+
+
+def _serialize_people_matches(people_matches: list) -> list[dict[str, Any]]:
+    return [
+        {
+            "name": row.name,
+            "score": round(row.score, 5),
+            "certainty": round(float(getattr(row, "certainty", row.score)), 5),
+            "reviewed_by_human": bool(getattr(row, "reviewed_by_human", False)),
+            "face_id": str(getattr(row, "face_id", "") or ""),
+            **(
+                {"bbox": [int(v) for v in row.bbox[:4]]}
+                if getattr(row, "bbox", None)
+                else {}
+            ),
+        }
+        for row in people_matches
+    ]
+
+
+def _merge_people_matches(*match_groups: list) -> list:
+    merged: dict[str, Any] = {}
+    for group in match_groups:
+        for row in list(group or []):
+            name = str(getattr(row, "name", "") or "").strip()
+            if not name:
+                continue
+            current = merged.get(name)
+            if current is None:
+                merged[name] = row
+                continue
+            row_certainty = float(
+                getattr(row, "certainty", getattr(row, "score", 0.0)) or 0.0
+            )
+            current_certainty = float(
+                getattr(current, "certainty", getattr(current, "score", 0.0)) or 0.0
+            )
+            row_score = float(getattr(row, "score", 0.0) or 0.0)
+            current_score = float(getattr(current, "score", 0.0) or 0.0)
+            if row_certainty > current_certainty or (
+                row_certainty == current_certainty and row_score > current_score
+            ):
+                merged[name] = row
+    out = list(merged.values())
+    out.sort(
+        key=lambda row: (
+            -float(getattr(row, "certainty", getattr(row, "score", 0.0)) or 0.0),
+            -float(getattr(row, "score", 0.0) or 0.0),
+            str(getattr(row, "name", "") or "").casefold(),
+        )
+    )
+    return out
+
+
+def _should_run_people_recovery(
+    *,
+    people_recovery_mode: str,
+    faces_detected: int,
+    people_matches: list,
+    people_names: list[str],
+    object_labels: list[str],
+) -> bool:
+    mode = str(people_recovery_mode or "off").strip().lower()
+    if mode == "off":
+        return False
+    if mode == "always":
+        return True
+    if mode != "auto":
+        return False
+    people_present, estimated_people_count = _estimate_people_from_detections(
+        people_matches=people_matches,
+        people_names=people_names,
+        object_labels=object_labels,
+        faces_detected=faces_detected,
+    )
+    if people_present and int(faces_detected) <= 0:
+        return True
+    return estimated_people_count > int(faces_detected)
+
+
+def _maybe_run_people_recovery(
+    *,
+    people_matcher: Any,
+    people_recovery_mode: str,
+    image_path: Path,
+    people_source_path: Path,
+    people_bbox_offset: tuple[int, int],
+    people_hint_text: str,
+    extra_people_names: list[str],
+    people_matches: list,
+    people_names: list[str],
+    object_labels: list[str],
+    ocr_text: str,
+    caption_output: CaptionOutput,
+    caption_engine: CaptionEngine,
+    model_image_path: Path,
+    caption_source_path: Path,
+    album_title: str,
+    printed_album_title: str,
+    photo_count: int,
+    is_cover_page: bool,
+    step_fn=None,
+) -> tuple[list, list[str], dict[str, str], CaptionOutput, int]:
+    faces_detected = (
+        (
+            _v
+            if isinstance(_v := getattr(people_matcher, "last_faces_detected", 0), int)
+            else 0
+        )
+        if people_matcher
+        else 0
+    )
+    people_positions = _compute_people_positions(people_matches, image_path)
+    if not people_matcher or not _should_run_people_recovery(
+        people_recovery_mode=people_recovery_mode,
+        faces_detected=faces_detected,
+        people_matches=people_matches,
+        people_names=people_names,
+        object_labels=object_labels,
+    ):
+        return (
+            people_matches,
+            people_names,
+            people_positions,
+            caption_output,
+            faces_detected,
+        )
+
+    recovery_hint_text = " ".join(
+        part
+        for part in [str(people_hint_text or "").strip(), str(ocr_text or "").strip()]
+        if part
+    ).strip()
+    if step_fn:
+        step_fn("people-recovery")
+    recovered_matches = people_matcher.match_image_recovery(
+        image_path,
+        source_path=people_source_path,
+        bbox_offset=people_bbox_offset,
+        hint_text=recovery_hint_text,
+    )
+    recovered_faces_detected = (
+        (
+            _v
+            if isinstance(_v := getattr(people_matcher, "last_faces_detected", 0), int)
+            else 0
+        )
+        if people_matcher
+        else 0
+    )
+    merged_matches = _merge_people_matches(people_matches, recovered_matches)
+    recovered_names = _dedupe(
+        [row.name for row in merged_matches] + list(extra_people_names or [])
+    )
+    recovered_positions = _compute_people_positions(merged_matches, image_path)
+    if list(recovered_names) == list(people_names):
+        return (
+            merged_matches,
+            recovered_names,
+            recovered_positions,
+            caption_output,
+            recovered_faces_detected,
+        )
+    if step_fn:
+        step_fn("caption")
+    recovered_caption = caption_engine.generate(
+        image_path=model_image_path,
+        people=recovered_names,
+        objects=object_labels,
+        ocr_text=ocr_text,
+        source_path=caption_source_path,
+        album_title=album_title,
+        printed_album_title=printed_album_title,
+        photo_count=photo_count,
+        is_cover_page=is_cover_page,
+        people_positions=recovered_positions,
+    )
+    return (
+        merged_matches,
+        recovered_names,
+        recovered_positions,
+        recovered_caption,
+        recovered_faces_detected,
+    )
 
 
 def _resolve_location_payload(
@@ -723,6 +1159,16 @@ def _resolve_location_payload(
     lat_text = str(gps_latitude or "").strip()
     lon_text = str(gps_longitude or "").strip()
     query = str(location_name or "").strip()
+    if lat_text and lon_text:
+        payload: dict[str, Any] = {
+            "gps_latitude": float(lat_text),
+            "gps_longitude": float(lon_text),
+            "map_datum": "WGS-84",
+            "source": "caption",
+        }
+        if query:
+            payload["query"] = query
+        return payload
     geocode_error = ""
     if query and geocoder is not None:
         try:
@@ -739,18 +1185,6 @@ def _resolve_location_payload(
                 "map_datum": "WGS-84",
                 "source": result.source,
             }
-    if lat_text and lon_text:
-        payload: dict[str, Any] = {
-            "gps_latitude": float(lat_text),
-            "gps_longitude": float(lon_text),
-            "map_datum": "WGS-84",
-            "source": "caption",
-        }
-        if query:
-            payload["query"] = query
-        if query and geocode_error:
-            payload["error"] = geocode_error
-        return payload
     if query and geocode_error:
         return {
             "query": query,
@@ -856,6 +1290,7 @@ def _run_image_analysis(
     people_hint_text: str = "",
     people_source_path: Path | None = None,
     people_bbox_offset: tuple[int, int] = (0, 0),
+    people_recovery_mode: str = "off",
     caption_source_path: Path | None = None,
     album_title: str = "",
     printed_album_title: str = "",
@@ -868,6 +1303,8 @@ def _run_image_analysis(
     page_photo_count = 0 if is_page_scan else 1
 
     with _prepare_ai_model_image(image_path) as model_image_path:
+        object_labels: list[str] = []
+        is_cover_page = False
         if use_combined:
             if step_fn:
                 step_fn("people")
@@ -891,8 +1328,8 @@ def _run_image_analysis(
             people_names = _dedupe(
                 [row.name for row in people_matches] + list(extra_people_names or [])
             )
-            people_positions = _compute_people_positions(people_matches, image_path)
             object_labels = [row.label for row in object_matches]
+            people_positions = _compute_people_positions(people_matches, image_path)
             if step_fn:
                 step_fn("ocr+caption")
             caption_output, ocr_text = caption_engine.generate_combined(
@@ -906,6 +1343,36 @@ def _run_image_analysis(
                 people_positions=people_positions,
             )
             ocr_keywords = extract_keywords(ocr_text, max_keywords=15)
+            (
+                people_matches,
+                people_names,
+                people_positions,
+                caption_output,
+                _faces_detected,
+            ) = _maybe_run_people_recovery(
+                people_matcher=people_matcher,
+                people_recovery_mode=people_recovery_mode,
+                image_path=image_path,
+                people_source_path=people_source_path or image_path,
+                people_bbox_offset=people_bbox_offset,
+                people_hint_text=str(people_hint_text or "").strip(),
+                extra_people_names=list(extra_people_names or []),
+                people_matches=people_matches,
+                people_names=people_names,
+                object_labels=object_labels,
+                ocr_text=ocr_text,
+                caption_output=caption_output,
+                caption_engine=caption_engine,
+                model_image_path=model_image_path,
+                caption_source_path=caption_source_path
+                or people_source_path
+                or image_path,
+                album_title=album_title,
+                printed_album_title=printed_album_title,
+                photo_count=page_photo_count,
+                is_cover_page=False,
+                step_fn=step_fn,
+            )
         else:
             if step_fn:
                 step_fn("ocr")
@@ -936,8 +1403,8 @@ def _run_image_analysis(
             people_names = _dedupe(
                 [row.name for row in people_matches] + list(extra_people_names or [])
             )
-            people_positions = _compute_people_positions(people_matches, image_path)
             object_labels = [row.label for row in object_matches]
+            people_positions = _compute_people_positions(people_matches, image_path)
             if step_fn:
                 step_fn("caption")
             is_cover_page = is_page_scan and looks_like_album_cover(
@@ -955,32 +1422,78 @@ def _run_image_analysis(
                 is_cover_page=is_cover_page,
                 people_positions=people_positions,
             )
+            (
+                people_matches,
+                people_names,
+                people_positions,
+                caption_output,
+                _faces_detected,
+            ) = _maybe_run_people_recovery(
+                people_matcher=people_matcher,
+                people_recovery_mode=people_recovery_mode,
+                image_path=image_path,
+                people_source_path=people_source_path or image_path,
+                people_bbox_offset=people_bbox_offset,
+                people_hint_text=str(people_hint_text or "").strip(),
+                extra_people_names=list(extra_people_names or []),
+                people_matches=people_matches,
+                people_names=people_names,
+                object_labels=object_labels,
+                ocr_text=ocr_text,
+                caption_output=caption_output,
+                caption_engine=caption_engine,
+                model_image_path=model_image_path,
+                caption_source_path=caption_source_path
+                or people_source_path
+                or image_path,
+                album_title=album_title,
+                printed_album_title=printed_album_title,
+                photo_count=page_photo_count,
+                is_cover_page=is_cover_page,
+                step_fn=step_fn,
+            )
 
-    _faces_detected = (
-        (_v if isinstance(_v := getattr(people_matcher, "last_faces_detected", 0), int) else 0)
-        if people_matcher
-        else 0
-    )
+    if "_faces_detected" not in locals():
+        _faces_detected = (
+            (
+                _v
+                if isinstance(
+                    _v := getattr(people_matcher, "last_faces_detected", 0), int
+                )
+                else 0
+            )
+            if people_matcher
+            else 0
+        )
 
     subjects = _dedupe(object_labels + ocr_keywords)
     description = caption_output.text
+    (
+        local_people_present,
+        local_estimated_people_count,
+    ) = _estimate_people_from_detections(
+        people_matches=people_matches,
+        people_names=people_names,
+        object_labels=object_labels,
+        faces_detected=_faces_detected,
+    )
+    people_present, estimated_people_count = _resolve_people_count_metadata(
+        requested_caption_engine=requested_caption_engine,
+        caption_engine=caption_engine,
+        model_image_path=model_image_path,
+        people=people_names,
+        objects=object_labels,
+        ocr_text=ocr_text,
+        source_path=caption_source_path or people_source_path or image_path,
+        album_title=album_title,
+        printed_album_title=printed_album_title,
+        people_positions=people_positions,
+        local_people_present=local_people_present,
+        local_estimated_people_count=local_estimated_people_count,
+    )
 
     payload = {
-        "people": [
-            {
-                "name": row.name,
-                "score": round(row.score, 5),
-                "certainty": round(float(getattr(row, "certainty", row.score)), 5),
-                "reviewed_by_human": bool(getattr(row, "reviewed_by_human", False)),
-                "face_id": str(getattr(row, "face_id", "") or ""),
-                **(
-                    {"bbox": [int(v) for v in row.bbox[:4]]}
-                    if getattr(row, "bbox", None)
-                    else {}
-                ),
-            }
-            for row in people_matches
-        ],
+        "people": _serialize_people_matches(people_matches),
         "objects": [
             {"label": row.label, "score": round(row.score, 5)} for row in object_matches
         ],
@@ -997,13 +1510,28 @@ def _run_image_analysis(
             fallback=bool(caption_output.fallback),
             error=str(caption_output.error or ""),
             model=str(caption_engine.effective_model_name),
+            people_present=people_present,
+            estimated_people_count=estimated_people_count,
         ),
     }
     if object_detector is not None:
         payload["object_model"] = str(object_detector.model_name)
-    gps_latitude = str(getattr(caption_output, "gps_latitude", "") or "").strip()
-    gps_longitude = str(getattr(caption_output, "gps_longitude", "") or "").strip()
-    location_name = str(getattr(caption_output, "location_name", "") or "").strip()
+    gps_latitude, gps_longitude, location_name = _resolve_location_metadata(
+        requested_caption_engine=requested_caption_engine,
+        caption_engine=caption_engine,
+        model_image_path=model_image_path,
+        people=people_names,
+        objects=object_labels,
+        ocr_text=ocr_text,
+        source_path=caption_source_path or people_source_path or image_path,
+        album_title=album_title,
+        printed_album_title=printed_album_title,
+        is_cover_page=is_cover_page,
+        people_positions=people_positions,
+        fallback_location_name=str(
+            getattr(caption_output, "location_name", "") or ""
+        ).strip(),
+    )
     location_payload = _resolve_location_payload(
         geocoder=geocoder,
         gps_latitude=gps_latitude,
@@ -1117,6 +1645,26 @@ def _build_page_payload(
         description = sub_results[0].description
     else:
         description = ""
+    page_people_present = any(
+        bool(dict(result.payload.get("caption") or {}).get("people_present"))
+        for result in sub_results
+    )
+    page_estimated_people_count = max(
+        len(people_names),
+        sum(
+            max(
+                0,
+                int(
+                    dict(result.payload.get("caption") or {}).get(
+                        "estimated_people_count",
+                        0,
+                    )
+                    or 0
+                ),
+            )
+            for result in sub_results
+        ),
+    )
     payload = {
         "layout": _layout_payload(layout),
         "people": aggregate_people,
@@ -1137,6 +1685,8 @@ def _build_page_payload(
             fallback=False,
             error="",
             model="",
+            people_present=page_people_present,
+            estimated_people_count=page_estimated_people_count,
         ),
         "subphotos": subphoto_rows,
     }
@@ -1266,16 +1816,25 @@ def _run_scan_stitch_pass(
                         album_title=album_title,
                         printed_album_title=printed_album_title,
                     )
+                    gps_latitude, gps_longitude, location_name = (
+                        _resolve_location_metadata(
+                            requested_caption_engine=requested_caption_engine,
+                            caption_engine=caption_engine,
+                            model_image_path=model_image_path,
+                            people=person_names,
+                            objects=object_labels,
+                            ocr_text=combined_ocr,
+                            source_path=primary_path,
+                            album_title=album_title,
+                            printed_album_title=printed_album_title,
+                            is_cover_page=False,
+                            people_positions={},
+                            fallback_location_name=str(
+                                getattr(caption_output, "location_name", "") or ""
+                            ).strip(),
+                        )
+                    )
                 combined_description = caption_output.text
-                gps_latitude = str(
-                    getattr(caption_output, "gps_latitude", "") or ""
-                ).strip()
-                gps_longitude = str(
-                    getattr(caption_output, "gps_longitude", "") or ""
-                ).strip()
-                location_name = str(
-                    getattr(caption_output, "location_name", "") or ""
-                ).strip()
             else:
                 combined_description = ""
                 gps_latitude = ""
@@ -1431,6 +1990,7 @@ def run(argv: list[str] | None = None) -> int:
         "skip": False,
         "enable_people": not bool(args.disable_people),
         "enable_objects": not bool(args.disable_objects),
+        "people_recovery_mode": str(args.people_recovery_mode),
         "ocr_engine": str(args.ocr_engine),
         "ocr_lang": str(args.ocr_lang),
         "page_split_mode": "off",
@@ -1564,6 +2124,8 @@ def run(argv: list[str] | None = None) -> int:
         manifest_row = manifest.get(str(image_path))
         reprocess_required = False
         people_update_only = False
+        if _sidecar_has_lmstudio_caption_error(existing_sidecar_state):
+            reprocess_required = True
         if has_valid_sidecar(image_path) and not sidecar_has_expected_ai_fields(
             sidecar_path,
             creator_tool=creator_tool,
@@ -1642,16 +2204,49 @@ def run(argv: list[str] | None = None) -> int:
 
                 try:
                     caption_key = (
-                        str(effective.get("caption_engine", defaults["caption_engine"])),
+                        str(
+                            effective.get("caption_engine", defaults["caption_engine"])
+                        ),
                         str(effective.get("caption_model", defaults["caption_model"])),
-                        str(effective.get("caption_prompt", defaults["caption_prompt"])),
-                        int(effective.get("caption_max_tokens", defaults["caption_max_tokens"])),
-                        float(effective.get("caption_temperature", defaults["caption_temperature"])),
-                        str(effective.get("lmstudio_base_url", defaults["lmstudio_base_url"])),
-                        str(effective.get("qwen_attn_implementation", defaults["qwen_attn_implementation"])),
-                        int(effective.get("qwen_min_pixels", defaults["qwen_min_pixels"])),
-                        int(effective.get("qwen_max_pixels", defaults["qwen_max_pixels"])),
-                        int(effective.get("caption_max_edge", defaults["caption_max_edge"])),
+                        str(
+                            effective.get("caption_prompt", defaults["caption_prompt"])
+                        ),
+                        int(
+                            effective.get(
+                                "caption_max_tokens", defaults["caption_max_tokens"]
+                            )
+                        ),
+                        float(
+                            effective.get(
+                                "caption_temperature", defaults["caption_temperature"]
+                            )
+                        ),
+                        str(
+                            effective.get(
+                                "lmstudio_base_url", defaults["lmstudio_base_url"]
+                            )
+                        ),
+                        str(
+                            effective.get(
+                                "qwen_attn_implementation",
+                                defaults["qwen_attn_implementation"],
+                            )
+                        ),
+                        int(
+                            effective.get(
+                                "qwen_min_pixels", defaults["qwen_min_pixels"]
+                            )
+                        ),
+                        int(
+                            effective.get(
+                                "qwen_max_pixels", defaults["qwen_max_pixels"]
+                            )
+                        ),
+                        int(
+                            effective.get(
+                                "caption_max_edge", defaults["caption_max_edge"]
+                            )
+                        ),
                     )
                     pu_caption_engine = caption_engine_cache.get(caption_key)
                     if pu_caption_engine is None:
@@ -1671,14 +2266,26 @@ def run(argv: list[str] | None = None) -> int:
                         caption_engine_cache[caption_key] = pu_caption_engine
 
                     _pu_step("people")
-                    pu_people_matches = people_matcher.match_image(
-                        image_path,
-                        source_path=image_path,
-                        hint_text=existing_ocr_text,
-                    ) if people_matcher else []
+                    pu_people_matches = (
+                        people_matcher.match_image(
+                            image_path,
+                            source_path=image_path,
+                            hint_text=existing_ocr_text,
+                        )
+                        if people_matcher
+                        else []
+                    )
                     pu_faces_detected = (
-                        (_v if isinstance(_v := getattr(people_matcher, "last_faces_detected", 0), int) else 0)
-                        if people_matcher else 0
+                        (
+                            _v
+                            if isinstance(
+                                _v := getattr(people_matcher, "last_faces_detected", 0),
+                                int,
+                            )
+                            else 0
+                        )
+                        if people_matcher
+                        else 0
                     )
                     pu_person_names = _dedupe(
                         [r.name for r in pu_people_matches] + existing_xmp_people
@@ -1688,7 +2295,9 @@ def run(argv: list[str] | None = None) -> int:
                     )
 
                     _pu_step("caption")
-                    pu_album_title = _resolve_album_title_hint(image_path, album_title_cache)
+                    pu_album_title = _resolve_album_title_hint(
+                        image_path, album_title_cache
+                    )
                     pu_printed_title = _resolve_album_printed_title_hint(
                         image_path, printed_album_title_cache
                     )
@@ -1703,39 +2312,96 @@ def run(argv: list[str] | None = None) -> int:
                             printed_album_title=pu_printed_title,
                             people_positions=pu_people_positions,
                         )
+                        (
+                            pu_people_matches,
+                            pu_person_names,
+                            pu_people_positions,
+                            pu_caption_out,
+                            pu_faces_detected,
+                        ) = _maybe_run_people_recovery(
+                            people_matcher=people_matcher,
+                            people_recovery_mode=str(
+                                effective.get(
+                                    "people_recovery_mode",
+                                    defaults["people_recovery_mode"],
+                                )
+                            ),
+                            image_path=image_path,
+                            people_source_path=image_path,
+                            people_bbox_offset=(0, 0),
+                            people_hint_text="",
+                            extra_people_names=list(existing_xmp_people),
+                            people_matches=pu_people_matches,
+                            people_names=pu_person_names,
+                            object_labels=existing_object_labels,
+                            ocr_text=existing_ocr_text,
+                            caption_output=pu_caption_out,
+                            caption_engine=pu_caption_engine,
+                            model_image_path=pu_model_path,
+                            caption_source_path=image_path,
+                            album_title=pu_album_title,
+                            printed_album_title=pu_printed_title,
+                            photo_count=1,
+                            is_cover_page=False,
+                            step_fn=_pu_step,
+                        )
                     pu_description = pu_caption_out.text
 
-                    pu_people_payload = [
-                        {
-                            "name": r.name,
-                            "score": round(r.score, 5),
-                            "certainty": round(float(getattr(r, "certainty", r.score)), 5),
-                            "reviewed_by_human": bool(getattr(r, "reviewed_by_human", False)),
-                            "face_id": str(getattr(r, "face_id", "") or ""),
-                            **(
-                                {"bbox": [int(v) for v in r.bbox[:4]]}
-                                if getattr(r, "bbox", None)
-                                else {}
-                            ),
-                        }
-                        for r in pu_people_matches
-                    ]
+                    pu_people_payload = _serialize_people_matches(pu_people_matches)
+                    (
+                        pu_local_people_present,
+                        pu_local_estimated_people_count,
+                    ) = _estimate_people_from_detections(
+                        people_matches=pu_people_matches,
+                        people_names=pu_person_names,
+                        object_labels=existing_object_labels,
+                        faces_detected=pu_faces_detected,
+                    )
+                    (
+                        pu_people_present,
+                        pu_estimated_people_count,
+                    ) = _resolve_people_count_metadata(
+                        requested_caption_engine=str(caption_key[0]),
+                        caption_engine=pu_caption_engine,
+                        model_image_path=pu_model_path,
+                        people=pu_person_names,
+                        objects=existing_object_labels,
+                        ocr_text=existing_ocr_text,
+                        source_path=image_path,
+                        album_title=pu_album_title,
+                        printed_album_title=pu_printed_title,
+                        people_positions=pu_people_positions,
+                        local_people_present=pu_local_people_present,
+                        local_estimated_people_count=pu_local_estimated_people_count,
+                    )
                     pu_caption_payload = _build_caption_metadata(
                         requested_engine=str(caption_key[0]),
                         effective_engine=str(pu_caption_out.engine),
                         fallback=bool(pu_caption_out.fallback),
                         error=str(pu_caption_out.error or ""),
-                        model=str(caption_key[1] if caption_key[0] in {"qwen", "lmstudio"} else ""),
+                        model=str(
+                            caption_key[1]
+                            if caption_key[0] in {"qwen", "lmstudio"}
+                            else ""
+                        ),
+                        people_present=pu_people_present,
+                        estimated_people_count=pu_estimated_people_count,
                     )
                     pu_updated_det = {
                         **det,
                         "people": pu_people_payload,
                         "caption": pu_caption_payload,
                     }
-                    pu_subjects = _dedupe(existing_object_labels + existing_ocr_keywords)
-                    pu_source_text = read_embedded_source_text(image_path) or _derived_source_text(image_path)
+                    pu_subjects = _dedupe(
+                        existing_object_labels + existing_ocr_keywords
+                    )
+                    pu_source_text = read_embedded_source_text(
+                        image_path
+                    ) or _derived_source_text(image_path)
 
-                    pu_people_detected = pu_faces_detected > 0 or len(pu_person_names) > 0
+                    pu_people_detected = (
+                        pu_faces_detected > 0 or len(pu_person_names) > 0
+                    )
                     pu_people_identified = len(pu_person_names) > 0
 
                     if not dry_run:
@@ -1747,8 +2413,12 @@ def run(argv: list[str] | None = None) -> int:
                             subjects=pu_subjects,
                             description=pu_description,
                             album_title=pu_album_title,
-                            gps_latitude=str(existing_location.get("gps_latitude") or ""),
-                            gps_longitude=str(existing_location.get("gps_longitude") or ""),
+                            gps_latitude=str(
+                                existing_location.get("gps_latitude") or ""
+                            ),
+                            gps_longitude=str(
+                                existing_location.get("gps_longitude") or ""
+                            ),
                             source_text=pu_source_text,
                             ocr_text=existing_ocr_text,
                             detections_payload=pu_updated_det,
@@ -1893,7 +2563,9 @@ def run(argv: list[str] | None = None) -> int:
                 analysis_mode = "single_image"
                 split_applied = False
                 subphoto_count = 0
-                source_text = read_embedded_source_text(image_path) or _derived_source_text(image_path)
+                source_text = read_embedded_source_text(
+                    image_path
+                ) or _derived_source_text(image_path)
                 album_title_hint = (
                     _store_album_title_hint(
                         image_path,
@@ -1941,6 +2613,12 @@ def run(argv: list[str] | None = None) -> int:
                             people_hint_text=page_ocr_text,
                             people_source_path=image_path,
                             people_bbox_offset=_bounds_offset(subphoto.bounds),
+                            people_recovery_mode=str(
+                                effective.get(
+                                    "people_recovery_mode",
+                                    defaults["people_recovery_mode"],
+                                )
+                            ),
                             caption_source_path=image_path,
                             album_title=album_title_hint,
                             printed_album_title=printed_album_title_hint,
@@ -2001,22 +2679,59 @@ def run(argv: list[str] | None = None) -> int:
                             and not page_caption_output.fallback
                         ):
                             description = page_caption_output.text
+                        page_people_present = any(
+                            bool(
+                                dict(result.payload.get("caption") or {}).get(
+                                    "people_present"
+                                )
+                            )
+                            for result in sub_results
+                        )
+                        page_estimated_people_count = max(
+                            len(person_names),
+                            sum(
+                                max(
+                                    0,
+                                    int(
+                                        dict(result.payload.get("caption") or {}).get(
+                                            "estimated_people_count",
+                                            0,
+                                        )
+                                        or 0
+                                    ),
+                                )
+                                for result in sub_results
+                            ),
+                        )
                         payload["caption"] = _build_caption_metadata(
                             requested_engine=str(caption_key[0]),
                             effective_engine=str(page_caption_output.engine),
                             fallback=bool(page_caption_output.fallback),
                             error=str(page_caption_output.error or ""),
                             model=str(caption_key[1]),
+                            people_present=page_people_present,
+                            estimated_people_count=page_estimated_people_count,
                         )
-                        page_gps_latitude = str(
-                            getattr(page_caption_output, "gps_latitude", "") or ""
-                        ).strip()
-                        page_gps_longitude = str(
-                            getattr(page_caption_output, "gps_longitude", "") or ""
-                        ).strip()
-                        page_location_name = str(
-                            getattr(page_caption_output, "location_name", "") or ""
-                        ).strip()
+                        (
+                            page_gps_latitude,
+                            page_gps_longitude,
+                            page_location_name,
+                        ) = _resolve_location_metadata(
+                            requested_caption_engine=str(caption_key[0]),
+                            caption_engine=caption_engine,
+                            model_image_path=page_model_image,
+                            people=person_names,
+                            objects=object_labels,
+                            ocr_text=page_ocr_text,
+                            source_path=image_path,
+                            album_title=page_album_title,
+                            printed_album_title=page_printed_album_title,
+                            is_cover_page=False,
+                            people_positions={},
+                            fallback_location_name=str(
+                                getattr(page_caption_output, "location_name", "") or ""
+                            ).strip(),
+                        )
                         page_location_payload = _resolve_location_payload(
                             geocoder=geocoder,
                             gps_latitude=page_gps_latitude,
@@ -2050,6 +2765,12 @@ def run(argv: list[str] | None = None) -> int:
                             _bounds_offset(layout.content_bounds)
                             if layout.page_like
                             else (0, 0)
+                        ),
+                        people_recovery_mode=str(
+                            effective.get(
+                                "people_recovery_mode",
+                                defaults["people_recovery_mode"],
+                            )
                         ),
                         caption_source_path=(
                             image_path if layout.page_like else analysis_target
@@ -2093,7 +2814,8 @@ def run(argv: list[str] | None = None) -> int:
 
                 # Compute per-stage tracking flags for the XMP
                 _ocr_ran_flag = (
-                    str(effective.get("ocr_engine", defaults["ocr_engine"])).lower() != "none"
+                    str(effective.get("ocr_engine", defaults["ocr_engine"])).lower()
+                    != "none"
                 )
                 if analysis_mode == "page_subphotos":
                     _total_faces = sum(r.faces_detected for r in sub_results)

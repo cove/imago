@@ -10,6 +10,7 @@ from ._caption_qwen import normalize_qwen_attn_implementation
 SETTINGS_FILENAME = "render_settings.json"
 OCR_ENGINES = {"none", "qwen", "lmstudio"}
 CAPTION_ENGINES = {"none", "qwen", "lmstudio"}
+PEOPLE_RECOVERY_MODES = {"off", "auto", "always"}
 
 
 def render_settings_path(archive_dir: str | Path) -> Path:
@@ -82,6 +83,16 @@ def _normalize_caption_engine(value: Any, default: str) -> str:
     return "qwen"
 
 
+def _normalize_people_recovery_mode(value: Any, default: str) -> str:
+    text = str(value or "").strip().lower()
+    if text in PEOPLE_RECOVERY_MODES:
+        return text
+    fallback = str(default or "off").strip().lower()
+    if fallback in PEOPLE_RECOVERY_MODES:
+        return fallback
+    return "off"
+
+
 def _normalize_settings_block(
     raw: dict[str, Any], defaults: dict[str, Any]
 ) -> dict[str, Any]:
@@ -95,6 +106,10 @@ def _normalize_settings_block(
         "enable_objects": _normalize_bool(
             block.get("enable_objects"),
             bool(defaults.get("enable_objects", True)),
+        ),
+        "people_recovery_mode": _normalize_people_recovery_mode(
+            block.get("people_recovery_mode"),
+            str(defaults.get("people_recovery_mode", "off")),
         ),
         "ocr_engine": _normalize_ocr_engine(
             block.get("ocr_engine"),

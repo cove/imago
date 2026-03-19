@@ -34,12 +34,7 @@ class TestAIOcr(unittest.TestCase):
     def test_qwen_ocr_uses_local_snapshot(self):
         with tempfile.TemporaryDirectory() as tmp:
             cache_dir = Path(tmp)
-            snapshot = (
-                cache_dir
-                / "models--qwen--qwen3.5-9b"
-                / "snapshots"
-                / "abc123"
-            )
+            snapshot = cache_dir / "models--qwen--qwen3.5-9b" / "snapshots" / "abc123"
             snapshot.mkdir(parents=True)
             (snapshot / "config.json").write_text("{}", encoding="utf-8")
             (snapshot / "preprocessor_config.json").write_text("{}", encoding="utf-8")
@@ -77,12 +72,7 @@ class TestAIOcr(unittest.TestCase):
     def test_qwen_ocr_reads_text_locally(self):
         with tempfile.TemporaryDirectory() as tmp:
             cache_dir = Path(tmp)
-            snapshot = (
-                cache_dir
-                / "models--qwen--qwen3.5-9b"
-                / "snapshots"
-                / "abc123"
-            )
+            snapshot = cache_dir / "models--qwen--qwen3.5-9b" / "snapshots" / "abc123"
             snapshot.mkdir(parents=True)
             (snapshot / "config.json").write_text("{}", encoding="utf-8")
             (snapshot / "preprocessor_config.json").write_text("{}", encoding="utf-8")

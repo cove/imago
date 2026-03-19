@@ -419,9 +419,7 @@ class TextFaceStore:
             "decided_at": "",
             "created_at": now,
             "updated_at": now,
-            "name_hints": [
-                dict(h) for h in (name_hints or []) if isinstance(h, dict)
-            ],
+            "name_hints": [dict(h) for h in (name_hints or []) if isinstance(h, dict)],
         }
         with self._lock:
             rows = self._read_json(self.review_path)

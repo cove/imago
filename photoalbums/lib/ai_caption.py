@@ -37,6 +37,8 @@ from ._caption_lmstudio import (  # noqa: F401
 from ._caption_prompts import (  # noqa: F401
     _build_combined_qwen_prompt,
     _build_describe_prompt,
+    _build_location_prompt,
+    _build_people_count_prompt,
     _build_qwen_prompt,
     _build_shared_prompt_rules,
     _should_apply_album_prompt_rules,
@@ -69,6 +71,27 @@ def resolve_caption_model(engine: str, model_name: str) -> str:
 @dataclass
 class CaptionOutput:
     text: str
+    engine: str
+    gps_latitude: str = ""
+    gps_longitude: str = ""
+    location_name: str = ""
+    people_present: bool = False
+    estimated_people_count: int = 0
+    fallback: bool = False
+    error: str = ""
+
+
+@dataclass
+class PeopleCountOutput:
+    engine: str
+    people_present: bool = False
+    estimated_people_count: int = 0
+    fallback: bool = False
+    error: str = ""
+
+
+@dataclass
+class LocationOutput:
     engine: str
     gps_latitude: str = ""
     gps_longitude: str = ""
@@ -188,11 +211,21 @@ class CaptionEngine:
                 gps_latitude=caption.gps_latitude,
                 gps_longitude=caption.gps_longitude,
                 location_name=caption.location_name,
+                people_present=bool(getattr(caption, "people_present", False)),
+                estimated_people_count=max(
+                    0, int(getattr(caption, "estimated_people_count", 0) or 0)
+                ),
                 fallback=not caption.text,
-                error="" if caption.text else f"{self.engine.upper()} returned empty output.",
+                error=(
+                    ""
+                    if caption.text
+                    else f"{self.engine.upper()} returned empty output."
+                ),
             )
         except Exception as exc:
-            return CaptionOutput(text="", engine=self.engine, fallback=True, error=str(exc))
+            return CaptionOutput(
+                text="", engine=self.engine, fallback=True, error=str(exc)
+            )
 
     def generate_combined(
         self,
@@ -230,20 +263,127 @@ class CaptionEngine:
             "people_positions": people_positions,
         }
         try:
-            ocr_text, caption, name_suggestions = self._captioner.describe_combined(
+            ocr_text, caption = self._captioner.describe_combined(
                 image_path=image_path, **_kw
             )
             return (
                 CaptionOutput(
-                    text=caption,
+                    text=caption.text,
                     engine=self.engine,
-                    fallback=not caption,
-                    error="" if caption else "Qwen combined returned empty description.",
+                    people_present=bool(getattr(caption, "people_present", False)),
+                    estimated_people_count=max(
+                        0, int(getattr(caption, "estimated_people_count", 0) or 0)
+                    ),
+                    fallback=not caption.text,
+                    error=(
+                        ""
+                        if caption.text
+                        else "Qwen combined returned empty description."
+                    ),
                 ),
                 ocr_text,
             )
         except Exception as exc:
             return (
-                CaptionOutput(text="", engine=self.engine, fallback=True, error=str(exc)),
+                CaptionOutput(
+                    text="", engine=self.engine, fallback=True, error=str(exc)
+                ),
                 "",
+            )
+
+    def estimate_people(
+        self,
+        image_path: str | Path,
+        *,
+        people: list[str],
+        objects: list[str],
+        ocr_text: str,
+        source_path: str | Path | None = None,
+        album_title: str = "",
+        printed_album_title: str = "",
+        people_positions: dict[str, str] | None = None,
+    ) -> PeopleCountOutput:
+        if self.engine != "lmstudio":
+            return PeopleCountOutput(
+                engine=self.engine,
+                fallback=True,
+                error=f"{self.engine.upper()} people counting is not implemented.",
+            )
+        self._ensure_captioner()
+        prompt = _build_people_count_prompt(
+            people=people,
+            objects=objects,
+            ocr_text=ocr_text,
+            source_path=source_path or image_path,
+            album_title=album_title,
+            printed_album_title=printed_album_title,
+            people_positions=people_positions,
+        )
+        try:
+            people_count = self._captioner.estimate_people(  # type: ignore[attr-defined]
+                image_path=image_path,
+                prompt=prompt,
+            )
+            return PeopleCountOutput(
+                engine=self.engine,
+                people_present=bool(people_count.people_present),
+                estimated_people_count=max(
+                    0, int(getattr(people_count, "estimated_people_count", 0) or 0)
+                ),
+                fallback=False,
+            )
+        except Exception as exc:
+            return PeopleCountOutput(
+                engine=self.engine,
+                fallback=True,
+                error=str(exc),
+            )
+
+    def estimate_location(
+        self,
+        image_path: str | Path,
+        *,
+        people: list[str],
+        objects: list[str],
+        ocr_text: str,
+        source_path: str | Path | None = None,
+        album_title: str = "",
+        printed_album_title: str = "",
+        is_cover_page: bool = False,
+        people_positions: dict[str, str] | None = None,
+    ) -> LocationOutput:
+        if self.engine != "lmstudio":
+            return LocationOutput(
+                engine=self.engine,
+                fallback=True,
+                error=f"{self.engine.upper()} location estimation is not implemented.",
+            )
+        self._ensure_captioner()
+        prompt = _build_location_prompt(
+            people=people,
+            objects=objects,
+            ocr_text=ocr_text,
+            source_path=source_path or image_path,
+            album_title=album_title,
+            printed_album_title=printed_album_title,
+            is_cover_page=is_cover_page,
+            people_positions=people_positions,
+        )
+        try:
+            location = self._captioner.estimate_location(  # type: ignore[attr-defined]
+                image_path=image_path,
+                prompt=prompt,
+            )
+            return LocationOutput(
+                engine=self.engine,
+                gps_latitude=str(getattr(location, "gps_latitude", "") or "").strip(),
+                gps_longitude=str(getattr(location, "gps_longitude", "") or "").strip(),
+                location_name=str(getattr(location, "location_name", "") or "").strip(),
+                fallback=False,
+            )
+        except Exception as exc:
+            return LocationOutput(
+                engine=self.engine,
+                fallback=True,
+                error=str(exc),
             )

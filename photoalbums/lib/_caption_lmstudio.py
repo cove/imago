@@ -35,11 +35,13 @@ class CaptionDetails:
     gps_latitude: str = ""
     gps_longitude: str = ""
     location_name: str = ""
+    people_present: bool = False
+    estimated_people_count: int = 0
     name_suggestions: list[dict[str, object]] = None
 
     def __post_init__(self):
         if self.name_suggestions is None:
-            object.__setattr__(self, 'name_suggestions', [])
+            object.__setattr__(self, "name_suggestions", [])
 
     def __str__(self) -> str:
         return self.text
@@ -54,6 +56,8 @@ class CaptionDetails:
                 and self.gps_latitude == other.gps_latitude
                 and self.gps_longitude == other.gps_longitude
                 and self.location_name == other.location_name
+                and self.people_present == other.people_present
+                and self.estimated_people_count == other.estimated_people_count
                 and self.name_suggestions == other.name_suggestions
             )
         if isinstance(other, str):
@@ -105,10 +109,10 @@ def _looks_like_reasoning_or_prompt_echo(value: str) -> bool:
     return False
 
 
-def _extract_structured_json_payload(text: str) -> dict[str, object] | None:
+def _iter_structured_json_payloads(text: str):
     raw = str(text or "").strip()
     if not raw:
-        return None
+        return
     decoder = json.JSONDecoder()
     for idx, char in enumerate(raw):
         if char != "{":
@@ -118,8 +122,21 @@ def _extract_structured_json_payload(text: str) -> dict[str, object] | None:
         except json.JSONDecodeError:
             continue
         if isinstance(payload, dict):
-            return payload
-    return None
+            yield payload
+
+
+def _extract_structured_json_payload(
+    text: str,
+    *,
+    is_valid=None,
+) -> dict[str, object] | None:
+    fallback: dict[str, object] | None = None
+    matched: dict[str, object] | None = None
+    for payload in _iter_structured_json_payloads(text):
+        fallback = payload
+        if is_valid is not None and bool(is_valid(payload)):
+            matched = payload
+    return matched if is_valid is not None else fallback
 
 
 def _lanczos_resize(image, new_size: tuple[int, int]):
@@ -254,6 +271,44 @@ def _decode_lmstudio_text(value: object) -> str:
     return ""
 
 
+def _is_lmstudio_caption_payload(payload: object) -> bool:
+    if not isinstance(payload, dict):
+        return False
+    caption = payload.get("caption")
+    if not isinstance(caption, str) or not clean_text(caption):
+        return False
+    location_name = payload.get("location_name", "")
+    return isinstance(location_name, str)
+
+
+def _is_lmstudio_people_count_payload(payload: object) -> bool:
+    if not isinstance(payload, dict):
+        return False
+    people_present = payload.get("people_present")
+    estimated_people_count = payload.get("estimated_people_count")
+    if not isinstance(people_present, bool):
+        return False
+    if isinstance(estimated_people_count, bool):
+        return False
+    try:
+        return int(estimated_people_count) >= 0
+    except Exception:
+        return False
+
+
+def _is_lmstudio_location_payload(payload: object) -> bool:
+    if not isinstance(payload, dict):
+        return False
+    location_name = payload.get("location_name")
+    gps_latitude = payload.get("gps_latitude")
+    gps_longitude = payload.get("gps_longitude")
+    return (
+        isinstance(location_name, str)
+        and isinstance(gps_latitude, str)
+        and isinstance(gps_longitude, str)
+    )
+
+
 def _lmstudio_caption_response_format() -> dict[str, object]:
     return {
         "type": "json_schema",
@@ -264,29 +319,60 @@ def _lmstudio_caption_response_format() -> dict[str, object]:
                 "type": "object",
                 "properties": {
                     "caption": {"type": "string"},
-                    "gps_latitude": {"type": "string"},
-                    "gps_longitude": {"type": "string"},
                     "location_name": {"type": "string"},
-                    "name_suggestions": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "name": {"type": "string"},
-                                "confidence": {"type": "number"},
-                                "source": {"type": "string"},
-                                "context": {"type": "string"}
-                            },
-                            "required": ["name", "confidence", "source"],
-                            "additionalProperties": False
-                        }
-                    }
                 },
                 "required": [
                     "caption",
+                    "location_name",
+                ],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
+def _lmstudio_location_response_format() -> dict[str, object]:
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "location_payload",
+            "strict": "true",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "location_name": {"type": "string"},
+                    "gps_latitude": {"type": "string"},
+                    "gps_longitude": {"type": "string"},
+                },
+                "required": [
+                    "location_name",
                     "gps_latitude",
                     "gps_longitude",
-                    "location_name",
+                ],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
+def _lmstudio_people_count_response_format() -> dict[str, object]:
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "people_count_payload",
+            "strict": "true",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "people_present": {"type": "boolean"},
+                    "estimated_people_count": {
+                        "type": "integer",
+                        "minimum": 0,
+                    },
+                },
+                "required": [
+                    "people_present",
+                    "estimated_people_count",
                 ],
                 "additionalProperties": False,
             },
@@ -308,7 +394,7 @@ def _parse_lmstudio_structured_caption_payload(
     value: object,
     *,
     finish_reason: str = "",
-) -> tuple[str, str, str, str, list[dict[str, object]]]:
+) -> tuple[str, str, str, str, bool, int, list[dict[str, object]]]:
     raw = _decode_lmstudio_text(value)
     text = str(raw or "").strip()
     finish_note = (
@@ -328,14 +414,20 @@ def _parse_lmstudio_structured_caption_payload(
         r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE
     ).strip()
     stripped = re.sub(
-        r"<tool_call>.*?<tool_call>", "", stripped or text, flags=re.DOTALL | re.IGNORECASE
+        r"<tool_call>.*?<tool_call>",
+        "",
+        stripped or text,
+        flags=re.DOTALL | re.IGNORECASE,
     ).strip()
     if stripped:
         text = stripped
     try:
         payload = json.loads(text)
     except json.JSONDecodeError as exc:
-        payload = _extract_structured_json_payload(text)
+        payload = _extract_structured_json_payload(
+            text,
+            is_valid=_is_lmstudio_caption_payload,
+        )
         if payload is None:
             preview = _lmstudio_error_preview(text)
             raise RuntimeError(
@@ -359,8 +451,122 @@ def _parse_lmstudio_structured_caption_payload(
         str(payload.get("gps_longitude") or ""), axis="lon"
     )
     location_name = clean_text(str(payload.get("location_name") or ""))
+    people_present = bool(payload.get("people_present") or False)
+    try:
+        estimated_people_count = max(0, int(payload.get("estimated_people_count") or 0))
+    except Exception:
+        estimated_people_count = 0
     name_suggestions = list(payload.get("name_suggestions") or [])
-    return caption, gps_latitude, gps_longitude, location_name, name_suggestions
+    return (
+        caption,
+        gps_latitude,
+        gps_longitude,
+        location_name,
+        people_present,
+        estimated_people_count,
+        name_suggestions,
+    )
+
+
+def _parse_lmstudio_structured_people_count_payload(
+    value: object,
+    *,
+    finish_reason: str = "",
+) -> tuple[bool, int]:
+    raw = _decode_lmstudio_text(value)
+    text = str(raw or "").strip()
+    finish_note = (
+        f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
+    )
+    if not text:
+        raise RuntimeError(
+            "LM Studio returned empty structured people-count content. "
+            "Check that the loaded model supports structured output and that the LM Studio server is current."
+            f"{finish_note}"
+        )
+    stripped = re.sub(
+        r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE
+    ).strip()
+    stripped = re.sub(
+        r"<tool_call>.*?<tool_call>",
+        "",
+        stripped or text,
+        flags=re.DOTALL | re.IGNORECASE,
+    ).strip()
+    if stripped:
+        text = stripped
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        payload = _extract_structured_json_payload(
+            text,
+            is_valid=_is_lmstudio_people_count_payload,
+        )
+        if payload is None:
+            preview = _lmstudio_error_preview(text)
+            raise RuntimeError(
+                f"LM Studio returned invalid structured people-count JSON: {exc.msg}; raw={preview!r}.{finish_note}"
+            ) from exc
+    if not _is_lmstudio_people_count_payload(payload):
+        preview = _lmstudio_error_preview(text)
+        raise RuntimeError(
+            f"LM Studio structured people-count JSON is invalid; raw={preview!r}.{finish_note}"
+        )
+    return (
+        bool(payload.get("people_present")),
+        max(0, int(payload.get("estimated_people_count") or 0)),
+    )
+
+
+def _parse_lmstudio_structured_location_payload(
+    value: object,
+    *,
+    finish_reason: str = "",
+) -> tuple[str, str, str]:
+    raw = _decode_lmstudio_text(value)
+    text = str(raw or "").strip()
+    finish_note = (
+        f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
+    )
+    if not text:
+        raise RuntimeError(
+            "LM Studio returned empty structured location content. "
+            "Check that the loaded model supports structured output and that the LM Studio server is current."
+            f"{finish_note}"
+        )
+    stripped = re.sub(
+        r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE
+    ).strip()
+    stripped = re.sub(
+        r"<tool_call>.*?<tool_call>",
+        "",
+        stripped or text,
+        flags=re.DOTALL | re.IGNORECASE,
+    ).strip()
+    if stripped:
+        text = stripped
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        payload = _extract_structured_json_payload(
+            text,
+            is_valid=_is_lmstudio_location_payload,
+        )
+        if payload is None:
+            preview = _lmstudio_error_preview(text)
+            raise RuntimeError(
+                f"LM Studio returned invalid structured location JSON: {exc.msg}; raw={preview!r}.{finish_note}"
+            ) from exc
+    if not _is_lmstudio_location_payload(payload):
+        preview = _lmstudio_error_preview(text)
+        raise RuntimeError(
+            f"LM Studio structured location JSON is invalid; raw={preview!r}.{finish_note}"
+        )
+    return (
+        _normalize_gps_value(str(payload.get("gps_latitude") or ""), axis="lat"),
+        _normalize_gps_value(str(payload.get("gps_longitude") or ""), axis="lon"),
+        clean_text(str(payload.get("location_name") or "")),
+    )
 
 
 def _parse_lmstudio_structured_caption(
@@ -368,17 +574,22 @@ def _parse_lmstudio_structured_caption(
     *,
     finish_reason: str = "",
 ) -> CaptionDetails:
-    caption, gps_latitude, gps_longitude, location_name, name_suggestions = (
-        _parse_lmstudio_structured_caption_payload(
-            value,
-            finish_reason=finish_reason,
-        )
-    )
+    (
+        caption,
+        gps_latitude,
+        gps_longitude,
+        location_name,
+        people_present,
+        estimated_people_count,
+        name_suggestions,
+    ) = _parse_lmstudio_structured_caption_payload(value, finish_reason=finish_reason)
     return CaptionDetails(
         text=clean_text(caption),
         gps_latitude=gps_latitude,
         gps_longitude=gps_longitude,
         location_name=location_name,
+        people_present=people_present,
+        estimated_people_count=estimated_people_count,
         name_suggestions=name_suggestions,
     )
 
@@ -530,12 +741,10 @@ class LMStudioCaptioner:
                         "'[non-English phrase] (English translation)'. "
                         "If the location is known confidently enough for online geocoding, set location_name "
                         "to a concise English geocoding query such as 'Landmark, City, Country'. "
-                        "Only set gps_latitude and gps_longitude when exact coordinates are explicitly "
-                        "visible in the image or OCR text. "
-                        "If the exact GPS is not explicitly known, set both GPS fields to empty strings. "
                         "If no confident geocoding query is available, set location_name to an empty string. "
                         "Never mention raw filenames, folder names, or internal ids. "
-                        "Do not include reasoning or extra fields."
+                        "Do not include reasoning or extra fields. "
+                        "Do not return GPS coordinates, people counts, or name lists."
                     ),
                 },
                 {
@@ -580,4 +789,122 @@ class LMStudioCaptioner:
         return _parse_lmstudio_structured_caption(
             message.get("content"),
             finish_reason=str(choices[0].get("finish_reason") or ""),
+        )
+
+    def estimate_people(
+        self,
+        image_path: str | Path,
+        *,
+        prompt: str,
+    ) -> CaptionDetails:
+        resize_edge = (
+            int(self.max_image_edge)
+            if self.max_image_edge > 0
+            else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
+        )
+        image_url = _build_data_url(image_path, resize_edge)
+        payload = {
+            "model": self._resolve_model_name(),
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You count visible people in photographs. "
+                        "Return only valid JSON matching the response_format schema. "
+                        "Count clearly visible real people only. "
+                        "Do not include reasoning or extra fields."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": image_url}},
+                    ],
+                },
+            ],
+            "response_format": _lmstudio_people_count_response_format(),
+            "max_tokens": min(48, int(self.max_new_tokens)),
+            "temperature": 0.0,
+            "stream": False,
+        }
+        response = _lmstudio_request_json(
+            f"{self.base_url}/chat/completions",
+            payload=payload,
+            timeout=self.timeout_seconds,
+        )
+        choices = list(response.get("choices") or [])
+        if not choices:
+            return CaptionDetails(text="")
+        message = dict(choices[0].get("message") or {})
+        people_present, estimated_people_count = (
+            _parse_lmstudio_structured_people_count_payload(
+                message.get("content"),
+                finish_reason=str(choices[0].get("finish_reason") or ""),
+            )
+        )
+        return CaptionDetails(
+            text="",
+            people_present=people_present,
+            estimated_people_count=estimated_people_count,
+        )
+
+    def estimate_location(
+        self,
+        image_path: str | Path,
+        *,
+        prompt: str,
+    ) -> CaptionDetails:
+        resize_edge = (
+            int(self.max_image_edge)
+            if self.max_image_edge > 0
+            else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
+        )
+        image_url = _build_data_url(image_path, resize_edge)
+        payload = {
+            "model": self._resolve_model_name(),
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You extract location metadata for photographs. "
+                        "Return only valid JSON matching the response_format schema. "
+                        "Only return GPS coordinates when exact coordinates are explicitly visible in the image or OCR text. "
+                        "If exact coordinates are not explicit, leave GPS fields empty. "
+                        "Do not include reasoning or extra fields."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": image_url}},
+                    ],
+                },
+            ],
+            "response_format": _lmstudio_location_response_format(),
+            "max_tokens": min(96, int(self.max_new_tokens)),
+            "temperature": 0.0,
+            "stream": False,
+        }
+        response = _lmstudio_request_json(
+            f"{self.base_url}/chat/completions",
+            payload=payload,
+            timeout=self.timeout_seconds,
+        )
+        choices = list(response.get("choices") or [])
+        if not choices:
+            return CaptionDetails(text="")
+        message = dict(choices[0].get("message") or {})
+        gps_latitude, gps_longitude, location_name = (
+            _parse_lmstudio_structured_location_payload(
+                message.get("content"),
+                finish_reason=str(choices[0].get("finish_reason") or ""),
+            )
+        )
+        return CaptionDetails(
+            text="",
+            gps_latitude=gps_latitude,
+            gps_longitude=gps_longitude,
+            location_name=location_name,
         )

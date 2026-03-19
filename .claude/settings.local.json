@@ -65,7 +65,13 @@
       "Bash(find . -name \"*.py\" -type f -exec grep -l \"prepare\\\\|det_size\\\\|det_thresh\" {})",
       "mcp__imago__job_status",
       "Bash(python -m pytest photoalbums/tests/ cast/tests/ -x -q)",
-      "Bash(python -m pytest cast/tests/ photoalbums/tests/ -x -q)"
+      "Bash(python -m pytest cast/tests/ photoalbums/tests/ -x -q)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "mcp__imago__job_list",
+      "mcp__imago__job_logs",
+      "Bash(grep -l \"England_1983_B02_P64\" c:/Users/covec/Videos/imago/mcp/jobs/*.log)",
+      "Bash(c:/Users/covec/Videos/imago/.venv/Scripts/python.exe -m py_compile c:/Users/covec/Videos/imago/mcp_server.py)"
     ]
   }
 }

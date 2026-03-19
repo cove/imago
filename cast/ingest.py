@@ -77,7 +77,7 @@ def _get_insightface_app() -> object | None:
         from insightface.app import FaceAnalysis  # type: ignore[import]
 
         app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
-        app.prepare(ctx_id=-1, det_thresh=0.18, det_size=(640, 640))
+        app.prepare(ctx_id=-1, det_thresh=0.2203, det_size=(640, 640))
         _insightface_app_error = ""
         _insightface_app = app
         return _insightface_app
@@ -134,9 +134,9 @@ def estimate_face_quality(face_bgr: np.ndarray) -> float:
 def crop_has_visual_detail(
     face_bgr: np.ndarray,
     *,
-    min_std: float = 3.0,              # was 6.0
-    min_dynamic_range: float = 12.0,   # was 18.0
-    min_laplacian_var: float = 2.0,    # was 4.0
+    min_std: float = 3.0,  # was 6.0
+    min_dynamic_range: float = 12.0,  # was 18.0
+    min_laplacian_var: float = 2.0,  # was 4.0
 ) -> bool:
     """Reject obvious flat-color false positives from Haar detections."""
     if face_bgr is None or face_bgr.size == 0:
@@ -156,7 +156,6 @@ def crop_has_visual_detail(
     return True
 
 
-
 class FaceIngestor:
     def __init__(self, store: TextFaceStore, *, require_primary_model: bool = False):
         self.store = store
@@ -165,7 +164,7 @@ class FaceIngestor:
         face_path = cascades / "haarcascade_frontalface_default.xml"
         self._cascade = cv2.CascadeClassifier(str(face_path))
         self._insightface = _get_insightface_app()
-        self._insightface_score_threshold = 0.10
+        self._insightface_score_threshold = 0.2203
         if self._cascade.empty():
             raise RuntimeError(f"Unable to load face cascade: {face_path}")
 
@@ -215,10 +214,7 @@ class FaceIngestor:
             message = f"{message} Load error: {detail}"
         raise RuntimeError(message)
 
-    def is_valid_face_crop(
-        self,
-        crop_bgr: np.ndarray
-    ) -> bool:
+    def is_valid_face_crop(self, crop_bgr: np.ndarray) -> bool:
         if not crop_has_visual_detail(crop_bgr):
             return False
         h, w = crop_bgr.shape[:2]
@@ -246,7 +242,9 @@ class FaceIngestor:
                 if score < self._insightface_score_threshold:
                     continue
                 try:
-                    bbox = np.asarray(getattr(face, "bbox"), dtype=np.float32).reshape(-1)
+                    bbox = np.asarray(getattr(face, "bbox"), dtype=np.float32).reshape(
+                        -1
+                    )
                 except Exception:
                     continue
                 if bbox.size < 4:
@@ -268,8 +266,11 @@ class FaceIngestor:
             return []
         try:
             raw = self._cascade.detectMultiScale(
-                gray, scaleFactor=1.1, minNeighbors=5,
-                minSize=(side, side), flags=cv2.CASCADE_SCALE_IMAGE,
+                gray,
+                scaleFactor=1.1,
+                minNeighbors=5,
+                minSize=(side, side),
+                flags=cv2.CASCADE_SCALE_IMAGE,
             )
         except cv2.error:
             return []
@@ -278,7 +279,11 @@ class FaceIngestor:
         rows = np.asarray(raw)
         if rows.ndim == 1:
             rows = rows.reshape(1, -1)
-        return [(int(r[0]), int(r[1]), int(r[2]), int(r[3])) for r in rows if int(r[2]) > 0 and int(r[3]) > 0]
+        return [
+            (int(r[0]), int(r[1]), int(r[2]), int(r[3]))
+            for r in rows
+            if int(r[2]) > 0 and int(r[3]) > 0
+        ]
 
     def _save_crop(self, face_id: str, crop_bgr: np.ndarray) -> str:
         crops_dir = self.store.root_dir / "crops"

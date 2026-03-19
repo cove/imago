@@ -85,7 +85,8 @@ def _rewrite_description_via_lmstudio(
         with urllib.request.urlopen(req, timeout=15) as resp:
             result = json.loads(resp.read().decode("utf-8"))
             text = str(
-                result.get("choices", [{}])[0].get("message", {}).get("content", "") or ""
+                result.get("choices", [{}])[0].get("message", {}).get("content", "")
+                or ""
             ).strip()
             if text:
                 return text
@@ -1435,7 +1436,9 @@ class CastHandler(BaseHTTPRequestHandler):
 def run(
     host: str, port: int, store: TextFaceStore, lmstudio_url: str = DEFAULT_LMSTUDIO_URL
 ) -> None:
-    server = CastHTTPServer(host=host, port=port, store=store, lmstudio_url=lmstudio_url)
+    server = CastHTTPServer(
+        host=host, port=port, store=store, lmstudio_url=lmstudio_url
+    )
     print(f"Cast web UI running at http://{host}:{int(port)}")
     print(f"Store directory: {store.root_dir}")
     print(f"LM Studio URL: {server.lmstudio_url} (description rewrite on face confirm)")
