@@ -15,10 +15,14 @@ Output ONLY valid JSON — no markdown, no explanations, no extra keys, no text 
 
 ## Text Handling & Correction Rules
 - Extract all visible text exactly as printed.
+- preserve the original text as shown.
 - For non-English text: preserve original characters exactly, then append English translation in parentheses immediately after each phrase, e.g., 北京 (Beijing).
+- Include English translation when non-English text is visible.
 - Correction rules (apply only when confidence >95%):
+- Apply corrections only with high confidence.
   - Infer completion ONLY for words visibly truncated at scan edges when photo subjects + album context make the intended word obvious (e.g., 'Chendo' beside pictures of Pandas → Chengdu; 'Lasa' in Tibet context → Lhasa).
   - Note obvious typos in labels (e.g., "BOOK 11" → output exactly "BOOK 11" and note in caption only if relevant that it is a visible typo for Book II).
+  - BOOK 11 is a typo for Book II (2).
   - Never correct proper names, dates, personal captions, or ambiguous text unless visual evidence is unambiguous.
   - If text is blurry, low-contrast, or partially illegible, output only what is clearly legible; leave uncertain portions blank rather than guessing.
 
@@ -30,6 +34,7 @@ Output ONLY valid JSON — no markdown, no explanations, no extra keys, no text 
   - Low, uncertain, or conflicting evidence: leave location_name as empty string
 - Use only well-documented place names (cities, provinces, major landmarks). Never infer obscure villages or townships.
 - Output exact GPS coordinates ONLY when they are literally printed in the image or OCR text; otherwise leave gps_latitude and gps_longitude empty.
+- GPS coordinates must remain empty unless they are explicitly visible.
 
 ## People Rules
 - Count only clearly visible real people in the main photo. Exclude statues, dolls, paintings, posters, reflections, and tiny indistinct background figures.
@@ -39,11 +44,12 @@ Output ONLY valid JSON — no markdown, no explanations, no extra keys, no text 
 - Age descriptors: include “child” or “baby” only when the individuals are clearly young; omit age for adults and elderly once identified.
 
 ## Album Classification Rules (apply in this order)
+Cordell Photo Albums rules:
 1. If the image is clearly an album cover or title page → use Cover Page preamble.
 2. If visible album title or hint names a country or region → classify as Photo Essay.
 3. If the collection is clearly familial (title contains family names or is generic family-oriented) → classify as Family Photo Album.
 4. Solid blue/white cover with title text naming country/region/family → describe as “the cover of the photo album book”.
-5. Always preserve visible book labels exactly as shown (including typos such as "BOOK 11").
+5. Preserve visible book labels exactly as shown (including typos such as "BOOK 11").
 
 ## ────────────────────────────────────────────────
 ## Preamble Describe
@@ -64,10 +70,10 @@ Determine the most useful location metadata for this photo.
 This image is an album cover or title page.
 
 ## Album Title Hint
-Album title hint: {album_title}
+Album title hint: {album_title}.
 
 ## Canonical Title Hint
-Canonical album title hint: {canonical_title}  
+Canonical album title hint: {canonical_title}.  
 When naming the album in a caption, prefer the printed cover title over the normalized title.
 
 ## Album Classification Hint

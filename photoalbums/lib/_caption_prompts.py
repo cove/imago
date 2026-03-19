@@ -125,10 +125,10 @@ def _build_shared_prompt_rules(
     lines: list[str] = []
 
     if is_cover_page:
-        lines.extend(_section("Cover Page"))
+        lines.extend(_section("Preamble Cover Page"))
 
     if context.title:
-        lines.extend(_section("Album Title", album_title=context.title))
+        lines.extend(_section("Album Title Hint", album_title=context.title))
 
     if (
         context.canonical_title
@@ -136,21 +136,22 @@ def _build_shared_prompt_rules(
         and context.canonical_title.casefold() != context.title.casefold()
     ):
         lines.extend(
-            _section("Canonical Title", canonical_title=context.canonical_title)
+            _section("Canonical Title Hint", canonical_title=context.canonical_title)
         )
 
     if _should_apply_album_prompt_rules(source_path, context):
-        lines.extend(_section("Album Classification"))
+        lines.extend(_section("Album Classification Rules (apply in this order)"))
         if context.label:
-            lines.extend(_section("Album Label", album_label=context.label))
+            lines.extend(
+                _section("Album Classification Hint", album_label=context.label)
+            )
         if context.focus and context.kind == ALBUM_KIND_PHOTO_ESSAY:
-            lines.extend(_section("Album Focus", album_focus=context.focus))
+            lines.extend(_section("Album Focus Hint", album_focus=context.focus))
 
-    lines.extend(_section("Language Style"))
-    lines.extend(_section("Text Handling Combined" if combined else "Text Handling"))
-    lines.extend(_section("Text Scan"))
-    lines.extend(_section("Location Rules"))
-    lines.extend(_section("People Identification"))
+    lines.extend(_section("Global Style & Behavior Rules (apply to every mode)"))
+    lines.extend(_section("Text Handling & Correction Rules"))
+    lines.extend(_section("Location Rules (strict)"))
+    lines.extend(_section("People Rules"))
 
     if people_list:
         if people_positions:
@@ -214,7 +215,7 @@ def _build_qwen_prompt(
         if len(text) > len(snippet):
             snippet += "..."
         lines.append(f'OCR text hint: "{snippet}".')
-    lines.extend(_section("Output Format"))
+    lines.extend(_section("Output Format – Describe (full caption)"))
     return "\n".join(lines)
 
 
@@ -250,7 +251,7 @@ def _build_combined_qwen_prompt(
             people_positions=people_positions,
         )
     )
-    lines.extend(_section("Output Format Combined"))
+    lines.extend(_section("Output Format – Combined"))
     return "\n".join(lines)
 
 
@@ -276,9 +277,8 @@ def _build_people_count_prompt(
     )
     lines = _section("Preamble People Count")
     if _should_apply_album_prompt_rules(source_path, context):
-        lines.extend(_section("Album Classification"))
-    lines.extend(_section("People Identification"))
-    lines.extend(_section("People Count Rules"))
+        lines.extend(_section("Album Classification Rules (apply in this order)"))
+    lines.extend(_section("People Rules"))
     if people_list:
         if people_positions:
             entries = [
@@ -299,7 +299,7 @@ def _build_people_count_prompt(
         if len(text) > len(snippet):
             snippet += "..."
         lines.append(f'OCR text hint: "{snippet}".')
-    lines.extend(_section("Output Format People Count"))
+    lines.extend(_section("Output Format – People Count"))
     return "\n".join(lines)
 
 
@@ -335,13 +335,12 @@ def _build_location_prompt(
             people_positions=people_positions,
         )
     )
-    lines.extend(_section("Location Output Rules"))
     if text:
         snippet = text[:220].strip()
         if len(text) > len(snippet):
             snippet += "..."
         lines.append(f'OCR text hint: "{snippet}".')
-    lines.extend(_section("Output Format Location"))
+    lines.extend(_section("Output Format – Location"))
     return "\n".join(lines)
 
 
