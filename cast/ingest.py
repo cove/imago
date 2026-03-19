@@ -156,11 +156,27 @@ def crop_has_visual_detail(
     return True
 
 
+def _resolve_haarcascade_dir() -> Path:
+    data = getattr(cv2, "data", None)
+    haarcascades = getattr(data, "haarcascades", None)
+    if haarcascades:
+        return Path(str(haarcascades))
+    cv2_file = getattr(cv2, "__file__", None)
+    if cv2_file:
+        candidate = Path(str(cv2_file)).resolve().parent / "data"
+        if candidate.exists():
+            return candidate
+    raise RuntimeError(
+        "OpenCV Haar cascade data directory is unavailable. Ensure a working "
+        "`opencv-contrib-python` install is present."
+    )
+
+
 class FaceIngestor:
     def __init__(self, store: TextFaceStore, *, require_primary_model: bool = False):
         self.store = store
         self.require_primary_model = bool(require_primary_model)
-        cascades = Path(str(cv2.data.haarcascades))
+        cascades = _resolve_haarcascade_dir()
         face_path = cascades / "haarcascade_frontalface_default.xml"
         self._cascade = cv2.CascadeClassifier(str(face_path))
         self._insightface = _get_insightface_app()

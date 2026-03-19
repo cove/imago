@@ -11,6 +11,7 @@ import urllib.request
 from pathlib import Path
 
 from .model_store import HF_MODEL_CACHE_DIR
+from .ai_model_settings import default_ocr_model
 from ._caption_lmstudio import (
     _decode_lmstudio_text,
     _extract_structured_json_payload,
@@ -46,7 +47,7 @@ STOPWORDS = {
 }
 
 DEFAULT_QWEN_OCR_MODEL = "qwen/qwen3.5-9b"
-#DEFAULT_QWEN_OCR_MODEL = "qwen/qwen3.5-35b-a3b"
+# DEFAULT_QWEN_OCR_MODEL = "qwen/qwen3.5-35b-a3b"
 DEFAULT_QWEN_OCR_MAX_NEW_TOKENS = 5128
 DEFAULT_QWEN_OCR_MAX_PIXELS = 4_194_304
 DEFAULT_QWEN_OCR_MAX_IMAGE_EDGE = 2048
@@ -117,7 +118,9 @@ def _lmstudio_ocr_post(base_url: str, payload: dict, timeout: float) -> dict:
         ) from exc
 
 
-def _lmstudio_ocr_select_model(base_url: str, timeout: float) -> str:
+def _lmstudio_ocr_select_model(
+    base_url: str, timeout: float, requested_model: str = ""
+) -> str:
     request = urllib.request.Request(f"{base_url}/models", method="GET")
     try:
         with urllib.request.urlopen(request, timeout=float(timeout)) as response:
@@ -134,6 +137,14 @@ def _lmstudio_ocr_select_model(base_url: str, timeout: float) -> str:
     if not model_ids:
         raise RuntimeError(
             "LM Studio did not return any models. Load a model in LM Studio first."
+        )
+    requested = str(requested_model or "").strip()
+    if requested:
+        if requested in model_ids:
+            return requested
+        raise RuntimeError(
+            f"LM Studio OCR model '{requested}' is not loaded. "
+            f"Loaded models: {', '.join(model_ids)}"
         )
     return model_ids[0]
 
@@ -391,7 +402,12 @@ def _load_qwen_transformers():
 
 class OCREngine:
     def __init__(
-        self, *, engine: str = "qwen", language: str = "eng", base_url: str = ""
+        self,
+        *,
+        engine: str = "qwen",
+        language: str = "eng",
+        model_name: str = "",
+        base_url: str = "",
     ):
         self.engine = _normalize_ocr_engine(engine)
         self.language = str(language or "eng").strip() or "eng"
@@ -401,7 +417,7 @@ class OCREngine:
             else ""
         )
         self._model_name = str(
-            os.environ.get("QWEN_OCR_MODEL") or DEFAULT_QWEN_OCR_MODEL
+            model_name or os.environ.get("QWEN_OCR_MODEL") or default_ocr_model()
         ).strip()
         self._processor = None
         self._model = None
@@ -416,9 +432,9 @@ class OCREngine:
     def effective_model_name(self) -> str:
         """Return the actual model name used, resolved after any lazy API lookup."""
         if self.engine == "qwen":
-            return str(self._model_name)
+            return str(self._model_name or DEFAULT_QWEN_OCR_MODEL)
         if self.engine == "lmstudio":
-            return str(self._lmstudio_model or "")
+            return str(self._lmstudio_model or self._model_name)
         return ""
 
     def _ensure_loaded(self) -> None:
@@ -426,11 +442,12 @@ class OCREngine:
             return
         if self._processor is not None and self._model is not None:
             return
-
+        model_ref, local_files_only = _resolve_local_model_ref(
+            self._model_name or DEFAULT_QWEN_OCR_MODEL
+        )
         torch, AutoProcessor, AutoModelForImageTextToText = _load_qwen_transformers()
 
         HF_MODEL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        model_ref, local_files_only = _resolve_local_model_ref(self._model_name)
         cache_dir = str(HF_MODEL_CACHE_DIR)
         self._processor = AutoProcessor.from_pretrained(
             model_ref,
@@ -453,7 +470,9 @@ class OCREngine:
     def _read_text_lmstudio(self, image_path: str | Path) -> str:
         if not self._lmstudio_model:
             self._lmstudio_model = _lmstudio_ocr_select_model(
-                self.base_url, DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS
+                self.base_url,
+                DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS,
+                self._model_name,
             )
         data_url = _build_ocr_data_url(
             image_path, DEFAULT_QWEN_OCR_MAX_IMAGE_EDGE, DEFAULT_QWEN_OCR_MAX_PIXELS

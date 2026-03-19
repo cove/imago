@@ -3,7 +3,7 @@
 Legacy VHS tuner module compatibility shim.
 
 The tuner now uses the plain HTML wizard. Use:
-  python vhs.py tuner
+  uv run python vhs.py tuner
 
 This module re-exports core tuner helpers for existing scripts/tests and
 can still launch the plain HTML wizard when run directly.

@@ -151,7 +151,9 @@ class TestAICaption(unittest.TestCase):
         fake_qwen.describe.side_effect = RuntimeError("model offline")
         with mock.patch(
             "photoalbums.lib.ai_caption.QwenLocalCaptioner", return_value=fake_qwen
-        ) as ctor:
+        ) as ctor, mock.patch(
+            "photoalbums.lib.ai_caption.default_caption_model", return_value=""
+        ):
             engine = ai_caption.CaptionEngine(engine="blip")
             out = engine.generate(
                 image_path="sample.jpg",

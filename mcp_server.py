@@ -47,9 +47,7 @@ def _job_started(job_id: str) -> dict:
     }
 
 
-def _resolve_ai_index_photo_path(
-    photos_root: str, photo: Optional[str]
-) -> Optional[str]:
+def _resolve_ai_index_photo_path(photos_root: str, photo: Optional[str]) -> Optional[str]:
     photo_value = str(photo or "").strip()
     if not photo_value:
         return None
@@ -64,21 +62,15 @@ def _resolve_ai_index_photo_path(
 
     target_name = photo_path.name.casefold()
     matches = sorted(
-        path.resolve()
-        for path in photos_root_path.rglob("*")
-        if path.is_file() and path.name.casefold() == target_name
+        path.resolve() for path in photos_root_path.rglob("*") if path.is_file() and path.name.casefold() == target_name
     )
     if not matches:
-        raise ValueError(
-            f"Photo filename '{photo_value}' was not found under photos_root '{photos_root}'."
-        )
+        raise ValueError(f"Photo filename '{photo_value}' was not found under photos_root '{photos_root}'.")
     if len(matches) > 1:
         joined = ", ".join(str(path) for path in matches[:10])
         if len(matches) > 10:
             joined += f", ... ({len(matches)} matches total)"
-        raise ValueError(
-            f"Photo filename '{photo_value}' is ambiguous under photos_root '{photos_root}': {joined}"
-        )
+        raise ValueError(f"Photo filename '{photo_value}' is ambiguous under photos_root '{photos_root}': {joined}")
     return str(matches[0])
 
 
@@ -259,20 +251,10 @@ def photoalbums_manifest_summary() -> dict:
 
 @mcp.tool()
 def photoalbums_ai_index(
-    caption_engine: str = "lmstudio",
-    ocr_engine: str = "lmstudio",
-    force: bool = False,
-    disable_people: bool = False,
-    disable_objects: bool = False,
-    disable_ocr: bool = False,
-    geocode_skip: bool = False,
-    include_view: bool = False,
-    max_images: int = 0,
     photo: Optional[str] = None,
+    process_all_photos: bool = False,
     album: Optional[str] = None,
-    photo_offset: int = 0,
-    dry_run: bool = False,
-    extra_args: Optional[list[str]] = None,
+    max_images: int = 0,
 ) -> dict:
     """Start a photoalbums AI indexing job (people → objects → OCR → captions → geocoding → XMP).
 
@@ -280,21 +262,12 @@ def photoalbums_ai_index(
     Use job_status(job_id) to monitor progress and job_logs(job_id) for full output.
 
     Args:
-        caption_engine: Caption engine: 'qwen' or 'lmstudio'.
-        ocr_engine: OCR engine: 'qwen' or 'lmstudio'.
-        force: Ignore manifest and re-process all images.
-        disable_people: Skip people identification step.
-        disable_objects: Skip YOLO object detection step.
-        disable_ocr: Skip OCR text extraction step.
-        geocode_skip: Skip geocoding step.
-        include_view: Also process files in *_View folders.
-        max_images: Limit number of images to process (0 = unlimited).
-        photo: Filename (or full path) of a single photo to process
-            (searches under photos_root if only a name is given; implies force).
+        photo: Optional filename (or full path) of a single photo to process.
+            When omitted, the job processes all photos that match the other filters.
+            A bare filename is searched under photos_root and implies force.
+        process_all_photos: Ignore manifest and re-process all matching photos.
         album: Filter to photos whose parent directory name contains this substring (case-insensitive).
-        photo_offset: Skip first N discovered images (use with max_images to process a range).
-        dry_run: Preview operations without writing any files.
-        extra_args: Additional raw CLI arguments (e.g. ['--verbose']).
+        max_images: Limit number of matching photos to process (0 = unlimited).
     """
     args = [
         PYTHON,
@@ -305,36 +278,16 @@ def photoalbums_ai_index(
         PHOTOS_ROOT_DEFAULT,
         "--cast-store",
         CAST_STORE_DEFAULT,
-        "--caption-engine",
-        caption_engine,
-        "--ocr-engine",
-        ocr_engine,
     ]
-    if force:
+    if process_all_photos:
         args.append("--force")
-    if disable_people:
-        args.append("--disable-people")
-    if disable_objects:
-        args.append("--disable-objects")
-    if disable_ocr:
-        args.append("--disable-ocr")
-    if geocode_skip:
-        args.append("--geocode-skip-none")
-    if include_view:
-        args.append("--include-view")
     resolved_photo = _resolve_ai_index_photo_path(PHOTOS_ROOT_DEFAULT, photo)
     if resolved_photo:
         args += ["--photo", resolved_photo]
     if album:
         args += ["--album", album]
-    if photo_offset:
-        args += ["--photo-offset", str(photo_offset)]
     if max_images:
         args += ["--max-images", str(max_images)]
-    if dry_run:
-        args.append("--dry-run")
-    if extra_args:
-        args.extend(extra_args)
 
     name = f"photoalbums_ai_index:{Path(PHOTOS_ROOT_DEFAULT).name}"
     return _job_started(runner.start(name, args))
@@ -344,9 +297,7 @@ def photoalbums_ai_index(
 def photoalbums_compress() -> dict:
     """Start a job to compress TIFF scans in-place. Returns a job ID."""
     args = [PYTHON, PHOTOALBUMS_SCRIPT, "compress", "--photos-root", PHOTOS_ROOT_DEFAULT]
-    return _job_started(
-        runner.start(f"photoalbums_compress:{Path(PHOTOS_ROOT_DEFAULT).name}", args)
-    )
+    return _job_started(runner.start(f"photoalbums_compress:{Path(PHOTOS_ROOT_DEFAULT).name}", args))
 
 
 @mcp.tool()
@@ -365,11 +316,7 @@ def photoalbums_stitch(validate_only: bool = False) -> dict:
         "--photos-root",
         PHOTOS_ROOT_DEFAULT,
     ]
-    return _job_started(
-        runner.start(
-            f"photoalbums_stitch_{subcommand}:{Path(PHOTOS_ROOT_DEFAULT).name}", args
-        )
-    )
+    return _job_started(runner.start(f"photoalbums_stitch_{subcommand}:{Path(PHOTOS_ROOT_DEFAULT).name}", args))
 
 
 # ── VHS: job-launching tools ───────────────────────────────────────────────────
@@ -481,9 +428,7 @@ def vhs_generate_comparison(
     args = [PYTHON, VHS_SCRIPT, "compare", "--archive", archive, "--title", title]
     if extra_args:
         args.extend(extra_args)
-    return _job_started(
-        runner.start(f"vhs_compare:{archive}/{title}", args, cwd=VHS_DIR)
-    )
+    return _job_started(runner.start(f"vhs_compare:{archive}/{title}", args, cwd=VHS_DIR))
 
 
 @mcp.tool()
@@ -518,9 +463,7 @@ def vhs_people_prefill(archive: str, chapter: str) -> dict:
         "--cast-store",
         CAST_STORE_DEFAULT,
     ]
-    return _job_started(
-        runner.start(f"vhs_people_prefill:{archive}/{chapter}", args, cwd=VHS_DIR)
-    )
+    return _job_started(runner.start(f"vhs_people_prefill:{archive}/{chapter}", args, cwd=VHS_DIR))
 
 
 if __name__ == "__main__":
@@ -534,12 +477,8 @@ if __name__ == "__main__":
         default="stdio",
         help="Transport: stdio (Claude Code), sse (legacy SSE at /sse), http (streamable-HTTP at /mcp)",
     )
-    parser.add_argument(
-        "--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)"
-    )
-    parser.add_argument(
-        "--port", type=int, default=8090, help="Bind port (default: 8090)"
-    )
+    parser.add_argument("--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)")
+    parser.add_argument("--port", type=int, default=8090, help="Bind port (default: 8090)")
     parser.add_argument(
         "--console-host",
         default=None,
@@ -547,9 +486,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    CONSOLE_HOST = (
-        args.console_host or args.host
-    )  # noqa: F841 - read via module globals
+    CONSOLE_HOST = args.console_host or args.host  # noqa: F841 - read via module globals
     if args.transport != "stdio":
         start_console(runner, host=args.host, port=CONSOLE_PORT)
         print(f"Job console:     http://{CONSOLE_HOST}:{CONSOLE_PORT}", file=sys.stderr)

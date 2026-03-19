@@ -1,5 +1,0 @@
-[flake8]
-max-line-length = 120
-max-complexity = 10
-extend-ignore = E501,E203,F403,F405
-exclude = .venv,__pycache__

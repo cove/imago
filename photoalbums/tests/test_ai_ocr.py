@@ -57,7 +57,9 @@ class TestAIOcr(unittest.TestCase):
                     return_value=(fake_torch, fake_processor_cls, fake_model_cls),
                 ),
             ):
-                ocr = ai_ocr.OCREngine(engine="qwen")
+                ocr = ai_ocr.OCREngine(
+                    engine="qwen", model_name=ai_ocr.DEFAULT_QWEN_OCR_MODEL
+                )
                 ocr._ensure_loaded()
 
             processor_kwargs = fake_processor_cls.from_pretrained.call_args.kwargs
@@ -112,7 +114,9 @@ class TestAIOcr(unittest.TestCase):
                     return_value=(fake_torch, fake_processor_cls, fake_model_cls),
                 ),
             ):
-                ocr = ai_ocr.OCREngine(engine="qwen")
+                ocr = ai_ocr.OCREngine(
+                    engine="qwen", model_name=ai_ocr.DEFAULT_QWEN_OCR_MODEL
+                )
                 text = ocr.read_text(image_path)
 
             self.assertEqual(text, "MAINLAND CHINA\n1986 BOOK 11")
@@ -195,6 +199,48 @@ class TestAIOcr(unittest.TestCase):
                 text = ocr.read_text(image_path)
 
         self.assertEqual(text, "MAINLAND CHINA\n1986\nBOOK 11")
+
+    def test_lmstudio_ocr_uses_requested_model_when_configured(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image_path = Path(tmp) / "sample.jpg"
+            Image.new("RGB", (320, 240), color="white").save(image_path)
+            with (
+                mock.patch.object(
+                    ai_ocr,
+                    "_build_ocr_data_url",
+                    return_value="data:image/jpeg;base64,abc123",
+                ),
+                mock.patch.object(
+                    ai_ocr,
+                    "_lmstudio_ocr_post",
+                    return_value={
+                        "choices": [
+                            {
+                                "finish_reason": "stop",
+                                "message": {"content": json.dumps({"text": "BOOK 11"})},
+                            }
+                        ]
+                    },
+                ),
+                mock.patch.object(
+                    ai_ocr,
+                    "_lmstudio_ocr_select_model",
+                    return_value="qwen2.5-vl-instruct",
+                ) as select_model,
+            ):
+                ocr = ai_ocr.OCREngine(
+                    engine="lmstudio",
+                    model_name="qwen2.5-vl-instruct",
+                    base_url="http://127.0.0.1:1234",
+                )
+                text = ocr.read_text(image_path)
+
+        self.assertEqual(text, "BOOK 11")
+        select_model.assert_called_once_with(
+            "http://127.0.0.1:1234/v1",
+            ai_ocr.DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS,
+            "qwen2.5-vl-instruct",
+        )
 
 
 if __name__ == "__main__":

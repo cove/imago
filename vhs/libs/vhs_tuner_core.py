@@ -29,10 +29,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 ARCHIVE_DIR = PROJECT_ROOT / "../../Archive"
 METADATA_DIR = PROJECT_ROOT / "metadata"
 FPS = 30000 / 1001
-TUNER_CACHE_ROOT = Path(
-    os.environ.get("VHS_TUNER_CACHE_DIR")
-    or (Path(tempfile.gettempdir()) / "vhs_tuner_cache")
-)
+TUNER_CACHE_ROOT = Path(os.environ.get("VHS_TUNER_CACHE_DIR") or (Path(tempfile.gettempdir()) / "vhs_tuner_cache"))
 TUNER_EXTRACT_DIR = TUNER_CACHE_ROOT / "extracts"
 TUNER_FRAME_CACHE_DIR = TUNER_CACHE_ROOT / "frame_samples"
 TUNER_DEBUG_EXTRACT_ENV = "VHS_TUNER_DEBUG_EXTRACT_FRAMES"
@@ -169,12 +166,7 @@ def _chapter_from_tsv_row(archive: str, row: dict[str, str]) -> dict | None:
         _val = str(_v or "").strip()
         if _key and (_key not in lower or _val):
             lower[_key] = _val
-    title = str(
-        lower.get("title")
-        or lower.get("chaptertitle")
-        or lower.get("chapter_title")
-        or ""
-    ).strip()
+    title = str(lower.get("title") or lower.get("chaptertitle") or lower.get("chapter_title") or "").strip()
     if not title:
         return None
 
@@ -194,12 +186,8 @@ def _chapter_from_tsv_row(archive: str, row: dict[str, str]) -> dict | None:
 
         if tb is not None and start_raw is not None and end_raw is not None:
             tb_num, tb_den = tb
-            start_sec = float(
-                Fraction(int(start_raw), 1) * Fraction(int(tb_num), int(tb_den))
-            )
-            end_sec = float(
-                Fraction(int(end_raw), 1) * Fraction(int(tb_num), int(tb_den))
-            )
+            start_sec = float(Fraction(int(start_raw), 1) * Fraction(int(tb_num), int(tb_den)))
+            end_sec = float(Fraction(int(end_raw), 1) * Fraction(int(tb_num), int(tb_den)))
             start_frame, end_frame = chapter_frame_bounds(
                 {
                     "start_raw": int(start_raw),
@@ -323,9 +311,7 @@ def _source_signature_token(source: str | Path | None) -> str:
 def _cleanup_tuner_cache(force: bool = False) -> None:
     global _LAST_CACHE_CLEANUP_TS
     now = time.time()
-    interval_sec = _env_int(
-        "VHS_TUNER_CACHE_CLEANUP_INTERVAL_SEC", default=300, minimum=30
-    )
+    interval_sec = _env_int("VHS_TUNER_CACHE_CLEANUP_INTERVAL_SEC", default=300, minimum=30)
     if not force and (now - _LAST_CACHE_CLEANUP_TS) < float(interval_sec):
         return
     _LAST_CACHE_CLEANUP_TS = now
@@ -517,20 +503,16 @@ def _ensure_render_chapter_extract(
     except FileNotFoundError:
         return (
             None,
-            f"ffmpeg not found: {cmd[0]}\nRun setup.py to extract ffmpeg binaries.",
+            "ffmpeg not found: "
+            f"{cmd[0]}\nRun 'uv run python scripts/bootstrap_runtime.py' to extract bundled binaries.",
         )
     if proc.returncode != 0:
         return None, (proc.stderr or proc.stdout or "ffmpeg extraction failed").strip()
     actual_frames = _video_frame_count(out_path)
     if actual_frames != expected_frames:
-        actual_note = (
-            f", got {actual_frames}"
-            if actual_frames > 0
-            else ", could not determine actual frame count"
-        )
+        actual_note = f", got {actual_frames}" if actual_frames > 0 else ", could not determine actual frame count"
         return None, (
-            f"Extracted chapter frame count mismatch for {out_path.name}: "
-            f"expected {expected_frames}{actual_note}"
+            f"Extracted chapter frame count mismatch for {out_path.name}: expected {expected_frames}{actual_note}"
         )
     return out_path, ""
 
@@ -552,9 +534,7 @@ def _chapter_bad_overrides(
     # Seed per-session overrides from persisted chapter BAD_FRAMES so a chapter
     # reload reflects previously saved decisions in the sampled frame view.
     start, end = _normalize_frame_span(ch_start, ch_end)
-    bad_frames = get_bad_frames_for_chapter(
-        str(archive or ""), str(chapter_title or ""), ch_start=start, ch_end=end
-    )
+    bad_frames = get_bad_frames_for_chapter(str(archive or ""), str(chapter_title or ""), ch_start=start, ch_end=end)
     out: dict[int, str] = {}
     for fid in bad_frames or []:
         try:
@@ -596,9 +576,7 @@ def _persist_visible_bad_frames(
         return None, 0
 
     start, end = _normalize_frame_span(ch_start, ch_end)
-    existing_global_bad = {
-        int(x) for x in ch.get("bad_frames", []) if start <= int(x) < end
-    }
+    existing_global_bad = {int(x) for x in ch.get("bad_frames", []) if start <= int(x) < end}
 
     scores = combined_score(sigs, wc, wn, wt, ww)
     thr = compute_threshold(scores, tm, ik, tv, bp)
@@ -852,9 +830,7 @@ def save_cached_signals(
     _cleanup_tuner_cache()
 
 
-def _compute_signals(
-    bgr: np.ndarray, crop: int = 50
-) -> tuple[float, float, float, float]:
+def _compute_signals(bgr: np.ndarray, crop: int = 50) -> tuple[float, float, float, float]:
     h, w = bgr.shape[:2]
     y0 = min(crop, max(0, h - 1))
     y1 = max(y0 + 1, h - crop)
@@ -869,11 +845,7 @@ def _compute_signals(
     row_vars = np.var(gray, axis=1)
     mean_var = float(np.mean(row_vars))
     noise = float(np.std(row_vars) / mean_var) if mean_var > 1e-6 else 0.0
-    tear = (
-        float(np.percentile(np.abs(gray[1:] - gray[:-1]).mean(axis=1), 95))
-        if gray.shape[0] > 1
-        else 0.0
-    )
+    tear = float(np.percentile(np.abs(gray[1:] - gray[:-1]).mean(axis=1), 95)) if gray.shape[0] > 1 else 0.0
     row_sums = gray.sum(axis=1)
     cols_idx = np.arange(gray.shape[1], dtype=np.float32)
     row_com = (gray @ cols_idx) / np.maximum(row_sums, 1e-6)
@@ -887,13 +859,9 @@ def _compute_signals(
 
 def _bgr_to_jpeg_b64(bgr: np.ndarray, width: int = 160) -> str:
     h, w = bgr.shape[:2]
-    thumb = cv2.resize(
-        bgr, (width, int(width * h / max(w, 1))), interpolation=cv2.INTER_AREA
-    )
+    thumb = cv2.resize(bgr, (width, int(width * h / max(w, 1))), interpolation=cv2.INTER_AREA)
     buf = io.BytesIO()
-    Image.fromarray(cv2.cvtColor(thumb, cv2.COLOR_BGR2RGB)).save(
-        buf, format="JPEG", quality=72
-    )
+    Image.fromarray(cv2.cvtColor(thumb, cv2.COLOR_BGR2RGB)).save(buf, format="JPEG", quality=72)
     return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
@@ -984,9 +952,7 @@ def extract_frames(
             if cached_thumb:
                 frame_thumb = cached_thumb
             else:
-                frame_thumb = _bgr_to_jpeg_b64(
-                    bgr if bgr is not None else np.zeros((240, 320, 3), dtype=np.uint8)
-                )
+                frame_thumb = _bgr_to_jpeg_b64(bgr if bgr is not None else np.zeros((240, 320, 3), dtype=np.uint8))
                 thumb_lookup[int(fid)] = frame_thumb
             frames_b64.append(frame_thumb)
         else:
@@ -1002,9 +968,7 @@ def extract_frames(
             tear_s.append(te)
             wave_s.append(wa)
         else:
-            compute_bgr = (
-                bgr if bgr is not None else np.zeros((240, 320, 3), dtype=np.uint8)
-            )
+            compute_bgr = bgr if bgr is not None else np.zeros((240, 320, 3), dtype=np.uint8)
             ch, no, te, wa = _compute_signals(compute_bgr)
             chroma_s.append(ch)
             noise_s.append(no)
@@ -1490,14 +1454,11 @@ def _sparkline_svg(
         tline = (
             f'<line x1="0" y1="{ty:.1f}" x2="{SVG_W}" y2="{ty:.1f}" '
             f'stroke="#e03030" stroke-width="1.8" opacity="0.95"/>'
-            f'<polygon points="{SVG_W},{ty:.1f} {SVG_W-6},{ty-4:.1f} {SVG_W-6},{ty+4:.1f}" '
+            f'<polygon points="{SVG_W},{ty:.1f} {SVG_W - 6},{ty - 4:.1f} {SVG_W - 6},{ty + 4:.1f}" '
             f'fill="#e03030" opacity="0.9"/>'
         )
 
-    lbl = (
-        f'<text x="3" y="{height - 3}" font-family="Courier New" '
-        f'font-size="8" fill="#555">{label}</text>'
-    )
+    lbl = f'<text x="3" y="{height - 3}" font-family="Courier New" font-size="8" fill="#555">{label}</text>'
 
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {SVG_W} {height}" '
@@ -1569,9 +1530,7 @@ def build_sparklines_html(
         height=24,
         line_color=_col(ww),
     )
-    sc_score = _sparkline_svg(
-        scores, threshold, "composite score", height=32, line_color="#5599dd"
-    )
+    sc_score = _sparkline_svg(scores, threshold, "composite score", height=32, line_color="#5599dd")
 
     return sc_chroma, sc_noise, sc_tear, sc_wave, sc_score
 
@@ -1604,9 +1563,7 @@ def _get_chapter_titles(archive: str, chapters: list[dict] | None = None) -> lis
         chapter_rows, _source = _load_archive_chapters_for_ui(archive)
     if not chapter_rows:
         return [CHAPTER_MISSING_LABEL]
-    return [CHAPTER_SELECT_LABEL] + [
-        str(ch.get("title", "")) for ch in chapter_rows if str(ch.get("title", ""))
-    ]
+    return [CHAPTER_SELECT_LABEL] + [str(ch.get("title", "")) for ch in chapter_rows if str(ch.get("title", ""))]
 
 
 def _find_chapter(chapters: list[dict], title: str) -> dict | None:
@@ -1634,9 +1591,7 @@ def _chapter_bad_count(ch: dict) -> int:
         int(ch.get("start_frame", 0)),
         int(ch.get("end_frame", 0)),
     )
-    bad = [
-        int(x) for x in (ch.get("bad_frames", []) or []) if start_i <= int(x) < end_i
-    ]
+    bad = [int(x) for x in (ch.get("bad_frames", []) or []) if start_i <= int(x) < end_i]
     return len(bad)
 
 
@@ -1677,19 +1632,13 @@ def build_archive_state(
 ) -> dict:
     chapters, chapter_source = _load_archive_chapters_for_ui(archive)
     titles = _get_chapter_titles(archive, chapters=chapters)
-    chapter_titles = [
-        str(ch.get("title", "")) for ch in chapters if str(ch.get("title", ""))
-    ]
+    chapter_titles = [str(ch.get("title", "")) for ch in chapters if str(ch.get("title", ""))]
     chapter_rows, compact_rows = _chapter_rows(chapters)
 
     if selected_title and str(selected_title) in chapter_titles:
         chapter_value = str(selected_title)
     else:
-        chapter_value = (
-            chapter_titles[0]
-            if chapter_titles
-            else (titles[0] if titles else CHAPTER_SELECT_LABEL)
-        )
+        chapter_value = chapter_titles[0] if chapter_titles else (titles[0] if titles else CHAPTER_SELECT_LABEL)
 
     picked = _find_chapter(chapters, chapter_value)
     start_frame = int(picked["start_frame"]) if picked else None

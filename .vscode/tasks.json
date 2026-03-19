@@ -2,11 +2,26 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Test: cast",
+      "type": "shell",
+      "command": "uv run pytest cast/tests",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "Test: photoalbums",
       "type": "shell",
-      "command": "python -m pytest tests/",
+      "command": "uv run pytest photoalbums/tests",
       "options": {
-        "cwd": "${workspaceFolder}/photoalbums"
+        "cwd": "${workspaceFolder}"
       },
       "group": "test",
       "presentation": {
@@ -19,9 +34,9 @@
     {
       "label": "Test: vhs",
       "type": "shell",
-      "command": "python -m pytest",
+      "command": "uv run pytest vhs/test",
       "options": {
-        "cwd": "${workspaceFolder}/vhs"
+        "cwd": "${workspaceFolder}"
       },
       "group": "test",
       "presentation": {
@@ -33,7 +48,7 @@
     },
     {
       "label": "Test: all",
-      "dependsOn": ["Test: photoalbums", "Test: vhs"],
+      "dependsOn": ["Test: cast", "Test: photoalbums", "Test: vhs"],
       "dependsOrder": "parallel",
       "group": {
         "kind": "test",

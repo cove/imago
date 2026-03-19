@@ -20,12 +20,15 @@ class TestPhotoalbumsAiIndexPhotoResolution(unittest.TestCase):
         self.photos_root.mkdir(parents=True)
 
         self._orig_runner = mcp_server.runner
+        self._orig_photos_root = mcp_server.PHOTOS_ROOT_DEFAULT
         self.runner = mock.Mock()
         self.runner.start.return_value = "job123"
         mcp_server.runner = self.runner
+        mcp_server.PHOTOS_ROOT_DEFAULT = str(self.photos_root)
 
     def tearDown(self):
         mcp_server.runner = self._orig_runner
+        mcp_server.PHOTOS_ROOT_DEFAULT = self._orig_photos_root
         self.tmp.cleanup()
 
     def _started_args(self) -> list[str]:
@@ -37,10 +40,7 @@ class TestPhotoalbumsAiIndexPhotoResolution(unittest.TestCase):
         image_path.parent.mkdir(parents=True)
         image_path.touch()
 
-        mcp_server.photoalbums_ai_index(
-            photos_root=str(self.photos_root),
-            photo=str(image_path),
-        )
+        mcp_server.photoalbums_ai_index(photo=str(image_path))
 
         args = self._started_args()
         self.assertEqual(args[args.index("--photo") + 1], str(image_path))
@@ -50,20 +50,14 @@ class TestPhotoalbumsAiIndexPhotoResolution(unittest.TestCase):
         image_path.parent.mkdir(parents=True)
         image_path.touch()
 
-        mcp_server.photoalbums_ai_index(
-            photos_root=str(self.photos_root),
-            photo="Photo_01.jpg",
-        )
+        mcp_server.photoalbums_ai_index(photo="Photo_01.jpg")
 
         args = self._started_args()
         self.assertEqual(args[args.index("--photo") + 1], str(image_path.resolve()))
 
     def test_photoalbums_ai_index_raises_when_filename_not_found(self):
         with self.assertRaises(ValueError) as exc:
-            mcp_server.photoalbums_ai_index(
-                photos_root=str(self.photos_root),
-                photo="Missing.jpg",
-            )
+            mcp_server.photoalbums_ai_index(photo="Missing.jpg")
 
         self.assertIn("was not found", str(exc.exception))
         self.runner.start.assert_not_called()
@@ -77,13 +71,30 @@ class TestPhotoalbumsAiIndexPhotoResolution(unittest.TestCase):
         second.touch()
 
         with self.assertRaises(ValueError) as exc:
-            mcp_server.photoalbums_ai_index(
-                photos_root=str(self.photos_root),
-                photo="Photo_01.jpg",
-            )
+            mcp_server.photoalbums_ai_index(photo="Photo_01.jpg")
 
         self.assertIn("ambiguous", str(exc.exception))
         self.runner.start.assert_not_called()
+
+    def test_photoalbums_ai_index_only_passes_supported_filters(self):
+        mcp_server.photoalbums_ai_index(
+            album="Album_A",
+            max_images=5,
+            process_all_photos=True,
+        )
+
+        args = self._started_args()
+        self.assertIn("--force", args)
+        self.assertEqual(args[args.index("--album") + 1], "Album_A")
+        self.assertEqual(args[args.index("--max-images") + 1], "5")
+        self.assertNotIn("--caption-engine", args)
+        self.assertNotIn("--ocr-engine", args)
+        self.assertNotIn("--disable-people", args)
+        self.assertNotIn("--disable-objects", args)
+        self.assertNotIn("--disable-ocr", args)
+        self.assertNotIn("--include-view", args)
+        self.assertNotIn("--photo-offset", args)
+        self.assertNotIn("--dry-run", args)
 
 
 if __name__ == "__main__":

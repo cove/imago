@@ -11,6 +11,7 @@ if str(REPO_ROOT) not in sys.path:
 from cast.ingest import CURRENT_FACE_EMBEDDING_MODEL
 from cast.storage import TextFaceStore
 from photoalbums.lib.ai_people import CastPeopleMatcher
+from photoalbums.lib.ai_people_preprocess import _rembg_providers
 
 
 def test_matcher_refreshes_legacy_reviewed_face_to_current_model(tmp_path, monkeypatch):
@@ -262,3 +263,17 @@ def test_match_image_recovery_refreshes_active_face_without_duplicate_row(
     recovered_faces = store.list_faces_for_source(str(image_path))
     assert len(recovered_faces) == 1
     assert recovered_faces[0]["metadata"]["analysis_variant"] == "rembg"
+
+
+def test_rembg_providers_prefers_directml_when_available(monkeypatch):
+    class _FakeOrt:
+        @staticmethod
+        def get_available_providers():
+            return ["DmlExecutionProvider", "CPUExecutionProvider"]
+
+    monkeypatch.setattr(
+        "photoalbums.lib.ai_people_preprocess._load_onnxruntime",
+        lambda: _FakeOrt(),
+    )
+
+    assert _rembg_providers() == ["DmlExecutionProvider", "CPUExecutionProvider"]

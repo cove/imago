@@ -1,10 +1,10 @@
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
-$py = Join-Path $repoRoot ".venv\Scripts\python.exe"
-if (-not (Test-Path $py)) {
-  $py = "python"
+Push-Location $repoRoot
+try {
+  & uv run pytest "photoalbums/tests" @args
+  exit $LASTEXITCODE
+} finally {
+  Pop-Location
 }
-
-& $py -m pytest (Join-Path $repoRoot "photoalbums\tests") @args
-exit $LASTEXITCODE

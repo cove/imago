@@ -4,12 +4,13 @@ VHS Plain HTML Wizard
 This app is a plain HTML/CSS/JS wizard with a small Python HTTP server.
 It avoids UI framework lock-in and reuses `libs/vhs_tuner_core.py` for core logic.
 
-Run (Windows venv example)
---------------------------
+Run
+---
 
-1. Activate your environment.
+1. Create/update the environment:
+   `uv sync`
 2. Start the server:
-   `.venv\\Scripts\\python apps\\plain_html_wizard\\server.py`
+   `uv run python apps\\plain_html_wizard\\server.py`
 3. Open:
    `http://127.0.0.1:8092`
 

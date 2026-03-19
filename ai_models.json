@@ -1,0 +1,9 @@
+{
+  "models": {
+    "secondary": "qwen/qwen3-vl-30b",
+    "primary": "qwen3.5-35b-a3b",
+    "new-primary": "zai-org/glm-4.6v-flash"
+  },
+  "selected_ocr_model": "new-primary",
+  "selected_caption_model": "new-primary"
+}

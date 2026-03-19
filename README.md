@@ -9,10 +9,27 @@ Family media archive for VHS digitization, photo album preservation, and shared 
 - [`cast/`](cast/) - Shared face identity store + local web review UI (text files)
 - [`viewer/`](viewer/) - Static cloud media site for public Google Drive/OneDrive photo and video links
 
+## Setup
+
+Create or update the repo environment from the repo root:
+
+- `uv sync`
+
+Optional task runner commands, if you install `just`:
+
+- `just sync`
+- `just bootstrap`
+- `just test`
+
+Bootstrap bundled runtime binaries used by VHS workflows on Windows/Linux:
+
+- `uv run python scripts/bootstrap_runtime.py`
+
 ## Tests
 
 Run all project tests from repo root:
 
+- `uv run pytest -q`
 - `.\scripts\test.ps1 -q`
 
 Enable the repo pre-push hook (runs this test suite before push):
@@ -21,9 +38,9 @@ Enable the repo pre-push hook (runs this test suite before push):
 
 Run a single project test suite (same command shape in each project):
 
-- `.\cast\scripts\test.ps1 -q`
-- `.\photoalbums\scripts\test.ps1 -q`
-- `.\vhs\scripts\test.ps1 -q`
+- `uv run pytest cast/tests -q`
+- `uv run pytest photoalbums/tests -q`
+- `uv run pytest vhs/test -q`
 
 ## AI Model Storage
 
@@ -32,9 +49,9 @@ Downloaded AI model weights are stored under the repo-level `modes/` directory.
 ## Cast quick start
 
 1. Initialize files:
-   - `python cast.py init`
+   - `uv run python cast.py init`
 2. Run local web UI:
-   - `python cast.py web`
+   - `uv run python cast.py web`
 3. Open:
    - `http://127.0.0.1:8093`
 
@@ -58,8 +75,8 @@ Default Cast storage files:
 
 Run photoalbums workflows only via:
 
-- `python photoalbums.py ...`
-- `python -m photoalbums ...` (equivalent)
+- `uv run python photoalbums.py ...`
+- `uv run python -m photoalbums ...` (equivalent)
 
 All `photoalbums/lib/*.py` modules are internal libraries, not user entrypoint scripts.
 Also do not run `photoalbums/cli.py` or `photoalbums/commands.py` directly.
@@ -78,7 +95,8 @@ Photoalbums OCR now uses a local Qwen vision model by default. Download the mode
 
 ```
 imago/
-  vhs/           <- VHS pipeline (python vhs.py ...)
+  .venv/         <- uv-managed virtual environment
+  vhs/           <- VHS pipeline (uv run python vhs.py ...)
   photoalbums/   <- Photo album pipeline
   cast/          <- Shared face identity module + web UI
   viewer/        <- Static cloud media viewer
