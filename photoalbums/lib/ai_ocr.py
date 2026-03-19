@@ -46,6 +46,7 @@ STOPWORDS = {
 }
 
 DEFAULT_QWEN_OCR_MODEL = "qwen/qwen3.5-9b"
+#DEFAULT_QWEN_OCR_MODEL = "qwen/qwen3.5-35b-a3b"
 DEFAULT_QWEN_OCR_MAX_NEW_TOKENS = 5128
 DEFAULT_QWEN_OCR_MAX_PIXELS = 4_194_304
 DEFAULT_QWEN_OCR_MAX_IMAGE_EDGE = 2048
@@ -248,17 +249,17 @@ def _fix_json_escaping(text: str) -> str:
     """Fix common JSON escaping issues that can cause parsing failures."""
     # Fix excessive backslash escaping that can occur in OCR responses
     # Replace sequences like \\\\\\\\\ with proper escaping
-    text = re.sub(r'\\\\\\\\\\\\', r'\\', text)
-    text = re.sub(r'\\\\\\\\', r'\\', text)
-    text = re.sub(r'\\\\', r'\\', text)
-    
+    text = re.sub(r"\\\\\\\\\\\\", r"\\", text)
+    text = re.sub(r"\\\\\\\\", r"\\", text)
+    text = re.sub(r"\\\\", r"\\", text)
+
     # Fix other common escaping issues
     text = re.sub(r'\\\\"', r'"', text)
     text = re.sub(r'\\"', r'"', text)
-    
+
     # Remove any remaining invalid escape sequences that aren't valid JSON escapes
-    text = re.sub(r'\\[^"\\/bfnrtu]', r'', text)
-    
+    text = re.sub(r'\\[^"\\/bfnrtu]', r"", text)
+
     return text
 
 

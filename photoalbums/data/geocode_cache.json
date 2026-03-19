@@ -175,6 +175,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "bampo village, beijing, china": {
+    "query": "Bampo Village, Beijing, China",
+    "status": "miss"
+  },
   "bampo village, china": {
     "query": "Bampo Village, China",
     "status": "miss"
@@ -284,6 +288,14 @@
     "latitude": "44.8153318",
     "longitude": "20.4456588",
     "query": "Belgrade, Serbia",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "bingling temple, yongjing county, gansu, china": {
+    "display_name": "炳灵寺, S230, 赵山, 永靖县, 临夏回族自治州, 甘肃省, 中国",
+    "latitude": "35.8036162",
+    "longitude": "103.0426428",
+    "query": "Bingling Temple, Yongjing County, Gansu, China",
     "source": "nominatim",
     "status": "ok"
   },
@@ -487,6 +499,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "buddha grottoes, linxia, china": {
+    "query": "Buddha Grottoes, Linxia, China",
+    "status": "miss"
+  },
   "cairo tower, cairo, egypt": {
     "display_name": "برج القاهرة, شارع البرج, باب اللوق, القاهرة, 11111, مصر",
     "latitude": "30.0460136",
@@ -583,6 +599,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "canton hotel, guangzhou, china": {
+    "display_name": "华厦大酒店, 回龙路, 人民街道, 越秀区, 广州市, 广东省, 510115, 中国",
+    "latitude": "23.1176015",
+    "longitude": "113.2626112",
+    "query": "Canton Hotel, Guangzhou, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "canton, china": {
     "display_name": "广州市, 广东省, 中国",
     "latitude": "23.1288454",
@@ -647,6 +671,14 @@
     "query": "Cathedral Nueva, Salamanca, Spain; Plaza de España, Seville, Spain",
     "status": "miss"
   },
+  "causeway bay, hong kong": {
+    "display_name": "銅鑼灣 Causeway Bay, 灣仔區 Wan Chai District, 香港島 Hong Kong Island, 香港 Hong Kong, 中国",
+    "latitude": "22.2809029",
+    "longitude": "114.1870669",
+    "query": "Causeway Bay, Hong Kong",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "ceuta and fes, morocco": {
     "query": "Ceuta and Fes, Morocco",
     "status": "miss"
@@ -684,6 +716,14 @@
     "latitude": "30.6598670",
     "longitude": "104.0633150",
     "query": "Chendu, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "chengdu research base of giant panda breeding, chengdu, china": {
+    "display_name": "成都大熊猫繁育研究基地, 1375, 熊猫大道, 白莲池街道, 成华区, 成都市, 四川省, 610081, 中国",
+    "latitude": "30.7432279",
+    "longitude": "104.1329312",
+    "query": "Chengdu Research Base of Giant Panda Breeding, Chengdu, China",
     "source": "nominatim",
     "status": "ok"
   },
@@ -1095,6 +1135,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "drepung monastery": {
+    "display_name": "འབྲས་སྤུངས་དགོན། 哲蚌寺, 北京西路, དམ་བག་སྡེ་ཁུལ། 当巴社区, 金珠西路街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 中国",
+    "latitude": "29.6761893",
+    "longitude": "91.0480624",
+    "query": "Drepung Monastery",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "dubrovnik cathedral, dubrovnik, croatia": {
     "query": "Dubrovnik Cathedral, Dubrovnik, Croatia",
     "status": "miss"
@@ -1161,6 +1209,10 @@
   },
   "dunhuang hotel, dunhuang cultural centre, dunhuang, gansu, china": {
     "query": "Dunhuang Hotel, Dunhuang Cultural Centre, Dunhuang, Gansu, China",
+    "status": "miss"
+  },
+  "dunhuang summer culture centre, dunhuang hotel, dunhuang, china": {
+    "query": "Dunhuang Summer Culture Centre, Dunhuang Hotel, Dunhuang, China",
     "status": "miss"
   },
   "dunhuang summer culture centre, dunhuang hotel, dunhuang, gansu, china": {
@@ -1435,6 +1487,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "garden hotel, guangzhou, china": {
+    "display_name": "花园酒店, 华乐街道, 越秀区, 广州市, 广东省, 中国",
+    "latitude": "23.1376682",
+    "longitude": "113.2809544",
+    "query": "Garden Hotel, Guangzhou, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "garden hotel, guangzhou, guangdong, china": {
     "display_name": "花园酒店, 华乐街道, 越秀区, 广州市, 广东省, 中国",
     "latitude": "23.1376682",
@@ -1452,6 +1512,14 @@
     "latitude": "51.1540772",
     "longitude": "-0.1823226",
     "query": "Gatwick Airport, England",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "giant wild goose pagoda, xi'an, china": {
+    "display_name": "大雁塔, 雁塔西步行街, 大雁塔街道, 雁塔区, 西安市, 陕西省, 710064, 中国",
+    "latitude": "34.2197968",
+    "longitude": "108.9594259",
+    "query": "Giant Wild Goose Pagoda, Xi'an, China",
     "source": "nominatim",
     "status": "ok"
   },
@@ -1552,6 +1620,14 @@
     "latitude": "40.4231233",
     "longitude": "-3.7104199",
     "query": "Gran Via, Madrid, Spain",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "granville road, hong kong": {
+    "display_name": "加連威老道 Granville Road, 尖沙咀 Tsim Sha Tsui, 油尖旺區 Yau Tsim Mong District, 九龍 Kowloon, 香港 Hong Kong, 中国",
+    "latitude": "22.2996794",
+    "longitude": "114.1727383",
+    "query": "Granville Road, Hong Kong",
     "source": "nominatim",
     "status": "ok"
   },
@@ -1723,6 +1799,14 @@
     "query": "Hong Kong Harbour, Victoria Peak Tram, Hong Kong, China",
     "status": "miss"
   },
+  "hong kong international airport": {
+    "display_name": "香港國際機場 Hong Kong International Airport, 文東路 Man Tung Road, 東涌市中心 Tung Chung Town Centre, 大嶼山 Lantau, 離島區 Islands District, 新界 New Territories, 香港 Hong Kong, 中国",
+    "latitude": "22.3125986",
+    "longitude": "113.9172999",
+    "query": "Hong Kong International Airport",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "hong kong international airport, hong kong": {
     "display_name": "香港國際機場 Hong Kong International Airport, 暢達路 Cheong Tat Road, 赤鱲角 Chek Lap Kok, 大嶼山 Lantau, 離島區 Islands District, 新界 New Territories, 香港 Hong Kong, 中国",
     "latitude": "22.3125986",
@@ -1786,6 +1870,14 @@
   "hua ting temple, dunhuang, gansu, china": {
     "query": "HUA TING TEMPLE, Dunhuang, Gansu, China",
     "status": "miss"
+  },
+  "huaqing hot springs, xi'an, china": {
+    "display_name": "华清宫, 骊山街道, 临潼区, 西安市, 陕西省, 中国",
+    "latitude": "34.3649458",
+    "longitude": "109.2075327",
+    "query": "Huaqing Hot Springs, Xi'an, China",
+    "source": "nominatim",
+    "status": "ok"
   },
   "huaqing hot springs, xi'an, shaanxi, china": {
     "display_name": "华清宫, 骊山街道, 临潼区, 西安市, 陕西省, 中国",
@@ -2131,6 +2223,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "kunming hotel, kunming, china": {
+    "display_name": "昆明饭店, 白塔路, 拓东街道, 盘龙区, 昆明市, 云南省, 650051, 中国",
+    "latitude": "25.0418068",
+    "longitude": "102.7232123",
+    "query": "Kunming Hotel, Kunming, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "kunming hotel, kunming, yunnan province, china": {
     "display_name": "昆明饭店, 白塔路, 拓东街道, 盘龙区, 昆明市, 云南省, 650051, 中国",
     "latitude": "25.0418068",
@@ -2431,6 +2531,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "longmen grottoes, luoyang, china": {
+    "display_name": "龙门石窟, 龙门大桥, 河东社区, 龙门石窟街道, 洛龙区, 洛阳市, 河南省, 中国",
+    "latitude": "34.5571154",
+    "longitude": "112.4707112",
+    "query": "Longmen Grottoes, Luoyang, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "looe, cornwall, england": {
     "display_name": "Looe, Cornwall, England, United Kingdom",
     "latitude": "50.3518739",
@@ -2539,6 +2647,10 @@
     "query": "Mainz, Germany; Cairo, Egypt",
     "status": "miss"
   },
+  "mao zedong statue, tiananmen square, beijing, china": {
+    "query": "Mao Zedong Statue, Tiananmen Square, Beijing, China",
+    "status": "miss"
+  },
   "maritime museum greenwich": {
     "display_name": "National Maritime Museum, Romney Road, Greenwich Town Centre, East Greenwich, Royal Borough of Greenwich, Greater London, England, SE10 9NF, United Kingdom",
     "latitude": "51.4807759",
@@ -2579,6 +2691,10 @@
     "query": "Market Place, Lasa, Tibet, China",
     "status": "miss"
   },
+  "market place, lhasa, tibet": {
+    "query": "Market Place, Lhasa, Tibet",
+    "status": "miss"
+  },
   "market place, lhasa, tibet, china": {
     "query": "Market Place, Lhasa, Tibet, China",
     "status": "miss"
@@ -2596,6 +2712,14 @@
     "latitude": "34.0226585",
     "longitude": "-6.8214250",
     "query": "Mausoleum of Mohammed V, Rabat, Morocco",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "mausoleum of the first qin emperor, lintong district, xi'an, china": {
+    "display_name": "秦始皇帝陵, 秦陵路, 临潼区, 西安市, 陕西省, 中国",
+    "latitude": "34.3814190",
+    "longitude": "109.2538363",
+    "query": "Mausoleum of the First Qin Emperor, Lintong District, Xi'an, China",
     "source": "nominatim",
     "status": "ok"
   },
@@ -2671,6 +2795,14 @@
     "query": "Mohamed Aly Alabaster Mosque, Cairo, Egypt",
     "status": "miss"
   },
+  "monument, lhasa, tibet": {
+    "display_name": "西藏和平解放纪念碑, 布达拉宫广场, 吉崩岗街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
+    "latitude": "29.6529947",
+    "longitude": "91.1173310",
+    "query": "Monument, Lhasa, Tibet",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "morocco": {
     "display_name": "Maroc ⵍⵎⵖⵔⵉⴱ المغرب",
     "latitude": "28.3347722",
@@ -2691,6 +2823,10 @@
     "query": "Mostar, Yugoslavia",
     "status": "miss"
   },
+  "mother and child statue, lanzhou, china": {
+    "query": "Mother and Child Statue, Lanzhou, China",
+    "status": "miss"
+  },
   "munich, bavaria, germany": {
     "display_name": "München, Bayern, Deutschland",
     "latitude": "48.1371079",
@@ -2706,6 +2842,10 @@
     "query": "Munich, Germany",
     "source": "nominatim",
     "status": "ok"
+  },
+  "museum of the mausoleum of the first qin emperor, xi'an, china": {
+    "query": "Museum of the Mausoleum of the First Qin Emperor, Xi'an, China",
+    "status": "miss"
   },
   "museum of the terracotta warriors, xi'an, shaanxi, china": {
     "query": "Museum of the Terracotta Warriors, Xi'an, Shaanxi, China",
@@ -2740,6 +2880,14 @@
     "latitude": "22.2994543",
     "longitude": "114.1796977",
     "query": "New World Hotel, Hong Kong, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "new world hotel, tsim sha tsui, hong kong": {
+    "display_name": "千禧新世界香港酒店 New World Millennium Hong Kong Hotel, 72, 麼地道 Mody Road, 尖沙咀東 East Tsim Sha Tsui, 油尖旺區 Yau Tsim Mong District, 九龍 Kowloon, 香港 Hong Kong, 中国",
+    "latitude": "22.2994543",
+    "longitude": "114.1796977",
+    "query": "New World Hotel, Tsim Sha Tsui, Hong Kong",
     "source": "nominatim",
     "status": "ok"
   },
@@ -3771,6 +3919,22 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "stone forest, shilin yi autonomous county, china": {
+    "display_name": "石林风景区, 阿诗玛北路, 石林彝族自治县, 昆明市, 云南省, 652200, 中国",
+    "latitude": "24.8156992",
+    "longitude": "103.3245807",
+    "query": "Stone Forest, Shilin Yi Autonomous County, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "stone forest, yunnan, china": {
+    "display_name": "石林风景区, 阿诗玛北路, 石林彝族自治县, 昆明市, 云南省, 652200, 中国",
+    "latitude": "24.8156992",
+    "longitude": "103.3245807",
+    "query": "Stone Forest, Yunnan, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "stonehenge - christchurch, england": {
     "query": "Stonehenge - Christchurch, England",
     "status": "miss"
@@ -3878,6 +4042,10 @@
     "query": "Tanger, Morocco",
     "source": "nominatim",
     "status": "ok"
+  },
+  "temple architecture, himalayas": {
+    "query": "Temple architecture, Himalayas",
+    "status": "miss"
   },
   "temple of karnak, luxor, egypt": {
     "display_name": "معبد الأقصر, طريق الكباش, مدينه الاقصر, الكرنك القديم, الأقصر, 81693, مصر",

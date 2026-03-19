@@ -51,7 +51,11 @@ def _parse_skill(path: Path) -> dict[str, list[str]]:
             if stripped.startswith("## ") and not stripped.startswith("### "):
                 current = stripped[3:].strip()
                 sections.setdefault(current, [])
-            elif current is not None and stripped.strip() and not stripped.strip().startswith("#"):
+            elif (
+                current is not None
+                and stripped.strip()
+                and not stripped.strip().startswith("#")
+            ):
                 sections[current].append(stripped.strip())
     return sections
 
@@ -131,7 +135,9 @@ def _build_shared_prompt_rules(
         and context.title
         and context.canonical_title.casefold() != context.title.casefold()
     ):
-        lines.extend(_section("Canonical Title", canonical_title=context.canonical_title))
+        lines.extend(
+            _section("Canonical Title", canonical_title=context.canonical_title)
+        )
 
     if _should_apply_album_prompt_rules(source_path, context):
         lines.extend(_section("Album Classification"))
@@ -149,7 +155,11 @@ def _build_shared_prompt_rules(
     if people_list:
         if people_positions:
             entries = [
-                f"{name} ({people_positions[name]})" if name in people_positions else name
+                (
+                    f"{name} ({people_positions[name]})"
+                    if name in people_positions
+                    else name
+                )
                 for name in people_list
             ]
             lines.append(
@@ -157,7 +167,9 @@ def _build_shared_prompt_rules(
             )
         else:
             lines.append(f"Known people: {join_human(people_list)}.")
-        lines.append("Refer to these people by name in the caption wherever they appear.")
+        lines.append(
+            "Refer to these people by name in the caption wherever they appear."
+        )
 
     if object_list:
         lines.append(f"Detected objects: {join_human(object_list)}.")
@@ -239,6 +251,97 @@ def _build_combined_qwen_prompt(
         )
     )
     lines.extend(_section("Output Format Combined"))
+    return "\n".join(lines)
+
+
+def _build_people_count_prompt(
+    *,
+    people: list[str],
+    objects: list[str],
+    ocr_text: str,
+    source_path: str | Path | None = None,
+    album_title: str = "",
+    printed_album_title: str = "",
+    people_positions: dict[str, str] | None = None,
+) -> str:
+    people_list = dedupe(people)
+    object_list = dedupe(objects)
+    text = clean_text(ocr_text)
+    context = infer_album_context(
+        image_path=source_path,
+        ocr_text=ocr_text,
+        allow_ocr=True,
+        album_title=album_title,
+        printed_album_title=printed_album_title,
+    )
+    lines = _section("Preamble People Count")
+    if _should_apply_album_prompt_rules(source_path, context):
+        lines.extend(_section("Album Classification"))
+    lines.extend(_section("People Identification"))
+    lines.extend(_section("People Count Rules"))
+    if people_list:
+        if people_positions:
+            entries = [
+                (
+                    f"{name} ({people_positions[name]})"
+                    if name in people_positions
+                    else name
+                )
+                for name in people_list
+            ]
+            lines.append(f"Known identified people: {', '.join(entries)}.")
+        else:
+            lines.append(f"Known identified people: {join_human(people_list)}.")
+    if object_list:
+        lines.append(f"Detected objects: {join_human(object_list)}.")
+    if text:
+        snippet = text[:220].strip()
+        if len(text) > len(snippet):
+            snippet += "..."
+        lines.append(f'OCR text hint: "{snippet}".')
+    lines.extend(_section("Output Format People Count"))
+    return "\n".join(lines)
+
+
+def _build_location_prompt(
+    *,
+    people: list[str],
+    objects: list[str],
+    ocr_text: str,
+    source_path: str | Path | None = None,
+    album_title: str = "",
+    printed_album_title: str = "",
+    is_cover_page: bool = False,
+    people_positions: dict[str, str] | None = None,
+) -> str:
+    people_list = dedupe(people)
+    object_list = dedupe(objects)
+    text = clean_text(ocr_text)
+    context = infer_album_context(
+        image_path=source_path,
+        ocr_text=ocr_text,
+        allow_ocr=True,
+        album_title=album_title,
+        printed_album_title=printed_album_title,
+    )
+    lines = _section("Preamble Location")
+    lines.extend(
+        _build_shared_prompt_rules(
+            context=context,
+            source_path=source_path,
+            people_list=people_list,
+            object_list=object_list,
+            is_cover_page=is_cover_page,
+            people_positions=people_positions,
+        )
+    )
+    lines.extend(_section("Location Output Rules"))
+    if text:
+        snippet = text[:220].strip()
+        if len(text) > len(snippet):
+            snippet += "..."
+        lines.append(f'OCR text hint: "{snippet}".')
+    lines.extend(_section("Output Format Location"))
     return "\n".join(lines)
 
 

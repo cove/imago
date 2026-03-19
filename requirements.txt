@@ -13,6 +13,7 @@ stitching
 transformers
 ultralytics
 watchdog
+rembg[cpu]
 
 # vhs
 openai-whisper==20250625

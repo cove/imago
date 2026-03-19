@@ -175,7 +175,9 @@ def test_new_face_is_added_to_cast_store(tmp_path, monkeypatch):
     monkeypatch.setattr(matcher, "_embed", lambda crop_bgr: [1.0, 0.0, 0.0])
     monkeypatch.setattr(matcher, "_estimate_quality", lambda crop_bgr: 0.80)
     monkeypatch.setattr(
-        matcher._ingestor, "_save_crop", lambda face_id, crop_bgr: f"crops/{face_id}.jpg"
+        matcher._ingestor,
+        "_save_crop",
+        lambda face_id, crop_bgr: f"crops/{face_id}.jpg",
     )
 
     assert store.list_faces() == [], "store should be empty before match_image"
@@ -187,3 +189,76 @@ def test_new_face_is_added_to_cast_store(tmp_path, monkeypatch):
     assert faces[0]["source_type"] == "photo"
     assert faces[0]["source_path"] == str(image_path)
     assert faces[0]["bbox"] == [10, 10, 60, 60]
+
+
+def test_match_image_recovery_refreshes_active_face_without_duplicate_row(
+    tmp_path, monkeypatch
+):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+
+    person = store.add_person(name="Leslie Cordell")
+    reference_path = tmp_path / "reference.jpg"
+    reference = np.full((120, 120, 3), 255, dtype=np.uint8)
+    cv2.imwrite(str(reference_path), reference)
+    prototype_face = store.add_face(
+        embedding=[1.0, 0.0, 0.0],
+        person_id=person["person_id"],
+        source_type="photo",
+        source_path=str(reference_path),
+        bbox=[10, 10, 60, 60],
+        metadata={"embedding_model": CURRENT_FACE_EMBEDDING_MODEL},
+    )
+    store.assign_face(
+        prototype_face["face_id"],
+        person["person_id"],
+        reviewed_by_human=True,
+        review_status="confirmed",
+    )
+
+    image_path = tmp_path / "page.jpg"
+    image = np.zeros((120, 120, 3), dtype=np.uint8)
+    cv2.rectangle(image, (10, 10), (70, 70), (30, 30, 30), -1)
+    cv2.imwrite(str(image_path), image)
+
+    matcher = CastPeopleMatcher(
+        cast_store_dir=store.root_dir,
+        max_faces=5,
+        min_sample_count=1,
+    )
+
+    monkeypatch.setattr(matcher, "_detect_faces", lambda image_bgr: [(10, 10, 60, 60)])
+    monkeypatch.setattr(matcher._ingestor, "is_valid_face_crop", lambda crop_bgr: True)
+    monkeypatch.setattr(matcher, "_estimate_quality", lambda crop_bgr: 0.85)
+    monkeypatch.setattr(
+        matcher._ingestor,
+        "_save_crop",
+        lambda face_id, crop_bgr: f"crops/{face_id}.jpg",
+    )
+    monkeypatch.setattr(
+        "photoalbums.lib.ai_people.build_rembg_bgr",
+        lambda image_bgr: np.full_like(image_bgr, 255),
+    )
+
+    def _embedding_by_brightness(crop_bgr):
+        if float(np.mean(crop_bgr)) > 200.0:
+            return [1.0, 0.0, 0.0]
+        return [0.0, 1.0, 0.0]
+
+    monkeypatch.setattr(matcher, "_arcface_embed", _embedding_by_brightness)
+    monkeypatch.setattr(matcher, "_embed", lambda crop_bgr: [0.0, 1.0, 0.0])
+
+    matches = matcher.match_image(image_path, source_path=image_path)
+    assert matches == []
+    first_pass_faces = store.list_faces_for_source(str(image_path))
+    assert len(first_pass_faces) == 1
+    assert first_pass_faces[0]["person_id"] is None
+    assert first_pass_faces[0]["metadata"]["analysis_variant"] == "original"
+
+    recovery_matches = matcher.match_image_recovery(image_path, source_path=image_path)
+    assert len(recovery_matches) == 1
+    assert recovery_matches[0].name == "Leslie Cordell"
+
+    recovered_faces = store.list_faces_for_source(str(image_path))
+    assert len(recovered_faces) == 1
+    assert recovered_faces[0]["metadata"]["analysis_variant"] == "rembg"

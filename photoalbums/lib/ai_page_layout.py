@@ -97,7 +97,6 @@ def _require_cv2():
     return cv2
 
 
-
 def _load_image_bgr(image_path: Path):
     cv2 = _require_cv2()
     image = cv2.imread(str(image_path), cv2.IMREAD_UNCHANGED)
@@ -119,7 +118,6 @@ def _write_png(path: Path, image) -> Path:
     if not ok:
         raise RuntimeError(f"Could not write temp PNG: {path}")
     return path
-
 
 
 def _bounds_area(bounds: LayoutBounds) -> int:

@@ -47,6 +47,41 @@ def _job_started(job_id: str) -> dict:
     }
 
 
+def _resolve_ai_index_photo_path(
+    photos_root: str, photo: Optional[str]
+) -> Optional[str]:
+    photo_value = str(photo or "").strip()
+    if not photo_value:
+        return None
+
+    photo_path = Path(photo_value)
+    if photo_path.is_absolute() or photo_path.parent != Path("."):
+        return photo_value
+
+    photos_root_path = Path(photos_root)
+    if not photos_root_path.is_dir():
+        raise ValueError(f"photos_root is not a directory: {photos_root}")
+
+    target_name = photo_path.name.casefold()
+    matches = sorted(
+        path.resolve()
+        for path in photos_root_path.rglob("*")
+        if path.is_file() and path.name.casefold() == target_name
+    )
+    if not matches:
+        raise ValueError(
+            f"Photo filename '{photo_value}' was not found under photos_root '{photos_root}'."
+        )
+    if len(matches) > 1:
+        joined = ", ".join(str(path) for path in matches[:10])
+        if len(matches) > 10:
+            joined += f", ... ({len(matches)} matches total)"
+        raise ValueError(
+            f"Photo filename '{photo_value}' is ambiguous under photos_root '{photos_root}': {joined}"
+        )
+    return str(matches[0])
+
+
 # ── Job management ─────────────────────────────────────────────────────────────
 
 
@@ -124,15 +159,12 @@ def job_log_resource(job_id: str) -> str:
 
 
 @mcp.tool()
-def cast_list_people(store_dir: str = CAST_STORE_DEFAULT) -> list[dict]:
+def cast_list_people() -> list[dict]:
     """List all people in the Cast face identity store.
 
     Returns name, aliases, notes, and face count per person (no embeddings).
-
-    Args:
-        store_dir: Path to cast data directory (default: cast/data).
     """
-    people_path = Path(store_dir) / "people.json"
+    people_path = Path(CAST_STORE_DEFAULT) / "people.json"
     if not people_path.exists():
         return []
     data = json.loads(people_path.read_text(encoding="utf-8"))
@@ -152,16 +184,14 @@ def cast_list_people(store_dir: str = CAST_STORE_DEFAULT) -> list[dict]:
 def cast_list_reviews(
     status_filter: Optional[str] = None,
     limit: int = 50,
-    store_dir: str = CAST_STORE_DEFAULT,
 ) -> list[dict]:
     """List face review queue items from the Cast store.
 
     Args:
         status_filter: Filter by status: 'pending', 'resolved', or 'ignored'. Omit for all.
         limit: Maximum number of items to return (default 50).
-        store_dir: Path to cast data directory.
     """
-    review_path = Path(store_dir) / "review_queue.jsonl"
+    review_path = Path(CAST_STORE_DEFAULT) / "review_queue.jsonl"
     if not review_path.exists():
         return []
     items = []
@@ -203,13 +233,9 @@ def cast_start_web(host: str = "0.0.0.0", port: int = 8093) -> dict:
 
 
 @mcp.tool()
-def photoalbums_manifest_summary(manifest_path: str = MANIFEST_DEFAULT) -> dict:
-    """Summarise the AI index manifest: image counts grouped by processing state.
-
-    Args:
-        manifest_path: Path to ai_index_manifest.jsonl.
-    """
-    p = Path(manifest_path)
+def photoalbums_manifest_summary() -> dict:
+    """Summarise the AI index manifest: image counts grouped by processing state."""
+    p = Path(MANIFEST_DEFAULT)
     if not p.exists():
         return {"error": "Manifest not found", "path": str(p)}
     states: dict[str, int] = {}
@@ -233,8 +259,6 @@ def photoalbums_manifest_summary(manifest_path: str = MANIFEST_DEFAULT) -> dict:
 
 @mcp.tool()
 def photoalbums_ai_index(
-    photos_root: str = PHOTOS_ROOT_DEFAULT,
-    cast_store: str = CAST_STORE_DEFAULT,
     caption_engine: str = "lmstudio",
     ocr_engine: str = "lmstudio",
     force: bool = False,
@@ -256,8 +280,6 @@ def photoalbums_ai_index(
     Use job_status(job_id) to monitor progress and job_logs(job_id) for full output.
 
     Args:
-        photos_root: Root directory of photos to process.
-        cast_store: Cast data dir for people face-matching.
         caption_engine: Caption engine: 'qwen' or 'lmstudio'.
         ocr_engine: OCR engine: 'qwen' or 'lmstudio'.
         force: Ignore manifest and re-process all images.
@@ -267,7 +289,8 @@ def photoalbums_ai_index(
         geocode_skip: Skip geocoding step.
         include_view: Also process files in *_View folders.
         max_images: Limit number of images to process (0 = unlimited).
-        photo: Path to a single photo file to process (bypasses discovery, implies force).
+        photo: Filename (or full path) of a single photo to process
+            (searches under photos_root if only a name is given; implies force).
         album: Filter to photos whose parent directory name contains this substring (case-insensitive).
         photo_offset: Skip first N discovered images (use with max_images to process a range).
         dry_run: Preview operations without writing any files.
@@ -279,9 +302,9 @@ def photoalbums_ai_index(
         "ai",
         "index",
         "--photos-root",
-        photos_root,
+        PHOTOS_ROOT_DEFAULT,
         "--cast-store",
-        cast_store,
+        CAST_STORE_DEFAULT,
         "--caption-engine",
         caption_engine,
         "--ocr-engine",
@@ -299,8 +322,9 @@ def photoalbums_ai_index(
         args.append("--geocode-skip-none")
     if include_view:
         args.append("--include-view")
-    if photo:
-        args += ["--photo", photo]
+    resolved_photo = _resolve_ai_index_photo_path(PHOTOS_ROOT_DEFAULT, photo)
+    if resolved_photo:
+        args += ["--photo", resolved_photo]
     if album:
         args += ["--album", album]
     if photo_offset:
@@ -312,31 +336,24 @@ def photoalbums_ai_index(
     if extra_args:
         args.extend(extra_args)
 
-    name = f"photoalbums_ai_index:{Path(photos_root).name}"
+    name = f"photoalbums_ai_index:{Path(PHOTOS_ROOT_DEFAULT).name}"
     return _job_started(runner.start(name, args))
 
 
 @mcp.tool()
-def photoalbums_compress(photos_root: str = PHOTOS_ROOT_DEFAULT) -> dict:
-    """Start a job to compress TIFF scans in-place. Returns a job ID.
-
-    Args:
-        photos_root: Root directory containing TIFF scans.
-    """
-    args = [PYTHON, PHOTOALBUMS_SCRIPT, "compress", "--photos-root", photos_root]
+def photoalbums_compress() -> dict:
+    """Start a job to compress TIFF scans in-place. Returns a job ID."""
+    args = [PYTHON, PHOTOALBUMS_SCRIPT, "compress", "--photos-root", PHOTOS_ROOT_DEFAULT]
     return _job_started(
-        runner.start(f"photoalbums_compress:{Path(photos_root).name}", args)
+        runner.start(f"photoalbums_compress:{Path(PHOTOS_ROOT_DEFAULT).name}", args)
     )
 
 
 @mcp.tool()
-def photoalbums_stitch(
-    photos_root: str = PHOTOS_ROOT_DEFAULT, validate_only: bool = False
-) -> dict:
+def photoalbums_stitch(validate_only: bool = False) -> dict:
     """Start a job to stitch album page outputs. Returns a job ID.
 
     Args:
-        photos_root: Root directory containing scans.
         validate_only: Only validate stitchability without writing outputs.
     """
     subcommand = "validate" if validate_only else "build"
@@ -346,10 +363,12 @@ def photoalbums_stitch(
         "stitch",
         subcommand,
         "--photos-root",
-        photos_root,
+        PHOTOS_ROOT_DEFAULT,
     ]
     return _job_started(
-        runner.start(f"photoalbums_stitch_{subcommand}:{Path(photos_root).name}", args)
+        runner.start(
+            f"photoalbums_stitch_{subcommand}:{Path(PHOTOS_ROOT_DEFAULT).name}", args
+        )
     )
 
 
@@ -468,34 +487,24 @@ def vhs_generate_comparison(
 
 
 @mcp.tool()
-def vhs_verify_archive(
-    manifest: Optional[str] = None,
-    algorithm: str = "sha3",
-) -> dict:
+def vhs_verify_archive(algorithm: str = "sha3") -> dict:
     """Start a job to verify archive checksums. Returns a job ID.
 
     Args:
-        manifest: Path to manifest file (uses default if omitted).
         algorithm: Checksum algorithm: 'sha3' or 'blake3'.
     """
     args = [PYTHON, VHS_SCRIPT, "verify", "archive"]
-    if manifest:
-        args.append(manifest)
     args.append("--sha3" if algorithm == "sha3" else "--blake3")
-    label = Path(manifest).name if manifest else "default"
-    return _job_started(runner.start(f"vhs_verify_archive:{label}", args, cwd=VHS_DIR))
+    return _job_started(runner.start("vhs_verify_archive", args, cwd=VHS_DIR))
 
 
 @mcp.tool()
-def vhs_people_prefill(
-    archive: str, chapter: str, cast_store: str = CAST_STORE_DEFAULT
-) -> dict:
+def vhs_people_prefill(archive: str, chapter: str) -> dict:
     """Start a job to prefill people metadata for a VHS chapter from the Cast store. Returns a job ID.
 
     Args:
         archive: Archive name (metadata/<archive>).
         chapter: Exact chapter title.
-        cast_store: Path to cast data directory.
     """
     args = [
         PYTHON,
@@ -507,7 +516,7 @@ def vhs_people_prefill(
         "--chapter",
         chapter,
         "--cast-store",
-        cast_store,
+        CAST_STORE_DEFAULT,
     ]
     return _job_started(
         runner.start(f"vhs_people_prefill:{archive}/{chapter}", args, cwd=VHS_DIR)
