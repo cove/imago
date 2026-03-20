@@ -1,7 +1,8 @@
 """HTTP console for the MCP job runner.
 
 Serves a browser UI at http://localhost:8091 for listing jobs,
-tailing logs, and cancelling running processes.
+tailing logs, viewing structured outputs, and cancelling running
+processes.
 
 Runs as a background thread inside the MCP server process so it shares
 the same JobRunner instance and can cancel jobs directly.
@@ -18,6 +19,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
 from typing import TYPE_CHECKING
+from urllib.parse import parse_qs, urlsplit
+
+from mcp_console_ui import HTML
+from photoalbums.lib.xmp_review import load_ai_xmp_review
 
 if TYPE_CHECKING:
     from mcp_job_runner import JobRunner
@@ -25,288 +30,6 @@ if TYPE_CHECKING:
 _JOBS_STATE = Path(__file__).resolve().parent / "mcp" / "jobs" / "jobs.json"
 
 DEFAULT_PORT = 8091
-
-# ── HTML console ───────────────────────────────────────────────────────────────
-
-_HTML = r"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Imago Job Console</title>
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: system-ui, sans-serif; background: #111; color: #ddd;
-         display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-  header { padding: 10px 16px; background: #1a1a1a; border-bottom: 1px solid #333;
-           display: flex; align-items: center; gap: 12px; flex-shrink: 0; flex-wrap: wrap; }
-  header h1 { font-size: 15px; font-weight: 600; color: #eee; letter-spacing: .02em; }
-  header .subtitle { font-size: 12px; color: #666; }
-  .main { display: flex; flex: 1; overflow: hidden; }
-  .mobile-nav { display: none; padding: 8px 12px; gap: 8px; border-bottom: 1px solid #222;
-                background: #141414; }
-  .mobile-nav button { flex: 1; min-height: 40px; padding: 8px 10px; border-radius: 8px;
-                       border: 1px solid #333; background: #1b1b1b; color: #aaa;
-                       font-size: 12px; font-weight: 600; cursor: pointer; }
-  .mobile-nav button.active { background: #243046; color: #eef4ff; border-color: #4a7fc1; }
-
-  /* Job list */
-  .job-list { width: 340px; flex-shrink: 0; border-right: 1px solid #2a2a2a;
-              display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
-  .job-list-header { padding: 8px 12px; font-size: 11px; font-weight: 600;
-                     color: #666; text-transform: uppercase; letter-spacing: .08em;
-                     border-bottom: 1px solid #222; background: #161616; flex-shrink: 0; }
-  .job-list-body { overflow-y: auto; flex: 1; }
-  .job-item { padding: 10px 12px; border-bottom: 1px solid #1e1e1e; cursor: pointer;
-              display: flex; flex-direction: column; gap: 4px; transition: background .1s; }
-  .job-item:hover { background: #1a1a1a; }
-  .job-item.selected { background: #1c2333; border-left: 3px solid #4a7fc1; }
-  .job-item .job-name { font-size: 12px; font-weight: 500; color: #ccc;
-                        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .job-item .job-meta { font-size: 11px; color: #555; display: flex; gap: 8px; }
-  .job-item .job-actions { margin-top: 4px; }
-  .badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 1px 6px;
-           border-radius: 3px; text-transform: uppercase; letter-spacing: .04em; }
-  .badge-running   { background: #0d3d1a; color: #3fb950; }
-  .badge-completed { background: #1e1e1e; color: #666; }
-  .badge-failed    { background: #3d0d0d; color: #f85149; }
-  .badge-interrupted { background: #3d2a0d; color: #d29922; }
-  .badge-cancelled { background: #3d2a0d; color: #d29922; }
-  .badge-pending   { background: #0d2a3d; color: #58a6ff; }
-  .btn-cancel { font-size: 10px; padding: 2px 8px; border-radius: 3px; border: 1px solid #555;
-                background: transparent; color: #bbb; cursor: pointer; }
-  .btn-cancel:hover { border-color: #f85149; color: #f85149; }
-  .btn-cancel:active { transform: translateY(1px); }
-  .empty { padding: 24px 12px; text-align: center; font-size: 12px; color: #888; }
-
-  /* Log panel */
-  .log-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
-  .log-header { padding: 8px 14px; border-bottom: 1px solid #222; background: #161616;
-                display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-  .log-header .log-title { font-size: 12px; font-weight: 500; color: #ccc; flex: 1;
-                            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .log-header .log-controls { display: flex; align-items: center; gap: 10px; flex-shrink: 0;
-                              flex-wrap: wrap; justify-content: flex-end; }
-  .log-header label { font-size: 11px; color: #666; display: flex; align-items: center; gap: 4px; cursor: pointer; }
-  .log-header select { font-size: 11px; background: #222; color: #aaa; border: 1px solid #333;
-                       border-radius: 3px; padding: 2px 4px; }
-  .log-body { flex: 1; overflow-y: auto; padding: 10px 14px; }
-  .log-body pre { font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
-                  font-size: 11.5px; line-height: 1.55; white-space: pre-wrap;
-                  word-break: break-all; color: #b0b0b0; }
-  .log-placeholder { display: flex; align-items: center; justify-content: center;
-                     height: 100%; font-size: 13px; color: #444; }
-  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%;
-         background: #3fb950; margin-right: 6px; animation: pulse 1.5s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
-  @media (max-width: 900px) {
-    body { overflow: auto; }
-    .mobile-nav { display: flex; }
-    .main { position: relative; }
-    .job-list, .log-panel { width: 100%; flex: 1 1 100%; border-right: 0; }
-    .job-list { border-bottom: 1px solid #222; }
-    .main.mobile-jobs .log-panel { display: none; }
-    .main.mobile-logs .job-list { display: none; }
-    .log-header { align-items: flex-start; flex-direction: column; }
-    .log-header .log-title { width: 100%; white-space: normal; }
-    .log-header .log-controls { width: 100%; justify-content: space-between; }
-    .job-item .job-meta { flex-wrap: wrap; }
-    .btn-cancel { min-height: 32px; padding: 4px 10px; }
-  }
-</style>
-</head>
-<body>
-<header>
-  <h1>Imago Job Console</h1>
-  <span class="subtitle">mcp/jobs &bull; auto-refreshes every 2s</span>
-</header>
-<div class="mobile-nav" id="mobile-nav">
-  <button type="button" id="mobile-show-jobs" onclick="setMobilePanel('jobs')">Jobs</button>
-  <button type="button" id="mobile-show-logs" onclick="setMobilePanel('logs')">Logs</button>
-</div>
-<div class="main" id="main">
-  <div class="job-list">
-    <div class="job-list-header">Jobs</div>
-    <div class="job-list-body" id="job-list"></div>
-  </div>
-  <div class="log-panel">
-    <div class="log-header">
-      <span class="log-title" id="log-title">Select a job to view logs</span>
-      <div class="log-controls">
-        <label>
-          Lines:
-          <select id="log-lines">
-            <option value="100">100</option>
-            <option value="300">300</option>
-            <option value="1000">1000</option>
-            <option value="5000">5000</option>
-          </select>
-        </label>
-        <label>
-          <input type="checkbox" id="auto-scroll" checked> Auto-scroll
-        </label>
-      </div>
-    </div>
-    <div class="log-body" id="log-body">
-      <div class="log-placeholder">No job selected</div>
-    </div>
-  </div>
-</div>
-<script>
-  let selectedId = null;
-  let jobs = [];
-  let logLines = [];       // accumulated lines for selected job
-  let activeStream = null; // current EventSource
-  let mobilePanel = 'jobs';
-
-  function isMobileLayout() {
-    return window.matchMedia('(max-width: 900px)').matches;
-  }
-
-  function updateMobileNav() {
-    const main = document.getElementById('main');
-    const jobsBtn = document.getElementById('mobile-show-jobs');
-    const logsBtn = document.getElementById('mobile-show-logs');
-    const current = isMobileLayout() ? mobilePanel : 'desktop';
-    main.classList.toggle('mobile-jobs', current === 'jobs');
-    main.classList.toggle('mobile-logs', current === 'logs');
-    jobsBtn.classList.toggle('active', current === 'jobs');
-    logsBtn.classList.toggle('active', current === 'logs');
-    logsBtn.disabled = !selectedId;
-  }
-
-  function setMobilePanel(panel) {
-    mobilePanel = panel === 'logs' && !selectedId ? 'jobs' : panel;
-    updateMobileNav();
-  }
-
-  function badge(status) {
-    return `<span class="badge badge-${status}">${status}</span>`;
-  }
-
-  function duration(job) {
-    if (!job.started_at) return '';
-    const start = new Date(job.started_at);
-    const end = job.ended_at ? new Date(job.ended_at) : new Date();
-    const s = Math.round((end - start) / 1000);
-    if (s < 60) return `${s}s`;
-    if (s < 3600) return `${Math.floor(s/60)}m ${s%60}s`;
-    return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`;
-  }
-
-  function timeAgo(iso) {
-    if (!iso) return '';
-    const d = new Date(iso);
-    return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
-  }
-
-  async function fetchJobs() {
-    try {
-      const r = await fetch('/api/jobs');
-      jobs = await r.json();
-      renderJobList();
-    } catch (e) {
-      const el = document.getElementById('job-list');
-      if (el && !jobs.length) el.innerHTML = `<div class="empty">Error: ${e.message}</div>`;
-    }
-  }
-
-  function renderJobList() {
-    const el = document.getElementById('job-list');
-    if (!jobs.length) {
-      el.innerHTML = '<div class="empty">No jobs yet</div>';
-      return;
-    }
-    el.innerHTML = jobs.map(j => {
-      const sel = j.id === selectedId ? ' selected' : '';
-      const cancelBtn = j.status === 'running'
-        ? `<div class="job-actions"><button class="btn-cancel" onclick="cancelJob('${j.id}', event)">Cancel</button></div>`
-        : '';
-      const live = j.status === 'running' ? '<span class="dot"></span>' : '';
-      return `
-        <div class="job-item${sel}" onclick="selectJob('${j.id}')">
-          <div class="job-name">${live}${escHtml(j.name)}</div>
-          <div class="job-meta">
-            ${badge(j.status)}
-            <span>${timeAgo(j.started_at)}</span>
-            <span>${duration(j)}</span>
-          </div>
-          ${cancelBtn}
-        </div>`;
-    }).join('');
-  }
-
-  function escHtml(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-
-  function renderLogLines() {
-    const body = document.getElementById('log-body');
-    const autoScroll = document.getElementById('auto-scroll').checked;
-    const atBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 40;
-    const n = parseInt(document.getElementById('log-lines').value, 10);
-    const visible = logLines.slice(-n);
-    body.innerHTML = `<pre>${escHtml(visible.join('\n') || '(no output yet)')}</pre>`;
-    if (autoScroll && atBottom) body.scrollTop = body.scrollHeight;
-  }
-
-  function openStream(id) {
-    if (activeStream) { activeStream.close(); activeStream = null; }
-    logLines = [];
-    const job = jobs.find(j => j.id === id);
-    if (!job) return;
-    document.getElementById('log-title').textContent = `${job.name}  [${id}]`;
-    renderLogLines();
-
-    const es = new EventSource(`/api/jobs/${id}/stream`);
-    activeStream = es;
-
-    es.onmessage = (e) => {
-      logLines.push(e.data);
-      renderLogLines();
-    };
-
-    es.addEventListener('done', () => {
-      es.close();
-      activeStream = null;
-      fetchJobs(); // refresh status badge
-    });
-
-    es.onerror = () => {
-      es.close();
-      activeStream = null;
-    };
-  }
-
-  function selectJob(id) {
-    selectedId = id;
-    renderJobList();
-    openStream(id);
-    if (isMobileLayout()) setMobilePanel('logs');
-  }
-
-  async function cancelJob(id, ev) {
-    ev.stopPropagation();
-    if (!confirm('Cancel this job?')) return;
-    await fetch(`/api/jobs/${id}/cancel`, {method: 'POST'});
-    await fetchJobs();
-  }
-
-  document.getElementById('log-lines').addEventListener('change', renderLogLines);
-  window.addEventListener('resize', updateMobileNav);
-
-  // Poll job list every 2s to pick up new jobs and update status badges.
-  // Log content is streamed via SSE — no log polling needed.
-  setInterval(fetchJobs, 2000);
-  updateMobileNav();
-  fetchJobs();
-</script>
-</body>
-</html>
-"""
-
-
-# ── HTTP handler ───────────────────────────────────────────────────────────────
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -317,9 +40,9 @@ class _Handler(BaseHTTPRequestHandler):
             return []
         try:
             data = json.loads(_JOBS_STATE.read_text(encoding="utf-8"))
-            return sorted(data.values(), key=lambda j: j.get("started_at", ""), reverse=True)
         except Exception:
             return []
+        return sorted(data.values(), key=lambda job: job.get("started_at", ""), reverse=True)
 
     @staticmethod
     def _read_job(job_id: str) -> dict | None:
@@ -330,41 +53,60 @@ class _Handler(BaseHTTPRequestHandler):
         except Exception:
             return None
 
+    @staticmethod
+    def _read_artifacts(job: dict | None) -> list[dict]:
+        if not isinstance(job, dict):
+            return []
+        artifact_file = str(job.get("artifact_file") or "").strip()
+        if not artifact_file:
+            return []
+        path = Path(artifact_file)
+        if not path.exists():
+            return []
+        rows: list[dict] = []
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            text = str(line or "").strip()
+            if not text:
+                continue
+            row = json.loads(text)
+            if isinstance(row, dict):
+                rows.append(row)
+        return rows
+
     def do_GET(self) -> None:
-        path = self.path.split("?")[0]
+        parsed = urlsplit(self.path)
+        path = parsed.path
+        query = parse_qs(parsed.query)
+
         if path in ("/", "/index.html"):
             self._html()
-        elif path == "/api/jobs":
+            return
+
+        if path == "/api/jobs":
             self._json(self._read_jobs())
-        elif path.startswith("/api/jobs/") and path.endswith("/logs"):
-            job_id = path.split("/")[3]
-            last_n = 200
-            if "?" in self.path:
-                for part in self.path.split("?", 1)[1].split("&"):
-                    if part.startswith("last="):
-                        try:
-                            last_n = int(part[5:])
-                        except ValueError:
-                            pass
-            job = self._read_job(job_id)
-            if not job:
-                self.send_error(HTTPStatus.NOT_FOUND)
-                return
-            log_path = Path(job["log_file"])
-            if log_path.exists():
-                lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
-                logs = "\n".join(lines[-last_n:])
-            else:
-                logs = "(no output yet)"
-            self._json({"logs": logs})
-        elif path.startswith("/api/jobs/") and path.endswith("/stream"):
+            return
+
+        if path == "/api/xmp-review":
+            self._xmp_review(query)
+            return
+
+        if path.startswith("/api/jobs/") and path.endswith("/logs"):
+            self._job_logs(path, query)
+            return
+
+        if path.startswith("/api/jobs/") and path.endswith("/artifacts"):
+            self._job_artifacts(path)
+            return
+
+        if path.startswith("/api/jobs/") and path.endswith("/stream"):
             job_id = path.split("/")[3]
             self._stream_logs(job_id)
-        else:
-            self.send_error(HTTPStatus.NOT_FOUND)
+            return
+
+        self.send_error(HTTPStatus.NOT_FOUND)
 
     def do_POST(self) -> None:
-        path = self.path.split("?")[0]
+        path = self.path.split("?", 1)[0]
         if path.startswith("/api/jobs/") and path.endswith("/cancel"):
             job_id = path.split("/")[3]
             job = self._read_job(job_id)
@@ -383,8 +125,50 @@ class _Handler(BaseHTTPRequestHandler):
                 self._json({"ok": True, "message": f"Sent SIGTERM to job {job_id} (pid {pid})"})
             except OSError as exc:
                 self._json({"error": str(exc)})
-        else:
+            return
+        self.send_error(HTTPStatus.NOT_FOUND)
+
+    def _job_logs(self, path: str, query: dict[str, list[str]]) -> None:
+        job_id = path.split("/")[3]
+        job = self._read_job(job_id)
+        if not job:
             self.send_error(HTTPStatus.NOT_FOUND)
+            return
+        last_n = 200
+        values = query.get("last") or []
+        if values:
+            try:
+                last_n = int(values[0])
+            except ValueError:
+                last_n = 200
+        log_path = Path(job["log_file"])
+        if log_path.exists():
+            lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+            logs = "\n".join(lines[-last_n:])
+        else:
+            logs = "(no output yet)"
+        self._json({"logs": logs})
+
+    def _job_artifacts(self, path: str) -> None:
+        job_id = path.split("/")[3]
+        job = self._read_job(job_id)
+        if not job:
+            self.send_error(HTTPStatus.NOT_FOUND)
+            return
+        self._json(self._read_artifacts(job))
+
+    def _xmp_review(self, query: dict[str, list[str]]) -> None:
+        sidecar_values = query.get("sidecar_path") or []
+        sidecar_path = str(sidecar_values[0] if sidecar_values else "").strip()
+        if not sidecar_path:
+            self._json({"error": "Missing sidecar_path query parameter"}, status=HTTPStatus.BAD_REQUEST)
+            return
+        try:
+            payload = load_ai_xmp_review(sidecar_path, include_raw_xml=True)
+        except ValueError as exc:
+            self._json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+        self._json(payload)
 
     def _stream_logs(self, job_id: str) -> None:
         """Stream job log lines as SSE events until the job finishes."""
@@ -414,29 +198,26 @@ class _Handler(BaseHTTPRequestHandler):
                     break
                 time.sleep(0.5)
         except (BrokenPipeError, ConnectionResetError):
-            pass  # client disconnected
+            pass
 
     def _html(self) -> None:
-        body = _HTML.encode()
+        body = HTML.encode()
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
-    def _json(self, data: object) -> None:
+    def _json(self, data: object, *, status: HTTPStatus = HTTPStatus.OK) -> None:
         body = json.dumps(data).encode()
-        self.send_response(HTTPStatus.OK)
+        self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
     def log_message(self, fmt: str, *args: object) -> None:
-        pass  # suppress per-request logs
-
-
-# ── Public API ─────────────────────────────────────────────────────────────────
+        pass
 
 
 def start_console(

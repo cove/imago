@@ -15,6 +15,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "15th century sera monastery": {
+    "query": "15th Century Sera Monastery",
+    "status": "miss"
+  },
   "15th century sera monastery, china": {
     "query": "15th Century Sera Monastery, China",
     "status": "miss"
@@ -206,6 +210,10 @@
     "query": "Avon River- Christchurch",
     "source": "nominatim",
     "status": "ok"
+  },
+  "bambo village, china": {
+    "query": "Bambo Village, China",
+    "status": "miss"
   },
   "bamboo village, china": {
     "display_name": "No. 1 bamboo weaving village of China, 外南街, 青竹街道, 南城, 青神县, 眉山市, 四川省, 620400, 中国",
@@ -839,12 +847,24 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "chendou, china": {
+    "display_name": "沉斗, 诗洞镇, 怀集县, 肇庆市, 广东省, 中国",
+    "latitude": "23.6346996",
+    "longitude": "112.0344990",
+    "query": "Chendou, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "chendou, sichuan province, china": {
     "query": "Chendou, Sichuan Province, China",
     "status": "miss"
   },
   "chendou, tibet autonomous region, china": {
     "query": "Chendou, Tibet Autonomous Region, China",
+    "status": "miss"
+  },
+  "chendou, tibet, china": {
+    "query": "Chendou, Tibet, China",
     "status": "miss"
   },
   "chendu, china": {
@@ -1447,9 +1467,21 @@
     "query": "Dunhuang Summer Culture Centre, Dunhuang Hotel, Dunhuang, Gansu, China",
     "status": "miss"
   },
+  "dunhuang summer culture centre, dunhuang, china": {
+    "query": "Dunhuang Summer Culture Centre, Dunhuang, China",
+    "status": "miss"
+  },
   "dunhuang summer culture centre, dunhuang, gansu, china": {
     "query": "Dunhuang Summer Culture Centre, Dunhuang, Gansu, China",
     "status": "miss"
+  },
+  "dunhuang, china": {
+    "display_name": "敦煌市, 酒泉市, 甘肃省, 736200, 中国",
+    "latitude": "40.1411004",
+    "longitude": "94.6607593",
+    "query": "Dunhuang, China",
+    "source": "nominatim",
+    "status": "ok"
   },
   "dunhuang, gansu, china": {
     "display_name": "敦煌市, 酒泉市, 甘肃省, 736200, 中国",
@@ -1943,6 +1975,14 @@
     "query": "Great Wall Fort, Jiayuguan, Gansu, China",
     "status": "miss"
   },
+  "great wall of china": {
+    "display_name": "长城, 店神线, 小寨, 神池县, 忻州市, 山西省, 中国",
+    "latitude": "39.2073194",
+    "longitude": "112.2081508",
+    "query": "Great Wall of China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "great wall of china, china": {
     "display_name": "长城, 店神线, 黄泥井, 神池县, 忻州市, 山西省, 中国",
     "latitude": "39.2615835",
@@ -2131,6 +2171,22 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "hong kong, hong kong": {
+    "display_name": "香港 Hong Kong, 中国",
+    "latitude": "22.2792968",
+    "longitude": "114.1628907",
+    "query": "Hong Kong, Hong Kong",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "hotel in xian, china": {
+    "display_name": "唐华酒店, 河西路, 南宫社区, 雷虎村, 高州市, 茂名市, 广东省, 525200, 中国",
+    "latitude": "21.9121782",
+    "longitude": "110.8369946",
+    "query": "Hotel in Xian, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "hotels on the nile river at aswan dam egypt - dec. 1960 old cataract hotel aswan egypt new cataract hotel sail boats on the nile at aswan": {
     "query": "HOTELS ON THE NILE RIVER AT ASWAN DAM EGYPT - DEC. 1960 OLD CATARACT HOTEL ASWAN EGYPT NEW CATARACT HOTEL SAIL BOATS ON THE NILE AT ASWAN",
     "status": "miss"
@@ -2138,6 +2194,14 @@
   "hotels on the nile river at aswan dam, egypt - dec. 1975": {
     "query": "Hotels on the Nile River at Aswan Dam, Egypt - Dec. 1975",
     "status": "miss"
+  },
+  "hua qing hot springs": {
+    "display_name": "华清宫, 骊山街道, 临潼区, 西安市, 陕西省, 中国",
+    "latitude": "34.3649458",
+    "longitude": "109.2075327",
+    "query": "Hua Qing Hot Springs",
+    "source": "nominatim",
+    "status": "ok"
   },
   "hua qing hot springs and qin ling mountains, china": {
     "query": "Hua Qing Hot Springs and Qin Ling Mountains, China",
@@ -2166,6 +2230,14 @@
   "hua qing hot springs, xi'an, shaanxi, china; qin ling mountains, shaanxi, china": {
     "query": "Hua Qing Hot Springs, Xi'an, Shaanxi, China; Qin Ling Mountains, Shaanxi, China",
     "status": "miss"
+  },
+  "hua ting temple": {
+    "display_name": "华亭寺, 西山黑森林林道, 龙门, 碧鸡街道, 西山区, 昆明市, 云南省, 650228, 中国",
+    "latitude": "24.9733549",
+    "longitude": "102.6259775",
+    "query": "Hua Ting Temple",
+    "source": "nominatim",
+    "status": "ok"
   },
   "hua ting temple, china": {
     "display_name": "华亭寺, 西山黑森林林道, 龙门, 碧鸡街道, 西山区, 昆明市, 云南省, 650228, 中国",
@@ -2388,6 +2460,14 @@
     "latitude": "29.6528598",
     "longitude": "91.1317978",
     "query": "Jokhang Temple, Lhasa, Tibet",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "jokhang temple, lhasa, tibet autonomous region, china": {
+    "display_name": "ཇོ་ཁང། 大昭寺, 大昭寺广场, བར་སྐོར། 八廓街, ཁྲོམ་གཟིགས་ཁང། 冲赛康, 八廓街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
+    "latitude": "29.6528598",
+    "longitude": "91.1317978",
+    "query": "Jokhang Temple, Lhasa, Tibet Autonomous Region, China",
     "source": "nominatim",
     "status": "ok"
   },
@@ -2623,6 +2703,10 @@
     "query": "Lake Windermere, The Lake District, England",
     "status": "miss"
   },
+  "landmark, city, country": {
+    "query": "Landmark, City, Country",
+    "status": "miss"
+  },
   "lanting grottoes, yulin, shaanxi, china": {
     "query": "Lanting Grottoes, Yulin, Shaanxi, China",
     "status": "miss"
@@ -2656,6 +2740,14 @@
     "latitude": "29.6542054",
     "longitude": "91.1173015",
     "query": "Lasa, Tibet",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "lasa, tibet autonomous region, china": {
+    "display_name": "拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
+    "latitude": "29.6542054",
+    "longitude": "91.1173015",
+    "query": "Lasa, Tibet Autonomous Region, China",
     "source": "nominatim",
     "status": "ok"
   },
@@ -3007,6 +3099,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "mainland china 1986 book 11": {
+    "query": "Mainland China 1986 Book 11",
+    "status": "miss"
+  },
   "mainz, germany": {
     "display_name": "Mainz, Rheinland-Pfalz, Deutschland",
     "latitude": "49.9995205",
@@ -3062,6 +3158,10 @@
     "query": "Maritime Museum, Greenwich, London, United Kingdom",
     "source": "nominatim",
     "status": "ok"
+  },
+  "market place in lasa (lhasa), china": {
+    "query": "Market Place in Lasa (Lhasa), China",
+    "status": "miss"
   },
   "market place in lasa, china": {
     "query": "Market Place in Lasa, China",
@@ -3146,6 +3246,14 @@
   "memphis, egypt; saqqara, egypt": {
     "query": "Memphis, Egypt; Saqqara, Egypt",
     "status": "miss"
+  },
+  "mogao caves": {
+    "display_name": "莫高窟, 慈氏塔广场, 敦煌市, 酒泉市, 甘肃省, 736200, 中国",
+    "latitude": "40.0373163",
+    "longitude": "94.8042114",
+    "query": "Mogao Caves",
+    "source": "nominatim",
+    "status": "ok"
   },
   "mogao caves, china": {
     "display_name": "莫高窟, 慈氏塔广场, 敦煌市, 酒泉市, 甘肃省, 736200, 中国",
@@ -3649,6 +3757,10 @@
   },
   "portala palace, lhasa, tibet": {
     "query": "Portala Palace, Lhasa, Tibet",
+    "status": "miss"
+  },
+  "portala palace, lhasa, tibet autonomous region, china": {
+    "query": "Portala Palace, Lhasa, Tibet Autonomous Region, China",
     "status": "miss"
   },
   "portala palace, lhasa, tibet, china": {
@@ -4659,6 +4771,10 @@
     "query": "Temple of Ramesses II, Temple of Queen Nefertari, Temples of King Ramesses & Queen Nefertari, Egypt",
     "status": "miss"
   },
+  "terra cotta army, xi'an, shaanxi, china": {
+    "query": "Terra Cotta Army, Xi'an, Shaanxi, China",
+    "status": "miss"
+  },
   "terraced houses and chimneys london suburbs": {
     "query": "Terraced Houses and Chimneys London Suburbs",
     "status": "miss"
@@ -4670,6 +4786,14 @@
   "terracotta army museum, xi'an, shaanxi, china": {
     "query": "Terracotta Army Museum, Xi'an, Shaanxi, China",
     "status": "miss"
+  },
+  "terracotta army, xi'an, china": {
+    "display_name": "兵马俑连接线, 临潼区, 西安市, 陕西省, 710600, 中国",
+    "latitude": "34.4085181",
+    "longitude": "109.2369606",
+    "query": "Terracotta Army, Xi'an, China",
+    "source": "nominatim",
+    "status": "ok"
   },
   "terracotta army, xi'an, shaanxi province, china": {
     "display_name": "兵马俑连接线, 临潼区, 西安市, 陕西省, 710600, 中国",
@@ -4686,6 +4810,10 @@
     "query": "Terracotta Army, Xi'an, Shaanxi, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "terracotta army, xianyang, shaanxi, china": {
+    "query": "Terracotta Army, Xianyang, Shaanxi, China",
+    "status": "miss"
   },
   "terracotta warriors museum, xi'an, china": {
     "display_name": "秦始皇兵马俑博物馆, 电瓶车路, 临潼区, 西安市, 陕西省, 中国",
@@ -4851,6 +4979,10 @@
     "query": "The Stocks, Stow-on-the-Wold, The Cotswolds, Burton-on-the-Water, Burton-on-the-Hill, Bourton-on-the-Hill",
     "status": "miss"
   },
+  "the stone forest (shilin), yunnan, china": {
+    "query": "The Stone Forest (Shilin), Yunnan, China",
+    "status": "miss"
+  },
   "the stone forest, kunming, yunnan province, china": {
     "display_name": "The Minor Stone Forest, 阿诗玛北路, 石林彝族自治县, 昆明市, 云南省, 652200, 中国",
     "latitude": "24.8193006",
@@ -4881,6 +5013,14 @@
   },
   "the wild goose pagoda, xi'an, shaanxi, china": {
     "query": "The Wild Goose Pagoda, Xi'an, Shaanxi, China",
+    "status": "miss"
+  },
+  "the yellow river at lanzhou": {
+    "query": "The Yellow River at Lanzhou",
+    "status": "miss"
+  },
+  "the zoo at chendou": {
+    "query": "The Zoo at Chendou",
     "status": "miss"
   },
   "the zoo at chengdu, sichuan, china": {
@@ -4925,6 +5065,14 @@
   },
   "tomb of aga khan iii, egypt": {
     "query": "Tomb of Aga Khan III, Egypt",
+    "status": "miss"
+  },
+  "tomb of emperor qin shi huangdi, china": {
+    "query": "Tomb of Emperor Qin Shi Huangdi, China",
+    "status": "miss"
+  },
+  "tomb of emperor qin shi huangdi, shaanxi, china": {
+    "query": "Tomb of Emperor Qin Shi Huangdi, Shaanxi, China",
     "status": "miss"
   },
   "tomb of emperor qin shi huangdi, xi'an, china": {
@@ -5299,6 +5447,14 @@
     "query": "Wien (Vienna), Austria; Budapest, Hungary",
     "status": "miss"
   },
+  "wild goose pagoda, xi'an, china": {
+    "display_name": "大雁塔, 雁塔西步行街, 大雁塔街道, 雁塔区, 西安市, 陕西省, 710064, 中国",
+    "latitude": "34.2197968",
+    "longitude": "108.9594259",
+    "query": "Wild Goose Pagoda, Xi'an, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "wild goose pagoda, xi'an, shaanxi, china": {
     "display_name": "大雁塔, 雁塔西步行街, 大雁塔街道, 雁塔区, 西安市, 陕西省, 710064, 中国",
     "latitude": "34.2197968",
@@ -5436,6 +5592,14 @@
     "latitude": "36.0962221",
     "longitude": "103.6869430",
     "query": "Yellow River, Lanzhou, Gansu, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "yingzhou, china": {
+    "display_name": "颍州区, 阜阳市, 安徽省, 中国",
+    "latitude": "32.8856220",
+    "longitude": "115.8014893",
+    "query": "Yingzhou, China",
     "source": "nominatim",
     "status": "ok"
   },
