@@ -73,6 +73,11 @@ def _progress_ticker(prefix: str, _interval: float = 0.5):
     return stop, set_step
 
 
+def _format_reprocess_reasons(reasons: list[str]) -> str:
+    clean = _dedupe([str(reason or "").strip() for reason in reasons])
+    return ", ".join(clean)
+
+
 def _compute_people_positions(people_matches: list, image_path: Path) -> dict[str, str]:
     """Return a dict mapping each identified person's name to a position label.
 
@@ -2243,6 +2248,36 @@ def run(argv: list[str] | None = None) -> int:
         settings_sig = _settings_signature(effective)
         creator_tool = str(effective.get("creator_tool", args.creator_tool))
 
+        existing_sidecar_valid = has_valid_sidecar(image_path)
+        existing_sidecar_current = has_current_sidecar(image_path) if existing_sidecar_valid else False
+        existing_sidecar_state: dict | None = None
+        if existing_sidecar_valid:
+            existing_sidecar_state = read_ai_sidecar_state(sidecar_path)
+
+        existing_sidecar_complete = False
+        reprocess_required = False
+        reprocess_reasons: list[str] = []
+        if existing_sidecar_valid and not existing_sidecar_current:
+            reprocess_reasons.append("sidecar_older_than_image")
+        if _sidecar_has_lmstudio_caption_error(existing_sidecar_state):
+            reprocess_required = True
+            reprocess_reasons.append("lmstudio_caption_error")
+        if existing_sidecar_valid:
+            existing_sidecar_complete = sidecar_has_expected_ai_fields(
+                sidecar_path,
+                creator_tool=creator_tool,
+                enable_people=bool(effective.get("enable_people", True)),
+                enable_objects=bool(effective.get("enable_objects", True)),
+                ocr_engine=str(effective.get("ocr_engine", defaults["ocr_engine"])),
+                caption_engine=str(effective.get("caption_engine", defaults["caption_engine"])),
+            )
+
+        if existing_sidecar_current and existing_sidecar_complete and not reprocess_required and not force_processing:
+            skipped += 1
+            if args.verbose and not stdout_only:
+                print(f"[{idx}/{len(files)}] skip  {image_path.name} (current xmp)")
+            continue
+
         people_matcher = None
         current_cast_signature = ""
         if bool(effective.get("enable_people", True)):
@@ -2261,10 +2296,6 @@ def run(argv: list[str] | None = None) -> int:
                 people_matcher_cache[people_key] = people_matcher
             current_cast_signature = str(people_matcher.store_signature())
 
-        existing_sidecar_state: dict | None = None
-        if has_valid_sidecar(image_path):
-            existing_sidecar_state = read_ai_sidecar_state(sidecar_path)
-
         existing_sidecar_ocr_hash = _hash_text(str((existing_sidecar_state or {}).get("ocr_text") or ""))
         multi_scan_group_paths = _scan_group_paths(image_path)
         archive_stitched_ocr_required = (
@@ -2276,19 +2307,10 @@ def run(argv: list[str] | None = None) -> int:
         )
 
         manifest_row = manifest.get(str(image_path))
-        reprocess_required = False
         people_update_only = False
-        if _sidecar_has_lmstudio_caption_error(existing_sidecar_state):
+        if existing_sidecar_valid and not existing_sidecar_complete:
             reprocess_required = True
-        if has_valid_sidecar(image_path) and not sidecar_has_expected_ai_fields(
-            sidecar_path,
-            creator_tool=creator_tool,
-            enable_people=bool(effective.get("enable_people", True)),
-            enable_objects=bool(effective.get("enable_objects", True)),
-            ocr_engine=str(effective.get("ocr_engine", defaults["ocr_engine"])),
-            caption_engine=str(effective.get("caption_engine", defaults["caption_engine"])),
-        ):
-            reprocess_required = True
+            reprocess_reasons.append("sidecar_incomplete")
         if archive_stitched_ocr_required:
             manifest_source = str((manifest_row or {}).get("ocr_authority_source") or "").strip()
             manifest_signature = str((manifest_row or {}).get("ocr_authority_signature") or "").strip()
@@ -2306,10 +2328,12 @@ def run(argv: list[str] | None = None) -> int:
             )
             if not manifest_matches_stitched_authority and not sidecar_has_current_stitched_authority:
                 reprocess_required = True
+                reprocess_reasons.append("missing_stitched_authority")
         if manifest_row is not None:
             old_sig = str(manifest_row.get("settings_signature") or "")
-            if old_sig != settings_sig:
+            if old_sig != settings_sig and not (existing_sidecar_current and existing_sidecar_complete):
                 reprocess_required = True
+                reprocess_reasons.append("settings_signature_mismatch")
             elif bool(effective.get("enable_people", True)):
                 if str(manifest_row.get("cast_store_signature") or "") != current_cast_signature:
                     # Cast changed: only re-run people+caption if faces were detected here.
@@ -2317,6 +2341,7 @@ def run(argv: list[str] | None = None) -> int:
                     _pd = (existing_sidecar_state or {}).get("people_detected")
                     if _pd is True or _pd is None:
                         people_update_only = True
+                        reprocess_reasons.append("cast_store_signature_changed")
                     # _pd is False → no faces in this image, cast change is irrelevant
 
         needs_full = needs_processing(
@@ -2337,6 +2362,19 @@ def run(argv: list[str] | None = None) -> int:
             if args.verbose and not stdout_only:
                 print(f"[{idx}/{len(files)}] skip  {image_path.name} (render_settings skip=true)")
             continue
+
+        if existing_sidecar_valid and not stdout_only:
+            reason_text = _format_reprocess_reasons(reprocess_reasons)
+            if needs_full and reason_text:
+                print(
+                    f"  [{idx}/{len(files)}]  {image_path.name}  [reprocess: {reason_text}]",
+                    flush=True,
+                )
+            elif people_update_only and reason_text:
+                print(
+                    f"  [{idx}/{len(files)}]  {image_path.name}  [update: {reason_text}]",
+                    flush=True,
+                )
 
         # ── Fast path: cast changed but only people+caption need updating ──────
         try:

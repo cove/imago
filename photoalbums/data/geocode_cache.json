@@ -247,6 +247,14 @@
     "query": "Bampo Village, China",
     "status": "miss"
   },
+  "bath abbey - bath": {
+    "display_name": "Bath Abbey, Abbey Churchyard, Kingsmead, Bath, Bath and North East Somerset, West of England, England, BA1 1LT, United Kingdom",
+    "latitude": "51.3814544",
+    "longitude": "-2.3588659",
+    "query": "Bath Abbey - Bath",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "bath abbey - bath, city of bath": {
     "query": "Bath Abbey - Bath, City of Bath",
     "status": "miss"
@@ -262,6 +270,14 @@
   "bath abbey and roman baths, bath, somerset, england": {
     "query": "Bath Abbey and Roman Baths, Bath, Somerset, England",
     "status": "miss"
+  },
+  "bath abbey, bath": {
+    "display_name": "Bath Abbey, Abbey Churchyard, Kingsmead, Bath, Bath and North East Somerset, West of England, England, BA1 1LT, United Kingdom",
+    "latitude": "51.3814544",
+    "longitude": "-2.3588659",
+    "query": "Bath Abbey, Bath",
+    "source": "nominatim",
+    "status": "ok"
   },
   "bath abbey, bath, somerset, england": {
     "display_name": "Bath Abbey, Abbey Churchyard, Kingsmead, Bath, Bath and North East Somerset, West of England, England, BA1 1LT, United Kingdom",
@@ -1031,6 +1047,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "chipping campden": {
+    "display_name": "Chipping Campden, Cotswold, Gloucestershire, England, United Kingdom",
+    "latitude": "52.0496652",
+    "longitude": "-1.7813927",
+    "query": "Chipping Campden",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "chipping campden and broadway, cotswolds, england": {
     "query": "Chipping Campden and Broadway, Cotswolds, England",
     "status": "miss"
@@ -1114,6 +1138,14 @@
   "city of bath, worcester cathedral": {
     "query": "City of Bath, Worcester Cathedral",
     "status": "miss"
+  },
+  "clovelly": {
+    "display_name": "Clovelly, Torridge, Devon, Devon and Torbay, England, United Kingdom",
+    "latitude": "50.9909081",
+    "longitude": "-4.3998573",
+    "query": "Clovelly",
+    "source": "nominatim",
+    "status": "ok"
   },
   "clovelly high street, clovelly, devon, england": {
     "display_name": "Clovelly Methodist Chapel, High Street, Higher Clovelly, Clovelly, Torridge, Devon, Devon and Torbay, England, EX39 5TB, United Kingdom",
@@ -2267,6 +2299,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "high street, broadway, worcestershire": {
+    "display_name": "High Street, Broadway, Wychavon, Worcestershire, England, WR12 7DP, United Kingdom",
+    "latitude": "52.0360432",
+    "longitude": "-1.8603181",
+    "query": "High Street, Broadway, Worcestershire",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "high street, broadway, worcestershire, the cotswolds, stow-on-the-wold, england": {
     "query": "High Street, Broadway, Worcestershire, The Cotswolds, Stow-on-the-Wold, England",
     "status": "miss"
@@ -2730,6 +2770,22 @@
   "keble college, oxford, england; the hall, all souls college, oxford, england": {
     "query": "Keble College, Oxford, England; The Hall, All Souls College, Oxford, England",
     "status": "miss"
+  },
+  "kenilworth": {
+    "display_name": "Kenilworth, New Trier Township, Cook County, Illinois, United States",
+    "latitude": "42.0894728",
+    "longitude": "-87.7149295",
+    "query": "Kenilworth",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "kenilworth castle": {
+    "display_name": "Kenilworth Castle, The Tiltyard, Castle Green, Kenilworth, Warwick, Warwickshire, England, CV8 1NG, United Kingdom",
+    "latitude": "52.3479445",
+    "longitude": "-1.5924026",
+    "query": "Kenilworth Castle",
+    "source": "nominatim",
+    "status": "ok"
   },
   "kenilworth castle, england, united kingdom": {
     "display_name": "Kenilworth Castle, The Tiltyard, Castle Green, Kenilworth, Warwick, Warwickshire, England, CV8 1NG, United Kingdom",
@@ -4643,9 +4699,21 @@
     "query": "SEVILLE, SPAIN SQUARE OF AMERICA",
     "status": "miss"
   },
+  "shakespeare's birth place": {
+    "query": "Shakespeare's Birth Place",
+    "status": "miss"
+  },
   "shakespeare's birthplace and holy trinity church, stratford-upon-avon, england": {
     "query": "Shakespeare's Birthplace and Holy Trinity Church, Stratford-upon-Avon, England",
     "status": "miss"
+  },
+  "shakespeare's birthplace, stratford-upon-avon": {
+    "display_name": "Shakespeare's Birthplace, Henley Street, Stratford-upon-Avon, Stratford-on-Avon, Warwickshire, England, CV37 6QW, United Kingdom",
+    "latitude": "52.1938833",
+    "longitude": "-1.7080084",
+    "query": "Shakespeare's Birthplace, Stratford-upon-Avon",
+    "source": "nominatim",
+    "status": "ok"
   },
   "shakespeare's birthplace, stratford-upon-avon, england": {
     "display_name": "Shakespeare's Birthplace, Henley Street, Stratford-upon-Avon, Stratford-on-Avon, Warwickshire, England, CV37 6QW, United Kingdom",
@@ -4795,6 +4863,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "st ives, england": {
+    "display_name": "St. Ives, Cornwall, England, United Kingdom",
+    "latitude": "50.2149064",
+    "longitude": "-5.4795083",
+    "query": "St Ives, England",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "st john's college, cambridge, england": {
     "display_name": "St John's College, Mount Pleasant Walk, Cambridge, Cambridgeshire, Cambridgeshire and Peterborough, England, CB3 0BW, United Kingdom",
     "latitude": "52.2087631",
@@ -4893,6 +4969,10 @@
   },
   "statfor-upon-avon, england": {
     "query": "Statfor-upon-Avon, England",
+    "status": "miss"
+  },
+  "statford-upon-avon": {
+    "query": "Statford-upon-Avon",
     "status": "miss"
   },
   "statford-upon-avon, england": {
@@ -5227,6 +5307,14 @@
     "query": "The Great Sphinx & the Pyramids - Cairo, Egypt, December 1975; In the City of the Dead; Homes outside of Cairo; Of the very poor along the banks of a canal on road to Memphis",
     "status": "miss"
   },
+  "the guildhall - worcester": {
+    "display_name": "The Guildhall, High Street, Red Hill, Worcester, Worcestershire, England, WR1 2EY, United Kingdom",
+    "latitude": "52.1911655",
+    "longitude": "-2.2208280",
+    "query": "The Guildhall - Worcester",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "the guildhall - worcester, the river severn & cathedral worcester": {
     "query": "The Guildhall - Worcester, The River Severn & Cathedral Worcester",
     "status": "miss"
@@ -5354,6 +5442,14 @@
   "the sphinx avenue, luxor, egypt; amon temple, luxor, egypt": {
     "query": "The Sphinx Avenue, Luxor, Egypt; Amon Temple, Luxor, Egypt",
     "status": "miss"
+  },
+  "the stocks, stow-on-the-wold": {
+    "display_name": "The Old Stocks Inn, Market Square, Stow-on-the-Wold, Cotswold, Gloucestershire, England, GL54 1AF, United Kingdom",
+    "latitude": "51.9308985",
+    "longitude": "-1.7227357",
+    "query": "The Stocks, Stow-on-the-Wold",
+    "source": "nominatim",
+    "status": "ok"
   },
   "the stocks, stow-on-the-wold, the cotswolds, burton-on-the-water, burton-on-the-hill, bourton-on-the-hill": {
     "query": "The Stocks, Stow-on-the-Wold, The Cotswolds, Burton-on-the-Water, Burton-on-the-Hill, Bourton-on-the-Hill",
@@ -5810,6 +5906,22 @@
   "vnik, yugoslavia": {
     "query": "Vnik, Yugoslavia",
     "status": "miss"
+  },
+  "wantage": {
+    "display_name": "Wantage, Vale of White Horse, Oxfordshire, England, United Kingdom",
+    "latitude": "51.5878072",
+    "longitude": "-1.4249258",
+    "query": "Wantage",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "wantage - kenilworth": {
+    "display_name": "Wantage, 1, Castle Hill, Castle Green, Kenilworth, Warwick, Warwickshire, England, CV8 1NB, United Kingdom",
+    "latitude": "52.3491817",
+    "longitude": "-1.5876649",
+    "query": "Wantage - Kenilworth",
+    "source": "nominatim",
+    "status": "ok"
   },
   "wantage - kenilworth, england": {
     "display_name": "Wantage, 1, Castle Hill, Castle Green, Kenilworth, Warwick, Warwickshire, England, CV8 1NB, United Kingdom",

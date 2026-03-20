@@ -71,7 +71,8 @@
       "mcp__imago__job_list",
       "mcp__imago__job_logs",
       "Bash(grep -l \"England_1983_B02_P64\" c:/Users/covec/Videos/imago/mcp/jobs/*.log)",
-      "Bash(c:/Users/covec/Videos/imago/.venv/Scripts/python.exe -m py_compile c:/Users/covec/Videos/imago/mcp_server.py)"
+      "Bash(c:/Users/covec/Videos/imago/.venv/Scripts/python.exe -m py_compile c:/Users/covec/Videos/imago/mcp_server.py)",
+      "WebFetch(domain:resources.anthropic.com)"
     ]
   }
 }

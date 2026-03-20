@@ -144,13 +144,12 @@ def _build_shared_prompt_rules(
             entries = [
                 (f"{name} ({people_positions[name]})" if name in people_positions else name) for name in people_list
             ]
-            lines.append(f"Known people in this image (deduplicate before referencing): {', '.join(entries)}.")
+            lines.extend(_section("People Hint With Positions", people_hint=", ".join(entries)))
         else:
-            lines.append(f"Known people: {join_human(people_list)}.")
-        lines.append("Refer to these people by name in the caption wherever they appear.")
+            lines.extend(_section("People Hint", people_hint=join_human(people_list)))
 
     if object_list:
-        lines.append(f"Detected objects: {join_human(object_list)}.")
+        lines.extend(_section("Objects Hint", object_list=join_human(object_list)))
 
     return lines
 
@@ -191,7 +190,7 @@ def _build_qwen_prompt(
         snippet = text[:220].strip()
         if len(text) > len(snippet):
             snippet += "..."
-        lines.append(f'OCR text hint: "{snippet}".')
+        lines.extend(_section("OCR Hint", ocr_snippet=snippet))
     lines.extend(_section("Output Format – Describe (full caption)"))
     return "\n".join(lines)
 
@@ -261,16 +260,16 @@ def _build_people_count_prompt(
             entries = [
                 (f"{name} ({people_positions[name]})" if name in people_positions else name) for name in people_list
             ]
-            lines.append(f"Known identified people: {', '.join(entries)}.")
+            lines.extend(_section("People Count Hint With Positions", people_hint=", ".join(entries)))
         else:
-            lines.append(f"Known identified people: {join_human(people_list)}.")
+            lines.extend(_section("People Count Hint", people_hint=join_human(people_list)))
     if object_list:
-        lines.append(f"Detected objects: {join_human(object_list)}.")
+        lines.extend(_section("Objects Hint", object_list=join_human(object_list)))
     if text:
         snippet = text[:220].strip()
         if len(text) > len(snippet):
             snippet += "..."
-        lines.append(f'OCR text hint: "{snippet}".')
+        lines.extend(_section("OCR Hint", ocr_snippet=snippet))
     lines.extend(_section("Output Format – People Count"))
     return "\n".join(lines)
 
@@ -311,7 +310,7 @@ def _build_location_prompt(
         snippet = text[:220].strip()
         if len(text) > len(snippet):
             snippet += "..."
-        lines.append(f'OCR text hint: "{snippet}".')
+        lines.extend(_section("OCR Hint", ocr_snippet=snippet))
     lines.extend(_section("Output Format – Location"))
     return "\n".join(lines)
 

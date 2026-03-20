@@ -1,9 +1,10 @@
 import json
+import io
 import os
 import sys
 import tempfile
 import unittest
-from contextlib import contextmanager
+from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
@@ -871,7 +872,7 @@ class TestAIIndex(unittest.TestCase):
             )
             self.assertEqual(sidecar.read_text(encoding="utf-8"), original)
 
-    def test_run_refreshes_existing_sidecar_without_ai_processing(self):
+    def test_run_skips_existing_current_sidecar_without_ai_processing(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             photos = base / "Family_View"
@@ -929,11 +930,80 @@ class TestAIIndex(unittest.TestCase):
 
             self.assertEqual(result, 0)
             analysis_mock.assert_not_called()
-            write_mock.assert_called_once()
-            self.assertEqual(
-                write_mock.call_args.kwargs["creator_tool"],
-                "https://github.com/cove/imago",
+            write_mock.assert_not_called()
+
+    def test_run_skips_current_sidecar_when_manifest_settings_are_stale(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            photos = base / "Family_View"
+            photos.mkdir()
+            image = photos / "a.jpg"
+            image.write_bytes(b"abc")
+            sidecar = image.with_suffix(".xmp")
+            xmp_sidecar.write_xmp_sidecar(
+                sidecar,
+                creator_tool="https://github.com/cove/imago",
+                person_names=[],
+                subjects=["hello"],
+                description="Old description",
+                source_text="",
+                ocr_text="hello",
+                detections_payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {
+                        "engine": "lmstudio",
+                        "language": "eng",
+                        "keywords": ["hello"],
+                        "chars": 5,
+                        "model": "current-ocr-model",
+                    },
+                    "caption": {
+                        "requested_engine": "lmstudio",
+                        "effective_engine": "lmstudio",
+                        "fallback": False,
+                        "error": "",
+                        "model": "current-caption-model",
+                    },
+                },
+                subphotos=[],
+                ocr_ran=True,
+                people_detected=False,
+                people_identified=False,
             )
+            manifest = base / "manifest.jsonl"
+            stat = image.stat()
+            ai_index.save_manifest(
+                manifest,
+                {
+                    str(image): {
+                        "image_path": str(image),
+                        "size": int(stat.st_size),
+                        "mtime_ns": int(stat.st_mtime_ns),
+                        "sidecar_path": str(sidecar),
+                        "processor_signature": ai_index.PROCESSOR_SIGNATURE,
+                        "settings_signature": "stale-settings",
+                    }
+                },
+            )
+
+            with (
+                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--manifest",
+                        str(manifest),
+                        "--include-view",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            analysis_mock.assert_not_called()
+            write_mock.assert_not_called()
 
     def test_run_reprocesses_current_sidecar_when_ai_fields_are_incomplete(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1076,35 +1146,38 @@ class TestAIIndex(unittest.TestCase):
                 },
             )
 
-            with (
-                mock.patch.object(
-                    ai_index,
-                    "prepare_image_layout",
-                    side_effect=lambda *args, **kwargs: self._mock_layout(image),
-                ),
-                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis) as analysis_mock,
-                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
-                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
-            ):
-                result = ai_index.run(
-                    [
-                        "--photos-root",
-                        str(base),
-                        "--manifest",
-                        str(manifest),
-                        "--include-view",
-                        "--disable-people",
-                        "--disable-objects",
-                        "--ocr-engine",
-                        "none",
-                        "--caption-engine",
-                        "lmstudio",
-                    ]
-                )
+            stdout = io.StringIO()
+            with redirect_stdout(stdout):
+                with (
+                    mock.patch.object(
+                        ai_index,
+                        "prepare_image_layout",
+                        side_effect=lambda *args, **kwargs: self._mock_layout(image),
+                    ),
+                    mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis) as analysis_mock,
+                    mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
+                    mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+                ):
+                    result = ai_index.run(
+                        [
+                            "--photos-root",
+                            str(base),
+                            "--manifest",
+                            str(manifest),
+                            "--include-view",
+                            "--disable-people",
+                            "--disable-objects",
+                            "--ocr-engine",
+                            "none",
+                            "--caption-engine",
+                            "lmstudio",
+                        ]
+                    )
 
             self.assertEqual(result, 0)
             analysis_mock.assert_called_once()
             write_mock.assert_called_once()
+            self.assertIn("reprocess: lmstudio_caption_error", stdout.getvalue())
 
     def test_run_rewrites_sidecar_when_image_is_newer(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1328,8 +1401,16 @@ class TestAIIndex(unittest.TestCase):
 
             with (
                 mock.patch.object(ai_index, "_settings_signature", return_value="sig"),
-                mock.patch.object(ai_index, "_init_people_matcher", return_value=fake_matcher),
-                mock.patch.object(ai_index, "_init_caption_engine", return_value=fake_caption_engine),
+                mock.patch.object(
+                    ai_index,
+                    "_init_people_matcher",
+                    return_value=fake_matcher,
+                ) as people_matcher_mock,
+                mock.patch.object(
+                    ai_index,
+                    "_init_caption_engine",
+                    return_value=fake_caption_engine,
+                ) as caption_engine_mock,
                 mock.patch.object(
                     ai_index,
                     "_maybe_run_people_recovery",
@@ -1360,10 +1441,9 @@ class TestAIIndex(unittest.TestCase):
                 )
 
             self.assertEqual(result, 0)
-            write_mock.assert_called_once()
-            detections_payload = write_mock.call_args.kwargs["detections_payload"]
-            self.assertEqual(detections_payload["ocr"]["model"], "qwen-old-ocr")
-            self.assertEqual(detections_payload["caption"]["model"], "caption-new")
+            people_matcher_mock.assert_not_called()
+            caption_engine_mock.assert_not_called()
+            write_mock.assert_not_called()
 
     def test_run_enqueues_unmatched_face_in_cast_queue(self):
         if not hasattr(cv2, "rectangle") or not hasattr(cv2, "imwrite"):
@@ -2176,9 +2256,9 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(second_result, 0)
             authority_mock.assert_not_called()
             analysis_mock.assert_not_called()
-            write_mock.assert_called_once()
+            write_mock.assert_not_called()
 
-    def test_run_archive_multi_scan_refreshes_without_authority_when_manifest_missing(
+    def test_run_archive_multi_scan_skips_without_authority_when_manifest_missing(
         self,
     ):
         with tempfile.TemporaryDirectory() as tmp:
@@ -2288,7 +2368,7 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(second_result, 0)
             authority_mock.assert_not_called()
             analysis_mock.assert_not_called()
-            write_mock.assert_called_once()
+            write_mock.assert_not_called()
 
     def test_resolve_caption_prompt_reads_file_and_overrides_inline_text(self):
         with tempfile.TemporaryDirectory() as tmp:
