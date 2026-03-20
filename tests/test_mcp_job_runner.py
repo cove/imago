@@ -7,6 +7,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -14,6 +15,7 @@ if str(ROOT) not in sys.path:
 
 import mcp_job_runner
 import mcp_console
+from photoalbums.lib import xmp_sidecar
 
 _FAKE_JOB = {
     "id": "abc12345",
@@ -24,6 +26,7 @@ _FAKE_JOB = {
     "ended_at": None,
     "exit_code": None,
     "log_file": "abc12345.log",
+    "artifact_file": "abc12345.artifacts.jsonl",
     "pid": 99999,
 }
 
@@ -100,9 +103,7 @@ class TestJobRunnerPersistence(unittest.TestCase):
     def test_start_writes_job_to_disk_immediately(self):
         """start() must write the new job to jobs.json before returning."""
         runner = mcp_job_runner.JobRunner()
-        job_id = runner.start(
-            "test", [sys.executable, "-c", "import time; time.sleep(5)"]
-        )
+        job_id = runner.start("test", [sys.executable, "-c", "import time; time.sleep(5)"])
         try:
             self.assertTrue(self.jobs_state.exists())
             data = self._read_disk_jobs()
@@ -124,20 +125,33 @@ class TestJobRunnerPersistence(unittest.TestCase):
         self.assertIn(data[job_id]["status"], ("completed", "failed"))
         self.assertIsNotNone(data[job_id]["exit_code"])
 
+    def test_start_records_artifact_file_and_passes_env(self):
+        """start() should persist an artifact path and expose it to the subprocess."""
+        runner = mcp_job_runner.JobRunner()
+        job_id = runner.start(
+            "env",
+            [sys.executable, "-c", "import os; print(os.environ['IMAGO_JOB_ARTIFACTS'])"],
+        )
+        for _ in range(50):
+            time.sleep(0.1)
+            if runner.status(job_id).get("status") in ("completed", "failed"):
+                break
+        data = self._read_disk_jobs()
+        artifact_file = data[job_id]["artifact_file"]
+        self.assertTrue(str(artifact_file).endswith(".artifacts.jsonl"))
+        log_path = Path(data[job_id]["log_file"])
+        self.assertIn(str(artifact_file), log_path.read_text(encoding="utf-8"))
+
     # ── Console visibility ─────────────────────────────────────────────────────
 
     def test_console_reads_jobs_written_by_runner(self):
         """_Handler._read_jobs() must see jobs written by JobRunner.start()."""
         runner = mcp_job_runner.JobRunner()
-        job_id = runner.start(
-            "test", [sys.executable, "-c", "import time; time.sleep(5)"]
-        )
+        job_id = runner.start("test", [sys.executable, "-c", "import time; time.sleep(5)"])
         try:
             jobs = mcp_console._Handler._read_jobs()
             ids = [j["id"] for j in jobs]
-            self.assertIn(
-                job_id, ids, "Console should see the running job written by start()"
-            )
+            self.assertIn(job_id, ids, "Console should see the running job written by start()")
         finally:
             runner.cancel(job_id)
 
@@ -194,6 +208,16 @@ class TestConsoleHTTPStream(unittest.TestCase):
         finally:
             conn.close()
 
+    def _request_json(self, path, timeout=5):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=timeout)
+        try:
+            conn.request("GET", path)
+            resp = conn.getresponse()
+            body = resp.read().decode("utf-8")
+            return resp.status, resp.getheader("Content-Type"), json.loads(body)
+        finally:
+            conn.close()
+
     # ── /stream route ──────────────────────────────────────────────────────────
 
     def test_stream_200_for_known_job(self):
@@ -224,6 +248,54 @@ class TestConsoleHTTPStream(unittest.TestCase):
         self.assertIn("text/event-stream", stream_ct or "")
         self.assertEqual(logs_status, 200)
         self.assertIn("application/json", logs_ct or "")
+
+    def test_artifacts_route_returns_job_artifacts(self):
+        artifact_path = self.jobs_dir / "abc12345.artifacts.jsonl"
+        artifact_path.write_text(
+            json.dumps(
+                {
+                    "kind": "photoalbums_xmp",
+                    "image_path": "C:\\photos\\Album_A\\Photo_01.jpg",
+                    "sidecar_path": "C:\\photos\\Album_A\\Photo_01.xmp",
+                    "label": "Photo_01.jpg",
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        job = dict(_FAKE_JOB, artifact_file=str(artifact_path))
+        self._write_fake_jobs({"abc12345": job})
+
+        status, ct, payload = self._request_json("/api/jobs/abc12345/artifacts")
+
+        self.assertEqual(status, 200)
+        self.assertIn("application/json", ct or "")
+        self.assertEqual(len(payload), 1)
+        self.assertEqual(payload[0]["sidecar_path"], "C:\\photos\\Album_A\\Photo_01.xmp")
+
+    def test_xmp_review_route_returns_review_data(self):
+        image_path = self.jobs_dir / "Photo_01.jpg"
+        image_path.touch()
+        sidecar_path = image_path.with_suffix(".xmp")
+        xmp_sidecar.write_xmp_sidecar(
+            sidecar_path,
+            creator_tool="imago-photoalbums-ai-index",
+            person_names=["Alice Example"],
+            subjects=["bench"],
+            description="Alice Example on a bench.",
+            album_title="Family Book I",
+            source_text="scan_001.tif",
+            ocr_text="FAMILY BOOK",
+            detections_payload={"objects": [{"label": "bench", "score": 0.8}]},
+        )
+
+        status, ct, payload = self._request_json(f"/api/xmp-review?sidecar_path={quote(str(sidecar_path))}")
+
+        self.assertEqual(status, 200)
+        self.assertIn("application/json", ct or "")
+        self.assertEqual(payload["sidecar_path"], str(sidecar_path.resolve()))
+        self.assertEqual(payload["person_names"], ["Alice Example"])
+        self.assertIn("raw_xml", payload)
 
 
 if __name__ == "__main__":

@@ -15,6 +15,10 @@ from mcp.server.fastmcp import FastMCP
 from mcp_console import start_console
 from mcp_job_runner import JobRunner
 from photoalbums.common import PHOTO_ALBUMS_DIR
+from photoalbums.lib.xmp_review import (
+    load_ai_xmp_review,
+    resolve_ai_xmp_review_path,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent
 PYTHON = str(REPO_ROOT / ".venv" / "Scripts" / "python.exe")
@@ -246,7 +250,29 @@ def photoalbums_manifest_summary() -> dict:
     return {"total": total, "by_state": states}
 
 
-# ── Photoalbums: job-launching tools ──────────────────────────────────────────
+# ── Photoalbums: XMP review + job-launching tools ─────────────────────────────
+
+
+@mcp.tool()
+def photoalbums_load_xmp(
+    file_name: str,
+    include_raw_xml: bool = False,
+) -> dict[str, object]:
+    """Load a photoalbums AI XMP sidecar and return its stored fields for review.
+
+    Args:
+        file_name: Image filename/path or XMP filename/path. When an image is passed,
+            the tool loads the matching .xmp sidecar.
+        include_raw_xml: Include the raw XML sidecar text in the response.
+    """
+    sidecar_path, photo_path = resolve_ai_xmp_review_path(
+        PHOTOS_ROOT_DEFAULT,
+        file_name=file_name,
+    )
+    result = load_ai_xmp_review(sidecar_path, include_raw_xml=include_raw_xml)
+    result["resolved_from"] = "photo" if photo_path is not None else "xmp_path"
+    result["photo_path"] = str(photo_path) if photo_path is not None else None
+    return result
 
 
 @mcp.tool()

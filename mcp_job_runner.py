@@ -61,6 +61,7 @@ class JobRunner:
         """Start a subprocess job. Returns the job ID."""
         job_id = str(uuid.uuid4())[:8]
         log_path = JOBS_DIR / f"{job_id}.log"
+        artifact_path = JOBS_DIR / f"{job_id}.artifacts.jsonl"
 
         job: dict = {
             "id": job_id,
@@ -71,9 +72,12 @@ class JobRunner:
             "ended_at": None,
             "exit_code": None,
             "log_file": str(log_path),
+            "artifact_file": str(artifact_path),
         }
 
         env = os.environ.copy()
+        env["IMAGO_JOB_ID"] = job_id
+        env["IMAGO_JOB_ARTIFACTS"] = str(artifact_path)
         if env_extra:
             env.update(env_extra)
 

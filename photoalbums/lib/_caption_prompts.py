@@ -37,7 +37,7 @@ def _position_label(cx: float, cy: float) -> str:
 # Skill file loader
 # ---------------------------------------------------------------------------
 
-_SKILL_FILE = Path(__file__).parent.parent.parent / "Cordell_Photo_Albums.skill"
+_SKILL_FILE = Path(__file__).parent.parent.parent / "skills" / "CORDELL_PHOTO_ALBUMS.skill"
 _SKILL_CACHE: dict[str, list[str]] | None = None
 
 
@@ -51,11 +51,7 @@ def _parse_skill(path: Path) -> dict[str, list[str]]:
             if stripped.startswith("## ") and not stripped.startswith("### "):
                 current = stripped[3:].strip()
                 sections.setdefault(current, [])
-            elif (
-                current is not None
-                and stripped.strip()
-                and not stripped.strip().startswith("#")
-            ):
+            elif current is not None and stripped.strip() and not stripped.strip().startswith("#"):
                 sections[current].append(stripped.strip())
     return sections
 
@@ -101,9 +97,7 @@ def _render_line(text: str, vars: dict[str, str]) -> tuple[str, bool]:
 # ---------------------------------------------------------------------------
 
 
-def _should_apply_album_prompt_rules(
-    source_path: str | Path | None, album_context: AlbumContext
-) -> bool:
+def _should_apply_album_prompt_rules(source_path: str | Path | None, album_context: AlbumContext) -> bool:
     if album_context.kind:
         return True
     if source_path is None:
@@ -130,21 +124,13 @@ def _build_shared_prompt_rules(
     if context.title:
         lines.extend(_section("Album Title Hint", album_title=context.title))
 
-    if (
-        context.canonical_title
-        and context.title
-        and context.canonical_title.casefold() != context.title.casefold()
-    ):
-        lines.extend(
-            _section("Canonical Title Hint", canonical_title=context.canonical_title)
-        )
+    if context.canonical_title and context.title and context.canonical_title.casefold() != context.title.casefold():
+        lines.extend(_section("Canonical Title Hint", canonical_title=context.canonical_title))
 
     if _should_apply_album_prompt_rules(source_path, context):
         lines.extend(_section("Album Classification Rules (apply in this order)"))
         if context.label:
-            lines.extend(
-                _section("Album Classification Hint", album_label=context.label)
-            )
+            lines.extend(_section("Album Classification Hint", album_label=context.label))
         if context.focus and context.kind == ALBUM_KIND_PHOTO_ESSAY:
             lines.extend(_section("Album Focus Hint", album_focus=context.focus))
 
@@ -156,21 +142,12 @@ def _build_shared_prompt_rules(
     if people_list:
         if people_positions:
             entries = [
-                (
-                    f"{name} ({people_positions[name]})"
-                    if name in people_positions
-                    else name
-                )
-                for name in people_list
+                (f"{name} ({people_positions[name]})" if name in people_positions else name) for name in people_list
             ]
-            lines.append(
-                f"Known people in this image (deduplicate before referencing): {', '.join(entries)}."
-            )
+            lines.append(f"Known people in this image (deduplicate before referencing): {', '.join(entries)}.")
         else:
             lines.append(f"Known people: {join_human(people_list)}.")
-        lines.append(
-            "Refer to these people by name in the caption wherever they appear."
-        )
+        lines.append("Refer to these people by name in the caption wherever they appear.")
 
     if object_list:
         lines.append(f"Detected objects: {join_human(object_list)}.")
@@ -282,12 +259,7 @@ def _build_people_count_prompt(
     if people_list:
         if people_positions:
             entries = [
-                (
-                    f"{name} ({people_positions[name]})"
-                    if name in people_positions
-                    else name
-                )
-                for name in people_list
+                (f"{name} ({people_positions[name]})" if name in people_positions else name) for name in people_list
             ]
             lines.append(f"Known identified people: {', '.join(entries)}.")
         else:

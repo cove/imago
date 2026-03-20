@@ -18,9 +18,7 @@ from photoalbums.lib import ai_caption, _caption_lmstudio, _caption_qwen, ai_ocr
 class TestAICaption(unittest.TestCase):
     def test_infer_album_title_prefers_cover_text_and_romanizes_book_number(self):
         text = ai_caption.infer_album_title(
-            image_path=Path("Photo Albums")
-            / "China_1986_B02_View"
-            / "China_1986_B02_P01.jpg",
+            image_path=Path("Photo Albums") / "China_1986_B02_View" / "China_1986_B02_P01.jpg",
             ocr_text="MAINLAND CHINA\n1986\nBOOK 11",
         )
         self.assertEqual(text, "Mainland China Book II")
@@ -57,20 +55,27 @@ class TestAICaption(unittest.TestCase):
             people=[],
             objects=[],
             ocr_text="",
-            source_path=Path("Photo Albums")
-            / "Family_1980-1985_B08_View"
-            / "Family_1980-1985_B08_P01.jpg",
+            source_path=Path("Photo Albums") / "Family_1980-1985_B08_View" / "Family_1980-1985_B08_P01.jpg",
         )
         self.assertIn("Album title hint:", prompt)
-        self.assertIn("Cordell Photo Albums rules:", prompt)
+        self.assertIn(
+            "Treat album title hints and classification hints as supporting context",
+            prompt,
+        )
         self.assertIn("Family Photo Album", prompt)
-        self.assertIn("Photo Essay", prompt)
-        self.assertIn("Preserve visible book labels exactly as shown", prompt)
-        self.assertIn("BOOK 11 is a typo for Book II (2)", prompt)
-        self.assertIn("high confidence", prompt)
-        self.assertIn("preserve the original text as shown", prompt)
-        self.assertIn("English translation", prompt)
-        self.assertIn("GPS coordinates", prompt)
+        self.assertIn("Preserve visible cover labels exactly as shown", prompt)
+        self.assertIn("Treat `BOOK 11` as a visible printed label in `ocr_text`", prompt)
+        self.assertIn(
+            "Treat `BOOK 11` as Book II only when reasoning about album identity",
+            prompt,
+        )
+        self.assertIn("confidence is greater than 95%", prompt)
+        self.assertIn(
+            "Do not translate, normalize, complete, or correct text inside `ocr_text`",
+            prompt,
+        )
+        self.assertIn("Use English translation only in caption or location reasoning", prompt)
+        self.assertIn("Output GPS coordinates only when they are literally visible", prompt)
         self.assertNotIn("Filename hint:", prompt)
         self.assertNotIn("Folder hint:", prompt)
 
@@ -79,15 +84,13 @@ class TestAICaption(unittest.TestCase):
             people=[],
             objects=[],
             ocr_text="",
-            source_path=Path("Photo Albums")
-            / "China_1986_B02_View"
-            / "China_1986_B02_P02.jpg",
+            source_path=Path("Photo Albums") / "China_1986_B02_View" / "China_1986_B02_P02.jpg",
             album_title="Mainland China Book II",
             printed_album_title="Mainland China Book 11",
         )
         self.assertIn("Album title hint: Mainland China Book 11.", prompt)
         self.assertIn("Canonical album title hint: Mainland China Book II.", prompt)
-        self.assertIn("prefer the printed cover title", prompt)
+        self.assertIn("Prefer the printed cover title over the normalized title", prompt)
 
     def test_looks_like_album_cover_detects_blue_title_page(self):
         try:
@@ -131,9 +134,7 @@ class TestAICaption(unittest.TestCase):
     def test_qwen_returns_empty_on_error(self):
         fake_qwen = mock.Mock()
         fake_qwen.describe.side_effect = RuntimeError("model offline")
-        with mock.patch(
-            "photoalbums.lib.ai_caption.QwenLocalCaptioner", return_value=fake_qwen
-        ):
+        with mock.patch("photoalbums.lib.ai_caption.QwenLocalCaptioner", return_value=fake_qwen):
             engine = ai_caption.CaptionEngine(engine="qwen")
             out = engine.generate(
                 image_path="sample.jpg",
@@ -149,10 +150,9 @@ class TestAICaption(unittest.TestCase):
     def test_legacy_blip_alias_routes_to_qwen_and_returns_empty_on_error(self):
         fake_qwen = mock.Mock()
         fake_qwen.describe.side_effect = RuntimeError("model offline")
-        with mock.patch(
-            "photoalbums.lib.ai_caption.QwenLocalCaptioner", return_value=fake_qwen
-        ) as ctor, mock.patch(
-            "photoalbums.lib.ai_caption.default_caption_model", return_value=""
+        with (
+            mock.patch("photoalbums.lib.ai_caption.QwenLocalCaptioner", return_value=fake_qwen) as ctor,
+            mock.patch("photoalbums.lib.ai_caption.default_caption_model", return_value=""),
         ):
             engine = ai_caption.CaptionEngine(engine="blip")
             out = engine.generate(
@@ -181,9 +181,7 @@ class TestAICaption(unittest.TestCase):
     def test_qwen_engine_forwards_cpu_tuning_settings(self):
         fake_qwen = mock.Mock()
         fake_qwen.describe.return_value = ai_caption.CaptionDetails(text="caption text")
-        with mock.patch(
-            "photoalbums.lib.ai_caption.QwenLocalCaptioner", return_value=fake_qwen
-        ) as ctor:
+        with mock.patch("photoalbums.lib.ai_caption.QwenLocalCaptioner", return_value=fake_qwen) as ctor:
             engine = ai_caption.CaptionEngine(
                 engine="qwen",
                 model_name="qwen/qwen3.5-9b",
@@ -248,9 +246,7 @@ class TestAICaption(unittest.TestCase):
 
             processor_kwargs = fake_processor_cls.from_pretrained.call_args.kwargs
             self.assertTrue(processor_kwargs["local_files_only"])
-            self.assertEqual(
-                processor_kwargs["max_pixels"], ai_caption.DEFAULT_QWEN_AUTO_MAX_PIXELS
-            )
+            self.assertEqual(processor_kwargs["max_pixels"], ai_caption.DEFAULT_QWEN_AUTO_MAX_PIXELS)
 
             model_kwargs = fake_model_cls.from_pretrained.call_args.kwargs
             self.assertTrue(model_kwargs["local_files_only"])
@@ -287,20 +283,14 @@ class TestAICaption(unittest.TestCase):
             payload = json.loads(request.data.decode("utf-8"))
             self.assertEqual(payload["model"], "qwen2.5-vl")
             self.assertEqual(payload["response_format"]["type"], "json_schema")
-            self.assertEqual(
-                payload["response_format"]["json_schema"]["name"], "caption_payload"
-            )
-            self.assertEqual(
-                payload["response_format"]["json_schema"]["strict"], "true"
-            )
+            self.assertEqual(payload["response_format"]["json_schema"]["name"], "caption_payload")
+            self.assertEqual(payload["response_format"]["json_schema"]["strict"], "true")
             self.assertEqual(
                 payload["messages"][1]["content"][0]["text"],
                 "Describe this exact image",
             )
             self.assertTrue(
-                payload["messages"][1]["content"][1]["image_url"]["url"].startswith(
-                    "data:image/jpeg;base64,"
-                )
+                payload["messages"][1]["content"][1]["image_url"]["url"].startswith("data:image/jpeg;base64,")
             )
             self.assertNotIn(
                 "translations",
@@ -504,9 +494,7 @@ class TestAICaption(unittest.TestCase):
 
     def test_parse_lmstudio_structured_caption_rejects_invalid_json(self):
         with self.assertRaises(RuntimeError) as exc:
-            ai_caption._parse_lmstudio_structured_caption(
-                "not json", finish_reason="stop"
-            )
+            ai_caption._parse_lmstudio_structured_caption("not json", finish_reason="stop")
         self.assertIn("raw='not json'", str(exc.exception))
         self.assertIn("finish_reason=stop", str(exc.exception))
 
@@ -520,9 +508,7 @@ class TestAICaption(unittest.TestCase):
             '<think>{ "caption": "A blue album cover labeled MAINLAND CHINA 1986 BOOK 11.", "gps_latitude": "", "gps_longitude": "", "location_name": "" }',
             finish_reason="stop",
         )
-        self.assertEqual(
-            details.text, "A blue album cover labeled MAINLAND CHINA 1986 BOOK 11."
-        )
+        self.assertEqual(details.text, "A blue album cover labeled MAINLAND CHINA 1986 BOOK 11.")
 
     def test_parse_lmstudio_structured_caption_strips_closed_think_block(self):
         # Thinking models like QwQ emit <think>reasoning</think> before the JSON payload.
