@@ -218,7 +218,9 @@ class CastPeopleMatcher:
 
         self._store = store_cls(Path(cast_store_dir))
         self._store.ensure_files()
-        self._ingestor = face_ingestor_cls(self._store)
+        self._face_ingestor_cls = face_ingestor_cls
+        self._ingestor = None
+        self._last_detector_model = self._fallback_detector_model
 
         self._store_signature = ""
         self.last_faces_detected: int = 0
@@ -238,6 +240,11 @@ class CastPeopleMatcher:
     def _face_uses_active_model(self, face: dict[str, Any]) -> bool:
         return self._face_embedding_model(face) in self._active_embedding_models
 
+    def _get_ingestor(self):
+        if self._ingestor is None:
+            self._ingestor = self._face_ingestor_cls(self._store)
+        return self._ingestor
+
     def _model_metadata(
         self,
         *,
@@ -248,23 +255,13 @@ class CastPeopleMatcher:
     ) -> dict[str, Any]:
         metadata = {
             "ingest": "photoalbums_ai",
-            "detector_model": (
-                self._current_detector_model
-                if getattr(self._ingestor, "_insightface", None) is not None
-                else self._fallback_detector_model
-            ),
+            "detector_model": self._last_detector_model,
             "embedding_model": (
-                self._current_embedding_model
-                if arcface_embedding is not None
-                else self._fallback_embedding_model
+                self._current_embedding_model if arcface_embedding is not None else self._fallback_embedding_model
             ),
-            "analysis_variant": str(analysis_variant or "original").strip()
-            or "original",
+            "analysis_variant": str(analysis_variant or "original").strip() or "original",
         }
-        if (
-            str(analysis_image_path).strip()
-            and str(analysis_image_path).strip() != str(source_path).strip()
-        ):
+        if str(analysis_image_path).strip() and str(analysis_image_path).strip() != str(source_path).strip():
             metadata["analysis_image_path"] = str(analysis_image_path)
         return metadata
 
@@ -275,13 +272,11 @@ class CastPeopleMatcher:
         self._person_name_by_id = {
             str(row.get("person_id")): str(row.get("display_name"))
             for row in people
-            if str(row.get("person_id") or "").strip()
-            and str(row.get("display_name") or "").strip()
+            if str(row.get("person_id") or "").strip() and str(row.get("display_name") or "").strip()
         }
         self._person_variants_by_id = {
             str(row.get("person_id")): _dedupe_variants(
-                [str(row.get("display_name") or "")]
-                + [str(item or "") for item in list(row.get("aliases") or [])]
+                [str(row.get("display_name") or "")] + [str(item or "") for item in list(row.get("aliases") or [])]
             )
             for row in people
             if str(row.get("person_id") or "").strip()
@@ -328,10 +323,31 @@ class CastPeopleMatcher:
             return None
 
     def _detect_faces(self, image_bgr) -> list[tuple[int, int, int, int]]:
-        detected = self._ingestor._detect(image_bgr, min_size=self.min_face_size)
+        ingestor = self._get_ingestor()
+        self._last_detector_model = (
+            self._current_detector_model
+            if getattr(ingestor, "_insightface", None) is not None
+            else self._fallback_detector_model
+        )
+        detected = ingestor._detect(image_bgr, min_size=self.min_face_size)
         if self.max_faces > 0:
             return detected[: self.max_faces]
         return detected
+
+    def _is_valid_face_crop(self, crop_bgr) -> bool:
+        return bool(self._get_ingestor().is_valid_face_crop(crop_bgr))
+
+    def _save_crop(self, face_id: str, crop_bgr) -> str:
+        import cv2
+
+        crops_dir = self._store.root_dir / "crops"
+        crops_dir.mkdir(parents=True, exist_ok=True)
+        crop_name = f"{str(face_id).strip()}.jpg"
+        crop_path = crops_dir / crop_name
+        ok = cv2.imwrite(str(crop_path), crop_bgr)
+        if not ok:
+            raise RuntimeError(f"Failed to write crop image: {crop_path}")
+        return crop_path.relative_to(self._store.root_dir).as_posix()
 
     def _remember_face(self, face: dict[str, Any]) -> dict[str, Any]:
         source_key = str(face.get("source_path") or "").strip()
@@ -351,9 +367,7 @@ class CastPeopleMatcher:
         self._store_signature = self._store.store_signature()
         return dict(face)
 
-    def _find_existing_face(
-        self, *, source_path: str, bbox: list[int], min_iou: float = 0.55
-    ) -> dict[str, Any] | None:
+    def _find_existing_face(self, *, source_path: str, bbox: list[int], min_iou: float = 0.55) -> dict[str, Any] | None:
         best_face: dict[str, Any] | None = None
         best_iou = 0.0
         for face in self._faces_by_source.get(str(source_path or "").strip(), []):
@@ -378,7 +392,7 @@ class CastPeopleMatcher:
         face_id = str(face.get("face_id") or "").strip()
         if not face_id:
             return dict(face)
-        crop_rel = self._ingestor._save_crop(face_id, crop_bgr)
+        crop_rel = self._save_crop(face_id, crop_bgr)
         updated = self._store.update_face(face_id, crop_path=crop_rel)
         return self._remember_face(updated)
 
@@ -409,7 +423,7 @@ class CastPeopleMatcher:
             quality=quality,
             metadata=metadata,
         )
-        crop_rel = self._ingestor._save_crop(str(face.get("face_id")), crop_bgr)
+        crop_rel = self._save_crop(str(face.get("face_id")), crop_bgr)
         face = self._store.update_face(str(face.get("face_id")), crop_path=crop_rel)
         return self._remember_face(face)
 
@@ -504,9 +518,7 @@ class CastPeopleMatcher:
         hints: list[dict[str, Any]] = []
         seen_names: set[str] = set()
 
-        def _add(
-            name: str, person_id: str | None, confidence: float, source: str
-        ) -> None:
+        def _add(name: str, person_id: str | None, confidence: float, source: str) -> None:
             key = name.casefold()
             if key in seen_names:
                 return
@@ -521,12 +533,8 @@ class CastPeopleMatcher:
             )
 
         # 1. Hyphen-separated sequences in hint_text
-        for seq_match in re.finditer(
-            r"\b([a-zA-Z]{2,}(?:-[a-zA-Z]{2,})+)\b", hint_text
-        ):
-            parts = [
-                p.strip() for p in seq_match.group(0).split("-") if len(p.strip()) >= 2
-            ]
+        for seq_match in re.finditer(r"\b([a-zA-Z]{2,}(?:-[a-zA-Z]{2,})+)\b", hint_text):
+            parts = [p.strip() for p in seq_match.group(0).split("-") if len(p.strip()) >= 2]
             if len(parts) < 2:
                 continue
             if len(parts) == total_faces:
@@ -554,16 +562,12 @@ class CastPeopleMatcher:
 
         # 3. Hyphen-separated sequences in the source filename stem
         stem = Path(source_path).stem
-        stem_parts = [
-            p.strip() for p in stem.split("-") if re.match(r"^[a-zA-Z]{2,}$", p.strip())
-        ]
+        stem_parts = [p.strip() for p in stem.split("-") if re.match(r"^[a-zA-Z]{2,}$", p.strip())]
         if len(stem_parts) >= 2:
             if len(stem_parts) == total_faces:
                 name = stem_parts[face_index].title()
                 person_id = self._find_person_id_by_name(name)
-                _add(
-                    name, person_id, 0.85 if person_id else 0.65, "positional_filename"
-                )
+                _add(name, person_id, 0.85 if person_id else 0.65, "positional_filename")
             else:
                 for name_raw in stem_parts:
                     name = name_raw.title()
@@ -572,15 +576,11 @@ class CastPeopleMatcher:
 
         return hints
 
-    def _apply_hint_scores(
-        self, candidates: list[dict[str, Any]], hint_text: str
-    ) -> list[dict[str, Any]]:
+    def _apply_hint_scores(self, candidates: list[dict[str, Any]], hint_text: str) -> list[dict[str, Any]]:
         if not candidates:
             return []
         bonuses = self._hint_bonus_by_person_id(hint_text)
-        strong_hint_ids = {
-            person_id for person_id, bonus in bonuses.items() if bonus >= 0.05
-        }
+        strong_hint_ids = {person_id for person_id, bonus in bonuses.items() if bonus >= 0.05}
         adjusted: list[dict[str, Any]] = []
         for row in candidates:
             if not isinstance(row, dict):
@@ -678,9 +678,7 @@ class CastPeopleMatcher:
         source_key = str(source_path or path)
         height, width = image.shape[:2]
         by_name: dict[str, PersonMatch] = {}
-        normalized_variant = (
-            str(analysis_variant or "original").strip().lower() or "original"
-        )
+        normalized_variant = str(analysis_variant or "original").strip().lower() or "original"
 
         # Collect valid faces sorted left-to-right for positional name hint assignment.
         all_detected = self._detect_faces(image)
@@ -691,7 +689,7 @@ class CastPeopleMatcher:
             crop = image[y0:y1, x0:x1]
             if crop is None or crop.size == 0:
                 continue
-            if not self._ingestor.is_valid_face_crop(crop):
+            if not self._is_valid_face_crop(crop):
                 continue
             valid_faces.append((x, y, ww, hh))
         total_valid = len(valid_faces)
@@ -716,19 +714,11 @@ class CastPeopleMatcher:
                     analysis_variant=normalized_variant,
                 )
             else:
-                review_status = (
-                    str(self._face_review_status(face) or "").strip().lower()
-                )
+                review_status = str(self._face_review_status(face) or "").strip().lower()
                 person_id = str(face.get("person_id") or "").strip()
-                face_is_locked = (
-                    review_status == "confirmed"
-                    and bool(person_id)
-                    and self._face_is_human_reviewed(face)
-                )
+                face_is_locked = review_status == "confirmed" and bool(person_id) and self._face_is_human_reviewed(face)
                 should_refresh_active = (
-                    bool(refresh_active_face)
-                    and review_status not in {"ignored", "rejected"}
-                    and not face_is_locked
+                    bool(refresh_active_face) and review_status not in {"ignored", "rejected"} and not face_is_locked
                 )
                 if self._face_uses_active_model(face) and not should_refresh_active:
                     face = self._ensure_crop(face, crop)
@@ -746,11 +736,7 @@ class CastPeopleMatcher:
                 continue
 
             person_id = str(face.get("person_id") or "").strip()
-            if (
-                person_id
-                and self._face_is_human_reviewed(face)
-                and review_status == "confirmed"
-            ):
+            if person_id and self._face_is_human_reviewed(face) and review_status == "confirmed":
                 name = self._person_name_by_id.get(person_id, "")
                 if name:
                     current = by_name.get(name)
@@ -762,17 +748,11 @@ class CastPeopleMatcher:
                         reviewed_by_human=True,
                         bbox=list(face.get("bbox") or []),
                     )
-                    if (
-                        current is None
-                        or candidate.certainty > current.certainty
-                        or candidate.score > current.score
-                    ):
+                    if current is None or candidate.certainty > current.certainty or candidate.score > current.score:
                         by_name[name] = candidate
                 continue
 
-            embedding = (
-                face.get("embedding") or self._arcface_embed(crop) or self._embed(crop)
-            )
+            embedding = face.get("embedding") or self._arcface_embed(crop) or self._embed(crop)
             if self._matches_ignored_face(embedding):
                 continue
 
@@ -813,10 +793,7 @@ class CastPeopleMatcher:
                     if (
                         current is None
                         or candidate.certainty > current.certainty
-                        or (
-                            candidate.certainty == current.certainty
-                            and candidate.score > current.score
-                        )
+                        or (candidate.certainty == current.certainty and candidate.score > current.score)
                     ):
                         by_name[name] = candidate
                     continue

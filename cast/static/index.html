@@ -766,7 +766,6 @@
     <script>
       const appState = {
         people: [],
-        faces: [],
         face_by_id: {},
         unknown_faces: [],
         pending_reviews: [],
@@ -774,6 +773,8 @@
         counts: { people: 0, faces: 0, unknown_faces: 0, pending_reviews: 0, legacy_faces: 0 },
         runtime: {},
         next_review: null,
+        pending_render_limit: 120,
+        unknown_render_limit: 120,
       };
       const TOOLTIP_SAVE_NAME =
         "Save this face as the typed or selected person and mark it as human-reviewed.";
@@ -803,6 +804,14 @@
       function shortId(value) {
         const text = String(value || "");
         return text ? text.slice(0, 8) : "";
+      }
+
+      function rememberFaceSummary(face) {
+        const faceId = String((face || {}).face_id || "");
+        if (!faceId) {
+          return;
+        }
+        appState.face_by_id[faceId] = face;
       }
 
       function setStatus(message, kind = "info") {
@@ -881,7 +890,7 @@
       function updateDisplayedCounts() {
         const counts = appState.counts || {};
         document.getElementById("count-people").textContent = String(counts.people || appState.people.length || 0);
-        document.getElementById("count-faces").textContent = String(counts.faces || appState.faces.length || 0);
+        document.getElementById("count-faces").textContent = String(counts.faces || 0);
         document.getElementById("count-unknown").textContent = String(
           counts.unknown_faces ?? appState.unknown_faces.length ?? 0
         );
@@ -1017,18 +1026,19 @@
       async function loadState() {
         const data = await api("/api/state");
         appState.people = data.people || [];
-        appState.faces = data.faces || [];
         appState.face_by_id = {};
-        for (const face of appState.faces) {
-          const faceId = String(face.face_id || "");
-          if (faceId) {
-            appState.face_by_id[faceId] = face;
-          }
-        }
         appState.unknown_faces = data.unknown_faces || [];
         appState.pending_reviews = data.pending_reviews || [];
         appState.counts = data.counts || {};
         appState.runtime = data.runtime || {};
+        for (const face of appState.unknown_faces) {
+          rememberFaceSummary(face);
+        }
+        for (const review of appState.pending_reviews) {
+          if (review && review.face) {
+            rememberFaceSummary(review.face);
+          }
+        }
         pruneSkippedReviewIds();
         appState.next_review = chooseNextReview();
 
@@ -1149,7 +1159,9 @@
           tbody.innerHTML = '<tr><td colspan="4">No unknown faces.</td></tr>';
           return;
         }
-        tbody.innerHTML = appState.unknown_faces
+        const limit = Math.max(0, Number(appState.unknown_render_limit) || 0);
+        const rows = limit > 0 ? appState.unknown_faces.slice(0, limit) : appState.unknown_faces;
+        tbody.innerHTML = rows
           .map((face) => {
             const faceId = String(face.face_id || "");
             return [
@@ -1169,6 +1181,12 @@
             ].join("");
           })
           .join("");
+        if (limit > 0 && appState.unknown_faces.length > limit) {
+          tbody.insertAdjacentHTML(
+            "beforeend",
+            `<tr><td colspan="4"><button class="secondary" type="button" onclick="showMoreUnknownFaces()">Show ${Math.min(100, appState.unknown_faces.length - limit)} More</button></td></tr>`
+          );
+        }
       }
 
       function renderReviewQueue() {
@@ -1177,7 +1195,9 @@
           tbody.innerHTML = '<tr><td colspan="4">No pending review items.</td></tr>';
           return;
         }
-        tbody.innerHTML = appState.pending_reviews
+        const limit = Math.max(0, Number(appState.pending_render_limit) || 0);
+        const rows = limit > 0 ? appState.pending_reviews.slice(0, limit) : appState.pending_reviews;
+        tbody.innerHTML = rows
           .map((review) => {
             const face = review.face || {};
             const reviewId = String(review.review_id || "");
@@ -1233,6 +1253,22 @@
             ].join("");
           })
           .join("");
+        if (limit > 0 && appState.pending_reviews.length > limit) {
+          tbody.insertAdjacentHTML(
+            "beforeend",
+            `<tr><td colspan="4"><button class="secondary" type="button" onclick="showMorePendingReviews()">Show ${Math.min(100, appState.pending_reviews.length - limit)} More</button></td></tr>`
+          );
+        }
+      }
+
+      function showMoreUnknownFaces() {
+        appState.unknown_render_limit += 100;
+        renderUnknownFaces();
+      }
+
+      function showMorePendingReviews() {
+        appState.pending_render_limit += 100;
+        renderReviewQueue();
       }
 
       function findPersonByName(name) {

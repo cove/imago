@@ -98,18 +98,18 @@ class TestStitchOversizedPages(unittest.TestCase):
             self.skipTest(f"cv2/numpy unavailable: {exc}")
 
         background = np.array([214, 206, 190], dtype=np.uint8)
-        page = np.empty((420, 720, 3), dtype=np.uint8)
+        page = np.empty((240, 360, 3), dtype=np.uint8)
         page[:] = background
-        for y in range(0, page.shape[0], 12):
+        for y in range(0, page.shape[0], 8):
             page[y : y + 1] = background - np.array([10, 10, 10], dtype=np.uint8)
 
-        cv2.rectangle(page, (20, 30), (180, 180), (40, 220, 40), -1)
-        cv2.rectangle(page, (250, 70), (470, 220), (200, 90, 90), -1)
-        cv2.rectangle(page, (520, 220), (690, 390), (40, 40, 220), -1)
+        cv2.rectangle(page, (14, 22), (90, 102), (40, 220, 40), -1)
+        cv2.rectangle(page, (120, 36), (245, 128), (200, 90, 90), -1)
+        cv2.rectangle(page, (248, 132), (342, 226), (40, 40, 220), -1)
         cv2.putText(
             page,
             "CENTER",
-            (270, 285),
+            (124, 160),
             cv2.FONT_HERSHEY_SIMPLEX,
             1.0,
             (24, 24, 24),
@@ -117,13 +117,20 @@ class TestStitchOversizedPages(unittest.TestCase):
             cv2.LINE_AA,
         )
 
-        left_scan = page[:, :440].copy()
-        right_scan = page[:, 280:].copy()
+        left_scan = page[:, :220].copy()
+        right_scan = page[:, 140:].copy()
         shifted_right = np.empty_like(right_scan)
         shifted_right[:] = background
         shifted_right[18:] = right_scan[:-18]
 
-        stitched = sop._stitch_linear_pair_images([left_scan, shifted_right])
+        with mock.patch.object(sop, "LINEAR_FALLBACK_TARGET_WIDTH", 240), mock.patch.object(
+            sop, "LINEAR_FALLBACK_OVERLAP_STEP", 24
+        ), mock.patch.object(sop, "LINEAR_FALLBACK_VERTICAL_STEP", 8), mock.patch.object(
+            sop, "LINEAR_FALLBACK_REFINE_OVERLAP_RADIUS", 6
+        ), mock.patch.object(
+            sop, "LINEAR_FALLBACK_REFINE_VERTICAL_RADIUS", 2
+        ):
+            stitched = sop._stitch_linear_pair_images([left_scan, shifted_right])
 
         self.assertGreater(stitched.shape[1], left_scan.shape[1])
         self.assertGreater(int(stitched[:, :140, 1].max()), 200)

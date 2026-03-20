@@ -21,9 +21,7 @@ def _write_test_video(tmp_path: Path) -> tuple[Path, float]:
     ]
     for filename, fourcc_name in codecs:
         path = tmp_path / filename
-        writer = cv2.VideoWriter(
-            str(path), cv2.VideoWriter_fourcc(*fourcc_name), fps, size
-        )
+        writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*fourcc_name), fps, size)
         if not writer.isOpened():
             writer.release()
             continue
@@ -65,7 +63,7 @@ def test_source_image_endpoint_and_state_source_url(tmp_path):
         with urlopen(f"http://127.0.0.1:{port}/api/state", timeout=10) as response:
             payload = json.loads(response.read().decode("utf-8"))
         assert payload.get("ok") is True
-        faces = payload.get("faces") or []
+        faces = payload.get("unknown_faces") or []
         row = next(item for item in faces if str(item.get("face_id")) == face_id)
         assert str(row.get("source_url", "")).endswith(f"/api/faces/{face_id}/source")
 
@@ -111,7 +109,7 @@ def test_source_video_endpoint_and_state_source_url_for_vhs(tmp_path):
         with urlopen(f"http://127.0.0.1:{port}/api/state", timeout=10) as response:
             payload = json.loads(response.read().decode("utf-8"))
         assert payload.get("ok") is True
-        faces = payload.get("faces") or []
+        faces = payload.get("unknown_faces") or []
         row = next(item for item in faces if str(item.get("face_id")) == face_id)
         assert str(row.get("source_url", "")).endswith(f"/api/faces/{face_id}/source")
         assert row.get("source_is_image") is False
@@ -129,9 +127,7 @@ def test_source_video_endpoint_and_state_source_url_for_vhs(tmp_path):
             highlighted_data = response.read()
             highlighted_ctype = str(response.headers.get("Content-Type", ""))
 
-        plain_img = cv2.imdecode(
-            np.frombuffer(plain_data, dtype=np.uint8), cv2.IMREAD_COLOR
-        )
+        plain_img = cv2.imdecode(np.frombuffer(plain_data, dtype=np.uint8), cv2.IMREAD_COLOR)
         highlighted_img = cv2.imdecode(
             np.frombuffer(highlighted_data, dtype=np.uint8),
             cv2.IMREAD_COLOR,

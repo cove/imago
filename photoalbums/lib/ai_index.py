@@ -43,6 +43,7 @@ from .xmp_sidecar import (
     sidecar_has_expected_ai_fields,
     write_xmp_sidecar,
 )
+from .xmp_review import load_ai_xmp_review
 
 
 def _format_eta(completed_times: list[float], remaining: int) -> str:
@@ -114,7 +115,7 @@ PROCESSOR_SIGNATURE = "page_split_v16_archive_stitched_ocr"
 JOB_ARTIFACTS_ENV = "IMAGO_JOB_ARTIFACTS"
 JOB_ID_ENV = "IMAGO_JOB_ID"
 PROCESSING_LOCK_SUFFIX = ".photoalbums-ai.lock"
-BATCH_LOCK_PATH = Path(__file__).resolve().parents[1] / "data" / "ai_index.batch.lock"
+BATCH_LOCK_SUFFIX = ".photoalbums-ai.batch.lock"
 
 
 @dataclass
@@ -344,6 +345,10 @@ def _release_image_processing_lock(lock_path: Path | None) -> None:
         lock_path.unlink()
 
 
+def _release_batch_processing_lock(lock_path: Path | None) -> None:
+    _release_image_processing_lock(lock_path)
+
+
 def _clear_stale_processing_lock(lock_path: Path) -> bool:
     payload = _read_processing_lock(lock_path)
     pid = payload.get("pid")
@@ -383,7 +388,12 @@ def _acquire_image_processing_lock(image_path: Path) -> Path:
     raise RuntimeError(f"could not acquire processing lock for {image_path.name}")
 
 
+def _batch_processing_lock_path(photos_root: Path) -> Path:
+    return photos_root / BATCH_LOCK_SUFFIX
+
+
 def _acquire_batch_processing_lock(photos_root: Path) -> Path:
+    lock_path = _batch_processing_lock_path(photos_root)
     payload = {
         "photos_root": str(photos_root.resolve()),
         "pid": os.getpid(),
@@ -391,11 +401,11 @@ def _acquire_batch_processing_lock(photos_root: Path) -> Path:
     }
     for _ in range(2):
         try:
-            fd = os.open(str(BATCH_LOCK_PATH), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         except FileExistsError:
-            if _clear_stale_processing_lock(BATCH_LOCK_PATH):
+            if _clear_stale_processing_lock(lock_path):
                 continue
-            current = _read_processing_lock(BATCH_LOCK_PATH)
+            current = _read_processing_lock(lock_path)
             owner_parts = []
             current_root = str(current.get("photos_root") or "").strip()
             if current_root:
@@ -406,11 +416,11 @@ def _acquire_batch_processing_lock(photos_root: Path) -> Path:
             pid = current.get("pid")
             if isinstance(pid, int):
                 owner_parts.append(f"pid {pid}")
-            owner = ", ".join(owner_parts) if owner_parts else str(BATCH_LOCK_PATH)
+            owner = ", ".join(owner_parts) if owner_parts else str(lock_path)
             raise RuntimeError(f"another photoalbums ai batch run is already active ({owner})")
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True))
-        return BATCH_LOCK_PATH
+        return lock_path
     raise RuntimeError("could not acquire photoalbums ai batch lock")
 
 
@@ -429,6 +439,17 @@ def has_current_sidecar(path: Path) -> bool:
             return False
         return int(sidecar_path.stat().st_mtime_ns) >= int(path.stat().st_mtime_ns)
     except FileNotFoundError:
+        return False
+
+
+def _sidecar_current_for_paths(sidecar_path: Path, source_paths: list[Path]) -> bool:
+    try:
+        if not sidecar_path.is_file():
+            return False
+        sidecar_mtime_ns = int(sidecar_path.stat().st_mtime_ns)
+        latest_source_mtime_ns = max(int(path.stat().st_mtime_ns) for path in source_paths)
+        return sidecar_mtime_ns >= latest_source_mtime_ns
+    except (FileNotFoundError, ValueError):
         return False
 
 
@@ -494,6 +515,30 @@ def needs_processing(
     if not has_valid_sidecar(path):
         return True
     return int(sidecar_path.stat().st_mtime_ns) < int(stat.st_mtime_ns)
+
+
+def _xmp_gps_to_decimal(value: object, *, axis: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if "," not in text or len(text) < 2:
+        return _normalize_gps_value(text, axis=axis)
+    hemisphere = text[-1:].upper()
+    body = text[:-1]
+    if axis == "lat" and hemisphere not in {"N", "S"}:
+        return _normalize_gps_value(text, axis=axis)
+    if axis == "lon" and hemisphere not in {"E", "W"}:
+        return _normalize_gps_value(text, axis=axis)
+    degrees_text, minutes_text = body.split(",", 1)
+    try:
+        degrees = int(degrees_text.strip())
+        minutes = float(minutes_text.strip())
+    except ValueError:
+        return _normalize_gps_value(text, axis=axis)
+    decimal = float(degrees) + (minutes / 60.0)
+    if hemisphere in {"S", "W"}:
+        decimal = -decimal
+    return f"{decimal:.8f}".rstrip("0").rstrip(".")
 
 
 def _explicit_cli_flags(argv: list[str] | None) -> set[str]:
@@ -2244,12 +2289,18 @@ def run(argv: list[str] | None = None) -> int:
             manifest_source = str((manifest_row or {}).get("ocr_authority_source") or "").strip()
             manifest_signature = str((manifest_row or {}).get("ocr_authority_signature") or "").strip()
             manifest_hash = str((manifest_row or {}).get("ocr_authority_hash") or "").strip()
-            if (
-                manifest_source != "archive_stitched"
-                or manifest_signature != multi_scan_group_signature
-                or not manifest_hash
-                or manifest_hash != existing_sidecar_ocr_hash
-            ):
+            sidecar_has_current_stitched_authority = (
+                str((existing_sidecar_state or {}).get("ocr_authority_source") or "").strip() == "archive_stitched"
+                and bool(existing_sidecar_ocr_hash)
+                and _sidecar_current_for_paths(sidecar_path, multi_scan_group_paths)
+            )
+            manifest_matches_stitched_authority = (
+                manifest_source == "archive_stitched"
+                and manifest_signature == multi_scan_group_signature
+                and bool(manifest_hash)
+                and manifest_hash == existing_sidecar_ocr_hash
+            )
+            if not manifest_matches_stitched_authority and not sidecar_has_current_stitched_authority:
                 reprocess_required = True
         if manifest_row is not None:
             old_sig = str(manifest_row.get("settings_signature") or "")
@@ -2271,7 +2322,7 @@ def run(argv: list[str] | None = None) -> int:
             reprocess_required=reprocess_required,
         )
 
-        if not needs_full and not people_update_only:
+        if not needs_full and not people_update_only and not isinstance(existing_sidecar_state, dict):
             skipped += 1
             if args.verbose and not stdout_only:
                 print(f"[{idx}/{len(files)}] skip  {image_path.name}")
@@ -2290,6 +2341,112 @@ def run(argv: list[str] | None = None) -> int:
             failures += 1
             emit_error(f"[{idx}/{len(files)}] fail  {image_path.name}: {exc}")
             continue
+
+        if not needs_full and not people_update_only:
+            state = existing_sidecar_state
+            if isinstance(state, dict):
+                file_start = time.monotonic()
+                try:
+                    review = load_ai_xmp_review(sidecar_path)
+                    refresh_detections = (
+                        dict(review.get("detections") or {}) if isinstance(review.get("detections"), dict) else {}
+                    )
+                    refresh_location = (
+                        dict(refresh_detections.get("location") or {})
+                        if isinstance(refresh_detections.get("location"), dict)
+                        else {}
+                    )
+                    if not dry_run:
+                        refresh_gps_lat = str(refresh_location.get("gps_latitude") or "").strip()
+                        refresh_gps_lon = str(refresh_location.get("gps_longitude") or "").strip()
+                        if not refresh_gps_lat:
+                            refresh_gps_lat = _xmp_gps_to_decimal(review.get("gps_latitude"), axis="lat")
+                        if not refresh_gps_lon:
+                            refresh_gps_lon = _xmp_gps_to_decimal(review.get("gps_longitude"), axis="lon")
+                        refresh_subphotos = review.get("subphotos")
+                        write_xmp_sidecar(
+                            sidecar_path,
+                            creator_tool=creator_tool,
+                            person_names=list(review.get("person_names") or []),
+                            subjects=list(review.get("subjects") or []),
+                            description=str(review.get("description") or ""),
+                            album_title=str(review.get("album_title") or ""),
+                            gps_latitude=refresh_gps_lat,
+                            gps_longitude=refresh_gps_lon,
+                            source_text=str(review.get("source_text") or ""),
+                            ocr_text=str(review.get("ocr_text") or ""),
+                            detections_payload=(refresh_detections or None),
+                            subphotos=(list(refresh_subphotos) if isinstance(refresh_subphotos, list) else None),
+                            stitch_key=str(review.get("stitch_key") or ""),
+                            ocr_authority_source=str(review.get("ocr_authority_source") or ""),
+                            image_width=_get_image_dimensions(image_path)[0],
+                            image_height=_get_image_dimensions(image_path)[1],
+                            ocr_ran=bool(review.get("ocr_ran")),
+                            people_detected=bool(review.get("people_detected")),
+                            people_identified=bool(review.get("people_identified")),
+                        )
+
+                    stat = image_path.stat()
+                    summary = dict(review.get("summary") or {})
+                    refresh_subphotos = review.get("subphotos")
+                    existing_manifest_row = manifest.get(str(image_path)) or {}
+                    manifest[str(image_path)] = {
+                        **existing_manifest_row,
+                        "image_path": str(image_path),
+                        "size": int(stat.st_size),
+                        "mtime_ns": int(stat.st_mtime_ns),
+                        "sidecar_path": str(sidecar_path),
+                        "people_count": int(summary.get("people_in_image_count") or 0),
+                        "object_count": int(summary.get("detected_object_count") or 0),
+                        "ocr_chars": int(summary.get("ocr_char_count") or 0),
+                        "analysis_mode": str(
+                            existing_manifest_row.get("analysis_mode")
+                            or (
+                                "page_subphotos"
+                                if isinstance(refresh_subphotos, list) and refresh_subphotos
+                                else "single_image"
+                            )
+                        ),
+                        "split_applied": bool(
+                            existing_manifest_row.get("split_applied")
+                            or (isinstance(refresh_subphotos, list) and bool(refresh_subphotos))
+                        ),
+                        "subphoto_count": int(summary.get("subphoto_count") or 0),
+                        "processor_signature": PROCESSOR_SIGNATURE,
+                        "settings_signature": settings_sig,
+                        "ocr_authority_source": str(review.get("ocr_authority_source") or ""),
+                        "ocr_authority_signature": str((manifest_row or {}).get("ocr_authority_signature") or ""),
+                        "ocr_authority_hash": str((manifest_row or {}).get("ocr_authority_hash") or ""),
+                        "cast_store_signature": (
+                            current_cast_signature if bool(effective.get("enable_people", True)) else ""
+                        ),
+                        "render_settings_path": (str(settings_file) if settings_file is not None else ""),
+                    }
+                    if not dry_run:
+                        append_job_artifact(
+                            {
+                                "kind": "photoalbums_xmp",
+                                "image_path": str(image_path),
+                                "sidecar_path": str(sidecar_path),
+                                "label": image_path.name,
+                            }
+                        )
+                    if bool(effective.get("enable_people", True)):
+                        processed_cast_manifest_keys.add(str(image_path))
+                    processed += 1
+                    completed_times.append(time.monotonic() - file_start)
+                    if not stdout_only:
+                        eta_str = _format_eta(completed_times, len(files) - idx)
+                        eta_part = f"  {eta_str}" if eta_str else ""
+                        print(
+                            f"[{idx}/{len(files)}]{eta_part}  ok    {image_path.name}  [refresh]",
+                            flush=True,
+                        )
+                except Exception as exc:
+                    failures += 1
+                    emit_error(f"[{idx}/{len(files)}] fail  {image_path.name}: {exc}")
+                _release_image_processing_lock(lock_path)
+                continue
 
         if not needs_full and people_update_only and not stdout_only:
             state = existing_sidecar_state
@@ -2987,7 +3144,7 @@ def run(argv: list[str] | None = None) -> int:
         print(f"- Skipped:   {skipped}")
         print(f"- Failed:    {failures + stitch_failures}")
         print(f"- Manifest:  {manifest_path}")
-    _release_image_processing_lock(batch_lock_path)
+    _release_batch_processing_lock(batch_lock_path)
     return 1 if (failures or stitch_failures) else 0
 
 
