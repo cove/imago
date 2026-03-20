@@ -14,13 +14,13 @@ test:
   .\scripts\test.ps1 -q
 
 test-cast:
-  uv run pytest cast/tests -q
+  .\cast\scripts\test.ps1 -q
 
 test-photoalbums:
-  uv run pytest photoalbums/tests -q
+  .\photoalbums\scripts\test.ps1 -q
 
 test-vhs:
-  uv run pytest vhs/test -q
+  .\vhs\scripts\test.ps1 -q
 
 format:
   uv run ruff format .
@@ -32,7 +32,7 @@ typecheck:
   uv run python scripts/check_pyright.py
 
 dupes:
-  uv run python scripts/check_pylint.py
+  uv run python scripts/check_skylos.py
 
 complexity:
   uv run python scripts/check_radon.py
@@ -40,7 +40,7 @@ complexity:
 quality:
   uv run python scripts/check_ruff.py
   uv run python scripts/check_pyright.py
-  uv run python scripts/check_pylint.py
+  uv run python scripts/check_skylos.py
 
 cast-init:
   uv run python cast.py init

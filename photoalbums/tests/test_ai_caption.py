@@ -12,7 +12,7 @@ if str(REPO_ROOT) not in sys.path:
 if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
-from photoalbums.lib import ai_caption, _caption_lmstudio, _caption_qwen, ai_ocr
+from photoalbums.lib import ai_caption, _caption_lmstudio, _caption_local_hf, ai_ocr
 
 
 class TestAICaption(unittest.TestCase):
@@ -50,8 +50,8 @@ class TestAICaption(unittest.TestCase):
         self.assertIn("Spain", context.focus)
         self.assertIn("Morocco", context.focus)
 
-    def test_build_qwen_prompt_includes_cordell_album_rules(self):
-        prompt = ai_caption._build_qwen_prompt(
+    def test_build_local_prompt_includes_cordell_album_rules(self):
+        prompt = ai_caption._build_local_prompt(
             people=[],
             objects=[],
             ocr_text="",
@@ -73,8 +73,8 @@ class TestAICaption(unittest.TestCase):
         self.assertNotIn("Filename hint:", prompt)
         self.assertNotIn("Folder hint:", prompt)
 
-    def test_build_qwen_prompt_prefers_printed_cover_title_when_available(self):
-        prompt = ai_caption._build_qwen_prompt(
+    def test_build_local_prompt_prefers_printed_cover_title_when_available(self):
+        prompt = ai_caption._build_local_prompt(
             people=[],
             objects=[],
             ocr_text="",
@@ -125,27 +125,27 @@ class TestAICaption(unittest.TestCase):
         self.assertEqual(out.text, "")
         self.assertEqual(out.engine, "none")
 
-    def test_qwen_returns_empty_on_error(self):
+    def test_local_returns_empty_on_error(self):
         fake_qwen = mock.Mock()
         fake_qwen.describe.side_effect = RuntimeError("model offline")
-        with mock.patch("photoalbums.lib.ai_caption.QwenLocalCaptioner", return_value=fake_qwen):
-            engine = ai_caption.CaptionEngine(engine="qwen")
+        with mock.patch("photoalbums.lib.ai_caption.LocalHFCaptioner", return_value=fake_qwen):
+            engine = ai_caption.CaptionEngine(engine="local")
             out = engine.generate(
                 image_path="sample.jpg",
                 people=["Alice"],
                 objects=["car"],
                 ocr_text="",
             )
-        self.assertEqual(out.engine, "qwen")
+        self.assertEqual(out.engine, "local")
         self.assertTrue(out.fallback)
         self.assertIn("model offline", out.error)
         self.assertEqual(out.text, "")
 
-    def test_legacy_blip_alias_routes_to_qwen_and_returns_empty_on_error(self):
+    def test_legacy_blip_alias_routes_to_local_and_returns_empty_on_error(self):
         fake_qwen = mock.Mock()
         fake_qwen.describe.side_effect = RuntimeError("model offline")
         with (
-            mock.patch("photoalbums.lib.ai_caption.QwenLocalCaptioner", return_value=fake_qwen) as ctor,
+            mock.patch("photoalbums.lib.ai_caption.LocalHFCaptioner", return_value=fake_qwen) as ctor,
             mock.patch("photoalbums.lib.ai_caption.default_caption_model", return_value=""),
         ):
             engine = ai_caption.CaptionEngine(engine="blip")
@@ -156,7 +156,7 @@ class TestAICaption(unittest.TestCase):
                 ocr_text="",
             )
         ctor.assert_called_once_with(
-            model_name=ai_caption.DEFAULT_QWEN_CAPTION_MODEL,
+            model_name=ai_caption.DEFAULT_LOCAL_CAPTION_MODEL,
             prompt_text="",
             max_new_tokens=96,
             temperature=0.2,
@@ -166,25 +166,25 @@ class TestAICaption(unittest.TestCase):
             max_image_edge=0,
             stream=False,
         )
-        self.assertEqual(engine.engine, "qwen")
-        self.assertEqual(out.engine, "qwen")
+        self.assertEqual(engine.engine, "local")
+        self.assertEqual(out.engine, "local")
         self.assertTrue(out.fallback)
         self.assertIn("model offline", out.error)
         self.assertEqual(out.text, "")
 
-    def test_qwen_engine_forwards_cpu_tuning_settings(self):
+    def test_local_engine_forwards_cpu_tuning_settings(self):
         fake_qwen = mock.Mock()
         fake_qwen.describe.return_value = ai_caption.CaptionDetails(text="caption text")
-        with mock.patch("photoalbums.lib.ai_caption.QwenLocalCaptioner", return_value=fake_qwen) as ctor:
+        with mock.patch("photoalbums.lib.ai_caption.LocalHFCaptioner", return_value=fake_qwen) as ctor:
             engine = ai_caption.CaptionEngine(
-                engine="qwen",
+                engine="local",
                 model_name="qwen/qwen3.5-9b",
                 caption_prompt="Describe this exact image",
                 max_tokens=64,
                 temperature=0.1,
-                qwen_attn_implementation="sdpa",
-                qwen_min_pixels=131072,
-                qwen_max_pixels=524288,
+                local_attn_implementation="sdpa",
+                local_min_pixels=131072,
+                local_max_pixels=524288,
                 max_image_edge=1024,
             )
             out = engine.generate(
@@ -204,10 +204,10 @@ class TestAICaption(unittest.TestCase):
             max_image_edge=1024,
             stream=False,
         )
-        self.assertEqual(out.engine, "qwen")
+        self.assertEqual(out.engine, "local")
         self.assertEqual(out.text, "caption text")
 
-    def test_qwen_loader_uses_local_snapshot_and_safe_max_pixels(self):
+    def test_local_loader_uses_local_snapshot_and_safe_max_pixels(self):
         with tempfile.TemporaryDirectory() as tmp:
             cache_dir = Path(tmp)
             snapshot = cache_dir / "models--qwen--qwen3.5-9b" / "snapshots" / "abc123"
@@ -227,20 +227,20 @@ class TestAICaption(unittest.TestCase):
             fake_torch.cuda.is_available.return_value = False
 
             with (
-                mock.patch.object(_caption_qwen, "HF_MODEL_CACHE_DIR", cache_dir),
+                mock.patch.object(_caption_local_hf, "HF_MODEL_CACHE_DIR", cache_dir),
                 mock.patch.object(ai_ocr, "HF_MODEL_CACHE_DIR", cache_dir),
                 mock.patch.object(
-                    _caption_qwen,
-                    "_load_qwen_transformers",
+                    _caption_local_hf,
+                    "_load_hf_transformers",
                     return_value=(fake_torch, fake_processor_cls, fake_model_cls),
                 ),
             ):
-                captioner = ai_caption.QwenLocalCaptioner(model_name="qwen/qwen3.5-9b")
+                captioner = ai_caption.LocalHFCaptioner(model_name="qwen/qwen3.5-9b")
                 captioner._ensure_loaded()
 
             processor_kwargs = fake_processor_cls.from_pretrained.call_args.kwargs
             self.assertTrue(processor_kwargs["local_files_only"])
-            self.assertEqual(processor_kwargs["max_pixels"], ai_caption.DEFAULT_QWEN_AUTO_MAX_PIXELS)
+            self.assertEqual(processor_kwargs["max_pixels"], ai_caption.DEFAULT_LOCAL_AUTO_MAX_PIXELS)
 
             model_kwargs = fake_model_cls.from_pretrained.call_args.kwargs
             self.assertTrue(model_kwargs["local_files_only"])
@@ -542,20 +542,20 @@ class TestAICaption(unittest.TestCase):
         self.assertEqual(details.gps_longitude, "100.307222")
         self.assertEqual(details.location_name, "Mogao Caves, Dunhuang, Gansu, China")
 
-    def test_parse_qwen_json_output_extracts_caption_from_json(self):
+    def test_parse_local_json_output_extracts_caption_from_json(self):
         raw = '{"caption": "Two people stand beside a red car.", "location_name": "", "gps_latitude": "", "gps_longitude": ""}'
-        details = ai_caption._parse_qwen_json_output(raw)
+        details = ai_caption._parse_local_json_output(raw)
         self.assertEqual(details.text, "Two people stand beside a red car.")
         self.assertEqual(details.gps_latitude, "")
 
-    def test_parse_qwen_json_output_strips_think_block_before_json(self):
+    def test_parse_local_json_output_strips_think_block_before_json(self):
         raw = '<think>Let me analyze this.</think>{"caption": "A mountain valley.", "location_name": "", "gps_latitude": "", "gps_longitude": ""}'
-        details = ai_caption._parse_qwen_json_output(raw)
+        details = ai_caption._parse_local_json_output(raw)
         self.assertEqual(details.text, "A mountain valley.")
 
-    def test_parse_qwen_json_output_falls_back_to_plain_text(self):
+    def test_parse_local_json_output_falls_back_to_plain_text(self):
         raw = "A plain text caption with no JSON."
-        details = ai_caption._parse_qwen_json_output(raw)
+        details = ai_caption._parse_local_json_output(raw)
         self.assertEqual(details.text, "A plain text caption with no JSON.")
 
 

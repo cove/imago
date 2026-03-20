@@ -36,39 +36,41 @@ from ._caption_lmstudio import (  # noqa: F401
     normalize_lmstudio_base_url,
 )
 from ._caption_prompts import (  # noqa: F401
-    _build_combined_qwen_prompt,
+    _build_combined_local_prompt,
     _build_describe_prompt,
     _build_location_prompt,
     _build_people_count_prompt,
-    _build_qwen_prompt,
+    _build_local_prompt,
     _build_shared_prompt_rules,
     _should_apply_album_prompt_rules,
 )
-from ._caption_qwen import (  # noqa: F401
-    DEFAULT_QWEN_AUTO_MAX_PIXELS,
-    DEFAULT_QWEN_CAPTION_MODEL,
-    QWEN_ATTN_IMPLEMENTATIONS,
-    QwenLocalCaptioner,
-    _load_qwen_transformers,
-    _parse_qwen_combined_json_output,
-    _parse_qwen_json_output,
+from ._caption_local_hf import (  # noqa: F401
+    DEFAULT_LOCAL_AUTO_MAX_PIXELS,
+    DEFAULT_LOCAL_CAPTION_MODEL,
+    LOCAL_ATTN_IMPLEMENTATIONS,
+    LocalHFCaptioner,
+    _load_hf_transformers,
+    _parse_local_combined_json_output,
+    _parse_local_json_output,
     _resolve_local_hf_snapshot,
-    normalize_qwen_attn_implementation,
+    normalize_local_attn_implementation,
 )
 
 
 def resolve_caption_model(engine: str, model_name: str) -> str:
     normalized = str(engine or "").strip().lower()
+    if normalized == "qwen":
+        normalized = "local"
     if normalized == "blip":
-        normalized = "qwen"
+        normalized = "local"
     text = str(model_name or "").strip()
     if text:
         return text
     configured = default_caption_model()
     if configured:
         return configured
-    if normalized == "qwen":
-        return DEFAULT_QWEN_CAPTION_MODEL
+    if normalized == "local":
+        return DEFAULT_LOCAL_CAPTION_MODEL
     return ""
 
 
@@ -108,22 +110,24 @@ class CaptionEngine:
     def __init__(
         self,
         *,
-        engine: str = "qwen",
+        engine: str = "local",
         model_name: str = "",
         caption_prompt: str = "",
         max_tokens: int = 96,
         temperature: float = 0.2,
-        qwen_attn_implementation: str = "auto",
-        qwen_min_pixels: int = 0,
-        qwen_max_pixels: int = 0,
+        local_attn_implementation: str = "auto",
+        local_min_pixels: int = 0,
+        local_max_pixels: int = 0,
         lmstudio_base_url: str = DEFAULT_LMSTUDIO_BASE_URL,
         max_image_edge: int = 0,
         stream: bool = False,
     ):
-        normalized = str(engine or "qwen").strip().lower()
+        normalized = str(engine or "local").strip().lower()
+        if normalized == "qwen":
+            normalized = "local"
         if normalized == "blip":
-            normalized = "qwen"
-        if normalized not in {"none", "qwen", "lmstudio"}:
+            normalized = "local"
+        if normalized not in {"none", "local", "lmstudio"}:
             raise ValueError(f"Unsupported caption engine: {engine}")
         self.engine = normalized
         self._captioner = None
@@ -131,11 +135,11 @@ class CaptionEngine:
         self._caption_prompt = str(caption_prompt or "").strip()
         self._max_tokens = int(max_tokens)
         self._temperature = float(temperature)
-        self._qwen_attn_implementation = normalize_qwen_attn_implementation(
-            qwen_attn_implementation
+        self._local_attn_implementation = normalize_local_attn_implementation(
+            local_attn_implementation
         )
-        self._qwen_min_pixels = max(0, int(qwen_min_pixels))
-        self._qwen_max_pixels = max(0, int(qwen_max_pixels))
+        self._local_min_pixels = max(0, int(local_min_pixels))
+        self._local_max_pixels = max(0, int(local_max_pixels))
         self._lmstudio_base_url = normalize_lmstudio_base_url(lmstudio_base_url)
         self._max_image_edge = max(0, int(max_image_edge))
         self._stream = bool(stream)
@@ -164,14 +168,14 @@ class CaptionEngine:
                 stream=self._stream,
             )
         else:
-            self._captioner = QwenLocalCaptioner(
+            self._captioner = LocalHFCaptioner(
                 model_name=self._model_name,
                 prompt_text=self._caption_prompt,
                 max_new_tokens=self._max_tokens,
                 temperature=self._temperature,
-                attn_implementation=self._qwen_attn_implementation,
-                min_pixels=self._qwen_min_pixels,
-                max_pixels=self._qwen_max_pixels,
+                attn_implementation=self._local_attn_implementation,
+                min_pixels=self._local_min_pixels,
+                max_pixels=self._local_max_pixels,
                 max_image_edge=self._max_image_edge,
                 stream=self._stream,
             )
@@ -244,15 +248,15 @@ class CaptionEngine:
         is_cover_page: bool = False,
         people_positions: dict[str, str] | None = None,
     ) -> tuple[CaptionOutput, str]:
-        """Single Qwen inference for both OCR and caption. Returns (CaptionOutput, ocr_text).
-        Only valid when engine == 'qwen'. Falls back to empty ocr_text on error."""
-        if self.engine != "qwen":
+        """Single local HF inference for both OCR and caption. Returns (CaptionOutput, ocr_text).
+        Only valid when engine == 'local'. Falls back to empty ocr_text on error."""
+        if self.engine != "local":
             return (
                 CaptionOutput(
                     text="",
                     engine=self.engine,
                     fallback=True,
-                    error="generate_combined requires qwen engine",
+                    error="generate_combined requires local engine",
                 ),
                 "",
             )
@@ -282,7 +286,7 @@ class CaptionEngine:
                     error=(
                         ""
                         if caption.text
-                        else "Qwen combined returned empty description."
+                        else "Local HF combined returned empty description."
                     ),
                 ),
                 ocr_text,

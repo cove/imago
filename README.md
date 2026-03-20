@@ -30,7 +30,7 @@ Bootstrap bundled runtime binaries used by VHS workflows on Windows/Linux:
 Run all project tests from repo root:
 
 - `uv run pytest -q`
-- `.\scripts\test.ps1 -q`
+- `.\scripts\test.ps1 -q` (also runs the per-project Skylos duplicate-code gate)
 
 Enable the repo pre-push hook (runs this test suite before push):
 

@@ -19,19 +19,19 @@ from photoalbums.lib import ai_ocr
 
 
 class TestAIOcr(unittest.TestCase):
-    def test_legacy_docstrange_ocr_engine_alias_resolves_to_qwen(self):
-        self.assertEqual(ai_ocr._normalize_ocr_engine("docstrange"), "qwen")
+    def test_legacy_docstrange_ocr_engine_alias_resolves_to_local(self):
+        self.assertEqual(ai_ocr._normalize_ocr_engine("docstrange"), "local")
 
-    def test_qwen_ocr_requires_local_model(self):
+    def test_local_ocr_requires_local_model(self):
         with tempfile.TemporaryDirectory() as tmp:
             cache_dir = Path(tmp)
             with mock.patch.object(ai_ocr, "HF_MODEL_CACHE_DIR", cache_dir):
-                ocr = ai_ocr.OCREngine(engine="qwen")
+                ocr = ai_ocr.OCREngine(engine="local")
                 with self.assertRaises(RuntimeError) as exc:
                     ocr._ensure_loaded()
         self.assertIn("local-only inference", str(exc.exception))
 
-    def test_qwen_ocr_uses_local_snapshot(self):
+    def test_local_ocr_uses_local_snapshot(self):
         with tempfile.TemporaryDirectory() as tmp:
             cache_dir = Path(tmp)
             snapshot = cache_dir / "models--qwen--qwen3.5-9b" / "snapshots" / "abc123"
@@ -53,25 +53,25 @@ class TestAIOcr(unittest.TestCase):
                 mock.patch.object(ai_ocr, "HF_MODEL_CACHE_DIR", cache_dir),
                 mock.patch.object(
                     ai_ocr,
-                    "_load_qwen_transformers",
+                    "_load_hf_transformers",
                     return_value=(fake_torch, fake_processor_cls, fake_model_cls),
                 ),
             ):
                 ocr = ai_ocr.OCREngine(
-                    engine="qwen", model_name=ai_ocr.DEFAULT_QWEN_OCR_MODEL
+                    engine="local", model_name=ai_ocr.DEFAULT_LOCAL_OCR_MODEL
                 )
                 ocr._ensure_loaded()
 
             processor_kwargs = fake_processor_cls.from_pretrained.call_args.kwargs
             self.assertTrue(processor_kwargs["local_files_only"])
             self.assertEqual(
-                processor_kwargs["max_pixels"], ai_ocr.DEFAULT_QWEN_OCR_MAX_PIXELS
+                processor_kwargs["max_pixels"], ai_ocr.DEFAULT_LOCAL_OCR_MAX_PIXELS
             )
 
             model_kwargs = fake_model_cls.from_pretrained.call_args.kwargs
             self.assertTrue(model_kwargs["local_files_only"])
 
-    def test_qwen_ocr_reads_text_locally(self):
+    def test_local_ocr_reads_text_locally(self):
         with tempfile.TemporaryDirectory() as tmp:
             cache_dir = Path(tmp)
             snapshot = cache_dir / "models--qwen--qwen3.5-9b" / "snapshots" / "abc123"
@@ -110,12 +110,12 @@ class TestAIOcr(unittest.TestCase):
                 mock.patch.object(ai_ocr, "HF_MODEL_CACHE_DIR", cache_dir),
                 mock.patch.object(
                     ai_ocr,
-                    "_load_qwen_transformers",
+                    "_load_hf_transformers",
                     return_value=(fake_torch, fake_processor_cls, fake_model_cls),
                 ),
             ):
                 ocr = ai_ocr.OCREngine(
-                    engine="qwen", model_name=ai_ocr.DEFAULT_QWEN_OCR_MODEL
+                    engine="local", model_name=ai_ocr.DEFAULT_LOCAL_OCR_MODEL
                 )
                 text = ocr.read_text(image_path)
 
@@ -123,10 +123,10 @@ class TestAIOcr(unittest.TestCase):
             fake_processor.apply_chat_template.assert_called_once()
             prompt_messages = fake_processor.apply_chat_template.call_args.args[0]
             self.assertEqual(
-                prompt_messages[0]["content"][1]["text"], ai_ocr.DEFAULT_QWEN_OCR_PROMPT
+                prompt_messages[0]["content"][1]["text"], ai_ocr.DEFAULT_LOCAL_OCR_PROMPT
             )
 
-    def test_qwen_ocr_normalizes_no_text_response(self):
+    def test_local_ocr_normalizes_no_text_response(self):
         self.assertEqual(ai_ocr._normalize_ocr_text("No visible text"), "")
 
     def test_ocr_normalization_rejects_reasoning_dump(self):
