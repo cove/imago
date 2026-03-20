@@ -20,7 +20,6 @@ if str(MODULE_ROOT) not in sys.path:
 
 from cast.storage import TextFaceStore
 from photoalbums.lib import ai_index
-from photoalbums.lib.ai_people import CastPeopleMatcher
 from photoalbums.lib import xmp_sidecar
 
 
@@ -872,7 +871,7 @@ class TestAIIndex(unittest.TestCase):
             )
             self.assertEqual(sidecar.read_text(encoding="utf-8"), original)
 
-    def test_run_skips_processing_when_valid_sidecar_exists(self):
+    def test_run_refreshes_existing_sidecar_without_ai_processing(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             photos = base / "Family_View"
@@ -930,7 +929,11 @@ class TestAIIndex(unittest.TestCase):
 
             self.assertEqual(result, 0)
             analysis_mock.assert_not_called()
-            write_mock.assert_not_called()
+            write_mock.assert_called_once()
+            self.assertEqual(
+                write_mock.call_args.kwargs["creator_tool"],
+                "https://github.com/cove/imago",
+            )
 
     def test_run_reprocesses_current_sidecar_when_ai_fields_are_incomplete(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1377,7 +1380,42 @@ class TestAIIndex(unittest.TestCase):
             cast_store = base / "cast_data"
             store = TextFaceStore(cast_store)
             store.ensure_files()
-            matcher = CastPeopleMatcher(cast_store_dir=cast_store, max_faces=1)
+
+            class _FakeMatcher:
+                def __init__(self, face_store: TextFaceStore, image_path: Path):
+                    self._store = face_store
+                    self._image_path = image_path
+                    self.last_faces_detected = 0
+
+                def store_signature(self) -> str:
+                    return self._store.store_signature()
+
+                def match_image(self, *_args, **_kwargs):
+                    self.last_faces_detected = 1
+                    face = self._store.add_face(
+                        embedding=[1.0, 0.0, 0.0],
+                        source_type="photo",
+                        source_path=str(self._image_path),
+                        bbox=[10, 10, 40, 40],
+                        quality=0.93,
+                        crop_path="crops/fake-face.jpg",
+                        metadata={
+                            "ingest": "photoalbums_ai",
+                            "embedding_model": "test.embedding",
+                            "detector_model": "test.detector",
+                            "analysis_variant": "original",
+                        },
+                    )
+                    self._store.add_review_item(
+                        face_id=str(face["face_id"]),
+                        candidates=[],
+                        suggested_person_id=None,
+                        suggested_score=None,
+                        status="pending",
+                    )
+                    return []
+
+            matcher = _FakeMatcher(store, image)
 
             with (
                 mock.patch.object(ai_index, "_init_people_matcher", return_value=matcher),
@@ -1388,10 +1426,6 @@ class TestAIIndex(unittest.TestCase):
                 ),
                 mock.patch.object(ai_index, "read_embedded_source_text", return_value=""),
                 mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
-                mock.patch.object(matcher, "_detect_faces", return_value=[(10, 10, 40, 40)]),
-                mock.patch.object(matcher._ingestor, "is_valid_face_crop", return_value=True),
-                mock.patch.object(matcher, "_arcface_embed", return_value=[1.0, 0.0, 0.0]),
-                mock.patch.object(matcher, "_estimate_quality", return_value=0.93),
             ):
                 result = ai_index.run(
                     [
@@ -2142,7 +2176,119 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(second_result, 0)
             authority_mock.assert_not_called()
             analysis_mock.assert_not_called()
-            write_mock.assert_not_called()
+            write_mock.assert_called_once()
+
+    def test_run_archive_multi_scan_refreshes_without_authority_when_manifest_missing(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            archive = base / "China_1986_B02_Archive"
+            archive.mkdir()
+            scan1 = archive / "China_1986_B02_P02_S01.tif"
+            scan2 = archive / "China_1986_B02_P02_S02.tif"
+            scan1.write_bytes(b"a")
+            scan2.write_bytes(b"b")
+            manifest = base / "manifest.jsonl"
+            authority = ai_index.ArchiveScanOCRAuthority(
+                page_key=ai_index._scan_page_key(scan1) or "",
+                group_paths=(scan1, scan2),
+                signature=ai_index._scan_group_signature([scan1, scan2]),
+                ocr_text="MAINLAND CHINA 1986 BOOK 11",
+                ocr_keywords=("mainland", "china", "book"),
+                ocr_hash=ai_index._hash_text("MAINLAND CHINA 1986 BOOK 11"),
+            )
+            analysis = ai_index.ImageAnalysis(
+                image_path=scan1,
+                people_names=[],
+                object_labels=[],
+                ocr_text=authority.ocr_text,
+                ocr_keywords=list(authority.ocr_keywords),
+                subjects=list(authority.ocr_keywords),
+                description="Archive page caption",
+                payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {
+                        "engine": "qwen",
+                        "language": "eng",
+                        "keywords": list(authority.ocr_keywords),
+                        "chars": len(authority.ocr_text),
+                    },
+                    "caption": {
+                        "requested_engine": "none",
+                        "effective_engine": "none",
+                        "fallback": False,
+                        "error": "",
+                        "model": "",
+                    },
+                },
+            )
+
+            with (
+                mock.patch.object(
+                    ai_index,
+                    "prepare_image_layout",
+                    side_effect=lambda *args, **kwargs: self._mock_layout(scan1),
+                ),
+                mock.patch.object(
+                    ai_index,
+                    "_resolve_archive_scan_authoritative_ocr",
+                    return_value=authority,
+                ),
+                mock.patch.object(ai_index, "read_embedded_source_text", return_value=""),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
+            ):
+                first_result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--manifest",
+                        str(manifest),
+                        "--include-archive",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "qwen",
+                        "--caption-engine",
+                        "none",
+                        "--max-images",
+                        "1",
+                        "--force",
+                    ]
+                )
+
+            self.assertEqual(first_result, 0)
+            manifest.unlink()
+
+            with (
+                mock.patch.object(ai_index, "_resolve_archive_scan_authoritative_ocr") as authority_mock,
+                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+            ):
+                second_result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--manifest",
+                        str(manifest),
+                        "--include-archive",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "qwen",
+                        "--caption-engine",
+                        "none",
+                        "--max-images",
+                        "1",
+                    ]
+                )
+
+            self.assertEqual(second_result, 0)
+            authority_mock.assert_not_called()
+            analysis_mock.assert_not_called()
+            write_mock.assert_called_once()
 
     def test_resolve_caption_prompt_reads_file_and_overrides_inline_text(self):
         with tempfile.TemporaryDirectory() as tmp:

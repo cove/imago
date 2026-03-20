@@ -136,16 +136,12 @@ def _add_subphotos(parent: ET.Element, subphotos: list[dict]) -> None:
         _add_simple_text(item, f"{{{IMAGO_NS}}}Y", int(bounds.get("y", 0)))
         _add_simple_text(item, f"{{{IMAGO_NS}}}Width", int(bounds.get("width", 0)))
         _add_simple_text(item, f"{{{IMAGO_NS}}}Height", int(bounds.get("height", 0)))
-        _add_alt_text(
-            item, f"{{{IMAGO_NS}}}Description", str(row.get("description") or "")
-        )
+        _add_alt_text(item, f"{{{IMAGO_NS}}}Description", str(row.get("description") or ""))
         ocr_text = str(row.get("ocr_text") or "").strip()
         if ocr_text:
             _add_simple_text(item, f"{{{IMAGO_NS}}}OCRText", ocr_text)
         _add_bag(item, f"{{{IMAGO_NS}}}People", _dedupe(list(row.get("people") or [])))
-        _add_bag(
-            item, f"{{{IMAGO_NS}}}Subjects", _dedupe(list(row.get("subjects") or []))
-        )
+        _add_bag(item, f"{{{IMAGO_NS}}}Subjects", _dedupe(list(row.get("subjects") or [])))
         detections = row.get("detections")
         if detections:
             _add_simple_text(
@@ -244,9 +240,7 @@ def build_xmp_tree(
     _add_bag(desc, f"{{{IPTC_EXT_NS}}}PersonInImage", _dedupe(person_names))
     _add_alt_text(desc, f"{{{DC_NS}}}description", description)
     if str(album_title or "").strip():
-        _add_simple_text(
-            desc, f"{{{IMAGO_NS}}}AlbumTitle", str(album_title or "").strip()
-        )
+        _add_simple_text(desc, f"{{{IMAGO_NS}}}AlbumTitle", str(album_title or "").strip())
     if str(gps_latitude or "").strip() and str(gps_longitude or "").strip():
         _add_simple_text(
             desc,
@@ -263,7 +257,7 @@ def build_xmp_tree(
     _add_simple_text(desc, f"{{{DC_NS}}}source", str(source_text or "").strip())
 
     creator = ET.SubElement(desc, f"{{{XMP_NS}}}CreatorTool")
-    creator.text = str(creator_tool or "").strip() or "imago-photoalbums-ai-index"
+    creator.text = str(creator_tool or "").strip() or "https://github.com/cove/imago"
 
     clean_ocr = str(ocr_text or "").strip()
     if clean_ocr:
@@ -276,9 +270,7 @@ def build_xmp_tree(
 
     if detections_payload:
         payload = ET.SubElement(desc, f"{{{IMAGO_NS}}}Detections")
-        payload.text = json.dumps(
-            detections_payload, ensure_ascii=False, sort_keys=True
-        )
+        payload.text = json.dumps(detections_payload, ensure_ascii=False, sort_keys=True)
     _add_face_regions(
         desc,
         list((detections_payload or {}).get("people") or []),
@@ -293,12 +285,8 @@ def build_xmp_tree(
         sk.text = clean_stitch_key
 
     _add_simple_text(desc, f"{{{IMAGO_NS}}}OcrRan", str(ocr_ran).lower())
-    _add_simple_text(
-        desc, f"{{{IMAGO_NS}}}PeopleDetected", str(people_detected).lower()
-    )
-    _add_simple_text(
-        desc, f"{{{IMAGO_NS}}}PeopleIdentified", str(people_identified).lower()
-    )
+    _add_simple_text(desc, f"{{{IMAGO_NS}}}PeopleDetected", str(people_detected).lower())
+    _add_simple_text(desc, f"{{{IMAGO_NS}}}PeopleIdentified", str(people_identified).lower())
 
     tree = ET.ElementTree(xmpmeta)
     ET.indent(tree, space="  ")
@@ -362,9 +350,7 @@ def _set_alt_text(parent: ET.Element, tag: str, value: str) -> None:
     _replace_field(parent, tag, _builder)
 
 
-def _set_simple_text(
-    parent: ET.Element, tag: str, value: str | int | float, *, allow_empty: bool = False
-) -> None:
+def _set_simple_text(parent: ET.Element, tag: str, value: str | int | float, *, allow_empty: bool = False) -> None:
     text = str(value or "").strip() if isinstance(value, str) else str(value)
     existing = parent.find(tag)
     if not text and not allow_empty:
@@ -454,9 +440,7 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
     desc = _get_rdf_desc(tree)  # type: ignore[arg-type]
     if desc is None:
         return None
-    detections_text = str(
-        desc.findtext(f"{{{IMAGO_NS}}}Detections", default="") or ""
-    ).strip()
+    detections_text = str(desc.findtext(f"{{{IMAGO_NS}}}Detections", default="") or "").strip()
     detections_payload: dict[str, object] | None = None
     if detections_text:
         try:
@@ -466,28 +450,14 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
         if isinstance(parsed, dict):
             detections_payload = parsed
     return {
-        "creator_tool": str(
-            desc.findtext(f"{{{XMP_NS}}}CreatorTool", default="") or ""
-        ).strip(),
+        "creator_tool": str(desc.findtext(f"{{{XMP_NS}}}CreatorTool", default="") or "").strip(),
         "description": _get_alt_text(desc, f"{{{DC_NS}}}description"),
-        "album_title": str(
-            desc.findtext(f"{{{IMAGO_NS}}}AlbumTitle", default="") or ""
-        ).strip(),
-        "gps_latitude": str(
-            desc.findtext(f"{{{EXIF_NS}}}GPSLatitude", default="") or ""
-        ).strip(),
-        "gps_longitude": str(
-            desc.findtext(f"{{{EXIF_NS}}}GPSLongitude", default="") or ""
-        ).strip(),
-        "ocr_text": str(
-            desc.findtext(f"{{{IMAGO_NS}}}OCRText", default="") or ""
-        ).strip(),
-        "ocr_authority_source": str(
-            desc.findtext(f"{{{IMAGO_NS}}}OCRAuthoritySource", default="") or ""
-        ).strip(),
-        "stitch_key": str(
-            desc.findtext(f"{{{IMAGO_NS}}}StitchKey", default="") or ""
-        ).strip(),
+        "album_title": str(desc.findtext(f"{{{IMAGO_NS}}}AlbumTitle", default="") or "").strip(),
+        "gps_latitude": str(desc.findtext(f"{{{EXIF_NS}}}GPSLatitude", default="") or "").strip(),
+        "gps_longitude": str(desc.findtext(f"{{{EXIF_NS}}}GPSLongitude", default="") or "").strip(),
+        "ocr_text": str(desc.findtext(f"{{{IMAGO_NS}}}OCRText", default="") or "").strip(),
+        "ocr_authority_source": str(desc.findtext(f"{{{IMAGO_NS}}}OCRAuthoritySource", default="") or "").strip(),
+        "stitch_key": str(desc.findtext(f"{{{IMAGO_NS}}}StitchKey", default="") or "").strip(),
         "detections": detections_payload,
         "ocr_ran": _read_xmp_bool(desc, f"{{{IMAGO_NS}}}OcrRan"),
         "people_detected": _read_xmp_bool(desc, f"{{{IMAGO_NS}}}PeopleDetected"),
@@ -507,34 +477,20 @@ def sidecar_has_expected_ai_fields(
     state = read_ai_sidecar_state(sidecar_path)
     if not isinstance(state, dict):
         return False
-    expected_creator = str(creator_tool or "").strip()
-    if (
-        expected_creator
-        and str(state.get("creator_tool") or "").strip() != expected_creator
-    ):
-        return False
     detections = state.get("detections")
     if not isinstance(detections, dict):
         return False
     if bool(enable_people) and not isinstance(detections.get("people"), list):
         return False
-    if (
-        bool(enable_people)
-        and isinstance(detections.get("people"), list)
-        and detections["people"]
-    ):
+    if bool(enable_people) and isinstance(detections.get("people"), list) and detections["people"]:
         if not any(
-            isinstance(p, dict)
-            and isinstance(p.get("bbox"), list)
-            and len(p["bbox"]) >= 4
+            isinstance(p, dict) and isinstance(p.get("bbox"), list) and len(p["bbox"]) >= 4
             for p in detections["people"]
         ):
             return False
     if bool(enable_objects) and not isinstance(detections.get("objects"), list):
         return False
-    if str(ocr_engine or "").strip().lower() != "none" and not isinstance(
-        detections.get("ocr"), dict
-    ):
+    if str(ocr_engine or "").strip().lower() != "none" and not isinstance(detections.get("ocr"), dict):
         return False
     caption_name = str(caption_engine or "").strip().lower()
     if caption_name != "none" and not isinstance(detections.get("caption"), dict):
@@ -547,10 +503,7 @@ def sidecar_has_expected_ai_fields(
             )  # pylint: disable=import-outside-toplevel
         except Exception:  # pragma: no cover - defensive import fallback
             _looks_like_reasoning_or_prompt_echo = None
-        if (
-            _looks_like_reasoning_or_prompt_echo is not None
-            and _looks_like_reasoning_or_prompt_echo(description)
-        ):
+        if _looks_like_reasoning_or_prompt_echo is not None and _looks_like_reasoning_or_prompt_echo(description):
             return False
     ocr_text = str(state.get("ocr_text") or "").strip()
     if ocr_text:
@@ -560,9 +513,7 @@ def sidecar_has_expected_ai_fields(
             )  # pylint: disable=import-outside-toplevel
         except Exception:  # pragma: no cover - defensive import fallback
             _looks_like_ocr_reasoning = None
-        if _looks_like_ocr_reasoning is not None and _looks_like_ocr_reasoning(
-            ocr_text
-        ):
+        if _looks_like_ocr_reasoning is not None and _looks_like_ocr_reasoning(ocr_text):
             return False
     if caption_name != "none":
         caption = detections.get("caption")
@@ -574,10 +525,7 @@ def sidecar_has_expected_ai_fields(
             has_signal = True
         elif isinstance(ocr, dict) and int(ocr.get("chars") or 0) > 0:
             has_signal = True
-        elif (
-            isinstance(caption, dict)
-            and str(caption.get("effective_engine") or "").strip() == "page-summary"
-        ):
+        elif isinstance(caption, dict) and str(caption.get("effective_engine") or "").strip() == "page-summary":
             has_signal = True
         if has_signal and not description:
             return False
@@ -616,7 +564,7 @@ def _merge_xmp_tree(
     _set_simple_text(
         desc,
         f"{{{XMP_NS}}}CreatorTool",
-        str(creator_tool or "").strip() or "imago-photoalbums-ai-index",
+        str(creator_tool or "").strip() or "https://github.com/cove/imago",
     )
     clean_ocr = str(ocr_text or "").strip()
     _set_simple_text(desc, f"{{{IMAGO_NS}}}OCRText", clean_ocr)
@@ -641,9 +589,7 @@ def _merge_xmp_tree(
     )
     _set_subphotos(desc, subphotos)
     _set_simple_text(desc, f"{{{IMAGO_NS}}}StitchKey", str(stitch_key or "").strip())
-    _set_simple_text(
-        desc, f"{{{IMAGO_NS}}}OcrRan", str(ocr_ran).lower(), allow_empty=True
-    )
+    _set_simple_text(desc, f"{{{IMAGO_NS}}}OcrRan", str(ocr_ran).lower(), allow_empty=True)
     _set_simple_text(
         desc,
         f"{{{IMAGO_NS}}}PeopleDetected",

@@ -30,9 +30,7 @@ def _normalize_bool(value: Any, default: bool) -> bool:
     return bool(default)
 
 
-def _normalize_float(
-    value: Any, default: float, *, min_value: float, max_value: float
-) -> float:
+def _normalize_float(value: Any, default: float, *, min_value: float, max_value: float) -> float:
     try:
         parsed = float(value)
     except Exception:
@@ -93,9 +91,7 @@ def _normalize_people_recovery_mode(value: Any, default: str) -> str:
     return "off"
 
 
-def _normalize_settings_block(
-    raw: dict[str, Any], defaults: dict[str, Any]
-) -> dict[str, Any]:
+def _normalize_settings_block(raw: dict[str, Any], defaults: dict[str, Any]) -> dict[str, Any]:
     block = dict(raw or {})
     return {
         "skip": _normalize_bool(block.get("skip"), bool(defaults.get("skip", False))),
@@ -201,7 +197,7 @@ def _normalize_settings_block(
         ),
         "creator_tool": _normalize_text(
             block.get("creator_tool"),
-            str(defaults.get("creator_tool", "imago-photoalbums-ai-index")),
+            str(defaults.get("creator_tool", "https://github.com/cove/imago")),
         ),
     }
 
@@ -255,9 +251,7 @@ def load_render_settings(
                 continue
             if not isinstance(value, dict):
                 continue
-            image_settings[filename] = _normalize_settings_block(
-                value, normalized_archive
-            )
+            image_settings[filename] = _normalize_settings_block(value, normalized_archive)
 
     return path, {
         "version": int(payload.get("version") or 1),

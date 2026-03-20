@@ -8,7 +8,6 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from cast.ingest import CURRENT_FACE_EMBEDDING_MODEL
 from cast.storage import TextFaceStore
 from photoalbums.lib.ai_people import CastPeopleMatcher
 from photoalbums.lib.ai_people_preprocess import _rembg_providers
@@ -44,11 +43,7 @@ def test_matcher_refreshes_legacy_reviewed_face_to_current_model(tmp_path, monke
 
     matcher = CastPeopleMatcher(cast_store_dir=store.root_dir, max_faces=1)
     monkeypatch.setattr(matcher, "_detect_faces", lambda image_bgr: [(10, 10, 40, 40)])
-    monkeypatch.setattr(
-        matcher._ingestor,
-        "is_valid_face_crop",
-        lambda crop_bgr: True,
-    )
+    monkeypatch.setattr(matcher, "_is_valid_face_crop", lambda crop_bgr: True)
     monkeypatch.setattr(matcher, "_arcface_embed", lambda crop_bgr: [1.0, 0.0, 0.0])
     monkeypatch.setattr(matcher, "_embed", lambda crop_bgr: [0.2, 0.8, 0.0])
     monkeypatch.setattr(matcher, "_estimate_quality", lambda crop_bgr: 0.93)
@@ -62,13 +57,11 @@ def test_matcher_refreshes_legacy_reviewed_face_to_current_model(tmp_path, monke
 
     refreshed = store.get_face(face["face_id"])
     assert refreshed is not None
-    assert refreshed["metadata"]["embedding_model"] == CURRENT_FACE_EMBEDDING_MODEL
+    assert refreshed["metadata"]["embedding_model"] == matcher._current_embedding_model
     assert refreshed["review_status"] == "confirmed"
 
 
-def test_match_image_bbox_uses_original_image_coords_not_rescaled(
-    tmp_path, monkeypatch
-):
+def test_match_image_bbox_uses_original_image_coords_not_rescaled(tmp_path, monkeypatch):
     """Bounding box in PersonMatch and the face store must be in original-image pixel space.
 
     When a large image is processed, a rescaled copy may be used for AI caption/OCR models.
@@ -125,11 +118,7 @@ def test_match_image_bbox_uses_original_image_coords_not_rescaled(
         return []
 
     monkeypatch.setattr(matcher, "_detect_faces", _size_aware_detect)
-    monkeypatch.setattr(
-        matcher._ingestor,
-        "is_valid_face_crop",
-        lambda crop_bgr: True,
-    )
+    monkeypatch.setattr(matcher, "_is_valid_face_crop", lambda crop_bgr: True)
     monkeypatch.setattr(matcher, "_arcface_embed", lambda crop_bgr: [1.0, 0.0, 0.0])
     monkeypatch.setattr(matcher, "_embed", lambda crop_bgr: [1.0, 0.0, 0.0])
     monkeypatch.setattr(matcher, "_estimate_quality", lambda crop_bgr: 0.85)
@@ -167,19 +156,11 @@ def test_new_face_is_added_to_cast_store(tmp_path, monkeypatch):
 
     matcher = CastPeopleMatcher(cast_store_dir=store.root_dir, max_faces=5)
     monkeypatch.setattr(matcher, "_detect_faces", lambda image_bgr: [(10, 10, 60, 60)])
-    monkeypatch.setattr(
-        matcher._ingestor,
-        "is_valid_face_crop",
-        lambda crop_bgr: True,
-    )
+    monkeypatch.setattr(matcher, "_is_valid_face_crop", lambda crop_bgr: True)
     monkeypatch.setattr(matcher, "_arcface_embed", lambda crop_bgr: [1.0, 0.0, 0.0])
     monkeypatch.setattr(matcher, "_embed", lambda crop_bgr: [1.0, 0.0, 0.0])
     monkeypatch.setattr(matcher, "_estimate_quality", lambda crop_bgr: 0.80)
-    monkeypatch.setattr(
-        matcher._ingestor,
-        "_save_crop",
-        lambda face_id, crop_bgr: f"crops/{face_id}.jpg",
-    )
+    monkeypatch.setattr(matcher, "_save_crop", lambda face_id, crop_bgr: f"crops/{face_id}.jpg")
 
     assert store.list_faces() == [], "store should be empty before match_image"
 
@@ -192,9 +173,7 @@ def test_new_face_is_added_to_cast_store(tmp_path, monkeypatch):
     assert faces[0]["bbox"] == [10, 10, 60, 60]
 
 
-def test_match_image_recovery_refreshes_active_face_without_duplicate_row(
-    tmp_path, monkeypatch
-):
+def test_match_image_recovery_refreshes_active_face_without_duplicate_row(tmp_path, monkeypatch):
     store = TextFaceStore(tmp_path / "cast_data")
     store.ensure_files()
 
@@ -208,7 +187,7 @@ def test_match_image_recovery_refreshes_active_face_without_duplicate_row(
         source_type="photo",
         source_path=str(reference_path),
         bbox=[10, 10, 60, 60],
-        metadata={"embedding_model": CURRENT_FACE_EMBEDDING_MODEL},
+        metadata={"embedding_model": "insightface.buffalo_l.arcface_512"},
     )
     store.assign_face(
         prototype_face["face_id"],
@@ -229,13 +208,9 @@ def test_match_image_recovery_refreshes_active_face_without_duplicate_row(
     )
 
     monkeypatch.setattr(matcher, "_detect_faces", lambda image_bgr: [(10, 10, 60, 60)])
-    monkeypatch.setattr(matcher._ingestor, "is_valid_face_crop", lambda crop_bgr: True)
+    monkeypatch.setattr(matcher, "_is_valid_face_crop", lambda crop_bgr: True)
     monkeypatch.setattr(matcher, "_estimate_quality", lambda crop_bgr: 0.85)
-    monkeypatch.setattr(
-        matcher._ingestor,
-        "_save_crop",
-        lambda face_id, crop_bgr: f"crops/{face_id}.jpg",
-    )
+    monkeypatch.setattr(matcher, "_save_crop", lambda face_id, crop_bgr: f"crops/{face_id}.jpg")
     monkeypatch.setattr(
         "photoalbums.lib.ai_people.build_rembg_bgr",
         lambda image_bgr: np.full_like(image_bgr, 255),

@@ -19,11 +19,8 @@ class TestAIIndexLocking(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
-        self._orig_batch_lock_path = ai_index.BATCH_LOCK_PATH
-        ai_index.BATCH_LOCK_PATH = self.root / "ai_index.batch.lock"
 
     def tearDown(self):
-        ai_index.BATCH_LOCK_PATH = self._orig_batch_lock_path
         self.tmp.cleanup()
 
     def _single_photo_args(self, image_path: Path, manifest_path: Path) -> list[str]:
@@ -114,7 +111,7 @@ class TestAIIndexLocking(unittest.TestCase):
             self.assertEqual(result, 1)
             self.assertIn("another photoalbums ai batch run is already active", stdout.getvalue())
         finally:
-            ai_index._release_image_processing_lock(batch_lock_path)
+            ai_index._release_batch_processing_lock(batch_lock_path)
 
 
 if __name__ == "__main__":

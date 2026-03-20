@@ -114,9 +114,7 @@ class TestXMPSidecar(unittest.TestCase):
                 gps_longitude="100.307222",
                 source_text="Family_1986_B01_P02_S01.tif",
                 ocr_text="Dolores Cordell",
-                detections_payload={
-                    "people": [{"name": "Dolores Cordell", "score": 0.95}]
-                },
+                detections_payload={"people": [{"name": "Dolores Cordell", "score": 0.95}]},
                 subphotos=[],
             )
 
@@ -196,6 +194,49 @@ class TestXMPSidecar(unittest.TestCase):
                 xmp_sidecar.sidecar_has_expected_ai_fields(
                     incomplete,
                     creator_tool="imago-test",
+                    enable_people=True,
+                    enable_objects=True,
+                    ocr_engine="qwen",
+                    caption_engine="template",
+                )
+            )
+
+    def test_sidecar_has_expected_ai_fields_ignores_creator_tool_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            complete = Path(tmp) / "complete.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                complete,
+                creator_tool="imago-photoalbums-ai-index",
+                person_names=[],
+                subjects=["mainland", "china"],
+                description="This is the cover or title page of Mainland China Book II.",
+                album_title="Mainland China Book II",
+                source_text="",
+                ocr_text="MAINLAND CHINA 1986 BOOK 11",
+                detections_payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {
+                        "engine": "qwen",
+                        "language": "eng",
+                        "chars": 27,
+                        "keywords": ["mainland"],
+                    },
+                    "caption": {
+                        "requested_engine": "template",
+                        "effective_engine": "template",
+                        "fallback": False,
+                        "error": "",
+                        "model": "",
+                    },
+                },
+                subphotos=[],
+            )
+
+            self.assertTrue(
+                xmp_sidecar.sidecar_has_expected_ai_fields(
+                    complete,
+                    creator_tool="https://github.com/cove/imago",
                     enable_people=True,
                     enable_objects=True,
                     ocr_engine="qwen",

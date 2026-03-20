@@ -45,6 +45,9 @@ exclude-dependencies = ["opencv-python", "opencv-python-headless"]
 
 [tool.pytest.ini_options]
 testpaths = ["cast/tests", "photoalbums/tests", "vhs/test"]
+# On Windows, colored pytest output has intermittently surfaced as
+# KeyboardInterrupt failures in photoalbums tests via colorama/console handling.
+addopts = "--color=no"
 
 [tool.ruff]
 line-length = 120
