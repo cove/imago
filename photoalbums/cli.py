@@ -8,7 +8,7 @@ AI_STEP_LINES = [
     "2. Match known people from Cast face embeddings (optional).",
     "3. Detect visual objects with YOLO (optional).",
     "4. Extract OCR text/keywords (optional).",
-    "5. Generate a sentence caption and structured place hints (Qwen, template fallback, or LM Studio).",
+    "5. Generate a sentence caption and structured place hints (local HF, template fallback, or LM Studio).",
     "6. Geocode high-confidence place names to GPS coordinates.",
     "7. Write XMP sidecar metadata and update manifest state.",
 ]

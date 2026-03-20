@@ -154,7 +154,7 @@ def _build_shared_prompt_rules(
     return lines
 
 
-def _build_qwen_prompt(
+def _build_local_prompt(
     *,
     people: list[str],
     objects: list[str],
@@ -195,7 +195,7 @@ def _build_qwen_prompt(
     return "\n".join(lines)
 
 
-def _build_combined_qwen_prompt(
+def _build_combined_local_prompt(
     *,
     people: list[str],
     objects: list[str],
@@ -327,7 +327,7 @@ def _build_describe_prompt(
     is_cover_page: bool,
     people_positions: dict[str, str] | None = None,
 ) -> str:
-    return prompt_text or _build_qwen_prompt(
+    return prompt_text or _build_local_prompt(
         people=people,
         objects=objects,
         ocr_text=ocr_text,

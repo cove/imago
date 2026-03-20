@@ -197,8 +197,8 @@ class TestAIIndex(unittest.TestCase):
                 {
                     "detections": {
                         "caption": {
-                            "requested_engine": "qwen",
-                            "effective_engine": "qwen",
+                            "requested_engine": "local",
+                            "effective_engine": "local",
                             "error": "model offline",
                         }
                     }
@@ -696,7 +696,7 @@ class TestAIIndex(unittest.TestCase):
                 "people": [],
                 "objects": [],
                 "ocr": {
-                    "engine": "qwen",
+                    "engine": "local",
                     "language": "eng",
                     "keywords": [],
                     "chars": 27,
@@ -746,7 +746,7 @@ class TestAIIndex(unittest.TestCase):
                 "people": [],
                 "objects": [],
                 "ocr": {
-                    "engine": "qwen",
+                    "engine": "local",
                     "language": "eng",
                     "keywords": [],
                     "chars": 0,
@@ -1342,15 +1342,15 @@ class TestAIIndex(unittest.TestCase):
                     ],
                     "objects": [],
                     "ocr": {
-                        "engine": "qwen",
+                        "engine": "local",
                         "language": "eng",
                         "keywords": ["hello"],
                         "chars": 5,
                         "model": "qwen-old-ocr",
                     },
                     "caption": {
-                        "requested_engine": "qwen",
-                        "effective_engine": "qwen",
+                        "requested_engine": "local",
+                        "effective_engine": "local",
                         "fallback": False,
                         "error": "",
                         "model": "caption-old",
@@ -1385,7 +1385,7 @@ class TestAIIndex(unittest.TestCase):
             fake_caption_engine.effective_model_name = "caption-new"
             fake_caption_engine.generate.return_value = SimpleNamespace(
                 text="Updated description",
-                engine="qwen",
+                engine="local",
                 fallback=False,
                 error="",
             )
@@ -1428,11 +1428,11 @@ class TestAIIndex(unittest.TestCase):
                         "--include-view",
                         "--disable-objects",
                         "--ocr-engine",
-                        "qwen",
+                        "local",
                         "--ocr-model",
                         "qwen-current-ocr",
                         "--caption-engine",
-                        "qwen",
+                        "local",
                         "--caption-model",
                         "caption-new",
                         "--people-recovery-mode",
@@ -1557,7 +1557,7 @@ class TestAIIndex(unittest.TestCase):
                     "people": [{"name": "Alice"}],
                     "objects": [{"label": "dog"}],
                     "ocr": {"engine": "none", "language": "eng"},
-                    "caption": {"engine": "qwen"},
+                    "caption": {"engine": "local"},
                 },
             )
 
@@ -1586,7 +1586,7 @@ class TestAIIndex(unittest.TestCase):
                         "--ocr-engine",
                         "none",
                         "--caption-engine",
-                        "qwen",
+                        "local",
                     ]
                 )
 
@@ -1617,7 +1617,7 @@ class TestAIIndex(unittest.TestCase):
                     "objects": [],
                     "ocr": {"engine": "none", "language": "eng"},
                     "caption": {
-                        "requested_engine": "qwen",
+                        "requested_engine": "local",
                         "effective_engine": "template",
                         "fallback": True,
                         "error": "model offline",
@@ -1649,7 +1649,7 @@ class TestAIIndex(unittest.TestCase):
                         "--ocr-engine",
                         "none",
                         "--caption-engine",
-                        "qwen",
+                        "local",
                     ]
                 )
 
@@ -1737,7 +1737,7 @@ class TestAIIndex(unittest.TestCase):
             )
             self.assertEqual(print_mock.call_count, 2)
 
-    def test_run_stdout_uses_built_in_qwen_prompt_for_page_like_description(self):
+    def test_run_stdout_uses_built_in_local_prompt_for_page_like_description(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             photos = base / "Family_View"
@@ -1782,8 +1782,8 @@ class TestAIIndex(unittest.TestCase):
                         "chars": 0,
                     },
                     "caption": {
-                        "requested_engine": "qwen",
-                        "effective_engine": "qwen",
+                        "requested_engine": "local",
+                        "effective_engine": "local",
                         "fallback": False,
                         "error": "",
                         "model": "qwen/qwen3.5-9b",
@@ -1793,7 +1793,7 @@ class TestAIIndex(unittest.TestCase):
             fake_caption_engine = mock.Mock()
             fake_caption_engine.generate.return_value = SimpleNamespace(
                 text="Describe this page exactly",
-                engine="qwen",
+                engine="local",
                 fallback=False,
                 error="",
             )
@@ -1821,7 +1821,7 @@ class TestAIIndex(unittest.TestCase):
                         "--ocr-engine",
                         "none",
                         "--caption-engine",
-                        "qwen",
+                        "local",
                     ]
                 )
 
@@ -2015,7 +2015,7 @@ class TestAIIndex(unittest.TestCase):
                     "people": [],
                     "objects": [],
                     "ocr": {"engine": "none", "language": "eng"},
-                    "caption": {"engine": "qwen"},
+                    "caption": {"engine": "local"},
                 },
             )
 
@@ -2042,7 +2042,7 @@ class TestAIIndex(unittest.TestCase):
                         "--ocr-engine",
                         "none",
                         "--caption-engine",
-                        "qwen",
+                        "local",
                     ]
                 )
 
@@ -2081,7 +2081,7 @@ class TestAIIndex(unittest.TestCase):
                     "people": [],
                     "objects": [],
                     "ocr": {
-                        "engine": "qwen",
+                        "engine": "local",
                         "language": "eng",
                         "keywords": list(authority.ocr_keywords),
                         "chars": len(authority.ocr_text),
@@ -2122,7 +2122,7 @@ class TestAIIndex(unittest.TestCase):
                         "--disable-people",
                         "--disable-objects",
                         "--ocr-engine",
-                        "qwen",
+                        "local",
                         "--caption-engine",
                         "none",
                         "--max-images",
@@ -2179,7 +2179,7 @@ class TestAIIndex(unittest.TestCase):
                     "people": [],
                     "objects": [],
                     "ocr": {
-                        "engine": "qwen",
+                        "engine": "local",
                         "language": "eng",
                         "keywords": list(authority.ocr_keywords),
                         "chars": len(authority.ocr_text),
@@ -2219,7 +2219,7 @@ class TestAIIndex(unittest.TestCase):
                         "--disable-people",
                         "--disable-objects",
                         "--ocr-engine",
-                        "qwen",
+                        "local",
                         "--caption-engine",
                         "none",
                         "--max-images",
@@ -2245,7 +2245,7 @@ class TestAIIndex(unittest.TestCase):
                         "--disable-people",
                         "--disable-objects",
                         "--ocr-engine",
-                        "qwen",
+                        "local",
                         "--caption-engine",
                         "none",
                         "--max-images",
@@ -2290,7 +2290,7 @@ class TestAIIndex(unittest.TestCase):
                     "people": [],
                     "objects": [],
                     "ocr": {
-                        "engine": "qwen",
+                        "engine": "local",
                         "language": "eng",
                         "keywords": list(authority.ocr_keywords),
                         "chars": len(authority.ocr_text),
@@ -2330,7 +2330,7 @@ class TestAIIndex(unittest.TestCase):
                         "--disable-people",
                         "--disable-objects",
                         "--ocr-engine",
-                        "qwen",
+                        "local",
                         "--caption-engine",
                         "none",
                         "--max-images",
@@ -2357,7 +2357,7 @@ class TestAIIndex(unittest.TestCase):
                         "--disable-people",
                         "--disable-objects",
                         "--ocr-engine",
-                        "qwen",
+                        "local",
                         "--caption-engine",
                         "none",
                         "--max-images",
@@ -2403,11 +2403,11 @@ class TestAIIndex(unittest.TestCase):
                 "0.1",
                 "--caption-max-edge",
                 "1024",
-                "--qwen-attn-implementation",
+                "--local-attn-implementation",
                 "sdpa",
-                "--qwen-min-pixels",
+                "--local-min-pixels",
                 "131072",
-                "--qwen-max-pixels",
+                "--local-max-pixels",
                 "524288",
             ]
         )
@@ -2420,11 +2420,11 @@ class TestAIIndex(unittest.TestCase):
         self.assertEqual(args.caption_max_tokens, 64)
         self.assertAlmostEqual(args.caption_temperature, 0.1)
         self.assertEqual(args.caption_max_edge, 1024)
-        self.assertEqual(args.qwen_attn_implementation, "sdpa")
-        self.assertEqual(args.qwen_min_pixels, 131072)
-        self.assertEqual(args.qwen_max_pixels, 524288)
+        self.assertEqual(args.local_attn_implementation, "sdpa")
+        self.assertEqual(args.local_min_pixels, 131072)
+        self.assertEqual(args.local_max_pixels, 524288)
 
-    def test_parse_args_defaults_use_qwen_and_qwen_ocr(self):
+    def test_parse_args_defaults_use_local_and_local_ocr(self):
         with mock.patch.object(ai_index, "default_ocr_model", return_value="qwen/qwen3-vl-30b"):
             args = ai_index.parse_args([])
         self.assertEqual(args.caption_engine, "lmstudio")
@@ -2435,9 +2435,9 @@ class TestAIIndex(unittest.TestCase):
         self.assertEqual(args.ocr_engine, "lmstudio")
         self.assertEqual(args.ocr_model, "qwen/qwen3-vl-30b")
         self.assertFalse(args.stdout)
-        self.assertEqual(args.qwen_attn_implementation, "auto")
-        self.assertEqual(args.qwen_min_pixels, 0)
-        self.assertEqual(args.qwen_max_pixels, 0)
+        self.assertEqual(args.local_attn_implementation, "auto")
+        self.assertEqual(args.local_min_pixels, 0)
+        self.assertEqual(args.local_max_pixels, 0)
         self.assertEqual(args.caption_max_edge, 0)
 
     def test_init_caption_engine_forwards_caption_prompt(self):
@@ -2448,9 +2448,9 @@ class TestAIIndex(unittest.TestCase):
                 caption_prompt="Describe this exact image",
                 max_tokens=64,
                 temperature=0.1,
-                qwen_attn_implementation="sdpa",
-                qwen_min_pixels=131072,
-                qwen_max_pixels=524288,
+                local_attn_implementation="sdpa",
+                local_min_pixels=131072,
+                local_max_pixels=524288,
                 lmstudio_base_url="http://localhost:1234",
                 max_image_edge=1024,
             )
@@ -2461,9 +2461,9 @@ class TestAIIndex(unittest.TestCase):
             caption_prompt="Describe this exact image",
             max_tokens=64,
             temperature=0.1,
-            qwen_attn_implementation="sdpa",
-            qwen_min_pixels=131072,
-            qwen_max_pixels=524288,
+            local_attn_implementation="sdpa",
+            local_min_pixels=131072,
+            local_max_pixels=524288,
             lmstudio_base_url="http://localhost:1234",
             max_image_edge=1024,
             stream=False,

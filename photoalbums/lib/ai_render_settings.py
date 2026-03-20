@@ -5,11 +5,11 @@ from pathlib import Path
 from typing import Any
 
 from .ai_page_layout import normalize_page_split_mode
-from ._caption_qwen import normalize_qwen_attn_implementation
+from ._caption_local_hf import normalize_local_attn_implementation
 
 SETTINGS_FILENAME = "render_settings.json"
-OCR_ENGINES = {"none", "qwen", "lmstudio"}
-CAPTION_ENGINES = {"none", "qwen", "lmstudio"}
+OCR_ENGINES = {"none", "local", "lmstudio"}
+CAPTION_ENGINES = {"none", "local", "lmstudio"}
 PEOPLE_RECOVERY_MODES = {"off", "auto", "always"}
 
 
@@ -55,13 +55,13 @@ def _normalize_text(value: Any, default: str) -> str:
 
 def _normalize_ocr_engine(value: Any, default: str) -> str:
     text = str(value or "").strip().lower()
-    if text == "docstrange":
-        text = "qwen"
+    if text in {"docstrange", "qwen"}:
+        text = "local"
     if text in OCR_ENGINES:
         return text
     fallback = str(default or "none").strip().lower()
-    if fallback == "docstrange":
-        fallback = "qwen"
+    if fallback in {"docstrange", "qwen"}:
+        fallback = "local"
     if fallback in OCR_ENGINES:
         return fallback
     return "none"
@@ -69,16 +69,16 @@ def _normalize_ocr_engine(value: Any, default: str) -> str:
 
 def _normalize_caption_engine(value: Any, default: str) -> str:
     text = str(value or "").strip().lower()
-    if text == "blip":
-        return "qwen"
+    if text in {"blip", "qwen"}:
+        return "local"
     if text in CAPTION_ENGINES:
         return text
-    fallback = str(default or "qwen").strip().lower()
-    if fallback == "blip":
-        fallback = "qwen"
+    fallback = str(default or "local").strip().lower()
+    if fallback in {"blip", "qwen"}:
+        fallback = "local"
     if fallback in CAPTION_ENGINES:
         return fallback
-    return "qwen"
+    return "local"
 
 
 def _normalize_people_recovery_mode(value: Any, default: str) -> str:
@@ -125,14 +125,14 @@ def _normalize_settings_block(raw: dict[str, Any], defaults: dict[str, Any]) -> 
         ),
         "caption_engine": _normalize_caption_engine(
             block.get("caption_engine"),
-            str(defaults.get("caption_engine", "qwen")),
+            str(defaults.get("caption_engine", "local")),
         ),
         "caption_model": _normalize_text(
             block.get("caption_model"),
             str(defaults.get("caption_model", "")),
         ),
         "caption_prompt": _normalize_text(
-            block.get("caption_prompt", block.get("qwen_prompt")),
+            block.get("caption_prompt", block.get("local_prompt", block.get("qwen_prompt"))),
             str(defaults.get("caption_prompt", "")),
         ),
         "lmstudio_base_url": _normalize_text(
@@ -157,19 +157,19 @@ def _normalize_settings_block(raw: dict[str, Any], defaults: dict[str, Any]) -> 
             min_value=0,
             max_value=8192,
         ),
-        "qwen_attn_implementation": normalize_qwen_attn_implementation(
-            str(block.get("qwen_attn_implementation") or ""),
-            str(defaults.get("qwen_attn_implementation", "auto")),
+        "local_attn_implementation": normalize_local_attn_implementation(
+            str(block.get("local_attn_implementation", block.get("qwen_attn_implementation")) or ""),
+            str(defaults.get("local_attn_implementation", defaults.get("qwen_attn_implementation", "auto"))),
         ),
-        "qwen_min_pixels": _normalize_int(
-            block.get("qwen_min_pixels"),
-            int(defaults.get("qwen_min_pixels", 0)),
+        "local_min_pixels": _normalize_int(
+            block.get("local_min_pixels", block.get("qwen_min_pixels")),
+            int(defaults.get("local_min_pixels", defaults.get("qwen_min_pixels", 0))),
             min_value=0,
             max_value=32_000_000,
         ),
-        "qwen_max_pixels": _normalize_int(
-            block.get("qwen_max_pixels"),
-            int(defaults.get("qwen_max_pixels", 0)),
+        "local_max_pixels": _normalize_int(
+            block.get("local_max_pixels", block.get("qwen_max_pixels")),
+            int(defaults.get("local_max_pixels", defaults.get("qwen_max_pixels", 0))),
             min_value=0,
             max_value=32_000_000,
         ),

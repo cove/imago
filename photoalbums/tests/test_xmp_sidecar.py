@@ -147,7 +147,7 @@ class TestXMPSidecar(unittest.TestCase):
                     "people": [],
                     "objects": [],
                     "ocr": {
-                        "engine": "qwen",
+                        "engine": "local",
                         "language": "eng",
                         "chars": 27,
                         "keywords": ["mainland"],
@@ -186,7 +186,7 @@ class TestXMPSidecar(unittest.TestCase):
                     creator_tool="imago-test",
                     enable_people=True,
                     enable_objects=True,
-                    ocr_engine="qwen",
+                    ocr_engine="local",
                     caption_engine="template",
                 )
             )
@@ -196,7 +196,7 @@ class TestXMPSidecar(unittest.TestCase):
                     creator_tool="imago-test",
                     enable_people=True,
                     enable_objects=True,
-                    ocr_engine="qwen",
+                    ocr_engine="local",
                     caption_engine="template",
                 )
             )
@@ -217,7 +217,7 @@ class TestXMPSidecar(unittest.TestCase):
                     "people": [],
                     "objects": [],
                     "ocr": {
-                        "engine": "qwen",
+                        "engine": "local",
                         "language": "eng",
                         "chars": 27,
                         "keywords": ["mainland"],
@@ -239,7 +239,7 @@ class TestXMPSidecar(unittest.TestCase):
                     creator_tool="https://github.com/cove/imago",
                     enable_people=True,
                     enable_objects=True,
-                    ocr_engine="qwen",
+                    ocr_engine="local",
                     caption_engine="template",
                 )
             )

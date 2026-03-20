@@ -19,7 +19,7 @@
       "Bash(.venv/Scripts/pip.exe index:*)",
       "Bash(.venv/Scripts/pip.exe install:*)",
       "Bash(.venv/Scripts/python.exe -c \":*)",
-      "Bash(.venv/Scripts/python.exe -m py_compile cast/ingest.py cast/server.py cast/xmp_writer.py photoalbums/lib/_caption_qwen.py photoalbums/stitch_oversized_pages.py vhs/apps/plain_html_wizard/server.py vhs/libs/vhs_tuner_core.py vhs/test/run_tests.py vhs/test/test_render_settings_gamma.py vhs/vhs_pipeline/metadata.py vhs/vhs_pipeline/render_pipeline.py)",
+      "Bash(.venv/Scripts/python.exe -m py_compile cast/ingest.py cast/server.py cast/xmp_writer.py photoalbums/lib/_caption_local_hf.py photoalbums/stitch_oversized_pages.py vhs/apps/plain_html_wizard/server.py vhs/libs/vhs_tuner_core.py vhs/test/run_tests.py vhs/test/test_render_settings_gamma.py vhs/vhs_pipeline/metadata.py vhs/vhs_pipeline/render_pipeline.py)",
       "Bash(echo \"EXIT: $?\")",
       "Bash(grep -v \"^\\\\s*//\")",
       "Bash(..venvScriptspython.exe -m py_compile cast/storage.py cast/xmp_writer.py cast/server.py cast/cli.py photoalbums/lib/ai_people.py)",
@@ -49,7 +49,7 @@
       "Bash(python -m pytest photoalbums/tests/test_ai_caption.py -v)",
       "Bash(python -m pytest photoalbums/tests/test_ai_caption.py -x -q)",
       "Bash(grep -n \"build_page_caption\\\\|build_template_caption\" photoalbums/lib/*.py)",
-      "Bash(python -m pytest photoalbums/tests/test_ai_caption.py -q -k \"cordell or printed_cover or qwen_prompt\")",
+      "Bash(python -m pytest photoalbums/tests/test_ai_caption.py -q -k \"cordell or printed_cover or local_prompt\")",
       "Bash(python -m pytest photoalbums/tests/test_ai_caption.py -q)",
       "Bash(python -c \"from photoalbums.lib._caption_prompts import _position_label; print\\(_position_label\\(0.1, 0.1\\), _position_label\\(0.5, 0.5\\), _position_label\\(0.9, 0.7\\)\\)\")",
       "Bash(python -m pytest photoalbums/tests/test_ai_index.py -q)",
@@ -58,7 +58,7 @@
       "Bash(python -m pytest photoalbums/tests/test_ai_index.py photoalbums/tests/test_ai_caption.py -q)",
       "Bash(python -m pytest photoalbums/tests/test_ai_index.py::TestAIIndex::test_run_image_analysis_passes_people_context -q)",
       "Bash(python -m pytest photoalbums/tests/test_ai_index.py::TestAIIndex::test_run_image_analysis_uses_scaled_image_for_ocr_objects_and_caption_only -q)",
-      "Bash(python -m pytest photoalbums/tests/test_ai_caption.py::TestAICaption::test_qwen_loader_uses_local_snapshot_and_safe_max_pixels photoalbums/tests/test_ai_ocr.py::TestAIOcr::test_qwen_ocr_reads_text_locally photoalbums/tests/test_ai_ocr.py::TestAIOcr::test_qwen_ocr_uses_local_snapshot -x -q)",
+      "Bash(python -m pytest photoalbums/tests/test_ai_caption.py::TestAICaption::test_local_loader_uses_local_snapshot_and_safe_max_pixels photoalbums/tests/test_ai_ocr.py::TestAIOcr::test_local_ocr_reads_text_locally photoalbums/tests/test_ai_ocr.py::TestAIOcr::test_local_ocr_uses_local_snapshot -x -q)",
       "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_ai_index.py photoalbums/tests/test_ai_page_layout.py -x -q)",
       "Bash(python -m pytest photoalbums/tests/test_ai_people.py::test_new_face_is_added_to_cast_store -xvs)",
       "Bash(python -m pytest photoalbums/tests/test_ai_people.py -x -q)",
@@ -72,7 +72,17 @@
       "mcp__imago__job_logs",
       "Bash(grep -l \"England_1983_B02_P64\" c:/Users/covec/Videos/imago/mcp/jobs/*.log)",
       "Bash(c:/Users/covec/Videos/imago/.venv/Scripts/python.exe -m py_compile c:/Users/covec/Videos/imago/mcp_server.py)",
-      "WebFetch(domain:resources.anthropic.com)"
+      "WebFetch(domain:resources.anthropic.com)",
+      "Bash(python /c/Users/covec/Videos/imago/scripts/patch_test_caption.py)",
+      "Bash(python scripts/patch_test_caption.py)",
+      "Bash(python scripts/patch_test_index.py)",
+      "Bash(python -c \":*)",
+      "Bash(python -m pytest photoalbums/tests/test_ai_caption.py photoalbums/tests/test_ai_ocr.py photoalbums/tests/test_ai_render_settings.py -x -q)",
+      "Bash(python -m pytest photoalbums/tests/test_xmp_sidecar.py -x -q)",
+      "Bash(python -m pytest photoalbums/tests/test_ai_index.py -x -q)",
+      "Bash(python -m pytest photoalbums/tests/ -x -q)",
+      "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/ -q)",
+      "Bash(.venv/Scripts/python.exe -m py_compile photoalbums/lib/_caption_local_hf.py photoalbums/lib/_caption_prompts.py photoalbums/lib/ai_ocr.py photoalbums/lib/ai_caption.py photoalbums/lib/ai_render_settings.py)"
     ]
   }
 }

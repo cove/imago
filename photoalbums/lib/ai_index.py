@@ -21,7 +21,7 @@ from .ai_caption import (
     looks_like_album_cover,
     _normalize_gps_value,
     normalize_lmstudio_base_url,
-    normalize_qwen_attn_implementation,
+    normalize_local_attn_implementation,
     resolve_caption_model,
 )
 from .ai_model_settings import default_ocr_model
@@ -624,7 +624,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--min-face-size", type=int, default=40, help="Minimum face size in pixels.")
     parser.add_argument(
         "--ocr-engine",
-        choices=["none", "qwen", "lmstudio"],
+        choices=["none", "local", "lmstudio"],
         default="lmstudio",
         help="OCR backend.",
     )
@@ -636,7 +636,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--ocr-lang", default="eng", help="OCR language.")
     parser.add_argument(
         "--caption-engine",
-        choices=["none", "qwen", "lmstudio"],
+        choices=["none", "local", "lmstudio"],
         default="lmstudio",
         help="Caption backend for XMP description.",
     )
@@ -656,6 +656,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         dest="caption_prompt_file",
         default="",
         help="Read exact model caption prompt text from a file. Overrides --caption-prompt when set.",
+    )
+    parser.add_argument(
+        "--local-prompt",
+        dest="caption_prompt",
+        default=argparse.SUPPRESS,
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--local-prompt-file",
+        dest="caption_prompt_file",
+        default=argparse.SUPPRESS,
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--qwen-prompt",
@@ -684,7 +696,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--caption-temperature",
         type=float,
         default=0.2,
-        help="Sampling temperature for qwen.",
+        help="Sampling temperature for local captioning.",
     )
     parser.add_argument(
         "--caption-max-edge",
@@ -693,22 +705,46 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Optional long-edge cap, in pixels, applied only during caption generation.",
     )
     parser.add_argument(
-        "--qwen-attn-implementation",
+        "--local-attn-implementation",
+        dest="local_attn_implementation",
         choices=["auto", "sdpa", "flash_attention_2", "eager"],
         default="auto",
-        help="Attention implementation for Qwen captioning. flash_attention_2 is only useful on compatible GPUs.",
+        help="Attention implementation for local HF captioning. flash_attention_2 is only useful on compatible GPUs.",
+    )
+    parser.add_argument(
+        "--local-min-pixels",
+        dest="local_min_pixels",
+        type=int,
+        default=0,
+        help="Optional local HF processor min_pixels value. Use 0 to keep the model default.",
+    )
+    parser.add_argument(
+        "--local-max-pixels",
+        dest="local_max_pixels",
+        type=int,
+        default=0,
+        help="Optional local HF processor max_pixels value. Use 0 to keep the model default.",
+    )
+    parser.add_argument(
+        "--qwen-attn-implementation",
+        dest="local_attn_implementation",
+        choices=["auto", "sdpa", "flash_attention_2", "eager"],
+        default=argparse.SUPPRESS,
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--qwen-min-pixels",
+        dest="local_min_pixels",
         type=int,
-        default=0,
-        help="Optional Qwen processor min_pixels value. Use 0 to keep the model default.",
+        default=argparse.SUPPRESS,
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--qwen-max-pixels",
+        dest="local_max_pixels",
         type=int,
-        default=0,
-        help="Optional Qwen processor max_pixels value. Use 0 to keep the model default.",
+        default=argparse.SUPPRESS,
+        help=argparse.SUPPRESS,
     )
     parser.add_argument("--max-images", type=int, default=0, help="Optional processing limit.")
     parser.add_argument(
@@ -802,9 +838,9 @@ def _init_caption_engine(
     caption_prompt: str,
     max_tokens: int,
     temperature: float,
-    qwen_attn_implementation: str,
-    qwen_min_pixels: int,
-    qwen_max_pixels: int,
+    local_attn_implementation: str,
+    local_min_pixels: int,
+    local_max_pixels: int,
     lmstudio_base_url: str,
     max_image_edge: int,
     stream: bool = False,
@@ -815,9 +851,9 @@ def _init_caption_engine(
         caption_prompt=str(caption_prompt),
         max_tokens=int(max_tokens),
         temperature=float(temperature),
-        qwen_attn_implementation=str(qwen_attn_implementation),
-        qwen_min_pixels=int(qwen_min_pixels),
-        qwen_max_pixels=int(qwen_max_pixels),
+        local_attn_implementation=str(local_attn_implementation),
+        local_min_pixels=int(local_min_pixels),
+        local_max_pixels=int(local_max_pixels),
         lmstudio_base_url=str(lmstudio_base_url),
         max_image_edge=int(max_image_edge),
         stream=stream,
@@ -825,7 +861,7 @@ def _init_caption_engine(
 
 
 def _settings_signature(settings: dict[str, Any]) -> str:
-    caption_engine = str(settings.get("caption_engine", "qwen"))
+    caption_engine = str(settings.get("caption_engine", "local"))
     caption_model = resolve_caption_model(
         caption_engine,
         str(settings.get("caption_model", "")),
@@ -854,11 +890,11 @@ def _settings_signature(settings: dict[str, Any]) -> str:
         "lmstudio_base_url": normalize_lmstudio_base_url(
             str(settings.get("lmstudio_base_url", "http://192.168.4.72:1234/v1"))
         ),
-        "qwen_attn_implementation": normalize_qwen_attn_implementation(
-            str(settings.get("qwen_attn_implementation", "auto"))
+        "local_attn_implementation": normalize_local_attn_implementation(
+            str(settings.get("local_attn_implementation", "auto"))
         ),
-        "qwen_min_pixels": int(settings.get("qwen_min_pixels", 0)),
-        "qwen_max_pixels": int(settings.get("qwen_max_pixels", 0)),
+        "local_min_pixels": int(settings.get("local_min_pixels", 0)),
+        "local_max_pixels": int(settings.get("local_max_pixels", 0)),
     }
     return json.dumps(compact, sort_keys=True, ensure_ascii=True)
 
@@ -1418,7 +1454,7 @@ def _run_image_analysis(
     is_page_scan: bool = False,
     ocr_text_override: str | None = None,
 ) -> ImageAnalysis:
-    use_combined = ocr_text_override is None and ocr_engine.engine == "qwen" and caption_engine.engine == "qwen"
+    use_combined = ocr_text_override is None and ocr_engine.engine == "local" and caption_engine.engine == "local"
     page_photo_count = 0 if is_page_scan else 1
 
     with _prepare_ai_model_image(image_path) as model_image_path:
@@ -1973,7 +2009,7 @@ def _run_scan_stitch_pass(
 
         try:
             # Re-run caption with the combined OCR text; use S01 image as representative
-            if requested_caption_engine in {"qwen", "lmstudio"}:
+            if requested_caption_engine in {"local", "lmstudio"}:
                 with _prepare_ai_model_image(primary_path) as model_image_path:
                     caption_output = caption_engine.generate(
                         image_path=model_image_path,
@@ -2155,9 +2191,9 @@ def run(argv: list[str] | None = None) -> int:
         "caption_temperature": float(args.caption_temperature),
         "caption_max_edge": int(args.caption_max_edge),
         "lmstudio_base_url": normalize_lmstudio_base_url(str(args.lmstudio_base_url)),
-        "qwen_attn_implementation": normalize_qwen_attn_implementation(str(args.qwen_attn_implementation)),
-        "qwen_min_pixels": int(args.qwen_min_pixels),
-        "qwen_max_pixels": int(args.qwen_max_pixels),
+        "local_attn_implementation": normalize_local_attn_implementation(str(args.local_attn_implementation)),
+        "local_min_pixels": int(args.local_min_pixels),
+        "local_max_pixels": int(args.local_max_pixels),
         "people_threshold": float(args.people_threshold),
         "object_threshold": float(args.object_threshold),
         "min_face_size": int(args.min_face_size),
@@ -2220,8 +2256,12 @@ def run(argv: list[str] | None = None) -> int:
             effective["caption_model"] = str(args.caption_model)
         if (
             "--caption-prompt" in explicit_flags
+            or "--local-prompt" in explicit_flags
+            or "--local-prompt" in explicit_flags
             or "--qwen-prompt" in explicit_flags
             or "--caption-prompt-file" in explicit_flags
+            or "--local-prompt-file" in explicit_flags
+            or "--local-prompt-file" in explicit_flags
             or "--qwen-prompt-file" in explicit_flags
         ):
             effective["caption_prompt"] = str(requested_caption_prompt)
@@ -2233,14 +2273,14 @@ def run(argv: list[str] | None = None) -> int:
             effective["caption_max_edge"] = int(args.caption_max_edge)
         if "--lmstudio-base-url" in explicit_flags:
             effective["lmstudio_base_url"] = normalize_lmstudio_base_url(str(args.lmstudio_base_url))
-        if "--qwen-attn-implementation" in explicit_flags:
-            effective["qwen_attn_implementation"] = normalize_qwen_attn_implementation(
-                str(args.qwen_attn_implementation)
+        if "--local-attn-implementation" in explicit_flags or "--qwen-attn-implementation" in explicit_flags:
+            effective["local_attn_implementation"] = normalize_local_attn_implementation(
+                str(args.local_attn_implementation)
             )
-        if "--qwen-min-pixels" in explicit_flags:
-            effective["qwen_min_pixels"] = int(args.qwen_min_pixels)
-        if "--qwen-max-pixels" in explicit_flags:
-            effective["qwen_max_pixels"] = int(args.qwen_max_pixels)
+        if "--local-min-pixels" in explicit_flags or "--qwen-min-pixels" in explicit_flags:
+            effective["local_min_pixels"] = int(args.local_min_pixels)
+        if "--local-max-pixels" in explicit_flags or "--qwen-max-pixels" in explicit_flags:
+            effective["local_max_pixels"] = int(args.local_max_pixels)
         effective["caption_model"] = resolve_caption_model(
             str(effective.get("caption_engine", defaults["caption_engine"])),
             str(effective.get("caption_model", defaults["caption_model"])),
@@ -2519,12 +2559,12 @@ def run(argv: list[str] | None = None) -> int:
                         str(effective.get("lmstudio_base_url", defaults["lmstudio_base_url"])),
                         str(
                             effective.get(
-                                "qwen_attn_implementation",
-                                defaults["qwen_attn_implementation"],
+                                "local_attn_implementation",
+                                defaults["local_attn_implementation"],
                             )
                         ),
-                        int(effective.get("qwen_min_pixels", defaults["qwen_min_pixels"])),
-                        int(effective.get("qwen_max_pixels", defaults["qwen_max_pixels"])),
+                        int(effective.get("local_min_pixels", defaults["local_min_pixels"])),
+                        int(effective.get("local_max_pixels", defaults["local_max_pixels"])),
                         int(effective.get("caption_max_edge", defaults["caption_max_edge"])),
                     )
                     pu_caption_engine = caption_engine_cache.get(caption_key)
@@ -2536,9 +2576,9 @@ def run(argv: list[str] | None = None) -> int:
                             max_tokens=int(caption_key[3]),
                             temperature=float(caption_key[4]),
                             lmstudio_base_url=caption_key[5],
-                            qwen_attn_implementation=caption_key[6],
-                            qwen_min_pixels=int(caption_key[7]),
-                            qwen_max_pixels=int(caption_key[8]),
+                            local_attn_implementation=caption_key[6],
+                            local_min_pixels=int(caption_key[7]),
+                            local_max_pixels=int(caption_key[8]),
                             max_image_edge=int(caption_key[9]),
                             stream=True,
                         )
@@ -2650,7 +2690,7 @@ def run(argv: list[str] | None = None) -> int:
                         effective_engine=str(pu_caption_out.engine),
                         fallback=bool(pu_caption_out.fallback),
                         error=str(pu_caption_out.error or ""),
-                        model=str(caption_key[1] if caption_key[0] in {"qwen", "lmstudio"} else ""),
+                        model=str(caption_key[1] if caption_key[0] in {"local", "lmstudio"} else ""),
                         people_present=pu_people_present,
                         estimated_people_count=pu_estimated_people_count,
                     )
@@ -2659,7 +2699,7 @@ def run(argv: list[str] | None = None) -> int:
                         or (
                             effective.get("ocr_model", defaults["ocr_model"])
                             if str(effective.get("ocr_engine", defaults["ocr_engine"])).strip().lower()
-                            in {"qwen", "lmstudio"}
+                            in {"local", "lmstudio"}
                             else ""
                         )
                     )
@@ -2672,7 +2712,7 @@ def run(argv: list[str] | None = None) -> int:
                         ocr_model=pu_ocr_model,
                         caption_model=(
                             str(pu_caption_engine.effective_model_name)
-                            if str(caption_key[0]).strip().lower() in {"qwen", "lmstudio"}
+                            if str(caption_key[0]).strip().lower() in {"local", "lmstudio"}
                             else ""
                         ),
                     )
@@ -2804,9 +2844,9 @@ def run(argv: list[str] | None = None) -> int:
                 int(effective.get("caption_max_tokens", defaults["caption_max_tokens"])),
                 float(effective.get("caption_temperature", defaults["caption_temperature"])),
                 str(effective.get("lmstudio_base_url", defaults["lmstudio_base_url"])),
-                str(effective.get("qwen_attn_implementation", defaults["qwen_attn_implementation"])),
-                int(effective.get("qwen_min_pixels", defaults["qwen_min_pixels"])),
-                int(effective.get("qwen_max_pixels", defaults["qwen_max_pixels"])),
+                str(effective.get("local_attn_implementation", defaults["local_attn_implementation"])),
+                int(effective.get("local_min_pixels", defaults["local_min_pixels"])),
+                int(effective.get("local_max_pixels", defaults["local_max_pixels"])),
                 int(effective.get("caption_max_edge", defaults["caption_max_edge"])),
             )
             caption_engine = caption_engine_cache.get(caption_key)
@@ -2818,9 +2858,9 @@ def run(argv: list[str] | None = None) -> int:
                     max_tokens=int(caption_key[3]),
                     temperature=float(caption_key[4]),
                     lmstudio_base_url=caption_key[5],
-                    qwen_attn_implementation=caption_key[6],
-                    qwen_min_pixels=int(caption_key[7]),
-                    qwen_max_pixels=int(caption_key[8]),
+                    local_attn_implementation=caption_key[6],
+                    local_min_pixels=int(caption_key[7]),
+                    local_max_pixels=int(caption_key[8]),
                     max_image_edge=int(caption_key[9]),
                     stream=not stdout_only,
                 )
@@ -2928,7 +2968,7 @@ def run(argv: list[str] | None = None) -> int:
                         album_title=page_album_title,
                         printed_album_title=page_printed_album_title,
                     )
-                    if str(caption_key[0]) in {"qwen", "lmstudio"}:
+                    if str(caption_key[0]) in {"local", "lmstudio"}:
                         with _prepare_ai_model_image(layout.content_path) as page_model_image:
                             if set_step:
                                 set_step("caption")
@@ -3064,12 +3104,12 @@ def run(argv: list[str] | None = None) -> int:
                     payload,
                     ocr_model=(
                         str(ocr_engine.effective_model_name)
-                        if str(ocr_key[0]).strip().lower() in {"qwen", "lmstudio"}
+                        if str(ocr_key[0]).strip().lower() in {"local", "lmstudio"}
                         else ""
                     ),
                     caption_model=(
                         str(caption_engine.effective_model_name)
-                        if str(caption_key[0]).strip().lower() in {"qwen", "lmstudio"}
+                        if str(caption_key[0]).strip().lower() in {"local", "lmstudio"}
                         else ""
                     ),
                 )

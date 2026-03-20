@@ -46,14 +46,14 @@ STOPWORDS = {
     "image",
 }
 
-DEFAULT_QWEN_OCR_MODEL = "qwen/qwen3.5-9b"
-# DEFAULT_QWEN_OCR_MODEL = "qwen/qwen3.5-35b-a3b"
-DEFAULT_QWEN_OCR_MAX_NEW_TOKENS = 5128
-DEFAULT_QWEN_OCR_MAX_PIXELS = 4_194_304
-DEFAULT_QWEN_OCR_MAX_IMAGE_EDGE = 2048
+DEFAULT_LOCAL_OCR_MODEL = "qwen/qwen3.5-9b"
+# DEFAULT_LOCAL_OCR_MODEL = "qwen/qwen3.5-35b-a3b"
+DEFAULT_LOCAL_OCR_MAX_NEW_TOKENS = 5128
+DEFAULT_LOCAL_OCR_MAX_PIXELS = 4_194_304
+DEFAULT_LOCAL_OCR_MAX_IMAGE_EDGE = 2048
 DEFAULT_LMSTUDIO_OCR_BASE_URL = "http://192.168.4.72:1234/v1"
 DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS = 300.0
-DEFAULT_QWEN_OCR_PROMPT = (
+DEFAULT_LOCAL_OCR_PROMPT = (
     "Extract all visible text from this image.\n"
     "- Return only the extracted text, copied exactly as it appears.\n"
     "- Preserve line breaks when they are visually clear.\n"
@@ -63,7 +63,8 @@ DEFAULT_QWEN_OCR_PROMPT = (
     "- If there is no readable text, return an empty string."
 )
 _LEGACY_OCR_ENGINE_ALIASES = {
-    "docstrange": "qwen",
+    "docstrange": "local",
+    "qwen": "local",
 }
 _NO_TEXT_RESPONSES = {
     "none",
@@ -372,7 +373,7 @@ def _resolve_local_hf_snapshot(model_name: str) -> Path | None:
 
 
 def _resolve_local_model_ref(model_name: str) -> tuple[str, bool]:
-    text = str(model_name or DEFAULT_QWEN_OCR_MODEL).strip() or DEFAULT_QWEN_OCR_MODEL
+    text = str(model_name or DEFAULT_LOCAL_OCR_MODEL).strip() or DEFAULT_LOCAL_OCR_MODEL
     candidate = Path(text).expanduser()
     if candidate.exists():
         return str(candidate), True
@@ -380,13 +381,13 @@ def _resolve_local_model_ref(model_name: str) -> tuple[str, bool]:
     if local_snapshot is not None:
         return str(local_snapshot), True
     raise RuntimeError(
-        "Qwen OCR is configured for local-only inference. "
+        "Local HF OCR is configured for local-only inference. "
         "Download the model into the local Hugging Face cache under models/photoalbums/hf "
-        f"or set QWEN_OCR_MODEL to a local model path. Current model: {text}"
+        f"or set LOCAL_OCR_MODEL to a local model path. Current model: {text}"
     )
 
 
-def _load_qwen_transformers():
+def _load_hf_transformers():
     try:
         import torch  # pylint: disable=import-outside-toplevel
         from transformers import (  # pylint: disable=import-outside-toplevel
@@ -395,7 +396,7 @@ def _load_qwen_transformers():
         )
     except Exception as exc:
         raise RuntimeError(
-            "Qwen OCR requires a compatible local transformers/torch install."
+            "Local HF OCR requires a compatible local transformers/torch install."
         ) from exc
     return torch, AutoProcessor, AutoModelForImageTextToText
 
@@ -404,7 +405,7 @@ class OCREngine:
     def __init__(
         self,
         *,
-        engine: str = "qwen",
+        engine: str = "local",
         language: str = "eng",
         model_name: str = "",
         base_url: str = "",
@@ -417,35 +418,35 @@ class OCREngine:
             else ""
         )
         self._model_name = str(
-            model_name or os.environ.get("QWEN_OCR_MODEL") or default_ocr_model()
+            model_name or os.environ.get("LOCAL_OCR_MODEL") or os.environ.get("QWEN_OCR_MODEL") or default_ocr_model()
         ).strip()
         self._processor = None
         self._model = None
         self._torch = None
         self._lmstudio_model: str = ""
 
-        if self.engine in {"none", "qwen", "lmstudio"}:
+        if self.engine in {"none", "local", "lmstudio"}:
             return
         raise ValueError(f"Unsupported OCR engine: {engine}")
 
     @property
     def effective_model_name(self) -> str:
         """Return the actual model name used, resolved after any lazy API lookup."""
-        if self.engine == "qwen":
-            return str(self._model_name or DEFAULT_QWEN_OCR_MODEL)
+        if self.engine == "local":
+            return str(self._model_name or DEFAULT_LOCAL_OCR_MODEL)
         if self.engine == "lmstudio":
             return str(self._lmstudio_model or self._model_name)
         return ""
 
     def _ensure_loaded(self) -> None:
-        if self.engine != "qwen":
+        if self.engine != "local":
             return
         if self._processor is not None and self._model is not None:
             return
         model_ref, local_files_only = _resolve_local_model_ref(
-            self._model_name or DEFAULT_QWEN_OCR_MODEL
+            self._model_name or DEFAULT_LOCAL_OCR_MODEL
         )
-        torch, AutoProcessor, AutoModelForImageTextToText = _load_qwen_transformers()
+        torch, AutoProcessor, AutoModelForImageTextToText = _load_hf_transformers()
 
         HF_MODEL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
         cache_dir = str(HF_MODEL_CACHE_DIR)
@@ -454,7 +455,7 @@ class OCREngine:
             trust_remote_code=True,
             cache_dir=cache_dir,
             local_files_only=local_files_only,
-            max_pixels=DEFAULT_QWEN_OCR_MAX_PIXELS,
+            max_pixels=DEFAULT_LOCAL_OCR_MAX_PIXELS,
         )
         load_kwargs = {
             "trust_remote_code": True,
@@ -475,7 +476,7 @@ class OCREngine:
                 self._model_name,
             )
         data_url = _build_ocr_data_url(
-            image_path, DEFAULT_QWEN_OCR_MAX_IMAGE_EDGE, DEFAULT_QWEN_OCR_MAX_PIXELS
+            image_path, DEFAULT_LOCAL_OCR_MAX_IMAGE_EDGE, DEFAULT_LOCAL_OCR_MAX_PIXELS
         )
         payload = {
             "model": self._lmstudio_model,
@@ -493,12 +494,12 @@ class OCREngine:
                     "role": "user",
                     "content": [
                         {"type": "image_url", "image_url": {"url": data_url}},
-                        {"type": "text", "text": DEFAULT_QWEN_OCR_PROMPT},
+                        {"type": "text", "text": DEFAULT_LOCAL_OCR_PROMPT},
                     ],
                 },
             ],
             "response_format": _lmstudio_ocr_response_format(),
-            "max_tokens": DEFAULT_QWEN_OCR_MAX_NEW_TOKENS,
+            "max_tokens": DEFAULT_LOCAL_OCR_MAX_NEW_TOKENS,
             "temperature": 0.0,
             "stream": False,
         }
@@ -520,7 +521,7 @@ class OCREngine:
             return ""
         if self.engine == "lmstudio":
             return self._read_text_lmstudio(path)
-        if self.engine != "qwen":
+        if self.engine != "local":
             return ""
 
         self._ensure_loaded()
@@ -531,8 +532,8 @@ class OCREngine:
         try:
             working_image = _resize_for_ocr(
                 image,
-                DEFAULT_QWEN_OCR_MAX_IMAGE_EDGE,
-                DEFAULT_QWEN_OCR_MAX_PIXELS,
+                DEFAULT_LOCAL_OCR_MAX_IMAGE_EDGE,
+                DEFAULT_LOCAL_OCR_MAX_PIXELS,
             )
             if hasattr(self._processor, "apply_chat_template"):
                 messages = [
@@ -540,7 +541,7 @@ class OCREngine:
                         "role": "user",
                         "content": [
                             {"type": "image"},
-                            {"type": "text", "text": DEFAULT_QWEN_OCR_PROMPT},
+                            {"type": "text", "text": DEFAULT_LOCAL_OCR_PROMPT},
                         ],
                     }
                 ]
@@ -558,7 +559,7 @@ class OCREngine:
                         add_generation_prompt=True,
                     )
             else:
-                prompt_text = DEFAULT_QWEN_OCR_PROMPT
+                prompt_text = DEFAULT_LOCAL_OCR_PROMPT
 
             inputs = self._processor(
                 text=[prompt_text],
@@ -576,7 +577,7 @@ class OCREngine:
             with self._torch.inference_mode():
                 generated_ids = self._model.generate(
                     **inputs,
-                    max_new_tokens=DEFAULT_QWEN_OCR_MAX_NEW_TOKENS,
+                    max_new_tokens=DEFAULT_LOCAL_OCR_MAX_NEW_TOKENS,
                     do_sample=False,
                 )
 
