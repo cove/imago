@@ -564,6 +564,10 @@ def _resolve_caption_prompt(prompt_text: str, prompt_file: str) -> str:
     return str(prompt_text or "").strip()
 
 
+def _absolute_cli_path(path_text: str | Path) -> Path:
+    return Path(os.path.abspath(os.fspath(Path(path_text).expanduser())))
+
+
 def _sidecar_has_lmstudio_caption_error(state: dict[str, Any] | None) -> bool:
     if not isinstance(state, dict):
         return False
@@ -2060,8 +2064,8 @@ def run(argv: list[str] | None = None) -> int:
         str(getattr(args, "caption_prompt", "")),
         str(getattr(args, "caption_prompt_file", "")),
     )
-    photos_root = Path(args.photos_root).expanduser().resolve()
-    manifest_path = Path(args.manifest).expanduser().resolve()
+    photos_root = _absolute_cli_path(args.photos_root)
+    manifest_path = _absolute_cli_path(args.manifest)
     stdout_only = bool(args.stdout)
     force_processing = bool(args.force or stdout_only)
     dry_run = bool(args.dry_run or stdout_only)
@@ -2092,7 +2096,7 @@ def run(argv: list[str] | None = None) -> int:
 
     single_photo = str(args.photo or "").strip()
     if single_photo:
-        photo_path = Path(single_photo).expanduser().resolve()
+        photo_path = _absolute_cli_path(single_photo)
         if not photo_path.is_file():
             raise SystemExit(f"Photo not found: {photo_path}")
         files = [photo_path]
