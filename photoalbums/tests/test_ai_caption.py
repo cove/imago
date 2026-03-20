@@ -64,18 +64,12 @@ class TestAICaption(unittest.TestCase):
         )
         self.assertIn("Family Photo Album", prompt)
         self.assertIn("Preserve visible cover labels exactly as shown", prompt)
-        self.assertIn("Treat `BOOK 11` as a visible printed label in `ocr_text`", prompt)
-        self.assertIn(
-            "Treat `BOOK 11` as Book II only when reasoning about album identity",
-            prompt,
-        )
-        self.assertIn("confidence is greater than 95%", prompt)
-        self.assertIn(
-            "Do not translate, normalize, complete, or correct text inside `ocr_text`",
-            prompt,
-        )
-        self.assertIn("Use English translation only in caption or location reasoning", prompt)
-        self.assertIn("Output GPS coordinates only when they are literally visible", prompt)
+        self.assertIn("reproduce `BOOK 11` exactly as printed", prompt)
+        self.assertIn("interpret it as Book II", prompt)
+        self.assertIn("confidence exceeds 95%", prompt)
+        self.assertIn("Do not translate, normalize, or correct", prompt)
+        self.assertIn("use English translation only in caption or location reasoning", prompt)
+        self.assertIn("Output GPS coordinates only when both values are literally visible", prompt)
         self.assertNotIn("Filename hint:", prompt)
         self.assertNotIn("Folder hint:", prompt)
 

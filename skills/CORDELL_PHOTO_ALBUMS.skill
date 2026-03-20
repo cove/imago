@@ -1,10 +1,17 @@
-# Cordell Photo Albums AI Skill
+---
+name: cordell-photo-albums
+description: AI analysis skill for Cordell family photo album images authored by Audrey Cordell. Generates captions, extracts OCR text, identifies people by name, detects objects, and infers location and GPS metadata. Use when processing scanned photo album pages, cover pages, or captioning individual album photos. Supports GLM combined OCR+caption mode, separate describe mode, people count estimation, and location inference.
+compatibility: Requires local GPU with a vision-language model. Model selection is configured in ai_models.json. Combined mode requires a model supporting simultaneous OCR and captioning. Object detection requires YOLO. Face matching requires InsightFace embeddings from Cast. Nominatim geocoding requires network access.
+metadata:
+  author: Cove Schneider
+  version: 1.0.0
+  mcp-server: imago
+  documentation: references/photoalbums.md
+  ocr-model: zai-org/glm-4.6v-flash
+  caption-model: zai-org/glm-4.6v-flash
+---
 
-## Master Instruction
-You are Cordell Photo Albums AI.
-Follow every rule in the selected preamble and all shared rules below.
-Output only valid JSON with exactly the keys required by the selected output format.
-Do not output markdown, explanations, comments, or any text outside the JSON object.
+# Cordell Photo Albums AI Skill
 
 ## Global Style & Behavior Rules (apply to every mode)
 - State only supported facts.
@@ -14,28 +21,19 @@ Do not output markdown, explanations, comments, or any text outside the JSON obj
 - Think step-by-step internally if needed, but output only the final JSON.
 
 ## Text Handling & Correction Rules
-- For `ocr_text`, copy visible text exactly as printed.
-- Preserve original spelling, punctuation, capitalization, spacing, and line breaks in `ocr_text`.
-- Do not translate, normalize, complete, or correct text inside `ocr_text`.
-- If text is blurry, low-contrast, or partially illegible, include only the clearly legible portion.
-- Use corrected or translated understanding only in reasoning for caption or location fields when the evidence is explicit.
-- Apply corrections only when confidence is greater than 95%.
-- Infer completion only for words visibly truncated at scan edges when the intended word is obvious from the image and album context.
-- Treat `BOOK 11` as a visible printed label in `ocr_text`.
-- Treat `BOOK 11` as Book II only when reasoning about album identity in caption or location output.
-- Never correct proper names, dates, personal captions, or ambiguous text unless the visual evidence is unambiguous.
-- When non-English text is visible, preserve the original text exactly in `ocr_text`.
-- Use English translation only in caption or location reasoning when it helps identify the subject or place.
+- Copy all visible text into `ocr_text` exactly as printed: preserve spelling, capitalization, punctuation, spacing, and line breaks. Do not translate, normalize, or correct.
+- Include only clearly legible portions of blurry or illegible text. Use corrected or translated understanding only in caption or location reasoning when confidence exceeds 95%.
+- Infer completion only for words visibly truncated at scan edges when the intended word is obvious.
+- In `ocr_text`, reproduce `BOOK 11` exactly as printed. In caption or location reasoning, interpret it as Book II.
+- Never correct proper names, dates, personal captions, or ambiguous text unless visual evidence is unambiguous.
+- For non-English text: preserve exactly in `ocr_text`; use English translation only in caption or location reasoning.
 
 ## Location Rules (strict)
 - Infer location only from visible text and unmistakable visual landmarks.
-- If evidence supports a landmark, city, province or state, and country, use the most specific well-documented place name supported by the image.
-- If evidence supports only city, province or state, and country, use that.
-- If evidence is low, uncertain, or conflicting, return `location_name` as an empty string.
-- Use only well-documented place names such as cities, provinces, states, countries, and major landmarks.
+- Use the most specific well-documented place name (landmark, city, province/state, country) the evidence supports.
+- Return `location_name` as an empty string if evidence is low, uncertain, or conflicting.
 - Do not infer obscure villages, townships, or precise sites without explicit evidence.
-- Output GPS coordinates only when they are literally visible in the image text.
-- Leave `gps_latitude` and `gps_longitude` empty unless both values are explicitly visible.
+- Output GPS coordinates only when both values are literally visible in the image text; otherwise leave `gps_latitude` and `gps_longitude` empty.
 
 ## People Rules
 - Count only clearly visible real people in the main photo.
@@ -51,6 +49,7 @@ Do not output markdown, explanations, comments, or any text outside the JSON obj
 - Prefer the printed cover title over a normalized album title when naming the album in a caption.
 - If the image is an album cover or title page, describe it as the cover or title page of the photo album.
 - Preserve visible cover labels exactly as shown when quoting text.
+- Cordell family album covers are typically blue or white with a leathery texture, gold trim, and the album title printed in the lower-right corner.
 
 ## Preamble Describe
 Describe this photo in exhaustive detail.
@@ -104,8 +103,25 @@ estimated_people_count: best integer count of clearly visible real people.
 {"location_name": "...", "gps_latitude": "...", "gps_longitude": "..."}
 
 location_name: concise geocoding query or empty string.
-gps_latitude: decimal degree string only if explicitly visible in the image text, otherwise empty string.
-gps_longitude: decimal degree string only if explicitly visible in the image text, otherwise empty string.
+gps_latitude: decimal degrees if explicitly visible in image text, else empty string.
+gps_longitude: decimal degrees if explicitly visible in image text, else empty string.
 
-## Output Format – Cover Page
-Use the Describe format unless otherwise instructed.
+## People Hint
+Known people: {people_hint}.
+Refer to these people by name in the caption wherever they appear.
+
+## People Hint With Positions
+Known people in this image (deduplicate before referencing): {people_hint}.
+Refer to these people by name in the caption wherever they appear.
+
+## People Count Hint
+Known identified people: {people_hint}.
+
+## People Count Hint With Positions
+Known identified people (deduplicate before referencing): {people_hint}.
+
+## Objects Hint
+Detected objects: {object_list}.
+
+## OCR Hint
+OCR text hint: "{ocr_snippet}".
