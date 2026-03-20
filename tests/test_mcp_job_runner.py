@@ -142,6 +142,36 @@ class TestJobRunnerPersistence(unittest.TestCase):
         log_path = Path(data[job_id]["log_file"])
         self.assertIn(str(artifact_file), log_path.read_text(encoding="utf-8"))
 
+    def test_save_state_merges_jobs_from_other_runner_instances(self):
+        """Saving from one runner must not drop jobs started by another runner."""
+        runner_a = mcp_job_runner.JobRunner()
+        runner_b = mcp_job_runner.JobRunner()
+
+        job_a = runner_a.start("job-a", [sys.executable, "-c", "import time; time.sleep(5)"])
+        try:
+            data_after_a = self._read_disk_jobs()
+            self.assertIn(job_a, data_after_a)
+
+            runner_b._jobs["external"] = {
+                "id": "external",
+                "name": "external",
+                "command": "...",
+                "status": "running",
+                "started_at": "2026-03-16T00:00:00+00:00",
+                "ended_at": None,
+                "exit_code": None,
+                "log_file": str(self.jobs_dir / "external.log"),
+                "artifact_file": str(self.jobs_dir / "external.artifacts.jsonl"),
+                "pid": 12345,
+            }
+            runner_b._save_state()
+
+            merged = self._read_disk_jobs()
+            self.assertIn(job_a, merged)
+            self.assertIn("external", merged)
+        finally:
+            runner_a.cancel(job_a)
+
     # ── Console visibility ─────────────────────────────────────────────────────
 
     def test_console_reads_jobs_written_by_runner(self):
@@ -279,7 +309,7 @@ class TestConsoleHTTPStream(unittest.TestCase):
         sidecar_path = image_path.with_suffix(".xmp")
         xmp_sidecar.write_xmp_sidecar(
             sidecar_path,
-            creator_tool="imago-photoalbums-ai-index",
+            creator_tool="https://github.com/cove/imago",
             person_names=["Alice Example"],
             subjects=["bench"],
             description="Alice Example on a bench.",

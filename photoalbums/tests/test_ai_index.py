@@ -34,9 +34,7 @@ class TestAIIndex(unittest.TestCase):
             kind="single_image",
             page_like=False,
             split_mode="manual",
-            content_bounds=SimpleNamespace(
-                as_dict=lambda: {"x": 0, "y": 0, "width": 0, "height": 0}
-            ),
+            content_bounds=SimpleNamespace(as_dict=lambda: {"x": 0, "y": 0, "width": 0, "height": 0}),
             split_applied=False,
             fallback_used=False,
             subphotos=[],
@@ -102,9 +100,7 @@ class TestAIIndex(unittest.TestCase):
             self.assertFalse(ai_index.needs_processing(image, row, force=False))
             self.assertTrue(ai_index.needs_processing(image, row, force=True))
 
-            next_ns = (
-                max(sidecar.stat().st_mtime_ns, image.stat().st_mtime_ns) + 5_000_000
-            )
+            next_ns = max(sidecar.stat().st_mtime_ns, image.stat().st_mtime_ns) + 5_000_000
             os.utime(image, ns=(next_ns, next_ns))
             self.assertTrue(ai_index.needs_processing(image, row, force=False))
 
@@ -122,11 +118,33 @@ class TestAIIndex(unittest.TestCase):
             }
             self.assertTrue(ai_index.needs_processing(image, row, force=False))
 
-            image.with_suffix(".xmp").write_text(
-                self._valid_sidecar_text(), encoding="utf-8"
-            )
+            image.with_suffix(".xmp").write_text(self._valid_sidecar_text(), encoding="utf-8")
             self.assertFalse(ai_index.needs_processing(image, row, force=False))
             self.assertTrue(ai_index.needs_processing(image, row, force=True))
+
+    def test_needs_processing_skips_current_sidecar_even_when_manifest_is_stale(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "a.jpg"
+            image.write_bytes(b"abc")
+            sidecar = image.with_suffix(".xmp")
+            sidecar.write_text(self._valid_sidecar_text(), encoding="utf-8")
+            row = {
+                "image_path": str(image),
+                "size": 999,
+                "mtime_ns": 999,
+                "sidecar_path": str(sidecar),
+                "processor_signature": "old-signature",
+            }
+
+            self.assertFalse(ai_index.needs_processing(image, row, force=False))
+            self.assertTrue(
+                ai_index.needs_processing(
+                    image,
+                    row,
+                    force=False,
+                    reprocess_required=True,
+                )
+            )
 
     def test_needs_processing_skips_when_manifest_missing_but_valid_sidecar_exists(
         self,
@@ -134,9 +152,7 @@ class TestAIIndex(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "a.jpg"
             image.write_bytes(b"abc")
-            image.with_suffix(".xmp").write_text(
-                self._valid_sidecar_text(), encoding="utf-8"
-            )
+            image.with_suffix(".xmp").write_text(self._valid_sidecar_text(), encoding="utf-8")
 
             self.assertFalse(ai_index.needs_processing(image, None, force=False))
             self.assertTrue(ai_index.needs_processing(image, None, force=True))
@@ -323,9 +339,7 @@ class TestAIIndex(unittest.TestCase):
             def fake_prepare(_path):
                 yield scaled
 
-            with mock.patch.object(
-                ai_index, "_prepare_ai_model_image", side_effect=fake_prepare
-            ):
+            with mock.patch.object(ai_index, "_prepare_ai_model_image", side_effect=fake_prepare):
                 ai_index._run_image_analysis(
                     image_path=image,
                     people_matcher=people_matcher,
@@ -368,9 +382,7 @@ class TestAIIndex(unittest.TestCase):
             object_detector = mock.Mock()
             object_detector.detect_image.return_value = []
             ocr_engine = mock.Mock()
-            ocr_engine.read_text.return_value = (
-                "Latitude: 39.7875\nLongitude: 100.307222"
-            )
+            ocr_engine.read_text.return_value = "Latitude: 39.7875\nLongitude: 100.307222"
             caption_engine = mock.Mock()
             caption_engine.generate.return_value = SimpleNamespace(
                 text="Mogao Caves in Dunhuang, China (39°47′15″N 100°18′26″E).",
@@ -439,9 +451,7 @@ class TestAIIndex(unittest.TestCase):
                 geocoder=geocoder,
             )
 
-            geocoder.geocode.assert_called_once_with(
-                "Mogao Caves, Dunhuang, Gansu, China"
-            )
+            geocoder.geocode.assert_called_once_with("Mogao Caves, Dunhuang, Gansu, China")
             self.assertEqual(
                 analysis.payload["location"]["query"],
                 "Mogao Caves, Dunhuang, Gansu, China",
@@ -509,9 +519,7 @@ class TestAIIndex(unittest.TestCase):
             object_detector = mock.Mock()
             object_detector.detect_image.return_value = []
             ocr_engine = mock.Mock()
-            ocr_engine.read_text.return_value = (
-                "Latitude: 39.7875\nLongitude: 100.307222"
-            )
+            ocr_engine.read_text.return_value = "Latitude: 39.7875\nLongitude: 100.307222"
             caption_engine = mock.Mock()
             caption_engine.generate.return_value = SimpleNamespace(
                 text="A scenic location.",
@@ -579,13 +587,9 @@ class TestAIIndex(unittest.TestCase):
 
             people_matcher = _Matcher()
             object_detector = mock.Mock()
-            object_detector.detect_image.return_value = [
-                SimpleNamespace(label="person", score=0.91)
-            ]
+            object_detector.detect_image.return_value = [SimpleNamespace(label="person", score=0.91)]
             ocr_engine = mock.Mock()
-            ocr_engine.read_text.return_value = (
-                "Latitude: 39.7875\nLongitude: 100.307222"
-            )
+            ocr_engine.read_text.return_value = "Latitude: 39.7875\nLongitude: 100.307222"
             caption_engine = mock.Mock()
             caption_engine.generate.side_effect = [
                 SimpleNamespace(
@@ -666,12 +670,8 @@ class TestAIIndex(unittest.TestCase):
             caption_engine.estimate_people.assert_called_once()
 
     def test_build_page_payload_uses_cover_caption_for_fallback_text_page(self):
-        content_bounds = SimpleNamespace(
-            as_dict=lambda: {"x": 0, "y": 0, "width": 100, "height": 100}
-        )
-        subphoto_bounds = SimpleNamespace(
-            as_dict=lambda: {"x": 0, "y": 0, "width": 100, "height": 100}
-        )
+        content_bounds = SimpleNamespace(as_dict=lambda: {"x": 0, "y": 0, "width": 100, "height": 100})
+        subphoto_bounds = SimpleNamespace(as_dict=lambda: {"x": 0, "y": 0, "width": 100, "height": 100})
         layout = SimpleNamespace(
             kind="page_view",
             page_like=True,
@@ -682,9 +682,7 @@ class TestAIIndex(unittest.TestCase):
             footer_trimmed=False,
             split_applied=False,
             fallback_used=True,
-            subphotos=[
-                SimpleNamespace(index=1, bounds=subphoto_bounds, path=Path("page.jpg"))
-            ],
+            subphotos=[SimpleNamespace(index=1, bounds=subphoto_bounds, path=Path("page.jpg"))],
         )
         sub_result = ai_index.ImageAnalysis(
             image_path=Path("page.jpg"),
@@ -707,26 +705,20 @@ class TestAIIndex(unittest.TestCase):
             },
         )
 
-        _people, _objects, _subjects, description, _payload, _subphotos = (
-            ai_index._build_page_payload(
-                layout=layout,
-                sub_results=[sub_result],
-                page_ocr_text="MAINLAND CHINA 1986 BOOK 11",
-                page_ocr_keywords=["mainland", "china", "1986", "book"],
-                requested_caption_engine="template",
-            )
+        _people, _objects, _subjects, description, _payload, _subphotos = ai_index._build_page_payload(
+            layout=layout,
+            sub_results=[sub_result],
+            page_ocr_text="MAINLAND CHINA 1986 BOOK 11",
+            page_ocr_keywords=["mainland", "china", "1986", "book"],
+            requested_caption_engine="template",
         )
 
         self.assertIn("Subphoto caption", description)
         self.assertNotIn("contains 1 photo(s)", description)
 
     def test_build_page_payload_marks_family_album_pages(self):
-        content_bounds = SimpleNamespace(
-            as_dict=lambda: {"x": 0, "y": 0, "width": 100, "height": 100}
-        )
-        subphoto_bounds = SimpleNamespace(
-            as_dict=lambda: {"x": 0, "y": 0, "width": 50, "height": 50}
-        )
+        content_bounds = SimpleNamespace(as_dict=lambda: {"x": 0, "y": 0, "width": 100, "height": 100})
+        subphoto_bounds = SimpleNamespace(as_dict=lambda: {"x": 0, "y": 0, "width": 50, "height": 50})
         layout = SimpleNamespace(
             kind="page_view",
             page_like=True,
@@ -738,12 +730,8 @@ class TestAIIndex(unittest.TestCase):
             split_applied=True,
             fallback_used=False,
             subphotos=[
-                SimpleNamespace(
-                    index=1, bounds=subphoto_bounds, path=Path("photo1.jpg")
-                ),
-                SimpleNamespace(
-                    index=2, bounds=subphoto_bounds, path=Path("photo2.jpg")
-                ),
+                SimpleNamespace(index=1, bounds=subphoto_bounds, path=Path("photo1.jpg")),
+                SimpleNamespace(index=2, bounds=subphoto_bounds, path=Path("photo2.jpg")),
             ],
         )
         sub_result = ai_index.ImageAnalysis(
@@ -767,14 +755,12 @@ class TestAIIndex(unittest.TestCase):
             },
         )
 
-        _people, _objects, _subjects, description, _payload, _subphotos = (
-            ai_index._build_page_payload(
-                layout=layout,
-                sub_results=[sub_result, sub_result],
-                page_ocr_text="",
-                page_ocr_keywords=[],
-                requested_caption_engine="none",
-            )
+        _people, _objects, _subjects, description, _payload, _subphotos = ai_index._build_page_payload(
+            layout=layout,
+            sub_results=[sub_result, sub_result],
+            page_ocr_text="",
+            page_ocr_keywords=[],
+            requested_caption_engine="none",
         )
 
         self.assertEqual(description, "")
@@ -851,12 +837,8 @@ class TestAIIndex(unittest.TestCase):
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(image),
                 ),
-                mock.patch.object(
-                    ai_index, "_run_image_analysis", return_value=analysis
-                ),
-                mock.patch.object(
-                    ai_index, "_build_flat_payload", return_value=analysis.payload
-                ),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
                 mock.patch.object(
                     ai_index,
                     "read_embedded_source_text",
@@ -883,9 +865,7 @@ class TestAIIndex(unittest.TestCase):
 
             self.assertEqual(result, 0)
             write_mock.assert_called_once()
-            self.assertEqual(
-                write_mock.call_args.kwargs["album_title"], "Family Book I"
-            )
+            self.assertEqual(write_mock.call_args.kwargs["album_title"], "Family Book I")
             self.assertEqual(
                 write_mock.call_args.kwargs["source_text"],
                 "Family_2020_B01_P01_S01.tif; Family_2020_B01_P01_S02.tif",
@@ -901,7 +881,7 @@ class TestAIIndex(unittest.TestCase):
             image.write_bytes(b"abc")
             xmp_sidecar.write_xmp_sidecar(
                 image.with_suffix(".xmp"),
-                creator_tool="imago-photoalbums-ai-index",
+                creator_tool="https://github.com/cove/imago",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -965,7 +945,7 @@ class TestAIIndex(unittest.TestCase):
 <x:xmpmeta xmlns:x="adobe:ns:meta/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:xmp="http://ns.adobe.com/xap/1.0/">
   <rdf:RDF>
     <rdf:Description rdf:about="">
-      <xmp:CreatorTool>imago-photoalbums-ai-index</xmp:CreatorTool>
+      <xmp:CreatorTool>https://github.com/cove/imago</xmp:CreatorTool>
       <dc:description>
         <rdf:Alt>
           <rdf:li xml:lang="x-default">Old description</rdf:li>
@@ -1006,12 +986,8 @@ class TestAIIndex(unittest.TestCase):
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(image),
                 ),
-                mock.patch.object(
-                    ai_index, "_run_image_analysis", return_value=analysis
-                ) as analysis_mock,
-                mock.patch.object(
-                    ai_index, "_build_flat_payload", return_value=analysis.payload
-                ),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis) as analysis_mock,
+                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
                 mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
             ):
                 result = ai_index.run(
@@ -1043,7 +1019,7 @@ class TestAIIndex(unittest.TestCase):
             image.write_bytes(b"abc")
             xmp_sidecar.write_xmp_sidecar(
                 image.with_suffix(".xmp"),
-                creator_tool="imago-photoalbums-ai-index",
+                creator_tool="https://github.com/cove/imago",
                 person_names=[],
                 subjects=[],
                 description="Old description",
@@ -1103,12 +1079,8 @@ class TestAIIndex(unittest.TestCase):
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(image),
                 ),
-                mock.patch.object(
-                    ai_index, "_run_image_analysis", return_value=analysis
-                ) as analysis_mock,
-                mock.patch.object(
-                    ai_index, "_build_flat_payload", return_value=analysis.payload
-                ),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis) as analysis_mock,
+                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
                 mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
             ):
                 result = ai_index.run(
@@ -1157,9 +1129,7 @@ class TestAIIndex(unittest.TestCase):
                 },
             )
 
-            next_ns = (
-                max(sidecar.stat().st_mtime_ns, image.stat().st_mtime_ns) + 5_000_000
-            )
+            next_ns = max(sidecar.stat().st_mtime_ns, image.stat().st_mtime_ns) + 5_000_000
             os.utime(image, ns=(next_ns, next_ns))
 
             analysis = ai_index.ImageAnalysis(
@@ -1184,12 +1154,8 @@ class TestAIIndex(unittest.TestCase):
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(image),
                 ),
-                mock.patch.object(
-                    ai_index, "_run_image_analysis", return_value=analysis
-                ),
-                mock.patch.object(
-                    ai_index, "_build_flat_payload", return_value=analysis.payload
-                ),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
                 mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
             ):
                 result = ai_index.run(
@@ -1243,20 +1209,14 @@ class TestAIIndex(unittest.TestCase):
             ]
 
             with (
-                mock.patch.object(
-                    ai_index, "_init_people_matcher", return_value=fake_matcher
-                ),
+                mock.patch.object(ai_index, "_init_people_matcher", return_value=fake_matcher),
                 mock.patch.object(
                     ai_index,
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(image),
                 ),
-                mock.patch.object(
-                    ai_index, "_run_image_analysis", return_value=analysis
-                ),
-                mock.patch.object(
-                    ai_index, "_build_flat_payload", return_value=analysis.payload
-                ),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
                 mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
             ):
                 result = ai_index.run(
@@ -1289,7 +1249,7 @@ class TestAIIndex(unittest.TestCase):
             sidecar = image.with_suffix(".xmp")
             xmp_sidecar.write_xmp_sidecar(
                 sidecar,
-                creator_tool="imago-photoalbums-ai-index",
+                creator_tool="https://github.com/cove/imago",
                 person_names=["Alice"],
                 subjects=["hello"],
                 description="Old description",
@@ -1365,20 +1325,14 @@ class TestAIIndex(unittest.TestCase):
 
             with (
                 mock.patch.object(ai_index, "_settings_signature", return_value="sig"),
-                mock.patch.object(
-                    ai_index, "_init_people_matcher", return_value=fake_matcher
-                ),
-                mock.patch.object(
-                    ai_index, "_init_caption_engine", return_value=fake_caption_engine
-                ),
+                mock.patch.object(ai_index, "_init_people_matcher", return_value=fake_matcher),
+                mock.patch.object(ai_index, "_init_caption_engine", return_value=fake_caption_engine),
                 mock.patch.object(
                     ai_index,
                     "_maybe_run_people_recovery",
                     side_effect=passthrough_people_recovery,
                 ),
-                mock.patch.object(
-                    ai_index, "read_embedded_source_text", return_value=""
-                ),
+                mock.patch.object(ai_index, "read_embedded_source_text", return_value=""),
                 mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
             ):
                 result = ai_index.run(
@@ -1426,27 +1380,17 @@ class TestAIIndex(unittest.TestCase):
             matcher = CastPeopleMatcher(cast_store_dir=cast_store, max_faces=1)
 
             with (
-                mock.patch.object(
-                    ai_index, "_init_people_matcher", return_value=matcher
-                ),
+                mock.patch.object(ai_index, "_init_people_matcher", return_value=matcher),
                 mock.patch.object(
                     ai_index,
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(image),
                 ),
-                mock.patch.object(
-                    ai_index, "read_embedded_source_text", return_value=""
-                ),
+                mock.patch.object(ai_index, "read_embedded_source_text", return_value=""),
                 mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
-                mock.patch.object(
-                    matcher, "_detect_faces", return_value=[(10, 10, 40, 40)]
-                ),
-                mock.patch.object(
-                    matcher._ingestor, "is_valid_face_crop", return_value=True
-                ),
-                mock.patch.object(
-                    matcher, "_arcface_embed", return_value=[1.0, 0.0, 0.0]
-                ),
+                mock.patch.object(matcher, "_detect_faces", return_value=[(10, 10, 40, 40)]),
+                mock.patch.object(matcher._ingestor, "is_valid_face_crop", return_value=True),
+                mock.patch.object(matcher, "_arcface_embed", return_value=[1.0, 0.0, 0.0]),
                 mock.patch.object(matcher, "_estimate_quality", return_value=0.93),
             ):
                 result = ai_index.run(
@@ -1509,12 +1453,8 @@ class TestAIIndex(unittest.TestCase):
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(image),
                 ),
-                mock.patch.object(
-                    ai_index, "_run_image_analysis", return_value=analysis
-                ),
-                mock.patch.object(
-                    ai_index, "_build_flat_payload", return_value=analysis.payload
-                ),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
                 mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
                 mock.patch.object(ai_index, "save_manifest") as save_mock,
                 mock.patch("builtins.print") as print_mock,
@@ -1578,12 +1518,8 @@ class TestAIIndex(unittest.TestCase):
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(image),
                 ),
-                mock.patch.object(
-                    ai_index, "_run_image_analysis", return_value=analysis
-                ),
-                mock.patch.object(
-                    ai_index, "_build_flat_payload", return_value=analysis.payload
-                ),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
                 mock.patch("builtins.print") as print_mock,
             ):
                 result = ai_index.run(
@@ -1653,12 +1589,8 @@ class TestAIIndex(unittest.TestCase):
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(image),
                 ),
-                mock.patch.object(
-                    ai_index, "_run_image_analysis", return_value=analysis
-                ),
-                mock.patch.object(
-                    ai_index, "_build_flat_payload", return_value=analysis.payload
-                ),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
                 mock.patch("builtins.print") as print_mock,
             ):
                 result = ai_index.run(
@@ -1700,12 +1632,8 @@ class TestAIIndex(unittest.TestCase):
             image.write_bytes(b"abc")
             manifest = base / "manifest.jsonl"
 
-            content_bounds = SimpleNamespace(
-                as_dict=lambda: {"x": 0, "y": 0, "width": 100, "height": 100}
-            )
-            subphoto_bounds = SimpleNamespace(
-                as_dict=lambda: {"x": 0, "y": 0, "width": 80, "height": 80}
-            )
+            content_bounds = SimpleNamespace(as_dict=lambda: {"x": 0, "y": 0, "width": 100, "height": 100})
+            subphoto_bounds = SimpleNamespace(as_dict=lambda: {"x": 0, "y": 0, "width": 80, "height": 80})
 
             @contextmanager
             def mock_page_layout(*args, **kwargs):
@@ -1719,9 +1647,7 @@ class TestAIIndex(unittest.TestCase):
                     footer_trimmed=False,
                     split_applied=False,
                     fallback_used=True,
-                    subphotos=[
-                        SimpleNamespace(index=1, bounds=subphoto_bounds, path=image)
-                    ],
+                    subphotos=[SimpleNamespace(index=1, bounds=subphoto_bounds, path=image)],
                 )
 
             analysis = ai_index.ImageAnalysis(
@@ -1761,15 +1687,9 @@ class TestAIIndex(unittest.TestCase):
             fake_ocr_engine.read_text.return_value = ""
 
             with (
-                mock.patch.object(
-                    ai_index, "prepare_image_layout", side_effect=mock_page_layout
-                ),
-                mock.patch.object(
-                    ai_index, "_run_image_analysis", return_value=analysis
-                ),
-                mock.patch.object(
-                    ai_index, "_init_caption_engine", return_value=fake_caption_engine
-                ),
+                mock.patch.object(ai_index, "prepare_image_layout", side_effect=mock_page_layout),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index, "_init_caption_engine", return_value=fake_caption_engine),
                 mock.patch.object(ai_index, "OCREngine", return_value=fake_ocr_engine),
                 mock.patch.object(ai_index, "extract_keywords", return_value=[]),
                 mock.patch("builtins.print") as print_mock,
@@ -1802,9 +1722,7 @@ class TestAIIndex(unittest.TestCase):
                 printed_album_title="",
                 photo_count=1,
             )
-            print_mock.assert_called_once_with(
-                "Family_1986_B02_P01.jpg: Describe this page exactly"
-            )
+            print_mock.assert_called_once_with("Family_1986_B02_P01.jpg: Describe this page exactly")
 
     def test_run_stdout_keeps_page_summary_when_page_caption_falls_back(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1815,12 +1733,8 @@ class TestAIIndex(unittest.TestCase):
             image.write_bytes(b"abc")
             manifest = base / "manifest.jsonl"
 
-            content_bounds = SimpleNamespace(
-                as_dict=lambda: {"x": 0, "y": 0, "width": 100, "height": 100}
-            )
-            subphoto_bounds = SimpleNamespace(
-                as_dict=lambda: {"x": 0, "y": 0, "width": 80, "height": 80}
-            )
+            content_bounds = SimpleNamespace(as_dict=lambda: {"x": 0, "y": 0, "width": 100, "height": 100})
+            subphoto_bounds = SimpleNamespace(as_dict=lambda: {"x": 0, "y": 0, "width": 80, "height": 80})
 
             @contextmanager
             def mock_page_layout(*args, **kwargs):
@@ -1834,9 +1748,7 @@ class TestAIIndex(unittest.TestCase):
                     footer_trimmed=False,
                     split_applied=False,
                     fallback_used=True,
-                    subphotos=[
-                        SimpleNamespace(index=1, bounds=subphoto_bounds, path=image)
-                    ],
+                    subphotos=[SimpleNamespace(index=1, bounds=subphoto_bounds, path=image)],
                 )
 
             analysis = ai_index.ImageAnalysis(
@@ -1876,15 +1788,9 @@ class TestAIIndex(unittest.TestCase):
             fake_ocr_engine.read_text.return_value = "MAINLAND CHINA 1986 BOOK 11"
 
             with (
-                mock.patch.object(
-                    ai_index, "prepare_image_layout", side_effect=mock_page_layout
-                ),
-                mock.patch.object(
-                    ai_index, "_run_image_analysis", return_value=analysis
-                ),
-                mock.patch.object(
-                    ai_index, "_init_caption_engine", return_value=fake_caption_engine
-                ),
+                mock.patch.object(ai_index, "prepare_image_layout", side_effect=mock_page_layout),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index, "_init_caption_engine", return_value=fake_caption_engine),
                 mock.patch.object(ai_index, "OCREngine", return_value=fake_ocr_engine),
                 mock.patch("builtins.print") as print_mock,
             ):
@@ -1980,9 +1886,7 @@ class TestAIIndex(unittest.TestCase):
             photos.mkdir()
             image = photos / "a.jpg"
             image.write_bytes(b"abc")
-            image.with_suffix(".xmp").write_text(
-                self._valid_sidecar_text(), encoding="utf-8"
-            )
+            image.with_suffix(".xmp").write_text(self._valid_sidecar_text(), encoding="utf-8")
             manifest = base / "manifest.jsonl"
 
             analysis = ai_index.ImageAnalysis(
@@ -2007,12 +1911,8 @@ class TestAIIndex(unittest.TestCase):
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(image),
                 ),
-                mock.patch.object(
-                    ai_index, "_run_image_analysis", return_value=analysis
-                ) as analysis_mock,
-                mock.patch.object(
-                    ai_index, "_build_flat_payload", return_value=analysis.payload
-                ),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis) as analysis_mock,
+                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
                 mock.patch("builtins.print"),
             ):
                 result = ai_index.run(
@@ -2093,15 +1993,9 @@ class TestAIIndex(unittest.TestCase):
                     "_resolve_archive_scan_authoritative_ocr",
                     return_value=authority,
                 ) as authority_mock,
-                mock.patch.object(
-                    ai_index, "read_embedded_source_text", return_value=""
-                ),
-                mock.patch.object(
-                    ai_index, "_run_image_analysis", return_value=analysis
-                ) as analysis_mock,
-                mock.patch.object(
-                    ai_index, "_build_flat_payload", return_value=analysis.payload
-                ),
+                mock.patch.object(ai_index, "read_embedded_source_text", return_value=""),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis) as analysis_mock,
+                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
                 mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
             ):
                 result = ai_index.run(
@@ -2128,9 +2022,7 @@ class TestAIIndex(unittest.TestCase):
                 analysis_mock.call_args.kwargs["ocr_text_override"],
                 authority.ocr_text,
             )
-            self.assertEqual(
-                write_mock.call_args.kwargs["ocr_text"], authority.ocr_text
-            )
+            self.assertEqual(write_mock.call_args.kwargs["ocr_text"], authority.ocr_text)
             self.assertEqual(
                 write_mock.call_args.kwargs["ocr_authority_source"],
                 "archive_stitched",
@@ -2199,15 +2091,9 @@ class TestAIIndex(unittest.TestCase):
                     "_resolve_archive_scan_authoritative_ocr",
                     return_value=authority,
                 ),
-                mock.patch.object(
-                    ai_index, "read_embedded_source_text", return_value=""
-                ),
-                mock.patch.object(
-                    ai_index, "_run_image_analysis", return_value=analysis
-                ),
-                mock.patch.object(
-                    ai_index, "_build_flat_payload", return_value=analysis.payload
-                ),
+                mock.patch.object(ai_index, "read_embedded_source_text", return_value=""),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
             ):
                 first_result = ai_index.run(
                     [
@@ -2231,9 +2117,7 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(first_result, 0)
 
             with (
-                mock.patch.object(
-                    ai_index, "_resolve_archive_scan_authoritative_ocr"
-                ) as authority_mock,
+                mock.patch.object(ai_index, "_resolve_archive_scan_authoritative_ocr") as authority_mock,
                 mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
                 mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
             ):
@@ -2269,9 +2153,7 @@ class TestAIIndex(unittest.TestCase):
 
     def test_resolve_caption_prompt_exits_for_missing_file(self):
         with self.assertRaises(SystemExit) as exc:
-            ai_index._resolve_caption_prompt(
-                "", "/tmp/definitely-missing-caption-prompt.txt"
-            )
+            ai_index._resolve_caption_prompt("", "/tmp/definitely-missing-caption-prompt.txt")
         self.assertIn("Caption prompt file does not exist", str(exc.exception))
 
     def test_parse_args_caption_flags(self):
@@ -2317,9 +2199,7 @@ class TestAIIndex(unittest.TestCase):
         self.assertEqual(args.qwen_max_pixels, 524288)
 
     def test_parse_args_defaults_use_qwen_and_qwen_ocr(self):
-        with mock.patch.object(
-            ai_index, "default_ocr_model", return_value="qwen/qwen3-vl-30b"
-        ):
+        with mock.patch.object(ai_index, "default_ocr_model", return_value="qwen/qwen3-vl-30b"):
             args = ai_index.parse_args([])
         self.assertEqual(args.caption_engine, "lmstudio")
         self.assertEqual(args.caption_model, "")
