@@ -107,7 +107,7 @@ def _compute_people_positions(people_matches: list, image_path: Path) -> dict[st
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp"}
 MIN_EXISTING_SIDECAR_BYTES = 100
 AI_MODEL_MAX_SOURCE_BYTES = 30 * 1024 * 1024
-DEFAULT_CREATOR_TOOL = "imago-photoalbums-ai-index"
+DEFAULT_CREATOR_TOOL = "https://github.com/cove/imago"
 DEFAULT_MANIFEST_PATH = Path(__file__).resolve().parents[1] / "data" / "ai_index_manifest.jsonl"
 DEFAULT_CAST_STORE = Path(__file__).resolve().parents[2] / "cast" / "data"
 PROCESSOR_SIGNATURE = "page_split_v16_archive_stitched_ocr"
@@ -475,9 +475,11 @@ def needs_processing(
         stat = path.stat()
     except FileNotFoundError:
         return False
+    sidecar_path = path.with_suffix(".xmp")
+    if not reprocess_required and has_current_sidecar(path):
+        return False
     if reprocess_required:
         return True
-    sidecar_path = path.with_suffix(".xmp")
     if manifest_row is not None:
         recorded_sidecar = str(manifest_row.get("sidecar_path") or "").strip()
         if recorded_sidecar and recorded_sidecar != str(sidecar_path):
@@ -489,8 +491,6 @@ def needs_processing(
         if int(stat.st_size) != recorded_size or int(stat.st_mtime_ns) != recorded_mtime:
             return True
         return not has_current_sidecar(path)
-    if has_current_sidecar(path):
-        return False
     if not has_valid_sidecar(path):
         return True
     return int(sidecar_path.stat().st_mtime_ns) < int(stat.st_mtime_ns)
