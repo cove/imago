@@ -1,0 +1,53 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "MCP HTTP Server",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/mcp_server.py",
+      "args": ["--transport", "http", "--host", "0.0.0.0", "--port", "8090", "--console-host", "192.168.4.26"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "justMyCode": false,
+      "stopOnEntry": false,
+      "preLaunchTask": "MCP HTTP Server",
+      "internalConsoleOptions": "neverOpen",
+      "terminal": "integrated"
+    },
+    {
+      "name": "Run MCP HTTP Server (Task Only)",
+      "type": "shell",
+      "request": "launch",
+      "command": "just mcp-http",
+      "args": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "mcp-server",
+        "fileLocation": "relative",
+        "pattern": {
+          "regexp": "^.*$"
+        },
+        "background": {
+          "beginsPattern": "^.*Starting MCP HTTP server.*$",
+          "endsPattern": "^.*Server stopped.*$"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": false,
+        "echo": true,
+        "focus": false,
+        "showReuseMessage": true,
+        "group": "mcp"
+      }
+    }
+  ]
+}
