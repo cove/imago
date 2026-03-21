@@ -114,7 +114,18 @@ location block in the logs.
 - Write captions in a descriptive first-person voice explaining what's happening in the scene (e.g. "A nice road in the English [assuming the album is about England] country side" not "There appears to be a road in the country side of some country").
 - When quoting visible text, reproduce it exactly as printed.
 - Think step-by-step internally if needed, but output only the final JSON.
-
+- The file name system is as follows:
+  - `{album_name}_B##_P##_S##.tif` for page scans
+  - `{album_name}_B##_P##_D##_##.tif` for derived images cropped from page scans
+  - `{album_name}_B##_P##_stitched.jpg` sitched together page scans (when S## > 1)
+  - `B##` = Book ## 
+  - `P##` = Page ##
+  - `S##` = Scan ## (overized pages needed to be scanned in multiple parts)
+  - `D##_##` = Derrived image ## sequence ## (cropped photos from page scans)
+- The directory system is as follows:
+  - `{album_name}_[year]_B##_Archive/` for album archives with full resolution page scans
+  - `{album_name}_[year]_B##_View/` for album images that have been stitched and cropped for easier viewing (derived from the Archive scans)
+  
 ## Text Handling & Correction Rules
 - Copy all visible text into `ocr_text` exactly as printed: preserve spelling, capitalization, punctuation, spacing, and line breaks. Do not translate, normalize, or correct.
 - Include only clearly legible portions of blurry or illegible text. Use corrected or translated understanding only in caption or location reasoning when confidence exceeds 95%.
@@ -140,20 +151,45 @@ location block in the logs.
 - Do not guess identities or relationships.
 
 ## Album Classification Rules (apply in this order)
-- Treat album title hints and classification hints as supporting context, not as visible text.
-- There's a typo in album names where the number of the Book is written in Roman Numerals, but 1 was used instead of I by accident for one. Replace this 1 with an I in the album names. (e.g. Book 11 is really Book II)
-- Prefer the printed cover title over a normalized album title when naming the album in a caption.
-- If the image is an album cover or title page, describe it as the cover or title page of the photo album.
-- Preserve visible cover labels exactly as shown when quoting text.
-- Cordell family album covers are typically blue or white with a leathery texture, gold trim, and the album title printed in the lower-right corner.
+
+- Treat album title hints and classification hints as supporting context only (do not show them as visible text).
+- Fix Roman numeral typo in album names: replace accidental "1" with "I" (e.g., Book 1 → Book I, Book 11 → Book II).
+- Use the printed cover title (not a normalized version) when naming the album in captions.
+- For album covers or title pages, describe the image as "the cover" or "the title page" of the photo album.
+- Quote any visible cover labels exactly as they appear.
+- Cordell family albums typically feature blue or white leathery covers with gold trim and the title printed in the lower-right corner.
+- Classify albums by title:
+  - Family albums contain "Family" in the title.
+  - Travel albums contain one or more country names in the title.
+  - Travel albums focus on a specific place and time; family albums span many years and locations.
 
 ## Preamble Describe
-Describe this photo in exhaustive detail, including building styles, bridge sytles, landscape features, clothing styles, car types, animals, activities, well known locations, and any other clearly supported details. Write a single precise sentence that captures all the supported facts without speculation or inference.
+- Describe each photo exhaustively yet precisely: include building/bridge styles, landscape features, clothing, vehicles, animals, activities, recognizable locations, colors, technology, time of day, weather, and all clearly visible details. Summarize all supported facts in one accurate sentence with no speculation or inference.
+- Audrey Cordell assembled these albums and frequently appears in photos with her husband Leslie Cordell; identify and name them whenever they are recognizable, but don't say a "women named Audrey Cordell [reset of sentence]", just say "Audrey Cordell [rest of sentence]".
+- Travel albums:
+  - Contain one or more country names in the title; focus on a specific place and time.
+  - Write as a travel writer for readers unfamiliar with the place.
+  - Emphasize clearly visible landmarks, activities, time of day, weather, and season.
+  - Use vivid, colorful language; incorporate appropriate metaphors/similes to convey mood and atmosphere.
+- Family albums:
+  - Contain "Family" in the title; span many years and locations.
+  - Captions are written in the first person by Audrey Cordell; reflect this voice in descriptive captions.
+  - Focus on people present, the event or occasion, and their actions.
+  - Key family references:
+    - "Daddy" = Oliver Dennison (Audrey’s father)
+    - "Mommy" = Maude Dennison (Audrey’s mother)
+    - Gilbert = Audrey’s brother
+    - Leslise Cordell = Audrey’s husband
+  - Important locations:
+    - San Marino, California (family home purchased 1958; frequent setting for holidays, Christmas, dining-room gatherings)
+    - Woodhaven, Winnipeg, Canada (Audrey’s childhood home)
+    - Indianapolis, Indiana (Leslie’s childhood home; many photos with relatives there in the 1980s and 1990s)
 
 ## Preamble Combined
 Analyze this photo. Perform both tasks:
 1. Extract all visible text exactly as it appears. If none, output an empty string.
 2. Write one precise sentence describing the scene, including building styles, landscape features, clothing styles, activities, and any other clearly supported details.
+
 ## Preamble People Count
 Count the number of clearly visible real people in this photo.
 
