@@ -244,70 +244,46 @@ def _set_progress(
         setattr(session, count_total_field, max(0, int(count_total)))
 
 
-def _set_load_progress(
+_PROGRESS_FIELDS: dict[str, tuple[str, str, str]] = {
+    "load": ("load", "load_sample_done", "load_sample_total"),
+    "preview": ("preview", "preview_frame_done", "preview_frame_total"),
+    "subtitles": ("subtitles", "subtitles_segment_done", "subtitles_segment_total"),
+}
+
+
+def _set_named_progress(
     session: SessionState,
-    *,
-    running: bool | None = None,
-    progress: float | None = None,
-    message: str | None = None,
-    sample_done: int | None = None,
-    sample_total: int | None = None,
+    kind: str,
+    running: bool | None,
+    progress: float | None,
+    message: str | None,
+    count_done: int | None,
+    count_total: int | None,
 ) -> None:
+    prefix, done_field, total_field = _PROGRESS_FIELDS[kind]
     _set_progress(
         session,
-        "load",
+        prefix,
         running=running,
         progress=progress,
         message=message,
-        count_done=sample_done,
-        count_done_field="load_sample_done",
-        count_total=sample_total,
-        count_total_field="load_sample_total",
+        count_done=count_done,
+        count_done_field=done_field,
+        count_total=count_total,
+        count_total_field=total_field,
     )
 
 
-def _set_preview_progress(
-    session: SessionState,
-    *,
-    running: bool | None = None,
-    progress: float | None = None,
-    message: str | None = None,
-    frame_done: int | None = None,
-    frame_total: int | None = None,
-) -> None:
-    _set_progress(
-        session,
-        "preview",
-        running=running,
-        progress=progress,
-        message=message,
-        count_done=frame_done,
-        count_done_field="preview_frame_done",
-        count_total=frame_total,
-        count_total_field="preview_frame_total",
-    )
+def _set_load_progress(session: SessionState, *, running=None, progress=None, message=None, sample_done=None, sample_total=None) -> None:
+    _set_named_progress(session, "load", running, progress, message, sample_done, sample_total)
 
 
-def _set_subtitles_progress(
-    session: SessionState,
-    *,
-    running: bool | None = None,
-    progress: float | None = None,
-    message: str | None = None,
-    segment_done: int | None = None,
-    segment_total: int | None = None,
-) -> None:
-    _set_progress(
-        session,
-        "subtitles",
-        running=running,
-        progress=progress,
-        message=message,
-        count_done=segment_done,
-        count_done_field="subtitles_segment_done",
-        count_total=segment_total,
-        count_total_field="subtitles_segment_total",
-    )
+def _set_preview_progress(session: SessionState, *, running=None, progress=None, message=None, frame_done=None, frame_total=None) -> None:
+    _set_named_progress(session, "preview", running, progress, message, frame_done, frame_total)
+
+
+def _set_subtitles_progress(session: SessionState, *, running=None, progress=None, message=None, segment_done=None, segment_total=None) -> None:
+    _set_named_progress(session, "subtitles", running, progress, message, segment_done, segment_total)
 
 
 def _normalize_iqr_k(raw: Any, default: float = 3.5) -> float:
