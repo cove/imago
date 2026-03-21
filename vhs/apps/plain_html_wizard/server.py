@@ -49,6 +49,7 @@ from common import (
     get_audio_sync_offset_for_chapter,
     get_gamma_profile_for_chapter,
     get_transcript_mode_for_chapter,
+    normalize_gamma_value,
     parse_chapters,
     safe,
     update_chapter_audio_sync_in_render_settings,
@@ -219,6 +220,30 @@ class _SubtitlesCancelledError(Exception):
     pass
 
 
+def _set_progress(
+    session: SessionState,
+    prefix: str,
+    *,
+    running: bool | None = None,
+    progress: float | None = None,
+    message: str | None = None,
+    count_done: int | None = None,
+    count_done_field: str = "",
+    count_total: int | None = None,
+    count_total_field: str = "",
+) -> None:
+    if running is not None:
+        setattr(session, f"{prefix}_running", bool(running))
+    if progress is not None:
+        setattr(session, f"{prefix}_progress", max(0.0, min(100.0, float(progress))))
+    if message is not None:
+        setattr(session, f"{prefix}_message", str(message))
+    if count_done is not None and count_done_field:
+        setattr(session, count_done_field, max(0, int(count_done)))
+    if count_total is not None and count_total_field:
+        setattr(session, count_total_field, max(0, int(count_total)))
+
+
 def _set_load_progress(
     session: SessionState,
     *,
@@ -228,16 +253,17 @@ def _set_load_progress(
     sample_done: int | None = None,
     sample_total: int | None = None,
 ) -> None:
-    if running is not None:
-        session.load_running = bool(running)
-    if progress is not None:
-        session.load_progress = max(0.0, min(100.0, float(progress)))
-    if message is not None:
-        session.load_message = str(message)
-    if sample_done is not None:
-        session.load_sample_done = max(0, int(sample_done))
-    if sample_total is not None:
-        session.load_sample_total = max(0, int(sample_total))
+    _set_progress(
+        session,
+        "load",
+        running=running,
+        progress=progress,
+        message=message,
+        count_done=sample_done,
+        count_done_field="load_sample_done",
+        count_total=sample_total,
+        count_total_field="load_sample_total",
+    )
 
 
 def _set_preview_progress(
@@ -249,16 +275,17 @@ def _set_preview_progress(
     frame_done: int | None = None,
     frame_total: int | None = None,
 ) -> None:
-    if running is not None:
-        session.preview_running = bool(running)
-    if progress is not None:
-        session.preview_progress = max(0.0, min(100.0, float(progress)))
-    if message is not None:
-        session.preview_message = str(message)
-    if frame_done is not None:
-        session.preview_frame_done = max(0, int(frame_done))
-    if frame_total is not None:
-        session.preview_frame_total = max(0, int(frame_total))
+    _set_progress(
+        session,
+        "preview",
+        running=running,
+        progress=progress,
+        message=message,
+        count_done=frame_done,
+        count_done_field="preview_frame_done",
+        count_total=frame_total,
+        count_total_field="preview_frame_total",
+    )
 
 
 def _set_subtitles_progress(
@@ -270,16 +297,17 @@ def _set_subtitles_progress(
     segment_done: int | None = None,
     segment_total: int | None = None,
 ) -> None:
-    if running is not None:
-        session.subtitles_running = bool(running)
-    if progress is not None:
-        session.subtitles_progress = max(0.0, min(100.0, float(progress)))
-    if message is not None:
-        session.subtitles_message = str(message)
-    if segment_done is not None:
-        session.subtitles_segment_done = max(0, int(segment_done))
-    if segment_total is not None:
-        session.subtitles_segment_total = max(0, int(segment_total))
+    _set_progress(
+        session,
+        "subtitles",
+        running=running,
+        progress=progress,
+        message=message,
+        count_done=segment_done,
+        count_done_field="subtitles_segment_done",
+        count_total=segment_total,
+        count_total_field="subtitles_segment_total",
+    )
 
 
 def _normalize_iqr_k(raw: Any, default: float = 3.5) -> float:
@@ -301,16 +329,6 @@ def _normalize_payload_bool(raw: Any, default: bool = False) -> bool:
     if text in {"0", "false", "no", "off"}:
         return False
     return bool(default)
-
-
-def _normalize_gamma_value(raw: Any, default: float = 1.0) -> float:
-    try:
-        value = float(raw)
-    except Exception:
-        value = float(default)
-    if not (value == value):
-        value = float(default)
-    return max(0.05, min(8.0, float(value)))
 
 
 def _normalize_gamma_ranges_payload(
@@ -340,7 +358,7 @@ def _normalize_gamma_ranges_payload(
             b = min(int(ch_end), b)
             if b <= a:
                 continue
-        g = _normalize_gamma_value(gamma, default=1.0)
+        g = normalize_gamma_value(gamma, default=1.0)
         rows.append((a, b, g, idx))
     if not rows:
         return []
@@ -1647,7 +1665,7 @@ def _apply_profiles_from_payload(
     if raw_gamma_profile is None:
         raw_gamma_profile = payload.get("gamma")
     if isinstance(raw_gamma_profile, dict):
-        session.gamma_default = _normalize_gamma_value(
+        session.gamma_default = normalize_gamma_value(
             raw_gamma_profile.get("default_gamma", session.gamma_default),
             default=session.gamma_default,
         )
@@ -3705,7 +3723,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             ch_start=session.start_frame,
             ch_end=session.end_frame,
         )
-        session.gamma_default = _normalize_gamma_value(
+        session.gamma_default = normalize_gamma_value(
             gamma_profile.get("default_gamma", 1.0), default=1.0
         )
         session.gamma_ranges = _normalize_gamma_ranges_payload(
@@ -4188,7 +4206,7 @@ class WizardHandler(BaseHTTPRequestHandler):
         if raw_gamma_profile is None:
             raw_gamma_profile = payload.get("gamma")
         if isinstance(raw_gamma_profile, dict):
-            session.gamma_default = _normalize_gamma_value(
+            session.gamma_default = normalize_gamma_value(
                 raw_gamma_profile.get("default_gamma", session.gamma_default),
                 default=session.gamma_default,
             )
@@ -4363,7 +4381,7 @@ class WizardHandler(BaseHTTPRequestHandler):
 
                 if windows_filter:
                     stage_label = stage_names[stage_idx]
-                    gamma_default = _normalize_gamma_value(
+                    gamma_default = normalize_gamma_value(
                         session.gamma_default, default=1.0
                     )
                     gamma_ranges = _normalize_gamma_ranges_payload(

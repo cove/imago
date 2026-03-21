@@ -27,6 +27,12 @@ if _cached_common is not None:
     if _cached_common_file != expected_common:
         del sys.modules["common"]
 from common import *  # noqa: F401,F403,F405
+from vhs_pipeline.people_prefill import (
+    _frame_to_seconds as _frame_to_subtitle_seconds,
+    _parse_frame as _parse_subtitle_frame,
+    _parse_seconds as _parse_subtitle_ts,
+    _parse_tsv_time_or_frame_seconds,
+)
 
 ASS_NEWLINE = "\\N"
 PEOPLE_DISPLAY_SEPARATOR = " \u00b7 "
@@ -283,16 +289,6 @@ def _build_badframe_freezeframe_lines(resolved_ranges, frame_multiplier=1):
     return "\n".join(fix_lines) + "\n"
 
 
-def _normalize_gamma_value(raw, default=GAMMA_DEFAULT):
-    try:
-        value = float(raw)
-    except Exception:
-        value = float(default)
-    if not (value == value):
-        value = float(default)
-    return max(0.05, min(8.0, float(value)))
-
-
 def _normalize_gamma_range_entries(gamma_ranges):
     out = []
     for idx, item in enumerate(list(gamma_ranges or [])):
@@ -310,7 +306,7 @@ def _normalize_gamma_range_entries(gamma_ranges):
             continue
         if b <= a:
             continue
-        g = _normalize_gamma_value(gamma, default=GAMMA_DEFAULT)
+        g = normalize_gamma_value(gamma, default=GAMMA_DEFAULT)
         out.append((a, b, g, idx))
     return out
 
@@ -326,7 +322,7 @@ def _resolve_gamma_segments_for_chapter(
     chapter_end = int(chapter_end_frame)
     chapter_len = max(1, chapter_end - chapter_start)
 
-    default_gamma = _normalize_gamma_value(gamma_default, default=GAMMA_DEFAULT)
+    default_gamma = normalize_gamma_value(gamma_default, default=GAMMA_DEFAULT)
     raw_entries = _normalize_gamma_range_entries(gamma_ranges)
     entries = []
     for a, b, g, idx in raw_entries:
@@ -867,59 +863,6 @@ def load_badframe_ranges(tsv_path, chapter_title=None, chapter_start_frame=None)
         chapter_start_frame=chapter_start_frame,
     )
     return [(int(a), int(b)) for a, b, _src in repairs]
-
-
-def _parse_subtitle_ts(raw):
-    text = str(raw or "").strip().replace(",", ".")
-    if not text:
-        return None
-    parts = text.split(":")
-    try:
-        if len(parts) == 1:
-            value = float(parts[0])
-        elif len(parts) == 2:
-            value = float(int(parts[0]) * 60 + float(parts[1]))
-        elif len(parts) == 3:
-            value = float(int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2]))
-        else:
-            return None
-    except Exception:
-        return None
-    if not (value == value):
-        return None
-    return max(0.0, float(value))
-
-
-def _parse_subtitle_frame(raw):
-    text = str(raw or "").strip()
-    if not text:
-        return None
-    if not re.fullmatch(r"-?\d+", text):
-        return None
-    try:
-        value = int(text)
-    except Exception:
-        return None
-    if value < 0:
-        return None
-    return int(value)
-
-
-def _parse_tsv_time_or_frame_seconds(raw):
-    text = str(raw or "").strip()
-    if not text:
-        return None
-    # Backward compatibility: old metadata TSV rows used global frame IDs.
-    if re.fullmatch(r"-?\d+", text):
-        frame = _parse_subtitle_frame(text)
-        if frame is None:
-            return None
-        return _frame_to_subtitle_seconds(frame)
-    return _parse_subtitle_ts(text)
-
-
-def _frame_to_subtitle_seconds(frame_id):
-    return float(int(frame_id) * 1001) / 30000.0
 
 
 def _normalize_people_text(raw):

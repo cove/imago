@@ -565,7 +565,7 @@ def _normalize_transcript_mode(raw: object, default: str = "off") -> str:
     return str(default).strip().lower() if str(default).strip() else "off"
 
 
-def _normalize_gamma_value(raw: object, default: float = 1.0) -> float:
+def normalize_gamma_value(raw: object, default: float = 1.0) -> float:
     try:
         value = float(raw)
     except Exception:
@@ -595,7 +595,7 @@ def _canonicalize_gamma_ranges(raw_ranges) -> list[dict[str, float | int]]:
             continue
         if b <= a:
             continue
-        g = _normalize_gamma_value(gamma, default=1.0)
+        g = normalize_gamma_value(gamma, default=1.0)
         entries.append((a, b, g, idx))
     if not entries:
         return []
@@ -673,12 +673,12 @@ def _clip_gamma_ranges_to_span(
 
 def _gamma_default_from_cfg(cfg: dict, default: float = 1.0) -> float:
     if not isinstance(cfg, dict):
-        return _normalize_gamma_value(default, default=1.0)
+        return normalize_gamma_value(default, default=1.0)
     if GAMMA_CORRECTION_DEFAULT_KEY in cfg:
-        return _normalize_gamma_value(
+        return normalize_gamma_value(
             cfg.get(GAMMA_CORRECTION_DEFAULT_KEY), default=default
         )
-    return _normalize_gamma_value(default, default=1.0)
+    return normalize_gamma_value(default, default=1.0)
 
 
 def _gamma_ranges_from_cfg(cfg: dict) -> list[dict[str, float | int]]:
@@ -1047,7 +1047,7 @@ def update_chapter_gamma_in_render_settings(
 
     # If chapter default differs from archive default, add a base range for the span
     if default_gamma is not None and ch_start is not None and ch_end is not None:
-        next_default = _normalize_gamma_value(default_gamma, default=archive_default)
+        next_default = normalize_gamma_value(default_gamma, default=archive_default)
         if abs(next_default - float(archive_default)) >= 1e-6:
             new_ranges = [
                 {"start_frame": ch_start, "end_frame": ch_end, "gamma": next_default}

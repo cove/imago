@@ -373,7 +373,7 @@ def _load_hf_transformers():
             AutoProcessor,
         )
     except Exception as exc:
-        raise RuntimeError("Local HF OCR requires a compatible local transformers/torch install.") from exc
+        raise RuntimeError("Local HF inference requires a compatible transformers/torch install.") from exc
     return torch, AutoProcessor, AutoModelForImageTextToText
 
 

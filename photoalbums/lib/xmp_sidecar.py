@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
+from ._caption_album import dedupe as _dedupe
+
 X_NS = "adobe:ns:meta/"
 RDF_NS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
 DC_NS = "http://purl.org/dc/elements/1.1/"
@@ -33,20 +35,6 @@ _RDF_ALT = f"{{{RDF_NS}}}Alt"
 _RDF_SEQ = f"{{{RDF_NS}}}Seq"
 _RDF_LI = f"{{{RDF_NS}}}li"
 
-
-def _dedupe(values: list[str]) -> list[str]:
-    out: list[str] = []
-    seen: set[str] = set()
-    for raw in values:
-        item = str(raw or "").strip()
-        if not item:
-            continue
-        key = item.casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(item)
-    return out
 
 
 def _add_bag(parent: ET.Element, tag: str, values: list[str]) -> None:

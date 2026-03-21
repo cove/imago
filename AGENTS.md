@@ -42,6 +42,14 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 - Avoid introducing extra abstraction unless it reduces real maintenance cost.
 - Update docs/help text when behavior or naming changes.
 
+## Duplicate Code (Skylos)
+
+When `check_skylos.py` reports a duplicate-code finding (SKY-C401):
+
+- **Do not** make superficial edits (rename variables, reorder statements, split into slightly different forms) to make the code look different to the detector. That is evading the problem, not solving it.
+- **Do** refactor the duplicated logic into a shared function, helper, or class that both call sites use. The goal is genuine reuse — one canonical implementation, multiple callers.
+- If the duplicated code serves genuinely different purposes and sharing would introduce harmful coupling, explain why before leaving it as-is. This is the exception, not the default.
+
 ## Python Environment
 
 - For Python commands in this repo, do not rely on PATH-resolved `python`.

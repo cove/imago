@@ -9,4 +9,4 @@ fi
 repo_root="$(git rev-parse --show-toplevel)"
 echo "[pre-push] Running test suite..."
 cd "$repo_root"
-#uv run pytest cast/tests photoalbums/tests vhs/test -q --color=no
+uv run pytest cast/tests photoalbums/tests vhs/test -q --color=no

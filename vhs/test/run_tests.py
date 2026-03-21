@@ -632,6 +632,53 @@ def test_step_6_badframe_gap_bridging_policy():
     sys.modules.pop("whisper.utils", None)
 
 
+def _bad_ranges_from_frames(bad_frames):
+    frames = sorted(set(int(f) for f in bad_frames))
+    if not frames:
+        return []
+    out = []
+    a = b = frames[0]
+    for f in frames[1:]:
+        if f == b + 1:
+            b = f
+            continue
+        out.append((a, b))
+        a = b = f
+    out.append((a, b))
+    return out
+
+
+def _expected_unrepaired_targets(frame_count, bad_set, step_6_make_videos):
+    # Mirrors source-availability policy for auto range repair:
+    # single-frame ranges use +/-2 extra skip before scanning for a clean source.
+    if not bad_set:
+        return set()
+    unrepaired = set()
+
+    for a, b in _bad_ranges_from_frames(bad_set):
+        span = b - a + 1
+        skip = (
+            step_6_make_videos.BADFRAME_SINGLE_FRAME_SOURCE_SKIP if span == 1 else 0
+        )
+
+        next_src = b + 1 + skip
+        while next_src < frame_count and next_src in bad_set:
+            next_src += 1
+        if next_src >= frame_count:
+            next_src = None
+
+        prev_src = a - 1 - skip
+        while prev_src >= 0 and prev_src in bad_set:
+            prev_src -= 1
+        if prev_src < 0:
+            prev_src = None
+
+        if next_src is None and prev_src is None:
+            unrepaired.update(range(a, b + 1))
+
+    return unrepaired
+
+
 def test_step_6_badframe_randomized_generation_100_cases():
     print(
         "Testing step_6_make_videos badframe resolver with 100 pre-generated patterns..."
@@ -1681,51 +1728,6 @@ def test_step_6_badframe_randomized_generation_100_cases():
                 shown[fi] = int(src)
         return shown
 
-    def _bad_ranges_from_frames(bad_frames):
-        frames = sorted(set(int(f) for f in bad_frames))
-        if not frames:
-            return []
-        out = []
-        a = b = frames[0]
-        for f in frames[1:]:
-            if f == b + 1:
-                b = f
-                continue
-            out.append((a, b))
-            a = b = f
-        out.append((a, b))
-        return out
-
-    def _expected_unrepaired_targets(frame_count, bad_set):
-        # Mirrors source-availability policy for auto range repair:
-        # single-frame ranges use +/-2 extra skip before scanning for a clean source.
-        if not bad_set:
-            return set()
-        unrepaired = set()
-
-        for a, b in _bad_ranges_from_frames(bad_set):
-            span = b - a + 1
-            skip = (
-                step_6_make_videos.BADFRAME_SINGLE_FRAME_SOURCE_SKIP if span == 1 else 0
-            )
-
-            next_src = b + 1 + skip
-            while next_src < frame_count and next_src in bad_set:
-                next_src += 1
-            if next_src >= frame_count:
-                next_src = None
-
-            prev_src = a - 1 - skip
-            while prev_src >= 0 and prev_src in bad_set:
-                prev_src -= 1
-            if prev_src < 0:
-                prev_src = None
-
-            if next_src is None and prev_src is None:
-                unrepaired.update(range(a, b + 1))
-
-        return unrepaired
-
     for case_idx, (frame_count, bad_frames) in enumerate(pregenerated_cases):
         bad_frames = sorted(
             {int(f) for f in bad_frames if 0 <= int(f) < int(frame_count)}
@@ -1750,7 +1752,7 @@ def test_step_6_badframe_randomized_generation_100_cases():
                 repaired_targets.add(fi)
             last_end = int(b)
 
-        expected_unrepaired = _expected_unrepaired_targets(frame_count, bad_set)
+        expected_unrepaired = _expected_unrepaired_targets(frame_count, bad_set, step_6_make_videos)
         expected_repaired = bad_set - expected_unrepaired
 
         if not bad_set:
@@ -1798,47 +1800,6 @@ def test_step_6_badframe_exhaustive_small_patterns_no_overlap():
     print("Testing step_6_make_videos exhaustive small-pattern overlap safety...")
     step_6_make_videos = import_step_6_module()
 
-    def _bad_ranges_from_frames(bad_frames):
-        frames = sorted(set(int(f) for f in bad_frames))
-        if not frames:
-            return []
-        out = []
-        a = b = frames[0]
-        for f in frames[1:]:
-            if f == b + 1:
-                b = f
-                continue
-            out.append((a, b))
-            a = b = f
-        out.append((a, b))
-        return out
-
-    def _expected_unrepaired_targets(frame_count, bad_set):
-        if not bad_set:
-            return set()
-        unrepaired = set()
-        for a, b in _bad_ranges_from_frames(bad_set):
-            span = b - a + 1
-            skip = (
-                step_6_make_videos.BADFRAME_SINGLE_FRAME_SOURCE_SKIP if span == 1 else 0
-            )
-
-            next_src = b + 1 + skip
-            while next_src < frame_count and next_src in bad_set:
-                next_src += 1
-            if next_src >= frame_count:
-                next_src = None
-
-            prev_src = a - 1 - skip
-            while prev_src >= 0 and prev_src in bad_set:
-                prev_src -= 1
-            if prev_src < 0:
-                prev_src = None
-
-            if next_src is None and prev_src is None:
-                unrepaired.update(range(a, b + 1))
-        return unrepaired
-
     total_patterns = 0
     for frame_count in (10, 11, 12):
         # Exhaustive: every bad/good pattern for this frame length.
@@ -1864,7 +1825,7 @@ def test_step_6_badframe_exhaustive_small_patterns_no_overlap():
                     repaired_targets.add(fi)
                 last_end = ib
 
-            expected_unrepaired = _expected_unrepaired_targets(frame_count, bad_set)
+            expected_unrepaired = _expected_unrepaired_targets(frame_count, bad_set, step_6_make_videos)
             expected_repaired = bad_set - expected_unrepaired
             assert repaired_targets == expected_repaired, (
                 f"frame_count={frame_count} mask={mask} repaired mismatch: "
