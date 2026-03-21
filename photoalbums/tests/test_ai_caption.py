@@ -23,6 +23,14 @@ class TestAICaption(unittest.TestCase):
         )
         self.assertEqual(text, "Mainland China Book II")
 
+    def test_infer_album_title_handles_book_number_and_year_on_same_line(self):
+        # "ENGLAND BOOK 11 1983" on one line — must not produce "England Book 11 Book II"
+        text = ai_caption.infer_album_title(
+            image_path=Path("Photo Albums") / "England_1983_B02_View" / "England_1983_B02_P01.jpg",
+            ocr_text="ENGLAND BOOK 11 1983",
+        )
+        self.assertEqual(text, "England Book II")
+
     def test_infer_printed_album_title_preserves_cover_book_label(self):
         text = ai_caption.infer_printed_album_title(
             ocr_text="MAINLAND CHINA\n1986\nBOOK 11",

@@ -106,7 +106,13 @@
       "Bash(py -3 -c \"import subprocess; r = subprocess.run\\([''claude'', ''--version''], capture_output=True\\); print\\(r.stdout, r.stderr\\)\")",
       "Read(//c/Users/covec/.claude/plugins/cache/claude-plugins-official/skill-creator/d56d7b61f061/skills/skill-creator/$APPDATA/npm/**)",
       "Read(//c/Users/covec/.claude/plugins/cache/claude-plugins-official/skill-creator/d56d7b61f061/skills/skill-creator/$LOCALAPPDATA/Programs/claude/**)",
-      "Read(//c/Users/covec/.claude/plugins/cache/claude-plugins-official/skill-creator/d56d7b61f061/skills/skill-creator/**)"
+      "Read(//c/Users/covec/.claude/plugins/cache/claude-plugins-official/skill-creator/d56d7b61f061/skills/skill-creator/**)",
+      "Bash(find c:/Users/covec/Videos/imago -name *.tif -path *_View*)",
+      "Bash(grep -r PHOTO_ALBUMS_DIR c:/Users/covec/Videos/imago/photoalbums/ --include=*.py -l)",
+      "Bash(find \"C:/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums\" -name *_stitched*)",
+      "mcp__imago__photoalbums_load_xmp",
+      "Bash(find /c/Users/covec/Videos/imago/photos -type d -name *England*)",
+      "Bash(find /c/Users/covec/Videos/imago -type f -name *England*)"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",

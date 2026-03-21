@@ -1,0 +1,37 @@
+{
+  "eval_date": "2026-03-21",
+  "processor_signature": "page_split_v17_archive_stitched_ocr",
+  "photo": "China_1986_B02_View/China_1986_B02_P03_stitched.jpg",
+  "notes": "First eval of page-splitting + subphoto context prompts. This collage page (Mogao Caves, China 1986) has touching photos with no borders — the layout detector merges them all into 1 subphoto covering almost the full page. split_applied=true but subphoto_count=1.",
+  "result": {
+    "split_applied": true,
+    "split_mode": "auto",
+    "subphoto_count": 1,
+    "description": "A collage of images related to the Mogao Caves, including a close-up of a Buddha statue with ornate green and gold detailing, an exterior view showing the entrance to the Mogao Caves with visitors walking along a path flanked by trees, another Buddha statue in a richly decorated niche, a traditional Chinese multi-tiered pagoda-style building set against a clear blue sky with surrounding trees and rocky terrain, a warrior figure in elaborate armor with green and gold accents, and detailed wall paintings depicting various scenes including figures on boats, animals, and traditional motifs in red, green, black, and gold colors.",
+    "ocr_text": "ENTRANCE TO THE MOGAO CAVES",
+    "gps_latitude": "40,2.23898N",
+    "gps_longitude": "94,48.25268E",
+    "subjects": ["caves", "entrance", "mogao", "person"],
+    "subphotos": [
+      {
+        "index": 1,
+        "bounds": {"x": 0, "y": 66, "width": 8607, "height": 6461},
+        "page_text": "ENTRANCE TO THE MOGAO CAVES",
+        "ocr_text": "ENTRANCE TO THE MOGAO CAVES",
+        "description": "A collage of images related to the Mogao Caves, including a close-up of a Buddha statue with ornate green and gold detailing, an exterior view showing the entrance to the Mogao Caves with visitors walking along a path flanked by trees, another Buddha statue in a richly decorated niche, a traditional Chinese multi-tiered pagoda-style building set against a clear blue sky with surrounding trees and rocky terrain, a warrior figure in elaborate armor with green and gold accents, and detailed wall paintings depicting various scenes including figures on boats, animals, and traditional motifs in red, green, black, and gold colors."
+      }
+    ]
+  },
+  "baseline_v16": {
+    "split_applied": false,
+    "split_mode": "off",
+    "subphoto_count": 0,
+    "description": "A collage of images related to the Mogao Caves, including a Buddha statue, an entrance scene with visitors and a person in light clothing taking a photo, a guardian figure statue, a group of Buddha statues, a traditional Chinese building with multiple tiers and upturned eaves, and a mural depicting various figures in narrative scenes."
+  },
+  "observations": [
+    "v17 description is notably more detailed: adds material descriptions (ornate green and gold), spatial context (visitors walking along a path flanked by trees), sky/terrain descriptions, color details on murals",
+    "The collage page has all photos touching — 1 merged crop was expected; a page with bordered photos would produce multiple subphotos",
+    "page_text stored correctly on subphoto XMP entry",
+    "Next eval candidate: a page with photos separated by visible white borders/gutters to test multi-subphoto path"
+  ]
+}

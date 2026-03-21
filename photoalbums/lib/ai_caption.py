@@ -85,6 +85,12 @@ class CaptionOutput:
     estimated_people_count: int = 0
     fallback: bool = False
     error: str = ""
+    image_regions: list[dict] = None
+    album_title: str = ""
+
+    def __post_init__(self):
+        if self.image_regions is None:
+            self.image_regions = []
 
 
 @dataclass
@@ -135,9 +141,7 @@ class CaptionEngine:
         self._caption_prompt = str(caption_prompt or "").strip()
         self._max_tokens = int(max_tokens)
         self._temperature = float(temperature)
-        self._local_attn_implementation = normalize_local_attn_implementation(
-            local_attn_implementation
-        )
+        self._local_attn_implementation = normalize_local_attn_implementation(local_attn_implementation)
         self._local_min_pixels = max(0, int(local_min_pixels))
         self._local_max_pixels = max(0, int(local_max_pixels))
         self._lmstudio_base_url = normalize_lmstudio_base_url(lmstudio_base_url)
@@ -193,10 +197,12 @@ class CaptionEngine:
         photo_count: int = 1,
         is_cover_page: bool = False,
         people_positions: dict[str, str] | None = None,
+        request_photo_regions: bool = False,
     ) -> CaptionOutput:
         if self.engine == "none":
             return CaptionOutput(text="", engine="none")
         self._ensure_captioner()
+        use_page_mode = request_photo_regions and self.engine == "lmstudio"
         prompt = _build_describe_prompt(
             self._caption_prompt,
             people=people,
@@ -207,12 +213,19 @@ class CaptionEngine:
             printed_album_title=printed_album_title,
             is_cover_page=is_cover_page,
             people_positions=people_positions,
+            request_photo_regions=use_page_mode,
         )
         try:
-            caption = self._captioner.describe(
-                image_path=image_path,
-                prompt=prompt,
-            )
+            if use_page_mode:
+                caption = self._captioner.describe_page(  # type: ignore[attr-defined]
+                    image_path=image_path,
+                    prompt=prompt,
+                )
+            else:
+                caption = self._captioner.describe(
+                    image_path=image_path,
+                    prompt=prompt,
+                )
             return CaptionOutput(
                 text=caption.text,
                 engine=self.engine,
@@ -220,20 +233,14 @@ class CaptionEngine:
                 gps_longitude=caption.gps_longitude,
                 location_name=caption.location_name,
                 people_present=bool(getattr(caption, "people_present", False)),
-                estimated_people_count=max(
-                    0, int(getattr(caption, "estimated_people_count", 0) or 0)
-                ),
+                estimated_people_count=max(0, int(getattr(caption, "estimated_people_count", 0) or 0)),
                 fallback=not caption.text,
-                error=(
-                    ""
-                    if caption.text
-                    else f"{self.engine.upper()} returned empty output."
-                ),
+                error=("" if caption.text else f"{self.engine.upper()} returned empty output."),
+                image_regions=list(getattr(caption, "image_regions", None) or []),
+                album_title=str(getattr(caption, "album_title", "") or ""),
             )
         except Exception as exc:
-            return CaptionOutput(
-                text="", engine=self.engine, fallback=True, error=str(exc)
-            )
+            return CaptionOutput(text="", engine=self.engine, fallback=True, error=str(exc))
 
     def generate_combined(
         self,
@@ -271,31 +278,22 @@ class CaptionEngine:
             "people_positions": people_positions,
         }
         try:
-            ocr_text, caption = self._captioner.describe_combined(
-                image_path=image_path, **_kw
-            )
+            ocr_text, caption = self._captioner.describe_combined(image_path=image_path, **_kw)
             return (
                 CaptionOutput(
                     text=caption.text,
                     engine=self.engine,
                     people_present=bool(getattr(caption, "people_present", False)),
-                    estimated_people_count=max(
-                        0, int(getattr(caption, "estimated_people_count", 0) or 0)
-                    ),
+                    estimated_people_count=max(0, int(getattr(caption, "estimated_people_count", 0) or 0)),
                     fallback=not caption.text,
-                    error=(
-                        ""
-                        if caption.text
-                        else "Local HF combined returned empty description."
-                    ),
+                    error=("" if caption.text else "Local HF combined returned empty description."),
+                    album_title=str(getattr(caption, "album_title", "") or ""),
                 ),
                 ocr_text,
             )
         except Exception as exc:
             return (
-                CaptionOutput(
-                    text="", engine=self.engine, fallback=True, error=str(exc)
-                ),
+                CaptionOutput(text="", engine=self.engine, fallback=True, error=str(exc)),
                 "",
             )
 
@@ -335,9 +333,7 @@ class CaptionEngine:
             return PeopleCountOutput(
                 engine=self.engine,
                 people_present=bool(people_count.people_present),
-                estimated_people_count=max(
-                    0, int(getattr(people_count, "estimated_people_count", 0) or 0)
-                ),
+                estimated_people_count=max(0, int(getattr(people_count, "estimated_people_count", 0) or 0)),
                 fallback=False,
             )
         except Exception as exc:
