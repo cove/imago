@@ -55,6 +55,54 @@
         "isDefault": true
       },
       "problemMatcher": []
+    },
+    {
+      "label": "MCP HTTP Server (minimized window)",
+      "type": "shell",
+      "command": "start",
+      "args": [
+        "/MIN",
+        "MCP HTTP Server",
+        "cmd.exe",
+        "/K",
+        "just mcp-http"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "shell": {
+          "executable": "cmd.exe",
+          "args": ["/C"]
+        }
+      },
+      "presentation": {
+        "reveal": "never",
+        "panel": "dedicated",
+        "clear": false,
+        "echo": false,
+        "focus": false
+      },
+      "isBackground": false,
+      "problemMatcher": [],
+      "runOptions": {
+        "reevaluateOnRerun": false
+      }
+    },
+    {
+      "label": "Stop MCP HTTP Server",
+      "type": "shell",
+      "command": "taskkill",
+      "args": [
+        "/F",
+        "/FI",
+        "WINDOWTITLE eq MCP HTTP Server*",
+        "/T"
+      ],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared",
+        "clear": false
+      },
+      "problemMatcher": []
     }
   ]
 }
