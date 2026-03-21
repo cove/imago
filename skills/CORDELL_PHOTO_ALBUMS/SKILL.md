@@ -1,10 +1,21 @@
 ---
-name: cordell-photo-albums
-description: AI analysis skill for Cordell family photo album images authored by Audrey Cordell. Generates captions, extracts OCR text, identifies people by name, detects objects, and infers location and GPS metadata. Use when processing scanned photo album pages, cover pages, or captioning individual album photos. Supports GLM combined OCR+caption mode, separate describe mode, people count estimation, and location inference.
-compatibility: Requires local GPU with a vision-language model. Model selection is configured in ai_models.json. Combined mode requires a model supporting simultaneous OCR and captioning. Object detection requires YOLO. Face matching requires InsightFace embeddings from Cast. Nominatim geocoding requires network access.
+name: CORDELL_PHOTO_ALBUMS
+description: >-
+  Workflow and prompt templates for AI captioning and indexing of Cordell family photo albums (scanned by
+  Audrey Cordell). Use this skill whenever: kicking off or monitoring a photoalbums AI indexing job,
+  checking the manifest summary (how many photos are done vs pending), reviewing or diagnosing caption
+  quality (cut-off captions, empty captions, wrong people names, missing location metadata), reprocessing
+  individual photos, or troubleshooting why captions look wrong. Also contains all vision model prompt
+  templates used by the GLM captioning pipeline (combined OCR+caption, describe, people count, location
+  inference). Invoke any time the user mentions photo albums, Audrey's albums, AI index, manifest summary,
+  caption problems, or specific photo filenames — even if they don't say "skill".
+compatibility: >-
+  Requires local GPU with GLM vision model (zai-org/glm-4.6v-flash). Model selection configured in
+  ai_models.json. Object detection requires YOLO. Face matching requires InsightFace embeddings from Cast.
+  Nominatim geocoding requires network access. MCP server: imago.
 metadata:
   author: Cove Schneider
-  version: 1.0.0
+  version: 1.1.0
   mcp-server: imago
   documentation: references/photoalbums.md
   ocr-model: zai-org/glm-4.6v-flash
@@ -12,6 +23,88 @@ metadata:
 ---
 
 # Cordell Photo Albums AI Skill
+
+## Overview
+
+This skill serves two purposes that live in the same file:
+
+**1. Claude workflow** — instructions for using the `imago` MCP tools to run and monitor AI indexing jobs
+on Cordell family photo albums. See the Workflow and Quality Monitoring sections below.
+
+**2. Vision model prompt templates** — sections loaded at runtime by `photoalbums/lib/_caption_prompts.py`
+to assemble prompts sent to the GLM vision model. These sections are parsed by exact `## Section Name`
+heading — do not rename them. Read `references/photoalbums.md` for full pipeline documentation.
+
+The pipeline runs four inference modes per image: Combined (OCR + caption in one GLM pass), Describe
+(caption only, separate engine), People Count, and Location. Engine selection and mode branching are
+controlled by `ai_models.json` — the skill templates apply to all modes.
+
+---
+
+## Workflow
+
+Use the `imago` MCP tools to drive the AI indexing pipeline. The typical flow:
+
+### Check what needs processing
+Call `photoalbums_manifest_summary` first to see counts by state (pending, done, errored). This tells
+you whether there's real work to do and how large the job will be.
+
+### Start a job
+Call `photoalbums_ai_index` to launch a background job. It returns a `job_id` immediately.
+- Omit all filters to process all pending photos.
+- Use `album` to scope to a single album directory (substring match, case-insensitive).
+- Use `photo` for a single file (also forces reprocessing).
+- Use `max_images` to cap the run during testing or spot-checks.
+- Use `process_all_photos=true` to reprocess images already in the manifest.
+
+### Monitor progress
+Poll `job_status(job_id)` periodically (every 30–60 seconds for large runs). It returns status and a
+recent log tail. When the job finishes, call `job_logs(job_id)` to retrieve the full output for
+quality review. Use `job_list` to see all recent jobs if you've lost track of an ID.
+
+### Cancel if needed
+Call `job_cancel(job_id)` to terminate a running job gracefully.
+
+---
+
+## Quality Monitoring
+
+After a job completes, review the logs for these common problems. When issues are found, report them
+clearly: which photo, what the symptom is, and what the likely cause is.
+
+### Cut-off captions
+**Symptom:** Caption ends abruptly without terminal punctuation (`.`, `!`, `?`), ends mid-sentence,
+or ends mid-word.
+**Cause:** The `max_tokens` limit (default 96) was reached before the model finished. This is a
+prompt or config issue, not a model failure.
+**What to look for in logs:** The raw caption text before JSON parsing — if it lacks a closing
+sentence, it was truncated.
+
+### Empty or fallback captions
+**Symptom:** `caption` is an empty string; log shows `fallback=True` or "returned empty output".
+**Cause:** Model inference failed or returned nothing usable.
+**Action:** Check if the image file is corrupt or the GPU ran out of memory. A single retry with
+`photo=<filename>` will reprocess just that image.
+
+### People not named
+**Symptom:** Caption says "a man" or "a woman" instead of a matched name from Cast.
+**Cause:** Face match fell below confidence threshold, or face was occluded. People recovery
+(rembg + looser IOU) fires automatically in `auto` mode — if it still failed, the person likely
+needs a better reference embedding in Cast.
+
+### OCR garbled or empty
+**Symptom:** `ocr_text` is nonsense or empty despite visible text in the scan.
+**Cause:** Low-contrast, faded, angled, or sepia-toned handwriting. GLM Combined mode handles
+handwriting better than standalone OCR engines — confirm engine selection in `ai_models.json`.
+
+### Location empty despite clear context
+**Symptom:** `location_name` is empty for a photo with a visible place name or landmark.
+**Cause (GLM Combined mode):** Expected — Combined mode does not run a separate location step.
+Location inference only runs with the LMStudio engine.
+**Cause (LMStudio mode):** Verify the location inference step ran by checking the payload
+location block in the logs.
+
+---
 
 ## Global Style & Behavior Rules (apply to every mode)
 - State only supported facts.

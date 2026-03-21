@@ -70,6 +70,9 @@
       "Skill(update-config:*)",
       "mcp__imago__job_list",
       "mcp__imago__job_logs",
+      "mcp__imago__job_cancel",
+      "mcp__imago__photoalbums_ai_index",
+      "mcp__imago__photoalbums_manifest_summary",
       "Bash(grep -l \"England_1983_B02_P64\" c:/Users/covec/Videos/imago/mcp/jobs/*.log)",
       "Bash(c:/Users/covec/Videos/imago/.venv/Scripts/python.exe -m py_compile c:/Users/covec/Videos/imago/mcp_server.py)",
       "WebFetch(domain:resources.anthropic.com)",
@@ -82,7 +85,32 @@
       "Bash(python -m pytest photoalbums/tests/test_ai_index.py -x -q)",
       "Bash(python -m pytest photoalbums/tests/ -x -q)",
       "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/ -q)",
-      "Bash(.venv/Scripts/python.exe -m py_compile photoalbums/lib/_caption_local_hf.py photoalbums/lib/_caption_prompts.py photoalbums/lib/ai_ocr.py photoalbums/lib/ai_caption.py photoalbums/lib/ai_render_settings.py)"
+      "Bash(.venv/Scripts/python.exe -m py_compile photoalbums/lib/_caption_local_hf.py photoalbums/lib/_caption_prompts.py photoalbums/lib/ai_ocr.py photoalbums/lib/ai_caption.py photoalbums/lib/ai_render_settings.py)",
+      "Bash(grep -r CORDELL_PHOTO_ALBUMS c:/Users/covec/Videos/imago --include=*.py --include=*.json -l)",
+      "Bash(mkdir -p \"c:/Users/covec/Videos/imago/skills/CORDELL_PHOTO_ALBUMS/references\")",
+      "Bash(cp \"c:/Users/covec/Videos/imago/skills/CORDELL_PHOTO_ALBUMS.skill\" \"c:/Users/covec/Videos/imago/skills/CORDELL_PHOTO_ALBUMS/SKILL.md\")",
+      "Bash(cp \"c:/Users/covec/Videos/imago/skills/references/photoalbums.md\" \"c:/Users/covec/Videos/imago/skills/CORDELL_PHOTO_ALBUMS/references/photoalbums.md\")",
+      "Bash(ls -la /c/Users/covec/Videos/imago/skills/CORDELL_PHOTO_ALBUMS*)",
+      "Bash(.venv/Scripts/python.exe -m py_compile photoalbums/lib/_caption_prompts.py)",
+      "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/ -x -q)",
+      "Bash(python -m scripts.aggregate_benchmark \"skills/CORDELL_PHOTO_ALBUMS-workspace/iteration-1\" --skill-name \"CORDELL_PHOTO_ALBUMS\")",
+      "Bash(python -m scripts.aggregate_benchmark \"c:/Users/covec/Videos/imago/skills/CORDELL_PHOTO_ALBUMS-workspace/iteration-1\" --skill-name \"CORDELL_PHOTO_ALBUMS\")",
+      "Read(//tmp/**)",
+      "Bash(start \"c:/Users/covec/Videos/imago/skills/CORDELL_PHOTO_ALBUMS-workspace/review.html\")",
+      "Bash(start \"c:/Users/covec/Videos/imago/skills/CORDELL_PHOTO_ALBUMS-workspace/trigger_eval_review.html\")",
+      "Bash(python -c \"import anthropic; print\\(anthropic.__version__\\)\")",
+      "Bash(py -3 -c \"import anthropic; print\\(anthropic.__version__\\)\")",
+      "Bash(py -3 -c \"import sys; print\\(sys.executable\\)\")",
+      "Bash(py -3 -m pip install anthropic -q)",
+      "Bash(where claude:*)",
+      "Bash(py -3 -c \"import subprocess; r = subprocess.run\\([''claude'', ''--version''], capture_output=True\\); print\\(r.stdout, r.stderr\\)\")",
+      "Read(//c/Users/covec/.claude/plugins/cache/claude-plugins-official/skill-creator/d56d7b61f061/skills/skill-creator/$APPDATA/npm/**)",
+      "Read(//c/Users/covec/.claude/plugins/cache/claude-plugins-official/skill-creator/d56d7b61f061/skills/skill-creator/$LOCALAPPDATA/Programs/claude/**)",
+      "Read(//c/Users/covec/.claude/plugins/cache/claude-plugins-official/skill-creator/d56d7b61f061/skills/skill-creator/**)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\covec\\.claude",
+      "c:\\Users\\covec\\Downloads"
     ]
   }
 }
