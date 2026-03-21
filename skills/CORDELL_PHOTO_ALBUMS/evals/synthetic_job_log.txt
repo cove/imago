@@ -1,0 +1,46 @@
+[INFO] photoalbums ai-index started
+[INFO] Processing 5 images (engine=local, mode=combined)
+
+[INFO] --- Family_Album_Europe_1962/P001.jpg ---
+[INFO]   people detected: Leslie (0.91), Tommy (0.88)
+[INFO]   objects: bench, trees, stone_wall
+[INFO]   ocr_text: "leslie-tommy"
+[INFO]   caption: "Leslie and Tommy sit together on a stone bench in a garden."
+[INFO]   location_name: ""
+[INFO]   done (1.8s)
+
+[INFO] --- Family_Album_Europe_1962/P002.jpg ---
+[INFO]   people detected: Robert (0.85)
+[INFO]   objects: car, road, sign
+[INFO]   ocr_text: "Via Roma, Napoli"
+[INFO]   caption: "Robert stands beside a car on Via Roma in Naples, Italy."
+[INFO]   location_name: "Naples, Italy"
+[INFO]   done (2.1s)
+
+[INFO] --- Family_Album_Europe_1962/P003.jpg ---
+[INFO]   people detected: Leslie (0.93), Tommy (0.81), Robert (0.79)
+[INFO]   objects: building, archway, cobblestones, person, person
+[INFO]   ocr_text: ""
+[INFO]   caption: "Leslie, Tommy, and Robert walk through a narrow cobblestone archway, with two unidentified figures visible in the"
+[INFO]   location_name: ""
+[INFO]   WARNING: caption may be truncated (no terminal punctuation)
+[INFO]   done (2.4s)
+
+[INFO] --- Family_Album_Europe_1962/P004.jpg ---
+[INFO]   people detected: (none)
+[INFO]   objects: table, wine_glass, candle, flowers
+[INFO]   ocr_text: "Dinner — Rome, June 1962"
+[INFO]   caption: "A table set for dinner with wine glasses, candles, and flowers, captioned 'Dinner — Rome, June 1962'."
+[INFO]   location_name: "Rome, Italy"
+[INFO]   done (1.6s)
+
+[INFO] --- Family_Album_Europe_1962/P005.jpg ---
+[INFO]   people detected: Leslie (0.89)
+[INFO]   objects: fountain, plaza, pigeons
+[INFO]   ocr_text: ""
+[INFO]   caption: "Leslie poses in front of a large ornate fountain in a busy plaza."
+[INFO]   location_name: ""
+[INFO]   done (1.9s)
+
+[INFO] ai-index complete: 5 processed, 0 errors, 0 skipped
+[INFO] elapsed: 9.8s

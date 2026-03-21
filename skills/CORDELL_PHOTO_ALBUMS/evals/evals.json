@@ -1,0 +1,23 @@
+{
+  "skill_name": "CORDELL_PHOTO_ALBUMS",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "How many photos still need AI processing? Give me a quick summary.",
+      "expected_output": "Calls photoalbums_manifest_summary and reports counts by processing state (pending, done, errored, etc.) clearly.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Run the AI index on a small test batch of 3 photos and let me know when it's done.",
+      "expected_output": "Calls photoalbums_ai_index with max_images=3, polls job_status until the job completes, and reports the result.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "The last indexing job just finished. Review the output for any problems — especially captions that look cut off.",
+      "expected_output": "Identifies the cut-off caption (ends without terminal punctuation mid-sentence), names the specific photo, explains why it looks truncated, and does not flag the good captions as problems.",
+      "files": ["evals/synthetic_job_log.txt"]
+    }
+  ]
+}

@@ -4,9 +4,9 @@
 
 Each image is processed by `_run_image_analysis()`, which runs one of two branches depending on engine configuration, then converges into a shared synthesis phase.
 
-**Branch selection:** Use Combined mode when OCR is not overridden and both OCR and caption engines are Qwen. Use Separate mode for any other engine configuration.
+**Branch selection:** Use Combined mode when OCR is not overridden and both OCR and caption engines are `local` (local HF). Use Separate mode for any other engine configuration (lmstudio, none, or any mix).
 
-### Combined Mode (single Qwen inference for OCR + caption)
+### Combined Mode (single GLM inference for OCR + caption)
 
 1. People detection: match faces against Cast embeddings. No prior context.
 2. Object detection: run YOLO on the model-prepared image. Independent of people.
@@ -50,22 +50,22 @@ Assemble an `ImageAnalysis` object with: image path, people names, object labels
 Model configuration is loaded from `ai_models.json` (see `selected_ocr_model` and `selected_caption_model`). "Combined engine" means the same model handles both OCR and captioning in one inference. "Separate engine" means OCR and captioning run independently.
 
 **Use Case 1: Combined OCR + Caption**
-Trigger: Caption engine = Combined AND OCR engine = Combined AND no OCR text override provided.
+Trigger: Both OCR and caption engines are `local` AND no OCR text override provided.
 Steps: People detection → object detection → single model inference for OCR text + caption.
 Output: `Combined` format (`ocr_text`, `caption`, `location_name`).
 
 **Use Case 2: Describe — Caption Only (separate engine)**
-Trigger: Caption engine is configured as a separate (non-combined) engine.
+Trigger: Caption or OCR engine is not `local` (e.g. lmstudio), or an OCR text override was provided.
 Steps: OCR first (text used as hint for people matching) → people detection → object detection → caption inference.
 Output: `Describe` format (`caption` only).
 
-**Use Case 3: People Count Estimation (separate engine only)**
-Trigger: Called after caption generation to validate or refine the people count. Only runs with a separate engine that supports multi-step inference.
+**Use Case 3: People Count Estimation (lmstudio engine only)**
+Trigger: Called after caption generation to validate or refine the people count. Only runs when caption engine is `lmstudio`.
 Steps: Single inference with People Count preamble, all available context passed in.
 Output: `People Count` format (`people_present`, `estimated_people_count`).
 
-**Use Case 4: Location Inference (separate engine only)**
-Trigger: Called after caption when no explicit GPS found in OCR text. Only runs with a separate engine.
+**Use Case 4: Location Inference (lmstudio engine only)**
+Trigger: Called after caption when no explicit GPS found in OCR text. Only runs when caption engine is `lmstudio`.
 Steps: Try GPS extraction from OCR patterns first; if not found, run location inference.
 Output: `Location` format (`location_name`, `gps_latitude`, `gps_longitude`).
 
@@ -109,13 +109,13 @@ Solution: People recovery (rembg) fires automatically in `auto` mode when estima
 
 **OCR text is empty or garbled on a page with visible handwriting**
 Cause: Low-contrast, faded, or angled handwriting; dark or sepia-toned scans reduce OCR accuracy.
-Solution: Check scan quality. Consider OCR override to pass corrected text manually. Qwen Combined mode generally handles handwriting better than standalone OCR engines.
+Solution: Check scan quality. Consider OCR override to pass corrected text manually. GLM Combined mode generally handles handwriting better than standalone OCR engines.
 
 **Location returns empty despite clear place context**
 Cause 1: Interior shots have no place evidence — this is correct behaviour.
-Cause 2: LMStudio location inference was not called (only runs for LMStudio engine; Qwen Combined does not run a separate location step).
+Cause 2: LMStudio location inference was not called (only runs for LMStudio engine; GLM Combined does not run a separate location step).
 Cause 3: Place name is too obscure or ambiguous to meet the "well-documented" threshold.
-Solution: For Qwen mode, accept empty location as expected. For LMStudio mode, verify the location inference step ran by checking the payload location block.
+Solution: For GLM mode, accept empty location as expected. For LMStudio mode, verify the location inference step ran by checking the payload location block.
 
 **Cover page detected incorrectly (false positive or false negative)**
 Cause: `looks_like_album_cover()` uses OCR text patterns and aspect ratio — can misfire on title pages inside an album, or miss covers with minimal text.

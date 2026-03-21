@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from pathlib import Path
 
 from ._caption_album import (
@@ -37,8 +38,7 @@ def _position_label(cx: float, cy: float) -> str:
 # Skill file loader
 # ---------------------------------------------------------------------------
 
-_SKILL_FILE = Path(__file__).parent.parent.parent / "skills" / "CORDELL_PHOTO_ALBUMS.skill"
-_SKILL_CACHE: dict[str, list[str]] | None = None
+_SKILL_FILE = Path(__file__).parent.parent.parent / "skills" / "CORDELL_PHOTO_ALBUMS" / "SKILL.md"
 
 
 def _parse_skill(path: Path) -> dict[str, list[str]]:
@@ -56,11 +56,12 @@ def _parse_skill(path: Path) -> dict[str, list[str]]:
     return sections
 
 
+@lru_cache(maxsize=1)
 def _skill() -> dict[str, list[str]]:
-    global _SKILL_CACHE
-    if _SKILL_CACHE is None:
-        _SKILL_CACHE = _parse_skill(_SKILL_FILE) if _SKILL_FILE.exists() else {}
-    return _SKILL_CACHE
+    try:
+        return _parse_skill(_SKILL_FILE)
+    except FileNotFoundError:
+        return {}
 
 
 def _section(*names: str, **kwargs: str) -> list[str]:
