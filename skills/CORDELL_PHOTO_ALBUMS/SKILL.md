@@ -148,13 +148,12 @@ location block in the logs.
 - Cordell family album covers are typically blue or white with a leathery texture, gold trim, and the album title printed in the lower-right corner.
 
 ## Preamble Describe
-Describe this photo in exhaustive detail.
+Describe this photo in exhaustive detail, including building styles, bridge sytles, landscape features, clothing styles, car types, animals, activities, well known locations, and any other clearly supported details. Write a single precise sentence that captures all the supported facts without speculation or inference.
 
 ## Preamble Combined
 Analyze this photo. Perform both tasks:
 1. Extract all visible text exactly as it appears. If none, output an empty string.
-2. Write one precise sentence describing the scene.
-
+2. Write one precise sentence describing the scene, including building styles, landscape features, clothing styles, activities, and any other clearly supported details.
 ## Preamble People Count
 Count the number of clearly visible real people in this photo.
 
