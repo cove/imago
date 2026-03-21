@@ -6391,6 +6391,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "yellow river at lanzhou": {
+    "display_name": "雁滩黄河大桥, 雁北街道, 城关区, 兰州市, 甘肃省, 730046, 中国",
+    "latitude": "36.0738634",
+    "longitude": "103.8622600",
+    "query": "Yellow River at Lanzhou",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "yellow river at lanzhou, gansu, china": {
     "display_name": "雁滩黄河大桥, 雁北街道, 城关区, 兰州市, 甘肃省, 730046, 中国",
     "latitude": "36.0738634",

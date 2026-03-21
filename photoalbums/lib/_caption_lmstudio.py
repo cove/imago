@@ -8,6 +8,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
 from ._caption_album import clean_text
 
@@ -26,6 +27,36 @@ LMSTUDIO_VISION_MODEL_HINTS = (
     "phi-3.5-vision",
     "phi-4-multimodal",
     "qvq",
+)
+
+_DESCRIBE_SYSTEM_PROMPT = (
+    "You are a photo caption writer. "
+    "Return only valid JSON matching the response_format schema. "
+    "Put the final caption text in the caption field. "
+    "If any visible text is not in English, add an English translation in parentheses "
+    "directly after each non-English phrase in the caption — for example: "
+    "'[non-English phrase] (English translation)'. "
+    "If the location is known confidently enough for online geocoding, set location_name "
+    "to a concise English geocoding query such as 'Landmark, City, Country'. "
+    "If no confident geocoding query is available, set location_name to an empty string. "
+    "Never mention raw filenames, folder names, or internal ids. "
+    "Do not include reasoning or extra fields. "
+    "Do not return GPS coordinates, people counts, or name lists."
+)
+
+_DESCRIBE_PAGE_SYSTEM_PROMPT = (
+    "You are a photo caption writer examining a scanned album page. "
+    "Return only valid JSON matching the response_format schema. "
+    "Put the overall page description in the caption field. "
+    "In photo_regions, list each distinct photograph visible on the page "
+    "as a normalized rectangle (x, y, w, h in 0–1 range, top-left origin). "
+    "Write one sentence per region in its description field. "
+    "If no distinct photographs are visible, return an empty photo_regions list. "
+    "If the location is known confidently enough for online geocoding, set location_name "
+    "to a concise English geocoding query such as 'Landmark, City, Country'. "
+    "If no confident geocoding query is available, set location_name to an empty string. "
+    "Never mention raw filenames, folder names, or internal ids. "
+    "Do not include reasoning or extra fields."
 )
 
 
@@ -755,6 +786,12 @@ def normalize_lmstudio_base_url(value: str, default: str = DEFAULT_LMSTUDIO_BASE
     return f"{text}/v1"
 
 
+_DESCRIBE_CONFIGS: dict[str, tuple] = {
+    "photo": (_DESCRIBE_SYSTEM_PROMPT, _lmstudio_caption_response_format, _parse_lmstudio_structured_caption),
+    "page": (_DESCRIBE_PAGE_SYSTEM_PROMPT, _lmstudio_page_caption_response_format, _parse_lmstudio_page_caption),
+}
+
+
 class LMStudioCaptioner:
     def __init__(
         self,
@@ -788,34 +825,21 @@ class LMStudioCaptioner:
         )
         return self._resolved_model_name
 
-    def describe(
+    def _call_chat_completion(
         self,
         image_path: str | Path,
         *,
         prompt: str,
+        system_prompt: str,
+        response_format: dict,
+        parse_fn: Callable,
     ) -> CaptionDetails:
         resize_edge = int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
         image_url = _build_data_url(image_path, resize_edge)
         payload = {
             "model": self._resolve_model_name(),
             "messages": [
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a photo caption writer. "
-                        "Return only valid JSON matching the response_format schema. "
-                        "Put the final caption text in the caption field. "
-                        "If any visible text is not in English, add an English translation in parentheses "
-                        "directly after each non-English phrase in the caption — for example: "
-                        "'[non-English phrase] (English translation)'. "
-                        "If the location is known confidently enough for online geocoding, set location_name "
-                        "to a concise English geocoding query such as 'Landmark, City, Country'. "
-                        "If no confident geocoding query is available, set location_name to an empty string. "
-                        "Never mention raw filenames, folder names, or internal ids. "
-                        "Do not include reasoning or extra fields. "
-                        "Do not return GPS coordinates, people counts, or name lists."
-                    ),
-                },
+                {"role": "system", "content": system_prompt},
                 {
                     "role": "user",
                     "content": [
@@ -824,7 +848,7 @@ class LMStudioCaptioner:
                     ],
                 },
             ],
-            "response_format": _lmstudio_caption_response_format(),
+            "response_format": response_format,
             "max_tokens": int(self.max_new_tokens),
             "temperature": float(self.temperature),
             "stream": self.stream,
@@ -843,9 +867,7 @@ class LMStudioCaptioner:
             ):
                 tokens.append(token)
             print("\r\033[K", end="", flush=True)
-            return _parse_lmstudio_structured_caption(
-                "".join(tokens),
-            )
+            return parse_fn("".join(tokens))
         response = _lmstudio_request_json(
             f"{self.base_url}/chat/completions",
             payload=payload,
@@ -855,81 +877,23 @@ class LMStudioCaptioner:
         if not choices:
             return CaptionDetails(text="")
         message = dict(choices[0].get("message") or {})
-        return _parse_lmstudio_structured_caption(
+        return parse_fn(
             message.get("content"),
             finish_reason=str(choices[0].get("finish_reason") or ""),
         )
 
-    def describe_page(
-        self,
-        image_path: str | Path,
-        *,
-        prompt: str,
-    ) -> CaptionDetails:
+    def _describe_by_mode(self, image_path: str | Path, *, prompt: str, mode: str) -> CaptionDetails:
+        sys_prompt, fmt_fn, parse_fn = _DESCRIBE_CONFIGS[mode]
+        return self._call_chat_completion(
+            image_path, prompt=prompt, system_prompt=sys_prompt, response_format=fmt_fn(), parse_fn=parse_fn
+        )
+
+    def describe(self, image_path: str | Path, *, prompt: str) -> CaptionDetails:
+        return self._describe_by_mode(image_path, prompt=prompt, mode="photo")
+
+    def describe_page(self, image_path: str | Path, *, prompt: str) -> CaptionDetails:
         """Describe a multi-photo album page, returning per-photo regions in image_regions."""
-        resize_edge = int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
-        image_url = _build_data_url(image_path, resize_edge)
-        payload = {
-            "model": self._resolve_model_name(),
-            "messages": [
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a photo caption writer examining a scanned album page. "
-                        "Return only valid JSON matching the response_format schema. "
-                        "Put the overall page description in the caption field. "
-                        "In photo_regions, list each distinct photograph visible on the page "
-                        "as a normalized rectangle (x, y, w, h in 0–1 range, top-left origin). "
-                        "Write one sentence per region in its description field. "
-                        "If no distinct photographs are visible, return an empty photo_regions list. "
-                        "If the location is known confidently enough for online geocoding, set location_name "
-                        "to a concise English geocoding query such as 'Landmark, City, Country'. "
-                        "If no confident geocoding query is available, set location_name to an empty string. "
-                        "Never mention raw filenames, folder names, or internal ids. "
-                        "Do not include reasoning or extra fields."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": image_url}},
-                    ],
-                },
-            ],
-            "response_format": _lmstudio_page_caption_response_format(),
-            "max_tokens": int(self.max_new_tokens),
-            "temperature": float(self.temperature),
-            "stream": self.stream,
-        }
-        if self.stream:
-            print(
-                f"  Running LM Studio model ({self._resolve_model_name()})...",
-                end="",
-                flush=True,
-            )
-            tokens: list[str] = []
-            for token in _lmstudio_stream_tokens(
-                f"{self.base_url}/chat/completions",
-                payload,
-                self.timeout_seconds,
-            ):
-                tokens.append(token)
-            print("\r\033[K", end="", flush=True)
-            return _parse_lmstudio_page_caption("".join(tokens))
-        response = _lmstudio_request_json(
-            f"{self.base_url}/chat/completions",
-            payload=payload,
-            timeout=self.timeout_seconds,
-        )
-        choices = list(response.get("choices") or [])
-        if not choices:
-            return CaptionDetails(text="")
-        message = dict(choices[0].get("message") or {})
-        return _parse_lmstudio_page_caption(
-            message.get("content"),
-            finish_reason=str(choices[0].get("finish_reason") or ""),
-        )
+        return self._describe_by_mode(image_path, prompt=prompt, mode="page")
 
     def estimate_people(
         self,

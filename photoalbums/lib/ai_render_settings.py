@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .ai_page_layout import normalize_page_split_mode
+from .ai_page_layout import _normalize_enum_str, normalize_page_split_mode
 from ._caption_local_hf import normalize_local_attn_implementation
 
 SETTINGS_FILENAME = "render_settings.json"
@@ -82,13 +82,7 @@ def _normalize_caption_engine(value: Any, default: str) -> str:
 
 
 def _normalize_people_recovery_mode(value: Any, default: str) -> str:
-    text = str(value or "").strip().lower()
-    if text in PEOPLE_RECOVERY_MODES:
-        return text
-    fallback = str(default or "off").strip().lower()
-    if fallback in PEOPLE_RECOVERY_MODES:
-        return fallback
-    return "off"
+    return _normalize_enum_str(value, PEOPLE_RECOVERY_MODES, default)
 
 
 def _normalize_settings_block(raw: dict[str, Any], defaults: dict[str, Any]) -> dict[str, Any]:

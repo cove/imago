@@ -11,6 +11,14 @@ from ..naming import BASE_PAGE_NAME_RE, DERIVED_NAME_RE, SCAN_NAME_RE
 PAGE_SPLIT_MODES = {"auto", "off"}
 
 _IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp"}
+
+
+def _normalize_enum_str(value: object, valid: set[str], default: str) -> str:
+    text = str(value or "").strip().lower()
+    if text in valid:
+        return text
+    fallback = str(default or "").strip().lower()
+    return fallback if fallback in valid else default
 _MIN_REGION_AREA_RATIO = 0.015
 _MAX_REGION_COUNT = 12
 _MAX_WHOLE_PAGE_RATIO = 0.92
@@ -53,13 +61,7 @@ class PreparedImageLayout:
 
 
 def normalize_page_split_mode(value: object, default: str = "off") -> str:
-    text = str(value or "").strip().lower()
-    if text in PAGE_SPLIT_MODES:
-        return text
-    fallback = str(default or "off").strip().lower()
-    if fallback in PAGE_SPLIT_MODES:
-        return fallback
-    return "off"
+    return _normalize_enum_str(value, PAGE_SPLIT_MODES, default)
 
 
 def classify_image_kind(image_path: str | Path) -> str:

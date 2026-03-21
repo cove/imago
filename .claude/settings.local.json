@@ -112,7 +112,15 @@
       "Bash(find \"C:/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums\" -name *_stitched*)",
       "mcp__imago__photoalbums_load_xmp",
       "Bash(find /c/Users/covec/Videos/imago/photos -type d -name *England*)",
-      "Bash(find /c/Users/covec/Videos/imago -type f -name *England*)"
+      "Bash(find /c/Users/covec/Videos/imago -type f -name *England*)",
+      "Bash(.venv/Scripts/python.exe scripts/check_skylos.py photoalbums vhs cast)",
+      "Bash(jq -e '.hooks.PostToolUse[] | select\\(.matcher == \"\"Write|Edit|NotebookEdit\"\"\\) | .hooks[] | select\\(.type == \"\"command\"\"\\) | .command' .claude/settings.local.json)",
+      "Read(//c/Users/covec/Videos/imago/**)",
+      "Bash(.venv/Scripts/python.exe -m py_compile vhs/common.py)",
+      "Bash(.venv/Scripts/python.exe -m py_compile vhs/vhs_pipeline/checksum.py)",
+      "Bash(.venv/Scripts/python.exe -m py_compile vhs/test/run_tests.py)",
+      "Bash(.venv/Scripts/python.exe -m py_compile vhs/vhs_pipeline/render_pipeline.py)",
+      "Bash(.venv/Scripts/python.exe scripts/check_skylos.py vhs)"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",

@@ -28,24 +28,26 @@ def parse_verify_args(argv):
     return manifest, algo
 
 
-def resolve_archive_manifest(manifest, algo):
+def _resolve_manifest(manifest, algo, primary_file, legacy_file):
     if manifest:
         return Path(manifest), algo
-    if ARCHIVE_CHECKSUM_FILE.exists():
-        return ARCHIVE_CHECKSUM_FILE, algo
-    if LEGACY_ARCHIVE_CHECKSUM_FILE.exists():
-        return LEGACY_ARCHIVE_CHECKSUM_FILE, "blake3" if algo == "auto" else algo
-    return ARCHIVE_CHECKSUM_FILE, algo
+    if primary_file.exists():
+        return primary_file, algo
+    if legacy_file.exists():
+        return legacy_file, "blake3" if algo == "auto" else algo
+    return primary_file, algo
+
+
+def resolve_archive_manifest(manifest, algo):
+    return _resolve_manifest(
+        manifest, algo, ARCHIVE_CHECKSUM_FILE, LEGACY_ARCHIVE_CHECKSUM_FILE
+    )
 
 
 def resolve_drive_manifest(manifest, algo):
-    if manifest:
-        return Path(manifest), algo
-    if DRIVE_CHECKSUM_FILE.exists():
-        return DRIVE_CHECKSUM_FILE, algo
-    if LEGACY_DRIVE_CHECKSUM_FILE.exists():
-        return LEGACY_DRIVE_CHECKSUM_FILE, "blake3" if algo == "auto" else algo
-    return DRIVE_CHECKSUM_FILE, algo
+    return _resolve_manifest(
+        manifest, algo, DRIVE_CHECKSUM_FILE, LEGACY_DRIVE_CHECKSUM_FILE
+    )
 
 
 def verify_archive(argv=None):

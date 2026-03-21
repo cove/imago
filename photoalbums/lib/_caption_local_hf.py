@@ -9,11 +9,13 @@ from .ai_ocr import (
     DEFAULT_LOCAL_OCR_MAX_NEW_TOKENS,
     DEFAULT_LOCAL_OCR_MODEL,
     _load_hf_model,
+    _load_hf_transformers,
     _normalize_ocr_text,
     _resolve_local_hf_snapshot,
 )
 from ._caption_album import clean_text
 from ._caption_prompts import _build_combined_local_prompt
+from .ai_page_layout import _normalize_enum_str
 from ._caption_lmstudio import (
     CaptionDetails,
     _extract_structured_json_payload,
@@ -26,27 +28,9 @@ DEFAULT_LOCAL_AUTO_MAX_PIXELS = 786_432
 LOCAL_ATTN_IMPLEMENTATIONS = {"auto", "sdpa", "flash_attention_2", "eager"}
 
 
-def _load_hf_transformers():
-    try:
-        import torch  # pylint: disable=import-outside-toplevel
-        from transformers import (  # pylint: disable=import-outside-toplevel
-            AutoModelForImageTextToText,
-            AutoProcessor,
-        )
-    except Exception as exc:
-        raise RuntimeError("Local HF captioning requires a compatible transformers/torch install.") from exc
-
-    return torch, AutoProcessor, AutoModelForImageTextToText
-
 
 def normalize_local_attn_implementation(value: str, default: str = "auto") -> str:
-    text = str(value or "").strip().lower()
-    if text in LOCAL_ATTN_IMPLEMENTATIONS:
-        return text
-    fallback = str(default or "auto").strip().lower()
-    if fallback in LOCAL_ATTN_IMPLEMENTATIONS:
-        return fallback
-    return "auto"
+    return _normalize_enum_str(value, LOCAL_ATTN_IMPLEMENTATIONS, default)
 
 
 def _parse_local_json_output(raw: str) -> CaptionDetails:
