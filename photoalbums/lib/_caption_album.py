@@ -103,9 +103,7 @@ def _extract_collection_hint(image_path: str | Path | None) -> str:
         collection, _year, _book, _page = parse_album_filename(text)
         if collection != "Unknown":
             return _humanize_hint_text(collection)
-        match = re.search(
-            r"(?P<collection>.+?)_\d{4}(?:-\d{4})?_B", text, flags=re.IGNORECASE
-        )
+        match = re.search(r"(?P<collection>.+?)_\d{4}(?:-\d{4})?_B", text, flags=re.IGNORECASE)
         if match:
             return _humanize_hint_text(match.group("collection"))
         if text.casefold() not in {"photo albums", "photoalbums"}:
@@ -168,18 +166,17 @@ def _humanize_album_title_text(value: str) -> str:
 
 
 def _extract_cover_title_text(ocr_text: str) -> str:
-    lines = [
-        clean_text(line)
-        for line in str(ocr_text or "").splitlines()
-        if clean_text(line)
-    ]
+    lines = [clean_text(line) for line in str(ocr_text or "").splitlines() if clean_text(line)]
     if not lines:
         return ""
     title_parts: list[str] = []
     for line in lines:
         before_year = re.split(r"\b(?:19|20)\d{2}(?:-\d{4})?\b", line, maxsplit=1)[0]
         if clean_text(before_year) and before_year != line:
-            title_parts.append(clean_text(before_year))
+            # Also strip any BOOK token from the pre-year segment so that
+            # "ENGLAND BOOK 11 1983" → "England" not "England Book 11"
+            before_book = re.split(r"\bBOOK\b", before_year, maxsplit=1, flags=re.IGNORECASE)[0]
+            title_parts.append(clean_text(before_book) or clean_text(before_year))
             break
         before_book = re.split(r"\bBOOK\b", line, maxsplit=1, flags=re.IGNORECASE)[0]
         if clean_text(before_book) and before_book != line:
@@ -240,9 +237,7 @@ def infer_album_title(
     collection_hint = _extract_collection_hint(path)
     source_name = str(source_text or "").split(";", 1)[0].strip()
     if source_name:
-        source_collection, _source_year, source_book, _source_page = (
-            parse_album_filename(source_name)
-        )
+        source_collection, _source_year, source_book, _source_page = parse_album_filename(source_name)
         if collection == "Unknown" and source_collection != "Unknown":
             collection = source_collection
         if source_book and source_book != "00" and (not book or book == "00"):
@@ -252,14 +247,10 @@ def infer_album_title(
     if not collection_hint:
         return fallback
     book_display = _romanize_book_token(book)
-    derived_title = (
-        f"{collection_hint} Book {book_display}" if book_display else collection_hint
-    )
+    derived_title = f"{collection_hint} Book {book_display}" if book_display else collection_hint
     if fallback:
         fallback_has_book = bool(re.search(r"\bBook\b", fallback, flags=re.IGNORECASE))
-        derived_has_book = bool(
-            re.search(r"\bBook\b", derived_title, flags=re.IGNORECASE)
-        )
+        derived_has_book = bool(re.search(r"\bBook\b", derived_title, flags=re.IGNORECASE))
         if fallback_has_book != derived_has_book:
             return fallback if fallback_has_book else derived_title
         if len(fallback.split()) >= len(derived_title.split()):
@@ -268,9 +259,7 @@ def infer_album_title(
 
 
 def _find_region_hints(*values: str) -> list[str]:
-    haystack = " ".join(
-        _normalized_hint_text(value) for value in values if str(value or "").strip()
-    )
+    haystack = " ".join(_normalized_hint_text(value) for value in values if str(value or "").strip())
     if not haystack:
         return []
     matches: list[str] = []
@@ -310,9 +299,7 @@ def infer_album_context(
     signals = [title_hint, canonical_title, printed_title, collection_hint, path_hint]
     if allow_ocr:
         signals.append(ocr_text)
-    normalized = " ".join(
-        _normalized_hint_text(value) for value in signals if str(value or "").strip()
-    )
+    normalized = " ".join(_normalized_hint_text(value) for value in signals if str(value or "").strip())
     if not normalized:
         return AlbumContext(
             title=title_hint,
@@ -338,9 +325,7 @@ def infer_album_context(
             canonical_title=canonical_title,
             printed_title=printed_title,
         )
-    return AlbumContext(
-        title=title_hint, canonical_title=canonical_title, printed_title=printed_title
-    )
+    return AlbumContext(title=title_hint, canonical_title=canonical_title, printed_title=printed_title)
 
 
 def _looks_like_uniform_cover_color(image_path: str | Path) -> bool:
@@ -376,9 +361,7 @@ def _looks_like_uniform_cover_color(image_path: str | Path) -> bool:
     mean = pixels.mean(axis=0)
     delta = np.abs(pixels - mean)
     uniform_ratio = float((delta.max(axis=1) <= 45.0).mean())
-    blue_dominant = bool(
-        mean[0] >= 95.0 and mean[0] >= mean[1] + 18.0 and mean[0] >= mean[2] + 18.0
-    )
+    blue_dominant = bool(mean[0] >= 95.0 and mean[0] >= mean[1] + 18.0 and mean[0] >= mean[2] + 18.0)
     white_dominant = bool(float(mean.min()) >= 170.0)
     return uniform_ratio >= 0.72 and (blue_dominant or white_dominant)
 
@@ -392,9 +375,7 @@ def looks_like_album_cover(
     text = clean_text(ocr_text)
     if not text:
         return False
-    context = album_context or infer_album_context(
-        image_path=image_path, ocr_text=text, allow_ocr=True
-    )
+    context = album_context or infer_album_context(image_path=image_path, ocr_text=text, allow_ocr=True)
     if not context.kind:
         return False
     return _looks_like_uniform_cover_color(image_path)

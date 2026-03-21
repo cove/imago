@@ -110,43 +110,28 @@ def _lmstudio_ocr_post(base_url: str, payload: dict, timeout: float) -> dict:
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         details = exc.read().decode("utf-8", errors="replace").strip()
-        raise RuntimeError(
-            f"LM Studio OCR request failed: {details or f'HTTP {exc.code}'}"
-        ) from exc
+        raise RuntimeError(f"LM Studio OCR request failed: {details or f'HTTP {exc.code}'}") from exc
     except urllib.error.URLError as exc:
-        raise RuntimeError(
-            f"LM Studio is unreachable at {base_url}: {exc.reason}"
-        ) from exc
+        raise RuntimeError(f"LM Studio is unreachable at {base_url}: {exc.reason}") from exc
 
 
-def _lmstudio_ocr_select_model(
-    base_url: str, timeout: float, requested_model: str = ""
-) -> str:
+def _lmstudio_ocr_select_model(base_url: str, timeout: float, requested_model: str = "") -> str:
     request = urllib.request.Request(f"{base_url}/models", method="GET")
     try:
         with urllib.request.urlopen(request, timeout=float(timeout)) as response:
             data = json.loads(response.read().decode("utf-8"))
     except urllib.error.URLError as exc:
-        raise RuntimeError(
-            f"LM Studio is unreachable at {base_url}: {exc.reason}"
-        ) from exc
+        raise RuntimeError(f"LM Studio is unreachable at {base_url}: {exc.reason}") from exc
     model_ids = [
-        str(row.get("id") or "").strip()
-        for row in list(data.get("data") or [])
-        if str(row.get("id") or "").strip()
+        str(row.get("id") or "").strip() for row in list(data.get("data") or []) if str(row.get("id") or "").strip()
     ]
     if not model_ids:
-        raise RuntimeError(
-            "LM Studio did not return any models. Load a model in LM Studio first."
-        )
+        raise RuntimeError("LM Studio did not return any models. Load a model in LM Studio first.")
     requested = str(requested_model or "").strip()
     if requested:
         if requested in model_ids:
             return requested
-        raise RuntimeError(
-            f"LM Studio OCR model '{requested}' is not loaded. "
-            f"Loaded models: {', '.join(model_ids)}"
-        )
+        raise RuntimeError(f"LM Studio OCR model '{requested}' is not loaded. Loaded models: {', '.join(model_ids)}")
     return model_ids[0]
 
 
@@ -207,9 +192,7 @@ def _normalize_ocr_text(value: object) -> str:
         if lines and lines[-1].strip() == "```":
             lines = lines[:-1]
         text = "\n".join(lines).strip()
-    text = re.sub(
-        r"^\s*<think>.*?</think>\s*", "", text, flags=re.DOTALL | re.IGNORECASE
-    )
+    text = re.sub(r"^\s*<think>.*?</think>\s*", "", text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(
         r"^\s*(?:the (?:visible|extracted) text(?: in (?:the )?image)? is|extracted text|ocr text)\s*:\s*",
         "",
@@ -278,9 +261,7 @@ def _fix_json_escaping(text: str) -> str:
 def _parse_lmstudio_structured_ocr(value: object, *, finish_reason: str = "") -> str:
     raw = _decode_lmstudio_text(value)
     text = str(raw or "").strip()
-    finish_note = (
-        f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
-    )
+    finish_note = f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
     if not text:
         raise RuntimeError(
             "LM Studio returned empty structured OCR content. "
@@ -313,9 +294,7 @@ def _parse_lmstudio_structured_ocr(value: object, *, finish_reason: str = "") ->
     extracted = payload.get("text")
     if not isinstance(extracted, str):
         snippet = text[:180] + ("..." if len(text) > 180 else "")
-        raise RuntimeError(
-            f"LM Studio structured OCR JSON is missing a text string; raw={snippet!r}.{finish_note}"
-        )
+        raise RuntimeError(f"LM Studio structured OCR JSON is missing a text string; raw={snippet!r}.{finish_note}")
     return _normalize_ocr_text(extracted)
 
 
@@ -365,8 +344,7 @@ def _resolve_local_hf_snapshot(model_name: str) -> Path | None:
         if not snapshot.is_dir():
             continue
         if (snapshot / "config.json").exists() and (
-            (snapshot / "preprocessor_config.json").exists()
-            or (snapshot / "processor_config.json").exists()
+            (snapshot / "preprocessor_config.json").exists() or (snapshot / "processor_config.json").exists()
         ):
             return snapshot
     return None
@@ -395,9 +373,7 @@ def _load_hf_transformers():
             AutoProcessor,
         )
     except Exception as exc:
-        raise RuntimeError(
-            "Local HF OCR requires a compatible local transformers/torch install."
-        ) from exc
+        raise RuntimeError("Local HF OCR requires a compatible local transformers/torch install.") from exc
     return torch, AutoProcessor, AutoModelForImageTextToText
 
 
@@ -412,11 +388,7 @@ class OCREngine:
     ):
         self.engine = _normalize_ocr_engine(engine)
         self.language = str(language or "eng").strip() or "eng"
-        self.base_url = (
-            _normalize_lmstudio_ocr_base_url(base_url)
-            if self.engine == "lmstudio"
-            else ""
-        )
+        self.base_url = _normalize_lmstudio_ocr_base_url(base_url) if self.engine == "lmstudio" else ""
         self._model_name = str(
             model_name or os.environ.get("LOCAL_OCR_MODEL") or os.environ.get("QWEN_OCR_MODEL") or default_ocr_model()
         ).strip()
@@ -443,9 +415,7 @@ class OCREngine:
             return
         if self._processor is not None and self._model is not None:
             return
-        model_ref, local_files_only = _resolve_local_model_ref(
-            self._model_name or DEFAULT_LOCAL_OCR_MODEL
-        )
+        model_ref, local_files_only = _resolve_local_model_ref(self._model_name or DEFAULT_LOCAL_OCR_MODEL)
         torch, AutoProcessor, AutoModelForImageTextToText = _load_hf_transformers()
 
         HF_MODEL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -463,9 +433,7 @@ class OCREngine:
             "cache_dir": cache_dir,
             "local_files_only": local_files_only,
         }
-        self._model = _load_hf_model(
-            AutoModelForImageTextToText, model_ref, **load_kwargs
-        )
+        self._model = _load_hf_model(AutoModelForImageTextToText, model_ref, **load_kwargs)
         self._torch = torch
 
     def _read_text_lmstudio(self, image_path: str | Path) -> str:
@@ -475,9 +443,7 @@ class OCREngine:
                 DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS,
                 self._model_name,
             )
-        data_url = _build_ocr_data_url(
-            image_path, DEFAULT_LOCAL_OCR_MAX_IMAGE_EDGE, DEFAULT_LOCAL_OCR_MAX_PIXELS
-        )
+        data_url = _build_ocr_data_url(image_path, DEFAULT_LOCAL_OCR_MAX_IMAGE_EDGE, DEFAULT_LOCAL_OCR_MAX_PIXELS)
         payload = {
             "model": self._lmstudio_model,
             "messages": [
@@ -503,9 +469,7 @@ class OCREngine:
             "temperature": 0.0,
             "stream": False,
         }
-        response = _lmstudio_ocr_post(
-            self.base_url, payload, DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS
-        )
+        response = _lmstudio_ocr_post(self.base_url, payload, DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS)
         choices = list(response.get("choices") or [])
         if not choices:
             return ""
@@ -582,11 +546,7 @@ class OCREngine:
                 )
 
             input_ids = inputs.get("input_ids")
-            if (
-                hasattr(generated_ids, "shape")
-                and input_ids is not None
-                and hasattr(input_ids, "shape")
-            ):
+            if hasattr(generated_ids, "shape") and input_ids is not None and hasattr(input_ids, "shape"):
                 prompt_tokens = int(input_ids.shape[-1])
                 generated_ids = generated_ids[:, prompt_tokens:]
 

@@ -134,6 +134,12 @@ class ImageAnalysis:
     description: str
     payload: dict[str, Any]
     faces_detected: int = 0
+    image_regions: list[dict] = None
+    album_title: str = ""
+
+    def __post_init__(self):
+        if self.image_regions is None:
+            self.image_regions = []
 
 
 @dataclass(frozen=True)
@@ -875,7 +881,6 @@ def _settings_signature(settings: dict[str, Any]) -> str:
         "ocr_engine": str(settings.get("ocr_engine", "none")),
         "ocr_lang": str(settings.get("ocr_lang", "eng")),
         "ocr_model": str(settings.get("ocr_model", "")),
-        "page_split_mode": str(settings.get("page_split_mode", "off")),
         "people_threshold": float(settings.get("people_threshold", 0.72)),
         "object_threshold": float(settings.get("object_threshold", 0.30)),
         "min_face_size": int(settings.get("min_face_size", 40)),
@@ -1453,6 +1458,7 @@ def _run_image_analysis(
     extra_people_names: list[str] | None = None,
     is_page_scan: bool = False,
     ocr_text_override: str | None = None,
+    request_photo_regions: bool = False,
 ) -> ImageAnalysis:
     use_combined = ocr_text_override is None and ocr_engine.engine == "local" and caption_engine.engine == "local"
     page_photo_count = 0 if is_page_scan else 1
@@ -1563,6 +1569,7 @@ def _run_image_analysis(
                 photo_count=page_photo_count,
                 is_cover_page=is_cover_page,
                 people_positions=people_positions,
+                request_photo_regions=request_photo_regions,
             )
             (
                 people_matches,
@@ -1680,6 +1687,8 @@ def _run_image_analysis(
         description=description,
         payload=payload,
         faces_detected=_faces_detected,
+        image_regions=list(getattr(caption_output, "image_regions", None) or []),
+        album_title=str(getattr(caption_output, "album_title", "") or ""),
     )
 
 
@@ -1760,6 +1769,7 @@ def _build_page_payload(
                 "bounds": prepared.bounds.as_dict(),
                 "description": result.description,
                 "ocr_text": result.ocr_text,
+                "page_text": page_ocr_text,
                 "people": result.people_names,
                 "subjects": result.subjects,
                 "detections": result.payload,
@@ -2183,7 +2193,6 @@ def run(argv: list[str] | None = None) -> int:
         "ocr_engine": str(args.ocr_engine),
         "ocr_lang": str(args.ocr_lang),
         "ocr_model": str(args.ocr_model),
-        "page_split_mode": "off",
         "caption_engine": str(args.caption_engine),
         "caption_model": resolve_caption_model(str(args.caption_engine), str(args.caption_model)),
         "caption_prompt": str(requested_caption_prompt),
@@ -2445,7 +2454,6 @@ def run(argv: list[str] | None = None) -> int:
                             refresh_gps_lat = _xmp_gps_to_decimal(review.get("gps_latitude"), axis="lat")
                         if not refresh_gps_lon:
                             refresh_gps_lon = _xmp_gps_to_decimal(review.get("gps_longitude"), axis="lon")
-                        refresh_subphotos = review.get("subphotos")
                         write_xmp_sidecar(
                             sidecar_path,
                             creator_tool=creator_tool,
@@ -2458,7 +2466,6 @@ def run(argv: list[str] | None = None) -> int:
                             source_text=str(review.get("source_text") or ""),
                             ocr_text=str(review.get("ocr_text") or ""),
                             detections_payload=(refresh_detections or None),
-                            subphotos=(list(refresh_subphotos) if isinstance(refresh_subphotos, list) else None),
                             stitch_key=str(review.get("stitch_key") or ""),
                             ocr_authority_source=str(review.get("ocr_authority_source") or ""),
                             image_width=_get_image_dimensions(image_path)[0],
@@ -2868,7 +2875,7 @@ def run(argv: list[str] | None = None) -> int:
 
             with prepare_image_layout(
                 image_path,
-                split_mode=str(effective.get("page_split_mode", defaults["page_split_mode"])),
+                split_mode="off",
             ) as layout:
                 person_names: list[str]
                 subjects: list[str]
@@ -2903,202 +2910,60 @@ def run(argv: list[str] | None = None) -> int:
                     or printed_album_title_hint
                 )
 
-                if layout.page_like and layout.split_mode == "auto":
-                    if scan_ocr_authority is not None:
-                        page_ocr_text = scan_ocr_authority.ocr_text
-                        page_ocr_keywords = list(scan_ocr_authority.ocr_keywords)
-                    else:
-                        with _prepare_ai_model_image(layout.content_path) as page_model_image:
-                            if set_step:
-                                set_step("ocr")
-                            page_ocr_text = ocr_engine.read_text(page_model_image)
-                            page_ocr_keywords = extract_keywords(page_ocr_text, max_keywords=15)
-                    sub_results = [
-                        _run_image_analysis(
-                            image_path=subphoto.path,
-                            people_matcher=people_matcher,
-                            object_detector=object_detector,
-                            ocr_engine=ocr_engine,
-                            caption_engine=caption_engine,
-                            requested_caption_engine=str(caption_key[0]),
-                            requested_caption_model=str(caption_key[1]),
-                            ocr_engine_name=ocr_key[0],
-                            ocr_language=ocr_key[1],
-                            people_hint_text=page_ocr_text,
-                            people_source_path=image_path,
-                            people_bbox_offset=_bounds_offset(subphoto.bounds),
-                            people_recovery_mode=str(
-                                effective.get(
-                                    "people_recovery_mode",
-                                    defaults["people_recovery_mode"],
-                                )
-                            ),
-                            caption_source_path=image_path,
-                            album_title=album_title_hint,
-                            printed_album_title=printed_album_title_hint,
-                            geocoder=geocoder,
-                            step_fn=set_step,
+                analysis_target = layout.content_path if layout.page_like else image_path
+                analysis = _run_image_analysis(
+                    image_path=analysis_target,
+                    people_matcher=people_matcher,
+                    object_detector=object_detector,
+                    ocr_engine=ocr_engine,
+                    caption_engine=caption_engine,
+                    requested_caption_engine=str(caption_key[0]),
+                    requested_caption_model=str(caption_key[1]),
+                    ocr_engine_name=ocr_key[0],
+                    ocr_language=ocr_key[1],
+                    people_source_path=image_path,
+                    people_bbox_offset=(_bounds_offset(layout.content_bounds) if layout.page_like else (0, 0)),
+                    people_recovery_mode=str(
+                        effective.get(
+                            "people_recovery_mode",
+                            defaults["people_recovery_mode"],
                         )
-                        for subphoto in layout.subphotos
-                    ]
-                    page_album_title = infer_album_title(
-                        image_path=layout.original_path,
-                        ocr_text=page_ocr_text,
-                        fallback_title=album_title_hint,
-                    )
-                    page_printed_album_title = infer_printed_album_title(
-                        ocr_text=page_ocr_text,
-                        fallback_title=printed_album_title_hint,
-                    )
-                    _store_album_title_hint(image_path, album_title_cache, page_album_title)
-                    _store_album_printed_title_hint(image_path, printed_album_title_cache, page_printed_album_title)
-                    (
-                        person_names,
-                        object_labels,
-                        subjects,
-                        description,
-                        payload,
-                        subphotos_xml,
-                    ) = _build_page_payload(
-                        layout=layout,
-                        sub_results=sub_results,
-                        page_ocr_text=page_ocr_text,
-                        page_ocr_keywords=page_ocr_keywords,
-                        requested_caption_engine=str(caption_key[0]),
-                        album_title=page_album_title,
-                        printed_album_title=page_printed_album_title,
-                    )
-                    if str(caption_key[0]) in {"local", "lmstudio"}:
-                        with _prepare_ai_model_image(layout.content_path) as page_model_image:
-                            if set_step:
-                                set_step("caption")
-                            page_caption_output = caption_engine.generate(
-                                image_path=page_model_image,
-                                people=person_names,
-                                objects=object_labels,
-                                ocr_text=page_ocr_text,
-                                source_path=layout.original_path,
-                                album_title=page_album_title,
-                                printed_album_title=page_printed_album_title,
-                                photo_count=len(sub_results),
-                            )
-                        if page_caption_output.text and not page_caption_output.fallback:
-                            description = page_caption_output.text
-                        page_people_present = any(
-                            bool(dict(result.payload.get("caption") or {}).get("people_present"))
-                            for result in sub_results
-                        )
-                        page_estimated_people_count = max(
-                            len(person_names),
-                            sum(
-                                max(
-                                    0,
-                                    int(
-                                        dict(result.payload.get("caption") or {}).get(
-                                            "estimated_people_count",
-                                            0,
-                                        )
-                                        or 0
-                                    ),
-                                )
-                                for result in sub_results
-                            ),
-                        )
-                        payload["caption"] = _build_caption_metadata(
-                            requested_engine=str(caption_key[0]),
-                            effective_engine=str(page_caption_output.engine),
-                            fallback=bool(page_caption_output.fallback),
-                            error=str(page_caption_output.error or ""),
-                            model=str(caption_key[1]),
-                            people_present=page_people_present,
-                            estimated_people_count=page_estimated_people_count,
-                        )
-                        (
-                            page_gps_latitude,
-                            page_gps_longitude,
-                            page_location_name,
-                        ) = _resolve_location_metadata(
-                            requested_caption_engine=str(caption_key[0]),
-                            caption_engine=caption_engine,
-                            model_image_path=page_model_image,
-                            people=person_names,
-                            objects=object_labels,
-                            ocr_text=page_ocr_text,
-                            source_path=image_path,
-                            album_title=page_album_title,
-                            printed_album_title=page_printed_album_title,
-                            is_cover_page=False,
-                            people_positions={},
-                            fallback_location_name=str(getattr(page_caption_output, "location_name", "") or "").strip(),
-                        )
-                        page_location_payload = _resolve_location_payload(
-                            geocoder=geocoder,
-                            gps_latitude=page_gps_latitude,
-                            gps_longitude=page_gps_longitude,
-                            location_name=page_location_name,
-                        )
-                        if page_location_payload:
-                            payload["location"] = page_location_payload
-                    people_count = len(person_names)
-                    object_count = len(object_labels)
-                    ocr_text = page_ocr_text
-                    analysis_mode = "page_subphotos"
-                    split_applied = bool(layout.split_applied)
-                    subphoto_count = len(sub_results)
-                else:
-                    analysis_target = layout.content_path if layout.page_like else image_path
-                    analysis = _run_image_analysis(
-                        image_path=analysis_target,
-                        people_matcher=people_matcher,
-                        object_detector=object_detector,
-                        ocr_engine=ocr_engine,
-                        caption_engine=caption_engine,
-                        requested_caption_engine=str(caption_key[0]),
-                        requested_caption_model=str(caption_key[1]),
-                        ocr_engine_name=ocr_key[0],
-                        ocr_language=ocr_key[1],
-                        people_source_path=image_path,
-                        people_bbox_offset=(_bounds_offset(layout.content_bounds) if layout.page_like else (0, 0)),
-                        people_recovery_mode=str(
-                            effective.get(
-                                "people_recovery_mode",
-                                defaults["people_recovery_mode"],
-                            )
-                        ),
-                        caption_source_path=(image_path if layout.page_like else analysis_target),
-                        album_title=album_title_hint,
-                        printed_album_title=printed_album_title_hint,
-                        geocoder=geocoder,
-                        step_fn=set_step,
-                        extra_people_names=existing_xmp_people,
-                        is_page_scan=layout.page_like,
-                        ocr_text_override=(scan_ocr_authority.ocr_text if scan_ocr_authority is not None else None),
-                    )
-                    resolved_album_title = infer_album_title(
-                        image_path=image_path,
-                        ocr_text=analysis.ocr_text,
-                        fallback_title=album_title_hint,
-                    )
-                    resolved_printed_album_title = infer_printed_album_title(
-                        ocr_text=analysis.ocr_text,
-                        fallback_title=printed_album_title_hint,
-                    )
-                    _store_album_title_hint(image_path, album_title_cache, resolved_album_title)
-                    _store_album_printed_title_hint(
-                        image_path,
-                        printed_album_title_cache,
-                        resolved_printed_album_title,
-                    )
-                    person_names = _dedupe(analysis.people_names + existing_xmp_people)
-                    subjects = analysis.subjects
-                    description = (
-                        _build_flat_page_description(analysis=analysis) if layout.page_like else analysis.description
-                    )
-                    ocr_text = analysis.ocr_text
-                    payload = _build_flat_payload(layout, analysis)
-                    people_count = len(analysis.people_names)
-                    object_count = len(analysis.object_labels)
-                    analysis_mode = "page_flat" if layout.page_like else "single_image"
+                    ),
+                    caption_source_path=(image_path if layout.page_like else analysis_target),
+                    album_title=album_title_hint,
+                    printed_album_title=printed_album_title_hint,
+                    geocoder=geocoder,
+                    step_fn=set_step,
+                    extra_people_names=existing_xmp_people,
+                    is_page_scan=layout.page_like,
+                    ocr_text_override=(scan_ocr_authority.ocr_text if scan_ocr_authority is not None else None),
+                    request_photo_regions=(layout.page_like and caption_engine.engine == "lmstudio"),
+                )
+                resolved_album_title = analysis.album_title or infer_album_title(
+                    image_path=image_path,
+                    ocr_text=analysis.ocr_text,
+                    fallback_title=album_title_hint,
+                )
+                resolved_printed_album_title = infer_printed_album_title(
+                    ocr_text=analysis.ocr_text,
+                    fallback_title=printed_album_title_hint,
+                )
+                _store_album_title_hint(image_path, album_title_cache, resolved_album_title)
+                _store_album_printed_title_hint(
+                    image_path,
+                    printed_album_title_cache,
+                    resolved_printed_album_title,
+                )
+                person_names = _dedupe(analysis.people_names + existing_xmp_people)
+                subjects = analysis.subjects
+                description = (
+                    _build_flat_page_description(analysis=analysis) if layout.page_like else analysis.description
+                )
+                ocr_text = analysis.ocr_text
+                payload = _build_flat_payload(layout, analysis)
+                people_count = len(analysis.people_names)
+                object_count = len(analysis.object_labels)
+                analysis_mode = "page_flat" if layout.page_like else "single_image"
 
                 payload = _refresh_detection_model_metadata(
                     payload,
@@ -3116,16 +2981,28 @@ def run(argv: list[str] | None = None) -> int:
 
                 # Compute per-stage tracking flags for the XMP
                 _ocr_ran_flag = str(effective.get("ocr_engine", defaults["ocr_engine"])).lower() != "none"
-                if analysis_mode == "page_subphotos":
-                    _total_faces = sum(r.faces_detected for r in sub_results)
-                    _people_detected_flag = _total_faces > 0 or len(person_names) > 0
-                else:
-                    _people_detected_flag = analysis.faces_detected > 0 or len(person_names) > 0
+                _people_detected_flag = analysis.faces_detected > 0 or len(person_names) > 0
                 _people_identified_flag = len(person_names) > 0
 
                 if not dry_run:
                     location_payload = dict(payload.get("location") or {}) if isinstance(payload, dict) else {}
                     img_w, img_h = _get_image_dimensions(image_path)
+                    # Convert relative photo-region coords (0–1) to pixel bounds for MWG XMP regions
+                    subphotos_xml = [
+                        {
+                            "index": i + 1,
+                            "bounds": {
+                                "x": round(r["x"] * img_w),
+                                "y": round(r["y"] * img_h),
+                                "width": round(r["w"] * img_w),
+                                "height": round(r["h"] * img_h),
+                            },
+                            "description": r.get("description", ""),
+                            "people": [],
+                            "subjects": [],
+                        }
+                        for i, r in enumerate(analysis.image_regions or [])
+                    ] or None
                     write_xmp_sidecar(
                         sidecar_path,
                         creator_tool=creator_tool,

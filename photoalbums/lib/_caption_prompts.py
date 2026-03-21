@@ -165,6 +165,7 @@ def _build_local_prompt(
     printed_album_title: str = "",
     is_cover_page: bool = False,
     people_positions: dict[str, str] | None = None,
+    request_photo_regions: bool = False,
 ) -> str:
     people_list = dedupe(people)
     object_list = dedupe(objects)
@@ -192,7 +193,11 @@ def _build_local_prompt(
         if len(text) > len(snippet):
             snippet += "..."
         lines.extend(_section("OCR Hint", ocr_snippet=snippet))
-    lines.extend(_section("Output Format – Describe (full caption)"))
+    if request_photo_regions:
+        lines.extend(_section("Preamble Page Photo Regions"))
+        lines.extend(_section("Output Format – Describe Page (with photo regions)"))
+    else:
+        lines.extend(_section("Output Format – Describe (full caption)"))
     return "\n".join(lines)
 
 
@@ -327,6 +332,7 @@ def _build_describe_prompt(
     printed_album_title: str,
     is_cover_page: bool,
     people_positions: dict[str, str] | None = None,
+    request_photo_regions: bool = False,
 ) -> str:
     return prompt_text or _build_local_prompt(
         people=people,
@@ -337,4 +343,5 @@ def _build_describe_prompt(
         printed_album_title=printed_album_title,
         is_cover_page=is_cover_page,
         people_positions=people_positions,
+        request_photo_regions=request_photo_regions,
     )

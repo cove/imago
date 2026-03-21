@@ -110,6 +110,8 @@ location block in the logs.
 - State only supported facts.
 - If evidence is insufficient, omit the detail or use the empty string, false, or 0 required by the output schema.
 - Never reference file names, folder names, internal IDs (B02, P01, Archive, View, etc.), scan artifacts, or processing details.
+- Never use phrases like "scanned album page", "this photograph shows", "this image depicts", "this photo", or any similar meta-references in captions.
+- Write captions in a descriptive first-person voice explaining what's happening in the scene (e.g. "A nice road in the English [assuming the album is about England] country side" not "There appears to be a road in the country side of some country").
 - When quoting visible text, reproduce it exactly as printed.
 - Think step-by-step internally if needed, but output only the final JSON.
 
@@ -139,6 +141,7 @@ location block in the logs.
 
 ## Album Classification Rules (apply in this order)
 - Treat album title hints and classification hints as supporting context, not as visible text.
+- There's a typo in album names where the number of the Book is written in Roman Numerals, but 1 was used instead of I by accident for one. Replace this 1 with an I in the album names. (e.g. Book 11 is really Book II)
 - Prefer the printed cover title over a normalized album title when naming the album in a caption.
 - If the image is an album cover or title page, describe it as the cover or title page of the photo album.
 - Preserve visible cover labels exactly as shown when quoting text.
@@ -177,14 +180,27 @@ Album focus hint: {album_focus}.
 ## Output Format – Describe (full caption)
 {"caption": "..."}
 
-caption: detailed description using only supported facts.
+caption: detailed description in first-person family voice using only supported facts.
+
+## Preamble Page Photo Regions
+This image is a scanned album page containing multiple photographs.
+Identify each distinct photograph as a rectangle.
+Do not describe the page itself as a "scanned album page" or similar in captions — describe the people and scenes directly.
+
+## Output Format – Describe Page (with photo regions)
+{"caption": "...", "location_name": "...", "photo_regions": [{"x": 0.0, "y": 0.0, "w": 0.5, "h": 0.5, "description": "..."}]}
+
+caption: detailed description in first-person family voice using only supported facts.
+location_name: concise geocoding query or empty string.
+photo_regions: list each distinct photograph; x/y/w/h are normalized rectangle coordinates (0–1, top-left origin, relative to full image); description is one sentence per photograph. Return an empty list if there are no clearly distinct photographs.
 
 ## Output Format – Combined
-{"ocr_text": "...", "caption": "...", "location_name": "..."}
+{"ocr_text": "...", "caption": "...", "location_name": "...", "album_title": "..."}
 
 ocr_text: all visible text exactly as shown, or empty string.
-caption: one sentence describing the scene using only supported facts.
+caption: one sentence describing the scene in first-person family voice using only supported facts.
 location_name: concise geocoding query or empty string.
+album_title: canonical album title derived solely from visible cover text — only populate for cover or title pages. Romanize book numbers exactly as printed (BOOK 11 → Book II, BOOK II → Book II). Include the year only if it appears on the cover (e.g. "England Book II 1983"). Do not copy, combine, or extend the album title hint; derive only from what is visible. Empty string for all other pages.
 
 ## Output Format – People Count
 {"people_present": false, "estimated_people_count": 0}
@@ -218,3 +234,4 @@ Detected objects: {object_list}.
 
 ## OCR Hint
 OCR text hint: "{ocr_snippet}".
+

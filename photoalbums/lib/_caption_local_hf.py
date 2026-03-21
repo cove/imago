@@ -34,9 +34,7 @@ def _load_hf_transformers():
             AutoProcessor,
         )
     except Exception as exc:
-        raise RuntimeError(
-            "Local HF captioning requires a compatible transformers/torch install."
-        ) from exc
+        raise RuntimeError("Local HF captioning requires a compatible transformers/torch install.") from exc
 
     return torch, AutoProcessor, AutoModelForImageTextToText
 
@@ -54,27 +52,19 @@ def normalize_local_attn_implementation(value: str, default: str = "auto") -> st
 def _parse_local_json_output(raw: str) -> CaptionDetails:
     """Parse structured JSON output from a local HF model inference, with plain-text fallback."""
     text = str(raw or "").strip()
-    stripped = re.sub(
-        r"<tool_call>.*?<tool_call>", "", text, flags=re.DOTALL | re.IGNORECASE
-    ).strip()
+    stripped = re.sub(r"<tool_call>.*?<tool_call>", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
     if stripped:
         text = stripped
     payload = _extract_structured_json_payload(text)
     if payload is not None:
         caption = payload.get("caption")
         if isinstance(caption, str) and caption.strip():
-            gps_latitude = _normalize_gps_value(
-                str(payload.get("gps_latitude") or ""), axis="lat"
-            )
-            gps_longitude = _normalize_gps_value(
-                str(payload.get("gps_longitude") or ""), axis="lon"
-            )
+            gps_latitude = _normalize_gps_value(str(payload.get("gps_latitude") or ""), axis="lat")
+            gps_longitude = _normalize_gps_value(str(payload.get("gps_longitude") or ""), axis="lon")
             location_name = clean_text(str(payload.get("location_name") or ""))
             people_present = bool(payload.get("people_present") or False)
             try:
-                estimated_people_count = max(
-                    0, int(payload.get("estimated_people_count") or 0)
-                )
+                estimated_people_count = max(0, int(payload.get("estimated_people_count") or 0))
             except Exception:
                 estimated_people_count = 0
             name_suggestions = list(payload.get("name_suggestions") or [])
@@ -95,9 +85,7 @@ def _parse_local_combined_json_output(raw: str) -> tuple[str, CaptionDetails]:
     Returns (ocr_text, caption_details).
     """
     text = str(raw or "").strip()
-    stripped = re.sub(
-        r"<tool_call>.*?<tool_call>", "", text, flags=re.DOTALL | re.IGNORECASE
-    ).strip()
+    stripped = re.sub(r"<tool_call>.*?<tool_call>", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
     if stripped:
         text = stripped
     payload = _extract_structured_json_payload(text)
@@ -107,12 +95,11 @@ def _parse_local_combined_json_output(raw: str) -> tuple[str, CaptionDetails]:
         if isinstance(caption, str) and caption.strip():
             people_present = bool(payload.get("people_present") or False)
             try:
-                estimated_people_count = max(
-                    0, int(payload.get("estimated_people_count") or 0)
-                )
+                estimated_people_count = max(0, int(payload.get("estimated_people_count") or 0))
             except Exception:
                 estimated_people_count = 0
             name_suggestions = list(payload.get("name_suggestions") or [])
+            album_title = clean_text(str(payload.get("album_title") or ""))
             return (
                 ocr_text,
                 CaptionDetails(
@@ -120,6 +107,7 @@ def _parse_local_combined_json_output(raw: str) -> tuple[str, CaptionDetails]:
                     people_present=people_present,
                     estimated_people_count=estimated_people_count,
                     name_suggestions=name_suggestions,
+                    album_title=album_title,
                 ),
             )
     return "", CaptionDetails(text=clean_text(text))
@@ -139,16 +127,11 @@ class LocalHFCaptioner:
         max_image_edge: int = 0,
         stream: bool = False,
     ):
-        self.model_name = (
-            str(model_name or DEFAULT_LOCAL_CAPTION_MODEL).strip()
-            or DEFAULT_LOCAL_CAPTION_MODEL
-        )
+        self.model_name = str(model_name or DEFAULT_LOCAL_CAPTION_MODEL).strip() or DEFAULT_LOCAL_CAPTION_MODEL
         self.prompt_text = str(prompt_text or "").strip()
         self.max_new_tokens = max(8, int(max_new_tokens))
         self.temperature = max(0.0, float(temperature))
-        self.attn_implementation = normalize_local_attn_implementation(
-            attn_implementation
-        )
+        self.attn_implementation = normalize_local_attn_implementation(attn_implementation)
         self.min_pixels = max(0, int(min_pixels))
         self.max_pixels = max(0, int(max_pixels))
         self.max_image_edge = max(0, int(max_image_edge))
@@ -165,9 +148,7 @@ class LocalHFCaptioner:
         HF_MODEL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
         cache_dir = str(HF_MODEL_CACHE_DIR)
         local_snapshot = _resolve_local_hf_snapshot(self.model_name)
-        model_ref = (
-            str(local_snapshot) if local_snapshot is not None else self.model_name
-        )
+        model_ref = str(local_snapshot) if local_snapshot is not None else self.model_name
         local_files_only = local_snapshot is not None
         processor_kwargs = {
             "trust_remote_code": True,
@@ -177,9 +158,7 @@ class LocalHFCaptioner:
         if self.min_pixels > 0:
             processor_kwargs["min_pixels"] = int(self.min_pixels)
         processor_kwargs["max_pixels"] = (
-            int(self.max_pixels)
-            if self.max_pixels > 0
-            else int(DEFAULT_LOCAL_AUTO_MAX_PIXELS)
+            int(self.max_pixels) if self.max_pixels > 0 else int(DEFAULT_LOCAL_AUTO_MAX_PIXELS)
         )
         self._processor = AutoProcessor.from_pretrained(
             model_ref,
@@ -193,18 +172,13 @@ class LocalHFCaptioner:
         }
         resolved_attn = "auto"
         if self.attn_implementation != "auto":
-            if (
-                self.attn_implementation == "flash_attention_2"
-                and not torch.cuda.is_available()
-            ):
+            if self.attn_implementation == "flash_attention_2" and not torch.cuda.is_available():
                 resolved_attn = "auto"
             else:
                 resolved_attn = self.attn_implementation
                 load_kwargs["attn_implementation"] = resolved_attn
         # Prefer dtype over torch_dtype to avoid deprecation warnings on newer transformers.
-        self._model = _load_hf_model(
-            AutoModelForImageTextToText, model_ref, **load_kwargs
-        )
+        self._model = _load_hf_model(AutoModelForImageTextToText, model_ref, **load_kwargs)
         self._torch = torch
 
     def describe(
@@ -216,20 +190,14 @@ class LocalHFCaptioner:
         self._ensure_loaded()
         return _parse_local_json_output(self._infer_raw(image_path, prompt))
 
-    def _infer_raw(
-        self, image_path: str | Path, prompt: str, max_new_tokens: int | None = None
-    ) -> str:
+    def _infer_raw(self, image_path: str | Path, prompt: str, max_new_tokens: int | None = None) -> str:
         """Run a single inference pass and return the raw decoded string."""
         from PIL import Image  # pylint: disable=import-outside-toplevel
 
-        max_tokens = (
-            int(max_new_tokens) if max_new_tokens is not None else self.max_new_tokens
-        )
+        max_tokens = int(max_new_tokens) if max_new_tokens is not None else self.max_new_tokens
         image = Image.open(str(image_path)).convert("RGB")
         try:
-            working_image = _resize_caption_image(
-                image, int(DEFAULT_LOCAL_OCR_MAX_IMAGE_EDGE)
-            )
+            working_image = _resize_caption_image(image, int(DEFAULT_LOCAL_OCR_MAX_IMAGE_EDGE))
             if hasattr(self._processor, "apply_chat_template"):
                 messages = [
                     {
@@ -299,11 +267,7 @@ class LocalHFCaptioner:
             with self._torch.inference_mode():
                 generated_ids = self._model.generate(**inputs, **kwargs)
             input_ids = inputs.get("input_ids")
-            if (
-                hasattr(generated_ids, "shape")
-                and input_ids is not None
-                and hasattr(input_ids, "shape")
-            ):
+            if hasattr(generated_ids, "shape") and input_ids is not None and hasattr(input_ids, "shape"):
                 prompt_tokens = int(input_ids.shape[-1])
                 generated_ids = generated_ids[:, prompt_tokens:]
             decoded = self._processor.batch_decode(

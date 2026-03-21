@@ -1,4 +1,5 @@
 """Backward-compatibility shim. Use _caption_local_hf instead."""
+
 from ._caption_local_hf import (  # noqa: F401
     DEFAULT_LOCAL_AUTO_MAX_PIXELS as DEFAULT_QWEN_AUTO_MAX_PIXELS,
     DEFAULT_LOCAL_CAPTION_MODEL as DEFAULT_QWEN_CAPTION_MODEL,

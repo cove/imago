@@ -23,6 +23,14 @@
     "query": "15th Century Sera Monastery, China",
     "status": "miss"
   },
+  "56 pembroke, bedford": {
+    "display_name": "56, Pembroke Street, Castle, Bedford, England, MK40 3RD, United Kingdom",
+    "latitude": "52.1367289",
+    "longitude": "-0.4528051",
+    "query": "56 Pembroke, Bedford",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "56 pembroke, bedford, england": {
     "display_name": "56, Pembroke Street, Castle, Bedford, England, MK40 3RD, United Kingdom",
     "latitude": "52.1367289",
@@ -279,6 +287,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "bath abbey, bath, england": {
+    "display_name": "Bath Abbey, Abbey Churchyard, Kingsmead, Bath, Bath and North East Somerset, West of England, England, BA1 1LT, United Kingdom",
+    "latitude": "51.3814544",
+    "longitude": "-2.3588659",
+    "query": "Bath Abbey, Bath, England",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "bath abbey, bath, somerset, england": {
     "display_name": "Bath Abbey, Abbey Churchyard, Kingsmead, Bath, Bath and North East Somerset, West of England, England, BA1 1LT, United Kingdom",
     "latitude": "51.3814544",
@@ -359,6 +375,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "bedford embankment": {
+    "display_name": "The Embankment, Castle, Bedford, England, MK40 3NT, United Kingdom",
+    "latitude": "52.1348006",
+    "longitude": "-0.4641207",
+    "query": "Bedford Embankment",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "bedford, bedfordshire, england": {
     "display_name": "Bedford & Milton Keynes Waterway, Ridgmont, Central Bedfordshire, England, United Kingdom",
     "latitude": "52.0323946",
@@ -416,6 +440,14 @@
     "latitude": "35.8036162",
     "longitude": "103.0426428",
     "query": "Bingling Temple, Yongjing County, Gansu, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "blenheim palace": {
+    "display_name": "Blenheim Palace, The Great Court, Blenheim, West Oxfordshire, Oxfordshire, England, OX20 1PS, United Kingdom",
+    "latitude": "51.8419448",
+    "longitude": "-1.3626293",
+    "query": "Blenheim Palace",
     "source": "nominatim",
     "status": "ok"
   },
@@ -704,6 +736,30 @@
     "latitude": "30.0443879",
     "longitude": "31.2357257",
     "query": "Cairo, Egypt",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "cambridge": {
+    "display_name": "Cambridge, Cambridgeshire, Cambridgeshire and Peterborough, England, United Kingdom",
+    "latitude": "52.2055314",
+    "longitude": "0.1186637",
+    "query": "Cambridge",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "cambridge - england": {
+    "display_name": "Cambridge England, Aksaray Caddesi, Mesihpaşa Mahallesi, İstanbul, Fatih, İstanbul, Marmara Bölgesi, 34130, Türkiye",
+    "latitude": "41.0083446",
+    "longitude": "28.9545875",
+    "query": "Cambridge - England",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "cambridge colleges": {
+    "display_name": "Cambridge College, 500, Rutherford Avenue, Charlestown, Boston, Suffolk County, Massachusetts, 02129, United States",
+    "latitude": "42.3813909",
+    "longitude": "-71.0726639",
+    "query": "Cambridge Colleges",
     "source": "nominatim",
     "status": "ok"
   },
@@ -1343,6 +1399,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "cowes the isle of wight": {
+    "display_name": "Cowes Castle - Royal Yacht Squadron, The Parade, Cowes, Isle of Wight, England, PO31 7QT, United Kingdom",
+    "latitude": "50.7665146",
+    "longitude": "-1.3010989",
+    "query": "Cowes The Isle of Wight",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "cowes, isle of wight, england": {
     "display_name": "Cowes, Isle of Wight, England, United Kingdom",
     "latitude": "50.7633176",
@@ -1759,6 +1823,22 @@
     "query": "Elephant Island, Egypt",
     "status": "miss"
   },
+  "ely": {
+    "display_name": "Ely, East Cambridgeshire, Cambridgeshire, Cambridgeshire and Peterborough, England, United Kingdom",
+    "latitude": "52.3990199",
+    "longitude": "0.2620390",
+    "query": "Ely",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "ely cathedral": {
+    "display_name": "Ely Cathedral, The College ('Oister Lane), Ely, East Cambridgeshire, Cambridgeshire, Cambridgeshire and Peterborough, England, CB7 4DL, United Kingdom",
+    "latitude": "52.3986555",
+    "longitude": "0.2637479",
+    "query": "Ely Cathedral",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "ely cathedral, cambridgeshire, england": {
     "display_name": "Ely Cathedral, The College ('Oister Lane), Ely, East Cambridgeshire, Cambridgeshire, Cambridgeshire and Peterborough, England, CB7 4DL, United Kingdom",
     "latitude": "52.3986555",
@@ -1780,6 +1860,14 @@
     "latitude": "52.3986555",
     "longitude": "0.2637479",
     "query": "Ely Cathedral, England",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "ely marina": {
+    "display_name": "Cathedral Marina, Ely, East Cambridgeshire, Cambridgeshire, Cambridgeshire and Peterborough, England, United Kingdom",
+    "latitude": "52.3937274",
+    "longitude": "0.2691730",
+    "query": "Ely Marina",
     "source": "nominatim",
     "status": "ok"
   },
@@ -1830,6 +1918,14 @@
   "england book 1 book i": {
     "query": "England Book 1 Book I",
     "status": "miss"
+  },
+  "england book 11": {
+    "display_name": "The Book Service, Great Bentley, Frating, Tendring, Essex, England, CO7 7DW, United Kingdom",
+    "latitude": "51.8730414",
+    "longitude": "1.0455237",
+    "query": "England Book 11",
+    "source": "nominatim",
+    "status": "ok"
   },
   "english countryside south of london": {
     "query": "English Countryside South of London",
@@ -2032,6 +2128,14 @@
     "latitude": "23.1376682",
     "longitude": "113.2809544",
     "query": "Garden Hotel, Guangzhou, Guangdong, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "gardens at sandringham": {
+    "display_name": "Sandringham Place, Howrah Gardens, Howrah, Hobart, City of Clarence, Tasmania, 7018, Australia",
+    "latitude": "-42.8886439",
+    "longitude": "147.4190850",
+    "query": "Gardens at Sandringham",
     "source": "nominatim",
     "status": "ok"
   },
@@ -2276,6 +2380,14 @@
     "latitude": "49.4093582",
     "longitude": "8.6947240",
     "query": "Heidelberg, Germany",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "henley-on-thames": {
+    "display_name": "Henley-on-Thames, South Oxfordshire, Oxfordshire, England, RG9 2AN, United Kingdom",
+    "latitude": "51.5375786",
+    "longitude": "-0.9050287",
+    "query": "Henley-on-Thames",
     "source": "nominatim",
     "status": "ok"
   },
@@ -2767,6 +2879,14 @@
     "query": "Keble College and All Souls College, Oxford, England",
     "status": "miss"
   },
+  "keble college oxford": {
+    "display_name": "Keble College, Parks Road, Holywell, City Centre, Oxford, Oxfordshire, England, OX1 3PG, United Kingdom",
+    "latitude": "51.7586688",
+    "longitude": "-1.2578896",
+    "query": "Keble College Oxford",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "keble college, oxford, england; the hall, all souls college, oxford, england": {
     "query": "Keble College, Oxford, England; The Hall, All Souls College, Oxford, England",
     "status": "miss"
@@ -2851,6 +2971,14 @@
     "query": "Keswick, Lake District, England",
     "status": "miss"
   },
+  "kew gardens": {
+    "display_name": "Royal Botanic Gardens, Kew, Kew, London Borough of Richmond upon Thames, Greater London, England, United Kingdom",
+    "latitude": "51.4781975",
+    "longitude": "-0.2968861",
+    "query": "Kew Gardens",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "kew gardens, london, england": {
     "display_name": "Royal Botanic Gardens, Kew, Kew, London Borough of Richmond upon Thames, Greater London, England, United Kingdom",
     "latitude": "51.4781975",
@@ -2875,11 +3003,35 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "king's college chapel": {
+    "display_name": "King's College Chapel, King's Parade, Newnham, Cambridge, Cambridgeshire, Cambridgeshire and Peterborough, England, CB2 1ST, United Kingdom",
+    "latitude": "52.2047796",
+    "longitude": "0.1165440",
+    "query": "King's College Chapel",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "king's college chapel, cambridge": {
+    "display_name": "King's College Chapel, King's Parade, Newnham, Cambridge, Cambridgeshire, Cambridgeshire and Peterborough, England, CB2 1ST, United Kingdom",
+    "latitude": "52.2047796",
+    "longitude": "0.1165440",
+    "query": "King's College Chapel, Cambridge",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "king's college chapel, cambridge, england": {
     "display_name": "King's College Chapel, King's Parade, Newnham, Cambridge, Cambridgeshire, Cambridgeshire and Peterborough, England, CB2 1ST, United Kingdom",
     "latitude": "52.2047796",
     "longitude": "0.1165440",
     "query": "King's College Chapel, Cambridge, England",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "king's lynn church": {
+    "display_name": "King's Lynn Minster, Saturday Market Place, South Lynn, King's Lynn, King's Lynn and West Norfolk, Norfolk, England, PE30 5DQ, United Kingdom",
+    "latitude": "52.7516705",
+    "longitude": "0.3956156",
+    "query": "King's Lynn Church",
     "source": "nominatim",
     "status": "ok"
   },
@@ -3067,11 +3219,35 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "lincoln": {
+    "display_name": "Lincoln, Lancaster County, Nebraska, United States",
+    "latitude": "40.8088861",
+    "longitude": "-96.7077751",
+    "query": "Lincoln",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "lincoln castle": {
+    "display_name": "Lincoln Castle, Castle Hill, New Boultham, Bracebridge, Lincoln, Lincolnshire, Greater Lincolnshire, England, LN1 3AA, United Kingdom",
+    "latitude": "53.2349302",
+    "longitude": "-0.5410103",
+    "query": "Lincoln Castle",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "lincoln castle, lincolnshire, england": {
     "display_name": "Lincoln Castle, West Gate Bridge, Whitton Park, New Boultham, Bracebridge, Lincoln, Lincolnshire, Greater Lincolnshire, England, LN1 3AA, United Kingdom",
     "latitude": "53.2349302",
     "longitude": "-0.5410103",
     "query": "Lincoln Castle, Lincolnshire, England",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "lincoln cathedral": {
+    "display_name": "Lincoln Cathedral, Minster Yard, New Boultham, Bracebridge, Lincoln, Lincolnshire, Greater Lincolnshire, England, LN2 1PY, United Kingdom",
+    "latitude": "53.2342885",
+    "longitude": "-0.5362358",
+    "query": "Lincoln Cathedral",
     "source": "nominatim",
     "status": "ok"
   },
@@ -3096,6 +3272,14 @@
     "latitude": "53.2342885",
     "longitude": "-0.5362358",
     "query": "Lincoln Cathedral, Lincolnshire, England",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "lincoln minster": {
+    "display_name": "Minster Green, New Boultham, Bracebridge, Lincoln, Lincolnshire, Greater Lincolnshire, England, United Kingdom",
+    "latitude": "53.2344382",
+    "longitude": "-0.5347722",
+    "query": "Lincoln Minster",
     "source": "nominatim",
     "status": "ok"
   },
@@ -3262,6 +3446,14 @@
   "longleat house, warminster, wiltshire, england": {
     "query": "Longleat House, Warminster, Wiltshire, England",
     "status": "miss"
+  },
+  "longleat, warminster, wiltshire, england": {
+    "display_name": "Longleat Safari Park, Park Hill, Horningsham, Warminster, Wiltshire, England, BA12 7NW, United Kingdom",
+    "latitude": "51.1913791",
+    "longitude": "-2.2632858",
+    "query": "Longleat, Warminster, Wiltshire, England",
+    "source": "nominatim",
+    "status": "ok"
   },
   "longleat, wiltshire, england": {
     "display_name": "Longleat Safari Park, Park Hill, Horningsham, Warminster, Wiltshire, England, BA12 7NW, United Kingdom",
@@ -3799,6 +3991,22 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "oxford": {
+    "display_name": "Oxford, Oxfordshire, England, United Kingdom",
+    "latitude": "51.7520131",
+    "longitude": "-1.2578499",
+    "query": "Oxford",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "oxford colleges": {
+    "display_name": "Oxford College of Emory University, Oxford Trail, Cedar Ridge, Oxford, Newton County, Georgia, 30054, United States",
+    "latitude": "33.6199366",
+    "longitude": "-83.8714916",
+    "query": "Oxford Colleges",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "oxford colleges, oxford, england": {
     "display_name": "City of Oxford College, Oxpens Road, Oxpens, City Centre, Oxford, Oxfordshire, England, OX1 1SA, United Kingdom",
     "latitude": "51.7499802",
@@ -4279,6 +4487,14 @@
     "query": "Rock of Gibraltar, La Linea de la Concepcion, Spain",
     "status": "miss"
   },
+  "roman baths": {
+    "display_name": "Roman Baths, Mpofana Ward 2, Mpofana Local Municipality, uMgungundlovu District Municipality, KwaZulu-Natal, South Africa",
+    "latitude": "-29.3705772",
+    "longitude": "29.6215249",
+    "query": "Roman Baths",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "roman baths, bath, england": {
     "display_name": "The Roman Baths, Kingston Parade, Kingsmead, Bath, Bath and North East Somerset, West of England, England, BA1 1LZ, United Kingdom",
     "latitude": "51.3810283",
@@ -4478,6 +4694,14 @@
   "salzburg, austria; prague, czechoslovakia": {
     "query": "Salzburg, Austria; Prague, Czechoslovakia",
     "status": "miss"
+  },
+  "sandringham hall": {
+    "display_name": "Memorial Hall, Sandringham Road, Sandringham, Melbourne, City of Bayside, Victoria, 3191, Australia",
+    "latitude": "-37.9508531",
+    "longitude": "145.0065291",
+    "query": "Sandringham Hall",
+    "source": "nominatim",
+    "status": "ok"
   },
   "sandringham hall and church at sandringham, norfolk, england": {
     "query": "Sandringham Hall and Church at Sandringham, Norfolk, England",
@@ -4779,6 +5003,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "southampton": {
+    "display_name": "Southampton, England, United Kingdom",
+    "latitude": "50.9025349",
+    "longitude": "-1.4041890",
+    "query": "Southampton",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "southampton, england": {
     "display_name": "Southampton, England, United Kingdom",
     "latitude": "50.9025349",
@@ -4868,6 +5100,14 @@
     "latitude": "50.2149064",
     "longitude": "-5.4795083",
     "query": "St Ives, England",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "st john's college, cambridge": {
+    "display_name": "St John's College, Haymarket Road, Cambridge, Cambridgeshire, Cambridgeshire and Peterborough, England, CB3 0BQ, United Kingdom",
+    "latitude": "52.2087631",
+    "longitude": "0.1134997",
+    "query": "St John's College, Cambridge",
     "source": "nominatim",
     "status": "ok"
   },
@@ -5279,6 +5519,18 @@
     "query": "The Bazzar at Aswan",
     "status": "miss"
   },
+  "the bridge of sighs st john's college cambridge": {
+    "query": "The Bridge of Sighs St John's College Cambridge",
+    "status": "miss"
+  },
+  "the garrick inn & harvard house, stratfor-upon-avon": {
+    "query": "The Garrick Inn & Harvard House, Stratfor-upon-Avon",
+    "status": "miss"
+  },
+  "the garrick inn & harvard house, stratford-upon-avon": {
+    "query": "The Garrick Inn & Harvard House, Stratford-upon-Avon",
+    "status": "miss"
+  },
   "the grand staircase, longleat, warminster, wiltshire, england": {
     "query": "The Grand Staircase, Longleat, Warminster, Wiltshire, England",
     "status": "miss"
@@ -5375,6 +5627,10 @@
     "query": "The Nile River from Our Hotel, Cairo, Egypt - Dec. 1975",
     "status": "miss"
   },
+  "the ouse river bedford": {
+    "query": "The Ouse River Bedford",
+    "status": "miss"
+  },
   "the ouse river, bedford, england": {
     "query": "The Ouse River, Bedford, England",
     "status": "miss"
@@ -5402,6 +5658,10 @@
     "query": "The Pavilion, Brighton, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "the quay and priory, christchurch": {
+    "query": "The Quay and Priory, Christchurch",
+    "status": "miss"
   },
   "the quay and priory, christchurch, dorset, england": {
     "query": "The Quay and Priory, Christchurch, Dorset, England",

@@ -11,9 +11,9 @@ from pathlib import Path
 
 from ._caption_album import clean_text
 
-DEFAULT_LMSTUDIO_MAX_NEW_TOKENS = 256
+DEFAULT_LMSTUDIO_MAX_NEW_TOKENS = 1024
 DEFAULT_LMSTUDIO_BASE_URL = "http://192.168.4.72:1234/v1"
-DEFAULT_LMSTUDIO_TIMEOUT_SECONDS = 180.0
+DEFAULT_LMSTUDIO_TIMEOUT_SECONDS = 300.0
 DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE = 2048
 LMSTUDIO_VISION_MODEL_HINTS = (
     "vl",
@@ -38,10 +38,14 @@ class CaptionDetails:
     people_present: bool = False
     estimated_people_count: int = 0
     name_suggestions: list[dict[str, object]] = None
+    image_regions: list[dict[str, object]] = None
+    album_title: str = ""
 
     def __post_init__(self):
         if self.name_suggestions is None:
             object.__setattr__(self, "name_suggestions", [])
+        if self.image_regions is None:
+            object.__setattr__(self, "image_regions", [])
 
     def __str__(self) -> str:
         return self.text
@@ -59,6 +63,8 @@ class CaptionDetails:
                 and self.people_present == other.people_present
                 and self.estimated_people_count == other.estimated_people_count
                 and self.name_suggestions == other.name_suggestions
+                and self.image_regions == other.image_regions
+                and self.album_title == other.album_title
             )
         if isinstance(other, str):
             return self.text == other
@@ -188,9 +194,7 @@ def _parse_dms_coordinate(value: str) -> float | None:
     return decimal
 
 
-def _parse_decimal_coordinate(
-    value: str, *, positive_hemisphere: str, negative_hemisphere: str
-) -> float | None:
+def _parse_decimal_coordinate(value: str, *, positive_hemisphere: str, negative_hemisphere: str) -> float | None:
     text = clean_text(value).replace("−", "-")
     if not text:
         return None
@@ -219,13 +223,9 @@ def _normalize_gps_value(value: str, *, axis: str) -> str:
         decimal = _parse_dms_coordinate(text)
     if decimal is None:
         if axis == "lat":
-            decimal = _parse_decimal_coordinate(
-                text, positive_hemisphere="N", negative_hemisphere="S"
-            )
+            decimal = _parse_decimal_coordinate(text, positive_hemisphere="N", negative_hemisphere="S")
         else:
-            decimal = _parse_decimal_coordinate(
-                text, positive_hemisphere="E", negative_hemisphere="W"
-            )
+            decimal = _parse_decimal_coordinate(text, positive_hemisphere="E", negative_hemisphere="W")
     if decimal is None:
         return ""
     return _format_decimal_coordinate(decimal)
@@ -302,11 +302,7 @@ def _is_lmstudio_location_payload(payload: object) -> bool:
     location_name = payload.get("location_name")
     gps_latitude = payload.get("gps_latitude")
     gps_longitude = payload.get("gps_longitude")
-    return (
-        isinstance(location_name, str)
-        and isinstance(gps_latitude, str)
-        and isinstance(gps_longitude, str)
-    )
+    return isinstance(location_name, str) and isinstance(gps_latitude, str) and isinstance(gps_longitude, str)
 
 
 def _lmstudio_caption_response_format() -> dict[str, object]:
@@ -380,6 +376,71 @@ def _lmstudio_people_count_response_format() -> dict[str, object]:
     }
 
 
+def _lmstudio_page_caption_response_format() -> dict[str, object]:
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "page_caption_payload",
+            "strict": "true",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "caption": {"type": "string"},
+                    "location_name": {"type": "string"},
+                    "photo_regions": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "x": {"type": "number"},
+                                "y": {"type": "number"},
+                                "w": {"type": "number"},
+                                "h": {"type": "number"},
+                                "description": {"type": "string"},
+                            },
+                            "required": ["x", "y", "w", "h", "description"],
+                            "additionalProperties": False,
+                        },
+                    },
+                },
+                "required": ["caption", "location_name", "photo_regions"],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
+def _parse_image_regions(payload: dict) -> list[dict]:
+    """Extract and validate photo_regions from a parsed payload dict.
+
+    Clamps x/y/w/h to [0, 1] and discards any entry with w<=0 or h<=0.
+    """
+    raw = list(payload.get("photo_regions") or [])
+    result = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        try:
+            x = max(0.0, min(1.0, float(item.get("x") or 0)))
+            y = max(0.0, min(1.0, float(item.get("y") or 0)))
+            w = max(0.0, min(1.0, float(item.get("w") or 0)))
+            h = max(0.0, min(1.0, float(item.get("h") or 0)))
+        except (TypeError, ValueError):
+            continue
+        if w <= 0 or h <= 0:
+            continue
+        result.append(
+            {
+                "x": x,
+                "y": y,
+                "w": w,
+                "h": h,
+                "description": clean_text(str(item.get("description") or "")),
+            }
+        )
+    return result
+
+
 def _lmstudio_error_preview(value: str, *, limit: int = 180) -> str:
     text = clean_text(value)
     if not text:
@@ -397,9 +458,7 @@ def _parse_lmstudio_structured_caption_payload(
 ) -> tuple[str, str, str, str, bool, int, list[dict[str, object]]]:
     raw = _decode_lmstudio_text(value)
     text = str(raw or "").strip()
-    finish_note = (
-        f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
-    )
+    finish_note = f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
     if not text:
         raise RuntimeError(
             "LM Studio returned empty structured caption content. "
@@ -410,9 +469,7 @@ def _parse_lmstudio_structured_caption_payload(
     # models so that intermediate JSON objects inside the thinking block are not mistaken
     # for the structured response.  If stripping empties the text, keep the original so
     # _extract_structured_json_payload can still find JSON embedded inside an unclosed block.
-    stripped = re.sub(
-        r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE
-    ).strip()
+    stripped = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
     stripped = re.sub(
         r"<tool_call>.*?<tool_call>",
         "",
@@ -444,12 +501,8 @@ def _parse_lmstudio_structured_caption_payload(
         raise RuntimeError(
             f"LM Studio structured caption JSON is missing a caption string; raw={preview!r}.{finish_note}"
         )
-    gps_latitude = _normalize_gps_value(
-        str(payload.get("gps_latitude") or ""), axis="lat"
-    )
-    gps_longitude = _normalize_gps_value(
-        str(payload.get("gps_longitude") or ""), axis="lon"
-    )
+    gps_latitude = _normalize_gps_value(str(payload.get("gps_latitude") or ""), axis="lat")
+    gps_longitude = _normalize_gps_value(str(payload.get("gps_longitude") or ""), axis="lon")
     location_name = clean_text(str(payload.get("location_name") or ""))
     people_present = bool(payload.get("people_present") or False)
     try:
@@ -475,18 +528,14 @@ def _parse_lmstudio_structured_people_count_payload(
 ) -> tuple[bool, int]:
     raw = _decode_lmstudio_text(value)
     text = str(raw or "").strip()
-    finish_note = (
-        f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
-    )
+    finish_note = f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
     if not text:
         raise RuntimeError(
             "LM Studio returned empty structured people-count content. "
             "Check that the loaded model supports structured output and that the LM Studio server is current."
             f"{finish_note}"
         )
-    stripped = re.sub(
-        r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE
-    ).strip()
+    stripped = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
     stripped = re.sub(
         r"<tool_call>.*?<tool_call>",
         "",
@@ -509,9 +558,7 @@ def _parse_lmstudio_structured_people_count_payload(
             ) from exc
     if not _is_lmstudio_people_count_payload(payload):
         preview = _lmstudio_error_preview(text)
-        raise RuntimeError(
-            f"LM Studio structured people-count JSON is invalid; raw={preview!r}.{finish_note}"
-        )
+        raise RuntimeError(f"LM Studio structured people-count JSON is invalid; raw={preview!r}.{finish_note}")
     return (
         bool(payload.get("people_present")),
         max(0, int(payload.get("estimated_people_count") or 0)),
@@ -525,18 +572,14 @@ def _parse_lmstudio_structured_location_payload(
 ) -> tuple[str, str, str]:
     raw = _decode_lmstudio_text(value)
     text = str(raw or "").strip()
-    finish_note = (
-        f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
-    )
+    finish_note = f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
     if not text:
         raise RuntimeError(
             "LM Studio returned empty structured location content. "
             "Check that the loaded model supports structured output and that the LM Studio server is current."
             f"{finish_note}"
         )
-    stripped = re.sub(
-        r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE
-    ).strip()
+    stripped = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
     stripped = re.sub(
         r"<tool_call>.*?<tool_call>",
         "",
@@ -559,9 +602,7 @@ def _parse_lmstudio_structured_location_payload(
             ) from exc
     if not _is_lmstudio_location_payload(payload):
         preview = _lmstudio_error_preview(text)
-        raise RuntimeError(
-            f"LM Studio structured location JSON is invalid; raw={preview!r}.{finish_note}"
-        )
+        raise RuntimeError(f"LM Studio structured location JSON is invalid; raw={preview!r}.{finish_note}")
     return (
         _normalize_gps_value(str(payload.get("gps_latitude") or ""), axis="lat"),
         _normalize_gps_value(str(payload.get("gps_longitude") or ""), axis="lon"),
@@ -594,9 +635,47 @@ def _parse_lmstudio_structured_caption(
     )
 
 
-def _lmstudio_request_json(
-    url: str, *, payload: dict | None = None, timeout: float
-) -> dict:
+def _parse_lmstudio_page_caption(
+    value: object,
+    *,
+    finish_reason: str = "",
+) -> CaptionDetails:
+    """Parse a page-caption response (includes photo_regions) into CaptionDetails."""
+    raw = _decode_lmstudio_text(value)
+    text = str(raw or "").strip()
+    finish_note = f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
+    if not text:
+        raise RuntimeError(f"LM Studio returned empty page caption content.{finish_note}")
+    stripped = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
+    stripped = re.sub(r"<tool_call>.*?<tool_call>", "", stripped or text, flags=re.DOTALL | re.IGNORECASE).strip()
+    if stripped:
+        text = stripped
+    try:
+        payload_dict = json.loads(text)
+    except json.JSONDecodeError as exc:
+        payload_dict = _extract_structured_json_payload(text, is_valid=_is_lmstudio_caption_payload)
+        if payload_dict is None:
+            preview = _lmstudio_error_preview(text)
+            raise RuntimeError(
+                f"LM Studio returned invalid page caption JSON: {exc.msg}; raw={preview!r}.{finish_note}"
+            ) from exc
+    if not isinstance(payload_dict, dict):
+        preview = _lmstudio_error_preview(text)
+        raise RuntimeError(f"LM Studio page caption JSON is not an object; raw={preview!r}.{finish_note}")
+    caption = payload_dict.get("caption")
+    if not isinstance(caption, str):
+        preview = _lmstudio_error_preview(text)
+        raise RuntimeError(f"LM Studio page caption JSON is missing a caption string; raw={preview!r}.{finish_note}")
+    location_name = clean_text(str(payload_dict.get("location_name") or ""))
+    image_regions = _parse_image_regions(payload_dict)
+    return CaptionDetails(
+        text=clean_text(caption),
+        location_name=location_name,
+        image_regions=image_regions,
+    )
+
+
+def _lmstudio_request_json(url: str, *, payload: dict | None = None, timeout: float) -> dict:
     body = None if payload is None else json.dumps(payload).encode("utf-8")
     request = urllib.request.Request(
         url,
@@ -657,14 +736,10 @@ def _select_lmstudio_model(base_url: str, requested_model: str, timeout: float) 
         return text
     payload = _lmstudio_request_json(f"{base_url}/models", timeout=timeout)
     model_ids = [
-        str(row.get("id") or "").strip()
-        for row in list(payload.get("data") or [])
-        if str(row.get("id") or "").strip()
+        str(row.get("id") or "").strip() for row in list(payload.get("data") or []) if str(row.get("id") or "").strip()
     ]
     if not model_ids:
-        raise RuntimeError(
-            "LM Studio did not return any models. Load a model or pass --caption-model."
-        )
+        raise RuntimeError("LM Studio did not return any models. Load a model or pass --caption-model.")
     for model_id in model_ids:
         lowered = model_id.casefold()
         if any(hint in lowered for hint in LMSTUDIO_VISION_MODEL_HINTS):
@@ -672,9 +747,7 @@ def _select_lmstudio_model(base_url: str, requested_model: str, timeout: float) 
     return model_ids[0]
 
 
-def normalize_lmstudio_base_url(
-    value: str, default: str = DEFAULT_LMSTUDIO_BASE_URL
-) -> str:
+def normalize_lmstudio_base_url(value: str, default: str = DEFAULT_LMSTUDIO_BASE_URL) -> str:
     text = str(value or "").strip() or str(default or DEFAULT_LMSTUDIO_BASE_URL)
     text = text.rstrip("/")
     if text.endswith("/v1"):
@@ -721,11 +794,7 @@ class LMStudioCaptioner:
         *,
         prompt: str,
     ) -> CaptionDetails:
-        resize_edge = (
-            int(self.max_image_edge)
-            if self.max_image_edge > 0
-            else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
-        )
+        resize_edge = int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
         image_url = _build_data_url(image_path, resize_edge)
         payload = {
             "model": self._resolve_model_name(),
@@ -791,17 +860,84 @@ class LMStudioCaptioner:
             finish_reason=str(choices[0].get("finish_reason") or ""),
         )
 
+    def describe_page(
+        self,
+        image_path: str | Path,
+        *,
+        prompt: str,
+    ) -> CaptionDetails:
+        """Describe a multi-photo album page, returning per-photo regions in image_regions."""
+        resize_edge = int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
+        image_url = _build_data_url(image_path, resize_edge)
+        payload = {
+            "model": self._resolve_model_name(),
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a photo caption writer examining a scanned album page. "
+                        "Return only valid JSON matching the response_format schema. "
+                        "Put the overall page description in the caption field. "
+                        "In photo_regions, list each distinct photograph visible on the page "
+                        "as a normalized rectangle (x, y, w, h in 0–1 range, top-left origin). "
+                        "Write one sentence per region in its description field. "
+                        "If no distinct photographs are visible, return an empty photo_regions list. "
+                        "If the location is known confidently enough for online geocoding, set location_name "
+                        "to a concise English geocoding query such as 'Landmark, City, Country'. "
+                        "If no confident geocoding query is available, set location_name to an empty string. "
+                        "Never mention raw filenames, folder names, or internal ids. "
+                        "Do not include reasoning or extra fields."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": image_url}},
+                    ],
+                },
+            ],
+            "response_format": _lmstudio_page_caption_response_format(),
+            "max_tokens": int(self.max_new_tokens),
+            "temperature": float(self.temperature),
+            "stream": self.stream,
+        }
+        if self.stream:
+            print(
+                f"  Running LM Studio model ({self._resolve_model_name()})...",
+                end="",
+                flush=True,
+            )
+            tokens: list[str] = []
+            for token in _lmstudio_stream_tokens(
+                f"{self.base_url}/chat/completions",
+                payload,
+                self.timeout_seconds,
+            ):
+                tokens.append(token)
+            print("\r\033[K", end="", flush=True)
+            return _parse_lmstudio_page_caption("".join(tokens))
+        response = _lmstudio_request_json(
+            f"{self.base_url}/chat/completions",
+            payload=payload,
+            timeout=self.timeout_seconds,
+        )
+        choices = list(response.get("choices") or [])
+        if not choices:
+            return CaptionDetails(text="")
+        message = dict(choices[0].get("message") or {})
+        return _parse_lmstudio_page_caption(
+            message.get("content"),
+            finish_reason=str(choices[0].get("finish_reason") or ""),
+        )
+
     def estimate_people(
         self,
         image_path: str | Path,
         *,
         prompt: str,
     ) -> CaptionDetails:
-        resize_edge = (
-            int(self.max_image_edge)
-            if self.max_image_edge > 0
-            else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
-        )
+        resize_edge = int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
         image_url = _build_data_url(image_path, resize_edge)
         payload = {
             "model": self._resolve_model_name(),
@@ -837,11 +973,9 @@ class LMStudioCaptioner:
         if not choices:
             return CaptionDetails(text="")
         message = dict(choices[0].get("message") or {})
-        people_present, estimated_people_count = (
-            _parse_lmstudio_structured_people_count_payload(
-                message.get("content"),
-                finish_reason=str(choices[0].get("finish_reason") or ""),
-            )
+        people_present, estimated_people_count = _parse_lmstudio_structured_people_count_payload(
+            message.get("content"),
+            finish_reason=str(choices[0].get("finish_reason") or ""),
         )
         return CaptionDetails(
             text="",
@@ -855,11 +989,7 @@ class LMStudioCaptioner:
         *,
         prompt: str,
     ) -> CaptionDetails:
-        resize_edge = (
-            int(self.max_image_edge)
-            if self.max_image_edge > 0
-            else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
-        )
+        resize_edge = int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
         image_url = _build_data_url(image_path, resize_edge)
         payload = {
             "model": self._resolve_model_name(),
@@ -896,11 +1026,9 @@ class LMStudioCaptioner:
         if not choices:
             return CaptionDetails(text="")
         message = dict(choices[0].get("message") or {})
-        gps_latitude, gps_longitude, location_name = (
-            _parse_lmstudio_structured_location_payload(
-                message.get("content"),
-                finish_reason=str(choices[0].get("finish_reason") or ""),
-            )
+        gps_latitude, gps_longitude, location_name = _parse_lmstudio_structured_location_payload(
+            message.get("content"),
+            finish_reason=str(choices[0].get("finish_reason") or ""),
         )
         return CaptionDetails(
             text="",

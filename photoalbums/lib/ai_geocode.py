@@ -11,9 +11,7 @@ from pathlib import Path
 DEFAULT_GEOCODER_BASE_URL = "https://nominatim.openstreetmap.org"
 DEFAULT_GEOCODER_TIMEOUT_SECONDS = 20.0
 DEFAULT_GEOCODER_MIN_INTERVAL_SECONDS = 1.0
-DEFAULT_GEOCODER_CACHE_PATH = (
-    Path(__file__).resolve().parents[1] / "data" / "geocode_cache.json"
-)
+DEFAULT_GEOCODER_CACHE_PATH = Path(__file__).resolve().parents[1] / "data" / "geocode_cache.json"
 DEFAULT_GEOCODER_USER_AGENT = "imago-photoalbums-ai-index/1.0"
 
 
@@ -49,10 +47,7 @@ class NominatimGeocoder:
         self.cache_path = Path(cache_path)
         self.timeout_seconds = max(1.0, float(timeout_seconds))
         self.min_interval_seconds = max(0.0, float(min_interval_seconds))
-        self.user_agent = (
-            str(user_agent or DEFAULT_GEOCODER_USER_AGENT).strip()
-            or DEFAULT_GEOCODER_USER_AGENT
-        )
+        self.user_agent = str(user_agent or DEFAULT_GEOCODER_USER_AGENT).strip() or DEFAULT_GEOCODER_USER_AGENT
         self._cache = self._load_cache()
         self._last_request_started_at = 0.0
 
@@ -74,9 +69,7 @@ class NominatimGeocoder:
 
     def _save_cache(self) -> None:
         self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-        serialized = json.dumps(
-            self._cache, ensure_ascii=False, indent=2, sort_keys=True
-        )
+        serialized = json.dumps(self._cache, ensure_ascii=False, indent=2, sort_keys=True)
         self.cache_path.write_text(serialized + "\n", encoding="utf-8")
 
     def _throttle(self) -> None:
@@ -154,19 +147,13 @@ class NominatimGeocoder:
             },
         )
         try:
-            with urllib.request.urlopen(
-                request, timeout=float(self.timeout_seconds)
-            ) as response:
+            with urllib.request.urlopen(request, timeout=float(self.timeout_seconds)) as response:
                 payload = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             details = exc.read().decode("utf-8", errors="replace").strip()
-            raise RuntimeError(
-                f"Nominatim geocoding request failed: {details or f'HTTP {exc.code}'}"
-            ) from exc
+            raise RuntimeError(f"Nominatim geocoding request failed: {details or f'HTTP {exc.code}'}") from exc
         except urllib.error.URLError as exc:
-            raise RuntimeError(
-                f"Nominatim is unreachable at {self.base_url}: {exc.reason}"
-            ) from exc
+            raise RuntimeError(f"Nominatim is unreachable at {self.base_url}: {exc.reason}") from exc
 
         if not isinstance(payload, list) or not payload:
             self._cache_miss(clean_query)

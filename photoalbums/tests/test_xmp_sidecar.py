@@ -35,12 +35,12 @@ class TestXMPSidecar(unittest.TestCase):
                         "index": 1,
                         "bounds": {"x": 10, "y": 20, "width": 300, "height": 200},
                         "description": "A dog in the park.",
-                        "ocr_text": "park sign",
                         "people": ["Alice"],
                         "subjects": ["dog", "park"],
-                        "detections": {"objects": [{"label": "dog", "score": 0.9}]},
                     }
                 ],
+                image_width=1000,
+                image_height=1500,
             )
 
             self.assertTrue(out.exists())
@@ -58,9 +58,9 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertIn("100,18.43332E", xml)
             self.assertIn("GPSMapDatum", xml)
             self.assertIn("Family_2020_B01_P01_S01.tif", xml)
-            self.assertIn("SubPhotos", xml)
+            self.assertIn("RegionInfo", xml)
             self.assertIn("A dog in the park.", xml)
-            self.assertIn("park sign", xml)
+            self.assertNotIn("SubPhotos", xml)
 
     def test_write_xmp_sidecar_round_trips_ocr_authority_source(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -201,7 +201,7 @@ class TestXMPSidecar(unittest.TestCase):
                 )
             )
 
-    def test_sidecar_has_expected_ai_fields_ignores_creator_tool_mismatch(self):
+    def test_sidecar_has_expected_ai_fields_rejects_creator_tool_mismatch(self):
         with tempfile.TemporaryDirectory() as tmp:
             complete = Path(tmp) / "complete.xmp"
             xmp_sidecar.write_xmp_sidecar(
@@ -233,7 +233,7 @@ class TestXMPSidecar(unittest.TestCase):
                 subphotos=[],
             )
 
-            self.assertTrue(
+            self.assertFalse(
                 xmp_sidecar.sidecar_has_expected_ai_fields(
                     complete,
                     creator_tool="https://github.com/cove/imago",

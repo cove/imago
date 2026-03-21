@@ -49,3 +49,6 @@ cast/data/*.tmp
 
 # MCP job runtime state
 mcp/jobs/
+
+# Skill eval workspaces
+skills/*-workspace/
