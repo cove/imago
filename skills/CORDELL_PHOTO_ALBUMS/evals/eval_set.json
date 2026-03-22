@@ -1,0 +1,82 @@
+[
+  {
+    "query": "hey can you kick off the AI indexing for the Europe 1962 album? just do a small batch of like 5 photos to start",
+    "should_trigger": true
+  },
+  {
+    "query": "the overnight batch finished. a few captions look off — one ends with 'standing in front of the' and nothing else. is that truncated?",
+    "should_trigger": true
+  },
+  {
+    "query": "how many of audrey's photo albums have been processed so far vs still pending?",
+    "should_trigger": true
+  },
+  {
+    "query": "can you start a photoalbums ai index job on China_1986 and let me know when it finishes",
+    "should_trigger": true
+  },
+  {
+    "query": "some captions are saying 'a man' instead of using the actual name from cast — leslie is clearly in the photo. what's going on with people detection?",
+    "should_trigger": true
+  },
+  {
+    "query": "i need to reprocess all the photos in the Scotland album, the captions were generated with the wrong model settings",
+    "should_trigger": true
+  },
+  {
+    "query": "P042.jpg caption ends mid-sentence, no period at the end. can you reprocess just that one photo?",
+    "should_trigger": true
+  },
+  {
+    "query": "none of my photos are getting location metadata even though some have visible place names in the handwriting. is that expected behavior or a bug?",
+    "should_trigger": true
+  },
+  {
+    "query": "ran the index last night on the full collection. can you check the job logs for any errors or quality issues — especially empty captions or truncated ones?",
+    "should_trigger": true
+  },
+  {
+    "query": "what's the manifest summary right now? want to know how many are done vs unknown before i kick off the next batch",
+    "should_trigger": true
+  },
+  {
+    "query": "can you check the cast embeddings for leslie cordell? i want to add a new reference photo from a clearer scan",
+    "should_trigger": false
+  },
+  {
+    "query": "run the vhs conversion on reel_04.avi and monitor it until it's done",
+    "should_trigger": false
+  },
+  {
+    "query": "i need to OCR this PDF invoice and extract the line items into a spreadsheet",
+    "should_trigger": false
+  },
+  {
+    "query": "can you compress all the tiff files in the photo albums folder to save disk space? they're taking up too much storage",
+    "should_trigger": false
+  },
+  {
+    "query": "start a cast face review web session so i can go through the unconfirmed matches",
+    "should_trigger": false
+  },
+  {
+    "query": "generate subtitles for the 1985 family reunion vhs tape in my downloads folder",
+    "should_trigger": false
+  },
+  {
+    "query": "the face detection on my portrait photos keeps flagging paintings and posters as real people — how do i tune the threshold?",
+    "should_trigger": false
+  },
+  {
+    "query": "i need to stitch the oversized double-page spreads in the Japan album before scanning",
+    "should_trigger": false
+  },
+  {
+    "query": "what's the git status of the photoalbums module? want to check before i commit",
+    "should_trigger": false
+  },
+  {
+    "query": "load the xmp metadata from the 1962 europe scans and show me what fields are populated",
+    "should_trigger": false
+  }
+]
