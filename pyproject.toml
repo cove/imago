@@ -48,6 +48,9 @@ testpaths = ["cast/tests", "photoalbums/tests", "vhs/test"]
 # On Windows, colored pytest output has intermittently surfaced as
 # KeyboardInterrupt failures in photoalbums tests via colorama/console handling.
 addopts = "--color=no"
+markers = [
+    "integration: tests that require external services (LM Studio, network) — excluded from pre-push",
+]
 
 [tool.ruff]
 line-length = 120
