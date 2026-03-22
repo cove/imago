@@ -1326,6 +1326,10 @@ def _resolve_location_payload(
     lat_text = str(gps_latitude or "").strip()
     lon_text = str(gps_longitude or "").strip()
     query = str(location_name or "").strip()
+    # Reject generic place-type descriptions (e.g. "a beach", "a park") — they
+    # are not named places and produce spurious Nominatim results.
+    if re.match(r"^(?:a|an)\s+\S", query, re.IGNORECASE):
+        query = ""
     if lat_text and lon_text:
         payload: dict[str, Any] = {
             "gps_latitude": float(lat_text),

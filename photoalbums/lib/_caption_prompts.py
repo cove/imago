@@ -221,7 +221,8 @@ def _build_combined_local_prompt(
         album_title=album_title,
         printed_album_title=printed_album_title,
     )
-    lines = _section("Preamble Combined")
+    preamble = "Preamble Combined Travel" if context.kind == ALBUM_KIND_PHOTO_ESSAY else "Preamble Combined Family"
+    lines = _section(preamble)
     lines.extend(
         _build_shared_prompt_rules(
             context=context,
