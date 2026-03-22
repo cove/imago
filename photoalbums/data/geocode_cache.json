@@ -39,6 +39,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "a beach": {
+    "display_name": "A Beach, Büyükanafarta Köyü, Eceabat, Çanakkale, Marmara Bölgesi, Türkiye",
+    "latitude": "40.3032499",
+    "longitude": "26.2475517",
+    "query": "a beach",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "abu simbel, aswan governorate, egypt": {
     "display_name": "معبدا أبو سمبل, شارع المعبد, مدينة أبو سمبل, أسوان, 81525, مصر",
     "latitude": "22.3371195",
@@ -1591,6 +1599,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "dubronik, yugoslavia": {
+    "query": "Dubronik, Yugoslavia",
+    "status": "miss"
+  },
   "dubronik, yugoslavia - august 1988": {
     "query": "Dubronik, Yugoslavia - August 1988",
     "status": "miss"
@@ -2098,6 +2110,14 @@
   "galata bridge & new mosque, istanbul, turkey": {
     "query": "Galata Bridge & New Mosque, Istanbul, Turkey",
     "status": "miss"
+  },
+  "garden hotel - canton china": {
+    "display_name": "花园酒店, 华乐街道, 越秀区, 广州市, 广东省, 中国",
+    "latitude": "23.1376682",
+    "longitude": "113.2809544",
+    "query": "Garden Hotel - Canton China",
+    "source": "nominatim",
+    "status": "ok"
   },
   "garden hotel, canton (guangzhou), china": {
     "display_name": "花园酒店, 华乐街道, 越秀区, 广州市, 广东省, 中国",
@@ -2743,6 +2763,10 @@
     "query": "Jiayuguan Fort and Great Wall, Jiayuguan, Gansu, China",
     "status": "miss"
   },
+  "jiayuguan fort, china": {
+    "query": "Jiayuguan Fort, China",
+    "status": "miss"
+  },
   "jiayuguan fort, gansu, china": {
     "query": "Jiayuguan Fort, Gansu, China",
     "status": "miss"
@@ -2803,6 +2827,10 @@
     "query": "Jokhang Temple and Potala Palace, Lasa, Tibet, China",
     "status": "miss"
   },
+  "jokhang temple and potala palace, lhasa, tibet": {
+    "query": "Jokhang Temple and Potala Palace, Lhasa, Tibet",
+    "status": "miss"
+  },
   "jokhang temple, lhasa, tibet": {
     "display_name": "ཇོ་ཁང། 大昭寺, 大昭寺广场, བར་སྐོར། 八廓街, ཁྲོམ་གཟིགས་ཁང། 冲赛康, 八廓街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
     "latitude": "29.6528598",
@@ -2824,6 +2852,14 @@
     "latitude": "29.6528598",
     "longitude": "91.1317978",
     "query": "Jokhang Temple, Lhasa, Tibet, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "jokhang temple, tibet": {
+    "display_name": "ཇོ་ཁང། 大昭寺, 大昭寺广场, བར་སྐོར། 八廓街, ཁྲོམ་གཟིགས་ཁང། 冲赛康, 八廓街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
+    "latitude": "29.6528598",
+    "longitude": "91.1317978",
+    "query": "Jokhang Temple, Tibet",
     "source": "nominatim",
     "status": "ok"
   },
@@ -3051,6 +3087,14 @@
     "query": "Klagenfurt and Salzburg, Austria",
     "status": "miss"
   },
+  "klagenfurt, austria": {
+    "display_name": "Klagenfurt am Wörthersee, Kärnten, Österreich",
+    "latitude": "46.6239430",
+    "longitude": "14.3075976",
+    "query": "Klagenfurt, Austria",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "kom ombo, egypt": {
     "display_name": "كوم أمبو, أسوان, 81611, مصر",
     "latitude": "24.4762478",
@@ -3080,6 +3124,14 @@
     "latitude": "25.0418068",
     "longitude": "102.7232123",
     "query": "Kunming Hotel, Kunming, Yunnan, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "kunming, china": {
+    "display_name": "昆明市, 云南省, 中国",
+    "latitude": "25.0399353",
+    "longitude": "102.7169061",
+    "query": "Kunming, China",
     "source": "nominatim",
     "status": "ok"
   },
@@ -3174,6 +3226,14 @@
   "leaving aswan - dec. 1975": {
     "query": "Leaving Aswan - Dec. 1975",
     "status": "miss"
+  },
+  "leopoldskron castle": {
+    "display_name": "Schloss Leopoldskron, 58, Leopoldskronstraße, Riedenburg, Salzburg, 5020, Österreich",
+    "latitude": "47.7883513",
+    "longitude": "13.0386828",
+    "query": "Leopoldskron Castle",
+    "source": "nominatim",
+    "status": "ok"
   },
   "lhasa hotel, lhasa, tibet, china": {
     "display_name": "InterContinental Lhasa Paradise, an IHG Hotel, 纳金路, 纳如社区, 纳金街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
@@ -3666,6 +3726,10 @@
     "query": "Maritime Museum, Greenwich, London, United Kingdom",
     "source": "nominatim",
     "status": "ok"
+  },
+  "market place in lasa": {
+    "query": "Market Place in Lasa",
+    "status": "miss"
   },
   "market place in lasa (lhasa), china": {
     "query": "Market Place in Lasa (Lhasa), China",
@@ -4755,6 +4819,10 @@
     "query": "Sandrington, Hampshire, England",
     "status": "miss"
   },
+  "santa cruz district, seville, spain": {
+    "query": "Santa Cruz District, Seville, Spain",
+    "status": "miss"
+  },
   "santa cruz quarters, seville, spain": {
     "query": "Santa Cruz Quarters, Seville, Spain",
     "status": "miss"
@@ -5443,6 +5511,14 @@
     "query": "Temple of Ramesses II, Temple of Queen Nefertari, Temples of King Ramesses & Queen Nefertari, Egypt",
     "status": "miss"
   },
+  "terra cotta army, china": {
+    "query": "Terra Cotta Army, China",
+    "status": "miss"
+  },
+  "terra cotta army, xi'an, china": {
+    "query": "Terra Cotta Army, Xi'an, China",
+    "status": "miss"
+  },
   "terra cotta army, xi'an, shaanxi, china": {
     "query": "Terra Cotta Army, Xi'an, Shaanxi, China",
     "status": "miss"
@@ -5458,6 +5534,14 @@
   "terracotta army museum, xi'an, shaanxi, china": {
     "query": "Terracotta Army Museum, Xi'an, Shaanxi, China",
     "status": "miss"
+  },
+  "terracotta army, china": {
+    "display_name": "兵马俑连接线, 临潼区, 西安市, 陕西省, 710600, 中国",
+    "latitude": "34.4070947",
+    "longitude": "109.2292877",
+    "query": "Terracotta Army, China",
+    "source": "nominatim",
+    "status": "ok"
   },
   "terracotta army, xi'an, china": {
     "display_name": "兵马俑连接线, 临潼区, 西安市, 陕西省, 710600, 中国",
@@ -5613,6 +5697,10 @@
   },
   "the mohamed aly alabaster mosque - cairo egypt dec. 1975": {
     "query": "The Mohamed Aly Alabaster Mosque - Cairo Egypt Dec. 1975",
+    "status": "miss"
+  },
+  "the new hong kong bank, hong kong": {
+    "query": "The New Hong Kong Bank, Hong Kong",
     "status": "miss"
   },
   "the new hong kong bank, victoria peak, hong kong": {
@@ -5772,6 +5860,14 @@
     "latitude": "39.9027218",
     "longitude": "116.3914409",
     "query": "Tiananmen Square, Beijing, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "tibet": {
+    "display_name": "西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 中国",
+    "latitude": "29.8556443",
+    "longitude": "90.8749807",
+    "query": "Tibet",
     "source": "nominatim",
     "status": "ok"
   },
@@ -6099,6 +6195,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "victoria peak tram, hong kong": {
+    "query": "Victoria Peak Tram, Hong Kong",
+    "status": "miss"
+  },
   "victoria peak tram, hong kong, china": {
     "query": "Victoria Peak Tram, Hong Kong, China",
     "status": "miss"
@@ -6396,6 +6496,14 @@
     "latitude": "36.0738634",
     "longitude": "103.8622600",
     "query": "Yellow River at Lanzhou",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "yellow river at lanzhou, china": {
+    "display_name": "雁滩黄河大桥, 雁北街道, 城关区, 兰州市, 甘肃省, 730046, 中国",
+    "latitude": "36.0738634",
+    "longitude": "103.8622600",
+    "query": "Yellow River at Lanzhou, China",
     "source": "nominatim",
     "status": "ok"
   },

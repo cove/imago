@@ -584,7 +584,7 @@ function deleteSubtitleTimelineEntry(entryIndex) {
       };
     }
   }
-  updateSubtitlesMeta();
+  refreshSubtitlesEditorFromState();
   updateReviewStatsDisplay();
   setStatus('Deleted subtitle entry.');
 }

@@ -111,20 +111,11 @@ location block in the logs.
 - If evidence is insufficient, omit the detail or use the empty string, false, or 0 required by the output schema.
 - Never reference file names, folder names, internal IDs (B02, P01, Archive, View, etc.), scan artifacts, or processing details.
 - Never use phrases like "scanned album page", "this photograph shows", "this image depicts", "this photo", or any similar meta-references in captions.
+- Always try to identify the location, as that this often provides the most value and context for the photo. If the location is uncertain, provide a reason (e.g. "the sign is too blurry to read" or "the architecture suggests it could be in either France or Italy").
 - Write captions in a descriptive first-person voice explaining what's happening in the scene (e.g. "A nice road in the English [assuming the album is about England] country side" not "There appears to be a road in the country side of some country").
+- When a famous landmark is identifiable from its visual appearance and known location, always refer to it by its internationally recognized proper name — do NOT use the album's OCR label if it is a generic description. Example: the famous arched bridge in Mostar is called "Stari Most" — say "Stari Most" not "stone bridge". Similarly, "the Parthenon" not "ancient temple on a hilltop", "the Hagia Sophia" not "a large domed building".
 - When quoting visible text, reproduce it exactly as printed.
 - Think step-by-step internally if needed, but output only the final JSON.
-- The file name system is as follows:
-  - `{album_name}_B##_P##_S##.tif` for page scans
-  - `{album_name}_B##_P##_D##_##.tif` for derived images cropped from page scans
-  - `{album_name}_B##_P##_stitched.jpg` sitched together page scans (when S## > 1)
-  - `B##` = Book ## 
-  - `P##` = Page ##
-  - `S##` = Scan ## (overized pages needed to be scanned in multiple parts)
-  - `D##_##` = Derrived image ## sequence ## (cropped photos from page scans)
-- The directory system is as follows:
-  - `{album_name}_[year]_B##_Archive/` for album archives with full resolution page scans
-  - `{album_name}_[year]_B##_View/` for album images that have been stitched and cropped for easier viewing (derived from the Archive scans)
   
 ## Text Handling & Correction Rules
 - Copy all visible text into `ocr_text` exactly as printed: preserve spelling, capitalization, punctuation, spacing, and line breaks. Do not translate, normalize, or correct.
@@ -138,6 +129,7 @@ location block in the logs.
 - Infer location only from visible text and unmistakable visual landmarks.
 - Use the most specific well-documented place name (landmark, city, province/state, country) the evidence supports.
 - Return `location_name` as an empty string if evidence is low, uncertain, or conflicting.
+- Never use a generic place-type as the location query (e.g. "a beach", "a park", "a field", "a city street"). If no named specific place is identifiable, return an empty string.
 - Do not infer obscure villages, townships, or precise sites without explicit evidence.
 - Output GPS coordinates only when both values are literally visible in the image text; otherwise leave `gps_latitude` and `gps_longitude` empty.
 
@@ -164,11 +156,12 @@ location block in the logs.
   - Travel albums focus on a specific place and time; family albums span many years and locations.
 
 ## Preamble Describe
-- Describe each photo exhaustively yet precisely: include building/bridge styles, landscape features, clothing, vehicles, animals, activities, recognizable locations, colors, technology, time of day, weather, and all clearly visible details. Summarize all supported facts in one accurate sentence with no speculation or inference.
 - Audrey Cordell assembled these albums and frequently appears in photos with her husband Leslie Cordell; identify and name them whenever they are recognizable, but don't say a "women named Audrey Cordell [reset of sentence]", just say "Audrey Cordell [rest of sentence]".
 - Travel albums:
-  - Contain one or more country names in the title; focus on a specific place and time.
   - Write as a travel writer for readers unfamiliar with the place.
+  - Primarly focus on identifing the location, since many are famous locations and tell a lot about the photo.
+  - Contain one or more country names in the title and may contain photos from diffent loctions on a an album page.
+  - Do not use words like "historic" to describe buildings or infrastucutre, rather use more specifc words like ruin, gothic, castle, palace, etc. that paint a more vivid picture in the reader's mind.  
   - Emphasize clearly visible landmarks, activities, time of day, weather, and season.
   - Use vivid, colorful language; incorporate appropriate metaphors/similes to convey mood and atmosphere.
 - Family albums:
@@ -185,10 +178,16 @@ location block in the logs.
     - Woodhaven, Winnipeg, Canada (Audrey’s childhood home)
     - Indianapolis, Indiana (Leslie’s childhood home; many photos with relatives there in the 1980s and 1990s)
 
-## Preamble Combined
+## Preamble Combined Travel
+Analyze this travel photo. Perform both tasks:
+1. Extract all visible text exactly as it appears. If none, output an empty string.
+2. Primary Task: Name the specific location shown — use the proper name of any famous landmark if identifiable (e.g., "Stari Most" not "stone bridge"), then the city and country.
+   Then describe the scene: architecture style, landscape, activity, time of day, weather, or season.
+
+## Preamble Combined Family
 Analyze this photo. Perform both tasks:
 1. Extract all visible text exactly as it appears. If none, output an empty string.
-2. Write one precise sentence describing the scene, including building styles, landscape features, clothing styles, activities, and any other clearly supported details.
+2. Write one precise sentence describing the scene, including the people present, their activities, clothing styles, and setting.
 
 ## Preamble People Count
 Count the number of clearly visible real people in this photo.
@@ -221,6 +220,7 @@ caption: detailed description in first-person family voice using only supported 
 This image is a scanned album page containing multiple photographs.
 Identify each distinct photograph as a rectangle.
 Do not describe the page itself as a "scanned album page" or similar in captions — describe the people and scenes directly.
+Use the internationally recognized proper name for any famous landmark in descriptions — do not use a generic visual label (e.g., "Stari Most" not "stone bridge", "the Acropolis" not "ancient ruins on a hill").
 
 ## Output Format – Describe Page (with photo regions)
 {"caption": "...", "location_name": "...", "photo_regions": [{"x": 0.0, "y": 0.0, "w": 0.5, "h": 0.5, "description": "..."}]}
@@ -234,7 +234,7 @@ photo_regions: list each distinct photograph; x/y/w/h are normalized rectangle c
 
 ocr_text: all visible text exactly as shown, or empty string.
 caption: one sentence describing the scene in first-person family voice using only supported facts.
-location_name: concise geocoding query or empty string.
+location_name: named specific place (landmark, city, or country) only if clearly identifiable — empty string if uncertain or if only a generic place-type (beach, park, field, street) is visible.
 album_title: canonical album title derived solely from visible cover text — only populate for cover or title pages. Romanize book numbers exactly as printed (BOOK 11 → Book II, BOOK II → Book II). Include the year only if it appears on the cover (e.g. "England Book II 1983"). Do not copy, combine, or extend the album title hint; derive only from what is visible. Empty string for all other pages.
 
 ## Output Format – People Count
