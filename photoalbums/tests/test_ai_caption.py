@@ -71,7 +71,7 @@ class TestAICaption(unittest.TestCase):
             prompt,
         )
         self.assertIn("Family Photo Album", prompt)
-        self.assertIn("Preserve visible cover labels exactly as shown", prompt)
+        self.assertIn("Quote any visible cover labels exactly as they appear", prompt)
         self.assertIn("reproduce `BOOK 11` exactly as printed", prompt)
         self.assertIn("interpret it as Book II", prompt)
         self.assertIn("confidence exceeds 95%", prompt)
