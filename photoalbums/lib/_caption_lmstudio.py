@@ -12,7 +12,7 @@ from typing import Callable
 
 from ._caption_album import clean_text
 
-DEFAULT_LMSTUDIO_MAX_NEW_TOKENS = 1024
+DEFAULT_LMSTUDIO_MAX_NEW_TOKENS = 8129
 DEFAULT_LMSTUDIO_BASE_URL = "http://192.168.4.72:1234/v1"
 DEFAULT_LMSTUDIO_TIMEOUT_SECONDS = 300.0
 DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE = 2048
@@ -71,6 +71,7 @@ class CaptionDetails:
     name_suggestions: list[dict[str, object]] = None
     image_regions: list[dict[str, object]] = None
     album_title: str = ""
+    title: str = ""
 
     def __post_init__(self):
         if self.name_suggestions is None:
@@ -96,6 +97,7 @@ class CaptionDetails:
                 and self.name_suggestions == other.name_suggestions
                 and self.image_regions == other.image_regions
                 and self.album_title == other.album_title
+                and self.title == other.title
             )
         if isinstance(other, str):
             return self.text == other
@@ -345,10 +347,12 @@ def _lmstudio_caption_response_format() -> dict[str, object]:
             "schema": {
                 "type": "object",
                 "properties": {
+                    "title": {"type": "string"},
                     "caption": {"type": "string"},
                     "location_name": {"type": "string"},
                 },
                 "required": [
+                    "title",
                     "caption",
                     "location_name",
                 ],
@@ -486,7 +490,7 @@ def _parse_lmstudio_structured_caption_payload(
     value: object,
     *,
     finish_reason: str = "",
-) -> tuple[str, str, str, str, bool, int, list[dict[str, object]]]:
+) -> tuple[str, str, str, str, str, bool, int, list[dict[str, object]]]:
     raw = _decode_lmstudio_text(value)
     text = str(raw or "").strip()
     finish_note = f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
@@ -532,6 +536,7 @@ def _parse_lmstudio_structured_caption_payload(
         raise RuntimeError(
             f"LM Studio structured caption JSON is missing a caption string; raw={preview!r}.{finish_note}"
         )
+    title = clean_text(str(payload.get("title") or ""))
     gps_latitude = _normalize_gps_value(str(payload.get("gps_latitude") or ""), axis="lat")
     gps_longitude = _normalize_gps_value(str(payload.get("gps_longitude") or ""), axis="lon")
     location_name = clean_text(str(payload.get("location_name") or ""))
@@ -543,6 +548,7 @@ def _parse_lmstudio_structured_caption_payload(
     name_suggestions = list(payload.get("name_suggestions") or [])
     return (
         caption,
+        title,
         gps_latitude,
         gps_longitude,
         location_name,
@@ -648,6 +654,7 @@ def _parse_lmstudio_structured_caption(
 ) -> CaptionDetails:
     (
         caption,
+        title,
         gps_latitude,
         gps_longitude,
         location_name,
@@ -657,6 +664,7 @@ def _parse_lmstudio_structured_caption(
     ) = _parse_lmstudio_structured_caption_payload(value, finish_reason=finish_reason)
     return CaptionDetails(
         text=clean_text(caption),
+        title=title,
         gps_latitude=gps_latitude,
         gps_longitude=gps_longitude,
         location_name=location_name,

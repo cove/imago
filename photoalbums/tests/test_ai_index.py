@@ -629,6 +629,114 @@ class TestAIIndex(unittest.TestCase):
             self.assertTrue(analysis.payload["caption"]["people_present"])
             self.assertEqual(analysis.payload["caption"]["estimated_people_count"], 1)
 
+    def test_should_run_people_recovery_auto_when_faces_are_detected(self):
+        self.assertTrue(
+            ai_index._should_run_people_recovery(
+                people_recovery_mode="auto",
+                faces_detected=1,
+                people_matches=[],
+                people_names=[],
+                object_labels=[],
+            )
+        )
+
+    def test_should_run_people_recovery_auto_when_caption_detects_people(self):
+        self.assertTrue(
+            ai_index._should_run_people_recovery(
+                people_recovery_mode="auto",
+                faces_detected=0,
+                people_matches=[],
+                people_names=[],
+                object_labels=[],
+                caption_people_present=True,
+                caption_estimated_people_count=2,
+            )
+        )
+
+    def test_run_image_analysis_runs_people_recovery_when_faces_are_already_detected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "a.jpg"
+            image.write_bytes(b"abc")
+
+            class _Matcher:
+                def __init__(self):
+                    self.last_faces_detected = 0
+                    self.match_calls = 0
+                    self.recovery_calls = 0
+
+                def match_image(self, *_args, **_kwargs):
+                    self.match_calls += 1
+                    self.last_faces_detected = 1
+                    return [
+                        SimpleNamespace(
+                            name="Alice",
+                            score=0.97,
+                            certainty=0.97,
+                            reviewed_by_human=False,
+                            face_id="face-1",
+                            bbox=[10, 10, 20, 20],
+                        )
+                    ]
+
+                def match_image_recovery(self, *_args, **_kwargs):
+                    self.recovery_calls += 1
+                    self.last_faces_detected = 1
+                    return [
+                        SimpleNamespace(
+                            name="Alice",
+                            score=0.99,
+                            certainty=0.99,
+                            reviewed_by_human=False,
+                            face_id="face-1",
+                            bbox=[10, 10, 20, 20],
+                        )
+                    ]
+
+            people_matcher = _Matcher()
+            object_detector = mock.Mock()
+            object_detector.detect_image.return_value = []
+            ocr_engine = mock.Mock()
+            ocr_engine.read_text.return_value = ""
+            caption_engine = mock.Mock()
+            caption_engine.generate.side_effect = [
+                SimpleNamespace(
+                    text="Alice stands outdoors.",
+                    engine="template",
+                    fallback=False,
+                    error="",
+                    people_present=True,
+                    estimated_people_count=1,
+                ),
+                SimpleNamespace(
+                    text="Two people stand outdoors.",
+                    engine="template",
+                    fallback=False,
+                    error="",
+                    people_present=True,
+                    estimated_people_count=1,
+                ),
+            ]
+
+            analysis = ai_index._run_image_analysis(
+                image_path=image,
+                people_matcher=people_matcher,
+                object_detector=object_detector,
+                ocr_engine=ocr_engine,
+                caption_engine=caption_engine,
+                requested_caption_engine="template",
+                requested_caption_model="",
+                ocr_engine_name="none",
+                ocr_language="eng",
+                people_recovery_mode="auto",
+            )
+
+            self.assertEqual(people_matcher.match_calls, 1)
+            self.assertEqual(people_matcher.recovery_calls, 1)
+            self.assertEqual(caption_engine.generate.call_count, 2)
+            self.assertEqual(analysis.people_names, ["Alice"])
+            self.assertEqual(analysis.faces_detected, 1)
+            self.assertEqual(analysis.description, "Alice stands outdoors.")
+
     def test_run_image_analysis_merges_lmstudio_people_count(self):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "a.jpg"
@@ -1400,6 +1508,10 @@ class TestAIIndex(unittest.TestCase):
                     )
                     return []
 
+                def match_image_recovery(self, *_args, **_kwargs):
+                    self.last_faces_detected = 1
+                    return []
+
             matcher = _FakeMatcher(store, image)
 
             with (
@@ -2101,7 +2213,7 @@ class TestAIIndex(unittest.TestCase):
                 "--caption-prompt-file",
                 "/tmp/prompt.txt",
                 "--lmstudio-base-url",
-                "http://localhost:1234",
+                "http://192.168.4.72:1234",
                 "--caption-max-tokens",
                 "64",
                 "--caption-temperature",

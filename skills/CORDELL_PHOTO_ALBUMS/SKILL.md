@@ -1,14 +1,15 @@
 ---
 name: CORDELL_PHOTO_ALBUMS
 description: >-
-  Workflow and prompt templates for AI captioning and indexing of Cordell family photo albums (scanned by
+  Orchestration skill for AI captioning and indexing of Cordell family photo albums (scanned by
   Audrey Cordell). Use this skill whenever: kicking off or monitoring a photoalbums AI indexing job,
   checking the manifest summary (how many photos are done vs pending), reviewing or diagnosing caption
   quality (cut-off captions, empty captions, wrong people names, missing location metadata), reprocessing
-  individual photos, or troubleshooting why captions look wrong. Also contains all vision model prompt
-  templates used by the GLM captioning pipeline (combined OCR+caption, describe, people count, location
-  inference). Invoke any time the user mentions photo albums, Audrey's albums, AI index, manifest summary,
-  caption problems, or specific photo filenames — even if they don't say "skill".
+  individual photos, or troubleshooting why captions look wrong. Also contains shared vision model prompt
+  sections (rules, output formats, hints) used by the GLM captioning pipeline. Album-type-specific
+  preambles live in CORDELL_PHOTO_ALBUMS_TRAVEL and CORDELL_PHOTO_ALBUMS_FAMILY skills. Invoke any time
+  the user mentions photo albums, Audrey's albums, AI index, manifest summary, caption problems, or
+  specific photo filenames — even if they don't say "skill".
 compatibility: >-
   Requires local GPU with GLM vision model (zai-org/glm-4.6v-flash). Model selection configured in
   ai_models.json. Object detection requires YOLO. Face matching requires InsightFace embeddings from Cast.
@@ -31,9 +32,12 @@ This skill serves two purposes that live in the same file:
 **1. Claude workflow** — instructions for using the `imago` MCP tools to run and monitor AI indexing jobs
 on Cordell family photo albums. See the Workflow and Quality Monitoring sections below.
 
-**2. Vision model prompt templates** — sections loaded at runtime by `photoalbums/lib/_caption_prompts.py`
-to assemble prompts sent to the GLM vision model. These sections are parsed by exact `## Section Name`
-heading — do not rename them. Read `references/photoalbums.md` for full pipeline documentation.
+**2. Shared vision model prompt sections** — rules, output formats, and hint templates loaded at runtime
+by `photoalbums/lib/_caption_prompts.py`. These sections are parsed by exact `## Section Name` heading —
+do not rename them. Read `references/photoalbums.md` for full pipeline documentation.
+
+Album-type-specific preambles (`Preamble Describe`, `Preamble Combined Travel`, `Preamble Combined
+Family`) live in the `CORDELL_PHOTO_ALBUMS_TRAVEL` and `CORDELL_PHOTO_ALBUMS_FAMILY` skills.
 
 The pipeline runs four inference modes per image: Combined (OCR + caption in one GLM pass), Describe
 (caption only, separate engine), People Count, and Location. Engine selection and mode branching are
@@ -89,8 +93,8 @@ sentence, it was truncated.
 ### People not named
 **Symptom:** Caption says "a man" or "a woman" instead of a matched name from Cast.
 **Cause:** Face match fell below confidence threshold, or face was occluded. People recovery
-(rembg + looser IOU) fires automatically in `auto` mode — if it still failed, the person likely
-needs a better reference embedding in Cast.
+(rembg + looser IOU) fires automatically in `auto` mode whenever the first pass finds any evidence
+of people — if it still failed, the person likely needs a better reference embedding in Cast.
 
 ### OCR garbled or empty
 **Symptom:** `ocr_text` is nonsense or empty despite visible text in the scan.
@@ -110,11 +114,13 @@ location block in the logs.
 - State only supported facts.
 - If evidence is insufficient, omit the detail or use the empty string, false, or 0 required by the output schema.
 - Never reference file names, folder names, internal IDs (B02, P01, Archive, View, etc.), scan artifacts, or processing details.
-- Never use phrases like "scanned album page", "this photograph shows", "this image depicts", "this photo", or any similar meta-references in captions.
+- Never reference the medium itself: do not use "photograph(s)", "picture(s)", "image(s)", "a collection of photographs", "scanned album page", "this photograph shows", "this image depicts", "this photo", or any similar meta-references in captions. Describe the subjects and scenes directly.
 - Always try to identify the location, as that this often provides the most value and context for the photo. If the location is uncertain, provide a reason (e.g. "the sign is too blurry to read" or "the architecture suggests it could be in either France or Italy").
 - Write captions in a descriptive first-person voice explaining what's happening in the scene (e.g. "A nice road in the English [assuming the album is about England] country side" not "There appears to be a road in the country side of some country").
-- When a famous landmark is identifiable from its visual appearance and known location, always refer to it by its internationally recognized proper name — do NOT use the album's OCR label if it is a generic description. Example: the famous arched bridge in Mostar is called "Stari Most" — say "Stari Most" not "stone bridge". Similarly, "the Parthenon" not "ancient temple on a hilltop", "the Hagia Sophia" not "a large domed building".
+- When any subject in a photo is identifiable by visual appearance — whether a landmark, an artwork, an iconographic figure, an architectural style, a cultural object, or clothing — refer to it by its recognized proper name or description rather than a generic physical description. Apply this at every level of specificity the evidence supports: "the Parthenon" not "ancient ruins on a hill"; "a Buddhist Bodhisattva" not "a figure with a halo"; "a Dunhuang cave mural" not "a painting in red and green tones"; "Byzantine imperial regalia" not "traditional attire".
+- Never use "traditional" as a standalone modifier without naming the tradition — say "Buddhist devotional figures" not "traditional figures", "Mogul architectural details" not "traditional details". When the specific tradition cannot be identified visually, use geographic or cultural context from visible text instead (e.g., "Chinese figures", "Moroccan tilework") rather than falling back to "traditional".
 - When quoting visible text, reproduce it exactly as printed.
+- Describe what things are, not how old they appear — avoid temporal qualifiers like "vintage", "historic", "antique", or "old".
 - Think step-by-step internally if needed, but output only the final JSON.
   
 ## Text Handling & Correction Rules
@@ -124,6 +130,7 @@ location block in the logs.
 - In `ocr_text`, reproduce `BOOK 11` exactly as printed. In caption or location reasoning, interpret it as Book II.
 - Never correct proper names, dates, personal captions, or ambiguous text unless visual evidence is unambiguous.
 - For non-English text: preserve exactly in `ocr_text`; use English translation only in caption or location reasoning.
+- If OCR text reads as a printed caption for the photo (a label or note written under or beside the image in the album), incorporate it naturally into the description rather than ignoring it.
 
 ## Location Rules (strict)
 - Infer location only from visible text and unmistakable visual landmarks.
@@ -132,6 +139,7 @@ location block in the logs.
 - Never use a generic place-type as the location query (e.g. "a beach", "a park", "a field", "a city street"). If no named specific place is identifiable, return an empty string.
 - Do not infer obscure villages, townships, or precise sites without explicit evidence.
 - Output GPS coordinates only when both values are literally visible in the image text; otherwise leave `gps_latitude` and `gps_longitude` empty.
+- Use the established modern name for any place — do not add qualifiers like "now known as" or "formerly called" unless a name change is directly evidenced by something visible in the image.
 
 ## People Rules
 - Count only clearly visible real people in the main photo.
@@ -154,40 +162,6 @@ location block in the logs.
   - Family albums contain "Family" in the title.
   - Travel albums contain one or more country names in the title.
   - Travel albums focus on a specific place and time; family albums span many years and locations.
-
-## Preamble Describe
-- Audrey Cordell assembled these albums and frequently appears in photos with her husband Leslie Cordell; identify and name them whenever they are recognizable, but don't say a "women named Audrey Cordell [reset of sentence]", just say "Audrey Cordell [rest of sentence]".
-- Travel albums:
-  - Write as a travel writer for readers unfamiliar with the place.
-  - Primarly focus on identifing the location, since many are famous locations and tell a lot about the photo.
-  - Contain one or more country names in the title and may contain photos from diffent loctions on a an album page.
-  - Do not use words like "historic" to describe buildings or infrastucutre, rather use more specifc words like ruin, gothic, castle, palace, etc. that paint a more vivid picture in the reader's mind.  
-  - Emphasize clearly visible landmarks, activities, time of day, weather, and season.
-  - Use vivid, colorful language; incorporate appropriate metaphors/similes to convey mood and atmosphere.
-- Family albums:
-  - Contain "Family" in the title; span many years and locations.
-  - Captions are written in the first person by Audrey Cordell; reflect this voice in descriptive captions.
-  - Focus on people present, the event or occasion, and their actions.
-  - Key family references:
-    - "Daddy" = Oliver Dennison (Audrey’s father)
-    - "Mommy" = Maude Dennison (Audrey’s mother)
-    - Gilbert = Audrey’s brother
-    - Leslise Cordell = Audrey’s husband
-  - Important locations:
-    - San Marino, California (family home purchased 1958; frequent setting for holidays, Christmas, dining-room gatherings)
-    - Woodhaven, Winnipeg, Canada (Audrey’s childhood home)
-    - Indianapolis, Indiana (Leslie’s childhood home; many photos with relatives there in the 1980s and 1990s)
-
-## Preamble Combined Travel
-Analyze this travel photo. Perform both tasks:
-1. Extract all visible text exactly as it appears. If none, output an empty string.
-2. Primary Task: Name the specific location shown — use the proper name of any famous landmark if identifiable (e.g., "Stari Most" not "stone bridge"), then the city and country.
-   Then describe the scene: architecture style, landscape, activity, time of day, weather, or season.
-
-## Preamble Combined Family
-Analyze this photo. Perform both tasks:
-1. Extract all visible text exactly as it appears. If none, output an empty string.
-2. Write one precise sentence describing the scene, including the people present, their activities, clothing styles, and setting.
 
 ## Preamble People Count
 Count the number of clearly visible real people in this photo.
@@ -212,8 +186,9 @@ Album classification hint: {album_label}.
 Album focus hint: {album_focus}.
 
 ## Output Format – Describe (full caption)
-{"caption": "..."}
+{"title": "...", "caption": "..."}
 
+title: short title for the photo or page — if there is a printed caption or visible title text on the page (over 15 words counts as a page caption), use that verbatim; otherwise write a brief visual description of the scene.
 caption: detailed description in first-person family voice using only supported facts.
 
 ## Preamble Page Photo Regions
@@ -229,14 +204,6 @@ caption: detailed description in first-person family voice using only supported 
 location_name: concise geocoding query or empty string.
 photo_regions: list each distinct photograph; x/y/w/h are normalized rectangle coordinates (0–1, top-left origin, relative to full image); description is one sentence per photograph. Return an empty list if there are no clearly distinct photographs.
 
-## Output Format – Combined
-{"ocr_text": "...", "caption": "...", "location_name": "...", "album_title": "..."}
-
-ocr_text: all visible text exactly as shown, or empty string.
-caption: one sentence describing the scene in first-person family voice using only supported facts.
-location_name: named specific place (landmark, city, or country) only if clearly identifiable — empty string if uncertain or if only a generic place-type (beach, park, field, street) is visible.
-album_title: canonical album title derived solely from visible cover text — only populate for cover or title pages. Romanize book numbers exactly as printed (BOOK 11 → Book II, BOOK II → Book II). Include the year only if it appears on the cover (e.g. "England Book II 1983"). Do not copy, combine, or extend the album title hint; derive only from what is visible. Empty string for all other pages.
-
 ## Output Format – People Count
 {"people_present": false, "estimated_people_count": 0}
 
@@ -251,12 +218,14 @@ gps_latitude: decimal degrees if explicitly visible in image text, else empty st
 gps_longitude: decimal degrees if explicitly visible in image text, else empty string.
 
 ## People Hint
-Known people: {people_hint}.
-Refer to these people by name in the caption wherever they appear.
+These people have been identified in this photo: {people_hint}.
+Use their names directly in the caption when describing any person in the scene.
+Do not replace provided names with generic phrases like "a man", "a woman", "two people", "a couple", or "tourists".
 
 ## People Hint With Positions
-Known people in this image (deduplicate before referencing): {people_hint}.
-Refer to these people by name in the caption wherever they appear.
+These people have been identified in this photo (deduplicate before referencing): {people_hint}.
+Use their names directly in the caption when describing any person in the scene.
+Do not replace provided names with generic phrases like "a man", "a woman", "two people", "a couple", or "tourists".
 
 ## People Count Hint
 Known identified people: {people_hint}.
@@ -268,5 +237,5 @@ Known identified people (deduplicate before referencing): {people_hint}.
 Detected objects: {object_list}.
 
 ## OCR Hint
-OCR text hint: "{ocr_snippet}".
+OCR text hint: "{ocr_snippet}". If this reads as a printed caption or label for the photo, incorporate it naturally into the description.
 

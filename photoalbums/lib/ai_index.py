@@ -116,7 +116,7 @@ AI_MODEL_MAX_SOURCE_BYTES = 30 * 1024 * 1024
 DEFAULT_CREATOR_TOOL = "https://github.com/cove/imago"
 DEFAULT_MANIFEST_PATH = Path(__file__).resolve().parents[1] / "data" / "ai_index_manifest.jsonl"
 DEFAULT_CAST_STORE = Path(__file__).resolve().parents[2] / "cast" / "data"
-PROCESSOR_SIGNATURE = "page_split_v16_archive_stitched_ocr"
+PROCESSOR_SIGNATURE = "page_split_v17_people_recovery_any_people"
 JOB_ARTIFACTS_ENV = "IMAGO_JOB_ARTIFACTS"
 JOB_ID_ENV = "IMAGO_JOB_ID"
 PROCESSING_LOCK_SUFFIX = ".photoalbums-ai.lock"
@@ -136,6 +136,7 @@ class ImageAnalysis:
     faces_detected: int = 0
     image_regions: list[dict] = None
     album_title: str = ""
+    title: str = ""
 
     def __post_init__(self):
         if self.image_regions is None:
@@ -625,7 +626,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--people-recovery-mode",
         choices=["off", "auto", "always"],
         default="auto",
-        help="Optional second people pass after caption using rembg when people may be missing.",
+        help="Optional second people pass after caption using rembg when any people are detected.",
     )
     parser.add_argument("--min-face-size", type=int, default=40, help="Minimum face size in pixels.")
     parser.add_argument(
@@ -971,6 +972,22 @@ def _estimate_people_from_detections(
     return estimated_people_count > 0, estimated_people_count
 
 
+def _caption_people_name_score(text: str, people_names: list[str] | None = None) -> int:
+    caption_text = str(text or "").casefold()
+    score = 0
+    for name in _dedupe([str(item or "").strip() for item in list(people_names or [])]):
+        if not name:
+            continue
+        normalized_name = name.casefold()
+        if normalized_name in caption_text:
+            score += 2
+            continue
+        first_token = normalized_name.split()[0]
+        if len(first_token) >= 4 and re.search(rf"\b{re.escape(first_token)}\b", caption_text):
+            score += 1
+    return score
+
+
 def _merge_people_estimates(
     *,
     local_people_present: bool,
@@ -1207,6 +1224,8 @@ def _should_run_people_recovery(
     people_matches: list,
     people_names: list[str],
     object_labels: list[str],
+    caption_people_present: bool = False,
+    caption_estimated_people_count: int = 0,
 ) -> bool:
     mode = str(people_recovery_mode or "off").strip().lower()
     if mode == "off":
@@ -1221,9 +1240,12 @@ def _should_run_people_recovery(
         object_labels=object_labels,
         faces_detected=faces_detected,
     )
-    if people_present and int(faces_detected) <= 0:
-        return True
-    return estimated_people_count > int(faces_detected)
+    caption_indicates_people = bool(caption_people_present)
+    try:
+        caption_estimate = max(0, int(caption_estimated_people_count or 0))
+    except Exception:
+        caption_estimate = 0
+    return bool(people_present or estimated_people_count > 0 or caption_indicates_people or caption_estimate > 0)
 
 
 def _maybe_run_people_recovery(
@@ -1259,6 +1281,8 @@ def _maybe_run_people_recovery(
         people_matches=people_matches,
         people_names=people_names,
         object_labels=object_labels,
+        caption_people_present=bool(getattr(caption_output, "people_present", False)),
+        caption_estimated_people_count=int(getattr(caption_output, "estimated_people_count", 0) or 0),
     ):
         return (
             people_matches,
@@ -1285,14 +1309,6 @@ def _maybe_run_people_recovery(
     merged_matches = _merge_people_matches(people_matches, recovered_matches)
     recovered_names = _dedupe([row.name for row in merged_matches] + list(extra_people_names or []))
     recovered_positions = _compute_people_positions(merged_matches, image_path)
-    if list(recovered_names) == list(people_names):
-        return (
-            merged_matches,
-            recovered_names,
-            recovered_positions,
-            caption_output,
-            recovered_faces_detected,
-        )
     if step_fn:
         step_fn("caption")
     recovered_caption = caption_engine.generate(
@@ -1307,6 +1323,10 @@ def _maybe_run_people_recovery(
         is_cover_page=is_cover_page,
         people_positions=recovered_positions,
     )
+    if _caption_people_name_score(recovered_caption.text, recovered_names) < _caption_people_name_score(
+        caption_output.text, recovered_names
+    ):
+        recovered_caption = caption_output
     return (
         merged_matches,
         recovered_names,
@@ -1464,145 +1484,81 @@ def _run_image_analysis(
     ocr_text_override: str | None = None,
     request_photo_regions: bool = False,
 ) -> ImageAnalysis:
-    use_combined = ocr_text_override is None and ocr_engine.engine == "local" and caption_engine.engine == "local"
     page_photo_count = 0 if is_page_scan else 1
 
     with _prepare_ai_model_image(image_path) as model_image_path:
         object_labels: list[str] = []
         is_cover_page = False
-        if use_combined:
-            if step_fn:
-                step_fn("people")
-            people_matches = (
-                people_matcher.match_image(
-                    image_path,
-                    source_path=people_source_path or image_path,
-                    bbox_offset=people_bbox_offset,
-                    hint_text=str(people_hint_text or "").strip(),
-                )
-                if people_matcher
-                else []
-            )
-            if step_fn:
-                step_fn("objects")
-            object_matches = object_detector.detect_image(model_image_path) if object_detector else []
-            people_names = _dedupe([row.name for row in people_matches] + list(extra_people_names or []))
-            object_labels = [row.label for row in object_matches]
-            people_positions = _compute_people_positions(people_matches, image_path)
-            if step_fn:
-                step_fn("ocr+caption")
-            caption_output, ocr_text = caption_engine.generate_combined(
-                image_path=model_image_path,
-                people=people_names,
-                objects=object_labels,
-                source_path=caption_source_path or people_source_path or image_path,
-                album_title=album_title,
-                printed_album_title=printed_album_title,
-                photo_count=page_photo_count,
-                people_positions=people_positions,
-            )
-            ocr_keywords = extract_keywords(ocr_text, max_keywords=15)
-            (
-                people_matches,
-                people_names,
-                people_positions,
-                caption_output,
-                _faces_detected,
-            ) = _maybe_run_people_recovery(
-                people_matcher=people_matcher,
-                people_recovery_mode=people_recovery_mode,
-                image_path=image_path,
-                people_source_path=people_source_path or image_path,
-                people_bbox_offset=people_bbox_offset,
-                people_hint_text=str(people_hint_text or "").strip(),
-                extra_people_names=list(extra_people_names or []),
-                people_matches=people_matches,
-                people_names=people_names,
-                object_labels=object_labels,
-                ocr_text=ocr_text,
-                caption_output=caption_output,
-                caption_engine=caption_engine,
-                model_image_path=model_image_path,
-                caption_source_path=caption_source_path or people_source_path or image_path,
-                album_title=album_title,
-                printed_album_title=printed_album_title,
-                photo_count=page_photo_count,
-                is_cover_page=False,
-                step_fn=step_fn,
-            )
+        if step_fn and ocr_text_override is None:
+            step_fn("ocr")
+        if ocr_text_override is None:
+            ocr_text = ocr_engine.read_text(model_image_path)
         else:
-            if step_fn and ocr_text_override is None:
-                step_fn("ocr")
-            if ocr_text_override is None:
-                ocr_text = ocr_engine.read_text(model_image_path)
-            else:
-                ocr_text = str(ocr_text_override or "").strip()
-            ocr_keywords = extract_keywords(ocr_text, max_keywords=15)
-            combined_hint_text = " ".join(
-                part for part in [str(people_hint_text or "").strip(), ocr_text] if part
-            ).strip()
-            if step_fn:
-                step_fn("people")
-            people_matches = (
-                people_matcher.match_image(
-                    image_path,
-                    source_path=people_source_path or image_path,
-                    bbox_offset=people_bbox_offset,
-                    hint_text=combined_hint_text,
-                )
-                if people_matcher
-                else []
+            ocr_text = str(ocr_text_override or "").strip()
+        ocr_keywords = extract_keywords(ocr_text, max_keywords=15)
+        combined_hint_text = " ".join(part for part in [str(people_hint_text or "").strip(), ocr_text] if part).strip()
+        if step_fn:
+            step_fn("people")
+        people_matches = (
+            people_matcher.match_image(
+                image_path,
+                source_path=people_source_path or image_path,
+                bbox_offset=people_bbox_offset,
+                hint_text=combined_hint_text,
             )
-            if step_fn:
-                step_fn("objects")
-            object_matches = object_detector.detect_image(model_image_path) if object_detector else []
-            people_names = _dedupe([row.name for row in people_matches] + list(extra_people_names or []))
-            object_labels = [row.label for row in object_matches]
-            people_positions = _compute_people_positions(people_matches, image_path)
-            if step_fn:
-                step_fn("caption")
-            is_cover_page = is_page_scan and looks_like_album_cover(image_path, ocr_text=ocr_text)
-            caption_output = caption_engine.generate(
-                image_path=model_image_path,
-                people=people_names,
-                objects=object_labels,
-                ocr_text=ocr_text,
-                source_path=caption_source_path or people_source_path or image_path,
-                album_title=album_title,
-                printed_album_title=printed_album_title,
-                photo_count=page_photo_count,
-                is_cover_page=is_cover_page,
-                people_positions=people_positions,
-                request_photo_regions=request_photo_regions,
-            )
-            (
-                people_matches,
-                people_names,
-                people_positions,
-                caption_output,
-                _faces_detected,
-            ) = _maybe_run_people_recovery(
-                people_matcher=people_matcher,
-                people_recovery_mode=people_recovery_mode,
-                image_path=image_path,
-                people_source_path=people_source_path or image_path,
-                people_bbox_offset=people_bbox_offset,
-                people_hint_text=str(people_hint_text or "").strip(),
-                extra_people_names=list(extra_people_names or []),
-                people_matches=people_matches,
-                people_names=people_names,
-                object_labels=object_labels,
-                ocr_text=ocr_text,
-                caption_output=caption_output,
-                caption_engine=caption_engine,
-                model_image_path=model_image_path,
-                caption_source_path=caption_source_path or people_source_path or image_path,
-                album_title=album_title,
-                printed_album_title=printed_album_title,
-                photo_count=page_photo_count,
-                is_cover_page=is_cover_page,
-                step_fn=step_fn,
-            )
+            if people_matcher
+            else []
+        )
+        if step_fn:
+            step_fn("objects")
+        object_matches = object_detector.detect_image(model_image_path) if object_detector else []
+        people_names = _dedupe([row.name for row in people_matches] + list(extra_people_names or []))
+        object_labels = [row.label for row in object_matches]
+        people_positions = _compute_people_positions(people_matches, image_path)
+        if step_fn:
+            step_fn("caption")
+        is_cover_page = is_page_scan and looks_like_album_cover(image_path, ocr_text=ocr_text)
+        caption_output = caption_engine.generate(
+            image_path=model_image_path,
+            people=people_names,
+            objects=object_labels,
+            ocr_text=ocr_text,
+            source_path=caption_source_path or people_source_path or image_path,
+            album_title=album_title,
+            printed_album_title=printed_album_title,
+            photo_count=page_photo_count,
+            is_cover_page=is_cover_page,
+            people_positions=people_positions,
+            request_photo_regions=request_photo_regions,
+        )
+        (
+            people_matches,
+            people_names,
+            people_positions,
+            caption_output,
+            _faces_detected,
+        ) = _maybe_run_people_recovery(
+            people_matcher=people_matcher,
+            people_recovery_mode=people_recovery_mode,
+            image_path=image_path,
+            people_source_path=people_source_path or image_path,
+            people_bbox_offset=people_bbox_offset,
+            people_hint_text=str(people_hint_text or "").strip(),
+            extra_people_names=list(extra_people_names or []),
+            people_matches=people_matches,
+            people_names=people_names,
+            object_labels=object_labels,
+            ocr_text=ocr_text,
+            caption_output=caption_output,
+            caption_engine=caption_engine,
+            model_image_path=model_image_path,
+            caption_source_path=caption_source_path or people_source_path or image_path,
+            album_title=album_title,
+            printed_album_title=printed_album_title,
+            photo_count=page_photo_count,
+            is_cover_page=is_cover_page,
+            step_fn=step_fn,
+        )
 
     if "_faces_detected" not in locals():
         _faces_detected = (
@@ -1693,6 +1649,7 @@ def _run_image_analysis(
         faces_detected=_faces_detected,
         image_regions=list(getattr(caption_output, "image_regions", None) or []),
         album_title=str(getattr(caption_output, "album_title", "") or ""),
+        title=str(getattr(caption_output, "title", "") or ""),
     )
 
 
@@ -3012,6 +2969,7 @@ def run(argv: list[str] | None = None) -> int:
                         creator_tool=creator_tool,
                         person_names=person_names,
                         subjects=subjects,
+                        title=analysis.title,
                         description=description,
                         album_title=_resolve_album_title_hint(image_path, album_title_cache),
                         gps_latitude=str(location_payload.get("gps_latitude") or ""),

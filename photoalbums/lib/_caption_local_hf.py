@@ -6,7 +6,6 @@ from pathlib import Path
 from .model_store import HF_MODEL_CACHE_DIR
 from .ai_ocr import (
     DEFAULT_LOCAL_OCR_MAX_IMAGE_EDGE,
-    DEFAULT_LOCAL_OCR_MAX_NEW_TOKENS,
     DEFAULT_LOCAL_OCR_MODEL,
     _load_hf_model,
     _load_hf_transformers,
@@ -14,7 +13,6 @@ from .ai_ocr import (
     _resolve_local_hf_snapshot,
 )
 from ._caption_album import clean_text
-from ._caption_prompts import _build_combined_local_prompt
 from .ai_page_layout import _normalize_enum_str
 from ._caption_lmstudio import (
     CaptionDetails,
@@ -52,8 +50,10 @@ def _parse_local_json_output(raw: str) -> CaptionDetails:
             except Exception:
                 estimated_people_count = 0
             name_suggestions = list(payload.get("name_suggestions") or [])
+            title = clean_text(str(payload.get("title") or ""))
             return CaptionDetails(
                 text=clean_text(caption),
+                title=title,
                 gps_latitude=gps_latitude,
                 gps_longitude=gps_longitude,
                 location_name=location_name,
@@ -62,39 +62,6 @@ def _parse_local_json_output(raw: str) -> CaptionDetails:
                 name_suggestions=name_suggestions,
             )
     return CaptionDetails(text=clean_text(text))
-
-
-def _parse_local_combined_json_output(raw: str) -> tuple[str, CaptionDetails]:
-    """Parse structured JSON output from a combined OCR+caption local HF inference.
-    Returns (ocr_text, caption_details).
-    """
-    text = str(raw or "").strip()
-    stripped = re.sub(r"<tool_call>.*?<tool_call>", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
-    if stripped:
-        text = stripped
-    payload = _extract_structured_json_payload(text)
-    if payload is not None:
-        ocr_text = _normalize_ocr_text(str(payload.get("ocr_text") or ""))
-        caption = payload.get("caption")
-        if isinstance(caption, str) and caption.strip():
-            people_present = bool(payload.get("people_present") or False)
-            try:
-                estimated_people_count = max(0, int(payload.get("estimated_people_count") or 0))
-            except Exception:
-                estimated_people_count = 0
-            name_suggestions = list(payload.get("name_suggestions") or [])
-            album_title = clean_text(str(payload.get("album_title") or ""))
-            return (
-                ocr_text,
-                CaptionDetails(
-                    text=clean_text(caption),
-                    people_present=people_present,
-                    estimated_people_count=estimated_people_count,
-                    name_suggestions=name_suggestions,
-                    album_title=album_title,
-                ),
-            )
-    return "", CaptionDetails(text=clean_text(text))
 
 
 class LocalHFCaptioner:
@@ -265,29 +232,3 @@ class LocalHFCaptioner:
                 working_image.close()
             image.close()
 
-    def describe_combined(
-        self,
-        image_path: str | Path,
-        *,
-        people: list[str],
-        objects: list[str],
-        source_path: str | Path | None = None,
-        album_title: str = "",
-        printed_album_title: str = "",
-        is_cover_page: bool = False,
-        people_positions: dict[str, str] | None = None,
-    ) -> tuple[str, CaptionDetails]:
-        """Single inference that returns (ocr_text, caption_details)."""
-        self._ensure_loaded()
-        prompt = _build_combined_local_prompt(
-            people=people,
-            objects=objects,
-            source_path=source_path or image_path,
-            album_title=album_title,
-            printed_album_title=printed_album_title,
-            is_cover_page=is_cover_page,
-            people_positions=people_positions,
-        )
-        max_tokens = self.max_new_tokens + DEFAULT_LOCAL_OCR_MAX_NEW_TOKENS
-        raw = self._infer_raw(image_path, prompt, max_new_tokens=max_tokens)
-        return _parse_local_combined_json_output(raw)

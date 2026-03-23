@@ -39,6 +39,8 @@ def _position_label(cx: float, cy: float) -> str:
 # ---------------------------------------------------------------------------
 
 _SKILL_FILE = Path(__file__).parent.parent.parent / "skills" / "CORDELL_PHOTO_ALBUMS" / "SKILL.md"
+_SKILL_FILE_TRAVEL = Path(__file__).parent.parent.parent / "skills" / "CORDELL_PHOTO_ALBUMS_TRAVEL" / "SKILL.md"
+_SKILL_FILE_FAMILY = Path(__file__).parent.parent.parent / "skills" / "CORDELL_PHOTO_ALBUMS_FAMILY" / "SKILL.md"
 
 
 def _parse_skill(path: Path) -> dict[str, list[str]]:
@@ -58,10 +60,17 @@ def _parse_skill(path: Path) -> dict[str, list[str]]:
 
 @lru_cache(maxsize=1)
 def _skill() -> dict[str, list[str]]:
-    try:
-        return _parse_skill(_SKILL_FILE)
-    except FileNotFoundError:
-        return {}
+    return _parse_skill(_SKILL_FILE)
+
+
+@lru_cache(maxsize=1)
+def _skill_travel() -> dict[str, list[str]]:
+    return _parse_skill(_SKILL_FILE_TRAVEL)
+
+
+@lru_cache(maxsize=1)
+def _skill_family() -> dict[str, list[str]]:
+    return _parse_skill(_SKILL_FILE_FAMILY)
 
 
 def _section(*names: str, **kwargs: str) -> list[str]:
@@ -69,8 +78,15 @@ def _section(*names: str, **kwargs: str) -> list[str]:
 
     Lines where any substituted variable resolves to an empty string are dropped.
     """
+    return _section_from(_skill(), *names, **kwargs)
+
+
+def _section_from(skill: dict[str, list[str]], *names: str, **kwargs: str) -> list[str]:
+    """Return lines from named sections of a specific skill dict with {var} substitution.
+
+    Lines where any substituted variable resolves to an empty string are dropped.
+    """
     lines: list[str] = []
-    skill = _skill()
     for name in names:
         for raw in skill.get(name, []):
             rendered, drop = _render_line(raw, kwargs)
@@ -113,7 +129,6 @@ def _build_shared_prompt_rules(
     source_path: str | Path | None,
     people_list: list[str],
     object_list: list[str],
-    combined: bool = False,
     is_cover_page: bool = False,
     people_positions: dict[str, str] | None = None,
 ) -> list[str]:
@@ -177,7 +192,8 @@ def _build_local_prompt(
         album_title=album_title,
         printed_album_title=printed_album_title,
     )
-    lines = _section("Preamble Describe")
+    album_skill = _skill_travel() if context.kind == ALBUM_KIND_PHOTO_ESSAY else _skill_family()
+    lines = _section_from(album_skill, "Preamble Describe")
     lines.extend(
         _build_shared_prompt_rules(
             context=context,
@@ -200,42 +216,6 @@ def _build_local_prompt(
         lines.extend(_section("Output Format – Describe (full caption)"))
     return "\n".join(lines)
 
-
-def _build_combined_local_prompt(
-    *,
-    people: list[str],
-    objects: list[str],
-    source_path: str | Path | None = None,
-    album_title: str = "",
-    printed_album_title: str = "",
-    is_cover_page: bool = False,
-    people_positions: dict[str, str] | None = None,
-) -> str:
-    """Prompt that requests both OCR text and a caption in a single inference."""
-    people_list = dedupe(people)
-    object_list = dedupe(objects)
-    context = infer_album_context(
-        image_path=source_path,
-        ocr_text="",
-        allow_ocr=False,
-        album_title=album_title,
-        printed_album_title=printed_album_title,
-    )
-    preamble = "Preamble Combined Travel" if context.kind == ALBUM_KIND_PHOTO_ESSAY else "Preamble Combined Family"
-    lines = _section(preamble)
-    lines.extend(
-        _build_shared_prompt_rules(
-            context=context,
-            source_path=source_path,
-            people_list=people_list,
-            object_list=object_list,
-            combined=True,
-            is_cover_page=is_cover_page,
-            people_positions=people_positions,
-        )
-    )
-    lines.extend(_section("Output Format – Combined"))
-    return "\n".join(lines)
 
 
 def _build_people_count_prompt(

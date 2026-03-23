@@ -11,7 +11,7 @@ Each image is processed by `_run_image_analysis()`, which runs one of two branch
 1. People detection: match faces against Cast embeddings. No prior context.
 2. Object detection: run YOLO on the model-prepared image. Independent of people.
 3. OCR + Caption (single inference): extract visible text and generate a one-sentence description simultaneously. Receives people names, object labels, and spatial positions computed from face bounding boxes.
-4. People recovery (conditional): if recovery mode is not off, and the estimated people count is greater than the number of faces detected (including the case where people are indicated by objects or caption but zero faces were detected), re-run face detection using rembg background removal and a looser IOU threshold (0.30 vs 0.55 normally). If the recovered people list differs from the original, regenerate the caption with the updated names.
+4. People recovery (conditional): if recovery mode is not off, and the first pass finds any evidence of people (faces, matched names, YOLO `person` objects, or caption people-count output), re-run face detection using rembg background removal and a looser IOU threshold (0.30 vs 0.55 normally). If the recovered people list differs from the original, regenerate the caption with the updated names.
 
 ### Separate Mode (OCR and caption as independent steps)
 
@@ -41,7 +41,7 @@ Assemble an `ImageAnalysis` object with: image path, people names, object labels
 - If the caption engine is set to `none`, captioning and location inference are skipped.
 - If OCR override is provided, the OCR step is skipped.
 - If caption generation fails, the fallback flag is set and an empty caption is returned; the pipeline continues.
-- People recovery can be forced on (`always`), forced off (`off`), or set to `auto` (default). For `auto`, trigger if estimated people count exceeds detected face count — including when zero faces were detected but objects or caption indicate people are present.
+- People recovery can be forced on (`always`), forced off (`off`), or set to `auto` (default). For `auto`, trigger whenever the first pass finds any evidence of people.
 
 ---
 
@@ -105,7 +105,7 @@ Expected location output: `{"location_name": "", "gps_latitude": "48.8566", "gps
 
 **Caption names a person as "a man" / "a woman" instead of using a matched name**
 Cause: Face match confidence fell below threshold, or face was not detected (occluded, turned away, cluttered background).
-Solution: People recovery (rembg) fires automatically in `auto` mode when estimated people count exceeds detected faces — including zero detections. If recovery still fails, the person may need a better reference embedding in Cast. Force recovery with `always` mode to bypass the auto threshold check.
+Solution: People recovery (rembg) fires automatically in `auto` mode whenever the first pass finds any evidence of people. If recovery still fails, the person may need a better reference embedding in Cast. Force recovery with `always` mode to bypass the auto evidence check.
 
 **OCR text is empty or garbled on a page with visible handwriting**
 Cause: Low-contrast, faded, or angled handwriting; dark or sepia-toned scans reduce OCR accuracy.

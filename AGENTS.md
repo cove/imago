@@ -18,7 +18,10 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 
 - Project-local skills live under `skills/`.
 - Check `skills/` before changing AI prompting, captioning, indexing, or other model-behavior workflows in this repo.
-- The main current skill is `skills/CORDELL_PHOTO_ALBUMS/SKILL.md`.
+- The base skill is `skills/CORDELL_PHOTO_ALBUMS/SKILL.md` (orchestration, shared rules, shared prompt sections).
+- Travel album prompts live in `skills/CORDELL_PHOTO_ALBUMS_TRAVEL/SKILL.md`.
+- Family album prompts live in `skills/CORDELL_PHOTO_ALBUMS_FAMILY/SKILL.md`.
+- `_caption_prompts.py` loads `Preamble Describe` from the album-type skill; all other sections from the base skill.
 - Supporting skill documentation may live next to a skill under `references/` or as additional markdown files in `skills/`.
 - If code loads prompt sections from a `SKILL.md`, update the skill file rather than adding brittle response post-processing in Python.
 
