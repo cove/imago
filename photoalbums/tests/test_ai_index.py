@@ -2233,7 +2233,7 @@ class TestAIIndex(unittest.TestCase):
         self.assertEqual(args.caption_model, "qwen2.5-vl-instruct")
         self.assertEqual(args.caption_prompt, "Describe this exact image")
         self.assertEqual(args.caption_prompt_file, "/tmp/prompt.txt")
-        self.assertEqual(args.lmstudio_base_url, "http://localhost:1234")
+        self.assertEqual(args.lmstudio_base_url, "http://192.168.4.72:1234")
         self.assertEqual(args.caption_max_tokens, 64)
         self.assertAlmostEqual(args.caption_temperature, 0.1)
         self.assertEqual(args.caption_max_edge, 1024)
