@@ -407,6 +407,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "beihai park, beijing, china": {
+    "display_name": "北海公园, 什刹海街道, 首都功能核心区, 西城区, 北京市, 100032, 中国",
+    "latitude": "39.9264023",
+    "longitude": "116.3824632",
+    "query": "Beihai Park, Beijing, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "beijing, china": {
     "display_name": "北京市, 中国",
     "latitude": "39.9057136",
@@ -1090,6 +1098,14 @@
   "chengdu, sichuan, china; tibet, china": {
     "query": "Chengdu, Sichuan, China; Tibet, China",
     "status": "miss"
+  },
+  "chenou": {
+    "display_name": "Chenou, Fontainebleau, Seine-et-Marne, France métropolitaine, 77570, France",
+    "latitude": "48.1655515",
+    "longitude": "2.6592070",
+    "query": "Chenou",
+    "source": "nominatim",
+    "status": "ok"
   },
   "chenou, china": {
     "display_name": "陈塸镇, 高平市, 晋城市, 山西省, 中国",
@@ -2577,6 +2593,10 @@
   },
   "hua qing hot springs, china": {
     "query": "Hua Qing Hot Springs, China",
+    "status": "miss"
+  },
+  "hua qing hot springs, qin ling mountains": {
+    "query": "Hua Qing Hot Springs, Qin Ling Mountains",
     "status": "miss"
   },
   "hua qing hot springs, qin ling mountains, china": {
@@ -4359,6 +4379,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "portal palace, china": {
+    "query": "Portal Palace, China",
+    "status": "miss"
+  },
   "portala palace": {
     "query": "Portala Palace",
     "status": "miss"
@@ -4900,6 +4924,14 @@
     "latitude": "54.2820009",
     "longitude": "-0.4011868",
     "query": "Scarborough, Yorkshire, England",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "sera monastery": {
+    "display_name": "སེ་ར་དགོན། 色拉寺, 色拉北路, སྔགས་པ་གླིང་ཁའི་སྡེ་ཁུལ། 阿坝林卡社区, 娘热街道 ཉང་བྲན་ཁྲོམ་གཞུང།, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
+    "latitude": "29.6978525",
+    "longitude": "91.1328962",
+    "query": "Sera Monastery",
     "source": "nominatim",
     "status": "ok"
   },
@@ -5746,6 +5778,10 @@
     "query": "The Pavilion, Brighton, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "the potala palace in lhasa, tibet": {
+    "query": "The Potala Palace in Lhasa, Tibet",
+    "status": "miss"
   },
   "the quay and priory, christchurch": {
     "query": "The Quay and Priory, Christchurch",

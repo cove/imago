@@ -36,7 +36,6 @@ from ._caption_lmstudio import (  # noqa: F401
     normalize_lmstudio_base_url,
 )
 from ._caption_prompts import (  # noqa: F401
-    _build_combined_local_prompt,
     _build_describe_prompt,
     _build_location_prompt,
     _build_people_count_prompt,
@@ -50,7 +49,6 @@ from ._caption_local_hf import (  # noqa: F401
     LOCAL_ATTN_IMPLEMENTATIONS,
     LocalHFCaptioner,
     _load_hf_transformers,
-    _parse_local_combined_json_output,
     _parse_local_json_output,
     _resolve_local_hf_snapshot,
     normalize_local_attn_implementation,
@@ -241,61 +239,6 @@ class CaptionEngine:
             )
         except Exception as exc:
             return CaptionOutput(text="", engine=self.engine, fallback=True, error=str(exc))
-
-    def generate_combined(
-        self,
-        image_path: str | Path,
-        *,
-        people: list[str],
-        objects: list[str],
-        source_path: str | Path | None = None,
-        album_title: str = "",
-        printed_album_title: str = "",
-        photo_count: int = 1,
-        is_cover_page: bool = False,
-        people_positions: dict[str, str] | None = None,
-    ) -> tuple[CaptionOutput, str]:
-        """Single local HF inference for both OCR and caption. Returns (CaptionOutput, ocr_text).
-        Only valid when engine == 'local'. Falls back to empty ocr_text on error."""
-        if self.engine != "local":
-            return (
-                CaptionOutput(
-                    text="",
-                    engine=self.engine,
-                    fallback=True,
-                    error="generate_combined requires local engine",
-                ),
-                "",
-            )
-        self._ensure_captioner()
-        _kw = {
-            "people": people,
-            "objects": objects,
-            "source_path": source_path or image_path,
-            "album_title": album_title,
-            "printed_album_title": printed_album_title,
-            "is_cover_page": is_cover_page,
-            "people_positions": people_positions,
-        }
-        try:
-            ocr_text, caption = self._captioner.describe_combined(image_path=image_path, **_kw)
-            return (
-                CaptionOutput(
-                    text=caption.text,
-                    engine=self.engine,
-                    people_present=bool(getattr(caption, "people_present", False)),
-                    estimated_people_count=max(0, int(getattr(caption, "estimated_people_count", 0) or 0)),
-                    fallback=not caption.text,
-                    error=("" if caption.text else "Local HF combined returned empty description."),
-                    album_title=str(getattr(caption, "album_title", "") or ""),
-                ),
-                ocr_text,
-            )
-        except Exception as exc:
-            return (
-                CaptionOutput(text="", engine=self.engine, fallback=True, error=str(exc)),
-                "",
-            )
 
     def estimate_people(
         self,

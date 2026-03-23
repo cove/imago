@@ -247,6 +247,7 @@ def build_xmp_tree(
     creator_tool: str,
     person_names: list[str],
     subjects: list[str],
+    title: str = "",
     description: str,
     album_title: str,
     gps_latitude: str,
@@ -270,6 +271,7 @@ def build_xmp_tree(
 
     _add_bag(desc, f"{{{DC_NS}}}subject", _dedupe(subjects))
     _add_bag(desc, f"{{{IPTC_EXT_NS}}}PersonInImage", _dedupe(person_names))
+    _add_alt_text(desc, f"{{{DC_NS}}}title", title)
     _add_alt_text(desc, f"{{{DC_NS}}}description", description)
     if str(album_title or "").strip():
         _add_simple_text(desc, f"{{{IMAGO_NS}}}AlbumTitle", str(album_title or "").strip())
@@ -474,6 +476,7 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
             detections_payload = parsed
     return {
         "creator_tool": str(desc.findtext(f"{{{XMP_NS}}}CreatorTool", default="") or "").strip(),
+        "title": _get_alt_text(desc, f"{{{DC_NS}}}title"),
         "description": _get_alt_text(desc, f"{{{DC_NS}}}description"),
         "album_title": str(desc.findtext(f"{{{IMAGO_NS}}}AlbumTitle", default="") or "").strip(),
         "gps_latitude": str(desc.findtext(f"{{{EXIF_NS}}}GPSLatitude", default="") or "").strip(),
@@ -563,6 +566,7 @@ def _merge_xmp_tree(
     creator_tool: str,
     person_names: list[str],
     subjects: list[str],
+    title: str = "",
     description: str,
     album_title: str,
     gps_latitude: str,
@@ -582,6 +586,7 @@ def _merge_xmp_tree(
     desc = _get_or_create_rdf_desc(tree)
     _set_bag(desc, f"{{{DC_NS}}}subject", subjects)
     _set_bag(desc, f"{{{IPTC_EXT_NS}}}PersonInImage", person_names)
+    _set_alt_text(desc, f"{{{DC_NS}}}title", title)
     _set_alt_text(desc, f"{{{DC_NS}}}description", description)
     _set_simple_text(desc, f"{{{IMAGO_NS}}}AlbumTitle", str(album_title or "").strip())
     _set_gps_fields(desc, gps_latitude, gps_longitude)
@@ -638,6 +643,7 @@ def write_xmp_sidecar(
     creator_tool: str,
     person_names: list[str],
     subjects: list[str],
+    title: str = "",
     description: str,
     ocr_text: str,
     album_title: str = "",
@@ -667,6 +673,7 @@ def write_xmp_sidecar(
             creator_tool=creator_tool,
             person_names=person_names,
             subjects=subjects,
+            title=title,
             description=description,
             album_title=album_title,
             gps_latitude=gps_latitude,
@@ -689,6 +696,7 @@ def write_xmp_sidecar(
             creator_tool=creator_tool,
             person_names=person_names,
             subjects=subjects,
+            title=title,
             description=description,
             album_title=album_title,
             gps_latitude=gps_latitude,

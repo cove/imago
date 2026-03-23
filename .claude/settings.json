@@ -1,4 +1,33 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(find \"C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums\" -name *.xmp -type f)",
+      "Bash(find \"C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums\" -name *.xmp -exec grep -l \"SubPhotos\\\\|subphotos\" {})",
+      "Bash(2)",
+      "Bash(find \"C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums\" -name *.xmp -exec grep -l subphotos:s*[s*{ {})",
+      "Bash(find /c/Users/covec/OneDrive -name China_1986*xmp)",
+      "Bash(find /c/Users/covec -path *China_1986* -name *.xmp)",
+      "Bash(find /c/Users/covec/Videos/imago -name photoalbums.md -o -name *photoalbums* -type f)",
+      "Bash(grep -r \"people\\\\.json\\\\|faces\\\\.jsonl\\\\|PersonInImage\" /c/Users/covec/Videos/imago/photoalbums/lib/*.py)",
+      "Bash(find /c/Users/covec/OneDrive -type f -name *.xmp)",
+      "Bash(find /c/Users/covec/Videos/imago/photoalbums/tests -type f -name *.json*)",
+      "Bash(python3 -m json.tool)",
+      "Bash(python3 -c \"import sys, json; print\\(json.dumps\\(json.load\\(sys.stdin\\), indent=2\\)\\)\")",
+      "Bash(python3 -c \"import sys, json; d=json.load\\(sys.stdin\\); print\\(''''Keys:'''', sorted\\(d.keys\\(\\)\\)\\)\")",
+      "Bash(find \"/c/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums\" -name *P11*.xmp)",
+      "Bash(find \"/c/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums\" -name \"*P11*\" \\\\\\( -iname \"*.tif\" -o -iname \"*.jpg\" -o -iname \"*.jpeg\" \\\\\\))",
+      "Bash(grep -l \"def test_\" /c/Users/covec/Videos/imago/photoalbums/tests/*.py)",
+      "Bash(xargs -I {} basename {})",
+      "Bash(wc -l /c/Users/covec/Videos/imago/photoalbums/tests/*.py)",
+      "Bash(wc -l /c/Users/covec/Videos/imago/photoalbums/lib/*.py)",
+      "Bash(ls -la c:/Users/covec/Videos/imago/skills/CORDELL_PHOTO_ALBUMS*/)",
+      "Bash(grep -n \"use_combined\\\\|generate_combined\" photoalbums/tests/*.py)",
+      "Bash(grep -n \"def generate_combined\\\\|def describe_combined\" /c/Users/covec/Videos/imago/photoalbums/lib/*.py)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:1234/v1/models)",
+      "Bash(curl -s -o /dev/null -w %{http_code} http://localhost:1234/)",
+      "Bash(curl -s -o /dev/null -w %{http_code} http://127.0.0.1:1234/v1/models)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -11,14 +40,6 @@
           }
         ]
       }
-    ]
-  },
-  "permissions": {
-    "allow": [
-      "Bash(find \"C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums\" -name *.xmp -type f)",
-      "Bash(find \"C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums\" -name *.xmp -exec grep -l \"SubPhotos\\\\|subphotos\" {})",
-      "Bash(2)",
-      "Bash(find \"C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums\" -name *.xmp -exec grep -l subphotos:s*[s*{ {})"
     ]
   }
 }
