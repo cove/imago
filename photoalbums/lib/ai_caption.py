@@ -33,14 +33,16 @@ from ._caption_lmstudio import (  # noqa: F401
     _parse_lmstudio_structured_caption_payload,
     _resize_caption_image,
     _select_lmstudio_model,
+    describe_system_prompt,
+    location_system_prompt,
     normalize_lmstudio_base_url,
+    people_count_system_prompt,
 )
 from ._caption_prompts import (  # noqa: F401
     _build_describe_prompt,
     _build_location_prompt,
     _build_people_count_prompt,
     _build_local_prompt,
-    _build_shared_prompt_rules,
     _should_apply_album_prompt_rules,
 )
 from ._caption_local_hf import (  # noqa: F401
@@ -53,6 +55,32 @@ from ._caption_local_hf import (  # noqa: F401
     _resolve_local_hf_snapshot,
     normalize_local_attn_implementation,
 )
+
+
+def _emit_prompt_debug(
+    debug_recorder,
+    *,
+    step: str,
+    engine: str,
+    model: str,
+    prompt: str,
+    system_prompt: str = "",
+    source_path: str | Path | None = None,
+    prompt_source: str = "",
+    metadata: dict | None = None,
+) -> None:
+    if not callable(debug_recorder):
+        return
+    debug_recorder(
+        step=str(step or "").strip(),
+        engine=str(engine or "").strip(),
+        model=str(model or "").strip(),
+        prompt=str(prompt or ""),
+        system_prompt=str(system_prompt or ""),
+        source_path=source_path,
+        prompt_source=str(prompt_source or "").strip(),
+        metadata=dict(metadata or {}),
+    )
 
 
 def resolve_caption_model(engine: str, model_name: str) -> str:
@@ -197,6 +225,8 @@ class CaptionEngine:
         is_cover_page: bool = False,
         people_positions: dict[str, str] | None = None,
         request_photo_regions: bool = False,
+        debug_recorder=None,
+        debug_step: str = "caption",
     ) -> CaptionOutput:
         if self.engine == "none":
             return CaptionOutput(text="", engine="none")
@@ -213,6 +243,21 @@ class CaptionEngine:
             is_cover_page=is_cover_page,
             people_positions=people_positions,
             request_photo_regions=use_page_mode,
+        )
+        _emit_prompt_debug(
+            debug_recorder,
+            step=debug_step,
+            engine=self.engine,
+            model=self.effective_model_name,
+            prompt=prompt,
+            system_prompt=(describe_system_prompt(page_mode=use_page_mode) if self.engine == "lmstudio" else ""),
+            source_path=source_path or image_path,
+            prompt_source=("custom" if self._caption_prompt else "skill"),
+            metadata={
+                "is_cover_page": bool(is_cover_page),
+                "request_photo_regions": bool(use_page_mode),
+                "photo_count": int(photo_count),
+            },
         )
         try:
             if use_page_mode:
@@ -253,6 +298,8 @@ class CaptionEngine:
         album_title: str = "",
         printed_album_title: str = "",
         people_positions: dict[str, str] | None = None,
+        debug_recorder=None,
+        debug_step: str = "people_count",
     ) -> PeopleCountOutput:
         if self.engine != "lmstudio":
             return PeopleCountOutput(
@@ -269,6 +316,17 @@ class CaptionEngine:
             album_title=album_title,
             printed_album_title=printed_album_title,
             people_positions=people_positions,
+        )
+        _emit_prompt_debug(
+            debug_recorder,
+            step=debug_step,
+            engine=self.engine,
+            model=self.effective_model_name,
+            prompt=prompt,
+            system_prompt=people_count_system_prompt(),
+            source_path=source_path or image_path,
+            prompt_source=("custom" if self._caption_prompt else "skill"),
+            metadata={},
         )
         try:
             people_count = self._captioner.estimate_people(  # type: ignore[attr-defined]
@@ -300,6 +358,8 @@ class CaptionEngine:
         printed_album_title: str = "",
         is_cover_page: bool = False,
         people_positions: dict[str, str] | None = None,
+        debug_recorder=None,
+        debug_step: str = "location",
     ) -> LocationOutput:
         if self.engine != "lmstudio":
             return LocationOutput(
@@ -317,6 +377,17 @@ class CaptionEngine:
             printed_album_title=printed_album_title,
             is_cover_page=is_cover_page,
             people_positions=people_positions,
+        )
+        _emit_prompt_debug(
+            debug_recorder,
+            step=debug_step,
+            engine=self.engine,
+            model=self.effective_model_name,
+            prompt=prompt,
+            system_prompt=location_system_prompt(),
+            source_path=source_path or image_path,
+            prompt_source=("custom" if self._caption_prompt else "skill"),
+            metadata={"is_cover_page": bool(is_cover_page)},
         )
         try:
             location = self._captioner.estimate_location(  # type: ignore[attr-defined]

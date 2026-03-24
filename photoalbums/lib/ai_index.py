@@ -33,6 +33,7 @@ from .ai_render_settings import (
     load_render_settings,
     resolve_effective_settings,
 )
+from .prompt_debug import PromptDebugSession
 from ..common import PHOTO_ALBUMS_DIR
 from ..exiftool_utils import read_tag
 from ..naming import DERIVED_NAME_RE, SCAN_TIFF_RE, parse_album_filename, SCAN_NAME_RE
@@ -326,6 +327,12 @@ def append_job_artifact(record: dict[str, Any]) -> None:
     with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True))
         handle.write("\n")
+
+
+def _emit_prompt_debug_artifact(prompt_debug: PromptDebugSession | None, *, dry_run: bool) -> None:
+    if dry_run or prompt_debug is None or not prompt_debug.has_steps():
+        return
+    append_job_artifact(prompt_debug.to_artifact())
 
 
 def _processing_lock_path(image_path: Path) -> Path:
@@ -1035,6 +1042,8 @@ def _resolve_people_count_metadata(
     people_positions: dict[str, str],
     local_people_present: bool,
     local_estimated_people_count: int,
+    prompt_debug: PromptDebugSession | None = None,
+    debug_step: str = "people_count",
 ) -> tuple[bool, int]:
     if str(requested_caption_engine or "").strip().lower() != "lmstudio":
         return local_people_present, local_estimated_people_count
@@ -1051,6 +1060,8 @@ def _resolve_people_count_metadata(
             album_title=album_title,
             printed_album_title=printed_album_title,
             people_positions=people_positions,
+            debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
+            debug_step=debug_step,
         )
     except Exception:
         return local_people_present, local_estimated_people_count
@@ -1089,6 +1100,8 @@ def _resolve_location_metadata(
     is_cover_page: bool,
     people_positions: dict[str, str],
     fallback_location_name: str,
+    prompt_debug: PromptDebugSession | None = None,
+    debug_step: str = "location",
 ) -> tuple[str, str, str]:
     local_gps_latitude, local_gps_longitude = _extract_explicit_gps_from_text(ocr_text)
     if str(requested_caption_engine or "").strip().lower() != "lmstudio":
@@ -1115,6 +1128,8 @@ def _resolve_location_metadata(
             printed_album_title=printed_album_title,
             is_cover_page=is_cover_page,
             people_positions=people_positions,
+            debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
+            debug_step=debug_step,
         )
     except Exception:
         return (
@@ -1269,6 +1284,7 @@ def _maybe_run_people_recovery(
     printed_album_title: str,
     photo_count: int,
     is_cover_page: bool,
+    prompt_debug: PromptDebugSession | None = None,
     step_fn=None,
 ) -> tuple[list, list[str], dict[str, str], CaptionOutput, int]:
     faces_detected = (
@@ -1322,6 +1338,8 @@ def _maybe_run_people_recovery(
         photo_count=photo_count,
         is_cover_page=is_cover_page,
         people_positions=recovered_positions,
+        debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
+        debug_step="caption_recovery",
     )
     if _caption_people_name_score(recovered_caption.text, recovered_names) < _caption_people_name_score(
         caption_output.text, recovered_names
@@ -1483,6 +1501,7 @@ def _run_image_analysis(
     is_page_scan: bool = False,
     ocr_text_override: str | None = None,
     request_photo_regions: bool = False,
+    prompt_debug: PromptDebugSession | None = None,
 ) -> ImageAnalysis:
     page_photo_count = 0 if is_page_scan else 1
 
@@ -1492,7 +1511,11 @@ def _run_image_analysis(
         if step_fn and ocr_text_override is None:
             step_fn("ocr")
         if ocr_text_override is None:
-            ocr_text = ocr_engine.read_text(model_image_path)
+            ocr_text = ocr_engine.read_text(
+                model_image_path,
+                debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
+                debug_step="ocr",
+            )
         else:
             ocr_text = str(ocr_text_override or "").strip()
         ocr_keywords = extract_keywords(ocr_text, max_keywords=15)
@@ -1530,6 +1553,8 @@ def _run_image_analysis(
             is_cover_page=is_cover_page,
             people_positions=people_positions,
             request_photo_regions=request_photo_regions,
+            debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
+            debug_step="caption",
         )
         (
             people_matches,
@@ -1557,6 +1582,7 @@ def _run_image_analysis(
             printed_album_title=printed_album_title,
             photo_count=page_photo_count,
             is_cover_page=is_cover_page,
+            prompt_debug=prompt_debug,
             step_fn=step_fn,
         )
 
@@ -1591,6 +1617,8 @@ def _run_image_analysis(
         people_positions=people_positions,
         local_people_present=local_people_present,
         local_estimated_people_count=local_estimated_people_count,
+        prompt_debug=prompt_debug,
+        debug_step="people_count",
     )
 
     payload = {
@@ -1628,6 +1656,8 @@ def _run_image_analysis(
         is_cover_page=is_cover_page,
         people_positions=people_positions,
         fallback_location_name=str(getattr(caption_output, "location_name", "") or "").strip(),
+        prompt_debug=prompt_debug,
+        debug_step="location",
     )
     location_payload = _resolve_location_payload(
         geocoder=geocoder,
@@ -1845,6 +1875,7 @@ def _resolve_archive_scan_authoritative_ocr(
     group_signature: str,
     ocr_engine: OCREngine,
     cache: dict[str, ArchiveScanOCRAuthority],
+    prompt_debug: PromptDebugSession | None = None,
     step_fn=None,
 ) -> ArchiveScanOCRAuthority:
     page_key = _scan_page_key(image_path)
@@ -1885,7 +1916,11 @@ def _resolve_archive_scan_authoritative_ocr(
         if step_fn:
             step_fn("ocr")
         with _prepare_ai_model_image(tmp_path) as model_image_path:
-            ocr_text = ocr_engine.read_text(model_image_path)
+            ocr_text = ocr_engine.read_text(
+                model_image_path,
+                debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
+                debug_step="ocr_archive_stitched",
+            )
 
     result = ArchiveScanOCRAuthority(
         page_key=page_key,
@@ -1982,6 +2017,7 @@ def _run_scan_stitch_pass(
             # Re-run caption with the combined OCR text; use S01 image as representative
             if requested_caption_engine in {"local", "lmstudio"}:
                 with _prepare_ai_model_image(primary_path) as model_image_path:
+                    stitch_prompt_debug = PromptDebugSession(primary_path)
                     caption_output = caption_engine.generate(
                         image_path=model_image_path,
                         people=person_names,
@@ -1990,6 +2026,8 @@ def _run_scan_stitch_pass(
                         source_path=primary_path,
                         album_title=album_title,
                         printed_album_title=printed_album_title,
+                        debug_recorder=stitch_prompt_debug.record,
+                        debug_step="caption_stitch",
                     )
                     gps_latitude, gps_longitude, location_name = _resolve_location_metadata(
                         requested_caption_engine=requested_caption_engine,
@@ -2004,7 +2042,10 @@ def _run_scan_stitch_pass(
                         is_cover_page=False,
                         people_positions={},
                         fallback_location_name=str(getattr(caption_output, "location_name", "") or "").strip(),
+                        prompt_debug=stitch_prompt_debug,
+                        debug_step="location_stitch",
                     )
+                _emit_prompt_debug_artifact(stitch_prompt_debug, dry_run=dry_run)
                 combined_description = caption_output.text
             else:
                 combined_description = ""
@@ -2582,6 +2623,7 @@ def run(argv: list[str] | None = None) -> int:
                     _pu_step("caption")
                     pu_album_title = _resolve_album_title_hint(image_path, album_title_cache)
                     pu_printed_title = _resolve_album_printed_title_hint(image_path, printed_album_title_cache)
+                    pu_prompt_debug = PromptDebugSession(image_path)
                     with _prepare_ai_model_image(image_path) as pu_model_path:
                         pu_caption_out = pu_caption_engine.generate(
                             image_path=pu_model_path,
@@ -2592,6 +2634,8 @@ def run(argv: list[str] | None = None) -> int:
                             album_title=pu_album_title,
                             printed_album_title=pu_printed_title,
                             people_positions=pu_people_positions,
+                            debug_recorder=pu_prompt_debug.record,
+                            debug_step="caption_refresh",
                         )
                         (
                             pu_people_matches,
@@ -2624,6 +2668,7 @@ def run(argv: list[str] | None = None) -> int:
                             printed_album_title=pu_printed_title,
                             photo_count=1,
                             is_cover_page=False,
+                            prompt_debug=pu_prompt_debug,
                             step_fn=_pu_step,
                         )
                     pu_description = pu_caption_out.text
@@ -2654,7 +2699,10 @@ def run(argv: list[str] | None = None) -> int:
                         people_positions=pu_people_positions,
                         local_people_present=pu_local_people_present,
                         local_estimated_people_count=pu_local_estimated_people_count,
+                        prompt_debug=pu_prompt_debug,
+                        debug_step="people_count_refresh",
                     )
+                    _emit_prompt_debug_artifact(pu_prompt_debug, dry_run=dry_run)
                     pu_caption_payload = _build_caption_metadata(
                         requested_engine=str(caption_key[0]),
                         effective_engine=str(pu_caption_out.engine),
@@ -2765,6 +2813,7 @@ def run(argv: list[str] | None = None) -> int:
             stop_ticker, set_step = _progress_ticker(prefix)
         album_title_hint = _resolve_album_title_hint(image_path, album_title_cache)
         printed_album_title_hint = _resolve_album_printed_title_hint(image_path, printed_album_title_cache)
+        prompt_debug = PromptDebugSession(image_path)
 
         try:
             object_detector = None
@@ -2805,6 +2854,7 @@ def run(argv: list[str] | None = None) -> int:
                     group_signature=multi_scan_group_signature,
                     ocr_engine=ocr_engine,
                     cache=archive_scan_ocr_cache,
+                    prompt_debug=prompt_debug,
                     step_fn=set_step,
                 )
 
@@ -2902,6 +2952,7 @@ def run(argv: list[str] | None = None) -> int:
                     is_page_scan=layout.page_like,
                     ocr_text_override=(scan_ocr_authority.ocr_text if scan_ocr_authority is not None else None),
                     request_photo_regions=(layout.page_like and caption_engine.engine == "lmstudio"),
+                    prompt_debug=prompt_debug,
                 )
                 resolved_album_title = analysis.album_title or infer_album_title(
                     image_path=image_path,
@@ -3022,6 +3073,7 @@ def run(argv: list[str] | None = None) -> int:
                         "label": image_path.name,
                     }
                 )
+            _emit_prompt_debug_artifact(prompt_debug, dry_run=dry_run)
             if bool(effective.get("enable_people", True)):
                 processed_cast_manifest_keys.add(str(image_path))
             processed += 1
@@ -3043,6 +3095,7 @@ def run(argv: list[str] | None = None) -> int:
                 )
         except Exception as exc:
             failures += 1
+            _emit_prompt_debug_artifact(prompt_debug, dry_run=dry_run)
             if stop_ticker is not None:
                 stop_ticker()
             emit_error(f"[{idx}/{len(files)}] fail  {image_path.name}: {exc}")

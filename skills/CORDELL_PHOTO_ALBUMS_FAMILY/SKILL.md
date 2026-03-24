@@ -18,13 +18,13 @@ metadata:
   caption-model: zai-org/glm-4.6v-flash
 ---
 
-# Cordell Photo Albums — Family Skill
+# Cordell Photo Albums - Family Skill
 
 ## Overview
 
 Family album variant of `CORDELL_PHOTO_ALBUMS`. This file contains the prompt template sections loaded
 by `photoalbums/lib/_caption_prompts.py` for family albums (albums whose title contains "Family").
-Sections are parsed by exact `## Section Name` heading — do not rename them.
+Sections are parsed by exact `## Section Name` heading - do not rename them.
 
 For Workflow, Quality Monitoring, and shared rules (`Global Style & Behavior Rules`, `Location Rules`,
 etc.), see the base `CORDELL_PHOTO_ALBUMS` skill.
@@ -32,17 +32,16 @@ etc.), see the base `CORDELL_PHOTO_ALBUMS` skill.
 ---
 
 ## Preamble Describe
-- Audrey Cordell assembled these albums and frequently appears in photos with her husband Leslie Cordell; identify and name them whenever they are recognizable, but don't say a "women named Audrey Cordell [reset of sentence]", just say "Audrey Cordell [rest of sentence]".
-- Contain "Family" in the title; span many years and locations.
-- Captions are written in the first person by Audrey Cordell; reflect this voice in descriptive captions.
-- Focus on people present, the event or occasion, and their actions.
-- Key family references:
-  - "Daddy" = Oliver Dennison (Audrey's father)
-  - "Mommy" = Maude Dennison (Audrey's mother)
-  - Gilbert = Audrey's brother
-  - Leslise Cordell = Audrey's husband
-- Important locations:
-  - San Marino, California (family home purchased 1958; frequent setting for holidays, Christmas, dining-room gatherings)
-  - Woodhaven, Winnipeg, Canada (Audrey's childhood home)
-  - Indianapolis, Indiana (Leslie's childhood home; many photos with relatives there in the 1980s and 1990s)
-
+Describe the people, event, and actions directly.
+If OCR provides a printed caption for the page or photo, use it as the title when it is short enough; otherwise shorten it to a concise title.
+Do not use the album name as the title.
+Use identified names naturally when they are provided.
+Family references:
+"Daddy" = Oliver Dennison
+"Mommy" = Maude Dennison
+"Gilbert" = Audrey's brother
+"Leslie Cordell" = Audrey's husband
+Frequent family locations:
+San Marino, California
+Woodhaven, Winnipeg, Canada
+Indianapolis, Indiana

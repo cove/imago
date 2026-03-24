@@ -58,30 +58,24 @@ class TestAICaption(unittest.TestCase):
         self.assertIn("Spain", context.focus)
         self.assertIn("Morocco", context.focus)
 
-    def test_build_local_prompt_includes_cordell_album_rules(self):
+    def test_build_local_prompt_is_concise_and_context_driven(self):
         prompt = ai_caption._build_local_prompt(
             people=[],
             objects=[],
             ocr_text="",
             source_path=Path("Photo Albums") / "Family_1980-1985_B08_View" / "Family_1980-1985_B08_P01.jpg",
         )
-        self.assertIn("Album title hint:", prompt)
-        self.assertIn(
-            "Treat album title hints and classification hints as supporting context",
-            prompt,
-        )
-        self.assertIn("Family Photo Album", prompt)
-        self.assertIn("Quote any visible cover labels exactly as they appear", prompt)
-        self.assertIn("reproduce `BOOK 11` exactly as printed", prompt)
-        self.assertIn("interpret it as Book II", prompt)
-        self.assertIn("confidence exceeds 95%", prompt)
-        self.assertIn("Do not translate, normalize, or correct", prompt)
-        self.assertIn("use English translation only in caption or location reasoning", prompt)
-        self.assertIn("Output GPS coordinates only when both values are literally visible", prompt)
+        self.assertIn("Describe the people, event, and actions directly.", prompt)
+        self.assertIn("Do not use the album name as the title.", prompt)
+        self.assertNotIn("Album title hint:", prompt)
+        self.assertNotIn("Album classification hint:", prompt)
+        self.assertNotIn("Detected objects:", prompt)
+        self.assertNotIn("Treat album title hints and classification hints as supporting context", prompt)
+        self.assertNotIn("reproduce `BOOK 11` exactly as printed", prompt)
         self.assertNotIn("Filename hint:", prompt)
         self.assertNotIn("Folder hint:", prompt)
 
-    def test_build_local_prompt_prefers_printed_cover_title_when_available(self):
+    def test_build_local_prompt_omits_album_title_hints(self):
         prompt = ai_caption._build_local_prompt(
             people=[],
             objects=[],
@@ -90,9 +84,37 @@ class TestAICaption(unittest.TestCase):
             album_title="Mainland China Book II",
             printed_album_title="Mainland China Book 11",
         )
-        self.assertIn("Album title hint: Mainland China Book 11.", prompt)
-        self.assertIn("Canonical album title hint: Mainland China Book II.", prompt)
-        self.assertIn("Prefer the printed cover title over the normalized title", prompt)
+        self.assertNotIn("Album title hint:", prompt)
+        self.assertNotIn("Canonical album title hint:", prompt)
+        self.assertNotIn("Prefer the printed cover title over the normalized title", prompt)
+
+    def test_build_local_prompt_groups_runtime_hints_into_single_block(self):
+        prompt = ai_caption._build_local_prompt(
+            people=["Alice Example"],
+            objects=["bench"],
+            ocr_text="FAMILY BOOK",
+            source_path=Path("Photo Albums") / "Family_1980-1985_B08_View" / "Family_1980-1985_B08_P01.jpg",
+            album_title="Family Book I",
+        )
+        self.assertIn("Context hints (image-specific):", prompt)
+        context_index = prompt.index("Context hints (image-specific):")
+        people_index = prompt.index("These people have been identified in this photo")
+        ocr_index = prompt.index('OCR text hint: "FAMILY BOOK"')
+        output_index = prompt.index('{"title": "...", "caption": "..."}')
+        self.assertGreater(people_index, context_index)
+        self.assertGreater(ocr_index, context_index)
+        self.assertLess(people_index, output_index)
+        self.assertLess(ocr_index, output_index)
+        self.assertNotIn("Detected objects:", prompt)
+
+    def test_system_prompts_load_from_skill_sections(self):
+        self.assertIn(
+            "Return only valid JSON matching the response_format schema.",
+            ai_caption.describe_system_prompt(),
+        )
+        self.assertIn("photo_regions", ai_caption.describe_system_prompt(page_mode=True))
+        self.assertIn("Count clearly visible real people only.", ai_caption.people_count_system_prompt())
+        self.assertIn("leave GPS fields empty", ai_caption.location_system_prompt())
 
     def test_looks_like_album_cover_detects_blue_title_page(self):
         try:
@@ -215,6 +237,32 @@ class TestAICaption(unittest.TestCase):
         self.assertEqual(out.engine, "local")
         self.assertEqual(out.text, "caption text")
 
+    def test_generate_records_prompt_debug_metadata(self):
+        fake_qwen = mock.Mock()
+        fake_qwen.describe.return_value = ai_caption.CaptionDetails(text="caption text")
+        records = []
+        with mock.patch("photoalbums.lib.ai_caption.LocalHFCaptioner", return_value=fake_qwen):
+            engine = ai_caption.CaptionEngine(
+                engine="local",
+                model_name="qwen/qwen3.5-9b",
+                caption_prompt="Describe this exact image",
+            )
+            engine.generate(
+                image_path="sample.jpg",
+                people=["Alice"],
+                objects=["car"],
+                ocr_text="",
+                source_path="sample.jpg",
+                debug_recorder=lambda **row: records.append(row),
+                debug_step="caption_refresh",
+            )
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["step"], "caption_refresh")
+        self.assertEqual(records[0]["engine"], "local")
+        self.assertEqual(records[0]["model"], "qwen/qwen3.5-9b")
+        self.assertEqual(records[0]["prompt"], "Describe this exact image")
+        self.assertEqual(records[0]["prompt_source"], "custom")
+
     def test_local_loader_uses_local_snapshot_and_safe_max_pixels(self):
         with tempfile.TemporaryDirectory() as tmp:
             cache_dir = Path(tmp)
@@ -284,6 +332,10 @@ class TestAICaption(unittest.TestCase):
             self.assertTrue(request.full_url.endswith("/chat/completions"))
             payload = json.loads(request.data.decode("utf-8"))
             self.assertEqual(payload["model"], "qwen2.5-vl")
+            self.assertEqual(
+                payload["messages"][0]["content"],
+                ai_caption.describe_system_prompt(),
+            )
             self.assertEqual(payload["response_format"]["type"], "json_schema")
             self.assertEqual(payload["response_format"]["json_schema"]["name"], "caption_payload")
             self.assertEqual(payload["response_format"]["json_schema"]["strict"], "true")
@@ -378,6 +430,10 @@ class TestAICaption(unittest.TestCase):
             payload = json.loads(request.data.decode("utf-8"))
             self.assertEqual(payload["model"], "qwen2.5-vl")
             self.assertEqual(
+                payload["messages"][0]["content"],
+                ai_caption.people_count_system_prompt(),
+            )
+            self.assertEqual(
                 payload["response_format"]["json_schema"]["name"],
                 "people_count_payload",
             )
@@ -451,6 +507,10 @@ class TestAICaption(unittest.TestCase):
             self.assertTrue(request.full_url.endswith("/chat/completions"))
             payload = json.loads(request.data.decode("utf-8"))
             self.assertEqual(payload["model"], "qwen2.5-vl")
+            self.assertEqual(
+                payload["messages"][0]["content"],
+                ai_caption.location_system_prompt(),
+            )
             self.assertEqual(
                 payload["response_format"]["json_schema"]["name"],
                 "location_payload",

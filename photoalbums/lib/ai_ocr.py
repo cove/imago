@@ -17,6 +17,7 @@ from ._caption_lmstudio import (
     _extract_structured_json_payload,
     _lanczos_resize,
 )
+from ._prompt_skill import required_section_text
 
 STOPWORDS = {
     "the",
@@ -95,6 +96,35 @@ def _normalize_lmstudio_ocr_base_url(value: str) -> str:
     if not text.endswith("/v1"):
         text = f"{text}/v1"
     return text
+
+
+def ocr_system_prompt() -> str:
+    return required_section_text("System Prompt - OCR")
+
+
+def _emit_prompt_debug(
+    debug_recorder,
+    *,
+    step: str,
+    engine: str,
+    model: str,
+    prompt: str,
+    system_prompt: str = "",
+    source_path: str | Path | None = None,
+    metadata: dict | None = None,
+) -> None:
+    if not callable(debug_recorder):
+        return
+    debug_recorder(
+        step=str(step or "").strip(),
+        engine=str(engine or "").strip(),
+        model=str(model or "").strip(),
+        prompt=str(prompt or ""),
+        system_prompt=str(system_prompt or ""),
+        source_path=source_path,
+        prompt_source="default",
+        metadata=dict(metadata or {}),
+    )
 
 
 def _lmstudio_ocr_post(base_url: str, payload: dict, timeout: float) -> dict:
@@ -436,25 +466,30 @@ class OCREngine:
         self._model = _load_hf_model(AutoModelForImageTextToText, model_ref, **load_kwargs)
         self._torch = torch
 
-    def _read_text_lmstudio(self, image_path: str | Path) -> str:
+    def _read_text_lmstudio(self, image_path: str | Path, *, debug_recorder=None, debug_step: str = "ocr") -> str:
         if not self._lmstudio_model:
             self._lmstudio_model = _lmstudio_ocr_select_model(
                 self.base_url,
                 DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS,
                 self._model_name,
             )
+        _emit_prompt_debug(
+            debug_recorder,
+            step=debug_step,
+            engine=self.engine,
+            model=self.effective_model_name,
+            prompt=DEFAULT_LOCAL_OCR_PROMPT,
+            system_prompt=ocr_system_prompt(),
+            source_path=image_path,
+            metadata={},
+        )
         data_url = _build_ocr_data_url(image_path, DEFAULT_LOCAL_OCR_MAX_IMAGE_EDGE, DEFAULT_LOCAL_OCR_MAX_PIXELS)
         payload = {
             "model": self._lmstudio_model,
             "messages": [
                 {
                     "role": "system",
-                    "content": (
-                        "You are an OCR engine. "
-                        "Return only valid JSON matching the response_format schema. "
-                        "Put the extracted text in the text field. "
-                        "Do not describe the image, show reasoning, or add extra fields."
-                    ),
+                    "content": ocr_system_prompt(),
                 },
                 {
                     "role": "user",
@@ -479,12 +514,12 @@ class OCREngine:
             finish_reason=str(choices[0].get("finish_reason") or ""),
         )
 
-    def read_text(self, image_path: str | Path) -> str:
+    def read_text(self, image_path: str | Path, *, debug_recorder=None, debug_step: str = "ocr") -> str:
         path = Path(image_path)
         if self.engine == "none":
             return ""
         if self.engine == "lmstudio":
-            return self._read_text_lmstudio(path)
+            return self._read_text_lmstudio(path, debug_recorder=debug_recorder, debug_step=debug_step)
         if self.engine != "local":
             return ""
 
@@ -524,6 +559,15 @@ class OCREngine:
                     )
             else:
                 prompt_text = DEFAULT_LOCAL_OCR_PROMPT
+            _emit_prompt_debug(
+                debug_recorder,
+                step=debug_step,
+                engine=self.engine,
+                model=self.effective_model_name,
+                prompt=prompt_text,
+                source_path=path,
+                metadata={},
+            )
 
             inputs = self._processor(
                 text=[prompt_text],

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import re
-from functools import lru_cache
 from pathlib import Path
 
 from ._caption_album import (
@@ -11,6 +9,12 @@ from ._caption_album import (
     dedupe,
     infer_album_context,
     join_human,
+)
+from ._prompt_skill import (
+    family_skill as _skill_family,
+    section as _section,
+    section_from as _section_from,
+    travel_skill as _skill_travel,
 )
 
 # ---------------------------------------------------------------------------
@@ -35,81 +39,6 @@ def _position_label(cx: float, cy: float) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Skill file loader
-# ---------------------------------------------------------------------------
-
-_SKILL_FILE = Path(__file__).parent.parent.parent / "skills" / "CORDELL_PHOTO_ALBUMS" / "SKILL.md"
-_SKILL_FILE_TRAVEL = Path(__file__).parent.parent.parent / "skills" / "CORDELL_PHOTO_ALBUMS_TRAVEL" / "SKILL.md"
-_SKILL_FILE_FAMILY = Path(__file__).parent.parent.parent / "skills" / "CORDELL_PHOTO_ALBUMS_FAMILY" / "SKILL.md"
-
-
-def _parse_skill(path: Path) -> dict[str, list[str]]:
-    """Parse a .skill file into {section_name: [lines]}."""
-    sections: dict[str, list[str]] = {}
-    current: str | None = None
-    with open(path, encoding="utf-8") as f:
-        for raw in f:
-            stripped = raw.rstrip()
-            if stripped.startswith("## ") and not stripped.startswith("### "):
-                current = stripped[3:].strip()
-                sections.setdefault(current, [])
-            elif current is not None and stripped.strip() and not stripped.strip().startswith("#"):
-                sections[current].append(stripped.strip())
-    return sections
-
-
-@lru_cache(maxsize=1)
-def _skill() -> dict[str, list[str]]:
-    return _parse_skill(_SKILL_FILE)
-
-
-@lru_cache(maxsize=1)
-def _skill_travel() -> dict[str, list[str]]:
-    return _parse_skill(_SKILL_FILE_TRAVEL)
-
-
-@lru_cache(maxsize=1)
-def _skill_family() -> dict[str, list[str]]:
-    return _parse_skill(_SKILL_FILE_FAMILY)
-
-
-def _section(*names: str, **kwargs: str) -> list[str]:
-    """Return lines from one or more named skill sections with {var} substitution.
-
-    Lines where any substituted variable resolves to an empty string are dropped.
-    """
-    return _section_from(_skill(), *names, **kwargs)
-
-
-def _section_from(skill: dict[str, list[str]], *names: str, **kwargs: str) -> list[str]:
-    """Return lines from named sections of a specific skill dict with {var} substitution.
-
-    Lines where any substituted variable resolves to an empty string are dropped.
-    """
-    lines: list[str] = []
-    for name in names:
-        for raw in skill.get(name, []):
-            rendered, drop = _render_line(raw, kwargs)
-            if not drop:
-                lines.append(rendered)
-    return lines
-
-
-def _render_line(text: str, vars: dict[str, str]) -> tuple[str, bool]:
-    """Substitute {var} patterns. Returns (rendered, drop) where drop=True if any var was empty."""
-    drop = False
-
-    def replace(m: re.Match) -> str:
-        nonlocal drop
-        val = vars.get(m.group(1), "")
-        if not val:
-            drop = True
-        return val
-
-    return re.sub(r"\{(\w+)\}", replace, text), drop
-
-
-# ---------------------------------------------------------------------------
 # Prompt assembly
 # ---------------------------------------------------------------------------
 
@@ -123,51 +52,84 @@ def _should_apply_album_prompt_rules(source_path: str | Path | None, album_conte
     return "photo albums" in joined or "cordell" in joined
 
 
-def _build_shared_prompt_rules(
-    *,
-    context: AlbumContext,
-    source_path: str | Path | None,
-    people_list: list[str],
-    object_list: list[str],
-    is_cover_page: bool = False,
-    people_positions: dict[str, str] | None = None,
-) -> list[str]:
+def _build_describe_preamble(*, is_cover_page: bool = False) -> list[str]:
     lines: list[str] = []
 
     if is_cover_page:
         lines.extend(_section("Preamble Cover Page"))
 
-    if context.title:
-        lines.extend(_section("Album Title Hint", album_title=context.title))
+    return lines
 
-    if context.canonical_title and context.title and context.canonical_title.casefold() != context.title.casefold():
-        lines.extend(_section("Canonical Title Hint", canonical_title=context.canonical_title))
 
+def _build_describe_context_hints(
+    *,
+    context: AlbumContext,
+    source_path: str | Path | None,
+    people_list: list[str],
+    ocr_text: str,
+    people_positions: dict[str, str] | None = None,
+) -> list[str]:
+    hint_lines: list[str] = []
     if _should_apply_album_prompt_rules(source_path, context):
-        lines.extend(_section("Album Classification Rules (apply in this order)"))
-        if context.label:
-            lines.extend(_section("Album Classification Hint", album_label=context.label))
         if context.focus and context.kind == ALBUM_KIND_PHOTO_ESSAY:
-            lines.extend(_section("Album Focus Hint", album_focus=context.focus))
-
-    lines.extend(_section("Global Style & Behavior Rules (apply to every mode)"))
-    lines.extend(_section("Text Handling & Correction Rules"))
-    lines.extend(_section("Location Rules (strict)"))
-    lines.extend(_section("People Rules"))
-
+            hint_lines.extend(_section("Album Focus Hint", album_focus=context.focus))
     if people_list:
         if people_positions:
             entries = [
                 (f"{name} ({people_positions[name]})" if name in people_positions else name) for name in people_list
             ]
-            lines.extend(_section("People Hint With Positions", people_hint=", ".join(entries)))
+            hint_lines.extend(_section("People Hint With Positions", people_hint=", ".join(entries)))
         else:
-            lines.extend(_section("People Hint", people_hint=join_human(people_list)))
+            hint_lines.extend(_section("People Hint", people_hint=join_human(people_list)))
+    text = clean_text(ocr_text)
+    if text:
+        snippet = text[:220].strip()
+        if len(text) > len(snippet):
+            snippet += "..."
+        hint_lines.extend(_section("OCR Hint", ocr_snippet=snippet))
+    if not hint_lines:
+        return []
+    return ["Context hints (image-specific):"] + hint_lines
 
-    if object_list:
-        lines.extend(_section("Objects Hint", object_list=join_human(object_list)))
 
-    return lines
+def _build_people_count_context_hints(
+    *,
+    people_list: list[str],
+    people_positions: dict[str, str] | None = None,
+) -> list[str]:
+    hint_lines: list[str] = []
+    if people_list:
+        if people_positions:
+            entries = [
+                (f"{name} ({people_positions[name]})" if name in people_positions else name) for name in people_list
+            ]
+            hint_lines.extend(_section("People Count Hint With Positions", people_hint=", ".join(entries)))
+        else:
+            hint_lines.extend(_section("People Count Hint", people_hint=join_human(people_list)))
+    if not hint_lines:
+        return []
+    return ["Context hints (image-specific):"] + hint_lines
+
+
+def _build_location_context_hints(
+    *,
+    context: AlbumContext,
+    source_path: str | Path | None,
+    ocr_text: str,
+) -> list[str]:
+    hint_lines: list[str] = []
+    if _should_apply_album_prompt_rules(source_path, context):
+        if context.focus and context.kind == ALBUM_KIND_PHOTO_ESSAY:
+            hint_lines.extend(_section("Album Focus Hint", album_focus=context.focus))
+    text = clean_text(ocr_text)
+    if text:
+        snippet = text[:220].strip()
+        if len(text) > len(snippet):
+            snippet += "..."
+        hint_lines.extend(_section("OCR Hint", ocr_snippet=snippet))
+    if not hint_lines:
+        return []
+    return ["Context hints (image-specific):"] + hint_lines
 
 
 def _build_local_prompt(
@@ -183,7 +145,6 @@ def _build_local_prompt(
     request_photo_regions: bool = False,
 ) -> str:
     people_list = dedupe(people)
-    object_list = dedupe(objects)
     text = clean_text(ocr_text)
     context = infer_album_context(
         image_path=source_path,
@@ -194,28 +155,22 @@ def _build_local_prompt(
     )
     album_skill = _skill_travel() if context.kind == ALBUM_KIND_PHOTO_ESSAY else _skill_family()
     lines = _section_from(album_skill, "Preamble Describe")
+    lines.extend(_build_describe_preamble(is_cover_page=is_cover_page))
     lines.extend(
-        _build_shared_prompt_rules(
+        _build_describe_context_hints(
             context=context,
             source_path=source_path,
             people_list=people_list,
-            object_list=object_list,
-            is_cover_page=is_cover_page,
+            ocr_text=text,
             people_positions=people_positions,
         )
     )
-    if text:
-        snippet = text[:220].strip()
-        if len(text) > len(snippet):
-            snippet += "..."
-        lines.extend(_section("OCR Hint", ocr_snippet=snippet))
     if request_photo_regions:
-        lines.extend(_section("Preamble Page Photo Regions"))
+        lines.extend(_section("Preamble Page Photo Regions Compact"))
         lines.extend(_section("Output Format – Describe Page (with photo regions)"))
     else:
         lines.extend(_section("Output Format – Describe (full caption)"))
     return "\n".join(lines)
-
 
 
 def _build_people_count_prompt(
@@ -229,34 +184,13 @@ def _build_people_count_prompt(
     people_positions: dict[str, str] | None = None,
 ) -> str:
     people_list = dedupe(people)
-    object_list = dedupe(objects)
-    text = clean_text(ocr_text)
-    context = infer_album_context(
-        image_path=source_path,
-        ocr_text=ocr_text,
-        allow_ocr=True,
-        album_title=album_title,
-        printed_album_title=printed_album_title,
-    )
     lines = _section("Preamble People Count")
-    if _should_apply_album_prompt_rules(source_path, context):
-        lines.extend(_section("Album Classification Rules (apply in this order)"))
-    lines.extend(_section("People Rules"))
-    if people_list:
-        if people_positions:
-            entries = [
-                (f"{name} ({people_positions[name]})" if name in people_positions else name) for name in people_list
-            ]
-            lines.extend(_section("People Count Hint With Positions", people_hint=", ".join(entries)))
-        else:
-            lines.extend(_section("People Count Hint", people_hint=join_human(people_list)))
-    if object_list:
-        lines.extend(_section("Objects Hint", object_list=join_human(object_list)))
-    if text:
-        snippet = text[:220].strip()
-        if len(text) > len(snippet):
-            snippet += "..."
-        lines.extend(_section("OCR Hint", ocr_snippet=snippet))
+    lines.extend(
+        _build_people_count_context_hints(
+            people_list=people_list,
+            people_positions=people_positions,
+        )
+    )
     lines.extend(_section("Output Format – People Count"))
     return "\n".join(lines)
 
@@ -272,8 +206,6 @@ def _build_location_prompt(
     is_cover_page: bool = False,
     people_positions: dict[str, str] | None = None,
 ) -> str:
-    people_list = dedupe(people)
-    object_list = dedupe(objects)
     text = clean_text(ocr_text)
     context = infer_album_context(
         image_path=source_path,
@@ -283,21 +215,14 @@ def _build_location_prompt(
         printed_album_title=printed_album_title,
     )
     lines = _section("Preamble Location")
+    lines.extend(_build_describe_preamble(is_cover_page=is_cover_page))
     lines.extend(
-        _build_shared_prompt_rules(
+        _build_location_context_hints(
             context=context,
             source_path=source_path,
-            people_list=people_list,
-            object_list=object_list,
-            is_cover_page=is_cover_page,
-            people_positions=people_positions,
+            ocr_text=text,
         )
     )
-    if text:
-        snippet = text[:220].strip()
-        if len(text) > len(snippet):
-            snippet += "..."
-        lines.extend(_section("OCR Hint", ocr_snippet=snippet))
     lines.extend(_section("Output Format – Location"))
     return "\n".join(lines)
 
