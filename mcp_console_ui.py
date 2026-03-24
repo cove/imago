@@ -67,13 +67,16 @@ HTML = r"""<!DOCTYPE html>
   .artifact-count { font-size: 11px; color: #666; }
   .artifact-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px;
                    overflow-y: auto; max-height: 180px; }
-  .artifact-item { width: 100%; text-align: left; padding: 9px 10px; border-radius: 8px;
-                   border: 1px solid #2d3950; background: #192131; color: #dbe7ff; cursor: pointer; }
-  .artifact-item:hover { border-color: #4a7fc1; background: #1d2940; }
-  .artifact-item strong { display: block; font-size: 12px; font-weight: 600; white-space: nowrap;
-                          overflow: hidden; text-overflow: ellipsis; }
-  .artifact-item span { display: block; margin-top: 3px; font-size: 11px; color: #9cb3d8; white-space: nowrap;
-                        overflow: hidden; text-overflow: ellipsis; }
+  .artifact-group { border: 1px solid #2d3950; background: #192131; border-radius: 10px; padding: 10px; }
+  .artifact-group strong { display: block; font-size: 12px; font-weight: 600; white-space: nowrap;
+                           overflow: hidden; text-overflow: ellipsis; color: #dbe7ff; }
+  .artifact-group span { display: block; margin-top: 3px; font-size: 11px; color: #9cb3d8; white-space: nowrap;
+                         overflow: hidden; text-overflow: ellipsis; }
+  .artifact-actions { display: flex; gap: 8px; margin-top: 9px; flex-wrap: wrap; }
+  .artifact-item { text-align: left; padding: 8px 10px; border-radius: 8px;
+                   border: 1px solid #2d3950; background: #1d2940; color: #dbe7ff; cursor: pointer; }
+  .artifact-item:hover { border-color: #4a7fc1; background: #223554; }
+  .artifact-item small { display: block; margin-top: 3px; font-size: 10px; color: #9cb3d8; }
   .artifact-empty, .artifact-error { font-size: 12px; color: #777; padding: 2px 0; }
   .artifact-error { color: #e38b8b; }
   .log-body { flex: 1; overflow-y: auto; padding: 10px 14px; }
@@ -382,19 +385,53 @@ HTML = r"""<!DOCTYPE html>
       return;
     }
     if (!jobArtifacts.length) {
-      list.innerHTML = '<div class="artifact-empty">No XMP outputs recorded yet for this job.</div>';
+      list.innerHTML = '<div class="artifact-empty">No outputs recorded yet for this job.</div>';
       return;
     }
-    list.innerHTML = jobArtifacts.map((artifact) => {
-      const label = artifact.label || fileName(artifact.image_path || artifact.sidecar_path || '');
-      const sidecar = fileName(artifact.sidecar_path || '');
+    const groups = new Map();
+    jobArtifacts.forEach((artifact, index) => {
+      const key = String(artifact.image_path || artifact.sidecar_path || artifact.label || `artifact-${index}`);
+      if (!groups.has(key)) {
+        groups.set(key, {
+          label: artifact.label || fileName(artifact.image_path || artifact.sidecar_path || ''),
+          artifacts: [],
+        });
+      }
+      groups.get(key).artifacts.push({ index, artifact });
+    });
+    list.innerHTML = Array.from(groups.values()).map((group) => {
+      const xmpEntry = group.artifacts.find((entry) => String(entry.artifact.kind || '') === 'photoalbums_xmp');
+      const promptEntry = group.artifacts.find((entry) => String(entry.artifact.kind || '') === 'photoalbums_prompts');
+      const subtitle = fileName(
+        (xmpEntry && xmpEntry.artifact.sidecar_path)
+        || (promptEntry && promptEntry.artifact.image_path)
+        || '',
+      );
+      const actions = [];
+      if (xmpEntry && xmpEntry.artifact.sidecar_path) {
+        actions.push(`
+          <button type="button" class="artifact-item"
+                  data-sidecar="${escHtml(String(xmpEntry.artifact.sidecar_path || ''))}"
+                  onclick="openXmpReview(this.dataset.sidecar)">
+            XMP
+            <small>${escHtml(fileName(xmpEntry.artifact.sidecar_path || ''))}</small>
+          </button>`);
+      }
+      if (promptEntry) {
+        const promptCount = Number(promptEntry.artifact.step_count || (promptEntry.artifact.steps || []).length || 0);
+        actions.push(`
+          <button type="button" class="artifact-item"
+                  onclick="openPromptArtifact(${Number(promptEntry.index)})">
+            Prompts
+            <small>${escHtml(String(promptCount))} step(s)</small>
+          </button>`);
+      }
       return `
-        <button type="button" class="artifact-item"
-                data-sidecar="${escHtml(String(artifact.sidecar_path || ''))}"
-                onclick="openXmpReview(this.dataset.sidecar)">
-          <strong>${escHtml(label)}</strong>
-          <span>${escHtml(sidecar)}</span>
-        </button>`;
+        <div class="artifact-group">
+          <strong>${escHtml(group.label || subtitle)}</strong>
+          <span>${escHtml(subtitle)}</span>
+          <div class="artifact-actions">${actions.join('')}</div>
+        </div>`;
     }).join('');
   }
 
@@ -430,6 +467,25 @@ HTML = r"""<!DOCTYPE html>
         <h3>Raw XMP</h3>
         <pre>${escHtml(rawXml)}</pre>
       </section>`;
+  }
+
+  function renderPromptStepCard(step) {
+    const metadata = step && step.metadata && Object.keys(step.metadata).length
+      ? `<section class="xmp-card"><h3>Metadata</h3><pre>${escHtml(JSON.stringify(step.metadata, null, 2))}</pre></section>`
+      : '';
+    return `
+      <section class="xmp-card">
+        <h3>${escHtml((step && step.step) || 'Prompt')}</h3>
+        <div class="xmp-kv">
+          ${renderValue('Engine', step && step.engine)}
+          ${renderValue('Model', step && step.model)}
+          ${renderValue('Prompt Source', step && step.prompt_source)}
+          ${renderValue('Source Path', step && step.source_path)}
+        </div>
+      </section>
+      ${step && step.system_prompt ? `<section class="xmp-card"><h3>System Prompt</h3><pre>${escHtml(step.system_prompt)}</pre></section>` : ''}
+      ${step && step.prompt ? `<section class="xmp-card"><h3>User Prompt</h3><pre>${escHtml(step.prompt)}</pre></section>` : ''}
+      ${metadata}`;
   }
 
   function renderSummaryCard(summary, data) {
@@ -490,6 +546,23 @@ HTML = r"""<!DOCTYPE html>
     document.getElementById('xmp-panel-subtitle').textContent = subtitle;
     document.getElementById('xmp-panel-body').innerHTML = bodyHtml;
     document.getElementById('xmp-panel').hidden = false;
+  }
+
+  function openPromptArtifact(index) {
+    const artifact = jobArtifacts[Number(index)];
+    if (!artifact) {
+      showXmpPanel('Prompt Debug Error', '', '<div class="artifact-error">Prompt artifact not found.</div>');
+      return;
+    }
+    const steps = Array.isArray(artifact.steps) ? artifact.steps : [];
+    const body = steps.length
+      ? steps.map((step) => renderPromptStepCard(step)).join('')
+      : '<div class="artifact-empty">No prompt steps recorded.</div>';
+    showXmpPanel(
+      `${fileName(artifact.image_path || artifact.label || 'Prompt Debug')} Prompts`,
+      String(artifact.image_path || ''),
+      body,
+    );
   }
 
   async function openXmpReview(sidecarPath) {

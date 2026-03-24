@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Callable
 
 from ._caption_album import clean_text
+from ._prompt_skill import required_section_text
 
 DEFAULT_LMSTUDIO_MAX_NEW_TOKENS = 8129
 DEFAULT_LMSTUDIO_BASE_URL = "http://192.168.4.72:1234/v1"
@@ -795,9 +796,22 @@ def normalize_lmstudio_base_url(value: str, default: str = DEFAULT_LMSTUDIO_BASE
 
 
 _DESCRIBE_CONFIGS: dict[str, tuple] = {
-    "photo": (_DESCRIBE_SYSTEM_PROMPT, _lmstudio_caption_response_format, _parse_lmstudio_structured_caption),
-    "page": (_DESCRIBE_PAGE_SYSTEM_PROMPT, _lmstudio_page_caption_response_format, _parse_lmstudio_page_caption),
+    "photo": (_lmstudio_caption_response_format, _parse_lmstudio_structured_caption),
+    "page": (_lmstudio_page_caption_response_format, _parse_lmstudio_page_caption),
 }
+
+
+def describe_system_prompt(*, page_mode: bool = False) -> str:
+    section_name = "System Prompt - Describe Page" if page_mode else "System Prompt - Describe"
+    return required_section_text(section_name)
+
+
+def people_count_system_prompt() -> str:
+    return required_section_text("System Prompt - People Count")
+
+
+def location_system_prompt() -> str:
+    return required_section_text("System Prompt - Location")
 
 
 class LMStudioCaptioner:
@@ -891,9 +905,13 @@ class LMStudioCaptioner:
         )
 
     def _describe_by_mode(self, image_path: str | Path, *, prompt: str, mode: str) -> CaptionDetails:
-        sys_prompt, fmt_fn, parse_fn = _DESCRIBE_CONFIGS[mode]
+        fmt_fn, parse_fn = _DESCRIBE_CONFIGS[mode]
         return self._call_chat_completion(
-            image_path, prompt=prompt, system_prompt=sys_prompt, response_format=fmt_fn(), parse_fn=parse_fn
+            image_path,
+            prompt=prompt,
+            system_prompt=describe_system_prompt(page_mode=(mode == "page")),
+            response_format=fmt_fn(),
+            parse_fn=parse_fn,
         )
 
     def describe(self, image_path: str | Path, *, prompt: str) -> CaptionDetails:
@@ -916,12 +934,7 @@ class LMStudioCaptioner:
             "messages": [
                 {
                     "role": "system",
-                    "content": (
-                        "You count visible people in photographs. "
-                        "Return only valid JSON matching the response_format schema. "
-                        "Count clearly visible real people only. "
-                        "Do not include reasoning or extra fields."
-                    ),
+                    "content": people_count_system_prompt(),
                 },
                 {
                     "role": "user",
@@ -968,13 +981,7 @@ class LMStudioCaptioner:
             "messages": [
                 {
                     "role": "system",
-                    "content": (
-                        "You extract location metadata for photographs. "
-                        "Return only valid JSON matching the response_format schema. "
-                        "Only return GPS coordinates when exact coordinates are explicitly visible in the image or OCR text. "
-                        "If exact coordinates are not explicit, leave GPS fields empty. "
-                        "Do not include reasoning or extra fields."
-                    ),
+                    "content": location_system_prompt(),
                 },
                 {
                     "role": "user",

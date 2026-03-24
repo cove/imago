@@ -1,8 +1,8 @@
 """
 Integration eval: validate caption quality using the real pipeline prompt.
 
-Builds the prompt with `_build_local_prompt` (the same function used in production),
-sends it directly to LM Studio alongside the image, and asserts on caption content.
+Builds the user prompt with `_build_local_prompt`,
+sends it with the production LM Studio system prompt and asserts on caption content.
 No intermediate rule-selection step — the full skill prompt is sent as-is.
 
 Requires LM Studio running with zai-org/glm-4.6v-flash loaded.
@@ -11,6 +11,7 @@ All tests are auto-skipped if LM Studio is not reachable or the test image is mi
 Run:
     python -m pytest photoalbums/tests/test_rule_extraction_eval.py -v -m integration -s
 """
+
 from __future__ import annotations
 
 import json
@@ -33,6 +34,7 @@ from photoalbums.lib._caption_lmstudio import (  # noqa: E402
     DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE,
     _build_data_url,
     _lmstudio_caption_response_format,
+    describe_system_prompt,
 )
 from photoalbums.lib.ai_caption import CaptionEngine  # noqa: E402
 from photoalbums.lib.ai_index import _run_image_analysis, DEFAULT_CAST_STORE  # noqa: E402
@@ -68,10 +70,7 @@ _TEST_IMAGE_P16_D01 = Path(
 _TEST_CASES = [
     {
         "id": "dunhuang-location-from-ocr",
-        "ocr_text": (
-            "EXHIBIT HISTORICAL RELICS OF DUNHUANG "
-            "WELCOME TO DUNHUANG SUMMER CULTURE CENTRE"
-        ),
+        "ocr_text": ("EXHIBIT HISTORICAL RELICS OF DUNHUANG WELCOME TO DUNHUANG SUMMER CULTURE CENTRE"),
         "objects": ["person", "truck"],
         "people": [],
         "album_title": "China 1986 Book II",
@@ -121,12 +120,16 @@ def _call_caption(base_url: str, image_path: Path, *, case: dict) -> dict:
         "model": _MODEL,
         "messages": [
             {
+                "role": "system",
+                "content": describe_system_prompt(),
+            },
+            {
                 "role": "user",
                 "content": [
                     {"type": "text", "text": prompt},
                     {"type": "image_url", "image_url": {"url": image_url}},
                 ],
-            }
+            },
         ],
         "response_format": _lmstudio_caption_response_format(),
         "temperature": 0,
@@ -183,6 +186,7 @@ def _call_caption_engine(base_url: str, image_path: Path, *, case: dict) -> dict
 def _call_pipeline(base_url: str, image_path: Path, *, case: dict) -> dict:
     """Full pipeline: real face detection → position computation → caption (mirrors MCP call)."""
     from photoalbums.lib.ai_people import CastPeopleMatcher
+
     t0 = time.monotonic()
     people_matcher = CastPeopleMatcher(
         cast_store_dir=DEFAULT_CAST_STORE,
@@ -289,6 +293,5 @@ def test_caption_quality(lmstudio_url, case):
         f"    people:      {case.get('people', [])}\n"
         f"    objects:     {case.get('objects', [])}\n"
         f"    ocr_text:    {case.get('ocr_text', '')!r}\n"
-        f"    album_title: {case.get('album_title', '')!r}\n"
-        + "\n".join(failing_details)
+        f"    album_title: {case.get('album_title', '')!r}\n" + "\n".join(failing_details)
     )

@@ -157,11 +157,60 @@ location block in the logs.
 - Use the printed cover title (not a normalized version) when naming the album in captions.
 - For album covers or title pages, describe the image as "the cover" or "the title page" of the photo album.
 - Quote any visible cover labels exactly as they appear.
-- Cordell family albums typically feature blue or white leathery covers with gold trim and the title printed in the lower-right corner.
+- Albums feature blue or white leathery covers with gold trim and the title printed in the lower-right corner.
 - Classify albums by title:
   - Family albums contain "Family" in the title.
   - Travel albums contain one or more country names in the title.
-  - Travel albums focus on a specific place and time; family albums span many years and locations.
+
+## System Prompt - Describe
+You are a photo caption writer.
+Return only valid JSON matching the response_format schema.
+Put the final caption text in the caption field.
+State only supported facts in direct language; do not hedge.
+Do not mention filenames, folder names, internal IDs, scan artifacts, processing details, or the medium itself.
+Use specific proper names and precise cultural or geographic terms when supported; avoid generic terms like "traditional," and avoid age words like "historic," "antique," or "old" unless they appear in visible text.
+Reproduce visible text exactly; if it is not in English, add an English translation in parentheses immediately after it.
+If the prompt includes OCR that reads like a printed caption or label, incorporate it naturally and use it as the title; do not use the album name as the title.
+Set location_name to a concise English geocoding query like "Landmark, City, Country" when the location is confident enough for geocoding; otherwise set it to "".
+Do not include reasoning, extra fields, GPS coordinates, people counts, or name lists.
+
+## System Prompt - Describe Page
+You are a photo caption writer examining a scanned album page.
+Return only valid JSON matching the `response_format` schema.
+Put the overall page description in the `caption` field.
+State only supported facts.
+Use strong, direct wording.
+When quoting visible text, reproduce it exactly as printed.
+If the user prompt provides OCR text that reads like a printed caption or label, incorporate it naturally and prefer it for the title when it fits.
+In `photo_regions`, list each distinct photograph visible on the page as a normalized rectangle (`x`, `y`, `w`, `h` in 0-1 range, top-left origin).
+Write one sentence per region in its `description` field.
+If no distinct photographs are visible, return an empty `photo_regions` list.
+If the location is known confidently enough for online geocoding, set `location_name` to a concise English geocoding query such as `"Landmark, City, Country"`.
+If no confident geocoding query is available, set `location_name` to an empty string.
+Do not hedge with phrases like `"suggesting"`, `"implying"`, or `"indicating"`.
+Do not refer to the medium itself with phrases like `"photograph"`, `"picture"`, `"image"`, `"album page"`, or similar meta-descriptions.
+Do not use vague age words like `"traditional"`, `"historic"`, `"antique"`, or `"old"` unless they are explicitly part of visible text.
+Do not use the album name as the title.
+Do not include reasoning or extra fields.
+
+## System Prompt - People Count
+You count visible people in photographs.
+Return only valid JSON matching the response_format schema.
+Count clearly visible real people only.
+Do not include reasoning or extra fields.
+
+## System Prompt - Location
+You extract location metadata for photographs.
+Return only valid JSON matching the response_format schema.
+Only return GPS coordinates when exact coordinates are explicitly visible in the image or OCR text.
+If exact coordinates are not explicit, leave GPS fields empty.
+Do not include reasoning or extra fields.
+
+## System Prompt - OCR
+You are an OCR engine.
+Return only valid JSON matching the response_format schema.
+Put the extracted text in the text field.
+Do not describe the image, show reasoning, or add extra fields.
 
 ## Preamble People Count
 Count the number of clearly visible real people in this photo.
@@ -189,7 +238,7 @@ Album focus hint: {album_focus}.
 {"title": "...", "caption": "..."}
 
 title: short title for the photo or page — if there is a printed caption or visible title text on the page (over 15 words counts as a page caption), use that verbatim; otherwise write a brief visual description of the scene.
-caption: detailed description in first-person family voice using only supported facts.
+caption: direct scene description using only supported facts.
 
 ## Preamble Page Photo Regions
 This image is a scanned album page containing multiple photographs.
@@ -200,7 +249,7 @@ Use the internationally recognized proper name for any famous landmark in descri
 ## Output Format – Describe Page (with photo regions)
 {"caption": "...", "location_name": "...", "photo_regions": [{"x": 0.0, "y": 0.0, "w": 0.5, "h": 0.5, "description": "..."}]}
 
-caption: detailed description in first-person family voice using only supported facts.
+caption: direct overall scene description using only supported facts.
 location_name: concise geocoding query or empty string.
 photo_regions: list each distinct photograph; x/y/w/h are normalized rectangle coordinates (0–1, top-left origin, relative to full image); description is one sentence per photograph. Return an empty list if there are no clearly distinct photographs.
 
@@ -238,4 +287,10 @@ Detected objects: {object_list}.
 
 ## OCR Hint
 OCR text hint: "{ocr_snippet}". If this reads as a printed caption or label for the photo, incorporate it naturally into the description.
+
+## Preamble Page Photo Regions Compact
+This page contains multiple photographs.
+Identify each distinct photograph as a rectangle.
+Describe the content inside each photograph, not the page layout.
+Use recognized proper names when a landmark or artwork is clear.
 

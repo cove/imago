@@ -447,6 +447,10 @@
     "query": "Belgrade, Yugoslavia; Sarajevo, Yugoslavia",
     "status": "miss"
   },
+  "bicycle parking lot, xian, china": {
+    "query": "Bicycle Parking Lot, Xian, China",
+    "status": "miss"
+  },
   "big ben - london - westminster abbey": {
     "query": "Big Ben - London - Westminster Abbey",
     "status": "miss"
@@ -863,6 +867,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "canton hong kong": {
+    "display_name": "廣東道 Canton Road, 官涌 Kwun Chung, 油麻地 Yau Ma Tei, 油尖旺區 Yau Tsim Mong District, 九龍 Kowloon, 香港 Hong Kong, 999077, 中国",
+    "latitude": "22.3073825",
+    "longitude": "114.1683945",
+    "query": "Canton Hong Kong",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "canton hotel, guangzhou, china": {
     "display_name": "华厦大酒店, 回龙路, 人民街道, 越秀区, 广州市, 广东省, 510115, 中国",
     "latitude": "23.1176015",
@@ -943,8 +955,16 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "cathedral nueva - salamanca": {
+    "query": "Cathedral Nueva - Salamanca",
+    "status": "miss"
+  },
   "cathedral nueva - salamanca, salamanca, spain": {
     "query": "CATHEDRAL NUEVA - SALAMANCA, SALAMANCA, SPAIN",
+    "status": "miss"
+  },
+  "cathedral nueva - salamanca, spain": {
+    "query": "Cathedral Nueva - Salamanca, Spain",
     "status": "miss"
   },
   "cathedral nueva - salamanca, spain; salamanca, spain; seville, spain; september, 1988": {
@@ -1017,6 +1037,10 @@
   },
   "chendou, sichuan province, china": {
     "query": "Chendou, Sichuan Province, China",
+    "status": "miss"
+  },
+  "chendou, tibet": {
+    "query": "Chendou, Tibet",
     "status": "miss"
   },
   "chendou, tibet autonomous region, china": {
@@ -1619,6 +1643,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "dragon gate, kunming, china": {
+    "display_name": "龙门, 千步崖, 碧鸡街道, 西山区, 昆明市, 云南省, 650228, 中国",
+    "latitude": "24.9521671",
+    "longitude": "102.6390210",
+    "query": "Dragon Gate, Kunming, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "drepung monastery": {
     "display_name": "འབྲས་སྤུངས་དགོན། 哲蚌寺, 北京西路, དམ་བག་སྡེ་ཁུལ། 当巴社区, 金珠西路街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 中国",
     "latitude": "29.6761893",
@@ -1718,6 +1750,14 @@
   "dunhuang county museum, dunhuang, gansu, china": {
     "query": "Dunhuang County Museum, Dunhuang, Gansu, China",
     "status": "miss"
+  },
+  "dunhuang cultural centre, dunhuang, china": {
+    "display_name": "敦煌市文化馆, 鸣山路, 沙州镇, 敦煌市, 酒泉市, 甘肃省, 736200, 中国",
+    "latitude": "40.1230849",
+    "longitude": "94.6626234",
+    "query": "Dunhuang Cultural Centre, Dunhuang, China",
+    "source": "nominatim",
+    "status": "ok"
   },
   "dunhuang cultural centre, dunhuang, gansu, china": {
     "display_name": "敦煌市文化馆, 鸣山路, 沙州镇, 敦煌市, 酒泉市, 甘肃省, 736200, 中国",
@@ -2775,6 +2815,14 @@
     "query": "Jiayu Pass, Gansu, China",
     "status": "miss"
   },
+  "jiayuguan city, china": {
+    "display_name": "嘉峪关市, 甘肃省, 735100, 中国",
+    "latitude": "39.7722294",
+    "longitude": "98.2885388",
+    "query": "Jiayuguan City, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "jiayuguan city, gansu province, china": {
     "display_name": "嘉峪关市, 甘肃省, 735100, 中国",
     "latitude": "39.7722294",
@@ -2850,6 +2898,10 @@
     "query": "Jiuquan, Gansu, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "jokhang temple and potala palace in lhasa, tibet": {
+    "query": "Jokhang Temple and Potala Palace in Lhasa, Tibet",
+    "status": "miss"
   },
   "jokhang temple and potala palace, lasa, tibet": {
     "query": "Jokhang Temple and Potala Palace, Lasa, Tibet",
@@ -3132,6 +3184,14 @@
     "latitude": "24.4762478",
     "longitude": "32.9495225",
     "query": "Kom Ombo, Egypt",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "kunming hotel": {
+    "display_name": "昆明饭店, 白塔路, 拓东街道, 盘龙区, 昆明市, 云南省, 650051, 中国",
+    "latitude": "25.0418068",
+    "longitude": "102.7232123",
+    "query": "Kunming Hotel",
     "source": "nominatim",
     "status": "ok"
   },
@@ -3667,6 +3727,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "madrid": {
+    "display_name": "Madrid, Comunidad de Madrid, España",
+    "latitude": "40.4167820",
+    "longitude": "-3.7035070",
+    "query": "Madrid",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "madrid and salamanca, spain": {
     "display_name": "Plaza de Madrid, Salesas, Salamanca, Castilla y León, 37005, España",
     "latitude": "40.9756335",
@@ -3717,6 +3785,10 @@
   },
   "mainz, germany; cairo, egypt": {
     "query": "Mainz, Germany; Cairo, Egypt",
+    "status": "miss"
+  },
+  "major square madrid spain": {
+    "query": "Major Square Madrid Spain",
     "status": "miss"
   },
   "major square madrid, spain": {
@@ -3777,6 +3849,10 @@
   },
   "market place in lasa, china": {
     "query": "Market Place in Lasa, China",
+    "status": "miss"
+  },
+  "market place in lasa, tibet autonomous region, china": {
+    "query": "Market Place in Lasa, Tibet Autonomous Region, China",
     "status": "miss"
   },
   "market place in lhasa, tibet, china": {
@@ -4087,6 +4163,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "our hotel in xian": {
+    "query": "Our Hotel in Xian",
+    "status": "miss"
+  },
   "ouse river, bedford, england": {
     "display_name": "River Great Ouse, Castle, Bedford, England, MK42 0BU, United Kingdom",
     "latitude": "52.1334502",
@@ -4175,6 +4255,10 @@
     "query": "Paintings & Statues in the Portal Palace",
     "status": "miss"
   },
+  "paintings & statues in the portala palace": {
+    "query": "Paintings & Statues in the Portala Palace",
+    "status": "miss"
+  },
   "palace of holyroodhouse, edinburgh, scotland, uk": {
     "display_name": "Palace of Holyroodhouse, Canongate, Abbeyhill, Old Town, City of Edinburgh, Alba / Scotland, EH8 8DX, United Kingdom",
     "latitude": "55.9526948",
@@ -4245,6 +4329,10 @@
   },
   "parliament buildings, london, uk": {
     "query": "Parliament Buildings, London, UK",
+    "status": "miss"
+  },
+  "parliament buildings, vienna": {
+    "query": "Parliament Buildings, Vienna",
     "status": "miss"
   },
   "parliament buildings, vienna, austria; schönbrunn-gloriette, vienna, austria": {
@@ -4443,6 +4531,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "potala palace in lhasa, tibet": {
+    "query": "Potala Palace in Lhasa, Tibet",
+    "status": "miss"
+  },
   "potala palace, lasa, tibet": {
     "display_name": "布达拉宫 ཕོ་བྲང་པོ་ཏ་ལ།, 康昂北路东段, 吉崩岗街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
     "latitude": "29.6575676",
@@ -4556,6 +4648,14 @@
     "latitude": "51.5378103",
     "longitude": "-0.9011950",
     "query": "Red Lion Hotel, Henley-on-Thames, England",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "regent street, london": {
+    "display_name": "Regent Street, St. James's, East Marylebone, Mayfair, City of Westminster, Greater London, England, W1B 5SJ, United Kingdom",
+    "latitude": "51.5116775",
+    "longitude": "-0.1393013",
+    "query": "Regent Street, London",
     "source": "nominatim",
     "status": "ok"
   },
@@ -5203,6 +5303,10 @@
     "query": "Spain and Morocco",
     "status": "miss"
   },
+  "spain and morocco 1988": {
+    "query": "Spain and Morocco 1988",
+    "status": "miss"
+  },
   "spain square seville spain": {
     "query": "Spain Square Seville Spain",
     "status": "miss"
@@ -5819,12 +5923,24 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "the potala palace in lasa tibet": {
+    "query": "The Potala Palace in Lasa Tibet",
+    "status": "miss"
+  },
+  "the potala palace in lhasa tibet": {
+    "query": "The Potala Palace in Lhasa Tibet",
+    "status": "miss"
+  },
   "the potala palace in lhasa, tibet": {
     "query": "The Potala Palace in Lhasa, Tibet",
     "status": "miss"
   },
   "the potala palace, lhasa, tibet": {
     "query": "The Potala Palace, Lhasa, Tibet",
+    "status": "miss"
+  },
+  "the potala palace, lhasa, tibet autonomous region, china": {
+    "query": "The Potala Palace, Lhasa, Tibet Autonomous Region, China",
     "status": "miss"
   },
   "the quay and priory, christchurch": {
@@ -5883,6 +5999,14 @@
     "query": "The Stocks, Stow-on-the-Wold, The Cotswolds, Burton-on-the-Water, Burton-on-the-Hill, Bourton-on-the-Hill",
     "status": "miss"
   },
+  "the stone forest": {
+    "display_name": "Stone Forest, South Saint Francis Drive, Santa Fe, Santa Fe County, New Mexico, 87501, United States",
+    "latitude": "35.6864406",
+    "longitude": "-105.9541303",
+    "query": "The Stone Forest",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "the stone forest (shilin), yunnan, china": {
     "query": "The Stone Forest (Shilin), Yunnan, China",
     "status": "miss"
@@ -5892,6 +6016,14 @@
     "latitude": "24.8193006",
     "longitude": "103.3259782",
     "query": "The Stone Forest, Kunming, Yunnan Province, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "the stone forest, yunnan, china": {
+    "display_name": "The Minor Stone Forest, 阿诗玛北路, 石林彝族自治县, 昆明市, 云南省, 652200, 中国",
+    "latitude": "24.8193006",
+    "longitude": "103.3259782",
+    "query": "The Stone Forest, Yunnan, China",
     "source": "nominatim",
     "status": "ok"
   },
@@ -5925,6 +6057,10 @@
   },
   "the yellow river at lanzhou": {
     "query": "The Yellow River at Lanzhou",
+    "status": "miss"
+  },
+  "the yellow river at lanzhou, china": {
+    "query": "The Yellow River at Lanzhou, China",
     "status": "miss"
   },
   "the zoo at chendou": {
@@ -6311,6 +6447,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "vienna city hall": {
+    "display_name": "Rathaus, 1, Rathausplatz, Regierungsviertel, Innere Stadt, Wien, 1010, Österreich",
+    "latitude": "48.2108257",
+    "longitude": "16.3565728",
+    "query": "Vienna City Hall",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "vienna city hall and stadtpark, vienna, austria": {
     "query": "Vienna City Hall and Stadtpark, Vienna, Austria",
     "status": "miss"
@@ -6428,6 +6572,14 @@
     "latitude": "51.1357977",
     "longitude": "1.3620948",
     "query": "White Cliffs of Dover, Kent, England",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "wien": {
+    "display_name": "Wien, Österreich",
+    "latitude": "48.2083537",
+    "longitude": "16.3725042",
+    "query": "Wien",
     "source": "nominatim",
     "status": "ok"
   },

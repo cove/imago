@@ -56,6 +56,9 @@ cast-web:
 vhs-tuner:
   {{python}} vhs/vhs.py tuner
 
+vhs-render *args:
+  {{python}} vhs/vhs.py render {{args}}
+
 mcp-http:
   {{python}} mcp_server.py --transport http --host 0.0.0.0 --port 8090 --console-host 192.168.4.26
 

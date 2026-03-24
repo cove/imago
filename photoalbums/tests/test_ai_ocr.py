@@ -57,16 +57,12 @@ class TestAIOcr(unittest.TestCase):
                     return_value=(fake_torch, fake_processor_cls, fake_model_cls),
                 ),
             ):
-                ocr = ai_ocr.OCREngine(
-                    engine="local", model_name=ai_ocr.DEFAULT_LOCAL_OCR_MODEL
-                )
+                ocr = ai_ocr.OCREngine(engine="local", model_name=ai_ocr.DEFAULT_LOCAL_OCR_MODEL)
                 ocr._ensure_loaded()
 
             processor_kwargs = fake_processor_cls.from_pretrained.call_args.kwargs
             self.assertTrue(processor_kwargs["local_files_only"])
-            self.assertEqual(
-                processor_kwargs["max_pixels"], ai_ocr.DEFAULT_LOCAL_OCR_MAX_PIXELS
-            )
+            self.assertEqual(processor_kwargs["max_pixels"], ai_ocr.DEFAULT_LOCAL_OCR_MAX_PIXELS)
 
             model_kwargs = fake_model_cls.from_pretrained.call_args.kwargs
             self.assertTrue(model_kwargs["local_files_only"])
@@ -89,9 +85,7 @@ class TestAIOcr(unittest.TestCase):
             fake_processor = mock.Mock()
             fake_processor.apply_chat_template.return_value = "OCR PROMPT"
             fake_processor.return_value = {"input_ids": fake_input_ids}
-            fake_processor.batch_decode.return_value = [
-                "assistant: MAINLAND CHINA\n1986 BOOK 11"
-            ]
+            fake_processor.batch_decode.return_value = ["assistant: MAINLAND CHINA\n1986 BOOK 11"]
 
             fake_processor_cls = mock.Mock()
             fake_processor_cls.from_pretrained.return_value = fake_processor
@@ -114,17 +108,22 @@ class TestAIOcr(unittest.TestCase):
                     return_value=(fake_torch, fake_processor_cls, fake_model_cls),
                 ),
             ):
-                ocr = ai_ocr.OCREngine(
-                    engine="local", model_name=ai_ocr.DEFAULT_LOCAL_OCR_MODEL
+                ocr = ai_ocr.OCREngine(engine="local", model_name=ai_ocr.DEFAULT_LOCAL_OCR_MODEL)
+                records = []
+                text = ocr.read_text(
+                    image_path,
+                    debug_recorder=lambda **row: records.append(row),
+                    debug_step="ocr",
                 )
-                text = ocr.read_text(image_path)
 
             self.assertEqual(text, "MAINLAND CHINA\n1986 BOOK 11")
             fake_processor.apply_chat_template.assert_called_once()
             prompt_messages = fake_processor.apply_chat_template.call_args.args[0]
-            self.assertEqual(
-                prompt_messages[0]["content"][1]["text"], ai_ocr.DEFAULT_LOCAL_OCR_PROMPT
-            )
+            self.assertEqual(prompt_messages[0]["content"][1]["text"], ai_ocr.DEFAULT_LOCAL_OCR_PROMPT)
+            self.assertEqual(len(records), 1)
+            self.assertEqual(records[0]["step"], "ocr")
+            self.assertEqual(records[0]["engine"], "local")
+            self.assertEqual(records[0]["prompt"], "OCR PROMPT")
 
     def test_local_ocr_normalizes_no_text_response(self):
         self.assertEqual(ai_ocr._normalize_ocr_text("No visible text"), "")
@@ -144,15 +143,16 @@ class TestAIOcr(unittest.TestCase):
         )
         self.assertEqual(text, "WELCOME TO\n敦煌之夏")
 
+    def test_ocr_system_prompt_loads_from_skill_section(self):
+        self.assertIn("Put the extracted text in the text field.", ai_ocr.ocr_system_prompt())
+
     def test_lmstudio_ocr_uses_json_schema(self):
         response_payload = {
             "choices": [
                 {
                     "finish_reason": "stop",
                     "message": {
-                        "content": json.dumps(
-                            {"text": "MAINLAND CHINA\n1986\nBOOK 11"}
-                        ),
+                        "content": json.dumps({"text": "MAINLAND CHINA\n1986\nBOOK 11"}),
                     },
                 }
             ]
@@ -171,10 +171,9 @@ class TestAIOcr(unittest.TestCase):
         def fake_urlopen(request, timeout):
             self.assertTrue(request.full_url.endswith("/chat/completions"))
             payload = json.loads(request.data.decode("utf-8"))
+            self.assertEqual(payload["messages"][0]["content"], ai_ocr.ocr_system_prompt())
             self.assertEqual(payload["response_format"]["type"], "json_schema")
-            self.assertEqual(
-                payload["response_format"]["json_schema"]["name"], "ocr_payload"
-            )
+            self.assertEqual(payload["response_format"]["json_schema"]["name"], "ocr_payload")
             return _FakeResponse()
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -186,16 +185,10 @@ class TestAIOcr(unittest.TestCase):
                     "_build_ocr_data_url",
                     return_value="data:image/jpeg;base64,abc123",
                 ),
-                mock.patch.object(
-                    ai_ocr, "_lmstudio_ocr_select_model", return_value="qwen2.5-vl"
-                ),
-                mock.patch.object(
-                    ai_ocr.urllib.request, "urlopen", side_effect=fake_urlopen
-                ),
+                mock.patch.object(ai_ocr, "_lmstudio_ocr_select_model", return_value="qwen2.5-vl"),
+                mock.patch.object(ai_ocr.urllib.request, "urlopen", side_effect=fake_urlopen),
             ):
-                ocr = ai_ocr.OCREngine(
-                    engine="lmstudio", base_url="http://127.0.0.1:1234"
-                )
+                ocr = ai_ocr.OCREngine(engine="lmstudio", base_url="http://127.0.0.1:1234")
                 text = ocr.read_text(image_path)
 
         self.assertEqual(text, "MAINLAND CHINA\n1986\nBOOK 11")
