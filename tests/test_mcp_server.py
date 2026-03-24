@@ -120,6 +120,7 @@ class TestPhotoalbumsLoadXmp(unittest.TestCase):
             creator_tool="https://github.com/cove/imago",
             person_names=["Alice Example"],
             subjects=["park", "bench"],
+            title="Album page caption",
             description="Alice Example sitting on a bench in the park.",
             album_title="Family Book I",
             source_text="scan_001.tif",
@@ -165,6 +166,7 @@ class TestPhotoalbumsLoadXmp(unittest.TestCase):
         self.assertIsNone(result["photo_path"])
         self.assertEqual(result["sidecar_path"], str(sidecar_path.resolve()))
         self.assertEqual(result["creator_tool"], "https://github.com/cove/imago")
+        self.assertEqual(result["title"], "Album page caption")
         self.assertEqual(result["person_names"], ["Alice Example"])
         self.assertEqual(result["subjects"], ["park", "bench"])
         self.assertEqual(result["source_text"], "scan_001.tif")

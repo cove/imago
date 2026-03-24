@@ -200,6 +200,7 @@ def load_ai_xmp_review(
     result: dict[str, object] = {
         "sidecar_path": str(path.resolve()),
         "creator_tool": _clean_text(state.get("creator_tool")),
+        "title": _clean_text(state.get("title")),
         "person_names": person_names,
         "subjects": subjects,
         "description": _clean_text(state.get("description")),
