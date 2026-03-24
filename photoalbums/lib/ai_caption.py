@@ -85,6 +85,7 @@ class CaptionOutput:
     error: str = ""
     image_regions: list[dict] = None
     album_title: str = ""
+    title: str = ""
 
     def __post_init__(self):
         if self.image_regions is None:
@@ -236,6 +237,7 @@ class CaptionEngine:
                 error=("" if caption.text else f"{self.engine.upper()} returned empty output."),
                 image_regions=list(getattr(caption, "image_regions", None) or []),
                 album_title=str(getattr(caption, "album_title", "") or ""),
+                title=str(getattr(caption, "title", "") or ""),
             )
         except Exception as exc:
             return CaptionOutput(text="", engine=self.engine, fallback=True, error=str(exc))

@@ -346,6 +346,7 @@ class TestXMPSidecar(unittest.TestCase):
                 creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
+                title="Album page caption",
                 description="This is the cover or title page of Mainland China Book II.",
                 album_title="Mainland China Book II",
                 gps_latitude="39.7875",
@@ -363,6 +364,7 @@ class TestXMPSidecar(unittest.TestCase):
 
             state = xmp_sidecar.read_ai_sidecar_state(sidecar)
             assert state is not None
+            self.assertEqual(state["title"], "Album page caption")
             self.assertEqual(state["album_title"], "Mainland China Book II")
             self.assertEqual(state["gps_latitude"], "39,47.25N")
             self.assertEqual(state["gps_longitude"], "100,18.43332E")

@@ -259,6 +259,10 @@
     "query": "Bampo Village, Beijing, China",
     "status": "miss"
   },
+  "bampo village, chenou, china": {
+    "query": "Bampo Village, Chenou, China",
+    "status": "miss"
+  },
   "bampo village, china": {
     "query": "Bampo Village, China",
     "status": "miss"
@@ -1124,6 +1128,14 @@
     "latitude": "35.0000740",
     "longitude": "104.9999270",
     "query": "China",
+    "source": "nominatim",
+    "status": "ok"
+  },
+  "china, tibet": {
+    "display_name": "西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 中国",
+    "latitude": "29.8556443",
+    "longitude": "90.8749807",
+    "query": "China, Tibet",
     "source": "nominatim",
     "status": "ok"
   },
@@ -3219,6 +3231,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "lasa, china": {
+    "display_name": "拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
+    "latitude": "29.6542054",
+    "longitude": "91.1173015",
+    "query": "Lasa, China",
+    "source": "nominatim",
+    "status": "ok"
+  },
   "lasa, tibet": {
     "display_name": "拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
     "latitude": "29.6542054",
@@ -4147,6 +4167,14 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "paintings & statues in the portal a palace": {
+    "query": "Paintings & Statues in the Portal a Palace",
+    "status": "miss"
+  },
+  "paintings & statues in the portal palace": {
+    "query": "Paintings & Statues in the Portal Palace",
+    "status": "miss"
+  },
   "palace of holyroodhouse, edinburgh, scotland, uk": {
     "display_name": "Palace of Holyroodhouse, Canongate, Abbeyhill, Old Town, City of Edinburgh, Alba / Scotland, EH8 8DX, United Kingdom",
     "latitude": "55.9526948",
@@ -4406,6 +4434,14 @@
   "portala palace, tibet, china": {
     "query": "Portala Palace, Tibet, China",
     "status": "miss"
+  },
+  "potala palace": {
+    "display_name": "布达拉宫 ཕོ་བྲང་པོ་ཏ་ལ།, 康昂北路东段, 吉崩岗街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
+    "latitude": "29.6575676",
+    "longitude": "91.1170188",
+    "query": "Potala Palace",
+    "source": "nominatim",
+    "status": "ok"
   },
   "potala palace, lasa, tibet": {
     "display_name": "布达拉宫 ཕོ་བྲང་པོ་ཏ་ལ།, 康昂北路东段, 吉崩岗街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
@@ -5731,6 +5767,10 @@
     "query": "The Mohamed Aly Alabaster Mosque - Cairo Egypt Dec. 1975",
     "status": "miss"
   },
+  "the new hong kong bank": {
+    "query": "The New Hong Kong Bank",
+    "status": "miss"
+  },
   "the new hong kong bank, hong kong": {
     "query": "The New Hong Kong Bank, Hong Kong",
     "status": "miss"
@@ -5781,6 +5821,10 @@
   },
   "the potala palace in lhasa, tibet": {
     "query": "The Potala Palace in Lhasa, Tibet",
+    "status": "miss"
+  },
+  "the potala palace, lhasa, tibet": {
+    "query": "The Potala Palace, Lhasa, Tibet",
     "status": "miss"
   },
   "the quay and priory, christchurch": {
@@ -6586,6 +6630,10 @@
     "query": "Yingzhou, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "yongfeng temple, datong, shanxi, china": {
+    "query": "Yongfeng Temple, Datong, Shanxi, China",
+    "status": "miss"
   },
   "yungang grottoes, datong, china": {
     "display_name": "云冈石窟, 云冈镇, 云冈区, 大同市, 山西省, 中国",
