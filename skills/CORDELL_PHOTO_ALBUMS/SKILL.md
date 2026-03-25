@@ -51,12 +51,13 @@ Use the `imago` MCP tools to drive the AI indexing pipeline. The typical flow:
 
 ### Check what needs processing
 Call `photoalbums_manifest_summary` first to see counts by state (pending, done, errored). This tells
-you whether there's real work to do and how large the job will be.
+you whether there's real work to do and how large the job will be. Then use
+`photoalbums_manifest_query(album="...")` when you need concrete filenames, cover pages, or sidecar status.
 
 ### Ensure the cover page is processed first
 Before processing any album pages, the cover page (P00 or P01) must be processed so the album title is available to all subsequent pages. Always check:
 
-1. Call `photoalbums_manifest_summary` and look for the cover page (P00 or P01) in the album.
+1. Call `photoalbums_album_status(album="...")` and inspect `cover_candidates` plus `cover_ready`.
 2. If the cover page has not been processed yet (state is `pending` or absent), run a targeted job first:
    `photoalbums_ai_index(photo="<AlbumName>_B<book>_P00")` — wait for it to complete before continuing.
 3. If the cover was previously processed but predates this change (its `xmpDM:album` field may be empty or missing the year), reprocess it:
@@ -76,10 +77,16 @@ Call `photoalbums_ai_index` to launch a background job. It returns a `job_id` im
 ### Monitor progress
 Poll `job_status(job_id)` periodically (every 30–60 seconds for large runs). It returns status and a
 recent log tail. When the job finishes, call `job_logs(job_id)` to retrieve the full output for
-quality review. Use `job_list` to see all recent jobs if you've lost track of an ID.
+quality review. Use `photoalbums_job_artifacts(job_id)` to inspect XMP outputs and prompt-debug artifacts for
+specific photos. Use `job_list` to see all recent jobs if you've lost track of an ID.
 
 ### Cancel if needed
 Call `job_cancel(job_id)` to terminate a running job gracefully.
+
+### Audit what needs repair
+Call `photoalbums_reprocess_audit(album="...")` to find files that look stale or incomplete before starting a
+repair pass. Use this when you suspect missing stitched OCR authority, missing sidecars, stale sidecars, or
+Cast-driven people-name refreshes.
 
 ---
 
@@ -131,9 +138,8 @@ location block in the logs.
 - Copy all visible text into `ocr_text` exactly as printed: preserve spelling, capitalization, punctuation, spacing, and line breaks. Do not translate, normalize, or correct.
 - Include only clearly legible portions of blurry or illegible text. Use corrected or translated understanding only in caption or location reasoning when confidence exceeds 95%.
 - Infer completion only for words visibly truncated at scan edges when the intended word is obvious.
-- In `ocr_text`, reproduce `BOOK 11` exactly as printed. In caption or location reasoning, interpret it as Book II.
 - Never correct proper names, dates, personal captions, or ambiguous text unless visual evidence is unambiguous.
-- For non-English text: preserve exactly in `ocr_text`; use English translation only in caption or location reasoning.
+- For non-English text: preserve exactly in `author_text` or `scene_text`; use English translation only in caption or location reasoning. Set `ocr_lang` to the BCP-47 code of that language (e.g. `"zh"`, `"fr"`, `"ar"`). The pipeline will store the original-language text under its proper `xml:lang` code in `dc:description` alongside the English AI caption under `x-default`, so both versions are preserved in the XMP.
 - Typed text on white paper strips or typed labels on the album page is album-authored annotation text.
 - In this archive, album-authored annotation text is typed, often on white paper strips in a typewriter-style Courier-like font. Treat that text as high-authority archival evidence.
 - Do not assign album-authored annotation text to a photo based on position alone. Use both spatial cues (proximity, centering, alignment, grouping, borders, page layout) and content cues (whether the text semantically matches what is visible in the candidate photo or photos).
@@ -194,13 +200,14 @@ Read the full album title exactly as printed on the cover — including all line
 Do not normalize, romanize book numbers, or reformat the title in any way.
 
 ## Output Format – Describe (full caption)
-`{"author_text": "...", "scene_text": "...", "annotation_scope": "...", "location_name": "...", "album_title": ""}`
+`{"author_text": "...", "scene_text": "...", "annotation_scope": "...", "location_name": "...", "album_title": "", "ocr_lang": ""}`
 
 - `author_text`: typed album-authored annotation text that clearly applies to this photo. Otherwise empty string.
 - `scene_text`: readable text visible inside the photographed scene itself, preserved verbatim in any language. Otherwise empty string.
 - `annotation_scope`: one of `photo`, `group`, `page`, `none`, or `unknown`.
 - `location_name`: concise geocoding query for GPS lookup when supported strongly enough by visible evidence; otherwise empty string.
 - `album_title`: for cover pages only — the full album title as printed on the cover (e.g. `"Egypt 1975"`, `"Mainland China Book 11"`). Empty string for all other pages.
+- `ocr_lang`: BCP-47 language code of the primary non-English text in `author_text` or `scene_text` (e.g. `"zh"` for Chinese, `"fr"` for French, `"ar"` for Arabic). Use `"en"` for English-only text. Empty string when there is no visible text.
 
 ## Output Format – Describe Page (with photo regions)
 `{"author_text": "...", "scene_text": "...", "annotation_scope": "...", "location_name": "...", "photo_regions": [{"x": 0.0, "y": 0.0, "w": 0.5, "h": 0.5, "author_text": "...", "scene_text": "...", "annotation_scope": "..."}]}`
