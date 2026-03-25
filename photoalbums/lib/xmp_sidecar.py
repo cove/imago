@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 import xml.etree.ElementTree as ET
@@ -10,12 +11,14 @@ X_NS = "adobe:ns:meta/"
 RDF_NS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
 DC_NS = "http://purl.org/dc/elements/1.1/"
 XMP_NS = "http://ns.adobe.com/xap/1.0/"
+XMPMM_NS = "http://ns.adobe.com/xap/1.0/mm/"
 EXIF_NS = "http://ns.adobe.com/exif/1.0/"
 IPTC_EXT_NS = "http://iptc.org/std/Iptc4xmpExt/2008-02-29/"
 IMAGO_NS = "https://imago.local/ns/1.0/"
 MWG_RS_NS = "http://www.metadataworkinggroup.com/schemas/regions/"
 ST_AREA_NS = "http://ns.adobe.com/xmp/schemata/area/"
 ST_DIM_NS = "http://ns.adobe.com/xap/1.0/sType/Dimensions#"
+ST_EVT_NS = "http://ns.adobe.com/xap/1.0/sType/ResourceEvent#"
 PHOTOSHOP_NS = "http://ns.adobe.com/photoshop/1.0/"
 XMPDM_NS = "http://ns.adobe.com/xmp/1.0/DynamicMedia/"
 
@@ -23,14 +26,27 @@ ET.register_namespace("x", X_NS)
 ET.register_namespace("rdf", RDF_NS)
 ET.register_namespace("dc", DC_NS)
 ET.register_namespace("xmp", XMP_NS)
+ET.register_namespace("xmpMM", XMPMM_NS)
 ET.register_namespace("exif", EXIF_NS)
 ET.register_namespace("Iptc4xmpExt", IPTC_EXT_NS)
 ET.register_namespace("imago", IMAGO_NS)
 ET.register_namespace("mwg-rs", MWG_RS_NS)
 ET.register_namespace("stArea", ST_AREA_NS)
 ET.register_namespace("stDim", ST_DIM_NS)
+ET.register_namespace("stEvt", ST_EVT_NS)
 ET.register_namespace("photoshop", PHOTOSHOP_NS)
 ET.register_namespace("xmpDM", XMPDM_NS)
+
+
+def _resolve_ocr_lang_code(ocr_lang: str) -> str:
+    """Return the xml:lang value for OCR text in dc:description.
+    Expects a BCP-47 code from the AI model (e.g. 'zh', 'fr', 'ar').
+    Returns 'x-ocr' for English or empty input."""
+    code = str(ocr_lang or "").strip()
+    if not code or code.lower() == "en":
+        return "x-ocr"
+    return code
+
 
 _RDF_ROOT = f"{{{RDF_NS}}}RDF"
 _RDF_DESC = f"{{{RDF_NS}}}Description"
@@ -38,6 +54,187 @@ _RDF_BAG = f"{{{RDF_NS}}}Bag"
 _RDF_ALT = f"{{{RDF_NS}}}Alt"
 _RDF_SEQ = f"{{{RDF_NS}}}Seq"
 _RDF_LI = f"{{{RDF_NS}}}li"
+_RDF_PARSE_TYPE = f"{{{RDF_NS}}}parseType"
+
+
+def _xmp_datetime_now() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _normalize_xmp_datetime(value: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    for candidate in (text, text.replace("Z", "+00:00"), text.replace(" ", "T")):
+        try:
+            parsed = datetime.fromisoformat(candidate)
+        except ValueError:
+            parsed = None
+        if parsed is not None:
+            normalized = parsed.replace(microsecond=0).isoformat()
+            return normalized.replace("+00:00", "Z")
+    for fmt in (
+        "%Y:%m:%d %H:%M:%S%z",
+        "%Y:%m:%d %H:%M:%S",
+        "%Y-%m-%d %H:%M:%S%z",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y:%m:%d %H:%M:%S.%f%z",
+        "%Y:%m:%d %H:%M:%S.%f",
+    ):
+        try:
+            parsed = datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+        normalized = parsed.replace(microsecond=0).isoformat()
+        return normalized.replace("+00:00", "Z")
+    return text
+
+
+def _serialize_history_parameters(parameters: dict[str, object]) -> str:
+    return json.dumps(parameters, ensure_ascii=False, sort_keys=True)
+
+
+def _build_processing_history(
+    *,
+    creator_tool: str,
+    history_when: str,
+    stitch_key: str,
+    ocr_ran: bool,
+    people_detected: bool,
+    people_identified: bool,
+    ocr_authority_source: str,
+) -> list[dict[str, object]]:
+    when_text = _normalize_xmp_datetime(history_when) or _xmp_datetime_now()
+    agent_text = str(creator_tool or "").strip() or "https://github.com/cove/imago"
+    ocr_parameters: dict[str, object] = {
+        "stage": "ocr",
+        "ocr_ran": bool(ocr_ran),
+    }
+    clean_ocr_authority = str(ocr_authority_source or "").strip()
+    if clean_ocr_authority:
+        ocr_parameters["ocr_authority_source"] = clean_ocr_authority
+    history: list[dict[str, object]] = [
+        {
+            "action": "analyzed",
+            "when": when_text,
+            "software_agent": agent_text,
+            "parameters": {
+                "stage": "people",
+                "people_detected": bool(people_detected),
+                "people_identified": bool(people_identified),
+            },
+        },
+        {
+            "action": "processed",
+            "when": when_text,
+            "software_agent": agent_text,
+            "parameters": ocr_parameters,
+        },
+    ]
+    clean_stitch_key = str(stitch_key or "").strip()
+    if clean_stitch_key:
+        history.append(
+            {
+                "action": "stitched",
+                "when": when_text,
+                "software_agent": agent_text,
+                "parameters": {
+                    "stage": "stitch",
+                    "stitch_key": clean_stitch_key,
+                },
+            }
+        )
+    return history
+
+
+def _add_processing_history(parent: ET.Element, history: list[dict[str, object]]) -> None:
+    if not history:
+        return
+    field = ET.SubElement(parent, f"{{{XMPMM_NS}}}History")
+    seq = ET.SubElement(field, _RDF_SEQ)
+    for event in history:
+        action = str(event.get("action") or "").strip()
+        when_text = _normalize_xmp_datetime(str(event.get("when") or "").strip())
+        software_agent = str(event.get("software_agent") or "").strip()
+        parameters = event.get("parameters")
+        if not action:
+            continue
+        li = ET.SubElement(seq, _RDF_LI)
+        li.set(_RDF_PARSE_TYPE, "Resource")
+        ET.SubElement(li, f"{{{ST_EVT_NS}}}action").text = action
+        if software_agent:
+            ET.SubElement(li, f"{{{ST_EVT_NS}}}softwareAgent").text = software_agent
+        if when_text:
+            ET.SubElement(li, f"{{{ST_EVT_NS}}}when").text = when_text
+        if isinstance(parameters, dict) and parameters:
+            ET.SubElement(li, f"{{{ST_EVT_NS}}}parameters").text = _serialize_history_parameters(parameters)
+
+
+def _set_processing_history(parent: ET.Element, history: list[dict[str, object]]) -> None:
+    existing = parent.find(f"{{{XMPMM_NS}}}History")
+    if existing is not None:
+        parent.remove(existing)
+    if history:
+        _add_processing_history(parent, history)
+
+
+def _read_processing_history(desc: ET.Element) -> list[dict[str, object]]:
+    field = desc.find(f"{{{XMPMM_NS}}}History")
+    if field is None:
+        return []
+    seq = field.find(_RDF_SEQ)
+    if seq is None:
+        return []
+    history: list[dict[str, object]] = []
+    for item in seq.findall(_RDF_LI):
+        action = str(item.findtext(f"{{{ST_EVT_NS}}}action", default="") or "").strip()
+        when_text = _normalize_xmp_datetime(str(item.findtext(f"{{{ST_EVT_NS}}}when", default="") or "").strip())
+        software_agent = str(item.findtext(f"{{{ST_EVT_NS}}}softwareAgent", default="") or "").strip()
+        parameters_text = str(item.findtext(f"{{{ST_EVT_NS}}}parameters", default="") or "").strip()
+        parameters: dict[str, object] | str = {}
+        if parameters_text:
+            try:
+                parsed = json.loads(parameters_text)
+            except json.JSONDecodeError:
+                parameters = parameters_text
+            else:
+                parameters = parsed if isinstance(parsed, dict) else parameters_text
+        history.append(
+            {
+                "action": action,
+                "when": when_text,
+                "software_agent": software_agent,
+                "parameters": parameters,
+            }
+        )
+    return history
+
+
+def _derive_processing_state(history: list[dict[str, object]]) -> dict[str, object]:
+    state: dict[str, object] = {}
+    for event in history:
+        parameters = event.get("parameters")
+        if not isinstance(parameters, dict):
+            continue
+        stage = str(parameters.get("stage") or "").strip().lower()
+        if stage == "stitch":
+            stitch_key = str(parameters.get("stitch_key") or "").strip()
+            if stitch_key:
+                state["stitch_key"] = stitch_key
+            continue
+        if stage == "ocr":
+            if isinstance(parameters.get("ocr_ran"), bool):
+                state["ocr_ran"] = bool(parameters["ocr_ran"])
+            ocr_authority_source = str(parameters.get("ocr_authority_source") or "").strip()
+            if ocr_authority_source:
+                state["ocr_authority_source"] = ocr_authority_source
+            continue
+        if stage == "people":
+            if isinstance(parameters.get("people_detected"), bool):
+                state["people_detected"] = bool(parameters["people_detected"])
+            if isinstance(parameters.get("people_identified"), bool):
+                state["people_identified"] = bool(parameters["people_identified"])
+    return state
 
 
 def _add_bag(parent: ET.Element, tag: str, values: list[str]) -> None:
@@ -59,6 +256,28 @@ def _add_alt_text(parent: ET.Element, tag: str, value: str) -> None:
     item = ET.SubElement(alt, _RDF_LI)
     item.set("{http://www.w3.org/XML/1998/namespace}lang", "x-default")
     item.text = text
+
+
+def _add_description_with_ocr(
+    parent: ET.Element, tag: str, description: str, ocr_text: str, ocr_lang: str = ""
+) -> None:
+    """Write dc:description with AI caption as x-default and OCR text with proper xml:lang.
+    Non-English OCR text uses its BCP-47 code; English falls back to x-ocr."""
+    caption = str(description or "").strip()
+    ocr = str(ocr_text or "").strip()
+    if not caption and not ocr:
+        return
+    field = ET.SubElement(parent, tag)
+    alt = ET.SubElement(field, _RDF_ALT)
+    primary = caption or ocr
+    item = ET.SubElement(alt, _RDF_LI)
+    item.set("{http://www.w3.org/XML/1998/namespace}lang", "x-default")
+    item.text = primary
+    if ocr and ocr != primary:
+        lang_code = _resolve_ocr_lang_code(ocr_lang)
+        ocr_item = ET.SubElement(alt, _RDF_LI)
+        ocr_item.set("{http://www.w3.org/XML/1998/namespace}lang", lang_code)
+        ocr_item.text = ocr
 
 
 def _add_simple_text(parent: ET.Element, tag: str, value: str | int | float) -> None:
@@ -316,6 +535,7 @@ def build_xmp_tree(
     location_country: str = "",
     source_text: str,
     ocr_text: str,
+    ocr_lang: str = "",
     author_text: str = "",
     scene_text: str = "",
     annotation_scope: str = "",
@@ -323,6 +543,8 @@ def build_xmp_tree(
     subphotos: list[dict] | None = None,
     stitch_key: str = "",
     ocr_authority_source: str = "",
+    create_date: str = "",
+    history_when: str = "",
     image_width: int = 0,
     image_height: int = 0,
     ocr_ran: bool = False,
@@ -337,7 +559,7 @@ def build_xmp_tree(
     _add_bag(desc, f"{{{DC_NS}}}subject", _dedupe(subjects))
     _add_bag(desc, f"{{{IPTC_EXT_NS}}}PersonInImage", _dedupe(person_names))
     _add_alt_text(desc, f"{{{DC_NS}}}title", title)
-    _add_alt_text(desc, f"{{{DC_NS}}}description", description)
+    _add_description_with_ocr(desc, f"{{{DC_NS}}}description", description, ocr_text, ocr_lang)
     if str(album_title or "").strip():
         _add_simple_text(desc, f"{{{XMPDM_NS}}}album", str(album_title or "").strip())
     if str(gps_latitude or "").strip() and str(gps_longitude or "").strip():
@@ -363,11 +585,18 @@ def build_xmp_tree(
 
     creator = ET.SubElement(desc, f"{{{XMP_NS}}}CreatorTool")
     creator.text = str(creator_tool or "").strip() or "https://github.com/cove/imago"
+    clean_create_date = _normalize_xmp_datetime(create_date)
+    if clean_create_date:
+        ET.SubElement(desc, f"{{{XMP_NS}}}CreateDate").text = clean_create_date
 
     clean_ocr = str(ocr_text or "").strip()
     if clean_ocr:
         ocr = ET.SubElement(desc, f"{{{IMAGO_NS}}}OCRText")
         ocr.text = clean_ocr
+    clean_ocr_lang = str(ocr_lang or "").strip()
+    if clean_ocr_lang:
+        ocr_lang_el = ET.SubElement(desc, f"{{{IMAGO_NS}}}OCRLang")
+        ocr_lang_el.text = clean_ocr_lang
     clean_author_text = str(author_text or "").strip()
     if clean_author_text:
         author = ET.SubElement(desc, f"{{{IMAGO_NS}}}AuthorText")
@@ -402,14 +631,18 @@ def build_xmp_tree(
     _add_iptc_image_regions(desc, list(subphotos) if subphotos else [], image_width, image_height)
     if subphotos and (image_width <= 0 or image_height <= 0):
         _add_subphotos(desc, list(subphotos))
-    clean_stitch_key = str(stitch_key or "").strip()
-    if clean_stitch_key:
-        sk = ET.SubElement(desc, f"{{{IMAGO_NS}}}StitchKey")
-        sk.text = clean_stitch_key
-
-    _add_simple_text(desc, f"{{{IMAGO_NS}}}OcrRan", str(ocr_ran).lower())
-    _add_simple_text(desc, f"{{{IMAGO_NS}}}PeopleDetected", str(people_detected).lower())
-    _add_simple_text(desc, f"{{{IMAGO_NS}}}PeopleIdentified", str(people_identified).lower())
+    _add_processing_history(
+        desc,
+        _build_processing_history(
+            creator_tool=creator_tool,
+            history_when=history_when or clean_create_date,
+            stitch_key=stitch_key,
+            ocr_ran=ocr_ran,
+            people_detected=people_detected,
+            people_identified=people_identified,
+            ocr_authority_source=ocr_authority_source,
+        ),
+    )
 
     tree = ET.ElementTree(xmpmeta)
     ET.indent(tree, space="  ")
@@ -437,6 +670,12 @@ def _replace_field(parent: ET.Element, tag: str, builder) -> None:
         parent.remove(existing)
     field = ET.SubElement(parent, tag)
     builder(field)
+
+
+def _remove_field(parent: ET.Element, tag: str) -> None:
+    existing = parent.find(tag)
+    if existing is not None:
+        parent.remove(existing)
 
 
 def _set_bag(parent: ET.Element, tag: str, values: list[str]) -> None:
@@ -469,6 +708,34 @@ def _set_alt_text(parent: ET.Element, tag: str, value: str) -> None:
         item = ET.SubElement(alt, _RDF_LI)
         item.set("{http://www.w3.org/XML/1998/namespace}lang", "x-default")
         item.text = text
+
+    _replace_field(parent, tag, _builder)
+
+
+def _set_description_with_ocr(
+    parent: ET.Element, tag: str, description: str, ocr_text: str, ocr_lang: str = ""
+) -> None:
+    """Set dc:description with AI caption as x-default and OCR text with proper xml:lang.
+    Non-English OCR text uses its BCP-47 code; English falls back to x-ocr."""
+    caption = str(description or "").strip()
+    ocr = str(ocr_text or "").strip()
+    existing = parent.find(tag)
+    if not caption and not ocr:
+        if existing is not None:
+            parent.remove(existing)
+        return
+    primary = caption or ocr
+    lang_code = _resolve_ocr_lang_code(ocr_lang)
+
+    def _builder(field: ET.Element) -> None:
+        alt = ET.SubElement(field, _RDF_ALT)
+        item = ET.SubElement(alt, _RDF_LI)
+        item.set("{http://www.w3.org/XML/1998/namespace}lang", "x-default")
+        item.text = primary
+        if ocr and ocr != primary:
+            ocr_item = ET.SubElement(alt, _RDF_LI)
+            ocr_item.set("{http://www.w3.org/XML/1998/namespace}lang", lang_code)
+            ocr_item.text = ocr
 
     _replace_field(parent, tag, _builder)
 
@@ -563,8 +830,11 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
             parsed = None
         if isinstance(parsed, dict):
             detections_payload = parsed
+    processing_history = _read_processing_history(desc)
+    processing_state = _derive_processing_state(processing_history)
     return {
         "creator_tool": str(desc.findtext(f"{{{XMP_NS}}}CreatorTool", default="") or "").strip(),
+        "create_date": _normalize_xmp_datetime(str(desc.findtext(f"{{{XMP_NS}}}CreateDate", default="") or "").strip()),
         "title": _get_alt_text(desc, f"{{{DC_NS}}}title"),
         "description": _get_alt_text(desc, f"{{{DC_NS}}}description"),
         "album_title": str(
@@ -575,16 +845,36 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
         "gps_latitude": str(desc.findtext(f"{{{EXIF_NS}}}GPSLatitude", default="") or "").strip(),
         "gps_longitude": str(desc.findtext(f"{{{EXIF_NS}}}GPSLongitude", default="") or "").strip(),
         "ocr_text": str(desc.findtext(f"{{{IMAGO_NS}}}OCRText", default="") or "").strip(),
+        "ocr_lang": str(desc.findtext(f"{{{IMAGO_NS}}}OCRLang", default="") or "").strip(),
         "author_text": str(desc.findtext(f"{{{IMAGO_NS}}}AuthorText", default="") or "").strip(),
         "scene_text": str(desc.findtext(f"{{{IMAGO_NS}}}SceneText", default="") or "").strip(),
         "annotation_scope": str(desc.findtext(f"{{{IMAGO_NS}}}AnnotationScope", default="") or "").strip(),
         "title_source": str(desc.findtext(f"{{{IMAGO_NS}}}TitleSource", default="") or "").strip(),
-        "ocr_authority_source": str(desc.findtext(f"{{{IMAGO_NS}}}OCRAuthoritySource", default="") or "").strip(),
-        "stitch_key": str(desc.findtext(f"{{{IMAGO_NS}}}StitchKey", default="") or "").strip(),
+        "ocr_authority_source": str(
+            processing_state.get("ocr_authority_source")
+            or desc.findtext(f"{{{IMAGO_NS}}}OCRAuthoritySource", default="")
+            or ""
+        ).strip(),
+        "stitch_key": str(
+            processing_state.get("stitch_key") or desc.findtext(f"{{{IMAGO_NS}}}StitchKey", default="") or ""
+        ).strip(),
+        "processing_history": processing_history,
         "detections": detections_payload,
-        "ocr_ran": _read_xmp_bool(desc, f"{{{IMAGO_NS}}}OcrRan"),
-        "people_detected": _read_xmp_bool(desc, f"{{{IMAGO_NS}}}PeopleDetected"),
-        "people_identified": _read_xmp_bool(desc, f"{{{IMAGO_NS}}}PeopleIdentified"),
+        "ocr_ran": (
+            processing_state["ocr_ran"]
+            if "ocr_ran" in processing_state
+            else _read_xmp_bool(desc, f"{{{IMAGO_NS}}}OcrRan")
+        ),
+        "people_detected": (
+            processing_state["people_detected"]
+            if "people_detected" in processing_state
+            else _read_xmp_bool(desc, f"{{{IMAGO_NS}}}PeopleDetected")
+        ),
+        "people_identified": (
+            processing_state["people_identified"]
+            if "people_identified" in processing_state
+            else _read_xmp_bool(desc, f"{{{IMAGO_NS}}}PeopleIdentified")
+        ),
     }
 
 
@@ -672,6 +962,7 @@ def _merge_xmp_tree(
     location_country: str = "",
     source_text: str,
     ocr_text: str,
+    ocr_lang: str = "",
     author_text: str = "",
     scene_text: str = "",
     annotation_scope: str = "",
@@ -679,6 +970,8 @@ def _merge_xmp_tree(
     subphotos: list[dict] | None = None,
     stitch_key: str = "",
     ocr_authority_source: str = "",
+    create_date: str = "",
+    history_when: str = "",
     image_width: int = 0,
     image_height: int = 0,
     ocr_ran: bool = False,
@@ -689,7 +982,7 @@ def _merge_xmp_tree(
     _set_bag(desc, f"{{{DC_NS}}}subject", subjects)
     _set_bag(desc, f"{{{IPTC_EXT_NS}}}PersonInImage", person_names)
     _set_alt_text(desc, f"{{{DC_NS}}}title", title)
-    _set_alt_text(desc, f"{{{DC_NS}}}description", description)
+    _set_description_with_ocr(desc, f"{{{DC_NS}}}description", description, ocr_text, ocr_lang)
     _set_simple_text(desc, f"{{{XMPDM_NS}}}album", str(album_title or "").strip())
     _set_gps_fields(desc, gps_latitude, gps_longitude)
     _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}City", str(location_city or "").strip())
@@ -701,8 +994,10 @@ def _merge_xmp_tree(
         f"{{{XMP_NS}}}CreatorTool",
         str(creator_tool or "").strip() or "https://github.com/cove/imago",
     )
+    _set_simple_text(desc, f"{{{XMP_NS}}}CreateDate", _normalize_xmp_datetime(create_date))
     clean_ocr = str(ocr_text or "").strip()
     _set_simple_text(desc, f"{{{IMAGO_NS}}}OCRText", clean_ocr)
+    _set_simple_text(desc, f"{{{IMAGO_NS}}}OCRLang", str(ocr_lang or "").strip())
     _set_simple_text(desc, f"{{{IMAGO_NS}}}AuthorText", str(author_text or "").strip())
     _set_simple_text(desc, f"{{{IMAGO_NS}}}SceneText", str(scene_text or "").strip())
     _set_simple_text(desc, f"{{{IMAGO_NS}}}AnnotationScope", str(annotation_scope or "").strip())
@@ -729,20 +1024,25 @@ def _merge_xmp_tree(
     )
     _set_iptc_image_regions(desc, list(subphotos) if subphotos else None, image_width, image_height)
     _set_subphotos(desc, list(subphotos) if subphotos and (image_width <= 0 or image_height <= 0) else None)
-    _set_simple_text(desc, f"{{{IMAGO_NS}}}StitchKey", str(stitch_key or "").strip())
-    _set_simple_text(desc, f"{{{IMAGO_NS}}}OcrRan", str(ocr_ran).lower(), allow_empty=True)
-    _set_simple_text(
+    _set_processing_history(
         desc,
+        _build_processing_history(
+            creator_tool=creator_tool,
+            history_when=history_when or create_date,
+            stitch_key=stitch_key,
+            ocr_ran=ocr_ran,
+            people_detected=people_detected,
+            people_identified=people_identified,
+            ocr_authority_source=ocr_authority_source,
+        ),
+    )
+    for legacy_tag in (
+        f"{{{IMAGO_NS}}}StitchKey",
+        f"{{{IMAGO_NS}}}OcrRan",
         f"{{{IMAGO_NS}}}PeopleDetected",
-        str(people_detected).lower(),
-        allow_empty=True,
-    )
-    _set_simple_text(
-        desc,
         f"{{{IMAGO_NS}}}PeopleIdentified",
-        str(people_identified).lower(),
-        allow_empty=True,
-    )
+    ):
+        _remove_field(desc, legacy_tag)
     ET.indent(tree, space="  ")
     return tree
 
@@ -757,6 +1057,7 @@ def write_xmp_sidecar(
     title_source: str = "",
     description: str,
     ocr_text: str,
+    ocr_lang: str = "",
     author_text: str = "",
     scene_text: str = "",
     annotation_scope: str = "",
@@ -771,6 +1072,8 @@ def write_xmp_sidecar(
     subphotos: list[dict] | None = None,
     stitch_key: str = "",
     ocr_authority_source: str = "",
+    create_date: str = "",
+    history_when: str = "",
     image_width: int = 0,
     image_height: int = 0,
     ocr_ran: bool = False,
@@ -801,6 +1104,7 @@ def write_xmp_sidecar(
             location_country=location_country,
             source_text=source_text,
             ocr_text=ocr_text,
+            ocr_lang=ocr_lang,
             author_text=author_text,
             scene_text=scene_text,
             annotation_scope=annotation_scope,
@@ -808,6 +1112,8 @@ def write_xmp_sidecar(
             subphotos=subphotos,
             stitch_key=stitch_key,
             ocr_authority_source=ocr_authority_source,
+            create_date=create_date,
+            history_when=history_when,
             image_width=image_width,
             image_height=image_height,
             ocr_ran=ocr_ran,
@@ -831,6 +1137,7 @@ def write_xmp_sidecar(
             location_country=location_country,
             source_text=source_text,
             ocr_text=ocr_text,
+            ocr_lang=ocr_lang,
             author_text=author_text,
             scene_text=scene_text,
             annotation_scope=annotation_scope,
@@ -838,6 +1145,8 @@ def write_xmp_sidecar(
             subphotos=subphotos,
             stitch_key=stitch_key,
             ocr_authority_source=ocr_authority_source,
+            create_date=create_date,
+            history_when=history_when,
             image_width=image_width,
             image_height=image_height,
             ocr_ran=ocr_ran,

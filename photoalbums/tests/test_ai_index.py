@@ -1442,7 +1442,7 @@ class TestAIIndex(unittest.TestCase):
             fake_caption_engine.effective_model_name = "caption-new"
             fake_caption_engine.generate.return_value = SimpleNamespace(
                 text="Updated description",
-                engine="local",
+                engine="lmstudio",
                 fallback=False,
                 error="",
             )
@@ -2264,12 +2264,6 @@ class TestAIIndex(unittest.TestCase):
                 "0.1",
                 "--caption-max-edge",
                 "1024",
-                "--local-attn-implementation",
-                "sdpa",
-                "--local-min-pixels",
-                "131072",
-                "--local-max-pixels",
-                "524288",
             ]
         )
         self.assertEqual(args.ocr_model, "qwen2.5-vl-instruct")
@@ -2281,11 +2275,8 @@ class TestAIIndex(unittest.TestCase):
         self.assertEqual(args.caption_max_tokens, 64)
         self.assertAlmostEqual(args.caption_temperature, 0.1)
         self.assertEqual(args.caption_max_edge, 1024)
-        self.assertEqual(args.local_attn_implementation, "sdpa")
-        self.assertEqual(args.local_min_pixels, 131072)
-        self.assertEqual(args.local_max_pixels, 524288)
 
-    def test_parse_args_defaults_use_local_and_local_ocr(self):
+    def test_parse_args_defaults_use_lmstudio_for_caption_and_ocr(self):
         with mock.patch.object(ai_index, "default_ocr_model", return_value="qwen/qwen3-vl-30b"):
             args = ai_index.parse_args([])
         self.assertEqual(args.caption_engine, "lmstudio")
@@ -2296,9 +2287,6 @@ class TestAIIndex(unittest.TestCase):
         self.assertEqual(args.ocr_engine, "lmstudio")
         self.assertEqual(args.ocr_model, "qwen/qwen3-vl-30b")
         self.assertFalse(args.stdout)
-        self.assertEqual(args.local_attn_implementation, "auto")
-        self.assertEqual(args.local_min_pixels, 0)
-        self.assertEqual(args.local_max_pixels, 0)
         self.assertEqual(args.caption_max_edge, 0)
 
     def test_init_caption_engine_forwards_caption_prompt(self):
@@ -2309,9 +2297,6 @@ class TestAIIndex(unittest.TestCase):
                 caption_prompt="Describe this exact image",
                 max_tokens=64,
                 temperature=0.1,
-                local_attn_implementation="sdpa",
-                local_min_pixels=131072,
-                local_max_pixels=524288,
                 lmstudio_base_url="http://localhost:1234",
                 max_image_edge=1024,
             )
@@ -2322,9 +2307,6 @@ class TestAIIndex(unittest.TestCase):
             caption_prompt="Describe this exact image",
             max_tokens=64,
             temperature=0.1,
-            local_attn_implementation="sdpa",
-            local_min_pixels=131072,
-            local_max_pixels=524288,
             lmstudio_base_url="http://localhost:1234",
             max_image_edge=1024,
             stream=False,

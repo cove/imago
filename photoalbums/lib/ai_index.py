@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -16,11 +17,9 @@ from typing import Any
 from .ai_caption import (
     CaptionEngine,
     DEFAULT_LMSTUDIO_MAX_NEW_TOKENS,
-    infer_album_title,
     looks_like_album_cover,
     _normalize_gps_value,
     normalize_lmstudio_base_url,
-    normalize_local_attn_implementation,
     resolve_caption_model,
 )
 from .ai_model_settings import default_ocr_model
@@ -38,6 +37,7 @@ from ..exiftool_utils import read_tag
 from ..naming import DERIVED_NAME_RE, SCAN_TIFF_RE, parse_album_filename, SCAN_NAME_RE
 from .xmp_sidecar import (
     _dedupe,
+    _normalize_xmp_datetime,
     read_ai_sidecar_state,
     read_person_in_image,
     sidecar_has_expected_ai_fields,
@@ -140,6 +140,7 @@ class ImageAnalysis:
     image_regions: list[dict] = None
     album_title: str = ""
     title: str = ""
+    ocr_lang: str = ""
 
     def __post_init__(self):
         if self.image_regions is None:
@@ -225,6 +226,7 @@ def _iter_album_cover_sidecars(image_path: Path):
 
 
 def _resolve_album_title_from_sidecars(image_path: Path) -> str:
+    """Read album title from the cover page XMP sidecar (P00/P01). Returns '' if not yet processed."""
     for sidecar_path in _iter_album_cover_sidecars(image_path):
         state = read_ai_sidecar_state(sidecar_path)
         if not isinstance(state, dict):
@@ -232,21 +234,18 @@ def _resolve_album_title_from_sidecars(image_path: Path) -> str:
         album_title = str(state.get("album_title") or "").strip()
         if album_title:
             return album_title
-        inferred_title = infer_album_title(image_path=sidecar_path)
-        if inferred_title:
-            return inferred_title
     return ""
 
 
-def _resolve_album_printed_title_from_sidecars(image_path: Path) -> str:
-    for sidecar_path in _iter_album_cover_sidecars(image_path):
-        state = read_ai_sidecar_state(sidecar_path)
-        if not isinstance(state, dict):
-            continue
-        printed_title = str(state.get("album_title") or "").strip()
-        if printed_title:
-            return printed_title
-    return ""
+def _resolve_cached_album_title(image_path: Path, title_cache: dict[str, str]) -> str:
+    key = _album_identity_key(image_path)
+    cached = str(title_cache.get(key) or "").strip()
+    if cached:
+        return cached
+    title = _resolve_album_title_from_sidecars(image_path)
+    if title:
+        title_cache[key] = title
+    return title
 
 
 def _resolve_cached_album_title_hint(
@@ -273,6 +272,10 @@ def _resolve_album_title_hint(image_path: Path, album_title_cache: dict[str, str
         sidecar_title_resolver=_resolve_album_title_from_sidecars,
         fallback_title=infer_album_title(image_path=image_path),
     )
+
+
+def _resolve_album_printed_title_from_sidecars(image_path: Path) -> str:
+    return _resolve_album_title_from_sidecars(image_path)
 
 
 def _resolve_album_printed_title_hint(image_path: Path, printed_title_cache: dict[str, str]) -> str:
@@ -482,6 +485,28 @@ def _sidecar_current_for_paths(sidecar_path: Path, source_paths: list[Path]) -> 
 
 def read_embedded_source_text(path: Path) -> str:
     return str(read_tag(path, "XMP-dc:Source") or "").strip()
+
+
+def _xmp_timestamp_from_path(path: Path) -> str:
+    try:
+        timestamp = path.stat().st_mtime
+    except OSError:
+        return ""
+    text = datetime.fromtimestamp(timestamp, tz=timezone.utc).replace(microsecond=0).isoformat()
+    return text.replace("+00:00", "Z")
+
+
+def read_embedded_create_date(path: Path) -> str:
+    for tag in (
+        "XMP-xmp:CreateDate",
+        "XMP-exif:DateTimeOriginal",
+        "EXIF:DateTimeOriginal",
+        "EXIF:CreateDate",
+    ):
+        normalized = _normalize_xmp_datetime(str(read_tag(path, tag) or "").strip())
+        if normalized:
+            return normalized
+    return ""
 
 
 def _derive_parent_page_state(image_path: Path) -> dict | None:
@@ -732,7 +757,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--ocr-lang", default="eng", help="OCR language.")
     parser.add_argument(
         "--caption-engine",
-        choices=["none", "local", "lmstudio"],
+        choices=["none", "lmstudio"],
         default="lmstudio",
         help="Caption backend for XMP description.",
     )
@@ -799,48 +824,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=int,
         default=0,
         help="Optional long-edge cap, in pixels, applied only during caption generation.",
-    )
-    parser.add_argument(
-        "--local-attn-implementation",
-        dest="local_attn_implementation",
-        choices=["auto", "sdpa", "flash_attention_2", "eager"],
-        default="auto",
-        help="Attention implementation for local HF captioning. flash_attention_2 is only useful on compatible GPUs.",
-    )
-    parser.add_argument(
-        "--local-min-pixels",
-        dest="local_min_pixels",
-        type=int,
-        default=0,
-        help="Optional local HF processor min_pixels value. Use 0 to keep the model default.",
-    )
-    parser.add_argument(
-        "--local-max-pixels",
-        dest="local_max_pixels",
-        type=int,
-        default=0,
-        help="Optional local HF processor max_pixels value. Use 0 to keep the model default.",
-    )
-    parser.add_argument(
-        "--qwen-attn-implementation",
-        dest="local_attn_implementation",
-        choices=["auto", "sdpa", "flash_attention_2", "eager"],
-        default=argparse.SUPPRESS,
-        help=argparse.SUPPRESS,
-    )
-    parser.add_argument(
-        "--qwen-min-pixels",
-        dest="local_min_pixels",
-        type=int,
-        default=argparse.SUPPRESS,
-        help=argparse.SUPPRESS,
-    )
-    parser.add_argument(
-        "--qwen-max-pixels",
-        dest="local_max_pixels",
-        type=int,
-        default=argparse.SUPPRESS,
-        help=argparse.SUPPRESS,
     )
     parser.add_argument("--max-images", type=int, default=0, help="Optional processing limit.")
     parser.add_argument(
@@ -934,9 +917,6 @@ def _init_caption_engine(
     caption_prompt: str,
     max_tokens: int,
     temperature: float,
-    local_attn_implementation: str,
-    local_min_pixels: int,
-    local_max_pixels: int,
     lmstudio_base_url: str,
     max_image_edge: int,
     stream: bool = False,
@@ -947,9 +927,6 @@ def _init_caption_engine(
         caption_prompt=str(caption_prompt),
         max_tokens=int(max_tokens),
         temperature=float(temperature),
-        local_attn_implementation=str(local_attn_implementation),
-        local_min_pixels=int(local_min_pixels),
-        local_max_pixels=int(local_max_pixels),
         lmstudio_base_url=str(lmstudio_base_url),
         max_image_edge=int(max_image_edge),
         stream=stream,
@@ -957,7 +934,7 @@ def _init_caption_engine(
 
 
 def _settings_signature(settings: dict[str, Any]) -> str:
-    caption_engine = str(settings.get("caption_engine", "local"))
+    caption_engine = str(settings.get("caption_engine", "lmstudio"))
     caption_model = resolve_caption_model(
         caption_engine,
         str(settings.get("caption_model", "")),
@@ -985,11 +962,6 @@ def _settings_signature(settings: dict[str, Any]) -> str:
         "lmstudio_base_url": normalize_lmstudio_base_url(
             str(settings.get("lmstudio_base_url", "http://192.168.4.72:1234/v1"))
         ),
-        "local_attn_implementation": normalize_local_attn_implementation(
-            str(settings.get("local_attn_implementation", "auto"))
-        ),
-        "local_min_pixels": int(settings.get("local_min_pixels", 0)),
-        "local_max_pixels": int(settings.get("local_max_pixels", 0)),
     }
     return json.dumps(compact, sort_keys=True, ensure_ascii=True)
 
@@ -1774,6 +1746,7 @@ def _run_image_analysis(
         image_regions=list(getattr(caption_output, "image_regions", None) or []),
         album_title=str(getattr(caption_output, "album_title", "") or ""),
         title=str(getattr(caption_output, "title", "") or ""),
+        ocr_lang=str(getattr(caption_output, "ocr_lang", "") or ""),
     )
 
 
@@ -2130,6 +2103,8 @@ def _run_scan_stitch_pass(
                         annotation_scope=str(text_layers.get("annotation_scope") or ""),
                         detections_payload=det or None,
                         stitch_key="true",
+                        create_date=read_embedded_create_date(path),
+                        history_when=_xmp_timestamp_from_path(path),
                         image_width=stitch_img_w,
                         image_height=stitch_img_h,
                     )
@@ -2240,9 +2215,6 @@ def run(argv: list[str] | None = None) -> int:
         "caption_temperature": float(args.caption_temperature),
         "caption_max_edge": int(args.caption_max_edge),
         "lmstudio_base_url": normalize_lmstudio_base_url(str(args.lmstudio_base_url)),
-        "local_attn_implementation": normalize_local_attn_implementation(str(args.local_attn_implementation)),
-        "local_min_pixels": int(args.local_min_pixels),
-        "local_max_pixels": int(args.local_max_pixels),
         "people_threshold": float(args.people_threshold),
         "object_threshold": float(args.object_threshold),
         "min_face_size": int(args.min_face_size),
@@ -2255,7 +2227,7 @@ def run(argv: list[str] | None = None) -> int:
     people_matcher_cache: dict[tuple[str, float, int], Any] = {}
     object_detector_cache: dict[tuple[str, float], Any] = {}
     ocr_engine_cache: dict[tuple[str, str, str, str], OCREngine] = {}
-    caption_engine_cache: dict[tuple[str, str, str, int, float, str, str, int, int, int], CaptionEngine] = {}
+    caption_engine_cache: dict[tuple[str, str, str, int, float, str, int], CaptionEngine] = {}
     archive_scan_ocr_cache: dict[str, ArchiveScanOCRAuthority] = {}
     album_title_cache: dict[str, str] = {}
     printed_album_title_cache: dict[str, str] = {}
@@ -2322,14 +2294,6 @@ def run(argv: list[str] | None = None) -> int:
             effective["caption_max_edge"] = int(args.caption_max_edge)
         if "--lmstudio-base-url" in explicit_flags:
             effective["lmstudio_base_url"] = normalize_lmstudio_base_url(str(args.lmstudio_base_url))
-        if "--local-attn-implementation" in explicit_flags or "--qwen-attn-implementation" in explicit_flags:
-            effective["local_attn_implementation"] = normalize_local_attn_implementation(
-                str(args.local_attn_implementation)
-            )
-        if "--local-min-pixels" in explicit_flags or "--qwen-min-pixels" in explicit_flags:
-            effective["local_min_pixels"] = int(args.local_min_pixels)
-        if "--local-max-pixels" in explicit_flags or "--qwen-max-pixels" in explicit_flags:
-            effective["local_max_pixels"] = int(args.local_max_pixels)
         effective["caption_model"] = resolve_caption_model(
             str(effective.get("caption_engine", defaults["caption_engine"])),
             str(effective.get("caption_model", defaults["caption_model"])),
@@ -2536,11 +2500,16 @@ def run(argv: list[str] | None = None) -> int:
                             detections_payload=(refresh_detections or None),
                             stitch_key=str(review.get("stitch_key") or ""),
                             ocr_authority_source=str(review.get("ocr_authority_source") or ""),
+                            create_date=(
+                                str(review.get("create_date") or "").strip() or read_embedded_create_date(image_path)
+                            ),
+                            history_when=_xmp_timestamp_from_path(image_path),
                             image_width=_get_image_dimensions(image_path)[0],
                             image_height=_get_image_dimensions(image_path)[1],
                             ocr_ran=bool(review.get("ocr_ran")),
                             people_detected=bool(review.get("people_detected")),
                             people_identified=bool(review.get("people_identified")),
+                            ocr_lang=str(review.get("ocr_lang") or ""),
                         )
 
                     stat = image_path.stat()
@@ -2632,14 +2601,6 @@ def run(argv: list[str] | None = None) -> int:
                         int(effective.get("caption_max_tokens", defaults["caption_max_tokens"])),
                         float(effective.get("caption_temperature", defaults["caption_temperature"])),
                         str(effective.get("lmstudio_base_url", defaults["lmstudio_base_url"])),
-                        str(
-                            effective.get(
-                                "local_attn_implementation",
-                                defaults["local_attn_implementation"],
-                            )
-                        ),
-                        int(effective.get("local_min_pixels", defaults["local_min_pixels"])),
-                        int(effective.get("local_max_pixels", defaults["local_max_pixels"])),
                         int(effective.get("caption_max_edge", defaults["caption_max_edge"])),
                     )
                     pu_caption_engine = caption_engine_cache.get(caption_key)
@@ -2651,10 +2612,7 @@ def run(argv: list[str] | None = None) -> int:
                             max_tokens=int(caption_key[3]),
                             temperature=float(caption_key[4]),
                             lmstudio_base_url=caption_key[5],
-                            local_attn_implementation=caption_key[6],
-                            local_min_pixels=int(caption_key[7]),
-                            local_max_pixels=int(caption_key[8]),
-                            max_image_edge=int(caption_key[9]),
+                            max_image_edge=int(caption_key[6]),
                             stream=True,
                         )
                         caption_engine_cache[caption_key] = pu_caption_engine
@@ -2848,6 +2806,10 @@ def run(argv: list[str] | None = None) -> int:
                             detections_payload=pu_updated_det,
                             stitch_key=str(state.get("stitch_key") or ""),
                             ocr_authority_source=str(state.get("ocr_authority_source") or ""),
+                            create_date=(
+                                str(state.get("create_date") or "").strip() or read_embedded_create_date(image_path)
+                            ),
+                            history_when=_xmp_timestamp_from_path(image_path),
                             image_width=pu_img_w,
                             image_height=pu_img_h,
                             ocr_ran=bool(state.get("ocr_ran") or True),
@@ -2956,9 +2918,6 @@ def run(argv: list[str] | None = None) -> int:
                 int(effective.get("caption_max_tokens", defaults["caption_max_tokens"])),
                 float(effective.get("caption_temperature", defaults["caption_temperature"])),
                 str(effective.get("lmstudio_base_url", defaults["lmstudio_base_url"])),
-                str(effective.get("local_attn_implementation", defaults["local_attn_implementation"])),
-                int(effective.get("local_min_pixels", defaults["local_min_pixels"])),
-                int(effective.get("local_max_pixels", defaults["local_max_pixels"])),
                 int(effective.get("caption_max_edge", defaults["caption_max_edge"])),
             )
             caption_engine = caption_engine_cache.get(caption_key)
@@ -2970,10 +2929,7 @@ def run(argv: list[str] | None = None) -> int:
                     max_tokens=int(caption_key[3]),
                     temperature=float(caption_key[4]),
                     lmstudio_base_url=caption_key[5],
-                    local_attn_implementation=caption_key[6],
-                    local_min_pixels=int(caption_key[7]),
-                    local_max_pixels=int(caption_key[8]),
-                    max_image_edge=int(caption_key[9]),
+                    max_image_edge=int(caption_key[6]),
                     stream=not stdout_only,
                 )
                 caption_engine_cache[caption_key] = caption_engine
@@ -2994,18 +2950,6 @@ def run(argv: list[str] | None = None) -> int:
                 split_applied = False
                 subphoto_count = 0
                 source_text = read_embedded_source_text(image_path) or _derived_source_text(image_path)
-                album_title_hint = (
-                    _store_album_title_hint(
-                        image_path,
-                        album_title_cache,
-                        infer_album_title(
-                            image_path=image_path,
-                            fallback_title=album_title_hint,
-                            source_text=source_text,
-                        ),
-                    )
-                    or album_title_hint
-                )
                 printed_album_title_hint = album_title_hint
 
                 analysis_target = layout.content_path if layout.page_like else image_path
@@ -3037,10 +2981,7 @@ def run(argv: list[str] | None = None) -> int:
                     request_photo_regions=(layout.page_like and caption_engine.engine == "lmstudio"),
                     prompt_debug=prompt_debug,
                 )
-                resolved_album_title = analysis.album_title or infer_album_title(
-                    image_path=image_path,
-                    fallback_title=album_title_hint,
-                )
+                resolved_album_title = analysis.album_title or album_title_hint
                 resolved_printed_album_title = resolved_album_title
                 _store_album_title_hint(image_path, album_title_cache, resolved_album_title)
                 _store_album_printed_title_hint(
@@ -3137,11 +3078,14 @@ def run(argv: list[str] | None = None) -> int:
                         detections_payload=payload,
                         subphotos=subphotos_xml,
                         ocr_authority_source=("archive_stitched" if scan_ocr_authority is not None else ""),
+                        create_date=read_embedded_create_date(image_path),
+                        history_when=_xmp_timestamp_from_path(image_path),
                         image_width=img_w,
                         image_height=img_h,
                         ocr_ran=_ocr_ran_flag,
                         people_detected=_people_detected_flag,
                         people_identified=_people_identified_flag,
+                        ocr_lang=str(analysis.ocr_lang or ""),
                     )
 
             if people_matcher is not None:

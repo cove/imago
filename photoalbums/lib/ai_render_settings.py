@@ -5,11 +5,10 @@ from pathlib import Path
 from typing import Any
 
 from .ai_page_layout import _normalize_enum_str, normalize_page_split_mode
-from ._caption_local_hf import normalize_local_attn_implementation
 
 SETTINGS_FILENAME = "render_settings.json"
 OCR_ENGINES = {"none", "local", "lmstudio"}
-CAPTION_ENGINES = {"none", "local", "lmstudio"}
+CAPTION_ENGINES = {"none", "lmstudio"}
 PEOPLE_RECOVERY_MODES = {"off", "auto", "always"}
 
 
@@ -69,16 +68,16 @@ def _normalize_ocr_engine(value: Any, default: str) -> str:
 
 def _normalize_caption_engine(value: Any, default: str) -> str:
     text = str(value or "").strip().lower()
-    if text in {"blip", "qwen"}:
-        return "local"
+    if text in {"blip", "qwen", "local"}:
+        return "lmstudio"
     if text in CAPTION_ENGINES:
         return text
-    fallback = str(default or "local").strip().lower()
-    if fallback in {"blip", "qwen"}:
-        fallback = "local"
+    fallback = str(default or "lmstudio").strip().lower()
+    if fallback in {"blip", "qwen", "local"}:
+        fallback = "lmstudio"
     if fallback in CAPTION_ENGINES:
         return fallback
-    return "local"
+    return "lmstudio"
 
 
 def _normalize_people_recovery_mode(value: Any, default: str) -> str:
@@ -119,7 +118,7 @@ def _normalize_settings_block(raw: dict[str, Any], defaults: dict[str, Any]) -> 
         ),
         "caption_engine": _normalize_caption_engine(
             block.get("caption_engine"),
-            str(defaults.get("caption_engine", "local")),
+            str(defaults.get("caption_engine", "lmstudio")),
         ),
         "caption_model": _normalize_text(
             block.get("caption_model"),
@@ -150,22 +149,6 @@ def _normalize_settings_block(raw: dict[str, Any], defaults: dict[str, Any]) -> 
             int(defaults.get("caption_max_edge", 0)),
             min_value=0,
             max_value=8192,
-        ),
-        "local_attn_implementation": normalize_local_attn_implementation(
-            str(block.get("local_attn_implementation", block.get("qwen_attn_implementation")) or ""),
-            str(defaults.get("local_attn_implementation", defaults.get("qwen_attn_implementation", "auto"))),
-        ),
-        "local_min_pixels": _normalize_int(
-            block.get("local_min_pixels", block.get("qwen_min_pixels")),
-            int(defaults.get("local_min_pixels", defaults.get("qwen_min_pixels", 0))),
-            min_value=0,
-            max_value=32_000_000,
-        ),
-        "local_max_pixels": _normalize_int(
-            block.get("local_max_pixels", block.get("qwen_max_pixels")),
-            int(defaults.get("local_max_pixels", defaults.get("qwen_max_pixels", 0))),
-            min_value=0,
-            max_value=32_000_000,
         ),
         "people_threshold": _normalize_float(
             block.get("people_threshold"),

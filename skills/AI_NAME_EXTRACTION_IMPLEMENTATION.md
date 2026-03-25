@@ -31,11 +31,9 @@ Set context to describe where the name was found.
 
 **Files Modified:**
 - `photoalbums/lib/_caption_lmstudio.py`
-- `photoalbums/lib/_caption_qwen.py`
 
 **Changes:**
 - Extended LM Studio JSON schema to include `name_suggestions` field
-- Extended Qwen JSON schema to include `name_suggestions` field
 - Added proper validation for name suggestion objects with required fields
 - Updated parsing functions to handle the new `name_suggestions` field
 
