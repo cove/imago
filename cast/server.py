@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sys
 import urllib.request
+from email.utils import formatdate
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -173,12 +174,27 @@ class CastHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def _send_bytes(self, data: bytes, content_type: str, status: int = 200) -> None:
+    def _send_bytes(
+        self,
+        data: bytes,
+        content_type: str,
+        status: int = 200,
+        *,
+        extra_headers: dict[str, str] | None = None,
+    ) -> None:
         self.send_response(int(status))
         self.send_header("Content-Type", str(content_type))
+        for key, value in dict(extra_headers or {}).items():
+            self.send_header(str(key), str(value))
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
+
+    def _send_not_modified(self, *, extra_headers: dict[str, str] | None = None) -> None:
+        self.send_response(int(HTTPStatus.NOT_MODIFIED))
+        for key, value in dict(extra_headers or {}).items():
+            self.send_header(str(key), str(value))
+        self.end_headers()
 
     def _not_found(self) -> None:
         self._send_json({"ok": False, "error": "Not found."}, status=HTTPStatus.NOT_FOUND)
@@ -310,7 +326,12 @@ class CastHandler(BaseHTTPRequestHandler):
             "face": self._face_summary(face, people_by_id) if face else None,
         }
 
-    def _state_payload(self) -> dict[str, Any]:
+    def _state_payload(
+        self,
+        *,
+        pending_limit: int = 0,
+        unknown_limit: int = 0,
+    ) -> dict[str, Any]:
         people = self.store.list_people()
         faces = self.store.list_faces()
         reviews = self.store.list_review_items()
@@ -322,6 +343,8 @@ class CastHandler(BaseHTTPRequestHandler):
         )
         unknown_faces: list[dict[str, Any]] = []
         pending_reviews: list[dict[str, Any]] = []
+        total_unknown_faces = 0
+        total_pending_reviews = 0
         legacy_faces = 0
         for face in faces:
             if not self._face_detector_model(face) or face_embedding_model(face) not in ACTIVE_EMBEDDING_MODELS:
@@ -330,26 +353,30 @@ class CastHandler(BaseHTTPRequestHandler):
                 continue
             if str(face_review_status(face)).strip().lower() in {"ignored", "rejected"}:
                 continue
-            unknown_faces.append(self._face_summary(face, people_by_id))
+            total_unknown_faces += 1
+            if unknown_limit <= 0 or len(unknown_faces) < unknown_limit:
+                unknown_faces.append(self._face_summary(face, people_by_id))
 
         for item in reviews:
             if str(item.get("status") or "").strip().lower() != "pending":
                 continue
-            pending_reviews.append(
-                self._review_summary(
-                    item,
-                    people_by_id=people_by_id,
-                    faces_by_id=faces_by_id,
-                    prototypes=prototypes,
+            total_pending_reviews += 1
+            if pending_limit <= 0 or len(pending_reviews) < pending_limit:
+                pending_reviews.append(
+                    self._review_summary(
+                        item,
+                        people_by_id=people_by_id,
+                        faces_by_id=faces_by_id,
+                        prototypes=prototypes,
+                    )
                 )
-            )
         return {
             "ok": True,
             "counts": {
                 "people": len(people),
                 "faces": len(faces),
-                "unknown_faces": len(unknown_faces),
-                "pending_reviews": len(pending_reviews),
+                "unknown_faces": int(total_unknown_faces),
+                "pending_reviews": int(total_pending_reviews),
                 "legacy_faces": int(legacy_faces),
             },
             "people": people,
@@ -358,8 +385,15 @@ class CastHandler(BaseHTTPRequestHandler):
             "runtime": self.server.ingestor.runtime_status(),
         }
 
-    def _handle_get_state(self) -> None:
-        self._send_json(self._state_payload())
+    def _handle_get_state(self, query: dict[str, list[str]]) -> None:
+        pending_limit = max(0, _coerce_int((query.get("pending_limit") or ["0"])[0], 0))
+        unknown_limit = max(0, _coerce_int((query.get("unknown_limit") or ["0"])[0], 0))
+        self._send_json(
+            self._state_payload(
+                pending_limit=pending_limit,
+                unknown_limit=unknown_limit,
+            )
+        )
 
     def _handle_get_people(self) -> None:
         people = self.store.list_people()
@@ -873,6 +907,34 @@ class CastHandler(BaseHTTPRequestHandler):
                 return
         self._send_json({"ok": True, "review": updated_review, "face": assigned_face})
 
+    def _handle_bulk_review_resolve(self, payload: dict[str, Any]) -> None:
+        raw_review_ids = payload.get("review_ids")
+        if not isinstance(raw_review_ids, list):
+            self._error("review_ids must be a list.")
+            return
+        review_ids = [str(item or "").strip() for item in raw_review_ids if str(item or "").strip()]
+        if not review_ids:
+            self._error("review_ids is required.")
+            return
+        status = str(payload.get("status") or "").strip().lower()
+        if status not in {"ignored", "rejected", "skipped"}:
+            self._error("status must be one of: ignored, rejected, skipped")
+            return
+        try:
+            summary = self.store.bulk_resolve_reviews(review_ids=review_ids, status=status)
+        except Exception as exc:
+            self._error(str(exc))
+            return
+        self._send_json(
+            {
+                "ok": True,
+                "status": status,
+                "review_ids": review_ids,
+                "updated_reviews": int(summary.get("updated_reviews") or 0),
+                "updated_faces": int(summary.get("updated_faces") or 0),
+            }
+        )
+
     def _handle_prune_false_positives(self, payload: dict[str, Any]) -> None:
         max_items = int(payload.get("max_items") or 0)
         pending = [
@@ -1181,6 +1243,23 @@ class CastHandler(BaseHTTPRequestHandler):
             self._not_found()
             return
         try:
+            stat = path.stat()
+        except Exception as exc:
+            self._error(
+                f"Unable to stat crop image: {exc}",
+                status=HTTPStatus.INTERNAL_SERVER_ERROR,
+            )
+            return
+        etag = f'"{int(stat.st_size):x}-{int(stat.st_mtime_ns):x}"'
+        cache_headers = {
+            "Cache-Control": "public, max-age=86400",
+            "ETag": etag,
+            "Last-Modified": formatdate(float(stat.st_mtime), usegmt=True),
+        }
+        if str(self.headers.get("If-None-Match", "")).strip() == etag:
+            self._send_not_modified(extra_headers=cache_headers)
+            return
+        try:
             data = path.read_bytes()
         except Exception as exc:
             self._error(
@@ -1188,7 +1267,12 @@ class CastHandler(BaseHTTPRequestHandler):
                 status=HTTPStatus.INTERNAL_SERVER_ERROR,
             )
             return
-        self._send_bytes(data, "image/jpeg", status=HTTPStatus.OK)
+        self._send_bytes(
+            data,
+            "image/jpeg",
+            status=HTTPStatus.OK,
+            extra_headers=cache_headers,
+        )
 
     def _handle_get_face_source(self, face_id: str, query: dict[str, list[str]]) -> None:
         face = self.store.get_face(str(face_id))
@@ -1283,7 +1367,7 @@ class CastHandler(BaseHTTPRequestHandler):
             self._send_html(_INDEX.read_text(encoding="utf-8"))
             return
         if path == "/api/state":
-            self._handle_get_state()
+            self._handle_get_state(query)
             return
         if path == "/api/people":
             self._handle_get_people()
@@ -1325,6 +1409,9 @@ class CastHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/review/resolve":
             self._handle_review_resolve(payload)
+            return
+        if path == "/api/review/bulk_resolve":
+            self._handle_bulk_review_resolve(payload)
             return
         if path == "/api/review/prune_false_positives":
             self._handle_prune_false_positives(payload)

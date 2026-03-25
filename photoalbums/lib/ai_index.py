@@ -16,7 +16,6 @@ from typing import Any
 from .ai_caption import (
     CaptionEngine,
     DEFAULT_LMSTUDIO_MAX_NEW_TOKENS,
-    infer_printed_album_title,
     infer_album_title,
     looks_like_album_cover,
     _normalize_gps_value,
@@ -233,10 +232,7 @@ def _resolve_album_title_from_sidecars(image_path: Path) -> str:
         album_title = str(state.get("album_title") or "").strip()
         if album_title:
             return album_title
-        inferred_title = infer_album_title(
-            image_path=sidecar_path,
-            ocr_text=str(state.get("ocr_text") or ""),
-        )
+        inferred_title = infer_album_title(image_path=sidecar_path)
         if inferred_title:
             return inferred_title
     return ""
@@ -247,10 +243,7 @@ def _resolve_album_printed_title_from_sidecars(image_path: Path) -> str:
         state = read_ai_sidecar_state(sidecar_path)
         if not isinstance(state, dict):
             continue
-        printed_title = infer_printed_album_title(
-            ocr_text=str(state.get("ocr_text") or ""),
-            fallback_title=str(state.get("album_title") or ""),
-        )
+        printed_title = str(state.get("album_title") or "").strip()
         if printed_title:
             return printed_title
     return ""
@@ -1826,7 +1819,6 @@ def _build_flat_payload(layout: PreparedImageLayout, analysis: ImageAnalysis) ->
     return payload
 
 
-
 def _build_flat_page_description(*, analysis: ImageAnalysis) -> str:
     return analysis.description
 
@@ -2084,7 +2076,11 @@ def _run_scan_stitch_pass(
                     det["ocr"] = dict(det["ocr"])
                     det["ocr"]["chars"] = len(combined_ocr)
                     det["ocr"]["keywords"] = combined_ocr_keywords
-                subjects = _dedupe(object_labels + [str(k) for k in combined_ocr_keywords if k])
+                subjects = _dedupe(
+                    object_labels
+                    + [str(k) for k in combined_ocr_keywords if k]
+                    + ([album_title] if album_title else [])
+                )
                 final_gps_lat = str((location_payload or {}).get("gps_latitude") or state.get("gps_latitude") or "")
                 final_gps_lon = str((location_payload or {}).get("gps_longitude") or state.get("gps_longitude") or "")
                 if stdout_only:
@@ -2789,7 +2785,9 @@ def run(argv: list[str] | None = None) -> int:
                             else ""
                         ),
                     )
-                    pu_subjects = _dedupe(existing_object_labels + existing_ocr_keywords)
+                    pu_subjects = _dedupe(
+                        existing_object_labels + existing_ocr_keywords + ([pu_album_title] if pu_album_title else [])
+                    )
                     pu_source_text = read_embedded_source_text(image_path) or _derived_source_text(image_path)
 
                     pu_people_detected = pu_faces_detected > 0 or len(pu_person_names) > 0
@@ -2997,14 +2995,7 @@ def run(argv: list[str] | None = None) -> int:
                     )
                     or album_title_hint
                 )
-                printed_album_title_hint = (
-                    _store_album_printed_title_hint(
-                        image_path,
-                        printed_album_title_cache,
-                        infer_printed_album_title(ocr_text="", fallback_title=printed_album_title_hint),
-                    )
-                    or printed_album_title_hint
-                )
+                printed_album_title_hint = album_title_hint
 
                 analysis_target = layout.content_path if layout.page_like else image_path
                 analysis = _run_image_analysis(
@@ -3038,21 +3029,17 @@ def run(argv: list[str] | None = None) -> int:
                 )
                 resolved_album_title = analysis.album_title or infer_album_title(
                     image_path=image_path,
-                    ocr_text=analysis.ocr_text,
                     fallback_title=album_title_hint,
                 )
-                resolved_printed_album_title = infer_printed_album_title(
-                    ocr_text=analysis.ocr_text,
-                    fallback_title=printed_album_title_hint,
-                )
+                resolved_printed_album_title = resolved_album_title
                 _store_album_title_hint(image_path, album_title_cache, resolved_album_title)
                 _store_album_printed_title_hint(
                     image_path,
                     printed_album_title_cache,
-                    resolved_printed_album_title,
+                    resolved_album_title,
                 )
                 person_names = _dedupe(analysis.people_names + existing_xmp_people)
-                subjects = analysis.subjects
+                subjects = _dedupe(analysis.subjects + ([resolved_album_title] if resolved_album_title else []))
                 description = (
                     _build_flat_page_description(analysis=analysis) if layout.page_like else analysis.description
                 )
@@ -3104,11 +3091,11 @@ def run(argv: list[str] | None = None) -> int:
                         {
                             "index": i + 1,
                             "bounds": {
-                            "x": round(r["x"] * img_w),
-                            "y": round(r["y"] * img_h),
-                            "width": round(r["w"] * img_w),
-                            "height": round(r["h"] * img_h),
-                        },
+                                "x": round(r["x"] * img_w),
+                                "y": round(r["y"] * img_h),
+                                "width": round(r["w"] * img_w),
+                                "height": round(r["h"] * img_h),
+                            },
                             "description": r.get("author_text", ""),
                             "author_text": r.get("author_text", ""),
                             "scene_text": r.get("scene_text", ""),

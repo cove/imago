@@ -146,6 +146,7 @@
 
       .queue-toolbar {
         display: flex;
+        align-items: center;
         gap: 8px;
         flex-wrap: wrap;
         margin-top: 10px;
@@ -207,6 +208,40 @@
 
       .pill strong {
         color: var(--text-strong);
+      }
+
+      .queue-toolbar .small {
+        margin-left: auto;
+      }
+
+      .queue-toolbar.sticky-actions {
+        position: sticky;
+        top: 8px;
+        z-index: 5;
+        padding: 8px;
+        border: 1px solid var(--line);
+        background: rgba(17, 25, 35, 0.96);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+      }
+
+      .review-select-cell {
+        width: 44px;
+        text-align: center;
+      }
+
+      .review-select-checkbox {
+        width: 22px;
+        height: 22px;
+        cursor: pointer;
+        accent-color: var(--accent);
+      }
+
+      .review-row-selectable {
+        cursor: pointer;
+      }
+
+      .review-row-selectable:hover td {
+        background: rgba(95, 141, 255, 0.08);
       }
 
       .field {
@@ -587,9 +622,24 @@
 
       <section class="panel" style="margin-top: 12px">
         <h2>Pending Queue</h2>
+        <div class="queue-toolbar sticky-actions">
+          <button id="bulk-skip-btn" class="warn" type="button">Bulk Skip</button>
+          <button id="bulk-ignore-btn" class="secondary" type="button">Bulk Ignore</button>
+          <button id="bulk-reject-btn" class="bad" type="button">Bulk Not A Face</button>
+          <button id="clear-review-selection-btn" class="secondary" type="button">Clear Selection</button>
+          <div id="review-selection-status" class="small">0 selected</div>
+        </div>
         <table id="review-table">
           <thead>
             <tr>
+              <th class="review-select-cell">
+                <input
+                  id="review-select-all"
+                  class="review-select-checkbox"
+                  type="checkbox"
+                  aria-label="Select visible review rows"
+                />
+              </th>
               <th>Face</th>
               <th>Source</th>
               <th>Suggestions</th>
@@ -769,6 +819,8 @@
         face_by_id: {},
         unknown_faces: [],
         pending_reviews: [],
+        selected_review_ids: new Set(),
+        last_selected_review_id: "",
         skipped_review_ids: new Set(),
         counts: { people: 0, faces: 0, unknown_faces: 0, pending_reviews: 0, legacy_faces: 0 },
         runtime: {},
@@ -970,6 +1022,143 @@
         appState.skipped_review_ids = retained;
       }
 
+      function pruneSelectedReviewIds() {
+        const pendingIds = new Set(appState.pending_reviews.map((review) => String(review.review_id || "")));
+        const retained = new Set();
+        for (const reviewId of appState.selected_review_ids) {
+          if (pendingIds.has(reviewId)) {
+            retained.add(reviewId);
+          }
+        }
+        appState.selected_review_ids = retained;
+        if (!pendingIds.has(String(appState.last_selected_review_id || ""))) {
+          appState.last_selected_review_id = "";
+        }
+      }
+
+      function visiblePendingReviews() {
+        const limit = Math.max(0, Number(appState.pending_render_limit) || 0);
+        return limit > 0 ? appState.pending_reviews.slice(0, limit) : appState.pending_reviews;
+      }
+
+      function selectedVisibleReviewCount() {
+        let count = 0;
+        for (const review of visiblePendingReviews()) {
+          if (appState.selected_review_ids.has(String(review.review_id || ""))) {
+            count += 1;
+          }
+        }
+        return count;
+      }
+
+      function renderReviewSelectionSummary() {
+        const selectedCount = appState.selected_review_ids.size;
+        const visibleReviews = visiblePendingReviews();
+        const visibleCount = visibleReviews.length;
+        const selectedVisibleCount = selectedVisibleReviewCount();
+        const label = document.getElementById("review-selection-status");
+        const selectAll = document.getElementById("review-select-all");
+        if (label) {
+          label.textContent = `${selectedCount} selected`;
+        }
+        if (selectAll) {
+          selectAll.checked = visibleCount > 0 && selectedVisibleCount === visibleCount;
+          selectAll.indeterminate = selectedVisibleCount > 0 && selectedVisibleCount < visibleCount;
+        }
+      }
+
+      function toggleReviewSelection(reviewId, checked) {
+        const key = String(reviewId || "");
+        if (!key) {
+          return;
+        }
+        if (checked) {
+          appState.selected_review_ids.add(key);
+        } else {
+          appState.selected_review_ids.delete(key);
+        }
+        renderReviewSelectionSummary();
+      }
+
+      function setReviewSelectionRange(startReviewId, endReviewId, checked) {
+        const rows = visiblePendingReviews();
+        const startIndex = rows.findIndex((review) => String(review.review_id || "") === String(startReviewId || ""));
+        const endIndex = rows.findIndex((review) => String(review.review_id || "") === String(endReviewId || ""));
+        if (startIndex < 0 || endIndex < 0) {
+          toggleReviewSelection(endReviewId, checked);
+          return;
+        }
+        const fromIndex = Math.min(startIndex, endIndex);
+        const toIndex = Math.max(startIndex, endIndex);
+        for (let index = fromIndex; index <= toIndex; index += 1) {
+          const reviewId = String(rows[index].review_id || "");
+          if (!reviewId) {
+            continue;
+          }
+          if (checked) {
+            appState.selected_review_ids.add(reviewId);
+          } else {
+            appState.selected_review_ids.delete(reviewId);
+          }
+        }
+        renderReviewSelectionSummary();
+      }
+
+      function setVisibleReviewSelections(checked) {
+        for (const review of visiblePendingReviews()) {
+          const reviewId = String(review.review_id || "");
+          if (!reviewId) {
+            continue;
+          }
+          if (checked) {
+            appState.selected_review_ids.add(reviewId);
+          } else {
+            appState.selected_review_ids.delete(reviewId);
+          }
+        }
+        renderReviewQueue();
+      }
+
+      function handleReviewTableClick(event) {
+        const target = event.target;
+        if (!(target instanceof Element)) {
+          return;
+        }
+        const checkbox = target.closest(".review-select-checkbox");
+        const row = target.closest("tr[data-review-id]");
+        if (!row) {
+          return;
+        }
+        const reviewId = String(row.getAttribute("data-review-id") || "");
+        if (!reviewId) {
+          return;
+        }
+        if (checkbox instanceof HTMLInputElement) {
+          if (event.shiftKey && appState.last_selected_review_id) {
+            setReviewSelectionRange(appState.last_selected_review_id, reviewId, checkbox.checked);
+            renderReviewQueue();
+            appState.last_selected_review_id = reviewId;
+            return;
+          }
+          toggleReviewSelection(reviewId, checkbox.checked);
+          appState.last_selected_review_id = reviewId;
+          return;
+        }
+        if (target.closest("button, select, a, label, textarea")) {
+          return;
+        }
+        const nextChecked = !appState.selected_review_ids.has(reviewId);
+        if (event.shiftKey && appState.last_selected_review_id) {
+          setReviewSelectionRange(appState.last_selected_review_id, reviewId, nextChecked);
+          renderReviewQueue();
+          appState.last_selected_review_id = reviewId;
+          return;
+        }
+        toggleReviewSelection(reviewId, nextChecked);
+        renderReviewQueue();
+        appState.last_selected_review_id = reviewId;
+      }
+
       function removeUnknownFaceFromState(faceId) {
         const key = String(faceId || "");
         if (!key) {
@@ -995,11 +1184,7 @@
 
       function refreshReviewUi() {
         pruneSkippedReviewIds();
-        appState.counts = {
-          ...(appState.counts || {}),
-          unknown_faces: appState.unknown_faces.length,
-          pending_reviews: appState.pending_reviews.length,
-        };
+        pruneSelectedReviewIds();
         appState.next_review = chooseNextReview();
         updateDisplayedCounts();
         renderRuntimeStatus();
@@ -1024,7 +1209,11 @@
       }
 
       async function loadState() {
-        const data = await api("/api/state");
+        const params = new URLSearchParams({
+          pending_limit: String(Math.max(0, Number(appState.pending_render_limit) || 0)),
+          unknown_limit: String(Math.max(0, Number(appState.unknown_render_limit) || 0)),
+        });
+        const data = await api(`/api/state?${params.toString()}`);
         appState.people = data.people || [];
         appState.face_by_id = {};
         appState.unknown_faces = data.unknown_faces || [];
@@ -1040,6 +1229,7 @@
           }
         }
         pruneSkippedReviewIds();
+        pruneSelectedReviewIds();
         appState.next_review = chooseNextReview();
 
         updateDisplayedCounts();
@@ -1055,9 +1245,9 @@
         const cropUrl = String(face.crop_url || "");
         const sourceUrl = String(face.source_url || "");
         const imgTag = cropUrl
-          ? `<img class="crop" src="${esc(cropUrl)}" alt="${esc(faceId)}" />`
+          ? `<img class="crop" src="${esc(cropUrl)}" alt="${esc(faceId)}" loading="lazy" decoding="async" />`
           : sourceUrl
-            ? `<img class="crop" src="${esc(sourceUrl)}?max_dim=200" alt="${esc(faceId)}" />`
+            ? `<img class="crop" src="${esc(sourceUrl)}?max_dim=200" alt="${esc(faceId)}" loading="lazy" decoding="async" />`
             : '<div class="crop"></div>';
         const img = sourceUrl
           ? `<button class="face-source-btn" onclick="openSourceModal('${esc(faceId)}')">${imgTag}</button>`
@@ -1181,10 +1371,10 @@
             ].join("");
           })
           .join("");
-        if (limit > 0 && appState.unknown_faces.length > limit) {
+        if (limit > 0 && Number((appState.counts || {}).unknown_faces || 0) > rows.length) {
           tbody.insertAdjacentHTML(
             "beforeend",
-            `<tr><td colspan="4"><button class="secondary" type="button" onclick="showMoreUnknownFaces()">Show ${Math.min(100, appState.unknown_faces.length - limit)} More</button></td></tr>`
+            `<tr><td colspan="4"><button class="secondary" type="button" onclick="showMoreUnknownFaces()">Show ${Math.min(100, Math.max(0, Number((appState.counts || {}).unknown_faces || 0) - rows.length))} More</button></td></tr>`
           );
         }
       }
@@ -1192,15 +1382,16 @@
       function renderReviewQueue() {
         const tbody = document.querySelector("#review-table tbody");
         if (!appState.pending_reviews.length) {
-          tbody.innerHTML = '<tr><td colspan="4">No pending review items.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="5">No pending review items.</td></tr>';
+          renderReviewSelectionSummary();
           return;
         }
-        const limit = Math.max(0, Number(appState.pending_render_limit) || 0);
-        const rows = limit > 0 ? appState.pending_reviews.slice(0, limit) : appState.pending_reviews;
+        const rows = visiblePendingReviews();
         tbody.innerHTML = rows
           .map((review) => {
             const face = review.face || {};
             const reviewId = String(review.review_id || "");
+            const isSelected = appState.selected_review_ids.has(reviewId);
             const candidates = Array.isArray(review.candidates) ? review.candidates : [];
             const nameHints = Array.isArray(review.name_hints) ? review.name_hints : [];
             const candidateHtml = candidates.length
@@ -1236,7 +1427,8 @@
               : "";
 
             return [
-              "<tr>",
+              `<tr class="review-row-selectable" data-review-id="${esc(reviewId)}">`,
+              `<td class="review-select-cell"><input class="review-select-checkbox" type="checkbox" ${isSelected ? "checked " : ""}aria-label="Select review ${esc(shortId(reviewId))}" /></td>`,
               `<td>${faceCell(face)}</td>`,
               `<td>${esc(sourceText(face))}</td>`,
               `<td>${candidateHtml}${hintsHtml}</td>`,
@@ -1253,22 +1445,77 @@
             ].join("");
           })
           .join("");
-        if (limit > 0 && appState.pending_reviews.length > limit) {
+        const limit = Math.max(0, Number(appState.pending_render_limit) || 0);
+        if (limit > 0 && Number((appState.counts || {}).pending_reviews || 0) > rows.length) {
           tbody.insertAdjacentHTML(
             "beforeend",
-            `<tr><td colspan="4"><button class="secondary" type="button" onclick="showMorePendingReviews()">Show ${Math.min(100, appState.pending_reviews.length - limit)} More</button></td></tr>`
+            `<tr><td colspan="5"><button class="secondary" type="button" onclick="showMorePendingReviews()">Show ${Math.min(100, Math.max(0, Number((appState.counts || {}).pending_reviews || 0) - rows.length))} More</button></td></tr>`
           );
         }
+        renderReviewSelectionSummary();
       }
 
-      function showMoreUnknownFaces() {
+      async function showMoreUnknownFaces() {
         appState.unknown_render_limit += 100;
-        renderUnknownFaces();
+        await loadState();
       }
 
-      function showMorePendingReviews() {
+      async function showMorePendingReviews() {
         appState.pending_render_limit += 100;
-        renderReviewQueue();
+        await loadState();
+      }
+
+      async function bulkResolveSelectedReviews(status) {
+        try {
+          const reviewIds = Array.from(appState.selected_review_ids);
+          if (!reviewIds.length) {
+            throw new Error("Select at least one review first.");
+          }
+          const statusLabel =
+            status === "rejected" ? "not a face" : status === "ignored" ? "ignored" : "skipped";
+          setStatus(`Updating ${reviewIds.length} selected review(s) as ${statusLabel}...`, "info");
+          await api("/api/review/bulk_resolve", "POST", { review_ids: reviewIds, status });
+
+          const selectedIds = new Set(reviewIds);
+          if (status === "skipped") {
+            const moved = [];
+            const kept = [];
+            for (const review of appState.pending_reviews) {
+              const reviewId = String(review.review_id || "");
+              if (selectedIds.has(reviewId)) {
+                moved.push(review);
+                appState.skipped_review_ids.add(reviewId);
+                continue;
+              }
+              kept.push(review);
+            }
+            appState.pending_reviews = kept.concat(moved);
+          } else {
+            const faceIds = new Set();
+            appState.pending_reviews = appState.pending_reviews.filter((review) => {
+              const reviewId = String(review.review_id || "");
+              if (!selectedIds.has(reviewId)) {
+                return true;
+              }
+              const faceId = String(((review.face || {}).face_id || review.face_id || ""));
+              if (faceId) {
+                faceIds.add(faceId);
+              }
+              appState.skipped_review_ids.delete(reviewId);
+              return false;
+            });
+            appState.unknown_faces = appState.unknown_faces.filter(
+              (face) => !faceIds.has(String(face.face_id || ""))
+            );
+          }
+
+          appState.selected_review_ids = new Set();
+          refreshReviewUi();
+          scheduleStateRefresh();
+          setStatus(`${reviewIds.length} review(s) updated as ${statusLabel}.`, "success");
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
       }
 
       function findPersonByName(name) {
@@ -1701,6 +1948,30 @@
         await saveNextReviewName();
       });
 
+      document.getElementById("review-select-all").addEventListener("change", (event) => {
+        setVisibleReviewSelections(Boolean(event.target.checked));
+      });
+
+      document.querySelector("#review-table tbody").addEventListener("click", handleReviewTableClick);
+
+      document.getElementById("clear-review-selection-btn").addEventListener("click", () => {
+        appState.selected_review_ids = new Set();
+        appState.last_selected_review_id = "";
+        renderReviewQueue();
+      });
+
+      document.getElementById("bulk-skip-btn").addEventListener("click", async () => {
+        await bulkResolveSelectedReviews("skipped");
+      });
+
+      document.getElementById("bulk-ignore-btn").addEventListener("click", async () => {
+        await bulkResolveSelectedReviews("ignored");
+      });
+
+      document.getElementById("bulk-reject-btn").addEventListener("click", async () => {
+        await bulkResolveSelectedReviews("rejected");
+      });
+
       document.getElementById("person-form").addEventListener("submit", async (event) => {
         event.preventDefault();
         const name = document.getElementById("person-name").value.trim();
@@ -1814,6 +2085,7 @@
         enqueueReview,
         resolveReview,
         acceptSelectedReview,
+        toggleReviewSelection,
       });
 
       (async () => {

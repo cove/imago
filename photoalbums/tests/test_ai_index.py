@@ -920,7 +920,7 @@ class TestAIIndex(unittest.TestCase):
 
             self.assertEqual(result, 0)
             write_mock.assert_called_once()
-            self.assertEqual(write_mock.call_args.kwargs["album_title"], "Family Book I")
+            self.assertEqual(write_mock.call_args.kwargs["album_title"], "Family 2020 Book I")
             self.assertEqual(
                 write_mock.call_args.kwargs["source_text"],
                 "Family_2020_B01_P01_S01.tif; Family_2020_B01_P01_S02.tif",
@@ -1850,7 +1850,7 @@ class TestAIIndex(unittest.TestCase):
             )
 
             title = ai_index._resolve_album_printed_title_hint(image, {})
-            self.assertEqual(title, "Mainland China Book 11")
+            self.assertEqual(title, "Mainland China Book II")
 
     def test_run_stdout_forces_processing_even_when_sidecar_exists(self):
         with tempfile.TemporaryDirectory() as tmp:

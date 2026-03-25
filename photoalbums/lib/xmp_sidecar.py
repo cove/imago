@@ -17,6 +17,7 @@ MWG_RS_NS = "http://www.metadataworkinggroup.com/schemas/regions/"
 ST_AREA_NS = "http://ns.adobe.com/xmp/schemata/area/"
 ST_DIM_NS = "http://ns.adobe.com/xap/1.0/sType/Dimensions#"
 PHOTOSHOP_NS = "http://ns.adobe.com/photoshop/1.0/"
+XMPDM_NS = "http://ns.adobe.com/xmp/1.0/DynamicMedia/"
 
 ET.register_namespace("x", X_NS)
 ET.register_namespace("rdf", RDF_NS)
@@ -29,6 +30,7 @@ ET.register_namespace("mwg-rs", MWG_RS_NS)
 ET.register_namespace("stArea", ST_AREA_NS)
 ET.register_namespace("stDim", ST_DIM_NS)
 ET.register_namespace("photoshop", PHOTOSHOP_NS)
+ET.register_namespace("xmpDM", XMPDM_NS)
 
 _RDF_ROOT = f"{{{RDF_NS}}}RDF"
 _RDF_DESC = f"{{{RDF_NS}}}Description"
@@ -337,7 +339,7 @@ def build_xmp_tree(
     _add_alt_text(desc, f"{{{DC_NS}}}title", title)
     _add_alt_text(desc, f"{{{DC_NS}}}description", description)
     if str(album_title or "").strip():
-        _add_simple_text(desc, f"{{{IMAGO_NS}}}AlbumTitle", str(album_title or "").strip())
+        _add_simple_text(desc, f"{{{XMPDM_NS}}}album", str(album_title or "").strip())
     if str(gps_latitude or "").strip() and str(gps_longitude or "").strip():
         _add_simple_text(
             desc,
@@ -565,7 +567,11 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
         "creator_tool": str(desc.findtext(f"{{{XMP_NS}}}CreatorTool", default="") or "").strip(),
         "title": _get_alt_text(desc, f"{{{DC_NS}}}title"),
         "description": _get_alt_text(desc, f"{{{DC_NS}}}description"),
-        "album_title": str(desc.findtext(f"{{{IMAGO_NS}}}AlbumTitle", default="") or "").strip(),
+        "album_title": str(
+            desc.findtext(f"{{{XMPDM_NS}}}album", default="")
+            or desc.findtext(f"{{{IMAGO_NS}}}AlbumTitle", default="")
+            or ""
+        ).strip(),
         "gps_latitude": str(desc.findtext(f"{{{EXIF_NS}}}GPSLatitude", default="") or "").strip(),
         "gps_longitude": str(desc.findtext(f"{{{EXIF_NS}}}GPSLongitude", default="") or "").strip(),
         "ocr_text": str(desc.findtext(f"{{{IMAGO_NS}}}OCRText", default="") or "").strip(),
@@ -684,7 +690,7 @@ def _merge_xmp_tree(
     _set_bag(desc, f"{{{IPTC_EXT_NS}}}PersonInImage", person_names)
     _set_alt_text(desc, f"{{{DC_NS}}}title", title)
     _set_alt_text(desc, f"{{{DC_NS}}}description", description)
-    _set_simple_text(desc, f"{{{IMAGO_NS}}}AlbumTitle", str(album_title or "").strip())
+    _set_simple_text(desc, f"{{{XMPDM_NS}}}album", str(album_title or "").strip())
     _set_gps_fields(desc, gps_latitude, gps_longitude)
     _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}City", str(location_city or "").strip())
     _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}State", str(location_state or "").strip())

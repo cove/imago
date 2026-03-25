@@ -26,7 +26,6 @@ DEFAULT_LOCAL_AUTO_MAX_PIXELS = 786_432
 LOCAL_ATTN_IMPLEMENTATIONS = {"auto", "sdpa", "flash_attention_2", "eager"}
 
 
-
 def normalize_local_attn_implementation(value: str, default: str = "auto") -> str:
     return _normalize_enum_str(value, LOCAL_ATTN_IMPLEMENTATIONS, default)
 
@@ -52,6 +51,7 @@ def _parse_local_json_output(raw: str) -> CaptionDetails:
             except Exception:
                 estimated_people_count = 0
             name_suggestions = list(payload.get("name_suggestions") or [])
+            album_title = clean_text(str(payload.get("album_title") or ""))
             return CaptionDetails(
                 text=clean_text(author_text),
                 gps_latitude=gps_latitude,
@@ -63,6 +63,7 @@ def _parse_local_json_output(raw: str) -> CaptionDetails:
                 people_present=people_present,
                 estimated_people_count=estimated_people_count,
                 name_suggestions=name_suggestions,
+                album_title=album_title,
             )
     return CaptionDetails(text=clean_text(text))
 

@@ -153,101 +153,41 @@ def _romanize_book_token(value: str) -> str:
     return token
 
 
-def _humanize_album_title_text(value: str) -> str:
-    text = clean_text(value)
-    if not text:
-        return ""
-    if re.fullmatch(r"[A-Z0-9&'().,/ -]+", text):
-        words: list[str] = []
-        for token in text.split():
-            words.append(token.capitalize() if token.isalpha() else token)
-        return " ".join(words)
-    return text
-
-
-def _extract_cover_title_text(ocr_text: str) -> str:
-    lines = [clean_text(line) for line in str(ocr_text or "").splitlines() if clean_text(line)]
-    if not lines:
-        return ""
-    title_parts: list[str] = []
-    for line in lines:
-        before_year = re.split(r"\b(?:19|20)\d{2}(?:-\d{4})?\b", line, maxsplit=1)[0]
-        if clean_text(before_year) and before_year != line:
-            # Also strip any BOOK token from the pre-year segment so that
-            # "ENGLAND BOOK 11 1983" → "England" not "England Book 11"
-            before_book = re.split(r"\bBOOK\b", before_year, maxsplit=1, flags=re.IGNORECASE)[0]
-            title_parts.append(clean_text(before_book) or clean_text(before_year))
-            break
-        before_book = re.split(r"\bBOOK\b", line, maxsplit=1, flags=re.IGNORECASE)[0]
-        if clean_text(before_book) and before_book != line:
-            title_parts.append(clean_text(before_book))
-            break
-        if re.search(r"\bBOOK\b", line, flags=re.IGNORECASE):
-            break
-        if re.fullmatch(r"(?:19|20)\d{2}(?:-\d{4})?", line):
-            break
-        title_parts.append(line)
-    return _humanize_album_title_text(" ".join(title_parts))
-
-
-def _extract_book_label(ocr_text: str) -> str:
-    match = re.search(
-        r"\bBOOK\s+([1I]{1,6}|\d{1,3}|[IVXLCDM]+)\b",
-        clean_text(ocr_text),
-        flags=re.IGNORECASE,
-    )
-    if match is None:
-        return ""
-    return str(match.group(1) or "").strip().upper()
-
-
-def infer_printed_album_title(
-    *,
-    ocr_text: str = "",
-    fallback_title: str = "",
-) -> str:
-    book_label = _extract_book_label(ocr_text)
-    title_text = _extract_cover_title_text(ocr_text) if book_label else ""
-    if title_text and book_label:
-        return f"{title_text} Book {book_label}"
-    if title_text:
-        return title_text
-    return clean_text(fallback_title)
-
-
 def infer_album_title(
     *,
     image_path: str | Path | None = None,
-    ocr_text: str = "",
     fallback_title: str = "",
     source_text: str = "",
 ) -> str:
-    book_label = _extract_book_label(ocr_text)
-    title_text = _extract_cover_title_text(ocr_text) if book_label else ""
-    if title_text and book_label:
-        book_display = _romanize_book_token(book_label)
-        if book_display:
-            return f"{title_text} Book {book_display}"
-        return title_text
     fallback = clean_text(fallback_title)
     if image_path is None:
         return fallback
     path = Path(image_path)
-    collection, _year, book, _page = parse_album_filename(path.name)
+    collection, year, book, _page = parse_album_filename(path.name)
     collection_hint = _extract_collection_hint(path)
     source_name = str(source_text or "").split(";", 1)[0].strip()
     if source_name:
-        source_collection, _source_year, source_book, _source_page = parse_album_filename(source_name)
+        source_collection, source_year, source_book, _source_page = parse_album_filename(source_name)
         if collection == "Unknown" and source_collection != "Unknown":
             collection = source_collection
         if source_book and source_book != "00" and (not book or book == "00"):
             book = source_book
+        if year == "Unknown" and source_year != "Unknown":
+            year = source_year
         if not collection_hint and source_collection != "Unknown":
             collection_hint = _humanize_hint_text(source_collection)
     if not collection_hint:
         return fallback
     book_display = _romanize_book_token(book)
-    derived_title = f"{collection_hint} Book {book_display}" if book_display else collection_hint
+    year_str = year if year and year != "Unknown" else ""
+    if book_display and year_str:
+        derived_title = f"{collection_hint} {year_str} Book {book_display}"
+    elif book_display:
+        derived_title = f"{collection_hint} Book {book_display}"
+    elif year_str:
+        derived_title = f"{collection_hint} {year_str}"
+    else:
+        derived_title = collection_hint
     if fallback:
         fallback_has_book = bool(re.search(r"\bBook\b", fallback, flags=re.IGNORECASE))
         derived_has_book = bool(re.search(r"\bBook\b", derived_title, flags=re.IGNORECASE))
@@ -286,20 +226,13 @@ def infer_album_context(
 ) -> AlbumContext:
     collection_hint = _extract_collection_hint(image_path)
     path_hint = _humanize_hint_text(str(image_path or ""))
-    canonical_title = infer_album_title(
-        image_path=image_path,
-        ocr_text=ocr_text if allow_ocr else "",
-        fallback_title=album_title,
-    )
-    printed_title = infer_printed_album_title(
-        ocr_text=ocr_text if allow_ocr else "",
-        fallback_title=printed_album_title,
-    )
-    title_hint = printed_title or canonical_title
-    signals = [title_hint, canonical_title, printed_title, collection_hint, path_hint]
+    canonical_title = infer_album_title(image_path=image_path, fallback_title=album_title)
+    title_hint = clean_text(printed_album_title) or canonical_title
+    signals = [title_hint, canonical_title, collection_hint, path_hint]
     if allow_ocr:
         signals.append(ocr_text)
     normalized = " ".join(_normalized_hint_text(value) for value in signals if str(value or "").strip())
+    printed_title = clean_text(printed_album_title)
     if not normalized:
         return AlbumContext(
             title=title_hint,

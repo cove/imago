@@ -16,26 +16,11 @@ from photoalbums.lib import ai_caption, _caption_lmstudio, _caption_local_hf, ai
 
 
 class TestAICaption(unittest.TestCase):
-    def test_infer_album_title_prefers_cover_text_and_romanizes_book_number(self):
+    def test_infer_album_title_falls_back_to_path_when_no_ocr(self):
         text = ai_caption.infer_album_title(
             image_path=Path("Photo Albums") / "China_1986_B02_View" / "China_1986_B02_P01.jpg",
-            ocr_text="MAINLAND CHINA\n1986\nBOOK 11",
         )
-        self.assertEqual(text, "Mainland China Book II")
-
-    def test_infer_album_title_handles_book_number_and_year_on_same_line(self):
-        # "ENGLAND BOOK 11 1983" on one line — must not produce "England Book 11 Book II"
-        text = ai_caption.infer_album_title(
-            image_path=Path("Photo Albums") / "England_1983_B02_View" / "England_1983_B02_P01.jpg",
-            ocr_text="ENGLAND BOOK 11 1983",
-        )
-        self.assertEqual(text, "England Book II")
-
-    def test_infer_printed_album_title_preserves_cover_book_label(self):
-        text = ai_caption.infer_printed_album_title(
-            ocr_text="MAINLAND CHINA\n1986\nBOOK 11",
-        )
-        self.assertEqual(text, "Mainland China Book 11")
+        self.assertEqual(text, "China 1986 Book II")
 
     def test_infer_album_context_detects_family_album_from_path(self):
         context = ai_caption.infer_album_context(
@@ -96,16 +81,10 @@ class TestAICaption(unittest.TestCase):
             source_path=Path("Photo Albums") / "Family_1980-1985_B08_View" / "Family_1980-1985_B08_P01.jpg",
             album_title="Family Book I",
         )
-        self.assertIn("Context hints (image-specific):", prompt)
-        context_index = prompt.index("Context hints (image-specific):")
-        people_index = prompt.index("These people have been identified in this photo")
-        ocr_index = prompt.index('OCR text hint: "FAMILY BOOK"')
-        output_index = prompt.index('{"author_text": "...", "scene_text": "...", "annotation_scope": "...", "location_name": "..."}')
-        self.assertGreater(people_index, context_index)
-        self.assertGreater(ocr_index, context_index)
-        self.assertLess(people_index, output_index)
-        self.assertLess(ocr_index, output_index)
+        self.assertIn("author_text", prompt)
+        self.assertIn("scene_text", prompt)
         self.assertNotIn("Detected objects:", prompt)
+        self.assertNotIn("OCR text hint:", prompt)
 
     def test_system_prompts_load_from_skill_sections(self):
         self.assertIn("Count clearly visible real people only.", ai_caption.people_count_system_prompt())

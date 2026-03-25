@@ -53,6 +53,18 @@ Use the `imago` MCP tools to drive the AI indexing pipeline. The typical flow:
 Call `photoalbums_manifest_summary` first to see counts by state (pending, done, errored). This tells
 you whether there's real work to do and how large the job will be.
 
+### Ensure the cover page is processed first
+Before processing any album pages, the cover page (P00 or P01) must be processed so the album title is available to all subsequent pages. Always check:
+
+1. Call `photoalbums_manifest_summary` and look for the cover page (P00 or P01) in the album.
+2. If the cover page has not been processed yet (state is `pending` or absent), run a targeted job first:
+   `photoalbums_ai_index(photo="<AlbumName>_B<book>_P00")` — wait for it to complete before continuing.
+3. If the cover was previously processed but predates this change (its `xmpDM:album` field may be empty or missing the year), reprocess it:
+   `photoalbums_ai_index(photo="<AlbumName>_B<book>_P00", process_all_photos=true)`
+4. Once the cover is done, proceed with the full album job — non-cover pages will pick up the title from the cover's XMP sidecar automatically.
+
+This step is especially important when processing a single page (e.g. `photo=...P25`) — always run the cover page first if the title is unknown.
+
 ### Start a job
 Call `photoalbums_ai_index` to launch a background job. It returns a `job_id` immediately.
 - Omit all filters to process all pending photos.
@@ -147,7 +159,9 @@ location block in the logs.
 ## Album Classification Rules (apply in this order)
 - Fix Roman numeral typo in album names: replace accidental "1" with "I" (e.g., Book 1 → Book I, Book 11 → Book II).
 - Use the printed cover title (not a normalized version) when naming the album.
-- Albums feature blue or white faux leathery covers with gold trim and the title printed in the lower-right corner.
+- Albums feature blue or white faux leathery covers with gold trim and the title printed in the lower-right corner and has a year and often a book number.
+- Titles can be multiple lines, and have mulitple countries and dates in them (e.g. Europe 1973\nEgypt 1974). Include all lines in the title as printed.
+- When the title has mulitple countries and dates, you'll need to match them with the right photos. For example if you see Egypt 1974 and Europe 1973, you'll need to look at the contents of the photos to determine if it's Europe or Egypt for the album name; you can assume the photos aren't intertwined, but sometimes they are mixed as in the case of taking a boat from Egypt to Europe, pictures from both regions will appear on the same page, in which case you'd combine both into the album name.
 
 ## System Prompt - People Count
 You count visible people in photographs.
@@ -176,14 +190,17 @@ Determine the most useful location metadata supported by visible evidence.
 
 ## Preamble Cover Page
 This is an album cover or title page.
+Read the full album title exactly as printed on the cover — including all lines, country names, year, and book number if present — and output it verbatim in `album_title` (e.g. `"Egypt 1975"`, `"Mainland China Book 11"`, `"Europe 1973\nEgypt 1974"`).
+Do not normalize, romanize book numbers, or reformat the title in any way.
 
 ## Output Format – Describe (full caption)
-`{"author_text": "...", "scene_text": "...", "annotation_scope": "...", "location_name": "..."}`
+`{"author_text": "...", "scene_text": "...", "annotation_scope": "...", "location_name": "...", "album_title": ""}`
 
 - `author_text`: typed album-authored annotation text that clearly applies to this photo. Otherwise empty string.
 - `scene_text`: readable text visible inside the photographed scene itself, preserved verbatim in any language. Otherwise empty string.
 - `annotation_scope`: one of `photo`, `group`, `page`, `none`, or `unknown`.
 - `location_name`: concise geocoding query for GPS lookup when supported strongly enough by visible evidence; otherwise empty string.
+- `album_title`: for cover pages only — the full album title as printed on the cover (e.g. `"Egypt 1975"`, `"Mainland China Book 11"`). Empty string for all other pages.
 
 ## Output Format – Describe Page (with photo regions)
 `{"author_text": "...", "scene_text": "...", "annotation_scope": "...", "location_name": "...", "photo_regions": [{"x": 0.0, "y": 0.0, "w": 0.5, "h": 0.5, "author_text": "...", "scene_text": "...", "annotation_scope": "..."}]}`
