@@ -13,7 +13,6 @@ from ._caption_album import (  # noqa: F401
     dedupe,
     infer_album_context,
     infer_album_title,
-    infer_printed_album_title,
     join_human,
     looks_like_album_cover,
 )
@@ -111,6 +110,9 @@ class CaptionOutput:
     image_regions: list[dict] = None
     album_title: str = ""
     title: str = ""
+    author_text: str = ""
+    scene_text: str = ""
+    annotation_scope: str = ""
 
     def __post_init__(self):
         if self.image_regions is None:
@@ -279,6 +281,9 @@ class CaptionEngine:
                 image_regions=list(getattr(caption, "image_regions", None) or []),
                 album_title=str(getattr(caption, "album_title", "") or ""),
                 title=str(getattr(caption, "title", "") or ""),
+                author_text=str(getattr(caption, "author_text", "") or ""),
+                scene_text=str(getattr(caption, "scene_text", "") or ""),
+                annotation_scope=str(getattr(caption, "annotation_scope", "") or ""),
             )
         except Exception as exc:
             return CaptionOutput(text="", engine=self.engine, fallback=True, error=str(exc))

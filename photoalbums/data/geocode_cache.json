@@ -47,6 +47,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "abu simbel": {
+    "city": "Abu Simbel City",
+    "country": "Egypt",
+    "display_name": "Abu Simbel Temples, Al Maabd Street, Abu Simbel City, Aswan, 81525, Egypt",
+    "latitude": "22.3371195",
+    "longitude": "31.6257973",
+    "query": "Abu Simbel",
+    "source": "nominatim",
+    "state": "Aswan",
+    "status": "ok"
+  },
   "abu simbel, aswan governorate, egypt": {
     "display_name": "معبدا أبو سمبل, شارع المعبد, مدينة أبو سمبل, أسوان, 81525, مصر",
     "latitude": "22.3371195",
@@ -69,6 +80,17 @@
     "longitude": "-9.5838532",
     "query": "Agadir, Morocco",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "alabaster mosque": {
+    "city": "Cairo",
+    "country": "Egypt",
+    "display_name": "Mosque of Muhammad Ali, Salah Al Din Street, Al Mahgar, El Giyushi, Cairo, 11655, Egypt",
+    "latitude": "30.0290702",
+    "longitude": "31.2598278",
+    "query": "Alabaster Mosque",
+    "source": "nominatim",
+    "state": "Cairo",
     "status": "ok"
   },
   "alabaster mosque - cairo egypt": {
@@ -147,6 +169,17 @@
     "query": "Alicante, Spain - September 1988; Avila, Spain - September 1988",
     "status": "miss"
   },
+  "amon temple, luxor, egypt": {
+    "city": "Al Baairat Village",
+    "country": "Egypt",
+    "display_name": "Temple d'Amon, Maabad Habo Road, Medinet Habu, Al Baairat Village, Al-Qarnah, Luxor, 85958, Egypt",
+    "latitude": "25.7182930",
+    "longitude": "32.5945422",
+    "query": "Amon Temple, Luxor, Egypt",
+    "source": "nominatim",
+    "state": "Luxor",
+    "status": "ok"
+  },
   "aqueducts, europe": {
     "query": "Aqueducts, Europe",
     "status": "miss"
@@ -162,6 +195,17 @@
   "asablanca, morocco": {
     "query": "Asablanca, Morocco",
     "status": "miss"
+  },
+  "aswan": {
+    "city": "Aswan",
+    "country": "Egypt",
+    "display_name": "Aswan, 81511, Egypt",
+    "latitude": "24.0910710",
+    "longitude": "32.8973060",
+    "query": "Aswan",
+    "source": "nominatim",
+    "state": "Aswan",
+    "status": "ok"
   },
   "aswan dam, aswan, egypt": {
     "display_name": "السد العالى, أسوان, مصر",
@@ -254,6 +298,10 @@
     "query": "Bamboo Village, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "bampo village": {
+    "query": "Bampo Village",
+    "status": "miss"
   },
   "bampo village, beijing, china": {
     "query": "Bampo Village, Beijing, China",
@@ -715,6 +763,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "budapest": {
+    "city": "Budapest",
+    "country": "Hungary",
+    "display_name": "Budapest, Central Hungary, Hungary",
+    "latitude": "47.4978789",
+    "longitude": "19.0402383",
+    "query": "Budapest",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
+  },
   "budapest, hun": {
     "display_name": "Hun utca, Lőportárdűlő, Angyalföld, XIII. kerület, Budapest, Közép-Magyarország, 1134, Magyarország",
     "latitude": "47.5264309",
@@ -851,6 +910,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "canton": {
+    "city": "Guangzhou City",
+    "country": "China",
+    "display_name": "Guangzhou City, Guangdong, China",
+    "latitude": "23.1288454",
+    "longitude": "113.2590064",
+    "query": "Canton",
+    "source": "nominatim",
+    "state": "Guangdong",
+    "status": "ok"
+  },
   "canton (guangzhou), guangdong, china": {
     "display_name": "华南农业大学, 东门路, 五山街道, 天河区, 广州市, 广东省, 510642, 中国",
     "latitude": "23.1612069",
@@ -939,6 +1009,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "casablanca": {
+    "city": "Casablanca",
+    "country": "Morocco",
+    "display_name": "Casablanca, Casablanca-Settat, Morocco",
+    "latitude": "33.5945144",
+    "longitude": "-7.6200284",
+    "query": "Casablanca",
+    "source": "nominatim",
+    "state": "Casablanca-Settat",
+    "status": "ok"
+  },
   "casablanca - morocco": {
     "display_name": "Casablanca ⵜⴰⴷⴷⴰⵔⵜ ⵜⵓⵎⵍⵉⵍⵜ الدار البيضاء, Pachalik de Casablanca باشوية الدار البيضاء, Préfecture de Casablanca عمالة الدار البيضاء, Casablanca-Settat ⵜⴰⴷⴷⴰⵔⵜ ⵜⵓⵎⵍⵉⵍⵜ-ⵙⵟⵟⴰⵜ الدار البيضاء-سطات, Maroc ⵍⵎⵖⵔⵉⴱ المغرب",
     "latitude": "33.5945144",
@@ -983,6 +1064,17 @@
     "query": "Cathedral Nueva, Salamanca, Spain; Plaza de España, Seville, Spain",
     "status": "miss"
   },
+  "cathedral seville spain": {
+    "city": "Seville",
+    "country": "Spain",
+    "display_name": "Cathedral Seville Spain, Seville, Andalusia, Spain",
+    "latitude": "37.3859150",
+    "longitude": "-5.9931406",
+    "query": "Cathedral Seville Spain",
+    "source": "nominatim",
+    "state": "Andalusia",
+    "status": "ok"
+  },
   "cathedral, seville, spain": {
     "display_name": "Catedral de Sevilla, Calle Fray Ceferino González, Santa Cruz, Casco Antiguo, Sevilla, Andalucía, 41004, España",
     "latitude": "37.3859150",
@@ -1023,8 +1115,23 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "chendou": {
+    "city": "Huaiji County",
+    "country": "China",
+    "display_name": "Chendou, Shidong, Huaiji County, Zhaoqing City, Guangdong, China",
+    "latitude": "23.6346996",
+    "longitude": "112.0344990",
+    "query": "Chendou",
+    "source": "nominatim",
+    "state": "Guangdong",
+    "status": "ok"
+  },
   "chendou (chengdu), china": {
     "query": "Chendou (Chengdu), China",
+    "status": "miss"
+  },
+  "chendou zoo": {
+    "query": "Chendou zoo",
     "status": "miss"
   },
   "chendou, china": {
@@ -1065,6 +1172,17 @@
     "longitude": "104.1329312",
     "query": "Chengdu Research Base of Giant Panda Breeding, Chengdu, China",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "chengdu zoo": {
+    "city": "Chenghua District",
+    "country": "China",
+    "display_name": "Chengdu Zoo, Chenghua District, Sichuan, China",
+    "latitude": "30.7160165",
+    "longitude": "104.1007170",
+    "query": "Chengdu Zoo",
+    "source": "nominatim",
+    "state": "Sichuan",
     "status": "ok"
   },
   "chengdu zoo, chengdu, sichuan, china": {
@@ -1762,6 +1880,17 @@
     "query": "Dunhuang County Museum, Dunhuang, Gansu, China",
     "status": "miss"
   },
+  "dunhuang cultural centre": {
+    "city": "Dunhuang City",
+    "country": "China",
+    "display_name": "Dunghuang City Cultural Centre, Mingshan Road, Shazhou, Dunhuang City, Jiuquan, Gansu, 736200, China",
+    "latitude": "40.1230849",
+    "longitude": "94.6626234",
+    "query": "Dunhuang Cultural Centre",
+    "source": "nominatim",
+    "state": "Gansu",
+    "status": "ok"
+  },
   "dunhuang cultural centre, dunhuang, china": {
     "display_name": "敦煌市文化馆, 鸣山路, 沙州镇, 敦煌市, 酒泉市, 甘肃省, 736200, 中国",
     "latitude": "40.1230849",
@@ -1785,6 +1914,17 @@
   "dunhuang hotel, dunhuang cultural centre, dunhuang, gansu, china": {
     "query": "Dunhuang Hotel, Dunhuang Cultural Centre, Dunhuang, Gansu, China",
     "status": "miss"
+  },
+  "dunhuang mogao caves": {
+    "city": "Dunhuang City",
+    "country": "China",
+    "display_name": "Dunhuang Mogao Caves, Dunhuang City, Gansu, China",
+    "latitude": "40.0373163",
+    "longitude": "94.8042114",
+    "query": "Dunhuang Mogao Caves",
+    "source": "nominatim",
+    "state": "Gansu",
+    "status": "ok"
   },
   "dunhuang summer culture centre": {
     "query": "Dunhuang Summer Culture Centre",
@@ -1912,6 +2052,14 @@
   },
   "egyptian museum on liberation square - cairo, downtown cairo": {
     "query": "Egyptian Museum on Liberation Square - Cairo, Downtown Cairo",
+    "status": "miss"
+  },
+  "egyptian tombs": {
+    "query": "Egyptian tombs",
+    "status": "miss"
+  },
+  "elephant island at nile river": {
+    "query": "Elephant Island at Nile River",
     "status": "miss"
   },
   "elephant island, aswan, egypt": {
@@ -2153,6 +2301,17 @@
   "fisherman's bastion and matthias church, budapest, hungary": {
     "query": "Fisherman's Bastion and Matthias Church, Budapest, Hungary",
     "status": "miss"
+  },
+  "fisherman's bastion, budapest": {
+    "city": "Budapest",
+    "country": "Hungary",
+    "display_name": "Fisherman's Bastion, Budapest, Budapest, Hungary",
+    "latitude": "47.5023053",
+    "longitude": "19.0346998",
+    "query": "Fisherman's Bastion, Budapest",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
   },
   "fisherman's bastion, budapest, hungary": {
     "display_name": "Halászbástya, Gimnázium utca, Buda, Víziváros, I. kerület, Budapest, Közép-Magyarország, 1014, Magyarország",
@@ -2421,6 +2580,10 @@
     "query": "Great Wall of China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "great wall of china - fort at the end of wall qi lian mountains in the background": {
+    "query": "Great Wall of China - Fort at the end of wall Qi Lian Mountains in the background",
+    "status": "miss"
   },
   "great wall of china, china": {
     "display_name": "长城, 店神线, 黄泥井, 神池县, 忻州市, 山西省, 中国",
@@ -2838,6 +3001,17 @@
     "query": "Jiayu Pass, Gansu, China",
     "status": "miss"
   },
+  "jiayuguan": {
+    "city": "Jiayuguan",
+    "country": "China",
+    "display_name": "Jiayuguan, Gansu, 735100, China",
+    "latitude": "39.7722294",
+    "longitude": "98.2885388",
+    "query": "Jiayuguan",
+    "source": "nominatim",
+    "state": "Gansu",
+    "status": "ok"
+  },
   "jiayuguan city, china": {
     "display_name": "嘉峪关市, 甘肃省, 735100, 中国",
     "latitude": "39.7722294",
@@ -2861,6 +3035,10 @@
     "query": "Jiayuguan City, Gansu, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "jiayuguan fort": {
+    "query": "Jiayuguan Fort",
+    "status": "miss"
   },
   "jiayuguan fort and great wall, jiayuguan, gansu, china": {
     "query": "Jiayuguan Fort and Great Wall, Jiayuguan, Gansu, China",
@@ -2922,6 +3100,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "jokhang temple": {
+    "city": "Chengguan District",
+    "country": "China",
+    "display_name": "Jokhang Temple, Chengguan District, Tibet, China",
+    "latitude": "29.6528598",
+    "longitude": "91.1317978",
+    "query": "Jokhang Temple",
+    "source": "nominatim",
+    "state": "Tibet",
+    "status": "ok"
+  },
   "jokhang temple and potala palace in lhasa, tibet": {
     "query": "Jokhang Temple and Potala Palace in Lhasa, Tibet",
     "status": "miss"
@@ -2970,6 +3159,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "jokhang temple, tibet autonomous region, china": {
+    "city": "Chengguan District",
+    "country": "China",
+    "display_name": "Jokhang Temple, Tibet Autonomous Region, China, Chengguan District, Tibet, China",
+    "latitude": "29.6528598",
+    "longitude": "91.1317978",
+    "query": "Jokhang Temple, Tibet Autonomous Region, China",
+    "source": "nominatim",
+    "state": "Tibet",
+    "status": "ok"
+  },
   "kalemgedan fortress and park, belgrade, serbia": {
     "query": "Kalemgedan Fortress and Park, Belgrade, Serbia",
     "status": "miss"
@@ -2993,6 +3193,10 @@
     "query": "Karnak Temple, Luxor, Egypt",
     "source": "nominatim",
     "status": "ok"
+  },
+  "karnaten, austria": {
+    "query": "Karnaten, Austria",
+    "status": "miss"
   },
   "karnten and salzburg, austria": {
     "query": "Karnten and Salzburg, Austria",
@@ -3366,6 +3570,21 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "lhasa market place": {
+    "query": "Lhasa market place",
+    "status": "miss"
+  },
+  "lhasa tibet": {
+    "city": "Lhasa",
+    "country": "China",
+    "display_name": "Lhasa, Tibet, 850000, China",
+    "latitude": "29.6542054",
+    "longitude": "91.1173015",
+    "query": "Lhasa Tibet",
+    "source": "nominatim",
+    "state": "Tibet",
+    "status": "ok"
+  },
   "lhasa, tibet": {
     "display_name": "拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
     "latitude": "29.6542054",
@@ -3493,6 +3712,17 @@
   "lincoln, nebraska; london, england": {
     "query": "Lincoln, Nebraska; London, England",
     "status": "miss"
+  },
+  "lindwurmbrunnen": {
+    "city": "Klagenfurt",
+    "country": "Austria",
+    "display_name": "Lindwurmbrunnen, Innere Stadt, Klagenfurt, Carinthia, 9020, Austria",
+    "latitude": "46.6239751",
+    "longitude": "14.3077062",
+    "query": "Lindwurmbrunnen",
+    "source": "nominatim",
+    "state": "Carinthia",
+    "status": "ok"
   },
   "lindwurmbrunnen klagenfurt": {
     "display_name": "Lindwurmbrunnen, Innere Stadt, Klagenfurt am Wörthersee, Kärnten, 9020, Österreich",
@@ -3722,6 +3952,17 @@
     "query": "Luxor Egypt Amon Temple",
     "status": "miss"
   },
+  "luxor temple": {
+    "city": "Old Karnak",
+    "country": "Egypt",
+    "display_name": "Luxor Temple, Avenue of Sphinxes, Luxor City, Old Karnak, Luxor, 81693, Egypt",
+    "latitude": "25.6995250",
+    "longitude": "32.6390695",
+    "query": "Luxor Temple",
+    "source": "nominatim",
+    "state": "Luxor",
+    "status": "ok"
+  },
   "luxor temple, luxor, egypt": {
     "display_name": "معبد الأقصر, شارع البوسطة, مدينه الاقصر, الأقصر, 85951, مصر",
     "latitude": "25.6995250",
@@ -3902,6 +4143,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "mausoleum of mohammed v": {
+    "city": "Rabat",
+    "country": "Morocco",
+    "display_name": "Mausoleum of Mohammed V, Rabat, Rabat-Sale-Kenitra, Morocco",
+    "latitude": "34.0226585",
+    "longitude": "-6.8214250",
+    "query": "Mausoleum of Mohammed V",
+    "source": "nominatim",
+    "state": "Rabat-Salé-Kénitra",
+    "status": "ok"
+  },
   "mausoleum of mohammed v, rabat, morocco": {
     "display_name": "Mausolée Mohammed V ضريح محمد الخامس, Avenue Tour Hassan شارع صومعة حسان, Arrondissement Hassan مقاطعة حسان, Rabat ⵔⴱⴰⵟ الرباط, باشوية الرباط, Préfecture de Rabat عمالة الرباط, Rabat-Salé-Kénitra ⵔⴱⴰⵟ-ⵙⵍⴰ-ⵇⵏⵉⵟⵔⴰ الرباط-سلا-القنيطرة, 10042, Maroc ⵍⵎⵖⵔⵉⴱ المغرب",
     "latitude": "34.0226585",
@@ -4006,6 +4258,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "mohamed ali alabaster mosque": {
+    "query": "Mohamed Ali Alabaster Mosque",
+    "status": "miss"
+  },
   "mohamed aly alabaster mosque, cairo, egypt": {
     "query": "Mohamed Aly Alabaster Mosque, Cairo, Egypt",
     "status": "miss"
@@ -4077,6 +4333,17 @@
   "museum of wales, cardiff civic centre, queen street, cardiff, wales, uk": {
     "query": "Museum of Wales, Cardiff Civic Centre, Queen Street, Cardiff, Wales, UK",
     "status": "miss"
+  },
+  "new world hotel": {
+    "city": "New York",
+    "country": "United States",
+    "display_name": "World Hotel, 101, Bowery, Manhattan Community Board 3, Manhattan, New York County, New York, 10003, United States",
+    "latitude": "40.7174701",
+    "longitude": "-73.9949761",
+    "query": "New World Hotel",
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok"
   },
   "new world hotel and space museum, hong kong": {
     "query": "New World Hotel and Space Museum, Hong Kong",
@@ -4426,6 +4693,17 @@
     "query": "Pevensy Castle, England",
     "status": "miss"
   },
+  "philae monuments": {
+    "city": "Pamphill",
+    "country": "United Kingdom",
+    "display_name": "Philae Obelisk, Sandy Lane, Cowgrove, Pamphill, Dorset, England, BH21 4EQ, United Kingdom",
+    "latitude": "50.8096929",
+    "longitude": "-2.0327251",
+    "query": "Philae Monuments",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
+  },
   "philae monuments, egypt": {
     "query": "Philae Monuments, Egypt",
     "status": "miss"
@@ -4452,6 +4730,17 @@
     "longitude": "-5.9869398",
     "query": "Plaza de España, Seville, Spain",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "plaza mayor, madrid": {
+    "city": "Madrid",
+    "country": "Spain",
+    "display_name": "Plaza Mayor, Barrio de los Austrias, Sol, Centro, Madrid, Community of Madrid, 28012, Spain",
+    "latitude": "40.4153949",
+    "longitude": "-3.7069974",
+    "query": "Plaza Mayor, Madrid",
+    "source": "nominatim",
+    "state": "Community of Madrid",
     "status": "ok"
   },
   "plaza mayor, madrid, spain": {
@@ -4558,6 +4847,10 @@
     "query": "Potala Palace in Lhasa, Tibet",
     "status": "miss"
   },
+  "potala palace roof view": {
+    "query": "Potala Palace roof view",
+    "status": "miss"
+  },
   "potala palace, lasa, tibet": {
     "display_name": "布达拉宫 ཕོ་བྲང་པོ་ཏ་ལ།, 康昂北路东段, 吉崩岗街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
     "latitude": "29.6575676",
@@ -4630,6 +4923,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "prague, czechia": {
+    "city": "Prague",
+    "country": "Czechia",
+    "display_name": "Prague, Czechia",
+    "latitude": "50.0874654",
+    "longitude": "14.4212535",
+    "query": "Prague, Czechia",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
+  },
   "prague, czechoslovakia": {
     "display_name": "Former State Bank of Czechoslovakia, Staré zámecké schody, Malá Strana, obvod Praha 1, Praha, 118 01, Česko",
     "latitude": "50.0918742",
@@ -4661,6 +4965,17 @@
   "queen street, cardiff, wales; swansea, wales": {
     "query": "Queen Street, Cardiff, Wales; Swansea, Wales",
     "status": "miss"
+  },
+  "rabat": {
+    "city": "Rabat",
+    "country": "Morocco",
+    "display_name": "Rabat, Rabat-Sale-Kenitra, Morocco",
+    "latitude": "34.0218454",
+    "longitude": "-6.8408929",
+    "query": "Rabat",
+    "source": "nominatim",
+    "state": "Rabat-Salé-Kénitra",
+    "status": "ok"
   },
   "rabat, morocco": {
     "display_name": "Rabat ⵔⴱⴰⵟ الرباط, باشوية الرباط, Préfecture de Rabat عمالة الرباط, Rabat-Salé-Kénitra ⵔⴱⴰⵟ-ⵙⵍⴰ-ⵇⵏⵉⵟⵔⴰ الرباط-سلا-القنيطرة, Maroc ⵍⵎⵖⵔⵉⴱ المغرب",
@@ -4696,6 +5011,10 @@
   },
   "regent street, london, england; zagreb, yugoslavia": {
     "query": "Regent Street, London, England; Zagreb, Yugoslavia",
+    "status": "miss"
+  },
+  "restaurant at victoria peak": {
+    "query": "Restaurant at Victoria Peak",
     "status": "miss"
   },
   "rhein river, germany": {
@@ -5010,6 +5329,17 @@
     "query": "Santa Cruz District, Seville, Spain",
     "status": "miss"
   },
+  "santa cruz quarters": {
+    "city": "Los Gatos",
+    "country": "United States",
+    "display_name": "The Maids' Quarters, 12, North Santa Cruz Avenue, Creekside Village, Los Gatos, Santa Clara County, California, 95030, United States",
+    "latitude": "37.2229647",
+    "longitude": "-121.9835560",
+    "query": "Santa Cruz quarters",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
   "santa cruz quarters, seville, spain": {
     "query": "Santa Cruz Quarters, Seville, Spain",
     "status": "miss"
@@ -5017,6 +5347,17 @@
   "santa cruz quarters, spain": {
     "query": "Santa Cruz Quarters, Spain",
     "status": "miss"
+  },
+  "sarajevo": {
+    "city": "Sarajevo",
+    "country": "Bosnia and Herzegovina",
+    "display_name": "Sarajevo, Federation of Bosnia and Herzegovina, Bosnia and Herzegovina",
+    "latitude": "43.8570713",
+    "longitude": "18.4126147",
+    "query": "Sarajevo",
+    "source": "nominatim",
+    "state": "Federation of Bosnia and Herzegovina",
+    "status": "ok"
   },
   "sarajevo and mostar, yugoslavia": {
     "query": "Sarajevo and Mostar, Yugoslavia",
@@ -5354,6 +5695,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "square of america": {
+    "city": "Village of Spring Valley",
+    "country": "United States",
+    "display_name": "Square, Francis Place, Village of Spring Valley, Town of Ramapo, Rockland County, New York, 10977, United States",
+    "latitude": "41.1238468",
+    "longitude": "-74.0598889",
+    "query": "Square of America",
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok"
+  },
   "st ives, cornwall, england": {
     "display_name": "St. Ives, Cornwall, England, United Kingdom",
     "latitude": "50.2149064",
@@ -5493,6 +5845,28 @@
   "statue of ramases the second at memphis, egypt; the alabaster sphinx - memphis, egypt": {
     "query": "Statue of Ramases the Second at Memphis, Egypt; The Alabaster Sphinx - Memphis, Egypt",
     "status": "miss"
+  },
+  "stone forest": {
+    "city": "Kunming",
+    "country": "China",
+    "display_name": "Stone Forest, Kunming, Yunnan, China",
+    "latitude": "24.8156992",
+    "longitude": "103.3245807",
+    "query": "Stone Forest",
+    "source": "nominatim",
+    "state": "Yunnan",
+    "status": "ok"
+  },
+  "stone forest hotel": {
+    "city": "Kunming",
+    "country": "China",
+    "display_name": "Stone Forest Hotel, Kunming, Yunnan, China",
+    "latitude": "24.8318054",
+    "longitude": "103.3105874",
+    "query": "Stone Forest Hotel",
+    "source": "nominatim",
+    "state": "Yunnan",
+    "status": "ok"
   },
   "stone forest, china": {
     "display_name": "石林风景区, 阿诗玛北路, 石林彝族自治县, 昆明市, 云南省, 652200, 中国",
@@ -5690,6 +6064,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "temple of queen hatshepsut": {
+    "query": "Temple of Queen Hatshepsut",
+    "status": "miss"
+  },
   "temple of queen hatshepsut, lake nasser, the great temple of abu simbel, egypt": {
     "query": "Temple of Queen Hatshepsut, Lake Nasser, The Great Temple of Abu Simbel, Egypt",
     "status": "miss"
@@ -5700,6 +6078,21 @@
   },
   "temple of ramases ii, abu simbel, egypt": {
     "query": "Temple of Ramases II, Abu Simbel, Egypt",
+    "status": "miss"
+  },
+  "temple of ramesses ii": {
+    "city": "Bani Mansour",
+    "country": "Egypt",
+    "display_name": "Temple of Ramesses II, Al Qawasi Road, Bani Mansour, New Valley, 82825, Egypt",
+    "latitude": "26.1866177",
+    "longitude": "31.9163467",
+    "query": "Temple of Ramesses II",
+    "source": "nominatim",
+    "state": "New Valley",
+    "status": "ok"
+  },
+  "temple of ramesses ii, abu simbel": {
+    "query": "Temple of Ramesses II, Abu Simbel",
     "status": "miss"
   },
   "temple of ramesses ii, abu simbel, egypt": {
@@ -5722,6 +6115,10 @@
     "query": "Terra Cotta Army, Xi'an, Shaanxi, China",
     "status": "miss"
   },
+  "terra cotta soldiers": {
+    "query": "Terra Cotta Soldiers",
+    "status": "miss"
+  },
   "terra cotta soldiers, xi'an, china": {
     "query": "Terra Cotta Soldiers, Xi'an, China",
     "status": "miss"
@@ -5729,6 +6126,17 @@
   "terraced houses and chimneys london suburbs": {
     "query": "Terraced Houses and Chimneys London Suburbs",
     "status": "miss"
+  },
+  "terracotta army": {
+    "city": "Lintong District",
+    "country": "China",
+    "display_name": "Terracotta Army Connection Road, Lintong District, Xi'an, Shaanxi, 710600, China",
+    "latitude": "34.4070947",
+    "longitude": "109.2292877",
+    "query": "Terracotta Army",
+    "source": "nominatim",
+    "state": "Shaanxi",
+    "status": "ok"
   },
   "terracotta army museum, xi'an, china": {
     "query": "Terracotta Army Museum, Xi'an, China",
@@ -5886,12 +6294,27 @@
     "query": "The Leopoldskron Castle, Prague, Czech Republic",
     "status": "miss"
   },
+  "the medina": {
+    "city": "Mdina",
+    "country": "Malta",
+    "display_name": "The Medina, 7, Triq is-Salib Imqaddes, Mdina, Western Region, MDN 1260, Malta",
+    "latitude": "35.8862566",
+    "longitude": "14.4028372",
+    "query": "The Medina",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
+  },
   "the medina, copper shop fabric dyers, menebhi palace": {
     "query": "THE MEDINA, COPPER SHOP FABRIC DYERS, MENEBHI PALACE",
     "status": "miss"
   },
   "the medina, copper shop, fabric dyers, meneghi palace, morocco": {
     "query": "The Medina, Copper Shop, Fabric Dyers, Meneghi Palace, Morocco",
+    "status": "miss"
+  },
+  "the memnon colossi": {
+    "query": "The Memnon Colossi",
     "status": "miss"
   },
   "the mohamed aly alabaster mosque - cairo egypt": {
@@ -5982,6 +6405,10 @@
     "query": "The Quay and Priory, Christchurch, Dorset, England",
     "status": "miss"
   },
+  "the river where the tibetan people bathe once a year": {
+    "query": "The river where the Tibetan people bathe once a year",
+    "status": "miss"
+  },
   "the royal crescent - bath": {
     "display_name": "The Royal Crescent, Marlborough Buildings, Sion Hill, Bath, Bath and North East Somerset, West of England, England, BA1 2LX, United Kingdom",
     "latitude": "51.3874160",
@@ -6062,6 +6489,10 @@
     "query": "The Tombs of Ramases VI - Ramases IX - King Tutankamen",
     "status": "miss"
   },
+  "the tombs of ramesses vi, ramesses ix, and king tutankhamen": {
+    "query": "The Tombs of Ramesses VI, Ramesses IX, and King Tutankhamen",
+    "status": "miss"
+  },
   "the tombs of ramses vi, ramses ix, king tutankamen, valley of the kings, egypt": {
     "query": "The Tombs of Ramses VI, Ramses IX, King Tutankamen, Valley of the Kings, Egypt",
     "status": "miss"
@@ -6076,6 +6507,10 @@
   },
   "the white cliffs of dover, dover castle, dover, england": {
     "query": "The White Cliffs of Dover, Dover Castle, Dover, England",
+    "status": "miss"
+  },
+  "the wild goose pagoda": {
+    "query": "The Wild Goose Pagoda",
     "status": "miss"
   },
   "the wild goose pagoda, xi'an, china": {
@@ -6126,6 +6561,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "tibet river bathing site": {
+    "query": "Tibet River Bathing Site",
+    "status": "miss"
+  },
   "tibet, china": {
     "display_name": "西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 中国",
     "latitude": "29.8556443",
@@ -6150,6 +6589,10 @@
     "query": "Tomb of Aga Khan III, Egypt",
     "status": "miss"
   },
+  "tomb of emperor qin shi huangdi": {
+    "query": "Tomb of Emperor Qin Shi Huangdi",
+    "status": "miss"
+  },
   "tomb of emperor qin shi huangdi, china": {
     "query": "Tomb of Emperor Qin Shi Huangdi, China",
     "status": "miss"
@@ -6168,6 +6611,10 @@
   },
   "tomb of ramesses vi": {
     "query": "Tomb of Ramesses VI",
+    "status": "miss"
+  },
+  "tomb of ramesses vi, luxor, egypt": {
+    "query": "Tomb of Ramesses VI, Luxor, Egypt",
     "status": "miss"
   },
   "topkapi palace, istanbul, turkey": {
@@ -6358,6 +6805,17 @@
     "query": "Uncertain, China",
     "status": "miss"
   },
+  "valley of the kings": {
+    "city": "New Al Qarnh City",
+    "country": "Egypt",
+    "display_name": "Valley of the Kings, New Al Qarnh City, Luxor, Egypt",
+    "latitude": "25.7404899",
+    "longitude": "32.6017581",
+    "query": "Valley of the Kings",
+    "source": "nominatim",
+    "state": "Luxor",
+    "status": "ok"
+  },
   "valley of the kings, egypt": {
     "display_name": "وادي الملوك, مدينه القرنة الجديدة, الأقصر, مصر",
     "latitude": "25.7404899",
@@ -6442,6 +6900,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "victoria peak": {
+    "city": "Hong Kong",
+    "country": "China",
+    "display_name": "Victoria Peak, Hong Kong, 999077, China",
+    "latitude": "22.2760386",
+    "longitude": "114.1454573",
+    "query": "Victoria Peak",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
+  },
   "victoria peak tram, hong kong": {
     "query": "Victoria Peak Tram, Hong Kong",
     "status": "miss"
@@ -6520,6 +6989,10 @@
   },
   "vnik, yugoslavia": {
     "query": "Vnik, Yugoslavia",
+    "status": "miss"
+  },
+  "walkway to the buddha": {
+    "query": "walkway to the buddha",
     "status": "miss"
   },
   "wantage": {
@@ -6738,6 +7211,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "xian": {
+    "city": "Xian County",
+    "country": "China",
+    "display_name": "Xian County, Cangzhou, Hebei, 062200, China",
+    "latitude": "38.1904931",
+    "longitude": "116.1191021",
+    "query": "Xian",
+    "source": "nominatim",
+    "state": "Hebei",
+    "status": "ok"
+  },
   "xian, china": {
     "display_name": "献县, 沧州市, 河北省, 062200, 中国",
     "latitude": "38.1904931",
@@ -6876,6 +7360,17 @@
     "longitude": "113.5721327",
     "query": "Zhuhai, Guangdong, China",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "中国珠海": {
+    "city": "Zhuhai",
+    "country": "China",
+    "display_name": "Zhuhai, Guangdong, China",
+    "latitude": "22.2737340",
+    "longitude": "113.5721327",
+    "query": "中国珠海",
+    "source": "nominatim",
+    "state": "Guangdong",
     "status": "ok"
   }
 }

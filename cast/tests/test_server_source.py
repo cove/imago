@@ -2,7 +2,8 @@ import json
 import threading
 import time
 from pathlib import Path
-from urllib.request import urlopen
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
 
 import cv2
 import numpy as np
@@ -139,6 +140,56 @@ def test_source_video_endpoint_and_state_source_url_for_vhs(tmp_path):
         assert highlighted_img is not None
         assert plain_img.shape == highlighted_img.shape
         assert int(np.sum(cv2.absdiff(plain_img, highlighted_img))) > 0
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_crop_endpoint_sets_cache_headers_and_supports_not_modified(tmp_path):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+
+    crop_dir = store.root_dir / "crops"
+    crop_dir.mkdir(parents=True, exist_ok=True)
+    crop_path = crop_dir / "face.jpg"
+    crop_path.write_bytes(b"fake-jpeg-data")
+
+    face = store.add_face(
+        embedding=[0.1, 0.2, 0.3],
+        source_type="photo",
+        source_path="photoalbums/face.jpg",
+        crop_path="crops/face.jpg",
+    )
+    face_id = str(face["face_id"])
+
+    server = CastHTTPServer("127.0.0.1", 0, store)
+    port = int(server.server_address[1])
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    time.sleep(0.2)
+    try:
+        with urlopen(f"http://127.0.0.1:{port}/api/faces/{face_id}/crop", timeout=10) as response:
+            data = response.read()
+            cache_control = str(response.headers.get("Cache-Control", ""))
+            etag = str(response.headers.get("ETag", ""))
+            last_modified = str(response.headers.get("Last-Modified", ""))
+
+        assert data == b"fake-jpeg-data"
+        assert "max-age=86400" in cache_control
+        assert etag
+        assert last_modified
+
+        request = Request(
+            f"http://127.0.0.1:{port}/api/faces/{face_id}/crop",
+            headers={"If-None-Match": etag},
+        )
+        try:
+            with urlopen(request, timeout=10):
+                raise AssertionError("Expected 304 Not Modified")
+        except HTTPError as exc:
+            assert int(exc.code) == 304
+            assert str(exc.headers.get("ETag", "")) == etag
     finally:
         server.shutdown()
         server.server_close()

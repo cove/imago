@@ -5,9 +5,7 @@ def test_store_round_trip(tmp_path):
     store = TextFaceStore(tmp_path / "cast_data")
     store.ensure_files()
 
-    person = store.add_person(
-        name="Jim Bennett", aliases=["Jimmy"], notes="Test person"
-    )
+    person = store.add_person(name="Jim Bennett", aliases=["Jimmy"], notes="Test person")
     assert person["display_name"] == "Jim Bennett"
 
     face = store.add_face(
@@ -25,9 +23,7 @@ def test_store_round_trip(tmp_path):
 
     review = store.add_review_item(
         face_id=face["face_id"],
-        candidates=[
-            {"person_id": person["person_id"], "score": 0.92, "sample_count": 1}
-        ],
+        candidates=[{"person_id": person["person_id"], "score": 0.92, "sample_count": 1}],
         suggested_person_id=person["person_id"],
         suggested_score=0.92,
     )
@@ -132,9 +128,7 @@ def test_update_person_name(tmp_path):
     store = TextFaceStore(tmp_path / "cast_data")
     store.ensure_files()
 
-    person = store.add_person(
-        name="Caria (Friend of Lynda)", aliases=["Caria"], notes=""
-    )
+    person = store.add_person(name="Caria (Friend of Lynda)", aliases=["Caria"], notes="")
     person_id = str(person["person_id"])
     updated = store.update_person(person_id, display_name="Carla (Friend of Lynda)")
 
@@ -230,3 +224,104 @@ def test_defer_review_item_keeps_pending_and_moves_item_to_back(tmp_path):
         second_review["review_id"],
         first_review["review_id"],
     ]
+
+
+def test_bulk_resolve_reviews_marks_faces_ignored(tmp_path):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+
+    first_face = store.add_face(
+        embedding=[0.1, 0.2, 0.3],
+        source_type="photo",
+        source_path="photoalbums/first.jpg",
+    )
+    second_face = store.add_face(
+        embedding=[0.2, 0.3, 0.4],
+        source_type="photo",
+        source_path="photoalbums/second.jpg",
+    )
+    first_review = store.add_review_item(
+        face_id=first_face["face_id"],
+        candidates=[],
+        suggested_person_id=None,
+        suggested_score=None,
+        status="pending",
+    )
+    second_review = store.add_review_item(
+        face_id=second_face["face_id"],
+        candidates=[],
+        suggested_person_id=None,
+        suggested_score=None,
+        status="pending",
+    )
+
+    summary = store.bulk_resolve_reviews(
+        review_ids=[first_review["review_id"], second_review["review_id"]],
+        status="ignored",
+    )
+
+    assert summary == {"updated_reviews": 2, "updated_faces": 2}
+    faces = {row["face_id"]: row for row in store.list_faces()}
+    assert face_review_status(faces[first_face["face_id"]]) == "ignored"
+    assert face_review_status(faces[second_face["face_id"]]) == "ignored"
+
+    reviews = {row["review_id"]: row for row in store.list_review_items()}
+    assert reviews[first_review["review_id"]]["status"] == "ignored"
+    assert reviews[second_review["review_id"]]["status"] == "ignored"
+
+
+def test_bulk_resolve_reviews_skips_and_moves_items_to_back(tmp_path):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+
+    first_face = store.add_face(
+        embedding=[0.1, 0.2, 0.3],
+        source_type="photo",
+        source_path="photoalbums/first.jpg",
+    )
+    second_face = store.add_face(
+        embedding=[0.2, 0.3, 0.4],
+        source_type="photo",
+        source_path="photoalbums/second.jpg",
+    )
+    third_face = store.add_face(
+        embedding=[0.3, 0.4, 0.5],
+        source_type="photo",
+        source_path="photoalbums/third.jpg",
+    )
+    first_review = store.add_review_item(
+        face_id=first_face["face_id"],
+        candidates=[],
+        suggested_person_id=None,
+        suggested_score=None,
+        status="pending",
+    )
+    second_review = store.add_review_item(
+        face_id=second_face["face_id"],
+        candidates=[],
+        suggested_person_id=None,
+        suggested_score=None,
+        status="pending",
+    )
+    third_review = store.add_review_item(
+        face_id=third_face["face_id"],
+        candidates=[],
+        suggested_person_id=None,
+        suggested_score=None,
+        status="pending",
+    )
+
+    summary = store.bulk_resolve_reviews(
+        review_ids=[first_review["review_id"], third_review["review_id"]],
+        status="skipped",
+    )
+
+    assert summary == {"updated_reviews": 2, "updated_faces": 0}
+    reviews = store.list_review_items()
+    assert [row["review_id"] for row in reviews] == [
+        second_review["review_id"],
+        first_review["review_id"],
+        third_review["review_id"],
+    ]
+    assert reviews[1]["skip_count"] == 1
+    assert reviews[2]["skip_count"] == 1

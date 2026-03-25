@@ -10,12 +10,7 @@ from typing import Any
 
 
 def utc_now_iso() -> str:
-    return (
-        datetime.now(timezone.utc)
-        .replace(microsecond=0)
-        .isoformat()
-        .replace("+00:00", "Z")
-    )
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _json_default(path: Path) -> Any:
@@ -168,9 +163,7 @@ class TextFaceStore:
         clean_name = str(name or "").strip()
         if not clean_name:
             raise ValueError("Person name is required.")
-        clean_aliases = [
-            str(item).strip() for item in (aliases or []) if str(item).strip()
-        ]
+        clean_aliases = [str(item).strip() for item in (aliases or []) if str(item).strip()]
         now = utc_now_iso()
         row = {
             "person_id": str(uuid.uuid4()),
@@ -219,15 +212,9 @@ class TextFaceStore:
                         continue
                     if key == "aliases":
                         if isinstance(value, list):
-                            row[key] = [
-                                str(item).strip() for item in value if str(item).strip()
-                            ]
+                            row[key] = [str(item).strip() for item in value if str(item).strip()]
                         elif isinstance(value, str):
-                            row[key] = [
-                                part.strip()
-                                for part in value.split(",")
-                                if part.strip()
-                            ]
+                            row[key] = [part.strip() for part in value.split(",") if part.strip()]
                         continue
                     if key == "notes":
                         row[key] = str(value or "").strip()
@@ -253,11 +240,7 @@ class TextFaceStore:
         source_key = str(source_path or "").strip()
         if not source_key:
             return []
-        return [
-            row
-            for row in self.list_faces()
-            if str(row.get("source_path") or "").strip() == source_key
-        ]
+        return [row for row in self.list_faces() if str(row.get("source_path") or "").strip() == source_key]
 
     def add_face(
         self,
@@ -350,9 +333,7 @@ class TextFaceStore:
         now = utc_now_iso()
         normalized_status: str | None = None
         if review_status is not None:
-            normalized_status = normalize_face_review_status(
-                review_status, person_id=person_key
-            )
+            normalized_status = normalize_face_review_status(review_status, person_id=person_key)
         with self._lock:
             rows = self._read_json(self.faces_path)
             if not isinstance(rows, list):
@@ -400,20 +381,14 @@ class TextFaceStore:
         face_key = str(face_id or "").strip()
         if not face_key:
             raise ValueError("face_id is required.")
-        suggested_key = (
-            str(suggested_person_id).strip() if suggested_person_id is not None else ""
-        )
+        suggested_key = str(suggested_person_id).strip() if suggested_person_id is not None else ""
         now = utc_now_iso()
         row = {
             "review_id": str(uuid.uuid4()),
             "face_id": face_key,
-            "candidates": [
-                dict(item) for item in (candidates or []) if isinstance(item, dict)
-            ],
+            "candidates": [dict(item) for item in (candidates or []) if isinstance(item, dict)],
             "suggested_person_id": suggested_key or None,
-            "suggested_score": (
-                float(suggested_score) if suggested_score is not None else None
-            ),
+            "suggested_score": (float(suggested_score) if suggested_score is not None else None),
             "status": str(status or "pending").strip().lower(),
             "decided_person_id": None,
             "decided_at": "",
@@ -439,9 +414,7 @@ class TextFaceStore:
         review_key = str(review_id or "").strip()
         clean_status = str(status or "").strip().lower()
         if clean_status not in {"accepted", "rejected", "ignored", "skipped"}:
-            raise ValueError(
-                "status must be one of: accepted, rejected, ignored, skipped"
-            )
+            raise ValueError("status must be one of: accepted, rejected, ignored, skipped")
         now = utc_now_iso()
         person_key = str(decided_person_id or "").strip() or None
         with self._lock:
@@ -486,15 +459,111 @@ class TextFaceStore:
                 return dict(moved)
         raise ValueError(f"Unknown review_id: {review_key}")
 
+    def bulk_resolve_reviews(
+        self,
+        *,
+        review_ids: list[str],
+        status: str,
+    ) -> dict[str, int]:
+        clean_status = str(status or "").strip().lower()
+        if clean_status not in {"ignored", "rejected", "skipped"}:
+            raise ValueError("status must be one of: ignored, rejected, skipped")
+
+        ordered_review_ids: list[str] = []
+        review_id_set: set[str] = set()
+        for raw_review_id in review_ids:
+            review_id = str(raw_review_id or "").strip()
+            if not review_id or review_id in review_id_set:
+                continue
+            review_id_set.add(review_id)
+            ordered_review_ids.append(review_id)
+        if not ordered_review_ids:
+            raise ValueError("review_ids is required.")
+
+        now = utc_now_iso()
+        with self._lock:
+            review_rows = self._read_json(self.review_path)
+            if not isinstance(review_rows, list):
+                review_rows = []
+
+            matched_reviews: list[dict[str, Any]] = []
+            matched_review_ids: set[str] = set()
+            matched_face_ids: set[str] = set()
+            kept_reviews: list[dict[str, Any]] = []
+
+            for row in review_rows:
+                if not isinstance(row, dict):
+                    continue
+                review_id = str(row.get("review_id") or "").strip()
+                if review_id not in review_id_set:
+                    kept_reviews.append(row)
+                    continue
+                matched_review_ids.add(review_id)
+                updated = dict(row)
+                if clean_status == "skipped":
+                    updated["status"] = "pending"
+                    updated["skip_count"] = int(updated.get("skip_count") or 0) + 1
+                    updated["last_skipped_at"] = now
+                    updated["decided_person_id"] = None
+                    updated["decided_at"] = ""
+                    matched_reviews.append(updated)
+                    continue
+                updated["status"] = clean_status
+                updated["decided_person_id"] = None
+                updated["decided_at"] = now
+                face_id = str(updated.get("face_id") or "").strip()
+                if face_id:
+                    matched_face_ids.add(face_id)
+                matched_reviews.append(updated)
+
+            missing_review_ids = [review_id for review_id in ordered_review_ids if review_id not in matched_review_ids]
+            if missing_review_ids:
+                raise ValueError(f"Unknown review_id: {missing_review_ids[0]}")
+
+            for row in matched_reviews:
+                row["updated_at"] = now
+            if clean_status == "skipped":
+                self._write_json(self.review_path, kept_reviews + matched_reviews)
+                return {
+                    "updated_reviews": int(len(matched_reviews)),
+                    "updated_faces": 0,
+                }
+
+            face_rows = self._read_json(self.faces_path)
+            if not isinstance(face_rows, list):
+                face_rows = []
+
+            updated_faces = 0
+            for row in face_rows:
+                if not isinstance(row, dict):
+                    continue
+                face_id = str(row.get("face_id") or "").strip()
+                if face_id not in matched_face_ids:
+                    continue
+                row["person_id"] = None
+                row["review_status"] = clean_status
+                row["reviewed_by_human"] = True
+                row["reviewed_at"] = now
+                row["updated_at"] = now
+                updated_faces += 1
+
+            if updated_faces != len(matched_face_ids):
+                raise ValueError("One or more review items reference an unknown face_id.")
+
+            self._write_json(self.review_path, kept_reviews + matched_reviews)
+            self._write_json(self.faces_path, face_rows)
+            return {
+                "updated_reviews": int(len(matched_reviews)),
+                "updated_faces": int(updated_faces),
+            }
+
     def store_signature(self) -> str:
         with self._lock:
             parts: list[str] = []
             for path in (self.people_path, self.faces_path, self.review_path):
                 try:
                     stat = path.stat()
-                    parts.append(
-                        f"{path.name}:{int(stat.st_size)}:{int(stat.st_mtime_ns)}"
-                    )
+                    parts.append(f"{path.name}:{int(stat.st_size)}:{int(stat.st_mtime_ns)}")
                 except FileNotFoundError:
                     parts.append(f"{path.name}:missing")
             return "|".join(parts)

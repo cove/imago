@@ -33,7 +33,7 @@ etc.), see the base `CORDELL_PHOTO_ALBUMS` skill.
 
 ## Preamble Describe
 Classify visible text into `author_text` and `scene_text`.
-Use `author_text` only for typewriter typed (Courier) annotation text on white paper strips.
-Use `scene_text` only for readable text inside the photographed scene itself.
+Use `author_text` typewriter written text on white paper strips.
+Use `scene_text` only for readable text inside a the photographed scene itself, not the page itself.
 Use page layout, OCR text, and visible contents only to decide whether typed annotation text applies to the photo.
 Return empty strings when no applicable text exists for a field.

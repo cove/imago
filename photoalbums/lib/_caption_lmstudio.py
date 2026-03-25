@@ -30,6 +30,7 @@ LMSTUDIO_VISION_MODEL_HINTS = (
     "qvq",
 )
 
+
 @dataclass(frozen=True)
 class CaptionDetails:
     text: str
@@ -326,12 +327,14 @@ def _lmstudio_caption_response_format() -> dict[str, object]:
                     "scene_text": {"type": "string"},
                     "annotation_scope": {"type": "string"},
                     "location_name": {"type": "string"},
+                    "album_title": {"type": "string"},
                 },
                 "required": [
                     "author_text",
                     "scene_text",
                     "annotation_scope",
                     "location_name",
+                    "album_title",
                 ],
                 "additionalProperties": False,
             },
@@ -473,7 +476,7 @@ def _parse_lmstudio_structured_caption_payload(
     value: object,
     *,
     finish_reason: str = "",
-) -> tuple[str, str, str, str, str, bool, int, list[dict[str, object]]]:
+) -> tuple[str, str, str, str, str, bool, int, list[dict[str, object]], str]:
     raw = _decode_lmstudio_text(value)
     text = str(raw or "").strip()
     finish_note = f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
@@ -530,6 +533,7 @@ def _parse_lmstudio_structured_caption_payload(
     except Exception:
         estimated_people_count = 0
     name_suggestions = list(payload.get("name_suggestions") or [])
+    album_title = clean_text(str(payload.get("album_title") or ""))
     return (
         clean_text(author_text),
         scene_text,
@@ -540,6 +544,7 @@ def _parse_lmstudio_structured_caption_payload(
         people_present,
         estimated_people_count,
         name_suggestions,
+        album_title,
     )
 
 
@@ -647,6 +652,7 @@ def _parse_lmstudio_structured_caption(
         people_present,
         estimated_people_count,
         name_suggestions,
+        album_title,
     ) = _parse_lmstudio_structured_caption_payload(value, finish_reason=finish_reason)
     return CaptionDetails(
         text=clean_text(author_text),
@@ -659,6 +665,7 @@ def _parse_lmstudio_structured_caption(
         people_present=people_present,
         estimated_people_count=estimated_people_count,
         name_suggestions=name_suggestions,
+        album_title=album_title,
     )
 
 
