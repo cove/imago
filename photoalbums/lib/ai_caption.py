@@ -41,16 +41,6 @@ from ._caption_prompts import (  # noqa: F401
     _build_people_count_prompt,
     _build_local_prompt,
 )
-from ._caption_local_hf import (  # noqa: F401
-    DEFAULT_LOCAL_AUTO_MAX_PIXELS,
-    DEFAULT_LOCAL_CAPTION_MODEL,
-    LOCAL_ATTN_IMPLEMENTATIONS,
-    LocalHFCaptioner,
-    _load_hf_transformers,
-    _parse_local_json_output,
-    _resolve_local_hf_snapshot,
-    normalize_local_attn_implementation,
-)
 
 
 def _emit_prompt_debug(
@@ -81,18 +71,14 @@ def _emit_prompt_debug(
 
 def resolve_caption_model(engine: str, model_name: str) -> str:
     normalized = str(engine or "").strip().lower()
-    if normalized == "qwen":
-        normalized = "local"
-    if normalized == "blip":
-        normalized = "local"
+    if normalized in {"qwen", "blip", "local"}:
+        normalized = "lmstudio"
     text = str(model_name or "").strip()
     if text:
         return text
     configured = default_caption_model()
     if configured:
         return configured
-    if normalized == "local":
-        return DEFAULT_LOCAL_CAPTION_MODEL
     return ""
 
 
@@ -142,24 +128,19 @@ class CaptionEngine:
     def __init__(
         self,
         *,
-        engine: str = "local",
+        engine: str = "lmstudio",
         model_name: str = "",
         caption_prompt: str = "",
         max_tokens: int = 96,
         temperature: float = 0.2,
-        local_attn_implementation: str = "auto",
-        local_min_pixels: int = 0,
-        local_max_pixels: int = 0,
         lmstudio_base_url: str = DEFAULT_LMSTUDIO_BASE_URL,
         max_image_edge: int = 0,
         stream: bool = False,
     ):
-        normalized = str(engine or "local").strip().lower()
-        if normalized == "qwen":
-            normalized = "local"
-        if normalized == "blip":
-            normalized = "local"
-        if normalized not in {"none", "local", "lmstudio"}:
+        normalized = str(engine or "lmstudio").strip().lower()
+        if normalized in {"qwen", "blip", "local"}:
+            normalized = "lmstudio"
+        if normalized not in {"none", "lmstudio"}:
             raise ValueError(f"Unsupported caption engine: {engine}")
         self.engine = normalized
         self._captioner = None
@@ -167,9 +148,6 @@ class CaptionEngine:
         self._caption_prompt = str(caption_prompt or "").strip()
         self._max_tokens = int(max_tokens)
         self._temperature = float(temperature)
-        self._local_attn_implementation = normalize_local_attn_implementation(local_attn_implementation)
-        self._local_min_pixels = max(0, int(local_min_pixels))
-        self._local_max_pixels = max(0, int(local_max_pixels))
         self._lmstudio_base_url = normalize_lmstudio_base_url(lmstudio_base_url)
         self._max_image_edge = max(0, int(max_image_edge))
         self._stream = bool(stream)
@@ -187,28 +165,15 @@ class CaptionEngine:
     def _ensure_captioner(self) -> None:
         if self._captioner is not None:
             return
-        if self.engine == "lmstudio":
-            self._captioner = LMStudioCaptioner(
-                model_name=self._model_name,
-                prompt_text=self._caption_prompt,
-                max_new_tokens=self._max_tokens,
-                temperature=self._temperature,
-                base_url=self._lmstudio_base_url,
-                max_image_edge=self._max_image_edge,
-                stream=self._stream,
-            )
-        else:
-            self._captioner = LocalHFCaptioner(
-                model_name=self._model_name,
-                prompt_text=self._caption_prompt,
-                max_new_tokens=self._max_tokens,
-                temperature=self._temperature,
-                attn_implementation=self._local_attn_implementation,
-                min_pixels=self._local_min_pixels,
-                max_pixels=self._local_max_pixels,
-                max_image_edge=self._max_image_edge,
-                stream=self._stream,
-            )
+        self._captioner = LMStudioCaptioner(
+            model_name=self._model_name,
+            prompt_text=self._caption_prompt,
+            max_new_tokens=self._max_tokens,
+            temperature=self._temperature,
+            base_url=self._lmstudio_base_url,
+            max_image_edge=self._max_image_edge,
+            stream=self._stream,
+        )
 
     def generate(
         self,

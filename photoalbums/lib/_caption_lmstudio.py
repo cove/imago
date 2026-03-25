@@ -46,6 +46,7 @@ class CaptionDetails:
     image_regions: list[dict[str, object]] = None
     album_title: str = ""
     title: str = ""
+    ocr_lang: str = ""
 
     def __post_init__(self):
         if self.name_suggestions is None:
@@ -328,6 +329,7 @@ def _lmstudio_caption_response_format() -> dict[str, object]:
                     "annotation_scope": {"type": "string"},
                     "location_name": {"type": "string"},
                     "album_title": {"type": "string"},
+                    "ocr_lang": {"type": "string"},
                 },
                 "required": [
                     "author_text",
@@ -335,6 +337,7 @@ def _lmstudio_caption_response_format() -> dict[str, object]:
                     "annotation_scope",
                     "location_name",
                     "album_title",
+                    "ocr_lang",
                 ],
                 "additionalProperties": False,
             },

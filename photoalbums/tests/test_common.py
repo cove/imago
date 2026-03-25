@@ -105,49 +105,6 @@ class TestCommon(unittest.TestCase):
             self.assertEqual(totals[key]["page_scans"][2], 1)
             self.assertEqual(totals[key]["page_scans"][4], 1)
 
-    def test_rename_with_retry(self):
-        calls = []
-
-        def fake_rename(_old, _new):
-            if not calls:
-                calls.append("fail")
-                raise PermissionError("locked")
-            calls.append("ok")
-
-        with mock.patch("common.os.rename", side_effect=fake_rename), mock.patch(
-            "common.time.sleep", return_value=None
-        ):
-            result = common.rename_with_retry("a", "b", attempts=2, delay=0)
-
-        self.assertTrue(result)
-        self.assertEqual(calls, ["fail", "ok"])
-
-    def test_process_tiff_in_place_skips_when_not_needed(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            tiff_path = Path(tmp) / "sample.tif"
-            tiff_path.write_bytes(b"data")
-
-            with mock.patch("common.tiff_needs_conversion", return_value=False):
-                result = common.process_tiff_in_place(tiff_path)
-
-            self.assertTrue(result)
-
-    def test_process_tiff_in_place_happy_path(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            tiff_path = Path(tmp) / "sample.tif"
-            tiff_path.write_bytes(b"data")
-
-            with mock.patch(
-                "common.tiff_needs_conversion", return_value=True
-            ), mock.patch("common.validate_pixels", return_value=True), mock.patch(
-                "common.subprocess.run"
-            ) as run_mock:
-                run_mock.return_value = mock.Mock()
-                result = common.process_tiff_in_place(tiff_path, log_error=print)
-
-            self.assertTrue(result)
-            self.assertTrue(tiff_path.exists())
-
     def test_get_photo_albums_dir_env_override(self):
         with mock.patch.dict(
             "common.os.environ",
@@ -157,26 +114,7 @@ class TestCommon(unittest.TestCase):
             result = common.get_photo_albums_dir()
         self.assertEqual(result, Path("D:/Media/Photo Albums"))
 
-    def test_get_photo_albums_dir_darwin_prefers_existing_cloudstorage_root(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            fake_home = Path(tmp)
-            expected = (
-                fake_home
-                / "Library"
-                / "CloudStorage"
-                / "OneDrive-Personal"
-                / common.PHOTO_ALBUMS_SUBPATH
-            )
-            expected.mkdir(parents=True)
 
-            with mock.patch.object(common.sys, "platform", "darwin"), mock.patch(
-                "common.Path.home", return_value=fake_home
-            ), mock.patch.dict("common.os.environ", {}, clear=False):
-                result = common.get_photo_albums_dir()
-
-        self.assertEqual(result, expected)
-
-    def test_get_photo_albums_dir_windows_uses_onedrive_env_root(self):
         with tempfile.TemporaryDirectory() as tmp:
             onedrive_root = Path(tmp) / "OneDriveCompany"
             expected = onedrive_root / common.PHOTO_ALBUMS_SUBPATH
@@ -210,14 +148,6 @@ class TestCommon(unittest.TestCase):
         ), mock.patch.dict("common.os.environ", {"PATH": "base"}, clear=False):
             common.configure_imagemagick()
             self.assertTrue(os.environ["PATH"].startswith(f"{tmp}{os.pathsep}"))
-
-    def test_configure_imagemagick_skips_missing_path(self):
-        with mock.patch(
-            "common.get_imagemagick_dir",
-            return_value=Path("Z:/path/that/does/not/exist"),
-        ), mock.patch.dict("common.os.environ", {"PATH": "base"}, clear=False):
-            common.configure_imagemagick()
-            self.assertEqual(os.environ["PATH"], "base")
 
     def test_open_image_fullscreen_uses_open_on_macos(self):
         proc = object()

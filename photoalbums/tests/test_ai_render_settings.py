@@ -49,16 +49,13 @@ class TestAIRenderSettings(unittest.TestCase):
                 "ocr_lang": "eng",
                 "ocr_model": "qwen/qwen3.5-9b",
                 "page_split_mode": "auto",
-                "caption_engine": "local",
+                "caption_engine": "lmstudio",
                 "caption_model": "",
                 "caption_prompt": "",
                 "caption_max_tokens": 96,
                 "caption_temperature": 0.2,
                 "caption_max_edge": 0,
                 "lmstudio_base_url": "http://127.0.0.1:1234/v1",
-                "local_attn_implementation": "auto",
-                "local_min_pixels": 0,
-                "local_max_pixels": 0,
                 "people_threshold": 0.72,
                 "object_threshold": 0.30,
                 "min_face_size": 40,
@@ -74,8 +71,6 @@ class TestAIRenderSettings(unittest.TestCase):
                     "model": "yolo11x.pt",
                     "page_split_mode": "off",
                     "caption_engine": "blip",
-                    "qwen_attn_implementation": "sdpa",
-                    "qwen_max_pixels": 262144,
                     "qwen_prompt": "Legacy prompt alias",
                 },
                 "image_settings": {
@@ -92,21 +87,15 @@ class TestAIRenderSettings(unittest.TestCase):
             settings_path = archive / "render_settings.json"
             settings_path.write_text(json.dumps(payload), encoding="utf-8")
 
-            _path, loaded = ars.load_render_settings(
-                archive, defaults=defaults, create=False
-            )
-            effective = ars.resolve_effective_settings(
-                image, defaults=defaults, loaded=loaded
-            )
+            _path, loaded = ars.load_render_settings(archive, defaults=defaults, create=False)
+            effective = ars.resolve_effective_settings(image, defaults=defaults, loaded=loaded)
             self.assertTrue(effective["enable_people"])
             self.assertTrue(effective["enable_objects"])
             self.assertEqual(effective["people_recovery_mode"], "off")
             self.assertEqual(effective["ocr_engine"], "none")
             self.assertEqual(effective["ocr_model"], "qwen/qwen3.5-9b")
             self.assertEqual(effective["page_split_mode"], "off")
-            self.assertEqual(effective["caption_engine"], "local")
-            self.assertEqual(effective["local_attn_implementation"], "sdpa")
-            self.assertEqual(effective["local_max_pixels"], 262144)
+            self.assertEqual(effective["caption_engine"], "lmstudio")
             self.assertEqual(effective["caption_prompt"], "Legacy prompt alias")
             self.assertEqual(effective["caption_max_edge"], 960)
             self.assertEqual(effective["lmstudio_base_url"], "http://localhost:1234")
@@ -134,12 +123,8 @@ class TestAIRenderSettings(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            _path, loaded = ars.load_render_settings(
-                archive, defaults=defaults, create=False
-            )
-            effective = ars.resolve_effective_settings(
-                image, defaults=defaults, loaded=loaded
-            )
+            _path, loaded = ars.load_render_settings(archive, defaults=defaults, create=False)
+            effective = ars.resolve_effective_settings(image, defaults=defaults, loaded=loaded)
 
             self.assertEqual(effective["ocr_engine"], "lmstudio")
             self.assertEqual(effective["ocr_model"], "qwen2.5-vl-instruct")

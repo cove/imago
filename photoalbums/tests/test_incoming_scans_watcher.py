@@ -25,7 +25,7 @@ class TestIncomingScansWatcher(unittest.TestCase):
             event = DummyEvent(str(watch_dir / "incoming_scan.tif"))
 
             rename_mock = mock.Mock(return_value=True)
-            process_mock = mock.Mock(return_value=True)
+            process_mock =mock.Mock(return_value=True)
             validate_mock = mock.Mock(return_value=(True, None))
             list_mock = mock.Mock(return_value=[str(watch_dir / "Album_P02_S01.tif")])
             log_ok = mock.Mock()

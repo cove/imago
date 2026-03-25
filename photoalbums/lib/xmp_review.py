@@ -317,6 +317,7 @@ def load_ai_xmp_review(
     result: dict[str, object] = {
         "sidecar_path": str(path.resolve()),
         "creator_tool": _clean_text(state.get("creator_tool")),
+        "create_date": _clean_text(state.get("create_date")),
         "title": _clean_text(state.get("title")),
         "person_names": person_names,
         "subjects": subjects,
@@ -335,6 +336,7 @@ def load_ai_xmp_review(
         "ocr_ran": state.get("ocr_ran"),
         "people_detected": state.get("people_detected"),
         "people_identified": state.get("people_identified"),
+        "processing_history": state.get("processing_history"),
         "subphotos": subphotos,
         "detections": detections,
         "summary": {

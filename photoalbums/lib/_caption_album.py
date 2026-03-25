@@ -159,6 +159,8 @@ def infer_album_title(
     fallback_title: str = "",
     source_text: str = "",
 ) -> str:
+    # Deprecated: no longer called by the main pipeline. Album titles are now read exclusively
+    # from the cover page XMP sidecar (xmpDM:album). This function is kept for tests only.
     fallback = clean_text(fallback_title)
     if image_path is None:
         return fallback
@@ -226,7 +228,7 @@ def infer_album_context(
 ) -> AlbumContext:
     collection_hint = _extract_collection_hint(image_path)
     path_hint = _humanize_hint_text(str(image_path or ""))
-    canonical_title = infer_album_title(image_path=image_path, fallback_title=album_title)
+    canonical_title = clean_text(album_title)
     title_hint = clean_text(printed_album_title) or canonical_title
     signals = [title_hint, canonical_title, collection_hint, path_hint]
     if allow_ocr:

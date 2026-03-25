@@ -82,6 +82,48 @@ class TestXMPSidecar(unittest.TestCase):
             assert state is not None
             self.assertEqual(state["ocr_authority_source"], "archive_stitched")
 
+    def test_write_xmp_sidecar_writes_standard_create_date_and_processing_history(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="scan_001.tif",
+                ocr_text="HELLO",
+                ocr_authority_source="archive_stitched",
+                create_date="2026:03:25 12:34:56-07:00",
+                history_when="2026-03-25T19:35:00Z",
+                stitch_key="Family_1986_B01_P01",
+                ocr_ran=True,
+                people_detected=True,
+                people_identified=False,
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                subphotos=[],
+            )
+
+            xml = out.read_text(encoding="utf-8")
+            self.assertIn("xmp:CreateDate", xml)
+            self.assertIn("xmpMM:History", xml)
+            self.assertNotIn("imago:StitchKey", xml)
+            self.assertNotIn("imago:OcrRan", xml)
+            self.assertNotIn("imago:PeopleDetected", xml)
+            self.assertNotIn("imago:PeopleIdentified", xml)
+
+            state = xmp_sidecar.read_ai_sidecar_state(out)
+            assert state is not None
+            self.assertEqual(state["create_date"], "2026-03-25T12:34:56-07:00")
+            self.assertEqual(state["stitch_key"], "Family_1986_B01_P01")
+            self.assertEqual(state["ocr_authority_source"], "archive_stitched")
+            self.assertEqual(state["ocr_ran"], True)
+            self.assertEqual(state["people_detected"], True)
+            self.assertEqual(state["people_identified"], False)
+            history = state["processing_history"]
+            assert isinstance(history, list)
+            self.assertEqual(len(history), 3)
+
     def test_write_xmp_sidecar_round_trips_text_layers(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "image.xmp"
@@ -109,6 +151,56 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertEqual(state["author_text"], "Temple of Heaven")
             self.assertEqual(state["scene_text"], "NO SMOKING")
             self.assertEqual(state["annotation_scope"], "photo")
+
+    def test_write_xmp_sidecar_migrates_legacy_processing_fields_to_history(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "legacy.xmp"
+            out.write_text(
+                """<?xml version="1.0" encoding="utf-8"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:imago="https://imago.local/ns/1.0/" xmlns:xmp="http://ns.adobe.com/xap/1.0/">
+  <rdf:RDF>
+    <rdf:Description rdf:about="">
+      <xmp:CreatorTool>imago-test</xmp:CreatorTool>
+      <imago:StitchKey>true</imago:StitchKey>
+      <imago:OcrRan>true</imago:OcrRan>
+      <imago:PeopleDetected>false</imago:PeopleDetected>
+      <imago:PeopleIdentified>false</imago:PeopleIdentified>
+    </rdf:Description>
+  </rdf:RDF>
+</x:xmpmeta>
+""",
+                encoding="utf-8",
+            )
+
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+                stitch_key="true",
+                ocr_ran=True,
+                people_detected=False,
+                people_identified=False,
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                subphotos=[],
+            )
+
+            xml = out.read_text(encoding="utf-8")
+            self.assertIn("xmpMM:History", xml)
+            self.assertNotIn("imago:StitchKey", xml)
+            self.assertNotIn("imago:OcrRan", xml)
+            self.assertNotIn("imago:PeopleDetected", xml)
+            self.assertNotIn("imago:PeopleIdentified", xml)
+
+            state = xmp_sidecar.read_ai_sidecar_state(out)
+            assert state is not None
+            self.assertEqual(state["stitch_key"], "true")
+            self.assertEqual(state["ocr_ran"], True)
+            self.assertEqual(state["people_detected"], False)
+            self.assertEqual(state["people_identified"], False)
 
     def test_write_xmp_sidecar_merges_existing_fields_in_place(self):
         with tempfile.TemporaryDirectory() as tmp:
