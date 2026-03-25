@@ -33,6 +33,7 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
   - run migration across existing metadata files,
   - remove old keys/paths unless explicitly told to keep them.
 - Keep a single canonical schema in code and on disk.
+- Prefer standard XMP schema fields over custom namespaces for `imago`.
 
 ## UI and Terminology
 

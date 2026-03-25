@@ -11,7 +11,7 @@ compatibility: >-
   Nominatim geocoding requires network access. MCP server: imago.
 metadata:
   author: Cove Schneider
-  version: 1.0.0
+  version: 1.0.1
   mcp-server: imago
   documentation: ../CORDELL_PHOTO_ALBUMS/references/photoalbums.md
   ocr-model: zai-org/glm-4.6v-flash
@@ -32,16 +32,8 @@ etc.), see the base `CORDELL_PHOTO_ALBUMS` skill.
 ---
 
 ## Preamble Describe
-Describe the people, event, and actions directly.
-If OCR provides a printed caption for the page or photo, use it as the title when it is short enough; otherwise shorten it to a concise title.
-Do not use the album name as the title.
-Use identified names naturally when they are provided.
-Family references:
-"Daddy" = Oliver Dennison
-"Mommy" = Maude Dennison
-"Gilbert" = Audrey's brother
-"Leslie Cordell" = Audrey's husband
-Frequent family locations:
-San Marino, California
-Woodhaven, Winnipeg, Canada
-Indianapolis, Indiana
+Classify visible text into `author_text` and `scene_text`.
+Use `author_text` only for typewriter typed (Courier) annotation text on white paper strips.
+
+Use `scene_text` only for readable text inside the photographed scene itself.
+Return empty strings when no applicable text exists for a field.

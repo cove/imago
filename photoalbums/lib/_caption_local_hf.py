@@ -39,24 +39,27 @@ def _parse_local_json_output(raw: str) -> CaptionDetails:
         text = stripped
     payload = _extract_structured_json_payload(text)
     if payload is not None:
-        caption = payload.get("caption")
-        if isinstance(caption, str) and caption.strip():
+        author_text = payload.get("author_text")
+        if isinstance(author_text, str):
             gps_latitude = _normalize_gps_value(str(payload.get("gps_latitude") or ""), axis="lat")
             gps_longitude = _normalize_gps_value(str(payload.get("gps_longitude") or ""), axis="lon")
             location_name = clean_text(str(payload.get("location_name") or ""))
+            scene_text = clean_text(str(payload.get("scene_text") or ""))
+            annotation_scope = clean_text(str(payload.get("annotation_scope") or ""))
             people_present = bool(payload.get("people_present") or False)
             try:
                 estimated_people_count = max(0, int(payload.get("estimated_people_count") or 0))
             except Exception:
                 estimated_people_count = 0
             name_suggestions = list(payload.get("name_suggestions") or [])
-            title = clean_text(str(payload.get("title") or ""))
             return CaptionDetails(
-                text=clean_text(caption),
-                title=title,
+                text=clean_text(author_text),
                 gps_latitude=gps_latitude,
                 gps_longitude=gps_longitude,
                 location_name=location_name,
+                author_text=clean_text(author_text),
+                scene_text=scene_text,
+                annotation_scope=annotation_scope,
                 people_present=people_present,
                 estimated_people_count=estimated_people_count,
                 name_suggestions=name_suggestions,
@@ -231,4 +234,3 @@ class LocalHFCaptioner:
             if "working_image" in locals() and working_image is not image:
                 working_image.close()
             image.close()
-

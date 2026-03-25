@@ -19,9 +19,7 @@ def _sample_sigs() -> dict[str, np.ndarray]:
     }
 
 
-def test_cached_signals_round_trip_and_chapter_span_invalidation(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_cached_signals_round_trip_and_chapter_span_invalidation(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(core, "TUNER_CACHE_ROOT", tmp_path)
     monkeypatch.setattr(core, "TUNER_FRAME_CACHE_DIR", tmp_path / "frame_samples")
 
@@ -117,6 +115,32 @@ def test_cache_keys_change_when_source_video_changes(tmp_path: Path) -> None:
     )
 
     assert signals_path_after != signals_path_before
+    assert extract_path_after != extract_path_before
+
+
+def test_extract_cache_keys_change_when_audio_sync_offset_changes(tmp_path: Path) -> None:
+    video = tmp_path / "source.mkv"
+    video.write_bytes(b"a")
+
+    extract_path_before = core._chapter_extract_cache_path(
+        archive="sample_archive",
+        chapter_title="Sample Chapter",
+        ch_start=100,
+        ch_end=200,
+        debug_overlay=False,
+        source_video=video,
+        audio_offset_seconds=0.0,
+    )
+    extract_path_after = core._chapter_extract_cache_path(
+        archive="sample_archive",
+        chapter_title="Sample Chapter",
+        ch_start=100,
+        ch_end=200,
+        debug_overlay=False,
+        source_video=video,
+        audio_offset_seconds=0.75,
+    )
+
     assert extract_path_after != extract_path_before
 
 

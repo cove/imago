@@ -4,8 +4,6 @@ from pathlib import Path
 
 from ._caption_album import (
     ALBUM_KIND_PHOTO_ESSAY,
-    AlbumContext,
-    clean_text,
     dedupe,
     infer_album_context,
     join_human,
@@ -43,15 +41,6 @@ def _position_label(cx: float, cy: float) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _should_apply_album_prompt_rules(source_path: str | Path | None, album_context: AlbumContext) -> bool:
-    if album_context.kind:
-        return True
-    if source_path is None:
-        return False
-    joined = " ".join(str(part or "").casefold() for part in Path(source_path).parts)
-    return "photo albums" in joined or "cordell" in joined
-
-
 def _build_describe_preamble(*, is_cover_page: bool = False) -> list[str]:
     lines: list[str] = []
 
@@ -63,16 +52,10 @@ def _build_describe_preamble(*, is_cover_page: bool = False) -> list[str]:
 
 def _build_describe_context_hints(
     *,
-    context: AlbumContext,
-    source_path: str | Path | None,
     people_list: list[str],
-    ocr_text: str,
     people_positions: dict[str, str] | None = None,
 ) -> list[str]:
     hint_lines: list[str] = []
-    if _should_apply_album_prompt_rules(source_path, context):
-        if context.focus and context.kind == ALBUM_KIND_PHOTO_ESSAY:
-            hint_lines.extend(_section("Album Focus Hint", album_focus=context.focus))
     if people_list:
         if people_positions:
             entries = [
@@ -81,12 +64,6 @@ def _build_describe_context_hints(
             hint_lines.extend(_section("People Hint With Positions", people_hint=", ".join(entries)))
         else:
             hint_lines.extend(_section("People Hint", people_hint=join_human(people_list)))
-    text = clean_text(ocr_text)
-    if text:
-        snippet = text[:220].strip()
-        if len(text) > len(snippet):
-            snippet += "..."
-        hint_lines.extend(_section("OCR Hint", ocr_snippet=snippet))
     if not hint_lines:
         return []
     return ["Context hints (image-specific):"] + hint_lines
@@ -111,27 +88,6 @@ def _build_people_count_context_hints(
     return ["Context hints (image-specific):"] + hint_lines
 
 
-def _build_location_context_hints(
-    *,
-    context: AlbumContext,
-    source_path: str | Path | None,
-    ocr_text: str,
-) -> list[str]:
-    hint_lines: list[str] = []
-    if _should_apply_album_prompt_rules(source_path, context):
-        if context.focus and context.kind == ALBUM_KIND_PHOTO_ESSAY:
-            hint_lines.extend(_section("Album Focus Hint", album_focus=context.focus))
-    text = clean_text(ocr_text)
-    if text:
-        snippet = text[:220].strip()
-        if len(text) > len(snippet):
-            snippet += "..."
-        hint_lines.extend(_section("OCR Hint", ocr_snippet=snippet))
-    if not hint_lines:
-        return []
-    return ["Context hints (image-specific):"] + hint_lines
-
-
 def _build_local_prompt(
     *,
     people: list[str],
@@ -142,10 +98,9 @@ def _build_local_prompt(
     printed_album_title: str = "",
     is_cover_page: bool = False,
     people_positions: dict[str, str] | None = None,
-    request_photo_regions: bool = False,
+    request_photo_regions: bool = True,
 ) -> str:
     people_list = dedupe(people)
-    text = clean_text(ocr_text)
     context = infer_album_context(
         image_path=source_path,
         ocr_text=ocr_text,
@@ -158,10 +113,7 @@ def _build_local_prompt(
     lines.extend(_build_describe_preamble(is_cover_page=is_cover_page))
     lines.extend(
         _build_describe_context_hints(
-            context=context,
-            source_path=source_path,
             people_list=people_list,
-            ocr_text=text,
             people_positions=people_positions,
         )
     )
@@ -197,57 +149,9 @@ def _build_people_count_prompt(
 
 def _build_location_prompt(
     *,
-    people: list[str],
-    objects: list[str],
-    ocr_text: str,
-    source_path: str | Path | None = None,
-    album_title: str = "",
-    printed_album_title: str = "",
     is_cover_page: bool = False,
-    people_positions: dict[str, str] | None = None,
 ) -> str:
-    text = clean_text(ocr_text)
-    context = infer_album_context(
-        image_path=source_path,
-        ocr_text=ocr_text,
-        allow_ocr=True,
-        album_title=album_title,
-        printed_album_title=printed_album_title,
-    )
     lines = _section("Preamble Location")
     lines.extend(_build_describe_preamble(is_cover_page=is_cover_page))
-    lines.extend(
-        _build_location_context_hints(
-            context=context,
-            source_path=source_path,
-            ocr_text=text,
-        )
-    )
     lines.extend(_section("Output Format – Location"))
     return "\n".join(lines)
-
-
-def _build_describe_prompt(
-    prompt_text: str,
-    *,
-    people: list[str],
-    objects: list[str],
-    ocr_text: str,
-    source_path: str | Path | None,
-    album_title: str,
-    printed_album_title: str,
-    is_cover_page: bool,
-    people_positions: dict[str, str] | None = None,
-    request_photo_regions: bool = False,
-) -> str:
-    return prompt_text or _build_local_prompt(
-        people=people,
-        objects=objects,
-        ocr_text=ocr_text,
-        source_path=source_path,
-        album_title=album_title,
-        printed_album_title=printed_album_title,
-        is_cover_page=is_cover_page,
-        people_positions=people_positions,
-        request_photo_regions=request_photo_regions,
-    )

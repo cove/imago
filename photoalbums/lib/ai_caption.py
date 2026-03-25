@@ -33,17 +33,14 @@ from ._caption_lmstudio import (  # noqa: F401
     _parse_lmstudio_structured_caption_payload,
     _resize_caption_image,
     _select_lmstudio_model,
-    describe_system_prompt,
     location_system_prompt,
     normalize_lmstudio_base_url,
     people_count_system_prompt,
 )
 from ._caption_prompts import (  # noqa: F401
-    _build_describe_prompt,
     _build_location_prompt,
     _build_people_count_prompt,
     _build_local_prompt,
-    _should_apply_album_prompt_rules,
 )
 from ._caption_local_hf import (  # noqa: F401
     DEFAULT_LOCAL_AUTO_MAX_PIXELS,
@@ -232,8 +229,7 @@ class CaptionEngine:
             return CaptionOutput(text="", engine="none")
         self._ensure_captioner()
         use_page_mode = request_photo_regions and self.engine == "lmstudio"
-        prompt = _build_describe_prompt(
-            self._caption_prompt,
+        prompt = self._caption_prompt or _build_local_prompt(
             people=people,
             objects=objects,
             ocr_text=ocr_text,
@@ -250,7 +246,7 @@ class CaptionEngine:
             engine=self.engine,
             model=self.effective_model_name,
             prompt=prompt,
-            system_prompt=(describe_system_prompt(page_mode=use_page_mode) if self.engine == "lmstudio" else ""),
+            system_prompt="",
             source_path=source_path or image_path,
             prompt_source=("custom" if self._caption_prompt else "skill"),
             metadata={
@@ -369,14 +365,7 @@ class CaptionEngine:
             )
         self._ensure_captioner()
         prompt = _build_location_prompt(
-            people=people,
-            objects=objects,
-            ocr_text=ocr_text,
-            source_path=source_path or image_path,
-            album_title=album_title,
-            printed_album_title=printed_album_title,
             is_cover_page=is_cover_page,
-            people_positions=people_positions,
         )
         _emit_prompt_debug(
             debug_recorder,

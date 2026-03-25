@@ -47,6 +47,7 @@ class TestAIGeocode(unittest.TestCase):
                 )
                 self.assertIn("format=jsonv2", request.full_url)
                 self.assertIn("limit=1", request.full_url)
+                self.assertIn("accept-language=en", request.full_url)
                 self.assertIn(
                     "Mogao+Caves%2C+Dunhuang%2C+Gansu%2C+China", request.full_url
                 )

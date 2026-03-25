@@ -736,6 +736,9 @@ async function previewRender() {
         default_gamma: normalizeGammaValue(state.gammaProfile && state.gammaProfile.defaultGamma, 1.0),
         ranges: gammaRangesForSave(),
       },
+      audio_sync_profile: {
+        offset_seconds: typeof state.audioSyncOffset === 'number' ? state.audioSyncOffset : 0.0,
+      },
     }, 0);
     const target = result.preview_page_url || result.preview_url || '';
     if (target) {

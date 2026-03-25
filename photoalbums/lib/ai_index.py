@@ -134,6 +134,9 @@ class ImageAnalysis:
     subjects: list[str]
     description: str
     payload: dict[str, Any]
+    author_text: str = ""
+    scene_text: str = ""
+    annotation_scope: str = ""
     faces_detected: int = 0
     image_regions: list[dict] = None
     album_title: str = ""
@@ -474,6 +477,80 @@ def _sidecar_current_for_paths(sidecar_path: Path, source_paths: list[Path]) -> 
 
 def read_embedded_source_text(path: Path) -> str:
     return str(read_tag(path, "XMP-dc:Source") or "").strip()
+
+
+def _derive_parent_page_state(image_path: Path) -> dict | None:
+    """For a D##_## derived image, return read_ai_sidecar_state() of the parent page XMP, or None."""
+    m = DERIVED_NAME_RE.search(image_path.name)
+    if not m:
+        return None
+    prefix = f"{m.group('collection')}_{m.group('year')}_B{m.group('book')}_P{m.group('page')}"
+    for stem in [f"{prefix}_stitched", prefix]:
+        for ext in (".jpg", ".jpeg"):
+            xmp = (image_path.parent / f"{stem}{ext}").with_suffix(".xmp")
+            if xmp.is_file():
+                return read_ai_sidecar_state(xmp)
+    return None
+
+
+def _resolve_xmp_text_layers(
+    *,
+    image_path: Path,
+    ocr_text: str,
+    page_like: bool,
+    ocr_authority_source: str = "",
+    author_text: str = "",
+    scene_text: str = "",
+    annotation_scope: str = "",
+) -> dict[str, str]:
+    clean_ocr = str(ocr_text or "").strip()
+    clean_author = str(author_text or "").strip()
+    clean_scene = str(scene_text or "").strip()
+    clean_scope = str(annotation_scope or "").strip().lower()
+    is_cover_page = bool(clean_ocr) and looks_like_album_cover(image_path, ocr_text=clean_ocr)
+
+    if not clean_author and not clean_scene and clean_ocr:
+        if page_like or is_cover_page or str(ocr_authority_source or "").strip() == "archive_stitched":
+            clean_author = clean_ocr
+        else:
+            clean_scene = clean_ocr
+
+    if not clean_scope:
+        if clean_author and not clean_scene:
+            clean_scope = "page" if (page_like or is_cover_page) else "unknown"
+        elif clean_scene and not clean_author:
+            clean_scope = "none"
+        elif clean_author or clean_scene:
+            clean_scope = "unknown"
+
+    return {
+        "author_text": clean_author,
+        "scene_text": clean_scene,
+        "annotation_scope": clean_scope,
+    }
+
+
+def _compute_xmp_title(
+    *,
+    image_path: Path,
+    explicit_title: str,
+    title_source: str = "",
+    author_text: str = "",
+    annotation_scope: str = "",
+) -> tuple[str, str]:
+    clean_title = str(explicit_title or "").strip()
+    clean_source = str(title_source or "").strip()
+    clean_author = str(author_text or "").strip()
+    clean_scope = str(annotation_scope or "").strip().lower()
+    is_cover_page = bool(clean_author) and looks_like_album_cover(image_path, ocr_text=clean_author)
+
+    if clean_title and clean_source:
+        return clean_title, clean_source
+    if clean_author and (clean_scope == "photo" or is_cover_page):
+        return clean_author, "author_text"
+    if clean_title and clean_author and clean_title == clean_author and (clean_scope == "photo" or is_cover_page):
+        return clean_title, "author_text"
+    return "", ""
 
 
 def _derived_source_text(image_path: Path) -> str:
@@ -1284,6 +1361,7 @@ def _maybe_run_people_recovery(
     printed_album_title: str,
     photo_count: int,
     is_cover_page: bool,
+    request_photo_regions: bool = False,
     prompt_debug: PromptDebugSession | None = None,
     step_fn=None,
 ) -> tuple[list, list[str], dict[str, str], CaptionOutput, int]:
@@ -1338,6 +1416,7 @@ def _maybe_run_people_recovery(
         photo_count=photo_count,
         is_cover_page=is_cover_page,
         people_positions=recovered_positions,
+        request_photo_regions=request_photo_regions,
         debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
         debug_step="caption_recovery",
     )
@@ -1386,7 +1465,7 @@ def _resolve_location_payload(
             result = None
             geocode_error = str(exc or "").strip()
         if result is not None:
-            return {
+            loc: dict[str, Any] = {
                 "query": result.query,
                 "display_name": result.display_name,
                 "gps_latitude": float(result.latitude),
@@ -1394,6 +1473,13 @@ def _resolve_location_payload(
                 "map_datum": "WGS-84",
                 "source": result.source,
             }
+            if str(getattr(result, "city", "") or "").strip():
+                loc["city"] = str(result.city).strip()
+            if str(getattr(result, "state", "") or "").strip():
+                loc["state"] = str(result.state).strip()
+            if str(getattr(result, "country", "") or "").strip():
+                loc["country"] = str(result.country).strip()
+            return loc
     if query and geocode_error:
         return {
             "query": query,
@@ -1582,6 +1668,7 @@ def _run_image_analysis(
             printed_album_title=printed_album_title,
             photo_count=page_photo_count,
             is_cover_page=is_cover_page,
+            request_photo_regions=request_photo_regions,
             prompt_debug=prompt_debug,
             step_fn=step_fn,
         )
@@ -1594,7 +1681,6 @@ def _run_image_analysis(
         )
 
     subjects = _dedupe(object_labels + ocr_keywords)
-    description = caption_output.text
     (
         local_people_present,
         local_estimated_people_count,
@@ -1667,6 +1753,7 @@ def _run_image_analysis(
     )
     if location_payload:
         payload["location"] = location_payload
+    description = caption_output.text
     return ImageAnalysis(
         image_path=image_path,
         people_names=people_names,
@@ -1675,6 +1762,9 @@ def _run_image_analysis(
         ocr_keywords=ocr_keywords,
         subjects=subjects,
         description=description,
+        author_text=str(getattr(caption_output, "author_text", "") or ""),
+        scene_text=str(getattr(caption_output, "scene_text", "") or ""),
+        annotation_scope=str(getattr(caption_output, "annotation_scope", "") or ""),
         payload=payload,
         faces_detected=_faces_detected,
         image_regions=list(getattr(caption_output, "image_regions", None) or []),
@@ -1735,84 +1825,6 @@ def _build_flat_payload(layout: PreparedImageLayout, analysis: ImageAnalysis) ->
     payload["subphotos"] = []
     return payload
 
-
-def _build_page_payload(
-    *,
-    layout: PreparedImageLayout,
-    sub_results: list[ImageAnalysis],
-    page_ocr_text: str,
-    page_ocr_keywords: list[str],
-    requested_caption_engine: str,
-    album_title: str = "",
-    printed_album_title: str = "",
-) -> tuple[list[str], list[str], list[str], str, dict[str, Any], list[dict[str, Any]]]:
-    aggregate_people = _aggregate_best_rows(sub_results, "people", "name")
-    aggregate_objects = _aggregate_best_rows(sub_results, "objects", "label")
-    people_names = [str(row["name"]) for row in aggregate_people]
-    object_labels = [str(row["label"]) for row in aggregate_objects]
-    subphoto_rows: list[dict[str, Any]] = []
-    page_subjects: list[str] = list(page_ocr_keywords)
-    for prepared, result in zip(layout.subphotos, sub_results):
-        page_subjects.extend(result.subjects)
-        subphoto_rows.append(
-            {
-                "index": int(prepared.index),
-                "bounds": prepared.bounds.as_dict(),
-                "description": result.description,
-                "ocr_text": result.ocr_text,
-                "page_text": page_ocr_text,
-                "people": result.people_names,
-                "subjects": result.subjects,
-                "detections": result.payload,
-            }
-        )
-
-    subjects = _dedupe(page_subjects)
-    if len(sub_results) == 1:
-        description = sub_results[0].description
-    else:
-        description = ""
-    page_people_present = any(
-        bool(dict(result.payload.get("caption") or {}).get("people_present")) for result in sub_results
-    )
-    page_estimated_people_count = max(
-        len(people_names),
-        sum(
-            max(
-                0,
-                int(
-                    dict(result.payload.get("caption") or {}).get(
-                        "estimated_people_count",
-                        0,
-                    )
-                    or 0
-                ),
-            )
-            for result in sub_results
-        ),
-    )
-    payload = {
-        "layout": _layout_payload(layout),
-        "people": aggregate_people,
-        "objects": aggregate_objects,
-        "ocr": {
-            "engine": (str(sub_results[0].payload["ocr"]["engine"]) if sub_results else ""),
-            "language": (str(sub_results[0].payload["ocr"]["language"]) if sub_results else ""),
-            "keywords": page_ocr_keywords,
-            "chars": len(page_ocr_text),
-        },
-        "caption": _build_caption_metadata(
-            requested_engine=requested_caption_engine,
-            effective_engine="page-summary",
-            fallback=False,
-            error="",
-            model="",
-            people_present=page_people_present,
-            estimated_people_count=page_estimated_people_count,
-        ),
-        "subphotos": subphoto_rows,
-    }
-    return people_names, object_labels, subjects, description, payload, subphoto_rows
 
 
 def _build_flat_page_description(*, analysis: ImageAnalysis) -> str:
@@ -2079,18 +2091,36 @@ def _run_scan_stitch_pass(
                     print(f"{path.name}: {combined_description}")
                 elif not dry_run:
                     stitch_img_w, stitch_img_h = _get_image_dimensions(path)
+                    text_layers = _resolve_xmp_text_layers(
+                        image_path=path,
+                        ocr_text=combined_ocr,
+                        page_like=True,
+                    )
+                    xmp_title, xmp_title_source = _compute_xmp_title(
+                        image_path=path,
+                        explicit_title="",
+                        author_text=str(text_layers.get("author_text") or ""),
+                        annotation_scope=str(text_layers.get("annotation_scope") or ""),
+                    )
                     write_xmp_sidecar(
                         sidecar_path,
                         creator_tool=str(state.get("creator_tool") or creator_tool),
                         person_names=person_names,
                         subjects=subjects,
-                        title=str(state.get("title") or combined_description or ""),
+                        title=xmp_title,
+                        title_source=xmp_title_source,
                         description=combined_description,
                         album_title=album_title,
                         gps_latitude=final_gps_lat,
                         gps_longitude=final_gps_lon,
+                        location_city=str((location_payload or {}).get("city") or ""),
+                        location_state=str((location_payload or {}).get("state") or ""),
+                        location_country=str((location_payload or {}).get("country") or ""),
                         source_text=source_text,
                         ocr_text=combined_ocr,
+                        author_text=str(text_layers.get("author_text") or ""),
+                        scene_text=str(text_layers.get("scene_text") or ""),
+                        annotation_scope=str(text_layers.get("annotation_scope") or ""),
                         detections_payload=det or None,
                         stitch_key="true",
                         image_width=stitch_img_w,
@@ -2457,18 +2487,45 @@ def run(argv: list[str] | None = None) -> int:
                             refresh_gps_lat = _xmp_gps_to_decimal(review.get("gps_latitude"), axis="lat")
                         if not refresh_gps_lon:
                             refresh_gps_lon = _xmp_gps_to_decimal(review.get("gps_longitude"), axis="lon")
+                        refresh_page_like = bool(review.get("subphotos")) or (
+                            str((refresh_detections.get("caption") or {}).get("effective_engine") or "").strip()
+                            == "page-summary"
+                        )
+                        text_layers = _resolve_xmp_text_layers(
+                            image_path=image_path,
+                            ocr_text=str(review.get("ocr_text") or ""),
+                            page_like=refresh_page_like,
+                            ocr_authority_source=str(review.get("ocr_authority_source") or ""),
+                            author_text=str(review.get("author_text") or ""),
+                            scene_text=str(review.get("scene_text") or ""),
+                            annotation_scope=str(review.get("annotation_scope") or ""),
+                        )
+                        xmp_title, xmp_title_source = _compute_xmp_title(
+                            image_path=image_path,
+                            explicit_title=str(review.get("title") or ""),
+                            title_source=str(review.get("title_source") or ""),
+                            author_text=str(text_layers.get("author_text") or ""),
+                            annotation_scope=str(text_layers.get("annotation_scope") or ""),
+                        )
                         write_xmp_sidecar(
                             sidecar_path,
                             creator_tool=creator_tool,
                             person_names=list(review.get("person_names") or []),
                             subjects=list(review.get("subjects") or []),
-                            title=str(review.get("title") or review.get("description") or ""),
+                            title=xmp_title,
+                            title_source=xmp_title_source,
                             description=str(review.get("description") or ""),
                             album_title=str(review.get("album_title") or ""),
                             gps_latitude=refresh_gps_lat,
                             gps_longitude=refresh_gps_lon,
+                            location_city=str(refresh_location.get("city") or ""),
+                            location_state=str(refresh_location.get("state") or ""),
+                            location_country=str(refresh_location.get("country") or ""),
                             source_text=str(review.get("source_text") or ""),
                             ocr_text=str(review.get("ocr_text") or ""),
+                            author_text=str(text_layers.get("author_text") or ""),
+                            scene_text=str(text_layers.get("scene_text") or ""),
+                            annotation_scope=str(text_layers.get("annotation_scope") or ""),
                             detections_payload=(refresh_detections or None),
                             stitch_key=str(review.get("stitch_key") or ""),
                             ocr_authority_source=str(review.get("ocr_authority_source") or ""),
@@ -2671,8 +2728,6 @@ def run(argv: list[str] | None = None) -> int:
                             prompt_debug=pu_prompt_debug,
                             step_fn=_pu_step,
                         )
-                    pu_description = pu_caption_out.text
-
                     pu_people_payload = _serialize_people_matches(pu_people_matches)
                     (
                         pu_local_people_present,
@@ -2742,18 +2797,45 @@ def run(argv: list[str] | None = None) -> int:
 
                     if not dry_run:
                         pu_img_w, pu_img_h = _get_image_dimensions(image_path)
+                        pu_page_like = (
+                            str((pu_updated_det.get("caption") or {}).get("effective_engine") or "").strip()
+                            == "page-summary"
+                        )
+                        text_layers = _resolve_xmp_text_layers(
+                            image_path=image_path,
+                            ocr_text=existing_ocr_text,
+                            page_like=pu_page_like,
+                            ocr_authority_source=str(state.get("ocr_authority_source") or ""),
+                            author_text=str(state.get("author_text") or ""),
+                            scene_text=str(state.get("scene_text") or ""),
+                            annotation_scope=str(state.get("annotation_scope") or ""),
+                        )
+                        xmp_title, xmp_title_source = _compute_xmp_title(
+                            image_path=image_path,
+                            explicit_title=str(state.get("title") or ""),
+                            title_source=str(state.get("title_source") or ""),
+                            author_text=str(text_layers.get("author_text") or ""),
+                            annotation_scope=str(text_layers.get("annotation_scope") or ""),
+                        )
                         write_xmp_sidecar(
                             sidecar_path,
                             creator_tool=creator_tool,
                             person_names=pu_person_names,
                             subjects=pu_subjects,
-                            title=str(state.get("title") or pu_description or ""),
-                            description=pu_description,
+                            title=xmp_title,
+                            title_source=xmp_title_source,
+                            description=str(state.get("description") or ""),
                             album_title=pu_album_title,
                             gps_latitude=str(existing_location.get("gps_latitude") or ""),
                             gps_longitude=str(existing_location.get("gps_longitude") or ""),
+                            location_city=str(existing_location.get("city") or ""),
+                            location_state=str(existing_location.get("state") or ""),
+                            location_country=str(existing_location.get("country") or ""),
                             source_text=pu_source_text,
                             ocr_text=existing_ocr_text,
+                            author_text=str(text_layers.get("author_text") or ""),
+                            scene_text=str(text_layers.get("scene_text") or ""),
+                            annotation_scope=str(text_layers.get("annotation_scope") or ""),
                             detections_payload=pu_updated_det,
                             stitch_key=str(state.get("stitch_key") or ""),
                             ocr_authority_source=str(state.get("ocr_authority_source") or ""),
@@ -3002,17 +3084,35 @@ def run(argv: list[str] | None = None) -> int:
                 if not dry_run:
                     location_payload = dict(payload.get("location") or {}) if isinstance(payload, dict) else {}
                     img_w, img_h = _get_image_dimensions(image_path)
+                    text_layers = _resolve_xmp_text_layers(
+                        image_path=image_path,
+                        ocr_text=ocr_text,
+                        page_like=bool(layout.page_like),
+                        ocr_authority_source=("archive_stitched" if scan_ocr_authority is not None else ""),
+                        author_text=str(analysis.author_text or ""),
+                        scene_text=str(analysis.scene_text or ""),
+                        annotation_scope=str(analysis.annotation_scope or ""),
+                    )
+                    xmp_title, xmp_title_source = _compute_xmp_title(
+                        image_path=image_path,
+                        explicit_title=str(analysis.title or ""),
+                        author_text=str(text_layers.get("author_text") or ""),
+                        annotation_scope=str(text_layers.get("annotation_scope") or ""),
+                    )
                     # Convert relative photo-region coords (0–1) to pixel bounds for MWG XMP regions
                     subphotos_xml = [
                         {
                             "index": i + 1,
                             "bounds": {
-                                "x": round(r["x"] * img_w),
-                                "y": round(r["y"] * img_h),
-                                "width": round(r["w"] * img_w),
-                                "height": round(r["h"] * img_h),
-                            },
-                            "description": r.get("description", ""),
+                            "x": round(r["x"] * img_w),
+                            "y": round(r["y"] * img_h),
+                            "width": round(r["w"] * img_w),
+                            "height": round(r["h"] * img_h),
+                        },
+                            "description": r.get("author_text", ""),
+                            "author_text": r.get("author_text", ""),
+                            "scene_text": r.get("scene_text", ""),
+                            "annotation_scope": r.get("annotation_scope", ""),
                             "people": [],
                             "subjects": [],
                         }
@@ -3023,13 +3123,20 @@ def run(argv: list[str] | None = None) -> int:
                         creator_tool=creator_tool,
                         person_names=person_names,
                         subjects=subjects,
-                        title=analysis.title or description,
+                        title=xmp_title,
+                        title_source=xmp_title_source,
                         description=description,
                         album_title=_resolve_album_title_hint(image_path, album_title_cache),
                         gps_latitude=str(location_payload.get("gps_latitude") or ""),
                         gps_longitude=str(location_payload.get("gps_longitude") or ""),
+                        location_city=str(location_payload.get("city") or ""),
+                        location_state=str(location_payload.get("state") or ""),
+                        location_country=str(location_payload.get("country") or ""),
                         source_text=source_text,
                         ocr_text=ocr_text,
+                        author_text=str(text_layers.get("author_text") or ""),
+                        scene_text=str(text_layers.get("scene_text") or ""),
+                        annotation_scope=str(text_layers.get("annotation_scope") or ""),
                         detections_payload=payload,
                         subphotos=subphotos_xml,
                         ocr_authority_source=("archive_stitched" if scan_ocr_authority is not None else ""),

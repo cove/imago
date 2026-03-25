@@ -4,9 +4,9 @@
   "photo": "EasternEuropeSpainMorocco_1988_B00_View/EasternEuropeSpainMorocco_1988_B00_P14_stitched.jpg",
   "notes": "The album's handwritten OCR label reads 'THE STONE BRIDGE BUILT BY THE TURKS', which the model was echoing verbatim. The bridge is Stari Most in Mostar, Bosnia (then Yugoslavia). The eval checks that the model uses the proper landmark name in both the main caption and all per-photo region descriptions, overriding the OCR label.",
   "pass_criteria": [
-    "Main dc:description contains 'Stari Most'",
-    "Photo 1 region description contains 'Stari Most'",
-    "Model does not use 'stone bridge' as the bridge's name in any caption or region"
+    "Main dc:description contains 'Stari Most' (recognized proper name, not 'stone bridge')",
+    "dc:title contains the OCR text 'MOSTAR' or similar OCR from the page",
+    "location query (imago:Detections location.query) identifies Mostar or Stari Most"
   ],
   "result": {
     "description": "A collection of vintage photographs showcasing the Stari Most bridge in Mostar, Yugoslavia, from August 1988.",

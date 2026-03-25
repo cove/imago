@@ -7,6 +7,7 @@ pytest.importorskip("cv2")
 
 from pathlib import Path
 import shutil
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -50,9 +51,7 @@ def _make_session() -> SessionState:
     return SessionState(fids=fids, sigs=sigs, overrides={})
 
 
-def _write_single_chapter_tsv(
-    path: Path, title: str, start_frame: int, end_frame: int
-) -> None:
+def _write_single_chapter_tsv(path: Path, title: str, start_frame: int, end_frame: int) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         "\n".join(
@@ -66,9 +65,7 @@ def _write_single_chapter_tsv(
     )
 
 
-def _make_loaded_wizard_session(
-    archive: str, chapter: str, start_frame: int, end_frame: int
-) -> SessionState:
+def _make_loaded_wizard_session(archive: str, chapter: str, start_frame: int, end_frame: int) -> SessionState:
     frame_count = max(1, int(end_frame) - int(start_frame))
     return SessionState(
         archive=archive,
@@ -102,9 +99,7 @@ class _HandlerStub:
 
 
 class _PostHandlerStub(_HandlerStub):
-    def __init__(
-        self, path: str, payload: dict, session: SessionState | None = None
-    ) -> None:
+    def __init__(self, path: str, payload: dict, session: SessionState | None = None) -> None:
         super().__init__()
         self.path = str(path)
         self._payload = dict(payload)
@@ -219,9 +214,7 @@ def test_contact_sheet_builder_returns_jpeg_bytes() -> None:
     content_type, payload = result
     assert content_type == "image/jpeg"
     assert len(payload) > 0
-    assert _frame_contact_sheet_url(
-        0, count=2, columns=CONTACT_SHEET_COLUMNS
-    ).startswith("/api/frame_contact_sheet?")
+    assert _frame_contact_sheet_url(0, count=2, columns=CONTACT_SHEET_COLUMNS).startswith("/api/frame_contact_sheet?")
 
 
 def test_contact_sheet_builder_can_fill_later_visible_range_from_video(
@@ -242,9 +235,7 @@ def test_contact_sheet_builder_can_fill_later_visible_range_from_video(
     )
     calls: dict[str, list[int]] = {}
 
-    def _fake_load_from_video(
-        session_arg: SessionState, frame_ids: list[int]
-    ) -> dict[int, str]:
+    def _fake_load_from_video(session_arg: SessionState, frame_ids: list[int]) -> dict[int, str]:
         assert session_arg is session
         calls["frame_ids"] = list(frame_ids)
         return {
@@ -252,9 +243,7 @@ def test_contact_sheet_builder_can_fill_later_visible_range_from_video(
             1005: "data:image/jpeg;base64,AQ==",
         }
 
-    monkeypatch.setattr(
-        wizard_server, "_load_contact_sheet_images_from_video", _fake_load_from_video
-    )
+    monkeypatch.setattr(wizard_server, "_load_contact_sheet_images_from_video", _fake_load_from_video)
 
     built = _build_contact_sheet_bytes(
         session,
@@ -271,9 +260,7 @@ def test_static_html_contains_live_iqr_spark_and_fullscreen_controls() -> None:
     static_dir = INDEX_HTML.parent
     html = "\n".join(
         f.read_text(encoding="utf-8")
-        for f in sorted(static_dir.glob("*.html"))
-        + sorted(static_dir.glob("*.css"))
-        + sorted(static_dir.glob("*.js"))
+        for f in sorted(static_dir.glob("*.html")) + sorted(static_dir.glob("*.css")) + sorted(static_dir.glob("*.js"))
     )
 
     assert 'id="helpBtn"' not in html
@@ -311,14 +298,9 @@ def test_static_html_contains_live_iqr_spark_and_fullscreen_controls() -> None:
     assert "scheduleVisibleRangeRefresh()" in html
     assert "frameGridEl.addEventListener('scroll'" in html
     assert "normalizeWheelToPixels(" in html
-    assert (
-        "window.addEventListener('wheel', relayWheelToFrameGrid, { passive: false, capture: true })"
-        in html
-    )
+    assert "window.addEventListener('wheel', relayWheelToFrameGrid, { passive: false, capture: true })" in html
     assert "frameGridEl.scrollBy({ top: deltaPx * 1.75, behavior: 'auto' })" in html
-    assert (
-        "const sprite = frameContactSheetSpecForIndex(frameIndex, gridMetrics);" in html
-    )
+    assert "const sprite = frameContactSheetSpecForIndex(frameIndex, gridMetrics);" in html
     assert "return { image: '', sprite, replaced: false, note: '' };" in html
     assert ".frame-card.loading .frame-thumb-sprite {" in html
     assert "opacity: 0.94;" in html
@@ -333,6 +315,7 @@ def test_static_html_contains_live_iqr_spark_and_fullscreen_controls() -> None:
     assert "pollLoadProgressOnce()" in html
     assert "api('/api/load_progress')" in html
     assert "api('/api/preview_render', 'POST'" in html
+    assert "audio_sync_profile: {" in html
     assert "api('/api/set_force_all_good', 'POST'" in html
     assert "renderReadyAtFromSamples(" in html
     assert "ETA " in html
@@ -353,10 +336,7 @@ def test_static_html_contains_live_iqr_spark_and_fullscreen_controls() -> None:
     assert "function buildGammaSparklineCache(frames, gammaLevel)" in html
     assert "replaceGammaScores(new Map());" in html
     assert "const FRAME_GRID_CONTACT_SHEET_PREFETCH_AHEAD = 2;" in html
-    assert (
-        "function prefetchVisibleFrameSheets(metricsRaw = null, rangeRaw = null)"
-        in html
-    )
+    assert "function prefetchVisibleFrameSheets(metricsRaw = null, rangeRaw = null)" in html
     assert "prefetchFrameContactSheet(next.url);" in html
     assert "const FLIPBOOK_AUDIO_CLOCK_STALL_FRAMES = 8;" in html
     assert "sparkPlayAudioClockStallCount += 1;" in html
@@ -427,9 +407,7 @@ def test_set_load_progress_updates_and_clamps_state() -> None:
     assert session.load_sample_done == 42
     assert session.load_sample_total == 100
 
-    _set_load_progress(
-        session, running=False, progress=-7.0, sample_done=-2, sample_total=-9
-    )
+    _set_load_progress(session, running=False, progress=-7.0, sample_done=-2, sample_total=-9)
     assert session.load_running is False
     assert session.load_progress == 0.0
     assert session.load_sample_done == 0
@@ -474,9 +452,7 @@ def test_toggle_frame_allows_partial_frames_before_full_load() -> None:
 
     assert handler.error is None
     assert handler.payload is not None
-    frame_after = next(
-        f for f in handler.payload["review"]["frames"] if int(f["fid"]) == 1001
-    )
+    frame_after = next(f for f in handler.payload["review"]["frames"] if int(f["fid"]) == 1001)
     assert str(frame_after["status"]) != status_before
     assert session.overrides[1001] == ("good" if status_before == "bad" else "bad")
 
@@ -524,9 +500,7 @@ def test_set_frame_range_marks_partial_frames_bad() -> None:
         assert session.overrides[fid] == "bad"
 
 
-def test_normalize_subtitle_entries_payload_clamps_and_preserves_optional_fields() -> (
-    None
-):
+def test_normalize_subtitle_entries_payload_clamps_and_preserves_optional_fields() -> None:
     rows = _normalize_subtitle_entries_payload(
         [
             {
@@ -556,9 +530,7 @@ def test_normalize_subtitle_entries_payload_clamps_and_preserves_optional_fields
     assert row["source"] == "whisper"
 
 
-def test_save_split_entries_writes_start_end_columns(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_save_split_entries_writes_start_end_columns(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(wizard_server, "METADATA_DIR", tmp_path)
 
     archive = "demo_archive"
@@ -594,9 +566,7 @@ def test_save_split_entries_writes_start_end_columns(
 
     assert count == 2
     lines = path.read_text(encoding="utf-8").splitlines()
-    assert lines[0].startswith(
-        "__chapter_index\tffmeta_title\tTIMEBASE\tSTART\tEND\ttitle"
-    )
+    assert lines[0].startswith("__chapter_index\tffmeta_title\tTIMEBASE\tSTART\tEND\ttitle")
     assert "parent_chapter" not in lines[0]
     assert "start_frame" not in lines[0]
     assert lines[1].split("\t")[2:6] == ["1001/30000", "100", "200", chapter]
@@ -917,14 +887,8 @@ def test_handle_load_chapter_populates_session_from_video_and_metadata(
     assert handler.payload["settings"]["start_frame"] == 100
     assert handler.payload["settings"]["end_frame"] == 103
     assert handler.payload["settings"]["gamma_profile"]["source"] == "render_settings"
-    assert (
-        handler.payload["settings"]["people_profile"]["entries"]
-        == session.people_entries
-    )
-    assert (
-        handler.payload["settings"]["subtitles_profile"]["entries"]
-        == session.subtitle_entries
-    )
+    assert handler.payload["settings"]["people_profile"]["entries"] == session.people_entries
+    assert handler.payload["settings"]["subtitles_profile"]["entries"] == session.subtitle_entries
 
 
 def test_handle_load_chapter_reports_missing_archive_video(
@@ -934,9 +898,7 @@ def test_handle_load_chapter_reports_missing_archive_video(
     metadata_dir = tmp_path / "metadata"
     archive_name = "demo_archive"
     chapter = "Example Chapter"
-    _write_single_chapter_tsv(
-        metadata_dir / archive_name / "chapters.tsv", chapter, 100, 103
-    )
+    _write_single_chapter_tsv(metadata_dir / archive_name / "chapters.tsv", chapter, 100, 103)
 
     monkeypatch.setattr(wizard_server, "METADATA_DIR", metadata_dir)
     monkeypatch.setattr(wizard_server, "ARCHIVE_DIR", tmp_path / "Archive")
@@ -987,6 +949,87 @@ def test_handle_load_chapter_reports_missing_archive_video(
     assert session.load_progress == 0.0
     assert session.load_message == f"No archive video found for '{archive_name}'."
     assert session.frame_source_video_path == ""
+
+
+def test_ensure_audio_sync_file_extracts_twenty_seconds_of_padding(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_video = tmp_path / "archive.mkv"
+    source_video.write_bytes(b"video")
+    temp_root = tmp_path / "temp"
+    calls: list[list[str]] = []
+
+    def _fake_run(cmd, check, capture_output, text):
+        _ = (check, capture_output, text)
+        calls.append(list(cmd))
+        out_path = Path(cmd[-1])
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_bytes(b"RIFF" + (b"\x00" * 128))
+        return SimpleNamespace(returncode=0, stderr="", stdout="")
+
+    monkeypatch.setattr(wizard_server, "_resolve_archive_video", lambda _archive: source_video)
+    monkeypatch.setattr(wizard_server, "FFMPEG_BIN", "ffmpeg-test")
+    monkeypatch.setattr(wizard_server.tempfile, "gettempdir", lambda: str(temp_root))
+    monkeypatch.setattr(wizard_server.subprocess, "run", _fake_run)
+
+    session = SessionState(
+        archive="demo_archive",
+        chapter="Example Chapter",
+        start_frame=1000,
+        end_frame=1100,
+    )
+    handler = WizardHandler.__new__(WizardHandler)
+
+    audio_path, err, padded_start, video_offset = WizardHandler._ensure_audio_sync_file(handler, session)
+
+    expected_start = wizard_server._frame_to_seconds(1000) - 20.0
+    expected_end = wizard_server._frame_to_seconds(1100) + 20.0
+
+    assert err == ""
+    assert audio_path is not None
+    assert audio_path.exists()
+    assert calls
+    cmd = calls[0]
+    assert cmd[cmd.index("-ss") + 1] == f"{expected_start:.3f}"
+    assert cmd[cmd.index("-to") + 1] == f"{expected_end:.3f}"
+    assert padded_start == pytest.approx(expected_start)
+    assert video_offset == pytest.approx(20.0)
+    assert session.audio_sync_audio_path == str(audio_path)
+    assert session.audio_sync_audio_key
+
+
+def test_preview_render_passes_current_audio_sync_offset_to_extract(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    archive_dir = tmp_path / "Archive"
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    (archive_dir / "demo_archive_proxy.mp4").write_bytes(b"proxy")
+    captured: dict[str, float] = {}
+
+    def _fake_extract(**kwargs):
+        captured["audio_offset_seconds"] = float(kwargs["audio_offset_seconds"])
+        return None, "stop here"
+
+    monkeypatch.setattr(wizard_server, "ARCHIVE_DIR", archive_dir)
+    monkeypatch.setattr(wizard_server, "_ensure_render_chapter_extract", _fake_extract)
+
+    session = _make_loaded_wizard_session("demo_archive", "Example Chapter", 100, 200)
+    session.audio_sync_offset = 0.75
+    handler = _HandlerStub()
+
+    WizardHandler._handle_preview_render(
+        handler,
+        session,
+        {
+            "preview_mode": "review",
+            "audio_sync_profile": {"offset_seconds": 0.75},
+        },
+    )
+
+    assert captured["audio_offset_seconds"] == pytest.approx(0.75)
+    assert handler.error == "stop here"
 
 
 def test_handle_save_progress_persists_people_subtitles_and_split_profiles(
@@ -1104,19 +1147,13 @@ def test_handle_save_progress_persists_people_subtitles_and_split_profiles(
     assert session.gamma_default == 1.2
     assert len(session.gamma_ranges) == 1
 
-    people_local = wizard_server._load_people_entries_for_chapter(
-        archive_name, 100, 200
-    )
-    subtitles_local = wizard_server._load_subtitle_entries_for_chapter(
-        archive_name, 100, 200
-    )
+    people_local = wizard_server._load_people_entries_for_chapter(archive_name, 100, 200)
+    subtitles_local = wizard_server._load_subtitle_entries_for_chapter(archive_name, 100, 200)
     assert [row["people"] for row in people_local] == ["Jim | Linda"]
     assert [row["text"] for row in subtitles_local] == ["Hello there"]
 
     people_rows = wizard_server._read_people_tsv_rows(archive_meta / "people.tsv")
-    subtitles_rows = wizard_server._read_subtitles_tsv_rows(
-        archive_meta / "subtitles.tsv"
-    )
+    subtitles_rows = wizard_server._read_subtitles_tsv_rows(archive_meta / "subtitles.tsv")
     chapters_text = (archive_meta / "chapters.tsv").read_text(encoding="utf-8")
     assert any(row[2] == "Outside Chapter" for row in people_rows)
     assert any(row[2] == "Outside subtitle" for row in subtitles_rows)
@@ -1170,9 +1207,7 @@ def test_handle_save_returns_archive_state_and_counts(
         handler,
         session,
         {
-            "people_profile": {
-                "entries": [{"start": "0", "end": "1", "people": "Jim"}]
-            },
+            "people_profile": {"entries": [{"start": "0", "end": "1", "people": "Jim"}]},
             "subtitles_profile": {
                 "entries": [
                     {
@@ -1184,9 +1219,7 @@ def test_handle_save_returns_archive_state_and_counts(
                     }
                 ]
             },
-            "split_profile": {
-                "entries": [{"start": "0", "end": "100", "title": "Example Chapter"}]
-            },
+            "split_profile": {"entries": [{"start": "0", "end": "100", "title": "Example Chapter"}]},
         },
     )
 
@@ -1231,9 +1264,7 @@ def test_do_post_rename_chapter_updates_tsv_and_returns_files(
     assert handler.error is None
     assert handler.payload is not None
     assert handler.payload["ok"] is True
-    assert handler.payload["renamed_files"] == [
-        f"{wizard_server.safe('New Title')}.mp4"
-    ]
+    assert handler.payload["renamed_files"] == [f"{wizard_server.safe('New Title')}.mp4"]
     chapters_text = (archive_meta / "chapters.tsv").read_text(encoding="utf-8")
     assert "New Title" in chapters_text
     assert "Old Title" not in chapters_text

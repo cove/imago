@@ -375,10 +375,12 @@ def _chapter_extract_cache_path(
     ch_end: int,
     debug_overlay: bool,
     source_video: str | Path | None = None,
+    audio_offset_seconds: float = 0.0,
 ) -> Path:
     start_i, end_i = _normalize_frame_span(ch_start, ch_end)
     mode = "debug" if bool(debug_overlay) else "clean"
     source_sig = _source_signature_token(source_video)
+    offset_sig = f"{float(audio_offset_seconds or 0.0):+.4f}"
     key_raw = "|".join(
         [
             str(archive or "").strip(),
@@ -387,6 +389,7 @@ def _chapter_extract_cache_path(
             str(int(end_i)),
             str(mode),
             str(source_sig),
+            str(offset_sig),
         ]
     )
     key = hashlib.sha256(key_raw.encode("utf-8")).hexdigest()[:16]
@@ -463,6 +466,7 @@ def _ensure_render_chapter_extract(
     ch_start: int,
     ch_end: int,
     debug_overlay: bool,
+    audio_offset_seconds: float = 0.0,
 ) -> tuple[Path | None, str]:
     _cleanup_tuner_cache()
     start_i, end_i = _normalize_frame_span(ch_start, ch_end)
@@ -474,6 +478,7 @@ def _ensure_render_chapter_extract(
         ch_end=end_i,
         debug_overlay=debug_overlay,
         source_video=source_video,
+        audio_offset_seconds=audio_offset_seconds,
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -493,6 +498,7 @@ def _ensure_render_chapter_extract(
         start_frame=start_i,
         end_frame=end_i,
         debug_frame_numbers=bool(debug_overlay),
+        audio_offset_seconds=audio_offset_seconds,
     )
     try:
         proc = subprocess.run(

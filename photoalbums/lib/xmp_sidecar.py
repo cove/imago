@@ -16,6 +16,7 @@ IMAGO_NS = "https://imago.local/ns/1.0/"
 MWG_RS_NS = "http://www.metadataworkinggroup.com/schemas/regions/"
 ST_AREA_NS = "http://ns.adobe.com/xmp/schemata/area/"
 ST_DIM_NS = "http://ns.adobe.com/xap/1.0/sType/Dimensions#"
+PHOTOSHOP_NS = "http://ns.adobe.com/photoshop/1.0/"
 
 ET.register_namespace("x", X_NS)
 ET.register_namespace("rdf", RDF_NS)
@@ -27,6 +28,7 @@ ET.register_namespace("imago", IMAGO_NS)
 ET.register_namespace("mwg-rs", MWG_RS_NS)
 ET.register_namespace("stArea", ST_AREA_NS)
 ET.register_namespace("stDim", ST_DIM_NS)
+ET.register_namespace("photoshop", PHOTOSHOP_NS)
 
 _RDF_ROOT = f"{{{RDF_NS}}}RDF"
 _RDF_DESC = f"{{{RDF_NS}}}Description"
@@ -34,7 +36,6 @@ _RDF_BAG = f"{{{RDF_NS}}}Bag"
 _RDF_ALT = f"{{{RDF_NS}}}Alt"
 _RDF_SEQ = f"{{{RDF_NS}}}Seq"
 _RDF_LI = f"{{{RDF_NS}}}li"
-
 
 
 def _add_bag(parent: ET.Element, tag: str, values: list[str]) -> None:
@@ -147,7 +148,7 @@ def _add_face_regions(
         nh = bh / image_height
         idx = int(row.get("index", 0))
         name = f"Photo {idx}" if idx > 0 else "Photo"
-        desc = str(row.get("description") or "").strip()
+        desc = str(row.get("author_text") or row.get("description") or "").strip()
         region_entries.append((name, "Photo", desc, cx, cy, nw, nh))
     if not region_entries:
         return
@@ -224,9 +225,24 @@ def _add_iptc_image_regions(
         ET.SubElement(boundary, f"{{{IPTC_EXT_NS}}}rbW").text = f"{rw:.6f}"
         ET.SubElement(boundary, f"{{{IPTC_EXT_NS}}}rbH").text = f"{rh:.6f}"
         ET.SubElement(li, f"{{{IPTC_EXT_NS}}}rId").text = f"photo-{idx}" if idx > 0 else "photo"
-        desc = str(row.get("description") or "").strip()
-        if desc:
-            _add_alt_text(li, f"{{{DC_NS}}}description", desc)
+        author_text = str(row.get("author_text") or row.get("description") or "").strip()
+        scene_text = str(row.get("scene_text") or "").strip()
+        annotation_scope = str(row.get("annotation_scope") or "").strip()
+        if author_text:
+            _add_alt_text(li, f"{{{DC_NS}}}description", author_text)
+        _add_simple_text(li, f"{{{IMAGO_NS}}}OCRText", str(row.get("ocr_text") or "").strip())
+        _add_simple_text(li, f"{{{IMAGO_NS}}}AuthorText", author_text)
+        _add_simple_text(li, f"{{{IMAGO_NS}}}SceneText", scene_text)
+        _add_simple_text(li, f"{{{IMAGO_NS}}}AnnotationScope", annotation_scope)
+        _add_bag(li, f"{{{IMAGO_NS}}}People", _dedupe(list(row.get("people") or [])))
+        _add_bag(li, f"{{{IMAGO_NS}}}Subjects", _dedupe(list(row.get("subjects") or [])))
+        detections = row.get("detections")
+        if isinstance(detections, dict):
+            _add_simple_text(
+                li,
+                f"{{{IMAGO_NS}}}Detections",
+                json.dumps(detections, ensure_ascii=False, sort_keys=True),
+            )
 
 
 def _set_iptc_image_regions(
@@ -242,18 +258,65 @@ def _set_iptc_image_regions(
         _add_iptc_image_regions(parent, subphotos, image_width, image_height)
 
 
+def _add_subphotos(parent: ET.Element, subphotos: list[dict]) -> None:
+    if not subphotos:
+        return
+    field = ET.SubElement(parent, f"{{{IMAGO_NS}}}SubPhotos")
+    seq = ET.SubElement(field, _RDF_SEQ)
+    for row in subphotos:
+        item = ET.SubElement(seq, _RDF_LI)
+        _add_simple_text(item, f"{{{IMAGO_NS}}}Index", int(row.get("index", 0) or 0))
+        bounds = dict(row.get("bounds") or {})
+        _add_simple_text(item, f"{{{IMAGO_NS}}}X", int(bounds.get("x", 0) or 0))
+        _add_simple_text(item, f"{{{IMAGO_NS}}}Y", int(bounds.get("y", 0) or 0))
+        _add_simple_text(item, f"{{{IMAGO_NS}}}Width", int(bounds.get("width", 0) or 0))
+        _add_simple_text(item, f"{{{IMAGO_NS}}}Height", int(bounds.get("height", 0) or 0))
+        author_text = str(row.get("author_text") or row.get("description") or "").strip()
+        scene_text = str(row.get("scene_text") or "").strip()
+        annotation_scope = str(row.get("annotation_scope") or "").strip()
+        _add_alt_text(item, f"{{{IMAGO_NS}}}Description", author_text)
+        _add_simple_text(item, f"{{{IMAGO_NS}}}OCRText", str(row.get("ocr_text") or "").strip())
+        _add_simple_text(item, f"{{{IMAGO_NS}}}AuthorText", author_text)
+        _add_simple_text(item, f"{{{IMAGO_NS}}}SceneText", scene_text)
+        _add_simple_text(item, f"{{{IMAGO_NS}}}AnnotationScope", annotation_scope)
+        _add_bag(item, f"{{{IMAGO_NS}}}People", _dedupe(list(row.get("people") or [])))
+        _add_bag(item, f"{{{IMAGO_NS}}}Subjects", _dedupe(list(row.get("subjects") or [])))
+        detections = row.get("detections")
+        if isinstance(detections, dict):
+            _add_simple_text(
+                item,
+                f"{{{IMAGO_NS}}}Detections",
+                json.dumps(detections, ensure_ascii=False, sort_keys=True),
+            )
+
+
+def _set_subphotos(parent: ET.Element, subphotos: list[dict] | None) -> None:
+    existing = parent.find(f"{{{IMAGO_NS}}}SubPhotos")
+    if existing is not None:
+        parent.remove(existing)
+    if subphotos:
+        _add_subphotos(parent, subphotos)
+
+
 def build_xmp_tree(
     *,
     creator_tool: str,
     person_names: list[str],
     subjects: list[str],
     title: str = "",
+    title_source: str = "",
     description: str,
     album_title: str,
     gps_latitude: str,
     gps_longitude: str,
+    location_city: str = "",
+    location_state: str = "",
+    location_country: str = "",
     source_text: str,
     ocr_text: str,
+    author_text: str = "",
+    scene_text: str = "",
+    annotation_scope: str = "",
     detections_payload: dict | None = None,
     subphotos: list[dict] | None = None,
     stitch_key: str = "",
@@ -288,6 +351,12 @@ def build_xmp_tree(
         )
         _add_simple_text(desc, f"{{{EXIF_NS}}}GPSMapDatum", "WGS-84")
         _add_simple_text(desc, f"{{{EXIF_NS}}}GPSVersionID", "2.3.0.0")
+    if str(location_city or "").strip():
+        _add_simple_text(desc, f"{{{PHOTOSHOP_NS}}}City", str(location_city).strip())
+    if str(location_state or "").strip():
+        _add_simple_text(desc, f"{{{PHOTOSHOP_NS}}}State", str(location_state).strip())
+    if str(location_country or "").strip():
+        _add_simple_text(desc, f"{{{PHOTOSHOP_NS}}}Country", str(location_country).strip())
     _add_simple_text(desc, f"{{{DC_NS}}}source", str(source_text or "").strip())
 
     creator = ET.SubElement(desc, f"{{{XMP_NS}}}CreatorTool")
@@ -297,6 +366,22 @@ def build_xmp_tree(
     if clean_ocr:
         ocr = ET.SubElement(desc, f"{{{IMAGO_NS}}}OCRText")
         ocr.text = clean_ocr
+    clean_author_text = str(author_text or "").strip()
+    if clean_author_text:
+        author = ET.SubElement(desc, f"{{{IMAGO_NS}}}AuthorText")
+        author.text = clean_author_text
+    clean_scene_text = str(scene_text or "").strip()
+    if clean_scene_text:
+        scene = ET.SubElement(desc, f"{{{IMAGO_NS}}}SceneText")
+        scene.text = clean_scene_text
+    clean_annotation_scope = str(annotation_scope or "").strip()
+    if clean_annotation_scope:
+        scope = ET.SubElement(desc, f"{{{IMAGO_NS}}}AnnotationScope")
+        scope.text = clean_annotation_scope
+    clean_title_source = str(title_source or "").strip()
+    if clean_title_source:
+        title_src = ET.SubElement(desc, f"{{{IMAGO_NS}}}TitleSource")
+        title_src.text = clean_title_source
     clean_ocr_authority_source = str(ocr_authority_source or "").strip()
     if clean_ocr_authority_source:
         ocr_source = ET.SubElement(desc, f"{{{IMAGO_NS}}}OCRAuthoritySource")
@@ -313,6 +398,8 @@ def build_xmp_tree(
         subphotos=list(subphotos) if subphotos else None,
     )
     _add_iptc_image_regions(desc, list(subphotos) if subphotos else [], image_width, image_height)
+    if subphotos and (image_width <= 0 or image_height <= 0):
+        _add_subphotos(desc, list(subphotos))
     clean_stitch_key = str(stitch_key or "").strip()
     if clean_stitch_key:
         sk = ET.SubElement(desc, f"{{{IMAGO_NS}}}StitchKey")
@@ -482,6 +569,10 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
         "gps_latitude": str(desc.findtext(f"{{{EXIF_NS}}}GPSLatitude", default="") or "").strip(),
         "gps_longitude": str(desc.findtext(f"{{{EXIF_NS}}}GPSLongitude", default="") or "").strip(),
         "ocr_text": str(desc.findtext(f"{{{IMAGO_NS}}}OCRText", default="") or "").strip(),
+        "author_text": str(desc.findtext(f"{{{IMAGO_NS}}}AuthorText", default="") or "").strip(),
+        "scene_text": str(desc.findtext(f"{{{IMAGO_NS}}}SceneText", default="") or "").strip(),
+        "annotation_scope": str(desc.findtext(f"{{{IMAGO_NS}}}AnnotationScope", default="") or "").strip(),
+        "title_source": str(desc.findtext(f"{{{IMAGO_NS}}}TitleSource", default="") or "").strip(),
         "ocr_authority_source": str(desc.findtext(f"{{{IMAGO_NS}}}OCRAuthoritySource", default="") or "").strip(),
         "stitch_key": str(desc.findtext(f"{{{IMAGO_NS}}}StitchKey", default="") or "").strip(),
         "detections": detections_payload,
@@ -543,19 +634,17 @@ def sidecar_has_expected_ai_fields(
             _looks_like_ocr_reasoning = None
         if _looks_like_ocr_reasoning is not None and _looks_like_ocr_reasoning(ocr_text):
             return False
-    if caption_name != "none":
-        caption = detections.get("caption")
-        ocr = detections.get("ocr")
-        has_signal = False
-        if isinstance(detections.get("people"), list) and detections.get("people"):
-            has_signal = True
-        elif isinstance(detections.get("objects"), list) and detections.get("objects"):
-            has_signal = True
-        elif isinstance(ocr, dict) and int(ocr.get("chars") or 0) > 0:
-            has_signal = True
-        elif isinstance(caption, dict) and str(caption.get("effective_engine") or "").strip() == "page-summary":
-            has_signal = True
-        if has_signal and not description:
+    for field_name in ("author_text", "scene_text"):
+        field_value = str(state.get(field_name) or "").strip()
+        if not field_value:
+            continue
+        try:
+            from .ai_caption import (
+                _looks_like_reasoning_or_prompt_echo,
+            )  # pylint: disable=import-outside-toplevel
+        except Exception:  # pragma: no cover - defensive import fallback
+            _looks_like_reasoning_or_prompt_echo = None
+        if _looks_like_reasoning_or_prompt_echo is not None and _looks_like_reasoning_or_prompt_echo(field_value):
             return False
     return True
 
@@ -567,12 +656,19 @@ def _merge_xmp_tree(
     person_names: list[str],
     subjects: list[str],
     title: str = "",
+    title_source: str = "",
     description: str,
     album_title: str,
     gps_latitude: str,
     gps_longitude: str,
+    location_city: str = "",
+    location_state: str = "",
+    location_country: str = "",
     source_text: str,
     ocr_text: str,
+    author_text: str = "",
+    scene_text: str = "",
+    annotation_scope: str = "",
     detections_payload: dict | None = None,
     subphotos: list[dict] | None = None,
     stitch_key: str = "",
@@ -590,6 +686,9 @@ def _merge_xmp_tree(
     _set_alt_text(desc, f"{{{DC_NS}}}description", description)
     _set_simple_text(desc, f"{{{IMAGO_NS}}}AlbumTitle", str(album_title or "").strip())
     _set_gps_fields(desc, gps_latitude, gps_longitude)
+    _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}City", str(location_city or "").strip())
+    _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}State", str(location_state or "").strip())
+    _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}Country", str(location_country or "").strip())
     _set_simple_text(desc, f"{{{DC_NS}}}source", str(source_text or "").strip())
     _set_simple_text(
         desc,
@@ -598,6 +697,10 @@ def _merge_xmp_tree(
     )
     clean_ocr = str(ocr_text or "").strip()
     _set_simple_text(desc, f"{{{IMAGO_NS}}}OCRText", clean_ocr)
+    _set_simple_text(desc, f"{{{IMAGO_NS}}}AuthorText", str(author_text or "").strip())
+    _set_simple_text(desc, f"{{{IMAGO_NS}}}SceneText", str(scene_text or "").strip())
+    _set_simple_text(desc, f"{{{IMAGO_NS}}}AnnotationScope", str(annotation_scope or "").strip())
+    _set_simple_text(desc, f"{{{IMAGO_NS}}}TitleSource", str(title_source or "").strip())
     _set_simple_text(
         desc,
         f"{{{IMAGO_NS}}}OCRAuthoritySource",
@@ -619,6 +722,7 @@ def _merge_xmp_tree(
         subphotos=list(subphotos) if subphotos else None,
     )
     _set_iptc_image_regions(desc, list(subphotos) if subphotos else None, image_width, image_height)
+    _set_subphotos(desc, list(subphotos) if subphotos and (image_width <= 0 or image_height <= 0) else None)
     _set_simple_text(desc, f"{{{IMAGO_NS}}}StitchKey", str(stitch_key or "").strip())
     _set_simple_text(desc, f"{{{IMAGO_NS}}}OcrRan", str(ocr_ran).lower(), allow_empty=True)
     _set_simple_text(
@@ -644,11 +748,18 @@ def write_xmp_sidecar(
     person_names: list[str],
     subjects: list[str],
     title: str = "",
+    title_source: str = "",
     description: str,
     ocr_text: str,
+    author_text: str = "",
+    scene_text: str = "",
+    annotation_scope: str = "",
     album_title: str = "",
     gps_latitude: str = "",
     gps_longitude: str = "",
+    location_city: str = "",
+    location_state: str = "",
+    location_country: str = "",
     source_text: str = "",
     detections_payload: dict | None = None,
     subphotos: list[dict] | None = None,
@@ -674,12 +785,19 @@ def write_xmp_sidecar(
             person_names=person_names,
             subjects=subjects,
             title=title,
+            title_source=title_source,
             description=description,
             album_title=album_title,
             gps_latitude=gps_latitude,
             gps_longitude=gps_longitude,
+            location_city=location_city,
+            location_state=location_state,
+            location_country=location_country,
             source_text=source_text,
             ocr_text=ocr_text,
+            author_text=author_text,
+            scene_text=scene_text,
+            annotation_scope=annotation_scope,
             detections_payload=detections_payload,
             subphotos=subphotos,
             stitch_key=stitch_key,
@@ -697,12 +815,19 @@ def write_xmp_sidecar(
             person_names=person_names,
             subjects=subjects,
             title=title,
+            title_source=title_source,
             description=description,
             album_title=album_title,
             gps_latitude=gps_latitude,
             gps_longitude=gps_longitude,
+            location_city=location_city,
+            location_state=location_state,
+            location_country=location_country,
             source_text=source_text,
             ocr_text=ocr_text,
+            author_text=author_text,
+            scene_text=scene_text,
+            annotation_scope=annotation_scope,
             detections_payload=detections_payload,
             subphotos=subphotos,
             stitch_key=stitch_key,

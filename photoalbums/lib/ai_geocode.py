@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import time
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -19,6 +20,42 @@ def _clean_query(value: str) -> str:
     return " ".join(str(value or "").split())
 
 
+def _ascii_fold(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", str(value or ""))
+    return normalized.encode("ascii", "ignore").decode("ascii")
+
+
+def _clean_display_part(value: str) -> str:
+    return _clean_query(_ascii_fold(value).strip(" ,;"))
+
+
+def _normalize_display_name(
+    *,
+    query: str,
+    display_name: str,
+    city: str = "",
+    state: str = "",
+    country: str = "",
+) -> str:
+    clean_display = _clean_query(display_name)
+    if clean_display and all(ord(ch) <= 127 for ch in clean_display):
+        return clean_display
+    parts: list[str] = []
+    seen: set[str] = set()
+    for raw in (query, city, state, country):
+        part = _clean_display_part(raw)
+        if not part:
+            continue
+        key = part.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        parts.append(part)
+    if parts:
+        return ", ".join(parts)
+    return _clean_display_part(display_name) or clean_display
+
+
 def normalize_geocoder_base_url(value: str) -> str:
     text = str(value or "").strip() or DEFAULT_GEOCODER_BASE_URL
     return text.rstrip("/")
@@ -31,6 +68,9 @@ class GeocodeResult:
     longitude: str
     display_name: str
     source: str = "nominatim"
+    city: str = ""
+    state: str = ""
+    country: str = ""
 
 
 class NominatimGeocoder:
@@ -91,6 +131,9 @@ class NominatimGeocoder:
             "longitude": result.longitude,
             "display_name": result.display_name,
             "source": result.source,
+            "city": result.city,
+            "state": result.state,
+            "country": result.country,
             "status": "ok",
         }
         self._save_cache()
@@ -116,8 +159,17 @@ class NominatimGeocoder:
             query=str(row.get("query") or _clean_query(query)),
             latitude=latitude,
             longitude=longitude,
-            display_name=str(row.get("display_name") or "").strip(),
+            display_name=_normalize_display_name(
+                query=str(row.get("query") or _clean_query(query)),
+                display_name=str(row.get("display_name") or "").strip(),
+                city=str(row.get("city") or "").strip(),
+                state=str(row.get("state") or "").strip(),
+                country=str(row.get("country") or "").strip(),
+            ),
             source=str(row.get("source") or "nominatim"),
+            city=str(row.get("city") or "").strip(),
+            state=str(row.get("state") or "").strip(),
+            country=str(row.get("country") or "").strip(),
         )
 
     def geocode(self, query: str) -> GeocodeResult | None:
@@ -135,6 +187,8 @@ class NominatimGeocoder:
                 "q": clean_query,
                 "format": "jsonv2",
                 "limit": "1",
+                "addressdetails": "1",
+                "accept-language": "en",
             }
         )
         self._throttle()
@@ -167,11 +221,28 @@ class NominatimGeocoder:
         if not latitude or not longitude:
             self._cache_miss(clean_query)
             return None
+        address = top.get("address") or {}
+        city = str(
+            address.get("city")
+            or address.get("town")
+            or address.get("village")
+            or address.get("municipality")
+            or ""
+        ).strip()
         result = GeocodeResult(
             query=clean_query,
             latitude=latitude,
             longitude=longitude,
-            display_name=str(top.get("display_name") or "").strip(),
+            display_name=_normalize_display_name(
+                query=clean_query,
+                display_name=str(top.get("display_name") or "").strip(),
+                city=city,
+                state=str(address.get("state") or "").strip(),
+                country=str(address.get("country") or "").strip(),
+            ),
+            city=city,
+            state=str(address.get("state") or "").strip(),
+            country=str(address.get("country") or "").strip(),
         )
         self._cache_result(result)
         return result

@@ -1,11 +1,10 @@
 {
   "eval_date": "2026-03-21",
-  "what_is_tested": "Descriptive fallback when location cannot be identified — location_name must be empty",
+  "what_is_tested": "Empty description when no famous landmark is visible — location_name must be empty",
   "photo": "Family_1907-1946_B01_View/Family_1907-1946_B01_P05_D01_02.jpg",
-  "notes": "A 1907-1946 era photo of three children sitting in shallow beach water wearing matching red swimsuits and straw hats. No OCR text, no visible landmark, no identifiable beach. Tests that the model produces a good descriptive caption of what it sees and returns an empty location_name rather than a vague generic query like 'a beach' that will cause Nominatim to geocode to a wrong location.",
+  "notes": "A 1907-1946 era photo of three children sitting in shallow beach water wearing matching red swimsuits and straw hats. No OCR text, no visible famous landmark or artwork. Tests that the model returns an empty dc:description (no famous named subject) and an empty location_name.",
   "pass_criteria": [
-    "dc:description caption describes the people, setting, clothing, and activity clearly",
-    "caption does not fabricate or guess a specific location",
+    "dc:description is empty string — no famous landmark or artwork visible",
     "location query (imago:Detections location.query) is empty string — 'a beach' or similar generic is a FAIL",
     "no GPS coordinates written to XMP (since none are visible in the image)"
   ],

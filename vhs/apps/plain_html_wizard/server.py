@@ -187,9 +187,7 @@ class SessionState:
     _video_cap: Any = field(default=None, repr=False, compare=False)
     _video_cap_path: str = field(default="", repr=False, compare=False)
     _video_cap_last_fid: int = field(default=-1, repr=False, compare=False)
-    _video_cap_lock: Any = field(
-        default_factory=threading.Lock, repr=False, compare=False
-    )
+    _video_cap_lock: Any = field(default_factory=threading.Lock, repr=False, compare=False)
 
 
 def _close_session_video_cap(session: "SessionState") -> None:
@@ -274,15 +272,21 @@ def _set_named_progress(
     )
 
 
-def _set_load_progress(session: SessionState, *, running=None, progress=None, message=None, sample_done=None, sample_total=None) -> None:
+def _set_load_progress(
+    session: SessionState, *, running=None, progress=None, message=None, sample_done=None, sample_total=None
+) -> None:
     _set_named_progress(session, "load", running, progress, message, sample_done, sample_total)
 
 
-def _set_preview_progress(session: SessionState, *, running=None, progress=None, message=None, frame_done=None, frame_total=None) -> None:
+def _set_preview_progress(
+    session: SessionState, *, running=None, progress=None, message=None, frame_done=None, frame_total=None
+) -> None:
     _set_named_progress(session, "preview", running, progress, message, frame_done, frame_total)
 
 
-def _set_subtitles_progress(session: SessionState, *, running=None, progress=None, message=None, segment_done=None, segment_total=None) -> None:
+def _set_subtitles_progress(
+    session: SessionState, *, running=None, progress=None, message=None, segment_done=None, segment_total=None
+) -> None:
     _set_named_progress(session, "subtitles", running, progress, message, segment_done, segment_total)
 
 
@@ -358,19 +362,13 @@ def _normalize_gamma_ranges_payload(
                 winner_gamma = float(g)
         if winner_gamma is None:
             continue
-        if (
-            out
-            and out[-1][1] == seg_a
-            and abs(float(out[-1][2]) - float(winner_gamma)) < 1e-6
-        ):
+        if out and out[-1][1] == seg_a and abs(float(out[-1][2]) - float(winner_gamma)) < 1e-6:
             prev_a, _prev_b, prev_g = out[-1]
             out[-1] = (prev_a, seg_b, prev_g)
         else:
             out.append((seg_a, seg_b, float(winner_gamma)))
     return [
-        {"start_frame": int(a), "end_frame": int(b), "gamma": round(float(g), 4)}
-        for a, b, g in out
-        if int(b) > int(a)
+        {"start_frame": int(a), "end_frame": int(b), "gamma": round(float(g), 4)} for a, b, g in out if int(b) > int(a)
     ]
 
 
@@ -463,10 +461,7 @@ def _normalize_people_entries_payload(
         end_s = round(float(end), 3)
         if out:
             prev = out[-1]
-            if (
-                str(prev["people"]) == people
-                and float(prev["end_seconds"]) + 0.001 >= start_s
-            ):
+            if str(prev["people"]) == people and float(prev["end_seconds"]) + 0.001 >= start_s:
                 prev["end_seconds"] = max(float(prev["end_seconds"]), end_s)
                 prev["end"] = _seconds_to_timestamp(float(prev["end_seconds"]))
                 continue
@@ -552,9 +547,7 @@ def _normalize_subtitle_entries_payload(
         speaker = _normalize_subtitle_optional_text(speaker_raw)
         confidence = _parse_subtitle_confidence(confidence_raw)
         source = _normalize_subtitle_optional_text(source_raw)
-        rows.append(
-            (float(start), float(end), text, speaker, confidence, source, int(idx))
-        )
+        rows.append((float(start), float(end), text, speaker, confidence, source, int(idx)))
 
     if not rows:
         return []
@@ -692,9 +685,7 @@ def _normalize_split_entries_payload(
     return out
 
 
-def _default_split_entries_for_chapter(
-    chapter_title: str, chapter_frame_count: int
-) -> list[dict[str, Any]]:
+def _default_split_entries_for_chapter(chapter_title: str, chapter_frame_count: int) -> list[dict[str, Any]]:
     frame_count = max(1, int(chapter_frame_count))
     title = _normalize_subtitle_optional_text(chapter_title) or "Chapter 1"
     return [
@@ -737,9 +728,7 @@ def _read_chapters_tsv_rows(path: Path) -> tuple[list[str], list[dict[str, str]]
     return header, rows
 
 
-def _write_chapters_tsv_rows(
-    path: Path, columns: list[str], rows: list[dict[str, Any]]
-) -> None:
+def _write_chapters_tsv_rows(path: Path, columns: list[str], rows: list[dict[str, Any]]) -> None:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     header: list[str] = []
@@ -784,14 +773,10 @@ def _chapter_row_bounds(row: dict[str, Any]) -> tuple[int | None, int | None]:
 
 
 def _chapter_row_title(row: dict[str, Any]) -> str:
-    return _normalize_subtitle_optional_text(
-        _row_ci_get(row, "title", "split_title", "chapter_title", "chaptertitle")
-    )
+    return _normalize_subtitle_optional_text(_row_ci_get(row, "title", "split_title", "chapter_title", "chaptertitle"))
 
 
-def _chapter_row_matches(
-    row: dict[str, Any], chapter_title: str, chapter_start: int
-) -> bool:
+def _chapter_row_matches(row: dict[str, Any], chapter_title: str, chapter_start: int) -> bool:
     """True when a TSV row represents the given chapter (matched by title + start_frame).
 
     Chapters are flat, independent ranges in the archive — there is no parent-child
@@ -801,9 +786,7 @@ def _chapter_row_matches(
     row_start, _row_end = _chapter_row_bounds(row)
     row_title = _chapter_row_title(row)
     return (
-        row_start is not None
-        and int(row_start) == int(chapter_start)
-        and row_title == str(chapter_title or "").strip()
+        row_start is not None and int(row_start) == int(chapter_start) and row_title == str(chapter_title or "").strip()
     )
 
 
@@ -825,9 +808,7 @@ def _chapter_order_keys_for_row(header: list[str]) -> list[str]:
     return out
 
 
-def _canonical_chapters_base(
-    path: Path, archive_name: str
-) -> tuple[list[str], list[dict[str, str]]]:
+def _canonical_chapters_base(path: Path, archive_name: str) -> tuple[list[str], list[dict[str, str]]]:
     header, rows = _read_chapters_tsv_rows(path)
     if rows:
         return header, rows
@@ -908,22 +889,14 @@ def _chapters_ffmetadata_context(
             continue
         for key in list(ch.keys()):
             col = str(key or "").strip().lower()
-            if (
-                not col
-                or col in CHAPTER_FFMETADATA_COMPUTED_KEYS
-                or col in seen_chapter
-            ):
+            if not col or col in CHAPTER_FFMETADATA_COMPUTED_KEYS or col in seen_chapter:
                 continue
             seen_chapter.add(col)
             chapter_fields.append(col)
 
     chapter_key = str(chapter_title or "").strip()
     parent = next(
-        (
-            ch
-            for ch in list(chapters or [])
-            if str((ch or {}).get("title", "")).strip() == chapter_key
-        ),
+        (ch for ch in list(chapters or []) if str((ch or {}).get("title", "")).strip() == chapter_key),
         None,
     )
     return ffmetadata, chapter_fields, global_fields, parent
@@ -1030,9 +1003,7 @@ def _save_split_entries_for_chapter(
     )
     existing_header, existing_rows = _canonical_chapters_base(path, archive_name)
 
-    ffmetadata, chapter_fields, global_fields, ffmeta_chapter = (
-        _chapters_ffmetadata_context(archive_name, chapter_key)
-    )
+    ffmetadata, chapter_fields, global_fields, ffmeta_chapter = _chapters_ffmetadata_context(archive_name, chapter_key)
 
     # Build the list of (global_start, global_end, title) entries to upsert.
     # Each is an independent chapter range — no parent-child relationship.
@@ -1045,19 +1016,14 @@ def _save_split_entries_for_chapter(
                 continue
             global_start = chapter_start + local_start
             global_end = chapter_start + local_end
-            title = (
-                _normalize_subtitle_optional_text(item.get("title"))
-                or chapter_key
-                or f"Chapter {idx + 1}"
-            )
+            title = _normalize_subtitle_optional_text(item.get("title")) or chapter_key or f"Chapter {idx + 1}"
             entries_to_save.append((global_start, global_end, title))
     if not entries_to_save:
         entries_to_save.append((chapter_start, chapter_end, chapter_key))
 
     # Map (title, start_frame) → (global_start, global_end, title) for the entries we're saving.
     entries_key_map: dict[tuple[str, int], tuple[int, int, str]] = {
-        (title, global_start): (global_start, global_end, title)
-        for global_start, global_end, title in entries_to_save
+        (title, global_start): (global_start, global_end, title) for global_start, global_end, title in entries_to_save
     }
 
     # Build a template row for constructing new rows that don't yet exist in the TSV.
@@ -1080,16 +1046,10 @@ def _save_split_entries_for_chapter(
                 elif key == "title":
                     chapter_defaults[key] = chapter_key
                 else:
-                    chapter_defaults[key] = str(
-                        ffmeta_chapter.get(key, "") or ""
-                    ).strip()
-        chapter_order = [
-            key for key in chapter_fields if key not in CHAPTER_FFMETADATA_COMPUTED_KEYS
-        ]
+                    chapter_defaults[key] = str(ffmeta_chapter.get(key, "") or "").strip()
+        chapter_order = [key for key in chapter_fields if key not in CHAPTER_FFMETADATA_COMPUTED_KEYS]
         for key in global_fields:
-            template_row[f"{TSV_FFMETA_PREFIX}{key}"] = str(
-                ffmetadata.get(key, "") or ""
-            ).strip()
+            template_row[f"{TSV_FFMETA_PREFIX}{key}"] = str(ffmetadata.get(key, "") or "").strip()
         for key in chapter_order:
             template_row[key] = str(chapter_defaults.get(key, "") or "")
         if "title" not in {str(k).strip().lower() for k in chapter_order}:
@@ -1118,23 +1078,15 @@ def _save_split_entries_for_chapter(
             if row_key not in placed:
                 new_start, new_end, new_title = entries_key_map[row_key]
                 merged_rows.append(
-                    _build_chapter_row_from_template(
-                        row, existing_header, new_start, new_end, new_title
-                    )
+                    _build_chapter_row_from_template(row, existing_header, new_start, new_end, new_title)
                 )
                 placed.add((new_title, new_start))
             # else: duplicate row for the same entry — drop it.
-        elif (
-            single_entry_update
-            and row_key == loaded_chapter_key
-            and single_entry is not None
-        ):
+        elif single_entry_update and row_key == loaded_chapter_key and single_entry is not None:
             if not replaced_loaded_chapter:
                 new_start, new_end, new_title = single_entry
                 merged_rows.append(
-                    _build_chapter_row_from_template(
-                        row, existing_header, new_start, new_end, new_title
-                    )
+                    _build_chapter_row_from_template(row, existing_header, new_start, new_end, new_title)
                 )
                 placed.add((new_title, new_start))
                 replaced_loaded_chapter = True
@@ -1146,9 +1098,7 @@ def _save_split_entries_for_chapter(
     for global_start, global_end, title in entries_to_save:
         if (title, global_start) not in placed:
             merged_rows.append(
-                _build_chapter_row_from_template(
-                    template_row, existing_header, global_start, global_end, title
-                )
+                _build_chapter_row_from_template(template_row, existing_header, global_start, global_end, title)
             )
 
     merged_rows = _reindex_canonical_chapter_rows(merged_rows)
@@ -1222,9 +1172,7 @@ def _read_people_tsv_rows(path: Path) -> list[tuple[float, float, str]]:
         if not line or line.startswith("#"):
             continue
         lower = line.lower()
-        if lower.startswith("start_frame\t") or lower.startswith(
-            "start_frame,end_frame"
-        ):
+        if lower.startswith("start_frame\t") or lower.startswith("start_frame,end_frame"):
             continue
         if lower.startswith("start\t") or lower.startswith("start,end"):
             continue
@@ -1280,9 +1228,7 @@ def _write_people_tsv_rows(path: Path, rows: list[tuple[float, float, str]]) -> 
     p.parent.mkdir(parents=True, exist_ok=True)
     lines = [PEOPLE_TSV_HEADER]
     for start, end, people in list(rows or []):
-        lines.append(
-            f"{_seconds_to_timestamp(float(start))}\t{_seconds_to_timestamp(float(end))}\t{str(people)}"
-        )
+        lines.append(f"{_seconds_to_timestamp(float(start))}\t{_seconds_to_timestamp(float(end))}\t{str(people)}")
     p.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -1298,9 +1244,7 @@ def _read_subtitles_tsv_rows(
         if not line or line.startswith("#"):
             continue
         lower = line.lower()
-        if lower.startswith("start_frame\t") or lower.startswith(
-            "start_frame,end_frame"
-        ):
+        if lower.startswith("start_frame\t") or lower.startswith("start_frame,end_frame"):
             continue
         if lower.startswith("start\t") or lower.startswith("start,end"):
             continue
@@ -1378,9 +1322,7 @@ def _write_subtitles_tsv_rows(
     p.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def _load_people_entries_for_chapter(
-    archive: str, ch_start: int, ch_end: int
-) -> list[dict[str, Any]]:
+def _load_people_entries_for_chapter(archive: str, ch_start: int, ch_end: int) -> list[dict[str, Any]]:
     archive_name = str(archive or "").strip()
     if not archive_name:
         return []
@@ -1408,9 +1350,7 @@ def _load_people_entries_for_chapter(
         )
     return _normalize_people_entries_payload(
         local_entries,
-        chapter_duration_seconds=max(
-            0.0, float(chapter_end_sec) - float(chapter_start_sec)
-        ),
+        chapter_duration_seconds=max(0.0, float(chapter_end_sec) - float(chapter_start_sec)),
     )
 
 
@@ -1426,21 +1366,15 @@ def _save_people_entries_for_chapter(
     chapter_end = int(ch_end)
     chapter_start_sec = _frame_to_seconds(chapter_start)
     chapter_end_sec = _frame_to_seconds(chapter_end)
-    chapter_len_sec = max(
-        _frame_to_seconds(1), float(chapter_end_sec) - float(chapter_start_sec)
-    )
+    chapter_len_sec = max(_frame_to_seconds(1), float(chapter_end_sec) - float(chapter_start_sec))
     if chapter_end <= chapter_start:
-        _write_people_tsv_rows(
-            path, _canonicalize_people_tsv_rows(_read_people_tsv_rows(path))
-        )
+        _write_people_tsv_rows(path, _canonicalize_people_tsv_rows(_read_people_tsv_rows(path)))
         return path, 0
 
     existing = _read_people_tsv_rows(path)
     kept: list[tuple[float, float, str]] = []
     for start, end, people in existing:
-        if float(end) <= float(chapter_start_sec) or float(start) >= float(
-            chapter_end_sec
-        ):
+        if float(end) <= float(chapter_start_sec) or float(start) >= float(chapter_end_sec):
             kept.append((float(start), float(end), str(people)))
             continue
         if float(start) < float(chapter_start_sec):
@@ -1454,9 +1388,7 @@ def _save_people_entries_for_chapter(
     )
     chapter_rows: list[tuple[float, float, str]] = []
     for item in normalized_local:
-        start_local = _parse_timestamp_seconds(
-            item.get("start_seconds", item.get("start"))
-        )
+        start_local = _parse_timestamp_seconds(item.get("start_seconds", item.get("start")))
         end_local = _parse_timestamp_seconds(item.get("end_seconds", item.get("end")))
         if start_local is None or end_local is None or end_local <= start_local:
             continue
@@ -1468,9 +1400,7 @@ def _save_people_entries_for_chapter(
         if local_end_sec <= local_start_sec:
             if local_start_sec >= float(chapter_len_sec):
                 continue
-            local_end_sec = min(
-                float(chapter_len_sec), float(local_start_sec) + _frame_to_seconds(1)
-            )
+            local_end_sec = min(float(chapter_len_sec), float(local_start_sec) + _frame_to_seconds(1))
         global_start_sec = float(chapter_start_sec) + float(local_start_sec)
         global_end_sec = float(chapter_start_sec) + float(local_end_sec)
         chapter_rows.append(
@@ -1486,9 +1416,7 @@ def _save_people_entries_for_chapter(
     return path, len(chapter_rows)
 
 
-def _load_subtitle_entries_for_chapter(
-    archive: str, ch_start: int, ch_end: int
-) -> list[dict[str, Any]]:
+def _load_subtitle_entries_for_chapter(archive: str, ch_start: int, ch_end: int) -> list[dict[str, Any]]:
     archive_name = str(archive or "").strip()
     if not archive_name:
         return []
@@ -1519,9 +1447,7 @@ def _load_subtitle_entries_for_chapter(
         )
     return _normalize_subtitle_entries_payload(
         local_entries,
-        chapter_duration_seconds=max(
-            0.0, float(chapter_end_sec) - float(chapter_start_sec)
-        ),
+        chapter_duration_seconds=max(0.0, float(chapter_end_sec) - float(chapter_start_sec)),
     )
 
 
@@ -1537,21 +1463,15 @@ def _save_subtitle_entries_for_chapter(
     chapter_end = int(ch_end)
     chapter_start_sec = _frame_to_seconds(chapter_start)
     chapter_end_sec = _frame_to_seconds(chapter_end)
-    chapter_len_sec = max(
-        _frame_to_seconds(1), float(chapter_end_sec) - float(chapter_start_sec)
-    )
+    chapter_len_sec = max(_frame_to_seconds(1), float(chapter_end_sec) - float(chapter_start_sec))
     if chapter_end <= chapter_start:
-        _write_subtitles_tsv_rows(
-            path, _canonicalize_subtitles_tsv_rows(_read_subtitles_tsv_rows(path))
-        )
+        _write_subtitles_tsv_rows(path, _canonicalize_subtitles_tsv_rows(_read_subtitles_tsv_rows(path)))
         return path, 0
 
     existing = _read_subtitles_tsv_rows(path)
     kept: list[tuple[float, float, str, str, float | None, str]] = []
     for start, end, text, speaker, confidence, source in existing:
-        if float(end) <= float(chapter_start_sec) or float(start) >= float(
-            chapter_end_sec
-        ):
+        if float(end) <= float(chapter_start_sec) or float(start) >= float(chapter_end_sec):
             kept.append(
                 (
                     float(start),
@@ -1592,9 +1512,7 @@ def _save_subtitle_entries_for_chapter(
     )
     chapter_rows: list[tuple[float, float, str, str, float | None, str]] = []
     for item in normalized_local:
-        start_local = _parse_timestamp_seconds(
-            item.get("start_seconds", item.get("start"))
-        )
+        start_local = _parse_timestamp_seconds(item.get("start_seconds", item.get("start")))
         end_local = _parse_timestamp_seconds(item.get("end_seconds", item.get("end")))
         if start_local is None or end_local is None or end_local <= start_local:
             continue
@@ -1606,9 +1524,7 @@ def _save_subtitle_entries_for_chapter(
         if local_end_sec <= local_start_sec:
             if local_start_sec >= float(chapter_len_sec):
                 continue
-            local_end_sec = min(
-                float(chapter_len_sec), float(local_start_sec) + _frame_to_seconds(1)
-            )
+            local_end_sec = min(float(chapter_len_sec), float(local_start_sec) + _frame_to_seconds(1))
         global_start_sec = float(chapter_start_sec) + float(local_start_sec)
         global_end_sec = float(chapter_start_sec) + float(local_end_sec)
         chapter_rows.append(
@@ -1627,9 +1543,7 @@ def _save_subtitle_entries_for_chapter(
     return path, len(chapter_rows)
 
 
-def _apply_profiles_from_payload(
-    session: SessionState, payload: dict[str, Any] | None
-) -> None:
+def _apply_profiles_from_payload(session: SessionState, payload: dict[str, Any] | None) -> None:
     payload = payload or {}
     if "force_all_frames_good" in payload:
         session.force_all_frames_good = _normalize_payload_bool(
@@ -1654,9 +1568,7 @@ def _apply_profiles_from_payload(
     raw_audio_sync = payload.get("audio_sync_profile")
     if isinstance(raw_audio_sync, dict):
         try:
-            session.audio_sync_offset = float(
-                raw_audio_sync.get("offset_seconds", session.audio_sync_offset)
-            )
+            session.audio_sync_offset = float(raw_audio_sync.get("offset_seconds", session.audio_sync_offset))
         except Exception:
             pass
 
@@ -1787,9 +1699,7 @@ def _details_text(chapter_row: dict[str, Any] | None) -> str:
     )
 
 
-def _chapter_rows_payload(
-    chapters: list[dict[str, Any]], chapter_rows: list[list[Any]]
-) -> list[dict[str, Any]]:
+def _chapter_rows_payload(chapters: list[dict[str, Any]], chapter_rows: list[list[Any]]) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for i, row in enumerate(chapter_rows):
         ch = chapters[i] if i < len(chapters) else {}
@@ -1808,17 +1718,13 @@ def _chapter_rows_payload(
     return out
 
 
-def _archive_state(
-    session: SessionState, archive: str, selected_title: str | None = None
-) -> dict[str, Any]:
+def _archive_state(session: SessionState, archive: str, selected_title: str | None = None) -> dict[str, Any]:
     data = build_archive_state(str(archive or ""), selected_title=selected_title)
     session.archive = str(archive or "")
     session.chapter = str(data["chapter_value"])
     session.chapters = list(data["chapters"])
     session.chapter_rows = list(data["chapter_rows"])
-    session.start_frame = int(
-        data["start_frame"] if data["start_frame"] is not None else 0
-    )
+    session.start_frame = int(data["start_frame"] if data["start_frame"] is not None else 0)
     session.end_frame = int(data["end_frame"] if data["end_frame"] is not None else 1)
 
     rows = _chapter_rows_payload(session.chapters, session.chapter_rows)
@@ -1834,9 +1740,7 @@ def _archive_state(
     }
 
 
-def _frame_status(
-    session: SessionState, fid: int, score: float, thr: float
-) -> tuple[str, str]:
+def _frame_status(session: SessionState, fid: int, score: float, thr: float) -> tuple[str, str]:
     if bool(session.force_all_frames_good):
         return "good", "FG"
     ov = session.overrides.get(int(fid))
@@ -1862,10 +1766,7 @@ def _frame_contact_sheet_url(
     cache_key: str = "",
 ) -> str:
     suffix = f"&rev={cache_key}" if str(cache_key or "").strip() else ""
-    return (
-        f"/api/frame_contact_sheet?start={int(start_index)}"
-        f"&count={int(count)}&columns={int(columns)}{suffix}"
-    )
+    return f"/api/frame_contact_sheet?start={int(start_index)}&count={int(count)}&columns={int(columns)}{suffix}"
 
 
 def _lookup_frame_image_data_url(session: SessionState, fid: int) -> str:
@@ -1879,9 +1780,7 @@ def _lookup_frame_image_data_url(session: SessionState, fid: int) -> str:
             return str(images[idx] or "")
         return ""
 
-    return _lookup(session.fids, session.b64) or _lookup(
-        session.partial_fids, session.partial_b64
-    )
+    return _lookup(session.fids, session.b64) or _lookup(session.partial_fids, session.partial_b64)
 
 
 def _decode_frame_image_data_url(data_url: str) -> tuple[str, bytes] | None:
@@ -1924,9 +1823,7 @@ def _chapter_frame_count(session: SessionState) -> int:
     return max(0, int(session.end_frame) - int(session.start_frame))
 
 
-def _contact_sheet_frame_ids(
-    session: SessionState, *, start_index: int, count: int
-) -> list[int]:
+def _contact_sheet_frame_ids(session: SessionState, *, start_index: int, count: int) -> list[int]:
     total = _chapter_frame_count(session)
     if total <= 0:
         return []
@@ -2005,11 +1902,7 @@ def _load_contact_sheet_images_from_video(
     video_path_str = str(video_path)
     with session._video_cap_lock:
         # Reuse the session's VideoCapture if it's already open for this video.
-        if (
-            session._video_cap is None
-            or session._video_cap_path != video_path_str
-            or not session._video_cap.isOpened()
-        ):
+        if session._video_cap is None or session._video_cap_path != video_path_str or not session._video_cap.isOpened():
             if session._video_cap is not None:
                 session._video_cap.release()
             session._video_cap = cv2.VideoCapture(video_path_str)
@@ -2037,9 +1930,7 @@ def _load_contact_sheet_images_from_video(
             # Return PIL Image directly — avoids JPEG encode/decode roundtrip in the contact sheet path
             h, w = read_bgr.shape[:2]
             thumb_h = int(160 * h / max(w, 1))
-            thumb_bgr = cv2.resize(
-                read_bgr, (160, thumb_h), interpolation=cv2.INTER_AREA
-            )
+            thumb_bgr = cv2.resize(read_bgr, (160, thumb_h), interpolation=cv2.INTER_AREA)
             out[int(fid)] = Image.fromarray(cv2.cvtColor(thumb_bgr, cv2.COLOR_BGR2RGB))
         session._video_cap_last_fid = prev_read_fid
     return out
@@ -2093,9 +1984,7 @@ def _fit_thumb_to_contact_tile(data_url: str) -> Image.Image:
     _content_type, payload = decoded
     try:
         with Image.open(io.BytesIO(payload)) as img:
-            src = (
-                img.copy()
-            )  # JPEG thumbnails from our encoder are always RGB — no convert needed
+            src = img.copy()  # JPEG thumbnails from our encoder are always RGB — no convert needed
     except Exception:
         return Image.new("RGB", (tw, th), (0, 0, 0))
     if src.size == (tw, th):
@@ -2158,10 +2047,7 @@ def _cached_contact_sheet_bytes(
     columns: int,
 ) -> tuple[tuple[str, bytes] | None, bool]:
     """Returns (result, all_loaded). all_loaded=True means the sheet is complete and safe to cache."""
-    cache_key = (
-        f"{_frame_image_cache_key(session)}|"
-        f"{int(start_index)}|{int(count)}|{int(columns)}"
-    )
+    cache_key = f"{_frame_image_cache_key(session)}|{int(start_index)}|{int(count)}|{int(columns)}"
     with _FRAME_CONTACT_SHEET_CACHE_LOCK:
         cached = _FRAME_CONTACT_SHEET_CACHE.get(cache_key)
         if cached is not None:
@@ -2215,14 +2101,8 @@ def _build_review_payload(
             "frames": [],
         }
 
-    scores = combined_score(
-        session.sigs, session.wc, session.wn, session.wt, session.ww
-    )
-    thr = float(
-        compute_threshold(
-            scores, session.t_mode, session.iqr_k, session.tval, session.bpct
-        )
-    )
+    scores = combined_score(session.sigs, session.wc, session.wn, session.wt, session.ww)
+    thr = float(compute_threshold(scores, session.t_mode, session.iqr_k, session.tval, session.bpct))
     session.threshold = thr
 
     frames: list[dict[str, Any]] = []
@@ -2240,11 +2120,7 @@ def _build_review_payload(
             "label": f"G:{int(fid)}  L:{max(0, int(fid) - int(session.start_frame))}  s={score:.2f}  {source}",
         }
         if include_images:
-            frame_item["image"] = (
-                image_url_builder(int(fid))
-                if callable(image_url_builder)
-                else session.b64[i]
-            )
+            frame_item["image"] = image_url_builder(int(fid)) if callable(image_url_builder) else session.b64[i]
         frames.append(frame_item)
 
     total = len(session.fids)
@@ -2303,22 +2179,14 @@ def _build_partial_review_payload(
     tmp.iqr_k = float(session.iqr_k)
     tmp.tval = float(session.tval)
     tmp.bpct = float(session.bpct)
-    return _build_review_payload(
-        tmp, include_images=include_images, image_url_builder=image_url_builder
-    )
+    return _build_review_payload(tmp, include_images=include_images, image_url_builder=image_url_builder)
 
 
 def _selected_bad_frame_ids(session: SessionState) -> list[int]:
     if not session.fids or not session.sigs:
         return []
-    scores = combined_score(
-        session.sigs, session.wc, session.wn, session.wt, session.ww
-    )
-    thr = float(
-        compute_threshold(
-            scores, session.t_mode, session.iqr_k, session.tval, session.bpct
-        )
-    )
+    scores = combined_score(session.sigs, session.wc, session.wn, session.wt, session.ww)
+    thr = float(compute_threshold(scores, session.t_mode, session.iqr_k, session.tval, session.bpct))
     out: list[int] = []
     for fid, score in zip(session.fids, scores):
         status, _src = _frame_status(session, int(fid), float(score), thr)
@@ -2351,8 +2219,7 @@ def _summary_payload(session: SessionState) -> dict[str, Any]:
         session.people_entries,
         chapter_duration_seconds=max(
             0.0,
-            _frame_to_seconds(session.end_frame)
-            - _frame_to_seconds(session.start_frame),
+            _frame_to_seconds(session.end_frame) - _frame_to_seconds(session.start_frame),
         ),
     )
     people_lines = []
@@ -2368,8 +2235,7 @@ def _summary_payload(session: SessionState) -> dict[str, Any]:
         session.subtitle_entries,
         chapter_duration_seconds=max(
             0.0,
-            _frame_to_seconds(session.end_frame)
-            - _frame_to_seconds(session.start_frame),
+            _frame_to_seconds(session.end_frame) - _frame_to_seconds(session.start_frame),
         ),
     )
     subtitle_lines = []
@@ -2385,9 +2251,7 @@ def _summary_payload(session: SessionState) -> dict[str, Any]:
             if str(item.get("source", "")).strip():
                 extras.append(f"source={item['source']}")
             suffix = f" ({', '.join(extras)})" if extras else ""
-            subtitle_lines.append(
-                f"- {item['start']} - {item['end']}: {item['text']}{suffix}"
-            )
+            subtitle_lines.append(f"- {item['start']} - {item['end']}: {item['text']}{suffix}")
         if len(subtitle_entries) > 25:
             subtitle_lines.append(f"- +{len(subtitle_entries) - 25} more")
     else:
@@ -2455,24 +2319,16 @@ def _subtitle_prompt_from_people_entries(people_entries: list[dict[str, Any]]) -
             break
     if not names:
         return ""
-    return (
-        "Transcribe in English. Use these exact spellings when heard: "
-        + ", ".join(names)
-        + "."
-    )
+    return "Transcribe in English. Use these exact spellings when heard: " + ", ".join(names) + "."
 
 
 def _load_whisper_model() -> Any:
     global _WHISPER_MODEL
     if whisper is None:
-        raise RuntimeError(
-            "Whisper is unavailable. Install whisper to generate subtitles."
-        )
+        raise RuntimeError("Whisper is unavailable. Install whisper to generate subtitles.")
     with _WHISPER_MODEL_LOCK:
         if _WHISPER_MODEL is None:
-            _WHISPER_MODEL = whisper.load_model(
-                WHISPER_MODEL_NAME, download_root=str(WHISPER_MODEL_DIR)
-            )
+            _WHISPER_MODEL = whisper.load_model(WHISPER_MODEL_NAME, download_root=str(WHISPER_MODEL_DIR))
         return _WHISPER_MODEL
 
 
@@ -2494,9 +2350,7 @@ class WizardHandler(BaseHTTPRequestHandler):
         import sys
 
         exc = sys.exc_info()[1]
-        if isinstance(
-            exc, (ConnectionAbortedError, ConnectionResetError, BrokenPipeError)
-        ):
+        if isinstance(exc, (ConnectionAbortedError, ConnectionResetError, BrokenPipeError)):
             return
         super().handle_error(request, client_address)
 
@@ -2513,9 +2367,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             sid_val = uuid.uuid4().hex
             sess = SessionState()
             _SESSIONS[sid_val] = sess
-            self._set_cookie = (
-                f"{SESSION_COOKIE}={sid_val}; Path=/; HttpOnly; SameSite=Lax"
-            )
+            self._set_cookie = f"{SESSION_COOKIE}={sid_val}; Path=/; HttpOnly; SameSite=Lax"
             return sess
 
     def _send_json(self, payload: dict[str, Any], code: int = HTTPStatus.OK) -> None:
@@ -2669,13 +2521,8 @@ class WizardHandler(BaseHTTPRequestHandler):
             f"{int(session.start_frame)}|{int(session.end_frame)}"
         )
 
-    def _ensure_chapter_audio_file(
-        self, session: SessionState
-    ) -> tuple[Path | None, str]:
-        if (
-            not str(session.archive or "").strip()
-            or not str(session.chapter or "").strip()
-        ):
+    def _ensure_chapter_audio_file(self, session: SessionState) -> tuple[Path | None, str]:
+        if not str(session.archive or "").strip() or not str(session.chapter or "").strip():
             return None, "Load a chapter before requesting audio."
         if int(session.end_frame) <= int(session.start_frame):
             return None, "Invalid chapter frame span for audio."
@@ -2707,17 +2554,12 @@ class WizardHandler(BaseHTTPRequestHandler):
         archive_slug = slugify(str(session.archive or "archive")) or "archive"
         chapter_slug = slugify(str(session.chapter or "chapter")) or "chapter"
         key_hash = uuid.uuid5(uuid.NAMESPACE_URL, cache_key).hex[:16]
-        out_name = (
-            f"{archive_slug}_{chapter_slug}_"
-            f"{int(session.start_frame)}_{int(session.end_frame)}_{key_hash}.wav"
-        )
+        out_name = f"{archive_slug}_{chapter_slug}_{int(session.start_frame)}_{int(session.end_frame)}_{key_hash}.wav"
         out_path = out_dir / out_name
 
         needs_extract = True
         try:
-            needs_extract = (not out_path.exists()) or (
-                int(out_path.stat().st_size) <= 44
-            )
+            needs_extract = (not out_path.exists()) or (int(out_path.stat().st_size) <= 44)
         except Exception:
             needs_extract = True
 
@@ -2757,7 +2599,7 @@ class WizardHandler(BaseHTTPRequestHandler):
         session.chapter_audio_path = str(out_path)
         return out_path, ""
 
-    _AUDIO_SYNC_PAD_SECONDS = 5.0
+    _AUDIO_SYNC_PAD_SECONDS = 20.0
 
     def _audio_sync_cache_key(self, session: SessionState) -> str:
         return (
@@ -2766,19 +2608,14 @@ class WizardHandler(BaseHTTPRequestHandler):
             f"{int(session.start_frame)}|{int(session.end_frame)}"
         )
 
-    def _ensure_audio_sync_file(
-        self, session: SessionState
-    ) -> tuple[Path | None, str, float, float]:
+    def _ensure_audio_sync_file(self, session: SessionState) -> tuple[Path | None, str, float, float]:
         """Extract audio with ±AUDIO_SYNC_PAD_SECONDS buffer around the chapter.
 
         Returns (path, error_msg, padded_start_sec, chapter_start_sec).
         padded_start_sec is the actual start of the audio file (= chapter_start - pad, clamped to 0).
         chapter_start_sec is where within the audio file the chapter video begins.
         """
-        if (
-            not str(session.archive or "").strip()
-            or not str(session.chapter or "").strip()
-        ):
+        if not str(session.archive or "").strip() or not str(session.chapter or "").strip():
             return None, "Load a chapter before requesting audio sync.", 0.0, 0.0
         if int(session.end_frame) <= int(session.start_frame):
             return None, "Invalid chapter frame span for audio sync.", 0.0, 0.0
@@ -2791,9 +2628,7 @@ class WizardHandler(BaseHTTPRequestHandler):
         chapter_end_sec = _frame_to_seconds(session.end_frame)
         padded_start = max(0.0, float(chapter_start_sec) - pad)
         padded_end = float(chapter_end_sec) + pad
-        video_offset = (
-            float(chapter_start_sec) - padded_start
-        )  # seconds into audio file where chapter starts
+        video_offset = float(chapter_start_sec) - padded_start  # seconds into audio file where chapter starts
 
         if (
             existing
@@ -2815,16 +2650,13 @@ class WizardHandler(BaseHTTPRequestHandler):
         chapter_slug = slugify(str(session.chapter or "chapter")) or "chapter"
         key_hash = uuid.uuid5(uuid.NAMESPACE_URL, cache_key).hex[:16]
         out_name = (
-            f"sync_{archive_slug}_{chapter_slug}_"
-            f"{int(session.start_frame)}_{int(session.end_frame)}_{key_hash}.wav"
+            f"sync_{archive_slug}_{chapter_slug}_{int(session.start_frame)}_{int(session.end_frame)}_{key_hash}.wav"
         )
         out_path = out_dir / out_name
 
         needs_extract = True
         try:
-            needs_extract = (not out_path.exists()) or (
-                int(out_path.stat().st_size) <= 44
-            )
+            needs_extract = (not out_path.exists()) or (int(out_path.stat().st_size) <= 44)
         except Exception:
             needs_extract = True
 
@@ -2886,9 +2718,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             return {}
         return json.loads(raw.decode("utf-8"))
 
-    def _send_error_json(
-        self, message: str, code: int = HTTPStatus.BAD_REQUEST
-    ) -> None:
+    def _send_error_json(self, message: str, code: int = HTTPStatus.BAD_REQUEST) -> None:
         self._send_json({"ok": False, "error": message}, code=code)
 
     def do_GET(self) -> None:
@@ -2897,9 +2727,7 @@ class WizardHandler(BaseHTTPRequestHandler):
 
         if parsed.path == "/":
             if not INDEX_HTML.exists():
-                self._send_text(
-                    "Missing index.html", code=HTTPStatus.INTERNAL_SERVER_ERROR
-                )
+                self._send_text("Missing index.html", code=HTTPStatus.INTERNAL_SERVER_ERROR)
                 return
             self._send_text(
                 INDEX_HTML.read_text(encoding="utf-8"),
@@ -2922,19 +2750,13 @@ class WizardHandler(BaseHTTPRequestHandler):
                 )
                 cached = (content_type, static_path.read_bytes())
                 _STATIC_FILE_CACHE[cache_key] = cached
-            self._send_bytes(
-                cached[1], content_type=cached[0], cache_control="no-store"
-            )
+            self._send_bytes(cached[1], content_type=cached[0], cache_control="no-store")
             return
 
         if parsed.path == "/preview":
             preview_raw = str(session.preview_video_path or "").strip()
             preview_path = Path(preview_raw) if preview_raw else None
-            if (
-                not preview_path
-                or not preview_path.exists()
-                or not preview_path.is_file()
-            ):
+            if not preview_path or not preview_path.exists() or not preview_path.is_file():
                 self._send_text(
                     "Preview render is not ready yet. Run Preview Render from Step 2 first.",
                     code=HTTPStatus.NOT_FOUND,
@@ -2949,14 +2771,8 @@ class WizardHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/preview_video":
             preview_raw = str(session.preview_video_path or "").strip()
             preview_path = Path(preview_raw) if preview_raw else None
-            if (
-                not preview_path
-                or not preview_path.exists()
-                or not preview_path.is_file()
-            ):
-                self._send_error_json(
-                    "Preview render is not ready yet.", code=HTTPStatus.NOT_FOUND
-                )
+            if not preview_path or not preview_path.exists() or not preview_path.is_file():
+                self._send_error_json("Preview render is not ready yet.", code=HTTPStatus.NOT_FOUND)
                 return
             self._send_video_file(preview_path)
             return
@@ -2964,26 +2780,20 @@ class WizardHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/chapter_audio":
             audio_path, err = self._ensure_chapter_audio_file(session)
             if err or audio_path is None:
-                self._send_error_json(
-                    err or "Chapter audio is not available.", code=HTTPStatus.NOT_FOUND
-                )
+                self._send_error_json(err or "Chapter audio is not available.", code=HTTPStatus.NOT_FOUND)
                 return
             self._send_audio_file(audio_path)
             return
 
         if parsed.path == "/api/audio_sync_info":
-            sync_path, err, padded_start, video_offset = self._ensure_audio_sync_file(
-                session
-            )
+            sync_path, err, padded_start, video_offset = self._ensure_audio_sync_file(session)
             if err or sync_path is None:
                 self._send_error_json(
                     err or "Audio sync file is not available.",
                     code=HTTPStatus.NOT_FOUND,
                 )
                 return
-            chapter_duration = _frame_to_seconds(session.end_frame) - _frame_to_seconds(
-                session.start_frame
-            )
+            chapter_duration = _frame_to_seconds(session.end_frame) - _frame_to_seconds(session.start_frame)
             self._send_json(
                 {
                     "ok": True,
@@ -2997,9 +2807,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             return
 
         if parsed.path == "/api/audio_sync_audio":
-            sync_path, err, _padded_start, _video_offset = self._ensure_audio_sync_file(
-                session
-            )
+            sync_path, err, _padded_start, _video_offset = self._ensure_audio_sync_file(session)
             if err or sync_path is None:
                 self._send_error_json(
                     err or "Audio sync file is not available.",
@@ -3013,17 +2821,13 @@ class WizardHandler(BaseHTTPRequestHandler):
             params = parse_qs(parsed.query)
             raw_fid = str((params.get("fid", [""])[0] or "").strip())
             if not raw_fid or not re.fullmatch(r"-?\d+", raw_fid):
-                self._send_error_json(
-                    "Missing or invalid frame id.", code=HTTPStatus.BAD_REQUEST
-                )
+                self._send_error_json("Missing or invalid frame id.", code=HTTPStatus.BAD_REQUEST)
                 return
             data_url = _lookup_frame_image_data_url(session, int(raw_fid))
             decoded = _decode_frame_image_data_url(data_url)
             if decoded is None:
                 # Thumbnail not in session cache — fetch on-demand from video
-                fid_images = _load_contact_sheet_images_from_video(
-                    session, [int(raw_fid)]
-                )
+                fid_images = _load_contact_sheet_images_from_video(session, [int(raw_fid)])
                 fid_result = fid_images.get(int(raw_fid))
                 if isinstance(fid_result, Image.Image):
                     out_buf = io.BytesIO()
@@ -3032,9 +2836,7 @@ class WizardHandler(BaseHTTPRequestHandler):
                 elif isinstance(fid_result, str):
                     decoded = _decode_frame_image_data_url(fid_result)
             if decoded is None:
-                self._send_error_json(
-                    "Frame image is not available.", code=HTTPStatus.NOT_FOUND
-                )
+                self._send_error_json("Frame image is not available.", code=HTTPStatus.NOT_FOUND)
                 return
             content_type, payload = decoded
             self._send_bytes(
@@ -3071,27 +2873,19 @@ class WizardHandler(BaseHTTPRequestHandler):
                 columns=columns,
             )
             if built is None:
-                self._send_error_json(
-                    "Frame contact sheet is not available.", code=HTTPStatus.NOT_FOUND
-                )
+                self._send_error_json("Frame contact sheet is not available.", code=HTTPStatus.NOT_FOUND)
                 return
             content_type, payload = built
             self._send_bytes(
                 payload,
                 content_type=content_type,
-                cache_control=(
-                    "private, max-age=3600, immutable" if sheet_complete else "no-store"
-                ),
+                cache_control=("private, max-age=3600, immutable" if sheet_complete else "no-store"),
             )
             return
 
         if parsed.path == "/api/archives":
             archives = _get_archives()
-            selected = (
-                session.archive
-                if session.archive in archives
-                else (archives[0] if archives else "")
-            )
+            selected = session.archive if session.archive in archives else (archives[0] if archives else "")
             self._send_json({"ok": True, "archives": archives, "selected": selected})
             return
 
@@ -3182,14 +2976,8 @@ class WizardHandler(BaseHTTPRequestHandler):
             if not session.fids or not session.sigs:
                 self._send_error_json("No loaded chapter data yet.")
                 return
-            scores = combined_score(
-                session.sigs, session.wc, session.wn, session.wt, session.ww
-            )
-            thr = float(
-                compute_threshold(
-                    scores, session.t_mode, session.iqr_k, session.tval, session.bpct
-                )
-            )
+            scores = combined_score(session.sigs, session.wc, session.wn, session.wt, session.ww)
+            thr = float(compute_threshold(scores, session.t_mode, session.iqr_k, session.tval, session.bpct))
             bad = sum(
                 1
                 for i, fid in enumerate(session.fids)
@@ -3206,10 +2994,7 @@ class WizardHandler(BaseHTTPRequestHandler):
                     "threshold": round(thr, 4),
                     "fids": [int(f) for f in session.fids],
                     "scores": [round(float(s), 4) for s in scores],
-                    "signals": {
-                        k: [round(float(x), 4) for x in v]
-                        for k, v in session.sigs.items()
-                    },
+                    "signals": {k: [round(float(x), 4) for x in v] for k, v in session.sigs.items()},
                     "stats": {
                         "total": len(session.fids),
                         "bad": bad,
@@ -3224,19 +3009,12 @@ class WizardHandler(BaseHTTPRequestHandler):
             if not session.fids or not session.sigs:
                 self._send_error_json("No loaded chapter data yet.")
                 return
-            scores = combined_score(
-                session.sigs, session.wc, session.wn, session.wt, session.ww
-            )
-            current_thr = float(
-                compute_threshold(
-                    scores, session.t_mode, session.iqr_k, session.tval, session.bpct
-                )
-            )
+            scores = combined_score(session.sigs, session.wc, session.wn, session.wt, session.ww)
+            current_thr = float(compute_threshold(scores, session.t_mode, session.iqr_k, session.tval, session.bpct))
             current_bad = sum(
                 1
                 for i, fid in enumerate(session.fids)
-                if _frame_status(session, int(fid), float(scores[i]), current_thr)[0]
-                == "bad"
+                if _frame_status(session, int(fid), float(scores[i]), current_thr)[0] == "bad"
             )
             result = suggest_iqr_k(scores)  # type: ignore[arg-type]
             result.update(
@@ -3256,14 +3034,8 @@ class WizardHandler(BaseHTTPRequestHandler):
                 return
             params = parse_qs(parsed.query)
             context = int((params.get("context", ["8"])[0] or "8"))
-            scores = combined_score(
-                session.sigs, session.wc, session.wn, session.wt, session.ww
-            )
-            thr = float(
-                compute_threshold(
-                    scores, session.t_mode, session.iqr_k, session.tval, session.bpct
-                )
-            )
+            scores = combined_score(session.sigs, session.wc, session.wn, session.wt, session.ww)
+            thr = float(compute_threshold(scores, session.t_mode, session.iqr_k, session.tval, session.bpct))
             regions = find_spike_regions(session.fids, scores, thr, context_frames=context)  # type: ignore[arg-type]
             total_bad = sum(r["bad_frame_count"] for r in regions)
             self._send_json(
@@ -3289,14 +3061,8 @@ class WizardHandler(BaseHTTPRequestHandler):
             except (ValueError, IndexError):
                 self._send_error_json("start_fid and end_fid are required integers.")
                 return
-            scores = combined_score(
-                session.sigs, session.wc, session.wn, session.wt, session.ww
-            )
-            thr = float(
-                compute_threshold(
-                    scores, session.t_mode, session.iqr_k, session.tval, session.bpct
-                )
-            )
+            scores = combined_score(session.sigs, session.wc, session.wn, session.wt, session.ww)
+            thr = float(compute_threshold(scores, session.t_mode, session.iqr_k, session.tval, session.bpct))
             # Find index range within session.fids
             idx_start = bisect.bisect_left(session.fids, start_fid)
             idx_end = bisect.bisect_right(session.fids, end_fid) - 1
@@ -3308,11 +3074,7 @@ class WizardHandler(BaseHTTPRequestHandler):
                 fid = int(session.fids[i])
                 score = float(scores[i])
                 status, source = _frame_status(session, fid, score, thr)
-                sigs_at = {
-                    k: round(float(v[i]), 4)
-                    for k, v in session.sigs.items()
-                    if i < len(v)
-                }
+                sigs_at = {k: round(float(v[i]), 4) for k, v in session.sigs.items() if i < len(v)}
                 frames_out.append(
                     {
                         "fid": fid,
@@ -3339,14 +3101,8 @@ class WizardHandler(BaseHTTPRequestHandler):
             if not session.fids:
                 self._send_error_json("No loaded chapter data yet.")
                 return
-            scores = combined_score(
-                session.sigs, session.wc, session.wn, session.wt, session.ww
-            )
-            thr = float(
-                compute_threshold(
-                    scores, session.t_mode, session.iqr_k, session.tval, session.bpct
-                )
-            )
+            scores = combined_score(session.sigs, session.wc, session.wn, session.wt, session.ww)
+            thr = float(compute_threshold(scores, session.t_mode, session.iqr_k, session.tval, session.bpct))
             bad = sum(
                 1
                 for i, fid in enumerate(session.fids)
@@ -3368,8 +3124,7 @@ class WizardHandler(BaseHTTPRequestHandler):
                     "chapter": str(session.chapter),
                     "start_frame": int(session.start_frame),
                     "end_frame": int(session.end_frame),
-                    "duration_frames": int(session.end_frame)
-                    - int(session.start_frame),
+                    "duration_frames": int(session.end_frame) - int(session.start_frame),
                     "iqr_k": float(session.iqr_k),
                     "threshold": round(thr, 4),
                     "bad_frame_count": bad,
@@ -3466,9 +3221,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             if not session.fids:
                 self._send_error_json("No loaded chapter data yet.")
                 return
-            session.iqr_k = _normalize_iqr_k(
-                payload.get("iqr_k", session.iqr_k), default=session.iqr_k
-            )
+            session.iqr_k = _normalize_iqr_k(payload.get("iqr_k", session.iqr_k), default=session.iqr_k)
             if "force_all_frames_good" in payload:
                 session.force_all_frames_good = _normalize_payload_bool(
                     payload.get("force_all_frames_good"),
@@ -3583,9 +3336,7 @@ class WizardHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/perf_report":
             prof_client_path = str(os.environ.get("VHS_PROFILE_CLIENT", "")).strip()
             if not prof_client_path:
-                self._send_json(
-                    {"ok": False, "error": "Client profiling not enabled on server"}
-                )
+                self._send_json({"ok": False, "error": "Client profiling not enabled on server"})
                 return
             entry = {**payload, "_server_ts": __import__("time").time()}
             try:
@@ -3599,9 +3350,7 @@ class WizardHandler(BaseHTTPRequestHandler):
 
         self._send_error_json("Not found", code=HTTPStatus.NOT_FOUND)
 
-    def _handle_load_chapter(
-        self, session: SessionState, payload: dict[str, Any]
-    ) -> None:
+    def _handle_load_chapter(self, session: SessionState, payload: dict[str, Any]) -> None:
         def fail(message: str) -> None:
             _set_load_progress(
                 session,
@@ -3646,20 +3395,14 @@ class WizardHandler(BaseHTTPRequestHandler):
         default_end = int(chapter_obj.get("end_frame", default_start + 1))
 
         try:
-            iqr_k = _normalize_iqr_k(
-                payload.get("iqr_k", session.iqr_k), default=session.iqr_k
-            )
+            iqr_k = _normalize_iqr_k(payload.get("iqr_k", session.iqr_k), default=session.iqr_k)
         except Exception:
             fail("Invalid numeric load settings.")
             return
 
         session.chapter = chapter
-        session.start_frame, session.end_frame = _normalize_frame_span(
-            default_start, default_end
-        )
-        session.debug_extract = bool(
-            payload.get("debug_extract", session.debug_extract)
-        )
+        session.start_frame, session.end_frame = _normalize_frame_span(default_start, default_end)
+        session.debug_extract = bool(payload.get("debug_extract", session.debug_extract))
         session.iqr_k = iqr_k
         session.force_all_frames_good = _normalize_payload_bool(
             payload.get("force_all_frames_good"),
@@ -3699,9 +3442,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             ch_start=session.start_frame,
             ch_end=session.end_frame,
         )
-        session.gamma_default = normalize_gamma_value(
-            gamma_profile.get("default_gamma", 1.0), default=1.0
-        )
+        session.gamma_default = normalize_gamma_value(gamma_profile.get("default_gamma", 1.0), default=1.0)
         session.gamma_ranges = _normalize_gamma_ranges_payload(
             gamma_profile.get("ranges", []),
             ch_start=session.start_frame,
@@ -3762,9 +3503,7 @@ class WizardHandler(BaseHTTPRequestHandler):
 
         # Build a frame-accurate review extract first; later frame IDs and
         # manual bad-frame edits are defined relative to this exact span.
-        _set_load_progress(
-            session, progress=8.0, message="Extracting chapter segment..."
-        )
+        _set_load_progress(session, progress=8.0, message="Extracting chapter segment...")
         if cancelled():
             return
         try:
@@ -3786,9 +3525,7 @@ class WizardHandler(BaseHTTPRequestHandler):
         frame_read_offset = session.start_frame
         session.frame_source_video_path = str(read_video)
         session.frame_source_read_offset = int(frame_read_offset)
-        _set_load_progress(
-            session, progress=28.0, message="Chapter extract ready; loading frames..."
-        )
+        _set_load_progress(session, progress=28.0, message="Chapter extract ready; loading frames...")
 
         if cancelled():
             return
@@ -3917,9 +3654,7 @@ class WizardHandler(BaseHTTPRequestHandler):
 
     def _handle_toggle_frame(self, session: SessionState, fid: int) -> None:
         if bool(session.force_all_frames_good):
-            self._send_error_json(
-                "Disable 'Force all frames good' before editing frame statuses."
-            )
+            self._send_error_json("Disable 'Force all frames good' before editing frame statuses.")
             return
         fid_i = int(fid)
         final_ids = {int(x) for x in session.fids}
@@ -3929,25 +3664,15 @@ class WizardHandler(BaseHTTPRequestHandler):
             return
 
         if session.fids and session.sigs and fid_i in final_ids:
-            scores = combined_score(
-                session.sigs, session.wc, session.wn, session.wt, session.ww
-            )
-            thr = float(
-                compute_threshold(
-                    scores, session.t_mode, session.iqr_k, session.tval, session.bpct
-                )
-            )
+            scores = combined_score(session.sigs, session.wc, session.wn, session.wt, session.ww)
+            thr = float(compute_threshold(scores, session.t_mode, session.iqr_k, session.tval, session.bpct))
             index = {int(x): i for i, x in enumerate(session.fids)}
             pos = index[fid_i]
             score = float(scores[pos])
             effective, _src = _frame_status(session, fid_i, score, thr)
         else:
-            partial_review = _build_partial_review_payload(
-                session, include_images=False
-            )
-            current = next(
-                (f for f in partial_review["frames"] if int(f["fid"]) == fid_i), None
-            )
+            partial_review = _build_partial_review_payload(session, include_images=False)
+            current = next((f for f in partial_review["frames"] if int(f["fid"]) == fid_i), None)
             if not current:
                 self._send_error_json("Frame is not available yet.")
                 return
@@ -3959,18 +3684,12 @@ class WizardHandler(BaseHTTPRequestHandler):
             frame_state = _build_review_payload(session, include_images=False)
         else:
             frame_state = _build_partial_review_payload(session, include_images=False)
-        updated = next(
-            (f for f in frame_state["frames"] if int(f["fid"]) == fid_i), None
-        )
+        updated = next((f for f in frame_state["frames"] if int(f["fid"]) == fid_i), None)
         self._send_json({"ok": True, "frame": updated, "review": frame_state})
 
-    def _handle_set_frame_range(
-        self, session: SessionState, start_fid: int, end_fid: int, status: str
-    ) -> None:
+    def _handle_set_frame_range(self, session: SessionState, start_fid: int, end_fid: int, status: str) -> None:
         if bool(session.force_all_frames_good):
-            self._send_error_json(
-                "Disable 'Force all frames good' before editing frame statuses."
-            )
+            self._send_error_json("Disable 'Force all frames good' before editing frame statuses.")
             return
         lo = int(min(int(start_fid), int(end_fid)))
         hi = int(max(int(start_fid), int(end_fid)))
@@ -3992,9 +3711,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             changed += 1
 
         if changed <= 0:
-            self._send_error_json(
-                "No loaded frames are currently available in that range."
-            )
+            self._send_error_json("No loaded frames are currently available in that range.")
             return
 
         if session.fids and session.sigs:
@@ -4011,9 +3728,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             }
         )
 
-    def _handle_set_force_all_good(
-        self, session: SessionState, payload: dict[str, Any] | None = None
-    ) -> None:
+    def _handle_set_force_all_good(self, session: SessionState, payload: dict[str, Any] | None = None) -> None:
         payload = payload or {}
         enabled = _normalize_payload_bool(
             payload.get("enabled", payload.get("force_all_frames_good", False)),
@@ -4024,14 +3739,8 @@ class WizardHandler(BaseHTTPRequestHandler):
         if session.fids and session.sigs:
             # Fast path: compute stats without building the full per-frame list.
             # The client updates frame statuses locally using its pre-force snapshot.
-            scores = combined_score(
-                session.sigs, session.wc, session.wn, session.wt, session.ww
-            )
-            thr = float(
-                compute_threshold(
-                    scores, session.t_mode, session.iqr_k, session.tval, session.bpct
-                )
-            )
+            scores = combined_score(session.sigs, session.wc, session.wn, session.wt, session.ww)
+            thr = float(compute_threshold(scores, session.t_mode, session.iqr_k, session.tval, session.bpct))
             session.threshold = thr
             total = len(session.fids)
             if enabled:
@@ -4142,9 +3851,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             detail = f"{label} failed: {detail}"
         return False, detail
 
-    def _handle_preview_render(
-        self, session: SessionState, payload: dict[str, Any] | None = None
-    ) -> None:
+    def _handle_preview_render(self, session: SessionState, payload: dict[str, Any] | None = None) -> None:
         def fail(message: str) -> None:
             _set_preview_progress(
                 session,
@@ -4191,6 +3898,12 @@ class WizardHandler(BaseHTTPRequestHandler):
                 ch_start=session.start_frame,
                 ch_end=session.end_frame,
             )
+        raw_audio_sync = payload.get("audio_sync_profile")
+        if isinstance(raw_audio_sync, dict):
+            try:
+                session.audio_sync_offset = float(raw_audio_sync.get("offset_seconds", session.audio_sync_offset))
+            except Exception:
+                pass
 
         try:
             from vhs_pipeline.render_pipeline import (
@@ -4220,9 +3933,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             fail(f"No source video found for '{session.archive}'.")
             return
 
-        start_frame, end_frame = _normalize_frame_span(
-            session.start_frame, session.end_frame
-        )
+        start_frame, end_frame = _normalize_frame_span(session.start_frame, session.end_frame)
         chapter_len = max(1, int(end_frame) - int(start_frame))
         debug_overlay = (
             bool(session.debug_extract)
@@ -4238,19 +3949,16 @@ class WizardHandler(BaseHTTPRequestHandler):
             ch_start=start_frame,
             ch_end=end_frame,
             debug_overlay=debug_overlay,
+            audio_offset_seconds=session.audio_sync_offset,
         )
         if ex_err or extracted is None:
             fail(ex_err or "Failed to extract preview chapter segment.")
             return
 
         bad_global = [
-            int(fid)
-            for fid in _selected_bad_frame_ids(session)
-            if int(start_frame) <= int(fid) < int(end_frame)
+            int(fid) for fid in _selected_bad_frame_ids(session) if int(start_frame) <= int(fid) < int(end_frame)
         ]
-        local_bad = (
-            [int(fid) - int(start_frame) for fid in bad_global] if apply_freeze else []
-        )
+        local_bad = [int(fid) - int(start_frame) for fid in bad_global] if apply_freeze else []
         local_repairs = local_bad_frames_to_repairs(local_bad) if local_bad else []
 
         preview_root = PROJECT_ROOT / "tmp" / "plain_html_wizard_preview"
@@ -4266,30 +3974,20 @@ class WizardHandler(BaseHTTPRequestHandler):
         preview_video = preview_dir / "preview_render.mp4"
 
         filter_script = METADATA_DIR / session.archive / "filter.avs"
-        chapter_filter_script = (
-            METADATA_DIR / session.archive / f"{session.chapter}.avs"
-        )
+        chapter_filter_script = METADATA_DIR / session.archive / f"{session.chapter}.avs"
         if chapter_filter_script.exists():
             filter_script = chapter_filter_script
 
         freeze_input = extracted
         used_non_windows_fallback = False
         gamma_only_mode = preview_mode == "gamma"
-        windows_filter = bool(
-            sys.platform == "win32"
-            and apply_gamma
-            and (gamma_only_mode or filter_script.exists())
-        )
+        windows_filter = bool(sys.platform == "win32" and apply_gamma and (gamma_only_mode or filter_script.exists()))
         windows_freeze = bool(sys.platform == "win32" and bool(local_bad))
         stage_names: list[str] = []
         if windows_freeze:
             stage_names.append("Applying FreezeFrame repairs")
         if windows_filter:
-            stage_names.append(
-                "Applying gamma correction"
-                if gamma_only_mode
-                else "Deinterlacing/filtering"
-            )
+            stage_names.append("Applying gamma correction" if gamma_only_mode else "Deinterlacing/filtering")
         elif sys.platform != "win32":
             stage_names.append("Fallback deinterlacing")
         stage_names.append("Encoding preview")
@@ -4305,9 +4003,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             frame_total=total_frames_all,
         )
 
-        def _set_stage_progress(
-            stage_idx: int, frame_done: int, stage_label: str
-        ) -> None:
+        def _set_stage_progress(stage_idx: int, frame_done: int, stage_label: str) -> None:
             done = max(0, min(chapter_len, int(frame_done)))
             overall_done = min(total_frames_all, (stage_idx * chapter_len) + done)
             frac = float(done) / float(max(1, chapter_len))
@@ -4339,9 +4035,7 @@ class WizardHandler(BaseHTTPRequestHandler):
                     ok, detail = self._run_cmd_with_progress(
                         make_render_avs_ffv1(freeze_avs, extracted, repaired_extracted),
                         "Preview freeze stage",
-                        on_frame=lambda n: _set_stage_progress(
-                            stage_idx, n, stage_label
-                        ),
+                        on_frame=lambda n: _set_stage_progress(stage_idx, n, stage_label),
                     )
                     if not ok:
                         fail(detail)
@@ -4357,9 +4051,7 @@ class WizardHandler(BaseHTTPRequestHandler):
 
                 if windows_filter:
                     stage_label = stage_names[stage_idx]
-                    gamma_default = normalize_gamma_value(
-                        session.gamma_default, default=1.0
-                    )
+                    gamma_default = normalize_gamma_value(session.gamma_default, default=1.0)
                     gamma_ranges = _normalize_gamma_ranges_payload(
                         session.gamma_ranges,
                         ch_start=start_frame,
@@ -4387,17 +4079,11 @@ class WizardHandler(BaseHTTPRequestHandler):
                             source_clearance=0,
                         )
                     filter_avs.write_text(script_text, encoding="ascii")
-                    stage_cmd_label = (
-                        "Preview gamma stage"
-                        if gamma_only_mode
-                        else "Preview deinterlace stage"
-                    )
+                    stage_cmd_label = "Preview gamma stage" if gamma_only_mode else "Preview deinterlace stage"
                     ok, detail = self._run_cmd_with_progress(
                         make_deinterlace(filter_avs, freeze_input, qtgmc),
                         stage_cmd_label,
-                        on_frame=lambda n: _set_stage_progress(
-                            stage_idx, n, stage_label
-                        ),
+                        on_frame=lambda n: _set_stage_progress(stage_idx, n, stage_label),
                     )
                     if not ok:
                         fail(detail)
@@ -4429,9 +4115,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             fail(f"Preview render failed: {type(exc).__name__}: {exc}")
             return
 
-        stage_label = stage_names[
-            stage_idx if stage_idx < len(stage_names) else (len(stage_names) - 1)
-        ]
+        stage_label = stage_names[stage_idx if stage_idx < len(stage_names) else (len(stage_names) - 1)]
         ok, detail = self._run_cmd_with_progress(
             [
                 FFMPEG_BIN,
@@ -4478,8 +4162,7 @@ class WizardHandler(BaseHTTPRequestHandler):
         session.preview_video_path = str(preview_video.resolve())
         mode_desc = (
             preview_mode
-            if preview_mode
-            in {"review", "gamma", "people", "subtitles", "split", "summary"}
+            if preview_mode in {"review", "gamma", "people", "subtitles", "split", "summary"}
             else "combined"
         )
         msg = (
@@ -4509,9 +4192,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             }
         )
 
-    def _handle_people_prefill_cast(
-        self, session: SessionState, payload: dict[str, Any] | None = None
-    ) -> None:
+    def _handle_people_prefill_cast(self, session: SessionState, payload: dict[str, Any] | None = None) -> None:
         if not session.archive or not session.chapter:
             self._send_error_json("Load a chapter before running Cast prefill.")
             return
@@ -4519,16 +4200,13 @@ class WizardHandler(BaseHTTPRequestHandler):
 
         chapter_duration = max(
             0.0,
-            _frame_to_seconds(session.end_frame)
-            - _frame_to_seconds(session.start_frame),
+            _frame_to_seconds(session.end_frame) - _frame_to_seconds(session.start_frame),
         )
         mode = str(payload.get("mode") or "replace").strip().lower()
         if mode not in {"replace", "append"}:
             mode = "replace"
         cast_store_raw = str(payload.get("cast_store_dir") or "").strip()
-        cast_store_dir = (
-            Path(cast_store_raw) if cast_store_raw else DEFAULT_CAST_STORE_DIR
-        )
+        cast_store_dir = Path(cast_store_raw) if cast_store_raw else DEFAULT_CAST_STORE_DIR
         min_quality = payload.get("min_quality", 0.40)
         min_name_hits = payload.get("min_name_hits", 1)
         try:
@@ -4556,10 +4234,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             else:
                 merged = generated
             session.people_entries = list(merged)
-            message = (
-                f"Cast prefill added {len(generated)} entr"
-                f"{'y' if len(generated) == 1 else 'ies'} ({mode})."
-            )
+            message = f"Cast prefill added {len(generated)} entr{'y' if len(generated) == 1 else 'ies'} ({mode})."
         else:
             message = "Cast prefill found no confident matches for this chapter."
 
@@ -4578,9 +4253,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             }
         )
 
-    def _handle_subtitles_generate(
-        self, session: SessionState, payload: dict[str, Any] | None = None
-    ) -> None:
+    def _handle_subtitles_generate(self, session: SessionState, payload: dict[str, Any] | None = None) -> None:
         def fail(message: str) -> None:
             _set_subtitles_progress(
                 session,
@@ -4606,9 +4279,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             fail("Invalid chapter frame span for subtitle generation.")
             return
         if bool(session.subtitles_running):
-            self._send_error_json(
-                "Subtitle generation is already running for this session."
-            )
+            self._send_error_json("Subtitle generation is already running for this session.")
             return
         payload = payload or {}
         mode = str(payload.get("mode") or "replace").strip().lower()
@@ -4643,8 +4314,7 @@ class WizardHandler(BaseHTTPRequestHandler):
 
         chapter_duration = max(
             0.0,
-            _frame_to_seconds(session.end_frame)
-            - _frame_to_seconds(session.start_frame),
+            _frame_to_seconds(session.end_frame) - _frame_to_seconds(session.start_frame),
         )
         prompt_text = _subtitle_prompt_from_people_entries(
             _normalize_people_entries_payload(
@@ -4705,11 +4375,7 @@ class WizardHandler(BaseHTTPRequestHandler):
 
                 progress_prefix = "Transcribing audio with Whisper..."
                 tqdm_module = getattr(transcribe_module, "tqdm", None)
-                original_tqdm = (
-                    getattr(tqdm_module, "tqdm", None)
-                    if tqdm_module is not None
-                    else None
-                )
+                original_tqdm = getattr(tqdm_module, "tqdm", None) if tqdm_module is not None else None
 
                 class _SubtitlesProgressBar:
                     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -4719,11 +4385,7 @@ class WizardHandler(BaseHTTPRequestHandler):
                             total_val = float(total_raw)
                         except Exception:
                             total_val = float(segment_total or 0)
-                        self._total = (
-                            max(1.0, total_val)
-                            if total_val > 0
-                            else max(1.0, float(segment_total or 1))
-                        )
+                        self._total = max(1.0, total_val) if total_val > 0 else max(1.0, float(segment_total or 1))
                         _set_subtitles_progress(
                             session,
                             progress=20.0,
@@ -4758,9 +4420,7 @@ class WizardHandler(BaseHTTPRequestHandler):
                             segment_total=max(1, int(round(self._total))),
                         )
                         if bool(session.subtitles_cancel_requested):
-                            raise _SubtitlesCancelledError(
-                                "Subtitle generation cancelled."
-                            )
+                            raise _SubtitlesCancelledError("Subtitle generation cancelled.")
                         return out
 
                     def close(self) -> Any:
@@ -4778,9 +4438,7 @@ class WizardHandler(BaseHTTPRequestHandler):
                     if callable(original_tqdm):
                         setattr(tqdm_module, "tqdm", _SubtitlesProgressBar)
                     try:
-                        result = whisper_transcribe(
-                            model, audio_path, prompt_text=prompt_text
-                        )
+                        result = whisper_transcribe(model, audio_path, prompt_text=prompt_text)
                     finally:
                         if callable(original_tqdm):
                             setattr(tqdm_module, "tqdm", original_tqdm)
@@ -4814,10 +4472,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             else:
                 merged = generated
             session.subtitle_entries = list(merged)
-            message = (
-                f"Generated {len(generated)} subtitle entr"
-                f"{'y' if len(generated) == 1 else 'ies'} ({mode})."
-            )
+            message = f"Generated {len(generated)} subtitle entr{'y' if len(generated) == 1 else 'ies'} ({mode})."
         else:
             message = "Whisper returned no subtitle segments for this chapter."
 
@@ -4848,9 +4503,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             }
         )
 
-    def _handle_set_auto_transcript(
-        self, session: SessionState, payload: dict[str, Any] | None = None
-    ) -> None:
+    def _handle_set_auto_transcript(self, session: SessionState, payload: dict[str, Any] | None = None) -> None:
         if not session.archive or not session.chapter:
             self._send_error_json("No loaded chapter data yet.")
             return
@@ -4868,9 +4521,7 @@ class WizardHandler(BaseHTTPRequestHandler):
         session.auto_transcript = mode
         self._send_json({"ok": True, "auto_transcript": mode})
 
-    def _handle_save(
-        self, session: SessionState, payload: dict[str, Any] | None = None
-    ) -> None:
+    def _handle_save(self, session: SessionState, payload: dict[str, Any] | None = None) -> None:
         if not session.fids:
             self._send_error_json("No loaded chapter data yet.")
             return
@@ -4892,16 +4543,10 @@ class WizardHandler(BaseHTTPRequestHandler):
             return
         gamma_count = len(session.gamma_ranges)
         people_path = METADATA_DIR / str(session.archive or "").strip() / "people.tsv"
-        subtitles_path = (
-            METADATA_DIR / str(session.archive or "").strip() / "subtitles.tsv"
-        )
-        chapters_path = (
-            METADATA_DIR / str(session.archive or "").strip() / "chapters.tsv"
-        )
+        subtitles_path = METADATA_DIR / str(session.archive or "").strip() / "subtitles.tsv"
+        chapters_path = METADATA_DIR / str(session.archive or "").strip() / "chapters.tsv"
 
-        archive_state = _archive_state(
-            session, session.archive, selected_title=session.chapter
-        )
+        archive_state = _archive_state(session, session.archive, selected_title=session.chapter)
         self._send_json(
             {
                 "ok": True,
@@ -4914,31 +4559,15 @@ class WizardHandler(BaseHTTPRequestHandler):
                     f"Saved split entries: {int(split_count)}."
                 ),
                 "metadata_path": (
-                    str(
-                        split_path
-                        or gamma_path
-                        or out_path
-                        or chapters_path
-                        or subtitles_path
-                        or people_path
-                    )
-                    if (
-                        split_path
-                        or gamma_path
-                        or out_path
-                        or chapters_path
-                        or subtitles_path
-                        or people_path
-                    )
+                    str(split_path or gamma_path or out_path or chapters_path or subtitles_path or people_path)
+                    if (split_path or gamma_path or out_path or chapters_path or subtitles_path or people_path)
                     else ""
                 ),
                 "archive_state": archive_state,
             }
         )
 
-    def _handle_save_progress(
-        self, session: SessionState, payload: dict[str, Any] | None = None
-    ) -> None:
+    def _handle_save_progress(self, session: SessionState, payload: dict[str, Any] | None = None) -> None:
         if not session.fids:
             self._send_error_json("No loaded chapter data yet.")
             return
@@ -4970,21 +4599,11 @@ class WizardHandler(BaseHTTPRequestHandler):
                 ),
                 "metadata_path": str(
                     split_path
-                    or (
-                        METADATA_DIR
-                        / str(session.archive or "").strip()
-                        / "chapters.tsv"
-                    )
+                    or (METADATA_DIR / str(session.archive or "").strip() / "chapters.tsv")
                     or gamma_path
                     or out_path
-                    or (
-                        METADATA_DIR
-                        / str(session.archive or "").strip()
-                        / "subtitles.tsv"
-                    )
-                    or (
-                        METADATA_DIR / str(session.archive or "").strip() / "people.tsv"
-                    )
+                    or (METADATA_DIR / str(session.archive or "").strip() / "subtitles.tsv")
+                    or (METADATA_DIR / str(session.archive or "").strip() / "people.tsv")
                 ),
             }
         )
