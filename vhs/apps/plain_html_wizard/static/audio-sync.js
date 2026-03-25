@@ -32,7 +32,7 @@ let audioSyncPeaks = [];
 let audioSyncTotalDurationSec = 0;   // duration of the buffered WAV file
 let audioSyncVideoOffsetSec = 0;     // seconds into the WAV where chapter video starts
 let audioSyncChapterDurationSec = 0; // duration of the chapter video
-let audioSyncPadSeconds = 5.0;       // pad amount on each side (from server)
+let audioSyncPadSeconds = 20.0;      // pad amount on each side (from server)
 let audioSyncDrawPending = false;
 
 // ---------------------------------------------------------------------------
@@ -279,7 +279,7 @@ async function loadAudioSyncAudio() {
 
   audioSyncVideoOffsetSec = Number(info.video_offset_sec || 0);
   audioSyncChapterDurationSec = Number(info.chapter_duration_sec || 0);
-  audioSyncPadSeconds = Number(info.pad_seconds || 5);
+  audioSyncPadSeconds = Number(info.pad_seconds || 20);
   // Restore saved offset from server
   if (typeof info.offset_seconds === 'number') {
     state.audioSyncOffset = info.offset_seconds;

@@ -82,6 +82,34 @@ class TestXMPSidecar(unittest.TestCase):
             assert state is not None
             self.assertEqual(state["ocr_authority_source"], "archive_stitched")
 
+    def test_write_xmp_sidecar_round_trips_text_layers(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                title="Temple of Heaven",
+                title_source="author_text",
+                description="Temple of Heaven",
+                source_text="",
+                ocr_text="Temple of Heaven\nNO SMOKING",
+                author_text="Temple of Heaven",
+                scene_text="NO SMOKING",
+                annotation_scope="photo",
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                subphotos=[],
+            )
+
+            state = xmp_sidecar.read_ai_sidecar_state(out)
+            assert state is not None
+            self.assertEqual(state["title"], "Temple of Heaven")
+            self.assertEqual(state["title_source"], "author_text")
+            self.assertEqual(state["author_text"], "Temple of Heaven")
+            self.assertEqual(state["scene_text"], "NO SMOKING")
+            self.assertEqual(state["annotation_scope"], "photo")
+
     def test_write_xmp_sidecar_merges_existing_fields_in_place(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "image.xmp"

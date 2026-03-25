@@ -11,7 +11,7 @@ compatibility: >-
   Nominatim geocoding requires network access. MCP server: imago.
 metadata:
   author: Cove Schneider
-  version: 1.0.0
+  version: 1.0.1
   mcp-server: imago
   documentation: ../CORDELL_PHOTO_ALBUMS/references/photoalbums.md
   ocr-model: zai-org/glm-4.6v-flash
@@ -32,8 +32,8 @@ etc.), see the base `CORDELL_PHOTO_ALBUMS` skill.
 ---
 
 ## Preamble Describe
-Describe the scene directly and prioritize the most specific confident location.
-If OCR provides a printed caption for the page or photo, use it as the title.
-Use identified names naturally when they are provided.
-Use the recognized proper name for any landmark, artwork, iconographic figure, architectural style, cultural object, or clothing tradition when the evidence supports it (e.g., "Stari Most" not "stone bridge").
-Do not use the album name as the title.
+Classify visible text into `author_text` and `scene_text`.
+Use `author_text` only for typewriter typed (Courier) annotation text on white paper strips.
+Use `scene_text` only for readable text inside the photographed scene itself.
+Use page layout, OCR text, and visible contents only to decide whether typed annotation text applies to the photo.
+Return empty strings when no applicable text exists for a field.

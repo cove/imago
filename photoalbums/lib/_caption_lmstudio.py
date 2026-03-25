@@ -30,43 +30,15 @@ LMSTUDIO_VISION_MODEL_HINTS = (
     "qvq",
 )
 
-_DESCRIBE_SYSTEM_PROMPT = (
-    "You are a photo caption writer. "
-    "Return only valid JSON matching the response_format schema. "
-    "Put the final caption text in the caption field. "
-    "If any visible text is not in English, add an English translation in parentheses "
-    "directly after each non-English phrase in the caption — for example: "
-    "'[non-English phrase] (English translation)'. "
-    "If the location is known confidently enough for online geocoding, set location_name "
-    "to a concise English geocoding query such as 'Landmark, City, Country'. "
-    "If no confident geocoding query is available, set location_name to an empty string. "
-    "Never mention raw filenames, folder names, or internal ids. "
-    "Do not include reasoning or extra fields. "
-    "Do not return GPS coordinates, people counts, or name lists."
-)
-
-_DESCRIBE_PAGE_SYSTEM_PROMPT = (
-    "You are a photo caption writer examining a scanned album page. "
-    "Return only valid JSON matching the response_format schema. "
-    "Put the overall page description in the caption field. "
-    "In photo_regions, list each distinct photograph visible on the page "
-    "as a normalized rectangle (x, y, w, h in 0–1 range, top-left origin). "
-    "Write one sentence per region in its description field. "
-    "If no distinct photographs are visible, return an empty photo_regions list. "
-    "If the location is known confidently enough for online geocoding, set location_name "
-    "to a concise English geocoding query such as 'Landmark, City, Country'. "
-    "If no confident geocoding query is available, set location_name to an empty string. "
-    "Never mention raw filenames, folder names, or internal ids. "
-    "Do not include reasoning or extra fields."
-)
-
-
 @dataclass(frozen=True)
 class CaptionDetails:
     text: str
     gps_latitude: str = ""
     gps_longitude: str = ""
     location_name: str = ""
+    author_text: str = ""
+    scene_text: str = ""
+    annotation_scope: str = ""
     people_present: bool = False
     estimated_people_count: int = 0
     name_suggestions: list[dict[str, object]] = None
@@ -93,6 +65,9 @@ class CaptionDetails:
                 and self.gps_latitude == other.gps_latitude
                 and self.gps_longitude == other.gps_longitude
                 and self.location_name == other.location_name
+                and self.author_text == other.author_text
+                and self.scene_text == other.scene_text
+                and self.annotation_scope == other.annotation_scope
                 and self.people_present == other.people_present
                 and self.estimated_people_count == other.estimated_people_count
                 and self.name_suggestions == other.name_suggestions
@@ -308,11 +283,10 @@ def _decode_lmstudio_text(value: object) -> str:
 def _is_lmstudio_caption_payload(payload: object) -> bool:
     if not isinstance(payload, dict):
         return False
-    caption = payload.get("caption")
-    if not isinstance(caption, str) or not clean_text(caption):
-        return False
-    location_name = payload.get("location_name", "")
-    return isinstance(location_name, str)
+    return all(
+        isinstance(payload.get(field, ""), str)
+        for field in ("author_text", "scene_text", "annotation_scope", "location_name")
+    )
 
 
 def _is_lmstudio_people_count_payload(payload: object) -> bool:
@@ -348,13 +322,15 @@ def _lmstudio_caption_response_format() -> dict[str, object]:
             "schema": {
                 "type": "object",
                 "properties": {
-                    "title": {"type": "string"},
-                    "caption": {"type": "string"},
+                    "author_text": {"type": "string"},
+                    "scene_text": {"type": "string"},
+                    "annotation_scope": {"type": "string"},
                     "location_name": {"type": "string"},
                 },
                 "required": [
-                    "title",
-                    "caption",
+                    "author_text",
+                    "scene_text",
+                    "annotation_scope",
                     "location_name",
                 ],
                 "additionalProperties": False,
@@ -421,7 +397,9 @@ def _lmstudio_page_caption_response_format() -> dict[str, object]:
             "schema": {
                 "type": "object",
                 "properties": {
-                    "caption": {"type": "string"},
+                    "author_text": {"type": "string"},
+                    "scene_text": {"type": "string"},
+                    "annotation_scope": {"type": "string"},
                     "location_name": {"type": "string"},
                     "photo_regions": {
                         "type": "array",
@@ -432,14 +410,16 @@ def _lmstudio_page_caption_response_format() -> dict[str, object]:
                                 "y": {"type": "number"},
                                 "w": {"type": "number"},
                                 "h": {"type": "number"},
-                                "description": {"type": "string"},
+                                "author_text": {"type": "string"},
+                                "scene_text": {"type": "string"},
+                                "annotation_scope": {"type": "string"},
                             },
-                            "required": ["x", "y", "w", "h", "description"],
+                            "required": ["x", "y", "w", "h", "author_text", "scene_text", "annotation_scope"],
                             "additionalProperties": False,
                         },
                     },
                 },
-                "required": ["caption", "location_name", "photo_regions"],
+                "required": ["author_text", "scene_text", "annotation_scope", "location_name", "photo_regions"],
                 "additionalProperties": False,
             },
         },
@@ -471,7 +451,9 @@ def _parse_image_regions(payload: dict) -> list[dict]:
                 "y": y,
                 "w": w,
                 "h": h,
-                "description": clean_text(str(item.get("description") or "")),
+                "author_text": clean_text(str(item.get("author_text") or "")),
+                "scene_text": clean_text(str(item.get("scene_text") or "")),
+                "annotation_scope": clean_text(str(item.get("annotation_scope") or "")),
             }
         )
     return result
@@ -531,13 +513,14 @@ def _parse_lmstudio_structured_caption_payload(
         raise RuntimeError(
             f"LM Studio returned structured caption JSON that is not an object; raw={preview!r}.{finish_note}"
         )
-    caption = payload.get("caption")
-    if not isinstance(caption, str):
+    author_text = payload.get("author_text")
+    if not isinstance(author_text, str):
         preview = _lmstudio_error_preview(text)
         raise RuntimeError(
-            f"LM Studio structured caption JSON is missing a caption string; raw={preview!r}.{finish_note}"
+            f"LM Studio structured caption JSON is missing an author_text string; raw={preview!r}.{finish_note}"
         )
-    title = clean_text(str(payload.get("title") or ""))
+    scene_text = clean_text(str(payload.get("scene_text") or ""))
+    annotation_scope = clean_text(str(payload.get("annotation_scope") or ""))
     gps_latitude = _normalize_gps_value(str(payload.get("gps_latitude") or ""), axis="lat")
     gps_longitude = _normalize_gps_value(str(payload.get("gps_longitude") or ""), axis="lon")
     location_name = clean_text(str(payload.get("location_name") or ""))
@@ -548,8 +531,9 @@ def _parse_lmstudio_structured_caption_payload(
         estimated_people_count = 0
     name_suggestions = list(payload.get("name_suggestions") or [])
     return (
-        caption,
-        title,
+        clean_text(author_text),
+        scene_text,
+        annotation_scope,
         gps_latitude,
         gps_longitude,
         location_name,
@@ -654,8 +638,9 @@ def _parse_lmstudio_structured_caption(
     finish_reason: str = "",
 ) -> CaptionDetails:
     (
-        caption,
-        title,
+        author_text,
+        scene_text,
+        annotation_scope,
         gps_latitude,
         gps_longitude,
         location_name,
@@ -664,11 +649,13 @@ def _parse_lmstudio_structured_caption(
         name_suggestions,
     ) = _parse_lmstudio_structured_caption_payload(value, finish_reason=finish_reason)
     return CaptionDetails(
-        text=clean_text(caption),
-        title=title,
+        text=clean_text(author_text),
         gps_latitude=gps_latitude,
         gps_longitude=gps_longitude,
         location_name=location_name,
+        author_text=clean_text(author_text),
+        scene_text=scene_text,
+        annotation_scope=annotation_scope,
         people_present=people_present,
         estimated_people_count=estimated_people_count,
         name_suggestions=name_suggestions,
@@ -702,15 +689,22 @@ def _parse_lmstudio_page_caption(
     if not isinstance(payload_dict, dict):
         preview = _lmstudio_error_preview(text)
         raise RuntimeError(f"LM Studio page caption JSON is not an object; raw={preview!r}.{finish_note}")
-    caption = payload_dict.get("caption")
-    if not isinstance(caption, str):
+    author_text = payload_dict.get("author_text")
+    if not isinstance(author_text, str):
         preview = _lmstudio_error_preview(text)
-        raise RuntimeError(f"LM Studio page caption JSON is missing a caption string; raw={preview!r}.{finish_note}")
+        raise RuntimeError(
+            f"LM Studio page caption JSON is missing an author_text string; raw={preview!r}.{finish_note}"
+        )
+    scene_text = clean_text(str(payload_dict.get("scene_text") or ""))
+    annotation_scope = clean_text(str(payload_dict.get("annotation_scope") or ""))
     location_name = clean_text(str(payload_dict.get("location_name") or ""))
     image_regions = _parse_image_regions(payload_dict)
     return CaptionDetails(
-        text=clean_text(caption),
+        text=clean_text(author_text),
         location_name=location_name,
+        author_text=clean_text(author_text),
+        scene_text=scene_text,
+        annotation_scope=annotation_scope,
         image_regions=image_regions,
     )
 
@@ -799,11 +793,6 @@ _DESCRIBE_CONFIGS: dict[str, tuple] = {
     "photo": (_lmstudio_caption_response_format, _parse_lmstudio_structured_caption),
     "page": (_lmstudio_page_caption_response_format, _parse_lmstudio_page_caption),
 }
-
-
-def describe_system_prompt(*, page_mode: bool = False) -> str:
-    section_name = "System Prompt - Describe Page" if page_mode else "System Prompt - Describe"
-    return required_section_text(section_name)
 
 
 def people_count_system_prompt() -> str:
@@ -909,7 +898,7 @@ class LMStudioCaptioner:
         return self._call_chat_completion(
             image_path,
             prompt=prompt,
-            system_prompt=describe_system_prompt(page_mode=(mode == "page")),
+            system_prompt="",
             response_format=fmt_fn(),
             parse_fn=parse_fn,
         )

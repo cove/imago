@@ -83,6 +83,42 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(len(raw), 2)
             self.assertTrue(all(isinstance(json.loads(line), dict) for line in raw))
 
+    def test_resolve_xmp_text_layers_treats_page_ocr_as_author_text(self):
+        layers = ai_index._resolve_xmp_text_layers(
+            image_path=Path("China_1986_B02_P02_stitched.jpg"),
+            ocr_text="TEMPLE OF HEAVEN",
+            page_like=True,
+        )
+        self.assertEqual(layers["author_text"], "TEMPLE OF HEAVEN")
+        self.assertEqual(layers["scene_text"], "")
+        self.assertEqual(layers["annotation_scope"], "page")
+
+    def test_compute_xmp_title_ignores_scene_text_by_default(self):
+        layers = ai_index._resolve_xmp_text_layers(
+            image_path=Path("Family_1986_B01_P02.jpg"),
+            ocr_text="NO SMOKING",
+            page_like=False,
+        )
+        title, title_source = ai_index._compute_xmp_title(
+            image_path=Path("Family_1986_B01_P02.jpg"),
+            explicit_title="",
+            author_text=layers["author_text"],
+            annotation_scope=layers["annotation_scope"],
+        )
+        self.assertEqual(title, "")
+        self.assertEqual(title_source, "")
+
+    def test_compute_xmp_title_keeps_cover_text(self):
+        with mock.patch.object(ai_index, "looks_like_album_cover", return_value=True):
+            title, title_source = ai_index._compute_xmp_title(
+                image_path=Path("China_1986_B02_P00.jpg"),
+                explicit_title="",
+                author_text="MAINLAND CHINA 1986 BOOK 11",
+                annotation_scope="page",
+            )
+        self.assertEqual(title, "MAINLAND CHINA 1986 BOOK 11")
+        self.assertEqual(title_source, "author_text")
+
     def test_needs_processing(self):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "a.jpg"
@@ -358,7 +394,11 @@ class TestAIIndex(unittest.TestCase):
                 bbox_offset=(0, 0),
                 hint_text="hello",
             )
-            ocr_engine.read_text.assert_called_once_with(scaled)
+            ocr_engine.read_text.assert_called_once_with(
+                scaled,
+                debug_recorder=None,
+                debug_step="ocr",
+            )
             object_detector.detect_image.assert_called_once_with(scaled)
             caption_engine.generate.assert_called_once_with(
                 image_path=scaled,
@@ -372,6 +412,8 @@ class TestAIIndex(unittest.TestCase):
                 is_cover_page=False,
                 people_positions={},
                 request_photo_regions=False,
+                debug_recorder=None,
+                debug_step="caption",
             )
 
     def test_run_image_analysis_records_gps_location_from_ocr_text(self):

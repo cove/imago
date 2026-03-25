@@ -1743,6 +1743,17 @@
     "query": "Dubrovnik, Yugoslavia - August 1988",
     "status": "miss"
   },
+  "dunhuang": {
+    "city": "敦煌市",
+    "country": "中国",
+    "display_name": "敦煌市, 酒泉市, 甘肃省, 736200, 中国",
+    "latitude": "40.1411004",
+    "longitude": "94.6607593",
+    "query": "Dunhuang",
+    "source": "nominatim",
+    "state": "甘肃省",
+    "status": "ok"
+  },
   "dunhuang county museum, dunhuang, china": {
     "query": "Dunhuang County Museum, Dunhuang, China",
     "status": "miss"
@@ -1767,8 +1778,16 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "dunhuang historical relics exhibition, dunhuang county museum, dunhuang, china": {
+    "query": "Dunhuang Historical Relics Exhibition, Dunhuang County Museum, Dunhuang, China",
+    "status": "miss"
+  },
   "dunhuang hotel, dunhuang cultural centre, dunhuang, gansu, china": {
     "query": "Dunhuang Hotel, Dunhuang Cultural Centre, Dunhuang, Gansu, China",
+    "status": "miss"
+  },
+  "dunhuang summer culture centre": {
+    "query": "Dunhuang Summer Culture Centre",
     "status": "miss"
   },
   "dunhuang summer culture centre, dunhuang hotel, dunhuang, china": {
@@ -2641,6 +2660,10 @@
   },
   "hua qing hot springs and qin ling mountains, china": {
     "query": "Hua Qing Hot Springs and Qin Ling Mountains, China",
+    "status": "miss"
+  },
+  "hua qing hot springs, beijing, china": {
+    "query": "Hua Qing Hot Springs, Beijing, China",
     "status": "miss"
   },
   "hua qing hot springs, china": {
@@ -4627,6 +4650,10 @@
     "query": "Puzhou District, Gansu, China",
     "status": "miss"
   },
+  "qin shi huangdi tomb, shaanxi, china": {
+    "query": "Qin Shi Huangdi Tomb, Shaanxi, China",
+    "status": "miss"
+  },
   "qinling mountains, shaanxi, china": {
     "query": "Qinling Mountains, Shaanxi, China",
     "status": "miss"
@@ -5693,6 +5720,10 @@
   },
   "terra cotta army, xi'an, shaanxi, china": {
     "query": "Terra Cotta Army, Xi'an, Shaanxi, China",
+    "status": "miss"
+  },
+  "terra cotta soldiers, xi'an, china": {
+    "query": "Terra Cotta Soldiers, Xi'an, China",
     "status": "miss"
   },
   "terraced houses and chimneys london suburbs": {

@@ -34,7 +34,6 @@ from photoalbums.lib._caption_lmstudio import (  # noqa: E402
     DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE,
     _build_data_url,
     _lmstudio_caption_response_format,
-    describe_system_prompt,
 )
 from photoalbums.lib.ai_caption import CaptionEngine  # noqa: E402
 from photoalbums.lib.ai_index import _run_image_analysis, DEFAULT_CAST_STORE  # noqa: E402
@@ -73,7 +72,7 @@ _TEST_CASES = [
         "ocr_text": ("EXHIBIT HISTORICAL RELICS OF DUNHUANG WELCOME TO DUNHUANG SUMMER CULTURE CENTRE"),
         "objects": ["person", "truck"],
         "people": [],
-        "album_title": "China 1986 Book II",
+        "album_title": "Mainland China 1986 Book II",
         # Title should name the location visible in OCR text
         "check_field": "title",
         "must_include": ["Dunhuang"],
@@ -86,7 +85,7 @@ _TEST_CASES = [
         "ocr_text": "",
         "objects": [],
         "people": [],
-        "album_title": "China 1986 Book II",
+        "album_title": "Mainland China 1986 Book II",
         "must_include": ["Buddhist"],
         "must_omit": ["historic", "photograph", "picture", "image", "scanned", "album page"],
     },
@@ -95,7 +94,7 @@ _TEST_CASES = [
         "use_pipeline": True,
         "image": _TEST_IMAGE_P16_D01,
         "ocr_text": "",
-        "album_title": "China 1986 Book II",
+        "album_title": "Mainland China 1986 Book II",
         # Face detection identifies Audrey/Leslie; caption must use their names
         "must_include": ["Audrey Cordell", "Leslie Cordell"],
         "must_omit": ["photograph", "picture", "image", "scanned", "two people"],
@@ -121,7 +120,7 @@ def _call_caption(base_url: str, image_path: Path, *, case: dict) -> dict:
         "messages": [
             {
                 "role": "system",
-                "content": describe_system_prompt(),
+                "content": "",
             },
             {
                 "role": "user",

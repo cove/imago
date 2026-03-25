@@ -65,8 +65,8 @@ class TestAICaption(unittest.TestCase):
             ocr_text="",
             source_path=Path("Photo Albums") / "Family_1980-1985_B08_View" / "Family_1980-1985_B08_P01.jpg",
         )
-        self.assertIn("Describe the people, event, and actions directly.", prompt)
-        self.assertIn("Do not use the album name as the title.", prompt)
+        self.assertIn("Classify visible text into `author_text` and `scene_text`.", prompt)
+        self.assertIn("Return empty strings when no applicable text exists for a field.", prompt)
         self.assertNotIn("Album title hint:", prompt)
         self.assertNotIn("Album classification hint:", prompt)
         self.assertNotIn("Detected objects:", prompt)
@@ -100,7 +100,7 @@ class TestAICaption(unittest.TestCase):
         context_index = prompt.index("Context hints (image-specific):")
         people_index = prompt.index("These people have been identified in this photo")
         ocr_index = prompt.index('OCR text hint: "FAMILY BOOK"')
-        output_index = prompt.index('{"title": "...", "caption": "..."}')
+        output_index = prompt.index('{"author_text": "...", "scene_text": "...", "annotation_scope": "...", "location_name": "..."}')
         self.assertGreater(people_index, context_index)
         self.assertGreater(ocr_index, context_index)
         self.assertLess(people_index, output_index)
@@ -108,11 +108,6 @@ class TestAICaption(unittest.TestCase):
         self.assertNotIn("Detected objects:", prompt)
 
     def test_system_prompts_load_from_skill_sections(self):
-        self.assertIn(
-            "Return only valid JSON matching the response_format schema.",
-            ai_caption.describe_system_prompt(),
-        )
-        self.assertIn("photo_regions", ai_caption.describe_system_prompt(page_mode=True))
         self.assertIn("Count clearly visible real people only.", ai_caption.people_count_system_prompt())
         self.assertIn("leave GPS fields empty", ai_caption.location_system_prompt())
 
@@ -140,7 +135,7 @@ class TestAICaption(unittest.TestCase):
             self.assertTrue(
                 ai_caption.looks_like_album_cover(
                     path,
-                    ocr_text="CHINA 1986",
+                    ocr_text="MAINLAND CHINA 1986",
                 )
             )
 
@@ -308,7 +303,9 @@ class TestAICaption(unittest.TestCase):
                     "message": {
                         "content": json.dumps(
                             {
-                                "caption": "A crowded collage of travel snapshots.",
+                                "author_text": "Temple of Heaven",
+                                "scene_text": "NO SMOKING",
+                                "annotation_scope": "photo",
                                 "location_name": "",
                             }
                         )
@@ -332,10 +329,7 @@ class TestAICaption(unittest.TestCase):
             self.assertTrue(request.full_url.endswith("/chat/completions"))
             payload = json.loads(request.data.decode("utf-8"))
             self.assertEqual(payload["model"], "qwen2.5-vl")
-            self.assertEqual(
-                payload["messages"][0]["content"],
-                ai_caption.describe_system_prompt(),
-            )
+            self.assertEqual(payload["messages"][0]["content"], "")
             self.assertEqual(payload["response_format"]["type"], "json_schema")
             self.assertEqual(payload["response_format"]["json_schema"]["name"], "caption_payload")
             self.assertEqual(payload["response_format"]["json_schema"]["strict"], "true")
@@ -393,7 +387,10 @@ class TestAICaption(unittest.TestCase):
                     prompt="Describe this exact image",
                 )
 
-        self.assertEqual(details.text, "A crowded collage of travel snapshots.")
+        self.assertEqual(details.text, "Temple of Heaven")
+        self.assertEqual(details.author_text, "Temple of Heaven")
+        self.assertEqual(details.scene_text, "NO SMOKING")
+        self.assertEqual(details.annotation_scope, "photo")
         self.assertEqual(details.gps_latitude, "")
         self.assertEqual(details.gps_longitude, "")
         self.assertEqual(details.location_name, "")
@@ -567,59 +564,63 @@ class TestAICaption(unittest.TestCase):
 
     def test_parse_lmstudio_structured_caption_extracts_json_after_think_prefix(self):
         details = ai_caption._parse_lmstudio_structured_caption(
-            '<think>{ "caption": "A blue album cover labeled MAINLAND CHINA 1986 BOOK 11.", "gps_latitude": "", "gps_longitude": "", "location_name": "" }',
+            '<think>{ "author_text": "MAINLAND CHINA 1986 BOOK 11", "scene_text": "", "annotation_scope": "page", "gps_latitude": "", "gps_longitude": "", "location_name": "" }',
             finish_reason="stop",
         )
-        self.assertEqual(details.text, "A blue album cover labeled MAINLAND CHINA 1986 BOOK 11.")
+        self.assertEqual(details.text, "MAINLAND CHINA 1986 BOOK 11")
+        self.assertEqual(details.author_text, "MAINLAND CHINA 1986 BOOK 11")
+        self.assertEqual(details.annotation_scope, "page")
 
     def test_parse_lmstudio_structured_caption_strips_closed_think_block(self):
         # Thinking models like QwQ emit <think>reasoning</think> before the JSON payload.
         details = ai_caption._parse_lmstudio_structured_caption(
             "<think>Let me analyze the image carefully. I can see several photographs of a Chinese Opera performance in Lanzhou and travel scenes.</think>"
-            '{ "caption": "A photo album page from Mainland China Book 11 displays five distinct photographs documenting a Chinese Opera performance in Lanzhou.", '
+            '{ "author_text": "Chinese Opera", "scene_text": "", "annotation_scope": "group", '
             '"gps_latitude": "", "gps_longitude": "", "location_name": "Lanzhou, Gansu, China" }',
             finish_reason="stop",
         )
-        self.assertIn("Lanzhou", details.text)
+        self.assertEqual(details.text, "Chinese Opera")
         self.assertEqual(details.location_name, "Lanzhou, Gansu, China")
         self.assertNotIn("<think>", details.text)
 
     def test_parse_lmstudio_structured_caption_prefers_last_valid_payload(self):
         details = ai_caption._parse_lmstudio_structured_caption(
             '{ "caption": {"effective_engine": "lmstudio"} }'
-            '\n{"caption": "Four people stand together outdoors in front of a brick house.", "location_name": ""}',
+            '\n{"author_text": "Cordell Home", "scene_text": "", "annotation_scope": "photo", "location_name": ""}',
             finish_reason="stop",
         )
-        self.assertEqual(
-            details.text,
-            "Four people stand together outdoors in front of a brick house.",
-        )
+        self.assertEqual(details.text, "Cordell Home")
+        self.assertEqual(details.annotation_scope, "photo")
 
     def test_parse_lmstudio_structured_caption_prefers_structured_gps_fields(self):
         details = ai_caption._parse_lmstudio_structured_caption(
             json.dumps(
                 {
-                    "caption": "The Mogao Caves entrance in Dunhuang.",
+                    "author_text": "Mogao Caves",
+                    "scene_text": "",
+                    "annotation_scope": "photo",
                     "gps_latitude": "39.7875",
                     "gps_longitude": "100.307222",
                     "location_name": "Mogao Caves, Dunhuang, Gansu, China",
                 }
             )
         )
+        self.assertEqual(details.author_text, "Mogao Caves")
         self.assertEqual(details.gps_latitude, "39.7875")
         self.assertEqual(details.gps_longitude, "100.307222")
         self.assertEqual(details.location_name, "Mogao Caves, Dunhuang, Gansu, China")
 
     def test_parse_local_json_output_extracts_caption_from_json(self):
-        raw = '{"caption": "Two people stand beside a red car.", "location_name": "", "gps_latitude": "", "gps_longitude": ""}'
+        raw = '{"author_text": "Temple of Heaven", "scene_text": "NO SMOKING", "annotation_scope": "photo", "location_name": "", "gps_latitude": "", "gps_longitude": ""}'
         details = ai_caption._parse_local_json_output(raw)
-        self.assertEqual(details.text, "Two people stand beside a red car.")
+        self.assertEqual(details.text, "Temple of Heaven")
+        self.assertEqual(details.scene_text, "NO SMOKING")
         self.assertEqual(details.gps_latitude, "")
 
     def test_parse_local_json_output_strips_think_block_before_json(self):
-        raw = '<think>Let me analyze this.</think>{"caption": "A mountain valley.", "location_name": "", "gps_latitude": "", "gps_longitude": ""}'
+        raw = '<think>Let me analyze this.</think>{"author_text": "A mountain valley", "scene_text": "", "annotation_scope": "photo", "location_name": "", "gps_latitude": "", "gps_longitude": ""}'
         details = ai_caption._parse_local_json_output(raw)
-        self.assertEqual(details.text, "A mountain valley.")
+        self.assertEqual(details.text, "A mountain valley")
 
     def test_parse_local_json_output_falls_back_to_plain_text(self):
         raw = "A plain text caption with no JSON."

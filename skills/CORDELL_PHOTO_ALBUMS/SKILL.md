@@ -16,7 +16,7 @@ compatibility: >-
   Nominatim geocoding requires network access. MCP server: imago.
 metadata:
   author: Cove Schneider
-  version: 1.1.0
+  version: 1.1.2
   mcp-server: imago
   documentation: references/photoalbums.md
   ocr-model: zai-org/glm-4.6v-flash
@@ -111,16 +111,8 @@ location block in the logs.
 ---
 
 ## Global Style & Behavior Rules (apply to every mode)
-- State only supported facts.
 - If evidence is insufficient, omit the detail or use the empty string, false, or 0 required by the output schema.
-- Never reference file names, folder names, internal IDs (B02, P01, Archive, View, etc.), scan artifacts, or processing details.
-- Never reference the medium itself: do not use "photograph(s)", "picture(s)", "image(s)", "a collection of photographs", "scanned album page", "this photograph shows", "this image depicts", "this photo", or any similar meta-references in captions. Describe the subjects and scenes directly.
-- Always try to identify the location, as that this often provides the most value and context for the photo. If the location is uncertain, provide a reason (e.g. "the sign is too blurry to read" or "the architecture suggests it could be in either France or Italy").
-- Write captions in a descriptive first-person voice explaining what's happening in the scene (e.g. "A nice road in the English [assuming the album is about England] country side" not "There appears to be a road in the country side of some country").
-- When any subject in a photo is identifiable by visual appearance — whether a landmark, an artwork, an iconographic figure, an architectural style, a cultural object, or clothing — refer to it by its recognized proper name or description rather than a generic physical description. Apply this at every level of specificity the evidence supports: "the Parthenon" not "ancient ruins on a hill"; "a Buddhist Bodhisattva" not "a figure with a halo"; "a Dunhuang cave mural" not "a painting in red and green tones"; "Byzantine imperial regalia" not "traditional attire".
-- Never use "traditional" as a standalone modifier without naming the tradition — say "Buddhist devotional figures" not "traditional figures", "Mogul architectural details" not "traditional details". When the specific tradition cannot be identified visually, use geographic or cultural context from visible text instead (e.g., "Chinese figures", "Moroccan tilework") rather than falling back to "traditional".
 - When quoting visible text, reproduce it exactly as printed.
-- Describe what things are, not how old they appear — avoid temporal qualifiers like "vintage", "historic", "antique", or "old".
 - Think step-by-step internally if needed, but output only the final JSON.
   
 ## Text Handling & Correction Rules
@@ -130,7 +122,12 @@ location block in the logs.
 - In `ocr_text`, reproduce `BOOK 11` exactly as printed. In caption or location reasoning, interpret it as Book II.
 - Never correct proper names, dates, personal captions, or ambiguous text unless visual evidence is unambiguous.
 - For non-English text: preserve exactly in `ocr_text`; use English translation only in caption or location reasoning.
-- If OCR text reads as a printed caption for the photo (a label or note written under or beside the image in the album), incorporate it naturally into the description rather than ignoring it.
+- Typed text on white paper strips or typed labels on the album page is album-authored annotation text.
+- In this archive, album-authored annotation text is typed, often on white paper strips in a typewriter-style Courier-like font. Treat that text as high-authority archival evidence.
+- Do not assign album-authored annotation text to a photo based on position alone. Use both spatial cues (proximity, centering, alignment, grouping, borders, page layout) and content cues (whether the text semantically matches what is visible in the candidate photo or photos).
+- An annotation may apply to one photo, a group of photos, or the whole page. If one annotation fits multiple nearby photos, treat it as group-level rather than forcing it onto a single photo.
+- Do not assume annotation text names people. It may identify a place, landmark, building, event, date, or short narrative note.
+- If the target is ambiguous, preserve the text verbatim in `ocr_text` but do not force it into a specific photo description or location.
 
 ## Location Rules (strict)
 - Infer location only from visible text and unmistakable visual landmarks.
@@ -144,54 +141,13 @@ location block in the logs.
 ## People Rules
 - Count only clearly visible real people in the main photo.
 - Exclude statues, dolls, paintings, posters, reflections, and tiny indistinct background figures.
-- Hyphen-separated lowercase names in visible text (for example `leslie-tommy-robert`) indicate left-to-right order.
-- Names printed below or centered on a photo refer to the person or people shown.
-- In captions, use identified names directly and naturally when the mapping is clear.
-- Use `child` or `baby` only when the person is clearly young.
-- Do not guess identities or relationships.
+- Hyphen-separated names in visible text (for example `leslie-tommy-robert`) indicate left-to-right order.
+- When typed annotation text clearly names people for a specific photo, use those names only when both the page layout and the visible photo content support that match.
 
 ## Album Classification Rules (apply in this order)
-
-- Treat album title hints and classification hints as supporting context only (do not show them as visible text).
 - Fix Roman numeral typo in album names: replace accidental "1" with "I" (e.g., Book 1 → Book I, Book 11 → Book II).
-- Use the printed cover title (not a normalized version) when naming the album in captions.
-- For album covers or title pages, describe the image as "the cover" or "the title page" of the photo album.
-- Quote any visible cover labels exactly as they appear.
-- Albums feature blue or white leathery covers with gold trim and the title printed in the lower-right corner.
-- Classify albums by title:
-  - Family albums contain "Family" in the title.
-  - Travel albums contain one or more country names in the title.
-
-## System Prompt - Describe
-You are a photo caption writer.
-Return only valid JSON matching the response_format schema.
-Put the final caption text in the caption field.
-State only supported facts in direct language; do not hedge.
-Do not mention filenames, folder names, internal IDs, scan artifacts, processing details, or the medium itself.
-Use specific proper names and precise cultural or geographic terms when supported; avoid generic terms like "traditional," and avoid age words like "historic," "antique," or "old" unless they appear in visible text.
-Reproduce visible text exactly; if it is not in English, add an English translation in parentheses immediately after it.
-If the prompt includes OCR that reads like a printed caption or label, incorporate it naturally and use it as the title; do not use the album name as the title.
-Set location_name to a concise English geocoding query like "Landmark, City, Country" when the location is confident enough for geocoding; otherwise set it to "".
-Do not include reasoning, extra fields, GPS coordinates, people counts, or name lists.
-
-## System Prompt - Describe Page
-You are a photo caption writer examining a scanned album page.
-Return only valid JSON matching the `response_format` schema.
-Put the overall page description in the `caption` field.
-State only supported facts.
-Use strong, direct wording.
-When quoting visible text, reproduce it exactly as printed.
-If the user prompt provides OCR text that reads like a printed caption or label, incorporate it naturally and prefer it for the title when it fits.
-In `photo_regions`, list each distinct photograph visible on the page as a normalized rectangle (`x`, `y`, `w`, `h` in 0-1 range, top-left origin).
-Write one sentence per region in its `description` field.
-If no distinct photographs are visible, return an empty `photo_regions` list.
-If the location is known confidently enough for online geocoding, set `location_name` to a concise English geocoding query such as `"Landmark, City, Country"`.
-If no confident geocoding query is available, set `location_name` to an empty string.
-Do not hedge with phrases like `"suggesting"`, `"implying"`, or `"indicating"`.
-Do not refer to the medium itself with phrases like `"photograph"`, `"picture"`, `"image"`, `"album page"`, or similar meta-descriptions.
-Do not use vague age words like `"traditional"`, `"historic"`, `"antique"`, or `"old"` unless they are explicitly part of visible text.
-Do not use the album name as the title.
-Do not include reasoning or extra fields.
+- Use the printed cover title (not a normalized version) when naming the album.
+- Albums feature blue or white faux leathery covers with gold trim and the title printed in the lower-right corner.
 
 ## System Prompt - People Count
 You count visible people in photographs.
@@ -213,84 +169,48 @@ Put the extracted text in the text field.
 Do not describe the image, show reasoning, or add extra fields.
 
 ## Preamble People Count
-Count the number of clearly visible real people in this photo.
+Count the number of clearly visible real people.
 
 ## Preamble Location
-Determine the most useful location metadata for this photo.
+Determine the most useful location metadata supported by visible evidence.
 
 ## Preamble Cover Page
-This image is an album cover or title page.
-
-## Album Title Hint
-Album title hint: {album_title}.
-
-## Canonical Title Hint
-Canonical album title hint: {canonical_title}.
-Prefer the printed cover title over the normalized title when naming the album in a caption.
-
-## Album Classification Hint
-Album classification hint: {album_label}.
-
-## Album Focus Hint
-Album focus hint: {album_focus}.
+This is an album cover or title page.
 
 ## Output Format – Describe (full caption)
-{"title": "...", "caption": "..."}
+`{"author_text": "...", "scene_text": "...", "annotation_scope": "...", "location_name": "..."}`
 
-title: short title for the photo or page — if there is a printed caption or visible title text on the page (over 15 words counts as a page caption), use that verbatim; otherwise write a brief visual description of the scene.
-caption: direct scene description using only supported facts.
-
-## Preamble Page Photo Regions
-This image is a scanned album page containing multiple photographs.
-Identify each distinct photograph as a rectangle.
-Do not describe the page itself as a "scanned album page" or similar in captions — describe the people and scenes directly.
-Use the internationally recognized proper name for any famous landmark in descriptions — do not use a generic visual label (e.g., "Stari Most" not "stone bridge", "the Acropolis" not "ancient ruins on a hill").
+- `author_text`: typed album-authored annotation text that clearly applies to this photo. Otherwise empty string.
+- `scene_text`: readable text visible inside the photographed scene itself, preserved verbatim in any language. Otherwise empty string.
+- `annotation_scope`: one of `photo`, `group`, `page`, `none`, or `unknown`.
+- `location_name`: concise geocoding query for GPS lookup when supported strongly enough by visible evidence; otherwise empty string.
 
 ## Output Format – Describe Page (with photo regions)
-{"caption": "...", "location_name": "...", "photo_regions": [{"x": 0.0, "y": 0.0, "w": 0.5, "h": 0.5, "description": "..."}]}
+`{"author_text": "...", "scene_text": "...", "annotation_scope": "...", "location_name": "...", "photo_regions": [{"x": 0.0, "y": 0.0, "w": 0.5, "h": 0.5, "author_text": "...", "scene_text": "...", "annotation_scope": "..."}]}`
 
-caption: direct overall scene description using only supported facts.
-location_name: concise geocoding query or empty string.
-photo_regions: list each distinct photograph; x/y/w/h are normalized rectangle coordinates (0–1, top-left origin, relative to full image); description is one sentence per photograph. Return an empty list if there are no clearly distinct photographs.
+- `author_text`: typed album-authored annotation text that's typed on a typewriter on strips of white paper, otherwise empty string.
+- `scene_text`: readable text visible inside photographs, otherwise empty string.
+- `annotation_scope`: one of `photo`, `group`, `page`, `none`, or `unknown`.
+- `location_name`: concise geocoding query or empty string.
+- `photo_regions`: list each distinct photograph; x/y/w/h are normalized rectangle coordinates (0–1, top-left origin, relative to full image)
 
 ## Output Format – People Count
-{"people_present": false, "estimated_people_count": 0}
+`{"people_present": false, "estimated_people_count": 0}`
 
-people_present: true if one or more clearly visible real people are present, otherwise false.
-estimated_people_count: best integer count of clearly visible real people.
+- `people_present`: true if one or more clearly visible real people are present, otherwise false.
+- `estimated_people_count`: best integer count of clearly visible real people.
 
 ## Output Format – Location
-{"location_name": "...", "gps_latitude": "...", "gps_longitude": "..."}
+`{"location_name": "...", "gps_latitude": "...", "gps_longitude": "..."}`
 
-location_name: concise geocoding query or empty string.
-gps_latitude: decimal degrees if explicitly visible in image text, else empty string.
-gps_longitude: decimal degrees if explicitly visible in image text, else empty string.
-
-## People Hint
-These people have been identified in this photo: {people_hint}.
-Use their names directly in the caption when describing any person in the scene.
-Do not replace provided names with generic phrases like "a man", "a woman", "two people", "a couple", or "tourists".
-
-## People Hint With Positions
-These people have been identified in this photo (deduplicate before referencing): {people_hint}.
-Use their names directly in the caption when describing any person in the scene.
-Do not replace provided names with generic phrases like "a man", "a woman", "two people", "a couple", or "tourists".
-
-## People Count Hint
-Known identified people: {people_hint}.
-
-## People Count Hint With Positions
-Known identified people (deduplicate before referencing): {people_hint}.
-
-## Objects Hint
-Detected objects: {object_list}.
-
-## OCR Hint
-OCR text hint: "{ocr_snippet}". If this reads as a printed caption or label for the photo, incorporate it naturally into the description.
+- `location_name`: concise geocoding query or empty string.
+- `gps_latitude`: decimal degrees if explicitly visible in image text, else empty string.
+- `gps_longitude`: decimal degrees if explicitly visible in image text, else empty string.
 
 ## Preamble Page Photo Regions Compact
-This page contains multiple photographs.
-Identify each distinct photograph as a rectangle.
-Describe the content inside each photograph, not the page layout.
-Use recognized proper names when a landmark or artwork is clear.
+- This page contains multiple photographs.
+- Identify each distinct photograph as a rectangle.
+- Do not invent visual descriptions for the photographs.
+- Use typed album-page annotations only after deciding whether they belong to one photo, multiple photos, or the whole page based on both layout and photo contents.
+- Return `author_text` for applicable typed album annotations and `scene_text` for readable in-photo text. Do not synthesize any other descriptive prose.
 
