@@ -249,26 +249,38 @@ def _resolve_album_printed_title_from_sidecars(image_path: Path) -> str:
     return ""
 
 
-def _resolve_album_title_hint(image_path: Path, album_title_cache: dict[str, str]) -> str:
+def _resolve_cached_album_title_hint(
+    image_path: Path,
+    title_cache: dict[str, str],
+    *,
+    sidecar_title_resolver,
+    fallback_title: str = "",
+) -> str:
     key = _album_identity_key(image_path)
-    cached = str(album_title_cache.get(key) or "").strip()
+    cached = str(title_cache.get(key) or "").strip()
     if cached:
         return cached
-    title = _resolve_album_title_from_sidecars(image_path) or infer_album_title(image_path=image_path)
+    title = sidecar_title_resolver(image_path) or str(fallback_title or "").strip()
     if title:
-        album_title_cache[key] = title
+        title_cache[key] = title
     return title
+
+
+def _resolve_album_title_hint(image_path: Path, album_title_cache: dict[str, str]) -> str:
+    return _resolve_cached_album_title_hint(
+        image_path,
+        album_title_cache,
+        sidecar_title_resolver=_resolve_album_title_from_sidecars,
+        fallback_title=infer_album_title(image_path=image_path),
+    )
 
 
 def _resolve_album_printed_title_hint(image_path: Path, printed_title_cache: dict[str, str]) -> str:
-    key = _album_identity_key(image_path)
-    cached = str(printed_title_cache.get(key) or "").strip()
-    if cached:
-        return cached
-    title = _resolve_album_printed_title_from_sidecars(image_path)
-    if title:
-        printed_title_cache[key] = title
-    return title
+    return _resolve_cached_album_title_hint(
+        image_path,
+        printed_title_cache,
+        sidecar_title_resolver=_resolve_album_printed_title_from_sidecars,
+    )
 
 
 def _store_album_title_hint(image_path: Path, album_title_cache: dict[str, str], title: str) -> str:
