@@ -50,10 +50,12 @@ def _build_describe_preamble(*, is_cover_page: bool = False) -> list[str]:
     return lines
 
 
-def _build_describe_context_hints(
+def _build_people_context_hints(
     *,
     people_list: list[str],
     people_positions: dict[str, str] | None = None,
+    section_name: str,
+    section_with_positions_name: str,
 ) -> list[str]:
     hint_lines: list[str] = []
     if people_list:
@@ -61,28 +63,9 @@ def _build_describe_context_hints(
             entries = [
                 (f"{name} ({people_positions[name]})" if name in people_positions else name) for name in people_list
             ]
-            hint_lines.extend(_section("People Hint With Positions", people_hint=", ".join(entries)))
+            hint_lines.extend(_section(section_with_positions_name, people_hint=", ".join(entries)))
         else:
-            hint_lines.extend(_section("People Hint", people_hint=join_human(people_list)))
-    if not hint_lines:
-        return []
-    return ["Context hints (image-specific):"] + hint_lines
-
-
-def _build_people_count_context_hints(
-    *,
-    people_list: list[str],
-    people_positions: dict[str, str] | None = None,
-) -> list[str]:
-    hint_lines: list[str] = []
-    if people_list:
-        if people_positions:
-            entries = [
-                (f"{name} ({people_positions[name]})" if name in people_positions else name) for name in people_list
-            ]
-            hint_lines.extend(_section("People Count Hint With Positions", people_hint=", ".join(entries)))
-        else:
-            hint_lines.extend(_section("People Count Hint", people_hint=join_human(people_list)))
+            hint_lines.extend(_section(section_name, people_hint=join_human(people_list)))
     if not hint_lines:
         return []
     return ["Context hints (image-specific):"] + hint_lines
@@ -112,9 +95,11 @@ def _build_local_prompt(
     lines = _section_from(album_skill, "Preamble Describe")
     lines.extend(_build_describe_preamble(is_cover_page=is_cover_page))
     lines.extend(
-        _build_describe_context_hints(
+        _build_people_context_hints(
             people_list=people_list,
             people_positions=people_positions,
+            section_name="People Hint",
+            section_with_positions_name="People Hint With Positions",
         )
     )
     if request_photo_regions:
@@ -138,9 +123,11 @@ def _build_people_count_prompt(
     people_list = dedupe(people)
     lines = _section("Preamble People Count")
     lines.extend(
-        _build_people_count_context_hints(
+        _build_people_context_hints(
             people_list=people_list,
             people_positions=people_positions,
+            section_name="People Count Hint",
+            section_with_positions_name="People Count Hint With Positions",
         )
     )
     lines.extend(_section("Output Format – People Count"))
