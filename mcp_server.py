@@ -15,6 +15,12 @@ from mcp.server.fastmcp import FastMCP
 from mcp_console import start_console
 from mcp_job_runner import JobRunner
 from photoalbums.common import PHOTO_ALBUMS_DIR
+from photoalbums.lib.mcp_queries import (
+    album_status as photoalbums_album_status_query,
+    query_manifest_rows as photoalbums_query_manifest_rows,
+    read_job_artifacts as photoalbums_read_job_artifacts,
+    reprocess_audit as photoalbums_reprocess_audit_query,
+)
 from photoalbums.lib.xmp_review import (
     load_ai_xmp_review,
     resolve_ai_xmp_review_path,
@@ -251,6 +257,88 @@ def photoalbums_manifest_summary() -> dict:
 
 
 # ── Photoalbums: XMP review + job-launching tools ─────────────────────────────
+
+
+@mcp.tool()
+def photoalbums_manifest_query(
+    album: Optional[str] = None,
+    state: Optional[str] = None,
+    file_name: Optional[str] = None,
+    limit: int = 100,
+) -> dict[str, object]:
+    """Query manifest rows with lightweight derived photo status.
+
+    Args:
+        album: Filter to photos whose parent directory name contains this substring.
+        state: Filter rows by manifest `state`.
+        file_name: Exact basename filter for a photo.
+        limit: Maximum rows to return.
+    """
+    return photoalbums_query_manifest_rows(
+        photos_root=PHOTOS_ROOT_DEFAULT,
+        manifest_path=MANIFEST_DEFAULT,
+        album=str(album or ""),
+        state=str(state or ""),
+        file_name=str(file_name or ""),
+        limit=limit,
+    )
+
+
+@mcp.tool()
+def photoalbums_album_status(album: str) -> dict[str, object]:
+    """Return album coverage and cover-page readiness for a parent-directory filter.
+
+    Args:
+        album: Substring match against the parent directory name.
+    """
+    return photoalbums_album_status_query(
+        photos_root=PHOTOS_ROOT_DEFAULT,
+        manifest_path=MANIFEST_DEFAULT,
+        album=album,
+    )
+
+
+@mcp.tool()
+def photoalbums_job_artifacts(
+    job_id: str,
+    kind: Optional[str] = None,
+    file_name: Optional[str] = None,
+) -> dict[str, object]:
+    """Read stored photoalbums job artifacts for a completed or running job.
+
+    Args:
+        job_id: Job ID returned by the MCP job runner.
+        kind: Optional artifact kind filter.
+        file_name: Optional exact basename filter against image_path/sidecar_path/label.
+    """
+    job = next((row for row in runner.list_jobs() if str(row.get("id")) == str(job_id)), None)
+    if not isinstance(job, dict):
+        raise ValueError(f"Job {job_id} not found")
+    return photoalbums_read_job_artifacts(
+        job=job,
+        kind=str(kind or ""),
+        file_name=str(file_name or ""),
+    )
+
+
+@mcp.tool()
+def photoalbums_reprocess_audit(
+    album: Optional[str] = None,
+    limit: int = 100,
+) -> dict[str, object]:
+    """List photo files that appear to need reprocessing based on file/XMP/manifest state.
+
+    Args:
+        album: Optional parent-directory substring filter.
+        limit: Maximum rows to return.
+    """
+    return photoalbums_reprocess_audit_query(
+        photos_root=PHOTOS_ROOT_DEFAULT,
+        manifest_path=MANIFEST_DEFAULT,
+        cast_store=CAST_STORE_DEFAULT,
+        album=str(album or ""),
+        limit=limit,
+    )
 
 
 @mcp.tool()
