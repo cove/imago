@@ -1,0 +1,16 @@
+default_archive_set = "cordell"
+default_scan_set = "incoming_scans"
+
+[sets.cordell]
+kind = "archive"
+description = "Cordell family photo albums archive"
+photos_root = "C:/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums"
+manifest_path = "data/ai_index_manifest.jsonl"
+cast_store = "../cast/data"
+skill = "cordell-photo-albums"
+
+[sets.incoming_scans]
+kind = "scanwatch"
+description = "Incoming scan intake workspace"
+photos_root = "C:/Users/covec/OneDrive/Photo Scans"
+skill = "photoalbums-scan-control"

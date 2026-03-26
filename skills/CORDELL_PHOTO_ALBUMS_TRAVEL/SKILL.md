@@ -1,14 +1,10 @@
 ---
-name: CORDELL_PHOTO_ALBUMS_TRAVEL
+name: cordell-photo-albums-travel
 description: >-
   Travel album captioning skill for Cordell photo albums. Contains travel-specific preamble prompt
   templates used by the GLM pipeline for photo-essay / travel albums (albums with country names in the
   title). Loaded at runtime by `photoalbums/lib/_caption_prompts.py`. Use the base
   CORDELL_PHOTO_ALBUMS skill for job management, manifest checking, and quality monitoring.
-compatibility: >-
-  Requires local GPU with GLM vision model (zai-org/glm-4.6v-flash). Model selection configured in
-  ai_models.json. Object detection requires YOLO. Face matching requires InsightFace embeddings from Cast.
-  Nominatim geocoding requires network access. MCP server: imago.
 metadata:
   author: Cove Schneider
   version: 1.0.1
@@ -28,6 +24,15 @@ country names). Sections are parsed by exact `## Section Name` heading - do not 
 
 For Workflow, Quality Monitoring, and shared rules (`Global Style & Behavior Rules`, `Location Rules`,
 etc.), see the base `CORDELL_PHOTO_ALBUMS` skill.
+
+## Requirements
+
+- Local GPU with GLM vision model `zai-org/glm-4.6v-flash`
+- Model selection configured in `photoalbums/ai_models.toml`
+- YOLO for object detection
+- InsightFace embeddings from Cast for face matching
+- Network access for Nominatim geocoding
+- MCP server: `imago`
 
 ---
 

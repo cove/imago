@@ -14,8 +14,7 @@ from mcp.server.fastmcp import FastMCP
 
 from mcp_console import start_console
 from mcp_job_runner import JobRunner
-from photoalbums.common import PHOTO_ALBUMS_DIR
-from photoalbums.scanwatch import ScanWatchService
+from photoalbums.lib import album_sets
 from photoalbums.lib.mcp_queries import (
     album_status as photoalbums_album_status_query,
     query_manifest_rows as photoalbums_query_manifest_rows,
@@ -26,12 +25,12 @@ from photoalbums.lib.xmp_review import (
     load_ai_xmp_review,
     resolve_ai_xmp_review_path,
 )
+from photoalbums.scanwatch import ScanWatchService
 
 REPO_ROOT = Path(__file__).resolve().parent
 PYTHON = str(REPO_ROOT / ".venv" / "Scripts" / "python.exe")
 
 CAST_STORE_DEFAULT = str(REPO_ROOT / "cast" / "data")
-PHOTOS_ROOT_DEFAULT = str(PHOTO_ALBUMS_DIR)
 VHS_DIR = str(REPO_ROOT / "vhs")
 VHS_SCRIPT = str(REPO_ROOT / "vhs" / "vhs.py")
 CAST_SCRIPT = str(REPO_ROOT / "cast.py")
@@ -43,7 +42,7 @@ CONSOLE_HOST = "localhost"  # overridden at startup by --console-host
 
 mcp = FastMCP("imago")
 runner = JobRunner()
-scanwatch_service = ScanWatchService(root=PHOTO_ALBUMS_DIR)
+scanwatch_services: dict[str, ScanWatchService] = {}
 
 
 def _job_started(job_id: str) -> dict:
@@ -84,6 +83,60 @@ def _resolve_ai_index_photo_path(photos_root: str, photo: Optional[str]) -> Opti
             joined += f", ... ({len(matches)} matches total)"
         raise ValueError(f"Photo filename '{photo_value}' is ambiguous under photos_root '{photos_root}': {joined}")
     return str(matches[0])
+
+
+def _client_set_dict(album_set: album_sets.AlbumSet) -> dict[str, object]:
+    return album_set.to_client_dict(
+        default_archive_set=album_sets.default_archive_set_name(),
+        default_scan_set=album_sets.default_scan_set_name(),
+    )
+
+
+def _archive_set(album_set: Optional[str] = None) -> album_sets.AlbumSet:
+    return album_sets.resolve_archive_set(album_set)
+
+
+def _scan_set(album_set: Optional[str] = None) -> album_sets.AlbumSet:
+    return album_sets.resolve_scan_set(album_set)
+
+
+def _scanwatch_service(album_set: Optional[str] = None) -> tuple[album_sets.AlbumSet, ScanWatchService]:
+    set_config = _scan_set(album_set)
+    service = scanwatch_services.get(set_config.name)
+    if service is None:
+        service = ScanWatchService(root=set_config.photos_root)
+        scanwatch_services[set_config.name] = service
+    return set_config, service
+
+
+def _scanwatch_status_payload(album_set_name: str, status: dict[str, object]) -> dict[str, object]:
+    return {
+        "album_set": album_set_name,
+        "running": status["running"],
+        "event_count": status["event_count"],
+        "pending_event_count": status["pending_event_count"],
+        "needs_rescan_count": status["needs_rescan_count"],
+        "archive_count": status["archive_count"],
+    }
+
+
+def _scanwatch_event_payload(album_set_name: str, event: dict[str, object]) -> dict[str, object]:
+    archive = event.get("archive", {})
+    return {
+        "album_set": album_set_name,
+        "id": event["id"],
+        "status": event["status"],
+        "target_name": event["target_name"],
+        "page_num": event["page_num"],
+        "note": event["note"],
+        "archive_name": Path(str(event["archive_dir"])).name,
+        "incoming_file": Path(str(event["incoming_path"])).name,
+        "archive": {
+            "archive_name": Path(str(archive.get("archive_dir", ""))).name if archive else "",
+            "pending_event_ids": archive.get("pending_event_ids", []),
+            "needs_rescan_pages": archive.get("needs_rescan_pages", []),
+        },
+    }
 
 
 # ── Job management ─────────────────────────────────────────────────────────────
@@ -237,11 +290,44 @@ def cast_start_web(host: str = "0.0.0.0", port: int = 8093) -> dict:
 
 
 @mcp.tool()
-def photoalbums_manifest_summary() -> dict:
+def photoalbums_list_sets(kind: Optional[str] = None) -> list[dict[str, object]]:
+    """List configured album sets available to MCP clients.
+
+    Args:
+        kind: Optional filter: 'archive' or 'scanwatch'.
+    """
+    return [_client_set_dict(album_set) for album_set in album_sets.list_album_sets(kind=kind)]
+
+
+@mcp.tool()
+def photoalbums_get_set(album_set: str) -> dict[str, object]:
+    """Return client-safe metadata for one album set."""
+    return _client_set_dict(album_sets.get_album_set(album_set))
+
+
+@mcp.resource("photoalbums://sets")
+def photoalbums_sets_resource() -> str:
+    """Markdown summary of configured album sets."""
+    lines = ["# Photoalbums Album Sets", ""]
+    for album_set in photoalbums_list_sets():
+        lines += [
+            f"## {album_set['name']}",
+            f"- Kind: `{album_set['kind']}`",
+            f"- Default: `{album_set['is_default']}`",
+            f"- Skill: `{album_set['skill']}`",
+            f"- Description: {album_set['description'] or '(none)'}",
+            "",
+        ]
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def photoalbums_manifest_summary(album_set: Optional[str] = None) -> dict:
     """Summarise the AI index manifest: image counts grouped by processing state."""
-    p = Path(MANIFEST_DEFAULT)
+    set_config = _archive_set(album_set)
+    p = Path(set_config.manifest_path or MANIFEST_DEFAULT)
     if not p.exists():
-        return {"error": "Manifest not found", "path": str(p)}
+        return {"error": "Manifest not found", "album_set": set_config.name}
     states: dict[str, int] = {}
     total = 0
     for line in p.read_text(encoding="utf-8").splitlines():
@@ -255,7 +341,7 @@ def photoalbums_manifest_summary() -> dict:
             total += 1
         except json.JSONDecodeError:
             pass
-    return {"total": total, "by_state": states}
+    return {"album_set": set_config.name, "total": total, "by_state": states}
 
 
 # ── Photoalbums: XMP review + job-launching tools ─────────────────────────────
@@ -263,6 +349,7 @@ def photoalbums_manifest_summary() -> dict:
 
 @mcp.tool()
 def photoalbums_manifest_query(
+    album_set: Optional[str] = None,
     album: Optional[str] = None,
     state: Optional[str] = None,
     file_name: Optional[str] = None,
@@ -276,9 +363,10 @@ def photoalbums_manifest_query(
         file_name: Exact basename filter for a photo.
         limit: Maximum rows to return.
     """
+    set_config = _archive_set(album_set)
     return photoalbums_query_manifest_rows(
-        photos_root=PHOTOS_ROOT_DEFAULT,
-        manifest_path=MANIFEST_DEFAULT,
+        photos_root=str(set_config.photos_root),
+        manifest_path=str(set_config.manifest_path or MANIFEST_DEFAULT),
         album=str(album or ""),
         state=str(state or ""),
         file_name=str(file_name or ""),
@@ -287,15 +375,16 @@ def photoalbums_manifest_query(
 
 
 @mcp.tool()
-def photoalbums_album_status(album: str) -> dict[str, object]:
+def photoalbums_album_status(album: str, album_set: Optional[str] = None) -> dict[str, object]:
     """Return album coverage and cover-page readiness for a parent-directory filter.
 
     Args:
         album: Substring match against the parent directory name.
     """
+    set_config = _archive_set(album_set)
     return photoalbums_album_status_query(
-        photos_root=PHOTOS_ROOT_DEFAULT,
-        manifest_path=MANIFEST_DEFAULT,
+        photos_root=str(set_config.photos_root),
+        manifest_path=str(set_config.manifest_path or MANIFEST_DEFAULT),
         album=album,
     )
 
@@ -325,6 +414,7 @@ def photoalbums_job_artifacts(
 
 @mcp.tool()
 def photoalbums_reprocess_audit(
+    album_set: Optional[str] = None,
     album: Optional[str] = None,
     limit: int = 100,
 ) -> dict[str, object]:
@@ -334,10 +424,11 @@ def photoalbums_reprocess_audit(
         album: Optional parent-directory substring filter.
         limit: Maximum rows to return.
     """
+    set_config = _archive_set(album_set)
     return photoalbums_reprocess_audit_query(
-        photos_root=PHOTOS_ROOT_DEFAULT,
-        manifest_path=MANIFEST_DEFAULT,
-        cast_store=CAST_STORE_DEFAULT,
+        photos_root=str(set_config.photos_root),
+        manifest_path=str(set_config.manifest_path or MANIFEST_DEFAULT),
+        cast_store=str(set_config.cast_store or CAST_STORE_DEFAULT),
         album=str(album or ""),
         limit=limit,
     )
@@ -346,6 +437,7 @@ def photoalbums_reprocess_audit(
 @mcp.tool()
 def photoalbums_load_xmp(
     file_name: str,
+    album_set: Optional[str] = None,
     include_raw_xml: bool = False,
 ) -> dict[str, object]:
     """Load a photoalbums AI XMP sidecar and return its stored fields for review.
@@ -355,8 +447,9 @@ def photoalbums_load_xmp(
             the tool loads the matching .xmp sidecar.
         include_raw_xml: Include the raw XML sidecar text in the response.
     """
+    set_config = _archive_set(album_set)
     sidecar_path, photo_path = resolve_ai_xmp_review_path(
-        PHOTOS_ROOT_DEFAULT,
+        str(set_config.photos_root),
         file_name=file_name,
     )
     result = load_ai_xmp_review(sidecar_path, include_raw_xml=include_raw_xml)
@@ -367,37 +460,61 @@ def photoalbums_load_xmp(
 
 @mcp.tool()
 def photoalbums_ai_index(
+    album_set: Optional[str] = None,
     photo: Optional[str] = None,
-    process_all_photos: bool = False,
+    reprocess_mode: str = "unprocessed",
     album: Optional[str] = None,
     max_images: int = 0,
+    dry_run: bool = False,
 ) -> dict:
     """Start a photoalbums AI indexing job (people → objects → OCR → captions → geocoding → XMP).
 
     This is a long-running operation. Returns a job ID immediately.
     Use job_status(job_id) to monitor progress and job_logs(job_id) for full output.
 
+    Before starting a large job, call photoalbums_reprocess_audit() to see reason_counts
+    and choose the right reprocess_mode. Use dry_run=True to preview scope without writing.
+
     Args:
         photo: Optional filename (or full path) of a single photo to process.
             When omitted, the job processes all photos that match the other filters.
-            A bare filename is searched under photos_root and implies force.
-        process_all_photos: Ignore manifest and re-process all matching photos.
+            A bare filename is searched under photos_root and always forces reprocessing.
+        reprocess_mode: Controls which images are selected for processing.
+            'unprocessed' (default): images with missing or stale sidecar — safe for normal
+                runs, will not re-touch already-complete albums.
+            'new_only': only images with no manifest entry (never indexed) — use this when
+                resuming after a server restart to avoid re-doing completed work.
+            'errors_only': only images whose sidecar contains a processing error
+                (e.g. lmstudio_caption_error) — use to retry failed captions without
+                reprocessing everything.
+            'outdated': only images where the sidecar is older than the image file — use
+                when source files have been updated.
+            'cast_changed': only images that need people re-detection because the cast
+                store has changed — targeted re-run after adding new people.
+            'all': force reprocess every matching image regardless of state.
         album: Filter to photos whose parent directory name contains this substring (case-insensitive).
         max_images: Limit number of matching photos to process (0 = unlimited).
+        dry_run: Preview what would be processed without writing any sidecar or manifest changes.
     """
+    valid_modes = {"unprocessed", "new_only", "errors_only", "outdated", "cast_changed", "all"}
+    if reprocess_mode not in valid_modes:
+        raise ValueError(f"reprocess_mode must be one of: {', '.join(sorted(valid_modes))}")
+    set_config = _archive_set(album_set)
     args = [
         PYTHON,
         PHOTOALBUMS_SCRIPT,
         "ai",
         "index",
         "--photos-root",
-        PHOTOS_ROOT_DEFAULT,
+        str(set_config.photos_root),
         "--cast-store",
-        CAST_STORE_DEFAULT,
+        str(set_config.cast_store or CAST_STORE_DEFAULT),
+        "--reprocess-mode",
+        reprocess_mode,
     ]
-    if process_all_photos:
-        args.append("--force")
-    resolved_photo = _resolve_ai_index_photo_path(PHOTOS_ROOT_DEFAULT, photo)
+    if dry_run:
+        args.append("--dry-run")
+    resolved_photo = _resolve_ai_index_photo_path(str(set_config.photos_root), photo)
     if resolved_photo:
         args += ["--photo", resolved_photo]
     if album:
@@ -405,24 +522,26 @@ def photoalbums_ai_index(
     if max_images:
         args += ["--max-images", str(max_images)]
 
-    name = f"photoalbums_ai_index:{Path(PHOTOS_ROOT_DEFAULT).name}"
+    name = f"photoalbums_ai_index:{set_config.name}"
     return _job_started(runner.start(name, args))
 
 
 @mcp.tool()
-def photoalbums_compress() -> dict:
+def photoalbums_compress(album_set: Optional[str] = None) -> dict:
     """Start a job to compress TIFF scans in-place. Returns a job ID."""
-    args = [PYTHON, PHOTOALBUMS_SCRIPT, "compress", "--photos-root", PHOTOS_ROOT_DEFAULT]
-    return _job_started(runner.start(f"photoalbums_compress:{Path(PHOTOS_ROOT_DEFAULT).name}", args))
+    set_config = _archive_set(album_set)
+    args = [PYTHON, PHOTOALBUMS_SCRIPT, "compress", "--photos-root", str(set_config.photos_root)]
+    return _job_started(runner.start(f"photoalbums_compress:{set_config.name}", args))
 
 
 @mcp.tool()
-def photoalbums_stitch(validate_only: bool = False) -> dict:
+def photoalbums_stitch(validate_only: bool = False, album_set: Optional[str] = None) -> dict:
     """Start a job to stitch album page outputs. Returns a job ID.
 
     Args:
         validate_only: Only validate stitchability without writing outputs.
     """
+    set_config = _archive_set(album_set)
     subcommand = "validate" if validate_only else "build"
     args = [
         PYTHON,
@@ -430,56 +549,77 @@ def photoalbums_stitch(validate_only: bool = False) -> dict:
         "stitch",
         subcommand,
         "--photos-root",
-        PHOTOS_ROOT_DEFAULT,
+        str(set_config.photos_root),
     ]
-    return _job_started(runner.start(f"photoalbums_stitch_{subcommand}:{Path(PHOTOS_ROOT_DEFAULT).name}", args))
+    return _job_started(runner.start(f"photoalbums_stitch_{subcommand}:{set_config.name}", args))
 
 
 # ── Photoalbums: scan watcher control ──────────────────────────────────────────
 
 
 @mcp.tool()
-def scanwatch_start(root: Optional[str] = None) -> dict[str, object]:
+def scanwatch_start(album_set: Optional[str] = None) -> dict[str, object]:
     """Start or restart the incoming scan watcher."""
-    if root:
-        scanwatch_service.set_root(root)
-    return scanwatch_service.start()
+    set_config, service = _scanwatch_service(album_set)
+    return _scanwatch_status_payload(set_config.name, service.start())
 
 
 @mcp.tool()
-def scanwatch_stop() -> dict[str, object]:
+def scanwatch_stop(album_set: Optional[str] = None) -> dict[str, object]:
     """Stop the incoming scan watcher."""
-    return scanwatch_service.stop()
+    set_config, service = _scanwatch_service(album_set)
+    return _scanwatch_status_payload(set_config.name, service.stop())
 
 
 @mcp.tool()
-def scanwatch_status() -> dict[str, object]:
+def scanwatch_status(album_set: Optional[str] = None) -> dict[str, object]:
     """Return watcher state and reconstruction summary."""
-    return scanwatch_service.status()
+    set_config, service = _scanwatch_service(album_set)
+    return _scanwatch_status_payload(set_config.name, service.status())
 
 
 @mcp.tool()
-def scanwatch_refresh() -> dict[str, object]:
+def scanwatch_refresh(album_set: Optional[str] = None) -> dict[str, object]:
     """Rebuild in-memory watcher state from the filesystem."""
-    return scanwatch_service.rebuild()
+    set_config, service = _scanwatch_service(album_set)
+    return _scanwatch_status_payload(set_config.name, service.rebuild())
 
 
 @mcp.tool()
-def scanwatch_list_events(status: Optional[str] = None, limit: int = 100) -> list[dict[str, object]]:
+def scanwatch_list_events(
+    status: Optional[str] = None,
+    limit: int = 100,
+    album_set: Optional[str] = None,
+) -> list[dict[str, object]]:
     """List scan events known to the watcher."""
-    return scanwatch_service.list_events(status=status, limit=limit)
+    set_config, service = _scanwatch_service(album_set)
+    return [
+        _scanwatch_event_payload(set_config.name, event) for event in service.list_events(status=status, limit=limit)
+    ]
 
 
 @mcp.tool()
-def scanwatch_get_event(event_id: str) -> dict[str, object]:
+def scanwatch_get_event(event_id: str, album_set: Optional[str] = None) -> dict[str, object]:
     """Return one scan event with its archive context."""
-    return scanwatch_service.get_event_context(event_id)
+    set_config, service = _scanwatch_service(album_set)
+    return _scanwatch_event_payload(set_config.name, service.get_event_context(event_id))
 
 
 @mcp.tool()
-def scanwatch_list_rescans(limit: int = 100) -> list[dict[str, object]]:
+def scanwatch_list_rescans(limit: int = 100, album_set: Optional[str] = None) -> list[dict[str, object]]:
     """List pages that currently need another scan."""
-    return scanwatch_service.list_rescans(limit=limit)
+    set_config, service = _scanwatch_service(album_set)
+    items = service.list_rescans(limit=limit)
+    return [
+        {
+            "album_set": set_config.name,
+            "archive_name": Path(str(item["archive_dir"])).name,
+            "page_num": item["page_num"],
+            "scan_count": item["scan_count"],
+            "files": [Path(str(path)).name for path in item["files"]],
+        }
+        for item in items
+    ]
 
 
 @mcp.tool()
@@ -488,24 +628,34 @@ def scanwatch_apply_decision(
     target_name: str,
     validate_stitch: bool = True,
     open_preview: bool = True,
+    album_set: Optional[str] = None,
 ) -> dict[str, object]:
     """Rename, process, and optionally validate a scan event."""
-    return scanwatch_service.apply_decision(
+    set_config, service = _scanwatch_service(album_set)
+    result = service.apply_decision(
         event_id,
         target_name,
         validate_stitch=validate_stitch,
         open_preview=open_preview,
     )
+    event = _scanwatch_event_payload(set_config.name, result["event"])
+    archive = result.get("archive", {})
+    event["archive"] = {
+        "archive_name": Path(str(archive.get("archive_dir", ""))).name if archive else "",
+        "pending_event_ids": archive.get("pending_event_ids", []),
+        "needs_rescan_pages": archive.get("needs_rescan_pages", []),
+    }
+    return event
 
 
 @mcp.resource("scanwatch://status")
 def scanwatch_status_resource() -> str:
     """Text summary of current watcher state."""
-    status = scanwatch_service.status()
+    status = scanwatch_status()
     lines = [
         "# Scanwatch Status",
         "",
-        f"- Root: `{status['root']}`",
+        f"- Album set: `{status['album_set']}`",
         f"- Running: `{status['running']}`",
         f"- Events: `{status['event_count']}`",
         f"- Pending: `{status['pending_event_count']}`",
@@ -517,16 +667,17 @@ def scanwatch_status_resource() -> str:
 @mcp.resource("scanwatch://events")
 def scanwatch_events_resource() -> str:
     """Markdown list of known scan events."""
-    events = scanwatch_service.list_events(limit=500)
+    events = scanwatch_list_events(limit=500)
     if not events:
         return "No scan events found."
     lines = ["# Scan Events", ""]
     for event in events:
         lines += [
             f"## {event['id']}",
+            f"- Album set: `{event['album_set']}`",
             f"- Status: `{event['status']}`",
-            f"- Archive: `{event['archive_dir']}`",
-            f"- Incoming: `{event['incoming_path']}`",
+            f"- Archive: `{event['archive_name']}`",
+            f"- Incoming: `{event['incoming_file']}`",
             f"- Target: `{event['target_name']}`",
             f"- Page: `{event['page_num']}`",
             f"- Note: `{event['note']}`",
@@ -538,14 +689,15 @@ def scanwatch_events_resource() -> str:
 @mcp.resource("scanwatch://event/{event_id}")
 def scanwatch_event_resource(event_id: str) -> str:
     """Markdown summary for one scan event."""
-    event = scanwatch_service.get_event_context(event_id)
+    event = scanwatch_get_event(event_id)
     archive = event.get("archive", {})
     lines = [
         f"# Scan Event {event_id}",
         "",
+        f"- Album set: `{event['album_set']}`",
         f"- Status: `{event['status']}`",
-        f"- Archive: `{event['archive_dir']}`",
-        f"- Incoming: `{event['incoming_path']}`",
+        f"- Archive: `{event['archive_name']}`",
+        f"- Incoming: `{event['incoming_file']}`",
         f"- Target: `{event['target_name']}`",
         f"- Page: `{event['page_num']}`",
         f"- Note: `{event['note']}`",

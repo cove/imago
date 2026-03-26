@@ -47,7 +47,7 @@ Assemble an `ImageAnalysis` object with: image path, people names, object labels
 
 ## Use Cases
 
-Model configuration is loaded from `ai_models.json` (see `selected_ocr_model` and `selected_caption_model`). "Combined engine" means the same model handles both OCR and captioning in one inference. "Separate engine" means OCR and captioning run independently.
+Model configuration is loaded from `photoalbums/ai_models.toml` (see `selected_ocr_model` and `selected_caption_model`). "Combined engine" means the same model handles both OCR and captioning in one inference. "Separate engine" means OCR and captioning run independently.
 
 **Use Case 1: Combined OCR + Caption**
 Trigger: Both OCR and caption engines are `local` AND no OCR text override provided.
@@ -98,6 +98,59 @@ Expected location output: `{"location_name": "Naples, Italy", "gps_latitude": ""
 Image: Photo with a data strip reading "Lat: 48.8566 Lon: 2.3522".
 Pipeline: OCR extracts data strip → GPS regex matches directly → location inference step skipped.
 Expected location output: `{"location_name": "", "gps_latitude": "48.8566", "gps_longitude": "2.3522"}`
+
+---
+
+## AI Indexing — MCP Workflow
+
+Use `photoalbums_reprocess_audit` as a planning step before starting any indexing job.
+It returns `reason_counts` — a dict mapping each reason code to the number of images
+affected — so you can choose the right `reprocess_mode` without reprocessing everything.
+Call `photoalbums_list_sets(kind="archive")` first and use `album_set="cordell"` for
+Cordell archive operations instead of relying on server defaults.
+
+### Reason codes
+
+| Reason | Meaning |
+|---|---|
+| `manifest_missing` | Image has never been indexed |
+| `sidecar_missing` | No XMP sidecar exists for this image |
+| `sidecar_older_than_image` | Source image was updated after the sidecar was written |
+| `lmstudio_caption_error` | Caption step failed with an LMStudio error |
+| `sidecar_incomplete` | Sidecar exists but is missing expected AI fields |
+| `cast_store_signature_changed` | Cast people store changed — people need re-detection |
+| `missing_stitched_authority` | Multi-scan page lacks stitched OCR authority |
+
+### Choosing reprocess_mode
+
+| reprocess_mode | When to use |
+|---|---|
+| `unprocessed` | Normal run — processes images with missing or stale sidecar. Safe default. |
+| `new_only` | Resuming after a server restart — only touches images never seen before, skips already-complete albums. Use this to avoid repeating work. |
+| `errors_only` | Retry failed captions (`lmstudio_caption_error`, `sidecar_incomplete`) without touching everything else. |
+| `outdated` | Source images were updated — reprocess only images where the file is newer than the sidecar. |
+| `cast_changed` | New people added to Cast — re-detect people only on images that previously had people (or unknown). |
+| `all` | Full reprocess of everything. Use sparingly. |
+
+### Recommended workflow
+
+```
+# 1. Audit first
+photoalbums_reprocess_audit(album_set="cordell", album="...")
+# → reason_counts: {"manifest_missing": 50, "lmstudio_caption_error": 8}
+
+# 2. Process new images
+photoalbums_ai_index(album_set="cordell", reprocess_mode="new_only", album="...")
+
+# 3. Retry errors separately (may warrant user review first)
+photoalbums_ai_index(album_set="cordell", reprocess_mode="errors_only", album="...")
+
+# 4. Dry-run to preview scope before a large job
+photoalbums_ai_index(album_set="cordell", reprocess_mode="all", album="...", dry_run=True)
+```
+
+**Do not use `reprocess_mode="all"` reflexively when resuming work.** Check
+`reason_counts` first and pick the narrowest mode that covers the actual need.
 
 ---
 

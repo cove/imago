@@ -1,5 +1,7 @@
 """Tests for MCP server photoalbums helpers."""
 
+from __future__ import annotations
+
 import json
 import sys
 import tempfile
@@ -12,26 +14,111 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import mcp_server
-from photoalbums.lib import xmp_sidecar
+from photoalbums.lib import album_sets, xmp_sidecar
 
 
-class TestPhotoalbumsAiIndexPhotoResolution(unittest.TestCase):
-    def setUp(self):
+class AlbumSetConfigMixin:
+    def setUp(self) -> None:
+        super().setUp()
         self.tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
-        self.photos_root = Path(self.tmp.name) / "photos"
+        self.root = Path(self.tmp.name)
+        self.photos_root = self.root / "photos"
         self.photos_root.mkdir(parents=True)
+        self.scan_root = self.root / "incoming"
+        self.scan_root.mkdir(parents=True)
+        self.manifest_path = self.root / "ai_index_manifest.jsonl"
+        self.cast_store = self.root / "cast"
+        self.cast_store.mkdir(parents=True)
+        self.album_sets_path = self.root / "album_sets.toml"
 
+        self._orig_album_sets_path = album_sets.ALBUM_SETS_PATH
+        self._orig_scanwatch_services = mcp_server.scanwatch_services
+
+        album_sets.ALBUM_SETS_PATH = self.album_sets_path
+        album_sets.load_album_sets.cache_clear()
+        mcp_server.scanwatch_services = {}
+        self._write_album_sets_config()
+
+    def tearDown(self) -> None:
+        for service in mcp_server.scanwatch_services.values():
+            service.stop()
+        mcp_server.scanwatch_services = self._orig_scanwatch_services
+        album_sets.ALBUM_SETS_PATH = self._orig_album_sets_path
+        album_sets.load_album_sets.cache_clear()
+        self.tmp.cleanup()
+        super().tearDown()
+
+    def _write_album_sets_config(self) -> None:
+        content = "\n".join(
+            [
+                'default_archive_set = "cordell"',
+                'default_scan_set = "incoming_scans"',
+                "",
+                "[sets.cordell]",
+                'kind = "archive"',
+                'description = "Cordell family photo albums archive"',
+                f'photos_root = "{self.photos_root.as_posix()}"',
+                f'manifest_path = "{self.manifest_path.as_posix()}"',
+                f'cast_store = "{self.cast_store.as_posix()}"',
+                'skill = "cordell-photo-albums"',
+                "",
+                "[sets.incoming_scans]",
+                'kind = "scanwatch"',
+                'description = "Incoming scan intake workspace"',
+                f'photos_root = "{self.scan_root.as_posix()}"',
+                'skill = "photoalbums-scan-control"',
+                "",
+            ]
+        )
+        self.album_sets_path.write_text(content, encoding="utf-8")
+
+
+class TestPhotoalbumsAlbumSets(AlbumSetConfigMixin, unittest.TestCase):
+    def test_photoalbums_list_sets_returns_client_safe_metadata(self):
+        result = mcp_server.photoalbums_list_sets()
+
+        self.assertEqual([row["name"] for row in result], ["cordell", "incoming_scans"])
+        cordell = result[0]
+        incoming = result[1]
+        self.assertEqual(cordell["kind"], "archive")
+        self.assertTrue(cordell["is_default"])
+        self.assertIn("photoalbums_ai_index", cordell["supported_tools"])
+        self.assertNotIn("photos_root", cordell)
+        self.assertEqual(incoming["kind"], "scanwatch")
+        self.assertTrue(incoming["is_default"])
+        self.assertIn("scanwatch_status", incoming["supported_tools"])
+        self.assertNotIn("manifest_path", incoming)
+
+    def test_photoalbums_list_sets_can_filter_by_kind(self):
+        result = mcp_server.photoalbums_list_sets(kind="scanwatch")
+
+        self.assertEqual(result, [mcp_server.photoalbums_get_set("incoming_scans")])
+
+    def test_photoalbums_list_sets_rejects_unknown_kind(self):
+        with self.assertRaises(ValueError) as exc:
+            mcp_server.photoalbums_list_sets(kind="unknown")
+
+        self.assertIn("kind must be one of", str(exc.exception))
+
+    def test_scanwatch_status_uses_default_scan_set(self):
+        result = mcp_server.scanwatch_status()
+
+        self.assertEqual(result["album_set"], "incoming_scans")
+        self.assertFalse(result["running"])
+        self.assertEqual(result["event_count"], 0)
+
+
+class TestPhotoalbumsAiIndexPhotoResolution(AlbumSetConfigMixin, unittest.TestCase):
+    def setUp(self) -> None:
+        super().setUp()
         self._orig_runner = mcp_server.runner
-        self._orig_photos_root = mcp_server.PHOTOS_ROOT_DEFAULT
         self.runner = mock.Mock()
         self.runner.start.return_value = "job123"
         mcp_server.runner = self.runner
-        mcp_server.PHOTOS_ROOT_DEFAULT = str(self.photos_root)
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         mcp_server.runner = self._orig_runner
-        mcp_server.PHOTOS_ROOT_DEFAULT = self._orig_photos_root
-        self.tmp.cleanup()
+        super().tearDown()
 
     def _started_args(self) -> list[str]:
         self.assertTrue(self.runner.start.called)
@@ -42,7 +129,7 @@ class TestPhotoalbumsAiIndexPhotoResolution(unittest.TestCase):
         image_path.parent.mkdir(parents=True)
         image_path.touch()
 
-        mcp_server.photoalbums_ai_index(photo=str(image_path))
+        mcp_server.photoalbums_ai_index(album_set="cordell", photo=str(image_path))
 
         args = self._started_args()
         self.assertEqual(args[args.index("--photo") + 1], str(image_path))
@@ -52,14 +139,14 @@ class TestPhotoalbumsAiIndexPhotoResolution(unittest.TestCase):
         image_path.parent.mkdir(parents=True)
         image_path.touch()
 
-        mcp_server.photoalbums_ai_index(photo="Photo_01.jpg")
+        mcp_server.photoalbums_ai_index(album_set="cordell", photo="Photo_01.jpg")
 
         args = self._started_args()
         self.assertEqual(args[args.index("--photo") + 1], str(image_path.resolve()))
 
     def test_photoalbums_ai_index_raises_when_filename_not_found(self):
         with self.assertRaises(ValueError) as exc:
-            mcp_server.photoalbums_ai_index(photo="Missing.jpg")
+            mcp_server.photoalbums_ai_index(album_set="cordell", photo="Missing.jpg")
 
         self.assertIn("was not found", str(exc.exception))
         self.runner.start.assert_not_called()
@@ -73,20 +160,21 @@ class TestPhotoalbumsAiIndexPhotoResolution(unittest.TestCase):
         second.touch()
 
         with self.assertRaises(ValueError) as exc:
-            mcp_server.photoalbums_ai_index(photo="Photo_01.jpg")
+            mcp_server.photoalbums_ai_index(album_set="cordell", photo="Photo_01.jpg")
 
         self.assertIn("ambiguous", str(exc.exception))
         self.runner.start.assert_not_called()
 
     def test_photoalbums_ai_index_only_passes_supported_filters(self):
         mcp_server.photoalbums_ai_index(
+            album_set="cordell",
             album="Album_A",
             max_images=5,
-            process_all_photos=True,
+            reprocess_mode="all",
         )
 
         args = self._started_args()
-        self.assertIn("--force", args)
+        self.assertEqual(args[args.index("--reprocess-mode") + 1], "all")
         self.assertEqual(args[args.index("--album") + 1], "Album_A")
         self.assertEqual(args[args.index("--max-images") + 1], "5")
         self.assertNotIn("--caption-engine", args)
@@ -98,20 +186,15 @@ class TestPhotoalbumsAiIndexPhotoResolution(unittest.TestCase):
         self.assertNotIn("--photo-offset", args)
         self.assertNotIn("--dry-run", args)
 
+    def test_photoalbums_ai_index_rejects_scanwatch_set(self):
+        with self.assertRaises(ValueError) as exc:
+            mcp_server.photoalbums_ai_index(album_set="incoming_scans")
 
-class TestPhotoalbumsLoadXmp(unittest.TestCase):
-    def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
-        self.photos_root = Path(self.tmp.name) / "photos"
-        self.photos_root.mkdir(parents=True)
+        self.assertIn("does not support archive operations", str(exc.exception))
+        self.runner.start.assert_not_called()
 
-        self._orig_photos_root = mcp_server.PHOTOS_ROOT_DEFAULT
-        mcp_server.PHOTOS_ROOT_DEFAULT = str(self.photos_root)
 
-    def tearDown(self):
-        mcp_server.PHOTOS_ROOT_DEFAULT = self._orig_photos_root
-        self.tmp.cleanup()
-
+class TestPhotoalbumsLoadXmp(AlbumSetConfigMixin, unittest.TestCase):
     def _write_sidecar(self, image_path: Path) -> Path:
         image_path.parent.mkdir(parents=True, exist_ok=True)
         image_path.touch()
@@ -151,6 +234,8 @@ class TestPhotoalbumsLoadXmp(unittest.TestCase):
                 }
             ],
             stitch_key="Family_1986_B01_P01",
+            image_width=100,
+            image_height=100,
             ocr_ran=True,
             people_detected=True,
             people_identified=True,
@@ -161,7 +246,7 @@ class TestPhotoalbumsLoadXmp(unittest.TestCase):
         image_path = self.photos_root / "Album_A" / "Photo_01.jpg"
         sidecar_path = self._write_sidecar(image_path)
 
-        result = mcp_server.photoalbums_load_xmp(file_name="Photo_01.xmp")
+        result = mcp_server.photoalbums_load_xmp(file_name="Photo_01.xmp", album_set="cordell")
 
         self.assertEqual(result["resolved_from"], "xmp_path")
         self.assertIsNone(result["photo_path"])
@@ -178,14 +263,14 @@ class TestPhotoalbumsLoadXmp(unittest.TestCase):
         self.assertEqual(result["summary"]["detected_object_count"], 1)
         self.assertEqual(result["summary"]["ocr_char_count"], 11)
         self.assertEqual(result["summary"]["subphoto_count"], 1)
-        self.assertEqual(result["subphotos"][0]["bounds"]["width"], 3)
+        self.assertEqual(result["subphotos"][0]["bounds"]["width"], 0.03)
         self.assertEqual(result["subphotos"][0]["people"], ["Alice Example"])
 
     def test_photoalbums_load_xmp_resolves_photo_filename(self):
         image_path = self.photos_root / "Album_A" / "Photo_01.jpg"
         sidecar_path = self._write_sidecar(image_path)
 
-        result = mcp_server.photoalbums_load_xmp(file_name="Photo_01.jpg")
+        result = mcp_server.photoalbums_load_xmp(file_name="Photo_01.jpg", album_set="cordell")
 
         self.assertEqual(result["resolved_from"], "photo")
         self.assertEqual(result["photo_path"], str(image_path.resolve()))
@@ -193,10 +278,11 @@ class TestPhotoalbumsLoadXmp(unittest.TestCase):
 
     def test_photoalbums_load_xmp_includes_raw_xml_when_requested(self):
         image_path = self.photos_root / "Album_A" / "Photo_01.jpg"
-        sidecar_path = self._write_sidecar(image_path)
+        self._write_sidecar(image_path)
 
         result = mcp_server.photoalbums_load_xmp(
             file_name="Photo_01.xmp",
+            album_set="cordell",
             include_raw_xml=True,
         )
 
@@ -209,41 +295,18 @@ class TestPhotoalbumsLoadXmp(unittest.TestCase):
         image_path.touch()
 
         with self.assertRaises(ValueError) as exc:
-            mcp_server.photoalbums_load_xmp(file_name="Photo_01.jpg")
+            mcp_server.photoalbums_load_xmp(file_name="Photo_01.jpg", album_set="cordell")
 
         self.assertIn("No XMP sidecar", str(exc.exception))
 
     def test_photoalbums_load_xmp_requires_file_name(self):
         with self.assertRaises(ValueError) as exc:
-            mcp_server.photoalbums_load_xmp(file_name="")
+            mcp_server.photoalbums_load_xmp(file_name="", album_set="cordell")
 
         self.assertIn("file_name", str(exc.exception))
 
 
-class TestPhotoalbumsMcpQueries(unittest.TestCase):
-    def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
-        self.root = Path(self.tmp.name)
-        self.photos_root = self.root / "photos"
-        self.photos_root.mkdir(parents=True)
-        self.manifest_path = self.root / "ai_index_manifest.jsonl"
-        self.cast_store = self.root / "cast"
-        self.cast_store.mkdir(parents=True)
-
-        self._orig_photos_root = mcp_server.PHOTOS_ROOT_DEFAULT
-        self._orig_manifest = mcp_server.MANIFEST_DEFAULT
-        self._orig_cast_store = mcp_server.CAST_STORE_DEFAULT
-
-        mcp_server.PHOTOS_ROOT_DEFAULT = str(self.photos_root)
-        mcp_server.MANIFEST_DEFAULT = str(self.manifest_path)
-        mcp_server.CAST_STORE_DEFAULT = str(self.cast_store)
-
-    def tearDown(self):
-        mcp_server.PHOTOS_ROOT_DEFAULT = self._orig_photos_root
-        mcp_server.MANIFEST_DEFAULT = self._orig_manifest
-        mcp_server.CAST_STORE_DEFAULT = self._orig_cast_store
-        self.tmp.cleanup()
-
+class TestPhotoalbumsMcpQueries(AlbumSetConfigMixin, unittest.TestCase):
     def _write_manifest(self, *rows: dict) -> None:
         payload = "\n".join(json.dumps(row) for row in rows)
         self.manifest_path.write_text(payload + ("\n" if payload else ""), encoding="utf-8")
@@ -294,7 +357,7 @@ class TestPhotoalbumsMcpQueries(unittest.TestCase):
             }
         )
 
-        result = mcp_server.photoalbums_manifest_query(album="Album_Query", state="done")
+        result = mcp_server.photoalbums_manifest_query(album_set="cordell", album="Album_Query", state="done")
 
         self.assertEqual(result["total_matches"], 1)
         row = result["rows"][0]
@@ -311,7 +374,7 @@ class TestPhotoalbumsMcpQueries(unittest.TestCase):
         page_path.parent.mkdir(parents=True, exist_ok=True)
         page_path.touch()
 
-        result = mcp_server.photoalbums_album_status(album="Album_Status")
+        result = mcp_server.photoalbums_album_status(album="Album_Status", album_set="cordell")
 
         self.assertEqual(result["total_images"], 2)
         self.assertTrue(result["cover_ready"])
@@ -345,7 +408,7 @@ class TestPhotoalbumsMcpQueries(unittest.TestCase):
             + "\n",
             encoding="utf-8",
         )
-        jobs = [{"id": "job123", "name": "photoalbums_ai_index:test", "artifact_file": str(artifact_file)}]
+        jobs = [{"id": "job123", "name": "photoalbums_ai_index:cordell", "artifact_file": str(artifact_file)}]
 
         with mock.patch.object(mcp_server.runner, "list_jobs", return_value=jobs):
             result = mcp_server.photoalbums_job_artifacts(
@@ -386,7 +449,7 @@ class TestPhotoalbumsMcpQueries(unittest.TestCase):
             },
         )
 
-        result = mcp_server.photoalbums_reprocess_audit(album="Audit", limit=10)
+        result = mcp_server.photoalbums_reprocess_audit(album_set="cordell", album="Audit", limit=10)
 
         reasons_by_name = {row["file_name"]: set(row["reprocess_reasons"]) for row in result["rows"]}
         self.assertIn("missing_stitched_authority", reasons_by_name[stitched_one.name])

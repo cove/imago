@@ -16,12 +16,13 @@ decision, and handle retry after stitch failure without hard-coding naming rules
 
 ## Workflow
 
-1. Call `scanwatch_status` to confirm the watcher is running.
-2. Call `scanwatch_list_events` to find pending incoming scans.
-3. Call `scanwatch_get_event` to inspect the archive context before naming.
-4. Read `references/naming.md` for the current album naming rules.
-5. Choose the target filename and call `scanwatch_apply_decision`.
-6. If stitch validation fails, call `scanwatch_list_rescans` and keep scanning the same page until it validates.
+1. Call `photoalbums_list_sets(kind="scanwatch")` and select `album_set="incoming_scans"`.
+2. Call `scanwatch_status(album_set="incoming_scans")` to confirm the watcher is running.
+3. Call `scanwatch_list_events(album_set="incoming_scans")` to find pending incoming scans.
+4. Call `scanwatch_get_event(event_id, album_set="incoming_scans")` to inspect the archive context before naming.
+5. Read `references/naming.md` for the current album naming rules.
+6. Choose the target filename and call `scanwatch_apply_decision(event_id, target_name, album_set="incoming_scans")`.
+7. If stitch validation fails, call `scanwatch_list_rescans(album_set="incoming_scans")` and keep scanning the same page until it validates.
 
 ## Naming Rules
 
@@ -34,6 +35,7 @@ decision, and handle retry after stitch failure without hard-coding naming rules
 - If stitch validation fails, report the page number, archive directory, and scan count.
 - Do not advance to the next page until validation succeeds.
 - Keep the failure actionable: the operator needs to scan another copy of the same page.
+- Always pass `album_set="incoming_scans"` on scanwatch MCP calls.
 
 ## MCP Tools
 

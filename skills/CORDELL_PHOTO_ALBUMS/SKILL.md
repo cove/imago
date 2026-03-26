@@ -1,5 +1,5 @@
 ---
-name: CORDELL_PHOTO_ALBUMS
+name: cordell-photo-albums
 description: >-
   Orchestration skill for AI captioning and indexing of Cordell family photo albums (scanned by
   Audrey Cordell). Use this skill whenever: kicking off or monitoring a photoalbums AI indexing job,
@@ -10,10 +10,6 @@ description: >-
   preambles live in CORDELL_PHOTO_ALBUMS_TRAVEL and CORDELL_PHOTO_ALBUMS_FAMILY skills. Invoke any time
   the user mentions photo albums, Audrey's albums, AI index, manifest summary, caption problems, or
   specific photo filenames — even if they don't say "skill".
-compatibility: >-
-  Requires local GPU with GLM vision model (zai-org/glm-4.6v-flash). Model selection configured in
-  ai_models.json. Object detection requires YOLO. Face matching requires InsightFace embeddings from Cast.
-  Nominatim geocoding requires network access. MCP server: imago.
 metadata:
   author: Cove Schneider
   version: 1.1.2
@@ -39,9 +35,18 @@ do not rename them. Read `references/photoalbums.md` for full pipeline documenta
 Album-type-specific preambles (`Preamble Describe`, `Preamble Combined Travel`, `Preamble Combined
 Family`) live in the `CORDELL_PHOTO_ALBUMS_TRAVEL` and `CORDELL_PHOTO_ALBUMS_FAMILY` skills.
 
+## Requirements
+
+- Local GPU with GLM vision model `zai-org/glm-4.6v-flash`
+- Model selection configured in `photoalbums/ai_models.toml`
+- YOLO for object detection
+- InsightFace embeddings from Cast for face matching
+- Network access for Nominatim geocoding
+- MCP server: `imago`
+
 The pipeline runs four inference modes per image: Combined (OCR + caption in one GLM pass), Describe
 (caption only, separate engine), People Count, and Location. Engine selection and mode branching are
-controlled by `ai_models.json` — the skill templates apply to all modes.
+controlled by `photoalbums/ai_models.toml` — the skill templates apply to all modes.
 
 ---
 
@@ -49,19 +54,23 @@ controlled by `ai_models.json` — the skill templates apply to all modes.
 
 Use the `imago` MCP tools to drive the AI indexing pipeline. The typical flow:
 
+### Select the archive set first
+Call `photoalbums_list_sets(kind="archive")` and select `album_set="cordell"` for Cordell family
+albums. Pass `album_set` explicitly on operational MCP calls instead of relying on server defaults.
+
 ### Check what needs processing
-Call `photoalbums_manifest_summary` first to see counts by state (pending, done, errored). This tells
+Call `photoalbums_manifest_summary(album_set="cordell")` first to see counts by state (pending, done, errored). This tells
 you whether there's real work to do and how large the job will be. Then use
-`photoalbums_manifest_query(album="...")` when you need concrete filenames, cover pages, or sidecar status.
+`photoalbums_manifest_query(album_set="cordell", album="...")` when you need concrete filenames, cover pages, or sidecar status.
 
 ### Ensure the cover page is processed first
 Before processing any album pages, the cover page (P00 or P01) must be processed so the album title is available to all subsequent pages. Always check:
 
 1. Call `photoalbums_album_status(album="...")` and inspect `cover_candidates` plus `cover_ready`.
 2. If the cover page has not been processed yet (state is `pending` or absent), run a targeted job first:
-   `photoalbums_ai_index(photo="<AlbumName>_B<book>_P00")` — wait for it to complete before continuing.
+   `photoalbums_ai_index(album_set="cordell", photo="<AlbumName>_B<book>_P00")` — wait for it to complete before continuing.
 3. If the cover was previously processed but predates this change (its `xmpDM:album` field may be empty or missing the year), reprocess it:
-   `photoalbums_ai_index(photo="<AlbumName>_B<book>_P00", process_all_photos=true)`
+   `photoalbums_ai_index(album_set="cordell", photo="<AlbumName>_B<book>_P00", reprocess_mode="all")`
 4. Once the cover is done, proceed with the full album job — non-cover pages will pick up the title from the cover's XMP sidecar automatically.
 
 This step is especially important when processing a single page (e.g. `photo=...P25`) — always run the cover page first if the title is unknown.
@@ -72,7 +81,8 @@ Call `photoalbums_ai_index` to launch a background job. It returns a `job_id` im
 - Use `album` to scope to a single album directory (substring match, case-insensitive).
 - Use `photo` for a single file (also forces reprocessing).
 - Use `max_images` to cap the run during testing or spot-checks.
-- Use `process_all_photos=true` to reprocess images already in the manifest.
+- Use `reprocess_mode="all"` to reprocess images already in the manifest.
+- Always pass `album_set="cordell"` on Cordell archive operations.
 
 ### Monitor progress
 Poll `job_status(job_id)` periodically (every 30–60 seconds for large runs). It returns status and a
@@ -84,7 +94,7 @@ specific photos. Use `job_list` to see all recent jobs if you've lost track of a
 Call `job_cancel(job_id)` to terminate a running job gracefully.
 
 ### Audit what needs repair
-Call `photoalbums_reprocess_audit(album="...")` to find files that look stale or incomplete before starting a
+Call `photoalbums_reprocess_audit(album_set="cordell", album="...")` to find files that look stale or incomplete before starting a
 repair pass. Use this when you suspect missing stitched OCR authority, missing sidecars, stale sidecars, or
 Cast-driven people-name refreshes.
 
@@ -118,7 +128,7 @@ of people — if it still failed, the person likely needs a better reference emb
 ### OCR garbled or empty
 **Symptom:** `ocr_text` is nonsense or empty despite visible text in the scan.
 **Cause:** Low-contrast, faded, angled, or sepia-toned handwriting. GLM Combined mode handles
-handwriting better than standalone OCR engines — confirm engine selection in `ai_models.json`.
+handwriting better than standalone OCR engines — confirm engine selection in `photoalbums/ai_models.toml`.
 
 ### Location empty despite clear context
 **Symptom:** `location_name` is empty for a photo with a visible place name or landmark.
