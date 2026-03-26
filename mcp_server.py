@@ -15,6 +15,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp_console import start_console
 from mcp_job_runner import JobRunner
 from photoalbums.common import PHOTO_ALBUMS_DIR
+from photoalbums.scanwatch import ScanWatchService
 from photoalbums.lib.mcp_queries import (
     album_status as photoalbums_album_status_query,
     query_manifest_rows as photoalbums_query_manifest_rows,
@@ -42,6 +43,7 @@ CONSOLE_HOST = "localhost"  # overridden at startup by --console-host
 
 mcp = FastMCP("imago")
 runner = JobRunner()
+scanwatch_service = ScanWatchService(root=PHOTO_ALBUMS_DIR)
 
 
 def _job_started(job_id: str) -> dict:
@@ -431,6 +433,129 @@ def photoalbums_stitch(validate_only: bool = False) -> dict:
         PHOTOS_ROOT_DEFAULT,
     ]
     return _job_started(runner.start(f"photoalbums_stitch_{subcommand}:{Path(PHOTOS_ROOT_DEFAULT).name}", args))
+
+
+# ── Photoalbums: scan watcher control ──────────────────────────────────────────
+
+
+@mcp.tool()
+def scanwatch_start(root: Optional[str] = None) -> dict[str, object]:
+    """Start or restart the incoming scan watcher."""
+    if root:
+        scanwatch_service.set_root(root)
+    return scanwatch_service.start()
+
+
+@mcp.tool()
+def scanwatch_stop() -> dict[str, object]:
+    """Stop the incoming scan watcher."""
+    return scanwatch_service.stop()
+
+
+@mcp.tool()
+def scanwatch_status() -> dict[str, object]:
+    """Return watcher state and reconstruction summary."""
+    return scanwatch_service.status()
+
+
+@mcp.tool()
+def scanwatch_refresh() -> dict[str, object]:
+    """Rebuild in-memory watcher state from the filesystem."""
+    return scanwatch_service.rebuild()
+
+
+@mcp.tool()
+def scanwatch_list_events(status: Optional[str] = None, limit: int = 100) -> list[dict[str, object]]:
+    """List scan events known to the watcher."""
+    return scanwatch_service.list_events(status=status, limit=limit)
+
+
+@mcp.tool()
+def scanwatch_get_event(event_id: str) -> dict[str, object]:
+    """Return one scan event with its archive context."""
+    return scanwatch_service.get_event_context(event_id)
+
+
+@mcp.tool()
+def scanwatch_list_rescans(limit: int = 100) -> list[dict[str, object]]:
+    """List pages that currently need another scan."""
+    return scanwatch_service.list_rescans(limit=limit)
+
+
+@mcp.tool()
+def scanwatch_apply_decision(
+    event_id: str,
+    target_name: str,
+    validate_stitch: bool = True,
+    open_preview: bool = True,
+) -> dict[str, object]:
+    """Rename, process, and optionally validate a scan event."""
+    return scanwatch_service.apply_decision(
+        event_id,
+        target_name,
+        validate_stitch=validate_stitch,
+        open_preview=open_preview,
+    )
+
+
+@mcp.resource("scanwatch://status")
+def scanwatch_status_resource() -> str:
+    """Text summary of current watcher state."""
+    status = scanwatch_service.status()
+    lines = [
+        "# Scanwatch Status",
+        "",
+        f"- Root: `{status['root']}`",
+        f"- Running: `{status['running']}`",
+        f"- Events: `{status['event_count']}`",
+        f"- Pending: `{status['pending_event_count']}`",
+        f"- Needs rescan: `{status['needs_rescan_count']}`",
+    ]
+    return "\n".join(lines)
+
+
+@mcp.resource("scanwatch://events")
+def scanwatch_events_resource() -> str:
+    """Markdown list of known scan events."""
+    events = scanwatch_service.list_events(limit=500)
+    if not events:
+        return "No scan events found."
+    lines = ["# Scan Events", ""]
+    for event in events:
+        lines += [
+            f"## {event['id']}",
+            f"- Status: `{event['status']}`",
+            f"- Archive: `{event['archive_dir']}`",
+            f"- Incoming: `{event['incoming_path']}`",
+            f"- Target: `{event['target_name']}`",
+            f"- Page: `{event['page_num']}`",
+            f"- Note: `{event['note']}`",
+            "",
+        ]
+    return "\n".join(lines)
+
+
+@mcp.resource("scanwatch://event/{event_id}")
+def scanwatch_event_resource(event_id: str) -> str:
+    """Markdown summary for one scan event."""
+    event = scanwatch_service.get_event_context(event_id)
+    archive = event.get("archive", {})
+    lines = [
+        f"# Scan Event {event_id}",
+        "",
+        f"- Status: `{event['status']}`",
+        f"- Archive: `{event['archive_dir']}`",
+        f"- Incoming: `{event['incoming_path']}`",
+        f"- Target: `{event['target_name']}`",
+        f"- Page: `{event['page_num']}`",
+        f"- Note: `{event['note']}`",
+        "",
+        "## Archive Context",
+        "",
+        f"- Pending events: `{archive.get('pending_event_ids', [])}`",
+        f"- Needs rescan pages: `{archive.get('needs_rescan_pages', [])}`",
+    ]
+    return "\n".join(lines)
 
 
 # ── VHS: job-launching tools ───────────────────────────────────────────────────

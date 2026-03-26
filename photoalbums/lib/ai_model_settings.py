@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import json
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+import tomllib
 
 DEFAULT_OCR_MODEL = ""
 DEFAULT_CAPTION_MODEL = ""
-AI_MODEL_SETTINGS_PATH = Path(__file__).resolve().parents[2] / "ai_models.json"
+AI_MODEL_SETTINGS_PATH = Path(__file__).resolve().parents[1] / "ai_models.toml"
 
 
 def _normalize_model_value(value: Any) -> str:
@@ -17,7 +17,7 @@ def _normalize_model_value(value: Any) -> str:
 def _normalize_model_map(value: Any) -> dict[str, str]:
     if not isinstance(value, dict):
         raise RuntimeError(
-            f"AI model settings 'models' must be a JSON object mapping aliases to model names: {AI_MODEL_SETTINGS_PATH}"
+            f"AI model settings 'models' must be a TOML table mapping aliases to model names: {AI_MODEL_SETTINGS_PATH}"
         )
     models: dict[str, str] = {}
     seen_model_names: set[str] = set()
@@ -56,10 +56,10 @@ def _resolve_selected_alias(payload: dict[str, Any], models: dict[str, str], fie
 
 @lru_cache(maxsize=1)
 def load_ai_model_settings() -> dict[str, Any]:
-    with open(AI_MODEL_SETTINGS_PATH, encoding="utf-8") as f:
-        payload = json.load(f)
+    with open(AI_MODEL_SETTINGS_PATH, "rb") as f:
+        payload = tomllib.load(f)
     if not isinstance(payload, dict):
-        raise RuntimeError(f"AI model settings must be a JSON object: {AI_MODEL_SETTINGS_PATH}")
+        raise RuntimeError(f"AI model settings must be a TOML table: {AI_MODEL_SETTINGS_PATH}")
     models = _normalize_model_map(payload.get("models"))
     selected_ocr_model = _resolve_selected_alias(payload, models, "selected_ocr_model")
     selected_caption_model = _resolve_selected_alias(payload, models, "selected_caption_model")
