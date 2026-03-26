@@ -1826,6 +1826,17 @@ class TestAIIndex(unittest.TestCase):
             title = ai_index._resolve_album_title_hint(image, {})
             self.assertEqual(title, "Mainland China Book II")
 
+    def test_resolve_album_title_hint_requires_existing_cover_sidecar(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            album_dir = base / "China_1986_B02_View"
+            album_dir.mkdir()
+            image = album_dir / "China_1986_B02_P02_stitched.jpg"
+            image.write_bytes(b"abc")
+
+            title = ai_index._resolve_album_title_hint(image, {})
+            self.assertEqual(title, "")
+
     def test_resolve_album_printed_title_hint_prefers_existing_p00_cover_sidecar(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
