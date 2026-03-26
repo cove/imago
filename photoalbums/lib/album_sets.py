@@ -45,7 +45,7 @@ class AlbumSet:
 
     def to_client_dict(self, *, default_archive_set: str, default_scan_set: str) -> dict[str, object]:
         return {
-            "name": self.name,
+            "album_set": self.name,
             "kind": self.kind,
             "description": self.description,
             "skill": self.skill,

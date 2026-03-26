@@ -16,13 +16,15 @@ decision, and handle retry after stitch failure without hard-coding naming rules
 
 ## Workflow
 
-1. Call `photoalbums_list_sets(kind="scanwatch")` and select `album_set="incoming_scans"`.
-2. Call `scanwatch_status(album_set="incoming_scans")` to confirm the watcher is running.
-3. Call `scanwatch_list_events(album_set="incoming_scans")` to find pending incoming scans.
-4. Call `scanwatch_get_event(event_id, album_set="incoming_scans")` to inspect the archive context before naming.
+1. For routine scan intake work, omit `album_set` and use the default scanwatch set.
+2. Call `scanwatch_status()` to confirm the watcher is running.
+3. Call `scanwatch_list_events()` to find pending incoming scans.
+4. Call `scanwatch_get_event(event_id)` to inspect the archive context before naming.
 5. Read `references/naming.md` for the current album naming rules.
-6. Choose the target filename and call `scanwatch_apply_decision(event_id, target_name, album_set="incoming_scans")`.
-7. If stitch validation fails, call `scanwatch_list_rescans(album_set="incoming_scans")` and keep scanning the same page until it validates.
+6. Choose the target filename and call `scanwatch_apply_decision(event_id, target_name)`.
+7. If stitch validation fails, call `scanwatch_list_rescans()` and keep scanning the same page until it validates.
+8. Only call `photoalbums_list_sets(kind="scanwatch")` when you need a non-default scanwatch set.
+   If you do pass `album_set`, use the exact short value returned by the server, such as `incoming_scans`.
 
 ## Naming Rules
 
@@ -35,7 +37,7 @@ decision, and handle retry after stitch failure without hard-coding naming rules
 - If stitch validation fails, report the page number, archive directory, and scan count.
 - Do not advance to the next page until validation succeeds.
 - Keep the failure actionable: the operator needs to scan another copy of the same page.
-- Always pass `album_set="incoming_scans"` on scanwatch MCP calls.
+- Pass `album_set` only when you need a non-default scanwatch set.
 
 ## MCP Tools
 
