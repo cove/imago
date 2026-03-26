@@ -253,13 +253,12 @@ def _resolve_cached_album_title_hint(
     title_cache: dict[str, str],
     *,
     sidecar_title_resolver,
-    fallback_title: str = "",
 ) -> str:
     key = _album_identity_key(image_path)
     cached = str(title_cache.get(key) or "").strip()
     if cached:
         return cached
-    title = sidecar_title_resolver(image_path) or str(fallback_title or "").strip()
+    title = sidecar_title_resolver(image_path)
     if title:
         title_cache[key] = title
     return title
@@ -270,7 +269,6 @@ def _resolve_album_title_hint(image_path: Path, album_title_cache: dict[str, str
         image_path,
         album_title_cache,
         sidecar_title_resolver=_resolve_album_title_from_sidecars,
-        fallback_title=infer_album_title(image_path=image_path),
     )
 
 
