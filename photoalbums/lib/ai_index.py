@@ -237,17 +237,6 @@ def _resolve_album_title_from_sidecars(image_path: Path) -> str:
     return ""
 
 
-def _resolve_cached_album_title(image_path: Path, title_cache: dict[str, str]) -> str:
-    key = _album_identity_key(image_path)
-    cached = str(title_cache.get(key) or "").strip()
-    if cached:
-        return cached
-    title = _resolve_album_title_from_sidecars(image_path)
-    if title:
-        title_cache[key] = title
-    return title
-
-
 def _resolve_cached_album_title_hint(
     image_path: Path,
     title_cache: dict[str, str],
