@@ -2417,6 +2417,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "giant statue of mao tse tung": {
+    "query": "Giant Statue of Mao Tse Tung",
+    "status": "miss"
+  },
   "giant wild goose pagoda, xi'an, china": {
     "display_name": "大雁塔, 雁塔西步行街, 大雁塔街道, 雁塔区, 西安市, 陕西省, 710064, 中国",
     "latitude": "34.2197968",
@@ -3035,6 +3039,10 @@
     "query": "Jiayuguan City, Gansu, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "jiayuguan city, gobi desert, china": {
+    "query": "Jiayuguan City, Gobi Desert, China",
+    "status": "miss"
   },
   "jiayuguan fort": {
     "query": "Jiayuguan Fort",
@@ -6119,8 +6127,16 @@
     "query": "Terra Cotta Soldiers",
     "status": "miss"
   },
+  "terra cotta soldiers, china": {
+    "query": "Terra Cotta Soldiers, China",
+    "status": "miss"
+  },
   "terra cotta soldiers, xi'an, china": {
     "query": "Terra Cotta Soldiers, Xi'an, China",
+    "status": "miss"
+  },
+  "terra-cotta army, xi'an, china": {
+    "query": "Terra-cotta Army, Xi'an, China",
     "status": "miss"
   },
   "terraced houses and chimneys london suburbs": {
@@ -7091,6 +7107,17 @@
     "query": "Wien (Vienna), Austria; Budapest, Hungary",
     "status": "miss"
   },
+  "wild goose pagoda": {
+    "city": "Yanta District",
+    "country": "China",
+    "display_name": "Wild Goose Pagoda, Yanta District, Shaanxi, China",
+    "latitude": "34.2197968",
+    "longitude": "108.9594259",
+    "query": "Wild Goose Pagoda",
+    "source": "nominatim",
+    "state": "Shaanxi",
+    "status": "ok"
+  },
   "wild goose pagoda, xi'an, china": {
     "display_name": "大雁塔, 雁塔西步行街, 大雁塔街道, 雁塔区, 西安市, 陕西省, 710064, 中国",
     "latitude": "34.2197968",
@@ -7265,6 +7292,17 @@
   "yellow river gorge, lanzhou, gansu, china": {
     "query": "Yellow River Gorge, Lanzhou, Gansu, China",
     "status": "miss"
+  },
+  "yellow river, lanzhou": {
+    "city": "Anning",
+    "country": "China",
+    "display_name": "Yellow River, Lanzhou, Anning, Gansu, China",
+    "latitude": "36.0963665",
+    "longitude": "103.6875113",
+    "query": "Yellow River, Lanzhou",
+    "source": "nominatim",
+    "state": "Gansu",
+    "status": "ok"
   },
   "yellow river, lanzhou, china": {
     "display_name": "雁滩黄河大桥, 雁北街道, 城关区, 兰州市, 甘肃省, 730046, 中国",

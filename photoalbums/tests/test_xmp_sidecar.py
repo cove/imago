@@ -58,7 +58,8 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertIn("100,18.43332E", xml)
             self.assertIn("GPSMapDatum", xml)
             self.assertIn("Family_2020_B01_P01_S01.tif", xml)
-            self.assertIn("RegionInfo", xml)
+            self.assertIn("ImageRegion", xml)
+            self.assertNotIn("RegionInfo", xml)
             self.assertIn("A dog in the park.", xml)
             self.assertNotIn("SubPhotos", xml)
 

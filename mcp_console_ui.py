@@ -634,6 +634,7 @@ HTML = r"""<!DOCTYPE html>
     source.onerror = () => {
       source.close();
       activeStream = null;
+      fetchJobs();
     };
   }
 

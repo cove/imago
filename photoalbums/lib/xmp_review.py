@@ -8,10 +8,7 @@ from .xmp_sidecar import (
     DC_NS,
     IMAGO_NS,
     IPTC_EXT_NS,
-    MWG_RS_NS,
     RDF_NS,
-    ST_AREA_NS,
-    ST_DIM_NS,
     read_ai_sidecar_state,
     read_person_in_image,
 )
@@ -20,7 +17,6 @@ _RDF_ROOT = f"{{{RDF_NS}}}RDF"
 _RDF_DESC = f"{{{RDF_NS}}}Description"
 _RDF_ALT = f"{{{RDF_NS}}}Alt"
 _RDF_BAG = f"{{{RDF_NS}}}Bag"
-_RDF_SEQ = f"{{{RDF_NS}}}Seq"
 _RDF_LI = f"{{{RDF_NS}}}li"
 _XML_LANG = "{http://www.w3.org/XML/1998/namespace}lang"
 
@@ -140,59 +136,6 @@ def _read_json_text(value: object) -> object | None:
         return text
 
 
-def _read_mwg_photo_bounds(desc: ET.Element) -> dict[int, dict[str, int]]:
-    region_info = desc.find(f"{{{MWG_RS_NS}}}RegionInfo")
-    if region_info is None:
-        return {}
-    dims = region_info.find(f"{{{MWG_RS_NS}}}AppliedToDimensions")
-    if dims is None:
-        return {}
-    width = _coerce_int(dims.findtext(f"{{{ST_DIM_NS}}}w", default="0"))
-    height = _coerce_int(dims.findtext(f"{{{ST_DIM_NS}}}h", default="0"))
-    if width <= 0 or height <= 0:
-        return {}
-    region_list = region_info.find(f"{{{MWG_RS_NS}}}RegionList")
-    if region_list is None:
-        return {}
-    bag = region_list.find(_RDF_BAG)
-    if bag is None:
-        return {}
-
-    bounds_by_index: dict[int, dict[str, int]] = {}
-    next_index = 1
-    for item in bag.findall(_RDF_LI):
-        region_type = _clean_text(item.findtext(f"{{{MWG_RS_NS}}}Type", default=""))
-        if region_type != "Photo":
-            continue
-        raw_name = _clean_text(item.findtext(f"{{{MWG_RS_NS}}}Name", default=""))
-        match = raw_name.casefold().replace("photo", "").strip()
-        index = _coerce_int(match, default=next_index)
-        area = item.find(f"{{{MWG_RS_NS}}}Area")
-        if area is None:
-            next_index += 1
-            continue
-        try:
-            cx = float(area.findtext(f"{{{ST_AREA_NS}}}x", default="0") or 0.0)
-            cy = float(area.findtext(f"{{{ST_AREA_NS}}}y", default="0") or 0.0)
-            rw = float(area.findtext(f"{{{ST_AREA_NS}}}w", default="0") or 0.0)
-            rh = float(area.findtext(f"{{{ST_AREA_NS}}}h", default="0") or 0.0)
-        except (TypeError, ValueError):
-            next_index += 1
-            continue
-        bw = int(round(rw * width))
-        bh = int(round(rh * height))
-        bx = int(round((cx * width) - (bw / 2)))
-        by = int(round((cy * height) - (bh / 2)))
-        bounds_by_index[index] = {
-            "x": bx,
-            "y": by,
-            "width": bw,
-            "height": bh,
-        }
-        next_index += 1
-    return bounds_by_index
-
-
 def _read_iptc_subphotos(desc: ET.Element) -> list[dict[str, object]]:
     field = desc.find(f"{{{IPTC_EXT_NS}}}ImageRegion")
     if field is None:
@@ -200,11 +143,12 @@ def _read_iptc_subphotos(desc: ET.Element) -> list[dict[str, object]]:
     bag = field.find(_RDF_BAG)
     if bag is None:
         return []
-    bounds_by_index = _read_mwg_photo_bounds(desc)
     rows: list[dict[str, object]] = []
     next_index = 1
     for item in bag.findall(_RDF_LI):
         region_id = _clean_text(item.findtext(f"{{{IPTC_EXT_NS}}}rId", default=""))
+        if not region_id.casefold().startswith("photo"):
+            continue
         match = region_id.casefold().removeprefix("photo-").strip()
         index = _coerce_int(match, default=(0 if region_id == "photo" else next_index))
         if index <= 0:
@@ -224,18 +168,13 @@ def _read_iptc_subphotos(desc: ET.Element) -> list[dict[str, object]]:
         rows.append(
             {
                 "index": index,
-                "bounds": bounds_by_index.get(
-                    index,
-                    {
-                        "x": int(round(rel_bounds["x"])),
-                        "y": int(round(rel_bounds["y"])),
-                        "width": int(round(rel_bounds["width"])),
-                        "height": int(round(rel_bounds["height"])),
-                    },
-                ),
+                "bounds": {
+                    "x": rel_bounds["x"],
+                    "y": rel_bounds["y"],
+                    "width": rel_bounds["width"],
+                    "height": rel_bounds["height"],
+                },
                 "description": _read_alt_text(item, f"{{{DC_NS}}}description"),
-                "ocr_text": _clean_text(item.findtext(f"{{{IMAGO_NS}}}OCRText", default="")),
-                "author_text": _clean_text(item.findtext(f"{{{IMAGO_NS}}}AuthorText", default="")),
                 "scene_text": _clean_text(item.findtext(f"{{{IMAGO_NS}}}SceneText", default="")),
                 "annotation_scope": _clean_text(item.findtext(f"{{{IMAGO_NS}}}AnnotationScope", default="")),
                 "people": _read_bag_values(item, f"{{{IMAGO_NS}}}People"),
@@ -248,38 +187,7 @@ def _read_iptc_subphotos(desc: ET.Element) -> list[dict[str, object]]:
 
 
 def _read_subphotos(desc: ET.Element) -> list[dict[str, object]]:
-    iptc_rows = _read_iptc_subphotos(desc)
-    if iptc_rows:
-        return iptc_rows
-    field = desc.find(f"{{{IMAGO_NS}}}SubPhotos")
-    if field is None:
-        return []
-    seq = field.find(_RDF_SEQ)
-    if seq is None:
-        return []
-
-    rows: list[dict[str, object]] = []
-    for item in seq.findall(_RDF_LI):
-        rows.append(
-            {
-                "index": _coerce_int(item.findtext(f"{{{IMAGO_NS}}}Index", default="0")),
-                "bounds": {
-                    "x": _coerce_int(item.findtext(f"{{{IMAGO_NS}}}X", default="0")),
-                    "y": _coerce_int(item.findtext(f"{{{IMAGO_NS}}}Y", default="0")),
-                    "width": _coerce_int(item.findtext(f"{{{IMAGO_NS}}}Width", default="0")),
-                    "height": _coerce_int(item.findtext(f"{{{IMAGO_NS}}}Height", default="0")),
-                },
-                "description": _read_alt_text(item, f"{{{IMAGO_NS}}}Description"),
-                "ocr_text": _clean_text(item.findtext(f"{{{IMAGO_NS}}}OCRText", default="")),
-                "author_text": _clean_text(item.findtext(f"{{{IMAGO_NS}}}AuthorText", default="")),
-                "scene_text": _clean_text(item.findtext(f"{{{IMAGO_NS}}}SceneText", default="")),
-                "annotation_scope": _clean_text(item.findtext(f"{{{IMAGO_NS}}}AnnotationScope", default="")),
-                "people": _read_bag_values(item, f"{{{IMAGO_NS}}}People"),
-                "subjects": _read_bag_values(item, f"{{{IMAGO_NS}}}Subjects"),
-                "detections": _read_json_text(item.findtext(f"{{{IMAGO_NS}}}Detections", default="")),
-            }
-        )
-    return rows
+    return _read_iptc_subphotos(desc)
 
 
 def load_ai_xmp_review(

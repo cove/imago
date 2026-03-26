@@ -454,6 +454,34 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(analysis.payload["location"]["gps_latitude"], 39.7875)
             self.assertEqual(analysis.payload["location"]["gps_longitude"], 100.307222)
 
+    def test_resolve_location_metadata_skips_cover_page_title_geocoding(self):
+        image = Path("cover.jpg")
+        caption_engine = mock.Mock()
+        caption_engine.estimate_location.return_value = SimpleNamespace(
+            gps_latitude="19.1414769",
+            gps_longitude="72.8323049",
+            location_name="Mainland China",
+            fallback=False,
+        )
+
+        gps_latitude, gps_longitude, location_name = ai_index._resolve_location_metadata(
+            requested_caption_engine="lmstudio",
+            caption_engine=caption_engine,
+            model_image_path=image,
+            people=[],
+            objects=[],
+            ocr_text="MAINLAND CHINA\n1986\nBOOK 11",
+            source_path=image,
+            album_title="",
+            printed_album_title="",
+            is_cover_page=True,
+            people_positions={},
+            fallback_location_name="",
+        )
+
+        self.assertEqual((gps_latitude, gps_longitude, location_name), ("", "", ""))
+        caption_engine.estimate_location.assert_not_called()
+
     def test_run_image_analysis_geocodes_structured_location_name(self):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "a.jpg"
@@ -508,6 +536,45 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(analysis.payload["location"]["gps_latitude"], 39.9361)
             self.assertEqual(analysis.payload["location"]["gps_longitude"], 94.8076)
             self.assertEqual(analysis.payload["location"]["source"], "nominatim")
+
+    def test_run_image_analysis_promotes_cover_author_text_to_album_title(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "cover.jpg"
+            image.write_bytes(b"abc")
+            people_matcher = mock.Mock()
+            people_matcher.match_image.return_value = []
+            object_detector = mock.Mock()
+            object_detector.detect_image.return_value = []
+            ocr_engine = mock.Mock()
+            ocr_engine.read_text.return_value = "MAINLAND CHINA\n1986\nBOOK 11"
+            caption_engine = mock.Mock()
+            caption_engine.generate.return_value = SimpleNamespace(
+                text="MAINLAND CHINA 1986 BOOK 11",
+                engine="template",
+                fallback=False,
+                error="",
+                author_text="MAINLAND CHINA\n1986\nBOOK 11",
+                scene_text="",
+                annotation_scope="page",
+                album_title="",
+                title="",
+                ocr_lang="eng",
+            )
+
+            with mock.patch.object(ai_index, "looks_like_album_cover", return_value=True):
+                analysis = ai_index._run_image_analysis(
+                    image_path=image,
+                    people_matcher=people_matcher,
+                    object_detector=object_detector,
+                    ocr_engine=ocr_engine,
+                    caption_engine=caption_engine,
+                    requested_caption_engine="template",
+                    ocr_engine_name="tesseract",
+                    ocr_language="eng",
+                    is_page_scan=True,
+                )
+
+            self.assertEqual(analysis.album_title, "MAINLAND CHINA 1986 BOOK 11")
 
     def test_run_image_analysis_merges_lmstudio_location_metadata(self):
         with tempfile.TemporaryDirectory() as tmp:

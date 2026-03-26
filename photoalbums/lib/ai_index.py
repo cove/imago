@@ -17,6 +17,7 @@ from typing import Any
 from .ai_caption import (
     CaptionEngine,
     DEFAULT_LMSTUDIO_MAX_NEW_TOKENS,
+    clean_text,
     looks_like_album_cover,
     _normalize_gps_value,
     normalize_lmstudio_base_url,
@@ -1145,6 +1146,8 @@ def _resolve_location_metadata(
     debug_step: str = "location",
 ) -> tuple[str, str, str]:
     local_gps_latitude, local_gps_longitude = _extract_explicit_gps_from_text(ocr_text)
+    if is_cover_page and not local_gps_latitude and not local_gps_longitude:
+        return "", "", ""
     if str(requested_caption_engine or "").strip().lower() != "lmstudio":
         return (
             local_gps_latitude,
@@ -1717,6 +1720,14 @@ def _run_image_analysis(
     if location_payload:
         payload["location"] = location_payload
     description = caption_output.text
+    author_text = str(getattr(caption_output, "author_text", "") or "")
+    scene_text = str(getattr(caption_output, "scene_text", "") or "")
+    annotation_scope = str(getattr(caption_output, "annotation_scope", "") or "")
+    resolved_album_title = str(getattr(caption_output, "album_title", "") or "")
+    if is_cover_page and not resolved_album_title:
+        cover_title = clean_text(author_text or str(getattr(caption_output, "title", "") or "") or ocr_text)
+        if cover_title:
+            resolved_album_title = cover_title
     return ImageAnalysis(
         image_path=image_path,
         people_names=people_names,
@@ -1725,13 +1736,13 @@ def _run_image_analysis(
         ocr_keywords=ocr_keywords,
         subjects=subjects,
         description=description,
-        author_text=str(getattr(caption_output, "author_text", "") or ""),
-        scene_text=str(getattr(caption_output, "scene_text", "") or ""),
-        annotation_scope=str(getattr(caption_output, "annotation_scope", "") or ""),
+        author_text=author_text,
+        scene_text=scene_text,
+        annotation_scope=annotation_scope,
         payload=payload,
         faces_detected=_faces_detected,
         image_regions=list(getattr(caption_output, "image_regions", None) or []),
-        album_title=str(getattr(caption_output, "album_title", "") or ""),
+        album_title=resolved_album_title,
         title=str(getattr(caption_output, "title", "") or ""),
         ocr_lang=str(getattr(caption_output, "ocr_lang", "") or ""),
     )
