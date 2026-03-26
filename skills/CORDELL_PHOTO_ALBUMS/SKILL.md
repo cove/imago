@@ -133,9 +133,11 @@ location block in the logs.
 - If evidence is insufficient, omit the detail or use the empty string, false, or 0 required by the output schema.
 - When quoting visible text, reproduce it exactly as printed.
 - Think step-by-step internally if needed, but output only the final JSON.
+- Write captions as a single complete sentence ending with terminal punctuation. If length is a concern, write a shorter complete sentence — never truncate mid-sentence or mid-word.
   
 ## Text Handling & Correction Rules
 - Copy all visible text into `ocr_text` exactly as printed: preserve spelling, capitalization, punctuation, spacing, and line breaks. Do not translate, normalize, or correct.
+- Do not emit literal escape sequences like `\n`, `\r`, or `\t` inside text field values. If a field needs line breaks, use normal line breaks; if a field is defined as single-line, collapse line breaks to spaces.
 - Include only clearly legible portions of blurry or illegible text. Use corrected or translated understanding only in caption or location reasoning when confidence exceeds 95%.
 - Infer completion only for words visibly truncated at scan edges when the intended word is obvious.
 - Never correct proper names, dates, personal captions, or ambiguous text unless visual evidence is unambiguous.
@@ -166,7 +168,7 @@ location block in the logs.
 - Fix Roman numeral typo in album names: replace accidental "1" with "I" (e.g., Book 1 → Book I, Book 11 → Book II).
 - Use the printed cover title (not a normalized version) when naming the album.
 - Albums feature blue or white faux leathery covers with gold trim and the title printed in the lower-right corner and has a year and often a book number.
-- Titles can be multiple lines, and have mulitple countries and dates in them (e.g. Europe 1973\nEgypt 1974). Include all lines in the title as printed.
+- Titles can be multiple lines, and have mulitple countries and dates in them (for example, a first line `Europe 1973` and a second line `Egypt 1974`). Preserve real line breaks in raw text fields and include all lines in the title as printed.
 - When the title has mulitple countries and dates, you'll need to match them with the right photos. For example if you see Egypt 1974 and Europe 1973, you'll need to look at the contents of the photos to determine if it's Europe or Egypt for the album name; you can assume the photos aren't intertwined, but sometimes they are mixed as in the case of taking a boat from Egypt to Europe, pictures from both regions will appear on the same page, in which case you'd combine both into the album name.
 
 ## System Prompt - People Count
@@ -196,8 +198,10 @@ Determine the most useful location metadata supported by visible evidence.
 
 ## Preamble Cover Page
 This is an album cover or title page.
-Read the full album title exactly as printed on the cover — including all lines, country names, year, and book number if present — and output it verbatim in `album_title` (e.g. `"Egypt 1975"`, `"Mainland China Book 11"`, `"Europe 1973\nEgypt 1974"`).
-Do not normalize, romanize book numbers, or reformat the title in any way.
+Read the full album title exactly as printed on the cover, including all countries, years, and book numbers if present.
+Output `album_title` as a single-line storage title: preserve the printed words and order, but replace line breaks with spaces.
+Do not output literal `\n` sequences inside `album_title`.
+Do not normalize, romanize book numbers, or otherwise rewrite the title text.
 
 ## Output Format – Describe (full caption)
 `{"author_text": "...", "scene_text": "...", "annotation_scope": "...", "location_name": "...", "album_title": "", "ocr_lang": ""}`
@@ -206,7 +210,7 @@ Do not normalize, romanize book numbers, or reformat the title in any way.
 - `scene_text`: readable text visible inside the photographed scene itself, preserved verbatim in any language. Otherwise empty string.
 - `annotation_scope`: one of `photo`, `group`, `page`, `none`, or `unknown`.
 - `location_name`: concise geocoding query for GPS lookup when supported strongly enough by visible evidence; otherwise empty string.
-- `album_title`: for cover pages only — the full album title as printed on the cover (e.g. `"Egypt 1975"`, `"Mainland China Book 11"`). Empty string for all other pages.
+- `album_title`: for cover pages only — the full album title as a single-line storage string, with any printed line breaks replaced by spaces (e.g. `"Egypt 1975"`, `"Mainland China Book 11"`, `"Europe 1973 Egypt 1974"`). Empty string for all other pages.
 - `ocr_lang`: BCP-47 language code of the primary non-English text in `author_text` or `scene_text` (e.g. `"zh"` for Chinese, `"fr"` for French, `"ar"` for Arabic). Use `"en"` for English-only text. Empty string when there is no visible text.
 
 ## Output Format – Describe Page (with photo regions)

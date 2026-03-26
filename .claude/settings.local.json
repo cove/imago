@@ -154,7 +154,17 @@
       "Bash(python -m pytest photoalbums/tests/test_ai_index.py::TestAIIndex::test_run_force_rewrites_existing_sidecar_and_merges_embedded_source -x -q)",
       "Bash(python -m pytest photoalbums/tests/test_common.py -x -q)",
       "Bash(python -m pytest photoalbums/tests/test_common.py photoalbums/tests/test_incoming_scans_watcher.py photoalbums/tests/test_rule_extraction_eval.py -x -q)",
-      "Bash(grep -rn \"printed_album_title\\\\|printed.*title\" /c/Users/covec/Videos/imago/photoalbums/lib/*.py)"
+      "Bash(grep -rn \"printed_album_title\\\\|printed.*title\" /c/Users/covec/Videos/imago/photoalbums/lib/*.py)",
+      "Bash(curl -s \"https://www.iptc.org/std/photometadata/examples/image-region-examples/?b=2\")",
+      "Bash(curl -s \"https://www.iptc.org/std/photometadata/examples/composite-photo-demo.jpg\" -o /tmp/iptc-demo.jpg)",
+      "Bash(curl -s \"https://www.iptc.org/std/photometadata/examples/composite-photo-demo.jpg\" -o \"C:/Users/covec/AppData/Local/Temp/iptc-demo.jpg\")",
+      "Bash(curl -sL \"https://www.iptc.org/std/photometadata/examples/image-region-examples/composite-photo-demo.jpg\" -o \"C:/Users/covec/AppData/Local/Temp/iptc-demo.jpg\")",
+      "Bash(curl -sL \"https://www.iptc.org/std/photometadata/examples/image-region-examples/composite-photo-demo.jpg\" -D -)",
+      "Bash(curl -sL \"https://www.iptc.org/std/photometadata/examples/composite-photo-demo.jpg\" -D -)",
+      "Bash(curl -s \"https://raw.githubusercontent.com/iptc/photo-metadata-refs/main/image-region-examples/composite-photo-demo.jpg.json\")",
+      "Read(//dev/**)",
+      "Bash(curl -s \"https://api.github.com/orgs/iptc/repos?per_page=20\")",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/iptc/photo-metadata/main/examples/image-region-data/composite-photo-demo.jpg.json\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",

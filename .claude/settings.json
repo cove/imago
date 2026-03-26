@@ -25,7 +25,12 @@
       "Bash(grep -n \"def generate_combined\\\\|def describe_combined\" /c/Users/covec/Videos/imago/photoalbums/lib/*.py)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:1234/v1/models)",
       "Bash(curl -s -o /dev/null -w %{http_code} http://localhost:1234/)",
-      "Bash(curl -s -o /dev/null -w %{http_code} http://127.0.0.1:1234/v1/models)"
+      "Bash(curl -s -o /dev/null -w %{http_code} http://127.0.0.1:1234/v1/models)",
+      "WebFetch(domain:www.iptc.org)",
+      "WebFetch(domain:exiv2.org)",
+      "WebFetch(domain:www.carlseibert.com)",
+      "WebFetch(domain:iptc.org)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   },
   "hooks": {

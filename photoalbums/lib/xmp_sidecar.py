@@ -15,9 +15,6 @@ XMPMM_NS = "http://ns.adobe.com/xap/1.0/mm/"
 EXIF_NS = "http://ns.adobe.com/exif/1.0/"
 IPTC_EXT_NS = "http://iptc.org/std/Iptc4xmpExt/2008-02-29/"
 IMAGO_NS = "https://imago.local/ns/1.0/"
-MWG_RS_NS = "http://www.metadataworkinggroup.com/schemas/regions/"
-ST_AREA_NS = "http://ns.adobe.com/xmp/schemata/area/"
-ST_DIM_NS = "http://ns.adobe.com/xap/1.0/sType/Dimensions#"
 ST_EVT_NS = "http://ns.adobe.com/xap/1.0/sType/ResourceEvent#"
 PHOTOSHOP_NS = "http://ns.adobe.com/photoshop/1.0/"
 XMPDM_NS = "http://ns.adobe.com/xmp/1.0/DynamicMedia/"
@@ -30,9 +27,6 @@ ET.register_namespace("xmpMM", XMPMM_NS)
 ET.register_namespace("exif", EXIF_NS)
 ET.register_namespace("Iptc4xmpExt", IPTC_EXT_NS)
 ET.register_namespace("imago", IMAGO_NS)
-ET.register_namespace("mwg-rs", MWG_RS_NS)
-ET.register_namespace("stArea", ST_AREA_NS)
-ET.register_namespace("stDim", ST_DIM_NS)
 ET.register_namespace("stEvt", ST_EVT_NS)
 ET.register_namespace("photoshop", PHOTOSHOP_NS)
 ET.register_namespace("xmpDM", XMPDM_NS)
@@ -332,16 +326,26 @@ def _set_gps_fields(parent: ET.Element, gps_latitude: str, gps_longitude: str) -
             parent.remove(existing)
 
 
-def _add_face_regions(
+def _get_or_create_iptc_image_region_bag(parent: ET.Element) -> ET.Element:
+    field = parent.find(f"{{{IPTC_EXT_NS}}}ImageRegion")
+    if field is None:
+        field = ET.SubElement(parent, f"{{{IPTC_EXT_NS}}}ImageRegion")
+    bag = field.find(_RDF_BAG)
+    if bag is None:
+        bag = ET.SubElement(field, _RDF_BAG)
+    return bag
+
+
+def _add_iptc_face_regions(
     parent: ET.Element,
     people: list[dict],
     image_width: int,
     image_height: int,
-    subphotos: list[dict] | None = None,
 ) -> None:
     if image_width <= 0 or image_height <= 0:
         return
-    region_entries: list[tuple[str, str, str, float, float, float, float]] = []
+    bag = _get_or_create_iptc_image_region_bag(parent)
+    face_n = 0
     for person in people:
         name = str(person.get("name") or "").strip()
         bbox = list(person.get("bbox") or [])
@@ -350,65 +354,35 @@ def _add_face_regions(
         x, y, w, h = [int(v) for v in bbox[:4]]
         if w <= 0 or h <= 0:
             continue
-        cx = (x + w / 2) / image_width
-        cy = (y + h / 2) / image_height
-        nw = w / image_width
-        nh = h / image_height
-        region_entries.append((name, "Face", "", cx, cy, nw, nh))
-    for row in subphotos or []:
-        bounds = dict(row.get("bounds") or {})
-        bx = int(bounds.get("x", 0))
-        by = int(bounds.get("y", 0))
-        bw = int(bounds.get("width", 0))
-        bh = int(bounds.get("height", 0))
-        if bw <= 0 or bh <= 0:
-            continue
-        cx = (bx + bw / 2) / image_width
-        cy = (by + bh / 2) / image_height
-        nw = bw / image_width
-        nh = bh / image_height
-        idx = int(row.get("index", 0))
-        name = f"Photo {idx}" if idx > 0 else "Photo"
-        desc = str(row.get("author_text") or row.get("description") or "").strip()
-        region_entries.append((name, "Photo", desc, cx, cy, nw, nh))
-    if not region_entries:
-        return
-    ri = ET.SubElement(parent, f"{{{MWG_RS_NS}}}RegionInfo")
-    ri.set(f"{{{RDF_NS}}}parseType", "Resource")
-    dims = ET.SubElement(ri, f"{{{MWG_RS_NS}}}AppliedToDimensions")
-    dims.set(f"{{{RDF_NS}}}parseType", "Resource")
-    ET.SubElement(dims, f"{{{ST_DIM_NS}}}w").text = str(image_width)
-    ET.SubElement(dims, f"{{{ST_DIM_NS}}}h").text = str(image_height)
-    ET.SubElement(dims, f"{{{ST_DIM_NS}}}unit").text = "pixel"
-    region_list = ET.SubElement(ri, f"{{{MWG_RS_NS}}}RegionList")
-    bag = ET.SubElement(region_list, _RDF_BAG)
-    for name, rtype, desc, cx, cy, nw, nh in region_entries:
+        face_n += 1
+        rx = x / image_width
+        ry = y / image_height
+        rw = w / image_width
+        rh = h / image_height
         li = ET.SubElement(bag, _RDF_LI)
-        li.set(f"{{{RDF_NS}}}parseType", "Resource")
-        ET.SubElement(li, f"{{{MWG_RS_NS}}}Name").text = name
-        ET.SubElement(li, f"{{{MWG_RS_NS}}}Type").text = rtype
-        if desc:
-            ET.SubElement(li, f"{{{MWG_RS_NS}}}Description").text = desc
-        area = ET.SubElement(li, f"{{{MWG_RS_NS}}}Area")
-        area.set(f"{{{RDF_NS}}}parseType", "Resource")
-        ET.SubElement(area, f"{{{ST_AREA_NS}}}x").text = f"{cx:.6f}"
-        ET.SubElement(area, f"{{{ST_AREA_NS}}}y").text = f"{cy:.6f}"
-        ET.SubElement(area, f"{{{ST_AREA_NS}}}w").text = f"{nw:.6f}"
-        ET.SubElement(area, f"{{{ST_AREA_NS}}}h").text = f"{nh:.6f}"
-        ET.SubElement(area, f"{{{ST_AREA_NS}}}unit").text = "normalized"
+        li.set(_RDF_PARSE_TYPE, "Resource")
+        boundary = ET.SubElement(li, f"{{{IPTC_EXT_NS}}}RegionBoundary")
+        boundary.set(_RDF_PARSE_TYPE, "Resource")
+        ET.SubElement(boundary, f"{{{IPTC_EXT_NS}}}rbShape").text = "rectangle"
+        ET.SubElement(boundary, f"{{{IPTC_EXT_NS}}}rbUnit").text = "relative"
+        ET.SubElement(boundary, f"{{{IPTC_EXT_NS}}}rbX").text = f"{rx:.6f}"
+        ET.SubElement(boundary, f"{{{IPTC_EXT_NS}}}rbY").text = f"{ry:.6f}"
+        ET.SubElement(boundary, f"{{{IPTC_EXT_NS}}}rbW").text = f"{rw:.6f}"
+        ET.SubElement(boundary, f"{{{IPTC_EXT_NS}}}rbH").text = f"{rh:.6f}"
+        ET.SubElement(li, f"{{{IPTC_EXT_NS}}}rId").text = f"face-{face_n}"
+        _add_alt_text(li, f"{{{IPTC_EXT_NS}}}Name", name)
 
 
-def _set_face_regions(
+def _set_iptc_face_regions(
     parent: ET.Element,
     people: list[dict],
     image_width: int,
     image_height: int,
-    subphotos: list[dict] | None = None,
 ) -> None:
-    existing = parent.find(f"{{{MWG_RS_NS}}}RegionInfo")
+    existing = parent.find(f"{{{IPTC_EXT_NS}}}ImageRegion")
     if existing is not None:
         parent.remove(existing)
-    _add_face_regions(parent, people, image_width, image_height, subphotos=subphotos)
+    _add_iptc_face_regions(parent, people, image_width, image_height)
 
 
 def _add_iptc_image_regions(
@@ -420,8 +394,7 @@ def _add_iptc_image_regions(
     """Write Iptc4xmpExt:ImageRegion entries for photo subregions (IPTC standard)."""
     if not subphotos or image_width <= 0 or image_height <= 0:
         return
-    field = ET.SubElement(parent, f"{{{IPTC_EXT_NS}}}ImageRegion")
-    bag = ET.SubElement(field, _RDF_BAG)
+    bag = _get_or_create_iptc_image_region_bag(parent)
     for row in subphotos:
         bounds = dict(row.get("bounds") or {})
         bx = int(bounds.get("x", 0))
@@ -451,8 +424,6 @@ def _add_iptc_image_regions(
         annotation_scope = str(row.get("annotation_scope") or "").strip()
         if author_text:
             _add_alt_text(li, f"{{{DC_NS}}}description", author_text)
-        _add_simple_text(li, f"{{{IMAGO_NS}}}OCRText", str(row.get("ocr_text") or "").strip())
-        _add_simple_text(li, f"{{{IMAGO_NS}}}AuthorText", author_text)
         _add_simple_text(li, f"{{{IMAGO_NS}}}SceneText", scene_text)
         _add_simple_text(li, f"{{{IMAGO_NS}}}AnnotationScope", annotation_scope)
         _add_bag(li, f"{{{IMAGO_NS}}}People", _dedupe(list(row.get("people") or [])))
@@ -464,59 +435,6 @@ def _add_iptc_image_regions(
                 f"{{{IMAGO_NS}}}Detections",
                 json.dumps(detections, ensure_ascii=False, sort_keys=True),
             )
-
-
-def _set_iptc_image_regions(
-    parent: ET.Element,
-    subphotos: list[dict] | None,
-    image_width: int,
-    image_height: int,
-) -> None:
-    existing = parent.find(f"{{{IPTC_EXT_NS}}}ImageRegion")
-    if existing is not None:
-        parent.remove(existing)
-    if subphotos:
-        _add_iptc_image_regions(parent, subphotos, image_width, image_height)
-
-
-def _add_subphotos(parent: ET.Element, subphotos: list[dict]) -> None:
-    if not subphotos:
-        return
-    field = ET.SubElement(parent, f"{{{IMAGO_NS}}}SubPhotos")
-    seq = ET.SubElement(field, _RDF_SEQ)
-    for row in subphotos:
-        item = ET.SubElement(seq, _RDF_LI)
-        _add_simple_text(item, f"{{{IMAGO_NS}}}Index", int(row.get("index", 0) or 0))
-        bounds = dict(row.get("bounds") or {})
-        _add_simple_text(item, f"{{{IMAGO_NS}}}X", int(bounds.get("x", 0) or 0))
-        _add_simple_text(item, f"{{{IMAGO_NS}}}Y", int(bounds.get("y", 0) or 0))
-        _add_simple_text(item, f"{{{IMAGO_NS}}}Width", int(bounds.get("width", 0) or 0))
-        _add_simple_text(item, f"{{{IMAGO_NS}}}Height", int(bounds.get("height", 0) or 0))
-        author_text = str(row.get("author_text") or row.get("description") or "").strip()
-        scene_text = str(row.get("scene_text") or "").strip()
-        annotation_scope = str(row.get("annotation_scope") or "").strip()
-        _add_alt_text(item, f"{{{IMAGO_NS}}}Description", author_text)
-        _add_simple_text(item, f"{{{IMAGO_NS}}}OCRText", str(row.get("ocr_text") or "").strip())
-        _add_simple_text(item, f"{{{IMAGO_NS}}}AuthorText", author_text)
-        _add_simple_text(item, f"{{{IMAGO_NS}}}SceneText", scene_text)
-        _add_simple_text(item, f"{{{IMAGO_NS}}}AnnotationScope", annotation_scope)
-        _add_bag(item, f"{{{IMAGO_NS}}}People", _dedupe(list(row.get("people") or [])))
-        _add_bag(item, f"{{{IMAGO_NS}}}Subjects", _dedupe(list(row.get("subjects") or [])))
-        detections = row.get("detections")
-        if isinstance(detections, dict):
-            _add_simple_text(
-                item,
-                f"{{{IMAGO_NS}}}Detections",
-                json.dumps(detections, ensure_ascii=False, sort_keys=True),
-            )
-
-
-def _set_subphotos(parent: ET.Element, subphotos: list[dict] | None) -> None:
-    existing = parent.find(f"{{{IMAGO_NS}}}SubPhotos")
-    if existing is not None:
-        parent.remove(existing)
-    if subphotos:
-        _add_subphotos(parent, subphotos)
 
 
 def build_xmp_tree(
@@ -621,16 +539,13 @@ def build_xmp_tree(
     if detections_payload:
         payload = ET.SubElement(desc, f"{{{IMAGO_NS}}}Detections")
         payload.text = json.dumps(detections_payload, ensure_ascii=False, sort_keys=True)
-    _add_face_regions(
+    _add_iptc_face_regions(
         desc,
         list((detections_payload or {}).get("people") or []),
         image_width,
         image_height,
-        subphotos=list(subphotos) if subphotos else None,
     )
     _add_iptc_image_regions(desc, list(subphotos) if subphotos else [], image_width, image_height)
-    if subphotos and (image_width <= 0 or image_height <= 0):
-        _add_subphotos(desc, list(subphotos))
     _add_processing_history(
         desc,
         _build_processing_history(
@@ -1015,15 +930,13 @@ def _merge_xmp_tree(
         )
     else:
         _set_simple_text(desc, f"{{{IMAGO_NS}}}Detections", "")
-    _set_face_regions(
+    _set_iptc_face_regions(
         desc,
         list((detections_payload or {}).get("people") or []),
         image_width,
         image_height,
-        subphotos=list(subphotos) if subphotos else None,
     )
-    _set_iptc_image_regions(desc, list(subphotos) if subphotos else None, image_width, image_height)
-    _set_subphotos(desc, list(subphotos) if subphotos and (image_width <= 0 or image_height <= 0) else None)
+    _add_iptc_image_regions(desc, list(subphotos) if subphotos else [], image_width, image_height)
     _set_processing_history(
         desc,
         _build_processing_history(
@@ -1041,6 +954,7 @@ def _merge_xmp_tree(
         f"{{{IMAGO_NS}}}OcrRan",
         f"{{{IMAGO_NS}}}PeopleDetected",
         f"{{{IMAGO_NS}}}PeopleIdentified",
+        f"{{{IMAGO_NS}}}SubPhotos",
     ):
         _remove_field(desc, legacy_tag)
     ET.indent(tree, space="  ")

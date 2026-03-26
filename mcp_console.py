@@ -183,6 +183,7 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_header("X-Accel-Buffering", "no")
         self.end_headers()
         sent = 0
+        last_heartbeat = time.monotonic()
         try:
             while True:
                 if log_path.exists():
@@ -191,13 +192,18 @@ class _Handler(BaseHTTPRequestHandler):
                         self.wfile.write(f"data: {line}\n\n".encode())
                         sent += 1
                     self.wfile.flush()
+                    last_heartbeat = time.monotonic()
                 status = (self._read_job(job_id) or {}).get("status", "")
                 if status not in ("running", "pending"):
                     self.wfile.write(b"event: done\ndata: \n\n")
                     self.wfile.flush()
                     break
+                if time.monotonic() - last_heartbeat >= 15:
+                    self.wfile.write(b": heartbeat\n\n")
+                    self.wfile.flush()
+                    last_heartbeat = time.monotonic()
                 time.sleep(0.5)
-        except (BrokenPipeError, ConnectionResetError):
+        except (BrokenPipeError, ConnectionResetError, OSError):
             pass
 
     def _html(self) -> None:
