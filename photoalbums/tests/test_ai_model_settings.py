@@ -1,9 +1,9 @@
-import json
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
+import textwrap
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MODULE_ROOT = Path(__file__).resolve().parents[1]
@@ -20,17 +20,22 @@ class TestAIModelSettings(unittest.TestCase):
         ai_model_settings.load_ai_model_settings.cache_clear()
 
     def test_load_ai_model_settings_reads_model_aliases_and_selected_values(self):
-        payload = {
-            "models": {
-                "big": "qwen/qwen3-vl-30b",
-                "fast": "qwen/qwen3.5-9b",
-            },
-            "selected_ocr_model": "fast",
-            "selected_caption_model": "big",
-        }
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "ai_models.json"
-            path.write_text(json.dumps(payload), encoding="utf-8")
+            path = Path(tmp) / "ai_models.toml"
+            path.write_text(
+                textwrap.dedent(
+                    """
+                    selected_ocr_model = "fast"
+                    selected_caption_model = "big"
+
+                    [models]
+                    big = "qwen/qwen3-vl-30b"
+                    fast = "qwen/qwen3.5-9b"
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
             with mock.patch.object(ai_model_settings, "AI_MODEL_SETTINGS_PATH", path):
                 ai_model_settings.load_ai_model_settings.cache_clear()
                 loaded = ai_model_settings.load_ai_model_settings()
@@ -47,17 +52,30 @@ class TestAIModelSettings(unittest.TestCase):
                     "qwen/qwen3-vl-30b",
                 )
 
-        self.assertEqual(loaded["models"], payload["models"])
+        self.assertEqual(
+            loaded["models"],
+            {
+                "big": "qwen/qwen3-vl-30b",
+                "fast": "qwen/qwen3.5-9b",
+            },
+        )
 
     def test_load_ai_model_settings_rejects_selected_alias_not_in_models(self):
-        payload = {
-            "models": {"big": "qwen/qwen3-vl-30b"},
-            "selected_ocr_model": "fast",
-            "selected_caption_model": "big",
-        }
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "ai_models.json"
-            path.write_text(json.dumps(payload), encoding="utf-8")
+            path = Path(tmp) / "ai_models.toml"
+            path.write_text(
+                textwrap.dedent(
+                    """
+                    selected_ocr_model = "fast"
+                    selected_caption_model = "big"
+
+                    [models]
+                    big = "qwen/qwen3-vl-30b"
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
             with mock.patch.object(ai_model_settings, "AI_MODEL_SETTINGS_PATH", path):
                 ai_model_settings.load_ai_model_settings.cache_clear()
                 with self.assertRaises(RuntimeError) as exc:
@@ -66,19 +84,24 @@ class TestAIModelSettings(unittest.TestCase):
         self.assertIn("selected_ocr_model", str(exc.exception))
 
     def test_load_ai_model_settings_requires_models_object(self):
-        payload = {
-            "selected_ocr_model": "big",
-            "selected_caption_model": "big",
-        }
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "ai_models.json"
-            path.write_text(json.dumps(payload), encoding="utf-8")
+            path = Path(tmp) / "ai_models.toml"
+            path.write_text(
+                textwrap.dedent(
+                    """
+                    selected_ocr_model = "big"
+                    selected_caption_model = "big"
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
             with mock.patch.object(ai_model_settings, "AI_MODEL_SETTINGS_PATH", path):
                 ai_model_settings.load_ai_model_settings.cache_clear()
                 with self.assertRaises(RuntimeError) as exc:
                     ai_model_settings.load_ai_model_settings()
 
-        self.assertIn("'models' must be a JSON object", str(exc.exception))
+        self.assertIn("'models' must be a TOML table", str(exc.exception))
 
 
 if __name__ == "__main__":

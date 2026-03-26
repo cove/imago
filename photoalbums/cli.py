@@ -68,7 +68,7 @@ def build_parser() -> argparse.ArgumentParser:
     stitch_sub.add_parser("build", help="Build stitched and derived JPEG outputs")
     stitch_sub.add_parser("validate", help="Validate source scan stitchability without writing outputs")
 
-    subparsers.add_parser("watch", help="Watch for incoming scans and auto-process them")
+    subparsers.add_parser("watch", help="Watch for incoming scans and register pending events")
 
     checksum_parser = subparsers.add_parser("checksum", help="Checksum manifest commands")
     checksum_sub = checksum_parser.add_subparsers(dest="checksum_kind", required=True)
