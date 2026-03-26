@@ -125,6 +125,21 @@ class TestJobRunnerPersistence(unittest.TestCase):
         self.assertIn(data[job_id]["status"], ("completed", "failed"))
         self.assertIsNotNone(data[job_id]["exit_code"])
 
+    def test_status_does_not_include_log_content(self):
+        """status() should return metadata only; logs come from logs()."""
+        runner = mcp_job_runner.JobRunner()
+        job_id = runner.start("quick", [sys.executable, "-c", "print('hello from job')"])
+        for _ in range(50):
+            time.sleep(0.1)
+            if runner.status(job_id).get("status") in ("completed", "failed"):
+                break
+
+        status = runner.status(job_id)
+
+        self.assertNotIn("recent_logs", status)
+        self.assertNotIn("total_log_lines", status)
+        self.assertIn("hello from job", runner.logs(job_id))
+
     def test_start_records_artifact_file_and_passes_env(self):
         """start() should persist an artifact path and expose it to the subprocess."""
         runner = mcp_job_runner.JobRunner()

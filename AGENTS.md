@@ -5,6 +5,7 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 ## Core Policy
 
 - Prefer forward-only changes.
+- Prefer stateless and reconstructing state from ground truth and store it in database files.
 - Do not add backward compatibility by default.
 - Do not add fall backs, just fail.
 - When schema/config formats change, migrate all project data forward in the same change.

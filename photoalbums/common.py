@@ -15,8 +15,10 @@ except ImportError:
 CREATOR = "Audrey D. Cordell"
 INCOMING_NAME = "incoming_scan.tif"
 PHOTO_ALBUMS_DIR_ENV = "PHOTOALBUMS_DIR"
+PHOTO_SCANNING_DIR_ENV = "PHOTO_SCANNING_DIR"
 IMAGEMAGICK_DIR_ENV = "PHOTOALBUMS_IMAGEMAGICK_DIR"
 PHOTO_ALBUMS_SUBPATH = Path("Cordell, Leslie & Audrey") / "Photo Albums"
+PHOTO_SCANNING_SUBPATH = Path("Photo Scans")
 
 FILENAME_PATTERN = re.compile(
     r"^(?P<prefix>.+)_P(?P<page>\d{2})_S(?P<scan>\d{2})\.tif$",
@@ -49,29 +51,25 @@ def _onedrive_roots(home: Path) -> list[Path]:
     cloud_storage = home / "Library" / "CloudStorage"
     roots.append(cloud_storage / "OneDrive-Personal")
     if cloud_storage.is_dir():
-        roots.extend(
-            sorted(path for path in cloud_storage.glob("OneDrive*") if path.is_dir())
-        )
+        roots.extend(sorted(path for path in cloud_storage.glob("OneDrive*") if path.is_dir()))
 
     return roots
 
 
-def get_photo_albums_dir() -> Path:
-    configured = str(os.environ.get(PHOTO_ALBUMS_DIR_ENV, "") or "").strip()
+def _get_default_onedrive_dir(env_name: str, subpath: Path) -> Path:
+    configured = str(os.environ.get(env_name, "") or "").strip()
     if configured:
         return Path(configured).expanduser()
 
     home = Path.home()
     onedrive_roots = _onedrive_roots(home)
-    preferred = (
-        home / "Library" / "CloudStorage" / "OneDrive-Personal" / PHOTO_ALBUMS_SUBPATH
-    )
+    preferred = home / "Library" / "CloudStorage" / "OneDrive-Personal" / subpath
     if sys.platform.startswith("win"):
         preferred_root = onedrive_roots[0] if onedrive_roots else (home / "OneDrive")
-        preferred = preferred_root / PHOTO_ALBUMS_SUBPATH
+        preferred = preferred_root / subpath
 
     candidates = [preferred]
-    candidates.extend(root / PHOTO_ALBUMS_SUBPATH for root in onedrive_roots)
+    candidates.extend(root / subpath for root in onedrive_roots)
 
     existing = _first_existing_path(candidates)
     if existing is not None:
@@ -79,7 +77,18 @@ def get_photo_albums_dir() -> Path:
     return preferred
 
 
+def get_photo_albums_dir() -> Path:
+    return _get_default_onedrive_dir(PHOTO_ALBUMS_DIR_ENV, PHOTO_ALBUMS_SUBPATH)
+
+
 PHOTO_ALBUMS_DIR = get_photo_albums_dir()
+
+
+def get_photo_scanning_dir() -> Path:
+    return _get_default_onedrive_dir(PHOTO_SCANNING_DIR_ENV, PHOTO_SCANNING_SUBPATH)
+
+
+PHOTO_SCANNING_DIR = get_photo_scanning_dir()
 
 
 def get_imagemagick_dir() -> Path | None:
@@ -155,9 +164,7 @@ def count_totals(
     for key, data in totals.items():
         unique_count = len(data["pages"])
         highest_page = data["max_page"]
-        data["total_pages"] = (
-            highest_page if unique_count != highest_page else unique_count
-        )
+        data["total_pages"] = highest_page if unique_count != highest_page else unique_count
         del data["pages"]
         del data["max_page"]
 
@@ -194,9 +201,7 @@ def derive_prefix(dir_path: str | Path) -> str:
     return base
 
 
-def get_next_filename(
-    watch_dir: str | Path, filename_pattern: re.Pattern = FILENAME_PATTERN
-) -> str:
+def get_next_filename(watch_dir: str | Path, filename_pattern: re.Pattern = FILENAME_PATTERN) -> str:
     watch_path = Path(watch_dir)
     files = [f.name for f in watch_path.iterdir() if f.suffix.lower() == ".tif"]
     valid_files = [f for f in files if filename_pattern.match(f)]
@@ -227,13 +232,9 @@ def get_next_filename(
     return f"{prefix}_P{page:02d}_S{scan:02d}.tif"
 
 
-def list_page_scan_groups(
-    directory: str | Path, name_re: re.Pattern
-) -> List[List[str]]:
+def list_page_scan_groups(directory: str | Path, name_re: re.Pattern) -> List[List[str]]:
     dir_path = Path(directory)
-    files = [
-        f.name for f in dir_path.iterdir() if f.is_file() and name_re.fullmatch(f.name)
-    ]
+    files = [f.name for f in dir_path.iterdir() if f.is_file() and name_re.fullmatch(f.name)]
 
     def key(name: str) -> Tuple[int, int]:
         m = PAGE_SCAN_RE.search(name)

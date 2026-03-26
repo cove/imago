@@ -115,7 +115,6 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp"}
 MIN_EXISTING_SIDECAR_BYTES = 100
 AI_MODEL_MAX_SOURCE_BYTES = 30 * 1024 * 1024
 DEFAULT_CREATOR_TOOL = "https://github.com/cove/imago"
-DEFAULT_MANIFEST_PATH = Path(__file__).resolve().parents[1] / "data" / "ai_index_manifest.jsonl"
 DEFAULT_CAST_STORE = Path(__file__).resolve().parents[2] / "cast" / "data"
 PROCESSOR_SIGNATURE = "page_split_v17_people_recovery_any_people"
 JOB_ARTIFACTS_ENV = "IMAGO_JOB_ARTIFACTS"
@@ -286,35 +285,6 @@ def _store_album_printed_title_hint(image_path: Path, printed_title_cache: dict[
     if value:
         printed_title_cache[_album_identity_key(image_path)] = value
     return value
-
-
-def load_manifest(path: Path) -> dict[str, dict[str, Any]]:
-    if not path.exists():
-        return {}
-    rows: dict[str, dict[str, Any]] = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
-        text = str(line or "").strip()
-        if not text:
-            continue
-        try:
-            row = json.loads(text)
-        except json.JSONDecodeError:
-            continue
-        if not isinstance(row, dict):
-            continue
-        image_path = str(row.get("image_path") or "").strip()
-        if not image_path:
-            continue
-        rows[image_path] = row
-    return rows
-
-
-def save_manifest(path: Path, rows: dict[str, dict[str, Any]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    lines: list[str] = []
-    for key in sorted(rows):
-        lines.append(json.dumps(rows[key], ensure_ascii=False, sort_keys=True))
-    path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
 
 
 def append_job_artifact(record: dict[str, Any]) -> None:
@@ -599,7 +569,7 @@ def _derived_source_text(image_path: Path) -> str:
 
 def needs_processing(
     path: Path,
-    manifest_row: dict[str, Any] | None,
+    sidecar_state: dict[str, Any] | None,
     force: bool,
     *,
     reprocess_required: bool = False,
@@ -615,14 +585,11 @@ def needs_processing(
         return False
     if reprocess_required:
         return True
-    if manifest_row is not None:
-        recorded_sidecar = str(manifest_row.get("sidecar_path") or "").strip()
-        if recorded_sidecar and recorded_sidecar != str(sidecar_path):
+    if sidecar_state is not None:
+        if str(sidecar_state.get("processor_signature") or "") != PROCESSOR_SIGNATURE:
             return True
-        if str(manifest_row.get("processor_signature") or "") != PROCESSOR_SIGNATURE:
-            return True
-        recorded_size = int(manifest_row.get("size", -1))
-        recorded_mtime = int(manifest_row.get("mtime_ns", -1))
+        recorded_size = int(sidecar_state.get("size") or -1)
+        recorded_mtime = int(sidecar_state.get("mtime_ns") or -1)
         if int(stat.st_size) != recorded_size or int(stat.st_mtime_ns) != recorded_mtime:
             return True
         return not has_current_sidecar(path)
@@ -709,7 +676,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Photo Albums root directory.",
     )
     parser.add_argument("--cast-store", default=str(DEFAULT_CAST_STORE), help="Cast store directory.")
-    parser.add_argument("--manifest", default=str(DEFAULT_MANIFEST_PATH), help="JSONL state file path.")
     parser.add_argument("--creator-tool", default=DEFAULT_CREATOR_TOOL, help="XMP CreatorTool value.")
     parser.add_argument("--model", default="models/yolo11n.pt", help="Ultralytics model path/name.")
     parser.add_argument(
@@ -830,7 +796,21 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=0,
         help="Skip first N discovered images. Use with --max-images to process a range.",
     )
-    parser.add_argument("--force", action="store_true", help="Ignore manifest and process all files.")
+    parser.add_argument("--force", action="store_true", help="Ignore manifest and process all files. Equivalent to --reprocess-mode=all.")
+    parser.add_argument(
+        "--reprocess-mode",
+        default="unprocessed",
+        choices=["unprocessed", "new_only", "errors_only", "outdated", "cast_changed", "all"],
+        help=(
+            "Controls which images are processed. "
+            "'unprocessed' (default): images with missing or stale sidecar. "
+            "'new_only': only images with no manifest entry (never indexed). "
+            "'errors_only': only images whose sidecar contains a processing error. "
+            "'outdated': only images where the sidecar is older than the image file. "
+            "'cast_changed': only images that need people re-detection due to cast store changes. "
+            "'all': force reprocess everything (same as --force)."
+        ),
+    )
     parser.add_argument("--dry-run", action="store_true", help="Do not write sidecar/manifest.")
     parser.add_argument(
         "--stdout",
@@ -2129,9 +2109,9 @@ def run(argv: list[str] | None = None) -> int:
         str(getattr(args, "caption_prompt_file", "")),
     )
     photos_root = _absolute_cli_path(args.photos_root)
-    manifest_path = _absolute_cli_path(args.manifest)
     stdout_only = bool(args.stdout)
-    force_processing = bool(args.force or stdout_only)
+    reprocess_mode = str(args.reprocess_mode)
+    force_processing = bool(args.force or stdout_only or reprocess_mode == "all")
     dry_run = bool(args.dry_run or stdout_only)
 
     def emit_info(message: str) -> None:
@@ -2220,7 +2200,6 @@ def run(argv: list[str] | None = None) -> int:
         "creator_tool": str(args.creator_tool),
     }
 
-    manifest = load_manifest(manifest_path)
     archive_settings_cache: dict[str, tuple[Path, dict[str, Any]]] = {}
     people_matcher_cache: dict[tuple[str, float, int], Any] = {}
     object_detector_cache: dict[tuple[str, float], Any] = {}
@@ -2234,7 +2213,6 @@ def run(argv: list[str] | None = None) -> int:
     processed = 0
     skipped = 0
     failures = 0
-    processed_cast_manifest_keys: set[str] = set()
     completed_times: list[float] = []
 
     for idx, image_path in enumerate(files, 1):
@@ -2357,39 +2335,38 @@ def run(argv: list[str] | None = None) -> int:
             _scan_group_signature(multi_scan_group_paths) if archive_stitched_ocr_required else ""
         )
 
-        manifest_row = manifest.get(str(image_path))
         people_update_only = False
         if existing_sidecar_valid and not existing_sidecar_complete:
             reprocess_required = True
             reprocess_reasons.append("sidecar_incomplete")
         if archive_stitched_ocr_required:
-            manifest_source = str((manifest_row or {}).get("ocr_authority_source") or "").strip()
-            manifest_signature = str((manifest_row or {}).get("ocr_authority_signature") or "").strip()
-            manifest_hash = str((manifest_row or {}).get("ocr_authority_hash") or "").strip()
+            sidecar_source = str((existing_sidecar_state or {}).get("ocr_authority_source") or "").strip()
+            sidecar_signature = str((existing_sidecar_state or {}).get("ocr_authority_signature") or "").strip()
+            sidecar_hash = str((existing_sidecar_state or {}).get("ocr_authority_hash") or "").strip()
             sidecar_has_current_stitched_authority = (
-                str((existing_sidecar_state or {}).get("ocr_authority_source") or "").strip() == "archive_stitched"
+                sidecar_source == "archive_stitched"
                 and bool(existing_sidecar_ocr_hash)
                 and _sidecar_current_for_paths(sidecar_path, multi_scan_group_paths)
             )
-            manifest_matches_stitched_authority = (
-                manifest_source == "archive_stitched"
-                and manifest_signature == multi_scan_group_signature
-                and bool(manifest_hash)
-                and manifest_hash == existing_sidecar_ocr_hash
+            sidecar_matches_stitched_authority = (
+                sidecar_source == "archive_stitched"
+                and sidecar_signature == multi_scan_group_signature
+                and bool(sidecar_hash)
+                and sidecar_hash == existing_sidecar_ocr_hash
             )
-            if not manifest_matches_stitched_authority and not sidecar_has_current_stitched_authority:
+            if not sidecar_matches_stitched_authority and not sidecar_has_current_stitched_authority:
                 reprocess_required = True
                 reprocess_reasons.append("missing_stitched_authority")
-        if manifest_row is not None:
-            old_sig = str(manifest_row.get("settings_signature") or "")
+        if existing_sidecar_state is not None:
+            old_sig = str(existing_sidecar_state.get("settings_signature") or "")
             if old_sig != settings_sig and not (existing_sidecar_current and existing_sidecar_complete):
                 reprocess_required = True
                 reprocess_reasons.append("settings_signature_mismatch")
             elif bool(effective.get("enable_people", True)):
-                if str(manifest_row.get("cast_store_signature") or "") != current_cast_signature:
+                if str(existing_sidecar_state.get("cast_store_signature") or "") != current_cast_signature:
                     # Cast changed: only re-run people+caption if faces were detected here.
                     # None means old XMP without the flag — treat conservatively as True.
-                    _pd = (existing_sidecar_state or {}).get("people_detected")
+                    _pd = existing_sidecar_state.get("people_detected")
                     if _pd is True or _pd is None:
                         people_update_only = True
                         reprocess_reasons.append("cast_store_signature_changed")
@@ -2397,7 +2374,7 @@ def run(argv: list[str] | None = None) -> int:
 
         needs_full = needs_processing(
             image_path,
-            manifest_row,
+            existing_sidecar_state,
             force_processing,
             reprocess_required=reprocess_required,
         )
@@ -2413,6 +2390,25 @@ def run(argv: list[str] | None = None) -> int:
             if args.verbose and not stdout_only:
                 print(f"[{idx}/{len(files)}] skip  {image_path.name} (render_settings skip=true)")
             continue
+
+        if reprocess_mode not in ("unprocessed", "all"):
+            _reasons_set = set(reprocess_reasons)
+            _mode_match: bool
+            if reprocess_mode == "new_only":
+                _mode_match = existing_sidecar_state is None
+            elif reprocess_mode == "errors_only":
+                _mode_match = bool(_reasons_set & {"lmstudio_caption_error", "sidecar_incomplete"})
+            elif reprocess_mode == "outdated":
+                _mode_match = "sidecar_older_than_image" in _reasons_set
+            elif reprocess_mode == "cast_changed":
+                _mode_match = "cast_store_signature_changed" in _reasons_set
+            else:
+                _mode_match = True
+            if not _mode_match:
+                skipped += 1
+                if args.verbose and not stdout_only:
+                    print(f"[{idx}/{len(files)}] skip  {image_path.name} (reprocess_mode={reprocess_mode})")
+                continue
 
         if existing_sidecar_valid and not stdout_only:
             reason_text = _format_reprocess_reasons(reprocess_reasons)
@@ -2476,6 +2472,35 @@ def run(argv: list[str] | None = None) -> int:
                             author_text=str(text_layers.get("author_text") or ""),
                             annotation_scope=str(text_layers.get("annotation_scope") or ""),
                         )
+                        stat = image_path.stat()
+                        summary = dict(review.get("summary") or {})
+                        refresh_subphotos = review.get("subphotos")
+                        refresh_analysis_mode = str(
+                            (existing_sidecar_state or {}).get("analysis_mode")
+                            or (
+                                "page_subphotos"
+                                if isinstance(refresh_subphotos, list) and refresh_subphotos
+                                else "single_image"
+                            )
+                        )
+                        if refresh_detections is None:
+                            refresh_detections = {}
+                        refresh_detections["processing"] = {
+                            "processor_signature": PROCESSOR_SIGNATURE,
+                            "settings_signature": settings_sig,
+                            "cast_store_signature": (
+                                current_cast_signature if bool(effective.get("enable_people", True)) else ""
+                            ),
+                            "size": int(stat.st_size),
+                            "mtime_ns": int(stat.st_mtime_ns),
+                            "ocr_authority_signature": str(
+                                (existing_sidecar_state or {}).get("ocr_authority_signature") or ""
+                            ),
+                            "ocr_authority_hash": str(
+                                (existing_sidecar_state or {}).get("ocr_authority_hash") or ""
+                            ),
+                            "analysis_mode": refresh_analysis_mode,
+                        }
                         write_xmp_sidecar(
                             sidecar_path,
                             creator_tool=creator_tool,
@@ -2495,7 +2520,7 @@ def run(argv: list[str] | None = None) -> int:
                             author_text=str(text_layers.get("author_text") or ""),
                             scene_text=str(text_layers.get("scene_text") or ""),
                             annotation_scope=str(text_layers.get("annotation_scope") or ""),
-                            detections_payload=(refresh_detections or None),
+                            detections_payload=refresh_detections,
                             stitch_key=str(review.get("stitch_key") or ""),
                             ocr_authority_source=str(review.get("ocr_authority_source") or ""),
                             create_date=(
@@ -2510,42 +2535,6 @@ def run(argv: list[str] | None = None) -> int:
                             ocr_lang=str(review.get("ocr_lang") or ""),
                         )
 
-                    stat = image_path.stat()
-                    summary = dict(review.get("summary") or {})
-                    refresh_subphotos = review.get("subphotos")
-                    existing_manifest_row = manifest.get(str(image_path)) or {}
-                    manifest[str(image_path)] = {
-                        **existing_manifest_row,
-                        "image_path": str(image_path),
-                        "size": int(stat.st_size),
-                        "mtime_ns": int(stat.st_mtime_ns),
-                        "sidecar_path": str(sidecar_path),
-                        "people_count": int(summary.get("people_in_image_count") or 0),
-                        "object_count": int(summary.get("detected_object_count") or 0),
-                        "ocr_chars": int(summary.get("ocr_char_count") or 0),
-                        "analysis_mode": str(
-                            existing_manifest_row.get("analysis_mode")
-                            or (
-                                "page_subphotos"
-                                if isinstance(refresh_subphotos, list) and refresh_subphotos
-                                else "single_image"
-                            )
-                        ),
-                        "split_applied": bool(
-                            existing_manifest_row.get("split_applied")
-                            or (isinstance(refresh_subphotos, list) and bool(refresh_subphotos))
-                        ),
-                        "subphoto_count": int(summary.get("subphoto_count") or 0),
-                        "processor_signature": PROCESSOR_SIGNATURE,
-                        "settings_signature": settings_sig,
-                        "ocr_authority_source": str(review.get("ocr_authority_source") or ""),
-                        "ocr_authority_signature": str((manifest_row or {}).get("ocr_authority_signature") or ""),
-                        "ocr_authority_hash": str((manifest_row or {}).get("ocr_authority_hash") or ""),
-                        "cast_store_signature": (
-                            current_cast_signature if bool(effective.get("enable_people", True)) else ""
-                        ),
-                        "render_settings_path": (str(settings_file) if settings_file is not None else ""),
-                    }
                     if not dry_run:
                         append_job_artifact(
                             {
@@ -2555,8 +2544,6 @@ def run(argv: list[str] | None = None) -> int:
                                 "label": image_path.name,
                             }
                         )
-                    if bool(effective.get("enable_people", True)):
-                        processed_cast_manifest_keys.add(str(image_path))
                     processed += 1
                     completed_times.append(time.monotonic() - file_start)
                     if not stdout_only:
@@ -2782,6 +2769,10 @@ def run(argv: list[str] | None = None) -> int:
                             author_text=str(text_layers.get("author_text") or ""),
                             annotation_scope=str(text_layers.get("annotation_scope") or ""),
                         )
+                        current_cast_signature = str(people_matcher.store_signature())
+                        pu_proc = dict((pu_updated_det.get("processing") or {}))
+                        pu_proc["cast_store_signature"] = current_cast_signature
+                        pu_updated_det = {**pu_updated_det, "processing": pu_proc}
                         write_xmp_sidecar(
                             sidecar_path,
                             creator_tool=creator_tool,
@@ -2815,13 +2806,6 @@ def run(argv: list[str] | None = None) -> int:
                             people_identified=pu_people_identified,
                         )
 
-                    current_cast_signature = str(people_matcher.store_signature())
-                    existing_manifest_row = manifest.get(str(image_path)) or {}
-                    manifest[str(image_path)] = {
-                        **existing_manifest_row,
-                        "cast_store_signature": current_cast_signature,
-                        "people_count": len(pu_person_names),
-                    }
                     if not dry_run:
                         append_job_artifact(
                             {
@@ -2831,8 +2815,6 @@ def run(argv: list[str] | None = None) -> int:
                                 "label": image_path.name,
                             }
                         )
-                    if bool(effective.get("enable_people", True)):
-                        processed_cast_manifest_keys.add(str(image_path))
 
                     processed += 1
                     completed_times.append(time.monotonic() - file_start)
@@ -3054,6 +3036,25 @@ def run(argv: list[str] | None = None) -> int:
                         }
                         for i, r in enumerate(analysis.image_regions or [])
                     ] or None
+                    if people_matcher is not None:
+                        current_cast_signature = str(people_matcher.store_signature())
+                    stat = image_path.stat()
+                    payload["processing"] = {
+                        "processor_signature": PROCESSOR_SIGNATURE,
+                        "settings_signature": settings_sig,
+                        "cast_store_signature": (
+                            current_cast_signature if bool(effective.get("enable_people", True)) else ""
+                        ),
+                        "size": int(stat.st_size),
+                        "mtime_ns": int(stat.st_mtime_ns),
+                        "ocr_authority_signature": (
+                            str(scan_ocr_authority.signature) if scan_ocr_authority is not None else ""
+                        ),
+                        "ocr_authority_hash": (
+                            str(scan_ocr_authority.ocr_hash) if scan_ocr_authority is not None else ""
+                        ),
+                        "analysis_mode": str(analysis_mode),
+                    }
                     write_xmp_sidecar(
                         sidecar_path,
                         creator_tool=creator_tool,
@@ -3086,30 +3087,6 @@ def run(argv: list[str] | None = None) -> int:
                         ocr_lang=str(analysis.ocr_lang or ""),
                     )
 
-            if people_matcher is not None:
-                current_cast_signature = str(people_matcher.store_signature())
-            stat = image_path.stat()
-            manifest[str(image_path)] = {
-                "image_path": str(image_path),
-                "size": int(stat.st_size),
-                "mtime_ns": int(stat.st_mtime_ns),
-                "sidecar_path": str(sidecar_path),
-                "people_count": int(people_count),
-                "object_count": int(object_count),
-                "ocr_chars": int(len(ocr_text)),
-                "analysis_mode": str(analysis_mode),
-                "split_applied": bool(split_applied),
-                "subphoto_count": int(subphoto_count),
-                "processor_signature": PROCESSOR_SIGNATURE,
-                "settings_signature": settings_sig,
-                "ocr_authority_source": ("archive_stitched" if scan_ocr_authority is not None else ""),
-                "ocr_authority_signature": (
-                    str(scan_ocr_authority.signature) if scan_ocr_authority is not None else ""
-                ),
-                "ocr_authority_hash": (str(scan_ocr_authority.ocr_hash) if scan_ocr_authority is not None else ""),
-                "cast_store_signature": (current_cast_signature if bool(effective.get("enable_people", True)) else ""),
-                "render_settings_path": (str(settings_file) if settings_file is not None else ""),
-            }
             if not dry_run:
                 append_job_artifact(
                     {
@@ -3120,8 +3097,6 @@ def run(argv: list[str] | None = None) -> int:
                     }
                 )
             _emit_prompt_debug_artifact(prompt_debug, dry_run=dry_run)
-            if bool(effective.get("enable_people", True)):
-                processed_cast_manifest_keys.add(str(image_path))
             processed += 1
             completed_times.append(time.monotonic() - file_start)
             if stop_ticker is not None:
@@ -3147,16 +3122,6 @@ def run(argv: list[str] | None = None) -> int:
             emit_error(f"[{idx}/{len(files)}] fail  {image_path.name}: {exc}")
         _release_image_processing_lock(lock_path)
 
-    if not dry_run:
-        if processed_cast_manifest_keys and people_matcher_cache:
-            final_cast_signature = str(next(iter(people_matcher_cache.values())).store_signature())
-            for image_key in processed_cast_manifest_keys:
-                row = manifest.get(image_key)
-                if not isinstance(row, dict):
-                    continue
-                row["cast_store_signature"] = final_cast_signature
-        save_manifest(manifest_path, manifest)
-
     stitch_failures = 0
     if bool(getattr(args, "stitch_scans", False)):
         emit_info("Scan stitch pass skipped: archive scan OCR stitching now happens during normal processing.")
@@ -3166,7 +3131,6 @@ def run(argv: list[str] | None = None) -> int:
         print(f"- Processed: {processed}")
         print(f"- Skipped:   {skipped}")
         print(f"- Failed:    {failures + stitch_failures}")
-        print(f"- Manifest:  {manifest_path}")
     _release_batch_processing_lock(batch_lock_path)
     return 1 if (failures or stitch_failures) else 0
 

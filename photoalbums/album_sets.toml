@@ -5,7 +5,6 @@ default_scan_set = "incoming_scans"
 kind = "archive"
 description = "Cordell family photo albums archive"
 photos_root = "C:/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums"
-manifest_path = "data/ai_index_manifest.jsonl"
 cast_store = "../cast/data"
 skill = "cordell-photo-albums"
 

@@ -114,23 +114,30 @@ class TestCommon(unittest.TestCase):
             result = common.get_photo_albums_dir()
         self.assertEqual(result, Path("D:/Media/Photo Albums"))
 
-
         with tempfile.TemporaryDirectory() as tmp:
             onedrive_root = Path(tmp) / "OneDriveCompany"
             expected = onedrive_root / common.PHOTO_ALBUMS_SUBPATH
 
             # _first_existing_path is mocked to None so the real OneDrive on
             # the host (if it exists) doesn't shadow the expected preferred path.
-            with mock.patch.object(common.sys, "platform", "win32"), mock.patch(
-                "common.Path.home", return_value=Path(tmp) / "home"
-            ), mock.patch.dict(
-                "common.os.environ", {"OneDrive": str(onedrive_root)}, clear=False
-            ), mock.patch(
-                "common._first_existing_path", return_value=None
+            with (
+                mock.patch.object(common.sys, "platform", "win32"),
+                mock.patch("common.Path.home", return_value=Path(tmp) / "home"),
+                mock.patch.dict("common.os.environ", {"OneDrive": str(onedrive_root)}, clear=False),
+                mock.patch("common._first_existing_path", return_value=None),
             ):
                 result = common.get_photo_albums_dir()
 
         self.assertEqual(result, expected)
+
+    def test_get_photo_scanning_dir_env_override(self):
+        with mock.patch.dict(
+            "common.os.environ",
+            {common.PHOTO_SCANNING_DIR_ENV: "D:/Media/Photo Scanning"},
+            clear=False,
+        ):
+            result = common.get_photo_scanning_dir()
+        self.assertEqual(result, Path("D:/Media/Photo Scanning"))
 
     def test_get_imagemagick_dir_env_override(self):
         with mock.patch.dict(
@@ -142,19 +149,26 @@ class TestCommon(unittest.TestCase):
         self.assertEqual(result, Path("D:/Tools/ImageMagick"))
 
     def test_configure_imagemagick_adds_existing_path(self):
-        with tempfile.TemporaryDirectory() as tmp, mock.patch(
-            "common.get_imagemagick_dir",
-            return_value=Path(tmp),
-        ), mock.patch.dict("common.os.environ", {"PATH": "base"}, clear=False):
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch(
+                "common.get_imagemagick_dir",
+                return_value=Path(tmp),
+            ),
+            mock.patch.dict("common.os.environ", {"PATH": "base"}, clear=False),
+        ):
             common.configure_imagemagick()
             self.assertTrue(os.environ["PATH"].startswith(f"{tmp}{os.pathsep}"))
 
     def test_open_image_fullscreen_uses_open_on_macos(self):
         proc = object()
-        with mock.patch.object(common.sys, "platform", "darwin"), mock.patch(
-            "common.subprocess.Popen",
-            return_value=proc,
-        ) as popen_mock:
+        with (
+            mock.patch.object(common.sys, "platform", "darwin"),
+            mock.patch(
+                "common.subprocess.Popen",
+                return_value=proc,
+            ) as popen_mock,
+        ):
             result = common.open_image_fullscreen("/tmp/sample.jpg")
 
         self.assertIs(result, proc)

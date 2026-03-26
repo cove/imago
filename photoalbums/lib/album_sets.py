@@ -16,7 +16,6 @@ class AlbumSet:
     kind: str
     photos_root: Path
     description: str = ""
-    manifest_path: Path | None = None
     cast_store: Path | None = None
     skill: str = ""
 
@@ -84,11 +83,6 @@ def _parse_album_set(name: str, payload: Any, *, base_dir: Path) -> AlbumSet:
         description=str(payload.get("description") or "").strip(),
         photos_root=_resolve_path(base_dir, payload.get("photos_root"), field_name=f"sets.{name}.photos_root"),
         skill=str(payload.get("skill") or "").strip(),
-        manifest_path=(
-            _resolve_path(base_dir, payload.get("manifest_path"), field_name=f"sets.{name}.manifest_path")
-            if kind == "archive"
-            else None
-        ),
         cast_store=(
             _resolve_path(base_dir, payload.get("cast_store"), field_name=f"sets.{name}.cast_store")
             if kind == "archive"

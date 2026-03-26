@@ -20,7 +20,7 @@ try:
     from .common import (
         INCOMING_NAME,
         PAGE_SCAN_RE,
-        PHOTO_ALBUMS_DIR,
+        PHOTO_SCANNING_DIR,
         configure_imagemagick,
         list_page_scans_for_page,
         open_image_fullscreen,
@@ -31,7 +31,7 @@ except ImportError:
     from common import (
         INCOMING_NAME,
         PAGE_SCAN_RE,
-        PHOTO_ALBUMS_DIR,
+        PHOTO_SCANNING_DIR,
         configure_imagemagick,
         list_page_scans_for_page,
         open_image_fullscreen,
@@ -64,7 +64,7 @@ except ImportError:
 class ScanWatchService:
     def __init__(
         self,
-        root: str | Path = PHOTO_ALBUMS_DIR,
+        root: str | Path = PHOTO_SCANNING_DIR,
         *,
         incoming_name: str = INCOMING_NAME,
         sleep_fn: Callable[[float], None] = time.sleep,

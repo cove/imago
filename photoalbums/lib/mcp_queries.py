@@ -22,39 +22,6 @@ def _matches_album_filter(image_path: Path, album: str) -> bool:
     return album_value.casefold() in image_path.parent.name.casefold()
 
 
-def _load_manifest_rows(manifest_path: str | Path) -> list[dict[str, Any]]:
-    path = Path(manifest_path)
-    if not path.exists():
-        return []
-    rows: list[dict[str, Any]] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        text = _clean_text(line)
-        if not text:
-            continue
-        try:
-            row = json.loads(text)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(row, dict):
-            rows.append(row)
-    return rows
-
-
-def _build_manifest_lookup(manifest_rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    lookup: dict[str, dict[str, Any]] = {}
-    for row in manifest_rows:
-        image_path = _clean_text(row.get("image_path"))
-        if not image_path:
-            continue
-        raw_path = Path(image_path)
-        lookup[str(raw_path)] = row
-        try:
-            lookup[str(raw_path.resolve())] = row
-        except OSError:
-            pass
-    return lookup
-
-
 def _discover_photo_files(photos_root: str | Path, *, album: str = "") -> list[Path]:
     root = Path(photos_root)
     if not root.is_dir():
@@ -134,7 +101,6 @@ def _current_cast_signature(cast_store: str | Path) -> str:
 
 def _image_summary(
     image_path: Path,
-    manifest_row: dict[str, Any] | None,
     sidecar_path: Path,
     sidecar_state: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -147,8 +113,6 @@ def _image_summary(
         "page": (_clean_text(scan_match.group("page")) if scan_match else ""),
         "scan": (_clean_text(scan_match.group("scan")) if scan_match else ""),
         "is_cover_candidate": _is_cover_candidate(image_path),
-        "manifest_present": manifest_row is not None,
-        "manifest_state": _clean_text((manifest_row or {}).get("state")),
         "sidecar_path": str(sidecar_path),
         "sidecar_present": sidecar_path.is_file(),
         "sidecar_current": _sidecar_current(image_path, sidecar_path),
@@ -159,30 +123,27 @@ def _image_summary(
 def query_manifest_rows(
     *,
     photos_root: str | Path,
-    manifest_path: str | Path,
     album: str = "",
-    state: str = "",
     file_name: str = "",
     limit: int = 100,
 ) -> dict[str, Any]:
-    state_value = _clean_text(state)
     file_value = _clean_text(file_name)
-    rows = _load_manifest_rows(manifest_path)
+    files = _discover_photo_files(photos_root, album=album)
     matches: list[dict[str, Any]] = []
-    for row in rows:
-        image_path_text = _clean_text(row.get("image_path"))
-        if not image_path_text:
-            continue
-        image_path = Path(image_path_text)
-        if not _matches_album_filter(image_path, album):
-            continue
-        if state_value and _clean_text(row.get("state")) != state_value:
-            continue
+    for image_path in files:
         if file_value and image_path.name.casefold() != file_value.casefold():
             continue
         sidecar_path, _sidecar_exists, sidecar_state = _sidecar_state(image_path)
-        entry = dict(row)
-        entry.update(_image_summary(image_path, row, sidecar_path, sidecar_state))
+        entry = _image_summary(image_path, sidecar_path, sidecar_state)
+        if sidecar_state:
+            for key in (
+                "processor_signature",
+                "settings_signature",
+                "cast_store_signature",
+                "analysis_mode",
+                "ocr_authority_source",
+            ):
+                entry[key] = _clean_text(sidecar_state.get(key))
         matches.append(entry)
     matches.sort(
         key=lambda row: (str(row.get("album_dir") or "").casefold(), str(row.get("file_name") or "").casefold())
@@ -190,9 +151,7 @@ def query_manifest_rows(
     limited = matches[: max(0, int(limit))]
     return {
         "photos_root": str(Path(photos_root)),
-        "manifest_path": str(Path(manifest_path)),
         "album_filter": _clean_text(album),
-        "state_filter": state_value,
         "file_name_filter": file_value,
         "total_matches": len(matches),
         "rows": limited,
@@ -202,45 +161,40 @@ def query_manifest_rows(
 def album_status(
     *,
     photos_root: str | Path,
-    manifest_path: str | Path,
     album: str,
 ) -> dict[str, Any]:
     album_value = _clean_text(album)
     if not album_value:
         raise ValueError("Provide an album filter.")
     files = _discover_photo_files(photos_root, album=album_value)
-    manifest_rows = _load_manifest_rows(manifest_path)
-    manifest_lookup = _build_manifest_lookup(manifest_rows)
 
     cover_candidates: list[dict[str, Any]] = []
-    manifest_present = 0
+    processed_images = 0
     sidecar_present = 0
     current_sidecars = 0
     parent_dirs = sorted({path.parent.name for path in files})
 
     for image_path in files:
-        manifest_row = manifest_lookup.get(str(image_path))
         sidecar_path, sidecar_exists, sidecar_state = _sidecar_state(image_path)
-        if manifest_row is not None:
-            manifest_present += 1
+        if sidecar_state is not None and _clean_text(sidecar_state.get("processor_signature")):
+            processed_images += 1
         if sidecar_exists:
             sidecar_present += 1
         if _sidecar_current(image_path, sidecar_path):
             current_sidecars += 1
         if not _is_cover_candidate(image_path):
             continue
-        entry = _image_summary(image_path, manifest_row, sidecar_path, sidecar_state)
+        entry = _image_summary(image_path, sidecar_path, sidecar_state)
         entry["ready"] = bool(entry["sidecar_present"] and entry["album_title"])
         cover_candidates.append(entry)
 
     cover_candidates.sort(key=lambda row: (str(row.get("page") or ""), str(row.get("scan") or ""), row["file_name"]))
     return {
         "photos_root": str(Path(photos_root)),
-        "manifest_path": str(Path(manifest_path)),
         "album_filter": album_value,
         "matched_parent_dirs": parent_dirs,
         "total_images": len(files),
-        "manifest_rows": manifest_present,
+        "processed_images": processed_images,
         "sidecars_present": sidecar_present,
         "current_sidecars": current_sidecars,
         "cover_ready": any(bool(row.get("ready")) for row in cover_candidates),
@@ -300,24 +254,18 @@ def read_job_artifacts(
 def reprocess_audit(
     *,
     photos_root: str | Path,
-    manifest_path: str | Path,
     cast_store: str | Path,
     album: str = "",
     limit: int = 100,
 ) -> dict[str, Any]:
     files = _discover_photo_files(photos_root, album=album)
-    manifest_rows = _load_manifest_rows(manifest_path)
-    manifest_lookup = _build_manifest_lookup(manifest_rows)
     current_cast_signature = _current_cast_signature(cast_store)
 
     matches: list[dict[str, Any]] = []
     for image_path in files:
-        manifest_row = manifest_lookup.get(str(image_path))
         sidecar_path, _sidecar_exists, sidecar_state = _sidecar_state(image_path)
         reasons: list[str] = []
 
-        if manifest_row is None:
-            reasons.append("manifest_missing")
         if not sidecar_path.is_file():
             reasons.append("sidecar_missing")
         elif not _sidecar_current(image_path, sidecar_path):
@@ -327,10 +275,10 @@ def reprocess_audit(
             if _clean_text((sidecar_state or {}).get("ocr_authority_source")) != "archive_stitched":
                 reasons.append("missing_stitched_authority")
 
-        recorded_cast_signature = _clean_text((manifest_row or {}).get("cast_store_signature"))
+        recorded_cast_signature = _clean_text((sidecar_state or {}).get("cast_store_signature"))
         people_detected = (sidecar_state or {}).get("people_detected")
         if (
-            manifest_row is not None
+            sidecar_state is not None
             and recorded_cast_signature != current_cast_signature
             and people_detected is not False
         ):
@@ -339,19 +287,23 @@ def reprocess_audit(
         if not reasons:
             continue
 
-        entry = _image_summary(image_path, manifest_row, sidecar_path, sidecar_state)
+        entry = _image_summary(image_path, sidecar_path, sidecar_state)
         entry["reprocess_reasons"] = reasons
         matches.append(entry)
 
     matches.sort(
         key=lambda row: (str(row.get("album_dir") or "").casefold(), str(row.get("file_name") or "").casefold())
     )
+    reason_counts: dict[str, int] = {}
+    for m in matches:
+        for r in m.get("reprocess_reasons", []):
+            reason_counts[r] = reason_counts.get(r, 0) + 1
     limited = matches[: max(0, int(limit))]
     return {
         "photos_root": str(Path(photos_root)),
-        "manifest_path": str(Path(manifest_path)),
         "cast_store": str(Path(cast_store)),
         "album_filter": _clean_text(album),
         "total_matches": len(matches),
+        "reason_counts": reason_counts,
         "rows": limited,
     }
