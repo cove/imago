@@ -55,22 +55,24 @@ controlled by `photoalbums/ai_models.toml` — the skill templates apply to all 
 Use the `imago` MCP tools to drive the AI indexing pipeline. The typical flow:
 
 ### Select the archive set first
-Call `photoalbums_list_sets(kind="archive")` and select `album_set="cordell"` for Cordell family
-albums. Pass `album_set` explicitly on operational MCP calls instead of relying on server defaults.
+For routine Cordell work, omit `album_set` and use the server default archive set.
+Only call `photoalbums_list_sets(kind="archive")` when you need to choose among multiple archive sets.
+If you do pass `album_set`, use the exact short `album_set` value returned by the server, such as
+`cordell`. Do not pass the description text.
 
 ### Check what needs processing
-Call `photoalbums_manifest_summary(album_set="cordell")` first to see counts by state (pending, done, errored). This tells
+Call `photoalbums_manifest_summary()` first to see counts by state (pending, done, errored). This tells
 you whether there's real work to do and how large the job will be. Then use
-`photoalbums_manifest_query(album_set="cordell", album="...")` when you need concrete filenames, cover pages, or sidecar status.
+`photoalbums_manifest_query(album="...")` when you need concrete filenames, cover pages, or sidecar status.
 
 ### Ensure the cover page is processed first
 Before processing any album pages, the cover page (P00 or P01) must be processed so the album title is available to all subsequent pages. Always check:
 
 1. Call `photoalbums_album_status(album="...")` and inspect `cover_candidates` plus `cover_ready`.
 2. If the cover page has not been processed yet (state is `pending` or absent), run a targeted job first:
-   `photoalbums_ai_index(album_set="cordell", photo="<AlbumName>_B<book>_P00")` — wait for it to complete before continuing.
+   `photoalbums_ai_index(photo="<AlbumName>_B<book>_P00")` — wait for it to complete before continuing.
 3. If the cover was previously processed but predates this change (its `xmpDM:album` field may be empty or missing the year), reprocess it:
-   `photoalbums_ai_index(album_set="cordell", photo="<AlbumName>_B<book>_P00", reprocess_mode="all")`
+   `photoalbums_ai_index(photo="<AlbumName>_B<book>_P00", reprocess_mode="all")`
 4. Once the cover is done, proceed with the full album job — non-cover pages will pick up the title from the cover's XMP sidecar automatically.
 
 This step is especially important when processing a single page (e.g. `photo=...P25`) — always run the cover page first if the title is unknown.
@@ -82,7 +84,7 @@ Call `photoalbums_ai_index` to launch a background job. It returns a `job_id` im
 - Use `photo` for a single file (also forces reprocessing).
 - Use `max_images` to cap the run during testing or spot-checks.
 - Use `reprocess_mode="all"` to reprocess images already in the manifest.
-- Always pass `album_set="cordell"` on Cordell archive operations.
+- Pass `album_set` only when you need a non-default archive set.
 
 ### Monitor progress
 Poll `job_status(job_id)` periodically (every 30–60 seconds for large runs). It returns status and a
@@ -94,7 +96,7 @@ specific photos. Use `job_list` to see all recent jobs if you've lost track of a
 Call `job_cancel(job_id)` to terminate a running job gracefully.
 
 ### Audit what needs repair
-Call `photoalbums_reprocess_audit(album_set="cordell", album="...")` to find files that look stale or incomplete before starting a
+Call `photoalbums_reprocess_audit(album="...")` to find files that look stale or incomplete before starting a
 repair pass. Use this when you suspect missing stitched OCR authority, missing sidecars, stale sidecars, or
 Cast-driven people-name refreshes.
 

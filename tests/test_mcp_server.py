@@ -77,7 +77,7 @@ class TestPhotoalbumsAlbumSets(AlbumSetConfigMixin, unittest.TestCase):
     def test_photoalbums_list_sets_returns_client_safe_metadata(self):
         result = mcp_server.photoalbums_list_sets()
 
-        self.assertEqual([row["name"] for row in result], ["cordell", "incoming_scans"])
+        self.assertEqual([row["album_set"] for row in result], ["cordell", "incoming_scans"])
         cordell = result[0]
         incoming = result[1]
         self.assertEqual(cordell["kind"], "archive")
@@ -163,6 +163,13 @@ class TestPhotoalbumsAiIndexPhotoResolution(AlbumSetConfigMixin, unittest.TestCa
             mcp_server.photoalbums_ai_index(album_set="cordell", photo="Photo_01.jpg")
 
         self.assertIn("ambiguous", str(exc.exception))
+        self.runner.start.assert_not_called()
+
+    def test_photoalbums_ai_index_rejects_photo_lists(self):
+        with self.assertRaises(ValueError) as exc:
+            mcp_server.photoalbums_ai_index(album_set="cordell", photo=["Photo_01.jpg"])  # type: ignore[arg-type]
+
+        self.assertIn("single filename or path string", str(exc.exception))
         self.runner.start.assert_not_called()
 
     def test_photoalbums_ai_index_only_passes_supported_filters(self):

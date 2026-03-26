@@ -106,8 +106,9 @@ Expected location output: `{"location_name": "", "gps_latitude": "48.8566", "gps
 Use `photoalbums_reprocess_audit` as a planning step before starting any indexing job.
 It returns `reason_counts` — a dict mapping each reason code to the number of images
 affected — so you can choose the right `reprocess_mode` without reprocessing everything.
-Call `photoalbums_list_sets(kind="archive")` first and use `album_set="cordell"` for
-Cordell archive operations instead of relying on server defaults.
+For routine Cordell work, omit `album_set` and use the default archive set.
+Only call `photoalbums_list_sets(kind="archive")` when you need to choose a non-default set.
+When you do pass `album_set`, use the exact short value returned by the server, such as `cordell`.
 
 ### Reason codes
 
@@ -136,17 +137,17 @@ Cordell archive operations instead of relying on server defaults.
 
 ```
 # 1. Audit first
-photoalbums_reprocess_audit(album_set="cordell", album="...")
+photoalbums_reprocess_audit(album="...")
 # → reason_counts: {"manifest_missing": 50, "lmstudio_caption_error": 8}
 
 # 2. Process new images
-photoalbums_ai_index(album_set="cordell", reprocess_mode="new_only", album="...")
+photoalbums_ai_index(reprocess_mode="new_only", album="...")
 
 # 3. Retry errors separately (may warrant user review first)
-photoalbums_ai_index(album_set="cordell", reprocess_mode="errors_only", album="...")
+photoalbums_ai_index(reprocess_mode="errors_only", album="...")
 
 # 4. Dry-run to preview scope before a large job
-photoalbums_ai_index(album_set="cordell", reprocess_mode="all", album="...", dry_run=True)
+photoalbums_ai_index(reprocess_mode="all", album="...", dry_run=True)
 ```
 
 **Do not use `reprocess_mode="all"` reflexively when resuming work.** Check

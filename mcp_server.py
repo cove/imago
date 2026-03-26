@@ -59,7 +59,12 @@ def _job_started(job_id: str) -> dict:
 
 
 def _resolve_ai_index_photo_path(photos_root: str, photo: Optional[str]) -> Optional[str]:
-    photo_value = str(photo or "").strip()
+    if photo is None:
+        return None
+    if not isinstance(photo, str):
+        raise ValueError("photo must be a single filename or path string")
+
+    photo_value = photo.strip()
     if not photo_value:
         return None
 
@@ -295,13 +300,20 @@ def photoalbums_list_sets(kind: Optional[str] = None) -> list[dict[str, object]]
 
     Args:
         kind: Optional filter: 'archive' or 'scanwatch'.
+
+    Use the returned `album_set` value exactly when passing `album_set=...` to other tools.
+    Do not pass the human-readable description.
     """
     return [_client_set_dict(album_set) for album_set in album_sets.list_album_sets(kind=kind)]
 
 
 @mcp.tool()
 def photoalbums_get_set(album_set: str) -> dict[str, object]:
-    """Return client-safe metadata for one album set."""
+    """Return client-safe metadata for one album set.
+
+    Args:
+        album_set: Exact short album-set value, for example 'cordell' or 'incoming_scans'.
+    """
     return _client_set_dict(album_sets.get_album_set(album_set))
 
 
@@ -311,11 +323,12 @@ def photoalbums_sets_resource() -> str:
     lines = ["# Photoalbums Album Sets", ""]
     for album_set in photoalbums_list_sets():
         lines += [
-            f"## {album_set['name']}",
+            f"## {album_set['album_set']}",
             f"- Kind: `{album_set['kind']}`",
             f"- Default: `{album_set['is_default']}`",
             f"- Skill: `{album_set['skill']}`",
             f"- Description: {album_set['description'] or '(none)'}",
+            f'- Use in tool calls: `album_set="{album_set["album_set"]}"`',
             "",
         ]
     return "\n".join(lines)
