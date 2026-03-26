@@ -1,14 +1,10 @@
 ---
-name: CORDELL_PHOTO_ALBUMS_FAMILY
+name: cordell-photo-albums-family
 description: >-
   Family album captioning skill for Cordell photo albums. Contains family-specific preamble prompt
   templates used by the GLM pipeline for family albums (albums with "Family" in the title). Loaded at
   runtime by `photoalbums/lib/_caption_prompts.py`. Use the base CORDELL_PHOTO_ALBUMS skill for job
   management, manifest checking, and quality monitoring.
-compatibility: >-
-  Requires local GPU with GLM vision model (zai-org/glm-4.6v-flash). Model selection configured in
-  ai_models.json. Object detection requires YOLO. Face matching requires InsightFace embeddings from Cast.
-  Nominatim geocoding requires network access. MCP server: imago.
 metadata:
   author: Cove Schneider
   version: 1.0.1
@@ -28,6 +24,15 @@ Sections are parsed by exact `## Section Name` heading - do not rename them.
 
 For Workflow, Quality Monitoring, and shared rules (`Global Style & Behavior Rules`, `Location Rules`,
 etc.), see the base `CORDELL_PHOTO_ALBUMS` skill.
+
+## Requirements
+
+- Local GPU with GLM vision model `zai-org/glm-4.6v-flash`
+- Model selection configured in `photoalbums/ai_models.toml`
+- YOLO for object detection
+- InsightFace embeddings from Cast for face matching
+- Network access for Nominatim geocoding
+- MCP server: `imago`
 
 ---
 
