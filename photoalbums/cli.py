@@ -10,7 +10,7 @@ AI_STEP_LINES = [
     "4. Extract OCR text/keywords (optional).",
     "5. Generate a sentence caption and structured place hints (local HF, template fallback, or LM Studio).",
     "6. Geocode high-confidence place names to GPS coordinates.",
-    "7. Write XMP sidecar metadata and update manifest state.",
+    "7. Write XMP sidecar metadata (including processing state).",
 ]
 
 
@@ -46,7 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
     ai_parser = subparsers.add_parser(
         "ai",
         add_help=False,
-        help="AI-assisted indexing (people -> objects -> OCR -> XMP/manifest).",
+        help="AI-assisted indexing (people -> objects -> OCR -> XMP).",
     )
     ai_parser.add_argument(
         "-h",

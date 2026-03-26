@@ -127,22 +127,13 @@ class JobRunner:
         return job_id
 
     def status(self, job_id: str) -> dict:
-        """Get job status with recent log tail (last 30 lines)."""
+        """Get job status metadata without log content."""
         with self._lock:
             self._jobs = {**self._read_disk_jobs(), **self._jobs}
             job = self._jobs.get(job_id)
         if not job:
             return {"error": f"Job {job_id} not found"}
-        result = dict(job)
-        log_path = Path(job["log_file"])
-        if log_path.exists():
-            lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
-            result["recent_logs"] = "\n".join(lines[-30:])
-            result["total_log_lines"] = len(lines)
-        else:
-            result["recent_logs"] = ""
-            result["total_log_lines"] = 0
-        return result
+        return dict(job)
 
     def logs(self, job_id: str, last_n: int = 100) -> str:
         """Return the last N lines of a job's log output."""

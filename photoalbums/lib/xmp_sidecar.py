@@ -745,6 +745,7 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
             parsed = None
         if isinstance(parsed, dict):
             detections_payload = parsed
+    processing_meta: dict[str, object] = dict((detections_payload or {}).get("processing") or {})
     processing_history = _read_processing_history(desc)
     processing_state = _derive_processing_state(processing_history)
     return {
@@ -790,6 +791,14 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
             if "people_identified" in processing_state
             else _read_xmp_bool(desc, f"{{{IMAGO_NS}}}PeopleIdentified")
         ),
+        "processor_signature": str(processing_meta.get("processor_signature") or "").strip(),
+        "settings_signature": str(processing_meta.get("settings_signature") or "").strip(),
+        "cast_store_signature": str(processing_meta.get("cast_store_signature") or "").strip(),
+        "size": int(processing_meta.get("size") or -1),
+        "mtime_ns": int(processing_meta.get("mtime_ns") or -1),
+        "ocr_authority_signature": str(processing_meta.get("ocr_authority_signature") or "").strip(),
+        "ocr_authority_hash": str(processing_meta.get("ocr_authority_hash") or "").strip(),
+        "analysis_mode": str(processing_meta.get("analysis_mode") or "").strip(),
     }
 
 

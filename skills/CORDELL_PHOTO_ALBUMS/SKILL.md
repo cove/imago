@@ -87,8 +87,8 @@ Call `photoalbums_ai_index` to launch a background job. It returns a `job_id` im
 - Pass `album_set` only when you need a non-default archive set.
 
 ### Monitor progress
-Poll `job_status(job_id)` periodically (every 30–60 seconds for large runs). It returns status and a
-recent log tail. When the job finishes, call `job_logs(job_id)` to retrieve the full output for
+Poll `job_status(job_id)` periodically (every 30–60 seconds for large runs). It returns status metadata
+only. When you need output, call `job_logs(job_id)` to retrieve the log text for
 quality review. Use `photoalbums_job_artifacts(job_id)` to inspect XMP outputs and prompt-debug artifacts for
 specific photos. Use `job_list` to see all recent jobs if you've lost track of an ID.
 

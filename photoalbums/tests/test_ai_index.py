@@ -1,4 +1,3 @@
-import json
 import io
 import os
 import sys
@@ -68,21 +67,6 @@ class TestAIIndex(unittest.TestCase):
                 extensions={".jpg", ".png"},
             )
             self.assertEqual([p.name for p in files], ["b.png"])
-
-    def test_manifest_round_trip(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "manifest.jsonl"
-            rows = {
-                "/a.jpg": {"image_path": "/a.jpg", "size": 1, "mtime_ns": 2},
-                "/b.jpg": {"image_path": "/b.jpg", "size": 3, "mtime_ns": 4},
-            }
-            ai_index.save_manifest(path, rows)
-            loaded = ai_index.load_manifest(path)
-            self.assertEqual(loaded, rows)
-
-            raw = path.read_text(encoding="utf-8").strip().splitlines()
-            self.assertEqual(len(raw), 2)
-            self.assertTrue(all(isinstance(json.loads(line), dict) for line in raw))
 
     def test_resolve_xmp_text_layers_treats_page_ocr_as_author_text(self):
         layers = ai_index._resolve_xmp_text_layers(
@@ -159,7 +143,7 @@ class TestAIIndex(unittest.TestCase):
             self.assertFalse(ai_index.needs_processing(image, row, force=False))
             self.assertTrue(ai_index.needs_processing(image, row, force=True))
 
-    def test_needs_processing_skips_current_sidecar_even_when_manifest_is_stale(self):
+    def test_needs_processing_skips_current_sidecar_even_when_sidecar_state_is_stale(self):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "a.jpg"
             image.write_bytes(b"abc")
@@ -183,7 +167,7 @@ class TestAIIndex(unittest.TestCase):
                 )
             )
 
-    def test_needs_processing_skips_when_manifest_missing_but_valid_sidecar_exists(
+    def test_needs_processing_skips_when_sidecar_state_missing_but_valid_sidecar_exists(
         self,
     ):
         with tempfile.TemporaryDirectory() as tmp:
@@ -333,7 +317,7 @@ class TestAIIndex(unittest.TestCase):
                 ocr_engine=ocr_engine,
                 caption_engine=caption_engine,
                 requested_caption_engine="template",
-                requested_caption_model="",
+
                 ocr_engine_name="none",
                 ocr_language="eng",
                 people_hint_text="Page caption",
@@ -385,7 +369,7 @@ class TestAIIndex(unittest.TestCase):
                     ocr_engine=ocr_engine,
                     caption_engine=caption_engine,
                     requested_caption_engine="template",
-                    requested_caption_model="",
+    
                     ocr_engine_name="none",
                     ocr_language="eng",
                 )
@@ -446,7 +430,7 @@ class TestAIIndex(unittest.TestCase):
                 ocr_engine=ocr_engine,
                 caption_engine=caption_engine,
                 requested_caption_engine="lmstudio",
-                requested_caption_model="",
+
                 ocr_engine_name="none",
                 ocr_language="eng",
             )
@@ -518,7 +502,6 @@ class TestAIIndex(unittest.TestCase):
                 ocr_engine=ocr_engine,
                 caption_engine=caption_engine,
                 requested_caption_engine="lmstudio",
-                requested_caption_model="",
                 ocr_engine_name="none",
                 ocr_language="eng",
                 geocoder=geocoder,
@@ -609,7 +592,7 @@ class TestAIIndex(unittest.TestCase):
                 ocr_engine=ocr_engine,
                 caption_engine=caption_engine,
                 requested_caption_engine="lmstudio",
-                requested_caption_model="qwen3.5-35b-a3b",
+
                 ocr_engine_name="none",
                 ocr_language="eng",
             )
@@ -655,7 +638,7 @@ class TestAIIndex(unittest.TestCase):
                 ocr_engine=ocr_engine,
                 caption_engine=caption_engine,
                 requested_caption_engine="lmstudio",
-                requested_caption_model="qwen3.5-35b-a3b",
+
                 ocr_engine_name="none",
                 ocr_language="eng",
             )
@@ -725,7 +708,7 @@ class TestAIIndex(unittest.TestCase):
                 ocr_engine=ocr_engine,
                 caption_engine=caption_engine,
                 requested_caption_engine="template",
-                requested_caption_model="",
+
                 ocr_engine_name="none",
                 ocr_language="eng",
                 people_recovery_mode="auto",
@@ -835,7 +818,7 @@ class TestAIIndex(unittest.TestCase):
                 ocr_engine=ocr_engine,
                 caption_engine=caption_engine,
                 requested_caption_engine="template",
-                requested_caption_model="",
+
                 ocr_engine_name="none",
                 ocr_language="eng",
                 people_recovery_mode="auto",
@@ -880,7 +863,7 @@ class TestAIIndex(unittest.TestCase):
                 ocr_engine=ocr_engine,
                 caption_engine=caption_engine,
                 requested_caption_engine="lmstudio",
-                requested_caption_model="qwen3.5-35b-a3b",
+
                 ocr_engine_name="none",
                 ocr_language="eng",
             )
@@ -937,7 +920,6 @@ class TestAIIndex(unittest.TestCase):
             sidecar = image.with_suffix(".xmp")
             original = self._valid_sidecar_text()
             sidecar.write_text(original, encoding="utf-8")
-            manifest = base / "manifest.jsonl"
 
             analysis = ai_index.ImageAnalysis(
                 image_path=image,
@@ -974,8 +956,6 @@ class TestAIIndex(unittest.TestCase):
                     [
                         "--photos-root",
                         str(base),
-                        "--manifest",
-                        str(manifest),
                         "--include-view",
                         "--force",
                         "--disable-people",
@@ -989,7 +969,6 @@ class TestAIIndex(unittest.TestCase):
 
             self.assertEqual(result, 0)
             write_mock.assert_called_once()
-            self.assertEqual(write_mock.call_args.kwargs["album_title"], "Family 2020 Book I")
             self.assertEqual(
                 write_mock.call_args.kwargs["source_text"],
                 "Family_2020_B01_P01_S01.tif; Family_2020_B01_P01_S02.tif",
@@ -1030,7 +1009,6 @@ class TestAIIndex(unittest.TestCase):
                 },
                 subphotos=[],
             )
-            manifest = base / "manifest.jsonl"
 
             with (
                 mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
@@ -1040,8 +1018,6 @@ class TestAIIndex(unittest.TestCase):
                     [
                         "--photos-root",
                         str(base),
-                        "--manifest",
-                        str(manifest),
                         "--include-view",
                         "--disable-people",
                         "--disable-objects",
@@ -1095,21 +1071,6 @@ class TestAIIndex(unittest.TestCase):
                 people_detected=False,
                 people_identified=False,
             )
-            manifest = base / "manifest.jsonl"
-            stat = image.stat()
-            ai_index.save_manifest(
-                manifest,
-                {
-                    str(image): {
-                        "image_path": str(image),
-                        "size": int(stat.st_size),
-                        "mtime_ns": int(stat.st_mtime_ns),
-                        "sidecar_path": str(sidecar),
-                        "processor_signature": ai_index.PROCESSOR_SIGNATURE,
-                        "settings_signature": "stale-settings",
-                    }
-                },
-            )
 
             with (
                 mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
@@ -1119,8 +1080,6 @@ class TestAIIndex(unittest.TestCase):
                     [
                         "--photos-root",
                         str(base),
-                        "--manifest",
-                        str(manifest),
                         "--include-view",
                     ]
                 )
@@ -1154,7 +1113,6 @@ class TestAIIndex(unittest.TestCase):
 """,
                 encoding="utf-8",
             )
-            manifest = base / "manifest.jsonl"
 
             analysis = ai_index.ImageAnalysis(
                 image_path=image,
@@ -1191,8 +1149,6 @@ class TestAIIndex(unittest.TestCase):
                     [
                         "--photos-root",
                         str(base),
-                        "--manifest",
-                        str(manifest),
                         "--include-view",
                         "--disable-people",
                         "--disable-objects",
@@ -1241,7 +1197,6 @@ class TestAIIndex(unittest.TestCase):
                 },
                 subphotos=[],
             )
-            manifest = base / "manifest.jsonl"
 
             analysis = ai_index.ImageAnalysis(
                 image_path=image,
@@ -1286,8 +1241,6 @@ class TestAIIndex(unittest.TestCase):
                         [
                             "--photos-root",
                             str(base),
-                            "--manifest",
-                            str(manifest),
                             "--include-view",
                             "--disable-people",
                             "--disable-objects",
@@ -1312,22 +1265,6 @@ class TestAIIndex(unittest.TestCase):
             image.write_bytes(b"abc")
             sidecar = image.with_suffix(".xmp")
             sidecar.write_text(self._valid_sidecar_text(), encoding="utf-8")
-            manifest = base / "manifest.jsonl"
-
-            stat = image.stat()
-            ai_index.save_manifest(
-                manifest,
-                {
-                    str(image): {
-                        "image_path": str(image),
-                        "size": int(stat.st_size),
-                        "mtime_ns": int(stat.st_mtime_ns),
-                        "sidecar_path": str(sidecar),
-                        "processor_signature": ai_index.PROCESSOR_SIGNATURE,
-                        "settings_signature": "",
-                    }
-                },
-            )
 
             next_ns = max(sidecar.stat().st_mtime_ns, image.stat().st_mtime_ns) + 5_000_000
             os.utime(image, ns=(next_ns, next_ns))
@@ -1362,8 +1299,6 @@ class TestAIIndex(unittest.TestCase):
                     [
                         "--photos-root",
                         str(base),
-                        "--manifest",
-                        str(manifest),
                         "--include-view",
                         "--disable-people",
                         "--disable-objects",
@@ -1384,7 +1319,6 @@ class TestAIIndex(unittest.TestCase):
             photos.mkdir()
             image = photos / "a.jpg"
             image.write_bytes(b"abc")
-            manifest = base / "manifest.jsonl"
 
             analysis = ai_index.ImageAnalysis(
                 image_path=image,
@@ -1405,7 +1339,6 @@ class TestAIIndex(unittest.TestCase):
             fake_matcher.store_signature.side_effect = [
                 "sig-before",
                 "sig-after",
-                "sig-final",
             ]
 
             with (
@@ -1423,8 +1356,6 @@ class TestAIIndex(unittest.TestCase):
                     [
                         "--photos-root",
                         str(base),
-                        "--manifest",
-                        str(manifest),
                         "--include-view",
                         "--disable-objects",
                         "--ocr-engine",
@@ -1436,8 +1367,8 @@ class TestAIIndex(unittest.TestCase):
 
             self.assertEqual(result, 0)
             write_mock.assert_called_once()
-            rows = ai_index.load_manifest(manifest)
-            self.assertEqual(rows[str(image)]["cast_store_signature"], "sig-final")
+            det = write_mock.call_args.kwargs["detections_payload"]
+            self.assertEqual(det["processing"]["cast_store_signature"], "sig-after")
 
     def test_run_people_update_only_refreshes_detection_model_metadata(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1485,22 +1416,6 @@ class TestAIIndex(unittest.TestCase):
                 people_detected=True,
                 people_identified=True,
             )
-            manifest = base / "manifest.jsonl"
-            stat = image.stat()
-            ai_index.save_manifest(
-                manifest,
-                {
-                    str(image): {
-                        "image_path": str(image),
-                        "size": int(stat.st_size),
-                        "mtime_ns": int(stat.st_mtime_ns),
-                        "sidecar_path": str(sidecar),
-                        "processor_signature": ai_index.PROCESSOR_SIGNATURE,
-                        "settings_signature": "sig",
-                        "cast_store_signature": "old-sig",
-                    }
-                },
-            )
 
             fake_matcher = mock.Mock()
             fake_matcher.store_signature.return_value = "new-sig"
@@ -1547,8 +1462,6 @@ class TestAIIndex(unittest.TestCase):
                     [
                         "--photos-root",
                         str(base),
-                        "--manifest",
-                        str(manifest),
                         "--include-view",
                         "--disable-objects",
                         "--ocr-engine",
@@ -1556,7 +1469,7 @@ class TestAIIndex(unittest.TestCase):
                         "--ocr-model",
                         "qwen-current-ocr",
                         "--caption-engine",
-                        "local",
+                        "lmstudio",
                         "--caption-model",
                         "caption-new",
                         "--people-recovery-mode",
@@ -1580,7 +1493,6 @@ class TestAIIndex(unittest.TestCase):
             frame = np.zeros((120, 120, 3), dtype=np.uint8)
             cv2.rectangle(frame, (10, 10), (70, 70), (220, 220, 220), -1)
             cv2.imwrite(str(image), frame)
-            manifest = base / "manifest.jsonl"
             cast_store = base / "cast_data"
             store = TextFaceStore(cast_store)
             store.ensure_files()
@@ -1641,8 +1553,6 @@ class TestAIIndex(unittest.TestCase):
                         str(base),
                         "--cast-store",
                         str(cast_store),
-                        "--manifest",
-                        str(manifest),
                         "--include-view",
                         "--disable-objects",
                         "--ocr-engine",
@@ -1671,7 +1581,6 @@ class TestAIIndex(unittest.TestCase):
             photos.mkdir()
             image = photos / "a.jpg"
             image.write_bytes(b"abc")
-            manifest = base / "manifest.jsonl"
 
             analysis = ai_index.ImageAnalysis(
                 image_path=image,
@@ -1698,15 +1607,12 @@ class TestAIIndex(unittest.TestCase):
                 mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
                 mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
                 mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
-                mock.patch.object(ai_index, "save_manifest") as save_mock,
                 mock.patch("builtins.print") as print_mock,
             ):
                 result = ai_index.run(
                     [
                         "--photos-root",
                         str(base),
-                        "--manifest",
-                        str(manifest),
                         "--include-view",
                         "--stdout",
                         "--disable-people",
@@ -1714,13 +1620,12 @@ class TestAIIndex(unittest.TestCase):
                         "--ocr-engine",
                         "none",
                         "--caption-engine",
-                        "local",
+                        "lmstudio",
                     ]
                 )
 
             self.assertEqual(result, 0)
             write_mock.assert_not_called()
-            save_mock.assert_not_called()
             print_mock.assert_called_once_with("a.jpg: Alice with a dog")
 
     def test_run_stdout_emits_caption_fallback_warning(self):
@@ -1730,7 +1635,6 @@ class TestAIIndex(unittest.TestCase):
             photos.mkdir()
             image = photos / "a.jpg"
             image.write_bytes(b"abc")
-            manifest = base / "manifest.jsonl"
 
             analysis = ai_index.ImageAnalysis(
                 image_path=image,
@@ -1768,8 +1672,6 @@ class TestAIIndex(unittest.TestCase):
                     [
                         "--photos-root",
                         str(base),
-                        "--manifest",
-                        str(manifest),
                         "--include-view",
                         "--stdout",
                         "--disable-people",
@@ -1777,7 +1679,7 @@ class TestAIIndex(unittest.TestCase):
                         "--ocr-engine",
                         "none",
                         "--caption-engine",
-                        "local",
+                        "lmstudio",
                     ]
                 )
 
@@ -1801,7 +1703,6 @@ class TestAIIndex(unittest.TestCase):
             photos.mkdir()
             image = photos / "a.jpg"
             image.write_bytes(b"abc")
-            manifest = base / "manifest.jsonl"
 
             analysis = ai_index.ImageAnalysis(
                 image_path=image,
@@ -1839,8 +1740,6 @@ class TestAIIndex(unittest.TestCase):
                     [
                         "--photos-root",
                         str(base),
-                        "--manifest",
-                        str(manifest),
                         "--include-view",
                         "--stdout",
                         "--disable-people",
@@ -1940,7 +1839,6 @@ class TestAIIndex(unittest.TestCase):
             image = photos / "a.jpg"
             image.write_bytes(b"abc")
             image.with_suffix(".xmp").write_text(self._valid_sidecar_text(), encoding="utf-8")
-            manifest = base / "manifest.jsonl"
 
             analysis = ai_index.ImageAnalysis(
                 image_path=image,
@@ -1972,8 +1870,6 @@ class TestAIIndex(unittest.TestCase):
                     [
                         "--photos-root",
                         str(base),
-                        "--manifest",
-                        str(manifest),
                         "--include-view",
                         "--stdout",
                         "--disable-people",
@@ -1981,7 +1877,7 @@ class TestAIIndex(unittest.TestCase):
                         "--ocr-engine",
                         "none",
                         "--caption-engine",
-                        "local",
+                        "lmstudio",
                     ]
                 )
 
@@ -1999,7 +1895,6 @@ class TestAIIndex(unittest.TestCase):
             scan2 = archive / "China_1986_B02_P02_S02.tif"
             scan1.write_bytes(b"a")
             scan2.write_bytes(b"b")
-            manifest = base / "manifest.jsonl"
             authority = ai_index.ArchiveScanOCRAuthority(
                 page_key=ai_index._scan_page_key(scan1) or "",
                 group_paths=(scan1, scan2),
@@ -2055,8 +1950,6 @@ class TestAIIndex(unittest.TestCase):
                     [
                         "--photos-root",
                         str(base),
-                        "--manifest",
-                        str(manifest),
                         "--include-archive",
                         "--disable-people",
                         "--disable-objects",
@@ -2080,11 +1973,9 @@ class TestAIIndex(unittest.TestCase):
                 write_mock.call_args.kwargs["ocr_authority_source"],
                 "archive_stitched",
             )
-            rows = ai_index.load_manifest(manifest)
-            row = rows[str(scan1)]
-            self.assertEqual(row["ocr_authority_source"], "archive_stitched")
-            self.assertEqual(row["ocr_authority_signature"], authority.signature)
-            self.assertEqual(row["ocr_authority_hash"], authority.ocr_hash)
+            det = write_mock.call_args.kwargs["detections_payload"]
+            self.assertEqual(det["processing"]["ocr_authority_signature"], authority.signature)
+            self.assertEqual(det["processing"]["ocr_authority_hash"], authority.ocr_hash)
 
     def test_run_archive_multi_scan_skips_when_authority_manifest_and_sidecar_match(
         self,
@@ -2097,7 +1988,6 @@ class TestAIIndex(unittest.TestCase):
             scan2 = archive / "China_1986_B02_P02_S02.tif"
             scan1.write_bytes(b"a")
             scan2.write_bytes(b"b")
-            manifest = base / "manifest.jsonl"
             authority = ai_index.ArchiveScanOCRAuthority(
                 page_key=ai_index._scan_page_key(scan1) or "",
                 group_paths=(scan1, scan2),
@@ -2152,8 +2042,6 @@ class TestAIIndex(unittest.TestCase):
                     [
                         "--photos-root",
                         str(base),
-                        "--manifest",
-                        str(manifest),
                         "--include-archive",
                         "--disable-people",
                         "--disable-objects",
@@ -2178,8 +2066,6 @@ class TestAIIndex(unittest.TestCase):
                     [
                         "--photos-root",
                         str(base),
-                        "--manifest",
-                        str(manifest),
                         "--include-archive",
                         "--disable-people",
                         "--disable-objects",
@@ -2197,7 +2083,7 @@ class TestAIIndex(unittest.TestCase):
             analysis_mock.assert_not_called()
             write_mock.assert_not_called()
 
-    def test_run_archive_multi_scan_skips_without_authority_when_manifest_missing(
+    def test_run_archive_multi_scan_skips_without_authority_when_sidecar_has_authority(
         self,
     ):
         with tempfile.TemporaryDirectory() as tmp:
@@ -2208,7 +2094,6 @@ class TestAIIndex(unittest.TestCase):
             scan2 = archive / "China_1986_B02_P02_S02.tif"
             scan1.write_bytes(b"a")
             scan2.write_bytes(b"b")
-            manifest = base / "manifest.jsonl"
             authority = ai_index.ArchiveScanOCRAuthority(
                 page_key=ai_index._scan_page_key(scan1) or "",
                 group_paths=(scan1, scan2),
@@ -2263,8 +2148,6 @@ class TestAIIndex(unittest.TestCase):
                     [
                         "--photos-root",
                         str(base),
-                        "--manifest",
-                        str(manifest),
                         "--include-archive",
                         "--disable-people",
                         "--disable-objects",
@@ -2279,7 +2162,6 @@ class TestAIIndex(unittest.TestCase):
                 )
 
             self.assertEqual(first_result, 0)
-            manifest.unlink()
 
             with (
                 mock.patch.object(ai_index, "_resolve_archive_scan_authoritative_ocr") as authority_mock,
@@ -2290,8 +2172,6 @@ class TestAIIndex(unittest.TestCase):
                     [
                         "--photos-root",
                         str(base),
-                        "--manifest",
-                        str(manifest),
                         "--include-archive",
                         "--disable-people",
                         "--disable-objects",

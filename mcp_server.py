@@ -35,7 +35,6 @@ VHS_DIR = str(REPO_ROOT / "vhs")
 VHS_SCRIPT = str(REPO_ROOT / "vhs" / "vhs.py")
 CAST_SCRIPT = str(REPO_ROOT / "cast.py")
 PHOTOALBUMS_SCRIPT = str(REPO_ROOT / "photoalbums.py")
-MANIFEST_DEFAULT = str(REPO_ROOT / "photoalbums" / "data" / "ai_index_manifest.jsonl")
 
 CONSOLE_PORT = 8091
 CONSOLE_HOST = "localhost"  # overridden at startup by --console-host
@@ -155,7 +154,7 @@ def job_list() -> list[dict]:
 
 @mcp.tool()
 def job_status(job_id: str) -> dict:
-    """Get status and recent log tail for a job.
+    """Get status metadata for a job.
 
     Args:
         job_id: Job ID returned when the job was started.
@@ -336,25 +335,23 @@ def photoalbums_sets_resource() -> str:
 
 @mcp.tool()
 def photoalbums_manifest_summary(album_set: Optional[str] = None) -> dict:
-    """Summarise the AI index manifest: image counts grouped by processing state."""
+    """Summarise AI index coverage: image counts by sidecar/processing state."""
     set_config = _archive_set(album_set)
-    p = Path(set_config.manifest_path or MANIFEST_DEFAULT)
-    if not p.exists():
-        return {"error": "Manifest not found", "album_set": set_config.name}
-    states: dict[str, int] = {}
-    total = 0
-    for line in p.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            rec = json.loads(line)
-            state = rec.get("state", "unknown")
-            states[state] = states.get(state, 0) + 1
-            total += 1
-        except json.JSONDecodeError:
-            pass
-    return {"album_set": set_config.name, "total": total, "by_state": states}
+    result = photoalbums_query_manifest_rows(
+        photos_root=str(set_config.photos_root),
+        limit=100000,
+    )
+    rows = result.get("rows") or []
+    with_sidecar = sum(1 for r in rows if r.get("sidecar_present"))
+    current = sum(1 for r in rows if r.get("sidecar_current"))
+    processed = sum(1 for r in rows if r.get("processor_signature"))
+    return {
+        "album_set": set_config.name,
+        "total_images": result.get("total_matches", 0),
+        "with_sidecar": with_sidecar,
+        "current_sidecars": current,
+        "processed": processed,
+    }
 
 
 # ── Photoalbums: XMP review + job-launching tools ─────────────────────────────
@@ -364,24 +361,20 @@ def photoalbums_manifest_summary(album_set: Optional[str] = None) -> dict:
 def photoalbums_manifest_query(
     album_set: Optional[str] = None,
     album: Optional[str] = None,
-    state: Optional[str] = None,
     file_name: Optional[str] = None,
     limit: int = 100,
 ) -> dict[str, object]:
-    """Query manifest rows with lightweight derived photo status.
+    """Query photo status derived from XMP sidecars.
 
     Args:
         album: Filter to photos whose parent directory name contains this substring.
-        state: Filter rows by manifest `state`.
         file_name: Exact basename filter for a photo.
         limit: Maximum rows to return.
     """
     set_config = _archive_set(album_set)
     return photoalbums_query_manifest_rows(
         photos_root=str(set_config.photos_root),
-        manifest_path=str(set_config.manifest_path or MANIFEST_DEFAULT),
         album=str(album or ""),
-        state=str(state or ""),
         file_name=str(file_name or ""),
         limit=limit,
     )
@@ -397,7 +390,6 @@ def photoalbums_album_status(album: str, album_set: Optional[str] = None) -> dic
     set_config = _archive_set(album_set)
     return photoalbums_album_status_query(
         photos_root=str(set_config.photos_root),
-        manifest_path=str(set_config.manifest_path or MANIFEST_DEFAULT),
         album=album,
     )
 
@@ -440,7 +432,6 @@ def photoalbums_reprocess_audit(
     set_config = _archive_set(album_set)
     return photoalbums_reprocess_audit_query(
         photos_root=str(set_config.photos_root),
-        manifest_path=str(set_config.manifest_path or MANIFEST_DEFAULT),
         cast_store=str(set_config.cast_store or CAST_STORE_DEFAULT),
         album=str(album or ""),
         limit=limit,
