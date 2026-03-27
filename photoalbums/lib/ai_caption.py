@@ -5,14 +5,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .ai_model_settings import default_caption_model, default_lmstudio_base_url
-from ._caption_context import (  # noqa: F401
-    ALBUM_KIND_FAMILY,
-    ALBUM_KIND_PHOTO_ESSAY,
-    AlbumContext,
-    infer_album_context,
-    infer_album_title,
-    looks_like_album_cover,
-)
+from ._caption_album_cover import looks_like_album_cover
+from ._caption_album_inference import infer_album_context, infer_album_title
+from ._caption_album_types import ALBUM_KIND_FAMILY, ALBUM_KIND_PHOTO_ESSAY, AlbumContext
 from ._caption_text import clean_text, dedupe, join_human  # noqa: F401
 from ._caption_lmstudio import (  # noqa: F401
     DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE,
