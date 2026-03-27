@@ -7,10 +7,9 @@ AI_STEP_LINES = [
     "1. Load per-archive render settings overrides (if present).",
     "2. Match known people from Cast face embeddings (optional).",
     "3. Detect visual objects with YOLO (optional).",
-    "4. Extract OCR text/keywords (optional).",
-    "5. Generate a sentence caption and structured place hints (local HF, template fallback, or LM Studio).",
-    "6. Geocode high-confidence place names to GPS coordinates.",
-    "7. Write XMP sidecar metadata (including processing state).",
+    "4. Generate OCR text, sentence caption, and structured place hints in one combined model call.",
+    "5. Geocode high-confidence place names to GPS coordinates.",
+    "6. Write XMP sidecar metadata (including processing state).",
 ]
 
 
@@ -46,7 +45,7 @@ def build_parser() -> argparse.ArgumentParser:
     ai_parser = subparsers.add_parser(
         "ai",
         add_help=False,
-        help="AI-assisted indexing (people -> objects -> OCR -> XMP).",
+        help="AI-assisted indexing (people -> objects -> combined OCR+caption -> XMP).",
     )
     ai_parser.add_argument(
         "-h",

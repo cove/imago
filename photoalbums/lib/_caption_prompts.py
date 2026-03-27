@@ -81,7 +81,6 @@ def _build_local_prompt(
     printed_album_title: str = "",
     is_cover_page: bool = False,
     people_positions: dict[str, str] | None = None,
-    request_photo_regions: bool = True,
 ) -> str:
     people_list = dedupe(people)
     context = infer_album_context(
@@ -102,11 +101,10 @@ def _build_local_prompt(
             section_with_positions_name="People Hint With Positions",
         )
     )
-    if request_photo_regions:
-        lines.extend(_section("Preamble Page Photo Regions Compact"))
-        lines.extend(_section("Output Format – Describe Page (with photo regions)"))
-    else:
-        lines.extend(_section("Output Format – Describe (full caption)"))
+    lines.extend(_section("Preamble Page Photo Regions Compact"))
+    lines.extend(_section("Output Format – Describe Page (with photo regions)"))
+    lines.extend(_section("Output Format – Describe (full caption)"))
+
     return "\n".join(lines)
 
 

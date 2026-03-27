@@ -66,7 +66,6 @@ class AlbumSetConfigMixin:
                 'kind = "scanwatch"',
                 'description = "Incoming scan intake workspace"',
                 f'photos_root = "{self.scan_root.as_posix()}"',
-                'skill = "photoalbums-scan-control"',
                 "",
             ]
         )

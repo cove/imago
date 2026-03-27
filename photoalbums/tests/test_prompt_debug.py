@@ -23,7 +23,7 @@ class TestPromptDebug(unittest.TestCase):
             system_prompt="Return JSON",
             source_path="C:/photos/Album_A/Photo_01.jpg",
             prompt_source="skill",
-            metadata={"request_photo_regions": False},
+            metadata={},
         )
 
         artifact = session.to_artifact()

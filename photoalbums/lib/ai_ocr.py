@@ -11,7 +11,7 @@ import urllib.request
 from pathlib import Path
 
 from .model_store import HF_MODEL_CACHE_DIR
-from .ai_model_settings import default_ocr_model
+from .ai_model_settings import default_lmstudio_base_url, default_ocr_model
 from ._caption_lmstudio import (
     _decode_lmstudio_text,
     _extract_structured_json_payload,
@@ -52,7 +52,7 @@ DEFAULT_LOCAL_OCR_MODEL = "qwen/qwen3.5-9b"
 DEFAULT_LOCAL_OCR_MAX_NEW_TOKENS = 5128
 DEFAULT_LOCAL_OCR_MAX_PIXELS = 4_194_304
 DEFAULT_LOCAL_OCR_MAX_IMAGE_EDGE = 2048
-DEFAULT_LMSTUDIO_OCR_BASE_URL = "http://192.168.4.72:1234/v1"
+DEFAULT_LMSTUDIO_OCR_BASE_URL = "http://localhost:1234/v1"
 DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS = 300.0
 DEFAULT_LOCAL_OCR_PROMPT = (
     "Extract all visible text from this image.\n"
@@ -91,7 +91,7 @@ _OCR_REASONING_MARKERS = (
 
 
 def _normalize_lmstudio_ocr_base_url(value: str) -> str:
-    text = str(value or "").strip() or DEFAULT_LMSTUDIO_OCR_BASE_URL
+    text = str(value or "").strip() or default_lmstudio_base_url() or DEFAULT_LMSTUDIO_OCR_BASE_URL
     text = text.rstrip("/")
     if not text.endswith("/v1"):
         text = f"{text}/v1"

@@ -140,7 +140,6 @@ class TestXMPSidecar(unittest.TestCase):
                 ocr_text="Temple of Heaven\nNO SMOKING",
                 author_text="Temple of Heaven",
                 scene_text="NO SMOKING",
-                annotation_scope="photo",
                 detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
                 subphotos=[],
             )
@@ -151,7 +150,31 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertEqual(state["title_source"], "author_text")
             self.assertEqual(state["author_text"], "Temple of Heaven")
             self.assertEqual(state["scene_text"], "NO SMOKING")
-            self.assertEqual(state["annotation_scope"], "photo")
+
+    def test_write_xmp_sidecar_does_not_fallback_description_to_ocr(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="EASTERN EUROPE SPAIN AND MOROCCO 1988",
+                ocr_lang="en",
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                subphotos=[],
+            )
+
+            xml = out.read_text(encoding="utf-8")
+            self.assertNotIn('xml:lang="x-default">EASTERN EUROPE SPAIN AND MOROCCO 1988</rdf:li>', xml)
+            self.assertIn('xml:lang="x-ocr">EASTERN EUROPE SPAIN AND MOROCCO 1988</rdf:li>', xml)
+
+            state = xmp_sidecar.read_ai_sidecar_state(out)
+            assert state is not None
+            self.assertEqual(state["description"], "")
+            self.assertEqual(state["ocr_text"], "EASTERN EUROPE SPAIN AND MOROCCO 1988")
 
     def test_write_xmp_sidecar_migrates_legacy_processing_fields_to_history(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -489,6 +512,89 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertEqual(state["album_title"], "Mainland China Book II")
             self.assertEqual(state["gps_latitude"], "39,47.25N")
             self.assertEqual(state["gps_longitude"], "100,18.43332E")
+
+    def test_write_xmp_sidecar_derives_page_and_scan_from_filename(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "China_1986_B02_P17_S01.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+            )
+            xml = out.read_text(encoding="utf-8")
+            self.assertIn("PageNumber", xml)
+            self.assertIn(">17<", xml)
+            self.assertIn("ScanNumber", xml)
+            self.assertIn(">1<", xml)
+
+    def test_write_xmp_sidecar_omits_page_and_scan_for_unknown_filename(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+            )
+            xml = out.read_text(encoding="utf-8")
+            self.assertNotIn("PageNumber", xml)
+            self.assertNotIn("ScanNumber", xml)
+
+    def test_write_xmp_sidecar_writes_album_title_to_imago_namespace(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                album_title="Mainland China 1986 Book II",
+                source_text="",
+                ocr_text="",
+            )
+            xml = out.read_text(encoding="utf-8")
+            self.assertIn("imago:AlbumTitle", xml)
+            self.assertIn("Mainland China 1986 Book II", xml)
+            self.assertNotIn("xmpDM:album", xml)
+
+    def test_write_xmp_sidecar_removes_legacy_xmpdm_album_on_merge(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            out.write_text(
+                """<?xml version="1.0" encoding="utf-8"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:xmpDM="http://ns.adobe.com/xmp/1.0/DynamicMedia/">
+  <rdf:RDF>
+    <rdf:Description rdf:about="">
+      <xmpDM:album>Old Album Title</xmpDM:album>
+    </rdf:Description>
+  </rdf:RDF>
+</x:xmpmeta>
+""",
+                encoding="utf-8",
+            )
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                album_title="New Album Title",
+                source_text="",
+                ocr_text="",
+            )
+            xml = out.read_text(encoding="utf-8")
+            self.assertNotIn("xmpDM:album", xml)
+            self.assertIn("imago:AlbumTitle", xml)
+            self.assertIn("New Album Title", xml)
 
 
 if __name__ == "__main__":

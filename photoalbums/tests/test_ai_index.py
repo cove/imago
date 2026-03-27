@@ -68,15 +68,28 @@ class TestAIIndex(unittest.TestCase):
             )
             self.assertEqual([p.name for p in files], ["b.png"])
 
-    def test_resolve_xmp_text_layers_treats_page_ocr_as_author_text(self):
+    def test_resolve_xmp_text_layers_does_not_fallback_from_ocr_text(self):
         layers = ai_index._resolve_xmp_text_layers(
             image_path=Path("China_1986_B02_P02_stitched.jpg"),
             ocr_text="TEMPLE OF HEAVEN",
             page_like=True,
         )
-        self.assertEqual(layers["author_text"], "TEMPLE OF HEAVEN")
+        self.assertEqual(layers["author_text"], "")
         self.assertEqual(layers["scene_text"], "")
-        self.assertEqual(layers["annotation_scope"], "page")
+
+    def test_build_dc_source_uses_single_scan_for_raw_scan_sidecar(self):
+        source = ai_index._build_dc_source(
+            "Eastern Europe Spain and Morocco 1988",
+            Path("EasternEuropeSpainMorocco_1988_B00_P34_S01.tif"),
+            [
+                "EasternEuropeSpainMorocco_1988_B00_P34_S01.tif",
+                "EasternEuropeSpainMorocco_1988_B00_P34_S02.tif",
+            ],
+        )
+        self.assertEqual(
+            source,
+            ("Eastern Europe Spain and Morocco 1988 Page 34 Scans S01; EasternEuropeSpainMorocco_1988_B00_P34_S01.tif"),
+        )
 
     def test_compute_xmp_title_ignores_scene_text_by_default(self):
         layers = ai_index._resolve_xmp_text_layers(
@@ -88,7 +101,6 @@ class TestAIIndex(unittest.TestCase):
             image_path=Path("Family_1986_B01_P02.jpg"),
             explicit_title="",
             author_text=layers["author_text"],
-            annotation_scope=layers["annotation_scope"],
         )
         self.assertEqual(title, "")
         self.assertEqual(title_source, "")
@@ -99,7 +111,6 @@ class TestAIIndex(unittest.TestCase):
                 image_path=Path("China_1986_B02_P00.jpg"),
                 explicit_title="",
                 author_text="MAINLAND CHINA 1986 BOOK 11",
-                annotation_scope="page",
             )
         self.assertEqual(title, "MAINLAND CHINA 1986 BOOK 11")
         self.assertEqual(title_source, "author_text")
@@ -242,7 +253,6 @@ class TestAIIndex(unittest.TestCase):
                     self.assertTrue(prepared.exists())
                     self.assertEqual(prepared.suffix.lower(), ".jpg")
 
-    @pytest.mark.skip(reason="This test is a work in progress and not yet passing reliably.")
     def test_resolve_archive_scan_authoritative_ocr_stitches_once_and_caches(self):
         with tempfile.TemporaryDirectory() as tmp:
             archive = Path(tmp) / "China_1986_B02_Archive"
@@ -254,8 +264,6 @@ class TestAIIndex(unittest.TestCase):
             group_paths = [scan1, scan2]
             signature = ai_index._scan_group_signature(group_paths)
             cache: dict[str, ai_index.ArchiveScanOCRAuthority] = {}
-            fake_ocr_engine = mock.Mock()
-            fake_ocr_engine.read_text.return_value = "MAINLAND CHINA 1986 BOOK 11"
             stitched = np.full((12, 20, 3), 255, dtype=np.uint8)
 
             with mock.patch(
@@ -266,23 +274,20 @@ class TestAIIndex(unittest.TestCase):
                     image_path=scan1,
                     group_paths=group_paths,
                     group_signature=signature,
-                    ocr_engine=fake_ocr_engine,
                     cache=cache,
                 )
                 second = ai_index._resolve_archive_scan_authoritative_ocr(
                     image_path=scan1,
                     group_paths=group_paths,
                     group_signature=signature,
-                    ocr_engine=fake_ocr_engine,
                     cache=cache,
                 )
 
-            self.assertEqual(first.ocr_text, "MAINLAND CHINA 1986 BOOK 11")
-            self.assertEqual(first.ocr_hash, ai_index._hash_text(first.ocr_text))
+            self.assertEqual(first.ocr_text, "")
+            self.assertEqual(first.ocr_hash, "")
             self.assertEqual(tuple(first.group_paths), (scan1, scan2))
             self.assertEqual(first, second)
             build_mock.assert_called_once_with([str(scan1), str(scan2)])
-            fake_ocr_engine.read_text.assert_called_once()
 
     def test_run_image_analysis_passes_people_context(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -301,11 +306,11 @@ class TestAIIndex(unittest.TestCase):
             object_detector = mock.Mock()
             object_detector.detect_image.return_value = []
             ocr_engine = mock.Mock()
-            ocr_engine.read_text.return_value = "Dolores Cordell"
             caption_engine = mock.Mock()
             caption_engine.generate.return_value = SimpleNamespace(
                 text="Caption text",
                 engine="template",
+                ocr_text="TEMPLE OF HEAVEN\nNO SMOKING",
                 fallback=False,
                 error="",
             )
@@ -317,7 +322,6 @@ class TestAIIndex(unittest.TestCase):
                 ocr_engine=ocr_engine,
                 caption_engine=caption_engine,
                 requested_caption_engine="template",
-
                 ocr_engine_name="none",
                 ocr_language="eng",
                 people_hint_text="Page caption",
@@ -329,15 +333,74 @@ class TestAIIndex(unittest.TestCase):
                 image,
                 source_path=Path(tmp) / "original.jpg",
                 bbox_offset=(12, 34),
-                hint_text="Page caption Dolores Cordell",
+                hint_text="Page caption",
             )
+            ocr_engine.read_text.assert_not_called()
             self.assertEqual(analysis.people_names, ["Alice"])
             self.assertEqual(analysis.payload["people"][0]["face_id"], "face-1")
             self.assertFalse(analysis.payload["people"][0]["reviewed_by_human"])
 
-    def test_run_image_analysis_uses_scaled_image_for_ocr_objects_and_caption_only(
-        self,
-    ):
+    def test_run_image_analysis_skips_ocr_when_engine_is_none(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "a.jpg"
+            image.write_bytes(b"abc")
+            scaled = Path(tmp) / "scaled.jpg"
+            scaled.write_bytes(b"scaled")
+            people_matcher = mock.Mock()
+            people_matcher.match_image.return_value = []
+            object_detector = mock.Mock()
+            object_detector.detect_image.return_value = []
+            ocr_engine = mock.Mock()
+            caption_engine = mock.Mock()
+            caption_engine.generate.return_value = SimpleNamespace(
+                text="Caption text",
+                engine="template",
+                ocr_text="TEMPLE OF HEAVEN\nNO SMOKING",
+                fallback=False,
+                error="",
+            )
+
+            @contextmanager
+            def fake_prepare(_path):
+                yield scaled
+
+            with mock.patch.object(ai_index, "_prepare_ai_model_image", side_effect=fake_prepare):
+                analysis = ai_index._run_image_analysis(
+                    image_path=image,
+                    people_matcher=people_matcher,
+                    object_detector=object_detector,
+                    ocr_engine=ocr_engine,
+                    caption_engine=caption_engine,
+                    requested_caption_engine="template",
+                    ocr_engine_name="none",
+                    ocr_language="eng",
+                )
+
+            ocr_engine.read_text.assert_not_called()
+            people_matcher.match_image.assert_called_once_with(
+                image,
+                source_path=image,
+                bbox_offset=(0, 0),
+                hint_text="",
+            )
+            object_detector.detect_image.assert_called_once_with(scaled)
+            caption_engine.generate.assert_called_once_with(
+                image_path=scaled,
+                people=[],
+                objects=[],
+                ocr_text="",
+                source_path=image,
+                album_title="",
+                printed_album_title="",
+                photo_count=1,
+                is_cover_page=False,
+                people_positions={},
+                debug_recorder=None,
+                debug_step="caption",
+            )
+            self.assertEqual(analysis.ocr_text, "TEMPLE OF HEAVEN\nNO SMOKING")
+
+    def test_run_image_analysis_uses_scaled_image_for_explicit_ocr_objects_and_caption(self):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "a.jpg"
             image.write_bytes(b"abc")
@@ -353,6 +416,7 @@ class TestAIIndex(unittest.TestCase):
             caption_engine.generate.return_value = SimpleNamespace(
                 text="Caption text",
                 engine="template",
+                ocr_text="TEMPLE OF HEAVEN\nNO SMOKING",
                 fallback=False,
                 error="",
             )
@@ -362,15 +426,14 @@ class TestAIIndex(unittest.TestCase):
                 yield scaled
 
             with mock.patch.object(ai_index, "_prepare_ai_model_image", side_effect=fake_prepare):
-                ai_index._run_image_analysis(
+                analysis = ai_index._run_image_analysis(
                     image_path=image,
                     people_matcher=people_matcher,
                     object_detector=object_detector,
                     ocr_engine=ocr_engine,
                     caption_engine=caption_engine,
                     requested_caption_engine="template",
-    
-                    ocr_engine_name="none",
+                    ocr_engine_name="lmstudio",
                     ocr_language="eng",
                 )
 
@@ -378,29 +441,25 @@ class TestAIIndex(unittest.TestCase):
                 image,
                 source_path=image,
                 bbox_offset=(0, 0),
-                hint_text="hello",
+                hint_text="",
             )
-            ocr_engine.read_text.assert_called_once_with(
-                scaled,
-                debug_recorder=None,
-                debug_step="ocr",
-            )
+            ocr_engine.read_text.assert_not_called()
             object_detector.detect_image.assert_called_once_with(scaled)
             caption_engine.generate.assert_called_once_with(
                 image_path=scaled,
                 people=[],
                 objects=[],
-                ocr_text="hello",
+                ocr_text="",
                 source_path=image,
                 album_title="",
                 printed_album_title="",
                 photo_count=1,
                 is_cover_page=False,
                 people_positions={},
-                request_photo_regions=False,
                 debug_recorder=None,
                 debug_step="caption",
             )
+            self.assertEqual(analysis.ocr_text, "TEMPLE OF HEAVEN\nNO SMOKING")
 
     def test_run_image_analysis_records_gps_location_from_ocr_text(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -416,6 +475,7 @@ class TestAIIndex(unittest.TestCase):
             caption_engine.generate.return_value = SimpleNamespace(
                 text="Mogao Caves in Dunhuang, China (39°47′15″N 100°18′26″E).",
                 engine="lmstudio",
+                ocr_text="Latitude: 39.7875\nLongitude: 100.307222",
                 gps_latitude="",
                 gps_longitude="",
                 location_name="",
@@ -430,8 +490,7 @@ class TestAIIndex(unittest.TestCase):
                 ocr_engine=ocr_engine,
                 caption_engine=caption_engine,
                 requested_caption_engine="lmstudio",
-
-                ocr_engine_name="none",
+                ocr_engine_name="lmstudio",
                 ocr_language="eng",
             )
 
@@ -538,7 +597,6 @@ class TestAIIndex(unittest.TestCase):
                 error="",
                 author_text="MAINLAND CHINA\n1986\nBOOK 11",
                 scene_text="",
-                annotation_scope="page",
                 album_title="",
                 title="",
                 ocr_lang="eng",
@@ -573,6 +631,7 @@ class TestAIIndex(unittest.TestCase):
             caption_engine.generate.return_value = SimpleNamespace(
                 text="A rocky desert landscape.",
                 engine="lmstudio",
+                ocr_text="",
                 location_name="",
                 fallback=False,
                 error="",
@@ -592,8 +651,7 @@ class TestAIIndex(unittest.TestCase):
                 ocr_engine=ocr_engine,
                 caption_engine=caption_engine,
                 requested_caption_engine="lmstudio",
-
-                ocr_engine_name="none",
+                ocr_engine_name="lmstudio",
                 ocr_language="eng",
             )
 
@@ -619,6 +677,7 @@ class TestAIIndex(unittest.TestCase):
             caption_engine.generate.return_value = SimpleNamespace(
                 text="A scenic location.",
                 engine="lmstudio",
+                ocr_text="Latitude: 39.7875\nLongitude: 100.307222",
                 location_name="",
                 fallback=False,
                 error="",
@@ -638,8 +697,7 @@ class TestAIIndex(unittest.TestCase):
                 ocr_engine=ocr_engine,
                 caption_engine=caption_engine,
                 requested_caption_engine="lmstudio",
-
-                ocr_engine_name="none",
+                ocr_engine_name="lmstudio",
                 ocr_language="eng",
             )
 
@@ -650,7 +708,7 @@ class TestAIIndex(unittest.TestCase):
                 "Mogao Caves, Dunhuang, Gansu, China",
             )
 
-    def test_run_image_analysis_runs_people_recovery_and_reruns_caption(self):
+    def test_run_image_analysis_runs_people_recovery_without_rerunning_caption(self):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "a.jpg"
             image.write_bytes(b"abc")
@@ -686,20 +744,13 @@ class TestAIIndex(unittest.TestCase):
             ocr_engine = mock.Mock()
             ocr_engine.read_text.return_value = "Latitude: 39.7875\nLongitude: 100.307222"
             caption_engine = mock.Mock()
-            caption_engine.generate.side_effect = [
-                SimpleNamespace(
-                    text="First caption",
-                    engine="template",
-                    fallback=False,
-                    error="",
-                ),
-                SimpleNamespace(
-                    text="Caption with Alice",
-                    engine="template",
-                    fallback=False,
-                    error="",
-                ),
-            ]
+            caption_engine.generate.return_value = SimpleNamespace(
+                text="First caption",
+                engine="template",
+                fallback=False,
+                error="",
+            )
+            step_calls: list[str] = []
 
             analysis = ai_index._run_image_analysis(
                 image_path=image,
@@ -708,17 +759,21 @@ class TestAIIndex(unittest.TestCase):
                 ocr_engine=ocr_engine,
                 caption_engine=caption_engine,
                 requested_caption_engine="template",
-
                 ocr_engine_name="none",
                 ocr_language="eng",
                 people_recovery_mode="auto",
+                step_fn=step_calls.append,
             )
 
             self.assertEqual(people_matcher.match_calls, 1)
             self.assertEqual(people_matcher.recovery_calls, 1)
-            self.assertEqual(caption_engine.generate.call_count, 2)
+            self.assertEqual(caption_engine.generate.call_count, 1)
+            self.assertEqual(
+                step_calls,
+                ["people 0: none", "objects", "caption", "people-recovery 1: Alice"],
+            )
             self.assertEqual(analysis.people_names, ["Alice"])
-            self.assertEqual(analysis.description, "Caption with Alice")
+            self.assertEqual(analysis.description, "First caption")
             self.assertEqual(analysis.faces_detected, 1)
             self.assertTrue(analysis.payload["caption"]["people_present"])
             self.assertEqual(analysis.payload["caption"]["estimated_people_count"], 1)
@@ -792,24 +847,15 @@ class TestAIIndex(unittest.TestCase):
             ocr_engine = mock.Mock()
             ocr_engine.read_text.return_value = ""
             caption_engine = mock.Mock()
-            caption_engine.generate.side_effect = [
-                SimpleNamespace(
-                    text="Alice stands outdoors.",
-                    engine="template",
-                    fallback=False,
-                    error="",
-                    people_present=True,
-                    estimated_people_count=1,
-                ),
-                SimpleNamespace(
-                    text="Two people stand outdoors.",
-                    engine="template",
-                    fallback=False,
-                    error="",
-                    people_present=True,
-                    estimated_people_count=1,
-                ),
-            ]
+            caption_engine.generate.return_value = SimpleNamespace(
+                text="Alice stands outdoors.",
+                engine="template",
+                fallback=False,
+                error="",
+                people_present=True,
+                estimated_people_count=1,
+            )
+            step_calls: list[str] = []
 
             analysis = ai_index._run_image_analysis(
                 image_path=image,
@@ -818,15 +864,19 @@ class TestAIIndex(unittest.TestCase):
                 ocr_engine=ocr_engine,
                 caption_engine=caption_engine,
                 requested_caption_engine="template",
-
                 ocr_engine_name="none",
                 ocr_language="eng",
                 people_recovery_mode="auto",
+                step_fn=step_calls.append,
             )
 
             self.assertEqual(people_matcher.match_calls, 1)
             self.assertEqual(people_matcher.recovery_calls, 1)
-            self.assertEqual(caption_engine.generate.call_count, 2)
+            self.assertEqual(caption_engine.generate.call_count, 1)
+            self.assertEqual(
+                step_calls,
+                ["people 1: Alice", "objects", "caption", "people-recovery 1: Alice"],
+            )
             self.assertEqual(analysis.people_names, ["Alice"])
             self.assertEqual(analysis.faces_detected, 1)
             self.assertEqual(analysis.description, "Alice stands outdoors.")
@@ -863,7 +913,6 @@ class TestAIIndex(unittest.TestCase):
                 ocr_engine=ocr_engine,
                 caption_engine=caption_engine,
                 requested_caption_engine="lmstudio",
-
                 ocr_engine_name="none",
                 ocr_language="eng",
             )
@@ -947,8 +996,8 @@ class TestAIIndex(unittest.TestCase):
                 mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
                 mock.patch.object(
                     ai_index,
-                    "read_embedded_source_text",
-                    return_value="Family_2020_B01_P01_S01.tif; Family_2020_B01_P01_S02.tif",
+                    "_page_scan_filenames",
+                    return_value=["Family_2020_B01_P01_S01.tif", "Family_2020_B01_P01_S02.tif"],
                 ),
                 mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
             ):
@@ -971,7 +1020,7 @@ class TestAIIndex(unittest.TestCase):
             write_mock.assert_called_once()
             self.assertEqual(
                 write_mock.call_args.kwargs["source_text"],
-                "Family_2020_B01_P01_S01.tif; Family_2020_B01_P01_S02.tif",
+                "Scans S01 S02; Family_2020_B01_P01_S01.tif; Family_2020_B01_P01_S02.tif",
             )
             self.assertEqual(sidecar.read_text(encoding="utf-8"), original)
 
@@ -1455,7 +1504,7 @@ class TestAIIndex(unittest.TestCase):
                     "_maybe_run_people_recovery",
                     side_effect=passthrough_people_recovery,
                 ),
-                mock.patch.object(ai_index, "read_embedded_source_text", return_value=""),
+                mock.patch.object(ai_index, "_page_scan_filenames", return_value=[]),
                 mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
             ):
                 result = ai_index.run(
@@ -1544,7 +1593,7 @@ class TestAIIndex(unittest.TestCase):
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(image),
                 ),
-                mock.patch.object(ai_index, "read_embedded_source_text", return_value=""),
+                mock.patch.object(ai_index, "_page_scan_filenames", return_value=[]),
                 mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
             ):
                 result = ai_index.run(
@@ -1895,21 +1944,23 @@ class TestAIIndex(unittest.TestCase):
             scan2 = archive / "China_1986_B02_P02_S02.tif"
             scan1.write_bytes(b"a")
             scan2.write_bytes(b"b")
+            stitched_path = archive / "China_1986_B02_P02_stitched.jpg"
             authority = ai_index.ArchiveScanOCRAuthority(
                 page_key=ai_index._scan_page_key(scan1) or "",
                 group_paths=(scan1, scan2),
                 signature=ai_index._scan_group_signature([scan1, scan2]),
-                ocr_text="MAINLAND CHINA 1986 BOOK 11",
-                ocr_keywords=("mainland", "china", "book"),
-                ocr_hash=ai_index._hash_text("MAINLAND CHINA 1986 BOOK 11"),
+                ocr_text="",
+                ocr_keywords=(),
+                ocr_hash="",
+                stitched_image_path=stitched_path,
             )
             analysis = ai_index.ImageAnalysis(
-                image_path=scan1,
+                image_path=stitched_path,
                 people_names=[],
                 object_labels=[],
-                ocr_text=authority.ocr_text,
-                ocr_keywords=list(authority.ocr_keywords),
-                subjects=list(authority.ocr_keywords),
+                ocr_text="MAINLAND CHINA 1986 BOOK 11",
+                ocr_keywords=["mainland", "china", "book"],
+                subjects=["mainland", "china", "book"],
                 description="Archive page caption",
                 payload={
                     "people": [],
@@ -1917,8 +1968,8 @@ class TestAIIndex(unittest.TestCase):
                     "ocr": {
                         "engine": "local",
                         "language": "eng",
-                        "keywords": list(authority.ocr_keywords),
-                        "chars": len(authority.ocr_text),
+                        "keywords": ["mainland", "china", "book"],
+                        "chars": len("MAINLAND CHINA 1986 BOOK 11"),
                     },
                     "caption": {
                         "requested_engine": "none",
@@ -1941,7 +1992,7 @@ class TestAIIndex(unittest.TestCase):
                     "_resolve_archive_scan_authoritative_ocr",
                     return_value=authority,
                 ) as authority_mock,
-                mock.patch.object(ai_index, "read_embedded_source_text", return_value=""),
+                mock.patch.object(ai_index, "_page_scan_filenames", return_value=[]),
                 mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis) as analysis_mock,
                 mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
                 mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
@@ -1964,18 +2015,16 @@ class TestAIIndex(unittest.TestCase):
 
             self.assertEqual(result, 0)
             authority_mock.assert_called_once()
-            self.assertEqual(
-                analysis_mock.call_args.kwargs["ocr_text_override"],
-                authority.ocr_text,
-            )
-            self.assertEqual(write_mock.call_args.kwargs["ocr_text"], authority.ocr_text)
+            self.assertEqual(analysis_mock.call_args.kwargs["image_path"], stitched_path)
+            self.assertNotIn("ocr_text_override", analysis_mock.call_args.kwargs)
+            self.assertEqual(write_mock.call_args.kwargs["ocr_text"], analysis.ocr_text)
             self.assertEqual(
                 write_mock.call_args.kwargs["ocr_authority_source"],
                 "archive_stitched",
             )
             det = write_mock.call_args.kwargs["detections_payload"]
             self.assertEqual(det["processing"]["ocr_authority_signature"], authority.signature)
-            self.assertEqual(det["processing"]["ocr_authority_hash"], authority.ocr_hash)
+            self.assertEqual(det["processing"]["ocr_authority_hash"], ai_index._hash_text(analysis.ocr_text))
 
     def test_run_archive_multi_scan_skips_when_authority_manifest_and_sidecar_match(
         self,
@@ -1988,21 +2037,23 @@ class TestAIIndex(unittest.TestCase):
             scan2 = archive / "China_1986_B02_P02_S02.tif"
             scan1.write_bytes(b"a")
             scan2.write_bytes(b"b")
+            stitched_path = archive / "China_1986_B02_P02_stitched.jpg"
             authority = ai_index.ArchiveScanOCRAuthority(
                 page_key=ai_index._scan_page_key(scan1) or "",
                 group_paths=(scan1, scan2),
                 signature=ai_index._scan_group_signature([scan1, scan2]),
-                ocr_text="MAINLAND CHINA 1986 BOOK 11",
-                ocr_keywords=("mainland", "china", "book"),
-                ocr_hash=ai_index._hash_text("MAINLAND CHINA 1986 BOOK 11"),
+                ocr_text="",
+                ocr_keywords=(),
+                ocr_hash="",
+                stitched_image_path=stitched_path,
             )
             analysis = ai_index.ImageAnalysis(
-                image_path=scan1,
+                image_path=stitched_path,
                 people_names=[],
                 object_labels=[],
-                ocr_text=authority.ocr_text,
-                ocr_keywords=list(authority.ocr_keywords),
-                subjects=list(authority.ocr_keywords),
+                ocr_text="MAINLAND CHINA 1986 BOOK 11",
+                ocr_keywords=["mainland", "china", "book"],
+                subjects=["mainland", "china", "book"],
                 description="Archive page caption",
                 payload={
                     "people": [],
@@ -2010,8 +2061,8 @@ class TestAIIndex(unittest.TestCase):
                     "ocr": {
                         "engine": "local",
                         "language": "eng",
-                        "keywords": list(authority.ocr_keywords),
-                        "chars": len(authority.ocr_text),
+                        "keywords": ["mainland", "china", "book"],
+                        "chars": len("MAINLAND CHINA 1986 BOOK 11"),
                     },
                     "caption": {
                         "requested_engine": "none",
@@ -2034,7 +2085,7 @@ class TestAIIndex(unittest.TestCase):
                     "_resolve_archive_scan_authoritative_ocr",
                     return_value=authority,
                 ),
-                mock.patch.object(ai_index, "read_embedded_source_text", return_value=""),
+                mock.patch.object(ai_index, "_page_scan_filenames", return_value=[]),
                 mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
                 mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
             ):
@@ -2094,21 +2145,23 @@ class TestAIIndex(unittest.TestCase):
             scan2 = archive / "China_1986_B02_P02_S02.tif"
             scan1.write_bytes(b"a")
             scan2.write_bytes(b"b")
+            stitched_path = archive / "China_1986_B02_P02_stitched.jpg"
             authority = ai_index.ArchiveScanOCRAuthority(
                 page_key=ai_index._scan_page_key(scan1) or "",
                 group_paths=(scan1, scan2),
                 signature=ai_index._scan_group_signature([scan1, scan2]),
-                ocr_text="MAINLAND CHINA 1986 BOOK 11",
-                ocr_keywords=("mainland", "china", "book"),
-                ocr_hash=ai_index._hash_text("MAINLAND CHINA 1986 BOOK 11"),
+                ocr_text="",
+                ocr_keywords=(),
+                ocr_hash="",
+                stitched_image_path=stitched_path,
             )
             analysis = ai_index.ImageAnalysis(
-                image_path=scan1,
+                image_path=stitched_path,
                 people_names=[],
                 object_labels=[],
-                ocr_text=authority.ocr_text,
-                ocr_keywords=list(authority.ocr_keywords),
-                subjects=list(authority.ocr_keywords),
+                ocr_text="MAINLAND CHINA 1986 BOOK 11",
+                ocr_keywords=["mainland", "china", "book"],
+                subjects=["mainland", "china", "book"],
                 description="Archive page caption",
                 payload={
                     "people": [],
@@ -2116,8 +2169,8 @@ class TestAIIndex(unittest.TestCase):
                     "ocr": {
                         "engine": "local",
                         "language": "eng",
-                        "keywords": list(authority.ocr_keywords),
-                        "chars": len(authority.ocr_text),
+                        "keywords": ["mainland", "china", "book"],
+                        "chars": len("MAINLAND CHINA 1986 BOOK 11"),
                     },
                     "caption": {
                         "requested_engine": "none",
@@ -2140,7 +2193,7 @@ class TestAIIndex(unittest.TestCase):
                     "_resolve_archive_scan_authoritative_ocr",
                     return_value=authority,
                 ),
-                mock.patch.object(ai_index, "read_embedded_source_text", return_value=""),
+                mock.patch.object(ai_index, "_page_scan_filenames", return_value=[]),
                 mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
                 mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
             ):
@@ -2215,7 +2268,7 @@ class TestAIIndex(unittest.TestCase):
                 "--caption-prompt-file",
                 "/tmp/prompt.txt",
                 "--lmstudio-base-url",
-                "http://192.168.4.72:1234",
+                "http://localhost:1234",
                 "--caption-max-tokens",
                 "64",
                 "--caption-temperature",
@@ -2229,20 +2282,23 @@ class TestAIIndex(unittest.TestCase):
         self.assertEqual(args.caption_model, "qwen2.5-vl-instruct")
         self.assertEqual(args.caption_prompt, "Describe this exact image")
         self.assertEqual(args.caption_prompt_file, "/tmp/prompt.txt")
-        self.assertEqual(args.lmstudio_base_url, "http://192.168.4.72:1234")
+        self.assertEqual(args.lmstudio_base_url, "http://localhost:1234")
         self.assertEqual(args.caption_max_tokens, 64)
         self.assertAlmostEqual(args.caption_temperature, 0.1)
         self.assertEqual(args.caption_max_edge, 1024)
 
-    def test_parse_args_defaults_use_lmstudio_for_caption_and_ocr(self):
-        with mock.patch.object(ai_index, "default_ocr_model", return_value="qwen/qwen3-vl-30b"):
+    def test_parse_args_defaults_use_lmstudio_for_caption_and_disable_ocr(self):
+        with (
+            mock.patch.object(ai_index, "default_ocr_model", return_value="qwen/qwen3-vl-30b"),
+            mock.patch.object(ai_index, "default_lmstudio_base_url", return_value="http://lmstudio.local:1234/v1"),
+        ):
             args = ai_index.parse_args([])
         self.assertEqual(args.caption_engine, "lmstudio")
         self.assertEqual(args.caption_model, "")
         self.assertEqual(args.caption_prompt, "")
         self.assertEqual(args.caption_prompt_file, "")
-        self.assertEqual(args.lmstudio_base_url, "http://192.168.4.72:1234/v1")
-        self.assertEqual(args.ocr_engine, "lmstudio")
+        self.assertEqual(args.lmstudio_base_url, "http://lmstudio.local:1234/v1")
+        self.assertEqual(args.ocr_engine, "none")
         self.assertEqual(args.ocr_model, "qwen/qwen3-vl-30b")
         self.assertFalse(args.stdout)
         self.assertEqual(args.caption_max_edge, 0)
