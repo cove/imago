@@ -2,12 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ._caption_album import (
-    ALBUM_KIND_PHOTO_ESSAY,
-    dedupe,
-    infer_album_context,
-    join_human,
-)
+from ._caption_context import ALBUM_KIND_PHOTO_ESSAY, infer_album_context
+from ._caption_text import dedupe, join_human
 from ._prompt_skill import (
     family_skill as _skill_family,
     section as _section,
