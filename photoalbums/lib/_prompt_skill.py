@@ -5,8 +5,6 @@ from functools import lru_cache
 from pathlib import Path
 
 BASE_SKILL_FILE = Path(__file__).parent.parent.parent / "skills" / "CORDELL_PHOTO_ALBUMS" / "SKILL.md"
-TRAVEL_SKILL_FILE = Path(__file__).parent.parent.parent / "skills" / "CORDELL_PHOTO_ALBUMS_TRAVEL" / "SKILL.md"
-FAMILY_SKILL_FILE = Path(__file__).parent.parent.parent / "skills" / "CORDELL_PHOTO_ALBUMS_FAMILY" / "SKILL.md"
 
 
 def parse_skill(path: Path) -> dict[str, list[str]]:
@@ -27,16 +25,6 @@ def parse_skill(path: Path) -> dict[str, list[str]]:
 @lru_cache(maxsize=1)
 def base_skill() -> dict[str, list[str]]:
     return parse_skill(BASE_SKILL_FILE)
-
-
-@lru_cache(maxsize=1)
-def travel_skill() -> dict[str, list[str]]:
-    return parse_skill(TRAVEL_SKILL_FILE)
-
-
-@lru_cache(maxsize=1)
-def family_skill() -> dict[str, list[str]]:
-    return parse_skill(FAMILY_SKILL_FILE)
 
 
 def render_line(text: str, variables: dict[str, str]) -> tuple[str, bool]:

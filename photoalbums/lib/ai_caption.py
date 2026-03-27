@@ -5,10 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .ai_model_settings import default_caption_model, default_lmstudio_base_url
-from ._caption_album_cover import looks_like_album_cover
-from ._caption_album_inference import infer_album_context, infer_album_title
-from ._caption_album_types import ALBUM_KIND_FAMILY, ALBUM_KIND_PHOTO_ESSAY, AlbumContext
-from ._caption_text import clean_text, dedupe, join_human  # noqa: F401
+from ._caption_text import clean_text, clean_lines, dedupe, join_human  # noqa: F401
 from ._caption_lmstudio import (  # noqa: F401
     DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE,
     DEFAULT_LMSTUDIO_BASE_URL,
@@ -46,6 +43,8 @@ def _emit_prompt_debug(
     system_prompt: str = "",
     source_path: str | Path | None = None,
     prompt_source: str = "",
+    response: str = "",
+    finish_reason: str = "",
     metadata: dict | None = None,
 ) -> None:
     if not callable(debug_recorder):
@@ -58,8 +57,22 @@ def _emit_prompt_debug(
         system_prompt=str(system_prompt or ""),
         source_path=source_path,
         prompt_source=str(prompt_source or "").strip(),
+        response=str(response or ""),
+        finish_reason=str(finish_reason or "").strip(),
         metadata=dict(metadata or {}),
     )
+
+
+def _caption_has_meaningful_content(caption) -> bool:
+    for field_name in ("text", "ocr_text", "author_text", "scene_text", "album_title", "title"):
+        if clean_text(str(getattr(caption, field_name, "") or "")):
+            return True
+    for row in list(getattr(caption, "image_regions", None) or []):
+        if not isinstance(row, dict):
+            continue
+        if clean_text(str(row.get("author_text") or "")) or clean_text(str(row.get("scene_text") or "")):
+            return True
+    return False
 
 
 def resolve_caption_model(engine: str, model_name: str) -> str:
@@ -92,6 +105,7 @@ class CaptionOutput:
     title: str = ""
     author_text: str = ""
     scene_text: str = ""
+    engine_error: str = ""
 
     def __post_init__(self):
         if self.image_regions is None:
@@ -182,7 +196,6 @@ class CaptionEngine:
         album_title: str = "",
         printed_album_title: str = "",
         photo_count: int = 1,
-        is_cover_page: bool = False,
         people_positions: dict[str, str] | None = None,
         debug_recorder=None,
         debug_step: str = "caption",
@@ -197,29 +210,20 @@ class CaptionEngine:
             source_path=source_path or image_path,
             album_title=album_title,
             printed_album_title=printed_album_title,
-            is_cover_page=is_cover_page,
             people_positions=people_positions,
         )
-        _emit_prompt_debug(
-            debug_recorder,
-            step=debug_step,
-            engine=self.engine,
-            model=self.effective_model_name,
-            prompt=prompt,
-            system_prompt="",
-            source_path=source_path or image_path,
-            prompt_source=("custom" if self._caption_prompt else "skill"),
-            metadata={
-                "is_cover_page": bool(is_cover_page),
-                "photo_count": int(photo_count),
-            },
-        )
+        response = ""
+        finish_reason = ""
+        error_text = ""
         try:
             caption = self._captioner.describe_page(  # type: ignore[attr-defined]
                 image_path=image_path,
                 prompt=prompt,
             )
-            return CaptionOutput(
+            response = str(getattr(self._captioner, "last_response_text", "") or "")
+            finish_reason = str(getattr(self._captioner, "last_finish_reason", "") or "")
+            has_content = _caption_has_meaningful_content(caption)
+            result = CaptionOutput(
                 text=caption.text,
                 engine=self.engine,
                 ocr_text=str(getattr(caption, "ocr_text", "") or ""),
@@ -228,16 +232,44 @@ class CaptionEngine:
                 location_name=caption.location_name,
                 people_present=bool(getattr(caption, "people_present", False)),
                 estimated_people_count=max(0, int(getattr(caption, "estimated_people_count", 0) or 0)),
-                fallback=not caption.text,
-                error=("" if caption.text else f"{self.engine.upper()} returned empty output."),
+                fallback=not has_content,
+                error=("" if has_content else f"{self.engine.upper()} returned empty output."),
                 image_regions=list(getattr(caption, "image_regions", None) or []),
                 album_title=str(getattr(caption, "album_title", "") or ""),
                 title=str(getattr(caption, "title", "") or ""),
                 author_text=str(getattr(caption, "author_text", "") or ""),
                 scene_text=str(getattr(caption, "scene_text", "") or ""),
+                engine_error="",
             )
+            return result
         except Exception as exc:
-            return CaptionOutput(text="", engine=self.engine, fallback=True, error=str(exc))
+            response = str(getattr(self._captioner, "last_response_text", "") or "")
+            finish_reason = str(getattr(self._captioner, "last_finish_reason", "") or "")
+            error_text = str(exc)
+            return CaptionOutput(
+                text="",
+                engine=self.engine,
+                fallback=True,
+                error=error_text,
+                engine_error=error_text,
+            )
+        finally:
+            metadata = {"photo_count": int(photo_count)}
+            if error_text:
+                metadata["error"] = error_text
+            _emit_prompt_debug(
+                debug_recorder,
+                step=debug_step,
+                engine=self.engine,
+                model=self.effective_model_name,
+                prompt=prompt,
+                system_prompt="",
+                source_path=source_path or image_path,
+                prompt_source=("custom" if self._caption_prompt else "skill"),
+                response=response,
+                finish_reason=finish_reason,
+                metadata=metadata,
+            )
 
     def estimate_people(
         self,
@@ -269,33 +301,48 @@ class CaptionEngine:
             printed_album_title=printed_album_title,
             people_positions=people_positions,
         )
-        _emit_prompt_debug(
-            debug_recorder,
-            step=debug_step,
-            engine=self.engine,
-            model=self.effective_model_name,
-            prompt=prompt,
-            system_prompt=people_count_system_prompt(),
-            source_path=source_path or image_path,
-            prompt_source=("custom" if self._caption_prompt else "skill"),
-            metadata={},
-        )
+        response = ""
+        finish_reason = ""
+        error_text = ""
         try:
             people_count = self._captioner.estimate_people(  # type: ignore[attr-defined]
                 image_path=image_path,
                 prompt=prompt,
             )
-            return PeopleCountOutput(
+            response = str(getattr(self._captioner, "last_response_text", "") or "")
+            finish_reason = str(getattr(self._captioner, "last_finish_reason", "") or "")
+            result = PeopleCountOutput(
                 engine=self.engine,
                 people_present=bool(people_count.people_present),
                 estimated_people_count=max(0, int(getattr(people_count, "estimated_people_count", 0) or 0)),
                 fallback=False,
             )
+            return result
         except Exception as exc:
+            response = str(getattr(self._captioner, "last_response_text", "") or "")
+            finish_reason = str(getattr(self._captioner, "last_finish_reason", "") or "")
+            error_text = str(exc)
             return PeopleCountOutput(
                 engine=self.engine,
                 fallback=True,
-                error=str(exc),
+                error=error_text,
+            )
+        finally:
+            metadata = {}
+            if error_text:
+                metadata["error"] = error_text
+            _emit_prompt_debug(
+                debug_recorder,
+                step=debug_step,
+                engine=self.engine,
+                model=self.effective_model_name,
+                prompt=prompt,
+                system_prompt=people_count_system_prompt(),
+                source_path=source_path or image_path,
+                prompt_source=("custom" if self._caption_prompt else "skill"),
+                response=response,
+                finish_reason=finish_reason,
+                metadata=metadata,
             )
 
     def estimate_location(
@@ -308,7 +355,6 @@ class CaptionEngine:
         source_path: str | Path | None = None,
         album_title: str = "",
         printed_album_title: str = "",
-        is_cover_page: bool = False,
         people_positions: dict[str, str] | None = None,
         debug_recorder=None,
         debug_step: str = "location",
@@ -320,35 +366,48 @@ class CaptionEngine:
                 error=f"{self.engine.upper()} location estimation is not implemented.",
             )
         self._ensure_captioner()
-        prompt = _build_location_prompt(
-            is_cover_page=is_cover_page,
-        )
-        _emit_prompt_debug(
-            debug_recorder,
-            step=debug_step,
-            engine=self.engine,
-            model=self.effective_model_name,
-            prompt=prompt,
-            system_prompt=location_system_prompt(),
-            source_path=source_path or image_path,
-            prompt_source=("custom" if self._caption_prompt else "skill"),
-            metadata={"is_cover_page": bool(is_cover_page)},
-        )
+        prompt = _build_location_prompt()
+        response = ""
+        finish_reason = ""
+        error_text = ""
         try:
             location = self._captioner.estimate_location(  # type: ignore[attr-defined]
                 image_path=image_path,
                 prompt=prompt,
             )
-            return LocationOutput(
+            response = str(getattr(self._captioner, "last_response_text", "") or "")
+            finish_reason = str(getattr(self._captioner, "last_finish_reason", "") or "")
+            result = LocationOutput(
                 engine=self.engine,
                 gps_latitude=str(getattr(location, "gps_latitude", "") or "").strip(),
                 gps_longitude=str(getattr(location, "gps_longitude", "") or "").strip(),
                 location_name=str(getattr(location, "location_name", "") or "").strip(),
                 fallback=False,
             )
+            return result
         except Exception as exc:
+            response = str(getattr(self._captioner, "last_response_text", "") or "")
+            finish_reason = str(getattr(self._captioner, "last_finish_reason", "") or "")
+            error_text = str(exc)
             return LocationOutput(
                 engine=self.engine,
                 fallback=True,
-                error=str(exc),
+                error=error_text,
+            )
+        finally:
+            metadata = {}
+            if error_text:
+                metadata["error"] = error_text
+            _emit_prompt_debug(
+                debug_recorder,
+                step=debug_step,
+                engine=self.engine,
+                model=self.effective_model_name,
+                prompt=prompt,
+                system_prompt=location_system_prompt(),
+                source_path=source_path or image_path,
+                prompt_source=("custom" if self._caption_prompt else "skill"),
+                response=response,
+                finish_reason=finish_reason,
+                metadata=metadata,
             )

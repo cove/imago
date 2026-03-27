@@ -124,6 +124,64 @@ class TestAIOcr(unittest.TestCase):
             self.assertEqual(records[0]["step"], "ocr")
             self.assertEqual(records[0]["engine"], "local")
             self.assertEqual(records[0]["prompt"], "OCR PROMPT")
+            self.assertEqual(records[0]["response"], "assistant: MAINLAND CHINA\n1986 BOOK 11")
+
+    def test_lmstudio_ocr_records_response_debug(self):
+        response_payload = {
+            "choices": [
+                {
+                    "finish_reason": "stop",
+                    "message": {
+                        "content": json.dumps({"text": "MAINLAND CHINA\n1986\nBOOK 11"}),
+                    },
+                }
+            ]
+        }
+
+        class _FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read(self):
+                return json.dumps(response_payload).encode("utf-8")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            image_path = Path(tmp) / "sample.jpg"
+            Image.new("RGB", (320, 240), color="white").save(image_path)
+            records = []
+
+            with (
+                mock.patch.object(
+                    ai_ocr,
+                    "_build_ocr_data_url",
+                    return_value="data:image/jpeg;base64,abc123",
+                ),
+                mock.patch.object(
+                    ai_ocr,
+                    "_lmstudio_ocr_select_model",
+                    return_value="qwen2.5-vl",
+                ),
+                mock.patch.object(
+                    ai_ocr.urllib.request,
+                    "urlopen",
+                    return_value=_FakeResponse(),
+                ),
+            ):
+                ocr = ai_ocr.OCREngine(engine="lmstudio", model_name="qwen2.5-vl")
+                text = ocr.read_text(
+                    image_path,
+                    debug_recorder=lambda **row: records.append(row),
+                    debug_step="ocr",
+                )
+
+        self.assertEqual(text, "MAINLAND CHINA\n1986\nBOOK 11")
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["step"], "ocr")
+        self.assertEqual(records[0]["response"], response_payload["choices"][0]["message"]["content"])
+        self.assertEqual(records[0]["finish_reason"], "stop")
 
     def test_local_ocr_normalizes_no_text_response(self):
         self.assertEqual(ai_ocr._normalize_ocr_text("No visible text"), "")

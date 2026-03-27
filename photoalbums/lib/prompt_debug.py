@@ -14,6 +14,8 @@ class PromptDebugStep:
     system_prompt: str = ""
     source_path: str = ""
     prompt_source: str = ""
+    response: str = ""
+    finish_reason: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -25,6 +27,8 @@ class PromptDebugStep:
             "system_prompt": str(self.system_prompt or ""),
             "source_path": str(self.source_path or "").strip(),
             "prompt_source": str(self.prompt_source or "").strip(),
+            "response": str(self.response or ""),
+            "finish_reason": str(self.finish_reason or "").strip(),
             "metadata": dict(self.metadata or {}),
         }
 
@@ -45,9 +49,16 @@ class PromptDebugSession:
         system_prompt: str = "",
         source_path: str | Path | None = None,
         prompt_source: str = "",
+        response: str = "",
+        finish_reason: str = "",
         metadata: dict[str, Any] | None = None,
     ) -> None:
-        if not str(prompt or "").strip() and not str(system_prompt or "").strip():
+        if (
+            not str(prompt or "").strip()
+            and not str(system_prompt or "").strip()
+            and not str(response or "").strip()
+            and not str(finish_reason or "").strip()
+        ):
             return
         self._steps.append(
             PromptDebugStep(
@@ -58,6 +69,8 @@ class PromptDebugSession:
                 system_prompt=str(system_prompt or ""),
                 source_path=str(source_path or "").strip(),
                 prompt_source=str(prompt_source or "").strip(),
+                response=str(response or ""),
+                finish_reason=str(finish_reason or "").strip(),
                 metadata=dict(metadata or {}),
             )
         )

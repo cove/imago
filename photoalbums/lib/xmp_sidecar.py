@@ -33,16 +33,6 @@ ET.register_namespace("photoshop", PHOTOSHOP_NS)
 ET.register_namespace("xmpDM", XMPDM_NS)
 
 
-def _resolve_ocr_lang_code(ocr_lang: str) -> str:
-    """Return the xml:lang value for OCR text in dc:description.
-    Expects a BCP-47 code from the AI model (e.g. 'zh', 'fr', 'ar').
-    Returns 'x-ocr' for English or empty input."""
-    code = str(ocr_lang or "").strip()
-    if not code or code.lower() == "en":
-        return "x-ocr"
-    return code
-
-
 _RDF_ROOT = f"{{{RDF_NS}}}RDF"
 _RDF_DESC = f"{{{RDF_NS}}}Description"
 _RDF_BAG = f"{{{RDF_NS}}}Bag"
@@ -253,25 +243,68 @@ def _add_alt_text(parent: ET.Element, tag: str, value: str) -> None:
     item.text = text
 
 
-def _add_description_with_ocr(
-    parent: ET.Element, tag: str, description: str, ocr_text: str, ocr_lang: str = ""
+def _number_lines(text: str) -> str:
+    lines = [line for line in text.split("\n") if line.strip()]
+    if len(lines) <= 1:
+        return text.strip()
+    return "\n".join(f"{i + 1}. {line}" for i, line in enumerate(lines))
+
+
+def _description_alt_entries(
+    *,
+    description: str,
+    ocr_text: str,
+    author_text: str,
+    scene_text: str,
+) -> list[tuple[str, str]]:
+    clean_description = str(description or "").strip()
+    clean_ocr = str(ocr_text or "").strip()
+    clean_author = str(author_text or "").strip()
+    clean_scene = str(scene_text or "").strip()
+    if clean_author:
+        default_text = _number_lines(clean_author)
+    elif clean_ocr:
+        default_text = clean_ocr
+    else:
+        default_text = clean_description
+    entries: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for lang, value in (
+        ("x-default", default_text),
+        ("x-caption", clean_description if clean_description != default_text else ""),
+        ("x-author", clean_author if clean_author != default_text else ""),
+        ("x-scene", clean_scene if clean_scene != default_text else ""),
+    ):
+        if not value or value in seen:
+            continue
+        entries.append((lang, value))
+        seen.add(value)
+    return entries
+
+
+def _add_description_with_text_layers(
+    parent: ET.Element,
+    tag: str,
+    description: str,
+    ocr_text: str,
+    author_text: str,
+    scene_text: str,
 ) -> None:
-    """Write dc:description with AI caption as x-default and OCR text as a language alt item."""
-    caption = str(description or "").strip()
-    ocr = str(ocr_text or "").strip()
-    if not caption and not ocr:
+    """Write dc:description with full visible text in x-default and classified layers preserved."""
+    entries = _description_alt_entries(
+        description=description,
+        ocr_text=ocr_text,
+        author_text=author_text,
+        scene_text=scene_text,
+    )
+    if not entries:
         return
     field = ET.SubElement(parent, tag)
     alt = ET.SubElement(field, _RDF_ALT)
-    if caption:
+    for lang, value in entries:
         item = ET.SubElement(alt, _RDF_LI)
-        item.set("{http://www.w3.org/XML/1998/namespace}lang", "x-default")
-        item.text = caption
-    if ocr:
-        lang_code = _resolve_ocr_lang_code(ocr_lang)
-        ocr_item = ET.SubElement(alt, _RDF_LI)
-        ocr_item.set("{http://www.w3.org/XML/1998/namespace}lang", lang_code)
-        ocr_item.text = ocr
+        item.set("{http://www.w3.org/XML/1998/namespace}lang", lang)
+        item.text = value
 
 
 def _add_simple_text(parent: ET.Element, tag: str, value: str | int | float) -> None:
@@ -476,7 +509,14 @@ def build_xmp_tree(
     _add_bag(desc, f"{{{DC_NS}}}subject", _dedupe(subjects))
     _add_bag(desc, f"{{{IPTC_EXT_NS}}}PersonInImage", _dedupe(person_names))
     _add_alt_text(desc, f"{{{DC_NS}}}title", title)
-    _add_description_with_ocr(desc, f"{{{DC_NS}}}description", description, ocr_text, ocr_lang)
+    _add_description_with_text_layers(
+        desc,
+        f"{{{DC_NS}}}description",
+        description,
+        ocr_text,
+        author_text,
+        scene_text,
+    )
     if str(album_title or "").strip():
         _add_simple_text(desc, f"{{{IMAGO_NS}}}AlbumTitle", str(album_title or "").strip())
     if str(gps_latitude or "").strip() and str(gps_longitude or "").strip():
@@ -626,29 +666,33 @@ def _set_alt_text(parent: ET.Element, tag: str, value: str) -> None:
     _replace_field(parent, tag, _builder)
 
 
-def _set_description_with_ocr(
-    parent: ET.Element, tag: str, description: str, ocr_text: str, ocr_lang: str = ""
+def _set_description_with_text_layers(
+    parent: ET.Element,
+    tag: str,
+    description: str,
+    ocr_text: str,
+    author_text: str,
+    scene_text: str,
 ) -> None:
-    """Set dc:description with AI caption as x-default and OCR text as a language alt item."""
-    caption = str(description or "").strip()
-    ocr = str(ocr_text or "").strip()
+    """Set dc:description with full visible text in x-default and classified layers preserved."""
+    entries = _description_alt_entries(
+        description=description,
+        ocr_text=ocr_text,
+        author_text=author_text,
+        scene_text=scene_text,
+    )
     existing = parent.find(tag)
-    if not caption and not ocr:
+    if not entries:
         if existing is not None:
             parent.remove(existing)
         return
-    lang_code = _resolve_ocr_lang_code(ocr_lang)
 
     def _builder(field: ET.Element) -> None:
         alt = ET.SubElement(field, _RDF_ALT)
-        if caption:
+        for lang, value in entries:
             item = ET.SubElement(alt, _RDF_LI)
-            item.set("{http://www.w3.org/XML/1998/namespace}lang", "x-default")
-            item.text = caption
-        if ocr:
-            ocr_item = ET.SubElement(alt, _RDF_LI)
-            ocr_item.set("{http://www.w3.org/XML/1998/namespace}lang", lang_code)
-            ocr_item.text = ocr
+            item.set("{http://www.w3.org/XML/1998/namespace}lang", lang)
+            item.text = value
 
     _replace_field(parent, tag, _builder)
 
@@ -918,7 +962,14 @@ def _merge_xmp_tree(
     _set_bag(desc, f"{{{DC_NS}}}subject", subjects)
     _set_bag(desc, f"{{{IPTC_EXT_NS}}}PersonInImage", person_names)
     _set_alt_text(desc, f"{{{DC_NS}}}title", title)
-    _set_description_with_ocr(desc, f"{{{DC_NS}}}description", description, ocr_text, ocr_lang)
+    _set_description_with_text_layers(
+        desc,
+        f"{{{DC_NS}}}description",
+        description,
+        ocr_text,
+        author_text,
+        scene_text,
+    )
     _set_simple_text(desc, f"{{{IMAGO_NS}}}AlbumTitle", str(album_title or "").strip())
     _set_gps_fields(desc, gps_latitude, gps_longitude)
     _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}City", str(location_city or "").strip())

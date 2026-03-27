@@ -164,7 +164,13 @@
       "Bash(curl -s \"https://raw.githubusercontent.com/iptc/photo-metadata-refs/main/image-region-examples/composite-photo-demo.jpg.json\")",
       "Read(//dev/**)",
       "Bash(curl -s \"https://api.github.com/orgs/iptc/repos?per_page=20\")",
-      "Bash(curl -sL \"https://raw.githubusercontent.com/iptc/photo-metadata/main/examples/image-region-data/composite-photo-demo.jpg.json\")"
+      "Bash(curl -sL \"https://raw.githubusercontent.com/iptc/photo-metadata/main/examples/image-region-data/composite-photo-demo.jpg.json\")",
+      "Bash(python -m pytest photoalbums/tests/test_ai_index.py -x -q --ignore=photoalbums/tests/test_apply_metadata.py)",
+      "Bash(find c:UserscovecVideosimago -name *test*xmp* -o -name *xmp*test*)",
+      "Bash(find c:/Users/covec/Videos/imago -name *China_1986_B02_P10_S02*)",
+      "Bash(find \"c:/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums/China_1986_B02_Archive\" -name *P10_S02*)",
+      "Bash(python -m pytest photoalbums/tests/test_xmp_sidecar.py photoalbums/tests/test_ai_caption.py -v)",
+      "Bash(grep -n 'def generate' /c/Users/covec/Videos/imago/photoalbums/lib/caption_*.py)"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",

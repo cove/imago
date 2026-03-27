@@ -18,7 +18,6 @@ from .ai_caption import (
     CaptionEngine,
     DEFAULT_LMSTUDIO_MAX_NEW_TOKENS,
     clean_text,
-    looks_like_album_cover,
     _normalize_gps_value,
     normalize_lmstudio_base_url,
     resolve_caption_model,
@@ -231,6 +230,96 @@ def _iter_album_cover_sidecars(image_path: Path):
                 yield sidecar_path
 
 
+def _title_page_dependency_sort_key(path: Path) -> tuple[int, int, int, int, str]:
+    _, _, _, page = parse_album_filename(path.name)
+    try:
+        page_number = int(str(page or "").strip())
+    except ValueError:
+        page_number = 999
+    scan_match = SCAN_NAME_RE.search(path.name)
+    derived_match = DERIVED_NAME_RE.search(path.name)
+    if scan_match is not None:
+        kind_rank = 0
+        item_number = int(scan_match.group("scan"))
+    elif derived_match is None:
+        kind_rank = 1
+        item_number = 0
+    else:
+        kind_rank = 2
+        item_number = int(derived_match.group("derived"))
+    return (
+        page_number,
+        kind_rank,
+        item_number,
+        len(path.name),
+        path.name.casefold(),
+    )
+
+
+def _is_album_title_source_candidate(image_path: Path) -> bool:
+    return _looks_like_album_title_page(image_path) and DERIVED_NAME_RE.search(image_path.name) is None
+
+
+def _iter_album_title_page_images(image_path: Path, extensions: set[str]):
+    seen: set[str] = set()
+    album_key = _album_identity_key(image_path)
+    candidates: list[Path] = []
+    for folder in _album_directory_candidates(image_path):
+        try:
+            rows = list(folder.iterdir())
+        except FileNotFoundError:
+            continue
+        for candidate in rows:
+            if not candidate.is_file():
+                continue
+            if candidate.suffix.lower() not in extensions:
+                continue
+            if _album_identity_key(candidate) != album_key:
+                continue
+            if not _looks_like_album_title_page(candidate):
+                continue
+            key = str(candidate.resolve()).casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            candidates.append(candidate)
+    for candidate in sorted(candidates, key=_title_page_dependency_sort_key):
+        yield candidate
+
+
+def _resolve_album_title_dependencies(image_path: Path, extensions: set[str]) -> list[Path]:
+    if _is_album_title_source_candidate(image_path):
+        return []
+    if _resolve_album_title_from_sidecars(image_path):
+        return []
+    current_key = str(image_path.resolve()).casefold()
+    candidates = [
+        path
+        for path in _iter_album_title_page_images(image_path, extensions)
+        if str(path.resolve()).casefold() != current_key
+    ]
+    source_candidates = [path for path in candidates if _is_album_title_source_candidate(path)]
+    return source_candidates or candidates
+
+
+def _expand_album_title_dependencies(files: list[Path], extensions: set[str]) -> list[Path]:
+    expanded: list[Path] = []
+    seen: set[str] = set()
+    for image_path in files:
+        for dependency in _resolve_album_title_dependencies(image_path, extensions):
+            dep_key = str(dependency.resolve()).casefold()
+            if dep_key in seen:
+                continue
+            seen.add(dep_key)
+            expanded.append(dependency)
+        image_key = str(image_path.resolve()).casefold()
+        if image_key in seen:
+            continue
+        seen.add(image_key)
+        expanded.append(image_path)
+    return expanded
+
+
 def _resolve_album_title_from_sidecars(image_path: Path) -> str:
     """Read album title from the cover page XMP sidecar (P00/P01). Returns '' if not yet processed."""
     for sidecar_path in _iter_album_cover_sidecars(image_path):
@@ -291,6 +380,48 @@ def _store_album_printed_title_hint(image_path: Path, printed_title_cache: dict[
     if value:
         printed_title_cache[_album_identity_key(image_path)] = value
     return value
+
+
+def _looks_like_album_title_page(image_path: Path) -> bool:
+    collection, _, _, page = parse_album_filename(image_path.name)
+    if str(collection or "") == "Unknown":
+        return False
+    page_text = str(page or "").strip()
+    if not page_text:
+        return False
+    if page_text in {"00", "01"}:
+        return True
+    if page_text.isdigit():
+        return int(page_text) in {0, 1}
+    return False
+
+
+def _require_album_title_for_title_page(
+    *,
+    image_path: Path,
+    album_title: str,
+    context: str,
+) -> str:
+    value = clean_text(str(album_title or ""))
+    if value:
+        return value
+    if _is_album_title_source_candidate(image_path):
+        raise RuntimeError(f"Missing album title for title page during {context}: {image_path}")
+    return ""
+
+
+def _resolve_title_page_album_title(
+    *,
+    image_path: Path,
+    album_title: str,
+    ocr_text: str,
+) -> str:
+    value = clean_text(str(album_title or ""))
+    if value:
+        return value
+    if _is_album_title_source_candidate(image_path):
+        return clean_text(str(ocr_text or ""))
+    return ""
 
 
 def append_job_artifact(record: dict[str, Any]) -> None:
@@ -511,15 +642,9 @@ def _compute_xmp_title(
 ) -> tuple[str, str]:
     clean_title = str(explicit_title or "").strip()
     clean_source = str(title_source or "").strip()
-    clean_author = str(author_text or "").strip()
-    is_cover_page = bool(clean_author) and looks_like_album_cover(image_path, ocr_text=clean_author)
 
     if clean_title and clean_source:
         return clean_title, clean_source
-    if clean_author and is_cover_page:
-        return clean_author, "author_text"
-    if clean_title and clean_author and clean_title == clean_author and is_cover_page:
-        return clean_title, "author_text"
     return "", ""
 
 
@@ -694,12 +819,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=0.72,
         help="Face similarity threshold.",
     )
-    parser.add_argument(
-        "--people-recovery-mode",
-        choices=["off", "auto", "always"],
-        default="auto",
-        help="Optional second people pass after caption using rembg when any people are detected.",
-    )
     parser.add_argument("--min-face-size", type=int, default=40, help="Minimum face size in pixels.")
     parser.add_argument(
         "--ocr-engine",
@@ -815,7 +934,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "'new_only': only images with no manifest entry (never indexed). "
             "'errors_only': only images whose sidecar contains a processing error. "
             "'outdated': only images where the sidecar is older than the image file. "
-            "'cast_changed': only images that need people re-detection due to cast store changes. "
+            "'cast_changed': only images needing people re-detection when the cast store changes. "
             "'all': force reprocess everything (same as --force)."
         ),
     )
@@ -920,7 +1039,6 @@ def _settings_signature(settings: dict[str, Any]) -> str:
         "skip": bool(settings.get("skip", False)),
         "enable_people": bool(settings.get("enable_people", True)),
         "enable_objects": bool(settings.get("enable_objects", True)),
-        "people_recovery_mode": str(settings.get("people_recovery_mode", "off")),
         "ocr_engine": str(settings.get("ocr_engine", "none")),
         "ocr_lang": str(settings.get("ocr_lang", "eng")),
         "ocr_model": str(settings.get("ocr_model", "")),
@@ -948,6 +1066,7 @@ def _build_caption_metadata(
     effective_engine: str,
     fallback: bool,
     error: str,
+    engine_error: str,
     model: str,
     people_present: bool = False,
     estimated_people_count: int = 0,
@@ -957,6 +1076,7 @@ def _build_caption_metadata(
         "effective_engine": str(effective_engine),
         "fallback": bool(fallback),
         "error": str(error or "")[:500],
+        "engine_error": str(engine_error or ""),
         "model": str(model or ""),
         "people_present": bool(people_present),
         "estimated_people_count": max(0, int(estimated_people_count)),
@@ -1127,15 +1247,12 @@ def _resolve_location_metadata(
     source_path: Path,
     album_title: str,
     printed_album_title: str,
-    is_cover_page: bool,
     people_positions: dict[str, str],
     fallback_location_name: str,
     prompt_debug: PromptDebugSession | None = None,
     debug_step: str = "location",
 ) -> tuple[str, str, str]:
     local_gps_latitude, local_gps_longitude = _extract_explicit_gps_from_text(ocr_text)
-    if is_cover_page and not local_gps_latitude and not local_gps_longitude:
-        return "", "", ""
     if str(requested_caption_engine or "").strip().lower() != "lmstudio":
         return (
             local_gps_latitude,
@@ -1158,7 +1275,6 @@ def _resolve_location_metadata(
             source_path=source_path,
             album_title=album_title,
             printed_album_title=printed_album_title,
-            is_cover_page=is_cover_page,
             people_positions=people_positions,
             debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
             debug_step=debug_step,
@@ -1262,117 +1378,6 @@ def _merge_people_matches(*match_groups: list) -> list:
         )
     )
     return out
-
-
-def _should_run_people_recovery(
-    *,
-    people_recovery_mode: str,
-    faces_detected: int,
-    people_matches: list,
-    people_names: list[str],
-    object_labels: list[str],
-    caption_people_present: bool = False,
-    caption_estimated_people_count: int = 0,
-) -> bool:
-    mode = str(people_recovery_mode or "off").strip().lower()
-    if mode == "off":
-        return False
-    if mode == "always":
-        return True
-    if mode != "auto":
-        return False
-    people_present, estimated_people_count = _estimate_people_from_detections(
-        people_matches=people_matches,
-        people_names=people_names,
-        object_labels=object_labels,
-        faces_detected=faces_detected,
-    )
-    caption_indicates_people = bool(caption_people_present)
-    try:
-        caption_estimate = max(0, int(caption_estimated_people_count or 0))
-    except Exception:
-        caption_estimate = 0
-    return bool(people_present or estimated_people_count > 0 or caption_indicates_people or caption_estimate > 0)
-
-
-def _maybe_run_people_recovery(
-    *,
-    people_matcher: Any,
-    people_recovery_mode: str,
-    image_path: Path,
-    people_source_path: Path,
-    people_bbox_offset: tuple[int, int],
-    people_hint_text: str,
-    extra_people_names: list[str],
-    people_matches: list,
-    people_names: list[str],
-    object_labels: list[str],
-    ocr_text: str,
-    caption_output: CaptionOutput,
-    caption_engine: CaptionEngine,
-    model_image_path: Path,
-    caption_source_path: Path,
-    album_title: str,
-    printed_album_title: str,
-    photo_count: int,
-    is_cover_page: bool,
-    prompt_debug: PromptDebugSession | None = None,
-    step_fn=None,
-) -> tuple[list, list[str], dict[str, str], CaptionOutput, int]:
-    del caption_engine
-    del model_image_path
-    del caption_source_path
-    del album_title
-    del printed_album_title
-    del photo_count
-    del is_cover_page
-    del prompt_debug
-    faces_detected = (
-        (_v if isinstance(_v := getattr(people_matcher, "last_faces_detected", 0), int) else 0) if people_matcher else 0
-    )
-    people_positions = _compute_people_positions(people_matches, image_path)
-    if not people_matcher or not _should_run_people_recovery(
-        people_recovery_mode=people_recovery_mode,
-        faces_detected=faces_detected,
-        people_matches=people_matches,
-        people_names=people_names,
-        object_labels=object_labels,
-        caption_people_present=bool(getattr(caption_output, "people_present", False)),
-        caption_estimated_people_count=int(getattr(caption_output, "estimated_people_count", 0) or 0),
-    ):
-        return (
-            people_matches,
-            people_names,
-            people_positions,
-            caption_output,
-            faces_detected,
-        )
-
-    recovery_hint_text = " ".join(
-        part for part in [str(people_hint_text or "").strip(), str(ocr_text or "").strip()] if part
-    ).strip()
-    recovered_matches = people_matcher.match_image_recovery(
-        image_path,
-        source_path=people_source_path,
-        bbox_offset=people_bbox_offset,
-        hint_text=recovery_hint_text,
-    )
-    recovered_faces_detected = (
-        (_v if isinstance(_v := getattr(people_matcher, "last_faces_detected", 0), int) else 0) if people_matcher else 0
-    )
-    merged_matches = _merge_people_matches(people_matches, recovered_matches)
-    recovered_match_names = _dedupe([row.name for row in merged_matches])
-    if step_fn:
-        step_fn(_format_people_step_label("people-recovery", recovered_match_names))
-    recovered_names = _dedupe([row.name for row in merged_matches] + list(extra_people_names or []))
-    recovered_positions = _compute_people_positions(merged_matches, image_path)
-    return (
-        merged_matches,
-        recovered_names,
-        recovered_positions,
-        caption_output,
-        recovered_faces_detected,
-    )
 
 
 def _resolve_location_payload(
@@ -1505,12 +1510,6 @@ def _get_image_dimensions(image_path: Path) -> tuple[int, int]:
         return 0, 0
 
 
-def _looks_like_cover_page_candidate(image_path: Path) -> bool:
-    """Heuristic cover-page test that does not require a separate OCR pass."""
-    _collection, _year, _book, page = parse_album_filename(image_path.name)
-    return page in {"00", "01"}
-
-
 def _run_image_analysis(
     *,
     image_path: Path,
@@ -1524,7 +1523,6 @@ def _run_image_analysis(
     people_hint_text: str = "",
     people_source_path: Path | None = None,
     people_bbox_offset: tuple[int, int] = (0, 0),
-    people_recovery_mode: str = "off",
     caption_source_path: Path | None = None,
     album_title: str = "",
     printed_album_title: str = "",
@@ -1541,7 +1539,6 @@ def _run_image_analysis(
 
     with _prepare_ai_model_image(image_path) as model_image_path:
         object_labels: list[str] = []
-        is_cover_page = False
         ocr_text = str(ocr_text_override or "").strip()
         combined_hint_text = " ".join(part for part in [str(people_hint_text or "").strip(), ocr_text] if part).strip()
         people_matches = (
@@ -1565,10 +1562,6 @@ def _run_image_analysis(
         people_positions = _compute_people_positions(people_matches, image_path)
         if step_fn:
             step_fn("caption")
-        is_cover_page = is_page_scan and (
-            bool(ocr_text_override and looks_like_album_cover(image_path, ocr_text=ocr_text_override))
-            or _looks_like_cover_page_candidate(image_path)
-        )
         caption_output = caption_engine.generate(
             image_path=model_image_path,
             people=people_names,
@@ -1578,47 +1571,15 @@ def _run_image_analysis(
             album_title=album_title,
             printed_album_title=printed_album_title,
             photo_count=page_photo_count,
-            is_cover_page=is_cover_page,
             people_positions=people_positions,
             debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
             debug_step="caption",
         )
-        (
-            people_matches,
-            people_names,
-            people_positions,
-            caption_output,
-            _faces_detected,
-        ) = _maybe_run_people_recovery(
-            people_matcher=people_matcher,
-            people_recovery_mode=people_recovery_mode,
-            image_path=image_path,
-            people_source_path=people_source_path or image_path,
-            people_bbox_offset=people_bbox_offset,
-            people_hint_text=str(people_hint_text or "").strip(),
-            extra_people_names=list(extra_people_names or []),
-            people_matches=people_matches,
-            people_names=people_names,
-            object_labels=object_labels,
-            ocr_text=ocr_text,
-            caption_output=caption_output,
-            caption_engine=caption_engine,
-            model_image_path=model_image_path,
-            caption_source_path=caption_source_path or people_source_path or image_path,
-            album_title=album_title,
-            printed_album_title=printed_album_title,
-            photo_count=page_photo_count,
-            is_cover_page=is_cover_page,
-            prompt_debug=prompt_debug,
-            step_fn=step_fn,
+        _faces_detected = (
+            (_v if isinstance(_v := getattr(people_matcher, "last_faces_detected", 0), int) else 0)
+            if people_matcher
+            else 0
         )
-
-        if "_faces_detected" not in locals():
-            _faces_detected = (
-                (_v if isinstance(_v := getattr(people_matcher, "last_faces_detected", 0), int) else 0)
-                if people_matcher
-                else 0
-            )
 
     if not ocr_text_override:
         ocr_text = str(getattr(caption_output, "ocr_text", "") or "").strip()
@@ -1665,6 +1626,7 @@ def _run_image_analysis(
             effective_engine=str(caption_output.engine),
             fallback=bool(caption_output.fallback),
             error=str(caption_output.error or ""),
+            engine_error=str(getattr(caption_output, "engine_error", "") or ""),
             model=str(caption_engine.effective_model_name),
             people_present=people_present,
             estimated_people_count=estimated_people_count,
@@ -1682,7 +1644,6 @@ def _run_image_analysis(
         source_path=caption_source_path or people_source_path or image_path,
         album_title=album_title,
         printed_album_title=printed_album_title,
-        is_cover_page=is_cover_page,
         people_positions=people_positions,
         fallback_location_name=str(getattr(caption_output, "location_name", "") or "").strip(),
         prompt_debug=prompt_debug,
@@ -1699,17 +1660,16 @@ def _run_image_analysis(
     description = caption_output.text
     author_text = str(getattr(caption_output, "author_text", "") or "")
     scene_text = str(getattr(caption_output, "scene_text", "") or "")
-    resolved_album_title = str(getattr(caption_output, "album_title", "") or "")
-    if not resolved_album_title:
-        cover_candidate_text = author_text or str(getattr(caption_output, "title", "") or "") or ocr_text
-        if is_cover_page or (
-            cover_candidate_text and looks_like_album_cover(image_path, ocr_text=cover_candidate_text)
-        ):
-            cover_title = clean_text(cover_candidate_text)
-        else:
-            cover_title = ""
-        if cover_title:
-            resolved_album_title = cover_title
+    resolved_album_title = _resolve_title_page_album_title(
+        image_path=image_path,
+        album_title=str(getattr(caption_output, "album_title", "") or ""),
+        ocr_text=ocr_text,
+    )
+    resolved_album_title = _require_album_title_for_title_page(
+        image_path=image_path,
+        album_title=(resolved_album_title or album_title),
+        context="analysis",
+    )
     return ImageAnalysis(
         image_path=image_path,
         people_names=people_names,
@@ -1990,16 +1950,17 @@ def _run_scan_stitch_pass(
             print(f"  stitch  {names_str}", end="", flush=True)
 
         try:
-            # Re-run caption with the combined OCR text; use S01 image as representative
+            # Re-run caption with the combined OCR text against the stitched page image when available.
             if requested_caption_engine in {"local", "lmstudio"}:
-                with _prepare_ai_model_image(primary_path) as model_image_path:
-                    stitch_prompt_debug = PromptDebugSession(primary_path)
+                caption_source_path = scan_ocr_authority.stitched_image_path or primary_path
+                with _prepare_ai_model_image(caption_source_path) as model_image_path:
+                    stitch_prompt_debug = PromptDebugSession(caption_source_path)
                     caption_output = caption_engine.generate(
                         image_path=model_image_path,
                         people=person_names,
                         objects=object_labels,
                         ocr_text=combined_ocr,
-                        source_path=primary_path,
+                        source_path=caption_source_path,
                         album_title=album_title,
                         printed_album_title=printed_album_title,
                         debug_recorder=stitch_prompt_debug.record,
@@ -2012,10 +1973,9 @@ def _run_scan_stitch_pass(
                         people=person_names,
                         objects=object_labels,
                         ocr_text=combined_ocr,
-                        source_path=primary_path,
+                        source_path=caption_source_path,
                         album_title=album_title,
                         printed_album_title=printed_album_title,
-                        is_cover_page=False,
                         people_positions={},
                         fallback_location_name=str(getattr(caption_output, "location_name", "") or "").strip(),
                         prompt_debug=stitch_prompt_debug,
@@ -2063,6 +2023,8 @@ def _run_scan_stitch_pass(
                         image_path=path,
                         ocr_text=combined_ocr,
                         page_like=True,
+                        author_text=str(getattr(caption_output, "author_text", "") or ""),
+                        scene_text=str(getattr(caption_output, "scene_text", "") or ""),
                     )
                     xmp_title, xmp_title_source = _compute_xmp_title(
                         image_path=path,
@@ -2170,7 +2132,12 @@ def run(argv: list[str] | None = None) -> int:
         if args.max_images and args.max_images > 0:
             files = files[: int(args.max_images)]
 
+    original_file_count = len(files)
+    files = _expand_album_title_dependencies(files, ext_set)
+
     emit_info(f"Discovered {len(files)} image files")
+    if len(files) > original_file_count:
+        emit_info(f"Added {len(files) - original_file_count} title-page dependency files")
     if not files:
         return 0
 
@@ -2190,7 +2157,6 @@ def run(argv: list[str] | None = None) -> int:
         "skip": False,
         "enable_people": not bool(args.disable_people),
         "enable_objects": not bool(args.disable_objects),
-        "people_recovery_mode": str(args.people_recovery_mode),
         "ocr_engine": str(args.ocr_engine),
         "ocr_lang": str(args.ocr_lang),
         "ocr_model": str(args.ocr_model),
@@ -2349,6 +2315,12 @@ def run(argv: list[str] | None = None) -> int:
         if existing_sidecar_valid and not existing_sidecar_complete:
             reprocess_required = True
             reprocess_reasons.append("sidecar_incomplete")
+        existing_album_title = str((existing_sidecar_state or {}).get("album_title") or "").strip()
+        if not existing_album_title and (
+            _is_album_title_source_candidate(image_path) or _resolve_album_title_from_sidecars(image_path)
+        ):
+            reprocess_required = True
+            reprocess_reasons.append("missing_album_title")
         if archive_stitched_ocr_required:
             sidecar_source = str((existing_sidecar_state or {}).get("ocr_authority_source") or "").strip()
             sidecar_signature = str((existing_sidecar_state or {}).get("ocr_authority_signature") or "").strip()
@@ -2491,6 +2463,18 @@ def run(argv: list[str] | None = None) -> int:
                                 else "single_image"
                             )
                         )
+                        refresh_album_title = _require_album_title_for_title_page(
+                            image_path=image_path,
+                            album_title=_resolve_title_page_album_title(
+                                image_path=image_path,
+                                album_title=(
+                                    str(review.get("album_title") or "").strip()
+                                    or _resolve_album_title_hint(image_path, album_title_cache)
+                                ),
+                                ocr_text=str(review.get("ocr_text") or ""),
+                            ),
+                            context="refresh",
+                        )
                         if refresh_detections is None:
                             refresh_detections = {}
                         refresh_detections["processing"] = {
@@ -2515,14 +2499,14 @@ def run(argv: list[str] | None = None) -> int:
                             title=xmp_title,
                             title_source=xmp_title_source,
                             description=str(review.get("description") or ""),
-                            album_title=str(review.get("album_title") or ""),
+                            album_title=refresh_album_title,
                             gps_latitude=refresh_gps_lat,
                             gps_longitude=refresh_gps_lon,
                             location_city=str(refresh_location.get("city") or ""),
                             location_state=str(refresh_location.get("state") or ""),
                             location_country=str(refresh_location.get("country") or ""),
                             source_text=_build_dc_source(
-                                str(review.get("album_title") or ""),
+                                refresh_album_title,
                                 image_path,
                                 _page_scan_filenames(image_path),
                             ),
@@ -2655,39 +2639,10 @@ def run(argv: list[str] | None = None) -> int:
                             debug_recorder=pu_prompt_debug.record,
                             debug_step="caption_refresh",
                         )
-                        (
-                            pu_people_matches,
-                            pu_person_names,
-                            pu_people_positions,
-                            pu_caption_out,
-                            pu_faces_detected,
-                        ) = _maybe_run_people_recovery(
-                            people_matcher=people_matcher,
-                            people_recovery_mode=str(
-                                effective.get(
-                                    "people_recovery_mode",
-                                    defaults["people_recovery_mode"],
-                                )
-                            ),
-                            image_path=image_path,
-                            people_source_path=image_path,
-                            people_bbox_offset=(0, 0),
-                            people_hint_text="",
-                            extra_people_names=list(existing_xmp_people),
-                            people_matches=pu_people_matches,
-                            people_names=pu_person_names,
-                            object_labels=existing_object_labels,
-                            ocr_text=existing_ocr_text,
-                            caption_output=pu_caption_out,
-                            caption_engine=pu_caption_engine,
-                            model_image_path=pu_model_path,
-                            caption_source_path=image_path,
-                            album_title=pu_album_title,
-                            printed_album_title=pu_printed_title,
-                            photo_count=1,
-                            is_cover_page=False,
-                            prompt_debug=pu_prompt_debug,
-                            step_fn=_pu_step,
+                        pu_faces_detected = (
+                            (_v if isinstance(_v := getattr(people_matcher, "last_faces_detected", 0), int) else 0)
+                            if people_matcher
+                            else 0
                         )
                     pu_people_payload = _serialize_people_matches(pu_people_matches)
                     (
@@ -2724,6 +2679,7 @@ def run(argv: list[str] | None = None) -> int:
                         effective_engine=str(pu_caption_out.engine),
                         fallback=bool(pu_caption_out.fallback),
                         error=str(pu_caption_out.error or ""),
+                        engine_error=str(getattr(pu_caption_out, "engine_error", "") or ""),
                         model=str(caption_key[1] if caption_key[0] in {"local", "lmstudio"} else ""),
                         people_present=pu_people_present,
                         estimated_people_count=pu_estimated_people_count,
@@ -2760,6 +2716,16 @@ def run(argv: list[str] | None = None) -> int:
 
                     if not dry_run:
                         pu_img_w, pu_img_h = _get_image_dimensions(image_path)
+                        pu_album_title = _require_album_title_for_title_page(
+                            image_path=image_path,
+                            album_title=_resolve_title_page_album_title(
+                                image_path=image_path,
+                                album_title=pu_album_title,
+                                ocr_text=existing_ocr_text,
+                            ),
+                            context="people update",
+                        )
+                        pu_source_text = _build_dc_source(pu_album_title, image_path, _page_scan_filenames(image_path))
                         pu_page_like = (
                             str((pu_updated_det.get("caption") or {}).get("effective_engine") or "").strip()
                             == "page-summary"
@@ -2952,12 +2918,6 @@ def run(argv: list[str] | None = None) -> int:
                     ocr_language=ocr_key[1],
                     people_source_path=image_path,
                     people_bbox_offset=(_bounds_offset(layout.content_bounds) if layout.page_like else (0, 0)),
-                    people_recovery_mode=str(
-                        effective.get(
-                            "people_recovery_mode",
-                            defaults["people_recovery_mode"],
-                        )
-                    ),
                     caption_source_path=(image_path if layout.page_like else analysis_target),
                     album_title=album_title_hint,
                     printed_album_title=printed_album_title_hint,
@@ -3009,6 +2969,17 @@ def run(argv: list[str] | None = None) -> int:
                 if not dry_run:
                     location_payload = dict(payload.get("location") or {}) if isinstance(payload, dict) else {}
                     img_w, img_h = _get_image_dimensions(image_path)
+                    final_album_title = _require_album_title_for_title_page(
+                        image_path=image_path,
+                        album_title=_resolve_title_page_album_title(
+                            image_path=image_path,
+                            album_title=(
+                                resolved_album_title or _resolve_album_title_hint(image_path, album_title_cache)
+                            ),
+                            ocr_text=ocr_text,
+                        ),
+                        context="write",
+                    )
                     text_layers = _resolve_xmp_text_layers(
                         image_path=image_path,
                         ocr_text=ocr_text,
@@ -3065,14 +3036,14 @@ def run(argv: list[str] | None = None) -> int:
                         title=xmp_title,
                         title_source=xmp_title_source,
                         description=description,
-                        album_title=_resolve_album_title_hint(image_path, album_title_cache),
+                        album_title=final_album_title,
                         gps_latitude=str(location_payload.get("gps_latitude") or ""),
                         gps_longitude=str(location_payload.get("gps_longitude") or ""),
                         location_city=str(location_payload.get("city") or ""),
                         location_state=str(location_payload.get("state") or ""),
                         location_country=str(location_payload.get("country") or ""),
                         source_text=_build_dc_source(
-                            _resolve_album_title_hint(image_path, album_title_cache),
+                            final_album_title,
                             image_path,
                             _scan_filenames,
                         ),

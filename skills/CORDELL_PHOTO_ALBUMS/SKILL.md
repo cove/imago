@@ -6,10 +6,9 @@ description: >-
   checking the manifest summary (how many photos are done vs pending), reviewing or diagnosing caption
   quality (cut-off captions, empty captions, wrong people names, missing location metadata), reprocessing
   individual photos, or troubleshooting why captions look wrong. Also contains shared vision model prompt
-  sections (rules, output formats, hints) used by the GLM captioning pipeline. Album-type-specific
-  preambles live in CORDELL_PHOTO_ALBUMS_TRAVEL and CORDELL_PHOTO_ALBUMS_FAMILY skills. Invoke any time
-  the user mentions photo albums, Audrey's albums, AI index, manifest summary, caption problems, or
-  specific photo filenames — even if they don't say "skill".
+  sections (rules, output formats, hints) used by the GLM captioning pipeline. Invoke any time the user
+  mentions photo albums, Audrey's albums, AI index, manifest summary, caption problems, or specific photo
+  filenames — even if they don't say "skill".
 metadata:
   author: Cove Schneider
   version: 1.1.2
@@ -32,8 +31,8 @@ on Cordell family photo albums. See the Workflow and Quality Monitoring sections
 by `photoalbums/lib/_caption_prompts.py`. These sections are parsed by exact `## Section Name` heading —
 do not rename them. Read `references/photoalbums.md` for full pipeline documentation.
 
-Album-type-specific preambles (`Preamble Describe`, `Preamble Combined Travel`, `Preamble Combined
-Family`) live in the `CORDELL_PHOTO_ALBUMS_TRAVEL` and `CORDELL_PHOTO_ALBUMS_FAMILY` skills.
+Legacy album-type-specific preambles are deprecated. The runtime pipeline now uses the base skill's
+generic prompt sections directly.
 
 ## Requirements
 
@@ -109,13 +108,6 @@ Cast-driven people-name refreshes.
 After a job completes, review the logs for these common problems. When issues are found, report them
 clearly: which photo, what the symptom is, and what the likely cause is.
 
-### Cut-off captions
-**Symptom:** Caption ends abruptly without terminal punctuation (`.`, `!`, `?`), ends mid-sentence,
-or ends mid-word.
-**Cause:** The `max_tokens` limit (default 96) was reached before the model finished. This is a
-prompt or config issue, not a model failure.
-**What to look for in logs:** The raw caption text before JSON parsing — if it lacks a closing
-sentence, it was truncated.
 
 ---
 
@@ -131,56 +123,65 @@ sentence, it was truncated.
 - When typed annotation text clearly names people for a specific photo, use those names only when both the page layout and the visible photo content support that match.
 
 ## System Prompt - People Count
-You count visible people in photographs.
-Return only valid JSON matching the response_format schema.
-Count clearly visible real people only.
-Do not include reasoning or extra fields.
+- You count visible people in photographs.
+- Return only valid JSON matching the response_format schema.
+- Count clearly visible real people only.
+- Do not include reasoning or extra fields.
 
 ## System Prompt - Location
-You extract location metadata for photographs.
-Return only valid JSON matching the response_format schema.
-Only return GPS coordinates when exact coordinates are explicitly visible in the image or OCR text.
-If exact coordinates are not explicit, leave GPS fields empty.
-Do not include reasoning or extra fields.
+- You extract location metadata for photographs.
+- Return only valid JSON matching the response_format schema.
+- Only return GPS coordinates when exact coordinates are explicitly visible in the image or OCR text.
+- If exact coordinates are not explicit, leave GPS fields empty.
+- Do not include reasoning or extra fields.
 
 ## System Prompt - OCR
-You are an OCR engine.
-Return only valid JSON matching the response_format schema.
-Put the extracted text in the text field.
-If there is no readable text, return an empty text field.
-Do not describe the image, show reasoning, or add extra fields.
+- You are an OCR engine.
+- Return only valid JSON matching the response_format schema.
+- Put the extracted text in the text field.
+- If there is no readable text, return an empty text field.
+- Do not describe the image, show reasoning, or add extra fields.
+
+## Preamble Describe
+- Use `author_text` for typewriter-written Courier text on white paper strips.
+- Use `scene_text` only for readable text inside the photographed scene itself, not the page itself.
+- Return empty strings when no applicable text exists for a field.
 
 ## Preamble People Count
-Count the number of clearly visible real people.
+- Count the number of clearly visible real people.
 
 ## Preamble Location
-Determine the most useful location metadata supported by visible evidence.
+- Determine the most useful location metadata supported by visible evidence.
 
 ## Preamble Cover Page
-This is an album cover or title page.
-Read the full album title exactly as printed on the cover, including all countries, years, and book numbers if present.
-Output `album_title` as a single-line storage title: preserve the printed words and order, but replace line breaks with spaces.
-Do not output literal `\n` sequences inside `album_title`.
-Do not normalize, romanize book numbers, or otherwise rewrite the title text.
+- This is an album cover or title page.
+- Use the OCR text from this page as the source of truth for `album_title`.
+- Read the full album title exactly as printed on the cover, including all countries, years, and book numbers if present.
+- Output `album_title` as a single-line storage title: preserve the printed words and order, but replace line breaks with spaces.
+- Do not output literal `\n` sequences inside `album_title`.
+- Do not normalize, romanize book numbers, or otherwise rewrite the title text.
 
 ## Output Format – Describe Page (with photo regions)
 `{"ocr_text": "", "author_text": "", "scene_text": "", "location_name": "", "photo_regions": [{"x": 0.0, "y": 0.0, "w": 0.5, "h": 0.5, "author_text": "", "scene_text": ""}]}`
 
 - `ocr_text`: all clearly legible visible text on the page, copied verbatim with original capitalization, punctuation, spacing, and real line breaks.
 - `author_text`: typed album-authored annotation text that's typed on a typewriter on strips of white paper, otherwise empty string.
+- Recover the full `author_text` when the strip is visibly present but cropped in this scan and the supplied `ocr_text` contains the missing words.
 - `scene_text`: readable text visible inside photographs, otherwise empty string.
 - `author_text` and `scene_text` are classified subsets of `ocr_text`, not replacements for it. Fill them whenever the classification is supported by the page.
 - The example JSON uses empty strings as placeholders. Do not copy literal `...` from any example or schema text.
 - `location_name`: concise geocoding query for GPS lookup when supported strongly enough by visible evidence; otherwise empty string.
 - `photo_regions`: list each distinct photograph; x/y/w/h are normalized rectangle coordinates (0–1, top-left origin, relative to full image)
-- `album_title`: for cover pages only — the full album title as a single-line storage string, with any printed line breaks replaced by spaces (e.g. `"Egypt 1975"`, `"Mainland China Book 11"`, `"Europe 1973 Egypt 1974"`). Empty string for all other pages.
+- `album_title`: for album title pages or cover pages — the full album title as a single-line storage string, with any printed line breaks replaced by spaces (e.g. `"Egypt 1975"`, `"Mainland China Book 11"`, `"Europe 1973 Egypt 1974"`). Empty string for all other pages.
 - `ocr_lang`: BCP-47 language code of the primary non-English text in `author_text` or `scene_text` (e.g. `"zh"`, `"fr"`, `"ar"` for Chinese, French, Arabic). Use `"en"` for English-only text. Empty string when there is no visible text.
+- Just return the JSON without any extra text or explanation.
 
 ## Output Format – People Count
 `{"people_present": false, "estimated_people_count": 0}`
 
 - `people_present`: true if one or more clearly visible real people are present, otherwise false.
 - `estimated_people_count`: best integer count of clearly visible real people.
+- Just return the JSON without any extra text or explanation.
 
 ## Output Format – Location
 `{"location_name": "", "gps_latitude": "", "gps_longitude": ""}`
@@ -188,6 +189,7 @@ Do not normalize, romanize book numbers, or otherwise rewrite the title text.
 - `location_name`: concise geocoding query or empty string.
 - `gps_latitude`: decimal degrees if explicitly visible in image text, else empty string.
 - `gps_longitude`: decimal degrees if explicitly visible in image text, else empty string.
+- Just return the JSON without any extra text or explanation.
 
 ## Preamble Page Photo Regions Compact
 - This page contains multiple photographs.

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from ._caption_text import clean_text
+from ._caption_text import clean_text, clean_lines
 from ._prompt_skill import required_section_text
 
 DEFAULT_LMSTUDIO_MAX_NEW_TOKENS = 8129
@@ -282,6 +282,32 @@ def _decode_lmstudio_text(value: object) -> str:
     return ""
 
 
+def _format_lmstudio_debug_response(value: object) -> str:
+    if isinstance(value, (str, list)):
+        return _decode_lmstudio_text(value)
+    if isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
+    if value is None:
+        return ""
+    return str(value)
+
+
+def _extract_lmstudio_error_message(payload: object) -> str:
+    if not isinstance(payload, dict):
+        return ""
+    direct_message = str(payload.get("message") or "").strip()
+    error = payload.get("error")
+    if isinstance(error, dict):
+        nested_message = str(error.get("message") or "").strip()
+        if nested_message:
+            return nested_message
+    elif isinstance(error, str):
+        error_text = str(error).strip()
+        if error_text:
+            return error_text
+    return direct_message
+
+
 def _is_lmstudio_caption_payload(payload: object) -> bool:
     if not isinstance(payload, dict):
         return False
@@ -492,19 +518,6 @@ def _parse_lmstudio_structured_caption_payload(
             "Check that the loaded model supports structured output and that the LM Studio server is current."
             f"{finish_note}"
         )
-    # Strip <think>...</think> and <tool_call>...<tool_call> blocks produced by reasoning
-    # models so that intermediate JSON objects inside the thinking block are not mistaken
-    # for the structured response.  If stripping empties the text, keep the original so
-    # _extract_structured_json_payload can still find JSON embedded inside an unclosed block.
-    stripped = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
-    stripped = re.sub(
-        r"<tool_call>.*?<tool_call>",
-        "",
-        stripped or text,
-        flags=re.DOTALL | re.IGNORECASE,
-    ).strip()
-    if stripped:
-        text = stripped
     try:
         payload = json.loads(text)
     except json.JSONDecodeError as exc:
@@ -534,7 +547,7 @@ def _parse_lmstudio_structured_caption_payload(
         raise RuntimeError(
             f"LM Studio structured caption JSON is missing an author_text string; raw={preview!r}.{finish_note}"
         )
-    scene_text = clean_text(str(payload.get("scene_text") or ""))
+    scene_text = clean_lines(str(payload.get("scene_text") or ""))
     gps_latitude = _normalize_gps_value(str(payload.get("gps_latitude") or ""), axis="lat")
     gps_longitude = _normalize_gps_value(str(payload.get("gps_longitude") or ""), axis="lon")
     location_name = clean_text(str(payload.get("location_name") or ""))
@@ -547,7 +560,7 @@ def _parse_lmstudio_structured_caption_payload(
     album_title = clean_text(str(payload.get("album_title") or ""))
     return (
         str(ocr_text),
-        clean_text(author_text),
+        clean_lines(author_text),
         scene_text,
         gps_latitude,
         gps_longitude,
@@ -573,15 +586,6 @@ def _parse_lmstudio_structured_people_count_payload(
             "Check that the loaded model supports structured output and that the LM Studio server is current."
             f"{finish_note}"
         )
-    stripped = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
-    stripped = re.sub(
-        r"<tool_call>.*?<tool_call>",
-        "",
-        stripped or text,
-        flags=re.DOTALL | re.IGNORECASE,
-    ).strip()
-    if stripped:
-        text = stripped
     try:
         payload = json.loads(text)
     except json.JSONDecodeError as exc:
@@ -617,15 +621,6 @@ def _parse_lmstudio_structured_location_payload(
             "Check that the loaded model supports structured output and that the LM Studio server is current."
             f"{finish_note}"
         )
-    stripped = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
-    stripped = re.sub(
-        r"<tool_call>.*?<tool_call>",
-        "",
-        stripped or text,
-        flags=re.DOTALL | re.IGNORECASE,
-    ).strip()
-    if stripped:
-        text = stripped
     try:
         payload = json.loads(text)
     except json.JSONDecodeError as exc:
@@ -666,12 +661,12 @@ def _parse_lmstudio_structured_caption(
         album_title,
     ) = _parse_lmstudio_structured_caption_payload(value, finish_reason=finish_reason)
     return CaptionDetails(
-        text=clean_text(author_text),
+        text=author_text,
         ocr_text=str(ocr_text),
         gps_latitude=gps_latitude,
         gps_longitude=gps_longitude,
         location_name=location_name,
-        author_text=clean_text(author_text),
+        author_text=author_text,
         scene_text=scene_text,
         people_present=people_present,
         estimated_people_count=estimated_people_count,
@@ -691,10 +686,6 @@ def _parse_lmstudio_page_caption(
     finish_note = f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
     if not text:
         raise RuntimeError(f"LM Studio returned empty page caption content.{finish_note}")
-    stripped = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
-    stripped = re.sub(r"<tool_call>.*?<tool_call>", "", stripped or text, flags=re.DOTALL | re.IGNORECASE).strip()
-    if stripped:
-        text = stripped
     try:
         payload_dict = json.loads(text)
     except json.JSONDecodeError as exc:
@@ -717,14 +708,14 @@ def _parse_lmstudio_page_caption(
         raise RuntimeError(
             f"LM Studio page caption JSON is missing an author_text string; raw={preview!r}.{finish_note}"
         )
-    scene_text = clean_text(str(payload_dict.get("scene_text") or ""))
+    scene_text = clean_lines(str(payload_dict.get("scene_text") or ""))
     location_name = clean_text(str(payload_dict.get("location_name") or ""))
     image_regions = _parse_image_regions(payload_dict)
     return CaptionDetails(
-        text=clean_text(author_text),
+        text=clean_lines(author_text),
         ocr_text=str(ocr_text),
         location_name=location_name,
-        author_text=clean_text(author_text),
+        author_text=clean_lines(author_text),
         scene_text=scene_text,
         image_regions=image_regions,
     )
@@ -759,8 +750,12 @@ def _lmstudio_stream_tokens(url: str, payload: dict, timeout: float):
     )
     try:
         with urllib.request.urlopen(request, timeout=float(timeout)) as response:
+            current_event = ""
             for raw_line in response:
                 line = raw_line.decode("utf-8").rstrip("\r\n")
+                if line.startswith("event: "):
+                    current_event = line[7:].strip().lower()
+                    continue
                 if not line.startswith("data: "):
                     continue
                 data = line[6:]
@@ -769,7 +764,12 @@ def _lmstudio_stream_tokens(url: str, payload: dict, timeout: float):
                 try:
                     chunk = json.loads(data)
                 except json.JSONDecodeError:
+                    if current_event == "error":
+                        raise RuntimeError(f"LM Studio request failed: {data}")
                     continue
+                error_message = _extract_lmstudio_error_message(chunk)
+                if current_event == "error" or (error_message and not list(chunk.get("choices") or [])):
+                    raise RuntimeError(f"LM Studio request failed: {error_message}")
                 choices = list(chunk.get("choices") or [])
                 if not choices:
                     continue
@@ -777,6 +777,7 @@ def _lmstudio_stream_tokens(url: str, payload: dict, timeout: float):
                 content = delta.get("content")
                 if content:
                     yield str(content)
+                current_event = ""
     except urllib.error.HTTPError as exc:
         details = exc.read().decode("utf-8", errors="replace").strip()
         message = details or f"HTTP {exc.code}"
@@ -846,6 +847,8 @@ class LMStudioCaptioner:
         self.max_image_edge = max(0, int(max_image_edge))
         self.stream = bool(stream)
         self._resolved_model_name = ""
+        self.last_response_text = ""
+        self.last_finish_reason = ""
 
     def _resolve_model_name(self) -> str:
         if self._resolved_model_name:
@@ -866,6 +869,8 @@ class LMStudioCaptioner:
         response_format: dict,
         parse_fn: Callable,
     ) -> CaptionDetails:
+        self.last_response_text = ""
+        self.last_finish_reason = ""
         resize_edge = int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
         image_url = _build_data_url(image_path, resize_edge)
         payload = {
@@ -899,7 +904,8 @@ class LMStudioCaptioner:
             ):
                 tokens.append(token)
             print("\r\033[K", end="", flush=True)
-            return parse_fn("".join(tokens))
+            self.last_response_text = "".join(tokens)
+            return parse_fn(self.last_response_text)
         response = _lmstudio_request_json(
             f"{self.base_url}/chat/completions",
             payload=payload,
@@ -909,9 +915,13 @@ class LMStudioCaptioner:
         if not choices:
             return CaptionDetails(text="")
         message = dict(choices[0].get("message") or {})
+        self.last_finish_reason = str(choices[0].get("finish_reason") or "")
+        self.last_response_text = _format_lmstudio_debug_response(message.get("content"))
+        if not self.last_response_text:
+            self.last_response_text = _format_lmstudio_debug_response(message)
         return parse_fn(
             message.get("content"),
-            finish_reason=str(choices[0].get("finish_reason") or ""),
+            finish_reason=self.last_finish_reason,
         )
 
     def _describe_by_mode(self, image_path: str | Path, *, prompt: str, mode: str) -> CaptionDetails:
@@ -937,6 +947,8 @@ class LMStudioCaptioner:
         *,
         prompt: str,
     ) -> CaptionDetails:
+        self.last_response_text = ""
+        self.last_finish_reason = ""
         resize_edge = int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
         image_url = _build_data_url(image_path, resize_edge)
         payload = {
@@ -968,9 +980,13 @@ class LMStudioCaptioner:
         if not choices:
             return CaptionDetails(text="")
         message = dict(choices[0].get("message") or {})
+        self.last_finish_reason = str(choices[0].get("finish_reason") or "")
+        self.last_response_text = _format_lmstudio_debug_response(message.get("content"))
+        if not self.last_response_text:
+            self.last_response_text = _format_lmstudio_debug_response(message)
         people_present, estimated_people_count = _parse_lmstudio_structured_people_count_payload(
             message.get("content"),
-            finish_reason=str(choices[0].get("finish_reason") or ""),
+            finish_reason=self.last_finish_reason,
         )
         return CaptionDetails(
             text="",
@@ -984,6 +1000,8 @@ class LMStudioCaptioner:
         *,
         prompt: str,
     ) -> CaptionDetails:
+        self.last_response_text = ""
+        self.last_finish_reason = ""
         resize_edge = int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
         image_url = _build_data_url(image_path, resize_edge)
         payload = {
@@ -1015,9 +1033,13 @@ class LMStudioCaptioner:
         if not choices:
             return CaptionDetails(text="")
         message = dict(choices[0].get("message") or {})
+        self.last_finish_reason = str(choices[0].get("finish_reason") or "")
+        self.last_response_text = _format_lmstudio_debug_response(message.get("content"))
+        if not self.last_response_text:
+            self.last_response_text = _format_lmstudio_debug_response(message)
         gps_latitude, gps_longitude, location_name = _parse_lmstudio_structured_location_payload(
             message.get("content"),
-            finish_reason=str(choices[0].get("finish_reason") or ""),
+            finish_reason=self.last_finish_reason,
         )
         return CaptionDetails(
             text="",

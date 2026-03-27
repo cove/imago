@@ -3502,6 +3502,17 @@
     "query": "Lanting Grottoes, Yulin, Shaanxi, China",
     "status": "miss"
   },
+  "lanzhou": {
+    "city": "",
+    "country": "China",
+    "display_name": "Lanzhou, Gansu, China",
+    "latitude": "36.4744360",
+    "longitude": "103.7332240",
+    "query": "Lanzhou",
+    "source": "nominatim",
+    "state": "Gansu",
+    "status": "ok"
+  },
   "lanzhou, china": {
     "display_name": "兰州市, 甘肃省, 中国",
     "latitude": "36.4744360",
@@ -4961,6 +4972,17 @@
   "puzhou district, gansu, china": {
     "query": "Puzhou District, Gansu, China",
     "status": "miss"
+  },
+  "qin ling mountains": {
+    "city": "",
+    "country": "China",
+    "display_name": "Qinling Mountains, China",
+    "latitude": "33.7340482",
+    "longitude": "108.5190791",
+    "query": "Qin Ling Mountains",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
   },
   "qin shi huangdi tomb, shaanxi, china": {
     "query": "Qin Shi Huangdi Tomb, Shaanxi, China",
@@ -7331,6 +7353,10 @@
     "query": "Yinchuan, Ningxia Autonomous Region, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "yingzhou grottoes": {
+    "query": "Yingzhou Grottoes",
+    "status": "miss"
   },
   "yingzhou, china": {
     "display_name": "颍州区, 阜阳市, 安徽省, 中国",

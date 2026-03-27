@@ -30,7 +30,15 @@
       "WebFetch(domain:exiv2.org)",
       "WebFetch(domain:www.carlseibert.com)",
       "WebFetch(domain:iptc.org)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(grep -n \"audio_sync_profile\\\\|audioSync\" c:/Users/covec/Videos/imago/vhs/apps/plain_html_wizard/static/*.js)",
+      "Bash(for d:*)",
+      "Bash(if grep:*)",
+      "Bash(then)",
+      "Bash(echo \"FOUND IN: $d\")",
+      "Read(//c/Users/covec/Videos/imago/$d/**)",
+      "Bash(python3 -c \":*)",
+      "Read(//c/Users/covec/Videos/imago/**)"
     ]
   },
   "hooks": {

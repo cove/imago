@@ -9,7 +9,6 @@ from .ai_page_layout import _normalize_enum_str, normalize_page_split_mode
 SETTINGS_FILENAME = "render_settings.json"
 OCR_ENGINES = {"none", "local", "lmstudio"}
 CAPTION_ENGINES = {"none", "lmstudio"}
-PEOPLE_RECOVERY_MODES = {"off", "auto", "always"}
 
 
 def render_settings_path(archive_dir: str | Path) -> Path:
@@ -80,10 +79,6 @@ def _normalize_caption_engine(value: Any, default: str) -> str:
     return "lmstudio"
 
 
-def _normalize_people_recovery_mode(value: Any, default: str) -> str:
-    return _normalize_enum_str(value, PEOPLE_RECOVERY_MODES, default)
-
-
 def _normalize_settings_block(raw: dict[str, Any], defaults: dict[str, Any]) -> dict[str, Any]:
     block = dict(raw or {})
     return {
@@ -95,10 +90,6 @@ def _normalize_settings_block(raw: dict[str, Any], defaults: dict[str, Any]) -> 
         "enable_objects": _normalize_bool(
             block.get("enable_objects"),
             bool(defaults.get("enable_objects", True)),
-        ),
-        "people_recovery_mode": _normalize_people_recovery_mode(
-            block.get("people_recovery_mode"),
-            str(defaults.get("people_recovery_mode", "off")),
         ),
         "ocr_engine": _normalize_ocr_engine(
             block.get("ocr_engine"),
@@ -136,7 +127,7 @@ def _normalize_settings_block(raw: dict[str, Any], defaults: dict[str, Any]) -> 
             block.get("caption_max_tokens"),
             int(defaults.get("caption_max_tokens", 96)),
             min_value=8,
-            max_value=4096,
+            max_value=5000,
         ),
         "caption_temperature": _normalize_float(
             block.get("caption_temperature"),

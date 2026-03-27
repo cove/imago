@@ -8,22 +8,27 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 - Prefer stateless and reconstructing state from ground truth and store it in database files.
 - Do not add backward compatibility by default.
 - Do not add fall backs, just fail.
+- Do not add addtional logic braches for features that weren't requested, such as flags for enabling and disabling code paths unless they were specfically requested.
 - When schema/config formats change, migrate all project data forward in the same change.
-- If backward compatibility is requested, implement it only when explicitly asked.
 - Limit code file sizes to about 500 lines, if they go over that size, then ask about refactoring.
 - Do not use brittle regex and string replaacments to edit AI model responses, improve the prompt instead to get the correct output.
 - Do not write code for input or output from AI model requests or responses, prefer to write prompts to .skill files.
-- Do not use Tesseract for OCR. All text extraction must be done by the AI vision model.
-- Use `uv run ruff format` to automatically enforce formatting.
+- Do not use Tesseract for OCR.
+- Use `just format` to automatically enforce formatting.
+- Always bubble up the underlining errors when error reporting, don't interpet the errors or discard low level errors.
+- When troubleshooting bugs, consider adding better diagnostics to streamline the troubleshooting process.
+- Avoid over-engineering. Only make changes that are directly requested or clearly necessary. Keep solutions simple and focused:
+  - Scope: Don't add features, refactor code, or make "improvements" beyond what was asked. A bug fix doesn't need surrounding code cleaned up. A simple feature doesn't need extra configurability.
+  - Documentation: Don't add docstrings, comments, or type annotations to code you didn't change. Only add comments where the logic isn't self-evident.
+  - Defensive coding: Don't add error handling, fallbacks, or validation for scenarios that can't happen. Trust internal code and framework guarantees. Only validate at system boundaries (user input, external APIs).
+  - Abstractions: Don't create helpers, utilities, or abstractions for one-time operations. Don't design for hypothetical future requirements. The right amount of complexity is the minimum needed for the current task.
 
 ## Project Skills
 
 - Project-local skills live under `skills/`.
 - Check `skills/` before changing AI prompting, captioning, indexing, or other model-behavior workflows in this repo.
 - The base skill is `skills/CORDELL_PHOTO_ALBUMS/SKILL.md` (orchestration, shared rules, shared prompt sections).
-- Travel album prompts live in `skills/CORDELL_PHOTO_ALBUMS_TRAVEL/SKILL.md`.
-- Family album prompts live in `skills/CORDELL_PHOTO_ALBUMS_FAMILY/SKILL.md`.
-- `_caption_prompts.py` loads `Preamble Describe` from the album-type skill; all other sections from the base skill.
+- `_caption_prompts.py` loads all prompt sections from `skills/CORDELL_PHOTO_ALBUMS/SKILL.md`.
 - Supporting skill documentation may live next to a skill under `references/` or as additional markdown files in `skills/`.
 - If code loads prompt sections from a `SKILL.md`, update the skill file rather than adding brittle response post-processing in Python.
 
@@ -36,6 +41,7 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
   - remove old keys/paths unless explicitly told to keep them.
 - Keep a single canonical schema in code and on disk.
 - Prefer standard XMP schema fields over custom namespaces for `imago`.
+- Photo Albums are located in `C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums`
 
 ## UI and Terminology
 

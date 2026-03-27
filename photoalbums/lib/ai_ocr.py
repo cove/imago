@@ -15,6 +15,7 @@ from .ai_model_settings import default_lmstudio_base_url, default_ocr_model
 from ._caption_lmstudio import (
     _decode_lmstudio_text,
     _extract_structured_json_payload,
+    _format_lmstudio_debug_response,
     _lanczos_resize,
 )
 from ._prompt_skill import required_section_text
@@ -111,6 +112,8 @@ def _emit_prompt_debug(
     prompt: str,
     system_prompt: str = "",
     source_path: str | Path | None = None,
+    response: str = "",
+    finish_reason: str = "",
     metadata: dict | None = None,
 ) -> None:
     if not callable(debug_recorder):
@@ -123,6 +126,8 @@ def _emit_prompt_debug(
         system_prompt=str(system_prompt or ""),
         source_path=source_path,
         prompt_source="default",
+        response=str(response or ""),
+        finish_reason=str(finish_reason or "").strip(),
         metadata=dict(metadata or {}),
     )
 
@@ -473,16 +478,6 @@ class OCREngine:
                 DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS,
                 self._model_name,
             )
-        _emit_prompt_debug(
-            debug_recorder,
-            step=debug_step,
-            engine=self.engine,
-            model=self.effective_model_name,
-            prompt=DEFAULT_LOCAL_OCR_PROMPT,
-            system_prompt=ocr_system_prompt(),
-            source_path=image_path,
-            metadata={},
-        )
         data_url = _build_ocr_data_url(image_path, DEFAULT_LOCAL_OCR_MAX_IMAGE_EDGE, DEFAULT_LOCAL_OCR_MAX_PIXELS)
         payload = {
             "model": self._lmstudio_model,
@@ -504,15 +499,42 @@ class OCREngine:
             "temperature": 0.0,
             "stream": False,
         }
-        response = _lmstudio_ocr_post(self.base_url, payload, DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS)
-        choices = list(response.get("choices") or [])
-        if not choices:
-            return ""
-        message = dict(choices[0].get("message") or {})
-        return _parse_lmstudio_structured_ocr(
-            message.get("content"),
-            finish_reason=str(choices[0].get("finish_reason") or ""),
-        )
+        raw_response = ""
+        finish_reason = ""
+        error_text = ""
+        try:
+            response = _lmstudio_ocr_post(self.base_url, payload, DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS)
+            choices = list(response.get("choices") or [])
+            if not choices:
+                return ""
+            message = dict(choices[0].get("message") or {})
+            finish_reason = str(choices[0].get("finish_reason") or "")
+            raw_response = _format_lmstudio_debug_response(message.get("content"))
+            if not raw_response:
+                raw_response = _format_lmstudio_debug_response(message)
+            return _parse_lmstudio_structured_ocr(
+                message.get("content"),
+                finish_reason=finish_reason,
+            )
+        except Exception as exc:
+            error_text = str(exc)
+            raise
+        finally:
+            metadata = {}
+            if error_text:
+                metadata["error"] = error_text
+            _emit_prompt_debug(
+                debug_recorder,
+                step=debug_step,
+                engine=self.engine,
+                model=self.effective_model_name,
+                prompt=DEFAULT_LOCAL_OCR_PROMPT,
+                system_prompt=ocr_system_prompt(),
+                source_path=image_path,
+                response=raw_response,
+                finish_reason=finish_reason,
+                metadata=metadata,
+            )
 
     def read_text(self, image_path: str | Path, *, debug_recorder=None, debug_step: str = "ocr") -> str:
         path = Path(image_path)
@@ -528,6 +550,9 @@ class OCREngine:
         from PIL import Image  # pylint: disable=import-outside-toplevel
 
         image = Image.open(str(path)).convert("RGB")
+        prompt_text = ""
+        response_text = ""
+        error_text = ""
         try:
             working_image = _resize_for_ocr(
                 image,
@@ -559,15 +584,6 @@ class OCREngine:
                     )
             else:
                 prompt_text = DEFAULT_LOCAL_OCR_PROMPT
-            _emit_prompt_debug(
-                debug_recorder,
-                step=debug_step,
-                engine=self.engine,
-                model=self.effective_model_name,
-                prompt=prompt_text,
-                source_path=path,
-                metadata={},
-            )
 
             inputs = self._processor(
                 text=[prompt_text],
@@ -599,8 +615,25 @@ class OCREngine:
                 skip_special_tokens=True,
                 clean_up_tokenization_spaces=True,
             )
-            return _normalize_ocr_text(decoded[0] if decoded else "")
+            response_text = decoded[0] if decoded else ""
+            return _normalize_ocr_text(response_text)
+        except Exception as exc:
+            error_text = str(exc)
+            raise
         finally:
+            metadata = {}
+            if error_text:
+                metadata["error"] = error_text
+            _emit_prompt_debug(
+                debug_recorder,
+                step=debug_step,
+                engine=self.engine,
+                model=self.effective_model_name,
+                prompt=prompt_text,
+                source_path=path,
+                response=response_text,
+                metadata=metadata,
+            )
             if "working_image" in locals() and working_image is not image:
                 working_image.close()
             image.close()
