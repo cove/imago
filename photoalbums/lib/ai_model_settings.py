@@ -7,6 +7,7 @@ import tomllib
 
 DEFAULT_OCR_MODEL = ""
 DEFAULT_CAPTION_MODEL = ""
+DEFAULT_LMSTUDIO_BASE_URL = "http://localhost:1234/v1"
 AI_MODEL_SETTINGS_PATH = Path(__file__).resolve().parents[1] / "ai_models.toml"
 
 
@@ -54,6 +55,11 @@ def _resolve_selected_alias(payload: dict[str, Any], models: dict[str, str], fie
     return selected
 
 
+def _resolve_lmstudio_base_url(payload: dict[str, Any]) -> str:
+    text = _normalize_model_value(payload.get("lmstudio_base_url"))
+    return text or DEFAULT_LMSTUDIO_BASE_URL
+
+
 @lru_cache(maxsize=1)
 def load_ai_model_settings() -> dict[str, Any]:
     with open(AI_MODEL_SETTINGS_PATH, "rb") as f:
@@ -69,6 +75,7 @@ def load_ai_model_settings() -> dict[str, Any]:
         "selected_caption_model": selected_caption_model,
         "ocr_model": models.get(selected_ocr_model, DEFAULT_OCR_MODEL),
         "caption_model": models.get(selected_caption_model, DEFAULT_CAPTION_MODEL),
+        "lmstudio_base_url": _resolve_lmstudio_base_url(payload),
     }
 
 
@@ -78,3 +85,7 @@ def default_ocr_model() -> str:
 
 def default_caption_model() -> str:
     return str(load_ai_model_settings()["caption_model"])
+
+
+def default_lmstudio_base_url() -> str:
+    return str(load_ai_model_settings()["lmstudio_base_url"])

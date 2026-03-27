@@ -27,6 +27,7 @@ class TestAIModelSettings(unittest.TestCase):
                     """
                     selected_ocr_model = "fast"
                     selected_caption_model = "big"
+                    lmstudio_base_url = "http://lmstudio.local:1234/v1"
 
                     [models]
                     big = "qwen/qwen3-vl-30b"
@@ -43,6 +44,7 @@ class TestAIModelSettings(unittest.TestCase):
                 self.assertEqual(loaded["selected_caption_model"], "big")
                 self.assertEqual(loaded["ocr_model"], "qwen/qwen3.5-9b")
                 self.assertEqual(loaded["caption_model"], "qwen/qwen3-vl-30b")
+                self.assertEqual(loaded["lmstudio_base_url"], "http://lmstudio.local:1234/v1")
                 self.assertEqual(
                     ai_model_settings.default_ocr_model(),
                     "qwen/qwen3.5-9b",
@@ -50,6 +52,10 @@ class TestAIModelSettings(unittest.TestCase):
                 self.assertEqual(
                     ai_model_settings.default_caption_model(),
                     "qwen/qwen3-vl-30b",
+                )
+                self.assertEqual(
+                    ai_model_settings.default_lmstudio_base_url(),
+                    "http://lmstudio.local:1234/v1",
                 )
 
         self.assertEqual(
@@ -102,6 +108,28 @@ class TestAIModelSettings(unittest.TestCase):
                     ai_model_settings.load_ai_model_settings()
 
         self.assertIn("'models' must be a TOML table", str(exc.exception))
+
+    def test_load_ai_model_settings_defaults_lmstudio_base_url_when_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "ai_models.toml"
+            path.write_text(
+                textwrap.dedent(
+                    """
+                    selected_ocr_model = "big"
+                    selected_caption_model = "big"
+
+                    [models]
+                    big = "qwen/qwen3-vl-30b"
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            with mock.patch.object(ai_model_settings, "AI_MODEL_SETTINGS_PATH", path):
+                ai_model_settings.load_ai_model_settings.cache_clear()
+                loaded = ai_model_settings.load_ai_model_settings()
+
+        self.assertEqual(loaded["lmstudio_base_url"], "http://localhost:1234/v1")
 
 
 if __name__ == "__main__":

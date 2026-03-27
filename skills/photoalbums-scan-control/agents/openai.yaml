@@ -1,4 +1,0 @@
-interface:
-  display_name: "Photo Albums Scan Control"
-  short_description: "Control incoming scan watcher state and naming decisions"
-  default_prompt: "Use this skill to control incoming scan events, pick filenames according to the album-specific naming rules, handle retry after stitch failure, and drive the MCP scanwatch tools."

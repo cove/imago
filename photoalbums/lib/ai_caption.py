@@ -4,7 +4,7 @@ import urllib.request  # noqa: F401 — kept at module level for test patching v
 from dataclasses import dataclass
 from pathlib import Path
 
-from .ai_model_settings import default_caption_model
+from .ai_model_settings import default_caption_model, default_lmstudio_base_url
 from ._caption_album import (  # noqa: F401
     ALBUM_KIND_FAMILY,
     ALBUM_KIND_PHOTO_ESSAY,
@@ -86,6 +86,7 @@ def resolve_caption_model(engine: str, model_name: str) -> str:
 class CaptionOutput:
     text: str
     engine: str
+    ocr_text: str = ""
     gps_latitude: str = ""
     gps_longitude: str = ""
     location_name: str = ""
@@ -98,7 +99,6 @@ class CaptionOutput:
     title: str = ""
     author_text: str = ""
     scene_text: str = ""
-    annotation_scope: str = ""
 
     def __post_init__(self):
         if self.image_regions is None:
@@ -133,7 +133,7 @@ class CaptionEngine:
         caption_prompt: str = "",
         max_tokens: int = 96,
         temperature: float = 0.2,
-        lmstudio_base_url: str = DEFAULT_LMSTUDIO_BASE_URL,
+        lmstudio_base_url: str = "",
         max_image_edge: int = 0,
         stream: bool = False,
     ):
@@ -148,7 +148,10 @@ class CaptionEngine:
         self._caption_prompt = str(caption_prompt or "").strip()
         self._max_tokens = int(max_tokens)
         self._temperature = float(temperature)
-        self._lmstudio_base_url = normalize_lmstudio_base_url(lmstudio_base_url)
+        self._lmstudio_base_url = normalize_lmstudio_base_url(
+            lmstudio_base_url,
+            default=default_lmstudio_base_url(),
+        )
         self._max_image_edge = max(0, int(max_image_edge))
         self._stream = bool(stream)
 
@@ -188,14 +191,12 @@ class CaptionEngine:
         photo_count: int = 1,
         is_cover_page: bool = False,
         people_positions: dict[str, str] | None = None,
-        request_photo_regions: bool = False,
         debug_recorder=None,
         debug_step: str = "caption",
     ) -> CaptionOutput:
         if self.engine == "none":
             return CaptionOutput(text="", engine="none")
         self._ensure_captioner()
-        use_page_mode = request_photo_regions and self.engine == "lmstudio"
         prompt = self._caption_prompt or _build_local_prompt(
             people=people,
             objects=objects,
@@ -205,7 +206,6 @@ class CaptionEngine:
             printed_album_title=printed_album_title,
             is_cover_page=is_cover_page,
             people_positions=people_positions,
-            request_photo_regions=use_page_mode,
         )
         _emit_prompt_debug(
             debug_recorder,
@@ -218,24 +218,18 @@ class CaptionEngine:
             prompt_source=("custom" if self._caption_prompt else "skill"),
             metadata={
                 "is_cover_page": bool(is_cover_page),
-                "request_photo_regions": bool(use_page_mode),
                 "photo_count": int(photo_count),
             },
         )
         try:
-            if use_page_mode:
-                caption = self._captioner.describe_page(  # type: ignore[attr-defined]
-                    image_path=image_path,
-                    prompt=prompt,
-                )
-            else:
-                caption = self._captioner.describe(
-                    image_path=image_path,
-                    prompt=prompt,
-                )
+            caption = self._captioner.describe_page(  # type: ignore[attr-defined]
+                image_path=image_path,
+                prompt=prompt,
+            )
             return CaptionOutput(
                 text=caption.text,
                 engine=self.engine,
+                ocr_text=str(getattr(caption, "ocr_text", "") or ""),
                 gps_latitude=caption.gps_latitude,
                 gps_longitude=caption.gps_longitude,
                 location_name=caption.location_name,
@@ -248,7 +242,6 @@ class CaptionEngine:
                 title=str(getattr(caption, "title", "") or ""),
                 author_text=str(getattr(caption, "author_text", "") or ""),
                 scene_text=str(getattr(caption, "scene_text", "") or ""),
-                annotation_scope=str(getattr(caption, "annotation_scope", "") or ""),
             )
         except Exception as exc:
             return CaptionOutput(text="", engine=self.engine, fallback=True, error=str(exc))

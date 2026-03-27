@@ -1,5 +1,6 @@
 selected_ocr_model = "new-primary"
 selected_caption_model = "new-primary"
+lmstudio_base_url = "http://localhost:1234/v1"
 
 [models]
 secondary = "qwen/qwen3-vl-30b"

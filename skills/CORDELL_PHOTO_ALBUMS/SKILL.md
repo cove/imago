@@ -44,9 +44,11 @@ Family`) live in the `CORDELL_PHOTO_ALBUMS_TRAVEL` and `CORDELL_PHOTO_ALBUMS_FAM
 - Network access for Nominatim geocoding
 - MCP server: `imago`
 
-The pipeline runs four inference modes per image: Combined (OCR + caption in one GLM pass), Describe
-(caption only, separate engine), People Count, and Location. Engine selection and mode branching are
-controlled by `photoalbums/ai_models.toml` — the skill templates apply to all modes.
+The default pipeline runs three inference modes per image: Describe, People Count, and Location.
+The Describe response produces OCR text and caption together in one combined call, and the
+Describe response must always include verbatim visible text in `ocr_text`. Engine selection and
+mode branching are controlled by `photoalbums/ai_models.toml` and render settings — the skill
+templates apply to all modes.
 
 ---
 
@@ -115,73 +117,18 @@ prompt or config issue, not a model failure.
 **What to look for in logs:** The raw caption text before JSON parsing — if it lacks a closing
 sentence, it was truncated.
 
-### Empty or fallback captions
-**Symptom:** `caption` is an empty string; log shows `fallback=True` or "returned empty output".
-**Cause:** Model inference failed or returned nothing usable.
-**Action:** Check if the image file is corrupt or the GPU ran out of memory. A single retry with
-`photo=<filename>` will reprocess just that image.
-
-### People not named
-**Symptom:** Caption says "a man" or "a woman" instead of a matched name from Cast.
-**Cause:** Face match fell below confidence threshold, or face was occluded. People recovery
-(rembg + looser IOU) fires automatically in `auto` mode whenever the first pass finds any evidence
-of people — if it still failed, the person likely needs a better reference embedding in Cast.
-
-### OCR garbled or empty
-**Symptom:** `ocr_text` is nonsense or empty despite visible text in the scan.
-**Cause:** Low-contrast, faded, angled, or sepia-toned handwriting. GLM Combined mode handles
-handwriting better than standalone OCR engines — confirm engine selection in `photoalbums/ai_models.toml`.
-
-### Location empty despite clear context
-**Symptom:** `location_name` is empty for a photo with a visible place name or landmark.
-**Cause (GLM Combined mode):** Expected — Combined mode does not run a separate location step.
-Location inference only runs with the LMStudio engine.
-**Cause (LMStudio mode):** Verify the location inference step ran by checking the payload
-location block in the logs.
-
 ---
 
 ## Global Style & Behavior Rules (apply to every mode)
 - If evidence is insufficient, omit the detail or use the empty string, false, or 0 required by the output schema.
 - When quoting visible text, reproduce it exactly as printed.
 - Think step-by-step internally if needed, but output only the final JSON.
-- Write captions as a single complete sentence ending with terminal punctuation. If length is a concern, write a shorter complete sentence — never truncate mid-sentence or mid-word.
-  
-## Text Handling & Correction Rules
-- Copy all visible text into `ocr_text` exactly as printed: preserve spelling, capitalization, punctuation, spacing, and line breaks. Do not translate, normalize, or correct.
-- Do not emit literal escape sequences like `\n`, `\r`, or `\t` inside text field values. If a field needs line breaks, use normal line breaks; if a field is defined as single-line, collapse line breaks to spaces.
-- Include only clearly legible portions of blurry or illegible text. Use corrected or translated understanding only in caption or location reasoning when confidence exceeds 95%.
-- Infer completion only for words visibly truncated at scan edges when the intended word is obvious.
-- Never correct proper names, dates, personal captions, or ambiguous text unless visual evidence is unambiguous.
-- For non-English text: preserve exactly in `author_text` or `scene_text`; use English translation only in caption or location reasoning. Set `ocr_lang` to the BCP-47 code of that language (e.g. `"zh"`, `"fr"`, `"ar"`). The pipeline will store the original-language text under its proper `xml:lang` code in `dc:description` alongside the English AI caption under `x-default`, so both versions are preserved in the XMP.
-- Typed text on white paper strips or typed labels on the album page is album-authored annotation text.
-- In this archive, album-authored annotation text is typed, often on white paper strips in a typewriter-style Courier-like font. Treat that text as high-authority archival evidence.
-- Do not assign album-authored annotation text to a photo based on position alone. Use both spatial cues (proximity, centering, alignment, grouping, borders, page layout) and content cues (whether the text semantically matches what is visible in the candidate photo or photos).
-- An annotation may apply to one photo, a group of photos, or the whole page. If one annotation fits multiple nearby photos, treat it as group-level rather than forcing it onto a single photo.
-- Do not assume annotation text names people. It may identify a place, landmark, building, event, date, or short narrative note.
-- If the target is ambiguous, preserve the text verbatim in `ocr_text` but do not force it into a specific photo description or location.
-
-## Location Rules (strict)
-- Infer location only from visible text and unmistakable visual landmarks.
-- Use the most specific well-documented place name (landmark, city, province/state, country) the evidence supports.
-- Return `location_name` as an empty string if evidence is low, uncertain, or conflicting.
-- Never use a generic place-type as the location query (e.g. "a beach", "a park", "a field", "a city street"). If no named specific place is identifiable, return an empty string.
-- Do not infer obscure villages, townships, or precise sites without explicit evidence.
-- Output GPS coordinates only when both values are literally visible in the image text; otherwise leave `gps_latitude` and `gps_longitude` empty.
-- Use the established modern name for any place — do not add qualifiers like "now known as" or "formerly called" unless a name change is directly evidenced by something visible in the image.
 
 ## People Rules
 - Count only clearly visible real people in the main photo.
 - Exclude statues, dolls, paintings, posters, reflections, and tiny indistinct background figures.
 - Hyphen-separated names in visible text (for example `leslie-tommy-robert`) indicate left-to-right order.
 - When typed annotation text clearly names people for a specific photo, use those names only when both the page layout and the visible photo content support that match.
-
-## Album Classification Rules (apply in this order)
-- Fix Roman numeral typo in album names: replace accidental "1" with "I" (e.g., Book 1 → Book I, Book 11 → Book II).
-- Use the printed cover title (not a normalized version) when naming the album.
-- Albums feature blue or white faux leathery covers with gold trim and the title printed in the lower-right corner and has a year and often a book number.
-- Titles can be multiple lines, and have mulitple countries and dates in them (for example, a first line `Europe 1973` and a second line `Egypt 1974`). Preserve real line breaks in raw text fields and include all lines in the title as printed.
-- When the title has mulitple countries and dates, you'll need to match them with the right photos. For example if you see Egypt 1974 and Europe 1973, you'll need to look at the contents of the photos to determine if it's Europe or Egypt for the album name; you can assume the photos aren't intertwined, but sometimes they are mixed as in the case of taking a boat from Egypt to Europe, pictures from both regions will appear on the same page, in which case you'd combine both into the album name.
 
 ## System Prompt - People Count
 You count visible people in photographs.
@@ -200,6 +147,7 @@ Do not include reasoning or extra fields.
 You are an OCR engine.
 Return only valid JSON matching the response_format schema.
 Put the extracted text in the text field.
+If there is no readable text, return an empty text field.
 Do not describe the image, show reasoning, or add extra fields.
 
 ## Preamble People Count
@@ -215,24 +163,18 @@ Output `album_title` as a single-line storage title: preserve the printed words 
 Do not output literal `\n` sequences inside `album_title`.
 Do not normalize, romanize book numbers, or otherwise rewrite the title text.
 
-## Output Format – Describe (full caption)
-`{"author_text": "...", "scene_text": "...", "annotation_scope": "...", "location_name": "...", "album_title": "", "ocr_lang": ""}`
-
-- `author_text`: typed album-authored annotation text that clearly applies to this photo. Otherwise empty string.
-- `scene_text`: readable text visible inside the photographed scene itself, preserved verbatim in any language. Otherwise empty string.
-- `annotation_scope`: one of `photo`, `group`, `page`, `none`, or `unknown`.
-- `location_name`: concise geocoding query for GPS lookup when supported strongly enough by visible evidence; otherwise empty string.
-- `album_title`: for cover pages only — the full album title as a single-line storage string, with any printed line breaks replaced by spaces (e.g. `"Egypt 1975"`, `"Mainland China Book 11"`, `"Europe 1973 Egypt 1974"`). Empty string for all other pages.
-- `ocr_lang`: BCP-47 language code of the primary non-English text in `author_text` or `scene_text` (e.g. `"zh"` for Chinese, `"fr"` for French, `"ar"` for Arabic). Use `"en"` for English-only text. Empty string when there is no visible text.
-
 ## Output Format – Describe Page (with photo regions)
-`{"author_text": "...", "scene_text": "...", "annotation_scope": "...", "location_name": "...", "photo_regions": [{"x": 0.0, "y": 0.0, "w": 0.5, "h": 0.5, "author_text": "...", "scene_text": "...", "annotation_scope": "..."}]}`
+`{"ocr_text": "", "author_text": "", "scene_text": "", "location_name": "", "photo_regions": [{"x": 0.0, "y": 0.0, "w": 0.5, "h": 0.5, "author_text": "", "scene_text": ""}]}`
 
+- `ocr_text`: all clearly legible visible text on the page, copied verbatim with original capitalization, punctuation, spacing, and real line breaks.
 - `author_text`: typed album-authored annotation text that's typed on a typewriter on strips of white paper, otherwise empty string.
 - `scene_text`: readable text visible inside photographs, otherwise empty string.
-- `annotation_scope`: one of `photo`, `group`, `page`, `none`, or `unknown`.
-- `location_name`: concise geocoding query or empty string.
+- `author_text` and `scene_text` are classified subsets of `ocr_text`, not replacements for it. Fill them whenever the classification is supported by the page.
+- The example JSON uses empty strings as placeholders. Do not copy literal `...` from any example or schema text.
+- `location_name`: concise geocoding query for GPS lookup when supported strongly enough by visible evidence; otherwise empty string.
 - `photo_regions`: list each distinct photograph; x/y/w/h are normalized rectangle coordinates (0–1, top-left origin, relative to full image)
+- `album_title`: for cover pages only — the full album title as a single-line storage string, with any printed line breaks replaced by spaces (e.g. `"Egypt 1975"`, `"Mainland China Book 11"`, `"Europe 1973 Egypt 1974"`). Empty string for all other pages.
+- `ocr_lang`: BCP-47 language code of the primary non-English text in `author_text` or `scene_text` (e.g. `"zh"`, `"fr"`, `"ar"` for Chinese, French, Arabic). Use `"en"` for English-only text. Empty string when there is no visible text.
 
 ## Output Format – People Count
 `{"people_present": false, "estimated_people_count": 0}`
@@ -241,7 +183,7 @@ Do not normalize, romanize book numbers, or otherwise rewrite the title text.
 - `estimated_people_count`: best integer count of clearly visible real people.
 
 ## Output Format – Location
-`{"location_name": "...", "gps_latitude": "...", "gps_longitude": "..."}`
+`{"location_name": "", "gps_latitude": "", "gps_longitude": ""}`
 
 - `location_name`: concise geocoding query or empty string.
 - `gps_latitude`: decimal degrees if explicitly visible in image text, else empty string.
@@ -249,8 +191,9 @@ Do not normalize, romanize book numbers, or otherwise rewrite the title text.
 
 ## Preamble Page Photo Regions Compact
 - This page contains multiple photographs.
+- Photos can be directly next to eachother, so you have to look for the seam between them sometimes, if there isn't an obvious border on the page.
 - Identify each distinct photograph as a rectangle.
 - Do not invent visual descriptions for the photographs.
 - Use typed album-page annotations only after deciding whether they belong to one photo, multiple photos, or the whole page based on both layout and photo contents.
-- Return `author_text` for applicable typed album annotations and `scene_text` for readable in-photo text. Do not synthesize any other descriptive prose.
+
 

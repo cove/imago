@@ -52,6 +52,8 @@ class TestAICaption(unittest.TestCase):
         )
         self.assertIn("Classify visible text into `author_text` and `scene_text`.", prompt)
         self.assertIn("Return empty strings when no applicable text exists for a field.", prompt)
+        self.assertIn("classified subsets of `ocr_text`, not replacements for it", prompt)
+        self.assertIn("Fill them whenever the classification is supported", prompt)
         self.assertNotIn("Album title hint:", prompt)
         self.assertNotIn("Album classification hint:", prompt)
         self.assertNotIn("Detected objects:", prompt)
@@ -131,7 +133,7 @@ class TestAICaption(unittest.TestCase):
 
     def test_legacy_local_alias_routes_to_lmstudio_and_returns_empty_on_error(self):
         fake_lmstudio = mock.Mock()
-        fake_lmstudio.describe.side_effect = RuntimeError("model offline")
+        fake_lmstudio.describe_page.side_effect = RuntimeError("model offline")
         with (
             mock.patch("photoalbums.lib.ai_caption.LMStudioCaptioner", return_value=fake_lmstudio) as ctor,
             mock.patch("photoalbums.lib.ai_caption.default_caption_model", return_value=""),
@@ -160,7 +162,7 @@ class TestAICaption(unittest.TestCase):
 
     def test_lmstudio_engine_forwards_caption_settings(self):
         fake_lmstudio = mock.Mock()
-        fake_lmstudio.describe.return_value = ai_caption.CaptionDetails(text="caption text")
+        fake_lmstudio.describe_page.return_value = ai_caption.CaptionDetails(text="caption text")
         with mock.patch("photoalbums.lib.ai_caption.LMStudioCaptioner", return_value=fake_lmstudio) as ctor:
             engine = ai_caption.CaptionEngine(
                 engine="lmstudio",
@@ -190,7 +192,7 @@ class TestAICaption(unittest.TestCase):
 
     def test_generate_records_prompt_debug_metadata(self):
         fake_lmstudio = mock.Mock()
-        fake_lmstudio.describe.return_value = ai_caption.CaptionDetails(text="caption text")
+        fake_lmstudio.describe_page.return_value = ai_caption.CaptionDetails(text="caption text")
         fake_lmstudio._resolved_model_name = ""
         records = []
         with mock.patch("photoalbums.lib.ai_caption.LMStudioCaptioner", return_value=fake_lmstudio):
@@ -222,10 +224,12 @@ class TestAICaption(unittest.TestCase):
                     "message": {
                         "content": json.dumps(
                             {
+                                "ocr_text": "Temple of Heaven\nNO SMOKING",
                                 "author_text": "Temple of Heaven",
                                 "scene_text": "NO SMOKING",
-                                "annotation_scope": "photo",
                                 "location_name": "",
+                                "album_title": "",
+                                "ocr_lang": "en",
                             }
                         )
                     }
@@ -307,9 +311,9 @@ class TestAICaption(unittest.TestCase):
                 )
 
         self.assertEqual(details.text, "Temple of Heaven")
+        self.assertEqual(details.ocr_text, "Temple of Heaven\nNO SMOKING")
         self.assertEqual(details.author_text, "Temple of Heaven")
         self.assertEqual(details.scene_text, "NO SMOKING")
-        self.assertEqual(details.annotation_scope, "photo")
         self.assertEqual(details.gps_latitude, "")
         self.assertEqual(details.gps_longitude, "")
         self.assertEqual(details.location_name, "")
@@ -483,48 +487,52 @@ class TestAICaption(unittest.TestCase):
 
     def test_parse_lmstudio_structured_caption_extracts_json_after_think_prefix(self):
         details = ai_caption._parse_lmstudio_structured_caption(
-            '<think>{ "author_text": "MAINLAND CHINA 1986 BOOK 11", "scene_text": "", "annotation_scope": "page", "gps_latitude": "", "gps_longitude": "", "location_name": "" }',
+            '<think>{ "ocr_text": "MAINLAND CHINA 1986 BOOK 11", "author_text": "MAINLAND CHINA 1986 BOOK 11", "scene_text": "", "gps_latitude": "", "gps_longitude": "", "location_name": "", "album_title": "", "ocr_lang": "en" }',
             finish_reason="stop",
         )
         self.assertEqual(details.text, "MAINLAND CHINA 1986 BOOK 11")
+        self.assertEqual(details.ocr_text, "MAINLAND CHINA 1986 BOOK 11")
         self.assertEqual(details.author_text, "MAINLAND CHINA 1986 BOOK 11")
-        self.assertEqual(details.annotation_scope, "page")
 
     def test_parse_lmstudio_structured_caption_strips_closed_think_block(self):
         # Thinking models like QwQ emit <think>reasoning</think> before the JSON payload.
         details = ai_caption._parse_lmstudio_structured_caption(
             "<think>Let me analyze the image carefully. I can see several photographs of a Chinese Opera performance in Lanzhou and travel scenes.</think>"
-            '{ "author_text": "Chinese Opera", "scene_text": "", "annotation_scope": "group", '
-            '"gps_latitude": "", "gps_longitude": "", "location_name": "Lanzhou, Gansu, China" }',
+            '{ "ocr_text": "Chinese Opera", "author_text": "Chinese Opera", "scene_text": "", '
+            '"gps_latitude": "", "gps_longitude": "", "location_name": "Lanzhou, Gansu, China", "album_title": "", "ocr_lang": "en" }',
             finish_reason="stop",
         )
         self.assertEqual(details.text, "Chinese Opera")
+        self.assertEqual(details.ocr_text, "Chinese Opera")
         self.assertEqual(details.location_name, "Lanzhou, Gansu, China")
         self.assertNotIn("<think>", details.text)
 
     def test_parse_lmstudio_structured_caption_prefers_last_valid_payload(self):
         details = ai_caption._parse_lmstudio_structured_caption(
             '{ "caption": {"effective_engine": "lmstudio"} }'
-            '\n{"author_text": "Cordell Home", "scene_text": "", "annotation_scope": "photo", "location_name": ""}',
+            '\n{"ocr_text": "Cordell Home", "author_text": "Cordell Home", "scene_text": "", "location_name": "", "album_title": "", "ocr_lang": "en"}',
             finish_reason="stop",
         )
         self.assertEqual(details.text, "Cordell Home")
-        self.assertEqual(details.annotation_scope, "photo")
+        self.assertEqual(details.ocr_text, "Cordell Home")
 
     def test_parse_lmstudio_structured_caption_prefers_structured_gps_fields(self):
         details = ai_caption._parse_lmstudio_structured_caption(
             json.dumps(
                 {
+                    "ocr_text": "Mogao Caves",
                     "author_text": "Mogao Caves",
                     "scene_text": "",
-                    "annotation_scope": "photo",
                     "gps_latitude": "39.7875",
                     "gps_longitude": "100.307222",
                     "location_name": "Mogao Caves, Dunhuang, Gansu, China",
+                    "album_title": "",
+                    "ocr_lang": "en",
                 }
             )
         )
         self.assertEqual(details.author_text, "Mogao Caves")
+        self.assertEqual(details.ocr_text, "Mogao Caves")
         self.assertEqual(details.gps_latitude, "39.7875")
         self.assertEqual(details.gps_longitude, "100.307222")
         self.assertEqual(details.location_name, "Mogao Caves, Dunhuang, Gansu, China")

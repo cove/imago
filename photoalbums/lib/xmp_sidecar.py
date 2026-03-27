@@ -6,6 +6,7 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 from ._caption_album import dedupe as _dedupe
+from ..naming import SCAN_NAME_RE, parse_album_filename
 
 X_NS = "adobe:ns:meta/"
 RDF_NS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
@@ -255,19 +256,18 @@ def _add_alt_text(parent: ET.Element, tag: str, value: str) -> None:
 def _add_description_with_ocr(
     parent: ET.Element, tag: str, description: str, ocr_text: str, ocr_lang: str = ""
 ) -> None:
-    """Write dc:description with AI caption as x-default and OCR text with proper xml:lang.
-    Non-English OCR text uses its BCP-47 code; English falls back to x-ocr."""
+    """Write dc:description with AI caption as x-default and OCR text as a language alt item."""
     caption = str(description or "").strip()
     ocr = str(ocr_text or "").strip()
     if not caption and not ocr:
         return
     field = ET.SubElement(parent, tag)
     alt = ET.SubElement(field, _RDF_ALT)
-    primary = caption or ocr
-    item = ET.SubElement(alt, _RDF_LI)
-    item.set("{http://www.w3.org/XML/1998/namespace}lang", "x-default")
-    item.text = primary
-    if ocr and ocr != primary:
+    if caption:
+        item = ET.SubElement(alt, _RDF_LI)
+        item.set("{http://www.w3.org/XML/1998/namespace}lang", "x-default")
+        item.text = caption
+    if ocr:
         lang_code = _resolve_ocr_lang_code(ocr_lang)
         ocr_item = ET.SubElement(alt, _RDF_LI)
         ocr_item.set("{http://www.w3.org/XML/1998/namespace}lang", lang_code)
@@ -421,11 +421,9 @@ def _add_iptc_image_regions(
         ET.SubElement(li, f"{{{IPTC_EXT_NS}}}rId").text = f"photo-{idx}" if idx > 0 else "photo"
         author_text = str(row.get("author_text") or row.get("description") or "").strip()
         scene_text = str(row.get("scene_text") or "").strip()
-        annotation_scope = str(row.get("annotation_scope") or "").strip()
         if author_text:
             _add_alt_text(li, f"{{{DC_NS}}}description", author_text)
         _add_simple_text(li, f"{{{IMAGO_NS}}}SceneText", scene_text)
-        _add_simple_text(li, f"{{{IMAGO_NS}}}AnnotationScope", annotation_scope)
         _add_bag(li, f"{{{IMAGO_NS}}}People", _dedupe(list(row.get("people") or [])))
         _add_bag(li, f"{{{IMAGO_NS}}}Subjects", _dedupe(list(row.get("subjects") or [])))
         detections = row.get("detections")
@@ -456,7 +454,6 @@ def build_xmp_tree(
     ocr_lang: str = "",
     author_text: str = "",
     scene_text: str = "",
-    annotation_scope: str = "",
     detections_payload: dict | None = None,
     subphotos: list[dict] | None = None,
     stitch_key: str = "",
@@ -465,6 +462,8 @@ def build_xmp_tree(
     history_when: str = "",
     image_width: int = 0,
     image_height: int = 0,
+    page_number: int = 0,
+    scan_number: int = 0,
     ocr_ran: bool = False,
     people_detected: bool = False,
     people_identified: bool = False,
@@ -479,7 +478,7 @@ def build_xmp_tree(
     _add_alt_text(desc, f"{{{DC_NS}}}title", title)
     _add_description_with_ocr(desc, f"{{{DC_NS}}}description", description, ocr_text, ocr_lang)
     if str(album_title or "").strip():
-        _add_simple_text(desc, f"{{{XMPDM_NS}}}album", str(album_title or "").strip())
+        _add_simple_text(desc, f"{{{IMAGO_NS}}}AlbumTitle", str(album_title or "").strip())
     if str(gps_latitude or "").strip() and str(gps_longitude or "").strip():
         _add_simple_text(
             desc,
@@ -499,6 +498,10 @@ def build_xmp_tree(
         _add_simple_text(desc, f"{{{PHOTOSHOP_NS}}}State", str(location_state).strip())
     if str(location_country or "").strip():
         _add_simple_text(desc, f"{{{PHOTOSHOP_NS}}}Country", str(location_country).strip())
+    if page_number > 0:
+        _add_simple_text(desc, f"{{{PHOTOSHOP_NS}}}PageNumber", str(page_number))
+    if scan_number > 0:
+        _add_simple_text(desc, f"{{{IMAGO_NS}}}ScanNumber", str(scan_number))
     _add_simple_text(desc, f"{{{DC_NS}}}source", str(source_text or "").strip())
 
     creator = ET.SubElement(desc, f"{{{XMP_NS}}}CreatorTool")
@@ -523,10 +526,6 @@ def build_xmp_tree(
     if clean_scene_text:
         scene = ET.SubElement(desc, f"{{{IMAGO_NS}}}SceneText")
         scene.text = clean_scene_text
-    clean_annotation_scope = str(annotation_scope or "").strip()
-    if clean_annotation_scope:
-        scope = ET.SubElement(desc, f"{{{IMAGO_NS}}}AnnotationScope")
-        scope.text = clean_annotation_scope
     clean_title_source = str(title_source or "").strip()
     if clean_title_source:
         title_src = ET.SubElement(desc, f"{{{IMAGO_NS}}}TitleSource")
@@ -630,8 +629,7 @@ def _set_alt_text(parent: ET.Element, tag: str, value: str) -> None:
 def _set_description_with_ocr(
     parent: ET.Element, tag: str, description: str, ocr_text: str, ocr_lang: str = ""
 ) -> None:
-    """Set dc:description with AI caption as x-default and OCR text with proper xml:lang.
-    Non-English OCR text uses its BCP-47 code; English falls back to x-ocr."""
+    """Set dc:description with AI caption as x-default and OCR text as a language alt item."""
     caption = str(description or "").strip()
     ocr = str(ocr_text or "").strip()
     existing = parent.find(tag)
@@ -639,15 +637,15 @@ def _set_description_with_ocr(
         if existing is not None:
             parent.remove(existing)
         return
-    primary = caption or ocr
     lang_code = _resolve_ocr_lang_code(ocr_lang)
 
     def _builder(field: ET.Element) -> None:
         alt = ET.SubElement(field, _RDF_ALT)
-        item = ET.SubElement(alt, _RDF_LI)
-        item.set("{http://www.w3.org/XML/1998/namespace}lang", "x-default")
-        item.text = primary
-        if ocr and ocr != primary:
+        if caption:
+            item = ET.SubElement(alt, _RDF_LI)
+            item.set("{http://www.w3.org/XML/1998/namespace}lang", "x-default")
+            item.text = caption
+        if ocr:
             ocr_item = ET.SubElement(alt, _RDF_LI)
             ocr_item.set("{http://www.w3.org/XML/1998/namespace}lang", lang_code)
             ocr_item.text = ocr
@@ -676,13 +674,22 @@ def _get_rdf_desc(tree: ET.ElementTree) -> ET.Element | None:
     return rdf.find(_RDF_DESC)
 
 
-def _get_alt_text(parent: ET.Element, tag: str) -> str:
+def _get_alt_text(parent: ET.Element, tag: str, *, prefer_lang: str = "", fallback_to_any: bool = True) -> str:
     field = parent.find(tag)
     if field is None:
         return ""
     alt = field.find(_RDF_ALT)
     if alt is None:
         return ""
+    lang_attr = "{http://www.w3.org/XML/1998/namespace}lang"
+    preferred = str(prefer_lang or "").strip()
+    if preferred:
+        for item in alt.findall(_RDF_LI):
+            text = str(item.text or "").strip()
+            if item.get(lang_attr) == preferred and text:
+                return text
+        if not fallback_to_any:
+            return ""
     for item in alt.findall(_RDF_LI):
         text = str(item.text or "").strip()
         if text:
@@ -751,8 +758,13 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
     return {
         "creator_tool": str(desc.findtext(f"{{{XMP_NS}}}CreatorTool", default="") or "").strip(),
         "create_date": _normalize_xmp_datetime(str(desc.findtext(f"{{{XMP_NS}}}CreateDate", default="") or "").strip()),
-        "title": _get_alt_text(desc, f"{{{DC_NS}}}title"),
-        "description": _get_alt_text(desc, f"{{{DC_NS}}}description"),
+        "title": _get_alt_text(desc, f"{{{DC_NS}}}title", prefer_lang="x-default"),
+        "description": _get_alt_text(
+            desc,
+            f"{{{DC_NS}}}description",
+            prefer_lang="x-default",
+            fallback_to_any=False,
+        ),
         "album_title": str(
             desc.findtext(f"{{{XMPDM_NS}}}album", default="")
             or desc.findtext(f"{{{IMAGO_NS}}}AlbumTitle", default="")
@@ -764,7 +776,6 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
         "ocr_lang": str(desc.findtext(f"{{{IMAGO_NS}}}OCRLang", default="") or "").strip(),
         "author_text": str(desc.findtext(f"{{{IMAGO_NS}}}AuthorText", default="") or "").strip(),
         "scene_text": str(desc.findtext(f"{{{IMAGO_NS}}}SceneText", default="") or "").strip(),
-        "annotation_scope": str(desc.findtext(f"{{{IMAGO_NS}}}AnnotationScope", default="") or "").strip(),
         "title_source": str(desc.findtext(f"{{{IMAGO_NS}}}TitleSource", default="") or "").strip(),
         "ocr_authority_source": str(
             processing_state.get("ocr_authority_source")
@@ -889,7 +900,6 @@ def _merge_xmp_tree(
     ocr_lang: str = "",
     author_text: str = "",
     scene_text: str = "",
-    annotation_scope: str = "",
     detections_payload: dict | None = None,
     subphotos: list[dict] | None = None,
     stitch_key: str = "",
@@ -898,6 +908,8 @@ def _merge_xmp_tree(
     history_when: str = "",
     image_width: int = 0,
     image_height: int = 0,
+    page_number: int = 0,
+    scan_number: int = 0,
     ocr_ran: bool = False,
     people_detected: bool = False,
     people_identified: bool = False,
@@ -907,11 +919,13 @@ def _merge_xmp_tree(
     _set_bag(desc, f"{{{IPTC_EXT_NS}}}PersonInImage", person_names)
     _set_alt_text(desc, f"{{{DC_NS}}}title", title)
     _set_description_with_ocr(desc, f"{{{DC_NS}}}description", description, ocr_text, ocr_lang)
-    _set_simple_text(desc, f"{{{XMPDM_NS}}}album", str(album_title or "").strip())
+    _set_simple_text(desc, f"{{{IMAGO_NS}}}AlbumTitle", str(album_title or "").strip())
     _set_gps_fields(desc, gps_latitude, gps_longitude)
     _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}City", str(location_city or "").strip())
     _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}State", str(location_state or "").strip())
     _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}Country", str(location_country or "").strip())
+    _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}PageNumber", str(page_number) if page_number > 0 else "")
+    _set_simple_text(desc, f"{{{IMAGO_NS}}}ScanNumber", str(scan_number) if scan_number > 0 else "")
     _set_simple_text(desc, f"{{{DC_NS}}}source", str(source_text or "").strip())
     _set_simple_text(
         desc,
@@ -924,7 +938,6 @@ def _merge_xmp_tree(
     _set_simple_text(desc, f"{{{IMAGO_NS}}}OCRLang", str(ocr_lang or "").strip())
     _set_simple_text(desc, f"{{{IMAGO_NS}}}AuthorText", str(author_text or "").strip())
     _set_simple_text(desc, f"{{{IMAGO_NS}}}SceneText", str(scene_text or "").strip())
-    _set_simple_text(desc, f"{{{IMAGO_NS}}}AnnotationScope", str(annotation_scope or "").strip())
     _set_simple_text(desc, f"{{{IMAGO_NS}}}TitleSource", str(title_source or "").strip())
     _set_simple_text(
         desc,
@@ -964,6 +977,7 @@ def _merge_xmp_tree(
         f"{{{IMAGO_NS}}}PeopleDetected",
         f"{{{IMAGO_NS}}}PeopleIdentified",
         f"{{{IMAGO_NS}}}SubPhotos",
+        f"{{{XMPDM_NS}}}album",
     ):
         _remove_field(desc, legacy_tag)
     ET.indent(tree, space="  ")
@@ -983,7 +997,6 @@ def write_xmp_sidecar(
     ocr_lang: str = "",
     author_text: str = "",
     scene_text: str = "",
-    annotation_scope: str = "",
     album_title: str = "",
     gps_latitude: str = "",
     gps_longitude: str = "",
@@ -1005,6 +1018,10 @@ def write_xmp_sidecar(
 ) -> Path:
     path = Path(sidecar_path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    _, _, _, _page_str = parse_album_filename(path.stem)
+    page_number = int(_page_str) if _page_str.isdigit() else 0
+    _scan_m = SCAN_NAME_RE.search(path.name)
+    scan_number = int(_scan_m.group("scan")) if _scan_m else 0
     tree: ET.ElementTree | None = None
     if path.exists():
         try:
@@ -1030,7 +1047,6 @@ def write_xmp_sidecar(
             ocr_lang=ocr_lang,
             author_text=author_text,
             scene_text=scene_text,
-            annotation_scope=annotation_scope,
             detections_payload=detections_payload,
             subphotos=subphotos,
             stitch_key=stitch_key,
@@ -1039,6 +1055,8 @@ def write_xmp_sidecar(
             history_when=history_when,
             image_width=image_width,
             image_height=image_height,
+            page_number=page_number,
+            scan_number=scan_number,
             ocr_ran=ocr_ran,
             people_detected=people_detected,
             people_identified=people_identified,
@@ -1063,7 +1081,6 @@ def write_xmp_sidecar(
             ocr_lang=ocr_lang,
             author_text=author_text,
             scene_text=scene_text,
-            annotation_scope=annotation_scope,
             detections_payload=detections_payload,
             subphotos=subphotos,
             stitch_key=stitch_key,
@@ -1072,6 +1089,8 @@ def write_xmp_sidecar(
             history_when=history_when,
             image_width=image_width,
             image_height=image_height,
+            page_number=page_number,
+            scan_number=scan_number,
             ocr_ran=ocr_ran,
             people_detected=people_detected,
             people_identified=people_identified,
