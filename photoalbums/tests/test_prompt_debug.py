@@ -23,6 +23,8 @@ class TestPromptDebug(unittest.TestCase):
             system_prompt="Return JSON",
             source_path="C:/photos/Album_A/Photo_01.jpg",
             prompt_source="skill",
+            response='{"caption":"Temple"}',
+            finish_reason="stop",
             metadata={},
         )
 
@@ -34,6 +36,8 @@ class TestPromptDebug(unittest.TestCase):
         self.assertEqual(artifact["steps"][0]["step"], "caption")
         self.assertEqual(artifact["steps"][0]["prompt"], "Describe this image")
         self.assertEqual(artifact["steps"][0]["system_prompt"], "Return JSON")
+        self.assertEqual(artifact["steps"][0]["response"], '{"caption":"Temple"}')
+        self.assertEqual(artifact["steps"][0]["finish_reason"], "stop")
 
 
 if __name__ == "__main__":

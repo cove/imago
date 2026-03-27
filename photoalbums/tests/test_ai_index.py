@@ -68,6 +68,39 @@ class TestAIIndex(unittest.TestCase):
             )
             self.assertEqual([p.name for p in files], ["b.png"])
 
+    def test_expand_album_title_dependencies_prepends_title_page_sources(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            archive = base / "EasternEuropeSpainMorocco_1988_B00_Archive"
+            archive.mkdir()
+            for name in (
+                "EasternEuropeSpainMorocco_1988_B00_P01_D01_01.jpg",
+                "EasternEuropeSpainMorocco_1988_B00_P01_D01_02.jpg",
+                "EasternEuropeSpainMorocco_1988_B00_P01_S01.tif",
+                "EasternEuropeSpainMorocco_1988_B00_P02_S01.tif",
+            ):
+                (archive / name).write_bytes(b"x")
+
+            files = ai_index._expand_album_title_dependencies(
+                [
+                    archive / "EasternEuropeSpainMorocco_1988_B00_P01_D01_01.jpg",
+                    archive / "EasternEuropeSpainMorocco_1988_B00_P01_D01_02.jpg",
+                    archive / "EasternEuropeSpainMorocco_1988_B00_P01_S01.tif",
+                    archive / "EasternEuropeSpainMorocco_1988_B00_P02_S01.tif",
+                ],
+                {".jpg", ".tif"},
+            )
+
+            self.assertEqual(
+                [p.name for p in files],
+                [
+                    "EasternEuropeSpainMorocco_1988_B00_P01_S01.tif",
+                    "EasternEuropeSpainMorocco_1988_B00_P01_D01_01.jpg",
+                    "EasternEuropeSpainMorocco_1988_B00_P01_D01_02.jpg",
+                    "EasternEuropeSpainMorocco_1988_B00_P02_S01.tif",
+                ],
+            )
+
     def test_resolve_xmp_text_layers_does_not_fallback_from_ocr_text(self):
         layers = ai_index._resolve_xmp_text_layers(
             image_path=Path("China_1986_B02_P02_stitched.jpg"),
@@ -76,6 +109,10 @@ class TestAIIndex(unittest.TestCase):
         )
         self.assertEqual(layers["author_text"], "")
         self.assertEqual(layers["scene_text"], "")
+
+    def test_looks_like_album_title_page_requires_album_style_name(self):
+        self.assertFalse(ai_index._looks_like_album_title_page(Path("a.jpg")))
+        self.assertTrue(ai_index._looks_like_album_title_page(Path("China_1986_B02_P01_S01.tif")))
 
     def test_build_dc_source_uses_single_scan_for_raw_scan_sidecar(self):
         source = ai_index._build_dc_source(
@@ -105,15 +142,34 @@ class TestAIIndex(unittest.TestCase):
         self.assertEqual(title, "")
         self.assertEqual(title_source, "")
 
-    def test_compute_xmp_title_keeps_cover_text(self):
-        with mock.patch.object(ai_index, "looks_like_album_cover", return_value=True):
-            title, title_source = ai_index._compute_xmp_title(
-                image_path=Path("China_1986_B02_P00.jpg"),
-                explicit_title="",
-                author_text="MAINLAND CHINA 1986 BOOK 11",
-            )
+    def test_compute_xmp_title_preserves_explicit_title(self):
+        title, title_source = ai_index._compute_xmp_title(
+            image_path=Path("China_1986_B02_P00.jpg"),
+            explicit_title="MAINLAND CHINA 1986 BOOK 11",
+            title_source="author_text",
+            author_text="MAINLAND CHINA 1986 BOOK 11",
+        )
         self.assertEqual(title, "MAINLAND CHINA 1986 BOOK 11")
         self.assertEqual(title_source, "author_text")
+
+    def test_build_caption_metadata_preserves_engine_error_verbatim(self):
+        payload = ai_index._build_caption_metadata(
+            requested_engine="lmstudio",
+            effective_engine="lmstudio",
+            fallback=True,
+            error="caption fallback",
+            engine_error=(
+                'LM Studio request failed: {"error":"request (4196 tokens) exceeds the available context size '
+                '(4096 tokens), try increasing it"}'
+            ),
+            model="zai-org/glm-4.6v-flash",
+        )
+        self.assertEqual(payload["error"], "caption fallback")
+        self.assertEqual(
+            payload["engine_error"],
+            'LM Studio request failed: {"error":"request (4196 tokens) exceeds the available context size '
+            '(4096 tokens), try increasing it"}',
+        )
 
     def test_needs_processing(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -393,7 +449,6 @@ class TestAIIndex(unittest.TestCase):
                 album_title="",
                 printed_album_title="",
                 photo_count=1,
-                is_cover_page=False,
                 people_positions={},
                 debug_recorder=None,
                 debug_step="caption",
@@ -454,7 +509,6 @@ class TestAIIndex(unittest.TestCase):
                 album_title="",
                 printed_album_title="",
                 photo_count=1,
-                is_cover_page=False,
                 people_positions={},
                 debug_recorder=None,
                 debug_step="caption",
@@ -497,7 +551,7 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(analysis.payload["location"]["gps_latitude"], 39.7875)
             self.assertEqual(analysis.payload["location"]["gps_longitude"], 100.307222)
 
-    def test_resolve_location_metadata_skips_cover_page_title_geocoding(self):
+    def test_resolve_location_metadata_merges_model_location_when_available(self):
         image = Path("cover.jpg")
         caption_engine = mock.Mock()
         caption_engine.estimate_location.return_value = SimpleNamespace(
@@ -517,13 +571,12 @@ class TestAIIndex(unittest.TestCase):
             source_path=image,
             album_title="",
             printed_album_title="",
-            is_cover_page=True,
             people_positions={},
             fallback_location_name="",
         )
 
-        self.assertEqual((gps_latitude, gps_longitude, location_name), ("", "", ""))
-        caption_engine.estimate_location.assert_not_called()
+        self.assertEqual((gps_latitude, gps_longitude, location_name), ("19.1414769", "72.8323049", "Mainland China"))
+        caption_engine.estimate_location.assert_called_once()
 
     def test_run_image_analysis_geocodes_structured_location_name(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -578,44 +631,6 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(analysis.payload["location"]["gps_latitude"], 39.9361)
             self.assertEqual(analysis.payload["location"]["gps_longitude"], 94.8076)
             self.assertEqual(analysis.payload["location"]["source"], "nominatim")
-
-    def test_run_image_analysis_promotes_cover_author_text_to_album_title(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            image = Path(tmp) / "cover.jpg"
-            image.write_bytes(b"abc")
-            people_matcher = mock.Mock()
-            people_matcher.match_image.return_value = []
-            object_detector = mock.Mock()
-            object_detector.detect_image.return_value = []
-            ocr_engine = mock.Mock()
-            ocr_engine.read_text.return_value = "MAINLAND CHINA\n1986\nBOOK 11"
-            caption_engine = mock.Mock()
-            caption_engine.generate.return_value = SimpleNamespace(
-                text="MAINLAND CHINA 1986 BOOK 11",
-                engine="template",
-                fallback=False,
-                error="",
-                author_text="MAINLAND CHINA\n1986\nBOOK 11",
-                scene_text="",
-                album_title="",
-                title="",
-                ocr_lang="eng",
-            )
-
-            with mock.patch.object(ai_index, "looks_like_album_cover", return_value=True):
-                analysis = ai_index._run_image_analysis(
-                    image_path=image,
-                    people_matcher=people_matcher,
-                    object_detector=object_detector,
-                    ocr_engine=ocr_engine,
-                    caption_engine=caption_engine,
-                    requested_caption_engine="template",
-                    ocr_engine_name="tesseract",
-                    ocr_language="eng",
-                    is_page_scan=True,
-                )
-
-            self.assertEqual(analysis.album_title, "MAINLAND CHINA 1986 BOOK 11")
 
     def test_run_image_analysis_merges_lmstudio_location_metadata(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -707,179 +722,6 @@ class TestAIIndex(unittest.TestCase):
                 analysis.payload["location"]["query"],
                 "Mogao Caves, Dunhuang, Gansu, China",
             )
-
-    def test_run_image_analysis_runs_people_recovery_without_rerunning_caption(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            image = Path(tmp) / "a.jpg"
-            image.write_bytes(b"abc")
-
-            class _Matcher:
-                def __init__(self):
-                    self.last_faces_detected = 0
-                    self.match_calls = 0
-                    self.recovery_calls = 0
-
-                def match_image(self, *_args, **_kwargs):
-                    self.match_calls += 1
-                    self.last_faces_detected = 0
-                    return []
-
-                def match_image_recovery(self, *_args, **_kwargs):
-                    self.recovery_calls += 1
-                    self.last_faces_detected = 1
-                    return [
-                        SimpleNamespace(
-                            name="Alice",
-                            score=0.97,
-                            certainty=0.97,
-                            reviewed_by_human=False,
-                            face_id="face-2",
-                            bbox=[10, 10, 20, 20],
-                        )
-                    ]
-
-            people_matcher = _Matcher()
-            object_detector = mock.Mock()
-            object_detector.detect_image.return_value = [SimpleNamespace(label="person", score=0.91)]
-            ocr_engine = mock.Mock()
-            ocr_engine.read_text.return_value = "Latitude: 39.7875\nLongitude: 100.307222"
-            caption_engine = mock.Mock()
-            caption_engine.generate.return_value = SimpleNamespace(
-                text="First caption",
-                engine="template",
-                fallback=False,
-                error="",
-            )
-            step_calls: list[str] = []
-
-            analysis = ai_index._run_image_analysis(
-                image_path=image,
-                people_matcher=people_matcher,
-                object_detector=object_detector,
-                ocr_engine=ocr_engine,
-                caption_engine=caption_engine,
-                requested_caption_engine="template",
-                ocr_engine_name="none",
-                ocr_language="eng",
-                people_recovery_mode="auto",
-                step_fn=step_calls.append,
-            )
-
-            self.assertEqual(people_matcher.match_calls, 1)
-            self.assertEqual(people_matcher.recovery_calls, 1)
-            self.assertEqual(caption_engine.generate.call_count, 1)
-            self.assertEqual(
-                step_calls,
-                ["people 0: none", "objects", "caption", "people-recovery 1: Alice"],
-            )
-            self.assertEqual(analysis.people_names, ["Alice"])
-            self.assertEqual(analysis.description, "First caption")
-            self.assertEqual(analysis.faces_detected, 1)
-            self.assertTrue(analysis.payload["caption"]["people_present"])
-            self.assertEqual(analysis.payload["caption"]["estimated_people_count"], 1)
-
-    def test_should_run_people_recovery_auto_when_faces_are_detected(self):
-        self.assertTrue(
-            ai_index._should_run_people_recovery(
-                people_recovery_mode="auto",
-                faces_detected=1,
-                people_matches=[],
-                people_names=[],
-                object_labels=[],
-            )
-        )
-
-    def test_should_run_people_recovery_auto_when_caption_detects_people(self):
-        self.assertTrue(
-            ai_index._should_run_people_recovery(
-                people_recovery_mode="auto",
-                faces_detected=0,
-                people_matches=[],
-                people_names=[],
-                object_labels=[],
-                caption_people_present=True,
-                caption_estimated_people_count=2,
-            )
-        )
-
-    def test_run_image_analysis_runs_people_recovery_when_faces_are_already_detected(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            image = Path(tmp) / "a.jpg"
-            image.write_bytes(b"abc")
-
-            class _Matcher:
-                def __init__(self):
-                    self.last_faces_detected = 0
-                    self.match_calls = 0
-                    self.recovery_calls = 0
-
-                def match_image(self, *_args, **_kwargs):
-                    self.match_calls += 1
-                    self.last_faces_detected = 1
-                    return [
-                        SimpleNamespace(
-                            name="Alice",
-                            score=0.97,
-                            certainty=0.97,
-                            reviewed_by_human=False,
-                            face_id="face-1",
-                            bbox=[10, 10, 20, 20],
-                        )
-                    ]
-
-                def match_image_recovery(self, *_args, **_kwargs):
-                    self.recovery_calls += 1
-                    self.last_faces_detected = 1
-                    return [
-                        SimpleNamespace(
-                            name="Alice",
-                            score=0.99,
-                            certainty=0.99,
-                            reviewed_by_human=False,
-                            face_id="face-1",
-                            bbox=[10, 10, 20, 20],
-                        )
-                    ]
-
-            people_matcher = _Matcher()
-            object_detector = mock.Mock()
-            object_detector.detect_image.return_value = []
-            ocr_engine = mock.Mock()
-            ocr_engine.read_text.return_value = ""
-            caption_engine = mock.Mock()
-            caption_engine.generate.return_value = SimpleNamespace(
-                text="Alice stands outdoors.",
-                engine="template",
-                fallback=False,
-                error="",
-                people_present=True,
-                estimated_people_count=1,
-            )
-            step_calls: list[str] = []
-
-            analysis = ai_index._run_image_analysis(
-                image_path=image,
-                people_matcher=people_matcher,
-                object_detector=object_detector,
-                ocr_engine=ocr_engine,
-                caption_engine=caption_engine,
-                requested_caption_engine="template",
-                ocr_engine_name="none",
-                ocr_language="eng",
-                people_recovery_mode="auto",
-                step_fn=step_calls.append,
-            )
-
-            self.assertEqual(people_matcher.match_calls, 1)
-            self.assertEqual(people_matcher.recovery_calls, 1)
-            self.assertEqual(caption_engine.generate.call_count, 1)
-            self.assertEqual(
-                step_calls,
-                ["people 1: Alice", "objects", "caption", "people-recovery 1: Alice"],
-            )
-            self.assertEqual(analysis.people_names, ["Alice"])
-            self.assertEqual(analysis.faces_detected, 1)
-            self.assertEqual(analysis.description, "Alice stands outdoors.")
 
     def test_run_image_analysis_merges_lmstudio_people_count(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1478,15 +1320,6 @@ class TestAIIndex(unittest.TestCase):
                 error="",
             )
 
-            def passthrough_people_recovery(**kwargs):
-                return (
-                    kwargs["people_matches"],
-                    kwargs["people_names"],
-                    kwargs.get("people_positions", {}),
-                    kwargs["caption_output"],
-                    0,
-                )
-
             with (
                 mock.patch.object(ai_index, "_settings_signature", return_value="sig"),
                 mock.patch.object(
@@ -1499,11 +1332,6 @@ class TestAIIndex(unittest.TestCase):
                     "_init_caption_engine",
                     return_value=fake_caption_engine,
                 ) as caption_engine_mock,
-                mock.patch.object(
-                    ai_index,
-                    "_maybe_run_people_recovery",
-                    side_effect=passthrough_people_recovery,
-                ),
                 mock.patch.object(ai_index, "_page_scan_filenames", return_value=[]),
                 mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
             ):
@@ -1521,8 +1349,6 @@ class TestAIIndex(unittest.TestCase):
                         "lmstudio",
                         "--caption-model",
                         "caption-new",
-                        "--people-recovery-mode",
-                        "off",
                     ]
                 )
 
@@ -1852,6 +1678,243 @@ class TestAIIndex(unittest.TestCase):
             title = ai_index._resolve_album_title_hint(image, {})
             self.assertEqual(title, "")
 
+    def test_run_image_analysis_uses_explicit_album_title(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "China_1986_B02_P01_S01.tif"
+            image.write_bytes(b"abc")
+
+            people_matcher = mock.Mock()
+            people_matcher.match_image.return_value = []
+            object_detector = mock.Mock()
+            object_detector.detect_image.return_value = []
+            ocr_engine = mock.Mock()
+            ocr_engine.read_text.return_value = ""
+            caption_engine = SimpleNamespace(
+                generate=mock.Mock(
+                    return_value=SimpleNamespace(
+                        text="敦煌 历史文物展览",
+                        engine="template",
+                        fallback=False,
+                        error="",
+                        ocr_text="敦煌 历史文物展览",
+                        author_text="敦煌 历史文物展览",
+                        scene_text="",
+                        album_title="敦煌 历史文物展览",
+                        title="",
+                        location_name="",
+                        people_present=False,
+                        estimated_people_count=0,
+                        image_regions=[],
+                        ocr_lang="zh",
+                    )
+                ),
+                effective_model_name="template-model",
+                estimate_location=None,
+            )
+
+            @contextmanager
+            def fake_prepare(path: Path):
+                yield path
+
+            with mock.patch.object(
+                ai_index,
+                "_prepare_ai_model_image",
+                side_effect=fake_prepare,
+            ):
+                analysis = ai_index._run_image_analysis(
+                    image_path=image,
+                    people_matcher=people_matcher,
+                    object_detector=object_detector,
+                    ocr_engine=ocr_engine,
+                    caption_engine=caption_engine,
+                    requested_caption_engine="template",
+                    ocr_engine_name="none",
+                    ocr_language="eng",
+                )
+
+            self.assertEqual(analysis.album_title, "敦煌 历史文物展览")
+
+    def test_run_image_analysis_uses_title_page_ocr_text_when_album_title_is_empty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "China_1986_B02_P01_S01.tif"
+            image.write_bytes(b"abc")
+
+            people_matcher = mock.Mock()
+            people_matcher.match_image.return_value = []
+            object_detector = mock.Mock()
+            object_detector.detect_image.return_value = []
+            ocr_engine = mock.Mock()
+            ocr_engine.read_text.return_value = "MAINLAND CHINA 1986 BOOK 11"
+            caption_engine = SimpleNamespace(
+                generate=mock.Mock(
+                    return_value=SimpleNamespace(
+                        text="",
+                        engine="template",
+                        fallback=False,
+                        error="",
+                        ocr_text="MAINLAND CHINA 1986 BOOK 11",
+                        author_text="MAINLAND CHINA 1986 BOOK 11",
+                        scene_text="",
+                        album_title="",
+                        title="",
+                        location_name="",
+                        people_present=False,
+                        estimated_people_count=0,
+                        image_regions=[],
+                        ocr_lang="zh",
+                    )
+                ),
+                effective_model_name="template-model",
+                estimate_location=None,
+            )
+
+            @contextmanager
+            def fake_prepare(path: Path):
+                yield path
+
+            with mock.patch.object(
+                ai_index,
+                "_prepare_ai_model_image",
+                side_effect=fake_prepare,
+            ):
+                analysis = ai_index._run_image_analysis(
+                    image_path=image,
+                    people_matcher=people_matcher,
+                    object_detector=object_detector,
+                    ocr_engine=ocr_engine,
+                    caption_engine=caption_engine,
+                    requested_caption_engine="template",
+                    ocr_engine_name="none",
+                    ocr_language="eng",
+                )
+
+            self.assertEqual(analysis.album_title, "MAINLAND CHINA 1986 BOOK 11")
+
+    def test_run_image_analysis_fails_when_title_page_has_no_album_title(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "EasternEuropeSpainMorocco_1988_B00_P01_S01.tif"
+            image.write_bytes(b"abc")
+
+            people_matcher = mock.Mock()
+            people_matcher.match_image.return_value = []
+            object_detector = mock.Mock()
+            object_detector.detect_image.return_value = []
+            ocr_engine = mock.Mock()
+            ocr_engine.read_text.return_value = ""
+            caption_engine = SimpleNamespace(
+                generate=mock.Mock(
+                    return_value=SimpleNamespace(
+                        text="",
+                        engine="template",
+                        fallback=True,
+                        error="caption empty",
+                        ocr_text="",
+                        author_text="",
+                        scene_text="",
+                        album_title="",
+                        title="",
+                        location_name="",
+                        people_present=False,
+                        estimated_people_count=0,
+                        image_regions=[],
+                        ocr_lang="eng",
+                    )
+                ),
+                effective_model_name="template-model",
+                estimate_location=None,
+            )
+
+            @contextmanager
+            def fake_prepare(path: Path):
+                yield path
+
+            with (
+                mock.patch.object(
+                    ai_index,
+                    "_prepare_ai_model_image",
+                    side_effect=fake_prepare,
+                ),
+                self.assertRaises(RuntimeError) as exc,
+            ):
+                ai_index._run_image_analysis(
+                    image_path=image,
+                    people_matcher=people_matcher,
+                    object_detector=object_detector,
+                    ocr_engine=ocr_engine,
+                    caption_engine=caption_engine,
+                    requested_caption_engine="template",
+                    ocr_engine_name="none",
+                    ocr_language="eng",
+                )
+
+            self.assertIn("Missing album title for title page during analysis", str(exc.exception))
+
+    def test_run_writes_title_page_album_title_from_current_ocr_text(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            archive = base / "China_1986_B02_Archive"
+            archive.mkdir()
+            image = archive / "China_1986_B02_P01_S01.tif"
+            image.write_bytes(b"abc")
+            analysis = ai_index.ImageAnalysis(
+                image_path=image,
+                people_names=[],
+                object_labels=[],
+                ocr_text="MAINLAND CHINA 1986 BOOK 11",
+                ocr_keywords=["mainland", "china", "1986", "book"],
+                subjects=["mainland", "china", "1986", "book"],
+                description='Visible text reads: "MAINLAND CHINA 1986 BOOK 11".',
+                payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {
+                        "engine": "local",
+                        "language": "eng",
+                        "keywords": ["mainland", "china", "1986", "book"],
+                        "chars": len("MAINLAND CHINA 1986 BOOK 11"),
+                    },
+                    "caption": {
+                        "requested_engine": "none",
+                        "effective_engine": "none",
+                        "fallback": False,
+                        "error": "",
+                        "model": "",
+                    },
+                },
+                album_title="",
+            )
+
+            with (
+                mock.patch.object(
+                    ai_index,
+                    "prepare_image_layout",
+                    side_effect=lambda *args, **kwargs: self._mock_layout(image),
+                ),
+                mock.patch.object(ai_index, "_page_scan_filenames", return_value=[image.name]),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--include-archive",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "none",
+                        "--caption-engine",
+                        "none",
+                        "--max-images",
+                        "1",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            write_mock.assert_called_once()
+            self.assertEqual(write_mock.call_args.kwargs["album_title"], "MAINLAND CHINA 1986 BOOK 11")
+
     def test_resolve_album_printed_title_hint_prefers_existing_p00_cover_sidecar(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
@@ -2025,6 +2088,114 @@ class TestAIIndex(unittest.TestCase):
             det = write_mock.call_args.kwargs["detections_payload"]
             self.assertEqual(det["processing"]["ocr_authority_signature"], authority.signature)
             self.assertEqual(det["processing"]["ocr_authority_hash"], ai_index._hash_text(analysis.ocr_text))
+
+    def test_run_archive_multi_scan_preserves_caption_author_text_when_stitching(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            archive = base / "China_1986_B02_Archive"
+            archive.mkdir()
+            scan1 = archive / "China_1986_B02_P02_S01.tif"
+            scan2 = archive / "China_1986_B02_P02_S02.tif"
+            scan1.write_bytes(b"a")
+            scan2.write_bytes(b"b")
+            stitched_path = archive / "China_1986_B02_P02_stitched.jpg"
+            authority = ai_index.ArchiveScanOCRAuthority(
+                page_key=ai_index._scan_page_key(scan1) or "",
+                group_paths=(scan1, scan2),
+                signature=ai_index._scan_group_signature([scan1, scan2]),
+                ocr_text="",
+                ocr_keywords=(),
+                ocr_hash="",
+                stitched_image_path=stitched_path,
+            )
+            analysis = ai_index.ImageAnalysis(
+                image_path=stitched_path,
+                people_names=[],
+                object_labels=[],
+                ocr_text="MAINLAND CHINA 1986 BOOK 11",
+                ocr_keywords=["mainland", "china", "book"],
+                subjects=["mainland", "china", "book"],
+                description="Archive page caption",
+                author_text="MAINLAND CHINA 1986 BOOK 11",
+                scene_text="NO SMOKING",
+                payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {
+                        "engine": "local",
+                        "language": "eng",
+                        "keywords": ["mainland", "china", "book"],
+                        "chars": len("MAINLAND CHINA 1986 BOOK 11"),
+                    },
+                    "caption": {
+                        "requested_engine": "none",
+                        "effective_engine": "none",
+                        "fallback": False,
+                        "error": "",
+                        "model": "",
+                    },
+                },
+            )
+            caption_output = SimpleNamespace(
+                text="Archive page caption",
+                location_name="Archive page caption",
+                author_text="MAINLAND CHINA 1986 BOOK 11",
+                scene_text="NO SMOKING",
+                gps_latitude="",
+                gps_longitude="",
+                fallback=False,
+            )
+            fake_caption_engine = SimpleNamespace(
+                effective_model_name="fake-caption-model",
+                generate=mock.Mock(return_value=caption_output),
+                estimate_location=mock.Mock(
+                    return_value=SimpleNamespace(
+                        fallback=False,
+                        gps_latitude="",
+                        gps_longitude="",
+                        location_name="Archive page caption",
+                    )
+                ),
+            )
+
+            with (
+                mock.patch.object(
+                    ai_index,
+                    "prepare_image_layout",
+                    side_effect=lambda *args, **kwargs: self._mock_layout(scan1),
+                ),
+                mock.patch.object(
+                    ai_index,
+                    "_resolve_archive_scan_authoritative_ocr",
+                    return_value=authority,
+                ) as authority_mock,
+                mock.patch.object(ai_index, "_page_scan_filenames", return_value=[]),
+                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis) as analysis_mock,
+                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch.object(ai_index, "CaptionEngine", return_value=fake_caption_engine),
+                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--include-archive",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "local",
+                        "--caption-engine",
+                        "lmstudio",
+                        "--max-images",
+                        "1",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            authority_mock.assert_called_once()
+            analysis_mock.assert_called_once()
+            self.assertEqual(write_mock.call_args.kwargs["author_text"], "MAINLAND CHINA 1986 BOOK 11")
+            self.assertEqual(write_mock.call_args.kwargs["scene_text"], "NO SMOKING")
 
     def test_run_archive_multi_scan_skips_when_authority_manifest_and_sidecar_match(
         self,

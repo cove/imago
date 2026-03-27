@@ -135,7 +135,7 @@ class TestXMPSidecar(unittest.TestCase):
                 subjects=[],
                 title="Temple of Heaven",
                 title_source="author_text",
-                description="Temple of Heaven",
+                description="Ignored summary",
                 source_text="",
                 ocr_text="Temple of Heaven\nNO SMOKING",
                 author_text="Temple of Heaven",
@@ -148,10 +148,18 @@ class TestXMPSidecar(unittest.TestCase):
             assert state is not None
             self.assertEqual(state["title"], "Temple of Heaven")
             self.assertEqual(state["title_source"], "author_text")
+            self.assertEqual(state["description"], "Temple of Heaven")
+            xml = out.read_text(encoding="utf-8")
+            self.assertIn('xml:lang="x-default">Temple of Heaven</rdf:li>', xml)
+            self.assertIn('xml:lang="x-caption">Ignored summary</rdf:li>', xml)
+            self.assertIn('xml:lang="x-scene">NO SMOKING</rdf:li>', xml)
+            self.assertIn("<imago:OCRText>Temple of Heaven", xml)
+            self.assertIn("<imago:AuthorText>Temple of Heaven</imago:AuthorText>", xml)
+            self.assertIn("<imago:SceneText>NO SMOKING</imago:SceneText>", xml)
             self.assertEqual(state["author_text"], "Temple of Heaven")
             self.assertEqual(state["scene_text"], "NO SMOKING")
 
-    def test_write_xmp_sidecar_does_not_fallback_description_to_ocr(self):
+    def test_write_xmp_sidecar_puts_ocr_text_in_dc_description(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "image.xmp"
             xmp_sidecar.write_xmp_sidecar(
@@ -168,12 +176,12 @@ class TestXMPSidecar(unittest.TestCase):
             )
 
             xml = out.read_text(encoding="utf-8")
-            self.assertNotIn('xml:lang="x-default">EASTERN EUROPE SPAIN AND MOROCCO 1988</rdf:li>', xml)
-            self.assertIn('xml:lang="x-ocr">EASTERN EUROPE SPAIN AND MOROCCO 1988</rdf:li>', xml)
+            self.assertIn('xml:lang="x-default">EASTERN EUROPE SPAIN AND MOROCCO 1988</rdf:li>', xml)
+            self.assertIn("<imago:OCRText>EASTERN EUROPE SPAIN AND MOROCCO 1988</imago:OCRText>", xml)
 
             state = xmp_sidecar.read_ai_sidecar_state(out)
             assert state is not None
-            self.assertEqual(state["description"], "")
+            self.assertEqual(state["description"], "EASTERN EUROPE SPAIN AND MOROCCO 1988")
             self.assertEqual(state["ocr_text"], "EASTERN EUROPE SPAIN AND MOROCCO 1988")
 
     def test_write_xmp_sidecar_migrates_legacy_processing_fields_to_history(self):
@@ -265,6 +273,8 @@ class TestXMPSidecar(unittest.TestCase):
             root = ET.parse(out).getroot()
             xml = ET.tostring(root, encoding="unicode")
             self.assertIn("Preserve this field", xml)
+            self.assertIn('xml:lang="x-default">Dolores Cordell</rdf:li>', xml)
+            self.assertIn('xml:lang="x-caption">Updated description</rdf:li>', xml)
             self.assertIn("Updated description", xml)
             self.assertIn("Dolores Cordell", xml)
             self.assertIn("Family Book I", xml)

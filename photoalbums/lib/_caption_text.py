@@ -5,6 +5,12 @@ def clean_text(value: str) -> str:
     return " ".join(str(value or "").split()).strip()
 
 
+def clean_lines(value: str) -> str:
+    lines = str(value or "").splitlines()
+    cleaned = [" ".join(line.split()) for line in lines]
+    return "\n".join(line for line in cleaned if line)
+
+
 def join_human(values: list[str]) -> str:
     clean = [str(item or "").strip() for item in values if str(item or "").strip()]
     if not clean:
