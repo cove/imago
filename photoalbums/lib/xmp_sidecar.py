@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
-from ._caption_album import dedupe as _dedupe
+from ._caption_text import dedupe as _dedupe
 from ..naming import SCAN_NAME_RE, parse_album_filename
 
 X_NS = "adobe:ns:meta/"

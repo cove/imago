@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from ._caption_album import clean_text
+from ._caption_text import clean_text
 from ._prompt_skill import required_section_text
 
 DEFAULT_LMSTUDIO_MAX_NEW_TOKENS = 8129

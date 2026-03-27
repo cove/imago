@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..naming import parse_album_filename
+from ._caption_text import clean_text, dedupe, join_human
 
 ALBUM_KIND_FAMILY = "family_photo_album"
 ALBUM_KIND_PHOTO_ESSAY = "photo_essay"
@@ -35,36 +36,6 @@ class AlbumContext:
     title: str = ""
     canonical_title: str = ""
     printed_title: str = ""
-
-
-def clean_text(value: str) -> str:
-    return " ".join(str(value or "").split()).strip()
-
-
-def join_human(values: list[str]) -> str:
-    clean = [str(item or "").strip() for item in values if str(item or "").strip()]
-    if not clean:
-        return ""
-    if len(clean) == 1:
-        return clean[0]
-    if len(clean) == 2:
-        return f"{clean[0]} and {clean[1]}"
-    return f"{', '.join(clean[:-1])}, and {clean[-1]}"
-
-
-def dedupe(values: list[str]) -> list[str]:
-    out: list[str] = []
-    seen: set[str] = set()
-    for raw in values:
-        item = str(raw or "").strip()
-        if not item:
-            continue
-        key = item.casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(item)
-    return out
 
 
 def _split_camel_case(value: str) -> str:
