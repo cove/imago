@@ -436,7 +436,7 @@ def append_job_artifact(record: dict[str, Any]) -> None:
 
 
 def _emit_prompt_debug_artifact(prompt_debug: PromptDebugSession | None, *, dry_run: bool) -> None:
-    if dry_run or prompt_debug is None or not prompt_debug.has_steps():
+    if prompt_debug is None or not prompt_debug.has_steps():
         return
     append_job_artifact(prompt_debug.to_artifact())
 
@@ -661,7 +661,9 @@ def _page_scan_filenames(image_path: Path) -> list[str]:
     if archive_dir is None or not archive_dir.is_dir():
         return []
     _, _, _, page_str = parse_album_filename(image_path.name)
-    if not page_str.isdigit():
+    # parse_album_filename returns "00" when no page token is found (its default).
+    # Page 00 is not a valid archive page, so treat it the same as unparseable.
+    if not page_str.isdigit() or int(page_str) == 0:
         return []
     page_int = int(page_str)
     scans: list[Path] = sorted(
@@ -676,7 +678,7 @@ def _page_scan_filenames(image_path: Path) -> list[str]:
 def _build_dc_source(album_title: str, image_path: Path, scan_filenames: list[str]) -> str:
     """Build a human-readable dc:source string followed by source scan filenames.
 
-    e.g. "Mainland China 1986 Book 11 Page 02 Scans S01 S02; China_1986_B02_P17_S01.tif; ..."
+    e.g. "Mainland China 1986 Book 11 Page 02 Scan(s) S01 S02; China_1986_B02_P17_S01.tif; ..."
     """
     _, _, _, _page_str = parse_album_filename(image_path.name)
     page_number = int(_page_str) if _page_str.isdigit() else 0
@@ -691,9 +693,20 @@ def _build_dc_source(album_title: str, image_path: Path, scan_filenames: list[st
     if page_number > 0:
         parts.append(f"Page {page_number:02d}")
     if scan_nums:
-        parts.append("Scans " + " ".join(f"S{n:02d}" for n in scan_nums))
+        parts.append("Scan(s) " + " ".join(f"S{n:02d}" for n in scan_nums))
     label = " ".join(parts)
     return "; ".join(p for p in [label] + source_filenames if p)
+
+
+def _dc_source_needs_refresh(image_path: Path, sidecar_state: dict[str, Any] | None) -> bool:
+    if not isinstance(sidecar_state, dict):
+        return False
+    source_text = str(sidecar_state.get("source_text") or "").strip()
+    album_title = str(sidecar_state.get("album_title") or "").strip()
+    if not album_title and " Page " in source_text:
+        album_title = source_text.split(" Page ", 1)[0].strip()
+    expected_source = _build_dc_source(album_title, image_path, _page_scan_filenames(image_path))
+    return source_text != expected_source
 
 
 def needs_processing(
@@ -2256,6 +2269,7 @@ def run(argv: list[str] | None = None) -> int:
         existing_sidecar_valid = has_valid_sidecar(image_path)
         existing_sidecar_current = has_current_sidecar(image_path) if existing_sidecar_valid else False
         existing_sidecar_state: dict | None = None
+        source_refresh_required = False
         if existing_sidecar_valid:
             existing_sidecar_state = read_ai_sidecar_state(sidecar_path)
 
@@ -2276,8 +2290,17 @@ def run(argv: list[str] | None = None) -> int:
                 ocr_engine=str(effective.get("ocr_engine", defaults["ocr_engine"])),
                 caption_engine=str(effective.get("caption_engine", defaults["caption_engine"])),
             )
+            source_refresh_required = _dc_source_needs_refresh(image_path, existing_sidecar_state)
+            if source_refresh_required:
+                reprocess_reasons.append("dc_source_stale")
 
-        if existing_sidecar_current and existing_sidecar_complete and not reprocess_required and not force_processing:
+        if (
+            existing_sidecar_current
+            and existing_sidecar_complete
+            and not reprocess_required
+            and not source_refresh_required
+            and not force_processing
+        ):
             skipped += 1
             if args.verbose and not stdout_only:
                 print(f"[{idx}/{len(files)}] skip  {image_path.name} (current xmp)")
@@ -2402,6 +2425,11 @@ def run(argv: list[str] | None = None) -> int:
             elif people_update_only and reason_text:
                 print(
                     f"  [{idx}/{len(files)}]  {image_path.name}  [update: {reason_text}]",
+                    flush=True,
+                )
+            elif source_refresh_required and reason_text:
+                print(
+                    f"  [{idx}/{len(files)}]  {image_path.name}  [refresh: {reason_text}]",
                     flush=True,
                 )
 

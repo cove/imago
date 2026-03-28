@@ -17,9 +17,7 @@ from vhs_pipeline.convert import convert_umatic_to_archive
 def main(argv=None):
     files = list(argv if argv is not None else sys.argv[1:])
     if not files:
-        print(
-            "Usage: python step_2_convert_umatic_prores_mov_to_archive.py video1.mov video2.mov ..."
-        )
+        print("Usage: python step_2_convert_umatic_prores_mov_to_archive.py video1.mov video2.mov ...")
         return 1
     convert_umatic_to_archive(files)
     return 0

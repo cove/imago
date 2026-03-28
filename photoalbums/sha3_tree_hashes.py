@@ -52,10 +52,7 @@ def album_dirs(base_dir: Path) -> List[Path]:
 
 
 def should_skip_file(file_path: Path) -> bool:
-    return (
-        file_path.name in {MANIFEST_NAME, TOP_MANIFEST_NAME, ".DS_Store"}
-        or file_path.is_symlink()
-    )
+    return file_path.name in {MANIFEST_NAME, TOP_MANIFEST_NAME, ".DS_Store"} or file_path.is_symlink()
 
 
 def build_album_entries(album_dir: Path) -> List[Tuple[str, Path]]:
@@ -159,14 +156,9 @@ def run(argv: list[str] | None = None) -> int:
     for album_dir in album_dirs(base_dir):
         album_entries = build_album_entries(album_dir)
         build_album_manifest(album_dir, album_entries)
-        top_entries.extend(
-            (digest, album_dir.relative_to(base_dir) / rel_path)
-            for digest, rel_path in album_entries
-        )
+        top_entries.extend((digest, album_dir.relative_to(base_dir) / rel_path) for digest, rel_path in album_entries)
 
-    build_top_manifest(
-        base_dir, sorted(top_entries, key=lambda item: item[1].as_posix())
-    )
+    build_top_manifest(base_dir, sorted(top_entries, key=lambda item: item[1].as_posix()))
     return 0
 
 

@@ -22,9 +22,7 @@ class DummyStitcher:
 
 class TestStitchOversizedPagesValidate(unittest.TestCase):
     def test_parse_album_filename(self):
-        collection, year, book, page = sopv.parse_album_filename(
-            "EU_1973_B02_P05_S01.tif"
-        )
+        collection, year, book, page = sopv.parse_album_filename("EU_1973_B02_P05_S01.tif")
         self.assertEqual((collection, year, book, page), ("EU", "1973", "02", "05"))
 
     def test_validate_stitch_with_stub(self):

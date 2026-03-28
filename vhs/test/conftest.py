@@ -13,9 +13,7 @@ if _VHS_ROOT not in sys.path:
 
 
 def pytest_configure(config):
-    config.addinivalue_line(
-        "markers", "playwright: mark test as requiring a live browser (Playwright)"
-    )
+    config.addinivalue_line("markers", "playwright: mark test as requiring a live browser (Playwright)")
 
 
 def _ensure_vhs_common_precedence() -> None:

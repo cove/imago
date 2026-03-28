@@ -8,9 +8,7 @@ from common import ARCHIVE_DIR, FFMPEG_BIN, METADATA_DIR, run
 PROXY_FPS = "30000/1001"
 
 
-def build_proxy_command(
-    src: Path, ffmetadata_path: Path, proxy: Path, show_frame_number: bool = False
-) -> list[str]:
+def build_proxy_command(src: Path, ffmetadata_path: Path, proxy: Path, show_frame_number: bool = False) -> list[str]:
     # Keep frame-index lockstep with archive while reducing proxy size.
     vf = "scale=iw/2:ih/2:flags=lanczos,setpts=N/(30000/1001*TB)"
     if show_frame_number:
@@ -97,11 +95,7 @@ def make_proxies(show_frame_number: bool = False):
             continue
 
         print(f"Processing: {src.name} {proxy.name}")
-        run(
-            build_proxy_command(
-                src, ffmetadata_path, proxy, show_frame_number=show_frame_number
-            )
-        )
+        run(build_proxy_command(src, ffmetadata_path, proxy, show_frame_number=show_frame_number))
         count += 1
 
     print(f"Created {count} proxies.")

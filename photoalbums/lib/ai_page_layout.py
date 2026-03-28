@@ -6,7 +6,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
 
-from ..naming import BASE_PAGE_NAME_RE, DERIVED_NAME_RE, SCAN_NAME_RE
+from ..naming import (
+    BASE_PAGE_NAME_RE,
+    DERIVED_NAME_RE,
+    SCAN_NAME_RE,
+    VIEW_PAGE_RE,
+    VIEW_RECON_RE,
+    VIEW_RECON_LEGACY_RE,
+    VIEW_STITCHED_LEGACY_RE,
+)
 
 PAGE_SPLIT_MODES = {"auto", "off"}
 
@@ -19,6 +27,8 @@ def _normalize_enum_str(value: object, valid: set[str], default: str) -> str:
         return text
     fallback = str(default or "").strip().lower()
     return fallback if fallback in valid else default
+
+
 _MIN_REGION_AREA_RATIO = 0.015
 _MAX_REGION_COUNT = 12
 _MAX_WHOLE_PAGE_RATIO = 0.92
@@ -78,7 +88,9 @@ def classify_image_kind(image_path: str | Path) -> str:
         return "detail"
     if suffix in {".tif", ".tiff"} and SCAN_NAME_RE.search(name):
         return "page_scan"
-    if "_stitched" in stem.lower():
+    if VIEW_RECON_RE.search(stem) or VIEW_RECON_LEGACY_RE.search(stem) or VIEW_STITCHED_LEGACY_RE.search(stem):
+        return "page_view"
+    if VIEW_PAGE_RE.search(stem):
         return "page_view"
     if in_view and BASE_PAGE_NAME_RE.fullmatch(stem):
         return "page_view"

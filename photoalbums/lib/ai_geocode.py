@@ -223,11 +223,7 @@ class NominatimGeocoder:
             return None
         address = top.get("address") or {}
         city = str(
-            address.get("city")
-            or address.get("town")
-            or address.get("village")
-            or address.get("municipality")
-            or ""
+            address.get("city") or address.get("town") or address.get("village") or address.get("municipality") or ""
         ).strip()
         result = GeocodeResult(
             query=clean_query,

@@ -43,6 +43,26 @@ generic prompt sections directly.
 - Network access for Nominatim geocoding
 - MCP server: `imago`
 
+---
+
+## File Naming Convention
+
+All album files follow the pattern `{Collection}_{Year}_B{book}_P{page}_{type}.{ext}`:
+
+| Type token | Role | Extension |
+|------------|------|-----------|
+| `_S##` | Archive raw scan | `.tif` |
+| `_V` | View page (single-scan JPEG) | `.jpg` |
+| `_VC` | View Composite (stitched from ≥2 scans) | `.jpg` |
+| `_D##_##` | Detail crop | `.jpg` |
+
+- Pages start at P01. P00 is not valid.
+- Every `_V` and `_VC` file derives from one or more `_S##.tif` archive scans.
+- XMP sidecars share the same stem as their companion image (`.xmp` extension).
+- `dc:source` always names the archive TIF scan files, never the view page filename.
+
+---
+
 The default pipeline runs three inference modes per image: Describe, People Count, and Location.
 The Describe response produces OCR text and caption together in one combined call, and the
 Describe response must always include verbatim visible text in `ocr_text`. Engine selection and
@@ -67,13 +87,13 @@ you whether there's real work to do and how large the job will be. Then use
 `photoalbums_manifest_query(album="...")` when you need concrete filenames, cover pages, or sidecar status.
 
 ### Ensure the cover page is processed first
-Before processing any album pages, the cover page (P00 or P01) must be processed so the album title is available to all subsequent pages. Always check:
+Before processing any album pages, the cover page (P01) must be processed so the album title is available to all subsequent pages. Always check:
 
 1. Call `photoalbums_album_status(album="...")` and inspect `cover_candidates` plus `cover_ready`.
 2. If the cover page has not been processed yet (state is `pending` or absent), run a targeted job first:
-   `photoalbums_ai_index(photo="<AlbumName>_B<book>_P00")` — wait for it to complete before continuing.
+   `photoalbums_ai_index(photo="<AlbumName>_B<book>_P01")` — wait for it to complete before continuing.
 3. If the cover was previously processed but predates this change (its `xmpDM:album` field may be empty or missing the year), reprocess it:
-   `photoalbums_ai_index(photo="<AlbumName>_B<book>_P00", reprocess_mode="all")`
+   `photoalbums_ai_index(photo="<AlbumName>_B<book>_P01", reprocess_mode="all")`
 4. Once the cover is done, proceed with the full album job — non-cover pages will pick up the title from the cover's XMP sidecar automatically.
 
 This step is especially important when processing a single page (e.g. `photo=...P25`) — always run the cover page first if the title is unknown.
@@ -164,10 +184,10 @@ clearly: which photo, what the symptom is, and what the likely cause is.
 ## Output Format – Describe Page (with photo regions)
 `{"ocr_text": "", "author_text": "", "scene_text": "", "location_name": "", "photo_regions": [{"x": 0.0, "y": 0.0, "w": 0.5, "h": 0.5, "author_text": "", "scene_text": ""}]}`
 
-- `ocr_text`: all clearly legible visible text on the page, copied verbatim with original capitalization, punctuation, spacing, and real line breaks.
-- `author_text`: typed album-authored annotation text that's typed on a typewriter on strips of white paper, otherwise empty string.
+- `ocr_text`: you're an OCR engine when processing this, look for all clearly legible visible text on the page, copied verbatim with original capitalization, punctuation, spacing, and real line breaks.
+- `author_text`: you're an OCR engine when processing this, typed album-authored annotation text that's typed on a typewriter on strips of white paper, otherwise empty string.
 - Recover the full `author_text` when the strip is visibly present but cropped in this scan and the supplied `ocr_text` contains the missing words.
-- `scene_text`: readable text visible inside photographs, otherwise empty string.
+- `scene_text`: you're an OCR engine when processing this, readable text visible inside photographs, otherwise empty string.
 - `author_text` and `scene_text` are classified subsets of `ocr_text`, not replacements for it. Fill them whenever the classification is supported by the page.
 - The example JSON uses empty strings as placeholders. Do not copy literal `...` from any example or schema text.
 - `location_name`: concise geocoding query for GPS lookup when supported strongly enough by visible evidence; otherwise empty string.

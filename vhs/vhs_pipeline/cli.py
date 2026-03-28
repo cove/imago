@@ -29,27 +29,19 @@ def build_parser():
     )
     subparsers = parser.add_subparsers(dest="group", required=True)
 
-    convert_parser = subparsers.add_parser(
-        "convert", help="Archive conversion commands"
-    )
+    convert_parser = subparsers.add_parser("convert", help="Archive conversion commands")
     convert_sub = convert_parser.add_subparsers(dest="convert_kind", required=True)
-    convert_avi = convert_sub.add_parser(
-        "avi", help="Convert AVI capture(s) to archive MKV"
-    )
+    convert_avi = convert_sub.add_parser("avi", help="Convert AVI capture(s) to archive MKV")
     convert_avi.add_argument("files", nargs="+", help="Input AVI file(s)")
     convert_umatic = convert_sub.add_parser(
         "umatic",
         help="Convert U-matic/ProRes source file(s) to archive MKV",
     )
-    convert_umatic.add_argument(
-        "files", nargs="+", help="Input MOV (or similar) file(s)"
-    )
+    convert_umatic.add_argument("files", nargs="+", help="Input MOV (or similar) file(s)")
 
     metadata_parser = subparsers.add_parser("metadata", help="Metadata commands")
     metadata_sub = metadata_parser.add_subparsers(dest="metadata_kind", required=True)
-    metadata_sub.add_parser(
-        "build", help="Generate archive metadata outputs and checksums"
-    )
+    metadata_sub.add_parser("build", help="Generate archive metadata outputs and checksums")
     metadata_migrate = metadata_sub.add_parser(
         "migrate-chapters",
         help="Generate metadata/*/chapters.tsv from chapters.ffmetadata files",
@@ -72,15 +64,9 @@ def build_parser():
         default=False,
         help="Burn frame number into proxy video (default: off)",
     )
-    tuner_parser = subparsers.add_parser(
-        "tuner", help="Launch the plain HTML VHS tuner web UI"
-    )
-    tuner_parser.add_argument(
-        "--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)"
-    )
-    tuner_parser.add_argument(
-        "--port", type=int, default=8092, help="Bind port (default: 8092)"
-    )
+    tuner_parser = subparsers.add_parser("tuner", help="Launch the plain HTML VHS tuner web UI")
+    tuner_parser.add_argument("--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)")
+    tuner_parser.add_argument("--port", type=int, default=8092, help="Bind port (default: 8092)")
     render_parser = subparsers.add_parser(
         "render",
         help="Run delivery render pipeline",
@@ -150,42 +136,26 @@ def build_parser():
         help="Output root directory for comparison videos.",
     )
 
-    verify_parser = subparsers.add_parser(
-        "verify", help="Checksum verification commands"
-    )
+    verify_parser = subparsers.add_parser("verify", help="Checksum verification commands")
     verify_sub = verify_parser.add_subparsers(dest="verify_kind", required=True)
-    verify_archive = verify_sub.add_parser(
-        "archive", help="Verify archive checksum manifest"
-    )
+    verify_archive = verify_sub.add_parser("archive", help="Verify archive checksum manifest")
     verify_drive = verify_sub.add_parser("drive", help="Verify drive checksum manifest")
     for verify_cmd in (verify_archive, verify_drive):
-        verify_cmd.add_argument(
-            "manifest", nargs="?", default=None, help="Path to manifest file."
-        )
-        verify_cmd.add_argument(
-            "--blake3", "--b3", action="store_true", help="Force BLAKE3 verify mode."
-        )
-        verify_cmd.add_argument(
-            "--sha3", "--sha3-256", action="store_true", help="Force SHA3 verify mode."
-        )
+        verify_cmd.add_argument("manifest", nargs="?", default=None, help="Path to manifest file.")
+        verify_cmd.add_argument("--blake3", "--b3", action="store_true", help="Force BLAKE3 verify mode.")
+        verify_cmd.add_argument("--sha3", "--sha3-256", action="store_true", help="Force SHA3 verify mode.")
 
-    checksum_parser = subparsers.add_parser(
-        "checksum", help="Checksum generation commands"
-    )
+    checksum_parser = subparsers.add_parser("checksum", help="Checksum generation commands")
     checksum_sub = checksum_parser.add_subparsers(dest="checksum_kind", required=True)
     checksum_sub.add_parser("drive", help="Generate drive checksum manifest")
 
-    people_parser = subparsers.add_parser(
-        "people", help="People subtitle helper commands"
-    )
+    people_parser = subparsers.add_parser("people", help="People subtitle helper commands")
     people_sub = people_parser.add_subparsers(dest="people_kind", required=True)
     people_prefill = people_sub.add_parser(
         "prefill",
         help="Use cast database matches to prefill chapter people subtitle ranges",
     )
-    people_prefill.add_argument(
-        "--archive", required=True, help="Archive name (metadata/<archive>)"
-    )
+    people_prefill.add_argument("--archive", required=True, help="Archive name (metadata/<archive>)")
     people_prefill.add_argument("--chapter", required=True, help="Exact chapter title")
     people_prefill.add_argument(
         "--cast-store",
@@ -238,9 +208,7 @@ def main(argv=None):
         if args.metadata_kind == "build":
             return commands.run_generate_archive_metadata()
         if args.metadata_kind == "migrate-chapters":
-            return commands.run_convert_ffmetadata_to_chapters_tsv(
-                overwrite=args.overwrite
-            )
+            return commands.run_convert_ffmetadata_to_chapters_tsv(overwrite=args.overwrite)
         if args.metadata_kind == "embed":
             return commands.run_embed_metadata(args.files)
 

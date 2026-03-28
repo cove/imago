@@ -39,15 +39,11 @@ def _resolve_manifest(manifest, algo, primary_file, legacy_file):
 
 
 def resolve_archive_manifest(manifest, algo):
-    return _resolve_manifest(
-        manifest, algo, ARCHIVE_CHECKSUM_FILE, LEGACY_ARCHIVE_CHECKSUM_FILE
-    )
+    return _resolve_manifest(manifest, algo, ARCHIVE_CHECKSUM_FILE, LEGACY_ARCHIVE_CHECKSUM_FILE)
 
 
 def resolve_drive_manifest(manifest, algo):
-    return _resolve_manifest(
-        manifest, algo, DRIVE_CHECKSUM_FILE, LEGACY_DRIVE_CHECKSUM_FILE
-    )
+    return _resolve_manifest(manifest, algo, DRIVE_CHECKSUM_FILE, LEGACY_DRIVE_CHECKSUM_FILE)
 
 
 def verify_archive(argv=None):

@@ -117,9 +117,7 @@ def _lint_archive(
             first_nonblank = text
             break
     if first_nonblank != ";FFMETADATA1":
-        findings.append(
-            Finding("WARN", archive, "First non-empty line is not ';FFMETADATA1'")
-        )
+        findings.append(Finding("WARN", archive, "First non-empty line is not ';FFMETADATA1'"))
 
     if require_render_settings and not render_settings_path.exists():
         findings.append(Finding("WARN", archive, "Missing render_settings.json"))
@@ -150,9 +148,7 @@ def _lint_archive(
         findings.append(Finding("WARN", archive, "Missing global author="))
 
     titles = [str(ch.get("title", "")).strip() for ch in chapters]
-    duplicates = [
-        title for title, count in Counter(titles).items() if title and count > 1
-    ]
+    duplicates = [title for title, count in Counter(titles).items() if title and count > 1]
     if duplicates:
         findings.append(
             Finding(
@@ -186,38 +182,26 @@ def _lint_archive(
             start_raw = int(ch.get("start_raw"))
             end_raw = int(ch.get("end_raw"))
         except Exception:
-            findings.append(
-                Finding("ERROR", archive, f"{label}: non-integer START/END")
-            )
+            findings.append(Finding("ERROR", archive, f"{label}: non-integer START/END"))
             continue
 
         if end_raw < start_raw:
-            findings.append(
-                Finding(
-                    "ERROR", archive, f"{label}: END ({end_raw}) < START ({start_raw})"
-                )
-            )
+            findings.append(Finding("ERROR", archive, f"{label}: END ({end_raw}) < START ({start_raw})"))
 
         if "timebase" not in ch:
-            findings.append(
-                Finding("WARN", archive, f"{label}: missing TIMEBASE (defaults to 1/1)")
-            )
+            findings.append(Finding("WARN", archive, f"{label}: missing TIMEBASE (defaults to 1/1)"))
             tb = Fraction(1, 1)
         else:
             try:
                 tb = _parse_fraction(str(ch.get("timebase")))
             except Exception as exc:
-                findings.append(
-                    Finding("ERROR", archive, f"{label}: invalid TIMEBASE ({exc})")
-                )
+                findings.append(Finding("ERROR", archive, f"{label}: invalid TIMEBASE ({exc})"))
                 continue
 
         tb_text = f"{tb.numerator}/{tb.denominator}"
         summary["timebases"].add(tb_text)
         if tb != target_timebase:
-            findings.append(
-                Finding("INFO", archive, f"{label}: legacy TIMEBASE={tb_text}")
-            )
+            findings.append(Finding("INFO", archive, f"{label}: legacy TIMEBASE={tb_text}"))
 
         unknown_keys: list[str] = []
         for key in ch.keys():
@@ -248,9 +232,7 @@ def _lint_archive(
                 continue
             unknown_keys.append(key_s)
         for key_s in sorted(set(unknown_keys)):
-            findings.append(
-                Finding("WARN", archive, f"{label}: unknown chapter key '{key_s}'")
-            )
+            findings.append(Finding("WARN", archive, f"{label}: unknown chapter key '{key_s}'"))
 
         start_frame, end_frame = chapter_frame_bounds(ch, fps_num=30000, fps_den=1001)
         if previous is not None:
@@ -270,25 +252,13 @@ def _lint_archive(
         previous = (start_frame, end_frame, label)
 
         if simulate_conversion:
-            converted_start = _round_fraction_nearest_int(
-                Fraction(start_raw) * tb / target_timebase
-            )
-            converted_end = _round_fraction_nearest_int(
-                Fraction(end_raw) * tb / target_timebase
-            )
+            converted_start = _round_fraction_nearest_int(Fraction(start_raw) * tb / target_timebase)
+            converted_end = _round_fraction_nearest_int(Fraction(end_raw) * tb / target_timebase)
 
-            original_start_frame = _round_fraction_nearest_int(
-                Fraction(start_raw) * tb * FPS
-            )
-            original_end_frame = _round_fraction_nearest_int(
-                Fraction(end_raw) * tb * FPS
-            )
-            converted_start_frame = _round_fraction_nearest_int(
-                Fraction(converted_start) * target_timebase * FPS
-            )
-            converted_end_frame = _round_fraction_nearest_int(
-                Fraction(converted_end) * target_timebase * FPS
-            )
+            original_start_frame = _round_fraction_nearest_int(Fraction(start_raw) * tb * FPS)
+            original_end_frame = _round_fraction_nearest_int(Fraction(end_raw) * tb * FPS)
+            converted_start_frame = _round_fraction_nearest_int(Fraction(converted_start) * target_timebase * FPS)
+            converted_end_frame = _round_fraction_nearest_int(Fraction(converted_end) * target_timebase * FPS)
 
             if (converted_start_frame, converted_end_frame) != (
                 original_start_frame,
@@ -307,12 +277,8 @@ def _lint_archive(
                     )
                 )
 
-            start_drift = abs(
-                Fraction(converted_start) * target_timebase - Fraction(start_raw) * tb
-            )
-            end_drift = abs(
-                Fraction(converted_end) * target_timebase - Fraction(end_raw) * tb
-            )
+            start_drift = abs(Fraction(converted_start) * target_timebase - Fraction(start_raw) * tb)
+            end_drift = abs(Fraction(converted_end) * target_timebase - Fraction(end_raw) * tb)
             max_sec_drift = max(max_sec_drift, start_drift, end_drift)
 
     if simulate_conversion:
@@ -410,12 +376,7 @@ def main() -> int:
         )
 
     levels = Counter(f.level for f in all_findings)
-    print(
-        "Findings: "
-        f"errors={levels.get('ERROR', 0)}, "
-        f"warnings={levels.get('WARN', 0)}, "
-        f"info={levels.get('INFO', 0)}"
-    )
+    print(f"Findings: errors={levels.get('ERROR', 0)}, warnings={levels.get('WARN', 0)}, info={levels.get('INFO', 0)}")
 
     for f in all_findings:
         if f.level == "INFO" and not args.show_info:

@@ -26,9 +26,7 @@ class TestNaming(unittest.TestCase):
         self.assertEqual(naming.format_book_display("2"), "02")
 
     def test_format_book_display_unknown_tokens(self):
-        self.assertEqual(
-            naming.format_book_display(naming.ELLIPSIS_BOOK), naming.ELLIPSIS_BOOK
-        )
+        self.assertEqual(naming.format_book_display(naming.ELLIPSIS_BOOK), naming.ELLIPSIS_BOOK)
         self.assertEqual(
             naming.format_book_display(naming.LEGACY_ELLIPSIS_BOOK),
             naming.ELLIPSIS_BOOK,

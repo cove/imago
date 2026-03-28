@@ -54,9 +54,7 @@ def compute_simple_embedding(face_bgr: np.ndarray, out_size: int = 32) -> list[f
         return []
     gray = cv2.cvtColor(face_bgr, cv2.COLOR_BGR2GRAY)
     gray = cv2.equalizeHist(gray)
-    resized = cv2.resize(
-        gray, (int(out_size), int(out_size)), interpolation=cv2.INTER_AREA
-    )
+    resized = cv2.resize(gray, (int(out_size), int(out_size)), interpolation=cv2.INTER_AREA)
     vec = resized.astype(np.float32).reshape(-1) / 255.0
     norm = float(np.linalg.norm(vec))
     if norm > 1e-12:
@@ -205,14 +203,10 @@ class FaceIngestor:
             "can_ingest": bool(primary_available or not self.require_primary_model),
             "fallback_active": bool(not primary_available),
             "active_detector_model": (
-                CURRENT_FACE_DETECTOR_MODEL
-                if primary_available
-                else FALLBACK_FACE_DETECTOR_MODEL
+                CURRENT_FACE_DETECTOR_MODEL if primary_available else FALLBACK_FACE_DETECTOR_MODEL
             ),
             "active_embedding_model": (
-                CURRENT_FACE_EMBEDDING_MODEL
-                if primary_available
-                else FALLBACK_FACE_EMBEDDING_MODEL
+                CURRENT_FACE_EMBEDDING_MODEL if primary_available else FALLBACK_FACE_EMBEDDING_MODEL
             ),
             "load_error": load_error,
             "message": message,
@@ -239,9 +233,7 @@ class FaceIngestor:
         aspect = float(w) / float(max(1, h))
         return 0.50 <= aspect <= 2.0
 
-    def _detect(
-        self, image_bgr: np.ndarray, *, min_size: int = 40
-    ) -> list[tuple[int, int, int, int]]:
+    def _detect(self, image_bgr: np.ndarray, *, min_size: int = 40) -> list[tuple[int, int, int, int]]:
         if image_bgr is None or image_bgr.size == 0:
             return []
         h, w = image_bgr.shape[:2]
@@ -258,9 +250,7 @@ class FaceIngestor:
                 if score < self._insightface_score_threshold:
                     continue
                 try:
-                    bbox = np.asarray(getattr(face, "bbox"), dtype=np.float32).reshape(
-                        -1
-                    )
+                    bbox = np.asarray(getattr(face, "bbox"), dtype=np.float32).reshape(-1)
                 except Exception:
                     continue
                 if bbox.size < 4:
@@ -295,11 +285,7 @@ class FaceIngestor:
         rows = np.asarray(raw)
         if rows.ndim == 1:
             rows = rows.reshape(1, -1)
-        return [
-            (int(r[0]), int(r[1]), int(r[2]), int(r[3]))
-            for r in rows
-            if int(r[2]) > 0 and int(r[3]) > 0
-        ]
+        return [(int(r[0]), int(r[1]), int(r[2]), int(r[3])) for r in rows if int(r[2]) > 0 and int(r[3]) > 0]
 
     def _save_crop(self, face_id: str, crop_bgr: np.ndarray) -> str:
         crops_dir = self.store.root_dir / "crops"
@@ -325,9 +311,7 @@ class FaceIngestor:
         if not path.exists():
             raise FileNotFoundError(f"Photo file does not exist: {path}")
         if path.is_dir():
-            raise IsADirectoryError(
-                f"Photo path is a directory. Provide an image file path instead: {path}"
-            )
+            raise IsADirectoryError(f"Photo path is a directory. Provide an image file path instead: {path}")
         if not path.is_file():
             raise FileNotFoundError(f"Photo path is not a regular file: {path}")
         image = cv2.imread(str(path))
@@ -352,14 +336,10 @@ class FaceIngestor:
             embedding = arcface_embedding or compute_simple_embedding(crop)
             quality = estimate_face_quality(crop)
             detector_model = (
-                CURRENT_FACE_DETECTOR_MODEL
-                if self._insightface is not None
-                else FALLBACK_FACE_DETECTOR_MODEL
+                CURRENT_FACE_DETECTOR_MODEL if self._insightface is not None else FALLBACK_FACE_DETECTOR_MODEL
             )
             embedding_model = (
-                CURRENT_FACE_EMBEDDING_MODEL
-                if arcface_embedding is not None
-                else FALLBACK_FACE_EMBEDDING_MODEL
+                CURRENT_FACE_EMBEDDING_MODEL if arcface_embedding is not None else FALLBACK_FACE_EMBEDDING_MODEL
             )
             face = self.store.add_face(
                 embedding=embedding,
@@ -394,9 +374,7 @@ class FaceIngestor:
         if not path.exists():
             raise FileNotFoundError(f"Video file does not exist: {path}")
         if path.is_dir():
-            raise IsADirectoryError(
-                f"Video path is a directory. Provide a video file path instead: {path}"
-            )
+            raise IsADirectoryError(f"Video path is a directory. Provide a video file path instead: {path}")
         if not path.is_file():
             raise FileNotFoundError(f"Video path is not a regular file: {path}")
         cap = cv2.VideoCapture(str(path))
@@ -440,14 +418,10 @@ class FaceIngestor:
                     quality = estimate_face_quality(crop)
                     timestamp = _timestamp_from_seconds(seconds)
                     detector_model = (
-                        CURRENT_FACE_DETECTOR_MODEL
-                        if self._insightface is not None
-                        else FALLBACK_FACE_DETECTOR_MODEL
+                        CURRENT_FACE_DETECTOR_MODEL if self._insightface is not None else FALLBACK_FACE_DETECTOR_MODEL
                     )
                     embedding_model = (
-                        CURRENT_FACE_EMBEDDING_MODEL
-                        if arcface_embedding is not None
-                        else FALLBACK_FACE_EMBEDDING_MODEL
+                        CURRENT_FACE_EMBEDDING_MODEL if arcface_embedding is not None else FALLBACK_FACE_EMBEDDING_MODEL
                     )
                     face = self.store.add_face(
                         embedding=embedding,
@@ -465,9 +439,7 @@ class FaceIngestor:
                         },
                     )
                     crop_rel = self._save_crop(str(face.get("face_id")), crop)
-                    face = self.store.update_face(
-                        str(face.get("face_id")), crop_path=crop_rel
-                    )
+                    face = self.store.update_face(str(face.get("face_id")), crop_path=crop_rel)
                     created.append(face)
                 if max_faces > 0 and len(created) >= int(max_faces):
                     break

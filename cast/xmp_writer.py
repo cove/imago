@@ -128,9 +128,7 @@ def merge_persons_xmp(
             return sidecar_path
 
     # No existing sidecar (or parse failure) — write a minimal file
-    _write_minimal(
-        sidecar_path, names, creator_tool=creator_tool, description=description
-    )
+    _write_minimal(sidecar_path, names, creator_tool=creator_tool, description=description)
     return sidecar_path
 
 

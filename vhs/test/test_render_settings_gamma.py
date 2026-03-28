@@ -42,9 +42,7 @@ def test_gamma_profile_loads_archive_ranges_clipped_to_chapter() -> None:
             ],
             default_gamma=1.0,
         )
-        updated_profile = get_gamma_profile_for_chapter(
-            archive, ch_start=120, ch_end=230
-        )
+        updated_profile = get_gamma_profile_for_chapter(archive, ch_start=120, ch_end=230)
         assert updated_profile["source"] == "archive"
         assert updated_profile["ranges"] == [
             {"start_frame": 150, "end_frame": 170, "gamma": 1.8},

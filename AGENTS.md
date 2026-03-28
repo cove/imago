@@ -32,6 +32,27 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 - Supporting skill documentation may live next to a skill under `references/` or as additional markdown files in `skills/`.
 - If code loads prompt sections from a `SKILL.md`, update the skill file rather than adding brittle response post-processing in Python.
 
+## Photo Album File Naming Convention
+
+All photo album files use a structured naming scheme:
+
+```
+{Collection}_{Year}_B{book}_P{page}_{type}.{ext}
+```
+
+| Type token | Role | Extension |
+|------------|------|-----------|
+| `_S##` | Archive raw scan | `.tif` |
+| `_V` | View page (single-scan, lossless JPEG) | `.jpg` |
+| `_VC` | View Composite (stitched from ≥2 scans) | `.jpg` |
+| `_D##_##` | Detail crop | `.jpg` |
+
+Every view page (`_V` or `_VC`) is derived from one or more archive TIF scans. The archive scans are the source of truth; view pages are derived outputs. `dc:source` always references the archive TIF scan filenames, never the view page filename.
+
+Pages are numbered starting at P01. P00 is not a valid page number.
+
+XMP sidecars share the same stem as their companion image file (`.xmp` extension).
+
 ## Data and Schema Migrations
 
 - Treat `metadata/*/render_settings.json` and related metadata as migratable assets.

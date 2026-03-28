@@ -231,18 +231,16 @@ def test_sim_on_canvas_uses_source_frame_image(freeze_page):
     """With sim on, the fallback image loader must use the SOURCE frame's image data."""
     freeze_page.evaluate("() => { state.simulateFreezeFrame = true; }")
     src = _render_and_capture_image_src(freeze_page, 2)  # fid 12 (bad), source = fid 10
-    assert (
-        src == "data:image/jpeg;base64,SOURCEFRAME"
-    ), f"Canvas should load source frame image, got: {src!r}"
+    assert src == "data:image/jpeg;base64,SOURCEFRAME", f"Canvas should load source frame image, got: {src!r}"
 
 
 def test_sim_off_canvas_uses_bad_frame_image(freeze_page):
     """With sim off, the fallback image loader must use the BAD frame's own image data."""
     freeze_page.evaluate("() => { state.simulateFreezeFrame = false; }")
     src = _render_and_capture_image_src(freeze_page, 2)  # fid 12 (bad)
-    assert (
-        src == "data:image/jpeg;base64,BADFRAME"
-    ), f"Canvas should load bad frame's own image when sim is off, got: {src!r}"
+    assert src == "data:image/jpeg;base64,BADFRAME", (
+        f"Canvas should load bad frame's own image when sim is off, got: {src!r}"
+    )
 
 
 # ── canvas sprite (contact-sheet) path tests ──────────────────────────────────
@@ -255,13 +253,9 @@ def test_sim_on_sprite_uses_source_frame_coordinates(freeze_page):
     """
     freeze_page.evaluate(_SETUP_SPRITE_STATE_JS)
     freeze_page.evaluate("() => { state.simulateFreezeFrame = true; }")
-    draw = _render_and_capture_drawimage(
-        freeze_page, 2
-    )  # fid 12 (bad), source = fid 10
+    draw = _render_and_capture_drawimage(freeze_page, 2)  # fid 12 (bad), source = fid 10
     assert draw is not None, "drawImage was not called — sprite path did not fire"
-    assert (
-        draw["sx"] == _SPRITE_SX_SOURCE
-    ), f"Expected sx={_SPRITE_SX_SOURCE} (source frame col 0), got sx={draw['sx']}"
+    assert draw["sx"] == _SPRITE_SX_SOURCE, f"Expected sx={_SPRITE_SX_SOURCE} (source frame col 0), got sx={draw['sx']}"
     assert draw["sy"] == _SPRITE_SY
 
 
@@ -274,7 +268,5 @@ def test_sim_off_sprite_uses_bad_frame_coordinates(freeze_page):
     freeze_page.evaluate("() => { state.simulateFreezeFrame = false; }")
     draw = _render_and_capture_drawimage(freeze_page, 2)  # fid 12 (bad)
     assert draw is not None, "drawImage was not called — sprite path did not fire"
-    assert (
-        draw["sx"] == _SPRITE_SX_BAD
-    ), f"Expected sx={_SPRITE_SX_BAD} (bad frame col 2), got sx={draw['sx']}"
+    assert draw["sx"] == _SPRITE_SX_BAD, f"Expected sx={_SPRITE_SX_BAD} (bad frame col 2), got sx={draw['sx']}"
     assert draw["sy"] == _SPRITE_SY

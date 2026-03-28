@@ -24,9 +24,7 @@ class TestCreateMetadataTSV(unittest.TestCase):
             (archive / "c.txt").touch()
             (view / "d.tif").touch()
 
-            files = create_metadata_tsv.find_files(
-                base, create_metadata_tsv.FILE_EXTENSIONS
-            )
+            files = create_metadata_tsv.find_files(base, create_metadata_tsv.FILE_EXTENSIONS)
             names = sorted(p.name for p in files)
 
             self.assertEqual(names, ["a.tif", "b.jpg"])
@@ -38,13 +36,14 @@ class TestCreateMetadataTSV(unittest.TestCase):
             file_path.parent.mkdir()
             file_path.touch()
 
-            with mock.patch("create_metadata_tsv.PHOTO_ALBUMS_DIR", base), mock.patch(
-                "create_metadata_tsv.extract_metadata",
-                return_value={"XMP-dc:Description": "desc"},
+            with (
+                mock.patch("create_metadata_tsv.PHOTO_ALBUMS_DIR", base),
+                mock.patch(
+                    "create_metadata_tsv.extract_metadata",
+                    return_value={"XMP-dc:Description": "desc"},
+                ),
             ):
-                results = create_metadata_tsv.collect_all_metadata(
-                    [file_path], {}, {}, progress=False
-                )
+                results = create_metadata_tsv.collect_all_metadata([file_path], {}, {}, progress=False)
 
             self.assertEqual(len(results), 1)
             expected = str(Path("Photo Albums") / "sub" / "a.tif")
@@ -60,12 +59,15 @@ class TestCreateMetadataTSV(unittest.TestCase):
 
             scan_totals = {archive: {33: 2}}
 
-            with mock.patch("create_metadata_tsv.PHOTO_ALBUMS_DIR", base), mock.patch(
-                "create_metadata_tsv.extract_metadata",
-                return_value={
-                    "XMP-dc:Description": "old",
-                    "XMP-dc:Creator": "Someone Else",
-                },
+            with (
+                mock.patch("create_metadata_tsv.PHOTO_ALBUMS_DIR", base),
+                mock.patch(
+                    "create_metadata_tsv.extract_metadata",
+                    return_value={
+                        "XMP-dc:Description": "old",
+                        "XMP-dc:Creator": "Someone Else",
+                    },
+                ),
             ):
                 results = create_metadata_tsv.collect_all_metadata(
                     [file_path],
@@ -90,13 +92,14 @@ class TestCreateMetadataTSV(unittest.TestCase):
             file_path = archive / "random_name.tif"
             file_path.touch()
 
-            with mock.patch("create_metadata_tsv.PHOTO_ALBUMS_DIR", base), mock.patch(
-                "create_metadata_tsv.extract_metadata",
-                return_value={"XMP-dc:Description": "old"},
+            with (
+                mock.patch("create_metadata_tsv.PHOTO_ALBUMS_DIR", base),
+                mock.patch(
+                    "create_metadata_tsv.extract_metadata",
+                    return_value={"XMP-dc:Description": "old"},
+                ),
             ):
-                results = create_metadata_tsv.collect_all_metadata(
-                    [file_path], {}, {}, progress=False
-                )
+                results = create_metadata_tsv.collect_all_metadata([file_path], {}, {}, progress=False)
 
             self.assertEqual(len(results), 1)
             self.assertEqual(results[0]["XMP-dc:Description"], "")
@@ -112,12 +115,15 @@ class TestCreateMetadataTSV(unittest.TestCase):
 
             derived_totals = {archive: {33: {"01": 3}}}
 
-            with mock.patch("create_metadata_tsv.PHOTO_ALBUMS_DIR", base), mock.patch(
-                "create_metadata_tsv.extract_metadata",
-                return_value={
-                    "XMP-dc:Description": "old",
-                    "XMP-dc:Creator": "Someone Else",
-                },
+            with (
+                mock.patch("create_metadata_tsv.PHOTO_ALBUMS_DIR", base),
+                mock.patch(
+                    "create_metadata_tsv.extract_metadata",
+                    return_value={
+                        "XMP-dc:Description": "old",
+                        "XMP-dc:Creator": "Someone Else",
+                    },
+                ),
             ):
                 results = create_metadata_tsv.collect_all_metadata(
                     [file_path],
@@ -144,9 +150,12 @@ class TestCreateMetadataTSV(unittest.TestCase):
 
             scan_totals = {archive: {1: 1}}
 
-            with mock.patch("create_metadata_tsv.PHOTO_ALBUMS_DIR", base), mock.patch(
-                "create_metadata_tsv.extract_metadata",
-                return_value={"IPTC:Keywords": ["Existing"]},
+            with (
+                mock.patch("create_metadata_tsv.PHOTO_ALBUMS_DIR", base),
+                mock.patch(
+                    "create_metadata_tsv.extract_metadata",
+                    return_value={"IPTC:Keywords": ["Existing"]},
+                ),
             ):
                 results = create_metadata_tsv.collect_all_metadata(
                     [file_path],
@@ -167,9 +176,12 @@ class TestCreateMetadataTSV(unittest.TestCase):
 
             scan_totals = {archive: {1: 1}}
 
-            with mock.patch("create_metadata_tsv.PHOTO_ALBUMS_DIR", base), mock.patch(
-                "create_metadata_tsv.extract_metadata",
-                return_value={"IPTC:Keywords": ["Existing"]},
+            with (
+                mock.patch("create_metadata_tsv.PHOTO_ALBUMS_DIR", base),
+                mock.patch(
+                    "create_metadata_tsv.extract_metadata",
+                    return_value={"IPTC:Keywords": ["Existing"]},
+                ),
             ):
                 results = create_metadata_tsv.collect_all_metadata(
                     [file_path],

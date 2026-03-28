@@ -92,9 +92,7 @@ def _parse_http_date(value: str) -> Optional[float]:
     return dt.timestamp()
 
 
-def _resolve_item_path(
-    item_id: str, allow_roots: Iterable[Path]
-) -> Tuple[Optional[Path], str]:
+def _resolve_item_path(item_id: str, allow_roots: Iterable[Path]) -> Tuple[Optional[Path], str]:
     try:
         item_map = _load_gallery_item_paths(GALLERY_PATH)
     except FileNotFoundError:
@@ -172,9 +170,7 @@ class ViewerHandler(SimpleHTTPRequestHandler):
             self.send_error(HTTPStatus.BAD_REQUEST, "Missing media id.")
             return
 
-        target, err = _resolve_item_path(
-            item_id, getattr(self.server, "allow_roots", [])
-        )
+        target, err = _resolve_item_path(item_id, getattr(self.server, "allow_roots", []))
         if target is None:
             self.send_error(HTTPStatus.NOT_FOUND, err)
             return
@@ -280,15 +276,9 @@ class ViewerHandler(SimpleHTTPRequestHandler):
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Local static server for viewer with local media paths."
-    )
-    parser.add_argument(
-        "--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)"
-    )
-    parser.add_argument(
-        "--port", default=8095, type=int, help="Bind port (default: 8095)"
-    )
+    parser = argparse.ArgumentParser(description="Local static server for viewer with local media paths.")
+    parser.add_argument("--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)")
+    parser.add_argument("--port", default=8095, type=int, help="Bind port (default: 8095)")
     parser.add_argument(
         "--allow-root",
         action="append",
@@ -303,10 +293,7 @@ def main() -> None:
     server = ThreadingHTTPServer((args.host, args.port), ViewerHandler)
     server.allow_roots = [Path(p).expanduser().resolve() for p in args.allow_root]
 
-    roots = (
-        ", ".join(str(p) for p in server.allow_roots)
-        or "(none; all absolute paths allowed)"
-    )
+    roots = ", ".join(str(p) for p in server.allow_roots) or "(none; all absolute paths allowed)"
     print(f"[viewer] serving {VIEWER_DIR}")
     print(f"[viewer] url: http://{args.host}:{args.port}")
     print(f"[viewer] allow roots: {roots}")

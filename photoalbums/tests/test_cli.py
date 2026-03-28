@@ -45,9 +45,7 @@ class TestPhotoalbumsCLI(unittest.TestCase):
         fake = mock.Mock()
         fake.run_ai_index.return_value = 0
 
-        with mock.patch("cli._import_commands", return_value=fake), mock.patch(
-            "builtins.print"
-        ) as print_mock:
+        with mock.patch("cli._import_commands", return_value=fake), mock.patch("builtins.print") as print_mock:
             rc = cli.main(["ai", "steps"])
 
         self.assertEqual(rc, 0)
@@ -72,9 +70,7 @@ class TestPhotoalbumsCLI(unittest.TestCase):
             rc = cli.main(["checksum", "tree", "Photo Albums", "--verify"])
 
         self.assertEqual(rc, 0)
-        fake.run_checksum_tree.assert_called_once_with(
-            base_dir="Photo Albums", verify=True
-        )
+        fake.run_checksum_tree.assert_called_once_with(base_dir="Photo Albums", verify=True)
 
 
 if __name__ == "__main__":
