@@ -59,19 +59,29 @@
     {
       "label": "MCP HTTP Server (minimized window)",
       "type": "shell",
-      "command": "start",
+      "command": "osascript",
       "args": [
-        "/MIN",
-        "MCP HTTP Server",
-        "cmd.exe",
-        "/K",
-        "just mcp-http"
+        "-e",
+        "tell application \"Terminal\" to do script \"cd '${workspaceFolder}' && just mcp-http\""
       ],
       "options": {
-        "cwd": "${workspaceFolder}",
-        "shell": {
-          "executable": "cmd.exe",
-          "args": ["/C"]
+        "cwd": "${workspaceFolder}"
+      },
+      "windows": {
+        "command": "start",
+        "args": [
+          "/MIN",
+          "MCP HTTP Server",
+          "cmd.exe",
+          "/K",
+          "just mcp-http"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "executable": "cmd.exe",
+            "args": ["/C"]
+          }
         }
       },
       "presentation": {
@@ -90,13 +100,17 @@
     {
       "label": "Stop MCP HTTP Server",
       "type": "shell",
-      "command": "taskkill",
-      "args": [
-        "/F",
-        "/FI",
-        "WINDOWTITLE eq MCP HTTP Server*",
-        "/T"
-      ],
+      "command": "pkill",
+      "args": ["-f", "just mcp-http"],
+      "windows": {
+        "command": "taskkill",
+        "args": [
+          "/F",
+          "/FI",
+          "WINDOWTITLE eq MCP HTTP Server*",
+          "/T"
+        ]
+      },
       "presentation": {
         "reveal": "silent",
         "panel": "shared",
