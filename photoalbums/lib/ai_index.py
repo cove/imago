@@ -652,18 +652,18 @@ def _page_scan_filenames(image_path: Path) -> list[str]:
     """Return sorted list of scan TIF basenames associated with image_path's page.
 
     For scan TIFs (_S##): returns all sibling TIFs sharing the same page key.
-    For derived images (_D##): finds archive TIF scans for the same page.
+    For derived or stitched/base page images: finds archive TIF scans for the same page.
     Returns [] if no scans are found.
     """
     if SCAN_NAME_RE.search(image_path.name):
         return [p.name for p in sorted(_scan_group_paths(image_path))]
-    m = DERIVED_NAME_RE.search(image_path.name)
-    if not m:
-        return []
-    page_int = int(m.group("page"))
     archive_dir = find_archive_dir_for_image(image_path)
     if archive_dir is None or not archive_dir.is_dir():
         return []
+    _, _, _, page_str = parse_album_filename(image_path.name)
+    if not page_str.isdigit():
+        return []
+    page_int = int(page_str)
     scans: list[Path] = sorted(
         p
         for p in archive_dir.iterdir()

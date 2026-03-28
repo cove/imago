@@ -128,6 +128,179 @@ class TestAIIndex(unittest.TestCase):
             ("Eastern Europe Spain and Morocco 1988 Page 34 Scans S01; EasternEuropeSpainMorocco_1988_B00_P34_S01.tif"),
         )
 
+    def test_page_scan_filenames_uses_archive_scans_for_stitched_view_page(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            archive = base / "Egypt_1975_B00_Archive"
+            view = base / "Egypt_1975_B00_View"
+            archive.mkdir()
+            view.mkdir()
+            image = view / "Egypt_1975_B00_P39_stitched.jpg"
+            image.write_bytes(b"x")
+            (archive / "Egypt_1975_B00_P39_S01.tif").write_bytes(b"a")
+            (archive / "Egypt_1975_B00_P39_S02.tif").write_bytes(b"b")
+
+            self.assertEqual(
+                ai_index._page_scan_filenames(image),
+                ["Egypt_1975_B00_P39_S01.tif", "Egypt_1975_B00_P39_S02.tif"],
+            )
+
+    def test_page_scan_filenames_uses_archive_scan_for_title_view_page(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            archive = base / "Egypt_1975_B00_Archive"
+            view = base / "Egypt_1975_B00_View"
+            archive.mkdir()
+            view.mkdir()
+            image = view / "Egypt_1975_B00_P01.jpg"
+            image.write_bytes(b"x")
+            (archive / "Egypt_1975_B00_P01_S01.tif").write_bytes(b"a")
+
+            self.assertEqual(
+                ai_index._page_scan_filenames(image),
+                ["Egypt_1975_B00_P01_S01.tif"],
+            )
+
+    def test_page_scan_filenames_uses_archive_scans_for_derived_view_page(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            archive = base / "Egypt_1975_B00_Archive"
+            view = base / "Egypt_1975_B00_View"
+            archive.mkdir()
+            view.mkdir()
+            image = view / "Egypt_1975_B00_P39_D01_01.jpg"
+            image.write_bytes(b"x")
+            (archive / "Egypt_1975_B00_P39_S01.tif").write_bytes(b"a")
+            (archive / "Egypt_1975_B00_P39_S02.tif").write_bytes(b"b")
+
+            self.assertEqual(
+                ai_index._page_scan_filenames(image),
+                ["Egypt_1975_B00_P39_S01.tif", "Egypt_1975_B00_P39_S02.tif"],
+            )
+
+    def test_page_scan_filenames_handles_crowded_archive_and_view_derived_page(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            archive = base / "Family_1907-1946_B01_Archive"
+            view = base / "Family_1907-1946_B01_View"
+            archive.mkdir()
+            view.mkdir()
+            archive_image = archive / "Family_1907-1946_B01_P03_D02_03.tif"
+            view_image = view / "Family_1907-1946_B01_P03_D02_03.jpg"
+            for path in (
+                archive_image,
+                view_image,
+                archive / "Family_1907-1946_B01_P03_D01_01.jpg",
+                archive / "Family_1907-1946_B01_P03_D01_02.jpg",
+                archive / "Family_1907-1946_B01_P03_D02_01.jpg",
+                archive / "Family_1907-1946_B01_P03_D02_02.jpg",
+                archive / "Family_1907-1946_B01_P03_D03_01.tif",
+                view / "Family_1907-1946_B01_P03_D01_01.jpg",
+                view / "Family_1907-1946_B01_P03_D01_02.jpg",
+                view / "Family_1907-1946_B01_P03_D02_01.jpg",
+                view / "Family_1907-1946_B01_P03_D02_02.jpg",
+                view / "Family_1907-1946_B01_P03_D03_01.jpg",
+            ):
+                path.write_bytes(b"x")
+            (archive / "Family_1907-1946_B01_P03_S01.tif").write_bytes(b"a")
+            (archive / "Family_1907-1946_B01_P03_S02.tif").write_bytes(b"b")
+
+            self.assertEqual(
+                ai_index._page_scan_filenames(archive_image),
+                ["Family_1907-1946_B01_P03_S01.tif", "Family_1907-1946_B01_P03_S02.tif"],
+            )
+            self.assertEqual(
+                ai_index._page_scan_filenames(view_image),
+                ["Family_1907-1946_B01_P03_S01.tif", "Family_1907-1946_B01_P03_S02.tif"],
+            )
+
+    def test_page_scan_filenames_handles_title_and_derived_pages_together(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            archive = base / "Egypt_1975_B00_Archive"
+            view = base / "Egypt_1975_B00_View"
+            archive.mkdir()
+            view.mkdir()
+            title_image = view / "Egypt_1975_B00_P01.jpg"
+            derived_image = view / "Egypt_1975_B00_P39_D01_01.jpg"
+            title_image.write_bytes(b"title")
+            derived_image.write_bytes(b"derived")
+            (archive / "Egypt_1975_B00_P01_S01.tif").write_bytes(b"a")
+            (archive / "Egypt_1975_B00_P39_S01.tif").write_bytes(b"b")
+            (archive / "Egypt_1975_B00_P39_S02.tif").write_bytes(b"c")
+
+            self.assertEqual(
+                ai_index._page_scan_filenames(title_image),
+                ["Egypt_1975_B00_P01_S01.tif"],
+            )
+            self.assertEqual(
+                ai_index._page_scan_filenames(derived_image),
+                ["Egypt_1975_B00_P39_S01.tif", "Egypt_1975_B00_P39_S02.tif"],
+            )
+
+    def test_page_scan_filenames_uses_singleton_archive_scan_for_base_view_page(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            archive = base / "Egypt_1975_B00_Archive"
+            view = base / "Egypt_1975_B00_View"
+            archive.mkdir()
+            view.mkdir()
+            image = view / "Egypt_1975_B00_P05.jpg"
+            image.write_bytes(b"x")
+            (archive / "Egypt_1975_B00_P05_S01.tif").write_bytes(b"a")
+
+            self.assertEqual(
+                ai_index._page_scan_filenames(image),
+                ["Egypt_1975_B00_P05_S01.tif"],
+            )
+
+    def test_page_scan_filenames_returns_sibling_scans_for_raw_scan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / "Egypt_1975_B00_Archive"
+            archive.mkdir()
+            scan1 = archive / "Egypt_1975_B00_P39_S01.tif"
+            scan2 = archive / "Egypt_1975_B00_P39_S02.tif"
+            scan1.write_bytes(b"a")
+            scan2.write_bytes(b"b")
+
+            self.assertEqual(
+                ai_index._page_scan_filenames(scan1),
+                ["Egypt_1975_B00_P39_S01.tif", "Egypt_1975_B00_P39_S02.tif"],
+            )
+
+    def test_page_scan_filenames_returns_empty_when_archive_dir_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            view = Path(tmp) / "Egypt_1975_B00_View"
+            view.mkdir()
+            image = view / "Egypt_1975_B00_P39_stitched.jpg"
+            image.write_bytes(b"x")
+
+            self.assertEqual(ai_index._page_scan_filenames(image), [])
+
+    def test_page_scan_filenames_returns_empty_for_unparseable_non_scan_name(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            archive = base / "Egypt_1975_B00_Archive"
+            view = base / "Egypt_1975_B00_View"
+            archive.mkdir()
+            view.mkdir()
+            image = view / "cover.jpg"
+            image.write_bytes(b"x")
+            (archive / "Egypt_1975_B00_P39_S01.tif").write_bytes(b"a")
+
+            self.assertEqual(ai_index._page_scan_filenames(image), [])
+
+    def test_build_dc_source_uses_archive_scans_for_stitched_view_page(self):
+        source = ai_index._build_dc_source(
+            "EUROPE 1973 EGYPT 1975",
+            Path("Egypt_1975_B00_P39_stitched.jpg"),
+            ["Egypt_1975_B00_P39_S01.tif", "Egypt_1975_B00_P39_S02.tif"],
+        )
+        self.assertEqual(
+            source,
+            "EUROPE 1973 EGYPT 1975 Page 39 Scans S01 S02; Egypt_1975_B00_P39_S01.tif; Egypt_1975_B00_P39_S02.tif",
+        )
+
     def test_compute_xmp_title_ignores_scene_text_by_default(self):
         layers = ai_index._resolve_xmp_text_layers(
             image_path=Path("Family_1986_B01_P02.jpg"),
