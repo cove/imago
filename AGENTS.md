@@ -76,6 +76,7 @@ When `check_skylos.py` reports a duplicate-code finding (SKY-C401):
 - Use `uv sync` from the repo root to create or update the project environment.
 - From the repo root, prefer `uv run ...` for test, lint, and validation commands.
 - Validate changed Python modules with `uv run python -m py_compile` when possible.
+- To run ad-hoc python scripts use `uv run python -c`
 
 ## Git Hygiene
 

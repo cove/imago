@@ -38,7 +38,17 @@
       "Bash(echo \"FOUND IN: $d\")",
       "Read(//c/Users/covec/Videos/imago/$d/**)",
       "Bash(python3 -c \":*)",
-      "Read(//c/Users/covec/Videos/imago/**)"
+      "Read(//c/Users/covec/Videos/imago/**)",
+      "Bash(ls -la \"C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums\")",
+      "Bash(grep -E \"_Archive$|_View$\")",
+      "Bash(do echo:*)",
+      "Bash(ls \"C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums\" \")",
+      "Bash(head -20 'C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums\\\\SHA256SUMS')",
+      "Bash(wc -l 'C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums\\\\SHA256SUMS')",
+      "Bash(find 'C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums' -name '*_stitched.jpg')",
+      "Bash(find 'C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums' -name '*_View' -type d)",
+      "Bash(do find:*)",
+      "Bash(grep -E '_P[0-9]+\\\\.jpg$')"
     ]
   },
   "hooks": {

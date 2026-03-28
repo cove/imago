@@ -315,6 +315,17 @@
     "query": "Bampo Village, China",
     "status": "miss"
   },
+  "bath abbey": {
+    "city": "Bath",
+    "country": "United Kingdom",
+    "display_name": "Bath Abbey, Abbey Churchyard, Kingsmead, Bath, Bath and North East Somerset, West of England, England, BA1 1LT, United Kingdom",
+    "latitude": "51.3814544",
+    "longitude": "-2.3588659",
+    "query": "Bath Abbey",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
+  },
   "bath abbey - bath": {
     "display_name": "Bath Abbey, Abbey Churchyard, Kingsmead, Bath, Bath and North East Somerset, West of England, England, BA1 1LT, United Kingdom",
     "latitude": "51.3814544",
@@ -374,6 +385,17 @@
   "bath, england; worcester cathedral, england": {
     "query": "Bath, England; Worcester Cathedral, England",
     "status": "miss"
+  },
+  "bath, uk": {
+    "city": "Bath",
+    "country": "United Kingdom",
+    "display_name": "Bath, Bath and North East Somerset, West of England, England, United Kingdom",
+    "latitude": "51.3813864",
+    "longitude": "-2.3596963",
+    "query": "Bath, UK",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
   },
   "battle castle, battle, england": {
     "display_name": "Battle Abbey, High Street, Battle, Rother, East Sussex, England, TN33 0AD, United Kingdom",
@@ -507,6 +529,21 @@
     "query": "Big Ben - London - Westminster Abbey, Maritime Museum & Queens House - Greenwich",
     "status": "miss"
   },
+  "big ben clock tower, houses of parliament, london": {
+    "query": "Big Ben Clock Tower, Houses of Parliament, London",
+    "status": "miss"
+  },
+  "big ben, london": {
+    "city": "City of Westminster",
+    "country": "United Kingdom",
+    "display_name": "Big Ben, Bridge Street, Westminster, Millbank, City of Westminster, Greater London, England, SW1A 2LW, United Kingdom",
+    "latitude": "51.5007042",
+    "longitude": "-0.1245721",
+    "query": "Big Ben, London",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
+  },
   "bingling temple, yongjing county, gansu, china": {
     "display_name": "炳灵寺, S230, 赵山, 永靖县, 临夏回族自治州, 甘肃省, 中国",
     "latitude": "35.8036162",
@@ -567,6 +604,10 @@
     "query": "Bowness, Lake District, England",
     "status": "miss"
   },
+  "bowness, the lake district": {
+    "query": "Bowness, The Lake District",
+    "status": "miss"
+  },
   "bowness, the lake district, cumbria, england": {
     "query": "Bowness, The Lake District, Cumbria, England",
     "status": "miss"
@@ -574,6 +615,17 @@
   "bowness, the lake district, england": {
     "query": "Bowness, The Lake District, England",
     "status": "miss"
+  },
+  "bowness-on-windermere, lake district": {
+    "city": "Bowness-on-Windermere",
+    "country": "United Kingdom",
+    "display_name": "Lake District Boat Club, Glebe Road, Windermere, Bowness-on-Windermere, Westmorland and Furness, England, LA23 3HE, United Kingdom",
+    "latitude": "54.3618107",
+    "longitude": "-2.9273423",
+    "query": "Bowness-on-Windermere, Lake District",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
   },
   "bowness-on-windermere, lake district, england": {
     "query": "Bowness-on-Windermere, Lake District, England",
@@ -862,6 +914,21 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "cambridge, united kingdom": {
+    "city": "Cambridge",
+    "country": "United Kingdom",
+    "display_name": "Cambridge, Cambridgeshire, Cambridgeshire and Peterborough, England, United Kingdom",
+    "latitude": "52.2055314",
+    "longitude": "0.1186637",
+    "query": "Cambridge, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
+  },
+  "camp site on the bristol channel": {
+    "query": "Camp Site on the Bristol Channel",
+    "status": "miss"
+  },
   "canterbury and dover, england": {
     "display_name": "Canterbury Road, Swingfield Minnis, Swingfield, Densole, Folkestone and Hythe, Kent, England, CT15 7HL, United Kingdom",
     "latitude": "51.1572801",
@@ -1075,6 +1142,17 @@
     "state": "Andalusia",
     "status": "ok"
   },
+  "cathedral, seville spain": {
+    "city": "Seville",
+    "country": "Spain",
+    "display_name": "Cathedral, Seville Spain, Seville, Andalusia, Spain",
+    "latitude": "37.3859150",
+    "longitude": "-5.9931406",
+    "query": "Cathedral, Seville Spain",
+    "source": "nominatim",
+    "state": "Andalusia",
+    "status": "ok"
+  },
   "cathedral, seville, spain": {
     "display_name": "Catedral de Sevilla, Calle Fray Ceferino González, Santa Cruz, Casco Antiguo, Sevilla, Andalucía, 41004, España",
     "latitude": "37.3859150",
@@ -1089,6 +1167,17 @@
     "longitude": "114.1870669",
     "query": "Causeway Bay, Hong Kong",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "cerne abbas": {
+    "city": "",
+    "country": "United Kingdom",
+    "display_name": "Cerne Abbas, Dorset, England, United Kingdom",
+    "latitude": "50.8079558",
+    "longitude": "-2.4793386",
+    "query": "Cerne Abbas",
+    "source": "nominatim",
+    "state": "England",
     "status": "ok"
   },
   "ceuta and fes, morocco": {
@@ -1373,6 +1462,17 @@
     "query": "City of Bath, Worcester Cathedral",
     "status": "miss"
   },
+  "cliveden": {
+    "city": "Maidenhead",
+    "country": "United Kingdom",
+    "display_name": "Cliveden, Cliveden Road, Taplow, Beeches Community Board, Maidenhead, Buckinghamshire, England, SL6 0JF, United Kingdom",
+    "latitude": "51.5585452",
+    "longitude": "-0.6889001",
+    "query": "Cliveden",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
+  },
   "clovelly": {
     "display_name": "Clovelly, Torridge, Devon, Devon and Torbay, England, United Kingdom",
     "latitude": "50.9909081",
@@ -1448,6 +1548,10 @@
     "query": "Cockington, Torquay",
     "source": "nominatim",
     "status": "ok"
+  },
+  "cockington, torquay, cornwall": {
+    "query": "Cockington, Torquay, Cornwall",
+    "status": "miss"
   },
   "cockington, torquay, cornwall, england": {
     "query": "Cockington, Torquay, Cornwall, England",
@@ -1529,6 +1633,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "cotswolds": {
+    "city": "Welwyn Hatfield",
+    "country": "United Kingdom",
+    "display_name": "Cotswolds, Hilltop, South Hatfield, Hatfield, Welwyn Hatfield, Hertfordshire, England, AL10 8JR, United Kingdom",
+    "latitude": "51.7489426",
+    "longitude": "-0.2303335",
+    "query": "Cotswolds",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
+  },
   "cotswolds, england": {
     "display_name": "Cotswolds, Hilltop, South Hatfield, Hatfield, Welwyn Hatfield, Hertfordshire, England, AL10 8JR, United Kingdom",
     "latitude": "51.7489426",
@@ -1545,13 +1660,39 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "cottage in the new forest": {
+    "query": "Cottage in the New Forest",
+    "status": "miss"
+  },
   "countryside south of london, england, uk": {
     "query": "Countryside South of London, England, UK",
     "status": "miss"
   },
+  "coventry": {
+    "city": "Coventry",
+    "country": "United Kingdom",
+    "display_name": "Coventry, West Midlands, England, United Kingdom",
+    "latitude": "52.4081812",
+    "longitude": "-1.5104770",
+    "query": "Coventry",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
+  },
   "coventry and high legh, england": {
     "query": "Coventry and High Legh, England",
     "status": "miss"
+  },
+  "coventry cathedral": {
+    "city": "Coventry",
+    "country": "United Kingdom",
+    "display_name": "Coventry Cathedral Church of St Michael, Priory Street, Hillfields, Coventry, West Midlands, England, CV1 5FJ, United Kingdom",
+    "latitude": "52.4086328",
+    "longitude": "-1.5070981",
+    "query": "Coventry Cathedral",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
   },
   "coventry cathedral, coventry, england": {
     "display_name": "Coventry Cathedral Church of St Michael, Priory Street, Hillfields, Coventry, West Midlands, England, CV1 5FJ, United Kingdom",
@@ -1620,6 +1761,17 @@
   "crystal palace campsite, london, england": {
     "query": "Crystal Palace Campsite, London, England",
     "status": "miss"
+  },
+  "crystal palace, london": {
+    "city": "Greater London",
+    "country": "United Kingdom",
+    "display_name": "Crystal Palace, London Borough of Bromley, Greater London, England, SE19 2GA, United Kingdom",
+    "latitude": "51.4193664",
+    "longitude": "-0.0711328",
+    "query": "Crystal Palace, London",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
   },
   "crystal palace, london, england": {
     "display_name": "Crystal Palace, London Borough of Bromley, Greater London, England, SE19 2GA, United Kingdom",
@@ -1735,6 +1887,28 @@
     "longitude": "1.3134228",
     "query": "Dover, Kent, UK",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "dover, uk": {
+    "city": "Dover",
+    "country": "United Kingdom",
+    "display_name": "Dover, Kent, England, United Kingdom",
+    "latitude": "51.1251275",
+    "longitude": "1.3134228",
+    "query": "Dover, UK",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
+  },
+  "dover, united kingdom": {
+    "city": "Dover",
+    "country": "United Kingdom",
+    "display_name": "Dover, Kent, England, United Kingdom",
+    "latitude": "51.1251275",
+    "longitude": "1.3134228",
+    "query": "Dover, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
     "status": "ok"
   },
   "downtown cairo": {
@@ -2006,6 +2180,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "edinburgh, princes street": {
+    "city": "City of Edinburgh",
+    "country": "United Kingdom",
+    "display_name": "Princes Street, Haymarket, West End, City of Edinburgh, Scotland, EH2 4TG, United Kingdom",
+    "latitude": "55.9502810",
+    "longitude": "-3.2064250",
+    "query": "Edinburgh, Princes Street",
+    "source": "nominatim",
+    "state": "Scotland",
+    "status": "ok"
+  },
   "edinburgh, scotland": {
     "display_name": "City of Edinburgh, Alba / Scotland, United Kingdom",
     "latitude": "55.9533456",
@@ -2046,12 +2231,38 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "egypt, luxor": {
+    "city": "Luxor",
+    "country": "Egypt",
+    "display_name": "Luxor, 85951, Egypt",
+    "latitude": "25.7020960",
+    "longitude": "32.6471860",
+    "query": "Egypt, Luxor",
+    "source": "nominatim",
+    "state": "Luxor",
+    "status": "ok"
+  },
+  "egypt, thebes": {
+    "city": "New Thebes",
+    "country": "Egypt",
+    "display_name": "New Thebes, Tiba, Luxor, 85863, Egypt",
+    "latitude": "25.7329051",
+    "longitude": "32.7658152",
+    "query": "Egypt, Thebes",
+    "source": "nominatim",
+    "state": "Luxor",
+    "status": "ok"
+  },
   "egyptian museum on liberation square - cairo": {
     "query": "Egyptian Museum on Liberation Square - Cairo",
     "status": "miss"
   },
   "egyptian museum on liberation square - cairo, downtown cairo": {
     "query": "Egyptian Museum on Liberation Square - Cairo, Downtown Cairo",
+    "status": "miss"
+  },
+  "egyptian museum on liberation square, cairo": {
+    "query": "Egyptian Museum on Liberation Square, Cairo",
     "status": "miss"
   },
   "egyptian tombs": {
@@ -2172,6 +2383,17 @@
     "longitude": "1.0455237",
     "query": "England Book 11",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "england, hampshire": {
+    "city": "",
+    "country": "United Kingdom",
+    "display_name": "Hampshire, England, United Kingdom",
+    "latitude": "51.0449814",
+    "longitude": "-1.2433133",
+    "query": "England, Hampshire",
+    "source": "nominatim",
+    "state": "England",
     "status": "ok"
   },
   "english countryside south of london": {
@@ -2405,6 +2627,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "gatwick airport": {
+    "city": "Crawley",
+    "country": "United Kingdom",
+    "display_name": "London Gatwick Airport, London Road, Lowfield Heath, Tinsley Green, Crawley, West Sussex, England, RH11 0PJ, United Kingdom",
+    "latitude": "51.1540772",
+    "longitude": "-0.1823226",
+    "query": "Gatwick Airport",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
+  },
   "gatwick airport, croydon, london, england": {
     "query": "Gatwick Airport, Croydon, London, England",
     "status": "miss"
@@ -2491,6 +2724,17 @@
     "longitude": "-4.2346182",
     "query": "Glasgow Cathedral, Scotland",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "glasgow museum": {
+    "city": "Glasgow",
+    "country": "United Kingdom",
+    "display_name": "Glasgow Science Centre, 50, Pacific Quay, Stobcross, Cessnock, Glasgow, Glasgow City, Scotland, G51 1EA, United Kingdom",
+    "latitude": "55.8586952",
+    "longitude": "-4.2944658",
+    "query": "Glasgow Museum",
+    "source": "nominatim",
+    "state": "Scotland",
     "status": "ok"
   },
   "glasgow museum and theatre, glasgow, scotland, uk": {
@@ -2897,6 +3141,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "humber bridge": {
+    "city": "Hessle",
+    "country": "United Kingdom",
+    "display_name": "Humber Bridge, Wintersgill Place, Hessle Cliff, Hessle, East Riding of Yorkshire, Hull and East Yorkshire, England, HU13 0DF, United Kingdom",
+    "latitude": "53.7079675",
+    "longitude": "-0.4501054",
+    "query": "Humber Bridge",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
+  },
   "humber bridge, scarborough, england": {
     "query": "Humber Bridge, Scarborough, England",
     "status": "miss"
@@ -3242,6 +3497,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "keble college, oxford": {
+    "city": "Oxford",
+    "country": "United Kingdom",
+    "display_name": "Keble College, Parks Road, Holywell, City Centre, Oxford, Oxfordshire, England, OX1 3PG, United Kingdom",
+    "latitude": "51.7586688",
+    "longitude": "-1.2578896",
+    "query": "Keble College, Oxford",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
+  },
   "keble college, oxford, england; the hall, all souls college, oxford, england": {
     "query": "Keble College, Oxford, England; The Hall, All Souls College, Oxford, England",
     "status": "miss"
@@ -3325,6 +3591,17 @@
   "keswick, lake district, england": {
     "query": "Keswick, Lake District, England",
     "status": "miss"
+  },
+  "keswick, the lake district": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Keswick Street, Lake Balboa Neighborhood Council District, Los Angeles, Los Angeles County, California, 91329, United States",
+    "latitude": "34.2092923",
+    "longitude": "-118.5074372",
+    "query": "Keswick, The Lake District",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
   },
   "kew gardens": {
     "display_name": "Royal Botanic Gardens, Kew, Kew, London Borough of Richmond upon Thames, Greater London, England, United Kingdom",
@@ -3485,6 +3762,10 @@
     "query": "La Concha Beach, San Sebastián, Spain",
     "source": "nominatim",
     "status": "ok"
+  },
+  "lake windermere, bowness, the lake district": {
+    "query": "Lake Windermere, Bowness, The Lake District",
+    "status": "miss"
   },
   "lake windermere, the lake district, cumbria, england": {
     "query": "Lake Windermere, The Lake District, Cumbria, England",
@@ -3763,6 +4044,17 @@
     "query": "Lindwurmbrunnen, Klagenfurt, Kärnten, Austria; Salzburg, Austria",
     "status": "miss"
   },
+  "liverpool": {
+    "city": "Liverpool",
+    "country": "United Kingdom",
+    "display_name": "Liverpool, Liverpool City Region, England, United Kingdom",
+    "latitude": "53.4071991",
+    "longitude": "-2.9916800",
+    "query": "Liverpool",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
+  },
   "liverpool, england": {
     "display_name": "Liverpool, Liverpool City Region, England, United Kingdom",
     "latitude": "53.4071991",
@@ -3875,6 +4167,10 @@
     "query": "Longleat House - Warminster, Wiltshire, England",
     "status": "miss"
   },
+  "longleat house, warminster": {
+    "query": "Longleat House, Warminster",
+    "status": "miss"
+  },
   "longleat house, warminster, wiltshire, england": {
     "query": "Longleat House, Warminster, Wiltshire, England",
     "status": "miss"
@@ -3926,6 +4222,10 @@
     "query": "Looe-Cornwall",
     "source": "nominatim",
     "status": "ok"
+  },
+  "lord street gardens, southport": {
+    "query": "Lord Street Gardens, Southport",
+    "status": "miss"
   },
   "lord street gardens, southport, england; war memorial, southport, england": {
     "query": "Lord Street Gardens, Southport, England; War Memorial, Southport, England",
@@ -4281,6 +4581,10 @@
     "query": "Mohamed Ali Alabaster Mosque",
     "status": "miss"
   },
+  "mohamed ali alabaster mosque, cairo, egypt": {
+    "query": "Mohamed Ali Alabaster Mosque, Cairo, Egypt",
+    "status": "miss"
+  },
   "mohamed aly alabaster mosque, cairo, egypt": {
     "query": "Mohamed Aly Alabaster Mosque, Cairo, Egypt",
     "status": "miss"
@@ -4348,6 +4652,17 @@
   "museum of the terracotta warriors, xi'an, shaanxi, china": {
     "query": "Museum of the Terracotta Warriors, Xi'an, Shaanxi, China",
     "status": "miss"
+  },
+  "museum of wales, cardiff": {
+    "city": "Cardiff",
+    "country": "United Kingdom",
+    "display_name": "National Museum Cardiff, Museum Avenue, Civic Centre, Castle, Cardiff, Wales, CF10 3NP, United Kingdom",
+    "latitude": "51.4859660",
+    "longitude": "-3.1776109",
+    "query": "Museum of Wales, Cardiff",
+    "source": "nominatim",
+    "state": "Wales",
+    "status": "ok"
   },
   "museum of wales, cardiff civic centre, queen street, cardiff, wales, uk": {
     "query": "Museum of Wales, Cardiff Civic Centre, Queen Street, Cardiff, Wales, UK",
@@ -4430,6 +4745,17 @@
     "longitude": "-5.0843364",
     "query": "Newquay - Cornwall",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "newquay, cornwall": {
+    "city": "Newquay",
+    "country": "United Kingdom",
+    "display_name": "Newquay, Cornwall, England, United Kingdom",
+    "latitude": "50.4136251",
+    "longitude": "-5.0843364",
+    "query": "Newquay, Cornwall",
+    "source": "nominatim",
+    "state": "England",
     "status": "ok"
   },
   "newquay, cornwall, england": {
@@ -4556,6 +4882,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "oxford, united kingdom": {
+    "city": "Oxford",
+    "country": "United Kingdom",
+    "display_name": "Oxford, Oxfordshire, England, United Kingdom",
+    "latitude": "51.7520131",
+    "longitude": "-1.2578499",
+    "query": "Oxford, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
+  },
   "paintings & statues in the portal a palace": {
     "query": "Paintings & Statues in the Portal a Palace",
     "status": "miss"
@@ -4567,6 +4904,17 @@
   "paintings & statues in the portala palace": {
     "query": "Paintings & Statues in the Portala Palace",
     "status": "miss"
+  },
+  "palace of holyroodhouse": {
+    "city": "City of Edinburgh",
+    "country": "United Kingdom",
+    "display_name": "Palace of Holyroodhouse, Canongate, Abbeyhill, Old Town, City of Edinburgh, Scotland, EH8 8DX, United Kingdom",
+    "latitude": "55.9526948",
+    "longitude": "-3.1716130",
+    "query": "Palace of Holyroodhouse",
+    "source": "nominatim",
+    "state": "Scotland",
+    "status": "ok"
   },
   "palace of holyroodhouse, edinburgh, scotland, uk": {
     "display_name": "Palace of Holyroodhouse, Canongate, Abbeyhill, Old Town, City of Edinburgh, Alba / Scotland, EH8 8DX, United Kingdom",
@@ -4675,6 +5023,17 @@
   "perith and keswick, cumbria, england, uk": {
     "query": "Perith and Keswick, Cumbria, England, UK",
     "status": "miss"
+  },
+  "perith, england": {
+    "city": "Penrith",
+    "country": "United Kingdom",
+    "display_name": "Penrith, Westmorland and Furness, England, United Kingdom",
+    "latitude": "54.6639494",
+    "longitude": "-2.7522543",
+    "query": "Perith, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
   },
   "pest, budapest, hungary": {
     "display_name": "Pest, Belváros, V. kerület, Budapest, Közép-Magyarország, 1052, Magyarország",
@@ -4961,6 +5320,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "preston": {
+    "city": "Preston",
+    "country": "United Kingdom",
+    "display_name": "Preston, Lancashire, England, United Kingdom",
+    "latitude": "53.7593363",
+    "longitude": "-2.6992717",
+    "query": "Preston",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
+  },
   "preston, salford, lancashire, england": {
     "query": "Preston, Salford, Lancashire, England",
     "status": "miss"
@@ -4995,6 +5365,17 @@
   "queen street, cardiff, wales; swansea, wales": {
     "query": "Queen Street, Cardiff, Wales; Swansea, Wales",
     "status": "miss"
+  },
+  "queen street-cardiff, wales": {
+    "city": "Gwaelod-y-garth",
+    "country": "United Kingdom",
+    "display_name": "Queen Street, Tongwynlais, Gwaelod-y-garth, Cardiff, Wales, CF15 7NS, United Kingdom",
+    "latitude": "51.5314482",
+    "longitude": "-3.2520641",
+    "query": "Queen Street-Cardiff, Wales",
+    "source": "nominatim",
+    "state": "Wales",
+    "status": "ok"
   },
   "rabat": {
     "city": "Rabat",
@@ -5069,6 +5450,17 @@
     "longitude": "7.7272243",
     "query": "Rhine Valley, Germany",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "river at henley-on-thames": {
+    "city": "South Oxfordshire",
+    "country": "United Kingdom",
+    "display_name": "Former River & Rowing Museum, Henley-on-Thames, South Oxfordshire, Oxfordshire, England, United Kingdom",
+    "latitude": "51.5319181",
+    "longitude": "-0.8956997",
+    "query": "River at Henley-on-Thames",
+    "source": "nominatim",
+    "state": "England",
     "status": "ok"
   },
   "rock of gibraltar": {
@@ -5159,6 +5551,17 @@
     "query": "Royal Pier, Mayflower Memorial, Red Funnel Seaflight Hydrofoil Service, Southampton, England",
     "status": "miss"
   },
+  "royal pier, southampton": {
+    "city": "Southampton",
+    "country": "United Kingdom",
+    "display_name": "Royal Pier, Town Quay, Old Town, St Mary's, Southampton, England, SO14 2AQ, United Kingdom",
+    "latitude": "50.8954969",
+    "longitude": "-1.4081953",
+    "query": "Royal Pier, Southampton",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
+  },
   "royal pier, southampton, mayflower memorial, southampton, red funnel seaflyt hydrofoil service, southampton, england": {
     "query": "Royal Pier, Southampton, Mayflower Memorial, Southampton, Red Funnel Seaflyt Hydrofoil Service, Southampton, England",
     "status": "miss"
@@ -5209,6 +5612,17 @@
     "longitude": "-1.7954134",
     "query": "Salisbury",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "salisbury cathedral": {
+    "city": "Salisbury",
+    "country": "United Kingdom",
+    "display_name": "Salisbury Cathedral, Bishop's Walk, The Close, Salisbury, Wiltshire, England, SP1 2ED, United Kingdom",
+    "latitude": "51.0649546",
+    "longitude": "-1.7972913",
+    "query": "Salisbury Cathedral",
+    "source": "nominatim",
+    "state": "England",
     "status": "ok"
   },
   "salisbury cathedral, england": {
@@ -5273,6 +5687,17 @@
     "longitude": "-1.7954134",
     "query": "Salisbury, England, United Kingdom",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "salisbury, uk": {
+    "city": "Salisbury",
+    "country": "United Kingdom",
+    "display_name": "Salisbury, Wiltshire, England, United Kingdom",
+    "latitude": "51.0690613",
+    "longitude": "-1.7954134",
+    "query": "Salisbury, UK",
+    "source": "nominatim",
+    "state": "England",
     "status": "ok"
   },
   "salisbury, wiltshire, england": {
@@ -5428,6 +5853,17 @@
   "savanna, east africa": {
     "query": "Savanna, East Africa",
     "status": "miss"
+  },
+  "scarborough": {
+    "city": "Scarborough",
+    "country": "United Kingdom",
+    "display_name": "Scarborough, North Yorkshire, York and North Yorkshire, England, YO11 1LP, United Kingdom",
+    "latitude": "54.2820009",
+    "longitude": "-0.4011868",
+    "query": "Scarborough",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
   },
   "scarborough, england": {
     "display_name": "Scarborough, North Yorkshire, York and North Yorkshire, England, YO11 1LP, United Kingdom",
@@ -5661,6 +6097,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "southport": {
+    "city": "Southport",
+    "country": "United Kingdom",
+    "display_name": "Southport, Sefton, Liverpool City Region, England, PR9 0AG, United Kingdom",
+    "latitude": "53.6487421",
+    "longitude": "-3.0044972",
+    "query": "Southport",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
+  },
   "southport, england": {
     "display_name": "Southport, Sefton, Liverpool City Region, England, PR9 0AG, United Kingdom",
     "latitude": "53.6487421",
@@ -5780,6 +6227,17 @@
     "query": "St John's College, King's College Chapel, Cambridge, UK",
     "status": "miss"
   },
+  "st paul's cathedral": {
+    "city": "City of London",
+    "country": "United Kingdom",
+    "display_name": "St Paul's Cathedral, St Paul's Churchyard, West Smithfield, St Paul's, City of London, Greater London, England, EC4M 8AD, United Kingdom",
+    "latitude": "51.5137872",
+    "longitude": "-0.0984506",
+    "query": "St Paul's Cathedral",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
+  },
   "st paul's cathedral, london, england": {
     "display_name": "St Paul's Cathedral, St Paul's Churchyard, St Paul's, City of London, Greater London, England, EC4M 8AD, United Kingdom",
     "latitude": "51.5137872",
@@ -5787,6 +6245,10 @@
     "query": "St Paul's Cathedral, London, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "st. george's hall, lime street liverpool": {
+    "query": "St. George's Hall, Lime Street Liverpool",
+    "status": "miss"
   },
   "st. george's hall, lime street, liverpool, england": {
     "query": "St. George's Hall, Lime Street, Liverpool, England",
@@ -5843,6 +6305,17 @@
   "st. michael's mount, cornwall, england; penzance, cornwall, england": {
     "query": "St. Michael's Mount, Cornwall, England; Penzance, Cornwall, England",
     "status": "miss"
+  },
+  "st. paul's cathedral, london": {
+    "city": "City of London",
+    "country": "United Kingdom",
+    "display_name": "St Paul's Cathedral, St Paul's Churchyard, West Smithfield, St Paul's, City of London, Greater London, England, EC4M 8AD, United Kingdom",
+    "latitude": "51.5137872",
+    "longitude": "-0.0984506",
+    "query": "St. Paul's Cathedral, London",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
   },
   "st. paul's cathedral, london, england": {
     "display_name": "St Paul's Cathedral, St Paul's Churchyard, St Paul's, City of London, Greater London, England, EC4M 8AD, United Kingdom",
@@ -6252,9 +6725,35 @@
     "query": "The Bazzar at Aswan",
     "status": "miss"
   },
+  "the board walk at scarborough": {
+    "query": "The Board Walk at Scarborough",
+    "status": "miss"
+  },
   "the bridge of sighs st john's college cambridge": {
     "query": "The Bridge of Sighs St John's College Cambridge",
     "status": "miss"
+  },
+  "the castle, cardiff": {
+    "city": "Cardiff",
+    "country": "United Kingdom",
+    "display_name": "Firing Line: Cardiff Castle Museum of the Welsh Soldier, Battlement Walk, Castle Quarter, Castle, Cardiff, Wales, CF10 3RB, United Kingdom",
+    "latitude": "51.4816272",
+    "longitude": "-3.1802402",
+    "query": "The Castle, Cardiff",
+    "source": "nominatim",
+    "state": "Wales",
+    "status": "ok"
+  },
+  "the castle, cardiff, wales": {
+    "city": "Cardiff",
+    "country": "United Kingdom",
+    "display_name": "Firing Line: Cardiff Castle Museum of the Welsh Soldier, Battlement Walk, Castle Quarter, Castle, Cardiff, Wales, CF10 3RB, United Kingdom",
+    "latitude": "51.4816272",
+    "longitude": "-3.1802402",
+    "query": "The Castle, Cardiff, Wales",
+    "source": "nominatim",
+    "state": "Wales",
+    "status": "ok"
   },
   "the garrick inn & harvard house, stratfor-upon-avon": {
     "query": "The Garrick Inn & Harvard House, Stratfor-upon-Avon",
@@ -6304,6 +6803,17 @@
     "query": "The Guildhall - Worcester, The River Severn & Cathedral Worcester",
     "status": "miss"
   },
+  "the high, oxford": {
+    "city": "Oxford",
+    "country": "United Kingdom",
+    "display_name": "High Street, Holywell, City Centre, Oxford, Oxfordshire, England, OX1 4BA, United Kingdom",
+    "latitude": "51.7522022",
+    "longitude": "-1.2481515",
+    "query": "The High, Oxford",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
+  },
   "the hospital of st. cross, winchester": {
     "query": "The Hospital of St. Cross, Winchester",
     "status": "miss"
@@ -6330,6 +6840,10 @@
   },
   "the leopoldskron castle, prague, czech republic": {
     "query": "The Leopoldskron Castle, Prague, Czech Republic",
+    "status": "miss"
+  },
+  "the london music museum": {
+    "query": "The London Music Museum",
     "status": "miss"
   },
   "the medina": {
@@ -6363,6 +6877,10 @@
     "query": "The Mohamed Aly Alabaster Mosque - Cairo Egypt Dec. 1975",
     "status": "miss"
   },
+  "the new cathedral, coventry": {
+    "query": "The New Cathedral, Coventry",
+    "status": "miss"
+  },
   "the new hong kong bank": {
     "query": "The New Hong Kong Bank",
     "status": "miss"
@@ -6387,6 +6905,10 @@
     "query": "The Ouse River Bedford",
     "status": "miss"
   },
+  "the ouse river, bedford": {
+    "query": "The Ouse River, Bedford",
+    "status": "miss"
+  },
   "the ouse river, bedford, england": {
     "query": "The Ouse River, Bedford, England",
     "status": "miss"
@@ -6397,6 +6919,17 @@
     "longitude": "-0.1439162",
     "query": "The Pavilion - Brighton",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "the pavilion, brighton": {
+    "city": "Hove",
+    "country": "United Kingdom",
+    "display_name": "The Old Bowls Pavilion, The Ride, Brunswick, Hove, Brighton and Hove, England, BN1 6HN, United Kingdom",
+    "latitude": "50.8387736",
+    "longitude": "-0.1439162",
+    "query": "The Pavilion, Brighton",
+    "source": "nominatim",
+    "state": "England",
     "status": "ok"
   },
   "the pavilion, brighton, east sussex, united kingdom": {
@@ -6455,6 +6988,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "the royal crescent, bath": {
+    "city": "Bath",
+    "country": "United Kingdom",
+    "display_name": "The Royal Crescent, Marlborough Buildings, Sion Hill, Bath, Bath and North East Somerset, West of England, England, BA1 2LX, United Kingdom",
+    "latitude": "51.3874160",
+    "longitude": "-2.3697769",
+    "query": "The Royal Crescent, Bath",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
+  },
   "the royal crescent, bath, england": {
     "display_name": "The Royal Crescent, Marlborough Buildings, Sion Hill, Bath, Bath and North East Somerset, West of England, England, BA1 2LU, United Kingdom",
     "latitude": "51.3874160",
@@ -6470,6 +7014,10 @@
     "query": "The Royal Crescent, Bath, Somerset, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "the scott monument, edinburgh": {
+    "query": "The Scott Monument, Edinburgh",
+    "status": "miss"
   },
   "the scott monument, edinburgh; palace of holyroodhouse, edinburgh": {
     "query": "The Scott Monument, Edinburgh; Palace of Holyroodhouse, Edinburgh",
@@ -6723,6 +7271,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "torre abbey sands, torquay": {
+    "city": "Torquay",
+    "country": "United Kingdom",
+    "display_name": "Torre Abbey Sands, Torre, Torquay, Torbay, Devon and Torbay, England, United Kingdom",
+    "latitude": "50.4616634",
+    "longitude": "-3.5370200",
+    "query": "Torre Abbey Sands, Torquay",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
+  },
   "torre abbey sands, torquay, devon, england": {
     "display_name": "Torre Abbey Sands, Torre, Torquay, Torbay, Devon and Torbay, England, United Kingdom",
     "latitude": "50.4616634",
@@ -6803,6 +7362,17 @@
     "query": "Trafalgar Square, London; Tower Bridge, London",
     "status": "miss"
   },
+  "tredegar house": {
+    "city": "Newport",
+    "country": "United Kingdom",
+    "display_name": "Tredegar House, Pencarn Way, Duffryn, Tredegar Park, Newport, Wales, NP10 8YW, United Kingdom",
+    "latitude": "51.5615216",
+    "longitude": "-3.0283389",
+    "query": "Tredegar House",
+    "source": "nominatim",
+    "state": "Wales",
+    "status": "ok"
+  },
   "tredegar house, newport, wales": {
     "display_name": "Tredegar House, Pencarn Way, Duffryn, Tredegar Park, Newport, Cymru / Wales, NP10 8YW, United Kingdom",
     "latitude": "51.5615216",
@@ -6817,6 +7387,17 @@
     "longitude": "-3.0283389",
     "query": "Tredegar House, Newport, Wales, UK",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "tredegar house, newport-wales": {
+    "city": "Newport",
+    "country": "United Kingdom",
+    "display_name": "Tredegar House, Pencarn Way, Duffryn, Tredegar Park, Newport, Wales, NP10 8YW, United Kingdom",
+    "latitude": "51.5615216",
+    "longitude": "-3.0283389",
+    "query": "TREDEGAR HOUSE, NEWPORT-WALES",
+    "source": "nominatim",
+    "state": "Wales",
     "status": "ok"
   },
   "tredegar house, wales, united kingdom": {
@@ -7069,6 +7650,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "wantage, high street": {
+    "query": "Wantage, High Street",
+    "status": "miss"
+  },
   "wantage, high street, castle hill, england": {
     "query": "Wantage, High Street, Castle Hill, England",
     "status": "miss"
@@ -7083,6 +7668,10 @@
   },
   "welsh folk museum, newport, wales, uk": {
     "query": "Welsh Folk Museum, Newport, Wales, UK",
+    "status": "miss"
+  },
+  "welsh folk museum, newport-wales": {
+    "query": "Welsh Folk Museum, Newport-Wales",
     "status": "miss"
   },
   "west end of the great wall, jiyuguan city, gansu province, china": {
@@ -7223,6 +7812,17 @@
   "windermere lake, bowness, the lake district, england": {
     "query": "Windermere Lake, Bowness, The Lake District, England",
     "status": "miss"
+  },
+  "worcester cathedral": {
+    "city": "Worcester",
+    "country": "United Kingdom",
+    "display_name": "Cathedral Church of Christ and the Blessed Mary, the Virgin of Worcester, College Yard, Diglis, Worcester, Worcestershire, England, WR1 2LA, United Kingdom",
+    "latitude": "52.1887311",
+    "longitude": "-2.2208069",
+    "query": "Worcester Cathedral",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
   },
   "worcester, england": {
     "display_name": "Worcester, Worcestershire, England, United Kingdom",
