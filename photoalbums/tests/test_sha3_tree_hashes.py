@@ -35,10 +35,7 @@ class TestSha3TreeHashes(unittest.TestCase):
             entries = hashes.build_album_entries(album)
             hashes.build_album_manifest(album, entries)
 
-            top_entries = [
-                (digest, album.relative_to(base) / rel_path)
-                for digest, rel_path in entries
-            ]
+            top_entries = [(digest, album.relative_to(base) / rel_path) for digest, rel_path in entries]
             hashes.build_top_manifest(base, top_entries)
 
             self.assertEqual(hashes.verify_tree(base), 0)

@@ -814,6 +814,7 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
             or desc.findtext(f"{{{IMAGO_NS}}}AlbumTitle", default="")
             or ""
         ).strip(),
+        "source_text": str(desc.findtext(f"{{{DC_NS}}}source", default="") or "").strip(),
         "gps_latitude": str(desc.findtext(f"{{{EXIF_NS}}}GPSLatitude", default="") or "").strip(),
         "gps_longitude": str(desc.findtext(f"{{{EXIF_NS}}}GPSLongitude", default="") or "").strip(),
         "ocr_text": str(desc.findtext(f"{{{IMAGO_NS}}}OCRText", default="") or "").strip(),

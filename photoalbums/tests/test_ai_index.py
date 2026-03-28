@@ -125,7 +125,10 @@ class TestAIIndex(unittest.TestCase):
         )
         self.assertEqual(
             source,
-            ("Eastern Europe Spain and Morocco 1988 Page 34 Scans S01; EasternEuropeSpainMorocco_1988_B00_P34_S01.tif"),
+            (
+                "Eastern Europe Spain and Morocco 1988 Page 34 "
+                "Scan(s) S01; EasternEuropeSpainMorocco_1988_B00_P34_S01.tif"
+            ),
         )
 
     def test_page_scan_filenames_uses_archive_scans_for_stitched_view_page(self):
@@ -277,6 +280,39 @@ class TestAIIndex(unittest.TestCase):
 
             self.assertEqual(ai_index._page_scan_filenames(image), [])
 
+    def test_page_scan_filenames_uses_archive_scan_for_v_view_page(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            archive = base / "England_1983_B02_Archive"
+            view = base / "England_1983_B02_View"
+            archive.mkdir()
+            view.mkdir()
+            image = view / "England_1983_B02_P47_V.jpg"
+            image.write_bytes(b"x")
+            (archive / "England_1983_B02_P47_S01.tif").write_bytes(b"a")
+
+            self.assertEqual(
+                ai_index._page_scan_filenames(image),
+                ["England_1983_B02_P47_S01.tif"],
+            )
+
+    def test_page_scan_filenames_uses_archive_scans_for_vc_view_page(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            archive = base / "Egypt_1975_B00_Archive"
+            view = base / "Egypt_1975_B00_View"
+            archive.mkdir()
+            view.mkdir()
+            image = view / "Egypt_1975_B00_P39_VC.jpg"
+            image.write_bytes(b"x")
+            (archive / "Egypt_1975_B00_P39_S01.tif").write_bytes(b"a")
+            (archive / "Egypt_1975_B00_P39_S02.tif").write_bytes(b"b")
+
+            self.assertEqual(
+                ai_index._page_scan_filenames(image),
+                ["Egypt_1975_B00_P39_S01.tif", "Egypt_1975_B00_P39_S02.tif"],
+            )
+
     def test_page_scan_filenames_returns_empty_for_unparseable_non_scan_name(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
@@ -298,7 +334,49 @@ class TestAIIndex(unittest.TestCase):
         )
         self.assertEqual(
             source,
-            "EUROPE 1973 EGYPT 1975 Page 39 Scans S01 S02; Egypt_1975_B00_P39_S01.tif; Egypt_1975_B00_P39_S02.tif",
+            ("EUROPE 1973 EGYPT 1975 Page 39 Scan(s) S01 S02; Egypt_1975_B00_P39_S01.tif; Egypt_1975_B00_P39_S02.tif"),
+        )
+
+    def test_build_dc_source_uses_archive_scans_for_vr_view_page(self):
+        source = ai_index._build_dc_source(
+            "EUROPE 1973 EGYPT 1975",
+            Path("Egypt_1975_B00_P39_VC.jpg"),
+            ["Egypt_1975_B00_P39_S01.tif", "Egypt_1975_B00_P39_S02.tif"],
+        )
+        self.assertEqual(
+            source,
+            ("EUROPE 1973 EGYPT 1975 Page 39 Scan(s) S01 S02; Egypt_1975_B00_P39_S01.tif; Egypt_1975_B00_P39_S02.tif"),
+        )
+
+    def test_build_dc_source_uses_archive_scan_for_v_view_page(self):
+        source = ai_index._build_dc_source(
+            "ENGLAND BOOK 11 1983",
+            Path("England_1983_B02_P47_V.jpg"),
+            ["England_1983_B02_P47_S01.tif"],
+        )
+        self.assertEqual(
+            source,
+            "ENGLAND BOOK 11 1983 Page 47 Scan(s) S01; England_1983_B02_P47_S01.tif",
+        )
+
+    def test_build_dc_source_with_no_scan_filenames_omits_file_reference(self):
+        # No archive TIFs found — honest result includes title + page but no filename.
+        source = ai_index._build_dc_source(
+            "ENGLAND BOOK 11 1983",
+            Path("England_1983_B02_P47_V.jpg"),
+            [],
+        )
+        self.assertEqual(source, "ENGLAND BOOK 11 1983 Page 47")
+
+    def test_build_dc_source_with_empty_album_title(self):
+        source = ai_index._build_dc_source(
+            "",
+            Path("Egypt_1975_B00_P39_VC.jpg"),
+            ["Egypt_1975_B00_P39_S01.tif", "Egypt_1975_B00_P39_S02.tif"],
+        )
+        self.assertEqual(
+            source,
+            "Page 39 Scan(s) S01 S02; Egypt_1975_B00_P39_S01.tif; Egypt_1975_B00_P39_S02.tif",
         )
 
     def test_compute_xmp_title_ignores_scene_text_by_default(self):
@@ -1035,7 +1113,7 @@ class TestAIIndex(unittest.TestCase):
             write_mock.assert_called_once()
             self.assertEqual(
                 write_mock.call_args.kwargs["source_text"],
-                "Scans S01 S02; Family_2020_B01_P01_S01.tif; Family_2020_B01_P01_S02.tif",
+                "Scan(s) S01 S02; Family_2020_B01_P01_S01.tif; Family_2020_B01_P01_S02.tif",
             )
             self.assertEqual(sidecar.read_text(encoding="utf-8"), original)
 
@@ -1095,6 +1173,75 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(result, 0)
             analysis_mock.assert_not_called()
             write_mock.assert_not_called()
+
+    def test_run_refreshes_current_view_sidecar_when_dc_source_text_is_stale(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            archive = base / "England_1983_B02_Archive"
+            view = base / "England_1983_B02_View"
+            archive.mkdir()
+            view.mkdir()
+            image = view / "England_1983_B02_P47_V.jpg"
+            image.write_bytes(b"abc")
+            (archive / "England_1983_B02_P47_S01.tif").write_bytes(b"scan")
+            xmp_sidecar.write_xmp_sidecar(
+                image.with_suffix(".xmp"),
+                creator_tool="https://github.com/cove/imago",
+                person_names=[],
+                subjects=["ENGLAND BOOK 11 1983"],
+                description="",
+                album_title="ENGLAND BOOK 11 1983",
+                source_text="ENGLAND BOOK 11 1983 Page 47 Scans S01; England_1983_B02_P47_S01.tif",
+                ocr_text="",
+                detections_payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {
+                        "engine": "none",
+                        "language": "eng",
+                        "keywords": [],
+                        "chars": 0,
+                    },
+                    "caption": {
+                        "requested_engine": "none",
+                        "effective_engine": "none",
+                        "fallback": False,
+                        "error": "",
+                        "model": "",
+                    },
+                },
+                subphotos=[],
+            )
+
+            with (
+                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(ai_index, "_get_image_dimensions", return_value=(1, 1)),
+                mock.patch.object(ai_index, "read_embedded_create_date", return_value=""),
+                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--include-view",
+                        "--album",
+                        "England_1983_B02_View",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "none",
+                        "--caption-engine",
+                        "none",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            analysis_mock.assert_not_called()
+            write_mock.assert_called_once()
+            self.assertEqual(
+                write_mock.call_args.kwargs["source_text"],
+                "ENGLAND BOOK 11 1983 Page 47 Scan(s) S01; England_1983_B02_P47_S01.tif",
+            )
 
     def test_run_skips_current_sidecar_when_manifest_settings_are_stale(self):
         with tempfile.TemporaryDirectory() as tmp:

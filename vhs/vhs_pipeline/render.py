@@ -9,9 +9,7 @@ def run_render(argv=None):
     return int(render_pipeline.main(list(argv or [])) or 0)
 
 
-def run_render_subtitles(
-    *, archive_filters=None, title_filters=None, title_exact: bool = False
-):
+def run_render_subtitles(*, archive_filters=None, title_filters=None, title_exact: bool = False):
     from vhs_pipeline import render_pipeline
 
     return int(

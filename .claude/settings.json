@@ -48,7 +48,9 @@
       "Bash(find 'C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums' -name '*_stitched.jpg')",
       "Bash(find 'C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums' -name '*_View' -type d)",
       "Bash(do find:*)",
-      "Bash(grep -E '_P[0-9]+\\\\.jpg$')"
+      "Bash(grep -E '_P[0-9]+\\\\.jpg$')",
+      "Bash(find \"C:/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums\" -name \"*_VR.*\")",
+      "Bash(find \"C:/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums\" -name \"*_VC.*\")"
     ]
   },
   "hooks": {

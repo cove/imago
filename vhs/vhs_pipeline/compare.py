@@ -163,9 +163,7 @@ def run_comparisons(argv=None):
         original_source_path = ARCHIVE_DIR / f"{archive_name}_proxy.mp4"
         chapters_file = METADATA_DIR / archive_name / "chapters.ffmetadata"
         if not original_source_path.exists():
-            print(
-                f"Skipping {archive_name}: missing original source clip {original_source_path}"
-            )
+            print(f"Skipping {archive_name}: missing original source clip {original_source_path}")
             skipped_missing_inputs += 1
             continue
         if not chapters_file.exists():
@@ -197,9 +195,7 @@ def run_comparisons(argv=None):
 
             processed_path = find_processed_chapter_mp4(title)
             if not processed_path:
-                print(
-                    f"Skipping {archive_name} / {title}: missing processed chapter MP4"
-                )
+                print(f"Skipping {archive_name} / {title}: missing processed chapter MP4")
                 skipped_missing_processed += 1
                 continue
 

@@ -28,10 +28,13 @@ class TestApplyMetadata(unittest.TestCase):
 
     def test_update_tif_metadata_no_change(self):
         header = "EU (1973) - Book 02, Page 05 of 20, Scan S02 of 3 total"
-        with mock.patch(
-            "apply_metadata.get_tif_tag",
-            side_effect=[header, apply_metadata.CREATOR],
-        ), mock.patch("apply_metadata.write_tags") as write_mock:
+        with (
+            mock.patch(
+                "apply_metadata.get_tif_tag",
+                side_effect=[header, apply_metadata.CREATOR],
+            ),
+            mock.patch("apply_metadata.write_tags") as write_mock,
+        ):
             result = apply_metadata.update_tif_metadata(Path("test.tif"), header)
 
         self.assertFalse(result)
@@ -40,10 +43,13 @@ class TestApplyMetadata(unittest.TestCase):
     def test_update_tif_metadata_duplicate_creator(self):
         header = "EU (1973) - Book 02, Page 05 of 20, Scan S02 of 3 total"
         dup_creator = f"{apply_metadata.CREATOR}; {apply_metadata.CREATOR}"
-        with mock.patch(
-            "apply_metadata.get_tif_tag",
-            side_effect=[header, dup_creator],
-        ), mock.patch("apply_metadata.write_tags") as write_mock:
+        with (
+            mock.patch(
+                "apply_metadata.get_tif_tag",
+                side_effect=[header, dup_creator],
+            ),
+            mock.patch("apply_metadata.write_tags") as write_mock,
+        ):
             result = apply_metadata.update_tif_metadata(Path("test.tif"), header)
 
         self.assertTrue(result)
@@ -51,9 +57,7 @@ class TestApplyMetadata(unittest.TestCase):
         first_kwargs = write_mock.call_args_list[0].kwargs
         second_kwargs = write_mock.call_args_list[1].kwargs
         self.assertEqual(first_kwargs["clear_tags"], ["XMP-dc:Creator"])
-        self.assertEqual(
-            second_kwargs["set_tags"]["XMP-dc:Creator"], apply_metadata.CREATOR
-        )
+        self.assertEqual(second_kwargs["set_tags"]["XMP-dc:Creator"], apply_metadata.CREATOR)
         self.assertEqual(second_kwargs["set_tags"]["XMP-dc:Description"], header)
 
 

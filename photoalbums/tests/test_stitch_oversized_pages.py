@@ -68,26 +68,23 @@ class TestStitchOversizedPages(unittest.TestCase):
         fake_result = mock.Mock()
         fake_result.size = 1
 
-        with tempfile.TemporaryDirectory() as tmp, mock.patch(
-            "stitch_oversized_pages._require_stitcher"
-        ), mock.patch("stitch_oversized_pages._require_image_modules"), mock.patch(
-            "stitch_oversized_pages.output_is_valid", return_value=False
-        ), mock.patch(
-            "stitch_oversized_pages.AffineStitcher"
-        ) as stitcher_mock, mock.patch(
-            "stitch_oversized_pages.write_jpeg"
-        ) as write_mock:
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch("stitch_oversized_pages._require_stitcher"),
+            mock.patch("stitch_oversized_pages._require_image_modules"),
+            mock.patch("stitch_oversized_pages.output_is_valid", return_value=False),
+            mock.patch("stitch_oversized_pages.AffineStitcher") as stitcher_mock,
+            mock.patch("stitch_oversized_pages.write_jpeg") as write_mock,
+        ):
             stitcher_mock.return_value.stitch.return_value = fake_result
 
             sop.stitch(files, tmp)
 
         write_mock.assert_called_once_with(
             fake_result,
-            str(Path(tmp) / "EU_1973_B02_P05_stitched.jpg"),
+            str(Path(tmp) / "EU_1973_B02_P05_VC.jpg"),
             "EU (1973) - Book 02, Page 05, Scans S01 S02",
-            extra_tags={
-                "XMP-dc:Source": "EU_1973_B02_P05_S01.tif; EU_1973_B02_P05_S02.tif"
-            },
+            extra_tags={"XMP-dc:Source": "EU_1973_B02_P05_S01.tif; EU_1973_B02_P05_S02.tif"},
         )
 
     def test_linear_pair_fallback_stitches_split_page(self):
@@ -123,12 +120,12 @@ class TestStitchOversizedPages(unittest.TestCase):
         shifted_right[:] = background
         shifted_right[18:] = right_scan[:-18]
 
-        with mock.patch.object(sop, "LINEAR_FALLBACK_TARGET_WIDTH", 240), mock.patch.object(
-            sop, "LINEAR_FALLBACK_OVERLAP_STEP", 24
-        ), mock.patch.object(sop, "LINEAR_FALLBACK_VERTICAL_STEP", 8), mock.patch.object(
-            sop, "LINEAR_FALLBACK_REFINE_OVERLAP_RADIUS", 6
-        ), mock.patch.object(
-            sop, "LINEAR_FALLBACK_REFINE_VERTICAL_RADIUS", 2
+        with (
+            mock.patch.object(sop, "LINEAR_FALLBACK_TARGET_WIDTH", 240),
+            mock.patch.object(sop, "LINEAR_FALLBACK_OVERLAP_STEP", 24),
+            mock.patch.object(sop, "LINEAR_FALLBACK_VERTICAL_STEP", 8),
+            mock.patch.object(sop, "LINEAR_FALLBACK_REFINE_OVERLAP_RADIUS", 6),
+            mock.patch.object(sop, "LINEAR_FALLBACK_REFINE_VERTICAL_RADIUS", 2),
         ):
             stitched = sop._stitch_linear_pair_images([left_scan, shifted_right])
 
@@ -143,15 +140,17 @@ class TestStitchOversizedPages(unittest.TestCase):
             self.skipTest(f"numpy unavailable: {exc}")
 
         fake = np.zeros((10, 20, 3), dtype=np.uint8)
-        with mock.patch(
-            "stitch_oversized_pages.cv2.imread", return_value=None
-        ), mock.patch(
-            "stitch_oversized_pages._read_with_pillow",
-            side_effect=RuntimeError("pillow failed"),
-        ), mock.patch(
-            "stitch_oversized_pages._read_with_magick",
-            return_value=fake,
-        ) as magick_mock:
+        with (
+            mock.patch("stitch_oversized_pages.cv2.imread", return_value=None),
+            mock.patch(
+                "stitch_oversized_pages._read_with_pillow",
+                side_effect=RuntimeError("pillow failed"),
+            ),
+            mock.patch(
+                "stitch_oversized_pages._read_with_magick",
+                return_value=fake,
+            ) as magick_mock,
+        ):
             result = sop._read_stitch_image("C:/Photos/bad-extension.jpg")
 
         self.assertIs(result, fake)

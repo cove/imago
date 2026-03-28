@@ -36,11 +36,7 @@ def iter_photos(
 def get_faces_for_photo(source_path: str, store: TextFaceStore) -> list[dict[str, Any]]:
     """Return existing face records for a photo path (avoids re-ingesting)."""
     normalized = str(source_path).replace("\\", "/")
-    return [
-        f
-        for f in store.list_faces()
-        if str(f.get("source_path", "")).replace("\\", "/") == normalized
-    ]
+    return [f for f in store.list_faces() if str(f.get("source_path", "")).replace("\\", "/") == normalized]
 
 
 def get_ai_suggestions(
@@ -72,10 +68,7 @@ def get_ai_suggestions(
         )
     except Exception:
         return []
-    people_by_id = {
-        str(p.get("person_id")): str(p.get("display_name", ""))
-        for p in store.list_people()
-    }
+    people_by_id = {str(p.get("person_id")): str(p.get("display_name", "")) for p in store.list_people()}
     out = []
     for r in raw:
         person_id = str(r.get("person_id", "")).strip()
@@ -255,9 +248,7 @@ def label_photo(
         faces_labeled += 1
 
     if not confirmed_names:
-        return LabelResult(
-            photo_path=photo_path, status="skipped_by_user", faces_labeled=0
-        )
+        return LabelResult(photo_path=photo_path, status="skipped_by_user", faces_labeled=0)
 
     merge_persons_xmp(xmp_path, confirmed_names)
     print(f"\n  Saved: {', '.join(confirmed_names)} → {xmp_path.name}")

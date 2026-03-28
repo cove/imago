@@ -147,35 +147,24 @@ def _parse_timebase(raw: Any) -> tuple[int, int] | None:
     return int(num), int(den)
 
 
-def _load_chapter_context_from_tsv(
-    archive: str, chapter_title: str
-) -> dict[str, Any] | None:
+def _load_chapter_context_from_tsv(archive: str, chapter_title: str) -> dict[str, Any] | None:
     chapters_path = METADATA_DIR / str(archive or "").strip() / "chapters.tsv"
     if not chapters_path.exists():
         return None
     target = str(chapter_title or "").strip()
     if not target:
         return None
-    with chapters_path.open(
-        "r", encoding="utf-8-sig", errors="ignore", newline=""
-    ) as fh:
+    with chapters_path.open("r", encoding="utf-8-sig", errors="ignore", newline="") as fh:
         reader = csv.DictReader(fh, delimiter="\t")
         for raw_row in reader:
-            row = {
-                str(k or "").strip().lower(): str(v or "").strip()
-                for k, v in (raw_row or {}).items()
-            }
+            row = {str(k or "").strip().lower(): str(v or "").strip() for k, v in (raw_row or {}).items()}
             if str(row.get("title") or "").strip() != target:
                 continue
 
             tb = _parse_timebase(row.get("timebase"))
             start_raw_text = str(row.get("start_raw") or row.get("start") or "").strip()
             end_raw_text = str(row.get("end_raw") or row.get("end") or "").strip()
-            if (
-                not tb
-                or not re.fullmatch(r"-?\d+", start_raw_text)
-                or not re.fullmatch(r"-?\d+", end_raw_text)
-            ):
+            if not tb or not re.fullmatch(r"-?\d+", start_raw_text) or not re.fullmatch(r"-?\d+", end_raw_text):
                 continue
 
             tb_num, tb_den = tb
@@ -219,9 +208,7 @@ def _load_chapter_context(archive: str, chapter_title: str) -> dict[str, Any]:
         if chapter is not None:
             start_sec = _chapter_boundary_seconds(chapter, "start")
             end_sec = _chapter_boundary_seconds(chapter, "end")
-            start_frame, end_frame = chapter_frame_bounds(
-                chapter, fps_num=FPS_NUM, fps_den=FPS_DEN
-            )
+            start_frame, end_frame = chapter_frame_bounds(chapter, fps_num=FPS_NUM, fps_den=FPS_DEN)
             if end_sec <= start_sec:
                 raise ValueError(f"Invalid chapter bounds for '{target}'.")
             if int(end_frame) <= int(start_frame):
@@ -291,11 +278,7 @@ def _classify_face_source(
         return "chapter"
     if chapter_safe_token and chapter_safe_token in stem_token:
         return "chapter"
-    if (
-        archive_token
-        and archive_token in stem_token
-        and ("proxy" in stem.lower() or "archive" in key)
-    ):
+    if archive_token and archive_token in stem_token and ("proxy" in stem.lower() or "archive" in key):
         return "archive"
     return ""
 
@@ -326,9 +309,7 @@ def _read_people_tsv_rows(path: Path) -> list[tuple[float, float, str]]:
         if not line or line.startswith("#"):
             continue
         lower = line.lower()
-        if lower.startswith("start_frame\t") or lower.startswith(
-            "start_frame,end_frame"
-        ):
+        if lower.startswith("start_frame\t") or lower.startswith("start_frame,end_frame"):
             continue
         if lower.startswith("start\t") or lower.startswith("start,end"):
             continue
@@ -384,9 +365,7 @@ def _write_people_tsv_rows(path: Path, rows: list[tuple[float, float, str]]) -> 
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [PEOPLE_TSV_HEADER]
     for start, end, people in list(rows or []):
-        lines.append(
-            f"{_to_timestamp(float(start))}\t{_to_timestamp(float(end))}\t{people}"
-        )
+        lines.append(f"{_to_timestamp(float(start))}\t{_to_timestamp(float(end))}\t{people}")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -418,9 +397,7 @@ def prefill_people_from_cast(
 
     cast_root = Path(cast_store_dir)
     people_payload = _read_json(cast_root / "people.json", default={"people": []})
-    people_rows = (
-        people_payload.get("people", []) if isinstance(people_payload, dict) else []
-    )
+    people_rows = people_payload.get("people", []) if isinstance(people_payload, dict) else []
     faces_rows = _read_jsonl(cast_root / "faces.jsonl")
 
     people_by_id: dict[str, str] = {}
@@ -498,11 +475,7 @@ def prefill_people_from_cast(
     person_hits: dict[str, int] = {}
     for _ts, name in observations:
         person_hits[name] = int(person_hits.get(name, 0)) + 1
-    keep_names = {
-        name
-        for name, hits in person_hits.items()
-        if int(hits) >= max(1, int(min_name_hits))
-    }
+    keep_names = {name for name, hits in person_hits.items() if int(hits) >= max(1, int(min_name_hits))}
     observations = [(ts, name) for ts, name in observations if name in keep_names]
     if not observations:
         return PrefillResult(
@@ -571,10 +544,7 @@ def prefill_people_from_cast(
             continue
         if merged:
             prev = merged[-1]
-            if (
-                str(prev["people"]) == people
-                and start <= float(prev["end"]) + merge_gap
-            ):
+            if str(prev["people"]) == people and start <= float(prev["end"]) + merge_gap:
                 prev["end"] = max(float(prev["end"]), end)
                 continue
         merged.append({"start": start, "end": end, "people": people})
@@ -621,17 +591,13 @@ def apply_prefill_entries_to_people_tsv(
     chapter = _load_chapter_context(archive, chapter_title)
     chapter_start_sec = float(chapter["start_sec"])
     chapter_end_sec = float(chapter["end_sec"])
-    chapter_len_sec = max(
-        _frame_to_seconds(1), float(chapter_end_sec) - float(chapter_start_sec)
-    )
+    chapter_len_sec = max(_frame_to_seconds(1), float(chapter_end_sec) - float(chapter_start_sec))
     tsv_path = METADATA_DIR / str(archive or "").strip() / "people.tsv"
 
     existing = _read_people_tsv_rows(tsv_path)
     kept: list[tuple[float, float, str]] = []
     for start, end, people in existing:
-        if float(end) <= float(chapter_start_sec) or float(start) >= float(
-            chapter_end_sec
-        ):
+        if float(end) <= float(chapter_start_sec) or float(start) >= float(chapter_end_sec):
             kept.append((float(start), float(end), str(people)))
             continue
         if float(start) < float(chapter_start_sec):
@@ -644,21 +610,14 @@ def apply_prefill_entries_to_people_tsv(
         start_local = _parse_seconds(item.get("start_seconds", item.get("start")))
         end_local = _parse_seconds(item.get("end_seconds", item.get("end")))
         people = re.sub(r"\s+", " ", str(item.get("people") or "").strip())
-        if (
-            start_local is None
-            or end_local is None
-            or end_local <= start_local
-            or not people
-        ):
+        if start_local is None or end_local is None or end_local <= start_local or not people:
             continue
         local_start_sec = max(0.0, min(float(chapter_len_sec), float(start_local)))
         local_end_sec = max(0.0, min(float(chapter_len_sec), float(end_local)))
         if local_end_sec <= local_start_sec:
             if local_start_sec >= float(chapter_len_sec):
                 continue
-            local_end_sec = min(
-                float(chapter_len_sec), float(local_start_sec) + _frame_to_seconds(1)
-            )
+            local_end_sec = min(float(chapter_len_sec), float(local_start_sec) + _frame_to_seconds(1))
         chapter_rows.append(
             (
                 float(chapter_start_sec) + float(local_start_sec),
@@ -677,8 +636,6 @@ def write_prefill_audit_tsv(path: Path, entries: list[dict[str, Any]]) -> Path:
     out.parent.mkdir(parents=True, exist_ok=True)
     lines = ["start\tend\tpeople"]
     for row in list(entries or []):
-        lines.append(
-            f"{str(row.get('start') or '')}\t{str(row.get('end') or '')}\t{str(row.get('people') or '')}"
-        )
+        lines.append(f"{str(row.get('start') or '')}\t{str(row.get('end') or '')}\t{str(row.get('people') or '')}")
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return out

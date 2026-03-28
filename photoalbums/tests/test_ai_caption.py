@@ -40,7 +40,9 @@ class TestAICaption(unittest.TestCase):
             ocr_text="SHOW AT THE DUNHUANG CULTURAL CENTRE",
             source_path=Path("Photo Albums") / "China_1986_B02_Archive" / "China_1986_B02_P02_S01.tif",
         )
-        self.assertIn("Recover the full `author_text` when the strip is visibly present but cropped in this scan", prompt)
+        self.assertIn(
+            "Recover the full `author_text` when the strip is visibly present but cropped in this scan", prompt
+        )
         self.assertIn("the supplied `ocr_text` contains the missing words", prompt)
 
     def test_build_local_prompt_groups_runtime_hints_into_single_block(self):

@@ -24,9 +24,7 @@ def _write_subtitles_tsv(
 ) -> None:
     lines = ["start_frame\tend_frame\ttext\tspeaker\tconfidence\tsource"]
     for start_frame, end_frame, text, speaker, confidence, source in rows:
-        lines.append(
-            f"{int(start_frame)}\t{int(end_frame)}\t{text}\t{speaker}\t{confidence}\t{source}"
-        )
+        lines.append(f"{int(start_frame)}\t{int(end_frame)}\t{text}\t{speaker}\t{confidence}\t{source}")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -86,7 +84,7 @@ def test_merge_people_entries_into_srt_replaces_prior_people_line_and_dedupes(
 ) -> None:
     srt_path = tmp_path / "chapter.srt"
     srt_path.write_text(
-        "1\n" "00:00:00,000 --> 00:00:03,000\n" "Hello there\n" "[Old Person]\n",
+        "1\n00:00:00,000 --> 00:00:03,000\nHello there\n[Old Person]\n",
         encoding="utf-8",
     )
 
@@ -110,17 +108,11 @@ def test_merge_people_entries_into_srt_returns_false_for_missing_or_invalid_srt(
     tmp_path: Path,
 ) -> None:
     missing = tmp_path / "missing.srt"
-    assert (
-        render_pipeline.merge_people_entries_into_srt(missing, [(0.0, 1.0, "Jim")])
-        is False
-    )
+    assert render_pipeline.merge_people_entries_into_srt(missing, [(0.0, 1.0, "Jim")]) is False
 
     invalid = tmp_path / "invalid.srt"
     invalid.write_text("not an srt file", encoding="utf-8")
-    assert (
-        render_pipeline.merge_people_entries_into_srt(invalid, [(0.0, 1.0, "Jim")])
-        is False
-    )
+    assert render_pipeline.merge_people_entries_into_srt(invalid, [(0.0, 1.0, "Jim")]) is False
     assert invalid.read_text(encoding="utf-8") == "not an srt file"
 
 
@@ -190,8 +182,12 @@ def test_tsv_people_to_srt_vtt_uses_frame_clipping_and_brackets(tmp_path: Path) 
     assert wrote is True
 
     srt_text = srt_path.read_text(encoding="utf-8")
-    first_span = f"{render_pipeline._to_srt_time(_frame_seconds(0))} --> {render_pipeline._to_srt_time(_frame_seconds(5))}"
-    second_span = f"{render_pipeline._to_srt_time(_frame_seconds(10))} --> {render_pipeline._to_srt_time(_frame_seconds(18))}"
+    first_span = (
+        f"{render_pipeline._to_srt_time(_frame_seconds(0))} --> {render_pipeline._to_srt_time(_frame_seconds(5))}"
+    )
+    second_span = (
+        f"{render_pipeline._to_srt_time(_frame_seconds(10))} --> {render_pipeline._to_srt_time(_frame_seconds(18))}"
+    )
     assert first_span in srt_text
     assert second_span in srt_text
     assert "[Lynda]" in srt_text
@@ -299,7 +295,7 @@ def test_srt_to_ass_italicizes_people_bracket_lines(tmp_path: Path) -> None:
     srt_path = tmp_path / "chapter.srt"
     ass_path = tmp_path / "chapter.ass"
     srt_path.write_text(
-        "1\n" "00:00:00,000 --> 00:00:02,000\n" "Hello there\n" "[Jim | Linda]\n",
+        "1\n00:00:00,000 --> 00:00:02,000\nHello there\n[Jim | Linda]\n",
         encoding="utf-8",
     )
 
@@ -316,7 +312,7 @@ def test_srt_to_ass_scales_people_font_to_50_percent_of_dialogue_size(
     srt_path = tmp_path / "chapter.srt"
     ass_path = tmp_path / "chapter.ass"
     srt_path.write_text(
-        "1\n" "00:00:00,000 --> 00:00:02,000\n" "Dialogue line\n" "[Person Name]\n",
+        "1\n00:00:00,000 --> 00:00:02,000\nDialogue line\n[Person Name]\n",
         encoding="utf-8",
     )
 

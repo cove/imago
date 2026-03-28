@@ -170,13 +170,9 @@ def test_get_audio_sync_offset_matches_by_midpoint() -> None:
         save_render_settings(archive, settings)
 
         # Chapter [0, 400) → midpoint 200 → in [0, 500) → 0.25
-        assert (
-            get_audio_sync_offset_for_chapter(archive, ch_start=0, ch_end=400) == 0.25
-        )
+        assert get_audio_sync_offset_for_chapter(archive, ch_start=0, ch_end=400) == 0.25
         # Chapter [600, 900) → midpoint 750 → in [500, 1000) → 0.75
-        assert (
-            get_audio_sync_offset_for_chapter(archive, ch_start=600, ch_end=900) == 0.75
-        )
+        assert get_audio_sync_offset_for_chapter(archive, ch_start=600, ch_end=900) == 0.75
     finally:
         shutil.rmtree(meta_dir, ignore_errors=True)
 
@@ -205,9 +201,7 @@ def test_update_audio_sync_writes_new_entry() -> None:
     archive = "__audio_sync_unit_upd1"
     meta_dir = ROOT / "metadata" / archive
     try:
-        update_chapter_audio_sync_in_render_settings(
-            archive, ch_start=100, ch_end=500, offset_seconds=0.3
-        )
+        update_chapter_audio_sync_in_render_settings(archive, ch_start=100, ch_end=500, offset_seconds=0.3)
         offset = get_audio_sync_offset_for_chapter(archive, ch_start=100, ch_end=500)
         assert abs(offset - 0.3) < 1e-6
     finally:
@@ -218,12 +212,8 @@ def test_update_audio_sync_overwrites_existing_entry() -> None:
     archive = "__audio_sync_unit_upd2"
     meta_dir = ROOT / "metadata" / archive
     try:
-        update_chapter_audio_sync_in_render_settings(
-            archive, ch_start=100, ch_end=500, offset_seconds=0.3
-        )
-        update_chapter_audio_sync_in_render_settings(
-            archive, ch_start=100, ch_end=500, offset_seconds=-0.2
-        )
+        update_chapter_audio_sync_in_render_settings(archive, ch_start=100, ch_end=500, offset_seconds=0.3)
+        update_chapter_audio_sync_in_render_settings(archive, ch_start=100, ch_end=500, offset_seconds=-0.2)
         offset = get_audio_sync_offset_for_chapter(archive, ch_start=100, ch_end=500)
         assert abs(offset - (-0.2)) < 1e-6
     finally:
@@ -234,12 +224,8 @@ def test_update_audio_sync_clears_entry_when_zero() -> None:
     archive = "__audio_sync_unit_upd3"
     meta_dir = ROOT / "metadata" / archive
     try:
-        update_chapter_audio_sync_in_render_settings(
-            archive, ch_start=100, ch_end=500, offset_seconds=0.3
-        )
-        update_chapter_audio_sync_in_render_settings(
-            archive, ch_start=100, ch_end=500, offset_seconds=0.0
-        )
+        update_chapter_audio_sync_in_render_settings(archive, ch_start=100, ch_end=500, offset_seconds=0.3)
+        update_chapter_audio_sync_in_render_settings(archive, ch_start=100, ch_end=500, offset_seconds=0.0)
         offset = get_audio_sync_offset_for_chapter(archive, ch_start=100, ch_end=500)
         assert offset == 0.0
         _, settings = load_render_settings(archive)
@@ -253,37 +239,14 @@ def test_update_audio_sync_preserves_entries_outside_chapter_span() -> None:
     meta_dir = ROOT / "metadata" / archive
     try:
         # Set up two entries: [0,200) and [800,1000)
-        update_chapter_audio_sync_in_render_settings(
-            archive, ch_start=0, ch_end=200, offset_seconds=0.1
-        )
-        update_chapter_audio_sync_in_render_settings(
-            archive, ch_start=800, ch_end=1000, offset_seconds=0.9
-        )
+        update_chapter_audio_sync_in_render_settings(archive, ch_start=0, ch_end=200, offset_seconds=0.1)
+        update_chapter_audio_sync_in_render_settings(archive, ch_start=800, ch_end=1000, offset_seconds=0.9)
         # Update only [300,600) — others should survive
-        update_chapter_audio_sync_in_render_settings(
-            archive, ch_start=300, ch_end=600, offset_seconds=0.5
-        )
+        update_chapter_audio_sync_in_render_settings(archive, ch_start=300, ch_end=600, offset_seconds=0.5)
 
-        assert (
-            abs(
-                get_audio_sync_offset_for_chapter(archive, ch_start=0, ch_end=200) - 0.1
-            )
-            < 1e-6
-        )
-        assert (
-            abs(
-                get_audio_sync_offset_for_chapter(archive, ch_start=300, ch_end=600)
-                - 0.5
-            )
-            < 1e-6
-        )
-        assert (
-            abs(
-                get_audio_sync_offset_for_chapter(archive, ch_start=800, ch_end=1000)
-                - 0.9
-            )
-            < 1e-6
-        )
+        assert abs(get_audio_sync_offset_for_chapter(archive, ch_start=0, ch_end=200) - 0.1) < 1e-6
+        assert abs(get_audio_sync_offset_for_chapter(archive, ch_start=300, ch_end=600) - 0.5) < 1e-6
+        assert abs(get_audio_sync_offset_for_chapter(archive, ch_start=800, ch_end=1000) - 0.9) < 1e-6
     finally:
         shutil.rmtree(meta_dir, ignore_errors=True)
 
@@ -293,13 +256,9 @@ def test_update_audio_sync_splits_overlapping_entry() -> None:
     meta_dir = ROOT / "metadata" / archive
     try:
         # One wide entry [0,1000)
-        update_chapter_audio_sync_in_render_settings(
-            archive, ch_start=0, ch_end=1000, offset_seconds=0.4
-        )
+        update_chapter_audio_sync_in_render_settings(archive, ch_start=0, ch_end=1000, offset_seconds=0.4)
         # Overwrite [300,700) with a different offset — [0,300) and [700,1000) should be preserved
-        update_chapter_audio_sync_in_render_settings(
-            archive, ch_start=300, ch_end=700, offset_seconds=0.8
-        )
+        update_chapter_audio_sync_in_render_settings(archive, ch_start=300, ch_end=700, offset_seconds=0.8)
 
         _, settings = load_render_settings(archive)
         offsets = settings["audio_sync_offsets"]

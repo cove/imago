@@ -20,22 +20,30 @@ class TestAIPageLayout(unittest.TestCase):
 
     def test_classify_image_kind_recognizes_page_variants(self):
         self.assertEqual(
-            ai_page_layout.classify_image_kind(
-                Path("Family_View") / "Family_2020_B01_P01.jpg"
-            ),
+            ai_page_layout.classify_image_kind(Path("Family_View") / "Family_2020_B01_P01.jpg"),
             "page_view",
         )
         self.assertEqual(
-            ai_page_layout.classify_image_kind(
-                Path("Family_Archive") / "Family_2020_B01_P01_S01.tif"
-            ),
+            ai_page_layout.classify_image_kind(Path("Family_Archive") / "Family_2020_B01_P01_S01.tif"),
             "page_scan",
         )
         self.assertEqual(
-            ai_page_layout.classify_image_kind(
-                Path("Family_View") / "Family_2020_B01_P01_D01_01.jpg"
-            ),
+            ai_page_layout.classify_image_kind(Path("Family_View") / "Family_2020_B01_P01_D01_01.jpg"),
             "detail",
+        )
+        # New naming convention: _V (single-scan view) and _VR (reconstructed view)
+        self.assertEqual(
+            ai_page_layout.classify_image_kind(Path("Family_View") / "Family_2020_B01_P01_V.jpg"),
+            "page_view",
+        )
+        self.assertEqual(
+            ai_page_layout.classify_image_kind(Path("Family_View") / "Family_2020_B01_P01_VC.jpg"),
+            "page_view",
+        )
+        # Legacy stitched name still recognised during transition
+        self.assertEqual(
+            ai_page_layout.classify_image_kind(Path("Family_View") / "Family_2020_B01_P01_stitched.jpg"),
+            "page_view",
         )
 
     def test_prepare_image_layout_handles_grayscale_tif(self):

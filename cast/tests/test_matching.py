@@ -51,9 +51,7 @@ def test_suggest_people_from_prototypes_matches_direct_suggest():
         prototypes=protos,
         top_k=2,
     )
-    assert [row["person_id"] for row in from_proto] == [
-        row["person_id"] for row in direct
-    ]
+    assert [row["person_id"] for row in from_proto] == [row["person_id"] for row in direct]
 
 
 def test_build_person_prototypes_filters_faces_by_embedding_model():

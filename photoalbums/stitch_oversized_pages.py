@@ -115,10 +115,7 @@ def build_detail_description(
     d2: str,
 ) -> str:
     book_display = f"{int(book):02d}"
-    return (
-        f"{collection} ({year}) - Book {book_display}, "
-        f"Page {page:02d}, Detail D{d1}_{d2}"
-    )
+    return f"{collection} ({year}) - Book {book_display}, Page {page:02d}, Detail D{d1}_{d2}"
 
 
 def build_derived_output_name(base: str) -> str:
@@ -136,10 +133,7 @@ def build_derived_output_name(base: str) -> str:
         stem,
     )
     if m_view:
-        return (
-            f"{m_view.group('collection')}_{m_view.group('year')}_"
-            f"{m_view.group('rest')}_D{d1}_{d2}.jpg"
-        )
+        return f"{m_view.group('collection')}_{m_view.group('year')}_{m_view.group('rest')}_D{d1}_{d2}.jpg"
     return f"{stem}_D{d1}_{d2}.jpg"
 
 
@@ -266,9 +260,7 @@ def _score_linear_overlap(
     if shared_height < int(height * LINEAR_FALLBACK_MIN_SHARED_HEIGHT_FRAC):
         return None
 
-    left_strip = left_map[
-        y_left : y_left + shared_height, left_map.shape[1] - overlap :
-    ]
+    left_strip = left_map[y_left : y_left + shared_height, left_map.shape[1] - overlap :]
     right_strip = right_map[y_right : y_right + shared_height, :overlap]
     if left_strip.size == 0 or right_strip.size == 0:
         return None
@@ -312,22 +304,13 @@ def _search_linear_overlap(left_img, right_img) -> tuple[float, int, int]:
 
     min_overlap = max(
         8,
-        int(
-            min(left_map.shape[1], right_map.shape[1])
-            * LINEAR_FALLBACK_MIN_OVERLAP_FRAC
-        ),
+        int(min(left_map.shape[1], right_map.shape[1]) * LINEAR_FALLBACK_MIN_OVERLAP_FRAC),
     )
     max_overlap = max(
         min_overlap,
-        int(
-            min(left_map.shape[1], right_map.shape[1])
-            * LINEAR_FALLBACK_MAX_OVERLAP_FRAC
-        ),
+        int(min(left_map.shape[1], right_map.shape[1]) * LINEAR_FALLBACK_MAX_OVERLAP_FRAC),
     )
-    max_dy = int(
-        max(left_map.shape[0], right_map.shape[0])
-        * LINEAR_FALLBACK_MAX_VERTICAL_SHIFT_FRAC
-    )
+    max_dy = int(max(left_map.shape[0], right_map.shape[0]) * LINEAR_FALLBACK_MAX_VERTICAL_SHIFT_FRAC)
 
     best: tuple[float, int, int] | None = None
     for overlap in range(min_overlap, max_overlap + 1, LINEAR_FALLBACK_OVERLAP_STEP):
@@ -343,12 +326,8 @@ def _search_linear_overlap(left_img, right_img) -> tuple[float, int, int]:
         raise RuntimeError("Linear overlap search could not find a shared region")
 
     _, coarse_overlap, coarse_dy = best
-    refine_overlap_min = max(
-        min_overlap, coarse_overlap - LINEAR_FALLBACK_REFINE_OVERLAP_RADIUS
-    )
-    refine_overlap_max = min(
-        max_overlap, coarse_overlap + LINEAR_FALLBACK_REFINE_OVERLAP_RADIUS
-    )
+    refine_overlap_min = max(min_overlap, coarse_overlap - LINEAR_FALLBACK_REFINE_OVERLAP_RADIUS)
+    refine_overlap_max = min(max_overlap, coarse_overlap + LINEAR_FALLBACK_REFINE_OVERLAP_RADIUS)
     refine_dy_min = max(-max_dy, coarse_dy - LINEAR_FALLBACK_REFINE_VERTICAL_RADIUS)
     refine_dy_max = min(max_dy, coarse_dy + LINEAR_FALLBACK_REFINE_VERTICAL_RADIUS)
     for overlap in range(refine_overlap_min, refine_overlap_max + 1, 2):
@@ -398,9 +377,7 @@ def _compose_linear_pair(left_img, right_img, overlap: int, dy: int):
         left_overlap = right_roi[:, :overlap]
         right_overlap = right_img[:, :overlap]
         alpha = np.linspace(1.0, 0.0, overlap, dtype=np.float32)[None, :, None]
-        blended = (left_overlap.astype(np.float32) * alpha) + (
-            right_overlap.astype(np.float32) * (1.0 - alpha)
-        )
+        blended = (left_overlap.astype(np.float32) * alpha) + (right_overlap.astype(np.float32) * (1.0 - alpha))
         right_roi[:, :overlap] = np.clip(blended, 0, 255).astype(np.uint8)
     right_roi[:, overlap:] = right_img[:, overlap:]
     return out
@@ -462,12 +439,7 @@ def build_stitched_image(files, stitcher_factory=None):
                 warnings.simplefilter("always")
                 result = stitcher_factory(**cfg).stitch(files)
             partial_warning = next(
-                (
-                    w
-                    for w in caught
-                    if "not all images are included in the final panorama"
-                    in str(w.message).lower()
-                ),
+                (w for w in caught if "not all images are included in the final panorama" in str(w.message).lower()),
                 None,
             )
             if partial_warning is not None:
@@ -475,9 +447,7 @@ def build_stitched_image(files, stitcher_factory=None):
                 continue
             if result is not None and getattr(result, "size", 0):
                 shape = getattr(result, "shape", None)
-                if (
-                    not isinstance(shape, tuple) or len(shape) < 2
-                ) or _result_expands_canvas(
+                if (not isinstance(shape, tuple) or len(shape) < 2) or _result_expands_canvas(
                     result,
                     ensure_loaded_images(),
                 ):
@@ -621,9 +591,7 @@ def derived_to_jpg(src_path: str, output_dir: str) -> None:
     quality = 80
     write_jpeg(img, out, desc, quality=quality)
 
-    while (
-        os.path.exists(out) and os.path.getsize(out) >= original_size and quality > 40
-    ):
+    while os.path.exists(out) and os.path.getsize(out) >= original_size and quality > 40:
         quality -= 10
         write_jpeg(img, out, desc, quality=quality)
 
@@ -641,7 +609,7 @@ def stitch(files, output_dir: str) -> None:
 
     out = os.path.join(
         output_dir,
-        f"{collection}_{year}_B{book}_P{int(page):02d}_stitched.jpg",
+        f"{collection}_{year}_B{book}_P{int(page):02d}_VC.jpg",
     )
 
     scan_nums = extract_scan_numbers(files)

@@ -165,9 +165,7 @@ def test_make_encode_final_x264_maps_clip_chapters_after_subtitle_inputs(
     assert "1:s:0" in cmd
 
 
-def test_run_pipeline_embeds_all_chapters_within_full_movie_range(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_run_pipeline_embeds_all_chapters_within_full_movie_range(monkeypatch, tmp_path: Path) -> None:
     archive_dir = tmp_path / "Archive"
     metadata_dir = tmp_path / "metadata"
     videos_dir = tmp_path / "Videos"
@@ -196,15 +194,9 @@ def test_run_pipeline_embeds_all_chapters_within_full_movie_range(
     monkeypatch.setattr(render_pipeline, "VIDEOS_DIR", videos_dir)
     monkeypatch.setattr(render_pipeline, "CLIPS_DIR", clips_dir)
     monkeypatch.setattr(render_pipeline, "run", _fake_run)
-    monkeypatch.setattr(
-        render_pipeline, "assert_expected_frame_count", lambda *args, **kwargs: None
-    )
-    monkeypatch.setattr(
-        render_pipeline, "chapter_done", lambda *_args, **_kwargs: False
-    )
-    monkeypatch.setattr(
-        render_pipeline, "transcript_mode", lambda *_args, **_kwargs: "off"
-    )
+    monkeypatch.setattr(render_pipeline, "assert_expected_frame_count", lambda *args, **kwargs: None)
+    monkeypatch.setattr(render_pipeline, "chapter_done", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(render_pipeline, "transcript_mode", lambda *_args, **_kwargs: "off")
     monkeypatch.setenv("RENDER_KEEP_TEMP", "1")
 
     args = argparse.Namespace(
@@ -227,10 +219,6 @@ def test_run_pipeline_embeds_all_chapters_within_full_movie_range(
     ffmeta_text = ffmeta_path.read_text(encoding="utf-8")
 
     assert ffmeta_text.count("[CHAPTER]") == 2
-    assert (
-        "[CHAPTER]\n" "TIMEBASE=1001/30000\n" "START=0\n" "END=40\n" "title=Intro\n"
-    ) in ffmeta_text
-    assert (
-        "[CHAPTER]\n" "TIMEBASE=1001/30000\n" "START=40\n" "END=120\n" "title=Outro\n"
-    ) in ffmeta_text
+    assert ("[CHAPTER]\nTIMEBASE=1001/30000\nSTART=0\nEND=40\ntitle=Intro\n") in ffmeta_text
+    assert ("[CHAPTER]\nTIMEBASE=1001/30000\nSTART=40\nEND=120\ntitle=Outro\n") in ffmeta_text
     assert "title=Full Movie\n" not in ffmeta_text

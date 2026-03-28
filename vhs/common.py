@@ -74,11 +74,7 @@ elif sys.platform.startswith("linux"):
         FFMPEG_BIN = Path(ffmpeg_override)
         ffmpeg_dir = (
             Path(ffmpeg_override).parent
-            if (
-                Path(ffmpeg_override).is_absolute()
-                or "/" in ffmpeg_override
-                or "\\" in ffmpeg_override
-            )
+            if (Path(ffmpeg_override).is_absolute() or "/" in ffmpeg_override or "\\" in ffmpeg_override)
             else None
         )
     else:
@@ -88,11 +84,7 @@ elif sys.platform.startswith("linux"):
         FFPROBE_BIN = Path(ffprobe_override)
         ffprobe_dir = (
             Path(ffprobe_override).parent
-            if (
-                Path(ffprobe_override).is_absolute()
-                or "/" in ffprobe_override
-                or "\\" in ffprobe_override
-            )
+            if (Path(ffprobe_override).is_absolute() or "/" in ffprobe_override or "\\" in ffprobe_override)
             else None
         )
     else:
@@ -189,9 +181,7 @@ def make_frame_accurate_extract_chapter(
     explicitly opting into non-frame-accurate behavior.
     """
     if start_frame is None or end_frame is None:
-        raise ValueError(
-            "make_frame_accurate_extract_chapter requires start_frame and end_frame."
-        )
+        raise ValueError("make_frame_accurate_extract_chapter requires start_frame and end_frame.")
     s_frame = int(start_frame)
     e_frame = int(end_frame)
     if e_frame <= s_frame:
@@ -221,9 +211,7 @@ def make_frame_accurate_extract_chapter(
     chapter_dur = max(0.001, float(end) - float(start))
     audio_start_raw = float(start) + offset
     audio_end_raw = float(end) + offset
-    silence_prepend_sec = max(
-        0.0, -audio_start_raw
-    )  # > 0 only when offset pushes start < 0
+    silence_prepend_sec = max(0.0, -audio_start_raw)  # > 0 only when offset pushes start < 0
     audio_start_clamped = max(0.0, audio_start_raw)
     # Build audio filter: trim → optional silence prepend → pad end to chapter duration
     af_parts = [
@@ -338,9 +326,7 @@ def chapter_frame_bounds(chapter, fps_num=30000, fps_den=1001):
         s = _round_fraction_nearest_int(Fraction(s_raw) * tb * fps)
         e = _round_fraction_nearest_int(Fraction(e_raw) * tb * fps)
     except Exception:
-        s = int(
-            round(float(chapter.get("start", 0.0)) * float(fps_num) / float(fps_den))
-        )
+        s = int(round(float(chapter.get("start", 0.0)) * float(fps_num) / float(fps_den)))
         e = int(round(float(chapter.get("end", 0.0)) * float(fps_num) / float(fps_den)))
     if e < s:
         e = s
@@ -456,12 +442,7 @@ def combine_signal_scores(
     include_norm=False,
 ):
     np = _np()
-    w_sum = (
-        float(weight_chroma)
-        + float(weight_noise)
-        + float(weight_tear)
-        + float(weight_wave)
-    )
+    w_sum = float(weight_chroma) + float(weight_noise) + float(weight_tear) + float(weight_wave)
     if w_sum <= 0:
         raise ValueError("At least one signal weight must be > 0.")
     chroma_z, cc, cs = robust_zscore(chroma_scores, return_stats=True)
@@ -533,12 +514,8 @@ def _render_settings_template() -> dict:
     return {
         "version": 3,
         "_comments": {
-            "archive_settings": (
-                "Archive-wide defaults applied to render behavior for all chapters."
-            ),
-            "bad_frames": (
-                "Global archive frame IDs that are bad and will be repaired."
-            ),
+            "archive_settings": ("Archive-wide defaults applied to render behavior for all chapters."),
+            "bad_frames": ("Global archive frame IDs that are bad and will be repaired."),
             "gamma_correction_ranges": (
                 "Gamma correction ranges use global frame IDs: start_frame inclusive, end_frame exclusive."
             ),
@@ -622,11 +599,7 @@ def _canonicalize_gamma_ranges(raw_ranges) -> list[dict[str, float | int]]:
                 winner_gamma = g
         if winner_gamma is None:
             continue
-        if (
-            resolved
-            and resolved[-1][1] == seg_a
-            and abs(float(resolved[-1][2]) - float(winner_gamma)) < 1e-6
-        ):
+        if resolved and resolved[-1][1] == seg_a and abs(float(resolved[-1][2]) - float(winner_gamma)) < 1e-6:
             prev_a, _prev_b, prev_g = resolved[-1]
             resolved[-1] = (prev_a, seg_b, prev_g)
         else:
@@ -665,9 +638,7 @@ def _clip_gamma_ranges_to_span(
         rb = min(end, b)
         if rb <= ra:
             continue
-        clipped.append(
-            {"start_frame": int(ra), "end_frame": int(rb), "gamma": float(g)}
-        )
+        clipped.append({"start_frame": int(ra), "end_frame": int(rb), "gamma": float(g)})
     return _canonicalize_gamma_ranges(clipped)
 
 
@@ -675,9 +646,7 @@ def _gamma_default_from_cfg(cfg: dict, default: float = 1.0) -> float:
     if not isinstance(cfg, dict):
         return normalize_gamma_value(default, default=1.0)
     if GAMMA_CORRECTION_DEFAULT_KEY in cfg:
-        return normalize_gamma_value(
-            cfg.get(GAMMA_CORRECTION_DEFAULT_KEY), default=default
-        )
+        return normalize_gamma_value(cfg.get(GAMMA_CORRECTION_DEFAULT_KEY), default=default)
     return normalize_gamma_value(default, default=1.0)
 
 
@@ -697,9 +666,7 @@ def _migrate_v1_to_v2(data: dict) -> dict:
     old_bad_by_chapter = dict(data.get("bad_frames_by_chapter") or {})
 
     # Archive gamma: carry forward
-    out["archive_settings"][GAMMA_CORRECTION_DEFAULT_KEY] = _gamma_default_from_cfg(
-        old_archive, default=1.0
-    )
+    out["archive_settings"][GAMMA_CORRECTION_DEFAULT_KEY] = _gamma_default_from_cfg(old_archive, default=1.0)
     archive_ranges = list(_gamma_ranges_from_cfg(old_archive))
 
     # Merge chapter-level gamma overrides into archive ranges
@@ -709,9 +676,7 @@ def _migrate_v1_to_v2(data: dict) -> dict:
         if ch_ranges:
             archive_ranges = archive_ranges + ch_ranges
 
-    out["archive_settings"][GAMMA_CORRECTION_RANGES_KEY] = _canonicalize_gamma_ranges(
-        archive_ranges
-    )
+    out["archive_settings"][GAMMA_CORRECTION_RANGES_KEY] = _canonicalize_gamma_ranges(archive_ranges)
 
     # Flatten bad_frames_by_chapter → sorted deduplicated bad_frames list
     merged: set[int] = set()
@@ -752,10 +717,7 @@ def _canonicalize_audio_sync_offsets(raw_offsets) -> list[dict]:
             merged[-1] = (prev_a, b, prev_off)
         else:
             merged.append((a, b, offset))
-    return [
-        {"start_frame": int(a), "end_frame": int(b), "offset_seconds": round(offset, 4)}
-        for a, b, offset in merged
-    ]
+    return [{"start_frame": int(a), "end_frame": int(b), "offset_seconds": round(offset, 4)} for a, b, offset in merged]
 
 
 def _migrate_v2_to_v3(data: dict) -> dict:
@@ -782,22 +744,16 @@ def load_render_settings(archive: str, create: bool = False) -> tuple[Path, dict
                 if int(out.get("version") or 2) < 3:
                     out = _migrate_v2_to_v3(out)
                 out["archive_settings"] = dict(out.get("archive_settings") or {})
-                out["archive_settings"][GAMMA_CORRECTION_DEFAULT_KEY] = (
-                    _gamma_default_from_cfg(
-                        out["archive_settings"],
-                        default=1.0,
-                    )
+                out["archive_settings"][GAMMA_CORRECTION_DEFAULT_KEY] = _gamma_default_from_cfg(
+                    out["archive_settings"],
+                    default=1.0,
                 )
-                out["archive_settings"][GAMMA_CORRECTION_RANGES_KEY] = (
-                    _gamma_ranges_from_cfg(
-                        out["archive_settings"],
-                    )
+                out["archive_settings"][GAMMA_CORRECTION_RANGES_KEY] = _gamma_ranges_from_cfg(
+                    out["archive_settings"],
                 )
                 bad = out.get("bad_frames") or []
                 out["bad_frames"] = sorted({int(x) for x in bad if int(x) >= 0})
-                out[AUDIO_SYNC_OFFSETS_KEY] = _canonicalize_audio_sync_offsets(
-                    out.get(AUDIO_SYNC_OFFSETS_KEY) or []
-                )
+                out[AUDIO_SYNC_OFFSETS_KEY] = _canonicalize_audio_sync_offsets(out.get(AUDIO_SYNC_OFFSETS_KEY) or [])
                 return path, out
         except Exception:
             pass
@@ -823,9 +779,7 @@ def save_render_settings(archive: str, settings: dict) -> Path:
     )
     bad = payload.get("bad_frames") or []
     payload["bad_frames"] = sorted({int(x) for x in bad if int(x) >= 0})
-    payload[AUDIO_SYNC_OFFSETS_KEY] = _canonicalize_audio_sync_offsets(
-        payload.get(AUDIO_SYNC_OFFSETS_KEY) or []
-    )
+    payload[AUDIO_SYNC_OFFSETS_KEY] = _canonicalize_audio_sync_offsets(payload.get(AUDIO_SYNC_OFFSETS_KEY) or [])
     # Drop any stale v1 keys
     payload.pop("chapter_settings", None)
     payload.pop("bad_frames_by_chapter", None)
@@ -850,9 +804,7 @@ def get_audio_sync_offset_for_chapter(
     Returns 0.0 if no entry applies.
     """
     _path, settings = load_render_settings(archive, create=False)
-    offsets = _canonicalize_audio_sync_offsets(
-        settings.get(AUDIO_SYNC_OFFSETS_KEY) or []
-    )
+    offsets = _canonicalize_audio_sync_offsets(settings.get(AUDIO_SYNC_OFFSETS_KEY) or [])
     if not offsets:
         return 0.0
     mid = (int(ch_start) + int(ch_end)) // 2
@@ -873,9 +825,7 @@ def update_chapter_audio_sync_in_render_settings(
 ) -> Path:
     """Set (or clear) the audio sync offset for the frame range [ch_start, ch_end)."""
     _, settings = load_render_settings(archive, create=True)
-    existing = _canonicalize_audio_sync_offsets(
-        settings.get(AUDIO_SYNC_OFFSETS_KEY) or []
-    )
+    existing = _canonicalize_audio_sync_offsets(settings.get(AUDIO_SYNC_OFFSETS_KEY) or [])
     # Remove any existing entries that overlap [ch_start, ch_end)
     kept = []
     for entry in existing:
@@ -938,9 +888,7 @@ def get_bad_frames_for_chapter(
                 None,
             )
             if chapter_obj is not None:
-                start_frame, end_frame = chapter_frame_bounds(
-                    chapter_obj, fps_num=30000, fps_den=1001
-                )
+                start_frame, end_frame = chapter_frame_bounds(chapter_obj, fps_num=30000, fps_den=1001)
                 return [f for f in all_bad if start_frame <= f < end_frame]
     return []
 
@@ -966,12 +914,8 @@ def replace_chapter_bad_frames_in_render_settings(
     new_frames: list[int],
 ) -> Path:
     _, settings = load_render_settings(archive, create=True)
-    existing = [
-        f for f in (settings.get("bad_frames") or []) if not (ch_start <= f < ch_end)
-    ]
-    new_valid = sorted(
-        {int(f) for f in (new_frames or []) if ch_start <= int(f) < ch_end}
-    )
+    existing = [f for f in (settings.get("bad_frames") or []) if not (ch_start <= f < ch_end)]
+    new_valid = sorted({int(f) for f in (new_frames or []) if ch_start <= int(f) < ch_end})
     settings["bad_frames"] = sorted(set(existing) | set(new_valid))
     return save_render_settings(archive, settings)
 
@@ -1049,9 +993,7 @@ def update_chapter_gamma_in_render_settings(
     if default_gamma is not None and ch_start is not None and ch_end is not None:
         next_default = normalize_gamma_value(default_gamma, default=archive_default)
         if abs(next_default - float(archive_default)) >= 1e-6:
-            new_ranges = [
-                {"start_frame": ch_start, "end_frame": ch_end, "gamma": next_default}
-            ] + new_ranges
+            new_ranges = [{"start_frame": ch_start, "end_frame": ch_end, "gamma": next_default}] + new_ranges
 
     merged = _canonicalize_gamma_ranges(outside + new_ranges)
     archive_settings[GAMMA_CORRECTION_RANGES_KEY] = merged
@@ -1230,10 +1172,7 @@ def update_chapter_bad_frames_in_ffmetadata(path, chapter_bad_frames):
     Update BAD_FRAMES lines in chapters.ffmetadata in-place.
     chapter_bad_frames: {chapter_title: [global_frame_ids]}.
     """
-    mapped = {
-        title: {"BAD_FRAMES": list(vals or [])}
-        for title, vals in (chapter_bad_frames or {}).items()
-    }
+    mapped = {title: {"BAD_FRAMES": list(vals or [])} for title, vals in (chapter_bad_frames or {}).items()}
     return update_chapter_frame_lists_in_ffmetadata(path, mapped)
 
 

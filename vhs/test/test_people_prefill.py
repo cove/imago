@@ -9,12 +9,7 @@ from vhs_pipeline import people_prefill
 def _write_chapters(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        ";FFMETADATA1\n"
-        "[CHAPTER]\n"
-        "TIMEBASE=1001/30000\n"
-        "START=0\n"
-        "END=900\n"
-        "TITLE=Example Chapter\n",
+        ";FFMETADATA1\n[CHAPTER]\nTIMEBASE=1001/30000\nSTART=0\nEND=900\nTITLE=Example Chapter\n",
         encoding="utf-8",
     )
 
@@ -22,8 +17,7 @@ def _write_chapters(path: Path) -> None:
 def _write_split_chapters_tsv(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        "parent_chapter\tstart\tend\ttimebase\ttitle\n"
-        "Example Parent\t0\t900\t1001/30000\tExample Split\n",
+        "parent_chapter\tstart\tend\ttimebase\ttitle\nExample Parent\t0\t900\t1001/30000\tExample Split\n",
         encoding="utf-8",
     )
 
@@ -147,9 +141,7 @@ def test_apply_prefill_entries_to_people_tsv_replaces_chapter_overlap(
     people_tsv = metadata_dir / archive_name / "people.tsv"
     people_tsv.parent.mkdir(parents=True, exist_ok=True)
     people_tsv.write_text(
-        "start_frame\tend_frame\tpeople\n"
-        "150\t360\tOld Person\n"
-        "1199\t1349\tOutside Chapter\n",
+        "start_frame\tend_frame\tpeople\n150\t360\tOld Person\n1199\t1349\tOutside Chapter\n",
         encoding="utf-8",
     )
 

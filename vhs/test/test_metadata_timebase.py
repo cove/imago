@@ -28,9 +28,7 @@ def _write_ffmetadata(path: Path, *, timebase: str, start: int, end: int) -> Non
     )
 
 
-def _write_master_chapters_tsv(
-    path: Path, *, timebase: str, start: int, end: int
-) -> Path:
+def _write_master_chapters_tsv(path: Path, *, timebase: str, start: int, end: int) -> Path:
     ffmeta = path.parent / "chapters.ffmetadata"
     _write_ffmetadata(ffmeta, timebase=timebase, start=start, end=end)
     ffmetadata_to_chapters_tsv(ffmeta, path)

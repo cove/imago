@@ -108,9 +108,7 @@ def test_clicking_subtitle_rail_row_calls_render_with_correct_seconds(
         window.renderSparkPlaybackFrame = orig;
         return { called: capturedIdx !== null, idx: capturedIdx };
     }""")
-    assert result[
-        "called"
-    ], "renderSparkPlaybackFrame was not called after clicking a subtitle row"
+    assert result["called"], "renderSparkPlaybackFrame was not called after clicking a subtitle row"
 
 
 def test_clicking_subtitle_rail_row_uses_start_seconds_for_seek(subtitle_rail_page):
@@ -155,6 +153,6 @@ def test_clicking_child_element_in_row_also_seeks(subtitle_rail_page):
         window.renderSparkPlaybackFrame = orig;
         return { called: capturedIdx !== null };
     }""")
-    assert result[
-        "called"
-    ], "renderSparkPlaybackFrame was not called when clicking a child element inside a subtitle row"
+    assert result["called"], (
+        "renderSparkPlaybackFrame was not called when clicking a child element inside a subtitle row"
+    )

@@ -103,9 +103,7 @@ def test_detect_handles_opencv_cascade_error(tmp_path):
 
     class BrokenCascade:
         def detectMultiScale(self, *_args, **_kwargs):
-            raise cv2.error(
-                "OpenCV(4.10.0) ... error: (-215:Assertion failed) 0 <= scaleIdx ..."
-            )
+            raise cv2.error("OpenCV(4.10.0) ... error: (-215:Assertion failed) 0 <= scaleIdx ...")
 
     ingestor._cascade = BrokenCascade()  # type: ignore[assignment]
     image = np.zeros((120, 160, 3), dtype=np.uint8)

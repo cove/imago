@@ -59,9 +59,7 @@ def run_make_videos(argv):
     return int(run_render(argv) or 0)
 
 
-def run_make_subtitles(
-    *, archive_filters=None, title_filters=None, title_exact: bool = False
-):
+def run_make_subtitles(*, archive_filters=None, title_filters=None, title_exact: bool = False):
     return int(
         run_render_subtitles(
             archive_filters=archive_filters,
@@ -118,9 +116,7 @@ def run_people_prefill(
     if entries:
         print("Generated entries:")
         for idx, row in enumerate(entries, start=1):
-            print(
-                f"{idx:02d}. {row.get('start')} - {row.get('end')} | {row.get('people')}"
-            )
+            print(f"{idx:02d}. {row.get('start')} - {row.get('end')} | {row.get('people')}")
     else:
         print("No Cast matches found for this chapter.")
 

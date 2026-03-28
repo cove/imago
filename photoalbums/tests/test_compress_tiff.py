@@ -20,13 +20,11 @@ class TestCompressTiff(unittest.TestCase):
             tiff_path = archive / "sample.tif"
             tiff_path.touch()
 
-            with mock.patch(
-                "compress_tiff.list_archive_dirs", return_value=[archive]
-            ), mock.patch(
-                "compress_tiff.tiff_needs_conversion", return_value=True
-            ), mock.patch(
-                "compress_tiff.process_tiff_in_place", return_value=True
-            ) as process_mock:
+            with (
+                mock.patch("compress_tiff.list_archive_dirs", return_value=[archive]),
+                mock.patch("compress_tiff.tiff_needs_conversion", return_value=True),
+                mock.patch("compress_tiff.process_tiff_in_place", return_value=True) as process_mock,
+            ):
                 compress_tiff.convert_directory(base)
 
             process_mock.assert_called_once()
@@ -42,13 +40,11 @@ class TestCompressTiff(unittest.TestCase):
             tiff_path = archive / "sample.tif"
             tiff_path.touch()
 
-            with mock.patch(
-                "compress_tiff.list_archive_dirs", return_value=[archive]
-            ), mock.patch(
-                "compress_tiff.tiff_needs_conversion", return_value=False
-            ), mock.patch(
-                "compress_tiff.process_tiff_in_place", return_value=True
-            ) as process_mock:
+            with (
+                mock.patch("compress_tiff.list_archive_dirs", return_value=[archive]),
+                mock.patch("compress_tiff.tiff_needs_conversion", return_value=False),
+                mock.patch("compress_tiff.process_tiff_in_place", return_value=True) as process_mock,
+            ):
                 compress_tiff.convert_directory(base)
 
             process_mock.assert_not_called()

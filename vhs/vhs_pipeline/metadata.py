@@ -92,9 +92,7 @@ def _read_chapters_tsv_rows(path: Path) -> tuple[list[str], list[dict[str, str]]
     return header, rows
 
 
-def _write_chapters_tsv_rows(
-    path: Path, columns: list[str], rows: list[dict[str, Any]]
-) -> None:
+def _write_chapters_tsv_rows(path: Path, columns: list[str], rows: list[dict[str, Any]]) -> None:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     header: list[str] = []
@@ -115,9 +113,7 @@ def _write_chapters_tsv_rows(
         )
         writer.writeheader()
         for raw_row in list(rows or []):
-            writer.writerow(
-                {col: _as_text((raw_row or {}).get(col, "")) for col in header}
-            )
+            writer.writerow({col: _as_text((raw_row or {}).get(col, "")) for col in header})
 
 
 def _parse_ffmetadata_raw(
@@ -156,13 +152,9 @@ def _parse_ffmetadata_raw(
     return header, globals_list, chapters
 
 
-def ffmetadata_to_chapters_tsv(
-    ffmetadata_path: Path, out_path: Path | None = None
-) -> Path:
+def ffmetadata_to_chapters_tsv(ffmetadata_path: Path, out_path: Path | None = None) -> Path:
     source = Path(ffmetadata_path)
-    target = (
-        Path(out_path) if out_path is not None else (source.parent / "chapters.tsv")
-    )
+    target = Path(out_path) if out_path is not None else (source.parent / "chapters.tsv")
     header_line, globals_list, chapter_lists = _parse_ffmetadata_raw(source)
 
     global_order: list[str] = []
@@ -219,9 +211,7 @@ def convert_all_ffmetadata_to_chapters_tsv(
         print(f"Metadata root not found: {root}")
         return 0
     count = 0
-    for archive_dir in sorted(
-        [p for p in root.iterdir() if p.is_dir()], key=lambda p: p.name.lower()
-    ):
+    for archive_dir in sorted([p for p in root.iterdir() if p.is_dir()], key=lambda p: p.name.lower()):
         ffmeta = archive_dir / "chapters.ffmetadata"
         tsv = archive_dir / "chapters.tsv"
         if not ffmeta.exists():
@@ -238,15 +228,11 @@ def _chapter_keys_for_row(header: list[str]) -> list[str]:
     return [
         key
         for key in list(header or [])
-        if key
-        and not key.startswith(TSV_META_PREFIX)
-        and not key.startswith(TSV_FFMETA_PREFIX)
+        if key and not key.startswith(TSV_META_PREFIX) and not key.startswith(TSV_FFMETA_PREFIX)
     ]
 
 
-def generate_ffmetadata_from_chapters_tsv(
-    chapters_tsv_path: Path, out_path: Path
-) -> Path:
+def generate_ffmetadata_from_chapters_tsv(chapters_tsv_path: Path, out_path: Path) -> Path:
     header, rows = _read_chapters_tsv_rows(Path(chapters_tsv_path))
     rows_sorted = _sort_rows_by_index(rows)
 
@@ -256,9 +242,7 @@ def generate_ffmetadata_from_chapters_tsv(
         return Path(out_path)
 
     global_order: list[str] = [
-        str(col)[len(TSV_FFMETA_PREFIX) :]
-        for col in list(header or [])
-        if str(col or "").startswith(TSV_FFMETA_PREFIX)
+        str(col)[len(TSV_FFMETA_PREFIX) :] for col in list(header or []) if str(col or "").startswith(TSV_FFMETA_PREFIX)
     ]
 
     global_values: dict[str, str] = {}
@@ -282,11 +266,7 @@ def generate_ffmetadata_from_chapters_tsv(
         lines.append("[CHAPTER]")
         for key in list(header or []):
             key_text = str(key or "").strip()
-            if (
-                not key_text
-                or key_text.startswith(TSV_META_PREFIX)
-                or key_text.startswith(TSV_FFMETA_PREFIX)
-            ):
+            if not key_text or key_text.startswith(TSV_META_PREFIX) or key_text.startswith(TSV_FFMETA_PREFIX):
                 continue
             value = _as_text((row or {}).get(key_text, ""))
             if value != "":
@@ -328,11 +308,7 @@ def _load_master_chapters(
         chapter: dict[str, Any] = {}
         for key in chapter_keys:
             key_text = str(key or "").strip()
-            if (
-                not key_text
-                or key_text.startswith(TSV_META_PREFIX)
-                or key_text.startswith(TSV_FFMETA_PREFIX)
-            ):
+            if not key_text or key_text.startswith(TSV_META_PREFIX) or key_text.startswith(TSV_FFMETA_PREFIX):
                 continue
             chapter[key_text.lower()] = _as_text((row or {}).get(key_text, ""))
 
@@ -393,9 +369,7 @@ def _load_master_chapters(
                 pass
 
         if not _as_text(chapter.get("title")).strip():
-            alt = _as_text(
-                chapter.get("chaptertitle") or chapter.get("chapter_title")
-            ).strip()
+            alt = _as_text(chapter.get("chaptertitle") or chapter.get("chapter_title")).strip()
             if alt:
                 chapter["title"] = alt
 
@@ -476,9 +450,7 @@ def generate_mkv_chapters_xml(chapters_tsv_path: Path, out_path: Path):
 
     out_path.write_text(
         '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<!DOCTYPE Chapters SYSTEM "matroskachapters.dtd">\n'
-        + ET.tostring(root, encoding="unicode")
-        + "\n",
+        '<!DOCTYPE Chapters SYSTEM "matroskachapters.dtd">\n' + ET.tostring(root, encoding="unicode") + "\n",
         encoding="utf-8",
     )
     print(f"  Generated MKV chapters XML: {out_path}")
@@ -502,10 +474,7 @@ def write_mediainfo_outputs(input_path: Path, output_dir: Path):
                     return int(result.returncode)
         except FileNotFoundError:
             print(f"  ERROR: mediainfo command not found: {MEDIAINFO_BIN}")
-            print(
-                "  Install MediaInfo CLI (e.g. sudo apt-get install mediainfo) "
-                "or set MEDIAINFO_BIN."
-            )
+            print("  Install MediaInfo CLI (e.g. sudo apt-get install mediainfo) or set MEDIAINFO_BIN.")
             return 1
     return 0
 

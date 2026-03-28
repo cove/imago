@@ -11,6 +11,7 @@ All tests are auto-skipped if LM Studio is not reachable or the test image is mi
 Run:
     python -m pytest photoalbums/tests/test_rule_extraction_eval.py -v -m integration -s
 """
+
 from __future__ import annotations
 import pytest
 

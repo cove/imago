@@ -105,9 +105,7 @@ def test_scrub_timeline_scrolls_subtitle_editor(subtitle_page):
         return subtitlesEditorEl.scrollTop;
     }}""")
 
-    assert (
-        scroll_after > 0
-    ), "Subtitle editor should scroll down when the timeline is scrubbed to the last frame"
+    assert scroll_after > 0, "Subtitle editor should scroll down when the timeline is scrubbed to the last frame"
 
 
 def test_subtitle_scroll_updates_timeline_index(subtitle_page):
@@ -124,9 +122,9 @@ def test_subtitle_scroll_updates_timeline_index(subtitle_page):
     subtitle_page.wait_for_timeout(150)
 
     idx_after = subtitle_page.evaluate("() => Number(timelineScrubEl.value)")
-    assert (
-        idx_after > idx_before
-    ), "Timeline scrubber should advance when the subtitle editor is scrolled to a later row"
+    assert idx_after > idx_before, (
+        "Timeline scrubber should advance when the subtitle editor is scrolled to a later row"
+    )
 
 
 def test_programmatic_scroll_does_not_lock_future_syncs(subtitle_page):
@@ -146,15 +144,11 @@ def test_programmatic_scroll_does_not_lock_future_syncs(subtitle_page):
     }}""")
 
     assert result["scrollTop"] > 0, "Editor should scroll to last row"
-    assert (
-        result["userScrolling"] is False
-    ), "subtitleEditorUserScrolling should be False after a programmatic scroll"
+    assert result["userScrolling"] is False, "subtitleEditorUserScrolling should be False after a programmatic scroll"
 
     # Scrubbing back to 0 should move the editor back to the top.
     scroll_back = subtitle_page.evaluate("""() => {
         scrubTimelineToIndex(0);
         return subtitlesEditorEl.scrollTop;
     }""")
-    assert (
-        scroll_back == 0
-    ), "Subtitle editor should return to top when scrubbed back to frame 0"
+    assert scroll_back == 0, "Subtitle editor should return to top when scrubbed back to frame 0"
