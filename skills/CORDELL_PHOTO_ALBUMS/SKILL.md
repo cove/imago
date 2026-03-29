@@ -52,14 +52,18 @@ All album files follow the pattern `{Collection}_{Year}_B{book}_P{page}_{type}.{
 | Type token | Role | Extension |
 |------------|------|-----------|
 | `_S##` | Archive raw scan | `.tif` |
-| `_V` | View page (single-scan JPEG) | `.jpg` |
-| `_VC` | View Composite (stitched from ≥2 scans) | `.jpg` |
-| `_D##_##` | Detail crop | `.jpg` |
+| `_D##-##` | Archive detail crop | `.tif` |
+| `_V` | View page (any scan count) | `.jpg` |
+| `_D##-##_V` | View detail crop | `.jpg` |
+| `_D##-##_C` | Colorized detail crop | `.jpg` |
 
 - Pages start at P01. P00 is not valid.
-- Every `_V` and `_VC` file derives from one or more `_S##.tif` archive scans.
+- `_V` always marks a view output; `_S##` always marks an archive scan.
+- Every `_V` file derives from one or more `_S##.tif` archive scans.
+- `dc:source` on a `_C` file references the archive TIF of the source crop.
 - XMP sidecars share the same stem as their companion image (`.xmp` extension).
 - `dc:source` always names the archive TIF scan files, never the view page filename.
+- Legacy suffixes `_VC`, `_VR`, `_stitched` are still recognised but not produced.
 
 ---
 
