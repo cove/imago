@@ -40,18 +40,19 @@ All photo album files use a structured naming scheme:
 {Collection}_{Year}_B{book}_P{page}_{type}.{ext}
 ```
 
-| Type token | Role | Extension |
-|------------|------|-----------|
-| `_S##` | Archive raw scan | `.tif` |
-| `_D##-##` | Archive detail crop | `.tif` |
-| `_V` | View page (any scan count) | `.jpg` |
-| `_D##-##_V` | View detail crop | `.jpg` |
-| `_D##-##_C` | Colorized detail crop | `.jpg` |
+| Type token | Role | Archive ext | View ext |
+|------------|------|-------------|----------|
+| `_S##` | Raw scan | `.tif` | — |
+| `_D##-##` | Detail crop | `.tif` | — |
+| `_V` | View page (any scan count) | — | `.jpg` |
+| `_D##-##_V` | View detail crop | — | `.jpg` |
+| `_D##-##_C` | Colorized detail crop | `.png` | `.jpg` |
 
 Rules:
 - `_V` always and only marks a view output. `_S##` always and only marks an archive scan.
 - `_D##-##` identifies a detail crop; append `_V` for the view JPEG, `_C` for a colorized derivative.
-- Archive files are `.tif`; view files are `.jpg` — no exceptions.
+- Archive files are `.tif` or `.png` (colorized crops); view files are `.jpg` — no exceptions.
+- `_D##-##_C` appears in both Archive (`.png`, lossless AI output) and View (`.jpg`, render copy).
 - `dc:source` on any view file references the archive TIF scan(s) it was derived from.
 - `dc:source` on a `_C` file references the archive TIF of the source crop.
 - Pages are numbered starting at P01. P00 is not a valid page number.
