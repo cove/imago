@@ -1546,13 +1546,20 @@ def _run_image_analysis(
     ocr_text_override: str | None = None,
     prompt_debug: PromptDebugSession | None = None,
 ) -> ImageAnalysis:
-    del ocr_engine
     del ocr_engine_name
     page_photo_count = 0 if is_page_scan else 1
 
     with _prepare_ai_model_image(image_path) as model_image_path:
         object_labels: list[str] = []
         ocr_text = str(ocr_text_override or "").strip()
+        if ocr_text_override is None and ocr_engine.engine != "none":
+            if step_fn:
+                step_fn("ocr")
+            ocr_text = ocr_engine.read_text(
+                model_image_path,
+                debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
+                debug_step="ocr",
+            )
         combined_hint_text = " ".join(part for part in [str(people_hint_text or "").strip(), ocr_text] if part).strip()
         people_matches = (
             people_matcher.match_image(
@@ -1594,7 +1601,7 @@ def _run_image_analysis(
             else 0
         )
 
-    if not ocr_text_override:
+    if not ocr_text_override and not ocr_text:
         ocr_text = str(getattr(caption_output, "ocr_text", "") or "").strip()
     ocr_keywords = extract_keywords(ocr_text, max_keywords=15)
     subjects = _dedupe(object_labels + ocr_keywords)

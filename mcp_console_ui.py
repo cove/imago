@@ -419,11 +419,20 @@ HTML = r"""<!DOCTYPE html>
       }
       if (promptEntry) {
         const promptCount = Number(promptEntry.artifact.step_count || (promptEntry.artifact.steps || []).length || 0);
+        const responseCount = (Array.isArray(promptEntry.artifact.steps) ? promptEntry.artifact.steps : [])
+          .filter((step) => String((step && step.response) || '').trim())
+          .length;
         actions.push(`
           <button type="button" class="artifact-item"
                   onclick="openPromptArtifact(${Number(promptEntry.index)})">
             Prompts
             <small>${escHtml(String(promptCount))} step(s)</small>
+          </button>`);
+        actions.push(`
+          <button type="button" class="artifact-item"
+                  onclick="openResponseArtifact(${Number(promptEntry.index)})">
+            AI JSON
+            <small>${escHtml(String(responseCount))} response(s)</small>
           </button>`);
       }
       return `
@@ -486,6 +495,19 @@ HTML = r"""<!DOCTYPE html>
       ${step && step.system_prompt ? `<section class="xmp-card"><h3>System Prompt</h3><pre>${escHtml(step.system_prompt)}</pre></section>` : ''}
       ${step && step.prompt ? `<section class="xmp-card"><h3>User Prompt</h3><pre>${escHtml(step.prompt)}</pre></section>` : ''}
       ${metadata}`;
+  }
+
+  function renderResponseStepCard(step) {
+    return `
+      <section class="xmp-card">
+        <h3>${escHtml((step && step.step) || 'AI JSON')}</h3>
+        <div class="xmp-kv">
+          ${renderValue('Engine', step && step.engine)}
+          ${renderValue('Model', step && step.model)}
+          ${renderValue('Finish Reason', step && step.finish_reason)}
+        </div>
+      </section>
+      ${step && step.response ? `<section class="xmp-card"><h3>AI JSON</h3><pre>${escHtml(step.response)}</pre></section>` : ''}`;
   }
 
   function renderSummaryCard(summary, data) {
@@ -560,6 +582,24 @@ HTML = r"""<!DOCTYPE html>
       : '<div class="artifact-empty">No prompt steps recorded.</div>';
     showXmpPanel(
       `${fileName(artifact.image_path || artifact.label || 'Prompt Debug')} Prompts`,
+      String(artifact.image_path || ''),
+      body,
+    );
+  }
+
+  function openResponseArtifact(index) {
+    const artifact = jobArtifacts[Number(index)];
+    if (!artifact) {
+      showXmpPanel('AI JSON Error', '', '<div class="artifact-error">Prompt artifact not found.</div>');
+      return;
+    }
+    const steps = (Array.isArray(artifact.steps) ? artifact.steps : [])
+      .filter((step) => String((step && step.response) || '').trim());
+    const body = steps.length
+      ? steps.map((step) => renderResponseStepCard(step)).join('')
+      : '<div class="artifact-empty">No AI JSON responses recorded.</div>';
+    showXmpPanel(
+      `${fileName(artifact.image_path || artifact.label || 'Prompt Debug')} AI JSON`,
       String(artifact.image_path || ''),
       body,
     );
