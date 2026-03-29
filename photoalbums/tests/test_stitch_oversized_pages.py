@@ -72,7 +72,6 @@ class TestStitchOversizedPages(unittest.TestCase):
             tempfile.TemporaryDirectory() as tmp,
             mock.patch("stitch_oversized_pages._require_stitcher"),
             mock.patch("stitch_oversized_pages._require_image_modules"),
-            mock.patch("stitch_oversized_pages.output_is_valid", return_value=False),
             mock.patch("stitch_oversized_pages.AffineStitcher") as stitcher_mock,
             mock.patch("stitch_oversized_pages.write_jpeg") as write_mock,
         ):
