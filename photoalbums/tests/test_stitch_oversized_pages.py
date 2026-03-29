@@ -42,17 +42,17 @@ class TestStitchOversizedPages(unittest.TestCase):
         self.assertEqual(sop.extract_scan_numbers(files), [1, 2])
 
     def test_build_derived_output_name_known(self):
-        name = "EU_1973_B02_P05_D01_02.tif"
+        name = "EU_1973_B02_P05_D01-02.tif"
         self.assertEqual(
             sop.build_derived_output_name(name),
-            "EU_1973_B02_P05_D01_02.jpg",
+            "EU_1973_B02_P05_D01-02_V.jpg",
         )
 
     def test_build_derived_output_name_unknown(self):
-        name = "EU_1973_Custom_D01_02.tif"
+        name = "EU_1973_Custom_D01-02.tif"
         self.assertEqual(
             sop.build_derived_output_name(name),
-            "EU_1973_Custom_D01_02_D01_02.jpg",
+            "EU_1973_Custom_D01-02_D01-02_V.jpg",
         )
 
     def test_get_view_dirname(self):
@@ -82,7 +82,7 @@ class TestStitchOversizedPages(unittest.TestCase):
 
         write_mock.assert_called_once_with(
             fake_result,
-            str(Path(tmp) / "EU_1973_B02_P05_VC.jpg"),
+            str(Path(tmp) / "EU_1973_B02_P05_V.jpg"),
             "EU (1973) - Book 02, Page 05, Scans S01 S02",
             extra_tags={"XMP-dc:Source": "EU_1973_B02_P05_S01.tif; EU_1973_B02_P05_S02.tif"},
         )

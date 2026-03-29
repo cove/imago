@@ -60,7 +60,7 @@ _TEST_IMAGE_P04 = Path(
 )
 _TEST_IMAGE_P16_D01 = Path(
     r"C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums"
-    r"\China_1986_B02_View\China_1986_B02_P16_D01_01.jpg"
+    r"\China_1986_B02_View\China_1986_B02_P16_D01-01_V.jpg"
 )
 
 # ---------------------------------------------------------------------------
