@@ -464,6 +464,16 @@ def list_page_scans(directory: str | Path):
     return list_page_scan_groups(directory, NEW_NAME_RE)
 
 
+def _sort_key(path: str):
+    base = os.path.basename(path)
+    m_page = FILENAME_RE.search(base) or FILENAME_RE_NO_SCAN.search(base)
+    m_d = _match_derived_tokens(base)
+    page = int(m_page.group("page")) if m_page else 0
+    d1 = int(m_d.group("d1")) if m_d else 0
+    d2 = int(m_d.group("d2")) if m_d else 0
+    return page, d1, d2, base.lower()
+
+
 def list_derived_images(directory: str | Path) -> list[str]:
     files = []
     for name in os.listdir(directory):
@@ -476,16 +486,7 @@ def list_derived_images(directory: str | Path) -> list[str]:
             continue
         files.append(os.path.join(directory, name))
 
-    def key(path: str):
-        base = os.path.basename(path)
-        m_page = FILENAME_RE.search(base) or FILENAME_RE_NO_SCAN.search(base)
-        m_d = _match_derived_tokens(base)
-        page = int(m_page.group("page")) if m_page else 0
-        d1 = int(m_d.group("d1")) if m_d else 0
-        d2 = int(m_d.group("d2")) if m_d else 0
-        return page, d1, d2, base.lower()
-
-    files.sort(key=key)
+    files.sort(key=_sort_key)
     return files
 
 
@@ -498,16 +499,7 @@ def list_colorized_images(directory: str | Path) -> list[str]:
         if COLORIZED_RE.search(stem):
             files.append(os.path.join(directory, name))
 
-    def key(path: str):
-        base = os.path.basename(path)
-        m_page = FILENAME_RE.search(base) or FILENAME_RE_NO_SCAN.search(base)
-        m_d = DERIVED_RE.search(base)
-        page = int(m_page.group("page")) if m_page else 0
-        d1 = int(m_d.group("d1")) if m_d else 0
-        d2 = int(m_d.group("d2")) if m_d else 0
-        return page, d1, d2, base.lower()
-
-    files.sort(key=key)
+    files.sort(key=_sort_key)
     return files
 
 
@@ -520,16 +512,7 @@ def list_derived_media(directory: str | Path) -> list[str]:
             continue
         files.append(os.path.join(directory, name))
 
-    def key(path: str):
-        base = os.path.basename(path)
-        m_page = FILENAME_RE.search(base) or FILENAME_RE_NO_SCAN.search(base)
-        m_d = _match_derived_tokens(base)
-        page = int(m_page.group("page")) if m_page else 0
-        d1 = int(m_d.group("d1")) if m_d else 0
-        d2 = int(m_d.group("d2")) if m_d else 0
-        return page, d1, d2, base.lower()
-
-    files.sort(key=key)
+    files.sort(key=_sort_key)
     return files
 
 
