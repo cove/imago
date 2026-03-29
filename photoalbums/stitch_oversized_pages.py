@@ -39,7 +39,7 @@ from naming import (
 MIN_OUTPUT_SIZE = 100 * 1024
 
 NEW_NAME_RE = SCAN_TIFF_RE
-DERIVED_RE = re.compile(r"_D(?P<d1>\d{2})_(?P<d2>\d{2})", re.IGNORECASE)
+DERIVED_RE = re.compile(r"_D(?P<d1>\d{2})-(?P<d2>\d{2})", re.IGNORECASE)
 FILENAME_RE = SCAN_NAME_RE
 FILENAME_RE_NO_SCAN = BASE_PAGE_NAME_RE
 
@@ -125,7 +125,7 @@ def build_derived_output_name(base: str) -> str:
     d2 = m_d.group("d2") if m_d else "00"
 
     if collection != "Unknown":
-        return f"{collection}_{year}_B{book}_P{int(page):02d}_D{d1}_{d2}.jpg"
+        return f"{collection}_{year}_B{book}_P{int(page):02d}_D{d1}-{d2}_V.jpg"
 
     stem, _ = os.path.splitext(base)
     m_view = re.match(
@@ -133,8 +133,8 @@ def build_derived_output_name(base: str) -> str:
         stem,
     )
     if m_view:
-        return f"{m_view.group('collection')}_{m_view.group('year')}_{m_view.group('rest')}_D{d1}_{d2}.jpg"
-    return f"{stem}_D{d1}_{d2}.jpg"
+        return f"{m_view.group('collection')}_{m_view.group('year')}_{m_view.group('rest')}_D{d1}-{d2}_V.jpg"
+    return f"{stem}_D{d1}-{d2}_V.jpg"
 
 
 def output_is_valid(path: str | Path, min_size: int = MIN_OUTPUT_SIZE) -> bool:
@@ -609,7 +609,7 @@ def stitch(files, output_dir: str) -> None:
 
     out = os.path.join(
         output_dir,
-        f"{collection}_{year}_B{book}_P{int(page):02d}_VC.jpg",
+        f"{collection}_{year}_B{book}_P{int(page):02d}_V.jpg",
     )
 
     scan_nums = extract_scan_numbers(files)

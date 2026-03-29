@@ -105,7 +105,7 @@ def build_derived_description(
 ) -> str:
     return (
         f"{collection} ({year}) - Book {format_book_display(book)}, "
-        f"Page {page:02d}, Derived D{derived_code}_{iter_num:02d} of {total_iters} total"
+        f"Page {page:02d}, Derived D{derived_code}-{iter_num:02d} of {total_iters} total"
     )
 
 
