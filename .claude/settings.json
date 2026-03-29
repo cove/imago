@@ -50,7 +50,11 @@
       "Bash(do find:*)",
       "Bash(grep -E '_P[0-9]+\\\\.jpg$')",
       "Bash(find \"C:/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums\" -name \"*_VR.*\")",
-      "Bash(find \"C:/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums\" -name \"*_VC.*\")"
+      "Bash(find \"C:/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums\" -name \"*_VC.*\")",
+      "Bash(cat \"C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums\\\\EasternEuropeSpainAndMorocco_1988_B00_View\\\\EasternEuropeSpainAndMorocco_1988_B00_P30_VC.xmp\")",
+      "Bash(python -c \"import sys,json; [print\\(json.dumps\\(json.loads\\(l\\), indent=2\\)\\) for l in sys.stdin]\")",
+      "Bash(python -c \":*)",
+      "Bash(ls \"C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums\")"
     ]
   },
   "hooks": {

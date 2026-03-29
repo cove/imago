@@ -630,6 +630,7 @@ class TestAIIndex(unittest.TestCase):
             object_detector = mock.Mock()
             object_detector.detect_image.return_value = []
             ocr_engine = mock.Mock()
+            ocr_engine.engine = "none"
             caption_engine = mock.Mock()
             caption_engine.generate.return_value = SimpleNamespace(
                 text="Caption text",
@@ -675,6 +676,7 @@ class TestAIIndex(unittest.TestCase):
             object_detector = mock.Mock()
             object_detector.detect_image.return_value = []
             ocr_engine = mock.Mock()
+            ocr_engine.engine = "none"
             caption_engine = mock.Mock()
             caption_engine.generate.return_value = SimpleNamespace(
                 text="Caption text",
@@ -734,6 +736,7 @@ class TestAIIndex(unittest.TestCase):
             object_detector = mock.Mock()
             object_detector.detect_image.return_value = []
             ocr_engine = mock.Mock()
+            ocr_engine.engine = "lmstudio"
             ocr_engine.read_text.return_value = "hello"
             caption_engine = mock.Mock()
             caption_engine.generate.return_value = SimpleNamespace(
@@ -760,19 +763,19 @@ class TestAIIndex(unittest.TestCase):
                     ocr_language="eng",
                 )
 
+            ocr_engine.read_text.assert_called_once_with(scaled, debug_recorder=None, debug_step="ocr")
             people_matcher.match_image.assert_called_once_with(
                 image,
                 source_path=image,
                 bbox_offset=(0, 0),
-                hint_text="",
+                hint_text="hello",
             )
-            ocr_engine.read_text.assert_not_called()
             object_detector.detect_image.assert_called_once_with(scaled)
             caption_engine.generate.assert_called_once_with(
                 image_path=scaled,
                 people=[],
                 objects=[],
-                ocr_text="",
+                ocr_text="hello",
                 source_path=image,
                 album_title="",
                 printed_album_title="",
@@ -781,7 +784,7 @@ class TestAIIndex(unittest.TestCase):
                 debug_recorder=None,
                 debug_step="caption",
             )
-            self.assertEqual(analysis.ocr_text, "TEMPLE OF HEAVEN\nNO SMOKING")
+            self.assertEqual(analysis.ocr_text, "hello")
 
     def test_run_image_analysis_records_gps_location_from_ocr_text(self):
         with tempfile.TemporaryDirectory() as tmp:

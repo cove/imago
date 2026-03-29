@@ -74,12 +74,34 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "aegina, greece": {
+    "city": "Perdika",
+    "country": "Greece",
+    "display_name": "Aegina, Perdika, Municipality of Aegina, Regional Unit of Islands, Attica, 180 10, Greece",
+    "latitude": "37.7243694",
+    "longitude": "23.4938109",
+    "query": "Aegina, Greece",
+    "source": "nominatim",
+    "state": "Attica",
+    "status": "ok"
+  },
   "agadir, morocco": {
     "display_name": "Agadir ⴰⴳⴰⴷⵉⵔ أكادير, Pachalik d'Agadir ⵍⴱⴰⵛⴰⵡⵉⵢⴰ ⵏ ⴰⴳⴰⴷⵉⵔ باشوية أكادير, Préfecture d'Agadir Ida-Outanane ⵍⵄⴰⵎⴰⵍⴰ ⵏ ⴰⴳⴰⴷⵉⵔ ⵉⴷⴰ ⵡⵜⴰⵏⴰⵏ عمالة أكادير إدا وتنان, Souss-Massa ⵙⵓⵙⵙ-ⵎⴰⵙⵙⴰ سوس-ماسة, Maroc ⵍⵎⵖⵔⵉⴱ المغرب",
     "latitude": "30.4205162",
     "longitude": "-9.5838532",
     "query": "Agadir, Morocco",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "airport terminal": {
+    "city": "Cleveland",
+    "country": "United States",
+    "display_name": "Airport Terminal, Riverside, Cleveland, Cuyahoga County, Ohio, 44142, United States",
+    "latitude": "41.4116551",
+    "longitude": "-81.8346737",
+    "query": "airport terminal",
+    "source": "nominatim",
+    "state": "Ohio",
     "status": "ok"
   },
   "alabaster mosque": {
@@ -576,6 +598,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "bohemian section of belgrade": {
+    "query": "Bohemian section of Belgrade",
+    "status": "miss"
+  },
   "boppard, germany": {
     "display_name": "Boppard, Rhein-Hunsrück-Kreis, Rheinland-Pfalz, 56154, Deutschland",
     "latitude": "50.2312823",
@@ -596,6 +622,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "bosphorus strait": {
+    "city": "Vladivostok",
+    "country": "Russia",
+    "display_name": "Bosphorus Strait, Vladivostok, Primorsky Krai, Russia",
+    "latitude": "43.0440673",
+    "longitude": "131.9333139",
+    "query": "Bosphorus Strait",
+    "source": "nominatim",
+    "state": "Primorsky Krai",
+    "status": "ok"
+  },
   "bosphorus strait, istanbul, turkey": {
     "query": "Bosphorus Strait, Istanbul, Turkey",
     "status": "miss"
@@ -614,6 +651,10 @@
   },
   "bowness, the lake district, england": {
     "query": "Bowness, The Lake District, England",
+    "status": "miss"
+  },
+  "bowness-on-windermere, cumbria, england": {
+    "query": "Bowness-on-Windermere, Cumbria, England",
     "status": "miss"
   },
   "bowness-on-windermere, lake district": {
@@ -935,6 +976,17 @@
     "longitude": "1.1718503",
     "query": "Canterbury and Dover, England",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "canterbury cathedral": {
+    "city": "Canterbury",
+    "country": "United Kingdom",
+    "display_name": "Canterbury Cathedral, The Precincts, The King's Mile, Canterbury, Kent, England, CT1 2EG, United Kingdom",
+    "latitude": "51.2797999",
+    "longitude": "1.0827660",
+    "query": "Canterbury Cathedral",
+    "source": "nominatim",
+    "state": "England",
     "status": "ok"
   },
   "canterbury cathedral, canterbury, kent, england": {
@@ -1430,6 +1482,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "church of santa marie della salute and the grand canal, venice italy": {
+    "query": "Church of Santa Marie Della Salute and the Grand Canal, Venice Italy",
+    "status": "miss"
+  },
   "city and beach at torquay": {
     "query": "City and Beach at Torquay",
     "status": "miss"
@@ -1718,6 +1774,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "coventry, uk": {
+    "city": "Coventry",
+    "country": "United Kingdom",
+    "display_name": "Coventry, West Midlands, England, United Kingdom",
+    "latitude": "52.4081812",
+    "longitude": "-1.5104770",
+    "query": "Coventry, UK",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
+  },
   "cowes the isle of wight": {
     "display_name": "Cowes Castle - Royal Yacht Squadron, The Parade, Cowes, Isle of Wight, England, PO31 7QT, United Kingdom",
     "latitude": "50.7665146",
@@ -1787,6 +1854,17 @@
     "longitude": "22.5005486",
     "query": "Delphi, Greece",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "dolmabahçe palace": {
+    "city": "Beşiktaş",
+    "country": "Turkey",
+    "display_name": "Dolmabahce Palace, Besiktas, Turkey",
+    "latitude": "41.0389605",
+    "longitude": "28.9997735",
+    "query": "Dolmabahçe Palace",
+    "source": "nominatim",
+    "state": "",
     "status": "ok"
   },
   "dolmabahçe palace, istanbul, turkey": {
@@ -2396,6 +2474,10 @@
     "state": "England",
     "status": "ok"
   },
+  "english country side south of london": {
+    "query": "English Country Side South of London",
+    "status": "miss"
+  },
   "english countryside south of london": {
     "query": "English Countryside South of London",
     "status": "miss"
@@ -2418,6 +2500,10 @@
   },
   "europe 1973, egypt 1975": {
     "query": "Europe 1973, Egypt 1975",
+    "status": "miss"
+  },
+  "europe 1985 book 1": {
+    "query": "Europe 1985 Book 1",
     "status": "miss"
   },
   "europe and egypt": {
@@ -3053,6 +3139,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "hotel metropol, belgrade, yugoslavia": {
+    "query": "Hotel Metropol, Belgrade, Yugoslavia",
+    "status": "miss"
+  },
   "hotels on the nile river at aswan dam egypt - dec. 1960 old cataract hotel aswan egypt new cataract hotel sail boats on the nile at aswan": {
     "query": "HOTELS ON THE NILE RIVER AT ASWAN DAM EGYPT - DEC. 1960 OLD CATARACT HOTEL ASWAN EGYPT NEW CATARACT HOTEL SAIL BOATS ON THE NILE AT ASWAN",
     "status": "miss"
@@ -3188,6 +3278,28 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "innsbruck": {
+    "city": "Innsbruck",
+    "country": "Austria",
+    "display_name": "Innsbruck, Tyrol, Austria",
+    "latitude": "47.2654296",
+    "longitude": "11.3927685",
+    "query": "Innsbruck",
+    "source": "nominatim",
+    "state": "Tyrol",
+    "status": "ok"
+  },
+  "innsbruck austria": {
+    "city": "Innsbruck",
+    "country": "Austria",
+    "display_name": "Innsbruck, Tyrol, Austria",
+    "latitude": "47.2654296",
+    "longitude": "11.3927685",
+    "query": "Innsbruck Austria",
+    "source": "nominatim",
+    "state": "Tyrol",
+    "status": "ok"
+  },
   "innsbruck, austria": {
     "display_name": "Innsbruck, Tirol, Österreich",
     "latitude": "47.2654296",
@@ -3211,6 +3323,10 @@
     "query": "Island of Aegina, Greece",
     "source": "nominatim",
     "status": "ok"
+  },
+  "island of hydra, greece": {
+    "query": "Island of Hydra, Greece",
+    "status": "miss"
   },
   "island of poros, greece": {
     "display_name": "DΕΙ blue - Apostolata Island Resort, Πόρος - Σκάλα, Σκάλα, Δημοτική Ενότητα Ελειού-Πρόνων, Δήμος Αργοστολίου, Περιφερειακή Ενότητα Κεφαλληνίας, Περιφέρεια Ιονίων Νήσων, Αποκεντρωμένη Διοίκηση Πελοποννήσου, Δυτικής Ελλάδας και Ιονίου, 280 86, Ελλάς",
@@ -3433,6 +3549,14 @@
     "state": "Tibet",
     "status": "ok"
   },
+  "kalemegdan fortress and park, belgrade": {
+    "query": "Kalemegdan Fortress and Park, Belgrade",
+    "status": "miss"
+  },
+  "kalemegdan fortress, belgrade": {
+    "query": "Kalemegdan Fortress, Belgrade",
+    "status": "miss"
+  },
   "kalemgedan fortress and park, belgrade, serbia": {
     "query": "Kalemgedan Fortress and Park, Belgrade, Serbia",
     "status": "miss"
@@ -3476,6 +3600,17 @@
   "karnten, austria; salzburg, austria": {
     "query": "Karnten, Austria; Salzburg, Austria",
     "status": "miss"
+  },
+  "kavala": {
+    "city": "Devrek",
+    "country": "Turkey",
+    "display_name": "Kavala, Devrek, Turkey",
+    "latitude": "41.3042299",
+    "longitude": "32.0452026",
+    "query": "Kavala",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
   },
   "kavala, greece": {
     "display_name": "Καβάλα, Δήμος Καβάλας, Περιφερειακή Ενότητα Καβάλας, Περιφέρεια Ανατολικής Μακεδονίας και Θράκης, Αποκεντρωμένη Διοίκηση Μακεδονίας - Θράκης, 653 02, Ελλάς",
@@ -4239,6 +4374,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "lucerne switzerland": {
+    "city": "Lucerne",
+    "country": "Switzerland",
+    "display_name": "Lucerne, Switzerland",
+    "latitude": "47.0505452",
+    "longitude": "8.3054682",
+    "query": "Lucerne Switzerland",
+    "source": "nominatim",
+    "state": "Lucerne",
+    "status": "ok"
+  },
   "lucerne, montreux, lake geneva, switzerland": {
     "query": "Lucerne, Montreux, Lake Geneva, Switzerland",
     "status": "miss"
@@ -4357,6 +4503,17 @@
   "mainland china book ii": {
     "query": "Mainland China Book II",
     "status": "miss"
+  },
+  "mainz": {
+    "city": "Mainz",
+    "country": "Germany",
+    "display_name": "Mainz, Rhineland-Palatinate, Germany",
+    "latitude": "49.9995205",
+    "longitude": "8.2736253",
+    "query": "Mainz",
+    "source": "nominatim",
+    "state": "Rhineland-Palatinate",
+    "status": "ok"
   },
   "mainz, germany": {
     "display_name": "Mainz, Rheinland-Pfalz, Deutschland",
@@ -4589,6 +4746,28 @@
     "query": "Mohamed Aly Alabaster Mosque, Cairo, Egypt",
     "status": "miss"
   },
+  "montmatre, paris, france": {
+    "city": "Paris",
+    "country": "France",
+    "display_name": "Montmatre, Paris, France, Paris, Ile-de-France, France",
+    "latitude": "48.8880499",
+    "longitude": "2.3406297",
+    "query": "Montmatre, Paris, France",
+    "source": "nominatim",
+    "state": "Ile-de-France",
+    "status": "ok"
+  },
+  "montmatre-paris france": {
+    "city": "Paris",
+    "country": "France",
+    "display_name": "Montmatre-Paris France, Paris, Ile-de-France, France",
+    "latitude": "48.8880499",
+    "longitude": "2.3406297",
+    "query": "Montmatre-Paris France",
+    "source": "nominatim",
+    "state": "Ile-de-France",
+    "status": "ok"
+  },
   "monument, lhasa, tibet": {
     "display_name": "西藏和平解放纪念碑, 布达拉宫广场, 吉崩岗街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
     "latitude": "29.6529947",
@@ -4628,6 +4807,17 @@
   "mother and child statue, lanzhou, china": {
     "query": "Mother and Child Statue, Lanzhou, China",
     "status": "miss"
+  },
+  "munich germany": {
+    "city": "Munich",
+    "country": "Germany",
+    "display_name": "Munich, Bavaria, Germany",
+    "latitude": "48.1371079",
+    "longitude": "11.5753822",
+    "query": "Munich Germany",
+    "source": "nominatim",
+    "state": "Bavaria",
+    "status": "ok"
   },
   "munich, bavaria, germany": {
     "display_name": "München, Bayern, Deutschland",
@@ -4778,6 +4968,17 @@
     "query": "North Transept, Priory Church, Christchurch. Priory Church and Norman House, Christchurch. The Priory Church Christchurch, from the North East",
     "status": "miss"
   },
+  "nymphenburg castle": {
+    "city": "Munich",
+    "country": "Germany",
+    "display_name": "Nymphenburg Castle, Munich, Bavaria, Germany",
+    "latitude": "48.1582569",
+    "longitude": "11.5032967",
+    "query": "Nymphenburg Castle",
+    "source": "nominatim",
+    "state": "Bavaria",
+    "status": "ok"
+  },
   "nymphenburg castle, bavaria, germany": {
     "query": "Nymphenburg Castle, Bavaria, Germany",
     "status": "miss"
@@ -4786,8 +4987,16 @@
     "query": "Nymphenburg Castle, Munich, Bavaria, Germany",
     "status": "miss"
   },
+  "nymphenburg castle, munich, germany": {
+    "query": "Nymphenburg Castle, Munich, Germany",
+    "status": "miss"
+  },
   "okhang temple and potala palace, lasa, tibet, china": {
     "query": "Okhang Temple and Potala Palace, Lasa, Tibet, China",
+    "status": "miss"
+  },
+  "old roman wall at canterbury": {
+    "query": "Old Roman Wall at Canterbury",
     "status": "miss"
   },
   "oriel college, oxford, england": {
@@ -5049,6 +5258,17 @@
     "longitude": "19.0529846",
     "query": "Pest, Hungary",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "pevensey castle": {
+    "city": "Wealden",
+    "country": "United Kingdom",
+    "display_name": "Pevensey Castle, Church Lane, Pevensey, Wealden, East Sussex, England, BN24 5LD, United Kingdom",
+    "latitude": "50.8191526",
+    "longitude": "0.3344725",
+    "query": "Pevensey Castle",
+    "source": "nominatim",
+    "state": "England",
     "status": "ok"
   },
   "pevensey castle, east sussex, england": {
@@ -5377,6 +5597,17 @@
     "state": "Wales",
     "status": "ok"
   },
+  "queen victoria memorial, london": {
+    "city": "City of London",
+    "country": "United Kingdom",
+    "display_name": "Queen Victoria, Blackfriars Underpass, Blackfriars, City of London, Greater London, England, EC4Y 0DH, United Kingdom",
+    "latitude": "51.5111139",
+    "longitude": "-0.1044043",
+    "query": "Queen Victoria Memorial, London",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
+  },
   "rabat": {
     "city": "Rabat",
     "country": "Morocco",
@@ -5434,6 +5665,17 @@
     "longitude": "7.3499986",
     "query": "Rhein River, Germany",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "rhine river": {
+    "city": "",
+    "country": "Germany",
+    "display_name": "Rhine, Germany",
+    "latitude": "50.4693743",
+    "longitude": "7.3499986",
+    "query": "Rhine River",
+    "source": "nominatim",
+    "state": "",
     "status": "ok"
   },
   "rhine river, germany": {
@@ -6025,6 +6267,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "shopping mall in skopje": {
+    "query": "Shopping Mall in Skopje",
+    "status": "miss"
+  },
   "skelmereadale, england": {
     "query": "Skelmereadale, England",
     "status": "miss"
@@ -6244,6 +6490,17 @@
     "longitude": "-0.0984506",
     "query": "St Paul's Cathedral, London, England",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "st sophia cathedral": {
+    "city": "Lefkoşa",
+    "country": "Northern Cyprus",
+    "display_name": "St Sophia Cathedral, Lefkosa, Northern Cyprus",
+    "latitude": "35.1764958",
+    "longitude": "33.3645561",
+    "query": "St Sophia Cathedral",
+    "source": "nominatim",
+    "state": "",
     "status": "ok"
   },
   "st. george's hall, lime street liverpool": {
@@ -7091,6 +7348,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "the tower of skulls": {
+    "query": "The Tower of Skulls",
+    "status": "miss"
+  },
   "the white cliffs of dover, dover castle, dover, england": {
     "query": "The White Cliffs of Dover, Dover Castle, Dover, England",
     "status": "miss"
@@ -7408,6 +7669,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "turkey, istanbul": {
+    "city": "Istanbul",
+    "country": "Turkey",
+    "display_name": "Istanbul, Fatih, Istanbul, Marmara Region, 34122, Turkey",
+    "latitude": "41.0063810",
+    "longitude": "28.9758715",
+    "query": "Turkey, Istanbul",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
+  },
   "tyrolean alps, austria": {
     "query": "Tyrolean Alps, Austria",
     "status": "miss"
@@ -7459,6 +7731,10 @@
     "query": "Valley of the Kings, Thebes, Egypt",
     "status": "miss"
   },
+  "vatican city, italy": {
+    "query": "Vatican City, Italy",
+    "status": "miss"
+  },
   "vatican city, italy; the colosseum, rome, italy": {
     "query": "Vatican City, Italy; The Colosseum, Rome, Italy",
     "status": "miss"
@@ -7482,6 +7758,17 @@
   "venice, italy; rome, italy": {
     "query": "Venice, Italy; Rome, Italy",
     "status": "miss"
+  },
+  "via veneto, rome italy": {
+    "city": "Rome",
+    "country": "Italy",
+    "display_name": "Via Vittorio Veneto, Colonna, Municipio Roma I, Rome, Roma Capitale, Lazio, 00187, Italy",
+    "latitude": "41.9042612",
+    "longitude": "12.4886059",
+    "query": "Via Veneto, Rome Italy",
+    "source": "nominatim",
+    "state": "Lazio",
+    "status": "ok"
   },
   "victoria embankment london": {
     "display_name": "Victoria Embankment, St Clement Danes, Covent Garden, City of Westminster, Greater London, England, WC2R 2NS, United Kingdom",
@@ -7689,6 +7976,17 @@
   "westgate and westgate gardens, canterbury, the beach and cliffs, dover": {
     "query": "Westgate and Westgate Gardens, Canterbury, The Beach and Cliffs, Dover",
     "status": "miss"
+  },
+  "white cliffs of dover": {
+    "city": "Dover",
+    "country": "United Kingdom",
+    "display_name": "White Cliffs of Dover, St. Margaret's at Cliffe, Dover, Kent, England, United Kingdom",
+    "latitude": "51.1357977",
+    "longitude": "1.3620948",
+    "query": "White Cliffs of Dover",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
   },
   "white cliffs of dover, england, united kingdom": {
     "display_name": "White Cliffs of Dover, St. Margaret's at Cliffe, Dover, Kent, England, United Kingdom",
