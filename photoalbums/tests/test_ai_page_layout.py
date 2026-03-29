@@ -28,19 +28,22 @@ class TestAIPageLayout(unittest.TestCase):
             "page_scan",
         )
         self.assertEqual(
-            ai_page_layout.classify_image_kind(Path("Family_View") / "Family_2020_B01_P01_D01_01.jpg"),
+            ai_page_layout.classify_image_kind(Path("Family_View") / "Family_2020_B01_P01_D01-01_V.jpg"),
             "detail",
         )
-        # New naming convention: _V (single-scan view) and _VR (reconstructed view)
+        self.assertEqual(
+            ai_page_layout.classify_image_kind(Path("Family_View") / "Family_2020_B01_P01_D01-01_C.jpg"),
+            "detail",
+        )
         self.assertEqual(
             ai_page_layout.classify_image_kind(Path("Family_View") / "Family_2020_B01_P01_V.jpg"),
             "page_view",
         )
+        # Legacy names still recognised during transition
         self.assertEqual(
             ai_page_layout.classify_image_kind(Path("Family_View") / "Family_2020_B01_P01_VC.jpg"),
             "page_view",
         )
-        # Legacy stitched name still recognised during transition
         self.assertEqual(
             ai_page_layout.classify_image_kind(Path("Family_View") / "Family_2020_B01_P01_stitched.jpg"),
             "page_view",

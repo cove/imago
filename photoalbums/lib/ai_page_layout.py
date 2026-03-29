@@ -11,7 +11,7 @@ from ..naming import (
     DERIVED_NAME_RE,
     SCAN_NAME_RE,
     VIEW_PAGE_RE,
-    VIEW_RECON_RE,
+    VIEW_VC_LEGACY_RE,
     VIEW_RECON_LEGACY_RE,
     VIEW_STITCHED_LEGACY_RE,
 )
@@ -88,7 +88,7 @@ def classify_image_kind(image_path: str | Path) -> str:
         return "detail"
     if suffix in {".tif", ".tiff"} and SCAN_NAME_RE.search(name):
         return "page_scan"
-    if VIEW_RECON_RE.search(stem) or VIEW_RECON_LEGACY_RE.search(stem) or VIEW_STITCHED_LEGACY_RE.search(stem):
+    if VIEW_VC_LEGACY_RE.search(stem) or VIEW_RECON_LEGACY_RE.search(stem) or VIEW_STITCHED_LEGACY_RE.search(stem):
         return "page_view"
     if VIEW_PAGE_RE.search(stem):
         return "page_view"

@@ -110,7 +110,7 @@ class TestCreateMetadataTSV(unittest.TestCase):
             base = Path(tmp)
             archive = base / "Family_1947-1953_B02_Archive"
             archive.mkdir()
-            file_path = archive / "Family_1947-1953_B02_P33_D01_02.tif"
+            file_path = archive / "Family_1947-1953_B02_P33_D01-02.tif"
             file_path.touch()
 
             derived_totals = {archive: {33: {"01": 3}}}
@@ -135,7 +135,7 @@ class TestCreateMetadataTSV(unittest.TestCase):
             self.assertEqual(len(results), 1)
             self.assertEqual(
                 results[0]["XMP-dc:Description"],
-                "Family (1947-1953) - Book 02, Page 33, Derived D01_02 of 3 total",
+                "Family (1947-1953) - Book 02, Page 33, Derived D01-02 of 3 total",
             )
             self.assertEqual(results[0]["XMP-dc:Creator"], create_metadata_tsv.CREATOR)
             self.assertEqual(results[0]["IPTC:Keywords"], ["Family"])

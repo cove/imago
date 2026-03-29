@@ -20,7 +20,7 @@ SCAN_NAME_RE = re.compile(
 )
 
 DERIVED_NAME_RE = re.compile(
-    rf"(?P<collection>[^_]+)_(?P<year>\d{{4}}(?:-\d{{4}})?)_B(?P<book>{_BOOK_TOKEN})_P(?P<page>\d+)_D(?P<derived>\d{{1,2}})_(?P<iter>\d{{1,2}})",
+    rf"(?P<collection>[^_]+)_(?P<year>\d{{4}}(?:-\d{{4}})?)_B(?P<book>{_BOOK_TOKEN})_P(?P<page>\d+)_D(?P<derived>\d{{1,2}})-(?P<iter>\d{{1,2}})",
     re.IGNORECASE,
 )
 
@@ -31,15 +31,19 @@ BASE_PAGE_NAME_RE = re.compile(
 
 PAGE_SCAN_RE = re.compile(r"_P(?P<page>\d+)_S(?P<scan>\d+)", re.IGNORECASE)
 
-# Matches the stem of a single-scan view page: …_P##_V
+# Matches the stem of any view page: …_P##_V
 VIEW_PAGE_RE = re.compile(r"_P\d+_V$", re.IGNORECASE)
 
-# Matches the stem of a reconstructed (stitched) view page: …_P##_VC
-VIEW_RECON_RE = re.compile(r"_P\d+_VC$", re.IGNORECASE)
+# Matches the stem of a view detail crop: …_D##-##_V
+DERIVED_VIEW_RE = re.compile(r"_D\d{1,2}-\d{1,2}_V$", re.IGNORECASE)
+
+# Matches the stem of a colorized detail crop: …_D##-##_C
+COLORIZED_RE = re.compile(r"_D\d{1,2}-\d{1,2}_C$", re.IGNORECASE)
 
 # Legacy suffixes kept for transition-period recognition
 VIEW_STITCHED_LEGACY_RE = re.compile(r"_P\d+_stitched$", re.IGNORECASE)
 VIEW_RECON_LEGACY_RE = re.compile(r"_P\d+_VR$", re.IGNORECASE)
+VIEW_VC_LEGACY_RE = re.compile(r"_P\d+_VC$", re.IGNORECASE)
 
 
 def parse_album_filename(
