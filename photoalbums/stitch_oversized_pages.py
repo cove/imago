@@ -28,7 +28,7 @@ from common import (
     list_archive_dirs,
     list_page_scan_groups,
 )
-from exiftool_utils import read_tag, write_tags
+from exiftool_utils import write_tags
 from naming import (
     BASE_PAGE_NAME_RE,
     COLORIZED_RE,
@@ -544,6 +544,8 @@ def list_colorized_images(directory: str | Path) -> list[str]:
 
 def colorized_to_jpg(src_path: str, output_dir: str) -> None:
     _require_image_modules()
+    import shutil
+
     os.makedirs(output_dir, exist_ok=True)
 
     base = os.path.basename(src_path)
@@ -552,18 +554,20 @@ def colorized_to_jpg(src_path: str, output_dir: str) -> None:
     d1 = m_d.group("d1") if m_d else "00"
     d2 = m_d.group("d2") if m_d else "00"
 
-    out_name = f"{collection}_{year}_B{book}_P{int(page):02d}_D{d1}-{d2}_C.jpg"
-    out = os.path.join(output_dir, out_name)
+    stem = os.path.splitext(base)[0]
+    out = os.path.join(output_dir, f"{stem}.jpg")
 
     img = _read_stitch_image(src_path)
+    cv2.imwrite(str(out), img, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
-    dc_source = read_tag(src_path, "XMP-dc:Source") or ""
-    write_jpeg(img, out, "", extra_tags={"XMP-dc:Source": dc_source} if dc_source else None)
+    xmp_src = Path(src_path).with_suffix(".xmp")
+    if xmp_src.exists():
+        shutil.copy2(str(xmp_src), str(Path(out).with_suffix(".xmp")))
 
     if collection != "Unknown":
         print(f"{collection} B{book} P{int(page):02d} D{d1}-{d2}_C OK")
     else:
-        print(f"{out_name} OK")
+        print(f"{stem}.jpg OK")
 
 
 def write_jpeg(
