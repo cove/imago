@@ -40,18 +40,26 @@ All photo album files use a structured naming scheme:
 {Collection}_{Year}_B{book}_P{page}_{type}.{ext}
 ```
 
-| Type token | Role | Extension |
-|------------|------|-----------|
-| `_S##` | Archive raw scan | `.tif` |
-| `_V` | View page (single-scan, lossless JPEG) | `.jpg` |
-| `_VC` | View Composite (stitched from ≥2 scans) | `.jpg` |
-| `_D##_##` | Detail crop | `.jpg` |
+| Type token | Role | Archive ext | View ext |
+|------------|------|-------------|----------|
+| `_S##` | Raw scan | `.tif` | — |
+| `_D##-##` | Detail crop | `.tif` | — |
+| `_V` | View page (any scan count) | — | `.jpg` |
+| `_D##-##_V` | View detail crop | — | `.jpg` |
+| `_D##-##_C` | Colorized detail crop | `.png` | `.jpg` |
 
-Every view page (`_V` or `_VC`) is derived from one or more archive TIF scans. The archive scans are the source of truth; view pages are derived outputs. `dc:source` always references the archive TIF scan filenames, never the view page filename.
+Rules:
+- `_V` always and only marks a view output. `_S##` always and only marks an archive scan.
+- `_D##-##` identifies a detail crop; append `_V` for the view JPEG, `_C` for a colorized derivative.
+- Archive files are `.tif` or `.png` (colorized crops); view files are `.jpg` — no exceptions.
+- `_D##-##_C` appears in both Archive (`.png`, lossless AI output) and View (`.jpg`, render copy).
+- `dc:source` on any view file references the archive TIF scan(s) it was derived from.
+- `dc:source` on a `_C` file references the archive TIF of the source crop.
+- Pages are numbered starting at P01. P00 is not a valid page number.
+- XMP sidecars share the same stem as their companion image file (`.xmp` extension).
 
-Pages are numbered starting at P01. P00 is not a valid page number.
-
-XMP sidecars share the same stem as their companion image file (`.xmp` extension).
+Legacy suffixes still recognised during migration (do not produce new files with these names):
+`_VC`, `_VR`, `_stitched`
 
 ## Data and Schema Migrations
 

@@ -21,16 +21,15 @@ except Exception:
     AffineStitcher = None
 
 from common import (
-    CREATOR,
     PHOTO_ALBUMS_DIR,
     configure_imagemagick,
     dir_created_ts,
     list_archive_dirs,
     list_page_scan_groups,
 )
-from exiftool_utils import write_tags
 from naming import (
     BASE_PAGE_NAME_RE,
+    COLORIZED_RE,
     SCAN_NAME_RE,
     SCAN_TIFF_RE,
     parse_album_filename,
@@ -39,7 +38,7 @@ from naming import (
 MIN_OUTPUT_SIZE = 100 * 1024
 
 NEW_NAME_RE = SCAN_TIFF_RE
-DERIVED_RE = re.compile(r"_D(?P<d1>\d{2})_(?P<d2>\d{2})", re.IGNORECASE)
+DERIVED_RE = re.compile(r"_D(?P<d1>\d{2})-(?P<d2>\d{2})", re.IGNORECASE)
 FILENAME_RE = SCAN_NAME_RE
 FILENAME_RE_NO_SCAN = BASE_PAGE_NAME_RE
 
@@ -76,47 +75,6 @@ def _require_stitcher() -> None:
         raise RuntimeError("stitching package is required for stitching.")
 
 
-def build_scans_text(scan_nums: list[int]) -> str:
-    return " ".join(f"S{s:02d}" for s in scan_nums)
-
-
-def build_scan_header(
-    collection: str,
-    year: str,
-    book: str,
-    page: int,
-    scan_nums: list[int],
-) -> str:
-    book_display = f"{int(book):02d}"
-    scans_text = build_scans_text(scan_nums)
-    return f"{collection} ({year}) - Book {book_display}, Page {page:02d}, Scans {scans_text}"
-
-
-def extract_scan_numbers(files: list[str]) -> list[int]:
-    scan_nums = []
-    for file_path in files:
-        match = re.search(r"_S(\d+)", file_path)
-        if match:
-            scan_nums.append(int(match.group(1)))
-    return scan_nums
-
-
-def build_source_filenames_text(files: list[str]) -> str:
-    names = [os.path.basename(str(path)) for path in files if str(path).strip()]
-    return "; ".join(names)
-
-
-def build_detail_description(
-    collection: str,
-    year: str,
-    book: str,
-    page: int,
-    d1: str,
-    d2: str,
-) -> str:
-    book_display = f"{int(book):02d}"
-    return f"{collection} ({year}) - Book {book_display}, Page {page:02d}, Detail D{d1}_{d2}"
-
 
 def build_derived_output_name(base: str) -> str:
     collection, year, book, page = parse_album_filename(base)
@@ -125,7 +83,7 @@ def build_derived_output_name(base: str) -> str:
     d2 = m_d.group("d2") if m_d else "00"
 
     if collection != "Unknown":
-        return f"{collection}_{year}_B{book}_P{int(page):02d}_D{d1}_{d2}.jpg"
+        return f"{collection}_{year}_B{book}_P{int(page):02d}_D{d1}-{d2}_V.jpg"
 
     stem, _ = os.path.splitext(base)
     m_view = re.match(
@@ -133,8 +91,8 @@ def build_derived_output_name(base: str) -> str:
         stem,
     )
     if m_view:
-        return f"{m_view.group('collection')}_{m_view.group('year')}_{m_view.group('rest')}_D{d1}_{d2}.jpg"
-    return f"{stem}_D{d1}_{d2}.jpg"
+        return f"{m_view.group('collection')}_{m_view.group('year')}_{m_view.group('rest')}_D{d1}-{d2}_V.jpg"
+    return f"{stem}_D{d1}-{d2}_V.jpg"
 
 
 def output_is_valid(path: str | Path, min_size: int = MIN_OUTPUT_SIZE) -> bool:
@@ -501,6 +459,9 @@ def list_derived_images(directory: str | Path) -> list[str]:
             continue
         if not DERIVED_RE.search(name):
             continue
+        stem = os.path.splitext(name)[0]
+        if COLORIZED_RE.search(stem):
+            continue
         files.append(os.path.join(directory, name))
 
     def key(path: str):
@@ -516,26 +477,53 @@ def list_derived_images(directory: str | Path) -> list[str]:
     return files
 
 
-def write_jpeg(
-    image,
-    path: str | Path,
-    header_text: str,
-    quality: int = 95,
-    extra_tags: dict[str, str] | None = None,
-) -> None:
+def list_colorized_images(directory: str | Path) -> list[str]:
+    files = []
+    for name in os.listdir(directory):
+        if not name.lower().endswith(".png"):
+            continue
+        stem = os.path.splitext(name)[0]
+        if COLORIZED_RE.search(stem):
+            files.append(os.path.join(directory, name))
+
+    def key(path: str):
+        base = os.path.basename(path)
+        m_page = FILENAME_RE.search(base) or FILENAME_RE_NO_SCAN.search(base)
+        m_d = DERIVED_RE.search(base)
+        page = int(m_page.group("page")) if m_page else 0
+        d1 = int(m_d.group("d1")) if m_d else 0
+        d2 = int(m_d.group("d2")) if m_d else 0
+        return page, d1, d2, base.lower()
+
+    files.sort(key=key)
+    return files
+
+
+def colorized_to_jpg(src_path: str, output_dir: str) -> None:
+    _require_image_modules()
+    os.makedirs(output_dir, exist_ok=True)
+
+    base = os.path.basename(src_path)
+    collection, year, book, page = parse_album_filename(base)
+    m_d = DERIVED_RE.search(base)
+    d1 = m_d.group("d1") if m_d else "00"
+    d2 = m_d.group("d2") if m_d else "00"
+
+    stem = os.path.splitext(base)[0]
+    out = os.path.join(output_dir, f"{stem}.jpg")
+
+    img = _read_stitch_image(src_path)
+    write_jpeg(img, out)
+
+    if collection != "Unknown":
+        print(f"{collection} B{book} P{int(page):02d} D{d1}-{d2}_C OK")
+    else:
+        print(f"{stem}.jpg OK")
+
+
+def write_jpeg(image, path: str | Path, quality: int = 95) -> None:
     _require_image_modules()
     cv2.imwrite(str(path), image, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
-    tags = {
-        "XMP-dc:Creator": CREATOR,
-        "XMP-dc:Description": header_text,
-    }
-    for tag, value in dict(extra_tags or {}).items():
-        if str(tag or "").strip() and str(value or "").strip():
-            tags[str(tag)] = str(value)
-    write_tags(
-        path,
-        set_tags=tags,
-    )
 
 
 def tif_to_jpg(tif_path: str, output_dir: str) -> None:
@@ -544,19 +532,11 @@ def tif_to_jpg(tif_path: str, output_dir: str) -> None:
     collection, year, book, page = parse_album_filename(os.path.basename(tif_path))
     out = os.path.join(
         output_dir,
-        f"{collection}_{year}_B{book}_P{int(page):02d}.jpg",
+        f"{collection}_{year}_B{book}_P{int(page):02d}_V.jpg",
     )
 
-    scan_nums = extract_scan_numbers([tif_path]) or [1]
-    jpg_header = build_scan_header(collection, year, book, int(page), scan_nums)
-
-    if output_is_valid(out):
-        print(f"{collection} B{book} P{int(page):02d} OK")
-        return
-
     img = _read_stitch_image(tif_path)
-
-    write_jpeg(img, out, jpg_header)
+    write_jpeg(img, out)
 
     print(f"{collection} B{book} P{int(page):02d} OK")
 
@@ -574,26 +554,15 @@ def derived_to_jpg(src_path: str, output_dir: str) -> None:
     out_name = build_derived_output_name(base)
     out = os.path.join(output_dir, out_name)
 
-    if output_is_valid(out, min_size=1):
-        if collection != "Unknown":
-            print(f"{collection} B{book} P{int(page):02d} D{d1}_{d2} OK")
-        else:
-            print(f"{out_name} OK")
-        return
-
     img = _read_stitch_image(src_path)
-
-    desc = ""
-    if collection != "Unknown":
-        desc = build_detail_description(collection, year, book, int(page), d1, d2)
 
     original_size = os.path.getsize(src_path)
     quality = 80
-    write_jpeg(img, out, desc, quality=quality)
+    write_jpeg(img, out, quality=quality)
 
     while os.path.exists(out) and os.path.getsize(out) >= original_size and quality > 40:
         quality -= 10
-        write_jpeg(img, out, desc, quality=quality)
+        write_jpeg(img, out, quality=quality)
 
     if collection != "Unknown":
         print(f"{collection} B{book} P{int(page):02d} D{d1}_{d2} OK")
@@ -609,25 +578,11 @@ def stitch(files, output_dir: str) -> None:
 
     out = os.path.join(
         output_dir,
-        f"{collection}_{year}_B{book}_P{int(page):02d}_VC.jpg",
+        f"{collection}_{year}_B{book}_P{int(page):02d}_V.jpg",
     )
-
-    scan_nums = extract_scan_numbers(files)
-    header = build_scan_header(collection, year, book, int(page), scan_nums)
-    source_text = build_source_filenames_text(files)
-
-    if output_is_valid(out):
-        print(f"{collection} B{book} P{int(page):02d} OK")
-        return
 
     result = build_stitched_image(files)
-
-    write_jpeg(
-        result,
-        out,
-        header,
-        extra_tags={"XMP-dc:Source": source_text} if source_text else None,
-    )
+    write_jpeg(result, out)
 
     print(f"{collection} B{book} P{int(page):02d} OK")
 
@@ -661,6 +616,15 @@ def main() -> None:
             except Exception as exc:
                 failures += 1
                 failed.append([derived])
+                print("Error:", exc)
+
+        for colorized in list_colorized_images(archive):
+            try:
+                colorized_to_jpg(colorized, view)
+                success += 1
+            except Exception as exc:
+                failures += 1
+                failed.append([colorized])
                 print("Error:", exc)
 
     print("\n===== SUMMARY =====")
