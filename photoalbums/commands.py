@@ -48,7 +48,7 @@ def run_compress_tiff() -> int:
     return _call_main(compress_tiff.main)
 
 
-def run_stitch_build() -> int:
+def run_render() -> int:
     import stitch_oversized_pages
 
     return _call_main(stitch_oversized_pages.main)

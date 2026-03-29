@@ -62,10 +62,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("compress", help="Compress TIFF scans in-place where needed")
 
-    stitch_parser = subparsers.add_parser("stitch", help="Stitch and render album page outputs")
-    stitch_sub = stitch_parser.add_subparsers(dest="stitch_kind", required=True)
-    stitch_sub.add_parser("build", help="Build stitched and derived JPEG outputs")
-    stitch_sub.add_parser("validate", help="Validate source scan stitchability without writing outputs")
+    render_parser = subparsers.add_parser("render", help="Render album page outputs (always reprocesses)")
+    render_sub = render_parser.add_subparsers(dest="render_kind", required=False)
+    render_sub.add_parser("validate", help="Validate source scan stitchability without writing outputs")
 
     subparsers.add_parser("watch", help="Watch for incoming scans and register pending events")
 
@@ -121,10 +120,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.group == "compress":
         return commands.run_compress_tiff()
 
-    if args.group == "stitch":
-        if args.stitch_kind == "build":
-            return commands.run_stitch_build()
-        if args.stitch_kind == "validate":
+    if args.group == "render":
+        if not getattr(args, "render_kind", None):
+            return commands.run_render()
+        if args.render_kind == "validate":
             return commands.run_stitch_validate()
 
     if args.group == "watch":

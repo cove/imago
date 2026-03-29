@@ -28,9 +28,10 @@ from common import (
     list_archive_dirs,
     list_page_scan_groups,
 )
-from exiftool_utils import write_tags
+from exiftool_utils import read_tag, write_tags
 from naming import (
     BASE_PAGE_NAME_RE,
+    COLORIZED_RE,
     SCAN_NAME_RE,
     SCAN_TIFF_RE,
     parse_album_filename,
@@ -501,6 +502,9 @@ def list_derived_images(directory: str | Path) -> list[str]:
             continue
         if not DERIVED_RE.search(name):
             continue
+        stem = os.path.splitext(name)[0]
+        if COLORIZED_RE.search(stem):
+            continue
         files.append(os.path.join(directory, name))
 
     def key(path: str):
@@ -514,6 +518,52 @@ def list_derived_images(directory: str | Path) -> list[str]:
 
     files.sort(key=key)
     return files
+
+
+def list_colorized_images(directory: str | Path) -> list[str]:
+    files = []
+    for name in os.listdir(directory):
+        if not name.lower().endswith(".png"):
+            continue
+        stem = os.path.splitext(name)[0]
+        if COLORIZED_RE.search(stem):
+            files.append(os.path.join(directory, name))
+
+    def key(path: str):
+        base = os.path.basename(path)
+        m_page = FILENAME_RE.search(base) or FILENAME_RE_NO_SCAN.search(base)
+        m_d = DERIVED_RE.search(base)
+        page = int(m_page.group("page")) if m_page else 0
+        d1 = int(m_d.group("d1")) if m_d else 0
+        d2 = int(m_d.group("d2")) if m_d else 0
+        return page, d1, d2, base.lower()
+
+    files.sort(key=key)
+    return files
+
+
+def colorized_to_jpg(src_path: str, output_dir: str) -> None:
+    _require_image_modules()
+    os.makedirs(output_dir, exist_ok=True)
+
+    base = os.path.basename(src_path)
+    collection, year, book, page = parse_album_filename(base)
+    m_d = DERIVED_RE.search(base)
+    d1 = m_d.group("d1") if m_d else "00"
+    d2 = m_d.group("d2") if m_d else "00"
+
+    out_name = f"{collection}_{year}_B{book}_P{int(page):02d}_D{d1}-{d2}_C.jpg"
+    out = os.path.join(output_dir, out_name)
+
+    img = _read_stitch_image(src_path)
+
+    dc_source = read_tag(src_path, "XMP-dc:Source") or ""
+    write_jpeg(img, out, "", extra_tags={"XMP-dc:Source": dc_source} if dc_source else None)
+
+    if collection != "Unknown":
+        print(f"{collection} B{book} P{int(page):02d} D{d1}-{d2}_C OK")
+    else:
+        print(f"{out_name} OK")
 
 
 def write_jpeg(
@@ -550,10 +600,6 @@ def tif_to_jpg(tif_path: str, output_dir: str) -> None:
     scan_nums = extract_scan_numbers([tif_path]) or [1]
     jpg_header = build_scan_header(collection, year, book, int(page), scan_nums)
 
-    if output_is_valid(out):
-        print(f"{collection} B{book} P{int(page):02d} OK")
-        return
-
     img = _read_stitch_image(tif_path)
 
     write_jpeg(img, out, jpg_header)
@@ -573,13 +619,6 @@ def derived_to_jpg(src_path: str, output_dir: str) -> None:
 
     out_name = build_derived_output_name(base)
     out = os.path.join(output_dir, out_name)
-
-    if output_is_valid(out, min_size=1):
-        if collection != "Unknown":
-            print(f"{collection} B{book} P{int(page):02d} D{d1}_{d2} OK")
-        else:
-            print(f"{out_name} OK")
-        return
 
     img = _read_stitch_image(src_path)
 
@@ -615,10 +654,6 @@ def stitch(files, output_dir: str) -> None:
     scan_nums = extract_scan_numbers(files)
     header = build_scan_header(collection, year, book, int(page), scan_nums)
     source_text = build_source_filenames_text(files)
-
-    if output_is_valid(out):
-        print(f"{collection} B{book} P{int(page):02d} OK")
-        return
 
     result = build_stitched_image(files)
 
@@ -661,6 +696,15 @@ def main() -> None:
             except Exception as exc:
                 failures += 1
                 failed.append([derived])
+                print("Error:", exc)
+
+        for colorized in list_colorized_images(archive):
+            try:
+                colorized_to_jpg(colorized, view)
+                success += 1
+            except Exception as exc:
+                failures += 1
+                failed.append([colorized])
                 print("Error:", exc)
 
     print("\n===== SUMMARY =====")

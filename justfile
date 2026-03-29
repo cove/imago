@@ -65,8 +65,8 @@ mcp-http:
 photoalbums-ai:
   {{python}} photoalbums.py ai
 
-photoalbums-stitch:
-  {{python}} photoalbums.py stitch build
+photoalbums-render:
+  {{python}} photoalbums.py render
 
-photoalbums-stitch-validate:
-  {{python}} photoalbums.py stitch validate
+photoalbums-render-validate:
+  {{python}} photoalbums.py render validate
