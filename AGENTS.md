@@ -43,15 +43,22 @@ All photo album files use a structured naming scheme:
 | Type token | Role | Extension |
 |------------|------|-----------|
 | `_S##` | Archive raw scan | `.tif` |
-| `_V` | View page (single-scan, lossless JPEG) | `.jpg` |
-| `_VC` | View Composite (stitched from ≥2 scans) | `.jpg` |
-| `_D##_##` | Detail crop | `.jpg` |
+| `_D##-##` | Archive detail crop | `.tif` |
+| `_V` | View page (any scan count) | `.jpg` |
+| `_D##-##_V` | View detail crop | `.jpg` |
+| `_D##-##_C` | Colorized detail crop | `.jpg` |
 
-Every view page (`_V` or `_VC`) is derived from one or more archive TIF scans. The archive scans are the source of truth; view pages are derived outputs. `dc:source` always references the archive TIF scan filenames, never the view page filename.
+Rules:
+- `_V` always and only marks a view output. `_S##` always and only marks an archive scan.
+- `_D##-##` identifies a detail crop; append `_V` for the view JPEG, `_C` for a colorized derivative.
+- Archive files are `.tif`; view files are `.jpg` — no exceptions.
+- `dc:source` on any view file references the archive TIF scan(s) it was derived from.
+- `dc:source` on a `_C` file references the archive TIF of the source crop.
+- Pages are numbered starting at P01. P00 is not a valid page number.
+- XMP sidecars share the same stem as their companion image file (`.xmp` extension).
 
-Pages are numbered starting at P01. P00 is not a valid page number.
-
-XMP sidecars share the same stem as their companion image file (`.xmp` extension).
+Legacy suffixes still recognised during migration (do not produce new files with these names):
+`_VC`, `_VR`, `_stitched`
 
 ## Data and Schema Migrations
 
