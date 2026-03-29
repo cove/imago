@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 import warnings
@@ -35,14 +36,15 @@ from naming import (
     parse_album_filename,
 )
 
-MIN_OUTPUT_SIZE = 100 * 1024
 
 NEW_NAME_RE = SCAN_TIFF_RE
 DERIVED_RE = re.compile(r"_D(?P<d1>\d{2})-(?P<d2>\d{2})", re.IGNORECASE)
 FILENAME_RE = SCAN_NAME_RE
 FILENAME_RE_NO_SCAN = BASE_PAGE_NAME_RE
 
-IMAGE_EXTS = (".tif", ".tiff", ".jpg", ".jpeg", ".png", ".bmp")
+IMAGE_EXTS = (".tif", ".tiff", ".jpg", ".jpeg", ".png")
+MEDIA_EXTS = (".mp4", ".pdf")
+LEGACY_DERIVED_RE = re.compile(r"_D(?P<d1>\d{2})_(?P<d2>\d{2})", re.IGNORECASE)
 
 AFFINE_STITCH_ATTEMPTS = (
     {"detector": "sift", "confidence_threshold": 0.3},
@@ -75,15 +77,18 @@ def _require_stitcher() -> None:
         raise RuntimeError("stitching package is required for stitching.")
 
 
+def _match_derived_tokens(value: str):
+    return DERIVED_RE.search(value) or LEGACY_DERIVED_RE.search(value)
 
-def build_derived_output_name(base: str) -> str:
+
+def build_derived_output_name(base: str, output_suffix: str = ".jpg") -> str:
     collection, year, book, page = parse_album_filename(base)
-    m_d = DERIVED_RE.search(base)
+    m_d = _match_derived_tokens(base)
     d1 = m_d.group("d1") if m_d else "00"
     d2 = m_d.group("d2") if m_d else "00"
 
     if collection != "Unknown":
-        return f"{collection}_{year}_B{book}_P{int(page):02d}_D{d1}-{d2}_V.jpg"
+        return f"{collection}_{year}_B{book}_P{int(page):02d}_D{d1}-{d2}_V{output_suffix}"
 
     stem, _ = os.path.splitext(base)
     m_view = re.match(
@@ -91,13 +96,20 @@ def build_derived_output_name(base: str) -> str:
         stem,
     )
     if m_view:
-        return f"{m_view.group('collection')}_{m_view.group('year')}_{m_view.group('rest')}_D{d1}-{d2}_V.jpg"
-    return f"{stem}_D{d1}-{d2}_V.jpg"
+        return f"{m_view.group('collection')}_{m_view.group('year')}_{m_view.group('rest')}_D{d1}-{d2}_V{output_suffix}"
+    return f"{stem}_D{d1}-{d2}_V{output_suffix}"
 
 
-def output_is_valid(path: str | Path, min_size: int = MIN_OUTPUT_SIZE) -> bool:
+def output_is_valid(path: str | Path) -> bool:
     path = Path(path)
-    return path.exists() and path.stat().st_size > min_size
+    return path.exists() and path.stat().st_size > 0
+
+
+def _skip_existing_output(out: str | Path, label: str) -> bool:
+    if output_is_valid(out):
+        print(f"{label} SKIP (existing output)")
+        return True
+    return False
 
 
 def _ensure_bgr_image(image):
@@ -457,7 +469,7 @@ def list_derived_images(directory: str | Path) -> list[str]:
     for name in os.listdir(directory):
         if not name.lower().endswith(IMAGE_EXTS):
             continue
-        if not DERIVED_RE.search(name):
+        if not _match_derived_tokens(name):
             continue
         stem = os.path.splitext(name)[0]
         if COLORIZED_RE.search(stem):
@@ -467,7 +479,7 @@ def list_derived_images(directory: str | Path) -> list[str]:
     def key(path: str):
         base = os.path.basename(path)
         m_page = FILENAME_RE.search(base) or FILENAME_RE_NO_SCAN.search(base)
-        m_d = DERIVED_RE.search(base)
+        m_d = _match_derived_tokens(base)
         page = int(m_page.group("page")) if m_page else 0
         d1 = int(m_d.group("d1")) if m_d else 0
         d2 = int(m_d.group("d2")) if m_d else 0
@@ -499,7 +511,29 @@ def list_colorized_images(directory: str | Path) -> list[str]:
     return files
 
 
-def colorized_to_jpg(src_path: str, output_dir: str) -> None:
+def list_derived_media(directory: str | Path) -> list[str]:
+    files = []
+    for name in os.listdir(directory):
+        if not name.lower().endswith(MEDIA_EXTS):
+            continue
+        if not _match_derived_tokens(name):
+            continue
+        files.append(os.path.join(directory, name))
+
+    def key(path: str):
+        base = os.path.basename(path)
+        m_page = FILENAME_RE.search(base) or FILENAME_RE_NO_SCAN.search(base)
+        m_d = _match_derived_tokens(base)
+        page = int(m_page.group("page")) if m_page else 0
+        d1 = int(m_d.group("d1")) if m_d else 0
+        d2 = int(m_d.group("d2")) if m_d else 0
+        return page, d1, d2, base.lower()
+
+    files.sort(key=key)
+    return files
+
+
+def colorized_to_jpg(src_path: str, output_dir: str) -> bool:
     _require_image_modules()
     os.makedirs(output_dir, exist_ok=True)
 
@@ -511,22 +545,45 @@ def colorized_to_jpg(src_path: str, output_dir: str) -> None:
 
     stem = os.path.splitext(base)[0]
     out = os.path.join(output_dir, f"{stem}.jpg")
+    if collection != "Unknown":
+        label = f"{collection} B{book} P{int(page):02d} D{d1}-{d2}_C"
+    else:
+        label = f"{stem}.jpg"
+    if _skip_existing_output(out, label):
+        return False
 
     img = _read_stitch_image(src_path)
     write_jpeg(img, out)
 
-    if collection != "Unknown":
-        print(f"{collection} B{book} P{int(page):02d} D{d1}-{d2}_C OK")
-    else:
-        print(f"{stem}.jpg OK")
+    print(f"{label} OK")
+    return True
+
+
+def copy_derived_media(src_path: str, output_dir: str) -> bool:
+    os.makedirs(output_dir, exist_ok=True)
+
+    base = os.path.basename(src_path)
+    suffix = Path(base).suffix.lower()
+    out_name = build_derived_output_name(base, output_suffix=suffix)
+    out = os.path.join(output_dir, out_name)
+    label = out_name
+    if Path(out).exists() and Path(out).stat().st_size > 0:
+        print(f"{label} SKIP (existing output)")
+        return False
+
+    shutil.copy2(src_path, out)
+    print(f"{label} OK")
+    return True
 
 
 def write_jpeg(image, path: str | Path, quality: int = 95) -> None:
     _require_image_modules()
-    cv2.imwrite(str(path), image, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
+    ok = cv2.imwrite(str(path), image, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
+    if not ok:
+        raise RuntimeError(f"Failed to write image (permission denied or unsupported format): {path}")
 
 
-def tif_to_jpg(tif_path: str, output_dir: str) -> None:
+def tif_to_jpg(tif_path: str, output_dir: str) -> bool:
     _require_image_modules()
     os.makedirs(output_dir, exist_ok=True)
     collection, year, book, page = parse_album_filename(os.path.basename(tif_path))
@@ -534,14 +591,18 @@ def tif_to_jpg(tif_path: str, output_dir: str) -> None:
         output_dir,
         f"{collection}_{year}_B{book}_P{int(page):02d}_V.jpg",
     )
+    label = f"{collection} B{book} P{int(page):02d}"
+    if _skip_existing_output(out, label):
+        return False
 
     img = _read_stitch_image(tif_path)
     write_jpeg(img, out)
 
-    print(f"{collection} B{book} P{int(page):02d} OK")
+    print(f"{label} OK")
+    return True
 
 
-def derived_to_jpg(src_path: str, output_dir: str) -> None:
+def derived_to_jpg(src_path: str, output_dir: str) -> bool:
     _require_image_modules()
     os.makedirs(output_dir, exist_ok=True)
 
@@ -553,6 +614,12 @@ def derived_to_jpg(src_path: str, output_dir: str) -> None:
 
     out_name = build_derived_output_name(base)
     out = os.path.join(output_dir, out_name)
+    if collection != "Unknown":
+        label = f"{collection} B{book} P{int(page):02d} D{d1}_{d2}"
+    else:
+        label = out_name
+    if _skip_existing_output(out, label):
+        return False
 
     img = _read_stitch_image(src_path)
 
@@ -564,13 +631,11 @@ def derived_to_jpg(src_path: str, output_dir: str) -> None:
         quality -= 10
         write_jpeg(img, out, quality=quality)
 
-    if collection != "Unknown":
-        print(f"{collection} B{book} P{int(page):02d} D{d1}_{d2} OK")
-    else:
-        print(f"{out_name} OK")
+    print(f"{label} OK")
+    return True
 
 
-def stitch(files, output_dir: str) -> None:
+def stitch(files, output_dir: str) -> bool:
     _require_image_modules()
     os.makedirs(output_dir, exist_ok=True)
 
@@ -580,15 +645,19 @@ def stitch(files, output_dir: str) -> None:
         output_dir,
         f"{collection}_{year}_B{book}_P{int(page):02d}_V.jpg",
     )
+    label = f"{collection} B{book} P{int(page):02d}"
+    if _skip_existing_output(out, label):
+        return False
 
     result = build_stitched_image(files)
     write_jpeg(result, out)
 
-    print(f"{collection} B{book} P{int(page):02d} OK")
+    print(f"{label} OK")
+    return True
 
 
 def main() -> None:
-    success = failures = 0
+    success = skipped = failures = 0
     failed = []
 
     archive_dirs = list_archive_dirs(PHOTO_ALBUMS_DIR)
@@ -600,10 +669,13 @@ def main() -> None:
         for group in list_page_scans(archive):
             try:
                 if len(group) > 1:
-                    stitch(group, view)
+                    wrote = stitch(group, view)
                 else:
-                    tif_to_jpg(group[0], view)
-                success += 1
+                    wrote = tif_to_jpg(group[0], view)
+                if wrote:
+                    success += 1
+                else:
+                    skipped += 1
             except Exception as exc:
                 failures += 1
                 failed.append(group)
@@ -611,8 +683,11 @@ def main() -> None:
 
         for derived in list_derived_images(archive):
             try:
-                derived_to_jpg(derived, view)
-                success += 1
+                wrote = derived_to_jpg(derived, view)
+                if wrote:
+                    success += 1
+                else:
+                    skipped += 1
             except Exception as exc:
                 failures += 1
                 failed.append([derived])
@@ -620,15 +695,31 @@ def main() -> None:
 
         for colorized in list_colorized_images(archive):
             try:
-                colorized_to_jpg(colorized, view)
-                success += 1
+                wrote = colorized_to_jpg(colorized, view)
+                if wrote:
+                    success += 1
+                else:
+                    skipped += 1
             except Exception as exc:
                 failures += 1
                 failed.append([colorized])
                 print("Error:", exc)
 
+        for media_path in list_derived_media(archive):
+            try:
+                wrote = copy_derived_media(media_path, view)
+                if wrote:
+                    success += 1
+                else:
+                    skipped += 1
+            except Exception as exc:
+                failures += 1
+                failed.append([media_path])
+                print("Error:", exc)
+
     print("\n===== SUMMARY =====")
     print("Successful:", success)
+    print("Skipped:", skipped)
     print("Failed:", failures)
     if failed:
         print("\n===== FAILURES (DETAILS) =====")

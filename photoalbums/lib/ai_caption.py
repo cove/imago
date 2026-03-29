@@ -64,7 +64,17 @@ def _emit_prompt_debug(
 
 
 def _caption_has_meaningful_content(caption) -> bool:
-    for field_name in ("text", "ocr_text", "author_text", "scene_text", "album_title", "title"):
+    for field_name in (
+        "text",
+        "ocr_text",
+        "author_text",
+        "scene_text",
+        "album_title",
+        "title",
+        "location_name",
+        "gps_latitude",
+        "gps_longitude",
+    ):
         if clean_text(str(getattr(caption, field_name, "") or "")):
             return True
     for row in list(getattr(caption, "image_regions", None) or []):
@@ -72,6 +82,11 @@ def _caption_has_meaningful_content(caption) -> bool:
             continue
         if clean_text(str(row.get("author_text") or "")) or clean_text(str(row.get("scene_text") or "")):
             return True
+        try:
+            if float(row.get("w", 0) or 0) > 0 and float(row.get("h", 0) or 0) > 0:
+                return True
+        except (TypeError, ValueError):
+            continue
     return False
 
 

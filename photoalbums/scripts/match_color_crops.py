@@ -6,7 +6,7 @@ For each file in _Color directories:
 3. Derive _P## from the matched scan; assign _D##-01 in spatial order,
    reusing an existing D## if the bounding box overlaps (IoU >= 0.7).
 4. Copy/convert to PNG, rename to _P##_D##-01_C.png, move to _Archive.
-5. Write XMP: dc:source from the matched TIF, dc:creator.
+5. Preserve the source file's read-only state on the canonical output.
 
 Unmatched files are written to a report; nothing is moved without a confident match.
 
@@ -25,6 +25,8 @@ import argparse
 import json
 import os
 import re
+import stat
+import shutil
 import sys
 from pathlib import Path
 
@@ -38,8 +40,6 @@ except ImportError:
     Image = None
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from common import CREATOR
-from exiftool_utils import read_tag, write_tags
 from naming import DERIVED_NAME_RE, parse_album_filename
 
 # ---------------------------------------------------------------------------
@@ -57,6 +57,7 @@ MAX_DIM = 2000  # resize long edge to this before SIFT
 
 _SCAN_TIF_RE = re.compile(r"_S\d+\.tif$", re.IGNORECASE)
 _PAGE_FROM_SCAN_RE = re.compile(r"_P(\d+)_S", re.IGNORECASE)
+_CANONICAL_CROP_RE = re.compile(r"^(?P<prefix>.+_P\d+)_D(?P<derived>\d+)-01_C\.png$", re.IGNORECASE)
 
 
 # ---------------------------------------------------------------------------
@@ -117,8 +118,10 @@ def _compute_descriptors(sift, gray: "np.ndarray") -> tuple:
 
 def _match_query_to_target(
     matcher,
-    qkp, qdes,
-    tkp, tdes,
+    qkp,
+    qdes,
+    tkp,
+    tdes,
     tscale: float,
     query_shape: tuple,
     min_inliers: int,
@@ -158,6 +161,7 @@ def discover_color_files(root: Path) -> list[Path]:
         dirnames.sort()
         dp = Path(dirpath)
         if dp.name.endswith("_Color"):
+            print(f"Found color directory: {dp}")
             for fname in sorted(filenames):
                 if Path(fname).suffix.lower() in {".jpg", ".jpeg", ".png"}:
                     files.append(dp / fname)
@@ -183,6 +187,25 @@ def _existing_d_crops(archive_dir: Path, page: int) -> dict[tuple[int, int], Pat
     return result
 
 
+def _preserve_read_only(source: Path, dest: Path) -> None:
+    dest.chmod(source.stat().st_mode)
+
+
+def _remove_legacy_archive_variants(dest: Path) -> None:
+    match = _CANONICAL_CROP_RE.match(dest.name)
+    if not match:
+        return
+    legacy_re = re.compile(
+        rf"^{re.escape(match.group('prefix'))}_D{re.escape(match.group('derived'))}_\d+\.(jpg|png|xmp)$",
+        re.IGNORECASE,
+    )
+    for sibling in dest.parent.iterdir():
+        if not sibling.is_file() or not legacy_re.match(sibling.name):
+            continue
+        sibling.chmod(sibling.stat().st_mode | stat.S_IWRITE)
+        sibling.unlink()
+
+
 # ---------------------------------------------------------------------------
 # Planning
 # ---------------------------------------------------------------------------
@@ -192,6 +215,7 @@ def build_plan(root: Path, min_inliers: int = MIN_INLIERS) -> tuple[list[dict], 
     _require_cv2()
 
     color_files = discover_color_files(root)
+    print(f"Discovered {len(color_files)} color image files.")
     if not color_files:
         return [], []
 
@@ -205,12 +229,14 @@ def build_plan(root: Path, min_inliers: int = MIN_INLIERS) -> tuple[list[dict], 
     for cf in color_files:
         archive = _sibling_dir(cf.parent, "_Archive")
         if not archive.is_dir():
+            print(f"Skipping {cf.name}: archive directory missing for {cf.parent.name}")
             unmatched.append(f"no archive dir: {cf}")
             continue
         by_archive.setdefault(archive, []).append(cf)
 
     for archive_dir, crops in sorted(by_archive.items()):
         tifs = sorted(f for f in archive_dir.iterdir() if _SCAN_TIF_RE.search(f.name))
+        print(f"\nArchive {archive_dir.name}: {len(crops)} color crops, {len(tifs)} scan TIFs")
         if not tifs:
             for cf in crops:
                 unmatched.append(f"no archive TIFs in {archive_dir.name}: {cf.name}")
@@ -229,26 +255,39 @@ def build_plan(root: Path, min_inliers: int = MIN_INLIERS) -> tuple[list[dict], 
                 continue
             kp, des = _compute_descriptors(sift, gray)
             tif_cache.append({"path": tif, "page": int(m.group(1)), "gray": gray, "scale": scale, "kp": kp, "des": des})
+        print(f"  Prepared {len(tif_cache)} scan descriptors")
 
         # Match each color crop
         matched_items: list[dict] = []
         for crop in crops:
+            print(f"  Matching {crop.name} ...")
             try:
                 qgray, _ = _load_gray(crop)
             except Exception as exc:
+                print(f"    load error: {exc}")
                 unmatched.append(f"load error {crop.name}: {exc}")
                 continue
             qkp, qdes = _compute_descriptors(sift, qgray)
 
             best: dict | None = None
             for td in tif_cache:
-                result = _match_query_to_target(matcher, qkp, qdes, td["kp"], td["des"], td["scale"], qgray.shape, min_inliers)
+                result = _match_query_to_target(
+                    matcher, qkp, qdes, td["kp"], td["des"], td["scale"], qgray.shape, min_inliers
+                )
                 if result and (best is None or result[1] > best["inliers"]):
-                    best = {"crop": crop, "scan": td["path"], "page": td["page"], "bbox": result[0], "inliers": result[1]}
+                    best = {
+                        "crop": crop,
+                        "scan": td["path"],
+                        "page": td["page"],
+                        "bbox": result[0],
+                        "inliers": result[1],
+                    }
 
             if best is None:
+                print("    no confident match")
                 unmatched.append(f"no confident match: {crop.name}")
             else:
+                print(f"    matched {best['scan'].name} page {best['page']:02d} with {best['inliers']} inliers")
                 matched_items.append(best)
 
         # Assign D## numbers per page
@@ -257,6 +296,7 @@ def build_plan(root: Path, min_inliers: int = MIN_INLIERS) -> tuple[list[dict], 
             by_page.setdefault(item["page"], []).append(item)
 
         for page, items in sorted(by_page.items()):
+            print(f"  Assigning D numbers for page {page:02d} ({len(items)} matched crops)")
             existing = _existing_d_crops(archive_dir, page)
             max_d1 = max((k[0] for k in existing), default=0)
 
@@ -269,7 +309,9 @@ def build_plan(root: Path, min_inliers: int = MIN_INLIERS) -> tuple[list[dict], 
                     for td in tif_cache:
                         if td["page"] != page:
                             continue
-                        result = _match_query_to_target(matcher, ekp, edes, td["kp"], td["des"], td["scale"], egray.shape, min_inliers=6)
+                        result = _match_query_to_target(
+                            matcher, ekp, edes, td["kp"], td["des"], td["scale"], egray.shape, min_inliers=6
+                        )
                         if result:
                             existing_bboxes[key] = _bbox_rect(result[0])
                             break
@@ -291,16 +333,17 @@ def build_plan(root: Path, min_inliers: int = MIN_INLIERS) -> tuple[list[dict], 
 
                 collection, year, book, _ = parse_album_filename(item["scan"].name)
                 new_name = f"{collection}_{year}_B{book}_P{page:02d}_D{d1:02d}-01_C.png"
-                dc_source = read_tag(item["scan"], "XMP-dc:Source") or item["scan"].name
-                plan.append({
-                    "crop": str(item["crop"]),
-                    "scan": str(item["scan"]),
-                    "page": page,
-                    "d1": d1,
-                    "inliers": item["inliers"],
-                    "new_path": str(archive_dir / new_name),
-                    "dc_source": dc_source,
-                })
+                plan.append(
+                    {
+                        "crop": str(item["crop"]),
+                        "scan": str(item["scan"]),
+                        "page": page,
+                        "d1": d1,
+                        "inliers": item["inliers"],
+                        "new_path": str(archive_dir / new_name),
+                    }
+                )
+                print(f"    planned {item['crop'].name} -> {new_name}")
 
     return plan, unmatched
 
@@ -316,32 +359,44 @@ def execute_plan(plan: list[dict]) -> list[dict]:
         crop = Path(entry["crop"])
         dest = Path(entry["new_path"])
         result = {**entry, "status": "ok", "error": ""}
+        print(f"Migrating {crop.name} -> {dest.name}")
         try:
             if not crop.exists():
                 result["status"] = "skipped_missing"
+                print("  skipped: source missing")
             elif dest.exists():
                 result["status"] = "skipped_conflict"
                 result["error"] = f"Target exists: {dest}"
+                print(f"  skipped: target exists {dest}")
             else:
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 if crop.suffix.lower() in {".jpg", ".jpeg"}:
                     with Image.open(crop) as img:
                         img.save(dest, "PNG")
                 else:
-                    import shutil
                     shutil.copy2(crop, dest)
-                write_tags(
-                    dest,
-                    set_tags={
-                        "XMP-dc:Creator": CREATOR,
-                        "XMP-dc:Source": entry["dc_source"],
-                    },
-                )
+                _preserve_read_only(crop, dest)
+                _remove_legacy_archive_variants(dest)
+                print("  wrote PNG")
         except Exception as exc:
             result["status"] = "error"
             result["error"] = str(exc)
+            print(f"  error: {exc}")
         results.append(result)
     return results
+
+
+def backup_color_dirs(plan: list[dict]) -> list[Path]:
+    color_dirs = sorted({Path(entry["crop"]).parent for entry in plan})
+    backups: list[Path] = []
+    for color_dir in color_dirs:
+        backup_dir = color_dir.with_name(f"{color_dir.name}.bak")
+        if backup_dir.exists():
+            raise RuntimeError(f"backup already exists: {backup_dir}")
+        print(f"Backing up {color_dir} -> {backup_dir}")
+        shutil.copytree(color_dir, backup_dir)
+        backups.append(backup_dir)
+    return backups
 
 
 # ---------------------------------------------------------------------------
@@ -384,6 +439,11 @@ def main(argv: list[str] | None = None) -> int:
         if len(plan) > 15:
             print(f"  ... and {len(plan) - 15} more")
         return 0
+
+    color_dir_count = len({Path(entry["crop"]).parent for entry in plan})
+    print(f"\nBacking up {color_dir_count} _Color directories ...")
+    backups = backup_color_dirs(plan)
+    print(f"Created {len(backups)} backups.")
 
     print(f"\nExecuting {len(plan)} migrations ...")
     results = execute_plan(plan)

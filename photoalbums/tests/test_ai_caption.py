@@ -134,6 +134,48 @@ class TestAICaption(unittest.TestCase):
         self.assertEqual(out.error, "")
         self.assertEqual(out.scene_text, "EXHIBIT HISTORICAL RELICS OF DUNHUANG")
 
+    def test_generate_does_not_mark_location_only_caption_as_fallback(self):
+        fake_lmstudio = mock.Mock()
+        fake_lmstudio.describe_page.return_value = ai_caption.CaptionDetails(
+            text="",
+            ocr_text="",
+            author_text="",
+            scene_text="",
+            location_name="Dubrovnik",
+        )
+        with mock.patch("photoalbums.lib.ai_caption.LMStudioCaptioner", return_value=fake_lmstudio):
+            engine = ai_caption.CaptionEngine(engine="lmstudio")
+            out = engine.generate(
+                image_path="sample.jpg",
+                people=[],
+                objects=[],
+                ocr_text="",
+            )
+        self.assertFalse(out.fallback)
+        self.assertEqual(out.error, "")
+        self.assertEqual(out.location_name, "Dubrovnik")
+
+    def test_generate_does_not_mark_photo_region_only_caption_as_fallback(self):
+        fake_lmstudio = mock.Mock()
+        fake_lmstudio.describe_page.return_value = ai_caption.CaptionDetails(
+            text="",
+            ocr_text="",
+            author_text="",
+            scene_text="",
+            image_regions=[{"x": 0.11, "y": 0.044, "w": 0.469, "h": 0.492}],
+        )
+        with mock.patch("photoalbums.lib.ai_caption.LMStudioCaptioner", return_value=fake_lmstudio):
+            engine = ai_caption.CaptionEngine(engine="lmstudio")
+            out = engine.generate(
+                image_path="sample.jpg",
+                people=[],
+                objects=[],
+                ocr_text="",
+            )
+        self.assertFalse(out.fallback)
+        self.assertEqual(out.error, "")
+        self.assertEqual(out.image_regions, [{"x": 0.11, "y": 0.044, "w": 0.469, "h": 0.492}])
+
     def test_lmstudio_engine_forwards_caption_settings(self):
         fake_lmstudio = mock.Mock()
         fake_lmstudio.describe_page.return_value = ai_caption.CaptionDetails(text="caption text")
