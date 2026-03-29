@@ -1,12 +1,12 @@
-"""match_color_crops.py — Match colorized crops to archive scans and migrate to View.
+"""match_color_crops.py — Match colorized crops to archive scans and migrate to Archive.
 
 For each file in _Color directories:
 1. SIFT-match (grayscale) against archive TIFs for the same book.
 2. Pick the best match by RANSAC inlier count.
 3. Derive _P## from the matched scan; assign _D##-01 in spatial order,
    reusing an existing D## if the bounding box overlaps (IoU >= 0.7).
-4. Convert PNG → JPEG if needed, rename to _P##_D##-01_C.jpg, move to _View.
-5. Write XMP: dc:source from the matched TIF, dc:description, dc:creator.
+4. Copy/convert to PNG, rename to _P##_D##-01_C.png, move to _Archive.
+5. Write XMP: dc:source from the matched TIF, dc:creator.
 
 Unmatched files are written to a report; nothing is moved without a confident match.
 
@@ -169,13 +169,13 @@ def _sibling_dir(color_dir: Path, suffix: str) -> Path:
     return color_dir.parent / f"{base}{suffix}"
 
 
-def _existing_d_crops(view_dir: Path, page: int) -> dict[tuple[int, int], Path]:
-    """Return {(d1, d2): path} for _D##-## view crops on a given page."""
+def _existing_d_crops(archive_dir: Path, page: int) -> dict[tuple[int, int], Path]:
+    """Return {(d1, d2): path} for _D##-##_C archive crops on a given page."""
     result: dict[tuple[int, int], Path] = {}
-    if not view_dir.is_dir():
+    if not archive_dir.is_dir():
         return result
-    for f in view_dir.iterdir():
-        if f.suffix.lower() not in {".jpg", ".jpeg"}:
+    for f in archive_dir.iterdir():
+        if f.suffix.lower() not in {".png"}:
             continue
         m = DERIVED_NAME_RE.search(f.stem)
         if m and int(m.group("page")) == page:
@@ -210,7 +210,6 @@ def build_plan(root: Path, min_inliers: int = MIN_INLIERS) -> tuple[list[dict], 
         by_archive.setdefault(archive, []).append(cf)
 
     for archive_dir, crops in sorted(by_archive.items()):
-        view_dir = _sibling_dir(crops[0].parent, "_View")
         tifs = sorted(f for f in archive_dir.iterdir() if _SCAN_TIF_RE.search(f.name))
         if not tifs:
             for cf in crops:
@@ -258,7 +257,7 @@ def build_plan(root: Path, min_inliers: int = MIN_INLIERS) -> tuple[list[dict], 
             by_page.setdefault(item["page"], []).append(item)
 
         for page, items in sorted(by_page.items()):
-            existing = _existing_d_crops(view_dir, page)
+            existing = _existing_d_crops(archive_dir, page)
             max_d1 = max((k[0] for k in existing), default=0)
 
             # Get bboxes of existing crops (best-effort)
@@ -291,7 +290,7 @@ def build_plan(root: Path, min_inliers: int = MIN_INLIERS) -> tuple[list[dict], 
                     next_d1 += 1
 
                 collection, year, book, _ = parse_album_filename(item["scan"].name)
-                new_name = f"{collection}_{year}_B{book}_P{page:02d}_D{d1:02d}-01_C.jpg"
+                new_name = f"{collection}_{year}_B{book}_P{page:02d}_D{d1:02d}-01_C.png"
                 dc_source = read_tag(item["scan"], "XMP-dc:Source") or item["scan"].name
                 plan.append({
                     "crop": str(item["crop"]),
@@ -299,12 +298,8 @@ def build_plan(root: Path, min_inliers: int = MIN_INLIERS) -> tuple[list[dict], 
                     "page": page,
                     "d1": d1,
                     "inliers": item["inliers"],
-                    "new_path": str(view_dir / new_name),
+                    "new_path": str(archive_dir / new_name),
                     "dc_source": dc_source,
-                    "dc_description": (
-                        f"{collection} ({year}) - Book {book}, "
-                        f"Page {page:02d}, Detail D{d1:02d}-01, Colorized"
-                    ),
                 })
 
     return plan, unmatched
@@ -329,9 +324,9 @@ def execute_plan(plan: list[dict]) -> list[dict]:
                 result["error"] = f"Target exists: {dest}"
             else:
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                if crop.suffix.lower() == ".png":
+                if crop.suffix.lower() in {".jpg", ".jpeg"}:
                     with Image.open(crop) as img:
-                        img.convert("RGB").save(dest, "JPEG", quality=95)
+                        img.save(dest, "PNG")
                 else:
                     import shutil
                     shutil.copy2(crop, dest)
@@ -340,7 +335,6 @@ def execute_plan(plan: list[dict]) -> list[dict]:
                     set_tags={
                         "XMP-dc:Creator": CREATOR,
                         "XMP-dc:Source": entry["dc_source"],
-                        "XMP-dc:Description": entry["dc_description"],
                     },
                 )
         except Exception as exc:
