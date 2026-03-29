@@ -26,6 +26,13 @@ class TestStitchOversizedPages(unittest.TestCase):
             "EU_1973_Custom_D01-02_D01-02_V.jpg",
         )
 
+    def test_build_derived_output_name_legacy_media(self):
+        name = "Family_1907-1946_B01_P28_D01_03.mp4"
+        self.assertEqual(
+            sop.build_derived_output_name(name, output_suffix=".mp4"),
+            "Family_1907-1946_B01_P28_D01-03_V.mp4",
+        )
+
     def test_get_view_dirname(self):
         base = Path("C:/Photos/EU_1973_B02_Archive")
         view = sop.get_view_dirname(base)
@@ -54,6 +61,98 @@ class TestStitchOversizedPages(unittest.TestCase):
             fake_result,
             str(Path(tmp) / "EU_1973_B02_P05_V.jpg"),
         )
+
+    def test_tif_to_jpg_skips_existing_valid_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "EU_1973_B02_P05_V.jpg"
+            out.write_bytes(b"x" * 1024)
+            with (
+                mock.patch("stitch_oversized_pages._require_image_modules"),
+                mock.patch("stitch_oversized_pages._read_stitch_image") as read_mock,
+                mock.patch("stitch_oversized_pages.write_jpeg") as write_mock,
+            ):
+                wrote = sop.tif_to_jpg("C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_S01.tif", tmp)
+
+        self.assertFalse(wrote)
+        read_mock.assert_not_called()
+        write_mock.assert_not_called()
+
+    def test_derived_to_jpg_skips_existing_valid_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "EU_1973_B02_P05_D01-02_V.jpg"
+            out.write_bytes(b"x" * 1024)
+            with (
+                mock.patch("stitch_oversized_pages._require_image_modules"),
+                mock.patch("stitch_oversized_pages._read_stitch_image") as read_mock,
+                mock.patch("stitch_oversized_pages.write_jpeg") as write_mock,
+            ):
+                wrote = sop.derived_to_jpg("C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_D01-02.tif", tmp)
+
+        self.assertFalse(wrote)
+        read_mock.assert_not_called()
+        write_mock.assert_not_called()
+
+    def test_colorized_to_jpg_skips_existing_valid_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "Family_1907-1946_B01_P05_D01-02_C.jpg"
+            out.write_bytes(b"x" * 1024)
+            with (
+                mock.patch("stitch_oversized_pages._require_image_modules"),
+                mock.patch("stitch_oversized_pages._read_stitch_image") as read_mock,
+                mock.patch("stitch_oversized_pages.write_jpeg") as write_mock,
+            ):
+                wrote = sop.colorized_to_jpg(
+                    "C:/Photos/Family_1907-1946_B01_Archive/Family_1907-1946_B01_P05_D01-02_C.png",
+                    tmp,
+                )
+
+        self.assertFalse(wrote)
+        read_mock.assert_not_called()
+        write_mock.assert_not_called()
+
+    def test_copy_derived_media_copies_and_renames(self):
+        with tempfile.TemporaryDirectory() as src_tmp, tempfile.TemporaryDirectory() as dst_tmp:
+            src = Path(src_tmp) / "Family_1907-1946_B01_P28_D01_03.mp4"
+            src.write_bytes(b"media")
+
+            wrote = sop.copy_derived_media(str(src), dst_tmp)
+
+            self.assertTrue(wrote)
+            out = Path(dst_tmp) / "Family_1907-1946_B01_P28_D01-03_V.mp4"
+            self.assertTrue(out.exists())
+            self.assertEqual(out.read_bytes(), b"media")
+
+    def test_copy_derived_media_skips_existing_output(self):
+        with tempfile.TemporaryDirectory() as src_tmp, tempfile.TemporaryDirectory() as dst_tmp:
+            src = Path(src_tmp) / "Family_1907-1946_B01_P28_D01_03.pdf"
+            src.write_bytes(b"source")
+            out = Path(dst_tmp) / "Family_1907-1946_B01_P28_D01-03_V.pdf"
+            out.write_bytes(b"existing")
+
+            wrote = sop.copy_derived_media(str(src), dst_tmp)
+
+            self.assertFalse(wrote)
+            self.assertEqual(out.read_bytes(), b"existing")
+
+    def test_stitch_skips_existing_valid_output(self):
+        files = [
+            "C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_S01.tif",
+            "C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_S02.tif",
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "EU_1973_B02_P05_V.jpg"
+            out.write_bytes(b"x" * 1024)
+            with (
+                mock.patch("stitch_oversized_pages._require_stitcher"),
+                mock.patch("stitch_oversized_pages._require_image_modules"),
+                mock.patch("stitch_oversized_pages.build_stitched_image") as build_mock,
+                mock.patch("stitch_oversized_pages.write_jpeg") as write_mock,
+            ):
+                wrote = sop.stitch(files, tmp)
+
+        self.assertFalse(wrote)
+        build_mock.assert_not_called()
+        write_mock.assert_not_called()
 
     def test_linear_pair_fallback_stitches_split_page(self):
         try:
@@ -100,6 +199,24 @@ class TestStitchOversizedPages(unittest.TestCase):
         self.assertGreater(stitched.shape[1], left_scan.shape[1])
         self.assertGreater(int(stitched[:, :140, 1].max()), 200)
         self.assertGreater(int(stitched[:, -160:, 2].max()), 200)
+
+    def test_write_jpeg_raises_on_imwrite_failure(self):
+        try:
+            import numpy as np
+        except Exception as exc:
+            self.skipTest(f"numpy unavailable: {exc}")
+
+        fake_image = mock.Mock()
+        with (
+            mock.patch("stitch_oversized_pages._require_image_modules"),
+            mock.patch("stitch_oversized_pages.cv2") as cv2_mock,
+            tempfile.TemporaryDirectory() as tmp,
+        ):
+            cv2_mock.imwrite.return_value = False
+            cv2_mock.IMWRITE_JPEG_QUALITY = 1
+            out = Path(tmp) / "out.jpg"
+            with self.assertRaises(RuntimeError, msg="write_jpeg must raise when cv2.imwrite returns False"):
+                sop.write_jpeg(fake_image, out)
 
     def test_read_stitch_image_falls_back_to_magick(self):
         try:

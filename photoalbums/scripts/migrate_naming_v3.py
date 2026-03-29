@@ -60,8 +60,10 @@ HASHES_BEFORE_PATH = REPO_ROOT / ".tmp" / "migrate_naming_v3_hashes_before.json"
 VERIFY_REPORT_PATH = REPO_ROOT / ".tmp" / "migrate_naming_v3_verify.json"
 
 # _P##_VC stem in a View directory
+_UNKNOWN_BOOK_RE = r"(?:\.{3}|\N{HORIZONTAL ELLIPSIS})"
+
 _VC_STEM_RE = re.compile(
-    r"^(?P<base>.+_B(?:\d{2}|…)_P\d+)_VC$",
+    rf"^(?P<base>.+_B(?:\d{{2}}|{_UNKNOWN_BOOK_RE})_P\d+)_VC$",
     re.IGNORECASE,
 )
 
@@ -196,7 +198,14 @@ def execute_plan(plan: list[dict], hashes_before: dict[str, str]) -> list[dict]:
     for entry in plan:
         old = Path(entry["old"])
         new = Path(entry["new"])
-        result = {"old": entry["old"], "new": entry["new"], "kind": entry["kind"], "status": "ok", "error": "", "xmp_patched": False}
+        result = {
+            "old": entry["old"],
+            "new": entry["new"],
+            "kind": entry["kind"],
+            "status": "ok",
+            "error": "",
+            "xmp_patched": False,
+        }
         try:
             if not old.exists():
                 result["status"] = "skipped_missing"

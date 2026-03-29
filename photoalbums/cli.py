@@ -62,7 +62,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("compress", help="Compress TIFF scans in-place where needed")
 
-    render_parser = subparsers.add_parser("render", help="Render album page outputs (always reprocesses)")
+    render_parser = subparsers.add_parser("render", help="Render album page outputs (skips existing valid outputs)")
     render_sub = render_parser.add_subparsers(dest="render_kind", required=False)
     render_sub.add_parser("validate", help="Validate source scan stitchability without writing outputs")
 
