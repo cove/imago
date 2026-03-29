@@ -12,35 +12,6 @@ import stitch_oversized_pages as sop
 
 
 class TestStitchOversizedPages(unittest.TestCase):
-    def test_build_scans_text(self):
-        self.assertEqual(sop.build_scans_text([1, 2, 10]), "S01 S02 S10")
-
-    def test_build_source_filenames_text(self):
-        self.assertEqual(
-            sop.build_source_filenames_text(
-                [
-                    "C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_S01.tif",
-                    "C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_S02.tif",
-                ]
-            ),
-            "EU_1973_B02_P05_S01.tif; EU_1973_B02_P05_S02.tif",
-        )
-
-    def test_build_scan_header(self):
-        header = sop.build_scan_header("EU", "1973", "02", 5, [1, 2])
-        self.assertEqual(
-            header,
-            "EU (1973) - Book 02, Page 05, Scans S01 S02",
-        )
-
-    def test_extract_scan_numbers(self):
-        files = [
-            "EU_1973_B02_P05_S01.tif",
-            "EU_1973_B02_P05_S02.tif",
-            "no_scan_here.tif",
-        ]
-        self.assertEqual(sop.extract_scan_numbers(files), [1, 2])
-
     def test_build_derived_output_name_known(self):
         name = "EU_1973_B02_P05_D01-02.tif"
         self.assertEqual(
@@ -60,7 +31,7 @@ class TestStitchOversizedPages(unittest.TestCase):
         view = sop.get_view_dirname(base)
         self.assertEqual(Path(view), Path("C:/Photos/EU_1973_B02_View"))
 
-    def test_stitch_writes_metadata(self):
+    def test_stitch_writes_jpeg(self):
         files = [
             "C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_S01.tif",
             "C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_S02.tif",
@@ -82,8 +53,6 @@ class TestStitchOversizedPages(unittest.TestCase):
         write_mock.assert_called_once_with(
             fake_result,
             str(Path(tmp) / "EU_1973_B02_P05_V.jpg"),
-            "EU (1973) - Book 02, Page 05, Scans S01 S02",
-            extra_tags={"XMP-dc:Source": "EU_1973_B02_P05_S01.tif; EU_1973_B02_P05_S02.tif"},
         )
 
     def test_linear_pair_fallback_stitches_split_page(self):

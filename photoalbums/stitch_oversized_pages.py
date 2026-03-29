@@ -21,14 +21,12 @@ except Exception:
     AffineStitcher = None
 
 from common import (
-    CREATOR,
     PHOTO_ALBUMS_DIR,
     configure_imagemagick,
     dir_created_ts,
     list_archive_dirs,
     list_page_scan_groups,
 )
-from exiftool_utils import write_tags
 from naming import (
     BASE_PAGE_NAME_RE,
     COLORIZED_RE,
@@ -76,47 +74,6 @@ def _require_stitcher() -> None:
     if AffineStitcher is None:
         raise RuntimeError("stitching package is required for stitching.")
 
-
-def build_scans_text(scan_nums: list[int]) -> str:
-    return " ".join(f"S{s:02d}" for s in scan_nums)
-
-
-def build_scan_header(
-    collection: str,
-    year: str,
-    book: str,
-    page: int,
-    scan_nums: list[int],
-) -> str:
-    book_display = f"{int(book):02d}"
-    scans_text = build_scans_text(scan_nums)
-    return f"{collection} ({year}) - Book {book_display}, Page {page:02d}, Scans {scans_text}"
-
-
-def extract_scan_numbers(files: list[str]) -> list[int]:
-    scan_nums = []
-    for file_path in files:
-        match = re.search(r"_S(\d+)", file_path)
-        if match:
-            scan_nums.append(int(match.group(1)))
-    return scan_nums
-
-
-def build_source_filenames_text(files: list[str]) -> str:
-    names = [os.path.basename(str(path)) for path in files if str(path).strip()]
-    return "; ".join(names)
-
-
-def build_detail_description(
-    collection: str,
-    year: str,
-    book: str,
-    page: int,
-    d1: str,
-    d2: str,
-) -> str:
-    book_display = f"{int(book):02d}"
-    return f"{collection} ({year}) - Book {book_display}, Page {page:02d}, Detail D{d1}_{d2}"
 
 
 def build_derived_output_name(base: str) -> str:
@@ -544,8 +501,6 @@ def list_colorized_images(directory: str | Path) -> list[str]:
 
 def colorized_to_jpg(src_path: str, output_dir: str) -> None:
     _require_image_modules()
-    import shutil
-
     os.makedirs(output_dir, exist_ok=True)
 
     base = os.path.basename(src_path)
@@ -558,11 +513,7 @@ def colorized_to_jpg(src_path: str, output_dir: str) -> None:
     out = os.path.join(output_dir, f"{stem}.jpg")
 
     img = _read_stitch_image(src_path)
-    cv2.imwrite(str(out), img, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
-
-    xmp_src = Path(src_path).with_suffix(".xmp")
-    if xmp_src.exists():
-        shutil.copy2(str(xmp_src), str(Path(out).with_suffix(".xmp")))
+    write_jpeg(img, out)
 
     if collection != "Unknown":
         print(f"{collection} B{book} P{int(page):02d} D{d1}-{d2}_C OK")
@@ -570,26 +521,9 @@ def colorized_to_jpg(src_path: str, output_dir: str) -> None:
         print(f"{stem}.jpg OK")
 
 
-def write_jpeg(
-    image,
-    path: str | Path,
-    header_text: str,
-    quality: int = 95,
-    extra_tags: dict[str, str] | None = None,
-) -> None:
+def write_jpeg(image, path: str | Path, quality: int = 95) -> None:
     _require_image_modules()
     cv2.imwrite(str(path), image, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
-    tags = {
-        "XMP-dc:Creator": CREATOR,
-        "XMP-dc:Description": header_text,
-    }
-    for tag, value in dict(extra_tags or {}).items():
-        if str(tag or "").strip() and str(value or "").strip():
-            tags[str(tag)] = str(value)
-    write_tags(
-        path,
-        set_tags=tags,
-    )
 
 
 def tif_to_jpg(tif_path: str, output_dir: str) -> None:
@@ -598,15 +532,11 @@ def tif_to_jpg(tif_path: str, output_dir: str) -> None:
     collection, year, book, page = parse_album_filename(os.path.basename(tif_path))
     out = os.path.join(
         output_dir,
-        f"{collection}_{year}_B{book}_P{int(page):02d}.jpg",
+        f"{collection}_{year}_B{book}_P{int(page):02d}_V.jpg",
     )
 
-    scan_nums = extract_scan_numbers([tif_path]) or [1]
-    jpg_header = build_scan_header(collection, year, book, int(page), scan_nums)
-
     img = _read_stitch_image(tif_path)
-
-    write_jpeg(img, out, jpg_header)
+    write_jpeg(img, out)
 
     print(f"{collection} B{book} P{int(page):02d} OK")
 
@@ -626,17 +556,13 @@ def derived_to_jpg(src_path: str, output_dir: str) -> None:
 
     img = _read_stitch_image(src_path)
 
-    desc = ""
-    if collection != "Unknown":
-        desc = build_detail_description(collection, year, book, int(page), d1, d2)
-
     original_size = os.path.getsize(src_path)
     quality = 80
-    write_jpeg(img, out, desc, quality=quality)
+    write_jpeg(img, out, quality=quality)
 
     while os.path.exists(out) and os.path.getsize(out) >= original_size and quality > 40:
         quality -= 10
-        write_jpeg(img, out, desc, quality=quality)
+        write_jpeg(img, out, quality=quality)
 
     if collection != "Unknown":
         print(f"{collection} B{book} P{int(page):02d} D{d1}_{d2} OK")
@@ -655,18 +581,8 @@ def stitch(files, output_dir: str) -> None:
         f"{collection}_{year}_B{book}_P{int(page):02d}_V.jpg",
     )
 
-    scan_nums = extract_scan_numbers(files)
-    header = build_scan_header(collection, year, book, int(page), scan_nums)
-    source_text = build_source_filenames_text(files)
-
     result = build_stitched_image(files)
-
-    write_jpeg(
-        result,
-        out,
-        header,
-        extra_tags={"XMP-dc:Source": source_text} if source_text else None,
-    )
+    write_jpeg(result, out)
 
     print(f"{collection} B{book} P{int(page):02d} OK")
 
