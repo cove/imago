@@ -15,8 +15,26 @@ class TestNaming(unittest.TestCase):
         self.assertEqual(value, ("EU", "1973", "02", "05"))
 
     def test_parse_album_filename_derived(self):
-        value = naming.parse_album_filename("EU_1973_B02_P05_D01_02.tif")
+        value = naming.parse_album_filename("EU_1973_B02_P05_D01-02.tif")
         self.assertEqual(value, ("EU", "1973", "02", "05"))
+
+    def test_parse_album_filename_derived_view(self):
+        value = naming.parse_album_filename("EU_1973_B02_P05_D01-02_V.jpg")
+        self.assertEqual(value, ("EU", "1973", "02", "05"))
+
+    def test_parse_album_filename_derived_colorized(self):
+        value = naming.parse_album_filename("EU_1973_B02_P05_D01-02_C.jpg")
+        self.assertEqual(value, ("EU", "1973", "02", "05"))
+
+    def test_derived_view_re_matches_view_detail_crop(self):
+        self.assertIsNotNone(naming.DERIVED_VIEW_RE.search("EU_1973_B02_P05_D01-02_V"))
+        self.assertIsNone(naming.DERIVED_VIEW_RE.search("EU_1973_B02_P05_D01-02_C"))
+        self.assertIsNone(naming.DERIVED_VIEW_RE.search("EU_1973_B02_P05_V"))
+
+    def test_colorized_re_matches_colorized_detail_crop(self):
+        self.assertIsNotNone(naming.COLORIZED_RE.search("EU_1973_B02_P05_D01-02_C"))
+        self.assertIsNone(naming.COLORIZED_RE.search("EU_1973_B02_P05_D01-02_V"))
+        self.assertIsNone(naming.COLORIZED_RE.search("EU_1973_B02_P05_V"))
 
     def test_parse_album_filename_fallback(self):
         value = naming.parse_album_filename("unknown_name.jpg")

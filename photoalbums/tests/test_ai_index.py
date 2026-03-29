@@ -74,8 +74,8 @@ class TestAIIndex(unittest.TestCase):
             archive = base / "EasternEuropeSpainMorocco_1988_B00_Archive"
             archive.mkdir()
             for name in (
-                "EasternEuropeSpainMorocco_1988_B00_P01_D01_01.jpg",
-                "EasternEuropeSpainMorocco_1988_B00_P01_D01_02.jpg",
+                "EasternEuropeSpainMorocco_1988_B00_P01_D01-01.tif",
+                "EasternEuropeSpainMorocco_1988_B00_P01_D01-02.tif",
                 "EasternEuropeSpainMorocco_1988_B00_P01_S01.tif",
                 "EasternEuropeSpainMorocco_1988_B00_P02_S01.tif",
             ):
@@ -83,8 +83,8 @@ class TestAIIndex(unittest.TestCase):
 
             files = ai_index._expand_album_title_dependencies(
                 [
-                    archive / "EasternEuropeSpainMorocco_1988_B00_P01_D01_01.jpg",
-                    archive / "EasternEuropeSpainMorocco_1988_B00_P01_D01_02.jpg",
+                    archive / "EasternEuropeSpainMorocco_1988_B00_P01_D01-01.tif",
+                    archive / "EasternEuropeSpainMorocco_1988_B00_P01_D01-02.tif",
                     archive / "EasternEuropeSpainMorocco_1988_B00_P01_S01.tif",
                     archive / "EasternEuropeSpainMorocco_1988_B00_P02_S01.tif",
                 ],
@@ -95,8 +95,8 @@ class TestAIIndex(unittest.TestCase):
                 [p.name for p in files],
                 [
                     "EasternEuropeSpainMorocco_1988_B00_P01_S01.tif",
-                    "EasternEuropeSpainMorocco_1988_B00_P01_D01_01.jpg",
-                    "EasternEuropeSpainMorocco_1988_B00_P01_D01_02.jpg",
+                    "EasternEuropeSpainMorocco_1988_B00_P01_D01-01.tif",
+                    "EasternEuropeSpainMorocco_1988_B00_P01_D01-02.tif",
                     "EasternEuropeSpainMorocco_1988_B00_P02_S01.tif",
                 ],
             )
@@ -171,7 +171,7 @@ class TestAIIndex(unittest.TestCase):
             view = base / "Egypt_1975_B00_View"
             archive.mkdir()
             view.mkdir()
-            image = view / "Egypt_1975_B00_P39_D01_01.jpg"
+            image = view / "Egypt_1975_B00_P39_D01-01_V.jpg"
             image.write_bytes(b"x")
             (archive / "Egypt_1975_B00_P39_S01.tif").write_bytes(b"a")
             (archive / "Egypt_1975_B00_P39_S02.tif").write_bytes(b"b")
@@ -188,21 +188,21 @@ class TestAIIndex(unittest.TestCase):
             view = base / "Family_1907-1946_B01_View"
             archive.mkdir()
             view.mkdir()
-            archive_image = archive / "Family_1907-1946_B01_P03_D02_03.tif"
-            view_image = view / "Family_1907-1946_B01_P03_D02_03.jpg"
+            archive_image = archive / "Family_1907-1946_B01_P03_D02-03.tif"
+            view_image = view / "Family_1907-1946_B01_P03_D02-03_V.jpg"
             for path in (
                 archive_image,
                 view_image,
-                archive / "Family_1907-1946_B01_P03_D01_01.jpg",
-                archive / "Family_1907-1946_B01_P03_D01_02.jpg",
-                archive / "Family_1907-1946_B01_P03_D02_01.jpg",
-                archive / "Family_1907-1946_B01_P03_D02_02.jpg",
-                archive / "Family_1907-1946_B01_P03_D03_01.tif",
-                view / "Family_1907-1946_B01_P03_D01_01.jpg",
-                view / "Family_1907-1946_B01_P03_D01_02.jpg",
-                view / "Family_1907-1946_B01_P03_D02_01.jpg",
-                view / "Family_1907-1946_B01_P03_D02_02.jpg",
-                view / "Family_1907-1946_B01_P03_D03_01.jpg",
+                archive / "Family_1907-1946_B01_P03_D01-01.tif",
+                archive / "Family_1907-1946_B01_P03_D01-02.tif",
+                archive / "Family_1907-1946_B01_P03_D02-01.tif",
+                archive / "Family_1907-1946_B01_P03_D02-02.tif",
+                archive / "Family_1907-1946_B01_P03_D03-01.tif",
+                view / "Family_1907-1946_B01_P03_D01-01_V.jpg",
+                view / "Family_1907-1946_B01_P03_D01-02_V.jpg",
+                view / "Family_1907-1946_B01_P03_D02-01_V.jpg",
+                view / "Family_1907-1946_B01_P03_D02-02_V.jpg",
+                view / "Family_1907-1946_B01_P03_D03-01_V.jpg",
             ):
                 path.write_bytes(b"x")
             (archive / "Family_1907-1946_B01_P03_S01.tif").write_bytes(b"a")
@@ -225,7 +225,7 @@ class TestAIIndex(unittest.TestCase):
             archive.mkdir()
             view.mkdir()
             title_image = view / "Egypt_1975_B00_P01.jpg"
-            derived_image = view / "Egypt_1975_B00_P39_D01_01.jpg"
+            derived_image = view / "Egypt_1975_B00_P39_D01-01_V.jpg"
             title_image.write_bytes(b"title")
             derived_image.write_bytes(b"derived")
             (archive / "Egypt_1975_B00_P01_S01.tif").write_bytes(b"a")
@@ -296,7 +296,24 @@ class TestAIIndex(unittest.TestCase):
                 ["England_1983_B02_P47_S01.tif"],
             )
 
-    def test_page_scan_filenames_uses_archive_scans_for_vc_view_page(self):
+    def test_page_scan_filenames_uses_archive_scans_for_multi_scan_view_page(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            archive = base / "Egypt_1975_B00_Archive"
+            view = base / "Egypt_1975_B00_View"
+            archive.mkdir()
+            view.mkdir()
+            image = view / "Egypt_1975_B00_P39_V.jpg"
+            image.write_bytes(b"x")
+            (archive / "Egypt_1975_B00_P39_S01.tif").write_bytes(b"a")
+            (archive / "Egypt_1975_B00_P39_S02.tif").write_bytes(b"b")
+
+            self.assertEqual(
+                ai_index._page_scan_filenames(image),
+                ["Egypt_1975_B00_P39_S01.tif", "Egypt_1975_B00_P39_S02.tif"],
+            )
+
+    def test_page_scan_filenames_uses_archive_scans_for_legacy_vc_view_page(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             archive = base / "Egypt_1975_B00_Archive"
@@ -337,10 +354,10 @@ class TestAIIndex(unittest.TestCase):
             ("EUROPE 1973 EGYPT 1975 Page 39 Scan(s) S01 S02; Egypt_1975_B00_P39_S01.tif; Egypt_1975_B00_P39_S02.tif"),
         )
 
-    def test_build_dc_source_uses_archive_scans_for_vr_view_page(self):
+    def test_build_dc_source_uses_archive_scans_for_multi_scan_view_page(self):
         source = ai_index._build_dc_source(
             "EUROPE 1973 EGYPT 1975",
-            Path("Egypt_1975_B00_P39_VC.jpg"),
+            Path("Egypt_1975_B00_P39_V.jpg"),
             ["Egypt_1975_B00_P39_S01.tif", "Egypt_1975_B00_P39_S02.tif"],
         )
         self.assertEqual(
@@ -371,7 +388,7 @@ class TestAIIndex(unittest.TestCase):
     def test_build_dc_source_with_empty_album_title(self):
         source = ai_index._build_dc_source(
             "",
-            Path("Egypt_1975_B00_P39_VC.jpg"),
+            Path("Egypt_1975_B00_P39_V.jpg"),
             ["Egypt_1975_B00_P39_S01.tif", "Egypt_1975_B00_P39_S02.tif"],
         )
         self.assertEqual(
