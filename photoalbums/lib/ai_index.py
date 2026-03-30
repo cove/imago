@@ -368,9 +368,8 @@ def _expand_album_title_dependencies(files: list[Path], extensions: set[str]) ->
     return expanded
 
 
-def _resolve_album_title_from_sidecars(image_path: Path) -> str:
-    """Read album title from the P01 XMP sidecar. Returns '' if not yet processed."""
-    for sidecar_path in _iter_album_p01_sidecars(image_path):
+def _read_album_title_from_sidecar_iter(sidecar_iter) -> str:
+    for sidecar_path in sidecar_iter:
         state = read_ai_sidecar_state(sidecar_path)
         if not isinstance(state, dict):
             continue
@@ -378,6 +377,11 @@ def _resolve_album_title_from_sidecars(image_path: Path) -> str:
         if album_title:
             return album_title
     return ""
+
+
+def _resolve_album_title_from_sidecars(image_path: Path) -> str:
+    """Read album title from the P01 XMP sidecar. Returns '' if not yet processed."""
+    return _read_album_title_from_sidecar_iter(_iter_album_p01_sidecars(image_path))
 
 
 def _album_title_valid_in_sidecars(image_path: Path) -> bool:
@@ -402,14 +406,7 @@ def _resolve_album_title_hint(image_path: Path) -> str:
 
 
 def _resolve_album_printed_title_from_sidecars(image_path: Path) -> str:
-    for sidecar_path in _iter_album_cover_sidecars(image_path):
-        state = read_ai_sidecar_state(sidecar_path)
-        if not isinstance(state, dict):
-            continue
-        album_title = str(state.get("album_title") or "").strip()
-        if album_title:
-            return album_title
-    return ""
+    return _read_album_title_from_sidecar_iter(_iter_album_cover_sidecars(image_path))
 
 
 def _resolve_album_printed_title_hint(image_path: Path, printed_title_cache: dict[str, str]) -> str:
