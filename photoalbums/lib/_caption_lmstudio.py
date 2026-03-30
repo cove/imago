@@ -126,8 +126,19 @@ def _looks_like_reasoning_or_prompt_echo(value: str) -> bool:
     return False
 
 
+def _truncate_long_decimals(text: str) -> str:
+    """Truncate absurdly long decimal fractions to prevent JSON parse failures.
+
+    LM Studio occasionally generates repeating decimals (e.g. 0.29782608695652282608...)
+    for numeric fields, exhausting the token budget and leaving the JSON truncated or
+    so long that json.loads raises 'Expecting delimiter'. Six decimal places is more
+    than enough precision for normalised image coordinates.
+    """
+    return re.sub(r"(\d+\.\d{6})\d+", r"\1", text)
+
+
 def _iter_structured_json_payloads(text: str):
-    raw = str(text or "").strip()
+    raw = _truncate_long_decimals(str(text or "").strip())
     if not raw:
         return
     decoder = json.JSONDecoder()
@@ -682,7 +693,7 @@ def _parse_lmstudio_page_caption(
 ) -> CaptionDetails:
     """Parse a page-caption response (includes photo_regions) into CaptionDetails."""
     raw = _decode_lmstudio_text(value)
-    text = str(raw or "").strip()
+    text = _truncate_long_decimals(str(raw or "").strip())
     finish_note = f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
     if not text:
         raise RuntimeError(f"LM Studio returned empty page caption content.{finish_note}")
