@@ -407,7 +407,17 @@ HTML = r"""<!DOCTYPE html>
         || (promptEntry && promptEntry.artifact.image_path)
         || '',
       );
+      const imagePath = (xmpEntry && xmpEntry.artifact.image_path)
+        || (promptEntry && promptEntry.artifact.image_path)
+        || '';
       const actions = [];
+      if (imagePath) {
+        actions.push(`
+          <a href="/api/image?path=${encodeURIComponent(imagePath)}" target="_blank" rel="noopener" class="artifact-item">
+            Image
+            <small>${escHtml(fileName(imagePath))}</small>
+          </a>`);
+      }
       if (xmpEntry && xmpEntry.artifact.sidecar_path) {
         actions.push(`
           <button type="button" class="artifact-item"

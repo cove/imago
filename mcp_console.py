@@ -86,6 +86,10 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(self._read_jobs())
             return
 
+        if path == "/api/image":
+            self._serve_image(query)
+            return
+
         if path == "/api/xmp-review":
             self._xmp_review(query)
             return
@@ -156,6 +160,34 @@ class _Handler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.NOT_FOUND)
             return
         self._json(self._read_artifacts(job))
+
+    def _serve_image(self, query: dict[str, list[str]]) -> None:
+        path_values = query.get("path") or []
+        image_path = str(path_values[0] if path_values else "").strip()
+        if not image_path:
+            self.send_error(HTTPStatus.BAD_REQUEST, "Missing path parameter")
+            return
+        p = Path(image_path)
+        if not p.exists() or not p.is_file():
+            self.send_error(HTTPStatus.NOT_FOUND)
+            return
+        content_types = {
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".png": "image/png",
+            ".tif": "image/tiff",
+            ".tiff": "image/tiff",
+        }
+        ct = content_types.get(p.suffix.lower())
+        if not ct:
+            self.send_error(HTTPStatus.UNSUPPORTED_MEDIA_TYPE)
+            return
+        data = p.read_bytes()
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", ct)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def _xmp_review(self, query: dict[str, list[str]]) -> None:
         sidecar_values = query.get("sidecar_path") or []
