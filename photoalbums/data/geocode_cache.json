@@ -74,6 +74,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "acropolis, athens": {
+    "city": "Athens",
+    "country": "Greece",
+    "display_name": "Acropolis, Athens, Athens, Attica, Greece",
+    "latitude": "37.9716894",
+    "longitude": "23.7263197",
+    "query": "Acropolis, Athens",
+    "source": "nominatim",
+    "state": "Attica",
+    "status": "ok"
+  },
   "aegina, greece": {
     "city": "Perdika",
     "country": "Greece",
@@ -3139,6 +3150,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "hotel metropol, belgrade, serbia": {
+    "city": "Vracar Urban Municipality",
+    "country": "Serbia",
+    "display_name": "Hotel Metropol, Belgrade, Serbia, Vracar Urban Municipality, Serbia",
+    "latitude": "44.8067879",
+    "longitude": "20.4737746",
+    "query": "Hotel Metropol, Belgrade, Serbia",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
+  },
   "hotel metropol, belgrade, yugoslavia": {
     "query": "Hotel Metropol, Belgrade, Yugoslavia",
     "status": "miss"
@@ -3551,6 +3573,10 @@
   },
   "kalemegdan fortress and park, belgrade": {
     "query": "Kalemegdan Fortress and Park, Belgrade",
+    "status": "miss"
+  },
+  "kalemegdan fortress and park, belgrade, serbia": {
+    "query": "Kalemegdan Fortress and Park, Belgrade, Serbia",
     "status": "miss"
   },
   "kalemegdan fortress, belgrade": {
@@ -5349,6 +5375,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "plovdiv, bulgaria": {
+    "city": "Plovdiv",
+    "country": "Bulgaria",
+    "display_name": "Plovdiv, 4000, Bulgaria",
+    "latitude": "42.1418541",
+    "longitude": "24.7499297",
+    "query": "Plovdiv, Bulgaria",
+    "source": "nominatim",
+    "state": "Plovdiv",
+    "status": "ok"
+  },
   "polperro - cornwall": {
     "display_name": "Polperro, Cornwall, England, PL13 2RR, United Kingdom",
     "latitude": "50.3315086",
@@ -5403,6 +5440,17 @@
     "longitude": "-4.5190177",
     "query": "Polperro, Cornwall, United Kingdom",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "poros, greece": {
+    "city": "Agios Nektarios",
+    "country": "Greece",
+    "display_name": "Poros, Agios Nektarios, Municipality of Poros, Regional Unit of Islands, Attica, 180 20, Greece",
+    "latitude": "37.5269211",
+    "longitude": "23.4752454",
+    "query": "Poros, Greece",
+    "source": "nominatim",
+    "state": "Attica",
     "status": "ok"
   },
   "portal palace, china": {
@@ -5557,6 +5605,10 @@
   },
   "priory church, christchurch, hampshire, england": {
     "query": "Priory Church, Christchurch, Hampshire, England",
+    "status": "miss"
+  },
+  "provdiv, bulgaria": {
+    "query": "Provdiv, Bulgaria",
     "status": "miss"
   },
   "puzhou district, gansu, china": {
@@ -6311,6 +6363,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "south america": {
+    "city": "",
+    "country": "",
+    "display_name": "South America",
+    "latitude": "-21.0002179",
+    "longitude": "-61.0006565",
+    "query": "South America",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
+  },
   "south of london, england": {
     "display_name": "Islamic Centre of England, Kilburn High Road, South Hampstead, London Borough of Camden, Greater London, England, W9 1QB, United Kingdom",
     "latitude": "51.5353509",
@@ -7012,6 +7075,10 @@
     "state": "Wales",
     "status": "ok"
   },
+  "the covered grand bazaar": {
+    "query": "The Covered Grand Bazaar",
+    "status": "miss"
+  },
   "the garrick inn & harvard house, stratfor-upon-avon": {
     "query": "The Garrick Inn & Harvard House, Stratfor-upon-Avon",
     "status": "miss"
@@ -7468,6 +7535,28 @@
     "query": "Tomb of Ramesses VI, Luxor, Egypt",
     "status": "miss"
   },
+  "topkapi museum": {
+    "city": "Istanbul",
+    "country": "Turkey",
+    "display_name": "Topkapi Palace, Courtyard of the Eunuchs, Cankurtaran Mahallesi, Istanbul, Fatih, Istanbul, Marmara Region, 34122, Turkey",
+    "latitude": "41.0113440",
+    "longitude": "28.9832034",
+    "query": "Topkapi Museum",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
+  },
+  "topkapi museum, istanbul, turkey": {
+    "city": "Istanbul",
+    "country": "Turkey",
+    "display_name": "Topkapi Palace, Courtyard of the Eunuchs, Cankurtaran Mahallesi, Istanbul, Fatih, Istanbul, Marmara Region, 34122, Turkey",
+    "latitude": "41.0113440",
+    "longitude": "28.9832034",
+    "query": "Topkapi Museum, Istanbul, Turkey",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
+  },
   "topkapi palace, istanbul, turkey": {
     "display_name": "Topkapi Sarayı, Harem Ağaları Taşlığı, Cankurtaran Mahallesi, İstanbul, Fatih, İstanbul, Marmara Bölgesi, 34122, Türkiye",
     "latitude": "41.0113440",
@@ -7896,6 +7985,10 @@
     "query": "Vienna, Budapest, Hungary",
     "source": "nominatim",
     "status": "ok"
+  },
+  "villa bosphorus, beylerbeyi - asia": {
+    "query": "Villa Bosphorus, Beylerbeyi - Asia",
+    "status": "miss"
   },
   "vnik, yugoslavia": {
     "query": "Vnik, Yugoslavia",

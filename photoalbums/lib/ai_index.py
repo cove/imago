@@ -34,7 +34,7 @@ from .ai_render_settings import (
 from .prompt_debug import PromptDebugSession
 from ..common import PHOTO_ALBUMS_DIR
 from ..exiftool_utils import read_tag
-from ..naming import DERIVED_NAME_RE, SCAN_TIFF_RE, parse_album_filename, SCAN_NAME_RE
+from ..naming import BASE_PAGE_NAME_RE, DERIVED_NAME_RE, SCAN_TIFF_RE, parse_album_filename, SCAN_NAME_RE
 from .xmp_sidecar import (
     _dedupe,
     _normalize_xmp_datetime,
@@ -212,22 +212,70 @@ def _album_directory_candidates(image_path: Path) -> list[Path]:
 
 def _iter_album_cover_sidecars(image_path: Path):
     collection, year, book, _page = parse_album_filename(image_path.name)
+    target_prefix = ""
     if collection != "Unknown":
-        patterns = [
-            f"{collection}_{year}_B{book}_P00*.xmp",
-            f"{collection}_{year}_B{book}_P01*.xmp",
-        ]
-    else:
-        patterns = ["*_P00*.xmp", "*_P01*.xmp"]
+        target_prefix = f"{collection}_{year}_B{book}_".casefold()
     seen: set[str] = set()
+    candidates: list[tuple[tuple[int, int, str], Path]] = []
     for folder in _album_directory_candidates(image_path):
-        for pattern in patterns:
-            for sidecar_path in sorted(folder.glob(pattern)):
-                sidecar_key = str(sidecar_path.resolve()).casefold()
-                if sidecar_key in seen:
-                    continue
-                seen.add(sidecar_key)
-                yield sidecar_path
+        for sidecar_path in sorted(folder.glob("*.xmp")):
+            match = _cover_sidecar_match(sidecar_path)
+            if match is None:
+                continue
+            if target_prefix and not Path(sidecar_path).stem.casefold().startswith(target_prefix):
+                continue
+            sidecar_key = str(sidecar_path.resolve()).casefold()
+            if sidecar_key in seen:
+                continue
+            seen.add(sidecar_key)
+            page_rank = int(match.group("page"))
+            scan_match = _scan_name_match(sidecar_path)
+            kind_rank = 1 if scan_match is not None else 0
+            candidates.append(((page_rank, kind_rank, sidecar_path.name.casefold()), sidecar_path))
+    for _sort_key, sidecar_path in sorted(candidates, key=lambda item: item[0]):
+        yield sidecar_path
+
+
+def _iter_album_p01_sidecars(image_path: Path):
+    for sidecar_path in _iter_album_cover_sidecars(image_path):
+        match = _cover_sidecar_match(sidecar_path)
+        if match is None:
+            continue
+        if int(match.group("page")) == 1:
+            yield sidecar_path
+
+
+def _scan_name_match(path: str | Path):
+    return SCAN_NAME_RE.fullmatch(Path(path).stem)
+
+
+def _derived_name_match(path: str | Path):
+    return DERIVED_NAME_RE.fullmatch(Path(path).stem)
+
+
+def _base_page_name_match(path: str | Path):
+    return BASE_PAGE_NAME_RE.fullmatch(Path(path).stem)
+
+
+def _cover_sidecar_match(path: str | Path):
+    scan_match = _scan_name_match(path)
+    if scan_match is not None:
+        try:
+            page_number = int(scan_match.group("page"))
+        except (ValueError, IndexError):
+            return None
+        if page_number == 1:
+            return scan_match
+        return None
+    base_match = _base_page_name_match(path)
+    if base_match is not None:
+        try:
+            page_number = int(base_match.group("page"))
+        except (ValueError, IndexError):
+            return None
+        if page_number == 1:
+            return base_match
+    return None
 
 
 def _title_page_dependency_sort_key(path: Path) -> tuple[int, int, int, int, str]:
@@ -236,8 +284,8 @@ def _title_page_dependency_sort_key(path: Path) -> tuple[int, int, int, int, str
         page_number = int(str(page or "").strip())
     except ValueError:
         page_number = 999
-    scan_match = SCAN_NAME_RE.search(path.name)
-    derived_match = DERIVED_NAME_RE.search(path.name)
+    scan_match = _scan_name_match(path)
+    derived_match = _derived_name_match(path)
     if scan_match is not None:
         kind_rank = 0
         item_number = int(scan_match.group("scan"))
@@ -257,7 +305,7 @@ def _title_page_dependency_sort_key(path: Path) -> tuple[int, int, int, int, str
 
 
 def _is_album_title_source_candidate(image_path: Path) -> bool:
-    return _looks_like_album_title_page(image_path) and DERIVED_NAME_RE.search(image_path.name) is None
+    return _looks_like_album_title_page(image_path) and _derived_name_match(image_path) is None
 
 
 def _iter_album_title_page_images(image_path: Path, extensions: set[str]):
@@ -290,7 +338,7 @@ def _iter_album_title_page_images(image_path: Path, extensions: set[str]):
 def _resolve_album_title_dependencies(image_path: Path, extensions: set[str]) -> list[Path]:
     if _is_album_title_source_candidate(image_path):
         return []
-    if _resolve_album_title_from_sidecars(image_path):
+    if _album_title_valid_in_sidecars(image_path):
         return []
     current_key = str(image_path.resolve()).casefold()
     candidates = [
@@ -321,7 +369,39 @@ def _expand_album_title_dependencies(files: list[Path], extensions: set[str]) ->
 
 
 def _resolve_album_title_from_sidecars(image_path: Path) -> str:
-    """Read album title from the cover page XMP sidecar (P00/P01). Returns '' if not yet processed."""
+    """Read album title from the P01 XMP sidecar. Returns '' if not yet processed."""
+    for sidecar_path in _iter_album_p01_sidecars(image_path):
+        state = read_ai_sidecar_state(sidecar_path)
+        if not isinstance(state, dict):
+            continue
+        album_title = str(state.get("album_title") or "").strip()
+        if album_title:
+            return album_title
+    return ""
+
+
+def _album_title_valid_in_sidecars(image_path: Path) -> bool:
+    """Return True only if the P01 sidecar exists and its album_title matches its ocr_text.
+
+    A mismatch means the title was set by the AI caption (not OCR) and needs to be
+    reprocessed so the OCR-authoritative value is written.
+    """
+    for sidecar_path in _iter_album_p01_sidecars(image_path):
+        state = read_ai_sidecar_state(sidecar_path)
+        if not isinstance(state, dict):
+            continue
+        album_title = str(state.get("album_title") or "").strip()
+        ocr_text = str(state.get("ocr_text") or "").strip()
+        if album_title and ocr_text and album_title == ocr_text:
+            return True
+    return False
+
+
+def _resolve_album_title_hint(image_path: Path) -> str:
+    return _resolve_album_title_from_sidecars(image_path)
+
+
+def _resolve_album_printed_title_from_sidecars(image_path: Path) -> str:
     for sidecar_path in _iter_album_cover_sidecars(image_path):
         state = read_ai_sidecar_state(sidecar_path)
         if not isinstance(state, dict):
@@ -332,47 +412,15 @@ def _resolve_album_title_from_sidecars(image_path: Path) -> str:
     return ""
 
 
-def _resolve_cached_album_title_hint(
-    image_path: Path,
-    title_cache: dict[str, str],
-    *,
-    sidecar_title_resolver,
-) -> str:
+def _resolve_album_printed_title_hint(image_path: Path, printed_title_cache: dict[str, str]) -> str:
     key = _album_identity_key(image_path)
-    cached = str(title_cache.get(key) or "").strip()
+    cached = str(printed_title_cache.get(key) or "").strip()
     if cached:
         return cached
-    title = sidecar_title_resolver(image_path)
+    title = _resolve_album_printed_title_from_sidecars(image_path)
     if title:
-        title_cache[key] = title
+        printed_title_cache[key] = title
     return title
-
-
-def _resolve_album_title_hint(image_path: Path, album_title_cache: dict[str, str]) -> str:
-    return _resolve_cached_album_title_hint(
-        image_path,
-        album_title_cache,
-        sidecar_title_resolver=_resolve_album_title_from_sidecars,
-    )
-
-
-def _resolve_album_printed_title_from_sidecars(image_path: Path) -> str:
-    return _resolve_album_title_from_sidecars(image_path)
-
-
-def _resolve_album_printed_title_hint(image_path: Path, printed_title_cache: dict[str, str]) -> str:
-    return _resolve_cached_album_title_hint(
-        image_path,
-        printed_title_cache,
-        sidecar_title_resolver=_resolve_album_printed_title_from_sidecars,
-    )
-
-
-def _store_album_title_hint(image_path: Path, album_title_cache: dict[str, str], title: str) -> str:
-    value = str(title or "").strip()
-    if value:
-        album_title_cache[_album_identity_key(image_path)] = value
-    return value
 
 
 def _store_album_printed_title_hint(image_path: Path, printed_title_cache: dict[str, str], title: str) -> str:
@@ -389,10 +437,10 @@ def _looks_like_album_title_page(image_path: Path) -> bool:
     page_text = str(page or "").strip()
     if not page_text:
         return False
-    if page_text in {"00", "01"}:
+    if page_text == "01":
         return True
     if page_text.isdigit():
-        return int(page_text) in {0, 1}
+        return int(page_text) == 1
     return False
 
 
@@ -416,9 +464,6 @@ def _resolve_title_page_album_title(
     album_title: str,
     ocr_text: str,
 ) -> str:
-    value = clean_text(str(album_title or ""))
-    if value:
-        return value
     if _is_album_title_source_candidate(image_path):
         return clean_text(str(ocr_text or ""))
     return ""
@@ -602,7 +647,7 @@ def read_embedded_create_date(path: Path) -> str:
 
 def _derive_parent_page_state(image_path: Path) -> dict | None:
     """For a D##_## derived image, return read_ai_sidecar_state() of the parent page XMP, or None."""
-    m = DERIVED_NAME_RE.search(image_path.name)
+    m = _derived_name_match(image_path)
     if not m:
         return None
     prefix = f"{m.group('collection')}_{m.group('year')}_B{m.group('book')}_P{m.group('page')}"
@@ -655,7 +700,7 @@ def _page_scan_filenames(image_path: Path) -> list[str]:
     For derived or stitched/base page images: finds archive TIF scans for the same page.
     Returns [] if no scans are found.
     """
-    if SCAN_NAME_RE.search(image_path.name):
+    if _scan_name_match(image_path):
         return [p.name for p in sorted(_scan_group_paths(image_path))]
     archive_dir = find_archive_dir_for_image(image_path)
     if archive_dir is None or not archive_dir.is_dir():
@@ -682,13 +727,13 @@ def _build_dc_source(album_title: str, image_path: Path, scan_filenames: list[st
     """
     _, _, _, _page_str = parse_album_filename(image_path.name)
     page_number = int(_page_str) if _page_str.isdigit() else 0
-    scan_match = SCAN_NAME_RE.search(image_path.name)
+    scan_match = _scan_name_match(image_path)
     if scan_match:
         source_filenames = [image_path.name]
         scan_nums = [int(scan_match.group("scan"))]
     else:
         source_filenames = _dedupe([str(fn or "").strip() for fn in scan_filenames if str(fn or "").strip()])
-        scan_nums = sorted(int(sm.group("scan")) for fn in source_filenames if (sm := SCAN_NAME_RE.search(fn)))
+        scan_nums = sorted(int(sm.group("scan")) for fn in source_filenames if (sm := _scan_name_match(fn)))
     parts: list[str] = [p for p in [str(album_title or "").strip()] if p]
     if page_number > 0:
         parts.append(f"Page {page_number:02d}")
@@ -718,6 +763,11 @@ def needs_processing(
 ) -> bool:
     if force:
         return True
+    if _is_album_title_source_candidate(path) and isinstance(sidecar_state, dict):
+        ocr = str(sidecar_state.get("ocr_text") or "").strip()
+        title = str(sidecar_state.get("album_title") or "").strip()
+        if ocr and title != ocr:
+            return True
     try:
         stat = path.stat()
     except FileNotFoundError:
@@ -1775,7 +1825,7 @@ def _scan_page_key(image_path: Path) -> str | None:
 
     Returns None for files that don't match the scan naming pattern.
     """
-    match = SCAN_NAME_RE.search(image_path.name)
+    match = _scan_name_match(image_path)
     if not match:
         return None
     return (
@@ -1785,7 +1835,7 @@ def _scan_page_key(image_path: Path) -> str | None:
 
 def _scan_number(image_path: Path) -> int:
     """Return the S## scan number for ordering within a page group."""
-    match = SCAN_NAME_RE.search(image_path.name)
+    match = _scan_name_match(image_path)
     if not match:
         return 0
     try:
@@ -1898,7 +1948,6 @@ def _run_scan_stitch_pass(
     creator_tool: str,
     dry_run: bool,
     stdout_only: bool,
-    album_title_cache: dict[str, str],
     printed_album_title_cache: dict[str, str],
     geocoder: NominatimGeocoder | None,
 ) -> int:
@@ -1960,9 +2009,7 @@ def _run_scan_stitch_pass(
 
         primary_path = group_paths[0]
         primary_state = states[0]
-        album_title = str(primary_state.get("album_title") or "").strip() or _resolve_album_title_hint(
-            primary_path, album_title_cache
-        )
+        album_title = str(primary_state.get("album_title") or "").strip() or _resolve_album_title_hint(primary_path)
         printed_album_title = _resolve_album_printed_title_hint(primary_path, printed_album_title_cache)
 
         names_str = " + ".join(p.name for p in group_paths)
@@ -2200,7 +2247,6 @@ def run(argv: list[str] | None = None) -> int:
     ocr_engine_cache: dict[tuple[str, str, str, str], OCREngine] = {}
     caption_engine_cache: dict[tuple[str, str, str, int, float, str, int], CaptionEngine] = {}
     archive_scan_ocr_cache: dict[str, ArchiveScanOCRAuthority] = {}
-    album_title_cache: dict[str, str] = {}
     printed_album_title_cache: dict[str, str] = {}
     geocoder = NominatimGeocoder()
     stitch_cap_td = tempfile.TemporaryDirectory(prefix="imago-stitch-cap-")
@@ -2504,7 +2550,7 @@ def run(argv: list[str] | None = None) -> int:
                                 image_path=image_path,
                                 album_title=(
                                     str(review.get("album_title") or "").strip()
-                                    or _resolve_album_title_hint(image_path, album_title_cache)
+                                    or _resolve_album_title_hint(image_path)
                                 ),
                                 ocr_text=str(review.get("ocr_text") or ""),
                             ),
@@ -2658,7 +2704,7 @@ def run(argv: list[str] | None = None) -> int:
                     pu_people_positions = _compute_people_positions(pu_people_matches, image_path)
 
                     _pu_step("caption")
-                    pu_album_title = _resolve_album_title_hint(image_path, album_title_cache)
+                    pu_album_title = _resolve_album_title_hint(image_path)
                     pu_printed_title = _resolve_album_printed_title_hint(image_path, printed_album_title_cache)
                     pu_prompt_debug = PromptDebugSession(image_path)
                     with _prepare_ai_model_image(image_path) as pu_model_path:
@@ -2853,7 +2899,7 @@ def run(argv: list[str] | None = None) -> int:
             prefix = f"[{idx}/{len(files)}]{eta_part}  {image_path.name}"
             print(prefix, flush=True)
             stop_ticker, set_step = _progress_ticker(prefix)
-        album_title_hint = _resolve_album_title_hint(image_path, album_title_cache)
+        album_title_hint = _resolve_album_title_hint(image_path)
         printed_album_title_hint = _resolve_album_printed_title_hint(image_path, printed_album_title_cache)
         prompt_debug = PromptDebugSession(image_path)
 
@@ -2964,7 +3010,6 @@ def run(argv: list[str] | None = None) -> int:
                 )
                 resolved_album_title = analysis.album_title or album_title_hint
                 resolved_printed_album_title = resolved_album_title
-                _store_album_title_hint(image_path, album_title_cache, resolved_album_title)
                 _store_album_printed_title_hint(
                     image_path,
                     printed_album_title_cache,
@@ -3008,9 +3053,7 @@ def run(argv: list[str] | None = None) -> int:
                         image_path=image_path,
                         album_title=_resolve_title_page_album_title(
                             image_path=image_path,
-                            album_title=(
-                                resolved_album_title or _resolve_album_title_hint(image_path, album_title_cache)
-                            ),
+                            album_title=(resolved_album_title or _resolve_album_title_hint(image_path)),
                             ocr_text=ocr_text,
                         ),
                         context="write",

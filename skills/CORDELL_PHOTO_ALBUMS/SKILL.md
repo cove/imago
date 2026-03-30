@@ -196,7 +196,7 @@ clearly: which photo, what the symptom is, and what the likely cause is.
 - `author_text` and `scene_text` are classified subsets of `ocr_text`, not replacements for it. Fill them whenever the classification is supported by the page.
 - The example JSON uses empty strings as placeholders. Do not copy literal `...` from any example or schema text.
 - `location_name`: concise geocoding query for GPS lookup when supported strongly enough by visible evidence; otherwise empty string.
-- `photo_regions`: list each distinct photograph; x/y/w/h are normalized rectangle coordinates (0–1, top-left origin, relative to full image)
+- `photo_regions`: list each distinct photograph; x/y/w/h are normalized rectangle coordinates (0–1, top-left origin, relative to full image); round each value to at most 3 decimal places (e.g. `0.297`, not `0.2978260869...`)
 - `album_title`: for album title pages or cover pages — the full album title as a single-line storage string, with any printed line breaks replaced by spaces (e.g. `"Egypt 1975"`, `"Mainland China Book 11"`, `"Europe 1973 Egypt 1974"`). Empty string for all other pages.
 - `ocr_lang`: BCP-47 language code of the primary non-English text in `author_text` or `scene_text` (e.g. `"zh"`, `"fr"`, `"ar"` for Chinese, French, Arabic). Use `"en"` for English-only text. Empty string when there is no visible text.
 - Just return the JSON without any extra text or explanation.
