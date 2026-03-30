@@ -565,62 +565,6 @@
       </section>
 
       <section class="panel" style="margin-top: 12px">
-        <h2>Review Next Face</h2>
-        <div id="next-review-empty" class="small">No pending faces right now.</div>
-        <div id="next-review-wrap" style="display: none">
-          <div class="row">
-            <div>
-              <button id="next-review-source-btn" class="face-source-btn" style="display: none">
-                <img id="next-review-img" class="crop" alt="next pending face" />
-              </button>
-              <div id="next-review-src" class="small" style="margin-top: 6px"></div>
-            </div>
-            <div>
-              <div id="next-review-hints" class="name-hints" style="display: none"></div>
-              <div class="field">
-                <label for="next-review-name">Who is this?</label>
-                <input id="next-review-name" placeholder="Type a name and press Save Name" />
-              </div>
-              <div class="field">
-                <label for="next-review-select">Or pick an existing person</label>
-                <select id="next-review-select"></select>
-              </div>
-              <div class="actions">
-                <button
-                  id="next-save-btn"
-                  class="good"
-                  title="Save this face as the typed or selected person and mark it as human-reviewed."
-                >
-                  Save Name
-                </button>
-                <button
-                  id="next-skip-btn"
-                  class="warn"
-                  title="Leave this face in the review queue and come back to it later."
-                >
-                  Skip For Now
-                </button>
-                <button
-                  id="next-ignore-btn"
-                  class="secondary"
-                  title="This is a real face, but stop asking to identify it in future passes."
-                >
-                  Ignore This Face
-                </button>
-                <button
-                  id="next-reject-btn"
-                  class="bad"
-                  title="Mark this detection as a false positive because it is not actually a face."
-                >
-                  Not a Face
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel" style="margin-top: 12px">
         <h2>Pending Queue</h2>
         <div class="queue-toolbar sticky-actions">
           <button id="bulk-skip-btn" class="warn" type="button">Bulk Skip</button>
@@ -650,157 +594,6 @@
         </table>
       </section>
 
-      <details class="panel" style="margin-top: 12px">
-        <summary>Manual Review Helpers</summary>
-        <div class="details-body">
-          <p class="small">Use these tools when a face is not already in the main queue workflow.</p>
-          <section class="panel" style="margin-top: 10px">
-            <h2>Unknown Faces</h2>
-            <table id="unknown-table">
-              <thead>
-                <tr>
-                  <th>Face</th>
-                  <th>Source</th>
-                  <th>Label</th>
-                  <th>Queue</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </section>
-
-          <section class="panel" style="margin-top: 10px">
-            <h2>People</h2>
-            <table id="people-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Aliases</th>
-                  <th>ID</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </section>
-        </div>
-      </details>
-
-      <details class="panel" style="margin-top: 12px">
-        <summary>Ingest And Maintenance</summary>
-        <div class="details-body">
-
-
-          <div class="queue-toolbar" style="margin-bottom: 10px">
-            <button id="prune-btn" class="warn">Auto-Prune Obvious Non-Faces</button>
-            <button id="reset-pending-btn" class="bad">Reset Queue + Unknown Faces</button>
-          </div>
-
-          <div class="grid" style="margin-top: 0">
-            <article class="panel">
-              <h2>Ingest Photo</h2>
-              <form id="ingest-photo-form">
-                <div class="field">
-                  <label for="photo-path">Image Path</label>
-                  <input id="photo-path" required placeholder="C:\\path\\to\\photo.jpg" />
-                </div>
-                <div class="row">
-                  <div class="field">
-                    <label for="photo-min-size">Min Face Size (px)</label>
-                    <input id="photo-min-size" type="number" value="40" min="20" />
-                  </div>
-                  <div class="field">
-                    <label for="photo-max-faces">Max Faces</label>
-                    <input id="photo-max-faces" type="number" value="50" min="1" />
-                  </div>
-                </div>
-                <button type="submit">Detect and Queue Faces</button>
-              </form>
-            </article>
-
-            <article class="panel">
-              <h2>Scan Photo Albums *_View</h2>
-              <form id="ingest-photo-scan-form">
-                <div class="field">
-                  <label for="scan-root">Photo Albums Root</label>
-                  <input id="scan-root" value="C:\\Users\\covec\\OneDrive\\Cordell, Leslie & Audrey\\Photo Albums" />
-                </div>
-                <div class="row">
-                  <div class="field">
-                    <label for="scan-glob">View Folder Glob</label>
-                    <input id="scan-glob" value="*_View" />
-                  </div>
-                  <div class="field">
-                    <label for="scan-max-files">Max Files (0=all)</label>
-                    <input id="scan-max-files" type="number" value="0" min="0" />
-                  </div>
-                </div>
-                <div class="row">
-                  <div class="field">
-                    <label for="scan-min-size">Min Face Size (px)</label>
-                    <input id="scan-min-size" type="number" value="40" min="20" />
-                  </div>
-                  <div class="field">
-                    <label for="scan-max-faces">Max Faces Per Photo</label>
-                    <input id="scan-max-faces" type="number" value="50" min="1" />
-                  </div>
-                </div>
-                <button type="submit">Scan *_View JPG Files and Queue Names</button>
-              </form>
-            </article>
-
-            <article class="panel">
-              <h2>Ingest VHS Video</h2>
-              <form id="ingest-vhs-form">
-                <div class="field">
-                  <label for="vhs-path">Video Path</label>
-                  <input id="vhs-path" required placeholder="C:\\path\\to\\archive.mkv" />
-                </div>
-                <div class="row">
-                  <div class="field">
-                    <label for="vhs-sample">Sample Every (sec)</label>
-                    <input id="vhs-sample" type="number" value="2" min="0.2" step="0.1" />
-                  </div>
-                  <div class="field">
-                    <label for="vhs-max-duration">Max Duration (sec, 0=all)</label>
-                    <input id="vhs-max-duration" type="number" value="180" min="0" step="1" />
-                  </div>
-                </div>
-                <div class="row">
-                  <div class="field">
-                    <label for="vhs-min-size">Min Face Size (px)</label>
-                    <input id="vhs-min-size" type="number" value="40" min="20" />
-                  </div>
-                  <div class="field">
-                    <label for="vhs-max-faces">Max Faces</label>
-                    <input id="vhs-max-faces" type="number" value="120" min="1" />
-                  </div>
-                </div>
-                <button type="submit">Detect and Queue Faces</button>
-              </form>
-            </article>
-
-            <article class="panel">
-              <h2>Create Person</h2>
-              <form id="person-form">
-                <div class="field">
-                  <label for="person-name">Display Name</label>
-                  <input id="person-name" required />
-                </div>
-                <div class="field">
-                  <label for="person-aliases">Aliases (comma-separated)</label>
-                  <input id="person-aliases" placeholder="Jim, Jimmy" />
-                </div>
-                <div class="field">
-                  <label for="person-notes">Notes</label>
-                  <textarea id="person-notes"></textarea>
-                </div>
-                <button type="submit">Create Person</button>
-              </form>
-            </article>
-          </div>
-        </div>
-      </details>
     </main>
 
     <div id="source-modal" class="modal">
@@ -817,25 +610,16 @@
       const appState = {
         people: [],
         face_by_id: {},
-        unknown_faces: [],
         pending_reviews: [],
         selected_review_ids: new Set(),
         last_selected_review_id: "",
         skipped_review_ids: new Set(),
         counts: { people: 0, faces: 0, unknown_faces: 0, pending_reviews: 0, legacy_faces: 0 },
         runtime: {},
-        next_review: null,
         pending_render_limit: 120,
-        unknown_render_limit: 120,
       };
-      const TOOLTIP_SAVE_NAME =
-        "Save this face as the typed or selected person and mark it as human-reviewed.";
       const TOOLTIP_ASSIGN_PERSON =
         "Assign this face to the selected person and mark the match as human-reviewed.";
-      const TOOLTIP_CREATE_AND_ASSIGN =
-        "Create a new person record, assign this face to them, and mark it as human-reviewed.";
-      const TOOLTIP_QUEUE_FOR_REVIEW =
-        "Add this face to the 'Who Is This?' review queue.";
       const TOOLTIP_SKIP_FOR_NOW =
         "Leave this face in the review queue and come back to it later.";
       const TOOLTIP_IGNORE_FACE =
@@ -943,9 +727,7 @@
         const counts = appState.counts || {};
         document.getElementById("count-people").textContent = String(counts.people || appState.people.length || 0);
         document.getElementById("count-faces").textContent = String(counts.faces || 0);
-        document.getElementById("count-unknown").textContent = String(
-          counts.unknown_faces ?? appState.unknown_faces.length ?? 0
-        );
+        document.getElementById("count-unknown").textContent = String(counts.unknown_faces || 0);
         document.getElementById("count-pending").textContent = String(
           counts.pending_reviews ?? appState.pending_reviews.length ?? 0
         );
@@ -999,16 +781,6 @@
             ? ""
             : "Install InsightFace buffalo_l in this venv before running new ingest.";
         }
-      }
-
-      function chooseNextReview() {
-        for (const review of appState.pending_reviews) {
-          const reviewId = String(review.review_id || "");
-          if (!appState.skipped_review_ids.has(reviewId)) {
-            return review;
-          }
-        }
-        return null;
       }
 
       function pruneSkippedReviewIds() {
@@ -1159,38 +931,12 @@
         appState.last_selected_review_id = reviewId;
       }
 
-      function removeUnknownFaceFromState(faceId) {
-        const key = String(faceId || "");
-        if (!key) {
-          return;
-        }
-        appState.unknown_faces = appState.unknown_faces.filter((face) => String(face.face_id || "") !== key);
-      }
-
-      function removePendingReviewsForFace(faceId) {
-        const key = String(faceId || "");
-        if (!key) {
-          return;
-        }
-        appState.pending_reviews = appState.pending_reviews.filter((review) => {
-          const reviewFaceId = String((review.face || {}).face_id || review.face_id || "");
-          const keep = reviewFaceId !== key;
-          if (!keep) {
-            appState.skipped_review_ids.delete(String(review.review_id || ""));
-          }
-          return keep;
-        });
-      }
-
       function refreshReviewUi() {
         pruneSkippedReviewIds();
         pruneSelectedReviewIds();
-        appState.next_review = chooseNextReview();
         updateDisplayedCounts();
         renderRuntimeStatus();
-        renderUnknownFaces();
         renderReviewQueue();
-        renderNextReviewPrompt();
       }
 
       let refreshStateTimer = null;
@@ -1211,18 +957,13 @@
       async function loadState() {
         const params = new URLSearchParams({
           pending_limit: String(Math.max(0, Number(appState.pending_render_limit) || 0)),
-          unknown_limit: String(Math.max(0, Number(appState.unknown_render_limit) || 0)),
         });
         const data = await api(`/api/state?${params.toString()}`);
         appState.people = data.people || [];
         appState.face_by_id = {};
-        appState.unknown_faces = data.unknown_faces || [];
         appState.pending_reviews = data.pending_reviews || [];
         appState.counts = data.counts || {};
         appState.runtime = data.runtime || {};
-        for (const face of appState.unknown_faces) {
-          rememberFaceSummary(face);
-        }
         for (const review of appState.pending_reviews) {
           if (review && review.face) {
             rememberFaceSummary(review.face);
@@ -1230,14 +971,10 @@
         }
         pruneSkippedReviewIds();
         pruneSelectedReviewIds();
-        appState.next_review = chooseNextReview();
 
         updateDisplayedCounts();
         renderRuntimeStatus();
-        renderPeople();
-        renderUnknownFaces();
         renderReviewQueue();
-        renderNextReviewPrompt();
       }
 
       function faceCell(face) {
@@ -1263,120 +1000,6 @@
         const src = String(face.source_path || "");
         const ts = String(face.timestamp || "");
         return `${src}${ts ? ` @ ${ts}` : ""}`;
-      }
-
-      function renderPeople() {
-        const tbody = document.querySelector("#people-table tbody");
-        if (!appState.people.length) {
-          tbody.innerHTML = '<tr><td colspan="4">No people yet.</td></tr>';
-          return;
-        }
-        tbody.innerHTML = appState.people
-          .map((person) => {
-            const aliases = Array.isArray(person.aliases) ? person.aliases.join(", ") : "";
-            const personId = String(person.person_id || "");
-            return [
-              "<tr>",
-              `<td>${esc(person.display_name)}</td>`,
-              `<td>${esc(aliases)}</td>`,
-              `<td class="mono">${esc(shortId(personId))}</td>`,
-              `<td>`,
-              `<div class="actions">`,
-              `<button class="secondary" onclick="editPersonName('${esc(personId)}')">Edit Name</button>`,
-              `<button class="secondary" onclick="editPersonAliases('${esc(personId)}')">Edit Aliases</button>`,
-              `</div>`,
-              `</td>`,
-              "</tr>",
-            ].join("");
-          })
-          .join("");
-      }
-
-      async function editPersonName(personId) {
-        try {
-          const current = appState.people.find((person) => String(person.person_id || "") === String(personId || ""));
-          if (!current) {
-            throw new Error("Person not found in current state.");
-          }
-          const existing = String(current.display_name || "");
-          const next = window.prompt("Edit person name:", existing);
-          if (next === null) {
-            return;
-          }
-          const name = String(next || "").trim();
-          if (!name) {
-            throw new Error("Name cannot be empty.");
-          }
-          if (name === existing) {
-            return;
-          }
-          await api("/api/people/update", "POST", { person_id: personId, display_name: name });
-          setStatus(`Updated person name to ${name}.`, "success");
-          await loadState();
-        } catch (error) {
-          setStatus(error.message, "error");
-        }
-      }
-
-      async function editPersonAliases(personId) {
-        try {
-          const current = appState.people.find((person) => String(person.person_id || "") === String(personId || ""));
-          if (!current) {
-            throw new Error("Person not found in current state.");
-          }
-          const existingAliases = Array.isArray(current.aliases)
-            ? current.aliases.map((alias) => String(alias || "").trim()).filter(Boolean)
-            : [];
-          const next = window.prompt("Edit aliases (comma-separated):", existingAliases.join(", "));
-          if (next === null) {
-            return;
-          }
-          const aliases = String(next || "")
-            .split(",")
-            .map((part) => part.trim())
-            .filter(Boolean);
-          await api("/api/people/update", "POST", { person_id: personId, aliases });
-          setStatus(`Updated aliases for ${current.display_name || shortId(personId)}.`, "success");
-          await loadState();
-        } catch (error) {
-          setStatus(error.message, "error");
-        }
-      }
-
-      function renderUnknownFaces() {
-        const tbody = document.querySelector("#unknown-table tbody");
-        if (!appState.unknown_faces.length) {
-          tbody.innerHTML = '<tr><td colspan="4">No unknown faces.</td></tr>';
-          return;
-        }
-        const limit = Math.max(0, Number(appState.unknown_render_limit) || 0);
-        const rows = limit > 0 ? appState.unknown_faces.slice(0, limit) : appState.unknown_faces;
-        tbody.innerHTML = rows
-          .map((face) => {
-            const faceId = String(face.face_id || "");
-            return [
-              "<tr>",
-              `<td>${faceCell(face)}</td>`,
-              `<td>${esc(sourceText(face))}</td>`,
-              `<td>`,
-              `<div class="actions">`,
-              `<select id="unknown-select-${esc(faceId)}">${personOptions()}</select>`,
-              `<button class="good" title="${esc(TOOLTIP_ASSIGN_PERSON)}" onclick="assignUnknownFace('${esc(faceId)}')">Assign Person</button>`,
-              `<button class="secondary" title="${esc(TOOLTIP_CREATE_AND_ASSIGN)}" onclick="createPersonForFace('${esc(faceId)}')">Create + Assign Person</button>`,
-              `<button class="secondary" title="${esc(TOOLTIP_IGNORE_FACE)}" onclick="ignoreUnknownFace('${esc(faceId)}')">Ignore This Face</button>`,
-              `</div>`,
-              `</td>`,
-              `<td><button class="secondary" title="${esc(TOOLTIP_QUEUE_FOR_REVIEW)}" onclick="enqueueReview('${esc(faceId)}')">Queue for Review</button></td>`,
-              "</tr>",
-            ].join("");
-          })
-          .join("");
-        if (limit > 0 && Number((appState.counts || {}).unknown_faces || 0) > rows.length) {
-          tbody.insertAdjacentHTML(
-            "beforeend",
-            `<tr><td colspan="4"><button class="secondary" type="button" onclick="showMoreUnknownFaces()">Show ${Math.min(100, Math.max(0, Number((appState.counts || {}).unknown_faces || 0) - rows.length))} More</button></td></tr>`
-          );
-        }
       }
 
       function renderReviewQueue() {
@@ -1455,11 +1078,6 @@
         renderReviewSelectionSummary();
       }
 
-      async function showMoreUnknownFaces() {
-        appState.unknown_render_limit += 100;
-        await loadState();
-      }
-
       async function showMorePendingReviews() {
         appState.pending_render_limit += 100;
         await loadState();
@@ -1491,22 +1109,14 @@
             }
             appState.pending_reviews = kept.concat(moved);
           } else {
-            const faceIds = new Set();
             appState.pending_reviews = appState.pending_reviews.filter((review) => {
               const reviewId = String(review.review_id || "");
               if (!selectedIds.has(reviewId)) {
                 return true;
               }
-              const faceId = String(((review.face || {}).face_id || review.face_id || ""));
-              if (faceId) {
-                faceIds.add(faceId);
-              }
               appState.skipped_review_ids.delete(reviewId);
               return false;
             });
-            appState.unknown_faces = appState.unknown_faces.filter(
-              (face) => !faceIds.has(String(face.face_id || ""))
-            );
           }
 
           appState.selected_review_ids = new Set();
@@ -1518,88 +1128,6 @@
         }
       }
 
-      function findPersonByName(name) {
-        const target = String(name || "").trim().toLowerCase();
-        if (!target) {
-          return null;
-        }
-        for (const person of appState.people) {
-          const display = String(person.display_name || "").trim().toLowerCase();
-          if (display === target) {
-            return person;
-          }
-          const aliases = Array.isArray(person.aliases) ? person.aliases : [];
-          for (const alias of aliases) {
-            if (String(alias || "").trim().toLowerCase() === target) {
-              return person;
-            }
-          }
-        }
-        return null;
-      }
-
-      function renderNextReviewPrompt() {
-        const empty = document.getElementById("next-review-empty");
-        const wrap = document.getElementById("next-review-wrap");
-        const select = document.getElementById("next-review-select");
-        const input = document.getElementById("next-review-name");
-        const sourceBtn = document.getElementById("next-review-source-btn");
-        const item = appState.next_review;
-        if (!item) {
-          empty.style.display = "block";
-          wrap.style.display = "none";
-          input.value = "";
-          select.innerHTML = personOptions();
-          sourceBtn.style.display = "none";
-          sourceBtn.onclick = null;
-          return;
-        }
-
-        empty.style.display = "none";
-        wrap.style.display = "block";
-        const face = item.face || {};
-        const img = document.getElementById("next-review-img");
-        const cropUrl = String(face.crop_url || "");
-        const sourceUrlFallback = String(face.source_url || "");
-        img.src = cropUrl || (sourceUrlFallback ? `${sourceUrlFallback}?max_dim=400` : "");
-        img.alt = String(face.face_id || "");
-        document.getElementById("next-review-src").textContent = sourceText(face) || "(unknown source)";
-        if (String(face.source_url || "").trim() && String(face.face_id || "").trim()) {
-          sourceBtn.style.display = "";
-          sourceBtn.onclick = () => openSourceModal(String(face.face_id || ""));
-        } else {
-          sourceBtn.style.display = "none";
-          sourceBtn.onclick = null;
-        }
-        select.innerHTML = personOptions();
-
-        // Show name hints as clickable buttons that pre-fill the name input
-        const hintsContainer = document.getElementById("next-review-hints");
-        const hints = Array.isArray(item.name_hints) ? item.name_hints : [];
-        if (hints.length > 0) {
-          const btns = hints
-            .map((h) => {
-              const label = esc(String(h.name || ""));
-              const src = esc(String(h.source || ""));
-              const title = src ? `From ${src.replace(/_/g, " ")}` : "Suggested name";
-              return `<button class="name-hint-btn" title="${title}" onclick="applyNameHint('${label}')">${label}</button>`;
-            })
-            .join("");
-          hintsContainer.innerHTML = `<div class="name-hints-label">Suggested from caption:</div>${btns}`;
-          hintsContainer.style.display = "block";
-        } else {
-          hintsContainer.innerHTML = "";
-          hintsContainer.style.display = "none";
-        }
-      }
-
-      function applyNameHint(name) {
-        const input = document.getElementById("next-review-name");
-        if (input) {
-          input.value = name;
-          input.focus();
-        }
-      }
 
       function closeSourceModal() {
         const modal = document.getElementById("source-modal");
@@ -1628,68 +1156,6 @@
         title.textContent = `${face.source_path || ""}${timestamp ? ` @ ${timestamp}` : ""}`;
         image.src = `${sourceUrl}?highlight=1&max_dim=2200&t=${Date.now()}`;
         modal.classList.add("open");
-      }
-
-      async function assignFace(faceId, personId) {
-        await api("/api/faces/assign", "POST", {
-          face_id: faceId,
-          person_id: personId || null,
-          reviewed_by_human: true,
-          review_status: personId ? "confirmed" : "",
-        });
-      }
-
-      async function assignUnknownFace(faceId) {
-        try {
-          const select = document.getElementById(`unknown-select-${faceId}`);
-          const personId = (select && select.value ? String(select.value) : "").trim();
-          if (!personId) {
-            throw new Error("Select a person first.");
-          }
-          await assignFace(faceId, personId);
-          setStatus(`Assigned face ${shortId(faceId)}.`, "success");
-          removeUnknownFaceFromState(faceId);
-          removePendingReviewsForFace(faceId);
-          refreshReviewUi();
-          scheduleStateRefresh();
-        } catch (error) {
-          setStatus(error.message, "error");
-        }
-      }
-
-      async function createPersonForFace(faceId) {
-        try {
-          const name = window.prompt("New person name:", "");
-          if (!name || !name.trim()) {
-            return;
-          }
-          const resp = await api("/api/people", "POST", { display_name: name.trim(), aliases: [], notes: "" });
-          const personId = String((resp.person || {}).person_id || "");
-          if (!personId) {
-            throw new Error("Failed to create person.");
-          }
-          await assignFace(faceId, personId);
-          setStatus(`Created ${name.trim()} and assigned face ${shortId(faceId)}.`, "success");
-          removeUnknownFaceFromState(faceId);
-          removePendingReviewsForFace(faceId);
-          refreshReviewUi();
-          scheduleStateRefresh();
-        } catch (error) {
-          setStatus(error.message, "error");
-        }
-      }
-
-      async function enqueueReview(faceId) {
-        try {
-          const result = await api("/api/review/enqueue", "POST", { face_id: faceId, top_k: 3 });
-          setStatus(
-            `Queued review for face ${shortId(faceId)}${result.existing ? " (already pending)" : ""}.`,
-            "success"
-          );
-          scheduleStateRefresh();
-        } catch (error) {
-          setStatus(error.message, "error");
-        }
       }
 
       function applyResolvedReviewLocally(reviewId, status, result) {
@@ -1729,10 +1195,6 @@
         }
         appState.skipped_review_ids.delete(key);
 
-        if (status === "ignored" || status === "rejected" || status === "accepted") {
-          removeUnknownFaceFromState(faceId);
-        }
-
         refreshReviewUi();
       }
 
@@ -1769,96 +1231,6 @@
         }
       }
 
-      async function ignoreUnknownFace(faceId) {
-        try {
-          await api("/api/faces/assign", "POST", {
-            face_id: faceId,
-            person_id: null,
-            reviewed_by_human: true,
-            review_status: "ignored",
-          });
-          setStatus(`Ignored face ${shortId(faceId)} for future matching.`, "success");
-          removeUnknownFaceFromState(faceId);
-          removePendingReviewsForFace(faceId);
-          refreshReviewUi();
-          scheduleStateRefresh();
-        } catch (error) {
-          setStatus(error.message, "error");
-        }
-      }
-
-      async function saveNextReviewName() {
-        try {
-          const item = appState.next_review;
-          if (!item) {
-            throw new Error("No pending face to label.");
-          }
-          const nameInput = document.getElementById("next-review-name");
-          const select = document.getElementById("next-review-select");
-          const enteredName = String(nameInput.value || "").trim();
-          let personId = String(select.value || "").trim();
-
-          if (enteredName) {
-            const existing = findPersonByName(enteredName);
-            if (existing) {
-              personId = String(existing.person_id || "");
-            } else {
-              const created = await api("/api/people", "POST", {
-                display_name: enteredName,
-                aliases: [],
-                notes: "",
-              });
-              personId = String((created.person || {}).person_id || "");
-            }
-          }
-
-          if (!personId) {
-            throw new Error("Enter a name or select a person.");
-          }
-
-          await resolveReview(String(item.review_id || ""), "accepted", personId);
-          nameInput.value = "";
-        } catch (error) {
-          setStatus(error.message, "error");
-        }
-      }
-
-      async function skipNextReview() {
-        try {
-          const item = appState.next_review;
-          if (!item) {
-            return;
-          }
-          await resolveReview(String(item.review_id || ""), "skipped");
-        } catch (error) {
-          setStatus(error.message, "error");
-        }
-      }
-
-      async function rejectNextReview() {
-        try {
-          const item = appState.next_review;
-          if (!item) {
-            return;
-          }
-          await resolveReview(String(item.review_id || ""), "rejected");
-        } catch (error) {
-          setStatus(error.message, "error");
-        }
-      }
-
-      async function ignoreNextReview() {
-        try {
-          const item = appState.next_review;
-          if (!item) {
-            return;
-          }
-          await resolveReview(String(item.review_id || ""), "ignored");
-        } catch (error) {
-          setStatus(error.message, "error");
-        }
-      }
-
       document.getElementById("refresh-btn").addEventListener("click", async () => {
         try {
           await loadState();
@@ -1882,70 +1254,6 @@
         if (event.key === "Escape") {
           closeSourceModal();
         }
-      });
-
-      document.getElementById("prune-btn").addEventListener("click", async () => {
-        try {
-          setStatus("Pruning obvious non-faces from pending queue...", "info");
-          const result = await api("/api/review/prune_false_positives", "POST", {
-
-          });
-          setStatus(
-            `Pruned ${result.pruned || 0} item(s) out of ${result.checked || 0} checked pending face(s).`,
-            "success"
-          );
-          await loadState();
-        } catch (error) {
-          setStatus(error.message, "error");
-        }
-      });
-
-      document.getElementById("reset-pending-btn").addEventListener("click", async () => {
-        const confirmed = window.confirm(
-          "Reset pending queue and unknown faces? This will remove unassigned faces and pending review items."
-        );
-        if (!confirmed) {
-          return;
-        }
-        try {
-          setStatus("Resetting pending queue and unknown faces...", "info");
-          const result = await api("/api/reset/pending_unknown", "POST", { remove_crops: true });
-          setStatus(
-            `Reset complete: removed ${result.removed_faces || 0} unknown face(s), ${result.removed_reviews || 0} review item(s), ${result.removed_crops || 0} crop file(s).`,
-            "success"
-          );
-          await loadState();
-        } catch (error) {
-          setStatus(error.message, "error");
-        }
-      });
-
-      document.getElementById("next-save-btn").addEventListener("click", async (event) => {
-        event.preventDefault();
-        await saveNextReviewName();
-      });
-
-      document.getElementById("next-skip-btn").addEventListener("click", async (event) => {
-        event.preventDefault();
-        await skipNextReview();
-      });
-
-      document.getElementById("next-reject-btn").addEventListener("click", async (event) => {
-        event.preventDefault();
-        await rejectNextReview();
-      });
-
-      document.getElementById("next-ignore-btn").addEventListener("click", async (event) => {
-        event.preventDefault();
-        await ignoreNextReview();
-      });
-
-      document.getElementById("next-review-name").addEventListener("keydown", async (event) => {
-        if (event.key !== "Enter") {
-          return;
-        }
-        event.preventDefault();
-        await saveNextReviewName();
       });
 
       document.getElementById("review-select-all").addEventListener("change", (event) => {
@@ -1972,117 +1280,8 @@
         await bulkResolveSelectedReviews("rejected");
       });
 
-      document.getElementById("person-form").addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const name = document.getElementById("person-name").value.trim();
-        const aliases = document
-          .getElementById("person-aliases")
-          .value.split(",")
-          .map((part) => part.trim())
-          .filter(Boolean);
-        const notes = document.getElementById("person-notes").value.trim();
-        try {
-          await api("/api/people", "POST", { display_name: name, aliases, notes });
-          event.target.reset();
-          setStatus(`Created person ${name}.`, "success");
-          await loadState();
-        } catch (error) {
-          setStatus(error.message, "error");
-        }
-      });
-
-      document.getElementById("ingest-photo-form").addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const imagePath = document.getElementById("photo-path").value.trim();
-        const minSize = Number(document.getElementById("photo-min-size").value || 40);
-        const maxFaces = Number(document.getElementById("photo-max-faces").value || 50);
-        try {
-          setStatus("Detecting faces in photo...", "info");
-          const result = await api("/api/ingest/photo", "POST", {
-            image_path: imagePath,
-            min_size: minSize,
-            max_faces: maxFaces,
-
-            auto_queue: true,
-            top_k: 3,
-          });
-          setStatus(
-            `Photo ingest done: ${result.faces_created || 0} face(s), ${result.reviews_created || 0} queued for identity review.`,
-            "success"
-          );
-          await loadState();
-        } catch (error) {
-          setStatus(error.message, "error");
-        }
-      });
-
-      document.getElementById("ingest-photo-scan-form").addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const root = document.getElementById("scan-root").value.trim();
-        const viewGlob = document.getElementById("scan-glob").value.trim() || "*_View";
-        const maxFiles = Number(document.getElementById("scan-max-files").value || 0);
-        const minSize = Number(document.getElementById("scan-min-size").value || 40);
-        const maxFaces = Number(document.getElementById("scan-max-faces").value || 50);
-        try {
-          setStatus("Scanning *_View folders for JPG files and detecting faces...", "info");
-          const result = await api("/api/ingest/photos/scan", "POST", {
-            photo_albums_root: root,
-            view_glob: viewGlob,
-            recursive: true,
-            max_files: maxFiles,
-            min_size: minSize,
-            max_faces_per_photo: maxFaces,
-
-            auto_queue: true,
-            top_k: 3,
-          });
-          setStatus(
-            `Scan complete: ${result.photo_files_scanned || 0} photo(s), ${result.faces_created || 0} face(s), ${result.reviews_created || 0} queued for naming.`,
-            "success"
-          );
-          await loadState();
-        } catch (error) {
-          setStatus(error.message, "error");
-        }
-      });
-
-      document.getElementById("ingest-vhs-form").addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const videoPath = document.getElementById("vhs-path").value.trim();
-        const sampleEverySeconds = Number(document.getElementById("vhs-sample").value || 2);
-        const maxDurationSeconds = Number(document.getElementById("vhs-max-duration").value || 0);
-        const minSize = Number(document.getElementById("vhs-min-size").value || 40);
-        const maxFaces = Number(document.getElementById("vhs-max-faces").value || 120);
-        try {
-          setStatus("Scanning VHS video for faces... this can take a bit.", "info");
-          const result = await api("/api/ingest/vhs", "POST", {
-            video_path: videoPath,
-            sample_every_seconds: sampleEverySeconds,
-            max_duration_seconds: maxDurationSeconds,
-            min_size: minSize,
-            max_faces: maxFaces,
-
-            auto_queue: true,
-            top_k: 3,
-          });
-          setStatus(
-            `VHS ingest done: ${result.faces_created || 0} face(s) from ${result.sampled_frames || 0} sampled frame(s), ${result.reviews_created || 0} queued.`,
-            "success"
-          );
-          await loadState();
-        } catch (error) {
-          setStatus(error.message, "error");
-        }
-      });
-
       Object.assign(window, {
         openSourceModal,
-        editPersonName,
-        editPersonAliases,
-        assignUnknownFace,
-        createPersonForFace,
-        ignoreUnknownFace,
-        enqueueReview,
         resolveReview,
         acceptSelectedReview,
         toggleReviewSelection,
