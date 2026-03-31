@@ -14,6 +14,24 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .ai_album_titles import (
+    _album_identity_key,
+    _album_title_valid_in_sidecars,
+    _base_page_name_match,
+    _derived_name_match,
+    _expand_album_title_dependencies,
+    _is_album_title_source_candidate,
+    _iter_album_cover_sidecars,
+    _looks_like_album_title_page,
+    _require_album_title_for_title_page,
+    _resolve_album_printed_title_hint,
+    _resolve_album_title_from_sidecars,
+    _resolve_album_title_hint,
+    _resolve_title_page_album_title,
+    _scan_name_match,
+    _store_album_printed_title_hint,
+    _title_page_match,
+)
 from .ai_caption import (
     CaptionEngine,
     DEFAULT_LMSTUDIO_MAX_NEW_TOKENS,
@@ -27,22 +45,51 @@ from .ai_model_settings import default_lmstudio_base_url, default_ocr_model
 from .ai_ocr import OCREngine, extract_keywords
 from .ai_page_layout import PreparedImageLayout, prepare_image_layout
 from .ai_geocode import NominatimGeocoder
+from .ai_location import (
+    _extract_explicit_gps_from_text,
+    _merge_location_estimates,
+    _resolve_location_metadata,
+    _resolve_location_payload,
+    _xmp_gps_to_decimal,
+)
+from .ai_processing_locks import (
+    BATCH_LOCK_SUFFIX,
+    JOB_ID_ENV,
+    PROCESSING_LOCK_SUFFIX,
+    _acquire_batch_processing_lock,
+    _acquire_image_processing_lock,
+    _release_batch_processing_lock,
+    _release_image_processing_lock,
+)
 from .ai_render_settings import (
     find_archive_dir_for_image,
     load_render_settings,
     resolve_effective_settings,
+)
+from .ai_sidecar_state import (
+    MIN_EXISTING_SIDECAR_BYTES,
+    _compute_xmp_title,
+    _dc_source_scan_names,
+    _effective_sidecar_location_payload,
+    _effective_sidecar_ocr_text,
+    _is_derived_image_path,
+    _resolve_derived_source_sidecar_state,
+    _resolve_xmp_text_layers,
+    _sidecar_current_for_paths,
+    _sidecar_location_payload,
+    _xmp_timestamp_from_path,
+    has_current_sidecar,
+    has_valid_sidecar,
+    read_embedded_create_date,
 )
 from .image_limits import allow_large_pillow_images
 from .prompt_debug import PromptDebugSession
 from ..common import PHOTO_ALBUMS_DIR
 from ..exiftool_utils import read_tag
 from ..naming import (
-    BASE_PAGE_NAME_RE,
-    DERIVED_NAME_RE,
     DERIVED_VIEW_RE,
     SCAN_TIFF_RE,
     parse_album_filename,
-    SCAN_NAME_RE,
 )
 from .xmp_sidecar import (
     _dedupe,
@@ -128,15 +175,11 @@ def _format_people_step_label(step: str, names: list[str]) -> str:
 
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp"}
-MIN_EXISTING_SIDECAR_BYTES = 100
 AI_MODEL_MAX_SOURCE_BYTES = 30 * 1024 * 1024
 DEFAULT_CREATOR_TOOL = "https://github.com/cove/imago"
 DEFAULT_CAST_STORE = Path(__file__).resolve().parents[2] / "cast" / "data"
 PROCESSOR_SIGNATURE = "page_split_v17_people_recovery_any_people"
 JOB_ARTIFACTS_ENV = "IMAGO_JOB_ARTIFACTS"
-JOB_ID_ENV = "IMAGO_JOB_ID"
-PROCESSING_LOCK_SUFFIX = ".photoalbums-ai.lock"
-BATCH_LOCK_SUFFIX = ".photoalbums-ai.batch.lock"
 CAST_STORE_RETRY_ATTEMPTS = 6
 CAST_STORE_RETRY_DELAY_SECONDS = 0.5
 
@@ -239,291 +282,6 @@ def discover_images(
     return files
 
 
-def _album_identity_key(image_path: Path) -> str:
-    collection, year, book, _page = parse_album_filename(image_path.name)
-    if collection != "Unknown":
-        return f"{collection}_{year}_B{book}".casefold()
-    parent_name = str(image_path.parent.name or "")
-    base_name = parent_name.removesuffix("_Archive").removesuffix("_View")
-    return str((image_path.parent.parent / base_name).resolve()).casefold()
-
-
-def _album_directory_candidates(image_path: Path) -> list[Path]:
-    out: list[Path] = [image_path.parent]
-    parent_name = str(image_path.parent.name or "")
-    base_name = parent_name.removesuffix("_Archive").removesuffix("_View")
-    root = image_path.parent.parent
-    for suffix in ("_Archive", "_View"):
-        candidate = root / f"{base_name}{suffix}"
-        if candidate in out or not candidate.is_dir():
-            continue
-        out.append(candidate)
-    return out
-
-
-def _iter_album_cover_sidecars(image_path: Path):
-    collection, year, book, _page = parse_album_filename(image_path.name)
-    target_prefix = ""
-    if collection != "Unknown":
-        target_prefix = f"{collection}_{year}_B{book}_".casefold()
-    seen: set[str] = set()
-    candidates: list[tuple[tuple[int, int, str], Path]] = []
-    for folder in _album_directory_candidates(image_path):
-        for sidecar_path in sorted(folder.glob("*.xmp")):
-            match = _cover_sidecar_match(sidecar_path)
-            if match is None:
-                continue
-            if target_prefix and not Path(sidecar_path).stem.casefold().startswith(target_prefix):
-                continue
-            sidecar_key = str(sidecar_path.resolve()).casefold()
-            if sidecar_key in seen:
-                continue
-            seen.add(sidecar_key)
-            page_rank = int(match.group("page"))
-            scan_match = _scan_name_match(sidecar_path)
-            kind_rank = 1 if scan_match is not None else 0
-            candidates.append(((page_rank, kind_rank, sidecar_path.name.casefold()), sidecar_path))
-    for _sort_key, sidecar_path in sorted(candidates, key=lambda item: item[0]):
-        yield sidecar_path
-
-
-def _iter_album_p01_sidecars(image_path: Path):
-    for sidecar_path in _iter_album_cover_sidecars(image_path):
-        match = _cover_sidecar_match(sidecar_path)
-        if match is None:
-            continue
-        if int(match.group("page")) == 1:
-            yield sidecar_path
-
-
-def _scan_name_match(path: str | Path):
-    return SCAN_NAME_RE.fullmatch(Path(path).stem)
-
-
-def _derived_name_match(path: str | Path):
-    return DERIVED_NAME_RE.fullmatch(Path(path).stem)
-
-
-def _base_page_name_match(path: str | Path):
-    return BASE_PAGE_NAME_RE.fullmatch(Path(path).stem)
-
-
-def _title_page_scan_match(path: str | Path):
-    match = _scan_name_match(path)
-    if match is None:
-        return None
-    try:
-        page_number = int(match.group("page"))
-        scan_number = int(match.group("scan"))
-    except (ValueError, IndexError):
-        return None
-    if page_number == 1 and scan_number == 1:
-        return match
-    return None
-
-
-def _title_page_base_match(path: str | Path):
-    match = _base_page_name_match(path)
-    if match is None:
-        return None
-    try:
-        page_number = int(match.group("page"))
-    except (ValueError, IndexError):
-        return None
-    if page_number == 1:
-        return match
-    return None
-
-
-def _title_page_match(path: str | Path):
-    return _title_page_scan_match(path) or _title_page_base_match(path)
-
-
-def _cover_sidecar_match(path: str | Path):
-    return _title_page_match(path)
-
-
-def _title_page_dependency_sort_key(path: Path) -> tuple[int, int, int, int, str]:
-    _, _, _, page = parse_album_filename(path.name)
-    try:
-        page_number = int(str(page or "").strip())
-    except ValueError:
-        page_number = 999
-    scan_match = _scan_name_match(path)
-    derived_match = _derived_name_match(path)
-    if scan_match is not None:
-        kind_rank = 0
-        item_number = int(scan_match.group("scan"))
-    elif derived_match is None:
-        kind_rank = 1
-        item_number = 0
-    else:
-        kind_rank = 2
-        item_number = int(derived_match.group("derived"))
-    return (
-        page_number,
-        kind_rank,
-        item_number,
-        len(path.name),
-        path.name.casefold(),
-    )
-
-
-def _is_album_title_source_candidate(image_path: Path) -> bool:
-    return _title_page_match(image_path) is not None
-
-
-def _iter_album_title_page_images(image_path: Path, extensions: set[str]):
-    seen: set[str] = set()
-    album_key = _album_identity_key(image_path)
-    candidates: list[Path] = []
-    for folder in _album_directory_candidates(image_path):
-        try:
-            rows = list(folder.iterdir())
-        except FileNotFoundError:
-            continue
-        for candidate in rows:
-            if not candidate.is_file():
-                continue
-            if candidate.suffix.lower() not in extensions:
-                continue
-            if _album_identity_key(candidate) != album_key:
-                continue
-            if _title_page_match(candidate) is None:
-                continue
-            key = str(candidate.resolve()).casefold()
-            if key in seen:
-                continue
-            seen.add(key)
-            candidates.append(candidate)
-    for candidate in sorted(candidates, key=_title_page_dependency_sort_key):
-        yield candidate
-
-
-def _resolve_album_title_dependencies(image_path: Path, extensions: set[str]) -> list[Path]:
-    if _is_album_title_source_candidate(image_path):
-        return []
-    if _album_title_valid_in_sidecars(image_path):
-        return []
-    current_key = str(image_path.resolve()).casefold()
-    candidates = [
-        path
-        for path in _iter_album_title_page_images(image_path, extensions)
-        if str(path.resolve()).casefold() != current_key
-    ]
-    source_candidates = [path for path in candidates if _is_album_title_source_candidate(path)]
-    return source_candidates or candidates
-
-
-def _expand_album_title_dependencies(files: list[Path], extensions: set[str]) -> list[Path]:
-    expanded: list[Path] = []
-    seen: set[str] = set()
-    for image_path in files:
-        for dependency in _resolve_album_title_dependencies(image_path, extensions):
-            dep_key = str(dependency.resolve()).casefold()
-            if dep_key in seen:
-                continue
-            seen.add(dep_key)
-            expanded.append(dependency)
-        image_key = str(image_path.resolve()).casefold()
-        if image_key in seen:
-            continue
-        seen.add(image_key)
-        expanded.append(image_path)
-    return expanded
-
-
-def _read_album_title_from_sidecar_iter(sidecar_iter) -> str:
-    for sidecar_path in sidecar_iter:
-        state = read_ai_sidecar_state(sidecar_path)
-        if not isinstance(state, dict):
-            continue
-        album_title = str(state.get("album_title") or "").strip()
-        if album_title:
-            return album_title
-    return ""
-
-
-def _resolve_album_title_from_sidecars(image_path: Path) -> str:
-    """Read album title from the P01 XMP sidecar. Returns '' if not yet processed."""
-    return _read_album_title_from_sidecar_iter(_iter_album_p01_sidecars(image_path))
-
-
-def _album_title_valid_in_sidecars(image_path: Path) -> bool:
-    """Return True only if the P01 sidecar exists and its album_title matches its ocr_text.
-
-    A mismatch means the title was set by the AI caption (not OCR) and needs to be
-    reprocessed so the OCR-authoritative value is written.
-    """
-    for sidecar_path in _iter_album_p01_sidecars(image_path):
-        state = read_ai_sidecar_state(sidecar_path)
-        if not isinstance(state, dict):
-            continue
-        album_title = str(state.get("album_title") or "").strip()
-        ocr_text = str(state.get("ocr_text") or "").strip()
-        if album_title and ocr_text and album_title == ocr_text:
-            return True
-    return False
-
-
-def _resolve_album_title_hint(image_path: Path) -> str:
-    return _resolve_album_title_from_sidecars(image_path)
-
-
-def _resolve_album_printed_title_from_sidecars(image_path: Path) -> str:
-    return _read_album_title_from_sidecar_iter(_iter_album_cover_sidecars(image_path))
-
-
-def _resolve_album_printed_title_hint(image_path: Path, printed_title_cache: dict[str, str]) -> str:
-    key = _album_identity_key(image_path)
-    cached = str(printed_title_cache.get(key) or "").strip()
-    if cached:
-        return cached
-    title = _resolve_album_printed_title_from_sidecars(image_path)
-    if title:
-        printed_title_cache[key] = title
-    return title
-
-
-def _store_album_printed_title_hint(image_path: Path, printed_title_cache: dict[str, str], title: str) -> str:
-    value = str(title or "").strip()
-    if value:
-        printed_title_cache[_album_identity_key(image_path)] = value
-    return value
-
-
-def _looks_like_album_title_page(image_path: Path) -> bool:
-    return _title_page_match(image_path) is not None
-
-
-def _require_album_title_for_title_page(
-    *,
-    image_path: Path,
-    album_title: str,
-    context: str,
-) -> str:
-    value = clean_text(str(album_title or ""))
-    if value:
-        return value
-    if _is_album_title_source_candidate(image_path):
-        raise RuntimeError(f"Missing album title for title page during {context}: {image_path}")
-    return ""
-
-
-def _resolve_title_page_album_title(
-    *,
-    image_path: Path,
-    album_title: str,
-    ocr_text: str,
-) -> str:
-    value = clean_text(str(album_title or ""))
-    if value:
-        return value
-    if _is_album_title_source_candidate(image_path):
-        return clean_text(str(ocr_text or ""))
-    return ""
-
-
 def append_job_artifact(record: dict[str, Any]) -> None:
     artifact_file = str(os.environ.get(JOB_ARTIFACTS_ENV) or "").strip()
     if not artifact_file:
@@ -539,267 +297,6 @@ def _emit_prompt_debug_artifact(prompt_debug: PromptDebugSession | None, *, dry_
     if prompt_debug is None or not prompt_debug.has_steps():
         return
     append_job_artifact(prompt_debug.to_artifact())
-
-
-def _processing_lock_path(image_path: Path) -> Path:
-    return image_path.with_name(f"{image_path.name}{PROCESSING_LOCK_SUFFIX}")
-
-
-def _pid_alive(pid: int) -> bool:
-    try:
-        os.kill(pid, 0)
-    except OSError:
-        return False
-    return True
-
-
-def _read_processing_lock(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {}
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-    return payload if isinstance(payload, dict) else {}
-
-
-def _release_image_processing_lock(lock_path: Path | None) -> None:
-    if lock_path is None:
-        return
-    with contextlib.suppress(FileNotFoundError):
-        lock_path.unlink()
-
-
-def _release_batch_processing_lock(lock_path: Path | None) -> None:
-    _release_image_processing_lock(lock_path)
-
-
-def _clear_stale_processing_lock(lock_path: Path) -> bool:
-    payload = _read_processing_lock(lock_path)
-    pid = payload.get("pid")
-    if isinstance(pid, int) and pid > 0 and not _pid_alive(pid):
-        with contextlib.suppress(FileNotFoundError):
-            lock_path.unlink()
-        return True
-    return False
-
-
-def _acquire_image_processing_lock(image_path: Path) -> Path:
-    lock_path = _processing_lock_path(image_path)
-    payload = {
-        "image_path": str(image_path.resolve()),
-        "pid": os.getpid(),
-        "job_id": str(os.environ.get(JOB_ID_ENV) or "").strip(),
-    }
-    for _ in range(2):
-        try:
-            fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        except FileExistsError:
-            if _clear_stale_processing_lock(lock_path):
-                continue
-            current = _read_processing_lock(lock_path)
-            owner_parts = []
-            job_id = str(current.get("job_id") or "").strip()
-            if job_id:
-                owner_parts.append(f"job {job_id}")
-            pid = current.get("pid")
-            if isinstance(pid, int):
-                owner_parts.append(f"pid {pid}")
-            owner = ", ".join(owner_parts) if owner_parts else str(lock_path)
-            raise RuntimeError(f"already processing {image_path.name} ({owner})")
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True))
-        return lock_path
-    raise RuntimeError(f"could not acquire processing lock for {image_path.name}")
-
-
-def _batch_processing_lock_path(photos_root: Path) -> Path:
-    return photos_root / BATCH_LOCK_SUFFIX
-
-
-def _acquire_batch_processing_lock(photos_root: Path) -> Path:
-    lock_path = _batch_processing_lock_path(photos_root)
-    payload = {
-        "photos_root": str(photos_root.resolve()),
-        "pid": os.getpid(),
-        "job_id": str(os.environ.get(JOB_ID_ENV) or "").strip(),
-    }
-    for _ in range(2):
-        try:
-            fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        except FileExistsError:
-            if _clear_stale_processing_lock(lock_path):
-                continue
-            current = _read_processing_lock(lock_path)
-            owner_parts = []
-            current_root = str(current.get("photos_root") or "").strip()
-            if current_root:
-                owner_parts.append(current_root)
-            job_id = str(current.get("job_id") or "").strip()
-            if job_id:
-                owner_parts.append(f"job {job_id}")
-            pid = current.get("pid")
-            if isinstance(pid, int):
-                owner_parts.append(f"pid {pid}")
-            owner = ", ".join(owner_parts) if owner_parts else str(lock_path)
-            raise RuntimeError(f"another photoalbums ai batch run is already active ({owner})")
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True))
-        return lock_path
-    raise RuntimeError("could not acquire photoalbums ai batch lock")
-
-
-def has_valid_sidecar(path: Path) -> bool:
-    sidecar_path = path.with_suffix(".xmp")
-    try:
-        return sidecar_path.is_file() and int(sidecar_path.stat().st_size) > MIN_EXISTING_SIDECAR_BYTES
-    except FileNotFoundError:
-        return False
-
-
-def has_current_sidecar(path: Path) -> bool:
-    sidecar_path = path.with_suffix(".xmp")
-    try:
-        if not has_valid_sidecar(path):
-            return False
-        return int(sidecar_path.stat().st_mtime_ns) >= int(path.stat().st_mtime_ns)
-    except FileNotFoundError:
-        return False
-
-
-def _sidecar_current_for_paths(sidecar_path: Path, source_paths: list[Path]) -> bool:
-    try:
-        if not sidecar_path.is_file():
-            return False
-        sidecar_mtime_ns = int(sidecar_path.stat().st_mtime_ns)
-        latest_source_mtime_ns = max(int(path.stat().st_mtime_ns) for path in source_paths)
-        return sidecar_mtime_ns >= latest_source_mtime_ns
-    except (FileNotFoundError, ValueError):
-        return False
-
-
-def _xmp_timestamp_from_path(path: Path) -> str:
-    try:
-        timestamp = path.stat().st_mtime
-    except OSError:
-        return ""
-    text = datetime.fromtimestamp(timestamp, tz=timezone.utc).replace(microsecond=0).isoformat()
-    return text.replace("+00:00", "Z")
-
-
-def read_embedded_create_date(path: Path) -> str:
-    for tag in (
-        "XMP-xmp:CreateDate",
-        "XMP-exif:DateTimeOriginal",
-        "EXIF:DateTimeOriginal",
-        "EXIF:CreateDate",
-    ):
-        normalized = _normalize_xmp_datetime(str(read_tag(path, tag) or "").strip())
-        if normalized:
-            return normalized
-    return ""
-
-
-def _dc_source_scan_names(source_text: str) -> list[str]:
-    names: list[str] = []
-    for part in str(source_text or "").split(";"):
-        candidate = Path(str(part or "").strip()).name
-        if candidate.lower().endswith(".tif"):
-            names.append(candidate)
-    return _dedupe(names)
-
-
-def _is_derived_image_path(image_path: Path) -> bool:
-    return _derived_name_match(image_path) is not None or DERIVED_VIEW_RE.search(Path(image_path).stem) is not None
-
-
-def _resolve_derived_source_sidecar_state(
-    image_path: Path,
-    sidecar_state: dict[str, Any] | None,
-) -> dict[str, Any] | None:
-    if not _is_derived_image_path(image_path) or not isinstance(sidecar_state, dict):
-        return None
-    archive_dir = find_archive_dir_for_image(image_path)
-    if archive_dir is None or not archive_dir.is_dir():
-        return None
-    scan_names = _dc_source_scan_names(str(sidecar_state.get("source_text") or ""))
-    if not scan_names:
-        return None
-    source_state = read_ai_sidecar_state((archive_dir / scan_names[0]).with_suffix(".xmp"))
-    return source_state if isinstance(source_state, dict) else None
-
-
-def _resolve_derived_source_ocr_text(image_path: Path, sidecar_state: dict[str, Any] | None) -> str:
-    source_state = _resolve_derived_source_sidecar_state(image_path, sidecar_state)
-    if not isinstance(source_state, dict):
-        return ""
-    return str(source_state.get("ocr_text") or "").strip()
-
-
-def _sidecar_location_payload(sidecar_state: dict[str, Any] | None) -> dict[str, Any]:
-    if not isinstance(sidecar_state, dict):
-        return {}
-    detections = sidecar_state.get("detections")
-    location = dict(detections.get("location") or {}) if isinstance(detections, dict) else {}
-    gps_latitude = _xmp_gps_to_decimal(sidecar_state.get("gps_latitude"), axis="lat")
-    gps_longitude = _xmp_gps_to_decimal(sidecar_state.get("gps_longitude"), axis="lon")
-    if gps_latitude and not str(location.get("gps_latitude") or "").strip():
-        location["gps_latitude"] = gps_latitude
-    if gps_longitude and not str(location.get("gps_longitude") or "").strip():
-        location["gps_longitude"] = gps_longitude
-    return location
-
-
-def _effective_sidecar_location_payload(image_path: Path, sidecar_state: dict[str, Any] | None) -> dict[str, Any]:
-    if not isinstance(sidecar_state, dict):
-        return {}
-    if _is_derived_image_path(image_path):
-        source_location = _sidecar_location_payload(_resolve_derived_source_sidecar_state(image_path, sidecar_state))
-        if source_location:
-            return source_location
-    return _sidecar_location_payload(sidecar_state)
-
-
-def _effective_sidecar_ocr_text(image_path: Path, sidecar_state: dict[str, Any] | None) -> str:
-    if not isinstance(sidecar_state, dict):
-        return ""
-    if _is_derived_image_path(image_path):
-        return _resolve_derived_source_ocr_text(image_path, sidecar_state)
-    return str(sidecar_state.get("ocr_text") or "").strip()
-
-
-def _resolve_xmp_text_layers(
-    *,
-    image_path: Path,
-    ocr_text: str,
-    page_like: bool,
-    ocr_authority_source: str = "",
-    author_text: str = "",
-    scene_text: str = "",
-) -> dict[str, str]:
-    del image_path, ocr_text, page_like, ocr_authority_source
-    clean_author = str(author_text or "").strip()
-    clean_scene = str(scene_text or "").strip()
-
-    return {
-        "author_text": clean_author,
-        "scene_text": clean_scene,
-    }
-
-
-def _compute_xmp_title(
-    *,
-    image_path: Path,
-    explicit_title: str,
-    title_source: str = "",
-    author_text: str = "",
-) -> tuple[str, str]:
-    clean_title = str(explicit_title or "").strip()
-    clean_source = str(title_source or "").strip()
-
-    if clean_title and clean_source:
-        return clean_title, clean_source
-    return "", ""
 
 
 def _page_scan_filenames(image_path: Path) -> list[str]:
@@ -897,30 +394,6 @@ def needs_processing(
     if not has_valid_sidecar(path):
         return True
     return int(sidecar_path.stat().st_mtime_ns) < int(stat.st_mtime_ns)
-
-
-def _xmp_gps_to_decimal(value: object, *, axis: str) -> str:
-    text = str(value or "").strip()
-    if not text:
-        return ""
-    if "," not in text or len(text) < 2:
-        return _normalize_gps_value(text, axis=axis)
-    hemisphere = text[-1:].upper()
-    body = text[:-1]
-    if axis == "lat" and hemisphere not in {"N", "S"}:
-        return _normalize_gps_value(text, axis=axis)
-    if axis == "lon" and hemisphere not in {"E", "W"}:
-        return _normalize_gps_value(text, axis=axis)
-    degrees_text, minutes_text = body.split(",", 1)
-    try:
-        degrees = int(degrees_text.strip())
-        minutes = float(minutes_text.strip())
-    except ValueError:
-        return _normalize_gps_value(text, axis=axis)
-    decimal = float(degrees) + (minutes / 60.0)
-    if hemisphere in {"S", "W"}:
-        decimal = -decimal
-    return f"{decimal:.8f}".rstrip("0").rstrip(".")
 
 
 def _explicit_cli_flags(argv: list[str] | None) -> set[str]:
@@ -1115,7 +588,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--reprocess-mode",
         default="unprocessed",
-        choices=["unprocessed", "new_only", "errors_only", "outdated", "cast_changed", "all"],
+        choices=["unprocessed", "new_only", "errors_only", "outdated", "cast_changed", "gps", "all"],
         help=(
             "Controls which images are processed. "
             "'unprocessed' (default): images with missing or stale sidecar. "
@@ -1123,6 +596,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "'errors_only': only images whose sidecar contains a processing error. "
             "'outdated': only images where the sidecar is older than the image file. "
             "'cast_changed': only images needing people re-detection when the cast store changes. "
+            "'gps': re-run only the GPS location estimate step for already-indexed images. "
             "'all': force reprocess everything (same as --force)."
         ),
     )
@@ -1373,18 +847,6 @@ def _refresh_detection_model_metadata(
     return updated
 
 
-_COORDINATE_LABEL_RE = re.compile(
-    r"\b(?P<label>lat(?:itude)?|lon(?:gitude)?|long)\b\s*[:=]?\s*"
-    r"(?P<value>.+?)(?=(?:\b(?:lat(?:itude)?|lon(?:gitude)?|long)\b)|[\n\r;]|$)",
-    flags=re.IGNORECASE,
-)
-_COORDINATE_HEMISPHERE_RE = re.compile(
-    r"(?:\d{1,3}(?:\.\d+)?\s*[NSEW])"
-    r"|(?:\d{1,3}\s*[°º]\s*\d{1,2}\s*[′']\s*\d{1,2}(?:\.\d+)?\s*[″\"]?\s*[NSEW])",
-    flags=re.IGNORECASE,
-)
-
-
 def _estimate_people_from_detections(
     *,
     people_matches: list | None = None,
@@ -1433,23 +895,6 @@ def _merge_people_estimates(
     )
     people_present = bool(local_people_present or model_people_present or estimated_people_count > 0)
     return people_present, estimated_people_count
-
-
-def _merge_location_estimates(
-    *,
-    local_gps_latitude: str,
-    local_gps_longitude: str,
-    model_gps_latitude: str,
-    model_gps_longitude: str,
-    model_location_name: str,
-) -> tuple[str, str, str]:
-    lat_text = str(local_gps_latitude or "").strip()
-    lon_text = str(local_gps_longitude or "").strip()
-    if lat_text and lon_text:
-        return lat_text, lon_text, str(model_location_name or "").strip()
-    model_lat = str(model_gps_latitude or "").strip()
-    model_lon = str(model_gps_longitude or "").strip()
-    return model_lat, model_lon, str(model_location_name or "").strip()
 
 
 def _resolve_people_count_metadata(
@@ -1510,108 +955,6 @@ def _resolve_people_count_metadata(
     )
 
 
-def _resolve_location_metadata(
-    *,
-    requested_caption_engine: str,
-    caption_engine: Any,
-    model_image_path: Path,
-    people: list[str],
-    objects: list[str],
-    ocr_text: str,
-    source_path: Path,
-    album_title: str,
-    printed_album_title: str,
-    people_positions: dict[str, str],
-    fallback_location_name: str,
-    prompt_debug: PromptDebugSession | None = None,
-    debug_step: str = "location",
-) -> tuple[str, str, str]:
-    local_gps_latitude, local_gps_longitude = _extract_explicit_gps_from_text(ocr_text)
-    if str(requested_caption_engine or "").strip().lower() != "lmstudio":
-        return (
-            local_gps_latitude,
-            local_gps_longitude,
-            str(fallback_location_name or "").strip(),
-        )
-    estimate_location = getattr(caption_engine, "estimate_location", None)
-    if not callable(estimate_location):
-        return (
-            local_gps_latitude,
-            local_gps_longitude,
-            str(fallback_location_name or "").strip(),
-        )
-    try:
-        result = estimate_location(
-            image_path=model_image_path,
-            people=people,
-            objects=objects,
-            ocr_text=ocr_text,
-            source_path=source_path,
-            album_title=album_title,
-            printed_album_title=printed_album_title,
-            people_positions=people_positions,
-            debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
-            debug_step=debug_step,
-        )
-    except Exception:
-        return (
-            local_gps_latitude,
-            local_gps_longitude,
-            str(fallback_location_name or "").strip(),
-        )
-    fallback = getattr(result, "fallback", False)
-    if not isinstance(fallback, bool) or fallback:
-        return (
-            local_gps_latitude,
-            local_gps_longitude,
-            str(fallback_location_name or "").strip(),
-        )
-    return _merge_location_estimates(
-        local_gps_latitude=local_gps_latitude,
-        local_gps_longitude=local_gps_longitude,
-        model_gps_latitude=str(getattr(result, "gps_latitude", "") or "").strip(),
-        model_gps_longitude=str(getattr(result, "gps_longitude", "") or "").strip(),
-        model_location_name=(
-            str(getattr(result, "location_name", "") or "").strip() or str(fallback_location_name or "").strip()
-        ),
-    )
-
-
-def _extract_explicit_gps_from_text(text: str) -> tuple[str, str]:
-    raw = str(text or "").strip()
-    if not raw:
-        return "", ""
-
-    lat_text = ""
-    lon_text = ""
-    for match in _COORDINATE_LABEL_RE.finditer(raw):
-        label = str(match.group("label") or "").casefold()
-        axis = "lat" if label.startswith("lat") else "lon"
-        value = _normalize_gps_value(str(match.group("value") or ""), axis=axis)
-        if not value:
-            continue
-        if axis == "lat" and not lat_text:
-            lat_text = value
-        if axis == "lon" and not lon_text:
-            lon_text = value
-        if lat_text and lon_text:
-            return lat_text, lon_text
-
-    for match in _COORDINATE_HEMISPHERE_RE.finditer(raw):
-        value = str(match.group(0) or "").strip()
-        if not value:
-            continue
-        upper_value = value.upper()
-        if any(marker in upper_value for marker in ("N", "S")) and not lat_text:
-            lat_text = _normalize_gps_value(value, axis="lat")
-        if any(marker in upper_value for marker in ("E", "W")) and not lon_text:
-            lon_text = _normalize_gps_value(value, axis="lon")
-        if lat_text and lon_text:
-            return lat_text, lon_text
-
-    return ("", "") if not (lat_text and lon_text) else (lat_text, lon_text)
-
-
 def _serialize_people_matches(people_matches: list) -> list[dict[str, Any]]:
     return [
         {
@@ -1652,62 +995,6 @@ def _merge_people_matches(*match_groups: list) -> list:
         )
     )
     return out
-
-
-def _resolve_location_payload(
-    *,
-    geocoder: NominatimGeocoder | None,
-    gps_latitude: str,
-    gps_longitude: str,
-    location_name: str,
-) -> dict[str, Any]:
-    lat_text = str(gps_latitude or "").strip()
-    lon_text = str(gps_longitude or "").strip()
-    query = str(location_name or "").strip()
-    # Reject generic place-type descriptions (e.g. "a beach", "a park") — they
-    # are not named places and produce spurious Nominatim results.
-    if re.match(r"^(?:a|an)\s+\S", query, re.IGNORECASE):
-        query = ""
-    if lat_text and lon_text:
-        payload: dict[str, Any] = {
-            "gps_latitude": float(lat_text),
-            "gps_longitude": float(lon_text),
-            "map_datum": "WGS-84",
-            "source": "caption",
-        }
-        if query:
-            payload["query"] = query
-        return payload
-    geocode_error = ""
-    if query and geocoder is not None:
-        try:
-            result = geocoder.geocode(query)
-        except Exception as exc:
-            result = None
-            geocode_error = str(exc or "").strip()
-        if result is not None:
-            loc: dict[str, Any] = {
-                "query": result.query,
-                "display_name": result.display_name,
-                "gps_latitude": float(result.latitude),
-                "gps_longitude": float(result.longitude),
-                "map_datum": "WGS-84",
-                "source": result.source,
-            }
-            if str(getattr(result, "city", "") or "").strip():
-                loc["city"] = str(result.city).strip()
-            if str(getattr(result, "state", "") or "").strip():
-                loc["state"] = str(result.state).strip()
-            if str(getattr(result, "country", "") or "").strip():
-                loc["country"] = str(result.country).strip()
-            return loc
-    if query and geocode_error:
-        return {
-            "query": query,
-            "error": geocode_error,
-            "source": "nominatim",
-        }
-    return {}
 
 
 @contextlib.contextmanager
@@ -2394,6 +1681,81 @@ def _run_scan_stitch_pass(
     return failures
 
 
+def _write_sidecar_and_record(
+    sidecar_path: Path,
+    image_path: Path,
+    *,
+    creator_tool: str,
+    person_names: list[str],
+    subjects: list[str],
+    title: str = "",
+    title_source: str = "",
+    description: str,
+    album_title: str = "",
+    location_payload: dict[str, Any],
+    source_text: str = "",
+    ocr_text: str,
+    ocr_lang: str = "",
+    author_text: str = "",
+    scene_text: str = "",
+    detections_payload: dict[str, Any] | None = None,
+    subphotos: list[dict[str, Any]] | None = None,
+    stitch_key: str = "",
+    ocr_authority_source: str = "",
+    create_date: str = "",
+    dc_date: str = "",
+    date_time_original: str = "",
+    ocr_ran: bool = False,
+    people_detected: bool = False,
+    people_identified: bool = False,
+) -> None:
+    """Write XMP sidecar and record the artifact.  Derives history_when and image
+    dimensions from image_path; unpacks GPS fields from location_payload."""
+    img_w, img_h = _get_image_dimensions(image_path)
+    loc = location_payload
+    write_xmp_sidecar(
+        sidecar_path,
+        creator_tool=creator_tool,
+        person_names=person_names,
+        subjects=subjects,
+        title=title,
+        title_source=title_source,
+        description=description,
+        album_title=album_title,
+        gps_latitude=str(loc.get("gps_latitude") or ""),
+        gps_longitude=str(loc.get("gps_longitude") or ""),
+        location_city=str(loc.get("city") or ""),
+        location_state=str(loc.get("state") or ""),
+        location_country=str(loc.get("country") or ""),
+        source_text=source_text,
+        ocr_text=ocr_text,
+        ocr_lang=ocr_lang,
+        author_text=author_text,
+        scene_text=scene_text,
+        detections_payload=detections_payload,
+        subphotos=subphotos,
+        stitch_key=stitch_key,
+        ocr_authority_source=ocr_authority_source,
+        create_date=create_date,
+        dc_date=dc_date,
+        date_time_original=date_time_original,
+        history_when=_xmp_timestamp_from_path(image_path),
+        image_width=img_w,
+        image_height=img_h,
+        ocr_ran=ocr_ran,
+        people_detected=people_detected,
+        people_identified=people_identified,
+    )
+    append_job_artifact(
+        {
+            "kind": "photoalbums_xmp",
+            "image_path": str(image_path),
+            "sidecar_path": str(sidecar_path),
+            "label": image_path.name,
+        }
+    )
+
+
 def run(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     explicit_flags = _explicit_cli_flags(argv)
@@ -2722,7 +2084,16 @@ def run(argv: list[str] | None = None) -> int:
             reprocess_required=reprocess_required,
         )
 
-        if not needs_full and not people_update_only and not isinstance(existing_sidecar_state, dict):
+        gps_update_only = False
+        if (
+            reprocess_mode == "gps"
+            and not needs_full
+            and existing_sidecar_complete
+            and existing_sidecar_state is not None
+        ):
+            gps_update_only = True
+
+        if not needs_full and not people_update_only and not gps_update_only and not isinstance(existing_sidecar_state, dict):
             skipped += 1
             if args.verbose and not stdout_only:
                 print(f"[{idx}/{len(files)}] skip  {image_path.name}")
@@ -2745,6 +2116,8 @@ def run(argv: list[str] | None = None) -> int:
                 _mode_match = "sidecar_older_than_image" in _reasons_set
             elif reprocess_mode == "cast_changed":
                 _mode_match = "cast_store_signature_changed" in _reasons_set
+            elif reprocess_mode == "gps":
+                _mode_match = gps_update_only
             else:
                 _mode_match = True
             if not _mode_match:
@@ -2779,7 +2152,7 @@ def run(argv: list[str] | None = None) -> int:
             emit_error(f"[{idx}/{len(files)}] fail  {image_path.name}: {exc}")
             continue
 
-        if not needs_full and not people_update_only:
+        if not needs_full and not people_update_only and not gps_update_only:
             state = existing_sidecar_state
             if isinstance(state, dict):
                 file_start = time.monotonic()
@@ -3123,7 +2496,6 @@ def run(argv: list[str] | None = None) -> int:
                     pu_people_identified = len(pu_person_names) > 0
 
                     if not dry_run:
-                        pu_img_w, pu_img_h = _get_image_dimensions(image_path)
                         pu_album_title = _require_album_title_for_title_page(
                             image_path=image_path,
                             album_title=_resolve_title_page_album_title(
@@ -3180,8 +2552,9 @@ def run(argv: list[str] | None = None) -> int:
                         if existing_location:
                             pu_updated_det["location"] = existing_location
                         pu_updated_det = {**pu_updated_det, "processing": pu_proc}
-                        write_xmp_sidecar(
+                        _write_sidecar_and_record(
                             sidecar_path,
+                            image_path,
                             creator_tool=creator_tool,
                             person_names=pu_person_names,
                             subjects=pu_subjects,
@@ -3189,11 +2562,7 @@ def run(argv: list[str] | None = None) -> int:
                             title_source=xmp_title_source,
                             description=str(state.get("description") or ""),
                             album_title=pu_album_title,
-                            gps_latitude=str(existing_location.get("gps_latitude") or ""),
-                            gps_longitude=str(existing_location.get("gps_longitude") or ""),
-                            location_city=str(existing_location.get("city") or ""),
-                            location_state=str(existing_location.get("state") or ""),
-                            location_country=str(existing_location.get("country") or ""),
+                            location_payload=existing_location,
                             source_text=pu_source_text,
                             ocr_text=existing_ocr_text,
                             author_text=str(text_layers.get("author_text") or ""),
@@ -3206,22 +2575,9 @@ def run(argv: list[str] | None = None) -> int:
                             ),
                             dc_date=pu_dc_date,
                             date_time_original=pu_date_time_original,
-                            history_when=_xmp_timestamp_from_path(image_path),
-                            image_width=pu_img_w,
-                            image_height=pu_img_h,
                             ocr_ran=bool(state.get("ocr_ran") or True),
                             people_detected=pu_people_detected,
                             people_identified=pu_people_identified,
-                        )
-
-                    if not dry_run:
-                        append_job_artifact(
-                            {
-                                "kind": "photoalbums_xmp",
-                                "image_path": str(image_path),
-                                "sidecar_path": str(sidecar_path),
-                                "label": image_path.name,
-                            }
                         )
 
                     processed += 1
@@ -3241,6 +2597,142 @@ def run(argv: list[str] | None = None) -> int:
                 if not needs_full:
                     _release_image_processing_lock(lock_path)
                     continue
+
+        # ── GPS location step (re-run only location estimate + geocode) ───────
+        if not needs_full and gps_update_only and not stdout_only:
+            state = existing_sidecar_state
+            if not isinstance(state, dict):
+                _release_image_processing_lock(lock_path)
+                continue
+            file_start = time.monotonic()
+            det = state.get("detections") or {}
+            gps_ocr_text = _effective_sidecar_ocr_text(image_path, state)
+            gps_ocr_keywords = list((det.get("ocr") or {}).get("keywords") or [])
+            gps_people_names = _dedupe(
+                [str(r.get("name") or "") for r in list(det.get("people") or []) if isinstance(r, dict) and r.get("name")]
+            )
+            gps_object_labels = [
+                str(r.get("label") or "") for r in list(det.get("objects") or []) if isinstance(r, dict) and r.get("label")
+            ]
+            gps_album_title = str(state.get("album_title") or "").strip()
+            gps_printed_title = _resolve_album_printed_title_hint(image_path, printed_album_title_cache)
+            gps_existing_location_name = str((dict(det.get("location") or {})).get("query") or "").strip()
+
+            eta_str = _format_eta(completed_times, len(files) - idx + 1)
+            eta_part = f"  {eta_str}" if eta_str else ""
+            prefix = f"[{idx}/{len(files)}]{eta_part}  {image_path.name}"
+            print(prefix, flush=True)
+            _gps_stop, _gps_step = _progress_ticker(prefix)
+
+            try:
+                caption_key = (
+                    str(effective.get("caption_engine", defaults["caption_engine"])),
+                    str(effective.get("caption_model", defaults["caption_model"])),
+                    str(effective.get("caption_prompt", defaults["caption_prompt"])),
+                    int(effective.get("caption_max_tokens", defaults["caption_max_tokens"])),
+                    float(effective.get("caption_temperature", defaults["caption_temperature"])),
+                    str(effective.get("lmstudio_base_url", defaults["lmstudio_base_url"])),
+                    int(effective.get("caption_max_edge", defaults["caption_max_edge"])),
+                )
+                gps_caption_engine = caption_engine_cache.get(caption_key)
+                if gps_caption_engine is None:
+                    gps_caption_engine = _init_caption_engine(
+                        engine=caption_key[0],
+                        model_name=caption_key[1],
+                        caption_prompt=caption_key[2],
+                        max_tokens=int(caption_key[3]),
+                        temperature=float(caption_key[4]),
+                        lmstudio_base_url=caption_key[5],
+                        max_image_edge=int(caption_key[6]),
+                        stream=True,
+                    )
+                    caption_engine_cache[caption_key] = gps_caption_engine
+
+                gps_prompt_debug = PromptDebugSession(image_path)
+                _gps_step("location")
+                with _prepare_ai_model_image(image_path) as gps_model_path:
+                    gps_latitude, gps_longitude, location_name = _resolve_location_metadata(
+                        requested_caption_engine=str(caption_key[0]),
+                        caption_engine=gps_caption_engine,
+                        model_image_path=gps_model_path,
+                        people=gps_people_names,
+                        objects=gps_object_labels,
+                        ocr_text=gps_ocr_text,
+                        source_path=image_path,
+                        album_title=gps_album_title,
+                        printed_album_title=gps_printed_title,
+                        people_positions={},
+                        fallback_location_name=gps_existing_location_name,
+                        prompt_debug=gps_prompt_debug,
+                        debug_step="location_gps_step",
+                    )
+                gps_location_payload = _resolve_location_payload(
+                    geocoder=geocoder,
+                    gps_latitude=gps_latitude,
+                    gps_longitude=gps_longitude,
+                    location_name=location_name,
+                )
+                _emit_prompt_debug_artifact(gps_prompt_debug, dry_run=dry_run)
+
+                if not dry_run:
+                    gps_updated_det = {**det}
+                    if gps_location_payload:
+                        gps_updated_det["location"] = gps_location_payload
+                    elif "location" in gps_updated_det:
+                        del gps_updated_det["location"]
+                    gps_subjects = _dedupe(
+                        gps_object_labels + gps_ocr_keywords + ([gps_album_title] if gps_album_title else [])
+                    )
+                    xmp_title, xmp_title_source = _compute_xmp_title(
+                        image_path=image_path,
+                        explicit_title=str(state.get("title") or ""),
+                        title_source=str(state.get("title_source") or ""),
+                        author_text=str(state.get("author_text") or ""),
+                    )
+                    _write_sidecar_and_record(
+                        sidecar_path,
+                        image_path,
+                        creator_tool=creator_tool,
+                        person_names=list(existing_xmp_people),
+                        subjects=gps_subjects,
+                        title=xmp_title,
+                        title_source=xmp_title_source,
+                        description=str(state.get("description") or ""),
+                        album_title=gps_album_title,
+                        location_payload=gps_location_payload,
+                        source_text=str(state.get("source_text") or ""),
+                        ocr_text=gps_ocr_text,
+                        ocr_lang=str(state.get("ocr_lang") or ""),
+                        author_text=str(state.get("author_text") or ""),
+                        scene_text=str(state.get("scene_text") or ""),
+                        detections_payload=gps_updated_det,
+                        stitch_key=str(state.get("stitch_key") or ""),
+                        ocr_authority_source=str(state.get("ocr_authority_source") or ""),
+                        create_date=(str(state.get("create_date") or "").strip() or read_embedded_create_date(image_path)),
+                        dc_date=str(state.get("dc_date") or ""),
+                        date_time_original=str(state.get("date_time_original") or ""),
+                        ocr_ran=bool(state.get("ocr_ran")),
+                        people_detected=bool(state.get("people_detected")),
+                        people_identified=bool(state.get("people_identified")),
+                    )
+
+                processed += 1
+                completed_times.append(time.monotonic() - file_start)
+                _gps_stop()
+                eta_str2 = _format_eta(completed_times, len(files) - idx)
+                eta_part2 = f"  {eta_str2}" if eta_str2 else ""
+                print(
+                    f"[{idx}/{len(files)}]{eta_part2}  ok    {image_path.name}  [gps]",
+                    flush=True,
+                )
+            except Exception as exc:
+                failures += 1
+                _gps_stop()
+                emit_error(f"[{idx}/{len(files)}] fail  {image_path.name}: {exc}")
+
+            if not needs_full:
+                _release_image_processing_lock(lock_path)
+                continue
         # ─────────────────────────────────────────────────────────────────────
 
         file_start = time.monotonic()
@@ -3496,8 +2988,9 @@ def run(argv: list[str] | None = None) -> int:
                         "ocr_authority_hash": ocr_authority_hash,
                         "analysis_mode": str(analysis_mode),
                     }
-                    write_xmp_sidecar(
+                    _write_sidecar_and_record(
                         sidecar_path,
+                        image_path,
                         creator_tool=creator_tool,
                         person_names=person_names,
                         subjects=subjects,
@@ -3505,17 +2998,14 @@ def run(argv: list[str] | None = None) -> int:
                         title_source=xmp_title_source,
                         description=description,
                         album_title=final_album_title,
-                        gps_latitude=str(location_payload.get("gps_latitude") or ""),
-                        gps_longitude=str(location_payload.get("gps_longitude") or ""),
-                        location_city=str(location_payload.get("city") or ""),
-                        location_state=str(location_payload.get("state") or ""),
-                        location_country=str(location_payload.get("country") or ""),
+                        location_payload=location_payload,
                         source_text=_build_dc_source(
                             final_album_title,
                             image_path,
                             _scan_filenames,
                         ),
                         ocr_text=ocr_text,
+                        ocr_lang=str(analysis.ocr_lang or ""),
                         author_text=str(text_layers.get("author_text") or ""),
                         scene_text=str(text_layers.get("scene_text") or ""),
                         detections_payload=payload,
@@ -3524,24 +3014,11 @@ def run(argv: list[str] | None = None) -> int:
                         create_date=read_embedded_create_date(image_path),
                         dc_date=final_dc_date,
                         date_time_original=final_date_time_original,
-                        history_when=_xmp_timestamp_from_path(image_path),
-                        image_width=img_w,
-                        image_height=img_h,
                         ocr_ran=_ocr_ran_flag,
                         people_detected=_people_detected_flag,
                         people_identified=_people_identified_flag,
-                        ocr_lang=str(analysis.ocr_lang or ""),
                     )
 
-            if not dry_run:
-                append_job_artifact(
-                    {
-                        "kind": "photoalbums_xmp",
-                        "image_path": str(image_path),
-                        "sidecar_path": str(sidecar_path),
-                        "label": image_path.name,
-                    }
-                )
             _emit_prompt_debug_artifact(prompt_debug, dry_run=dry_run)
             processed += 1
             completed_times.append(time.monotonic() - file_start)

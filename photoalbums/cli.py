@@ -7,9 +7,10 @@ AI_STEP_LINES = [
     "1. Load per-archive render settings overrides (if present).",
     "2. Match known people from Cast face embeddings (optional).",
     "3. Detect visual objects with YOLO (optional).",
-    "4. Generate OCR text, sentence caption, and structured place hints in one combined model call.",
-    "5. Geocode high-confidence place names to GPS coordinates.",
-    "6. Write XMP sidecar metadata (including processing state).",
+    "4. Generate OCR text and sentence caption in one combined model call.",
+    "5. Estimate GPS location from image content and context (re-runnable via --reprocess-mode=gps).",
+    "6. Geocode location name to GPS coordinates via Nominatim.",
+    "7. Write XMP sidecar metadata (including processing state).",
 ]
 
 
