@@ -2395,6 +2395,81 @@ def _run_scan_stitch_pass(
     return failures
 
 
+def _write_sidecar_and_record(
+    sidecar_path: Path,
+    image_path: Path,
+    *,
+    creator_tool: str,
+    person_names: list[str],
+    subjects: list[str],
+    title: str = "",
+    title_source: str = "",
+    description: str,
+    album_title: str = "",
+    location_payload: dict[str, Any],
+    source_text: str = "",
+    ocr_text: str,
+    ocr_lang: str = "",
+    author_text: str = "",
+    scene_text: str = "",
+    detections_payload: dict[str, Any] | None = None,
+    subphotos: list[dict[str, Any]] | None = None,
+    stitch_key: str = "",
+    ocr_authority_source: str = "",
+    create_date: str = "",
+    dc_date: str = "",
+    date_time_original: str = "",
+    ocr_ran: bool = False,
+    people_detected: bool = False,
+    people_identified: bool = False,
+) -> None:
+    """Write XMP sidecar and record the artifact.  Derives history_when and image
+    dimensions from image_path; unpacks GPS fields from location_payload."""
+    img_w, img_h = _get_image_dimensions(image_path)
+    loc = location_payload
+    write_xmp_sidecar(
+        sidecar_path,
+        creator_tool=creator_tool,
+        person_names=person_names,
+        subjects=subjects,
+        title=title,
+        title_source=title_source,
+        description=description,
+        album_title=album_title,
+        gps_latitude=str(loc.get("gps_latitude") or ""),
+        gps_longitude=str(loc.get("gps_longitude") or ""),
+        location_city=str(loc.get("city") or ""),
+        location_state=str(loc.get("state") or ""),
+        location_country=str(loc.get("country") or ""),
+        source_text=source_text,
+        ocr_text=ocr_text,
+        ocr_lang=ocr_lang,
+        author_text=author_text,
+        scene_text=scene_text,
+        detections_payload=detections_payload,
+        subphotos=subphotos,
+        stitch_key=stitch_key,
+        ocr_authority_source=ocr_authority_source,
+        create_date=create_date,
+        dc_date=dc_date,
+        date_time_original=date_time_original,
+        history_when=_xmp_timestamp_from_path(image_path),
+        image_width=img_w,
+        image_height=img_h,
+        ocr_ran=ocr_ran,
+        people_detected=people_detected,
+        people_identified=people_identified,
+    )
+    append_job_artifact(
+        {
+            "kind": "photoalbums_xmp",
+            "image_path": str(image_path),
+            "sidecar_path": str(sidecar_path),
+            "label": image_path.name,
+        }
+    )
+
+
 def run(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     explicit_flags = _explicit_cli_flags(argv)
@@ -3135,7 +3210,6 @@ def run(argv: list[str] | None = None) -> int:
                     pu_people_identified = len(pu_person_names) > 0
 
                     if not dry_run:
-                        pu_img_w, pu_img_h = _get_image_dimensions(image_path)
                         pu_album_title = _require_album_title_for_title_page(
                             image_path=image_path,
                             album_title=_resolve_title_page_album_title(
@@ -3192,8 +3266,9 @@ def run(argv: list[str] | None = None) -> int:
                         if existing_location:
                             pu_updated_det["location"] = existing_location
                         pu_updated_det = {**pu_updated_det, "processing": pu_proc}
-                        write_xmp_sidecar(
+                        _write_sidecar_and_record(
                             sidecar_path,
+                            image_path,
                             creator_tool=creator_tool,
                             person_names=pu_person_names,
                             subjects=pu_subjects,
@@ -3201,11 +3276,7 @@ def run(argv: list[str] | None = None) -> int:
                             title_source=xmp_title_source,
                             description=str(state.get("description") or ""),
                             album_title=pu_album_title,
-                            gps_latitude=str(existing_location.get("gps_latitude") or ""),
-                            gps_longitude=str(existing_location.get("gps_longitude") or ""),
-                            location_city=str(existing_location.get("city") or ""),
-                            location_state=str(existing_location.get("state") or ""),
-                            location_country=str(existing_location.get("country") or ""),
+                            location_payload=existing_location,
                             source_text=pu_source_text,
                             ocr_text=existing_ocr_text,
                             author_text=str(text_layers.get("author_text") or ""),
@@ -3218,22 +3289,9 @@ def run(argv: list[str] | None = None) -> int:
                             ),
                             dc_date=pu_dc_date,
                             date_time_original=pu_date_time_original,
-                            history_when=_xmp_timestamp_from_path(image_path),
-                            image_width=pu_img_w,
-                            image_height=pu_img_h,
                             ocr_ran=bool(state.get("ocr_ran") or True),
                             people_detected=pu_people_detected,
                             people_identified=pu_people_identified,
-                        )
-
-                    if not dry_run:
-                        append_job_artifact(
-                            {
-                                "kind": "photoalbums_xmp",
-                                "image_path": str(image_path),
-                                "sidecar_path": str(sidecar_path),
-                                "label": image_path.name,
-                            }
                         )
 
                     processed += 1
@@ -3339,15 +3397,15 @@ def run(argv: list[str] | None = None) -> int:
                     gps_subjects = _dedupe(
                         gps_object_labels + gps_ocr_keywords + ([gps_album_title] if gps_album_title else [])
                     )
-                    gps_img_w, gps_img_h = _get_image_dimensions(image_path)
                     xmp_title, xmp_title_source = _compute_xmp_title(
                         image_path=image_path,
                         explicit_title=str(state.get("title") or ""),
                         title_source=str(state.get("title_source") or ""),
                         author_text=str(state.get("author_text") or ""),
                     )
-                    write_xmp_sidecar(
+                    _write_sidecar_and_record(
                         sidecar_path,
+                        image_path,
                         creator_tool=creator_tool,
                         person_names=list(existing_xmp_people),
                         subjects=gps_subjects,
@@ -3355,11 +3413,7 @@ def run(argv: list[str] | None = None) -> int:
                         title_source=xmp_title_source,
                         description=str(state.get("description") or ""),
                         album_title=gps_album_title,
-                        gps_latitude=str(gps_location_payload.get("gps_latitude") or ""),
-                        gps_longitude=str(gps_location_payload.get("gps_longitude") or ""),
-                        location_city=str(gps_location_payload.get("city") or ""),
-                        location_state=str(gps_location_payload.get("state") or ""),
-                        location_country=str(gps_location_payload.get("country") or ""),
+                        location_payload=gps_location_payload,
                         source_text=str(state.get("source_text") or ""),
                         ocr_text=gps_ocr_text,
                         ocr_lang=str(state.get("ocr_lang") or ""),
@@ -3371,20 +3425,9 @@ def run(argv: list[str] | None = None) -> int:
                         create_date=(str(state.get("create_date") or "").strip() or read_embedded_create_date(image_path)),
                         dc_date=str(state.get("dc_date") or ""),
                         date_time_original=str(state.get("date_time_original") or ""),
-                        history_when=_xmp_timestamp_from_path(image_path),
-                        image_width=gps_img_w,
-                        image_height=gps_img_h,
                         ocr_ran=bool(state.get("ocr_ran")),
                         people_detected=bool(state.get("people_detected")),
                         people_identified=bool(state.get("people_identified")),
-                    )
-                    append_job_artifact(
-                        {
-                            "kind": "photoalbums_xmp",
-                            "image_path": str(image_path),
-                            "sidecar_path": str(sidecar_path),
-                            "label": image_path.name,
-                        }
                     )
 
                 processed += 1
@@ -3659,8 +3702,9 @@ def run(argv: list[str] | None = None) -> int:
                         "ocr_authority_hash": ocr_authority_hash,
                         "analysis_mode": str(analysis_mode),
                     }
-                    write_xmp_sidecar(
+                    _write_sidecar_and_record(
                         sidecar_path,
+                        image_path,
                         creator_tool=creator_tool,
                         person_names=person_names,
                         subjects=subjects,
@@ -3668,17 +3712,14 @@ def run(argv: list[str] | None = None) -> int:
                         title_source=xmp_title_source,
                         description=description,
                         album_title=final_album_title,
-                        gps_latitude=str(location_payload.get("gps_latitude") or ""),
-                        gps_longitude=str(location_payload.get("gps_longitude") or ""),
-                        location_city=str(location_payload.get("city") or ""),
-                        location_state=str(location_payload.get("state") or ""),
-                        location_country=str(location_payload.get("country") or ""),
+                        location_payload=location_payload,
                         source_text=_build_dc_source(
                             final_album_title,
                             image_path,
                             _scan_filenames,
                         ),
                         ocr_text=ocr_text,
+                        ocr_lang=str(analysis.ocr_lang or ""),
                         author_text=str(text_layers.get("author_text") or ""),
                         scene_text=str(text_layers.get("scene_text") or ""),
                         detections_payload=payload,
@@ -3687,24 +3728,11 @@ def run(argv: list[str] | None = None) -> int:
                         create_date=read_embedded_create_date(image_path),
                         dc_date=final_dc_date,
                         date_time_original=final_date_time_original,
-                        history_when=_xmp_timestamp_from_path(image_path),
-                        image_width=img_w,
-                        image_height=img_h,
                         ocr_ran=_ocr_ran_flag,
                         people_detected=_people_detected_flag,
                         people_identified=_people_identified_flag,
-                        ocr_lang=str(analysis.ocr_lang or ""),
                     )
 
-            if not dry_run:
-                append_job_artifact(
-                    {
-                        "kind": "photoalbums_xmp",
-                        "image_path": str(image_path),
-                        "sidecar_path": str(sidecar_path),
-                        "label": image_path.name,
-                    }
-                )
             _emit_prompt_debug_artifact(prompt_debug, dry_run=dry_run)
             processed += 1
             completed_times.append(time.monotonic() - file_start)
