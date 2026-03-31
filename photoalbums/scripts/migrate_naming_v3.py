@@ -3,12 +3,12 @@
 Changes applied
 ---------------
 1. ``_P##_VC.jpg``   → ``_P##_V.jpg``        (+ matching ``.xmp`` sidecar)
-2. ``_D##_##.tif``   → ``_D##-##.tif``       (archive detail crops, + ``.xmp``)
-3. ``_D##_##.jpg``   → ``_D##-##_V.jpg``     (view detail crops, + ``.xmp``)
+2. ``_D##_##.tif``   → ``_D##-##.tif``       (archive derived images, + ``.xmp``)
+3. ``_D##_##.jpg``   → ``_D##-##_V.jpg``     (view derived images, + ``.xmp``)
 
 XMP content patches
 -------------------
-- Archive detail crop XMP: any ``dc:source`` value containing ``_D##_##.tif``
+- Archive derived image XMP: any ``dc:source`` value containing ``_D##_##.tif``
   is rewritten to ``_D##-##.tif`` so the self-reference stays current.
 
 Invariants preserved

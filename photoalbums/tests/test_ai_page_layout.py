@@ -29,11 +29,7 @@ class TestAIPageLayout(unittest.TestCase):
         )
         self.assertEqual(
             ai_page_layout.classify_image_kind(Path("Family_View") / "Family_2020_B01_P01_D01-01_V.jpg"),
-            "detail",
-        )
-        self.assertEqual(
-            ai_page_layout.classify_image_kind(Path("Family_View") / "Family_2020_B01_P01_D01-01_C.jpg"),
-            "detail",
+            "derived",
         )
         self.assertEqual(
             ai_page_layout.classify_image_kind(Path("Family_View") / "Family_2020_B01_P01_V.jpg"),

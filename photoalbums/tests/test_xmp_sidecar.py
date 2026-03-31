@@ -83,7 +83,7 @@ class TestXMPSidecar(unittest.TestCase):
             assert state is not None
             self.assertEqual(state["ocr_authority_source"], "archive_stitched")
 
-    def test_write_xmp_sidecar_writes_standard_create_date_and_processing_history(self):
+    def test_write_xmp_sidecar_omits_create_date_and_writes_processing_history(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "image.xmp"
             xmp_sidecar.write_xmp_sidecar(
@@ -106,7 +106,7 @@ class TestXMPSidecar(unittest.TestCase):
             )
 
             xml = out.read_text(encoding="utf-8")
-            self.assertIn("xmp:CreateDate", xml)
+            self.assertNotIn("xmp:CreateDate", xml)
             self.assertIn("xmpMM:History", xml)
             self.assertNotIn("imago:StitchKey", xml)
             self.assertNotIn("imago:OcrRan", xml)
@@ -115,7 +115,7 @@ class TestXMPSidecar(unittest.TestCase):
 
             state = xmp_sidecar.read_ai_sidecar_state(out)
             assert state is not None
-            self.assertEqual(state["create_date"], "2026-03-25T12:34:56-07:00")
+            self.assertEqual(state["create_date"], "")
             self.assertEqual(state["stitch_key"], "Family_1986_B01_P01")
             self.assertEqual(state["ocr_authority_source"], "archive_stitched")
             self.assertEqual(state["ocr_ran"], True)
@@ -124,6 +124,56 @@ class TestXMPSidecar(unittest.TestCase):
             history = state["processing_history"]
             assert isinstance(history, list)
             self.assertEqual(len(history), 3)
+            self.assertEqual(history[0]["when"], "2026-03-25T19:35:00Z")
+
+    def test_write_xmp_sidecar_round_trips_dc_date(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="scan_001.tif",
+                ocr_text="March 15, 1975",
+                dc_date="1975-03-15",
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                subphotos=[],
+            )
+
+            xml = out.read_text(encoding="utf-8")
+            self.assertIn("<dc:date>", xml)
+            self.assertIn("<rdf:Seq>", xml)
+            self.assertIn(">1975-03-15<", xml)
+            self.assertIn("<exif:DateTimeOriginal>1975-03-15T12:00:00</exif:DateTimeOriginal>", xml)
+
+            state = xmp_sidecar.read_ai_sidecar_state(out)
+            assert state is not None
+            self.assertEqual(state["dc_date"], "1975-03-15")
+            self.assertEqual(state["date_time_original"], "1975-03-15T12:00:00")
+
+    def test_normalize_dc_date_coerces_partial_formatting_errors(self):
+        self.assertEqual(xmp_sidecar._normalize_dc_date("1988-1"), "1988-01")
+        self.assertEqual(xmp_sidecar._normalize_dc_date("1988/01/00"), "1988-01")
+        self.assertEqual(xmp_sidecar._normalize_dc_date("1988-00"), "1988")
+        self.assertEqual(xmp_sidecar._normalize_dc_date("1988-00-00"), "1988")
+        self.assertEqual(xmp_sidecar._normalize_dc_date("1988:1:5"), "1988-01-05")
+        self.assertEqual(xmp_sidecar._normalize_dc_date("1988-13-00"), "")
+
+    def test_resolve_date_time_original_uses_midpoints_for_partial_dates(self):
+        self.assertEqual(
+            xmp_sidecar._resolve_date_time_original(dc_date="1975"),
+            "1975-07-01T12:00:00",
+        )
+        self.assertEqual(
+            xmp_sidecar._resolve_date_time_original(dc_date="1975-03"),
+            "1975-03-15T12:00:00",
+        )
+        self.assertEqual(
+            xmp_sidecar._resolve_date_time_original(dc_date="1975-03-22"),
+            "1975-03-22T12:00:00",
+        )
 
     def test_write_xmp_sidecar_round_trips_text_layers(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -280,6 +330,36 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertIn("Family Book I", xml)
             self.assertIn("39,47.25N", xml)
             self.assertNotIn("Old description", xml)
+
+    def test_write_xmp_sidecar_removes_legacy_xmp_create_date_on_merge(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            out.write_text(
+                """<?xml version="1.0" encoding="utf-8"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    xmlns:xmp="http://ns.adobe.com/xap/1.0/">
+  <rdf:RDF>
+    <rdf:Description rdf:about="">
+      <xmp:CreateDate>2026-03-25T12:34:56-07:00</xmp:CreateDate>
+    </rdf:Description>
+  </rdf:RDF>
+</x:xmpmeta>
+""",
+                encoding="utf-8",
+            )
+
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+            )
+
+            xml = out.read_text(encoding="utf-8")
+            self.assertNotIn("xmp:CreateDate", xml)
 
     def test_sidecar_has_expected_ai_fields_detects_complete_and_incomplete_sidecars(
         self,

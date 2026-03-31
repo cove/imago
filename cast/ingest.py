@@ -485,6 +485,47 @@ class FaceIngestor:
                 files.append(path.resolve())
         return files
 
+    def _iter_matching_archive_scan_files(
+        self,
+        *,
+        photo_albums_root: str | Path,
+        view_glob: str = "*_View",
+        recursive: bool = True,
+        extensions: tuple[str, ...] = (".tif", ".tiff"),
+    ) -> list[Path]:
+        root = Path(photo_albums_root)
+        if not root.exists():
+            raise FileNotFoundError(f"Photo albums root does not exist: {root}")
+        if not root.is_dir():
+            raise NotADirectoryError(f"Photo albums root is not a directory: {root}")
+
+        ext_set = {str(ext).strip().lower() for ext in extensions if str(ext).strip()}
+        if not ext_set:
+            ext_set = {".tif", ".tiff"}
+
+        files: list[Path] = []
+        seen_dirs: set[Path] = set()
+        for view_dir in sorted(root.glob(str(view_glob or "*_View"))):
+            if not view_dir.is_dir():
+                continue
+            name = str(view_dir.name)
+            if not name.endswith("_View"):
+                continue
+            archive_dir = (view_dir.parent / f"{name[:-5]}_Archive").resolve()
+            if archive_dir in seen_dirs:
+                continue
+            seen_dirs.add(archive_dir)
+            if not archive_dir.is_dir():
+                continue
+            iterator = archive_dir.rglob("*") if recursive else archive_dir.glob("*")
+            for path in iterator:
+                if not path.is_file():
+                    continue
+                if path.suffix.lower() not in ext_set:
+                    continue
+                files.append(path.resolve())
+        return files
+
     def ingest_photo_album_views(
         self,
         *,
@@ -495,16 +536,45 @@ class FaceIngestor:
         min_size: int = 40,
         max_faces_per_photo: int = 50,
         max_files: int = 0,
+        rescan_existing: bool = False,
     ) -> dict[str, Any]:
         self._ensure_primary_model_ready()
-        photo_files = self.iter_photo_files(
+        view_files = self.iter_photo_files(
             photo_albums_root=photo_albums_root,
             view_glob=view_glob,
             recursive=recursive,
             extensions=extensions,
         )
+        archive_scan_files = (
+            self._iter_matching_archive_scan_files(
+                photo_albums_root=photo_albums_root,
+                view_glob=view_glob,
+                recursive=recursive,
+            )
+            if rescan_existing
+            else []
+        )
+        photo_files = list(view_files)
+        seen_paths = {str(path) for path in photo_files}
+        for path in archive_scan_files:
+            key = str(path)
+            if key in seen_paths:
+                continue
+            seen_paths.add(key)
+            photo_files.append(path)
         if max_files and max_files > 0:
             photo_files = photo_files[: int(max_files)]
+
+        removed = {
+            "removed_faces": 0,
+            "removed_reviews": 0,
+            "removed_crops": 0,
+        }
+        if rescan_existing and photo_files:
+            removed = self.store.remove_faces_for_sources(
+                source_paths=[str(path) for path in photo_files],
+                remove_crops=True,
+            )
 
         all_faces: list[dict[str, Any]] = []
         per_photo: list[dict[str, Any]] = []
@@ -525,9 +595,15 @@ class FaceIngestor:
 
         return {
             "photo_files_scanned": int(len(photo_files)),
+            "view_files_scanned": int(len([path for path in photo_files if path.suffix.lower() in {".jpg", ".jpeg"}])),
+            "archive_scan_files_scanned": int(
+                len([path for path in photo_files if path.suffix.lower() in {".tif", ".tiff"}])
+            ),
             "faces_created": int(len(all_faces)),
             "faces": all_faces,
             "per_photo": per_photo,
             "photo_albums_root": str(Path(photo_albums_root)),
             "view_glob": str(view_glob),
+            "rescan_existing": bool(rescan_existing),
+            **removed,
         }

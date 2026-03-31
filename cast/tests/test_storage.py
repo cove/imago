@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from cast.storage import TextFaceStore, face_review_status
 
 
@@ -325,3 +327,32 @@ def test_bulk_resolve_reviews_skips_and_moves_items_to_back(tmp_path):
     ]
     assert reviews[1]["skip_count"] == 1
     assert reviews[2]["skip_count"] == 1
+
+
+def test_write_json_retries_permission_error_on_replace(tmp_path, monkeypatch):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+
+    original_replace = Path.replace
+    attempts = {"count": 0}
+
+    def flaky_replace(self, target):
+        if Path(self).suffix == ".tmp" and Path(target).name == "faces.jsonl" and attempts["count"] < 2:
+            attempts["count"] += 1
+            raise PermissionError(13, "Permission denied", str(target))
+        return original_replace(self, target)
+
+    monkeypatch.setattr(Path, "replace", flaky_replace)
+    monkeypatch.setattr("cast.storage._WRITE_RETRY_DELAY_SECONDS", 0.0)
+
+    face = store.add_face(
+        embedding=[0.1, 0.2, 0.3],
+        source_type="photo",
+        source_path="photoalbums/retry.jpg",
+    )
+
+    assert attempts["count"] == 2
+    assert face["source_path"] == "photoalbums/retry.jpg"
+    faces = store.list_faces()
+    assert len(faces) == 1
+    assert faces[0]["source_path"] == "photoalbums/retry.jpg"

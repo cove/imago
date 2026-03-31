@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Callable
 
 from ._caption_text import clean_text, clean_lines
+from .image_limits import allow_large_pillow_images
 from ._prompt_skill import required_section_text
 
 DEFAULT_LMSTUDIO_MAX_NEW_TOKENS = 8129
@@ -256,6 +257,7 @@ def _normalize_gps_value(value: str, *, axis: str) -> str:
 def _build_data_url(image_path: str | Path, max_image_edge: int) -> str:
     from PIL import Image  # pylint: disable=import-outside-toplevel
 
+    allow_large_pillow_images(Image)
     path = Path(image_path)
     image = Image.open(str(path)).convert("RGB")
     try:

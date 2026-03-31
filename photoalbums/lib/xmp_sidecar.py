@@ -75,6 +75,96 @@ def _normalize_xmp_datetime(value: str) -> str:
     return text
 
 
+def _normalize_partial_dc_date(value: str) -> str:
+    text = str(value or "").strip()
+    if not text or any(ch.isalpha() for ch in text):
+        return ""
+    parts: list[str] = []
+    current: list[str] = []
+    saw_separator = False
+    for ch in text:
+        if ch.isdigit():
+            current.append(ch)
+            continue
+        if ch in "-/.: ":
+            if not current:
+                return ""
+            parts.append("".join(current))
+            current = []
+            saw_separator = True
+            continue
+        return ""
+    if current:
+        parts.append("".join(current))
+    elif saw_separator:
+        return ""
+    if not parts:
+        return ""
+    if len(parts) == 1:
+        return parts[0] if len(parts[0]) == 4 and parts[0].isdigit() else ""
+    if len(parts) not in {2, 3}:
+        return ""
+    year_text, month_text = parts[0], parts[1]
+    if len(year_text) != 4 or not year_text.isdigit() or not month_text.isdigit():
+        return ""
+    month = int(month_text)
+    if month == 0:
+        if len(parts) == 2:
+            return year_text
+        day_text = parts[2]
+        return year_text if day_text.isdigit() and int(day_text) == 0 else ""
+    if month < 1 or month > 12:
+        return ""
+    normalized_month = f"{month:02d}"
+    if len(parts) == 2:
+        return f"{year_text}-{normalized_month}"
+    day_text = parts[2]
+    if not day_text.isdigit():
+        return ""
+    day = int(day_text)
+    if day == 0:
+        return f"{year_text}-{normalized_month}"
+    try:
+        datetime.strptime(f"{year_text}-{normalized_month}-{day:02d}", "%Y-%m-%d")
+    except ValueError:
+        return ""
+    return f"{year_text}-{normalized_month}-{day:02d}"
+
+
+def _normalize_dc_date(value: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    normalized_partial = _normalize_partial_dc_date(text)
+    if normalized_partial:
+        return normalized_partial
+    normalized = _normalize_xmp_datetime(text)
+    if not normalized:
+        return ""
+    try:
+        datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+    except ValueError:
+        return ""
+    return normalized
+
+
+def _normalize_exif_date_time_original(value: str) -> str:
+    return _normalize_xmp_datetime(str(value or "").strip())
+
+
+def _resolve_date_time_original(*, dc_date: str, date_time_original: str = "") -> str:
+    clean_dc_date = _normalize_dc_date(dc_date)
+    if len(clean_dc_date) == 4:
+        return f"{clean_dc_date}-07-01T12:00:00"
+    if len(clean_dc_date) == 7:
+        return f"{clean_dc_date}-15T12:00:00"
+    if len(clean_dc_date) == 10:
+        return f"{clean_dc_date}T12:00:00"
+    if clean_dc_date:
+        return _normalize_exif_date_time_original(clean_dc_date)
+    return _normalize_exif_date_time_original(date_time_original)
+
+
 def _serialize_history_parameters(parameters: dict[str, object]) -> str:
     return json.dumps(parameters, ensure_ascii=False, sort_keys=True)
 
@@ -240,6 +330,16 @@ def _add_alt_text(parent: ET.Element, tag: str, value: str) -> None:
     alt = ET.SubElement(field, _RDF_ALT)
     item = ET.SubElement(alt, _RDF_LI)
     item.set("{http://www.w3.org/XML/1998/namespace}lang", "x-default")
+    item.text = text
+
+
+def _add_seq_text(parent: ET.Element, tag: str, value: str) -> None:
+    text = str(value or "").strip()
+    if not text:
+        return
+    field = ET.SubElement(parent, tag)
+    seq = ET.SubElement(field, _RDF_SEQ)
+    item = ET.SubElement(seq, _RDF_LI)
     item.text = text
 
 
@@ -492,6 +592,8 @@ def build_xmp_tree(
     stitch_key: str = "",
     ocr_authority_source: str = "",
     create_date: str = "",
+    dc_date: str = "",
+    date_time_original: str = "",
     history_when: str = "",
     image_width: int = 0,
     image_height: int = 0,
@@ -517,6 +619,15 @@ def build_xmp_tree(
         author_text,
         scene_text,
     )
+    clean_dc_date = _normalize_dc_date(dc_date)
+    if clean_dc_date:
+        _add_seq_text(desc, f"{{{DC_NS}}}date", clean_dc_date)
+    resolved_date_time_original = _resolve_date_time_original(
+        dc_date=clean_dc_date,
+        date_time_original=date_time_original,
+    )
+    if resolved_date_time_original:
+        _add_simple_text(desc, f"{{{EXIF_NS}}}DateTimeOriginal", resolved_date_time_original)
     if str(album_title or "").strip():
         _add_simple_text(desc, f"{{{IMAGO_NS}}}AlbumTitle", str(album_title or "").strip())
     if str(gps_latitude or "").strip() and str(gps_longitude or "").strip():
@@ -546,9 +657,6 @@ def build_xmp_tree(
 
     creator = ET.SubElement(desc, f"{{{XMP_NS}}}CreatorTool")
     creator.text = str(creator_tool or "").strip() or "https://github.com/cove/imago"
-    clean_create_date = _normalize_xmp_datetime(create_date)
-    if clean_create_date:
-        ET.SubElement(desc, f"{{{XMP_NS}}}CreateDate").text = clean_create_date
 
     clean_ocr = str(ocr_text or "").strip()
     if clean_ocr:
@@ -589,7 +697,7 @@ def build_xmp_tree(
         desc,
         _build_processing_history(
             creator_tool=creator_tool,
-            history_when=history_when or clean_create_date,
+            history_when=history_when,
             stitch_key=stitch_key,
             ocr_ran=ocr_ran,
             people_detected=people_detected,
@@ -661,6 +769,22 @@ def _set_alt_text(parent: ET.Element, tag: str, value: str) -> None:
         alt = ET.SubElement(field, _RDF_ALT)
         item = ET.SubElement(alt, _RDF_LI)
         item.set("{http://www.w3.org/XML/1998/namespace}lang", "x-default")
+        item.text = text
+
+    _replace_field(parent, tag, _builder)
+
+
+def _set_seq_text(parent: ET.Element, tag: str, value: str) -> None:
+    text = str(value or "").strip()
+    existing = parent.find(tag)
+    if not text:
+        if existing is not None:
+            parent.remove(existing)
+        return
+
+    def _builder(field: ET.Element) -> None:
+        seq = ET.SubElement(field, _RDF_SEQ)
+        item = ET.SubElement(seq, _RDF_LI)
         item.text = text
 
     _replace_field(parent, tag, _builder)
@@ -741,6 +865,20 @@ def _get_alt_text(parent: ET.Element, tag: str, *, prefer_lang: str = "", fallba
     return ""
 
 
+def _get_seq_text(parent: ET.Element, tag: str) -> str:
+    field = parent.find(tag)
+    if field is None:
+        return ""
+    seq = field.find(_RDF_SEQ)
+    if seq is not None:
+        for item in seq.findall(_RDF_LI):
+            text = str(item.text or "").strip()
+            if text:
+                return text
+        return ""
+    return str(field.text or "").strip()
+
+
 def _read_xmp_bool(desc: ET.Element, tag: str) -> bool | None:
     """Return True/False if the tag is present with a boolean value, else None if absent."""
     raw = desc.findtext(tag)
@@ -802,6 +940,10 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
     return {
         "creator_tool": str(desc.findtext(f"{{{XMP_NS}}}CreatorTool", default="") or "").strip(),
         "create_date": _normalize_xmp_datetime(str(desc.findtext(f"{{{XMP_NS}}}CreateDate", default="") or "").strip()),
+        "dc_date": _normalize_dc_date(_get_seq_text(desc, f"{{{DC_NS}}}date")),
+        "date_time_original": _normalize_exif_date_time_original(
+            str(desc.findtext(f"{{{EXIF_NS}}}DateTimeOriginal", default="") or "").strip()
+        ),
         "title": _get_alt_text(desc, f"{{{DC_NS}}}title", prefer_lang="x-default"),
         "description": _get_alt_text(
             desc,
@@ -852,6 +994,7 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
         "cast_store_signature": str(processing_meta.get("cast_store_signature") or "").strip(),
         "size": int(processing_meta.get("size") or -1),
         "mtime_ns": int(processing_meta.get("mtime_ns") or -1),
+        "date_estimate_input_hash": str(processing_meta.get("date_estimate_input_hash") or "").strip(),
         "ocr_authority_signature": str(processing_meta.get("ocr_authority_signature") or "").strip(),
         "ocr_authority_hash": str(processing_meta.get("ocr_authority_hash") or "").strip(),
         "analysis_mode": str(processing_meta.get("analysis_mode") or "").strip(),
@@ -950,6 +1093,8 @@ def _merge_xmp_tree(
     stitch_key: str = "",
     ocr_authority_source: str = "",
     create_date: str = "",
+    dc_date: str = "",
+    date_time_original: str = "",
     history_when: str = "",
     image_width: int = 0,
     image_height: int = 0,
@@ -971,6 +1116,12 @@ def _merge_xmp_tree(
         author_text,
         scene_text,
     )
+    _set_seq_text(desc, f"{{{DC_NS}}}date", _normalize_dc_date(dc_date))
+    _set_simple_text(
+        desc,
+        f"{{{EXIF_NS}}}DateTimeOriginal",
+        _resolve_date_time_original(dc_date=dc_date, date_time_original=date_time_original),
+    )
     _set_simple_text(desc, f"{{{IMAGO_NS}}}AlbumTitle", str(album_title or "").strip())
     _set_gps_fields(desc, gps_latitude, gps_longitude)
     _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}City", str(location_city or "").strip())
@@ -984,7 +1135,6 @@ def _merge_xmp_tree(
         f"{{{XMP_NS}}}CreatorTool",
         str(creator_tool or "").strip() or "https://github.com/cove/imago",
     )
-    _set_simple_text(desc, f"{{{XMP_NS}}}CreateDate", _normalize_xmp_datetime(create_date))
     clean_ocr = str(ocr_text or "").strip()
     _set_simple_text(desc, f"{{{IMAGO_NS}}}OCRText", clean_ocr)
     _set_simple_text(desc, f"{{{IMAGO_NS}}}OCRLang", str(ocr_lang or "").strip())
@@ -1015,7 +1165,7 @@ def _merge_xmp_tree(
         desc,
         _build_processing_history(
             creator_tool=creator_tool,
-            history_when=history_when or create_date,
+            history_when=history_when,
             stitch_key=stitch_key,
             ocr_ran=ocr_ran,
             people_detected=people_detected,
@@ -1029,6 +1179,7 @@ def _merge_xmp_tree(
         f"{{{IMAGO_NS}}}PeopleDetected",
         f"{{{IMAGO_NS}}}PeopleIdentified",
         f"{{{IMAGO_NS}}}SubPhotos",
+        f"{{{XMP_NS}}}CreateDate",
         f"{{{XMPDM_NS}}}album",
     ):
         _remove_field(desc, legacy_tag)
@@ -1061,6 +1212,8 @@ def write_xmp_sidecar(
     stitch_key: str = "",
     ocr_authority_source: str = "",
     create_date: str = "",
+    dc_date: str = "",
+    date_time_original: str = "",
     history_when: str = "",
     image_width: int = 0,
     image_height: int = 0,
@@ -1104,6 +1257,8 @@ def write_xmp_sidecar(
             stitch_key=stitch_key,
             ocr_authority_source=ocr_authority_source,
             create_date=create_date,
+            dc_date=dc_date,
+            date_time_original=date_time_original,
             history_when=history_when,
             image_width=image_width,
             image_height=image_height,
@@ -1138,6 +1293,8 @@ def write_xmp_sidecar(
             stitch_key=stitch_key,
             ocr_authority_source=ocr_authority_source,
             create_date=create_date,
+            dc_date=dc_date,
+            date_time_original=date_time_original,
             history_when=history_when,
             image_width=image_width,
             image_height=image_height,

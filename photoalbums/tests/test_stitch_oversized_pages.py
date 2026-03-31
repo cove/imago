@@ -12,6 +12,9 @@ import stitch_oversized_pages as sop
 
 
 class TestStitchOversizedPages(unittest.TestCase):
+    def test_sets_large_opencv_pixel_limit_for_stitching(self):
+        self.assertEqual(sop.os.environ.get("OPENCV_IO_MAX_IMAGE_PIXELS"), sop._MAX_STITCH_IMAGE_PIXELS)
+
     def test_build_derived_output_name_known(self):
         name = "EU_1973_B02_P05_D01-02.tif"
         self.assertEqual(
@@ -26,8 +29,8 @@ class TestStitchOversizedPages(unittest.TestCase):
             "EU_1973_Custom_D01-02_D01-02_V.jpg",
         )
 
-    def test_build_derived_output_name_legacy_media(self):
-        name = "Family_1907-1946_B01_P28_D01_03.mp4"
+    def test_build_derived_output_name_media(self):
+        name = "Family_1907-1946_B01_P28_D01-03.mp4"
         self.assertEqual(
             sop.build_derived_output_name(name, output_suffix=".mp4"),
             "Family_1907-1946_B01_P28_D01-03_V.mp4",
@@ -92,27 +95,9 @@ class TestStitchOversizedPages(unittest.TestCase):
         read_mock.assert_not_called()
         write_mock.assert_not_called()
 
-    def test_colorized_to_jpg_skips_existing_valid_output(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            out = Path(tmp) / "Family_1907-1946_B01_P05_D01-02_C.jpg"
-            out.write_bytes(b"x" * 1024)
-            with (
-                mock.patch("stitch_oversized_pages._require_image_modules"),
-                mock.patch("stitch_oversized_pages._read_stitch_image") as read_mock,
-                mock.patch("stitch_oversized_pages.write_jpeg") as write_mock,
-            ):
-                wrote = sop.colorized_to_jpg(
-                    "C:/Photos/Family_1907-1946_B01_Archive/Family_1907-1946_B01_P05_D01-02_C.png",
-                    tmp,
-                )
-
-        self.assertFalse(wrote)
-        read_mock.assert_not_called()
-        write_mock.assert_not_called()
-
     def test_copy_derived_media_copies_and_renames(self):
         with tempfile.TemporaryDirectory() as src_tmp, tempfile.TemporaryDirectory() as dst_tmp:
-            src = Path(src_tmp) / "Family_1907-1946_B01_P28_D01_03.mp4"
+            src = Path(src_tmp) / "Family_1907-1946_B01_P28_D01-03.mp4"
             src.write_bytes(b"media")
 
             wrote = sop.copy_derived_media(str(src), dst_tmp)
@@ -124,7 +109,7 @@ class TestStitchOversizedPages(unittest.TestCase):
 
     def test_copy_derived_media_skips_existing_output(self):
         with tempfile.TemporaryDirectory() as src_tmp, tempfile.TemporaryDirectory() as dst_tmp:
-            src = Path(src_tmp) / "Family_1907-1946_B01_P28_D01_03.pdf"
+            src = Path(src_tmp) / "Family_1907-1946_B01_P28_D01-03.pdf"
             src.write_bytes(b"source")
             out = Path(dst_tmp) / "Family_1907-1946_B01_P28_D01-03_V.pdf"
             out.write_bytes(b"existing")

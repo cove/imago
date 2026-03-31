@@ -54,7 +54,9 @@
       "Bash(cat \"C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums\\\\EasternEuropeSpainAndMorocco_1988_B00_View\\\\EasternEuropeSpainAndMorocco_1988_B00_P30_VC.xmp\")",
       "Bash(python -c \"import sys,json; [print\\(json.dumps\\(json.loads\\(l\\), indent=2\\)\\) for l in sys.stdin]\")",
       "Bash(python -c \":*)",
-      "Bash(ls \"C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums\")"
+      "Bash(ls \"C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums\")",
+      "Bash(ls \"C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums\\\\Europe_1985_B02_View\" \")",
+      "Bash(ls \"/c/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums/Europe_1985_B02_View/\")"
     ]
   },
   "hooks": {

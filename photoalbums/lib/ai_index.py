@@ -22,6 +22,7 @@ from .ai_caption import (
     normalize_lmstudio_base_url,
     resolve_caption_model,
 )
+from .ai_date import DateEstimateEngine
 from .ai_model_settings import default_lmstudio_base_url, default_ocr_model
 from .ai_ocr import OCREngine, extract_keywords
 from .ai_page_layout import PreparedImageLayout, prepare_image_layout
@@ -31,13 +32,22 @@ from .ai_render_settings import (
     load_render_settings,
     resolve_effective_settings,
 )
+from .image_limits import allow_large_pillow_images
 from .prompt_debug import PromptDebugSession
 from ..common import PHOTO_ALBUMS_DIR
 from ..exiftool_utils import read_tag
-from ..naming import BASE_PAGE_NAME_RE, DERIVED_NAME_RE, SCAN_TIFF_RE, parse_album_filename, SCAN_NAME_RE
+from ..naming import (
+    BASE_PAGE_NAME_RE,
+    DERIVED_NAME_RE,
+    DERIVED_VIEW_RE,
+    SCAN_TIFF_RE,
+    parse_album_filename,
+    SCAN_NAME_RE,
+)
 from .xmp_sidecar import (
     _dedupe,
     _normalize_xmp_datetime,
+    _resolve_date_time_original,
     read_ai_sidecar_state,
     read_person_in_image,
     sidecar_has_expected_ai_fields,
@@ -91,6 +101,7 @@ def _compute_people_positions(people_matches: list, image_path: Path) -> dict[st
     try:
         from PIL import Image as _PILImage  # pylint: disable=import-outside-toplevel
 
+        allow_large_pillow_images(_PILImage)
         with _PILImage.open(str(image_path)) as _img:
             img_w, img_h = _img.size
     except Exception:
@@ -126,6 +137,8 @@ JOB_ARTIFACTS_ENV = "IMAGO_JOB_ARTIFACTS"
 JOB_ID_ENV = "IMAGO_JOB_ID"
 PROCESSING_LOCK_SUFFIX = ".photoalbums-ai.lock"
 BATCH_LOCK_SUFFIX = ".photoalbums-ai.batch.lock"
+CAST_STORE_RETRY_ATTEMPTS = 6
+CAST_STORE_RETRY_DELAY_SECONDS = 0.5
 
 
 @dataclass
@@ -160,6 +173,44 @@ class ArchiveScanOCRAuthority:
     ocr_keywords: tuple[str, ...]
     ocr_hash: str
     stitched_image_path: Path | None = None
+
+
+def _is_retryable_cast_store_write_error(exc: Exception) -> bool:
+    if not isinstance(exc, OSError):
+        return False
+    lower = str(exc or "").strip().lower()
+    if not lower:
+        return False
+    if getattr(exc, "winerror", None) not in {5, 32} and not isinstance(exc, PermissionError):
+        return False
+    return any(name in lower for name in ("faces.jsonl", "review_queue.jsonl", "people.json"))
+
+
+def _match_people_with_cast_store_retry(
+    *,
+    people_matcher: Any,
+    image_path: Path,
+    source_path: Path,
+    bbox_offset: tuple[int, int],
+    hint_text: str,
+) -> list[Any]:
+    last_exc: Exception | None = None
+    for attempt in range(CAST_STORE_RETRY_ATTEMPTS):
+        try:
+            return people_matcher.match_image(
+                image_path,
+                source_path=source_path,
+                bbox_offset=bbox_offset,
+                hint_text=hint_text,
+            )
+        except Exception as exc:
+            if not _is_retryable_cast_store_write_error(exc) or attempt >= CAST_STORE_RETRY_ATTEMPTS - 1:
+                raise
+            last_exc = exc
+            time.sleep(CAST_STORE_RETRY_DELAY_SECONDS)
+    if last_exc is not None:
+        raise last_exc
+    return []
 
 
 def discover_images(
@@ -257,25 +308,39 @@ def _base_page_name_match(path: str | Path):
     return BASE_PAGE_NAME_RE.fullmatch(Path(path).stem)
 
 
-def _cover_sidecar_match(path: str | Path):
-    scan_match = _scan_name_match(path)
-    if scan_match is not None:
-        try:
-            page_number = int(scan_match.group("page"))
-        except (ValueError, IndexError):
-            return None
-        if page_number == 1:
-            return scan_match
+def _title_page_scan_match(path: str | Path):
+    match = _scan_name_match(path)
+    if match is None:
         return None
-    base_match = _base_page_name_match(path)
-    if base_match is not None:
-        try:
-            page_number = int(base_match.group("page"))
-        except (ValueError, IndexError):
-            return None
-        if page_number == 1:
-            return base_match
+    try:
+        page_number = int(match.group("page"))
+        scan_number = int(match.group("scan"))
+    except (ValueError, IndexError):
+        return None
+    if page_number == 1 and scan_number == 1:
+        return match
     return None
+
+
+def _title_page_base_match(path: str | Path):
+    match = _base_page_name_match(path)
+    if match is None:
+        return None
+    try:
+        page_number = int(match.group("page"))
+    except (ValueError, IndexError):
+        return None
+    if page_number == 1:
+        return match
+    return None
+
+
+def _title_page_match(path: str | Path):
+    return _title_page_scan_match(path) or _title_page_base_match(path)
+
+
+def _cover_sidecar_match(path: str | Path):
+    return _title_page_match(path)
 
 
 def _title_page_dependency_sort_key(path: Path) -> tuple[int, int, int, int, str]:
@@ -305,7 +370,7 @@ def _title_page_dependency_sort_key(path: Path) -> tuple[int, int, int, int, str
 
 
 def _is_album_title_source_candidate(image_path: Path) -> bool:
-    return _looks_like_album_title_page(image_path) and _derived_name_match(image_path) is None
+    return _title_page_match(image_path) is not None
 
 
 def _iter_album_title_page_images(image_path: Path, extensions: set[str]):
@@ -324,7 +389,7 @@ def _iter_album_title_page_images(image_path: Path, extensions: set[str]):
                 continue
             if _album_identity_key(candidate) != album_key:
                 continue
-            if not _looks_like_album_title_page(candidate):
+            if _title_page_match(candidate) is None:
                 continue
             key = str(candidate.resolve()).casefold()
             if key in seen:
@@ -428,17 +493,7 @@ def _store_album_printed_title_hint(image_path: Path, printed_title_cache: dict[
 
 
 def _looks_like_album_title_page(image_path: Path) -> bool:
-    collection, _, _, page = parse_album_filename(image_path.name)
-    if str(collection or "") == "Unknown":
-        return False
-    page_text = str(page or "").strip()
-    if not page_text:
-        return False
-    if page_text == "01":
-        return True
-    if page_text.isdigit():
-        return int(page_text) == 1
-    return False
+    return _title_page_match(image_path) is not None
 
 
 def _require_album_title_for_title_page(
@@ -461,6 +516,9 @@ def _resolve_title_page_album_title(
     album_title: str,
     ocr_text: str,
 ) -> str:
+    value = clean_text(str(album_title or ""))
+    if value:
+        return value
     if _is_album_title_source_candidate(image_path):
         return clean_text(str(ocr_text or ""))
     return ""
@@ -642,18 +700,72 @@ def read_embedded_create_date(path: Path) -> str:
     return ""
 
 
-def _derive_parent_page_state(image_path: Path) -> dict | None:
-    """For a D##_## derived image, return read_ai_sidecar_state() of the parent page XMP, or None."""
-    m = _derived_name_match(image_path)
-    if not m:
+def _dc_source_scan_names(source_text: str) -> list[str]:
+    names: list[str] = []
+    for part in str(source_text or "").split(";"):
+        candidate = Path(str(part or "").strip()).name
+        if candidate.lower().endswith(".tif"):
+            names.append(candidate)
+    return _dedupe(names)
+
+
+def _is_derived_image_path(image_path: Path) -> bool:
+    return _derived_name_match(image_path) is not None or DERIVED_VIEW_RE.search(Path(image_path).stem) is not None
+
+
+def _resolve_derived_source_sidecar_state(
+    image_path: Path,
+    sidecar_state: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if not _is_derived_image_path(image_path) or not isinstance(sidecar_state, dict):
         return None
-    prefix = f"{m.group('collection')}_{m.group('year')}_B{m.group('book')}_P{m.group('page')}"
-    for stem in [f"{prefix}_stitched", prefix]:
-        for ext in (".jpg", ".jpeg"):
-            xmp = (image_path.parent / f"{stem}{ext}").with_suffix(".xmp")
-            if xmp.is_file():
-                return read_ai_sidecar_state(xmp)
-    return None
+    archive_dir = find_archive_dir_for_image(image_path)
+    if archive_dir is None or not archive_dir.is_dir():
+        return None
+    scan_names = _dc_source_scan_names(str(sidecar_state.get("source_text") or ""))
+    if not scan_names:
+        return None
+    source_state = read_ai_sidecar_state((archive_dir / scan_names[0]).with_suffix(".xmp"))
+    return source_state if isinstance(source_state, dict) else None
+
+
+def _resolve_derived_source_ocr_text(image_path: Path, sidecar_state: dict[str, Any] | None) -> str:
+    source_state = _resolve_derived_source_sidecar_state(image_path, sidecar_state)
+    if not isinstance(source_state, dict):
+        return ""
+    return str(source_state.get("ocr_text") or "").strip()
+
+
+def _sidecar_location_payload(sidecar_state: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(sidecar_state, dict):
+        return {}
+    detections = sidecar_state.get("detections")
+    location = dict(detections.get("location") or {}) if isinstance(detections, dict) else {}
+    gps_latitude = _xmp_gps_to_decimal(sidecar_state.get("gps_latitude"), axis="lat")
+    gps_longitude = _xmp_gps_to_decimal(sidecar_state.get("gps_longitude"), axis="lon")
+    if gps_latitude and not str(location.get("gps_latitude") or "").strip():
+        location["gps_latitude"] = gps_latitude
+    if gps_longitude and not str(location.get("gps_longitude") or "").strip():
+        location["gps_longitude"] = gps_longitude
+    return location
+
+
+def _effective_sidecar_location_payload(image_path: Path, sidecar_state: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(sidecar_state, dict):
+        return {}
+    if _is_derived_image_path(image_path):
+        source_location = _sidecar_location_payload(_resolve_derived_source_sidecar_state(image_path, sidecar_state))
+        if source_location:
+            return source_location
+    return _sidecar_location_payload(sidecar_state)
+
+
+def _effective_sidecar_ocr_text(image_path: Path, sidecar_state: dict[str, Any] | None) -> str:
+    if not isinstance(sidecar_state, dict):
+        return ""
+    if _is_derived_image_path(image_path):
+        return _resolve_derived_source_ocr_text(image_path, sidecar_state)
+    return str(sidecar_state.get("ocr_text") or "").strip()
 
 
 def _resolve_xmp_text_layers(
@@ -763,7 +875,7 @@ def needs_processing(
     if _is_album_title_source_candidate(path) and isinstance(sidecar_state, dict):
         ocr = str(sidecar_state.get("ocr_text") or "").strip()
         title = str(sidecar_state.get("album_title") or "").strip()
-        if ocr and title != ocr:
+        if ocr and title == ocr:
             return True
     try:
         stat = path.stat()
@@ -853,6 +965,22 @@ def _sidecar_has_lmstudio_caption_error(state: dict[str, Any] | None) -> bool:
     requested_engine = str(caption.get("requested_engine") or "").strip().lower()
     effective_engine = str(caption.get("effective_engine") or "").strip().lower()
     return "lmstudio" in {requested_engine, effective_engine}
+
+
+def _sidecar_has_people_to_refresh(state: dict[str, Any] | None) -> bool:
+    if not isinstance(state, dict):
+        return False
+    detections = state.get("detections")
+    if isinstance(detections, dict):
+        people = detections.get("people")
+        if isinstance(people, list) and any(isinstance(person, dict) for person in people):
+            return True
+    if state.get("people_identified") is True:
+        return True
+    people_detected = state.get("people_detected")
+    if people_detected is not None:
+        return bool(people_detected)
+    return False
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -1086,6 +1214,92 @@ def _init_caption_engine(
         max_image_edge=int(max_image_edge),
         stream=stream,
     )
+
+
+def _init_date_engine(
+    *,
+    engine: str,
+    model_name: str,
+    max_tokens: int,
+    temperature: float,
+    lmstudio_base_url: str,
+):
+    return DateEstimateEngine(
+        engine=str(engine),
+        model_name=str(model_name),
+        max_tokens=int(max_tokens),
+        temperature=float(temperature),
+        lmstudio_base_url=str(lmstudio_base_url),
+    )
+
+
+def _date_estimate_input_hash(ocr_text: str, album_title: str) -> str:
+    clean_ocr = str(ocr_text or "").strip()
+    clean_album_title = str(album_title or "").strip()
+    if not clean_ocr and not clean_album_title:
+        return ""
+    return _hash_text(
+        json.dumps(
+            {
+                "ocr_text": clean_ocr,
+                "album_title": clean_album_title,
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+    )
+
+
+def _dc_date_needs_refresh(
+    image_path: Path,
+    sidecar_state: dict[str, Any] | None,
+    *,
+    enabled: bool,
+) -> bool:
+    if not isinstance(sidecar_state, dict):
+        return False
+    current_dc_date = str(sidecar_state.get("dc_date") or "").strip()
+    current_date_time_original = str(sidecar_state.get("date_time_original") or "").strip()
+    if current_dc_date:
+        return _resolve_date_time_original(dc_date=current_dc_date) != current_date_time_original
+    if not enabled:
+        return False
+    current_hash = _date_estimate_input_hash(
+        _effective_sidecar_ocr_text(image_path, sidecar_state),
+        str(sidecar_state.get("album_title") or ""),
+    )
+    if not current_hash:
+        return False
+    return current_hash != str(sidecar_state.get("date_estimate_input_hash") or "").strip()
+
+
+def _resolve_dc_date(
+    *,
+    existing_dc_date: str,
+    ocr_text: str,
+    album_title: str,
+    image_path: Path,
+    date_engine: DateEstimateEngine | None,
+    prompt_debug: PromptDebugSession | None,
+) -> str:
+    clean_existing = str(existing_dc_date or "").strip()
+    if clean_existing:
+        return clean_existing
+    if date_engine is None:
+        return ""
+    input_hash = _date_estimate_input_hash(ocr_text, album_title)
+    if not input_hash:
+        return ""
+    result = date_engine.estimate(
+        ocr_text=ocr_text,
+        album_title=album_title,
+        source_path=image_path,
+        debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
+        debug_step="date_estimate",
+    )
+    if str(result.error or "").strip():
+        raise RuntimeError(f"Date estimate failed: {result.error}")
+    return str(result.date or "").strip()
 
 
 def _settings_signature(settings: dict[str, Any]) -> str:
@@ -1510,6 +1724,8 @@ def _prepare_ai_model_image(image_path: Path):
 
     try:
         from PIL import Image, ImageOps  # pylint: disable=import-outside-toplevel
+
+        allow_large_pillow_images(Image)
     except Exception:
         yield path
         return
@@ -1564,6 +1780,7 @@ def _get_image_dimensions(image_path: Path) -> tuple[int, int]:
     try:
         from PIL import Image as _PIL_Image  # pylint: disable=import-outside-toplevel
 
+        allow_large_pillow_images(_PIL_Image)
         with _PIL_Image.open(image_path) as img:
             return img.width, img.height
     except Exception:
@@ -1573,6 +1790,7 @@ def _get_image_dimensions(image_path: Path) -> tuple[int, int]:
 def _run_image_analysis(
     *,
     image_path: Path,
+    people_image_path: Path | None = None,
     people_matcher: Any,
     object_detector: Any,
     ocr_engine: OCREngine,
@@ -1595,6 +1813,8 @@ def _run_image_analysis(
 ) -> ImageAnalysis:
     del ocr_engine_name
     page_photo_count = 0 if is_page_scan else 1
+    people_input_path = people_image_path or image_path
+    people_coordinate_path = people_source_path or people_input_path
 
     with _prepare_ai_model_image(image_path) as model_image_path:
         object_labels: list[str] = []
@@ -1609,9 +1829,10 @@ def _run_image_analysis(
             )
         combined_hint_text = " ".join(part for part in [str(people_hint_text or "").strip(), ocr_text] if part).strip()
         people_matches = (
-            people_matcher.match_image(
-                image_path,
-                source_path=people_source_path or image_path,
+            _match_people_with_cast_store_retry(
+                people_matcher=people_matcher,
+                image_path=people_input_path,
+                source_path=people_coordinate_path,
                 bbox_offset=people_bbox_offset,
                 hint_text=combined_hint_text,
             )
@@ -1626,7 +1847,7 @@ def _run_image_analysis(
         object_matches = object_detector.detect_image(model_image_path) if object_detector else []
         people_names = _dedupe(people_match_names + list(extra_people_names or []))
         object_labels = [row.label for row in object_matches]
-        people_positions = _compute_people_positions(people_matches, image_path)
+        people_positions = _compute_people_positions(people_matches, people_coordinate_path)
         if step_fn:
             step_fn("caption")
         caption_output = caption_engine.generate(
@@ -1648,7 +1869,7 @@ def _run_image_analysis(
             else 0
         )
 
-    if not ocr_text_override and not ocr_text:
+    if ocr_text_override is None and not ocr_text:
         ocr_text = str(getattr(caption_output, "ocr_text", "") or "").strip()
     ocr_keywords = extract_keywords(ocr_text, max_keywords=15)
     subjects = _dedupe(object_labels + ocr_keywords)
@@ -1868,69 +2089,107 @@ def _resolve_archive_scan_authoritative_ocr(
     group_paths: list[Path],
     group_signature: str,
     cache: dict[str, ArchiveScanOCRAuthority],
+    ocr_engine: OCREngine | None = None,
     step_fn=None,
     stitched_image_dir: Path | None = None,
+    debug_recorder=None,
+    debug_step: str = "ocr_authority",
 ) -> ArchiveScanOCRAuthority:
     page_key = _scan_page_key(image_path)
     if page_key is None or len(group_paths) < 2:
         raise RuntimeError(f"Authoritative stitched OCR requires a multi-scan archive page: {image_path}")
     cached = cache.get(page_key)
-    if cached is not None and cached.signature == group_signature:
+    if cached is not None and cached.signature == group_signature and (ocr_engine is None or bool(cached.ocr_hash)):
         return cached
 
-    if step_fn:
-        step_fn("stitch")
     from ..stitch_oversized_pages import (  # pylint: disable=import-outside-toplevel
         build_stitched_image,
+        get_view_dirname,
     )
 
-    try:
-        import cv2  # pylint: disable=import-outside-toplevel
-    except Exception as exc:  # pragma: no cover - dependency optional in tests
-        raise RuntimeError("opencv-python is required for stitched archive OCR.") from exc
+    collection, year, book, page = parse_album_filename(image_path.name)
+    view_jpg: Path | None = None
+    if collection != "Unknown":
+        view_dir = Path(get_view_dirname(image_path.parent))
+        candidate = view_dir / f"{collection}_{year}_B{book}_P{int(page):02d}_V.jpg"
+        if candidate.is_file():
+            view_jpg = candidate
 
-    stitched_cap_path: Path | None = None
-    with tempfile.TemporaryDirectory(prefix="imago-archive-ocr-") as tmp_dir_name:
-        stitched = build_stitched_image([str(path) for path in group_paths])
-        tmp_path = Path(tmp_dir_name) / f"{group_paths[0].stem}_ocr_stitched.jpg"
-        wrote_temp_image = False
-        if hasattr(cv2, "imwrite"):
-            wrote_temp_image = bool(cv2.imwrite(str(tmp_path), stitched))
-        else:
-            try:
-                from PIL import Image  # pylint: disable=import-outside-toplevel
+    def _run_authoritative_ocr(source_path: Path) -> tuple[str, tuple[str, ...], str]:
+        if ocr_engine is None or ocr_engine.engine == "none":
+            return "", (), ""
+        if step_fn:
+            step_fn("ocr")
+        with _prepare_ai_model_image(source_path) as model_image_path:
+            ocr_text = ocr_engine.read_text(
+                model_image_path,
+                debug_recorder=debug_recorder,
+                debug_step=debug_step,
+            )
+        return ocr_text, tuple(extract_keywords(ocr_text, max_keywords=15)), _hash_text(ocr_text)
 
-                rgb_image = stitched[:, :, ::-1] if len(stitched.shape) == 3 else stitched
-                Image.fromarray(rgb_image).save(tmp_path, format="JPEG", quality=95)
-                wrote_temp_image = True
-            except Exception:
-                wrote_temp_image = False
-        if not wrote_temp_image:
-            raise RuntimeError(f"Could not write temporary stitched OCR image: {tmp_path}")
-        cap_wrote = False
-        if stitched_image_dir is not None:
-            cap_path = stitched_image_dir / f"{group_paths[0].stem}_stitched.jpg"
+    stitched_cap_path: Path | None = view_jpg
+    ocr_text = ""
+    ocr_keywords: tuple[str, ...] = ()
+    ocr_hash = ""
+
+    if view_jpg is not None:
+        ocr_text, ocr_keywords, ocr_hash = _run_authoritative_ocr(view_jpg)
+
+    if view_jpg is None:
+        if step_fn:
+            step_fn("stitch")
+
+        try:
+            import cv2  # pylint: disable=import-outside-toplevel
+        except Exception as exc:  # pragma: no cover - dependency optional in tests
+            raise RuntimeError("opencv-python is required for stitched archive OCR.") from exc
+
+        with tempfile.TemporaryDirectory(prefix="imago-archive-ocr-") as tmp_dir_name:
+            stitched = build_stitched_image([str(path) for path in group_paths])
+            tmp_path = Path(tmp_dir_name) / f"{group_paths[0].stem}_ocr_stitched.jpg"
+            wrote_temp_image = False
             if hasattr(cv2, "imwrite"):
-                cap_wrote = bool(cv2.imwrite(str(cap_path), stitched))
+                wrote_temp_image = bool(cv2.imwrite(str(tmp_path), stitched))
             else:
                 try:
                     from PIL import Image  # pylint: disable=import-outside-toplevel
 
                     rgb_image = stitched[:, :, ::-1] if len(stitched.shape) == 3 else stitched
-                    Image.fromarray(rgb_image).save(cap_path, format="JPEG", quality=95)
-                    cap_wrote = True
+                    Image.fromarray(rgb_image).save(tmp_path, format="JPEG", quality=95)
+                    wrote_temp_image = True
                 except Exception:
-                    pass
-        if cap_wrote:
-            stitched_cap_path = cap_path
+                    wrote_temp_image = False
+            if not wrote_temp_image:
+                raise RuntimeError(f"Could not write temporary stitched OCR image: {tmp_path}")
+            cap_wrote = False
+            ocr_source_path = tmp_path
+            if stitched_image_dir is not None:
+                cap_path = stitched_image_dir / f"{group_paths[0].stem}_stitched.jpg"
+                if hasattr(cv2, "imwrite"):
+                    cap_wrote = bool(cv2.imwrite(str(cap_path), stitched))
+                else:
+                    try:
+                        from PIL import Image  # pylint: disable=import-outside-toplevel
+
+                        rgb_image = stitched[:, :, ::-1] if len(stitched.shape) == 3 else stitched
+                        Image.fromarray(rgb_image).save(cap_path, format="JPEG", quality=95)
+                        cap_wrote = True
+                    except Exception:
+                        pass
+            if cap_wrote:
+                ocr_source_path = cap_path
+            ocr_text, ocr_keywords, ocr_hash = _run_authoritative_ocr(ocr_source_path)
+            if cap_wrote:
+                stitched_cap_path = cap_path
 
     result = ArchiveScanOCRAuthority(
         page_key=page_key,
         group_paths=tuple(group_paths),
         signature=group_signature,
-        ocr_text="",
-        ocr_keywords=(),
-        ocr_hash="",
+        ocr_text=ocr_text,
+        ocr_keywords=ocr_keywords,
+        ocr_hash=ocr_hash,
         stitched_image_path=stitched_cap_path,
     )
     cache[page_key] = result
@@ -2243,6 +2502,7 @@ def run(argv: list[str] | None = None) -> int:
     object_detector_cache: dict[tuple[str, float], Any] = {}
     ocr_engine_cache: dict[tuple[str, str, str, str], OCREngine] = {}
     caption_engine_cache: dict[tuple[str, str, str, int, float, str, int], CaptionEngine] = {}
+    date_engine_cache: dict[tuple[str, str, int, float, str], DateEstimateEngine] = {}
     archive_scan_ocr_cache: dict[str, ArchiveScanOCRAuthority] = {}
     printed_album_title_cache: dict[str, str] = {}
     geocoder = NominatimGeocoder()
@@ -2253,6 +2513,26 @@ def run(argv: list[str] | None = None) -> int:
     skipped = 0
     failures = 0
     completed_times: list[float] = []
+
+    def _get_date_engine(effective_settings: dict[str, Any]) -> DateEstimateEngine:
+        date_key = (
+            str(effective_settings.get("caption_engine", defaults["caption_engine"])),
+            str(effective_settings.get("caption_model", defaults["caption_model"])),
+            int(effective_settings.get("caption_max_tokens", defaults["caption_max_tokens"])),
+            0.0,
+            str(effective_settings.get("lmstudio_base_url", defaults["lmstudio_base_url"])),
+        )
+        date_engine = date_engine_cache.get(date_key)
+        if date_engine is None:
+            date_engine = _init_date_engine(
+                engine=date_key[0],
+                model_name=date_key[1],
+                max_tokens=int(date_key[2]),
+                temperature=0.0,
+                lmstudio_base_url=date_key[4],
+            )
+            date_engine_cache[date_key] = date_engine
+        return date_engine
 
     for idx, image_path in enumerate(files, 1):
         sidecar_path = image_path.with_suffix(".xmp")
@@ -2315,6 +2595,9 @@ def run(argv: list[str] | None = None) -> int:
         )
         settings_sig = _settings_signature(effective)
         creator_tool = str(effective.get("creator_tool", args.creator_tool))
+        date_estimation_enabled = (
+            str(effective.get("caption_engine", defaults["caption_engine"])).strip().lower() == "lmstudio"
+        )
 
         existing_sidecar_valid = has_valid_sidecar(image_path)
         existing_sidecar_current = has_current_sidecar(image_path) if existing_sidecar_valid else False
@@ -2326,6 +2609,7 @@ def run(argv: list[str] | None = None) -> int:
         existing_sidecar_complete = False
         reprocess_required = False
         reprocess_reasons: list[str] = []
+        date_refresh_required = False
         if existing_sidecar_valid and not existing_sidecar_current:
             reprocess_reasons.append("sidecar_older_than_image")
         if _sidecar_has_lmstudio_caption_error(existing_sidecar_state):
@@ -2343,12 +2627,20 @@ def run(argv: list[str] | None = None) -> int:
             source_refresh_required = _dc_source_needs_refresh(image_path, existing_sidecar_state)
             if source_refresh_required:
                 reprocess_reasons.append("dc_source_stale")
+            date_refresh_required = _dc_date_needs_refresh(
+                image_path,
+                existing_sidecar_state,
+                enabled=date_estimation_enabled,
+            )
+            if date_refresh_required:
+                reprocess_reasons.append("timeline_date_missing")
 
         if (
             existing_sidecar_current
             and existing_sidecar_complete
             and not reprocess_required
             and not source_refresh_required
+            and not date_refresh_required
             and not force_processing
         ):
             skipped += 1
@@ -2419,13 +2711,9 @@ def run(argv: list[str] | None = None) -> int:
                 reprocess_reasons.append("settings_signature_mismatch")
             elif bool(effective.get("enable_people", True)):
                 if str(existing_sidecar_state.get("cast_store_signature") or "") != current_cast_signature:
-                    # Cast changed: only re-run people+caption if faces were detected here.
-                    # None means old XMP without the flag — treat conservatively as True.
-                    _pd = existing_sidecar_state.get("people_detected")
-                    if _pd is True or _pd is None:
+                    if _sidecar_has_people_to_refresh(existing_sidecar_state):
                         people_update_only = True
                         reprocess_reasons.append("cast_store_signature_changed")
-                    # _pd is False → no faces in this image, cast change is irrelevant
 
         needs_full = needs_processing(
             image_path,
@@ -2477,7 +2765,7 @@ def run(argv: list[str] | None = None) -> int:
                     f"  [{idx}/{len(files)}]  {image_path.name}  [update: {reason_text}]",
                     flush=True,
                 )
-            elif source_refresh_required and reason_text:
+            elif (source_refresh_required or date_refresh_required) and reason_text:
                 print(
                     f"  [{idx}/{len(files)}]  {image_path.name}  [refresh: {reason_text}]",
                     flush=True,
@@ -2495,16 +2783,22 @@ def run(argv: list[str] | None = None) -> int:
             state = existing_sidecar_state
             if isinstance(state, dict):
                 file_start = time.monotonic()
+                prompt_debug = PromptDebugSession(image_path)
                 try:
                     review = load_ai_xmp_review(sidecar_path)
+                    refresh_ocr_text = _effective_sidecar_ocr_text(
+                        image_path,
+                        review if isinstance(review, dict) else None,
+                    )
+                    refresh_location = _effective_sidecar_location_payload(
+                        image_path,
+                        review if isinstance(review, dict) else None,
+                    )
                     refresh_detections = (
                         dict(review.get("detections") or {}) if isinstance(review.get("detections"), dict) else {}
                     )
-                    refresh_location = (
-                        dict(refresh_detections.get("location") or {})
-                        if isinstance(refresh_detections.get("location"), dict)
-                        else {}
-                    )
+                    if refresh_location:
+                        refresh_detections["location"] = refresh_location
                     if not dry_run:
                         refresh_gps_lat = str(refresh_location.get("gps_latitude") or "").strip()
                         refresh_gps_lon = str(refresh_location.get("gps_longitude") or "").strip()
@@ -2518,7 +2812,7 @@ def run(argv: list[str] | None = None) -> int:
                         )
                         text_layers = _resolve_xmp_text_layers(
                             image_path=image_path,
-                            ocr_text=str(review.get("ocr_text") or ""),
+                            ocr_text=refresh_ocr_text,
                             page_like=refresh_page_like,
                             ocr_authority_source=str(review.get("ocr_authority_source") or ""),
                             author_text=str(review.get("author_text") or ""),
@@ -2549,9 +2843,26 @@ def run(argv: list[str] | None = None) -> int:
                                     str(review.get("album_title") or "").strip()
                                     or _resolve_album_title_hint(image_path)
                                 ),
-                                ocr_text=str(review.get("ocr_text") or ""),
+                                ocr_text=refresh_ocr_text,
                             ),
                             context="refresh",
+                        )
+                        date_engine = (
+                            _get_date_engine(effective)
+                            if date_estimation_enabled and not str(review.get("dc_date") or "").strip()
+                            else None
+                        )
+                        refresh_dc_date = _resolve_dc_date(
+                            existing_dc_date=str(review.get("dc_date") or ""),
+                            ocr_text=refresh_ocr_text,
+                            album_title=refresh_album_title,
+                            image_path=image_path,
+                            date_engine=date_engine,
+                            prompt_debug=prompt_debug,
+                        )
+                        refresh_date_time_original = _resolve_date_time_original(
+                            dc_date=refresh_dc_date,
+                            date_time_original=str(review.get("date_time_original") or ""),
                         )
                         if refresh_detections is None:
                             refresh_detections = {}
@@ -2563,6 +2874,10 @@ def run(argv: list[str] | None = None) -> int:
                             ),
                             "size": int(stat.st_size),
                             "mtime_ns": int(stat.st_mtime_ns),
+                            "date_estimate_input_hash": _date_estimate_input_hash(
+                                refresh_ocr_text,
+                                refresh_album_title,
+                            ),
                             "ocr_authority_signature": str(
                                 (existing_sidecar_state or {}).get("ocr_authority_signature") or ""
                             ),
@@ -2588,7 +2903,7 @@ def run(argv: list[str] | None = None) -> int:
                                 image_path,
                                 _page_scan_filenames(image_path),
                             ),
-                            ocr_text=str(review.get("ocr_text") or ""),
+                            ocr_text=refresh_ocr_text,
                             author_text=str(text_layers.get("author_text") or ""),
                             scene_text=str(text_layers.get("scene_text") or ""),
                             detections_payload=refresh_detections,
@@ -2597,6 +2912,8 @@ def run(argv: list[str] | None = None) -> int:
                             create_date=(
                                 str(review.get("create_date") or "").strip() or read_embedded_create_date(image_path)
                             ),
+                            dc_date=refresh_dc_date,
+                            date_time_original=refresh_date_time_original,
                             history_when=_xmp_timestamp_from_path(image_path),
                             image_width=_get_image_dimensions(image_path)[0],
                             image_height=_get_image_dimensions(image_path)[1],
@@ -2615,6 +2932,7 @@ def run(argv: list[str] | None = None) -> int:
                                 "label": image_path.name,
                             }
                         )
+                    _emit_prompt_debug_artifact(prompt_debug, dry_run=dry_run)
                     processed += 1
                     completed_times.append(time.monotonic() - file_start)
                     if not stdout_only:
@@ -2626,6 +2944,7 @@ def run(argv: list[str] | None = None) -> int:
                         )
                 except Exception as exc:
                     failures += 1
+                    _emit_prompt_debug_artifact(prompt_debug, dry_run=dry_run)
                     emit_error(f"[{idx}/{len(files)}] fail  {image_path.name}: {exc}")
                 _release_image_processing_lock(lock_path)
                 continue
@@ -2637,11 +2956,13 @@ def run(argv: list[str] | None = None) -> int:
             else:
                 file_start = time.monotonic()
                 det = state.get("detections") or {}
-                existing_ocr_text = str(state.get("ocr_text") or "").strip()
+                existing_people_rows = [r for r in list(det.get("people") or []) if isinstance(r, dict)]
+                existing_caption_payload = dict(det.get("caption") or {})
+                existing_ocr_text = _effective_sidecar_ocr_text(image_path, state)
                 existing_ocr_keywords = list((det.get("ocr") or {}).get("keywords") or [])
                 existing_object_rows = [r for r in list(det.get("objects") or []) if isinstance(r, dict)]
                 existing_object_labels = [str(r.get("label") or "") for r in existing_object_rows if r.get("label")]
-                existing_location = dict(det.get("location") or {})
+                existing_location = _effective_sidecar_location_payload(image_path, state)
 
                 eta_str = _format_eta(completed_times, len(files) - idx + 1)
                 eta_part = f"  {eta_str}" if eta_str else ""
@@ -2650,34 +2971,13 @@ def run(argv: list[str] | None = None) -> int:
                 _pu_stop, _pu_step = _progress_ticker(prefix)
 
                 try:
-                    caption_key = (
-                        str(effective.get("caption_engine", defaults["caption_engine"])),
-                        str(effective.get("caption_model", defaults["caption_model"])),
-                        str(effective.get("caption_prompt", defaults["caption_prompt"])),
-                        int(effective.get("caption_max_tokens", defaults["caption_max_tokens"])),
-                        float(effective.get("caption_temperature", defaults["caption_temperature"])),
-                        str(effective.get("lmstudio_base_url", defaults["lmstudio_base_url"])),
-                        int(effective.get("caption_max_edge", defaults["caption_max_edge"])),
-                    )
-                    pu_caption_engine = caption_engine_cache.get(caption_key)
-                    if pu_caption_engine is None:
-                        pu_caption_engine = _init_caption_engine(
-                            engine=caption_key[0],
-                            model_name=caption_key[1],
-                            caption_prompt=caption_key[2],
-                            max_tokens=int(caption_key[3]),
-                            temperature=float(caption_key[4]),
-                            lmstudio_base_url=caption_key[5],
-                            max_image_edge=int(caption_key[6]),
-                            stream=True,
-                        )
-                        caption_engine_cache[caption_key] = pu_caption_engine
-
                     _pu_step("people")
                     pu_people_matches = (
-                        people_matcher.match_image(
-                            image_path,
+                        _match_people_with_cast_store_retry(
+                            people_matcher=people_matcher,
+                            image_path=image_path,
                             source_path=image_path,
+                            bbox_offset=(0, 0),
                             hint_text=existing_ocr_text,
                         )
                         if people_matcher
@@ -2698,15 +2998,77 @@ def run(argv: list[str] | None = None) -> int:
                     pu_people_match_names = _dedupe([r.name for r in pu_people_matches])
                     _pu_step(_format_people_step_label("people", pu_people_match_names))
                     pu_person_names = _dedupe(pu_people_match_names + existing_xmp_people)
-                    pu_people_positions = _compute_people_positions(pu_people_matches, image_path)
-
-                    _pu_step("caption")
                     pu_album_title = _resolve_album_title_hint(image_path)
                     pu_printed_title = _resolve_album_printed_title_hint(image_path, printed_album_title_cache)
-                    pu_prompt_debug = PromptDebugSession(image_path)
-                    with _prepare_ai_model_image(image_path) as pu_model_path:
-                        pu_caption_out = pu_caption_engine.generate(
-                            image_path=pu_model_path,
+                    pu_people_payload = _serialize_people_matches(pu_people_matches)
+                    pu_prompt_debug = None
+                    people_names_changed = pu_person_names != existing_xmp_people
+                    if not people_names_changed:
+                        pu_updated_det = {
+                            **det,
+                            "people": pu_people_payload or existing_people_rows,
+                            "caption": existing_caption_payload,
+                        }
+                    else:
+                        caption_key = (
+                            str(effective.get("caption_engine", defaults["caption_engine"])),
+                            str(effective.get("caption_model", defaults["caption_model"])),
+                            str(effective.get("caption_prompt", defaults["caption_prompt"])),
+                            int(effective.get("caption_max_tokens", defaults["caption_max_tokens"])),
+                            float(effective.get("caption_temperature", defaults["caption_temperature"])),
+                            str(effective.get("lmstudio_base_url", defaults["lmstudio_base_url"])),
+                            int(effective.get("caption_max_edge", defaults["caption_max_edge"])),
+                        )
+                        pu_caption_engine = caption_engine_cache.get(caption_key)
+                        if pu_caption_engine is None:
+                            pu_caption_engine = _init_caption_engine(
+                                engine=caption_key[0],
+                                model_name=caption_key[1],
+                                caption_prompt=caption_key[2],
+                                max_tokens=int(caption_key[3]),
+                                temperature=float(caption_key[4]),
+                                lmstudio_base_url=caption_key[5],
+                                max_image_edge=int(caption_key[6]),
+                                stream=True,
+                            )
+                            caption_engine_cache[caption_key] = pu_caption_engine
+                        pu_people_positions = _compute_people_positions(pu_people_matches, image_path)
+                        _pu_step("caption")
+                        pu_prompt_debug = PromptDebugSession(image_path)
+                        with _prepare_ai_model_image(image_path) as pu_model_path:
+                            pu_caption_out = pu_caption_engine.generate(
+                                image_path=pu_model_path,
+                                people=pu_person_names,
+                                objects=existing_object_labels,
+                                ocr_text=existing_ocr_text,
+                                source_path=image_path,
+                                album_title=pu_album_title,
+                                printed_album_title=pu_printed_title,
+                                people_positions=pu_people_positions,
+                                debug_recorder=pu_prompt_debug.record,
+                                debug_step="caption_refresh",
+                            )
+                            pu_faces_detected = (
+                                (_v if isinstance(_v := getattr(people_matcher, "last_faces_detected", 0), int) else 0)
+                                if people_matcher
+                                else 0
+                            )
+                        (
+                            pu_local_people_present,
+                            pu_local_estimated_people_count,
+                        ) = _estimate_people_from_detections(
+                            people_matches=pu_people_matches,
+                            people_names=pu_person_names,
+                            object_labels=existing_object_labels,
+                            faces_detected=pu_faces_detected,
+                        )
+                        (
+                            pu_people_present,
+                            pu_estimated_people_count,
+                        ) = _resolve_people_count_metadata(
+                            requested_caption_engine=str(caption_key[0]),
+                            caption_engine=pu_caption_engine,
+                            model_image_path=pu_model_path,
                             people=pu_person_names,
                             objects=existing_object_labels,
                             ocr_text=existing_ocr_text,
@@ -2714,76 +3076,44 @@ def run(argv: list[str] | None = None) -> int:
                             album_title=pu_album_title,
                             printed_album_title=pu_printed_title,
                             people_positions=pu_people_positions,
-                            debug_recorder=pu_prompt_debug.record,
-                            debug_step="caption_refresh",
+                            local_people_present=pu_local_people_present,
+                            local_estimated_people_count=pu_local_estimated_people_count,
+                            prompt_debug=pu_prompt_debug,
+                            debug_step="people_count_refresh",
                         )
-                        pu_faces_detected = (
-                            (_v if isinstance(_v := getattr(people_matcher, "last_faces_detected", 0), int) else 0)
-                            if people_matcher
-                            else 0
+                        _emit_prompt_debug_artifact(pu_prompt_debug, dry_run=dry_run)
+                        pu_caption_payload = _build_caption_metadata(
+                            requested_engine=str(caption_key[0]),
+                            effective_engine=str(pu_caption_out.engine),
+                            fallback=bool(pu_caption_out.fallback),
+                            error=str(pu_caption_out.error or ""),
+                            engine_error=str(getattr(pu_caption_out, "engine_error", "") or ""),
+                            model=str(caption_key[1] if caption_key[0] in {"local", "lmstudio"} else ""),
+                            people_present=pu_people_present,
+                            estimated_people_count=pu_estimated_people_count,
                         )
-                    pu_people_payload = _serialize_people_matches(pu_people_matches)
-                    (
-                        pu_local_people_present,
-                        pu_local_estimated_people_count,
-                    ) = _estimate_people_from_detections(
-                        people_matches=pu_people_matches,
-                        people_names=pu_person_names,
-                        object_labels=existing_object_labels,
-                        faces_detected=pu_faces_detected,
-                    )
-                    (
-                        pu_people_present,
-                        pu_estimated_people_count,
-                    ) = _resolve_people_count_metadata(
-                        requested_caption_engine=str(caption_key[0]),
-                        caption_engine=pu_caption_engine,
-                        model_image_path=pu_model_path,
-                        people=pu_person_names,
-                        objects=existing_object_labels,
-                        ocr_text=existing_ocr_text,
-                        source_path=image_path,
-                        album_title=pu_album_title,
-                        printed_album_title=pu_printed_title,
-                        people_positions=pu_people_positions,
-                        local_people_present=pu_local_people_present,
-                        local_estimated_people_count=pu_local_estimated_people_count,
-                        prompt_debug=pu_prompt_debug,
-                        debug_step="people_count_refresh",
-                    )
-                    _emit_prompt_debug_artifact(pu_prompt_debug, dry_run=dry_run)
-                    pu_caption_payload = _build_caption_metadata(
-                        requested_engine=str(caption_key[0]),
-                        effective_engine=str(pu_caption_out.engine),
-                        fallback=bool(pu_caption_out.fallback),
-                        error=str(pu_caption_out.error or ""),
-                        engine_error=str(getattr(pu_caption_out, "engine_error", "") or ""),
-                        model=str(caption_key[1] if caption_key[0] in {"local", "lmstudio"} else ""),
-                        people_present=pu_people_present,
-                        estimated_people_count=pu_estimated_people_count,
-                    )
-                    pu_ocr_model = str(
-                        dict(det.get("ocr") or {}).get("model")
-                        or (
-                            effective.get("ocr_model", defaults["ocr_model"])
-                            if str(effective.get("ocr_engine", defaults["ocr_engine"])).strip().lower()
-                            in {"local", "lmstudio"}
-                            else ""
+                        pu_ocr_model = str(
+                            dict(det.get("ocr") or {}).get("model")
+                            or (
+                                effective.get("ocr_model", defaults["ocr_model"])
+                                if str(effective.get("ocr_engine", defaults["ocr_engine"])).strip().lower()
+                                in {"local", "lmstudio"}
+                                else ""
+                            )
                         )
-                    )
-                    pu_updated_det = _refresh_detection_model_metadata(
-                        {
-                            **det,
-                            "people": pu_people_payload,
-                            "caption": pu_caption_payload,
-                        },
-                        ocr_model=pu_ocr_model,
-                        caption_model=(
-                            str(pu_caption_engine.effective_model_name)
-                            if str(caption_key[0]).strip().lower() in {"local", "lmstudio"}
-                            else ""
-                        ),
-                    )
+                        pu_updated_det = _refresh_detection_model_metadata(
+                            {
+                                **det,
+                                "people": pu_people_payload,
+                                "caption": pu_caption_payload,
+                            },
+                            ocr_model=pu_ocr_model,
+                            caption_model=(
+                                str(pu_caption_engine.effective_model_name)
+                                if str(caption_key[0]).strip().lower() in {"local", "lmstudio"}
+                                else ""
+                            ),
+                        )
                     pu_subjects = _dedupe(
                         existing_object_labels + existing_ocr_keywords + ([pu_album_title] if pu_album_title else [])
                     )
@@ -2802,6 +3132,23 @@ def run(argv: list[str] | None = None) -> int:
                                 ocr_text=existing_ocr_text,
                             ),
                             context="people update",
+                        )
+                        date_engine = (
+                            _get_date_engine(effective)
+                            if date_estimation_enabled and not str(state.get("dc_date") or "").strip()
+                            else None
+                        )
+                        pu_dc_date = _resolve_dc_date(
+                            existing_dc_date=str(state.get("dc_date") or ""),
+                            ocr_text=existing_ocr_text,
+                            album_title=pu_album_title,
+                            image_path=image_path,
+                            date_engine=date_engine,
+                            prompt_debug=pu_prompt_debug,
+                        )
+                        pu_date_time_original = _resolve_date_time_original(
+                            dc_date=pu_dc_date,
+                            date_time_original=str(state.get("date_time_original") or ""),
                         )
                         pu_source_text = _build_dc_source(pu_album_title, image_path, _page_scan_filenames(image_path))
                         pu_page_like = (
@@ -2825,6 +3172,13 @@ def run(argv: list[str] | None = None) -> int:
                         current_cast_signature = str(people_matcher.store_signature())
                         pu_proc = dict((pu_updated_det.get("processing") or {}))
                         pu_proc["cast_store_signature"] = current_cast_signature
+                        if date_estimation_enabled or pu_dc_date:
+                            pu_proc["date_estimate_input_hash"] = _date_estimate_input_hash(
+                                existing_ocr_text,
+                                pu_album_title,
+                            )
+                        if existing_location:
+                            pu_updated_det["location"] = existing_location
                         pu_updated_det = {**pu_updated_det, "processing": pu_proc}
                         write_xmp_sidecar(
                             sidecar_path,
@@ -2850,6 +3204,8 @@ def run(argv: list[str] | None = None) -> int:
                             create_date=(
                                 str(state.get("create_date") or "").strip() or read_embedded_create_date(image_path)
                             ),
+                            dc_date=pu_dc_date,
+                            date_time_original=pu_date_time_original,
                             history_when=_xmp_timestamp_from_path(image_path),
                             image_width=pu_img_w,
                             image_height=pu_img_h,
@@ -2961,8 +3317,10 @@ def run(argv: list[str] | None = None) -> int:
                     group_paths=multi_scan_group_paths,
                     group_signature=multi_scan_group_signature,
                     cache=archive_scan_ocr_cache,
+                    ocr_engine=ocr_engine,
                     step_fn=set_step,
                     stitched_image_dir=stitch_cap_dir,
+                    debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
                 )
 
             with prepare_image_layout(
@@ -2984,9 +3342,11 @@ def run(argv: list[str] | None = None) -> int:
                 printed_album_title_hint = album_title_hint
 
                 _stitched_cap_path = scan_ocr_authority.stitched_image_path if scan_ocr_authority is not None else None
+                derived_ocr_override = _effective_sidecar_ocr_text(image_path, existing_sidecar_state)
                 analysis_target = _stitched_cap_path or (layout.content_path if layout.page_like else image_path)
                 analysis = _run_image_analysis(
                     image_path=analysis_target,
+                    people_image_path=(layout.content_path if layout.page_like else image_path),
                     people_matcher=people_matcher,
                     object_detector=object_detector,
                     ocr_engine=ocr_engine,
@@ -3003,6 +3363,11 @@ def run(argv: list[str] | None = None) -> int:
                     step_fn=set_step,
                     extra_people_names=existing_xmp_people,
                     is_page_scan=layout.page_like,
+                    ocr_text_override=(
+                        scan_ocr_authority.ocr_text
+                        if scan_ocr_authority is not None
+                        else (derived_ocr_override or None)
+                    ),
                     prompt_debug=prompt_debug,
                 )
                 resolved_album_title = analysis.album_title or album_title_hint
@@ -3022,7 +3387,7 @@ def run(argv: list[str] | None = None) -> int:
                 people_count = len(analysis.people_names)
                 object_count = len(analysis.object_labels)
                 analysis_mode = "page_flat" if layout.page_like else "single_image"
-                ocr_authority_hash = _hash_text(ocr_text) if scan_ocr_authority is not None else ""
+                ocr_authority_hash = str(scan_ocr_authority.ocr_hash) if scan_ocr_authority is not None else ""
 
                 payload = _refresh_detection_model_metadata(
                     payload,
@@ -3045,6 +3410,11 @@ def run(argv: list[str] | None = None) -> int:
 
                 if not dry_run:
                     location_payload = dict(payload.get("location") or {}) if isinstance(payload, dict) else {}
+                    effective_location_payload = _effective_sidecar_location_payload(image_path, existing_sidecar_state)
+                    if effective_location_payload:
+                        location_payload = effective_location_payload
+                    if location_payload:
+                        payload["location"] = location_payload
                     img_w, img_h = _get_image_dimensions(image_path)
                     final_album_title = _require_album_title_for_title_page(
                         image_path=image_path,
@@ -3054,6 +3424,24 @@ def run(argv: list[str] | None = None) -> int:
                             ocr_text=ocr_text,
                         ),
                         context="write",
+                    )
+                    date_engine = (
+                        _get_date_engine(effective)
+                        if date_estimation_enabled
+                        and not str((existing_sidecar_state or {}).get("dc_date") or "").strip()
+                        else None
+                    )
+                    final_dc_date = _resolve_dc_date(
+                        existing_dc_date=str((existing_sidecar_state or {}).get("dc_date") or ""),
+                        ocr_text=ocr_text,
+                        album_title=final_album_title,
+                        image_path=image_path,
+                        date_engine=date_engine,
+                        prompt_debug=prompt_debug,
+                    )
+                    final_date_time_original = _resolve_date_time_original(
+                        dc_date=final_dc_date,
+                        date_time_original=str((existing_sidecar_state or {}).get("date_time_original") or ""),
                     )
                     text_layers = _resolve_xmp_text_layers(
                         image_path=image_path,
@@ -3097,6 +3485,11 @@ def run(argv: list[str] | None = None) -> int:
                         ),
                         "size": int(stat.st_size),
                         "mtime_ns": int(stat.st_mtime_ns),
+                        "date_estimate_input_hash": (
+                            _date_estimate_input_hash(ocr_text, final_album_title)
+                            if date_estimation_enabled or final_dc_date
+                            else str((existing_sidecar_state or {}).get("date_estimate_input_hash") or "")
+                        ),
                         "ocr_authority_signature": (
                             str(scan_ocr_authority.signature) if scan_ocr_authority is not None else ""
                         ),
@@ -3129,6 +3522,8 @@ def run(argv: list[str] | None = None) -> int:
                         subphotos=subphotos_xml,
                         ocr_authority_source=("archive_stitched" if scan_ocr_authority is not None else ""),
                         create_date=read_embedded_create_date(image_path),
+                        dc_date=final_dc_date,
+                        date_time_original=final_date_time_original,
                         history_when=_xmp_timestamp_from_path(image_path),
                         image_width=img_w,
                         image_height=img_h,

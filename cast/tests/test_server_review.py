@@ -1,9 +1,11 @@
 import json
+import io
 import threading
 import time
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+import cast.server as cast_server
 from cast.server import CastHTTPServer
 from cast.storage import TextFaceStore
 
@@ -20,6 +22,29 @@ def _post_json(url: str, payload: dict) -> tuple[int, dict]:
             return int(response.status), json.loads(response.read().decode("utf-8"))
     except HTTPError as exc:
         return int(exc.code), json.loads(exc.read().decode("utf-8"))
+
+
+def test_wait_for_photoalbums_processing_lock_waits_for_release(tmp_path):
+    image_path = tmp_path / "photo.jpg"
+    image_path.write_bytes(b"jpg")
+    lock_path = cast_server._photoalbums_processing_lock_path(image_path)
+    lock_path.write_text("{}", encoding="utf-8")
+
+    def release_lock():
+        time.sleep(0.1)
+        lock_path.unlink()
+
+    thread = threading.Thread(target=release_lock, daemon=True)
+    thread.start()
+    try:
+        waited = cast_server._wait_for_photoalbums_processing_lock(
+            image_path,
+            timeout_seconds=2.0,
+            poll_seconds=0.02,
+        )
+        assert waited is True
+    finally:
+        thread.join(timeout=2)
 
 
 def test_review_skip_keeps_item_pending_and_moves_it_to_end(tmp_path):
@@ -261,6 +286,264 @@ def test_server_blocks_ingest_when_primary_model_is_unavailable(tmp_path):
         assert status == 400
         assert payload["ok"] is False
         assert "InsightFace buffalo_l is unavailable" in payload["error"]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_photo_scan_rescan_returns_removed_counts(tmp_path):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+
+    server = CastHTTPServer("127.0.0.1", 0, store)
+
+    def fake_ingest_photo_album_views(**kwargs):
+        assert kwargs["rescan_existing"] is True
+        return {
+            "photo_files_scanned": 3,
+            "view_files_scanned": 2,
+            "archive_scan_files_scanned": 1,
+            "faces_created": 5,
+            "faces": [],
+            "per_photo": [],
+            "photo_albums_root": str(tmp_path),
+            "view_glob": "Family*_View",
+            "rescan_existing": True,
+            "removed_faces": 4,
+            "removed_reviews": 6,
+            "removed_crops": 4,
+        }
+
+    server.ingestor.ingest_photo_album_views = fake_ingest_photo_album_views  # type: ignore[method-assign]
+    port = int(server.server_address[1])
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    time.sleep(0.2)
+    try:
+        status, payload = _post_json(
+            f"http://127.0.0.1:{port}/api/ingest/photos/scan",
+            {
+                "photo_albums_root": str(tmp_path),
+                "view_glob": "Family*_View",
+                "auto_queue": False,
+                "rescan_existing": True,
+            },
+        )
+        assert status == 201
+        assert payload["ok"] is True
+        assert payload["rescan_existing"] is True
+        assert payload["view_files_scanned"] == 2
+        assert payload["archive_scan_files_scanned"] == 1
+        assert payload["removed_faces"] == 4
+        assert payload["removed_reviews"] == 6
+        assert payload["removed_crops"] == 4
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_review_accept_keeps_item_pending_when_xmp_write_fails(tmp_path, monkeypatch):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+
+    person = store.add_person(name="Audrey")
+    image_path = tmp_path / "photo.jpg"
+    image_path.write_bytes(b"jpg")
+    face = store.add_face(
+        embedding=[0.1, 0.2, 0.3],
+        source_type="photo",
+        source_path=str(image_path),
+        bbox=[10, 20, 30, 40],
+    )
+    review = store.add_review_item(
+        face_id=face["face_id"],
+        candidates=[],
+        suggested_person_id=person["person_id"],
+        suggested_score=0.95,
+        status="pending",
+    )
+
+    stderr_buffer = io.StringIO()
+    monkeypatch.setattr(cast_server.sys, "stderr", stderr_buffer)
+    monkeypatch.setattr(cast_server, "read_person_in_image", lambda path: [])
+    monkeypatch.setattr(cast_server, "read_xmp_description", lambda path: "")
+
+    def raise_merge(*args, **kwargs):
+        raise PermissionError(13, "Permission denied", str(image_path.with_suffix(".xmp")))
+
+    monkeypatch.setattr(cast_server, "merge_persons_xmp", raise_merge)
+
+    server = CastHTTPServer("127.0.0.1", 0, store)
+    port = int(server.server_address[1])
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    time.sleep(0.2)
+    try:
+        status, payload = _post_json(
+            f"http://127.0.0.1:{port}/api/review/resolve",
+            {
+                "review_id": review["review_id"],
+                "status": "accepted",
+                "person_id": person["person_id"],
+            },
+        )
+        assert status == 500
+        assert payload["ok"] is False
+        assert "XMP write-back failed for review" in payload["error"]
+
+        refreshed_review = store.list_review_items()[0]
+        refreshed_face = store.list_faces()[0]
+        assert refreshed_review["status"] == "pending"
+        assert refreshed_review["decided_person_id"] is None
+        assert refreshed_face["person_id"] is None
+        assert refreshed_face["review_status"] == ""
+
+        log_text = stderr_buffer.getvalue()
+        assert '"event": "xmp_write_back_failed"' in log_text
+        assert str(review["review_id"]) in log_text
+        assert str(face["face_id"]) in log_text
+        assert str(person["person_id"]) in log_text
+        assert '"source_path":' in log_text
+        assert '"xmp_path":' in log_text
+        assert "photo.jpg" in log_text
+        assert "photo.xmp" in log_text
+        assert "PermissionError" in log_text
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_review_accept_waits_for_photoalbums_lock_before_xmp_write(tmp_path, monkeypatch):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+
+    person = store.add_person(name="Audrey")
+    image_path = tmp_path / "photo.jpg"
+    image_path.write_bytes(b"jpg")
+    face = store.add_face(
+        embedding=[0.1, 0.2, 0.3],
+        source_type="photo",
+        source_path=str(image_path),
+        bbox=[10, 20, 30, 40],
+    )
+    review = store.add_review_item(
+        face_id=face["face_id"],
+        candidates=[],
+        suggested_person_id=person["person_id"],
+        suggested_score=0.95,
+        status="pending",
+    )
+
+    waited_paths = []
+
+    def fake_wait(path, **kwargs):
+        waited_paths.append((path, kwargs))
+        return True
+
+    read_calls = {"count": 0}
+
+    def fake_read_person_in_image(path):
+        read_calls["count"] += 1
+        if read_calls["count"] == 1:
+            return []
+        return ["Audrey"]
+
+    monkeypatch.setattr(cast_server, "_wait_for_photoalbums_processing_lock", fake_wait)
+    monkeypatch.setattr(cast_server, "read_person_in_image", fake_read_person_in_image)
+    monkeypatch.setattr(cast_server, "read_xmp_description", lambda path: "")
+    monkeypatch.setattr(cast_server, "merge_persons_xmp", lambda *args, **kwargs: image_path.with_suffix(".xmp"))
+
+    server = CastHTTPServer("127.0.0.1", 0, store)
+    port = int(server.server_address[1])
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    time.sleep(0.2)
+    try:
+        status, payload = _post_json(
+            f"http://127.0.0.1:{port}/api/review/resolve",
+            {
+                "review_id": review["review_id"],
+                "status": "accepted",
+                "person_id": person["person_id"],
+            },
+        )
+        assert status == 200
+        assert payload["ok"] is True
+        assert payload["review"]["status"] == "accepted"
+        assert waited_paths
+        assert waited_paths[0][0] == image_path
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_review_accept_keeps_item_pending_when_person_in_image_verification_fails(tmp_path, monkeypatch):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+
+    person = store.add_person(name="Audrey")
+    image_path = tmp_path / "photo.jpg"
+    image_path.write_bytes(b"jpg")
+    face = store.add_face(
+        embedding=[0.1, 0.2, 0.3],
+        source_type="photo",
+        source_path=str(image_path),
+        bbox=[10, 20, 30, 40],
+    )
+    review = store.add_review_item(
+        face_id=face["face_id"],
+        candidates=[],
+        suggested_person_id=person["person_id"],
+        suggested_score=0.95,
+        status="pending",
+    )
+
+    stderr_buffer = io.StringIO()
+    monkeypatch.setattr(cast_server.sys, "stderr", stderr_buffer)
+    read_calls = {"count": 0}
+
+    def fake_read_person_in_image(path):
+        read_calls["count"] += 1
+        if read_calls["count"] == 1:
+            return []
+        return ["Someone Else"]
+
+    monkeypatch.setattr(cast_server, "read_person_in_image", fake_read_person_in_image)
+    monkeypatch.setattr(cast_server, "read_xmp_description", lambda path: "")
+    monkeypatch.setattr(cast_server, "merge_persons_xmp", lambda *args, **kwargs: image_path.with_suffix(".xmp"))
+
+    server = CastHTTPServer("127.0.0.1", 0, store)
+    port = int(server.server_address[1])
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    time.sleep(0.2)
+    try:
+        status, payload = _post_json(
+            f"http://127.0.0.1:{port}/api/review/resolve",
+            {
+                "review_id": review["review_id"],
+                "status": "accepted",
+                "person_id": person["person_id"],
+            },
+        )
+        assert status == 500
+        assert payload["ok"] is False
+        assert "Assigned person was not written to Iptc4xmpExt:PersonInImage" in payload["error"]
+
+        refreshed_review = store.list_review_items()[0]
+        refreshed_face = store.list_faces()[0]
+        assert refreshed_review["status"] == "pending"
+        assert refreshed_face["person_id"] is None
+
+        log_text = stderr_buffer.getvalue()
+        assert '"event": "xmp_write_back_verification_failed"' in log_text
+        assert '"verified_person_in_image": ["Someone Else"]' in log_text
+        assert str(review["review_id"]) in log_text
+        assert str(face["face_id"]) in log_text
     finally:
         server.shutdown()
         server.server_close()

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Final
 
 ELLIPSIS_BOOK: Final[str] = "\u2026"
@@ -34,11 +35,8 @@ PAGE_SCAN_RE = re.compile(r"_P(?P<page>\d+)_S(?P<scan>\d+)", re.IGNORECASE)
 # Matches the stem of any view page: …_P##_V
 VIEW_PAGE_RE = re.compile(r"_P\d+_V$", re.IGNORECASE)
 
-# Matches the stem of a view detail crop: …_D##-##_V
+# Matches the stem of a view derived image: …_D##-##_V
 DERIVED_VIEW_RE = re.compile(r"_D\d{1,2}-\d{1,2}_V$", re.IGNORECASE)
-
-# Matches the stem of a colorized detail crop: …_D##-##_C
-COLORIZED_RE = re.compile(r"_D\d{1,2}-\d{1,2}_C$", re.IGNORECASE)
 
 # Legacy suffixes kept for transition-period recognition
 VIEW_STITCHED_LEGACY_RE = re.compile(r"_P\d+_stitched$", re.IGNORECASE)
@@ -50,8 +48,13 @@ def parse_album_filename(
     filename: str,
     default: tuple[str, str, str, str] = ("Unknown", "Unknown", "00", "00"),
 ) -> tuple[str, str, str, str]:
+    stem = Path(filename).stem
+    for suffix in ("_stitched", "_VR", "_VC", "_V"):
+        if stem.endswith(suffix):
+            stem = stem[: -len(suffix)]
+            break
     for pattern in (SCAN_NAME_RE, DERIVED_NAME_RE, BASE_PAGE_NAME_RE):
-        match = pattern.search(filename)
+        match = pattern.fullmatch(stem)
         if match:
             return (
                 str(match.group("collection")),

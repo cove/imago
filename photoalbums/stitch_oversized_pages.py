@@ -6,6 +6,12 @@ import tempfile
 import warnings
 from pathlib import Path
 
+from photoalbums.lib.image_limits import allow_large_pillow_images
+
+_MAX_STITCH_IMAGE_PIXELS = str(1 << 40)
+# Album page scans can exceed OpenCV's default pixel guard; lift it for stitching.
+os.environ.setdefault("OPENCV_IO_MAX_IMAGE_PIXELS", _MAX_STITCH_IMAGE_PIXELS)
+
 try:
     import cv2
     import numpy as np
@@ -30,7 +36,6 @@ from common import (
 )
 from naming import (
     BASE_PAGE_NAME_RE,
-    COLORIZED_RE,
     SCAN_NAME_RE,
     SCAN_TIFF_RE,
     parse_album_filename,
@@ -78,7 +83,8 @@ def _require_stitcher() -> None:
 
 
 def _match_derived_tokens(value: str):
-    return DERIVED_RE.search(value) or LEGACY_DERIVED_RE.search(value)
+    stem = Path(value).stem
+    return re.fullmatch(r".+_D(?P<d1>\d{2})-(?P<d2>\d{2})", stem, re.IGNORECASE)
 
 
 def build_derived_output_name(base: str, output_suffix: str = ".jpg") -> str:
@@ -86,6 +92,15 @@ def build_derived_output_name(base: str, output_suffix: str = ".jpg") -> str:
     m_d = _match_derived_tokens(base)
     d1 = m_d.group("d1") if m_d else "00"
     d2 = m_d.group("d2") if m_d else "00"
+
+    if collection == "Unknown":
+        stem, _ = os.path.splitext(base)
+        base_match = FILENAME_RE_NO_SCAN.search(stem)
+        if base_match is not None:
+            collection = str(base_match.group("collection"))
+            year = str(base_match.group("year"))
+            book = str(base_match.group("book"))
+            page = str(base_match.group("page"))
 
     if collection != "Unknown":
         return f"{collection}_{year}_B{book}_P{int(page):02d}_D{d1}-{d2}_V{output_suffix}"
@@ -125,6 +140,7 @@ def _ensure_bgr_image(image):
 
 def _read_with_pillow(path: str | Path):
     _require_image_modules()
+    allow_large_pillow_images(Image)
     with Image.open(path) as img:
         img.load()
         if ImageOps is not None:
@@ -481,23 +497,7 @@ def list_derived_images(directory: str | Path) -> list[str]:
             continue
         if not _match_derived_tokens(name):
             continue
-        stem = os.path.splitext(name)[0]
-        if COLORIZED_RE.search(stem):
-            continue
         files.append(os.path.join(directory, name))
-
-    files.sort(key=_sort_key)
-    return files
-
-
-def list_colorized_images(directory: str | Path) -> list[str]:
-    files = []
-    for name in os.listdir(directory):
-        if not name.lower().endswith(".png"):
-            continue
-        stem = os.path.splitext(name)[0]
-        if COLORIZED_RE.search(stem):
-            files.append(os.path.join(directory, name))
 
     files.sort(key=_sort_key)
     return files
@@ -514,32 +514,6 @@ def list_derived_media(directory: str | Path) -> list[str]:
 
     files.sort(key=_sort_key)
     return files
-
-
-def colorized_to_jpg(src_path: str, output_dir: str) -> bool:
-    _require_image_modules()
-    os.makedirs(output_dir, exist_ok=True)
-
-    base = os.path.basename(src_path)
-    collection, year, book, page = parse_album_filename(base)
-    m_d = DERIVED_RE.search(base)
-    d1 = m_d.group("d1") if m_d else "00"
-    d2 = m_d.group("d2") if m_d else "00"
-
-    stem = os.path.splitext(base)[0]
-    out = os.path.join(output_dir, f"{stem}.jpg")
-    if collection != "Unknown":
-        label = f"{collection} B{book} P{int(page):02d} D{d1}-{d2}_C"
-    else:
-        label = f"{stem}.jpg"
-    if _skip_existing_output(out, label):
-        return False
-
-    img = _read_stitch_image(src_path)
-    write_jpeg(img, out)
-
-    print(f"{label} OK")
-    return True
 
 
 def copy_derived_media(src_path: str, output_dir: str) -> bool:
@@ -674,18 +648,6 @@ def main() -> None:
             except Exception as exc:
                 failures += 1
                 failed.append([derived])
-                print("Error:", exc)
-
-        for colorized in list_colorized_images(archive):
-            try:
-                wrote = colorized_to_jpg(colorized, view)
-                if wrote:
-                    success += 1
-                else:
-                    skipped += 1
-            except Exception as exc:
-                failures += 1
-                failed.append([colorized])
                 print("Error:", exc)
 
         for media_path in list_derived_media(archive):

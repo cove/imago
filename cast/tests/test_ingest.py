@@ -111,6 +111,105 @@ def test_detect_handles_opencv_cascade_error(tmp_path):
     assert boxes == []
 
 
+def test_ingest_photo_album_views_rescan_removes_matching_faces_and_reviews(tmp_path):
+    root = tmp_path / "Photo Albums"
+    family_view = root / "Family_View"
+    family_archive = root / "Family_Archive"
+    other_view = root / "Other_View"
+    family_view.mkdir(parents=True)
+    family_archive.mkdir(parents=True)
+    other_view.mkdir(parents=True)
+    family_a = family_view / "a.jpg"
+    family_b = family_view / "b.jpg"
+    family_scan = family_archive / "a.tif"
+    other_photo = other_view / "other.jpg"
+    family_a.write_bytes(b"a")
+    family_b.write_bytes(b"b")
+    family_scan.write_bytes(b"scan")
+    other_photo.write_bytes(b"c")
+
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+    ingestor = FaceIngestor(store)
+
+    removed_face = store.add_face(
+        embedding=[0.1, 0.2, 0.3],
+        source_type="photo",
+        source_path=str(family_a.resolve()),
+        crop_path="crops/removed.jpg",
+    )
+    removed_scan_face = store.add_face(
+        embedding=[0.4, 0.5, 0.6],
+        source_type="photo",
+        source_path=str(family_scan.resolve()),
+        crop_path="crops/removed-scan.jpg",
+    )
+    kept_face = store.add_face(
+        embedding=[0.2, 0.3, 0.4],
+        source_type="photo",
+        source_path=str(other_photo.resolve()),
+        crop_path="crops/kept.jpg",
+    )
+    (store.root_dir / "crops").mkdir(parents=True, exist_ok=True)
+    (store.root_dir / "crops" / "removed.jpg").write_bytes(b"removed")
+    (store.root_dir / "crops" / "removed-scan.jpg").write_bytes(b"removed-scan")
+    (store.root_dir / "crops" / "kept.jpg").write_bytes(b"kept")
+    store.add_review_item(
+        face_id=removed_face["face_id"],
+        candidates=[],
+        suggested_person_id=None,
+        suggested_score=None,
+        status="pending",
+    )
+    store.add_review_item(
+        face_id=removed_scan_face["face_id"],
+        candidates=[],
+        suggested_person_id=None,
+        suggested_score=None,
+        status="pending",
+    )
+    store.add_review_item(
+        face_id=kept_face["face_id"],
+        candidates=[],
+        suggested_person_id=None,
+        suggested_score=None,
+        status="pending",
+    )
+
+    ingested_paths = []
+
+    def fake_ingest_photo(*, image_path, source_path=None, min_size=40, max_faces=50):
+        ingested_paths.append(str(image_path))
+        return []
+
+    ingestor.ingest_photo = fake_ingest_photo  # type: ignore[method-assign]
+
+    result = ingestor.ingest_photo_album_views(
+        photo_albums_root=root,
+        view_glob="Family_View",
+        recursive=True,
+        max_files=0,
+        rescan_existing=True,
+    )
+
+    assert result["photo_files_scanned"] == 3
+    assert result["view_files_scanned"] == 2
+    assert result["archive_scan_files_scanned"] == 1
+    assert result["removed_faces"] == 2
+    assert result["removed_reviews"] == 2
+    assert result["removed_crops"] == 2
+    assert ingested_paths == [
+        str(family_a.resolve()),
+        str(family_b.resolve()),
+        str(family_scan.resolve()),
+    ]
+    assert (store.root_dir / "crops" / "removed.jpg").exists() is False
+    assert (store.root_dir / "crops" / "removed-scan.jpg").exists() is False
+    assert (store.root_dir / "crops" / "kept.jpg").exists() is True
+    assert [row["face_id"] for row in store.list_faces()] == [kept_face["face_id"]]
+    assert [row["face_id"] for row in store.list_review_items()] == [kept_face["face_id"]]
+
+
 def test_ingest_photo_rejects_directory_path(tmp_path):
     store = TextFaceStore(tmp_path / "cast_data")
     store.ensure_files()

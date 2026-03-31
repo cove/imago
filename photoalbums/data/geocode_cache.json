@@ -158,6 +158,28 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "alexander nevsky cathedral": {
+    "city": "Tallinn",
+    "country": "Estonia",
+    "display_name": "Alexander Nevsky Cathedral, 10, Lossi plats, Vanalinn, City center, Tallinn, Harju County, 10130, Estonia",
+    "latitude": "59.4357515",
+    "longitude": "24.7393204",
+    "query": "Alexander Nevsky Cathedral",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
+  },
+  "alexandria cathedral": {
+    "city": "Alexandria",
+    "country": "Egypt",
+    "display_name": "Saint Mark's Cathedral, 68, El Nabi Danial Street, Al Masala West And Sherif Basha, Alexandria, 21521, Egypt",
+    "latitude": "31.1984053",
+    "longitude": "29.8996311",
+    "query": "Alexandria Cathedral",
+    "source": "nominatim",
+    "state": "Alexandria",
+    "status": "ok"
+  },
   "alexandria, alexandria governorate, egypt": {
     "display_name": "الإسكندرية, 21519, مصر",
     "latitude": "31.1991806",
@@ -201,6 +223,17 @@
   "alicante, spain - september 1988; avila, spain - september 1988": {
     "query": "Alicante, Spain - September 1988; Avila, Spain - September 1988",
     "status": "miss"
+  },
+  "american museum of natural history": {
+    "city": "New York",
+    "country": "United States",
+    "display_name": "American Museum of Natural History, 180, Central Park West, Upper West Side, Manhattan Community Board 7, Manhattan, New York County, New York, 10024, United States",
+    "latitude": "40.7811007",
+    "longitude": "-73.9742362",
+    "query": "American Museum of Natural History",
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok"
   },
   "amon temple, luxor, egypt": {
     "city": "Al Baairat Village",
@@ -320,6 +353,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "balboa island, california": {
+    "city": "Newport Beach",
+    "country": "United States",
+    "display_name": "Balboa Island, Balboa Peninsula, Newport Beach, Orange County, California, 92662, United States",
+    "latitude": "33.6065642",
+    "longitude": "-117.8943127",
+    "query": "Balboa Island, California",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
   "bambo village, china": {
     "query": "Bambo Village, China",
     "status": "miss"
@@ -346,6 +390,10 @@
   },
   "bampo village, china": {
     "query": "Bampo Village, China",
+    "status": "miss"
+  },
+  "barnum's bear ranch": {
+    "query": "Barnum's Bear Ranch",
     "status": "miss"
   },
   "bath abbey": {
@@ -445,6 +493,17 @@
   "bavarian alps, austria": {
     "query": "Bavarian Alps, Austria",
     "status": "miss"
+  },
+  "beach": {
+    "city": "Beach",
+    "country": "United States",
+    "display_name": "Beach, Beach Township, Golden Valley County, North Dakota, 58621, United States",
+    "latitude": "46.9180689",
+    "longitude": "-104.0043728",
+    "query": "beach",
+    "source": "nominatim",
+    "state": "North Dakota",
+    "status": "ok"
   },
   "beautiful gardens in brighton square": {
     "query": "Beautiful Gardens in Brighton Square",
@@ -550,6 +609,17 @@
     "query": "Belgrade, Yugoslavia; Sarajevo, Yugoslavia",
     "status": "miss"
   },
+  "bexhill-on-sea railway station": {
+    "city": "Rother",
+    "country": "United Kingdom",
+    "display_name": "Railway Station (Stop E), Endwell Road, Old Town, Bexhill-on-Sea, Rother, East Sussex, England, TN40 1EB, United Kingdom",
+    "latitude": "50.8408916",
+    "longitude": "0.4768139",
+    "query": "Bexhill-on-Sea railway station",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
+  },
   "bicycle parking lot, xian, china": {
     "query": "Bicycle Parking Lot, Xian, China",
     "status": "miss"
@@ -648,6 +718,17 @@
     "query": "Bosphorus Strait, Istanbul, Turkey",
     "status": "miss"
   },
+  "boulder dam, nevada": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Hoover Dam, Mohave County, Arizona, United States",
+    "latitude": "36.0157189",
+    "longitude": "-114.7374858",
+    "query": "Boulder Dam, Nevada",
+    "source": "nominatim",
+    "state": "Arizona",
+    "status": "ok"
+  },
   "bowness, lake district, england": {
     "query": "Bowness, Lake District, England",
     "status": "miss"
@@ -682,6 +763,28 @@
   "bowness-on-windermere, lake district, england": {
     "query": "Bowness-on-Windermere, Lake District, England",
     "status": "miss"
+  },
+  "bran castle": {
+    "city": "Bran",
+    "country": "Romania",
+    "display_name": "Bran Castle, Bran, Romania",
+    "latitude": "45.5150774",
+    "longitude": "25.3672373",
+    "query": "Bran Castle",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
+  },
+  "bran castle, romania": {
+    "city": "Bran",
+    "country": "Romania",
+    "display_name": "Bran Castle, Romania, Bran, Romania",
+    "latitude": "45.5150774",
+    "longitude": "25.3672373",
+    "query": "Bran Castle, Romania",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
   },
   "brentford, london, england": {
     "display_name": "Brentford, Greater London, England, TW8 9DE, United Kingdom",
@@ -819,6 +922,28 @@
     "query": "Bromley, England; Henley-on-Thames, England",
     "status": "miss"
   },
+  "bucharest": {
+    "city": "Bucharest",
+    "country": "Romania",
+    "display_name": "Bucharest, Romania",
+    "latitude": "44.4361414",
+    "longitude": "26.1026840",
+    "query": "Bucharest",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
+  },
+  "bucharest, romania": {
+    "city": "Bucharest",
+    "country": "Romania",
+    "display_name": "Bucharest, Romania",
+    "latitude": "44.4361414",
+    "longitude": "26.1026840",
+    "query": "Bucharest, Romania",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
+  },
   "buckingham palace": {
     "display_name": "Buckingham Palace, Ambassador's Court, Victoria, City of Westminster, Greater London, England, SW1A 1AA, United Kingdom",
     "latitude": "51.5008349",
@@ -926,6 +1051,28 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "california service co.": {
+    "city": "San Diego",
+    "country": "United States",
+    "display_name": "Ototo Sushi Co., Vons 2040 Truck Service Ramp, Balboa Mesa, Clairemont, San Diego, San Diego County, California, 92111, United States",
+    "latitude": "32.8188178",
+    "longitude": "-117.1785783",
+    "query": "California Service Co.",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "california, usa": {
+    "city": "",
+    "country": "United States",
+    "display_name": "California, United States",
+    "latitude": "36.7014631",
+    "longitude": "-118.7559970",
+    "query": "California, USA",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
   "cambridge": {
     "display_name": "Cambridge, Cambridgeshire, Cambridgeshire and Peterborough, England, United Kingdom",
     "latitude": "52.2055314",
@@ -980,6 +1127,28 @@
   "camp site on the bristol channel": {
     "query": "Camp Site on the Bristol Channel",
     "status": "miss"
+  },
+  "canaan, connecticut": {
+    "city": "North Canaan",
+    "country": "United States",
+    "display_name": "North Canaan, Northwest Hills Planning Region, Connecticut, United States",
+    "latitude": "42.0269848",
+    "longitude": "-73.3294835",
+    "query": "Canaan, Connecticut",
+    "source": "nominatim",
+    "state": "Connecticut",
+    "status": "ok"
+  },
+  "canada": {
+    "city": "",
+    "country": "Canada",
+    "display_name": "Canada",
+    "latitude": "61.0666922",
+    "longitude": "-107.9917070",
+    "query": "Canada",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
   },
   "canterbury and dover, england": {
     "display_name": "Canterbury Road, Swingfield Minnis, Swingfield, Densole, Folkestone and Hythe, Kent, England, CT15 7HL, United Kingdom",
@@ -1259,6 +1428,10 @@
     "query": "Ceuta, Morocco; Fes, Morocco",
     "status": "miss"
   },
+  "chain bridge over the danube": {
+    "query": "Chain Bridge over the Danube",
+    "status": "miss"
+  },
   "chain bridge, budapest, hungary": {
     "display_name": "Széchenyi lánchíd, 24498;14397;14398;14400, Széchenyi lánchíd, Buda, Víziváros, I. kerület, Budapest, Közép-Magyarország, 1013, Magyarország",
     "latitude": "47.4989791",
@@ -1416,6 +1589,50 @@
   "chenou, henan province, china": {
     "query": "Chenou, Henan Province, China",
     "status": "miss"
+  },
+  "chicago": {
+    "city": "Chicago",
+    "country": "United States",
+    "display_name": "Chicago, South Chicago Township, Cook County, Illinois, United States",
+    "latitude": "41.8755616",
+    "longitude": "-87.6244212",
+    "query": "Chicago",
+    "source": "nominatim",
+    "state": "Illinois",
+    "status": "ok"
+  },
+  "chicago, illinois": {
+    "city": "Chicago",
+    "country": "United States",
+    "display_name": "Chicago, South Chicago Township, Cook County, Illinois, United States",
+    "latitude": "41.8755616",
+    "longitude": "-87.6244212",
+    "query": "Chicago, Illinois",
+    "source": "nominatim",
+    "state": "Illinois",
+    "status": "ok"
+  },
+  "chicago, illinois 1931": {
+    "city": "Chicago",
+    "country": "United States",
+    "display_name": "Illinois Medical District, Near West Side, Chicago, West Chicago Township, Cook County, Illinois, United States",
+    "latitude": "41.8692960",
+    "longitude": "-87.6743976",
+    "query": "Chicago, Illinois 1931",
+    "source": "nominatim",
+    "state": "Illinois",
+    "status": "ok"
+  },
+  "chicago, united states": {
+    "city": "Chicago",
+    "country": "United States",
+    "display_name": "Chicago, South Chicago Township, Cook County, Illinois, United States",
+    "latitude": "41.8755616",
+    "longitude": "-87.6244212",
+    "query": "Chicago, United States",
+    "source": "nominatim",
+    "state": "Illinois",
+    "status": "ok"
   },
   "china": {
     "display_name": "中国",
@@ -1664,6 +1881,28 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "colorado springs, colorado": {
+    "city": "Colorado Springs",
+    "country": "United States",
+    "display_name": "Colorado Springs, El Paso County, Colorado, United States",
+    "latitude": "38.8339578",
+    "longitude": "-104.8253480",
+    "query": "Colorado Springs, Colorado",
+    "source": "nominatim",
+    "state": "Colorado",
+    "status": "ok"
+  },
+  "colorado springs, colorado, usa": {
+    "city": "Colorado Springs",
+    "country": "United States",
+    "display_name": "Colorado Springs, El Paso County, Colorado, United States",
+    "latitude": "38.8339578",
+    "longitude": "-104.8253480",
+    "query": "Colorado Springs, Colorado, USA",
+    "source": "nominatim",
+    "state": "Colorado",
+    "status": "ok"
+  },
   "columns of the karnak temple - luxor, egypt": {
     "query": "Columns of the Karnak Temple - Luxor, Egypt",
     "status": "miss"
@@ -1671,6 +1910,17 @@
   "columns of the karnak temple, luxor, egypt": {
     "query": "Columns of the Karnak Temple, Luxor, Egypt",
     "status": "miss"
+  },
+  "continental divide, new mexico": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Continental Divide, Sandoval County, New Mexico, United States",
+    "latitude": "36.0761112",
+    "longitude": "-107.1357686",
+    "query": "Continental Divide, New Mexico",
+    "source": "nominatim",
+    "state": "New Mexico",
+    "status": "ok"
   },
   "corfe castle": {
     "display_name": "Corfe Castle, Dorset, England, United Kingdom",
@@ -1698,6 +1948,17 @@
     "longitude": "-4.6246566",
     "query": "Cornwall, England",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "coronado, calif.": {
+    "city": "Coronado",
+    "country": "United States",
+    "display_name": "Coronado, San Diego County, California, United States",
+    "latitude": "32.6915199",
+    "longitude": "-117.1766947",
+    "query": "Coronado, Calif.",
+    "source": "nominatim",
+    "state": "California",
     "status": "ok"
   },
   "cotswolds": {
@@ -1828,6 +2089,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "crystal lake, calif.": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Crystal Lake, Nevada County, California, 95729, United States",
+    "latitude": "39.3198533",
+    "longitude": "-120.5772003",
+    "query": "Crystal Lake, Calif.",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
   "crystal palace camp site": {
     "query": "Crystal Palace Camp Site",
     "status": "miss"
@@ -1857,6 +2129,17 @@
     "longitude": "-0.0711328",
     "query": "Crystal Palace, London, England",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "dallas, texas": {
+    "city": "Dallas",
+    "country": "United States",
+    "display_name": "Dallas, Dallas County, Texas, United States",
+    "latitude": "32.7762719",
+    "longitude": "-96.7968559",
+    "query": "Dallas, Texas",
+    "source": "nominatim",
+    "state": "Texas",
     "status": "ok"
   },
   "delphi, greece": {
@@ -1936,6 +2219,17 @@
     "longitude": "1.3228764",
     "query": "Dover Castle, Kent, England",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "dover foxcroft, maine": {
+    "city": "Dover-Foxcroft",
+    "country": "United States",
+    "display_name": "Dover-Foxcroft, Piscataquis County, Maine, 04426, United States",
+    "latitude": "45.1834890",
+    "longitude": "-69.2276000",
+    "query": "Dover Foxcroft, Maine",
+    "source": "nominatim",
+    "state": "Maine",
     "status": "ok"
   },
   "dover harbour house, dover, kent, england": {
@@ -2601,6 +2895,25 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "exposition park, los angeles": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Exposition Park, Los Angeles, Los Angeles County, California, 90062, United States",
+    "latitude": "34.0183415",
+    "longitude": "-118.3002033",
+    "query": "Exposition Park, Los Angeles",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "fairhill farm, rathwell man, canada": {
+    "query": "Fairhill Farm, Rathwell Man, Canada",
+    "status": "miss"
+  },
+  "fairhill farm, rathwell man., canada": {
+    "query": "Fairhill Farm, Rathwell Man., Canada",
+    "status": "miss"
+  },
   "fes morocco": {
     "display_name": "Fès ⴼⴰⵙ فاس, Pachalik du Fes باشوية فاس, Préfecture de Fès عمالة فاس, Fès-Meknès ⴼⴰⵙ-ⵎⴽⵏⴰⵙ فاس-مكناس, Maroc ⵍⵎⵖⵔⵉⴱ المغرب",
     "latitude": "34.0346534",
@@ -2672,6 +2985,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "fountain in washington, d.c.": {
+    "city": "Washington",
+    "country": "United States",
+    "display_name": "South Lawn Fountain, South Drive, Downtown, Ward 2, Washington, District of Columbia, 20500, United States",
+    "latitude": "38.8961045",
+    "longitude": "-77.0365516",
+    "query": "Fountain in Washington, D.C.",
+    "source": "nominatim",
+    "state": "District of Columbia",
+    "status": "ok"
+  },
   "galata bridge & new mosque, istanbul, turkey": {
     "query": "Galata Bridge & New Mosque, Istanbul, Turkey",
     "status": "miss"
@@ -2714,6 +3038,17 @@
     "longitude": "113.2809544",
     "query": "Garden Hotel, Guangzhou, Guangdong, China",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "garden of the gods, colorado springs": {
+    "city": "Colorado Springs",
+    "country": "United States",
+    "display_name": "Garden of the Gods Park, Colorado Springs, El Paso County, Colorado, United States",
+    "latitude": "38.8743771",
+    "longitude": "-104.8824095",
+    "query": "Garden of the Gods, Colorado Springs",
+    "source": "nominatim",
+    "state": "Colorado",
     "status": "ok"
   },
   "gardens at sandringham": {
@@ -2862,6 +3197,21 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "glendale, calif.": {
+    "city": "Glendale",
+    "country": "United States",
+    "display_name": "Glendale, Los Angeles County, California, United States",
+    "latitude": "34.1469416",
+    "longitude": "-118.2478471",
+    "query": "Glendale, Calif.",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "gloria - hollywood, calif.": {
+    "query": "Gloria - Hollywood, Calif.",
+    "status": "miss"
+  },
   "gran via, madrid, spain": {
     "display_name": "Gran Vía, Palacio, Centro, Madrid, Comunidad de Madrid, 28013, España",
     "latitude": "40.4231233",
@@ -2974,6 +3324,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "hamburg, germany": {
+    "city": "Hamburg",
+    "country": "Germany",
+    "display_name": "Hamburg, Germany",
+    "latitude": "53.5501721",
+    "longitude": "10.0013165",
+    "query": "Hamburg, Germany",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
+  },
   "hampshire - england": {
     "display_name": "Hampshire, England, United Kingdom",
     "latitude": "51.0449814",
@@ -3018,6 +3379,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "heroes' square, budapest, hungary": {
+    "city": "Budapest",
+    "country": "Hungary",
+    "display_name": "Heroes' Square, City Park, 14th district, Budapest, Central Hungary, 1146, Hungary",
+    "latitude": "47.5154905",
+    "longitude": "19.0785975",
+    "query": "Heroes' Square, Budapest, Hungary",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
+  },
   "high legh, cheshire, england": {
     "display_name": "High Legh, Cheshire East, England, United Kingdom",
     "latitude": "53.3479674",
@@ -3037,6 +3409,61 @@
   "high street, broadway, worcestershire, the cotswolds, stow-on-the-wold, england": {
     "query": "High Street, Broadway, Worcestershire, The Cotswolds, Stow-on-the-Wold, England",
     "status": "miss"
+  },
+  "hollywood": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Hollywood, Los Angeles, Los Angeles County, California, 90028, United States",
+    "latitude": "34.0980031",
+    "longitude": "-118.3295230",
+    "query": "Hollywood",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "hollywood, calif.": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Hollywood, Los Angeles, Los Angeles County, California, 90028, United States",
+    "latitude": "34.0980031",
+    "longitude": "-118.3295230",
+    "query": "Hollywood, Calif.",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "hollywood, california": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Hollywood, Los Angeles, Los Angeles County, California, 90028, United States",
+    "latitude": "34.0980031",
+    "longitude": "-118.3295230",
+    "query": "Hollywood, California",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "hollywood, california, united states": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Hollywood, Los Angeles, Los Angeles County, California, 90028, United States",
+    "latitude": "34.0980031",
+    "longitude": "-118.3295230",
+    "query": "Hollywood, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "hollywood, california, usa": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Hollywood, Los Angeles, Los Angeles County, California, 90028, United States",
+    "latitude": "34.0980031",
+    "longitude": "-118.3295230",
+    "query": "Hollywood, California, USA",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
   },
   "holyroodhouse, edinburgh, scotland": {
     "display_name": "Palace of Holyroodhouse, Canongate, Abbeyhill, Old Town, City of Edinburgh, Alba / Scotland, EH8 8DX, United Kingdom",
@@ -3286,6 +3713,17 @@
     "longitude": "116.3906109",
     "query": "Imperial Garden, Beijing, China",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "indianapolis, indiana": {
+    "city": "Indianapolis",
+    "country": "United States",
+    "display_name": "Indianapolis, Marion County, Indiana, United States",
+    "latitude": "39.7683331",
+    "longitude": "-86.1583502",
+    "query": "Indianapolis, Indiana",
+    "source": "nominatim",
+    "state": "Indiana",
     "status": "ok"
   },
   "inner harbour, polperro, cornwall": {
@@ -3924,6 +4362,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "lake arrowhead aug, 1946": {
+    "query": "Lake Arrowhead Aug, 1946",
+    "status": "miss"
+  },
   "lake windermere, bowness, the lake district": {
     "query": "Lake Windermere, Bowness, The Lake District",
     "status": "miss"
@@ -4316,6 +4758,50 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "long beach, calif.": {
+    "city": "Long Beach",
+    "country": "United States",
+    "display_name": "Long Beach, Los Angeles County, California, United States",
+    "latitude": "33.7690164",
+    "longitude": "-118.1916040",
+    "query": "Long Beach, Calif.",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "long beach, california": {
+    "city": "Long Beach",
+    "country": "United States",
+    "display_name": "Long Beach, Los Angeles County, California, United States",
+    "latitude": "33.7690164",
+    "longitude": "-118.1916040",
+    "query": "Long Beach, California",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "long beach, california, usa": {
+    "city": "Long Beach",
+    "country": "United States",
+    "display_name": "Long Beach, Los Angeles County, California, United States",
+    "latitude": "33.7690164",
+    "longitude": "-118.1916040",
+    "query": "Long Beach, California, USA",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "long lake, new york": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Town of Long Lake, Hamilton County, New York, 13436, United States",
+    "latitude": "43.9730520",
+    "longitude": "-74.4210430",
+    "query": "Long Lake, New York",
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok"
+  },
   "longleat house - warminster": {
     "query": "Longleat House - Warminster",
     "status": "miss"
@@ -4391,6 +4877,72 @@
   "lord street gardens, southport, england; war memorial, southport, england": {
     "query": "Lord Street Gardens, Southport, England; War Memorial, Southport, England",
     "status": "miss"
+  },
+  "los angeles": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Los Angeles, Los Angeles County, California, United States",
+    "latitude": "34.0536909",
+    "longitude": "-118.2427660",
+    "query": "Los Angeles",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "los angeles, calif": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Los Angeles, Los Angeles County, California, United States",
+    "latitude": "34.0536909",
+    "longitude": "-118.2427660",
+    "query": "Los Angeles, Calif",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "los angeles, calif.": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Los Angeles, Los Angeles County, California, United States",
+    "latitude": "34.0536909",
+    "longitude": "-118.2427660",
+    "query": "Los Angeles, Calif.",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "los angeles, california": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Los Angeles, Los Angeles County, California, United States",
+    "latitude": "34.0536909",
+    "longitude": "-118.2427660",
+    "query": "Los Angeles, California",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "los angeles, california, united states": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Los Angeles, Los Angeles County, California, United States",
+    "latitude": "34.0536909",
+    "longitude": "-118.2427660",
+    "query": "Los Angeles, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "los angeles, nov. 1947": {
+    "city": "New York",
+    "country": "United States",
+    "display_name": "Taqueria Los Angeles, Grand Concourse, The Bronx, Bronx County, New York, 10468, United States",
+    "latitude": "40.8639143",
+    "longitude": "-73.8956128",
+    "query": "Los Angeles, Nov. 1947",
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok"
   },
   "loxley, hampshire, england": {
     "display_name": "Loxley, Groves Down, Wellow, Test Valley, Hampshire, England, SO51 6DZ, United Kingdom",
@@ -4472,6 +5024,10 @@
   },
   "luxor, egypt, amon temple": {
     "query": "Luxor, Egypt, Amon Temple",
+    "status": "miss"
+  },
+  "lynchberg, virginia": {
+    "query": "Lynchberg, Virginia",
     "status": "miss"
   },
   "lynn, norfolk, england": {
@@ -4680,6 +5236,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "mctaggart, saskatchewan, canada": {
+    "city": "McTaggart",
+    "country": "Canada",
+    "display_name": "McTaggart, Saskatchewan, Canada",
+    "latitude": "49.7302442",
+    "longitude": "-104.0125787",
+    "query": "McTaggart, Saskatchewan, Canada",
+    "source": "nominatim",
+    "state": "Saskatchewan",
+    "status": "ok"
+  },
   "medina of fes, morocco": {
     "query": "Medina of Fes, Morocco",
     "status": "miss"
@@ -4711,6 +5278,17 @@
   "memphis, egypt; saqqara, egypt": {
     "query": "Memphis, Egypt; Saqqara, Egypt",
     "status": "miss"
+  },
+  "minneapolis, minnesota": {
+    "city": "Minneapolis",
+    "country": "United States",
+    "display_name": "Minneapolis, Hennepin County, Minnesota, United States",
+    "latitude": "44.9772995",
+    "longitude": "-93.2654692",
+    "query": "Minneapolis, Minnesota",
+    "source": "nominatim",
+    "state": "Minnesota",
+    "status": "ok"
   },
   "mogao caves": {
     "display_name": "莫高窟, 慈氏塔广场, 敦煌市, 酒泉市, 甘肃省, 736200, 中国",
@@ -4772,6 +5350,17 @@
     "query": "Mohamed Aly Alabaster Mosque, Cairo, Egypt",
     "status": "miss"
   },
+  "mondsee, austria": {
+    "city": "Mondsee",
+    "country": "Austria",
+    "display_name": "Mondsee, Austria, Mondsee, Upper Austria, Austria",
+    "latitude": "47.8560014",
+    "longitude": "13.3500658",
+    "query": "Mondsee, Austria",
+    "source": "nominatim",
+    "state": "Upper Austria",
+    "status": "ok"
+  },
   "montmatre, paris, france": {
     "city": "Paris",
     "country": "France",
@@ -4801,6 +5390,10 @@
     "query": "Monument, Lhasa, Tibet",
     "source": "nominatim",
     "status": "ok"
+  },
+  "mormon temple, salt lake city, utah": {
+    "query": "Mormon Temple, Salt Lake City, Utah",
+    "status": "miss"
   },
   "morocco": {
     "display_name": "Maroc ⵍⵎⵖⵔⵉⴱ المغرب",
@@ -4929,6 +5522,17 @@
     "longitude": "114.1796977",
     "query": "New World Hotel, Tsim Sha Tsui, Hong Kong",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "new york, united states": {
+    "city": "New York",
+    "country": "United States",
+    "display_name": "New York, United States",
+    "latitude": "40.7127281",
+    "longitude": "-74.0060152",
+    "query": "New York, United States",
+    "source": "nominatim",
+    "state": "New York",
     "status": "ok"
   },
   "newport - wales": {
@@ -5211,6 +5815,10 @@
     "query": "Parliament Buildings London",
     "status": "miss"
   },
+  "parliament buildings, budapest": {
+    "query": "Parliament Buildings, Budapest",
+    "status": "miss"
+  },
   "parliament buildings, london": {
     "query": "Parliament Buildings, London",
     "status": "miss"
@@ -5317,6 +5925,17 @@
     "query": "Pevensy Castle, England",
     "status": "miss"
   },
+  "philadelphia, pennsylvania": {
+    "city": "Philadelphia",
+    "country": "United States",
+    "display_name": "Philadelphia, Philadelphia County, Pennsylvania, United States",
+    "latitude": "39.9527237",
+    "longitude": "-75.1635262",
+    "query": "Philadelphia, Pennsylvania",
+    "source": "nominatim",
+    "state": "Pennsylvania",
+    "status": "ok"
+  },
   "philae monuments": {
     "city": "Pamphill",
     "country": "United Kingdom",
@@ -5346,6 +5965,17 @@
     "longitude": "32.8895963",
     "query": "Philae, Egypt",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "phoenix, arizona": {
+    "city": "Phoenix",
+    "country": "United States",
+    "display_name": "Phoenix, Maricopa County, Arizona, United States",
+    "latitude": "33.4484367",
+    "longitude": "-112.0741410",
+    "query": "Phoenix, Arizona",
+    "source": "nominatim",
+    "state": "Arizona",
     "status": "ok"
   },
   "plaza de españa, seville, spain": {
@@ -5451,6 +6081,17 @@
     "query": "Poros, Greece",
     "source": "nominatim",
     "state": "Attica",
+    "status": "ok"
+  },
+  "port angeles, washington": {
+    "city": "Port Angeles",
+    "country": "United States",
+    "display_name": "Port Angeles, Clallam County, Washington, 98362, United States",
+    "latitude": "48.1181460",
+    "longitude": "-123.4307410",
+    "query": "Port Angeles, Washington",
+    "source": "nominatim",
+    "state": "Washington",
     "status": "ok"
   },
   "portal palace, china": {
@@ -5707,6 +6348,17 @@
     "query": "Regent Street, London, England; Zagreb, Yugoslavia",
     "status": "miss"
   },
+  "reno, nevada": {
+    "city": "Reno",
+    "country": "United States",
+    "display_name": "Reno, Washoe County, Nevada, United States",
+    "latitude": "39.5261788",
+    "longitude": "-119.8126580",
+    "query": "Reno, Nevada",
+    "source": "nominatim",
+    "state": "Nevada",
+    "status": "ok"
+  },
   "restaurant at victoria peak": {
     "query": "Restaurant at Victoria Peak",
     "status": "miss"
@@ -5771,6 +6423,10 @@
   },
   "rock of gibraltar, la linea de la concepcion, spain": {
     "query": "Rock of Gibraltar, La Linea de la Concepcion, Spain",
+    "status": "miss"
+  },
+  "roman ampitheatre, provddiv bulgaria": {
+    "query": "Roman Ampitheatre, Provddiv Bulgaria",
     "status": "miss"
   },
   "roman baths": {
@@ -6014,6 +6670,54 @@
     "query": "Salzburg, Austria; Prague, Czechoslovakia",
     "status": "miss"
   },
+  "san diego, california": {
+    "city": "San Diego",
+    "country": "United States",
+    "display_name": "San Diego, San Diego County, California, United States",
+    "latitude": "32.7174202",
+    "longitude": "-117.1627720",
+    "query": "San Diego, California",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "san francisco": {
+    "city": "San Francisco",
+    "country": "United States",
+    "display_name": "San Francisco, California, United States",
+    "latitude": "37.7879363",
+    "longitude": "-122.4075201",
+    "query": "San Francisco",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "san francisco, calif.": {
+    "city": "San Francisco",
+    "country": "United States",
+    "display_name": "San Francisco, California, United States",
+    "latitude": "37.7879363",
+    "longitude": "-122.4075201",
+    "query": "San Francisco, Calif.",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "san francisco, california": {
+    "city": "San Francisco",
+    "country": "United States",
+    "display_name": "San Francisco, California, United States",
+    "latitude": "37.7879363",
+    "longitude": "-122.4075201",
+    "query": "San Francisco, California",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "sanata monica beach, sept 1947": {
+    "query": "Sanata Monica Beach, Sept 1947",
+    "status": "miss"
+  },
   "sandringham hall": {
     "display_name": "Memorial Hall, Sandringham Road, Sandringham, Melbourne, City of Bayside, Victoria, 3191, Australia",
     "latitude": "-37.9508531",
@@ -6096,6 +6800,28 @@
   "santa cruz quarters, spain": {
     "query": "Santa Cruz Quarters, Spain",
     "status": "miss"
+  },
+  "santa rosa, new mexico": {
+    "city": "Santa Rosa",
+    "country": "United States",
+    "display_name": "Santa Rosa, Guadalupe County, New Mexico, 88435, United States",
+    "latitude": "34.9386700",
+    "longitude": "-104.6824890",
+    "query": "Santa Rosa, New Mexico",
+    "source": "nominatim",
+    "state": "New Mexico",
+    "status": "ok"
+  },
+  "santa rosa, new mexico, united states": {
+    "city": "Santa Rosa",
+    "country": "United States",
+    "display_name": "Santa Rosa, Guadalupe County, New Mexico, 88435, United States",
+    "latitude": "34.9386700",
+    "longitude": "-104.6824890",
+    "query": "Santa Rosa, New Mexico, United States",
+    "source": "nominatim",
+    "state": "New Mexico",
+    "status": "ok"
   },
   "sarajevo": {
     "city": "Sarajevo",
@@ -6190,6 +6916,21 @@
     "query": "Scarborough, Yorkshire, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "schonbrunn palace": {
+    "city": "Vienna",
+    "country": "Austria",
+    "display_name": "Schonbrunn Palace, Vienna, Austria",
+    "latitude": "48.1849894",
+    "longitude": "16.3115684",
+    "query": "Schonbrunn Palace",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
+  },
+  "seminol hot springs, calif.": {
+    "query": "Seminol Hot Springs, Calif.",
+    "status": "miss"
   },
   "sera monastery": {
     "display_name": "སེ་ར་དགོན། 色拉寺, 色拉北路, སྔགས་པ་གླིང་ཁའི་སྡེ་ཁུལ། 阿坝林卡社区, 娘热街道 ཉང་བྲན་ཁྲོམ་གཞུང།, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
@@ -6323,6 +7064,28 @@
     "query": "Shopping Mall in Skopje",
     "status": "miss"
   },
+  "sioux falls south dakota": {
+    "city": "Sioux Falls",
+    "country": "United States",
+    "display_name": "Sioux Falls, Sioux Falls Township, Minnehaha County, South Dakota, United States",
+    "latitude": "43.5476008",
+    "longitude": "-96.7293629",
+    "query": "Sioux Falls South Dakota",
+    "source": "nominatim",
+    "state": "South Dakota",
+    "status": "ok"
+  },
+  "sioux falls, south dakota": {
+    "city": "Sioux Falls",
+    "country": "United States",
+    "display_name": "Sioux Falls, Sioux Falls Township, Minnehaha County, South Dakota, United States",
+    "latitude": "43.5476008",
+    "longitude": "-96.7293629",
+    "query": "Sioux Falls, South Dakota",
+    "source": "nominatim",
+    "state": "South Dakota",
+    "status": "ok"
+  },
   "skelmereadale, england": {
     "query": "Skelmereadale, England",
     "status": "miss"
@@ -6354,6 +7117,10 @@
     "query": "Slavia, Czech Republic",
     "source": "nominatim",
     "status": "ok"
+  },
+  "snowqualamie pass, victoria b.c., canada": {
+    "query": "Snowqualamie Pass, Victoria B.C., Canada",
+    "status": "miss"
   },
   "sorrento, italy": {
     "display_name": "Sorrento, Napoli, Campania, 80067, Italia",
@@ -6566,6 +7333,17 @@
     "state": "",
     "status": "ok"
   },
+  "st stephens cathedral": {
+    "city": "St Albans",
+    "country": "United Kingdom",
+    "display_name": "St Albans Cathedral, Waxhouse Gate, St Stephens, St Albans, Hertfordshire, England, AL1 1BY, United Kingdom",
+    "latitude": "51.7505310",
+    "longitude": "-0.3425639",
+    "query": "St Stephens Cathedral",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok"
+  },
   "st. george's hall, lime street liverpool": {
     "query": "St. George's Hall, Lime Street Liverpool",
     "status": "miss"
@@ -6648,6 +7426,28 @@
   "st. paul's cathedral, piccadilly circus, london, england": {
     "query": "St. Paul's Cathedral, Piccadilly Circus, London, England",
     "status": "miss"
+  },
+  "st. stephen's cathedral": {
+    "city": "Vienna",
+    "country": "Austria",
+    "display_name": "Saint Stephen's Cathedral, 3, Stephansplatz, Stubenviertel, KG Innere Stadt, Innere Stadt, Vienna, 1010, Austria",
+    "latitude": "48.2084923",
+    "longitude": "16.3731269",
+    "query": "St. Stephen's Cathedral",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
+  },
+  "stanley park, vancouver b.c., canada": {
+    "city": "Vancouver",
+    "country": "Canada",
+    "display_name": "Stanley Park, West End, Vancouver, Metro Vancouver Regional District, British Columbia, V6G, Canada",
+    "latitude": "49.3020684",
+    "longitude": "-123.1413263",
+    "query": "Stanley Park, Vancouver B.C., Canada",
+    "source": "nominatim",
+    "state": "British Columbia",
+    "status": "ok"
   },
   "statfor-upon-avon, england": {
     "query": "Statfor-upon-Avon, England",
@@ -6822,6 +7622,10 @@
     "query": "Summer Palace, Beijing, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "suspension bridge in forest": {
+    "query": "suspension bridge in forest",
+    "status": "miss"
   },
   "swanage beach": {
     "display_name": "Swanage Beach, Durlston, Swanage, Dorset, England, United Kingdom",
@@ -7777,6 +8581,28 @@
     "query": "Ugosavia, Yugoslavia",
     "status": "miss"
   },
+  "uk": {
+    "city": "",
+    "country": "United Kingdom",
+    "display_name": "United Kingdom",
+    "latitude": "54.7023545",
+    "longitude": "-3.2765753",
+    "query": "UK",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
+  },
+  "uk railway station": {
+    "city": "Brechin",
+    "country": "United Kingdom",
+    "display_name": "Caledonian Railway, Park Road, East Pitforthie, Brechin, Angus, Scotland, DD9 7AF, United Kingdom",
+    "latitude": "56.7316177",
+    "longitude": "-2.6529037",
+    "query": "UK railway station",
+    "source": "nominatim",
+    "state": "Scotland",
+    "status": "ok"
+  },
   "uncertain": {
     "display_name": "Uncertain, Harrison County, Texas, United States",
     "latitude": "32.7120883",
@@ -7788,6 +8614,17 @@
   "uncertain, china": {
     "query": "Uncertain, China",
     "status": "miss"
+  },
+  "usa": {
+    "city": "",
+    "country": "United States",
+    "display_name": "United States",
+    "latitude": "39.7837304",
+    "longitude": "-100.4458820",
+    "query": "USA",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
   },
   "valley of the kings": {
     "city": "New Al Qarnh City",
@@ -7819,6 +8656,28 @@
   "valley of the kings, thebes, egypt": {
     "query": "Valley of the Kings, Thebes, Egypt",
     "status": "miss"
+  },
+  "vancouver, bc, canada": {
+    "city": "Vancouver",
+    "country": "Canada",
+    "display_name": "Vancouver, Metro Vancouver Regional District, British Columbia, Canada",
+    "latitude": "49.2608724",
+    "longitude": "-123.1139520",
+    "query": "Vancouver, BC, Canada",
+    "source": "nominatim",
+    "state": "British Columbia",
+    "status": "ok"
+  },
+  "vancouver, canada": {
+    "city": "Vancouver",
+    "country": "Canada",
+    "display_name": "Vancouver, Metro Vancouver Regional District, British Columbia, Canada",
+    "latitude": "49.2608724",
+    "longitude": "-123.1139520",
+    "query": "Vancouver, Canada",
+    "source": "nominatim",
+    "state": "British Columbia",
+    "status": "ok"
   },
   "vatican city, italy": {
     "query": "Vatican City, Italy",
@@ -7857,6 +8716,28 @@
     "query": "Via Veneto, Rome Italy",
     "source": "nominatim",
     "state": "Lazio",
+    "status": "ok"
+  },
+  "victoria b.c.": {
+    "city": "Victoria",
+    "country": "Canada",
+    "display_name": "Victoria, Capital Regional District, British Columbia, Canada",
+    "latitude": "48.4283182",
+    "longitude": "-123.3649530",
+    "query": "Victoria B.C.",
+    "source": "nominatim",
+    "state": "British Columbia",
+    "status": "ok"
+  },
+  "victoria b.c., canada": {
+    "city": "Victoria",
+    "country": "Canada",
+    "display_name": "Victoria, Capital Regional District, British Columbia, Canada",
+    "latitude": "48.4283182",
+    "longitude": "-123.3649530",
+    "query": "Victoria B.C., Canada",
+    "source": "nominatim",
+    "state": "British Columbia",
     "status": "ok"
   },
   "victoria embankment london": {
@@ -7936,6 +8817,39 @@
     "longitude": "114.1454573",
     "query": "Victoria Peak, Hong Kong, China",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "victoria, b.c. canada": {
+    "city": "Victoria",
+    "country": "Canada",
+    "display_name": "Victoria, Capital Regional District, British Columbia, Canada",
+    "latitude": "48.4283182",
+    "longitude": "-123.3649530",
+    "query": "VICTORIA, B.C. CANADA",
+    "source": "nominatim",
+    "state": "British Columbia",
+    "status": "ok"
+  },
+  "victoria, b.c., canada": {
+    "city": "Victoria",
+    "country": "Canada",
+    "display_name": "Victoria, Capital Regional District, British Columbia, Canada",
+    "latitude": "48.4283182",
+    "longitude": "-123.3649530",
+    "query": "Victoria, B.C., Canada",
+    "source": "nominatim",
+    "state": "British Columbia",
+    "status": "ok"
+  },
+  "victoria, canada": {
+    "city": "Victoria",
+    "country": "Canada",
+    "display_name": "Victoria, Capital Regional District, British Columbia, Canada",
+    "latitude": "48.4283182",
+    "longitude": "-123.3649530",
+    "query": "Victoria, Canada",
+    "source": "nominatim",
+    "state": "British Columbia",
     "status": "ok"
   },
   "vienna austria": {
@@ -8070,6 +8984,17 @@
     "query": "Westgate and Westgate Gardens, Canterbury, The Beach and Cliffs, Dover",
     "status": "miss"
   },
+  "weyburn, sask.": {
+    "city": "Weyburn",
+    "country": "Canada",
+    "display_name": "Weyburn, Saskatchewan, Canada",
+    "latitude": "49.6651238",
+    "longitude": "-103.8540340",
+    "query": "Weyburn, Sask.",
+    "source": "nominatim",
+    "state": "Saskatchewan",
+    "status": "ok"
+  },
   "white cliffs of dover": {
     "city": "Dover",
     "country": "United Kingdom",
@@ -8203,6 +9128,32 @@
   "windermere lake, bowness, the lake district, england": {
     "query": "Windermere Lake, Bowness, The Lake District, England",
     "status": "miss"
+  },
+  "winnipeg to vancouver, canada": {
+    "query": "Winnipeg to Vancouver, Canada",
+    "status": "miss"
+  },
+  "winnipeg, canada": {
+    "city": "Winnipeg",
+    "country": "Canada",
+    "display_name": "Winnipeg, Manitoba, Canada",
+    "latitude": "49.8955367",
+    "longitude": "-97.1384584",
+    "query": "Winnipeg, Canada",
+    "source": "nominatim",
+    "state": "Manitoba",
+    "status": "ok"
+  },
+  "woodhaven, canada": {
+    "city": "Winnipeg",
+    "country": "Canada",
+    "display_name": "Woodhaven, Winnipeg, Manitoba, Canada",
+    "latitude": "49.8744665",
+    "longitude": "-97.2742459",
+    "query": "Woodhaven, Canada",
+    "source": "nominatim",
+    "state": "Manitoba",
+    "status": "ok"
   },
   "worcester cathedral": {
     "city": "Worcester",

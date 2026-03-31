@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 import urllib.request
-from email.utils import formatdate
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -32,11 +32,15 @@ _INDEX = _STATIC / "index.html"
 DEFAULT_PHOTO_ALBUMS_ROOT = "C:/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums"
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
 DEFAULT_LMSTUDIO_URL = "http://192.168.4.72:1234/v1"
+DEFAULT_LMSTUDIO_TIMEOUT_SECONDS = 120
 DEFAULT_MIN_SIMILARITY = 0.72
 DEFAULT_MIN_MARGIN = 0.015
 DEFAULT_MIN_FACE_QUALITY = 0.20
 DEFAULT_MIN_SAMPLE_COUNT = 2
 ACTIVE_EMBEDDING_MODELS = {CURRENT_FACE_EMBEDDING_MODEL}
+PHOTOALBUMS_PROCESSING_LOCK_SUFFIX = ".photoalbums-ai.lock"
+PHOTOALBUMS_LOCK_WAIT_TIMEOUT_SECONDS = 120.0
+PHOTOALBUMS_LOCK_POLL_SECONDS = 0.25
 
 
 def _rewrite_description_via_lmstudio(
@@ -81,7 +85,7 @@ def _rewrite_description_via_lmstudio(
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=DEFAULT_LMSTUDIO_TIMEOUT_SECONDS) as resp:
             result = json.loads(resp.read().decode("utf-8"))
             text = str(result.get("choices", [{}])[0].get("message", {}).get("content", "") or "").strip()
             if text:
@@ -104,6 +108,27 @@ def _coerce_bool(value: Any, default: bool = False) -> bool:
     if text in {"0", "false", "no", "off"}:
         return False
     return bool(default)
+
+
+def _photoalbums_processing_lock_path(image_path: Path) -> Path:
+    return image_path.with_name(f"{image_path.name}{PHOTOALBUMS_PROCESSING_LOCK_SUFFIX}")
+
+
+def _wait_for_photoalbums_processing_lock(
+    image_path: Path,
+    *,
+    timeout_seconds: float = PHOTOALBUMS_LOCK_WAIT_TIMEOUT_SECONDS,
+    poll_seconds: float = PHOTOALBUMS_LOCK_POLL_SECONDS,
+) -> bool:
+    lock_path = _photoalbums_processing_lock_path(image_path)
+    if not lock_path.exists():
+        return False
+    deadline = time.monotonic() + max(0.0, float(timeout_seconds))
+    while lock_path.exists():
+        if time.monotonic() >= deadline:
+            raise TimeoutError(f"Timed out waiting for photoalbums lock to clear: {lock_path}")
+        time.sleep(max(0.01, float(poll_seconds)))
+    return True
 
 
 class CastHTTPServer(ThreadingHTTPServer):
@@ -184,17 +209,14 @@ class CastHandler(BaseHTTPRequestHandler):
     ) -> None:
         self.send_response(int(status))
         self.send_header("Content-Type", str(content_type))
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
         for key, value in dict(extra_headers or {}).items():
             self.send_header(str(key), str(value))
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
-
-    def _send_not_modified(self, *, extra_headers: dict[str, str] | None = None) -> None:
-        self.send_response(int(HTTPStatus.NOT_MODIFIED))
-        for key, value in dict(extra_headers or {}).items():
-            self.send_header(str(key), str(value))
-        self.end_headers()
 
     def _not_found(self) -> None:
         self._send_json({"ok": False, "error": "Not found."}, status=HTTPStatus.NOT_FOUND)
@@ -751,6 +773,105 @@ class CastHandler(BaseHTTPRequestHandler):
         finally:
             cap.release()
 
+    def _write_accepted_face_xmp(
+        self,
+        *,
+        review_id: str,
+        face: dict[str, Any],
+        person_id: str,
+    ) -> None:
+        source_path = str(face.get("source_path") or "").strip()
+        person = self.store.get_person(person_id)
+        display_name = str(person.get("display_name") or "").strip() if person else ""
+        if not source_path or not display_name:
+            return
+        img_path = Path(source_path)
+        xmp_path = img_path.with_suffix(".xmp")
+        try:
+            waited_for_lock = _wait_for_photoalbums_processing_lock(img_path)
+            if waited_for_lock:
+                print(
+                    "[cast] "
+                    + json.dumps(
+                        {
+                            "event": "photoalbums_lock_wait_completed",
+                            "review_id": str(review_id or "").strip(),
+                            "face_id": str(face.get("face_id") or "").strip(),
+                            "source_path": source_path,
+                            "xmp_path": str(xmp_path),
+                            "lock_path": str(_photoalbums_processing_lock_path(img_path)),
+                        },
+                        ensure_ascii=True,
+                    ),
+                    file=sys.stderr,
+                )
+            existing = read_person_in_image(xmp_path)
+            all_names = (
+                existing
+                if display_name.casefold() in {str(name or "").casefold() for name in existing}
+                else existing + [display_name]
+            )
+            updated_description: str | None = None
+            if self.lmstudio_url:
+                old_desc = read_xmp_description(xmp_path)
+                if old_desc:
+                    updated_description = _rewrite_description_via_lmstudio(
+                        old_desc,
+                        all_names,
+                        base_url=self.lmstudio_url,
+                    )
+            merge_persons_xmp(
+                xmp_path,
+                all_names,
+                creator_tool="cast-review",
+                description=updated_description,
+            )
+            verified_names = read_person_in_image(xmp_path)
+            if display_name.casefold() not in {str(name or "").casefold() for name in verified_names}:
+                print(
+                    "[cast] "
+                    + json.dumps(
+                        {
+                            "event": "xmp_write_back_verification_failed",
+                            "review_id": str(review_id or "").strip(),
+                            "face_id": str(face.get("face_id") or "").strip(),
+                            "person_id": str(person_id or "").strip(),
+                            "display_name": display_name,
+                            "source_path": source_path,
+                            "xmp_path": str(xmp_path),
+                            "bbox": list(face.get("bbox") or []),
+                            "timestamp": str(face.get("timestamp") or "").strip(),
+                            "expected_person_in_image": display_name,
+                            "verified_person_in_image": [str(name or "") for name in verified_names],
+                        },
+                        ensure_ascii=True,
+                    ),
+                    file=sys.stderr,
+                )
+                raise RuntimeError(f"Assigned person was not written to Iptc4xmpExt:PersonInImage: {display_name}")
+        except Exception as exc:
+            print(
+                "[cast] "
+                + json.dumps(
+                    {
+                        "event": "xmp_write_back_failed",
+                        "review_id": str(review_id or "").strip(),
+                        "face_id": str(face.get("face_id") or "").strip(),
+                        "person_id": str(person_id or "").strip(),
+                        "display_name": display_name,
+                        "source_path": source_path,
+                        "xmp_path": str(xmp_path),
+                        "bbox": list(face.get("bbox") or []),
+                        "timestamp": str(face.get("timestamp") or "").strip(),
+                        "error_type": type(exc).__name__,
+                        "error": str(exc),
+                    },
+                    ensure_ascii=True,
+                ),
+                file=sys.stderr,
+            )
+            raise
+
     def _handle_suggest(self, payload: dict[str, Any]) -> None:
         top_k = max(1, _coerce_int(payload.get("top_k"), 3))
         min_similarity = _coerce_float(payload.get("min_similarity"), DEFAULT_MIN_SIMILARITY)
@@ -828,6 +949,25 @@ class CastHandler(BaseHTTPRequestHandler):
                 return
             self._send_json({"ok": True, "review": updated_review, "face": None})
             return
+        assigned_face = None
+        if status == "accepted":
+            try:
+                pending_face = self.store.get_face(str(review.get("face_id") or ""))
+                if not pending_face:
+                    self._error("Unknown face_id.")
+                    return
+                assert person_id is not None
+                self._write_accepted_face_xmp(
+                    review_id=review_id,
+                    face=pending_face,
+                    person_id=person_id,
+                )
+            except Exception as exc:
+                self._error(
+                    f"XMP write-back failed for review {review_id} face {str(review.get('face_id') or '').strip()}: {exc}",
+                    status=HTTPStatus.INTERNAL_SERVER_ERROR,
+                )
+                return
         try:
             updated_review = self.store.resolve_review_item(
                 review_id=review_id,
@@ -837,7 +977,6 @@ class CastHandler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._error(str(exc))
             return
-        assigned_face = None
         if status == "accepted":
             try:
                 assigned_face = self.store.assign_face(
@@ -848,51 +987,6 @@ class CastHandler(BaseHTTPRequestHandler):
                 )
             except Exception as exc:
                 self._error(f"Review updated but face assignment failed: {exc}")
-                return
-            # Write the confirmed name back to the source image's XMP sidecar,
-            # and optionally rewrite the description to use the actual name.
-            try:
-                assert person_id is not None  # guaranteed by early-return at line ~720
-                source_path = str(assigned_face.get("source_path") or "").strip()
-                person = self.store.get_person(person_id)
-                display_name = str(person.get("display_name") or "").strip() if person else ""
-                if source_path and display_name:
-                    img_path = Path(source_path)
-                    xmp_path = img_path.with_suffix(".xmp")
-                    existing = read_person_in_image(xmp_path)
-                    all_names = (
-                        existing
-                        if display_name.casefold() in {n.casefold() for n in existing}
-                        else existing + [display_name]
-                    )
-                    updated_description: str | None = None
-                    if self.lmstudio_url:
-                        old_desc = read_xmp_description(xmp_path)
-                        if old_desc:
-                            updated_description = _rewrite_description_via_lmstudio(
-                                old_desc,
-                                all_names,
-                                base_url=self.lmstudio_url,
-                            )
-                    merge_persons_xmp(
-                        xmp_path,
-                        all_names,
-                        creator_tool="cast-review",
-                        description=updated_description,
-                    )
-
-            except Exception as exc:
-                # XMP write is best-effort; don't fail the review response.
-                xmp_warning = f"XMP write-back failed: {exc}"
-                print(f"[cast] {xmp_warning}", file=sys.stderr)
-                self._send_json(
-                    {
-                        "ok": True,
-                        "review": updated_review,
-                        "face": assigned_face,
-                        "xmp_warning": xmp_warning,
-                    }
-                )
                 return
         elif status in {"ignored", "rejected"}:
             try:
@@ -1153,19 +1247,12 @@ class CastHandler(BaseHTTPRequestHandler):
     def _handle_ingest_photo_scan(self, payload: dict[str, Any]) -> None:
         root_dir = payload.get("photo_albums_root") or DEFAULT_PHOTO_ALBUMS_ROOT
         view_glob = str(payload.get("view_glob") or "*_View")
-        recursive = str(payload.get("recursive", "1")).strip() not in {
-            "0",
-            "false",
-            "False",
-        }
+        recursive = _coerce_bool(payload.get("recursive"), True)
         min_size = int(payload.get("min_size") or 40)
         max_faces_per_photo = int(payload.get("max_faces_per_photo") or 50)
         max_files = int(payload.get("max_files") or 0)
-        auto_queue = str(payload.get("auto_queue", "1")).strip() not in {
-            "0",
-            "false",
-            "False",
-        }
+        auto_queue = _coerce_bool(payload.get("auto_queue"), True)
+        rescan_existing = _coerce_bool(payload.get("rescan_existing"), False)
         top_k = max(1, _coerce_int(payload.get("top_k"), 3))
         policy = self._suggestion_policy_from_payload(payload)
 
@@ -1177,6 +1264,7 @@ class CastHandler(BaseHTTPRequestHandler):
                 min_size=min_size,
                 max_faces_per_photo=max_faces_per_photo,
                 max_files=max_files,
+                rescan_existing=rescan_existing,
             )
         except Exception as exc:
             self._error(str(exc))
@@ -1215,11 +1303,17 @@ class CastHandler(BaseHTTPRequestHandler):
             {
                 "ok": True,
                 "photo_files_scanned": int(result.get("photo_files_scanned", 0)),
+                "view_files_scanned": int(result.get("view_files_scanned", 0)),
+                "archive_scan_files_scanned": int(result.get("archive_scan_files_scanned", 0)),
                 "faces_created": int(result.get("faces_created", len(faces))),
                 "reviews_created": int(reviews_created),
                 "reviews_reused": int(reviews_reused),
                 "photo_albums_root": str(result.get("photo_albums_root", root_dir)),
                 "view_glob": str(result.get("view_glob", view_glob)),
+                "rescan_existing": bool(result.get("rescan_existing", rescan_existing)),
+                "removed_faces": int(result.get("removed_faces", 0)),
+                "removed_reviews": int(result.get("removed_reviews", 0)),
+                "removed_crops": int(result.get("removed_crops", 0)),
                 "top_photos": top_photos,
             },
             status=HTTPStatus.CREATED,
@@ -1243,23 +1337,6 @@ class CastHandler(BaseHTTPRequestHandler):
             self._not_found()
             return
         try:
-            stat = path.stat()
-        except Exception as exc:
-            self._error(
-                f"Unable to stat crop image: {exc}",
-                status=HTTPStatus.INTERNAL_SERVER_ERROR,
-            )
-            return
-        etag = f'"{int(stat.st_size):x}-{int(stat.st_mtime_ns):x}"'
-        cache_headers = {
-            "Cache-Control": "public, max-age=86400",
-            "ETag": etag,
-            "Last-Modified": formatdate(float(stat.st_mtime), usegmt=True),
-        }
-        if str(self.headers.get("If-None-Match", "")).strip() == etag:
-            self._send_not_modified(extra_headers=cache_headers)
-            return
-        try:
             data = path.read_bytes()
         except Exception as exc:
             self._error(
@@ -1271,7 +1348,6 @@ class CastHandler(BaseHTTPRequestHandler):
             data,
             "image/jpeg",
             status=HTTPStatus.OK,
-            extra_headers=cache_headers,
         )
 
     def _handle_get_face_source(self, face_id: str, query: dict[str, list[str]]) -> None:
