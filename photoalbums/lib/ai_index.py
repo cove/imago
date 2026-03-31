@@ -1115,7 +1115,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--reprocess-mode",
         default="unprocessed",
-        choices=["unprocessed", "new_only", "errors_only", "outdated", "cast_changed", "all"],
+        choices=["unprocessed", "new_only", "errors_only", "outdated", "cast_changed", "gps", "all"],
         help=(
             "Controls which images are processed. "
             "'unprocessed' (default): images with missing or stale sidecar. "
@@ -1123,6 +1123,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "'errors_only': only images whose sidecar contains a processing error. "
             "'outdated': only images where the sidecar is older than the image file. "
             "'cast_changed': only images needing people re-detection when the cast store changes. "
+            "'gps': re-run only the GPS location estimate step for already-indexed images. "
             "'all': force reprocess everything (same as --force)."
         ),
     )
@@ -2722,7 +2723,16 @@ def run(argv: list[str] | None = None) -> int:
             reprocess_required=reprocess_required,
         )
 
-        if not needs_full and not people_update_only and not isinstance(existing_sidecar_state, dict):
+        gps_update_only = False
+        if (
+            reprocess_mode == "gps"
+            and not needs_full
+            and existing_sidecar_complete
+            and existing_sidecar_state is not None
+        ):
+            gps_update_only = True
+
+        if not needs_full and not people_update_only and not gps_update_only and not isinstance(existing_sidecar_state, dict):
             skipped += 1
             if args.verbose and not stdout_only:
                 print(f"[{idx}/{len(files)}] skip  {image_path.name}")
@@ -2745,6 +2755,8 @@ def run(argv: list[str] | None = None) -> int:
                 _mode_match = "sidecar_older_than_image" in _reasons_set
             elif reprocess_mode == "cast_changed":
                 _mode_match = "cast_store_signature_changed" in _reasons_set
+            elif reprocess_mode == "gps":
+                _mode_match = gps_update_only
             else:
                 _mode_match = True
             if not _mode_match:
@@ -2779,7 +2791,7 @@ def run(argv: list[str] | None = None) -> int:
             emit_error(f"[{idx}/{len(files)}] fail  {image_path.name}: {exc}")
             continue
 
-        if not needs_full and not people_update_only:
+        if not needs_full and not people_update_only and not gps_update_only:
             state = existing_sidecar_state
             if isinstance(state, dict):
                 file_start = time.monotonic()
@@ -3241,6 +3253,157 @@ def run(argv: list[str] | None = None) -> int:
                 if not needs_full:
                     _release_image_processing_lock(lock_path)
                     continue
+
+        # ── GPS location step (re-run only location estimate + geocode) ───────
+        if not needs_full and gps_update_only and not stdout_only:
+            state = existing_sidecar_state
+            if not isinstance(state, dict):
+                _release_image_processing_lock(lock_path)
+                continue
+            file_start = time.monotonic()
+            det = state.get("detections") or {}
+            gps_ocr_text = _effective_sidecar_ocr_text(image_path, state)
+            gps_ocr_keywords = list((det.get("ocr") or {}).get("keywords") or [])
+            gps_people_names = _dedupe(
+                [str(r.get("name") or "") for r in list(det.get("people") or []) if isinstance(r, dict) and r.get("name")]
+            )
+            gps_object_labels = [
+                str(r.get("label") or "") for r in list(det.get("objects") or []) if isinstance(r, dict) and r.get("label")
+            ]
+            gps_album_title = str(state.get("album_title") or "").strip()
+            gps_printed_title = _resolve_album_printed_title_hint(image_path, printed_album_title_cache)
+            gps_existing_location_name = str((dict(det.get("location") or {})).get("query") or "").strip()
+
+            eta_str = _format_eta(completed_times, len(files) - idx + 1)
+            eta_part = f"  {eta_str}" if eta_str else ""
+            prefix = f"[{idx}/{len(files)}]{eta_part}  {image_path.name}"
+            print(prefix, flush=True)
+            _gps_stop, _gps_step = _progress_ticker(prefix)
+
+            try:
+                caption_key = (
+                    str(effective.get("caption_engine", defaults["caption_engine"])),
+                    str(effective.get("caption_model", defaults["caption_model"])),
+                    str(effective.get("caption_prompt", defaults["caption_prompt"])),
+                    int(effective.get("caption_max_tokens", defaults["caption_max_tokens"])),
+                    float(effective.get("caption_temperature", defaults["caption_temperature"])),
+                    str(effective.get("lmstudio_base_url", defaults["lmstudio_base_url"])),
+                    int(effective.get("caption_max_edge", defaults["caption_max_edge"])),
+                )
+                gps_caption_engine = caption_engine_cache.get(caption_key)
+                if gps_caption_engine is None:
+                    gps_caption_engine = _init_caption_engine(
+                        engine=caption_key[0],
+                        model_name=caption_key[1],
+                        caption_prompt=caption_key[2],
+                        max_tokens=int(caption_key[3]),
+                        temperature=float(caption_key[4]),
+                        lmstudio_base_url=caption_key[5],
+                        max_image_edge=int(caption_key[6]),
+                        stream=True,
+                    )
+                    caption_engine_cache[caption_key] = gps_caption_engine
+
+                gps_prompt_debug = PromptDebugSession(image_path)
+                _gps_step("location")
+                with _prepare_ai_model_image(image_path) as gps_model_path:
+                    gps_latitude, gps_longitude, location_name = _resolve_location_metadata(
+                        requested_caption_engine=str(caption_key[0]),
+                        caption_engine=gps_caption_engine,
+                        model_image_path=gps_model_path,
+                        people=gps_people_names,
+                        objects=gps_object_labels,
+                        ocr_text=gps_ocr_text,
+                        source_path=image_path,
+                        album_title=gps_album_title,
+                        printed_album_title=gps_printed_title,
+                        people_positions={},
+                        fallback_location_name=gps_existing_location_name,
+                        prompt_debug=gps_prompt_debug,
+                        debug_step="location_gps_step",
+                    )
+                gps_location_payload = _resolve_location_payload(
+                    geocoder=geocoder,
+                    gps_latitude=gps_latitude,
+                    gps_longitude=gps_longitude,
+                    location_name=location_name,
+                )
+                _emit_prompt_debug_artifact(gps_prompt_debug, dry_run=dry_run)
+
+                if not dry_run:
+                    gps_updated_det = {**det}
+                    if gps_location_payload:
+                        gps_updated_det["location"] = gps_location_payload
+                    elif "location" in gps_updated_det:
+                        del gps_updated_det["location"]
+                    gps_subjects = _dedupe(
+                        gps_object_labels + gps_ocr_keywords + ([gps_album_title] if gps_album_title else [])
+                    )
+                    gps_img_w, gps_img_h = _get_image_dimensions(image_path)
+                    xmp_title, xmp_title_source = _compute_xmp_title(
+                        image_path=image_path,
+                        explicit_title=str(state.get("title") or ""),
+                        title_source=str(state.get("title_source") or ""),
+                        author_text=str(state.get("author_text") or ""),
+                    )
+                    write_xmp_sidecar(
+                        sidecar_path,
+                        creator_tool=creator_tool,
+                        person_names=list(existing_xmp_people),
+                        subjects=gps_subjects,
+                        title=xmp_title,
+                        title_source=xmp_title_source,
+                        description=str(state.get("description") or ""),
+                        album_title=gps_album_title,
+                        gps_latitude=str(gps_location_payload.get("gps_latitude") or ""),
+                        gps_longitude=str(gps_location_payload.get("gps_longitude") or ""),
+                        location_city=str(gps_location_payload.get("city") or ""),
+                        location_state=str(gps_location_payload.get("state") or ""),
+                        location_country=str(gps_location_payload.get("country") or ""),
+                        source_text=str(state.get("source_text") or ""),
+                        ocr_text=gps_ocr_text,
+                        ocr_lang=str(state.get("ocr_lang") or ""),
+                        author_text=str(state.get("author_text") or ""),
+                        scene_text=str(state.get("scene_text") or ""),
+                        detections_payload=gps_updated_det,
+                        stitch_key=str(state.get("stitch_key") or ""),
+                        ocr_authority_source=str(state.get("ocr_authority_source") or ""),
+                        create_date=(str(state.get("create_date") or "").strip() or read_embedded_create_date(image_path)),
+                        dc_date=str(state.get("dc_date") or ""),
+                        date_time_original=str(state.get("date_time_original") or ""),
+                        history_when=_xmp_timestamp_from_path(image_path),
+                        image_width=gps_img_w,
+                        image_height=gps_img_h,
+                        ocr_ran=bool(state.get("ocr_ran")),
+                        people_detected=bool(state.get("people_detected")),
+                        people_identified=bool(state.get("people_identified")),
+                    )
+                    append_job_artifact(
+                        {
+                            "kind": "photoalbums_xmp",
+                            "image_path": str(image_path),
+                            "sidecar_path": str(sidecar_path),
+                            "label": image_path.name,
+                        }
+                    )
+
+                processed += 1
+                completed_times.append(time.monotonic() - file_start)
+                _gps_stop()
+                eta_str2 = _format_eta(completed_times, len(files) - idx)
+                eta_part2 = f"  {eta_str2}" if eta_str2 else ""
+                print(
+                    f"[{idx}/{len(files)}]{eta_part2}  ok    {image_path.name}  [gps]",
+                    flush=True,
+                )
+            except Exception as exc:
+                failures += 1
+                _gps_stop()
+                emit_error(f"[{idx}/{len(files)}] fail  {image_path.name}: {exc}")
+
+            if not needs_full:
+                _release_image_processing_lock(lock_path)
+                continue
         # ─────────────────────────────────────────────────────────────────────
 
         file_start = time.monotonic()
