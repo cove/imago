@@ -12,7 +12,7 @@ from typing import Callable
 
 from ._caption_text import clean_text, clean_lines
 from .image_limits import allow_large_pillow_images
-from ._lmstudio_helpers import resolve_cached_lmstudio_model_name
+from ._lmstudio_helpers import LMStudioModelResolverMixin
 from ._prompt_skill import required_section_text
 
 DEFAULT_LMSTUDIO_MAX_NEW_TOKENS = 8129
@@ -839,7 +839,9 @@ def location_system_prompt() -> str:
     return required_section_text("System Prompt - Location")
 
 
-class LMStudioCaptioner:
+class LMStudioCaptioner(LMStudioModelResolverMixin):
+    _select_model_name = staticmethod(_select_lmstudio_model)
+
     def __init__(
         self,
         *,
@@ -863,17 +865,6 @@ class LMStudioCaptioner:
         self._resolved_model_name = ""
         self.last_response_text = ""
         self.last_finish_reason = ""
-
-    def _resolve_model_name(self) -> str:
-        self._resolved_model_name = resolve_cached_lmstudio_model_name(
-            self._resolved_model_name,
-            lambda: _select_lmstudio_model(
-                self.base_url,
-                self.model_name,
-                self.timeout_seconds,
-            ),
-        )
-        return self._resolved_model_name
 
     def _call_chat_completion(
         self,

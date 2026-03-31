@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .ai_model_settings import default_caption_model, default_lmstudio_base_url
 from ._caption_text import clean_text, clean_lines, dedupe, join_human  # noqa: F401
+from ._lmstudio_helpers import emit_prompt_debug as _emit_prompt_debug
 from ._caption_lmstudio import (  # noqa: F401
     DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE,
     DEFAULT_LMSTUDIO_BASE_URL,
@@ -31,36 +32,6 @@ from ._caption_prompts import (  # noqa: F401
     _build_people_count_prompt,
     _build_local_prompt,
 )
-
-
-def _emit_prompt_debug(
-    debug_recorder,
-    *,
-    step: str,
-    engine: str,
-    model: str,
-    prompt: str,
-    system_prompt: str = "",
-    source_path: str | Path | None = None,
-    prompt_source: str = "",
-    response: str = "",
-    finish_reason: str = "",
-    metadata: dict | None = None,
-) -> None:
-    if not callable(debug_recorder):
-        return
-    debug_recorder(
-        step=str(step or "").strip(),
-        engine=str(engine or "").strip(),
-        model=str(model or "").strip(),
-        prompt=str(prompt or ""),
-        system_prompt=str(system_prompt or ""),
-        source_path=source_path,
-        prompt_source=str(prompt_source or "").strip(),
-        response=str(response or ""),
-        finish_reason=str(finish_reason or "").strip(),
-        metadata=dict(metadata or {}),
-    )
 
 
 def _caption_has_meaningful_content(caption) -> bool:

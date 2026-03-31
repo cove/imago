@@ -13,7 +13,7 @@ from ._caption_lmstudio import (
     _select_lmstudio_model,
     normalize_lmstudio_base_url,
 )
-from ._lmstudio_helpers import emit_prompt_debug, resolve_cached_lmstudio_model_name, single_string_response_format
+from ._lmstudio_helpers import LMStudioModelResolverMixin, emit_prompt_debug, single_string_response_format
 from ._prompt_skill import required_section_text
 from .ai_model_settings import default_caption_model, default_lmstudio_base_url
 from .xmp_sidecar import _normalize_dc_date
@@ -79,7 +79,9 @@ class DateEstimateOutput:
     error: str = ""
 
 
-class DateEstimateEngine:
+class DateEstimateEngine(LMStudioModelResolverMixin):
+    _select_model_name = staticmethod(_select_lmstudio_model)
+
     def __init__(
         self,
         *,
@@ -110,17 +112,6 @@ class DateEstimateEngine:
     @property
     def effective_model_name(self) -> str:
         return str(self._resolved_model_name or self.model_name)
-
-    def _resolve_model_name(self) -> str:
-        self._resolved_model_name = resolve_cached_lmstudio_model_name(
-            self._resolved_model_name,
-            lambda: _select_lmstudio_model(
-                self.base_url,
-                self.model_name,
-                self.timeout_seconds,
-            ),
-        )
-        return self._resolved_model_name
 
     def estimate(
         self,
