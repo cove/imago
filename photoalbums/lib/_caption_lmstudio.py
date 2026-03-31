@@ -12,6 +12,7 @@ from typing import Callable
 
 from ._caption_text import clean_text, clean_lines
 from .image_limits import allow_large_pillow_images
+from ._lmstudio_helpers import resolve_cached_lmstudio_model_name
 from ._prompt_skill import required_section_text
 
 DEFAULT_LMSTUDIO_MAX_NEW_TOKENS = 8129
@@ -864,12 +865,13 @@ class LMStudioCaptioner:
         self.last_finish_reason = ""
 
     def _resolve_model_name(self) -> str:
-        if self._resolved_model_name:
-            return self._resolved_model_name
-        self._resolved_model_name = _select_lmstudio_model(
-            self.base_url,
-            self.model_name,
-            self.timeout_seconds,
+        self._resolved_model_name = resolve_cached_lmstudio_model_name(
+            self._resolved_model_name,
+            lambda: _select_lmstudio_model(
+                self.base_url,
+                self.model_name,
+                self.timeout_seconds,
+            ),
         )
         return self._resolved_model_name
 

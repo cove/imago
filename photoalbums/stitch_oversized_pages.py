@@ -491,22 +491,17 @@ def _sort_key(path: str):
 
 
 def list_derived_images(directory: str | Path) -> list[str]:
-    files = []
-    for name in os.listdir(directory):
-        if not name.lower().endswith(IMAGE_EXTS):
-            continue
-        if not _match_derived_tokens(name):
-            continue
-        files.append(os.path.join(directory, name))
-
-    files.sort(key=_sort_key)
-    return files
+    return _list_derived_media(directory, IMAGE_EXTS)
 
 
 def list_derived_media(directory: str | Path) -> list[str]:
+    return _list_derived_media(directory, MEDIA_EXTS)
+
+
+def _list_derived_media(directory: str | Path, extensions: tuple[str, ...]) -> list[str]:
     files = []
     for name in os.listdir(directory):
-        if not name.lower().endswith(MEDIA_EXTS):
+        if not name.lower().endswith(extensions):
             continue
         if not _match_derived_tokens(name):
             continue
