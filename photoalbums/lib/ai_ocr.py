@@ -19,6 +19,7 @@ from ._caption_lmstudio import (
     _format_lmstudio_debug_response,
     _lanczos_resize,
 )
+from ._lmstudio_helpers import emit_prompt_debug as _emit_prompt_debug, single_string_response_format
 from ._prompt_skill import required_section_text
 
 STOPWORDS = {
@@ -102,35 +103,6 @@ def _normalize_lmstudio_ocr_base_url(value: str) -> str:
 
 def ocr_system_prompt() -> str:
     return required_section_text("System Prompt - OCR")
-
-
-def _emit_prompt_debug(
-    debug_recorder,
-    *,
-    step: str,
-    engine: str,
-    model: str,
-    prompt: str,
-    system_prompt: str = "",
-    source_path: str | Path | None = None,
-    response: str = "",
-    finish_reason: str = "",
-    metadata: dict | None = None,
-) -> None:
-    if not callable(debug_recorder):
-        return
-    debug_recorder(
-        step=str(step or "").strip(),
-        engine=str(engine or "").strip(),
-        model=str(model or "").strip(),
-        prompt=str(prompt or ""),
-        system_prompt=str(system_prompt or ""),
-        source_path=source_path,
-        prompt_source="default",
-        response=str(response or ""),
-        finish_reason=str(finish_reason or "").strip(),
-        metadata=dict(metadata or {}),
-    )
 
 
 def _lmstudio_ocr_post(base_url: str, payload: dict, timeout: float) -> dict:
@@ -244,23 +216,7 @@ def _normalize_ocr_text(value: object) -> str:
 
 
 def _lmstudio_ocr_response_format() -> dict[str, object]:
-    return {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "ocr_payload",
-            "strict": "true",
-            "schema": {
-                "type": "object",
-                "properties": {
-                    "text": {
-                        "type": "string",
-                    }
-                },
-                "required": ["text"],
-                "additionalProperties": False,
-            },
-        },
-    }
+    return single_string_response_format(schema_name="ocr_payload", field_name="text")
 
 
 def _recover_truncated_ocr_text(raw: str) -> str | None:

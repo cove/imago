@@ -13,27 +13,14 @@ from ._caption_lmstudio import (
     _select_lmstudio_model,
     normalize_lmstudio_base_url,
 )
+from ._lmstudio_helpers import emit_prompt_debug, resolve_cached_lmstudio_model_name, single_string_response_format
 from ._prompt_skill import required_section_text
 from .ai_model_settings import default_caption_model, default_lmstudio_base_url
 from .xmp_sidecar import _normalize_dc_date
 
 
 def _date_estimate_response_format() -> dict[str, object]:
-    return {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "date_estimate_payload",
-            "strict": "true",
-            "schema": {
-                "type": "object",
-                "properties": {
-                    "date": {"type": "string"},
-                },
-                "required": ["date"],
-                "additionalProperties": False,
-            },
-        },
-    }
+    return single_string_response_format(schema_name="date_estimate_payload", field_name="date")
 
 
 def _is_date_estimate_payload(payload: object) -> bool:
@@ -84,35 +71,6 @@ def _parse_date_estimate(value: object, *, finish_reason: str = "") -> str:
     return normalized
 
 
-def _emit_prompt_debug(
-    debug_recorder,
-    *,
-    step: str,
-    engine: str,
-    model: str,
-    prompt: str,
-    system_prompt: str,
-    source_path: str | Path | None,
-    response: str,
-    finish_reason: str,
-    metadata: dict[str, object] | None = None,
-) -> None:
-    if not callable(debug_recorder):
-        return
-    debug_recorder(
-        step=str(step or "").strip(),
-        engine=str(engine or "").strip(),
-        model=str(model or "").strip(),
-        prompt=str(prompt or ""),
-        system_prompt=str(system_prompt or ""),
-        source_path=source_path,
-        prompt_source="skill",
-        response=str(response or ""),
-        finish_reason=str(finish_reason or "").strip(),
-        metadata=dict(metadata or {}),
-    )
-
-
 @dataclass
 class DateEstimateOutput:
     engine: str
@@ -154,12 +112,13 @@ class DateEstimateEngine:
         return str(self._resolved_model_name or self.model_name)
 
     def _resolve_model_name(self) -> str:
-        if self._resolved_model_name:
-            return self._resolved_model_name
-        self._resolved_model_name = _select_lmstudio_model(
-            self.base_url,
-            self.model_name,
-            self.timeout_seconds,
+        self._resolved_model_name = resolve_cached_lmstudio_model_name(
+            self._resolved_model_name,
+            lambda: _select_lmstudio_model(
+                self.base_url,
+                self.model_name,
+                self.timeout_seconds,
+            ),
         )
         return self._resolved_model_name
 
@@ -178,7 +137,7 @@ class DateEstimateEngine:
         finish_reason = ""
         error_text = ""
         if self.engine == "none":
-            _emit_prompt_debug(
+            emit_prompt_debug(
                 debug_recorder,
                 step=debug_step,
                 engine=self.engine,
@@ -186,6 +145,7 @@ class DateEstimateEngine:
                 prompt=prompt,
                 system_prompt=system_prompt,
                 source_path=source_path,
+                prompt_source="skill",
                 response="",
                 finish_reason="",
                 metadata={"skipped": True},
@@ -232,7 +192,7 @@ class DateEstimateEngine:
             metadata: dict[str, object] = {}
             if error_text:
                 metadata["error"] = error_text
-            _emit_prompt_debug(
+            emit_prompt_debug(
                 debug_recorder,
                 step=debug_step,
                 engine=self.engine,
@@ -240,6 +200,7 @@ class DateEstimateEngine:
                 prompt=prompt,
                 system_prompt=system_prompt,
                 source_path=source_path,
+                prompt_source="skill",
                 response=response,
                 finish_reason=finish_reason,
                 metadata=metadata,
