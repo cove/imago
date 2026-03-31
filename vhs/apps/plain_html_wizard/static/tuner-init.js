@@ -264,6 +264,7 @@ const navActionButtons = new Map();
 const lockExtraButtons = [
   loadChapterBtnEl,
   previewRenderBtnEl,
+  document.getElementById('audioSyncPreviewBtn'),
   gammaApplyVisibleBtnEl,
   gammaClearBtnEl,
   peoplePrefillCastBtnEl,

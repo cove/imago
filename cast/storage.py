@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,6 +21,8 @@ def _json_default(path: Path) -> Any:
 
 
 FACE_REVIEW_STATUSES = {"confirmed", "ignored", "rejected"}
+_WRITE_RETRY_ATTEMPTS = 8
+_WRITE_RETRY_DELAY_SECONDS = 0.1
 
 
 def normalize_face_review_status(value: Any, *, person_id: Any = None) -> str:
@@ -146,7 +149,15 @@ class TextFaceStore:
                 json.dump(data, handle, indent=2, ensure_ascii=True)
                 handle.write("\n")
             temp_path = Path(handle.name)
-        temp_path.replace(path)
+        for attempt in range(_WRITE_RETRY_ATTEMPTS):
+            try:
+                temp_path.replace(path)
+                return
+            except PermissionError:
+                if attempt >= _WRITE_RETRY_ATTEMPTS - 1:
+                    temp_path.unlink(missing_ok=True)
+                    raise
+                time.sleep(_WRITE_RETRY_DELAY_SECONDS)
 
     def list_people(self) -> list[dict[str, Any]]:
         with self._lock:
@@ -557,6 +568,89 @@ class TextFaceStore:
                 "updated_faces": int(updated_faces),
             }
 
+    def _remove_crop_paths(self, crop_paths: list[Path]) -> int:
+        removed_crops = 0
+        root = self.root_dir.resolve()
+        for rel in crop_paths:
+            path = (root / rel).resolve()
+            try:
+                path.relative_to(root)
+            except ValueError:
+                continue
+            try:
+                if path.exists():
+                    path.unlink()
+                    removed_crops += 1
+            except Exception:
+                continue
+        return int(removed_crops)
+
+    def remove_faces_for_sources(
+        self,
+        *,
+        source_paths: list[str],
+        remove_crops: bool = True,
+    ) -> dict[str, int]:
+        source_keys = {str(path or "").strip() for path in source_paths if str(path or "").strip()}
+        if not source_keys:
+            return {
+                "removed_faces": 0,
+                "removed_reviews": 0,
+                "removed_crops": 0,
+            }
+
+        removed_faces = 0
+        removed_reviews = 0
+        removed_crops = 0
+
+        with self._lock:
+            face_rows = self._read_json(self.faces_path)
+            if not isinstance(face_rows, list):
+                face_rows = []
+            review_rows = self._read_json(self.review_path)
+            if not isinstance(review_rows, list):
+                review_rows = []
+
+            removed_face_ids: set[str] = set()
+            crop_paths: list[Path] = []
+            kept_faces: list[dict[str, Any]] = []
+            for row in face_rows:
+                if not isinstance(row, dict):
+                    continue
+                source_path = str(row.get("source_path") or "").strip()
+                if source_path not in source_keys:
+                    kept_faces.append(row)
+                    continue
+                face_id = str(row.get("face_id") or "").strip()
+                if face_id:
+                    removed_face_ids.add(face_id)
+                crop_rel = str(row.get("crop_path") or "").strip()
+                if crop_rel:
+                    crop_paths.append(Path(crop_rel))
+                removed_faces += 1
+
+            kept_reviews: list[dict[str, Any]] = []
+            for row in review_rows:
+                if not isinstance(row, dict):
+                    continue
+                face_id = str(row.get("face_id") or "").strip()
+                if face_id in removed_face_ids:
+                    removed_reviews += 1
+                    continue
+                kept_reviews.append(row)
+
+            self._write_json(self.faces_path, kept_faces)
+            self._write_json(self.review_path, kept_reviews)
+
+            if remove_crops:
+                removed_crops = self._remove_crop_paths(crop_paths)
+
+        return {
+            "removed_faces": int(removed_faces),
+            "removed_reviews": int(removed_reviews),
+            "removed_crops": int(removed_crops),
+        }
+
     def store_signature(self) -> str:
         with self._lock:
             parts: list[str] = []
@@ -615,19 +709,7 @@ class TextFaceStore:
             self._write_json(self.review_path, kept_reviews)
 
             if remove_crops:
-                root = self.root_dir.resolve()
-                for rel in crop_paths:
-                    path = (root / rel).resolve()
-                    try:
-                        path.relative_to(root)
-                    except ValueError:
-                        continue
-                    try:
-                        if path.exists():
-                            path.unlink()
-                            removed_crops += 1
-                    except Exception:
-                        continue
+                removed_crops = self._remove_crop_paths(crop_paths)
 
         return {
             "removed_faces": int(removed_faces),

@@ -225,6 +225,8 @@ def load_ai_xmp_review(
         "sidecar_path": str(path.resolve()),
         "creator_tool": _clean_text(state.get("creator_tool")),
         "create_date": _clean_text(state.get("create_date")),
+        "dc_date": _clean_text(state.get("dc_date")),
+        "date_time_original": _clean_text(state.get("date_time_original")),
         "title": _clean_text(state.get("title")),
         "person_names": person_names,
         "subjects": subjects,

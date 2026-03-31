@@ -11,7 +11,7 @@ Changes applied
 Invariants preserved
 --------------------
 - Archive TIF files are never renamed (``_S##.tif`` stays unchanged).
-- Detail crops ``_D##_##`` are never renamed.
+- Derived images ``_D##_##`` are never renamed.
 - ``os.rename()`` is used throughout — preserves read-only attribute on Windows.
 - SHA256 hash of every renamed file's content is verified post-rename.
 

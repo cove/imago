@@ -12,6 +12,7 @@ from pathlib import Path
 
 from .model_store import HF_MODEL_CACHE_DIR
 from .ai_model_settings import default_lmstudio_base_url, default_ocr_model
+from .image_limits import allow_large_pillow_images
 from ._caption_lmstudio import (
     _decode_lmstudio_text,
     _extract_structured_json_payload,
@@ -173,6 +174,7 @@ def _lmstudio_ocr_select_model(base_url: str, timeout: float, requested_model: s
 def _build_ocr_data_url(image_path, max_image_edge: int, max_pixels: int) -> str:
     from PIL import Image  # pylint: disable=import-outside-toplevel
 
+    allow_large_pillow_images(Image)
     path = Path(image_path)
     image = Image.open(str(path)).convert("RGB")
     try:
@@ -549,6 +551,7 @@ class OCREngine:
 
         from PIL import Image  # pylint: disable=import-outside-toplevel
 
+        allow_large_pillow_images(Image)
         image = Image.open(str(path)).convert("RGB")
         prompt_text = ""
         response_text = ""

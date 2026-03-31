@@ -112,7 +112,13 @@ class TestAIIndex(unittest.TestCase):
 
     def test_looks_like_album_title_page_requires_album_style_name(self):
         self.assertFalse(ai_index._looks_like_album_title_page(Path("a.jpg")))
+        self.assertFalse(ai_index._looks_like_album_title_page(Path("China_1986_B02_P00.jpg")))
         self.assertTrue(ai_index._looks_like_album_title_page(Path("China_1986_B02_P01_S01.tif")))
+
+    def test_is_album_title_source_candidate_rejects_detail_views_and_second_scans(self):
+        self.assertFalse(ai_index._is_album_title_source_candidate(Path("China_1986_B02_P01_D01-01_V.jpg")))
+        self.assertFalse(ai_index._is_album_title_source_candidate(Path("China_1986_B02_P01_S02.tif")))
+        self.assertTrue(ai_index._is_album_title_source_candidate(Path("China_1986_B02_P01_S01.tif")))
 
     def test_build_dc_source_uses_single_scan_for_raw_scan_sidecar(self):
         source = ai_index._build_dc_source(
@@ -412,13 +418,151 @@ class TestAIIndex(unittest.TestCase):
 
     def test_compute_xmp_title_preserves_explicit_title(self):
         title, title_source = ai_index._compute_xmp_title(
-            image_path=Path("China_1986_B02_P00.jpg"),
+            image_path=Path("China_1986_B02_P01.jpg"),
             explicit_title="MAINLAND CHINA 1986 BOOK 11",
             title_source="author_text",
             author_text="MAINLAND CHINA 1986 BOOK 11",
         )
         self.assertEqual(title, "MAINLAND CHINA 1986 BOOK 11")
         self.assertEqual(title_source, "author_text")
+
+    def test_dc_date_needs_refresh_only_when_missing_and_unattempted(self):
+        image = Path("Egypt_1975_B00_P02_S01.tif")
+        state = {
+            "dc_date": "",
+            "date_time_original": "",
+            "ocr_text": "March 15, 1975",
+            "album_title": "Egypt 1975",
+            "date_estimate_input_hash": "",
+        }
+        self.assertTrue(ai_index._dc_date_needs_refresh(image, state, enabled=True))
+
+        state["date_estimate_input_hash"] = ai_index._date_estimate_input_hash(
+            str(state["ocr_text"]),
+            str(state["album_title"]),
+        )
+        self.assertFalse(ai_index._dc_date_needs_refresh(image, state, enabled=True))
+
+        state["dc_date"] = "1975-03-15"
+        self.assertTrue(ai_index._dc_date_needs_refresh(image, state, enabled=True))
+        state["date_time_original"] = "1975-03-15T12:00:00"
+        self.assertFalse(ai_index._dc_date_needs_refresh(image, state, enabled=True))
+        self.assertFalse(ai_index._dc_date_needs_refresh(image, state, enabled=False))
+
+    def test_effective_sidecar_ocr_text_uses_source_scan_sidecar_for_derived_view(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            archive = base / "Egypt_1975_B00_Archive"
+            view = base / "Egypt_1975_B00_View"
+            archive.mkdir()
+            view.mkdir()
+            scan1 = archive / "Egypt_1975_B00_P02_S01.tif"
+            scan2 = archive / "Egypt_1975_B00_P02_S02.tif"
+            derived = view / "Egypt_1975_B00_P02_D01-01_V.jpg"
+            scan1.write_bytes(b"a")
+            scan2.write_bytes(b"b")
+            derived.write_bytes(b"view")
+            xmp_sidecar.write_xmp_sidecar(
+                scan1.with_suffix(".xmp"),
+                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
+                person_names=[],
+                subjects=["egypt"],
+                description="Scan sidecar",
+                album_title="Egypt 1975",
+                source_text=ai_index._build_dc_source("Egypt 1975", scan1, [scan1.name]),
+                ocr_text="March 1975",
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                subphotos=[],
+            )
+
+            text = ai_index._effective_sidecar_ocr_text(
+                derived,
+                {
+                    "source_text": ai_index._build_dc_source("Egypt 1975", derived, [scan1.name, scan2.name]),
+                    "ocr_text": "WRONG OCR",
+                },
+            )
+
+            self.assertEqual(text, "March 1975")
+
+    def test_effective_sidecar_location_payload_uses_source_scan_sidecar_for_derived_view(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            archive = base / "Egypt_1975_B00_Archive"
+            view = base / "Egypt_1975_B00_View"
+            archive.mkdir()
+            view.mkdir()
+            scan1 = archive / "Egypt_1975_B00_P02_S01.tif"
+            scan2 = archive / "Egypt_1975_B00_P02_S02.tif"
+            derived = view / "Egypt_1975_B00_P02_D01-01_V.jpg"
+            scan1.write_bytes(b"a")
+            scan2.write_bytes(b"b")
+            derived.write_bytes(b"view")
+            xmp_sidecar.write_xmp_sidecar(
+                scan1.with_suffix(".xmp"),
+                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
+                person_names=[],
+                subjects=["egypt"],
+                description="Scan sidecar",
+                album_title="Egypt 1975",
+                gps_latitude="39.7875",
+                gps_longitude="100.307222",
+                location_city="Dunhuang",
+                location_state="Gansu",
+                location_country="China",
+                source_text=ai_index._build_dc_source("Egypt 1975", scan1, [scan1.name]),
+                ocr_text="March 1975",
+                detections_payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {},
+                    "caption": {},
+                    "location": {
+                        "gps_latitude": 39.7875,
+                        "gps_longitude": 100.307222,
+                        "city": "Dunhuang",
+                        "state": "Gansu",
+                        "country": "China",
+                    },
+                },
+                subphotos=[],
+            )
+
+            location = ai_index._effective_sidecar_location_payload(
+                derived,
+                {
+                    "source_text": ai_index._build_dc_source("Egypt 1975", derived, [scan1.name, scan2.name]),
+                    "gps_latitude": "0,0N",
+                    "gps_longitude": "0,0E",
+                    "detections": {
+                        "location": {
+                            "gps_latitude": 0,
+                            "gps_longitude": 0,
+                            "city": "Wrong",
+                        }
+                    },
+                },
+            )
+
+            self.assertEqual(location["gps_latitude"], 39.7875)
+            self.assertEqual(location["gps_longitude"], 100.307222)
+            self.assertEqual(location["city"], "Dunhuang")
+            self.assertEqual(location["state"], "Gansu")
+            self.assertEqual(location["country"], "China")
+
+    def test_sidecar_has_people_to_refresh_ignores_caption_people_estimate_without_faces(self):
+        state = {
+            "people_detected": False,
+            "people_identified": False,
+            "detections": {
+                "people": [],
+                "caption": {
+                    "people_present": True,
+                    "estimated_people_count": 1,
+                },
+            },
+        }
+        self.assertFalse(ai_index._sidecar_has_people_to_refresh(state))
 
     def test_build_caption_metadata_preserves_engine_error_verbatim(self):
         payload = ai_index._build_caption_metadata(
@@ -459,6 +603,507 @@ class TestAIIndex(unittest.TestCase):
             next_ns = max(sidecar.stat().st_mtime_ns, image.stat().st_mtime_ns) + 5_000_000
             os.utime(image, ns=(next_ns, next_ns))
             self.assertTrue(ai_index.needs_processing(image, row, force=False))
+
+    def test_run_refreshes_current_xmp_when_dc_date_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            archive = base / "Egypt_1975_B00_Archive"
+            archive.mkdir()
+            image = archive / "Egypt_1975_B00_P02_S01.tif"
+            image.write_bytes(b"scan")
+            stat = image.stat()
+            detections = {
+                "people": [],
+                "objects": [],
+                "caption": {
+                    "requested_engine": "lmstudio",
+                    "effective_engine": "lmstudio",
+                    "fallback": False,
+                    "error": "",
+                    "model": "test-model",
+                },
+                "processing": {
+                    "processor_signature": ai_index.PROCESSOR_SIGNATURE,
+                    "settings_signature": "",
+                    "cast_store_signature": "",
+                    "size": int(stat.st_size),
+                    "mtime_ns": int(stat.st_mtime_ns),
+                    "analysis_mode": "single_image",
+                },
+            }
+            xmp_sidecar.write_xmp_sidecar(
+                image.with_suffix(".xmp"),
+                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
+                person_names=[],
+                subjects=["egypt"],
+                description="Travel photo",
+                album_title="Egypt 1975",
+                source_text=ai_index._build_dc_source("Egypt 1975", image, [image.name]),
+                ocr_text="March 15, 1975",
+                detections_payload=detections,
+                subphotos=[],
+            )
+
+            fake_date_engine = SimpleNamespace(
+                estimate=mock.Mock(
+                    return_value=SimpleNamespace(
+                        date="1975-03-15",
+                        error="",
+                        fallback=False,
+                    )
+                )
+            )
+
+            with (
+                mock.patch.object(ai_index, "_init_date_engine", return_value=fake_date_engine),
+                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--include-archive",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "none",
+                        "--caption-engine",
+                        "lmstudio",
+                        "--max-images",
+                        "1",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            analysis_mock.assert_not_called()
+            write_mock.assert_called_once()
+            self.assertEqual(write_mock.call_args.kwargs["dc_date"], "1975-03-15")
+            self.assertEqual(write_mock.call_args.kwargs["date_time_original"], "1975-03-15T12:00:00")
+            self.assertEqual(
+                write_mock.call_args.kwargs["detections_payload"]["processing"]["date_estimate_input_hash"],
+                ai_index._date_estimate_input_hash("March 15, 1975", "Egypt 1975"),
+            )
+
+    def test_run_refreshes_current_xmp_when_timeline_field_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            archive = base / "Egypt_1975_B00_Archive"
+            archive.mkdir()
+            image = archive / "Egypt_1975_B00_P02_S01.tif"
+            image.write_bytes(b"scan")
+            stat = image.stat()
+            detections = {
+                "people": [],
+                "objects": [],
+                "caption": {
+                    "requested_engine": "lmstudio",
+                    "effective_engine": "lmstudio",
+                    "fallback": False,
+                    "error": "",
+                    "model": "test-model",
+                },
+                "processing": {
+                    "processor_signature": ai_index.PROCESSOR_SIGNATURE,
+                    "settings_signature": "",
+                    "cast_store_signature": "",
+                    "size": int(stat.st_size),
+                    "mtime_ns": int(stat.st_mtime_ns),
+                    "date_estimate_input_hash": ai_index._date_estimate_input_hash("March 1975", "Egypt 1975"),
+                    "analysis_mode": "single_image",
+                },
+            }
+            xmp_sidecar.write_xmp_sidecar(
+                image.with_suffix(".xmp"),
+                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
+                person_names=[],
+                subjects=["egypt"],
+                description="Travel photo",
+                album_title="Egypt 1975",
+                source_text=ai_index._build_dc_source("Egypt 1975", image, [image.name]),
+                ocr_text="March 1975",
+                dc_date="1975-03",
+                detections_payload=detections,
+                subphotos=[],
+            )
+
+            sidecar_text = image.with_suffix(".xmp").read_text(encoding="utf-8")
+            sidecar_text = sidecar_text.replace(
+                "<exif:DateTimeOriginal>1975-03-15T12:00:00</exif:DateTimeOriginal>\n",
+                "",
+            )
+            image.with_suffix(".xmp").write_text(sidecar_text, encoding="utf-8")
+
+            with (
+                mock.patch.object(ai_index, "_init_date_engine") as date_engine_mock,
+                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--include-archive",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "none",
+                        "--caption-engine",
+                        "lmstudio",
+                        "--max-images",
+                        "1",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            date_engine_mock.assert_not_called()
+            analysis_mock.assert_not_called()
+            write_mock.assert_called_once()
+            self.assertEqual(write_mock.call_args.kwargs["dc_date"], "1975-03")
+            self.assertEqual(write_mock.call_args.kwargs["date_time_original"], "1975-03-15T12:00:00")
+
+    def test_run_refreshes_derived_view_xmp_using_source_scan_ocr_text_for_dc_date(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            archive = base / "Egypt_1975_B00_Archive"
+            view = base / "Egypt_1975_B00_View"
+            archive.mkdir()
+            view.mkdir()
+            scan1 = archive / "Egypt_1975_B00_P02_S01.tif"
+            scan2 = archive / "Egypt_1975_B00_P02_S02.tif"
+            image = view / "Egypt_1975_B00_P02_D01-01_V.jpg"
+            scan1.write_bytes(b"a")
+            scan2.write_bytes(b"b")
+            image.write_bytes(b"derived")
+            scan1_stat = scan1.stat()
+            xmp_sidecar.write_xmp_sidecar(
+                scan1.with_suffix(".xmp"),
+                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
+                person_names=[],
+                subjects=["egypt"],
+                description="Source scan sidecar",
+                album_title="Egypt 1975",
+                gps_latitude="39.7875",
+                gps_longitude="100.307222",
+                location_city="Dunhuang",
+                location_state="Gansu",
+                location_country="China",
+                source_text=ai_index._build_dc_source("Egypt 1975", scan1, [scan1.name]),
+                ocr_text="March 1975",
+                detections_payload={
+                    "people": [],
+                    "objects": [],
+                    "caption": {
+                        "requested_engine": "lmstudio",
+                        "effective_engine": "lmstudio",
+                        "fallback": False,
+                        "error": "",
+                        "model": "test-model",
+                    },
+                    "processing": {
+                        "processor_signature": ai_index.PROCESSOR_SIGNATURE,
+                        "settings_signature": "",
+                        "cast_store_signature": "",
+                        "size": int(scan1_stat.st_size),
+                        "mtime_ns": int(scan1_stat.st_mtime_ns),
+                        "analysis_mode": "single_image",
+                    },
+                    "location": {
+                        "gps_latitude": 39.7875,
+                        "gps_longitude": 100.307222,
+                        "city": "Dunhuang",
+                        "state": "Gansu",
+                        "country": "China",
+                    },
+                },
+                subphotos=[],
+            )
+            stat = image.stat()
+            detections = {
+                "people": [],
+                "objects": [],
+                "caption": {
+                    "requested_engine": "lmstudio",
+                    "effective_engine": "lmstudio",
+                    "fallback": False,
+                    "error": "",
+                    "model": "test-model",
+                },
+                "processing": {
+                    "processor_signature": ai_index.PROCESSOR_SIGNATURE,
+                    "settings_signature": "",
+                    "cast_store_signature": "",
+                    "size": int(stat.st_size),
+                    "mtime_ns": int(stat.st_mtime_ns),
+                    "analysis_mode": "single_image",
+                },
+                "location": {
+                    "gps_latitude": 0,
+                    "gps_longitude": 0,
+                    "city": "Wrong",
+                    "state": "Wrong",
+                    "country": "Wrong",
+                },
+            }
+            xmp_sidecar.write_xmp_sidecar(
+                image.with_suffix(".xmp"),
+                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
+                person_names=[],
+                subjects=["egypt", "derived"],
+                description="Derived image",
+                album_title="Egypt 1975",
+                gps_latitude="0",
+                gps_longitude="0",
+                location_city="Wrong",
+                location_state="Wrong",
+                location_country="Wrong",
+                source_text=ai_index._build_dc_source("Egypt 1975", image, [scan1.name, scan2.name]),
+                ocr_text="WRONG OCR",
+                detections_payload=detections,
+                subphotos=[],
+            )
+
+            fake_date_engine = SimpleNamespace(
+                estimate=mock.Mock(
+                    return_value=SimpleNamespace(
+                        date="1975-03",
+                        error="",
+                        fallback=False,
+                    )
+                )
+            )
+
+            with (
+                mock.patch.object(ai_index, "_init_date_engine", return_value=fake_date_engine),
+                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--include-view",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "none",
+                        "--caption-engine",
+                        "lmstudio",
+                        "--max-images",
+                        "1",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            analysis_mock.assert_not_called()
+            fake_date_engine.estimate.assert_called_once()
+            self.assertEqual(fake_date_engine.estimate.call_args.kwargs["ocr_text"], "March 1975")
+            write_mock.assert_called_once()
+            self.assertEqual(write_mock.call_args.kwargs["ocr_text"], "March 1975")
+            self.assertEqual(write_mock.call_args.kwargs["dc_date"], "1975-03")
+            self.assertEqual(write_mock.call_args.kwargs["date_time_original"], "1975-03-15T12:00:00")
+            self.assertEqual(write_mock.call_args.kwargs["gps_latitude"], "39.7875")
+            self.assertEqual(write_mock.call_args.kwargs["gps_longitude"], "100.307222")
+            self.assertEqual(write_mock.call_args.kwargs["location_city"], "Dunhuang")
+            self.assertEqual(write_mock.call_args.kwargs["location_state"], "Gansu")
+            self.assertEqual(write_mock.call_args.kwargs["location_country"], "China")
+            self.assertEqual(
+                write_mock.call_args.kwargs["detections_payload"]["location"]["gps_latitude"],
+                39.7875,
+            )
+            self.assertEqual(
+                write_mock.call_args.kwargs["detections_payload"]["location"]["gps_longitude"],
+                100.307222,
+            )
+            self.assertEqual(
+                write_mock.call_args.kwargs["detections_payload"]["location"]["city"],
+                "Dunhuang",
+            )
+            self.assertEqual(
+                write_mock.call_args.kwargs["detections_payload"]["processing"]["date_estimate_input_hash"],
+                ai_index._date_estimate_input_hash("March 1975", "Egypt 1975"),
+            )
+
+    def test_run_skips_people_refresh_when_cast_changes_but_no_faces_were_detected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            archive = base / "Egypt_1975_B00_Archive"
+            archive.mkdir()
+            image = archive / "Egypt_1975_B00_P02_S01.tif"
+            image.write_bytes(b"scan")
+            stat = image.stat()
+            detections = {
+                "people": [],
+                "objects": [],
+                "caption": {
+                    "requested_engine": "lmstudio",
+                    "effective_engine": "lmstudio",
+                    "fallback": False,
+                    "error": "",
+                    "model": "test-model",
+                    "people_present": True,
+                    "estimated_people_count": 1,
+                },
+                "processing": {
+                    "processor_signature": ai_index.PROCESSOR_SIGNATURE,
+                    "settings_signature": "",
+                    "cast_store_signature": "old-sig",
+                    "size": int(stat.st_size),
+                    "mtime_ns": int(stat.st_mtime_ns),
+                    "date_estimate_input_hash": ai_index._date_estimate_input_hash("March 1975", "Egypt 1975"),
+                    "analysis_mode": "single_image",
+                },
+            }
+            xmp_sidecar.write_xmp_sidecar(
+                image.with_suffix(".xmp"),
+                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
+                person_names=[],
+                subjects=["egypt"],
+                description="Travel photo",
+                album_title="Egypt 1975",
+                source_text=ai_index._build_dc_source("Egypt 1975", image, [image.name]),
+                ocr_text="March 1975",
+                dc_date="1975-03",
+                detections_payload=detections,
+                subphotos=[],
+                people_detected=False,
+                people_identified=False,
+            )
+
+            sidecar_text = image.with_suffix(".xmp").read_text(encoding="utf-8")
+            sidecar_text = sidecar_text.replace(
+                "<exif:DateTimeOriginal>1975-03-15T12:00:00</exif:DateTimeOriginal>\n",
+                "",
+            )
+            image.with_suffix(".xmp").write_text(sidecar_text, encoding="utf-8")
+
+            fake_matcher = mock.Mock()
+            fake_matcher.store_signature.return_value = "new-sig"
+
+            with (
+                mock.patch.object(ai_index, "_init_people_matcher", return_value=fake_matcher),
+                mock.patch.object(ai_index, "_init_caption_engine") as caption_engine_mock,
+                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--include-archive",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "none",
+                        "--caption-engine",
+                        "lmstudio",
+                        "--max-images",
+                        "1",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            caption_engine_mock.assert_not_called()
+            analysis_mock.assert_not_called()
+            fake_matcher.match_image.assert_not_called()
+            write_mock.assert_called_once()
+            self.assertEqual(
+                write_mock.call_args.kwargs["detections_payload"]["processing"]["cast_store_signature"],
+                "new-sig",
+            )
+            self.assertEqual(write_mock.call_args.kwargs["date_time_original"], "1975-03-15T12:00:00")
+
+    def test_run_people_update_only_skips_caption_when_people_names_do_not_change(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            archive = base / "Egypt_1975_B00_Archive"
+            archive.mkdir()
+            image = archive / "Egypt_1975_B00_P09_S01.tif"
+            image.write_bytes(b"scan")
+            stat = image.stat()
+            detections = {
+                "people": [],
+                "objects": [],
+                "caption": {
+                    "requested_engine": "lmstudio",
+                    "effective_engine": "lmstudio",
+                    "fallback": False,
+                    "error": "",
+                    "model": "test-model",
+                    "people_present": True,
+                    "estimated_people_count": 9,
+                },
+                "processing": {
+                    "processor_signature": ai_index.PROCESSOR_SIGNATURE,
+                    "settings_signature": "",
+                    "cast_store_signature": "old-sig",
+                    "size": int(stat.st_size),
+                    "mtime_ns": int(stat.st_mtime_ns),
+                    "date_estimate_input_hash": "",
+                    "analysis_mode": "single_image",
+                },
+            }
+            xmp_sidecar.write_xmp_sidecar(
+                image.with_suffix(".xmp"),
+                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
+                person_names=[],
+                subjects=["egypt"],
+                description="Travel photo",
+                album_title="Egypt 1975",
+                source_text=ai_index._build_dc_source("Egypt 1975", image, [image.name]),
+                ocr_text="March 1975",
+                dc_date="1975-03",
+                detections_payload=detections,
+                subphotos=[],
+                people_detected=True,
+                people_identified=False,
+            )
+
+            sidecar_text = image.with_suffix(".xmp").read_text(encoding="utf-8")
+            sidecar_text = sidecar_text.replace(
+                "<exif:DateTimeOriginal>1975-03-15T12:00:00</exif:DateTimeOriginal>\n",
+                "",
+            )
+            image.with_suffix(".xmp").write_text(sidecar_text, encoding="utf-8")
+
+            fake_matcher = mock.Mock()
+            fake_matcher.store_signature.return_value = "new-sig"
+            fake_matcher.match_image.return_value = []
+            fake_matcher.last_faces_detected = 0
+
+            with (
+                mock.patch.object(ai_index, "_init_people_matcher", return_value=fake_matcher),
+                mock.patch.object(ai_index, "_init_caption_engine") as caption_engine_mock,
+                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--include-archive",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "none",
+                        "--caption-engine",
+                        "lmstudio",
+                        "--max-images",
+                        "1",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            fake_matcher.match_image.assert_called_once()
+            caption_engine_mock.assert_not_called()
+            write_mock.assert_called_once()
+            self.assertFalse(write_mock.call_args.kwargs["people_detected"])
+            self.assertFalse(write_mock.call_args.kwargs["people_identified"])
+            self.assertEqual(
+                write_mock.call_args.kwargs["detections_payload"]["processing"]["cast_store_signature"],
+                "new-sig",
+            )
+            self.assertEqual(
+                write_mock.call_args.kwargs["detections_payload"]["caption"]["estimated_people_count"],
+                9,
+            )
 
     def test_needs_processing_requires_current_sidecar(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -577,6 +1222,24 @@ class TestAIIndex(unittest.TestCase):
                     self.assertTrue(prepared.exists())
                     self.assertEqual(prepared.suffix.lower(), ".jpg")
 
+    def test_prepare_ai_model_image_disables_pillow_pixel_guard(self):
+        try:
+            from PIL import Image
+        except Exception as exc:  # pragma: no cover - dependency optional
+            self.skipTest(f"pillow unavailable: {exc}")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "guard.jpg"
+            Image.new("RGB", (8, 8), color="white").save(image)
+            original_limit = Image.MAX_IMAGE_PIXELS
+            try:
+                Image.MAX_IMAGE_PIXELS = 1
+                with mock.patch.object(ai_index, "AI_MODEL_MAX_SOURCE_BYTES", 1):
+                    with ai_index._prepare_ai_model_image(image) as prepared:
+                        self.assertTrue(prepared.exists())
+            finally:
+                Image.MAX_IMAGE_PIXELS = original_limit
+
     def test_resolve_archive_scan_authoritative_ocr_stitches_once_and_caches(self):
         with tempfile.TemporaryDirectory() as tmp:
             archive = Path(tmp) / "China_1986_B02_Archive"
@@ -613,6 +1276,39 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(first, second)
             build_mock.assert_called_once_with([str(scan1), str(scan2)])
 
+    def test_resolve_archive_scan_authoritative_ocr_prefers_existing_view_jpg(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            archive = base / "China_1986_B02_Archive"
+            view = base / "China_1986_B02_View"
+            archive.mkdir()
+            view.mkdir()
+            scan1 = archive / "China_1986_B02_P02_S01.tif"
+            scan2 = archive / "China_1986_B02_P02_S02.tif"
+            scan1.write_bytes(b"a")
+            scan2.write_bytes(b"b")
+            view_jpg = view / "China_1986_B02_P02_V.jpg"
+            cv2.imwrite(str(view_jpg), np.full((24, 32, 3), 255, dtype=np.uint8))
+            ocr_engine = mock.Mock()
+            ocr_engine.engine = "local"
+            ocr_engine.read_text.return_value = "MAINLAND CHINA 1986 BOOK 11"
+
+            with mock.patch(
+                "photoalbums.stitch_oversized_pages.build_stitched_image",
+            ) as build_mock:
+                authority = ai_index._resolve_archive_scan_authoritative_ocr(
+                    image_path=scan1,
+                    group_paths=[scan1, scan2],
+                    group_signature=ai_index._scan_group_signature([scan1, scan2]),
+                    cache={},
+                    ocr_engine=ocr_engine,
+                )
+
+            build_mock.assert_not_called()
+            self.assertEqual(authority.stitched_image_path, view_jpg)
+            self.assertEqual(authority.ocr_text, "MAINLAND CHINA 1986 BOOK 11")
+            self.assertEqual(authority.ocr_hash, ai_index._hash_text("MAINLAND CHINA 1986 BOOK 11"))
+
     def test_run_image_analysis_passes_people_context(self):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "a.jpg"
@@ -642,6 +1338,7 @@ class TestAIIndex(unittest.TestCase):
 
             analysis = ai_index._run_image_analysis(
                 image_path=image,
+                people_image_path=Path(tmp) / "people.jpg",
                 people_matcher=people_matcher,
                 object_detector=object_detector,
                 ocr_engine=ocr_engine,
@@ -655,7 +1352,7 @@ class TestAIIndex(unittest.TestCase):
             )
 
             people_matcher.match_image.assert_called_once_with(
-                image,
+                Path(tmp) / "people.jpg",
                 source_path=Path(tmp) / "original.jpg",
                 bbox_offset=(12, 34),
                 hint_text="Page caption",
@@ -664,6 +1361,35 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(analysis.people_names, ["Alice"])
             self.assertEqual(analysis.payload["people"][0]["face_id"], "face-1")
             self.assertFalse(analysis.payload["people"][0]["reviewed_by_human"])
+
+    def test_match_people_with_cast_store_retry_retries_transient_permission_error(self):
+        attempts = {"count": 0}
+
+        class _FakeMatcher:
+            def match_image(self, image_path, *, source_path, bbox_offset, hint_text):
+                del image_path, source_path, bbox_offset, hint_text
+                if attempts["count"] < 2:
+                    attempts["count"] += 1
+                    raise PermissionError(
+                        13,
+                        "Access is denied",
+                        r"C:\Users\covec\Videos\imago\cast\data\faces.jsonl",
+                    )
+                attempts["count"] += 1
+                return ["ok"]
+
+        with mock.patch.object(ai_index.time, "sleep") as sleep_mock:
+            result = ai_index._match_people_with_cast_store_retry(
+                people_matcher=_FakeMatcher(),
+                image_path=Path("page.jpg"),
+                source_path=Path("page.jpg"),
+                bbox_offset=(0, 0),
+                hint_text="",
+            )
+
+        self.assertEqual(result, ["ok"])
+        self.assertEqual(attempts["count"], 3)
+        self.assertEqual(sleep_mock.call_count, 2)
 
     def test_run_image_analysis_skips_ocr_when_engine_is_none(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -785,6 +1511,47 @@ class TestAIIndex(unittest.TestCase):
                 debug_step="caption",
             )
             self.assertEqual(analysis.ocr_text, "hello")
+
+    def test_run_image_analysis_preserves_empty_ocr_override(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "a.jpg"
+            image.write_bytes(b"abc")
+            scaled = Path(tmp) / "scaled.jpg"
+            scaled.write_bytes(b"scaled")
+            people_matcher = mock.Mock()
+            people_matcher.match_image.return_value = []
+            object_detector = mock.Mock()
+            object_detector.detect_image.return_value = []
+            ocr_engine = mock.Mock()
+            ocr_engine.engine = "lmstudio"
+            caption_engine = mock.Mock()
+            caption_engine.generate.return_value = SimpleNamespace(
+                text="Caption text",
+                engine="template",
+                ocr_text="SHOULD NOT BE USED",
+                fallback=False,
+                error="",
+            )
+
+            @contextmanager
+            def fake_prepare(_path):
+                yield scaled
+
+            with mock.patch.object(ai_index, "_prepare_ai_model_image", side_effect=fake_prepare):
+                analysis = ai_index._run_image_analysis(
+                    image_path=image,
+                    people_matcher=people_matcher,
+                    object_detector=object_detector,
+                    ocr_engine=ocr_engine,
+                    caption_engine=caption_engine,
+                    requested_caption_engine="template",
+                    ocr_engine_name="lmstudio",
+                    ocr_language="eng",
+                    ocr_text_override="",
+                )
+
+            ocr_engine.read_text.assert_not_called()
+            self.assertEqual(analysis.ocr_text, "")
 
     def test_run_image_analysis_records_gps_location_from_ocr_text(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1279,6 +2046,7 @@ class TestAIIndex(unittest.TestCase):
                 description="Old description",
                 source_text="",
                 ocr_text="hello",
+                dc_date="1975",
                 detections_payload={
                     "people": [],
                     "objects": [],
@@ -1617,6 +2385,7 @@ class TestAIIndex(unittest.TestCase):
                 description="Old description",
                 source_text="",
                 ocr_text="hello",
+                dc_date="1975",
                 ocr_authority_source="archive_stitched",
                 detections_payload={
                     "people": [
@@ -1979,7 +2748,7 @@ class TestAIIndex(unittest.TestCase):
             )
             self.assertEqual(print_mock.call_count, 2)
 
-    def test_resolve_album_title_hint_prefers_existing_cover_sidecar(self):
+    def test_resolve_album_title_hint_prefers_existing_p01_sidecar(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             album_dir = base / "China_1986_B02_View"
@@ -2004,10 +2773,89 @@ class TestAIIndex(unittest.TestCase):
                 subphotos=[],
             )
 
-            title = ai_index._resolve_album_title_hint(image, {})
+            title = ai_index._resolve_album_title_hint(image)
             self.assertEqual(title, "Mainland China Book II")
 
-    def test_resolve_album_title_hint_requires_existing_cover_sidecar(self):
+    def test_iter_album_cover_sidecars_excludes_detail_sidecars(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            album_dir = base / "China_1986_B02_View"
+            album_dir.mkdir()
+            image = album_dir / "China_1986_B02_P02_stitched.jpg"
+            image.write_bytes(b"abc")
+            for name in (
+                "China_1986_B02_P01.xmp",
+                "China_1986_B02_P01_S01.xmp",
+                "China_1986_B02_P01_D01-01.xmp",
+            ):
+                (album_dir / name).write_text("x", encoding="utf-8")
+
+            sidecars = [path.name for path in ai_index._iter_album_cover_sidecars(image)]
+            self.assertEqual(
+                sidecars,
+                [
+                    "China_1986_B02_P01.xmp",
+                    "China_1986_B02_P01_S01.xmp",
+                ],
+            )
+
+    def test_resolve_album_title_hint_ignores_p00_sidecar(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            album_dir = base / "China_1986_B02_View"
+            album_dir.mkdir()
+            image = album_dir / "China_1986_B02_P02_stitched.jpg"
+            image.write_bytes(b"abc")
+            xmp_sidecar.write_xmp_sidecar(
+                album_dir / "China_1986_B02_P00.xmp",
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="This is the cover or title page of Mainland China Book II, a Photo Essay.",
+                album_title="Mainland China Book II",
+                source_text="",
+                ocr_text="MAINLAND CHINA 1986 BOOK 11",
+                detections_payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {},
+                    "caption": {},
+                },
+                subphotos=[],
+            )
+
+            title = ai_index._resolve_album_title_hint(image)
+            self.assertEqual(title, "")
+
+    def test_resolve_album_title_hint_ignores_p01_detail_sidecar(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            album_dir = base / "China_1986_B02_View"
+            album_dir.mkdir()
+            image = album_dir / "China_1986_B02_P02_stitched.jpg"
+            image.write_bytes(b"abc")
+            xmp_sidecar.write_xmp_sidecar(
+                album_dir / "China_1986_B02_P01_D01-01.xmp",
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=["derived", "listing"],
+                description="Derived image sidecar that should not drive album title lookup.",
+                album_title="Derived Image Listing",
+                source_text="",
+                ocr_text="DERIVED IMAGE LISTING",
+                detections_payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {},
+                    "caption": {},
+                },
+                subphotos=[],
+            )
+
+            title = ai_index._resolve_album_title_hint(image)
+            self.assertEqual(title, "")
+
+    def test_resolve_album_title_hint_requires_existing_p01_sidecar(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             album_dir = base / "China_1986_B02_View"
@@ -2015,7 +2863,7 @@ class TestAIIndex(unittest.TestCase):
             image = album_dir / "China_1986_B02_P02_stitched.jpg"
             image.write_bytes(b"abc")
 
-            title = ai_index._resolve_album_title_hint(image, {})
+            title = ai_index._resolve_album_title_hint(image)
             self.assertEqual(title, "")
 
     def test_run_image_analysis_uses_explicit_album_title(self):
@@ -2255,7 +3103,7 @@ class TestAIIndex(unittest.TestCase):
             write_mock.assert_called_once()
             self.assertEqual(write_mock.call_args.kwargs["album_title"], "MAINLAND CHINA 1986 BOOK 11")
 
-    def test_resolve_album_printed_title_hint_prefers_existing_p00_cover_sidecar(self):
+    def test_resolve_album_printed_title_hint_prefers_existing_p01_cover_sidecar(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             album_dir = base / "China_1986_B02_View"
@@ -2263,7 +3111,7 @@ class TestAIIndex(unittest.TestCase):
             image = album_dir / "China_1986_B02_P02_stitched.jpg"
             image.write_bytes(b"abc")
             xmp_sidecar.write_xmp_sidecar(
-                album_dir / "China_1986_B02_P00.xmp",
+                album_dir / "China_1986_B02_P01.xmp",
                 creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
@@ -2282,6 +3130,62 @@ class TestAIIndex(unittest.TestCase):
 
             title = ai_index._resolve_album_printed_title_hint(image, {})
             self.assertEqual(title, "Mainland China Book II")
+
+    def test_resolve_album_printed_title_hint_ignores_p00_sidecar(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            album_dir = base / "China_1986_B02_View"
+            album_dir.mkdir()
+            image = album_dir / "China_1986_B02_P02_stitched.jpg"
+            image.write_bytes(b"abc")
+            xmp_sidecar.write_xmp_sidecar(
+                album_dir / "China_1986_B02_P00.xmp",
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="Legacy P00 sidecar should no longer be used.",
+                album_title="Mainland China Book II",
+                source_text="",
+                ocr_text="MAINLAND CHINA 1986 BOOK 11",
+                detections_payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {},
+                    "caption": {},
+                },
+                subphotos=[],
+            )
+
+            title = ai_index._resolve_album_printed_title_hint(image, {})
+            self.assertEqual(title, "")
+
+    def test_resolve_album_printed_title_hint_ignores_p01_detail_sidecar(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            album_dir = base / "China_1986_B02_View"
+            album_dir.mkdir()
+            image = album_dir / "China_1986_B02_P02_stitched.jpg"
+            image.write_bytes(b"abc")
+            xmp_sidecar.write_xmp_sidecar(
+                album_dir / "China_1986_B02_P01_D01-01.xmp",
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=["derived", "listing"],
+                description="Derived image sidecar that should not drive printed title lookup.",
+                album_title="Derived Image Listing",
+                source_text="",
+                ocr_text="DERIVED IMAGE LISTING",
+                detections_payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {},
+                    "caption": {},
+                },
+                subphotos=[],
+            )
+
+            title = ai_index._resolve_album_printed_title_hint(image, {})
+            self.assertEqual(title, "")
 
     def test_run_stdout_forces_processing_even_when_sidecar_exists(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -2352,9 +3256,9 @@ class TestAIIndex(unittest.TestCase):
                 page_key=ai_index._scan_page_key(scan1) or "",
                 group_paths=(scan1, scan2),
                 signature=ai_index._scan_group_signature([scan1, scan2]),
-                ocr_text="",
-                ocr_keywords=(),
-                ocr_hash="",
+                ocr_text="MAINLAND CHINA 1986 BOOK 11",
+                ocr_keywords=("mainland", "china", "book"),
+                ocr_hash=ai_index._hash_text("MAINLAND CHINA 1986 BOOK 11"),
                 stitched_image_path=stitched_path,
             )
             analysis = ai_index.ImageAnalysis(
@@ -2419,7 +3323,11 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(result, 0)
             authority_mock.assert_called_once()
             self.assertEqual(analysis_mock.call_args.kwargs["image_path"], stitched_path)
-            self.assertNotIn("ocr_text_override", analysis_mock.call_args.kwargs)
+            self.assertEqual(analysis_mock.call_args.kwargs["people_image_path"], scan1)
+            self.assertEqual(
+                analysis_mock.call_args.kwargs["ocr_text_override"],
+                "MAINLAND CHINA 1986 BOOK 11",
+            )
             self.assertEqual(write_mock.call_args.kwargs["ocr_text"], analysis.ocr_text)
             self.assertEqual(
                 write_mock.call_args.kwargs["ocr_authority_source"],
@@ -2427,7 +3335,7 @@ class TestAIIndex(unittest.TestCase):
             )
             det = write_mock.call_args.kwargs["detections_payload"]
             self.assertEqual(det["processing"]["ocr_authority_signature"], authority.signature)
-            self.assertEqual(det["processing"]["ocr_authority_hash"], ai_index._hash_text(analysis.ocr_text))
+            self.assertEqual(det["processing"]["ocr_authority_hash"], authority.ocr_hash)
 
     def test_run_archive_multi_scan_preserves_caption_author_text_when_stitching(self):
         with tempfile.TemporaryDirectory() as tmp:

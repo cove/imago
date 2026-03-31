@@ -251,6 +251,23 @@
         font-size: 12px;
       }
 
+      .checkline {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 38px;
+      }
+
+      .checkline input[type="checkbox"] {
+        width: auto;
+        margin: 0;
+        padding: 0;
+      }
+
+      .checkline label {
+        margin: 0;
+      }
+
       .row {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -427,6 +444,28 @@
         font-size: 12px;
       }
 
+      .button-inline-busy {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .button-spinner {
+        width: 12px;
+        height: 12px;
+        border: 2px solid rgba(220, 230, 255, 0.28);
+        border-top-color: currentColor;
+        border-radius: 50%;
+        animation: button-spin 0.8s linear infinite;
+        flex: 0 0 auto;
+      }
+
+      @keyframes button-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
       .name-hints {
         margin-top: 8px;
         font-size: 12px;
@@ -561,7 +600,66 @@
         <div id="runtime-banner" class="runtime-banner" style="display: none"></div>
         <div class="queue-toolbar">
           <button id="refresh-btn" class="secondary">Refresh Queue</button>
+          <button id="delete-queue-btn" class="bad" type="button">Delete Current Queue</button>
         </div>
+      </section>
+
+      <section class="panel" style="margin-top: 12px">
+        <h2>Photo Album Scan</h2>
+        <form id="ingest-photo-scan-form">
+          <div class="row">
+            <div class="field">
+              <label for="scan-root">Photo Albums Root</label>
+              <input
+                id="scan-root"
+                class="mono"
+                type="text"
+                value="C:/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums"
+              />
+            </div>
+            <div class="field">
+              <label for="scan-view-glob">Album Folder Glob</label>
+              <input id="scan-view-glob" class="mono" type="text" value="*_View" />
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label for="scan-max-files">Max Files</label>
+              <input id="scan-max-files" class="mono" type="number" min="0" step="1" value="0" />
+            </div>
+            <div class="field">
+              <label for="scan-max-faces">Max Faces / Photo</label>
+              <input id="scan-max-faces" class="mono" type="number" min="1" step="1" value="50" />
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <div class="checkline">
+                <input id="scan-recursive" type="checkbox" checked />
+                <label for="scan-recursive">Recursive</label>
+              </div>
+            </div>
+            <div class="field">
+              <div class="checkline">
+                <input id="scan-auto-queue" type="checkbox" checked />
+                <label for="scan-auto-queue">Queue New Faces</label>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <div class="checkline">
+                <input id="scan-rescan-existing" type="checkbox" />
+                <label for="scan-rescan-existing">Rescan Matching Albums</label>
+              </div>
+            </div>
+            <div class="field small">
+              Removes existing Cast faces, crops, and review items for the matching album photos, then re-ingests the
+              matching view JPGs and archive TIFF scans.
+            </div>
+          </div>
+          <button type="submit">Scan Photo Albums</button>
+        </form>
       </section>
 
       <section class="panel" style="margin-top: 12px">
@@ -614,10 +712,13 @@
         selected_review_ids: new Set(),
         last_selected_review_id: "",
         skipped_review_ids: new Set(),
+        busy_review_ids: new Set(),
+        busy_review_spinner_ids: new Set(),
         counts: { people: 0, faces: 0, unknown_faces: 0, pending_reviews: 0, legacy_faces: 0 },
         runtime: {},
         pending_render_limit: 120,
       };
+      const reviewBusyTimers = new Map();
       const TOOLTIP_ASSIGN_PERSON =
         "Assign this face to the selected person and mark the match as human-reviewed.";
       const TOOLTIP_SKIP_FOR_NOW =
@@ -695,7 +796,12 @@
 
       function personOptions(selected = "") {
         const options = ['<option value="">Select person...</option>'];
-        for (const person of appState.people) {
+        const sortedPeople = [...appState.people].sort((left, right) =>
+          String(left.display_name || "").localeCompare(String(right.display_name || ""), undefined, {
+            sensitivity: "base",
+          })
+        );
+        for (const person of sortedPeople) {
           const pid = String(person.person_id || "");
           const sel = selected && selected === pid ? " selected" : "";
           options.push(`<option value="${esc(pid)}"${sel}>${esc(person.display_name)}</option>`);
@@ -1002,6 +1108,44 @@
         return `${src}${ts ? ` @ ${ts}` : ""}`;
       }
 
+      function reviewBusyButtonLabel(label, showSpinner) {
+        if (!showSpinner) {
+          return esc(label);
+        }
+        return `<span class="button-inline-busy"><span class="button-spinner" aria-hidden="true"></span><span>${esc(label)}</span></span>`;
+      }
+
+      function setReviewBusyState(reviewId, busy) {
+        const key = String(reviewId || "");
+        if (!key) {
+          return;
+        }
+        const existingTimer = reviewBusyTimers.get(key);
+        if (existingTimer) {
+          clearTimeout(existingTimer);
+          reviewBusyTimers.delete(key);
+        }
+        if (!busy) {
+          const hadSpinner = appState.busy_review_spinner_ids.delete(key);
+          const wasBusy = appState.busy_review_ids.delete(key);
+          if (hadSpinner || wasBusy) {
+            renderReviewQueue();
+          }
+          return;
+        }
+        appState.busy_review_ids.add(key);
+        renderReviewQueue();
+        const timer = setTimeout(() => {
+          reviewBusyTimers.delete(key);
+          if (!appState.busy_review_ids.has(key)) {
+            return;
+          }
+          appState.busy_review_spinner_ids.add(key);
+          renderReviewQueue();
+        }, 1000);
+        reviewBusyTimers.set(key, timer);
+      }
+
       function renderReviewQueue() {
         const tbody = document.querySelector("#review-table tbody");
         if (!appState.pending_reviews.length) {
@@ -1015,6 +1159,9 @@
             const face = review.face || {};
             const reviewId = String(review.review_id || "");
             const isSelected = appState.selected_review_ids.has(reviewId);
+            const isBusy = appState.busy_review_ids.has(reviewId);
+            const showBusySpinner = appState.busy_review_spinner_ids.has(reviewId);
+            const disableAttr = isBusy ? " disabled" : "";
             const candidates = Array.isArray(review.candidates) ? review.candidates : [];
             const nameHints = Array.isArray(review.name_hints) ? review.name_hints : [];
             const candidateHtml = candidates.length
@@ -1024,7 +1171,7 @@
                     return [
                       '<div class="candidate">',
                       `<span>${esc(label)}</span>`,
-                      `<button class="good" title="${esc(TOOLTIP_ACCEPT_SUGGESTION)}" onclick="resolveReview('${esc(reviewId)}', 'accepted', '${esc(cand.person_id || "")}')">Use Suggestion</button>`,
+                      `<button class="good" title="${esc(TOOLTIP_ACCEPT_SUGGESTION)}" onclick="resolveReview('${esc(reviewId)}', 'accepted', '${esc(cand.person_id || "")}')"${disableAttr}>${reviewBusyButtonLabel("Use Suggestion", showBusySpinner)}</button>`,
                       '</div>',
                     ].join("");
                   })
@@ -1040,7 +1187,7 @@
                       const src = esc(String(h.source || "").replace(/_/g, " "));
                       const pid = esc(String(h.person_id || ""));
                       if (pid) {
-                        return `<button class="name-hint-btn" title="From ${src}" onclick="resolveReview('${esc(reviewId)}', 'accepted', '${pid}')">${name}</button>`;
+                        return `<button class="name-hint-btn" title="From ${src}" onclick="resolveReview('${esc(reviewId)}', 'accepted', '${pid}')"${disableAttr}>${reviewBusyButtonLabel(name, showBusySpinner)}</button>`;
                       }
                       return `<span class="name-hint-btn" title="From ${src} (not in Cast)">${name}</span>`;
                     })
@@ -1057,11 +1204,11 @@
               `<td>${candidateHtml}${hintsHtml}</td>`,
               `<td>`,
               `<div class="actions">`,
-              `<select id="review-select-${esc(reviewId)}">${personOptions()}</select>`,
-              `<button class="good" title="${esc(TOOLTIP_ASSIGN_PERSON)}" onclick="acceptSelectedReview('${esc(reviewId)}')">Assign Selected</button>`,
-              `<button class="warn" title="${esc(TOOLTIP_SKIP_FOR_NOW)}" onclick="resolveReview('${esc(reviewId)}', 'skipped')">Skip For Now</button>`,
-              `<button class="secondary" title="${esc(TOOLTIP_IGNORE_FACE)}" onclick="resolveReview('${esc(reviewId)}', 'ignored')">Ignore This Face</button>`,
-              `<button class="bad" title="${esc(TOOLTIP_NOT_A_FACE)}" onclick="resolveReview('${esc(reviewId)}', 'rejected')">Not a Face</button>`,
+              `<select id="review-select-${esc(reviewId)}"${disableAttr}>${personOptions()}</select>`,
+              `<button class="good" title="${esc(TOOLTIP_ASSIGN_PERSON)}" onclick="acceptSelectedReview('${esc(reviewId)}')"${disableAttr}>${reviewBusyButtonLabel("Assign Selected", showBusySpinner)}</button>`,
+              `<button class="warn" title="${esc(TOOLTIP_SKIP_FOR_NOW)}" onclick="resolveReview('${esc(reviewId)}', 'skipped')"${disableAttr}>Skip For Now</button>`,
+              `<button class="secondary" title="${esc(TOOLTIP_IGNORE_FACE)}" onclick="resolveReview('${esc(reviewId)}', 'ignored')"${disableAttr}>Ignore This Face</button>`,
+              `<button class="bad" title="${esc(TOOLTIP_NOT_A_FACE)}" onclick="resolveReview('${esc(reviewId)}', 'rejected')"${disableAttr}>Not a Face</button>`,
               `</div>`,
               `</td>`,
               "</tr>",
@@ -1199,22 +1346,37 @@
       }
 
       async function resolveReview(reviewId, status, personId = "") {
+        const key = String(reviewId || "");
+        if (!key) {
+          return;
+        }
+        if (appState.busy_review_ids.has(key)) {
+          return;
+        }
+        const trackBusy = status === "accepted";
         try {
+          if (trackBusy) {
+            setReviewBusyState(key, true);
+          }
           setStatus(`Updating review ${shortId(reviewId)}...`, "info");
           const result = await api("/api/review/resolve", "POST", {
-            review_id: reviewId,
+            review_id: key,
             status,
             person_id: personId || null,
           });
-          applyResolvedReviewLocally(reviewId, status, result);
+          applyResolvedReviewLocally(key, status, result);
           if (result.xmp_warning) {
-            setStatus(`Review ${shortId(reviewId)} updated (${status}) — warning: ${result.xmp_warning}`, "error");
+            setStatus(`Review ${shortId(key)} updated (${status}) — warning: ${result.xmp_warning}`, "error");
           } else {
-            setStatus(`Review ${shortId(reviewId)} updated (${status}).`, "success");
+            setStatus(`Review ${shortId(key)} updated (${status}).`, "success");
           }
           scheduleStateRefresh();
         } catch (error) {
           setStatus(error.message, "error");
+        } finally {
+          if (trackBusy) {
+            setReviewBusyState(key, false);
+          }
         }
       }
 
@@ -1231,10 +1393,72 @@
         }
       }
 
+      document.getElementById("ingest-photo-scan-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        try {
+          const root = String(document.getElementById("scan-root").value || "").trim();
+          const viewGlob = String(document.getElementById("scan-view-glob").value || "").trim() || "*_View";
+          const maxFiles = Math.max(0, Number(document.getElementById("scan-max-files").value || 0) || 0);
+          const maxFacesPerPhoto = Math.max(1, Number(document.getElementById("scan-max-faces").value || 50) || 50);
+          const recursive = Boolean(document.getElementById("scan-recursive").checked);
+          const autoQueue = Boolean(document.getElementById("scan-auto-queue").checked);
+          const rescanExisting = Boolean(document.getElementById("scan-rescan-existing").checked);
+          if (!root) {
+            throw new Error("Photo Albums root is required.");
+          }
+          const action = rescanExisting ? "Rescanning" : "Scanning";
+          setStatus(`${action} album folders matching ${viewGlob}...`, "info");
+          const result = await api("/api/ingest/photos/scan", "POST", {
+            photo_albums_root: root,
+            view_glob: viewGlob,
+            recursive,
+            max_files: maxFiles,
+            max_faces_per_photo: maxFacesPerPhoto,
+            auto_queue: autoQueue,
+            rescan_existing: rescanExisting,
+          });
+          const viewCount = Number(result.view_files_scanned || 0);
+          const archiveCount = Number(result.archive_scan_files_scanned || 0);
+          const scannedSummary = rescanExisting
+            ? `Scanned ${Number(result.photo_files_scanned || 0)} file(s) total (${viewCount} view JPGs, ${archiveCount} archive TIFFs)`
+            : `Scanned ${Number(result.photo_files_scanned || 0)} photo(s)`;
+          const removedSummary = rescanExisting
+            ? ` Removed ${Number(result.removed_faces || 0)} face(s), ${Number(result.removed_reviews || 0)} review(s), and ${Number(result.removed_crops || 0)} crop(s) first.`
+            : "";
+          setStatus(
+            `${action} finished. ${scannedSummary}, created ${Number(result.faces_created || 0)} face(s), queued ${Number(result.reviews_created || 0)} review(s).${removedSummary}`,
+            "success"
+          );
+          await loadState();
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      });
+
       document.getElementById("refresh-btn").addEventListener("click", async () => {
         try {
           await loadState();
           setStatus("State refreshed.", "success");
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      });
+
+      document.getElementById("delete-queue-btn").addEventListener("click", async () => {
+        const confirmed = window.confirm(
+          "Delete the current queue? This removes all pending review items, unknown faces, and their crop images."
+        );
+        if (!confirmed) {
+          return;
+        }
+        try {
+          setStatus("Deleting current queue...", "info");
+          const result = await api("/api/reset/pending_unknown", "POST", { remove_crops: true });
+          await loadState();
+          setStatus(
+            `Queue deleted. Removed ${Number(result.removed_reviews || 0)} review(s), ${Number(result.removed_faces || 0)} face(s), and ${Number(result.removed_crops || 0)} crop(s).`,
+            "success"
+          );
         } catch (error) {
           setStatus(error.message, "error");
         }

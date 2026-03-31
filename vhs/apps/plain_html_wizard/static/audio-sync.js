@@ -17,6 +17,7 @@ const audioSyncPlayBtnEl = document.getElementById('audioSyncPlayBtn');
 const audioSyncMetaEl = document.getElementById('audioSyncMeta');
 const audioSyncAudioEl = document.getElementById('audioSyncAudio');
 
+const audioSyncPreviewBtnEl = document.getElementById('audioSyncPreviewBtn');
 const audioSyncMinus1Btn = document.getElementById('audioSyncMinus1');
 const audioSyncMinus01Btn = document.getElementById('audioSyncMinus01');
 const audioSyncMinus001Btn = document.getElementById('audioSyncMinus001');
@@ -507,6 +508,7 @@ if (audioSyncPlus001Btn) audioSyncPlus001Btn.addEventListener('click', () => adj
 if (audioSyncPlus01Btn) audioSyncPlus01Btn.addEventListener('click', () => adjustAudioSyncOffset(0.1));
 if (audioSyncPlus1Btn) audioSyncPlus1Btn.addEventListener('click', () => adjustAudioSyncOffset(1.0));
 if (audioSyncPlayBtnEl) audioSyncPlayBtnEl.addEventListener('click', toggleAudioSyncPlayback);
+if (audioSyncPreviewBtnEl) audioSyncPreviewBtnEl.addEventListener('click', () => previewRender());
 
 // Redraw waveform on resize
 window.addEventListener('resize', () => {

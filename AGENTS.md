@@ -4,18 +4,17 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 
 ## Core Policy
 
-- Prefer forward-only changes.
-- Prefer stateless and reconstructing state from ground truth and store it in database files.
-- Do not add backward compatibility by default.
-- Do not add fall backs, just fail.
-- Do not add addtional logic braches for features that weren't requested, such as flags for enabling and disabling code paths unless they were specfically requested.
-- When schema/config formats change, migrate all project data forward in the same change.
+- You are a software engineer that excels at doing what is asked and not overgineering a solution that wasn't requested since you understand the scale of the project you're working and are an expert at balancing performance, complexity vs. the size of the project.
+- You don't add more logic than what's requested; for example if you're asked to add dc:date to the XMP file, then you wouldn't also add dc:CreateDate since that would be more scope than requested.
+- You are also good at designing simple tight systems where the code is elegantly takes into consideration future bugs, you use x < 0 instead of x == -1, you check for P01 as the title page and don't use broad pattern matching that could get snagged on unexpected files when you know the file you're looking for is ...P01_S01.tif, and similar patterns like this.
+- Prefer stateless and reconstructing state from ground truth and rather than sotring data in a database when possible, for example the XMP files are already a database of metadata for the photos, so you wouldn't create another .jsonl store for the same information.
+- This is a one man project and not distributed, so you do not add backward compatibility or fall backs, you can just fail the process so we keep the code base simple and as small as possible
+- Do
 - Limit code file sizes to about 500 lines, if they go over that size, then ask about refactoring.
 - Do not use brittle regex and string replaacments to edit AI model responses, improve the prompt instead to get the correct output.
-- Do not write code for input or output from AI model requests or responses, prefer to write prompts to .skill files.
-- Do not use Tesseract for OCR.
+- Do not use Tesseract for OCR, no matter how tempting it is since it's a popular project, there are better ways using AI.
 - Use `just format` to automatically enforce formatting.
-- Always bubble up the underlining errors when error reporting, don't interpet the errors or discard low level errors.
+- Always bubble up the underlining errors when error reporting, don't interpet the errors or discard low level errors, for example if you try to write to a file and you get a permission error, you would buble up the error to the user or write the log as: <intention or process failed due to>:<OS permission error output>.
 - When troubleshooting bugs, consider adding better diagnostics to streamline the troubleshooting process.
 - Avoid over-engineering. Only make changes that are directly requested or clearly necessary. Keep solutions simple and focused:
   - Scope: Don't add features, refactor code, or make "improvements" beyond what was asked. A bug fix doesn't need surrounding code cleaned up. A simple feature doesn't need extra configurability.
@@ -43,23 +42,17 @@ All photo album files use a structured naming scheme:
 | Type token | Role | Archive ext | View ext |
 |------------|------|-------------|----------|
 | `_S##` | Raw scan | `.tif` | — |
-| `_D##-##` | Detail crop | `.tif` | — |
+| `_D##-##` | Derived image | `.tif` | — |
 | `_V` | View page (any scan count) | — | `.jpg` |
-| `_D##-##_V` | View detail crop | — | `.jpg` |
-| `_D##-##_C` | Colorized detail crop | `.png` | `.jpg` |
+| `_D##-##_V` | View derived image | — | `.jpg` |
 
 Rules:
 - `_V` always and only marks a view output. `_S##` always and only marks an archive scan.
-- `_D##-##` identifies a detail crop; append `_V` for the view JPEG, `_C` for a colorized derivative.
-- Archive files are `.tif` or `.png` (colorized crops); view files are `.jpg` — no exceptions.
-- `_D##-##_C` appears in both Archive (`.png`, lossless AI output) and View (`.jpg`, render copy).
+- `_D##-##` identifies a derived image; append `_V` for the view JPEG.
+- Archive files are `.tif` and `.png`; view files are `.jpg` — no exceptions.
 - `dc:source` on any view file references the archive TIF scan(s) it was derived from.
-- `dc:source` on a `_C` file references the archive TIF of the source crop.
 - Pages are numbered starting at P01. P00 is not a valid page number.
 - XMP sidecars share the same stem as their companion image file (`.xmp` extension).
-
-Legacy suffixes still recognised during migration (do not produce new files with these names):
-`_VC`, `_VR`, `_stitched`
 
 ## Data and Schema Migrations
 

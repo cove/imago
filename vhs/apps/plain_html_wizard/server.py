@@ -169,8 +169,6 @@ class SessionState:
     gamma_default: float = 1.0
     gamma_ranges: list[dict[str, Any]] = field(default_factory=list)
     audio_sync_offset: float = 0.0
-    audio_sync_audio_path: str = ""
-    audio_sync_audio_key: str = ""
     people_entries: list[dict[str, Any]] = field(default_factory=list)
     subtitle_entries: list[dict[str, Any]] = field(default_factory=list)
     auto_transcript: str = "off"
@@ -276,6 +274,58 @@ def _set_load_progress(
     session: SessionState, *, running=None, progress=None, message=None, sample_done=None, sample_total=None
 ) -> None:
     _set_named_progress(session, "load", running, progress, message, sample_done, sample_total)
+
+
+def _probe_archive_stream_start_times(mkv_path: Path) -> tuple[float, float]:
+    """Returns (video_start_time, audio_start_time) in seconds from the MKV stream headers."""
+    try:
+        out = subprocess.check_output(
+            [FFPROBE_BIN, "-v", "quiet", "-print_format", "json", "-show_streams", str(mkv_path)],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+        streams = json.loads(out).get("streams", [])
+        by_type = {s["codec_type"]: float(s.get("start_time", 0)) for s in streams if "codec_type" in s}
+        return by_type.get("video", 0.0), by_type.get("audio", 0.0)
+    except Exception:
+        return 0.0, 0.0
+
+
+def _seconds_to_drawtext_timecode(sec: float) -> str:
+    """Convert seconds to HH\\:MM\\:SS\\:FF for ffmpeg drawtext timecode option (29.97fps)."""
+    fps = 30000.0 / 1001.0
+    sec = max(0.0, float(sec))
+    total_frames = int(round(sec * fps))
+    ff = total_frames % 30
+    s_total = total_frames // 30
+    ss = s_total % 60
+    mm = (s_total // 60) % 60
+    hh = s_total // 3600
+    return f"{hh:02d}\\:{mm:02d}\\:{ss:02d}\\:{ff:02d}"
+
+
+def _build_audio_sync_hud_vf(
+    archive_mkv: Path,
+    start_frame: int,
+    end_frame: int,
+    audio_offset: float,
+) -> str:
+    """Build an ffmpeg vf filter that pads the frame and draws a HUD with A/V sync diagnostics."""
+    v_start, a_start = _probe_archive_stream_start_times(archive_mkv)
+    delta = a_start - v_start
+    chapter_start_sec = int(start_frame) * 1001.0 / 30000.0
+    video_tc = _seconds_to_drawtext_timecode(chapter_start_sec)
+    audio_tc = _seconds_to_drawtext_timecode(chapter_start_sec + float(audio_offset))
+    line1 = f"archive  v_start={v_start:.4f}s  a_start={a_start:.4f}s  delta={delta:+.4f}s  offset={float(audio_offset):+.4f}s"
+    font_opt = ""
+    if Path("C:/Windows/Fonts/consola.ttf").exists():
+        font_opt = ":fontfile='C\\:/Windows/Fonts/consola.ttf'"
+    return (
+        "pad=width=iw:height=ih+74:x=0:y=0:color=black"
+        f",drawtext=text='{line1}'{font_opt}:fontsize=13:fontcolor=white:x=8:y=h-70"
+        f",drawtext=text='video  ':timecode='{video_tc}':r=30000/1001{font_opt}:fontsize=13:fontcolor=white:x=8:y=h-50"
+        f",drawtext=text='audio  ':timecode='{audio_tc}':r=30000/1001{font_opt}:fontsize=13:fontcolor=white:x=8:y=h-30"
+    )
 
 
 def _set_preview_progress(
@@ -2601,94 +2651,54 @@ class WizardHandler(BaseHTTPRequestHandler):
 
     _AUDIO_SYNC_PAD_SECONDS = 20.0
 
-    def _audio_sync_cache_key(self, session: SessionState) -> str:
-        return (
-            f"sync|{str(session.archive or '').strip()}|"
-            f"{str(session.chapter or '').strip()}|"
-            f"{int(session.start_frame)}|{int(session.end_frame)}"
-        )
-
     def _ensure_audio_sync_file(self, session: SessionState) -> tuple[Path | None, str, float, float]:
         """Extract audio with ±AUDIO_SYNC_PAD_SECONDS buffer around the chapter.
 
-        Returns (path, error_msg, padded_start_sec, chapter_start_sec).
+        Returns (path, error_msg, padded_start_sec, video_offset_sec).
         padded_start_sec is the actual start of the audio file (= chapter_start - pad, clamped to 0).
-        chapter_start_sec is where within the audio file the chapter video begins.
+        video_offset_sec is seconds into the audio file where chapter video starts.
         """
         if not str(session.archive or "").strip() or not str(session.chapter or "").strip():
             return None, "Load a chapter before requesting audio sync.", 0.0, 0.0
         if int(session.end_frame) <= int(session.start_frame):
             return None, "Invalid chapter frame span for audio sync.", 0.0, 0.0
 
-        cache_key = self._audio_sync_cache_key(session)
-        existing_raw = str(session.audio_sync_audio_path or "").strip()
-        existing = Path(existing_raw) if existing_raw else None
         pad = self._AUDIO_SYNC_PAD_SECONDS
         chapter_start_sec = _frame_to_seconds(session.start_frame)
         chapter_end_sec = _frame_to_seconds(session.end_frame)
         padded_start = max(0.0, float(chapter_start_sec) - pad)
         padded_end = float(chapter_end_sec) + pad
-        video_offset = float(chapter_start_sec) - padded_start  # seconds into audio file where chapter starts
-
-        if (
-            existing
-            and session.audio_sync_audio_key == cache_key
-            and existing.exists()
-            and existing.is_file()
-            and int(existing.stat().st_size) > 44
-        ):
-            return existing, "", padded_start, video_offset
+        video_offset = float(chapter_start_sec) - padded_start
 
         source_video = _resolve_archive_video(session.archive)
         if not source_video:
             return None, f"No archive video found for '{session.archive}'.", 0.0, 0.0
 
-        out_dir = Path(tempfile.gettempdir()) / "vhs_plain_wizard_audio"
-        out_dir.mkdir(parents=True, exist_ok=True)
+        out_path = Path(tempfile.gettempdir()) / "vhs_audio_sync.wav"
+        cmd = [
+            str(FFMPEG_BIN),
+            "-nostdin",
+            "-v",
+            "error",
+            "-i",
+            str(source_video),
+            "-vn",
+            "-af",
+            f"atrim=start={float(padded_start):.6f}:end={float(padded_end):.6f},asetpts=PTS-STARTPTS",
+            "-ac",
+            "1",
+            "-ar",
+            "16000",
+            "-c:a",
+            "pcm_s16le",
+            "-y",
+            str(out_path),
+        ]
+        proc = subprocess.run(cmd, check=False, capture_output=True, text=True)
+        if proc.returncode != 0 or not out_path.exists():
+            detail = (proc.stderr or proc.stdout or "").strip()
+            return None, detail or "ffmpeg audio sync extraction failed.", 0.0, 0.0
 
-        archive_slug = slugify(str(session.archive or "archive")) or "archive"
-        chapter_slug = slugify(str(session.chapter or "chapter")) or "chapter"
-        key_hash = uuid.uuid5(uuid.NAMESPACE_URL, cache_key).hex[:16]
-        out_name = (
-            f"sync_{archive_slug}_{chapter_slug}_{int(session.start_frame)}_{int(session.end_frame)}_{key_hash}.wav"
-        )
-        out_path = out_dir / out_name
-
-        needs_extract = True
-        try:
-            needs_extract = (not out_path.exists()) or (int(out_path.stat().st_size) <= 44)
-        except Exception:
-            needs_extract = True
-
-        if needs_extract:
-            cmd = [
-                str(FFMPEG_BIN),
-                "-nostdin",
-                "-v",
-                "error",
-                "-ss",
-                f"{float(padded_start):.3f}",
-                "-to",
-                f"{float(padded_end):.3f}",
-                "-i",
-                str(source_video),
-                "-vn",
-                "-ac",
-                "1",
-                "-ar",
-                "16000",
-                "-c:a",
-                "pcm_s16le",
-                "-y",
-                str(out_path),
-            ]
-            proc = subprocess.run(cmd, check=False, capture_output=True, text=True)
-            if proc.returncode != 0 or not out_path.exists():
-                detail = (proc.stderr or proc.stdout or "").strip()
-                return None, detail or "ffmpeg audio sync extraction failed.", 0.0, 0.0
-
-        session.audio_sync_audio_key = cache_key
-        session.audio_sync_audio_path = str(out_path)
         return out_path, "", padded_start, video_offset
 
     def _preview_page_html(self, session: SessionState) -> str:
@@ -3424,8 +3434,6 @@ class WizardHandler(BaseHTTPRequestHandler):
         session.gamma_default = 1.0
         session.gamma_ranges = []
         session.audio_sync_offset = 0.0
-        session.audio_sync_audio_path = ""
-        session.audio_sync_audio_key = ""
         session.people_entries = []
         session.subtitle_entries = []
         session.split_entries = []
@@ -3877,6 +3885,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             )
         apply_freeze = True
         apply_gamma = True
+        skip_deinterlace = preview_mode == "audio_sync"
         if preview_mode == "review":
             apply_gamma = False
         elif preview_mode == "gamma":
@@ -3884,6 +3893,9 @@ class WizardHandler(BaseHTTPRequestHandler):
         elif preview_mode == "summary":
             apply_freeze = True
             apply_gamma = True
+        elif preview_mode == "audio_sync":
+            apply_freeze = False
+            apply_gamma = False
 
         raw_gamma_profile = payload.get("gamma_profile")
         if raw_gamma_profile is None:
@@ -3988,7 +4000,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             stage_names.append("Applying FreezeFrame repairs")
         if windows_filter:
             stage_names.append("Applying gamma correction" if gamma_only_mode else "Deinterlacing/filtering")
-        elif sys.platform != "win32":
+        elif sys.platform != "win32" and not skip_deinterlace:
             stage_names.append("Fallback deinterlacing")
         stage_names.append("Encoding preview")
         total_stages = max(1, len(stage_names))
@@ -4092,6 +4104,8 @@ class WizardHandler(BaseHTTPRequestHandler):
                     stage_idx += 1
                 else:
                     shutil.copy2(freeze_input, qtgmc)
+            elif skip_deinterlace:
+                shutil.copy2(freeze_input, qtgmc)
             else:
                 used_non_windows_fallback = True
                 stage_label = stage_names[stage_idx]
@@ -4128,6 +4142,19 @@ class WizardHandler(BaseHTTPRequestHandler):
                 "0:v:0",
                 "-map",
                 "0:a:0?",
+                *(
+                    (
+                        "-vf",
+                        _build_audio_sync_hud_vf(
+                            ARCHIVE_DIR / f"{session.archive}.mkv",
+                            start_frame,
+                            end_frame,
+                            session.audio_sync_offset,
+                        ),
+                    )
+                    if preview_mode == "audio_sync"
+                    else ()
+                ),
                 "-pix_fmt",
                 "yuv420p",
                 "-fps_mode:v:0",

@@ -2,8 +2,7 @@ import json
 import threading
 import time
 from pathlib import Path
-from urllib.error import HTTPError
-from urllib.request import Request, urlopen
+from urllib.request import urlopen
 
 import cv2
 import numpy as np
@@ -146,7 +145,7 @@ def test_source_video_endpoint_and_state_source_url_for_vhs(tmp_path):
         thread.join(timeout=2)
 
 
-def test_crop_endpoint_sets_cache_headers_and_supports_not_modified(tmp_path):
+def test_crop_endpoint_disables_caching(tmp_path):
     store = TextFaceStore(tmp_path / "cast_data")
     store.ensure_files()
 
@@ -172,24 +171,14 @@ def test_crop_endpoint_sets_cache_headers_and_supports_not_modified(tmp_path):
         with urlopen(f"http://127.0.0.1:{port}/api/faces/{face_id}/crop", timeout=10) as response:
             data = response.read()
             cache_control = str(response.headers.get("Cache-Control", ""))
-            etag = str(response.headers.get("ETag", ""))
-            last_modified = str(response.headers.get("Last-Modified", ""))
+            pragma = str(response.headers.get("Pragma", ""))
+            expires = str(response.headers.get("Expires", ""))
 
         assert data == b"fake-jpeg-data"
-        assert "max-age=86400" in cache_control
-        assert etag
-        assert last_modified
-
-        request = Request(
-            f"http://127.0.0.1:{port}/api/faces/{face_id}/crop",
-            headers={"If-None-Match": etag},
-        )
-        try:
-            with urlopen(request, timeout=10):
-                raise AssertionError("Expected 304 Not Modified")
-        except HTTPError as exc:
-            assert int(exc.code) == 304
-            assert str(exc.headers.get("ETag", "")) == etag
+        assert "no-store" in cache_control
+        assert "max-age=0" in cache_control
+        assert pragma == "no-cache"
+        assert expires == "0"
     finally:
         server.shutdown()
         server.server_close()

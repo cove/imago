@@ -9,6 +9,7 @@ from typing import Iterator
 from ..naming import (
     BASE_PAGE_NAME_RE,
     DERIVED_NAME_RE,
+    DERIVED_VIEW_RE,
     SCAN_NAME_RE,
     VIEW_PAGE_RE,
     VIEW_VC_LEGACY_RE,
@@ -84,9 +85,9 @@ def classify_image_kind(image_path: str | Path) -> str:
 
     if suffix not in _IMAGE_EXTENSIONS:
         return "single_image"
-    if DERIVED_NAME_RE.search(name):
-        return "detail"
-    if suffix in {".tif", ".tiff"} and SCAN_NAME_RE.search(name):
+    if DERIVED_NAME_RE.fullmatch(stem) or DERIVED_VIEW_RE.search(stem):
+        return "derived"
+    if suffix in {".tif", ".tiff"} and SCAN_NAME_RE.fullmatch(stem):
         return "page_scan"
     if VIEW_VC_LEGACY_RE.search(stem) or VIEW_RECON_LEGACY_RE.search(stem) or VIEW_STITCHED_LEGACY_RE.search(stem):
         return "page_view"

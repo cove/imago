@@ -52,16 +52,13 @@ All album files follow the pattern `{Collection}_{Year}_B{book}_P{page}_{type}.{
 | Type token | Role | Archive ext | View ext |
 |------------|------|-------------|----------|
 | `_S##` | Raw scan | `.tif` | — |
-| `_D##-##` | Detail crop | `.tif` | — |
+| `_D##-##` | Derived image | `.tif` | — |
 | `_V` | View page (any scan count) | — | `.jpg` |
-| `_D##-##_V` | View detail crop | — | `.jpg` |
-| `_D##-##_C` | Colorized detail crop | `.png` | `.jpg` |
+| `_D##-##_V` | View derived image | — | `.jpg` |
 
 - Pages start at P01. P00 is not valid.
 - `_V` always marks a view output; `_S##` always marks an archive scan.
 - Every `_V` file derives from one or more `_S##.tif` archive scans.
-- `_D##-##_C` appears in both Archive (`.png`, lossless AI output) and View (`.jpg`, render copy).
-- `dc:source` on a `_C` file references the archive TIF of the source crop.
 - XMP sidecars share the same stem as their companion image (`.xmp` extension).
 - `dc:source` always names the archive TIF scan files, never the view page filename.
 - Legacy suffixes `_VC`, `_VR`, `_stitched` are still recognised but not produced.
@@ -167,6 +164,19 @@ clearly: which photo, what the symptom is, and what the likely cause is.
 - If there is no readable text, return an empty text field.
 - Do not describe the image, show reasoning, or add extra fields.
 
+## System Prompt - Date Estimate
+- You estimate a photo date for XMP `dc:date`.
+- Return only valid JSON matching the response_format schema.
+- Use OCR text as the primary source of truth.
+- If OCR text does not support a date, fall back to the album title.
+- Return the most precise supported W3C date value: `YYYY-MM-DD`, `YYYY-MM`, `YYYY`, or an empty string.
+- Do not invent a month or day unless the supplied text supports it.
+- If the source only supports an approximate or rounded date, return the nearest honest precision instead of inventing missing parts.
+- Never use placeholder components like `00` for month or day.
+- If the day is unknown, return `YYYY-MM` instead of `YYYY-MM-00`.
+- If the month is unknown, return `YYYY` instead of `YYYY-00` or `YYYY-00-00`.
+- Do not include reasoning or extra fields.
+
 ## Preamble Describe
 - Use `author_text` for typewriter-written Courier text on white paper strips.
 - Use `scene_text` only for readable text inside the photographed scene itself, not the page itself.
@@ -177,6 +187,22 @@ clearly: which photo, what the symptom is, and what the likely cause is.
 
 ## Preamble Location
 - Determine the most useful location metadata supported by visible evidence.
+
+## Preamble Date Estimate
+- Estimate a single photo date for XMP `dc:date`.
+- First look for an explicit or strongly implied date in the OCR text.
+- If the OCR text does not support a date, use the album title as the fallback date range hint.
+- When only a year is supported, return the year only.
+- When a month and year are supported, return `YYYY-MM`.
+- When a full calendar date is supported, return `YYYY-MM-DD`.
+- If the visible text implies an approximate date, round to the nearest supported precision without adding unsupported detail.
+- Example: `about January 1988` -> `1988-01`.
+- Example: `early 1988` -> `1988`.
+- Example: `winter 1988` -> `1988`.
+- Never return `00` for an unknown month or day; reduce precision instead.
+- Example: `January 1988` -> `1988-01`, not `1988-01-00`.
+- Example: `1988` -> `1988`, not `1988-00` or `1988-00-00`.
+- If neither OCR text nor album title supports any date estimate, return the empty string.
 
 ## Preamble Cover Page
 - This is an album cover or title page.
@@ -222,5 +248,12 @@ clearly: which photo, what the symptom is, and what the likely cause is.
 - Identify each distinct photograph as a rectangle.
 - Do not invent visual descriptions for the photographs.
 - Use typed album-page annotations only after deciding whether they belong to one photo, multiple photos, or the whole page based on both layout and photo contents.
+
+## Output Format - Date Estimate
+`{"date": ""}`
+
+- `date`: estimated W3C date string for `dc:date`, using one of `YYYY-MM-DD`, `YYYY-MM`, `YYYY`, or `""`.
+- Prefer OCR evidence over album-title fallback.
+- Just return the JSON without any extra text or explanation.
 
 
