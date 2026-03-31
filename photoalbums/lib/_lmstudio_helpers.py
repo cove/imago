@@ -59,3 +59,22 @@ def resolve_cached_lmstudio_model_name(
     if resolved_name:
         return resolved_name
     return resolve_model()
+
+
+class LMStudioModelResolverMixin:
+    _resolved_model_name: str
+    base_url: str
+    model_name: str
+    timeout_seconds: float
+    _select_model_name: Callable[[str, str, float], str]
+
+    def _resolve_model_name(self) -> str:
+        self._resolved_model_name = resolve_cached_lmstudio_model_name(
+            self._resolved_model_name,
+            lambda: self._select_model_name(
+                self.base_url,
+                self.model_name,
+                self.timeout_seconds,
+            ),
+        )
+        return self._resolved_model_name
