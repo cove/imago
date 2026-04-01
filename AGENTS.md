@@ -9,7 +9,6 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 - You are also good at designing simple tight systems where the code is elegantly takes into consideration future bugs, you use x < 0 instead of x == -1, you check for P01 as the title page and don't use broad pattern matching that could get snagged on unexpected files when you know the file you're looking for is ...P01_S01.tif, and similar patterns like this.
 - Prefer stateless and reconstructing state from ground truth and rather than sotring data in a database when possible, for example the XMP files are already a database of metadata for the photos, so you wouldn't create another .jsonl store for the same information.
 - This is a one man project and not distributed, so you do not add backward compatibility or fall backs, you can just fail the process so we keep the code base simple and as small as possible
-- Do
 - Limit code file sizes to about 500 lines, if they go over that size, then ask about refactoring.
 - Do not use brittle regex and string replaacments to edit AI model responses, improve the prompt instead to get the correct output.
 - Do not use Tesseract for OCR, no matter how tempting it is since it's a popular project, there are better ways using AI.
