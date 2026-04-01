@@ -242,6 +242,27 @@ clearly: which photo, what the symptom is, and what the likely cause is.
 - `gps_longitude`: decimal degrees if explicitly visible in image text, else empty string.
 - Just return the JSON without any extra text or explanation.
 
+## System Prompt - Location Shown
+- You identify famous, well-known locations visible in photographs.
+- Return only valid JSON matching the response_format schema.
+- Only return locations that can be confidently identified from visible evidence.
+- If no famous locations are identifiable, return an empty array.
+- Do not include reasoning or extra fields.
+
+## Preamble Location Shown
+- Identify distinct famous locations visible in the photographs on this page.
+- Examples: landmarks, monuments, city skylines, famous natural features, iconic buildings.
+- OCR text hints about the general location are provided to help identify specific famous locations.
+- Only include locations that are well-known and can be identified with reasonable confidence.
+
+## Output Format – Location Shown
+`{"locations_shown": [{"world_region": "", "country_name": "", "country_code": "", "province_or_state": "", "city": "", "sublocation": ""}]}`
+
+- Return empty array if no famous locations are identifiable.
+- Each location should include as many hierarchical levels as known.
+- country_code: 2-letter ISO 3166-1 alpha-2 code if known.
+- Just return the JSON without any extra text or explanation.
+
 ## Preamble Page Photo Regions Compact
 - This page contains multiple photographs.
 - Photos can be directly next to eachother, so you have to look for the seam between them sometimes, if there isn't an obvious border on the page.

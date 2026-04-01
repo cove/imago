@@ -69,3 +69,9 @@ def _build_location_prompt() -> str:
     lines = _section("Preamble Location")
     lines.extend(_section("Output Format – Location"))
     return "\n".join(lines)
+
+
+def _build_location_shown_prompt() -> str:
+    lines = _section("Preamble Location Shown")
+    lines.extend(_section("Output Format – Location Shown"))
+    return "\n".join(lines)
