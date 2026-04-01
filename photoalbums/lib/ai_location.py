@@ -217,3 +217,52 @@ def _resolve_location_payload(
             "source": "nominatim",
         }
     return {}
+
+def _resolve_locations_shown(
+    *,
+    requested_caption_engine: str,
+    caption_engine: Any,
+    model_image_path: Path,
+    ocr_text: str,
+    source_path: Path,
+    prompt_debug: PromptDebugSession | None = None,
+    debug_step: str = "locations_shown",
+) -> tuple[list[dict[str, Any]], bool]:
+    """Resolve locations shown in the image using AI.
+    
+    Returns tuple of (locations_list, ran_flag).
+    """
+    if str(requested_caption_engine or "").strip().lower() != "lmstudio":
+        return [], False
+    estimate_locations_shown = getattr(caption_engine, "estimate_locations_shown", None)
+    if not callable(estimate_locations_shown):
+        return [], False
+    try:
+        result = estimate_locations_shown(
+            image_path=model_image_path,
+            ocr_text=ocr_text,
+            source_path=source_path,
+            debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
+            debug_step=debug_step,
+        )
+    except Exception:
+        return [], False
+    fallback = getattr(result, "fallback", False)
+    if not isinstance(fallback, bool) or fallback:
+        return [], False
+    locations = getattr(result, "locations_shown", None)
+    if not isinstance(locations, list):
+        return [], True
+    validated: list[dict[str, Any]] = []
+    for loc in locations:
+        if not isinstance(loc, dict):
+            continue
+        validated.append({
+            "world_region": str(loc.get("world_region") or "").strip(),
+            "country_name": str(loc.get("country_name") or "").strip(),
+            "country_code": str(loc.get("country_code") or "").strip(),
+            "province_or_state": str(loc.get("province_or_state") or "").strip(),
+            "city": str(loc.get("city") or "").strip(),
+            "sublocation": str(loc.get("sublocation") or "").strip(),
+        })
+    return validated, True

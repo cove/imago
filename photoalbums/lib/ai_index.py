@@ -50,6 +50,7 @@ from .ai_location import (
     _merge_location_estimates,
     _resolve_location_metadata,
     _resolve_location_payload,
+    _resolve_locations_shown,
     _xmp_gps_to_decimal,
 )
 from .ai_processing_locks import (
@@ -1232,6 +1233,19 @@ def _run_image_analysis(
     )
     if location_payload:
         payload["location"] = location_payload
+    
+    locations_shown, locations_shown_ran = _resolve_locations_shown(
+        requested_caption_engine=requested_caption_engine,
+        caption_engine=caption_engine,
+        model_image_path=model_image_path,
+        ocr_text=ocr_text,
+        source_path=source_path,
+        prompt_debug=prompt_debug,
+        debug_step="locations_shown",
+    )
+    payload["locations_shown"] = locations_shown
+    payload["location_shown_ran"] = locations_shown_ran
+    
     description = caption_output.text
     author_text = str(getattr(caption_output, "author_text", "") or "")
     scene_text = str(getattr(caption_output, "scene_text", "") or "")
@@ -1665,6 +1679,7 @@ def _run_scan_stitch_pass(
                         history_when=_xmp_timestamp_from_path(path),
                         image_width=stitch_img_w,
                         image_height=stitch_img_h,
+                        locations_shown=det.get("locations_shown") if det else None,
                     )
 
         except Exception as exc:
@@ -1745,6 +1760,7 @@ def _write_sidecar_and_record(
         ocr_ran=ocr_ran,
         people_detected=people_detected,
         people_identified=people_identified,
+        locations_shown=detections_payload.get("locations_shown") if detections_payload else None,
     )
     append_job_artifact(
         {
@@ -2294,6 +2310,7 @@ def run(argv: list[str] | None = None) -> int:
                             people_detected=bool(review.get("people_detected")),
                             people_identified=bool(review.get("people_identified")),
                             ocr_lang=str(review.get("ocr_lang") or ""),
+                            locations_shown=refresh_detections.get("locations_shown") if refresh_detections else None,
                         )
 
                     if not dry_run:

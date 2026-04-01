@@ -8,7 +8,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 from ._caption_text import clean_text, clean_lines
 from .image_limits import allow_large_pillow_images
@@ -49,12 +49,15 @@ class CaptionDetails:
     album_title: str = ""
     title: str = ""
     ocr_lang: str = ""
+    locations_shown: list[dict[str, object]] = None
 
     def __post_init__(self):
         if self.name_suggestions is None:
             object.__setattr__(self, "name_suggestions", [])
         if self.image_regions is None:
             object.__setattr__(self, "image_regions", [])
+        if self.locations_shown is None:
+            object.__setattr__(self, "locations_shown", [])
 
     def __str__(self) -> str:
         return self.text
@@ -408,6 +411,39 @@ def _lmstudio_location_response_format() -> dict[str, object]:
     }
 
 
+def _lmstudio_locations_shown_response_format() -> dict[str, object]:
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "locations_shown_payload",
+            "strict": "true",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "locations_shown": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "world_region": {"type": "string"},
+                                "country_name": {"type": "string"},
+                                "country_code": {"type": "string"},
+                                "province_or_state": {"type": "string"},
+                                "city": {"type": "string"},
+                                "sublocation": {"type": "string"},
+                            },
+                            "required": [],
+                            "additionalProperties": False,
+                        },
+                    },
+                },
+                "required": ["locations_shown"],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
 def _lmstudio_people_count_response_format() -> dict[str, object]:
     return {
         "type": "json_schema",
@@ -657,6 +693,55 @@ def _parse_lmstudio_structured_location_payload(
     )
 
 
+def _is_lmstudio_locations_shown_payload(payload: object) -> bool:
+    if not isinstance(payload, dict):
+        return False
+    locations = payload.get("locations_shown")
+    if not isinstance(locations, list):
+        return False
+    for loc in locations:
+        if not isinstance(loc, dict):
+            return False
+    return True
+
+
+def _parse_lmstudio_locations_shown_payload(
+    value: object,
+    *,
+    finish_reason: str = "",
+) -> list[dict[str, Any]]:
+    raw = _decode_lmstudio_text(value)
+    text = str(raw or "").strip()
+    finish_note = f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
+    if not text:
+        return []
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        payload = _extract_structured_json_payload(
+            text,
+            is_valid=_is_lmstudio_locations_shown_payload,
+        )
+        if payload is None:
+            return []
+    if not _is_lmstudio_locations_shown_payload(payload):
+        return []
+    locations = payload.get("locations_shown") or []
+    result: list[dict[str, Any]] = []
+    for loc in locations:
+        if not isinstance(loc, dict):
+            continue
+        result.append({
+            "world_region": str(loc.get("world_region") or "").strip(),
+            "country_name": str(loc.get("country_name") or "").strip(),
+            "country_code": str(loc.get("country_code") or "").strip(),
+            "province_or_state": str(loc.get("province_or_state") or "").strip(),
+            "city": str(loc.get("city") or "").strip(),
+            "sublocation": str(loc.get("sublocation") or "").strip(),
+        })
+    return result
+
+
 def _parse_lmstudio_structured_caption(
     value: object,
     *,
@@ -837,6 +922,10 @@ def people_count_system_prompt() -> str:
 
 def location_system_prompt() -> str:
     return required_section_text("System Prompt - Location")
+
+
+def location_shown_system_prompt() -> str:
+    return required_section_text("System Prompt - Location Shown")
 
 
 class LMStudioCaptioner(LMStudioModelResolverMixin):
@@ -1053,3 +1142,63 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
             gps_longitude=gps_longitude,
             location_name=location_name,
         )
+
+    def estimate_locations_shown(
+        self,
+        image_path: str | Path,
+        *,
+        prompt: str,
+        ocr_text: str,
+    ) -> CaptionDetails:
+        self.last_response_text = ""
+        self.last_finish_reason = ""
+        resize_edge = int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
+        image_url = _build_data_url(image_path, resize_edge)
+        
+        # Include OCR text hints in the prompt
+        ocr_hint = ""
+        if ocr_text:
+            ocr_hint = f"\n\nOCR hints (may help identify locations): {ocr_text}"
+        
+        payload = {
+            "model": self._resolve_model_name(),
+            "messages": [
+                {
+                    "role": "system",
+                    "content": location_shown_system_prompt(),
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt + ocr_hint},
+                        {"type": "image_url", "image_url": {"url": image_url}},
+                    ],
+                },
+            ],
+            "response_format": _lmstudio_locations_shown_response_format(),
+            "max_tokens": min(256, int(self.max_new_tokens)),
+            "temperature": 0.0,
+            "stream": False,
+        }
+        response = _lmstudio_request_json(
+            f"{self.base_url}/chat/completions",
+            payload=payload,
+            timeout=self.timeout_seconds,
+        )
+        choices = list(response.get("choices") or [])
+        if not choices:
+            return CaptionDetails(text="")
+        message = dict(choices[0].get("message") or {})
+        self.last_finish_reason = str(choices[0].get("finish_reason") or "")
+        self.last_response_text = _format_lmstudio_debug_response(message.get("content"))
+        if not self.last_response_text:
+            self.last_response_text = _format_lmstudio_debug_response(message)
+        locations_shown = _parse_lmstudio_locations_shown_payload(
+            message.get("content"),
+            finish_reason=self.last_finish_reason,
+        )
+        return CaptionDetails(
+            text="",
+            locations_shown=locations_shown,
+        )
+
