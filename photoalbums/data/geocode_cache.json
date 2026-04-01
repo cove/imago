@@ -224,6 +224,17 @@
     "query": "Alicante, Spain - September 1988; Avila, Spain - September 1988",
     "status": "miss"
   },
+  "altadena": {
+    "city": "Altadena",
+    "country": "United States",
+    "display_name": "Altadena, Los Angeles County, California, 91001, United States",
+    "latitude": "34.1928193",
+    "longitude": "-118.1374663",
+    "query": "Altadena",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
   "american museum of natural history": {
     "city": "New York",
     "country": "United States",
@@ -718,6 +729,21 @@
     "query": "Bosphorus Strait, Istanbul, Turkey",
     "status": "miss"
   },
+  "boulder dam & las vegas, nevada": {
+    "query": "Boulder Dam & Las Vegas, Nevada",
+    "status": "miss"
+  },
+  "boulder dam, colorado": {
+    "city": "Boulder",
+    "country": "United States",
+    "display_name": "Boulder Reservoir Dam (South), Boulder, Boulder County, Colorado, 80301, United States",
+    "latitude": "40.0734041",
+    "longitude": "-105.2161216",
+    "query": "Boulder Dam, Colorado",
+    "source": "nominatim",
+    "state": "Colorado",
+    "status": "ok"
+  },
   "boulder dam, nevada": {
     "city": "",
     "country": "United States",
@@ -792,6 +818,17 @@
     "longitude": "-0.3216623",
     "query": "Brentford, London, England",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "brentwood, calif.": {
+    "city": "Brentwood",
+    "country": "United States",
+    "display_name": "Brentwood, Contra Costa County, California, 94513, United States",
+    "latitude": "37.9317766",
+    "longitude": "-121.6960260",
+    "query": "Brentwood, Calif.",
+    "source": "nominatim",
+    "state": "California",
     "status": "ok"
   },
   "brighton": {
@@ -922,6 +959,17 @@
     "query": "Bromley, England; Henley-on-Thames, England",
     "status": "miss"
   },
+  "brookside park, pasadena": {
+    "city": "Pasadena",
+    "country": "United States",
+    "display_name": "Brookside Park, Pasadena Council District 1, Pasadena, Los Angeles County, California, United States",
+    "latitude": "34.1538438",
+    "longitude": "-118.1644952",
+    "query": "Brookside Park, Pasadena",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
   "bucharest": {
     "city": "Bucharest",
     "country": "Romania",
@@ -1026,6 +1074,17 @@
   "buddha grottoes, linxia, china": {
     "query": "Buddha Grottoes, Linxia, China",
     "status": "miss"
+  },
+  "burlingame, calif.": {
+    "city": "Burlingame",
+    "country": "United States",
+    "display_name": "Burlingame, San Mateo County, California, 94010, United States",
+    "latitude": "37.5780965",
+    "longitude": "-122.3473099",
+    "query": "Burlingame, Calif.",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
   },
   "cairo egypt": {
     "display_name": "القاهرة, مصر",
@@ -1601,6 +1660,17 @@
     "state": "Illinois",
     "status": "ok"
   },
+  "chicago ill. aug 1952": {
+    "city": "Chicago",
+    "country": "United States",
+    "display_name": "Chicago, South Chicago Township, Cook County, Illinois, United States",
+    "latitude": "41.8755616",
+    "longitude": "-87.6244212",
+    "query": "Chicago Ill. Aug 1952",
+    "source": "nominatim",
+    "state": "Illinois",
+    "status": "ok"
+  },
   "chicago, illinois": {
     "city": "Chicago",
     "country": "United States",
@@ -1709,6 +1779,10 @@
     "query": "Christchurch, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "christmas at roy & monica's 1956": {
+    "query": "Christmas at Roy & Monica's 1956",
+    "status": "miss"
   },
   "church of santa marie della salute and the grand canal, venice italy": {
     "query": "Church of Santa Marie Della Salute and the Grand Canal, Venice Italy",
@@ -2057,6 +2131,50 @@
     "state": "England",
     "status": "ok"
   },
+  "covina": {
+    "city": "Covina",
+    "country": "United States",
+    "display_name": "Covina, Los Angeles County, California, United States",
+    "latitude": "34.0877926",
+    "longitude": "-117.8891164",
+    "query": "Covina",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "covina, california": {
+    "city": "Covina",
+    "country": "United States",
+    "display_name": "Covina, Los Angeles County, California, United States",
+    "latitude": "34.0877926",
+    "longitude": "-117.8891164",
+    "query": "Covina, California",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "covina, california, usa": {
+    "city": "Covina",
+    "country": "United States",
+    "display_name": "Covina, Los Angeles County, California, United States",
+    "latitude": "34.0877926",
+    "longitude": "-117.8891164",
+    "query": "Covina, California, USA",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "covina, june 1958": {
+    "city": "West Covina",
+    "country": "United States",
+    "display_name": "June Court, Woodside Village, West Covina, Los Angeles County, California, 91792, United States",
+    "latitude": "34.0184464",
+    "longitude": "-117.9070076",
+    "query": "Covina, June 1958",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
   "cowes the isle of wight": {
     "display_name": "Cowes Castle - Royal Yacht Squadron, The Parade, Cowes, Isle of Wight, England, PO31 7QT, United Kingdom",
     "latitude": "50.7665146",
@@ -2168,6 +2286,10 @@
     "query": "Dolmabahçe Palace, Istanbul, Turkey",
     "source": "nominatim",
     "status": "ok"
+  },
+  "dolores' 9th birthday, july 31st 1956": {
+    "query": "Dolores' 9th Birthday, July 31st 1956",
+    "status": "miss"
   },
   "dorset cottages, cerne abbas, hardy's birthplace, milton abbey, dorchester, cottage in the new forest, rose cottage, cockington, devon": {
     "query": "Dorset Cottages, Cerne Abbas, Hardy's Birthplace, Milton Abbey, Dorchester, Cottage in the New Forest, Rose Cottage, Cockington, Devon",
@@ -2786,6 +2908,17 @@
   "english countryside south of london": {
     "query": "English Countryside South of London",
     "status": "miss"
+  },
+  "ensenada, mexico": {
+    "city": "Ensenada",
+    "country": "Mexico",
+    "display_name": "Ensenada, Municipio de Ensenada, Baja California, Mexico",
+    "latitude": "31.8658887",
+    "longitude": "-116.6029830",
+    "query": "Ensenada, Mexico",
+    "source": "nominatim",
+    "state": "Baja California",
+    "status": "ok"
   },
   "entrance to the tombs of ramesses vi, egypt": {
     "query": "Entrance to the Tombs of Ramesses VI, Egypt",
@@ -3432,6 +3565,17 @@
     "state": "California",
     "status": "ok"
   },
+  "hollywood, calif., 1956": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Hollywood, Los Angeles, Los Angeles County, California, 90028, United States",
+    "latitude": "34.0980031",
+    "longitude": "-118.3295230",
+    "query": "Hollywood, Calif., 1956",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
   "hollywood, california": {
     "city": "Los Angeles",
     "country": "United States",
@@ -3713,6 +3857,28 @@
     "longitude": "116.3906109",
     "query": "Imperial Garden, Beijing, China",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "indianapolis": {
+    "city": "Indianapolis",
+    "country": "United States",
+    "display_name": "Indianapolis, Marion County, Indiana, United States",
+    "latitude": "39.7683331",
+    "longitude": "-86.1583502",
+    "query": "Indianapolis",
+    "source": "nominatim",
+    "state": "Indiana",
+    "status": "ok"
+  },
+  "indianapolis indiana": {
+    "city": "Indianapolis",
+    "country": "United States",
+    "display_name": "Indianapolis, Marion County, Indiana, United States",
+    "latitude": "39.7683331",
+    "longitude": "-86.1583502",
+    "query": "Indianapolis Indiana",
+    "source": "nominatim",
+    "state": "Indiana",
     "status": "ok"
   },
   "indianapolis, indiana": {
@@ -4023,6 +4189,14 @@
   },
   "kalemgedan fortress and park, belgrade, serbia": {
     "query": "Kalemgedan Fortress and Park, Belgrade, Serbia",
+    "status": "miss"
+  },
+  "karin's home - brentwood": {
+    "query": "Karin's Home - Brentwood",
+    "status": "miss"
+  },
+  "karin's home - brentwood, ca": {
+    "query": "Karin's Home - Brentwood, CA",
     "status": "miss"
   },
   "karnak & amon temple": {
@@ -4362,9 +4536,35 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "la jolla, calif., - tijuana mexico": {
+    "query": "La Jolla, Calif., - Tijuana Mexico",
+    "status": "miss"
+  },
+  "la jolla, california": {
+    "city": "San Diego",
+    "country": "United States",
+    "display_name": "La Jolla, San Diego, San Diego County, California, United States",
+    "latitude": "32.8458529",
+    "longitude": "-117.2575702",
+    "query": "La Jolla, California",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
   "lake arrowhead aug, 1946": {
     "query": "Lake Arrowhead Aug, 1946",
     "status": "miss"
+  },
+  "lake tahoe, calif.": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Lake Tahoe, Placer County, California, United States",
+    "latitude": "39.0885405",
+    "longitude": "-120.0503528",
+    "query": "Lake Tahoe, Calif.",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
   },
   "lake windermere, bowness, the lake district": {
     "query": "Lake Windermere, Bowness, The Lake District",
@@ -4889,6 +5089,17 @@
     "state": "California",
     "status": "ok"
   },
+  "los angeles, ca, usa": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Los Angeles, Los Angeles County, California, United States",
+    "latitude": "34.0536909",
+    "longitude": "-118.2427660",
+    "query": "Los Angeles, CA, USA",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
   "los angeles, calif": {
     "city": "Los Angeles",
     "country": "United States",
@@ -4929,6 +5140,17 @@
     "latitude": "34.0536909",
     "longitude": "-118.2427660",
     "query": "Los Angeles, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "los angeles, california, usa": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Los Angeles, Los Angeles County, California, United States",
+    "latitude": "34.0536909",
+    "longitude": "-118.2427660",
+    "query": "Los Angeles, California, USA",
     "source": "nominatim",
     "state": "California",
     "status": "ok"
@@ -5201,6 +5423,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "marshall high school, hollywood, california": {
+    "query": "Marshall High School, Hollywood, California",
+    "status": "miss"
+  },
   "mausoleum of mohammed v": {
     "city": "Rabat",
     "country": "Morocco",
@@ -5278,6 +5504,17 @@
   "memphis, egypt; saqqara, egypt": {
     "query": "Memphis, Egypt; Saqqara, Egypt",
     "status": "miss"
+  },
+  "mexico": {
+    "city": "",
+    "country": "Mexico",
+    "display_name": "Mexico",
+    "latitude": "23.6585116",
+    "longitude": "-102.0077097",
+    "query": "Mexico",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
   },
   "minneapolis, minnesota": {
     "city": "Minneapolis",
@@ -5524,6 +5761,50 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "new york city, new york": {
+    "city": "New York",
+    "country": "United States",
+    "display_name": "New York, United States",
+    "latitude": "40.7127281",
+    "longitude": "-74.0060152",
+    "query": "New York City, New York",
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok"
+  },
+  "new york city, united states": {
+    "city": "New York",
+    "country": "United States",
+    "display_name": "New York, United States",
+    "latitude": "40.7127281",
+    "longitude": "-74.0060152",
+    "query": "New York City, United States",
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok"
+  },
+  "new york, new york": {
+    "city": "New York",
+    "country": "United States",
+    "display_name": "New York, United States",
+    "latitude": "40.7127281",
+    "longitude": "-74.0060152",
+    "query": "New York, New York",
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok"
+  },
+  "new york, ny, usa": {
+    "city": "New York",
+    "country": "United States",
+    "display_name": "New York, United States",
+    "latitude": "40.7127281",
+    "longitude": "-74.0060152",
+    "query": "New York, NY, USA",
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok"
+  },
   "new york, united states": {
     "city": "New York",
     "country": "United States",
@@ -5584,6 +5865,21 @@
     "longitude": "-5.0843364",
     "query": "Newquay, Cornwall, England",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "niagara falls, u.s.a.": {
+    "query": "Niagara Falls, U.S.A.",
+    "status": "miss"
+  },
+  "niagara falls, united states": {
+    "city": "City of Niagara Falls",
+    "country": "United States",
+    "display_name": "Niagara Falls, City of Niagara Falls, Niagara County, New York, United States",
+    "latitude": "43.0848410",
+    "longitude": "-79.0701786",
+    "query": "Niagara Falls, United States",
+    "source": "nominatim",
+    "state": "New York",
     "status": "ok"
   },
   "nile from the tower of cairo, meridien hotel, nation square - cairo, egypt, dec. 1975": {
@@ -5838,6 +6134,17 @@
   "parliament buildings, vienna, austria; schönbrunn-gloriette, vienna, austria": {
     "query": "Parliament Buildings, Vienna, Austria; Schönbrunn-Gloriette, Vienna, Austria",
     "status": "miss"
+  },
+  "pasadena, calif.": {
+    "city": "Pasadena",
+    "country": "United States",
+    "display_name": "Pasadena, Los Angeles County, California, United States",
+    "latitude": "34.1476507",
+    "longitude": "-118.1441550",
+    "query": "Pasadena, Calif.",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
   },
   "pembroke, england": {
     "display_name": "Pembroke, Sally Port Gardens, Brompton, Gillingham, Medway, England, ME4 4UH, United Kingdom",
@@ -6658,6 +6965,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "salt lake city, utah": {
+    "city": "Salt Lake City",
+    "country": "United States",
+    "display_name": "Salt Lake City, Salt Lake County, Utah, United States",
+    "latitude": "40.7596198",
+    "longitude": "-111.8867970",
+    "query": "Salt Lake City, Utah",
+    "source": "nominatim",
+    "state": "Utah",
+    "status": "ok"
+  },
   "salzburg, austria": {
     "display_name": "Salzburg, 5020, Österreich",
     "latitude": "47.7981346",
@@ -6710,6 +7028,50 @@
     "latitude": "37.7879363",
     "longitude": "-122.4075201",
     "query": "San Francisco, California",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "san marino": {
+    "city": "",
+    "country": "San Marino",
+    "display_name": "San Marino",
+    "latitude": "43.9458623",
+    "longitude": "12.4583060",
+    "query": "San Marino",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
+  },
+  "san marino, ca": {
+    "city": "San Marino",
+    "country": "United States",
+    "display_name": "San Marino, Los Angeles County, California, 91108, United States",
+    "latitude": "34.1215947",
+    "longitude": "-118.1057390",
+    "query": "San Marino, CA",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "san marino, calif.": {
+    "city": "San Marino",
+    "country": "United States",
+    "display_name": "San Marino, Los Angeles County, California, 91108, United States",
+    "latitude": "34.1215947",
+    "longitude": "-118.1057390",
+    "query": "San Marino, Calif.",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "san marino, california": {
+    "city": "San Marino",
+    "country": "United States",
+    "display_name": "San Marino, Los Angeles County, California, 91108, United States",
+    "latitude": "34.1215947",
+    "longitude": "-118.1057390",
+    "query": "San Marino, California",
     "source": "nominatim",
     "state": "California",
     "status": "ok"
@@ -8299,6 +8661,17 @@
     "query": "Tibetan temple architectural details",
     "status": "miss"
   },
+  "tokyo, japan": {
+    "city": "",
+    "country": "Japan",
+    "display_name": "Tokyo, Japan",
+    "latitude": "35.6768601",
+    "longitude": "139.7638947",
+    "query": "Tokyo, Japan",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
+  },
   "tomb of aga khan iii": {
     "query": "Tomb of Aga Khan III",
     "status": "miss"
@@ -8657,6 +9030,28 @@
     "query": "Valley of the Kings, Thebes, Egypt",
     "status": "miss"
   },
+  "vancouver b.c. canada": {
+    "city": "Vancouver",
+    "country": "Canada",
+    "display_name": "Vancouver, Metro Vancouver Regional District, British Columbia, Canada",
+    "latitude": "49.2608724",
+    "longitude": "-123.1139520",
+    "query": "Vancouver B.C. Canada",
+    "source": "nominatim",
+    "state": "British Columbia",
+    "status": "ok"
+  },
+  "vancouver b.c., canada": {
+    "city": "Vancouver",
+    "country": "Canada",
+    "display_name": "Vancouver, Metro Vancouver Regional District, British Columbia, Canada",
+    "latitude": "49.2608724",
+    "longitude": "-123.1139520",
+    "query": "Vancouver B.C., Canada",
+    "source": "nominatim",
+    "state": "British Columbia",
+    "status": "ok"
+  },
   "vancouver, bc, canada": {
     "city": "Vancouver",
     "country": "Canada",
@@ -8725,6 +9120,17 @@
     "latitude": "48.4283182",
     "longitude": "-123.3649530",
     "query": "Victoria B.C.",
+    "source": "nominatim",
+    "state": "British Columbia",
+    "status": "ok"
+  },
+  "victoria b.c. canada": {
+    "city": "Victoria",
+    "country": "Canada",
+    "display_name": "Victoria, Capital Regional District, British Columbia, Canada",
+    "latitude": "48.4283182",
+    "longitude": "-123.3649530",
+    "query": "Victoria B.C. Canada",
     "source": "nominatim",
     "state": "British Columbia",
     "status": "ok"
@@ -8837,6 +9243,17 @@
     "latitude": "48.4283182",
     "longitude": "-123.3649530",
     "query": "Victoria, B.C., Canada",
+    "source": "nominatim",
+    "state": "British Columbia",
+    "status": "ok"
+  },
+  "victoria, british columbia, canada": {
+    "city": "Victoria",
+    "country": "Canada",
+    "display_name": "Victoria, Capital Regional District, British Columbia, Canada",
+    "latitude": "48.4283182",
+    "longitude": "-123.3649530",
+    "query": "Victoria, British Columbia, Canada",
     "source": "nominatim",
     "state": "British Columbia",
     "status": "ok"
