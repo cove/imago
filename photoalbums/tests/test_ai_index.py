@@ -1636,6 +1636,12 @@ class TestAIIndex(unittest.TestCase):
                 fallback=False,
                 error="",
             )
+            caption_engine.estimate_location.return_value = SimpleNamespace(
+                fallback=False,
+                gps_latitude="",
+                gps_longitude="",
+                location_name="Mogao Caves, Dunhuang, Gansu, China",
+            )
             geocoder = mock.Mock()
             geocoder.geocode.return_value = SimpleNamespace(
                 query="Mogao Caves, Dunhuang, Gansu, China",

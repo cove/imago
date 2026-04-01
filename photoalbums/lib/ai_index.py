@@ -1134,6 +1134,23 @@ def _run_image_analysis(
                 debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
                 debug_step="ocr",
             )
+        if step_fn:
+            step_fn("location")
+        gps_latitude, gps_longitude, location_name = _resolve_location_metadata(
+            requested_caption_engine=requested_caption_engine,
+            caption_engine=caption_engine,
+            model_image_path=model_image_path,
+            people=list(extra_people_names or []),
+            objects=[],
+            ocr_text=ocr_text,
+            source_path=caption_source_path or people_source_path or image_path,
+            album_title=album_title,
+            printed_album_title=printed_album_title,
+            people_positions={},
+            fallback_location_name="",
+            prompt_debug=prompt_debug,
+            debug_step="location",
+        )
         combined_hint_text = " ".join(part for part in [str(people_hint_text or "").strip(), ocr_text] if part).strip()
         people_matches = (
             _match_people_with_cast_store_retry(
@@ -1229,23 +1246,6 @@ def _run_image_analysis(
     }
     if object_detector is not None:
         payload["object_model"] = str(object_detector.model_name)
-    if step_fn:
-        step_fn("location")
-    gps_latitude, gps_longitude, location_name = _resolve_location_metadata(
-        requested_caption_engine=requested_caption_engine,
-        caption_engine=caption_engine,
-        model_image_path=model_image_path,
-        people=people_names,
-        objects=object_labels,
-        ocr_text=ocr_text,
-        source_path=caption_source_path or people_source_path or image_path,
-        album_title=album_title,
-        printed_album_title=printed_album_title,
-        people_positions=people_positions,
-        fallback_location_name=str(getattr(caption_output, "location_name", "") or "").strip(),
-        prompt_debug=prompt_debug,
-        debug_step="location",
-    )
     location_payload = _resolve_location_payload(
         geocoder=geocoder,
         gps_latitude=gps_latitude,
