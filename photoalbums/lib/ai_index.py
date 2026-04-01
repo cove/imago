@@ -219,6 +219,26 @@ class ArchiveScanOCRAuthority:
     stitched_image_path: Path | None = None
 
 
+@dataclass
+class _BatchContext:
+    """Shared state for one full ai-index run, passed to per-image path functions."""
+
+    defaults: dict[str, Any]
+    dry_run: bool
+    stdout_only: bool
+    geocoder: NominatimGeocoder
+    stitch_cap_dir: Path
+    people_matcher_cache: dict
+    object_detector_cache: dict
+    ocr_engine_cache: dict
+    caption_engine_cache: dict
+    date_engine_cache: dict
+    archive_scan_ocr_cache: dict
+    printed_album_title_cache: dict
+    completed_times: list
+    total_files: int
+
+
 def _is_retryable_cast_store_write_error(exc: Exception) -> bool:
     if not isinstance(exc, OSError):
         return False
@@ -1115,6 +1135,23 @@ def _run_image_analysis(
                 debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
                 debug_step="ocr",
             )
+        if step_fn:
+            step_fn("location")
+        gps_latitude, gps_longitude, location_name = _resolve_location_metadata(
+            requested_caption_engine=requested_caption_engine,
+            caption_engine=caption_engine,
+            model_image_path=model_image_path,
+            people=list(extra_people_names or []),
+            objects=[],
+            ocr_text=ocr_text,
+            source_path=caption_source_path or people_source_path or image_path,
+            album_title=album_title,
+            printed_album_title=printed_album_title,
+            people_positions={},
+            fallback_location_name="",
+            prompt_debug=prompt_debug,
+            debug_step="location",
+        )
         combined_hint_text = " ".join(part for part in [str(people_hint_text or "").strip(), ocr_text] if part).strip()
         people_matches = (
             _match_people_with_cast_store_retry(
@@ -1210,21 +1247,6 @@ def _run_image_analysis(
     }
     if object_detector is not None:
         payload["object_model"] = str(object_detector.model_name)
-    gps_latitude, gps_longitude, location_name = _resolve_location_metadata(
-        requested_caption_engine=requested_caption_engine,
-        caption_engine=caption_engine,
-        model_image_path=model_image_path,
-        people=people_names,
-        objects=object_labels,
-        ocr_text=ocr_text,
-        source_path=caption_source_path or people_source_path or image_path,
-        album_title=album_title,
-        printed_album_title=printed_album_title,
-        people_positions=people_positions,
-        fallback_location_name=str(getattr(caption_output, "location_name", "") or "").strip(),
-        prompt_debug=prompt_debug,
-        debug_step="location",
-    )
     location_payload = _resolve_location_payload(
         geocoder=geocoder,
         gps_latitude=gps_latitude,
@@ -1237,9 +1259,9 @@ def _run_image_analysis(
     locations_shown, locations_shown_ran = _resolve_locations_shown(
         requested_caption_engine=requested_caption_engine,
         caption_engine=caption_engine,
-        model_image_path=model_image_path,
+        model_image_path=image_path,
         ocr_text=ocr_text,
-        source_path=source_path,
+        source_path=caption_source_path or people_source_path or image_path,
         prompt_debug=prompt_debug,
         debug_step="locations_shown",
     )
@@ -2108,6 +2130,19 @@ def run(argv: list[str] | None = None) -> int:
             and existing_sidecar_state is not None
         ):
             gps_update_only = True
+        if (
+            not gps_update_only
+            and not needs_full
+            and not source_refresh_required
+            and not date_refresh_required
+            and existing_sidecar_complete
+            and existing_sidecar_state is not None
+            and str(effective.get("caption_engine", defaults["caption_engine"])).lower() == "lmstudio"
+        ):
+            _det = existing_sidecar_state.get("detections") or {}
+            if isinstance(_det, dict) and _det.get("location_shown_ran") is not True:
+                gps_update_only = True
+                reprocess_reasons.append("missing_location_shown")
 
         if (
             not needs_full
@@ -2694,6 +2729,15 @@ def run(argv: list[str] | None = None) -> int:
                         prompt_debug=gps_prompt_debug,
                         debug_step="location_gps_step",
                     )
+                    gps_locations_shown, gps_locations_shown_ran = _resolve_locations_shown(
+                        requested_caption_engine=str(caption_key[0]),
+                        caption_engine=gps_caption_engine,
+                        model_image_path=gps_model_path,
+                        ocr_text=gps_ocr_text,
+                        source_path=image_path,
+                        prompt_debug=gps_prompt_debug,
+                        debug_step="locations_shown_gps_step",
+                    )
                 gps_location_payload = _resolve_location_payload(
                     geocoder=geocoder,
                     gps_latitude=gps_latitude,
@@ -2708,6 +2752,8 @@ def run(argv: list[str] | None = None) -> int:
                         gps_updated_det["location"] = gps_location_payload
                     elif "location" in gps_updated_det:
                         del gps_updated_det["location"]
+                    gps_updated_det["locations_shown"] = gps_locations_shown
+                    gps_updated_det["location_shown_ran"] = gps_locations_shown_ran
                     gps_subjects = _dedupe(
                         gps_object_labels + gps_ocr_keywords + ([gps_album_title] if gps_album_title else [])
                     )
