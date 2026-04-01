@@ -50,6 +50,7 @@ from .ai_location import (
     _merge_location_estimates,
     _resolve_location_metadata,
     _resolve_location_payload,
+    _resolve_locations_shown,
     _xmp_gps_to_decimal,
 )
 from .ai_processing_locks import (
@@ -1254,6 +1255,19 @@ def _run_image_analysis(
     )
     if location_payload:
         payload["location"] = location_payload
+    
+    locations_shown, locations_shown_ran = _resolve_locations_shown(
+        requested_caption_engine=requested_caption_engine,
+        caption_engine=caption_engine,
+        model_image_path=image_path,
+        ocr_text=ocr_text,
+        source_path=caption_source_path or people_source_path or image_path,
+        prompt_debug=prompt_debug,
+        debug_step="locations_shown",
+    )
+    payload["locations_shown"] = locations_shown
+    payload["location_shown_ran"] = locations_shown_ran
+    
     description = caption_output.text
     author_text = str(getattr(caption_output, "author_text", "") or "")
     scene_text = str(getattr(caption_output, "scene_text", "") or "")
@@ -1687,6 +1701,7 @@ def _run_scan_stitch_pass(
                         history_when=_xmp_timestamp_from_path(path),
                         image_width=stitch_img_w,
                         image_height=stitch_img_h,
+                        locations_shown=det.get("locations_shown") if det else None,
                     )
 
         except Exception as exc:
@@ -1767,6 +1782,7 @@ def _write_sidecar_and_record(
         ocr_ran=ocr_ran,
         people_detected=people_detected,
         people_identified=people_identified,
+        locations_shown=detections_payload.get("locations_shown") if detections_payload else None,
     )
     append_job_artifact(
         {
@@ -2114,8 +2130,26 @@ def run(argv: list[str] | None = None) -> int:
             and existing_sidecar_state is not None
         ):
             gps_update_only = True
+        if (
+            not gps_update_only
+            and not needs_full
+            and not source_refresh_required
+            and not date_refresh_required
+            and existing_sidecar_complete
+            and existing_sidecar_state is not None
+            and str(effective.get("caption_engine", defaults["caption_engine"])).lower() == "lmstudio"
+        ):
+            _det = existing_sidecar_state.get("detections") or {}
+            if isinstance(_det, dict) and _det.get("location_shown_ran") is not True:
+                gps_update_only = True
+                reprocess_reasons.append("missing_location_shown")
 
-        if not needs_full and not people_update_only and not gps_update_only and not isinstance(existing_sidecar_state, dict):
+        if (
+            not needs_full
+            and not people_update_only
+            and not gps_update_only
+            and not isinstance(existing_sidecar_state, dict)
+        ):
             skipped += 1
             if args.verbose and not stdout_only:
                 print(f"[{idx}/{len(files)}] skip  {image_path.name}")
@@ -2316,6 +2350,7 @@ def run(argv: list[str] | None = None) -> int:
                             people_detected=bool(review.get("people_detected")),
                             people_identified=bool(review.get("people_identified")),
                             ocr_lang=str(review.get("ocr_lang") or ""),
+                            locations_shown=refresh_detections.get("locations_shown") if refresh_detections else None,
                         )
 
                     if not dry_run:
@@ -2631,10 +2666,16 @@ def run(argv: list[str] | None = None) -> int:
             gps_ocr_text = _effective_sidecar_ocr_text(image_path, state)
             gps_ocr_keywords = list((det.get("ocr") or {}).get("keywords") or [])
             gps_people_names = _dedupe(
-                [str(r.get("name") or "") for r in list(det.get("people") or []) if isinstance(r, dict) and r.get("name")]
+                [
+                    str(r.get("name") or "")
+                    for r in list(det.get("people") or [])
+                    if isinstance(r, dict) and r.get("name")
+                ]
             )
             gps_object_labels = [
-                str(r.get("label") or "") for r in list(det.get("objects") or []) if isinstance(r, dict) and r.get("label")
+                str(r.get("label") or "")
+                for r in list(det.get("objects") or [])
+                if isinstance(r, dict) and r.get("label")
             ]
             gps_album_title = str(state.get("album_title") or "").strip()
             gps_printed_title = _resolve_album_printed_title_hint(image_path, printed_album_title_cache)
@@ -2688,6 +2729,15 @@ def run(argv: list[str] | None = None) -> int:
                         prompt_debug=gps_prompt_debug,
                         debug_step="location_gps_step",
                     )
+                    gps_locations_shown, gps_locations_shown_ran = _resolve_locations_shown(
+                        requested_caption_engine=str(caption_key[0]),
+                        caption_engine=gps_caption_engine,
+                        model_image_path=gps_model_path,
+                        ocr_text=gps_ocr_text,
+                        source_path=image_path,
+                        prompt_debug=gps_prompt_debug,
+                        debug_step="locations_shown_gps_step",
+                    )
                 gps_location_payload = _resolve_location_payload(
                     geocoder=geocoder,
                     gps_latitude=gps_latitude,
@@ -2702,6 +2752,8 @@ def run(argv: list[str] | None = None) -> int:
                         gps_updated_det["location"] = gps_location_payload
                     elif "location" in gps_updated_det:
                         del gps_updated_det["location"]
+                    gps_updated_det["locations_shown"] = gps_locations_shown
+                    gps_updated_det["location_shown_ran"] = gps_locations_shown_ran
                     gps_subjects = _dedupe(
                         gps_object_labels + gps_ocr_keywords + ([gps_album_title] if gps_album_title else [])
                     )
@@ -2730,7 +2782,9 @@ def run(argv: list[str] | None = None) -> int:
                         detections_payload=gps_updated_det,
                         stitch_key=str(state.get("stitch_key") or ""),
                         ocr_authority_source=str(state.get("ocr_authority_source") or ""),
-                        create_date=(str(state.get("create_date") or "").strip() or read_embedded_create_date(image_path)),
+                        create_date=(
+                            str(state.get("create_date") or "").strip() or read_embedded_create_date(image_path)
+                        ),
                         dc_date=str(state.get("dc_date") or ""),
                         date_time_original=str(state.get("date_time_original") or ""),
                         ocr_ran=bool(state.get("ocr_ran")),

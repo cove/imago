@@ -24,7 +24,7 @@ from .matching import (
     suggest_people_from_prototypes,
 )
 from .storage import TextFaceStore, face_is_human_reviewed, face_review_status
-from .xmp_writer import merge_persons_xmp, read_person_in_image, read_xmp_description
+from .xmp_writer import merge_persons_xmp, read_person_in_image
 
 _HERE = Path(__file__).resolve().parent
 _STATIC = _HERE / "static"
@@ -142,7 +142,13 @@ class CastHTTPServer(ThreadingHTTPServer):
         self.store = store
         self.ingestor = FaceIngestor(store, require_primary_model=True)
         self.lmstudio_url = str(lmstudio_url or DEFAULT_LMSTUDIO_URL).strip()
+        self._preload_face_chunks()
         super().__init__((host, int(port)), CastHandler)
+
+    def _preload_face_chunks(self) -> None:
+        manifest = self.store._load_manifest()
+        for idx in set(manifest.values()):
+            self.store._read_chunk(idx)
 
 
 class CastHandler(BaseHTTPRequestHandler):
@@ -811,20 +817,10 @@ class CastHandler(BaseHTTPRequestHandler):
                 if display_name.casefold() in {str(name or "").casefold() for name in existing}
                 else existing + [display_name]
             )
-            updated_description: str | None = None
-            if self.lmstudio_url:
-                old_desc = read_xmp_description(xmp_path)
-                if old_desc:
-                    updated_description = _rewrite_description_via_lmstudio(
-                        old_desc,
-                        all_names,
-                        base_url=self.lmstudio_url,
-                    )
             merge_persons_xmp(
                 xmp_path,
                 all_names,
                 creator_tool="cast-review",
-                description=updated_description,
             )
             verified_names = read_person_in_image(xmp_path)
             if display_name.casefold() not in {str(name or "").casefold() for name in verified_names}:
