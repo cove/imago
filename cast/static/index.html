@@ -955,6 +955,13 @@
         } else {
           appState.selected_review_ids.delete(key);
         }
+        const row = document.querySelector(`tr[data-review-id="${CSS.escape(key)}"]`);
+        if (row) {
+          const checkbox = row.querySelector(".review-select-checkbox");
+          if (checkbox instanceof HTMLInputElement) {
+            checkbox.checked = checked;
+          }
+        }
         renderReviewSelectionSummary();
       }
 
@@ -978,6 +985,13 @@
           } else {
             appState.selected_review_ids.delete(reviewId);
           }
+          const row = document.querySelector(`tr[data-review-id="${CSS.escape(reviewId)}"]`);
+          if (row) {
+            const checkbox = row.querySelector(".review-select-checkbox");
+            if (checkbox instanceof HTMLInputElement) {
+              checkbox.checked = checked;
+            }
+          }
         }
         renderReviewSelectionSummary();
       }
@@ -993,8 +1007,15 @@
           } else {
             appState.selected_review_ids.delete(reviewId);
           }
+          const row = document.querySelector(`tr[data-review-id="${CSS.escape(reviewId)}"]`);
+          if (row) {
+            const checkbox = row.querySelector(".review-select-checkbox");
+            if (checkbox instanceof HTMLInputElement) {
+              checkbox.checked = checked;
+            }
+          }
         }
-        renderReviewQueue();
+        renderReviewSelectionSummary();
       }
 
       function handleReviewTableClick(event) {
@@ -1014,7 +1035,6 @@
         if (checkbox instanceof HTMLInputElement) {
           if (event.shiftKey && appState.last_selected_review_id) {
             setReviewSelectionRange(appState.last_selected_review_id, reviewId, checkbox.checked);
-            renderReviewQueue();
             appState.last_selected_review_id = reviewId;
             return;
           }
@@ -1028,12 +1048,10 @@
         const nextChecked = !appState.selected_review_ids.has(reviewId);
         if (event.shiftKey && appState.last_selected_review_id) {
           setReviewSelectionRange(appState.last_selected_review_id, reviewId, nextChecked);
-          renderReviewQueue();
           appState.last_selected_review_id = reviewId;
           return;
         }
         toggleReviewSelection(reviewId, nextChecked);
-        renderReviewQueue();
         appState.last_selected_review_id = reviewId;
       }
 
@@ -1043,6 +1061,22 @@
         updateDisplayedCounts();
         renderRuntimeStatus();
         renderReviewQueue();
+      }
+
+      function removeReviewRow(reviewId) {
+        const key = String(reviewId || "");
+        if (!key) {
+          return;
+        }
+        const row = document.querySelector(`tr[data-review-id="${CSS.escape(key)}"]`);
+        if (row) {
+          row.remove();
+        }
+        const tbody = document.querySelector("#review-table tbody");
+        if (tbody && tbody.children.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5">No pending review items.</td></tr>';
+        }
+        renderReviewSelectionSummary();
       }
 
       let refreshStateTimer = null;
@@ -1126,24 +1160,43 @@
           reviewBusyTimers.delete(key);
         }
         if (!busy) {
-          const hadSpinner = appState.busy_review_spinner_ids.delete(key);
-          const wasBusy = appState.busy_review_ids.delete(key);
-          if (hadSpinner || wasBusy) {
-            renderReviewQueue();
-          }
+          appState.busy_review_spinner_ids.delete(key);
+          appState.busy_review_ids.delete(key);
+          updateRowBusyState(key, false);
           return;
         }
         appState.busy_review_ids.add(key);
-        renderReviewQueue();
+        updateRowBusyState(key, true);
         const timer = setTimeout(() => {
           reviewBusyTimers.delete(key);
           if (!appState.busy_review_ids.has(key)) {
             return;
           }
           appState.busy_review_spinner_ids.add(key);
-          renderReviewQueue();
+          updateRowBusyState(key, true, true);
         }, 1000);
         reviewBusyTimers.set(key, timer);
+      }
+
+      function updateRowBusyState(reviewId, busy, showSpinner = false) {
+        const key = String(reviewId || "");
+        if (!key) {
+          return;
+        }
+        const row = document.querySelector(`tr[data-review-id="${CSS.escape(key)}"]`);
+        if (!row) {
+          return;
+        }
+        const buttons = row.querySelectorAll("button, select");
+        for (const btn of buttons) {
+          btn.disabled = busy;
+        }
+        if (showSpinner) {
+          const goodBtn = row.querySelector("button.good");
+          if (goodBtn) {
+            goodBtn.innerHTML = reviewBusyButtonLabel(goodBtn.textContent.trim(), true);
+          }
+        }
       }
 
       function renderReviewQueue() {
@@ -1267,8 +1320,13 @@
           }
 
           appState.selected_review_ids = new Set();
-          refreshReviewUi();
-          scheduleStateRefresh();
+          if (status === "skipped") {
+            refreshReviewUi();
+          } else {
+            for (const reviewId of reviewIds) {
+              removeReviewRow(reviewId);
+            }
+          }
           setStatus(`${reviewIds.length} review(s) updated as ${statusLabel}.`, "success");
         } catch (error) {
           setStatus(error.message, "error");
@@ -1342,7 +1400,7 @@
         }
         appState.skipped_review_ids.delete(key);
 
-        refreshReviewUi();
+        removeReviewRow(key);
       }
 
       async function resolveReview(reviewId, status, personId = "") {
@@ -1370,7 +1428,6 @@
           } else {
             setStatus(`Review ${shortId(key)} updated (${status}).`, "success");
           }
-          scheduleStateRefresh();
         } catch (error) {
           setStatus(error.message, "error");
         } finally {
