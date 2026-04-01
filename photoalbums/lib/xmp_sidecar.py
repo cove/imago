@@ -322,6 +322,31 @@ def _add_bag(parent: ET.Element, tag: str, values: list[str]) -> None:
         item.text = value
 
 
+def _add_locations_shown_bag(parent: ET.Element, locations: list[dict]) -> None:
+    """Add Iptc4xmpExt:LocationShown as a bag of LocationDetails structures."""
+    if not locations:
+        return
+    field = ET.SubElement(parent, f"{{{IPTC_EXT_NS}}}LocationShown")
+    bag = ET.SubElement(field, _RDF_BAG)
+    for loc in locations:
+        if not isinstance(loc, dict):
+            continue
+        li = ET.SubElement(bag, _RDF_LI)
+        li.set(f"{{{RDF_NS}}}parseType", "Resource")
+        if str(loc.get("world_region") or "").strip():
+            ET.SubElement(li, f"{{{IPTC_EXT_NS}}}WorldRegion").text = str(loc.get("world_region")).strip()
+        if str(loc.get("country_code") or "").strip():
+            ET.SubElement(li, f"{{{IPTC_EXT_NS}}}CountryCode").text = str(loc.get("country_code")).strip()
+        if str(loc.get("country_name") or "").strip():
+            ET.SubElement(li, f"{{{IPTC_EXT_NS}}}CountryName").text = str(loc.get("country_name")).strip()
+        if str(loc.get("province_or_state") or "").strip():
+            ET.SubElement(li, f"{{{IPTC_EXT_NS}}}ProvinceState").text = str(loc.get("province_or_state")).strip()
+        if str(loc.get("city") or "").strip():
+            ET.SubElement(li, f"{{{IPTC_EXT_NS}}}City").text = str(loc.get("city")).strip()
+        if str(loc.get("sublocation") or "").strip():
+            ET.SubElement(li, f"{{{IPTC_EXT_NS}}}Sublocation").text = str(loc.get("sublocation")).strip()
+
+
 def _add_alt_text(parent: ET.Element, tag: str, value: str) -> None:
     text = str(value or "").strip()
     if not text:
@@ -602,6 +627,7 @@ def build_xmp_tree(
     ocr_ran: bool = False,
     people_detected: bool = False,
     people_identified: bool = False,
+    locations_shown: list[dict] | None = None,
 ) -> ET.ElementTree:
     xmpmeta = ET.Element(f"{{{X_NS}}}xmpmeta")
     rdf = ET.SubElement(xmpmeta, _RDF_ROOT)
@@ -693,6 +719,7 @@ def build_xmp_tree(
         image_height,
     )
     _add_iptc_image_regions(desc, list(subphotos) if subphotos else [], image_width, image_height)
+    _add_locations_shown_bag(desc, list(locations_shown) if locations_shown else [])
     _add_processing_history(
         desc,
         _build_processing_history(
@@ -1103,6 +1130,7 @@ def _merge_xmp_tree(
     ocr_ran: bool = False,
     people_detected: bool = False,
     people_identified: bool = False,
+    locations_shown: list[dict] | None = None,
 ) -> ET.ElementTree:
     desc = _get_or_create_rdf_desc(tree)
     _set_bag(desc, f"{{{DC_NS}}}subject", subjects)
@@ -1161,6 +1189,7 @@ def _merge_xmp_tree(
         image_height,
     )
     _add_iptc_image_regions(desc, list(subphotos) if subphotos else [], image_width, image_height)
+    _add_locations_shown_bag(desc, list(locations_shown) if locations_shown else [])
     _set_processing_history(
         desc,
         _build_processing_history(
@@ -1220,6 +1249,7 @@ def write_xmp_sidecar(
     ocr_ran: bool = False,
     people_detected: bool = False,
     people_identified: bool = False,
+    locations_shown: list[dict] | None = None,
 ) -> Path:
     path = Path(sidecar_path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -1267,6 +1297,7 @@ def write_xmp_sidecar(
             ocr_ran=ocr_ran,
             people_detected=people_detected,
             people_identified=people_identified,
+            locations_shown=locations_shown,
         )
     else:
         tree = _merge_xmp_tree(

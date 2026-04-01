@@ -10,3 +10,11 @@ def allow_large_pillow_images(image_module=None):
         return None
     image.MAX_IMAGE_PIXELS = None
     return image
+
+
+try:
+    from PIL import Image
+
+    Image.MAX_IMAGE_PIXELS = None
+except Exception:
+    pass

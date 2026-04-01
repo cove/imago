@@ -70,22 +70,137 @@ def normalize_face_record(face: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
+_FACE_CHUNK_SIZE = 1000
+
+
+def _chunk_filename(index: int) -> str:
+    return f"faces_{index:04d}.jsonl"
+
+
 class TextFaceStore:
     """Small file-backed store for people, faces, and review queue."""
 
     def __init__(self, root_dir: str | Path):
         self.root_dir = Path(root_dir)
         self.people_path = self.root_dir / "people.json"
-        self.faces_path = self.root_dir / "faces.jsonl"
+        self.faces_queue_path = self.root_dir / "faces.jsonl"
         self.review_path = self.root_dir / "review_queue.jsonl"
         self._lock = threading.RLock()
+        self._face_manifest: dict[str, int] | None = None
+        self._chunk_cache: dict[int, list[dict[str, Any]]] = {}
+        self._chunk_dir = self.root_dir
+
+    @property
+    def _faces_manifest_path(self) -> Path:
+        return self.root_dir / "faces_manifest.json"
+
+    @property
+    def faces_path(self) -> Path:
+        return self.faces_queue_path
+
+    def _load_manifest(self) -> dict[str, int]:
+        if self._face_manifest is not None:
+            return self._face_manifest
+        manifest_path = self._faces_manifest_path
+        if manifest_path.exists():
+            try:
+                data = json.loads(manifest_path.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    self._face_manifest = {str(k): int(v) for k, v in data.items()}
+                    return self._face_manifest
+            except (json.JSONDecodeError, ValueError, TypeError):
+                pass
+        self._face_manifest = {}
+        return self._face_manifest
+
+    def _save_manifest(self, manifest: dict[str, int]) -> None:
+        self._face_manifest = manifest
+        self._write_json(self._faces_manifest_path, manifest)
+
+    def _chunk_path(self, index: int) -> Path:
+        return self._chunk_dir / _chunk_filename(index)
+
+    def _read_chunk(self, index: int) -> list[dict[str, Any]]:
+        if index in self._chunk_cache:
+            return self._chunk_cache[index]
+        path = self._chunk_path(index)
+        if not path.exists():
+            return []
+        rows = self._read_json(path)
+        self._chunk_cache[index] = rows
+        return rows
+
+    def _write_chunk(self, index: int, rows: list[dict[str, Any]]) -> None:
+        self._write_json(self._chunk_path(index), rows)
+        self._chunk_cache[index] = rows
+
+    def _migrate_queue_to_chunks(self) -> dict[str, int]:
+        queue_path = self.faces_queue_path
+        if not queue_path.exists():
+            return {"migrated": 0, "chunks": 0}
+        queue_rows = self._read_json(queue_path)
+        if not isinstance(queue_rows, list):
+            return {"migrated": 0, "chunks": 0}
+        if not queue_rows:
+            return {"migrated": 0, "chunks": 0}
+        manifest = self._load_manifest()
+        migrated = 0
+        chunk_index = 0
+        while queue_rows:
+            chunk_rows = queue_rows[:_FACE_CHUNK_SIZE]
+            queue_rows = queue_rows[_FACE_CHUNK_SIZE:]
+            for row in chunk_rows:
+                face_id = str(row.get("face_id") or "").strip()
+                if face_id:
+                    manifest[face_id] = chunk_index
+            self._write_chunk(chunk_index, chunk_rows)
+            chunk_index += 1
+            migrated += len(chunk_rows)
+        self._save_manifest(manifest)
+        queue_path.unlink(missing_ok=True)
+        return {"migrated": migrated, "chunks": chunk_index}
 
     def ensure_files(self) -> None:
         with self._lock:
             self.root_dir.mkdir(parents=True, exist_ok=True)
             self._ensure_json_file(self.people_path)
-            self._ensure_json_file(self.faces_path)
+            self._ensure_json_file(self.faces_queue_path)
             self._ensure_json_file(self.review_path)
+
+    def _read_all_faces(self) -> list[dict[str, Any]]:
+        manifest = self._load_manifest()
+        rows: list[dict[str, Any]] = []
+        chunk_indices = set(manifest.values()) if manifest else set()
+        for idx in chunk_indices:
+            chunk_rows = self._read_chunk(idx)
+            if isinstance(chunk_rows, list):
+                rows.extend(chunk_rows)
+        queue_rows = self._read_json(self.faces_queue_path)
+        if isinstance(queue_rows, list):
+            rows.extend(queue_rows)
+        return rows
+
+    def _write_all_faces(self, face_rows: list[dict[str, Any]]) -> None:
+        manifest = self._load_manifest()
+        while face_rows:
+            chunk_rows = face_rows[:_FACE_CHUNK_SIZE]
+            face_rows = face_rows[_FACE_CHUNK_SIZE:]
+            chunk_idx = len([p for p in manifest.values() if isinstance(p, int)])
+            for row in chunk_rows:
+                face_id = str(row.get("face_id") or "").strip()
+                if face_id:
+                    manifest[face_id] = chunk_idx
+            self._write_chunk(chunk_idx, chunk_rows)
+            chunk_idx += 1
+        self._save_manifest(manifest)
+        self.faces_queue_path.unlink(missing_ok=True)
+
+    def _clear_chunks(self) -> None:
+        manifest = self._load_manifest()
+        for idx in set(manifest.values()):
+            self._chunk_path(idx).unlink(missing_ok=True)
+        self._save_manifest({})
+        self._face_manifest = {}
 
     def _ensure_json_file(self, path: Path) -> None:
         if path.exists():
@@ -236,22 +351,57 @@ class TextFaceStore:
 
     def list_faces(self) -> list[dict[str, Any]]:
         with self._lock:
-            rows = self._read_json(self.faces_path)
-            if not isinstance(rows, list):
-                return []
+            manifest = self._load_manifest()
+            rows: list[dict[str, Any]] = []
+            chunk_indices = set(manifest.values()) if manifest else set()
+            for idx in chunk_indices:
+                chunk_rows = self._read_chunk(idx)
+                if isinstance(chunk_rows, list):
+                    rows.extend(chunk_rows)
+            queue_rows = self._read_json(self.faces_queue_path)
+            if isinstance(queue_rows, list):
+                rows.extend(queue_rows)
             return [normalize_face_record(row) for row in rows if isinstance(row, dict)]
 
     def get_face(self, face_id: str) -> dict[str, Any] | None:
-        for face in self.list_faces():
-            if str(face.get("face_id")) == str(face_id):
-                return face
-        return None
+        face_key = str(face_id or "").strip()
+        if not face_key:
+            return None
+        with self._lock:
+            manifest = self._load_manifest()
+            if face_key in manifest:
+                chunk_idx = manifest[face_key]
+                chunk_rows = self._read_chunk(chunk_idx)
+                for row in chunk_rows:
+                    if str(row.get("face_id")) == face_key:
+                        return normalize_face_record(row)
+            queue_rows = self._read_json(self.faces_queue_path)
+            if isinstance(queue_rows, list):
+                for row in queue_rows:
+                    if str(row.get("face_id")) == face_key:
+                        return normalize_face_record(row)
+            return None
 
     def list_faces_for_source(self, source_path: str) -> list[dict[str, Any]]:
         source_key = str(source_path or "").strip()
         if not source_key:
             return []
-        return [row for row in self.list_faces() if str(row.get("source_path") or "").strip() == source_key]
+        with self._lock:
+            manifest = self._load_manifest()
+            results: list[dict[str, Any]] = []
+            chunk_indices = set(manifest.values()) if manifest else set()
+            for idx in chunk_indices:
+                chunk_rows = self._read_chunk(idx)
+                if isinstance(chunk_rows, list):
+                    for row in chunk_rows:
+                        if str(row.get("source_path") or "").strip() == source_key:
+                            results.append(normalize_face_record(row))
+            queue_rows = self._read_json(self.faces_queue_path)
+            if isinstance(queue_rows, list):
+                for row in queue_rows:
+                    if str(row.get("source_path") or "").strip() == source_key:
+                        results.append(normalize_face_record(row))
+            return results
 
     def add_face(
         self,
@@ -287,11 +437,11 @@ class TextFaceStore:
             "updated_at": now,
         }
         with self._lock:
-            rows = self._read_json(self.faces_path)
+            rows = self._read_json(self.faces_queue_path)
             if not isinstance(rows, list):
                 rows = []
             rows.append(row)
-            self._write_json(self.faces_path, rows)
+            self._write_json(self.faces_queue_path, rows)
         return normalize_face_record(row)
 
     def update_face(self, face_id: str, **fields: Any) -> dict[str, Any]:
@@ -300,10 +450,40 @@ class TextFaceStore:
             raise ValueError("face_id is required.")
         now = utc_now_iso()
         with self._lock:
-            rows = self._read_json(self.faces_path)
-            if not isinstance(rows, list):
-                rows = []
-            for row in rows:
+            manifest = self._load_manifest()
+            if face_key in manifest:
+                chunk_idx = manifest[face_key]
+                rows = self._read_chunk(chunk_idx)
+                if not isinstance(rows, list):
+                    rows = []
+                for row in rows:
+                    if not isinstance(row, dict):
+                        continue
+                    if str(row.get("face_id")) != face_key:
+                        continue
+                    for key, value in dict(fields or {}).items():
+                        if key in {"face_id", "created_at"}:
+                            continue
+                        if key == "reviewed_by_human":
+                            row[key] = bool(value)
+                            continue
+                        if key == "review_status":
+                            row[key] = normalize_face_review_status(
+                                value,
+                                person_id=row.get("person_id"),
+                            )
+                            continue
+                        if key == "reviewed_at":
+                            row[key] = str(value or "").strip()
+                            continue
+                        row[key] = value
+                    row["updated_at"] = now
+                    self._write_chunk(chunk_idx, rows)
+                    return normalize_face_record(row)
+            queue_rows = self._read_json(self.faces_queue_path)
+            if not isinstance(queue_rows, list):
+                queue_rows = []
+            for row in queue_rows:
                 if not isinstance(row, dict):
                     continue
                 if str(row.get("face_id")) != face_key:
@@ -325,7 +505,7 @@ class TextFaceStore:
                         continue
                     row[key] = value
                 row["updated_at"] = now
-                self._write_json(self.faces_path, rows)
+                self._write_json(self.faces_queue_path, queue_rows)
                 return normalize_face_record(row)
         raise ValueError(f"Unknown face_id: {face_key}")
 
@@ -346,10 +526,37 @@ class TextFaceStore:
         if review_status is not None:
             normalized_status = normalize_face_review_status(review_status, person_id=person_key)
         with self._lock:
-            rows = self._read_json(self.faces_path)
-            if not isinstance(rows, list):
-                rows = []
-            for row in rows:
+            manifest = self._load_manifest()
+            if face_key in manifest:
+                chunk_idx = manifest[face_key]
+                rows = self._read_chunk(chunk_idx)
+                if not isinstance(rows, list):
+                    rows = []
+                for row in rows:
+                    if not isinstance(row, dict):
+                        continue
+                    if str(row.get("face_id")) != face_key:
+                        continue
+                    row["person_id"] = person_key
+                    if normalized_status is not None:
+                        row["review_status"] = normalized_status
+                        if normalized_status in {"ignored", "rejected"}:
+                            row["person_id"] = None
+                    elif reviewed_by_human is True and person_key:
+                        row["review_status"] = "confirmed"
+                    if reviewed_by_human is not None:
+                        row["reviewed_by_human"] = bool(reviewed_by_human)
+                        row["reviewed_at"] = now if bool(reviewed_by_human) else ""
+                    elif normalized_status in FACE_REVIEW_STATUSES:
+                        row["reviewed_by_human"] = True
+                        row["reviewed_at"] = now
+                    row["updated_at"] = now
+                    self._write_chunk(chunk_idx, rows)
+                    return normalize_face_record(row)
+            queue_rows = self._read_json(self.faces_queue_path)
+            if not isinstance(queue_rows, list):
+                queue_rows = []
+            for row in queue_rows:
                 if not isinstance(row, dict):
                     continue
                 if str(row.get("face_id")) != face_key:
@@ -368,7 +575,7 @@ class TextFaceStore:
                     row["reviewed_by_human"] = True
                     row["reviewed_at"] = now
                 row["updated_at"] = now
-                self._write_json(self.faces_path, rows)
+                self._write_json(self.faces_queue_path, queue_rows)
                 return normalize_face_record(row)
         raise ValueError(f"Unknown face_id: {face_key}")
 
@@ -540,7 +747,7 @@ class TextFaceStore:
                     "updated_faces": 0,
                 }
 
-            face_rows = self._read_json(self.faces_path)
+            face_rows = self._read_all_faces()
             if not isinstance(face_rows, list):
                 face_rows = []
 
@@ -562,7 +769,7 @@ class TextFaceStore:
                 raise ValueError("One or more review items reference an unknown face_id.")
 
             self._write_json(self.review_path, kept_reviews + matched_reviews)
-            self._write_json(self.faces_path, face_rows)
+            self._write_all_faces(face_rows)
             return {
                 "updated_reviews": int(len(matched_reviews)),
                 "updated_faces": int(updated_faces),
@@ -604,7 +811,7 @@ class TextFaceStore:
         removed_crops = 0
 
         with self._lock:
-            face_rows = self._read_json(self.faces_path)
+            face_rows = self._read_all_faces()
             if not isinstance(face_rows, list):
                 face_rows = []
             review_rows = self._read_json(self.review_path)
@@ -639,7 +846,7 @@ class TextFaceStore:
                     continue
                 kept_reviews.append(row)
 
-            self._write_json(self.faces_path, kept_faces)
+            self._write_all_faces(kept_faces)
             self._write_json(self.review_path, kept_reviews)
 
             if remove_crops:
@@ -668,7 +875,7 @@ class TextFaceStore:
         removed_crops = 0
 
         with self._lock:
-            face_rows = self._read_json(self.faces_path)
+            face_rows = self._read_all_faces()
             if not isinstance(face_rows, list):
                 face_rows = []
             review_rows = self._read_json(self.review_path)
@@ -705,7 +912,7 @@ class TextFaceStore:
                     continue
                 kept_reviews.append(row)
 
-            self._write_json(self.faces_path, kept_faces)
+            self._write_all_faces(kept_faces)
             self._write_json(self.review_path, kept_reviews)
 
             if remove_crops:

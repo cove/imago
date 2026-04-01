@@ -117,6 +117,14 @@ class LocationOutput:
     error: str = ""
 
 
+@dataclass
+class LocationsShownOutput:
+    engine: str
+    locations_shown: list[dict] | None = None
+    fallback: bool = False
+    error: str = ""
+
+
 class CaptionEngine:
     def __init__(
         self,
@@ -376,6 +384,68 @@ class CaptionEngine:
             finish_reason = str(getattr(self._captioner, "last_finish_reason", "") or "")
             error_text = str(exc)
             return LocationOutput(
+                engine=self.engine,
+                fallback=True,
+                error=error_text,
+            )
+        finally:
+            metadata = {}
+            if error_text:
+                metadata["error"] = error_text
+            _emit_prompt_debug(
+                debug_recorder,
+                step=debug_step,
+                engine=self.engine,
+                model=self.effective_model_name,
+                prompt=prompt,
+                system_prompt=location_system_prompt(),
+                source_path=source_path or image_path,
+                prompt_source=("custom" if self._caption_prompt else "skill"),
+                response=response,
+                finish_reason=finish_reason,
+                metadata=metadata,
+            )
+
+    def estimate_locations_shown(
+        self,
+        image_path: str | Path,
+        *,
+        ocr_text: str,
+        source_path: str | Path | None = None,
+        debug_recorder=None,
+        debug_step: str = "locations_shown",
+    ) -> LocationsShownOutput:
+        if self.engine != "lmstudio":
+            return LocationsShownOutput(
+                engine=self.engine,
+                fallback=True,
+                error=f"{self.engine.upper()} locations shown estimation is not implemented.",
+            )
+        self._ensure_captioner()
+        from ._caption_prompts import _build_location_shown_prompt
+        prompt = _build_location_shown_prompt()
+        response = ""
+        finish_reason = ""
+        error_text = ""
+        try:
+            locations_shown = self._captioner.estimate_locations_shown(  # type: ignore[attr-defined]
+                image_path=image_path,
+                prompt=prompt,
+                ocr_text=ocr_text,
+            )
+            response = str(getattr(self._captioner, "last_response_text", "") or "")
+            finish_reason = str(getattr(self._captioner, "last_finish_reason", "") or "")
+            result = LocationsShownOutput(
+                engine=self.engine,
+                locations_shown=getattr(locations_shown, "locations_shown", None),
+                fallback=False,
+            )
+            return result
+        except Exception as exc:
+            response = str(getattr(self._captioner, "last_response_text", "") or "")
+            finish_reason = str(getattr(self._captioner, "last_finish_reason", "") or "")
+            error_text = str(exc)
+            return LocationsShownOutput(
                 engine=self.engine,
                 fallback=True,
                 error=error_text,
