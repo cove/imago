@@ -1092,10 +1092,6 @@ def sidecar_has_expected_ai_fields(
             _looks_like_reasoning_or_prompt_echo = None
         if _looks_like_reasoning_or_prompt_echo is not None and _looks_like_reasoning_or_prompt_echo(field_value):
             return False
-    # Only require location_shown_ran if caption engine supports it (lmstudio)
-    if str(caption_engine or "").strip().lower() == "lmstudio":
-        if detections.get("location_shown_ran") is not True:
-            return False
     return True
 
 
