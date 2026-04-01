@@ -218,6 +218,26 @@ class ArchiveScanOCRAuthority:
     stitched_image_path: Path | None = None
 
 
+@dataclass
+class _BatchContext:
+    """Shared state for one full ai-index run, passed to per-image path functions."""
+
+    defaults: dict[str, Any]
+    dry_run: bool
+    stdout_only: bool
+    geocoder: NominatimGeocoder
+    stitch_cap_dir: Path
+    people_matcher_cache: dict
+    object_detector_cache: dict
+    ocr_engine_cache: dict
+    caption_engine_cache: dict
+    date_engine_cache: dict
+    archive_scan_ocr_cache: dict
+    printed_album_title_cache: dict
+    completed_times: list
+    total_files: int
+
+
 def _is_retryable_cast_store_write_error(exc: Exception) -> bool:
     if not isinstance(exc, OSError):
         return False
@@ -1209,6 +1229,8 @@ def _run_image_analysis(
     }
     if object_detector is not None:
         payload["object_model"] = str(object_detector.model_name)
+    if step_fn:
+        step_fn("location")
     gps_latitude, gps_longitude, location_name = _resolve_location_metadata(
         requested_caption_engine=requested_caption_engine,
         caption_engine=caption_engine,
