@@ -2109,7 +2109,12 @@ def run(argv: list[str] | None = None) -> int:
         ):
             gps_update_only = True
 
-        if not needs_full and not people_update_only and not gps_update_only and not isinstance(existing_sidecar_state, dict):
+        if (
+            not needs_full
+            and not people_update_only
+            and not gps_update_only
+            and not isinstance(existing_sidecar_state, dict)
+        ):
             skipped += 1
             if args.verbose and not stdout_only:
                 print(f"[{idx}/{len(files)}] skip  {image_path.name}")
@@ -2626,10 +2631,16 @@ def run(argv: list[str] | None = None) -> int:
             gps_ocr_text = _effective_sidecar_ocr_text(image_path, state)
             gps_ocr_keywords = list((det.get("ocr") or {}).get("keywords") or [])
             gps_people_names = _dedupe(
-                [str(r.get("name") or "") for r in list(det.get("people") or []) if isinstance(r, dict) and r.get("name")]
+                [
+                    str(r.get("name") or "")
+                    for r in list(det.get("people") or [])
+                    if isinstance(r, dict) and r.get("name")
+                ]
             )
             gps_object_labels = [
-                str(r.get("label") or "") for r in list(det.get("objects") or []) if isinstance(r, dict) and r.get("label")
+                str(r.get("label") or "")
+                for r in list(det.get("objects") or [])
+                if isinstance(r, dict) and r.get("label")
             ]
             gps_album_title = str(state.get("album_title") or "").strip()
             gps_printed_title = _resolve_album_printed_title_hint(image_path, printed_album_title_cache)
@@ -2725,7 +2736,9 @@ def run(argv: list[str] | None = None) -> int:
                         detections_payload=gps_updated_det,
                         stitch_key=str(state.get("stitch_key") or ""),
                         ocr_authority_source=str(state.get("ocr_authority_source") or ""),
-                        create_date=(str(state.get("create_date") or "").strip() or read_embedded_create_date(image_path)),
+                        create_date=(
+                            str(state.get("create_date") or "").strip() or read_embedded_create_date(image_path)
+                        ),
                         dc_date=str(state.get("dc_date") or ""),
                         date_time_original=str(state.get("date_time_original") or ""),
                         ocr_ran=bool(state.get("ocr_ran")),

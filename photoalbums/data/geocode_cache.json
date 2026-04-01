@@ -308,12 +308,34 @@
     "query": "Aswan, Egypt; Sorrento, Italy; Pompeii, Italy",
     "status": "miss"
   },
+  "athens, alabama": {
+    "city": "Athens",
+    "country": "United States",
+    "display_name": "Athens, Limestone County, Alabama, 35613, United States",
+    "latitude": "34.8045487",
+    "longitude": "-86.9711698",
+    "query": "Athens, Alabama",
+    "source": "nominatim",
+    "state": "Alabama",
+    "status": "ok"
+  },
   "athens, greece": {
     "display_name": "Αθήνα, Δήμος Αθηναίων, Περιφερειακή Ενότητα Κεντρικού Τομέα Αθηνών, Περιφέρεια Αττικής, Αποκεντρωμένη Διοίκηση Αττικής, 105 57, Ελλάς",
     "latitude": "37.9755648",
     "longitude": "23.7348324",
     "query": "Athens, Greece",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "austin, texas": {
+    "city": "Austin",
+    "country": "United States",
+    "display_name": "Austin, Travis County, Texas, United States",
+    "latitude": "30.2711286",
+    "longitude": "-97.7436995",
+    "query": "Austin, Texas",
+    "source": "nominatim",
+    "state": "Texas",
     "status": "ok"
   },
   "austria": {
@@ -693,6 +715,28 @@
   "bohemian section of belgrade": {
     "query": "Bohemian section of Belgrade",
     "status": "miss"
+  },
+  "boone hall": {
+    "city": "Macon",
+    "country": "United States",
+    "display_name": "Boone Hall, College Drive, Macon, Bibb County, Georgia, 31201, United States",
+    "latitude": "32.8307308",
+    "longitude": "-83.6468148",
+    "query": "Boone Hall",
+    "source": "nominatim",
+    "state": "Georgia",
+    "status": "ok"
+  },
+  "boone hall plantation": {
+    "city": "Mount Pleasant",
+    "country": "United States",
+    "display_name": "Boone Hall Plantation, Old Georgetown Road, Mount Pleasant, Charleston County, South Carolina, 29466, United States",
+    "latitude": "32.8541556",
+    "longitude": "-79.8171075",
+    "query": "Boone Hall Plantation",
+    "source": "nominatim",
+    "state": "South Carolina",
+    "status": "ok"
   },
   "boppard, germany": {
     "display_name": "Boppard, Rhein-Hunsrück-Kreis, Rheinland-Pfalz, 56154, Deutschland",
@@ -1499,6 +1543,43 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "chandelier tree, drive-thru tree park": {
+    "query": "Chandelier Tree, Drive-Thru Tree Park",
+    "status": "miss"
+  },
+  "charleston": {
+    "city": "Charleston",
+    "country": "United States",
+    "display_name": "Charleston, Charleston County, South Carolina, United States",
+    "latitude": "32.7884363",
+    "longitude": "-79.9399309",
+    "query": "Charleston",
+    "source": "nominatim",
+    "state": "South Carolina",
+    "status": "ok"
+  },
+  "charleston, south carolina": {
+    "city": "Charleston",
+    "country": "United States",
+    "display_name": "Charleston, Charleston County, South Carolina, United States",
+    "latitude": "32.7884363",
+    "longitude": "-79.9399309",
+    "query": "Charleston, South Carolina",
+    "source": "nominatim",
+    "state": "South Carolina",
+    "status": "ok"
+  },
+  "charleston, south carolina, united states": {
+    "city": "Charleston",
+    "country": "United States",
+    "display_name": "Charleston, Charleston County, South Carolina, United States",
+    "latitude": "32.7884363",
+    "longitude": "-79.9399309",
+    "query": "Charleston, South Carolina, United States",
+    "source": "nominatim",
+    "state": "South Carolina",
+    "status": "ok"
+  },
   "chendou": {
     "city": "Huaiji County",
     "country": "China",
@@ -1780,6 +1861,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "christmas 1984 - gloria's home - altadena": {
+    "query": "Christmas 1984 - Gloria's Home - Altadena",
+    "status": "miss"
+  },
   "christmas at roy & monica's 1956": {
     "query": "Christmas at Roy & Monica's 1956",
     "status": "miss"
@@ -1787,6 +1872,28 @@
   "church of santa marie della salute and the grand canal, venice italy": {
     "query": "Church of Santa Marie Della Salute and the Grand Canal, Venice Italy",
     "status": "miss"
+  },
+  "church street, charleston, south carolina": {
+    "city": "Charleston",
+    "country": "United States",
+    "display_name": "Church Street, King Street Antique District, French Quarter, Charleston, Charleston County, South Carolina, 29401, United States",
+    "latitude": "32.7757810",
+    "longitude": "-79.9291589",
+    "query": "Church Street, Charleston, South Carolina",
+    "source": "nominatim",
+    "state": "South Carolina",
+    "status": "ok"
+  },
+  "cincinnati, ohio": {
+    "city": "Cincinnati",
+    "country": "United States",
+    "display_name": "Cincinnati, Hamilton County, Ohio, United States",
+    "latitude": "39.1014537",
+    "longitude": "-84.5124602",
+    "query": "Cincinnati, Ohio",
+    "source": "nominatim",
+    "state": "Ohio",
+    "status": "ok"
   },
   "city and beach at torquay": {
     "query": "City and Beach at Torquay",
@@ -2268,6 +2375,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "disneyland": {
+    "city": "Anaheim",
+    "country": "United States",
+    "display_name": "Disneyland, 1313, South Harbor Boulevard, Anaheim Resort District, Anaheim, Orange County, California, 92802, United States",
+    "latitude": "33.8136512",
+    "longitude": "-117.9197351",
+    "query": "Disneyland",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
   "dolmabahçe palace": {
     "city": "Beşiktaş",
     "country": "Turkey",
@@ -2289,6 +2407,10 @@
   },
   "dolores' 9th birthday, july 31st 1956": {
     "query": "Dolores' 9th Birthday, July 31st 1956",
+    "status": "miss"
+  },
+  "dolores' baby shower may 15th 1982": {
+    "query": "Dolores' Baby Shower May 15th 1982",
     "status": "miss"
   },
   "dorset cottages, cerne abbas, hardy's birthplace, milton abbey, dorchester, cottage in the new forest, rose cottage, cockington, devon": {
@@ -2928,6 +3050,39 @@
     "query": "Entrance to the Tombs of Ramses VI - Ramses, Egypt",
     "status": "miss"
   },
+  "epcot": {
+    "city": "",
+    "country": "United States",
+    "display_name": "EPCOT, 200, Epcot Center Drive, Bay Lake, Orange County, Florida, 32821, United States",
+    "latitude": "28.3714061",
+    "longitude": "-81.5489587",
+    "query": "Epcot",
+    "source": "nominatim",
+    "state": "Florida",
+    "status": "ok"
+  },
+  "epcot, florida": {
+    "city": "",
+    "country": "United States",
+    "display_name": "EPCOT, 200, Epcot Center Drive, Bay Lake, Orange County, Florida, 32821, United States",
+    "latitude": "28.3714061",
+    "longitude": "-81.5489587",
+    "query": "Epcot, Florida",
+    "source": "nominatim",
+    "state": "Florida",
+    "status": "ok"
+  },
+  "epcot, walt disney world resort": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Walt Disney World Dolphin Resort, 1500, Epcot Resorts Boulevard, Bay Lake, Orange County, Florida, 32830, United States",
+    "latitude": "28.3672705",
+    "longitude": "-81.5604748",
+    "query": "Epcot, Walt Disney World Resort",
+    "source": "nominatim",
+    "state": "Florida",
+    "status": "ok"
+  },
   "europe": {
     "display_name": "Europe",
     "latitude": "51.0000000",
@@ -3345,12 +3500,34 @@
     "query": "Gloria - Hollywood, Calif.",
     "status": "miss"
   },
+  "gloria's home": {
+    "city": "Oaxaca City",
+    "country": "Mexico",
+    "display_name": "Gloria's Home, Oaxaca City, Oaxaca, Mexico",
+    "latitude": "17.0389991",
+    "longitude": "-96.7120752",
+    "query": "Gloria's Home",
+    "source": "nominatim",
+    "state": "Oaxaca",
+    "status": "ok"
+  },
   "gran via, madrid, spain": {
     "display_name": "Gran Vía, Palacio, Centro, Madrid, Comunidad de Madrid, 28013, España",
     "latitude": "40.4231233",
     "longitude": "-3.7104199",
     "query": "Gran Via, Madrid, Spain",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "grand haven, michigan": {
+    "city": "Grand Haven",
+    "country": "United States",
+    "display_name": "Grand Haven, Ottawa County, Michigan, United States",
+    "latitude": "43.0630734",
+    "longitude": "-86.2283864",
+    "query": "Grand Haven, Michigan",
+    "source": "nominatim",
+    "state": "Michigan",
     "status": "ok"
   },
   "granville road, hong kong": {
@@ -3492,6 +3669,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "hemet, calif.": {
+    "city": "Hemet",
+    "country": "United States",
+    "display_name": "Hemet, Riverside County, California, United States",
+    "latitude": "33.7475203",
+    "longitude": "-116.9719684",
+    "query": "Hemet, Calif.",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
   "henley-on-thames": {
     "display_name": "Henley-on-Thames, South Oxfordshire, Oxfordshire, England, RG9 2AN, United Kingdom",
     "latitude": "51.5375786",
@@ -3523,6 +3711,10 @@
     "state": "",
     "status": "ok"
   },
+  "high battery street, charleston, south carolina": {
+    "query": "High Battery Street, Charleston, South Carolina",
+    "status": "miss"
+  },
   "high legh, cheshire, england": {
     "display_name": "High Legh, Cheshire East, England, United Kingdom",
     "latitude": "53.3479674",
@@ -3542,6 +3734,21 @@
   "high street, broadway, worcestershire, the cotswolds, stow-on-the-wold, england": {
     "query": "High Street, Broadway, Worcestershire, The Cotswolds, Stow-on-the-Wold, England",
     "status": "miss"
+  },
+  "highways of utah & colorado": {
+    "query": "Highways of Utah & Colorado",
+    "status": "miss"
+  },
+  "hilton hotel - waikiki beach": {
+    "city": "Honolulu",
+    "country": "United States",
+    "display_name": "Hilton Hotel - Waikiki Beach, Honolulu, Hawaii, United States",
+    "latitude": "21.2790937",
+    "longitude": "-157.8316409",
+    "query": "Hilton Hotel - Waikiki Beach",
+    "source": "nominatim",
+    "state": "Hawaii",
+    "status": "ok"
   },
   "hollywood": {
     "city": "Los Angeles",
@@ -3870,6 +4077,17 @@
     "state": "Indiana",
     "status": "ok"
   },
+  "indianapolis - indiana": {
+    "city": "Indianapolis",
+    "country": "United States",
+    "display_name": "Indianapolis, Marion County, Indiana, United States",
+    "latitude": "39.7683331",
+    "longitude": "-86.1583502",
+    "query": "INDIANAPOLIS - INDIANA",
+    "source": "nominatim",
+    "state": "Indiana",
+    "status": "ok"
+  },
   "indianapolis indiana": {
     "city": "Indianapolis",
     "country": "United States",
@@ -3881,6 +4099,17 @@
     "state": "Indiana",
     "status": "ok"
   },
+  "indianapolis, april 1985": {
+    "city": "Indianapolis",
+    "country": "United States",
+    "display_name": "April Lane, Marlin Meadows, Wanamaker, Indianapolis, Marion County, Indiana, 44623, United States",
+    "latitude": "39.7006600",
+    "longitude": "-86.0135430",
+    "query": "Indianapolis, April 1985",
+    "source": "nominatim",
+    "state": "Indiana",
+    "status": "ok"
+  },
   "indianapolis, indiana": {
     "city": "Indianapolis",
     "country": "United States",
@@ -3888,6 +4117,17 @@
     "latitude": "39.7683331",
     "longitude": "-86.1583502",
     "query": "Indianapolis, Indiana",
+    "source": "nominatim",
+    "state": "Indiana",
+    "status": "ok"
+  },
+  "indianapolis, indiana, united states": {
+    "city": "Indianapolis",
+    "country": "United States",
+    "display_name": "Indianapolis, Marion County, Indiana, United States",
+    "latitude": "39.7683331",
+    "longitude": "-86.1583502",
+    "query": "Indianapolis, Indiana, United States",
     "source": "nominatim",
     "state": "Indiana",
     "status": "ok"
@@ -3984,6 +4224,17 @@
     "longitude": "28.9758715",
     "query": "Istanbul, Turkey",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "jacksonville beach, florida": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Jacksonville Beach, Duval County, Florida, 32250, United States",
+    "latitude": "30.2946859",
+    "longitude": "-81.3931396",
+    "query": "Jacksonville Beach, Florida",
+    "source": "nominatim",
+    "state": "Florida",
     "status": "ok"
   },
   "jia yuguan, gansu, china": {
@@ -4464,6 +4715,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "knott's berry farm": {
+    "city": "Buena Park",
+    "country": "United States",
+    "display_name": "Knott's Berry Farm, 8039, Beach Boulevard, Buena Park, Orange County, California, 90620, United States",
+    "latitude": "33.8437507",
+    "longitude": "-118.0005672",
+    "query": "Knott's Berry Farm",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
   "kom ombo, egypt": {
     "display_name": "كوم أمبو, أسوان, 81611, مصر",
     "latitude": "24.4762478",
@@ -4566,6 +4828,17 @@
     "state": "California",
     "status": "ok"
   },
+  "lake tahoe, california": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Lake Tahoe, Placer County, California, United States",
+    "latitude": "39.0885405",
+    "longitude": "-120.0503528",
+    "query": "Lake Tahoe, California",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
   "lake windermere, bowness, the lake district": {
     "query": "Lake Windermere, Bowness, The Lake District",
     "status": "miss"
@@ -4664,6 +4937,14 @@
     "query": "Leopoldskron Castle",
     "source": "nominatim",
     "status": "ok"
+  },
+  "leslie's home & school in indianapolis": {
+    "query": "Leslie's home & school in Indianapolis",
+    "status": "miss"
+  },
+  "leslie's home and school in indianapolis": {
+    "query": "Leslie's home and school in Indianapolis",
+    "status": "miss"
   },
   "lhasa hotel, lhasa, tibet, china": {
     "display_name": "InterContinental Lhasa Paradise, an IHG Hotel, 纳金路, 纳如社区, 纳金街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
@@ -5291,6 +5572,28 @@
   "madrid, spain; salamanca, spain": {
     "query": "Madrid, Spain; Salamanca, Spain",
     "status": "miss"
+  },
+  "magnolia plantation and gardens": {
+    "city": "Charleston",
+    "country": "United States",
+    "display_name": "Magnolia Plantation and Gardens, 3500, Ashley River Road, Charleston, Charleston County, South Carolina, 29414, United States",
+    "latitude": "32.8746113",
+    "longitude": "-80.0832425",
+    "query": "Magnolia Plantation and Gardens",
+    "source": "nominatim",
+    "state": "South Carolina",
+    "status": "ok"
+  },
+  "magnolia plantation and gardens, charleston county, s.c.": {
+    "city": "Charleston",
+    "country": "United States",
+    "display_name": "Magnolia Plantation and Gardens, 3500, Ashley River Road, Charleston, Charleston County, South Carolina, 29414, United States",
+    "latitude": "32.8746113",
+    "longitude": "-80.0832425",
+    "query": "Magnolia Plantation and Gardens, Charleston County, S.C.",
+    "source": "nominatim",
+    "state": "South Carolina",
+    "status": "ok"
   },
   "mainland china": {
     "display_name": "Mainland China, Shalimar Morya Park, Off New Link Road, Adarsh Nagar, Jogeshwari West, K/W Ward, Mumbai Zone 3, Mumbai, Mumbai Suburban District, Maharashtra, 400053, India",
@@ -5925,6 +6228,21 @@
     "query": "Old Roman Wall at Canterbury",
     "status": "miss"
   },
+  "old roman wall, rome, italy": {
+    "query": "Old Roman Wall, Rome, Italy",
+    "status": "miss"
+  },
+  "oregon redwoods": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Oregon Redwoods Trail, Curry County, Oregon, United States",
+    "latitude": "42.0117704",
+    "longitude": "-124.1530814",
+    "query": "Oregon Redwoods",
+    "source": "nominatim",
+    "state": "Oregon",
+    "status": "ok"
+  },
   "oriel college, oxford, england": {
     "display_name": "Oriel College, Oriel Square, Holywell, City Centre, Oxford, Oxfordshire, England, OX1 4EW, United Kingdom",
     "latitude": "51.7518310",
@@ -6067,6 +6385,21 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "palm springs, california": {
+    "city": "Palm Springs",
+    "country": "United States",
+    "display_name": "Palm Springs, Riverside County, California, United States",
+    "latitude": "33.8246269",
+    "longitude": "-116.5403030",
+    "query": "Palm Springs, California",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "palm springs, march 1983": {
+    "query": "Palm Springs, March 1983",
+    "status": "miss"
+  },
   "paris, france": {
     "display_name": "Paris, Île-de-France, France métropolitaine, France",
     "latitude": "48.8588897",
@@ -6142,6 +6475,28 @@
     "latitude": "34.1476507",
     "longitude": "-118.1441550",
     "query": "Pasadena, Calif.",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "pasadena, california": {
+    "city": "Pasadena",
+    "country": "United States",
+    "display_name": "Pasadena, Los Angeles County, California, United States",
+    "latitude": "34.1476507",
+    "longitude": "-118.1441550",
+    "query": "Pasadena, California",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "pasadena, california, usa": {
+    "city": "Pasadena",
+    "country": "United States",
+    "display_name": "Pasadena, Los Angeles County, California, United States",
+    "latitude": "34.1476507",
+    "longitude": "-118.1441550",
+    "query": "Pasadena, California, USA",
     "source": "nominatim",
     "state": "California",
     "status": "ok"
@@ -6716,6 +7071,17 @@
     "state": "England",
     "status": "ok"
   },
+  "riverside, calif.": {
+    "city": "Riverside",
+    "country": "United States",
+    "display_name": "Riverside, Riverside County, California, United States",
+    "latitude": "33.9824949",
+    "longitude": "-117.3742380",
+    "query": "Riverside, Calif.",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
   "rock of gibraltar": {
     "display_name": "Rock of Gibraltar, Gibraltar, GX11 1AA, Gibraltar",
     "latitude": "36.1285695",
@@ -6988,6 +7354,17 @@
     "query": "Salzburg, Austria; Prague, Czechoslovakia",
     "status": "miss"
   },
+  "san antonio, texas": {
+    "city": "San Antonio",
+    "country": "United States",
+    "display_name": "San Antonio, Bexar County, Texas, United States",
+    "latitude": "29.4246002",
+    "longitude": "-98.4951405",
+    "query": "San Antonio, Texas",
+    "source": "nominatim",
+    "state": "Texas",
+    "status": "ok"
+  },
   "san diego, california": {
     "city": "San Diego",
     "country": "United States",
@@ -7043,6 +7420,14 @@
     "state": "",
     "status": "ok"
   },
+  "san marino - march 1994": {
+    "query": "San Marino - March 1994",
+    "status": "miss"
+  },
+  "san marino march 1994": {
+    "query": "San Marino March 1994",
+    "status": "miss"
+  },
   "san marino, ca": {
     "city": "San Marino",
     "country": "United States",
@@ -7050,6 +7435,17 @@
     "latitude": "34.1215947",
     "longitude": "-118.1057390",
     "query": "San Marino, CA",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
+  "san marino, ca, usa": {
+    "city": "San Marino",
+    "country": "United States",
+    "display_name": "San Marino, Los Angeles County, California, 91108, United States",
+    "latitude": "34.1215947",
+    "longitude": "-118.1057390",
+    "query": "San Marino, CA, USA",
     "source": "nominatim",
     "state": "California",
     "status": "ok"
@@ -8211,6 +8607,10 @@
     "query": "The Bazzar at Aswan",
     "status": "miss"
   },
+  "the beautiful gardens at epcot": {
+    "query": "The Beautiful Gardens at Epcot",
+    "status": "miss"
+  },
   "the board walk at scarborough": {
     "query": "The Board Walk at Scarborough",
     "status": "miss"
@@ -9146,6 +9546,17 @@
     "state": "British Columbia",
     "status": "ok"
   },
+  "victoria b.c.canada": {
+    "city": "Victoria",
+    "country": "Canada",
+    "display_name": "Victoria, Capital Regional District, British Columbia, Canada",
+    "latitude": "48.4283182",
+    "longitude": "-123.3649530",
+    "query": "Victoria B.C.Canada",
+    "source": "nominatim",
+    "state": "British Columbia",
+    "status": "ok"
+  },
   "victoria embankment london": {
     "display_name": "Victoria Embankment, St Clement Danes, Covent Garden, City of Westminster, Greater London, England, WC2R 2NS, United Kingdom",
     "latitude": "51.5106223",
@@ -9324,6 +9735,17 @@
   "vnik, yugoslavia": {
     "query": "Vnik, Yugoslavia",
     "status": "miss"
+  },
+  "waikiki beach, honolulu, hawaii": {
+    "city": "Honolulu",
+    "country": "United States",
+    "display_name": "Waikiki Beach, Honolulu, Hawaii, Honolulu, Hawaii, United States",
+    "latitude": "21.2741046",
+    "longitude": "-157.8243118",
+    "query": "Waikiki Beach, Honolulu, Hawaii",
+    "source": "nominatim",
+    "state": "Hawaii",
+    "status": "ok"
   },
   "walkway to the buddha": {
     "query": "walkway to the buddha",
@@ -9544,6 +9966,10 @@
   },
   "windermere lake, bowness, the lake district, england": {
     "query": "Windermere Lake, Bowness, The Lake District, England",
+    "status": "miss"
+  },
+  "windmills on highway 5 just south of san francisco": {
+    "query": "Windmills on Highway 5 just south of San Francisco",
     "status": "miss"
   },
   "winnipeg to vancouver, canada": {

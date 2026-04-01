@@ -8,6 +8,8 @@ from pathlib import Path
 
 from photoalbums.lib.image_limits import allow_large_pillow_images
 
+warnings.filterwarnings("ignore", message=".*decompression bomb.*", category=UserWarning)
+
 _MAX_STITCH_IMAGE_PIXELS = str(1 << 40)
 # Album page scans can exceed OpenCV's default pixel guard; lift it for stitching.
 os.environ.setdefault("OPENCV_IO_MAX_IMAGE_PIXELS", _MAX_STITCH_IMAGE_PIXELS)
@@ -120,10 +122,32 @@ def output_is_valid(path: str | Path) -> bool:
     return path.exists() and path.stat().st_size > 0
 
 
+def validate_image_with_pillow(path: str | Path) -> bool:
+    _require_image_modules()
+    try:
+        with Image.open(path) as img:
+            img.verify()
+        return True
+    except Exception:
+        return False
+
+
+def _validate_and_retry(path: str | Path, max_retries: int = 1) -> bool:
+    for attempt in range(max_retries + 1):
+        if validate_image_with_pillow(path):
+            return True
+        if attempt < max_retries:
+            print(f"Validation failed for {path}, retrying ({attempt + 1}/{max_retries})...")
+    return False
+
+
 def _skip_existing_output(out: str | Path, label: str) -> bool:
     if output_is_valid(out):
-        print(f"{label} SKIP (existing output)")
-        return True
+        if validate_image_with_pillow(out):
+            print(f"{label} SKIP (existing output)")
+            return True
+        print(f"{label} RE-RENDER (existing output failed validation)")
+        return False
     return False
 
 
@@ -547,8 +571,14 @@ def tif_to_jpg(tif_path: str, output_dir: str) -> bool:
     if _skip_existing_output(out, label):
         return False
 
+    if not _validate_and_retry(tif_path):
+        raise RuntimeError(f"Input validation failed: {tif_path}")
+
     img = _read_stitch_image(tif_path)
     write_jpeg(img, out)
+
+    if not validate_image_with_pillow(out):
+        raise RuntimeError(f"Output validation failed: {out}")
 
     print(f"{label} OK")
     return True
@@ -573,6 +603,9 @@ def derived_to_jpg(src_path: str, output_dir: str) -> bool:
     if _skip_existing_output(out, label):
         return False
 
+    if not _validate_and_retry(src_path):
+        raise RuntimeError(f"Input validation failed: {src_path}")
+
     img = _read_stitch_image(src_path)
 
     original_size = os.path.getsize(src_path)
@@ -582,6 +615,9 @@ def derived_to_jpg(src_path: str, output_dir: str) -> bool:
     while os.path.exists(out) and os.path.getsize(out) >= original_size and quality > 40:
         quality -= 10
         write_jpeg(img, out, quality=quality)
+
+    if not validate_image_with_pillow(out):
+        raise RuntimeError(f"Output validation failed: {out}")
 
     print(f"{label} OK")
     return True
@@ -601,8 +637,15 @@ def stitch(files, output_dir: str) -> bool:
     if _skip_existing_output(out, label):
         return False
 
+    for f in files:
+        if not _validate_and_retry(f):
+            raise RuntimeError(f"Input validation failed: {f}")
+
     result = build_stitched_image(files)
     write_jpeg(result, out)
+
+    if not validate_image_with_pillow(out):
+        raise RuntimeError(f"Output validation failed: {out}")
 
     print(f"{label} OK")
     return True
