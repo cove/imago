@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import subprocess
 import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+
+from photoalbums.lib.ai_processing_locks import _cleanup_stale_processing_locks
 
 REPO_ROOT = Path(__file__).resolve().parent
 JOBS_DIR = REPO_ROOT / "mcp" / "jobs"
@@ -40,12 +44,16 @@ class JobRunner:
         if self._jobs_state.exists():
             try:
                 data = self._read_disk_jobs()
+                interrupted_jobs: list[dict] = []
                 for job in data.values():
                     if job["status"] in ("pending", "running"):
                         pid = job.get("pid")
                         if not pid or not self._pid_alive(pid):
                             job["status"] = "interrupted"
+                            interrupted_jobs.append(job)
                 self._jobs = data
+                for job in interrupted_jobs:
+                    self._cleanup_job_artifacts(job)
             except Exception:
                 self._jobs = {}
         self._save_state()  # always write back: creates file if missing, persists interrupted status
@@ -63,6 +71,38 @@ class JobRunner:
         tmp_path = self._jobs_state.with_suffix(".json.tmp")
         tmp_path.write_text(json.dumps(self._jobs, indent=2), encoding="utf-8")
         os.replace(tmp_path, self._jobs_state)
+
+    @staticmethod
+    def _job_cleanup_metadata(args: list[str]) -> dict[str, str] | None:
+        if len(args) < 5:
+            return None
+        script_path = Path(str(args[1]))
+        if script_path.name != "photoalbums.py":
+            return None
+        if [str(part) for part in args[2:4]] != ["ai", "index"]:
+            return None
+        try:
+            photos_root = str(args[args.index("--photos-root") + 1]).strip()
+        except (ValueError, IndexError):
+            return None
+        if not photos_root:
+            return None
+        return {
+            "kind": "photoalbums_ai_locks",
+            "photos_root": photos_root,
+        }
+
+    @staticmethod
+    def _cleanup_job_artifacts(job: dict) -> None:
+        cleanup = job.get("cleanup")
+        if not isinstance(cleanup, dict):
+            return
+        if str(cleanup.get("kind") or "").strip() != "photoalbums_ai_locks":
+            return
+        photos_root = Path(str(cleanup.get("photos_root") or "").strip())
+        if not str(photos_root):
+            return
+        _cleanup_stale_processing_locks(photos_root)
 
     def start(
         self,
@@ -87,6 +127,9 @@ class JobRunner:
             "log_file": str(log_path),
             "artifact_file": str(artifact_path),
         }
+        cleanup = self._job_cleanup_metadata(args)
+        if cleanup is not None:
+            job["cleanup"] = cleanup
 
         env = os.environ.copy()
         env["IMAGO_JOB_ID"] = job_id
@@ -170,3 +213,39 @@ class JobRunner:
             self._jobs = {**self._read_disk_jobs(), **self._jobs}
             jobs = list(self._jobs.values())
         return sorted(jobs, key=lambda j: j.get("started_at", ""), reverse=True)
+
+    def shutdown(self, wait_timeout_seconds: float = 5.0) -> None:
+        """Terminate running jobs and clean up any stale lock files they leave behind."""
+        with self._lock:
+            processes = dict(self._processes)
+            jobs = {job_id: self._jobs.get(job_id) for job_id in processes}
+
+        if not processes:
+            return
+
+        for proc in processes.values():
+            with contextlib.suppress(Exception):
+                proc.terminate()
+
+        deadline = time.monotonic() + max(0.0, float(wait_timeout_seconds))
+        for proc in processes.values():
+            remaining = max(0.0, deadline - time.monotonic())
+            with contextlib.suppress(Exception):
+                proc.wait(timeout=remaining)
+
+        ended_at = datetime.now(timezone.utc).isoformat()
+        with self._lock:
+            for job_id, proc in processes.items():
+                job = self._jobs.get(job_id)
+                if isinstance(job, dict) and job.get("status") in ("pending", "running"):
+                    job["status"] = "interrupted"
+                    job["ended_at"] = job.get("ended_at") or ended_at
+                    returncode = getattr(proc, "returncode", None)
+                    if isinstance(returncode, int) and job.get("exit_code") is None:
+                        job["exit_code"] = returncode
+                self._processes.pop(job_id, None)
+            self._save_state()
+
+        for job in jobs.values():
+            if isinstance(job, dict):
+                self._cleanup_job_artifacts(job)

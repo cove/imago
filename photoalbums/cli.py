@@ -8,7 +8,7 @@ AI_STEP_LINES = [
     "2. Match known people from Cast face embeddings (optional).",
     "3. Detect visual objects with YOLO (optional).",
     "4. Generate OCR text and sentence caption in one combined model call.",
-    "5. Estimate GPS location from image content and context (re-runnable via --reprocess-mode=gps).",
+    "5. Estimate GPS location from image content and context (re-runnable via --reprocess-mode=gps or `ai gps`).",
     "6. Geocode location name to GPS coordinates via Nominatim.",
     "7. Write XMP sidecar metadata (including processing state).",
 ]
@@ -60,6 +60,18 @@ def build_parser() -> argparse.ArgumentParser:
     metadata_sub = metadata_parser.add_subparsers(dest="metadata_kind", required=True)
     metadata_sub.add_parser("apply", help="Apply standardized metadata tags to TIFF scans")
     metadata_sub.add_parser("tsv", help="Export archive metadata into metadata.tsv")
+    map_parser = metadata_sub.add_parser("map", help="Launch a local Web UI map to manually drag-and-drop GPS locations")
+    map_parser.add_argument(
+        "paths",
+        nargs="+",
+        help="Directories or .xmp files to load into the map",
+    )
+    map_parser.add_argument(
+        "--port",
+        type=int,
+        default=8095,
+        help="Port to run the HTTP map server on (default 8095)",
+    )
 
     subparsers.add_parser("compress", help="Compress TIFF scans in-place where needed")
 
@@ -103,6 +115,8 @@ def main(argv: list[str] | None = None) -> int:
         if forwarded and forwarded[0] == "steps":
             _print_ai_steps()
             return 0
+        if forwarded and forwarded[0] == "gps":
+            forwarded = ["--reprocess-mode", "gps", *forwarded[1:]]
         if forwarded and forwarded[0] == "index":
             forwarded = forwarded[1:]
         elif forwarded and not str(forwarded[0]).startswith("-"):
@@ -117,6 +131,8 @@ def main(argv: list[str] | None = None) -> int:
             return commands.run_apply_metadata()
         if args.metadata_kind == "tsv":
             return commands.run_create_metadata_tsv()
+        if args.metadata_kind == "map":
+            return commands.run_metadata_map(paths=args.paths, port=args.port)
 
     if args.group == "compress":
         return commands.run_compress_tiff()

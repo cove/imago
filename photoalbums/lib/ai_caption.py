@@ -24,6 +24,7 @@ from ._caption_lmstudio import (  # noqa: F401
     _resize_caption_image,
     _select_lmstudio_model,
     location_system_prompt,
+    location_shown_system_prompt,
     normalize_lmstudio_base_url,
     people_count_system_prompt,
 )
@@ -423,7 +424,8 @@ class CaptionEngine:
             )
         self._ensure_captioner()
         from ._caption_prompts import _build_location_shown_prompt
-        prompt = _build_location_shown_prompt()
+
+        prompt = _build_location_shown_prompt(ocr_text=ocr_text)
         response = ""
         finish_reason = ""
         error_text = ""
@@ -431,7 +433,6 @@ class CaptionEngine:
             locations_shown = self._captioner.estimate_locations_shown(  # type: ignore[attr-defined]
                 image_path=image_path,
                 prompt=prompt,
-                ocr_text=ocr_text,
             )
             response = str(getattr(self._captioner, "last_response_text", "") or "")
             finish_reason = str(getattr(self._captioner, "last_finish_reason", "") or "")
@@ -460,7 +461,7 @@ class CaptionEngine:
                 engine=self.engine,
                 model=self.effective_model_name,
                 prompt=prompt,
-                system_prompt=location_system_prompt(),
+                system_prompt=location_shown_system_prompt(),
                 source_path=source_path or image_path,
                 prompt_source=("custom" if self._caption_prompt else "skill"),
                 response=response,

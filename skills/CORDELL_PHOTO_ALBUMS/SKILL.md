@@ -252,11 +252,14 @@ clearly: which photo, what the symptom is, and what the likely cause is.
 ## Preamble Location Shown
 - Identify distinct famous locations visible in the photographs on this page.
 - Examples: landmarks, monuments, city skylines, famous natural features, iconic buildings.
-- OCR text hints about the general location are provided to help identify specific famous locations.
+- OCR text hints about the general location are provided to help identify specific famous locations, often these hints are the exact name of the location or landmark and little other work is needed.
 - Only include locations that are well-known and can be identified with reasonable confidence.
+- Include `name` when the landmark or place itself can be named, not just the city or country.
+- Use `name` for the full location name, for example `Tower Bridge`, `Westminster Abbey`, or `St. Mark's Square`.
+- Leave `name` empty when only the broader city or country can be identified.
 
 ## Output Format – Location Shown
-`{"locations_shown": [{"world_region": "", "country_name": "", "country_code": "", "province_or_state": "", "city": "", "sublocation": ""}]}`
+`{"locations_shown": [{"name": "", "world_region": "", "country_name": "", "country_code": "", "province_or_state": "", "city": "", "sublocation": ""}]}`
 
 - Return empty array if no famous locations are identifiable.
 - Each location should include as many hierarchical levels as known.

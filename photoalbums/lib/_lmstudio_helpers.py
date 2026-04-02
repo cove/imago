@@ -39,7 +39,7 @@ def single_string_response_format(*, schema_name: str, field_name: str) -> dict[
         "type": "json_schema",
         "json_schema": {
             "name": str(schema_name),
-            "strict": "true",
+            "strict": True,
             "schema": {
                 "type": "object",
                 "properties": {

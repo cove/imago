@@ -31,6 +31,16 @@ class TestPhotoalbumsCLI(unittest.TestCase):
         self.assertEqual(rc, 0)
         fake.run_ai_index.assert_called_once_with(["--max-images", "5", "--dry-run"])
 
+    def test_ai_gps_forwards_reprocess_mode(self):
+        fake = mock.Mock()
+        fake.run_ai_index.return_value = 0
+
+        with mock.patch("cli._import_commands", return_value=fake):
+            rc = cli.main(["ai", "gps", "--max-images", "2", "--dry-run"])
+
+        self.assertEqual(rc, 0)
+        fake.run_ai_index.assert_called_once_with(["--reprocess-mode", "gps", "--max-images", "2", "--dry-run"])
+
     def test_ai_help_forwards_to_ai_index(self):
         fake = mock.Mock()
         fake.run_ai_index.return_value = 0

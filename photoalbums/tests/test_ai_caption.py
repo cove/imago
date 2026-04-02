@@ -239,6 +239,36 @@ class TestAICaption(unittest.TestCase):
         self.assertEqual(records[0]["response"], fake_lmstudio.last_response_text)
         self.assertEqual(records[0]["finish_reason"], "stop")
 
+    def test_estimate_locations_shown_records_correct_system_prompt_and_ocr_hints(self):
+        fake_lmstudio = mock.Mock()
+        fake_lmstudio.estimate_locations_shown.return_value = ai_caption.CaptionDetails(
+            text="",
+            locations_shown=[{"name": "Hassan II Mosque", "country_name": "Morocco"}],
+        )
+        fake_lmstudio._resolved_model_name = ""
+        fake_lmstudio.last_response_text = '{"locations_shown":[{"name":"Hassan II Mosque","country_name":"Morocco"}]}'
+        fake_lmstudio.last_finish_reason = "stop"
+        records = []
+        with mock.patch("photoalbums.lib.ai_caption.LMStudioCaptioner", return_value=fake_lmstudio):
+            engine = ai_caption.CaptionEngine(
+                engine="lmstudio",
+                model_name="qwen/qwen3.5-9b",
+            )
+            engine.estimate_locations_shown(
+                image_path="sample.jpg",
+                ocr_text="EASTERN EUROPE SPAIN AND MOROCCO 1988",
+                source_path="sample.jpg",
+                debug_recorder=lambda **row: records.append(row),
+                debug_step="locations_shown_refresh",
+            )
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["step"], "locations_shown_refresh")
+        self.assertEqual(records[0]["system_prompt"], ai_caption.location_shown_system_prompt())
+        self.assertIn("- OCR text hints about the general location:", records[0]["prompt"])
+        self.assertIn("EASTERN EUROPE SPAIN AND MOROCCO 1988", records[0]["prompt"])
+        self.assertEqual(records[0]["response"], fake_lmstudio.last_response_text)
+        self.assertEqual(records[0]["finish_reason"], "stop")
+
     def test_lmstudio_captioner_posts_chat_completion_request(self):
         response_payload = {
             "choices": [
@@ -277,7 +307,7 @@ class TestAICaption(unittest.TestCase):
             self.assertEqual(payload["messages"][0]["content"], "")
             self.assertEqual(payload["response_format"]["type"], "json_schema")
             self.assertEqual(payload["response_format"]["json_schema"]["name"], "caption_payload")
-            self.assertEqual(payload["response_format"]["json_schema"]["strict"], "true")
+            self.assertEqual(payload["response_format"]["json_schema"]["strict"], True)
             self.assertEqual(
                 payload["messages"][1]["content"][0]["text"],
                 "Describe this exact image",
@@ -526,6 +556,119 @@ class TestAICaption(unittest.TestCase):
         self.assertEqual(details.location_name, "Mogao Caves, Dunhuang, Gansu, China")
         self.assertEqual(details.gps_latitude, "39.9361")
         self.assertEqual(details.gps_longitude, "94.8076")
+
+    def test_lmstudio_captioner_posts_locations_shown_request_with_ocr_hints(self):
+        response_payload = {
+            "choices": [
+                {
+                    "message": {
+                        "content": json.dumps(
+                            {
+                                "locations_shown": [
+                                    {
+                                        "name": "Hassan II Mosque",
+                                        "world_region": "Africa",
+                                        "country_name": "Morocco",
+                                        "country_code": "MA",
+                                        "province_or_state": "",
+                                        "city": "",
+                                        "sublocation": "",
+                                    }
+                                ]
+                            }
+                        )
+                    }
+                }
+            ]
+        }
+
+        class _FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read(self):
+                return json.dumps(response_payload).encode("utf-8")
+
+        def fake_urlopen(request, timeout):
+            self.assertEqual(timeout, ai_caption.DEFAULT_LMSTUDIO_TIMEOUT_SECONDS)
+            self.assertTrue(request.full_url.endswith("/chat/completions"))
+            payload = json.loads(request.data.decode("utf-8"))
+            self.assertEqual(payload["model"], "qwen2.5-vl")
+            self.assertEqual(
+                payload["messages"][0]["content"],
+                ai_caption.location_shown_system_prompt(),
+            )
+            self.assertEqual(
+                payload["response_format"]["json_schema"]["name"],
+                "locations_shown_payload",
+            )
+            self.assertIn(
+                "name",
+                payload["response_format"]["json_schema"]["schema"]["properties"]["locations_shown"]["items"][
+                    "properties"
+                ],
+            )
+            self.assertIn(
+                "- OCR text hints about the general location:",
+                payload["messages"][1]["content"][0]["text"],
+            )
+            self.assertIn(
+                "EASTERN EUROPE SPAIN AND MOROCCO 1988",
+                payload["messages"][1]["content"][0]["text"],
+            )
+            return _FakeResponse()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            image_path = Path(tmp) / "sample.jpg"
+            image_path.write_bytes(b"not-a-real-jpeg")
+            with (
+                mock.patch.object(
+                    _caption_lmstudio,
+                    "_build_data_url",
+                    return_value="data:image/jpeg;base64,abc123",
+                ),
+                mock.patch.object(
+                    _caption_lmstudio,
+                    "_select_lmstudio_model",
+                    return_value="qwen2.5-vl",
+                ),
+                mock.patch.object(
+                    _caption_lmstudio.urllib.request,
+                    "urlopen",
+                    side_effect=fake_urlopen,
+                ),
+            ):
+                captioner = ai_caption.LMStudioCaptioner(
+                    prompt_text="Describe this exact image",
+                    base_url="http://127.0.0.1:1234",
+                )
+                captioner._resolved_model_name = "qwen2.5-vl"
+                details = captioner.estimate_locations_shown(
+                    image_path=image_path,
+                    prompt=(
+                        "Identify distinct famous locations visible in the photographs on this page.\n"
+                        "- OCR text hints about the general location:\n"
+                        "EASTERN EUROPE SPAIN AND MOROCCO 1988"
+                    ),
+                )
+
+        self.assertEqual(
+            details.locations_shown,
+            [
+                {
+                    "name": "Hassan II Mosque",
+                    "world_region": "Africa",
+                    "country_name": "Morocco",
+                    "country_code": "MA",
+                    "province_or_state": "",
+                    "city": "",
+                    "sublocation": "",
+                }
+            ],
+        )
 
     def test_parse_lmstudio_structured_caption_rejects_invalid_json(self):
         with self.assertRaises(RuntimeError) as exc:

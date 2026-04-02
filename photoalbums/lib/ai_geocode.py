@@ -242,3 +242,77 @@ class NominatimGeocoder:
         )
         self._cache_result(result)
         return result
+
+    def reverse_geocode(self, lat: float | str, lon: float | str) -> GeocodeResult | None:
+        lat_str = str(lat).strip()
+        lon_str = str(lon).strip()
+        if not lat_str or not lon_str:
+            return None
+        
+        query = f"{lat_str},{lon_str}"
+        cached = self._cached_result(query)
+        if cached is not None:
+            return cached
+        if self._cache.get(self._cache_key(query), {}).get("status") == "miss":
+            return None
+
+        params = urllib.parse.urlencode(
+            {
+                "lat": lat_str,
+                "lon": lon_str,
+                "format": "jsonv2",
+                "zoom": "18",
+                "addressdetails": "1",
+                "accept-language": "en",
+            }
+        )
+        self._throttle()
+        request = urllib.request.Request(
+            f"{self.base_url}/reverse?{params}",
+            method="GET",
+            headers={
+                "Accept": "application/json",
+                "User-Agent": self.user_agent,
+            },
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=float(self.timeout_seconds)) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            details = exc.read().decode("utf-8", errors="replace").strip()
+            raise RuntimeError(f"Nominatim reverse geocoding request failed: {details or f'HTTP {exc.code}'}") from exc
+        except urllib.error.URLError as exc:
+            raise RuntimeError(f"Nominatim is unreachable at {self.base_url}: {exc.reason}") from exc
+
+        if not isinstance(payload, dict):
+            self._cache_miss(query)
+            return None
+        
+        latitude = str(payload.get("lat") or "").strip()
+        longitude = str(payload.get("lon") or "").strip()
+        if not latitude or not longitude:
+            self._cache_miss(query)
+            return None
+
+        address = payload.get("address") or {}
+        city = str(
+            address.get("city") or address.get("town") or address.get("village") or address.get("municipality") or ""
+        ).strip()
+        
+        result = GeocodeResult(
+            query=query,
+            latitude=latitude,
+            longitude=longitude,
+            display_name=_normalize_display_name(
+                query=query,
+                display_name=str(payload.get("display_name") or "").strip(),
+                city=city,
+                state=str(address.get("state") or "").strip(),
+                country=str(address.get("country") or "").strip(),
+            ),
+            city=city,
+            state=str(address.get("state") or "").strip(),
+            country=str(address.get("country") or "").strip(),
+        )
+        self._cache_result(result)
+        return result

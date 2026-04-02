@@ -362,7 +362,7 @@ def _lmstudio_caption_response_format() -> dict[str, object]:
         "type": "json_schema",
         "json_schema": {
             "name": "caption_payload",
-            "strict": "true",
+            "strict": True,
             "schema": {
                 "type": "object",
                 "properties": {
@@ -392,7 +392,7 @@ def _lmstudio_location_response_format() -> dict[str, object]:
         "type": "json_schema",
         "json_schema": {
             "name": "location_payload",
-            "strict": "true",
+            "strict": True,
             "schema": {
                 "type": "object",
                 "properties": {
@@ -416,7 +416,7 @@ def _lmstudio_locations_shown_response_format() -> dict[str, object]:
         "type": "json_schema",
         "json_schema": {
             "name": "locations_shown_payload",
-            "strict": "true",
+            "strict": True,
             "schema": {
                 "type": "object",
                 "properties": {
@@ -425,6 +425,7 @@ def _lmstudio_locations_shown_response_format() -> dict[str, object]:
                         "items": {
                             "type": "object",
                             "properties": {
+                                "name": {"type": "string"},
                                 "world_region": {"type": "string"},
                                 "country_name": {"type": "string"},
                                 "country_code": {"type": "string"},
@@ -449,7 +450,7 @@ def _lmstudio_people_count_response_format() -> dict[str, object]:
         "type": "json_schema",
         "json_schema": {
             "name": "people_count_payload",
-            "strict": "true",
+            "strict": True,
             "schema": {
                 "type": "object",
                 "properties": {
@@ -474,7 +475,7 @@ def _lmstudio_page_caption_response_format() -> dict[str, object]:
         "type": "json_schema",
         "json_schema": {
             "name": "page_caption_payload",
-            "strict": "true",
+            "strict": True,
             "schema": {
                 "type": "object",
                 "properties": {
@@ -731,14 +732,17 @@ def _parse_lmstudio_locations_shown_payload(
     for loc in locations:
         if not isinstance(loc, dict):
             continue
-        result.append({
-            "world_region": str(loc.get("world_region") or "").strip(),
-            "country_name": str(loc.get("country_name") or "").strip(),
-            "country_code": str(loc.get("country_code") or "").strip(),
-            "province_or_state": str(loc.get("province_or_state") or "").strip(),
-            "city": str(loc.get("city") or "").strip(),
-            "sublocation": str(loc.get("sublocation") or "").strip(),
-        })
+        result.append(
+            {
+                "name": str(loc.get("name") or "").strip(),
+                "world_region": str(loc.get("world_region") or "").strip(),
+                "country_name": str(loc.get("country_name") or "").strip(),
+                "country_code": str(loc.get("country_code") or "").strip(),
+                "province_or_state": str(loc.get("province_or_state") or "").strip(),
+                "city": str(loc.get("city") or "").strip(),
+                "sublocation": str(loc.get("sublocation") or "").strip(),
+            }
+        )
     return result
 
 
@@ -1148,18 +1152,12 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
         image_path: str | Path,
         *,
         prompt: str,
-        ocr_text: str,
     ) -> CaptionDetails:
         self.last_response_text = ""
         self.last_finish_reason = ""
         resize_edge = int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
         image_url = _build_data_url(image_path, resize_edge)
-        
-        # Include OCR text hints in the prompt
-        ocr_hint = ""
-        if ocr_text:
-            ocr_hint = f"\n\nOCR hints (may help identify locations): {ocr_text}"
-        
+
         payload = {
             "model": self._resolve_model_name(),
             "messages": [
@@ -1170,7 +1168,7 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": prompt + ocr_hint},
+                        {"type": "text", "text": prompt},
                         {"type": "image_url", "image_url": {"url": image_url}},
                     ],
                 },
@@ -1201,4 +1199,3 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
             text="",
             locations_shown=locations_shown,
         )
-
