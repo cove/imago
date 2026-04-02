@@ -1020,7 +1020,7 @@ class MapHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def log_message(self, format: str, *args: object) -> None:
+    def log_message(self, _format: str, *args: object) -> None:
         pass
 
 def run_server(paths: list[str], port: int = 8095):
