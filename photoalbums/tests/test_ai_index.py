@@ -449,6 +449,19 @@ class TestAIIndex(unittest.TestCase):
         self.assertFalse(ai_index._dc_date_needs_refresh(image, state, enabled=True))
         self.assertFalse(ai_index._dc_date_needs_refresh(image, state, enabled=False))
 
+    def test_resolve_dc_date_preserves_existing_multiple_values(self):
+        self.assertEqual(
+            ai_index._resolve_dc_date(
+                existing_dc_date=["1934-09", "1934-10"],
+                ocr_text="September 1934 and October 1934",
+                album_title="Family 1934",
+                image_path=Path("Family_1934_B01_P02_S01.tif"),
+                date_engine=None,
+                prompt_debug=None,
+            ),
+            ["1934-09", "1934-10"],
+        )
+
     def test_effective_sidecar_ocr_text_uses_source_scan_sidecar_for_derived_view(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
@@ -1616,6 +1629,116 @@ class TestAIIndex(unittest.TestCase):
         self.assertEqual((gps_latitude, gps_longitude, location_name), ("19.1414769", "72.8323049", "Mainland China"))
         caption_engine.estimate_location.assert_called_once()
 
+    def test_resolve_locations_shown_prefers_geocoded_gps_over_ai_gps(self):
+        caption_engine = mock.Mock()
+        caption_engine.estimate_locations_shown.return_value = SimpleNamespace(
+            fallback=False,
+            locations_shown=[
+                {
+                    "name": "Hassan II Mosque",
+                    "city": "Casablanca",
+                    "country_name": "Morocco",
+                }
+            ],
+        )
+        geocoder = mock.Mock()
+        geocoder.geocode.return_value = SimpleNamespace(
+            latitude="33.6084",
+            longitude="-7.6326",
+        )
+
+        locations, ran = ai_index._resolve_locations_shown(
+            requested_caption_engine="lmstudio",
+            caption_engine=caption_engine,
+            model_image_path=Path("sample.jpg"),
+            ocr_text="",
+            source_path=Path("sample.jpg"),
+            geocoder=geocoder,
+        )
+
+        self.assertEqual(ran, True)
+        self.assertEqual(
+            locations,
+            [
+                {
+                    "name": "Hassan II Mosque",
+                    "world_region": "",
+                    "country_name": "Morocco",
+                    "country_code": "",
+                    "province_or_state": "",
+                    "city": "Casablanca",
+                    "sublocation": "",
+                    "gps_latitude": "33.6084",
+                    "gps_longitude": "-7.6326",
+                    "gps_source": "nominatim",
+                }
+            ],
+        )
+        geocoder.geocode.assert_called_once_with("Hassan II Mosque, Casablanca, Morocco")
+
+    def test_resolve_locations_shown_leaves_gps_empty_when_geocode_misses(self):
+        caption_engine = mock.Mock()
+        caption_engine.estimate_locations_shown.return_value = SimpleNamespace(
+            fallback=False,
+            locations_shown=[
+                {
+                    "name": "Hassan II Mosque",
+                    "city": "Casablanca",
+                    "country_name": "Morocco",
+                }
+            ],
+        )
+        geocoder = mock.Mock()
+        geocoder.geocode.return_value = None
+
+        locations, ran = ai_index._resolve_locations_shown(
+            requested_caption_engine="lmstudio",
+            caption_engine=caption_engine,
+            model_image_path=Path("sample.jpg"),
+            ocr_text="",
+            source_path=Path("sample.jpg"),
+            geocoder=geocoder,
+        )
+
+        self.assertEqual(ran, True)
+        self.assertNotIn("gps_latitude", locations[0])
+        self.assertNotIn("gps_longitude", locations[0])
+
+    def test_has_legacy_ai_locations_shown_gps_detects_missing_source(self):
+        self.assertEqual(
+            ai_index._has_legacy_ai_locations_shown_gps(
+                {
+                    "detections": {
+                        "locations_shown": [
+                            {
+                                "name": "Rock of Gibraltar",
+                                "gps_latitude": "51.95101767",
+                                "gps_longitude": "-2.72020567",
+                            }
+                        ]
+                    }
+                }
+            ),
+            True,
+        )
+        self.assertEqual(
+            ai_index._has_legacy_ai_locations_shown_gps(
+                {
+                    "detections": {
+                        "locations_shown": [
+                            {
+                                "name": "Rock of Gibraltar",
+                                "gps_latitude": "36.1408",
+                                "gps_longitude": "-5.3536",
+                                "gps_source": "nominatim",
+                            }
+                        ]
+                    }
+                }
+            ),
+            False,
+        )
+
     def test_run_image_analysis_geocodes_structured_location_name(self):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "a.jpg"
@@ -2167,6 +2290,378 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(result, 0)
             analysis_mock.assert_called_once()
             write_mock.assert_called_once()
+
+    def test_run_batch_repairs_missing_location_shown_without_full_reprocess(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            photos = base / "Family_View"
+            photos.mkdir()
+            image = photos / "a.jpg"
+            image.write_bytes(b"abc")
+            sidecar = image.with_suffix(".xmp")
+            xmp_sidecar.write_xmp_sidecar(
+                sidecar,
+                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
+                person_names=[],
+                subjects=["hello"],
+                description="Travel photo",
+                album_title="Egypt 1975",
+                gps_latitude="39.7875",
+                gps_longitude="100.307222",
+                location_city="Zhangye",
+                location_country="China",
+                source_text=ai_index._build_dc_source("Egypt 1975", image, ai_index._page_scan_filenames(image)),
+                ocr_text="hello",
+                dc_date="1975",
+                detections_payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {
+                        "engine": "local",
+                        "language": "eng",
+                        "keywords": ["hello"],
+                        "chars": 5,
+                        "model": "qwen-current-ocr",
+                    },
+                    "caption": {
+                        "requested_engine": "lmstudio",
+                        "effective_engine": "lmstudio",
+                        "fallback": False,
+                        "error": "",
+                        "model": "caption-current",
+                    },
+                    "location": {
+                        "query": "Zhangye, China",
+                        "gps_latitude": 39.7875,
+                        "gps_longitude": 100.307222,
+                        "city": "Zhangye",
+                        "country": "China",
+                    },
+                    "location_shown_ran": True,
+                    "locations_shown": [
+                        {
+                            "city": "Zhangye",
+                            "country_code": "CN",
+                            "country_name": "China",
+                            "province_or_state": "Gansu",
+                            "sublocation": "Mati Temple",
+                            "world_region": "Asia",
+                        }
+                    ],
+                },
+                subphotos=[],
+                ocr_ran=True,
+                people_detected=False,
+                people_identified=False,
+            )
+
+            @contextmanager
+            def fake_prepare(_path: Path):
+                yield image
+
+            with (
+                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(
+                    ai_index,
+                    "_init_caption_engine",
+                    return_value=SimpleNamespace(effective_model_name="caption-current"),
+                ) as caption_engine_mock,
+                mock.patch.object(ai_index, "_prepare_ai_model_image", side_effect=fake_prepare),
+                mock.patch.object(
+                    ai_index,
+                    "_resolve_location_metadata",
+                    return_value=("48.8566", "2.3522", "Paris, France"),
+                ) as location_mock,
+                mock.patch.object(
+                    ai_index,
+                    "_resolve_locations_shown",
+                    return_value=([{"city": "Paris", "country_name": "France"}], True),
+                ) as shown_mock,
+                mock.patch.object(
+                    ai_index,
+                    "_resolve_location_payload",
+                    return_value={
+                        "query": "Paris, France",
+                        "gps_latitude": "48.8566",
+                        "gps_longitude": "2.3522",
+                        "city": "Paris",
+                        "country": "France",
+                    },
+                ),
+                mock.patch.object(ai_index, "_write_sidecar_and_record") as write_mock,
+                mock.patch.object(ai_index, "_emit_prompt_debug_artifact"),
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--include-view",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "local",
+                        "--caption-engine",
+                        "lmstudio",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            analysis_mock.assert_not_called()
+            caption_engine_mock.assert_called_once()
+            location_mock.assert_called_once()
+            shown_mock.assert_called_once()
+            write_mock.assert_called_once()
+            detections = write_mock.call_args.kwargs["detections_payload"]
+            self.assertEqual(detections["caption"]["effective_engine"], "lmstudio")
+            self.assertEqual(detections["location"]["query"], "Paris, France")
+            self.assertEqual(detections["locations_shown"], [{"city": "Paris", "country_name": "France"}])
+            self.assertEqual(detections["location_shown_ran"], True)
+
+    def test_run_batch_repairs_missing_location_shown_when_flag_true_but_tag_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            photos = base / "Family_View"
+            photos.mkdir()
+            image = photos / "a.jpg"
+            image.write_bytes(b"abc")
+            sidecar = image.with_suffix(".xmp")
+            xmp_sidecar.write_xmp_sidecar(
+                sidecar,
+                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
+                person_names=[],
+                subjects=["hello"],
+                description="Travel photo",
+                album_title="Egypt 1975",
+                source_text=ai_index._build_dc_source("Egypt 1975", image, ai_index._page_scan_filenames(image)),
+                ocr_text="hello",
+                dc_date="1975",
+                detections_payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {
+                        "engine": "local",
+                        "language": "eng",
+                        "keywords": ["hello"],
+                        "chars": 5,
+                        "model": "qwen-current-ocr",
+                    },
+                    "caption": {
+                        "requested_engine": "lmstudio",
+                        "effective_engine": "lmstudio",
+                        "fallback": False,
+                        "error": "",
+                        "model": "caption-current",
+                    },
+                    "location_shown_ran": True,
+                },
+                subphotos=[],
+                ocr_ran=True,
+                people_detected=False,
+                people_identified=False,
+            )
+
+            @contextmanager
+            def fake_prepare(_path: Path):
+                yield image
+
+            with (
+                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(
+                    ai_index,
+                    "_init_caption_engine",
+                    return_value=SimpleNamespace(effective_model_name="caption-current"),
+                ) as caption_engine_mock,
+                mock.patch.object(ai_index, "_prepare_ai_model_image", side_effect=fake_prepare),
+                mock.patch.object(
+                    ai_index,
+                    "_resolve_location_metadata",
+                    return_value=("48.8566", "2.3522", "Paris, France"),
+                ) as location_mock,
+                mock.patch.object(
+                    ai_index,
+                    "_resolve_locations_shown",
+                    return_value=([{"city": "Paris", "country_name": "France"}], True),
+                ) as shown_mock,
+                mock.patch.object(
+                    ai_index,
+                    "_resolve_location_payload",
+                    return_value={
+                        "query": "Paris, France",
+                        "gps_latitude": "48.8566",
+                        "gps_longitude": "2.3522",
+                        "city": "Paris",
+                        "country": "France",
+                    },
+                ),
+                mock.patch.object(ai_index, "_write_sidecar_and_record") as write_mock,
+                mock.patch.object(ai_index, "_emit_prompt_debug_artifact"),
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--include-view",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "local",
+                        "--caption-engine",
+                        "lmstudio",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            analysis_mock.assert_not_called()
+            caption_engine_mock.assert_called_once()
+            location_mock.assert_called_once()
+            shown_mock.assert_called_once()
+            write_mock.assert_called_once()
+            detections = write_mock.call_args.kwargs["detections_payload"]
+            self.assertEqual(detections["locations_shown"], [{"city": "Paris", "country_name": "France"}])
+            self.assertEqual(detections["location_shown_ran"], True)
+
+    def test_run_batch_repairs_legacy_ai_location_shown_gps_without_full_reprocess(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            photos = base / "Family_View"
+            photos.mkdir()
+            image = photos / "a.jpg"
+            image.write_bytes(b"abc")
+            sidecar = image.with_suffix(".xmp")
+            xmp_sidecar.write_xmp_sidecar(
+                sidecar,
+                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
+                person_names=[],
+                subjects=["hello"],
+                description="Travel photo",
+                album_title="Spain 1988",
+                source_text=ai_index._build_dc_source("Spain 1988", image, ai_index._page_scan_filenames(image)),
+                ocr_text="ROCK OF GIBRALTAR",
+                dc_date="1988",
+                detections_payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {
+                        "engine": "local",
+                        "language": "eng",
+                        "keywords": ["gibraltar"],
+                        "chars": 18,
+                        "model": "qwen-current-ocr",
+                    },
+                    "caption": {
+                        "requested_engine": "lmstudio",
+                        "effective_engine": "lmstudio",
+                        "fallback": False,
+                        "error": "",
+                        "model": "caption-current",
+                    },
+                    "location_shown_ran": True,
+                    "locations_shown": [
+                        {
+                            "name": "Rock of Gibraltar",
+                            "world_region": "Europe",
+                            "country_name": "United Kingdom",
+                            "country_code": "GB",
+                            "province_or_state": "Gibraltar",
+                            "gps_latitude": "51.95101767",
+                            "gps_longitude": "-2.72020567",
+                        }
+                    ],
+                },
+                locations_shown=[
+                    {
+                        "name": "Rock of Gibraltar",
+                        "world_region": "Europe",
+                        "country_name": "United Kingdom",
+                        "country_code": "GB",
+                        "province_or_state": "Gibraltar",
+                        "gps_latitude": "51.95101767",
+                        "gps_longitude": "-2.72020567",
+                    }
+                ],
+                subphotos=[],
+                ocr_ran=True,
+                people_detected=False,
+                people_identified=False,
+            )
+
+            @contextmanager
+            def fake_prepare(_path: Path):
+                yield image
+
+            with (
+                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(
+                    ai_index,
+                    "_init_caption_engine",
+                    return_value=SimpleNamespace(effective_model_name="caption-current"),
+                ) as caption_engine_mock,
+                mock.patch.object(ai_index, "_prepare_ai_model_image", side_effect=fake_prepare),
+                mock.patch.object(
+                    ai_index,
+                    "_resolve_location_metadata",
+                    return_value=("", "", ""),
+                ) as location_mock,
+                mock.patch.object(
+                    ai_index,
+                    "_resolve_locations_shown",
+                    return_value=(
+                        [
+                            {
+                                "name": "Rock of Gibraltar",
+                                "world_region": "Europe",
+                                "country_name": "United Kingdom",
+                                "country_code": "GB",
+                                "province_or_state": "Gibraltar",
+                                "gps_latitude": "36.1408",
+                                "gps_longitude": "-5.3536",
+                                "gps_source": "nominatim",
+                            }
+                        ],
+                        True,
+                    ),
+                ) as shown_mock,
+                mock.patch.object(ai_index, "_resolve_location_payload", return_value={}),
+                mock.patch.object(ai_index, "_write_sidecar_and_record") as write_mock,
+                mock.patch.object(ai_index, "_emit_prompt_debug_artifact"),
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--include-view",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "local",
+                        "--caption-engine",
+                        "lmstudio",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            analysis_mock.assert_not_called()
+            caption_engine_mock.assert_called_once()
+            location_mock.assert_called_once()
+            shown_mock.assert_called_once()
+            write_mock.assert_called_once()
+            detections = write_mock.call_args.kwargs["detections_payload"]
+            self.assertEqual(
+                detections["locations_shown"],
+                [
+                    {
+                        "name": "Rock of Gibraltar",
+                        "world_region": "Europe",
+                        "country_name": "United Kingdom",
+                        "country_code": "GB",
+                        "province_or_state": "Gibraltar",
+                        "gps_latitude": "36.1408",
+                        "gps_longitude": "-5.3536",
+                        "gps_source": "nominatim",
+                    }
+                ],
+            )
+            self.assertEqual(detections["location_shown_ran"], True)
 
     def test_run_reprocesses_current_sidecar_when_lmstudio_caption_error_exists(self):
         with tempfile.TemporaryDirectory() as tmp:

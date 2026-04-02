@@ -62,8 +62,14 @@ vhs-render *args:
 mcp-http:
   {{python}} mcp_server.py --transport http --host 0.0.0.0 --port 8090 --console-host 192.168.4.26
 
+photoalbums-map:
+  {{python}} photoalbums.py metadata map "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" --port 8095
+
 photoalbums-ai:
   {{python}} photoalbums.py ai
+
+photoalbums-ai-gps:
+  {{python}} photoalbums.py ai gps
 
 photoalbums-render:
   {{python}} photoalbums.py render

@@ -47,6 +47,7 @@ from .ai_page_layout import PreparedImageLayout, prepare_image_layout
 from .ai_geocode import NominatimGeocoder
 from .ai_location import (
     _extract_explicit_gps_from_text,
+    _has_legacy_ai_locations_shown_gps,
     _merge_location_estimates,
     _resolve_location_metadata,
     _resolve_location_payload,
@@ -97,6 +98,7 @@ from .xmp_sidecar import (
     _normalize_xmp_datetime,
     _resolve_date_time_original,
     read_ai_sidecar_state,
+    read_locations_shown,
     read_person_in_image,
     sidecar_has_expected_ai_fields,
     write_xmp_sidecar,
@@ -745,6 +747,23 @@ def _date_estimate_input_hash(ocr_text: str, album_title: str) -> str:
     )
 
 
+def _dc_date_value(sidecar_state: dict[str, Any] | None) -> str | list[str]:
+    if not isinstance(sidecar_state, dict):
+        return ""
+    raw_values = sidecar_state.get("dc_date_values")
+    if isinstance(raw_values, list):
+        values = [str(item or "").strip() for item in raw_values if str(item or "").strip()]
+        if values:
+            return values
+    return str(sidecar_state.get("dc_date") or "").strip()
+
+
+def _has_dc_date(value: str | list[str]) -> bool:
+    if isinstance(value, list):
+        return any(str(item or "").strip() for item in value)
+    return bool(str(value or "").strip())
+
+
 def _dc_date_needs_refresh(
     image_path: Path,
     sidecar_state: dict[str, Any] | None,
@@ -753,9 +772,9 @@ def _dc_date_needs_refresh(
 ) -> bool:
     if not isinstance(sidecar_state, dict):
         return False
-    current_dc_date = str(sidecar_state.get("dc_date") or "").strip()
+    current_dc_date = _dc_date_value(sidecar_state)
     current_date_time_original = str(sidecar_state.get("date_time_original") or "").strip()
-    if current_dc_date:
+    if _has_dc_date(current_dc_date):
         return _resolve_date_time_original(dc_date=current_dc_date) != current_date_time_original
     if not enabled:
         return False
@@ -770,16 +789,21 @@ def _dc_date_needs_refresh(
 
 def _resolve_dc_date(
     *,
-    existing_dc_date: str,
+    existing_dc_date: str | list[str],
     ocr_text: str,
     album_title: str,
     image_path: Path,
     date_engine: DateEstimateEngine | None,
     prompt_debug: PromptDebugSession | None,
-) -> str:
-    clean_existing = str(existing_dc_date or "").strip()
-    if clean_existing:
-        return clean_existing
+) -> str | list[str]:
+    if isinstance(existing_dc_date, list):
+        clean_existing = [str(item or "").strip() for item in existing_dc_date if str(item or "").strip()]
+        if clean_existing:
+            return clean_existing
+    else:
+        clean_existing = str(existing_dc_date or "").strip()
+        if clean_existing:
+            return clean_existing
     if date_engine is None:
         return ""
     input_hash = _date_estimate_input_hash(ocr_text, album_title)
@@ -1255,19 +1279,20 @@ def _run_image_analysis(
     )
     if location_payload:
         payload["location"] = location_payload
-    
+
     locations_shown, locations_shown_ran = _resolve_locations_shown(
         requested_caption_engine=requested_caption_engine,
         caption_engine=caption_engine,
         model_image_path=image_path,
         ocr_text=ocr_text,
         source_path=caption_source_path or people_source_path or image_path,
+        geocoder=geocoder,
         prompt_debug=prompt_debug,
         debug_step="locations_shown",
     )
     payload["locations_shown"] = locations_shown
     payload["location_shown_ran"] = locations_shown_ran
-    
+
     description = caption_output.text
     author_text = str(getattr(caption_output, "author_text", "") or "")
     scene_text = str(getattr(caption_output, "scene_text", "") or "")
@@ -1740,7 +1765,7 @@ def _write_sidecar_and_record(
     stitch_key: str = "",
     ocr_authority_source: str = "",
     create_date: str = "",
-    dc_date: str = "",
+    dc_date: str | list[str] = "",
     date_time_original: str = "",
     ocr_ran: bool = False,
     people_detected: bool = False,
@@ -2034,6 +2059,27 @@ def run(argv: list[str] | None = None) -> int:
             )
             if date_refresh_required:
                 reprocess_reasons.append("timeline_date_missing")
+        caption_engine_name = str(effective.get("caption_engine", defaults["caption_engine"])).strip().lower()
+        location_shown_missing = False
+        location_shown_gps_dirty = False
+        if existing_sidecar_complete and existing_sidecar_state is not None and caption_engine_name == "lmstudio":
+            det = existing_sidecar_state.get("detections") or {}
+            detected_locations = list(det.get("locations_shown") or []) if isinstance(det, dict) else []
+            written_locations = read_locations_shown(sidecar_path)
+            location_shown_ran = isinstance(det, dict) and det.get("location_shown_ran") is True
+            location_shown_missing = (isinstance(det, dict) and det.get("location_shown_ran") is not True) or (
+                (location_shown_ran or bool(detected_locations)) and not written_locations
+            )
+            location_shown_gps_dirty = _has_legacy_ai_locations_shown_gps(existing_sidecar_state)
+        gps_repair_requested = (
+            existing_sidecar_current
+            and existing_sidecar_complete
+            and existing_sidecar_state is not None
+            and (location_shown_missing or location_shown_gps_dirty)
+            and not reprocess_required
+            and not source_refresh_required
+            and not date_refresh_required
+        )
 
         if (
             existing_sidecar_current
@@ -2042,6 +2088,7 @@ def run(argv: list[str] | None = None) -> int:
             and not source_refresh_required
             and not date_refresh_required
             and not force_processing
+            and not gps_repair_requested
         ):
             skipped += 1
             if args.verbose and not stdout_only:
@@ -2118,13 +2165,20 @@ def run(argv: list[str] | None = None) -> int:
         needs_full = needs_processing(
             image_path,
             existing_sidecar_state,
-            force_processing,
+            force_processing and not gps_repair_requested,
             reprocess_required=reprocess_required,
         )
 
         gps_update_only = False
+        if gps_repair_requested:
+            gps_update_only = True
+            if location_shown_missing:
+                reprocess_reasons.append("missing_location_shown")
+            if location_shown_gps_dirty:
+                reprocess_reasons.append("location_shown_ai_gps_stale")
         if (
-            reprocess_mode == "gps"
+            not gps_update_only
+            and reprocess_mode == "gps"
             and not needs_full
             and existing_sidecar_complete
             and existing_sidecar_state is not None
@@ -2137,12 +2191,14 @@ def run(argv: list[str] | None = None) -> int:
             and not date_refresh_required
             and existing_sidecar_complete
             and existing_sidecar_state is not None
-            and str(effective.get("caption_engine", defaults["caption_engine"])).lower() == "lmstudio"
+            and caption_engine_name == "lmstudio"
         ):
-            _det = existing_sidecar_state.get("detections") or {}
-            if isinstance(_det, dict) and _det.get("location_shown_ran") is not True:
+            if location_shown_missing:
                 gps_update_only = True
                 reprocess_reasons.append("missing_location_shown")
+            if location_shown_gps_dirty:
+                gps_update_only = True
+                reprocess_reasons.append("location_shown_ai_gps_stale")
 
         if (
             not needs_full
@@ -2278,11 +2334,11 @@ def run(argv: list[str] | None = None) -> int:
                         )
                         date_engine = (
                             _get_date_engine(effective)
-                            if date_estimation_enabled and not str(review.get("dc_date") or "").strip()
+                            if date_estimation_enabled and not _has_dc_date(_dc_date_value(review))
                             else None
                         )
                         refresh_dc_date = _resolve_dc_date(
-                            existing_dc_date=str(review.get("dc_date") or ""),
+                            existing_dc_date=_dc_date_value(review),
                             ocr_text=refresh_ocr_text,
                             album_title=refresh_album_title,
                             image_path=image_path,
@@ -2564,11 +2620,11 @@ def run(argv: list[str] | None = None) -> int:
                         )
                         date_engine = (
                             _get_date_engine(effective)
-                            if date_estimation_enabled and not str(state.get("dc_date") or "").strip()
+                            if date_estimation_enabled and not _has_dc_date(_dc_date_value(state))
                             else None
                         )
                         pu_dc_date = _resolve_dc_date(
-                            existing_dc_date=str(state.get("dc_date") or ""),
+                            existing_dc_date=_dc_date_value(state),
                             ocr_text=existing_ocr_text,
                             album_title=pu_album_title,
                             image_path=image_path,
@@ -2735,6 +2791,7 @@ def run(argv: list[str] | None = None) -> int:
                         model_image_path=gps_model_path,
                         ocr_text=gps_ocr_text,
                         source_path=image_path,
+                        geocoder=geocoder,
                         prompt_debug=gps_prompt_debug,
                         debug_step="locations_shown_gps_step",
                     )
@@ -2785,7 +2842,7 @@ def run(argv: list[str] | None = None) -> int:
                         create_date=(
                             str(state.get("create_date") or "").strip() or read_embedded_create_date(image_path)
                         ),
-                        dc_date=str(state.get("dc_date") or ""),
+                        dc_date=_dc_date_value(state),
                         date_time_original=str(state.get("date_time_original") or ""),
                         ocr_ran=bool(state.get("ocr_ran")),
                         people_detected=bool(state.get("people_detected")),
@@ -2995,12 +3052,11 @@ def run(argv: list[str] | None = None) -> int:
                     )
                     date_engine = (
                         _get_date_engine(effective)
-                        if date_estimation_enabled
-                        and not str((existing_sidecar_state or {}).get("dc_date") or "").strip()
+                        if date_estimation_enabled and not _has_dc_date(_dc_date_value(existing_sidecar_state))
                         else None
                     )
                     final_dc_date = _resolve_dc_date(
-                        existing_dc_date=str((existing_sidecar_state or {}).get("dc_date") or ""),
+                        existing_dc_date=_dc_date_value(existing_sidecar_state),
                         ocr_text=ocr_text,
                         album_title=final_album_title,
                         image_path=image_path,

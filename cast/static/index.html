@@ -157,6 +157,24 @@
         min-width: 150px;
       }
 
+      .bulk-assign-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1 1 520px;
+        flex-wrap: wrap;
+      }
+
+      .bulk-assign-controls select {
+        flex: 1 1 240px;
+        min-width: 220px;
+      }
+
+      .bulk-assign-controls input {
+        flex: 1 1 240px;
+        min-width: 220px;
+      }
+
       details.panel {
         padding: 0;
         overflow: hidden;
@@ -665,6 +683,19 @@
       <section class="panel" style="margin-top: 12px">
         <h2>Pending Queue</h2>
         <div class="queue-toolbar sticky-actions">
+          <div class="bulk-assign-controls">
+            <select id="bulk-person-select" aria-label="Bulk assign existing person">
+              <option value="">Select person...</option>
+            </select>
+            <input
+              id="bulk-new-person-name"
+              class="mono"
+              type="text"
+              placeholder="Or type a new person name"
+              aria-label="Bulk assign new person name"
+            />
+            <button id="bulk-assign-btn" class="good" type="button">Bulk Assign</button>
+          </div>
           <button id="bulk-skip-btn" class="warn" type="button">Bulk Skip</button>
           <button id="bulk-ignore-btn" class="secondary" type="button">Bulk Ignore</button>
           <button id="bulk-reject-btn" class="bad" type="button">Bulk Not A Face</button>
@@ -807,6 +838,27 @@
           options.push(`<option value="${esc(pid)}"${sel}>${esc(person.display_name)}</option>`);
         }
         return options.join("");
+      }
+
+      function updateBulkAssignButtonLabel() {
+        const button = document.getElementById("bulk-assign-btn");
+        const nameInput = document.getElementById("bulk-new-person-name");
+        if (!button || !nameInput) {
+          return;
+        }
+        button.textContent = String(nameInput.value || "").trim() ? "Create And Assign" : "Bulk Assign";
+      }
+
+      function refreshBulkAssignControls() {
+        const select = document.getElementById("bulk-person-select");
+        if (select) {
+          const selected = String(select.value || "");
+          select.innerHTML = personOptions(selected);
+          if (selected && select.value !== selected) {
+            select.value = "";
+          }
+        }
+        updateBulkAssignButtonLabel();
       }
 
       function runtimeLabel(modelId) {
@@ -1114,6 +1166,7 @@
 
         updateDisplayedCounts();
         renderRuntimeStatus();
+        refreshBulkAssignControls();
         renderReviewQueue();
       }
 
@@ -1330,6 +1383,67 @@
           setStatus(`${reviewIds.length} review(s) updated as ${statusLabel}.`, "success");
         } catch (error) {
           setStatus(error.message, "error");
+        }
+      }
+
+      async function bulkAssignSelectedReviews() {
+        const button = document.getElementById("bulk-assign-btn");
+        const select = document.getElementById("bulk-person-select");
+        const nameInput = document.getElementById("bulk-new-person-name");
+        try {
+          const reviewIds = Array.from(appState.selected_review_ids);
+          if (!reviewIds.length) {
+            throw new Error("Select at least one review first.");
+          }
+          const displayName = String((nameInput && nameInput.value) || "").trim();
+          const personId = String((select && select.value) || "").trim();
+          if (!displayName && !personId) {
+            throw new Error("Select a person or type a new name first.");
+          }
+          if (button) {
+            button.disabled = true;
+          }
+          if (select) {
+            select.disabled = true;
+          }
+          if (nameInput) {
+            nameInput.disabled = true;
+          }
+          setStatus(
+            displayName
+              ? `Creating or reusing ${displayName} and assigning ${reviewIds.length} review(s)...`
+              : `Assigning ${reviewIds.length} review(s)...`,
+            "info"
+          );
+          const payload = { review_ids: reviewIds };
+          if (displayName) {
+            payload.display_name = displayName;
+          } else {
+            payload.person_id = personId;
+          }
+          const result = await api("/api/review/bulk_assign", "POST", payload);
+          if (nameInput) {
+            nameInput.value = "";
+          }
+          await loadState();
+          const personName = String(((result || {}).person || {}).display_name || displayName || personId);
+          setStatus(
+            `${result.created_person ? "Created and assigned" : "Assigned"} ${Number(result.updated_reviews || 0)} review(s) to ${personName}.`,
+            "success"
+          );
+        } catch (error) {
+          setStatus(error.message, "error");
+        } finally {
+          if (button) {
+            button.disabled = false;
+          }
+          if (select) {
+            select.disabled = false;
+          }
+          if (nameInput) {
+            nameInput.disabled = false;
+          }
+          updateBulkAssignButtonLabel();
         }
       }
 
@@ -1551,6 +1665,14 @@
 
       document.getElementById("bulk-skip-btn").addEventListener("click", async () => {
         await bulkResolveSelectedReviews("skipped");
+      });
+
+      document.getElementById("bulk-assign-btn").addEventListener("click", async () => {
+        await bulkAssignSelectedReviews();
+      });
+
+      document.getElementById("bulk-new-person-name").addEventListener("input", () => {
+        updateBulkAssignButtonLabel();
       });
 
       document.getElementById("bulk-ignore-btn").addEventListener("click", async () => {

@@ -201,6 +201,13 @@ class TestAIOcr(unittest.TestCase):
         )
         self.assertEqual(text, "WELCOME TO\n敦煌之夏")
 
+    def test_parse_lmstudio_structured_ocr_recovers_unterminated_text_with_leaked_field(self):
+        text = ai_ocr._parse_lmstudio_structured_ocr(
+            '{"text": "POMONA FAIR - SEPT.1949\\"display_name: Pomona Fair - Sept. 1949\\"}',
+            finish_reason="stop",
+        )
+        self.assertEqual(text, "POMONA FAIR - SEPT.1949")
+
     def test_ocr_system_prompt_loads_from_skill_section(self):
         self.assertIn("Put the extracted text in the text field.", ai_ocr.ocr_system_prompt())
 
@@ -232,6 +239,7 @@ class TestAIOcr(unittest.TestCase):
             self.assertEqual(payload["messages"][0]["content"], ai_ocr.ocr_system_prompt())
             self.assertEqual(payload["response_format"]["type"], "json_schema")
             self.assertEqual(payload["response_format"]["json_schema"]["name"], "ocr_payload")
+            self.assertEqual(payload["response_format"]["json_schema"]["strict"], True)
             return _FakeResponse()
 
         with tempfile.TemporaryDirectory() as tmp:

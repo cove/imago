@@ -42,6 +42,17 @@ def run_create_metadata_tsv() -> int:
     return _call_main(create_metadata_tsv.main)
 
 
+def run_metadata_map(*, paths: list[str], port: int) -> int:
+    from . import map_server
+
+    try:
+        map_server.run_server(paths, port=port)
+        return 0
+    except Exception as exc:
+        print(f"Error: {exc}")
+        return 1
+
+
 def run_compress_tiff() -> int:
     import compress_tiff
 

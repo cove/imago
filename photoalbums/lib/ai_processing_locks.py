@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import time
 from pathlib import Path
 from typing import Any
 
@@ -36,8 +37,18 @@ def _read_processing_lock(path: Path) -> dict[str, Any]:
 def _release_image_processing_lock(lock_path: Path | None) -> None:
     if lock_path is None:
         return
-    with contextlib.suppress(FileNotFoundError):
-        lock_path.unlink()
+    for attempt in range(5):
+        try:
+            lock_path.unlink()
+            return
+        except FileNotFoundError:
+            return
+        except PermissionError as exc:
+            if getattr(exc, "winerror", None) != 32:
+                raise
+            if attempt == 4:
+                return
+            time.sleep(0.1)
 
 
 def _release_batch_processing_lock(lock_path: Path | None) -> None:
@@ -52,6 +63,21 @@ def _clear_stale_processing_lock(lock_path: Path) -> bool:
             lock_path.unlink()
         return True
     return False
+
+
+def _cleanup_stale_processing_locks(photos_root: Path) -> list[Path]:
+    cleaned: list[Path] = []
+    if not photos_root.exists():
+        return cleaned
+
+    batch_lock_path = _batch_processing_lock_path(photos_root)
+    if _clear_stale_processing_lock(batch_lock_path):
+        cleaned.append(batch_lock_path)
+
+    for lock_path in photos_root.rglob(f"*{PROCESSING_LOCK_SUFFIX}"):
+        if _clear_stale_processing_lock(lock_path):
+            cleaned.append(lock_path)
+    return cleaned
 
 
 def _acquire_image_processing_lock(image_path: Path) -> Path:

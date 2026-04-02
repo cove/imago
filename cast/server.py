@@ -24,7 +24,7 @@ from .matching import (
     suggest_people_from_prototypes,
 )
 from .storage import TextFaceStore, face_is_human_reviewed, face_review_status
-from .xmp_writer import merge_persons_xmp, read_person_in_image
+from .xmp_writer import merge_persons_xmp, read_person_in_image, read_xmp_description as _read_xmp_description
 
 _HERE = Path(__file__).resolve().parent
 _STATIC = _HERE / "static"
@@ -41,6 +41,13 @@ ACTIVE_EMBEDDING_MODELS = {CURRENT_FACE_EMBEDDING_MODEL}
 PHOTOALBUMS_PROCESSING_LOCK_SUFFIX = ".photoalbums-ai.lock"
 PHOTOALBUMS_LOCK_WAIT_TIMEOUT_SECONDS = 120.0
 PHOTOALBUMS_LOCK_POLL_SECONDS = 0.25
+read_xmp_description = _read_xmp_description
+
+
+class RequestError(Exception):
+    def __init__(self, message: str, *, status: int = 400):
+        super().__init__(str(message))
+        self.status = int(status)
 
 
 def _rewrite_description_via_lmstudio(
@@ -467,14 +474,7 @@ class CastHandler(BaseHTTPRequestHandler):
         self._send_json({"ok": True, "reviews": rows})
 
     def _handle_create_person(self, payload: dict[str, Any]) -> None:
-        aliases_raw = payload.get("aliases")
-        aliases: list[str]
-        if isinstance(aliases_raw, str):
-            aliases = [item.strip() for item in aliases_raw.split(",") if item.strip()]
-        elif isinstance(aliases_raw, list):
-            aliases = [str(item).strip() for item in aliases_raw if str(item).strip()]
-        else:
-            aliases = []
+        aliases = self._parse_aliases(payload.get("aliases"))
         person = self.store.add_person(
             name=str(payload.get("display_name") or payload.get("name") or ""),
             aliases=aliases,
@@ -553,6 +553,131 @@ class CastHandler(BaseHTTPRequestHandler):
                 decided_person_id=str(face.get("person_id") or "").strip() or None,
             )
         self._send_json({"ok": True, "face": face})
+
+    def _parse_aliases(self, aliases_raw: Any) -> list[str]:
+        if isinstance(aliases_raw, str):
+            return [item.strip() for item in aliases_raw.split(",") if item.strip()]
+        if isinstance(aliases_raw, list):
+            return [str(item).strip() for item in aliases_raw if str(item).strip()]
+        return []
+
+    def _find_person_by_name_or_alias(self, name: str) -> dict[str, Any] | None:
+        key = str(name or "").strip().casefold()
+        if not key:
+            return None
+        for person in self.store.list_people():
+            if str(person.get("display_name") or "").strip().casefold() == key:
+                return person
+            for alias in list(person.get("aliases") or []):
+                if str(alias or "").strip().casefold() == key:
+                    return person
+        return None
+
+    def _resolve_or_create_person(
+        self,
+        *,
+        person_id: str | None = None,
+        display_name: str | None = None,
+        aliases: list[str] | None = None,
+        notes: str = "",
+    ) -> tuple[dict[str, Any], bool]:
+        person_key = str(person_id or "").strip()
+        if person_key:
+            person = self.store.get_person(person_key)
+            if not person:
+                raise RequestError(f"Unknown person_id: {person_key}")
+            return person, False
+
+        clean_name = str(display_name or "").strip()
+        if not clean_name:
+            raise RequestError("person_id or display_name is required.")
+        existing = self._find_person_by_name_or_alias(clean_name)
+        if existing:
+            return existing, False
+        person = self.store.add_person(
+            name=clean_name,
+            aliases=list(aliases or []),
+            notes=str(notes or "").strip(),
+        )
+        return person, True
+
+    def _find_review_item(self, review_id: str) -> dict[str, Any] | None:
+        review_key = str(review_id or "").strip()
+        if not review_key:
+            return None
+        for row in self.store.list_review_items():
+            if str(row.get("review_id")) == review_key:
+                return row
+        return None
+
+    def _apply_review_decision(
+        self,
+        *,
+        review: dict[str, Any],
+        status: str,
+        person_id: str | None,
+    ) -> tuple[dict[str, Any], dict[str, Any] | None]:
+        review_id = str(review.get("review_id") or "").strip()
+        if not review_id:
+            raise RequestError("review_id is required.")
+        clean_status = str(status or "").strip().lower()
+        if clean_status not in {"accepted", "rejected", "ignored", "skipped"}:
+            raise RequestError("status must be one of: accepted, rejected, ignored, skipped")
+        decided_person_id = str(person_id or "").strip() or None
+        if clean_status == "accepted" and not decided_person_id:
+            decided_person_id = str(review.get("suggested_person_id") or "").strip() or None
+            if not decided_person_id:
+                raise RequestError("person_id is required for accepted decisions with no suggestion.")
+        if clean_status == "skipped":
+            updated_review = self.store.defer_review_item(review_id)
+            return updated_review, None
+
+        assigned_face = None
+        if clean_status == "accepted":
+            pending_face = self.store.get_face(str(review.get("face_id") or ""))
+            if not pending_face:
+                raise RequestError("Unknown face_id.")
+            assert decided_person_id is not None
+            try:
+                self._write_accepted_face_xmp(
+                    review_id=review_id,
+                    face=pending_face,
+                    person_id=decided_person_id,
+                )
+            except Exception as exc:
+                raise RequestError(
+                    f"XMP write-back failed for review {review_id} face {str(review.get('face_id') or '').strip()}: {exc}",
+                    status=HTTPStatus.INTERNAL_SERVER_ERROR,
+                ) from exc
+        try:
+            updated_review = self.store.resolve_review_item(
+                review_id=review_id,
+                status=clean_status,
+                decided_person_id=decided_person_id,
+            )
+        except Exception as exc:
+            raise RequestError(str(exc)) from exc
+        if clean_status == "accepted":
+            try:
+                assigned_face = self.store.assign_face(
+                    str(updated_review.get("face_id")),
+                    decided_person_id,
+                    reviewed_by_human=True,
+                    review_status="confirmed",
+                )
+            except Exception as exc:
+                raise RequestError(f"Review updated but face assignment failed: {exc}") from exc
+        elif clean_status in {"ignored", "rejected"}:
+            try:
+                assigned_face = self.store.assign_face(
+                    str(updated_review.get("face_id")),
+                    None,
+                    reviewed_by_human=True,
+                    review_status=clean_status,
+                )
+            except Exception as exc:
+                raise RequestError(f"Review updated but face assignment failed: {exc}") from exc
+        return updated_review, assigned_face
 
     def _suggestion_policy_from_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
         return {
@@ -924,77 +1049,21 @@ class CastHandler(BaseHTTPRequestHandler):
         if not review_id:
             self._error("review_id is required.")
             return
-        review = None
-        for row in self.store.list_review_items():
-            if str(row.get("review_id")) == review_id:
-                review = row
-                break
+        review = self._find_review_item(review_id)
         if not review:
             self._error("Unknown review_id.")
             return
-        if status == "accepted" and not person_id:
-            person_id = str(review.get("suggested_person_id") or "").strip() or None
-            if not person_id:
-                self._error("person_id is required for accepted decisions with no suggestion.")
-                return
-        if status == "skipped":
-            try:
-                updated_review = self.store.defer_review_item(review_id)
-            except Exception as exc:
-                self._error(str(exc))
-                return
-            self._send_json({"ok": True, "review": updated_review, "face": None})
-            return
-        assigned_face = None
         if status == "accepted":
-            try:
-                pending_face = self.store.get_face(str(review.get("face_id") or ""))
-                if not pending_face:
-                    self._error("Unknown face_id.")
-                    return
-                assert person_id is not None
-                self._write_accepted_face_xmp(
-                    review_id=review_id,
-                    face=pending_face,
-                    person_id=person_id,
-                )
-            except Exception as exc:
-                self._error(
-                    f"XMP write-back failed for review {review_id} face {str(review.get('face_id') or '').strip()}: {exc}",
-                    status=HTTPStatus.INTERNAL_SERVER_ERROR,
-                )
-                return
+            person_id = str(person_id or "").strip() or None
         try:
-            updated_review = self.store.resolve_review_item(
-                review_id=review_id,
+            updated_review, assigned_face = self._apply_review_decision(
+                review=review,
                 status=status,
-                decided_person_id=person_id,
+                person_id=person_id,
             )
-        except Exception as exc:
-            self._error(str(exc))
+        except RequestError as exc:
+            self._error(str(exc), status=exc.status)
             return
-        if status == "accepted":
-            try:
-                assigned_face = self.store.assign_face(
-                    str(updated_review.get("face_id")),
-                    person_id,
-                    reviewed_by_human=True,
-                    review_status="confirmed",
-                )
-            except Exception as exc:
-                self._error(f"Review updated but face assignment failed: {exc}")
-                return
-        elif status in {"ignored", "rejected"}:
-            try:
-                assigned_face = self.store.assign_face(
-                    str(updated_review.get("face_id")),
-                    None,
-                    reviewed_by_human=True,
-                    review_status=status,
-                )
-            except Exception as exc:
-                self._error(f"Review updated but face assignment failed: {exc}")
-                return
         self._send_json({"ok": True, "review": updated_review, "face": assigned_face})
 
     def _handle_bulk_review_resolve(self, payload: dict[str, Any]) -> None:
@@ -1022,6 +1091,63 @@ class CastHandler(BaseHTTPRequestHandler):
                 "review_ids": review_ids,
                 "updated_reviews": int(summary.get("updated_reviews") or 0),
                 "updated_faces": int(summary.get("updated_faces") or 0),
+            }
+        )
+
+    def _handle_bulk_review_assign(self, payload: dict[str, Any]) -> None:
+        raw_review_ids = payload.get("review_ids")
+        if not isinstance(raw_review_ids, list):
+            self._error("review_ids must be a list.")
+            return
+        review_ids = [str(item or "").strip() for item in raw_review_ids if str(item or "").strip()]
+        if not review_ids:
+            self._error("review_ids is required.")
+            return
+        try:
+            person, created = self._resolve_or_create_person(
+                person_id=str(payload.get("person_id") or "").strip() or None,
+                display_name=str(payload.get("display_name") or "").strip() or None,
+                aliases=self._parse_aliases(payload.get("aliases")),
+                notes=str(payload.get("notes") or ""),
+            )
+        except RequestError as exc:
+            self._error(str(exc), status=exc.status)
+            return
+
+        updated_reviews = 0
+        updated_faces = 0
+        resolved_person_id = str(person.get("person_id") or "").strip() or None
+        for review_id in review_ids:
+            review = self._find_review_item(review_id)
+            if not review:
+                self._error(
+                    f"Bulk assign stopped after {updated_reviews} review(s): Unknown review_id: {review_id}",
+                )
+                return
+            try:
+                _updated_review, assigned_face = self._apply_review_decision(
+                    review=review,
+                    status="accepted",
+                    person_id=resolved_person_id,
+                )
+            except RequestError as exc:
+                self._error(
+                    f"Bulk assign stopped after {updated_reviews} review(s): {exc}",
+                    status=exc.status,
+                )
+                return
+            updated_reviews += 1
+            if assigned_face is not None:
+                updated_faces += 1
+
+        self._send_json(
+            {
+                "ok": True,
+                "review_ids": review_ids,
+                "updated_reviews": int(updated_reviews),
+                "updated_faces": int(updated_faces),
+                "person": person,
+                "created_person": bool(created),
             }
         )
 
@@ -1484,6 +1610,9 @@ class CastHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/review/bulk_resolve":
             self._handle_bulk_review_resolve(payload)
+            return
+        if path == "/api/review/bulk_assign":
+            self._handle_bulk_review_assign(payload)
             return
         if path == "/api/review/prune_false_positives":
             self._handle_prune_false_positives(payload)

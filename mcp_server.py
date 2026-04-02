@@ -882,26 +882,29 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     CONSOLE_HOST = args.console_host or args.host  # noqa: F841 - read via module globals
-    if args.transport != "stdio":
-        start_console(runner, host=args.host, port=CONSOLE_PORT)
-        print(f"Job console:     http://{CONSOLE_HOST}:{CONSOLE_PORT}", file=sys.stderr)
+    try:
+        if args.transport != "stdio":
+            start_console(runner, host=args.host, port=CONSOLE_PORT)
+            print(f"Job console:     http://{CONSOLE_HOST}:{CONSOLE_PORT}", file=sys.stderr)
 
-    if args.transport in ("sse", "http"):
-        mcp.settings.host = args.host
-        mcp.settings.port = args.port
-        mcp.settings.transport_security = None  # allow connections from any host
+        if args.transport in ("sse", "http"):
+            mcp.settings.host = args.host
+            mcp.settings.port = args.port
+            mcp.settings.transport_security = None  # allow connections from any host
 
-    if args.transport == "sse":
-        print(
-            f"MCP SSE server:  http://{args.host}:{args.port}/sse  (configure LM Studio with this URL)",
-            file=sys.stderr,
-        )
-        mcp.run(transport="sse")
-    elif args.transport == "http":
-        print(
-            f"MCP HTTP server: http://{args.host}:{args.port}/mcp  (configure LM Studio with this URL)",
-            file=sys.stderr,
-        )
-        mcp.run(transport="streamable-http")
-    else:
-        mcp.run(transport="stdio")
+        if args.transport == "sse":
+            print(
+                f"MCP SSE server:  http://{args.host}:{args.port}/sse  (configure LM Studio with this URL)",
+                file=sys.stderr,
+            )
+            mcp.run(transport="sse")
+        elif args.transport == "http":
+            print(
+                f"MCP HTTP server: http://{args.host}:{args.port}/mcp  (configure LM Studio with this URL)",
+                file=sys.stderr,
+            )
+            mcp.run(transport="streamable-http")
+        else:
+            mcp.run(transport="stdio")
+    finally:
+        runner.shutdown()

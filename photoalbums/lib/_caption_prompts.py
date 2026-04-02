@@ -71,7 +71,13 @@ def _build_location_prompt() -> str:
     return "\n".join(lines)
 
 
-def _build_location_shown_prompt() -> str:
+def _build_location_shown_prompt(*, ocr_text: str = "") -> str:
     lines = _section("Preamble Location Shown")
+    text = str(ocr_text or "").strip()
+    if text:
+        lines.append("- OCR text hints about the general location:")
+        lines.append(text)
+    else:
+        lines.append("No OCR text hints are available for this page.")
     lines.extend(_section("Output Format – Location Shown"))
     return "\n".join(lines)

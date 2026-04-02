@@ -63,6 +63,81 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertIn("A dog in the park.", xml)
             self.assertNotIn("SubPhotos", xml)
 
+    def test_write_xmp_sidecar_writes_location_shown_bag(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="BUDAPEST,HUNGARY - AUGUST 1988",
+                detections_payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {},
+                    "caption": {},
+                    "location_shown_ran": True,
+                    "locations_shown": [
+                        {
+                            "name": "Fisherman's Bastion",
+                            "world_region": "Europe",
+                            "country_code": "HU",
+                            "country_name": "Hungary",
+                            "province_or_state": "",
+                            "city": "Budapest",
+                            "sublocation": "Fisherman's Bastion",
+                            "gps_latitude": "47.5020",
+                            "gps_longitude": "19.0340",
+                        }
+                    ],
+                },
+                locations_shown=[
+                    {
+                        "name": "Fisherman's Bastion",
+                        "world_region": "Europe",
+                        "country_code": "HU",
+                        "country_name": "Hungary",
+                        "province_or_state": "",
+                        "city": "Budapest",
+                        "sublocation": "Fisherman's Bastion",
+                        "gps_latitude": "47.5020",
+                        "gps_longitude": "19.0340",
+                    }
+                ],
+                subphotos=[],
+            )
+
+            xml = out.read_text(encoding="utf-8")
+            self.assertIn("LocationShown", xml)
+            self.assertIn("LocationName", xml)
+            self.assertIn("<Iptc4xmpExt:CountryCode>HU</Iptc4xmpExt:CountryCode>", xml)
+            self.assertIn("<Iptc4xmpExt:City>Budapest</Iptc4xmpExt:City>", xml)
+            self.assertIn("<exif:GPSLatitude>47,30.12N</exif:GPSLatitude>", xml)
+            self.assertIn("<exif:GPSLongitude>19,2.04E</exif:GPSLongitude>", xml)
+            self.assertIn(
+                "<Iptc4xmpExt:Sublocation>Fisherman's Bastion</Iptc4xmpExt:Sublocation>",
+                xml,
+            )
+            self.assertEqual(
+                xmp_sidecar.read_locations_shown(out),
+                [
+                    {
+                        "name": "Fisherman's Bastion",
+                        "world_region": "Europe",
+                        "country_code": "HU",
+                        "country_name": "Hungary",
+                        "province_or_state": "",
+                        "city": "Budapest",
+                        "sublocation": "Fisherman's Bastion",
+                        "gps_latitude": "47.502",
+                        "gps_longitude": "19.034",
+                    }
+                ],
+            )
+
     def test_write_xmp_sidecar_round_trips_ocr_authority_source(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "image.xmp"
@@ -151,7 +226,36 @@ class TestXMPSidecar(unittest.TestCase):
             state = xmp_sidecar.read_ai_sidecar_state(out)
             assert state is not None
             self.assertEqual(state["dc_date"], "1975-03-15")
+            self.assertEqual(state["dc_date_values"], ["1975-03-15"])
             self.assertEqual(state["date_time_original"], "1975-03-15T12:00:00")
+
+    def test_write_xmp_sidecar_round_trips_multiple_dc_dates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="scan_001.tif",
+                ocr_text="September 1934 and October 1934",
+                dc_date=["1934-09", "1934-10"],
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                subphotos=[],
+            )
+
+            xml = out.read_text(encoding="utf-8")
+            self.assertIn("<dc:date>", xml)
+            self.assertEqual(xml.count("<rdf:li>1934-09</rdf:li>"), 1)
+            self.assertEqual(xml.count("<rdf:li>1934-10</rdf:li>"), 1)
+            self.assertIn("<exif:DateTimeOriginal>1934-09-15T12:00:00</exif:DateTimeOriginal>", xml)
+
+            state = xmp_sidecar.read_ai_sidecar_state(out)
+            assert state is not None
+            self.assertEqual(state["dc_date"], "1934-09")
+            self.assertEqual(state["dc_date_values"], ["1934-09", "1934-10"])
+            self.assertEqual(state["date_time_original"], "1934-09-15T12:00:00")
 
     def test_normalize_dc_date_coerces_partial_formatting_errors(self):
         self.assertEqual(xmp_sidecar._normalize_dc_date("1988-1"), "1988-01")
@@ -330,6 +434,90 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertIn("Family Book I", xml)
             self.assertIn("39,47.25N", xml)
             self.assertNotIn("Old description", xml)
+
+    def test_write_xmp_sidecar_merges_locations_shown_into_existing_sidecar(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            out.write_text(
+                """<?xml version="1.0" encoding="utf-8"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:custom="https://example.com/custom/1.0/">
+  <rdf:RDF>
+    <rdf:Description rdf:about="">
+      <custom:KeepMe>Preserve this field</custom:KeepMe>
+    </rdf:Description>
+  </rdf:RDF>
+</x:xmpmeta>
+""",
+                encoding="utf-8",
+            )
+
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="OXFORD STREET LONDON,ENGLAND",
+                detections_payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {},
+                    "caption": {},
+                    "location_shown_ran": True,
+                    "locations_shown": [
+                        {
+                            "name": "Oxford Street",
+                            "world_region": "Europe",
+                            "country_code": "",
+                            "country_name": "United Kingdom",
+                            "province_or_state": "",
+                            "city": "London",
+                            "sublocation": "",
+                            "gps_latitude": "51.5154",
+                            "gps_longitude": "-0.1410",
+                        }
+                    ],
+                },
+                locations_shown=[
+                    {
+                        "name": "Oxford Street",
+                        "world_region": "Europe",
+                        "country_code": "",
+                        "country_name": "United Kingdom",
+                        "province_or_state": "",
+                        "city": "London",
+                        "sublocation": "",
+                        "gps_latitude": "51.5154",
+                        "gps_longitude": "-0.1410",
+                    }
+                ],
+            )
+
+            xml = out.read_text(encoding="utf-8")
+            self.assertIn("Preserve this field", xml)
+            self.assertIn("LocationShown", xml)
+            self.assertIn("Oxford Street", xml)
+            self.assertIn("<Iptc4xmpExt:CountryName>United Kingdom</Iptc4xmpExt:CountryName>", xml)
+            self.assertIn("<Iptc4xmpExt:City>London</Iptc4xmpExt:City>", xml)
+            self.assertIn("<exif:GPSLatitude>51,30.924N</exif:GPSLatitude>", xml)
+            self.assertIn("<exif:GPSLongitude>0,8.46W</exif:GPSLongitude>", xml)
+            self.assertEqual(
+                xmp_sidecar.read_locations_shown(out),
+                [
+                    {
+                        "name": "Oxford Street",
+                        "world_region": "Europe",
+                        "country_code": "",
+                        "country_name": "United Kingdom",
+                        "province_or_state": "",
+                        "city": "London",
+                        "sublocation": "",
+                        "gps_latitude": "51.5154",
+                        "gps_longitude": "-0.141",
+                    }
+                ],
+            )
 
     def test_write_xmp_sidecar_removes_legacy_xmp_create_date_on_merge(self):
         with tempfile.TemporaryDirectory() as tmp:

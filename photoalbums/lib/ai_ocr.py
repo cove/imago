@@ -233,6 +233,23 @@ def _recover_truncated_ocr_text(raw: str) -> str | None:
         return None
 
 
+def _recover_unterminated_ocr_text(raw: str) -> str | None:
+    """Recover OCR text when LM Studio leaks a field label into the text string."""
+    match = re.search(r'"text"\s*:\s*"', raw)
+    if not match:
+        return None
+    fragment = raw[match.end() :]
+    leaked_field = re.search(r'\\"[A-Za-z_][A-Za-z0-9_]{0,63}\s*:', fragment)
+    if not leaked_field:
+        return None
+    fragment = fragment[: leaked_field.start()]
+    fragment = re.sub(r"\\(?:[uU][0-9a-fA-F]{0,3}|.?)$", "", fragment)
+    try:
+        return json.loads('"' + fragment + '"')
+    except json.JSONDecodeError:
+        return None
+
+
 def _fix_json_escaping(text: str) -> str:
     """Fix common JSON escaping issues that can cause parsing failures."""
     # Fix excessive backslash escaping that can occur in OCR responses
@@ -271,6 +288,9 @@ def _parse_lmstudio_structured_ocr(value: object, *, finish_reason: str = "") ->
         except json.JSONDecodeError:
             payload = _extract_structured_json_payload(text)
             if payload is None:
+                recovered = _recover_unterminated_ocr_text(text)
+                if recovered is not None:
+                    return _normalize_ocr_text(recovered)
                 if str(finish_reason or "").strip() == "length":
                     recovered = _recover_truncated_ocr_text(text)
                     if recovered is not None:

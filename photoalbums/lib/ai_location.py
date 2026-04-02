@@ -218,6 +218,44 @@ def _resolve_location_payload(
         }
     return {}
 
+
+def _build_locations_shown_query(location: dict[str, Any]) -> str:
+    name = str(location.get("name") or "").strip()
+    if not name:
+        return ""
+    parts = [name]
+    seen = {name.casefold()}
+    for key in ("sublocation", "city", "province_or_state", "country_name"):
+        value = str(location.get(key) or "").strip()
+        if not value:
+            continue
+        folded = value.casefold()
+        if folded in seen:
+            continue
+        seen.add(folded)
+        parts.append(value)
+    return ", ".join(parts)
+
+
+def _has_legacy_ai_locations_shown_gps(sidecar_state: dict[str, Any] | None) -> bool:
+    if not isinstance(sidecar_state, dict):
+        return False
+    detections = sidecar_state.get("detections")
+    if not isinstance(detections, dict):
+        return False
+    for location in list(detections.get("locations_shown") or []):
+        if not isinstance(location, dict):
+            continue
+        has_gps = bool(
+            str(location.get("gps_latitude") or "").strip() and str(location.get("gps_longitude") or "").strip()
+        )
+        if not has_gps:
+            continue
+        if str(location.get("gps_source") or "").strip().lower() != "nominatim":
+            return True
+    return False
+
+
 def _resolve_locations_shown(
     *,
     requested_caption_engine: str,
@@ -225,11 +263,12 @@ def _resolve_locations_shown(
     model_image_path: Path,
     ocr_text: str,
     source_path: Path,
+    geocoder: NominatimGeocoder | None = None,
     prompt_debug: PromptDebugSession | None = None,
     debug_step: str = "locations_shown",
 ) -> tuple[list[dict[str, Any]], bool]:
     """Resolve locations shown in the image using AI.
-    
+
     Returns tuple of (locations_list, ran_flag).
     """
     if str(requested_caption_engine or "").strip().lower() != "lmstudio":
@@ -257,12 +296,25 @@ def _resolve_locations_shown(
     for loc in locations:
         if not isinstance(loc, dict):
             continue
-        validated.append({
+        normalized = {
+            "name": str(loc.get("name") or "").strip(),
             "world_region": str(loc.get("world_region") or "").strip(),
             "country_name": str(loc.get("country_name") or "").strip(),
             "country_code": str(loc.get("country_code") or "").strip(),
             "province_or_state": str(loc.get("province_or_state") or "").strip(),
             "city": str(loc.get("city") or "").strip(),
             "sublocation": str(loc.get("sublocation") or "").strip(),
-        })
+        }
+        if geocoder is not None:
+            query = _build_locations_shown_query(normalized)
+            if query:
+                try:
+                    geocoded = geocoder.geocode(query)
+                except Exception:
+                    geocoded = None
+                if geocoded is not None:
+                    normalized["gps_latitude"] = str(geocoded.latitude).strip()
+                    normalized["gps_longitude"] = str(geocoded.longitude).strip()
+                    normalized["gps_source"] = "nominatim"
+        validated.append(normalized)
     return validated, True

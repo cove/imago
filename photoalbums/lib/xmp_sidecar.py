@@ -148,12 +148,30 @@ def _normalize_dc_date(value: str) -> str:
     return normalized
 
 
+def _normalize_dc_dates(value: str | list[str] | tuple[str, ...]) -> list[str]:
+    if isinstance(value, str):
+        candidates = [value]
+    elif isinstance(value, (list, tuple)):
+        candidates = [str(item or "") for item in value]
+    else:
+        return []
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        clean = _normalize_dc_date(candidate)
+        if clean and clean not in seen:
+            normalized.append(clean)
+            seen.add(clean)
+    return normalized
+
+
 def _normalize_exif_date_time_original(value: str) -> str:
     return _normalize_xmp_datetime(str(value or "").strip())
 
 
-def _resolve_date_time_original(*, dc_date: str, date_time_original: str = "") -> str:
-    clean_dc_date = _normalize_dc_date(dc_date)
+def _resolve_date_time_original(*, dc_date: str | list[str] | tuple[str, ...], date_time_original: str = "") -> str:
+    clean_dc_dates = _normalize_dc_dates(dc_date)
+    clean_dc_date = clean_dc_dates[0] if clean_dc_dates else ""
     if len(clean_dc_date) == 4:
         return f"{clean_dc_date}-07-01T12:00:00"
     if len(clean_dc_date) == 7:
@@ -333,6 +351,7 @@ def _add_locations_shown_bag(parent: ET.Element, locations: list[dict]) -> None:
             continue
         li = ET.SubElement(bag, _RDF_LI)
         li.set(f"{{{RDF_NS}}}parseType", "Resource")
+        _add_alt_text(li, f"{{{IPTC_EXT_NS}}}LocationName", str(loc.get("name") or "").strip())
         if str(loc.get("world_region") or "").strip():
             ET.SubElement(li, f"{{{IPTC_EXT_NS}}}WorldRegion").text = str(loc.get("world_region")).strip()
         if str(loc.get("country_code") or "").strip():
@@ -345,6 +364,23 @@ def _add_locations_shown_bag(parent: ET.Element, locations: list[dict]) -> None:
             ET.SubElement(li, f"{{{IPTC_EXT_NS}}}City").text = str(loc.get("city")).strip()
         if str(loc.get("sublocation") or "").strip():
             ET.SubElement(li, f"{{{IPTC_EXT_NS}}}Sublocation").text = str(loc.get("sublocation")).strip()
+        if str(loc.get("gps_latitude") or "").strip():
+            ET.SubElement(li, f"{{{EXIF_NS}}}GPSLatitude").text = _format_xmp_gps_coordinate(
+                str(loc.get("gps_latitude") or "").strip(),
+                axis="lat",
+            )
+        if str(loc.get("gps_longitude") or "").strip():
+            ET.SubElement(li, f"{{{EXIF_NS}}}GPSLongitude").text = _format_xmp_gps_coordinate(
+                str(loc.get("gps_longitude") or "").strip(),
+                axis="lon",
+            )
+
+
+def _set_locations_shown_bag(parent: ET.Element, locations: list[dict]) -> None:
+    existing = parent.find(f"{{{IPTC_EXT_NS}}}LocationShown")
+    if existing is not None:
+        parent.remove(existing)
+    _add_locations_shown_bag(parent, locations)
 
 
 def _add_alt_text(parent: ET.Element, tag: str, value: str) -> None:
@@ -358,14 +394,19 @@ def _add_alt_text(parent: ET.Element, tag: str, value: str) -> None:
     item.text = text
 
 
-def _add_seq_text(parent: ET.Element, tag: str, value: str) -> None:
-    text = str(value or "").strip()
-    if not text:
+def _add_seq_text(parent: ET.Element, tag: str, value: str | list[str] | tuple[str, ...]) -> None:
+    if isinstance(value, str):
+        values = [str(value or "").strip()]
+    else:
+        values = [str(item or "").strip() for item in value]
+    values = [text for text in values if text]
+    if not values:
         return
     field = ET.SubElement(parent, tag)
     seq = ET.SubElement(field, _RDF_SEQ)
-    item = ET.SubElement(seq, _RDF_LI)
-    item.text = text
+    for text in values:
+        item = ET.SubElement(seq, _RDF_LI)
+        item.text = text
 
 
 def _number_lines(text: str) -> str:
@@ -617,7 +658,7 @@ def build_xmp_tree(
     stitch_key: str = "",
     ocr_authority_source: str = "",
     create_date: str = "",
-    dc_date: str = "",
+    dc_date: str | list[str] | tuple[str, ...] = "",
     date_time_original: str = "",
     history_when: str = "",
     image_width: int = 0,
@@ -645,11 +686,11 @@ def build_xmp_tree(
         author_text,
         scene_text,
     )
-    clean_dc_date = _normalize_dc_date(dc_date)
-    if clean_dc_date:
-        _add_seq_text(desc, f"{{{DC_NS}}}date", clean_dc_date)
+    clean_dc_dates = _normalize_dc_dates(dc_date)
+    if clean_dc_dates:
+        _add_seq_text(desc, f"{{{DC_NS}}}date", clean_dc_dates)
     resolved_date_time_original = _resolve_date_time_original(
-        dc_date=clean_dc_date,
+        dc_date=clean_dc_dates,
         date_time_original=date_time_original,
     )
     if resolved_date_time_original:
@@ -719,7 +760,7 @@ def build_xmp_tree(
         image_height,
     )
     _add_iptc_image_regions(desc, list(subphotos) if subphotos else [], image_width, image_height)
-    _add_locations_shown_bag(desc, list(locations_shown) if locations_shown else [])
+    _set_locations_shown_bag(desc, list(locations_shown) if locations_shown else [])
     _add_processing_history(
         desc,
         _build_processing_history(
@@ -801,18 +842,23 @@ def _set_alt_text(parent: ET.Element, tag: str, value: str) -> None:
     _replace_field(parent, tag, _builder)
 
 
-def _set_seq_text(parent: ET.Element, tag: str, value: str) -> None:
-    text = str(value or "").strip()
+def _set_seq_text(parent: ET.Element, tag: str, value: str | list[str] | tuple[str, ...]) -> None:
+    if isinstance(value, str):
+        values = [str(value or "").strip()]
+    else:
+        values = [str(item or "").strip() for item in value]
+    values = [text for text in values if text]
     existing = parent.find(tag)
-    if not text:
+    if not values:
         if existing is not None:
             parent.remove(existing)
         return
 
     def _builder(field: ET.Element) -> None:
         seq = ET.SubElement(field, _RDF_SEQ)
-        item = ET.SubElement(seq, _RDF_LI)
-        item.text = text
+        for text in values:
+            item = ET.SubElement(seq, _RDF_LI)
+            item.text = text
 
     _replace_field(parent, tag, _builder)
 
@@ -892,18 +938,25 @@ def _get_alt_text(parent: ET.Element, tag: str, *, prefer_lang: str = "", fallba
     return ""
 
 
-def _get_seq_text(parent: ET.Element, tag: str) -> str:
+def _get_seq_values(parent: ET.Element, tag: str) -> list[str]:
     field = parent.find(tag)
     if field is None:
-        return ""
+        return []
     seq = field.find(_RDF_SEQ)
     if seq is not None:
+        values: list[str] = []
         for item in seq.findall(_RDF_LI):
             text = str(item.text or "").strip()
             if text:
-                return text
-        return ""
-    return str(field.text or "").strip()
+                values.append(text)
+        return values
+    text = str(field.text or "").strip()
+    return [text] if text else []
+
+
+def _get_seq_text(parent: ET.Element, tag: str) -> str:
+    values = _get_seq_values(parent, tag)
+    return values[0] if values else ""
 
 
 def _read_xmp_bool(desc: ET.Element, tag: str) -> bool | None:
@@ -941,6 +994,51 @@ def read_person_in_image(sidecar_path: str | Path) -> list[str]:
         return []
 
 
+def read_locations_shown(sidecar_path: str | Path) -> list[dict[str, str]]:
+    """Return Iptc4xmpExt:LocationShown rows from an XMP sidecar. Returns [] on any error."""
+    _LOCATION_TAG = f"{{{IPTC_EXT_NS}}}LocationShown"
+    try:
+        from .ai_location import _xmp_gps_to_decimal  # pylint: disable=import-outside-toplevel
+
+        path = Path(sidecar_path)
+        if not path.is_file():
+            return []
+        tree = ET.parse(path)
+        desc = _get_rdf_desc(tree)  # type: ignore[arg-type]
+        if desc is None:
+            return []
+        field = desc.find(_LOCATION_TAG)
+        if field is None:
+            return []
+        bag = field.find(_RDF_BAG)
+        if bag is None:
+            return []
+        rows: list[dict[str, str]] = []
+        for li in bag.findall(_RDF_LI):
+            row = {
+                "name": _get_alt_text(li, f"{{{IPTC_EXT_NS}}}LocationName", prefer_lang="x-default"),
+                "world_region": str(li.findtext(f"{{{IPTC_EXT_NS}}}WorldRegion", default="") or "").strip(),
+                "country_code": str(li.findtext(f"{{{IPTC_EXT_NS}}}CountryCode", default="") or "").strip(),
+                "country_name": str(li.findtext(f"{{{IPTC_EXT_NS}}}CountryName", default="") or "").strip(),
+                "province_or_state": str(li.findtext(f"{{{IPTC_EXT_NS}}}ProvinceState", default="") or "").strip(),
+                "city": str(li.findtext(f"{{{IPTC_EXT_NS}}}City", default="") or "").strip(),
+                "sublocation": str(li.findtext(f"{{{IPTC_EXT_NS}}}Sublocation", default="") or "").strip(),
+                "gps_latitude": _xmp_gps_to_decimal(
+                    li.findtext(f"{{{EXIF_NS}}}GPSLatitude", default=""),
+                    axis="lat",
+                ),
+                "gps_longitude": _xmp_gps_to_decimal(
+                    li.findtext(f"{{{EXIF_NS}}}GPSLongitude", default=""),
+                    axis="lon",
+                ),
+            }
+            if any(row.values()):
+                rows.append(row)
+        return rows
+    except Exception:
+        return []
+
+
 def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
     path = Path(sidecar_path)
     if not path.is_file():
@@ -964,10 +1062,12 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
     processing_meta: dict[str, object] = dict((detections_payload or {}).get("processing") or {})
     processing_history = _read_processing_history(desc)
     processing_state = _derive_processing_state(processing_history)
+    dc_date_values = _normalize_dc_dates(_get_seq_values(desc, f"{{{DC_NS}}}date"))
     return {
         "creator_tool": str(desc.findtext(f"{{{XMP_NS}}}CreatorTool", default="") or "").strip(),
         "create_date": _normalize_xmp_datetime(str(desc.findtext(f"{{{XMP_NS}}}CreateDate", default="") or "").strip()),
-        "dc_date": _normalize_dc_date(_get_seq_text(desc, f"{{{DC_NS}}}date")),
+        "dc_date": dc_date_values[0] if dc_date_values else "",
+        "dc_date_values": dc_date_values,
         "date_time_original": _normalize_exif_date_time_original(
             str(desc.findtext(f"{{{EXIF_NS}}}DateTimeOriginal", default="") or "").strip()
         ),
@@ -1120,7 +1220,7 @@ def _merge_xmp_tree(
     stitch_key: str = "",
     ocr_authority_source: str = "",
     create_date: str = "",
-    dc_date: str = "",
+    dc_date: str | list[str] | tuple[str, ...] = "",
     date_time_original: str = "",
     history_when: str = "",
     image_width: int = 0,
@@ -1144,11 +1244,12 @@ def _merge_xmp_tree(
         author_text,
         scene_text,
     )
-    _set_seq_text(desc, f"{{{DC_NS}}}date", _normalize_dc_date(dc_date))
+    normalized_dc_dates = _normalize_dc_dates(dc_date)
+    _set_seq_text(desc, f"{{{DC_NS}}}date", normalized_dc_dates)
     _set_simple_text(
         desc,
         f"{{{EXIF_NS}}}DateTimeOriginal",
-        _resolve_date_time_original(dc_date=dc_date, date_time_original=date_time_original),
+        _resolve_date_time_original(dc_date=normalized_dc_dates, date_time_original=date_time_original),
     )
     _set_simple_text(desc, f"{{{IMAGO_NS}}}AlbumTitle", str(album_title or "").strip())
     _set_gps_fields(desc, gps_latitude, gps_longitude)
@@ -1189,7 +1290,7 @@ def _merge_xmp_tree(
         image_height,
     )
     _add_iptc_image_regions(desc, list(subphotos) if subphotos else [], image_width, image_height)
-    _add_locations_shown_bag(desc, list(locations_shown) if locations_shown else [])
+    _set_locations_shown_bag(desc, list(locations_shown) if locations_shown else [])
     _set_processing_history(
         desc,
         _build_processing_history(
@@ -1241,7 +1342,7 @@ def write_xmp_sidecar(
     stitch_key: str = "",
     ocr_authority_source: str = "",
     create_date: str = "",
-    dc_date: str = "",
+    dc_date: str | list[str] | tuple[str, ...] = "",
     date_time_original: str = "",
     history_when: str = "",
     image_width: int = 0,
@@ -1334,6 +1435,7 @@ def write_xmp_sidecar(
             ocr_ran=ocr_ran,
             people_detected=people_detected,
             people_identified=people_identified,
+            locations_shown=locations_shown,
         )
     tree.write(path, encoding="utf-8", xml_declaration=True)
     return path

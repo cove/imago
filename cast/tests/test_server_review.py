@@ -186,6 +186,104 @@ def test_bulk_review_resolve_ignores_multiple_pending_items(tmp_path):
         thread.join(timeout=2)
 
 
+def test_bulk_review_assign_creates_person_once_and_assigns_many(tmp_path):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+
+    first_face = store.add_face(embedding=[0.1, 0.2, 0.3], source_type="photo")
+    second_face = store.add_face(embedding=[0.2, 0.3, 0.4], source_type="photo")
+    first_review = store.add_review_item(
+        face_id=first_face["face_id"],
+        candidates=[],
+        suggested_person_id=None,
+        suggested_score=None,
+        status="pending",
+    )
+    second_review = store.add_review_item(
+        face_id=second_face["face_id"],
+        candidates=[],
+        suggested_person_id=None,
+        suggested_score=None,
+        status="pending",
+    )
+
+    server = CastHTTPServer("127.0.0.1", 0, store)
+    port = int(server.server_address[1])
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    time.sleep(0.2)
+    try:
+        status, payload = _post_json(
+            f"http://127.0.0.1:{port}/api/review/bulk_assign",
+            {
+                "review_ids": [first_review["review_id"], second_review["review_id"]],
+                "display_name": "Audrey",
+            },
+        )
+        assert status == 200
+        assert payload["ok"] is True
+        assert payload["created_person"] is True
+        assert payload["updated_reviews"] == 2
+        assert payload["updated_faces"] == 2
+
+        people = store.list_people()
+        assert len(people) == 1
+        person_id = str(people[0]["person_id"])
+        assert people[0]["display_name"] == "Audrey"
+
+        faces = {row["face_id"]: row for row in store.list_faces()}
+        assert faces[first_face["face_id"]]["person_id"] == person_id
+        assert faces[second_face["face_id"]]["person_id"] == person_id
+        assert faces[first_face["face_id"]]["review_status"] == "confirmed"
+        assert faces[second_face["face_id"]]["review_status"] == "confirmed"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_bulk_review_assign_reuses_existing_alias_match(tmp_path):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+
+    person = store.add_person(name="Audrey", aliases=["Auds"])
+    face = store.add_face(embedding=[0.1, 0.2, 0.3], source_type="photo")
+    review = store.add_review_item(
+        face_id=face["face_id"],
+        candidates=[],
+        suggested_person_id=None,
+        suggested_score=None,
+        status="pending",
+    )
+
+    server = CastHTTPServer("127.0.0.1", 0, store)
+    port = int(server.server_address[1])
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    time.sleep(0.2)
+    try:
+        status, payload = _post_json(
+            f"http://127.0.0.1:{port}/api/review/bulk_assign",
+            {
+                "review_ids": [review["review_id"]],
+                "display_name": "auds",
+            },
+        )
+        assert status == 200
+        assert payload["ok"] is True
+        assert payload["created_person"] is False
+        assert str(payload["person"]["person_id"]) == str(person["person_id"])
+        assert len(store.list_people()) == 1
+
+        refreshed_face = store.list_faces()[0]
+        assert refreshed_face["person_id"] == person["person_id"]
+        assert refreshed_face["review_status"] == "confirmed"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
 def test_state_limits_pending_and_unknown_payload_rows(tmp_path):
     store = TextFaceStore(tmp_path / "cast_data")
     store.ensure_files()
@@ -410,6 +508,76 @@ def test_review_accept_keeps_item_pending_when_xmp_write_fails(tmp_path, monkeyp
         assert "photo.jpg" in log_text
         assert "photo.xmp" in log_text
         assert "PermissionError" in log_text
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_bulk_review_assign_stops_when_xmp_write_fails(tmp_path, monkeypatch):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+
+    person = store.add_person(name="Audrey")
+    good_face = store.add_face(
+        embedding=[0.1, 0.2, 0.3],
+        source_type="photo",
+    )
+    image_path = tmp_path / "photo.jpg"
+    image_path.write_bytes(b"jpg")
+    failing_face = store.add_face(
+        embedding=[0.2, 0.3, 0.4],
+        source_type="photo",
+        source_path=str(image_path),
+        bbox=[10, 20, 30, 40],
+    )
+    good_review = store.add_review_item(
+        face_id=good_face["face_id"],
+        candidates=[],
+        suggested_person_id=None,
+        suggested_score=None,
+        status="pending",
+    )
+    failing_review = store.add_review_item(
+        face_id=failing_face["face_id"],
+        candidates=[],
+        suggested_person_id=None,
+        suggested_score=None,
+        status="pending",
+    )
+
+    monkeypatch.setattr(cast_server, "read_person_in_image", lambda path: [])
+
+    def raise_merge(*args, **kwargs):
+        raise PermissionError(13, "Permission denied", str(image_path.with_suffix(".xmp")))
+
+    monkeypatch.setattr(cast_server, "merge_persons_xmp", raise_merge)
+
+    server = CastHTTPServer("127.0.0.1", 0, store)
+    port = int(server.server_address[1])
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    time.sleep(0.2)
+    try:
+        status, payload = _post_json(
+            f"http://127.0.0.1:{port}/api/review/bulk_assign",
+            {
+                "review_ids": [good_review["review_id"], failing_review["review_id"]],
+                "person_id": person["person_id"],
+            },
+        )
+        assert status == 500
+        assert payload["ok"] is False
+        assert "Bulk assign stopped after 1 review(s)" in payload["error"]
+        assert "XMP write-back failed for review" in payload["error"]
+
+        reviews = {row["review_id"]: row for row in store.list_review_items()}
+        assert reviews[good_review["review_id"]]["status"] == "accepted"
+        assert reviews[failing_review["review_id"]]["status"] == "pending"
+
+        faces = {row["face_id"]: row for row in store.list_faces()}
+        assert faces[good_face["face_id"]]["person_id"] == person["person_id"]
+        assert faces[failing_face["face_id"]]["person_id"] is None
     finally:
         server.shutdown()
         server.server_close()
