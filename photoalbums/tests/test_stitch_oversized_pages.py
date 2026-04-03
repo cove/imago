@@ -41,6 +41,15 @@ class TestStitchOversizedPages(unittest.TestCase):
         view = sop.get_view_dirname(base)
         self.assertEqual(Path(view), Path("C:/Photos/EU_1973_B02_View"))
 
+    def test_require_primary_scan_rejects_page_without_s01(self):
+        with self.assertRaises(RuntimeError):
+            sop._require_primary_scan(
+                [
+                    "C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_S02.tif",
+                    "C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_S03.tif",
+                ]
+            )
+
     def test_stitch_writes_jpeg(self):
         files = [
             "C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_S01.tif",
@@ -53,6 +62,7 @@ class TestStitchOversizedPages(unittest.TestCase):
             tempfile.TemporaryDirectory() as tmp,
             mock.patch("stitch_oversized_pages._require_stitcher"),
             mock.patch("stitch_oversized_pages._require_image_modules"),
+            mock.patch("stitch_oversized_pages._validate_and_retry", return_value=True),
             mock.patch("stitch_oversized_pages.AffineStitcher") as stitcher_mock,
             mock.patch("stitch_oversized_pages.write_jpeg") as write_mock,
         ):
@@ -71,6 +81,7 @@ class TestStitchOversizedPages(unittest.TestCase):
             out.write_bytes(b"x" * 1024)
             with (
                 mock.patch("stitch_oversized_pages._require_image_modules"),
+                mock.patch("stitch_oversized_pages.validate_image_with_pillow", return_value=True),
                 mock.patch("stitch_oversized_pages._read_stitch_image") as read_mock,
                 mock.patch("stitch_oversized_pages.write_jpeg") as write_mock,
             ):
@@ -86,6 +97,7 @@ class TestStitchOversizedPages(unittest.TestCase):
             out.write_bytes(b"x" * 1024)
             with (
                 mock.patch("stitch_oversized_pages._require_image_modules"),
+                mock.patch("stitch_oversized_pages.validate_image_with_pillow", return_value=True),
                 mock.patch("stitch_oversized_pages._read_stitch_image") as read_mock,
                 mock.patch("stitch_oversized_pages.write_jpeg") as write_mock,
             ):
@@ -130,6 +142,7 @@ class TestStitchOversizedPages(unittest.TestCase):
             with (
                 mock.patch("stitch_oversized_pages._require_stitcher"),
                 mock.patch("stitch_oversized_pages._require_image_modules"),
+                mock.patch("stitch_oversized_pages.validate_image_with_pillow", return_value=True),
                 mock.patch("stitch_oversized_pages.build_stitched_image") as build_mock,
                 mock.patch("stitch_oversized_pages.write_jpeg") as write_mock,
             ):
@@ -138,6 +151,30 @@ class TestStitchOversizedPages(unittest.TestCase):
         self.assertFalse(wrote)
         build_mock.assert_not_called()
         write_mock.assert_not_called()
+
+    def test_copy_base_view_sidecar_uses_archive_s01_sidecar(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / "EU_1973_B02_Archive"
+            view = Path(tmp) / "EU_1973_B02_View"
+            archive.mkdir()
+            view.mkdir()
+            scan = archive / "EU_1973_B02_P05_S01.tif"
+            scan.write_bytes(b"scan")
+            sidecar = scan.with_suffix(".xmp")
+            sidecar.write_text("<xmp />", encoding="utf-8")
+
+            target = sop._copy_base_view_sidecar(scan, view)
+
+            self.assertEqual(target, view / "EU_1973_B02_P05_V.xmp")
+            self.assertEqual(target.read_text(encoding="utf-8"), "<xmp />")
+
+    def test_index_rendered_view_image_runs_ai_index_for_view_output(self):
+        with mock.patch("photoalbums.lib.ai_index.run", return_value=0) as run_mock:
+            sop._index_rendered_view_image("C:/Photos/EU_1973_B02_View/EU_1973_B02_P05_D01-02_V.jpg")
+
+        args = run_mock.call_args.args[0]
+        self.assertEqual(args[0], "--photo")
+        self.assertTrue(str(args[1]).endswith("EU_1973_B02_P05_D01-02_V.jpg"))
 
     def test_linear_pair_fallback_stitches_split_page(self):
         try:
