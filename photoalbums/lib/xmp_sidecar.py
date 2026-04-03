@@ -680,6 +680,7 @@ def build_xmp_tree(
     people_identified: bool = False,
     locations_shown: list[dict] | None = None,
 ) -> ET.ElementTree:
+    del subphotos, image_width, image_height, scan_number
     xmpmeta = ET.Element(f"{{{X_NS}}}xmpmeta")
     rdf = ET.SubElement(xmpmeta, _RDF_ROOT)
     desc = ET.SubElement(rdf, _RDF_DESC)
@@ -730,8 +731,6 @@ def build_xmp_tree(
         _add_simple_text(desc, f"{{{IPTC_EXT_NS}}}Sublocation", str(location_sublocation).strip())
     if page_number > 0:
         _add_simple_text(desc, f"{{{PHOTOSHOP_NS}}}PageNumber", str(page_number))
-    if scan_number > 0:
-        _add_simple_text(desc, f"{{{IMAGO_NS}}}ScanNumber", str(scan_number))
     _add_simple_text(desc, f"{{{DC_NS}}}source", _normalize_xmp_text(source_text))
 
     creator = ET.SubElement(desc, f"{{{XMP_NS}}}CreatorTool")
@@ -765,13 +764,6 @@ def build_xmp_tree(
     if detections_payload:
         payload = ET.SubElement(desc, f"{{{IMAGO_NS}}}Detections")
         payload.text = json.dumps(detections_payload, ensure_ascii=False, sort_keys=True)
-    _add_iptc_face_regions(
-        desc,
-        list((detections_payload or {}).get("people") or []),
-        image_width,
-        image_height,
-    )
-    _add_iptc_image_regions(desc, list(subphotos) if subphotos else [], image_width, image_height)
     _set_locations_shown_bag(desc, list(locations_shown) if locations_shown else [])
     _add_processing_history(
         desc,
@@ -1249,6 +1241,7 @@ def _merge_xmp_tree(
     people_identified: bool = False,
     locations_shown: list[dict] | None = None,
 ) -> ET.ElementTree:
+    del subphotos, image_width, image_height, scan_number
     desc = _get_or_create_rdf_desc(tree)
     _set_bag(desc, f"{{{DC_NS}}}subject", subjects)
     _set_bag(desc, f"{{{IPTC_EXT_NS}}}PersonInImage", person_names)
@@ -1275,7 +1268,7 @@ def _merge_xmp_tree(
     _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}Country", str(location_country or "").strip())
     _set_simple_text(desc, f"{{{IPTC_EXT_NS}}}Sublocation", str(location_sublocation or "").strip())
     _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}PageNumber", str(page_number) if page_number > 0 else "")
-    _set_simple_text(desc, f"{{{IMAGO_NS}}}ScanNumber", str(scan_number) if scan_number > 0 else "")
+    _remove_field(desc, f"{{{IMAGO_NS}}}ScanNumber")
     _set_simple_text(desc, f"{{{DC_NS}}}source", str(source_text or "").strip())
     _set_simple_text(
         desc,
@@ -1301,13 +1294,7 @@ def _merge_xmp_tree(
         )
     else:
         _set_simple_text(desc, f"{{{IMAGO_NS}}}Detections", "")
-    _set_iptc_face_regions(
-        desc,
-        list((detections_payload or {}).get("people") or []),
-        image_width,
-        image_height,
-    )
-    _add_iptc_image_regions(desc, list(subphotos) if subphotos else [], image_width, image_height)
+    _remove_field(desc, f"{{{IPTC_EXT_NS}}}ImageRegion")
     _set_locations_shown_bag(desc, list(locations_shown) if locations_shown else [])
     _set_processing_history(
         desc,

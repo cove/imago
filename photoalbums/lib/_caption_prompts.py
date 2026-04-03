@@ -40,10 +40,15 @@ def _build_local_prompt(
     album_title: str = "",
     printed_album_title: str = "",
     people_positions: dict[str, str] | None = None,
+    context_ocr_text: str = "",
 ) -> str:
+    del people, objects, album_title, printed_album_title, people_positions
     lines = _section("Preamble Describe")
     if _looks_like_title_page(source_path):
         lines.extend(_section("Preamble Cover Page", ocr_text=ocr_text))
+    clean_context_ocr = str(context_ocr_text or "").strip()
+    if clean_context_ocr:
+        lines.extend(_section("Preamble Upstream OCR Context", context_ocr_text=clean_context_ocr))
     lines.extend(_section("Preamble Page Photo Regions Compact"))
     lines.extend(_section("Output Format – Describe Page (with photo regions)"))
 

@@ -184,6 +184,11 @@ clearly: which photo, what the symptom is, and what the likely cause is.
 - Use `scene_text` only for readable text inside the photographed scene itself, not the page itself.
 - Return empty strings when no applicable text exists for a field.
 
+## Preamble Upstream OCR Context
+- The following OCR text comes from the parent album page XMP and is context only: {context_ocr_text}
+- Use it only to disambiguate cropped annotations, partial captions, or place names visible in the current image.
+- Do not copy words from this context into `ocr_text`, `author_text`, or `scene_text` unless they are visible in the current image.
+
 ## Preamble People Count
 - Count the number of clearly visible real people.
 

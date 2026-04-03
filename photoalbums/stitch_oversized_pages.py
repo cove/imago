@@ -500,6 +500,62 @@ def get_view_dirname(path: str | Path) -> str:
     return str(Path(path).parent / f"{base_no_archive}_View")
 
 
+def _scan_number(path: str | Path) -> int:
+    match = SCAN_NAME_RE.search(Path(path).name)
+    if match is None:
+        return 0
+    return int(match.group("scan"))
+
+
+def _require_primary_scan(files: list[str]) -> str:
+    ordered = sorted(files, key=_scan_number)
+    primary = next((path for path in ordered if _scan_number(path) == 1), "")
+    if not primary:
+        raise RuntimeError(f"Page is missing required S01 scan: {', '.join(Path(path).name for path in ordered)}")
+    return primary
+
+
+def _view_page_output_path(scan_path: str | Path, output_dir: str | Path) -> Path:
+    collection, year, book, page = parse_album_filename(Path(scan_path).name)
+    return Path(output_dir) / f"{collection}_{year}_B{book}_P{int(page):02d}_V.jpg"
+
+
+def _derived_view_output_path(src_path: str | Path, output_dir: str | Path) -> Path:
+    return Path(output_dir) / build_derived_output_name(Path(src_path).name)
+
+
+def _ensure_archive_page_sidecar(scan_path: str | Path) -> Path:
+    scan_path = Path(scan_path)
+    sidecar_path = scan_path.with_suffix(".xmp")
+    if sidecar_path.is_file() and sidecar_path.stat().st_size > 0:
+        return sidecar_path
+    from photoalbums.lib import ai_index  # pylint: disable=import-outside-toplevel
+
+    result = int(ai_index.run(["--photo", str(scan_path)]) or 0)
+    if result != 0:
+        raise RuntimeError(f"AI index failed while creating archive sidecar: {scan_path}")
+    if not sidecar_path.is_file() or sidecar_path.stat().st_size <= 0:
+        raise RuntimeError(f"Archive sidecar was not created for render output: {sidecar_path}")
+    return sidecar_path
+
+
+def _copy_base_view_sidecar(scan_path: str | Path, output_dir: str | Path) -> Path:
+    source_sidecar = _ensure_archive_page_sidecar(scan_path)
+    target_sidecar = _view_page_output_path(scan_path, output_dir).with_suffix(".xmp")
+    target_sidecar.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source_sidecar, target_sidecar)
+    return target_sidecar
+
+
+def _index_rendered_view_image(image_path: str | Path) -> None:
+    image_path = Path(image_path)
+    from photoalbums.lib import ai_index  # pylint: disable=import-outside-toplevel
+
+    result = int(ai_index.run(["--photo", str(image_path)]) or 0)
+    if result != 0:
+        raise RuntimeError(f"AI index failed for rendered view image: {image_path}")
+
+
 def list_page_scans(directory: str | Path):
     return list_page_scan_groups(directory, NEW_NAME_RE)
 
@@ -663,10 +719,13 @@ def main() -> None:
 
         for group in list_page_scans(archive):
             try:
+                primary_scan = _require_primary_scan(group)
                 if len(group) > 1:
                     wrote = stitch(group, view)
                 else:
-                    wrote = tif_to_jpg(group[0], view)
+                    wrote = tif_to_jpg(primary_scan, view)
+                if wrote or not _view_page_output_path(primary_scan, view).with_suffix(".xmp").is_file():
+                    _copy_base_view_sidecar(primary_scan, view)
                 if wrote:
                     success += 1
                 else:
@@ -679,6 +738,9 @@ def main() -> None:
         for derived in list_derived_images(archive):
             try:
                 wrote = derived_to_jpg(derived, view)
+                derived_view_path = _derived_view_output_path(derived, view)
+                if wrote or not derived_view_path.with_suffix(".xmp").is_file():
+                    _index_rendered_view_image(derived_view_path)
                 if wrote:
                     success += 1
                 else:

@@ -58,9 +58,8 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertIn("100,18.43332E", xml)
             self.assertIn("GPSMapDatum", xml)
             self.assertIn("Family_2020_B01_P01_S01.tif", xml)
-            self.assertIn("ImageRegion", xml)
+            self.assertNotIn("ImageRegion", xml)
             self.assertNotIn("RegionInfo", xml)
-            self.assertIn("A dog in the park.", xml)
             self.assertNotIn("SubPhotos", xml)
 
     def test_write_xmp_sidecar_writes_location_shown_bag(self):
@@ -845,7 +844,7 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertEqual(state["gps_latitude"], "39,47.25N")
             self.assertEqual(state["gps_longitude"], "100,18.43332E")
 
-    def test_write_xmp_sidecar_derives_page_and_scan_from_filename(self):
+    def test_write_xmp_sidecar_derives_page_but_omits_scan_from_filename(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "China_1986_B02_P17_S01.xmp"
             xmp_sidecar.write_xmp_sidecar(
@@ -860,8 +859,7 @@ class TestXMPSidecar(unittest.TestCase):
             xml = out.read_text(encoding="utf-8")
             self.assertIn("PageNumber", xml)
             self.assertIn(">17<", xml)
-            self.assertIn("ScanNumber", xml)
-            self.assertIn(">1<", xml)
+            self.assertNotIn("ScanNumber", xml)
 
     def test_write_xmp_sidecar_omits_page_and_scan_for_unknown_filename(self):
         with tempfile.TemporaryDirectory() as tmp:

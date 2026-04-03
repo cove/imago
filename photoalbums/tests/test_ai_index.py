@@ -68,6 +68,34 @@ class TestAIIndex(unittest.TestCase):
             )
             self.assertEqual([p.name for p in files], ["b.png"])
 
+    def test_coalesce_archive_processing_files_keeps_s01_and_preserves_derived_images(self):
+        files = [
+            Path("China_1986_B02_Archive/China_1986_B02_P02_S02.tif"),
+            Path("China_1986_B02_Archive/China_1986_B02_P02_S01.tif"),
+            Path("China_1986_B02_Archive/China_1986_B02_P02_D01-01.tif"),
+            Path("China_1986_B02_View/China_1986_B02_P02_V.jpg"),
+        ]
+
+        selected = ai_index._coalesce_archive_processing_files(files)
+
+        self.assertEqual(
+            selected,
+            [
+                Path("China_1986_B02_Archive/China_1986_B02_P02_S01.tif"),
+                Path("China_1986_B02_Archive/China_1986_B02_P02_D01-01.tif"),
+                Path("China_1986_B02_View/China_1986_B02_P02_V.jpg"),
+            ],
+        )
+
+    def test_coalesce_archive_processing_files_fails_when_s01_missing(self):
+        files = [
+            Path("China_1986_B02_Archive/China_1986_B02_P02_S02.tif"),
+            Path("China_1986_B02_Archive/China_1986_B02_P02_S03.tif"),
+        ]
+
+        with self.assertRaises(RuntimeError):
+            ai_index._coalesce_archive_processing_files(files)
+
     def test_expand_album_title_dependencies_prepends_title_page_sources(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
@@ -1581,6 +1609,7 @@ class TestAIIndex(unittest.TestCase):
                 printed_album_title="",
                 photo_count=1,
                 people_positions={},
+                context_ocr_text="",
                 debug_recorder=None,
                 debug_step="caption",
             )
@@ -1642,6 +1671,7 @@ class TestAIIndex(unittest.TestCase):
                 printed_album_title="",
                 photo_count=1,
                 people_positions={},
+                context_ocr_text="",
                 debug_recorder=None,
                 debug_step="caption",
             )
@@ -4260,6 +4290,7 @@ class TestAIIndex(unittest.TestCase):
                 mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis) as analysis_mock,
                 mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
                 mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+                mock.patch.object(ai_index, "_mirror_page_sidecars"),
             ):
                 result = ai_index.run(
                     [
@@ -4280,7 +4311,7 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(result, 0)
             authority_mock.assert_called_once()
             self.assertEqual(analysis_mock.call_args.kwargs["image_path"], stitched_path)
-            self.assertEqual(analysis_mock.call_args.kwargs["people_image_path"], scan1)
+            self.assertEqual(analysis_mock.call_args.kwargs["people_image_path"], stitched_path)
             self.assertEqual(
                 analysis_mock.call_args.kwargs["ocr_text_override"],
                 "MAINLAND CHINA 1986 BOOK 11",
@@ -4379,6 +4410,7 @@ class TestAIIndex(unittest.TestCase):
                 mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
                 mock.patch.object(ai_index, "CaptionEngine", return_value=fake_caption_engine),
                 mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+                mock.patch.object(ai_index, "_mirror_page_sidecars"),
             ):
                 result = ai_index.run(
                     [

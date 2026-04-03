@@ -192,6 +192,7 @@ class CaptionEngine:
         printed_album_title: str = "",
         photo_count: int = 1,
         people_positions: dict[str, str] | None = None,
+        context_ocr_text: str = "",
         debug_recorder=None,
         debug_step: str = "caption",
     ) -> CaptionOutput:
@@ -206,6 +207,7 @@ class CaptionEngine:
             album_title=album_title,
             printed_album_title=printed_album_title,
             people_positions=people_positions,
+            context_ocr_text=context_ocr_text,
         )
         response = ""
         finish_reason = ""

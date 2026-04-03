@@ -58,6 +58,18 @@ class TestAICaption(unittest.TestCase):
         self.assertNotIn("Detected objects:", prompt)
         self.assertNotIn("OCR text hint:", prompt)
 
+    def test_build_local_prompt_includes_upstream_ocr_context_only_when_supplied(self):
+        prompt = ai_caption._build_local_prompt(
+            people=[],
+            objects=[],
+            ocr_text="",
+            source_path=Path("Photo Albums") / "China_1986_B02_Archive" / "China_1986_B02_P02_D01-01.tif",
+            context_ocr_text="TEMPLE OF HEAVEN\nBEIJING",
+        )
+        self.assertIn("The following OCR text comes from the parent album page XMP and is context only", prompt)
+        self.assertIn("TEMPLE OF HEAVEN\nBEIJING", prompt)
+        self.assertIn("Do not copy words from this context", prompt)
+
     def test_build_local_prompt_includes_cover_page_prompt_for_title_pages(self):
         prompt = ai_caption._build_local_prompt(
             people=[],

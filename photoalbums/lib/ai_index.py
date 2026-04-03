@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import sys
 import tempfile
 import time
@@ -397,6 +398,119 @@ def _build_dc_source(album_title: str, image_path: Path, scan_filenames: list[st
         parts.append("Scan(s) " + " ".join(f"S{n:02d}" for n in scan_nums))
     label = " ".join(parts)
     return "; ".join(p for p in [label] + source_filenames if p)
+
+
+def _is_archive_file(image_path: Path) -> bool:
+    return str(image_path.parent.name or "").endswith("_Archive")
+
+
+def _page_sort_key(image_path: Path) -> tuple[str, int, int, str]:
+    album_key = _album_identity_key(image_path)
+    _collection, _year, _book, page_str = parse_album_filename(image_path.name)
+    try:
+        page_number = int(page_str)
+    except ValueError:
+        page_number = 0
+    if _scan_name_match(image_path):
+        kind_rank = 0
+    elif _derived_name_match(image_path):
+        kind_rank = 1
+    else:
+        kind_rank = 2
+    return album_key, page_number, kind_rank, image_path.name.casefold()
+
+
+def _coalesce_archive_processing_files(files: list[Path]) -> list[Path]:
+    scan_groups: dict[str, list[Path]] = {}
+    passthrough: list[Path] = []
+    for image_path in files:
+        if _is_archive_file(image_path) and _scan_name_match(image_path):
+            page_key = _scan_page_key(image_path)
+            if page_key is None:
+                passthrough.append(image_path)
+                continue
+            scan_groups.setdefault(page_key, []).append(image_path)
+            continue
+        passthrough.append(image_path)
+
+    selected: list[Path] = []
+    missing_s01_pages: list[str] = []
+    for _page_key, group_paths in sorted(scan_groups.items()):
+        group_paths = sorted(group_paths, key=_scan_number)
+        primary_scan = next((path for path in group_paths if _scan_number(path) == 1), None)
+        if primary_scan is None:
+            missing_s01_pages.append(" + ".join(path.name for path in group_paths))
+            continue
+        selected.append(primary_scan)
+
+    if missing_s01_pages:
+        raise RuntimeError("Missing S01 scan for page(s): " + "; ".join(missing_s01_pages))
+
+    selected.extend(passthrough)
+    selected.sort(key=_page_sort_key)
+    return selected
+
+
+def _format_location_hint_from_state(state: dict[str, Any] | None) -> str:
+    if not isinstance(state, dict):
+        return ""
+    parts = [
+        str(state.get("location_sublocation") or "").strip(),
+        str(state.get("location_city") or "").strip(),
+        str(state.get("location_state") or "").strip(),
+        str(state.get("location_country") or "").strip(),
+    ]
+    return ", ".join(part for part in parts if part)
+
+
+def _resolve_upstream_page_sidecar_state(image_path: Path) -> dict[str, Any] | None:
+    if not _derived_name_match(image_path):
+        return None
+    archive_dir = find_archive_dir_for_image(image_path)
+    if archive_dir is None or not archive_dir.is_dir():
+        return None
+    scan_filenames = _page_scan_filenames(image_path)
+    if not scan_filenames:
+        return None
+    primary_scan_name = next(
+        (
+            scan_name
+            for scan_name in scan_filenames
+            if (match := _scan_name_match(scan_name)) is not None and int(match.group("scan")) == 1
+        ),
+        "",
+    )
+    if not primary_scan_name:
+        raise RuntimeError(f"Missing S01 scan for page context: {image_path}")
+    sidecar_path = (archive_dir / primary_scan_name).with_suffix(".xmp")
+    state = read_ai_sidecar_state(sidecar_path)
+    return state if isinstance(state, dict) else None
+
+
+def _contextualize_ocr_text(ocr_text: str, *, context_ocr_text: str = "", context_location_hint: str = "") -> str:
+    parts = [str(ocr_text or "").strip()]
+    clean_context_ocr = str(context_ocr_text or "").strip()
+    if clean_context_ocr:
+        parts.append(f"Parent page OCR hint (context only):\n{clean_context_ocr}")
+    clean_location_hint = str(context_location_hint or "").strip()
+    if clean_location_hint:
+        parts.append(f"Parent page location hint (context only):\n{clean_location_hint}")
+    return "\n\n".join(part for part in parts if part)
+
+
+def _mirror_page_sidecars(primary_scan_path: Path) -> None:
+    if not _scan_name_match(primary_scan_path):
+        return
+    sibling_scans = _scan_group_paths(primary_scan_path)
+    if len(sibling_scans) <= 1:
+        return
+    source_sidecar = primary_scan_path.with_suffix(".xmp")
+    if not source_sidecar.is_file():
+        raise RuntimeError(f"Page sidecar missing for copy step: {source_sidecar}")
+    for sibling_path in sibling_scans:
+        if sibling_path == primary_scan_path:
+            continue
+        shutil.copy2(source_sidecar, sibling_path.with_suffix(".xmp"))
 
 
 def _configured_title_page_location_payload(
@@ -1233,6 +1347,8 @@ def _run_image_analysis(
     extra_people_names: list[str] | None = None,
     is_page_scan: bool = False,
     ocr_text_override: str | None = None,
+    context_ocr_text: str = "",
+    context_location_hint: str = "",
     prompt_debug: PromptDebugSession | None = None,
     title_page_location: dict[str, str] | None = None,
 ) -> ImageAnalysis:
@@ -1244,6 +1360,8 @@ def _run_image_analysis(
     with _prepare_ai_model_image(image_path) as model_image_path:
         object_labels: list[str] = []
         ocr_text = str(ocr_text_override or "").strip()
+        clean_context_ocr = str(context_ocr_text or "").strip()
+        clean_context_location = str(context_location_hint or "").strip()
         if ocr_text_override is None and ocr_engine.engine != "none":
             if step_fn:
                 step_fn("ocr")
@@ -1260,16 +1378,22 @@ def _run_image_analysis(
             model_image_path=model_image_path,
             people=list(extra_people_names or []),
             objects=[],
-            ocr_text=ocr_text,
+            ocr_text=_contextualize_ocr_text(
+                ocr_text,
+                context_ocr_text=clean_context_ocr,
+                context_location_hint=clean_context_location,
+            ),
             source_path=caption_source_path or people_source_path or image_path,
             album_title=album_title,
             printed_album_title=printed_album_title,
             people_positions={},
-            fallback_location_name="",
+            fallback_location_name=clean_context_location,
             prompt_debug=prompt_debug,
             debug_step="location",
         )
-        combined_hint_text = " ".join(part for part in [str(people_hint_text or "").strip(), ocr_text] if part).strip()
+        combined_hint_text = " ".join(
+            part for part in [str(people_hint_text or "").strip(), ocr_text, clean_context_ocr] if part
+        ).strip()
         people_matches = (
             _match_people_with_cast_store_retry(
                 people_matcher=people_matcher,
@@ -1302,6 +1426,7 @@ def _run_image_analysis(
             printed_album_title=printed_album_title,
             photo_count=page_photo_count,
             people_positions=people_positions,
+            context_ocr_text=clean_context_ocr,
             debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
             debug_step="caption",
         )
@@ -1384,7 +1509,11 @@ def _run_image_analysis(
         requested_caption_engine=requested_caption_engine,
         caption_engine=caption_engine,
         model_image_path=image_path,
-        ocr_text=ocr_text,
+        ocr_text=_contextualize_ocr_text(
+            ocr_text,
+            context_ocr_text=clean_context_ocr,
+            context_location_hint=clean_context_location,
+        ),
         source_path=caption_source_path or people_source_path or image_path,
         album_title=album_title,
         printed_album_title=printed_album_title,
@@ -1976,7 +2105,7 @@ def run(argv: list[str] | None = None) -> int:
     include_view = bool(args.include_view)
     if not include_archive and not include_view:
         include_archive = True
-        include_view = True
+        include_view = False
 
     ext_set = {
         (item.strip().lower() if item.strip().startswith(".") else f".{item.strip().lower()}")
@@ -2006,6 +2135,7 @@ def run(argv: list[str] | None = None) -> int:
         if album_filter:
             album_lower = album_filter.casefold()
             files = [f for f in files if album_lower in f.parent.name.casefold()]
+        files = _coalesce_archive_processing_files(files)
         photo_offset = int(args.photo_offset or 0)
         if photo_offset > 0:
             files = files[photo_offset:]
@@ -3044,6 +3174,13 @@ def run(argv: list[str] | None = None) -> int:
             stop_ticker, set_step = _progress_ticker(prefix)
         album_title_hint = _resolve_album_title_hint(image_path)
         printed_album_title_hint = _resolve_album_printed_title_hint(image_path, printed_album_title_cache)
+        upstream_page_state = _resolve_upstream_page_sidecar_state(image_path)
+        upstream_context_ocr = str((upstream_page_state or {}).get("ocr_text") or "").strip()
+        upstream_location_hint = _format_location_hint_from_state(upstream_page_state)
+        if not album_title_hint:
+            album_title_hint = str((upstream_page_state or {}).get("album_title") or "").strip()
+        if not printed_album_title_hint:
+            printed_album_title_hint = str((upstream_page_state or {}).get("album_title") or "").strip()
         prompt_debug = PromptDebugSession(image_path)
 
         try:
@@ -3134,9 +3271,14 @@ def run(argv: list[str] | None = None) -> int:
                 _stitched_cap_path = scan_ocr_authority.stitched_image_path if scan_ocr_authority is not None else None
                 derived_ocr_override = _effective_sidecar_ocr_text(image_path, existing_sidecar_state)
                 analysis_target = _stitched_cap_path or (layout.content_path if layout.page_like else image_path)
+                people_analysis_source = (
+                    analysis_target
+                    if scan_ocr_authority is not None
+                    else (layout.content_path if layout.page_like else image_path)
+                )
                 analysis = _run_image_analysis(
                     image_path=analysis_target,
-                    people_image_path=(layout.content_path if layout.page_like else image_path),
+                    people_image_path=people_analysis_source,
                     people_matcher=people_matcher,
                     object_detector=object_detector,
                     ocr_engine=ocr_engine,
@@ -3144,7 +3286,7 @@ def run(argv: list[str] | None = None) -> int:
                     requested_caption_engine=str(caption_key[0]),
                     ocr_engine_name=ocr_key[0],
                     ocr_language=ocr_key[1],
-                    people_source_path=image_path,
+                    people_source_path=people_analysis_source,
                     people_bbox_offset=(_bounds_offset(layout.content_bounds) if layout.page_like else (0, 0)),
                     caption_source_path=(image_path if layout.page_like else analysis_target),
                     album_title=album_title_hint,
@@ -3158,6 +3300,8 @@ def run(argv: list[str] | None = None) -> int:
                         if scan_ocr_authority is not None
                         else (derived_ocr_override or None)
                     ),
+                    context_ocr_text=upstream_context_ocr,
+                    context_location_hint=upstream_location_hint,
                     prompt_debug=prompt_debug,
                     title_page_location=title_page_location,
                 )
@@ -3336,6 +3480,7 @@ def run(argv: list[str] | None = None) -> int:
                     f"[{idx}/{len(files)}]{eta_part}  ok    {image_path.name}",
                     flush=True,
                 )
+            _mirror_page_sidecars(image_path)
         except Exception as exc:
             failures += 1
             _emit_prompt_debug_artifact(prompt_debug, dry_run=dry_run)
