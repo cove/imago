@@ -96,6 +96,48 @@ class TestAIIndex(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             ai_index._coalesce_archive_processing_files(files)
 
+    def test_display_work_label_uses_page_name_for_archive_scan(self):
+        self.assertEqual(
+            ai_index._display_work_label(Path("China_1986_B02_Archive/China_1986_B02_P03_S01.tif")),
+            "China_1986_B02_P03",
+        )
+        self.assertEqual(
+            ai_index._display_work_label(Path("China_1986_B02_Archive/China_1986_B02_P03_D01-01.tif")),
+            "China_1986_B02_P03_D01-01.tif",
+        )
+
+    def test_append_xmp_job_artifact_records_page_sidecar_paths_for_scan_pages(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / "China_1986_B02_Archive"
+            archive.mkdir()
+            scan1 = archive / "China_1986_B02_P03_S01.tif"
+            scan2 = archive / "China_1986_B02_P03_S02.tif"
+            scan1.write_bytes(b"a")
+            scan2.write_bytes(b"b")
+
+            with mock.patch.object(ai_index, "append_job_artifact") as append_mock:
+                ai_index._append_xmp_job_artifact(scan1, scan1.with_suffix(".xmp"))
+
+            payload = append_mock.call_args.args[0]
+            self.assertEqual(payload["label"], "China_1986_B02_P03")
+            self.assertEqual(
+                payload["sidecar_paths"],
+                [
+                    str(scan1.with_suffix(".xmp")),
+                    str(scan2.with_suffix(".xmp")),
+                ],
+            )
+
+    def test_filter_files_by_tree_keeps_archive_only_when_view_not_requested(self):
+        files = [
+            Path("China_1986_B02_Archive/China_1986_B02_P01_S01.tif"),
+            Path("China_1986_B02_View/China_1986_B02_P01_V.jpg"),
+        ]
+
+        filtered = ai_index._filter_files_by_tree(files, include_archive=True, include_view=False)
+
+        self.assertEqual(filtered, [Path("China_1986_B02_Archive/China_1986_B02_P01_S01.tif")])
+
     def test_expand_album_title_dependencies_prepends_title_page_sources(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
@@ -1676,6 +1718,44 @@ class TestAIIndex(unittest.TestCase):
                 debug_step="caption",
             )
             self.assertEqual(analysis.ocr_text, "hello")
+
+    def test_run_image_analysis_reports_locations_shown_step(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "a.jpg"
+            image.write_bytes(b"abc")
+            steps: list[str] = []
+            people_matcher = mock.Mock()
+            people_matcher.match_image.return_value = []
+            object_detector = mock.Mock()
+            object_detector.detect_image.return_value = []
+            ocr_engine = mock.Mock()
+            ocr_engine.engine = "none"
+            caption_engine = mock.Mock()
+            caption_engine.generate.return_value = SimpleNamespace(
+                text="Caption text",
+                engine="template",
+                ocr_text="",
+                fallback=False,
+                error="",
+            )
+
+            with (
+                mock.patch.object(ai_index, "_resolve_location_metadata", return_value=("", "", "")),
+                mock.patch.object(ai_index, "_resolve_locations_shown", return_value=([], True)),
+            ):
+                ai_index._run_image_analysis(
+                    image_path=image,
+                    people_matcher=people_matcher,
+                    object_detector=object_detector,
+                    ocr_engine=ocr_engine,
+                    caption_engine=caption_engine,
+                    requested_caption_engine="template",
+                    ocr_engine_name="none",
+                    ocr_language="eng",
+                    step_fn=steps.append,
+                )
+
+            self.assertIn("locations_shown", steps)
 
     def test_run_image_analysis_preserves_empty_ocr_override(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -4291,6 +4371,7 @@ class TestAIIndex(unittest.TestCase):
                 mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
                 mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
                 mock.patch.object(ai_index, "_mirror_page_sidecars"),
+                mock.patch.object(ai_index, "append_job_artifact") as append_mock,
             ):
                 result = ai_index.run(
                     [
@@ -4320,6 +4401,15 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(
                 write_mock.call_args.kwargs["ocr_authority_source"],
                 "archive_stitched",
+            )
+            artifact_payload = append_mock.call_args.args[0]
+            self.assertEqual(artifact_payload["label"], "China_1986_B02_P02")
+            self.assertEqual(
+                artifact_payload["sidecar_paths"],
+                [
+                    str(scan1.with_suffix(".xmp")),
+                    str(scan2.with_suffix(".xmp")),
+                ],
             )
             det = write_mock.call_args.kwargs["detections_payload"]
             self.assertEqual(det["processing"]["ocr_authority_signature"], authority.signature)

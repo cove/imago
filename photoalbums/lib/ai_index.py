@@ -135,6 +135,14 @@ def _progress_ticker(prefix: str, _interval: float = 0.5):
     return stop, set_step
 
 
+def _display_work_label(image_path: Path) -> str:
+    if _scan_name_match(image_path):
+        collection, year, book, page = parse_album_filename(image_path.name)
+        if collection != "Unknown":
+            return f"{collection}_{year}_B{book}_P{int(page):02d}"
+    return image_path.name
+
+
 def _format_reprocess_reasons(reasons: list[str]) -> str:
     clean = _dedupe([str(reason or "").strip() for reason in reasons])
     return ", ".join(clean)
@@ -451,6 +459,21 @@ def _coalesce_archive_processing_files(files: list[Path]) -> list[Path]:
     return selected
 
 
+def _filter_files_by_tree(files: list[Path], *, include_archive: bool, include_view: bool) -> list[Path]:
+    filtered: list[Path] = []
+    for image_path in files:
+        parent_names = {parent.name for parent in image_path.parents}
+        in_archive = any(name.endswith("_Archive") for name in parent_names)
+        in_view = any(name.endswith("_View") for name in parent_names)
+        if in_archive and include_archive:
+            filtered.append(image_path)
+            continue
+        if in_view and include_view:
+            filtered.append(image_path)
+            continue
+    return filtered
+
+
 def _format_location_hint_from_state(state: dict[str, Any] | None) -> str:
     if not isinstance(state, dict):
         return ""
@@ -511,6 +534,25 @@ def _mirror_page_sidecars(primary_scan_path: Path) -> None:
         if sibling_path == primary_scan_path:
             continue
         shutil.copy2(source_sidecar, sibling_path.with_suffix(".xmp"))
+
+
+def _artifact_sidecar_paths(image_path: Path, sidecar_path: Path) -> list[Path]:
+    if _scan_name_match(image_path):
+        return [path.with_suffix(".xmp") for path in _scan_group_paths(image_path)]
+    return [sidecar_path]
+
+
+def _append_xmp_job_artifact(image_path: Path, sidecar_path: Path) -> None:
+    sidecar_paths = _artifact_sidecar_paths(image_path, sidecar_path)
+    append_job_artifact(
+        {
+            "kind": "photoalbums_xmp",
+            "image_path": str(image_path),
+            "sidecar_path": str(sidecar_path),
+            "sidecar_paths": [str(path) for path in sidecar_paths],
+            "label": _display_work_label(image_path),
+        }
+    )
 
 
 def _configured_title_page_location_payload(
@@ -1522,6 +1564,8 @@ def _run_image_analysis(
         debug_step="locations_shown",
         artifact_recorder=(lambda record: _append_geocode_artifact(image_path=image_path, record=record)),
     )
+    if step_fn:
+        step_fn("locations_shown")
     payload["locations_shown"] = locations_shown
     payload["location_shown_ran"] = locations_shown_ran
 
@@ -2060,14 +2104,7 @@ def _write_sidecar_and_record(
         people_identified=people_identified,
         locations_shown=detections_payload.get("locations_shown") if detections_payload else None,
     )
-    append_job_artifact(
-        {
-            "kind": "photoalbums_xmp",
-            "image_path": str(image_path),
-            "sidecar_path": str(sidecar_path),
-            "label": image_path.name,
-        }
-    )
+    _append_xmp_job_artifact(image_path, sidecar_path)
 
 
 def run(argv: list[str] | None = None) -> int:
@@ -2145,6 +2182,12 @@ def run(argv: list[str] | None = None) -> int:
 
     original_file_count = len(files)
     files = _expand_album_title_dependencies(files, ext_set)
+    if not single_photo:
+        files = _filter_files_by_tree(
+            files,
+            include_archive=include_archive,
+            include_view=include_view,
+        )
 
     emit_info(f"Discovered {len(files)} image files")
     if len(files) > original_file_count:
@@ -2685,14 +2728,7 @@ def run(argv: list[str] | None = None) -> int:
                         )
 
                     if not dry_run:
-                        append_job_artifact(
-                            {
-                                "kind": "photoalbums_xmp",
-                                "image_path": str(image_path),
-                                "sidecar_path": str(sidecar_path),
-                                "label": image_path.name,
-                            }
-                        )
+                        _append_xmp_job_artifact(image_path, sidecar_path)
                     _emit_prompt_debug_artifact(prompt_debug, dry_run=dry_run)
                     processed += 1
                     completed_times.append(time.monotonic() - file_start)
@@ -2728,7 +2764,7 @@ def run(argv: list[str] | None = None) -> int:
 
                 eta_str = _format_eta(completed_times, len(files) - idx + 1)
                 eta_part = f"  {eta_str}" if eta_str else ""
-                prefix = f"[{idx}/{len(files)}]{eta_part}  {image_path.name}"
+                prefix = f"[{idx}/{len(files)}]{eta_part}  {_display_work_label(image_path)}"
                 print(prefix, flush=True)
                 _pu_stop, _pu_step = _progress_ticker(prefix)
 
@@ -3021,7 +3057,7 @@ def run(argv: list[str] | None = None) -> int:
 
             eta_str = _format_eta(completed_times, len(files) - idx + 1)
             eta_part = f"  {eta_str}" if eta_str else ""
-            prefix = f"[{idx}/{len(files)}]{eta_part}  {image_path.name}"
+            prefix = f"[{idx}/{len(files)}]{eta_part}  {_display_work_label(image_path)}"
             print(prefix, flush=True)
             _gps_stop, _gps_step = _progress_ticker(prefix)
 
@@ -3067,6 +3103,7 @@ def run(argv: list[str] | None = None) -> int:
                         prompt_debug=gps_prompt_debug,
                         debug_step="location_gps_step",
                     )
+                    _gps_step("locations_shown")
                     gps_locations_shown, gps_locations_shown_ran = _resolve_locations_shown(
                         requested_caption_engine=str(caption_key[0]),
                         caption_engine=gps_caption_engine,
@@ -3169,7 +3206,7 @@ def run(argv: list[str] | None = None) -> int:
         if not stdout_only:
             eta_str = _format_eta(completed_times, len(files) - idx + 1)
             eta_part = f"  {eta_str}" if eta_str else ""
-            prefix = f"[{idx}/{len(files)}]{eta_part}  {image_path.name}"
+            prefix = f"[{idx}/{len(files)}]{eta_part}  {_display_work_label(image_path)}"
             print(prefix, flush=True)
             stop_ticker, set_step = _progress_ticker(prefix)
         album_title_hint = _resolve_album_title_hint(image_path)
