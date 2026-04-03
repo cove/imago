@@ -12,6 +12,7 @@ from urllib.parse import parse_qs, urlparse
 
 import cv2
 
+from .clustering import build_review_clusters
 from .ingest import CURRENT_FACE_EMBEDDING_MODEL, FaceIngestor
 from .matching import (
     _coerce_float,
@@ -37,6 +38,8 @@ DEFAULT_MIN_SIMILARITY = 0.72
 DEFAULT_MIN_MARGIN = 0.015
 DEFAULT_MIN_FACE_QUALITY = 0.20
 DEFAULT_MIN_SAMPLE_COUNT = 2
+DEFAULT_CLUSTER_EPS = 1.0 - DEFAULT_MIN_SIMILARITY
+DEFAULT_CLUSTER_MIN_SAMPLES = 3
 ACTIVE_EMBEDDING_MODELS = {CURRENT_FACE_EMBEDDING_MODEL}
 PHOTOALBUMS_PROCESSING_LOCK_SUFFIX = ".photoalbums-ai.lock"
 PHOTOALBUMS_LOCK_WAIT_TIMEOUT_SECONDS = 120.0
@@ -419,6 +422,80 @@ class CastHandler(BaseHTTPRequestHandler):
             "pending_reviews": pending_reviews,
             "runtime": self.server.ingestor.runtime_status(),
         }
+
+    def _review_cluster_summary(
+        self,
+        cluster: dict[str, Any],
+        *,
+        people_by_id: dict[str, dict[str, Any]],
+        faces_by_id: dict[str, dict[str, Any]],
+    ) -> dict[str, Any]:
+        representative_face_id = str(cluster.get("representative_face_id") or "").strip()
+        representative_face = faces_by_id.get(representative_face_id, {})
+        sample_faces = []
+        for face_id in list(cluster.get("sample_face_ids") or []):
+            face = faces_by_id.get(str(face_id), {})
+            if not face:
+                continue
+            sample_faces.append(self._face_summary(face, people_by_id))
+        suggested_person_id = str(cluster.get("suggested_person_id") or "").strip() or None
+        suggested_person = people_by_id.get(suggested_person_id or "", {})
+        return {
+            **dict(cluster),
+            "suggested_person_id": suggested_person_id,
+            "suggested_person_name": str(suggested_person.get("display_name", "")),
+            "representative_face": (
+                self._face_summary(representative_face, people_by_id) if representative_face else None
+            ),
+            "sample_faces": sample_faces,
+        }
+
+    def _handle_get_review_clusters(self, query: dict[str, list[str]]) -> None:
+        try:
+            limit = max(0, _coerce_int((query.get("limit") or [0])[0], 0))
+        except Exception:
+            limit = 0
+        people = self.store.list_people()
+        faces = self.store.list_faces()
+        reviews = self.store.list_review_items()
+        people_by_id = {str(row.get("person_id")): row for row in people}
+        faces_by_id = {str(row.get("face_id")): row for row in faces}
+        prototypes = build_person_prototypes(
+            faces,
+            allowed_embedding_model_ids=ACTIVE_EMBEDDING_MODELS,
+        )
+        clusters = build_review_clusters(
+            reviews=reviews,
+            faces_by_id=faces_by_id,
+            prototypes=prototypes,
+            allowed_embedding_model_ids=ACTIVE_EMBEDDING_MODELS,
+            eps=DEFAULT_CLUSTER_EPS,
+            min_samples=DEFAULT_CLUSTER_MIN_SAMPLES,
+            min_similarity=DEFAULT_MIN_SIMILARITY,
+            min_margin=DEFAULT_MIN_MARGIN,
+            min_face_quality=DEFAULT_MIN_FACE_QUALITY,
+            min_sample_count=DEFAULT_MIN_SAMPLE_COUNT,
+        )
+        total_clustered_reviews = sum(int(row.get("size") or 0) for row in clusters)
+        visible_clusters = clusters[:limit] if limit > 0 else clusters
+        payload_clusters = [
+            self._review_cluster_summary(
+                cluster,
+                people_by_id=people_by_id,
+                faces_by_id=faces_by_id,
+            )
+            for cluster in visible_clusters
+        ]
+        self._send_json(
+            {
+                "ok": True,
+                "counts": {
+                    "clusters": int(len(clusters)),
+                    "clustered_reviews": int(total_clustered_reviews),
+                },
+                "clusters": payload_clusters,
+            }
+        )
 
     def _handle_get_state(self, query: dict[str, list[str]]) -> None:
         pending_limit = max(0, _coerce_int((query.get("pending_limit") or ["0"])[0], 0))
@@ -1575,6 +1652,9 @@ class CastHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/review":
             self._handle_get_review(query)
+            return
+        if path == "/api/review/clusters":
+            self._handle_get_review_clusters(query)
             return
         self._not_found()
 

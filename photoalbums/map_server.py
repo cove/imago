@@ -649,9 +649,10 @@ HTML = r"""<!DOCTYPE html>
 </html>
 """
 
+
 class MapHandler(BaseHTTPRequestHandler):
     protocol_version: ClassVar[str] = "HTTP/1.1"
-    
+
     def do_GET(self) -> None:
         parsed = urllib.parse.urlsplit(self.path)
         path = parsed.path
@@ -660,15 +661,15 @@ class MapHandler(BaseHTTPRequestHandler):
         if path in ("/", "/index.html"):
             self._send_html(HTML)
             return
-            
+
         if path == "/api/markers":
             self._send_markers()
             return
-            
+
         if path == "/api/image":
             self._serve_image(query)
             return
-            
+
         self._send_json({"error": "Not Found"}, status=HTTPStatus.NOT_FOUND)
 
     def do_POST(self) -> None:
@@ -689,10 +690,10 @@ class MapHandler(BaseHTTPRequestHandler):
             state = read_ai_sidecar_state(p)
             if not state:
                 continue
-                
+
             lat_str = str(state.get("gps_latitude") or "").strip()
             lon_str = str(state.get("gps_longitude") or "").strip()
-            
+
             if lat_str and lon_str:
                 try:
                     lat = _xmp_gps_to_decimal(lat_str, axis="lat")
@@ -701,20 +702,22 @@ class MapHandler(BaseHTTPRequestHandler):
                     lat, lon = 0.0, 0.0
             else:
                 lat, lon = 0.0, 0.0
-                
+
             city = str(state.get("location_city", "") or "")
 
-            results.append({
-                "path": str(p),
-                "lat": float(lat),
-                "lon": float(lon),
-                "city": city,
-                "state": str(state.get("location_state", "") or ""),
-                "country": str(state.get("location_country", "") or ""),
-                "ocr_text": str(state.get("ocr_text", "") or ""),
-                "description": str(state.get("description", "") or ""),
-                "locations_shown": read_locations_shown(p),
-            })
+            results.append(
+                {
+                    "path": str(p),
+                    "lat": float(lat),
+                    "lon": float(lon),
+                    "city": city,
+                    "state": str(state.get("location_state", "") or ""),
+                    "country": str(state.get("location_country", "") or ""),
+                    "ocr_text": str(state.get("ocr_text", "") or ""),
+                    "description": str(state.get("description", "") or ""),
+                    "locations_shown": read_locations_shown(p),
+                }
+            )
         self._send_json(results)
 
     def _serve_image(self, query: dict[str, list[str]]) -> None:
@@ -723,19 +726,19 @@ class MapHandler(BaseHTTPRequestHandler):
         if not image_path:
             self._send_json({"error": "Missing path parameter"}, status=HTTPStatus.BAD_REQUEST)
             return
-        
+
         xmp_p = Path(image_path)
         p = None
-        
+
         # User requested: "remove the stuffix .xmp and find the first image file that ends in .tif, .jpg or .png"
         candidates = [
-            xmp_p.with_suffix('.tif'),
-            xmp_p.with_suffix('.jpg'),
-            xmp_p.with_suffix('.png'),
-            xmp_p.with_suffix('.jpeg'),
-            xmp_p.with_suffix('.tiff'),
+            xmp_p.with_suffix(".tif"),
+            xmp_p.with_suffix(".jpg"),
+            xmp_p.with_suffix(".png"),
+            xmp_p.with_suffix(".jpeg"),
+            xmp_p.with_suffix(".tiff"),
         ]
-        
+
         for candidate in candidates:
             if candidate.exists() and candidate.is_file():
                 p = candidate
@@ -744,23 +747,24 @@ class MapHandler(BaseHTTPRequestHandler):
         if not p:
             self._send_json({"error": f"Image view file not found for {xmp_p.name}"}, status=HTTPStatus.NOT_FOUND)
             return
-            
+
         ext = p.suffix.lower()
-        if ext in ('.jpg', '.jpeg'):
+        if ext in (".jpg", ".jpeg"):
             ct = "image/jpeg"
-        elif ext == '.png':
+        elif ext == ".png":
             ct = "image/png"
-        elif ext in ('.tif', '.tiff'):
+        elif ext in (".tif", ".tiff"):
             # Browsers cannot display TIFF files natively. Convert to JPEG in memory for the web UI.
             import io
             from PIL import Image
+
             try:
                 with Image.open(p) as img:
                     # Convert to RGB if necessary (e.g. CMYK or palettes)
-                    if img.mode not in ('RGB', 'L'):
-                        img = img.convert('RGB')
+                    if img.mode not in ("RGB", "L"):
+                        img = img.convert("RGB")
                     buf = io.BytesIO()
-                    img.save(buf, format='JPEG', quality=85)
+                    img.save(buf, format="JPEG", quality=85)
                     data = buf.getvalue()
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", "image/jpeg")
@@ -803,7 +807,7 @@ class MapHandler(BaseHTTPRequestHandler):
         if not target_path_str:
             self._send_json({"error": "Missing path"}, status=HTTPStatus.BAD_REQUEST)
             return
-            
+
         target_path = Path(target_path_str)
         if not target_path.is_file():
             self._send_json({"error": "XMP file not found"}, status=HTTPStatus.NOT_FOUND)
@@ -811,9 +815,9 @@ class MapHandler(BaseHTTPRequestHandler):
 
         existing = read_ai_sidecar_state(target_path)
         if not existing:
-             self._send_json({"error": "Could not read XMP"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
-             return
-             
+            self._send_json({"error": "Could not read XMP"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
         locations_shown = read_locations_shown(target_path)
 
         if action == "delete_shown_location":
@@ -844,8 +848,8 @@ class MapHandler(BaseHTTPRequestHandler):
                         state = geo_res.state
                         country = geo_res.country
                 except Exception as e:
-                     self._send_json({"error": f"Nominatim error: {e}"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
-                     return
+                    self._send_json({"error": f"Nominatim error: {e}"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+                    return
 
             if idx >= 0:
                 # Target specific Location Shown
@@ -857,7 +861,7 @@ class MapHandler(BaseHTTPRequestHandler):
                 locations_shown[idx]["name"] = city
                 locations_shown[idx]["gps_latitude"] = str(lat)
                 locations_shown[idx]["gps_longitude"] = str(lon)
-                
+
                 # Exif remains unmodified
                 exif_lat = str(existing.get("gps_latitude", ""))
                 exif_lon = str(existing.get("gps_longitude", ""))
@@ -876,7 +880,7 @@ class MapHandler(BaseHTTPRequestHandler):
             target_path,
             creator_tool=str(existing.get("creator_tool") or ""),
             person_names=read_person_in_image(target_path),
-            subjects=[],  
+            subjects=[],
             description=str(existing.get("description", "")),
             ocr_text=str(existing.get("ocr_text", "")),
             gps_latitude=exif_lat,
@@ -900,7 +904,7 @@ class MapHandler(BaseHTTPRequestHandler):
             ocr_ran=bool(existing.get("ocr_ran")),
             people_detected=bool(existing.get("people_detected")),
             people_identified=bool(existing.get("people_identified")),
-            source_text=str(existing.get("source_text", ""))
+            source_text=str(existing.get("source_text", "")),
         )
 
         self._send_json({"ok": True, "city": city, "state": state, "country": country})
@@ -930,24 +934,24 @@ class MapHandler(BaseHTTPRequestHandler):
         try:
             geo_res = _GEOCODER.geocode(query)
             if not geo_res:
-                 self._send_json({"error": f"Address not found for: {query}"}, status=HTTPStatus.BAD_REQUEST)
-                 return
+                self._send_json({"error": f"Address not found for: {query}"}, status=HTTPStatus.BAD_REQUEST)
+                return
             lat = geo_res.latitude
             lon = geo_res.longitude
             city = geo_res.city
             state = geo_res.state
             country = geo_res.country
         except Exception as e:
-             self._send_json({"error": f"Nominatim error: {e}"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
-             return
+            self._send_json({"error": f"Nominatim error: {e}"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
 
         existing = read_ai_sidecar_state(target_path)
         if not existing:
-             self._send_json({"error": "Could not read XMP"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
-             return
-             
+            self._send_json({"error": "Could not read XMP"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
         locations_shown = read_locations_shown(target_path)
-        
+
         if idx >= 0:
             if idx >= len(locations_shown):
                 locations_shown.append({})
@@ -957,7 +961,7 @@ class MapHandler(BaseHTTPRequestHandler):
             locations_shown[idx]["name"] = city
             locations_shown[idx]["gps_latitude"] = str(lat)
             locations_shown[idx]["gps_longitude"] = str(lon)
-            
+
             exif_lat = str(existing.get("gps_latitude", ""))
             exif_lon = str(existing.get("gps_longitude", ""))
             exif_city = str(existing.get("location_city", ""))
@@ -969,7 +973,7 @@ class MapHandler(BaseHTTPRequestHandler):
             exif_city = city
             exif_state = state
             exif_country = country
-            
+
         write_xmp_sidecar(
             target_path,
             creator_tool=str(existing.get("creator_tool") or ""),
@@ -998,10 +1002,12 @@ class MapHandler(BaseHTTPRequestHandler):
             ocr_ran=bool(existing.get("ocr_ran")),
             people_detected=bool(existing.get("people_detected")),
             people_identified=bool(existing.get("people_identified")),
-            source_text=str(existing.get("source_text", ""))
+            source_text=str(existing.get("source_text", "")),
         )
 
-        self._send_json({"ok": True, "lat": lat, "lon": lon, "city": city, "state": state, "country": country, "loc_idx": idx})
+        self._send_json(
+            {"ok": True, "lat": lat, "lon": lon, "city": city, "state": state, "country": country, "loc_idx": idx}
+        )
 
     def _send_html(self, content: str) -> None:
         body = content.encode("utf-8")
@@ -1023,21 +1029,23 @@ class MapHandler(BaseHTTPRequestHandler):
     def log_message(self, _format: str, *args: object) -> None:
         pass
 
+
 def run_server(paths: list[str], port: int = 8095):
     import glob
+
     for p_str in paths:
         p = Path(p_str)
-        if p.is_file() and p.suffix.lower() == '.xmp':
+        if p.is_file() and p.suffix.lower() == ".xmp":
             _XMP_PATHS.append(p.resolve())
         elif p.is_dir():
-             for f in p.rglob("*.xmp"):
-                 _XMP_PATHS.append(f.resolve())
+            for f in p.rglob("*.xmp"):
+                _XMP_PATHS.append(f.resolve())
         else:
-             for f_str in glob.glob(str(p_str)):
-                 f_path = Path(f_str)
-                 if f_path.is_file() and f_path.suffix.lower() == '.xmp':
-                     _XMP_PATHS.append(f_path.resolve())
-    
+            for f_str in glob.glob(str(p_str)):
+                f_path = Path(f_str)
+                if f_path.is_file() and f_path.suffix.lower() == ".xmp":
+                    _XMP_PATHS.append(f_path.resolve())
+
     server = ThreadingHTTPServer(("0.0.0.0", port), MapHandler)
     print(f"Map server running at http://localhost:{port}")
     print(f"Loaded {len(_XMP_PATHS)} XMP files.")

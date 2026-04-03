@@ -158,6 +158,28 @@ class TestJobRunnerPersistence(unittest.TestCase):
         log_path = Path(data[job_id]["log_file"])
         self.assertIn(str(artifact_file), log_path.read_text(encoding="utf-8"))
 
+    def test_start_launches_background_process_isolated_from_console(self):
+        runner = mcp_job_runner.JobRunner()
+        proc = mock.Mock()
+        proc.pid = 4321
+        proc.returncode = 0
+
+        with mock.patch.object(mcp_job_runner.subprocess, "Popen", return_value=proc) as popen:
+            job_id = runner.start("test", [sys.executable, "-c", "pass"])
+
+        self.assertTrue(job_id)
+        kwargs = popen.call_args.kwargs
+        self.assertIs(kwargs["stdin"], mcp_job_runner.subprocess.DEVNULL)
+        if mcp_job_runner.os.name == "nt":
+            expected_flags = (
+                getattr(mcp_job_runner.subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+                | getattr(mcp_job_runner.subprocess, "DETACHED_PROCESS", 0)
+                | getattr(mcp_job_runner.subprocess, "CREATE_NO_WINDOW", 0)
+            )
+            self.assertEqual(kwargs["creationflags"], expected_flags)
+        else:
+            self.assertTrue(kwargs["start_new_session"])
+
     def test_save_state_merges_jobs_from_other_runner_instances(self):
         """Saving from one runner must not drop jobs started by another runner."""
         runner_a = mcp_job_runner.JobRunner()

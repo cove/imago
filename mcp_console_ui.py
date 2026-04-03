@@ -402,13 +402,16 @@ HTML = r"""<!DOCTYPE html>
     list.innerHTML = Array.from(groups.values()).map((group) => {
       const xmpEntry = group.artifacts.find((entry) => String(entry.artifact.kind || '') === 'photoalbums_xmp');
       const promptEntry = group.artifacts.find((entry) => String(entry.artifact.kind || '') === 'photoalbums_prompts');
+      const geocodeEntries = group.artifacts.filter((entry) => String(entry.artifact.kind || '') === 'photoalbums_geocode');
       const subtitle = fileName(
         (xmpEntry && xmpEntry.artifact.sidecar_path)
         || (promptEntry && promptEntry.artifact.image_path)
+        || (geocodeEntries[0] && geocodeEntries[0].artifact.image_path)
         || '',
       );
       const imagePath = (xmpEntry && xmpEntry.artifact.image_path)
         || (promptEntry && promptEntry.artifact.image_path)
+        || (geocodeEntries[0] && geocodeEntries[0].artifact.image_path)
         || '';
       const actions = [];
       if (imagePath) {
@@ -443,6 +446,16 @@ HTML = r"""<!DOCTYPE html>
                   onclick="openResponseArtifact(${Number(promptEntry.index)})">
             AI JSON
             <small>${escHtml(String(responseCount))} response(s)</small>
+          </button>`);
+      }
+      if (geocodeEntries.length) {
+        const geocodeIndexes = geocodeEntries.map((entry) => String(Number(entry.index))).join(',');
+        actions.push(`
+          <button type="button" class="artifact-item"
+                  data-geocode-indexes="${escHtml(geocodeIndexes)}"
+                  onclick="openGeocodeArtifact(this.dataset.geocodeIndexes)">
+            Geocode
+            <small>${escHtml(String(geocodeEntries.length))} lookup(s)</small>
           </button>`);
       }
       return `
@@ -518,6 +531,30 @@ HTML = r"""<!DOCTYPE html>
         </div>
       </section>
       ${step && step.response ? `<section class="xmp-card"><h3>AI JSON</h3><pre>${escHtml(step.response)}</pre></section>` : ''}`;
+  }
+
+  function renderGeocodeArtifactCard(artifact) {
+    const result = (artifact && artifact.result && typeof artifact.result === 'object') ? artifact.result : null;
+    const resultValues = result ? [
+      renderValue('Display Name', result.display_name),
+      renderValue('Latitude', result.latitude),
+      renderValue('Longitude', result.longitude),
+      renderValue('City', result.city),
+      renderValue('State', result.state),
+      renderValue('Country', result.country),
+    ].join('') : '';
+    return `
+      <section class="xmp-card">
+        <h3>${escHtml((artifact && artifact.step) || 'Geocode')}</h3>
+        <div class="xmp-kv">
+          ${renderValue('Service', artifact && artifact.service)}
+          ${renderValue('Status', artifact && artifact.status)}
+          ${renderValue('Query', artifact && artifact.query)}
+          ${renderValue('Error', artifact && artifact.error)}
+        </div>
+      </section>
+      ${resultValues ? `<section class="xmp-card"><h3>Result</h3><div class="xmp-kv">${resultValues}</div></section>` : ''}
+      ${result ? `<section class="xmp-card"><h3>Result JSON</h3><pre>${escHtml(JSON.stringify(result, null, 2))}</pre></section>` : ''}`;
   }
 
   function renderSummaryCard(summary, data) {
@@ -611,6 +648,26 @@ HTML = r"""<!DOCTYPE html>
     showXmpPanel(
       `${fileName(artifact.image_path || artifact.label || 'Prompt Debug')} AI JSON`,
       String(artifact.image_path || ''),
+      body,
+    );
+  }
+
+  function openGeocodeArtifact(indexesText) {
+    const indexes = String(indexesText || '')
+      .split(',')
+      .map((value) => Number(value))
+      .filter((value) => Number.isInteger(value));
+    const artifacts = indexes
+      .map((index) => jobArtifacts[index])
+      .filter((artifact) => artifact && String(artifact.kind || '') === 'photoalbums_geocode');
+    if (!artifacts.length) {
+      showXmpPanel('Geocode Error', '', '<div class="artifact-error">Geocode artifact not found.</div>');
+      return;
+    }
+    const body = artifacts.map((artifact) => renderGeocodeArtifactCard(artifact)).join('');
+    showXmpPanel(
+      `${fileName(artifacts[0].image_path || artifacts[0].label || 'Geocode')} Geocode`,
+      String(artifacts[0].image_path || ''),
       body,
     );
   }

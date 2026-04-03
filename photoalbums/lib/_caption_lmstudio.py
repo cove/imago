@@ -929,7 +929,7 @@ def location_system_prompt() -> str:
 
 
 def location_shown_system_prompt() -> str:
-    return required_section_text("System Prompt - Location Shown")
+    return location_system_prompt()
 
 
 class LMStudioCaptioner(LMStudioModelResolverMixin):

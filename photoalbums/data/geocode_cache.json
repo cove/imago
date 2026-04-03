@@ -254,6 +254,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "alaska railroad, alaska": {
+    "city": "Anchorage",
+    "country": "United States",
+    "display_name": "Alaska Packaging, Railroad Avenue, Anchorage, Alaska, 88591, United States",
+    "latitude": "61.2251890",
+    "longitude": "-149.8466330",
+    "query": "Alaska Railroad, Alaska",
+    "source": "nominatim",
+    "state": "Alaska",
+    "status": "ok"
+  },
   "alexander nevsky cathedral": {
     "city": "Tallinn",
     "country": "Estonia",
@@ -365,6 +376,10 @@
     "query": "Alicante, Spain, Alicante, Spain",
     "status": "miss"
   },
+  "alicante, spain, spain": {
+    "query": "Alicante, Spain, Spain",
+    "status": "miss"
+  },
   "alipasa mosque": {
     "query": "Alipasa Mosque",
     "status": "miss"
@@ -434,6 +449,28 @@
     "query": "Amon Temple, Luxor, Egypt",
     "source": "nominatim",
     "state": "Luxor",
+    "status": "ok"
+  },
+  "anchorage, alaska": {
+    "city": "Anchorage",
+    "country": "United States",
+    "display_name": "Anchorage, Alaska, United States",
+    "latitude": "61.2163129",
+    "longitude": "-149.8948520",
+    "query": "Anchorage, Alaska",
+    "source": "nominatim",
+    "state": "Alaska",
+    "status": "ok"
+  },
+  "anchorage, alaska, anchorage, alaska, united states": {
+    "city": "Anchorage",
+    "country": "United States",
+    "display_name": "Anchorage, 411, West 1st Avenue, Anchorage, Alaska, 99501, United States",
+    "latitude": "61.2216643",
+    "longitude": "-149.8904316",
+    "query": "Anchorage, Alaska, Anchorage, Alaska, United States",
+    "source": "nominatim",
+    "state": "Alaska",
     "status": "ok"
   },
   "ann hathaway cottage": {
@@ -610,6 +647,10 @@
     "query": "Avila, Spain",
     "source": "nominatim",
     "status": "ok"
+  },
+  "avila, spain, spain": {
+    "query": "Avila, Spain, Spain",
+    "status": "miss"
   },
   "avon river - christchurch": {
     "display_name": "Avon River / Ōtākaro, Christchurch Central, Linwood-Central-Heathcote Community, Christchurch City, Canterbury, 8011, New Zealand / Aotearoa",
@@ -1006,6 +1047,17 @@
     "query": "Belvedere - Summer Palace of Prince Eugen, Austria",
     "status": "miss"
   },
+  "bethlehem, connecticut": {
+    "city": "Bethlehem",
+    "country": "United States",
+    "display_name": "Bethlehem, Naugatuck Valley Planning Region, Connecticut, 06751, United States",
+    "latitude": "41.6393626",
+    "longitude": "-73.2080798",
+    "query": "Bethlehem, Connecticut",
+    "source": "nominatim",
+    "state": "Connecticut",
+    "status": "ok"
+  },
   "bexhill-on-sea railway station": {
     "city": "Rother",
     "country": "United Kingdom",
@@ -1245,6 +1297,25 @@
     "query": "Bosporus Strait, Turkey",
     "status": "miss"
   },
+  "boston park, boston conn.": {
+    "query": "Boston Park, Boston Conn.",
+    "status": "miss"
+  },
+  "boston park, boston, connecticut": {
+    "query": "Boston Park, Boston, Connecticut",
+    "status": "miss"
+  },
+  "boston park, boston, massachusetts, united states": {
+    "city": "Boston",
+    "country": "United States",
+    "display_name": "Boston Common, Beacon Hill, Boston, Suffolk County, Massachusetts, United States",
+    "latitude": "42.3550400",
+    "longitude": "-71.0660710",
+    "query": "Boston Park, Boston, Massachusetts, United States",
+    "source": "nominatim",
+    "state": "Massachusetts",
+    "status": "ok"
+  },
   "boston, mass.": {
     "city": "Boston",
     "country": "United States",
@@ -1252,6 +1323,28 @@
     "latitude": "42.3588336",
     "longitude": "-71.0578303",
     "query": "Boston, Mass.",
+    "source": "nominatim",
+    "state": "Massachusetts",
+    "status": "ok"
+  },
+  "boston, massachusetts": {
+    "city": "Boston",
+    "country": "United States",
+    "display_name": "Boston, Suffolk County, Massachusetts, United States",
+    "latitude": "42.3588336",
+    "longitude": "-71.0578303",
+    "query": "Boston, Massachusetts",
+    "source": "nominatim",
+    "state": "Massachusetts",
+    "status": "ok"
+  },
+  "boston, massachusetts, boston, massachusetts, united states": {
+    "city": "Boston",
+    "country": "United States",
+    "display_name": "Boston University, Amesbury Street, Boston, Middlesex County, Massachusetts, 02215, United States",
+    "latitude": "42.3504215",
+    "longitude": "-71.1032247",
+    "query": "Boston, Massachusetts, Boston, Massachusetts, United States",
     "source": "nominatim",
     "state": "Massachusetts",
     "status": "ok"
@@ -2236,6 +2329,17 @@
     "query": "Cemetery Church of St. Mary Magdalene, Belgrade",
     "status": "miss"
   },
+  "center of downtown fairbanks": {
+    "city": "Springfield",
+    "country": "United States",
+    "display_name": "Fairbanks Place, Quadrangle-Mattoon Street Historic District, Metro Center, McKnight, Springfield, Hampden County, Massachusetts, 01101, United States",
+    "latitude": "42.1078345",
+    "longitude": "-72.5886155",
+    "query": "Center of Downtown Fairbanks",
+    "source": "nominatim",
+    "state": "Massachusetts",
+    "status": "ok"
+  },
   "cerne abbas": {
     "city": "",
     "country": "United Kingdom",
@@ -2720,6 +2824,10 @@
     "query": "Christmas 1984 - Gloria's Home - Altadena",
     "status": "miss"
   },
+  "christmas at eugene's - indianapolis indiana, indianapolis, indiana, united states": {
+    "query": "Christmas at Eugene's - Indianapolis Indiana, Indianapolis, Indiana, United States",
+    "status": "miss"
+  },
   "christmas at roy & monica's 1956": {
     "query": "Christmas at Roy & Monica's 1956",
     "status": "miss"
@@ -2781,6 +2889,17 @@
     "query": "Château de Chillon, Switzerland",
     "source": "nominatim",
     "state": "Vaud",
+    "status": "ok"
+  },
+  "cibeles fountain, madrid, spain": {
+    "city": "Madrid",
+    "country": "Spain",
+    "display_name": "Fuente de Cibeles, Plaza de la Cibeles, Cortes, Centro, Madrid, Community of Madrid, 28014, Spain",
+    "latitude": "40.4193344",
+    "longitude": "-3.6932423",
+    "query": "Cibeles Fountain, Madrid, Spain",
+    "source": "nominatim",
+    "state": "Community of Madrid",
     "status": "ok"
   },
   "cincinnati, ohio": {
@@ -2881,6 +3000,17 @@
   "city walls of dubrovnik, dubrovnik, croatia": {
     "query": "City walls of Dubrovnik, Dubrovnik, Croatia",
     "status": "miss"
+  },
+  "cleveland, ohio, cleveland, ohio, united states": {
+    "city": "Cleveland",
+    "country": "United States",
+    "display_name": "Cleveland Lakefront Station, 200, Cleveland Memorial Shoreway, Downtown Cleveland, Civic Center, Cleveland, Cuyahoga County, Ohio, 44114, United States",
+    "latitude": "41.5056561",
+    "longitude": "-81.6964895",
+    "query": "Cleveland, Ohio, Cleveland, Ohio, United States",
+    "source": "nominatim",
+    "state": "Ohio",
+    "status": "ok"
   },
   "cliveden": {
     "city": "Maidenhead",
@@ -3516,6 +3646,14 @@
     "state": "Texas",
     "status": "ok"
   },
+  "dean & tawnya's home, indiana, indianapolis": {
+    "query": "Dean & Tawnya's Home, Indiana, Indianapolis",
+    "status": "miss"
+  },
+  "dean & tawnya's home, indianapolis, indiana, united states": {
+    "query": "Dean & Tawnya's Home, Indianapolis, Indiana, United States",
+    "status": "miss"
+  },
   "delphi": {
     "city": "Municipal Unit of Delphi",
     "country": "Greece",
@@ -3905,6 +4043,10 @@
     "query": "Dubrovnik Old Town, Old Town Walls and Fortifications, Dubrovnik, Dubrovnik-Neretva County, Croatia",
     "status": "miss"
   },
+  "dubrovnik old town, old town walls, dubrovnik, dubrovnik-neretva county, croatia": {
+    "query": "Dubrovnik Old Town, Old Town Walls, Dubrovnik, Dubrovnik-Neretva County, Croatia",
+    "status": "miss"
+  },
   "dubrovnik old town, old town, dubrovnik, dubrovnik-neretva county, croatia": {
     "query": "Dubrovnik Old Town, Old Town, Dubrovnik, Dubrovnik-Neretva County, Croatia",
     "status": "miss"
@@ -4057,6 +4199,18 @@
     "query": "Dunhuang, Gansu, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "eastern europe": {
+    "city": "",
+    "country": "South Africa",
+    "display_name": "Europe Street, Wells Estate, Nelson Mandela Bay Ward 60, Nelson Mandela Bay Metropolitan Municipality, Eastern Cape, 6211, South Africa",
+    "latitude": "-33.8222701",
+    "longitude": "25.6274772",
+    "query": "Eastern Europe",
+    "source": "nominatim",
+    "state": "Eastern Cape",
+    "status": "ok",
+    "sublocation": "Europe Street"
   },
   "eastern europe spain and morocco 1988": {
     "query": "Eastern Europe Spain and Morocco 1988",
@@ -4434,6 +4588,10 @@
     "state": "Florida",
     "status": "ok"
   },
+  "eugene's and june's home, indianapolis, indianapolis, indiana": {
+    "query": "Eugene's and June's Home, Indianapolis, Indianapolis, Indiana",
+    "status": "miss"
+  },
   "europe": {
     "display_name": "Europe",
     "latitude": "51.0000000",
@@ -4558,6 +4716,61 @@
     "query": "Exposition Park, Los Angeles",
     "source": "nominatim",
     "state": "California",
+    "status": "ok"
+  },
+  "fair princess": {
+    "city": "New York",
+    "country": "United States",
+    "display_name": "Skyline Princess, World's Fair Marina Commercial Berth 1, Queens, Queens County, New York, 11368, United States",
+    "latitude": "40.7600540",
+    "longitude": "-73.8525229",
+    "query": "Fair Princess",
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok"
+  },
+  "fairbanks": {
+    "city": "Fairbanks",
+    "country": "United States",
+    "display_name": "Fairbanks, Fairbanks North Star Borough, Alaska, United States",
+    "latitude": "64.8378450",
+    "longitude": "-147.7166750",
+    "query": "Fairbanks",
+    "source": "nominatim",
+    "state": "Alaska",
+    "status": "ok"
+  },
+  "fairbanks, alaska": {
+    "city": "Fairbanks",
+    "country": "United States",
+    "display_name": "Fairbanks, Fairbanks North Star Borough, Alaska, United States",
+    "latitude": "64.8378450",
+    "longitude": "-147.7166750",
+    "query": "Fairbanks, Alaska",
+    "source": "nominatim",
+    "state": "Alaska",
+    "status": "ok"
+  },
+  "fairbanks, alaska, fairbanks, alaska, united states": {
+    "city": "Fairbanks",
+    "country": "United States",
+    "display_name": "Fairbanks, Alaska Railroad Depot Road, Lemeta, Fairbanks, Fairbanks North Star Borough, Alaska, 99707, United States",
+    "latitude": "64.8511452",
+    "longitude": "-147.7403284",
+    "query": "Fairbanks, Alaska, Fairbanks, Alaska, United States",
+    "source": "nominatim",
+    "state": "Alaska",
+    "status": "ok"
+  },
+  "fairground": {
+    "city": "St. Louis",
+    "country": "United States",
+    "display_name": "Fairground, St. Louis, Missouri, United States",
+    "latitude": "38.6669327",
+    "longitude": "-90.2130314",
+    "query": "fairground",
+    "source": "nominatim",
+    "state": "Missouri",
     "status": "ok"
   },
   "fairhill farm, rathwell man, canada": {
@@ -4685,6 +4898,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "forum of augustus, rome, italy": {
+    "city": "Rome",
+    "country": "Italy",
+    "display_name": "Forum of Augustus, Via Tor de' Conti, Monti, Municipio Roma I, Rome, Roma Capitale, Lazio, 00184, Italy",
+    "latitude": "41.8942376",
+    "longitude": "12.4868364",
+    "query": "Forum of Augustus, Rome, Italy",
+    "source": "nominatim",
+    "state": "Lazio",
+    "status": "ok"
+  },
   "fountain in washington, d.c.": {
     "city": "Washington",
     "country": "United States",
@@ -4695,6 +4919,10 @@
     "source": "nominatim",
     "state": "District of Columbia",
     "status": "ok"
+  },
+  "fountain of cibeles (paseo del prado), madrid, spain": {
+    "query": "Fountain of Cibeles (Paseo del Prado), Madrid, Spain",
+    "status": "miss"
   },
   "fountain of cibeles, madrid, spain": {
     "query": "Fountain of Cibeles, Madrid, Spain",
@@ -5083,6 +5311,17 @@
     "state": "Michigan",
     "status": "ok"
   },
+  "grand haven, michigan, grand haven, michigan, united states": {
+    "city": "Grand Haven",
+    "country": "United States",
+    "display_name": "Grand Haven State Park, 1001, Dewey, Grand Haven, Ottawa County, Michigan, 49417, United States",
+    "latitude": "43.0554742",
+    "longitude": "-86.2477988",
+    "query": "Grand Haven, Michigan, Grand Haven, Michigan, United States",
+    "source": "nominatim",
+    "state": "Michigan",
+    "status": "ok"
+  },
   "granville road, hong kong": {
     "display_name": "加連威老道 Granville Road, 尖沙咀 Tsim Sha Tsui, 油尖旺區 Yau Tsim Mong District, 九龍 Kowloon, 香港 Hong Kong, 中国",
     "latitude": "22.2996794",
@@ -5143,6 +5382,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "great wall of china - fort at the end of wall": {
+    "query": "Great Wall of China - Fort at the end of wall",
+    "status": "miss"
+  },
   "great wall of china - fort at the end of wall qi lian mountains in the background": {
     "query": "Great Wall of China - Fort at the end of wall Qi Lian Mountains in the background",
     "status": "miss"
@@ -5157,6 +5400,10 @@
   },
   "great wall of china, qi lian mountains, china": {
     "query": "Great Wall of China, Qi Lian Mountains, China",
+    "status": "miss"
+  },
+  "great wall of china, west end - jiayuguan, china": {
+    "query": "Great Wall of China, West End - Jiayuguan, China",
     "status": "miss"
   },
   "great wall, gansu province, china": {
@@ -6074,6 +6321,17 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "italy": {
+    "city": "",
+    "country": "Italy",
+    "display_name": "Italy",
+    "latitude": "42.6384261",
+    "longitude": "12.6742970",
+    "query": "Italy",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok"
+  },
   "jacksonville beach, florida": {
     "city": "",
     "country": "United States",
@@ -6379,6 +6637,17 @@
     "latitude": "22.0503838",
     "longitude": "-159.5588624",
     "query": "Kauai, Hawaii",
+    "source": "nominatim",
+    "state": "Hawaii",
+    "status": "ok"
+  },
+  "kauai, hawaii, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Kauai, Hawaii, United States, Hawaii, United States",
+    "latitude": "22.0503838",
+    "longitude": "-159.5588624",
+    "query": "Kauai, Hawaii, United States",
     "source": "nominatim",
     "state": "Hawaii",
     "status": "ok"
@@ -6872,6 +7141,17 @@
   "lake arrowhead aug, 1946": {
     "query": "Lake Arrowhead Aug, 1946",
     "status": "miss"
+  },
+  "lake erie, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Lake Erie, Ohio, 43452, United States",
+    "latitude": "42.1432251",
+    "longitude": "-81.2394356",
+    "query": "Lake Erie, United States",
+    "source": "nominatim",
+    "state": "Ohio",
+    "status": "ok"
   },
   "lake nasser, egypt": {
     "city": "",
@@ -8001,6 +8281,10 @@
     "query": "Market Place, Lhasa, Tibet, China",
     "status": "miss"
   },
+  "markets of trajan, rome, italy": {
+    "query": "Markets of Trajan, Rome, Italy",
+    "status": "miss"
+  },
   "marrakech, morocco": {
     "display_name": "Marrakech ⵎⵕⵕⴰⴽⵯⵛ مراكش, Pachalik de Marrakech, Préfecture de Marrakech عمالة مراكش, Marrakech-Safi ⵎⵕⵕⴰⴽⵛ-ⴰⵙⴼⵉ مراكش-أسفي, Maroc ⵍⵎⵖⵔⵉⴱ المغرب",
     "latitude": "31.6258257",
@@ -8378,6 +8662,10 @@
     "state": "Vaud",
     "status": "ok"
   },
+  "monument in the center of town, fairbanks, alaska, united states": {
+    "query": "Monument in the Center of Town, Fairbanks, Alaska, United States",
+    "status": "miss"
+  },
   "monument, lhasa, tibet": {
     "display_name": "西藏和平解放纪念碑, 布达拉宫广场, 吉崩岗街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
     "latitude": "29.6529947",
@@ -8470,6 +8758,17 @@
   "mother and child statue, lanzhou, china": {
     "query": "Mother and Child Statue, Lanzhou, China",
     "status": "miss"
+  },
+  "mount mckinley, denali, alaska": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Denali, Denali Borough, Alaska, United States",
+    "latitude": "63.0691150",
+    "longitude": "-151.0062390",
+    "query": "Mount McKinley, Denali, Alaska",
+    "source": "nominatim",
+    "state": "Alaska",
+    "status": "ok"
   },
   "mount rainier national park": {
     "city": "",
@@ -8870,6 +9169,10 @@
     "query": "Old Roman Wall at Canterbury",
     "status": "miss"
   },
+  "old roman wall, italy": {
+    "query": "Old Roman Wall, Italy",
+    "status": "miss"
+  },
   "old roman wall, rome, italy": {
     "query": "Old Roman Wall, Rome, Italy",
     "status": "miss"
@@ -9194,6 +9497,17 @@
     "state": "California",
     "status": "ok"
   },
+  "palm springs tramway, palm springs, california, united states": {
+    "city": "Palm Springs",
+    "country": "United States",
+    "display_name": "Palm Springs Aerial Tramway Valley Station, Tramway Road, Palm Springs, Riverside County, California, United States",
+    "latitude": "33.8370454",
+    "longitude": "-116.6141115",
+    "query": "Palm Springs Tramway, Palm Springs, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok"
+  },
   "palm springs, california": {
     "city": "Palm Springs",
     "country": "United States",
@@ -9350,6 +9664,17 @@
     "query": "Parthenon, Athens, Greece",
     "source": "nominatim",
     "state": "Attica",
+    "status": "ok"
+  },
+  "pasadena": {
+    "city": "Pasadena",
+    "country": "United States",
+    "display_name": "Pasadena, Los Angeles County, California, United States",
+    "latitude": "34.1476507",
+    "longitude": "-118.1441550",
+    "query": "Pasadena",
+    "source": "nominatim",
+    "state": "California",
     "status": "ok"
   },
   "pasadena, calif.": {
@@ -9813,6 +10138,10 @@
     "state": "Attica",
     "status": "ok"
   },
+  "port angeles - waiting for the boat to victoria - june 1992": {
+    "query": "Port Angeles - Waiting for the boat to Victoria - June 1992",
+    "status": "miss"
+  },
   "port angeles, washington": {
     "city": "Port Angeles",
     "country": "United States",
@@ -10200,6 +10529,17 @@
     "longitude": "-6.8408929",
     "query": "Rabat, Morocco",
     "source": "nominatim",
+    "status": "ok"
+  },
+  "rathaus, austria": {
+    "city": "Vienna",
+    "country": "Austria",
+    "display_name": "Vienna City Hall, 1, Rathausplatz, Regierungsviertel, Innere Stadt, Vienna, 1010, Austria",
+    "latitude": "48.2108257",
+    "longitude": "16.3565728",
+    "query": "Rathaus, Austria",
+    "source": "nominatim",
+    "state": "",
     "status": "ok"
   },
   "red funnel seaflight hydrofoil service, southampton, southampton, england, united kingdom": {
@@ -11372,6 +11712,28 @@
     "query": "Seville, Spain, Spain",
     "status": "miss"
   },
+  "seward, alaska": {
+    "city": "Seward",
+    "country": "United States",
+    "display_name": "Seward, Kenai Peninsula Borough, Alaska, 99664, United States",
+    "latitude": "60.1013952",
+    "longitude": "-149.4404281",
+    "query": "Seward, Alaska",
+    "source": "nominatim",
+    "state": "Alaska",
+    "status": "ok"
+  },
+  "seward, alaska, seward, alaska, united states": {
+    "city": "Seward",
+    "country": "United States",
+    "display_name": "Seward, Port Avenue, Seward, Kenai Peninsula Borough, Alaska, 99664, United States",
+    "latitude": "60.1219006",
+    "longitude": "-149.4385590",
+    "query": "Seward, Alaska, Seward, Alaska, United States",
+    "source": "nominatim",
+    "state": "Alaska",
+    "status": "ok"
+  },
   "shakespeare's birth place": {
     "query": "Shakespeare's Birth Place",
     "status": "miss"
@@ -11483,6 +11845,17 @@
     "query": "Sofia, Bulgaria",
     "source": "nominatim",
     "state": "Sofia-City",
+    "status": "ok"
+  },
+  "sorrento, campania, italy": {
+    "city": "Sorrento",
+    "country": "Italy",
+    "display_name": "Sorrento, Naples, Campania, 80067, Italy",
+    "latitude": "40.6249060",
+    "longitude": "14.3748360",
+    "query": "Sorrento, Campania, Italy",
+    "source": "nominatim",
+    "state": "Campania",
     "status": "ok"
   },
   "sorrento, italy": {
@@ -11636,6 +12009,21 @@
     "query": "Spain, Madrid",
     "source": "nominatim",
     "state": "Community of Madrid",
+    "status": "ok"
+  },
+  "spanish steps (steps of travertin), italy": {
+    "query": "Spanish Steps (Steps of Travertin), Italy",
+    "status": "miss"
+  },
+  "spanish steps (trinità dei monti), italy": {
+    "city": "Rome",
+    "country": "Italy",
+    "display_name": "Spanish Steps (Trinita dei Monti), Italy, Rome, Lazio, Italy",
+    "latitude": "41.9060522",
+    "longitude": "12.4828726",
+    "query": "Spanish Steps (Trinità dei Monti), Italy",
+    "source": "nominatim",
+    "state": "Lazio",
     "status": "ok"
   },
   "square of america": {
@@ -11836,6 +12224,28 @@
     "state": "",
     "status": "ok"
   },
+  "st. michael's cathedral, sitka, alaska": {
+    "city": "Sitka",
+    "country": "United States",
+    "display_name": "Saint Michael's Russian Orthodox Cathedral, 240, Lincoln Street, Sitka, Alaska, 99835, United States",
+    "latitude": "57.0500472",
+    "longitude": "-135.3353406",
+    "query": "St. Michael's Cathedral, Sitka, Alaska",
+    "source": "nominatim",
+    "state": "Alaska",
+    "status": "ok"
+  },
+  "st. michael's cathedral, sitka, alaska, united states": {
+    "city": "Sitka",
+    "country": "United States",
+    "display_name": "Saint Michael's Russian Orthodox Cathedral, 240, Lincoln Street, Sitka, Alaska, 99835, United States",
+    "latitude": "57.0500472",
+    "longitude": "-135.3353406",
+    "query": "St. Michael's Cathedral, Sitka, Alaska, United States",
+    "source": "nominatim",
+    "state": "Alaska",
+    "status": "ok"
+  },
   "st. michael's mount, cornwall": {
     "display_name": "St. Michael's Mount, Marazion, Cornwall, England, United Kingdom",
     "latitude": "50.1184017",
@@ -11865,6 +12275,28 @@
     "query": "St. Michael's Mount, England, United Kingdom",
     "source": "nominatim",
     "state": "England",
+    "status": "ok"
+  },
+  "st. michael's russian orthodox cathedral": {
+    "city": "Sitka",
+    "country": "United States",
+    "display_name": "Saint Michael's Russian Orthodox Cathedral, 240, Lincoln Street, Sitka, Alaska, 99835, United States",
+    "latitude": "57.0500472",
+    "longitude": "-135.3353406",
+    "query": "St. Michael's Russian Orthodox Cathedral",
+    "source": "nominatim",
+    "state": "Alaska",
+    "status": "ok"
+  },
+  "st. michael's russian orthodox cathedral, sitka, alaska, united states": {
+    "city": "Sitka",
+    "country": "United States",
+    "display_name": "Saint Michael's Russian Orthodox Cathedral, 240, Lincoln Street, Sitka, Alaska, 99835, United States",
+    "latitude": "57.0500472",
+    "longitude": "-135.3353406",
+    "query": "St. Michael's Russian Orthodox Cathedral, Sitka, Alaska, United States",
+    "source": "nominatim",
+    "state": "Alaska",
     "status": "ok"
   },
   "st. nickolas church, bulgaria": {
@@ -12644,6 +13076,10 @@
     "state": "Wales",
     "status": "ok"
   },
+  "the basilica of maxentius, rome, lazio, italy": {
+    "query": "The Basilica of Maxentius, Rome, Lazio, Italy",
+    "status": "miss"
+  },
   "the bavarian alps": {
     "query": "The Bavarian Alps",
     "status": "miss"
@@ -12737,6 +13173,28 @@
     "query": "The City Cross - Winchester, Winchester, England, United Kingdom",
     "status": "miss"
   },
+  "the colosseum, italy": {
+    "city": "Rome",
+    "country": "Italy",
+    "display_name": "Archaeological Park of the Colosseum, Municipio Roma I, Rome, Roma Capitale, Lazio, Italy",
+    "latitude": "41.8898076",
+    "longitude": "12.4888311",
+    "query": "The Colosseum, Italy",
+    "source": "nominatim",
+    "state": "Lazio",
+    "status": "ok"
+  },
+  "the colosseum, rome, italy": {
+    "city": "Rome",
+    "country": "Italy",
+    "display_name": "Archaeological Park of the Colosseum, Municipio Roma I, Rome, Roma Capitale, Lazio, Italy",
+    "latitude": "41.8898076",
+    "longitude": "12.4888311",
+    "query": "The Colosseum, Rome, Italy",
+    "source": "nominatim",
+    "state": "Lazio",
+    "status": "ok"
+  },
   "the covered grand bazaar": {
     "query": "The Covered Grand Bazaar",
     "status": "miss"
@@ -12751,6 +13209,10 @@
   },
   "the edwardian hotel, united kingdom": {
     "query": "The Edwardian Hotel, United Kingdom",
+    "status": "miss"
+  },
+  "the forum of augustus, rome, lazio, italy": {
+    "query": "The Forum of Augustus, Rome, Lazio, Italy",
     "status": "miss"
   },
   "the garden walk, swanage, england, united kingdom": {
@@ -12943,6 +13405,10 @@
     "query": "The Main Gate-St John's College, St John's College, Cambridge, England, United Kingdom",
     "status": "miss"
   },
+  "the markets of trajan": {
+    "query": "The Markets of Trajan",
+    "status": "miss"
+  },
   "the medina": {
     "city": "Mdina",
     "country": "Malta",
@@ -12979,6 +13445,10 @@
   },
   "the memnon colossi, egypt": {
     "query": "The Memnon Colossi, Egypt",
+    "status": "miss"
+  },
+  "the moana hotel in waikiki, honolulu, hawaii, united states": {
+    "query": "The Moana Hotel in Waikiki, Honolulu, Hawaii, United States",
     "status": "miss"
   },
   "the mohamed aly alabaster mosque - cairo egypt": {
@@ -13039,6 +13509,10 @@
   },
   "the ouse river, bedford, england": {
     "query": "The Ouse River, Bedford, England",
+    "status": "miss"
+  },
+  "the palace of justice (palazzo di giustizia), rome, lazio, italy": {
+    "query": "The Palace of Justice (Palazzo di Giustizia), Rome, Lazio, Italy",
     "status": "miss"
   },
   "the pavilion - brighton": {
@@ -13213,6 +13687,18 @@
     "query": "The Royal Crescent, Bath, Somerset, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "the sacred way & arch of titus": {
+    "query": "The Sacred Way & Arch of Titus",
+    "status": "miss"
+  },
+  "the sacred way & arch of titus, italy": {
+    "query": "The Sacred Way & Arch of Titus, Italy",
+    "status": "miss"
+  },
+  "the sacred way & arch of titus, rome, italy": {
+    "query": "The Sacred Way & Arch of Titus, Rome, Italy",
+    "status": "miss"
   },
   "the sands, swanage, england, united kingdom": {
     "query": "The Sands, Swanage, England, United Kingdom",
@@ -13792,6 +14278,17 @@
     "query": "Trafalgar Square, London; Tower Bridge, London",
     "status": "miss"
   },
+  "trajan's market, rome, lazio, italy": {
+    "city": "Rome",
+    "country": "Italy",
+    "display_name": "Trajan's Market, Foro Traiano, Monti, Municipio Roma I, Rome, Roma Capitale, Lazio, 00187, Italy",
+    "latitude": "41.8952969",
+    "longitude": "12.4861395",
+    "query": "Trajan's Market, Rome, Lazio, Italy",
+    "source": "nominatim",
+    "state": "Lazio",
+    "status": "ok"
+  },
   "tredegar house": {
     "city": "Newport",
     "country": "United Kingdom",
@@ -14217,6 +14714,17 @@
     "state": "British Columbia",
     "status": "ok"
   },
+  "victoria, british columbia, victoria, british columbia, canada": {
+    "city": "Juan de Fuca Electoral Area",
+    "country": "Canada",
+    "display_name": "Victoria, Juan de Fuca Electoral Area, Capital Regional District, British Columbia, Canada",
+    "latitude": "48.3888786",
+    "longitude": "-123.2732128",
+    "query": "Victoria, British Columbia, Victoria, British Columbia, Canada",
+    "source": "nominatim",
+    "state": "British Columbia",
+    "status": "ok"
+  },
   "victoria, canada": {
     "city": "Victoria",
     "country": "Canada",
@@ -14224,6 +14732,17 @@
     "latitude": "48.4283182",
     "longitude": "-123.3649530",
     "query": "Victoria, Canada",
+    "source": "nominatim",
+    "state": "British Columbia",
+    "status": "ok"
+  },
+  "victoria, canada, victoria, british columbia, canada": {
+    "city": "Prince George",
+    "country": "Canada",
+    "display_name": "Victoria at 9th Ave (SB), Victoria Street, Prince George, Regional District of Fraser-Fort George, British Columbia, V2L 1L2, Canada",
+    "latitude": "53.9129846",
+    "longitude": "-122.7532153",
+    "query": "Victoria, Canada, Victoria, British Columbia, Canada",
     "source": "nominatim",
     "state": "British Columbia",
     "status": "ok"
@@ -14292,6 +14811,25 @@
     "query": "Villa Bosphorus, Beylerbeyi, Istanbul, Turkey",
     "status": "miss"
   },
+  "vittorio emanuele monument (altare della patria), italy": {
+    "city": "Rome",
+    "country": "Italy",
+    "display_name": "Monument to Vittorio Emanuele II, La terrazza dell'Altare della Patria, Campitelli, Municipio Roma I, Rome, Roma Capitale, Lazio, 00187, Italy",
+    "latitude": "41.8946867",
+    "longitude": "12.4830664",
+    "query": "Vittorio Emanuele Monument (Altare della Patria), Italy",
+    "source": "nominatim",
+    "state": "Lazio",
+    "status": "ok"
+  },
+  "vittorio emanuele monument (the altar of the nations), italy": {
+    "query": "Vittorio Emanuele Monument (The Altar of the Nations), Italy",
+    "status": "miss"
+  },
+  "vittorio emanuele monument or the altar of the nations, rome, italy": {
+    "query": "Vittorio Emanuele Monument or The Altar of the Nations, Rome, Italy",
+    "status": "miss"
+  },
   "vnik, yugoslavia": {
     "query": "Vnik, Yugoslavia",
     "status": "miss"
@@ -14303,6 +14841,17 @@
     "latitude": "21.2741046",
     "longitude": "-157.8243118",
     "query": "Waikiki Beach, Honolulu, Hawaii",
+    "source": "nominatim",
+    "state": "Hawaii",
+    "status": "ok"
+  },
+  "waikiki beach, honolulu, hawaii, united states": {
+    "city": "Honolulu",
+    "country": "United States",
+    "display_name": "Waikiki Beach, Honolulu, Hawaii, United States, Honolulu, Hawaii, United States",
+    "latitude": "21.2741046",
+    "longitude": "-157.8243118",
+    "query": "Waikiki Beach, Honolulu, Hawaii, United States",
     "source": "nominatim",
     "state": "Hawaii",
     "status": "ok"
@@ -14903,6 +15452,10 @@
   },
   "zagreb, yugoslavia and karnten, austria": {
     "query": "Zagreb, Yugoslavia and Karnten, Austria",
+    "status": "miss"
+  },
+  "zagreb, yugoslavia, zagreb, yugoslavia": {
+    "query": "Zagreb, Yugoslavia, Zagreb, Yugoslavia",
     "status": "miss"
   },
   "zagreb, yugoslavia; karnten, austria": {

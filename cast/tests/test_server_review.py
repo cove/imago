@@ -24,6 +24,11 @@ def _post_json(url: str, payload: dict) -> tuple[int, dict]:
         return int(exc.code), json.loads(exc.read().decode("utf-8"))
 
 
+def _get_json(url: str) -> tuple[int, dict]:
+    with urlopen(url, timeout=10) as response:
+        return int(response.status), json.loads(response.read().decode("utf-8"))
+
+
 def test_wait_for_photoalbums_processing_lock_waits_for_release(tmp_path):
     image_path = tmp_path / "photo.jpg"
     image_path.write_bytes(b"jpg")
@@ -236,6 +241,68 @@ def test_bulk_review_assign_creates_person_once_and_assigns_many(tmp_path):
         assert faces[second_face["face_id"]]["person_id"] == person_id
         assert faces[first_face["face_id"]]["review_status"] == "confirmed"
         assert faces[second_face["face_id"]]["review_status"] == "confirmed"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_review_clusters_endpoint_groups_pending_faces_and_exposes_bulk_ids(tmp_path):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+
+    person = store.add_person(name="Audrey")
+    store.add_face(
+        embedding=[1.0, 0.0, 0.0],
+        person_id=person["person_id"],
+        source_type="photo",
+        quality=0.95,
+        metadata={"embedding_model": cast_server.CURRENT_FACE_EMBEDDING_MODEL},
+    )
+    store.add_face(
+        embedding=[0.99, 0.01, 0.0],
+        person_id=person["person_id"],
+        source_type="photo",
+        quality=0.94,
+        metadata={"embedding_model": cast_server.CURRENT_FACE_EMBEDDING_MODEL},
+    )
+    pending_faces = [
+        store.add_face(
+            embedding=[0.995, 0.005, 0.0],
+            source_type="photo",
+            source_path=f"photoalbums/pending-{index}.jpg",
+            quality=0.93,
+            metadata={"embedding_model": cast_server.CURRENT_FACE_EMBEDDING_MODEL},
+        )
+        for index in range(3)
+    ]
+    for face in pending_faces:
+        store.add_review_item(
+            face_id=face["face_id"],
+            candidates=[],
+            suggested_person_id=None,
+            suggested_score=None,
+            status="pending",
+        )
+
+    server = CastHTTPServer("127.0.0.1", 0, store)
+    port = int(server.server_address[1])
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    time.sleep(0.2)
+    try:
+        status, payload = _get_json(f"http://127.0.0.1:{port}/api/review/clusters")
+        assert status == 200
+        assert payload["ok"] is True
+        assert payload["counts"]["clusters"] == 1
+        assert payload["counts"]["clustered_reviews"] == 3
+        cluster = payload["clusters"][0]
+        assert cluster["size"] == 3
+        assert cluster["suggested_person_id"] == person["person_id"]
+        assert cluster["suggested_person_name"] == "Audrey"
+        assert cluster["suggested_confident"] is True
+        assert len(cluster["review_ids"]) == 3
+        assert len(cluster["sample_faces"]) >= 1
     finally:
         server.shutdown()
         server.server_close()

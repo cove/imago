@@ -72,6 +72,35 @@ class TestAICaption(unittest.TestCase):
         self.assertIn("Count clearly visible real people only.", ai_caption.people_count_system_prompt())
         self.assertIn("leave GPS fields empty", ai_caption.location_system_prompt())
 
+    def test_build_location_prompt_includes_album_and_ocr_hints(self):
+        prompt = ai_caption._build_location_prompt(
+            ocr_text="TEMPLE OF HEAVEN\nBEIJING",
+            album_title="China 1986 Book 11",
+        )
+        self.assertIn("The album name is: China 1986 Book 11", prompt)
+        self.assertIn("The OCR text on the page is: TEMPLE OF HEAVEN\nBEIJING", prompt)
+        self.assertIn("prefer a disambiguating geocoding query", prompt)
+        self.assertIn("Avoid ambiguous bare place names like `Oxford`", prompt)
+        self.assertIn("Include country, state/province, or broad region", prompt)
+
+    def test_build_location_prompt_falls_back_to_printed_album_title(self):
+        prompt = ai_caption._build_location_prompt(
+            ocr_text="MOGAO CAVES",
+            album_title="",
+            printed_album_title="Mainland China 1986 Book 11",
+        )
+        self.assertIn("The album name is: Mainland China 1986 Book 11", prompt)
+        self.assertIn("The OCR text on the page is: MOGAO CAVES", prompt)
+
+    def test_build_local_prompt_includes_disambiguating_location_query_guidance(self):
+        prompt = ai_caption._build_local_prompt(
+            people=[],
+            objects=[],
+            ocr_text="LONDON GARDENS",
+            source_path=Path("Photo Albums") / "Europe_1973_Archive" / "Europe_1973_B01_P02_S01.tif",
+        )
+        self.assertIn("Prefer `place, city/state, country` style queries", prompt)
+
     def test_caption_engine_none_returns_empty_text(self):
         engine = ai_caption.CaptionEngine(engine="none")
         out = engine.generate(
@@ -239,7 +268,7 @@ class TestAICaption(unittest.TestCase):
         self.assertEqual(records[0]["response"], fake_lmstudio.last_response_text)
         self.assertEqual(records[0]["finish_reason"], "stop")
 
-    def test_estimate_locations_shown_records_correct_system_prompt_and_ocr_hints(self):
+    def test_estimate_locations_shown_records_shared_location_prompt(self):
         fake_lmstudio = mock.Mock()
         fake_lmstudio.estimate_locations_shown.return_value = ai_caption.CaptionDetails(
             text="",
@@ -257,17 +286,60 @@ class TestAICaption(unittest.TestCase):
             engine.estimate_locations_shown(
                 image_path="sample.jpg",
                 ocr_text="EASTERN EUROPE SPAIN AND MOROCCO 1988",
+                album_title="Spain and Morocco 1988",
                 source_path="sample.jpg",
                 debug_recorder=lambda **row: records.append(row),
                 debug_step="locations_shown_refresh",
             )
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]["step"], "locations_shown_refresh")
-        self.assertEqual(records[0]["system_prompt"], ai_caption.location_shown_system_prompt())
-        self.assertIn("- OCR text hints about the general location:", records[0]["prompt"])
+        self.assertEqual(records[0]["system_prompt"], ai_caption.location_system_prompt())
+        self.assertIn("If the response schema asks for `locations_shown`", records[0]["prompt"])
+        self.assertIn("The album name is: Spain and Morocco 1988", records[0]["prompt"])
+        self.assertIn("The OCR text on the page is: EASTERN EUROPE SPAIN AND MOROCCO 1988", records[0]["prompt"])
         self.assertIn("EASTERN EUROPE SPAIN AND MOROCCO 1988", records[0]["prompt"])
         self.assertEqual(records[0]["response"], fake_lmstudio.last_response_text)
         self.assertEqual(records[0]["finish_reason"], "stop")
+
+    def test_estimate_location_records_album_and_ocr_hints_in_prompt(self):
+        fake_lmstudio = mock.Mock()
+        fake_lmstudio.estimate_location.return_value = ai_caption.CaptionDetails(
+            text="",
+            location_name="Mogao Caves, Dunhuang, Gansu, China",
+            gps_latitude="",
+            gps_longitude="",
+        )
+        fake_lmstudio._resolved_model_name = ""
+        fake_lmstudio.last_response_text = (
+            '{"location_name":"Mogao Caves, Dunhuang, Gansu, China","gps_latitude":"","gps_longitude":""}'
+        )
+        fake_lmstudio.last_finish_reason = "stop"
+        records = []
+        with mock.patch("photoalbums.lib.ai_caption.LMStudioCaptioner", return_value=fake_lmstudio):
+            engine = ai_caption.CaptionEngine(
+                engine="lmstudio",
+                model_name="qwen/qwen3.5-9b",
+            )
+            engine.estimate_location(
+                image_path="sample.jpg",
+                people=[],
+                objects=[],
+                ocr_text="TEMPLE OF HEAVEN\nBEIJING",
+                source_path="sample.jpg",
+                album_title="China 1986 Book 11",
+                debug_recorder=lambda **row: records.append(row),
+                debug_step="location_refresh",
+            )
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["step"], "location_refresh")
+        self.assertEqual(records[0]["system_prompt"], ai_caption.location_system_prompt())
+        self.assertIn("The album name is: China 1986 Book 11", records[0]["prompt"])
+        self.assertIn("The OCR text on the page is: TEMPLE OF HEAVEN\nBEIJING", records[0]["prompt"])
+        self.assertEqual(records[0]["response"], fake_lmstudio.last_response_text)
+        self.assertEqual(records[0]["finish_reason"], "stop")
+
+    def test_location_shown_system_prompt_aliases_shared_location_prompt(self):
+        self.assertEqual(ai_caption.location_shown_system_prompt(), ai_caption.location_system_prompt())
 
     def test_lmstudio_captioner_posts_chat_completion_request(self):
         response_payload = {
@@ -599,7 +671,7 @@ class TestAICaption(unittest.TestCase):
             self.assertEqual(payload["model"], "qwen2.5-vl")
             self.assertEqual(
                 payload["messages"][0]["content"],
-                ai_caption.location_shown_system_prompt(),
+                ai_caption.location_system_prompt(),
             )
             self.assertEqual(
                 payload["response_format"]["json_schema"]["name"],
@@ -612,7 +684,7 @@ class TestAICaption(unittest.TestCase):
                 ],
             )
             self.assertIn(
-                "- OCR text hints about the general location:",
+                "If the response schema asks for `locations_shown`",
                 payload["messages"][1]["content"][0]["text"],
             )
             self.assertIn(
@@ -649,8 +721,8 @@ class TestAICaption(unittest.TestCase):
                 details = captioner.estimate_locations_shown(
                     image_path=image_path,
                     prompt=(
-                        "Identify distinct famous locations visible in the photographs on this page.\n"
-                        "- OCR text hints about the general location:\n"
+                        "If the response schema asks for `locations_shown`, identify distinct famous locations visible in the photographs on this page.\n"
+                        "- The OCR text on the page is: EASTERN EUROPE SPAIN AND MOROCCO 1988\n"
                         "EASTERN EUROPE SPAIN AND MOROCCO 1988"
                     ),
                 )

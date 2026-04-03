@@ -20,6 +20,13 @@ def _clean_query(value: str) -> str:
     return " ".join(str(value or "").split())
 
 
+def _lookup_query(value: str) -> str:
+    clean = _clean_query(value)
+    if clean[:4].casefold() == "the ":
+        return clean[4:].strip()
+    return clean
+
+
 def _ascii_fold(value: str) -> str:
     normalized = unicodedata.normalize("NFKD", str(value or ""))
     return normalized.encode("ascii", "ignore").decode("ascii")
@@ -27,6 +34,135 @@ def _ascii_fold(value: str) -> str:
 
 def _clean_display_part(value: str) -> str:
     return _clean_query(_ascii_fold(value).strip(" ,;"))
+
+
+def _looks_like_house_number(value: str) -> bool:
+    text = _clean_query(value)
+    if not text:
+        return False
+    compact = text.replace("-", "").replace("/", "").replace(" ", "")
+    if not compact:
+        return False
+    return any(ch.isdigit() for ch in compact) and all(ch.isalnum() for ch in compact)
+
+
+def _looks_like_postcode(value: str) -> bool:
+    text = _clean_query(value)
+    if not text:
+        return False
+    compact = text.replace("-", "").replace(" ", "")
+    if len(compact) < 3 or len(compact) > 10:
+        return False
+    return any(ch.isdigit() for ch in compact) and all(ch.isalnum() for ch in compact)
+
+
+def _has_street_hint(value: str) -> bool:
+    text = _clean_display_part(value).casefold()
+    if not text:
+        return False
+    hints = (
+        " street",
+        " st",
+        " road",
+        " rd",
+        " avenue",
+        " ave",
+        " boulevard",
+        " blvd",
+        " lane",
+        " ln",
+        " drive",
+        " dr",
+        " square",
+        " sq",
+        " place",
+        " plaza",
+        " piazza",
+        " platz",
+        " terrace",
+        " way",
+        " path",
+        " quay",
+        " quays",
+        " esplanade",
+        " embankment",
+        " strasse",
+        " allee",
+        " rue",
+        " rua",
+        " calle",
+        " via",
+        " corso",
+        " chemin",
+        " camino",
+    )
+    suffixes = ("platz", "strasse", "allee", "gasse", "weg", "ring")
+    return any(text.endswith(hint) or f" {hint.strip()} " in text for hint in hints) or any(
+        text.endswith(suffix) for suffix in suffixes
+    )
+
+
+def _display_name_sublocation(*, display_name: str, city: str = "", state: str = "", country: str = "") -> str:
+    parts = [_clean_query(part) for part in str(display_name or "").split(",")]
+    parts = [part for part in parts if part]
+    if not parts:
+        return ""
+    country_folded = _clean_display_part(country).casefold()
+    city_folded = _clean_display_part(city).casefold()
+    state_folded = _clean_display_part(state).casefold()
+    while parts and country_folded and _clean_display_part(parts[-1]).casefold() == country_folded:
+        parts.pop()
+    while parts and _looks_like_postcode(parts[-1]):
+        parts.pop()
+    while parts and city_folded and _clean_display_part(parts[-1]).casefold() == city_folded:
+        parts.pop()
+    while parts and state_folded and _clean_display_part(parts[-1]).casefold() == state_folded:
+        parts.pop()
+    while parts and _looks_like_postcode(parts[-1]):
+        parts.pop()
+    for idx, part in enumerate(parts):
+        if _has_street_hint(part):
+            if idx > 0 and _looks_like_house_number(parts[idx - 1]):
+                return _clean_query(f"{parts[idx - 1]} {part}")
+            return part
+        if _looks_like_house_number(part) and idx + 1 < len(parts) and _has_street_hint(parts[idx + 1]):
+            return _clean_query(f"{part} {parts[idx + 1]}")
+    return ""
+
+
+def _street_address_part(address: dict[str, object]) -> str:
+    if not isinstance(address, dict):
+        return ""
+    street = _clean_query(
+        str(
+            address.get("road")
+            or address.get("pedestrian")
+            or address.get("street")
+            or address.get("footway")
+            or address.get("cycleway")
+            or address.get("path")
+            or address.get("residential")
+            or address.get("square")
+            or ""
+        )
+    )
+    if not street:
+        return ""
+    house_number = _clean_query(str(address.get("house_number") or ""))
+    if house_number:
+        return f"{house_number} {street}"
+    return street
+
+
+def _sublocation_from_nominatim(
+    *, display_name: str, address: dict[str, object], city: str = "", state: str = "", country: str = ""
+) -> str:
+    return _display_name_sublocation(
+        display_name=display_name,
+        city=city,
+        state=state,
+        country=country,
+    ) or _street_address_part(address)
 
 
 def _normalize_display_name(
@@ -71,6 +207,7 @@ class GeocodeResult:
     city: str = ""
     state: str = ""
     country: str = ""
+    sublocation: str = ""
 
 
 class NominatimGeocoder:
@@ -134,6 +271,7 @@ class NominatimGeocoder:
             "city": result.city,
             "state": result.state,
             "country": result.country,
+            "sublocation": result.sublocation,
             "status": "ok",
         }
         self._save_cache()
@@ -170,6 +308,7 @@ class NominatimGeocoder:
             city=str(row.get("city") or "").strip(),
             state=str(row.get("state") or "").strip(),
             country=str(row.get("country") or "").strip(),
+            sublocation=str(row.get("sublocation") or "").strip(),
         )
 
     def geocode(self, query: str) -> GeocodeResult | None:
@@ -182,9 +321,10 @@ class NominatimGeocoder:
         if self._cache.get(self._cache_key(clean_query), {}).get("status") == "miss":
             return None
 
+        request_query = _lookup_query(clean_query)
         params = urllib.parse.urlencode(
             {
-                "q": clean_query,
+                "q": request_query,
                 "format": "jsonv2",
                 "limit": "1",
                 "addressdetails": "1",
@@ -239,6 +379,13 @@ class NominatimGeocoder:
             city=city,
             state=str(address.get("state") or "").strip(),
             country=str(address.get("country") or "").strip(),
+            sublocation=_sublocation_from_nominatim(
+                display_name=str(top.get("display_name") or "").strip(),
+                address=address,
+                city=city,
+                state=str(address.get("state") or "").strip(),
+                country=str(address.get("country") or "").strip(),
+            ),
         )
         self._cache_result(result)
         return result
@@ -248,7 +395,7 @@ class NominatimGeocoder:
         lon_str = str(lon).strip()
         if not lat_str or not lon_str:
             return None
-        
+
         query = f"{lat_str},{lon_str}"
         cached = self._cached_result(query)
         if cached is not None:
@@ -287,7 +434,7 @@ class NominatimGeocoder:
         if not isinstance(payload, dict):
             self._cache_miss(query)
             return None
-        
+
         latitude = str(payload.get("lat") or "").strip()
         longitude = str(payload.get("lon") or "").strip()
         if not latitude or not longitude:
@@ -298,7 +445,7 @@ class NominatimGeocoder:
         city = str(
             address.get("city") or address.get("town") or address.get("village") or address.get("municipality") or ""
         ).strip()
-        
+
         result = GeocodeResult(
             query=query,
             latitude=latitude,
@@ -313,6 +460,13 @@ class NominatimGeocoder:
             city=city,
             state=str(address.get("state") or "").strip(),
             country=str(address.get("country") or "").strip(),
+            sublocation=_sublocation_from_nominatim(
+                display_name=str(payload.get("display_name") or "").strip(),
+                address=address,
+                city=city,
+                state=str(address.get("state") or "").strip(),
+                country=str(address.get("country") or "").strip(),
+            ),
         )
         self._cache_result(result)
         return result

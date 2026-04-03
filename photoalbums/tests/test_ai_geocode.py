@@ -89,6 +89,80 @@ class TestAIGeocode(unittest.TestCase):
             self.assertEqual(result.latitude, "39.9361")
             self.assertEqual(result.longitude, "94.8076")
 
+    def test_geocode_strips_leading_the_from_network_lookup_only(self):
+        response_payload = [
+            {
+                "lat": "51.7520",
+                "lon": "-1.2577",
+                "display_name": "Oxford, Oxfordshire, England, United Kingdom",
+            }
+        ]
+
+        class _FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read(self):
+                return json.dumps(response_payload).encode("utf-8")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cache_path = Path(tmp) / "geocode_cache.json"
+
+            def fake_urlopen(request, timeout):
+                self.assertEqual(timeout, ai_geocode.DEFAULT_GEOCODER_TIMEOUT_SECONDS)
+                self.assertIn("Oxford%2C+England", request.full_url)
+                self.assertNotIn("The+Oxford%2C+England", request.full_url)
+                return _FakeResponse()
+
+            geocoder = ai_geocode.NominatimGeocoder(cache_path=cache_path)
+            with mock.patch.object(ai_geocode.urllib.request, "urlopen", side_effect=fake_urlopen):
+                result = geocoder.geocode("The Oxford, England")
+
+            self.assertEqual(result.query, "The Oxford, England")
+            cached = json.loads(cache_path.read_text(encoding="utf-8"))
+            self.assertIn("the oxford, england", cached)
+            self.assertEqual(cached["the oxford, england"]["query"], "The Oxford, England")
+
+    def test_geocode_extracts_street_sublocation_from_display_name(self):
+        response_payload = [
+            {
+                "lat": "48.2103",
+                "lon": "16.3574",
+                "display_name": "Vienna City Hall, 1, Rathausplatz, Regierungsviertel, Innere Stadt, Vienna, 1010, Austria",
+                "address": {
+                    "city": "Vienna",
+                    "country": "Austria",
+                },
+            }
+        ]
+
+        class _FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read(self):
+                return json.dumps(response_payload).encode("utf-8")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cache_path = Path(tmp) / "geocode_cache.json"
+            geocoder = ai_geocode.NominatimGeocoder(cache_path=cache_path)
+            with mock.patch.object(ai_geocode.urllib.request, "urlopen", return_value=_FakeResponse()):
+                result = geocoder.geocode("Vienna City Hall, Vienna, Austria")
+
+            self.assertIsNotNone(result)
+            self.assertEqual(result.sublocation, "1 Rathausplatz")
+            cached = json.loads(cache_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                cached["vienna city hall, vienna, austria"]["sublocation"],
+                "1 Rathausplatz",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

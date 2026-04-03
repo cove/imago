@@ -18,6 +18,7 @@ class AlbumSet:
     description: str = ""
     cast_store: Path | None = None
     skill: str = ""
+    title_page_location: dict[str, str] | None = None
 
     def supports(self) -> list[str]:
         if self.kind == "archive":
@@ -68,6 +69,25 @@ def _resolve_path(base_dir: Path, value: Any, *, field_name: str) -> Path:
     return path
 
 
+def _parse_title_page_location(name: str, payload: Any) -> dict[str, str] | None:
+    if payload is None:
+        return None
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"Album set '{name}' title_page_location must be a TOML table: {ALBUM_SETS_PATH}")
+    location: dict[str, str] = {}
+    for field_name in ("address", "gps_latitude", "gps_longitude", "city", "state", "country", "sublocation"):
+        text = str(payload.get(field_name) or "").strip()
+        if text:
+            location[field_name] = text
+    if not location:
+        return None
+    if not location.get("gps_latitude") or not location.get("gps_longitude"):
+        raise RuntimeError(
+            f"Album set '{name}' title_page_location must define gps_latitude and gps_longitude: {ALBUM_SETS_PATH}"
+        )
+    return location
+
+
 def _parse_album_set(name: str, payload: Any, *, base_dir: Path) -> AlbumSet:
     if not isinstance(payload, dict):
         raise RuntimeError(f"Album set '{name}' must be a TOML table: {ALBUM_SETS_PATH}")
@@ -88,6 +108,7 @@ def _parse_album_set(name: str, payload: Any, *, base_dir: Path) -> AlbumSet:
             if kind == "archive"
             else None
         ),
+        title_page_location=_parse_title_page_location(name, payload.get("title_page_location")),
     )
     return album_set
 
@@ -154,6 +175,14 @@ def resolve_archive_set(name: str | None = None) -> AlbumSet:
     if album_set.kind != "archive":
         raise ValueError(f"album_set '{album_set.name}' does not support archive operations")
     return album_set
+
+
+def find_archive_set_by_photos_root(photos_root: str | Path) -> AlbumSet | None:
+    target = Path(photos_root).expanduser().resolve(strict=False)
+    for album_set in list_album_sets(kind="archive"):
+        if album_set.photos_root.resolve(strict=False) == target:
+            return album_set
+    return None
 
 
 def resolve_scan_set(name: str | None = None) -> AlbumSet:

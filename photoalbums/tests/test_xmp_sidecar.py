@@ -158,6 +158,33 @@ class TestXMPSidecar(unittest.TestCase):
             assert state is not None
             self.assertEqual(state["ocr_authority_source"], "archive_stitched")
 
+    def test_write_xmp_sidecar_round_trips_top_level_sublocation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+                location_city="Vienna",
+                location_country="Austria",
+                location_sublocation="1 Rathausplatz",
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                subphotos=[],
+            )
+
+            xml = out.read_text(encoding="utf-8")
+            self.assertIn("<Iptc4xmpExt:Sublocation>1 Rathausplatz</Iptc4xmpExt:Sublocation>", xml)
+
+            state = xmp_sidecar.read_ai_sidecar_state(out)
+            assert state is not None
+            self.assertEqual(state["location_city"], "Vienna")
+            self.assertEqual(state["location_country"], "Austria")
+            self.assertEqual(state["location_sublocation"], "1 Rathausplatz")
+
     def test_write_xmp_sidecar_omits_create_date_and_writes_processing_history(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "image.xmp"
@@ -312,6 +339,33 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertIn("<imago:SceneText>NO SMOKING</imago:SceneText>", xml)
             self.assertEqual(state["author_text"], "Temple of Heaven")
             self.assertEqual(state["scene_text"], "NO SMOKING")
+
+    def test_write_xmp_sidecar_normalizes_literal_newline_escapes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                title="Line 1\\nLine 2",
+                description="First line\\nSecond line",
+                source_text="Family_2020\\nB01_P01_S01.tif",
+                ocr_text="OCR line 1\\nOCR line 2",
+                author_text="Author line 1\\nAuthor line 2",
+                scene_text="Scene line 1\\nScene line 2",
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                subphotos=[],
+            )
+
+            xml = out.read_text(encoding="utf-8")
+            self.assertIn("<dc:title>", xml)
+            self.assertIn("Line 1\nLine 2", xml)
+            self.assertIn("First line\nSecond line", xml)
+            self.assertIn("OCR line 1\nOCR line 2", xml)
+            self.assertIn("Author line 1\nAuthor line 2", xml)
+            self.assertIn("Scene line 1\nScene line 2", xml)
+            self.assertIn("<dc:source>Family_2020 B01_P01_S01.tif</dc:source>", xml)
 
     def test_write_xmp_sidecar_puts_ocr_text_in_dc_description(self):
         with tempfile.TemporaryDirectory() as tmp:

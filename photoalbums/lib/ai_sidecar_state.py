@@ -112,6 +112,17 @@ def _sidecar_location_payload(sidecar_state: dict[str, Any] | None) -> dict[str,
         location["gps_latitude"] = gps_latitude
     if gps_longitude and not str(location.get("gps_longitude") or "").strip():
         location["gps_longitude"] = gps_longitude
+    if str(sidecar_state.get("location_city") or "").strip() and not str(location.get("city") or "").strip():
+        location["city"] = str(sidecar_state.get("location_city") or "").strip()
+    if str(sidecar_state.get("location_state") or "").strip() and not str(location.get("state") or "").strip():
+        location["state"] = str(sidecar_state.get("location_state") or "").strip()
+    if str(sidecar_state.get("location_country") or "").strip() and not str(location.get("country") or "").strip():
+        location["country"] = str(sidecar_state.get("location_country") or "").strip()
+    if (
+        str(sidecar_state.get("location_sublocation") or "").strip()
+        and not str(location.get("sublocation") or "").strip()
+    ):
+        location["sublocation"] = str(sidecar_state.get("location_sublocation") or "").strip()
     return location
 
 

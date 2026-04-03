@@ -46,6 +46,13 @@ def _dedupe(names: list[str]) -> list[str]:
     return list(first_seen.values())
 
 
+def _normalize_xmp_text(value: str, *, multiline: bool = False) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    return text.replace(r"\n", "\n" if multiline else " ")
+
+
 def read_xmp_description(sidecar_path: Path | str) -> str:
     """Read dc:description alt-text from an XMP sidecar. Returns '' on any error."""
     try:
@@ -168,7 +175,7 @@ def _merge_into_tree(
 
     # Optionally update the dc:description alt-text
     if description is not None:
-        clean = description.strip()
+        clean = _normalize_xmp_text(description, multiline=True)
         desc_elem = desc.find(_DC_DESC_TAG)
         if clean:
             if desc_elem is None:
@@ -215,7 +222,7 @@ def _write_minimal(
         li.text = name
 
     if description:
-        clean = description.strip()
+        clean = _normalize_xmp_text(description, multiline=True)
         if clean:
             desc_elem = ET.SubElement(desc, _DC_DESC_TAG)
             alt = ET.SubElement(desc_elem, _RDF_ALT)

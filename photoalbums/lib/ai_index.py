@@ -32,6 +32,7 @@ from .ai_album_titles import (
     _store_album_printed_title_hint,
     _title_page_match,
 )
+from .album_sets import find_archive_set_by_photos_root
 from .ai_caption import (
     CaptionEngine,
     DEFAULT_LMSTUDIO_MAX_NEW_TOKENS,
@@ -138,6 +139,18 @@ def _format_reprocess_reasons(reasons: list[str]) -> str:
     return ", ".join(clean)
 
 
+def _apply_shard(files: list[Path], shard_count: int, shard_index: int) -> list[Path]:
+    if shard_count <= 1:
+        return list(files)
+    selected: list[Path] = []
+    for path in files:
+        album_key = _album_identity_key(path)
+        digest = hashlib.sha1(album_key.encode("utf-8")).digest()
+        if int.from_bytes(digest[:8], "big") % shard_count == shard_index:
+            selected.append(path)
+    return selected
+
+
 def _compute_people_positions(people_matches: list, image_path: Path) -> dict[str, str]:
     """Return a dict mapping each identified person's name to a position label.
 
@@ -185,6 +198,7 @@ PROCESSOR_SIGNATURE = "page_split_v17_people_recovery_any_people"
 JOB_ARTIFACTS_ENV = "IMAGO_JOB_ARTIFACTS"
 CAST_STORE_RETRY_ATTEMPTS = 6
 CAST_STORE_RETRY_DELAY_SECONDS = 0.5
+TITLE_PAGE_LOCATION_SOURCE = "title_page_location_config"
 
 
 @dataclass
@@ -322,6 +336,19 @@ def _emit_prompt_debug_artifact(prompt_debug: PromptDebugSession | None, *, dry_
     append_job_artifact(prompt_debug.to_artifact())
 
 
+def _append_geocode_artifact(*, image_path: Path, record: dict[str, Any]) -> None:
+    if not isinstance(record, dict):
+        return
+    append_job_artifact(
+        {
+            "kind": "photoalbums_geocode",
+            "image_path": str(image_path),
+            "label": image_path.name,
+            **record,
+        }
+    )
+
+
 def _page_scan_filenames(image_path: Path) -> list[str]:
     """Return sorted list of scan TIF basenames associated with image_path's page.
 
@@ -370,6 +397,59 @@ def _build_dc_source(album_title: str, image_path: Path, scan_filenames: list[st
         parts.append("Scan(s) " + " ".join(f"S{n:02d}" for n in scan_nums))
     label = " ".join(parts)
     return "; ".join(p for p in [label] + source_filenames if p)
+
+
+def _configured_title_page_location_payload(
+    image_path: Path,
+    title_page_location: dict[str, str] | None,
+) -> dict[str, Any]:
+    if not isinstance(title_page_location, dict):
+        return {}
+    _, _, _, page_str = parse_album_filename(image_path.name)
+    if not page_str.isdigit() or int(page_str) != 1:
+        return {}
+    latitude = str(title_page_location.get("gps_latitude") or "").strip()
+    longitude = str(title_page_location.get("gps_longitude") or "").strip()
+    if not latitude or not longitude:
+        return {}
+    payload: dict[str, Any] = {
+        "gps_latitude": float(latitude),
+        "gps_longitude": float(longitude),
+        "map_datum": "WGS-84",
+        "source": TITLE_PAGE_LOCATION_SOURCE,
+    }
+    address = str(title_page_location.get("address") or "").strip()
+    if address:
+        payload["query"] = address
+        payload["display_name"] = address
+    for key in ("city", "state", "country", "sublocation"):
+        value = str(title_page_location.get(key) or "").strip()
+        if value:
+            payload[key] = value
+    return payload
+
+
+def _apply_title_page_location_config(
+    *,
+    image_path: Path,
+    location_payload: dict[str, Any] | None,
+    detections_payload: dict[str, Any] | None = None,
+    title_page_location: dict[str, str] | None = None,
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    loc = dict(location_payload or {})
+    configured = _configured_title_page_location_payload(image_path, title_page_location)
+    if configured:
+        loc = configured
+    elif str(loc.get("source") or "").strip() == TITLE_PAGE_LOCATION_SOURCE:
+        loc = {}
+    if not isinstance(detections_payload, dict):
+        return loc, detections_payload
+    detections = dict(detections_payload)
+    if loc:
+        detections["location"] = dict(loc)
+    elif "location" in detections:
+        del detections["location"]
+    return loc, detections
 
 
 def _dc_source_needs_refresh(image_path: Path, sidecar_state: dict[str, Any] | None) -> bool:
@@ -654,6 +734,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--extensions",
         default=",".join(sorted(IMAGE_EXTENSIONS)),
         help="Comma-separated file extensions to include.",
+    )
+    parser.add_argument(
+        "--shard-count",
+        type=int,
+        default=1,
+        help="Split discovered files into N deterministic shards.",
+    )
+    parser.add_argument(
+        "--shard-index",
+        type=int,
+        default=0,
+        help="Zero-based shard index to process when --shard-count is greater than 1.",
     )
     return parser.parse_args(argv)
 
@@ -1142,6 +1234,7 @@ def _run_image_analysis(
     is_page_scan: bool = False,
     ocr_text_override: str | None = None,
     prompt_debug: PromptDebugSession | None = None,
+    title_page_location: dict[str, str] | None = None,
 ) -> ImageAnalysis:
     del ocr_engine_name
     page_photo_count = 0 if is_page_scan else 1
@@ -1276,6 +1369,13 @@ def _run_image_analysis(
         gps_latitude=gps_latitude,
         gps_longitude=gps_longitude,
         location_name=location_name,
+        artifact_recorder=(lambda record: _append_geocode_artifact(image_path=image_path, record=record)),
+        artifact_step="location",
+    )
+    location_payload, _ = _apply_title_page_location_config(
+        image_path=image_path,
+        location_payload=location_payload,
+        title_page_location=title_page_location,
     )
     if location_payload:
         payload["location"] = location_payload
@@ -1286,9 +1386,12 @@ def _run_image_analysis(
         model_image_path=image_path,
         ocr_text=ocr_text,
         source_path=caption_source_path or people_source_path or image_path,
+        album_title=album_title,
+        printed_album_title=printed_album_title,
         geocoder=geocoder,
         prompt_debug=prompt_debug,
         debug_step="locations_shown",
+        artifact_recorder=(lambda record: _append_geocode_artifact(image_path=image_path, record=record)),
     )
     payload["locations_shown"] = locations_shown
     payload["location_shown_ran"] = locations_shown_ran
@@ -1554,6 +1657,7 @@ def _run_scan_stitch_pass(
     stdout_only: bool,
     printed_album_title_cache: dict[str, str],
     geocoder: NominatimGeocoder | None,
+    title_page_location: dict[str, str] | None = None,
 ) -> int:
     """Group _S# scan files by page, combine OCR text, re-run caption, update XMPs.
 
@@ -1665,6 +1769,10 @@ def _run_scan_stitch_pass(
                 gps_latitude=gps_latitude,
                 gps_longitude=gps_longitude,
                 location_name=location_name,
+                artifact_recorder=(
+                    lambda record: _append_geocode_artifact(image_path=caption_source_path, record=record)
+                ),
+                artifact_step="location_stitch",
             )
             combined_ocr_keywords = extract_keywords(combined_ocr, max_keywords=15)
 
@@ -1683,6 +1791,12 @@ def _run_scan_stitch_pass(
                     object_labels
                     + [str(k) for k in combined_ocr_keywords if k]
                     + ([album_title] if album_title else [])
+                )
+                location_payload, det = _apply_title_page_location_config(
+                    image_path=path,
+                    location_payload=location_payload,
+                    detections_payload=det,
+                    title_page_location=title_page_location,
                 )
                 final_gps_lat = str((location_payload or {}).get("gps_latitude") or state.get("gps_latitude") or "")
                 final_gps_lon = str((location_payload or {}).get("gps_longitude") or state.get("gps_longitude") or "")
@@ -1716,6 +1830,7 @@ def _run_scan_stitch_pass(
                         location_city=str((location_payload or {}).get("city") or ""),
                         location_state=str((location_payload or {}).get("state") or ""),
                         location_country=str((location_payload or {}).get("country") or ""),
+                        location_sublocation=str((location_payload or {}).get("sublocation") or ""),
                         source_text=source_text,
                         ocr_text=combined_ocr,
                         author_text=str(text_layers.get("author_text") or ""),
@@ -1770,11 +1885,17 @@ def _write_sidecar_and_record(
     ocr_ran: bool = False,
     people_detected: bool = False,
     people_identified: bool = False,
+    title_page_location: dict[str, str] | None = None,
 ) -> None:
     """Write XMP sidecar and record the artifact.  Derives history_when and image
     dimensions from image_path; unpacks GPS fields from location_payload."""
     img_w, img_h = _get_image_dimensions(image_path)
-    loc = location_payload
+    loc, detections_payload = _apply_title_page_location_config(
+        image_path=image_path,
+        location_payload=location_payload,
+        detections_payload=detections_payload,
+        title_page_location=title_page_location,
+    )
     write_xmp_sidecar(
         sidecar_path,
         creator_tool=creator_tool,
@@ -1789,6 +1910,7 @@ def _write_sidecar_and_record(
         location_city=str(loc.get("city") or ""),
         location_state=str(loc.get("state") or ""),
         location_country=str(loc.get("country") or ""),
+        location_sublocation=str(loc.get("sublocation") or ""),
         source_text=source_text,
         ocr_text=ocr_text,
         ocr_lang=ocr_lang,
@@ -1827,10 +1949,14 @@ def run(argv: list[str] | None = None) -> int:
         str(getattr(args, "caption_prompt_file", "")),
     )
     photos_root = _absolute_cli_path(args.photos_root)
+    archive_set = find_archive_set_by_photos_root(photos_root)
+    title_page_location = archive_set.title_page_location if archive_set is not None else None
     stdout_only = bool(args.stdout)
     reprocess_mode = str(args.reprocess_mode)
     force_processing = bool(args.force or stdout_only or reprocess_mode == "all")
     dry_run = bool(args.dry_run or stdout_only)
+    shard_count = int(args.shard_count or 1)
+    shard_index = int(args.shard_index or 0)
 
     def emit_info(message: str) -> None:
         if not stdout_only:
@@ -1841,6 +1967,10 @@ def run(argv: list[str] | None = None) -> int:
 
     if not photos_root.is_dir():
         raise SystemExit(f"Photo root is not a directory: {photos_root}")
+    if shard_count < 1:
+        raise SystemExit("--shard-count must be at least 1")
+    if shard_index < 0 or shard_index >= shard_count:
+        raise SystemExit("--shard-index must be between 0 and --shard-count - 1")
 
     include_archive = bool(args.include_archive)
     include_view = bool(args.include_view)
@@ -1858,6 +1988,8 @@ def run(argv: list[str] | None = None) -> int:
 
     single_photo = str(args.photo or "").strip()
     if single_photo:
+        if shard_count > 1:
+            raise SystemExit("--shard-count > 1 is only supported for multi-photo discovery runs")
         photo_path = _absolute_cli_path(single_photo)
         if not photo_path.is_file():
             raise SystemExit(f"Photo not found: {photo_path}")
@@ -1879,6 +2011,7 @@ def run(argv: list[str] | None = None) -> int:
             files = files[photo_offset:]
         if args.max_images and args.max_images > 0:
             files = files[: int(args.max_images)]
+        files = _apply_shard(files, shard_count, shard_index)
 
     original_file_count = len(files)
     files = _expand_album_title_dependencies(files, ext_set)
@@ -1890,7 +2023,8 @@ def run(argv: list[str] | None = None) -> int:
         return 0
 
     batch_lock_path: Path | None = None
-    if not single_photo:
+    allow_concurrent_shards = not single_photo and shard_count > 1
+    if not single_photo and not allow_concurrent_shards:
         try:
             batch_lock_path = _acquire_batch_processing_lock(photos_root)
         except RuntimeError as exc:
@@ -2199,7 +2333,6 @@ def run(argv: list[str] | None = None) -> int:
             if location_shown_gps_dirty:
                 gps_update_only = True
                 reprocess_reasons.append("location_shown_ai_gps_stale")
-
         if (
             not needs_full
             and not people_update_only
@@ -2260,8 +2393,13 @@ def run(argv: list[str] | None = None) -> int:
         try:
             lock_path = _acquire_image_processing_lock(image_path)
         except RuntimeError as exc:
-            failures += 1
-            emit_error(f"[{idx}/{len(files)}] fail  {image_path.name}: {exc}")
+            if allow_concurrent_shards and "already processing" in str(exc):
+                skipped += 1
+                if args.verbose and not stdout_only:
+                    print(f"[{idx}/{len(files)}] skip  {image_path.name} ({exc})")
+            else:
+                failures += 1
+                emit_error(f"[{idx}/{len(files)}] fail  {image_path.name}: {exc}")
             continue
 
         if not needs_full and not people_update_only and not gps_update_only:
@@ -2284,6 +2422,12 @@ def run(argv: list[str] | None = None) -> int:
                     )
                     if refresh_location:
                         refresh_detections["location"] = refresh_location
+                    refresh_location, refresh_detections = _apply_title_page_location_config(
+                        image_path=image_path,
+                        location_payload=refresh_location,
+                        detections_payload=refresh_detections,
+                        title_page_location=title_page_location,
+                    )
                     if not dry_run:
                         refresh_gps_lat = str(refresh_location.get("gps_latitude") or "").strip()
                         refresh_gps_lon = str(refresh_location.get("gps_longitude") or "").strip()
@@ -2383,6 +2527,7 @@ def run(argv: list[str] | None = None) -> int:
                             location_city=str(refresh_location.get("city") or ""),
                             location_state=str(refresh_location.get("state") or ""),
                             location_country=str(refresh_location.get("country") or ""),
+                            location_sublocation=str(refresh_location.get("sublocation") or ""),
                             source_text=_build_dc_source(
                                 refresh_album_title,
                                 image_path,
@@ -2437,6 +2582,7 @@ def run(argv: list[str] | None = None) -> int:
 
         if not needs_full and people_update_only and not stdout_only:
             state = existing_sidecar_state
+            chain_gps_update_after_people = bool(gps_update_only)
             if not isinstance(state, dict):
                 needs_full = True  # fall through to full processing
             else:
@@ -2691,23 +2837,29 @@ def run(argv: list[str] | None = None) -> int:
                             ocr_ran=bool(state.get("ocr_ran") or True),
                             people_detected=pu_people_detected,
                             people_identified=pu_people_identified,
+                            title_page_location=title_page_location,
                         )
 
-                    processed += 1
-                    completed_times.append(time.monotonic() - file_start)
+                    if chain_gps_update_after_people and not dry_run:
+                        existing_sidecar_state = read_ai_sidecar_state(sidecar_path)
+                        existing_xmp_people = read_person_in_image(sidecar_path)
+                    people_update_only = False
                     _pu_stop()
-                    eta_str2 = _format_eta(completed_times, len(files) - idx)
-                    eta_part2 = f"  {eta_str2}" if eta_str2 else ""
-                    print(
-                        f"[{idx}/{len(files)}]{eta_part2}  ok    {image_path.name}",
-                        flush=True,
-                    )
+                    if not chain_gps_update_after_people:
+                        processed += 1
+                        completed_times.append(time.monotonic() - file_start)
+                        eta_str2 = _format_eta(completed_times, len(files) - idx)
+                        eta_part2 = f"  {eta_str2}" if eta_str2 else ""
+                        print(
+                            f"[{idx}/{len(files)}]{eta_part2}  ok    {image_path.name}",
+                            flush=True,
+                        )
                 except Exception as exc:
                     failures += 1
                     _pu_stop()
                     emit_error(f"[{idx}/{len(files)}] fail  {image_path.name}: {exc}")
 
-                if not needs_full:
+                if not needs_full and not chain_gps_update_after_people:
                     _release_image_processing_lock(lock_path)
                     continue
 
@@ -2791,15 +2943,27 @@ def run(argv: list[str] | None = None) -> int:
                         model_image_path=gps_model_path,
                         ocr_text=gps_ocr_text,
                         source_path=image_path,
+                        album_title=gps_album_title,
+                        printed_album_title=gps_printed_title,
                         geocoder=geocoder,
                         prompt_debug=gps_prompt_debug,
                         debug_step="locations_shown_gps_step",
+                        artifact_recorder=(
+                            lambda record: _append_geocode_artifact(image_path=image_path, record=record)
+                        ),
                     )
                 gps_location_payload = _resolve_location_payload(
                     geocoder=geocoder,
                     gps_latitude=gps_latitude,
                     gps_longitude=gps_longitude,
                     location_name=location_name,
+                    artifact_recorder=(lambda record: _append_geocode_artifact(image_path=image_path, record=record)),
+                    artifact_step="location_gps_step",
+                )
+                gps_location_payload, _ = _apply_title_page_location_config(
+                    image_path=image_path,
+                    location_payload=gps_location_payload,
+                    title_page_location=title_page_location,
                 )
                 _emit_prompt_debug_artifact(gps_prompt_debug, dry_run=dry_run)
 
@@ -2847,6 +3011,7 @@ def run(argv: list[str] | None = None) -> int:
                         ocr_ran=bool(state.get("ocr_ran")),
                         people_detected=bool(state.get("people_detected")),
                         people_identified=bool(state.get("people_identified")),
+                        title_page_location=title_page_location,
                     )
 
                 processed += 1
@@ -2994,6 +3159,7 @@ def run(argv: list[str] | None = None) -> int:
                         else (derived_ocr_override or None)
                     ),
                     prompt_debug=prompt_debug,
+                    title_page_location=title_page_location,
                 )
                 resolved_album_title = analysis.album_title or album_title_hint
                 resolved_printed_album_title = resolved_album_title
@@ -3149,6 +3315,7 @@ def run(argv: list[str] | None = None) -> int:
                         ocr_ran=_ocr_ran_flag,
                         people_detected=_people_detected_flag,
                         people_identified=_people_identified_flag,
+                        title_page_location=title_page_location,
                     )
 
             _emit_prompt_debug_artifact(prompt_debug, dry_run=dry_run)

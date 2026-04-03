@@ -22,9 +22,19 @@ def parse_skill(path: Path) -> dict[str, list[str]]:
     return sections
 
 
-@lru_cache(maxsize=1)
 def base_skill() -> dict[str, list[str]]:
-    return parse_skill(BASE_SKILL_FILE)
+    path = BASE_SKILL_FILE
+    try:
+        mtime_ns = path.stat().st_mtime_ns
+    except OSError:
+        mtime_ns = -1
+    return _cached_base_skill(path, mtime_ns)
+
+
+@lru_cache(maxsize=4)
+def _cached_base_skill(path: Path, mtime_ns: int) -> dict[str, list[str]]:
+    del mtime_ns
+    return parse_skill(path)
 
 
 def render_line(text: str, variables: dict[str, str]) -> tuple[str, bool]:
