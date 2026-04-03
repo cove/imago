@@ -192,6 +192,68 @@ class TestPhotoalbumsAiIndexPhotoResolution(AlbumSetConfigMixin, unittest.TestCa
         self.assertNotIn("--photo-offset", args)
         self.assertNotIn("--dry-run", args)
 
+    def test_photoalbums_ai_index_starts_sharded_workers(self):
+        self.runner.start.side_effect = ["job_a", "job_b"]
+
+        result = mcp_server.photoalbums_ai_index(
+            album_set="cordell",
+            album="Album_A",
+            workers=2,
+            lmstudio_base_urls=["http://lm-a:1234/v1", "http://lm-b:1234/v1"],
+        )
+
+        self.assertEqual(self.runner.start.call_count, 2)
+        first_name, first_args = self.runner.start.call_args_list[0].args[:2]
+        second_name, second_args = self.runner.start.call_args_list[1].args[:2]
+        self.assertEqual(first_name, "photoalbums_ai_index:cordell[1/2]")
+        self.assertEqual(second_name, "photoalbums_ai_index:cordell[2/2]")
+        self.assertEqual(first_args[first_args.index("--shard-count") + 1], "2")
+        self.assertEqual(first_args[first_args.index("--shard-index") + 1], "0")
+        self.assertEqual(second_args[second_args.index("--shard-index") + 1], "1")
+        self.assertEqual(first_args[first_args.index("--lmstudio-base-url") + 1], "http://lm-a:1234/v1")
+        self.assertEqual(second_args[second_args.index("--lmstudio-base-url") + 1], "http://lm-b:1234/v1")
+        self.assertEqual(result["child_job_ids"], ["job_a", "job_b"])
+        self.assertEqual(result["workers"], 2)
+
+    def test_photoalbums_ai_index_defaults_sharded_workers_to_configured_urls(self):
+        self.runner.start.side_effect = ["job_a", "job_b"]
+
+        result = mcp_server.photoalbums_ai_index(
+            album_set="cordell",
+            album="Album_A",
+            workers=2,
+        )
+
+        self.assertEqual(self.runner.start.call_count, 2)
+        first_args = self.runner.start.call_args_list[0].args[1]
+        second_args = self.runner.start.call_args_list[1].args[1]
+        self.assertEqual(first_args[first_args.index("--lmstudio-base-url") + 1], "http://192.168.4.72:1234")
+        self.assertEqual(second_args[second_args.index("--lmstudio-base-url") + 1], "http://192.168.4.21:1234")
+        self.assertEqual(result["child_job_ids"], ["job_a", "job_b"])
+
+    def test_photoalbums_ai_index_rejects_worker_photo_mode(self):
+        image_path = self.photos_root / "Album_A" / "Photo_01.jpg"
+        image_path.parent.mkdir(parents=True)
+        image_path.touch()
+
+        with self.assertRaises(ValueError) as exc:
+            mcp_server.photoalbums_ai_index(album_set="cordell", photo=str(image_path), workers=2)
+
+        self.assertIn("workers > 1", str(exc.exception))
+        self.runner.start.assert_not_called()
+
+    def test_photoalbums_ai_index_rejects_mismatched_worker_urls(self):
+        with self.assertRaises(ValueError) as exc:
+            mcp_server.photoalbums_ai_index(
+                album_set="cordell",
+                album="Album_A",
+                workers=2,
+                lmstudio_base_urls=["http://lm-a:1234/v1", "http://lm-b:1234/v1", "http://lm-c:1234/v1"],
+            )
+
+        self.assertIn("lmstudio_base_urls", str(exc.exception))
+        self.runner.start.assert_not_called()
+
     def test_photoalbums_ai_index_rejects_scanwatch_set(self):
         with self.assertRaises(ValueError) as exc:
             mcp_server.photoalbums_ai_index(album_set="incoming_scans")

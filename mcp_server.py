@@ -35,6 +35,10 @@ VHS_DIR = str(REPO_ROOT / "vhs")
 VHS_SCRIPT = str(REPO_ROOT / "vhs" / "vhs.py")
 CAST_SCRIPT = str(REPO_ROOT / "cast.py")
 PHOTOALBUMS_SCRIPT = str(REPO_ROOT / "photoalbums.py")
+PHOTOALBUMS_LMSTUDIO_BASE_URLS = (
+    "http://192.168.4.72:1234",
+    "http://192.168.4.21:1234",
+)
 
 CONSOLE_PORT = 8091
 CONSOLE_HOST = "localhost"  # overridden at startup by --console-host
@@ -54,6 +58,20 @@ def _job_started(job_id: str) -> dict:
             f"Call job_status('{job_id}') to check completion. "
             f"Stream live output via SSE: GET http://{CONSOLE_HOST}:{CONSOLE_PORT}/api/jobs/{job_id}/stream"
         ),
+    }
+
+
+def _jobs_started(job_ids: list[str]) -> dict:
+    if len(job_ids) == 1:
+        return _job_started(job_ids[0])
+    monitor = " ".join(
+        f"Call job_status('{job_id}') / job_logs('{job_id}') for shard {idx + 1}." for idx, job_id in enumerate(job_ids)
+    )
+    return {
+        "status": "started",
+        "workers": len(job_ids),
+        "child_job_ids": job_ids,
+        "how_to_monitor": monitor,
     }
 
 
@@ -470,10 +488,13 @@ def photoalbums_ai_index(
     album: Optional[str] = None,
     max_images: int = 0,
     dry_run: bool = False,
+    workers: int = 1,
+    lmstudio_base_urls: Optional[list[str]] = None,
 ) -> dict:
     """Start a photoalbums AI indexing job (people → objects → OCR → captions → geocoding → XMP).
 
-    This is a long-running operation. Returns a job ID immediately.
+    This is a long-running operation. Returns job metadata immediately.
+    For one worker, the response includes a single job_id. For multiple workers, it returns child_job_ids.
     Use job_status(job_id) to monitor progress and job_logs(job_id) for full output.
 
     Before starting a large job, call photoalbums_reprocess_audit() to see reason_counts
@@ -499,10 +520,17 @@ def photoalbums_ai_index(
         album: Filter to photos whose parent directory name contains this substring (case-insensitive).
         max_images: Limit number of matching photos to process (0 = unlimited).
         dry_run: Preview what would be processed without writing any sidecar or manifest changes.
+        workers: Start multiple shard jobs for the same request.
+        lmstudio_base_urls: Optional per-worker LM Studio base URLs. When omitted, photoalbums
+            jobs default to the configured GLM servers. Must be empty, a single URL, or one URL
+            per worker.
     """
     valid_modes = {"unprocessed", "new_only", "errors_only", "outdated", "cast_changed", "all"}
     if reprocess_mode not in valid_modes:
         raise ValueError(f"reprocess_mode must be one of: {', '.join(sorted(valid_modes))}")
+    workers = int(workers or 1)
+    if workers < 1:
+        raise ValueError("workers must be at least 1")
     set_config = _archive_set(album_set)
     args = [
         PYTHON,
@@ -520,14 +548,35 @@ def photoalbums_ai_index(
         args.append("--dry-run")
     resolved_photo = _resolve_ai_index_photo_path(str(set_config.photos_root), photo)
     if resolved_photo:
+        if workers > 1:
+            raise ValueError("workers > 1 is only supported when indexing multiple photos")
         args += ["--photo", resolved_photo]
     if album:
         args += ["--album", album]
     if max_images:
         args += ["--max-images", str(max_images)]
 
+    urls = [str(url or "").strip() for url in list(lmstudio_base_urls or []) if str(url or "").strip()]
+    if workers > 1 and not urls:
+        urls = [str(url).strip() for url in PHOTOALBUMS_LMSTUDIO_BASE_URLS if str(url).strip()]
+    if urls and len(urls) not in {1, workers}:
+        raise ValueError("lmstudio_base_urls must be empty, a single URL, or exactly one URL per worker")
+
     name = f"photoalbums_ai_index:{set_config.name}"
-    return _job_started(runner.start(name, args))
+    if workers == 1:
+        worker_args = list(args)
+        if urls:
+            worker_args += ["--lmstudio-base-url", urls[0]]
+        return _job_started(runner.start(name, worker_args))
+
+    job_ids: list[str] = []
+    for shard_index in range(workers):
+        worker_args = list(args)
+        worker_args += ["--shard-count", str(workers), "--shard-index", str(shard_index)]
+        if urls:
+            worker_args += ["--lmstudio-base-url", urls[shard_index % len(urls)]]
+        job_ids.append(runner.start(f"{name}[{shard_index + 1}/{workers}]", worker_args))
+    return _jobs_started(job_ids)
 
 
 @mcp.tool()

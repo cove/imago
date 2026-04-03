@@ -104,6 +104,21 @@ class JobRunner:
             return
         _cleanup_stale_processing_locks(photos_root)
 
+    @staticmethod
+    def _background_popen_kwargs() -> dict:
+        kwargs: dict = {
+            "stdin": subprocess.DEVNULL,
+        }
+        if os.name == "nt":
+            kwargs["creationflags"] = (
+                getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+                | getattr(subprocess, "DETACHED_PROCESS", 0)
+                | getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            )
+        else:
+            kwargs["start_new_session"] = True
+        return kwargs
+
     def start(
         self,
         name: str,
@@ -145,6 +160,7 @@ class JobRunner:
             stderr=subprocess.STDOUT,
             cwd=cwd or str(REPO_ROOT),
             env=env,
+            **self._background_popen_kwargs(),
         )
 
         job["pid"] = proc.pid

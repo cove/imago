@@ -96,6 +96,46 @@ def _merge_location_estimates(
     return model_lat, model_lon, str(model_location_name or "").strip()
 
 
+def _serialize_geocode_result(result: Any) -> dict[str, Any]:
+    return {
+        "query": str(getattr(result, "query", "") or "").strip(),
+        "display_name": str(getattr(result, "display_name", "") or "").strip(),
+        "latitude": str(getattr(result, "latitude", "") or "").strip(),
+        "longitude": str(getattr(result, "longitude", "") or "").strip(),
+        "source": str(getattr(result, "source", "") or "nominatim").strip(),
+        "city": str(getattr(result, "city", "") or "").strip(),
+        "state": str(getattr(result, "state", "") or "").strip(),
+        "country": str(getattr(result, "country", "") or "").strip(),
+        "sublocation": str(getattr(result, "sublocation", "") or "").strip(),
+    }
+
+
+def _record_geocode_lookup(
+    *,
+    artifact_recorder,
+    step: str,
+    query: str,
+    result: Any = None,
+    error: str = "",
+) -> None:
+    if not callable(artifact_recorder):
+        return
+    payload: dict[str, Any] = {
+        "step": str(step or "").strip(),
+        "service": "nominatim",
+        "query": str(query or "").strip(),
+    }
+    if result is not None:
+        payload["status"] = "ok"
+        payload["result"] = _serialize_geocode_result(result)
+    elif error:
+        payload["status"] = "error"
+        payload["error"] = str(error).strip()
+    else:
+        payload["status"] = "miss"
+    artifact_recorder(payload)
+
+
 def _resolve_location_metadata(
     *,
     requested_caption_engine: str,
@@ -169,6 +209,8 @@ def _resolve_location_payload(
     gps_latitude: str,
     gps_longitude: str,
     location_name: str,
+    artifact_recorder=None,
+    artifact_step: str = "location",
 ) -> dict[str, Any]:
     lat_text = str(gps_latitude or "").strip()
     lon_text = str(gps_longitude or "").strip()
@@ -194,6 +236,19 @@ def _resolve_location_payload(
         except Exception as exc:
             result = None
             geocode_error = str(exc or "").strip()
+            _record_geocode_lookup(
+                artifact_recorder=artifact_recorder,
+                step=artifact_step,
+                query=query,
+                error=geocode_error,
+            )
+        else:
+            _record_geocode_lookup(
+                artifact_recorder=artifact_recorder,
+                step=artifact_step,
+                query=query,
+                result=result,
+            )
         if result is not None:
             loc: dict[str, Any] = {
                 "query": result.query,
@@ -209,6 +264,8 @@ def _resolve_location_payload(
                 loc["state"] = str(result.state).strip()
             if str(getattr(result, "country", "") or "").strip():
                 loc["country"] = str(result.country).strip()
+            if str(getattr(result, "sublocation", "") or "").strip():
+                loc["sublocation"] = str(result.sublocation).strip()
             return loc
     if query and geocode_error:
         return {
@@ -225,6 +282,10 @@ def _build_locations_shown_query(location: dict[str, Any]) -> str:
         return ""
     parts = [name]
     seen = {name.casefold()}
+    for chunk in name.split(","):
+        normalized_chunk = str(chunk or "").strip()
+        if normalized_chunk:
+            seen.add(normalized_chunk.casefold())
     for key in ("sublocation", "city", "province_or_state", "country_name"):
         value = str(location.get(key) or "").strip()
         if not value:
@@ -263,9 +324,12 @@ def _resolve_locations_shown(
     model_image_path: Path,
     ocr_text: str,
     source_path: Path,
+    album_title: str = "",
+    printed_album_title: str = "",
     geocoder: NominatimGeocoder | None = None,
     prompt_debug: PromptDebugSession | None = None,
     debug_step: str = "locations_shown",
+    artifact_recorder=None,
 ) -> tuple[list[dict[str, Any]], bool]:
     """Resolve locations shown in the image using AI.
 
@@ -281,6 +345,8 @@ def _resolve_locations_shown(
             image_path=model_image_path,
             ocr_text=ocr_text,
             source_path=source_path,
+            album_title=album_title,
+            printed_album_title=printed_album_title,
             debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
             debug_step=debug_step,
         )
@@ -310,11 +376,26 @@ def _resolve_locations_shown(
             if query:
                 try:
                     geocoded = geocoder.geocode(query)
-                except Exception:
+                except Exception as exc:
                     geocoded = None
+                    _record_geocode_lookup(
+                        artifact_recorder=artifact_recorder,
+                        step=debug_step,
+                        query=query,
+                        error=str(exc or "").strip(),
+                    )
+                else:
+                    _record_geocode_lookup(
+                        artifact_recorder=artifact_recorder,
+                        step=debug_step,
+                        query=query,
+                        result=geocoded,
+                    )
                 if geocoded is not None:
                     normalized["gps_latitude"] = str(geocoded.latitude).strip()
                     normalized["gps_longitude"] = str(geocoded.longitude).strip()
                     normalized["gps_source"] = "nominatim"
+                    if not str(normalized.get("sublocation") or "").strip():
+                        normalized["sublocation"] = str(getattr(geocoded, "sublocation", "") or "").strip()
         validated.append(normalized)
     return validated, True

@@ -75,6 +75,13 @@ def _normalize_xmp_datetime(value: str) -> str:
     return text
 
 
+def _normalize_xmp_text(value: str, *, multiline: bool = False) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    return text.replace(r"\n", "\n" if multiline else " ")
+
+
 def _normalize_partial_dc_date(value: str) -> str:
     text = str(value or "").strip()
     if not text or any(ch.isalpha() for ch in text):
@@ -353,17 +360,19 @@ def _add_locations_shown_bag(parent: ET.Element, locations: list[dict]) -> None:
         li.set(f"{{{RDF_NS}}}parseType", "Resource")
         _add_alt_text(li, f"{{{IPTC_EXT_NS}}}LocationName", str(loc.get("name") or "").strip())
         if str(loc.get("world_region") or "").strip():
-            ET.SubElement(li, f"{{{IPTC_EXT_NS}}}WorldRegion").text = str(loc.get("world_region")).strip()
+            ET.SubElement(li, f"{{{IPTC_EXT_NS}}}WorldRegion").text = _normalize_xmp_text(loc.get("world_region"))
         if str(loc.get("country_code") or "").strip():
-            ET.SubElement(li, f"{{{IPTC_EXT_NS}}}CountryCode").text = str(loc.get("country_code")).strip()
+            ET.SubElement(li, f"{{{IPTC_EXT_NS}}}CountryCode").text = _normalize_xmp_text(loc.get("country_code"))
         if str(loc.get("country_name") or "").strip():
-            ET.SubElement(li, f"{{{IPTC_EXT_NS}}}CountryName").text = str(loc.get("country_name")).strip()
+            ET.SubElement(li, f"{{{IPTC_EXT_NS}}}CountryName").text = _normalize_xmp_text(loc.get("country_name"))
         if str(loc.get("province_or_state") or "").strip():
-            ET.SubElement(li, f"{{{IPTC_EXT_NS}}}ProvinceState").text = str(loc.get("province_or_state")).strip()
+            ET.SubElement(li, f"{{{IPTC_EXT_NS}}}ProvinceState").text = _normalize_xmp_text(
+                loc.get("province_or_state")
+            )
         if str(loc.get("city") or "").strip():
-            ET.SubElement(li, f"{{{IPTC_EXT_NS}}}City").text = str(loc.get("city")).strip()
+            ET.SubElement(li, f"{{{IPTC_EXT_NS}}}City").text = _normalize_xmp_text(loc.get("city"))
         if str(loc.get("sublocation") or "").strip():
-            ET.SubElement(li, f"{{{IPTC_EXT_NS}}}Sublocation").text = str(loc.get("sublocation")).strip()
+            ET.SubElement(li, f"{{{IPTC_EXT_NS}}}Sublocation").text = _normalize_xmp_text(loc.get("sublocation"))
         if str(loc.get("gps_latitude") or "").strip():
             ET.SubElement(li, f"{{{EXIF_NS}}}GPSLatitude").text = _format_xmp_gps_coordinate(
                 str(loc.get("gps_latitude") or "").strip(),
@@ -384,7 +393,7 @@ def _set_locations_shown_bag(parent: ET.Element, locations: list[dict]) -> None:
 
 
 def _add_alt_text(parent: ET.Element, tag: str, value: str) -> None:
-    text = str(value or "").strip()
+    text = _normalize_xmp_text(value, multiline=True)
     if not text:
         return
     field = ET.SubElement(parent, tag)
@@ -396,9 +405,9 @@ def _add_alt_text(parent: ET.Element, tag: str, value: str) -> None:
 
 def _add_seq_text(parent: ET.Element, tag: str, value: str | list[str] | tuple[str, ...]) -> None:
     if isinstance(value, str):
-        values = [str(value or "").strip()]
+        values = [_normalize_xmp_text(value)]
     else:
-        values = [str(item or "").strip() for item in value]
+        values = [_normalize_xmp_text(item) for item in value]
     values = [text for text in values if text]
     if not values:
         return
@@ -423,10 +432,10 @@ def _description_alt_entries(
     author_text: str,
     scene_text: str,
 ) -> list[tuple[str, str]]:
-    clean_description = str(description or "").strip()
-    clean_ocr = str(ocr_text or "").strip()
-    clean_author = str(author_text or "").strip()
-    clean_scene = str(scene_text or "").strip()
+    clean_description = _normalize_xmp_text(description, multiline=True)
+    clean_ocr = _normalize_xmp_text(ocr_text, multiline=True)
+    clean_author = _normalize_xmp_text(author_text, multiline=True)
+    clean_scene = _normalize_xmp_text(scene_text, multiline=True)
     if clean_author:
         default_text = _number_lines(clean_author)
     elif clean_ocr:
@@ -474,7 +483,7 @@ def _add_description_with_text_layers(
 
 
 def _add_simple_text(parent: ET.Element, tag: str, value: str | int | float) -> None:
-    text = str(value)
+    text = _normalize_xmp_text(value)
     field = ET.SubElement(parent, tag)
     field.text = text
 
@@ -648,6 +657,7 @@ def build_xmp_tree(
     location_city: str = "",
     location_state: str = "",
     location_country: str = "",
+    location_sublocation: str = "",
     source_text: str,
     ocr_text: str,
     ocr_lang: str = "",
@@ -716,36 +726,38 @@ def build_xmp_tree(
         _add_simple_text(desc, f"{{{PHOTOSHOP_NS}}}State", str(location_state).strip())
     if str(location_country or "").strip():
         _add_simple_text(desc, f"{{{PHOTOSHOP_NS}}}Country", str(location_country).strip())
+    if str(location_sublocation or "").strip():
+        _add_simple_text(desc, f"{{{IPTC_EXT_NS}}}Sublocation", str(location_sublocation).strip())
     if page_number > 0:
         _add_simple_text(desc, f"{{{PHOTOSHOP_NS}}}PageNumber", str(page_number))
     if scan_number > 0:
         _add_simple_text(desc, f"{{{IMAGO_NS}}}ScanNumber", str(scan_number))
-    _add_simple_text(desc, f"{{{DC_NS}}}source", str(source_text or "").strip())
+    _add_simple_text(desc, f"{{{DC_NS}}}source", _normalize_xmp_text(source_text))
 
     creator = ET.SubElement(desc, f"{{{XMP_NS}}}CreatorTool")
-    creator.text = str(creator_tool or "").strip() or "https://github.com/cove/imago"
+    creator.text = _normalize_xmp_text(creator_tool) or "https://github.com/cove/imago"
 
-    clean_ocr = str(ocr_text or "").strip()
+    clean_ocr = _normalize_xmp_text(ocr_text, multiline=True)
     if clean_ocr:
         ocr = ET.SubElement(desc, f"{{{IMAGO_NS}}}OCRText")
         ocr.text = clean_ocr
-    clean_ocr_lang = str(ocr_lang or "").strip()
+    clean_ocr_lang = _normalize_xmp_text(ocr_lang)
     if clean_ocr_lang:
         ocr_lang_el = ET.SubElement(desc, f"{{{IMAGO_NS}}}OCRLang")
         ocr_lang_el.text = clean_ocr_lang
-    clean_author_text = str(author_text or "").strip()
+    clean_author_text = _normalize_xmp_text(author_text, multiline=True)
     if clean_author_text:
         author = ET.SubElement(desc, f"{{{IMAGO_NS}}}AuthorText")
         author.text = clean_author_text
-    clean_scene_text = str(scene_text or "").strip()
+    clean_scene_text = _normalize_xmp_text(scene_text, multiline=True)
     if clean_scene_text:
         scene = ET.SubElement(desc, f"{{{IMAGO_NS}}}SceneText")
         scene.text = clean_scene_text
-    clean_title_source = str(title_source or "").strip()
+    clean_title_source = _normalize_xmp_text(title_source)
     if clean_title_source:
         title_src = ET.SubElement(desc, f"{{{IMAGO_NS}}}TitleSource")
         title_src.text = clean_title_source
-    clean_ocr_authority_source = str(ocr_authority_source or "").strip()
+    clean_ocr_authority_source = _normalize_xmp_text(ocr_authority_source)
     if clean_ocr_authority_source:
         ocr_source = ET.SubElement(desc, f"{{{IMAGO_NS}}}OCRAuthoritySource")
         ocr_source.text = clean_ocr_authority_source
@@ -895,7 +907,7 @@ def _set_description_with_text_layers(
 
 
 def _set_simple_text(parent: ET.Element, tag: str, value: str | int | float, *, allow_empty: bool = False) -> None:
-    text = str(value or "").strip() if isinstance(value, str) else str(value)
+    text = _normalize_xmp_text(value) if isinstance(value, str) else str(value)
     existing = parent.find(tag)
     if not text and not allow_empty:
         if existing is not None:
@@ -1086,6 +1098,10 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
         "source_text": str(desc.findtext(f"{{{DC_NS}}}source", default="") or "").strip(),
         "gps_latitude": str(desc.findtext(f"{{{EXIF_NS}}}GPSLatitude", default="") or "").strip(),
         "gps_longitude": str(desc.findtext(f"{{{EXIF_NS}}}GPSLongitude", default="") or "").strip(),
+        "location_city": str(desc.findtext(f"{{{PHOTOSHOP_NS}}}City", default="") or "").strip(),
+        "location_state": str(desc.findtext(f"{{{PHOTOSHOP_NS}}}State", default="") or "").strip(),
+        "location_country": str(desc.findtext(f"{{{PHOTOSHOP_NS}}}Country", default="") or "").strip(),
+        "location_sublocation": str(desc.findtext(f"{{{IPTC_EXT_NS}}}Sublocation", default="") or "").strip(),
         "ocr_text": str(desc.findtext(f"{{{IMAGO_NS}}}OCRText", default="") or "").strip(),
         "ocr_lang": str(desc.findtext(f"{{{IMAGO_NS}}}OCRLang", default="") or "").strip(),
         "author_text": str(desc.findtext(f"{{{IMAGO_NS}}}AuthorText", default="") or "").strip(),
@@ -1210,6 +1226,7 @@ def _merge_xmp_tree(
     location_city: str = "",
     location_state: str = "",
     location_country: str = "",
+    location_sublocation: str = "",
     source_text: str,
     ocr_text: str,
     ocr_lang: str = "",
@@ -1256,6 +1273,7 @@ def _merge_xmp_tree(
     _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}City", str(location_city or "").strip())
     _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}State", str(location_state or "").strip())
     _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}Country", str(location_country or "").strip())
+    _set_simple_text(desc, f"{{{IPTC_EXT_NS}}}Sublocation", str(location_sublocation or "").strip())
     _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}PageNumber", str(page_number) if page_number > 0 else "")
     _set_simple_text(desc, f"{{{IMAGO_NS}}}ScanNumber", str(scan_number) if scan_number > 0 else "")
     _set_simple_text(desc, f"{{{DC_NS}}}source", str(source_text or "").strip())
@@ -1336,6 +1354,7 @@ def write_xmp_sidecar(
     location_city: str = "",
     location_state: str = "",
     location_country: str = "",
+    location_sublocation: str = "",
     source_text: str = "",
     detections_payload: dict | None = None,
     subphotos: list[dict] | None = None,
@@ -1378,6 +1397,7 @@ def write_xmp_sidecar(
             location_city=location_city,
             location_state=location_state,
             location_country=location_country,
+            location_sublocation=location_sublocation,
             source_text=source_text,
             ocr_text=ocr_text,
             ocr_lang=ocr_lang,
@@ -1415,6 +1435,7 @@ def write_xmp_sidecar(
             location_city=location_city,
             location_state=location_state,
             location_country=location_country,
+            location_sublocation=location_sublocation,
             source_text=source_text,
             ocr_text=ocr_text,
             ocr_lang=ocr_lang,

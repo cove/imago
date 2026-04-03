@@ -1118,6 +1118,128 @@ class TestAIIndex(unittest.TestCase):
                 9,
             )
 
+    def test_run_chains_location_shown_repair_after_people_update(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            view = base / "Egypt_1975_B00_View"
+            view.mkdir()
+            image = view / "Egypt_1975_B00_P09_V.jpg"
+            image.write_bytes(b"scan")
+            stat = image.stat()
+            detections = {
+                "people": [],
+                "objects": [],
+                "caption": {
+                    "requested_engine": "lmstudio",
+                    "effective_engine": "lmstudio",
+                    "fallback": False,
+                    "error": "",
+                    "model": "test-model",
+                    "people_present": True,
+                    "estimated_people_count": 9,
+                },
+                "processing": {
+                    "processor_signature": ai_index.PROCESSOR_SIGNATURE,
+                    "settings_signature": "",
+                    "cast_store_signature": "old-sig",
+                    "size": int(stat.st_size),
+                    "mtime_ns": int(stat.st_mtime_ns),
+                    "date_estimate_input_hash": "",
+                    "analysis_mode": "single_image",
+                },
+                "location": {
+                    "query": "Paris, France",
+                    "gps_latitude": 48.8566,
+                    "gps_longitude": 2.3522,
+                    "city": "Paris",
+                    "country": "France",
+                },
+            }
+            xmp_sidecar.write_xmp_sidecar(
+                image.with_suffix(".xmp"),
+                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
+                person_names=[],
+                subjects=["egypt"],
+                description="Travel photo",
+                album_title="Egypt 1975",
+                gps_latitude="48.8566",
+                gps_longitude="2.3522",
+                location_city="Paris",
+                location_country="France",
+                source_text=ai_index._build_dc_source("Egypt 1975", image, []),
+                ocr_text="March 1975",
+                dc_date="1975-03",
+                detections_payload=detections,
+                subphotos=[],
+                people_detected=True,
+                people_identified=False,
+            )
+
+            fake_matcher = mock.Mock()
+            fake_matcher.store_signature.return_value = "new-sig"
+            fake_matcher.match_image.return_value = []
+            fake_matcher.last_faces_detected = 0
+
+            with (
+                mock.patch.object(ai_index, "_init_people_matcher", return_value=fake_matcher),
+                mock.patch.object(
+                    ai_index,
+                    "_init_caption_engine",
+                    return_value=SimpleNamespace(effective_model_name="caption-current"),
+                ) as caption_engine_mock,
+                mock.patch.object(
+                    ai_index,
+                    "_resolve_location_metadata",
+                    return_value=("48.8566", "2.3522", "Paris, France"),
+                ) as location_mock,
+                mock.patch.object(
+                    ai_index,
+                    "_resolve_locations_shown",
+                    return_value=([{"city": "Paris", "country_name": "France"}], True),
+                ) as shown_mock,
+                mock.patch.object(
+                    ai_index,
+                    "_resolve_location_payload",
+                    return_value={
+                        "query": "Paris, France",
+                        "gps_latitude": "48.8566",
+                        "gps_longitude": "2.3522",
+                        "city": "Paris",
+                        "country": "France",
+                    },
+                ),
+                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(ai_index, "_write_sidecar_and_record") as write_mock,
+                mock.patch.object(ai_index, "_emit_prompt_debug_artifact"),
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--include-view",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "none",
+                        "--caption-engine",
+                        "lmstudio",
+                        "--max-images",
+                        "1",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            analysis_mock.assert_not_called()
+            fake_matcher.match_image.assert_called_once()
+            caption_engine_mock.assert_called_once()
+            location_mock.assert_called_once()
+            shown_mock.assert_called_once()
+            self.assertEqual(write_mock.call_count, 2)
+            self.assertEqual(write_mock.call_args_list[1].kwargs["detections_payload"]["location_shown_ran"], True)
+            self.assertEqual(
+                write_mock.call_args_list[1].kwargs["detections_payload"]["locations_shown"],
+                [{"city": "Paris", "country_name": "France"}],
+            )
+
     def test_needs_processing_requires_current_sidecar(self):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "a.jpg"
@@ -1676,6 +1798,59 @@ class TestAIIndex(unittest.TestCase):
         )
         geocoder.geocode.assert_called_once_with("Hassan II Mosque, Casablanca, Morocco")
 
+    def test_resolve_location_payload_records_geocode_artifact(self):
+        geocoder = mock.Mock()
+        geocoder.geocode.return_value = SimpleNamespace(
+            query="Mogao Caves, Dunhuang, Gansu, China",
+            latitude="39.9361",
+            longitude="94.8076",
+            display_name="Mogao Caves, Dunhuang, Jiuquan, Gansu, China",
+            source="nominatim",
+            city="Dunhuang",
+            state="Gansu",
+            country="China",
+            sublocation="273 Mogao Road",
+        )
+        records: list[dict[str, object]] = []
+
+        payload = ai_index._resolve_location_payload(
+            geocoder=geocoder,
+            gps_latitude="",
+            gps_longitude="",
+            location_name="Mogao Caves, Dunhuang, Gansu, China",
+            artifact_recorder=records.append,
+            artifact_step="location",
+        )
+
+        self.assertEqual(payload["query"], "Mogao Caves, Dunhuang, Gansu, China")
+        self.assertEqual(payload["display_name"], "Mogao Caves, Dunhuang, Jiuquan, Gansu, China")
+        self.assertEqual(payload["sublocation"], "273 Mogao Road")
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["step"], "location")
+        self.assertEqual(records[0]["status"], "ok")
+        self.assertEqual(records[0]["query"], "Mogao Caves, Dunhuang, Gansu, China")
+        self.assertEqual(records[0]["result"]["latitude"], "39.9361")
+        self.assertEqual(records[0]["result"]["sublocation"], "273 Mogao Road")
+
+    def test_resolve_location_payload_records_geocode_miss(self):
+        geocoder = mock.Mock()
+        geocoder.geocode.return_value = None
+        records: list[dict[str, object]] = []
+
+        payload = ai_index._resolve_location_payload(
+            geocoder=geocoder,
+            gps_latitude="",
+            gps_longitude="",
+            location_name="Unknown Place",
+            artifact_recorder=records.append,
+            artifact_step="location",
+        )
+
+        self.assertEqual(payload, {})
+        self.assertEqual(
+            records, [{"step": "location", "service": "nominatim", "query": "Unknown Place", "status": "miss"}]
+        )
+
     def test_resolve_locations_shown_leaves_gps_empty_when_geocode_misses(self):
         caption_engine = mock.Mock()
         caption_engine.estimate_locations_shown.return_value = SimpleNamespace(
@@ -1703,6 +1878,80 @@ class TestAIIndex(unittest.TestCase):
         self.assertEqual(ran, True)
         self.assertNotIn("gps_latitude", locations[0])
         self.assertNotIn("gps_longitude", locations[0])
+
+    def test_resolve_locations_shown_records_geocode_queries(self):
+        caption_engine = mock.Mock()
+        caption_engine.estimate_locations_shown.return_value = SimpleNamespace(
+            fallback=False,
+            locations_shown=[
+                {
+                    "name": "Hassan II Mosque",
+                    "city": "Casablanca",
+                    "country_name": "Morocco",
+                }
+            ],
+        )
+        geocoder = mock.Mock()
+        geocoder.geocode.return_value = SimpleNamespace(
+            query="Hassan II Mosque, Casablanca, Morocco",
+            latitude="33.6084",
+            longitude="-7.6326",
+            display_name="Hassan II Mosque, Casablanca, Morocco",
+            source="nominatim",
+            city="Casablanca",
+            state="Casablanca-Settat",
+            country="Morocco",
+            sublocation="Boulevard de la Corniche",
+        )
+        records: list[dict[str, object]] = []
+
+        locations, ran = ai_index._resolve_locations_shown(
+            requested_caption_engine="lmstudio",
+            caption_engine=caption_engine,
+            model_image_path=Path("sample.jpg"),
+            ocr_text="",
+            source_path=Path("sample.jpg"),
+            geocoder=geocoder,
+            artifact_recorder=records.append,
+            debug_step="locations_shown",
+        )
+
+        self.assertEqual(ran, True)
+        self.assertEqual(locations[0]["gps_source"], "nominatim")
+        self.assertEqual(locations[0]["sublocation"], "Boulevard de la Corniche")
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["step"], "locations_shown")
+        self.assertEqual(records[0]["status"], "ok")
+        self.assertEqual(records[0]["result"]["display_name"], "Hassan II Mosque, Casablanca, Morocco")
+        self.assertEqual(records[0]["result"]["sublocation"], "Boulevard de la Corniche")
+
+    def test_resolve_locations_shown_dedupes_name_embedded_city_and_country(self):
+        caption_engine = mock.Mock()
+        caption_engine.estimate_locations_shown.return_value = SimpleNamespace(
+            fallback=False,
+            locations_shown=[
+                {
+                    "name": "Fes, Morocco",
+                    "city": "Fes",
+                    "country_name": "Morocco",
+                }
+            ],
+        )
+        geocoder = mock.Mock()
+        geocoder.geocode.return_value = None
+
+        locations, ran = ai_index._resolve_locations_shown(
+            requested_caption_engine="lmstudio",
+            caption_engine=caption_engine,
+            model_image_path=Path("sample.jpg"),
+            ocr_text="",
+            source_path=Path("sample.jpg"),
+            geocoder=geocoder,
+        )
+
+        self.assertEqual(ran, True)
+        self.assertEqual(locations[0]["name"], "Fes, Morocco")
+        geocoder.geocode.assert_called_once_with("Fes, Morocco")
 
     def test_has_legacy_ai_locations_shown_gps_detects_missing_source(self):
         self.assertEqual(
@@ -1889,6 +2138,113 @@ class TestAIIndex(unittest.TestCase):
                 analysis.payload["location"]["query"],
                 "Mogao Caves, Dunhuang, Gansu, China",
             )
+
+    def test_run_image_analysis_uses_configured_title_page_location_for_p01(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "China_1986_B02_P01.jpg"
+            image.write_bytes(b"abc")
+            people_matcher = mock.Mock()
+            people_matcher.match_image.return_value = []
+            object_detector = mock.Mock()
+            object_detector.detect_image.return_value = []
+            ocr_engine = mock.Mock()
+            ocr_engine.read_text.return_value = ""
+            caption_engine = mock.Mock()
+            caption_engine.generate.return_value = SimpleNamespace(
+                text="Album title page.",
+                engine="lmstudio",
+                ocr_text="",
+                location_name="Los Angeles, California",
+                album_title="Mainland China Book II",
+                fallback=False,
+                error="",
+            )
+            caption_engine.estimate_location.return_value = SimpleNamespace(
+                gps_latitude="34.0522",
+                gps_longitude="-118.2437",
+                location_name="Los Angeles, California",
+                fallback=False,
+                error="",
+            )
+
+            analysis = ai_index._run_image_analysis(
+                image_path=image,
+                people_matcher=people_matcher,
+                object_detector=object_detector,
+                ocr_engine=ocr_engine,
+                caption_engine=caption_engine,
+                requested_caption_engine="lmstudio",
+                ocr_engine_name="lmstudio",
+                ocr_language="eng",
+                title_page_location={
+                    "address": "2240 Lorain Rd, San Marino, CA 91108",
+                    "gps_latitude": "34.11512",
+                    "gps_longitude": "-118.10492",
+                    "city": "San Marino",
+                    "state": "CA",
+                    "country": "United States",
+                    "sublocation": "2240 Lorain Rd",
+                },
+            )
+
+            self.assertEqual(analysis.payload["location"]["query"], "2240 Lorain Rd, San Marino, CA 91108")
+            self.assertEqual(analysis.payload["location"]["gps_latitude"], 34.11512)
+            self.assertEqual(analysis.payload["location"]["gps_longitude"], -118.10492)
+            self.assertEqual(analysis.payload["location"]["city"], "San Marino")
+            self.assertEqual(analysis.payload["location"]["source"], ai_index.TITLE_PAGE_LOCATION_SOURCE)
+
+    def test_run_image_analysis_does_not_use_configured_title_page_location_for_non_p01(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "China_1986_B02_P02.jpg"
+            image.write_bytes(b"abc")
+            people_matcher = mock.Mock()
+            people_matcher.match_image.return_value = []
+            object_detector = mock.Mock()
+            object_detector.detect_image.return_value = []
+            ocr_engine = mock.Mock()
+            ocr_engine.read_text.return_value = ""
+            caption_engine = mock.Mock()
+            caption_engine.generate.return_value = SimpleNamespace(
+                text="Page description.",
+                engine="lmstudio",
+                ocr_text="",
+                location_name="Los Angeles, California",
+                album_title="Mainland China Book II",
+                fallback=False,
+                error="",
+            )
+            caption_engine.estimate_location.return_value = SimpleNamespace(
+                gps_latitude="34.0522",
+                gps_longitude="-118.2437",
+                location_name="Los Angeles, California",
+                fallback=False,
+                error="",
+            )
+
+            analysis = ai_index._run_image_analysis(
+                image_path=image,
+                people_matcher=people_matcher,
+                object_detector=object_detector,
+                ocr_engine=ocr_engine,
+                caption_engine=caption_engine,
+                requested_caption_engine="lmstudio",
+                ocr_engine_name="lmstudio",
+                ocr_language="eng",
+                title_page_location={
+                    "address": "2240 Lorain Rd, San Marino, CA 91108",
+                    "gps_latitude": "34.11512",
+                    "gps_longitude": "-118.10492",
+                    "city": "San Marino",
+                    "state": "CA",
+                    "country": "United States",
+                    "sublocation": "2240 Lorain Rd",
+                },
+            )
+
+            self.assertEqual(analysis.payload["location"]["query"], "Los Angeles, California")
+            self.assertEqual(analysis.payload["location"]["gps_latitude"], 34.0522)
+            self.assertEqual(analysis.payload["location"]["gps_longitude"], -118.2437)
+            self.assertEqual(analysis.payload["location"]["source"], "caption")
 
     def test_run_image_analysis_merges_lmstudio_people_count(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -3604,6 +3960,106 @@ class TestAIIndex(unittest.TestCase):
             write_mock.assert_called_once()
             self.assertEqual(write_mock.call_args.kwargs["album_title"], "MAINLAND CHINA 1986 BOOK 11")
 
+    def test_write_sidecar_and_record_uses_configured_title_page_location(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "China_1986_B02_P01_S01.tif"
+            sidecar = image.with_suffix(".xmp")
+            image.write_bytes(b"abc")
+
+            with mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock:
+                ai_index._write_sidecar_and_record(
+                    sidecar,
+                    image,
+                    creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
+                    person_names=[],
+                    subjects=[],
+                    description="Title page",
+                    album_title="Mainland China",
+                    location_payload={
+                        "query": "Wrong Place",
+                        "gps_latitude": 0,
+                        "gps_longitude": 0,
+                        "city": "Wrong",
+                    },
+                    source_text="",
+                    ocr_text="MAINLAND CHINA 1986 BOOK 11",
+                    detections_payload={"location": {"query": "Wrong Place"}},
+                    title_page_location={
+                        "address": "2240 Lorain Rd, San Marino, CA 91108",
+                        "gps_latitude": "34.11512",
+                        "gps_longitude": "-118.10492",
+                        "city": "San Marino",
+                        "state": "CA",
+                        "country": "United States",
+                        "sublocation": "2240 Lorain Rd",
+                    },
+                )
+
+            write_mock.assert_called_once()
+            self.assertEqual(write_mock.call_args.kwargs["gps_latitude"], "34.11512")
+            self.assertEqual(write_mock.call_args.kwargs["gps_longitude"], "-118.10492")
+            self.assertEqual(write_mock.call_args.kwargs["location_city"], "San Marino")
+            self.assertEqual(write_mock.call_args.kwargs["location_state"], "CA")
+            self.assertEqual(write_mock.call_args.kwargs["location_country"], "United States")
+            self.assertEqual(write_mock.call_args.kwargs["location_sublocation"], "2240 Lorain Rd")
+            self.assertEqual(
+                write_mock.call_args.kwargs["detections_payload"]["location"]["query"],
+                "2240 Lorain Rd, San Marino, CA 91108",
+            )
+
+    def test_write_sidecar_and_record_clears_stale_title_page_location_for_non_p01(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "China_1986_B02_P02_S01.tif"
+            sidecar = image.with_suffix(".xmp")
+            image.write_bytes(b"abc")
+
+            with mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock:
+                ai_index._write_sidecar_and_record(
+                    sidecar,
+                    image,
+                    creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
+                    person_names=[],
+                    subjects=[],
+                    description="Page",
+                    album_title="Mainland China",
+                    location_payload={
+                        "query": "2240 Lorain Rd, San Marino, CA 91108",
+                        "gps_latitude": 34.11512,
+                        "gps_longitude": -118.10492,
+                        "city": "San Marino",
+                        "state": "CA",
+                        "country": "United States",
+                        "sublocation": "2240 Lorain Rd",
+                        "source": ai_index.TITLE_PAGE_LOCATION_SOURCE,
+                    },
+                    source_text="",
+                    ocr_text="PAGE 2",
+                    detections_payload={
+                        "location": {
+                            "query": "2240 Lorain Rd, San Marino, CA 91108",
+                            "source": ai_index.TITLE_PAGE_LOCATION_SOURCE,
+                        }
+                    },
+                    title_page_location={
+                        "address": "2240 Lorain Rd, San Marino, CA 91108",
+                        "gps_latitude": "34.11512",
+                        "gps_longitude": "-118.10492",
+                        "city": "San Marino",
+                        "state": "CA",
+                        "country": "United States",
+                        "sublocation": "2240 Lorain Rd",
+                    },
+                )
+
+            write_mock.assert_called_once()
+            self.assertEqual(write_mock.call_args.kwargs["gps_latitude"], "")
+            self.assertEqual(write_mock.call_args.kwargs["gps_longitude"], "")
+            self.assertEqual(write_mock.call_args.kwargs["location_city"], "")
+            self.assertEqual(write_mock.call_args.kwargs["location_state"], "")
+            self.assertEqual(write_mock.call_args.kwargs["location_country"], "")
+            self.assertEqual(write_mock.call_args.kwargs["location_sublocation"], "")
+            self.assertNotIn("location", write_mock.call_args.kwargs["detections_payload"])
+
     def test_resolve_album_printed_title_hint_prefers_existing_p01_cover_sidecar(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
@@ -4206,6 +4662,35 @@ class TestAIIndex(unittest.TestCase):
         self.assertEqual(args.caption_max_tokens, 64)
         self.assertAlmostEqual(args.caption_temperature, 0.1)
         self.assertEqual(args.caption_max_edge, 1024)
+
+    def test_parse_args_shard_flags(self):
+        args = ai_index.parse_args(
+            [
+                "--shard-count",
+                "3",
+                "--shard-index",
+                "1",
+            ]
+        )
+        self.assertEqual(args.shard_count, 3)
+        self.assertEqual(args.shard_index, 1)
+
+    def test_apply_shard_keeps_album_on_single_worker(self):
+        files = [
+            Path("China_1986_B02_Archive/China_1986_B02_P01_S01.tif"),
+            Path("China_1986_B02_Archive/China_1986_B02_P02_S01.tif"),
+            Path("Morocco_1988_B01_Archive/Morocco_1988_B01_P01_S01.tif"),
+            Path("Morocco_1988_B01_Archive/Morocco_1988_B01_P02_S01.tif"),
+        ]
+
+        shard_zero = ai_index._apply_shard(files, 2, 0)
+        shard_one = ai_index._apply_shard(files, 2, 1)
+
+        self.assertEqual(sorted(str(path) for path in shard_zero + shard_one), sorted(str(path) for path in files))
+        for album_key in {ai_index._album_identity_key(path) for path in files}:
+            in_zero = [path for path in shard_zero if ai_index._album_identity_key(path) == album_key]
+            in_one = [path for path in shard_one if ai_index._album_identity_key(path) == album_key]
+            self.assertTrue(bool(in_zero) ^ bool(in_one))
 
     def test_parse_args_defaults_use_lmstudio_for_caption_and_disable_ocr(self):
         with (

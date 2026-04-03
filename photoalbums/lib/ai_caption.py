@@ -361,7 +361,11 @@ class CaptionEngine:
                 error=f"{self.engine.upper()} location estimation is not implemented.",
             )
         self._ensure_captioner()
-        prompt = _build_location_prompt()
+        prompt = _build_location_prompt(
+            ocr_text=ocr_text,
+            album_title=album_title,
+            printed_album_title=printed_album_title,
+        )
         response = ""
         finish_reason = ""
         error_text = ""
@@ -413,6 +417,8 @@ class CaptionEngine:
         *,
         ocr_text: str,
         source_path: str | Path | None = None,
+        album_title: str = "",
+        printed_album_title: str = "",
         debug_recorder=None,
         debug_step: str = "locations_shown",
     ) -> LocationsShownOutput:
@@ -425,7 +431,11 @@ class CaptionEngine:
         self._ensure_captioner()
         from ._caption_prompts import _build_location_shown_prompt
 
-        prompt = _build_location_shown_prompt(ocr_text=ocr_text)
+        prompt = _build_location_shown_prompt(
+            ocr_text=ocr_text,
+            album_title=album_title,
+            printed_album_title=printed_album_title,
+        )
         response = ""
         finish_reason = ""
         error_text = ""
@@ -461,7 +471,7 @@ class CaptionEngine:
                 engine=self.engine,
                 model=self.effective_model_name,
                 prompt=prompt,
-                system_prompt=location_shown_system_prompt(),
+                system_prompt=location_system_prompt(),
                 source_path=source_path or image_path,
                 prompt_source=("custom" if self._caption_prompt else "skill"),
                 response=response,

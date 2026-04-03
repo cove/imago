@@ -8,6 +8,15 @@ photos_root = "C:/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums"
 cast_store = "../cast/data"
 skill = "cordell-photo-albums"
 
+[sets.cordell.title_page_location]
+address = "2240 Lorain Rd, San Marino, CA 91108"
+gps_latitude = "34.11512"
+gps_longitude = "-118.10492"
+city = "San Marino"
+state = "CA"
+country = "United States"
+sublocation = "2240 Lorain Rd"
+
 [sets.incoming_scans]
 kind = "scanwatch"
 description = "Incoming scan intake workspace"

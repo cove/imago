@@ -65,19 +65,15 @@ def _build_people_count_prompt(
     return "\n".join(lines)
 
 
-def _build_location_prompt() -> str:
-    lines = _section("Preamble Location")
+def _build_location_prompt(*, ocr_text: str = "", album_title: str = "", printed_album_title: str = "") -> str:
+    album_hint = str(album_title or "").strip() or str(printed_album_title or "").strip()
+    lines = _section("Preamble Location", album_title=album_hint, ocr_text=str(ocr_text or "").strip())
     lines.extend(_section("Output Format – Location"))
     return "\n".join(lines)
 
 
-def _build_location_shown_prompt(*, ocr_text: str = "") -> str:
-    lines = _section("Preamble Location Shown")
-    text = str(ocr_text or "").strip()
-    if text:
-        lines.append("- OCR text hints about the general location:")
-        lines.append(text)
-    else:
-        lines.append("No OCR text hints are available for this page.")
+def _build_location_shown_prompt(*, ocr_text: str = "", album_title: str = "", printed_album_title: str = "") -> str:
+    album_hint = str(album_title or "").strip() or str(printed_album_title or "").strip()
+    lines = _section("Preamble Location", album_title=album_hint, ocr_text=str(ocr_text or "").strip())
     lines.extend(_section("Output Format – Location Shown"))
     return "\n".join(lines)

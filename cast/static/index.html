@@ -462,6 +462,18 @@
         font-size: 12px;
       }
 
+      .cluster-strip {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-bottom: 6px;
+      }
+
+      .cluster-strip .crop {
+        width: 60px;
+        height: 60px;
+      }
+
       .button-inline-busy {
         display: inline-flex;
         align-items: center;
@@ -611,6 +623,7 @@
           <span class="pill">Faces: <strong id="count-faces">0</strong></span>
           <span class="pill">Unknown: <strong id="count-unknown">0</strong></span>
           <span class="pill">Pending: <strong id="count-pending">0</strong></span>
+          <span class="pill">Clustered: <strong id="count-clustered">0</strong></span>
           <span class="pill">Legacy: <strong id="count-legacy">0</strong></span>
           <span class="pill">Detector: <strong id="runtime-detector">-</strong></span>
           <span class="pill">Embedding: <strong id="runtime-embedding">-</strong></span>
@@ -681,6 +694,21 @@
       </section>
 
       <section class="panel" style="margin-top: 12px">
+        <h2>Clustered Queue</h2>
+        <div id="cluster-summary" class="small">Loading clustered queue...</div>
+        <table id="cluster-table">
+          <thead>
+            <tr>
+              <th>Group</th>
+              <th>Suggestion</th>
+              <th>Identify</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <section class="panel" style="margin-top: 12px">
         <h2>Pending Queue</h2>
         <div class="queue-toolbar sticky-actions">
           <div class="bulk-assign-controls">
@@ -739,14 +767,17 @@
       const appState = {
         people: [],
         face_by_id: {},
+        review_clusters: [],
         pending_reviews: [],
         selected_review_ids: new Set(),
         last_selected_review_id: "",
         skipped_review_ids: new Set(),
         busy_review_ids: new Set(),
         busy_review_spinner_ids: new Set(),
+        cluster_counts: { clusters: 0, clustered_reviews: 0 },
         counts: { people: 0, faces: 0, unknown_faces: 0, pending_reviews: 0, legacy_faces: 0 },
         runtime: {},
+        cluster_render_limit: 80,
         pending_render_limit: 120,
       };
       const reviewBusyTimers = new Map();
@@ -888,6 +919,9 @@
         document.getElementById("count-unknown").textContent = String(counts.unknown_faces || 0);
         document.getElementById("count-pending").textContent = String(
           counts.pending_reviews ?? appState.pending_reviews.length ?? 0
+        );
+        document.getElementById("count-clustered").textContent = String(
+          (appState.cluster_counts || {}).clustered_reviews || 0
         );
         document.getElementById("count-legacy").textContent = String(counts.legacy_faces || 0);
         document.getElementById("runtime-detector").textContent = runtimeLabel(
@@ -1170,6 +1204,29 @@
         renderReviewQueue();
       }
 
+      async function loadClusters() {
+        const params = new URLSearchParams({
+          limit: String(Math.max(0, Number(appState.cluster_render_limit) || 0)),
+        });
+        const data = await api(`/api/review/clusters?${params.toString()}`);
+        appState.review_clusters = data.clusters || [];
+        appState.cluster_counts = data.counts || {};
+        for (const cluster of appState.review_clusters) {
+          if (cluster && cluster.representative_face) {
+            rememberFaceSummary(cluster.representative_face);
+          }
+          for (const face of cluster.sample_faces || []) {
+            rememberFaceSummary(face);
+          }
+        }
+        updateDisplayedCounts();
+        renderClusterQueue();
+      }
+
+      async function loadAll() {
+        await Promise.all([loadState(), loadClusters()]);
+      }
+
       function faceCell(face) {
         const faceId = String(face.face_id || "");
         const cropUrl = String(face.crop_url || "");
@@ -1187,6 +1244,107 @@
           `<div class="mono small">${esc(shortId(faceId))}</div>`,
           `<div class="small">q=${esc(face.quality ?? "-")}</div>`,
         ].join("");
+      }
+
+      function findReviewCluster(clusterId) {
+        const key = String(clusterId || "");
+        return appState.review_clusters.find((cluster) => String(cluster.cluster_id || "") === key) || null;
+      }
+
+      function clusterFaceCell(cluster) {
+        const sampleFaces = Array.isArray(cluster.sample_faces) ? cluster.sample_faces : [];
+        const strip = sampleFaces.length
+          ? `<div class="cluster-strip">${sampleFaces
+              .map((face) => {
+                const faceId = String(face.face_id || "");
+                const cropUrl = String(face.crop_url || "");
+                const sourceUrl = String(face.source_url || "");
+                const imgTag = cropUrl
+                  ? `<img class="crop" src="${esc(cropUrl)}" alt="${esc(faceId)}" loading="lazy" decoding="async" />`
+                  : sourceUrl
+                    ? `<img class="crop" src="${esc(sourceUrl)}?max_dim=160" alt="${esc(faceId)}" loading="lazy" decoding="async" />`
+                    : '<div class="crop"></div>';
+                return sourceUrl
+                  ? `<button class="face-source-btn" onclick="openSourceModal('${esc(faceId)}')">${imgTag}</button>`
+                  : imgTag;
+              })
+              .join("")}</div>`
+          : '<div class="small">No preview faces</div>';
+        return [
+          strip,
+          `<div class="small">${esc(Number(cluster.size || 0))} face(s) across ${esc(Number(cluster.source_count || 0))} file(s)</div>`,
+          `<div class="small">p90 distance ${esc(Number(cluster.p90_distance || 0).toFixed(3))}</div>`,
+        ].join("");
+      }
+
+      function clusterSuggestionCell(cluster) {
+        const suggestedName = String(cluster.suggested_person_name || "");
+        const suggestedId = String(cluster.suggested_person_id || "");
+        if (!suggestedId) {
+          return '<div class="small">No confident person suggestion yet.</div>';
+        }
+        const confidenceLabel = cluster.suggested_confident ? "Ready to accept" : "Low confidence";
+        return [
+          `<div>${esc(suggestedName || suggestedId)}</div>`,
+          `<div class="small">${esc(confidenceLabel)} • consensus ${esc(Math.round(100 * Number(cluster.suggested_consensus || 0)))}%</div>`,
+          `<div class="small">score ${esc(Number(cluster.suggested_score || 0).toFixed(4))} • margin ${esc(
+            Number(cluster.suggested_margin || 0).toFixed(4)
+          )}</div>`,
+        ].join("");
+      }
+
+      function renderClusterQueue() {
+        const tbody = document.querySelector("#cluster-table tbody");
+        const summary = document.getElementById("cluster-summary");
+        const clusters = Array.isArray(appState.review_clusters) ? appState.review_clusters : [];
+        const clusterCounts = appState.cluster_counts || {};
+        if (summary) {
+          summary.textContent = `${Number(clusterCounts.clusters || 0)} cluster(s), ${Number(
+            clusterCounts.clustered_reviews || 0
+          )} pending face(s) grouped for faster review.`;
+        }
+        if (!clusters.length) {
+          tbody.innerHTML = '<tr><td colspan="3">No clustered pending faces right now.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = clusters
+          .map((cluster) => {
+            const clusterId = String(cluster.cluster_id || "");
+            const suggestionButton = cluster.suggested_confident
+              ? `<button class="good" type="button" onclick="assignSuggestedCluster('${esc(clusterId)}')">Use Suggestion</button>`
+              : "";
+            return [
+              `<tr data-cluster-id="${esc(clusterId)}">`,
+              `<td>${clusterFaceCell(cluster)}</td>`,
+              `<td>${clusterSuggestionCell(cluster)}</td>`,
+              "<td>",
+              '<div class="actions">',
+              `<select id="cluster-select-${esc(clusterId)}">${personOptions(String(cluster.suggested_person_id || ""))}</select>`,
+              suggestionButton,
+              `<button class="good" type="button" onclick="assignSelectedCluster('${esc(clusterId)}')">Assign Selected</button>`,
+              `<button class="secondary" type="button" onclick="resolveCluster('${esc(clusterId)}', 'ignored')">Ignore Cluster</button>`,
+              `<button class="bad" type="button" onclick="resolveCluster('${esc(clusterId)}', 'rejected')">Not A Face</button>`,
+              "</div>",
+              "</td>",
+              "</tr>",
+            ].join("");
+          })
+          .join("");
+        const limit = Math.max(0, Number(appState.cluster_render_limit) || 0);
+        if (limit > 0 && Number(clusterCounts.clusters || 0) > clusters.length) {
+          tbody.insertAdjacentHTML(
+            "beforeend",
+            `<tr><td colspan="3"><button class="secondary" type="button" onclick="showMoreClusters()">Show ${Math.min(
+              50,
+              Math.max(0, Number(clusterCounts.clusters || 0) - clusters.length)
+            )} More</button></td></tr>`
+          );
+        }
+      }
+
+      async function showMoreClusters() {
+        appState.cluster_render_limit += 50;
+        await loadClusters();
       }
 
       function sourceText(face) {
@@ -1380,6 +1538,7 @@
               removeReviewRow(reviewId);
             }
           }
+          await loadAll();
           setStatus(`${reviewIds.length} review(s) updated as ${statusLabel}.`, "success");
         } catch (error) {
           setStatus(error.message, "error");
@@ -1425,7 +1584,7 @@
           if (nameInput) {
             nameInput.value = "";
           }
-          await loadState();
+          await loadAll();
           const personName = String(((result || {}).person || {}).display_name || displayName || personId);
           setStatus(
             `${result.created_person ? "Created and assigned" : "Assigned"} ${Number(result.updated_reviews || 0)} review(s) to ${personName}.`,
@@ -1540,6 +1699,7 @@
           if (result.xmp_warning) {
             setStatus(`Review ${shortId(key)} updated (${status}) — warning: ${result.xmp_warning}`, "error");
           } else {
+            await loadClusters();
             setStatus(`Review ${shortId(key)} updated (${status}).`, "success");
           }
         } catch (error) {
@@ -1548,6 +1708,80 @@
           if (trackBusy) {
             setReviewBusyState(key, false);
           }
+        }
+      }
+
+      async function resolveCluster(clusterId, status) {
+        try {
+          const cluster = findReviewCluster(clusterId);
+          if (!cluster) {
+            throw new Error("Cluster not found.");
+          }
+          const reviewIds = Array.isArray(cluster.review_ids) ? cluster.review_ids : [];
+          if (!reviewIds.length) {
+            throw new Error("Cluster has no review IDs.");
+          }
+          const statusLabel = status === "rejected" ? "not a face" : "ignored";
+          setStatus(`Updating ${reviewIds.length} clustered face(s) as ${statusLabel}...`, "info");
+          await api("/api/review/bulk_resolve", "POST", {
+            review_ids: reviewIds,
+            status,
+          });
+          await loadAll();
+          setStatus(`${reviewIds.length} clustered face(s) updated as ${statusLabel}.`, "success");
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      }
+
+      async function assignSuggestedCluster(clusterId) {
+        try {
+          const cluster = findReviewCluster(clusterId);
+          if (!cluster) {
+            throw new Error("Cluster not found.");
+          }
+          const personId = String(cluster.suggested_person_id || "").trim();
+          if (!personId) {
+            throw new Error("This cluster does not have a confident suggestion.");
+          }
+          await api("/api/review/bulk_assign", "POST", {
+            review_ids: cluster.review_ids || [],
+            person_id: personId,
+          });
+          await loadAll();
+          setStatus(
+            `Assigned ${Number((cluster.review_ids || []).length || 0)} clustered face(s) to ${
+              cluster.suggested_person_name || personId
+            }.`,
+            "success"
+          );
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      }
+
+      async function assignSelectedCluster(clusterId) {
+        try {
+          const cluster = findReviewCluster(clusterId);
+          if (!cluster) {
+            throw new Error("Cluster not found.");
+          }
+          const select = document.getElementById(`cluster-select-${clusterId}`);
+          const personId = String((select && select.value) || "").trim();
+          if (!personId) {
+            throw new Error("Select a person first.");
+          }
+          await api("/api/review/bulk_assign", "POST", {
+            review_ids: cluster.review_ids || [],
+            person_id: personId,
+          });
+          await loadAll();
+          setStatus(
+            `Assigned ${Number((cluster.review_ids || []).length || 0)} clustered face(s).`,
+            "success"
+          );
+        } catch (error) {
+          setStatus(error.message, "error");
         }
       }
 
@@ -1600,7 +1834,7 @@
             `${action} finished. ${scannedSummary}, created ${Number(result.faces_created || 0)} face(s), queued ${Number(result.reviews_created || 0)} review(s).${removedSummary}`,
             "success"
           );
-          await loadState();
+          await loadAll();
         } catch (error) {
           setStatus(error.message, "error");
         }
@@ -1608,7 +1842,7 @@
 
       document.getElementById("refresh-btn").addEventListener("click", async () => {
         try {
-          await loadState();
+          await loadAll();
           setStatus("State refreshed.", "success");
         } catch (error) {
           setStatus(error.message, "error");
@@ -1625,7 +1859,7 @@
         try {
           setStatus("Deleting current queue...", "info");
           const result = await api("/api/reset/pending_unknown", "POST", { remove_crops: true });
-          await loadState();
+          await loadAll();
           setStatus(
             `Queue deleted. Removed ${Number(result.removed_reviews || 0)} review(s), ${Number(result.removed_faces || 0)} face(s), and ${Number(result.removed_crops || 0)} crop(s).`,
             "success"
@@ -1686,13 +1920,17 @@
       Object.assign(window, {
         openSourceModal,
         resolveReview,
+        resolveCluster,
         acceptSelectedReview,
+        assignSelectedCluster,
+        assignSuggestedCluster,
+        showMoreClusters,
         toggleReviewSelection,
       });
 
       (async () => {
         try {
-          await loadState();
+          await loadAll();
           setStatus("Ready.", "success");
         } catch (error) {
           setStatus(error.message, "error");

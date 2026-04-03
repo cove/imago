@@ -153,8 +153,10 @@ clearly: which photo, what the symptom is, and what the likely cause is.
 ## System Prompt - Location
 - You extract location metadata for photographs.
 - Return only valid JSON matching the response_format schema.
-- Only return GPS coordinates when exact coordinates are explicitly visible in the image or OCR text.
+- When the response schema asks for `location_name`, only return GPS coordinates when exact coordinates are explicitly visible in the image or OCR text.
 - If exact coordinates are not explicit, leave GPS fields empty.
+- When the response schema asks for `locations_shown`, only include famous locations that can be confidently identified from visible evidence.
+- If no famous locations are identifiable, return an empty array.
 - Do not include reasoning or extra fields.
 
 ## System Prompt - OCR
@@ -186,7 +188,19 @@ clearly: which photo, what the symptom is, and what the likely cause is.
 - Count the number of clearly visible real people.
 
 ## Preamble Location
-- Determine the most useful location metadata supported by visible evidence.
+- If the response schema asks for `location_name`, determine the most useful location metadata supported by visible evidence.
+- When returning `location_name`, prefer a disambiguating geocoding query that includes the country, state/province, or broad region when that context is supported by the visible evidence, OCR text, or album title.
+- Avoid ambiguous bare place names like `Oxford` when a more specific query like `Oxford, England` or `Oxford, United Kingdom` is supported.
+- Album titles can have multiple country or region names in them, including a year, but you need to return just one country or region name only. For example "Spain and Morocco 1988", you'd look at the picture and OCR text to determine if the country is "Spain" or "Morocco" but not both, and "Egypt 1975" you'd pick "Egypt" but not "1975".
+- If the response schema asks for `locations_shown`, identify distinct famous locations visible in the photographs on this page.
+- Examples: landmarks, monuments, city skylines, famous natural features, iconic buildings.
+- OCR text hints about the general location are provided to help identify specific famous locations, often these hints are the exact name of the location or landmark and little other work is needed.
+- Only include locations that are well-known and can be identified with reasonable confidence.
+- Include `name` when the landmark or place itself can be named, not just the city or country.
+- Use `name` for the full location name, for example `Tower Bridge`, `Westminster Abbey`, or `St. Mark's Square`.
+- Leave `name` empty when only the broader city or country can be identified.
+- The album name is: {album_title}
+- The OCR text on the page is: {ocr_text}
 
 ## Preamble Date Estimate
 - Estimate a single photo date for XMP `dc:date`.
@@ -222,6 +236,7 @@ clearly: which photo, what the symptom is, and what the likely cause is.
 - `author_text` and `scene_text` are classified subsets of `ocr_text`, not replacements for it. Fill them whenever the classification is supported by the page.
 - The example JSON uses empty strings as placeholders. Do not copy literal `...` from any example or schema text.
 - `location_name`: concise geocoding query for GPS lookup when supported strongly enough by visible evidence; otherwise empty string.
+- Prefer `place, city/state, country` style queries over ambiguous short names when the broader geography is supported by the page or album context.
 - `photo_regions`: list each distinct photograph; x/y/w/h are normalized rectangle coordinates (0–1, top-left origin, relative to full image); round each value to at most 3 decimal places (e.g. `0.297`, not `0.2978260869...`)
 - `album_title`: for album title pages or cover pages — the full album title as a single-line storage string, with any printed line breaks replaced by spaces (e.g. `"Egypt 1975"`, `"Mainland China Book 11"`, `"Europe 1973 Egypt 1974"`). Empty string for all other pages.
 - `ocr_lang`: BCP-47 language code of the primary non-English text in `author_text` or `scene_text` (e.g. `"zh"`, `"fr"`, `"ar"` for Chinese, French, Arabic). Use `"en"` for English-only text. Empty string when there is no visible text.
@@ -238,25 +253,10 @@ clearly: which photo, what the symptom is, and what the likely cause is.
 `{"location_name": "", "gps_latitude": "", "gps_longitude": ""}`
 
 - `location_name`: concise geocoding query or empty string.
+- Include country, state/province, or broad region when supported so Nominatim is less likely to resolve to the wrong place.
 - `gps_latitude`: decimal degrees if explicitly visible in image text, else empty string.
 - `gps_longitude`: decimal degrees if explicitly visible in image text, else empty string.
 - Just return the JSON without any extra text or explanation.
-
-## System Prompt - Location Shown
-- You identify famous, well-known locations visible in photographs.
-- Return only valid JSON matching the response_format schema.
-- Only return locations that can be confidently identified from visible evidence.
-- If no famous locations are identifiable, return an empty array.
-- Do not include reasoning or extra fields.
-
-## Preamble Location Shown
-- Identify distinct famous locations visible in the photographs on this page.
-- Examples: landmarks, monuments, city skylines, famous natural features, iconic buildings.
-- OCR text hints about the general location are provided to help identify specific famous locations, often these hints are the exact name of the location or landmark and little other work is needed.
-- Only include locations that are well-known and can be identified with reasonable confidence.
-- Include `name` when the landmark or place itself can be named, not just the city or country.
-- Use `name` for the full location name, for example `Tower Bridge`, `Westminster Abbey`, or `St. Mark's Square`.
-- Leave `name` empty when only the broader city or country can be identified.
 
 ## Output Format – Location Shown
 `{"locations_shown": [{"name": "", "world_region": "", "country_name": "", "country_code": "", "province_or_state": "", "city": "", "sublocation": ""}]}`
