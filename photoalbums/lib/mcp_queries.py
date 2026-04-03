@@ -237,6 +237,8 @@ def read_job_artifacts(
                 Path(_clean_text(row.get("sidecar_path"))).name.casefold(),
                 _clean_text(row.get("label")).casefold(),
             }
+            for value in list(row.get("sidecar_paths") or []):
+                candidate_names.add(Path(_clean_text(value)).name.casefold())
             if file_value not in candidate_names:
                 continue
         matches.append(row)
