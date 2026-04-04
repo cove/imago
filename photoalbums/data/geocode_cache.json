@@ -692,6 +692,18 @@
     "query": "Avon River, Christchurch, Hampshire, England",
     "status": "miss"
   },
+  "avon river, christchurch, united kingdom": {
+    "city": "Christchurch",
+    "country": "United Kingdom",
+    "display_name": "River Avon, Purewell, Christchurch, Bournemouth, Christchurch and Poole, England, BH23 1ED, United Kingdom",
+    "latitude": "50.7330365",
+    "longitude": "-1.7726995",
+    "query": "Avon River, Christchurch, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "avon river- christchurch": {
     "display_name": "Avon River / Ōtākaro, Christchurch Central, Linwood-Central-Heathcote Community, Christchurch City, Canterbury, 8011, New Zealand / Aotearoa",
     "latitude": "-43.5339329",
@@ -3413,6 +3425,18 @@
     "query": "Corfe Castle, Swanage, England",
     "status": "miss"
   },
+  "corfe castle, united kingdom": {
+    "city": "Corfe Castle",
+    "country": "United Kingdom",
+    "display_name": "Corfe Castle, Dorset, England, United Kingdom",
+    "latitude": "50.6388880",
+    "longitude": "-2.0572257",
+    "query": "Corfe Castle, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "cornwall, england": {
     "display_name": "Cornwall, England, United Kingdom",
     "latitude": "50.4433489",
@@ -4874,6 +4898,18 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "exeter cathedral, exeter, united kingdom": {
+    "city": "Exeter",
+    "country": "United Kingdom",
+    "display_name": "Exeter Cathedral, Cathedral Close, Newtown, Exeter, Devon, Devon and Torbay, England, EX1 1AJ, United Kingdom",
+    "latitude": "50.7225231",
+    "longitude": "-3.5298454",
+    "query": "Exeter Cathedral, Exeter, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Cathedral Close"
   },
   "exeter cathedral, the choir, exeter, england, united kingdom": {
     "query": "Exeter Cathedral, The Choir, Exeter, England, United Kingdom",
@@ -10822,6 +10858,18 @@
     "state": "England",
     "status": "ok"
   },
+  "priory church - christchurch, christchurch, united kingdom": {
+    "city": "Christchurch",
+    "country": "United Kingdom",
+    "display_name": "Christchurch Priory, Quay Road, Purewell, Christchurch, Bournemouth, Christchurch and Poole, England, BH23 1BU, United Kingdom",
+    "latitude": "50.7321405",
+    "longitude": "-1.7742169",
+    "query": "Priory Church - Christchurch, Christchurch, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Quay Road"
+  },
   "priory church, christchurch, christchurch, england, united kingdom": {
     "city": "Christchurch",
     "country": "United Kingdom",
@@ -10836,6 +10884,18 @@
   "priory church, christchurch, hampshire, england": {
     "query": "Priory Church, Christchurch, Hampshire, England",
     "status": "miss"
+  },
+  "priory church, christchurch, united kingdom": {
+    "city": "Christchurch",
+    "country": "United Kingdom",
+    "display_name": "Christchurch Priory, Quay Road, Purewell, Christchurch, Bournemouth, Christchurch and Poole, England, BH23 1BU, United Kingdom",
+    "latitude": "50.7321405",
+    "longitude": "-1.7742169",
+    "query": "Priory Church, Christchurch, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Quay Road"
   },
   "provddiv bulgaria": {
     "query": "Provddiv Bulgaria",
@@ -13248,6 +13308,18 @@
     "status": "ok",
     "sublocation": "A303"
   },
+  "stonehenge, wiltshire, england": {
+    "city": "West Amesbury",
+    "country": "United Kingdom",
+    "display_name": "Stonehenge, A303, Amesbury, West Amesbury, Wiltshire, England, SP4 7DE, United Kingdom",
+    "latitude": "51.1788293",
+    "longitude": "-1.8261830",
+    "query": "Stonehenge, Wiltshire, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "A303"
+  },
   "stonehenge, wiltshire, england, united kingdom": {
     "city": "West Amesbury",
     "country": "United Kingdom",
@@ -13258,6 +13330,18 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "stonehenge, wiltshire, united kingdom": {
+    "city": "West Amesbury",
+    "country": "United Kingdom",
+    "display_name": "Stonehenge, A303, Amesbury, West Amesbury, Wiltshire, England, SP4 7DE, United Kingdom",
+    "latitude": "51.1788293",
+    "longitude": "-1.8261830",
+    "query": "Stonehenge, Wiltshire, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "A303"
   },
   "stow-on-the-wold, burton on the water, bourton-on-the-hill, gloucestershire, england": {
     "query": "Stow-on-the-Wold, Burton on the Water, Bourton-on-the-Hill, Gloucestershire, England",
@@ -13427,6 +13511,18 @@
     "state": "England",
     "status": "ok"
   },
+  "swanage beach, swanage, united kingdom": {
+    "city": "Swanage",
+    "country": "United Kingdom",
+    "display_name": "Swanage Beach, Durlston, Swanage, Dorset, England, United Kingdom",
+    "latitude": "50.6186565",
+    "longitude": "-1.9557025",
+    "query": "Swanage Beach, Swanage, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "swanage, dorset, england": {
     "display_name": "Swanage, Dorset, England, United Kingdom",
     "latitude": "50.6086976",
@@ -13434,6 +13530,18 @@
     "query": "Swanage, Dorset, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "swanage, england": {
+    "city": "Swanage",
+    "country": "United Kingdom",
+    "display_name": "Swanage, Dorset, England, United Kingdom",
+    "latitude": "50.6086976",
+    "longitude": "-1.9571971",
+    "query": "Swanage, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "swanque beach, england": {
     "query": "Swanque Beach, England",
@@ -13885,6 +13993,10 @@
   },
   "the garden walk, swanage, england, united kingdom": {
     "query": "The Garden Walk, Swanage, England, United Kingdom",
+    "status": "miss"
+  },
+  "the garden walk, swanage, united kingdom": {
+    "query": "The Garden Walk, Swanage, United Kingdom",
     "status": "miss"
   },
   "the garrick inn & harvard house, stratfor-upon-avon": {
@@ -14353,6 +14465,10 @@
     "query": "The Quay and Priory, Christchurch, Dorset, England",
     "status": "miss"
   },
+  "the quay and priory, christchurch, united kingdom": {
+    "query": "The Quay and Priory, Christchurch, United Kingdom",
+    "status": "miss"
+  },
   "the red lion hotel": {
     "city": "Salisbury",
     "country": "United Kingdom",
@@ -14462,6 +14578,10 @@
   },
   "the sands, swanage, england, united kingdom": {
     "query": "The Sands, Swanage, England, United Kingdom",
+    "status": "miss"
+  },
+  "the sands, swanage, united kingdom": {
+    "query": "The Sands, Swanage, United Kingdom",
     "status": "miss"
   },
   "the scott monument, edinburgh": {
