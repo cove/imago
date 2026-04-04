@@ -20,7 +20,7 @@ if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
 from cast.storage import TextFaceStore
-from photoalbums.lib import ai_index
+from photoalbums.lib import ai_index, ai_index_analysis, ai_index_args, ai_index_engine_cache
 from photoalbums.lib import xmp_sidecar
 
 
@@ -1422,7 +1422,7 @@ class TestAIIndex(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "a.png"
             Image.new("RGB", (240, 180), color="white").save(image)
-            with mock.patch.object(ai_index, "AI_MODEL_MAX_SOURCE_BYTES", 1):
+            with mock.patch.object(ai_index_analysis, "AI_MODEL_MAX_SOURCE_BYTES", 1):
                 with ai_index._prepare_ai_model_image(image) as prepared:
                     self.assertNotEqual(prepared, image)
                     self.assertTrue(prepared.exists())
@@ -1440,7 +1440,7 @@ class TestAIIndex(unittest.TestCase):
             original_limit = Image.MAX_IMAGE_PIXELS
             try:
                 Image.MAX_IMAGE_PIXELS = 1
-                with mock.patch.object(ai_index, "AI_MODEL_MAX_SOURCE_BYTES", 1):
+                with mock.patch.object(ai_index_analysis, "AI_MODEL_MAX_SOURCE_BYTES", 1):
                     with ai_index._prepare_ai_model_image(image) as prepared:
                         self.assertTrue(prepared.exists())
             finally:
@@ -1622,7 +1622,7 @@ class TestAIIndex(unittest.TestCase):
             def fake_prepare(_path):
                 yield scaled
 
-            with mock.patch.object(ai_index, "_prepare_ai_model_image", side_effect=fake_prepare):
+            with mock.patch.object(ai_index_analysis, "_prepare_ai_model_image", side_effect=fake_prepare):
                 analysis = ai_index._run_image_analysis(
                     image_path=image,
                     people_matcher=people_matcher,
@@ -1684,7 +1684,7 @@ class TestAIIndex(unittest.TestCase):
             def fake_prepare(_path):
                 yield scaled
 
-            with mock.patch.object(ai_index, "_prepare_ai_model_image", side_effect=fake_prepare):
+            with mock.patch.object(ai_index_analysis, "_prepare_ai_model_image", side_effect=fake_prepare):
                 analysis = ai_index._run_image_analysis(
                     image_path=image,
                     people_matcher=people_matcher,
@@ -1741,8 +1741,8 @@ class TestAIIndex(unittest.TestCase):
             )
 
             with (
-                mock.patch.object(ai_index, "_resolve_location_metadata", return_value=("", "", "")),
-                mock.patch.object(ai_index, "_resolve_locations_shown", return_value=([], True)),
+                mock.patch.object(ai_index_analysis, "_resolve_location_metadata", return_value=("", "", "")),
+                mock.patch.object(ai_index_analysis, "_resolve_locations_shown", return_value=([], True)),
             ):
                 ai_index._run_image_analysis(
                     image_path=image,
@@ -1783,7 +1783,7 @@ class TestAIIndex(unittest.TestCase):
             def fake_prepare(_path):
                 yield scaled
 
-            with mock.patch.object(ai_index, "_prepare_ai_model_image", side_effect=fake_prepare):
+            with mock.patch.object(ai_index_analysis, "_prepare_ai_model_image", side_effect=fake_prepare):
                 analysis = ai_index._run_image_analysis(
                     image_path=image,
                     people_matcher=people_matcher,
@@ -2833,7 +2833,7 @@ class TestAIIndex(unittest.TestCase):
                     "_init_caption_engine",
                     return_value=SimpleNamespace(effective_model_name="caption-current"),
                 ) as caption_engine_mock,
-                mock.patch.object(ai_index, "_prepare_ai_model_image", side_effect=fake_prepare),
+                mock.patch.object(ai_index_analysis, "_prepare_ai_model_image", side_effect=fake_prepare),
                 mock.patch.object(
                     ai_index,
                     "_resolve_location_metadata",
@@ -2938,7 +2938,7 @@ class TestAIIndex(unittest.TestCase):
                     "_init_caption_engine",
                     return_value=SimpleNamespace(effective_model_name="caption-current"),
                 ) as caption_engine_mock,
-                mock.patch.object(ai_index, "_prepare_ai_model_image", side_effect=fake_prepare),
+                mock.patch.object(ai_index_analysis, "_prepare_ai_model_image", side_effect=fake_prepare),
                 mock.patch.object(
                     ai_index,
                     "_resolve_location_metadata",
@@ -3063,7 +3063,7 @@ class TestAIIndex(unittest.TestCase):
                     "_init_caption_engine",
                     return_value=SimpleNamespace(effective_model_name="caption-current"),
                 ) as caption_engine_mock,
-                mock.patch.object(ai_index, "_prepare_ai_model_image", side_effect=fake_prepare),
+                mock.patch.object(ai_index_analysis, "_prepare_ai_model_image", side_effect=fake_prepare),
                 mock.patch.object(
                     ai_index,
                     "_resolve_location_metadata",
@@ -4828,8 +4828,8 @@ class TestAIIndex(unittest.TestCase):
 
     def test_parse_args_defaults_use_lmstudio_for_caption_and_disable_ocr(self):
         with (
-            mock.patch.object(ai_index, "default_ocr_model", return_value="qwen/qwen3-vl-30b"),
-            mock.patch.object(ai_index, "default_lmstudio_base_url", return_value="http://lmstudio.local:1234/v1"),
+            mock.patch.object(ai_index_args, "default_ocr_model", return_value="qwen/qwen3-vl-30b"),
+            mock.patch.object(ai_index_args, "default_lmstudio_base_url", return_value="http://lmstudio.local:1234/v1"),
         ):
             args = ai_index.parse_args([])
         self.assertEqual(args.caption_engine, "lmstudio")
@@ -4843,7 +4843,7 @@ class TestAIIndex(unittest.TestCase):
         self.assertEqual(args.caption_max_edge, 0)
 
     def test_init_caption_engine_forwards_caption_prompt(self):
-        with mock.patch.object(ai_index, "CaptionEngine") as engine_ctor:
+        with mock.patch.object(ai_index_engine_cache, "CaptionEngine") as engine_ctor:
             ai_index._init_caption_engine(
                 engine="lmstudio",
                 model_name="qwen2.5-vl-instruct",
