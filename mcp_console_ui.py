@@ -628,7 +628,7 @@ HTML = r"""<!DOCTYPE html>
       ? steps.map((step) => renderPromptStepCard(step)).join('')
       : '<div class="artifact-empty">No prompt steps recorded.</div>';
     showXmpPanel(
-      `${fileName(artifact.image_path || artifact.label || 'Prompt Debug')} Prompts`,
+      `${String(artifact.label || fileName(artifact.image_path || 'Prompt Debug'))} Prompts`,
       String(artifact.image_path || ''),
       body,
     );
@@ -646,7 +646,7 @@ HTML = r"""<!DOCTYPE html>
       ? steps.map((step) => renderResponseStepCard(step)).join('')
       : '<div class="artifact-empty">No AI JSON responses recorded.</div>';
     showXmpPanel(
-      `${fileName(artifact.image_path || artifact.label || 'Prompt Debug')} AI JSON`,
+      `${String(artifact.label || fileName(artifact.image_path || 'Prompt Debug'))} AI JSON`,
       String(artifact.image_path || ''),
       body,
     );
@@ -666,7 +666,7 @@ HTML = r"""<!DOCTYPE html>
     }
     const body = artifacts.map((artifact) => renderGeocodeArtifactCard(artifact)).join('');
     showXmpPanel(
-      `${fileName(artifacts[0].image_path || artifacts[0].label || 'Geocode')} Geocode`,
+      `${String(artifacts[0].label || fileName(artifacts[0].image_path || 'Geocode'))} Geocode`,
       String(artifacts[0].image_path || ''),
       body,
     );

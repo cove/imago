@@ -386,6 +386,42 @@ class TestConsoleHTTPStream(unittest.TestCase):
         self.assertEqual(len(payload), 1)
         self.assertEqual(payload[0]["sidecar_path"], "C:\\photos\\Album_A\\Photo_01.xmp")
 
+    def test_artifacts_route_hides_temp_content_png_rows(self):
+        artifact_path = self.jobs_dir / "abc12345.artifacts.jsonl"
+        artifact_path.write_text(
+            "\n".join(
+                [
+                    json.dumps(
+                        {
+                            "kind": "photoalbums_geocode",
+                            "image_path": str(Path(tempfile.gettempdir()) / "imago-page-abc123" / "content.png"),
+                            "label": "content.png",
+                            "query": "Eastern Europe",
+                        }
+                    ),
+                    json.dumps(
+                        {
+                            "kind": "photoalbums_xmp",
+                            "image_path": "C:\\photos\\Album_A\\Photo_01.jpg",
+                            "sidecar_path": "C:\\photos\\Album_A\\Photo_01.xmp",
+                            "label": "Photo_01.jpg",
+                        }
+                    ),
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        job = dict(_FAKE_JOB, artifact_file=str(artifact_path))
+        self._write_fake_jobs({"abc12345": job})
+
+        status, ct, payload = self._request_json("/api/jobs/abc12345/artifacts")
+
+        self.assertEqual(status, 200)
+        self.assertIn("application/json", ct or "")
+        self.assertEqual(len(payload), 1)
+        self.assertEqual(payload[0]["kind"], "photoalbums_xmp")
+
     def test_xmp_review_route_returns_review_data(self):
         image_path = self.jobs_dir / "Photo_01.jpg"
         image_path.touch()

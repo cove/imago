@@ -59,7 +59,7 @@ def build_parser() -> argparse.ArgumentParser:
     metadata_parser = subparsers.add_parser("metadata", help="Metadata commands")
     metadata_sub = metadata_parser.add_subparsers(dest="metadata_kind", required=True)
     metadata_sub.add_parser("apply", help="Apply standardized metadata tags to TIFF scans")
-    metadata_sub.add_parser("tsv", help="Export archive metadata into metadata.tsv")
+    metadata_sub.add_parser("tsv", help="Deprecated metadata.tsv export command")
     map_parser = metadata_sub.add_parser(
         "map", help="Launch a local Web UI map to manually drag-and-drop GPS locations"
     )

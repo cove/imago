@@ -347,6 +347,47 @@ def _add_bag(parent: ET.Element, tag: str, values: list[str]) -> None:
         item.text = value
 
 
+def _format_location_created(
+    *,
+    location_city: str = "",
+    location_state: str = "",
+    location_country: str = "",
+    location_sublocation: str = "",
+) -> str:
+    parts: list[str] = []
+    seen: set[str] = set()
+    for value in (location_sublocation, location_city, location_state, location_country):
+        clean = str(value or "").strip()
+        if not clean or clean in seen:
+            continue
+        parts.append(clean)
+        seen.add(clean)
+    return ", ".join(parts)
+
+
+def _with_location_detections(
+    detections_payload: dict | None,
+    *,
+    location_city: str = "",
+    location_state: str = "",
+    location_country: str = "",
+    location_sublocation: str = "",
+) -> dict | None:
+    payload = dict(detections_payload or {})
+    location = dict(payload.get("location") or {}) if isinstance(payload.get("location"), dict) else {}
+    if str(location_city or "").strip() and not str(location.get("city") or "").strip():
+        location["city"] = str(location_city).strip()
+    if str(location_state or "").strip() and not str(location.get("state") or "").strip():
+        location["state"] = str(location_state).strip()
+    if str(location_country or "").strip() and not str(location.get("country") or "").strip():
+        location["country"] = str(location_country).strip()
+    if str(location_sublocation or "").strip() and not str(location.get("sublocation") or "").strip():
+        location["sublocation"] = str(location_sublocation).strip()
+    if location:
+        payload["location"] = location
+    return payload or None
+
+
 def _add_locations_shown_bag(parent: ET.Element, locations: list[dict]) -> None:
     """Add Iptc4xmpExt:LocationShown as a bag of LocationDetails structures."""
     if not locations:
@@ -681,6 +722,13 @@ def build_xmp_tree(
     locations_shown: list[dict] | None = None,
 ) -> ET.ElementTree:
     del subphotos, image_width, image_height, scan_number
+    detections_payload = _with_location_detections(
+        detections_payload,
+        location_city=location_city,
+        location_state=location_state,
+        location_country=location_country,
+        location_sublocation=location_sublocation,
+    )
     xmpmeta = ET.Element(f"{{{X_NS}}}xmpmeta")
     rdf = ET.SubElement(xmpmeta, _RDF_ROOT)
     desc = ET.SubElement(rdf, _RDF_DESC)
@@ -721,14 +769,16 @@ def build_xmp_tree(
         )
         _add_simple_text(desc, f"{{{EXIF_NS}}}GPSMapDatum", "WGS-84")
         _add_simple_text(desc, f"{{{EXIF_NS}}}GPSVersionID", "2.3.0.0")
-    if str(location_city or "").strip():
-        _add_simple_text(desc, f"{{{PHOTOSHOP_NS}}}City", str(location_city).strip())
-    if str(location_state or "").strip():
-        _add_simple_text(desc, f"{{{PHOTOSHOP_NS}}}State", str(location_state).strip())
-    if str(location_country or "").strip():
-        _add_simple_text(desc, f"{{{PHOTOSHOP_NS}}}Country", str(location_country).strip())
-    if str(location_sublocation or "").strip():
-        _add_simple_text(desc, f"{{{IPTC_EXT_NS}}}Sublocation", str(location_sublocation).strip())
+    _add_simple_text(
+        desc,
+        f"{{{IPTC_EXT_NS}}}LocationCreated",
+        _format_location_created(
+            location_city=location_city,
+            location_state=location_state,
+            location_country=location_country,
+            location_sublocation=location_sublocation,
+        ),
+    )
     if page_number > 0:
         _add_simple_text(desc, f"{{{PHOTOSHOP_NS}}}PageNumber", str(page_number))
     _add_simple_text(desc, f"{{{DC_NS}}}source", _normalize_xmp_text(source_text))
@@ -1067,6 +1117,27 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
     processing_history = _read_processing_history(desc)
     processing_state = _derive_processing_state(processing_history)
     dc_date_values = _normalize_dc_dates(_get_seq_values(desc, f"{{{DC_NS}}}date"))
+    location_payload = dict((detections_payload or {}).get("location") or {})
+    location_city = str(desc.findtext(f"{{{PHOTOSHOP_NS}}}City", default="") or "").strip()
+    location_state = str(desc.findtext(f"{{{PHOTOSHOP_NS}}}State", default="") or "").strip()
+    location_country = str(desc.findtext(f"{{{PHOTOSHOP_NS}}}Country", default="") or "").strip()
+    location_sublocation = str(desc.findtext(f"{{{IPTC_EXT_NS}}}Sublocation", default="") or "").strip()
+    location_created = str(desc.findtext(f"{{{IPTC_EXT_NS}}}LocationCreated", default="") or "").strip()
+    if not location_city:
+        location_city = str(location_payload.get("city") or "").strip()
+    if not location_state:
+        location_state = str(location_payload.get("state") or "").strip()
+    if not location_country:
+        location_country = str(location_payload.get("country") or "").strip()
+    if not location_sublocation:
+        location_sublocation = str(location_payload.get("sublocation") or "").strip()
+    if not location_created:
+        location_created = _format_location_created(
+            location_city=location_city,
+            location_state=location_state,
+            location_country=location_country,
+            location_sublocation=location_sublocation,
+        )
     return {
         "creator_tool": str(desc.findtext(f"{{{XMP_NS}}}CreatorTool", default="") or "").strip(),
         "create_date": _normalize_xmp_datetime(str(desc.findtext(f"{{{XMP_NS}}}CreateDate", default="") or "").strip()),
@@ -1090,10 +1161,11 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
         "source_text": str(desc.findtext(f"{{{DC_NS}}}source", default="") or "").strip(),
         "gps_latitude": str(desc.findtext(f"{{{EXIF_NS}}}GPSLatitude", default="") or "").strip(),
         "gps_longitude": str(desc.findtext(f"{{{EXIF_NS}}}GPSLongitude", default="") or "").strip(),
-        "location_city": str(desc.findtext(f"{{{PHOTOSHOP_NS}}}City", default="") or "").strip(),
-        "location_state": str(desc.findtext(f"{{{PHOTOSHOP_NS}}}State", default="") or "").strip(),
-        "location_country": str(desc.findtext(f"{{{PHOTOSHOP_NS}}}Country", default="") or "").strip(),
-        "location_sublocation": str(desc.findtext(f"{{{IPTC_EXT_NS}}}Sublocation", default="") or "").strip(),
+        "location_city": location_city,
+        "location_state": location_state,
+        "location_country": location_country,
+        "location_sublocation": location_sublocation,
+        "location_created": location_created,
         "ocr_text": str(desc.findtext(f"{{{IMAGO_NS}}}OCRText", default="") or "").strip(),
         "ocr_lang": str(desc.findtext(f"{{{IMAGO_NS}}}OCRLang", default="") or "").strip(),
         "author_text": str(desc.findtext(f"{{{IMAGO_NS}}}AuthorText", default="") or "").strip(),
@@ -1242,6 +1314,13 @@ def _merge_xmp_tree(
     locations_shown: list[dict] | None = None,
 ) -> ET.ElementTree:
     del subphotos, image_width, image_height, scan_number
+    detections_payload = _with_location_detections(
+        detections_payload,
+        location_city=location_city,
+        location_state=location_state,
+        location_country=location_country,
+        location_sublocation=location_sublocation,
+    )
     desc = _get_or_create_rdf_desc(tree)
     _set_bag(desc, f"{{{DC_NS}}}subject", subjects)
     _set_bag(desc, f"{{{IPTC_EXT_NS}}}PersonInImage", person_names)
@@ -1263,10 +1342,16 @@ def _merge_xmp_tree(
     )
     _set_simple_text(desc, f"{{{IMAGO_NS}}}AlbumTitle", str(album_title or "").strip())
     _set_gps_fields(desc, gps_latitude, gps_longitude)
-    _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}City", str(location_city or "").strip())
-    _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}State", str(location_state or "").strip())
-    _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}Country", str(location_country or "").strip())
-    _set_simple_text(desc, f"{{{IPTC_EXT_NS}}}Sublocation", str(location_sublocation or "").strip())
+    _set_simple_text(
+        desc,
+        f"{{{IPTC_EXT_NS}}}LocationCreated",
+        _format_location_created(
+            location_city=location_city,
+            location_state=location_state,
+            location_country=location_country,
+            location_sublocation=location_sublocation,
+        ),
+    )
     _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}PageNumber", str(page_number) if page_number > 0 else "")
     _remove_field(desc, f"{{{IMAGO_NS}}}ScanNumber")
     _set_simple_text(desc, f"{{{DC_NS}}}source", str(source_text or "").strip())
@@ -1314,6 +1399,10 @@ def _merge_xmp_tree(
         f"{{{IMAGO_NS}}}PeopleDetected",
         f"{{{IMAGO_NS}}}PeopleIdentified",
         f"{{{IMAGO_NS}}}SubPhotos",
+        f"{{{PHOTOSHOP_NS}}}City",
+        f"{{{PHOTOSHOP_NS}}}State",
+        f"{{{PHOTOSHOP_NS}}}Country",
+        f"{{{IPTC_EXT_NS}}}Sublocation",
         f"{{{XMP_NS}}}CreateDate",
         f"{{{XMPDM_NS}}}album",
     ):

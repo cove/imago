@@ -449,7 +449,14 @@ class OCREngine:
         self._model = _load_hf_model(AutoModelForImageTextToText, model_ref, **load_kwargs)
         self._torch = torch
 
-    def _read_text_lmstudio(self, image_path: str | Path, *, debug_recorder=None, debug_step: str = "ocr") -> str:
+    def _read_text_lmstudio(
+        self,
+        image_path: str | Path,
+        *,
+        source_path: str | Path | None = None,
+        debug_recorder=None,
+        debug_step: str = "ocr",
+    ) -> str:
         if not self._lmstudio_model:
             self._lmstudio_model = _lmstudio_ocr_select_model(
                 self.base_url,
@@ -508,18 +515,30 @@ class OCREngine:
                 model=self.effective_model_name,
                 prompt=DEFAULT_LOCAL_OCR_PROMPT,
                 system_prompt=ocr_system_prompt(),
-                source_path=image_path,
+                source_path=source_path or image_path,
                 response=raw_response,
                 finish_reason=finish_reason,
                 metadata=metadata,
             )
 
-    def read_text(self, image_path: str | Path, *, debug_recorder=None, debug_step: str = "ocr") -> str:
+    def read_text(
+        self,
+        image_path: str | Path,
+        *,
+        source_path: str | Path | None = None,
+        debug_recorder=None,
+        debug_step: str = "ocr",
+    ) -> str:
         path = Path(image_path)
         if self.engine == "none":
             return ""
         if self.engine == "lmstudio":
-            return self._read_text_lmstudio(path, debug_recorder=debug_recorder, debug_step=debug_step)
+            return self._read_text_lmstudio(
+                path,
+                source_path=source_path,
+                debug_recorder=debug_recorder,
+                debug_step=debug_step,
+            )
         if self.engine != "local":
             return ""
 
@@ -609,7 +628,7 @@ class OCREngine:
                 engine=self.engine,
                 model=self.effective_model_name,
                 prompt=prompt_text,
-                source_path=path,
+                source_path=source_path or path,
                 response=response_text,
                 metadata=metadata,
             )

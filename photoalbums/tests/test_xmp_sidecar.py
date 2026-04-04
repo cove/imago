@@ -176,13 +176,20 @@ class TestXMPSidecar(unittest.TestCase):
             )
 
             xml = out.read_text(encoding="utf-8")
-            self.assertIn("<Iptc4xmpExt:Sublocation>1 Rathausplatz</Iptc4xmpExt:Sublocation>", xml)
+            self.assertIn(
+                "<Iptc4xmpExt:LocationCreated>1 Rathausplatz, Vienna, Austria</Iptc4xmpExt:LocationCreated>",
+                xml,
+            )
+            self.assertNotIn("<photoshop:City>", xml)
+            self.assertNotIn("<photoshop:Country>", xml)
+            self.assertNotIn("<Iptc4xmpExt:Sublocation>", xml)
 
             state = xmp_sidecar.read_ai_sidecar_state(out)
             assert state is not None
             self.assertEqual(state["location_city"], "Vienna")
             self.assertEqual(state["location_country"], "Austria")
             self.assertEqual(state["location_sublocation"], "1 Rathausplatz")
+            self.assertEqual(state["location_created"], "1 Rathausplatz, Vienna, Austria")
 
     def test_write_xmp_sidecar_omits_create_date_and_writes_processing_history(self):
         with tempfile.TemporaryDirectory() as tmp:
