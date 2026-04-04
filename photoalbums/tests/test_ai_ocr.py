@@ -183,6 +183,61 @@ class TestAIOcr(unittest.TestCase):
         self.assertEqual(records[0]["response"], response_payload["choices"][0]["message"]["content"])
         self.assertEqual(records[0]["finish_reason"], "stop")
 
+    def test_lmstudio_ocr_records_debug_source_path_override(self):
+        response_payload = {
+            "choices": [
+                {
+                    "finish_reason": "stop",
+                    "message": {
+                        "content": json.dumps({"text": "MAINLAND CHINA"}),
+                    },
+                }
+            ]
+        }
+
+        class _FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read(self):
+                return json.dumps(response_payload).encode("utf-8")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            image_path = Path(tmp) / "content.png"
+            source_path = Path(tmp) / "China_1986_B02_P02_S01.tif"
+            Image.new("RGB", (320, 240), color="white").save(image_path)
+            records = []
+
+            with (
+                mock.patch.object(
+                    ai_ocr,
+                    "_build_ocr_data_url",
+                    return_value="data:image/png;base64,abc123",
+                ),
+                mock.patch.object(
+                    ai_ocr,
+                    "_lmstudio_ocr_select_model",
+                    return_value="qwen2.5-vl",
+                ),
+                mock.patch.object(
+                    ai_ocr.urllib.request,
+                    "urlopen",
+                    return_value=_FakeResponse(),
+                ),
+            ):
+                ocr = ai_ocr.OCREngine(engine="lmstudio", model_name="qwen2.5-vl")
+                ocr.read_text(
+                    image_path,
+                    source_path=source_path,
+                    debug_recorder=lambda **row: records.append(row),
+                    debug_step="ocr",
+                )
+
+        self.assertEqual(str(records[0]["source_path"]), str(source_path))
+
     def test_local_ocr_normalizes_no_text_response(self):
         self.assertEqual(ai_ocr._normalize_ocr_text("No visible text"), "")
 

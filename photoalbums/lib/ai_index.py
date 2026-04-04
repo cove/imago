@@ -352,7 +352,7 @@ def _append_geocode_artifact(*, image_path: Path, record: dict[str, Any]) -> Non
         {
             "kind": "photoalbums_geocode",
             "image_path": str(image_path),
-            "label": image_path.name,
+            "label": _display_work_label(image_path),
             **record,
         }
     )
@@ -392,12 +392,11 @@ def _build_dc_source(album_title: str, image_path: Path, scan_filenames: list[st
     """
     _, _, _, _page_str = parse_album_filename(image_path.name)
     page_number = int(_page_str) if _page_str.isdigit() else 0
-    scan_match = _scan_name_match(image_path)
-    if scan_match:
+    source_filenames = _dedupe([str(fn or "").strip() for fn in scan_filenames if str(fn or "").strip()])
+    if not source_filenames and (scan_match := _scan_name_match(image_path)):
         source_filenames = [image_path.name]
         scan_nums = [int(scan_match.group("scan"))]
     else:
-        source_filenames = _dedupe([str(fn or "").strip() for fn in scan_filenames if str(fn or "").strip()])
         scan_nums = sorted(int(sm.group("scan")) for fn in source_filenames if (sm := _scan_name_match(fn)))
     parts: list[str] = [p for p in [str(album_title or "").strip()] if p]
     if page_number > 0:
@@ -1409,6 +1408,7 @@ def _run_image_analysis(
                 step_fn("ocr")
             ocr_text = ocr_engine.read_text(
                 model_image_path,
+                source_path=(caption_source_path or people_source_path or image_path),
                 debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
                 debug_step="ocr",
             )
@@ -1902,7 +1902,7 @@ def _run_scan_stitch_pass(
             if requested_caption_engine in {"local", "lmstudio"}:
                 caption_source_path = scan_ocr_authority.stitched_image_path or primary_path
                 with _prepare_ai_model_image(caption_source_path) as model_image_path:
-                    stitch_prompt_debug = PromptDebugSession(caption_source_path)
+                    stitch_prompt_debug = PromptDebugSession(primary_path, label=_display_work_label(primary_path))
                     caption_output = caption_engine.generate(
                         image_path=model_image_path,
                         people=person_names,
@@ -1942,9 +1942,7 @@ def _run_scan_stitch_pass(
                 gps_latitude=gps_latitude,
                 gps_longitude=gps_longitude,
                 location_name=location_name,
-                artifact_recorder=(
-                    lambda record: _append_geocode_artifact(image_path=caption_source_path, record=record)
-                ),
+                artifact_recorder=(lambda record: _append_geocode_artifact(image_path=primary_path, record=record)),
                 artifact_step="location_stitch",
             )
             combined_ocr_keywords = extract_keywords(combined_ocr, max_keywords=15)
@@ -2579,7 +2577,7 @@ def run(argv: list[str] | None = None) -> int:
             state = existing_sidecar_state
             if isinstance(state, dict):
                 file_start = time.monotonic()
-                prompt_debug = PromptDebugSession(image_path)
+                prompt_debug = PromptDebugSession(image_path, label=_display_work_label(image_path))
                 try:
                     review = load_ai_xmp_review(sidecar_path)
                     refresh_ocr_text = _effective_sidecar_ocr_text(
@@ -2832,7 +2830,7 @@ def run(argv: list[str] | None = None) -> int:
                             caption_engine_cache[caption_key] = pu_caption_engine
                         pu_people_positions = _compute_people_positions(pu_people_matches, image_path)
                         _pu_step("caption")
-                        pu_prompt_debug = PromptDebugSession(image_path)
+                        pu_prompt_debug = PromptDebugSession(image_path, label=_display_work_label(image_path))
                         with _prepare_ai_model_image(image_path) as pu_model_path:
                             pu_caption_out = pu_caption_engine.generate(
                                 image_path=pu_model_path,
@@ -3085,7 +3083,7 @@ def run(argv: list[str] | None = None) -> int:
                     )
                     caption_engine_cache[caption_key] = gps_caption_engine
 
-                gps_prompt_debug = PromptDebugSession(image_path)
+                gps_prompt_debug = PromptDebugSession(image_path, label=_display_work_label(image_path))
                 _gps_step("location")
                 with _prepare_ai_model_image(image_path) as gps_model_path:
                     gps_latitude, gps_longitude, location_name = _resolve_location_metadata(
@@ -3218,7 +3216,7 @@ def run(argv: list[str] | None = None) -> int:
             album_title_hint = str((upstream_page_state or {}).get("album_title") or "").strip()
         if not printed_album_title_hint:
             printed_album_title_hint = str((upstream_page_state or {}).get("album_title") or "").strip()
-        prompt_debug = PromptDebugSession(image_path)
+        prompt_debug = PromptDebugSession(image_path, label=_display_work_label(image_path))
 
         try:
             object_detector = None

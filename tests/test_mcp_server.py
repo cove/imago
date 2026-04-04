@@ -214,6 +214,7 @@ class TestPhotoalbumsAiIndexPhotoResolution(AlbumSetConfigMixin, unittest.TestCa
         self.assertEqual(second_args[second_args.index("--lmstudio-base-url") + 1], "http://lm-b:1234/v1")
         self.assertEqual(result["child_job_ids"], ["job_a", "job_b"])
         self.assertEqual(result["workers"], 2)
+        self.assertEqual(result["warning"], mcp_server.PHOTOALBUMS_MULTI_WORKER_DEPRECATION)
 
     def test_photoalbums_ai_index_defaults_sharded_workers_to_configured_urls(self):
         self.runner.start.side_effect = ["job_a", "job_b"]

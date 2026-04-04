@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 import signal
+import tempfile
 import time
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -30,6 +31,25 @@ if TYPE_CHECKING:
 _JOBS_STATE = Path(__file__).resolve().parent / "mcp" / "jobs" / "jobs.json"
 
 DEFAULT_PORT = 8091
+
+
+def _is_temp_photoalbums_artifact(row: dict) -> bool:
+    if not isinstance(row, dict):
+        return False
+    if str(row.get("kind") or "").strip().lower().startswith("photoalbums_") is False:
+        return False
+    image_path = str(row.get("image_path") or "").strip()
+    if not image_path:
+        return False
+    path = Path(image_path)
+    if path.name.casefold() != "content.png":
+        return False
+    try:
+        temp_root = Path(tempfile.gettempdir()).resolve()
+        resolved_path = path.resolve()
+    except OSError:
+        return False
+    return temp_root == resolved_path or temp_root in resolved_path.parents
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -69,7 +89,7 @@ class _Handler(BaseHTTPRequestHandler):
             if not text:
                 continue
             row = json.loads(text)
-            if isinstance(row, dict):
+            if isinstance(row, dict) and not _is_temp_photoalbums_artifact(row):
                 rows.append(row)
         return rows
 

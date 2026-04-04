@@ -1,5 +1,7 @@
 from pathlib import Path
 from types import SimpleNamespace
+import io
+import contextlib
 
 import numpy as np
 
@@ -223,6 +225,30 @@ def test_ingest_photo_rejects_directory_path(tmp_path):
         assert False, "Expected IsADirectoryError"
     except IsADirectoryError:
         pass
+
+
+def test_get_insightface_app_suppresses_startup_noise(monkeypatch):
+    class FakeApp:
+        def prepare(self, **_kwargs):
+            print("Applied providers: ['CPUExecutionProvider']")
+            print("set det-size: (640, 640)")
+
+    def fake_init():
+        print("find model: fake-model.onnx recognition")
+        return FakeApp()
+
+    monkeypatch.setattr(ingest, "_insightface_app", None)
+    monkeypatch.setattr(ingest, "_insightface_app_error", "")
+    monkeypatch.setattr(ingest, "_init_insightface_app", fake_init)
+
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+        app = ingest._get_insightface_app()
+
+    assert app is not None
+    assert stdout.getvalue() == ""
+    assert stderr.getvalue() == ""
 
 
 def test_ingest_photo_requires_primary_model_when_configured(tmp_path):

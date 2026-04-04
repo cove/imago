@@ -39,6 +39,7 @@ PHOTOALBUMS_LMSTUDIO_BASE_URLS = (
     "http://192.168.4.72:1234",
     "http://192.168.4.21:1234",
 )
+PHOTOALBUMS_MULTI_WORKER_DEPRECATION = "workers > 1 is deprecated; prefer workers=1."
 
 CONSOLE_PORT = 8091
 CONSOLE_HOST = "localhost"  # overridden at startup by --console-host
@@ -67,12 +68,14 @@ def _jobs_started(job_ids: list[str]) -> dict:
     monitor = " ".join(
         f"Call job_status('{job_id}') / job_logs('{job_id}') for shard {idx + 1}." for idx, job_id in enumerate(job_ids)
     )
-    return {
+    payload = {
         "status": "started",
         "workers": len(job_ids),
         "child_job_ids": job_ids,
         "how_to_monitor": monitor,
     }
+    payload["warning"] = PHOTOALBUMS_MULTI_WORKER_DEPRECATION
+    return payload
 
 
 def _resolve_ai_index_photo_path(photos_root: str, photo: Optional[str]) -> Optional[str]:
@@ -495,6 +498,7 @@ def photoalbums_ai_index(
 
     This is a long-running operation. Returns job metadata immediately.
     For one worker, the response includes a single job_id. For multiple workers, it returns child_job_ids.
+    Multi-worker runs are deprecated and kept only as temporary scaffolding.
     Use job_status(job_id) to monitor progress and job_logs(job_id) for full output.
 
     Before starting a large job, call photoalbums_reprocess_audit() to see reason_counts
@@ -520,7 +524,7 @@ def photoalbums_ai_index(
         album: Filter to photos whose parent directory name contains this substring (case-insensitive).
         max_images: Limit number of matching photos to process (0 = unlimited).
         dry_run: Preview what would be processed without writing any sidecar or manifest changes.
-        workers: Start multiple shard jobs for the same request.
+        workers: Deprecated when greater than 1. Start multiple shard jobs for the same request.
         lmstudio_base_urls: Optional per-worker LM Studio base URLs. When omitted, photoalbums
             jobs default to the configured GLM servers. Must be empty, a single URL, or one URL
             per worker.

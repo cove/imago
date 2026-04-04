@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import contextlib
+import io
 import warnings
 from pathlib import Path
 from typing import Any
@@ -66,16 +68,24 @@ _insightface_app = None
 _insightface_app_error = ""
 
 
+def _init_insightface_app() -> object:
+    from insightface.app import FaceAnalysis  # type: ignore[import]
+
+    app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
+    app.prepare(ctx_id=-1, det_thresh=0.2203, det_size=(640, 640))
+    return app
+
+
 def _get_insightface_app() -> object | None:
     """Lazy-load InsightFace FaceAnalysis singleton. Downloads buffalo_l model on first call."""
     global _insightface_app, _insightface_app_error
     if _insightface_app is not None:
         return _insightface_app
     try:
-        from insightface.app import FaceAnalysis  # type: ignore[import]
-
-        app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
-        app.prepare(ctx_id=-1, det_thresh=0.2203, det_size=(640, 640))
+        # InsightFace emits startup chatter about providers and model discovery to
+        # stdout/stderr during initialization; suppress that third-party noise.
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            app = _init_insightface_app()
         _insightface_app_error = ""
         _insightface_app = app
         return _insightface_app

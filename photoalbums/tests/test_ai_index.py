@@ -190,7 +190,7 @@ class TestAIIndex(unittest.TestCase):
         self.assertFalse(ai_index._is_album_title_source_candidate(Path("China_1986_B02_P01_S02.tif")))
         self.assertTrue(ai_index._is_album_title_source_candidate(Path("China_1986_B02_P01_S01.tif")))
 
-    def test_build_dc_source_uses_single_scan_for_raw_scan_sidecar(self):
+    def test_build_dc_source_uses_all_page_scans_for_raw_scan_sidecar(self):
         source = ai_index._build_dc_source(
             "Eastern Europe Spain and Morocco 1988",
             Path("EasternEuropeSpainMorocco_1988_B00_P34_S01.tif"),
@@ -203,7 +203,8 @@ class TestAIIndex(unittest.TestCase):
             source,
             (
                 "Eastern Europe Spain and Morocco 1988 Page 34 "
-                "Scan(s) S01; EasternEuropeSpainMorocco_1988_B00_P34_S01.tif"
+                "Scan(s) S01 S02; EasternEuropeSpainMorocco_1988_B00_P34_S01.tif; "
+                "EasternEuropeSpainMorocco_1988_B00_P34_S02.tif"
             ),
         )
 
@@ -4483,6 +4484,7 @@ class TestAIIndex(unittest.TestCase):
                     )
                 ),
             )
+            recorded_artifacts: list[dict[str, object]] = []
 
             with (
                 mock.patch.object(
@@ -4501,6 +4503,11 @@ class TestAIIndex(unittest.TestCase):
                 mock.patch.object(ai_index, "CaptionEngine", return_value=fake_caption_engine),
                 mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
                 mock.patch.object(ai_index, "_mirror_page_sidecars"),
+                mock.patch.object(
+                    ai_index,
+                    "append_job_artifact",
+                    side_effect=lambda record: recorded_artifacts.append(record),
+                ),
             ):
                 result = ai_index.run(
                     [
@@ -4523,6 +4530,11 @@ class TestAIIndex(unittest.TestCase):
             analysis_mock.assert_called_once()
             self.assertEqual(write_mock.call_args.kwargs["author_text"], "MAINLAND CHINA 1986 BOOK 11")
             self.assertEqual(write_mock.call_args.kwargs["scene_text"], "NO SMOKING")
+            prompt_artifact = next(
+                row for row in recorded_artifacts if str(row.get("kind") or "") == "photoalbums_prompts"
+            )
+            self.assertEqual(prompt_artifact["image_path"], str(scan1))
+            self.assertEqual(prompt_artifact["label"], "China_1986_B02_P02")
 
     def test_run_archive_multi_scan_skips_when_authority_manifest_and_sidecar_match(
         self,

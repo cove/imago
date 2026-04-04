@@ -99,6 +99,10 @@
     "state": "Illinois",
     "status": "ok"
   },
+  "abbey woods, east of london, united kingdom": {
+    "query": "Abbey Woods, East of London, United Kingdom",
+    "status": "miss"
+  },
   "abu simbel": {
     "city": "Abu Simbel City",
     "country": "Egypt",
@@ -254,6 +258,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "alabaster sphinx, memphis, egypt": {
+    "city": "Mit Rahinah",
+    "country": "Egypt",
+    "display_name": "Alabaster sphinx, Saqara Village, Al Badrashin City Road, Mit Rahinah, Giza, 12921, Egypt",
+    "latitude": "29.8495549",
+    "longitude": "31.2548784",
+    "query": "Alabaster Sphinx, Memphis, Egypt",
+    "source": "nominatim",
+    "state": "Giza",
+    "status": "ok",
+    "sublocation": "Al Badrashin City Road"
+  },
   "alaska railroad, alaska": {
     "city": "Anchorage",
     "country": "United States",
@@ -386,6 +402,10 @@
   },
   "alipasa mosque, sarajevo, bosnia and herzegovina": {
     "query": "Alipasa Mosque, Sarajevo, Bosnia and Herzegovina",
+    "status": "miss"
+  },
+  "alipasa mosque, sarajevo, yugoslavia": {
+    "query": "Alipasa Mosque, Sarajevo, Yugoslavia",
     "status": "miss"
   },
   "alipaşa mosque (mosque of the bey), sarajevo, bosnia and herzegovina": {
@@ -933,6 +953,30 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "beckenham junction, beckenham, england": {
+    "city": "Greater London",
+    "country": "United Kingdom",
+    "display_name": "Beckenham Junction, Rectory Road, Beckenham, London Borough of Bromley, Greater London, England, BR3 1HP, United Kingdom",
+    "latitude": "51.4110623",
+    "longitude": "-0.0259866",
+    "query": "Beckenham Junction, Beckenham, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Rectory Road"
+  },
+  "beckenham junction, london, england": {
+    "city": "Greater London",
+    "country": "United Kingdom",
+    "display_name": "Beckenham Junction, Southend Road, Beckenham, London Borough of Bromley, Greater London, England, BR3 1PH, United Kingdom",
+    "latitude": "51.4110326",
+    "longitude": "-0.0255257",
+    "query": "Beckenham Junction, London, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Southend Road"
+  },
   "beckenham junction, london, united kingdom": {
     "city": "Greater London",
     "country": "United Kingdom",
@@ -1110,6 +1154,18 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "big ben, london, united kingdom": {
+    "city": "Greater London",
+    "country": "United Kingdom",
+    "display_name": "Big Ben, Anselm Road, Walham Green, West Kensington, London Borough of Hammersmith and Fulham, Greater London, England, SW6 1LH, United Kingdom",
+    "latitude": "51.4832919",
+    "longitude": "-0.2006363",
+    "query": "Big Ben, London, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Anselm Road"
   },
   "bingling temple, yongjing county, gansu, china": {
     "display_name": "炳灵寺, S230, 赵山, 永靖县, 临夏回族自治州, 甘肃省, 中国",
@@ -1483,6 +1539,10 @@
     "query": "Brighton Beach & Palace Pier, Brighton, England, United Kingdom",
     "status": "miss"
   },
+  "brighton beach & palace pier, brighton, united kingdom": {
+    "query": "Brighton Beach & Palace Pier, Brighton, United Kingdom",
+    "status": "miss"
+  },
   "brighton beach & palace pier, england": {
     "query": "Brighton Beach & Palace Pier, England",
     "status": "miss"
@@ -1537,6 +1597,18 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "brighton square, brighton, united kingdom": {
+    "city": "Brighton",
+    "country": "United Kingdom",
+    "display_name": "Brighton Square, The Lanes, Round Hill, Brighton, Brighton and Hove, England, BN1 1HD, United Kingdom",
+    "latitude": "50.8219955",
+    "longitude": "-0.1404012",
+    "query": "Brighton Square, Brighton, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Brighton Square"
   },
   "brighton square, england": {
     "display_name": "Brighton Square, The Lanes, Round Hill, Brighton, Brighton and Hove, England, BN1 1HD, United Kingdom",
@@ -1597,6 +1669,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "brighton, united kingdom": {
+    "city": "Brighton",
+    "country": "United Kingdom",
+    "display_name": "Brighton, Brighton and Hove, England, BN1 1HH, United Kingdom",
+    "latitude": "50.8214626",
+    "longitude": "-0.1400561",
+    "query": "Brighton, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "broadway, worcestershire, england": {
     "display_name": "Broadway, Wychavon, Worcestershire, England, United Kingdom",
     "latitude": "52.0353825",
@@ -1615,6 +1699,10 @@
   },
   "bromley, england; henley-on-thames, england": {
     "query": "Bromley, England; Henley-on-Thames, England",
+    "status": "miss"
+  },
+  "bronze statue of queen victoria 1887, winchester, united kingdom": {
+    "query": "Bronze Statue of Queen Victoria 1887, Winchester, United Kingdom",
     "status": "miss"
   },
   "brookside park, pasadena": {
@@ -1719,6 +1807,10 @@
     "source": "nominatim",
     "state": "",
     "status": "ok"
+  },
+  "budapest city skyline, hungary": {
+    "query": "Budapest City Skyline, Hungary",
+    "status": "miss"
   },
   "budapest funicular, hungary": {
     "city": "Budapest",
@@ -2434,6 +2526,22 @@
   },
   "chapel bridge, switzerland": {
     "query": "Chapel Bridge, Switzerland",
+    "status": "miss"
+  },
+  "charles bridge (karlův most), prague, czech republic": {
+    "city": "Prague",
+    "country": "Czechia",
+    "display_name": "Charles Bridge, Old Town, obvod Praha 1, Prague, 116 93, Czechia",
+    "latitude": "50.0866258",
+    "longitude": "14.4101485",
+    "query": "Charles Bridge (Karlův most), Prague, Czech Republic",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Charles Bridge"
+  },
+  "charles bridge (karlův most), prague, czechia": {
+    "query": "Charles Bridge (Karlův most), Prague, Czechia",
     "status": "miss"
   },
   "charles bridge, czech republic": {
@@ -3544,6 +3652,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "cowes, united kingdom": {
+    "city": "Cowes",
+    "country": "United Kingdom",
+    "display_name": "Cowes, Isle of Wight, England, United Kingdom",
+    "latitude": "50.7633176",
+    "longitude": "-1.2985186",
+    "query": "Cowes, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "crest hotel, germany": {
     "query": "Crest Hotel, Germany",
     "status": "miss"
@@ -3822,6 +3942,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "dover castle, dover, united kingdom": {
+    "city": "Dover",
+    "country": "United Kingdom",
+    "display_name": "Dover Castle, Castle Hill Road, Clarendon, Dover, Kent, England, CT16 1QP, United Kingdom",
+    "latitude": "51.1289759",
+    "longitude": "1.3228764",
+    "query": "Dover Castle, Dover, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Castle Hill Road"
+  },
   "dover castle, kent, england": {
     "display_name": "Dover Castle, Castle Hill Road, Clarendon, Dover, Kent, England, CT16 1QP, United Kingdom",
     "latitude": "51.1289759",
@@ -3829,6 +3961,18 @@
     "query": "Dover Castle, Kent, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "dover castle, united kingdom": {
+    "city": "Dover",
+    "country": "United Kingdom",
+    "display_name": "Dover Castle, Constable's Road, Tower Hamlets, Dover, Kent, England, CT16 1HW, United Kingdom",
+    "latitude": "51.1289759",
+    "longitude": "1.3228764",
+    "query": "Dover Castle, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Constable's Road"
   },
   "dover foxcroft, maine": {
     "city": "Dover-Foxcroft",
@@ -4318,6 +4462,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "egypt, cairo": {
+    "city": "Cairo",
+    "country": "Egypt",
+    "display_name": "Cairo, Egypt",
+    "latitude": "30.0443879",
+    "longitude": "31.2357257",
+    "query": "Egypt, Cairo",
+    "source": "nominatim",
+    "state": "Cairo",
+    "status": "ok",
+    "sublocation": ""
+  },
   "egypt, luxor": {
     "city": "Luxor",
     "country": "Egypt",
@@ -4352,8 +4508,32 @@
     "query": "Egyptian Museum on Liberation Square, Cairo",
     "status": "miss"
   },
+  "egyptian museum, cairo, egypt": {
+    "city": "Cairo",
+    "country": "Egypt",
+    "display_name": "Egyptian Museum, Merit Pasha Street, Al Ismalia, Bab al Luq, Cairo, 11556, Egypt",
+    "latitude": "30.0479664",
+    "longitude": "31.2336093",
+    "query": "Egyptian Museum, Cairo, Egypt",
+    "source": "nominatim",
+    "state": "Cairo",
+    "status": "ok",
+    "sublocation": "Merit Pasha Street"
+  },
+  "egyptian museum, liberation square, cairo, egypt": {
+    "query": "Egyptian Museum, Liberation Square, Cairo, Egypt",
+    "status": "miss"
+  },
+  "egyptian tomb, egypt": {
+    "query": "Egyptian Tomb, Egypt",
+    "status": "miss"
+  },
   "egyptian tombs": {
     "query": "Egyptian tombs",
+    "status": "miss"
+  },
+  "egyptian tombs, egypt": {
+    "query": "Egyptian Tombs, Egypt",
     "status": "miss"
   },
   "elephant island at nile river": {
@@ -4504,6 +4684,18 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "england, united kingdom": {
+    "city": "",
+    "country": "United Kingdom",
+    "display_name": "England, United Kingdom",
+    "latitude": "52.5310214",
+    "longitude": "-1.2649062",
+    "query": "England, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "english country side south of london": {
     "query": "English Country Side South of London",
@@ -5346,6 +5538,10 @@
     "query": "Great Hall of Winchester, Winchester, Hampshire, England",
     "status": "miss"
   },
+  "great hall of winchester, winchester, united kingdom": {
+    "query": "Great Hall of Winchester, Winchester, United Kingdom",
+    "status": "miss"
+  },
   "great pyramid of giza, egypt": {
     "display_name": "هرم خوفو, Cheops-Osirion-Sphinx Tunnel, نزلة البطران, الجيزة, 12125, مصر",
     "latitude": "29.9791647",
@@ -5677,6 +5873,10 @@
     "query": "High Street Gate - Salisbury, Salisbury, England, United Kingdom",
     "status": "miss"
   },
+  "high street gate - salisbury, united kingdom": {
+    "query": "High Street Gate - Salisbury, United Kingdom",
+    "status": "miss"
+  },
   "high street, broadway, worcestershire": {
     "display_name": "High Street, Broadway, Wychavon, Worcestershire, England, WR12 7DP, United Kingdom",
     "latitude": "52.0360432",
@@ -5715,6 +5915,18 @@
     "state": "Hawaii",
     "status": "ok"
   },
+  "hilton hotel, cairo, egypt": {
+    "city": "Cairo",
+    "country": "Egypt",
+    "display_name": "Hilton Cairo Grand Nile, Abd Al Aziz Al Seoud Bridge, West Al Manial, Al Manyal, Cairo, 11519, Egypt",
+    "latitude": "30.0341835",
+    "longitude": "31.2268236",
+    "query": "Hilton Hotel, Cairo, Egypt",
+    "source": "nominatim",
+    "state": "Cairo",
+    "status": "ok",
+    "sublocation": "Abd Al Aziz Al Seoud Bridge"
+  },
   "hilton hotel, egypt": {
     "city": "Cairo",
     "country": "Egypt",
@@ -5725,6 +5937,18 @@
     "source": "nominatim",
     "state": "Cairo",
     "status": "ok"
+  },
+  "hofburg palace, austria": {
+    "city": "Vienna",
+    "country": "Austria",
+    "display_name": "Hofburg Palace, In der Burg, Widmerviertel, Innere Stadt, Vienna, 1010, Austria",
+    "latitude": "48.2063293",
+    "longitude": "16.3656259",
+    "query": "Hofburg Palace, Austria",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "In der Burg"
   },
   "hofburg, austria": {
     "city": "Vienna",
@@ -5963,6 +6187,14 @@
     "query": "Hotel Inter-Continental, Belgrade, Belgrade, Serbia",
     "status": "miss"
   },
+  "hotel inter-continental, belgrade, serbia": {
+    "query": "Hotel Inter-Continental, Belgrade, Serbia",
+    "status": "miss"
+  },
+  "hotel intercontinental zagreb, zagreb, croatia": {
+    "query": "Hotel Intercontinental Zagreb, Zagreb, Croatia",
+    "status": "miss"
+  },
   "hotel metropol, belgrade, serbia": {
     "city": "Vracar Urban Municipality",
     "country": "Serbia",
@@ -6095,6 +6327,18 @@
   "hungarian parliament building, buda castle hill, budapest, hungary": {
     "query": "Hungarian Parliament Building, Buda Castle Hill, Budapest, Hungary",
     "status": "miss"
+  },
+  "hungary": {
+    "city": "",
+    "country": "Hungary",
+    "display_name": "Hungary",
+    "latitude": "47.1817585",
+    "longitude": "19.5060937",
+    "query": "Hungary",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
   },
   "hyatt regency casablanca, morocco": {
     "city": "Casablanca",
@@ -6606,6 +6850,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "karnak, egypt": {
+    "city": "New Karnak",
+    "country": "Egypt",
+    "display_name": "Karnak, Hilton Street, 0013, Nagaa Al Tahtany, New Karnak, Tiba, Luxor, 85954, Egypt",
+    "latitude": "25.7294271",
+    "longitude": "32.6594500",
+    "query": "Karnak, Egypt",
+    "source": "nominatim",
+    "state": "Luxor",
+    "status": "ok",
+    "sublocation": "Hilton Street"
+  },
   "karnaten, austria": {
     "query": "Karnaten, Austria",
     "status": "miss"
@@ -6909,6 +7165,10 @@
     "query": "Key Gardens, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "king arthur's round table, winchester, united kingdom": {
+    "query": "King Arthur's Round Table, Winchester, United Kingdom",
+    "status": "miss"
   },
   "king's college chapel": {
     "display_name": "King's College Chapel, King's Parade, Newnham, Cambridge, Cambridgeshire, Cambridgeshire and Peterborough, England, CB2 1ST, United Kingdom",
@@ -7322,6 +7582,18 @@
     "state": "Salzburg",
     "status": "ok"
   },
+  "leopoldskron castle, salzburg, austria": {
+    "city": "Salzburg",
+    "country": "Austria",
+    "display_name": "Leopoldskron Castle, Salzburg, Austria, Salzburg, Austria",
+    "latitude": "47.7883513",
+    "longitude": "13.0386828",
+    "query": "Leopoldskron Castle, Salzburg, Austria",
+    "source": "nominatim",
+    "state": "Salzburg",
+    "status": "ok",
+    "sublocation": "58 Leopoldskronstraße"
+  },
   "leslie's home & school in indianapolis": {
     "query": "Leslie's home & school in Indianapolis",
     "status": "miss"
@@ -7673,6 +7945,10 @@
     "query": "London Suburbs, London, England",
     "status": "miss"
   },
+  "london suburbs, london, united kingdom": {
+    "query": "London Suburbs, London, United Kingdom",
+    "status": "miss"
+  },
   "london, england": {
     "display_name": "Greater London, England, United Kingdom",
     "latitude": "51.5074456",
@@ -7755,6 +8031,14 @@
   },
   "longleat house, warminster": {
     "query": "Longleat House, Warminster",
+    "status": "miss"
+  },
+  "longleat house, warminster, england": {
+    "query": "Longleat House, Warminster, England",
+    "status": "miss"
+  },
+  "longleat house, warminster, united kingdom": {
+    "query": "Longleat House, Warminster, United Kingdom",
     "status": "miss"
   },
   "longleat house, warminster, wiltshire, england": {
@@ -8217,6 +8501,10 @@
     "query": "Maritime Museum & Queens House - Greenwich, Greenwich, England, United Kingdom",
     "status": "miss"
   },
+  "maritime museum & queens house, greenwich, united kingdom": {
+    "query": "Maritime Museum & Queens House, Greenwich, United Kingdom",
+    "status": "miss"
+  },
   "maritime museum greenwich": {
     "display_name": "National Maritime Museum, Romney Road, Greenwich Town Centre, East Greenwich, Royal Borough of Greenwich, Greater London, England, SE10 9NF, United Kingdom",
     "latitude": "51.4807759",
@@ -8224,6 +8512,18 @@
     "query": "Maritime Museum Greenwich",
     "source": "nominatim",
     "status": "ok"
+  },
+  "maritime museum greenwich, greenwich, united kingdom": {
+    "city": "Greater London",
+    "country": "United Kingdom",
+    "display_name": "National Maritime Museum, Romney Road, Greenwich Town Centre, East Greenwich, Royal Borough of Greenwich, Greater London, England, SE10 9NF, United Kingdom",
+    "latitude": "51.4807759",
+    "longitude": "-0.0051225",
+    "query": "Maritime Museum Greenwich, Greenwich, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Romney Road"
   },
   "maritime museum greenwich, london, england": {
     "display_name": "National Maritime Museum, Romney Road, Greenwich Town Centre, East Greenwich, Royal Borough of Greenwich, Greater London, England, SE10 9NF, United Kingdom",
@@ -8240,6 +8540,18 @@
     "query": "Maritime Museum Greenwich, London, United Kingdom",
     "source": "nominatim",
     "status": "ok"
+  },
+  "maritime museum, greenwich, england": {
+    "city": "Greater London",
+    "country": "United Kingdom",
+    "display_name": "National Maritime Museum, Romney Road, Greenwich Town Centre, East Greenwich, Royal Borough of Greenwich, Greater London, England, SE10 9NF, United Kingdom",
+    "latitude": "51.4807759",
+    "longitude": "-0.0051225",
+    "query": "Maritime Museum, Greenwich, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Romney Road"
   },
   "maritime museum, greenwich, london, united kingdom": {
     "display_name": "National Maritime Museum, Romney Road, Greenwich Town Centre, East Greenwich, Royal Borough of Greenwich, Greater London, England, SE10 9NF, United Kingdom",
@@ -8403,6 +8715,18 @@
     "state": "England",
     "status": "ok"
   },
+  "mayflower memorial, southampton, united kingdom": {
+    "city": "Southampton",
+    "country": "United Kingdom",
+    "display_name": "Pilgrim Fathers Memorial, Cuckoo Lane, Old Town, St Mary's, Southampton, England, SO14 2AS, United Kingdom",
+    "latitude": "50.8979377",
+    "longitude": "-1.4069218",
+    "query": "Mayflower Memorial, Southampton, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Cuckoo Lane"
+  },
   "mctaggart, saskatchewan, canada": {
     "city": "McTaggart",
     "country": "Canada",
@@ -8420,6 +8744,10 @@
   },
   "medina of fes, morocco": {
     "query": "Medina of Fes, Morocco",
+    "status": "miss"
+  },
+  "medina of fes, morocco, fes": {
+    "query": "Medina of Fes, Morocco, Fes",
     "status": "miss"
   },
   "medina, fes, morocco": {
@@ -8472,6 +8800,18 @@
     "state": "Tangier-Tetouan-Al Hoceima",
     "status": "ok"
   },
+  "meridien hotel, cairo, egypt": {
+    "city": "Cairo",
+    "country": "Egypt",
+    "display_name": "Meridien Hotel, Cairo, Egypt, Cairo, Egypt",
+    "latitude": "30.1137185",
+    "longitude": "31.3953464",
+    "query": "Meridien Hotel, Cairo, Egypt",
+    "source": "nominatim",
+    "state": "Cairo",
+    "status": "ok",
+    "sublocation": "Arrival"
+  },
   "meridien hotel, egypt": {
     "city": "Cairo",
     "country": "Egypt",
@@ -8509,6 +8849,10 @@
     "query": "Mimara Art Museum, Croatia",
     "status": "miss"
   },
+  "mimara art museum, zagreb, croatia": {
+    "query": "Mimara Art Museum, Zagreb, Croatia",
+    "status": "miss"
+  },
   "minneapolis, minnesota": {
     "city": "Minneapolis",
     "country": "United States",
@@ -8519,6 +8863,10 @@
     "source": "nominatim",
     "state": "Minnesota",
     "status": "ok"
+  },
+  "mirabell gardens (schloss mirabell), salzburg, austria": {
+    "query": "Mirabell Gardens (Schloss Mirabell), Salzburg, Austria",
+    "status": "miss"
   },
   "mirabell gardens, salzburg, austria": {
     "query": "Mirabell Gardens, Salzburg, Austria",
@@ -8686,6 +9034,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "morocco 1988": {
+    "city": "Billings",
+    "country": "United States",
+    "display_name": "1988, Morocco Drive, Billings, Yellowstone County, Montana, 59105, United States",
+    "latitude": "45.8345035",
+    "longitude": "-108.5080629",
+    "query": "Morocco 1988",
+    "source": "nominatim",
+    "state": "Montana",
+    "status": "ok",
+    "sublocation": "1988 Morocco Drive"
+  },
   "mosque of soliman the magnificent, istanbul, turkey": {
     "query": "Mosque of Soliman the Magnificent, Istanbul, Turkey",
     "status": "miss"
@@ -8697,6 +9057,22 @@
   "mosque of the bey & bell tower, sarajevo, bosnia and herzegovina": {
     "query": "Mosque of the Bey & Bell Tower, Sarajevo, Bosnia and Herzegovina",
     "status": "miss"
+  },
+  "mosque of the bey & bell tower, sarajevo, yugoslavia": {
+    "query": "Mosque of the Bey & Bell Tower, Sarajevo, Yugoslavia",
+    "status": "miss"
+  },
+  "mostar bridge, mostar, bosnia and herzegovina": {
+    "city": "Mostar",
+    "country": "Bosnia and Herzegovina",
+    "display_name": "Mostar Bridge, Mostar, Bosnia and Herzegovina, Mostar, Federation of Bosnia and Herzegovina, Bosnia and Herzegovina",
+    "latitude": "43.3372636",
+    "longitude": "17.8150367",
+    "query": "Mostar Bridge, Mostar, Bosnia and Herzegovina",
+    "source": "nominatim",
+    "state": "Federation of Bosnia and Herzegovina",
+    "status": "ok",
+    "sublocation": "Oneščukova"
   },
   "mostar bridge, mostar, herzegovina-neretva canton, bosnia and herzegovina": {
     "city": "Mostar",
@@ -8856,6 +9232,22 @@
   "national theatre of prague, prague, czech republic": {
     "query": "National Theatre of Prague, Prague, Czech Republic",
     "status": "miss"
+  },
+  "national theatre of prague, prague, czechia": {
+    "query": "National Theatre of Prague, Prague, Czechia",
+    "status": "miss"
+  },
+  "new cataract hotel, aswan, egypt": {
+    "city": "Taqouk Mountain",
+    "country": "Egypt",
+    "display_name": "New Cataract Hotel, Mahata Al Meyah Road, Taqouk Mountain, Aswan, 81529, Egypt",
+    "latitude": "24.0816463",
+    "longitude": "32.8869257",
+    "query": "New Cataract Hotel, Aswan, Egypt",
+    "source": "nominatim",
+    "state": "Aswan",
+    "status": "ok",
+    "sublocation": "Mahata Al Meyah Road"
   },
   "new court, st john's college, cambridge, england, united kingdom": {
     "query": "New Court, St John's College, Cambridge, England, United Kingdom",
@@ -9070,6 +9462,14 @@
     "query": "Nile from the Tower of Cairo, Meridien Hotel, Nation Square - Cairo, Egypt, Dec. 1975",
     "status": "miss"
   },
+  "nile river, aswan, egypt": {
+    "query": "Nile River, Aswan, Egypt",
+    "status": "miss"
+  },
+  "nile river, cairo, egypt": {
+    "query": "Nile River, Cairo, Egypt",
+    "status": "miss"
+  },
   "nile river, egypt": {
     "city": "",
     "country": "Egypt",
@@ -9145,6 +9545,18 @@
   "okhang temple and potala palace, lasa, tibet, china": {
     "query": "Okhang Temple and Potala Palace, Lasa, Tibet, China",
     "status": "miss"
+  },
+  "old cataract hotel, aswan, egypt": {
+    "city": "Taqouk Mountain",
+    "country": "Egypt",
+    "display_name": "Sofitel Legend Old Cataract Aswan Hotel, 81511, Al Fanadq Street, Taqouk Mountain, Aswan, 81529, Egypt",
+    "latitude": "24.0823108",
+    "longitude": "32.8877916",
+    "query": "Old Cataract Hotel, Aswan, Egypt",
+    "source": "nominatim",
+    "state": "Aswan",
+    "status": "ok",
+    "sublocation": "81511 Al Fanadq Street"
   },
   "old cataract hotel, egypt": {
     "city": "Taqouk Mountain",
@@ -9292,8 +9704,16 @@
     "query": "Osborne House and Gardens",
     "status": "miss"
   },
+  "osborne house and gardens, united kingdom": {
+    "query": "Osborne House and Gardens, United Kingdom",
+    "status": "miss"
+  },
   "our hotel at abu simbel, egypt": {
     "query": "Our Hotel at Abu Simbel, Egypt",
+    "status": "miss"
+  },
+  "our hotel in belgrade, yugoslavia, belgrade": {
+    "query": "Our Hotel in Belgrade, Yugoslavia, Belgrade",
     "status": "miss"
   },
   "our hotel in xian": {
@@ -9574,6 +9994,18 @@
     "query": "Park Road, Beckenham, London, England; Abbey Woods, East of London, England",
     "status": "miss"
   },
+  "park road, beckenham, united kingdom": {
+    "city": "Greater London",
+    "country": "United Kingdom",
+    "display_name": "Park Road, Beckenham, London Borough of Bromley, Greater London, England, BR3 1SE, United Kingdom",
+    "latitude": "51.4132314",
+    "longitude": "-0.0242647",
+    "query": "Park Road, Beckenham, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Park Road"
+  },
   "parliament buildings": {
     "city": "Belfast",
     "country": "United Kingdom",
@@ -9584,6 +10016,10 @@
     "source": "nominatim",
     "state": "Northern Ireland",
     "status": "ok"
+  },
+  "parliament buildings (houses of parliament), london, united kingdom": {
+    "query": "Parliament Buildings (Houses of Parliament), London, United Kingdom",
+    "status": "miss"
   },
   "parliament buildings london": {
     "query": "Parliament Buildings London",
@@ -10245,6 +10681,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "prague castle (hradčany), prague, czech republic": {
+    "city": "Prague",
+    "country": "Czechia",
+    "display_name": "Prague Castle (Hradcany), Prague, Czech Republic, Prague, Czechia",
+    "latitude": "50.0908114",
+    "longitude": "14.4005225",
+    "query": "Prague Castle (Hradčany), Prague, Czech Republic",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Ke Hradu"
+  },
   "prague castle and charles bridge, prague, czech republic": {
     "query": "Prague Castle and Charles Bridge, Prague, Czech Republic",
     "status": "miss"
@@ -10274,6 +10722,18 @@
     "source": "nominatim",
     "state": "",
     "status": "ok"
+  },
+  "prague castle, prague, czechia": {
+    "city": "Prague",
+    "country": "Czechia",
+    "display_name": "Prague Castle, Prague, Czechia, Prague, Czechia",
+    "latitude": "50.0908114",
+    "longitude": "14.4005225",
+    "query": "Prague Castle, Prague, Czechia",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "U Zlaté studně"
   },
   "prague czechoslovakia": {
     "display_name": "Former State Bank of Czechoslovakia, Staré zámecké schody, Malá Strana, obvod Praha 1, Praha, 118 01, Česko",
@@ -10389,6 +10849,18 @@
     "query": "Provdiv, Bulgaria",
     "status": "miss"
   },
+  "puerta de alcalá, madrid, spain": {
+    "city": "Madrid",
+    "country": "Spain",
+    "display_name": "Puerta de Alcala, Plaza de la Independencia, Recoletos, Salamanca, Madrid, Community of Madrid, 28001, Spain",
+    "latitude": "40.4199835",
+    "longitude": "-3.6887262",
+    "query": "Puerta de Alcalá, Madrid, Spain",
+    "source": "nominatim",
+    "state": "Community of Madrid",
+    "status": "ok",
+    "sublocation": "Plaza de la Independencia"
+  },
   "puerta de españa, madrid, spain": {
     "city": "Madrid",
     "country": "Spain",
@@ -10425,6 +10897,18 @@
   "puzhou district, gansu, china": {
     "query": "Puzhou District, Gansu, China",
     "status": "miss"
+  },
+  "pyramids of giza, giza, egypt": {
+    "city": "Ash Sheikh Zayed",
+    "country": "Egypt",
+    "display_name": "Pyramids Walk Compound, Ash Sheikh Zayed, Giza, Egypt",
+    "latitude": "30.0030322",
+    "longitude": "31.0160397",
+    "query": "Pyramids of Giza, Giza, Egypt",
+    "source": "nominatim",
+    "state": "Giza",
+    "status": "ok",
+    "sublocation": ""
   },
   "qin ling mountains": {
     "city": "",
@@ -10542,6 +11026,10 @@
     "state": "",
     "status": "ok"
   },
+  "red funnel seafight hydrofoil service, southampton, united kingdom": {
+    "query": "Red Funnel Seafight Hydrofoil Service, Southampton, United Kingdom",
+    "status": "miss"
+  },
   "red funnel seaflight hydrofoil service, southampton, southampton, england, united kingdom": {
     "query": "Red Funnel Seaflight Hydrofoil Service, Southampton, Southampton, England, United Kingdom",
     "status": "miss"
@@ -10573,6 +11061,18 @@
   "regent street, london, england; zagreb, yugoslavia": {
     "query": "Regent Street, London, England; Zagreb, Yugoslavia",
     "status": "miss"
+  },
+  "regent street, london, united kingdom": {
+    "city": "City of Westminster",
+    "country": "United Kingdom",
+    "display_name": "Regent Street, St. James's, East Marylebone, Mayfair, City of Westminster, Greater London, England, W1B 4HS, United Kingdom",
+    "latitude": "51.5107168",
+    "longitude": "-0.1385965",
+    "query": "Regent Street, London, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Regent Street"
   },
   "regent street, united kingdom": {
     "city": "City of Westminster",
@@ -10683,6 +11183,18 @@
   "river severn, worcester, worcestershire, united kingdom": {
     "query": "River Severn, Worcester, Worcestershire, United Kingdom",
     "status": "miss"
+  },
+  "river thames, london, england": {
+    "city": "City of Westminster",
+    "country": "United Kingdom",
+    "display_name": "George III and the River Thames, The Edmond J. Safra Fountain Court, St Clement Danes, Covent Garden, City of Westminster, Greater London, England, WC2R 1LT, United Kingdom",
+    "latitude": "51.5113794",
+    "longitude": "-0.1173806",
+    "query": "River Thames, London, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "The Edmond J. Safra Fountain Court"
   },
   "river thames, london, england, united kingdom": {
     "city": "City of Westminster",
@@ -10897,6 +11409,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "round table, england": {
+    "city": "Bampton",
+    "country": "United Kingdom",
+    "display_name": "Round Table, Bampton, Westmorland and Furness, England, CA10 2RB, United Kingdom",
+    "latitude": "54.5454886",
+    "longitude": "-2.7847095",
+    "query": "Round Table, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "royal palace, madrid, spain": {
     "display_name": "Palacio Real, Plaza de la Armería, Barrio de la Latina, Palacio, Centro, Madrid, Comunidad de Madrid, 28013, España",
     "latitude": "40.4178245",
@@ -10934,6 +11458,18 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "royal pier, southampton, united kingdom": {
+    "city": "Southampton",
+    "country": "United Kingdom",
+    "display_name": "Royal Pier, Town Quay, Old Town, St Mary's, Southampton, England, SO14 2AQ, United Kingdom",
+    "latitude": "50.8954969",
+    "longitude": "-1.4081953",
+    "query": "Royal Pier, Southampton, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Town Quay"
   },
   "royal state apartments, london, england": {
     "query": "Royal State Apartments, London, England",
@@ -11021,6 +11557,18 @@
     "state": "England",
     "status": "ok"
   },
+  "salisbury cathedral, salisbury, united kingdom": {
+    "city": "Salisbury",
+    "country": "United Kingdom",
+    "display_name": "Salisbury Cathedral, Bishop's Walk, The Close, Salisbury, Wiltshire, England, SP1 2ED, United Kingdom",
+    "latitude": "51.0649546",
+    "longitude": "-1.7972913",
+    "query": "Salisbury Cathedral, Salisbury, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Bishop's Walk"
+  },
   "salisbury cathedral, salisbury, wiltshire, england": {
     "display_name": "Salisbury Cathedral, Bishop's Walk, The Close, Salisbury, Wiltshire, England, SP1 2ED, United Kingdom",
     "latitude": "51.0649546",
@@ -11078,6 +11626,18 @@
     "state": "England",
     "status": "ok"
   },
+  "salisbury mall, salisbury, united kingdom": {
+    "city": "Salisbury",
+    "country": "United Kingdom",
+    "display_name": "Southons of Salisbury, Old George Mall, The Friary, Salisbury, Wiltshire, England, SP1 2DD, United Kingdom",
+    "latitude": "51.0676304",
+    "longitude": "-1.7940766",
+    "query": "Salisbury Mall, Salisbury, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Old George Mall"
+  },
   "salisbury mall, salisbury, wiltshire, england": {
     "display_name": "Southons of Salisbury, Old George Mall, The Friary, Salisbury, Wiltshire, England, SP1 2DD, United Kingdom",
     "latitude": "51.0676304",
@@ -11115,6 +11675,18 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "salisbury playhouse, salisbury, united kingdom": {
+    "city": "Salisbury",
+    "country": "United Kingdom",
+    "display_name": "Salisbury Playhouse, Malthouse Lane, The Close, Salisbury, Wiltshire, England, SP2 7RA, United Kingdom",
+    "latitude": "51.0703484",
+    "longitude": "-1.7999023",
+    "query": "Salisbury Playhouse, Salisbury, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Malthouse Lane"
   },
   "salisbury, england": {
     "display_name": "Salisbury, Wiltshire, England, United Kingdom",
@@ -11161,6 +11733,10 @@
     "source": "nominatim",
     "state": "Utah",
     "status": "ok"
+  },
+  "salzburg castle (hohensalzburg fortress), salzburg, austria": {
+    "query": "Salzburg Castle (Hohensalzburg Fortress), Salzburg, Austria",
+    "status": "miss"
   },
   "salzburg castle, salzburg, austria": {
     "query": "Salzburg Castle, Salzburg, Austria",
@@ -11499,6 +12075,10 @@
   },
   "sarajevo, yugoslavia (1988), sarajevo, bosnia and herzegovina": {
     "query": "Sarajevo, Yugoslavia (1988), Sarajevo, Bosnia and Herzegovina",
+    "status": "miss"
+  },
+  "sarajevo, yugoslavia (now bosnia and herzegovina), bosnia and herzegovina": {
+    "query": "Sarajevo, Yugoslavia (now Bosnia and Herzegovina), Bosnia and Herzegovina",
     "status": "miss"
   },
   "sarajevo, yugoslavia, august 1988; mostar, yugoslavia, august 1988": {
@@ -11897,6 +12477,10 @@
     "query": "Southampton Pier, Southampton, England, United Kingdom",
     "status": "miss"
   },
+  "southampton pier, southampton, united kingdom": {
+    "query": "Southampton Pier, Southampton, United Kingdom",
+    "status": "miss"
+  },
   "southampton, england": {
     "display_name": "Southampton, England, United Kingdom",
     "latitude": "50.9025349",
@@ -12154,6 +12738,18 @@
     "query": "St. Alexander Nevsky Patriarchal Cathedral, Bulgaria",
     "status": "miss"
   },
+  "st. cross, winchester, england": {
+    "city": "Winchester",
+    "country": "United Kingdom",
+    "display_name": "St Cross, Winchester, Hampshire, England, SO23 9RE, United Kingdom",
+    "latitude": "51.0492378",
+    "longitude": "-1.3227008",
+    "query": "St. Cross, Winchester, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "st. george's hall, lime street liverpool": {
     "query": "St. George's Hall, Lime Street Liverpool",
     "status": "miss"
@@ -12212,6 +12808,18 @@
     "query": "St. Ives, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "st. ives, united kingdom": {
+    "city": "St. Ives",
+    "country": "United Kingdom",
+    "display_name": "St. Ives, Cornwall, England, United Kingdom",
+    "latitude": "50.2149064",
+    "longitude": "-5.4795083",
+    "query": "St. Ives, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "st. matthias church, hungary": {
     "city": "Budapest",
@@ -12476,6 +13084,10 @@
     "query": "Statue of Ramases the Second at Memphis, Egypt; The Alabaster Sphinx - Memphis, Egypt",
     "status": "miss"
   },
+  "statue of ramesses the second, memphis, egypt": {
+    "query": "Statue of Ramesses the Second, Memphis, Egypt",
+    "status": "miss"
+  },
   "statue of st. stephen, hungary": {
     "query": "Statue of St. Stephen, Hungary",
     "status": "miss"
@@ -12490,6 +13102,10 @@
   },
   "statue of stephen i, budapest, hungary": {
     "query": "Statue of Stephen I, Budapest, Hungary",
+    "status": "miss"
+  },
+  "step pyramid of king zoser, egypt": {
+    "query": "Step Pyramid of King Zoser, Egypt",
     "status": "miss"
   },
   "stephens cathedral": {
@@ -12619,6 +13235,18 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "stonehenge, united kingdom": {
+    "city": "West Amesbury",
+    "country": "United Kingdom",
+    "display_name": "Stonehenge, A303, Amesbury, West Amesbury, Wiltshire, England, SP4 7DE, United Kingdom",
+    "latitude": "51.1788293",
+    "longitude": "-1.8261830",
+    "query": "Stonehenge, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "A303"
   },
   "stonehenge, wiltshire, england, united kingdom": {
     "city": "West Amesbury",
@@ -13054,6 +13682,30 @@
     "state": "Attica",
     "status": "ok"
   },
+  "the alabaster sphinx, egypt": {
+    "city": "Mit Rahinah",
+    "country": "Egypt",
+    "display_name": "Alabaster sphinx, Saqara Village, Al Badrashin City Road, Mit Rahinah, Giza, 12921, Egypt",
+    "latitude": "29.8495549",
+    "longitude": "31.2548784",
+    "query": "The Alabaster Sphinx, Egypt",
+    "source": "nominatim",
+    "state": "Giza",
+    "status": "ok",
+    "sublocation": "Al Badrashin City Road"
+  },
+  "the alabaster sphinx, memphis, egypt": {
+    "city": "Mit Rahinah",
+    "country": "Egypt",
+    "display_name": "Alabaster sphinx, Saqara Village, Al Badrashin City Road, Mit Rahinah, Giza, 12921, Egypt",
+    "latitude": "29.8495549",
+    "longitude": "31.2548784",
+    "query": "The Alabaster Sphinx, Memphis, Egypt",
+    "source": "nominatim",
+    "state": "Giza",
+    "status": "ok",
+    "sublocation": "Al Badrashin City Road"
+  },
   "the alamo, san antonio, texas, united states": {
     "city": "San Antonio",
     "country": "United States",
@@ -13102,6 +13754,10 @@
   },
   "the beach and cliffs, dover, dover, england, united kingdom": {
     "query": "The Beach and Cliffs, Dover, Dover, England, United Kingdom",
+    "status": "miss"
+  },
+  "the beach and cliffs, dover, united kingdom": {
+    "query": "The Beach and Cliffs, Dover, United Kingdom",
     "status": "miss"
   },
   "the beautiful gardens at epcot": {
@@ -13168,6 +13824,18 @@
     "source": "nominatim",
     "state": "Wales",
     "status": "ok"
+  },
+  "the city cross - winchester, united kingdom": {
+    "city": "Winchester",
+    "country": "United Kingdom",
+    "display_name": "City Mill, Bridge Street, The Soke, Winchester, Hampshire, England, SO23 9BH, United Kingdom",
+    "latitude": "51.0611378",
+    "longitude": "-1.3077172",
+    "query": "The City Cross - Winchester, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Bridge Street"
   },
   "the city cross - winchester, winchester, england, united kingdom": {
     "query": "The City Cross - Winchester, Winchester, England, United Kingdom",
@@ -13245,6 +13913,10 @@
   },
   "the great hall of winchester cathedral": {
     "query": "The Great Hall of Winchester Cathedral",
+    "status": "miss"
+  },
+  "the great hall of winchester cathedral, winchester, england, united kingdom": {
+    "query": "The Great Hall of Winchester Cathedral, Winchester, England, United Kingdom",
     "status": "miss"
   },
   "the great hall of winchester cathedral, winchester, hampshire, england": {
@@ -13370,6 +14042,18 @@
     "query": "The Hospital of St. Cross, Winchester, Hampshire, England",
     "status": "miss"
   },
+  "the hospital of st. cross, winchester, united kingdom": {
+    "city": "Winchester",
+    "country": "United Kingdom",
+    "display_name": "Hospital of Saint Cross, Back Street, St Cross, Winchester, Hampshire, England, SO23 9SB, United Kingdom",
+    "latitude": "51.0470405",
+    "longitude": "-1.3219816",
+    "query": "The Hospital of St. Cross, Winchester, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Back Street"
+  },
   "the karnak temple, luxor, egypt": {
     "display_name": "socle of the northern obelisk of Seti II, Karnak Temple Square, الكرنك القديم, الأقصر, 81693, مصر",
     "latitude": "25.7194633",
@@ -13377,6 +14061,18 @@
     "query": "The Karnak Temple, Luxor, Egypt",
     "source": "nominatim",
     "status": "ok"
+  },
+  "the king and queen, hampshire, england": {
+    "city": "Hart",
+    "country": "United Kingdom",
+    "display_name": "King Edward III and Queen Philippa Hainault, Basingstoke Canal Towpath, Odiham, North Warnborough, Hart, Hampshire, England, RG29 1HQ, United Kingdom",
+    "latitude": "51.2613856",
+    "longitude": "-0.9616547",
+    "query": "The King and Queen, Hampshire, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Basingstoke Canal Towpath"
   },
   "the law courts, cardiff, cardiff, wales, united kingdom": {
     "city": "Cardiff",
@@ -13495,6 +14191,22 @@
     "query": "The Nile River from Our Hotel, Cairo, Egypt - Dec. 1975",
     "status": "miss"
   },
+  "the nile river, cairo, egypt": {
+    "query": "The Nile River, Cairo, Egypt",
+    "status": "miss"
+  },
+  "the old cataract hotel, aswan, egypt": {
+    "city": "Taqouk Mountain",
+    "country": "Egypt",
+    "display_name": "Sofitel Legend Old Cataract Aswan Hotel, 81511, Al Fanadq Street, Taqouk Mountain, Aswan, 81529, Egypt",
+    "latitude": "24.0823108",
+    "longitude": "32.8877916",
+    "query": "The Old Cataract Hotel, Aswan, Egypt",
+    "source": "nominatim",
+    "state": "Aswan",
+    "status": "ok",
+    "sublocation": "81511 Al Fanadq Street"
+  },
   "the old shakespeare theatre, stratford-upon-avon, england, united kingdom": {
     "query": "The Old Shakespeare Theatre, Stratford-upon-Avon, England, United Kingdom",
     "status": "miss"
@@ -13561,9 +14273,33 @@
     "state": "England",
     "status": "ok"
   },
+  "the pavilion, brighton, united kingdom": {
+    "city": "Brighton",
+    "country": "United Kingdom",
+    "display_name": "Pavilion, Stony Mere Way, Coldean, Brighton, Brighton and Hove, England, BN1 9PZ, United Kingdom",
+    "latitude": "50.8626551",
+    "longitude": "-0.0915944",
+    "query": "The Pavilion, Brighton, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Stony Mere Way"
+  },
   "the place-chapel street shakespeare's last home": {
     "query": "The Place-Chapel Street Shakespeare's Last Home",
     "status": "miss"
+  },
+  "the plaza mayor, salamanca, spain": {
+    "city": "Salamanca",
+    "country": "Spain",
+    "display_name": "The Plaza Mayor, Salamanca, Spain, Salamanca, Castile and Leon, Spain",
+    "latitude": "40.9650282",
+    "longitude": "-5.6640558",
+    "query": "The Plaza Mayor, Salamanca, Spain",
+    "source": "nominatim",
+    "state": "Castile and León",
+    "status": "ok",
+    "sublocation": "Calle Toro"
   },
   "the potala palace in lasa tibet": {
     "query": "The Potala Palace in Lasa Tibet",
@@ -13588,6 +14324,18 @@
   "the poultry cross - salisbury, salisbury, england, united kingdom": {
     "query": "The Poultry Cross - Salisbury, Salisbury, England, United Kingdom",
     "status": "miss"
+  },
+  "the poultry cross - salisbury, united kingdom": {
+    "city": "Salisbury",
+    "country": "United Kingdom",
+    "display_name": "Poultry Cross, Butcher Row, The Close, Salisbury, Wiltshire, England, SP1 1EU, United Kingdom",
+    "latitude": "51.0687377",
+    "longitude": "-1.7961363",
+    "query": "The Poultry Cross - Salisbury, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Butcher Row"
   },
   "the quay and priory, christchurch": {
     "query": "The Quay and Priory, Christchurch",
@@ -13626,6 +14374,18 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "the red lion hotel, salisbury, united kingdom": {
+    "city": "Salisbury",
+    "country": "United Kingdom",
+    "display_name": "The Red Lion Hotel, Milford Street, The Friary, Salisbury, Wiltshire, England, SP1 2AN, United Kingdom",
+    "latitude": "51.0683843",
+    "longitude": "-1.7930383",
+    "query": "The Red Lion Hotel, Salisbury, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Milford Street"
   },
   "the red lion hotel, united kingdom": {
     "city": "Salisbury",
@@ -13710,6 +14470,10 @@
   },
   "the scott monument, edinburgh; palace of holyroodhouse, edinburgh": {
     "query": "The Scott Monument, Edinburgh; Palace of Holyroodhouse, Edinburgh",
+    "status": "miss"
+  },
+  "the second at memphis, egypt, memphis": {
+    "query": "The Second at Memphis, Egypt, Memphis",
     "status": "miss"
   },
   "the shakespeare hotel, stratford-upon-avon, england, united kingdom": {
@@ -13978,8 +14742,20 @@
     "query": "Tomb of Emperor Qin Shi Huangdi, Xi'an, Shaanxi, China",
     "status": "miss"
   },
+  "tomb of hatshepsut, luxor, egypt": {
+    "query": "Tomb of Hatshepsut, Luxor, Egypt",
+    "status": "miss"
+  },
+  "tomb of ramesses ix, egypt": {
+    "query": "Tomb of Ramesses IX, Egypt",
+    "status": "miss"
+  },
   "tomb of ramesses vi": {
     "query": "Tomb of Ramesses VI",
+    "status": "miss"
+  },
+  "tomb of ramesses vi, egypt": {
+    "query": "Tomb of Ramesses VI, Egypt",
     "status": "miss"
   },
   "tomb of ramesses vi, luxor, egypt": {
@@ -13988,6 +14764,14 @@
   },
   "tomb of s.m. mohammed v, morocco": {
     "query": "Tomb of S.M. Mohammed V, Morocco",
+    "status": "miss"
+  },
+  "tomb of s.m. mohammed v, rabat, morocco": {
+    "query": "Tomb of S.M. Mohammed V, Rabat, Morocco",
+    "status": "miss"
+  },
+  "tomb of tutankhamun, egypt": {
+    "query": "Tomb of Tutankhamun, Egypt",
     "status": "miss"
   },
   "topkapi museum": {
@@ -14188,6 +14972,18 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "tower of cairo, cairo, egypt": {
+    "city": "New Administrative Capital",
+    "country": "Egypt",
+    "display_name": "Stop C3 bus to go to the Iconic Tower, Al Sheikh Mohamed Ibn Zaid Northern Axis, La Vista City, New Administrative Capital, Cairo, Egypt",
+    "latitude": "30.0189196",
+    "longitude": "31.6993231",
+    "query": "Tower of Cairo, Cairo, Egypt",
+    "source": "nominatim",
+    "state": "Cairo",
+    "status": "ok",
+    "sublocation": "Al Sheikh Mohamed Ibn Zaid Northern Axis"
   },
   "tower of cairo, egypt": {
     "city": "New Administrative Capital",
@@ -14417,6 +15213,18 @@
   "uncertain, china": {
     "query": "Uncertain, China",
     "status": "miss"
+  },
+  "united kingdom, england, london": {
+    "city": "Greater London",
+    "country": "United Kingdom",
+    "display_name": "Greater London, England, United Kingdom",
+    "latitude": "51.5074456",
+    "longitude": "-0.1277653",
+    "query": "United Kingdom, England, London",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "usa": {
     "city": "",
@@ -14943,6 +15751,18 @@
     "state": "",
     "status": "ok"
   },
+  "wenceslas square (václavské náměstí), prague, czechia": {
+    "city": "Prague",
+    "country": "Czechia",
+    "display_name": "Wenceslas Square (Vaclavske namesti), Prague, Czechia, Prague, Czechia",
+    "latitude": "50.0801481",
+    "longitude": "14.4285752",
+    "query": "Wenceslas Square (Václavské náměstí), Prague, Czechia",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Výtopna Railway Restaurant - Wenceslas Square"
+  },
   "west end of the great wall, jiyuguan city, gansu province, china": {
     "query": "West End of the Great Wall, Jiyuguan City, Gansu Province, China",
     "status": "miss"
@@ -14967,6 +15787,10 @@
     "query": "Westgate and Westgate Gardens, Canterbury, The Beach and Cliffs, Dover",
     "status": "miss"
   },
+  "westgate and westgate gardens, canterbury, united kingdom": {
+    "query": "Westgate and Westgate Gardens, Canterbury, United Kingdom",
+    "status": "miss"
+  },
   "westminster abbey, london, england, united kingdom": {
     "city": "City of Westminster",
     "country": "United Kingdom",
@@ -14977,6 +15801,18 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "westminster abbey, london, united kingdom": {
+    "city": "City of Westminster",
+    "country": "United Kingdom",
+    "display_name": "Westminster Abbey, 20, Dean's Yard, Westminster, Millbank, City of Westminster, Greater London, England, SW1P 3PA, United Kingdom",
+    "latitude": "51.4993990",
+    "longitude": "-0.1273910",
+    "query": "Westminster Abbey, London, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "20 Dean's Yard"
   },
   "westminster gate, london, united kingdom": {
     "city": "City of Westminster",
@@ -15021,6 +15857,18 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "white cliffs of dover, dover, united kingdom": {
+    "city": "Dover",
+    "country": "United Kingdom",
+    "display_name": "White Cliffs of Dover, The Front, St. Margaret's at Cliffe, Dover, Kent, England, CT15 6HR, United Kingdom",
+    "latitude": "51.1357917",
+    "longitude": "1.3619050",
+    "query": "White Cliffs of Dover, Dover, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "The Front"
   },
   "white cliffs of dover, england, united kingdom": {
     "display_name": "White Cliffs of Dover, St. Margaret's at Cliffe, Dover, Kent, England, United Kingdom",
@@ -15138,6 +15986,30 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "winchester cathedral, winchester, england": {
+    "city": "Winchester",
+    "country": "United Kingdom",
+    "display_name": "Winchester Cathedral, Cathedral Close, The Close, Winchester, Hampshire, England, SO23 9LS, United Kingdom",
+    "latitude": "51.0607326",
+    "longitude": "-1.3132458",
+    "query": "Winchester Cathedral, Winchester, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Cathedral Close"
+  },
+  "winchester cathedral, winchester, england, united kingdom": {
+    "city": "Winchester",
+    "country": "United Kingdom",
+    "display_name": "Winchester Cathedral, Cathedral Close, The Close, Winchester, Hampshire, England, SO23 9LS, United Kingdom",
+    "latitude": "51.0607326",
+    "longitude": "-1.3132458",
+    "query": "Winchester Cathedral, Winchester, England, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Cathedral Close"
+  },
   "winchester cathedral, winchester, hampshire, england": {
     "display_name": "Winchester Cathedral, Cathedral Close, The Close, Winchester, Hampshire, England, SO23 9LS, United Kingdom",
     "latitude": "51.0607326",
@@ -15169,6 +16041,18 @@
     "state": "England",
     "status": "ok"
   },
+  "winchester hall, winchester, united kingdom": {
+    "city": "Winchester",
+    "country": "United Kingdom",
+    "display_name": "Hartley House Montessori Ltd, Saint John's Street, The Soke, Winchester, Hampshire, England, SO23 0HF, United Kingdom",
+    "latitude": "51.0623761",
+    "longitude": "-1.3059438",
+    "query": "Winchester Hall, Winchester, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Saint John's Street"
+  },
   "winchester, england": {
     "display_name": "Winchester, Hampshire, England, United Kingdom",
     "latitude": "51.0612766",
@@ -15192,6 +16076,18 @@
   "windmills on highway 5 just south of san francisco": {
     "query": "Windmills on Highway 5 just south of San Francisco",
     "status": "miss"
+  },
+  "windsor castle, england": {
+    "city": "Windsor",
+    "country": "United Kingdom",
+    "display_name": "Windsor Castle, Castle Hill, Clewer Within, Clewer New Town, Clewer Village, Windsor, Royal Borough of Windsor and Maidenhead, England, SL4 1PE, United Kingdom",
+    "latitude": "51.4837886",
+    "longitude": "-0.6040419",
+    "query": "Windsor Castle, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Castle Hill"
   },
   "winnipeg to vancouver, canada": {
     "query": "Winnipeg to Vancouver, Canada",
