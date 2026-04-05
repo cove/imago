@@ -61,7 +61,6 @@ All album files follow the pattern `{Collection}_{Year}_B{book}_P{page}_{type}.{
 - Every `_V` file derives from one or more `_S##.tif` archive scans.
 - XMP sidecars share the same stem as their companion image (`.xmp` extension).
 - `dc:source` always names the archive TIF scan files, never the view page filename.
-- Legacy suffixes `_VC`, `_VR`, `_stitched` are still recognised but not produced.
 
 ---
 
