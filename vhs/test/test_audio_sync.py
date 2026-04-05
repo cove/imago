@@ -21,6 +21,7 @@ from common import (
     save_render_settings,
     update_chapter_audio_sync_in_render_settings,
 )
+from vhs_pipeline import render_pipeline
 
 ROOT = Path(__file__).resolve().parents[1]
 _DUMMY_PATH = Path("/dev/null/src.mkv")
@@ -363,3 +364,17 @@ def test_make_extract_large_negative_offset_full_silence() -> None:
     af = _get_af(cmd)
     assert "atrim=start=0.000000" in af
     assert "adelay=9000.0:all=1" in af
+
+
+def test_make_extract_audio_applies_audio_sync_offset() -> None:
+    cmd = render_pipeline.make_extract_audio(
+        _DUMMY_PATH,
+        _DUMMY_DEST,
+        start_sec=3.0,
+        end_sec=13.0,
+        audio_offset_seconds=-5.0,
+    )
+    af = _get_af(cmd)
+    assert "atrim=start=0.000000:end=8.000000" in af
+    assert "adelay=2000.0:all=1" in af
+    assert "apad=whole_dur=10.000000" in af

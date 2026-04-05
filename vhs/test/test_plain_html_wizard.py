@@ -1,4 +1,5 @@
 import csv
+import wave
 
 import pytest
 
@@ -345,6 +346,7 @@ def test_static_html_contains_live_iqr_spark_and_fullscreen_controls() -> None:
     assert "event.target.closest('.frame-card')" in html
     assert "window.open(target, '_blank', 'noopener')" in html
     assert 'id="subtitlesGenerate"' in html
+    assert 'id="subtitlesClear"' in html
     assert 'id="subtitlesEditor"' in html
     assert 'id="peopleMeta"' in html
     assert 'id="subtitlesMeta"' in html
@@ -383,6 +385,8 @@ def test_static_html_contains_live_iqr_spark_and_fullscreen_controls() -> None:
     assert "subtitle-timeline-input" in html
     assert "subtitle-timeline-delete" in html
     assert "editSubtitleTimelineEntry(" in html
+    assert "clearSubtitlesEntries()" in html
+    assert "subtitlesClearBtnEl.addEventListener('click', clearSubtitlesEntries)" in html
     assert "window.prompt('Edit subtitle text'" not in html
     assert "deleteSubtitleTimelineEntry(" in html
     assert "people-timeline-zoom-btn" in html
@@ -1030,6 +1034,124 @@ def test_preview_render_passes_current_audio_sync_offset_to_extract(
 
     assert captured["audio_offset_seconds"] == pytest.approx(0.75)
     assert handler.error == "stop here"
+
+
+def test_chapter_audio_cache_key_includes_audio_sync_offset() -> None:
+    handler = WizardHandler.__new__(WizardHandler)
+    session = _make_loaded_wizard_session("demo_archive", "Example Chapter", 100, 200)
+
+    session.audio_sync_offset = 0.0
+    key_before = WizardHandler._chapter_audio_cache_key(handler, session)
+
+    session.audio_sync_offset = 0.75
+    key_after = WizardHandler._chapter_audio_cache_key(handler, session)
+
+    assert key_before != key_after
+    assert key_after.endswith("+0.7500")
+
+
+def test_chapter_audio_extract_applies_current_audio_sync_offset(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_video = tmp_path / "archive.mkv"
+    source_video.write_bytes(b"video")
+    temp_root = tmp_path / "temp"
+    calls: list[list[str]] = []
+
+    def _fake_run(cmd, check, capture_output, text):
+        _ = (check, capture_output, text)
+        calls.append(list(cmd))
+        out_path = Path(cmd[-1])
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_bytes(b"RIFF" + (b"\x00" * 128))
+        return SimpleNamespace(returncode=0, stderr="", stdout="")
+
+    monkeypatch.setattr(wizard_server, "_resolve_archive_video", lambda _archive: source_video)
+    monkeypatch.setattr(wizard_server, "FFMPEG_BIN", "ffmpeg-test")
+    monkeypatch.setattr(wizard_server.tempfile, "gettempdir", lambda: str(temp_root))
+    monkeypatch.setattr(wizard_server.subprocess, "run", _fake_run)
+
+    session = _make_loaded_wizard_session("demo_archive", "Example Chapter", 1000, 1100)
+    session.audio_sync_offset = 0.75
+    handler = WizardHandler.__new__(WizardHandler)
+
+    audio_path, err = WizardHandler._ensure_chapter_audio_file(handler, session)
+
+    expected_start = wizard_server._frame_to_seconds(1000) + 0.75
+    expected_end = wizard_server._frame_to_seconds(1100) + 0.75
+
+    assert err == ""
+    assert audio_path is not None
+    assert audio_path.exists()
+    assert calls
+    cmd = calls[0]
+    af = cmd[cmd.index("-af") + 1]
+    assert f"atrim=start={expected_start:.6f}:end={expected_end:.6f}" in af
+    assert "apad=whole_dur=" in af
+    assert session.chapter_audio_key.endswith("+0.7500")
+
+
+def test_subtitles_generate_passes_current_audio_sync_offset_to_extract(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    archive_video = tmp_path / "demo_archive.mkv"
+    archive_video.write_bytes(b"video")
+    captured: dict[str, object] = {}
+
+    def _fake_extract_audio(source_video, audio_path, **kwargs):
+        captured["source_video"] = source_video
+        captured["audio_path"] = Path(audio_path)
+        captured["audio_offset_seconds"] = float(kwargs["audio_offset_seconds"])
+        return ["ffmpeg", "-version"]
+
+    def _fake_run(cmd, check=False, capture_output=True, text=True):
+        _ = (cmd, check, capture_output, text)
+        audio_path = Path(captured["audio_path"])
+        with wave.open(str(audio_path), "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(16000)
+            wf.writeframes(b"\x00\x00" * 16000)
+        return SimpleNamespace(returncode=0, stderr="", stdout="")
+
+    monkeypatch.setattr(wizard_server, "_resolve_archive_video", lambda archive: archive_video)
+    monkeypatch.setattr(wizard_server, "_load_whisper_model", lambda: object())
+    monkeypatch.setattr(wizard_server, "_load_whisper_transcribe_module", lambda: SimpleNamespace())
+    monkeypatch.setattr(wizard_server, "make_extract_audio", _fake_extract_audio)
+    monkeypatch.setattr(wizard_server.subprocess, "run", _fake_run)
+    monkeypatch.setattr(
+        wizard_server,
+        "whisper_transcribe",
+        lambda model, audio_path, prompt_text="": {"segments": [{"start": 0.0, "end": 1.0, "text": "Hello there"}]},
+    )
+    monkeypatch.setattr(
+        wizard_server,
+        "subtitle_entries_from_whisper_result",
+        lambda result: [
+            {
+                "start_seconds": 0.0,
+                "end_seconds": 1.0,
+                "text": "Hello there",
+                "speaker": "",
+                "confidence": None,
+                "source": "whisper",
+            }
+        ],
+    )
+
+    session = _make_loaded_wizard_session("demo_archive", "Example Chapter", 100, 200)
+    session.audio_sync_offset = 0.75
+    handler = _HandlerStub()
+
+    WizardHandler._handle_subtitles_generate(handler, session, {"mode": "replace"})
+
+    assert captured["source_video"] == archive_video
+    assert captured["audio_offset_seconds"] == pytest.approx(0.75)
+    assert handler.error is None
+    assert handler.payload["ok"] is True
+    assert handler.payload["generated_count"] == 1
 
 
 def test_handle_save_progress_persists_people_subtitles_and_split_profiles(

@@ -141,6 +141,7 @@ const peopleControlsEl = document.getElementById('peopleControls');
 const subtitlesControlsEl = document.getElementById('subtitlesControls');
 const peoplePrefillCastBtnEl = document.getElementById('peoplePrefillCast');
 const subtitlesGenerateBtnEl = document.getElementById('subtitlesGenerate');
+const subtitlesClearBtnEl = document.getElementById('subtitlesClear');
 const subtitlesAutoTranscriptEl = document.getElementById('subtitlesAutoTranscript');
 const peopleClearBtnEl = document.getElementById('peopleClear');
 const peopleMetaEl = document.getElementById('peopleMeta');
@@ -269,6 +270,7 @@ const lockExtraButtons = [
   gammaClearBtnEl,
   peoplePrefillCastBtnEl,
   subtitlesGenerateBtnEl,
+  subtitlesClearBtnEl,
   peopleClearBtnEl,
   saveProgressDraftBtnEl,
   forceAllFramesGoodEl,

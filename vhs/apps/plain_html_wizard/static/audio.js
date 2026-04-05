@@ -1,10 +1,12 @@
 function chapterAudioCacheKey() {
   const span = chapterFrameSpan();
+  const offset = Number(state.audioSyncOffset || 0);
   return [
     String(state.archive || '').trim(),
     String(state.chapter || '').trim(),
     String(span.start),
     String(span.end),
+    Number.isFinite(offset) ? offset.toFixed(4) : '0.0000',
   ].join('|');
 }
 

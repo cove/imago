@@ -2565,10 +2565,12 @@ class WizardHandler(BaseHTTPRequestHandler):
         )
 
     def _chapter_audio_cache_key(self, session: SessionState) -> str:
+        offset_sig = f"{float(session.audio_sync_offset or 0.0):+.4f}"
         return (
             f"{str(session.archive or '').strip()}|"
             f"{str(session.chapter or '').strip()}|"
-            f"{int(session.start_frame)}|{int(session.end_frame)}"
+            f"{int(session.start_frame)}|{int(session.end_frame)}|"
+            f"{offset_sig}"
         )
 
     def _ensure_chapter_audio_file(self, session: SessionState) -> tuple[Path | None, str]:
@@ -2614,18 +2616,41 @@ class WizardHandler(BaseHTTPRequestHandler):
             needs_extract = True
 
         if needs_extract:
+            offset = float(session.audio_sync_offset or 0.0)
             cmd = [
                 str(FFMPEG_BIN),
                 "-nostdin",
                 "-v",
                 "error",
-                "-ss",
-                f"{float(start_sec):.3f}",
-                "-to",
-                f"{float(end_sec):.3f}",
+            ]
+            if abs(offset) < 1e-6:
+                cmd += [
+                    "-ss",
+                    f"{float(start_sec):.3f}",
+                    "-to",
+                    f"{float(end_sec):.3f}",
+                ]
+            cmd += [
                 "-i",
                 str(source_video),
                 "-vn",
+            ]
+            if abs(offset) >= 1e-6:
+                chapter_dur = max(0.001, float(end_sec) - float(start_sec))
+                audio_start_raw = float(start_sec) + offset
+                audio_end_raw = float(end_sec) + offset
+                audio_start_clamped = max(0.0, audio_start_raw)
+                audio_end_clamped = max(audio_start_clamped + 0.001, audio_end_raw)
+                silence_prepend_sec = max(0.0, -audio_start_raw)
+                af_parts = [
+                    f"atrim=start={audio_start_clamped:.6f}:end={audio_end_clamped:.6f}",
+                    "asetpts=PTS-STARTPTS",
+                ]
+                if silence_prepend_sec > 1e-4:
+                    af_parts.append(f"adelay={silence_prepend_sec * 1000:.1f}:all=1")
+                af_parts.append(f"apad=whole_dur={chapter_dur:.6f}")
+                cmd += ["-af", ",".join(af_parts)]
+            cmd += [
                 "-ac",
                 "1",
                 "-ar",
@@ -4368,6 +4393,7 @@ class WizardHandler(BaseHTTPRequestHandler):
                     audio_path,
                     start_sec=start_sec,
                     end_sec=end_sec,
+                    audio_offset_seconds=session.audio_sync_offset,
                 )
                 proc = subprocess.run(
                     cmd,
