@@ -1430,26 +1430,62 @@ chapter_end_frame = {int(chapter_end_frame)}
 """
 
 
-def make_extract_audio(temp_extracted, temp_transcript, start_sec=None, end_sec=None):
+def make_extract_audio(
+    temp_extracted,
+    temp_transcript,
+    start_sec=None,
+    end_sec=None,
+    audio_offset_seconds=0.0,
+):
     cmd = [
         FFMPEG_BIN,
         "-nostdin",
         "-v",
         "error",
     ]
-    if start_sec is not None:
-        cmd += ["-ss", f"{float(start_sec):.3f}"]
-    if end_sec is not None:
-        cmd += ["-to", f"{float(end_sec):.3f}"]
+    audio_filters = []
+    offset = float(audio_offset_seconds or 0.0)
+    use_offset_filters = abs(offset) >= 1e-6
+    if not use_offset_filters:
+        if start_sec is not None:
+            cmd += ["-ss", f"{float(start_sec):.3f}"]
+        if end_sec is not None:
+            cmd += ["-to", f"{float(end_sec):.3f}"]
     cmd += [
         "-i",
         str(temp_extracted),
         "-vn",
+    ]
+    if use_offset_filters:
+        chapter_start = float(start_sec or 0.0)
+        audio_start_raw = chapter_start + offset
+        audio_start_clamped = max(0.0, audio_start_raw)
+        silence_prepend_sec = max(0.0, -audio_start_raw)
+        if end_sec is None:
+            audio_filters.append(f"atrim=start={audio_start_clamped:.6f}")
+        else:
+            audio_end_raw = float(end_sec) + offset
+            audio_end_clamped = max(audio_start_clamped + 0.001, audio_end_raw)
+            audio_filters.append(f"atrim=start={audio_start_clamped:.6f}:end={audio_end_clamped:.6f}")
+            chapter_dur = max(0.001, float(end_sec) - chapter_start)
+        audio_filters.append("asetpts=PTS-STARTPTS")
+        if silence_prepend_sec > 1e-4:
+            audio_filters.append(f"adelay={silence_prepend_sec * 1000:.1f}:all=1")
+        if end_sec is not None:
+            audio_filters.append(f"apad=whole_dur={chapter_dur:.6f}")
+    audio_filters.extend(
+        [
+            "highpass=f=120",
+            "lowpass=f=8000",
+            "afftdn=nf=-25",
+            "dynaudnorm=f=150:g=13",
+            "aresample=16000",
+            "loudnorm=I=-16:TP=-1.5:LRA=11",
+        ]
+    )
+    cmd += [
         "-af",
-        (
-            "highpass=f=120,lowpass=f=8000,afftdn=nf=-25,"
-            "dynaudnorm=f=150:g=13,aresample=16000,loudnorm=I=-16:TP=-1.5:LRA=11"
-        ),
+        ",".join(audio_filters),
         "-c:a",
         "pcm_s16le",
         "-ac",

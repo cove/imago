@@ -305,6 +305,17 @@ function clearPeopleEntries() {
   setStatus('Cleared people rows for this chapter draft.');
 }
 
+function clearSubtitlesEntries() {
+  subtitleTimelineDraft = null;
+  state.subtitlesProfile = {
+    ...(state.subtitlesProfile || {}),
+    entries: [],
+  };
+  refreshSubtitlesEditorFromState();
+  updateReviewStatsDisplay();
+  setStatus('Cleared subtitle rows for this chapter draft.');
+}
+
 function visibleGammaRangeFromView() {
   if (!state.review || !Array.isArray(state.review.frames) || !state.review.frames.length) return null;
   const range = state.visibleRange || _computeVisibleIndexRange();
@@ -1109,6 +1120,9 @@ if (subtitlesAutoTranscriptEl) {
 }
 if (subtitlesGenerateBtnEl) {
   subtitlesGenerateBtnEl.addEventListener('click', generateSubtitlesFromWhisper);
+}
+if (subtitlesClearBtnEl) {
+  subtitlesClearBtnEl.addEventListener('click', clearSubtitlesEntries);
 }
 if (peopleClearBtnEl) {
   peopleClearBtnEl.addEventListener('click', clearPeopleEntries);
