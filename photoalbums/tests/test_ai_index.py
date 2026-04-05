@@ -26,7 +26,6 @@ from photoalbums.lib import (
     ai_index_args,
     ai_index_engine_cache,
     ai_index_runner,
-    ai_index_scan,
 )
 from photoalbums.lib import xmp_sidecar
 
