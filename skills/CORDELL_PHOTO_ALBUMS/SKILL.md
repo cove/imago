@@ -201,6 +201,8 @@ clearly: which photo, what the symptom is, and what the likely cause is.
 - Examples: landmarks, monuments, city skylines, famous natural features, iconic buildings.
 - OCR text hints about the general location are provided to help identify specific famous locations, often these hints are the exact name of the location or landmark and little other work is needed.
 - Only include locations that are well-known and can be identified with reasonable confidence.
+- Include locations even if only mentioned in OCR text without visual confirmation in the photo.
+- Example: if OCR says "Paris, London, Rome", return three array entries, one for each city.
 - Include `name` when the landmark or place itself can be named, not just the city or country.
 - Use `name` for the full location name, for example `Tower Bridge`, `Westminster Abbey`, or `St. Mark's Square`.
 - Leave `name` empty when only the broader city or country can be identified.
