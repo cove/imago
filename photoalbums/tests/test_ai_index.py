@@ -20,7 +20,14 @@ if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
 from cast.storage import TextFaceStore
-from photoalbums.lib import ai_index, ai_index_analysis, ai_index_args, ai_index_engine_cache
+from photoalbums.lib import (
+    ai_index,
+    ai_index_analysis,
+    ai_index_args,
+    ai_index_engine_cache,
+    ai_index_runner,
+    ai_index_scan,
+)
 from photoalbums.lib import xmp_sidecar
 
 
@@ -739,9 +746,9 @@ class TestAIIndex(unittest.TestCase):
             )
 
             with (
-                mock.patch.object(ai_index, "_init_date_engine", return_value=fake_date_engine),
-                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
-                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+                mock.patch.object(ai_index_runner, "_init_date_engine", return_value=fake_date_engine),
+                mock.patch.object(ai_index_runner, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
             ):
                 result = ai_index.run(
                     [
@@ -819,9 +826,9 @@ class TestAIIndex(unittest.TestCase):
             image.with_suffix(".xmp").write_text(sidecar_text, encoding="utf-8")
 
             with (
-                mock.patch.object(ai_index, "_init_date_engine") as date_engine_mock,
-                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
-                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+                mock.patch.object(ai_index_runner, "_init_date_engine") as date_engine_mock,
+                mock.patch.object(ai_index_runner, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
             ):
                 result = ai_index.run(
                     [
@@ -958,9 +965,9 @@ class TestAIIndex(unittest.TestCase):
             )
 
             with (
-                mock.patch.object(ai_index, "_init_date_engine", return_value=fake_date_engine),
-                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
-                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+                mock.patch.object(ai_index_runner, "_init_date_engine", return_value=fake_date_engine),
+                mock.patch.object(ai_index_runner, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
             ):
                 result = ai_index.run(
                     [
@@ -1065,10 +1072,10 @@ class TestAIIndex(unittest.TestCase):
             fake_matcher.store_signature.return_value = "new-sig"
 
             with (
-                mock.patch.object(ai_index, "_init_people_matcher", return_value=fake_matcher),
-                mock.patch.object(ai_index, "_init_caption_engine") as caption_engine_mock,
-                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
-                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+                mock.patch.object(ai_index_runner, "_init_people_matcher", return_value=fake_matcher),
+                mock.patch.object(ai_index_runner, "_init_caption_engine") as caption_engine_mock,
+                mock.patch.object(ai_index_runner, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
             ):
                 result = ai_index.run(
                     [
@@ -1155,9 +1162,9 @@ class TestAIIndex(unittest.TestCase):
             fake_matcher.last_faces_detected = 0
 
             with (
-                mock.patch.object(ai_index, "_init_people_matcher", return_value=fake_matcher),
-                mock.patch.object(ai_index, "_init_caption_engine") as caption_engine_mock,
-                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+                mock.patch.object(ai_index_runner, "_init_people_matcher", return_value=fake_matcher),
+                mock.patch.object(ai_index_runner, "_init_caption_engine") as caption_engine_mock,
+                mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
             ):
                 result = ai_index.run(
                     [
@@ -1252,24 +1259,24 @@ class TestAIIndex(unittest.TestCase):
             fake_matcher.last_faces_detected = 0
 
             with (
-                mock.patch.object(ai_index, "_init_people_matcher", return_value=fake_matcher),
+                mock.patch.object(ai_index_runner, "_init_people_matcher", return_value=fake_matcher),
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "_init_caption_engine",
                     return_value=SimpleNamespace(effective_model_name="caption-current"),
                 ) as caption_engine_mock,
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "_resolve_location_metadata",
                     return_value=("48.8566", "2.3522", "Paris, France"),
                 ) as location_mock,
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "_resolve_locations_shown",
                     return_value=([{"city": "Paris", "country_name": "France"}], True),
                 ) as shown_mock,
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "_resolve_location_payload",
                     return_value={
                         "query": "Paris, France",
@@ -1279,9 +1286,9 @@ class TestAIIndex(unittest.TestCase):
                         "country": "France",
                     },
                 ),
-                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
-                mock.patch.object(ai_index, "_write_sidecar_and_record") as write_mock,
-                mock.patch.object(ai_index, "_emit_prompt_debug_artifact"),
+                mock.patch.object(ai_index_runner, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(ai_index_runner, "_write_sidecar_and_record") as write_mock,
+                mock.patch.object(ai_index_runner, "_emit_prompt_debug_artifact"),
             ):
                 result = ai_index.run(
                     [
@@ -2464,18 +2471,18 @@ class TestAIIndex(unittest.TestCase):
 
             with (
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(image),
                 ),
-                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
-                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch.object(ai_index_runner, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index_runner, "_build_flat_payload", return_value=analysis.payload),
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "_page_scan_filenames",
                     return_value=["Family_2020_B01_P01_S01.tif", "Family_2020_B01_P01_S02.tif"],
                 ),
-                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+                mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
             ):
                 result = ai_index.run(
                     [
@@ -2536,8 +2543,8 @@ class TestAIIndex(unittest.TestCase):
             )
 
             with (
-                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
-                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+                mock.patch.object(ai_index_runner, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
             ):
                 result = ai_index.run(
                     [
@@ -2597,10 +2604,10 @@ class TestAIIndex(unittest.TestCase):
             )
 
             with (
-                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
-                mock.patch.object(ai_index, "_get_image_dimensions", return_value=(1, 1)),
-                mock.patch.object(ai_index, "read_embedded_create_date", return_value=""),
-                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+                mock.patch.object(ai_index_runner, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(ai_index_runner, "_get_image_dimensions", return_value=(1, 1)),
+                mock.patch.object(ai_index_runner, "read_embedded_create_date", return_value=""),
+                mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
             ):
                 result = ai_index.run(
                     [
@@ -2668,8 +2675,8 @@ class TestAIIndex(unittest.TestCase):
             )
 
             with (
-                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
-                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+                mock.patch.object(ai_index_runner, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
             ):
                 result = ai_index.run(
                     [
@@ -2732,13 +2739,13 @@ class TestAIIndex(unittest.TestCase):
 
             with (
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(image),
                 ),
-                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis) as analysis_mock,
-                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
-                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+                mock.patch.object(ai_index_runner, "_run_image_analysis", return_value=analysis) as analysis_mock,
+                mock.patch.object(ai_index_runner, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
             ):
                 result = ai_index.run(
                     [
@@ -2827,25 +2834,25 @@ class TestAIIndex(unittest.TestCase):
                 yield image
 
             with (
-                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(ai_index_runner, "_run_image_analysis") as analysis_mock,
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "_init_caption_engine",
                     return_value=SimpleNamespace(effective_model_name="caption-current"),
                 ) as caption_engine_mock,
                 mock.patch.object(ai_index_analysis, "_prepare_ai_model_image", side_effect=fake_prepare),
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "_resolve_location_metadata",
                     return_value=("48.8566", "2.3522", "Paris, France"),
                 ) as location_mock,
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "_resolve_locations_shown",
                     return_value=([{"city": "Paris", "country_name": "France"}], True),
                 ) as shown_mock,
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "_resolve_location_payload",
                     return_value={
                         "query": "Paris, France",
@@ -2855,8 +2862,8 @@ class TestAIIndex(unittest.TestCase):
                         "country": "France",
                     },
                 ),
-                mock.patch.object(ai_index, "_write_sidecar_and_record") as write_mock,
-                mock.patch.object(ai_index, "_emit_prompt_debug_artifact"),
+                mock.patch.object(ai_index_runner, "_write_sidecar_and_record") as write_mock,
+                mock.patch.object(ai_index_runner, "_emit_prompt_debug_artifact"),
             ):
                 result = ai_index.run(
                     [
@@ -2932,25 +2939,25 @@ class TestAIIndex(unittest.TestCase):
                 yield image
 
             with (
-                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(ai_index_runner, "_run_image_analysis") as analysis_mock,
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "_init_caption_engine",
                     return_value=SimpleNamespace(effective_model_name="caption-current"),
                 ) as caption_engine_mock,
                 mock.patch.object(ai_index_analysis, "_prepare_ai_model_image", side_effect=fake_prepare),
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "_resolve_location_metadata",
                     return_value=("48.8566", "2.3522", "Paris, France"),
                 ) as location_mock,
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "_resolve_locations_shown",
                     return_value=([{"city": "Paris", "country_name": "France"}], True),
                 ) as shown_mock,
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "_resolve_location_payload",
                     return_value={
                         "query": "Paris, France",
@@ -2960,8 +2967,8 @@ class TestAIIndex(unittest.TestCase):
                         "country": "France",
                     },
                 ),
-                mock.patch.object(ai_index, "_write_sidecar_and_record") as write_mock,
-                mock.patch.object(ai_index, "_emit_prompt_debug_artifact"),
+                mock.patch.object(ai_index_runner, "_write_sidecar_and_record") as write_mock,
+                mock.patch.object(ai_index_runner, "_emit_prompt_debug_artifact"),
             ):
                 result = ai_index.run(
                     [
@@ -3057,20 +3064,20 @@ class TestAIIndex(unittest.TestCase):
                 yield image
 
             with (
-                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(ai_index_runner, "_run_image_analysis") as analysis_mock,
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "_init_caption_engine",
                     return_value=SimpleNamespace(effective_model_name="caption-current"),
                 ) as caption_engine_mock,
                 mock.patch.object(ai_index_analysis, "_prepare_ai_model_image", side_effect=fake_prepare),
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "_resolve_location_metadata",
                     return_value=("", "", ""),
                 ) as location_mock,
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "_resolve_locations_shown",
                     return_value=(
                         [
@@ -3088,9 +3095,9 @@ class TestAIIndex(unittest.TestCase):
                         True,
                     ),
                 ) as shown_mock,
-                mock.patch.object(ai_index, "_resolve_location_payload", return_value={}),
-                mock.patch.object(ai_index, "_write_sidecar_and_record") as write_mock,
-                mock.patch.object(ai_index, "_emit_prompt_debug_artifact"),
+                mock.patch.object(ai_index_runner, "_resolve_location_payload", return_value={}),
+                mock.patch.object(ai_index_runner, "_write_sidecar_and_record") as write_mock,
+                mock.patch.object(ai_index_runner, "_emit_prompt_debug_artifact"),
             ):
                 result = ai_index.run(
                     [
@@ -3196,13 +3203,13 @@ class TestAIIndex(unittest.TestCase):
             with redirect_stdout(stdout):
                 with (
                     mock.patch.object(
-                        ai_index,
+                        ai_index_runner,
                         "prepare_image_layout",
                         side_effect=lambda *args, **kwargs: self._mock_layout(image),
                     ),
-                    mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis) as analysis_mock,
-                    mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
-                    mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+                    mock.patch.object(ai_index_runner, "_run_image_analysis", return_value=analysis) as analysis_mock,
+                    mock.patch.object(ai_index_runner, "_build_flat_payload", return_value=analysis.payload),
+                    mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
                 ):
                     result = ai_index.run(
                         [
@@ -3254,13 +3261,13 @@ class TestAIIndex(unittest.TestCase):
 
             with (
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(image),
                 ),
-                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
-                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
-                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+                mock.patch.object(ai_index_runner, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index_runner, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
             ):
                 result = ai_index.run(
                     [
@@ -3309,15 +3316,15 @@ class TestAIIndex(unittest.TestCase):
             ]
 
             with (
-                mock.patch.object(ai_index, "_init_people_matcher", return_value=fake_matcher),
+                mock.patch.object(ai_index_runner, "_init_people_matcher", return_value=fake_matcher),
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(image),
                 ),
-                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
-                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
-                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+                mock.patch.object(ai_index_runner, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index_runner, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
             ):
                 result = ai_index.run(
                     [
@@ -3398,19 +3405,19 @@ class TestAIIndex(unittest.TestCase):
             )
 
             with (
-                mock.patch.object(ai_index, "_settings_signature", return_value="sig"),
+                mock.patch.object(ai_index_runner, "_settings_signature", return_value="sig"),
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "_init_people_matcher",
                     return_value=fake_matcher,
                 ) as people_matcher_mock,
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "_init_caption_engine",
                     return_value=fake_caption_engine,
                 ) as caption_engine_mock,
-                mock.patch.object(ai_index, "_page_scan_filenames", return_value=[]),
-                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+                mock.patch.object(ai_index_runner, "_page_scan_filenames", return_value=[]),
+                mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
             ):
                 result = ai_index.run(
                     [
@@ -3490,14 +3497,14 @@ class TestAIIndex(unittest.TestCase):
             matcher = _FakeMatcher(store, image)
 
             with (
-                mock.patch.object(ai_index, "_init_people_matcher", return_value=matcher),
+                mock.patch.object(ai_index_runner, "_init_people_matcher", return_value=matcher),
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(image),
                 ),
-                mock.patch.object(ai_index, "_page_scan_filenames", return_value=[]),
-                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+                mock.patch.object(ai_index_runner, "_page_scan_filenames", return_value=[]),
+                mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
             ):
                 result = ai_index.run(
                     [
@@ -3552,13 +3559,13 @@ class TestAIIndex(unittest.TestCase):
 
             with (
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(image),
                 ),
-                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
-                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
-                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+                mock.patch.object(ai_index_runner, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index_runner, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
                 mock.patch("builtins.print") as print_mock,
             ):
                 result = ai_index.run(
@@ -3612,12 +3619,12 @@ class TestAIIndex(unittest.TestCase):
 
             with (
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(image),
                 ),
-                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
-                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch.object(ai_index_runner, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index_runner, "_build_flat_payload", return_value=analysis.payload),
                 mock.patch("builtins.print") as print_mock,
             ):
                 result = ai_index.run(
@@ -3680,12 +3687,12 @@ class TestAIIndex(unittest.TestCase):
 
             with (
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(image),
                 ),
-                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
-                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch.object(ai_index_runner, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index_runner, "_build_flat_payload", return_value=analysis.payload),
                 mock.patch("builtins.print") as print_mock,
             ):
                 result = ai_index.run(
@@ -3873,7 +3880,7 @@ class TestAIIndex(unittest.TestCase):
                 yield path
 
             with mock.patch.object(
-                ai_index,
+                ai_index_analysis,
                 "_prepare_ai_model_image",
                 side_effect=fake_prepare,
             ):
@@ -3929,7 +3936,7 @@ class TestAIIndex(unittest.TestCase):
                 yield path
 
             with mock.patch.object(
-                ai_index,
+                ai_index_analysis,
                 "_prepare_ai_model_image",
                 side_effect=fake_prepare,
             ):
@@ -3986,7 +3993,7 @@ class TestAIIndex(unittest.TestCase):
 
             with (
                 mock.patch.object(
-                    ai_index,
+                    ai_index_analysis,
                     "_prepare_ai_model_image",
                     side_effect=fake_prepare,
                 ),
@@ -4042,14 +4049,14 @@ class TestAIIndex(unittest.TestCase):
 
             with (
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(image),
                 ),
-                mock.patch.object(ai_index, "_page_scan_filenames", return_value=[image.name]),
-                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
-                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
-                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+                mock.patch.object(ai_index_runner, "_page_scan_filenames", return_value=[image.name]),
+                mock.patch.object(ai_index_runner, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index_runner, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
             ):
                 result = ai_index.run(
                     [
@@ -4077,7 +4084,7 @@ class TestAIIndex(unittest.TestCase):
             sidecar = image.with_suffix(".xmp")
             image.write_bytes(b"abc")
 
-            with mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock:
+            with mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock:
                 ai_index._write_sidecar_and_record(
                     sidecar,
                     image,
@@ -4124,7 +4131,7 @@ class TestAIIndex(unittest.TestCase):
             sidecar = image.with_suffix(".xmp")
             image.write_bytes(b"abc")
 
-            with mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock:
+            with mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock:
                 ai_index._write_sidecar_and_record(
                     sidecar,
                     image,
@@ -4282,12 +4289,12 @@ class TestAIIndex(unittest.TestCase):
 
             with (
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(image),
                 ),
-                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis) as analysis_mock,
-                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch.object(ai_index_runner, "_run_image_analysis", return_value=analysis) as analysis_mock,
+                mock.patch.object(ai_index_runner, "_build_flat_payload", return_value=analysis.payload),
                 mock.patch("builtins.print"),
             ):
                 result = ai_index.run(
@@ -4358,20 +4365,20 @@ class TestAIIndex(unittest.TestCase):
 
             with (
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(scan1),
                 ),
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "_resolve_archive_scan_authoritative_ocr",
                     return_value=authority,
                 ) as authority_mock,
-                mock.patch.object(ai_index, "_page_scan_filenames", return_value=[]),
-                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis) as analysis_mock,
-                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
-                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
-                mock.patch.object(ai_index, "_mirror_page_sidecars"),
+                mock.patch.object(ai_index_runner, "_page_scan_filenames", return_value=[]),
+                mock.patch.object(ai_index_runner, "_run_image_analysis", return_value=analysis) as analysis_mock,
+                mock.patch.object(ai_index_runner, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
+                mock.patch.object(ai_index_runner, "_mirror_page_sidecars"),
                 mock.patch.object(ai_index, "append_job_artifact") as append_mock,
             ):
                 result = ai_index.run(
@@ -4488,21 +4495,37 @@ class TestAIIndex(unittest.TestCase):
 
             with (
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(scan1),
                 ),
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "_resolve_archive_scan_authoritative_ocr",
                     return_value=authority,
                 ) as authority_mock,
-                mock.patch.object(ai_index, "_page_scan_filenames", return_value=[]),
-                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis) as analysis_mock,
-                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
-                mock.patch.object(ai_index, "CaptionEngine", return_value=fake_caption_engine),
-                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
-                mock.patch.object(ai_index, "_mirror_page_sidecars"),
+                mock.patch.object(ai_index_runner, "_page_scan_filenames", return_value=[]),
+                mock.patch.object(ai_index_runner, "_run_image_analysis", return_value=analysis) as analysis_mock,
+                mock.patch.object(ai_index_runner, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch.object(ai_index_runner, "_resolve_dc_date", return_value=""),
+                mock.patch.object(ai_index_engine_cache, "CaptionEngine", return_value=fake_caption_engine),
+                mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
+                mock.patch.object(ai_index_runner, "_mirror_page_sidecars"),
+                mock.patch.object(
+                    ai_index_runner,
+                    "_emit_prompt_debug_artifact",
+                    side_effect=lambda pd, dry_run=False: (
+                        recorded_artifacts.append(
+                            {
+                                "kind": "photoalbums_prompts",
+                                "image_path": str(getattr(pd, "image_path", "")),
+                                "label": str(getattr(pd, "label", "")),
+                            }
+                        )
+                        if pd is not None
+                        else None
+                    ),
+                ),
                 mock.patch.object(
                     ai_index,
                     "append_job_artifact",
@@ -4586,18 +4609,18 @@ class TestAIIndex(unittest.TestCase):
 
             with (
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(scan1),
                 ),
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "_resolve_archive_scan_authoritative_ocr",
                     return_value=authority,
                 ),
-                mock.patch.object(ai_index, "_page_scan_filenames", return_value=[]),
-                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
-                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch.object(ai_index_runner, "_page_scan_filenames", return_value=[]),
+                mock.patch.object(ai_index_runner, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index_runner, "_build_flat_payload", return_value=analysis.payload),
             ):
                 first_result = ai_index.run(
                     [
@@ -4619,9 +4642,9 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(first_result, 0)
 
             with (
-                mock.patch.object(ai_index, "_resolve_archive_scan_authoritative_ocr") as authority_mock,
-                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
-                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+                mock.patch.object(ai_index_runner, "_resolve_archive_scan_authoritative_ocr") as authority_mock,
+                mock.patch.object(ai_index_runner, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
             ):
                 second_result = ai_index.run(
                     [
@@ -4694,18 +4717,18 @@ class TestAIIndex(unittest.TestCase):
 
             with (
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "prepare_image_layout",
                     side_effect=lambda *args, **kwargs: self._mock_layout(scan1),
                 ),
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "_resolve_archive_scan_authoritative_ocr",
                     return_value=authority,
                 ),
-                mock.patch.object(ai_index, "_page_scan_filenames", return_value=[]),
-                mock.patch.object(ai_index, "_run_image_analysis", return_value=analysis),
-                mock.patch.object(ai_index, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch.object(ai_index_runner, "_page_scan_filenames", return_value=[]),
+                mock.patch.object(ai_index_runner, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index_runner, "_build_flat_payload", return_value=analysis.payload),
             ):
                 first_result = ai_index.run(
                     [
@@ -4727,9 +4750,9 @@ class TestAIIndex(unittest.TestCase):
             self.assertEqual(first_result, 0)
 
             with (
-                mock.patch.object(ai_index, "_resolve_archive_scan_authoritative_ocr") as authority_mock,
-                mock.patch.object(ai_index, "_run_image_analysis") as analysis_mock,
-                mock.patch.object(ai_index, "write_xmp_sidecar") as write_mock,
+                mock.patch.object(ai_index_runner, "_resolve_archive_scan_authoritative_ocr") as authority_mock,
+                mock.patch.object(ai_index_runner, "_run_image_analysis") as analysis_mock,
+                mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
             ):
                 second_result = ai_index.run(
                     [
