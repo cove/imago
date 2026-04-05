@@ -176,5 +176,8 @@
       "C:\\Users\\covec\\.claude",
       "c:\\Users\\covec\\Downloads"
     ]
-  }
+  },
+  "disabledMcpjsonServers": [
+    "imago"
+  ]
 }
