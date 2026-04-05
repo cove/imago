@@ -26,6 +26,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "12 castle road, bedford, united kingdom": {
+    "city": "Bedford",
+    "country": "United Kingdom",
+    "display_name": "12, Castle Road, Castle, Bedford, England, MK40 3NX, United Kingdom",
+    "latitude": "52.1367444",
+    "longitude": "-0.4620050",
+    "query": "12 Castle Road, Bedford, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "12 Castle Road"
+  },
   "15th century sera monastery": {
     "query": "15th Century Sera Monastery",
     "status": "miss"
@@ -37,6 +49,30 @@
   "1976 olympics, germany": {
     "query": "1976 Olympics, Germany",
     "status": "miss"
+  },
+  "2240 lorain rd, san marino, ca 91108": {
+    "city": "San Marino",
+    "country": "United States",
+    "display_name": "2240, Lorain Road, San Marino, Los Angeles County, California, 91108, United States",
+    "latitude": "34.1150739",
+    "longitude": "-118.1049194",
+    "query": "2240 Lorain Rd, San Marino, CA 91108",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": "2240 Lorain Road"
+  },
+  "2240 lorain rd, san marino, ca, united states": {
+    "city": "San Marino",
+    "country": "United States",
+    "display_name": "2240, Lorain Road, San Marino, Los Angeles County, California, 91108, United States",
+    "latitude": "34.1150739",
+    "longitude": "-118.1049194",
+    "query": "2240 Lorain Rd, San Marino, CA, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": "2240 Lorain Road"
   },
   "4th century church of st. georgi, bulgaria": {
     "query": "4th Century Church of St. Georgi, Bulgaria",
@@ -79,6 +115,18 @@
     "query": "56 Pembroke, Bedford, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "56 pembroke, bedford, united kingdom": {
+    "city": "Bedford",
+    "country": "United Kingdom",
+    "display_name": "56, Pembroke Street, Castle, Bedford, England, MK40 3RD, United Kingdom",
+    "latitude": "52.1367289",
+    "longitude": "-0.4528051",
+    "query": "56 Pembroke, Bedford, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "56 Pembroke Street"
   },
   "a beach": {
     "display_name": "A Beach, Büyükanafarta Köyü, Eceabat, Çanakkale, Marmara Bölgesi, Türkiye",
@@ -141,6 +189,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "acqueduct, kavala, greece": {
+    "query": "Acqueduct, Kavala, Greece",
+    "status": "miss"
+  },
   "acropolis, athens": {
     "city": "Athens",
     "country": "Greece",
@@ -184,6 +236,18 @@
     "source": "nominatim",
     "state": "Northern Aegean",
     "status": "ok"
+  },
+  "aegina island, greece": {
+    "city": "Perdika",
+    "country": "Greece",
+    "display_name": "Aegina, Perdika, Municipality of Aegina, Regional Unit of Islands, Attica, 180 10, Greece",
+    "latitude": "37.7243694",
+    "longitude": "23.4938109",
+    "query": "Aegina Island, Greece",
+    "source": "nominatim",
+    "state": "Attica",
+    "status": "ok",
+    "sublocation": ""
   },
   "aegina, greece": {
     "city": "Perdika",
@@ -333,6 +397,10 @@
     "query": "Alexandria Cathedral, Bulgaria",
     "status": "miss"
   },
+  "alexandria cathedral, sofia, bulgaria": {
+    "query": "Alexandria Cathedral, Sofia, Bulgaria",
+    "status": "miss"
+  },
   "alexandria, alexandria governorate, egypt": {
     "display_name": "الإسكندرية, 21519, مصر",
     "latitude": "31.1991806",
@@ -449,6 +517,18 @@
     "state": "California",
     "status": "ok"
   },
+  "altadena, california, united states": {
+    "city": "Altadena",
+    "country": "United States",
+    "display_name": "Altadena, Los Angeles County, California, 91001, United States",
+    "latitude": "34.1928193",
+    "longitude": "-118.1374663",
+    "query": "Altadena, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "american museum of natural history": {
     "city": "New York",
     "country": "United States",
@@ -497,6 +577,10 @@
     "query": "Ann Hathaway Cottage",
     "status": "miss"
   },
+  "ann hathaway cottage, united kingdom": {
+    "query": "Ann Hathaway Cottage, United Kingdom",
+    "status": "miss"
+  },
   "aqueducts, europe": {
     "query": "Aqueducts, Europe",
     "status": "miss"
@@ -523,6 +607,18 @@
     "source": "nominatim",
     "state": "Central Greece",
     "status": "ok"
+  },
+  "archaeological museum, delphi, greece": {
+    "city": "Municipal Unit of Amfissa",
+    "country": "Greece",
+    "display_name": "Archaeological Museum, Delphi, Greece, Municipal Unit of Amfissa, Central Greece, Greece",
+    "latitude": "38.5296676",
+    "longitude": "22.3753017",
+    "query": "Archaeological Museum, Delphi, Greece",
+    "source": "nominatim",
+    "state": "Central Greece",
+    "status": "ok",
+    "sublocation": "Δημητρά"
   },
   "asablanca, morocco": {
     "query": "Asablanca, Morocco",
@@ -760,6 +856,34 @@
     "query": "Balboa Island, July 1952",
     "status": "miss"
   },
+  "balboa island, newport beach, california, usa": {
+    "city": "Newport Beach",
+    "country": "United States",
+    "display_name": "Balboa Island, Balboa Peninsula, Newport Beach, Orange County, California, 92662, United States",
+    "latitude": "33.6065642",
+    "longitude": "-117.8943127",
+    "query": "Balboa Island, Newport Beach, California, USA",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "balboa island, united states": {
+    "city": "Newport Beach",
+    "country": "United States",
+    "display_name": "Balboa Island, Balboa Peninsula, Newport Beach, Orange County, California, 92662, United States",
+    "latitude": "33.6065642",
+    "longitude": "-117.8943127",
+    "query": "Balboa Island, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "bales of cotton near bakersfield, california, united states": {
+    "query": "Bales of cotton near Bakersfield, California, United States",
+    "status": "miss"
+  },
   "bambo village, china": {
     "query": "Bambo Village, China",
     "status": "miss"
@@ -862,6 +986,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "bath abbey, bath, united kingdom": {
+    "city": "Bath",
+    "country": "United Kingdom",
+    "display_name": "Bath Abbey, Abbey Churchyard, Kingsmead, Bath, Bath and North East Somerset, West of England, England, BA1 1LT, United Kingdom",
+    "latitude": "51.3814544",
+    "longitude": "-2.3588659",
+    "query": "Bath Abbey, Bath, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Abbey Churchyard"
+  },
   "bath, england": {
     "display_name": "Bath, Bath and North East Somerset, West of England, England, United Kingdom",
     "latitude": "51.3813864",
@@ -896,6 +1032,10 @@
     "state": "England",
     "status": "ok"
   },
+  "battle castle - battle england site of the battle of hastings, england": {
+    "query": "Battle Castle - Battle England Site of the Battle of Hastings, England",
+    "status": "miss"
+  },
   "battle castle, battle england": {
     "city": "Rother",
     "country": "United Kingdom",
@@ -925,6 +1065,18 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "battle castle, england": {
+    "city": "Rother",
+    "country": "United Kingdom",
+    "display_name": "Battle Abbey, High Street, Battle, Rother, East Sussex, England, TN33 0AD, United Kingdom",
+    "latitude": "50.9150519",
+    "longitude": "0.4860620",
+    "query": "Battle Castle, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "High Street"
   },
   "battle castle, hastings, east sussex, england": {
     "query": "Battle Castle, Hastings, East Sussex, England",
@@ -1047,6 +1199,18 @@
     "state": "England",
     "status": "ok"
   },
+  "bedford embankment, bedford, united kingdom": {
+    "city": "Bedford",
+    "country": "United Kingdom",
+    "display_name": "Bedford Castle, The Embankment, Castle, Bedford, England, MK40 3NT, United Kingdom",
+    "latitude": "52.1354363",
+    "longitude": "-0.4633704",
+    "query": "Bedford Embankment, Bedford, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "The Embankment"
+  },
   "bedford, bedfordshire, england": {
     "display_name": "Bedford & Milton Keynes Waterway, Ridgmont, Central Bedfordshire, England, United Kingdom",
     "latitude": "52.0323946",
@@ -1062,6 +1226,18 @@
     "query": "Bedford, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "bedford, england, bedfordshire": {
+    "city": "",
+    "country": "United Kingdom",
+    "display_name": "Bedfordshire, Central Bedfordshire, England, United Kingdom",
+    "latitude": "52.0640034",
+    "longitude": "-0.4111138",
+    "query": "Bedford, England, Bedfordshire",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "beihai park, beijing, china": {
     "display_name": "北海公园, 什刹海街道, 首都功能核心区, 西城区, 北京市, 100032, 中国",
@@ -1141,6 +1317,10 @@
     "query": "Big Ben Clock Tower, Houses of Parliament, London",
     "status": "miss"
   },
+  "big ben clock tower, houses of parliament, london, united kingdom": {
+    "query": "Big Ben Clock Tower, Houses of Parliament, London, United Kingdom",
+    "status": "miss"
+  },
   "big ben clock tower, london, united kingdom": {
     "query": "Big Ben Clock Tower, London, United Kingdom",
     "status": "miss"
@@ -1203,6 +1383,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "blenheim palace, united kingdom": {
+    "city": "West Oxfordshire",
+    "country": "United Kingdom",
+    "display_name": "Blenheim Palace, East Courtyard, Blenheim, West Oxfordshire, Oxfordshire, England, OX20 1PS, United Kingdom",
+    "latitude": "51.8419448",
+    "longitude": "-1.3626293",
+    "query": "Blenheim Palace, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "East Courtyard"
+  },
   "blenheim palace, woodstock, oxfordshire, england": {
     "display_name": "Blenheim Palace Gates, Oxford Road, Woodstock, West Oxfordshire, Oxfordshire, England, OX20 1UN, United Kingdom",
     "latitude": "51.8458226",
@@ -1248,8 +1440,16 @@
     "state": "",
     "status": "ok"
   },
+  "boating lake and bridge, southport, united kingdom": {
+    "query": "Boating Lake and Bridge, Southport, United Kingdom",
+    "status": "miss"
+  },
   "bohemian section of belgrade": {
     "query": "Bohemian section of Belgrade",
+    "status": "miss"
+  },
+  "bohemian section of belgrade, belgrade, serbia": {
+    "query": "Bohemian Section of Belgrade, Belgrade, Serbia",
     "status": "miss"
   },
   "boone hall": {
@@ -1335,6 +1535,10 @@
     "query": "Bosphorus Strait, Istanbul, Turkey",
     "status": "miss"
   },
+  "bosphorus strait, turkey": {
+    "query": "Bosphorus Strait, Turkey",
+    "status": "miss"
+  },
   "bosphorus, istanbul": {
     "city": "",
     "country": "Turkey",
@@ -1417,6 +1621,10 @@
     "state": "Massachusetts",
     "status": "ok"
   },
+  "botanical gardens at cluj, cluj-napoca, romania": {
+    "query": "Botanical Gardens at Cluj, Cluj-Napoca, Romania",
+    "status": "miss"
+  },
   "boulder dam & las vegas, nevada": {
     "query": "Boulder Dam & Las Vegas, Nevada",
     "status": "miss"
@@ -1432,6 +1640,18 @@
     "state": "Colorado",
     "status": "ok"
   },
+  "boulder dam, colorado, united states": {
+    "city": "Boulder",
+    "country": "United States",
+    "display_name": "Boulder Reservoir Dam (South), Boulder, Boulder County, Colorado, 80301, United States",
+    "latitude": "40.0734041",
+    "longitude": "-105.2161216",
+    "query": "Boulder Dam, Colorado, United States",
+    "source": "nominatim",
+    "state": "Colorado",
+    "status": "ok",
+    "sublocation": ""
+  },
   "boulder dam, nevada": {
     "city": "",
     "country": "United States",
@@ -1442,6 +1662,30 @@
     "source": "nominatim",
     "state": "Arizona",
     "status": "ok"
+  },
+  "boulder dam, nevada, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Hoover Dam, Mohave County, Arizona, United States",
+    "latitude": "36.0157189",
+    "longitude": "-114.7374858",
+    "query": "Boulder Dam, Nevada, United States",
+    "source": "nominatim",
+    "state": "Arizona",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "boulder dam, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Hoover Dam, Mohave County, Arizona, United States",
+    "latitude": "36.0157189",
+    "longitude": "-114.7374858",
+    "query": "Boulder Dam, United States",
+    "source": "nominatim",
+    "state": "Arizona",
+    "status": "ok",
+    "sublocation": ""
   },
   "bowness, lake district, england": {
     "query": "Bowness, Lake District, England",
@@ -1486,6 +1730,18 @@
     "query": "Bowness-on-Windermere, Lake District, England",
     "status": "miss"
   },
+  "bowness-on-windermere, united kingdom": {
+    "city": "Bowness-on-Windermere",
+    "country": "United Kingdom",
+    "display_name": "Bowness-on-Windermere, Westmorland and Furness, England, LA23 3BY, United Kingdom",
+    "latitude": "54.3647264",
+    "longitude": "-2.9195522",
+    "query": "Bowness-on-Windermere, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "bran castle": {
     "city": "Bran",
     "country": "Romania",
@@ -1496,6 +1752,10 @@
     "source": "nominatim",
     "state": "",
     "status": "ok"
+  },
+  "bran castle, bran, transylvania, romania": {
+    "query": "Bran Castle, Bran, Transylvania, Romania",
+    "status": "miss"
   },
   "bran castle, romania": {
     "city": "Bran",
@@ -1526,6 +1786,18 @@
     "source": "nominatim",
     "state": "California",
     "status": "ok"
+  },
+  "brentwood, california": {
+    "city": "Brentwood",
+    "country": "United States",
+    "display_name": "Brentwood, Contra Costa County, California, 94513, United States",
+    "latitude": "37.9317766",
+    "longitude": "-121.6960260",
+    "query": "Brentwood, California",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
   },
   "brighton": {
     "display_name": "Brighton, Brighton and Hove, England, BN1 1HH, United Kingdom",
@@ -1728,6 +2000,18 @@
     "state": "California",
     "status": "ok"
   },
+  "brookside park, pasadena, united states": {
+    "city": "Pasadena",
+    "country": "United States",
+    "display_name": "Brookside Park, Pasadena Council District 1, Pasadena, Los Angeles County, California, United States",
+    "latitude": "34.1538438",
+    "longitude": "-118.1644952",
+    "query": "Brookside Park, Pasadena, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "bucharest": {
     "city": "Bucharest",
     "country": "Romania",
@@ -1749,6 +2033,18 @@
     "source": "nominatim",
     "state": "",
     "status": "ok"
+  },
+  "buckingham fountain, chicago, illinois, united states": {
+    "city": "Chicago",
+    "country": "United States",
+    "display_name": "Clarence Buckingham Memorial Fountain, 301, South Columbus Drive, Loop, Chicago, South Chicago Township, Cook County, Illinois, 60605, United States",
+    "latitude": "41.8758020",
+    "longitude": "-87.6189718",
+    "query": "Buckingham Fountain, Chicago, Illinois, United States",
+    "source": "nominatim",
+    "state": "Illinois",
+    "status": "ok",
+    "sublocation": "301 South Columbus Drive"
   },
   "buckingham palace": {
     "display_name": "Buckingham Palace, Ambassador's Court, Victoria, City of Westminster, Greater London, England, SW1A 1AA, United Kingdom",
@@ -1777,6 +2073,18 @@
     "query": "Buckingham Palace, London, United Kingdom",
     "source": "nominatim",
     "status": "ok"
+  },
+  "buda castle district, budapest, hungary": {
+    "city": "Budapest",
+    "country": "Hungary",
+    "display_name": "Buda Castle District, Budapest, Hungary, Budapest, Hungary",
+    "latitude": "47.4985897",
+    "longitude": "19.0358725",
+    "query": "Buda Castle District, Budapest, Hungary",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Tóth Árpád sétány"
   },
   "buda castle district, hungary": {
     "city": "Budapest",
@@ -1881,6 +2189,18 @@
     "query": "Buddha Grottoes, Linxia, China",
     "status": "miss"
   },
+  "bulgaria": {
+    "city": "",
+    "country": "Bulgaria",
+    "display_name": "Bulgaria",
+    "latitude": "42.6073975",
+    "longitude": "25.4856617",
+    "query": "Bulgaria",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
   "burlingame, calif.": {
     "city": "Burlingame",
     "country": "United States",
@@ -1891,6 +2211,46 @@
     "source": "nominatim",
     "state": "California",
     "status": "ok"
+  },
+  "burlingame, california": {
+    "city": "Burlingame",
+    "country": "United States",
+    "display_name": "Burlingame, San Mateo County, California, 94010, United States",
+    "latitude": "37.5780965",
+    "longitude": "-122.3473099",
+    "query": "Burlingame, California",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "burlingame, california, united states": {
+    "city": "Burlingame",
+    "country": "United States",
+    "display_name": "Burlingame, San Mateo County, California, 94010, United States",
+    "latitude": "37.5780965",
+    "longitude": "-122.3473099",
+    "query": "Burlingame, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "burton on the hill, united kingdom": {
+    "city": "Harborough",
+    "country": "United Kingdom",
+    "display_name": "Burton Brook, Illston on the Hill, Harborough, Leicestershire, England, LE7 9ES, United Kingdom",
+    "latitude": "52.5835739",
+    "longitude": "-0.9454646",
+    "query": "Burton on the Hill, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "burton on the water, united kingdom": {
+    "query": "Burton on the Water, United Kingdom",
+    "status": "miss"
   },
   "cairo egypt": {
     "display_name": "القاهرة, مصر",
@@ -1927,6 +2287,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "california redwoods, california, united states": {
+    "query": "California Redwoods, California, United States",
+    "status": "miss"
+  },
   "california service co.": {
     "city": "San Diego",
     "country": "United States",
@@ -1937,6 +2301,18 @@
     "source": "nominatim",
     "state": "California",
     "status": "ok"
+  },
+  "california, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "California, United States",
+    "latitude": "36.7014631",
+    "longitude": "-118.7559970",
+    "query": "California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
   },
   "california, usa": {
     "city": "",
@@ -2026,6 +2402,10 @@
     "query": "Camp Site on the Bristol Channel",
     "status": "miss"
   },
+  "camp site on the bristol channel, united kingdom": {
+    "query": "Camp Site on the Bristol Channel, United Kingdom",
+    "status": "miss"
+  },
   "canaan, connecticut": {
     "city": "North Canaan",
     "country": "United States",
@@ -2036,6 +2416,18 @@
     "source": "nominatim",
     "state": "Connecticut",
     "status": "ok"
+  },
+  "canaan, connecticut, united states": {
+    "city": "North Canaan",
+    "country": "United States",
+    "display_name": "North Canaan, Northwest Hills Planning Region, Connecticut, United States",
+    "latitude": "42.0269848",
+    "longitude": "-73.3294835",
+    "query": "Canaan, Connecticut, United States",
+    "source": "nominatim",
+    "state": "Connecticut",
+    "status": "ok",
+    "sublocation": ""
   },
   "canada": {
     "city": "",
@@ -2077,6 +2469,18 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "canterbury cathedral, canterbury, england": {
+    "city": "Canterbury",
+    "country": "United Kingdom",
+    "display_name": "Canterbury Cathedral, The Precincts, The King's Mile, Canterbury, Kent, England, CT1 2EE, United Kingdom",
+    "latitude": "51.2797999",
+    "longitude": "1.0827660",
+    "query": "Canterbury Cathedral, Canterbury, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "The Precincts"
   },
   "canterbury cathedral, canterbury, england, united kingdom": {
     "city": "Canterbury",
@@ -2215,9 +2619,33 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "canton, ohio, united states": {
+    "city": "Canton",
+    "country": "United States",
+    "display_name": "Canton, Stark County, Ohio, United States",
+    "latitude": "40.7985464",
+    "longitude": "-81.3749508",
+    "query": "Canton, Ohio, United States",
+    "source": "nominatim",
+    "state": "Ohio",
+    "status": "ok",
+    "sublocation": ""
+  },
   "capitol building in austin, texas, austin, texas, united states": {
     "query": "Capitol Building in Austin, Texas, Austin, Texas, United States",
     "status": "miss"
+  },
+  "cardiff castle, cardiff, wales": {
+    "city": "Cardiff",
+    "country": "United Kingdom",
+    "display_name": "Cardiff Castle, Crown Court, Castle Quarter, Castle, Cardiff, Wales, CF10 1AY, United Kingdom",
+    "latitude": "51.4823315",
+    "longitude": "-3.1811710",
+    "query": "Cardiff Castle, Cardiff, Wales",
+    "source": "nominatim",
+    "state": "Wales",
+    "status": "ok",
+    "sublocation": "Crown Court"
   },
   "cardiff castle, cardiff, wales, uk": {
     "display_name": "Cardiff Castle, Crown Court, Castle Quarter, Castle, Cardiff, Cymru / Wales, CF10 1AY, United Kingdom",
@@ -2237,6 +2665,18 @@
     "source": "nominatim",
     "state": "Wales",
     "status": "ok"
+  },
+  "cardiff civic centre, cardiff, wales": {
+    "city": "Cardiff",
+    "country": "United Kingdom",
+    "display_name": "The Church in Wales, 2, Callaghan Square, Newtown, Butetown, Cardiff, Wales, CF10 5BT, United Kingdom",
+    "latitude": "51.4762113",
+    "longitude": "-3.1738357",
+    "query": "Cardiff Civic Centre, Cardiff, Wales",
+    "source": "nominatim",
+    "state": "Wales",
+    "status": "ok",
+    "sublocation": "2 Callaghan Square"
   },
   "cardiff civic centre, cardiff, wales, united kingdom": {
     "city": "Cardiff",
@@ -2264,6 +2704,18 @@
     "query": "Cardiff, Wales, UK",
     "source": "nominatim",
     "status": "ok"
+  },
+  "cardiff, wales, united kingdom": {
+    "city": "Cardiff",
+    "country": "United Kingdom",
+    "display_name": "Cardiff, Wales, CF10 2AF, United Kingdom",
+    "latitude": "51.4816546",
+    "longitude": "-3.1791934",
+    "query": "Cardiff, Wales, United Kingdom",
+    "source": "nominatim",
+    "state": "Wales",
+    "status": "ok",
+    "sublocation": ""
   },
   "casa grande, arizona": {
     "city": "Casa Grande",
@@ -2444,6 +2896,18 @@
     "state": "Massachusetts",
     "status": "ok"
   },
+  "central park, new york city, united states": {
+    "city": "New York",
+    "country": "United States",
+    "display_name": "Central Park, New York County, New York, 11025, United States",
+    "latitude": "40.7827725",
+    "longitude": "-73.9653627",
+    "query": "Central Park, New York City, United States",
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok",
+    "sublocation": ""
+  },
   "cerne abbas": {
     "city": "",
     "country": "United Kingdom",
@@ -2534,6 +2998,10 @@
   },
   "chapel bridge (lucerne), switzerland": {
     "query": "Chapel Bridge (Lucerne), Switzerland",
+    "status": "miss"
+  },
+  "chapel bridge, lucerne, switzerland": {
+    "query": "Chapel Bridge, Lucerne, Switzerland",
     "status": "miss"
   },
   "chapel bridge, switzerland": {
@@ -2827,6 +3295,18 @@
     "state": "Illinois",
     "status": "ok"
   },
+  "chicago, illinois, united states": {
+    "city": "Chicago",
+    "country": "United States",
+    "display_name": "Chicago, South Chicago Township, Cook County, Illinois, United States",
+    "latitude": "41.8755616",
+    "longitude": "-87.6244212",
+    "query": "Chicago, Illinois, United States",
+    "source": "nominatim",
+    "state": "Illinois",
+    "status": "ok",
+    "sublocation": ""
+  },
   "chicago, united states": {
     "city": "Chicago",
     "country": "United States",
@@ -2869,6 +3349,10 @@
     "query": "Chinese Pavilion at Kew Gardens, Kew, England, United Kingdom",
     "status": "miss"
   },
+  "chinese pavillion at kew gardens, richmond upon thames, united kingdom": {
+    "query": "Chinese Pavillion at Kew Gardens, Richmond upon Thames, United Kingdom",
+    "status": "miss"
+  },
   "chipping campden": {
     "display_name": "Chipping Campden, Cotswold, Gloucestershire, England, United Kingdom",
     "latitude": "52.0496652",
@@ -2880,6 +3364,18 @@
   "chipping campden and broadway, cotswolds, england": {
     "query": "Chipping Campden and Broadway, Cotswolds, England",
     "status": "miss"
+  },
+  "chipping campden, england": {
+    "city": "Cotswold District",
+    "country": "United Kingdom",
+    "display_name": "Chipping Campden, Cotswold District, Gloucestershire, England, United Kingdom",
+    "latitude": "52.0496652",
+    "longitude": "-1.7813927",
+    "query": "Chipping Campden, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "chipping campden, the cotswolds, england": {
     "query": "Chipping Campden, The Cotswolds, England",
@@ -2985,6 +3481,22 @@
     "state": "England",
     "status": "ok"
   },
+  "church at sandringham, united kingdom": {
+    "city": "King's Lynn and West Norfolk",
+    "country": "United Kingdom",
+    "display_name": "Church Farm, Sandringham, Wolferton, King's Lynn and West Norfolk, Norfolk, England, PE31 6HA, United Kingdom",
+    "latitude": "52.8293237",
+    "longitude": "0.4608243",
+    "query": "Church at Sandringham, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "church of santa maria della salute, venice, italy": {
+    "query": "Church of Santa Maria della Salute, Venice, Italy",
+    "status": "miss"
+  },
   "church of santa marie della salute and the grand canal, venice italy": {
     "query": "Church of Santa Marie Della Salute and the Grand Canal, Venice Italy",
     "status": "miss"
@@ -3033,6 +3545,18 @@
     "state": "Ohio",
     "status": "ok"
   },
+  "cincinnati, ohio, united states": {
+    "city": "Cincinnati",
+    "country": "United States",
+    "display_name": "Cincinnati, Hamilton County, Ohio, United States",
+    "latitude": "39.1014537",
+    "longitude": "-84.5124602",
+    "query": "Cincinnati, Ohio, United States",
+    "source": "nominatim",
+    "state": "Ohio",
+    "status": "ok",
+    "sublocation": ""
+  },
   "city and beach at torquay": {
     "query": "City and Beach at Torquay",
     "status": "miss"
@@ -3058,6 +3582,18 @@
     "source": "nominatim",
     "state": "Wales",
     "status": "ok"
+  },
+  "city hall, cardiff, united kingdom": {
+    "city": "Cardiff",
+    "country": "United Kingdom",
+    "display_name": "Cardiff City Hall, Gorsedd Gardens Road, Civic Centre, Cathays, Cardiff, Wales, CF10 3ND, United Kingdom",
+    "latitude": "51.4852714",
+    "longitude": "-3.1787919",
+    "query": "City Hall, Cardiff, United Kingdom",
+    "source": "nominatim",
+    "state": "Wales",
+    "status": "ok",
+    "sublocation": "Gorsedd Gardens Road"
   },
   "city hall, vienna, austria": {
     "display_name": "Rathaus, 1, Rathausplatz, Regierungsviertel, Innere Stadt, Wien, 1010, Österreich",
@@ -3163,6 +3699,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "clovelly high street, clovelly, united kingdom": {
+    "city": "Torridge District",
+    "country": "United Kingdom",
+    "display_name": "Clovelly Methodist Chapel, High Street, Higher Clovelly, Clovelly, Torridge District, Devon, Devon and Torbay, England, EX39 5TB, United Kingdom",
+    "latitude": "50.9976607",
+    "longitude": "-4.3994975",
+    "query": "Clovelly High Street, Clovelly, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "High Street"
+  },
   "clovelly high street, devon, england": {
     "display_name": "Clovelly Methodist Chapel, High Street, Higher Clovelly, Clovelly, Torridge, Devon, Devon and Torbay, England, EX39 5TB, United Kingdom",
     "latitude": "50.9976607",
@@ -3205,6 +3753,18 @@
     "query": "Clovelly, England, United Kingdom",
     "source": "nominatim",
     "status": "ok"
+  },
+  "clovelly, united kingdom": {
+    "city": "Torridge District",
+    "country": "United Kingdom",
+    "display_name": "Clovelly, Torridge District, Devon, Devon and Torbay, England, United Kingdom",
+    "latitude": "50.9909081",
+    "longitude": "-4.3998573",
+    "query": "Clovelly, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "clovely, devon, england": {
     "query": "Clovely, Devon, England",
@@ -3300,6 +3860,18 @@
     "query": "Cologne and Boppard, Germany",
     "status": "miss"
   },
+  "cologne cathedral, cologne, germany": {
+    "city": "Cologne",
+    "country": "Germany",
+    "display_name": "Cologne Cathedral, 4, Domkloster, Andreasviertel, Altstadt-Nord, Innenstadt, Cologne, North Rhine-Westphalia, 50667, Germany",
+    "latitude": "50.9413035",
+    "longitude": "6.9581380",
+    "query": "Cologne Cathedral, Cologne, Germany",
+    "source": "nominatim",
+    "state": "North Rhine-Westphalia",
+    "status": "ok",
+    "sublocation": "4 Domkloster"
+  },
   "cologne cathedral, cologne, nordrhein-westfalen, germany": {
     "city": "Cologne",
     "country": "Germany",
@@ -3352,6 +3924,18 @@
     "state": "Colorado",
     "status": "ok"
   },
+  "colorado springs, colorado, united states": {
+    "city": "Colorado Springs",
+    "country": "United States",
+    "display_name": "Colorado Springs, El Paso County, Colorado, United States",
+    "latitude": "38.8339578",
+    "longitude": "-104.8253480",
+    "query": "Colorado Springs, Colorado, United States",
+    "source": "nominatim",
+    "state": "Colorado",
+    "status": "ok",
+    "sublocation": ""
+  },
   "colorado springs, colorado, usa": {
     "city": "Colorado Springs",
     "country": "United States",
@@ -3362,6 +3946,30 @@
     "source": "nominatim",
     "state": "Colorado",
     "status": "ok"
+  },
+  "colorado springs, united states": {
+    "city": "Colorado Springs",
+    "country": "United States",
+    "display_name": "Colorado Springs, El Paso County, Colorado, United States",
+    "latitude": "38.8339578",
+    "longitude": "-104.8253480",
+    "query": "Colorado Springs, United States",
+    "source": "nominatim",
+    "state": "Colorado",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "colosseum, italy": {
+    "city": "Rome",
+    "country": "Italy",
+    "display_name": "Colosseum, Celio, Municipio Roma I, Rome, Roma Capitale, Lazio, 00184, Italy",
+    "latitude": "41.8909421",
+    "longitude": "12.4919030",
+    "query": "Colosseum, Italy",
+    "source": "nominatim",
+    "state": "Lazio",
+    "status": "ok",
+    "sublocation": "Colosseum"
   },
   "columns of the karnak temple - luxor, egypt": {
     "query": "Columns of the Karnak Temple - Luxor, Egypt",
@@ -3379,6 +3987,10 @@
     "query": "Conservatory at Kew Gardens, Kew, England, United Kingdom",
     "status": "miss"
   },
+  "conservatory at kew gardens, richmond upon thames, united kingdom": {
+    "query": "Conservatory at Kew Gardens, Richmond upon Thames, United Kingdom",
+    "status": "miss"
+  },
   "continental divide, new mexico": {
     "city": "",
     "country": "United States",
@@ -3390,8 +4002,24 @@
     "state": "New Mexico",
     "status": "ok"
   },
+  "continental divide, new mexico, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Continental Divide, Sandoval County, New Mexico, United States",
+    "latitude": "36.0761112",
+    "longitude": "-107.1357686",
+    "query": "Continental Divide, New Mexico, United States",
+    "source": "nominatim",
+    "state": "New Mexico",
+    "status": "ok",
+    "sublocation": ""
+  },
   "copper shop fabric dyers, morocco": {
     "query": "Copper Shop Fabric Dyers, Morocco",
+    "status": "miss"
+  },
+  "cordell t.v. store, los angeles, united states": {
+    "query": "Cordell T.V. Store, Los Angeles, United States",
     "status": "miss"
   },
   "corfe castle": {
@@ -3456,6 +4084,18 @@
     "state": "California",
     "status": "ok"
   },
+  "coronado, california, united states": {
+    "city": "Coronado",
+    "country": "United States",
+    "display_name": "Coronado, San Diego County, California, United States",
+    "latitude": "32.6915199",
+    "longitude": "-117.1766947",
+    "query": "Coronado, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "cotswolds": {
     "city": "Welwyn Hatfield",
     "country": "United Kingdom",
@@ -3475,6 +4115,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "cotswolds, united kingdom": {
+    "city": "Welwyn Hatfield",
+    "country": "United Kingdom",
+    "display_name": "Cotswolds, Hilltop, South Hatfield, Hatfield, Welwyn Hatfield, Hertfordshire, England, AL10 8JR, United Kingdom",
+    "latitude": "51.7489426",
+    "longitude": "-0.2303335",
+    "query": "Cotswolds, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Cotswolds"
+  },
   "cotswolds, worcestershire, england": {
     "display_name": "The Cotswolds National Landscape, Gloucestershire, West of England, England, United Kingdom",
     "latitude": "51.7266050",
@@ -3485,6 +4137,10 @@
   },
   "cottage in the new forest": {
     "query": "Cottage in the New Forest",
+    "status": "miss"
+  },
+  "cottage in the new forest, hampshire, england": {
+    "query": "Cottage in the New Forest, Hampshire, England",
     "status": "miss"
   },
   "cottage in the new forest, united kingdom": {
@@ -3555,6 +4211,18 @@
     "state": "England",
     "status": "ok"
   },
+  "coventry cathedral, coventry, united kingdom": {
+    "city": "Coventry",
+    "country": "United Kingdom",
+    "display_name": "Coventry Cathedral Church of St Michael, Priory Street, Hillfields, Coventry, West Midlands, England, CV1 5FJ, United Kingdom",
+    "latitude": "52.4086328",
+    "longitude": "-1.5070981",
+    "query": "Coventry Cathedral, Coventry, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Coventry Cathedral Church of St Michael"
+  },
   "coventry cathedral, coventry, west midlands, england": {
     "display_name": "Coventry Cathedral Church of St Michael, Priory Street, Hillfields, Coventry, West Midlands, England, CV1 5FJ, United Kingdom",
     "latitude": "52.4086328",
@@ -3586,6 +4254,18 @@
     "state": "England",
     "status": "ok"
   },
+  "covered bridge in indiana, indiana, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Covered Bridge, Carroll County, Indiana, United States",
+    "latitude": "40.6010915",
+    "longitude": "-86.7607514",
+    "query": "Covered Bridge in Indiana, Indiana, United States",
+    "source": "nominatim",
+    "state": "Indiana",
+    "status": "ok",
+    "sublocation": "Covered Bridge"
+  },
   "covina": {
     "city": "Covina",
     "country": "United States",
@@ -3607,6 +4287,18 @@
     "source": "nominatim",
     "state": "California",
     "status": "ok"
+  },
+  "covina, california, united states": {
+    "city": "Covina",
+    "country": "United States",
+    "display_name": "Covina, Los Angeles County, California, United States",
+    "latitude": "34.0877926",
+    "longitude": "-117.8891164",
+    "query": "Covina, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
   },
   "covina, california, usa": {
     "city": "Covina",
@@ -3692,6 +4384,10 @@
     "query": "Crest Hotel, Germany",
     "status": "miss"
   },
+  "crest hotel, münchen, bayern, germany": {
+    "query": "Crest Hotel, München, Bayern, Germany",
+    "status": "miss"
+  },
   "croatia": {
     "display_name": "Hrvatska",
     "latitude": "45.3658443",
@@ -3699,6 +4395,10 @@
     "query": "Croatia",
     "source": "nominatim",
     "status": "ok"
+  },
+  "crowd gathering to watch the clock at noon, vienna, austria": {
+    "query": "Crowd Gathering to Watch the Clock at Noon, Vienna, Austria",
+    "status": "miss"
   },
   "crystal lake, calif.": {
     "city": "",
@@ -3711,6 +4411,18 @@
     "state": "California",
     "status": "ok"
   },
+  "crystal lake, california, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Crystal Lake, Nevada County, California, 95729, United States",
+    "latitude": "39.3198533",
+    "longitude": "-120.5772003",
+    "query": "Crystal Lake, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "crystal palace camp site": {
     "query": "Crystal Palace Camp Site",
     "status": "miss"
@@ -3721,6 +4433,10 @@
   },
   "crystal palace camp site, london, england, united kingdom": {
     "query": "Crystal Palace Camp Site, London, England, United Kingdom",
+    "status": "miss"
+  },
+  "crystal palace camp site, united kingdom": {
+    "query": "Crystal Palace Camp Site, United Kingdom",
     "status": "miss"
   },
   "crystal palace campsite, london, england": {
@@ -3757,6 +4473,18 @@
     "state": "England",
     "status": "ok"
   },
+  "crystal palace, london, united kingdom": {
+    "city": "Greater London",
+    "country": "United Kingdom",
+    "display_name": "Crystal Palace, London Borough of Bromley, Greater London, England, SE19 2GA, United Kingdom",
+    "latitude": "51.4193664",
+    "longitude": "-0.0711328",
+    "query": "Crystal Palace, London, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "crystal palace, united kingdom": {
     "city": "Greater London",
     "country": "United Kingdom",
@@ -3789,6 +4517,18 @@
     "source": "nominatim",
     "state": "Texas",
     "status": "ok"
+  },
+  "dallas, texas, united states": {
+    "city": "Dallas",
+    "country": "United States",
+    "display_name": "Dallas, Dallas County, Texas, United States",
+    "latitude": "32.7762719",
+    "longitude": "-96.7968559",
+    "query": "Dallas, Texas, United States",
+    "source": "nominatim",
+    "state": "Texas",
+    "status": "ok",
+    "sublocation": ""
   },
   "dean & tawnya's home, indiana, indianapolis": {
     "query": "Dean & Tawnya's Home, Indiana, Indianapolis",
@@ -3832,6 +4572,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "detroit, michigan, united states": {
+    "city": "Detroit",
+    "country": "United States",
+    "display_name": "Detroit, Wayne County, Michigan, United States",
+    "latitude": "42.3315509",
+    "longitude": "-83.0466403",
+    "query": "Detroit, Michigan, United States",
+    "source": "nominatim",
+    "state": "Michigan",
+    "status": "ok",
+    "sublocation": ""
+  },
   "disneyland": {
     "city": "Anaheim",
     "country": "United States",
@@ -3842,6 +4594,30 @@
     "source": "nominatim",
     "state": "California",
     "status": "ok"
+  },
+  "disneyland, california": {
+    "city": "Anaheim",
+    "country": "United States",
+    "display_name": "Disneyland, 1313, South Harbor Boulevard, Anaheim Resort District, Anaheim, Orange County, California, 92802, United States",
+    "latitude": "33.8136512",
+    "longitude": "-117.9197351",
+    "query": "Disneyland, California",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": "1313 South Harbor Boulevard"
+  },
+  "disneyland, california, united states": {
+    "city": "Anaheim",
+    "country": "United States",
+    "display_name": "Disneyland, 1313, South Harbor Boulevard, Anaheim Resort District, Anaheim, Orange County, California, 92802, United States",
+    "latitude": "33.8136512",
+    "longitude": "-117.9197351",
+    "query": "Disneyland, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": "1313 South Harbor Boulevard"
   },
   "dolmabahçe palace": {
     "city": "Beşiktaş",
@@ -3880,6 +4656,18 @@
   "dolores' baby shower may 15th 1982": {
     "query": "Dolores' Baby Shower May 15th 1982",
     "status": "miss"
+  },
+  "dolores, colorado, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Dolores County, Colorado, United States",
+    "latitude": "37.7524811",
+    "longitude": "-108.4596087",
+    "query": "Dolores, Colorado, United States",
+    "source": "nominatim",
+    "state": "Colorado",
+    "status": "ok",
+    "sublocation": ""
   },
   "dom (mainz), mainz, rheinland-pfalz, germany": {
     "city": "Mainz",
@@ -4008,6 +4796,18 @@
     "source": "nominatim",
     "state": "Maine",
     "status": "ok"
+  },
+  "dover foxcroft, maine, united states": {
+    "city": "Dover-Foxcroft",
+    "country": "United States",
+    "display_name": "Dover-Foxcroft, Piscataquis County, Maine, 04426, United States",
+    "latitude": "45.1834890",
+    "longitude": "-69.2276000",
+    "query": "Dover Foxcroft, Maine, United States",
+    "source": "nominatim",
+    "state": "Maine",
+    "status": "ok",
+    "sublocation": ""
   },
   "dover harbour board, united kingdom": {
     "city": "Dover",
@@ -4427,6 +5227,18 @@
     "state": "Scotland",
     "status": "ok"
   },
+  "edinburgh castle, edinburgh, united kingdom": {
+    "city": "City of Edinburgh",
+    "country": "United Kingdom",
+    "display_name": "Edinburgh Castle, Castlehill, Old Town, City of Edinburgh, Scotland, EH1 2NG, United Kingdom",
+    "latitude": "55.9486867",
+    "longitude": "-3.2004175",
+    "query": "Edinburgh Castle, Edinburgh, United Kingdom",
+    "source": "nominatim",
+    "state": "Scotland",
+    "status": "ok",
+    "sublocation": "Castlehill"
+  },
   "edinburgh castle, scotland": {
     "display_name": "Edinburgh Castle, Castlehill, Old Town, City of Edinburgh, Alba / Scotland, EH1 2NG, United Kingdom",
     "latitude": "55.9486867",
@@ -4461,6 +5273,10 @@
     "query": "Edinburgh, Scotland, UK",
     "source": "nominatim",
     "status": "ok"
+  },
+  "edward vii memorial gates, london, united kingdom": {
+    "query": "Edward VII Memorial Gates, London, United Kingdom",
+    "status": "miss"
   },
   "egypt": {
     "display_name": "مصر",
@@ -4626,6 +5442,18 @@
     "state": "England",
     "status": "ok"
   },
+  "ely cathedral, ely, united kingdom": {
+    "city": "Ely",
+    "country": "United Kingdom",
+    "display_name": "Ely Cathedral, The College ('Oister Lane), Ely, East Cambridgeshire, Cambridgeshire, Cambridgeshire and Peterborough, England, CB7 4DL, United Kingdom",
+    "latitude": "52.3986555",
+    "longitude": "0.2637479",
+    "query": "Ely Cathedral, Ely, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "The College ('Oister Lane)"
+  },
   "ely cathedral, england": {
     "display_name": "Ely Cathedral, The College ('Oister Lane), Ely, East Cambridgeshire, Cambridgeshire, Cambridgeshire and Peterborough, England, CB7 4DL, United Kingdom",
     "latitude": "52.3986555",
@@ -4654,6 +5482,10 @@
     "query": "Ely Marina, Ely, Cambridgeshire, England",
     "status": "miss"
   },
+  "ely marina, ely, united kingdom": {
+    "query": "Ely Marina, Ely, United Kingdom",
+    "status": "miss"
+  },
   "ely marina, river ouse, england": {
     "query": "Ely Marina, River Ouse, England",
     "status": "miss"
@@ -4665,6 +5497,30 @@
     "query": "Ely, Cambridgeshire, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "ely, england": {
+    "city": "Ely",
+    "country": "United Kingdom",
+    "display_name": "Ely, East Cambridgeshire, Cambridgeshire, Cambridgeshire and Peterborough, England, United Kingdom",
+    "latitude": "52.3990199",
+    "longitude": "0.2620390",
+    "query": "Ely, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "empire theatre, liverpool, united kingdom": {
+    "city": "Liverpool",
+    "country": "United Kingdom",
+    "display_name": "Liverpool Empire Theatre, 11, Lime Street, St George's Quarter / Cultural Quarter, Vauxhall, Liverpool, Liverpool City Region, England, L1 1JE, United Kingdom",
+    "latitude": "53.4088229",
+    "longitude": "-2.9781772",
+    "query": "Empire Theatre, Liverpool, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "11 Lime Street"
   },
   "england": {
     "display_name": "England, United Kingdom",
@@ -4709,6 +5565,18 @@
     "state": "England",
     "status": "ok"
   },
+  "england, south of london": {
+    "city": "Greater London",
+    "country": "United Kingdom",
+    "display_name": "Islamic Centre of England, Kilburn High Road, South Hampstead, London Borough of Camden, Greater London, England, W9 1QB, United Kingdom",
+    "latitude": "51.5353509",
+    "longitude": "-0.1891863",
+    "query": "England, South of London",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Kilburn High Road"
+  },
   "england, united kingdom": {
     "city": "",
     "country": "United Kingdom",
@@ -4723,6 +5591,10 @@
   },
   "english country side south of london": {
     "query": "English Country Side South of London",
+    "status": "miss"
+  },
+  "english country side south of london, england": {
+    "query": "English Country Side South of London, England",
     "status": "miss"
   },
   "english countryside south of london": {
@@ -4819,6 +5691,18 @@
   "europe 1973, egypt 1975": {
     "query": "Europe 1973, Egypt 1975",
     "status": "miss"
+  },
+  "europe 1985": {
+    "city": "Tours",
+    "country": "France",
+    "display_name": "Europe, Tours, Indre-et-Loire, Centre-Val de Loire, Metropolitan France, 37100, France",
+    "latitude": "47.4229164",
+    "longitude": "0.6844393",
+    "query": "Europe 1985",
+    "source": "nominatim",
+    "state": "Centre-Val de Loire",
+    "status": "ok",
+    "sublocation": ""
   },
   "europe 1985 book 1": {
     "query": "Europe 1985 Book 1",
@@ -4946,6 +5830,18 @@
     "state": "California",
     "status": "ok"
   },
+  "exposition park, los angeles, california, united states": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Exposition Park, Los Angeles, Los Angeles County, California, 90062, United States",
+    "latitude": "34.0183415",
+    "longitude": "-118.3002033",
+    "query": "Exposition Park, Los Angeles, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "fair princess": {
     "city": "New York",
     "country": "United States",
@@ -5001,12 +5897,20 @@
     "state": "Missouri",
     "status": "ok"
   },
+  "fairhill farm, manitoba, canada": {
+    "query": "Fairhill Farm, Manitoba, Canada",
+    "status": "miss"
+  },
   "fairhill farm, rathwell man, canada": {
     "query": "Fairhill Farm, Rathwell Man, Canada",
     "status": "miss"
   },
   "fairhill farm, rathwell man., canada": {
     "query": "Fairhill Farm, Rathwell Man., Canada",
+    "status": "miss"
+  },
+  "fairhill farm, rathwell, manitoba, canada": {
+    "query": "Fairhill Farm, Rathwell, Manitoba, Canada",
     "status": "miss"
   },
   "falcon hotel, stratford-upon-avon, england, united kingdom": {
@@ -5040,6 +5944,18 @@
   "fes, morocco, fes, morocco": {
     "query": "Fes, Morocco, Fes, Morocco",
     "status": "miss"
+  },
+  "field museum of natural history, chicago, illinois, united states": {
+    "city": "Chicago",
+    "country": "United States",
+    "display_name": "Field Museum, 1400, East McFetridge Drive, Near South Side, Chicago, South Chicago Township, Cook County, Illinois, 60605, United States",
+    "latitude": "41.8662215",
+    "longitude": "-87.6168913",
+    "query": "Field Museum of Natural History, Chicago, Illinois, United States",
+    "source": "nominatim",
+    "state": "Illinois",
+    "status": "ok",
+    "sublocation": "1400 East McFetridge Drive"
   },
   "fisherman's bastion and matthias church, budapest, hungary": {
     "query": "Fisherman's Bastion and Matthias Church, Budapest, Hungary",
@@ -5109,6 +6025,18 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "fleet street, london, united kingdom": {
+    "city": "City of London",
+    "country": "United Kingdom",
+    "display_name": "Fleet Street, Blackfriars, City of London, Greater London, England, EC4Y 1AU, United Kingdom",
+    "latitude": "51.5137648",
+    "longitude": "-0.1114735",
+    "query": "Fleet Street, London, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Fleet Street"
   },
   "forbidden city, beijing, china": {
     "display_name": "故宫, 东华门街道, 首都功能核心区, 东城区, 北京市, 100010, 中国",
@@ -5274,6 +6202,18 @@
     "state": "Colorado",
     "status": "ok"
   },
+  "garden of the gods, colorado, united states": {
+    "city": "Colorado Springs",
+    "country": "United States",
+    "display_name": "Garden of the Gods Park, Colorado Springs, El Paso County, Colorado, United States",
+    "latitude": "38.8743771",
+    "longitude": "-104.8824095",
+    "query": "Garden of the Gods, Colorado, United States",
+    "source": "nominatim",
+    "state": "Colorado",
+    "status": "ok",
+    "sublocation": ""
+  },
   "gardens at dolmabahçe palace, istanbul, turkey": {
     "query": "Gardens at Dolmabahçe Palace, Istanbul, Turkey",
     "status": "miss"
@@ -5288,6 +6228,10 @@
   },
   "gardens at sandringham, sandringham, norfolk, united kingdom": {
     "query": "Gardens at Sandringham, Sandringham, Norfolk, United Kingdom",
+    "status": "miss"
+  },
+  "gardens at sandringham, united kingdom": {
+    "query": "Gardens at Sandringham, United Kingdom",
     "status": "miss"
   },
   "gatwick airport": {
@@ -5313,6 +6257,30 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "gatwick airport, london, united kingdom": {
+    "city": "Crawley",
+    "country": "United Kingdom",
+    "display_name": "London Gatwick Airport, London Road, Lowfield Heath, Tinsley Green, Crawley, West Sussex, England, RH11 0PJ, United Kingdom",
+    "latitude": "51.1540772",
+    "longitude": "-0.1823226",
+    "query": "Gatwick Airport, London, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "London Road"
+  },
+  "germany, rhine river": {
+    "city": "",
+    "country": "Germany",
+    "display_name": "Rhine, Germany",
+    "latitude": "50.4693743",
+    "longitude": "7.3499986",
+    "query": "Germany, Rhine River",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
   "giant statue of mao tse tung": {
     "query": "Giant Statue of Mao Tse Tung",
     "status": "miss"
@@ -5332,6 +6300,10 @@
     "query": "Gibraltar",
     "source": "nominatim",
     "status": "ok"
+  },
+  "gillman hot springs, nevada, united states": {
+    "query": "Gillman Hot Springs, Nevada, United States",
+    "status": "miss"
   },
   "giralda, seville, andalusia, spain": {
     "city": "Seville",
@@ -5456,6 +6428,18 @@
     "state": "Scotland",
     "status": "ok"
   },
+  "glasgow museum, glasgow, united kingdom": {
+    "city": "Glasgow",
+    "country": "United Kingdom",
+    "display_name": "Glasgow Science Centre, 50, Pacific Quay, Stobcross, Cessnock, Glasgow, Glasgow City, Scotland, G51 1EA, United Kingdom",
+    "latitude": "55.8586952",
+    "longitude": "-4.2944658",
+    "query": "Glasgow Museum, Glasgow, United Kingdom",
+    "source": "nominatim",
+    "state": "Scotland",
+    "status": "ok",
+    "sublocation": "50 Pacific Quay"
+  },
   "glasgow theatre, glasgow, scotland, united kingdom": {
     "city": "Glasgow",
     "country": "United Kingdom",
@@ -5466,6 +6450,30 @@
     "source": "nominatim",
     "state": "Scotland",
     "status": "ok"
+  },
+  "glasgow theatre, glasgow, united kingdom": {
+    "city": "Glasgow",
+    "country": "United Kingdom",
+    "display_name": "Film City Glasgow, Merryland Street, Ibroxholm, Cessnock, Glasgow, Glasgow City, Scotland, G51 2QJ, United Kingdom",
+    "latitude": "55.8566929",
+    "longitude": "-4.3006295",
+    "query": "Glasgow Theatre, Glasgow, United Kingdom",
+    "source": "nominatim",
+    "state": "Scotland",
+    "status": "ok",
+    "sublocation": "Merryland Street"
+  },
+  "glasgow university, glasgow, scotland": {
+    "city": "Glasgow",
+    "country": "United Kingdom",
+    "display_name": "Glasgow School of Art, Dalhousie Lane, Garnethill, Glasgow, Glasgow City, Scotland, G3 6QD, United Kingdom",
+    "latitude": "55.8663077",
+    "longitude": "-4.2639001",
+    "query": "Glasgow University, Glasgow, Scotland",
+    "source": "nominatim",
+    "state": "Scotland",
+    "status": "ok",
+    "sublocation": "Dalhousie Lane"
   },
   "glasgow, scotland": {
     "display_name": "Glasgow, Glasgow City, Alba / Scotland, G2 1AL, United Kingdom",
@@ -5483,6 +6491,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "glasgow, scotland, united kingdom": {
+    "city": "Glasgow",
+    "country": "United Kingdom",
+    "display_name": "Glasgow, Glasgow City, Scotland, G2 1AL, United Kingdom",
+    "latitude": "55.8611550",
+    "longitude": "-4.2501687",
+    "query": "Glasgow, Scotland, United Kingdom",
+    "source": "nominatim",
+    "state": "Scotland",
+    "status": "ok",
+    "sublocation": ""
+  },
   "glendale, calif.": {
     "city": "Glendale",
     "country": "United States",
@@ -5493,6 +6513,30 @@
     "source": "nominatim",
     "state": "California",
     "status": "ok"
+  },
+  "glendale, california": {
+    "city": "Glendale",
+    "country": "United States",
+    "display_name": "Glendale, Los Angeles County, California, United States",
+    "latitude": "34.1469416",
+    "longitude": "-118.2478471",
+    "query": "Glendale, California",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "glendale, california, united states": {
+    "city": "Glendale",
+    "country": "United States",
+    "display_name": "Glendale, Los Angeles County, California, United States",
+    "latitude": "34.1469416",
+    "longitude": "-118.2478471",
+    "query": "Glendale, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
   },
   "gloria - hollywood, calif.": {
     "query": "Gloria - Hollywood, Calif.",
@@ -5508,6 +6552,18 @@
     "source": "nominatim",
     "state": "Oaxaca",
     "status": "ok"
+  },
+  "golden gate park, san francisco, california, united states": {
+    "city": "San Francisco",
+    "country": "United States",
+    "display_name": "Golden Gate Park, San Francisco, California, United States",
+    "latitude": "37.7693681",
+    "longitude": "-122.4821837",
+    "query": "Golden Gate Park, San Francisco, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
   },
   "gran via, madrid, spain": {
     "display_name": "Gran Vía, Palacio, Centro, Madrid, Comunidad de Madrid, 28013, España",
@@ -5527,6 +6583,30 @@
     "source": "nominatim",
     "state": "Community of Madrid",
     "status": "ok"
+  },
+  "grand beach, canada": {
+    "city": "",
+    "country": "Canada",
+    "display_name": "Grand Beach, Unorganized Division No. 19, Manitoba, R0E 0T0, Canada",
+    "latitude": "50.5560075",
+    "longitude": "-96.6339109",
+    "query": "Grand Beach, Canada",
+    "source": "nominatim",
+    "state": "Manitoba",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "grand beach, ontario, canada": {
+    "city": "South Huron",
+    "country": "Canada",
+    "display_name": "Grand Bend Public Beach, South Huron, Huron County, Ontario, Canada",
+    "latitude": "43.3207040",
+    "longitude": "-81.7580936",
+    "query": "Grand Beach, Ontario, Canada",
+    "source": "nominatim",
+    "state": "Ontario",
+    "status": "ok",
+    "sublocation": ""
   },
   "grand haven, michigan": {
     "city": "Grand Haven",
@@ -5654,6 +6734,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "greek islands, greece": {
+    "city": "Bogdanatika",
+    "country": "Greece",
+    "display_name": "Path to Greek Cistern and Mousmouli, Fanariotatika, Bogdanatika, Municipality of Paxos, Corfu Regional Unit, Ioanian Islands, Peloponnese, Western Greece and the Ionian, 490 82, Greece",
+    "latitude": "39.1856681",
+    "longitude": "20.1728170",
+    "query": "Greek Islands, Greece",
+    "source": "nominatim",
+    "state": "Ioanian Islands",
+    "status": "ok",
+    "sublocation": "Path to Greek Cistern and Mousmouli"
+  },
   "greenwich, england": {
     "display_name": "Greenwich, Greater London, England, SE10 9HF, United Kingdom",
     "latitude": "51.4820845",
@@ -5672,6 +6764,10 @@
   },
   "griffith park, indianapolis": {
     "query": "Griffith Park, Indianapolis",
+    "status": "miss"
+  },
+  "gustavus ii adolphus monument, budapest, hungary": {
+    "query": "Gustavus II Adolphus Monument, Budapest, Hungary",
     "status": "miss"
   },
   "gustavus ii adolphus monument, hungary": {
@@ -5746,12 +6842,24 @@
     "query": "Hardy's Birthplace",
     "status": "miss"
   },
+  "hardy's birthplace, dorset, england": {
+    "query": "Hardy's Birthplace, Dorset, England",
+    "status": "miss"
+  },
   "hardy's birthplace, united kingdom": {
     "query": "Hardy's Birthplace, United Kingdom",
     "status": "miss"
   },
+  "harry balboa island, newport beach, california, united states": {
+    "query": "Harry Balboa Island, Newport Beach, California, United States",
+    "status": "miss"
+  },
   "hasburg family castle": {
     "query": "Hasburg Family Castle",
+    "status": "miss"
+  },
+  "hasburg family castle, bayern, germany": {
+    "query": "Hasburg Family Castle, Bayern, Germany",
     "status": "miss"
   },
   "hasburg family castle, germany": {
@@ -5779,6 +6887,10 @@
     "source": "nominatim",
     "state": "Rabat-Salé-Kénitra",
     "status": "ok"
+  },
+  "heidelberg castle ruins, heidelberg, germany": {
+    "query": "Heidelberg Castle Ruins, Heidelberg, Germany",
+    "status": "miss"
   },
   "heidelberg castle, heidelberg, baden-württemberg, germany": {
     "city": "Heidelberg",
@@ -5821,6 +6933,18 @@
     "state": "California",
     "status": "ok"
   },
+  "hemet, california, united states": {
+    "city": "Hemet",
+    "country": "United States",
+    "display_name": "Hemet, Riverside County, California, United States",
+    "latitude": "33.7475203",
+    "longitude": "-116.9719684",
+    "query": "Hemet, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "henley-on-thames": {
     "display_name": "Henley-on-Thames, South Oxfordshire, Oxfordshire, England, RG9 2AN, United Kingdom",
     "latitude": "51.5375786",
@@ -5832,6 +6956,18 @@
   "henley-on-thames, berkshire, england": {
     "query": "Henley-on-Thames, Berkshire, England",
     "status": "miss"
+  },
+  "henley-on-thames, england": {
+    "city": "South Oxfordshire",
+    "country": "United Kingdom",
+    "display_name": "Henley-on-Thames, South Oxfordshire, Oxfordshire, England, RG9 2AN, United Kingdom",
+    "latitude": "51.5375786",
+    "longitude": "-0.9050287",
+    "query": "Henley-on-Thames, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "henley-on-thames, oxfordshire, england": {
     "display_name": "Henley-on-Thames, South Oxfordshire, Oxfordshire, England, RG9 2AN, United Kingdom",
@@ -5924,6 +7060,30 @@
   "high street, broadway, worcestershire, the cotswolds, stow-on-the-wold, england": {
     "query": "High Street, Broadway, Worcestershire, The Cotswolds, Stow-on-the-Wold, England",
     "status": "miss"
+  },
+  "high street, broadway, worcestershire, united kingdom": {
+    "city": "Wychavon",
+    "country": "United Kingdom",
+    "display_name": "High Street, Broadway, Wychavon, Worcestershire, England, WR12 7AJ, United Kingdom",
+    "latitude": "52.0364936",
+    "longitude": "-1.8545081",
+    "query": "High Street, Broadway, Worcestershire, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "High Street"
+  },
+  "highway 5, california": {
+    "city": "Martock",
+    "country": "United Kingdom",
+    "display_name": "5, Midway Farm, Highway, Martock, Somerset, England, TA12 6NP, United Kingdom",
+    "latitude": "50.9779622",
+    "longitude": "-2.7542234",
+    "query": "Highway 5, California",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "5 Midway Farm"
   },
   "highways of utah & colorado": {
     "query": "Highways of Utah & Colorado",
@@ -6052,6 +7212,18 @@
     "state": "California",
     "status": "ok"
   },
+  "hollywood, california, los angeles, united states": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Hollywood, Los Angeles, Los Angeles County, California, 90028, United States",
+    "latitude": "34.0980031",
+    "longitude": "-118.3295230",
+    "query": "Hollywood, California, Los Angeles, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "hollywood, california, united states": {
     "city": "Los Angeles",
     "country": "United States",
@@ -6062,6 +7234,10 @@
     "source": "nominatim",
     "state": "California",
     "status": "ok"
+  },
+  "hollywood, california, united states, los angeles": {
+    "query": "Hollywood, California, United States, Los Angeles",
+    "status": "miss"
   },
   "hollywood, california, usa": {
     "city": "Los Angeles",
@@ -6074,6 +7250,30 @@
     "state": "California",
     "status": "ok"
   },
+  "hollywood, los angeles, california, united states": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Hollywood, Los Angeles, Los Angeles County, California, 90028, United States",
+    "latitude": "34.0980031",
+    "longitude": "-118.3295230",
+    "query": "Hollywood, Los Angeles, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "hollywood, los angeles, united states": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Hollywood, Los Angeles, Los Angeles County, California, 90028, United States",
+    "latitude": "34.0980031",
+    "longitude": "-118.3295230",
+    "query": "Hollywood, Los Angeles, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "holyroodhouse, edinburgh, scotland": {
     "display_name": "Palace of Holyroodhouse, Canongate, Abbeyhill, Old Town, City of Edinburgh, Alba / Scotland, EH8 8DX, United Kingdom",
     "latitude": "55.9526948",
@@ -6081,6 +7281,10 @@
     "query": "Holyroodhouse, Edinburgh, Scotland",
     "source": "nominatim",
     "status": "ok"
+  },
+  "home of priests & archbishops, bucharest, romania": {
+    "query": "Home of Priests & Archbishops, Bucharest, Romania",
+    "status": "miss"
   },
   "hong kong": {
     "display_name": "香港 Hong Kong, 中国",
@@ -6360,6 +7564,18 @@
     "query": "Humber Bridge, Scarborough, England",
     "status": "miss"
   },
+  "humber bridge, united kingdom": {
+    "city": "Hessle",
+    "country": "United Kingdom",
+    "display_name": "Humber Bridge, Cliff Road, Hessle Cliff, Hessle, East Riding of Yorkshire, Hull and East Yorkshire, England, HU13 0DF, United Kingdom",
+    "latitude": "53.7079675",
+    "longitude": "-0.4501054",
+    "query": "Humber Bridge, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Cliff Road"
+  },
   "hungarian parliament building, buda castle hill, budapest, hungary": {
     "query": "Hungarian Parliament Building, Buda Castle Hill, Budapest, Hungary",
     "status": "miss"
@@ -6484,8 +7700,16 @@
     "query": "Inner Harbour and Waldon Hill, Torquay, Torquay, Devon, United Kingdom",
     "status": "miss"
   },
+  "inner harbour and waldon hill, torquay, united kingdom": {
+    "query": "Inner Harbour and Waldon Hill, Torquay, United Kingdom",
+    "status": "miss"
+  },
   "inner harbour, polperro, cornwall": {
     "query": "Inner Harbour, Polperro, Cornwall",
+    "status": "miss"
+  },
+  "inner harbour, polperro, england, united kingdom": {
+    "query": "Inner Harbour, Polperro, England, United Kingdom",
     "status": "miss"
   },
   "inner harbour, polperro, inner harbour, polperro, cornwall, united kingdom": {
@@ -6862,6 +8086,10 @@
     "query": "Karin's Home - Brentwood",
     "status": "miss"
   },
+  "karin's home - brentwood, brentwood, california, united states": {
+    "query": "Karin's Home - Brentwood, Brentwood, California, United States",
+    "status": "miss"
+  },
   "karin's home - brentwood, ca": {
     "query": "Karin's Home - Brentwood, CA",
     "status": "miss"
@@ -7020,6 +8248,18 @@
     "query": "Keble College, Oxford, England; The Hall, All Souls College, Oxford, England",
     "status": "miss"
   },
+  "keble college, oxford, united kingdom": {
+    "city": "Oxford",
+    "country": "United Kingdom",
+    "display_name": "Keble College, Parks Road, Holywell, City Centre, Oxford, Oxfordshire, England, OX1 3PG, United Kingdom",
+    "latitude": "51.7586688",
+    "longitude": "-1.2578896",
+    "query": "Keble College, Oxford, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Parks Road"
+  },
   "kenilworth": {
     "display_name": "Kenilworth, New Trier Township, Cook County, Illinois, United States",
     "latitude": "42.0894728",
@@ -7035,6 +8275,18 @@
     "query": "Kenilworth Castle",
     "source": "nominatim",
     "status": "ok"
+  },
+  "kenilworth castle, england": {
+    "city": "Kenilworth",
+    "country": "United Kingdom",
+    "display_name": "Kenilworth Castle, The Tiltyard, Castle Green, Kenilworth, Warwick, Warwickshire, England, CV8 1NG, United Kingdom",
+    "latitude": "52.3479445",
+    "longitude": "-1.5924026",
+    "query": "Kenilworth Castle, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "The Tiltyard"
   },
   "kenilworth castle, england, united kingdom": {
     "display_name": "Kenilworth Castle, The Tiltyard, Castle Green, Kenilworth, Warwick, Warwickshire, England, CV8 1NG, United Kingdom",
@@ -7055,6 +8307,18 @@
     "state": "England",
     "status": "ok"
   },
+  "kenilworth castle, kenilworth, united kingdom": {
+    "city": "Kenilworth",
+    "country": "United Kingdom",
+    "display_name": "Kenilworth Castle, The Tiltyard, Castle Green, Kenilworth, Warwick, Warwickshire, England, CV8 1NG, United Kingdom",
+    "latitude": "52.3479445",
+    "longitude": "-1.5924026",
+    "query": "Kenilworth Castle, Kenilworth, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "The Tiltyard"
+  },
   "kenilworth castle, kenilworth, warwickshire, england": {
     "display_name": "Kenilworth Castle, The Tiltyard, Castle Green, Kenilworth, Warwick, Warwickshire, England, CV8 1NG, United Kingdom",
     "latitude": "52.3479445",
@@ -7071,6 +8335,18 @@
     "query": "Kenilworth Castle, Suffolk, England",
     "status": "miss"
   },
+  "kenilworth castle, united kingdom": {
+    "city": "Kenilworth",
+    "country": "United Kingdom",
+    "display_name": "Kenilworth Castle, The Tiltyard, Castle Green, Kenilworth, Warwick, Warwickshire, England, CV8 1NG, United Kingdom",
+    "latitude": "52.3479445",
+    "longitude": "-1.5924026",
+    "query": "Kenilworth Castle, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "The Tiltyard"
+  },
   "kenilworth castle, warwickshire, england": {
     "display_name": "Kenilworth Castle, The Tiltyard, Castle Green, Kenilworth, Warwick, Warwickshire, England, CV8 1NG, United Kingdom",
     "latitude": "52.3479445",
@@ -7078,6 +8354,30 @@
     "query": "Kenilworth Castle, Warwickshire, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "kenilworth clock tower, kenilworth, united kingdom": {
+    "city": "Kenilworth",
+    "country": "United Kingdom",
+    "display_name": "Kenilworth Clock Tower, Smalley Place, Abbey End, Kenilworth, Warwick, Warwickshire, England, CV8 1HG, United Kingdom",
+    "latitude": "52.3434455",
+    "longitude": "-1.5799708",
+    "query": "Kenilworth Clock Tower, Kenilworth, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Smalley Place"
+  },
+  "kenilworth, england": {
+    "city": "Kenilworth",
+    "country": "United Kingdom",
+    "display_name": "Kenilworth, Warwick, Warwickshire, England, United Kingdom",
+    "latitude": "52.3450526",
+    "longitude": "-1.5816028",
+    "query": "Kenilworth, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "kenilworth, kenilworth castle, sir william cordell, kenilworth castle, england": {
     "query": "Kenilworth, Kenilworth Castle, Sir William Cordell, Kenilworth Castle, England",
@@ -7097,6 +8397,10 @@
   },
   "keswick - the lake district, england": {
     "query": "Keswick - The Lake District, England",
+    "status": "miss"
+  },
+  "keswick moot hall, keswick, england": {
+    "query": "Keswick Moot Hall, Keswick, England",
     "status": "miss"
   },
   "keswick, cumbria, england": {
@@ -7137,6 +8441,10 @@
     "state": "California",
     "status": "ok"
   },
+  "keswick, the lake district, united kingdom": {
+    "query": "Keswick, The Lake District, United Kingdom",
+    "status": "miss"
+  },
   "keswick, united kingdom": {
     "city": "Keswick",
     "country": "United Kingdom",
@@ -7164,6 +8472,30 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "kew gardens, london, united kingdom": {
+    "city": "Greater London",
+    "country": "United Kingdom",
+    "display_name": "Royal Botanic Gardens, Kew, Kew, London Borough of Richmond upon Thames, Greater London, England, United Kingdom",
+    "latitude": "51.4781975",
+    "longitude": "-0.2968861",
+    "query": "Kew Gardens, London, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "kew gardens, richmond upon thames, england": {
+    "city": "Greater London",
+    "country": "United Kingdom",
+    "display_name": "Royal Botanic Gardens, Kew, Kew, London Borough of Richmond upon Thames, Greater London, England, United Kingdom",
+    "latitude": "51.4781975",
+    "longitude": "-0.2968861",
+    "query": "Kew Gardens, Richmond upon Thames, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "kew gardens, united kingdom": {
     "city": "Greater London",
     "country": "United Kingdom",
@@ -7174,6 +8506,18 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "kew, england": {
+    "city": "Greater London",
+    "country": "United Kingdom",
+    "display_name": "Kew, London Borough of Richmond upon Thames, Greater London, England, TW9 3PZ, United Kingdom",
+    "latitude": "51.4771443",
+    "longitude": "-0.2855658",
+    "query": "Kew, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "kew, london, england": {
     "display_name": "Kew, London Borough of Richmond upon Thames, Greater London, England, TW9 3PZ, United Kingdom",
@@ -7252,6 +8596,18 @@
     "state": "England",
     "status": "ok"
   },
+  "king's college chapel, united kingdom": {
+    "city": "Cambridge",
+    "country": "United Kingdom",
+    "display_name": "King's College Chapel, King's Parade, Newnham, Cambridge, Cambridgeshire, Cambridgeshire and Peterborough, England, CB2 1ST, United Kingdom",
+    "latitude": "52.2047796",
+    "longitude": "0.1165440",
+    "query": "King's College Chapel, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "King's Parade"
+  },
   "king's college gatehouse, cambridge": {
     "query": "King's College Gatehouse, Cambridge",
     "status": "miss"
@@ -7283,6 +8639,30 @@
     "state": "England",
     "status": "ok"
   },
+  "king's lynn church, king's lynn, united kingdom": {
+    "city": "King's Lynn and West Norfolk",
+    "country": "United Kingdom",
+    "display_name": "King's Lynn Minster, Saturday Market Place, South Lynn, King's Lynn, King's Lynn and West Norfolk, Norfolk, England, PE30 5DQ, United Kingdom",
+    "latitude": "52.7516705",
+    "longitude": "0.3956156",
+    "query": "King's Lynn Church, King's Lynn, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Saturday Market Place"
+  },
+  "king's lynn church, norfolk, england": {
+    "city": "King's Lynn and West Norfolk",
+    "country": "United Kingdom",
+    "display_name": "Tilney All Saints Church of England Primary School, Church Road, Orchard Cottage, Tilney All Saints, Tilney High End, King's Lynn and West Norfolk, Norfolk, England, PE34 4RP, United Kingdom",
+    "latitude": "52.7312784",
+    "longitude": "0.3125886",
+    "query": "King's Lynn Church, Norfolk, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Church Road"
+  },
   "king's lynn, norfolk, england": {
     "display_name": "King's Lynn, King's Lynn and West Norfolk, Norfolk, England, PE30 1BJ, United Kingdom",
     "latitude": "52.7538673",
@@ -7290,6 +8670,22 @@
     "query": "King's Lynn, Norfolk, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "king's parade, cambridge, united kingdom": {
+    "city": "Cambridge",
+    "country": "United Kingdom",
+    "display_name": "King's Parade, Newnham, Cambridge, Cambridgeshire, Cambridgeshire and Peterborough, England, CB2 1SJ, United Kingdom",
+    "latitude": "52.2044539",
+    "longitude": "0.1176448",
+    "query": "King's Parade, Cambridge, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "King's Parade"
+  },
+  "kings and clare bridges, the backs, cambridge, united kingdom": {
+    "query": "Kings and Clare Bridges, The Backs, Cambridge, United Kingdom",
+    "status": "miss"
   },
   "klagenfurt and salzburg, austria": {
     "query": "Klagenfurt and Salzburg, Austria",
@@ -7313,6 +8709,30 @@
     "source": "nominatim",
     "state": "California",
     "status": "ok"
+  },
+  "knott's berry farm, buena park, california": {
+    "city": "Buena Park",
+    "country": "United States",
+    "display_name": "Knott's Berry Farm, 8039, Beach Boulevard, Buena Park, Orange County, California, 90620, United States",
+    "latitude": "33.8437507",
+    "longitude": "-118.0005672",
+    "query": "Knott's Berry Farm, Buena Park, California",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": "8039 Beach Boulevard"
+  },
+  "knott's berry farm, united states": {
+    "city": "Buena Park",
+    "country": "United States",
+    "display_name": "Knott's Berry Farm, 8039, Beach Boulevard, Buena Park, Orange County, California, 90620, United States",
+    "latitude": "33.8437507",
+    "longitude": "-118.0005672",
+    "query": "Knott's Berry Farm, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": "8039 Beach Boulevard"
   },
   "kom ombo, egypt": {
     "display_name": "كوم أمبو, أسوان, 81611, مصر",
@@ -7412,6 +8832,18 @@
     "state": "California",
     "status": "ok"
   },
+  "la jolla, california, united states": {
+    "city": "San Diego",
+    "country": "United States",
+    "display_name": "La Jolla, San Diego, San Diego County, California, United States",
+    "latitude": "32.8458529",
+    "longitude": "-117.2575702",
+    "query": "La Jolla, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "laguna hills": {
     "city": "Laguna Hills",
     "country": "United States",
@@ -7422,6 +8854,18 @@
     "source": "nominatim",
     "state": "California",
     "status": "ok"
+  },
+  "laguna hills, california, united states": {
+    "city": "Laguna Hills",
+    "country": "United States",
+    "display_name": "Laguna Hills, Orange County, California, United States",
+    "latitude": "33.5948758",
+    "longitude": "-117.6882067",
+    "query": "Laguna Hills, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
   },
   "lake arrowhead": {
     "city": "Lake Arrowhead",
@@ -7437,6 +8881,30 @@
   "lake arrowhead aug, 1946": {
     "query": "Lake Arrowhead Aug, 1946",
     "status": "miss"
+  },
+  "lake arrowhead, california": {
+    "city": "Lake Arrowhead",
+    "country": "United States",
+    "display_name": "Lake Arrowhead, San Bernardino County, California, 92352, United States",
+    "latitude": "34.2489684",
+    "longitude": "-117.1913321",
+    "query": "Lake Arrowhead, California",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "lake arrowhead, united states": {
+    "city": "Lake Arrowhead",
+    "country": "United States",
+    "display_name": "Lake Arrowhead, San Bernardino County, California, 92352, United States",
+    "latitude": "34.2489684",
+    "longitude": "-117.1913321",
+    "query": "Lake Arrowhead, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
   },
   "lake erie, united states": {
     "city": "",
@@ -7493,8 +8961,24 @@
     "state": "California",
     "status": "ok"
   },
+  "lake tahoe, california, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Lake Tahoe, Placer County, California, United States",
+    "latitude": "39.0885405",
+    "longitude": "-120.0503528",
+    "query": "Lake Tahoe, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "lake windermere, bowness, the lake district": {
     "query": "Lake Windermere, Bowness, The Lake District",
+    "status": "miss"
+  },
+  "lake windermere, bowness, the lake district, bowness-on-windermere, england, united kingdom": {
+    "query": "Lake Windermere, Bowness, The Lake District, Bowness-on-Windermere, England, United Kingdom",
     "status": "miss"
   },
   "lake windermere, england, united kingdom": {
@@ -7599,6 +9083,18 @@
     "query": "Leaving Aswan - Dec. 1975",
     "status": "miss"
   },
+  "leggett, united states": {
+    "city": "Leggett",
+    "country": "United States",
+    "display_name": "Leggett, Mendocino County, California, 95585, United States",
+    "latitude": "39.8638520",
+    "longitude": "-123.7263756",
+    "query": "Leggett, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "leopoldskron castle": {
     "display_name": "Schloss Leopoldskron, 58, Leopoldskronstraße, Riedenburg, Salzburg, 5020, Österreich",
     "latitude": "47.7883513",
@@ -7632,6 +9128,10 @@
   },
   "leslie's home & school in indianapolis": {
     "query": "Leslie's home & school in Indianapolis",
+    "status": "miss"
+  },
+  "leslie's home & school in indianapolis, indianapolis, united states": {
+    "query": "Leslie's Home & School in Indianapolis, Indianapolis, United States",
     "status": "miss"
   },
   "leslie's home and school in indianapolis": {
@@ -7748,6 +9248,18 @@
     "query": "Lincoln Cathedral, Brayford Pool, Lincoln, England, United Kingdom",
     "status": "miss"
   },
+  "lincoln cathedral, england": {
+    "city": "Lincoln",
+    "country": "United Kingdom",
+    "display_name": "Lincoln Cathedral, Minster Yard, New Boultham, Bracebridge, Lincoln, Lincolnshire, Greater Lincolnshire, England, LN2 1PY, United Kingdom",
+    "latitude": "53.2342885",
+    "longitude": "-0.5362358",
+    "query": "Lincoln Cathedral, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Minster Yard"
+  },
   "lincoln cathedral, lincoln, england": {
     "display_name": "Lincoln Cathedral, Minster Yard, New Boultham, Bracebridge, Lincoln, Lincolnshire, Greater Lincolnshire, England, LN2 1PX, United Kingdom",
     "latitude": "53.2342885",
@@ -7774,6 +9286,18 @@
     "query": "Lincoln Cathedral, Lincoln, Lincolnshire, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "lincoln cathedral, lincoln, united kingdom": {
+    "city": "Lincoln",
+    "country": "United Kingdom",
+    "display_name": "Lincoln Cathedral, Minster Yard, New Boultham, Bracebridge, Lincoln, Lincolnshire, Greater Lincolnshire, England, LN2 1PY, United Kingdom",
+    "latitude": "53.2342885",
+    "longitude": "-0.5362358",
+    "query": "Lincoln Cathedral, Lincoln, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Minster Yard"
   },
   "lincoln cathedral, lincolnshire, england": {
     "display_name": "Lincoln Cathedral, Minster Yard, New Boultham, Bracebridge, Lincoln, Lincolnshire, Greater Lincolnshire, England, LN2 1PY, United Kingdom",
@@ -7821,6 +9345,18 @@
     "state": "England",
     "status": "ok"
   },
+  "lincoln minster, lincoln, united kingdom": {
+    "city": "Lincoln",
+    "country": "United Kingdom",
+    "display_name": "Lincoln Minster School, Upper Lindum Street, New Boultham, Bracebridge, Lincoln, Lincolnshire, Greater Lincolnshire, England, LN2 5RW, United Kingdom",
+    "latitude": "53.2337643",
+    "longitude": "-0.5305899",
+    "query": "Lincoln Minster, Lincoln, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Upper Lindum Street"
+  },
   "lincoln, england": {
     "display_name": "Lincoln, Lincolnshire, Greater Lincolnshire, England, United Kingdom",
     "latitude": "53.2293545",
@@ -7840,6 +9376,18 @@
   "lincoln, nebraska; london, england": {
     "query": "Lincoln, Nebraska; London, England",
     "status": "miss"
+  },
+  "lincoln, united kingdom": {
+    "city": "Lincoln",
+    "country": "United Kingdom",
+    "display_name": "Lincoln, Lincolnshire, Greater Lincolnshire, England, United Kingdom",
+    "latitude": "53.2293545",
+    "longitude": "-0.5404819",
+    "query": "Lincoln, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "lindwurmbrunnen": {
     "city": "Klagenfurt",
@@ -7913,9 +9461,33 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "liverpool, england, united kingdom": {
+    "city": "Liverpool",
+    "country": "United Kingdom",
+    "display_name": "Liverpool, Liverpool City Region, England, United Kingdom",
+    "latitude": "53.4071991",
+    "longitude": "-2.9916800",
+    "query": "Liverpool, England, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "liverpool, merseyside, england": {
     "query": "Liverpool, Merseyside, England",
     "status": "miss"
+  },
+  "liverpool, united kingdom": {
+    "city": "Liverpool",
+    "country": "United Kingdom",
+    "display_name": "Liverpool, Liverpool City Region, England, United Kingdom",
+    "latitude": "53.4071991",
+    "longitude": "-2.9916800",
+    "query": "Liverpool, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "ljubljana, slovenia": {
     "display_name": "Ljubljana, Upravna Enota Ljubljana, Slovenija",
@@ -7932,6 +9504,18 @@
     "query": "Loe, Cornwall, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "lompoc, california, united states": {
+    "city": "Lompoc",
+    "country": "United States",
+    "display_name": "Lompoc, Santa Barbara County, California, 93436, United States",
+    "latitude": "34.6391501",
+    "longitude": "-120.4579009",
+    "query": "Lompoc, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
   },
   "london and canterbury, england": {
     "display_name": "London Road, Harbledown and Rough Common, Upper Harbledown, Canterbury, Kent, England, CT2 9BA, United Kingdom",
@@ -7959,6 +9543,10 @@
   },
   "london music museum, london, england": {
     "query": "London Music Museum, London, England",
+    "status": "miss"
+  },
+  "london music museum, london, united kingdom": {
+    "query": "London Music Museum, London, United Kingdom",
     "status": "miss"
   },
   "london suburbs": {
@@ -8031,6 +9619,18 @@
     "state": "California",
     "status": "ok"
   },
+  "long beach, california, united states": {
+    "city": "Long Beach",
+    "country": "United States",
+    "display_name": "Long Beach, Los Angeles County, California, United States",
+    "latitude": "33.7690164",
+    "longitude": "-118.1916040",
+    "query": "Long Beach, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "long beach, california, usa": {
     "city": "Long Beach",
     "country": "United States",
@@ -8052,6 +9652,18 @@
     "source": "nominatim",
     "state": "New York",
     "status": "ok"
+  },
+  "long lake, new york, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Town of Long Lake, Hamilton County, New York, 13436, United States",
+    "latitude": "43.9730520",
+    "longitude": "-74.4210430",
+    "query": "Long Lake, New York, United States",
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok",
+    "sublocation": ""
   },
   "longleat house - warminster": {
     "query": "Longleat House - Warminster",
@@ -8136,6 +9748,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "looe, cornwall, england, united kingdom": {
+    "city": "Looe",
+    "country": "United Kingdom",
+    "display_name": "Looe, Cornwall, England, United Kingdom",
+    "latitude": "50.3518739",
+    "longitude": "-4.4527880",
+    "query": "Looe, Cornwall, England, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "looe, cornwall, united kingdom": {
     "city": "Looe",
     "country": "United Kingdom",
@@ -8165,6 +9789,10 @@
   },
   "lord street gardens, southport, england; war memorial, southport, england": {
     "query": "Lord Street Gardens, Southport, England; War Memorial, Southport, England",
+    "status": "miss"
+  },
+  "lord street gardens, southport, united kingdom": {
+    "query": "Lord Street Gardens, Southport, United Kingdom",
     "status": "miss"
   },
   "los angeles": {
@@ -8255,6 +9883,18 @@
     "state": "New York",
     "status": "ok"
   },
+  "los angeles, united states": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Los Angeles, Los Angeles County, California, United States",
+    "latitude": "34.0536909",
+    "longitude": "-118.2427660",
+    "query": "Los Angeles, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "loxley, hampshire, england": {
     "display_name": "Loxley, Groves Down, Wellow, Test Valley, Hampshire, England, SO51 6DZ, United Kingdom",
     "latitude": "50.9757962",
@@ -8343,6 +9983,10 @@
   },
   "lynchberg, virginia": {
     "query": "Lynchberg, Virginia",
+    "status": "miss"
+  },
+  "lynchberg, virginia, united states": {
+    "query": "Lynchberg, Virginia, United States",
     "status": "miss"
   },
   "lynn, norfolk, england": {
@@ -8486,6 +10130,18 @@
     "state": "Rhineland-Palatinate",
     "status": "ok"
   },
+  "mainz dom (mainz cathedral), mainz, germany": {
+    "city": "Mainz",
+    "country": "Germany",
+    "display_name": "Mainz Dom (Mainz Cathedral), Mainz, Germany, Mainz, Rhineland-Palatinate, Germany",
+    "latitude": "49.9988754",
+    "longitude": "8.2738312",
+    "query": "Mainz Dom (Mainz Cathedral), Mainz, Germany",
+    "source": "nominatim",
+    "state": "Rhineland-Palatinate",
+    "status": "ok",
+    "sublocation": "4 Liebfrauenstraße"
+  },
   "mainz, germany": {
     "display_name": "Mainz, Rheinland-Pfalz, Deutschland",
     "latitude": "49.9995205",
@@ -8529,8 +10185,28 @@
     "query": "Major Square, Madrid, Spain; Royal Palace, Madrid, Spain; The Plaza Mayor, Salamanca, Spain",
     "status": "miss"
   },
+  "manhattan skyline, new york city, united states": {
+    "query": "Manhattan skyline, New York City, United States",
+    "status": "miss"
+  },
+  "manitoba, canada": {
+    "city": "",
+    "country": "Canada",
+    "display_name": "Manitoba, Canada",
+    "latitude": "55.0012510",
+    "longitude": "-97.0010380",
+    "query": "Manitoba, Canada",
+    "source": "nominatim",
+    "state": "Manitoba",
+    "status": "ok",
+    "sublocation": ""
+  },
   "mao zedong statue, tiananmen square, beijing, china": {
     "query": "Mao Zedong Statue, Tiananmen Square, Beijing, China",
+    "status": "miss"
+  },
+  "mariazell basilica, austria": {
+    "query": "Mariazell Basilica, Austria",
     "status": "miss"
   },
   "maritime museum & queens house - greenwich, greenwich, england, united kingdom": {
@@ -8656,6 +10332,22 @@
     "query": "Marshall High School, Hollywood, California",
     "status": "miss"
   },
+  "marshall high school, hollywood, california, united states": {
+    "query": "Marshall High School, Hollywood, California, United States",
+    "status": "miss"
+  },
+  "massachusetts, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Massachusetts, United States",
+    "latitude": "42.3788774",
+    "longitude": "-72.0323660",
+    "query": "Massachusetts, United States",
+    "source": "nominatim",
+    "state": "Massachusetts",
+    "status": "ok",
+    "sublocation": ""
+  },
   "mathais church, hungary": {
     "query": "Mathais Church, Hungary",
     "status": "miss"
@@ -8667,6 +10359,18 @@
   "mathias church, hungary": {
     "query": "Mathias Church, Hungary",
     "status": "miss"
+  },
+  "matthias church, budapest, hungary": {
+    "city": "Budapest",
+    "country": "Hungary",
+    "display_name": "Matthias Church, Budapest, Hungary, Budapest, Hungary",
+    "latitude": "47.5020090",
+    "longitude": "19.0342058",
+    "query": "Matthias Church, Budapest, Hungary",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "2 Szentháromság tér"
   },
   "matthias church, hungary": {
     "city": "Budapest",
@@ -8681,6 +10385,10 @@
   },
   "mausoleum of bulgaria's first communist chief - georgi dimitrov, bulgaria": {
     "query": "Mausoleum of Bulgaria's First Communist Chief - Georgi Dimitrov, Bulgaria",
+    "status": "miss"
+  },
+  "mausoleum of bulgaria's first communist chief - georgi dimitrov, sofia, bulgaria": {
+    "query": "Mausoleum of Bulgaria's First Communist Chief - Georgi Dimitrov, Sofia, Bulgaria",
     "status": "miss"
   },
   "mausoleum of mohammed v": {
@@ -8762,6 +10470,18 @@
     "state": "England",
     "status": "ok",
     "sublocation": "Cuckoo Lane"
+  },
+  "mctaggart, sask., canada": {
+    "city": "McTaggart",
+    "country": "Canada",
+    "display_name": "McTaggart, Saskatchewan, Canada",
+    "latitude": "49.7302442",
+    "longitude": "-104.0125787",
+    "query": "McTaggart, Sask., Canada",
+    "source": "nominatim",
+    "state": "Saskatchewan",
+    "status": "ok",
+    "sublocation": ""
   },
   "mctaggart, saskatchewan, canada": {
     "city": "McTaggart",
@@ -8881,6 +10601,18 @@
     "state": "England",
     "status": "ok"
   },
+  "milton abbey, dorset, england": {
+    "city": "Milton Abbas",
+    "country": "United Kingdom",
+    "display_name": "Milton Abbey School, King Edward's Drive, Milton Abbas, Dorset, England, DT11 0BZ, United Kingdom",
+    "latitude": "50.8202853",
+    "longitude": "-2.2878475",
+    "query": "Milton Abbey, Dorset, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "King Edward's Drive"
+  },
   "mimara art museum, croatia": {
     "query": "Mimara Art Museum, Croatia",
     "status": "miss"
@@ -8899,6 +10631,22 @@
     "source": "nominatim",
     "state": "Minnesota",
     "status": "ok"
+  },
+  "minneapolis, minnesota, united states": {
+    "city": "Minneapolis",
+    "country": "United States",
+    "display_name": "Minneapolis, Hennepin County, Minnesota, United States",
+    "latitude": "44.9772995",
+    "longitude": "-93.2654692",
+    "query": "Minneapolis, Minnesota, United States",
+    "source": "nominatim",
+    "state": "Minnesota",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "minneapolis, minnesota, usa, united states": {
+    "query": "Minneapolis, Minnesota, USA, United States",
+    "status": "miss"
   },
   "mirabell gardens (schloss mirabell), salzburg, austria": {
     "query": "Mirabell Gardens (Schloss Mirabell), Salzburg, Austria",
@@ -9062,6 +10810,10 @@
     "query": "Mormon Temple, Salt Lake City, Utah",
     "status": "miss"
   },
+  "mormon temple, salt lake city, utah, united states": {
+    "query": "Mormon Temple, Salt Lake City, Utah, United States",
+    "status": "miss"
+  },
   "morocco": {
     "display_name": "Maroc ⵍⵎⵖⵔⵉⴱ المغرب",
     "latitude": "28.3347722",
@@ -9204,6 +10956,30 @@
     "state": "Washington",
     "status": "ok"
   },
+  "mozart museum, salzburg, austria": {
+    "city": "Salzburg",
+    "country": "Austria",
+    "display_name": "Mozart's Birthplace, 9, Getreidegasse, Altstadt, Salzburg, 5020, Austria",
+    "latitude": "47.7999430",
+    "longitude": "13.0435536",
+    "query": "Mozart Museum, Salzburg, Austria",
+    "source": "nominatim",
+    "state": "Salzburg",
+    "status": "ok",
+    "sublocation": "9 Getreidegasse"
+  },
+  "mozart's birthplace, salzburg, austria": {
+    "city": "Salzburg",
+    "country": "Austria",
+    "display_name": "Mozart's Birthplace, 9, Getreidegasse, Altstadt, Salzburg, 5020, Austria",
+    "latitude": "47.7999430",
+    "longitude": "13.0435536",
+    "query": "Mozart's Birthplace, Salzburg, Austria",
+    "source": "nominatim",
+    "state": "Salzburg",
+    "status": "ok",
+    "sublocation": "9 Getreidegasse"
+  },
   "munich germany": {
     "city": "Munich",
     "country": "Germany",
@@ -9265,6 +11041,10 @@
     "state": "Wales",
     "status": "ok"
   },
+  "nashville, tennessee, usa, united states": {
+    "query": "Nashville, Tennessee, USA, United States",
+    "status": "miss"
+  },
   "national theatre of prague, prague, czech republic": {
     "query": "National Theatre of Prague, Prague, Czech Republic",
     "status": "miss"
@@ -9272,6 +11052,22 @@
   "national theatre of prague, prague, czechia": {
     "query": "National Theatre of Prague, Prague, Czechia",
     "status": "miss"
+  },
+  "new & old cathedrals, coventry, united kingdom": {
+    "query": "New & Old Cathedrals, Coventry, United Kingdom",
+    "status": "miss"
+  },
+  "new britain, connecticut, united states": {
+    "city": "New Britain",
+    "country": "United States",
+    "display_name": "New Britain, Capitol Planning Region, Connecticut, United States",
+    "latitude": "41.6612104",
+    "longitude": "-72.7795419",
+    "query": "New Britain, Connecticut, United States",
+    "source": "nominatim",
+    "state": "Connecticut",
+    "status": "ok",
+    "sublocation": ""
   },
   "new cataract hotel, aswan, egypt": {
     "city": "Taqouk Mountain",
@@ -9291,6 +11087,10 @@
   },
   "new town hall in munich, germany": {
     "query": "New Town Hall in Munich, Germany",
+    "status": "miss"
+  },
+  "new town hall in munich, münchen, bayern, germany": {
+    "query": "New Town Hall in Munich, München, Bayern, Germany",
     "status": "miss"
   },
   "new world hotel": {
@@ -9351,6 +11151,30 @@
     "state": "New York",
     "status": "ok"
   },
+  "new york city, new york, united states": {
+    "city": "New York",
+    "country": "United States",
+    "display_name": "New York, United States",
+    "latitude": "40.7127281",
+    "longitude": "-74.0060152",
+    "query": "New York City, New York, United States",
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "new york city, new york, usa": {
+    "city": "New York",
+    "country": "United States",
+    "display_name": "New York, United States",
+    "latitude": "40.7127281",
+    "longitude": "-74.0060152",
+    "query": "New York City, New York, USA",
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok",
+    "sublocation": ""
+  },
   "new york city, united states": {
     "city": "New York",
     "country": "United States",
@@ -9372,6 +11196,18 @@
     "source": "nominatim",
     "state": "New York",
     "status": "ok"
+  },
+  "new york, new york, usa": {
+    "city": "New York",
+    "country": "United States",
+    "display_name": "New York, United States",
+    "latitude": "40.7127281",
+    "longitude": "-74.0060152",
+    "query": "New York, New York, USA",
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok",
+    "sublocation": ""
   },
   "new york, ny, usa": {
     "city": "New York",
@@ -9402,6 +11238,18 @@
     "query": "Newport - Wales",
     "source": "nominatim",
     "status": "ok"
+  },
+  "newport beach, california, united states": {
+    "city": "Newport Beach",
+    "country": "United States",
+    "display_name": "Newport Beach, Orange County, California, United States",
+    "latitude": "33.6170092",
+    "longitude": "-117.9294401",
+    "query": "Newport Beach, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
   },
   "newport, wales": {
     "display_name": "Newport, Cymru / Wales, United Kingdom",
@@ -9479,6 +11327,18 @@
     "state": "England",
     "status": "ok"
   },
+  "niagara falls, new york": {
+    "city": "City of Niagara Falls",
+    "country": "United States",
+    "display_name": "Niagara Falls, City of Niagara Falls, Niagara County, New York, United States",
+    "latitude": "43.0848410",
+    "longitude": "-79.0701786",
+    "query": "Niagara Falls, New York",
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok",
+    "sublocation": ""
+  },
   "niagara falls, u.s.a.": {
     "query": "Niagara Falls, U.S.A.",
     "status": "miss"
@@ -9520,6 +11380,22 @@
   "north bay and castle hill, scarborough": {
     "query": "North Bay and Castle Hill, Scarborough",
     "status": "miss"
+  },
+  "north bay and castle hill, scarborough, united kingdom": {
+    "query": "North Bay and Castle Hill, Scarborough, United Kingdom",
+    "status": "miss"
+  },
+  "north canaan, connecticut, united states": {
+    "city": "North Canaan",
+    "country": "United States",
+    "display_name": "North Canaan, Northwest Hills Planning Region, Connecticut, United States",
+    "latitude": "42.0269848",
+    "longitude": "-73.3294835",
+    "query": "North Canaan, Connecticut, United States",
+    "source": "nominatim",
+    "state": "Connecticut",
+    "status": "ok",
+    "sublocation": ""
   },
   "north transept, priory church, christchurch. priory church and norman house, christchurch. the priory church christchurch, from the north east": {
     "query": "North Transept, Priory Church, Christchurch. Priory Church and Norman House, Christchurch. The Priory Church Christchurch, from the North East",
@@ -9567,6 +11443,10 @@
     "query": "Nymphenburg Castle, München, Bayern, Germany",
     "status": "miss"
   },
+  "obelisk in st. peter's square, vatican city": {
+    "query": "Obelisk in St. Peter's Square, Vatican City",
+    "status": "miss"
+  },
   "obelisk of theodosius, istanbul, turkey": {
     "city": "Istanbul",
     "country": "Turkey",
@@ -9577,6 +11457,18 @@
     "source": "nominatim",
     "state": "",
     "status": "ok"
+  },
+  "ogunquit, maine, united states": {
+    "city": "Ogunquit",
+    "country": "United States",
+    "display_name": "Ogunquit, York County, Maine, 03907, United States",
+    "latitude": "43.2489755",
+    "longitude": "-70.5992201",
+    "query": "Ogunquit, Maine, United States",
+    "source": "nominatim",
+    "state": "Maine",
+    "status": "ok",
+    "sublocation": ""
   },
   "okhang temple and potala palace, lasa, tibet, china": {
     "query": "Okhang Temple and Potala Palace, Lasa, Tibet, China",
@@ -9615,6 +11507,10 @@
   },
   "old roman wall at canterbury": {
     "query": "Old Roman Wall at Canterbury",
+    "status": "miss"
+  },
+  "old roman wall at canterbury, canterbury, united kingdom": {
+    "query": "Old Roman Wall at Canterbury, Canterbury, United Kingdom",
     "status": "miss"
   },
   "old roman wall, italy": {
@@ -9662,6 +11558,10 @@
     "query": "Oldest Theatre in Bulgaria, Bulgaria",
     "status": "miss"
   },
+  "oldest theatre in bulgaria, sofia, bulgaria": {
+    "query": "Oldest Theatre in Bulgaria, Sofia, Bulgaria",
+    "status": "miss"
+  },
   "olympic stadium (athens), athens, greece": {
     "city": "Municipality of Marousi",
     "country": "Greece",
@@ -9695,6 +11595,18 @@
     "state": "Oregon",
     "status": "ok"
   },
+  "oregon redwoods, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Oregon Redwoods Trail, Curry County, Oregon, United States",
+    "latitude": "42.0117704",
+    "longitude": "-124.1530814",
+    "query": "Oregon Redwoods, United States",
+    "source": "nominatim",
+    "state": "Oregon",
+    "status": "ok",
+    "sublocation": "Oregon Redwoods Trail"
+  },
   "oriel college, oxford, england": {
     "display_name": "Oriel College, Oriel Square, Holywell, City Centre, Oxford, Oxfordshire, England, OX1 4EW, United Kingdom",
     "latitude": "51.7518310",
@@ -9713,6 +11625,18 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "oriel college, oxford, united kingdom": {
+    "city": "Oxford",
+    "country": "United Kingdom",
+    "display_name": "Oriel College, Oriel Square, Holywell, City Centre, Oxford, Oxfordshire, England, OX1 4EW, United Kingdom",
+    "latitude": "51.7518310",
+    "longitude": "-1.2535683",
+    "query": "Oriel College, Oxford, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Oriel Square"
   },
   "ortaköy mosque, istanbul, turkey": {
     "city": "Beşiktaş",
@@ -9787,6 +11711,18 @@
     "query": "Oxford Colleges, Oxford, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "oxford colleges, oxford, united kingdom": {
+    "city": "Oxford",
+    "country": "United Kingdom",
+    "display_name": "City of Oxford College, Oxpens Road, Oxpens, City Centre, Oxford, Oxfordshire, England, OX1 1SA, United Kingdom",
+    "latitude": "51.7499802",
+    "longitude": "-1.2651915",
+    "query": "Oxford Colleges, Oxford, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Oxpens Road"
   },
   "oxford street": {
     "display_name": "Oxford Street, Marylebone, City of Westminster, Greater London, England, W1C 2QP, United Kingdom",
@@ -9922,9 +11858,45 @@
     "state": "Scotland",
     "status": "ok"
   },
+  "palace of holyroodhouse, edinburgh, united kingdom": {
+    "city": "City of Edinburgh",
+    "country": "United Kingdom",
+    "display_name": "Palace of Holyroodhouse, Canongate, Abbeyhill, Old Town, City of Edinburgh, Scotland, EH8 8DX, United Kingdom",
+    "latitude": "55.9526948",
+    "longitude": "-3.1716130",
+    "query": "Palace of Holyroodhouse, Edinburgh, United Kingdom",
+    "source": "nominatim",
+    "state": "Scotland",
+    "status": "ok",
+    "sublocation": "Canongate"
+  },
   "palace of holyroodhouse, edward vii memorial gates, edinburgh, scotland, united kingdom": {
     "query": "Palace of Holyroodhouse, Edward VII Memorial Gates, Edinburgh, Scotland, United Kingdom",
     "status": "miss"
+  },
+  "palace of holyroodhouse, scotland": {
+    "city": "City of Edinburgh",
+    "country": "United Kingdom",
+    "display_name": "Palace of Holyroodhouse, Canongate, Abbeyhill, Old Town, City of Edinburgh, Scotland, EH8 8DX, United Kingdom",
+    "latitude": "55.9526948",
+    "longitude": "-3.1716130",
+    "query": "Palace of Holyroodhouse, Scotland",
+    "source": "nominatim",
+    "state": "Scotland",
+    "status": "ok",
+    "sublocation": "Canongate"
+  },
+  "palace of holyroodhouse, united kingdom": {
+    "city": "City of Edinburgh",
+    "country": "United Kingdom",
+    "display_name": "Palace of Holyroodhouse, Canongate, Abbeyhill, Old Town, City of Edinburgh, Scotland, EH8 8DX, United Kingdom",
+    "latitude": "55.9526948",
+    "longitude": "-3.1716130",
+    "query": "Palace of Holyroodhouse, United Kingdom",
+    "source": "nominatim",
+    "state": "Scotland",
+    "status": "ok",
+    "sublocation": "Canongate"
   },
   "palace of prince eugene, austria": {
     "query": "Palace of Prince Eugene, Austria",
@@ -9974,6 +11946,22 @@
     "source": "nominatim",
     "state": "California",
     "status": "ok"
+  },
+  "palm springs, california, united states": {
+    "city": "Palm Springs",
+    "country": "United States",
+    "display_name": "Palm Springs, Riverside County, California, United States",
+    "latitude": "33.8246269",
+    "longitude": "-116.5403030",
+    "query": "Palm Springs, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "palm springs, california, usa, united states": {
+    "query": "Palm Springs, California, USA, United States",
+    "status": "miss"
   },
   "palm springs, march 1983": {
     "query": "Palm Springs, March 1983",
@@ -10042,6 +12030,10 @@
     "status": "ok",
     "sublocation": "Park Road"
   },
+  "parliament building & orthodox church, bucharest, romania": {
+    "query": "Parliament Building & Orthodox Church, Bucharest, Romania",
+    "status": "miss"
+  },
   "parliament buildings": {
     "city": "Belfast",
     "country": "United Kingdom",
@@ -10067,6 +12059,10 @@
   },
   "parliament buildings, budapest": {
     "query": "Parliament Buildings, Budapest",
+    "status": "miss"
+  },
+  "parliament buildings, budapest, hungary": {
+    "query": "Parliament Buildings, Budapest, Hungary",
     "status": "miss"
   },
   "parliament buildings, hungary": {
@@ -10171,6 +12167,18 @@
     "state": "California",
     "status": "ok"
   },
+  "pasadena, california, united states": {
+    "city": "Pasadena",
+    "country": "United States",
+    "display_name": "Pasadena, Los Angeles County, California, United States",
+    "latitude": "34.1476507",
+    "longitude": "-118.1441550",
+    "query": "Pasadena, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "pasadena, california, usa": {
     "city": "Pasadena",
     "country": "United States",
@@ -10181,6 +12189,10 @@
     "source": "nominatim",
     "state": "California",
     "status": "ok"
+  },
+  "pavilion at torquay, torquay, united kingdom": {
+    "query": "Pavilion at Torquay, Torquay, United Kingdom",
+    "status": "miss"
   },
   "pembroke, england": {
     "display_name": "Pembroke, Sally Port Gardens, Brompton, Gillingham, Medway, England, ME4 4UH, United Kingdom",
@@ -10270,6 +12282,10 @@
     "state": "England",
     "status": "ok"
   },
+  "pevensey castle, battle, east sussex, england": {
+    "query": "Pevensey Castle, Battle, East Sussex, England",
+    "status": "miss"
+  },
   "pevensey castle, east sussex, england": {
     "display_name": "Pevensey Castle, Church Lane, Pevensey, Wealden, East Sussex, England, BN24 5LE, United Kingdom",
     "latitude": "50.8191526",
@@ -10277,6 +12293,18 @@
     "query": "Pevensey Castle, East Sussex, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "pevensey castle, england": {
+    "city": "Wealden",
+    "country": "United Kingdom",
+    "display_name": "Pevensey Castle, Church Lane, Pevensey, Wealden, East Sussex, England, BN24 5LD, United Kingdom",
+    "latitude": "50.8191526",
+    "longitude": "0.3344725",
+    "query": "Pevensey Castle, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Church Lane"
   },
   "pevensey castle, united kingdom": {
     "city": "Wealden",
@@ -10311,6 +12339,18 @@
     "source": "nominatim",
     "state": "Pennsylvania",
     "status": "ok"
+  },
+  "philadelphia, pennsylvania, united states": {
+    "city": "Philadelphia",
+    "country": "United States",
+    "display_name": "Philadelphia, Philadelphia County, Pennsylvania, United States",
+    "latitude": "39.9527237",
+    "longitude": "-75.1635262",
+    "query": "Philadelphia, Pennsylvania, United States",
+    "source": "nominatim",
+    "state": "Pennsylvania",
+    "status": "ok",
+    "sublocation": ""
   },
   "philae monuments": {
     "city": "Pamphill",
@@ -10354,6 +12394,18 @@
     "state": "Arizona",
     "status": "ok"
   },
+  "phoenix, arizona, united states": {
+    "city": "Phoenix",
+    "country": "United States",
+    "display_name": "Phoenix, Maricopa County, Arizona, United States",
+    "latitude": "33.4484367",
+    "longitude": "-112.0741410",
+    "query": "Phoenix, Arizona, United States",
+    "source": "nominatim",
+    "state": "Arizona",
+    "status": "ok",
+    "sublocation": ""
+  },
   "piccadilly circus, london, united kingdom": {
     "city": "City of Westminster",
     "country": "United Kingdom",
@@ -10368,6 +12420,18 @@
   "place de l'opéra (casablanca), casablanca, morocco": {
     "query": "Place de l'Opéra (Casablanca), Casablanca, Morocco",
     "status": "miss"
+  },
+  "playa del ray, united states": {
+    "city": "Gilbert",
+    "country": "United States",
+    "display_name": "Playa Del Ray, Gilbert, Maricopa County, Arizona, United States",
+    "latitude": "33.3600662",
+    "longitude": "-111.8212778",
+    "query": "Playa del Ray, United States",
+    "source": "nominatim",
+    "state": "Arizona",
+    "status": "ok",
+    "sublocation": "Playa Del Ray"
   },
   "plaza de españa (madrid), madrid, spain": {
     "city": "Madrid",
@@ -10499,6 +12563,42 @@
     "state": "Plovdiv",
     "status": "ok"
   },
+  "plymouth, massachusetts": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Plymouth County, Massachusetts, United States",
+    "latitude": "41.9426657",
+    "longitude": "-70.7618592",
+    "query": "Plymouth, Massachusetts",
+    "source": "nominatim",
+    "state": "Massachusetts",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "plymouth, massachusetts, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Plymouth County, Massachusetts, United States",
+    "latitude": "41.9426657",
+    "longitude": "-70.7618592",
+    "query": "Plymouth, Massachusetts, United States",
+    "source": "nominatim",
+    "state": "Massachusetts",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "pocatello, idaho, united states": {
+    "city": "Pocatello",
+    "country": "United States",
+    "display_name": "Pocatello, Bannock County, Idaho, United States",
+    "latitude": "42.8620287",
+    "longitude": "-112.4506270",
+    "query": "Pocatello, Idaho, United States",
+    "source": "nominatim",
+    "state": "Idaho",
+    "status": "ok",
+    "sublocation": ""
+  },
   "polperro - cornwall": {
     "display_name": "Polperro, Cornwall, England, PL13 2RR, United Kingdom",
     "latitude": "50.3315086",
@@ -10517,6 +12617,18 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "polperro - cornwall, polperro, united kingdom": {
+    "city": "Polperro",
+    "country": "United Kingdom",
+    "display_name": "Polperro, Main Road, Crumplehorn, Polperro, Cornwall, England, PL13 2RP, United Kingdom",
+    "latitude": "50.3317059",
+    "longitude": "-4.5207134",
+    "query": "Polperro - Cornwall, Polperro, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Main Road"
   },
   "polperro harbour, polperro, cornwall, england": {
     "display_name": "Polperro Harbour Ice Cream Parlour, Quay Road, Crumplehorn, Polperro, Cornwall, England, PL13 2QZ, United Kingdom",
@@ -10545,6 +12657,18 @@
     "state": "England",
     "status": "ok"
   },
+  "polperro village hall, polperro, united kingdom": {
+    "city": "Polperro",
+    "country": "United Kingdom",
+    "display_name": "Polperro Village Hall, The Coombes, Crumplehorn, Polperro, Cornwall, England, PL13 2RJ, United Kingdom",
+    "latitude": "50.3356321",
+    "longitude": "-4.5231349",
+    "query": "Polperro Village Hall, Polperro, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "The Coombes"
+  },
   "polperro, cornwall": {
     "display_name": "Polperro, Cornwall, England, PL13 2RR, United Kingdom",
     "latitude": "50.3315086",
@@ -10560,6 +12684,18 @@
     "query": "Polperro, Cornwall, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "polperro, cornwall, england, united kingdom": {
+    "city": "Polperro",
+    "country": "United Kingdom",
+    "display_name": "Polperro, Cornwall, England, PL13 2RR, United Kingdom",
+    "latitude": "50.3315086",
+    "longitude": "-4.5190177",
+    "query": "Polperro, Cornwall, England, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "polperro, cornwall, uk": {
     "display_name": "Polperro, Cornwall, England, PL13 2RR, United Kingdom",
@@ -10577,6 +12713,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "polperro, england, united kingdom": {
+    "city": "Polperro",
+    "country": "United Kingdom",
+    "display_name": "Polperro, Cornwall, England, PL13 2RR, United Kingdom",
+    "latitude": "50.3315086",
+    "longitude": "-4.5190177",
+    "query": "Polperro, England, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "pomona fair": {
     "city": "Pomona",
     "country": "United States",
@@ -10587,6 +12735,42 @@
     "source": "nominatim",
     "state": "California",
     "status": "ok"
+  },
+  "pomona fair, california, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Pomona Way, Fair Oaks, Sacramento County, California, 95628, United States",
+    "latitude": "38.6512903",
+    "longitude": "-121.2542902",
+    "query": "Pomona Fair, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": "Pomona Way"
+  },
+  "pomona, california": {
+    "city": "Pomona",
+    "country": "United States",
+    "display_name": "Pomona, Los Angeles County, California, United States",
+    "latitude": "34.0553813",
+    "longitude": "-117.7517496",
+    "query": "Pomona, California",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "pomona, california, united states": {
+    "city": "Pomona",
+    "country": "United States",
+    "display_name": "Pomona, Los Angeles County, California, United States",
+    "latitude": "34.0553813",
+    "longitude": "-117.7517496",
+    "query": "Pomona, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
   },
   "pompeii, italy": {
     "city": "Pompei",
@@ -10625,6 +12809,18 @@
     "state": "Washington",
     "status": "ok"
   },
+  "port angeles, washington, united states": {
+    "city": "Port Angeles",
+    "country": "United States",
+    "display_name": "Port Angeles, Clallam County, Washington, 98362, United States",
+    "latitude": "48.1181460",
+    "longitude": "-123.4307410",
+    "query": "Port Angeles, Washington, United States",
+    "source": "nominatim",
+    "state": "Washington",
+    "status": "ok",
+    "sublocation": ""
+  },
   "portal palace, china": {
     "query": "Portal Palace, China",
     "status": "miss"
@@ -10652,6 +12848,18 @@
   "portala palace, tibet, china": {
     "query": "Portala Palace, Tibet, China",
     "status": "miss"
+  },
+  "portland, oregon, united states": {
+    "city": "Portland",
+    "country": "United States",
+    "display_name": "Portland, Multnomah County, Oregon, United States",
+    "latitude": "45.5202471",
+    "longitude": "-122.6741940",
+    "query": "Portland, Oregon, United States",
+    "source": "nominatim",
+    "state": "Oregon",
+    "status": "ok",
+    "sublocation": ""
   },
   "potala palace": {
     "display_name": "布达拉宫 ཕོ་བྲང་པོ་ཏ་ལ།, 康昂北路东段, 吉崩岗街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
@@ -10821,6 +13029,18 @@
     "state": "England",
     "status": "ok"
   },
+  "preston, england": {
+    "city": "Preston",
+    "country": "United Kingdom",
+    "display_name": "Preston, Lancashire, England, United Kingdom",
+    "latitude": "53.7593363",
+    "longitude": "-2.6992717",
+    "query": "Preston, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "preston, salford, lancashire, england": {
     "query": "Preston, Salford, Lancashire, England",
     "status": "miss"
@@ -10846,6 +13066,18 @@
     "source": "nominatim",
     "state": "Scotland",
     "status": "ok"
+  },
+  "princes street, edinburgh, united kingdom": {
+    "city": "City of Edinburgh",
+    "country": "United Kingdom",
+    "display_name": "Princes Street, The Mound, Old Town, City of Edinburgh, Scotland, EH2 2DQ, United Kingdom",
+    "latitude": "55.9522571",
+    "longitude": "-3.1950935",
+    "query": "Princes Street, Edinburgh, United Kingdom",
+    "source": "nominatim",
+    "state": "Scotland",
+    "status": "ok",
+    "sublocation": "Princes Street"
   },
   "priory church - christchurch, christchurch, england, united kingdom": {
     "city": "Christchurch",
@@ -10905,6 +13137,10 @@
     "query": "Provddiv Bulgaria, Provdiiv, Bulgaria",
     "status": "miss"
   },
+  "provddiv, bulgaria": {
+    "query": "Provddiv, Bulgaria",
+    "status": "miss"
+  },
   "provdiv, bulgaria": {
     "query": "Provdiv, Bulgaria",
     "status": "miss"
@@ -10953,6 +13189,18 @@
     "source": "nominatim",
     "state": "Community of Madrid",
     "status": "ok"
+  },
+  "pulteney bridge, bath, united kingdom": {
+    "city": "Bath",
+    "country": "United Kingdom",
+    "display_name": "Pulteney Bridge, Argyle Street, Walcot, Bath, Bath and North East Somerset, West of England, England, BA2 4AY, United Kingdom",
+    "latitude": "51.3830427",
+    "longitude": "-2.3579221",
+    "query": "Pulteney Bridge, Bath, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Argyle Street"
   },
   "puzhou district, gansu, china": {
     "query": "Puzhou District, Gansu, China",
@@ -11007,6 +13255,30 @@
   "queen street, cardiff, queen street, cardiff, wales, united kingdom": {
     "query": "Queen Street, Cardiff, Queen Street, Cardiff, Wales, United Kingdom",
     "status": "miss"
+  },
+  "queen street, cardiff, wales": {
+    "city": "Gwaelod-y-garth",
+    "country": "United Kingdom",
+    "display_name": "Queen Street, Tongwynlais, Gwaelod-y-garth, Cardiff, Wales, CF15 7NS, United Kingdom",
+    "latitude": "51.5314482",
+    "longitude": "-3.2520641",
+    "query": "Queen Street, Cardiff, Wales",
+    "source": "nominatim",
+    "state": "Wales",
+    "status": "ok",
+    "sublocation": "Queen Street"
+  },
+  "queen street, cardiff, wales, united kingdom": {
+    "city": "Gwaelod-y-garth",
+    "country": "United Kingdom",
+    "display_name": "Queen Street, Tongwynlais, Gwaelod-y-garth, Cardiff, Wales, CF15 7NS, United Kingdom",
+    "latitude": "51.5314482",
+    "longitude": "-3.2520641",
+    "query": "Queen Street, Cardiff, Wales, United Kingdom",
+    "source": "nominatim",
+    "state": "Wales",
+    "status": "ok",
+    "sublocation": "Queen Street"
   },
   "queen street, cardiff, wales; swansea, wales": {
     "query": "Queen Street, Cardiff, Wales; Swansea, Wales",
@@ -11102,6 +13374,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "redwoods, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Redwoods, Shasta County, California, 96096, United States",
+    "latitude": "40.5962665",
+    "longitude": "-121.9355501",
+    "query": "Redwoods, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "regent street, london": {
     "display_name": "Regent Street, St. James's, East Marylebone, Mayfair, City of Westminster, Greater London, England, W1B 5SJ, United Kingdom",
     "latitude": "51.5116775",
@@ -11145,6 +13429,18 @@
     "state": "England",
     "status": "ok"
   },
+  "reidsville, north carolina, united states": {
+    "city": "Reidsville",
+    "country": "United States",
+    "display_name": "Reidsville, Rockingham County, North Carolina, United States",
+    "latitude": "36.3548586",
+    "longitude": "-79.6644748",
+    "query": "Reidsville, North Carolina, United States",
+    "source": "nominatim",
+    "state": "North Carolina",
+    "status": "ok",
+    "sublocation": ""
+  },
   "reno, nevada": {
     "city": "Reno",
     "country": "United States",
@@ -11155,6 +13451,18 @@
     "source": "nominatim",
     "state": "Nevada",
     "status": "ok"
+  },
+  "reno, nevada, united states": {
+    "city": "Reno",
+    "country": "United States",
+    "display_name": "Reno, Washoe County, Nevada, United States",
+    "latitude": "39.5261788",
+    "longitude": "-119.8126580",
+    "query": "Reno, Nevada, United States",
+    "source": "nominatim",
+    "state": "Nevada",
+    "status": "ok",
+    "sublocation": ""
   },
   "republic square (belgrade), serbia": {
     "city": "Belgrade",
@@ -11225,6 +13533,18 @@
     "state": "England",
     "status": "ok"
   },
+  "river at henley-on-thames, henley-on-thames, england": {
+    "city": "South Oxfordshire",
+    "country": "United Kingdom",
+    "display_name": "Former River & Rowing Museum, Henley-on-Thames, South Oxfordshire, Oxfordshire, England, United Kingdom",
+    "latitude": "51.5319181",
+    "longitude": "-0.8956997",
+    "query": "River at Henley-on-Thames, Henley-on-Thames, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "river ouse (near ely), ely, cambridgeshire, united kingdom": {
     "query": "River Ouse (near Ely), Ely, Cambridgeshire, United Kingdom",
     "status": "miss"
@@ -11239,6 +13559,10 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "river severn, worcester, united kingdom": {
+    "query": "River Severn, Worcester, United Kingdom",
+    "status": "miss"
   },
   "river severn, worcester, worcestershire, united kingdom": {
     "query": "River Severn, Worcester, Worcestershire, United Kingdom",
@@ -11338,6 +13662,10 @@
     "state": "Plovdiv",
     "status": "ok"
   },
+  "roman amphitheatre, provddiv, bulgaria": {
+    "query": "Roman Amphitheatre, Provddiv, Bulgaria",
+    "status": "miss"
+  },
   "roman amphitheatre, provddiv, provdiiv, bulgaria": {
     "query": "Roman Amphitheatre, Provddiv, Provdiiv, Bulgaria",
     "status": "miss"
@@ -11392,6 +13720,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "roman baths, bath, united kingdom": {
+    "city": "Bath",
+    "country": "United Kingdom",
+    "display_name": "The Roman Baths, Abbey Street, Kingsmead, Bath, Bath and North East Somerset, West of England, England, BA1 1NN, United Kingdom",
+    "latitude": "51.3810327",
+    "longitude": "-2.3595544",
+    "query": "Roman Baths, Bath, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Abbey Street"
+  },
   "roman baths, england": {
     "display_name": "Roman Baths, Strand Lane, St Clement Danes, Covent Garden, City of Westminster, Greater London, England, WC2R 2NA, United Kingdom",
     "latitude": "51.5117732",
@@ -11406,6 +13746,10 @@
   },
   "roman city - provdiv bulgaria": {
     "query": "Roman City - Provdiv Bulgaria",
+    "status": "miss"
+  },
+  "roman forum (area sacra), italy": {
+    "query": "Roman Forum (Area Sacra), Italy",
     "status": "miss"
   },
   "rome, italy": {
@@ -11439,6 +13783,18 @@
     "state": "England",
     "status": "ok"
   },
+  "rose cottage, cockington, devon, england": {
+    "city": "Torquay",
+    "country": "United Kingdom",
+    "display_name": "Rose Cottage, Vicarage Hill, Cockington, Torquay, Torbay, Devon and Torbay, England, TQ2 6XA, United Kingdom",
+    "latitude": "50.4637852",
+    "longitude": "-3.5584149",
+    "query": "Rose Cottage, Cockington, Devon, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Vicarage Hill"
+  },
   "rose cottage, cockington, devon, united kingdom": {
     "city": "Torquay",
     "country": "United Kingdom",
@@ -11460,6 +13816,18 @@
     "source": "nominatim",
     "state": "Scotland",
     "status": "ok"
+  },
+  "ross fountain, edinburgh, united kingdom": {
+    "city": "City of Edinburgh",
+    "country": "United Kingdom",
+    "display_name": "Ross Fountain, West Footbridge, Old Town, City of Edinburgh, Scotland, EH1 2EW, United Kingdom",
+    "latitude": "55.9500590",
+    "longitude": "-3.2030420",
+    "query": "Ross Fountain, Edinburgh, United Kingdom",
+    "source": "nominatim",
+    "state": "Scotland",
+    "status": "ok",
+    "sublocation": "West Footbridge"
   },
   "round church, cambridge, england": {
     "display_name": "Round Church, Bridge Street, Newnham, Cambridge, Cambridgeshire, Cambridgeshire and Peterborough, England, CB2 1UB, United Kingdom",
@@ -11794,6 +14162,18 @@
     "state": "Utah",
     "status": "ok"
   },
+  "salt lake city, utah, united states": {
+    "city": "Salt Lake City",
+    "country": "United States",
+    "display_name": "Salt Lake City, Salt Lake County, Utah, United States",
+    "latitude": "40.7596198",
+    "longitude": "-111.8867970",
+    "query": "Salt Lake City, Utah, United States",
+    "source": "nominatim",
+    "state": "Utah",
+    "status": "ok",
+    "sublocation": ""
+  },
   "salzburg castle (hohensalzburg fortress), salzburg, austria": {
     "query": "Salzburg Castle (Hohensalzburg Fortress), Salzburg, Austria",
     "status": "miss"
@@ -11801,6 +14181,30 @@
   "salzburg castle, salzburg, austria": {
     "query": "Salzburg Castle, Salzburg, Austria",
     "status": "miss"
+  },
+  "salzburg cathedral, salzburg, austria": {
+    "city": "Salzburg",
+    "country": "Austria",
+    "display_name": "Salzburg Cathedral, 1A, Domplatz, Altstadt, Salzburg, 5020, Austria",
+    "latitude": "47.7978459",
+    "longitude": "13.0466232",
+    "query": "Salzburg Cathedral, Salzburg, Austria",
+    "source": "nominatim",
+    "state": "Salzburg",
+    "status": "ok",
+    "sublocation": "1A Domplatz"
+  },
+  "salzburg square, salzburg, austria": {
+    "city": "Eugendorf",
+    "country": "Austria",
+    "display_name": "Salzburg Square, Salzburg, Austria, Eugendorf, Salzburg, Austria",
+    "latitude": "47.8569854",
+    "longitude": "13.1267355",
+    "query": "Salzburg Square, Salzburg, Austria",
+    "source": "nominatim",
+    "state": "Salzburg",
+    "status": "ok",
+    "sublocation": "GRIFFNER Square Salzburg"
   },
   "salzburg, austria": {
     "display_name": "Salzburg, 5020, Österreich",
@@ -11847,6 +14251,30 @@
     "state": "Texas",
     "status": "ok"
   },
+  "san bernardino, california": {
+    "city": "",
+    "country": "United States",
+    "display_name": "San Bernardino County, California, United States",
+    "latitude": "34.8253019",
+    "longitude": "-116.0833144",
+    "query": "San Bernardino, California",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "san bernardino, california, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "San Bernardino County, California, United States",
+    "latitude": "34.8253019",
+    "longitude": "-116.0833144",
+    "query": "San Bernardino, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "san diego, california": {
     "city": "San Diego",
     "country": "United States",
@@ -11857,6 +14285,18 @@
     "source": "nominatim",
     "state": "California",
     "status": "ok"
+  },
+  "san diego, california, united states": {
+    "city": "San Diego",
+    "country": "United States",
+    "display_name": "San Diego, San Diego County, California, United States",
+    "latitude": "32.7174202",
+    "longitude": "-117.1627720",
+    "query": "San Diego, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
   },
   "san francisco": {
     "city": "San Francisco",
@@ -11890,6 +14330,42 @@
     "source": "nominatim",
     "state": "California",
     "status": "ok"
+  },
+  "san francisco, california, united states": {
+    "city": "San Francisco",
+    "country": "United States",
+    "display_name": "San Francisco, California, United States",
+    "latitude": "37.7879363",
+    "longitude": "-122.4075201",
+    "query": "San Francisco, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "san francisco, california, usa": {
+    "city": "San Francisco",
+    "country": "United States",
+    "display_name": "San Francisco, California, United States",
+    "latitude": "37.7879363",
+    "longitude": "-122.4075201",
+    "query": "San Francisco, California, USA",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "san francisco, united states": {
+    "city": "San Francisco",
+    "country": "United States",
+    "display_name": "San Francisco, California, United States",
+    "latitude": "37.7879363",
+    "longitude": "-122.4075201",
+    "query": "San Francisco, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
   },
   "san marino": {
     "city": "",
@@ -11954,8 +14430,56 @@
     "state": "California",
     "status": "ok"
   },
+  "san marino, california, united states": {
+    "city": "San Marino",
+    "country": "United States",
+    "display_name": "San Marino, Los Angeles County, California, 91108, United States",
+    "latitude": "34.1215947",
+    "longitude": "-118.1057390",
+    "query": "San Marino, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "san marino, italy": {
+    "city": "San Venanzo",
+    "country": "Italy",
+    "display_name": "San Marino, San Venanzo, Terni, Umbria, 05010, Italy",
+    "latitude": "42.8240054",
+    "longitude": "12.1689183",
+    "query": "San Marino, Italy",
+    "source": "nominatim",
+    "state": "Umbria",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "san marino, united states": {
+    "city": "San Marino",
+    "country": "United States",
+    "display_name": "San Marino, Los Angeles County, California, 91108, United States",
+    "latitude": "34.1215947",
+    "longitude": "-118.1057390",
+    "query": "San Marino, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "sanata monica beach, california": {
+    "query": "Sanata Monica Beach, California",
+    "status": "miss"
+  },
+  "sanata monica beach, california, united states": {
+    "query": "Sanata Monica Beach, California, United States",
+    "status": "miss"
+  },
   "sanata monica beach, sept 1947": {
     "query": "Sanata Monica Beach, Sept 1947",
+    "status": "miss"
+  },
+  "sanatana monica beach, california": {
+    "query": "Sanatana Monica Beach, California",
     "status": "miss"
   },
   "sandringham hall": {
@@ -11985,6 +14509,22 @@
   "sandringham hall, sandringham, norfolk, united kingdom": {
     "query": "Sandringham Hall, Sandringham, Norfolk, United Kingdom",
     "status": "miss"
+  },
+  "sandringham hall, sandringham, united kingdom": {
+    "query": "Sandringham Hall, Sandringham, United Kingdom",
+    "status": "miss"
+  },
+  "sandringham hall, united kingdom": {
+    "city": "Hull",
+    "country": "United Kingdom",
+    "display_name": "Sandringham Street, Dairycoates, Hull, Kingston upon Hull, Hull and East Yorkshire, England, HU3 6EB, United Kingdom",
+    "latitude": "53.7426887",
+    "longitude": "-0.3750481",
+    "query": "Sandringham Hall, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Sandringham Street"
   },
   "sandringham house gardens, norfolk, england": {
     "query": "Sandringham House Gardens, Norfolk, England",
@@ -12067,6 +14607,30 @@
     "source": "nominatim",
     "state": "Veneto",
     "status": "ok"
+  },
+  "santa monica beach, los angeles, united states": {
+    "city": "Santa Monica",
+    "country": "United States",
+    "display_name": "Santa Monica State Beach, Santa Monica, Los Angeles County, California, United States",
+    "latitude": "34.0171018",
+    "longitude": "-118.5061976",
+    "query": "Santa Monica Beach, Los Angeles, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "santa monica, california, united states": {
+    "city": "Santa Monica",
+    "country": "United States",
+    "display_name": "Santa Monica, Los Angeles County, California, United States",
+    "latitude": "34.0194704",
+    "longitude": "-118.4912270",
+    "query": "Santa Monica, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
   },
   "santa rosa, new mexico": {
     "city": "Santa Rosa",
@@ -12168,6 +14732,18 @@
     "query": "Scarborough Harbour, Harbour from the Lighthouse, Scarborough, England, United Kingdom",
     "status": "miss"
   },
+  "scarborough harbour, scarborough, united kingdom": {
+    "city": "Scarborough",
+    "country": "United Kingdom",
+    "display_name": "Scarborough Old Harbour, The Old Town, Scarborough, North Yorkshire, York and North Yorkshire, England, YO11 1PH, United Kingdom",
+    "latitude": "54.2830783",
+    "longitude": "-0.3899250",
+    "query": "Scarborough Harbour, Scarborough, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "scarborough, england": {
     "display_name": "Scarborough, North Yorkshire, York and North Yorkshire, England, YO11 1LP, United Kingdom",
     "latitude": "54.2820009",
@@ -12222,6 +14798,18 @@
     "state": "",
     "status": "ok"
   },
+  "schonbrunn palace, vienna, austria": {
+    "city": "Vienna",
+    "country": "Austria",
+    "display_name": "Schonbrunn Palace, Vienna, Austria, Vienna, Austria",
+    "latitude": "48.1849894",
+    "longitude": "16.3115684",
+    "query": "Schonbrunn Palace, Vienna, Austria",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "47 Schönbrunner Schloßstraße"
+  },
   "schönbrunn palace, austria": {
     "city": "Vienna",
     "country": "Austria",
@@ -12232,6 +14820,18 @@
     "source": "nominatim",
     "state": "",
     "status": "ok"
+  },
+  "scotland, united kingdom": {
+    "city": "",
+    "country": "United Kingdom",
+    "display_name": "Scotland, United Kingdom",
+    "latitude": "56.7861112",
+    "longitude": "-4.1140518",
+    "query": "Scotland, United Kingdom",
+    "source": "nominatim",
+    "state": "Scotland",
+    "status": "ok",
+    "sublocation": ""
   },
   "scott monument, edinburgh, scotland, united kingdom": {
     "city": "City of Edinburgh",
@@ -12244,8 +14844,24 @@
     "state": "Scotland",
     "status": "ok"
   },
+  "scottish national monument (scottish national war memorial), edinburgh, united kingdom": {
+    "query": "Scottish National Monument (Scottish National War Memorial), Edinburgh, United Kingdom",
+    "status": "miss"
+  },
+  "seminal hot springs, california, united states": {
+    "query": "Seminal Hot Springs, California, United States",
+    "status": "miss"
+  },
   "seminol hot springs, calif.": {
     "query": "Seminol Hot Springs, Calif.",
+    "status": "miss"
+  },
+  "seminol hot springs, california": {
+    "query": "Seminol Hot Springs, California",
+    "status": "miss"
+  },
+  "seminol hot springs, california, united states": {
+    "query": "Seminol Hot Springs, California, United States",
     "status": "miss"
   },
   "sera monastery": {
@@ -12299,6 +14915,18 @@
     "query": "Sera Monastery, Tibet, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "serbian orthodox church, belgrade, serbia": {
+    "city": "Belgrade",
+    "country": "Serbia",
+    "display_name": "Serbian Orthodox Church, Belgrade, Serbia, Belgrade, Serbia",
+    "latitude": "44.7902494",
+    "longitude": "20.4583100",
+    "query": "Serbian Orthodox Church, Belgrade, Serbia",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "26 Хумска"
   },
   "seville cathedral, seville, andalusia, spain": {
     "display_name": "Catedral de Sevilla, Calle Fray Ceferino González, Santa Cruz, Casco Antiguo, Sevilla, Andalucía, 41004, España",
@@ -12378,6 +15006,10 @@
     "query": "Shakespeare's Birth Place",
     "status": "miss"
   },
+  "shakespeare's birth place, united kingdom": {
+    "query": "Shakespeare's Birth Place, United Kingdom",
+    "status": "miss"
+  },
   "shakespeare's birthplace and holy trinity church, stratford-upon-avon, england": {
     "query": "Shakespeare's Birthplace and Holy Trinity Church, Stratford-upon-Avon, England",
     "status": "miss"
@@ -12397,6 +15029,18 @@
     "query": "Shakespeare's Birthplace, Stratford-upon-Avon, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "shakespeare's birthplace, stratford-upon-avon, united kingdom": {
+    "city": "Stratford-on-Avon",
+    "country": "United Kingdom",
+    "display_name": "Shakespeare's Birthplace, Henley Street, Stratford-upon-Avon, Stratford-on-Avon, Warwickshire, England, CV37 6QW, United Kingdom",
+    "latitude": "52.1938833",
+    "longitude": "-1.7080084",
+    "query": "Shakespeare's Birthplace, Stratford-upon-Avon, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Henley Street"
   },
   "shigatse, tibet, china": {
     "display_name": "日喀则市 གཞིས་ཀ་རྩེ་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 中国",
@@ -12436,6 +15080,18 @@
     "state": "South Dakota",
     "status": "ok"
   },
+  "sioux falls, south dakota, united states": {
+    "city": "Sioux Falls",
+    "country": "United States",
+    "display_name": "Sioux Falls, Sioux Falls Township, Minnehaha County, South Dakota, United States",
+    "latitude": "43.5476008",
+    "longitude": "-96.7293629",
+    "query": "Sioux Falls, South Dakota, United States",
+    "source": "nominatim",
+    "state": "South Dakota",
+    "status": "ok",
+    "sublocation": ""
+  },
   "skelmereadale, england": {
     "query": "Skelmereadale, England",
     "status": "miss"
@@ -12470,6 +15126,10 @@
   },
   "snowqualamie pass, victoria b.c., canada": {
     "query": "Snowqualamie Pass, Victoria B.C., Canada",
+    "status": "miss"
+  },
+  "snowqualamie pass, washington, united states": {
+    "query": "Snowqualamie Pass, Washington, United States",
     "status": "miss"
   },
   "sofia square (the capitol of bulgaria), bulgaria": {
@@ -12557,6 +15217,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "southern california, united states, california": {
+    "query": "Southern California, United States, California",
+    "status": "miss"
+  },
   "southport": {
     "city": "Southport",
     "country": "United Kingdom",
@@ -12590,6 +15254,10 @@
   },
   "spa and south bay, scarborough": {
     "query": "Spa and South Bay, Scarborough",
+    "status": "miss"
+  },
+  "spa and south bay, scarborough, united kingdom": {
+    "query": "Spa and South Bay, Scarborough, United Kingdom",
     "status": "miss"
   },
   "spain": {
@@ -12654,6 +15322,18 @@
     "source": "nominatim",
     "state": "Community of Madrid",
     "status": "ok"
+  },
+  "spanish riding school, vienna, austria": {
+    "city": "Vienna",
+    "country": "Austria",
+    "display_name": "Spanish Riding School, 1, Michaelerplatz, Widmerviertel, Innere Stadt, Vienna, 1010, Austria",
+    "latitude": "48.2073067",
+    "longitude": "16.3667068",
+    "query": "Spanish Riding School, Vienna, Austria",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "1 Michaelerplatz"
   },
   "spanish steps (steps of travertin), italy": {
     "query": "Spanish Steps (Steps of Travertin), Italy",
@@ -12741,6 +15421,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "st john's college, cambridge, united kingdom": {
+    "city": "Cambridge",
+    "country": "United Kingdom",
+    "display_name": "St John's College, Haymarket Road, Cambridge, Cambridgeshire, Cambridgeshire and Peterborough, England, CB3 0BQ, United Kingdom",
+    "latitude": "52.2087631",
+    "longitude": "0.1134997",
+    "query": "St John's College, Cambridge, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Haymarket Road"
+  },
   "st john's college, king's college chapel, cambridge, uk": {
     "query": "St John's College, King's College Chapel, Cambridge, UK",
     "status": "miss"
@@ -12794,8 +15486,16 @@
     "query": "St Stephens Cathedral, Vienna Austria",
     "status": "miss"
   },
+  "st stephens cathedral, vienna, austria": {
+    "query": "St Stephens Cathedral, Vienna, Austria",
+    "status": "miss"
+  },
   "st. alexander nevsky patriarchal cathedral, bulgaria": {
     "query": "St. Alexander Nevsky Patriarchal Cathedral, Bulgaria",
+    "status": "miss"
+  },
+  "st. alexander nevsky patriarchal cathedral, sofia, bulgaria": {
+    "query": "St. Alexander Nevsky Patriarchal Cathedral, Sofia, Bulgaria",
     "status": "miss"
   },
   "st. cross, winchester, england": {
@@ -12826,6 +15526,18 @@
     "query": "St. George's Hall, Lime Street, Liverpool, England, United Kingdom",
     "status": "miss"
   },
+  "st. george's hall, liverpool, united kingdom": {
+    "city": "Liverpool",
+    "country": "United Kingdom",
+    "display_name": "Saint George's Hall, St George's Place, St George's Quarter / Cultural Quarter, Vauxhall, Liverpool, Liverpool City Region, England, L1 1LU, United Kingdom",
+    "latitude": "53.4086595",
+    "longitude": "-2.9801624",
+    "query": "St. George's Hall, Liverpool, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "St George's Place"
+  },
   "st. ives": {
     "display_name": "St. Ives, Cornwall, England, United Kingdom",
     "latitude": "50.2149064",
@@ -12849,6 +15561,18 @@
     "query": "St. Ives, Cornwall, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "st. ives, cornwall, england, united kingdom": {
+    "city": "St. Ives",
+    "country": "United Kingdom",
+    "display_name": "St. Ives, Cornwall, England, United Kingdom",
+    "latitude": "50.2149064",
+    "longitude": "-5.4795083",
+    "query": "St. Ives, Cornwall, England, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "st. ives, cornwall, st. ives, england, united kingdom": {
     "city": "St. Ives",
@@ -12971,6 +15695,10 @@
     "query": "St. Nickolas Church, Bulgaria",
     "status": "miss"
   },
+  "st. nickolas church, sofia, bulgaria": {
+    "query": "St. Nickolas Church, Sofia, Bulgaria",
+    "status": "miss"
+  },
   "st. paul's cathedral, london": {
     "city": "City of London",
     "country": "United Kingdom",
@@ -13016,9 +15744,37 @@
     "query": "St. Paul's Cathedral, Piccadilly Circus, London, England",
     "status": "miss"
   },
+  "st. peter's basilica, vatican city": {
+    "city": "",
+    "country": "Vatican City",
+    "display_name": "Saint Peter's Basilica, Piazza San Pietro, Vatican City, 00120, Vatican City",
+    "latitude": "41.9021569",
+    "longitude": "12.4537105",
+    "query": "St. Peter's Basilica, Vatican City",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Piazza San Pietro"
+  },
   "st. peter's square, italy": {
     "query": "St. Peter's Square, Italy",
     "status": "miss"
+  },
+  "st. peter's square, rome, italy": {
+    "query": "St. Peter's Square, Rome, Italy",
+    "status": "miss"
+  },
+  "st. peter's square, vatican city": {
+    "city": "",
+    "country": "Vatican City",
+    "display_name": "Saint Peter's Square, Vatican City",
+    "latitude": "41.9022351",
+    "longitude": "12.4573573",
+    "query": "St. Peter's Square, Vatican City",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Saint Peter's Square"
   },
   "st. peters square, rome italy": {
     "query": "St. Peters Square, Rome Italy",
@@ -13026,6 +15782,10 @@
   },
   "st. philip's episcopal church, church street, charleston, south carolina, united states": {
     "query": "St. Philip's Episcopal Church, Church Street, Charleston, South Carolina, United States",
+    "status": "miss"
+  },
+  "st. sophia cathedral, istanbul, turkey": {
+    "query": "St. Sophia Cathedral, Istanbul, Turkey",
     "status": "miss"
   },
   "st. stephen's cathedral": {
@@ -13091,6 +15851,18 @@
     "state": "",
     "status": "ok"
   },
+  "stadtpark, vienna, austria": {
+    "city": "Vienna",
+    "country": "Austria",
+    "display_name": "Stadtpark, Vienna, Austria, Vienna, Austria",
+    "latitude": "48.2028863",
+    "longitude": "16.3797236",
+    "query": "Stadtpark, Vienna, Austria",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Johannesgasse"
+  },
   "stanley park, vancouver b.c., canada": {
     "city": "Vancouver",
     "country": "Canada",
@@ -13101,6 +15873,18 @@
     "source": "nominatim",
     "state": "British Columbia",
     "status": "ok"
+  },
+  "stanley park, vancouver, british columbia, canada": {
+    "city": "Vancouver",
+    "country": "Canada",
+    "display_name": "Stanley Park, West End, Vancouver, Metro Vancouver Regional District, British Columbia, Canada",
+    "latitude": "49.3020684",
+    "longitude": "-123.1413263",
+    "query": "Stanley Park, Vancouver, British Columbia, Canada",
+    "source": "nominatim",
+    "state": "British Columbia",
+    "status": "ok",
+    "sublocation": ""
   },
   "stari most, mostar, hercegovina-neretva canton, bosnia and herzegovina": {
     "city": "Mostar",
@@ -13136,6 +15920,18 @@
     "query": "Statford-upon-Avon, England",
     "status": "miss"
   },
+  "statue of liberty, new york city, united states": {
+    "city": "New York",
+    "country": "United States",
+    "display_name": "Statue of Liberty, Flagpole Plaza, Manhattan, New York County, New York, 10004, United States",
+    "latitude": "40.6892532",
+    "longitude": "-74.0445482",
+    "query": "Statue of Liberty, New York City, United States",
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok",
+    "sublocation": "Flagpole Plaza"
+  },
   "statue of ramases the second at memphis egypt, the alabaster sphinx - memphis": {
     "query": "Statue of Ramases the Second at Memphis Egypt, The Alabaster Sphinx - Memphis",
     "status": "miss"
@@ -13162,6 +15958,10 @@
   },
   "statue of stephen i, budapest, hungary": {
     "query": "Statue of Stephen I, Budapest, Hungary",
+    "status": "miss"
+  },
+  "statue of the madonna, salzburg, austria": {
+    "query": "Statue of the Madonna, Salzburg, Austria",
     "status": "miss"
   },
   "step pyramid of king zoser, egypt": {
@@ -13406,6 +16206,18 @@
     "state": "England",
     "status": "ok"
   },
+  "stratford-upon-avon, united kingdom": {
+    "city": "Stratford-on-Avon",
+    "country": "United Kingdom",
+    "display_name": "Stratford-upon-Avon, Stratford-on-Avon, Warwickshire, England, United Kingdom",
+    "latitude": "52.1927803",
+    "longitude": "-1.7063400",
+    "query": "Stratford-upon-Avon, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "stratford-upon-avon, warwickshire, england": {
     "display_name": "Stratford-upon-Avon, Stratford-on-Avon, Warwickshire, England, United Kingdom",
     "latitude": "52.1927803",
@@ -13474,6 +16286,10 @@
   },
   "swan hotel at bedford, bedford, england, united kingdom": {
     "query": "Swan Hotel at Bedford, Bedford, England, United Kingdom",
+    "status": "miss"
+  },
+  "swan hotel at bedford, bedford, united kingdom": {
+    "query": "Swan Hotel at Bedford, Bedford, United Kingdom",
     "status": "miss"
   },
   "swanage beach": {
@@ -13547,6 +16363,18 @@
     "query": "Swanque Beach, England",
     "status": "miss"
   },
+  "swansea - wales, swansea, wales": {
+    "city": "Swansea",
+    "country": "United Kingdom",
+    "display_name": "Wales National Pool, Sketty Lane, Singleton, Sketty, Swansea, Wales, SA2 8QA, United Kingdom",
+    "latitude": "51.6075114",
+    "longitude": "-3.9887725",
+    "query": "Swansea - Wales, Swansea, Wales",
+    "source": "nominatim",
+    "state": "Wales",
+    "status": "ok",
+    "sublocation": "Sketty Lane"
+  },
   "swansea, wales": {
     "display_name": "Swansea, Cymru / Wales, SA1 3BP, United Kingdom",
     "latitude": "51.6195955",
@@ -13580,6 +16408,10 @@
   },
   "tarabia fisherman village, bosporus, istanbul, turkey": {
     "query": "Tarabia Fisherman Village, Bosporus, Istanbul, Turkey",
+    "status": "miss"
+  },
+  "tarabia fisherman village, istanbul, turkey": {
+    "query": "Tarabia Fisherman Village, Istanbul, Turkey",
     "status": "miss"
   },
   "temple architecture, himalayas": {
@@ -13660,6 +16492,10 @@
     "query": "Temple of Wingless Victory (Nike of Paeonios), Greece",
     "status": "miss"
   },
+  "temple of wingless victory, athens, greece": {
+    "query": "Temple of Wingless Victory, Athens, Greece",
+    "status": "miss"
+  },
   "temples of king ramesses & queen nefertari, egypt": {
     "query": "Temples of King Ramesses & Queen Nefertari, Egypt",
     "status": "miss"
@@ -13694,6 +16530,10 @@
   },
   "terrace of grapes in italy": {
     "query": "TERRACE OF GRAPES IN ITALY",
+    "status": "miss"
+  },
+  "terrace of grapes, italy": {
+    "query": "Terrace of Grapes, Italy",
     "status": "miss"
   },
   "terraced houses and chimneys london suburbs": {
@@ -13825,6 +16665,30 @@
     "state": "Texas",
     "status": "ok"
   },
+  "the alps, switzerland": {
+    "city": "",
+    "country": "Switzerland",
+    "display_name": "Bernese Alps, Bern, Switzerland",
+    "latitude": "46.4356252",
+    "longitude": "7.7323671",
+    "query": "The Alps, Switzerland",
+    "source": "nominatim",
+    "state": "Bern",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "the angel, henley-on-thames, united kingdom": {
+    "city": "South Oxfordshire",
+    "country": "United Kingdom",
+    "display_name": "The Angel on the Bridge, Thameside, Henley-on-Thames, South Oxfordshire, Oxfordshire, England, RG9 1BH, United Kingdom",
+    "latitude": "51.5374338",
+    "longitude": "-0.9009373",
+    "query": "The Angel, Henley-on-Thames, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Thameside"
+  },
   "the angel, united kingdom": {
     "city": "Abergavenny",
     "country": "United Kingdom",
@@ -13876,6 +16740,10 @@
     "query": "The Board Walk at Scarborough",
     "status": "miss"
   },
+  "the board walk at scarborough, scarborough, united kingdom": {
+    "query": "The Board Walk at Scarborough, Scarborough, United Kingdom",
+    "status": "miss"
+  },
   "the boating lake and bridge, southport, england, united kingdom": {
     "query": "The Boating Lake and Bridge, Southport, England, United Kingdom",
     "status": "miss"
@@ -13890,6 +16758,10 @@
   },
   "the bridge of sighs, st john's college, cambridge, england, united kingdom": {
     "query": "The Bridge of Sighs, St John's College, Cambridge, England, United Kingdom",
+    "status": "miss"
+  },
+  "the bridge of sighs, st john's college, cambridge, united kingdom": {
+    "query": "The Bridge of Sighs, St John's College, Cambridge, United Kingdom",
     "status": "miss"
   },
   "the bridges of prague (vltava river bridges), prague, czech republic": {
@@ -13921,6 +16793,18 @@
     "source": "nominatim",
     "state": "Wales",
     "status": "ok"
+  },
+  "the castle, cardiff, united kingdom": {
+    "city": "Cardiff",
+    "country": "United Kingdom",
+    "display_name": "Castle, Cardiff, Wales, United Kingdom",
+    "latitude": "51.4854686",
+    "longitude": "-3.1807318",
+    "query": "The Castle, Cardiff, United Kingdom",
+    "source": "nominatim",
+    "state": "Wales",
+    "status": "ok",
+    "sublocation": ""
   },
   "the castle, cardiff, wales": {
     "city": "Cardiff",
@@ -13971,6 +16855,18 @@
     "state": "Lazio",
     "status": "ok"
   },
+  "the cotswolds, england": {
+    "city": "Welwyn Hatfield",
+    "country": "United Kingdom",
+    "display_name": "Cotswolds, Hilltop, South Hatfield, Hatfield, Welwyn Hatfield, Hertfordshire, England, AL10 8JR, United Kingdom",
+    "latitude": "51.7489426",
+    "longitude": "-0.2303335",
+    "query": "The Cotswolds, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Cotswolds"
+  },
   "the covered grand bazaar": {
     "query": "The Covered Grand Bazaar",
     "status": "miss"
@@ -13979,8 +16875,16 @@
     "query": "The Covered Grand Bazaar, Turkey",
     "status": "miss"
   },
+  "the dennison home, kenilworth, wantage, england": {
+    "query": "The Dennison Home, Kenilworth, Wantage, England",
+    "status": "miss"
+  },
   "the dennison home, wantage, oxfordshire, united kingdom": {
     "query": "The Dennison Home, Wantage, Oxfordshire, United Kingdom",
+    "status": "miss"
+  },
+  "the edwardian hotel, henley-on-thames, united kingdom": {
+    "query": "The Edwardian Hotel, Henley-on-Thames, United Kingdom",
     "status": "miss"
   },
   "the edwardian hotel, united kingdom": {
@@ -14007,9 +16911,29 @@
     "query": "The Garrick Inn & Harvard House, Stratford-upon-Avon",
     "status": "miss"
   },
+  "the garrick inn & harvard house, stratford-upon-avon, england": {
+    "query": "The Garrick Inn & Harvard House, Stratford-upon-Avon, England",
+    "status": "miss"
+  },
   "the garrick inn & harvard house, stratford-upon-avon, england, united kingdom": {
     "query": "The Garrick Inn & Harvard House, Stratford-upon-Avon, England, United Kingdom",
     "status": "miss"
+  },
+  "the gate of honour at gonville and caius college, cambridge, england": {
+    "query": "The Gate of Honour at Gonville and Caius College, Cambridge, England",
+    "status": "miss"
+  },
+  "the glorieta, vienna, austria": {
+    "city": "Vienna",
+    "country": "Austria",
+    "display_name": "The Glorieta, Vienna, Austria, Vienna, Austria",
+    "latitude": "48.1782674",
+    "longitude": "16.3087265",
+    "query": "The Glorieta, Vienna, Austria",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Gloriettestraße"
   },
   "the grand staircase, longleat, warminster, wiltshire, england": {
     "query": "The Grand Staircase, Longleat, Warminster, Wiltshire, England",
@@ -14097,6 +17021,30 @@
     "query": "The Guildhall, King's Lynn, King's Lynn, England, United Kingdom",
     "status": "miss"
   },
+  "the guildhall, king's lynn, united kingdom": {
+    "city": "King's Lynn and West Norfolk",
+    "country": "United Kingdom",
+    "display_name": "St George's Guildhall, St George's Courtyard, North Lynn, King's Lynn, King's Lynn and West Norfolk, Norfolk, England, PE30 1HA, United Kingdom",
+    "latitude": "52.7554663",
+    "longitude": "0.3933517",
+    "query": "The Guildhall, King's Lynn, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "St George's Courtyard"
+  },
+  "the guildhall, worcester, united kingdom": {
+    "city": "Worcester",
+    "country": "United Kingdom",
+    "display_name": "The Guildhall, High Street, Red Hill, Worcester, Worcestershire, England, WR1 2EY, United Kingdom",
+    "latitude": "52.1911655",
+    "longitude": "-2.2208280",
+    "query": "The Guildhall, Worcester, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "High Street"
+  },
   "the guildhall, worcester, worcestershire, united kingdom": {
     "city": "Worcester",
     "country": "United Kingdom",
@@ -14110,6 +17058,14 @@
   },
   "the hall, all souls college, oxford, england, united kingdom": {
     "query": "The Hall, All Souls College, Oxford, England, United Kingdom",
+    "status": "miss"
+  },
+  "the hall, all souls college, oxford, united kingdom": {
+    "query": "The Hall, All Souls College, Oxford, United Kingdom",
+    "status": "miss"
+  },
+  "the harbour from vane hill, torquay, devon, united kingdom": {
+    "query": "The Harbour from Vane Hill, Torquay, Devon, United Kingdom",
     "status": "miss"
   },
   "the harbour from vane hill, torquay, torquay, devon, united kingdom": {
@@ -14137,6 +17093,10 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "the high, oxford, united kingdom": {
+    "query": "The High, Oxford, United Kingdom",
+    "status": "miss"
   },
   "the hospital of st. cross, winchester": {
     "query": "The Hospital of St. Cross, Winchester",
@@ -14197,6 +17157,18 @@
     "state": "Wales",
     "status": "ok"
   },
+  "the law courts, cardiff, united kingdom": {
+    "city": "Cardiff",
+    "country": "United Kingdom",
+    "display_name": "Cardiff Crown Court, King Edward VII Avenue, Civic Centre, Castle, Cardiff, Wales, CF10 3PG, United Kingdom",
+    "latitude": "51.4845617",
+    "longitude": "-3.1802493",
+    "query": "The Law Courts, Cardiff, United Kingdom",
+    "source": "nominatim",
+    "state": "Wales",
+    "status": "ok",
+    "sublocation": "King Edward VII Avenue"
+  },
   "the leopoldskron castle": {
     "query": "The Leopoldskron Castle",
     "status": "miss"
@@ -14209,8 +17181,20 @@
     "query": "The London Music Museum",
     "status": "miss"
   },
+  "the london music museum, brentford, united kingdom": {
+    "query": "The London Music Museum, Brentford, United Kingdom",
+    "status": "miss"
+  },
+  "the london music museum, london, united kingdom": {
+    "query": "The London Music Museum, London, United Kingdom",
+    "status": "miss"
+  },
   "the main gate-st john's college, st john's college, cambridge, england, united kingdom": {
     "query": "The Main Gate-St John's College, St John's College, Cambridge, England, United Kingdom",
+    "status": "miss"
+  },
+  "the market place in zagreb, zagreb, croatia": {
+    "query": "The Market Place in Zagreb, Zagreb, Croatia",
     "status": "miss"
   },
   "the markets of trajan": {
@@ -14275,6 +17259,10 @@
     "query": "The New Cathedral, Coventry",
     "status": "miss"
   },
+  "the new cathedral, coventry, united kingdom": {
+    "query": "The New Cathedral, Coventry, United Kingdom",
+    "status": "miss"
+  },
   "the new hong kong bank": {
     "query": "The New Hong Kong Bank",
     "status": "miss"
@@ -14293,6 +17281,10 @@
   },
   "the new shakespeare theatre, stratford-upon-avon, england, united kingdom": {
     "query": "The New Shakespeare Theatre, Stratford-upon-Avon, England, United Kingdom",
+    "status": "miss"
+  },
+  "the new shakespeare theatre, stratford-upon-avon, united kingdom": {
+    "query": "The New Shakespeare Theatre, Stratford-upon-Avon, United Kingdom",
     "status": "miss"
   },
   "the nile from the tower of cairo, egypt": {
@@ -14323,6 +17315,10 @@
     "query": "The Old Shakespeare Theatre, Stratford-upon-Avon, England, United Kingdom",
     "status": "miss"
   },
+  "the old shakespeare theatre, stratford-upon-avon, united kingdom": {
+    "query": "The Old Shakespeare Theatre, Stratford-upon-Avon, United Kingdom",
+    "status": "miss"
+  },
   "the ouse river bedford": {
     "query": "The Ouse River Bedford",
     "status": "miss"
@@ -14334,6 +17330,18 @@
   "the ouse river, bedford, england": {
     "query": "The Ouse River, Bedford, England",
     "status": "miss"
+  },
+  "the ouse river, bedford, united kingdom": {
+    "city": "Bedford",
+    "country": "United Kingdom",
+    "display_name": "River Great Ouse Navigation Channel, Newnham, Bedford, England, MK41 0TU, United Kingdom",
+    "latitude": "52.1321645",
+    "longitude": "-0.4247021",
+    "query": "The Ouse River, Bedford, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "the palace of justice (palazzo di giustizia), rome, lazio, italy": {
     "query": "The Palace of Justice (Palazzo di Giustizia), Rome, Lazio, Italy",
@@ -14399,6 +17407,10 @@
   },
   "the place-chapel street shakespeare's last home": {
     "query": "The Place-Chapel Street Shakespeare's Last Home",
+    "status": "miss"
+  },
+  "the place-chapel street shakespeare's last home, united kingdom": {
+    "query": "The Place-Chapel Street Shakespeare's Last Home, United Kingdom",
     "status": "miss"
   },
   "the plaza mayor, salamanca, spain": {
@@ -14479,6 +17491,18 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "the red lion hotel, henley-on-thames, united kingdom": {
+    "city": "South Oxfordshire",
+    "country": "United Kingdom",
+    "display_name": "The Red Lion Hotel, Hart Street, Henley-on-Thames, South Oxfordshire, Oxfordshire, England, RG9 2AR, United Kingdom",
+    "latitude": "51.5378103",
+    "longitude": "-0.9011950",
+    "query": "The Red Lion Hotel, Henley-on-Thames, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Hart Street"
   },
   "the red lion hotel, salisbury, england, united kingdom": {
     "city": "Salisbury",
@@ -14564,6 +17588,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "the royal crescent, bath, united kingdom": {
+    "city": "Bath",
+    "country": "United Kingdom",
+    "display_name": "Royal Crescent, Kingsmead, Bath, Bath and North East Somerset, West of England, England, BA1 2LS, United Kingdom",
+    "latitude": "51.3872718",
+    "longitude": "-2.3682297",
+    "query": "The Royal Crescent, Bath, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Royal Crescent"
+  },
   "the sacred way & arch of titus": {
     "query": "The Sacred Way & Arch of Titus",
     "status": "miss"
@@ -14631,6 +17667,18 @@
     "query": "The Stocks, Stow-on-the-Wold, The Stocks, Stow-on-the-Wold, Gloucestershire, United Kingdom",
     "status": "miss"
   },
+  "the stocks, stow-on-the-wold, united kingdom": {
+    "city": "Cotswold District",
+    "country": "United Kingdom",
+    "display_name": "The Old Stocks Inn, Market Square, Stow-on-the-Wold, Cotswold District, Gloucestershire, England, GL54 1AF, United Kingdom",
+    "latitude": "51.9308985",
+    "longitude": "-1.7227357",
+    "query": "The Stocks, Stow-on-the-Wold, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Market Square"
+  },
   "the stone forest": {
     "display_name": "Stone Forest, South Saint Francis Drive, Santa Fe, Santa Fe County, New Mexico, 87501, United States",
     "latitude": "35.6864406",
@@ -14689,6 +17737,18 @@
     "source": "nominatim",
     "state": "Cairo",
     "status": "ok"
+  },
+  "the tower of cairo, egypt, cairo": {
+    "city": "New Administrative Capital",
+    "country": "Egypt",
+    "display_name": "Stop C3 bus to go to the Iconic Tower, Al Sheikh Mohamed Ibn Zaid Northern Axis, La Vista City, New Administrative Capital, Cairo, Egypt",
+    "latitude": "30.0189196",
+    "longitude": "31.6993231",
+    "query": "The Tower of Cairo, Egypt, Cairo",
+    "source": "nominatim",
+    "state": "Cairo",
+    "status": "ok",
+    "sublocation": "Al Sheikh Mohamed Ibn Zaid Northern Axis"
   },
   "the tower of london, london, united kingdom": {
     "city": "Greater London",
@@ -14905,6 +17965,18 @@
     "state": "",
     "status": "ok"
   },
+  "topkapi museum - istanbul, turkey": {
+    "city": "Istanbul",
+    "country": "Turkey",
+    "display_name": "Topkapi Palace, Courtyard of the Eunuchs, Cankurtaran Mahallesi, Istanbul, Fatih, Istanbul, Marmara Region, 34122, Turkey",
+    "latitude": "41.0113440",
+    "longitude": "28.9832034",
+    "query": "Topkapi Museum - Istanbul, Turkey",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Courtyard of the Eunuchs"
+  },
   "topkapi museum, istanbul, turkey": {
     "city": "Istanbul",
     "country": "Turkey",
@@ -14915,6 +17987,18 @@
     "source": "nominatim",
     "state": "",
     "status": "ok"
+  },
+  "topkapi museum, turkey": {
+    "city": "Istanbul",
+    "country": "Turkey",
+    "display_name": "Topkapi Palace, Courtyard of the Eunuchs, Cankurtaran Mahallesi, Istanbul, Fatih, Istanbul, Marmara Region, 34122, Turkey",
+    "latitude": "41.0113440",
+    "longitude": "28.9832034",
+    "query": "Topkapi Museum, Turkey",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Courtyard of the Eunuchs"
   },
   "topkapi palace": {
     "city": "Istanbul",
@@ -14934,6 +18018,18 @@
     "query": "Topkapi Palace, Istanbul, Turkey",
     "source": "nominatim",
     "status": "ok"
+  },
+  "topkapi palace, turkey": {
+    "city": "Istanbul",
+    "country": "Turkey",
+    "display_name": "Topkapi Palace, Courtyard of the Eunuchs, Cankurtaran Mahallesi, Istanbul, Fatih, Istanbul, Marmara Region, 34122, Turkey",
+    "latitude": "41.0113440",
+    "longitude": "28.9832034",
+    "query": "Topkapi Palace, Turkey",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Courtyard of the Eunuchs"
   },
   "torquay": {
     "display_name": "Torquay, Torbay, Devon and Torbay, England, TQ1 1TR, United Kingdom",
@@ -15002,6 +18098,18 @@
     "state": "England",
     "status": "ok"
   },
+  "torquay, united kingdom": {
+    "city": "Torquay",
+    "country": "United Kingdom",
+    "display_name": "Torquay, Torbay, Devon and Torbay, England, TQ1 1TR, United Kingdom",
+    "latitude": "50.4652392",
+    "longitude": "-3.5211361",
+    "query": "Torquay, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "torre abbey sands, torquay": {
     "city": "Torquay",
     "country": "United Kingdom",
@@ -15039,6 +18147,18 @@
   "torre abbey sands, torquay, torre abbey sands, torquay, devon, united kingdom": {
     "query": "Torre Abbey Sands, Torquay, Torre Abbey Sands, Torquay, Devon, United Kingdom",
     "status": "miss"
+  },
+  "torre abbey sands, torquay, united kingdom": {
+    "city": "Torquay",
+    "country": "United Kingdom",
+    "display_name": "Torre Abbey Sands, Torre, Torquay, Torbay, Devon and Torbay, England, United Kingdom",
+    "latitude": "50.4616634",
+    "longitude": "-3.5370200",
+    "query": "Torre Abbey Sands, Torquay, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "torre del oro, seville, andalusia, spain": {
     "city": "Seville",
@@ -15116,8 +18236,16 @@
     "state": "Cairo",
     "status": "ok"
   },
+  "tower of skulls, nis, serbia": {
+    "query": "Tower of Skulls, Nis, Serbia",
+    "status": "miss"
+  },
   "tower of skulls, north macedonia": {
     "query": "Tower of Skulls, North Macedonia",
+    "status": "miss"
+  },
+  "tower of skulls, plovdiv, bulgaria": {
+    "query": "Tower of Skulls, Plovdiv, Bulgaria",
     "status": "miss"
   },
   "tower of skulls, skopje, north macedonia": {
@@ -15220,6 +18348,18 @@
     "query": "Tredegar House, Bristol, Worcestershire, United Kingdom",
     "status": "miss"
   },
+  "tredegar house, england": {
+    "city": "Greater London",
+    "country": "United Kingdom",
+    "display_name": "Tredegar House, 97-99, Bow Road, Bromley-by-Bow, Bow, London Borough of Tower Hamlets, Greater London, England, E3 4DH, United Kingdom",
+    "latitude": "51.5276837",
+    "longitude": "-0.0242564",
+    "query": "Tredegar House, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "97-99 Bow Road"
+  },
   "tredegar house, ludlow, worcestershire, united kingdom": {
     "query": "Tredegar House, Ludlow, Worcestershire, United Kingdom",
     "status": "miss"
@@ -15234,6 +18374,10 @@
     "source": "nominatim",
     "state": "Wales",
     "status": "ok"
+  },
+  "tredegar house, newport, wal": {
+    "query": "Tredegar House, Newport, WAL",
+    "status": "miss"
   },
   "tredegar house, newport, wales": {
     "display_name": "Tredegar House, Pencarn Way, Duffryn, Tredegar Park, Newport, Cymru / Wales, NP10 8YW, United Kingdom",
@@ -15262,6 +18406,18 @@
     "state": "Wales",
     "status": "ok"
   },
+  "tredegar house, united kingdom": {
+    "city": "Newport",
+    "country": "United Kingdom",
+    "display_name": "Tredegar House, Pencarn Way, Duffryn, Tredegar Park, Newport, Wales, NP10 8YW, United Kingdom",
+    "latitude": "51.5615216",
+    "longitude": "-3.0283389",
+    "query": "Tredegar House, United Kingdom",
+    "source": "nominatim",
+    "state": "Wales",
+    "status": "ok",
+    "sublocation": "Pencarn Way"
+  },
   "tredegar house, wales": {
     "city": "Newport",
     "country": "United Kingdom",
@@ -15280,6 +18436,18 @@
     "query": "Tredegar House, Wales, United Kingdom",
     "source": "nominatim",
     "status": "ok"
+  },
+  "turkey": {
+    "city": "",
+    "country": "Turkey",
+    "display_name": "Turkey",
+    "latitude": "39.2940760",
+    "longitude": "35.2316631",
+    "query": "Turkey",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
   },
   "turkey, istanbul": {
     "city": "Istanbul",
@@ -15322,6 +18490,18 @@
     "state": "Scotland",
     "status": "ok"
   },
+  "ullswater, england": {
+    "city": "Glenridding",
+    "country": "United Kingdom",
+    "display_name": "Ullswater, Glenridding, Patterdale, Westmorland and Furness, England, CA10 2ND, United Kingdom",
+    "latitude": "54.5751365",
+    "longitude": "-2.8932053",
+    "query": "Ullswater, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "uncertain": {
     "display_name": "Uncertain, Harrison County, Texas, United States",
     "latitude": "32.7120883",
@@ -15343,6 +18523,18 @@
     "query": "United Kingdom, England, London",
     "source": "nominatim",
     "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "United States",
+    "latitude": "39.7837304",
+    "longitude": "-100.4458820",
+    "query": "United States",
+    "source": "nominatim",
+    "state": "",
     "status": "ok",
     "sublocation": ""
   },
@@ -15421,6 +18613,18 @@
     "state": "British Columbia",
     "status": "ok"
   },
+  "vancouver, b.c., canada, british columbia": {
+    "city": "Vancouver",
+    "country": "Canada",
+    "display_name": "Vancouver Convention Centre West, 1055, Canada Place, Downtown, Vancouver, Metro Vancouver Regional District, British Columbia, V6C 0C3, Canada",
+    "latitude": "49.2888506",
+    "longitude": "-123.1160655",
+    "query": "Vancouver, B.C., Canada, British Columbia",
+    "source": "nominatim",
+    "state": "British Columbia",
+    "status": "ok",
+    "sublocation": "1055 Canada Place"
+  },
   "vancouver, bc, canada": {
     "city": "Vancouver",
     "country": "Canada",
@@ -15432,6 +18636,18 @@
     "state": "British Columbia",
     "status": "ok"
   },
+  "vancouver, british columbia, canada": {
+    "city": "Vancouver",
+    "country": "Canada",
+    "display_name": "Vancouver, Metro Vancouver Regional District, British Columbia, Canada",
+    "latitude": "49.2608724",
+    "longitude": "-123.1139520",
+    "query": "Vancouver, British Columbia, Canada",
+    "source": "nominatim",
+    "state": "British Columbia",
+    "status": "ok",
+    "sublocation": ""
+  },
   "vancouver, canada": {
     "city": "Vancouver",
     "country": "Canada",
@@ -15442,6 +18658,18 @@
     "source": "nominatim",
     "state": "British Columbia",
     "status": "ok"
+  },
+  "vancouver, canada, british columbia": {
+    "city": "Vancouver",
+    "country": "Canada",
+    "display_name": "Vancouver Convention Centre West, 1055, Canada Place, Downtown, Vancouver, Metro Vancouver Regional District, British Columbia, V6C 0C3, Canada",
+    "latitude": "49.2888506",
+    "longitude": "-123.1160655",
+    "query": "Vancouver, Canada, British Columbia",
+    "source": "nominatim",
+    "state": "British Columbia",
+    "status": "ok",
+    "sublocation": "1055 Canada Place"
   },
   "vatican city, italy": {
     "query": "Vatican City, Italy",
@@ -15485,6 +18713,18 @@
   "via veneto, rome italy, rome, lazio, italy": {
     "query": "VIA VENETO, ROME ITALY, Rome, Lazio, Italy",
     "status": "miss"
+  },
+  "via veneto, rome, italy": {
+    "city": "Rome",
+    "country": "Italy",
+    "display_name": "Via Vittorio Veneto, Ludovisi, Municipio Roma I, Rome, Roma Capitale, Lazio, 00187, Italy",
+    "latitude": "41.9055747",
+    "longitude": "12.4881658",
+    "query": "Via Veneto, Rome, Italy",
+    "source": "nominatim",
+    "state": "Lazio",
+    "status": "ok",
+    "sublocation": "Via Vittorio Veneto"
   },
   "victoria b.c.": {
     "city": "Victoria",
@@ -15620,6 +18860,30 @@
     "state": "British Columbia",
     "status": "ok"
   },
+  "victoria, b.c. canada, british columbia, canada": {
+    "city": "Prince George",
+    "country": "Canada",
+    "display_name": "Victoria at 5th Ave (NB), Victoria Street, Prince George, Regional District of Fraser-Fort George, British Columbia, V2L 2J7, Canada",
+    "latitude": "53.9164687",
+    "longitude": "-122.7501197",
+    "query": "Victoria, B.C. Canada, British Columbia, Canada",
+    "source": "nominatim",
+    "state": "British Columbia",
+    "status": "ok",
+    "sublocation": "Victoria at 5th Ave (NB)"
+  },
+  "victoria, b.c., british columbia, canada": {
+    "city": "Victoria",
+    "country": "Canada",
+    "display_name": "Victoria, Capital Regional District, British Columbia, Canada",
+    "latitude": "48.4283182",
+    "longitude": "-123.3649530",
+    "query": "Victoria, B.C., British Columbia, Canada",
+    "source": "nominatim",
+    "state": "British Columbia",
+    "status": "ok",
+    "sublocation": ""
+  },
   "victoria, b.c., canada": {
     "city": "Victoria",
     "country": "Canada",
@@ -15630,6 +18894,18 @@
     "source": "nominatim",
     "state": "British Columbia",
     "status": "ok"
+  },
+  "victoria, british columbia": {
+    "city": "Victoria",
+    "country": "Canada",
+    "display_name": "Victoria, Capital Regional District, British Columbia, Canada",
+    "latitude": "48.4283182",
+    "longitude": "-123.3649530",
+    "query": "Victoria, British Columbia",
+    "source": "nominatim",
+    "state": "British Columbia",
+    "status": "ok",
+    "sublocation": ""
   },
   "victoria, british columbia, canada": {
     "city": "Victoria",
@@ -15663,6 +18939,18 @@
     "source": "nominatim",
     "state": "British Columbia",
     "status": "ok"
+  },
+  "victoria, canada, british columbia": {
+    "city": "Prince George",
+    "country": "Canada",
+    "display_name": "Victoria at 9th Ave (SB), Victoria Street, Prince George, Regional District of Fraser-Fort George, British Columbia, V2L 1L2, Canada",
+    "latitude": "53.9129846",
+    "longitude": "-122.7532153",
+    "query": "Victoria, Canada, British Columbia",
+    "source": "nominatim",
+    "state": "British Columbia",
+    "status": "ok",
+    "sublocation": "Victoria at 9th Ave (SB)"
   },
   "victoria, canada, victoria, british columbia, canada": {
     "city": "Prince George",
@@ -15703,6 +18991,10 @@
     "query": "Vienna Opera House, Austria",
     "status": "miss"
   },
+  "vienna opera house, vienna, austria": {
+    "query": "Vienna Opera House, Vienna, Austria",
+    "status": "miss"
+  },
   "vienna, austria": {
     "display_name": "Wien, Österreich",
     "latitude": "48.2083537",
@@ -15737,6 +19029,10 @@
   },
   "villa bosphorus, beylerbeyi, istanbul, turkey": {
     "query": "Villa Bosphorus, Beylerbeyi, Istanbul, Turkey",
+    "status": "miss"
+  },
+  "villa bosphorus, istanbul, turkey": {
+    "query": "Villa Bosphorus, Istanbul, Turkey",
     "status": "miss"
   },
   "vittorio emanuele monument (altare della patria), italy": {
@@ -15836,6 +19132,22 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "wantage, united kingdom": {
+    "city": "Vale of White Horse",
+    "country": "United Kingdom",
+    "display_name": "Wantage, Vale of White Horse, Oxfordshire, England, United Kingdom",
+    "latitude": "51.5878072",
+    "longitude": "-1.4249258",
+    "query": "Wantage, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "war memorial southport, southport, united kingdom": {
+    "query": "War Memorial Southport, Southport, United Kingdom",
+    "status": "miss"
+  },
   "water tower (chapel bridge), switzerland": {
     "query": "Water Tower (Chapel Bridge), Switzerland",
     "status": "miss"
@@ -15848,12 +19160,20 @@
     "query": "Water Tower (Lucerne), Switzerland",
     "status": "miss"
   },
+  "welsh folk museum newport-wales": {
+    "query": "Welsh Folk Museum Newport-Wales",
+    "status": "miss"
+  },
   "welsh folk museum, newport, wales, uk": {
     "query": "Welsh Folk Museum, Newport, Wales, UK",
     "status": "miss"
   },
   "welsh folk museum, newport-wales": {
     "query": "Welsh Folk Museum, Newport-Wales",
+    "status": "miss"
+  },
+  "welsh folk museum, newport-wales, wal": {
+    "query": "Welsh Folk Museum, Newport-Wales, WAL",
     "status": "miss"
   },
   "welsh folk museum, wales": {
@@ -15985,6 +19305,18 @@
     "latitude": "51.1357917",
     "longitude": "1.3619050",
     "query": "White Cliffs of Dover, Dover, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "The Front"
+  },
+  "white cliffs of dover, england": {
+    "city": "Dover",
+    "country": "United Kingdom",
+    "display_name": "White Cliffs of Dover, The Front, St. Margaret's at Cliffe, Dover, Kent, England, CT15 6HR, United Kingdom",
+    "latitude": "51.1357917",
+    "longitude": "1.3619050",
+    "query": "White Cliffs of Dover, England",
     "source": "nominatim",
     "state": "England",
     "status": "ok",
@@ -16197,6 +19529,10 @@
     "query": "Windmills on Highway 5 just south of San Francisco",
     "status": "miss"
   },
+  "windmills on highway 5, just south of san francisco, california, united states": {
+    "query": "Windmills on Highway 5, just south of San Francisco, California, United States",
+    "status": "miss"
+  },
   "windsor castle, england": {
     "city": "Windsor",
     "country": "United Kingdom",
@@ -16224,6 +19560,30 @@
     "state": "Manitoba",
     "status": "ok"
   },
+  "winnipeg, canada, manitoba": {
+    "city": "Winnipeg",
+    "country": "Canada",
+    "display_name": "Winnipeg, Main Street, St. Boniface, Downtown, Winnipeg, Manitoba, R3C 1A3, Canada",
+    "latitude": "49.8889694",
+    "longitude": "-97.1342592",
+    "query": "Winnipeg, Canada, Manitoba",
+    "source": "nominatim",
+    "state": "Manitoba",
+    "status": "ok",
+    "sublocation": "Main Street"
+  },
+  "winnipeg, manitoba, canada": {
+    "city": "Winnipeg",
+    "country": "Canada",
+    "display_name": "Winnipeg, Manitoba, Canada",
+    "latitude": "49.8955367",
+    "longitude": "-97.1384584",
+    "query": "Winnipeg, Manitoba, Canada",
+    "source": "nominatim",
+    "state": "Manitoba",
+    "status": "ok",
+    "sublocation": ""
+  },
   "winter palace of the habsburgers, austria": {
     "query": "Winter Palace of the Habsburgers, Austria",
     "status": "miss"
@@ -16242,6 +19602,10 @@
     "source": "nominatim",
     "state": "Manitoba",
     "status": "ok"
+  },
+  "woodhaven, canada, ontario": {
+    "query": "Woodhaven, Canada, Ontario",
+    "status": "miss"
   },
   "worcester cathedral": {
     "city": "Worcester",
@@ -16264,6 +19628,18 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "worcester cathedral, worcester, united kingdom": {
+    "city": "Worcester",
+    "country": "United Kingdom",
+    "display_name": "Cathedral Church of Christ and the Blessed Mary, the Virgin of Worcester, College Yard, Diglis, Worcester, Worcestershire, England, WR1 2LA, United Kingdom",
+    "latitude": "52.1887311",
+    "longitude": "-2.2208069",
+    "query": "Worcester Cathedral, Worcester, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "College Yard"
   },
   "worcester cathedral, worcester, worcestershire, united kingdom": {
     "city": "Worcester",
@@ -16343,6 +19719,30 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "yakima, washington": {
+    "city": "Yakima",
+    "country": "United States",
+    "display_name": "Yakima, Yakima County, Washington, United States",
+    "latitude": "46.6015570",
+    "longitude": "-120.5108420",
+    "query": "Yakima, Washington",
+    "source": "nominatim",
+    "state": "Washington",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "yakima, washington, united states": {
+    "city": "Yakima",
+    "country": "United States",
+    "display_name": "Yakima, Yakima County, Washington, United States",
+    "latitude": "46.6015570",
+    "longitude": "-120.5108420",
+    "query": "Yakima, Washington, United States",
+    "source": "nominatim",
+    "state": "Washington",
+    "status": "ok",
+    "sublocation": ""
+  },
   "yellow river at lanzhou": {
     "display_name": "雁滩黄河大桥, 雁北街道, 城关区, 兰州市, 甘肃省, 730046, 中国",
     "latitude": "36.0738634",
@@ -16398,6 +19798,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "yeni cami (new mosque), istanbul, turkey": {
+    "query": "Yeni Cami (New Mosque), Istanbul, Turkey",
+    "status": "miss"
+  },
   "yinchuan, ningxia autonomous region, china": {
     "display_name": "银川市, 宁夏回族自治区, 中国",
     "latitude": "38.4871699",
@@ -16437,6 +19841,10 @@
     "query": "Yungang Grottoes, Datong, Shanxi, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "zagreb city hall (croatian national theatre), zagreb, croatia": {
+    "query": "Zagreb City Hall (Croatian National Theatre), Zagreb, Croatia",
+    "status": "miss"
   },
   "zagreb, austria": {
     "display_name": "Veleposlanstvo Republike Austrije, 80, Radnička cesta, Mjesni odbor Sigečica, Gradska četvrt Trnje, Zagreb, Grad Zagreb, 10000, Hrvatska",
