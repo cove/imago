@@ -46,6 +46,10 @@
     "query": "15th Century Sera Monastery, China",
     "status": "miss"
   },
+  "15th century sera monastery, lhasa, china": {
+    "query": "15TH CENTURY SERA MONASTERY, Lhasa, China",
+    "status": "miss"
+  },
   "1976 olympics, germany": {
     "query": "1976 Olympics, Germany",
     "status": "miss"
@@ -151,6 +155,30 @@
     "query": "Abbey Woods, East of London, United Kingdom",
     "status": "miss"
   },
+  "aberdeen bay, aberdeen, hong kong": {
+    "city": "Hong Kong",
+    "country": "China",
+    "display_name": "Aberdeen West Catchwater, Tin Wan, Southern District, Hong Kong Island, Hong Kong, 999077, China",
+    "latitude": "22.2583400",
+    "longitude": "114.1457003",
+    "query": "Aberdeen Bay, Aberdeen, Hong Kong",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Aberdeen West Catchwater"
+  },
+  "aberdeen bay, hong kong": {
+    "city": "Hong Kong",
+    "country": "China",
+    "display_name": "Aberdeen East Catchwater, Deep Water Bay, Southern District, Hong Kong Island, Hong Kong, China",
+    "latitude": "22.2557491",
+    "longitude": "114.1893656",
+    "query": "Aberdeen Bay, Hong Kong",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
   "abu simbel": {
     "city": "Abu Simbel City",
     "country": "Egypt",
@@ -189,6 +217,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "acapulco, mexico": {
+    "city": "Acapulco",
+    "country": "Mexico",
+    "display_name": "Acapulco, Mexico, Acapulco, Guerrero, Mexico",
+    "latitude": "16.8680495",
+    "longitude": "-99.8940182",
+    "query": "Acapulco, Mexico",
+    "source": "nominatim",
+    "state": "Guerrero",
+    "status": "ok",
+    "sublocation": ""
+  },
   "acqueduct, kavala, greece": {
     "query": "Acqueduct, Kavala, Greece",
     "status": "miss"
@@ -225,6 +265,10 @@
     "source": "nominatim",
     "state": "Attica",
     "status": "ok"
+  },
+  "admiralty arch (saint petersburg), saint petersburg, russia": {
+    "query": "Admiralty Arch (Saint Petersburg), Saint Petersburg, Russia",
+    "status": "miss"
   },
   "aegean sea, greece": {
     "city": "Chios",
@@ -344,6 +388,42 @@
     "source": "nominatim",
     "state": "Alaska",
     "status": "ok"
+  },
+  "alaska railroad, alaska, united states": {
+    "city": "Cordova",
+    "country": "United States",
+    "display_name": "United States Post Office, 502, Railroad Avenue, Cordova, Unorganized Borough, Alaska, 99574, United States",
+    "latitude": "60.5450542",
+    "longitude": "-145.7605899",
+    "query": "Alaska Railroad, Alaska, United States",
+    "source": "nominatim",
+    "state": "Alaska",
+    "status": "ok",
+    "sublocation": "502 Railroad Avenue"
+  },
+  "alaska, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Alaska, United States",
+    "latitude": "64.4459613",
+    "longitude": "-149.6809090",
+    "query": "Alaska, United States",
+    "source": "nominatim",
+    "state": "Alaska",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "alexander column, saint petersburg, russia": {
+    "city": "Saint Petersburg",
+    "country": "Russia",
+    "display_name": "Alexander Column, Palace Square, Palace District, Saint Petersburg, Northwestern Federal District, 191186, Russia",
+    "latitude": "59.9390433",
+    "longitude": "30.3158163",
+    "query": "Alexander Column, Saint Petersburg, Russia",
+    "source": "nominatim",
+    "state": "Saint Petersburg",
+    "status": "ok",
+    "sublocation": "Palace Square"
   },
   "alexander nevsky cathedral": {
     "city": "Tallinn",
@@ -529,6 +609,14 @@
     "status": "ok",
     "sublocation": ""
   },
+  "altadena, california, usa, united states": {
+    "query": "Altadena, California, USA, United States",
+    "status": "miss"
+  },
+  "american cemetery in manila, manila, philippines": {
+    "query": "American Cemetery in Manila, Manila, Philippines",
+    "status": "miss"
+  },
   "american museum of natural history": {
     "city": "New York",
     "country": "United States",
@@ -551,6 +639,18 @@
     "state": "Luxor",
     "status": "ok"
   },
+  "amsterdam, netherlands": {
+    "city": "Amsterdam",
+    "country": "Netherlands",
+    "display_name": "Amsterdam, North Holland, Netherlands",
+    "latitude": "52.3730796",
+    "longitude": "4.8924534",
+    "query": "Amsterdam, Netherlands",
+    "source": "nominatim",
+    "state": "North Holland",
+    "status": "ok",
+    "sublocation": ""
+  },
   "anchorage, alaska": {
     "city": "Anchorage",
     "country": "United States",
@@ -572,6 +672,18 @@
     "source": "nominatim",
     "state": "Alaska",
     "status": "ok"
+  },
+  "anchorage, alaska, united states": {
+    "city": "Anchorage",
+    "country": "United States",
+    "display_name": "Anchorage, Alaska, United States",
+    "latitude": "61.2163129",
+    "longitude": "-149.8948520",
+    "query": "Anchorage, Alaska, United States",
+    "source": "nominatim",
+    "state": "Alaska",
+    "status": "ok",
+    "sublocation": ""
   },
   "ann hathaway cottage": {
     "query": "Ann Hathaway Cottage",
@@ -681,6 +793,18 @@
     "state": "Alabama",
     "status": "ok"
   },
+  "athens, alabama, united states": {
+    "city": "Athens",
+    "country": "United States",
+    "display_name": "Athens, Limestone County, Alabama, 35613, United States",
+    "latitude": "34.8045487",
+    "longitude": "-86.9711698",
+    "query": "Athens, Alabama, United States",
+    "source": "nominatim",
+    "state": "Alabama",
+    "status": "ok",
+    "sublocation": ""
+  },
   "athens, greece": {
     "display_name": "Αθήνα, Δήμος Αθηναίων, Περιφερειακή Ενότητα Κεντρικού Τομέα Αθηνών, Περιφέρεια Αττικής, Αποκεντρωμένη Διοίκηση Αττικής, 105 57, Ελλάς",
     "latitude": "37.9755648",
@@ -688,6 +812,18 @@
     "query": "Athens, Greece",
     "source": "nominatim",
     "status": "ok"
+  },
+  "aurora (cruiser), saint petersburg, russia": {
+    "city": "Saint Petersburg",
+    "country": "Russia",
+    "display_name": "Aurora (cruiser), Saint Petersburg, Russia, Saint Petersburg, Russia",
+    "latitude": "59.9554148",
+    "longitude": "30.3378115",
+    "query": "Aurora (cruiser), Saint Petersburg, Russia",
+    "source": "nominatim",
+    "state": "Saint Petersburg",
+    "status": "ok",
+    "sublocation": "Петроградская набережная"
   },
   "austin, texas": {
     "city": "Austin",
@@ -912,9 +1048,49 @@
     "query": "Bampo Village, China",
     "status": "miss"
   },
+  "bangkok thialand airport, bangkok, thailand": {
+    "query": "Bangkok Thialand Airport, Bangkok, Thailand",
+    "status": "miss"
+  },
+  "bangkok, thailand": {
+    "city": "Bangkok",
+    "country": "Thailand",
+    "display_name": "Bangkok, Thailand",
+    "latitude": "13.7524938",
+    "longitude": "100.4935089",
+    "query": "Bangkok, Thailand",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
   "barnum's bear ranch": {
     "query": "Barnum's Bear Ranch",
     "status": "miss"
+  },
+  "batalha monastery, portugal": {
+    "city": "Batalha",
+    "country": "Portugal",
+    "display_name": "Batalha Monastery, Portugal, Batalha, Portugal",
+    "latitude": "39.6592101",
+    "longitude": "-8.8258275",
+    "query": "Batalha Monastery, Portugal",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Praça Mouzinho de Albuquerque"
+  },
+  "batalha, portugal": {
+    "city": "Batalha",
+    "country": "Portugal",
+    "display_name": "Batalha, Leiria, Portugal",
+    "latitude": "39.6578998",
+    "longitude": "-8.8243713",
+    "query": "Batalha, Portugal",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
   },
   "bath abbey": {
     "city": "Bath",
@@ -1279,6 +1455,26 @@
     "query": "Belvedere - Summer Palace of Prince Eugen, Austria",
     "status": "miss"
   },
+  "belvue palace, berlin, germany": {
+    "query": "Belvue Palace, Berlin, Germany",
+    "status": "miss"
+  },
+  "berlin radio tower, berlin, germany": {
+    "query": "Berlin Radio Tower, Berlin, Germany",
+    "status": "miss"
+  },
+  "berlin wall, berlin, germany": {
+    "city": "Berlin",
+    "country": "Germany",
+    "display_name": "Berlin Wall, Alexanderufer, Friedrich-Wilhelm-Stadt, Mitte, Berlin, 10117, Germany",
+    "latitude": "52.5241276",
+    "longitude": "13.3735305",
+    "query": "Berlin Wall, Berlin, Germany",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Alexanderufer"
+  },
   "bethlehem, connecticut": {
     "city": "Bethlehem",
     "country": "United States",
@@ -1452,6 +1648,10 @@
     "query": "Bohemian Section of Belgrade, Belgrade, Serbia",
     "status": "miss"
   },
+  "boishi theatre, russia": {
+    "query": "Boishi Theatre, Russia",
+    "status": "miss"
+  },
   "boone hall": {
     "city": "Macon",
     "country": "United States",
@@ -1473,6 +1673,42 @@
     "source": "nominatim",
     "state": "South Carolina",
     "status": "ok"
+  },
+  "boone hall plantation, charleston, south carolina, united states": {
+    "city": "Mount Pleasant",
+    "country": "United States",
+    "display_name": "Boone Hall Plantation, Historic Road Trace, Mount Pleasant, Charleston County, South Carolina, 29466, United States",
+    "latitude": "32.8541556",
+    "longitude": "-79.8171075",
+    "query": "Boone Hall Plantation, Charleston, South Carolina, United States",
+    "source": "nominatim",
+    "state": "South Carolina",
+    "status": "ok",
+    "sublocation": "Historic Road Trace"
+  },
+  "boone hall plantation, mount pleasant, south carolina, united states": {
+    "city": "Mount Pleasant",
+    "country": "United States",
+    "display_name": "Boone Hall Plantation, Tybee Pass, Brickyard Plantation, Mount Pleasant, Charleston County, South Carolina, 29466, United States",
+    "latitude": "32.8541556",
+    "longitude": "-79.8171075",
+    "query": "Boone Hall Plantation, Mount Pleasant, South Carolina, United States",
+    "source": "nominatim",
+    "state": "South Carolina",
+    "status": "ok",
+    "sublocation": "Tybee Pass"
+  },
+  "boone hall, charleston, south carolina": {
+    "city": "Mount Pleasant",
+    "country": "United States",
+    "display_name": "Boone Hall Creek, Mount Pleasant, Charleston County, South Carolina, 29464, United States",
+    "latitude": "32.8414585",
+    "longitude": "-79.8318612",
+    "query": "Boone Hall, Charleston, South Carolina",
+    "source": "nominatim",
+    "state": "South Carolina",
+    "status": "ok",
+    "sublocation": ""
   },
   "boone hall, mount pleasant, south carolina, united states": {
     "city": "Mount Pleasant",
@@ -1499,6 +1735,14 @@
   },
   "border of france & switzerland": {
     "query": "Border of France & Switzerland",
+    "status": "miss"
+  },
+  "border of red china in the northern territories": {
+    "query": "Border of Red China in the Northern Territories",
+    "status": "miss"
+  },
+  "border of red china, northern territories": {
+    "query": "Border of Red China, Northern Territories",
     "status": "miss"
   },
   "bosnia and herzegovina": {
@@ -1620,6 +1864,18 @@
     "source": "nominatim",
     "state": "Massachusetts",
     "status": "ok"
+  },
+  "boston, massachusetts, united states": {
+    "city": "Boston",
+    "country": "United States",
+    "display_name": "Boston, Suffolk County, Massachusetts, United States",
+    "latitude": "42.3588336",
+    "longitude": "-71.0578303",
+    "query": "Boston, Massachusetts, United States",
+    "source": "nominatim",
+    "state": "Massachusetts",
+    "status": "ok",
+    "sublocation": ""
   },
   "botanical gardens at cluj, cluj-napoca, romania": {
     "query": "Botanical Gardens at Cluj, Cluj-Napoca, Romania",
@@ -1767,6 +2023,30 @@
     "source": "nominatim",
     "state": "",
     "status": "ok"
+  },
+  "brandenburg gate, berlin, germany": {
+    "city": "Berlin",
+    "country": "Germany",
+    "display_name": "Brandenburg Gate, 1, Pariser Platz, Friedrich-Wilhelm-Stadt, Mitte, Berlin, 10117, Germany",
+    "latitude": "52.5162699",
+    "longitude": "13.3777034",
+    "query": "Brandenburg Gate, Berlin, Germany",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "1 Pariser Platz"
+  },
+  "brazil": {
+    "city": "",
+    "country": "Brazil",
+    "display_name": "Brazil",
+    "latitude": "-10.3333333",
+    "longitude": "-53.2000000",
+    "query": "Brazil",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
   },
   "brentford, london, england": {
     "display_name": "Brentford, Greater London, England, TW8 9DE, United Kingdom",
@@ -2188,6 +2468,18 @@
   "buddha grottoes, linxia, china": {
     "query": "Buddha Grottoes, Linxia, China",
     "status": "miss"
+  },
+  "buenos aires, argentina": {
+    "city": "Buenos Aires",
+    "country": "Argentina",
+    "display_name": "Buenos Aires, Comuna 1, Autonomous City of Buenos Aires, Argentina",
+    "latitude": "-34.6095579",
+    "longitude": "-58.3887904",
+    "query": "Buenos Aires, Argentina",
+    "source": "nominatim",
+    "state": "Autonomous City of Buenos Aires",
+    "status": "ok",
+    "sublocation": ""
   },
   "bulgaria": {
     "city": "",
@@ -2635,6 +2927,30 @@
     "query": "Capitol Building in Austin, Texas, Austin, Texas, United States",
     "status": "miss"
   },
+  "caracas, capital district, venezuela": {
+    "city": "Caracas",
+    "country": "Venezuela",
+    "display_name": "Caracas, Parroquia Catedral, Municipio Libertador, Caracas Metropolitan District, Capital District, Venezuela",
+    "latitude": "10.5060934",
+    "longitude": "-66.9146008",
+    "query": "Caracas, Capital District, Venezuela",
+    "source": "nominatim",
+    "state": "Capital District",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "caracas, venezuela": {
+    "city": "Caracas",
+    "country": "Venezuela",
+    "display_name": "Caracas, Parroquia Catedral, Municipio Libertador, Caracas Metropolitan District, Capital District, Venezuela",
+    "latitude": "10.5060934",
+    "longitude": "-66.9146008",
+    "query": "Caracas, Venezuela",
+    "source": "nominatim",
+    "state": "Capital District",
+    "status": "ok",
+    "sublocation": ""
+  },
   "cardiff castle, cardiff, wales": {
     "city": "Cardiff",
     "country": "United Kingdom",
@@ -2717,6 +3033,18 @@
     "status": "ok",
     "sublocation": ""
   },
+  "cartagena, colombia": {
+    "city": "Cartagena",
+    "country": "Colombia",
+    "display_name": "Cartagena, Colombia, Cartagena, Bolivar, Colombia",
+    "latitude": "10.4265566",
+    "longitude": "-75.5441671",
+    "query": "Cartagena, Colombia",
+    "source": "nominatim",
+    "state": "Bolívar",
+    "status": "ok",
+    "sublocation": ""
+  },
   "casa grande, arizona": {
     "city": "Casa Grande",
     "country": "United States",
@@ -2727,6 +3055,18 @@
     "source": "nominatim",
     "state": "Arizona",
     "status": "ok"
+  },
+  "casa grande, arizona, united states": {
+    "city": "Casa Grande",
+    "country": "United States",
+    "display_name": "Casa Grande, Pinal County, Arizona, United States",
+    "latitude": "32.8772834",
+    "longitude": "-111.7536818",
+    "query": "Casa Grande, Arizona, United States",
+    "source": "nominatim",
+    "state": "Arizona",
+    "status": "ok",
+    "sublocation": ""
   },
   "casablanca": {
     "city": "Casablanca",
@@ -2765,6 +3105,18 @@
     "query": "Casablanca, Morocco",
     "source": "nominatim",
     "status": "ok"
+  },
+  "cascais, portugal": {
+    "city": "Cascais",
+    "country": "Portugal",
+    "display_name": "Cascais, Lisbon, Portugal",
+    "latitude": "38.6968919",
+    "longitude": "-9.4204495",
+    "query": "Cascais, Portugal",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
   },
   "castle of buda, budapest hungary": {
     "city": "Budapest",
@@ -2832,6 +3184,10 @@
     "query": "Cathedral of Dubrovnik (Dubrovačka katedrala), Dubrovnik, Croatia",
     "status": "miss"
   },
+  "cathedral of rio de janeiro, rio de janeiro, brazil": {
+    "query": "Cathedral of Rio de Janeiro, Rio de Janeiro, Brazil",
+    "status": "miss"
+  },
   "cathedral of seville, seville, andalusia, spain": {
     "city": "Seville",
     "country": "Spain",
@@ -2842,6 +3198,10 @@
     "source": "nominatim",
     "state": "Andalusia",
     "status": "ok"
+  },
+  "cathedral of the archangel (great kremlin palace), moscow, russia": {
+    "query": "Cathedral of the Archangel (Great Kremlin Palace), Moscow, Russia",
+    "status": "miss"
   },
   "cathedral seville spain": {
     "city": "Seville",
@@ -2895,6 +3255,10 @@
     "source": "nominatim",
     "state": "Massachusetts",
     "status": "ok"
+  },
+  "center of downtown fairbanks, fairbanks, alaska, united states": {
+    "query": "Center of Downtown Fairbanks, Fairbanks, Alaska, United States",
+    "status": "miss"
   },
   "central park, new york city, united states": {
     "city": "New York",
@@ -3078,6 +3442,30 @@
     "source": "nominatim",
     "state": "South Carolina",
     "status": "ok"
+  },
+  "charlottenburg palace, berlin, germany": {
+    "city": "Berlin",
+    "country": "Germany",
+    "display_name": "Charlottenburg Palace, 10, Spandauer Damm, Danckelmannkiez, Charlottenburg, Charlottenburg-Wilmersdorf, Berlin, 14059, Germany",
+    "latitude": "52.5206424",
+    "longitude": "13.2927104",
+    "query": "Charlottenburg Palace, Berlin, Germany",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "10 Spandauer Damm"
+  },
+  "checkpoint charlie, berlin, germany": {
+    "city": "Berlin",
+    "country": "Germany",
+    "display_name": "Checkpoint Charlie, 43-45, Friedrichstrasse, Zeitungsviertel, Kreuzberg, Friedrichshain-Kreuzberg, Berlin, 10969, Germany",
+    "latitude": "52.5074321",
+    "longitude": "13.3903814",
+    "query": "Checkpoint Charlie, Berlin, Germany",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "43-45 Friedrichstrasse"
   },
   "chendou": {
     "city": "Huaiji County",
@@ -3337,6 +3725,34 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "china tibet lhasa": {
+    "city": "Lhasa",
+    "country": "China",
+    "display_name": "Lhasa, Tibet, 850000, China",
+    "latitude": "29.6542054",
+    "longitude": "91.1173015",
+    "query": "China Tibet Lhasa",
+    "source": "nominatim",
+    "state": "Tibet",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "china, fujian province": {
+    "city": "",
+    "country": "China",
+    "display_name": "Fujian, China",
+    "latitude": "26.1932180",
+    "longitude": "118.2208721",
+    "query": "China, Fujian Province",
+    "source": "nominatim",
+    "state": "Fujian",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "china, northern territories": {
+    "query": "China, Northern Territories",
+    "status": "miss"
+  },
   "china, tibet": {
     "display_name": "西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 中国",
     "latitude": "29.8556443",
@@ -3344,6 +3760,18 @@
     "query": "China, Tibet",
     "source": "nominatim",
     "status": "ok"
+  },
+  "china, tibet autonomous region": {
+    "city": "",
+    "country": "China",
+    "display_name": "Tibet, China",
+    "latitude": "29.8556443",
+    "longitude": "90.8749807",
+    "query": "China, Tibet Autonomous Region",
+    "source": "nominatim",
+    "state": "Tibet",
+    "status": "ok",
+    "sublocation": ""
   },
   "chinese pavilion at kew gardens, kew, england, united kingdom": {
     "query": "Chinese Pavilion at Kew Gardens, Kew, England, United Kingdom",
@@ -3391,6 +3819,18 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "christ the redeemer, rio de janeiro, brazil": {
+    "city": "Rio de Janeiro",
+    "country": "Brazil",
+    "display_name": "Christ the Redeemer, Rio de Janeiro, Brazil, Rio de Janeiro, Brazil",
+    "latitude": "-22.9519173",
+    "longitude": "-43.2104585",
+    "query": "Christ the Redeemer, Rio de Janeiro, Brazil",
+    "source": "nominatim",
+    "state": "Rio de Janeiro",
+    "status": "ok",
+    "sublocation": "Cristo del Corcovado"
   },
   "christchurch priory": {
     "display_name": "Christchurch Priory, Quay Road, Purewell, Christchurch, Bournemouth, Christchurch and Poole, England, BH23 1BU, United Kingdom",
@@ -3442,6 +3882,10 @@
   },
   "christmas at eugene's - indianapolis indiana, indianapolis, indiana, united states": {
     "query": "Christmas at Eugene's - Indianapolis Indiana, Indianapolis, Indiana, United States",
+    "status": "miss"
+  },
+  "christmas at eugene's, indianapolis, indiana, united states": {
+    "query": "Christmas at Eugene's, Indianapolis, Indiana, United States",
     "status": "miss"
   },
   "christmas at roy & monica's 1956": {
@@ -3595,6 +4039,18 @@
     "status": "ok",
     "sublocation": "Gorsedd Gardens Road"
   },
+  "city hall, stockholm, sweden": {
+    "city": "Stockholm",
+    "country": "Sweden",
+    "display_name": "City Hall, Stockholm, Sweden, Stockholm, Sweden",
+    "latitude": "59.3274942",
+    "longitude": "18.0542148",
+    "query": "City Hall, Stockholm, Sweden",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "1 Hantverkargatan"
+  },
   "city hall, vienna, austria": {
     "display_name": "Rathaus, 1, Rathausplatz, Regierungsviertel, Innere Stadt, Wien, 1010, Österreich",
     "latitude": "48.2108257",
@@ -3653,9 +4109,33 @@
     "query": "City of Salzburg Austria, Austria",
     "status": "miss"
   },
+  "city of singapore, singapore": {
+    "city": "Singapore",
+    "country": "Singapore",
+    "display_name": "Singapore Management University, 81, Victoria Street, City Hall, Civic District, Downtown Core, Central Region, Singapore, 188065, Singapore",
+    "latitude": "1.2961680",
+    "longitude": "103.8500437",
+    "query": "City of Singapore, Singapore",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "81 Victoria Street"
+  },
   "city walls of dubrovnik, dubrovnik, croatia": {
     "query": "City walls of Dubrovnik, Dubrovnik, Croatia",
     "status": "miss"
+  },
+  "cleveland, ohio": {
+    "city": "Cleveland",
+    "country": "United States",
+    "display_name": "Cleveland, Cuyahoga County, Ohio, United States",
+    "latitude": "41.4996574",
+    "longitude": "-81.6936772",
+    "query": "Cleveland, Ohio",
+    "source": "nominatim",
+    "state": "Ohio",
+    "status": "ok",
+    "sublocation": ""
   },
   "cleveland, ohio, cleveland, ohio, united states": {
     "city": "Cleveland",
@@ -3667,6 +4147,18 @@
     "source": "nominatim",
     "state": "Ohio",
     "status": "ok"
+  },
+  "cleveland, ohio, united states": {
+    "city": "Cleveland",
+    "country": "United States",
+    "display_name": "Cleveland, Cuyahoga County, Ohio, United States",
+    "latitude": "41.4996574",
+    "longitude": "-81.6936772",
+    "query": "Cleveland, Ohio, United States",
+    "source": "nominatim",
+    "state": "Ohio",
+    "status": "ok",
+    "sublocation": ""
   },
   "cliveden": {
     "city": "Maidenhead",
@@ -3852,6 +4344,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "coconut beach hotel - island of kauai, kauai, hawaii, united states": {
+    "query": "Coconut Beach Hotel - Island of Kauai, Kauai, Hawaii, United States",
+    "status": "miss"
+  },
   "coconut plantation plaza, kauai, hawaii, united states": {
     "query": "Coconut Plantation Plaza, Kauai, Hawaii, United States",
     "status": "miss"
@@ -3979,6 +4475,18 @@
     "query": "Columns of the Karnak Temple, Luxor, Egypt",
     "status": "miss"
   },
+  "commerce square, lisbon, portugal": {
+    "city": "Lisbon",
+    "country": "Portugal",
+    "display_name": "Commerce Square, Lisbon, Portugal, Lisbon, Portugal",
+    "latitude": "38.7077934",
+    "longitude": "-9.1365543",
+    "query": "Commerce Square, Lisbon, Portugal",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Comércio Square"
+  },
   "conservatory at kew gardens, kew gardens, london, united kingdom": {
     "query": "Conservatory at Kew Gardens, Kew Gardens, London, United Kingdom",
     "status": "miss"
@@ -4014,8 +4522,48 @@
     "status": "ok",
     "sublocation": ""
   },
+  "copacabana beach, rio de janeiro, brazil": {
+    "city": "Rio de Janeiro",
+    "country": "Brazil",
+    "display_name": "Copacabana Beach, Rio de Janeiro, Brazil, Rio de Janeiro, Brazil",
+    "latitude": "-22.9757003",
+    "longitude": "-43.1866161",
+    "query": "Copacabana Beach, Rio de Janeiro, Brazil",
+    "source": "nominatim",
+    "state": "Rio de Janeiro",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "copacabana, rio de janeiro, brazil": {
+    "city": "Rio de Janeiro",
+    "country": "Brazil",
+    "display_name": "Copacabana, Rio de Janeiro, Brazil, Rio de Janeiro, Brazil",
+    "latitude": "-22.9719740",
+    "longitude": "-43.1842997",
+    "query": "Copacabana, Rio de Janeiro, Brazil",
+    "source": "nominatim",
+    "state": "Rio de Janeiro",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "copenhagen, denmark": {
+    "city": "Copenhagen",
+    "country": "Denmark",
+    "display_name": "Copenhagen, Copenhagen Municipality, Capital Region of Denmark, 1357, Denmark",
+    "latitude": "55.6867243",
+    "longitude": "12.5700724",
+    "query": "Copenhagen, Denmark",
+    "source": "nominatim",
+    "state": "Capital Region of Denmark",
+    "status": "ok",
+    "sublocation": ""
+  },
   "copper shop fabric dyers, morocco": {
     "query": "Copper Shop Fabric Dyers, Morocco",
+    "status": "miss"
+  },
+  "corcovado mountain - redeemer monument, rio de janeiro, brazil": {
+    "query": "Corcovado Mountain - Redeemer Monument, Rio de Janeiro, Brazil",
     "status": "miss"
   },
   "cordell t.v. store, los angeles, united states": {
@@ -4572,6 +5120,22 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "delta buenos aires, argentina": {
+    "city": "Tigre",
+    "country": "Argentina",
+    "display_name": "Delta, Vivanco, Tigre, Partido de Tigre, Buenos Aires, B1648AQB, Argentina",
+    "latitude": "-34.4185467",
+    "longitude": "-58.5768043",
+    "query": "Delta Buenos Aires, Argentina",
+    "source": "nominatim",
+    "state": "Buenos Aires",
+    "status": "ok",
+    "sublocation": "Vivanco"
+  },
+  "delta buenos aires, delta, buenos aires, argentina": {
+    "query": "Delta Buenos Aires, Delta, Buenos Aires, Argentina",
+    "status": "miss"
+  },
   "detroit, michigan, united states": {
     "city": "Detroit",
     "country": "United States",
@@ -4917,6 +5481,18 @@
     "query": "Dragon Gate, Kunming, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "dragon gate, kunming, yunnan, china": {
+    "city": "Xishan District",
+    "country": "China",
+    "display_name": "Dragon Gate, Thousand-Step Cliff, Biji Subdistrict, Xishan District, Kunming, Yunnan, 650228, China",
+    "latitude": "24.9521671",
+    "longitude": "102.6390210",
+    "query": "Dragon Gate, Kunming, Yunnan, China",
+    "source": "nominatim",
+    "state": "Yunnan",
+    "status": "ok",
+    "sublocation": "Thousand-Step Cliff"
   },
   "drepung monastery": {
     "display_name": "འབྲས་སྤུངས་དགོན། 哲蚌寺, 北京西路, དམ་བག་སྡེ་ཁུལ། 当巴社区, 金珠西路街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 中国",
@@ -5510,6 +6086,18 @@
     "status": "ok",
     "sublocation": ""
   },
+  "emerald buddha temple, bangkok, thailand": {
+    "city": "Bangkok",
+    "country": "Thailand",
+    "display_name": "Wat Phra Kaew, Na Phra Lan Road, Tha Chang, Phra Borom Maha Ratchawang Subdistrict, Phra Nakhon District, Bangkok, 10200, Thailand",
+    "latitude": "13.7514974",
+    "longitude": "100.4926592",
+    "query": "Emerald Buddha Temple, Bangkok, Thailand",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Na Phra Lan Road"
+  },
   "empire theatre, liverpool, united kingdom": {
     "city": "Liverpool",
     "country": "United Kingdom",
@@ -5650,6 +6238,22 @@
     "query": "Epcot, Florida, Orlando, Florida, United States",
     "status": "miss"
   },
+  "epcot, florida, orlando, united states": {
+    "query": "Epcot, Florida, Orlando, United States",
+    "status": "miss"
+  },
+  "epcot, florida, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "EPCOT, 200, Epcot Center Drive, Bay Lake, Orange County, Florida, 32821, United States",
+    "latitude": "28.3714061",
+    "longitude": "-81.5489587",
+    "query": "Epcot, Florida, United States",
+    "source": "nominatim",
+    "state": "Florida",
+    "status": "ok",
+    "sublocation": "200 Epcot Center Drive"
+  },
   "epcot, orlando, florida, united states": {
     "query": "Epcot, Orlando, Florida, United States",
     "status": "miss"
@@ -5676,8 +6280,16 @@
     "state": "Florida",
     "status": "ok"
   },
+  "eugene's and june's home, indianapolis, indiana, united states": {
+    "query": "Eugene's and June's Home, Indianapolis, Indiana, United States",
+    "status": "miss"
+  },
   "eugene's and june's home, indianapolis, indianapolis, indiana": {
     "query": "Eugene's and June's Home, Indianapolis, Indianapolis, Indiana",
+    "status": "miss"
+  },
+  "eugene's house, indiana, indiana, united states": {
+    "query": "Eugene's House, Indiana, Indiana, United States",
     "status": "miss"
   },
   "europe": {
@@ -5819,6 +6431,22 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "exhibition park, moscow, russia": {
+    "city": "Moscow",
+    "country": "Russia",
+    "display_name": "Trade Fair Moscow, All-Russia Exhibition Centre, Ostankinsky District, Moscow, Central Federal District, 129223, Russia",
+    "latitude": "55.8339464",
+    "longitude": "37.6218032",
+    "query": "Exhibition Park, Moscow, Russia",
+    "source": "nominatim",
+    "state": "Moscow",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "exposition 1970 site, osaka, japan": {
+    "query": "Exposition 1970 Site, Osaka, Japan",
+    "status": "miss"
+  },
   "exposition park, los angeles": {
     "city": "Los Angeles",
     "country": "United States",
@@ -5841,6 +6469,10 @@
     "state": "California",
     "status": "ok",
     "sublocation": ""
+  },
+  "faceted chamber (great kremlin palace), moscow, russia": {
+    "query": "Faceted Chamber (Great Kremlin Palace), Moscow, Russia",
+    "status": "miss"
   },
   "fair princess": {
     "city": "New York",
@@ -5885,6 +6517,18 @@
     "source": "nominatim",
     "state": "Alaska",
     "status": "ok"
+  },
+  "fairbanks, alaska, united states": {
+    "city": "Fairbanks",
+    "country": "United States",
+    "display_name": "Fairbanks, Fairbanks North Star Borough, Alaska, United States",
+    "latitude": "64.8378450",
+    "longitude": "-147.7166750",
+    "query": "Fairbanks, Alaska, United States",
+    "source": "nominatim",
+    "state": "Alaska",
+    "status": "ok",
+    "sublocation": ""
   },
   "fairground": {
     "city": "St. Louis",
@@ -5956,6 +6600,30 @@
     "state": "Illinois",
     "status": "ok",
     "sublocation": "1400 East McFetridge Drive"
+  },
+  "finland to sweden": {
+    "city": "Stockholm",
+    "country": "Sweden",
+    "display_name": "Finland to Sweden, Stockholm, Sweden",
+    "latitude": "59.3356325",
+    "longitude": "18.1065577",
+    "query": "Finland to Sweden",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Gärdesgatan"
+  },
+  "finland, helsinki": {
+    "city": "Helsinki",
+    "country": "Finland",
+    "display_name": "Helsinki, Helsinki sub-region, Uusimaa, Mainland Finland, Finland",
+    "latitude": "60.1666204",
+    "longitude": "24.9435408",
+    "query": "Finland, Helsinki",
+    "source": "nominatim",
+    "state": "Uusimaa",
+    "status": "ok",
+    "sublocation": ""
   },
   "fisherman's bastion and matthias church, budapest, hungary": {
     "query": "Fisherman's Bastion and Matthias Church, Budapest, Hungary",
@@ -6084,6 +6752,10 @@
     "query": "Fountain of Cibeles, Madrid, Spain",
     "status": "miss"
   },
+  "fountain of friendship, russia": {
+    "query": "Fountain of Friendship, Russia",
+    "status": "miss"
+  },
   "france": {
     "city": "",
     "country": "France",
@@ -6166,6 +6838,30 @@
     "query": "Garden Hotel, Canton (Guangzhou), China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "garden hotel, canton china": {
+    "city": "Yuexiu District",
+    "country": "China",
+    "display_name": "Garden Hotel, Huale, Yuexiu District, Guangzhou City, Guangdong, China",
+    "latitude": "23.1376682",
+    "longitude": "113.2809544",
+    "query": "Garden Hotel, Canton China",
+    "source": "nominatim",
+    "state": "Guangdong",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "garden hotel, canton china, canton, china": {
+    "city": "Yuexiu District",
+    "country": "China",
+    "display_name": "Garden Hotel, Huale, Yuexiu District, Guangzhou City, Guangdong, China",
+    "latitude": "23.1376682",
+    "longitude": "113.2809544",
+    "query": "Garden Hotel, Canton China, Canton, China",
+    "source": "nominatim",
+    "state": "Guangdong",
+    "status": "ok",
+    "sublocation": ""
   },
   "garden hotel, canton, china": {
     "display_name": "花园酒店, 华乐街道, 越秀区, 广州市, 广东省, 中国",
@@ -6269,6 +6965,18 @@
     "status": "ok",
     "sublocation": "London Road"
   },
+  "germany, berlin": {
+    "city": "Berlin",
+    "country": "Germany",
+    "display_name": "Berlin, Germany",
+    "latitude": "52.5173885",
+    "longitude": "13.3951309",
+    "query": "Germany, Berlin",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
   "germany, rhine river": {
     "city": "",
     "country": "Germany",
@@ -6283,6 +6991,10 @@
   },
   "giant statue of mao tse tung": {
     "query": "Giant Statue of Mao Tse Tung",
+    "status": "miss"
+  },
+  "giant statue of mao tse tung, mainland china": {
+    "query": "Giant Statue of Mao Tse Tung, Mainland China",
     "status": "miss"
   },
   "giant wild goose pagoda, xi'an, china": {
@@ -6553,6 +7265,10 @@
     "state": "Oaxaca",
     "status": "ok"
   },
+  "golden deer sculpture, stockholm, sweden": {
+    "query": "Golden Deer Sculpture, Stockholm, Sweden",
+    "status": "miss"
+  },
   "golden gate park, san francisco, california, united states": {
     "city": "San Francisco",
     "country": "United States",
@@ -6630,6 +7346,42 @@
     "state": "Michigan",
     "status": "ok"
   },
+  "grand haven, michigan, united states": {
+    "city": "Grand Haven",
+    "country": "United States",
+    "display_name": "Grand Haven, Ottawa County, Michigan, United States",
+    "latitude": "43.0630734",
+    "longitude": "-86.2283864",
+    "query": "Grand Haven, Michigan, United States",
+    "source": "nominatim",
+    "state": "Michigan",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "grand hotel, warsaw, poland": {
+    "city": "Warsaw",
+    "country": "Poland",
+    "display_name": "Grand Hotel, Warsaw, Poland, Warsaw, Masovian Voivodeship, Poland",
+    "latitude": "52.2277265",
+    "longitude": "21.0187375",
+    "query": "Grand Hotel, Warsaw, Poland",
+    "source": "nominatim",
+    "state": "Masovian Voivodeship",
+    "status": "ok",
+    "sublocation": "28 Krucza"
+  },
+  "grand palace, bangkok, thailand": {
+    "city": "Bangkok",
+    "country": "Thailand",
+    "display_name": "Grand Palace, Na Phra Lan Road, Tha Chang, Phra Borom Maha Ratchawang Subdistrict, Phra Nakhon District, Bangkok, 10200, Thailand",
+    "latitude": "13.7493514",
+    "longitude": "100.4918643",
+    "query": "Grand Palace, Bangkok, Thailand",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Na Phra Lan Road"
+  },
   "granville road, hong kong": {
     "display_name": "加連威老道 Granville Road, 尖沙咀 Tsim Sha Tsui, 油尖旺區 Yau Tsim Mong District, 九龍 Kowloon, 香港 Hong Kong, 中国",
     "latitude": "22.2996794",
@@ -6657,6 +7409,18 @@
   "great hall of winchester, winchester, united kingdom": {
     "query": "Great Hall of Winchester, Winchester, United Kingdom",
     "status": "miss"
+  },
+  "great kremlin palace, moscow, russia": {
+    "city": "Moscow",
+    "country": "Russia",
+    "display_name": "Great Kremlin Palace, Moscow, Russia, Moscow, Russia",
+    "latitude": "55.7502042",
+    "longitude": "37.6162129",
+    "query": "Great Kremlin Palace, Moscow, Russia",
+    "source": "nominatim",
+    "state": "Moscow",
+    "status": "ok",
+    "sublocation": ""
   },
   "great pyramid of giza, egypt": {
     "display_name": "هرم خوفو, Cheops-Osirion-Sphinx Tunnel, نزلة البطران, الجيزة, 12125, مصر",
@@ -6693,6 +7457,10 @@
     "query": "Great Wall of China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "great wall of china (west end), jiayuguan, china": {
+    "query": "Great Wall of China (West End), Jiayuguan, China",
+    "status": "miss"
   },
   "great wall of china - fort at the end of wall": {
     "query": "Great Wall of China - Fort at the end of wall",
@@ -6762,9 +7530,53 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "grens denekamp - holland": {
+    "city": "Denekamp",
+    "country": "Netherlands",
+    "display_name": "Grensweg, Denekamp, Dinkelland, Overijssel, Netherlands, 7591 NG, Netherlands",
+    "latitude": "52.3950795",
+    "longitude": "7.0595298",
+    "query": "Grens Denekamp - Holland",
+    "source": "nominatim",
+    "state": "Overijssel",
+    "status": "ok",
+    "sublocation": "Grensweg"
+  },
+  "grens denekamp - holland, netherlands": {
+    "city": "Denekamp",
+    "country": "Netherlands",
+    "display_name": "Grensweg, Denekamp, Dinkelland, Overijssel, Netherlands, 7591 NG, Netherlands",
+    "latitude": "52.3950795",
+    "longitude": "7.0595298",
+    "query": "Grens Denekamp - Holland, Netherlands",
+    "source": "nominatim",
+    "state": "Overijssel",
+    "status": "ok",
+    "sublocation": "Grensweg"
+  },
+  "griffith park - indianapolis": {
+    "query": "Griffith Park - Indianapolis",
+    "status": "miss"
+  },
   "griffith park, indianapolis": {
     "query": "Griffith Park, Indianapolis",
     "status": "miss"
+  },
+  "griffith park, indianapolis, indiana, united states": {
+    "query": "Griffith Park, Indianapolis, Indiana, United States",
+    "status": "miss"
+  },
+  "gum department store, moscow, russia": {
+    "city": "Moscow",
+    "country": "Russia",
+    "display_name": "GUM department store, 3, Red Square, 4, Kitay-gorod, Tverskoy District, Moscow, Central Federal District, 109012, Russia",
+    "latitude": "55.7547031",
+    "longitude": "37.6214378",
+    "query": "GUM Department Store, Moscow, Russia",
+    "source": "nominatim",
+    "state": "Moscow",
+    "status": "ok",
+    "sublocation": "3 Red Square"
   },
   "gustavus ii adolphus monument, budapest, hungary": {
     "query": "Gustavus II Adolphus Monument, Budapest, Hungary",
@@ -6807,6 +7619,10 @@
     "state": "",
     "status": "ok"
   },
+  "hall of st. george (great kremlin palace), moscow, russia": {
+    "query": "Hall of St. George (Great Kremlin Palace), Moscow, Russia",
+    "status": "miss"
+  },
   "hamburg, germany": {
     "city": "Hamburg",
     "country": "Germany",
@@ -6834,8 +7650,16 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "hans christian andersen statue, copenhagen, denmark": {
+    "query": "Hans Christian Andersen Statue, Copenhagen, Denmark",
+    "status": "miss"
+  },
   "harbour from the lighthouse, scarborough, scarborough, england, united kingdom": {
     "query": "Harbour from the Lighthouse, Scarborough, Scarborough, England, United Kingdom",
+    "status": "miss"
+  },
+  "harbourside market square, helsinki, finland": {
+    "query": "HARBOURSIDE MARKET SQUARE, Helsinki, Finland",
     "status": "miss"
   },
   "hardy's birthplace": {
@@ -6922,6 +7746,30 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "helsinki cathedral, helsinki, finland": {
+    "city": "Helsinki",
+    "country": "Finland",
+    "display_name": "Helsinki Cathedral, 29, Unioninkatu, Kaisaniemi, Kluuvi, Southern major district, Helsinki, Helsinki sub-region, Uusimaa, Mainland Finland, 00170, Finland",
+    "latitude": "60.1704170",
+    "longitude": "24.9521728",
+    "query": "Helsinki Cathedral, Helsinki, Finland",
+    "source": "nominatim",
+    "state": "Uusimaa",
+    "status": "ok",
+    "sublocation": "29 Unioninkatu"
+  },
+  "helsinki, finland": {
+    "city": "Helsinki",
+    "country": "Finland",
+    "display_name": "Helsinki, Helsinki sub-region, Uusimaa, Mainland Finland, Finland",
+    "latitude": "60.1666204",
+    "longitude": "24.9435408",
+    "query": "Helsinki, Finland",
+    "source": "nominatim",
+    "state": "Uusimaa",
+    "status": "ok",
+    "sublocation": ""
+  },
   "hemet, calif.": {
     "city": "Hemet",
     "country": "United States",
@@ -6976,6 +7824,18 @@
     "query": "Henley-on-Thames, Oxfordshire, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "hermitage museum, saint petersburg, russia": {
+    "city": "Saint Petersburg",
+    "country": "Russia",
+    "display_name": "Hermitage Museum, Saint Petersburg, Russia, Saint Petersburg, Russia",
+    "latitude": "59.9412076",
+    "longitude": "30.3154865",
+    "query": "Hermitage Museum, Saint Petersburg, Russia",
+    "source": "nominatim",
+    "state": "Saint Petersburg",
+    "status": "ok",
+    "sublocation": "38 литА Palace Embankment"
   },
   "heroes' square, budapest": {
     "city": "Budapest",
@@ -7089,6 +7949,10 @@
     "query": "Highways of Utah & Colorado",
     "status": "miss"
   },
+  "highways of utah & colorado, utah, colorado, united states": {
+    "query": "Highways of Utah & Colorado, Utah, Colorado, United States",
+    "status": "miss"
+  },
   "hilton hotel - waikiki beach": {
     "city": "Honolulu",
     "country": "United States",
@@ -7099,6 +7963,18 @@
     "source": "nominatim",
     "state": "Hawaii",
     "status": "ok"
+  },
+  "hilton hotel - waikiki beach, hawaii, united states": {
+    "city": "Honolulu",
+    "country": "United States",
+    "display_name": "Hilton Hotel - Waikiki Beach, Hawaii, United States, Honolulu, Hawaii, United States",
+    "latitude": "21.2790937",
+    "longitude": "-157.8316409",
+    "query": "Hilton Hotel - Waikiki Beach, Hawaii, United States",
+    "source": "nominatim",
+    "state": "Hawaii",
+    "status": "ok",
+    "sublocation": "201 Beach Walk"
   },
   "hilton hotel - waikiki beach, honolulu, hawaii, united states": {
     "city": "Honolulu",
@@ -7326,6 +8202,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "hong kong harbour and city, victoria mountain view, hong kong": {
+    "query": "Hong Kong Harbour and City, Victoria Mountain View, Hong Kong",
+    "status": "miss"
+  },
   "hong kong harbour and victoria peak tram, hong kong": {
     "query": "Hong Kong Harbour and Victoria Peak Tram, Hong Kong",
     "status": "miss"
@@ -7382,6 +8262,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "hotel das cataratas, brazil": {
+    "city": "Foz do Iguaçu",
+    "country": "Brazil",
+    "display_name": "Hotel das Cataratas, Brazil, Foz do Iguacu, Parana, Brazil",
+    "latitude": "-25.6840353",
+    "longitude": "-54.4387373",
+    "query": "Hotel das Cataratas, Brazil",
+    "source": "nominatim",
+    "state": "Paraná",
+    "status": "ok",
+    "sublocation": "Rodovia das Cataratas"
+  },
   "hotel forum, budapest, hungary": {
     "city": "Budapest",
     "country": "Hungary",
@@ -7403,6 +8295,22 @@
     "source": "nominatim",
     "state": "",
     "status": "ok"
+  },
+  "hotel grand palace, tokyo, japan": {
+    "query": "Hotel Grand Palace, Tokyo, Japan",
+    "status": "miss"
+  },
+  "hotel hong kong, hong kong": {
+    "city": "Hong Kong",
+    "country": "China",
+    "display_name": "Novotel Citygate Hong Kong Hotel, Man Tung Road, Tung Chung Town Centre, Lantau, Islands District, New Territories, Hong Kong, China",
+    "latitude": "22.2911908",
+    "longitude": "113.9422615",
+    "query": "Hotel Hong Kong, Hong Kong",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Man Tung Road"
   },
   "hotel in xian, china": {
     "display_name": "唐华酒店, 河西路, 南宫社区, 雷虎村, 高州市, 茂名市, 广东省, 525200, 中国",
@@ -7435,6 +8343,10 @@
     "query": "Hotel Intercontinental Zagreb, Zagreb, Croatia",
     "status": "miss"
   },
+  "hotel jubilejnaja, minsk, belarus": {
+    "query": "Hotel Jubilejnaja, Minsk, Belarus",
+    "status": "miss"
+  },
   "hotel metropol, belgrade, serbia": {
     "city": "Vracar Urban Municipality",
     "country": "Serbia",
@@ -7460,6 +8372,14 @@
     "source": "nominatim",
     "state": "",
     "status": "ok"
+  },
+  "hotel rossiya & beriozka store, russia": {
+    "query": "Hotel Rossiya & Beriozka Store, Russia",
+    "status": "miss"
+  },
+  "hotel s paulo, oliveiro do hospital, portugal": {
+    "query": "Hotel S Paulo, Oliveiro do Hospital, Portugal",
+    "status": "miss"
   },
   "hotels on the nile river at aswan dam egypt - dec. 1960 old cataract hotel aswan egypt new cataract hotel sail boats on the nile at aswan": {
     "query": "HOTELS ON THE NILE RIVER AT ASWAN DAM EGYPT - DEC. 1960 OLD CATARACT HOTEL ASWAN EGYPT NEW CATARACT HOTEL SAIL BOATS ON THE NILE AT ASWAN",
@@ -7533,6 +8453,10 @@
     "query": "HUA TING TEMPLE, Dunhuang, Gansu, China",
     "status": "miss"
   },
+  "hua ting temple, mainland china": {
+    "query": "Hua Ting Temple, Mainland China",
+    "status": "miss"
+  },
   "huaqing hot springs, xi'an, china": {
     "display_name": "华清宫, 骊山街道, 临潼区, 西安市, 陕西省, 中国",
     "latitude": "34.3649458",
@@ -7592,6 +8516,10 @@
     "status": "ok",
     "sublocation": ""
   },
+  "hyatt rama hotel - bangkok may 1974 -- from the hotel window, bangkok, thailand": {
+    "query": "Hyatt Rama Hotel - Bangkok May 1974 -- FROM THE HOTEL WINDOW, Bangkok, Thailand",
+    "status": "miss"
+  },
   "hyatt regency casablanca, morocco": {
     "city": "Casablanca",
     "country": "Morocco",
@@ -7611,6 +8539,58 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "iguassu falls": {
+    "city": "Foz do Iguaçu",
+    "country": "Brazil",
+    "display_name": "Iguassu Falls, Foz do Iguacu, Parana, Brazil",
+    "latitude": "-25.6939050",
+    "longitude": "-54.4365376",
+    "query": "Iguassu Falls",
+    "source": "nominatim",
+    "state": "Paraná",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "iguassu falls, argentina": {
+    "query": "Iguassu Falls, Argentina",
+    "status": "miss"
+  },
+  "iguassu falls, brazil": {
+    "city": "Foz do Iguaçu",
+    "country": "Brazil",
+    "display_name": "Iguassu Falls, Brazil, Foz do Iguacu, Parana, Brazil",
+    "latitude": "-25.6939050",
+    "longitude": "-54.4365376",
+    "query": "Iguassu Falls, Brazil",
+    "source": "nominatim",
+    "state": "Paraná",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "iguazu falls": {
+    "city": "Foz do Iguaçu",
+    "country": "Brazil",
+    "display_name": "Iguazu Falls, Foz do Iguacu, Parana, Brazil",
+    "latitude": "-25.6939050",
+    "longitude": "-54.4365376",
+    "query": "Iguazu Falls",
+    "source": "nominatim",
+    "state": "Paraná",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "iguazu falls, brazil": {
+    "city": "Foz do Iguaçu",
+    "country": "Brazil",
+    "display_name": "Iguazu Falls, Brazil, Foz do Iguacu, Parana, Brazil",
+    "latitude": "-25.6939050",
+    "longitude": "-54.4365376",
+    "query": "Iguazu Falls, Brazil",
+    "source": "nominatim",
+    "state": "Paraná",
+    "status": "ok",
+    "sublocation": ""
+  },
   "imperial garden, beijing, china": {
     "display_name": "御花园, 智德社区, 东华门街道, 首都功能核心区, 东城区, 北京市, 100010, 中国",
     "latitude": "39.9201848",
@@ -7618,6 +8598,50 @@
     "query": "Imperial Garden, Beijing, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "imperial hotel - singapore, singapore": {
+    "city": "Singapore",
+    "country": "Singapore",
+    "display_name": "Fragrance Hotel (Imperial), 28, Penhas Road, Lavender, Kallang, Central Region, Singapore, 208187, Singapore",
+    "latitude": "1.3096360",
+    "longitude": "103.8624254",
+    "query": "Imperial Hotel - Singapore, Singapore",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "28 Penhas Road"
+  },
+  "imperial museum (museu imperial), petropolis, rio de janeiro, brazil": {
+    "city": "Petrópolis",
+    "country": "Brazil",
+    "display_name": "Imperial Museum (Museu Imperial), Petropolis, Rio de Janeiro, Brazil, Petropolis, Rio de Janeiro, Brazil",
+    "latitude": "-22.5077149",
+    "longitude": "-43.1756675",
+    "query": "Imperial Museum (Museu Imperial), Petropolis, Rio de Janeiro, Brazil",
+    "source": "nominatim",
+    "state": "Rio de Janeiro",
+    "status": "ok",
+    "sublocation": "220 Rua da Imperatriz"
+  },
+  "imperial palace grounds, tokyo, japan": {
+    "query": "Imperial Palace Grounds, Tokyo, Japan",
+    "status": "miss"
+  },
+  "indian temple, singapore": {
+    "query": "Indian Temple, Singapore",
+    "status": "miss"
+  },
+  "indiana, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Indiana, United States",
+    "latitude": "40.3270127",
+    "longitude": "-86.1746933",
+    "query": "Indiana, United States",
+    "source": "nominatim",
+    "state": "Indiana",
+    "status": "ok",
+    "sublocation": ""
   },
   "indianapolis": {
     "city": "Indianapolis",
@@ -7777,6 +8801,34 @@
     "query": "Interior of Tombs, Egypt",
     "status": "miss"
   },
+  "international congress centre, berlin, germany": {
+    "query": "International Congress Centre, Berlin, Germany",
+    "status": "miss"
+  },
+  "ipanema beach, brazil": {
+    "city": "Pontal do Paraná",
+    "country": "Brazil",
+    "display_name": "Ipanema Beach, Brazil, Pontal do Parana, Parana, Brazil",
+    "latitude": "-25.6626955",
+    "longitude": "-48.4449544",
+    "query": "Ipanema Beach, Brazil",
+    "source": "nominatim",
+    "state": "Paraná",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "ipanema beach, rio de janeiro, brazil": {
+    "city": "Rio de Janeiro",
+    "country": "Brazil",
+    "display_name": "Ipanema Beach, Rio de Janeiro, Brazil, Rio de Janeiro, Brazil",
+    "latitude": "-22.9873109",
+    "longitude": "-43.2021257",
+    "query": "Ipanema Beach, Rio de Janeiro, Brazil",
+    "source": "nominatim",
+    "state": "Rio de Janeiro",
+    "status": "ok",
+    "sublocation": ""
+  },
   "island of aegina, greece": {
     "display_name": "Boat to Moni Island, Δημοκρατίας, Αίγινα, Δήμος Αίγινας, Περιφερειακή Ενότητα Νήσων, Περιφέρεια Αττικής, Αποκεντρωμένη Διοίκηση Αττικής, 180 10, Ελλάς",
     "latitude": "37.7461511",
@@ -7868,6 +8920,18 @@
     "source": "nominatim",
     "state": "Florida",
     "status": "ok"
+  },
+  "japan": {
+    "city": "",
+    "country": "Japan",
+    "display_name": "Japan",
+    "latitude": "36.5748441",
+    "longitude": "139.2394179",
+    "query": "Japan",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
   },
   "jesuit church (lucerne), switzerland": {
     "query": "Jesuit Church (Lucerne), Switzerland",
@@ -8035,6 +9099,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "jokhang temple, lhasa, tibet autonomous region, tibet autonomous region, china": {
+    "city": "Chengguan District",
+    "country": "China",
+    "display_name": "Jokhang Temple, Lhasa, Tibet Autonomous Region, Tibet Autonomous Region, China, Chengguan District, Tibet, China",
+    "latitude": "29.6528598",
+    "longitude": "91.1317978",
+    "query": "Jokhang Temple, Lhasa, Tibet Autonomous Region, Tibet Autonomous Region, China",
+    "source": "nominatim",
+    "state": "Tibet",
+    "status": "ok",
+    "sublocation": "大昭寺广场"
+  },
   "jokhang temple, lhasa, tibet, china": {
     "display_name": "ཇོ་ཁང། 大昭寺, 八廓街, བར་སྐོར། 八廓街, 八廓社区, 八廓街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
     "latitude": "29.6528598",
@@ -8061,6 +9137,18 @@
     "source": "nominatim",
     "state": "Tibet",
     "status": "ok"
+  },
+  "kaiser wilhelm memorial church, berlin, germany": {
+    "city": "Berlin",
+    "country": "Germany",
+    "display_name": "Kaiser Wilhelm Memorial Church, Berlin, Germany, Berlin, Germany",
+    "latitude": "52.5048945",
+    "longitude": "13.3346131",
+    "query": "Kaiser Wilhelm Memorial Church, Berlin, Germany",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Budapester Straße"
   },
   "kalemegdan fortress and park, belgrade": {
     "query": "Kalemegdan Fortress and Park, Belgrade",
@@ -8146,8 +9234,44 @@
     "query": "Karnten, Austria; Salzburg, Austria",
     "status": "miss"
   },
+  "kasuga shrine with 3000 stone lanterns, nara, japan": {
+    "query": "Kasuga Shrine with 3000 Stone Lanterns, Nara, Japan",
+    "status": "miss"
+  },
+  "kasuga shrine, kyoto, japan": {
+    "city": "Kyoto",
+    "country": "Japan",
+    "display_name": "Kasuga Shrine, Kyoto, Japan, Kyoto, Japan",
+    "latitude": "35.2035381",
+    "longitude": "135.7204844",
+    "query": "Kasuga Shrine, Kyoto, Japan",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "National Highway Route 477"
+  },
+  "kathing, china": {
+    "query": "Kathing, China",
+    "status": "miss"
+  },
+  "kathmandu, nepal": {
+    "city": "Kathmandu Metropolitan City",
+    "country": "Nepal",
+    "display_name": "Kathmandu Metropolitan City, Kathmandu, Bagamati Province, Nepal",
+    "latitude": "27.7083170",
+    "longitude": "85.3205817",
+    "query": "Kathmandu, Nepal",
+    "source": "nominatim",
+    "state": "Bagamati Province",
+    "status": "ok",
+    "sublocation": ""
+  },
   "kauai hilton hotel & beach villas": {
     "query": "Kauai Hilton Hotel & Beach Villas",
+    "status": "miss"
+  },
+  "kauai hilton hotel & beach villas, kauai, hawaii": {
+    "query": "Kauai Hilton Hotel & Beach Villas, Kauai, Hawaii",
     "status": "miss"
   },
   "kauai, hawaii": {
@@ -8687,6 +9811,22 @@
     "query": "Kings and Clare Bridges, The Backs, Cambridge, United Kingdom",
     "status": "miss"
   },
+  "kinkaku-ji temple - the golden pavilion, kyoto, japan": {
+    "query": "Kinkaku-ji Temple - The Golden Pavilion, Kyoto, Japan",
+    "status": "miss"
+  },
+  "kinkakuji, kyoto, japan": {
+    "city": "Kyoto",
+    "country": "Japan",
+    "display_name": "Kinkakuji, Kyoto, Japan, Kyoto, Japan",
+    "latitude": "35.0395293",
+    "longitude": "135.7295373",
+    "query": "Kinkakuji, Kyoto, Japan",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
   "klagenfurt and salzburg, austria": {
     "query": "Klagenfurt and Salzburg, Austria",
     "status": "miss"
@@ -8742,6 +9882,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "kowloon, hong kong": {
+    "city": "Hong Kong",
+    "country": "China",
+    "display_name": "Kowloon, 1, Austin Road West, West Kowloon, Yau Ma Tei, Yau Tsim Mong District, Kowloon, Hong Kong, 999077, China",
+    "latitude": "22.3049255",
+    "longitude": "114.1616003",
+    "query": "Kowloon, Hong Kong",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "1 Austin Road West"
+  },
   "krakow, poland": {
     "city": "Krakow",
     "country": "Poland",
@@ -8752,6 +9904,34 @@
     "source": "nominatim",
     "state": "Lesser Poland Voivodeship",
     "status": "ok"
+  },
+  "kremlin wall and towers, moscow, russia": {
+    "query": "Kremlin Wall and Towers, Moscow, Russia",
+    "status": "miss"
+  },
+  "kremlin, moscow, russia": {
+    "city": "Moscow",
+    "country": "Russia",
+    "display_name": "Moscow Kremlin, Faleyevskiy per., Yakimanka District, Moscow, Central Federal District, 115035, Russia",
+    "latitude": "55.7516212",
+    "longitude": "37.6181220",
+    "query": "Kremlin, Moscow, Russia",
+    "source": "nominatim",
+    "state": "Moscow",
+    "status": "ok",
+    "sublocation": "Faleyevskiy per."
+  },
+  "krolewskie park, warsaw, poland": {
+    "city": "Warsaw",
+    "country": "Poland",
+    "display_name": "Krolewskie Park, Warsaw, Poland, Warsaw, Masovian Voivodeship, Poland",
+    "latitude": "52.2126209",
+    "longitude": "21.0339496",
+    "query": "Krolewskie Park, Warsaw, Poland",
+    "source": "nominatim",
+    "state": "Masovian Voivodeship",
+    "status": "ok",
+    "sublocation": ""
   },
   "kunming hotel": {
     "display_name": "昆明饭店, 白塔路, 拓东街道, 盘龙区, 昆明市, 云南省, 650051, 中国",
@@ -8800,6 +9980,22 @@
     "query": "Kunming, Yunnan, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "kurfürstendamm - the main street in west berlin, berlin, germany": {
+    "query": "Kurfürstendamm - The Main Street in West Berlin, Berlin, Germany",
+    "status": "miss"
+  },
+  "kyoto, japan": {
+    "city": "Kyoto",
+    "country": "Japan",
+    "display_name": "Kyoto, Kyoto Prefecture, Japan",
+    "latitude": "35.0115754",
+    "longitude": "135.7681441",
+    "query": "Kyoto, Japan",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
   },
   "kärnten, austria": {
     "display_name": "Kärnten, Österreich",
@@ -8889,6 +10085,18 @@
     "latitude": "34.2489684",
     "longitude": "-117.1913321",
     "query": "Lake Arrowhead, California",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "lake arrowhead, california, united states": {
+    "city": "Lake Arrowhead",
+    "country": "United States",
+    "display_name": "Lake Arrowhead, San Bernardino County, California, 92352, United States",
+    "latitude": "34.2489684",
+    "longitude": "-117.1913321",
+    "query": "Lake Arrowhead, California, United States",
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -9095,6 +10303,62 @@
     "status": "ok",
     "sublocation": ""
   },
+  "lenin museum - moscow": {
+    "city": "Gorki Leninskiye",
+    "country": "Russia",
+    "display_name": "Lenin Museum - Moscow, Gorki Leninskiye, Moscow Oblast, Russia",
+    "latitude": "55.4991486",
+    "longitude": "37.7625913",
+    "query": "Lenin Museum - Moscow",
+    "source": "nominatim",
+    "state": "Moscow Oblast",
+    "status": "ok",
+    "sublocation": "Funeral alley"
+  },
+  "lenin museum - moscow, moscow, russia": {
+    "city": "Gorki Leninskiye",
+    "country": "Russia",
+    "display_name": "Lenin Museum - Moscow, Moscow, Russia, Gorki Leninskiye, Moscow Oblast, Russia",
+    "latitude": "55.4991486",
+    "longitude": "37.7625913",
+    "query": "Lenin Museum - Moscow, Moscow, Russia",
+    "source": "nominatim",
+    "state": "Moscow Oblast",
+    "status": "ok",
+    "sublocation": "Funeral alley"
+  },
+  "lenin museum, moscow": {
+    "city": "Gorki Leninskiye",
+    "country": "Russia",
+    "display_name": "Lenin Museum, Moscow, Gorki Leninskiye, Moscow Oblast, Russia",
+    "latitude": "55.4991486",
+    "longitude": "37.7625913",
+    "query": "Lenin Museum, Moscow",
+    "source": "nominatim",
+    "state": "Moscow Oblast",
+    "status": "ok",
+    "sublocation": "Funeral alley"
+  },
+  "lenin museum, moscow, russia": {
+    "city": "Gorki Leninskiye",
+    "country": "Russia",
+    "display_name": "Lenin Museum, Moscow, Russia, Gorki Leninskiye, Moscow Oblast, Russia",
+    "latitude": "55.4991486",
+    "longitude": "37.7625913",
+    "query": "Lenin Museum, Moscow, Russia",
+    "source": "nominatim",
+    "state": "Moscow Oblast",
+    "status": "ok",
+    "sublocation": "Funeral alley"
+  },
+  "lenin square and government buildings, moscow, russia": {
+    "query": "Lenin Square and Government Buildings, Moscow, Russia",
+    "status": "miss"
+  },
+  "lenin's tomb, moscow, russia": {
+    "query": "Lenin's Tomb, Moscow, Russia",
+    "status": "miss"
+  },
   "leopoldskron castle": {
     "display_name": "Schloss Leopoldskron, 58, Leopoldskronstraße, Riedenburg, Salzburg, 5020, Österreich",
     "latitude": "47.7883513",
@@ -9138,6 +10402,18 @@
     "query": "Leslie's home and school in Indianapolis",
     "status": "miss"
   },
+  "lhasa - tibet, tibet, china": {
+    "city": "Chengguan District",
+    "country": "China",
+    "display_name": "Lhasa - Tibet, Tibet, China, Chengguan District, Tibet, China",
+    "latitude": "29.6617299",
+    "longitude": "91.1080276",
+    "query": "Lhasa - Tibet, Tibet, China",
+    "source": "nominatim",
+    "state": "Tibet",
+    "status": "ok",
+    "sublocation": "德吉路北段"
+  },
   "lhasa hotel, lhasa, tibet, china": {
     "display_name": "InterContinental Lhasa Paradise, an IHG Hotel, 纳金路, 纳如社区, 纳金街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
     "latitude": "29.6577657",
@@ -9160,6 +10436,18 @@
     "source": "nominatim",
     "state": "Tibet",
     "status": "ok"
+  },
+  "lhasa, china": {
+    "city": "Lhasa",
+    "country": "China",
+    "display_name": "Lhasa, Tibet, 850000, China",
+    "latitude": "29.6542054",
+    "longitude": "91.1173015",
+    "query": "Lhasa, China",
+    "source": "nominatim",
+    "state": "Tibet",
+    "status": "ok",
+    "sublocation": ""
   },
   "lhasa, tibet": {
     "display_name": "拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
@@ -9430,6 +10718,18 @@
   "lindwurmbrunnen, klagenfurt, kärnten, austria; salzburg, austria": {
     "query": "Lindwurmbrunnen, Klagenfurt, Kärnten, Austria; Salzburg, Austria",
     "status": "miss"
+  },
+  "lisbon, portugal": {
+    "city": "Lisbon",
+    "country": "Portugal",
+    "display_name": "Lisbon, Portugal",
+    "latitude": "38.7077507",
+    "longitude": "-9.1365919",
+    "query": "Lisbon, Portugal",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
   },
   "liverpool": {
     "city": "Liverpool",
@@ -9895,6 +11195,22 @@
     "status": "ok",
     "sublocation": ""
   },
+  "lotus pool, china": {
+    "city": "Chongchuan District",
+    "country": "China",
+    "display_name": "Lotus Pool, China, Chongchuan District, Jiangsu, China",
+    "latitude": "32.0143457",
+    "longitude": "120.8657260",
+    "query": "Lotus Pool, China",
+    "source": "nominatim",
+    "state": "Jiangsu",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "lovely square by our hotel, minsk, belarus": {
+    "query": "Lovely Square by Our Hotel, Minsk, Belarus",
+    "status": "miss"
+  },
   "loxley, hampshire, england": {
     "display_name": "Loxley, Groves Down, Wellow, Test Valley, Hampshire, England, SO51 6DZ, United Kingdom",
     "latitude": "50.9757962",
@@ -9937,6 +11253,18 @@
   "lucerne, switzerland; montreux, switzerland; lake geneva, switzerland; border of france & switzerland; parm house, france": {
     "query": "Lucerne, Switzerland; Montreux, Switzerland; Lake Geneva, Switzerland; Border of France & Switzerland; Parm House, France",
     "status": "miss"
+  },
+  "lungshan temple, taipei, taiwan": {
+    "city": "Taipei",
+    "country": "Taiwan",
+    "display_name": "Lungshan Temple, Fumin Village, Wanhua District, Monga, Taipei, Taiwan",
+    "latitude": "25.0372498",
+    "longitude": "121.4998803",
+    "query": "Lungshan Temple, Taipei, Taiwan",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
   },
   "luxor egypt": {
     "display_name": "الأقصر, 85951, مصر",
@@ -10073,6 +11401,34 @@
     "state": "South Carolina",
     "status": "ok"
   },
+  "magnolia plantation and gardens, charleston county, south carolina, united states": {
+    "city": "Charleston",
+    "country": "United States",
+    "display_name": "Magnolia Plantation and Gardens, 3500, Ashley River Road, Charleston, Charleston County, South Carolina, 29414, United States",
+    "latitude": "32.8746113",
+    "longitude": "-80.0832425",
+    "query": "Magnolia Plantation and Gardens, Charleston County, South Carolina, United States",
+    "source": "nominatim",
+    "state": "South Carolina",
+    "status": "ok",
+    "sublocation": "3500 Ashley River Road"
+  },
+  "magnolia plantation and gardens, charleston, south carolina, united states": {
+    "city": "Charleston",
+    "country": "United States",
+    "display_name": "Magnolia Plantation and Gardens, 3500, Ashley River Road, Charleston, Charleston County, South Carolina, 29414, United States",
+    "latitude": "32.8746113",
+    "longitude": "-80.0832425",
+    "query": "Magnolia Plantation and Gardens, Charleston, South Carolina, United States",
+    "source": "nominatim",
+    "state": "South Carolina",
+    "status": "ok",
+    "sublocation": "3500 Ashley River Road"
+  },
+  "main gate of the all-russia exhibition center (vdnkh), moscow, russia": {
+    "query": "Main Gate of the All-Russia Exhibition Center (VDNKh), Moscow, Russia",
+    "status": "miss"
+  },
   "main street in austin, texas, austin, texas, united states": {
     "query": "Main Street in Austin, Texas, Austin, Texas, United States",
     "status": "miss"
@@ -10188,6 +11544,42 @@
   "manhattan skyline, new york city, united states": {
     "query": "Manhattan skyline, New York City, United States",
     "status": "miss"
+  },
+  "manila chinese cemetery, manila, philippines": {
+    "city": "Manila",
+    "country": "Philippines",
+    "display_name": "Manila Chinese Cemetery, Santa Cruz, Third District, Manila, Capital District, Metro Manila, Philippines",
+    "latitude": "14.6318158",
+    "longitude": "120.9840551",
+    "query": "Manila Chinese Cemetery, Manila, Philippines",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "manila international airport, philippines": {
+    "city": "Taguig",
+    "country": "Philippines",
+    "display_name": "Ninoy Aquino International Airport, Lawton Avenue, Western Bicutan, Taguig District 2, Taguig, Southern Manila District, Metro Manila, 1309, Philippines",
+    "latitude": "14.5122467",
+    "longitude": "121.0219223",
+    "query": "Manila International Airport, Philippines",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Lawton Avenue"
+  },
+  "manila, philippines": {
+    "city": "Manila",
+    "country": "Philippines",
+    "display_name": "Manila, Capital District, Metro Manila, Philippines",
+    "latitude": "14.5904492",
+    "longitude": "120.9803621",
+    "query": "Manila, Philippines",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
   },
   "manitoba, canada": {
     "city": "",
@@ -10305,8 +11697,24 @@
     "query": "Market Place, Lhasa, Tibet, China",
     "status": "miss"
   },
+  "market square, warsaw, poland": {
+    "city": "Warsaw",
+    "country": "Poland",
+    "display_name": "Market Square, Staromiejskie, Old Town, Midtown, Warsaw, Masovian Voivodeship, 00-272, Poland",
+    "latitude": "52.2497952",
+    "longitude": "21.0117988",
+    "query": "Market Square, Warsaw, Poland",
+    "source": "nominatim",
+    "state": "Masovian Voivodeship",
+    "status": "ok",
+    "sublocation": "Market Square"
+  },
   "markets of trajan, rome, italy": {
     "query": "Markets of Trajan, Rome, Italy",
+    "status": "miss"
+  },
+  "marquis of pombal's square, lisbon, portugal": {
+    "query": "Marquis of Pombal's Square, Lisbon, Portugal",
     "status": "miss"
   },
   "marrakech, morocco": {
@@ -10522,6 +11930,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "memorial for the victims of the warsaw ghetto, warsaw, poland": {
+    "query": "Memorial for the Victims of the Warsaw Ghetto, Warsaw, Poland",
+    "status": "miss"
+  },
   "memphis, egypt": {
     "display_name": "منف, طريق مدينه البدرشين, قريه سقاره, ميت رهينة, الجيزة, 12921, مصر",
     "latitude": "29.8544582",
@@ -10648,6 +12060,18 @@
     "query": "Minneapolis, Minnesota, USA, United States",
     "status": "miss"
   },
+  "minsk, belarus": {
+    "city": "Minsk",
+    "country": "Belarus",
+    "display_name": "Minsk, Belarus",
+    "latitude": "53.9024716",
+    "longitude": "27.5618225",
+    "query": "Minsk, Belarus",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
   "mirabell gardens (schloss mirabell), salzburg, austria": {
     "query": "Mirabell Gardens (Schloss Mirabell), Salzburg, Austria",
     "status": "miss"
@@ -10724,6 +12148,22 @@
     "query": "Mohamed Aly Alabaster Mosque, Cairo, Egypt",
     "status": "miss"
   },
+  "monastery - batalha, portugal, batalha": {
+    "query": "Monastery - Batalha, Portugal, Batalha",
+    "status": "miss"
+  },
+  "monastery of batalha, batalha, portugal": {
+    "city": "Batalha",
+    "country": "Portugal",
+    "display_name": "Monastery of Batalha, Batalha, Portugal, Batalha, Portugal",
+    "latitude": "39.6592101",
+    "longitude": "-8.8258275",
+    "query": "Monastery of Batalha, Batalha, Portugal",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Praça Mouzinho de Albuquerque"
+  },
   "mondsee, austria": {
     "city": "Mondsee",
     "country": "Austria",
@@ -10798,6 +12238,10 @@
     "query": "Monument in the Center of Town, Fairbanks, Alaska, United States",
     "status": "miss"
   },
+  "monument to peter the great, novgorod, russia": {
+    "query": "Monument to Peter the Great, Novgorod, Russia",
+    "status": "miss"
+  },
   "monument, lhasa, tibet": {
     "display_name": "西藏和平解放纪念碑, 布达拉宫广场, 吉崩岗街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
     "latitude": "29.6529947",
@@ -10834,6 +12278,38 @@
     "status": "ok",
     "sublocation": "1988 Morocco Drive"
   },
+  "moscow subway, moscow, russia": {
+    "query": "Moscow Subway, Moscow, Russia",
+    "status": "miss"
+  },
+  "moscow university, russia": {
+    "city": "Moscow",
+    "country": "Russia",
+    "display_name": "Moscow State University, Khamovniki District, Moscow, Central Federal District, 119234, Russia",
+    "latitude": "55.7022972",
+    "longitude": "37.5317977",
+    "query": "Moscow University, Russia",
+    "source": "nominatim",
+    "state": "Moscow",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "moscow's fantastic subway, moscow, russia": {
+    "query": "Moscow's Fantastic Subway, Moscow, Russia",
+    "status": "miss"
+  },
+  "moscow, russia": {
+    "city": "",
+    "country": "Russia",
+    "display_name": "Moscow, Central Federal District, Russia",
+    "latitude": "55.6255780",
+    "longitude": "37.6063916",
+    "query": "Moscow, Russia",
+    "source": "nominatim",
+    "state": "Moscow",
+    "status": "ok",
+    "sublocation": ""
+  },
   "mosque of soliman the magnificent, istanbul, turkey": {
     "query": "Mosque of Soliman the Magnificent, Istanbul, Turkey",
     "status": "miss"
@@ -10848,6 +12324,10 @@
   },
   "mosque of the bey & bell tower, sarajevo, yugoslavia": {
     "query": "Mosque of the Bey & Bell Tower, Sarajevo, Yugoslavia",
+    "status": "miss"
+  },
+  "mosquito netting in hotel at chendou, chendou, mainland china": {
+    "query": "Mosquito netting in hotel at Chendou, Chendou, Mainland China",
     "status": "miss"
   },
   "mostar bridge, mostar, bosnia and herzegovina": {
@@ -10922,6 +12402,30 @@
   "mother and child statue, lanzhou, china": {
     "query": "Mother and Child Statue, Lanzhou, China",
     "status": "miss"
+  },
+  "mount fuji, japan": {
+    "city": "Oyama",
+    "country": "Japan",
+    "display_name": "Mount Fuji, Oyama, Sunto County, Shizuoka Prefecture, Japan",
+    "latitude": "35.3628384",
+    "longitude": "138.7307677",
+    "query": "Mount Fuji, Japan",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "mount mckinley (denali), alaska, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Denali, Denali Borough, Alaska, United States",
+    "latitude": "63.0691150",
+    "longitude": "-151.0062390",
+    "query": "Mount McKinley (Denali), Alaska, United States",
+    "source": "nominatim",
+    "state": "Alaska",
+    "status": "ok",
+    "sublocation": ""
   },
   "mount mckinley, denali, alaska": {
     "city": "",
@@ -11041,9 +12545,57 @@
     "state": "Wales",
     "status": "ok"
   },
+  "nara deer park, nara, japan": {
+    "city": "Nara",
+    "country": "Japan",
+    "display_name": "Nara Deer Park, Nara, Japan, Nara, Japan",
+    "latitude": "34.6840386",
+    "longitude": "135.8316725",
+    "query": "Nara Deer Park, Nara, Japan",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "北参道"
+  },
+  "nara park, nara, japan": {
+    "city": "Nara",
+    "country": "Japan",
+    "display_name": "Nara Park, Nara, Nara Prefecture, Japan",
+    "latitude": "34.6829008",
+    "longitude": "135.8545975",
+    "query": "Nara Park, Nara, Japan",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
   "nashville, tennessee, usa, united states": {
     "query": "Nashville, Tennessee, USA, United States",
     "status": "miss"
+  },
+  "national congress of argentina, argentina": {
+    "city": "Buenos Aires",
+    "country": "Argentina",
+    "display_name": "National Congress of Argentina, Argentina, Buenos Aires, Autonomous City of Buenos Aires, Argentina",
+    "latitude": "-34.6098236",
+    "longitude": "-58.3927321",
+    "query": "National Congress of Argentina, Argentina",
+    "source": "nominatim",
+    "state": "Autonomous City of Buenos Aires",
+    "status": "ok",
+    "sublocation": "51 Avenida Entre Ríos"
+  },
+  "national flag memorial, argentina": {
+    "city": "Rosario",
+    "country": "Argentina",
+    "display_name": "National Flag Memorial, 581, Santa Fe, Martin, Rosario Centro, Distrito Centro, Rosario, Municipio de Rosario, Gran Rosario, Departamento Rosario, Santa Fe, S2000ATC, Argentina",
+    "latitude": "-32.9475929",
+    "longitude": "-60.6308162",
+    "query": "National Flag Memorial, Argentina",
+    "source": "nominatim",
+    "state": "Santa Fe",
+    "status": "ok",
+    "sublocation": "581 Santa Fe"
   },
   "national theatre of prague, prague, czech republic": {
     "query": "National Theatre of Prague, Prague, Czech Republic",
@@ -11052,6 +12604,18 @@
   "national theatre of prague, prague, czechia": {
     "query": "National Theatre of Prague, Prague, Czechia",
     "status": "miss"
+  },
+  "netherlands": {
+    "city": "",
+    "country": "Netherlands",
+    "display_name": "Netherlands",
+    "latitude": "52.2434979",
+    "longitude": "5.6343227",
+    "query": "Netherlands",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
   },
   "new & old cathedrals, coventry, united kingdom": {
     "query": "New & Old Cathedrals, Coventry, United Kingdom",
@@ -11083,6 +12647,18 @@
   },
   "new court, st john's college, cambridge, england, united kingdom": {
     "query": "New Court, St John's College, Cambridge, England, United Kingdom",
+    "status": "miss"
+  },
+  "new hermitage, the snyders room in the new hermitage, saint petersburg, russia": {
+    "query": "New Hermitage, The Snyders Room in the New Hermitage, Saint Petersburg, Russia",
+    "status": "miss"
+  },
+  "new love boat being built in stockholm, sweden, stockholm": {
+    "query": "New Love Boat Being Built in Stockholm, Sweden, Stockholm",
+    "status": "miss"
+  },
+  "new maidens nunnery, russia": {
+    "query": "New Maidens Nunnery, Russia",
     "status": "miss"
   },
   "new town hall in munich, germany": {
@@ -11354,6 +12930,18 @@
     "state": "New York",
     "status": "ok"
   },
+  "night club in rio, rio de janeiro, brazil": {
+    "city": "Rio de Janeiro",
+    "country": "Brazil",
+    "display_name": "NIGHT CLUB IN RIO, Rio de Janeiro, Brazil, Rio de Janeiro, Brazil",
+    "latitude": "-22.8962990",
+    "longitude": "-43.2034311",
+    "query": "NIGHT CLUB IN RIO, Rio de Janeiro, Brazil",
+    "source": "nominatim",
+    "state": "Rio de Janeiro",
+    "status": "ok",
+    "sublocation": "Avenida Professor Pereira Reis"
+  },
   "nile from the tower of cairo, meridien hotel, nation square - cairo, egypt, dec. 1975": {
     "query": "Nile from the Tower of Cairo, Meridien Hotel, Nation Square - Cairo, Egypt, Dec. 1975",
     "status": "miss"
@@ -11401,6 +12989,42 @@
     "query": "North Transept, Priory Church, Christchurch. Priory Church and Norman House, Christchurch. The Priory Church Christchurch, from the North East",
     "status": "miss"
   },
+  "novgorod kremlin, novgorod, russia": {
+    "city": "Veliky Novgorod",
+    "country": "Russia",
+    "display_name": "Novgorod Kremlin, Novgorod, Russia, Veliky Novgorod, Novgorod Oblast, Russia",
+    "latitude": "58.5208617",
+    "longitude": "31.2749848",
+    "query": "Novgorod Kremlin, Novgorod, Russia",
+    "source": "nominatim",
+    "state": "Novgorod Oblast",
+    "status": "ok",
+    "sublocation": "Боевой ход"
+  },
+  "novgorod kremlin, veliky novgorod, novgorod oblast, russia": {
+    "city": "Veliky Novgorod",
+    "country": "Russia",
+    "display_name": "Novgorod Kremlin, Veliky Novgorod, Novgorod Oblast, Russia, Veliky Novgorod, Novgorod Oblast, Russia",
+    "latitude": "58.5208617",
+    "longitude": "31.2749848",
+    "query": "Novgorod Kremlin, Veliky Novgorod, Novgorod Oblast, Russia",
+    "source": "nominatim",
+    "state": "Novgorod Oblast",
+    "status": "ok",
+    "sublocation": "Софийская набережная"
+  },
+  "novgorod, russia": {
+    "city": "Veliky Novgorod",
+    "country": "Russia",
+    "display_name": "Veliky Novgorod, Novgorod Oblast, Northwestern Federal District, Russia",
+    "latitude": "58.5209862",
+    "longitude": "31.2757862",
+    "query": "Novgorod, Russia",
+    "source": "nominatim",
+    "state": "Novgorod Oblast",
+    "status": "ok",
+    "sublocation": ""
+  },
   "nymphenburg castle": {
     "city": "Munich",
     "country": "Germany",
@@ -11445,6 +13069,14 @@
   },
   "obelisk in st. peter's square, vatican city": {
     "query": "Obelisk in St. Peter's Square, Vatican City",
+    "status": "miss"
+  },
+  "obelisk of buenos aires, argentina": {
+    "query": "Obelisk of Buenos Aires, Argentina",
+    "status": "miss"
+  },
+  "obelisk of buenos aires, buenos aires, argentina": {
+    "query": "Obelisk of Buenos Aires, Buenos Aires, Argentina",
     "status": "miss"
   },
   "obelisk of theodosius, istanbul, turkey": {
@@ -11505,6 +13137,10 @@
     "query": "Old Fort on the Danube River, Bulgaria",
     "status": "miss"
   },
+  "old imperial palace, kyoto, japan": {
+    "query": "Old Imperial Palace, Kyoto, Japan",
+    "status": "miss"
+  },
   "old roman wall at canterbury": {
     "query": "Old Roman Wall at Canterbury",
     "status": "miss"
@@ -11542,6 +13178,18 @@
     "source": "nominatim",
     "state": "",
     "status": "ok"
+  },
+  "old town warsaw, warsaw, poland": {
+    "city": "Warsaw",
+    "country": "Poland",
+    "display_name": "Art of Poland, 16/18, Piwna, Staromiejskie, Old Town, Midtown, Warsaw, Masovian Voivodeship, 00-265, Poland",
+    "latitude": "52.2485362",
+    "longitude": "21.0125648",
+    "query": "Old Town Warsaw, Warsaw, Poland",
+    "source": "nominatim",
+    "state": "Masovian Voivodeship",
+    "status": "ok",
+    "sublocation": "16/18 Piwna"
   },
   "old town, dubrovnik, dubrovnik, dubrovnik-neretva county, croatia": {
     "city": "Dubrovnik",
@@ -11660,12 +13308,28 @@
     "state": "",
     "status": "ok"
   },
+  "osaka, japan": {
+    "city": "Osaka",
+    "country": "Japan",
+    "display_name": "Osaka, Osaka Prefecture, Japan",
+    "latitude": "34.6937569",
+    "longitude": "135.5014539",
+    "query": "Osaka, Japan",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
   "osborne house and gardens": {
     "query": "Osborne House and Gardens",
     "status": "miss"
   },
   "osborne house and gardens, united kingdom": {
     "query": "Osborne House and Gardens, United Kingdom",
+    "status": "miss"
+  },
+  "other palace built for kings nephew, belarus": {
+    "query": "Other Palace Built for Kings Nephew, Belarus",
     "status": "miss"
   },
   "our hotel at abu simbel, egypt": {
@@ -11816,6 +13480,18 @@
     "state": "England",
     "status": "ok"
   },
+  "pagsanjan falls, philippines": {
+    "city": "Cavinti",
+    "country": "Philippines",
+    "display_name": "Pagsanjan Falls, Cavinti, Laguna, Calabarzon, 4013, Philippines",
+    "latitude": "14.2625628",
+    "longitude": "121.4999861",
+    "query": "Pagsanjan Falls, Philippines",
+    "source": "nominatim",
+    "state": "Laguna",
+    "status": "ok",
+    "sublocation": ""
+  },
   "paintings & statues in the portal a palace": {
     "query": "Paintings & Statues in the Portal a Palace",
     "status": "miss"
@@ -11826,6 +13502,10 @@
   },
   "paintings & statues in the portala palace": {
     "query": "Paintings & Statues in the Portala Palace",
+    "status": "miss"
+  },
+  "palace of culture & science, warsaw, poland": {
+    "query": "Palace of Culture & Science, Warsaw, Poland",
     "status": "miss"
   },
   "palace of holyroodhouse": {
@@ -11902,8 +13582,20 @@
     "query": "Palace of Prince Eugene, Austria",
     "status": "miss"
   },
+  "palace of sintra (museu nacional do trajano), sintra, portugal": {
+    "query": "Palace of Sintra (Museu Nacional do Trajano), Sintra, Portugal",
+    "status": "miss"
+  },
+  "palace of sintra (quinta da regaleira), sintra, portugal": {
+    "query": "Palace of Sintra (Quinta da Regaleira), Sintra, Portugal",
+    "status": "miss"
+  },
   "palace of the habsburgers, austria": {
     "query": "Palace of the Habsburgers, Austria",
+    "status": "miss"
+  },
+  "palace of the soviets (vernadsky central museum of geology), moscow, russia": {
+    "query": "Palace of the Soviets (Vernadsky Central Museum of Geology), Moscow, Russia",
     "status": "miss"
   },
   "palace of westminster, london, united kingdom": {
@@ -11967,6 +13659,42 @@
     "query": "Palm Springs, March 1983",
     "status": "miss"
   },
+  "panama canal": {
+    "city": "Arraiján",
+    "country": "Panama",
+    "display_name": "Panama Canal, Arraijan, Panama Oeste, Panama",
+    "latitude": "8.9988205",
+    "longitude": "-79.6024233",
+    "query": "Panama Canal",
+    "source": "nominatim",
+    "state": "Panamá Oeste",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "panama canal, panama": {
+    "city": "Ancón",
+    "country": "Panama",
+    "display_name": "Panama Canal, Panama, Ancon, Panama Province, Panama",
+    "latitude": "9.0620248",
+    "longitude": "-79.6643080",
+    "query": "Panama Canal, Panama",
+    "source": "nominatim",
+    "state": "Panamá Province",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "panama canal, panama city, panama": {
+    "city": "Ancón",
+    "country": "Panama",
+    "display_name": "Panama Canal, Panama City, Panama, Ancon, Panama Province, Panama",
+    "latitude": "9.0012808",
+    "longitude": "-79.5958555",
+    "query": "Panama Canal, Panama City, Panama",
+    "source": "nominatim",
+    "state": "Panamá Province",
+    "status": "ok",
+    "sublocation": ""
+  },
   "paris, france": {
     "display_name": "Paris, Île-de-France, France métropolitaine, France",
     "latitude": "48.8588897",
@@ -11974,6 +13702,14 @@
     "query": "Paris, France",
     "source": "nominatim",
     "status": "ok"
+  },
+  "park and memorial on grounds of the warsaw ghetto, warsaw, poland": {
+    "query": "Park and Memorial on Grounds of the Warsaw Ghetto, Warsaw, Poland",
+    "status": "miss"
+  },
+  "park in chendou, chendou, mainland china": {
+    "query": "Park in Chendou, Chendou, Mainland China",
+    "status": "miss"
   },
   "park road beckenham": {
     "display_name": "Park Road, Beckenham, London Borough of Bromley, Greater London, England, BR3 1SE, United Kingdom",
@@ -12202,6 +13938,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "pena palace, sintra, portugal": {
+    "city": "Sintra (Santa Maria e São Miguel, São Martinho e São Pedro de Penaferrim)",
+    "country": "Portugal",
+    "display_name": "Pena Palace, Sintra, Portugal, Sintra (Santa Maria e Sao Miguel, Sao Martinho e Sao Pedro de Penaferrim), Portugal",
+    "latitude": "38.7875681",
+    "longitude": "-9.3905649",
+    "query": "Pena Palace, Sintra, Portugal",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Estrada da Pena"
+  },
   "penance, cornwall, england": {
     "display_name": "Penance Cottage, Bickland Water Road, Budock, Falmouth, Cornwall, England, TR11 5BJ, United Kingdom",
     "latitude": "50.1363980",
@@ -12260,6 +14008,30 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "peterhof, saint petersburg, russia": {
+    "city": "Peterhof",
+    "country": "Russia",
+    "display_name": "Peterhof, Saint Petersburg, Northwestern Federal District, Russia",
+    "latitude": "59.8818470",
+    "longitude": "29.9120410",
+    "query": "Peterhof, Saint Petersburg, Russia",
+    "source": "nominatim",
+    "state": "Saint Petersburg",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "petropolis, rio de janeiro, brazil": {
+    "city": "Petrópolis",
+    "country": "Brazil",
+    "display_name": "Petropolis, Rio de Janeiro, Brazil, Petropolis, Rio de Janeiro, Brazil",
+    "latitude": "-22.3880004",
+    "longitude": "-43.1752593",
+    "query": "Petropolis, Rio de Janeiro, Brazil",
+    "source": "nominatim",
+    "state": "Rio de Janeiro",
+    "status": "ok",
+    "sublocation": ""
+  },
   "petrovaradin fortress, novi sad": {
     "city": "Petrovaradin",
     "country": "Serbia",
@@ -12270,6 +14042,30 @@
     "source": "nominatim",
     "state": "",
     "status": "ok"
+  },
+  "petrópolis, brazil": {
+    "city": "Petrópolis",
+    "country": "Brazil",
+    "display_name": "Petropolis, Brazil, Petropolis, Rio de Janeiro, Brazil",
+    "latitude": "-22.3880004",
+    "longitude": "-43.1752593",
+    "query": "Petrópolis, Brazil",
+    "source": "nominatim",
+    "state": "Rio de Janeiro",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "petrópolis, rio de janeiro, brazil": {
+    "city": "Petrópolis",
+    "country": "Brazil",
+    "display_name": "Petropolis, Rio de Janeiro, Brazil, Petropolis, Rio de Janeiro, Brazil",
+    "latitude": "-22.3880004",
+    "longitude": "-43.1752593",
+    "query": "Petrópolis, Rio de Janeiro, Brazil",
+    "source": "nominatim",
+    "state": "Rio de Janeiro",
+    "status": "ok",
+    "sublocation": ""
   },
   "pevensey castle": {
     "city": "Wealden",
@@ -12383,6 +14179,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "philippines": {
+    "city": "",
+    "country": "Philippines",
+    "display_name": "Philippines",
+    "latitude": "12.7503486",
+    "longitude": "122.7312101",
+    "query": "Philippines",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
   "phoenix, arizona": {
     "city": "Phoenix",
     "country": "United States",
@@ -12432,6 +14240,18 @@
     "state": "Arizona",
     "status": "ok",
     "sublocation": "Playa Del Ray"
+  },
+  "plaza de armas, philippines": {
+    "city": "Manila",
+    "country": "Philippines",
+    "display_name": "Plaza de Armas, Intramuros, Fifth District, Manila, Capital District, Metro Manila, 1002, Philippines",
+    "latitude": "14.5946115",
+    "longitude": "120.9700283",
+    "query": "Plaza de Armas, Philippines",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
   },
   "plaza de españa (madrid), madrid, spain": {
     "city": "Madrid",
@@ -12528,6 +14348,18 @@
     "query": "Plaza de España, Seville, Spain",
     "source": "nominatim",
     "status": "ok"
+  },
+  "plaza de mayo, buenos aires, argentina": {
+    "city": "Buenos Aires",
+    "country": "Argentina",
+    "display_name": "Plaza de Mayo, Monserrat, Buenos Aires, Comuna 1, Autonomous City of Buenos Aires, Argentina",
+    "latitude": "-34.6084453",
+    "longitude": "-58.3721787",
+    "query": "Plaza de Mayo, Buenos Aires, Argentina",
+    "source": "nominatim",
+    "state": "Autonomous City of Buenos Aires",
+    "status": "ok",
+    "sublocation": ""
   },
   "plaza mayor, madrid": {
     "city": "Madrid",
@@ -12783,6 +14615,10 @@
     "state": "Campania",
     "status": "ok"
   },
+  "ponte rio-niteroi bridge, brazil": {
+    "query": "Ponte Rio-Niteroi Bridge, Brazil",
+    "status": "miss"
+  },
   "poros, greece": {
     "city": "Agios Nektarios",
     "country": "Greece",
@@ -12797,6 +14633,18 @@
   "port angeles - waiting for the boat to victoria - june 1992": {
     "query": "Port Angeles - Waiting for the boat to Victoria - June 1992",
     "status": "miss"
+  },
+  "port angeles, united states": {
+    "city": "Port Angeles",
+    "country": "United States",
+    "display_name": "Port Angeles, Clallam County, Washington, 98362, United States",
+    "latitude": "48.1181460",
+    "longitude": "-123.4307410",
+    "query": "Port Angeles, United States",
+    "source": "nominatim",
+    "state": "Washington",
+    "status": "ok",
+    "sublocation": ""
   },
   "port angeles, washington": {
     "city": "Port Angeles",
@@ -12820,6 +14668,18 @@
     "state": "Washington",
     "status": "ok",
     "sublocation": ""
+  },
+  "port of buenos aires, buenos aires, argentina": {
+    "city": "Buenos Aires",
+    "country": "Argentina",
+    "display_name": "Jorge Newbery Airpark, Avenida Costanera Rafael Obligado, Palermo, Buenos Aires, Comuna 14, Autonomous City of Buenos Aires, C1425, Argentina",
+    "latitude": "-34.5594554",
+    "longitude": "-58.4143637",
+    "query": "Port of Buenos Aires, Buenos Aires, Argentina",
+    "source": "nominatim",
+    "state": "Autonomous City of Buenos Aires",
+    "status": "ok",
+    "sublocation": "Avenida Costanera Rafael Obligado"
   },
   "portal palace, china": {
     "query": "Portal Palace, China",
@@ -12861,6 +14721,30 @@
     "status": "ok",
     "sublocation": ""
   },
+  "portugal": {
+    "city": "",
+    "country": "Portugal",
+    "display_name": "Portugal",
+    "latitude": "39.6621648",
+    "longitude": "-8.1353519",
+    "query": "Portugal",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "portugal 1988": {
+    "city": "Partido de Almirante Brown",
+    "country": "Argentina",
+    "display_name": "1988, Portugal, Malvinas Argentinas, Partido de Almirante Brown, Buenos Aires, B1851, Argentina",
+    "latitude": "-34.8161337",
+    "longitude": "-58.4233733",
+    "query": "Portugal 1988",
+    "source": "nominatim",
+    "state": "Buenos Aires",
+    "status": "ok",
+    "sublocation": "1988 Portugal"
+  },
   "potala palace": {
     "display_name": "布达拉宫 ཕོ་བྲང་པོ་ཏ་ལ།, 康昂北路东段, 吉崩岗街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
     "latitude": "29.6575676",
@@ -12876,6 +14760,18 @@
   "potala palace roof view": {
     "query": "Potala Palace roof view",
     "status": "miss"
+  },
+  "potala palace, china": {
+    "city": "Chengguan District",
+    "country": "China",
+    "display_name": "Potala Palace, China, Chengguan District, Tibet, China",
+    "latitude": "29.6575676",
+    "longitude": "91.1170188",
+    "query": "Potala Palace, China",
+    "source": "nominatim",
+    "state": "Tibet",
+    "status": "ok",
+    "sublocation": "康昂北路东段"
   },
   "potala palace, lasa, tibet": {
     "display_name": "布达拉宫 ཕོ་བྲང་པོ་ཏ་ལ།, 康昂北路东段, 吉崩岗街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
@@ -12924,6 +14820,18 @@
     "query": "Potala Palace, Tibet, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "poznan, poland": {
+    "city": "Poznan",
+    "country": "Poland",
+    "display_name": "Poznan, Greater Poland Voivodeship, Poland",
+    "latitude": "52.4082663",
+    "longitude": "16.9335199",
+    "query": "Poznan, Poland",
+    "source": "nominatim",
+    "state": "Greater Poland Voivodeship",
+    "status": "ok",
+    "sublocation": ""
   },
   "prague castle (hradčany), prague, czech republic": {
     "city": "Prague",
@@ -13129,6 +15037,10 @@
     "status": "ok",
     "sublocation": "Quay Road"
   },
+  "privately owned mini bus, manila, philippines": {
+    "query": "Privately owned mini bus, Manila, Philippines",
+    "status": "miss"
+  },
   "provddiv bulgaria": {
     "query": "Provddiv Bulgaria",
     "status": "miss"
@@ -13228,6 +15140,18 @@
     "source": "nominatim",
     "state": "",
     "status": "ok"
+  },
+  "qin ling mountains, china": {
+    "city": "",
+    "country": "China",
+    "display_name": "Qinling Mountains, China",
+    "latitude": "33.7340482",
+    "longitude": "108.5190791",
+    "query": "Qin Ling Mountains, China",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
   },
   "qin shi huangdi tomb, shaanxi, china": {
     "query": "Qin Shi Huangdi Tomb, Shaanxi, China",
@@ -13374,6 +15298,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "red square, moscow, russia": {
+    "city": "Moscow",
+    "country": "Russia",
+    "display_name": "Red Square, 4, Kitay-gorod, Tverskoy District, Moscow, Central Federal District, 103073, Russia",
+    "latitude": "55.7535908",
+    "longitude": "37.6215013",
+    "query": "Red Square, Moscow, Russia",
+    "source": "nominatim",
+    "state": "Moscow",
+    "status": "ok",
+    "sublocation": "Red Square"
+  },
   "redwoods, united states": {
     "city": "",
     "country": "United States",
@@ -13429,6 +15365,18 @@
     "state": "England",
     "status": "ok"
   },
+  "reichstag building, berlin, germany": {
+    "city": "Berlin",
+    "country": "Germany",
+    "display_name": "Reichstag Building, 1, Platz der Republik, Tiergarten, Mitte, Berlin, 11011, Germany",
+    "latitude": "52.5186538",
+    "longitude": "13.3761015",
+    "query": "Reichstag Building, Berlin, Germany",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "1 Platz der Republik"
+  },
   "reidsville, north carolina, united states": {
     "city": "Reidsville",
     "country": "United States",
@@ -13474,6 +15422,18 @@
     "source": "nominatim",
     "state": "",
     "status": "ok"
+  },
+  "repulse bay, hong kong": {
+    "city": "Hong Kong",
+    "country": "China",
+    "display_name": "Repulse Bay, Southern District, Hong Kong Island, Hong Kong, China",
+    "latitude": "22.2381085",
+    "longitude": "114.1963176",
+    "query": "Repulse Bay, Hong Kong",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
   },
   "restaurant at victoria peak": {
     "query": "Restaurant at Victoria Peak",
@@ -13521,6 +15481,18 @@
     "query": "Rhine Valley, Germany",
     "source": "nominatim",
     "status": "ok"
+  },
+  "rio de janeiro, brazil": {
+    "city": "Rio de Janeiro",
+    "country": "Brazil",
+    "display_name": "Rio de Janeiro, Brazil, Rio de Janeiro, Brazil",
+    "latitude": "-22.9110137",
+    "longitude": "-43.2093727",
+    "query": "Rio de Janeiro, Brazil",
+    "source": "nominatim",
+    "state": "Rio de Janeiro",
+    "status": "ok",
+    "sublocation": ""
   },
   "river at henley-on-thames": {
     "city": "South Oxfordshire",
@@ -13772,6 +15744,10 @@
     "query": "Rome, Italy; Terrace of Grapes in Italy; Alps in Switzerland",
     "status": "miss"
   },
+  "room of early renaissance art in the old hermitage, saint petersburg, russia": {
+    "query": "Room of Early Renaissance Art in the Old Hermitage, Saint Petersburg, Russia",
+    "status": "miss"
+  },
   "rose cottage, cockington, devon": {
     "city": "Torquay",
     "country": "United Kingdom",
@@ -13829,6 +15805,10 @@
     "status": "ok",
     "sublocation": "West Footbridge"
   },
+  "rostrel column, saint petersburg, russia": {
+    "query": "Rostrel Column, Saint Petersburg, Russia",
+    "status": "miss"
+  },
   "round church, cambridge, england": {
     "display_name": "Round Church, Bridge Street, Newnham, Cambridge, Cambridgeshire, Cambridgeshire and Peterborough, England, CB2 1UB, United Kingdom",
     "latitude": "52.2084735",
@@ -13856,6 +15836,22 @@
     "query": "Royal Palace, Madrid, Spain",
     "source": "nominatim",
     "status": "ok"
+  },
+  "royal palace, stockholm, sweden": {
+    "city": "Stockholm",
+    "country": "Sweden",
+    "display_name": "Royal Palace, Stockholm, Sweden, Stockholm, Sweden",
+    "latitude": "59.3268648",
+    "longitude": "18.0703216",
+    "query": "Royal Palace, Stockholm, Sweden",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "1 Slottsbacken"
+  },
+  "royal pantheon, bangkok, thailand": {
+    "query": "Royal Pantheon, Bangkok, Thailand",
+    "status": "miss"
   },
   "royal pier, mayflower memorial, red funnel seaflight hydrofoil service, southampton, england": {
     "query": "Royal Pier, Mayflower Memorial, Red Funnel Seaflight Hydrofoil Service, Southampton, England",
@@ -13903,6 +15899,18 @@
     "query": "Royal State Apartments, London, England",
     "status": "miss"
   },
+  "rubber tree, malaysia": {
+    "city": "Kuala Kangsar",
+    "country": "Malaysia",
+    "display_name": "Malaysia's Oldest Rubber Tree, Jalan Tun Razak, Taman Underwood, Kuala Kangsar, Perak, 33000, Malaysia",
+    "latitude": "4.7745105",
+    "longitude": "100.9410220",
+    "query": "Rubber Tree, Malaysia",
+    "source": "nominatim",
+    "state": "Perak",
+    "status": "ok",
+    "sublocation": "Jalan Tun Razak"
+  },
   "rural china": {
     "display_name": "中华人民共和国农业农村部, 农展馆南路, 麦子店街道, 朝阳区, 北京市, 100026, 中国",
     "latitude": "39.9331167",
@@ -13914,6 +15922,102 @@
   "rural china, possibly yunnan or guizhou province": {
     "query": "Rural China, possibly Yunnan or Guizhou Province",
     "status": "miss"
+  },
+  "russia": {
+    "city": "",
+    "country": "Russia",
+    "display_name": "Russia",
+    "latitude": "64.6863136",
+    "longitude": "97.7453061",
+    "query": "Russia",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "russia leningrad": {
+    "city": "",
+    "country": "Russia",
+    "display_name": "Saint Petersburg, Northwestern Federal District, Russia",
+    "latitude": "59.9606739",
+    "longitude": "30.1586551",
+    "query": "Russia Leningrad",
+    "source": "nominatim",
+    "state": "Saint Petersburg",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "russia moscow": {
+    "city": "",
+    "country": "Russia",
+    "display_name": "Moscow, Central Federal District, Russia",
+    "latitude": "55.6255780",
+    "longitude": "37.6063916",
+    "query": "Russia Moscow",
+    "source": "nominatim",
+    "state": "Moscow",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "russia moscow kremlin": {
+    "city": "Moscow",
+    "country": "Russia",
+    "display_name": "Moscow Kremlin, Faleyevskiy per., Yakimanka District, Moscow, Central Federal District, 115035, Russia",
+    "latitude": "55.7516212",
+    "longitude": "37.6181220",
+    "query": "Russia Moscow Kremlin",
+    "source": "nominatim",
+    "state": "Moscow",
+    "status": "ok",
+    "sublocation": "Faleyevskiy per."
+  },
+  "russia moscow subway": {
+    "city": "Moscow",
+    "country": "Russia",
+    "display_name": "Russia Moscow Subway, Moscow, Russia",
+    "latitude": "55.7393026",
+    "longitude": "37.5475459",
+    "query": "Russia Moscow Subway",
+    "source": "nominatim",
+    "state": "Moscow",
+    "status": "ok",
+    "sublocation": "Можайский переулок"
+  },
+  "russia novgorod": {
+    "city": "Veliky Novgorod",
+    "country": "Russia",
+    "display_name": "Veliky Novgorod, Novgorod Oblast, Northwestern Federal District, Russia",
+    "latitude": "58.5209862",
+    "longitude": "31.2757862",
+    "query": "Russia Novgorod",
+    "source": "nominatim",
+    "state": "Novgorod Oblast",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "russia saint petersburg peterhof": {
+    "city": "Peterhof",
+    "country": "Russia",
+    "display_name": "Peterhof, Saint Petersburg, Northwestern Federal District, Russia",
+    "latitude": "59.8818470",
+    "longitude": "29.9120410",
+    "query": "Russia Saint Petersburg Peterhof",
+    "source": "nominatim",
+    "state": "Saint Petersburg",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "russia, moscow": {
+    "city": "",
+    "country": "Russia",
+    "display_name": "Moscow, Central Federal District, Russia",
+    "latitude": "55.6255780",
+    "longitude": "37.6063916",
+    "query": "Russia, Moscow",
+    "source": "nominatim",
+    "state": "Moscow",
+    "status": "ok",
+    "sublocation": ""
   },
   "sakkara, egypt": {
     "display_name": "سقارة, الجيزة, 12919, مصر",
@@ -14218,6 +16322,18 @@
     "query": "Salzburg, Austria; Prague, Czechoslovakia",
     "status": "miss"
   },
+  "san antonio river walk, san antonio, texas, united states": {
+    "city": "San Antonio",
+    "country": "United States",
+    "display_name": "United States San Antonio Arsenal, River Walk, Arsenal, Downtown, San Antonio, Bexar County, Texas, 78205, United States",
+    "latitude": "29.4166391",
+    "longitude": "-98.4936121",
+    "query": "San Antonio River Walk, San Antonio, Texas, United States",
+    "source": "nominatim",
+    "state": "Texas",
+    "status": "ok",
+    "sublocation": "River Walk"
+  },
   "san antonio river, san antonio, texas, united states": {
     "city": "San Antonio",
     "country": "United States",
@@ -14364,6 +16480,18 @@
     "query": "San Francisco, United States",
     "source": "nominatim",
     "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "san juan, puerto rico": {
+    "city": "San Juan",
+    "country": "United States",
+    "display_name": "San Juan, Puerto Rico, United States",
+    "latitude": "18.4652990",
+    "longitude": "-66.1166660",
+    "query": "San Juan, Puerto Rico",
+    "source": "nominatim",
+    "state": "Puerto Rico",
     "status": "ok",
     "sublocation": ""
   },
@@ -14864,6 +16992,30 @@
     "query": "Seminol Hot Springs, California, United States",
     "status": "miss"
   },
+  "senate square, helsinki, finland": {
+    "city": "Helsinki",
+    "country": "Finland",
+    "display_name": "Senate Square, Siltavuori, Torikorttelit, Kruununhaka, Southern major district, Helsinki, Helsinki sub-region, Uusimaa, Mainland Finland, Finland",
+    "latitude": "60.1695115",
+    "longitude": "24.9522693",
+    "query": "Senate Square, Helsinki, Finland",
+    "source": "nominatim",
+    "state": "Uusimaa",
+    "status": "ok",
+    "sublocation": "Senate Square"
+  },
+  "sensoji temple, tokyo, japan": {
+    "city": "Taito",
+    "country": "Japan",
+    "display_name": "Sensoji Temple, Tokyo, Japan, Taito, Japan",
+    "latitude": "35.7134032",
+    "longitude": "139.7955265",
+    "query": "Sensoji Temple, Tokyo, Japan",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
   "sera monastery": {
     "display_name": "སེ་ར་དགོན། 色拉寺, 色拉北路, སྔགས་པ་གླིང་ཁའི་སྡེ་ཁུལ། 阿坝林卡社区, 娘热街道 ཉང་བྲན་ཁྲོམ་གཞུང།, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
     "latitude": "29.6978525",
@@ -15002,6 +17154,18 @@
     "state": "Alaska",
     "status": "ok"
   },
+  "seward, alaska, united states": {
+    "city": "Seward",
+    "country": "United States",
+    "display_name": "Seward, Kenai Peninsula Borough, Alaska, 99664, United States",
+    "latitude": "60.1013952",
+    "longitude": "-149.4404281",
+    "query": "Seward, Alaska, United States",
+    "source": "nominatim",
+    "state": "Alaska",
+    "status": "ok",
+    "sublocation": ""
+  },
   "shakespeare's birth place": {
     "query": "Shakespeare's Birth Place",
     "status": "miss"
@@ -15057,6 +17221,18 @@
   "shopping mall in skopje, north macedonia": {
     "query": "Shopping Mall in Skopje, North Macedonia",
     "status": "miss"
+  },
+  "singapore": {
+    "city": "",
+    "country": "Singapore",
+    "display_name": "Singapore",
+    "latitude": "1.3571070",
+    "longitude": "103.8194992",
+    "query": "Singapore",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
   },
   "sioux falls south dakota": {
     "city": "Sioux Falls",
@@ -15123,6 +17299,18 @@
     "query": "Slavia, Czech Republic",
     "source": "nominatim",
     "status": "ok"
+  },
+  "smolny cathedral, saint petersburg, russia": {
+    "city": "Saint Petersburg",
+    "country": "Russia",
+    "display_name": "Smolny Cathedral, Saint Petersburg, Russia, Saint Petersburg, Russia",
+    "latitude": "59.9488851",
+    "longitude": "30.3953910",
+    "query": "Smolny Cathedral, Saint Petersburg, Russia",
+    "source": "nominatim",
+    "state": "Saint Petersburg",
+    "status": "ok",
+    "sublocation": "1 площадь Растрелли"
   },
   "snowqualamie pass, victoria b.c., canada": {
     "query": "Snowqualamie Pass, Victoria B.C., Canada",
@@ -15252,6 +17440,18 @@
     "query": "Southport, Merseyside, England",
     "status": "miss"
   },
+  "soviet war memorial, berlin, germany": {
+    "city": "Berlin",
+    "country": "Germany",
+    "display_name": "Soviet War Memorial, Berlin, Germany, Berlin, Germany",
+    "latitude": "52.4876653",
+    "longitude": "13.4688201",
+    "query": "Soviet War Memorial, Berlin, Germany",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Am Treptower Park"
+  },
   "spa and south bay, scarborough": {
     "query": "Spa and South Bay, Scarborough",
     "status": "miss"
@@ -15259,6 +17459,18 @@
   "spa and south bay, scarborough, united kingdom": {
     "query": "Spa and South Bay, Scarborough, United Kingdom",
     "status": "miss"
+  },
+  "space museum, hong kong": {
+    "city": "Hong Kong",
+    "country": "China",
+    "display_name": "Hong Kong Space Museum, 10, Salisbury Road, Tsim Sha Tsui, Yau Tsim Mong District, Kowloon, Hong Kong, 999077, China",
+    "latitude": "22.2941686",
+    "longitude": "114.1718689",
+    "query": "Space Museum, Hong Kong",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "10 Salisbury Road"
   },
   "spain": {
     "display_name": "España",
@@ -15349,6 +17561,10 @@
     "source": "nominatim",
     "state": "Lazio",
     "status": "ok"
+  },
+  "spiral pavilion (phra wihan), bangkok, thailand": {
+    "query": "Spiral Pavilion (Phra Wihan), Bangkok, Thailand",
+    "status": "miss"
   },
   "square of america": {
     "city": "Village of Spring Valley",
@@ -15490,6 +17706,42 @@
     "query": "St Stephens Cathedral, Vienna, Austria",
     "status": "miss"
   },
+  "st thomas, u.s. virgin islands": {
+    "city": "Charlotte Amalie",
+    "country": "United States",
+    "display_name": "Saint Thomas, Charlotte Amalie, Saint Thomas - Saint John District, United States Virgin Islands, United States",
+    "latitude": "18.3429082",
+    "longitude": "-64.9188997",
+    "query": "St Thomas, U.S. Virgin Islands",
+    "source": "nominatim",
+    "state": "United States Virgin Islands",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "st thomas, u.s. virgin islands, united states virgin islands": {
+    "city": "Charlotte Amalie",
+    "country": "United States",
+    "display_name": "Saint Thomas, Charlotte Amalie, Saint Thomas - Saint John District, United States Virgin Islands, United States",
+    "latitude": "18.3429082",
+    "longitude": "-64.9188997",
+    "query": "St Thomas, U.S. Virgin Islands, United States Virgin Islands",
+    "source": "nominatim",
+    "state": "United States Virgin Islands",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "st thomas, us virgin islands": {
+    "city": "Charlotte Amalie",
+    "country": "United States",
+    "display_name": "Saint Thomas, Charlotte Amalie, Saint Thomas - Saint John District, United States Virgin Islands, United States",
+    "latitude": "18.3429082",
+    "longitude": "-64.9188997",
+    "query": "St Thomas, US Virgin Islands",
+    "source": "nominatim",
+    "state": "United States Virgin Islands",
+    "status": "ok",
+    "sublocation": ""
+  },
   "st. alexander nevsky patriarchal cathedral, bulgaria": {
     "query": "St. Alexander Nevsky Patriarchal Cathedral, Bulgaria",
     "status": "miss"
@@ -15497,6 +17749,30 @@
   "st. alexander nevsky patriarchal cathedral, sofia, bulgaria": {
     "query": "St. Alexander Nevsky Patriarchal Cathedral, Sofia, Bulgaria",
     "status": "miss"
+  },
+  "st. basil's cathedral, moscow, russia": {
+    "city": "Moscow",
+    "country": "Russia",
+    "display_name": "Saint Basil's Cathedral, 2, Red Square, 2, Kitay-gorod, Tverskoy District, Moscow, Central Federal District, 109012, Russia",
+    "latitude": "55.7524736",
+    "longitude": "37.6231624",
+    "query": "St. Basil's Cathedral, Moscow, Russia",
+    "source": "nominatim",
+    "state": "Moscow",
+    "status": "ok",
+    "sublocation": "2 Red Square"
+  },
+  "st. basil's cathedral, red square, moscow, russia": {
+    "city": "Moscow",
+    "country": "Russia",
+    "display_name": "Saint Basil's Cathedral, 2, Red Square, 2, Kitay-gorod, Tverskoy District, Moscow, Central Federal District, 109012, Russia",
+    "latitude": "55.7524736",
+    "longitude": "37.6231624",
+    "query": "St. Basil's Cathedral, Red Square, Moscow, Russia",
+    "source": "nominatim",
+    "state": "Moscow",
+    "status": "ok",
+    "sublocation": "2 Red Square"
   },
   "st. cross, winchester, england": {
     "city": "Winchester",
@@ -15509,6 +17785,10 @@
     "state": "England",
     "status": "ok",
     "sublocation": ""
+  },
+  "st. george's castle, lisbon, portugal": {
+    "query": "St. George's Castle, Lisbon, Portugal",
+    "status": "miss"
   },
   "st. george's hall, lime street liverpool": {
     "query": "St. George's Hall, Lime Street Liverpool",
@@ -15780,12 +18060,20 @@
     "query": "St. Peters Square, Rome Italy",
     "status": "miss"
   },
+  "st. philip's episcopal church, charleston, south carolina, united states": {
+    "query": "St. Philip's Episcopal Church, Charleston, South Carolina, United States",
+    "status": "miss"
+  },
   "st. philip's episcopal church, church street, charleston, south carolina, united states": {
     "query": "St. Philip's Episcopal Church, Church Street, Charleston, South Carolina, United States",
     "status": "miss"
   },
   "st. sophia cathedral, istanbul, turkey": {
     "query": "St. Sophia Cathedral, Istanbul, Turkey",
+    "status": "miss"
+  },
+  "st. sophia cathedral, novgorod, russia": {
+    "query": "St. Sophia Cathedral, Novgorod, Russia",
     "status": "miss"
   },
   "st. stephen's cathedral": {
@@ -15820,6 +18108,18 @@
     "source": "nominatim",
     "state": "",
     "status": "ok"
+  },
+  "st. thomas, u.s. virgin islands, united states virgin islands": {
+    "city": "Charlotte Amalie",
+    "country": "United States",
+    "display_name": "Saint Thomas, Charlotte Amalie, Saint Thomas - Saint John District, United States Virgin Islands, United States",
+    "latitude": "18.3429082",
+    "longitude": "-64.9188997",
+    "query": "St. Thomas, U.S. Virgin Islands, United States Virgin Islands",
+    "source": "nominatim",
+    "state": "United States Virgin Islands",
+    "status": "ok",
+    "sublocation": ""
   },
   "st.alexander nevsky patriarchal cathedral, bulgaria": {
     "query": "St.Alexander Nevsky Patriarchal Cathedral, Bulgaria",
@@ -15908,6 +18208,18 @@
     "state": "Federation of Bosnia and Herzegovina",
     "status": "ok"
   },
+  "state historical museum, moscow, russia": {
+    "city": "",
+    "country": "Russia",
+    "display_name": "State Historical Museum, Moscow, Russia, Moscow Oblast, Russia",
+    "latitude": "55.5178930",
+    "longitude": "35.8226741",
+    "query": "State Historical Museum, Moscow, Russia",
+    "source": "nominatim",
+    "state": "Moscow Oblast",
+    "status": "ok",
+    "sublocation": "аллея к могиле Багратиона"
+  },
   "statfor-upon-avon, england": {
     "query": "Statfor-upon-Avon, England",
     "status": "miss"
@@ -15931,6 +18243,10 @@
     "state": "New York",
     "status": "ok",
     "sublocation": "Flagpole Plaza"
+  },
+  "statue of peter the great, decembrists square, saint petersburg, russia": {
+    "query": "Statue of Peter the Great, Decembrists Square, Saint Petersburg, Russia",
+    "status": "miss"
   },
   "statue of ramases the second at memphis egypt, the alabaster sphinx - memphis": {
     "query": "Statue of Ramases the Second at Memphis Egypt, The Alabaster Sphinx - Memphis",
@@ -15990,6 +18306,42 @@
   "stephens cathedral, zagreb, zagreb county, croatia": {
     "query": "Stephens Cathedral, Zagreb, Zagreb County, Croatia",
     "status": "miss"
+  },
+  "stockholm city hall, stockholm, sweden": {
+    "city": "Stockholm",
+    "country": "Sweden",
+    "display_name": "Stockholm City Hall, Stockholm, Sweden, Stockholm, Sweden",
+    "latitude": "59.3274942",
+    "longitude": "18.0542148",
+    "query": "Stockholm City Hall, Stockholm, Sweden",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "1 Hantverkargatan"
+  },
+  "stockholm, sweden": {
+    "city": "Stockholm",
+    "country": "Sweden",
+    "display_name": "Stockholm, Stockholm Municipality, Stockholm County, 111 29, Sweden",
+    "latitude": "59.3251172",
+    "longitude": "18.0710935",
+    "query": "Stockholm, Sweden",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "stone flower fountain, russia": {
+    "city": "Moscow",
+    "country": "Russia",
+    "display_name": "\"Stone Flower\" Fountain, Main Alley, Trade Fair Moscow, All-Russia Exhibition Centre, Ostankinsky District, Moscow, Central Federal District, 129223, Russia",
+    "latitude": "55.8321976",
+    "longitude": "37.6280168",
+    "query": "Stone Flower Fountain, Russia",
+    "source": "nominatim",
+    "state": "Moscow",
+    "status": "ok",
+    "sublocation": "Main Alley"
   },
   "stone forest": {
     "city": "Kunming",
@@ -16249,6 +18601,14 @@
     "query": "Streets of Ely, The Guildhall, King's Lynn, England",
     "status": "miss"
   },
+  "sugar loaf mountain, brazil": {
+    "query": "Sugar Loaf Mountain, Brazil",
+    "status": "miss"
+  },
+  "sugar loaf mountain, rio de janeiro, brazil": {
+    "query": "Sugar Loaf Mountain, Rio de Janeiro, Brazil",
+    "status": "miss"
+  },
   "suleymaniye mosque, istanbul, turkey": {
     "city": "Istanbul",
     "country": "Turkey",
@@ -16394,6 +18754,42 @@
     "state": "Wales",
     "status": "ok"
   },
+  "sweden": {
+    "city": "",
+    "country": "Sweden",
+    "display_name": "Sweden",
+    "latitude": "59.6749712",
+    "longitude": "14.5208584",
+    "query": "Sweden",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "taipei airport, taipei, taiwan": {
+    "city": "Taipei",
+    "country": "Taiwan",
+    "display_name": "Taipei Songshan Airport, 340-9, Dunhua North Road, Jingzhong Village, Songshan District, Xiapitou, Taipei, 10548, Taiwan",
+    "latitude": "25.0664770",
+    "longitude": "121.5548877",
+    "query": "Taipei Airport, Taipei, Taiwan",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "340-9 Dunhua North Road"
+  },
+  "taipei, taiwan": {
+    "city": "Taipei",
+    "country": "Taiwan",
+    "display_name": "Taipei, Taiwan",
+    "latitude": "25.0375198",
+    "longitude": "121.5636796",
+    "query": "Taipei, Taiwan",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
   "tanger, morocco": {
     "display_name": "Tanger طنجة, Pachalik de Tanger باشوية طنجة, Préfecture de Tanger-Assilah عمالة طنجة-أصيلة, Tanger-Tétouan-Al Hoceïma ⵟⴰⵏⵊ-ⵟⵉⵜⴰⵡⵉⵏ-ⵍⵃⵓⵙⵉⵎⴰ طنجة تطوان الحسيمة, Maroc ⵍⵎⵖⵔⵉⴱ المغرب",
     "latitude": "35.7696302",
@@ -16417,6 +18813,18 @@
   "temple architecture, himalayas": {
     "query": "Temple architecture, Himalayas",
     "status": "miss"
+  },
+  "temple of dawn (wat arun), bangkok, thailand": {
+    "city": "Bangkok",
+    "country": "Thailand",
+    "display_name": "Wat Arun, 158, Wang Doem Road, Wat Arun Subdistrict, Bangkok Yai District, Bangkok, 10600, Thailand",
+    "latitude": "13.7438976",
+    "longitude": "100.4885137",
+    "query": "Temple of Dawn (Wat Arun), Bangkok, Thailand",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "158 Wang Doem Road"
   },
   "temple of karnak, luxor, egypt": {
     "display_name": "معبد الأقصر, طريق الكباش, مدينه الاقصر, الكرنك القديم, الأقصر, 81693, مصر",
@@ -16591,6 +18999,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "terracotta army, xian, china": {
+    "query": "Terracotta Army, Xian, China",
+    "status": "miss"
+  },
   "terracotta army, xianyang, shaanxi, china": {
     "query": "Terracotta Army, Xianyang, Shaanxi, China",
     "status": "miss"
@@ -16618,6 +19030,26 @@
     "query": "Terracotta Warriors, Xi'an, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "texas state capitol building, texas, united states": {
+    "query": "Texas State Capitol Building, Texas, United States",
+    "status": "miss"
+  },
+  "thailand": {
+    "city": "",
+    "country": "Thailand",
+    "display_name": "Thailand",
+    "latitude": "14.8971921",
+    "longitude": "100.8327300",
+    "query": "Thailand",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "the \"ann frank house\", amsterdam, netherlands": {
+    "query": "The \"Ann Frank House\", Amsterdam, Netherlands",
+    "status": "miss"
   },
   "the acropolis, athens, greece": {
     "city": "Athens",
@@ -16736,6 +19168,18 @@
     "query": "The Beautiful Gardens at Epcot",
     "status": "miss"
   },
+  "the berlin wall, berlin, germany": {
+    "city": "Berlin",
+    "country": "Germany",
+    "display_name": "Berlin Wall, Alexanderufer, Friedrich-Wilhelm-Stadt, Mitte, Berlin, 10117, Germany",
+    "latitude": "52.5241276",
+    "longitude": "13.3735305",
+    "query": "The Berlin Wall, Berlin, Germany",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Alexanderufer"
+  },
   "the board walk at scarborough": {
     "query": "The Board Walk at Scarborough",
     "status": "miss"
@@ -16746,6 +19190,10 @@
   },
   "the boating lake and bridge, southport, england, united kingdom": {
     "query": "The Boating Lake and Bridge, Southport, England, United Kingdom",
+    "status": "miss"
+  },
+  "the boudoir in the winter palace, saint petersburg, russia": {
+    "query": "The Boudoir in the Winter Palace, Saint Petersburg, Russia",
     "status": "miss"
   },
   "the bridge of sighs st john's college cambridge": {
@@ -16771,6 +19219,18 @@
   "the broadway, chipping campden, united kingdom": {
     "query": "The Broadway, Chipping Campden, United Kingdom",
     "status": "miss"
+  },
+  "the canals in amsterdam, amsterdam, netherlands": {
+    "city": "Amsterdam",
+    "country": "Netherlands",
+    "display_name": "Singel, Centrum, Amsterdam, North Holland, Netherlands, 1015 AH, Netherlands",
+    "latitude": "52.3754972",
+    "longitude": "4.8903934",
+    "query": "The Canals in Amsterdam, Amsterdam, Netherlands",
+    "source": "nominatim",
+    "state": "North Holland",
+    "status": "ok",
+    "sublocation": ""
   },
   "the castle, cardiff": {
     "city": "Cardiff",
@@ -16817,6 +19277,18 @@
     "state": "Wales",
     "status": "ok"
   },
+  "the china sea, china": {
+    "city": "",
+    "country": "China",
+    "display_name": "Disputes between Vietnam and China in South China Sea, China",
+    "latitude": "16.3211814",
+    "longitude": "111.9789227",
+    "query": "The China Sea, China",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
   "the city cross - winchester, united kingdom": {
     "city": "Winchester",
     "country": "United Kingdom",
@@ -16831,6 +19303,10 @@
   },
   "the city cross - winchester, winchester, england, united kingdom": {
     "query": "The City Cross - Winchester, Winchester, England, United Kingdom",
+    "status": "miss"
+  },
+  "the city hall on gorky street, russia": {
+    "query": "The City Hall on Gorky Street, Russia",
     "status": "miss"
   },
   "the colosseum, italy": {
@@ -16891,6 +19367,14 @@
     "query": "The Edwardian Hotel, United Kingdom",
     "status": "miss"
   },
+  "the floating market of bangkok, bangkok, thailand": {
+    "query": "The Floating Market of Bangkok, Bangkok, Thailand",
+    "status": "miss"
+  },
+  "the fort in san juan, puerto rico, san juan": {
+    "query": "The Fort in San Juan, Puerto Rico, San Juan",
+    "status": "miss"
+  },
   "the forum of augustus, rome, lazio, italy": {
     "query": "The Forum of Augustus, Rome, Lazio, Italy",
     "status": "miss"
@@ -16934,6 +19418,30 @@
     "state": "",
     "status": "ok",
     "sublocation": "Gloriettestraße"
+  },
+  "the grand palace - bangkok, bangkok, thailand": {
+    "city": "Bangkok",
+    "country": "Thailand",
+    "display_name": "Grand Palace, Na Phra Lan Road, Tha Chang, Phra Borom Maha Ratchawang Subdistrict, Phra Nakhon District, Bangkok, 10200, Thailand",
+    "latitude": "13.7493514",
+    "longitude": "100.4918643",
+    "query": "The Grand Palace - Bangkok, Bangkok, Thailand",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Na Phra Lan Road"
+  },
+  "the grand palace, bangkok, thailand": {
+    "city": "Bangkok",
+    "country": "Thailand",
+    "display_name": "Grand Palace, Na Phra Lan Road, Tha Chang, Phra Borom Maha Ratchawang Subdistrict, Phra Nakhon District, Bangkok, 10200, Thailand",
+    "latitude": "13.7493514",
+    "longitude": "100.4918643",
+    "query": "The Grand Palace, Bangkok, Thailand",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Na Phra Lan Road"
   },
   "the grand staircase, longleat, warminster, wiltshire, england": {
     "query": "The Grand Staircase, Longleat, Warminster, Wiltshire, England",
@@ -17072,6 +19580,30 @@
     "query": "The Harbour from Vane Hill, Torquay, Torquay, Devon, United Kingdom",
     "status": "miss"
   },
+  "the hermitage theatre, saint petersburg, russia": {
+    "city": "Saint Petersburg",
+    "country": "Russia",
+    "display_name": "Hermitage Theatre, 32, Palace Embankment, Palace District, Saint Petersburg, Northwestern Federal District, 191186, Russia",
+    "latitude": "59.9426353",
+    "longitude": "30.3177572",
+    "query": "The Hermitage Theatre, Saint Petersburg, Russia",
+    "source": "nominatim",
+    "state": "Saint Petersburg",
+    "status": "ok",
+    "sublocation": "32 Palace Embankment"
+  },
+  "the hermitage, saint petersburg, russia": {
+    "city": "Saint Petersburg",
+    "country": "Russia",
+    "display_name": "The Hermitage, Saint Petersburg, Russia, Saint Petersburg, Russia",
+    "latitude": "59.9412076",
+    "longitude": "30.3154865",
+    "query": "The Hermitage, Saint Petersburg, Russia",
+    "source": "nominatim",
+    "state": "Saint Petersburg",
+    "status": "ok",
+    "sublocation": "38 литА Palace Embankment"
+  },
   "the high, oxford": {
     "city": "Oxford",
     "country": "United Kingdom",
@@ -17126,6 +19658,10 @@
     "status": "ok",
     "sublocation": "Back Street"
   },
+  "the jupiter room in the new hermitage, saint petersburg, russia": {
+    "query": "The Jupiter Room in the New Hermitage, Saint Petersburg, Russia",
+    "status": "miss"
+  },
   "the karnak temple, luxor, egypt": {
     "display_name": "socle of the northern obelisk of Seti II, Karnak Temple Square, الكرنك القديم, الأقصر, 81693, مصر",
     "latitude": "25.7194633",
@@ -17145,6 +19681,10 @@
     "state": "England",
     "status": "ok",
     "sublocation": "Basingstoke Canal Towpath"
+  },
+  "the knights' hall in the new hermitage, saint petersburg, russia": {
+    "query": "The Knights' Hall in the New Hermitage, Saint Petersburg, Russia",
+    "status": "miss"
   },
   "the law courts, cardiff, cardiff, wales, united kingdom": {
     "city": "Cardiff",
@@ -17177,6 +19717,18 @@
     "query": "The Leopoldskron Castle, Prague, Czech Republic",
     "status": "miss"
   },
+  "the little mermaid, copenhagen, denmark": {
+    "city": "Copenhagen",
+    "country": "Denmark",
+    "display_name": "The Little Mermaid, Langelinie, Indre By, Copenhagen, Copenhagen Municipality, Capital Region of Denmark, 1259, Denmark",
+    "latitude": "55.6928661",
+    "longitude": "12.5992896",
+    "query": "The Little Mermaid, Copenhagen, Denmark",
+    "source": "nominatim",
+    "state": "Capital Region of Denmark",
+    "status": "ok",
+    "sublocation": "Langelinie"
+  },
   "the london music museum": {
     "query": "The London Music Museum",
     "status": "miss"
@@ -17193,12 +19745,24 @@
     "query": "The Main Gate-St John's College, St John's College, Cambridge, England, United Kingdom",
     "status": "miss"
   },
+  "the malachite room in the winter palace, saint petersburg, russia": {
+    "query": "The Malachite Room in the Winter Palace, Saint Petersburg, Russia",
+    "status": "miss"
+  },
   "the market place in zagreb, zagreb, croatia": {
     "query": "The Market Place in Zagreb, Zagreb, Croatia",
     "status": "miss"
   },
   "the markets of trajan": {
     "query": "The Markets of Trajan",
+    "status": "miss"
+  },
+  "the markets of trajan, rome, italy": {
+    "query": "The Markets of Trajan, Rome, Italy",
+    "status": "miss"
+  },
+  "the mayor's house, amsterdam, netherlands": {
+    "query": "The Mayor's House, Amsterdam, Netherlands",
     "status": "miss"
   },
   "the medina": {
@@ -17249,6 +19813,10 @@
   },
   "the mohamed aly alabaster mosque - cairo egypt dec. 1975": {
     "query": "The Mohamed Aly Alabaster Mosque - Cairo Egypt Dec. 1975",
+    "status": "miss"
+  },
+  "the monastery of dawn (wat arun), bangkok, thailand": {
+    "query": "The Monastery of Dawn (Wat Arun), Bangkok, Thailand",
     "status": "miss"
   },
   "the national theatre of prague": {
@@ -17461,6 +20029,10 @@
     "status": "ok",
     "sublocation": "Butcher Row"
   },
+  "the princess hotel and grounds, acapulco, mexico": {
+    "query": "The Princess Hotel and Grounds, Acapulco, Mexico",
+    "status": "miss"
+  },
   "the quay and priory, christchurch": {
     "query": "The Quay and Priory, Christchurch",
     "status": "miss"
@@ -17542,6 +20114,10 @@
     "query": "The river where the Tibetan people bathe once a year",
     "status": "miss"
   },
+  "the river where the tibetan people bathe once a year, china": {
+    "query": "The River Where the Tibetan People Bathe Once a Year, China",
+    "status": "miss"
+  },
   "the royal crescent - bath": {
     "display_name": "The Royal Crescent, Marlborough Buildings, Sion Hill, Bath, Bath and North East Somerset, West of England, England, BA1 2LX, United Kingdom",
     "latitude": "51.3874160",
@@ -17600,6 +20176,10 @@
     "status": "ok",
     "sublocation": "Royal Crescent"
   },
+  "the royal fortress santiago, philippines": {
+    "query": "The Royal Fortress Santiago, Philippines",
+    "status": "miss"
+  },
   "the sacred way & arch of titus": {
     "query": "The Sacred Way & Arch of Titus",
     "status": "miss"
@@ -17642,6 +20222,10 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "the small top-lighted room in the new hermitage, saint petersburg, russia": {
+    "query": "The Small Top-lighted Room in the New Hermitage, Saint Petersburg, Russia",
+    "status": "miss"
   },
   "the sphinx avenue, luxor, egypt": {
     "query": "The Sphinx Avenue, Luxor, Egypt",
@@ -17706,6 +20290,26 @@
     "query": "The Stone Forest, Yunnan, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "the sultan mosque, jahore bahru, malaysia": {
+    "query": "The Sultan Mosque, Jahore Bahru, Malaysia",
+    "status": "miss"
+  },
+  "the sultan mosque, johore bahru, malaysia": {
+    "city": "Tebrau",
+    "country": "Malaysia",
+    "display_name": "The Sultan Mosque, Johore Bahru, Malaysia, Tebrau, Johor, Malaysia",
+    "latitude": "1.5605823",
+    "longitude": "103.7370856",
+    "query": "The Sultan Mosque, Johore Bahru, Malaysia",
+    "source": "nominatim",
+    "state": "Johor",
+    "status": "ok",
+    "sublocation": "Jalan Dato' Onn 2"
+  },
+  "the terra cotta soldiers, china": {
+    "query": "The Terra Cotta Soldiers, China",
+    "status": "miss"
   },
   "the tombs of ramases vi - ramases ix - king tutankamen": {
     "query": "The Tombs of Ramases VI - Ramases IX - King Tutankamen",
@@ -17781,6 +20385,18 @@
     "query": "The Wild Goose Pagoda",
     "status": "miss"
   },
+  "the wild goose pagoda, china": {
+    "city": "Yanta District",
+    "country": "China",
+    "display_name": "The Wild Goose Pagoda, China, Yanta District, Shaanxi, China",
+    "latitude": "34.2197968",
+    "longitude": "108.9594259",
+    "query": "The Wild Goose Pagoda, China",
+    "source": "nominatim",
+    "state": "Shaanxi",
+    "status": "ok",
+    "sublocation": "雁塔西步行街"
+  },
   "the wild goose pagoda, xi'an, china": {
     "query": "The Wild Goose Pagoda, Xi'an, China",
     "status": "miss"
@@ -17799,6 +20415,10 @@
   },
   "the zoo at chendou": {
     "query": "The Zoo at Chendou",
+    "status": "miss"
+  },
+  "the zoo at chendou, chendou, china": {
+    "query": "The Zoo at Chendou, Chendou, China",
     "status": "miss"
   },
   "the zoo at chengdu, sichuan, china": {
@@ -17849,6 +20469,18 @@
     "query": "Tibetan temple architectural details",
     "status": "miss"
   },
+  "tibetan village on the way to lasa, lasa, mainland china": {
+    "query": "Tibetan village on the way to Lasa, Lasa, Mainland China",
+    "status": "miss"
+  },
+  "tiger balm gardens - singapore, singapore": {
+    "query": "Tiger Balm Gardens - Singapore, Singapore",
+    "status": "miss"
+  },
+  "tiger balm gardens, singapore": {
+    "query": "Tiger Balm Gardens, Singapore",
+    "status": "miss"
+  },
   "tijuana, mexico": {
     "city": "Tijuana",
     "country": "Mexico",
@@ -17870,6 +20502,46 @@
     "source": "nominatim",
     "state": "Baja California",
     "status": "ok"
+  },
+  "tivoli gardens, copenhagen, denmark": {
+    "city": "Copenhagen",
+    "country": "Denmark",
+    "display_name": "Tivoli Gardens, Copenhagen, Denmark, Copenhagen, Capital Region of Denmark, Denmark",
+    "latitude": "55.6733426",
+    "longitude": "12.5690422",
+    "query": "Tivoli Gardens, Copenhagen, Denmark",
+    "source": "nominatim",
+    "state": "Capital Region of Denmark",
+    "status": "ok",
+    "sublocation": "Bag Rådhuset"
+  },
+  "tivoli gardens, denmark": {
+    "city": "Copenhagen",
+    "country": "Denmark",
+    "display_name": "Tivoli Gardens, Tietgensgade, Postbyen, Meatpacking District, Copenhagen, Copenhagen Municipality, Capital Region of Denmark, 1704, Denmark",
+    "latitude": "55.6733426",
+    "longitude": "12.5690422",
+    "query": "Tivoli Gardens, Denmark",
+    "source": "nominatim",
+    "state": "Capital Region of Denmark",
+    "status": "ok",
+    "sublocation": "Tietgensgade"
+  },
+  "todaiji temple, japan": {
+    "city": "Kawazu",
+    "country": "Japan",
+    "display_name": "Todaiji Temple, Japan, Kawazu, Japan",
+    "latitude": "34.7597409",
+    "longitude": "138.9807715",
+    "query": "Todaiji Temple, Japan",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "下佐ヶ野谷津線"
+  },
+  "todaiji temple, nara, japan": {
+    "query": "Todaiji Temple, Nara, Japan",
+    "status": "miss"
   },
   "tokyo, japan": {
     "city": "",
@@ -18236,6 +20908,10 @@
     "state": "Cairo",
     "status": "ok"
   },
+  "tower of phra prang, bangkok, thailand": {
+    "query": "Tower of Phra Prang, Bangkok, Thailand",
+    "status": "miss"
+  },
   "tower of skulls, nis, serbia": {
     "query": "Tower of Skulls, Nis, Serbia",
     "status": "miss"
@@ -18549,6 +21225,18 @@
     "state": "",
     "status": "ok"
   },
+  "uss constitution, united states": {
+    "city": "Boston",
+    "country": "United States",
+    "display_name": "USS Constitution, 24, Third Street, Charlestown, Boston, Suffolk County, Massachusetts, 02129, United States",
+    "latitude": "42.3724407",
+    "longitude": "-71.0565466",
+    "query": "USS Constitution, United States",
+    "source": "nominatim",
+    "state": "Massachusetts",
+    "status": "ok",
+    "sublocation": "24 Third Street"
+  },
   "utah, united states": {
     "city": "",
     "country": "United States",
@@ -18683,6 +21371,46 @@
     "query": "Vatican City, Rome, Italy",
     "status": "miss"
   },
+  "vdnkh, moscow, russia": {
+    "city": "Moscow",
+    "country": "Russia",
+    "display_name": "VDNKh, Moscow, Russia, Moscow, Russia",
+    "latitude": "55.8209553",
+    "longitude": "37.6412006",
+    "query": "VDNKh, Moscow, Russia",
+    "source": "nominatim",
+    "state": "Moscow",
+    "status": "ok",
+    "sublocation": "проспект Мира"
+  },
+  "veliky novgorod kremlin, veliky novgorod, novgorod oblast, russia": {
+    "query": "Veliky Novgorod Kremlin, Veliky Novgorod, Novgorod Oblast, Russia",
+    "status": "miss"
+  },
+  "veliky novgorod, novgorod oblast, russia": {
+    "city": "Veliky Novgorod",
+    "country": "Russia",
+    "display_name": "Veliky Novgorod, Novgorod Oblast, Northwestern Federal District, Russia",
+    "latitude": "58.5209862",
+    "longitude": "31.2757862",
+    "query": "Veliky Novgorod, Novgorod Oblast, Russia",
+    "source": "nominatim",
+    "state": "Novgorod Oblast",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "veliky novgorod, russia": {
+    "city": "Veliky Novgorod",
+    "country": "Russia",
+    "display_name": "Veliky Novgorod, Novgorod Oblast, Northwestern Federal District, Russia",
+    "latitude": "58.5209862",
+    "longitude": "31.2757862",
+    "query": "Veliky Novgorod, Russia",
+    "source": "nominatim",
+    "state": "Novgorod Oblast",
+    "status": "ok",
+    "sublocation": ""
+  },
   "venice and rome, italy": {
     "query": "Venice and Rome, Italy",
     "status": "miss"
@@ -18697,6 +21425,14 @@
   },
   "venice, italy; rome, italy": {
     "query": "Venice, Italy; Rome, Italy",
+    "status": "miss"
+  },
+  "vernadsky building (palace of the soviets), moscow, russia": {
+    "query": "Vernadsky Building (Palace of the Soviets), Moscow, Russia",
+    "status": "miss"
+  },
+  "vernadsky central museum of geology, moscow, russia": {
+    "query": "Vernadsky Central Museum of Geology, Moscow, Russia",
     "status": "miss"
   },
   "via veneto, rome italy": {
@@ -18829,6 +21565,18 @@
     "query": "Victoria Peak Tram, Hong Kong, China",
     "status": "miss"
   },
+  "victoria peak tramway, hong kong": {
+    "city": "Hong Kong",
+    "country": "China",
+    "display_name": "Bilhetes pro Victoria Peak?, Tramway Lane, Government Hill, Mid-Levels, Central and Western District, Hong Kong Island, Hong Kong, 999077, China",
+    "latitude": "22.2780271",
+    "longitude": "114.1596089",
+    "query": "Victoria Peak Tramway, Hong Kong",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Tramway Lane"
+  },
   "victoria peak, hong kong": {
     "display_name": "扯旗山 Victoria Peak, 香港 Hong Kong, 999077, 中国",
     "latitude": "22.2760386",
@@ -18848,6 +21596,18 @@
     "query": "Victoria Peak, Hong Kong, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "victoria station, london, united kingdom": {
+    "city": "City of Westminster",
+    "country": "United Kingdom",
+    "display_name": "London Victoria station, Buckingham Palace Road, Victoria, City of Westminster, Greater London, England, SW1V 1JU, United Kingdom",
+    "latitude": "51.4950525",
+    "longitude": "-0.1448455",
+    "query": "Victoria Station, London, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Buckingham Palace Road"
   },
   "victoria, b.c. canada": {
     "city": "Victoria",
@@ -18963,6 +21723,10 @@
     "state": "British Columbia",
     "status": "ok"
   },
+  "victory monument (with stone brought from sweden), russia": {
+    "query": "Victory Monument (with stone brought from Sweden), Russia",
+    "status": "miss"
+  },
   "vienna austria": {
     "display_name": "Wien, Österreich",
     "latitude": "48.2083537",
@@ -19054,9 +21818,33 @@
     "query": "Vittorio Emanuele Monument or The Altar of the Nations, Rome, Italy",
     "status": "miss"
   },
+  "vivanco, tigre, buenos aires, argentina": {
+    "city": "Tigre",
+    "country": "Argentina",
+    "display_name": "Vivanco, Tigre, Partido de Tigre, Buenos Aires, B1648AQB, Argentina",
+    "latitude": "-34.4205095",
+    "longitude": "-58.5747216",
+    "query": "Vivanco, Tigre, Buenos Aires, Argentina",
+    "source": "nominatim",
+    "state": "Buenos Aires",
+    "status": "ok",
+    "sublocation": "Vivanco"
+  },
   "vnik, yugoslavia": {
     "query": "Vnik, Yugoslavia",
     "status": "miss"
+  },
+  "volga river, russia": {
+    "city": "Samara",
+    "country": "Russia",
+    "display_name": "Volga River, Russia, Samara, Samara Oblast, Russia",
+    "latitude": "53.2285880",
+    "longitude": "50.1349174",
+    "query": "Volga River, Russia",
+    "source": "nominatim",
+    "state": "Samara Oblast",
+    "status": "ok",
+    "sublocation": ""
   },
   "waikiki beach, honolulu, hawaii": {
     "city": "Honolulu",
@@ -19079,6 +21867,18 @@
     "source": "nominatim",
     "state": "Hawaii",
     "status": "ok"
+  },
+  "waikiki, hawaii": {
+    "city": "Honolulu",
+    "country": "United States",
+    "display_name": "Waikiki, Hawaii, Honolulu, Hawaii, United States",
+    "latitude": "21.2793568",
+    "longitude": "-157.8285713",
+    "query": "Waikiki, Hawaii",
+    "source": "nominatim",
+    "state": "Hawaii",
+    "status": "ok",
+    "sublocation": ""
   },
   "walkway to the buddha": {
     "query": "walkway to the buddha",
@@ -19144,8 +21944,44 @@
     "status": "ok",
     "sublocation": ""
   },
+  "war memorial - second world war, berlin, germany": {
+    "query": "War Memorial - Second World War, Berlin, Germany",
+    "status": "miss"
+  },
   "war memorial southport, southport, united kingdom": {
     "query": "War Memorial Southport, Southport, United Kingdom",
+    "status": "miss"
+  },
+  "warsaw, poland": {
+    "city": "",
+    "country": "Poland",
+    "display_name": "Warsaw, Masovian Voivodeship, Poland",
+    "latitude": "52.2333742",
+    "longitude": "21.0711489",
+    "query": "Warsaw, Poland",
+    "source": "nominatim",
+    "state": "Masovian Voivodeship",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "warship wasa, stockholm, sweden": {
+    "query": "Warship Wasa, Stockholm, Sweden",
+    "status": "miss"
+  },
+  "wat phra kaew, bangkok, thailand": {
+    "city": "Bangkok",
+    "country": "Thailand",
+    "display_name": "Wat Phra Kaew, Na Phra Lan Road, Tha Chang, Phra Borom Maha Ratchawang Subdistrict, Phra Nakhon District, Bangkok, 10200, Thailand",
+    "latitude": "13.7514974",
+    "longitude": "100.4926592",
+    "query": "Wat Phra Kaew, Bangkok, Thailand",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Na Phra Lan Road"
+  },
+  "water buffalo in rice paddy, philippines": {
+    "query": "Water buffalo in rice paddy, Philippines",
     "status": "miss"
   },
   "water tower (chapel bridge), switzerland": {
@@ -19202,6 +22038,18 @@
     "state": "",
     "status": "ok",
     "sublocation": "Výtopna Railway Restaurant - Wenceslas Square"
+  },
+  "west berlin, germany": {
+    "city": "Berlin",
+    "country": "Germany",
+    "display_name": "West Berlin, Germany, Berlin, Germany",
+    "latitude": "52.5728583",
+    "longitude": "13.3027652",
+    "query": "West Berlin, Germany",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "39 Otisstraße"
   },
   "west end of the great wall, jiyuguan city, gansu province, china": {
     "query": "West End of the Great Wall, Jiyuguan City, Gansu Province, China",
@@ -19592,6 +22440,42 @@
     "query": "Winter Palace of the Habsburgs, Austria",
     "status": "miss"
   },
+  "winter palace, saint petersburg, russia": {
+    "city": "Saint Petersburg",
+    "country": "Russia",
+    "display_name": "Winter Palace, Saint Petersburg, Russia, Saint Petersburg, Russia",
+    "latitude": "59.9404625",
+    "longitude": "30.3151887",
+    "query": "Winter Palace, Saint Petersburg, Russia",
+    "source": "nominatim",
+    "state": "Saint Petersburg",
+    "status": "ok",
+    "sublocation": "38 литА Palace Embankment"
+  },
+  "winter palace, the concert hall in the winter palace, saint petersburg, russia": {
+    "query": "Winter Palace, The Concert Hall in the Winter Palace, Saint Petersburg, Russia",
+    "status": "miss"
+  },
+  "winter palace, the gothic library in the winter palace, saint petersburg, russia": {
+    "query": "Winter Palace, The Gothic Library in the Winter Palace, Saint Petersburg, Russia",
+    "status": "miss"
+  },
+  "winter palace, the memorial room of peter the great in the winter palace, saint petersburg, russia": {
+    "query": "Winter Palace, The Memorial Room of Peter the Great in the Winter Palace, Saint Petersburg, Russia",
+    "status": "miss"
+  },
+  "woodhall school, bethlehem, connecticut, united states": {
+    "city": "Bethlehem",
+    "country": "United States",
+    "display_name": "The Woodhall School, 58, Harrison Lane, Bethlehem Green Historic District, Bethlehem, Naugatuck Valley Planning Region, Connecticut, 06751, United States",
+    "latitude": "41.6352169",
+    "longitude": "-73.2033144",
+    "query": "Woodhall School, Bethlehem, Connecticut, United States",
+    "source": "nominatim",
+    "state": "Connecticut",
+    "status": "ok",
+    "sublocation": "58 Harrison Lane"
+  },
   "woodhaven, canada": {
     "city": "Winnipeg",
     "country": "Canada",
@@ -19767,6 +22651,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "yellow river at lanzhou, lanzhou, china": {
+    "city": "Chengguan District",
+    "country": "China",
+    "display_name": "Yantan Yellow River Bridge, Yanbei Street Subdistrict, Chengguan District, Lanzhou, Gansu, 730046, China",
+    "latitude": "36.0738634",
+    "longitude": "103.8622600",
+    "query": "Yellow River at Lanzhou, Lanzhou, China",
+    "source": "nominatim",
+    "state": "Gansu",
+    "status": "ok",
+    "sublocation": "Yanbei Street Subdistrict"
+  },
   "yellow river gorge, lanzhou, gansu, china": {
     "query": "Yellow River Gorge, Lanzhou, Gansu, China",
     "status": "miss"
@@ -19893,6 +22789,18 @@
     "query": "Zhuhai, Guangdong, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "проспект мира, moscow, russia": {
+    "city": "Moscow",
+    "country": "Russia",
+    "display_name": "Moscow, Russia, Moscow, Russia",
+    "latitude": "55.7796332",
+    "longitude": "37.6317532",
+    "query": "проспект Мира, Moscow, Russia",
+    "source": "nominatim",
+    "state": "Moscow",
+    "status": "ok",
+    "sublocation": "улица Гиляровского"
   },
   "中国珠海": {
     "city": "Zhuhai",

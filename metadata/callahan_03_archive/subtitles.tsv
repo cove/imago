@@ -1,0 +1,494 @@
+start	end	text	speaker	confidence	source
+00:00:19.145	00:00:19.925	I know.		0.6654	whisper
+00:00:29.065	00:00:33.145	Yeah. Yeah. Come on, baby.		0.6654	whisper
+00:00:33.765	00:00:35.385	I think, baby, you pushed off him.		0.6654	whisper
+00:00:37.185	00:00:39.345	No, look at you. Go, come on.		0.6654	whisper
+00:00:39.345	00:00:45.905	Come on. Come on. Come on.		0.5753	whisper
+00:00:45.945	00:00:48.205	Come on.		0.5753	whisper
+00:00:50.005	00:00:50.685	Hi.		0.5753	whisper
+00:00:54.305	00:00:54.345	Yeah.		0.5753	whisper
+00:00:57.765	00:00:58.445	Yeah.		0.5753	whisper
+00:01:02.225	00:01:04.805	Yeah, well, we'll see what we can do.		0.5753	whisper
+00:01:05.105	00:01:06.065	We'll work it out.		0.5753	whisper
+00:01:07.305	00:01:08.805	She's doing good. Busy.		0.7305	whisper
+00:01:10.165	00:01:12.005	Yeah, she's busy, you know, working.		0.7305	whisper
+00:01:13.225	00:01:15.965	Everything seems to be doing pretty good. The plans for the wedding will come along.		0.7305	whisper
+00:01:16.965	00:01:18.125	All that kind of stuff.		0.677	whisper
+00:01:19.785	00:01:20.105	Yeah.		0.677	whisper
+00:01:20.625	00:01:23.125	Because, um, that's just right on the corner, too.		0.677	whisper
+00:01:25.805	00:01:26.125	Thanks.		0.677	whisper
+00:01:26.585	00:01:28.605	Well, I just wanted to see how you were doing, because I didn't know.		0.677	whisper
+00:01:28.605	00:01:29.185	...		0.4593	whisper
+00:01:35.505	00:01:36.665	...		0.4593	whisper
+00:01:36.665	00:01:37.105	...		0.4593	whisper
+00:01:37.105	00:01:37.125	...		0.4593	whisper
+00:01:39.545	00:01:40.705	...		0.4593	whisper
+00:01:40.705	00:01:42.645	...		0.5841	whisper
+00:01:42.645	00:01:43.225	...		0.5841	whisper
+00:01:44.705	00:01:44.865	...		0.5841	whisper
+00:02:10.705	00:02:10.725	...		0.651	whisper
+00:02:17.185	00:02:17.705	...		0.651	whisper
+00:02:23.025	00:02:24.425	...		0.651	whisper
+00:02:24.425	00:02:25.285	...		0.651	whisper
+00:02:40.705	00:02:41.245	...		0.1429	whisper
+00:02:43.025	00:02:43.545	...		0.1429	whisper
+00:02:43.545	00:02:43.845	in		0.1429	whisper
+00:02:43.845	00:02:44.085	...		0.1429	whisper
+00:02:44.865	00:02:47.545	Come on, come on, keep doing it.		0.7006	whisper
+00:02:48.005	00:02:52.225	Oh, oh, yeah, yeah, yeah, oh, oh, come on, oh.		0.7006	whisper
+00:02:54.185	00:02:56.365	Come on, come on, come on.		0.7006	whisper
+00:02:56.365	00:02:57.105	Don't have them.		0.7006	whisper
+00:02:57.265	00:02:57.685	I know.		0.7006	whisper
+00:02:58.625	00:02:59.645	Come on, honey.		0.7006	whisper
+00:03:00.365	00:03:01.605	Come on, we're all over.		0.7006	whisper
+00:03:02.545	00:03:03.385	That's not a good dog.		0.7006	whisper
+00:03:03.985	00:03:04.805	Come on, honey.		0.7006	whisper
+00:03:06.445	00:03:08.245	Come on, all the way over to see mommy.		0.7006	whisper
+00:03:08.705	00:03:10.465	We're all the way over to see mommy.		0.7006	whisper
+00:03:10.625	00:03:11.105	Come on.		0.7006	whisper
+00:03:12.165	00:03:12.905	Come on.		0.7006	whisper
+00:03:13.385	00:03:14.485	You can do it.		0.8993	whisper
+00:03:16.025	00:03:16.965	You can do it.		0.8993	whisper
+00:03:17.105	00:03:17.925	Oh, come on.		0.8993	whisper
+00:03:18.485	00:03:18.985	That's it.		0.8993	whisper
+00:03:19.085	00:03:19.985	That's the way to do it.		0.8993	whisper
+00:03:20.165	00:03:20.645	That's right.		0.8993	whisper
+00:03:20.785	00:03:21.705	I'm going to just flip over.		0.8993	whisper
+00:03:21.845	00:03:22.185	Come on.		0.8993	whisper
+00:03:23.705	00:03:24.345	That's it.		0.8993	whisper
+00:03:24.765	00:03:25.485	Come on.		0.8993	whisper
+00:03:27.065	00:03:27.865	Come on.		0.8993	whisper
+00:03:28.625	00:03:30.485	Oh, come on.		0.8993	whisper
+00:03:32.405	00:03:34.125	I know that wasn't a fluke.		0.8993	whisper
+00:03:34.825	00:03:35.225	No.		0.8993	whisper
+00:03:36.985	00:03:38.225	You're not going to do it now, are you?		0.8993	whisper
+00:03:38.305	00:03:39.285	You almost did it.		0.8993	whisper
+00:03:39.465	00:03:39.865	Almost.		0.8993	whisper
+00:03:39.865	00:03:40.085	Almost.		0.761	whisper
+00:03:41.085	00:03:42.005	Almost.		0.761	whisper
+00:03:42.085	00:03:42.285	Almost.		0.761	whisper
+00:03:42.285	00:03:43.025	You almost did it.		0.761	whisper
+00:03:44.705	00:03:46.885	Oh, come on.		0.761	whisper
+00:03:47.885	00:03:48.705	Almost.		0.761	whisper
+00:03:51.885	00:03:53.165	Come on.		0.761	whisper
+00:03:56.885	00:03:58.725	Come on.		0.761	whisper
+00:04:08.565	00:04:09.805	You're not going to do it.		0.761	whisper
+00:04:09.805	00:04:10.805	Trying to get it out.		0.7087	whisper
+00:04:11.105	00:04:12.165	Hold on to it.		0.7087	whisper
+00:04:13.145	00:04:13.585	Yeah.		0.7087	whisper
+00:04:14.265	00:04:14.725	Come on.		0.7087	whisper
+00:04:14.965	00:04:15.185	Come on.		0.7087	whisper
+00:04:15.185	00:04:15.565	My side.		0.7087	whisper
+00:04:16.805	00:04:17.245	Oh.		0.7087	whisper
+00:04:18.325	00:04:20.125	You got the bottom part down.		0.7087	whisper
+00:04:21.645	00:04:23.085	You got that part down.		0.7087	whisper
+00:04:23.405	00:04:27.225	The ball was under the top a little bit, so what I did was I tried to shield them off.		0.7087	whisper
+00:04:27.805	00:04:28.945	Ah, ah, ah.		0.7087	whisper
+00:04:29.085	00:04:30.405	Work on it every week at black.		0.7087	whisper
+00:04:30.585	00:04:32.945	Just bow and just keep my body.		0.7087	whisper
+00:04:33.125	00:04:33.465	Okay.		0.7087	whisper
+00:04:33.885	00:04:34.325	That's fine.		0.7087	whisper
+00:04:34.325	00:04:34.665	That's fine.		0.737	whisper
+00:04:35.285	00:04:35.845	That's fine.		0.737	whisper
+00:04:36.125	00:04:36.825	You have it on pause?		0.737	whisper
+00:04:37.045	00:04:37.205	No.		0.737	whisper
+00:04:37.405	00:04:37.585	Oh.		0.737	whisper
+00:04:41.245	00:04:43.425	We're going to run lots of tape trying to get you to do it.		0.737	whisper
+00:04:43.705	00:04:43.885	Yeah.		0.737	whisper
+00:04:48.165	00:04:48.525	Oh.		0.737	whisper
+00:04:50.985	00:04:51.685	You're getting another.		0.737	whisper
+00:04:51.685	00:04:51.705	but you've got more minutes.		0.0257	whisper
+00:04:51.705	00:04:51.745	I'm always wondering.		0.0257	whisper
+00:04:51.745	00:04:51.765	It was office but not less than six years,		0.0257	whisper
+00:05:09.940	00:05:12.480	Oh, of course it's not gonna do it now.		0.5478	whisper
+00:05:13.300	00:05:14.060	Ow.		0.5478	whisper
+00:05:14.960	00:05:15.220	Nope.		0.5478	whisper
+00:05:15.920	00:05:16.020	Ow.		0.5478	whisper
+00:05:16.620	00:05:18.620	Oh, yeah.		0.5478	whisper
+00:05:19.180	00:05:19.200	Hi.		0.5478	whisper
+00:05:36.013	00:05:37.833	Happy Valentine's Day, baby!		0.6424	whisper
+00:05:38.853	00:05:40.693	Happy Valentine's Day, baby!		0.6424	whisper
+00:05:41.573	00:05:42.053	Hi!		0.6424	whisper
+00:05:44.173	00:05:45.533	Hi, babies!		0.6424	whisper
+00:05:47.573	00:05:50.093	Now you rolled over twice today for Mommy,		0.6424	whisper
+00:05:50.713	00:05:52.393	and she didn't have the camera out.		0.6424	whisper
+00:05:52.713	00:05:53.853	So you're going to do it again?		0.6424	whisper
+00:05:54.373	00:05:56.173	So we can get it on the camera?		0.6424	whisper
+00:05:57.693	00:05:58.293	Huh?		0.6514	whisper
+00:05:58.813	00:06:00.033	Yeah, are you?		0.6514	whisper
+00:06:00.333	00:06:02.373	You like that thing that Grandma and Grandpa,		0.6514	whisper
+00:06:03.413	00:06:06.073	Darlene and Grandpa Lloyd gave you, huh?		0.6514	whisper
+00:06:06.473	00:06:07.373	You like it.		0.6514	whisper
+00:06:08.413	00:06:09.473	Yes, you do.		0.6514	whisper
+00:06:12.213	00:06:13.993	You like it, yeah.		0.6514	whisper
+00:06:18.553	00:06:19.633	Well, come on.		0.6514	whisper
+00:06:20.013	00:06:21.133	Roll over for Mommy.		0.6514	whisper
+00:06:22.013	00:06:22.873	Roll over.		0.6514	whisper
+00:06:23.633	00:06:25.253	You're not going to do it again, are you?		0.6514	whisper
+00:06:25.653	00:06:25.973	No.		0.6514	whisper
+00:06:27.093	00:06:27.873	And you're blowing bubbles.		0.7982	whisper
+00:06:28.633	00:06:31.133	Because you've had a cold ever since Mommy put you in daycare.		0.7982	whisper
+00:06:31.613	00:06:33.013	But you're not in daycare anymore.		0.7982	whisper
+00:06:33.513	00:06:34.633	Oh, that's a big bubble.		0.7982	whisper
+00:06:35.653	00:06:36.833	That's a big bubble.		0.7982	whisper
+00:06:37.693	00:06:39.493	Starting today, we're out of daycare.		0.7982	whisper
+00:06:39.893	00:06:40.913	Oh, there's your kitty.		0.7982	whisper
+00:06:41.573	00:06:43.033	You see your kitty, huh?		0.7982	whisper
+00:06:43.413	00:06:44.353	You see your kitty.		0.7982	whisper
+00:06:44.493	00:06:45.673	Are you going to smile for Mommy?		0.7982	whisper
+00:06:46.593	00:06:47.793	Smile for Mom.		0.7982	whisper
+00:06:48.173	00:06:49.093	Smile for Parmesan.		0.7982	whisper
+00:06:51.293	00:06:52.773	Smile for you, kitty.		0.4329	whisper
+00:06:54.533	00:06:55.573	Yeah, smile.		0.4329	whisper
+00:06:56.653	00:06:57.973	Smile, baby.		0.4329	whisper
+00:07:11.873	00:07:13.053	Come on, Ryan.		0.4329	whisper
+00:07:13.413	00:07:14.553	Roll over for Mommy.		0.4329	whisper
+00:07:16.093	00:07:42.293	You did it twice today. Just right boom boom. One after the other. I figured you'd do it again. But no. Okay. We're going to have to keep the camera out. Ryan. Ryan. Hi baby. Hi baby. Smile for mommy. Smile. Hi baby. Hi honey.		0.8287	whisper
+00:07:42.853	00:08:06.213	Okay. I'm going to hit you in the head. Hi baby. Hi honey. Oh. Oh. There you go. There you go. Oh. Come on now. Run over. You can do it. You can do it.		0.8486	whisper
+00:08:12.293	00:08:23.613	You can do it. There you go. Come on. Come on. Yay. Oh. Oh. Almost. Come on. You can do it again. I know you can. I'm not going to take this camera off of you because you're going to do it again.		0.9155	whisper
+00:08:24.813	00:08:50.293	There you go. Come on baby. Come on. Yay. Woo hoo. We got it on tape. Ryan. Yay. Woo. Mommy's so proud of you. Yay Ryan. That was your first rollover on tape. Yay baby. Woo hoo.		0.8772	whisper
+00:08:50.293	00:08:57.333	Woo hoo. And you've already rolled over back onto your bat too baby.		0.8518	whisper
+00:09:11.472	00:09:13.052	playing with the clacky bird		0.6975	whisper
+00:09:14.792	00:09:16.552	show us how you do it Ryan		0.6975	whisper
+00:09:17.692	00:09:19.452	yeah show us how you do it		0.6975	whisper
+00:09:19.452	00:09:20.552	are you going to laugh with mommy?		0.6975	whisper
+00:09:24.272	00:09:26.112	don't shoot yourself in the face please		0.6975	whisper
+00:09:27.492	00:09:29.272	show us how you play honey		0.6975	whisper
+00:09:31.592	00:09:32.412	show us		0.6975	whisper
+00:09:33.232	00:09:35.292	hi baby show us how you play		0.6975	whisper
+00:09:35.292	00:09:37.412	mom that light is in my face		0.7199	whisper
+00:09:40.612	00:09:43.352	yeah you're learning how to do that		0.7199	whisper
+00:09:43.352	00:09:44.492	look at you		0.7199	whisper
+00:09:44.492	00:09:49.492	look at you		0.7199	whisper
+00:09:49.492	00:09:52.072	oh he's okay		0.7199	whisper
+00:09:52.072	00:09:52.912	he's okay		0.7199	whisper
+00:09:54.632	00:09:56.332	he got yourself in his face		0.7199	whisper
+00:10:07.411	00:10:09.391	You're trying to get him to laugh on camera.		0.7017	whisper
+00:10:09.911	00:10:13.191	He has the best laugh.		0.7017	whisper
+00:10:15.351	00:10:16.491	Nope. Nope.		0.7017	whisper
+00:10:17.271	00:10:18.331	Not going to do it now.		0.7017	whisper
+00:10:18.991	00:10:19.851	Nope, of course not.		0.7017	whisper
+00:10:22.551	00:10:24.351	That's why I turned the camera on		0.7017	whisper
+00:10:24.351	00:10:26.331	away from him, thinking that he might		0.7017	whisper
+00:10:26.331	00:10:28.091	do it in the background.		0.7017	whisper
+00:10:28.271	00:10:28.531	But no.		0.7017	whisper
+00:10:29.631	00:10:32.091	Okay, little Ryan, see, you're stubborn already.		0.7017	whisper
+00:10:32.711	00:10:33.671	See? There you are.		0.7017	whisper
+00:10:35.711	00:10:37.311	You just don't want to perform, huh?		0.6221	whisper
+00:10:38.311	00:10:38.751	Nope.		0.6221	whisper
+00:10:40.511	00:10:42.391	Can I just let most of you in the laugh?		0.6221	whisper
+00:10:43.071	00:10:44.251	Well, he's not going to do it.		0.6221	whisper
+00:10:44.711	00:10:45.291	He'll stand up.		0.6221	whisper
+00:10:45.431	00:10:46.831	Oh, he's standing up.		0.6221	whisper
+00:10:48.211	00:10:50.531	And you know, we should get him eating my cereal		0.6221	whisper
+00:10:50.531	00:10:52.471	tonight on the camera.		0.6221	whisper
+00:10:53.751	00:10:54.631	Yes, we should.		0.6221	whisper
+00:10:54.991	00:10:56.331	Look at you standing up.		0.6221	whisper
+00:10:56.551	00:10:58.291	And you're only five months old.		0.6221	whisper
+00:10:58.691	00:10:59.551	Look at that.		0.6221	whisper
+00:11:00.311	00:11:02.911	Look at that. Such a big boy.		0.6221	whisper
+00:11:03.891	00:11:05.831	You are such a big boy.		0.6285	whisper
+00:11:06.171	00:11:07.151	You are.		0.6285	whisper
+00:11:07.571	00:11:08.451	You're in the right.		0.6285	whisper
+00:11:09.791	00:11:12.631	You love the rattle socks that you have on right now.		0.6285	whisper
+00:11:12.931	00:11:13.571	Yes, you do.		0.6285	whisper
+00:11:14.111	00:11:14.611	Yeah.		0.6285	whisper
+00:11:15.831	00:11:16.291	Yeah.		0.6285	whisper
+00:11:17.671	00:11:19.691	Hey, Dad, do something to make me laugh.		0.6285	whisper
+00:11:19.691	00:11:20.951	It's not going to work.		0.6399	whisper
+00:11:21.071	00:11:21.831	How do you know?		0.6399	whisper
+00:11:22.031	00:11:22.651	I know.		0.6399	whisper
+00:11:22.671	00:11:23.051	You're just trying.		0.6399	whisper
+00:11:23.171	00:11:23.651	I know.		0.6399	whisper
+00:11:23.951	00:11:24.651	I've already tried.		0.6399	whisper
+00:11:25.971	00:11:27.071	Do something new.		0.6399	whisper
+00:11:27.251	00:11:27.391	No.		0.6399	whisper
+00:11:28.151	00:11:28.511	Why?		0.6399	whisper
+00:11:28.891	00:11:29.071	No.		0.6399	whisper
+00:11:29.391	00:11:29.751	Why?		0.6399	whisper
+00:11:30.091	00:11:30.211	Nope.		0.6399	whisper
+00:11:31.451	00:11:31.891	All right.		0.6399	whisper
+00:11:32.271	00:11:32.811	Camera's off.		0.6399	whisper
+00:11:34.391	00:11:37.311	Tell Mommy to get that thing turned from our faces.		0.6399	whisper
+00:11:38.931	00:11:39.451	Linda.		0.6399	whisper
+00:11:41.991	00:11:44.631	Linda, I see the red light you're recording.		0.6399	whisper
+00:11:47.371	00:11:47.851	What?		0.4917	whisper
+00:11:48.591	00:11:48.931	Linda.		0.4917	whisper
+00:11:49.191	00:11:49.391	What?		0.4917	whisper
+00:11:50.631	00:11:52.631	Oh, Dad takes all the fun out of it.		0.4917	whisper
+00:11:53.851	00:11:54.471	All right.		0.4917	whisper
+00:12:27.234	00:12:28.134	Hi Ryan.		0.5448	whisper
+00:12:28.334	00:12:28.594	I'm sorry.		0.5448	whisper
+00:12:28.894	00:12:29.574	Hi Ryan.		0.5448	whisper
+00:12:33.474	00:12:35.134	How's daddy doing?		0.0818	whisper
+00:12:36.774	00:12:38.394	Did you get it off?		0.0818	whisper
+00:12:38.874	00:12:39.474	love how?		0.0818	whisper
+00:12:45.874	00:12:46.634	love.		0.0818	whisper
+00:12:46.634	00:12:47.154	Das?!		0.0047	whisper
+00:12:59.614	00:13:00.894	So much rain does that really?		0.0047	whisper
+00:13:05.514	00:13:07.034	Hi, Ryan!		0.0047	whisper
+00:13:08.014	00:13:09.014	tensions		0.0047	whisper
+00:13:09.014	00:13:11.134	Here into the yellowgrass		0.0047	whisper
+00:13:11.134	00:13:12.974	Guys, the Deshalb physique		0.0047	whisper
+00:13:15.094	00:13:17.014	My life really had it.		0.708	whisper
+00:13:23.574	00:13:28.814	Oh, I've got my hair.		0.708	whisper
+00:13:29.754	00:13:30.914	Okay, that's good.		0.708	whisper
+00:13:31.494	00:13:33.034	I just wanted to make sure we got his laugh on.		0.708	whisper
+00:13:33.194	00:13:33.754	I think he's laughing.		0.708	whisper
+00:13:33.934	00:13:34.274	Oh, yeah.		0.708	whisper
+00:13:37.154	00:13:38.674	A boop boop boop.		0.708	whisper
+00:13:39.414	00:13:40.734	A boop boop boop boop.		0.708	whisper
+00:13:40.734	00:13:42.294	A choo choo choo choo.		0.8307	whisper
+00:13:42.294	00:13:43.894	Kissy kissy, what's up on you?		0.8307	whisper
+00:13:44.254	00:13:46.434	Kiss, kiss. There's a new thing.		0.8307	whisper
+00:13:48.554	00:13:49.514	A boop.		0.8307	whisper
+00:13:50.494	00:13:51.174	A boop.		0.8307	whisper
+00:13:51.494	00:13:53.394	Come on Ryan, do your little hip thrusting.		0.8307	whisper
+00:13:53.574	00:13:55.534	Didn't you just do it? I know, but I wasn't on.		0.8307	whisper
+00:13:55.794	00:13:56.954	Oh, you weren't? No.		0.8307	whisper
+00:13:57.354	00:13:59.394	Come on. Come on.		0.8307	whisper
+00:13:59.894	00:14:01.694	Come on. Do it for daddy.		0.8307	whisper
+00:14:02.494	00:14:03.174	Come on.		0.8307	whisper
+00:14:05.094	00:14:05.574	No!		0.8307	whisper
+00:14:21.115	00:14:23.195	Well, come on! Come on!		0.6659	whisper
+00:14:24.795	00:14:27.995	Come on! Do some sedes for Mommy!		0.6659	whisper
+00:14:28.515	00:14:29.135	Come on!		0.6659	whisper
+00:14:31.915	00:14:33.255	You're not going to do them, are you?		0.6659	whisper
+00:14:35.395	00:14:37.555	No? Well, come on!		0.6659	whisper
+00:14:39.315	00:14:40.315	Come on!		0.6659	whisper
+00:14:42.895	00:14:45.135	You watching Mommy exercise in the morning?		0.6659	whisper
+00:14:45.135	00:14:45.455	Thank you!		0.5407	whisper
+00:15:01.535	00:15:04.075	Well, come on! Are you going to do it?		0.5407	whisper
+00:15:07.015	00:15:07.995	I am recording.		0.5407	whisper
+00:15:08.215	00:15:08.455	Yep.		0.5407	whisper
+00:16:22.727	00:16:27.407	I don't know if it's really hard.		0.5255	whisper
+00:16:28.747	00:16:29.747	It's really hard.		0.5255	whisper
+00:16:30.187	00:16:30.967	It makes it look alright.		0.5255	whisper
+00:16:33.607	00:16:34.787	It's getting a little wind.		0.5255	whisper
+00:16:35.487	00:16:35.867	Hmm?		0.5255	whisper
+00:16:36.687	00:16:38.087	It's getting a little wind outside.		0.5255	whisper
+00:16:38.247	00:16:38.507	Yeah?		0.5255	whisper
+00:16:52.967	00:16:54.787	Keep that up and he's gonna go to sleep, Green.		0.71	whisper
+00:16:57.987	00:16:59.067	I don't think so.		0.71	whisper
+00:16:59.347	00:16:59.567	Yeah.		0.71	whisper
+00:17:00.627	00:17:05.167	He's just calm, that's all.		0.71	whisper
+00:17:05.727	00:17:07.027	Well, maybe he is, yeah.		0.71	whisper
+00:17:07.307	00:17:08.227	He's falling asleep.		0.71	whisper
+00:17:09.667	00:17:10.107	Okay.		0.71	whisper
+00:17:24.127	00:17:28.387	Hey, do you want some rolls?		0.6104	whisper
+00:17:31.627	00:17:32.647	Nah, it's hard.		0.6104	whisper
+00:17:33.107	00:17:33.627	Okay.		0.6104	whisper
+00:17:33.627	00:17:35.087	Okay.		0.5398	whisper
+00:17:35.087	00:17:35.167	Okay.		0.5398	whisper
+00:18:05.806	00:18:07.066	And you see what's up light on?		0.4484	whisper
+00:18:07.406	00:18:07.786	Uh huh.		0.4484	whisper
+00:18:52.446	00:18:53.086	Say hi, mom.		0.3704	whisper
+00:19:03.446	00:19:04.406	You looking at Domino?		0.5516	whisper
+00:19:13.486	00:19:13.519	There is nothing that love cannot face.		0.8105	whisper
+00:19:13.486	00:19:13.519	There is nothing that love cannot face.		0.8105	whisper
+00:19:13.486	00:19:13.519	There is nothing that love cannot face.		0.8105	whisper
+00:19:13.486	00:19:13.519	There is nothing that love cannot face.		0.8105	whisper
+00:19:13.486	00:19:13.519	There is nothing that love cannot face.		0.8105	whisper
+00:19:13.486	00:19:13.519	There is nothing that love cannot face.		0.8105	whisper
+00:19:13.486	00:19:13.519	There is nothing that love cannot face.		0.8105	whisper
+00:19:13.486	00:19:13.519	There is nothing that love cannot face.		0.8105	whisper
+00:19:13.486	00:19:13.519	There is nothing that love cannot face.		0.8105	whisper
+00:19:13.486	00:19:13.519	There is nothing that love cannot face.		0.8105	whisper
+00:19:13.486	00:19:13.519	There is nothing that love cannot face.		0.8105	whisper
+00:19:28.341	00:19:32.901	Hi Ryan. Hi Glenn. Look at Mr. Ryan.		0.733	whisper
+00:19:33.201	00:19:36.461	Hi baby, give me a smile. Give me a smile.		0.733	whisper
+00:19:37.141	00:19:39.221	Look at daddy. Hi son.		0.733	whisper
+00:19:40.181	00:19:42.261	You ate all your peas tonight?		0.733	whisper
+00:19:43.221	00:19:45.861	Look at that big boy, sitting up all by himself.		0.733	whisper
+00:19:46.541	00:19:49.901	And you drank water out of a cup, out of a glass.		0.733	whisper
+00:19:53.721	00:19:56.141	Hi Ryan. Hi Ryan.		0.7014	whisper
+00:19:58.681	00:19:59.861	Hi Ryan. Hi Ryan.		0.7014	whisper
+00:20:00.861	00:20:05.901	Hi sweetie, give us a smile honey. Give us a smile.		0.7014	whisper
+00:20:07.401	00:20:11.381	Boogie boogie boogie boogie. Boogie boogie boogie boogie boogie.		0.7014	whisper
+00:20:12.441	00:20:14.021	Boogie boogie boogie boogie.		0.7014	whisper
+00:20:15.501	00:20:16.961	Nope, not gonna smile.		0.7014	whisper
+00:20:17.201	00:20:18.201	He's all shifty eyes.		0.7014	whisper
+00:20:18.201	00:20:19.241	He's like, hmm.		0.7946	whisper
+00:20:20.281	00:20:23.061	He's okay. Mom and Dad are having fun doing whatever they're doing.		0.7946	whisper
+00:20:23.821	00:20:24.541	Are you waving?		0.7946	whisper
+00:20:25.041	00:20:25.741	Saying hi?		0.7946	whisper
+00:20:26.061	00:20:26.701	To the camera?		0.7946	whisper
+00:20:29.201	00:20:30.981	You're such a big boy Ryan.		0.7946	whisper
+00:20:31.361	00:20:32.501	Look at you young man.		0.7946	whisper
+00:20:32.961	00:20:34.441	Mom and Dad are so proud.		0.7946	whisper
+00:20:36.141	00:20:37.341	Yes we are.		0.7946	whisper
+00:20:38.061	00:20:39.481	Mom and Dad are so proud.		0.7946	whisper
+00:20:39.481	00:20:39.581	Mom and Dad.		0.7148	whisper
+00:20:40.801	00:20:43.881	So now everyone is carrying the same table on for the tennis.		0.7148	whisper
+00:20:44.241	00:20:44.641	Yeah.		0.7148	whisper
+00:20:45.761	00:20:46.781	Now I am too.		0.7148	whisper
+00:20:48.281	00:20:50.541	What are you doing? Are you doing the hand jabs?		0.7148	whisper
+00:20:51.481	00:20:52.861	Do do hand jabs.		0.7148	whisper
+00:20:53.341	00:20:53.981	Boop boop.		0.7148	whisper
+00:20:54.121	00:20:55.481	Do do do do do do do.		0.7148	whisper
+00:20:55.721	00:20:57.181	Boom boom boom boom boom boom boom.		0.7148	whisper
+00:20:57.321	00:20:59.061	The hand jabs. Don't you dare get me.		0.7148	whisper
+00:20:59.061	00:20:59.521	I'm not.		0.8081	whisper
+00:20:59.641	00:21:00.161	Just him.		0.8081	whisper
+00:21:00.741	00:21:03.621	Do do do do do do do do do do do do do do do.		0.8081	whisper
+00:21:03.861	00:21:04.261	Boop.		0.8081	whisper
+00:21:05.461	00:21:06.721	Do do do do do do do do.		0.8081	whisper
+00:21:06.961	00:21:07.441	Boop.		0.8081	whisper
+00:21:07.661	00:21:09.061	Do do do do do do do.		0.8081	whisper
+00:21:09.661	00:21:10.141	Boop.		0.8081	whisper
+00:21:10.141	00:21:10.701	Do do do do do do do.		0.8081	whisper
+00:21:10.701	00:21:11.461	Do do do do do do do.		0.8081	whisper
+00:21:11.761	00:21:11.961	Boop.		0.8081	whisper
+00:21:13.181	00:21:14.841	You are my sunshine.		0.8081	whisper
+00:21:15.821	00:21:17.161	My only sunshine.		0.8081	whisper
+00:21:17.901	00:21:19.521	You make me happy.		0.8081	whisper
+00:21:19.941	00:21:22.581	When skies are gray you're leaning over.		0.8081	whisper
+00:21:27.321	00:21:28.841	There he goes.		0.7778	whisper
+00:21:29.261	00:21:30.161	Uh oh.		0.7778	whisper
+00:21:30.541	00:21:30.901	Okay.		0.7778	whisper
+00:21:31.321	00:21:32.161	Get it off.		0.7778	whisper
+00:21:33.461	00:21:34.021	Yeah it's off.		0.7778	whisper
+00:21:35.761	00:21:36.321	Jamie.		0.7778	whisper
+00:21:37.501	00:21:38.561	See the red light babe?		0.7778	whisper
+00:21:40.541	00:21:41.101	Oh.		0.7778	whisper
+00:21:41.641	00:21:42.621	Yeah see the little red light babe?		0.7778	whisper
+00:21:43.221	00:21:43.341	Yeah.		0.7778	whisper
+00:21:57.330	00:21:57.690	Ryan!		0.4711	whisper
+00:21:58.310	00:21:58.670	Ryan!		0.4711	whisper
+00:21:59.110	00:21:59.870	Want to bump a head?		0.4711	whisper
+00:22:00.290	00:22:00.930	Bump a head!		0.4711	whisper
+00:22:01.390	00:22:02.390	Come on, let's bump a head!		0.4711	whisper
+00:22:02.850	00:22:03.830	Come on, do it!		0.4711	whisper
+00:22:04.750	00:22:05.850	Come on, do it!		0.4711	whisper
+00:22:06.570	00:22:08.810	Well that's not a bump a head, that's your bump a head!		0.4711	whisper
+00:22:08.950	00:22:09.790	There he is, there he is!		0.4711	whisper
+00:22:10.650	00:22:11.130	Come on!		0.4711	whisper
+00:22:13.250	00:22:13.930	Bump a head!		0.4711	whisper
+00:22:14.710	00:22:14.970	Do it!		0.4711	whisper
+00:22:15.690	00:22:18.250	No, he's found it in that first, now you're not gonna do it!		0.4711	whisper
+00:22:18.990	00:22:20.510	He will in the minute, let's bump a head!		0.4711	whisper
+00:22:30.730	00:22:32.110	He's found something else before.		0.4868	whisper
+00:22:32.490	00:22:32.710	Yeah.		0.4868	whisper
+00:22:37.930	00:22:39.890	He says you're doing anyway.		0.4868	whisper
+00:22:46.270	00:22:48.330	He doesn't want to play that game anymore.		0.4868	whisper
+00:22:48.590	00:22:49.390	No, he wants to play it.		0.4868	whisper
+00:22:49.390	00:22:50.790	The moment was why.		0.5544	whisper
+00:22:50.830	00:22:51.750	You and Jared did.		0.5544	whisper
+00:22:52.310	00:22:52.770	Yeah.		0.5544	whisper
+00:22:53.230	00:22:53.730	They did.		0.5544	whisper
+00:22:53.910	00:22:56.730	They would just chew on her chin for hours.		0.5544	whisper
+00:22:57.410	00:22:58.850	I don't see how she did it.		0.5544	whisper
+00:22:59.110	00:23:00.410	Because they started chewing on mine.		0.5544	whisper
+00:23:00.610	00:23:01.350	I don't even know.		0.5544	whisper
+00:23:03.010	00:23:03.490	Here.		0.5544	whisper
+00:23:03.990	00:23:04.470	Here.		0.5544	whisper
+00:23:05.150	00:23:05.370	Here.		0.5544	whisper
+00:23:05.630	00:23:05.750	Here.		0.5544	whisper
+00:23:06.870	00:23:07.890	Let's bump it in.		0.5544	whisper
+00:23:08.330	00:23:09.130	Up it in.		0.5544	whisper
+00:23:09.470	00:23:10.310	Oh, there he goes.		0.5544	whisper
+00:23:11.750	00:23:13.070	There we got it.		0.5544	whisper
+00:23:13.090	00:23:13.390	There he is.		0.5544	whisper
+00:23:28.939	00:23:51.759	Hi Ryan! Say hi Ryan! Say hi! Seven months old today! Seven months old today! Seven months		0.6824	whisper
+00:23:56.759	00:24:00.939	Oh, come on, spin up! Let's do that, Mommy! Got you too excited!		0.4313	whisper
+00:24:04.039	00:24:05.139	What are you doing?		0.4313	whisper
+00:24:29.339	00:24:33.539	Close up! Oh! Close up! No, just on Ryan!		0.6777	whisper
+00:24:33.539	00:24:34.039	Oh, good!		0.5656	whisper
+00:25:05.274	00:25:17.294	Come here! Come here Ryan! Come here! Come here to daddy! Come to daddy! Come on! Let's get a ball! Come on! Come here son! Come here!		0.6805	whisper
+00:25:18.834	00:25:20.114	Quit looking at the camera.		0.6805	whisper
+00:25:21.354	00:25:22.354	Hi camera!		0.6805	whisper
+00:25:25.494	00:25:26.314	Come on!		0.7381	whisper
+00:25:27.134	00:25:28.254	Hi Ryan!		0.7381	whisper
+00:25:28.914	00:25:30.194	Okay now you crawl.		0.7381	whisper
+00:25:30.534	00:25:30.894	Come on!		0.7381	whisper
+00:25:34.494	00:25:35.934	You were doing it just a minute ago.		0.7381	whisper
+00:25:36.434	00:25:39.274	Come on Ryan! Come and get me Ryan!		0.7381	whisper
+00:25:40.214	00:25:41.414	Well come on!		0.7381	whisper
+00:25:43.194	00:25:45.254	I know what's that thing up to mommy's eye huh?		0.7381	whisper
+00:25:46.254	00:25:47.594	Big old contraption.		0.7381	whisper
+00:25:48.994	00:25:49.574	Come on!		0.7381	whisper
+00:25:51.894	00:25:53.074	Come on baby!		0.7381	whisper
+00:25:53.954	00:25:56.254	Come on! Come on son!		0.7818	whisper
+00:25:58.134	00:25:59.414	He was doing it.		0.7818	whisper
+00:25:59.634	00:26:00.014	Was he?		0.7818	whisper
+00:26:00.294	00:26:02.194	Mm-hmm. He moved forward a couple times.		0.7818	whisper
+00:26:03.414	00:26:05.754	And moved his hands too? Or just rock?		0.7818	whisper
+00:26:05.854	00:26:06.634	No, he moved.		0.7818	whisper
+00:26:07.894	00:26:08.834	He crawled.		0.7818	whisper
+00:26:09.554	00:26:12.194	But of course you're not going to do it now that we have a camera out are ya?		0.8172	whisper
+00:26:14.874	00:26:15.234	Hi!		0.8172	whisper
+00:26:15.834	00:26:17.714	Are you going to do it tomorrow for Mother's Day?		0.8172	whisper
+00:26:20.514	00:26:22.974	Are you going to do it tomorrow for Mother's Day maybe?		0.8172	whisper
+00:26:24.154	00:26:26.754	And Grandma and Grandpa and Nana can see?		0.8172	whisper
+00:26:27.614	00:26:27.974	Maybe?		0.8172	whisper
+00:26:29.094	00:26:29.534	Nope.		0.7559	whisper
+00:26:29.734	00:26:30.434	You're going to roll over.		0.7559	whisper
+00:26:30.734	00:26:31.794	Well we've seen that.		0.7559	whisper
+00:26:34.374	00:26:34.814	Ryan!		0.7559	whisper
+00:26:36.654	00:26:37.414	Come on son!		0.7559	whisper
+00:26:38.014	00:26:38.654	Come on!		0.7559	whisper
+00:26:40.574	00:26:41.134	Come on!		0.7559	whisper
+00:26:41.254	00:26:41.314	Come on buddy!		0.7559	whisper
+00:26:42.594	00:26:43.634	Oh come on, don't roll.		0.7559	whisper
+00:26:43.894	00:26:44.674	No, don't roll!		0.7559	whisper
+00:26:44.674	00:26:44.714	No!		0.5113	whisper
+00:26:44.734	00:26:44.754	No!		0.5113	whisper
+00:26:59.071	00:27:00.751	Now don't eat it.		0.4753	whisper
+00:27:01.131	00:27:03.211	I eat everything grandpa.		0.4753	whisper
+00:27:23.911	00:27:26.491	He told me he's going to teach him how to play the drums yet.		0.7538	whisper
+00:27:27.751	00:27:28.971	Even without a drum.		0.7538	whisper
+00:27:48.291	00:27:49.951	He's just fascinated by him.		0.7538	whisper
+00:27:49.951	00:27:53.091	I'm just so glad that you didn't get the dancing words.		0.6168	whisper
+00:27:53.391	00:27:53.991	I know.		0.6168	whisper
+00:27:54.811	00:27:55.391	We can do that.		0.6168	whisper
+00:27:57.551	00:28:01.091	My grandfather had ears, but he looked like he was crying.		0.6168	whisper
+00:28:03.011	00:28:09.071	He was very tall and he was looking, he was a little stripped out.		0.6168	whisper
+00:28:09.671	00:28:10.691	I like that.		0.6168	whisper
+00:28:10.691	00:28:15.431	And one of the businesses, I think,		0.5502	whisper
+00:28:15.431	00:28:19.791	the second cousin once he moved has ears.		0.5502	whisper
+00:28:23.291	00:28:26.411	He has the dancing ears.		0.5502	whisper
+00:28:26.411	00:28:28.251	Okay, let's get that over there.		0.6142	whisper
+00:28:28.551	00:28:29.371	What's the thing?		0.6142	whisper
+00:28:40.291	00:28:41.651	Oh, bless you.		0.6142	whisper
+00:28:41.651	00:28:42.191	Thank you.		0.7324	whisper
+00:28:43.491	00:28:43.651	Bye.		0.7324	whisper
+00:28:44.651	00:28:44.711	Bye.		0.7324	whisper
+00:28:45.411	00:28:46.131	Bye.		0.7324	whisper
+00:28:57.373	00:28:57.893	Huh?		0.7239	whisper
+00:29:00.293	00:29:03.833	I need to look at your glasses. Oh, okay.		0.7239	whisper
+00:29:04.873	00:29:06.033	Do you want to see through those?		0.7239	whisper
+00:29:08.393	00:29:09.393	Oh, no?		0.7239	whisper
+00:29:11.573	00:29:16.273	He wants to clear them. Yes, we just want to see if they'll break. Yes, they will.		0.7239	whisper
+00:29:16.273	00:29:18.693	I've answered that for you. They will.		0.8297	whisper
+00:29:20.153	00:29:21.033	Come here.		0.8297	whisper
+00:29:33.013	00:29:34.093	Can I have gloves?		0.8297	whisper
+00:29:35.573	00:29:40.113	Huh? Give Nana a kiss.		0.8297	whisper
+00:29:40.253	00:29:42.113	Give Nana a kiss.		0.8297	whisper
+00:29:44.953	00:29:47.733	He knows what that is.		0.7389	whisper
+00:29:47.893	00:29:49.213	He knows what that is.		0.7389	whisper
+00:29:49.213	00:29:50.273	He knows what that is.		0.7389	whisper
+00:29:51.013	00:29:52.573	Yes, you have.		0.7389	whisper
+00:29:54.953	00:29:55.773	Yes, you have.		0.7389	whisper
+00:29:56.893	00:29:57.193	What?		0.7389	whisper
+00:29:57.993	00:29:58.633	Oh, God.		0.7389	whisper
+00:30:02.133	00:30:02.593	Yes, you have.		0.6775	whisper
+00:30:05.033	00:30:06.233	Yes, you have.		0.6775	whisper
+00:30:06.233	00:30:06.653	Yes, you have.		0.6775	whisper
+00:30:07.473	00:30:08.053	Yes, you have.		0.6775	whisper
+00:30:08.053	00:30:08.633	Yes, you have.		0.6775	whisper
+00:30:08.633	00:30:09.573	Press the button, babe.		0.6775	whisper
+00:30:09.933	00:30:10.993	There, the red lights on.		0.6775	whisper
+00:30:11.973	00:30:13.433	What are you doing?		0.6775	whisper
+00:30:14.733	00:30:15.653	What are you doing?		0.8206	whisper
+00:30:18.733	00:30:19.973	What is it?		0.8206	whisper
+00:30:20.533	00:30:21.573	What is it?		0.8206	whisper
+00:30:21.613	00:30:23.053	What is it, sweetheart?		0.8206	whisper
+00:30:23.473	00:30:23.493	Huh?		0.8206	whisper
+00:30:24.033	00:30:24.273	What?		0.8206	whisper
+00:30:24.693	00:30:25.033	What?		0.8206	whisper
+00:30:28.173	00:30:30.353	Yeah, Mommy has that silly thing out again.		0.8206	whisper
+00:30:30.453	00:30:31.573	Yeah, give it the tongue.		0.8206	whisper
+00:30:32.613	00:30:34.193	Give it a tongue there, Ryan.		0.8206	whisper
+00:30:37.773	00:30:40.573	Nopectious.		0.0083	whisper
+00:30:40.573	00:30:41.193	ett largelyvilizing crying		0.0083	whisper
+00:30:44.913	00:30:45.113	shocking		0.019	whisper
