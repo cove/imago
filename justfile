@@ -76,3 +76,7 @@ photoalbums-render:
 
 photoalbums-render-validate:
   {{python}} photoalbums.py render validate
+
+photoalbums-watch:
+  {{python}} photoalbums.py watch
+  
