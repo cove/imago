@@ -16,7 +16,8 @@ def _build_archive_output_path(input_path: Path) -> Path:
 
 
 def _build_ffmetadata_path(metadata_dir: Path, archive_stem: str) -> Path:
-    return Path(metadata_dir) / archive_stem / "chapters.ffmetadata"
+    stem = archive_stem.removesuffix("_proxy")
+    return Path(metadata_dir) / stem / "chapters.ffmetadata"
 
 
 def _run(cmd):
@@ -160,8 +161,8 @@ def embed_metadata_into_archives(paths):
         if not src.exists():
             print(f"File not found: {src}")
             continue
-        if src.suffix.lower() != ".mkv":
-            print(f"Skipping non-MKV: {src}")
+        if src.suffix.lower() not in {".mkv", ".mp4", ".mov"}:
+            print(f"Skipping unsupported format: {src}")
             continue
 
         ffmetadata_path = _build_ffmetadata_path(metadata_dir, src.stem)
@@ -169,33 +170,27 @@ def embed_metadata_into_archives(paths):
             print(f"Metadata not found, skipping: {ffmetadata_path}")
             continue
 
-        tmp = src.with_suffix(".metadata.tmp.mkv")
-        backup = src.with_suffix(".pre-metadata.mkv")
+        ext = src.suffix.lower()
+        tmp = src.with_name(src.stem + f".metadata.tmp{ext}")
+        backup = src.with_name(src.stem + f".pre-metadata{ext}")
 
-        cmd = [
-            str(ffmpeg_bin),
-            "-nostdin",
-            "-v",
-            "error",
-            "-i",
-            str(src),
-            "-f",
-            "ffmetadata",
-            "-i",
-            str(ffmetadata_path),
-            "-map",
-            "0",
-            "-c",
-            "copy",
-            "-map_metadata",
-            "1",
-            "-map_chapters",
-            "1",
-            "-y",
-            str(tmp),
-        ]
+        cover_path = ffmetadata_path.parent / "cover.jpg"
+        has_cover = cover_path.exists()
 
-        print(f"Embedding metadata: {src.name}")
+        cmd = [str(ffmpeg_bin), "-nostdin", "-v", "error", "-i", str(src)]
+        cmd += ["-f", "ffmetadata", "-i", str(ffmetadata_path)]
+        if has_cover and ext == ".mp4":
+            cmd += ["-i", str(cover_path)]
+        cmd += ["-map", "0"]
+        if has_cover and ext == ".mp4":
+            cmd += ["-map", "2", "-c:v:1", "copy", "-disposition:v:1", "attached_pic"]
+        cmd += ["-c", "copy", "-map_metadata", "1", "-map_chapters", "1"]
+        if has_cover and ext == ".mkv":
+            cmd += ["-attach", str(cover_path), "-metadata:s:t:0", "mimetype=image/jpeg"]
+        cmd += ["-y", str(tmp)]
+
+        cover_note = " + cover art" if has_cover else ""
+        print(f"Embedding metadata{cover_note}: {src.name}")
         _run(cmd)
         backup.unlink(missing_ok=True)
         src.replace(backup)
