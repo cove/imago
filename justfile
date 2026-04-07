@@ -62,6 +62,9 @@ vhs-render *args:
 vhs-metadata-build:
   {{python}} vhs/vhs.py metadata build
 
+vhs-metadata-embed file:
+  {{python}} vhs/vhs.py metadata embed "{{file}}"
+
 vhs-verify-archive:
   {{python}} vhs/vhs.py verify archive
 

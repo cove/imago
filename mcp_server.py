@@ -892,6 +892,35 @@ def vhs_verify_archive(algorithm: str = "sha3") -> dict:
 
 
 @mcp.tool()
+def vhs_get_render_settings(archive: str) -> dict:
+    """Return the render_settings.json for a VHS archive, or an empty dict if none exists.
+
+    Args:
+        archive: Archive name (e.g. 'callahan_01_archive').
+    """
+    path = Path(VHS_DIR) / "metadata" / archive / "render_settings.json"
+    if not path.exists():
+        return {"archive": archive, "render_settings": None}
+    return {"archive": archive, "render_settings": json.loads(path.read_text(encoding="utf-8"))}
+
+
+@mcp.tool()
+def vhs_get_chapters(archive: str) -> dict:
+    """Return the chapters.tsv data for a VHS archive as a list of row dicts.
+
+    Args:
+        archive: Archive name (e.g. 'bennett_01_archive').
+    """
+    path = Path(VHS_DIR) / "metadata" / archive / "chapters.tsv"
+    if not path.exists():
+        return {"archive": archive, "chapters": None}
+    import csv, io
+    text = path.read_text(encoding="utf-8")
+    reader = csv.DictReader(io.StringIO(text), delimiter="\t")
+    return {"archive": archive, "chapters": list(reader)}
+
+
+@mcp.tool()
 def vhs_people_prefill(archive: str, chapter: str) -> dict:
     """Start a job to prefill people metadata for a VHS chapter from the Cast store. Returns a job ID.
 
