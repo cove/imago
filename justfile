@@ -62,6 +62,9 @@ vhs-render *args:
 vhs-metadata-build:
   {{python}} vhs/vhs.py metadata build
 
+vhs-verify-archive:
+  {{python}} vhs/vhs.py verify archive
+
 mcp-http:
   {{python}} mcp_server.py --transport http --host 0.0.0.0 --port 8090 --console-host 192.168.4.26
 
