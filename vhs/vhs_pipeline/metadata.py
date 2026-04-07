@@ -516,7 +516,7 @@ def generate_archive_metadata(root_dir: Path = ARCHIVE_DIR):
         archive_metadata_dir = ARCHIVE_DIR / f"{source.stem}_metadata"
         shutil.copytree(metadata_dir, archive_metadata_dir, dirs_exist_ok=True)
 
-    write_sha3_manifest(ARCHIVE_DIR, ARCHIVE_CHECKSUM_FILE)
+    write_sha3_manifest(ARCHIVE_DIR, ARCHIVE_CHECKSUM_FILE, ignore_fn=lambda p: p.name == ".DS_Store")
     print(f"Checksum manifest: {ARCHIVE_CHECKSUM_FILE}")
     print("All done.")
     return 0
