@@ -1,4 +1,28 @@
 {
+  "1171 morada pl, altadena, ca": {
+    "city": "Altadena",
+    "country": "United States",
+    "display_name": "1171, Morada Place, Altadena, Los Angeles County, California, 91001, United States",
+    "latitude": "34.1800517",
+    "longitude": "-118.1265644",
+    "query": "1171 Morada Pl, Altadena, CA",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": "1171 Morada Place"
+  },
+  "1171 morada place, altadena ca": {
+    "city": "Altadena",
+    "country": "United States",
+    "display_name": "1171, Morada Place, Altadena, Los Angeles County, California, 91001, United States",
+    "latitude": "34.1800517",
+    "longitude": "-118.1265644",
+    "query": "1171 Morada Place, Altadena CA",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": "1171 Morada Place"
+  },
   "12 castle road, bedford": {
     "display_name": "12, Castle Road, Castle, Bedford, England, MK40 3NX, United Kingdom",
     "latitude": "52.1367444",
@@ -38,6 +62,18 @@
     "status": "ok",
     "sublocation": "12 Castle Road"
   },
+  "1235 keniston ave, los angeles, ca 90019": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "1235, Keniston Avenue, Mid-Wilshire, Los Angeles, Los Angeles County, California, 90019, United States",
+    "latitude": "34.0523535",
+    "longitude": "-118.3381832",
+    "query": "1235 Keniston Ave, Los Angeles, CA 90019",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": "1235 Keniston Avenue"
+  },
   "15th century sera monastery": {
     "query": "15th Century Sera Monastery",
     "status": "miss"
@@ -49,6 +85,18 @@
   "15th century sera monastery, lhasa, china": {
     "query": "15TH CENTURY SERA MONASTERY, Lhasa, China",
     "status": "miss"
+  },
+  "1838 ½ n new hampshire ave, los angeles, ca": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "1838, North New Hampshire Avenue, Los Feliz Neighborhood Council District, Los Feliz, Los Angeles, Los Angeles County, California, 90027, United States",
+    "latitude": "34.1042572",
+    "longitude": "-118.2932154",
+    "query": "1838 ½ N New Hampshire Ave, Los Angeles, CA",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": "1838 North New Hampshire Avenue"
   },
   "1976 olympics, germany": {
     "query": "1976 Olympics, Germany",
@@ -77,6 +125,30 @@
     "state": "California",
     "status": "ok",
     "sublocation": "2240 Lorain Road"
+  },
+  "2240 lorain road, san marino ca": {
+    "city": "San Marino",
+    "country": "United States",
+    "display_name": "2240, Lorain Road, San Marino, Los Angeles County, California, 91108, United States",
+    "latitude": "34.1150739",
+    "longitude": "-118.1049194",
+    "query": "2240 Lorain Road, San Marino CA",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": "2240 Lorain Road"
+  },
+  "3 high st, brentford tw8 0dx, united kingdom": {
+    "city": "Greater London",
+    "country": "United Kingdom",
+    "display_name": "High Street, London Borough of Hounslow, Greater London, England, TW8 0DX, United Kingdom",
+    "latitude": "51.4876233",
+    "longitude": "-0.2931176",
+    "query": "3 High St, Brentford TW8 0DX, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "High Street"
   },
   "4th century church of st. georgi, bulgaria": {
     "query": "4th Century Church of St. Georgi, Bulgaria",
@@ -178,6 +250,18 @@
     "state": "",
     "status": "ok",
     "sublocation": ""
+  },
+  "aberdeen bay, hong kong, aberdeen": {
+    "city": "Hong Kong",
+    "country": "China",
+    "display_name": "Aberdeen West Catchwater, Tin Wan, Southern District, Hong Kong Island, Hong Kong, 999077, China",
+    "latitude": "22.2583400",
+    "longitude": "114.1457003",
+    "query": "Aberdeen Bay, Hong Kong, Aberdeen",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Aberdeen West Catchwater"
   },
   "abu simbel": {
     "city": "Abu Simbel City",
@@ -1064,6 +1148,30 @@
     "status": "ok",
     "sublocation": ""
   },
+  "banpo village, china": {
+    "city": "Baise",
+    "country": "China",
+    "display_name": "Banpo, Baise, Guangxi, China",
+    "latitude": "24.3668000",
+    "longitude": "105.7210000",
+    "query": "Banpo Village, China",
+    "source": "nominatim",
+    "state": "Guangxi",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "banpo village, xi'an, china": {
+    "city": "Banpo",
+    "country": "China",
+    "display_name": "Banpo, Anlong, Qianxinan, Guizhou, China",
+    "latitude": "25.2708000",
+    "longitude": "105.4590000",
+    "query": "Banpo Village, Xi'an, China",
+    "source": "nominatim",
+    "state": "Guizhou",
+    "status": "ok",
+    "sublocation": ""
+  },
   "barnum's bear ranch": {
     "query": "Barnum's Bear Ranch",
     "status": "miss"
@@ -1257,6 +1365,18 @@
   "battle castle, hastings, east sussex, england": {
     "query": "Battle Castle, Hastings, East Sussex, England",
     "status": "miss"
+  },
+  "battle,england": {
+    "city": "Rother",
+    "country": "United Kingdom",
+    "display_name": "Battle, Rother, East Sussex, England, United Kingdom",
+    "latitude": "50.9265004",
+    "longitude": "0.4757177",
+    "query": "battle,england",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "bavarian alps, austria": {
     "query": "Bavarian Alps, Austria",
@@ -1555,6 +1675,18 @@
     "status": "ok",
     "sublocation": "Anselm Road"
   },
+  "bingling temple, china": {
+    "city": "Zhaoshan",
+    "country": "China",
+    "display_name": "Bingling Temple, S230, Zhaoshan, Yongjing County, Linxia, Gansu, China",
+    "latitude": "35.8036162",
+    "longitude": "103.0426428",
+    "query": "Bingling Temple, china",
+    "source": "nominatim",
+    "state": "Gansu",
+    "status": "ok",
+    "sublocation": "S230"
+  },
   "bingling temple, yongjing county, gansu, china": {
     "display_name": "炳灵寺, S230, 赵山, 永靖县, 临夏回族自治州, 甘肃省, 中国",
     "latitude": "35.8036162",
@@ -1562,6 +1694,18 @@
     "query": "Bingling Temple, Yongjing County, Gansu, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "bingling temple,china": {
+    "city": "Zhaoshan",
+    "country": "China",
+    "display_name": "Bingling Temple, S230, Zhaoshan, Yongjing County, Linxia, Gansu, China",
+    "latitude": "35.8036162",
+    "longitude": "103.0426428",
+    "query": "Bingling Temple,china",
+    "source": "nominatim",
+    "state": "Gansu",
+    "status": "ok",
+    "sublocation": "S230"
   },
   "blenheim palace": {
     "display_name": "Blenheim Palace, The Great Court, Blenheim, West Oxfordshire, Oxfordshire, England, OX20 1PS, United Kingdom",
@@ -1881,6 +2025,10 @@
     "query": "Botanical Gardens at Cluj, Cluj-Napoca, Romania",
     "status": "miss"
   },
+  "bottom: 1034 beverly way, altadena": {
+    "query": "Bottom: 1034 Beverly Way, Altadena",
+    "status": "miss"
+  },
   "boulder dam & las vegas, nevada": {
     "query": "Boulder Dam & Las Vegas, Nevada",
     "status": "miss"
@@ -1943,6 +2091,18 @@
     "status": "ok",
     "sublocation": ""
   },
+  "bowness, england": {
+    "city": "",
+    "country": "United Kingdom",
+    "display_name": "Bowness, Cumberland, England, United Kingdom",
+    "latitude": "54.9284336",
+    "longitude": "-3.2242576",
+    "query": "Bowness, england",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "bowness, lake district, england": {
     "query": "Bowness, Lake District, England",
     "status": "miss"
@@ -1971,6 +2131,18 @@
     "query": "Bowness-on-Windermere, Cumbria, United Kingdom",
     "status": "miss"
   },
+  "bowness-on-windermere, england": {
+    "city": "Bowness-on-Windermere",
+    "country": "United Kingdom",
+    "display_name": "Bowness-on-Windermere, Westmorland and Furness, England, LA23 3BY, United Kingdom",
+    "latitude": "54.3647264",
+    "longitude": "-2.9195522",
+    "query": "Bowness-on-Windermere, ENGLAND",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "bowness-on-windermere, lake district": {
     "city": "Bowness-on-Windermere",
     "country": "United Kingdom",
@@ -1986,6 +2158,10 @@
     "query": "Bowness-on-Windermere, Lake District, England",
     "status": "miss"
   },
+  "bowness-on-windermere, the lake district, england": {
+    "query": "Bowness-on-Windermere, THE LAKE DISTRICT, ENGLAND",
+    "status": "miss"
+  },
   "bowness-on-windermere, united kingdom": {
     "city": "Bowness-on-Windermere",
     "country": "United Kingdom",
@@ -1997,6 +2173,14 @@
     "state": "England",
     "status": "ok",
     "sublocation": ""
+  },
+  "bowness. the lake district , england": {
+    "query": "Bowness. The Lake District , england",
+    "status": "miss"
+  },
+  "bowness. the lake district, england": {
+    "query": "Bowness. The Lake District, england",
+    "status": "miss"
   },
   "bran castle": {
     "city": "Bran",
@@ -3421,6 +3605,18 @@
     "state": "South Carolina",
     "status": "ok"
   },
+  "charleston, sc": {
+    "city": "Charleston",
+    "country": "United States",
+    "display_name": "Charleston, Charleston County, South Carolina, United States",
+    "latitude": "32.7884363",
+    "longitude": "-79.9399309",
+    "query": "Charleston, SC",
+    "source": "nominatim",
+    "state": "South Carolina",
+    "status": "ok",
+    "sublocation": ""
+  },
   "charleston, south carolina": {
     "city": "Charleston",
     "country": "United States",
@@ -3772,6 +3968,10 @@
     "state": "Tibet",
     "status": "ok",
     "sublocation": ""
+  },
+  "china, yunnan, kunming, xishan, 西山公路 邮政编码: 650111": {
+    "query": "China, Yunnan, Kunming, Xishan, 西山公路 邮政编码: 650111",
+    "status": "miss"
   },
   "chinese pavilion at kew gardens, kew, england, united kingdom": {
     "query": "Chinese Pavilion at Kew Gardens, Kew, England, United Kingdom",
@@ -4352,6 +4552,10 @@
     "query": "Coconut Plantation Plaza, Kauai, Hawaii, United States",
     "status": "miss"
   },
+  "coconut plantation plaza, kauai, hi": {
+    "query": "Coconut Plantation Plaza, Kauai, HI",
+    "status": "miss"
+  },
   "cologne and boppard, germany": {
     "query": "Cologne and Boppard, Germany",
     "status": "miss"
@@ -4553,6 +4757,18 @@
     "latitude": "55.6867243",
     "longitude": "12.5700724",
     "query": "Copenhagen, Denmark",
+    "source": "nominatim",
+    "state": "Capital Region of Denmark",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "copenhagen, dk": {
+    "city": "Copenhagen",
+    "country": "Denmark",
+    "display_name": "Copenhagen, Copenhagen Municipality, Capital Region of Denmark, 1357, Denmark",
+    "latitude": "55.6867243",
+    "longitude": "12.5700724",
+    "query": "Copenhagen, DK",
     "source": "nominatim",
     "state": "Capital Region of Denmark",
     "status": "ok",
@@ -5043,6 +5259,18 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "daibutsuden, japan": {
+    "city": "Yamagata",
+    "country": "Japan",
+    "display_name": "Daibutsuden, japan, Yamagata, Japan",
+    "latitude": "38.3154680",
+    "longitude": "140.4345508",
+    "query": "Daibutsuden, japan",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "仙台山寺線"
   },
   "dallas, texas": {
     "city": "Dallas",
@@ -6098,6 +6326,10 @@
     "status": "ok",
     "sublocation": "Na Phra Lan Road"
   },
+  "emperor qinshihuang's mausoleum site museum, china": {
+    "query": "Emperor Qinshihuang's Mausoleum Site Museum, China",
+    "status": "miss"
+  },
   "empire theatre, liverpool, united kingdom": {
     "city": "Liverpool",
     "country": "United Kingdom",
@@ -6495,6 +6727,18 @@
     "source": "nominatim",
     "state": "Alaska",
     "status": "ok"
+  },
+  "fairbanks, ak": {
+    "city": "Fairbanks",
+    "country": "United States",
+    "display_name": "Fairbanks, Fairbanks North Star Borough, Alaska, United States",
+    "latitude": "64.8378450",
+    "longitude": "-147.7166750",
+    "query": "Fairbanks, AK",
+    "source": "nominatim",
+    "state": "Alaska",
+    "status": "ok",
+    "sublocation": ""
   },
   "fairbanks, alaska": {
     "city": "Fairbanks",
@@ -7300,6 +7544,30 @@
     "state": "Community of Madrid",
     "status": "ok"
   },
+  "grand beach provincial park, canada": {
+    "city": "Lester Beach",
+    "country": "Canada",
+    "display_name": "Grand Beach Provincial Park, Lester Beach, Rural Municipality of Alexander, Manitoba, Canada",
+    "latitude": "50.5660800",
+    "longitude": "-96.5683120",
+    "query": "Grand Beach Provincial Park, Canada",
+    "source": "nominatim",
+    "state": "Manitoba",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "grand beach provincial park, manitoba, canada": {
+    "city": "Lester Beach",
+    "country": "Canada",
+    "display_name": "Grand Beach Provincial Park, Lester Beach, Rural Municipality of Alexander, Manitoba, Canada",
+    "latitude": "50.5660800",
+    "longitude": "-96.5683120",
+    "query": "Grand Beach Provincial Park, Manitoba, Canada",
+    "source": "nominatim",
+    "state": "Manitoba",
+    "status": "ok",
+    "sublocation": ""
+  },
   "grand beach, canada": {
     "city": "",
     "country": "Canada",
@@ -8055,6 +8323,18 @@
     "state": "California",
     "status": "ok"
   },
+  "hollywood, ca": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Hollywood, Los Angeles, Los Angeles County, California, 90028, United States",
+    "latitude": "34.0980031",
+    "longitude": "-118.3295230",
+    "query": "Hollywood, ca",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "hollywood, calif.": {
     "city": "Los Angeles",
     "country": "United States",
@@ -8262,6 +8542,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "hong kong,china": {
+    "city": "Hong Kong",
+    "country": "China",
+    "display_name": "Hong Kong, China",
+    "latitude": "22.2792968",
+    "longitude": "114.1628907",
+    "query": "hong kong,china",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
   "hotel das cataratas, brazil": {
     "city": "Foz do Iguaçu",
     "country": "Brazil",
@@ -8441,6 +8733,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "hua ting temple hua ting , china": {
+    "query": "HUA TING TEMPLE HUA TING , China",
+    "status": "miss"
+  },
   "hua ting temple, china": {
     "display_name": "华亭寺, 西山黑森林林道, 龙门, 碧鸡街道, 西山区, 昆明市, 云南省, 650228, 中国",
     "latitude": "24.9733549",
@@ -8457,6 +8753,18 @@
     "query": "Hua Ting Temple, Mainland China",
     "status": "miss"
   },
+  "huaqing hot springs, china": {
+    "city": "Lintong District",
+    "country": "China",
+    "display_name": "Huaqing Hot Springs, Lishan, Lintong District, Xi'an, Shaanxi, China",
+    "latitude": "34.3649458",
+    "longitude": "109.2075327",
+    "query": "Huaqing Hot Springs, China",
+    "source": "nominatim",
+    "state": "Shaanxi",
+    "status": "ok",
+    "sublocation": ""
+  },
   "huaqing hot springs, xi'an, china": {
     "display_name": "华清宫, 骊山街道, 临潼区, 西安市, 陕西省, 中国",
     "latitude": "34.3649458",
@@ -8472,6 +8780,10 @@
     "query": "Huaqing Hot Springs, Xi'an, Shaanxi, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "huating temple, china": {
+    "query": "Huating Temple, China",
+    "status": "miss"
   },
   "humber bridge": {
     "city": "Hessle",
@@ -8631,6 +8943,18 @@
     "query": "Indian Temple, Singapore",
     "status": "miss"
   },
+  "indiana, in": {
+    "city": "Chicago",
+    "country": "United States",
+    "display_name": "Welcome to Indiana, South Indianapolis Avenue, East Side, Chicago, Hyde Park Township, Cook County, Illinois, 60617, United States",
+    "latitude": "41.7030810",
+    "longitude": "-87.5246206",
+    "query": "Indiana, IN",
+    "source": "nominatim",
+    "state": "Illinois",
+    "status": "ok",
+    "sublocation": "South Indianapolis Avenue"
+  },
   "indiana, united states": {
     "city": "",
     "country": "United States",
@@ -8686,6 +9010,18 @@
     "source": "nominatim",
     "state": "Indiana",
     "status": "ok"
+  },
+  "indianapolis, in": {
+    "city": "Indianapolis",
+    "country": "United States",
+    "display_name": "Indianapolis, Marion County, Indiana, United States",
+    "latitude": "39.7683331",
+    "longitude": "-86.1583502",
+    "query": "Indianapolis, IN",
+    "source": "nominatim",
+    "state": "Indiana",
+    "status": "ok",
+    "sublocation": ""
   },
   "indianapolis, indiana": {
     "city": "Indianapolis",
@@ -9250,6 +9586,42 @@
     "status": "ok",
     "sublocation": "National Highway Route 477"
   },
+  "kat hing wai, china": {
+    "city": "Hong Kong",
+    "country": "China",
+    "display_name": "Kat Hing Wai, Nam Wai Tsuen, Yuen Long District, New Territories, Hong Kong, China",
+    "latitude": "22.4396220",
+    "longitude": "114.0639949",
+    "query": "Kat Hing Wai, China",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "kat hing wai, hong kong, china": {
+    "city": "Hong Kong",
+    "country": "China",
+    "display_name": "Kat Hing Wai, Nam Wai Tsuen, Yuen Long District, New Territories, Hong Kong, China",
+    "latitude": "22.4396220",
+    "longitude": "114.0639949",
+    "query": "Kat Hing Wai, Hong Kong, China",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "kat hing wai,hong kong, china": {
+    "city": "Hong Kong",
+    "country": "China",
+    "display_name": "Kat Hing Wai, Nam Wai Tsuen, Yuen Long District, New Territories, Hong Kong, China",
+    "latitude": "22.4396220",
+    "longitude": "114.0639949",
+    "query": "Kat Hing Wai,Hong Kong, China",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
   "kathing, china": {
     "query": "Kathing, China",
     "status": "miss"
@@ -9295,6 +9667,18 @@
     "source": "nominatim",
     "state": "Hawaii",
     "status": "ok"
+  },
+  "kauai, hi": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Kauai, HI, Hawaii, United States",
+    "latitude": "22.0503838",
+    "longitude": "-159.5588624",
+    "query": "Kauai, HI",
+    "source": "nominatim",
+    "state": "Hawaii",
+    "status": "ok",
+    "sublocation": ""
   },
   "kauia hilton hotel & beach villas, kauai, hawaii, united states": {
     "query": "Kauia Hilton Hotel & Beach Villas, Kauai, Hawaii, United States",
@@ -10181,6 +10565,18 @@
     "status": "ok",
     "sublocation": ""
   },
+  "lake windermere, bowness, england": {
+    "city": "Bowness-on-Windermere",
+    "country": "United Kingdom",
+    "display_name": "Windermere Lake Cruises, Promenade, Windermere, Bowness-on-Windermere, Westmorland and Furness, England, LA23 3HQ, United Kingdom",
+    "latitude": "54.3628364",
+    "longitude": "-2.9228627",
+    "query": "Lake Windermere, Bowness, england",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Promenade"
+  },
   "lake windermere, bowness, the lake district": {
     "query": "Lake Windermere, Bowness, The Lake District",
     "status": "miss"
@@ -10254,6 +10650,18 @@
     "query": "Lanzhou, Gansu, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "lanzhou,china": {
+    "city": "",
+    "country": "China",
+    "display_name": "Lanzhou, Gansu, China",
+    "latitude": "36.4744360",
+    "longitude": "103.7332240",
+    "query": "lanzhou,china",
+    "source": "nominatim",
+    "state": "Gansu",
+    "status": "ok",
+    "sublocation": ""
   },
   "lasa, china": {
     "display_name": "拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
@@ -10401,6 +10809,18 @@
   "leslie's home and school in indianapolis": {
     "query": "Leslie's home and school in Indianapolis",
     "status": "miss"
+  },
+  "lester beach, manitoba, canada": {
+    "city": "Lester Beach",
+    "country": "Canada",
+    "display_name": "Lester Beach, Rural Municipality of Alexander, Manitoba, R0E 0E0, Canada",
+    "latitude": "50.5863675",
+    "longitude": "-96.5755090",
+    "query": "Lester Beach, Manitoba, Canada",
+    "source": "nominatim",
+    "state": "Manitoba",
+    "status": "ok",
+    "sublocation": ""
   },
   "lhasa - tibet, tibet, china": {
     "city": "Chengguan District",
@@ -10965,6 +11385,10 @@
     "status": "ok",
     "sublocation": ""
   },
+  "long music museum, london, england": {
+    "query": "Long Music Museum, London, England",
+    "status": "miss"
+  },
   "longleat house - warminster": {
     "query": "Longleat House - Warminster",
     "status": "miss"
@@ -10976,6 +11400,18 @@
   "longleat house - warminster, wiltshire, england": {
     "query": "Longleat House - Warminster, Wiltshire, England",
     "status": "miss"
+  },
+  "longleat house, england": {
+    "city": "Horningsham",
+    "country": "United Kingdom",
+    "display_name": "Longleat House, Lodge Road, Horningsham, Wiltshire, England, BA12 7NG, United Kingdom",
+    "latitude": "51.1857730",
+    "longitude": "-2.2744605",
+    "query": "LONGLEAT HOUSE, england",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Lodge Road"
   },
   "longleat house, warminster": {
     "query": "Longleat House, Warminster",
@@ -11106,6 +11542,18 @@
     "state": "California",
     "status": "ok"
   },
+  "los angeles, ca": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Los Angeles, Los Angeles County, California, United States",
+    "latitude": "34.0536909",
+    "longitude": "-118.2427660",
+    "query": "los angeles, ca",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "los angeles, ca, usa": {
     "city": "Los Angeles",
     "country": "United States",
@@ -11190,6 +11638,18 @@
     "latitude": "34.0536909",
     "longitude": "-118.2427660",
     "query": "Los Angeles, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "los angeles,ca": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Los Angeles, Los Angeles County, California, United States",
+    "latitude": "34.0536909",
+    "longitude": "-118.2427660",
+    "query": "los angeles,ca",
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -11316,6 +11776,34 @@
   "lynchberg, virginia, united states": {
     "query": "Lynchberg, Virginia, United States",
     "status": "miss"
+  },
+  "lynchberg, virginia, usa": {
+    "query": "LYNCHBERG, VIRGINIA, USA",
+    "status": "miss"
+  },
+  "lynchburg virginia": {
+    "city": "Lynchburg",
+    "country": "United States",
+    "display_name": "Lynchburg, Virginia, United States",
+    "latitude": "37.4137536",
+    "longitude": "-79.1422464",
+    "query": "Lynchburg VIRGINIA",
+    "source": "nominatim",
+    "state": "Virginia",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "lynchburg, virginia": {
+    "city": "Lynchburg",
+    "country": "United States",
+    "display_name": "Lynchburg, Virginia, United States",
+    "latitude": "37.4137536",
+    "longitude": "-79.1422464",
+    "query": "Lynchburg, VIRGINIA",
+    "source": "nominatim",
+    "state": "Virginia",
+    "status": "ok",
+    "sublocation": ""
   },
   "lynn, norfolk, england": {
     "display_name": "King's Lynn, King's Lynn and West Norfolk, Norfolk, England, PE30 1BJ, United Kingdom",
@@ -11839,6 +12327,30 @@
     "source": "nominatim",
     "state": "Rabat-Salé-Kénitra",
     "status": "ok"
+  },
+  "mausoleum of qin shi huang": {
+    "city": "Lintong District",
+    "country": "China",
+    "display_name": "Mausoleum of the First Qin Emperor, Qingling Rd, Lintong District, Xi'an, Shaanxi, China",
+    "latitude": "34.3814190",
+    "longitude": "109.2538363",
+    "query": "Mausoleum of Qin Shi Huang",
+    "source": "nominatim",
+    "state": "Shaanxi",
+    "status": "ok",
+    "sublocation": "Qingling Rd"
+  },
+  "mausoleum of qin shi huang,china": {
+    "city": "Lintong District",
+    "country": "China",
+    "display_name": "Mausoleum of the First Qin Emperor, Qingling Rd, Lintong District, Xi'an, Shaanxi, China",
+    "latitude": "34.3814190",
+    "longitude": "109.2538363",
+    "query": "Mausoleum of Qin Shi Huang,china",
+    "source": "nominatim",
+    "state": "Shaanxi",
+    "status": "ok",
+    "sublocation": "Qingling Rd"
   },
   "mausoleum of the first qin emperor, lintong district, xi'an, china": {
     "display_name": "秦始皇帝陵, 秦陵路, 临潼区, 西安市, 陕西省, 中国",
@@ -12835,6 +13347,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "newport, wales, england": {
+    "city": "Hay on Wye",
+    "country": "United Kingdom",
+    "display_name": "Newport Street, Hay, Hay on Wye, Powys, Wales, HR3 5BA, United Kingdom",
+    "latitude": "52.0778644",
+    "longitude": "-3.1240507",
+    "query": "Newport, Wales, England",
+    "source": "nominatim",
+    "state": "Wales",
+    "status": "ok",
+    "sublocation": "Newport Street"
+  },
   "newport-wales, wales, united kingdom": {
     "display_name": "Newport, Cymru / Wales, United Kingdom",
     "latitude": "51.5882332",
@@ -13067,6 +13591,18 @@
     "query": "Nymphenburg Castle, München, Bayern, Germany",
     "status": "miss"
   },
+  "nymphenburg palace, germany": {
+    "city": "Munich",
+    "country": "Germany",
+    "display_name": "Nymphenburg Palace, germany, Munich, Bavaria, Germany",
+    "latitude": "48.1582569",
+    "longitude": "11.5032967",
+    "query": "Nymphenburg Palace, germany",
+    "source": "nominatim",
+    "state": "Bavaria",
+    "status": "ok",
+    "sublocation": "1 Chevauleger Brücke"
+  },
   "obelisk in st. peter's square, vatican city": {
     "query": "Obelisk in St. Peter's Square, Vatican City",
     "status": "miss"
@@ -13231,6 +13767,18 @@
     "source": "nominatim",
     "state": "Attica",
     "status": "ok"
+  },
+  "opera, vienna, austria": {
+    "city": "Vienna",
+    "country": "Austria",
+    "display_name": "Vienna State Opera, 2, Opernring, Innere Stadt, Vienna, 1010, Austria",
+    "latitude": "48.2032864",
+    "longitude": "16.3691936",
+    "query": "Opera, vienna, austria",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "2 Opernring"
   },
   "oregon redwoods": {
     "city": "",
@@ -13881,6 +14429,18 @@
     "state": "California",
     "status": "ok"
   },
+  "pasadena ca": {
+    "city": "Pasadena",
+    "country": "United States",
+    "display_name": "Pasadena, Los Angeles County, California, United States",
+    "latitude": "34.1476507",
+    "longitude": "-118.1441550",
+    "query": "pasadena CA",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "pasadena, calif.": {
     "city": "Pasadena",
     "country": "United States",
@@ -14380,6 +14940,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "plodiv, bulgaria": {
+    "city": "Plovdiv",
+    "country": "Bulgaria",
+    "display_name": "Plodiv, bulgaria, Plovdiv, Bulgaria",
+    "latitude": "42.1305405",
+    "longitude": "24.7089890",
+    "query": "Plodiv, bulgaria",
+    "source": "nominatim",
+    "state": "Plovdiv",
+    "status": "ok",
+    "sublocation": "Solunska"
+  },
   "plovdiv old town, plovdiv, plovdiv province, bulgaria": {
     "query": "Plovdiv Old Town, Plovdiv, Plovdiv Province, Bulgaria",
     "status": "miss"
@@ -14641,6 +15213,18 @@
     "latitude": "48.1181460",
     "longitude": "-123.4307410",
     "query": "Port Angeles, United States",
+    "source": "nominatim",
+    "state": "Washington",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "port angeles, wa": {
+    "city": "Port Angeles",
+    "country": "United States",
+    "display_name": "Port Angeles, Clallam County, Washington, 98362, United States",
+    "latitude": "48.1181460",
+    "longitude": "-123.4307410",
+    "query": "Port Angeles, WA",
     "source": "nominatim",
     "state": "Washington",
     "status": "ok",
@@ -15489,6 +16073,18 @@
     "latitude": "-22.9110137",
     "longitude": "-43.2093727",
     "query": "Rio de Janeiro, Brazil",
+    "source": "nominatim",
+    "state": "Rio de Janeiro",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "rio de janeiro, brazil,": {
+    "city": "Rio de Janeiro",
+    "country": "Brazil",
+    "display_name": "Rio de Janeiro, Brazil, Rio de Janeiro, Brazil",
+    "latitude": "-22.9110137",
+    "longitude": "-43.2093727",
+    "query": "Rio de Janeiro, Brazil,",
     "source": "nominatim",
     "state": "Rio de Janeiro",
     "status": "ok",
@@ -16626,6 +17222,18 @@
     "query": "Sandringham Hall Estate, Norfolk, England",
     "status": "miss"
   },
+  "sandringham hall, england": {
+    "city": "Sandwell",
+    "country": "United Kingdom",
+    "display_name": "Sandringham Drive, Rowley Hall Estate, Turner's Portway, Rowley Village, Sandwell, West Midlands, England, B65 9RG, United Kingdom",
+    "latitude": "52.4875040",
+    "longitude": "-2.0383931",
+    "query": "sandringham hall, england",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Sandringham Drive"
+  },
   "sandringham hall, norfolk, england": {
     "query": "Sandringham Hall, Norfolk, England",
     "status": "miss"
@@ -16735,6 +17343,18 @@
     "source": "nominatim",
     "state": "Veneto",
     "status": "ok"
+  },
+  "santa monica beach, ca": {
+    "city": "Santa Monica",
+    "country": "United States",
+    "display_name": "Santa Monica State Beach, Santa Monica, Los Angeles County, California, United States",
+    "latitude": "34.0171018",
+    "longitude": "-118.5061976",
+    "query": "Santa Monica Beach, CA",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
   },
   "santa monica beach, los angeles, united states": {
     "city": "Santa Monica",
@@ -16980,6 +17600,10 @@
     "query": "Seminal Hot Springs, California, United States",
     "status": "miss"
   },
+  "seminol hot springs, ca": {
+    "query": "Seminol Hot Springs, CA",
+    "status": "miss"
+  },
   "seminol hot springs, calif.": {
     "query": "Seminol Hot Springs, Calif.",
     "status": "miss"
@@ -16991,6 +17615,30 @@
   "seminol hot springs, california, united states": {
     "query": "Seminol Hot Springs, California, United States",
     "status": "miss"
+  },
+  "seminole hot springs, ca": {
+    "city": "Unincorporated Santa Monica Mountains",
+    "country": "United States",
+    "display_name": "Seminole Hot Springs, Unincorporated Santa Monica Mountains, Los Angeles County, California, 91301, United States",
+    "latitude": "34.1088794",
+    "longitude": "-118.7890119",
+    "query": "seminole hot springs, ca",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "seminole hot springs, california": {
+    "city": "Unincorporated Santa Monica Mountains",
+    "country": "United States",
+    "display_name": "Seminole Hot Springs, Unincorporated Santa Monica Mountains, Los Angeles County, California, 91301, United States",
+    "latitude": "34.1088794",
+    "longitude": "-118.7890119",
+    "query": "Seminole Hot Springs, California",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
   },
   "senate square, helsinki, finland": {
     "city": "Helsinki",
@@ -17585,6 +18233,30 @@
     "query": "Square of America, Seville, Spain",
     "status": "miss"
   },
+  "st george church": {
+    "city": "دهستان زولاچای",
+    "country": "Iran",
+    "display_name": "St George Church, West Azerbaijan Province, Iran",
+    "latitude": "38.1700183",
+    "longitude": "44.7564836",
+    "query": "St George Church",
+    "source": "nominatim",
+    "state": "West Azerbaijan Province",
+    "status": "ok",
+    "sublocation": "شهید قالی زاده"
+  },
+  "st george church, brentford": {
+    "query": "St George Church, Brentford",
+    "status": "miss"
+  },
+  "st george church, brentford, england": {
+    "query": "St George Church, Brentford, England",
+    "status": "miss"
+  },
+  "st george's church, brentford, england": {
+    "query": "St George's Church, Brentford, England",
+    "status": "miss"
+  },
   "st ives, cornwall, england": {
     "display_name": "St. Ives, Cornwall, England, United Kingdom",
     "latitude": "50.2149064",
@@ -17704,6 +18376,10 @@
   },
   "st stephens cathedral, vienna, austria": {
     "query": "St Stephens Cathedral, Vienna, Austria",
+    "status": "miss"
+  },
+  "st stephens dom, vienna, austria": {
+    "query": "st stephens dom, vienna, austria",
     "status": "miss"
   },
   "st thomas, u.s. virgin islands": {
@@ -18331,6 +19007,18 @@
     "status": "ok",
     "sublocation": ""
   },
+  "stockholm, sweeden": {
+    "city": "Stockholm",
+    "country": "Sweden",
+    "display_name": "Stockholm, Stockholm Municipality, Stockholm County, 111 29, Sweden",
+    "latitude": "59.3251172",
+    "longitude": "18.0710935",
+    "query": "Stockholm, Sweeden",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
   "stone flower fountain, russia": {
     "city": "Moscow",
     "country": "Russia",
@@ -18608,6 +19296,18 @@
   "sugar loaf mountain, rio de janeiro, brazil": {
     "query": "Sugar Loaf Mountain, Rio de Janeiro, Brazil",
     "status": "miss"
+  },
+  "sugar loaf, brazil": {
+    "city": "São Paulo",
+    "country": "Brazil",
+    "display_name": "Sugar Loaf, Brazil, Sao Paulo, Brazil",
+    "latitude": "-23.5564237",
+    "longitude": "-46.6636985",
+    "query": "Sugar Loaf, Brazil",
+    "source": "nominatim",
+    "state": "São Paulo",
+    "status": "ok",
+    "sublocation": "2581 Rua da Consolação"
   },
   "suleymaniye mosque, istanbul, turkey": {
     "city": "Istanbul",
@@ -20385,6 +21085,18 @@
     "query": "The Wild Goose Pagoda",
     "status": "miss"
   },
+  "the wild goose pagoda ,china": {
+    "city": "Yanta District",
+    "country": "China",
+    "display_name": "THE WILD GOOSE PAGODA ,china, Yanta District, Shaanxi, China",
+    "latitude": "34.2197968",
+    "longitude": "108.9594259",
+    "query": "THE WILD GOOSE PAGODA ,china",
+    "source": "nominatim",
+    "state": "Shaanxi",
+    "status": "ok",
+    "sublocation": "雁塔西步行街"
+  },
   "the wild goose pagoda, china": {
     "city": "Yanta District",
     "country": "China",
@@ -20475,6 +21187,10 @@
   },
   "tiger balm gardens - singapore, singapore": {
     "query": "Tiger Balm Gardens - Singapore, Singapore",
+    "status": "miss"
+  },
+  "tiger balm gardens, hong kong": {
+    "query": "Tiger Balm Gardens, Hong Kong",
     "status": "miss"
   },
   "tiger balm gardens, singapore": {
@@ -20624,6 +21340,10 @@
   },
   "tomb of tutankhamun, egypt": {
     "query": "Tomb of Tutankhamun, Egypt",
+    "status": "miss"
+  },
+  "top: indianapolis bottom: 1034 beverly way, altadena": {
+    "query": "Top: Indianapolis Bottom: 1034 Beverly Way, Altadena",
     "status": "miss"
   },
   "topkapi museum": {
@@ -20939,6 +21659,18 @@
     "state": "England",
     "status": "ok"
   },
+  "tracy st, los angeles, ca": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Tracy Street, Los Feliz Neighborhood Council District, Los Feliz, Los Angeles, Los Angeles County, California, 90227, United States",
+    "latitude": "34.1061109",
+    "longitude": "-118.2757581",
+    "query": "Tracy St, Los Angeles, CA",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": "Tracy Street"
+  },
   "trafalga square - london": {
     "query": "Trafalga Square - London",
     "status": "miss"
@@ -21135,6 +21867,22 @@
     "source": "nominatim",
     "state": "",
     "status": "ok"
+  },
+  "tyrol, austria": {
+    "city": "",
+    "country": "Austria",
+    "display_name": "Tyrol, Austria",
+    "latitude": "47.2231930",
+    "longitude": "11.5261028",
+    "query": "TYROL, Austria",
+    "source": "nominatim",
+    "state": "Tyrol",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "tyrole, austria": {
+    "query": "TYROLe, Austria",
+    "status": "miss"
   },
   "tyrolean alps, austria": {
     "query": "Tyrolean Alps, Austria",
@@ -21655,6 +22403,18 @@
     "state": "British Columbia",
     "status": "ok"
   },
+  "victoria, bc, canada": {
+    "city": "Victoria",
+    "country": "Canada",
+    "display_name": "Victoria, Capital Regional District, British Columbia, Canada",
+    "latitude": "48.4283182",
+    "longitude": "-123.3649530",
+    "query": "Victoria, BC, Canada",
+    "source": "nominatim",
+    "state": "British Columbia",
+    "status": "ok",
+    "sublocation": ""
+  },
   "victoria, british columbia": {
     "city": "Victoria",
     "country": "Canada",
@@ -21998,6 +22758,14 @@
   },
   "welsh folk museum newport-wales": {
     "query": "Welsh Folk Museum Newport-Wales",
+    "status": "miss"
+  },
+  "welsh folk museum newport-wales, england": {
+    "query": "WELSH FOLK MUSEUM NEWPORT-WALES, england",
+    "status": "miss"
+  },
+  "welsh folk museum, newport, england": {
+    "query": "Welsh Folk Museum, Newport, England",
     "status": "miss"
   },
   "welsh folk museum, newport, wales, uk": {
@@ -22491,6 +23259,18 @@
     "query": "Woodhaven, Canada, Ontario",
     "status": "miss"
   },
+  "woodhaven, winnipeg,canada": {
+    "city": "Winnipeg",
+    "country": "Canada",
+    "display_name": "Woodhaven, Winnipeg, Manitoba, Canada",
+    "latitude": "49.8744665",
+    "longitude": "-97.2742459",
+    "query": "woodhaven, winnipeg,canada",
+    "source": "nominatim",
+    "state": "Manitoba",
+    "status": "ok",
+    "sublocation": ""
+  },
   "worcester cathedral": {
     "city": "Worcester",
     "country": "United Kingdom",
@@ -22575,6 +23355,18 @@
     "query": "Xi'an, Shaanxi, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "xi'ian, china": {
+    "city": "Macau",
+    "country": "China",
+    "display_name": "xi'ian, china, Macau, China",
+    "latitude": "22.1933391",
+    "longitude": "113.5375090",
+    "query": "xi'ian, china",
+    "source": "nominatim",
+    "state": "Macau",
+    "status": "ok",
+    "sublocation": "3-5 高地里 (高地圍) Beco da Alfândega"
   },
   "xian": {
     "city": "Xian County",
