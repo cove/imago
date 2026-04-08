@@ -68,8 +68,8 @@ vhs-metadata-build:
 vhs-metadata-embed file="":
   {{python}} vhs/vhs.py metadata embed {{if file != "" { '"' + file + '"' } else { "" }}}
 
-vhs-verify-archive:
-  {{python}} vhs/vhs.py verify archive
+vhs-verify-archive archive="":
+  {{python}} vhs/vhs.py verify archive {{if archive != "" { "--archive " + archive } else { "" }}}
 
 mcp-http:
   {{python}} mcp_server.py --transport http --host 0.0.0.0 --port 8090 --console-host 192.168.4.26
