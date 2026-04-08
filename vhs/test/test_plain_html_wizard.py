@@ -755,7 +755,7 @@ def test_handle_load_chapter_populates_session_from_video_and_metadata(
     extract_path.write_bytes(b"extract")
 
     monkeypatch.setattr(wizard_server, "METADATA_DIR", metadata_dir)
-    monkeypatch.setattr(wizard_server, "ARCHIVE_DIR", archive_dir)
+    monkeypatch.setattr(wizard_server, "archive_dir_for", lambda _archive: archive_dir)
     monkeypatch.setattr(
         wizard_server,
         "_resolve_archive_video",
@@ -905,7 +905,7 @@ def test_handle_load_chapter_reports_missing_archive_video(
     _write_single_chapter_tsv(metadata_dir / archive_name / "chapters.tsv", chapter, 100, 103)
 
     monkeypatch.setattr(wizard_server, "METADATA_DIR", metadata_dir)
-    monkeypatch.setattr(wizard_server, "ARCHIVE_DIR", tmp_path / "Archive")
+    monkeypatch.setattr(wizard_server, "archive_dir_for", lambda _archive: tmp_path / "Archive")
     monkeypatch.setattr(
         wizard_server,
         "_archive_state",
@@ -1016,7 +1016,7 @@ def test_preview_render_passes_current_audio_sync_offset_to_extract(
         captured["audio_offset_seconds"] = float(kwargs["audio_offset_seconds"])
         return None, "stop here"
 
-    monkeypatch.setattr(wizard_server, "ARCHIVE_DIR", archive_dir)
+    monkeypatch.setattr(wizard_server, "archive_dir_for", lambda _archive: archive_dir)
     monkeypatch.setattr(wizard_server, "_ensure_render_chapter_extract", _fake_extract)
 
     session = _make_loaded_wizard_session("demo_archive", "Example Chapter", 100, 200)
@@ -1369,7 +1369,7 @@ def test_do_post_rename_chapter_updates_tsv_and_returns_files(
     monkeypatch.setattr(
         wizard_server,
         "_rename_chapter_outputs",
-        lambda old_title, new_title: [f"{wizard_server.safe(new_title)}.mp4"],
+        lambda old_title, new_title, archive: [f"{wizard_server.safe(new_title)}.mp4"],
     )
 
     handler = _PostHandlerStub(

@@ -13,11 +13,12 @@ from typing import Any
 import importlib.metadata
 
 from common import (
-    ARCHIVE_CHECKSUM_FILE,
-    ARCHIVE_DIR,
     FFMPEG_BIN,
     MEDIAINFO_BIN,
     METADATA_DIR,
+    all_store_archive_dirs,
+    archive_checksum_file_for,
+    archive_dir_for,
     write_sha3_manifest,
 )
 from vhs_pipeline.render_pipeline import (
@@ -498,21 +499,21 @@ def write_mediainfo_outputs(input_path: Path, output_dir: Path):
     return 0
 
 
-def generate_archive_metadata(root_dir: Path = ARCHIVE_DIR):
+def _generate_archive_metadata_for_store(root_dir: Path) -> int:
     files = sorted(
         glob.glob(str(root_dir / "*.mkv")) + glob.glob(str(root_dir / "*.flac")),
         key=lambda x: x.lower(),
     )
     if not files:
-        print("No files found.")
-        return 1
+        return 0
 
-    print(f"Processing directory: {Path(root_dir).resolve()}")
+    print(f"Processing directory: {root_dir.resolve()}")
     for fn in files:
         source = Path(fn)
         print(f"Processing: {source}")
 
-        archive_metadata_dir = ARCHIVE_DIR / f"{source.stem}_metadata"
+        ad = archive_dir_for(source.stem)
+        archive_metadata_dir = ad / f"{source.stem}_metadata"
         archive_metadata_dir.mkdir(exist_ok=True)
         rc = write_mediainfo_outputs(source, archive_metadata_dir)
         if rc:
@@ -536,10 +537,23 @@ def generate_archive_metadata(root_dir: Path = ARCHIVE_DIR):
         metadata_dir = ffmetadata_path.parent
         shutil.copytree(metadata_dir, archive_metadata_dir, dirs_exist_ok=True)
 
-    write_sha3_manifest(ARCHIVE_DIR, ARCHIVE_CHECKSUM_FILE, ignore_fn=lambda p: p.name == ".DS_Store")
-    print(f"Checksum manifest: {ARCHIVE_CHECKSUM_FILE}")
-    write_archive_readme(ARCHIVE_DIR / "README.txt")
-    print(f"Archive README: {ARCHIVE_DIR / 'README.txt'}")
+    checksum_file = archive_checksum_file_for(Path(files[0]).stem)
+    write_sha3_manifest(root_dir, checksum_file, ignore_fn=lambda p: p.name == ".DS_Store")
+    print(f"Checksum manifest: {checksum_file}")
+    write_archive_readme(root_dir / "README.txt")
+    print(f"Archive README: {root_dir / 'README.txt'}")
+    return 0
+
+
+def generate_archive_metadata():
+    store_dirs = all_store_archive_dirs()
+    if not store_dirs:
+        print("No archive directories found.")
+        return 1
+    for root_dir in store_dirs:
+        rc = _generate_archive_metadata_for_store(root_dir)
+        if rc:
+            return rc
     print("All done.")
     return 0
 
@@ -740,7 +754,7 @@ SIDECAR AND METADATA FILES (per archive, in {{archive}}_metadata/)
 
 def main(argv=None):
     _ = argv
-    return generate_archive_metadata(ARCHIVE_DIR)
+    return generate_archive_metadata()
 
 
 if __name__ == "__main__":

@@ -1893,7 +1893,8 @@ def _run_with_args(args):
         )
 
     archive_filters = [str(x or "").strip().lower() for x in (args.archive or []) if str(x or "").strip()]
-    for src in ARCHIVE_DIR.glob("*.mkv"):
+    all_srcs = [p for ad in all_store_archive_dirs() for p in sorted(ad.glob("*.mkv"))]
+    for src in all_srcs:
         if archive_filters:
             stem_text = src.stem.strip().lower()
             if not any(f in stem_text for f in archive_filters):
@@ -1950,7 +1951,8 @@ def _run_with_args(args):
             extract_start_sec, extract_end_sec = chapter_exact_time_bounds(ch)
             chapter_start_frame, chapter_end_frame = chapter_global_frame_bounds(ch)
 
-            final_dir = VIDEOS_DIR if ch["duration"] >= 200 else CLIPS_DIR
+            final_dir = videos_dir_for(archive_name) if ch["duration"] >= 200 else clips_dir_for(archive_name)
+            final_dir.mkdir(parents=True, exist_ok=True)
             final_file = final_dir / f"{safe(title)}.mp4"
             final_srt = final_dir / f"{safe(title)}.srt"
             final_vtt = final_dir / f"{safe(title)}.vtt"

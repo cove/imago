@@ -38,12 +38,12 @@ PROJECT_ROOT = _HERE.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from common import (
-    ARCHIVE_DIR,
-    CLIPS_DIR,
     FFMPEG_BIN,
     METADATA_DIR,
-    VIDEOS_DIR,
     WHISPER_MODEL_DIR,
+    archive_dir_for,
+    clips_dir_for,
+    videos_dir_for,
     combined_score,
     compute_threshold,
     get_audio_sync_offset_for_chapter,
@@ -630,13 +630,13 @@ def _chapters_tsv_path(archive: str) -> Path:
     return METADATA_DIR / str(archive or "").strip() / "chapters.tsv"
 
 
-def _rename_chapter_outputs(old_title: str, new_title: str) -> list[str]:
+def _rename_chapter_outputs(old_title: str, new_title: str, archive: str) -> list[str]:
     """Rename rendered output files and remux MP4 to update embedded title metadata."""
     old_safe = safe(old_title)
     new_safe = safe(new_title)
     renamed: list[str] = []
-    for output_dir in [VIDEOS_DIR, CLIPS_DIR]:
-        if not output_dir:
+    for output_dir in [videos_dir_for(archive), clips_dir_for(archive)]:
+        if not output_dir.exists():
             continue
         old_mp4 = output_dir / f"{old_safe}.mp4"
         if not old_mp4.exists() or old_mp4.stat().st_size <= 100_000:
@@ -3357,7 +3357,7 @@ class WizardHandler(BaseHTTPRequestHandler):
                 self._send_error_json(f"Chapter not found: {old_title!r}")
                 return
             _write_chapters_tsv_rows(tsv_path, header, rows)
-            renamed_files = _rename_chapter_outputs(old_title, new_title)
+            renamed_files = _rename_chapter_outputs(old_title, new_title, archive)
             self._send_json(
                 {
                     "ok": True,
@@ -3958,8 +3958,8 @@ class WizardHandler(BaseHTTPRequestHandler):
             fail(f"Preview render is unavailable: {type(exc).__name__}: {exc}")
             return
 
-        proxy_video = ARCHIVE_DIR / f"{session.archive}_proxy.mp4"
-        archive_video = ARCHIVE_DIR / f"{session.archive}.mkv"
+        proxy_video = archive_dir_for(session.archive) / f"{session.archive}_proxy.mp4"
+        archive_video = archive_dir_for(session.archive) / f"{session.archive}.mkv"
         if proxy_video.exists():
             source_video = proxy_video
             source_label = "proxy"
@@ -4171,7 +4171,7 @@ class WizardHandler(BaseHTTPRequestHandler):
                     (
                         "-vf",
                         _build_audio_sync_hud_vf(
-                            ARCHIVE_DIR / f"{session.archive}.mkv",
+                            archive_dir_for(session.archive) / f"{session.archive}.mkv",
                             start_frame,
                             end_frame,
                             session.audio_sync_offset,

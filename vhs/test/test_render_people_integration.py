@@ -49,10 +49,10 @@ def _configure_render_env(monkeypatch, tmp_path: Path, transcript_mode: str) -> 
     (archive_meta / "filter.avs").write_text("c = last\nc\n", encoding="ascii")
     _write_people_tsv(archive_meta / "people.tsv")
 
-    monkeypatch.setattr(render_pipeline, "ARCHIVE_DIR", archive_dir)
+    monkeypatch.setattr(render_pipeline, "all_store_archive_dirs", lambda: [archive_dir])
     monkeypatch.setattr(render_pipeline, "METADATA_DIR", metadata_dir)
-    monkeypatch.setattr(render_pipeline, "VIDEOS_DIR", videos_dir)
-    monkeypatch.setattr(render_pipeline, "CLIPS_DIR", clips_dir)
+    monkeypatch.setattr(render_pipeline, "videos_dir_for", lambda _archive: videos_dir)
+    monkeypatch.setattr(render_pipeline, "clips_dir_for", lambda _archive: clips_dir)
     run_calls = []
 
     def _fake_run(*args, **kwargs):

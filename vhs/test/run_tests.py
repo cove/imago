@@ -2089,7 +2089,7 @@ def test_step_6_proxy_badframes_overlay_e2e():
 
     step_6_make_videos = import_step_6_module()
     try:
-        proxy_path = ROOT.parent.parent / "Archive" / "callahan_01_archive_proxy.mp4"
+        proxy_path = ROOT.parent / "video_data" / "callahan" / "Archive" / "callahan_01_archive_proxy.mp4"
         meta_dir = ROOT / "metadata" / "callahan_01_archive"
         filter_src = meta_dir / "filter.avs"
         frame_quality_src = meta_dir / "frame_quality.tsv"
@@ -2372,7 +2372,7 @@ def test_step_6_qtgmc_freezeframe_long_e2e():
 
     step_6_make_videos = import_step_6_module()
     try:
-        proxy_path = ROOT.parent.parent / "Archive" / "callahan_01_archive_proxy.mp4"
+        proxy_path = ROOT.parent / "video_data" / "callahan" / "Archive" / "callahan_01_archive_proxy.mp4"
         if not proxy_path.exists():
             print("Skipping QTGMC FreezeFrame E2E test: callahan_01 proxy not found.")
             return
