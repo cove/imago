@@ -593,6 +593,9 @@ Osprey 260e settings:
 
 Capture software: VirtualDub
   Codec: UT Video YUV422 BT.601 (UtVideo YUV422 BT.601.VCM)
+    YUV 4:2:2 planar — luma (Y) sampled at full horizontal resolution,
+    chroma (Cb/Cr) subsampled 2:1 horizontally, matching the analog VHS
+    chroma bandwidth. BT.601 matrix coefficients for SD NTSC content.
   Frame rate: 29.97 fps
   Audio: PCM 48000 Hz, 16-bit, mono
   Synchronization: No correction (internal capture mode)
@@ -609,9 +612,15 @@ Tool: {ffmpeg_version}
     -c:a pcm_s16le \\
     output.mkv
 
-  Video: FFV1 level 3 (lossless), every frame a keyframe (g=1), yuv422p
+  Video: FFV1 level 3 (lossless), every frame a keyframe (g=1)
+  Pixel format: YUV 4:2:2 planar (yuv422p) — preserves the full chroma
+    resolution of the capture; no chroma decimation at the archive stage
+  Color metadata tags:
+    color_primaries 6 = SMPTE 170M (standard NTSC primaries)
+    color_trc 6       = SMPTE 170M (BT.601 gamma transfer function)
+    colorspace 5      = BT.470BG / SMPTE 170M (SD YCbCr matrix)
+    color_range tv    = limited range (16-235 luma, 16-240 chroma)
   Audio: PCM signed 16-bit LE passthrough (no re-encode)
-  Color tags: SMPTE 170M primaries, BT.601 transfer, SMPTE 170M colorspace, TV range
   Chapter metadata embedded if available
   Container: Matroska (.mkv)
 
@@ -635,17 +644,40 @@ Deinterlacing: AviSynth+ / QTGMC (FFmpeg-QTGMC Easy 2025.01.11)
   FPSDivisor=2: field-matched single-rate output (29.97fps in -> 29.97fps out)
   SourceMatch=3: highest quality motion-compensated field matching
   Lossless=2: lossless refinement pass after deinterlacing
-Intermediate output: FFV1 lossless MKV (not retained after final encode)
+Intermediate output: FFV1 lossless MKV, YUV 4:2:2 planar (not retained after final encode)
 
 Bad frame handling:
-  Some source frames contain unrecoverable tape dropout or damage. These are
-  identified manually by reviewing the capture and noting the affected frame
-  numbers. The AviSynth script replaces each bad frame with a copy of the
+  Tape dropout and tracking loss artifacts are detected automatically by
+  scoring every frame against four computer vision signals:
+    - chroma_loss:   1 - mean(HSV saturation)/255 — desaturated/grey frames
+                     caused by chroma dropout score high
+    - noise_energy:  std(per-row variance) / mean(per-row variance) — tracking
+                     noise creates a few rows with anomalously high variance,
+                     spiking this signal even when only a small portion of the
+                     frame is affected
+    - row_tear:      95th-percentile of row-to-neighbour mean absolute
+                     difference — horizontal tearing displaces rows, causing
+                     large inter-row differences
+    - wave_energy:   std of the high-passed per-row luminance centre-of-mass —
+                     horizontal sync instability manifests as a left/right
+                     oscillation of row content; the CoM series is high-passed
+                     (5-row rolling mean subtracted) to isolate rapid sync
+                     wobble from slow scene content gradients
+
+  The four signals are weighted equally (0.25 each) and combined into a
+  single composite score per frame. Thresholds are computed per chapter using
+  a Tukey fence: threshold = Q3 + 3.5 * IQR, evaluated within sliding
+  1000-frame windows aligned to chapter boundaries. Frames whose composite
+  score exceeds their chapter window's threshold are flagged as candidates.
+
+  Flagged frames are then manually reviewed by inspecting each candidate
+  visually to confirm genuine damage. Confirmed bad frame numbers are
+  recorded per-archive alongside the filter script. During rendering, the
+  AviSynth script replaces each confirmed bad frame with a copy of the
   nearest clean frame using FreezeFrame(). If a large number of consecutive
   frames required replacement, the result will appear as a brief freeze in
   the output video. This is intentional — it is preferable to a corrupted or
-  visually broken frame. Bad frame ranges are recorded per-archive in the
-  filter.avs script.
+  visually broken frame.
 
 ---
 
@@ -670,7 +702,10 @@ Tool: {ffmpeg_version}
 Video:
   Codec: {ENCODE_VIDEO_CODEC}, preset {ENCODE_VIDEO_PRESET}, CRF {ENCODE_VIDEO_CRF}
   Profile: {ENCODE_VIDEO_PROFILE.capitalize()}, Level {ENCODE_VIDEO_LEVEL}, tune {ENCODE_VIDEO_TUNE}
-  Pixel format: {ENCODE_VIDEO_PIX_FMT}, FPS passthrough
+  Pixel format: YUV 4:2:0 planar ({ENCODE_VIDEO_PIX_FMT}) — chroma subsampled
+    2:1 horizontally and vertically for H.264 compatibility; converted from
+    the 4:2:2 intermediate at the final encode stage
+  FPS passthrough (no rate conversion)
 
 Audio:
   Codec: {ENCODE_AUDIO_CODEC.upper()} {ENCODE_AUDIO_BITRATE}, {audio_channels_label}, {ENCODE_AUDIO_SAMPLE_RATE} Hz
