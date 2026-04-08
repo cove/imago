@@ -36,6 +36,35 @@ from vhs_pipeline.people_prefill import (
 ASS_NEWLINE = "\\N"
 PEOPLE_DISPLAY_SEPARATOR = " \u00b7 "
 PEOPLE_ASS_FONT_SCALE = 0.50
+
+# Final encode — video
+ENCODE_VIDEO_CODEC = "libx264"
+ENCODE_VIDEO_PRESET = "slow"
+ENCODE_VIDEO_CRF = "18"
+ENCODE_VIDEO_PROFILE = "high"
+ENCODE_VIDEO_LEVEL = "4.0"
+ENCODE_VIDEO_TUNE = "grain"
+ENCODE_VIDEO_PIX_FMT = "yuv420p"
+
+# Final encode — audio
+ENCODE_AUDIO_CODEC = "aac"
+ENCODE_AUDIO_BITRATE = "96k"
+ENCODE_AUDIO_SAMPLE_RATE = "48000"
+ENCODE_AUDIO_CHANNELS = "1"
+ENCODE_AUDIO_FILTERS = "highpass=f=80,lowpass=f=14000,afftdn=nf=-25,loudnorm=I=-16:TP=-1.5:LRA=11"
+
+# Whisper transcription
+WHISPER_MODEL = "turbo"
+
+# Whisper audio pre-filters
+WHISPER_AUDIO_FILTERS = [
+    "highpass=f=120",
+    "lowpass=f=8000",
+    "afftdn=nf=-25",
+    "dynaudnorm=f=150:g=13",
+    "aresample=16000",
+    "loudnorm=I=-16:TP=-1.5:LRA=11",
+]
 BADFRAME_POST_QTGMC_MULTIPLIER = 1
 BADFRAME_SOURCE_CLEARANCE = 0
 RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV = "RENDER_DEBUG_EXTRACT_FRAME_NUMBERS"
@@ -1473,16 +1502,7 @@ def make_extract_audio(
             audio_filters.append(f"adelay={silence_prepend_sec * 1000:.1f}:all=1")
         if end_sec is not None:
             audio_filters.append(f"apad=whole_dur={chapter_dur:.6f}")
-    audio_filters.extend(
-        [
-            "highpass=f=120",
-            "lowpass=f=8000",
-            "afftdn=nf=-25",
-            "dynaudnorm=f=150:g=13",
-            "aresample=16000",
-            "loudnorm=I=-16:TP=-1.5:LRA=11",
-        ]
-    )
+    audio_filters.extend(WHISPER_AUDIO_FILTERS)
     cmd += [
         "-af",
         ",".join(audio_filters),
@@ -1622,21 +1642,21 @@ def make_encode_final_x264(
         *sub_inputs,
         *metadata_inputs,
         "-pix_fmt",
-        "yuv420p",
+        ENCODE_VIDEO_PIX_FMT,
         "-fps_mode:v:0",
         "passthrough",
         "-c:v",
-        "libx264",
+        ENCODE_VIDEO_CODEC,
         "-preset",
-        "slow",
+        ENCODE_VIDEO_PRESET,
         "-crf",
-        "18",
+        ENCODE_VIDEO_CRF,
         "-profile:v",
-        "high",
+        ENCODE_VIDEO_PROFILE,
         "-level",
-        "4.0",
+        ENCODE_VIDEO_LEVEL,
         "-tune",
-        "grain",
+        ENCODE_VIDEO_TUNE,
         "-map",
         "0:v:0",
     ]
@@ -1652,15 +1672,15 @@ def make_encode_final_x264(
     if include_audio:
         cmd += [
             "-c:a",
-            "aac",
+            ENCODE_AUDIO_CODEC,
             "-b:a",
-            "96k",
+            ENCODE_AUDIO_BITRATE,
             "-ar",
-            "48000",
+            ENCODE_AUDIO_SAMPLE_RATE,
             "-ac",
-            "1",
+            ENCODE_AUDIO_CHANNELS,
             "-af",
-            "highpass=f=80,lowpass=f=14000,afftdn=nf=-25,loudnorm=I=-16:TP=-1.5:LRA=11",
+            ENCODE_AUDIO_FILTERS,
             "-map",
             "0:a:0?",
         ]
@@ -1992,7 +2012,7 @@ def _run_with_args(args):
 
             try:
                 needs_extracted_media = (not subtitles_only) or (
-                    transcribe_dialogue and not subtitles_tsv_exists and not metadata_subtitle_entries
+                    transcribe_dialogue and not metadata_subtitle_entries
                 )
                 if needs_extracted_media:
                     audio_sync_offset = get_audio_sync_offset_for_chapter(
@@ -2159,12 +2179,7 @@ def _run_with_args(args):
                     subtitle_title = "Subtitles + People" if people_entries else "Subtitles"
                     subtitle_tracks.append({"path": final_ass, "title": subtitle_title, "forced": False})
                 else:
-                    if subtitles_tsv_exists and not metadata_subtitle_entries:
-                        print(
-                            "No metadata subtitle entries overlap this chapter; "
-                            f"skipping Whisper fallback because {subtitles_tsv.name} exists."
-                        )
-                    if transcribe_dialogue and not subtitles_tsv_exists:
+                    if transcribe_dialogue and not metadata_subtitle_entries:
                         print("Transcribing audio...")
                         if whisper is None:
                             raise RuntimeError(
@@ -2172,7 +2187,7 @@ def _run_with_args(args):
                                 "archive_settings.transcript=off (or chapter override) in render_settings.json."
                             )
                         if model is None:
-                            model = whisper.load_model("turbo", download_root=str(WHISPER_MODEL_DIR))
+                            model = whisper.load_model(WHISPER_MODEL, download_root=str(WHISPER_MODEL_DIR))
                         run(make_extract_audio(extracted, audio))
                         prompt_text = _subtitle_prompt_from_people_entries(people_entries)
                         transcribe_audio(

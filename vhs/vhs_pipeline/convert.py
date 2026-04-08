@@ -30,6 +30,13 @@ def _common_config():
     return FFMPEG_BIN, METADATA_DIR, ensure_ffmpeg_exists
 
 
+def _discover_archive_files() -> list[Path]:
+    from common import ARCHIVE_DIR
+
+    exts = {".mkv", ".mp4", ".mov"}
+    return sorted(p for p in ARCHIVE_DIR.iterdir() if p.suffix.lower() in exts)
+
+
 def _convert_file(
     input_path: Path,
     output_path: Path,
@@ -152,11 +159,12 @@ def convert_umatic_to_archive(paths):
     return count
 
 
-def embed_metadata_into_archives(paths):
+def embed_metadata_into_archives(paths=None):
     ffmpeg_bin, metadata_dir, ensure_ffmpeg_exists = _common_config()
     ensure_ffmpeg_exists()
+    files = _discover_archive_files() if not paths else _normalize_inputs(paths)
     count = 0
-    for file in _normalize_inputs(paths):
+    for file in files:
         src = Path(file)
         if not src.exists():
             print(f"File not found: {src}")
@@ -177,6 +185,9 @@ def embed_metadata_into_archives(paths):
         cover_path = ffmetadata_path.parent / "cover.jpg"
         has_cover = cover_path.exists()
 
+        comment_path = ffmetadata_path.parent / "comment.txt"
+        comment_text = comment_path.read_text(encoding="utf-8").strip() if comment_path.exists() else None
+
         cmd = [str(ffmpeg_bin), "-nostdin", "-v", "error", "-i", str(src)]
         cmd += ["-f", "ffmetadata", "-i", str(ffmetadata_path)]
         if has_cover and ext == ".mp4":
@@ -185,6 +196,9 @@ def embed_metadata_into_archives(paths):
         if has_cover and ext == ".mp4":
             cmd += ["-map", "2", "-c:v:1", "copy", "-disposition:v:1", "attached_pic"]
         cmd += ["-c", "copy", "-map_metadata", "1", "-map_chapters", "1"]
+        if comment_text:
+            cmd += ["-metadata", f"comment={comment_text}"]
+            print(f"  Embedding comment from: {comment_path.name}")
         if has_cover and ext == ".mkv":
             cmd += ["-attach", str(cover_path), "-metadata:s:t:0", "mimetype=image/jpeg"]
         cmd += ["-y", str(tmp)]

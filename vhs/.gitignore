@@ -274,6 +274,6 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-/test/Archive/00-archive-manifest-sha3-256sums.txt
+/test/Archive/SHA256SUMS
 metadata/callahan_01_archive/corner_black_candidates/
 tmp/
