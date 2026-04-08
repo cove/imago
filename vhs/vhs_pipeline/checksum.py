@@ -9,7 +9,6 @@ from common import (
     all_store_archive_dirs,
     archive_checksum_file_for,
     archive_dir_for,
-    drive_checksum_file_for,
     verify_manifest,
     write_sha3_manifest,
 )
