@@ -10,12 +10,31 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
+import importlib.metadata
+
 from common import (
     ARCHIVE_CHECKSUM_FILE,
     ARCHIVE_DIR,
+    FFMPEG_BIN,
     MEDIAINFO_BIN,
     METADATA_DIR,
     write_sha3_manifest,
+)
+from vhs_pipeline.render_pipeline import (
+    ENCODE_AUDIO_BITRATE,
+    ENCODE_AUDIO_CHANNELS,
+    ENCODE_AUDIO_CODEC,
+    ENCODE_AUDIO_FILTERS,
+    ENCODE_AUDIO_SAMPLE_RATE,
+    ENCODE_VIDEO_CODEC,
+    ENCODE_VIDEO_CRF,
+    ENCODE_VIDEO_LEVEL,
+    ENCODE_VIDEO_PIX_FMT,
+    ENCODE_VIDEO_PRESET,
+    ENCODE_VIDEO_PROFILE,
+    ENCODE_VIDEO_TUNE,
+    WHISPER_AUDIO_FILTERS,
+    WHISPER_MODEL,
 )
 
 TSV_META_CHAPTER_INDEX_COL = "__chapter_index"
@@ -493,7 +512,9 @@ def generate_archive_metadata(root_dir: Path = ARCHIVE_DIR):
         source = Path(fn)
         print(f"Processing: {source}")
 
-        rc = write_mediainfo_outputs(source, ARCHIVE_DIR)
+        archive_metadata_dir = ARCHIVE_DIR / f"{source.stem}_metadata"
+        archive_metadata_dir.mkdir(exist_ok=True)
+        rc = write_mediainfo_outputs(source, archive_metadata_dir)
         if rc:
             return rc
 
@@ -513,13 +534,173 @@ def generate_archive_metadata(root_dir: Path = ARCHIVE_DIR):
         generate_mkv_chapters_xml(chapters_tsv_path, mkv_chapter_path)
 
         metadata_dir = ffmetadata_path.parent
-        archive_metadata_dir = ARCHIVE_DIR / f"{source.stem}_metadata"
         shutil.copytree(metadata_dir, archive_metadata_dir, dirs_exist_ok=True)
 
     write_sha3_manifest(ARCHIVE_DIR, ARCHIVE_CHECKSUM_FILE, ignore_fn=lambda p: p.name == ".DS_Store")
     print(f"Checksum manifest: {ARCHIVE_CHECKSUM_FILE}")
+    write_archive_readme(ARCHIVE_DIR / "README.txt")
+    print(f"Archive README: {ARCHIVE_DIR / 'README.txt'}")
     print("All done.")
     return 0
+
+
+def _get_ffmpeg_version() -> str:
+    try:
+        result = subprocess.run(
+            [str(FFMPEG_BIN), "-version"],
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.splitlines()[0].strip() if result.stdout else "unknown"
+    except Exception:
+        return "unknown"
+
+
+def _get_whisper_version() -> str:
+    try:
+        return importlib.metadata.version("openai-whisper")
+    except Exception:
+        return "not installed"
+
+
+def write_archive_readme(output_path: Path) -> None:
+    ffmpeg_version = _get_ffmpeg_version()
+    whisper_version = _get_whisper_version()
+
+    whisper_prefilters = ", ".join(WHISPER_AUDIO_FILTERS)
+    audio_channels_label = "mono" if ENCODE_AUDIO_CHANNELS == "1" else "stereo"
+
+    content = f"""\
+VHS DIGITIZATION AND PROCESSING PIPELINE
+=========================================
+
+STEP 1 — CAPTURE: VCR TO AVI
+Hardware:
+  VCR:          Panasonic AG-1970P
+  Capture card: Osprey 260e
+  Connection:   S-Video + unbalanced audio (L+R) from VCR A1 connectors
+
+VCR settings:
+  TBC: On
+  Noise Filter: Off
+  HiFi/NormalMix: Off
+  Mono: On
+
+Osprey 260e settings:
+  Video input: S-Video
+  Horizontal format: CCIR-601 (720px source width)
+  Video standard: NTSC_M
+
+Capture software: VirtualDub
+  Codec: UT Video YUV422 BT.601 (UtVideo YUV422 BT.601.VCM)
+  Frame rate: 29.97 fps
+  Audio: PCM 48000 Hz, 16-bit, mono
+  Synchronization: No correction (internal capture mode)
+  Output format: AVI
+
+---
+
+STEP 2 — ARCHIVE: AVI TO MKV (lossless transcode)
+Tool: {ffmpeg_version}
+  ffmpeg -i input.avi \\
+    -pix_fmt yuv422p \\
+    -color_primaries:v 6 -color_trc:v 6 -colorspace:v 5 -color_range:v tv \\
+    -c:v ffv1 -level 3 -g 1 -coder 1 -context 1 -slices 24 -slicecrc 1 \\
+    -c:a pcm_s16le \\
+    output.mkv
+
+  Video: FFV1 level 3 (lossless), every frame a keyframe (g=1), yuv422p
+  Audio: PCM signed 16-bit LE passthrough (no re-encode)
+  Color tags: SMPTE 170M primaries, BT.601 transfer, SMPTE 170M colorspace, TV range
+  Chapter metadata embedded if available
+  Container: Matroska (.mkv)
+
+---
+
+STEP 3 — CHAPTER MARKING
+Chapter start and end boundaries are identified by reviewing the archive
+MKV in a video player and noting frame numbers at scene transitions.
+Timecode conversion: seconds = frame_number / (30000/1001)  [NTSC 29.97fps]
+Boundaries are stored as an FFmpeg ffmetadata file alongside the archive.
+
+---
+
+STEP 4 — CHAPTER EXTRACTION AND DEINTERLACING
+Each chapter is extracted from the archive MKV and deinterlaced individually.
+
+Extraction: ffmpeg with per-chapter start/end frame range
+Deinterlacing: AviSynth+ / QTGMC (FFmpeg-QTGMC Easy 2025.01.11)
+  Parameters vary per archive — see filter.avs in each archive's metadata directory.
+  Typical settings: Preset="Very Slow", SourceMatch=3, Lossless=2, TR2=3
+  FPSDivisor=2: field-matched single-rate output (29.97fps in -> 29.97fps out)
+  SourceMatch=3: highest quality motion-compensated field matching
+  Lossless=2: lossless refinement pass after deinterlacing
+Intermediate output: FFV1 lossless MKV (not retained after final encode)
+
+Bad frame handling:
+  Some source frames contain unrecoverable tape dropout or damage. These are
+  identified manually by reviewing the capture and noting the affected frame
+  numbers. The AviSynth script replaces each bad frame with a copy of the
+  nearest clean frame using FreezeFrame(). If a large number of consecutive
+  frames required replacement, the result will appear as a brief freeze in
+  the output video. This is intentional — it is preferable to a corrupted or
+  visually broken frame. Bad frame ranges are recorded per-archive in the
+  filter.avs script.
+
+---
+
+STEP 5 — AUDIO TRANSCRIPTION (chapters with transcript enabled)
+Tool: OpenAI Whisper, model: {WHISPER_MODEL}
+Installed version: {whisper_version}
+Audio pre-processing chain: {whisper_prefilters}
+  HPF 120 Hz (6 dB/oct Butterworth) — attenuates low-frequency mechanical noise and hum
+  LPF 8 kHz — removes HF noise and aliasing above the speech intelligibility ceiling
+  afftdn nf=-25 dB — STFT-domain noise reduction; noise floor estimated from signal
+  dynaudnorm f=150 ms / g=13 — frame-level RMS gain normalization with Gaussian smoothing
+  aresample 16000 Hz — downsample to Whisper's expected input sample rate
+  loudnorm I=-16 LUFS / TP=-1.5 dBTP / LRA=11 LU — EBU R128 integrated loudness normalization
+Output: PCM s16le, 16000 Hz, mono
+Subtitle sidecar formats produced: .srt, .vtt, .ass
+
+---
+
+STEP 6 — FINAL ENCODE: DEINTERLACED CHAPTER TO MP4
+Tool: {ffmpeg_version}
+
+Video:
+  Codec: {ENCODE_VIDEO_CODEC}, preset {ENCODE_VIDEO_PRESET}, CRF {ENCODE_VIDEO_CRF}
+  Profile: {ENCODE_VIDEO_PROFILE.capitalize()}, Level {ENCODE_VIDEO_LEVEL}, tune {ENCODE_VIDEO_TUNE}
+  Pixel format: {ENCODE_VIDEO_PIX_FMT}, FPS passthrough
+
+Audio:
+  Codec: {ENCODE_AUDIO_CODEC.upper()} {ENCODE_AUDIO_BITRATE}, {audio_channels_label}, {ENCODE_AUDIO_SAMPLE_RATE} Hz
+  Processing chain: {ENCODE_AUDIO_FILTERS}
+  HPF 80 Hz — rolls off sub-bass rumble and low-frequency tape noise
+  LPF 14 kHz — removes HF tape hiss above the audible program bandwidth
+  afftdn nf=-25 dB — STFT-domain noise reduction
+  loudnorm I=-16 LUFS / TP=-1.5 dBTP / LRA=11 LU — EBU R128 integrated loudness normalization
+
+Subtitles: ASS tracks embedded (dialogue and/or named people)
+Metadata embedded: title, author, creation_time, location
+Container: MP4
+
+---
+
+SIDECAR AND METADATA FILES (per archive, in {{archive}}_metadata/)
+  {{stem}}_mediainfo.txt    MediaInfo technical track analysis (text)
+  {{stem}}_mediainfo.xml    MediaInfo technical track analysis (XML)
+  chapters.ffmetadata       FFmpeg chapter/global metadata
+  chapters.tsv              Editable master chapter table (title, timecodes, location, etc.)
+  markers.tsv               Flat export: Title, Author, ChapterTitle, StartSeconds, EndSeconds, Location
+  markers.mkvchapters.xml   Matroska XML chapter format for muxing tools
+  filter.avs                AviSynth script used for QTGMC deinterlacing and bad frame repair
+  subtitles.tsv             Curated dialogue subtitle entries with confidence scores
+  people.tsv                Named person time-range entries for people subtitle track
+  comment.txt               Free-text archival notes embedded in archive outputs
+  SHA256SUMS                SHA-3/256 checksum manifest for all archive files
+  README.txt                This file
+"""
+    Path(output_path).write_text(content, encoding="utf-8")
 
 
 def main(argv=None):

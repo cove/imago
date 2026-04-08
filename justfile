@@ -59,11 +59,14 @@ vhs-tuner:
 vhs-render *args:
   {{python}} vhs/vhs.py render {{args}}
 
+vhs-subtitles archive="":
+  {{python}} vhs/vhs.py subtitles {{if archive != "" { "--archive " + archive } else { "" }}}
+
 vhs-metadata-build:
   {{python}} vhs/vhs.py metadata build
 
-vhs-metadata-embed file:
-  {{python}} vhs/vhs.py metadata embed "{{file}}"
+vhs-metadata-embed file="":
+  {{python}} vhs/vhs.py metadata embed {{if file != "" { '"' + file + '"' } else { "" }}}
 
 vhs-verify-archive:
   {{python}} vhs/vhs.py verify archive

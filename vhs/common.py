@@ -132,8 +132,8 @@ for _dir in (VIDEOS_DIR, CLIPS_DIR):
     _dir.mkdir(exist_ok=True)
 
 QTGMC_DIR = FFMPEG_DIR
-ARCHIVE_CHECKSUM_FILE = ARCHIVE_DIR / "00-archive-manifest-sha3-256sums.txt"
-DRIVE_CHECKSUM_FILE = ARCHIVE_DIR / "00-drive-manifest-sha3-256sums.txt"
+ARCHIVE_CHECKSUM_FILE = ARCHIVE_DIR / "SHA256SUMS"
+DRIVE_CHECKSUM_FILE = ARCHIVE_DIR / "SHA256SUMS_DRIVE"
 LEGACY_ARCHIVE_CHECKSUM_FILE = ARCHIVE_DIR / "00-archive-manifest-blake3sums.txt"
 LEGACY_DRIVE_CHECKSUM_FILE = ARCHIVE_DIR / "00-drive-manifest-blake3sums.txt"
 

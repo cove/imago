@@ -55,7 +55,11 @@ def build_parser():
         "embed",
         help="Embed ffmetadata into existing archive MKV(s) without re-encoding",
     )
-    metadata_embed.add_argument("files", nargs="+", help="Archive MKV file(s)")
+    metadata_embed.add_argument(
+        "files",
+        nargs="*",
+        help="Archive video file(s). If omitted, all videos in the Archive directory are processed.",
+    )
 
     proxy_parser = subparsers.add_parser("proxy", help="Generate proxy MP4 files")
     proxy_parser.add_argument(
