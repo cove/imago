@@ -46,7 +46,20 @@ def verify_archive(argv=None):
         root_dir = archive_dir_for(archive)
         manifest_path = archive_checksum_file_for(archive)
     else:
-        raise SystemExit("verify archive requires --archive <name> or a manifest path argument")
+        archive_dirs = all_store_archive_dirs()
+        if not archive_dirs:
+            raise SystemExit("No archives found. Use --archive <name> or pass a manifest path.")
+        failed = 0
+        for root_dir in archive_dirs:
+            manifest_path = root_dir / "SHA256SUMS"
+            if not manifest_path.exists():
+                print(f"Skipping {root_dir} (no SHA256SUMS)\n")
+                continue
+            print(f"Verifying: {manifest_path}\n")
+            rc = verify_manifest(root_dir, manifest_path, algo=algo)
+            if rc:
+                failed += 1
+        return failed
     print(f"Verifying: {manifest_path}\n")
     return verify_manifest(root_dir, manifest_path, algo=algo)
 
