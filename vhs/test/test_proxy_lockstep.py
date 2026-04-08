@@ -47,7 +47,8 @@ def test_make_proxies_invokes_ffmpeg_with_lockstep_command(tmp_path: Path, monke
         _ = cwd
         captured["cmd"] = [str(x) for x in cmd]
 
-    monkeypatch.setattr(proxy_mod, "ARCHIVE_DIR", archive_dir)
+    monkeypatch.setattr(proxy_mod, "all_store_archive_dirs", lambda: [archive_dir])
+    monkeypatch.setattr(proxy_mod, "archive_dir_for", lambda _name: archive_dir)
     monkeypatch.setattr(proxy_mod, "METADATA_DIR", metadata_dir)
     monkeypatch.setattr(proxy_mod, "run", _fake_run)
 
@@ -81,7 +82,8 @@ def test_make_proxies_can_include_frame_numbers(tmp_path: Path, monkeypatch) -> 
         _ = cwd
         captured["cmd"] = [str(x) for x in cmd]
 
-    monkeypatch.setattr(proxy_mod, "ARCHIVE_DIR", archive_dir)
+    monkeypatch.setattr(proxy_mod, "all_store_archive_dirs", lambda: [archive_dir])
+    monkeypatch.setattr(proxy_mod, "archive_dir_for", lambda _name: archive_dir)
     monkeypatch.setattr(proxy_mod, "METADATA_DIR", metadata_dir)
     monkeypatch.setattr(proxy_mod, "run", _fake_run)
 

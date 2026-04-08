@@ -189,10 +189,10 @@ def test_run_pipeline_embeds_all_chapters_within_full_movie_range(monkeypatch, t
         run_calls.append([str(x) for x in cmd])
         return None
 
-    monkeypatch.setattr(render_pipeline, "ARCHIVE_DIR", archive_dir)
+    monkeypatch.setattr(render_pipeline, "all_store_archive_dirs", lambda: [archive_dir])
     monkeypatch.setattr(render_pipeline, "METADATA_DIR", metadata_dir)
-    monkeypatch.setattr(render_pipeline, "VIDEOS_DIR", videos_dir)
-    monkeypatch.setattr(render_pipeline, "CLIPS_DIR", clips_dir)
+    monkeypatch.setattr(render_pipeline, "videos_dir_for", lambda _archive: videos_dir)
+    monkeypatch.setattr(render_pipeline, "clips_dir_for", lambda _archive: clips_dir)
     monkeypatch.setattr(render_pipeline, "run", _fake_run)
     monkeypatch.setattr(render_pipeline, "assert_expected_frame_count", lambda *args, **kwargs: None)
     monkeypatch.setattr(render_pipeline, "chapter_done", lambda *_args, **_kwargs: False)

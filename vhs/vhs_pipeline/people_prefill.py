@@ -9,7 +9,7 @@ from pathlib import Path
 from statistics import median
 from typing import Any
 
-from common import ARCHIVE_DIR, METADATA_DIR, chapter_frame_bounds, parse_chapters, safe
+from common import METADATA_DIR, archive_dir_for, chapter_frame_bounds, parse_chapters, safe
 
 FPS_NUM = 30000
 FPS_DEN = 1001
@@ -252,8 +252,8 @@ def _archive_source_keys(archive: str) -> set[str]:
     if not name:
         return set()
     return {
-        _source_path_key(ARCHIVE_DIR / f"{name}.mkv"),
-        _source_path_key(ARCHIVE_DIR / f"{name}_proxy.mp4"),
+        _source_path_key(archive_dir_for(name) / f"{name}.mkv"),
+        _source_path_key(archive_dir_for(name) / f"{name}_proxy.mp4"),
     }
 
 

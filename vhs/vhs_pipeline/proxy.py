@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from common import ARCHIVE_DIR, FFMPEG_BIN, METADATA_DIR, run
+from common import FFMPEG_BIN, METADATA_DIR, all_store_archive_dirs, archive_dir_for, run
 
 PROXY_FPS = "30000/1001"
 
@@ -79,24 +79,25 @@ def build_proxy_command(src: Path, ffmetadata_path: Path, proxy: Path, show_fram
 
 
 def make_proxies(show_frame_number: bool = False):
-    print(f"Generating PROXY {ARCHIVE_DIR}\n")
     count = 0
-    for src in ARCHIVE_DIR.glob("*.mkv"):
-        archive = src.stem
-        proxy = ARCHIVE_DIR / f"{archive}_proxy.mp4"
-        ffmetadata_path = METADATA_DIR / archive / "chapters.ffmetadata"
+    for ad in all_store_archive_dirs():
+        print(f"Generating PROXY {ad}\n")
+        for src in sorted(ad.glob("*.mkv")):
+            archive = src.stem
+            proxy = archive_dir_for(archive) / f"{archive}_proxy.mp4"
+            ffmetadata_path = METADATA_DIR / archive / "chapters.ffmetadata"
 
-        if proxy.exists() and proxy.stat().st_size > 100_000:
-            print(f"Skipping {proxy} (already processed)")
-            continue
+            if proxy.exists() and proxy.stat().st_size > 100_000:
+                print(f"Skipping {proxy} (already processed)")
+                continue
 
-        if not ffmetadata_path.exists():
-            print(f"Skipping {src.name}: metadata not found: {ffmetadata_path}")
-            continue
+            if not ffmetadata_path.exists():
+                print(f"Skipping {src.name}: metadata not found: {ffmetadata_path}")
+                continue
 
-        print(f"Processing: {src.name} {proxy.name}")
-        run(build_proxy_command(src, ffmetadata_path, proxy, show_frame_number=show_frame_number))
-        count += 1
+            print(f"Processing: {src.name} {proxy.name}")
+            run(build_proxy_command(src, ffmetadata_path, proxy, show_frame_number=show_frame_number))
+            count += 1
 
     print(f"Created {count} proxies.")
     print("All done")

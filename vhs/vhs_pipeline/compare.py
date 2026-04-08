@@ -5,16 +5,17 @@ import sys
 from pathlib import Path
 
 from common import (
-    ARCHIVE_DIR,
-    CLIPS_DIR,
     FFMPEG_BIN,
     METADATA_DIR,
-    VIDEOS_DIR,
+    all_store_archive_dirs,
+    archive_dir_for,
+    clips_dir_for,
     ensure_ffmpeg_exists,
     is_chapter_done,
     parse_chapters,
     run,
     safe,
+    videos_dir_for,
 )
 
 DEFAULT_HEIGHT = 480
@@ -33,9 +34,9 @@ def _contains_filter(text, filters):
     return False
 
 
-def find_processed_chapter_mp4(title: str):
+def find_processed_chapter_mp4(title: str, archive_name: str):
     chapter_name = f"{safe(title)}.mp4"
-    candidates = [VIDEOS_DIR / chapter_name, CLIPS_DIR / chapter_name]
+    candidates = [videos_dir_for(archive_name) / chapter_name, clips_dir_for(archive_name) / chapter_name]
     for path in candidates:
         if is_chapter_done(path):
             return path
@@ -129,8 +130,8 @@ def build_parser():
     )
     parser.add_argument(
         "--output-root",
-        default=str(CLIPS_DIR / "chapter_comparisons"),
-        help="Output root directory for comparison videos.",
+        default=None,
+        help="Output root directory for comparison videos (default: <store>/Clips/chapter_comparisons).",
     )
     return parser
 
@@ -142,17 +143,22 @@ def run_comparisons(argv=None):
     if args.height < 120:
         raise ValueError("--height must be at least 120")
 
-    output_root = Path(args.output_root)
-    output_root.mkdir(parents=True, exist_ok=True)
+    _output_root_arg = args.output_root
+    output_root: Path | None = Path(_output_root_arg) if _output_root_arg else None
+    if output_root:
+        output_root.mkdir(parents=True, exist_ok=True)
 
     created = 0
     skipped_existing = 0
     skipped_missing_processed = 0
     skipped_missing_inputs = 0
 
-    archive_mkvs = sorted(ARCHIVE_DIR.glob("*.mkv"), key=lambda p: p.name.lower())
+    archive_mkvs = sorted(
+        (p for ad in all_store_archive_dirs() for p in ad.glob("*.mkv")),
+        key=lambda p: p.name.lower(),
+    )
     if not archive_mkvs:
-        print(f"No archive MKVs found in {ARCHIVE_DIR}")
+        print("No archive MKVs found.")
         return 0
 
     for source in archive_mkvs:
@@ -160,7 +166,7 @@ def run_comparisons(argv=None):
         if not _contains_filter(archive_name, args.archive):
             continue
 
-        original_source_path = ARCHIVE_DIR / f"{archive_name}_proxy.mp4"
+        original_source_path = archive_dir_for(archive_name) / f"{archive_name}_proxy.mp4"
         chapters_file = METADATA_DIR / archive_name / "chapters.ffmetadata"
         if not original_source_path.exists():
             print(f"Skipping {archive_name}: missing original source clip {original_source_path}")
@@ -176,7 +182,8 @@ def run_comparisons(argv=None):
             print(f"Skipping {archive_name}: no chapters found")
             continue
 
-        out_dir = output_root / archive_name
+        effective_root = output_root or (clips_dir_for(archive_name) / "chapter_comparisons")
+        out_dir = effective_root / archive_name
         out_dir.mkdir(parents=True, exist_ok=True)
 
         for idx, chapter in enumerate(chapters, start=1):
@@ -193,7 +200,7 @@ def run_comparisons(argv=None):
                 print(f"Skipping chapter with invalid duration: {title}")
                 continue
 
-            processed_path = find_processed_chapter_mp4(title)
+            processed_path = find_processed_chapter_mp4(title, archive_name)
             if not processed_path:
                 print(f"Skipping {archive_name} / {title}: missing processed chapter MP4")
                 skipped_missing_processed += 1

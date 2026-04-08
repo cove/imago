@@ -26,8 +26,6 @@ _HERE = Path(__file__).resolve().parent
 PROJECT_ROOT = _HERE.parent if _HERE.name in {"scripts", "libs"} else _HERE
 sys.path.insert(0, str(PROJECT_ROOT))
 
-ARCHIVE_DIR = PROJECT_ROOT / "../../Archive"
-METADATA_DIR = PROJECT_ROOT / "metadata"
 FPS = 30000 / 1001
 TUNER_CACHE_ROOT = Path(os.environ.get("VHS_TUNER_CACHE_DIR") or (Path(tempfile.gettempdir()) / "vhs_tuner_cache"))
 TUNER_EXTRACT_DIR = TUNER_CACHE_ROOT / "extracts"
@@ -40,6 +38,9 @@ _LAST_CACHE_CLEANUP_TS = 0.0
 
 from common import (
     FFPROBE_BIN,
+    METADATA_DIR,
+    all_store_archive_dirs,
+    archive_dir_for,
     chapter_frame_bounds,
     combined_score,
     compute_threshold,
@@ -1544,16 +1545,16 @@ def build_sparklines_html(
 # Chapter list helpers
 def _get_archives() -> list[str]:
     names: set[str] = set()
-    if ARCHIVE_DIR.exists():
-        names.update(p.stem for p in ARCHIVE_DIR.glob("*.mkv"))
+    for ad in all_store_archive_dirs():
+        names.update(p.stem for p in ad.glob("*.mkv"))
     if METADATA_DIR.exists():
         names.update(p.name for p in METADATA_DIR.iterdir() if p.is_dir())
     return sorted(names)
 
 
 def _resolve_archive_video(archive: str) -> Path | None:
-    proxy = ARCHIVE_DIR / f"{archive}_proxy.mp4"
-    mkv = ARCHIVE_DIR / f"{archive}.mkv"
+    proxy = archive_dir_for(archive) / f"{archive}_proxy.mp4"
+    mkv = archive_dir_for(archive) / f"{archive}.mkv"
     return proxy if proxy.exists() else mkv if mkv.exists() else None
 
 

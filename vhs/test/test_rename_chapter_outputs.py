@@ -33,12 +33,17 @@ def _make_sidecars(dir_: Path, stem: str) -> list[Path]:
 # ---------------------------------------------------------------------------
 
 
+TEST_ARCHIVE = "test_archive"
+
+
 @pytest.fixture()
 def videos_dir(tmp_path: Path, monkeypatch):
     d = tmp_path / "videos"
     d.mkdir()
-    monkeypatch.setattr("apps.plain_html_wizard.server.VIDEOS_DIR", d)
-    monkeypatch.setattr("apps.plain_html_wizard.server.CLIPS_DIR", None)
+    import apps.plain_html_wizard.server as wizard_server
+
+    monkeypatch.setattr(wizard_server, "videos_dir_for", lambda _archive: d)
+    monkeypatch.setattr(wizard_server, "clips_dir_for", lambda _archive: tmp_path / "clips_nonexistent")
     return d
 
 
@@ -68,7 +73,7 @@ def test_subtitle_sidecars_are_renamed(videos_dir: Path, monkeypatch) -> None:
             return mock_result
 
         mock_run.side_effect = fake_ffmpeg
-        _rename_chapter_outputs(old_title, new_title)
+        _rename_chapter_outputs(old_title, new_title, TEST_ARCHIVE)
 
     for ext in (".srt", ".vtt", ".ass"):
         assert (videos_dir / f"{new_stem}{ext}").exists(), f"missing {ext}"
@@ -98,7 +103,7 @@ def test_mp4_renamed_and_old_deleted_on_ffmpeg_success(videos_dir: Path) -> None
         return mock_result
 
     with patch("subprocess.run", side_effect=fake_ffmpeg):
-        result = _rename_chapter_outputs(old_title, new_title)
+        result = _rename_chapter_outputs(old_title, new_title, TEST_ARCHIVE)
 
     assert (videos_dir / f"{new_stem}.mp4").exists()
     assert not (videos_dir / f"{old_stem}.mp4").exists()
@@ -122,7 +127,7 @@ def test_mp4_renamed_without_remux_on_ffmpeg_failure(videos_dir: Path) -> None:
     mock_result.returncode = 1  # simulate ffmpeg failure
 
     with patch("subprocess.run", return_value=mock_result):
-        result = _rename_chapter_outputs(old_title, new_title)
+        result = _rename_chapter_outputs(old_title, new_title, TEST_ARCHIVE)
 
     assert (videos_dir / f"{new_stem}.mp4").exists()
     assert not (videos_dir / f"{old_stem}.mp4").exists()
@@ -152,7 +157,7 @@ def test_ffmpeg_called_with_correct_title_metadata(videos_dir: Path) -> None:
         return mock_result
 
     with patch("subprocess.run", side_effect=fake_ffmpeg):
-        _rename_chapter_outputs(old_title, new_title)
+        _rename_chapter_outputs(old_title, new_title, TEST_ARCHIVE)
 
     cmd = captured["cmd"]
     assert f"title={new_title}" in cmd
@@ -172,7 +177,7 @@ def test_small_mp4_is_skipped(videos_dir: Path) -> None:
     _make_mp4(videos_dir / f"{old_stem}.mp4", size=50_000)  # below 100 KB
 
     with patch("subprocess.run") as mock_run:
-        result = _rename_chapter_outputs(old_title, new_title)
+        result = _rename_chapter_outputs(old_title, new_title, TEST_ARCHIVE)
 
     mock_run.assert_not_called()
     assert result == []
@@ -202,7 +207,7 @@ def test_temp_dir_is_renamed(videos_dir: Path) -> None:
         return mock_result
 
     with patch("subprocess.run", side_effect=fake_ffmpeg):
-        _rename_chapter_outputs(old_title, new_title)
+        _rename_chapter_outputs(old_title, new_title, TEST_ARCHIVE)
 
     assert (videos_dir / f"{new_stem}_temp").exists()
     assert not old_temp.exists()
@@ -214,5 +219,5 @@ def test_temp_dir_is_renamed(videos_dir: Path) -> None:
 
 
 def test_returns_empty_when_no_mp4_found(videos_dir: Path) -> None:
-    result = _rename_chapter_outputs("Ghost Chapter", "Ghost Roadster")
+    result = _rename_chapter_outputs("Ghost Chapter", "Ghost Roadster", TEST_ARCHIVE)
     assert result == []

@@ -62,10 +62,10 @@ def test_prefill_people_from_cast_uses_chapter_clip_matches(tmp_path: Path) -> N
     )
 
     old_meta = people_prefill.METADATA_DIR
-    old_archive = people_prefill.ARCHIVE_DIR
+    old_archive_dir_for = people_prefill.archive_dir_for
     try:
         people_prefill.METADATA_DIR = metadata_dir
-        people_prefill.ARCHIVE_DIR = archive_dir
+        people_prefill.archive_dir_for = lambda _name: archive_dir
         result = people_prefill.prefill_people_from_cast(
             archive="demo_archive",
             chapter_title="Example Chapter",
@@ -74,7 +74,7 @@ def test_prefill_people_from_cast_uses_chapter_clip_matches(tmp_path: Path) -> N
         )
     finally:
         people_prefill.METADATA_DIR = old_meta
-        people_prefill.ARCHIVE_DIR = old_archive
+        people_prefill.archive_dir_for = old_archive_dir_for
 
     assert result.entries
     first = result.entries[0]
@@ -111,10 +111,10 @@ def test_prefill_people_from_cast_falls_back_to_chapters_tsv_for_split_titles(
     )
 
     old_meta = people_prefill.METADATA_DIR
-    old_archive = people_prefill.ARCHIVE_DIR
+    old_archive_dir_for = people_prefill.archive_dir_for
     try:
         people_prefill.METADATA_DIR = metadata_dir
-        people_prefill.ARCHIVE_DIR = archive_dir
+        people_prefill.archive_dir_for = lambda _name: archive_dir
         result = people_prefill.prefill_people_from_cast(
             archive="demo_archive",
             chapter_title="Example Split",
@@ -123,7 +123,7 @@ def test_prefill_people_from_cast_falls_back_to_chapters_tsv_for_split_titles(
         )
     finally:
         people_prefill.METADATA_DIR = old_meta
-        people_prefill.ARCHIVE_DIR = old_archive
+        people_prefill.archive_dir_for = old_archive_dir_for
 
     assert result.entries
     assert result.entries[0]["people"] == "Jim"
@@ -154,10 +154,10 @@ def test_apply_prefill_entries_to_people_tsv_replaces_chapter_overlap(
     ]
 
     old_meta = people_prefill.METADATA_DIR
-    old_archive = people_prefill.ARCHIVE_DIR
+    old_archive_dir_for = people_prefill.archive_dir_for
     try:
         people_prefill.METADATA_DIR = metadata_dir
-        people_prefill.ARCHIVE_DIR = archive_dir
+        people_prefill.archive_dir_for = lambda _name: archive_dir
         out_path, written = people_prefill.apply_prefill_entries_to_people_tsv(
             archive=archive_name,
             chapter_title=chapter,
@@ -165,7 +165,7 @@ def test_apply_prefill_entries_to_people_tsv_replaces_chapter_overlap(
         )
     finally:
         people_prefill.METADATA_DIR = old_meta
-        people_prefill.ARCHIVE_DIR = old_archive
+        people_prefill.archive_dir_for = old_archive_dir_for
 
     assert out_path == people_tsv
     assert written == 1

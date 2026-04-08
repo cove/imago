@@ -111,31 +111,61 @@ WHISPER_MODEL_DIR.mkdir(parents=True, exist_ok=True)
 # ---------------------------------------------------------
 # Project Directories (shared between scripts)
 # ---------------------------------------------------------
-ARCHIVE_DIR = VIDEOS_DIR = CLIPS_DIR = None
+def store_for(archive_name: str) -> str:
+    """Return the store name — the first underscore-delimited segment of the archive name."""
+    return archive_name.split("_")[0]
+
 
 if os.getenv("TEST_ENV") == "1":
-    base_dir = BASE / "test"
-    METADATA_DIR = base_dir / "metadata"
-    ARCHIVE_DIR = base_dir / "Archive"
-    VIDEOS_DIR = base_dir / "Videos"
-    CLIPS_DIR = base_dir / "Clips"
-    DRIVE_DIR = base_dir.resolve()
+    _base_dir = BASE / "test"
+    METADATA_DIR = _base_dir / "metadata"
+    VIDEO_DATA_DIR = _base_dir / "video_data"
+    # Keep flat dirs so existing test fixtures (empty dirs) keep working unchanged.
+    ARCHIVE_DIR = _base_dir / "Archive"
+    VIDEOS_DIR = _base_dir / "Videos"
+    CLIPS_DIR = _base_dir / "Clips"
+    DRIVE_DIR = _base_dir.resolve()
 else:
-    base_dir = BASE.parent.parent
+    _base_dir = BASE.parent.parent
     METADATA_DIR = BASE / "metadata"
-    ARCHIVE_DIR = base_dir / "Archive"
-    VIDEOS_DIR = base_dir / "Videos"
-    CLIPS_DIR = base_dir / "Clips"
-    DRIVE_DIR = base_dir.resolve()
+    VIDEO_DATA_DIR = _base_dir / "video_data"
+    ARCHIVE_DIR = VIDEOS_DIR = CLIPS_DIR = None
+    DRIVE_DIR = VIDEO_DATA_DIR
 
-for _dir in (VIDEOS_DIR, CLIPS_DIR):
-    _dir.mkdir(exist_ok=True)
+
+def archive_dir_for(archive_name: str) -> Path:
+    return VIDEO_DATA_DIR / store_for(archive_name) / "Archive"
+
+
+def videos_dir_for(archive_name: str) -> Path:
+    return VIDEO_DATA_DIR / store_for(archive_name) / "Videos"
+
+
+def clips_dir_for(archive_name: str) -> Path:
+    return VIDEO_DATA_DIR / store_for(archive_name) / "Clips"
+
+
+def all_store_archive_dirs() -> list[Path]:
+    """Return sorted list of Archive/ subdirs for every store under video_data/."""
+    if not VIDEO_DATA_DIR.exists():
+        return []
+    return sorted(
+        d / "Archive"
+        for d in VIDEO_DATA_DIR.iterdir()
+        if d.is_dir() and (d / "Archive").is_dir()
+    )
+
+
+def archive_checksum_file_for(archive_name: str) -> Path:
+    return archive_dir_for(archive_name) / "SHA256SUMS"
+
+
+def drive_checksum_file_for(archive_name: str) -> Path:
+    return archive_dir_for(archive_name) / "SHA256SUMS_DRIVE"
+
 
 QTGMC_DIR = FFMPEG_DIR
-ARCHIVE_CHECKSUM_FILE = ARCHIVE_DIR / "SHA256SUMS"
-DRIVE_CHECKSUM_FILE = ARCHIVE_DIR / "SHA256SUMS_DRIVE"
-LEGACY_ARCHIVE_CHECKSUM_FILE = ARCHIVE_DIR / "00-archive-manifest-blake3sums.txt"
-LEGACY_DRIVE_CHECKSUM_FILE = ARCHIVE_DIR / "00-drive-manifest-blake3sums.txt"
+DRIVE_CHECKSUM_FILE = VIDEO_DATA_DIR / "SHA256SUMS_DRIVE"
 
 # Add FFmpeg binaries early to PATH so all scripts inherit it
 if FFMPEG_DIR:
