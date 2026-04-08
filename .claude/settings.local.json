@@ -170,7 +170,11 @@
       "Bash(find c:/Users/covec/Videos/imago -name *China_1986_B02_P10_S02*)",
       "Bash(find \"c:/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums/China_1986_B02_Archive\" -name *P10_S02*)",
       "Bash(python -m pytest photoalbums/tests/test_xmp_sidecar.py photoalbums/tests/test_ai_caption.py -v)",
-      "Bash(grep -n 'def generate' /c/Users/covec/Videos/imago/photoalbums/lib/caption_*.py)"
+      "Bash(grep -n 'def generate' /c/Users/covec/Videos/imago/photoalbums/lib/caption_*.py)",
+      "Bash(just test-vhs:*)",
+      "Bash(openspec new:*)",
+      "Bash(openspec status:*)",
+      "Bash(openspec instructions:*)"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",
