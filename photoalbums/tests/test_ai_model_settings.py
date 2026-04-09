@@ -27,11 +27,19 @@ class TestAIModelSettings(unittest.TestCase):
                     """
                     selected_ocr_model = "fast"
                     selected_caption_model = "big"
+                    selected_ctm_model = "restoration"
                     lmstudio_base_url = "http://lmstudio.local:1234/v1"
+
+                    [ctm_validation]
+                    min_confidence = 0.4
+                    max_abs_coefficient = 3.5
+                    max_row_sum = 4.5
+                    max_clipping_ratio = 0.25
 
                     [models]
                     big = "qwen/qwen3-vl-30b"
                     fast = "qwen/qwen3.5-9b"
+                    restoration = "google/gemma-4-31b-it"
                     """
                 ).strip()
                 + "\n",
@@ -42,8 +50,10 @@ class TestAIModelSettings(unittest.TestCase):
                 loaded = ai_model_settings.load_ai_model_settings()
                 self.assertEqual(loaded["selected_ocr_model"], "fast")
                 self.assertEqual(loaded["selected_caption_model"], "big")
+                self.assertEqual(loaded["selected_ctm_model"], "restoration")
                 self.assertEqual(loaded["ocr_model"], "qwen/qwen3.5-9b")
                 self.assertEqual(loaded["caption_model"], "qwen/qwen3-vl-30b")
+                self.assertEqual(loaded["ctm_model"], "google/gemma-4-31b-it")
                 self.assertEqual(loaded["lmstudio_base_url"], "http://lmstudio.local:1234/v1")
                 self.assertEqual(
                     ai_model_settings.default_ocr_model(),
@@ -57,12 +67,23 @@ class TestAIModelSettings(unittest.TestCase):
                     ai_model_settings.default_lmstudio_base_url(),
                     "http://lmstudio.local:1234/v1",
                 )
+                self.assertEqual(ai_model_settings.default_ctm_model(), "google/gemma-4-31b-it")
+                self.assertEqual(
+                    ai_model_settings.default_ctm_validation_settings(),
+                    {
+                        "min_confidence": 0.4,
+                        "max_abs_coefficient": 3.5,
+                        "max_row_sum": 4.5,
+                        "max_clipping_ratio": 0.25,
+                    },
+                )
 
         self.assertEqual(
             loaded["models"],
             {
                 "big": "qwen/qwen3-vl-30b",
                 "fast": "qwen/qwen3.5-9b",
+                "restoration": "google/gemma-4-31b-it",
             },
         )
 

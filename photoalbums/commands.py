@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -63,6 +64,74 @@ def run_render() -> int:
     import stitch_oversized_pages
 
     return _call_main(stitch_oversized_pages.main)
+
+
+def run_ctm(argv: list[str]) -> int:
+    from .lib import ai_ctm_restoration
+    from .lib.ai_render_settings import find_archive_dir_for_image
+    from .stitch_oversized_pages import list_archive_dirs, list_page_scans, _require_primary_scan
+
+    if not argv:
+        print("Error: missing CTM command")
+        return 2
+    command = str(argv[0]).strip().lower()
+    if command not in {"generate", "review"}:
+        print(f"Error: unknown CTM command: {command}")
+        return 2
+    args = list(argv[1:])
+    force = False
+    album_id = ""
+    page = ""
+    photos_root = "."
+    index = 0
+    while index < len(args):
+        token = args[index]
+        if token == "--force":
+            force = True
+            index += 1
+            continue
+        if token == "--album-id" and index + 1 < len(args):
+            album_id = args[index + 1]
+            index += 2
+            continue
+        if token == "--page" and index + 1 < len(args):
+            page = args[index + 1]
+            index += 2
+            continue
+        if token == "--photos-root" and index + 1 < len(args):
+            photos_root = args[index + 1]
+            index += 2
+            continue
+        print(f"Error: unknown argument: {token}")
+        return 2
+
+    archives = [Path(path) for path in list_archive_dirs(photos_root)]
+    selected = [path for path in archives if not album_id or path.name == f"{album_id}_Archive"]
+    if not selected:
+        print(f"Error: no archive matched album_id={album_id!r}")
+        return 1
+
+    matched: list[Path] = []
+    for archive in selected:
+        for group in list_page_scans(archive):
+            primary = Path(_require_primary_scan(group))
+            if page and f"P{int(page):02d}" not in primary.name:
+                continue
+            matched.append(primary)
+    if not matched:
+        print("Error: no matching archive scan pages found")
+        return 1
+
+    if command == "generate":
+        for scan in matched:
+            archive_sidecar, result = ai_ctm_restoration.generate_and_store_ctm(scan, force=force)
+            print(json.dumps({"image": scan.name, "archive_xmp": str(archive_sidecar), **result.to_dict()}, ensure_ascii=False))
+        return 0
+
+    for scan in matched:
+        state = ai_ctm_restoration.read_ctm_from_archive_xmp(scan.with_suffix(".xmp"))
+        print(json.dumps({"image": scan.name, "archive_xmp": str(scan.with_suffix('.xmp')), "ctm": state}, ensure_ascii=False))
+    return 0
 
 
 def run_stitch_validate() -> int:

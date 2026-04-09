@@ -7,8 +7,15 @@ import tomllib
 
 DEFAULT_OCR_MODEL = ""
 DEFAULT_CAPTION_MODEL = ""
+DEFAULT_CTM_MODEL = ""
 DEFAULT_LMSTUDIO_BASE_URL = "http://localhost:1234/v1"
 AI_MODEL_SETTINGS_PATH = Path(__file__).resolve().parents[1] / "ai_models.toml"
+DEFAULT_CTM_VALIDATION_SETTINGS = {
+    "min_confidence": 0.35,
+    "max_abs_coefficient": 3.0,
+    "max_row_sum": 4.0,
+    "max_clipping_ratio": 0.34,
+}
 
 
 def _normalize_model_value(value: Any) -> str:
@@ -60,6 +67,39 @@ def _resolve_lmstudio_base_url(payload: dict[str, Any]) -> str:
     return text or DEFAULT_LMSTUDIO_BASE_URL
 
 
+def _resolve_selected_alias_optional(payload: dict[str, Any], models: dict[str, str], field_name: str) -> str:
+    selected = _normalize_model_value(payload.get(field_name))
+    if not selected:
+        return ""
+    if selected not in models:
+        raise RuntimeError(
+            f"AI model settings '{field_name}' must match one of the configured model aliases: {AI_MODEL_SETTINGS_PATH}"
+        )
+    return selected
+
+
+def _resolve_ctm_validation_settings(payload: dict[str, Any]) -> dict[str, float]:
+    raw = payload.get("ctm_validation")
+    if raw is None:
+        return dict(DEFAULT_CTM_VALIDATION_SETTINGS)
+    if not isinstance(raw, dict):
+        raise RuntimeError(
+            f"AI model settings 'ctm_validation' must be a TOML table: {AI_MODEL_SETTINGS_PATH}"
+        )
+    resolved = dict(DEFAULT_CTM_VALIDATION_SETTINGS)
+    for key in resolved:
+        value = raw.get(key)
+        if value is None:
+            continue
+        try:
+            resolved[key] = float(value)
+        except Exception as exc:
+            raise RuntimeError(
+                f"AI model settings ctm_validation.{key} must be numeric: {AI_MODEL_SETTINGS_PATH}"
+            ) from exc
+    return resolved
+
+
 @lru_cache(maxsize=1)
 def load_ai_model_settings() -> dict[str, Any]:
     with open(AI_MODEL_SETTINGS_PATH, "rb") as f:
@@ -69,12 +109,16 @@ def load_ai_model_settings() -> dict[str, Any]:
     models = _normalize_model_map(payload.get("models"))
     selected_ocr_model = _resolve_selected_alias(payload, models, "selected_ocr_model")
     selected_caption_model = _resolve_selected_alias(payload, models, "selected_caption_model")
+    selected_ctm_model = _resolve_selected_alias_optional(payload, models, "selected_ctm_model")
     return {
         "models": models,
         "selected_ocr_model": selected_ocr_model,
         "selected_caption_model": selected_caption_model,
+        "selected_ctm_model": selected_ctm_model,
         "ocr_model": models.get(selected_ocr_model, DEFAULT_OCR_MODEL),
         "caption_model": models.get(selected_caption_model, DEFAULT_CAPTION_MODEL),
+        "ctm_model": models.get(selected_ctm_model, DEFAULT_CTM_MODEL),
+        "ctm_validation": _resolve_ctm_validation_settings(payload),
         "lmstudio_base_url": _resolve_lmstudio_base_url(payload),
     }
 
@@ -89,3 +133,11 @@ def default_caption_model() -> str:
 
 def default_lmstudio_base_url() -> str:
     return str(load_ai_model_settings()["lmstudio_base_url"])
+
+
+def default_ctm_model() -> str:
+    return str(load_ai_model_settings()["ctm_model"])
+
+
+def default_ctm_validation_settings() -> dict[str, float]:
+    return dict(load_ai_model_settings()["ctm_validation"])

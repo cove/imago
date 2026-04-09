@@ -19,6 +19,7 @@ IMAGO_NS = "https://imago.local/ns/1.0/"
 ST_EVT_NS = "http://ns.adobe.com/xap/1.0/sType/ResourceEvent#"
 PHOTOSHOP_NS = "http://ns.adobe.com/photoshop/1.0/"
 XMPDM_NS = "http://ns.adobe.com/xmp/1.0/DynamicMedia/"
+CRS_NS = "http://ns.adobe.com/camera-raw-settings/1.0/"
 
 ET.register_namespace("x", X_NS)
 ET.register_namespace("rdf", RDF_NS)
@@ -31,6 +32,7 @@ ET.register_namespace("imago", IMAGO_NS)
 ET.register_namespace("stEvt", ST_EVT_NS)
 ET.register_namespace("photoshop", PHOTOSHOP_NS)
 ET.register_namespace("xmpDM", XMPDM_NS)
+ET.register_namespace("crs", CRS_NS)
 
 
 _RDF_ROOT = f"{{{RDF_NS}}}RDF"
@@ -1091,6 +1093,106 @@ def read_locations_shown(sidecar_path: str | Path) -> list[dict[str, str]]:
         return rows
     except Exception:
         return []
+
+
+def _normalize_ctm_matrix(value: list[object] | tuple[object, ...] | str | None) -> list[float]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        parts = [part.strip() for part in value.replace("\n", " ").split(",")]
+    else:
+        parts = [str(part).strip() for part in value]
+    matrix: list[float] = []
+    for part in parts:
+        if not part:
+            continue
+        try:
+            matrix.append(float(part))
+        except Exception:
+            return []
+    if len(matrix) != 9:
+        return []
+    return matrix
+
+
+def _format_ctm_matrix(matrix: list[float] | tuple[float, ...]) -> str:
+    return ", ".join(f"{float(value):.6f}".rstrip("0").rstrip(".") for value in matrix)
+
+
+def read_ctm_from_archive_xmp(sidecar_path: str | Path) -> dict[str, object] | None:
+    path = Path(sidecar_path)
+    if not path.is_file():
+        return None
+    try:
+        tree = ET.parse(path)
+    except ET.ParseError:
+        return None
+    desc = _get_rdf_desc(tree)  # type: ignore[arg-type]
+    if desc is None:
+        return None
+    matrix_text = str(desc.findtext(f"{{{CRS_NS}}}ColorMatrix1", default="") or "").strip()
+    matrix = _normalize_ctm_matrix(matrix_text)
+    if len(matrix) != 9:
+        return None
+    confidence_text = str(desc.findtext(f"{{{IMAGO_NS}}}CTMConfidence", default="") or "").strip()
+    try:
+        confidence = float(confidence_text) if confidence_text else 0.0
+    except Exception:
+        confidence = 0.0
+    warnings = _get_seq_values(desc, f"{{{IMAGO_NS}}}CTMWarnings")
+    return {
+        "matrix": matrix,
+        "confidence": confidence,
+        "warnings": warnings,
+        "reasoning_summary": str(desc.findtext(f"{{{IMAGO_NS}}}CTMReasoningSummary", default="") or "").strip(),
+        "model_name": str(desc.findtext(f"{{{IMAGO_NS}}}CTMModel", default="") or "").strip(),
+        "source_image_path": str(desc.findtext(f"{{{IMAGO_NS}}}CTMSourceImage", default="") or "").strip(),
+    }
+
+
+def write_ctm_to_archive_xmp(
+    sidecar_path: str | Path,
+    *,
+    matrix: list[float] | tuple[float, ...],
+    confidence: float,
+    warnings: list[str] | tuple[str, ...],
+    reasoning_summary: str,
+    creator_tool: str,
+    source_image_path: str,
+    model_name: str,
+) -> Path:
+    path = Path(sidecar_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tree: ET.ElementTree | None = None
+    if path.exists():
+        try:
+            tree = ET.parse(path)  # type: ignore[assignment]
+        except ET.ParseError:
+            tree = None
+    if tree is None:
+        tree = build_xmp_tree(
+            creator_tool=creator_tool,
+            person_names=[],
+            subjects=[],
+            description="",
+            album_title="",
+            gps_latitude="",
+            gps_longitude="",
+            source_text=str(source_image_path or "").strip(),
+            ocr_text="",
+        )
+    desc = _get_or_create_rdf_desc(tree)
+    _set_simple_text(desc, f"{{{XMP_NS}}}CreatorTool", str(creator_tool or "").strip() or "https://github.com/cove/imago")
+    _set_simple_text(desc, f"{{{CRS_NS}}}HasSettings", "True")
+    _set_simple_text(desc, f"{{{CRS_NS}}}ColorMatrix1", _format_ctm_matrix(list(matrix)))
+    _set_simple_text(desc, f"{{{IMAGO_NS}}}CTMConfidence", f"{float(confidence):.6f}".rstrip("0").rstrip("."))
+    _set_seq_text(desc, f"{{{IMAGO_NS}}}CTMWarnings", [str(item).strip() for item in warnings if str(item).strip()])
+    _set_simple_text(desc, f"{{{IMAGO_NS}}}CTMReasoningSummary", str(reasoning_summary or "").strip())
+    _set_simple_text(desc, f"{{{IMAGO_NS}}}CTMSourceImage", str(source_image_path or "").strip())
+    _set_simple_text(desc, f"{{{IMAGO_NS}}}CTMModel", str(model_name or "").strip())
+    ET.indent(tree, space="  ")
+    tree.write(path, encoding="utf-8", xml_declaration=True)
+    return path
 
 
 def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
