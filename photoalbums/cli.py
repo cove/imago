@@ -77,6 +77,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("compress", help="Compress TIFF scans in-place where needed")
 
+    ctm_parser = subparsers.add_parser("ctm", help="Generate or review CTM restoration metadata")
+    ctm_sub = ctm_parser.add_subparsers(dest="ctm_kind", required=True)
+    for name in ("generate", "review"):
+        sub = ctm_sub.add_parser(name, help=f"{name.title()} CTM restoration metadata")
+        sub.add_argument("--album-id", required=True, help="Album identifier without _Archive suffix")
+        sub.add_argument("--page", help="Optional page number")
+        sub.add_argument("--photos-root", default=".", help="Photo Albums root")
+        if name == "generate":
+            sub.add_argument("--force", action="store_true", help="Regenerate even if CTM already exists")
+
     render_parser = subparsers.add_parser("render", help="Render album page outputs (skips existing valid outputs)")
     render_sub = render_parser.add_subparsers(dest="render_kind", required=False)
     render_sub.add_parser("validate", help="Validate source scan stitchability without writing outputs")
@@ -138,6 +148,16 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.group == "compress":
         return commands.run_compress_tiff()
+
+    if args.group == "ctm":
+        forwarded = [str(args.ctm_kind)]
+        forwarded += ["--album-id", str(args.album_id)]
+        if getattr(args, "page", None):
+            forwarded += ["--page", str(args.page)]
+        forwarded += ["--photos-root", str(args.photos_root)]
+        if bool(getattr(args, "force", False)):
+            forwarded.append("--force")
+        return commands.run_ctm(forwarded)
 
     if args.group == "render":
         if not getattr(args, "render_kind", None):

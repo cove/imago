@@ -556,6 +556,34 @@ def _index_rendered_view_image(image_path: str | Path) -> None:
         raise RuntimeError(f"AI index failed for rendered view image: {image_path}")
 
 
+def apply_ctm_to_image(image, matrix: list[float] | tuple[float, ...]):
+    if len(matrix) != 9:
+        raise RuntimeError("CTM matrix must contain 9 coefficients")
+    array = np.asarray(image)
+    if array.ndim != 3 or array.shape[2] < 3:
+        raise RuntimeError("CTM application requires an RGB image")
+    transform = np.asarray(matrix, dtype=np.float32).reshape(3, 3)
+    rgb = array[:, :, :3].astype(np.float32) / 255.0
+    corrected = np.einsum("...c,dc->...d", rgb, transform)
+    corrected = np.clip(corrected, 0.0, 1.0)
+    output = array.copy()
+    output[:, :, :3] = np.rint(corrected * 255.0).astype(np.uint8)
+    return output
+
+
+def _apply_archive_ctm_if_present(primary_scan: str | Path, image):
+    from photoalbums.lib.xmp_sidecar import read_ctm_from_archive_xmp  # pylint: disable=import-outside-toplevel
+
+    archive_sidecar = Path(primary_scan).with_suffix(".xmp")
+    ctm_state = read_ctm_from_archive_xmp(archive_sidecar)
+    if not isinstance(ctm_state, dict):
+        return image
+    matrix = ctm_state.get("matrix")
+    if not isinstance(matrix, list) or len(matrix) != 9:
+        return image
+    return apply_ctm_to_image(image, matrix)
+
+
 def list_page_scans(directory: str | Path):
     return list_page_scan_groups(directory, NEW_NAME_RE)
 
@@ -631,6 +659,7 @@ def tif_to_jpg(tif_path: str, output_dir: str) -> bool:
         raise RuntimeError(f"Input validation failed: {tif_path}")
 
     img = _read_stitch_image(tif_path)
+    img = _apply_archive_ctm_if_present(tif_path, img)
     write_jpeg(img, out)
 
     if not validate_image_with_pillow(out):
@@ -663,6 +692,7 @@ def derived_to_jpg(src_path: str, output_dir: str) -> bool:
         raise RuntimeError(f"Input validation failed: {src_path}")
 
     img = _read_stitch_image(src_path)
+    img = _apply_archive_ctm_if_present(src_path, img)
 
     original_size = os.path.getsize(src_path)
     quality = 80
@@ -698,6 +728,7 @@ def stitch(files, output_dir: str) -> bool:
             raise RuntimeError(f"Input validation failed: {f}")
 
     result = build_stitched_image(files)
+    result = _apply_archive_ctm_if_present(_require_primary_scan(files), result)
     write_jpeg(result, out)
 
     if not validate_image_with_pillow(out):

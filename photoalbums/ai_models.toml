@@ -1,8 +1,16 @@
 selected_ocr_model = "new-primary"
 selected_caption_model = "new-primary"
+selected_ctm_model = "gemma4"
 lmstudio_base_url = "http://192.168.4.72:1234/v1"
+
+[ctm_validation]
+min_confidence = 0.35
+max_abs_coefficient = 3.0
+max_row_sum = 4.0
+max_clipping_ratio = 0.34
 
 [models]
 secondary = "qwen/qwen3-vl-30b"
 primary = "qwen3.5-35b-a3b"
 "new-primary" = "zai-org/glm-4.6v-flash"
+gemma4 = "google/gemma-4-31b-it"

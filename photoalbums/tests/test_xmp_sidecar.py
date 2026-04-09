@@ -934,5 +934,30 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertIn("New Album Title", xml)
 
 
+    def test_write_and_read_archive_ctm_metadata(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "Family_2020_B01_P01_S01.xmp"
+            xmp_sidecar.write_ctm_to_archive_xmp(
+                out,
+                matrix=[1.05, -0.02, -0.01, -0.04, 1.35, -0.01, -0.03, -0.02, 1.55],
+                confidence=0.82,
+                warnings=["estimated_clipping_ratio:0.1111"],
+                reasoning_summary="conservative archival correction",
+                creator_tool="imago-test",
+                source_image_path="Family_2020_B01_P01_S01.tif",
+                model_name="google/gemma-4-31b-it",
+            )
+
+            xml = out.read_text(encoding="utf-8")
+            self.assertIn("crs:ColorMatrix1", xml)
+            self.assertIn("crs:HasSettings", xml)
+            state = xmp_sidecar.read_ctm_from_archive_xmp(out)
+            assert state is not None
+            self.assertEqual(len(state["matrix"]), 9)
+            self.assertAlmostEqual(float(state["confidence"]), 0.82)
+            self.assertEqual(state["model_name"], "google/gemma-4-31b-it")
+            self.assertEqual(state["source_image_path"], "Family_2020_B01_P01_S01.tif")
+
+
 if __name__ == "__main__":
     unittest.main()
