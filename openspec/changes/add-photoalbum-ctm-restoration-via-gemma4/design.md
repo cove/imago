@@ -34,10 +34,10 @@ Alternative considered: allow free-text matrix responses. Rejected as too fragil
 ### Store CTMs in `_Archive/` XMP using Camera Raw metadata
 Persist CTMs only in the `_Archive/` version of the XMP using `crs:ColorMatrix1`, with any minimal companion Camera Raw fields needed for compatibility. Do not add stitch ingredient or homography metadata as part of this change. This keeps the restoration recipe portable while limiting scope to the CTM itself.
 
-Alternative considered: store CTMs in a broader manifest with stitch provenance data. Rejected because the user explicitly wants the CTM only in the `_Archive/` XMP and does not want optional stitch ingredient / homography metadata in this change.
+Alternative considered: store CTMs in a broader manifest with stitch provenance data. Rejected because the user explicitly wants the CTM only in the `_Archive/` XMP for this feature (existing XMP data should not be modified) and does not want optional stitch ingredient / homography metadata in this change.
 
 ### Apply CTMs deterministically after stitching
-Implement CTM application as a deterministic 3×3 linear transform in the Python pipeline after stitching has completed and before downstream rendered/exported outputs are produced. This matches the user's desired ordering and keeps the same stored recipe consistently applied inside Imago.
+Implement CTM application as a deterministic 3×3 linear transform in the Python pipeline after stitching has completed and after downstream rendered/exported outputs are produced. This matches the user's desired ordering and keeps the same stored recipe consistently applied inside Imago.
 
 Alternative considered: apply the CTM before stitching or only in external tools. Rejected because the requested flow is to derive from stitched images and apply after stitching within Imago.
 
