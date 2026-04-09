@@ -9,29 +9,22 @@ Imago MUST support generating a 3×3 chromatic-restoration Color Transformation 
 - **AND** requests structured output containing a 3×3 CTM
 - **AND** validates that the response contains exactly 9 finite numeric coefficients before accepting it
 
-### Requirement: Persist CTM metadata in Adobe Camera Raw compatible XMP
-Imago MUST persist accepted CTM metadata using Adobe Camera Raw-compatible XMP fields so the restoration recipe remains portable and non-destructive.
+### Requirement: Persist CTM metadata in the `_Archive/` XMP
+Imago MUST persist accepted CTM metadata in the `_Archive/` version of the XMP using Adobe Camera Raw-compatible fields so the restoration recipe remains portable and non-destructive.
 
-#### Scenario: Write CTM metadata to manifest XMP
+#### Scenario: Write CTM metadata to `_Archive/` XMP
 - **WHEN** a valid CTM is produced for a stitched image
-- **THEN** Imago writes the matrix to `crs:ColorMatrix1`
-- **AND** sets `crs:HasSettings` to `True`
-- **AND** preserves existing non-CTM photoalbum metadata in the same XMP document
+- **THEN** Imago writes the matrix to `crs:ColorMatrix1` in the `_Archive/` XMP
+- **AND** sets any required Camera Raw compatibility fields there
+- **AND** preserves existing non-CTM metadata in that XMP document
 
-### Requirement: Support stitch provenance alongside CTM values
-Imago MUST support storing CTM metadata in an XMP manifest that can also include stitch provenance such as source ingredients and homography matrices.
+### Requirement: Apply stored CTM after stitching
+Imago MUST be able to apply a stored CTM as a deterministic linear transform after stitching and before downstream rendered/exported outputs are produced.
 
-#### Scenario: Persist CTM with stitch provenance metadata
-- **WHEN** stitch provenance metadata is available for the stitched image
-- **THEN** Imago stores ingredient file references and homography metadata alongside `crs:ColorMatrix1`
-- **AND** does so without destructively modifying archival master scans
-
-### Requirement: Apply stored CTM during render
-Imago MUST be able to apply a stored CTM as a deterministic linear transform during render/export of a stitched photoalbum image.
-
-#### Scenario: Render with stored CTM
-- **WHEN** a stitched image has valid CTM metadata available
-- **THEN** Imago applies the 3×3 transform before writing the final rendered output
+#### Scenario: Apply CTM after stitching completes
+- **WHEN** a stitched image has valid CTM metadata available in the `_Archive/` XMP
+- **THEN** Imago applies the 3×3 transform after stitching completes
+- **AND** does so before downstream rendered or exported outputs are written
 - **AND** leaves source archival scans unchanged
 
 ### Requirement: Expose CTM generation as a job workflow

@@ -12,18 +12,18 @@
 - [ ] 2.4 Add a CTM result structure including matrix values, confidence, warnings, and provenance
 - [ ] 2.5 Add numerical validation and preview sanity checks for returned CTMs
 
-## 3. XMP Manifest Support
+## 3. `_Archive/` XMP Support
 
-- [ ] 3.1 Register Camera Raw and archive manifest namespaces required for CTM metadata
-- [ ] 3.2 Add XMP read/write helpers for `crs:ColorMatrix1` and `crs:HasSettings`
-- [ ] 3.3 Add support for writing and reading stitch provenance metadata alongside CTM values
-- [ ] 3.4 Ensure CTM metadata coexists with existing photo-region metadata in the same XMP documents
+- [ ] 3.1 Register the Camera Raw namespaces required for CTM metadata in `_Archive/` XMP handling
+- [ ] 3.2 Add XMP read/write helpers for `crs:ColorMatrix1` and required compatibility fields in `_Archive/` XMP
+- [ ] 3.3 Ensure CTM metadata is written only to `_Archive/` XMP files
+- [ ] 3.4 Ensure `_Archive/` CTM metadata remains cleanly separated from existing view-image region metadata
 
-## 4. Render Integration
+## 4. Post-Stitch Integration
 
-- [ ] 4.1 Implement deterministic 3×3 CTM application in the photoalbum render path
-- [ ] 4.2 Apply stored CTMs before final stitched/rendered output is written
-- [ ] 4.3 Handle missing, invalid, or low-confidence CTMs safely during render
+- [ ] 4.1 Implement deterministic 3×3 CTM application in the photoalbum pipeline after stitching
+- [ ] 4.2 Apply stored CTMs after stitching completes and before downstream rendered/exported outputs are written
+- [ ] 4.3 Handle missing, invalid, or low-confidence CTMs safely in the post-stitch path
 
 ## 5. CLI & MCP Workflows
 
@@ -36,6 +36,6 @@
 
 - [ ] 6.1 Add unit tests for CTM response parsing and retry logic
 - [ ] 6.2 Add unit tests for matrix validation and clipping or coefficient sanity checks
-- [ ] 6.3 Add integration tests for XMP manifest write/read of CTM metadata
+- [ ] 6.3 Add integration tests for `_Archive/` XMP write/read of CTM metadata
 - [ ] 6.4 Add render-path tests verifying CTM application changes output deterministically
 - [ ] 6.5 Add CLI and MCP tests for CTM job creation and review behavior
