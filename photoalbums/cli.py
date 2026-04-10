@@ -93,6 +93,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("watch", help="Watch for incoming scans and register pending events")
 
+    detect_vr_parser = subparsers.add_parser(
+        "detect-view-regions",
+        help="Detect photo regions in view JPGs and write MWG-RS XMP region metadata.",
+    )
+    detect_vr_parser.add_argument("album_id", nargs="?", default="", help="Album folder name fragment (e.g. 'Egypt_1975_B00'); omit for all albums")
+    detect_vr_parser.add_argument("--photos-root", required=True, help="Path to the Photo Albums root directory")
+    detect_vr_parser.add_argument("--page", default=None, help="Page number to process (e.g. '26'); omit for all pages")
+    detect_vr_parser.add_argument("--force", action="store_true", help="Re-run detection even if regions already exist")
+
     checksum_parser = subparsers.add_parser("checksum", help="Checksum manifest commands")
     checksum_sub = checksum_parser.add_subparsers(dest="checksum_kind", required=True)
     checksum_tree = checksum_sub.add_parser("tree", help="Generate or verify SHA256 tree manifests")
@@ -167,6 +176,14 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.group == "watch":
         return commands.run_watch_incoming()
+
+    if args.group == "detect-view-regions":
+        return commands.run_detect_view_regions(
+            album_id=args.album_id,
+            photos_root=args.photos_root,
+            page=args.page,
+            force=args.force,
+        )
 
     if args.group == "checksum":
         if args.checksum_kind == "tree":
