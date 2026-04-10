@@ -1,6 +1,7 @@
 selected_ocr_model = "new-primary"
 selected_caption_model = "new-primary"
 selected_ctm_model = "gemma4"
+view_region_model = "google/gemma-4-26b-a4b"
 lmstudio_base_url = "http://192.168.4.72:1234/v1"
 
 [ctm_validation]

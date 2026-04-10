@@ -817,6 +817,266 @@ def scanwatch_event_resource(event_id: str) -> str:
     return "\n".join(lines)
 
 
+# ── Photoalbums: view region detection ────────────────────────────────────────
+
+
+@mcp.tool()
+def photoalbums_detect_view_regions(
+    album_id: str,
+    page: Optional[str] = None,
+    force: bool = False,
+    album_set: Optional[str] = None,
+) -> dict:
+    """Detect photo regions in view JPGs using a vision model. Returns a job ID.
+
+    Regions are written as MWG-RS RegionList XMP metadata into the view .xmp sidecar.
+    Skips images that already have regions detected (unless force=True).
+
+    Args:
+        album_id: Album folder name fragment (e.g. 'Egypt_1975_B00').
+        page: Optional page number string (e.g. '26'). If omitted, processes all view pages.
+        force: Re-run detection even if regions already exist in the XMP.
+        album_set: Album set name (defaults to the configured default archive set).
+    """
+    set_config = _archive_set(album_set)
+    args = [
+        PYTHON,
+        PHOTOALBUMS_SCRIPT,
+        "detect-view-regions",
+        album_id,
+        "--photos-root",
+        str(set_config.photos_root),
+    ]
+    if page:
+        args += ["--page", str(page)]
+    if force:
+        args.append("--force")
+    job_name = f"photoalbums_detect_view_regions:{album_id}"
+    if page:
+        job_name += f":p{page}"
+    return _job_started(runner.start(job_name, args))
+
+
+@mcp.tool()
+def photoalbums_review_view_regions(
+    album_id: str,
+    page: str,
+    album_set: Optional[str] = None,
+) -> dict:
+    """Return the detected photo regions for a view page for external AI validation.
+
+    Reads directly from the view image's XMP sidecar — does NOT call the vision model.
+
+    Returns a dict with:
+      image_path, image_width, image_height, regions (list of region objects with
+      pixel coords, normalised coords, caption), caption_ambiguous, status.
+
+    Args:
+        album_id: Album folder name fragment (e.g. 'Egypt_1975_B00').
+        page: Page number string (e.g. '26').
+        album_set: Album set name (defaults to the configured default archive set).
+    """
+    from photoalbums.lib.xmp_sidecar import read_region_list  # pylint: disable=import-outside-toplevel
+    from photoalbums.lib.ai_view_regions import _image_dimensions  # pylint: disable=import-outside-toplevel
+
+    set_config = _archive_set(album_set)
+    photos_root = Path(set_config.photos_root)
+
+    # Find the view directory and image
+    page_padded = str(page).zfill(2)
+    view_pattern = f"*{album_id}*_View"
+    view_dirs = sorted(photos_root.glob(view_pattern))
+    if not view_dirs:
+        return {"status": "error", "message": f"No View directory found matching '{album_id}' under {photos_root}"}
+
+    view_dir = view_dirs[0]
+    # Match e.g. Egypt_1975_B00_P26_V.jpg
+    candidates = sorted(view_dir.glob(f"*_P{page_padded}_V.jpg"))
+    if not candidates:
+        # Try zero-padded variants
+        candidates = sorted(view_dir.glob(f"*_P*{int(page):02d}_V.jpg"))
+    if not candidates:
+        return {"status": "error", "message": f"No view image found for page {page} in {view_dir.name}"}
+
+    view_path = candidates[0]
+    xmp_path = view_path.with_suffix(".xmp")
+
+    if not xmp_path.is_file() or "mwg-rs:RegionList" not in xmp_path.read_text(encoding="utf-8", errors="replace"):
+        return {
+            "status": "not_detected",
+            "image_path": str(view_path),
+            "regions": [],
+        }
+
+    try:
+        img_w, img_h = _image_dimensions(view_path)
+    except Exception as exc:
+        return {"status": "error", "message": f"Could not read image dimensions: {exc}"}
+
+    regions = read_region_list(xmp_path, img_w, img_h)
+    caption_ambiguous = any(r.get("caption") and len(regions) > 1 and
+                            all(r2.get("caption") == r.get("caption") for r2 in regions)
+                            for r in regions)
+
+    return {
+        "status": "ok",
+        "image_path": str(view_path),
+        "image_width": img_w,
+        "image_height": img_h,
+        "region_count": len(regions),
+        "regions": regions,
+        "caption_ambiguous": caption_ambiguous,
+    }
+
+
+@mcp.tool()
+def photoalbums_update_view_region(
+    album_id: str,
+    page: str,
+    region_index: int,
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+    album_set: Optional[str] = None,
+) -> dict:
+    """Update a specific region's pixel bounding box in the XMP sidecar.
+
+    Re-writes the mwg-rs:RegionList entry for the given region index with new
+    pixel coordinates and returns the updated normalised coordinates.
+
+    Args:
+        album_id: Album folder name fragment.
+        page: Page number string (e.g. '26').
+        region_index: Zero-based index of the region to update.
+        x, y, width, height: New pixel bounding box (top-left origin).
+        album_set: Album set name.
+    """
+    from photoalbums.lib.xmp_sidecar import read_region_list, write_region_list  # pylint: disable=import-outside-toplevel
+    from photoalbums.lib.ai_view_regions import (  # pylint: disable=import-outside-toplevel
+        RegionResult, RegionWithCaption, _image_dimensions, pixel_to_mwgrs,
+    )
+
+    set_config = _archive_set(album_set)
+    photos_root = Path(set_config.photos_root)
+
+    page_padded = str(page).zfill(2)
+    view_dirs = sorted(photos_root.glob(f"*{album_id}*_View"))
+    if not view_dirs:
+        return {"status": "error", "message": f"No View directory found for '{album_id}'"}
+    view_dir = view_dirs[0]
+    candidates = sorted(view_dir.glob(f"*_P{page_padded}_V.jpg"))
+    if not candidates:
+        return {"status": "error", "message": f"No view image found for page {page}"}
+
+    view_path = candidates[0]
+    xmp_path = view_path.with_suffix(".xmp")
+
+    try:
+        img_w, img_h = _image_dimensions(view_path)
+    except Exception as exc:
+        return {"status": "error", "message": f"Could not read image dimensions: {exc}"}
+
+    existing = read_region_list(xmp_path, img_w, img_h)
+    if region_index < 0 or region_index >= len(existing):
+        return {
+            "status": "error",
+            "message": f"region_index {region_index} out of range (0–{len(existing) - 1})",
+        }
+
+    # Rebuild RegionWithCaption list, replacing the target region
+    updated: list[RegionWithCaption] = []
+    for i, reg in enumerate(existing):
+        if i == region_index:
+            new_r = RegionResult(index=i, x=x, y=y, width=width, height=height)
+            updated.append(RegionWithCaption(new_r, reg.get("caption", "")))
+        else:
+            old_r = RegionResult(
+                index=reg["index"], x=reg["x"], y=reg["y"],
+                width=reg["width"], height=reg["height"],
+            )
+            updated.append(RegionWithCaption(old_r, reg.get("caption", "")))
+
+    write_region_list(xmp_path, updated, img_w, img_h)
+
+    cx, cy, nw, nh = pixel_to_mwgrs(x, y, width, height, img_w, img_h)
+    return {
+        "status": "updated",
+        "region_index": region_index,
+        "pixel": {"x": x, "y": y, "width": width, "height": height},
+        "normalised": {"cx": round(cx, 6), "cy": round(cy, 6), "nw": round(nw, 6), "nh": round(nh, 6)},
+    }
+
+
+@mcp.tool()
+def photoalbums_render_view_regions(
+    album_id: str,
+    page: str,
+    album_set: Optional[str] = None,
+) -> str:
+    """Render detected photo regions as annotated bounding boxes on the view image.
+
+    Draws coloured labelled boxes on a downscaled copy of the view JPG and returns
+    the result as a data:image/jpeg;base64,... string for inline display.
+    Also saves the annotated image to <Album>_View/_debug/<stem>_regions_debug.jpg.
+
+    Returns {"status": "not_detected"} if no regions have been detected yet.
+
+    Args:
+        album_id: Album folder name fragment (e.g. 'Egypt_1975_B00').
+        page: Page number string (e.g. '26').
+        album_set: Album set name (defaults to the configured default archive set).
+    """
+    import base64  # pylint: disable=import-outside-toplevel
+    from photoalbums.lib.xmp_sidecar import read_region_list  # pylint: disable=import-outside-toplevel
+    from photoalbums.lib.ai_view_regions import _image_dimensions  # pylint: disable=import-outside-toplevel
+    from photoalbums.lib.ai_view_region_render import render_regions_debug  # pylint: disable=import-outside-toplevel
+
+    set_config = _archive_set(album_set)
+    photos_root = Path(set_config.photos_root)
+
+    page_padded = str(page).zfill(2)
+    view_dirs = sorted(photos_root.glob(f"*{album_id}*_View"))
+    if not view_dirs:
+        return json.dumps({"status": "error", "message": f"No View directory found for '{album_id}'"})
+
+    view_dir = view_dirs[0]
+    candidates = sorted(view_dir.glob(f"*_P{page_padded}_V.jpg"))
+    if not candidates:
+        return json.dumps({"status": "error", "message": f"No view image found for page {page}"})
+
+    view_path = candidates[0]
+    xmp_path = view_path.with_suffix(".xmp")
+
+    if not xmp_path.is_file() or "mwg-rs:RegionList" not in xmp_path.read_text(encoding="utf-8", errors="replace"):
+        return json.dumps({"status": "not_detected"})
+
+    try:
+        img_w, img_h = _image_dimensions(view_path)
+    except Exception as exc:
+        return json.dumps({"status": "error", "message": f"Could not read image dimensions: {exc}"})
+
+    regions = read_region_list(xmp_path, img_w, img_h)
+
+    debug_dir = view_dir / "_debug"
+    out_path = debug_dir / f"{view_path.stem}_regions_debug.jpg"
+
+    try:
+        jpeg_bytes = render_regions_debug(view_path, regions, out_path)
+    except Exception as exc:
+        return json.dumps({"status": "error", "message": f"Render failed: {exc}"})
+
+    b64 = base64.b64encode(jpeg_bytes).decode("ascii")
+    summary = json.dumps({
+        "status": "ok",
+        "region_count": len(regions),
+        "saved_to": str(out_path),
+        "image_width": img_w,
+        "image_height": img_h,
+    })
+    return f"data:image/jpeg;base64,{b64}\n{summary}"
+
+
 # ── VHS: job-launching tools ───────────────────────────────────────────────────
 
 

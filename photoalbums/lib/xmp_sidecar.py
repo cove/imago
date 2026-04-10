@@ -20,6 +20,8 @@ ST_EVT_NS = "http://ns.adobe.com/xap/1.0/sType/ResourceEvent#"
 PHOTOSHOP_NS = "http://ns.adobe.com/photoshop/1.0/"
 XMPDM_NS = "http://ns.adobe.com/xmp/1.0/DynamicMedia/"
 CRS_NS = "http://ns.adobe.com/camera-raw-settings/1.0/"
+MWGRS_NS = "http://www.metadataworkinggroup.com/schemas/regions/"
+STAREA_NS = "http://ns.adobe.com/xap/1.0/sType/Area#"
 
 ET.register_namespace("x", X_NS)
 ET.register_namespace("rdf", RDF_NS)
@@ -33,6 +35,8 @@ ET.register_namespace("stEvt", ST_EVT_NS)
 ET.register_namespace("photoshop", PHOTOSHOP_NS)
 ET.register_namespace("xmpDM", XMPDM_NS)
 ET.register_namespace("crs", CRS_NS)
+ET.register_namespace("mwg-rs", MWGRS_NS)
+ET.register_namespace("stArea", STAREA_NS)
 
 
 _RDF_ROOT = f"{{{RDF_NS}}}RDF"
@@ -1638,3 +1642,158 @@ def write_xmp_sidecar(
         )
     tree.write(path, encoding="utf-8", xml_declaration=True)
     return path
+
+
+# ---------------------------------------------------------------------------
+# MWG-RS region list helpers
+# ---------------------------------------------------------------------------
+
+def write_region_list(
+    xmp_path: str | Path,
+    regions_with_captions: list,
+    img_w: int,
+    img_h: int,
+) -> None:
+    """Write (or replace) an mwg-rs:RegionList in the XMP sidecar.
+
+    regions_with_captions is a list of RegionWithCaption objects from
+    photoalbums.lib.ai_view_regions.
+
+    The XMP file is created if it does not exist (minimal wrapper).
+    Any existing mwg-rs:RegionInfo block is removed and replaced.
+    """
+    from .ai_view_regions import pixel_to_mwgrs  # pylint: disable=import-outside-toplevel
+
+    path = Path(xmp_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    if path.is_file():
+        try:
+            tree: ET.ElementTree = ET.parse(str(path))  # type: ignore[assignment]
+        except ET.ParseError:
+            tree = None  # type: ignore[assignment]
+    else:
+        tree = None  # type: ignore[assignment]
+
+    if tree is None:
+        xmpmeta = ET.Element(f"{{{X_NS}}}xmpmeta")
+        xmpmeta.set(f"{{{X_NS}}}xmptk", "imago")
+        rdf = ET.SubElement(xmpmeta, _RDF_ROOT)
+        ET.SubElement(rdf, _RDF_DESC).set(f"{{{RDF_NS}}}about", "")
+        tree = ET.ElementTree(xmpmeta)
+
+    desc = _get_or_create_rdf_desc(tree)
+
+    # Remove existing RegionInfo block
+    region_info_tag = f"{{{MWGRS_NS}}}RegionInfo"
+    existing = desc.find(region_info_tag)
+    if existing is not None:
+        desc.remove(existing)
+
+    if not regions_with_captions:
+        tree.write(str(path), encoding="utf-8", xml_declaration=True)
+        return
+
+    # Build mwg-rs:RegionInfo
+    region_info = ET.SubElement(desc, region_info_tag)
+    region_info.set(_RDF_PARSE_TYPE, "Resource")
+
+    # mwg-rs:AppliedToDimensions
+    applied = ET.SubElement(region_info, f"{{{MWGRS_NS}}}AppliedToDimensions")
+    applied.set(_RDF_PARSE_TYPE, "Resource")
+    applied.set(f"{{{STAREA_NS}}}w", str(img_w))
+    applied.set(f"{{{STAREA_NS}}}h", str(img_h))
+    applied.set(f"{{{STAREA_NS}}}unit", "pixel")
+
+    # mwg-rs:RegionList
+    region_list_el = ET.SubElement(region_info, f"{{{MWGRS_NS}}}RegionList")
+    bag = ET.SubElement(region_list_el, _RDF_BAG)
+
+    for rwc in regions_with_captions:
+        r = rwc.region
+        cx, cy, nw, nh = pixel_to_mwgrs(r.x, r.y, r.width, r.height, img_w, img_h)
+
+        li = ET.SubElement(bag, _RDF_LI)
+        li.set(_RDF_PARSE_TYPE, "Resource")
+        li.set(f"{{{MWGRS_NS}}}Type", "Photo")
+        li.set(f"{{{MWGRS_NS}}}Name", f"photo_{r.index + 1}")
+
+        # stArea coordinates (centre-point, normalised)
+        li.set(f"{{{STAREA_NS}}}x", f"{cx:.6f}")
+        li.set(f"{{{STAREA_NS}}}y", f"{cy:.6f}")
+        li.set(f"{{{STAREA_NS}}}w", f"{nw:.6f}")
+        li.set(f"{{{STAREA_NS}}}h", f"{nh:.6f}")
+        li.set(f"{{{STAREA_NS}}}unit", "normalized")
+
+        if rwc.caption:
+            desc_el = ET.SubElement(li, f"{{{DC_NS}}}description")
+            alt = ET.SubElement(desc_el, _RDF_ALT)
+            li_text = ET.SubElement(alt, _RDF_LI)
+            li_text.set("{http://www.w3.org/XML/1998/namespace}lang", "x-default")
+            li_text.text = rwc.caption
+
+    # Update modify date
+    desc.set(f"{{{XMP_NS}}}ModifyDate", _xmp_datetime_now())
+
+    ET.indent(tree, space="  ")
+    tree.write(str(path), encoding="utf-8", xml_declaration=True)
+
+
+def read_region_list(xmp_path: str | Path, img_w: int, img_h: int) -> list[dict]:
+    """Read the mwg-rs:RegionList from an XMP sidecar.
+
+    Returns a list of dicts with keys:
+      index, name, x, y, width, height (pixel, top-left),
+      cx, cy, nw, nh (normalised MWG-RS),
+      caption, type.
+    Returns [] if no region list is present or on parse error.
+    """
+    path = Path(xmp_path)
+    if not path.is_file():
+        return []
+    try:
+        tree: ET.ElementTree = ET.parse(str(path))  # type: ignore[assignment]
+    except ET.ParseError:
+        return []
+
+    results: list[dict] = []
+    idx = 0
+    for li in tree.iter(f"{{{RDF_NS}}}li"):
+        rtype = li.get(f"{{{MWGRS_NS}}}Type")
+        if rtype != "Photo":
+            continue
+        cx_t = li.get(f"{{{STAREA_NS}}}x")
+        cy_t = li.get(f"{{{STAREA_NS}}}y")
+        nw_t = li.get(f"{{{STAREA_NS}}}w")
+        nh_t = li.get(f"{{{STAREA_NS}}}h")
+        if not all((cx_t, cy_t, nw_t, nh_t)):
+            continue
+        try:
+            cx = float(cx_t)
+            cy = float(cy_t)
+            nw = float(nw_t)
+            nh = float(nh_t)
+        except (TypeError, ValueError):
+            continue
+        px = max(0, int(round((cx - nw / 2.0) * img_w)))
+        py = max(0, int(round((cy - nh / 2.0) * img_h)))
+        pw = max(1, int(round(nw * img_w)))
+        ph = max(1, int(round(nh * img_h)))
+
+        caption = ""
+        desc_el = li.find(f".//{{{DC_NS}}}description")
+        if desc_el is not None:
+            li_text = desc_el.find(f".//{{{RDF_NS}}}li")
+            if li_text is not None and li_text.text:
+                caption = li_text.text.strip()
+
+        results.append({
+            "index": idx,
+            "name": li.get(f"{{{MWGRS_NS}}}Name") or f"photo_{idx + 1}",
+            "x": px, "y": py, "width": pw, "height": ph,
+            "cx": cx, "cy": cy, "nw": nw, "nh": nh,
+            "caption": caption,
+            "type": rtype,
+        })
+        idx += 1
+    return results
