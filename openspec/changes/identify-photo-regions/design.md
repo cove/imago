@@ -20,10 +20,12 @@ Album pages are scanned as multi-photo "view" JPGs (`*_V.jpg`). Individual photo
 ## Decisions
 
 ### Vision API call format
-Use the LM Studio OpenAI-compatible `/v1/chat/completions` endpoint with a `vision` message (base64 image or URL). The prompt asks the model to return a JSON array of bounding boxes `[{index, x, y, width, height, caption_hint}]` in pixel coordinates. Rationale: structured JSON output is more reliable than free-text for downstream parsing; the existing `_lmstudio_helpers.py` pattern can be extended.
+Use the LM Studio OpenAI-compatible `/v1/chat/completions` endpoint with a `vision` message (base64 image). The prompt asks the model to return a JSON array of bounding boxes `[{index, x, y, width, height, confidence, caption_hint}]` as **normalised 0.0–1.0 coordinates** (top-left origin). Temperature is set to `0.0` for fully deterministic output. Rationale: structured JSON output is more reliable than free-text; normalised coords are scale-invariant regardless of how the model internally resizes the input image.
+
+The user prompt includes the original pixel dimensions of the image (e.g., `"The full image is 3840×2880 pixels."`) so the model can reason about region boundaries at the correct scale.
 
 Alternatives considered:
-- Returning relative (0–1) coordinates from the model: rejected because pixel coords are simpler to validate visually and can be scaled later
+- Returning pixel coordinates from the model: initially implemented, but caused a "boxes bunched in the upper-left at 1/4 size" bug because vision models internally resize input to their own patch grid (e.g. 448×448), making pixel coords unreliable regardless of what we send
 - Asking the model to describe regions in prose then parsing: rejected as fragile
 
 ### XMP region schema
