@@ -174,7 +174,13 @@
       "Bash(just test-vhs:*)",
       "Bash(openspec new:*)",
       "Bash(openspec status:*)",
-      "Bash(openspec instructions:*)"
+      "Bash(openspec instructions:*)",
+      "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/ -q --tb=short --ignore=photoalbums/tests/test_apply_metadata.py)",
+      "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_ai_view_region_render.py -v)",
+      "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_ai_view_regions.py photoalbums/tests/test_ai_view_region_render.py -q)",
+      "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_ai_view_regions.py photoalbums/tests/test_ai_view_region_render.py -v)",
+      "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_ai_view_region_render.py -q)",
+      "Bash(git pull:*)"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",

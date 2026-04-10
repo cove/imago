@@ -8,6 +8,7 @@ import tomllib
 DEFAULT_OCR_MODEL = ""
 DEFAULT_CAPTION_MODEL = ""
 DEFAULT_CTM_MODEL = ""
+DEFAULT_VIEW_REGION_MODEL = "google/gemma-4-26b-a4b"
 DEFAULT_LMSTUDIO_BASE_URL = "http://localhost:1234/v1"
 AI_MODEL_SETTINGS_PATH = Path(__file__).resolve().parents[1] / "ai_models.toml"
 DEFAULT_CTM_VALIDATION_SETTINGS = {
@@ -110,6 +111,7 @@ def load_ai_model_settings() -> dict[str, Any]:
     selected_ocr_model = _resolve_selected_alias(payload, models, "selected_ocr_model")
     selected_caption_model = _resolve_selected_alias(payload, models, "selected_caption_model")
     selected_ctm_model = _resolve_selected_alias_optional(payload, models, "selected_ctm_model")
+    view_region_model = _normalize_model_value(payload.get("view_region_model")) or DEFAULT_VIEW_REGION_MODEL
     return {
         "models": models,
         "selected_ocr_model": selected_ocr_model,
@@ -119,6 +121,7 @@ def load_ai_model_settings() -> dict[str, Any]:
         "caption_model": models.get(selected_caption_model, DEFAULT_CAPTION_MODEL),
         "ctm_model": models.get(selected_ctm_model, DEFAULT_CTM_MODEL),
         "ctm_validation": _resolve_ctm_validation_settings(payload),
+        "view_region_model": view_region_model,
         "lmstudio_base_url": _resolve_lmstudio_base_url(payload),
     }
 
@@ -129,6 +132,10 @@ def default_ocr_model() -> str:
 
 def default_caption_model() -> str:
     return str(load_ai_model_settings()["caption_model"])
+
+
+def default_view_region_model() -> str:
+    return str(load_ai_model_settings()["view_region_model"])
 
 
 def default_lmstudio_base_url() -> str:

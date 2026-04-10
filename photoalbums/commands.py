@@ -155,5 +155,47 @@ def run_checksum_tree(*, base_dir: str, verify: bool) -> int:
     return int(sha3_tree_hashes.run(argv) or 0)
 
 
+def run_detect_view_regions(*, album_id: str, photos_root: str, page: str | None, force: bool) -> int:
+    from pathlib import Path
+    from .lib.ai_view_regions import detect_regions, RegionWithCaption
+    from .lib.xmp_sidecar import write_region_list
+    from .lib.ai_view_regions import _image_dimensions, associate_captions
+
+    root = Path(photos_root)
+    album_id_lower = album_id.casefold()
+
+    view_dirs = sorted(d for d in root.iterdir() if d.is_dir() and d.name.endswith("_View") and album_id_lower in d.name.casefold())
+    if not view_dirs:
+        print(f"No _View directories found matching '{album_id}' under {root}", file=sys.stderr)
+        return 1
+
+    errors = 0
+    for view_dir in view_dirs:
+        if page is not None:
+            page_padded = str(page).zfill(2)
+            candidates = sorted(view_dir.glob(f"*_P{page_padded}_V.jpg"))
+        else:
+            candidates = sorted(view_dir.glob("*_V.jpg"))
+
+        for view_path in candidates:
+            xmp_path = view_path.with_suffix(".xmp")
+            print(f"Processing {view_path.name}...")
+            try:
+                img_w, img_h = _image_dimensions(view_path)
+                regions = detect_regions(view_path, force=force)
+                if not regions:
+                    print(f"  No regions detected or model unavailable; skipping XMP write.")
+                    continue
+                captions: list[dict] = []  # Future: extract from existing XMP description
+                regions_with_captions = associate_captions(regions, captions, img_w)
+                write_region_list(xmp_path, regions_with_captions, img_w, img_h)
+                print(f"  Wrote {len(regions)} region(s) to {xmp_path.name}")
+            except Exception as exc:
+                print(f"  ERROR: {exc}", file=sys.stderr)
+                errors += 1
+
+    return 1 if errors else 0
+
+
 if __name__ == "__main__":
     raise SystemExit("Internal module. Run: uv run python photoalbums.py ...")
