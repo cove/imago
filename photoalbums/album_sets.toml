@@ -8,6 +8,13 @@ photos_root = "C:/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums"
 cast_store = "../cast/data"
 skill = "cordell-photo-albums"
 
+# Name expansion roster: maps lowercase shorthand (as used in hyphenated captions)
+# to the full name for PersonInImage and dc:subject. Fill in any unknowns.
+[sets.cordell.people]
+audrey = "Audrey Cordell"
+leslie = "Leslie Cordell"
+karl   = ""   # TODO: fill in full name
+
 [sets.cordell.title_page_location]
 address = "2240 Lorain Rd, San Marino, CA 91108"
 gps_latitude = "34.11512"
