@@ -7,10 +7,10 @@ The system SHALL implement `xmpMM:DocumentID`, `xmpMM:DerivedFrom`, and `xmpMM:P
 - **WHEN** code imports `from photoalbums.lib.xmpmm_provenance import assign_document_id, write_derived_from, write_pantry_entry`
 - **THEN** all three are available and `xmp_sidecar.py` contains no DocumentID, DerivedFrom, or Pantry write logic of its own
 
-### Requirement: xmpMM:DocumentID is assigned at the point of file creation, not at the end of the pipeline
-The system SHALL write `xmpMM:DocumentID` (`xmp:uuid:{uuid4}`) to an archive scan sidecar inside `_ensure_archive_page_sidecar` (the first operation of the render step), and to each rendered JPEG sidecar immediately after that JPEG is written. The final provenance step SHALL only write `DerivedFrom` and `Pantry`; it SHALL NOT assign new DocumentIDs.
+### Requirement: xmpMM:DocumentID is assigned at the point of file creation
+The system SHALL write `xmpMM:DocumentID` (`xmp:uuid:{uuid4}`) to an archive scan sidecar inside `_ensure_archive_page_sidecar` before render begins, and to each rendered or cropped JPEG sidecar immediately after that output file is created.
 
-#### Scenario: Archive scan receives DocumentID at render time
+#### Scenario: Archive scan receives DocumentID before render work
 - **WHEN** the render step calls `_ensure_archive_page_sidecar` for a scan whose sidecar has no `xmpMM:DocumentID`
 - **THEN** a UUID is written to the archive sidecar before stitching begins
 
@@ -22,39 +22,31 @@ The system SHALL write `xmpMM:DocumentID` (`xmp:uuid:{uuid4}`) to an archive sca
 - **WHEN** a sidecar already contains `xmpMM:DocumentID`
 - **THEN** the existing value is preserved and no new UUID is generated
 
-### Requirement: xmpMM:DerivedFrom links rendered outputs to their archive sources
-The system SHALL write `xmpMM:DerivedFrom` on each rendered JPEG sidecar as an `stRef:ResourceRef` pointing to the primary archive source from which the rendered file was derived.
+### Requirement: DerivedFrom and Pantry are written as soon as a new output's source set is known
+The system SHALL write `xmpMM:DerivedFrom` and `xmpMM:Pantry` when each new output file is created, rather than waiting for a late pipeline step.
 
-#### Scenario: View JPEG DerivedFrom references primary archive scan
-- **WHEN** the provenance step runs for `Egypt_1975_B00_P26_V.jpg`
+#### Scenario: View JPEG DerivedFrom references the primary archive scan
+- **WHEN** `Egypt_1975_B00_P26_V.jpg` is created
 - **THEN** its sidecar contains `xmpMM:DerivedFrom` with `stRef:documentID` equal to the `xmpMM:DocumentID` of `Egypt_1975_Archive/Egypt_1975_B00_P26_S01.tif`
 
-#### Scenario: Derived JPEG DerivedFrom references its source derived TIF or scan
-- **WHEN** the provenance step runs for `Egypt_1975_B00_P26_D01-02_V.jpg`
-- **THEN** its sidecar contains `xmpMM:DerivedFrom` referencing the `documentID` of the source `_D01-02` media file or primary archive scan
+#### Scenario: Stitched view Pantry records every contributing scan
+- **WHEN** a stitched page view is created from `_S01.tif`, `_S02.tif`, and `_S03.tif`
+- **THEN** the view sidecar's `xmpMM:Pantry` contains one entry for each contributing scan documentID
+- **AND** duplicate entries are deduplicated on write
 
-#### Scenario: DerivedFrom is updated on re-render
-- **WHEN** a view JPEG is re-rendered (e.g. with `--force`) and the archive scan's DocumentID has changed
-- **THEN** the `xmpMM:DerivedFrom` on the rendered sidecar is updated to reflect the current archive source DocumentID
+#### Scenario: Derived JPEG provenance is written at render time
+- **WHEN** `Egypt_1975_B00_P26_D01-02_V.jpg` is created
+- **THEN** its sidecar receives `xmpMM:DerivedFrom` and `xmpMM:Pantry` immediately using the source derived media or scan
 
-### Requirement: xmpMM:Pantry holds one entry per unique DerivedFrom source
-The system SHALL maintain a `xmpMM:Pantry` bag on each rendered sidecar containing one `rdf:Description` entry per unique DerivedFrom source document, storing the `documentID` and file path for offline reference. Duplicate entries for the same `documentID` SHALL be deduplicated on write.
+#### Scenario: Crop sidecar provenance links to the page view when the crop is created
+- **WHEN** crop `_D01-00_V.jpg` is created from `Egypt_1975_B00_P26_V.jpg`
+- **THEN** the crop sidecar receives `xmpMM:DocumentID`
+- **AND** `xmpMM:DerivedFrom` references the `xmpMM:DocumentID` of the page view
+- **AND** `xmpMM:Pantry` includes the page view as a pantry source
 
-#### Scenario: Pantry entry written alongside DerivedFrom
-- **WHEN** `xmpMM:DerivedFrom` is written for a rendered JPEG
-- **THEN** the sidecar's `xmpMM:Pantry` contains an entry with the same `stRef:documentID` and the relative path to the archive source
+### Requirement: Provenance writes preserve unrelated XMP fields
+The system SHALL update provenance fields in the canonical sidecar in place and SHALL preserve unrelated XMP fields already present in that sidecar.
 
-#### Scenario: Pantry entries are deduplicated
-- **WHEN** the provenance step runs twice for the same rendered JPEG with the same archive source
-- **THEN** the Pantry bag contains only one entry for that source documentID
-
-### Requirement: Provenance step records completion in imago:Detections pipeline state
-The system SHALL write a `pipeline.provenance` record to the rendered sidecar's `imago:Detections` JSON when DerivedFrom and Pantry are written, and SHALL skip the provenance step when that record is already present and `--force` is not set.
-
-#### Scenario: Successful provenance write records pipeline state
-- **WHEN** DerivedFrom and Pantry are written to a rendered sidecar
-- **THEN** the sidecar's `imago:Detections` contains `{"pipeline": {"provenance": {"completed": "<iso-timestamp>"}}, ...}`
-
-#### Scenario: Pipeline state skips provenance on re-run
-- **WHEN** `write-provenance` is run and `pipeline.provenance.completed` is already present in the rendered sidecar's `imago:Detections` and `--force` is not set
-- **THEN** the system skips writing DerivedFrom and Pantry and prints a skip message
+#### Scenario: Adding provenance does not remove unrelated metadata
+- **WHEN** a rendered sidecar already contains location metadata and manual `dc:subject` fields
+- **THEN** writing `xmpMM:DocumentID`, `xmpMM:DerivedFrom`, and `xmpMM:Pantry` leaves those unrelated fields unchanged

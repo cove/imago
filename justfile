@@ -92,6 +92,9 @@ photoalbums-render-validate:
 photoalbums-detect-regions:
   {{python}} photoalbums.py detect-view-regions --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums"
 
+photoalbums-crop-regions:
+  {{python}} photoalbums.py crop-regions --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums"
+
 photoalbums-watch:
   {{python}} photoalbums.py watch
   

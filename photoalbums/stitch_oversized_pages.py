@@ -500,6 +500,26 @@ def get_view_dirname(path: str | Path) -> str:
     return str(Path(path).parent / f"{base_no_archive}_View")
 
 
+def get_photos_dirname(path: str | Path) -> str:
+    """Return the _Photos sibling directory path for the given _Archive directory.
+
+    Mirrors get_view_dirname but replaces the _Archive suffix with _Photos.
+    Example: ``Egypt_1975_Archive`` -> ``Egypt_1975_Photos``
+    """
+    base = Path(path).name
+    base_no_archive = base.replace("_Archive", "")
+    match = re.match(
+        r"^(?P<collection>[A-Za-z]+)_(?P<year>\d{4}(?:-\d{4})?)_(?P<rest>.+)$",
+        base_no_archive,
+    )
+    if match:
+        collection = match.group("collection")
+        year = match.group("year")
+        rest = match.group("rest")
+        return str(Path(path).parent / f"{collection}_{year}_{rest}_Photos")
+    return str(Path(path).parent / f"{base_no_archive}_Photos")
+
+
 def _scan_number(path: str | Path) -> int:
     match = SCAN_NAME_RE.search(Path(path).name)
     if match is None:

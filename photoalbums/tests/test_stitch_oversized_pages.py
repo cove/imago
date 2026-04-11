@@ -41,6 +41,11 @@ class TestStitchOversizedPages(unittest.TestCase):
         view = sop.get_view_dirname(base)
         self.assertEqual(Path(view), Path("C:/Photos/EU_1973_B02_View"))
 
+    def test_get_photos_dirname(self):
+        base = Path("C:/Photos/Egypt_1975_Archive")
+        photos = sop.get_photos_dirname(base)
+        self.assertEqual(Path(photos), Path("C:/Photos/Egypt_1975_Photos"))
+
     def test_require_primary_scan_rejects_page_without_s01(self):
         with self.assertRaises(RuntimeError):
             sop._require_primary_scan(

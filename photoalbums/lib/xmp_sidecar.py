@@ -1732,6 +1732,19 @@ def write_region_list(
             li_text.set("{http://www.w3.org/XML/1998/namespace}lang", "x-default")
             li_text.text = rwc.caption
 
+        caption_hint = str(getattr(r, "caption_hint", "") or "").strip()
+        if caption_hint:
+            li.set(f"{{{IMAGO_NS}}}CaptionHint", caption_hint)
+
+        person_names = list(getattr(r, "person_names", ()) or ())
+        person_names = [str(n).strip() for n in person_names if str(n).strip()]
+        if person_names:
+            pn_el = ET.SubElement(li, f"{{{IMAGO_NS}}}PersonNames")
+            bag = ET.SubElement(pn_el, _RDF_BAG)
+            for name in person_names:
+                item = ET.SubElement(bag, _RDF_LI)
+                item.text = name
+
     # Update modify date
     desc.set(f"{{{XMP_NS}}}ModifyDate", _xmp_datetime_now())
 
@@ -1787,12 +1800,24 @@ def read_region_list(xmp_path: str | Path, img_w: int, img_h: int) -> list[dict]
             if li_text is not None and li_text.text:
                 caption = li_text.text.strip()
 
+        caption_hint = str(li.get(f"{{{IMAGO_NS}}}CaptionHint") or "").strip()
+
+        person_names: list[str] = []
+        pn_el = li.find(f"{{{IMAGO_NS}}}PersonNames")
+        if pn_el is not None:
+            for pn_li in pn_el.iter(f"{{{RDF_NS}}}li"):
+                name = str(pn_li.text or "").strip()
+                if name:
+                    person_names.append(name)
+
         results.append({
             "index": idx,
             "name": li.get(f"{{{MWGRS_NS}}}Name") or f"photo_{idx + 1}",
             "x": px, "y": py, "width": pw, "height": ph,
             "cx": cx, "cy": cy, "nw": nw, "nh": nh,
             "caption": caption,
+            "caption_hint": caption_hint,
+            "person_names": person_names,
             "type": rtype,
         })
         idx += 1

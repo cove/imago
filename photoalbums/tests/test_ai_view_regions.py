@@ -290,6 +290,41 @@ class TestRegionListXmpRoundTrip(unittest.TestCase):
             write_region_list(xmp_path, regions, 200, 200)
             self.assertTrue(_has_xmp_regions(xmp_path))
 
+    def test_caption_hint_and_person_names_round_trip(self):
+        """Region written with caption_hint and person_names reads back with the same values."""
+        img_w, img_h = 800, 600
+        regions = [
+            RegionWithCaption(
+                RegionResult(index=0, x=0, y=0, width=400, height=600,
+                             caption_hint="People at the beach",
+                             person_names=("Alice", "Bob")),
+                caption="",
+            ),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            xmp_path = Path(tmp) / "test_V.xmp"
+            write_region_list(xmp_path, regions, img_w, img_h)
+            read_back = read_region_list(xmp_path, img_w, img_h)
+            self.assertEqual(len(read_back), 1)
+            self.assertEqual(read_back[0]["caption_hint"], "People at the beach")
+            self.assertEqual(read_back[0]["person_names"], ["Alice", "Bob"])
+
+    def test_empty_person_names_reads_back_as_empty_list(self):
+        """Region with empty person_names reads back as []."""
+        img_w, img_h = 800, 600
+        regions = [
+            RegionWithCaption(
+                RegionResult(index=0, x=0, y=0, width=400, height=600,
+                             caption_hint="", person_names=()),
+                caption="",
+            ),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            xmp_path = Path(tmp) / "test_V.xmp"
+            write_region_list(xmp_path, regions, img_w, img_h)
+            read_back = read_region_list(xmp_path, img_w, img_h)
+            self.assertEqual(read_back[0]["person_names"], [])
+
 
 if __name__ == "__main__":
     unittest.main()
