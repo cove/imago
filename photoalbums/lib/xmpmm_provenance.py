@@ -34,6 +34,9 @@ for _prefix, _uri in [
 ]:
     ET.register_namespace(_prefix, _uri)
 
+# Re-use the shared helper from xmp_sidecar to avoid duplication
+from .xmp_sidecar import _get_or_create_rdf_desc as _get_or_create_desc  # noqa: E402
+
 
 def _iso_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
@@ -51,21 +54,6 @@ def _load_tree(path: Path) -> ET.ElementTree:
     rdf = ET.SubElement(xmpmeta, _RDF_ROOT)
     ET.SubElement(rdf, _RDF_DESC).set(f"{{{_RDF_NS}}}about", "")
     return ET.ElementTree(xmpmeta)
-
-
-def _get_or_create_desc(tree: ET.ElementTree) -> ET.Element:
-    root = tree.getroot()
-    assert root is not None
-    rdf = root.find(_RDF_ROOT)
-    if rdf is None:
-        rdf = ET.SubElement(root, _RDF_ROOT)  # type: ignore[arg-type]
-    desc = rdf.find(_RDF_DESC)
-    if desc is None:
-        desc = ET.SubElement(rdf, _RDF_DESC)
-        desc.set(f"{{{_RDF_NS}}}about", "")
-    elif f"{{{_RDF_NS}}}about" not in desc.attrib:
-        desc.set(f"{{{_RDF_NS}}}about", "")
-    return desc
 
 
 def _save_tree(tree: ET.ElementTree, path: Path) -> None:
