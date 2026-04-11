@@ -188,7 +188,21 @@
       "Bash(git -C /c/Users/covec/Videos/imago log --oneline -3)",
       "Bash(git -C /c/Users/covec/Videos/imago diff --stat)",
       "Bash(git -C /c/Users/covec/Videos/imago status)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Bash(openspec list:*)",
+      "Bash(ls photoalbums/tests/test_*provenance*)",
+      "Bash(python -c ':*)",
+      "Bash(just complexity:*)",
+      "Bash(python -m pytest --tb=short -q)",
+      "Bash(just test:*)",
+      "Bash(sed -n '355,400p' photoalbums/tests/test_ai_caption.py)",
+      "Bash(sed -n '440,470p' photoalbums/tests/test_ai_caption.py)",
+      "Bash(sed -n '545,580p' photoalbums/tests/test_ai_caption.py)",
+      "Bash(python -m pytest photoalbums/tests/test_ai_caption.py -k \"test_lmstudio\" --collect-only)",
+      "Bash(sed -n '364,372p' photoalbums/tests/test_ai_caption.py)",
+      "Bash(sed -n '446,454p' photoalbums/tests/test_ai_caption.py)",
+      "Bash(sed -n '555,563p' photoalbums/tests/test_ai_caption.py)",
+      "Bash(sed -n '652,660p' photoalbums/tests/test_ai_caption.py)"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",

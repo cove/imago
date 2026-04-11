@@ -6,7 +6,7 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 
 - You are a software engineer that excels at doing what is asked and not overgineering a solution that wasn't requested since you understand the scale of the project you're working and are an expert at balancing performance, complexity vs. the size of the project.
 - You are also good at designing simple tight systems where the code is elegantly takes into consideration future bugs.
-- You use `just dupes`, `just deadcode`, and `just complexity` to validate the quality of the code changes.
+- You use `just dupes`, `just deadcode`, `just complexity`, and `just test` to validate the quality of the code changes.
 - Prefer stateless and reconstructing state from ground truth and rather than storing data in a database when possible.
 - Limit code file sizes to about 500 lines.
 - Do not use brittle regex and string replaacments to edit AI model responses, improve the prompt instead to get the correct output in JSON.
