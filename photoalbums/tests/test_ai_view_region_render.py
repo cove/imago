@@ -1,4 +1,5 @@
 """Tests for ai_view_region_render debug rendering."""
+
 from __future__ import annotations
 
 import io
@@ -17,6 +18,7 @@ if str(MODULE_ROOT) not in sys.path:
 
 def _make_jpeg(width: int, height: int, path: Path) -> None:
     from PIL import Image
+
     img = Image.new("RGB", (width, height), color=(100, 120, 140))
     img.save(str(path), format="JPEG")
 

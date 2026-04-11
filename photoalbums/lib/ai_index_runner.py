@@ -501,6 +501,24 @@ class IndexRunner:
         )
         return effective, settings_sig, creator_tool, date_estimation_enabled
 
+    def _get_people_matcher_and_signature(self, effective: dict[str, Any]) -> tuple[Any, str]:
+        if not bool(effective.get("enable_people", True)):
+            return None, ""
+        people_key = (
+            str(Path(self.args.cast_store).resolve()),
+            float(effective.get("people_threshold", self.defaults["people_threshold"])),
+            int(effective.get("min_face_size", self.defaults["min_face_size"])),
+        )
+        people_matcher = self.people_matcher_cache.get(people_key)
+        if people_matcher is None:
+            people_matcher = _init_people_matcher(
+                cast_store=Path(self.args.cast_store),
+                min_similarity=float(people_key[1]),
+                min_face_size=int(people_key[2]),
+            )
+            self.people_matcher_cache[people_key] = people_matcher
+        return people_matcher, str(people_matcher.store_signature())
+
     # ── Per-image dispatch ──────────────────────────────────────────────────
 
     def _process_one(self, idx: int, image_path: Path) -> None:  # noqa: C901
@@ -580,23 +598,7 @@ class IndexRunner:
                 print(f"[{idx}/{len(self.files)}] skip  {image_path.name} (current xmp)")
             return
 
-        people_matcher = None
-        current_cast_signature = ""
-        if bool(effective.get("enable_people", True)):
-            people_key = (
-                str(Path(self.args.cast_store).resolve()),
-                float(effective.get("people_threshold", self.defaults["people_threshold"])),
-                int(effective.get("min_face_size", self.defaults["min_face_size"])),
-            )
-            people_matcher = self.people_matcher_cache.get(people_key)
-            if people_matcher is None:
-                people_matcher = _init_people_matcher(
-                    cast_store=Path(self.args.cast_store),
-                    min_similarity=float(people_key[1]),
-                    min_face_size=int(people_key[2]),
-                )
-                self.people_matcher_cache[people_key] = people_matcher
-            current_cast_signature = str(people_matcher.store_signature())
+        people_matcher, current_cast_signature = self._get_people_matcher_and_signature(effective)
 
         existing_sidecar_ocr_hash = _hash_text(str((existing_sidecar_state or {}).get("ocr_text") or ""))
         multi_scan_group_paths = _scan_group_paths(image_path)
@@ -1019,6 +1021,9 @@ class IndexRunner:
         people_matcher: Any,
         current_cast_signature: str,
         chain_gps: bool,
+        *,
+        preserve_existing_xmp_people: bool = True,
+        raise_on_error: bool = False,
     ) -> None:
         state = existing_sidecar_state
         if not isinstance(state, dict):
@@ -1067,7 +1072,11 @@ class IndexRunner:
             )
             pu_people_match_names = _dedupe([r.name for r in pu_people_matches])
             _pu_step(_format_people_step_label("people", pu_people_match_names))
-            pu_person_names = _dedupe(pu_people_match_names + existing_xmp_people)
+            pu_person_names = (
+                _dedupe(pu_people_match_names + existing_xmp_people)
+                if preserve_existing_xmp_people
+                else pu_people_match_names
+            )
             pu_album_title = _resolve_album_title_hint(image_path)
             pu_printed_title = _resolve_album_printed_title_hint(image_path, self.printed_album_title_cache)
             pu_people_payload = _serialize_people_matches(pu_people_matches)
@@ -1287,6 +1296,8 @@ class IndexRunner:
         except Exception as exc:
             self.failures += 1
             _pu_stop()
+            if raise_on_error:
+                raise
             self.emit_error(f"[{idx}/{len(self.files)}] fail  {image_path.name}: {exc}")
 
     # ── GPS-update path ─────────────────────────────────────────────────────
@@ -1792,3 +1803,43 @@ class IndexRunner:
             if stop_ticker is not None:
                 stop_ticker()
             self.emit_error(f"[{idx}/{len(self.files)}] fail  {image_path.name}: {exc}")
+
+
+def refresh_rendered_view_people_metadata(
+    image_path: str | Path,
+    *,
+    sidecar_path: str | Path | None = None,
+) -> None:
+    rendered_image_path = Path(image_path)
+    rendered_sidecar_path = Path(sidecar_path) if sidecar_path is not None else rendered_image_path.with_suffix(".xmp")
+    if not has_valid_sidecar(rendered_image_path):
+        raise RuntimeError(f"Rendered sidecar missing or invalid for people refresh: {rendered_sidecar_path}")
+    existing_sidecar_state = read_ai_sidecar_state(rendered_sidecar_path)
+    if not isinstance(existing_sidecar_state, dict):
+        raise RuntimeError(f"Rendered sidecar could not be parsed for people refresh: {rendered_sidecar_path}")
+
+    runner = IndexRunner(["--photo", str(rendered_image_path), "--include-view"])
+    runner.files = [rendered_image_path]
+    effective, settings_sig, creator_tool, date_estimation_enabled = runner._resolve_effective_settings(
+        rendered_image_path
+    )
+    people_matcher, current_cast_signature = runner._get_people_matcher_and_signature(effective)
+    if people_matcher is None:
+        return
+
+    runner._process_people_update(
+        1,
+        rendered_image_path,
+        rendered_sidecar_path,
+        effective,
+        settings_sig,
+        creator_tool,
+        date_estimation_enabled,
+        existing_sidecar_state,
+        read_person_in_image(rendered_sidecar_path),
+        people_matcher,
+        current_cast_signature,
+        False,
+        preserve_existing_xmp_people=False,
+        raise_on_error=True,
+    )

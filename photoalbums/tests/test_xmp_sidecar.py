@@ -933,7 +933,6 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertIn("imago:AlbumTitle", xml)
             self.assertIn("New Album Title", xml)
 
-
     def test_write_and_read_archive_ctm_metadata(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "Family_2020_B01_P01_S01.xmp"

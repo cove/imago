@@ -84,9 +84,7 @@ def _resolve_ctm_validation_settings(payload: dict[str, Any]) -> dict[str, float
     if raw is None:
         return dict(DEFAULT_CTM_VALIDATION_SETTINGS)
     if not isinstance(raw, dict):
-        raise RuntimeError(
-            f"AI model settings 'ctm_validation' must be a TOML table: {AI_MODEL_SETTINGS_PATH}"
-        )
+        raise RuntimeError(f"AI model settings 'ctm_validation' must be a TOML table: {AI_MODEL_SETTINGS_PATH}")
     resolved = dict(DEFAULT_CTM_VALIDATION_SETTINGS)
     for key in resolved:
         value = raw.get(key)

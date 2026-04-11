@@ -125,12 +125,20 @@ def run_ctm(argv: list[str]) -> int:
     if command == "generate":
         for scan in matched:
             archive_sidecar, result = ai_ctm_restoration.generate_and_store_ctm(scan, force=force)
-            print(json.dumps({"image": scan.name, "archive_xmp": str(archive_sidecar), **result.to_dict()}, ensure_ascii=False))
+            print(
+                json.dumps(
+                    {"image": scan.name, "archive_xmp": str(archive_sidecar), **result.to_dict()}, ensure_ascii=False
+                )
+            )
         return 0
 
     for scan in matched:
         state = ai_ctm_restoration.read_ctm_from_archive_xmp(scan.with_suffix(".xmp"))
-        print(json.dumps({"image": scan.name, "archive_xmp": str(scan.with_suffix('.xmp')), "ctm": state}, ensure_ascii=False))
+        print(
+            json.dumps(
+                {"image": scan.name, "archive_xmp": str(scan.with_suffix(".xmp")), "ctm": state}, ensure_ascii=False
+            )
+        )
     return 0
 
 
@@ -165,10 +173,9 @@ def run_crop_regions(*, album_id: str, photos_root: str, page: str | None, force
     album_id_lower = album_id.casefold()
 
     view_dirs = sorted(
-        d for d in root.iterdir()
-        if d.is_dir()
-        and d.name.endswith("_View")
-        and (not album_id or album_id_lower in d.name.casefold())
+        d
+        for d in root.iterdir()
+        if d.is_dir() and d.name.endswith("_View") and (not album_id or album_id_lower in d.name.casefold())
     )
     if not view_dirs:
         print(f"No _View directories found matching '{album_id}' under {root}", file=sys.stderr)
@@ -185,10 +192,7 @@ def run_crop_regions(*, album_id: str, photos_root: str, page: str | None, force
             page_padded = str(page).zfill(2)
             candidates = sorted(view_dir.glob(f"*_P{page_padded}_V.jpg"))
         else:
-            candidates = sorted(
-                p for p in view_dir.glob("*_V.jpg")
-                if not _is_derived_view(p.name)
-            )
+            candidates = sorted(p for p in view_dir.glob("*_V.jpg") if not _is_derived_view(p.name))
 
         for view_path in candidates:
             print(f"Processing {view_path.name}...")
@@ -206,6 +210,7 @@ def run_crop_regions(*, album_id: str, photos_root: str, page: str | None, force
 def _is_derived_view(filename: str) -> bool:
     """Return True if filename is a derived _D##-##_V.jpg output (not a page view)."""
     import re
+
     return bool(re.search(r"_D\d{2}-\d{2}_V\b", filename))
 
 
@@ -234,10 +239,9 @@ def run_render_pipeline(
     album_id_lower = album_id.casefold()
 
     view_dirs = sorted(
-        d for d in root.iterdir()
-        if d.is_dir()
-        and d.name.endswith("_View")
-        and (not album_id or album_id_lower in d.name.casefold())
+        d
+        for d in root.iterdir()
+        if d.is_dir() and d.name.endswith("_View") and (not album_id or album_id_lower in d.name.casefold())
     )
     if not view_dirs:
         print(f"No _View directories found matching '{album_id}' under {root}", file=sys.stderr)
@@ -254,10 +258,7 @@ def run_render_pipeline(
             page_padded = str(page).zfill(2)
             candidates = sorted(view_dir.glob(f"*_P{page_padded}_V.jpg"))
         else:
-            candidates = sorted(
-                p for p in view_dir.glob("*_V.jpg")
-                if not _is_derived_view(p.name)
-            )
+            candidates = sorted(p for p in view_dir.glob("*_V.jpg") if not _is_derived_view(p.name))
 
         for view_path in candidates:
             xmp_path = view_path.with_suffix(".xmp")
@@ -307,7 +308,9 @@ def run_detect_view_regions(*, album_id: str, photos_root: str, page: str | None
     root = Path(photos_root)
     album_id_lower = album_id.casefold()
 
-    view_dirs = sorted(d for d in root.iterdir() if d.is_dir() and d.name.endswith("_View") and album_id_lower in d.name.casefold())
+    view_dirs = sorted(
+        d for d in root.iterdir() if d.is_dir() and d.name.endswith("_View") and album_id_lower in d.name.casefold()
+    )
     if not view_dirs:
         print(f"No _View directories found matching '{album_id}' under {root}", file=sys.stderr)
         return 1

@@ -3,6 +3,7 @@
 Provides functions for writing DocumentID, DerivedFrom, Pantry, and tracking
 pipeline step completion in imago:Detections on XMP sidecars.
 """
+
 from __future__ import annotations
 
 import json
@@ -66,6 +67,7 @@ def _save_tree(tree: ET.ElementTree, path: Path) -> None:
 # Document ID
 # ---------------------------------------------------------------------------
 
+
 def read_document_id(xmp_path: str | Path) -> str:
     """Return existing xmpMM:DocumentID or '' if absent."""
     path = Path(xmp_path)
@@ -116,6 +118,7 @@ def assign_document_id(xmp_path: str | Path) -> str:
 # DerivedFrom
 # ---------------------------------------------------------------------------
 
+
 def write_derived_from(xmp_path: str | Path, source_document_id: str, source_path: str = "") -> None:
     """Write xmpMM:DerivedFrom referencing the given source documentID.
 
@@ -143,6 +146,7 @@ def write_derived_from(xmp_path: str | Path, source_document_id: str, source_pat
 # ---------------------------------------------------------------------------
 # Pantry
 # ---------------------------------------------------------------------------
+
 
 def write_pantry_entry(xmp_path: str | Path, source_document_id: str, source_path: str = "") -> None:
     """Add a xmpMM:Pantry entry for the given source if not already present.
@@ -184,6 +188,7 @@ def write_pantry_entry(xmp_path: str | Path, source_document_id: str, source_pat
 # ---------------------------------------------------------------------------
 # Pipeline state (imago:Detections -> pipeline key)
 # ---------------------------------------------------------------------------
+
 
 def _read_detections(desc: ET.Element) -> dict:
     text = str(desc.findtext(f"{{{_IMAGO_NS}}}Detections", default="") or "").strip()

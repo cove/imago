@@ -4,6 +4,7 @@ The model (LM Studio / OpenAI-compatible) returns pixel bounding boxes for each
 photo; results are written directly into the view image's XMP sidecar as an
 MWG-RS RegionList. The XMP is both the cache and the ground truth.
 """
+
 from __future__ import annotations
 
 import base64
@@ -33,9 +34,11 @@ _MAX_RETRIES = 3
 # Data model
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class RegionResult:
     """A detected photo region in pixel coordinates (top-left origin)."""
+
     index: int
     x: int
     y: int
@@ -57,9 +60,8 @@ class RegionWithCaption:
 # Coordinate conversion
 # ---------------------------------------------------------------------------
 
-def pixel_to_mwgrs(
-    x: int, y: int, w: int, h: int, img_w: int, img_h: int
-) -> tuple[float, float, float, float]:
+
+def pixel_to_mwgrs(x: int, y: int, w: int, h: int, img_w: int, img_h: int) -> tuple[float, float, float, float]:
     """Convert pixel top-left bounds to MWG-RS normalised centre-point coords.
 
     Returns (cx, cy, nw, nh) all in [0, 1] relative to image dimensions.
@@ -75,6 +77,7 @@ def pixel_to_mwgrs(
 # ---------------------------------------------------------------------------
 # Caption association
 # ---------------------------------------------------------------------------
+
 
 def associate_captions(
     regions: list[RegionResult],
@@ -223,9 +226,7 @@ def _build_data_url(image_path: Path, max_edge: int) -> str:
 
 def _lmstudio_post(url: str, payload: dict, timeout: float) -> dict:
     body = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(
-        url, data=body, method="POST", headers={"Content-Type": "application/json"}
-    )
+    req = urllib.request.Request(url, data=body, method="POST", headers={"Content-Type": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
@@ -320,12 +321,17 @@ def _parse_region_response(
             else:
                 # No image dims supplied — store as-is (0–1 range as pixel ints, test use only)
                 px, py, pw, ph = int(nx), int(ny), max(1, int(nw)), max(1, int(nh))
-            results.append(RegionResult(
-                index=int(item.get("index") or len(results)),
-                x=px, y=py, width=pw, height=ph,
-                confidence=max(0.0, min(1.0, float(item.get("confidence") or 1.0))),
-                caption_hint=str(item.get("caption_hint") or "").strip(),
-            ))
+            results.append(
+                RegionResult(
+                    index=int(item.get("index") or len(results)),
+                    x=px,
+                    y=py,
+                    width=pw,
+                    height=ph,
+                    confidence=max(0.0, min(1.0, float(item.get("confidence") or 1.0))),
+                    caption_hint=str(item.get("caption_hint") or "").strip(),
+                )
+            )
         except (KeyError, TypeError, ValueError) as exc:
             log.warning("Skipping malformed region entry %r: %s", item, exc)
     return results
@@ -334,6 +340,7 @@ def _parse_region_response(
 # ---------------------------------------------------------------------------
 # XMP region read-back
 # ---------------------------------------------------------------------------
+
 
 def _xmp_path_for(image_path: Path) -> Path:
     return image_path.with_suffix(".xmp")
@@ -400,6 +407,7 @@ def _read_regions_from_xmp(xmp_path: Path, img_w: int, img_h: int) -> list[Regio
 # Image dimensions
 # ---------------------------------------------------------------------------
 
+
 def _image_dimensions(image_path: Path) -> tuple[int, int]:
     from PIL import Image  # pylint: disable=import-outside-toplevel
     from .image_limits import allow_large_pillow_images  # pylint: disable=import-outside-toplevel
@@ -412,6 +420,7 @@ def _image_dimensions(image_path: Path) -> tuple[int, int]:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def detect_regions(
     image_path: str | Path,

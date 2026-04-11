@@ -3,6 +3,7 @@
 Draws coloured labelled bounding boxes on a downscaled copy of the image.
 Used for visual validation of region detection results before splitting.
 """
+
 from __future__ import annotations
 
 import io
@@ -13,14 +14,14 @@ from .image_limits import allow_large_pillow_images
 _MAX_EDGE = 1500
 
 _PALETTE = [
-    (255, 60, 60),    # red
-    (60, 255, 60),    # lime
-    (60, 220, 255),   # cyan
-    (255, 230, 0),    # yellow
-    (220, 60, 255),   # magenta
-    (255, 140, 0),    # orange
+    (255, 60, 60),  # red
+    (60, 255, 60),  # lime
+    (60, 220, 255),  # cyan
+    (255, 230, 0),  # yellow
+    (220, 60, 255),  # magenta
+    (255, 140, 0),  # orange
     (255, 255, 255),  # white
-    (0, 160, 255),    # deepskyblue
+    (0, 160, 255),  # deepskyblue
 ]
 
 

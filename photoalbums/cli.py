@@ -97,26 +97,36 @@ def build_parser() -> argparse.ArgumentParser:
         "detect-view-regions",
         help="Detect photo regions in view JPGs and write MWG-RS XMP region metadata.",
     )
-    detect_vr_parser.add_argument("album_id", nargs="?", default="", help="Album folder name fragment (e.g. 'Egypt_1975_B00'); omit for all albums")
+    detect_vr_parser.add_argument(
+        "album_id",
+        nargs="?",
+        default="",
+        help="Album folder name fragment (e.g. 'Egypt_1975_B00'); omit for all albums",
+    )
     detect_vr_parser.add_argument("--photos-root", required=True, help="Path to the Photo Albums root directory")
     detect_vr_parser.add_argument("--page", default=None, help="Page number to process (e.g. '26'); omit for all pages")
     detect_vr_parser.add_argument("--force", action="store_true", help="Re-run detection even if regions already exist")
-
 
     crop_regions_parser = subparsers.add_parser(
         "crop-regions",
         help="Crop detected MWG-RS photo regions from view JPEGs and write to _Photos/ directory.",
     )
-    crop_regions_parser.add_argument("album_id", nargs="?", default="", help="Album folder name fragment; omit for all albums")
+    crop_regions_parser.add_argument(
+        "album_id", nargs="?", default="", help="Album folder name fragment; omit for all albums"
+    )
     crop_regions_parser.add_argument("--photos-root", required=True, help="Path to the Photo Albums root directory")
     crop_regions_parser.add_argument("--page", default=None, help="Page number to process; omit for all pages")
-    crop_regions_parser.add_argument("--force", action="store_true", help="Re-crop even if pipeline state already recorded")
+    crop_regions_parser.add_argument(
+        "--force", action="store_true", help="Re-crop even if pipeline state already recorded"
+    )
 
     render_pipeline_parser = subparsers.add_parser(
         "render-pipeline",
         help="Run the full render pipeline (detect-regions, crop-regions, ...) for a matching album.",
     )
-    render_pipeline_parser.add_argument("album_id", nargs="?", default="", help="Album folder name fragment; omit for all albums")
+    render_pipeline_parser.add_argument(
+        "album_id", nargs="?", default="", help="Album folder name fragment; omit for all albums"
+    )
     render_pipeline_parser.add_argument("--photos-root", required=True, help="Path to the Photo Albums root directory")
     render_pipeline_parser.add_argument("--page", default=None, help="Page number to process; omit for all pages")
     render_pipeline_parser.add_argument("--force", action="store_true", help="Re-run all pipeline steps")
@@ -205,7 +215,6 @@ def main(argv: list[str] | None = None) -> int:
             force=args.force,
         )
 
-
     if args.group == "crop-regions":
         return commands.run_crop_regions(
             album_id=args.album_id,
@@ -220,7 +229,7 @@ def main(argv: list[str] | None = None) -> int:
             photos_root=args.photos_root,
             page=args.page,
             force=args.force,
-            skip_crops=bool(getattr(args, 'skip_crops', False)),
+            skip_crops=bool(getattr(args, "skip_crops", False)),
         )
 
     if args.group == "checksum":

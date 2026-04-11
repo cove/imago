@@ -1,4 +1,5 @@
 """Tests for ai_photo_crops: region crop module."""
+
 from __future__ import annotations
 
 import json
@@ -28,6 +29,7 @@ from photoalbums.lib.xmpmm_provenance import read_pipeline_step, write_pipeline_
 # resolve_region_caption
 # ---------------------------------------------------------------------------
 
+
 class TestResolveRegionCaption(unittest.TestCase):
     def test_region_description_wins(self):
         result = resolve_region_caption("Region desc", "Hint", "Page desc")
@@ -49,6 +51,7 @@ class TestResolveRegionCaption(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # mwgrs_normalised_to_pixel_rect
 # ---------------------------------------------------------------------------
+
 
 class TestMwgrsNormalisedToPixelRect(unittest.TestCase):
     def test_centre_region(self):
@@ -73,13 +76,14 @@ class TestMwgrsNormalisedToPixelRect(unittest.TestCase):
         left, top, right, bottom = mwgrs_normalised_to_pixel_rect(0.9, 0.9, 0.5, 0.5, 1000, 1000)
         self.assertEqual(left, 650)
         self.assertEqual(top, 650)
-        self.assertEqual(right, 1000)   # clamped to img_w
+        self.assertEqual(right, 1000)  # clamped to img_w
         self.assertEqual(bottom, 1000)  # clamped to img_h
 
 
 # ---------------------------------------------------------------------------
 # crop_output_path
 # ---------------------------------------------------------------------------
+
 
 class TestCropOutputPath(unittest.TestCase):
     def test_builds_expected_path(self):
@@ -100,10 +104,12 @@ class TestCropOutputPath(unittest.TestCase):
 # crop_page_regions
 # ---------------------------------------------------------------------------
 
+
 def _make_minimal_jpeg(path: Path, width: int = 100, height: int = 100) -> None:
     """Write a tiny solid JPEG using Pillow."""
     try:
         from PIL import Image
+
         img = Image.new("RGB", (width, height), color=(200, 200, 200))
         img.save(str(path), format="JPEG", quality=85)
     except ImportError:
@@ -119,7 +125,7 @@ def _make_minimal_jpeg(path: Path, width: int = 100, height: int = 100) -> None:
             b"\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x03\x04\x05"
             b"\x06\x07\x08\t\n\x0b\xff\xc4\x00\xb5\x10\x00\x02\x01\x03\x03\x02"
             b"\x04\x03\x05\x05\x04\x04\x00\x00\x01}\x01\x02\x03\x00\x04\x11\x05"
-            b"\x12!1A\x06\x13Qa\x07\"q\x142\x81\x91\xa1\x08#B\xb1\xc1\x15R\xd1"
+            b'\x12!1A\x06\x13Qa\x07"q\x142\x81\x91\xa1\x08#B\xb1\xc1\x15R\xd1'
             b"\xf0$3br\x82\t\n\x16\x17\x18\x19\x1a%&'()*456789:CDEFGHIJKLMNOPQR"
             b"STUVWXYZ\xff\xda\x00\x08\x01\x01\x00\x00?\x00\xfb\x03\xff\xd9"
         )
@@ -168,10 +174,15 @@ class TestCropPageRegions(unittest.TestCase):
             view_jpg = view_dir / "Egypt_1975_B00_P01_V.jpg"
             view_xmp = view_jpg.with_suffix(".xmp")
             _make_minimal_jpeg(view_jpg, img_w, img_h)
-            _write_region_xmp(view_xmp, [
-                {"index": 0, "x": 0, "y": 0, "width": 100, "height": 100, "caption": "Left photo"},
-                {"index": 1, "x": 100, "y": 0, "width": 100, "height": 100, "caption": "Right photo"},
-            ], img_w, img_h)
+            _write_region_xmp(
+                view_xmp,
+                [
+                    {"index": 0, "x": 0, "y": 0, "width": 100, "height": 100, "caption": "Left photo"},
+                    {"index": 1, "x": 100, "y": 0, "width": 100, "height": 100, "caption": "Right photo"},
+                ],
+                img_w,
+                img_h,
+            )
 
             count = crop_page_regions(view_jpg, photos_dir)
             self.assertEqual(count, 2)
@@ -190,6 +201,7 @@ class TestCropPageRegions(unittest.TestCase):
 
             # Region with empty caption + non-empty page caption -> page caption
             from photoalbums.lib.xmp_sidecar import write_xmp_sidecar
+
             write_xmp_sidecar(
                 view_xmp,
                 creator_tool="test",
@@ -198,9 +210,14 @@ class TestCropPageRegions(unittest.TestCase):
                 description="Beach day",
                 ocr_text="",
             )
-            _write_region_xmp(view_xmp, [
-                {"index": 0, "x": 0, "y": 0, "width": 200, "height": 100, "caption": ""},
-            ], img_w, img_h)
+            _write_region_xmp(
+                view_xmp,
+                [
+                    {"index": 0, "x": 0, "y": 0, "width": 200, "height": 100, "caption": ""},
+                ],
+                img_w,
+                img_h,
+            )
 
             count = crop_page_regions(view_jpg, photos_dir)
             self.assertEqual(count, 1)
@@ -220,9 +237,14 @@ class TestCropPageRegions(unittest.TestCase):
             view_jpg = view_dir / "Egypt_1975_B00_P01_V.jpg"
             view_xmp = view_jpg.with_suffix(".xmp")
             _make_minimal_jpeg(view_jpg, img_w, img_h)
-            _write_region_xmp(view_xmp, [
-                {"index": 0, "x": 0, "y": 0, "width": 200, "height": 100, "caption": "Test"},
-            ], img_w, img_h)
+            _write_region_xmp(
+                view_xmp,
+                [
+                    {"index": 0, "x": 0, "y": 0, "width": 200, "height": 100, "caption": "Test"},
+                ],
+                img_w,
+                img_h,
+            )
 
             existing_crop = photos_dir / "Egypt_1975_B00_P01_D01-00_V.jpg"
             existing_crop.write_bytes(b"existing")
@@ -242,9 +264,14 @@ class TestCropPageRegions(unittest.TestCase):
             view_jpg = view_dir / "Egypt_1975_B00_P01_V.jpg"
             view_xmp = view_jpg.with_suffix(".xmp")
             _make_minimal_jpeg(view_jpg, img_w, img_h)
-            _write_region_xmp(view_xmp, [
-                {"index": 0, "x": 0, "y": 0, "width": 200, "height": 100, "caption": "Test"},
-            ], img_w, img_h)
+            _write_region_xmp(
+                view_xmp,
+                [
+                    {"index": 0, "x": 0, "y": 0, "width": 200, "height": 100, "caption": "Test"},
+                ],
+                img_w,
+                img_h,
+            )
 
             existing_crop = photos_dir / "Egypt_1975_B00_P01_D01-00_V.jpg"
             existing_crop.write_bytes(b"old content")
@@ -259,6 +286,7 @@ class TestCropPageRegions(unittest.TestCase):
 # _write_crop_sidecar
 # ---------------------------------------------------------------------------
 
+
 class TestWriteCropSidecar(unittest.TestCase):
     def test_sidecar_contains_document_id_and_derived_from(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -272,6 +300,7 @@ class TestWriteCropSidecar(unittest.TestCase):
             _make_minimal_jpeg(view_jpg, img_w, img_h)
 
             from photoalbums.lib.xmp_sidecar import write_xmp_sidecar
+
             write_xmp_sidecar(
                 view_xmp,
                 creator_tool="test",
@@ -281,9 +310,11 @@ class TestWriteCropSidecar(unittest.TestCase):
                 ocr_text="",
             )
             from photoalbums.lib.xmpmm_provenance import assign_document_id
+
             view_doc_id = assign_document_id(view_xmp)
 
             from photoalbums.lib.ai_photo_crops import _write_crop_sidecar
+
             crop_jpg = photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg"
             crop_jpg.write_bytes(b"placeholder")
             _write_crop_sidecar(crop_jpg, view_jpg, "Test caption", {}, [], [])
@@ -306,6 +337,7 @@ class TestWriteCropSidecar(unittest.TestCase):
             _make_minimal_jpeg(view_jpg, img_w, img_h)
 
             from photoalbums.lib.ai_photo_crops import _write_crop_sidecar
+
             crop_jpg = photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg"
             crop_jpg.write_bytes(b"placeholder")
             _write_crop_sidecar(crop_jpg, view_jpg, "Beautiful sunset", {}, [], [])
@@ -323,6 +355,7 @@ class TestWriteCropSidecar(unittest.TestCase):
             _make_minimal_jpeg(view_jpg, 200, 100)
 
             from photoalbums.lib.ai_photo_crops import _write_crop_sidecar
+
             crop_jpg = photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg"
             crop_jpg.write_bytes(b"placeholder")
             _write_crop_sidecar(crop_jpg, view_jpg, "", {}, [], [])
@@ -340,6 +373,7 @@ class TestWriteCropSidecar(unittest.TestCase):
             _make_minimal_jpeg(view_jpg, 200, 100)
 
             from photoalbums.lib.ai_photo_crops import _write_crop_sidecar
+
             view_state = {
                 "gps_latitude": "30.0444",
                 "gps_longitude": "31.2357",
@@ -367,6 +401,7 @@ class TestWriteCropSidecar(unittest.TestCase):
             _make_minimal_jpeg(view_jpg, 200, 100)
 
             from photoalbums.lib.ai_photo_crops import _write_crop_sidecar
+
             crop_jpg = photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg"
             crop_jpg.write_bytes(b"placeholder")
             _write_crop_sidecar(crop_jpg, view_jpg, "", {}, [], [])
@@ -385,6 +420,7 @@ class TestWriteCropSidecar(unittest.TestCase):
             _make_minimal_jpeg(view_jpg, 200, 100)
 
             from photoalbums.lib.ai_photo_crops import _write_crop_sidecar
+
             crop_jpg = photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg"
             crop_jpg.write_bytes(b"placeholder")
             _write_crop_sidecar(crop_jpg, view_jpg, "", {}, [], ["Audrey Cordell"])
@@ -404,6 +440,7 @@ class TestWriteCropSidecar(unittest.TestCase):
 
             from photoalbums.lib.ai_photo_crops import _write_crop_sidecar
             from photoalbums.lib.xmp_sidecar import write_xmp_sidecar
+
             crop_jpg = photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg"
             crop_jpg.write_bytes(b"placeholder")
 
@@ -431,6 +468,7 @@ class TestWriteCropSidecar(unittest.TestCase):
 # Pipeline state
 # ---------------------------------------------------------------------------
 
+
 class TestCropPageRegionsPipelineState(unittest.TestCase):
     def test_second_call_without_force_skips(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -441,9 +479,14 @@ class TestCropPageRegionsPipelineState(unittest.TestCase):
             view_jpg = view_dir / "Egypt_1975_B00_P01_V.jpg"
             view_xmp = view_jpg.with_suffix(".xmp")
             _make_minimal_jpeg(view_jpg, img_w, img_h)
-            _write_region_xmp(view_xmp, [
-                {"index": 0, "x": 0, "y": 0, "width": 200, "height": 100},
-            ], img_w, img_h)
+            _write_region_xmp(
+                view_xmp,
+                [
+                    {"index": 0, "x": 0, "y": 0, "width": 200, "height": 100},
+                ],
+                img_w,
+                img_h,
+            )
 
             # First call
             count1 = crop_page_regions(view_jpg, photos_dir)
@@ -463,9 +506,14 @@ class TestCropPageRegionsPipelineState(unittest.TestCase):
             view_jpg = view_dir / "Egypt_1975_B00_P01_V.jpg"
             view_xmp = view_jpg.with_suffix(".xmp")
             _make_minimal_jpeg(view_jpg, img_w, img_h)
-            _write_region_xmp(view_xmp, [
-                {"index": 0, "x": 0, "y": 0, "width": 200, "height": 100},
-            ], img_w, img_h)
+            _write_region_xmp(
+                view_xmp,
+                [
+                    {"index": 0, "x": 0, "y": 0, "width": 200, "height": 100},
+                ],
+                img_w,
+                img_h,
+            )
 
             # First call
             crop_page_regions(view_jpg, photos_dir)
@@ -488,21 +536,31 @@ class TestCropPageRegionsPipelineState(unittest.TestCase):
             _make_minimal_jpeg(view_jpg, img_w, img_h)
 
             # Write 3 regions first
-            _write_region_xmp(view_xmp, [
-                {"index": 0, "x": 0, "y": 0, "width": 66, "height": 100},
-                {"index": 1, "x": 66, "y": 0, "width": 66, "height": 100},
-                {"index": 2, "x": 132, "y": 0, "width": 68, "height": 100},
-            ], img_w, img_h)
+            _write_region_xmp(
+                view_xmp,
+                [
+                    {"index": 0, "x": 0, "y": 0, "width": 66, "height": 100},
+                    {"index": 1, "x": 66, "y": 0, "width": 66, "height": 100},
+                    {"index": 2, "x": 132, "y": 0, "width": 68, "height": 100},
+                ],
+                img_w,
+                img_h,
+            )
             count1 = crop_page_regions(view_jpg, photos_dir)
             self.assertEqual(count1, 3)
             orphan = photos_dir / "Egypt_1975_B00_P01_D03-00_V.jpg"
             self.assertTrue(orphan.exists())
 
             # Now update XMP to only 2 regions and force re-run
-            _write_region_xmp(view_xmp, [
-                {"index": 0, "x": 0, "y": 0, "width": 100, "height": 100},
-                {"index": 1, "x": 100, "y": 0, "width": 100, "height": 100},
-            ], img_w, img_h)
+            _write_region_xmp(
+                view_xmp,
+                [
+                    {"index": 0, "x": 0, "y": 0, "width": 100, "height": 100},
+                    {"index": 1, "x": 100, "y": 0, "width": 100, "height": 100},
+                ],
+                img_w,
+                img_h,
+            )
             count2 = crop_page_regions(view_jpg, photos_dir, force=True)
             self.assertEqual(count2, 2)
             self.assertFalse(orphan.exists())
@@ -516,6 +574,7 @@ if __name__ == "__main__":
 # ---------------------------------------------------------------------------
 # Integration tests (tasks 7.x)
 # ---------------------------------------------------------------------------
+
 
 class TestIntegrationCropPipeline(unittest.TestCase):
     """Integration tests for the full crop-regions pipeline step."""
@@ -540,6 +599,7 @@ class TestIntegrationCropPipeline(unittest.TestCase):
             # Assign DocumentID to page view (simulates render step)
             from photoalbums.lib.xmpmm_provenance import assign_document_id
             from photoalbums.lib.xmp_sidecar import write_xmp_sidecar
+
             write_xmp_sidecar(
                 view_xmp,
                 creator_tool="test",
@@ -550,10 +610,15 @@ class TestIntegrationCropPipeline(unittest.TestCase):
             )
             view_doc_id = assign_document_id(view_xmp)
 
-            _write_region_xmp(view_xmp, [
-                {"index": 0, "x": 0, "y": 0, "width": 100, "height": 100, "caption": "Pyramid"},
-                {"index": 1, "x": 100, "y": 0, "width": 100, "height": 100, "caption": "Sphinx"},
-            ], img_w, img_h)
+            _write_region_xmp(
+                view_xmp,
+                [
+                    {"index": 0, "x": 0, "y": 0, "width": 100, "height": 100, "caption": "Pyramid"},
+                    {"index": 1, "x": 100, "y": 0, "width": 100, "height": 100, "caption": "Sphinx"},
+                ],
+                img_w,
+                img_h,
+            )
 
             count = crop_page_regions(view_jpg, photos_dir)
             self.assertEqual(count, 2)
@@ -575,15 +640,21 @@ class TestIntegrationCropPipeline(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             img_w, img_h = 200, 100
             _, photos_dir, view_jpg, view_xmp = self._setup_album(tmp, img_w, img_h)
-            _write_region_xmp(view_xmp, [
-                {"index": 0, "x": 0, "y": 0, "width": 200, "height": 100},
-            ], img_w, img_h)
+            _write_region_xmp(
+                view_xmp,
+                [
+                    {"index": 0, "x": 0, "y": 0, "width": 200, "height": 100},
+                ],
+                img_w,
+                img_h,
+            )
 
             from photoalbums.lib.xmpmm_provenance import read_pipeline_step
 
             # run_render_pipeline with skip_crops=True - mock detect_regions to avoid model call
             with mock.patch("photoalbums.lib.ai_view_regions.detect_regions", return_value=[]):
                 from photoalbums.commands import run_render_pipeline
+
                 run_render_pipeline(
                     album_id="Egypt_1975",
                     photos_root=str(Path(tmp)),
@@ -602,6 +673,7 @@ class TestIntegrationCropPipeline(unittest.TestCase):
             _, photos_dir, view_jpg, view_xmp = self._setup_album(tmp, img_w, img_h)
 
             from photoalbums.lib.xmp_sidecar import write_xmp_sidecar
+
             write_xmp_sidecar(
                 view_xmp,
                 creator_tool="test",
@@ -610,10 +682,15 @@ class TestIntegrationCropPipeline(unittest.TestCase):
                 description="Family reunion 1975",
                 ocr_text="",
             )
-            _write_region_xmp(view_xmp, [
-                {"index": 0, "x": 0, "y": 0, "width": 100, "height": 100, "caption": ""},
-                {"index": 1, "x": 100, "y": 0, "width": 100, "height": 100, "caption": ""},
-            ], img_w, img_h)
+            _write_region_xmp(
+                view_xmp,
+                [
+                    {"index": 0, "x": 0, "y": 0, "width": 100, "height": 100, "caption": ""},
+                    {"index": 1, "x": 100, "y": 0, "width": 100, "height": 100, "caption": ""},
+                ],
+                img_w,
+                img_h,
+            )
 
             count = crop_page_regions(view_jpg, photos_dir)
             self.assertEqual(count, 2)

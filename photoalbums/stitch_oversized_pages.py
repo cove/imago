@@ -572,6 +572,15 @@ def _index_rendered_view_image(image_path: str | Path) -> None:
         raise RuntimeError(f"AI index failed for rendered view image: {image_path}")
 
 
+def _refresh_rendered_view_people(image_path: str | Path) -> None:
+    image_path = Path(image_path)
+    from photoalbums.lib.ai_index_runner import (  # pylint: disable=import-outside-toplevel
+        refresh_rendered_view_people_metadata,
+    )
+
+    refresh_rendered_view_people_metadata(image_path)
+
+
 def apply_ctm_to_image(image, matrix: list[float] | tuple[float, ...]):
     if len(matrix) != 9:
         raise RuntimeError("CTM matrix must contain 9 coefficients")
@@ -771,8 +780,10 @@ def main() -> None:
                     wrote = stitch(group, view)
                 else:
                     wrote = tif_to_jpg(primary_scan, view)
-                if wrote or not _view_page_output_path(primary_scan, view).with_suffix(".xmp").is_file():
+                page_view_path = _view_page_output_path(primary_scan, view)
+                if wrote or not page_view_path.with_suffix(".xmp").is_file():
                     _copy_base_view_sidecar(primary_scan, view)
+                    _refresh_rendered_view_people(page_view_path)
                 if wrote:
                     success += 1
                 else:
@@ -788,6 +799,7 @@ def main() -> None:
                 derived_view_path = _derived_view_output_path(derived, view)
                 if wrote or not derived_view_path.with_suffix(".xmp").is_file():
                     _index_rendered_view_image(derived_view_path)
+                    _refresh_rendered_view_people(derived_view_path)
                 if wrote:
                     success += 1
                 else:

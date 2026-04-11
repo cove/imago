@@ -108,6 +108,7 @@ else:
 
 WHISPER_MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
+
 # ---------------------------------------------------------
 # Project Directories (shared between scripts)
 # ---------------------------------------------------------
@@ -149,11 +150,7 @@ def all_store_archive_dirs() -> list[Path]:
     """Return sorted list of Archive/ subdirs for every store under video_data/."""
     if not VIDEO_DATA_DIR.exists():
         return []
-    return sorted(
-        d / "Archive"
-        for d in VIDEO_DATA_DIR.iterdir()
-        if d.is_dir() and (d / "Archive").is_dir()
-    )
+    return sorted(d / "Archive" for d in VIDEO_DATA_DIR.iterdir() if d.is_dir() and (d / "Archive").is_dir())
 
 
 def archive_checksum_file_for(archive_name: str) -> Path:
