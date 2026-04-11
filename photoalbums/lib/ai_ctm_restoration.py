@@ -263,13 +263,14 @@ def generate_ctm_for_image(
 def generate_and_store_ctm(
     image_path: str | Path,
     *,
+    archive_sidecar_path: str | Path | None = None,
     force: bool = False,
     base_url: str | None = None,
     model_name: str | None = None,
     validation_settings: dict[str, float] | None = None,
 ) -> tuple[Path, CTMResult]:
     image_path = Path(image_path)
-    archive_sidecar = image_path.with_suffix(".xmp")
+    archive_sidecar = Path(archive_sidecar_path) if archive_sidecar_path is not None else image_path.with_suffix(".xmp")
     if not force:
         cached = read_ctm_from_archive_xmp(archive_sidecar)
         if cached is not None:

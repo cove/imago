@@ -38,9 +38,18 @@ class TestAICTMRestoration(unittest.TestCase):
         with self.assertRaises(ai_ctm_restoration.CTMValidationError):
             ai_ctm_restoration.validate_ctm_result(result)
 
+    def test_validate_ctm_result_rejects_excessive_clipping(self):
+        result = ai_ctm_restoration.CTMResult(
+            matrix=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+            confidence=1.0,
+        )
+        with self.assertRaises(ai_ctm_restoration.CTMValidationError):
+            ai_ctm_restoration.validate_ctm_result(result)
+
     def test_generate_and_store_ctm_retries_until_success(self):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "image.jpg"
+            archive_sidecar = Path(tmp) / "archive.xmp"
             image.write_bytes(b"fake-jpeg")
             responses = [
                 {"choices": [{"message": {"content": "oops"}}]},
@@ -61,10 +70,18 @@ class TestAICTMRestoration(unittest.TestCase):
                     ai_ctm_restoration, "default_lmstudio_base_url", return_value="http://localhost:1234/v1"
                 ),
             ):
-                sidecar, result = ai_ctm_restoration.generate_and_store_ctm(image, force=True)
+                sidecar, result = ai_ctm_restoration.generate_and_store_ctm(
+                    image,
+                    archive_sidecar_path=archive_sidecar,
+                    force=True,
+                )
 
             self.assertTrue(sidecar.exists())
+            self.assertEqual(sidecar, archive_sidecar)
             self.assertEqual(len(result.matrix), 9)
+            state = ai_ctm_restoration.read_ctm_from_archive_xmp(sidecar)
+            assert state is not None
+            self.assertEqual(state["source_image_path"], image.name)
 
 
 if __name__ == "__main__":

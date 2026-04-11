@@ -81,7 +81,7 @@ def build_parser() -> argparse.ArgumentParser:
     ctm_sub = ctm_parser.add_subparsers(dest="ctm_kind", required=True)
     for name in ("generate", "review"):
         sub = ctm_sub.add_parser(name, help=f"{name.title()} CTM restoration metadata")
-        sub.add_argument("--album-id", required=True, help="Album identifier without _Archive suffix")
+        sub.add_argument("--album-id", help="Album identifier without _Archive suffix; omit for the full album set")
         sub.add_argument("--page", help="Optional page number")
         sub.add_argument("--photos-root", default=".", help="Photo Albums root")
         if name == "generate":
@@ -190,7 +190,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.group == "ctm":
         forwarded = [str(args.ctm_kind)]
-        forwarded += ["--album-id", str(args.album_id)]
+        if getattr(args, "album_id", None):
+            forwarded += ["--album-id", str(args.album_id)]
         if getattr(args, "page", None):
             forwarded += ["--page", str(args.page)]
         forwarded += ["--photos-root", str(args.photos_root)]
