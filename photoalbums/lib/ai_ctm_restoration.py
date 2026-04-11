@@ -186,26 +186,17 @@ def validate_ctm_result(result: CTMResult, *, settings: dict[str, float] | None 
     if len(result.matrix) != 9:
         raise CTMValidationError("CTM must contain 9 coefficients")
     if result.confidence < min_confidence:
-        result.warnings.append(
-            f"confidence_below_threshold:{result.confidence:.3f}<{min_confidence:.3f}"
-        )
+        result.warnings.append(f"confidence_below_threshold:{result.confidence:.3f}<{min_confidence:.3f}")
     for value in result.matrix:
         if abs(value) > max_abs_coefficient:
-            raise CTMValidationError(
-                f"CTM coefficient {value} exceeds max_abs_coefficient {max_abs_coefficient}"
-            )
-    row_sums = [
-        sum(abs(value) for value in result.matrix[index : index + 3])
-        for index in range(0, 9, 3)
-    ]
+            raise CTMValidationError(f"CTM coefficient {value} exceeds max_abs_coefficient {max_abs_coefficient}")
+    row_sums = [sum(abs(value) for value in result.matrix[index : index + 3]) for index in range(0, 9, 3)]
     if any(total > max_row_sum for total in row_sums):
         raise CTMValidationError(f"CTM row sum exceeds max_row_sum {max_row_sum}")
 
     clipping_ratio = estimate_clipping_ratio(result.matrix)
     if clipping_ratio > max_clipping_ratio:
-        raise CTMValidationError(
-            f"CTM clipping ratio {clipping_ratio:.4f} exceeds limit {max_clipping_ratio:.4f}"
-        )
+        raise CTMValidationError(f"CTM clipping ratio {clipping_ratio:.4f} exceeds limit {max_clipping_ratio:.4f}")
     if clipping_ratio > 0.0:
         result.warnings.append(f"estimated_clipping_ratio:{clipping_ratio:.4f}")
     return result
@@ -256,7 +247,11 @@ def generate_ctm_for_image(
     last_error: Exception | None = None
     for strict in (False, True, True):
         try:
-            payload = _post_json(url, _request_payload(image_path=image_path, model_name=selected_model, strict=strict), timeout=timeout_seconds)
+            payload = _post_json(
+                url,
+                _request_payload(image_path=image_path, model_name=selected_model, strict=strict),
+                timeout=timeout_seconds,
+            )
             text = _extract_text_from_response(payload)
             result = parse_ctm_response(text, model_name=selected_model, source_path=str(image_path))
             return validate_ctm_result(result, settings=validation_settings)

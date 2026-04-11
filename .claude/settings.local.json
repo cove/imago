@@ -183,7 +183,12 @@
       "Bash(git pull:*)",
       "Bash(python3 -c ':*)",
       "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(d['state'], d['progress']\\)\")",
-      "Bash([ -d \"/c/Users/covec/Videos/imago/$TARGET\" ])"
+      "Bash([ -d \"/c/Users/covec/Videos/imago/$TARGET\" ])",
+      "Bash(git -C /c/Users/covec/Videos/imago status --short)",
+      "Bash(git -C /c/Users/covec/Videos/imago log --oneline -3)",
+      "Bash(git -C /c/Users/covec/Videos/imago diff --stat)",
+      "Bash(git -C /c/Users/covec/Videos/imago status)",
+      "Bash(git:*)"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",

@@ -57,7 +57,9 @@ class TestAICTMRestoration(unittest.TestCase):
             with (
                 mock.patch.object(ai_ctm_restoration, "_post_json", side_effect=responses),
                 mock.patch.object(ai_ctm_restoration, "default_ctm_model", return_value="gemma"),
-                mock.patch.object(ai_ctm_restoration, "default_lmstudio_base_url", return_value="http://localhost:1234/v1"),
+                mock.patch.object(
+                    ai_ctm_restoration, "default_lmstudio_base_url", return_value="http://localhost:1234/v1"
+                ),
             ):
                 sidecar, result = ai_ctm_restoration.generate_and_store_ctm(image, force=True)
 

@@ -640,6 +640,31 @@ def _set_iptc_face_regions(
     _add_iptc_face_regions(parent, people, image_width, image_height)
 
 
+def _image_region_is_face(item: ET.Element) -> bool:
+    region_id = str(item.findtext(f"{{{IPTC_EXT_NS}}}rId", default="") or "").strip()
+    return region_id.startswith("face-")
+
+
+def _replace_iptc_face_regions(
+    parent: ET.Element,
+    people: list[dict],
+    image_width: int,
+    image_height: int,
+) -> None:
+    field = parent.find(f"{{{IPTC_EXT_NS}}}ImageRegion")
+    if field is not None:
+        bag = field.find(_RDF_BAG)
+        if bag is not None:
+            for item in list(bag.findall(_RDF_LI)):
+                if _image_region_is_face(item):
+                    bag.remove(item)
+            if not list(bag):
+                field.remove(bag)
+        if not list(field):
+            parent.remove(field)
+    _add_iptc_face_regions(parent, people, image_width, image_height)
+
+
 def _add_iptc_image_regions(
     parent: ET.Element,
     subphotos: list[dict],
@@ -727,7 +752,7 @@ def build_xmp_tree(
     people_identified: bool = False,
     locations_shown: list[dict] | None = None,
 ) -> ET.ElementTree:
-    del subphotos, image_width, image_height, scan_number
+    del subphotos, scan_number
     detections_payload = _with_location_detections(
         detections_payload,
         location_city=location_city,
@@ -820,6 +845,13 @@ def build_xmp_tree(
     if detections_payload:
         payload = ET.SubElement(desc, f"{{{IMAGO_NS}}}Detections")
         payload.text = json.dumps(detections_payload, ensure_ascii=False, sort_keys=True)
+    if isinstance(detections_payload, dict) and "people" in detections_payload:
+        _replace_iptc_face_regions(
+            desc,
+            [row for row in list(detections_payload.get("people") or []) if isinstance(row, dict)],
+            image_width,
+            image_height,
+        )
     _set_locations_shown_bag(desc, list(locations_shown) if locations_shown else [])
     _add_processing_history(
         desc,
@@ -1186,7 +1218,9 @@ def write_ctm_to_archive_xmp(
             ocr_text="",
         )
     desc = _get_or_create_rdf_desc(tree)
-    _set_simple_text(desc, f"{{{XMP_NS}}}CreatorTool", str(creator_tool or "").strip() or "https://github.com/cove/imago")
+    _set_simple_text(
+        desc, f"{{{XMP_NS}}}CreatorTool", str(creator_tool or "").strip() or "https://github.com/cove/imago"
+    )
     _set_simple_text(desc, f"{{{CRS_NS}}}HasSettings", "True")
     _set_simple_text(desc, f"{{{CRS_NS}}}ColorMatrix1", _format_ctm_matrix(list(matrix)))
     _set_simple_text(desc, f"{{{IMAGO_NS}}}CTMConfidence", f"{float(confidence):.6f}".rstrip("0").rstrip("."))
@@ -1419,7 +1453,7 @@ def _merge_xmp_tree(
     people_identified: bool = False,
     locations_shown: list[dict] | None = None,
 ) -> ET.ElementTree:
-    del subphotos, image_width, image_height, scan_number
+    del subphotos, scan_number
     detections_payload = _with_location_detections(
         detections_payload,
         location_city=location_city,
@@ -1485,7 +1519,13 @@ def _merge_xmp_tree(
         )
     else:
         _set_simple_text(desc, f"{{{IMAGO_NS}}}Detections", "")
-    _remove_field(desc, f"{{{IPTC_EXT_NS}}}ImageRegion")
+    if isinstance(detections_payload, dict) and "people" in detections_payload:
+        _replace_iptc_face_regions(
+            desc,
+            [row for row in list(detections_payload.get("people") or []) if isinstance(row, dict)],
+            image_width,
+            image_height,
+        )
     _set_locations_shown_bag(desc, list(locations_shown) if locations_shown else [])
     _set_processing_history(
         desc,
@@ -1647,6 +1687,7 @@ def write_xmp_sidecar(
 # ---------------------------------------------------------------------------
 # MWG-RS region list helpers
 # ---------------------------------------------------------------------------
+
 
 def write_region_list(
     xmp_path: str | Path,
@@ -1810,15 +1851,23 @@ def read_region_list(xmp_path: str | Path, img_w: int, img_h: int) -> list[dict]
                 if name:
                     person_names.append(name)
 
-        results.append({
-            "index": idx,
-            "name": li.get(f"{{{MWGRS_NS}}}Name") or f"photo_{idx + 1}",
-            "x": px, "y": py, "width": pw, "height": ph,
-            "cx": cx, "cy": cy, "nw": nw, "nh": nh,
-            "caption": caption,
-            "caption_hint": caption_hint,
-            "person_names": person_names,
-            "type": rtype,
-        })
+        results.append(
+            {
+                "index": idx,
+                "name": li.get(f"{{{MWGRS_NS}}}Name") or f"photo_{idx + 1}",
+                "x": px,
+                "y": py,
+                "width": pw,
+                "height": ph,
+                "cx": cx,
+                "cy": cy,
+                "nw": nw,
+                "nh": nh,
+                "caption": caption,
+                "caption_hint": caption_hint,
+                "person_names": person_names,
+                "type": rtype,
+            }
+        )
         idx += 1
     return results

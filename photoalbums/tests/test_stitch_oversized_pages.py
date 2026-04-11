@@ -182,6 +182,61 @@ class TestStitchOversizedPages(unittest.TestCase):
         self.assertEqual(args[0], "--photo")
         self.assertTrue(str(args[1]).endswith("EU_1973_B02_P05_D01-02_V.jpg"))
 
+    def test_refresh_rendered_view_people_runs_render_refresh_helper(self):
+        with mock.patch(
+            "photoalbums.lib.ai_index_runner.refresh_rendered_view_people_metadata",
+        ) as refresh_mock:
+            sop._refresh_rendered_view_people("C:/Photos/EU_1973_B02_View/EU_1973_B02_P05_V.jpg")
+
+        refresh_mock.assert_called_once()
+        self.assertTrue(str(refresh_mock.call_args.args[0]).endswith("EU_1973_B02_P05_V.jpg"))
+
+    def test_main_refreshes_people_after_copied_page_sidecar(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / "EU_1973_B02_Archive"
+            archive.mkdir()
+            primary_scan = archive / "EU_1973_B02_P05_S01.tif"
+            primary_scan.write_bytes(b"scan")
+
+            with (
+                mock.patch("stitch_oversized_pages.PHOTO_ALBUMS_DIR", Path(tmp)),
+                mock.patch("stitch_oversized_pages.list_archive_dirs", return_value=[str(archive)]),
+                mock.patch("stitch_oversized_pages.list_page_scans", return_value=[[str(primary_scan)]]),
+                mock.patch("stitch_oversized_pages.list_derived_images", return_value=[]),
+                mock.patch("stitch_oversized_pages.list_derived_media", return_value=[]),
+                mock.patch("stitch_oversized_pages.tif_to_jpg", return_value=True),
+                mock.patch("stitch_oversized_pages._copy_base_view_sidecar"),
+                mock.patch("stitch_oversized_pages._refresh_rendered_view_people") as refresh_mock,
+            ):
+                sop.main()
+
+        refresh_mock.assert_called_once()
+        self.assertTrue(str(refresh_mock.call_args.args[0]).endswith("EU_1973_B02_P05_V.jpg"))
+
+    def test_main_refreshes_people_after_indexing_derived_render(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / "EU_1973_B02_Archive"
+            archive.mkdir()
+            derived = archive / "EU_1973_B02_P05_D01-02.tif"
+            derived.write_bytes(b"derived")
+
+            with (
+                mock.patch("stitch_oversized_pages.PHOTO_ALBUMS_DIR", Path(tmp)),
+                mock.patch("stitch_oversized_pages.list_archive_dirs", return_value=[str(archive)]),
+                mock.patch("stitch_oversized_pages.list_page_scans", return_value=[]),
+                mock.patch("stitch_oversized_pages.list_derived_images", return_value=[str(derived)]),
+                mock.patch("stitch_oversized_pages.list_derived_media", return_value=[]),
+                mock.patch("stitch_oversized_pages.derived_to_jpg", return_value=True),
+                mock.patch("stitch_oversized_pages._index_rendered_view_image") as index_mock,
+                mock.patch("stitch_oversized_pages._refresh_rendered_view_people") as refresh_mock,
+            ):
+                sop.main()
+
+        index_mock.assert_called_once()
+        refresh_mock.assert_called_once()
+        self.assertTrue(str(index_mock.call_args.args[0]).endswith("EU_1973_B02_P05_D01-02_V.jpg"))
+        self.assertTrue(str(refresh_mock.call_args.args[0]).endswith("EU_1973_B02_P05_D01-02_V.jpg"))
+
     def test_apply_ctm_to_image_changes_pixels_deterministically(self):
         try:
             import numpy as np

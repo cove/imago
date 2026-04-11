@@ -2013,9 +2013,7 @@ def _run_with_args(args):
             chapter_len = max(0, int(chapter_end_frame) - int(chapter_start_frame))
 
             try:
-                needs_extracted_media = (not subtitles_only) or (
-                    transcribe_dialogue and not metadata_subtitle_entries
-                )
+                needs_extracted_media = (not subtitles_only) or (transcribe_dialogue and not metadata_subtitle_entries)
                 if needs_extracted_media:
                     audio_sync_offset = get_audio_sync_offset_for_chapter(
                         archive_name,

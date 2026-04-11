@@ -1,4 +1,5 @@
 """Tests for ai_view_regions detection, coordinate conversion, and caption association."""
+
 from __future__ import annotations
 
 import json
@@ -31,10 +32,11 @@ from photoalbums.lib.xmp_sidecar import write_region_list, read_region_list
 # pixel_to_mwgrs
 # ---------------------------------------------------------------------------
 
+
 class TestPixelToMwgrs(unittest.TestCase):
     def test_centre_point_computed_correctly(self):
         cx, cy, nw, nh = pixel_to_mwgrs(100, 200, 400, 300, 1000, 1000)
-        self.assertAlmostEqual(cx, 0.3)   # (100 + 200) / 1000
+        self.assertAlmostEqual(cx, 0.3)  # (100 + 200) / 1000
         self.assertAlmostEqual(cy, 0.35)  # (200 + 150) / 1000
         self.assertAlmostEqual(nw, 0.4)
         self.assertAlmostEqual(nh, 0.3)
@@ -58,16 +60,27 @@ class TestPixelToMwgrs(unittest.TestCase):
 # _parse_region_response
 # ---------------------------------------------------------------------------
 
+
 class TestParseRegionResponse(unittest.TestCase):
     def _make_response(self, regions):
         return json.dumps({"regions": regions})
 
     def test_valid_response_parsed(self):
         # Model returns normalised 0-1 coords; we convert to pixel using img dims
-        payload = self._make_response([
-            {"index": 0, "x": 0.0, "y": 0.0, "width": 0.5, "height": 1.0, "confidence": 0.9, "caption_hint": "Beach"},
-            {"index": 1, "x": 0.5, "y": 0.0, "width": 0.5, "height": 1.0, "confidence": 0.85, "caption_hint": ""},
-        ])
+        payload = self._make_response(
+            [
+                {
+                    "index": 0,
+                    "x": 0.0,
+                    "y": 0.0,
+                    "width": 0.5,
+                    "height": 1.0,
+                    "confidence": 0.9,
+                    "caption_hint": "Beach",
+                },
+                {"index": 1, "x": 0.5, "y": 0.0, "width": 0.5, "height": 1.0, "confidence": 0.85, "caption_hint": ""},
+            ]
+        )
         results = _parse_region_response(payload, img_w=1000, img_h=800)
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].x, 0)
@@ -85,18 +98,42 @@ class TestParseRegionResponse(unittest.TestCase):
             _parse_region_response("not json at all")
 
     def test_json_embedded_in_text(self):
-        payload = 'Sure! Here is the answer:\n' + json.dumps({"regions": [
-            {"index": 0, "x": 0.1, "y": 0.1, "width": 0.5, "height": 0.8, "confidence": 1.0, "caption_hint": ""}
-        ]})
+        payload = "Sure! Here is the answer:\n" + json.dumps(
+            {
+                "regions": [
+                    {"index": 0, "x": 0.1, "y": 0.1, "width": 0.5, "height": 0.8, "confidence": 1.0, "caption_hint": ""}
+                ]
+            }
+        )
         results = _parse_region_response(payload, img_w=1000, img_h=1000)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].x, 100)
 
     def test_malformed_entry_skipped(self):
-        payload = json.dumps({"regions": [
-            {"index": 0, "x": 0.0, "y": 0.0, "width": 0.5, "height": 0.5, "confidence": 0.9, "caption_hint": ""},
-            {"index": 1, "x": "bad", "y": 0.0, "width": 0.5, "height": 0.5, "confidence": 0.5, "caption_hint": ""},
-        ]})
+        payload = json.dumps(
+            {
+                "regions": [
+                    {
+                        "index": 0,
+                        "x": 0.0,
+                        "y": 0.0,
+                        "width": 0.5,
+                        "height": 0.5,
+                        "confidence": 0.9,
+                        "caption_hint": "",
+                    },
+                    {
+                        "index": 1,
+                        "x": "bad",
+                        "y": 0.0,
+                        "width": 0.5,
+                        "height": 0.5,
+                        "confidence": 0.5,
+                        "caption_hint": "",
+                    },
+                ]
+            }
+        )
         results = _parse_region_response(payload, img_w=800, img_h=600)
         self.assertEqual(len(results), 1)
 
@@ -105,19 +142,34 @@ class TestParseRegionResponse(unittest.TestCase):
 # detect_regions — model call mocking
 # ---------------------------------------------------------------------------
 
+
 class TestDetectRegions(unittest.TestCase):
     def _mock_response(self, regions):
-        return {
-            "choices": [{"message": {"content": json.dumps({"regions": regions})}}]
-        }
+        return {"choices": [{"message": {"content": json.dumps({"regions": regions})}}]}
 
     def test_happy_path_returns_regions(self):
         from photoalbums.lib.ai_view_regions import detect_regions
 
         # Model returns normalised 0-1 coords; image is 800×600 → right half starts at x=400
         mock_regions = [
-            {"index": 0, "x": 0.0, "y": 0.0, "width": 0.5, "height": 1.0, "confidence": 0.9, "caption_hint": "Left photo"},
-            {"index": 1, "x": 0.5, "y": 0.0, "width": 0.5, "height": 1.0, "confidence": 0.88, "caption_hint": "Right photo"},
+            {
+                "index": 0,
+                "x": 0.0,
+                "y": 0.0,
+                "width": 0.5,
+                "height": 1.0,
+                "confidence": 0.9,
+                "caption_hint": "Left photo",
+            },
+            {
+                "index": 1,
+                "x": 0.5,
+                "y": 0.0,
+                "width": 0.5,
+                "height": 1.0,
+                "confidence": 0.88,
+                "caption_hint": "Right photo",
+            },
         ]
         mock_resp = self._mock_response(mock_regions)
 
@@ -125,6 +177,7 @@ class TestDetectRegions(unittest.TestCase):
             img_path = Path(tmp) / "Egypt_1975_B00_P26_V.jpg"
             try:
                 from PIL import Image
+
                 img = Image.new("RGB", (800, 600), color=(128, 128, 128))
                 img.save(str(img_path), format="JPEG")
             except ImportError:
@@ -158,6 +211,7 @@ class TestDetectRegions(unittest.TestCase):
             img_path = Path(tmp) / "test_V.jpg"
             try:
                 from PIL import Image
+
                 img = Image.new("RGB", (800, 600))
                 img.save(str(img_path), format="JPEG")
             except ImportError:
@@ -176,6 +230,7 @@ class TestDetectRegions(unittest.TestCase):
             img_path = Path(tmp) / "test_V.jpg"
             try:
                 from PIL import Image
+
                 img = Image.new("RGB", (800, 600))
                 img.save(str(img_path), format="JPEG")
             except ImportError:
@@ -194,12 +249,10 @@ class TestDetectRegions(unittest.TestCase):
 # associate_captions
 # ---------------------------------------------------------------------------
 
+
 class TestAssociateCaptions(unittest.TestCase):
     def _make_regions(self, coords):
-        return [
-            RegionResult(index=i, x=x, y=y, width=w, height=h)
-            for i, (x, y, w, h) in enumerate(coords)
-        ]
+        return [RegionResult(index=i, x=x, y=y, width=w, height=h) for i, (x, y, w, h) in enumerate(coords)]
 
     def test_unambiguous_assignment(self):
         # Two regions side-by-side: left caption -> region 0, right -> region 1
@@ -242,6 +295,7 @@ class TestAssociateCaptions(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # write_region_list / read_region_list round-trip
 # ---------------------------------------------------------------------------
+
 
 class TestRegionListXmpRoundTrip(unittest.TestCase):
     def test_write_and_read_back(self):
@@ -295,9 +349,15 @@ class TestRegionListXmpRoundTrip(unittest.TestCase):
         img_w, img_h = 800, 600
         regions = [
             RegionWithCaption(
-                RegionResult(index=0, x=0, y=0, width=400, height=600,
-                             caption_hint="People at the beach",
-                             person_names=("Alice", "Bob")),
+                RegionResult(
+                    index=0,
+                    x=0,
+                    y=0,
+                    width=400,
+                    height=600,
+                    caption_hint="People at the beach",
+                    person_names=("Alice", "Bob"),
+                ),
                 caption="",
             ),
         ]
@@ -314,8 +374,7 @@ class TestRegionListXmpRoundTrip(unittest.TestCase):
         img_w, img_h = 800, 600
         regions = [
             RegionWithCaption(
-                RegionResult(index=0, x=0, y=0, width=400, height=600,
-                             caption_hint="", person_names=()),
+                RegionResult(index=0, x=0, y=0, width=400, height=600, caption_hint="", person_names=()),
                 caption="",
             ),
         ]

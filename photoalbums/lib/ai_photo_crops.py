@@ -7,6 +7,7 @@ sibling directory.
 
 Entry point: crop_page_regions(view_path, photos_dir, *, force=False)
 """
+
 from __future__ import annotations
 
 import logging
@@ -19,6 +20,7 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Caption resolution
 # ---------------------------------------------------------------------------
+
 
 def resolve_region_caption(
     region_dc_description: str,
@@ -43,6 +45,7 @@ def resolve_region_caption(
 # ---------------------------------------------------------------------------
 # Coordinate conversion
 # ---------------------------------------------------------------------------
+
 
 def mwgrs_normalised_to_pixel_rect(
     cx: float,
@@ -76,11 +79,17 @@ def mwgrs_normalised_to_pixel_rect(
         or bottom_f - bottom > threshold_h
     ):
         log.warning(
-            "Region coords clamped significantly: raw=(%.2f, %.2f, %.2f, %.2f) "
-            "clamped=(%d, %d, %d, %d) img=(%d, %d)",
-            left_f, top_f, right_f, bottom_f,
-            left, top, right, bottom,
-            img_w, img_h,
+            "Region coords clamped significantly: raw=(%.2f, %.2f, %.2f, %.2f) clamped=(%d, %d, %d, %d) img=(%d, %d)",
+            left_f,
+            top_f,
+            right_f,
+            bottom_f,
+            left,
+            top,
+            right,
+            bottom,
+            img_w,
+            img_h,
         )
 
     return left, top, right, bottom
@@ -110,9 +119,11 @@ def crop_output_path(view_path: str | Path, region_index: int, photos_dir: str |
 # Sidecar writer
 # ---------------------------------------------------------------------------
 
+
 def _read_subjects_from_xmp(sidecar_path: Path) -> list[str]:
     """Read dc:subject bag from an XMP sidecar. Returns [] on any error."""
     import xml.etree.ElementTree as ET
+
     _DC_NS = "http://purl.org/dc/elements/1.1/"
     _RDF_NS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
     if not sidecar_path.is_file():
@@ -159,6 +170,7 @@ def _write_crop_sidecar(
 
     # Step 2: get the page view's DocumentID for provenance links
     from .xmpmm_provenance import read_document_id
+
     view_doc_id = read_document_id(view_xmp)
 
     # Step 3: write provenance
@@ -201,6 +213,7 @@ def _write_crop_sidecar(
 # ---------------------------------------------------------------------------
 # Main crop function
 # ---------------------------------------------------------------------------
+
 
 def crop_page_regions(
     view_path: str | Path,
@@ -288,9 +301,7 @@ def crop_page_regions(
                     cy = region["cy"]
                     nw = region["nw"]
                     nh = region["nh"]
-                    left, top, right, bottom = mwgrs_normalised_to_pixel_rect(
-                        cx, cy, nw, nh, img_w, img_h
-                    )
+                    left, top, right, bottom = mwgrs_normalised_to_pixel_rect(cx, cy, nw, nh, img_w, img_h)
                     crop_img = page_img.crop((left, top, right, bottom))
                     crop_img.save(str(output_path), format="JPEG", quality=95)
 
@@ -324,9 +335,7 @@ def _remove_orphaned_crops(view_path: Path, photos_dir: Path, current_region_cou
     page_prefix = stem[:-2] if stem.endswith("_V") else stem
 
     # Build the set of paths that the current run will produce
-    expected_stems = {
-        f"{page_prefix}_D{i:02d}-00_V" for i in range(1, current_region_count + 1)
-    }
+    expected_stems = {f"{page_prefix}_D{i:02d}-00_V" for i in range(1, current_region_count + 1)}
 
     orphan_pattern = re.compile(rf"^{re.escape(page_prefix)}_D(\d{{2}})-00_V$")
     for f in list(photos_dir.iterdir()):

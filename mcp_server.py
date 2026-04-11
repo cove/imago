@@ -914,9 +914,10 @@ def photoalbums_review_view_regions(
         return {"status": "error", "message": f"Could not read image dimensions: {exc}"}
 
     regions = read_region_list(xmp_path, img_w, img_h)
-    caption_ambiguous = any(r.get("caption") and len(regions) > 1 and
-                            all(r2.get("caption") == r.get("caption") for r2 in regions)
-                            for r in regions)
+    caption_ambiguous = any(
+        r.get("caption") and len(regions) > 1 and all(r2.get("caption") == r.get("caption") for r2 in regions)
+        for r in regions
+    )
 
     return {
         "status": "ok",
@@ -954,7 +955,10 @@ def photoalbums_update_view_region(
     """
     from photoalbums.lib.xmp_sidecar import read_region_list, write_region_list  # pylint: disable=import-outside-toplevel
     from photoalbums.lib.ai_view_regions import (  # pylint: disable=import-outside-toplevel
-        RegionResult, RegionWithCaption, _image_dimensions, pixel_to_mwgrs,
+        RegionResult,
+        RegionWithCaption,
+        _image_dimensions,
+        pixel_to_mwgrs,
     )
 
     set_config = _archive_set(album_set)
@@ -992,8 +996,11 @@ def photoalbums_update_view_region(
             updated.append(RegionWithCaption(new_r, reg.get("caption", "")))
         else:
             old_r = RegionResult(
-                index=reg["index"], x=reg["x"], y=reg["y"],
-                width=reg["width"], height=reg["height"],
+                index=reg["index"],
+                x=reg["x"],
+                y=reg["y"],
+                width=reg["width"],
+                height=reg["height"],
             )
             updated.append(RegionWithCaption(old_r, reg.get("caption", "")))
 
@@ -1067,13 +1074,15 @@ def photoalbums_render_view_regions(
         return json.dumps({"status": "error", "message": f"Render failed: {exc}"})
 
     b64 = base64.b64encode(jpeg_bytes).decode("ascii")
-    summary = json.dumps({
-        "status": "ok",
-        "region_count": len(regions),
-        "saved_to": str(out_path),
-        "image_width": img_w,
-        "image_height": img_h,
-    })
+    summary = json.dumps(
+        {
+            "status": "ok",
+            "region_count": len(regions),
+            "saved_to": str(out_path),
+            "image_width": img_w,
+            "image_height": img_h,
+        }
+    )
     return f"data:image/jpeg;base64,{b64}\n{summary}"
 
 
@@ -1225,6 +1234,7 @@ def vhs_get_chapters(archive: str) -> dict:
     if not path.exists():
         return {"archive": archive, "chapters": None}
     import csv, io
+
     text = path.read_text(encoding="utf-8")
     reader = csv.DictReader(io.StringIO(text), delimiter="\t")
     return {"archive": archive, "chapters": list(reader)}
