@@ -155,6 +155,149 @@ def run_checksum_tree(*, base_dir: str, verify: bool) -> int:
     return int(sha3_tree_hashes.run(argv) or 0)
 
 
+def run_crop_regions(*, album_id: str, photos_root: str, page: str | None, force: bool) -> int:
+    """Run only the crop-regions step for matching album page view JPEGs."""
+    from pathlib import Path
+    from .lib.ai_photo_crops import crop_page_regions
+    from .stitch_oversized_pages import get_photos_dirname
+
+    root = Path(photos_root)
+    album_id_lower = album_id.casefold()
+
+    view_dirs = sorted(
+        d for d in root.iterdir()
+        if d.is_dir()
+        and d.name.endswith("_View")
+        and (not album_id or album_id_lower in d.name.casefold())
+    )
+    if not view_dirs:
+        print(f"No _View directories found matching '{album_id}' under {root}", file=sys.stderr)
+        return 1
+
+    errors = 0
+    for view_dir in view_dirs:
+        # Derive _Photos directory from the _Archive sibling name
+        archive_name = view_dir.name.replace("_View", "_Archive")
+        archive_path = root / archive_name
+        photos_dir = Path(get_photos_dirname(archive_path))
+
+        if page is not None:
+            page_padded = str(page).zfill(2)
+            candidates = sorted(view_dir.glob(f"*_P{page_padded}_V.jpg"))
+        else:
+            candidates = sorted(
+                p for p in view_dir.glob("*_V.jpg")
+                if not _is_derived_view(p.name)
+            )
+
+        for view_path in candidates:
+            print(f"Processing {view_path.name}...")
+            try:
+                n = crop_page_regions(view_path, photos_dir, force=force)
+                if n > 0:
+                    print(f"  Wrote {n} crop(s) to {photos_dir.name}/")
+            except Exception as exc:
+                print(f"  ERROR: {exc}", file=sys.stderr)
+                errors += 1
+
+    return 1 if errors else 0
+
+
+def _is_derived_view(filename: str) -> bool:
+    """Return True if filename is a derived _D##-##_V.jpg output (not a page view)."""
+    import re
+    return bool(re.search(r"_D\d{2}-\d{2}_V\b", filename))
+
+
+def run_render_pipeline(
+    *,
+    album_id: str,
+    photos_root: str,
+    page: str | None,
+    force: bool,
+    skip_crops: bool,
+) -> int:
+    """Run the full render pipeline for matching pages.
+
+    Current steps implemented: detect-regions, crop-regions.
+    Additional steps (render, face-refresh, ctm-apply) will be added by the
+    photoalbum-scan-render-pipeline change.
+    """
+    from pathlib import Path
+    from .lib.ai_view_regions import detect_regions, RegionWithCaption
+    from .lib.xmp_sidecar import write_region_list
+    from .lib.ai_view_regions import _image_dimensions, associate_captions
+    from .lib.ai_photo_crops import crop_page_regions
+    from .stitch_oversized_pages import get_photos_dirname
+
+    root = Path(photos_root)
+    album_id_lower = album_id.casefold()
+
+    view_dirs = sorted(
+        d for d in root.iterdir()
+        if d.is_dir()
+        and d.name.endswith("_View")
+        and (not album_id or album_id_lower in d.name.casefold())
+    )
+    if not view_dirs:
+        print(f"No _View directories found matching '{album_id}' under {root}", file=sys.stderr)
+        return 1
+
+    failures: list[tuple[str, str, str]] = []
+
+    for view_dir in view_dirs:
+        archive_name = view_dir.name.replace("_View", "_Archive")
+        archive_path = root / archive_name
+        photos_dir = Path(get_photos_dirname(archive_path))
+
+        if page is not None:
+            page_padded = str(page).zfill(2)
+            candidates = sorted(view_dir.glob(f"*_P{page_padded}_V.jpg"))
+        else:
+            candidates = sorted(
+                p for p in view_dir.glob("*_V.jpg")
+                if not _is_derived_view(p.name)
+            )
+
+        for view_path in candidates:
+            xmp_path = view_path.with_suffix(".xmp")
+            print(f"Processing {view_path.name}...")
+
+            # Step: detect-regions
+            try:
+                img_w, img_h = _image_dimensions(view_path)
+                regions = detect_regions(view_path, force=force)
+                if regions:
+                    captions: list[dict] = []
+                    regions_with_captions = associate_captions(regions, captions, img_w)
+                    write_region_list(xmp_path, regions_with_captions, img_w, img_h)
+                    print(f"  detect-regions: {len(regions)} region(s)")
+                else:
+                    print(f"  detect-regions: no regions")
+            except Exception as exc:
+                print(f"  ERROR [detect-regions]: {exc}", file=sys.stderr)
+                failures.append((view_path.name, "detect-regions", str(exc)))
+                continue
+
+            # Step: crop-regions
+            if not skip_crops:
+                try:
+                    n = crop_page_regions(view_path, photos_dir, force=force)
+                    if n > 0:
+                        print(f"  crop-regions: {n} crop(s)")
+                except Exception as exc:
+                    print(f"  ERROR [crop-regions]: {exc}", file=sys.stderr)
+                    failures.append((view_path.name, "crop-regions", str(exc)))
+
+    if failures:
+        print("\nFailure summary:", file=sys.stderr)
+        for page_name, step, msg in failures:
+            print(f"  {page_name} [{step}]: {msg}", file=sys.stderr)
+        return 1
+
+    return 0
+
+
 def run_detect_view_regions(*, album_id: str, photos_root: str, page: str | None, force: bool) -> int:
     from pathlib import Path
     from .lib.ai_view_regions import detect_regions, RegionWithCaption

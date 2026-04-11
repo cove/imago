@@ -180,7 +180,10 @@
       "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_ai_view_regions.py photoalbums/tests/test_ai_view_region_render.py -q)",
       "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_ai_view_regions.py photoalbums/tests/test_ai_view_region_render.py -v)",
       "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_ai_view_region_render.py -q)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Bash(python3 -c ':*)",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(d['state'], d['progress']\\)\")",
+      "Bash([ -d \"/c/Users/covec/Videos/imago/$TARGET\" ])"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",

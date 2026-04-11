@@ -43,6 +43,7 @@ class RegionResult:
     height: int
     confidence: float = 1.0
     caption_hint: str = ""
+    person_names: tuple[str, ...] = ()
 
 
 @dataclass

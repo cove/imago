@@ -1,46 +1,55 @@
 ## ADDED Requirements
 
 ### Requirement: render-pipeline CLI command runs all render steps in order
-The system SHALL provide a `render-pipeline` subcommand in `photoalbums.py` that executes render, region detection, face refresh, and provenance steps in sequence for a matching page, album, or album set.
+The system SHALL provide a `render-pipeline` subcommand in `photoalbums.py` that executes render, region detection, crop generation, face refresh, and CTM application in sequence for a matching page, album, or album set.
 
 #### Scenario: Full pipeline run for a single album
 - **WHEN** `photoalbums render-pipeline --album-id Egypt_1975 --photos-root <root>` is run
-- **THEN** the system processes every page in the album in order: render → detect-regions → crop-regions → ctm-apply → face-refresh → provenance, printing per-page progress
+- **THEN** the system processes every page in the album in order: render -> detect-regions -> crop-regions -> face-refresh -> ctm-apply, printing per-page progress
 
 #### Scenario: Single-page pipeline run
 - **WHEN** `photoalbums render-pipeline --album-id Egypt_1975 --page 26 --photos-root <root>` is run
-- **THEN** only the page matching `P26` is processed through all pipeline steps
+- **THEN** only the page matching `P26` is processed through the pipeline steps for that page
 
-#### Scenario: Archive scan and rendered outputs receive DocumentID during the render step
-- **WHEN** the render step runs for a page
-- **THEN** the archive scan sidecar receives a `xmpMM:DocumentID` before stitching begins, and each rendered JPEG sidecar receives a `xmpMM:DocumentID` immediately after that JPEG is written
-
-#### Scenario: Stored CTM is applied automatically during render step
-- **WHEN** the archive XMP for a page contains `crs:ColorMatrix1` and the pipeline's render step runs
-- **THEN** the CTM is applied to the stitched image before the view JPEG is written, without any extra flag required
+#### Scenario: Provenance is written when outputs are created
+- **WHEN** the render step writes a new page `_V.jpg`, derived `_D##-##_V.jpg`, or crop `_D##-00_V.jpg`
+- **THEN** that output's sidecar receives `xmpMM:DocumentID` immediately
+- **AND** its initial `xmpMM:DerivedFrom` and `xmpMM:Pantry` are written as soon as the source set for that file is known
 
 #### Scenario: AI steps are skipped when pipeline state records completion
 - **WHEN** the pipeline runs and the `imago:Detections` `pipeline` record for a step is already present and `--force` is not set
-- **THEN** that step is skipped and a skip message is printed; downstream steps that depend only on data (not re-execution) continue normally
+- **THEN** that step is skipped and a skip message is printed
+- **AND** downstream steps that depend only on the existing data, not on rerunning the skipped step, continue normally
 
-#### Scenario: --force flag re-runs all steps and clears pipeline state
-- **WHEN** `--force` is passed to render-pipeline
-- **THEN** render outputs are regenerated, all pipeline state records are cleared, and every step re-runs and re-records its completion
+#### Scenario: --force flag re-runs all pipeline steps
+- **WHEN** `--force` is passed to `render-pipeline`
+- **THEN** the relevant pipeline-state records are cleared and each applicable step re-runs for the targeted page(s)
 
-#### Scenario: Pipeline step failure is reported but does not abort other pages
-- **WHEN** one page fails during face refresh (e.g. Cast store unavailable)
-- **THEN** the error is printed including the underlying error message, the pipeline state for that step is NOT recorded, the page is skipped, and the pipeline continues with the next page; exit code is non-zero if any page had an error
+#### Scenario: Pipeline step failure is reported immediately and summarized after completion
+- **WHEN** one page fails during `face-refresh`
+- **THEN** the failing page id, step name, and underlying error are printed immediately
+- **AND** the pipeline continues with the next page
+- **AND** the failed page appears in the end-of-run failure summary
+- **AND** the command exits non-zero if any page failed
+
+### Requirement: Pipeline XMP updates preserve unrelated sidecar fields
+The system SHALL update the canonical XMP sidecar in place for each step and SHALL preserve unrelated fields, including manual edits, when rerunning a step that owns only a subset of the sidecar.
+
+#### Scenario: Region detection rerun preserves manual fields
+- **WHEN** `detect-view-regions --force` reruns for a page whose sidecar already contains manual `dc:description` and location fields
+- **THEN** the step updates only the region-detection-owned fields and pipeline state
+- **AND** the unrelated sidecar fields remain unchanged
 
 ### Requirement: Pipeline step completion is tracked in imago:Detections under a pipeline key
-The system SHALL record each completed AI pipeline step in the `imago:Detections` JSON blob on the relevant XMP sidecar under a `"pipeline"` key. Each entry SHALL store at minimum the step name, completion timestamp, and model identifier used. This record is the authoritative source for whether a step needs to re-run.
+The system SHALL record each completed AI-backed pipeline step in the `imago:Detections` JSON blob on the relevant XMP sidecar under a `"pipeline"` key. Each entry SHALL store at minimum the completion timestamp and model identifier where applicable, and MAY include step-specific metadata.
 
-#### Scenario: Completed step recorded in imago:Detections
-- **WHEN** region detection completes successfully for a view JPEG
-- **THEN** the view sidecar's `imago:Detections` JSON contains `{"pipeline": {"view_regions": {"completed": "<iso-timestamp>", "model": "<model-id>"}}, ...}`
+#### Scenario: Completed region-detection step recorded in imago:Detections
+- **WHEN** region detection completes successfully for a view JPEG and regions are found
+- **THEN** the view sidecar's `imago:Detections` JSON contains `{"pipeline": {"view_regions": {"completed": "<iso-timestamp>", "model": "<model-id>", "result": "regions_found"}}, ...}`
 
-#### Scenario: Step with no model records completion without model field
-- **WHEN** the provenance step completes
-- **THEN** the rendered sidecar's `imago:Detections` JSON contains `{"pipeline": {"provenance": {"completed": "<iso-timestamp>"}}, ...}`
+#### Scenario: Completed no-regions step recorded explicitly
+- **WHEN** region detection completes successfully for a title page and finds no regions
+- **THEN** the view sidecar's `imago:Detections` JSON contains `{"pipeline": {"view_regions": {"completed": "<iso-timestamp>", "model": "<model-id>", "result": "no_regions"}}, ...}`
 
 #### Scenario: Archive sidecar records page CTM generation completion
 - **WHEN** page-level CTM generation completes
@@ -50,21 +59,25 @@ The system SHALL record each completed AI pipeline step in the `imago:Detections
 - **WHEN** per-photo CTM generation completes for a crop
 - **THEN** the crop's XMP sidecar `imago:Detections` contains `{"pipeline": {"ctm": {"completed": "<iso-timestamp>", "model": "<model-id>"}}, ...}`
 
-### Requirement: Each AI pipeline step is also runnable as a standalone CLI command
-The system SHALL allow each AI-backed pipeline step to be invoked independently via CLI so that a single slow step can be run in isolation without re-executing the full pipeline.
+### Requirement: Each pipeline step is also runnable through the same underlying command path
+The system SHALL allow each pipeline step to be invoked independently via CLI so that a single slow or review-driven step can be run in isolation without re-executing the full pipeline.
 
 #### Scenario: Standalone CTM apply
 - **WHEN** `photoalbums ctm-apply --album-id X --photos-root <root>` is run
-- **THEN** only CTM application runs against already-rendered JPEGs; pipeline state is checked and updated exactly as when run inside `render-pipeline`
+- **THEN** only CTM application runs against already-rendered JPEGs
+- **AND** pipeline state is checked and updated exactly as when run inside `render-pipeline`
 
 #### Scenario: Standalone region detection
 - **WHEN** `photoalbums detect-view-regions --album-id X --photos-root <root>` is run
-- **THEN** only region detection runs; pipeline state is checked and updated exactly as when run inside `render-pipeline`
+- **THEN** only region detection runs
+- **AND** pipeline state is checked and updated exactly as when run inside `render-pipeline`
+
+#### Scenario: Standalone crop-regions
+- **WHEN** `photoalbums crop-regions --album-id X --photos-root <root>` is run
+- **THEN** only crop generation runs
+- **AND** pipeline state is checked and updated exactly as when run inside `render-pipeline`
 
 #### Scenario: Standalone face refresh
 - **WHEN** `photoalbums face-refresh --album-id X --photos-root <root>` is run
-- **THEN** only face refresh runs; pipeline state is checked and updated exactly as when run inside `render-pipeline`
-
-#### Scenario: Standalone provenance write
-- **WHEN** `photoalbums write-provenance --album-id X --photos-root <root>` is run
-- **THEN** only DerivedFrom and Pantry are written; pipeline state is checked and updated exactly as when run inside `render-pipeline`
+- **THEN** only face refresh runs
+- **AND** pipeline state is checked and updated exactly as when run inside `render-pipeline`
