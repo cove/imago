@@ -82,6 +82,21 @@ class TestPhotoalbumsCLI(unittest.TestCase):
         self.assertEqual(rc, 0)
         fake.run_checksum_tree.assert_called_once_with(base_dir="Photo Albums", verify=True)
 
+    def test_face_refresh_dispatch(self):
+        fake = mock.Mock()
+        fake.run_face_refresh.return_value = 0
+
+        with mock.patch("cli._import_commands", return_value=fake):
+            rc = cli.main(["face-refresh", "Egypt_1975", "--photos-root", "Photo Albums", "--page", "9", "--force"])
+
+        self.assertEqual(rc, 0)
+        fake.run_face_refresh.assert_called_once_with(
+            album_id="Egypt_1975",
+            photos_root="Photo Albums",
+            page="9",
+            force=True,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

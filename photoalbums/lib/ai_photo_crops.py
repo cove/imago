@@ -160,7 +160,7 @@ def _write_crop_sidecar(
     PersonInImage. Preserves unrelated existing sidecar fields.
     """
     from .xmpmm_provenance import assign_document_id, write_derived_from, write_pantry_entry
-    from .xmp_sidecar import write_xmp_sidecar, read_ai_sidecar_state
+    from .xmp_sidecar import write_xmp_sidecar
 
     crop_xmp = crop_path.with_suffix(".xmp")
     view_xmp = view_path.with_suffix(".xmp")
@@ -236,8 +236,14 @@ def crop_page_regions(
     Returns the count of crops written.
     """
     from PIL import Image
-    from .xmp_sidecar import read_region_list, read_ai_sidecar_state, read_locations_shown
-    from .xmpmm_provenance import write_pipeline_step, clear_pipeline_steps, read_pipeline_step
+    from .xmp_sidecar import (
+        clear_pipeline_steps,
+        read_ai_sidecar_state,
+        read_locations_shown,
+        read_pipeline_step,
+        read_region_list,
+        write_pipeline_step,
+    )
 
     view_path = Path(view_path)
     photos_dir = Path(photos_dir)

@@ -177,6 +177,32 @@ def resolve_archive_set(name: str | None = None) -> AlbumSet:
     return album_set
 
 
+def read_people_roster(album_set: AlbumSet | str | None) -> dict[str, str]:
+    if album_set is None:
+        return {}
+    album_set_name = album_set if isinstance(album_set, str) else album_set.name
+    if not str(album_set_name or "").strip():
+        return {}
+    with open(ALBUM_SETS_PATH, "rb") as handle:
+        payload = tomllib.load(handle)
+    raw_sets = payload.get("sets")
+    if not isinstance(raw_sets, dict):
+        return {}
+    raw_set = raw_sets.get(str(album_set_name))
+    if not isinstance(raw_set, dict):
+        return {}
+    raw_people = raw_set.get("people")
+    if not isinstance(raw_people, dict):
+        return {}
+    roster: dict[str, str] = {}
+    for key, value in raw_people.items():
+        shorthand = str(key or "").strip().lower()
+        full_name = str(value or "").strip()
+        if shorthand and full_name:
+            roster[shorthand] = full_name
+    return roster
+
+
 def find_archive_set_by_photos_root(photos_root: str | Path) -> AlbumSet | None:
     target = Path(photos_root).expanduser().resolve(strict=False)
     for album_set in list_album_sets(kind="archive"):

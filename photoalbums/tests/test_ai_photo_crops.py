@@ -22,7 +22,7 @@ from photoalbums.lib.ai_photo_crops import (
     mwgrs_normalised_to_pixel_rect,
     resolve_region_caption,
 )
-from photoalbums.lib.xmpmm_provenance import read_pipeline_step, write_pipeline_step
+from photoalbums.lib.xmp_sidecar import read_pipeline_step, write_pipeline_step
 
 
 # ---------------------------------------------------------------------------
@@ -582,6 +582,10 @@ class TestIntegrationCropPipeline(unittest.TestCase):
     def _setup_album(self, tmp: str, img_w: int = 200, img_h: int = 100) -> tuple:
         """Create a minimal album structure. Returns (view_dir, photos_dir, view_jpg, view_xmp)."""
         root = Path(tmp)
+        archive_dir = root / "Egypt_1975_Archive"
+        archive_dir.mkdir(parents=True)
+        scan = archive_dir / "Egypt_1975_B00_P01_S01.tif"
+        scan.write_bytes(b"tif")
         view_dir = root / "Egypt_1975_View"
         view_dir.mkdir(parents=True)
         photos_dir = root / "Egypt_1975_Photos"
@@ -649,10 +653,20 @@ class TestIntegrationCropPipeline(unittest.TestCase):
                 img_h,
             )
 
-            from photoalbums.lib.xmpmm_provenance import read_pipeline_step
+            from photoalbums.lib.xmp_sidecar import read_pipeline_step
 
             # run_render_pipeline with skip_crops=True - mock detect_regions to avoid model call
-            with mock.patch("photoalbums.lib.ai_view_regions.detect_regions", return_value=[]):
+            with (
+                mock.patch("photoalbums.lib.ai_view_regions.detect_regions", return_value=[]),
+                mock.patch("photoalbums.stitch_oversized_pages.tif_to_jpg", return_value=False),
+                mock.patch("photoalbums.stitch_oversized_pages.list_derived_images", return_value=[]),
+                mock.patch("photoalbums.lib.ai_model_settings.default_view_region_model", return_value="test"),
+                mock.patch("photoalbums.lib.album_sets.find_archive_set_by_photos_root", return_value=""),
+                mock.patch("photoalbums.lib.album_sets.read_people_roster", return_value={}),
+                mock.patch("photoalbums.lib.xmp_sidecar.read_ai_sidecar_state", return_value={}),
+                mock.patch("photoalbums.lib.ai_view_regions._image_dimensions", return_value=(img_w, img_h)),
+                mock.patch("photoalbums.lib.ai_render_face_refresh.RenderFaceRefreshSession"),
+            ):
                 from photoalbums.commands import run_render_pipeline
 
                 run_render_pipeline(
@@ -665,6 +679,62 @@ class TestIntegrationCropPipeline(unittest.TestCase):
 
             self.assertFalse(photos_dir.exists())
             self.assertIsNone(read_pipeline_step(view_xmp, "crop_regions"))
+
+    def test_render_pipeline_releases_page_lock_on_success(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _, _, view_jpg, _ = self._setup_album(tmp, 200, 100)
+
+            with (
+                mock.patch("photoalbums.lib.ai_view_regions.detect_regions", return_value=[]),
+                mock.patch("photoalbums.stitch_oversized_pages.tif_to_jpg", return_value=False),
+                mock.patch("photoalbums.stitch_oversized_pages.list_derived_images", return_value=[]),
+                mock.patch("photoalbums.lib.ai_model_settings.default_view_region_model", return_value="test"),
+                mock.patch("photoalbums.lib.album_sets.find_archive_set_by_photos_root", return_value=""),
+                mock.patch("photoalbums.lib.album_sets.read_people_roster", return_value={}),
+                mock.patch("photoalbums.lib.xmp_sidecar.read_ai_sidecar_state", return_value={}),
+                mock.patch("photoalbums.lib.ai_view_regions._image_dimensions", return_value=(200, 100)),
+                mock.patch("photoalbums.lib.ai_render_face_refresh.RenderFaceRefreshSession"),
+            ):
+                from photoalbums.commands import run_render_pipeline
+
+                exit_code = run_render_pipeline(
+                    album_id="Egypt_1975",
+                    photos_root=str(Path(tmp)),
+                    page=None,
+                    force=False,
+                    skip_crops=True,
+                )
+
+            self.assertEqual(exit_code, 0)
+            self.assertFalse(view_jpg.with_name(f"{view_jpg.name}.photoalbums-ai.lock").exists())
+
+    def test_render_pipeline_releases_page_lock_on_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _, _, view_jpg, _ = self._setup_album(tmp, 200, 100)
+
+            with (
+                mock.patch("photoalbums.lib.ai_view_regions.detect_regions", side_effect=RuntimeError("boom")),
+                mock.patch("photoalbums.stitch_oversized_pages.tif_to_jpg", return_value=False),
+                mock.patch("photoalbums.stitch_oversized_pages.list_derived_images", return_value=[]),
+                mock.patch("photoalbums.lib.ai_model_settings.default_view_region_model", return_value="test"),
+                mock.patch("photoalbums.lib.album_sets.find_archive_set_by_photos_root", return_value=""),
+                mock.patch("photoalbums.lib.album_sets.read_people_roster", return_value={}),
+                mock.patch("photoalbums.lib.xmp_sidecar.read_ai_sidecar_state", return_value={}),
+                mock.patch("photoalbums.lib.ai_view_regions._image_dimensions", return_value=(200, 100)),
+                mock.patch("photoalbums.lib.ai_render_face_refresh.RenderFaceRefreshSession"),
+            ):
+                from photoalbums.commands import run_render_pipeline
+
+                exit_code = run_render_pipeline(
+                    album_id="Egypt_1975",
+                    photos_root=str(Path(tmp)),
+                    page=None,
+                    force=False,
+                    skip_crops=True,
+                )
+
+            self.assertEqual(exit_code, 1)
+            self.assertFalse(view_jpg.with_name(f"{view_jpg.name}.photoalbums-ai.lock").exists())
 
     def test_page_caption_inherited_by_all_crops_when_no_per_region_captions(self):
         """7.4: Page with only page-level dc:description -> all crop sidecars inherit page caption."""

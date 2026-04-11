@@ -86,6 +86,15 @@ def build_parser() -> argparse.ArgumentParser:
         sub.add_argument("--photos-root", default=".", help="Photo Albums root")
         if name == "generate":
             sub.add_argument("--force", action="store_true", help="Regenerate even if CTM already exists")
+            sub.add_argument("--per-photo", action="store_true", help="Generate CTMs for crop JPEGs in _Photos/")
+
+    ctm_apply_parser = subparsers.add_parser("ctm-apply", help="Apply stored CTM matrices to rendered JPEGs")
+    ctm_apply_parser.add_argument(
+        "album_id", nargs="?", default="", help="Album identifier without _Archive suffix; omit for the full album set"
+    )
+    ctm_apply_parser.add_argument("--photos-root", required=True, help="Path to the Photo Albums root directory")
+    ctm_apply_parser.add_argument("--page", default=None, help="Page number to process; omit for all pages")
+    ctm_apply_parser.add_argument("--force", action="store_true", help="Re-apply even if pipeline state exists")
 
     render_parser = subparsers.add_parser("render", help="Render album page outputs (skips existing valid outputs)")
     render_sub = render_parser.add_subparsers(dest="render_kind", required=False)
@@ -118,6 +127,19 @@ def build_parser() -> argparse.ArgumentParser:
     crop_regions_parser.add_argument("--page", default=None, help="Page number to process; omit for all pages")
     crop_regions_parser.add_argument(
         "--force", action="store_true", help="Re-crop even if pipeline state already recorded"
+    )
+
+    face_refresh_parser = subparsers.add_parser(
+        "face-refresh",
+        help="Refresh face regions on rendered JPEG sidecars using Cast-backed buffalo_l.",
+    )
+    face_refresh_parser.add_argument(
+        "album_id", nargs="?", default="", help="Album folder name fragment; omit for all albums"
+    )
+    face_refresh_parser.add_argument("--photos-root", required=True, help="Path to the Photo Albums root directory")
+    face_refresh_parser.add_argument("--page", default=None, help="Page number to process; omit for all pages")
+    face_refresh_parser.add_argument(
+        "--force", action="store_true", help="Re-run face refresh even if pipeline state already recorded"
     )
 
     render_pipeline_parser = subparsers.add_parser(
@@ -197,6 +219,8 @@ def main(argv: list[str] | None = None) -> int:
         forwarded += ["--photos-root", str(args.photos_root)]
         if bool(getattr(args, "force", False)):
             forwarded.append("--force")
+        if bool(getattr(args, "per_photo", False)):
+            forwarded.append("--per-photo")
         return commands.run_ctm(forwarded)
 
     if args.group == "render":
@@ -224,6 +248,14 @@ def main(argv: list[str] | None = None) -> int:
             force=args.force,
         )
 
+    if args.group == "face-refresh":
+        return commands.run_face_refresh(
+            album_id=args.album_id,
+            photos_root=args.photos_root,
+            page=args.page,
+            force=args.force,
+        )
+
     if args.group == "render-pipeline":
         return commands.run_render_pipeline(
             album_id=args.album_id,
@@ -231,6 +263,14 @@ def main(argv: list[str] | None = None) -> int:
             page=args.page,
             force=args.force,
             skip_crops=bool(getattr(args, "skip_crops", False)),
+        )
+
+    if args.group == "ctm-apply":
+        return commands.run_ctm_apply(
+            album_id=args.album_id,
+            photos_root=args.photos_root,
+            page=args.page,
+            force=args.force,
         )
 
     if args.group == "checksum":

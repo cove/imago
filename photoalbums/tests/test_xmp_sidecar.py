@@ -957,6 +957,90 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertEqual(state["model_name"], "google/gemma-4-31b-it")
             self.assertEqual(state["source_image_path"], "Family_2020_B01_P01_S01.tif")
 
+    def test_read_pipeline_state_returns_empty_dict_when_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+            )
+
+            self.assertEqual(xmp_sidecar.read_pipeline_state(out), {})
+
+    def test_write_pipeline_step_preserves_existing_detection_keys(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+                detections_payload={
+                    "location": {"city": "Cairo"},
+                    "caption": {"model": "existing-caption-model"},
+                },
+            )
+
+            xmp_sidecar.write_pipeline_step(
+                out,
+                "view_regions",
+                model="gemma-4",
+                extra={"result": "no_regions"},
+            )
+
+            state = xmp_sidecar.read_ai_sidecar_state(out)
+            assert state is not None
+            detections = state["detections"]
+            assert isinstance(detections, dict)
+            self.assertEqual(detections["location"], {"city": "Cairo"})
+            self.assertEqual(detections["caption"], {"model": "existing-caption-model"})
+            self.assertEqual(
+                detections["pipeline"]["view_regions"]["result"],
+                "no_regions",
+            )
+            self.assertEqual(
+                detections["pipeline"]["view_regions"]["model"],
+                "gemma-4",
+            )
+
+    def test_clear_pipeline_steps_removes_only_named_steps(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+                detections_payload={
+                    "location": {"city": "Cairo"},
+                    "pipeline": {
+                        "view_regions": {"completed": "2026-04-11T00:00:00Z"},
+                        "crop_regions": {"completed": "2026-04-11T01:00:00Z"},
+                    },
+                },
+            )
+
+            xmp_sidecar.clear_pipeline_steps(out, ["view_regions"])
+
+            state = xmp_sidecar.read_ai_sidecar_state(out)
+            assert state is not None
+            detections = state["detections"]
+            assert isinstance(detections, dict)
+            self.assertEqual(detections["location"], {"city": "Cairo"})
+            self.assertNotIn("view_regions", detections["pipeline"])
+            self.assertIn("crop_regions", detections["pipeline"])
+
 
 if __name__ == "__main__":
     unittest.main()

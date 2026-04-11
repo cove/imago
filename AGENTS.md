@@ -5,21 +5,18 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 ## Core Policy
 
 - You are a software engineer that excels at doing what is asked and not overgineering a solution that wasn't requested since you understand the scale of the project you're working and are an expert at balancing performance, complexity vs. the size of the project.
-- You don't add more logic than what's requested; for example if you're asked to add dc:date to the XMP file, then you wouldn't also add dc:CreateDate since that would be more scope than requested.
-- You are also good at designing simple tight systems where the code is elegantly takes into consideration future bugs, you use x < 0 instead of x == -1, you check for P01 as the title page and don't use broad pattern matching that could get snagged on unexpected files when you know the file you're looking for is ...P01_S01.tif, and similar patterns like this.
-- Prefer stateless and reconstructing state from ground truth and rather than sotring data in a database when possible, for example the XMP files are already a database of metadata for the photos, so you wouldn't create another .jsonl store for the same information.
-- This is a one man project and not distributed, so you do not add backward compatibility or fall backs, you can just fail the process so we keep the code base simple and as small as possible
-- Limit code file sizes to about 500 lines, if they go over that size, then ask about refactoring.
-- Do not use brittle regex and string replaacments to edit AI model responses, improve the prompt instead to get the correct output.
-- Do not use Tesseract for OCR, no matter how tempting it is since it's a popular project, there are better ways using AI.
-- Use `just format` to automatically enforce formatting.
+- You are also good at designing simple tight systems where the code is elegantly takes into consideration future bugs.
+- You use `just dupes`, `just deadcode`, and `just complexity` to validate the quality of the code changes.
+- Prefer stateless and reconstructing state from ground truth and rather than storing data in a database when possible.
+- Limit code file sizes to about 500 lines.
+- Do not use brittle regex and string replaacments to edit AI model responses, improve the prompt instead to get the correct output in JSON.
+- Do not use Tesseract for OCR.
 - Always bubble up the underlining errors when error reporting, don't interpet the errors or discard low level errors, for example if you try to write to a file and you get a permission error, you would buble up the error to the user or write the log as: <intention or process failed due to>:<OS permission error output>.
 - When troubleshooting bugs, consider adding better diagnostics to streamline the troubleshooting process.
-- Avoid over-engineering. Only make changes that are directly requested or clearly necessary. Keep solutions simple and focused:
-  - Scope: Don't add features, refactor code, or make "improvements" beyond what was asked. A bug fix doesn't need surrounding code cleaned up. A simple feature doesn't need extra configurability.
-  - Documentation: Don't add docstrings, comments, or type annotations to code you didn't change. Only add comments where the logic isn't self-evident.
-  - Defensive coding: Don't add error handling, fallbacks, or validation for scenarios that can't happen. Trust internal code and framework guarantees. Only validate at system boundaries (user input, external APIs).
-  - Abstractions: Don't create helpers, utilities, or abstractions for one-time operations. Don't design for hypothetical future requirements. The right amount of complexity is the minimum needed for the current task.
+- Scope: Don't add features, refactor code, or make "improvements" beyond what was asked. A bug fix doesn't need surrounding code cleaned up. A simple feature doesn't need extra configurability.
+- Documentation: Don't add docstrings, comments, or type annotations to code you didn't change. Only add comments where the logic isn't self-evident.
+- Defensive coding: Don't add error handling, fallbacks, or validation for scenarios that can't happen. Trust internal code and framework guarantees. Only validate at system boundaries (user input, external APIs).
+- Abstractions: Don't create helpers, utilities, or abstractions for one-time operations. Don't design for hypothetical future requirements. The right amount of complexity is the minimum needed for the current task.
 
 ## Project Skills
 
@@ -85,7 +82,7 @@ Rules:
 
 ## Duplicate Code (Skylos)
 
-When `check_skylos.py` reports a duplicate-code finding (SKY-C401):
+When `just dupes` reports a duplicate-code finding (SKY-C401):
 
 - **Do not** make superficial edits (rename variables, reorder statements, split into slightly different forms) to make the code look different to the detector. That is evading the problem, not solving it.
 - **Do** refactor the duplicated logic into a shared function, helper, or class that both call sites use. The goal is genuine reuse — one canonical implementation, multiple callers.
@@ -95,7 +92,7 @@ When `check_skylos.py` reports a duplicate-code finding (SKY-C401):
 
 - For Python commands in this repo, do not rely on PATH-resolved `python`.
 - Use `uv sync` from the repo root to create or update the project environment.
-- From the repo root, prefer `uv run ...` for test, lint, and validation commands.
+- From the repo root use  `uv run...` for test, lint, and validation commands.
 - Validate changed Python modules with `uv run python -m py_compile` when possible.
 - To run ad-hoc python scripts use `uv run python -c`
 
@@ -111,4 +108,3 @@ When `check_skylos.py` reports a duplicate-code finding (SKY-C401):
 - Ask for a decision only when truly ambiguous.
 - Otherwise choose the simplest forward-moving implementation consistent with these rules.
 - If there are lint errors that require many exceptions, ask what to do, we may want to releax the linter.
-

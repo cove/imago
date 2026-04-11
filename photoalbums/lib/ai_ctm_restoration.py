@@ -260,6 +260,30 @@ def generate_ctm_for_image(
     raise CTMValidationError(f"Failed to generate CTM for {image_path}: {last_error}")
 
 
+def apply_ctm_to_jpeg(jpeg_path: str | Path, matrix: list[float] | tuple[float, ...]) -> None:
+    jpeg_path = Path(jpeg_path)
+    if len(matrix) != 9:
+        raise CTMValidationError("CTM matrix must contain exactly 9 coefficients")
+
+    try:
+        import numpy as np
+        from PIL import Image
+    except Exception as exc:  # pragma: no cover - import guard
+        raise RuntimeError(f"CTM apply failed due to missing image dependencies:{exc}") from exc
+
+    with Image.open(jpeg_path) as image:
+        working = image.convert("RGB")
+        pixels = np.array(working, dtype=np.uint8)
+
+    transform = np.asarray(matrix, dtype=np.float32).reshape(3, 3)
+    rgb = pixels.astype(np.float32) / 255.0
+    corrected = np.einsum("...c,dc->...d", rgb, transform)
+    corrected = np.clip(corrected, 0.0, 1.0)
+    output = np.rint(corrected * 255.0).astype(np.uint8)
+
+    Image.fromarray(output, mode="RGB").save(jpeg_path, format="JPEG", quality=100, subsampling=0)
+
+
 def generate_and_store_ctm(
     image_path: str | Path,
     *,

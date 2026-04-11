@@ -1,1 +1,1 @@
-﻿Please read the AGENTS.md instead.
+﻿See AGENTS.md

@@ -543,16 +543,51 @@ def _derived_view_output_path(src_path: str | Path, output_dir: str | Path) -> P
 def _ensure_archive_page_sidecar(scan_path: str | Path) -> Path:
     scan_path = Path(scan_path)
     sidecar_path = scan_path.with_suffix(".xmp")
-    if sidecar_path.is_file() and sidecar_path.stat().st_size > 0:
-        return sidecar_path
-    from photoalbums.lib import ai_index  # pylint: disable=import-outside-toplevel
+    if not (sidecar_path.is_file() and sidecar_path.stat().st_size > 0):
+        from photoalbums.lib import ai_index  # pylint: disable=import-outside-toplevel
 
-    result = int(ai_index.run(["--photo", str(scan_path)]) or 0)
-    if result != 0:
-        raise RuntimeError(f"AI index failed while creating archive sidecar: {scan_path}")
-    if not sidecar_path.is_file() or sidecar_path.stat().st_size <= 0:
-        raise RuntimeError(f"Archive sidecar was not created for render output: {sidecar_path}")
+        result = int(ai_index.run(["--photo", str(scan_path)]) or 0)
+        if result != 0:
+            raise RuntimeError(f"AI index failed while creating archive sidecar: {scan_path}")
+        if not sidecar_path.is_file() or sidecar_path.stat().st_size <= 0:
+            raise RuntimeError(f"Archive sidecar was not created for render output: {sidecar_path}")
+    from photoalbums.lib.xmpmm_provenance import assign_document_id  # pylint: disable=import-outside-toplevel
+
+    assign_document_id(sidecar_path)
     return sidecar_path
+
+
+def write_render_provenance(view_xmp_path: str | Path, scan_files: list[str | Path]) -> None:
+    """Assign DocumentID to the view XMP and write DerivedFrom/Pantry from archive scans.
+
+    DerivedFrom points to the primary scan (S01); Pantry lists every contributing scan.
+    """
+    from photoalbums.lib.xmpmm_provenance import (  # pylint: disable=import-outside-toplevel
+        assign_document_id,
+        read_document_id,
+        write_creation_provenance,
+    )
+
+    view_xmp_path = Path(view_xmp_path)
+    assign_document_id(view_xmp_path)
+
+    ordered = sorted(scan_files, key=lambda p: _scan_number(p))
+    primary = next((p for p in ordered if _scan_number(p) == 1), ordered[0] if ordered else None)
+    if primary is None:
+        return
+
+    primary_doc_id = read_document_id(Path(primary).with_suffix(".xmp"))
+    pantry_sources = []
+    for scan in ordered:
+        doc_id = read_document_id(Path(scan).with_suffix(".xmp"))
+        if doc_id:
+            pantry_sources.append({"source_document_id": doc_id, "source_path": Path(scan).name})
+
+    write_creation_provenance(
+        view_xmp_path,
+        derived_from={"source_document_id": primary_doc_id, "source_path": Path(primary).name},
+        pantry_sources=pantry_sources,
+    )
 
 
 def _copy_base_view_sidecar(scan_path: str | Path, output_dir: str | Path) -> Path:
@@ -594,19 +629,6 @@ def apply_ctm_to_image(image, matrix: list[float] | tuple[float, ...]):
     output = array.copy()
     output[:, :, :3] = np.rint(corrected * 255.0).astype(np.uint8)
     return output
-
-
-def _apply_archive_ctm_if_present(primary_scan: str | Path, image):
-    from photoalbums.lib.xmp_sidecar import read_ctm_from_archive_xmp  # pylint: disable=import-outside-toplevel
-
-    archive_sidecar = Path(primary_scan).with_suffix(".xmp")
-    ctm_state = read_ctm_from_archive_xmp(archive_sidecar)
-    if not isinstance(ctm_state, dict):
-        return image
-    matrix = ctm_state.get("matrix")
-    if not isinstance(matrix, list) or len(matrix) != 9:
-        return image
-    return apply_ctm_to_image(image, matrix)
 
 
 def list_page_scans(directory: str | Path):
@@ -684,11 +706,12 @@ def tif_to_jpg(tif_path: str, output_dir: str) -> bool:
         raise RuntimeError(f"Input validation failed: {tif_path}")
 
     img = _read_stitch_image(tif_path)
-    img = _apply_archive_ctm_if_present(tif_path, img)
     write_jpeg(img, out)
 
     if not validate_image_with_pillow(out):
         raise RuntimeError(f"Output validation failed: {out}")
+
+    write_render_provenance(Path(out).with_suffix(".xmp"), [tif_path])
 
     print(f"{label} OK")
     return True
@@ -717,7 +740,6 @@ def derived_to_jpg(src_path: str, output_dir: str) -> bool:
         raise RuntimeError(f"Input validation failed: {src_path}")
 
     img = _read_stitch_image(src_path)
-    img = _apply_archive_ctm_if_present(src_path, img)
 
     original_size = os.path.getsize(src_path)
     quality = 80
@@ -730,6 +752,8 @@ def derived_to_jpg(src_path: str, output_dir: str) -> bool:
     if not validate_image_with_pillow(out):
         raise RuntimeError(f"Output validation failed: {out}")
 
+    write_render_provenance(Path(out).with_suffix(".xmp"), [src_path])
+
     print(f"{label} OK")
     return True
 
@@ -737,6 +761,7 @@ def derived_to_jpg(src_path: str, output_dir: str) -> bool:
 def stitch(files, output_dir: str) -> bool:
     _require_image_modules()
     os.makedirs(output_dir, exist_ok=True)
+    _require_primary_scan(files)
 
     collection, year, book, page = parse_album_filename(os.path.basename(files[0]))
 
@@ -753,11 +778,12 @@ def stitch(files, output_dir: str) -> bool:
             raise RuntimeError(f"Input validation failed: {f}")
 
     result = build_stitched_image(files)
-    result = _apply_archive_ctm_if_present(_require_primary_scan(files), result)
     write_jpeg(result, out)
 
     if not validate_image_with_pillow(out):
         raise RuntimeError(f"Output validation failed: {out}")
+
+    write_render_provenance(Path(out).with_suffix(".xmp"), files)
 
     print(f"{label} OK")
     return True
