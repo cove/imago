@@ -613,51 +613,54 @@ def photoalbums_stitch(validate_only: bool = False, album_set: Optional[str] = N
 
 @mcp.tool()
 def photoalbums_generate_ctm(
-    album_id: str,
+    album_id: Optional[str] = None,
     page: Optional[int] = None,
     force: bool = False,
     album_set: Optional[str] = None,
 ) -> dict:
-    """Start a job to generate archive XMP CTM metadata for a photo album page or album."""
+    """Start a job to generate archive XMP CTM metadata for a page, album, or album set."""
     set_config = _archive_set(album_set)
     args = [
         PYTHON,
         PHOTOALBUMS_SCRIPT,
         "ctm",
         "generate",
-        "--album-id",
-        str(album_id),
         "--photos-root",
         str(set_config.photos_root),
     ]
+    if album_id:
+        args += ["--album-id", str(album_id)]
     if page is not None:
         args += ["--page", str(int(page))]
     if force:
         args.append("--force")
-    return _job_started(runner.start(f"photoalbums_ctm_generate:{album_id}", args))
+    target = str(album_id or set_config.name)
+    return _job_started(runner.start(f"photoalbums_ctm_generate:{target}", args))
 
 
 @mcp.tool()
 def photoalbums_review_ctm(
-    album_id: str,
-    page: int,
+    album_id: Optional[str] = None,
+    page: Optional[int] = None,
     album_set: Optional[str] = None,
 ) -> dict:
-    """Return stored archive XMP CTM metadata for a specific photo album page."""
+    """Return stored archive XMP CTM metadata for a page, album, or album set."""
     set_config = _archive_set(album_set)
     args = [
         PYTHON,
         PHOTOALBUMS_SCRIPT,
         "ctm",
         "review",
-        "--album-id",
-        str(album_id),
-        "--page",
-        str(int(page)),
         "--photos-root",
         str(set_config.photos_root),
     ]
-    job_id = runner.start(f"photoalbums_ctm_review:{album_id}:p{int(page)}", args)
+    if album_id:
+        args += ["--album-id", str(album_id)]
+    if page is not None:
+        args += ["--page", str(int(page))]
+    target = str(album_id or set_config.name)
+    page_suffix = f":p{int(page)}" if page is not None else ""
+    job_id = runner.start(f"photoalbums_ctm_review:{target}{page_suffix}", args)
     return _job_started(job_id)
 
 

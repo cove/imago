@@ -263,6 +263,40 @@ class TestPhotoalbumsAiIndexPhotoResolution(AlbumSetConfigMixin, unittest.TestCa
         self.runner.start.assert_not_called()
 
 
+class TestPhotoalbumsCTMJobs(AlbumSetConfigMixin, unittest.TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self._orig_runner = mcp_server.runner
+        self.runner = mock.Mock()
+        self.runner.start.return_value = "job123"
+        mcp_server.runner = self.runner
+
+    def tearDown(self) -> None:
+        mcp_server.runner = self._orig_runner
+        super().tearDown()
+
+    def test_photoalbums_generate_ctm_can_target_full_album_set(self):
+        result = mcp_server.photoalbums_generate_ctm(album_set="cordell", force=True)
+
+        self.assertEqual(result["job_id"], "job123")
+        job_name, args = self.runner.start.call_args.args[:2]
+        self.assertEqual(job_name, "photoalbums_ctm_generate:cordell")
+        self.assertEqual(args[:4], [mcp_server.PYTHON, mcp_server.PHOTOALBUMS_SCRIPT, "ctm", "generate"])
+        self.assertIn("--photos-root", args)
+        self.assertNotIn("--album-id", args)
+        self.assertIn("--force", args)
+
+    def test_photoalbums_review_ctm_supports_album_and_page_filters(self):
+        result = mcp_server.photoalbums_review_ctm(album_id="Family_2020_B01", page=3, album_set="cordell")
+
+        self.assertEqual(result["job_id"], "job123")
+        job_name, args = self.runner.start.call_args.args[:2]
+        self.assertEqual(job_name, "photoalbums_ctm_review:Family_2020_B01:p3")
+        self.assertEqual(args[:4], [mcp_server.PYTHON, mcp_server.PHOTOALBUMS_SCRIPT, "ctm", "review"])
+        self.assertEqual(args[args.index("--album-id") + 1], "Family_2020_B01")
+        self.assertEqual(args[args.index("--page") + 1], "3")
+
+
 class TestPhotoalbumsLoadXmp(AlbumSetConfigMixin, unittest.TestCase):
     def _write_sidecar(self, image_path: Path) -> Path:
         image_path.parent.mkdir(parents=True, exist_ok=True)

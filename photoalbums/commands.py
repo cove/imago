@@ -68,8 +68,26 @@ def run_render() -> int:
 
 def run_ctm(argv: list[str]) -> int:
     from .lib import ai_ctm_restoration
-    from .lib.ai_render_settings import find_archive_dir_for_image
-    from .stitch_oversized_pages import list_archive_dirs, list_page_scans, _require_primary_scan
+    from .stitch_oversized_pages import (
+        _require_primary_scan,
+        _view_page_output_path,
+        get_view_dirname,
+        list_archive_dirs,
+        list_page_scans,
+    )
+
+    def _match_archives(photos_root_text: str, album_id_text: str) -> list[Path]:
+        archives = [Path(path) for path in list_archive_dirs(photos_root_text)]
+        if not album_id_text:
+            return archives
+        return [path for path in archives if path.name == f"{album_id_text}_Archive"]
+
+    def _resolve_ctm_source_image(primary_scan: Path) -> Path:
+        view_dir = Path(get_view_dirname(primary_scan.parent))
+        view_path = _view_page_output_path(primary_scan, view_dir)
+        if not view_path.is_file():
+            raise RuntimeError(f"CTM source stitched image not found: {view_path}")
+        return view_path
 
     if not argv:
         print("Error: missing CTM command")
@@ -105,10 +123,12 @@ def run_ctm(argv: list[str]) -> int:
         print(f"Error: unknown argument: {token}")
         return 2
 
-    archives = [Path(path) for path in list_archive_dirs(photos_root)]
-    selected = [path for path in archives if not album_id or path.name == f"{album_id}_Archive"]
+    selected = _match_archives(photos_root, album_id)
     if not selected:
-        print(f"Error: no archive matched album_id={album_id!r}")
+        if album_id:
+            print(f"Error: no archive matched album_id={album_id!r}")
+        else:
+            print(f"Error: no archive directories found under photos_root={photos_root!r}")
         return 1
 
     matched: list[Path] = []
@@ -124,10 +144,21 @@ def run_ctm(argv: list[str]) -> int:
 
     if command == "generate":
         for scan in matched:
-            archive_sidecar, result = ai_ctm_restoration.generate_and_store_ctm(scan, force=force)
+            source_image = _resolve_ctm_source_image(scan)
+            archive_sidecar, result = ai_ctm_restoration.generate_and_store_ctm(
+                source_image,
+                archive_sidecar_path=scan.with_suffix(".xmp"),
+                force=force,
+            )
             print(
                 json.dumps(
-                    {"image": scan.name, "archive_xmp": str(archive_sidecar), **result.to_dict()}, ensure_ascii=False
+                    {
+                        "image": scan.name,
+                        "source_image": str(source_image),
+                        "archive_xmp": str(archive_sidecar),
+                        **result.to_dict(),
+                    },
+                    ensure_ascii=False,
                 )
             )
         return 0
