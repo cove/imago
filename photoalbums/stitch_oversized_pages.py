@@ -485,26 +485,10 @@ def build_stitched_image(files, stitcher_factory=None):
     raise RuntimeError("All stitching attempts failed")
 
 
-def get_view_dirname(path: str | Path) -> str:
-    base = Path(path).name
-    base_no_archive = base.replace("_Archive", "")
-    match = re.match(
-        r"^(?P<collection>[A-Za-z]+)_(?P<year>\d{4}(?:-\d{4})?)_(?P<rest>.+)$",
-        base_no_archive,
-    )
-    if match:
-        collection = match.group("collection")
-        year = match.group("year")
-        rest = match.group("rest")
-        return str(Path(path).parent / f"{collection}_{year}_{rest}_View")
-    return str(Path(path).parent / f"{base_no_archive}_View")
+def _archive_sibling_dirname(path: str | Path, suffix: str) -> str:
+    """Return a sibling directory name by replacing the _Archive suffix with ``suffix``.
 
-
-def get_photos_dirname(path: str | Path) -> str:
-    """Return the _Photos sibling directory path for the given _Archive directory.
-
-    Mirrors get_view_dirname but replaces the _Archive suffix with _Photos.
-    Example: ``Egypt_1975_Archive`` -> ``Egypt_1975_Photos``
+    Example: ``Egypt_1975_Archive``, ``_View`` -> ``Egypt_1975_View``
     """
     base = Path(path).name
     base_no_archive = base.replace("_Archive", "")
@@ -516,8 +500,20 @@ def get_photos_dirname(path: str | Path) -> str:
         collection = match.group("collection")
         year = match.group("year")
         rest = match.group("rest")
-        return str(Path(path).parent / f"{collection}_{year}_{rest}_Photos")
-    return str(Path(path).parent / f"{base_no_archive}_Photos")
+        return str(Path(path).parent / f"{collection}_{year}_{rest}{suffix}")
+    return str(Path(path).parent / f"{base_no_archive}{suffix}")
+
+
+def get_view_dirname(path: str | Path) -> str:
+    return _archive_sibling_dirname(path, "_View")
+
+
+def get_photos_dirname(path: str | Path) -> str:
+    """Return the _Photos sibling directory path for the given _Archive directory.
+
+    Example: ``Egypt_1975_Archive`` -> ``Egypt_1975_Photos``
+    """
+    return _archive_sibling_dirname(path, "_Photos")
 
 
 def _scan_number(path: str | Path) -> int:
