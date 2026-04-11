@@ -48,6 +48,7 @@ class TestAIIndexLocking(unittest.TestCase):
             str(self.root),
             "--cast-store",
             str(self.root / "cast"),
+            "--include-view",
             "--disable-people",
             "--disable-objects",
             "--ocr-engine",

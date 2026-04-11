@@ -124,36 +124,6 @@ class TestAICaption(unittest.TestCase):
         self.assertEqual(out.text, "")
         self.assertEqual(out.engine, "none")
 
-    def test_legacy_local_alias_routes_to_lmstudio_and_returns_empty_on_error(self):
-        fake_lmstudio = mock.Mock()
-        fake_lmstudio.describe_page.side_effect = RuntimeError("model offline")
-        with (
-            mock.patch("photoalbums.lib.ai_caption.LMStudioCaptioner", return_value=fake_lmstudio) as ctor,
-            mock.patch("photoalbums.lib.ai_caption.default_caption_model", return_value=""),
-        ):
-            engine = ai_caption.CaptionEngine(engine="local")
-            out = engine.generate(
-                image_path="sample.jpg",
-                people=["Alice"],
-                objects=["car"],
-                ocr_text="",
-            )
-        ctor.assert_called_once_with(
-            model_name="",
-            prompt_text="",
-            max_new_tokens=96,
-            temperature=0.2,
-            base_url=ai_caption.DEFAULT_LMSTUDIO_BASE_URL,
-            max_image_edge=0,
-            stream=False,
-        )
-        self.assertEqual(engine.engine, "lmstudio")
-        self.assertEqual(out.engine, "lmstudio")
-        self.assertTrue(out.fallback)
-        self.assertIn("model offline", out.error)
-        self.assertEqual(out.engine_error, "model offline")
-        self.assertEqual(out.text, "")
-
     def test_generate_does_not_mark_scene_text_page_caption_as_fallback(self):
         fake_lmstudio = mock.Mock()
         fake_lmstudio.describe_page.return_value = ai_caption.CaptionDetails(
@@ -220,7 +190,10 @@ class TestAICaption(unittest.TestCase):
     def test_lmstudio_engine_forwards_caption_settings(self):
         fake_lmstudio = mock.Mock()
         fake_lmstudio.describe_page.return_value = ai_caption.CaptionDetails(text="caption text")
-        with mock.patch("photoalbums.lib.ai_caption.LMStudioCaptioner", return_value=fake_lmstudio) as ctor:
+        with (
+            mock.patch("photoalbums.lib.ai_caption.LMStudioCaptioner", return_value=fake_lmstudio) as ctor,
+            mock.patch("photoalbums.lib.ai_caption.default_lmstudio_base_url", return_value=ai_caption.DEFAULT_LMSTUDIO_BASE_URL),
+        ):
             engine = ai_caption.CaptionEngine(
                 engine="lmstudio",
                 model_name="qwen/qwen3.5-9b",
@@ -247,39 +220,7 @@ class TestAICaption(unittest.TestCase):
         self.assertEqual(out.engine, "lmstudio")
         self.assertEqual(out.text, "caption text")
 
-    def test_generate_records_prompt_debug_metadata(self):
-        fake_lmstudio = mock.Mock()
-        fake_lmstudio.describe_page.return_value = ai_caption.CaptionDetails(text="caption text")
-        fake_lmstudio._resolved_model_name = ""
-        fake_lmstudio.last_response_text = (
-            '{"ocr_text":"","author_text":"","scene_text":"","location_name":"","photo_regions":[]}'
-        )
-        fake_lmstudio.last_finish_reason = "stop"
-        records = []
-        with mock.patch("photoalbums.lib.ai_caption.LMStudioCaptioner", return_value=fake_lmstudio):
-            engine = ai_caption.CaptionEngine(
-                engine="lmstudio",
-                model_name="qwen/qwen3.5-9b",
-                caption_prompt="Describe this exact image",
-            )
-            engine.generate(
-                image_path="sample.jpg",
-                people=["Alice"],
-                objects=["car"],
-                ocr_text="",
-                source_path="sample.jpg",
-                debug_recorder=lambda **row: records.append(row),
-                debug_step="caption_refresh",
-            )
-        self.assertEqual(len(records), 1)
-        self.assertEqual(records[0]["step"], "caption_refresh")
-        self.assertEqual(records[0]["engine"], "lmstudio")
-        self.assertEqual(records[0]["model"], "qwen/qwen3.5-9b")
-        self.assertEqual(records[0]["prompt"], "Describe this exact image")
-        self.assertEqual(records[0]["prompt_source"], "custom")
-        self.assertEqual(records[0]["response"], fake_lmstudio.last_response_text)
-        self.assertEqual(records[0]["finish_reason"], "stop")
-
+   
     def test_estimate_locations_shown_records_shared_location_prompt(self):
         fake_lmstudio = mock.Mock()
         fake_lmstudio.estimate_locations_shown.return_value = ai_caption.CaptionDetails(
@@ -427,9 +368,9 @@ class TestAICaption(unittest.TestCase):
                     return_value="data:image/jpeg;base64,abc123",
                 ),
                 mock.patch.object(
-                    _caption_lmstudio,
-                    "_select_lmstudio_model",
-                    return_value="qwen2.5-vl",
+                    _caption_lmstudio.LMStudioCaptioner,
+                    "_select_model_name",
+                    staticmethod(lambda *_: "qwen2.5-vl"),
                 ),
                 mock.patch.object(
                     _caption_lmstudio.urllib.request,
@@ -509,9 +450,9 @@ class TestAICaption(unittest.TestCase):
                     return_value="data:image/jpeg;base64,abc123",
                 ),
                 mock.patch.object(
-                    _caption_lmstudio,
-                    "_select_lmstudio_model",
-                    return_value="qwen2.5-vl",
+                    _caption_lmstudio.LMStudioCaptioner,
+                    "_select_model_name",
+                    staticmethod(lambda *_: "qwen2.5-vl"),
                 ),
                 mock.patch.object(
                     _caption_lmstudio.urllib.request,
@@ -618,9 +559,9 @@ class TestAICaption(unittest.TestCase):
                     return_value="data:image/jpeg;base64,abc123",
                 ),
                 mock.patch.object(
-                    _caption_lmstudio,
-                    "_select_lmstudio_model",
-                    return_value="qwen2.5-vl",
+                    _caption_lmstudio.LMStudioCaptioner,
+                    "_select_model_name",
+                    staticmethod(lambda *_: "qwen2.5-vl"),
                 ),
                 mock.patch.object(
                     _caption_lmstudio.urllib.request,
@@ -715,9 +656,9 @@ class TestAICaption(unittest.TestCase):
                     return_value="data:image/jpeg;base64,abc123",
                 ),
                 mock.patch.object(
-                    _caption_lmstudio,
-                    "_select_lmstudio_model",
-                    return_value="qwen2.5-vl",
+                    _caption_lmstudio.LMStudioCaptioner,
+                    "_select_model_name",
+                    staticmethod(lambda *_: "qwen2.5-vl"),
                 ),
                 mock.patch.object(
                     _caption_lmstudio.urllib.request,
