@@ -6,10 +6,8 @@ pipeline step completion in imago:Detections on XMP sidecars.
 
 from __future__ import annotations
 
-import json
 import uuid
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
 from pathlib import Path
 
 # Namespace constants (duplicated here to avoid circular import with xmp_sidecar)
@@ -36,11 +34,13 @@ for _prefix, _uri in [
     ET.register_namespace(_prefix, _uri)
 
 # Re-use the shared helper from xmp_sidecar to avoid duplication
-from .xmp_sidecar import _get_or_create_rdf_desc as _get_or_create_desc  # noqa: E402
-
-
-def _iso_now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+from .xmp_sidecar import (  # noqa: E402
+    _get_or_create_rdf_desc as _get_or_create_desc,
+    clear_pipeline_steps,
+    read_pipeline_state,
+    read_pipeline_step,
+    write_pipeline_step,
+)
 
 
 def _load_tree(path: Path) -> ET.ElementTree:
@@ -148,6 +148,29 @@ def write_derived_from(xmp_path: str | Path, source_document_id: str, source_pat
 # ---------------------------------------------------------------------------
 
 
+def write_creation_provenance(
+    xmp_path: str | Path,
+    *,
+    derived_from: dict,
+    pantry_sources: list[dict],
+) -> None:
+    """Write DerivedFrom and Pantry to a sidecar while preserving all other fields.
+
+    ``derived_from`` should be a dict with keys ``source_document_id`` and
+    optionally ``source_path``.
+    ``pantry_sources`` is a list of such dicts; duplicates are skipped.
+    """
+    src_id = str(derived_from.get("source_document_id") or "").strip()
+    src_path = str(derived_from.get("source_path") or "").strip()
+    if src_id:
+        write_derived_from(xmp_path, src_id, src_path)
+    for entry in pantry_sources:
+        entry_id = str(entry.get("source_document_id") or "").strip()
+        entry_path = str(entry.get("source_path") or "").strip()
+        if entry_id:
+            write_pantry_entry(xmp_path, entry_id, entry_path)
+
+
 def write_pantry_entry(xmp_path: str | Path, source_document_id: str, source_path: str = "") -> None:
     """Add a xmpMM:Pantry entry for the given source if not already present.
 
@@ -183,101 +206,3 @@ def write_pantry_entry(xmp_path: str | Path, source_document_id: str, source_pat
         ET.SubElement(li, f"{{{_ST_REF_NS}}}filePath").text = source_path
 
     _save_tree(tree, path)
-
-
-# ---------------------------------------------------------------------------
-# Pipeline state (imago:Detections -> pipeline key)
-# ---------------------------------------------------------------------------
-
-
-def _read_detections(desc: ET.Element) -> dict:
-    text = str(desc.findtext(f"{{{_IMAGO_NS}}}Detections", default="") or "").strip()
-    if not text:
-        return {}
-    try:
-        parsed = json.loads(text)
-        if isinstance(parsed, dict):
-            return parsed
-    except json.JSONDecodeError:
-        pass
-    return {}
-
-
-def _write_detections(desc: ET.Element, tree: ET.ElementTree, path: Path, detections: dict) -> None:
-    tag = f"{{{_IMAGO_NS}}}Detections"
-    existing = desc.find(tag)
-    if existing is not None:
-        desc.remove(existing)
-    if detections:
-        el = ET.SubElement(desc, tag)
-        el.text = json.dumps(detections, ensure_ascii=False, sort_keys=True)
-    _save_tree(tree, path)
-
-
-def write_pipeline_step(xmp_path: str | Path, step_name: str, *, extra: dict | None = None) -> None:
-    """Record a pipeline step completion in imago:Detections -> pipeline -> step_name.
-
-    Writes ``{"completed": "<iso-timestamp>"}`` plus any ``extra`` fields.
-    """
-    path = Path(xmp_path)
-    tree = _load_tree(path)
-    desc = _get_or_create_desc(tree)
-
-    detections = _read_detections(desc)
-    pipeline = dict(detections.get("pipeline") or {})
-    entry: dict = {"completed": _iso_now()}
-    if extra:
-        entry.update(extra)
-    pipeline[step_name] = entry
-    detections["pipeline"] = pipeline
-    _write_detections(desc, tree, path, detections)
-
-
-def clear_pipeline_steps(xmp_path: str | Path, step_names: list[str]) -> None:
-    """Remove named pipeline step records from imago:Detections -> pipeline."""
-    path = Path(xmp_path)
-    if not path.is_file():
-        return
-    tree = _load_tree(path)
-    desc = _get_or_create_desc(tree)
-
-    detections = _read_detections(desc)
-    pipeline = dict(detections.get("pipeline") or {})
-    changed = False
-    for name in step_names:
-        if name in pipeline:
-            del pipeline[name]
-            changed = True
-    if not changed:
-        return
-    if pipeline:
-        detections["pipeline"] = pipeline
-    else:
-        detections.pop("pipeline", None)
-    _write_detections(desc, tree, path, detections)
-
-
-def read_pipeline_step(xmp_path: str | Path, step_name: str) -> dict | None:
-    """Return the pipeline step record dict, or None if absent."""
-    path = Path(xmp_path)
-    if not path.is_file():
-        return None
-    try:
-        tree = ET.parse(str(path))
-    except ET.ParseError:
-        return None
-    root = tree.getroot()
-    if root is None:
-        return None
-    rdf = root.find(_RDF_ROOT)
-    if rdf is None:
-        return None
-    desc = rdf.find(_RDF_DESC)
-    if desc is None:
-        return None
-    detections = _read_detections(desc)
-    pipeline = detections.get("pipeline")
-    if not isinstance(pipeline, dict):
-        return None
-    step = pipeline.get(step_name)
-    return step if isinstance(step, dict) else None

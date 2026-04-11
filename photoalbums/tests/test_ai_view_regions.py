@@ -21,11 +21,13 @@ from photoalbums.lib.ai_view_regions import (
     RegionWithCaption,
     associate_captions,
     pixel_to_mwgrs,
+    validate_regions_for_write,
     _parse_region_response,
     _has_xmp_regions,
     _read_regions_from_xmp,
 )
-from photoalbums.lib.xmp_sidecar import write_region_list, read_region_list
+from photoalbums.lib.album_sets import resolve_archive_set
+from photoalbums.lib.xmp_sidecar import read_pipeline_step, write_pipeline_step, write_region_list, read_region_list
 
 
 # ---------------------------------------------------------------------------
@@ -137,6 +139,41 @@ class TestParseRegionResponse(unittest.TestCase):
         results = _parse_region_response(payload, img_w=800, img_h=600)
         self.assertEqual(len(results), 1)
 
+    def test_person_names_are_parsed_when_present(self):
+        payload = self._make_response(
+            [
+                {
+                    "index": 0,
+                    "x": 0.0,
+                    "y": 0.0,
+                    "width": 1.0,
+                    "height": 1.0,
+                    "confidence": 0.9,
+                    "caption_hint": "Beach",
+                    "person_names": ["Audrey Cordell", "Leslie Cordell"],
+                }
+            ]
+        )
+        results = _parse_region_response(payload, img_w=100, img_h=50)
+        self.assertEqual(results[0].person_names, ["Audrey Cordell", "Leslie Cordell"])
+
+    def test_missing_person_names_defaults_to_empty_list(self):
+        payload = self._make_response(
+            [
+                {
+                    "index": 0,
+                    "x": 0.0,
+                    "y": 0.0,
+                    "width": 1.0,
+                    "height": 1.0,
+                    "confidence": 0.9,
+                    "caption_hint": "",
+                }
+            ]
+        )
+        results = _parse_region_response(payload, img_w=100, img_h=50)
+        self.assertEqual(results[0].person_names, [])
+
 
 # ---------------------------------------------------------------------------
 # detect_regions — model call mocking
@@ -243,6 +280,66 @@ class TestDetectRegions(unittest.TestCase):
                 results = detect_regions(img_path, force=True)
 
         self.assertEqual(results, [])
+
+    def test_prompt_includes_album_context_page_caption_and_people_roster(self):
+        from photoalbums.lib.ai_view_regions import detect_regions
+
+        captured_payload: dict[str, object] = {}
+
+        def mock_post(url, payload, timeout):
+            captured_payload["payload"] = payload
+            return self._mock_response([])
+
+        with tempfile.TemporaryDirectory() as tmp:
+            img_path = Path(tmp) / "Egypt_1975_B00_P26_V.jpg"
+            try:
+                from PIL import Image
+
+                img = Image.new("RGB", (800, 600), color=(128, 128, 128))
+                img.save(str(img_path), format="JPEG")
+            except ImportError:
+                self.skipTest("PIL not available")
+
+            with mock.patch("photoalbums.lib.ai_view_regions._lmstudio_post", side_effect=mock_post):
+                detect_regions(
+                    img_path,
+                    force=True,
+                    album_context="Egypt 1975, book 00, page 26",
+                    page_caption="audrey-leslie at the Sphinx",
+                    people_roster={"audrey": "Audrey Cordell", "leslie": "Leslie Cordell"},
+                )
+
+        payload = captured_payload["payload"]
+        assert isinstance(payload, dict)
+        messages = payload["messages"]
+        self.assertIsInstance(messages, list)
+        user_message = messages[1]
+        self.assertEqual(user_message["role"], "user")
+        text_part = user_message["content"][0]["text"]
+        self.assertIn("Album context: Egypt 1975, book 00, page 26.", text_part)
+        self.assertIn("Page caption context: audrey-leslie at the Sphinx.", text_part)
+        self.assertIn("audrey -> Audrey Cordell", text_part)
+        self.assertIn("leslie -> Leslie Cordell", text_part)
+
+
+class TestValidateRegionsForWrite(unittest.TestCase):
+    def test_tiny_or_zero_area_regions_are_rejected(self):
+        regions = [
+            RegionResult(index=0, x=0, y=0, width=0, height=100, confidence=0.9),
+            RegionResult(index=1, x=10, y=10, width=5, height=5, confidence=0.9),
+            RegionResult(index=2, x=20, y=20, width=80, height=60, confidence=0.9),
+        ]
+        validated = validate_regions_for_write(regions, img_w=200, img_h=100)
+        self.assertEqual([region.index for region in validated], [2])
+
+    def test_heavy_overlap_keeps_highest_ranked_region(self):
+        regions = [
+            RegionResult(index=0, x=0, y=0, width=100, height=100, confidence=0.6),
+            RegionResult(index=1, x=2, y=2, width=98, height=98, confidence=0.95),
+            RegionResult(index=2, x=120, y=0, width=80, height=100, confidence=0.8),
+        ]
+        validated = validate_regions_for_write(regions, img_w=200, img_h=100)
+        self.assertEqual([region.index for region in validated], [1, 2])
 
 
 # ---------------------------------------------------------------------------
@@ -387,3 +484,165 @@ class TestRegionListXmpRoundTrip(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRunDetectViewRegions(unittest.TestCase):
+    def _write_jpeg(self, path: Path) -> None:
+        try:
+            from PIL import Image
+        except ImportError:
+            self.skipTest("PIL not available")
+        image = Image.new("RGB", (200, 100), color=(120, 120, 120))
+        image.save(path, format="JPEG")
+
+    def test_skips_when_pipeline_state_present(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            view_dir = root / "Egypt_1975_View"
+            view_dir.mkdir()
+            view_path = view_dir / "Egypt_1975_B00_P01_V.jpg"
+            self._write_jpeg(view_path)
+            write_pipeline_step(
+                view_path.with_suffix(".xmp"),
+                "view_regions",
+                model="gemma",
+                extra={"completed": "2026-04-11T08:00:00Z"},
+            )
+
+            with mock.patch("photoalbums.lib.ai_view_regions.detect_regions") as detect_mock:
+                from photoalbums.commands import run_detect_view_regions
+
+                exit_code = run_detect_view_regions(
+                    album_id="Egypt_1975",
+                    photos_root=str(root),
+                    page=None,
+                    force=False,
+                )
+
+            self.assertEqual(exit_code, 0)
+            detect_mock.assert_not_called()
+
+    def test_writes_no_regions_pipeline_state(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            view_dir = root / "Egypt_1975_View"
+            view_dir.mkdir()
+            view_path = view_dir / "Egypt_1975_B00_P01_V.jpg"
+            self._write_jpeg(view_path)
+
+            with mock.patch("photoalbums.lib.ai_view_regions.detect_regions", return_value=[]):
+                from photoalbums.commands import run_detect_view_regions
+
+                exit_code = run_detect_view_regions(
+                    album_id="Egypt_1975",
+                    photos_root=str(root),
+                    page=None,
+                    force=False,
+                )
+
+            self.assertEqual(exit_code, 0)
+            state = read_pipeline_step(view_path.with_suffix(".xmp"), "view_regions")
+            assert state is not None
+            self.assertEqual(state["result"], "no_regions")
+
+    def test_reads_page_caption_and_roster_into_detection_context(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            view_dir = root / "Cordell_1975_View"
+            view_dir.mkdir()
+            view_path = view_dir / "Cordell_1975_B00_P01_V.jpg"
+            self._write_jpeg(view_path)
+
+            from photoalbums.lib.xmp_sidecar import write_xmp_sidecar
+
+            write_xmp_sidecar(
+                view_path.with_suffix(".xmp"),
+                creator_tool="test",
+                person_names=[],
+                subjects=[],
+                description="audrey-leslie on the lawn",
+                ocr_text="",
+            )
+
+            with mock.patch(
+                "photoalbums.lib.album_sets.find_archive_set_by_photos_root",
+                return_value=resolve_archive_set("cordell"),
+            ):
+                with mock.patch("photoalbums.lib.ai_view_regions.detect_regions", return_value=[]) as detect_mock:
+                    from photoalbums.commands import run_detect_view_regions
+
+                    exit_code = run_detect_view_regions(
+                        album_id="Cordell_1975",
+                        photos_root=str(root),
+                        page=None,
+                        force=False,
+                    )
+
+            self.assertEqual(exit_code, 0)
+            kwargs = detect_mock.call_args.kwargs
+            self.assertEqual(kwargs["page_caption"], "audrey-leslie on the lawn")
+            self.assertEqual(kwargs["album_context"], "Cordell 1975, book 00, page 01")
+            self.assertEqual(
+                kwargs["people_roster"],
+                {
+                    "audrey": "Audrey Cordell",
+                    "leslie": "Leslie Cordell",
+                },
+            )
+
+    def test_force_clears_existing_pipeline_state_and_reruns(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            view_dir = root / "Egypt_1975_View"
+            view_dir.mkdir()
+            view_path = view_dir / "Egypt_1975_B00_P01_V.jpg"
+            self._write_jpeg(view_path)
+            write_pipeline_step(
+                view_path.with_suffix(".xmp"),
+                "view_regions",
+                model="old-model",
+                extra={"completed": "2026-04-11T08:00:00Z", "result": "no_regions"},
+            )
+            regions = [RegionResult(index=0, x=0, y=0, width=200, height=100, caption_hint="Page")]
+
+            with mock.patch("photoalbums.lib.ai_view_regions.detect_regions", return_value=regions) as detect_mock:
+                from photoalbums.commands import run_detect_view_regions
+
+                exit_code = run_detect_view_regions(
+                    album_id="Egypt_1975",
+                    photos_root=str(root),
+                    page=None,
+                    force=True,
+                )
+
+            self.assertEqual(exit_code, 0)
+            detect_mock.assert_called_once()
+            state = read_pipeline_step(view_path.with_suffix(".xmp"), "view_regions")
+            assert state is not None
+            self.assertEqual(state["result"], "regions_found")
+            from photoalbums.lib.ai_model_settings import default_view_region_model
+
+            self.assertEqual(state["model"], default_view_region_model())
+
+    def test_album_wide_run_ignores_derived_outputs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            view_dir = root / "Egypt_1975_View"
+            view_dir.mkdir()
+            page_view = view_dir / "Egypt_1975_B00_P01_V.jpg"
+            derived_view = view_dir / "Egypt_1975_B00_P01_D01-02_V.jpg"
+            self._write_jpeg(page_view)
+            self._write_jpeg(derived_view)
+
+            with mock.patch("photoalbums.lib.ai_view_regions.detect_regions", return_value=[]) as detect_mock:
+                from photoalbums.commands import run_detect_view_regions
+
+                exit_code = run_detect_view_regions(
+                    album_id="Egypt_1975",
+                    photos_root=str(root),
+                    page=None,
+                    force=False,
+                )
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual([call.args[0] for call in detect_mock.call_args_list], [page_view])

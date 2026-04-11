@@ -83,6 +83,48 @@ class TestAICTMRestoration(unittest.TestCase):
             assert state is not None
             self.assertEqual(state["source_image_path"], image.name)
 
+    def test_apply_ctm_to_jpeg_identity_matrix_leaves_pixels_unchanged(self):
+        try:
+            import numpy as np
+            from PIL import Image
+        except Exception as exc:
+            self.skipTest(f"image dependencies unavailable: {exc}")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            image_path = Path(tmp) / "image.jpg"
+            original = np.full((8, 8, 3), [100, 50, 25], dtype=np.uint8)
+            Image.fromarray(original, mode="RGB").save(image_path, format="JPEG", quality=100, subsampling=0)
+
+            ai_ctm_restoration.apply_ctm_to_jpeg(
+                image_path,
+                [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+            )
+
+            result = np.array(Image.open(image_path).convert("RGB"))
+            self.assertTrue(np.array_equal(result, original))
+
+    def test_apply_ctm_to_jpeg_applies_known_matrix(self):
+        try:
+            import numpy as np
+            from PIL import Image
+        except Exception as exc:
+            self.skipTest(f"image dependencies unavailable: {exc}")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            image_path = Path(tmp) / "image.jpg"
+            original = np.full((8, 8, 3), [100, 50, 25], dtype=np.uint8)
+            Image.fromarray(original, mode="RGB").save(image_path, format="JPEG", quality=100, subsampling=0)
+
+            ai_ctm_restoration.apply_ctm_to_jpeg(
+                image_path,
+                [1.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 2.0],
+            )
+
+            result = np.array(Image.open(image_path).convert("RGB"))
+            self.assertLessEqual(abs(int(result[0, 0, 0]) - 100), 1)
+            self.assertLessEqual(abs(int(result[0, 0, 1]) - 25), 1)
+            self.assertLessEqual(abs(int(result[0, 0, 2]) - 50), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

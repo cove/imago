@@ -13,7 +13,7 @@ import json
 import logging
 import urllib.error
 import urllib.request
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -46,7 +46,7 @@ class RegionResult:
     height: int
     confidence: float = 1.0
     caption_hint: str = ""
-    person_names: tuple[str, ...] = ()
+    person_names: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -163,6 +163,7 @@ _REGION_RESPONSE_FORMAT = {
                             "height": {"type": "number"},
                             "confidence": {"type": "number"},
                             "caption_hint": {"type": "string"},
+                            "person_names": {"type": "array", "items": {"type": "string"}},
                         },
                         "required": ["index", "x", "y", "width", "height", "confidence", "caption_hint"],
                         "additionalProperties": False,
@@ -183,7 +184,8 @@ _SYSTEM_PROMPT = (
     "lighting, photographic style, or subject matter — NOT just visible gaps or borders. "
     "Return a JSON object with a 'regions' array. "
     "Each entry gives the bounding box of one photograph as NORMALISED coordinates (top-left origin, values from 0.000 to 1.000) "
-    "where 1.000 is the full image width or height), a confidence score between 0 and 1, and a brief caption_hint."
+    "where 1.000 is the full image width or height), a confidence score between 0 and 1, a brief caption_hint, "
+    "and optional person_names when the page context identifies people confidently."
 )
 
 _USER_PROMPT = (
@@ -199,6 +201,7 @@ _USER_PROMPT_STRICT = (
     "Each region MUST have: index (integer starting at 0), "
     "x, y, width, height (floats from 0.000 to 1.000, top-left origin, normalised to image size), "
     "confidence (float 0-1), caption_hint (string). "
+    "Each region MAY also include person_names (array of strings). "
     "No other text."
 )
 
@@ -246,11 +249,33 @@ def _call_vision_model(
     img_w: int,
     img_h: int,
     strict_prompt: bool = False,
+    album_context: str = "",
+    page_caption: str = "",
+    people_roster: dict[str, str] | None = None,
 ) -> list[RegionResult]:
     image_url = _build_data_url(image_path, DEFAULT_MAX_IMAGE_EDGE)
     user_text = _USER_PROMPT_STRICT if strict_prompt else _USER_PROMPT
     if img_w > 0 and img_h > 0:
         user_text = user_text + f" The full image is {img_w}×{img_h} pixels."
+    clean_album_context = str(album_context or "").strip()
+    if clean_album_context:
+        user_text = user_text + f" Album context: {clean_album_context}."
+    clean_page_caption = str(page_caption or "").strip()
+    if clean_page_caption:
+        user_text = user_text + f" Page caption context: {clean_page_caption}."
+    roster_entries = []
+    for shorthand, full_name in sorted((people_roster or {}).items()):
+        clean_shorthand = str(shorthand or "").strip().lower()
+        clean_full_name = str(full_name or "").strip()
+        if clean_shorthand and clean_full_name:
+            roster_entries.append(f"{clean_shorthand} -> {clean_full_name}")
+    if roster_entries:
+        user_text = (
+            user_text
+            + " People roster for expanding hyphenated shorthand when the caption context supports it: "
+            + "; ".join(roster_entries)
+            + "."
+        )
     payload = {
         "model": model,
         "messages": [
@@ -330,11 +355,64 @@ def _parse_region_response(
                     height=ph,
                     confidence=max(0.0, min(1.0, float(item.get("confidence") or 1.0))),
                     caption_hint=str(item.get("caption_hint") or "").strip(),
+                    person_names=[
+                        str(name).strip() for name in list(item.get("person_names") or []) if str(name).strip()
+                    ],
                 )
             )
         except (KeyError, TypeError, ValueError) as exc:
             log.warning("Skipping malformed region entry %r: %s", item, exc)
     return results
+
+
+def _intersection_area(left: RegionResult, right: RegionResult) -> int:
+    x1 = max(left.x, right.x)
+    y1 = max(left.y, right.y)
+    x2 = min(left.x + left.width, right.x + right.width)
+    y2 = min(left.y + left.height, right.y + right.height)
+    if x2 <= x1 or y2 <= y1:
+        return 0
+    return (x2 - x1) * (y2 - y1)
+
+
+def validate_regions_for_write(
+    regions: list[RegionResult],
+    *,
+    img_w: int,
+    img_h: int,
+) -> list[RegionResult]:
+    min_edge = max(12, int(round(min(img_w, img_h) * 0.03))) if img_w > 0 and img_h > 0 else 12
+    min_area = max(400, int(round(img_w * img_h * 0.005))) if img_w > 0 and img_h > 0 else 400
+
+    clamped: list[RegionResult] = []
+    for region in regions:
+        left = max(0, region.x)
+        top = max(0, region.y)
+        right = min(img_w, region.x + region.width)
+        bottom = min(img_h, region.y + region.height)
+        width = right - left
+        height = bottom - top
+        if width <= 0 or height <= 0:
+            continue
+        if width < min_edge or height < min_edge:
+            continue
+        if (width * height) < min_area:
+            continue
+        clamped.append(replace(region, x=left, y=top, width=width, height=height))
+
+    ranked = sorted(clamped, key=lambda region: (-region.confidence, -(region.width * region.height), region.index))
+    kept: list[RegionResult] = []
+    for candidate in ranked:
+        overlaps_existing = False
+        for existing in kept:
+            intersection = _intersection_area(candidate, existing)
+            smaller_area = min(candidate.width * candidate.height, existing.width * existing.height)
+            if smaller_area > 0 and (intersection / smaller_area) >= 0.85:
+                overlaps_existing = True
+                break
+        if not overlaps_existing:
+            kept.append(candidate)
+    return sorted(kept, key=lambda region: region.index)
 
 
 # ---------------------------------------------------------------------------
@@ -429,6 +507,9 @@ def detect_regions(
     model: str = "",
     base_url: str = "",
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
+    album_context: str = "",
+    page_caption: str = "",
+    people_roster: dict[str, str] | None = None,
 ) -> list[RegionResult]:
     """Detect photo regions in a view JPG, writing results to the XMP sidecar.
 
@@ -466,6 +547,9 @@ def detect_regions(
                 img_w=img_w,
                 img_h=img_h,
                 strict_prompt=(attempt > 0),
+                album_context=album_context,
+                page_caption=page_caption,
+                people_roster=people_roster,
             )
             return regions
         except Exception as exc:

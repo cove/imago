@@ -81,6 +81,40 @@ class TestStitchOversizedPages(unittest.TestCase):
             str(Path(tmp) / "EU_1973_B02_P05_V.jpg"),
         )
 
+    def test_tif_to_jpg_writes_raw_image_without_ctm_application(self):
+        raw_image = object()
+
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch("stitch_oversized_pages._require_image_modules"),
+            mock.patch("stitch_oversized_pages._validate_and_retry", return_value=True),
+            mock.patch("stitch_oversized_pages.validate_image_with_pillow", return_value=True),
+            mock.patch("stitch_oversized_pages._read_stitch_image", return_value=raw_image),
+            mock.patch("stitch_oversized_pages.write_jpeg") as write_mock,
+        ):
+            sop.tif_to_jpg("C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_S01.tif", tmp)
+
+        write_mock.assert_called_once_with(raw_image, str(Path(tmp) / "EU_1973_B02_P05_V.jpg"))
+
+    def test_derived_to_jpg_writes_raw_image_without_ctm_application(self):
+        raw_image = object()
+
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch("stitch_oversized_pages._require_image_modules"),
+            mock.patch("stitch_oversized_pages._validate_and_retry", return_value=True),
+            mock.patch("stitch_oversized_pages.validate_image_with_pillow", return_value=True),
+            mock.patch("stitch_oversized_pages._read_stitch_image", return_value=raw_image),
+            mock.patch(
+                "stitch_oversized_pages.os.path.getsize",
+                side_effect=lambda path: 1000 if str(path).endswith(".tif") else 500,
+            ),
+            mock.patch("stitch_oversized_pages.write_jpeg") as write_mock,
+        ):
+            sop.derived_to_jpg("C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_D01-02.tif", tmp)
+
+        write_mock.assert_called_once_with(raw_image, str(Path(tmp) / "EU_1973_B02_P05_D01-02_V.jpg"), quality=80)
+
     def test_tif_to_jpg_skips_existing_valid_output(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "EU_1973_B02_P05_V.jpg"
@@ -158,6 +192,66 @@ class TestStitchOversizedPages(unittest.TestCase):
         build_mock.assert_not_called()
         write_mock.assert_not_called()
 
+    def test_build_stitched_image_raises_partial_panorama_error(self):
+        class PartialPanoramaStitcher:
+            def stitch(self, _files):
+                import warnings
+
+                warnings.warn("not all images are included in the final panorama", RuntimeWarning)
+                return mock.Mock(size=1)
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "Stitching produced a partial panorama \\(not all scans were included\\)",
+        ):
+            sop.build_stitched_image(
+                [
+                    "C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_S01.tif",
+                    "C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_S02.tif",
+                    "C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_S03.tif",
+                ],
+                stitcher_factory=lambda **_cfg: PartialPanoramaStitcher(),
+            )
+
+    def test_derived_to_jpg_quality_loop_stops_at_40(self):
+        quality_calls: list[int] = []
+
+        def _write_mock(_image, path, quality=95):
+            quality_calls.append(quality)
+            Path(path).write_bytes(b"x" * 200)
+
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch("stitch_oversized_pages._require_image_modules"),
+            mock.patch("stitch_oversized_pages._validate_and_retry", return_value=True),
+            mock.patch("stitch_oversized_pages._read_stitch_image", return_value=object()),
+            mock.patch("stitch_oversized_pages.validate_image_with_pillow", return_value=True),
+            mock.patch("stitch_oversized_pages.write_jpeg", side_effect=_write_mock),
+            mock.patch(
+                "stitch_oversized_pages.os.path.getsize",
+                side_effect=lambda path: 100 if str(path).endswith(".tif") else 200,
+            ),
+        ):
+            sop.derived_to_jpg("C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_D01-02.tif", tmp)
+
+        self.assertEqual(quality_calls, [80, 70, 60, 50, 40])
+
+    def test_stitch_requires_s01_before_attempting_render(self):
+        files = [
+            "C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_S02.tif",
+            "C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_S03.tif",
+        ]
+
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch("stitch_oversized_pages._require_image_modules"),
+            mock.patch("stitch_oversized_pages.build_stitched_image") as build_mock,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "Page is missing required S01 scan"):
+                sop.stitch(files, tmp)
+
+        build_mock.assert_not_called()
+
     def test_copy_base_view_sidecar_uses_archive_s01_sidecar(self):
         with tempfile.TemporaryDirectory() as tmp:
             archive = Path(tmp) / "EU_1973_B02_Archive"
@@ -172,7 +266,10 @@ class TestStitchOversizedPages(unittest.TestCase):
             target = sop._copy_base_view_sidecar(scan, view)
 
             self.assertEqual(target, view / "EU_1973_B02_P05_V.xmp")
-            self.assertEqual(target.read_text(encoding="utf-8"), "<xmp />")
+            # _ensure_archive_page_sidecar now assigns a DocumentID to the archive sidecar
+            # before copying, so the target will contain the DocumentID rather than bare "<xmp />"
+            xml = target.read_text(encoding="utf-8")
+            self.assertIn("DocumentID", xml)
 
     def test_index_rendered_view_image_runs_ai_index_for_view_output(self):
         with mock.patch("photoalbums.lib.ai_index.run", return_value=0) as run_mock:

@@ -39,6 +39,9 @@ typecheck:
 dupes:
   {{python}} scripts/check_skylos.py
 
+deadcode:
+  {{python}} scripts/check_vulture.py
+
 complexity:
   {{python}} scripts/check_radon.py
 
@@ -94,6 +97,9 @@ photoalbums-detect-regions:
 
 photoalbums-crop-regions:
   {{python}} photoalbums.py crop-regions --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums"
+
+photoalbums-render-pipeline:
+  {{python}} photoalbums.py render-pipeline --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums"
 
 photoalbums-watch:
   {{python}} photoalbums.py watch

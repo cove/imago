@@ -13,7 +13,7 @@ if str(REPO_ROOT) not in sys.path:
 if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
-from photoalbums.lib import ai_index, ai_index_runner, xmp_sidecar
+from photoalbums.lib import ai_index, ai_index_runner, ai_render_face_refresh, xmp_sidecar
 
 
 def _image_region_ids(xmp_path: Path) -> list[str]:
@@ -26,6 +26,21 @@ def _image_region_ids(xmp_path: Path) -> list[str]:
             f"{{{xmp_sidecar.RDF_NS}}}Bag/"
             f"{{{xmp_sidecar.RDF_NS}}}li/"
             f"{{{xmp_sidecar.IPTC_EXT_NS}}}rId"
+        )
+        if str(item.text or "").strip()
+    ]
+
+
+def _image_region_types(xmp_path: Path) -> list[str]:
+    root = ET.parse(xmp_path).getroot()
+    return [
+        str(item.text or "").strip()
+        for item in root.findall(
+            ".//"
+            f"{{{xmp_sidecar.IPTC_EXT_NS}}}ImageRegion/"
+            f"{{{xmp_sidecar.RDF_NS}}}Bag/"
+            f"{{{xmp_sidecar.RDF_NS}}}li/"
+            f"{{{xmp_sidecar.IPTC_EXT_NS}}}RCtype"
         )
         if str(item.text or "").strip()
     ]
@@ -141,6 +156,7 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
         <rdf:Bag>
           <rdf:li rdf:parseType="Resource">
             <Iptc4xmpExt:rId>face-1</Iptc4xmpExt:rId>
+            <Iptc4xmpExt:RCtype>face-inherited</Iptc4xmpExt:RCtype>
             <Iptc4xmpExt:Name>
               <rdf:Alt>
                 <rdf:li xml:lang="x-default">Old Name</rdf:li>
@@ -149,6 +165,7 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
           </rdf:li>
           <rdf:li rdf:parseType="Resource">
             <Iptc4xmpExt:rId>photo-1</Iptc4xmpExt:rId>
+            <Iptc4xmpExt:RCtype>photo-region</Iptc4xmpExt:RCtype>
           </rdf:li>
         </rdf:Bag>
       </Iptc4xmpExt:ImageRegion>
@@ -188,6 +205,7 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             self.assertNotIn("Old Name", xml)
             self.assertIn("New Name", xml)
             self.assertEqual(_image_region_ids(out), ["photo-1", "face-1"])
+            self.assertEqual(_image_region_types(out), ["photo-region", "face-identified"])
 
     def test_write_xmp_sidecar_removes_stale_face_regions_without_touching_non_face_regions(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -201,9 +219,11 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
         <rdf:Bag>
           <rdf:li rdf:parseType="Resource">
             <Iptc4xmpExt:rId>face-1</Iptc4xmpExt:rId>
+            <Iptc4xmpExt:RCtype>face-inherited</Iptc4xmpExt:RCtype>
           </rdf:li>
           <rdf:li rdf:parseType="Resource">
             <Iptc4xmpExt:rId>photo-1</Iptc4xmpExt:rId>
+            <Iptc4xmpExt:RCtype>photo-region</Iptc4xmpExt:RCtype>
           </rdf:li>
         </rdf:Bag>
       </Iptc4xmpExt:ImageRegion>
@@ -233,6 +253,285 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             )
 
             self.assertEqual(_image_region_ids(out), ["photo-1"])
+            self.assertEqual(_image_region_types(out), ["photo-region"])
+
+    def test_write_xmp_sidecar_leaves_all_non_face_regions_unchanged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "Egypt_1975_B00_P09_V.xmp"
+            out.write_text(
+                f"""<?xml version="1.0" encoding="utf-8"?>
+<x:xmpmeta xmlns:x="{xmp_sidecar.X_NS}" xmlns:rdf="{xmp_sidecar.RDF_NS}" xmlns:Iptc4xmpExt="{xmp_sidecar.IPTC_EXT_NS}">
+  <rdf:RDF>
+    <rdf:Description rdf:about="">
+      <Iptc4xmpExt:ImageRegion>
+        <rdf:Bag>
+          <rdf:li rdf:parseType="Resource">
+            <Iptc4xmpExt:rId>photo-1</Iptc4xmpExt:rId>
+            <Iptc4xmpExt:RCtype>photo-region</Iptc4xmpExt:RCtype>
+          </rdf:li>
+        </rdf:Bag>
+      </Iptc4xmpExt:ImageRegion>
+    </rdf:Description>
+  </rdf:RDF>
+</x:xmpmeta>
+""",
+                encoding="utf-8",
+            )
+
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+                detections_payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {},
+                    "caption": {},
+                },
+                image_width=200,
+                image_height=100,
+            )
+
+            self.assertEqual(_image_region_ids(out), ["photo-1"])
+            self.assertEqual(_image_region_types(out), ["photo-region"])
+
+    def test_refresh_face_regions_skips_when_pipeline_state_present(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            view = base / "Egypt_1975_View"
+            view.mkdir()
+            image = view / "Egypt_1975_B00_P09_V.jpg"
+            image.write_bytes(b"rendered")
+            sidecar = image.with_suffix(".xmp")
+            xmp_sidecar.write_xmp_sidecar(
+                sidecar,
+                creator_tool="imago-test",
+                person_names=["Old Name"],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                image_width=200,
+                image_height=100,
+            )
+            xmp_sidecar.write_pipeline_step(sidecar, "face_refresh", model="buffalo_l")
+
+            with mock.patch.object(
+                ai_render_face_refresh.RenderFaceRefreshSession, "_refresh_with_runner"
+            ) as refresh_mock:
+                ran = ai_render_face_refresh.refresh_face_regions(image, sidecar, force=False)
+
+            self.assertFalse(ran)
+            refresh_mock.assert_not_called()
+
+    def test_refresh_face_regions_cast_unavailable_leaves_sidecar_unchanged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            view = base / "Egypt_1975_View"
+            view.mkdir()
+            image = view / "Egypt_1975_B00_P09_V.jpg"
+            image.write_bytes(b"rendered")
+            sidecar = image.with_suffix(".xmp")
+            xmp_sidecar.write_xmp_sidecar(
+                sidecar,
+                creator_tool="imago-test",
+                person_names=["Old Name"],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                image_width=200,
+                image_height=100,
+            )
+            before = sidecar.read_text(encoding="utf-8")
+
+            with mock.patch.object(
+                ai_render_face_refresh.RenderFaceRefreshSession,
+                "_refresh_with_runner",
+                side_effect=ai_render_face_refresh.FaceRefreshSkipped(
+                    "face refresh skipped for Egypt_1975_B00_P09_V.jpg: Cast unavailable"
+                ),
+            ):
+                with self.assertRaises(ai_render_face_refresh.FaceRefreshSkipped):
+                    ai_render_face_refresh.refresh_face_regions(image, sidecar, force=False)
+
+            self.assertEqual(sidecar.read_text(encoding="utf-8"), before)
+            self.assertIsNone(xmp_sidecar.read_pipeline_step(sidecar, "face_refresh"))
+
+    def test_refresh_face_regions_writes_person_in_image_names(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            view = base / "Egypt_1975_View"
+            view.mkdir()
+            image = view / "Egypt_1975_B00_P09_V.jpg"
+            image.write_bytes(b"rendered")
+            sidecar = image.with_suffix(".xmp")
+            xmp_sidecar.write_xmp_sidecar(
+                sidecar,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                image_width=200,
+                image_height=100,
+            )
+
+            def _write_people(image_path: Path, sidecar_path: Path) -> None:
+                xmp_sidecar.write_xmp_sidecar(
+                    sidecar_path,
+                    creator_tool="imago-test",
+                    person_names=["Alice Smith", "Bob Jones"],
+                    subjects=[],
+                    description="",
+                    source_text="",
+                    ocr_text="",
+                    detections_payload={
+                        "people": [
+                            {"name": "Alice Smith", "bbox": [10, 10, 30, 30]},
+                            {"name": "Bob Jones", "bbox": [60, 15, 30, 30]},
+                        ],
+                        "objects": [],
+                        "ocr": {},
+                        "caption": {},
+                    },
+                    image_width=200,
+                    image_height=100,
+                )
+
+            with mock.patch.object(
+                ai_render_face_refresh.RenderFaceRefreshSession, "_refresh_with_runner", side_effect=_write_people
+            ):
+                ran = ai_render_face_refresh.refresh_face_regions(image, sidecar, force=False)
+
+            self.assertTrue(ran)
+            self.assertEqual(xmp_sidecar.read_person_in_image(sidecar), ["Alice Smith", "Bob Jones"])
+            state = xmp_sidecar.read_pipeline_step(sidecar, "face_refresh")
+            self.assertIsNotNone(state)
+            self.assertEqual(state["model"], "buffalo_l")
+
+    def test_refresh_face_regions_clears_person_in_image_when_no_matches(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            view = base / "Egypt_1975_View"
+            view.mkdir()
+            image = view / "Egypt_1975_B00_P09_V.jpg"
+            image.write_bytes(b"rendered")
+            sidecar = image.with_suffix(".xmp")
+            xmp_sidecar.write_xmp_sidecar(
+                sidecar,
+                creator_tool="imago-test",
+                person_names=["Old Name"],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+                detections_payload={
+                    "people": [{"name": "Old Name", "bbox": [10, 10, 30, 30]}],
+                    "objects": [],
+                    "ocr": {},
+                    "caption": {},
+                },
+                image_width=200,
+                image_height=100,
+            )
+
+            def _clear_people(image_path: Path, sidecar_path: Path) -> None:
+                xmp_sidecar.write_xmp_sidecar(
+                    sidecar_path,
+                    creator_tool="imago-test",
+                    person_names=[],
+                    subjects=[],
+                    description="",
+                    source_text="",
+                    ocr_text="",
+                    detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                    image_width=200,
+                    image_height=100,
+                )
+
+            with mock.patch.object(
+                ai_render_face_refresh.RenderFaceRefreshSession, "_refresh_with_runner", side_effect=_clear_people
+            ):
+                ran = ai_render_face_refresh.refresh_face_regions(image, sidecar, force=True)
+
+            self.assertTrue(ran)
+            self.assertEqual(xmp_sidecar.read_person_in_image(sidecar), [])
+
+    def test_run_face_refresh_processes_page_derived_and_crop_targets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            view_dir = root / "Egypt_1975_View"
+            photos_dir = root / "Egypt_1975_Photos"
+            view_dir.mkdir()
+            photos_dir.mkdir()
+            page_view = view_dir / "Egypt_1975_B00_P01_V.jpg"
+            derived_view = view_dir / "Egypt_1975_B00_P01_D01-02_V.jpg"
+            crop_view = photos_dir / "Egypt_1975_B00_P01_D01-00_V.jpg"
+            for path in (page_view, derived_view, crop_view):
+                path.write_bytes(b"rendered")
+
+            with mock.patch.object(
+                ai_render_face_refresh.RenderFaceRefreshSession,
+                "refresh_face_regions",
+                return_value=True,
+            ) as refresh_mock:
+                from photoalbums.commands import run_face_refresh
+
+                exit_code = run_face_refresh(
+                    album_id="Egypt_1975",
+                    photos_root=str(root),
+                    page="1",
+                    force=False,
+                )
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(
+                [Path(call.args[0]).name for call in refresh_mock.call_args_list],
+                [
+                    "Egypt_1975_B00_P01_V.jpg",
+                    "Egypt_1975_B00_P01_D01-02_V.jpg",
+                    "Egypt_1975_B00_P01_D01-00_V.jpg",
+                ],
+            )
+
+    def test_run_face_refresh_warns_and_continues_when_cast_unavailable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            view_dir = root / "Egypt_1975_View"
+            view_dir.mkdir()
+            page_view = view_dir / "Egypt_1975_B00_P01_V.jpg"
+            page_view.write_bytes(b"rendered")
+
+            with (
+                mock.patch.object(
+                    ai_render_face_refresh.RenderFaceRefreshSession,
+                    "refresh_face_regions",
+                    side_effect=ai_render_face_refresh.FaceRefreshSkipped(
+                        "face refresh skipped for Egypt_1975_B00_P01_V.jpg: Cast unavailable"
+                    ),
+                ),
+                mock.patch("builtins.print") as print_mock,
+            ):
+                from photoalbums.commands import run_face_refresh
+
+                exit_code = run_face_refresh(
+                    album_id="Egypt_1975",
+                    photos_root=str(root),
+                    page=None,
+                    force=False,
+                )
+
+            self.assertEqual(exit_code, 0)
+            print_mock.assert_any_call("WARNING: face refresh skipped for Egypt_1975_B00_P01_V.jpg: Cast unavailable")
 
 
 if __name__ == "__main__":

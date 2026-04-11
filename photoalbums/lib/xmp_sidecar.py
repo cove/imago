@@ -624,6 +624,7 @@ def _add_iptc_face_regions(
         ET.SubElement(boundary, f"{{{IPTC_EXT_NS}}}rbY").text = f"{ry:.6f}"
         ET.SubElement(boundary, f"{{{IPTC_EXT_NS}}}rbW").text = f"{rw:.6f}"
         ET.SubElement(boundary, f"{{{IPTC_EXT_NS}}}rbH").text = f"{rh:.6f}"
+        ET.SubElement(li, f"{{{IPTC_EXT_NS}}}RCtype").text = "face-identified"
         ET.SubElement(li, f"{{{IPTC_EXT_NS}}}rId").text = f"face-{face_n}"
         _add_alt_text(li, f"{{{IPTC_EXT_NS}}}Name", name)
 
@@ -641,6 +642,9 @@ def _set_iptc_face_regions(
 
 
 def _image_region_is_face(item: ET.Element) -> bool:
+    region_type = str(item.findtext(f"{{{IPTC_EXT_NS}}}RCtype", default="") or "").strip().lower()
+    if region_type.startswith("face-"):
+        return True
     region_id = str(item.findtext(f"{{{IPTC_EXT_NS}}}rId", default="") or "").strip()
     return region_id.startswith("face-")
 
@@ -1007,6 +1011,51 @@ def _get_rdf_desc(tree: ET.ElementTree) -> ET.Element | None:
     return rdf.find(_RDF_DESC)
 
 
+def _load_or_create_xmp_tree(path: str | Path) -> ET.ElementTree:
+    path = Path(path)
+    if path.is_file():
+        try:
+            return ET.parse(path)  # type: ignore[return-value]
+        except ET.ParseError:
+            pass
+    xmpmeta = ET.Element(f"{{{X_NS}}}xmpmeta")
+    xmpmeta.set(f"{{{X_NS}}}xmptk", "imago")
+    rdf = ET.SubElement(xmpmeta, _RDF_ROOT)
+    ET.SubElement(rdf, _RDF_DESC).set(f"{{{RDF_NS}}}about", "")
+    return ET.ElementTree(xmpmeta)
+
+
+def _save_xmp_tree(tree: ET.ElementTree, path: str | Path) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    ET.indent(tree, space="  ")
+    tree.write(path, encoding="utf-8", xml_declaration=True)
+
+
+def _read_detections_payload(desc: ET.Element) -> dict[str, object]:
+    detections_text = str(desc.findtext(f"{{{IMAGO_NS}}}Detections", default="") or "").strip()
+    if not detections_text:
+        return {}
+    try:
+        parsed = json.loads(detections_text)
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _write_detections_payload(tree: ET.ElementTree, path: str | Path, detections: dict[str, object]) -> None:
+    desc = _get_or_create_rdf_desc(tree)
+    if detections:
+        _set_simple_text(
+            desc,
+            f"{{{IMAGO_NS}}}Detections",
+            json.dumps(detections, ensure_ascii=False, sort_keys=True),
+        )
+    else:
+        _set_simple_text(desc, f"{{{IMAGO_NS}}}Detections", "")
+    _save_xmp_tree(tree, path)
+
+
 def _get_alt_text(parent: ET.Element, tag: str, *, prefer_lang: str = "", fallback_to_any: bool = True) -> str:
     field = parent.find(tag)
     if field is None:
@@ -1057,6 +1106,70 @@ def _read_xmp_bool(desc: ET.Element, tag: str) -> bool | None:
     if raw is None:
         return None
     return str(raw or "").strip().lower() == "true"
+
+
+def read_pipeline_state(xmp_path: str | Path) -> dict[str, object]:
+    path = Path(xmp_path)
+    if not path.is_file():
+        return {}
+    try:
+        tree = ET.parse(path)
+    except ET.ParseError:
+        return {}
+    desc = _get_rdf_desc(tree)  # type: ignore[arg-type]
+    if desc is None:
+        return {}
+    pipeline = _read_detections_payload(desc).get("pipeline")
+    return dict(pipeline) if isinstance(pipeline, dict) else {}
+
+
+def read_pipeline_step(xmp_path: str | Path, step_name: str) -> dict[str, object] | None:
+    step = read_pipeline_state(xmp_path).get(step_name)
+    return dict(step) if isinstance(step, dict) else None
+
+
+def write_pipeline_step(
+    xmp_path: str | Path,
+    step_name: str,
+    *,
+    model: str | None = None,
+    extra: dict[str, object] | None = None,
+) -> None:
+    path = Path(xmp_path)
+    tree = _load_or_create_xmp_tree(path)
+    desc = _get_or_create_rdf_desc(tree)
+    detections = _read_detections_payload(desc)
+    pipeline = dict(detections.get("pipeline") or {})
+    entry: dict[str, object] = {"completed": _xmp_datetime_now()}
+    if model is not None:
+        entry["model"] = str(model)
+    if extra:
+        entry.update(extra)
+    pipeline[step_name] = entry
+    detections["pipeline"] = pipeline
+    _write_detections_payload(tree, path, detections)
+
+
+def clear_pipeline_steps(xmp_path: str | Path, step_names: list[str]) -> None:
+    path = Path(xmp_path)
+    if not path.is_file():
+        return
+    tree = _load_or_create_xmp_tree(path)
+    desc = _get_or_create_rdf_desc(tree)
+    detections = _read_detections_payload(desc)
+    pipeline = dict(detections.get("pipeline") or {})
+    changed = False
+    for step_name in step_names:
+        if step_name in pipeline:
+            del pipeline[step_name]
+            changed = True
+    if not changed:
+        return
+    if pipeline:
+        detections["pipeline"] = pipeline
+    else:
+        detections.pop("pipeline", None)
+    _write_detections_payload(tree, path, detections)
 
 
 def read_person_in_image(sidecar_path: str | Path) -> list[str]:
@@ -1244,15 +1357,7 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
     desc = _get_rdf_desc(tree)  # type: ignore[arg-type]
     if desc is None:
         return None
-    detections_text = str(desc.findtext(f"{{{IMAGO_NS}}}Detections", default="") or "").strip()
-    detections_payload: dict[str, object] | None = None
-    if detections_text:
-        try:
-            parsed = json.loads(detections_text)
-        except json.JSONDecodeError:
-            parsed = None
-        if isinstance(parsed, dict):
-            detections_payload = parsed
+    detections_payload = _read_detections_payload(desc) or None
     processing_meta: dict[str, object] = dict((detections_payload or {}).get("processing") or {})
     processing_history = _read_processing_history(desc)
     processing_state = _derive_processing_state(processing_history)
