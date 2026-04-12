@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import shutil
@@ -196,13 +195,13 @@ def _format_reprocess_reasons(reasons: list[str]) -> str:
 def _apply_shard(files: list[Path], shard_count: int, shard_index: int) -> list[Path]:
     if shard_count <= 1:
         return list(files)
-    selected: list[Path] = []
+    album_keys: list[str] = []
     for path in files:
         album_key = _album_identity_key(path)
-        digest = hashlib.sha1(album_key.encode("utf-8")).digest()
-        if int.from_bytes(digest[:8], "big") % shard_count == shard_index:
-            selected.append(path)
-    return selected
+        if album_key not in album_keys:
+            album_keys.append(album_key)
+    album_shards = {album_key: idx % shard_count for idx, album_key in enumerate(album_keys)}
+    return [path for path in files if album_shards.get(_album_identity_key(path)) == shard_index]
 
 
 def _compute_people_positions(people_matches: list, image_path: Path) -> dict[str, str]:

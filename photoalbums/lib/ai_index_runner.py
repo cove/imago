@@ -564,16 +564,34 @@ class IndexRunner:
                 reprocess_reasons.append("timeline_date_missing")
         caption_engine_name = str(effective.get("caption_engine", self.defaults["caption_engine"])).strip().lower()
         location_shown_missing = False
+        location_shown_backfill_needed = False
         location_shown_gps_dirty = False
         if existing_sidecar_complete and existing_sidecar_state is not None and caption_engine_name == "lmstudio":
             det = existing_sidecar_state.get("detections") or {}
             detected_locations = list(det.get("locations_shown") or []) if isinstance(det, dict) else []
             written_locations = read_locations_shown(sidecar_path)
             location_shown_ran = isinstance(det, dict) and det.get("location_shown_ran") is True
-            location_shown_missing = (isinstance(det, dict) and det.get("location_shown_ran") is not True) or (
-                (location_shown_ran or bool(detected_locations)) and not written_locations
+            location_shown_missing = bool(written_locations) is False and (
+                location_shown_ran or bool(detected_locations)
+            )
+            location_shown_backfill_needed = (
+                not location_shown_ran
+                and not detected_locations
+                and not written_locations
+                and isinstance(det, dict)
+                and bool(det.get("location"))
             )
             location_shown_gps_dirty = _has_legacy_ai_locations_shown_gps(existing_sidecar_state)
+        people_update_only = False
+        people_matcher = None
+        current_cast_signature = ""
+        if existing_sidecar_state is not None and bool(effective.get("enable_people", True)):
+            old_cast_signature = str(existing_sidecar_state.get("cast_store_signature") or "")
+            if old_cast_signature and _sidecar_has_people_to_refresh(existing_sidecar_state):
+                people_matcher, current_cast_signature = self._get_people_matcher_and_signature(effective)
+                if old_cast_signature != current_cast_signature:
+                    people_update_only = True
+                    reprocess_reasons.append("cast_store_signature_changed")
         gps_repair_requested = (
             existing_sidecar_current
             and existing_sidecar_complete
@@ -591,6 +609,7 @@ class IndexRunner:
             and not source_refresh_required
             and not date_refresh_required
             and not self.force_processing
+            and not people_update_only
             and not gps_repair_requested
         ):
             self.skipped += 1
@@ -598,7 +617,8 @@ class IndexRunner:
                 print(f"[{idx}/{len(self.files)}] skip  {image_path.name} (current xmp)")
             return
 
-        people_matcher, current_cast_signature = self._get_people_matcher_and_signature(effective)
+        if people_matcher is None:
+            people_matcher, current_cast_signature = self._get_people_matcher_and_signature(effective)
 
         existing_sidecar_ocr_hash = _hash_text(str((existing_sidecar_state or {}).get("ocr_text") or ""))
         multi_scan_group_paths = _scan_group_paths(image_path)
@@ -610,7 +630,6 @@ class IndexRunner:
             _scan_group_signature(multi_scan_group_paths) if archive_stitched_ocr_required else ""
         )
 
-        people_update_only = False
         if existing_sidecar_valid and not existing_sidecar_complete:
             reprocess_required = True
             reprocess_reasons.append("sidecar_incomplete")
@@ -643,11 +662,6 @@ class IndexRunner:
             if old_sig != settings_sig and not (existing_sidecar_current and existing_sidecar_complete):
                 reprocess_required = True
                 reprocess_reasons.append("settings_signature_mismatch")
-            elif bool(effective.get("enable_people", True)):
-                if str(existing_sidecar_state.get("cast_store_signature") or "") != current_cast_signature:
-                    if _sidecar_has_people_to_refresh(existing_sidecar_state):
-                        people_update_only = True
-                        reprocess_reasons.append("cast_store_signature_changed")
 
         needs_full = needs_processing(
             image_path,
@@ -686,6 +700,9 @@ class IndexRunner:
             if location_shown_gps_dirty:
                 gps_update_only = True
                 reprocess_reasons.append("location_shown_ai_gps_stale")
+        if not gps_update_only and people_update_only and location_shown_backfill_needed:
+            gps_update_only = True
+            reprocess_reasons.append("missing_location_shown")
         if (
             not needs_full
             and not people_update_only
@@ -1585,6 +1602,8 @@ class IndexRunner:
                 subphotos_xml: list[dict[str, Any]] | None = None
                 analysis_mode = "single_image"
                 _scan_filenames = _page_scan_filenames(image_path)
+                if not _scan_filenames and scan_ocr_authority is not None:
+                    _scan_filenames = [path.name for path in scan_ocr_authority.group_paths]
                 printed_album_title_hint = album_title_hint
 
                 _stitched_cap_path = scan_ocr_authority.stitched_image_path if scan_ocr_authority is not None else None

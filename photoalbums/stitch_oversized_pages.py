@@ -29,14 +29,14 @@ try:
 except Exception:
     AffineStitcher = None
 
-from common import (
+from photoalbums.common import (
     PHOTO_ALBUMS_DIR,
     configure_imagemagick,
     dir_created_ts,
     list_archive_dirs,
     list_page_scan_groups,
 )
-from naming import (
+from photoalbums.naming import (
     BASE_PAGE_NAME_RE,
     SCAN_NAME_RE,
     SCAN_TIFF_RE,

@@ -4,6 +4,7 @@
         "photoalbums/tests",
         "vhs/test"
     ],
+    "python.useEnvironmentsExtension": true,
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
     "python.defaultInterpreterPath": ".venv\\Scripts\\python.exe",
