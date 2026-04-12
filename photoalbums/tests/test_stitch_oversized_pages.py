@@ -1,14 +1,9 @@
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-import stitch_oversized_pages as sop
+from photoalbums import stitch_oversized_pages as sop
 
 
 class TestStitchOversizedPages(unittest.TestCase):
