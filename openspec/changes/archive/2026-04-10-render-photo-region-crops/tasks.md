@@ -18,7 +18,7 @@
 
 - [x] 4.1 Create `photoalbums/lib/ai_photo_crops.py` with `mwgrs_normalised_to_pixel_rect(cx, cy, w, h, img_w, img_h) -> tuple[int, int, int, int]`: convert centre-point normalised to `(left, top, right, bottom)` pixel rect, clamped to image bounds; log warning if any dimension was clamped by >5%
 - [x] 4.2 Add `crop_output_path(view_path, region_index, photos_dir) -> Path`: builds `_D{index:02d}-00_V.jpg` path under `photos_dir`
-- [x] 4.3 Add `crop_page_regions(view_path, photos_dir, *, force=False) -> int`: reads `mwg-rs:RegionList` and page-level `dc:description` from the page view sidecar; for each region resolves caption via `resolve_region_caption`; converts coords, crops pixels from page `_V.jpg` using Pillow, writes JPEG, writes/updates sidecar, returns count of crops written; skips silently if no regions; skips existing crops without `force`
+- [x] 4.3 Add `crop_page_regions(view_path, photos_dir, *, force=False) -> int`: reads `mwg-rs:RegionList` and page-level `dc:description` from the page view sidecar; for each region resolves caption via `resolve_region_caption`; converts coords, crops pixels from page `_V.jpg` using Pillow, writes JPEG, writes/updates sidecar, returns count of crops written; skips silently if no regions; skips existing crops without `force`; warns and skips any region whose clamped rectangle is empty
 - [x] 4.4 Add `_write_crop_sidecar(crop_path, view_path, caption, view_state, locations_shown, person_names)` in `ai_photo_crops.py`: calls `assign_document_id`, `write_derived_from`, and `write_pantry_entry` from `xmpmm_provenance`; writes `dc:description` only if `caption` is non-empty; writes `dc:source`; propagates location/date/subject fields from `view_state`; writes `person_names` to `Iptc4xmpExt:PersonInImage`; preserves unrelated existing sidecar fields when the crop sidecar already exists
 - [x] 4.5 Add unit tests for `mwgrs_normalised_to_pixel_rect`: centre region, edge-touching region, out-of-bounds region clamped correctly
 - [x] 4.6 Add unit tests for `crop_page_regions`: no regions -> 0 crops; 2 regions with captions -> correct captions on sidecars; region with empty caption + non-empty page caption -> page caption on sidecar; existing file skipped without force; existing file overwritten with force
@@ -40,7 +40,7 @@
 - [x] 6.2 Add `crop-regions` subcommand to `photoalbums.py` CLI
 - [x] 6.3 Add `--skip-crops` flag to `render-pipeline` subcommand; pass through to `run_render_pipeline`
 - [x] 6.4 Wire `crop-regions` into `run_render_pipeline` between detect-regions and face-refresh; skip if `--skip-crops` is set
-- [x] 6.5 Ensure the crop step only ever reads page `_V.jpg` images and never attempts to crop `_D##-##_V.jpg` derived outputs
+- [x] 6.5 Ensure the crop step only ever reads page `_V.jpg` images and never attempts to crop `_D##-##_V.jpg` derived outputs; derived inputs are skipped explicitly rather than treated as failures
 - [x] 6.6 Add `photoalbums-crop-regions` recipe to `justfile`
 
 ## 7. Tests

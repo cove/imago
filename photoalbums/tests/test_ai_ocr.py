@@ -356,6 +356,50 @@ class TestAIOcr(unittest.TestCase):
             "qwen2.5-vl-instruct",
         )
 
+    def test_lmstudio_ocr_falls_back_to_next_model(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image_path = Path(tmp) / "sample.jpg"
+            Image.new("RGB", (320, 240), color="white").save(image_path)
+            attempted_models = []
+
+            def fake_post(base_url, payload, timeout):
+                attempted_models.append(payload["model"])
+                if payload["model"] == "bad-model":
+                    raise RuntimeError("bad-model failed")
+                return {
+                    "choices": [
+                        {
+                            "finish_reason": "stop",
+                            "message": {"content": json.dumps({"text": "BOOK 11"})},
+                        }
+                    ]
+                }
+
+            with (
+                mock.patch.object(
+                    ai_ocr,
+                    "_build_ocr_data_url",
+                    return_value="data:image/jpeg;base64,abc123",
+                ),
+                mock.patch.object(ai_ocr, "default_ocr_models", return_value=["bad-model", "good-model"]),
+                mock.patch.object(ai_ocr, "default_ocr_model", return_value="bad-model"),
+                mock.patch.object(
+                    ai_ocr,
+                    "_lmstudio_ocr_select_model",
+                    side_effect=lambda base_url, timeout, requested_model="": requested_model,
+                ),
+                mock.patch.object(ai_ocr, "_lmstudio_ocr_post", side_effect=fake_post),
+            ):
+                ocr = ai_ocr.OCREngine(
+                    engine="lmstudio",
+                    base_url="http://127.0.0.1:1234",
+                )
+                text = ocr.read_text(image_path)
+
+        self.assertEqual(text, "BOOK 11")
+        self.assertEqual(attempted_models, ["bad-model", "good-model"])
+        self.assertEqual(ocr.effective_model_name, "good-model")
+
 
 if __name__ == "__main__":
     unittest.main()

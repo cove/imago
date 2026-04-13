@@ -92,7 +92,7 @@ When `just dupes` reports a duplicate-code finding (SKY-C401):
 
 - For Python commands in this repo, do not rely on PATH-resolved `python`.
 - Use `uv sync` from the repo root to create or update the project environment.
-- From the repo root use  `uv run...` for test, lint, and validation commands.
+- From the repo root use  `just ...` for test, lint, and validation commands.
 - Validate changed Python modules with `uv run python -m py_compile` when possible.
 - To run ad-hoc python scripts use `uv run python -c`
 

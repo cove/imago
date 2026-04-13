@@ -11,13 +11,14 @@ import urllib.request
 from pathlib import Path
 
 from .model_store import HF_MODEL_CACHE_DIR
-from .ai_model_settings import default_lmstudio_base_url, default_ocr_model
+from .ai_model_settings import default_lmstudio_base_url, default_ocr_model, default_ocr_models
 from .image_limits import allow_large_pillow_images
 from ._caption_lmstudio import (
     _decode_lmstudio_text,
     _extract_structured_json_payload,
     _format_lmstudio_debug_response,
     _lanczos_resize,
+    _normalize_model_name_candidates,
 )
 from ._lmstudio_helpers import emit_prompt_debug as _emit_prompt_debug, single_string_response_format
 from ._prompt_skill import required_section_text
@@ -402,9 +403,15 @@ class OCREngine:
         self.engine = _normalize_ocr_engine(engine)
         self.language = str(language or "eng").strip() or "eng"
         self.base_url = _normalize_lmstudio_ocr_base_url(base_url) if self.engine == "lmstudio" else ""
-        self._model_name = str(
-            model_name or os.environ.get("LOCAL_OCR_MODEL") or os.environ.get("QWEN_OCR_MODEL") or default_ocr_model()
+        explicit_model_name = str(
+            model_name or os.environ.get("LOCAL_OCR_MODEL") or os.environ.get("QWEN_OCR_MODEL") or ""
         ).strip()
+        self._model_names = (
+            [explicit_model_name]
+            if explicit_model_name
+            else default_ocr_models() or ([default_ocr_model()] if default_ocr_model() else [])
+        )
+        self._model_name = self._model_names[0] if self._model_names else ""
         self._processor = None
         self._model = None
         self._torch = None
@@ -449,6 +456,11 @@ class OCREngine:
         self._model = _load_hf_model(AutoModelForImageTextToText, model_ref, **load_kwargs)
         self._torch = torch
 
+    def _reset_local_state(self) -> None:
+        self._processor = None
+        self._model = None
+        self._torch = None
+
     def _read_text_lmstudio(
         self,
         image_path: str | Path,
@@ -491,7 +503,7 @@ class OCREngine:
             response = _lmstudio_ocr_post(self.base_url, payload, DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS)
             choices = list(response.get("choices") or [])
             if not choices:
-                return ""
+                raise RuntimeError("LM Studio returned no choices.")
             message = dict(choices[0].get("message") or {})
             finish_reason = str(choices[0].get("finish_reason") or "")
             raw_response = _format_lmstudio_debug_response(message.get("content"))
@@ -521,27 +533,14 @@ class OCREngine:
                 metadata=metadata,
             )
 
-    def read_text(
+    def _read_text_local(
         self,
-        image_path: str | Path,
+        path: Path,
         *,
         source_path: str | Path | None = None,
         debug_recorder=None,
         debug_step: str = "ocr",
     ) -> str:
-        path = Path(image_path)
-        if self.engine == "none":
-            return ""
-        if self.engine == "lmstudio":
-            return self._read_text_lmstudio(
-                path,
-                source_path=source_path,
-                debug_recorder=debug_recorder,
-                debug_step=debug_step,
-            )
-        if self.engine != "local":
-            return ""
-
         self._ensure_loaded()
 
         from PIL import Image  # pylint: disable=import-outside-toplevel
@@ -635,6 +634,63 @@ class OCREngine:
             if "working_image" in locals() and working_image is not image:
                 working_image.close()
             image.close()
+
+    def read_text(
+        self,
+        image_path: str | Path,
+        *,
+        source_path: str | Path | None = None,
+        debug_recorder=None,
+        debug_step: str = "ocr",
+    ) -> str:
+        path = Path(image_path)
+        if self.engine == "none":
+            return ""
+        if self.engine == "lmstudio":
+            candidate_models = _normalize_model_name_candidates(self._model_names or [self._model_name]) or [""]
+            last_error: Exception | None = None
+            errors: list[str] = []
+            for candidate in candidate_models:
+                self._model_name = candidate
+                self._lmstudio_model = ""
+                try:
+                    return self._read_text_lmstudio(
+                        path,
+                        source_path=source_path,
+                        debug_recorder=debug_recorder,
+                        debug_step=debug_step,
+                    )
+                except Exception as exc:
+                    last_error = exc
+                    errors.append(f"{candidate}: {exc}")
+                    continue
+            if last_error is not None and len(errors) <= 1:
+                raise last_error
+            attempted = "; ".join(errors)
+            raise RuntimeError(f"LM Studio model fallback failed: {attempted}") from last_error
+        if self.engine != "local":
+            return ""
+        candidate_models = _normalize_model_name_candidates(self._model_names or [self._model_name])
+        last_error: Exception | None = None
+        errors: list[str] = []
+        for candidate in candidate_models:
+            self._model_name = candidate
+            self._reset_local_state()
+            try:
+                return self._read_text_local(
+                    path,
+                    source_path=source_path,
+                    debug_recorder=debug_recorder,
+                    debug_step=debug_step,
+                )
+            except Exception as exc:
+                last_error = exc
+                errors.append(f"{candidate}: {exc}")
+                continue
+        if last_error is not None and len(errors) <= 1:
+            raise last_error
+        attempted = "; ".join(errors)
+        raise RuntimeError(f"Local OCR model fallback failed: {attempted}") from last_error
 
 
 def extract_keywords(text: str, *, max_keywords: int = 15) -> list[str]:

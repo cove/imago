@@ -262,4 +262,8 @@ def find_archive_dir_for_image(image_path: str | Path) -> Path | None:
             sibling = parent.with_name(name[: -len("_View")] + "_Archive")
             if sibling.exists() and sibling.is_dir():
                 return sibling
+        if name.endswith("_Photos"):
+            sibling = parent.with_name(name[: -len("_Photos")] + "_Archive")
+            if sibling.exists() and sibling.is_dir():
+                return sibling
     return None

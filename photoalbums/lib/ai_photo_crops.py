@@ -10,11 +10,19 @@ Entry point: crop_page_regions(view_path, photos_dir, *, force=False)
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import logging
 import re
 from pathlib import Path
 
 log = logging.getLogger(__name__)
+
+
+@dataclass
+class CropPageStats:
+    ignored_empty_regions: int = 0
+    skipped_existing_outputs: bool = False
+    reran_missing_outputs: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -54,6 +62,8 @@ def mwgrs_normalised_to_pixel_rect(
     h: float,
     img_w: int,
     img_h: int,
+    *,
+    warn_on_significant_clamp: bool = True,
 ) -> tuple[int, int, int, int]:
     """Convert MWG-RS centre-point normalised coords to a pixel rectangle.
 
@@ -72,7 +82,7 @@ def mwgrs_normalised_to_pixel_rect(
 
     threshold_w = img_w * 0.05
     threshold_h = img_h * 0.05
-    if (
+    if warn_on_significant_clamp and (
         left - left_f > threshold_w
         or top - top_f > threshold_h
         or right_f - right > threshold_w
@@ -113,6 +123,10 @@ def crop_output_path(view_path: str | Path, region_index: int, photos_dir: str |
     page_prefix = stem[:-2] if stem.endswith("_V") else stem
     filename = f"{page_prefix}_D{region_index:02d}-00_V.jpg"
     return Path(photos_dir) / filename
+
+
+def _expected_crop_output_paths(view_path: str | Path, photos_dir: str | Path, region_count: int) -> list[Path]:
+    return [crop_output_path(view_path, index, photos_dir) for index in range(1, region_count + 1)]
 
 
 # ---------------------------------------------------------------------------
@@ -220,6 +234,7 @@ def crop_page_regions(
     photos_dir: str | Path,
     *,
     force: bool = False,
+    stats: CropPageStats | None = None,
 ) -> int:
     """Crop each detected region from a page view JPEG and write to photos_dir.
 
@@ -242,6 +257,7 @@ def crop_page_regions(
         read_locations_shown,
         read_pipeline_step,
         read_region_list,
+        write_region_list,
         write_pipeline_step,
     )
 
@@ -249,9 +265,8 @@ def crop_page_regions(
     photos_dir = Path(photos_dir)
     view_xmp = view_path.with_suffix(".xmp")
 
-    # Pipeline state check
-    if not force and read_pipeline_step(view_xmp, "crop_regions") is not None:
-        print(f"  [crop-regions] Skipping {view_path.name} (pipeline state present; use --force to rerun)")
+    if _DERIVED_NAME_RE.search(view_path.name):
+        log.info("Skipping derived view crop source: %s", view_path.name)
         return 0
 
     if not view_path.is_file():
@@ -266,10 +281,25 @@ def crop_page_regions(
         log.error("Failed to open %s: %s", view_path, exc)
         return 0
 
+    view_regions_state = read_pipeline_step(view_xmp, "view_regions") or {}
+    if str(view_regions_state.get("result") or "").strip() == "no_regions":
+        write_region_list(view_xmp, [], img_w, img_h)
+        return 0
+
     # Read regions
     regions = read_region_list(view_xmp, img_w, img_h)
     if not regions:
         return 0
+
+    # Pipeline state check
+    if not force and read_pipeline_step(view_xmp, "crop_regions") is not None:
+        if _has_complete_crop_outputs(view_path, photos_dir, len(regions)):
+            if stats is not None:
+                stats.skipped_existing_outputs = True
+            return 0
+        if stats is not None:
+            stats.reran_missing_outputs = True
+        print(f"  [crop-regions] Re-running {view_path.name} (pipeline state present but crop outputs are missing)")
 
     # Force: clear pipeline state and orphaned crops
     if force:
@@ -307,7 +337,29 @@ def crop_page_regions(
                     cy = region["cy"]
                     nw = region["nw"]
                     nh = region["nh"]
-                    left, top, right, bottom = mwgrs_normalised_to_pixel_rect(cx, cy, nw, nh, img_w, img_h)
+                    left, top, right, bottom = mwgrs_normalised_to_pixel_rect(
+                        cx,
+                        cy,
+                        nw,
+                        nh,
+                        img_w,
+                        img_h,
+                        warn_on_significant_clamp=False,
+                    )
+                    if right <= left or bottom <= top:
+                        if stats is not None:
+                            stats.ignored_empty_regions += 1
+                        log.warning(
+                            "Ignoring empty crop region for %s after clamping: rect=(%d, %d, %d, %d) img=(%d, %d)",
+                            view_path.name,
+                            left,
+                            top,
+                            right,
+                            bottom,
+                            img_w,
+                            img_h,
+                        )
+                        continue
                     crop_img = page_img.crop((left, top, right, bottom))
                     crop_img.save(str(output_path), format="JPEG", quality=95)
 
@@ -354,3 +406,10 @@ def _remove_orphaned_crops(view_path: Path, photos_dir: Path, current_region_cou
         if orphan_pattern.match(candidate_stem) and candidate_stem not in expected_stems:
             f.unlink(missing_ok=True)
             log.debug("Removed orphaned crop file: %s", f.name)
+
+
+def _has_complete_crop_outputs(view_path: Path, photos_dir: Path, region_count: int) -> bool:
+    expected_outputs = _expected_crop_output_paths(view_path, photos_dir, region_count)
+    if not expected_outputs:
+        return True
+    return all(output_path.is_file() and output_path.with_suffix(".xmp").is_file() for output_path in expected_outputs)

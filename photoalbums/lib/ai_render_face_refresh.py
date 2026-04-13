@@ -33,7 +33,7 @@ class RenderFaceRefreshSession:
         if not isinstance(existing_sidecar_state, dict):
             raise RuntimeError(f"Rendered sidecar could not be parsed for face refresh: {sidecar_path}")
 
-        effective, settings_sig, creator_tool, date_estimation_enabled = self.runner._resolve_effective_settings(
+        effective, settings_sig, creator_tool, _date_estimation_enabled = self.runner._resolve_effective_settings(
             image_path
         )
         try:
@@ -56,7 +56,7 @@ class RenderFaceRefreshSession:
             effective,
             settings_sig,
             creator_tool,
-            date_estimation_enabled,
+            False,
             existing_sidecar_state,
             read_person_in_image(sidecar_path),
             people_matcher,

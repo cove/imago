@@ -8,7 +8,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Sequence, TypeVar
 
 from ._caption_text import clean_text, clean_lines
 from .image_limits import allow_large_pillow_images
@@ -31,6 +31,8 @@ LMSTUDIO_VISION_MODEL_HINTS = (
     "phi-4-multimodal",
     "qvq",
 )
+
+_T = TypeVar("_T")
 
 
 @dataclass(frozen=True)
@@ -914,6 +916,22 @@ def normalize_lmstudio_base_url(value: str, default: str = DEFAULT_LMSTUDIO_BASE
     return f"{text}/v1"
 
 
+def _normalize_model_name_candidates(model_name: str | Sequence[str]) -> list[str]:
+    if isinstance(model_name, str):
+        candidates = [model_name]
+    else:
+        candidates = list(model_name or [])
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for raw_candidate in candidates:
+        candidate = str(raw_candidate or "").strip()
+        if not candidate or candidate in seen:
+            continue
+        seen.add(candidate)
+        normalized.append(candidate)
+    return normalized
+
+
 _DESCRIBE_CONFIGS: dict[str, tuple] = {
     "photo": (_lmstudio_caption_response_format, _parse_lmstudio_structured_caption),
     "page": (_lmstudio_page_caption_response_format, _parse_lmstudio_page_caption),
@@ -938,7 +956,7 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
     def __init__(
         self,
         *,
-        model_name: str = "",
+        model_name: str | Sequence[str] = "",
         prompt_text: str = "",
         max_new_tokens: int = DEFAULT_LMSTUDIO_MAX_NEW_TOKENS,
         temperature: float = 0.2,
@@ -947,7 +965,8 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
         max_image_edge: int = 0,
         stream: bool = False,
     ):
-        self.model_name = str(model_name or "").strip()
+        self.model_names = _normalize_model_name_candidates(model_name)
+        self.model_name = self.model_names[0] if self.model_names else ""
         self.prompt_text = str(prompt_text or "").strip()
         self.max_new_tokens = max(8, int(max_new_tokens))
         self.temperature = max(0.0, float(temperature))
@@ -959,6 +978,30 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
         self.last_response_text = ""
         self.last_finish_reason = ""
 
+    def _run_with_model_fallback(self, action: Callable[[], _T]) -> _T:
+        errors: list[str] = []
+        candidates = list(self.model_names) or [str(self.model_name or "").strip()]
+        last_error: Exception | None = None
+        for candidate in candidates:
+            self.model_name = candidate
+            self._resolved_model_name = ""
+            self.last_response_text = ""
+            self.last_finish_reason = ""
+            try:
+                result = action()
+            except Exception as exc:
+                last_error = exc
+                errors.append(f"{candidate}: {exc}")
+                continue
+            if self._resolved_model_name:
+                return result
+            self._resolved_model_name = str(candidate or "").strip()
+            return result
+        if last_error is not None and len(errors) <= 1:
+            raise last_error
+        attempted = "; ".join(errors)
+        raise RuntimeError(f"LM Studio model fallback failed: {attempted}") from last_error
+
     def _call_chat_completion(
         self,
         image_path: str | Path,
@@ -968,60 +1011,63 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
         response_format: dict,
         parse_fn: Callable,
     ) -> CaptionDetails:
-        self.last_response_text = ""
-        self.last_finish_reason = ""
-        resize_edge = int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
-        image_url = _build_data_url(image_path, resize_edge)
-        payload = {
-            "model": self._resolve_model_name(),
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": image_url}},
-                    ],
-                },
-            ],
-            "response_format": response_format,
-            "max_tokens": int(self.max_new_tokens),
-            "temperature": float(self.temperature),
-            "stream": self.stream,
-        }
-        if self.stream:
-            print(
-                f"  Running LM Studio model ({self._resolve_model_name()})...",
-                end="",
-                flush=True,
+        def run_request() -> CaptionDetails:
+            resize_edge = (
+                int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
             )
-            tokens: list[str] = []
-            for token in _lmstudio_stream_tokens(
+            image_url = _build_data_url(image_path, resize_edge)
+            payload = {
+                "model": self._resolve_model_name(),
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {"type": "image_url", "image_url": {"url": image_url}},
+                        ],
+                    },
+                ],
+                "response_format": response_format,
+                "max_tokens": int(self.max_new_tokens),
+                "temperature": float(self.temperature),
+                "stream": self.stream,
+            }
+            if self.stream:
+                print(
+                    f"  Running LM Studio model ({self._resolve_model_name()})...",
+                    end="",
+                    flush=True,
+                )
+                tokens: list[str] = []
+                for token in _lmstudio_stream_tokens(
+                    f"{self.base_url}/chat/completions",
+                    payload,
+                    self.timeout_seconds,
+                ):
+                    tokens.append(token)
+                print("\r\033[K", end="", flush=True)
+                self.last_response_text = "".join(tokens)
+                return parse_fn(self.last_response_text)
+            response = _lmstudio_request_json(
                 f"{self.base_url}/chat/completions",
-                payload,
-                self.timeout_seconds,
-            ):
-                tokens.append(token)
-            print("\r\033[K", end="", flush=True)
-            self.last_response_text = "".join(tokens)
-            return parse_fn(self.last_response_text)
-        response = _lmstudio_request_json(
-            f"{self.base_url}/chat/completions",
-            payload=payload,
-            timeout=self.timeout_seconds,
-        )
-        choices = list(response.get("choices") or [])
-        if not choices:
-            return CaptionDetails(text="")
-        message = dict(choices[0].get("message") or {})
-        self.last_finish_reason = str(choices[0].get("finish_reason") or "")
-        self.last_response_text = _format_lmstudio_debug_response(message.get("content"))
-        if not self.last_response_text:
-            self.last_response_text = _format_lmstudio_debug_response(message)
-        return parse_fn(
-            message.get("content"),
-            finish_reason=self.last_finish_reason,
-        )
+                payload=payload,
+                timeout=self.timeout_seconds,
+            )
+            choices = list(response.get("choices") or [])
+            if not choices:
+                raise RuntimeError("LM Studio returned no choices.")
+            message = dict(choices[0].get("message") or {})
+            self.last_finish_reason = str(choices[0].get("finish_reason") or "")
+            self.last_response_text = _format_lmstudio_debug_response(message.get("content"))
+            if not self.last_response_text:
+                self.last_response_text = _format_lmstudio_debug_response(message)
+            return parse_fn(
+                message.get("content"),
+                finish_reason=self.last_finish_reason,
+            )
+
+        return self._run_with_model_fallback(run_request)
 
     def _describe_by_mode(self, image_path: str | Path, *, prompt: str, mode: str) -> CaptionDetails:
         fmt_fn, parse_fn = _DESCRIBE_CONFIGS[mode]
@@ -1046,52 +1092,55 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
         *,
         prompt: str,
     ) -> CaptionDetails:
-        self.last_response_text = ""
-        self.last_finish_reason = ""
-        resize_edge = int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
-        image_url = _build_data_url(image_path, resize_edge)
-        payload = {
-            "model": self._resolve_model_name(),
-            "messages": [
-                {
-                    "role": "system",
-                    "content": people_count_system_prompt(),
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": image_url}},
-                    ],
-                },
-            ],
-            "response_format": _lmstudio_people_count_response_format(),
-            "max_tokens": min(48, int(self.max_new_tokens)),
-            "temperature": 0.0,
-            "stream": False,
-        }
-        response = _lmstudio_request_json(
-            f"{self.base_url}/chat/completions",
-            payload=payload,
-            timeout=self.timeout_seconds,
-        )
-        choices = list(response.get("choices") or [])
-        if not choices:
-            return CaptionDetails(text="")
-        message = dict(choices[0].get("message") or {})
-        self.last_finish_reason = str(choices[0].get("finish_reason") or "")
-        self.last_response_text = _format_lmstudio_debug_response(message.get("content"))
-        if not self.last_response_text:
-            self.last_response_text = _format_lmstudio_debug_response(message)
-        people_present, estimated_people_count = _parse_lmstudio_structured_people_count_payload(
-            message.get("content"),
-            finish_reason=self.last_finish_reason,
-        )
-        return CaptionDetails(
-            text="",
-            people_present=people_present,
-            estimated_people_count=estimated_people_count,
-        )
+        def run_request() -> CaptionDetails:
+            resize_edge = (
+                int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
+            )
+            image_url = _build_data_url(image_path, resize_edge)
+            payload = {
+                "model": self._resolve_model_name(),
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": people_count_system_prompt(),
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {"type": "image_url", "image_url": {"url": image_url}},
+                        ],
+                    },
+                ],
+                "response_format": _lmstudio_people_count_response_format(),
+                "max_tokens": min(48, int(self.max_new_tokens)),
+                "temperature": 0.0,
+                "stream": False,
+            }
+            response = _lmstudio_request_json(
+                f"{self.base_url}/chat/completions",
+                payload=payload,
+                timeout=self.timeout_seconds,
+            )
+            choices = list(response.get("choices") or [])
+            if not choices:
+                raise RuntimeError("LM Studio returned no choices.")
+            message = dict(choices[0].get("message") or {})
+            self.last_finish_reason = str(choices[0].get("finish_reason") or "")
+            self.last_response_text = _format_lmstudio_debug_response(message.get("content"))
+            if not self.last_response_text:
+                self.last_response_text = _format_lmstudio_debug_response(message)
+            people_present, estimated_people_count = _parse_lmstudio_structured_people_count_payload(
+                message.get("content"),
+                finish_reason=self.last_finish_reason,
+            )
+            return CaptionDetails(
+                text="",
+                people_present=people_present,
+                estimated_people_count=estimated_people_count,
+            )
+
+        return self._run_with_model_fallback(run_request)
 
     def estimate_location(
         self,
@@ -1099,53 +1148,56 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
         *,
         prompt: str,
     ) -> CaptionDetails:
-        self.last_response_text = ""
-        self.last_finish_reason = ""
-        resize_edge = int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
-        image_url = _build_data_url(image_path, resize_edge)
-        payload = {
-            "model": self._resolve_model_name(),
-            "messages": [
-                {
-                    "role": "system",
-                    "content": location_system_prompt(),
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": image_url}},
-                    ],
-                },
-            ],
-            "response_format": _lmstudio_location_response_format(),
-            "max_tokens": min(96, int(self.max_new_tokens)),
-            "temperature": 0.0,
-            "stream": False,
-        }
-        response = _lmstudio_request_json(
-            f"{self.base_url}/chat/completions",
-            payload=payload,
-            timeout=self.timeout_seconds,
-        )
-        choices = list(response.get("choices") or [])
-        if not choices:
-            return CaptionDetails(text="")
-        message = dict(choices[0].get("message") or {})
-        self.last_finish_reason = str(choices[0].get("finish_reason") or "")
-        self.last_response_text = _format_lmstudio_debug_response(message.get("content"))
-        if not self.last_response_text:
-            self.last_response_text = _format_lmstudio_debug_response(message)
-        gps_latitude, gps_longitude, location_name = _parse_lmstudio_structured_location_payload(
-            message.get("content"),
-            finish_reason=self.last_finish_reason,
-        )
-        return CaptionDetails(
-            text="",
-            gps_latitude=gps_latitude,
-            gps_longitude=gps_longitude,
-            location_name=location_name,
-        )
+        def run_request() -> CaptionDetails:
+            resize_edge = (
+                int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
+            )
+            image_url = _build_data_url(image_path, resize_edge)
+            payload = {
+                "model": self._resolve_model_name(),
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": location_system_prompt(),
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {"type": "image_url", "image_url": {"url": image_url}},
+                        ],
+                    },
+                ],
+                "response_format": _lmstudio_location_response_format(),
+                "max_tokens": min(96, int(self.max_new_tokens)),
+                "temperature": 0.0,
+                "stream": False,
+            }
+            response = _lmstudio_request_json(
+                f"{self.base_url}/chat/completions",
+                payload=payload,
+                timeout=self.timeout_seconds,
+            )
+            choices = list(response.get("choices") or [])
+            if not choices:
+                raise RuntimeError("LM Studio returned no choices.")
+            message = dict(choices[0].get("message") or {})
+            self.last_finish_reason = str(choices[0].get("finish_reason") or "")
+            self.last_response_text = _format_lmstudio_debug_response(message.get("content"))
+            if not self.last_response_text:
+                self.last_response_text = _format_lmstudio_debug_response(message)
+            gps_latitude, gps_longitude, location_name = _parse_lmstudio_structured_location_payload(
+                message.get("content"),
+                finish_reason=self.last_finish_reason,
+            )
+            return CaptionDetails(
+                text="",
+                gps_latitude=gps_latitude,
+                gps_longitude=gps_longitude,
+                location_name=location_name,
+            )
+
+        return self._run_with_model_fallback(run_request)
 
     def estimate_locations_shown(
         self,
@@ -1153,49 +1205,52 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
         *,
         prompt: str,
     ) -> CaptionDetails:
-        self.last_response_text = ""
-        self.last_finish_reason = ""
-        resize_edge = int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
-        image_url = _build_data_url(image_path, resize_edge)
+        def run_request() -> CaptionDetails:
+            resize_edge = (
+                int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
+            )
+            image_url = _build_data_url(image_path, resize_edge)
 
-        payload = {
-            "model": self._resolve_model_name(),
-            "messages": [
-                {
-                    "role": "system",
-                    "content": location_shown_system_prompt(),
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": image_url}},
-                    ],
-                },
-            ],
-            "response_format": _lmstudio_locations_shown_response_format(),
-            "max_tokens": min(256, int(self.max_new_tokens)),
-            "temperature": 0.0,
-            "stream": False,
-        }
-        response = _lmstudio_request_json(
-            f"{self.base_url}/chat/completions",
-            payload=payload,
-            timeout=self.timeout_seconds,
-        )
-        choices = list(response.get("choices") or [])
-        if not choices:
-            return CaptionDetails(text="")
-        message = dict(choices[0].get("message") or {})
-        self.last_finish_reason = str(choices[0].get("finish_reason") or "")
-        self.last_response_text = _format_lmstudio_debug_response(message.get("content"))
-        if not self.last_response_text:
-            self.last_response_text = _format_lmstudio_debug_response(message)
-        locations_shown = _parse_lmstudio_locations_shown_payload(
-            message.get("content"),
-            finish_reason=self.last_finish_reason,
-        )
-        return CaptionDetails(
-            text="",
-            locations_shown=locations_shown,
-        )
+            payload = {
+                "model": self._resolve_model_name(),
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": location_shown_system_prompt(),
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {"type": "image_url", "image_url": {"url": image_url}},
+                        ],
+                    },
+                ],
+                "response_format": _lmstudio_locations_shown_response_format(),
+                "max_tokens": min(256, int(self.max_new_tokens)),
+                "temperature": 0.0,
+                "stream": False,
+            }
+            response = _lmstudio_request_json(
+                f"{self.base_url}/chat/completions",
+                payload=payload,
+                timeout=self.timeout_seconds,
+            )
+            choices = list(response.get("choices") or [])
+            if not choices:
+                raise RuntimeError("LM Studio returned no choices.")
+            message = dict(choices[0].get("message") or {})
+            self.last_finish_reason = str(choices[0].get("finish_reason") or "")
+            self.last_response_text = _format_lmstudio_debug_response(message.get("content"))
+            if not self.last_response_text:
+                self.last_response_text = _format_lmstudio_debug_response(message)
+            locations_shown = _parse_lmstudio_locations_shown_payload(
+                message.get("content"),
+                finish_reason=self.last_finish_reason,
+            )
+            return CaptionDetails(
+                text="",
+                locations_shown=locations_shown,
+            )
+
+        return self._run_with_model_fallback(run_request)

@@ -52,10 +52,13 @@ class TestAIIndex(unittest.TestCase):
             base = Path(tmp)
             archive = base / "Family_Archive"
             view = base / "Family_View"
+            photos = base / "Family_Photos"
             archive.mkdir()
             view.mkdir()
+            photos.mkdir()
             (archive / "a.jpg").write_bytes(b"a")
             (view / "b.png").write_bytes(b"b")
+            (photos / "c.jpg").write_bytes(b"c")
             (base / "other.jpg").write_bytes(b"c")
 
             files = ai_index.discover_images(
@@ -72,7 +75,7 @@ class TestAIIndex(unittest.TestCase):
                 include_view=True,
                 extensions={".jpg", ".png"},
             )
-            self.assertEqual([p.name for p in files], ["b.png"])
+            self.assertEqual(sorted(p.name for p in files), ["b.png", "c.jpg"])
 
     def test_coalesce_archive_processing_files_keeps_s01_and_preserves_derived_images(self):
         files = [
@@ -138,11 +141,29 @@ class TestAIIndex(unittest.TestCase):
         files = [
             Path("China_1986_B02_Archive/China_1986_B02_P01_S01.tif"),
             Path("China_1986_B02_View/China_1986_B02_P01_V.jpg"),
+            Path("China_1986_B02_Photos/China_1986_B02_P01_D01-00_V.jpg"),
         ]
 
         filtered = ai_index._filter_files_by_tree(files, include_archive=True, include_view=False)
 
         self.assertEqual(filtered, [Path("China_1986_B02_Archive/China_1986_B02_P01_S01.tif")])
+
+    def test_filter_files_by_tree_keeps_photos_when_view_requested(self):
+        files = [
+            Path("China_1986_B02_Archive/China_1986_B02_P01_S01.tif"),
+            Path("China_1986_B02_View/China_1986_B02_P01_V.jpg"),
+            Path("China_1986_B02_Photos/China_1986_B02_P01_D01-00_V.jpg"),
+        ]
+
+        filtered = ai_index._filter_files_by_tree(files, include_archive=False, include_view=True)
+
+        self.assertEqual(
+            filtered,
+            [
+                Path("China_1986_B02_View/China_1986_B02_P01_V.jpg"),
+                Path("China_1986_B02_Photos/China_1986_B02_P01_D01-00_V.jpg"),
+            ],
+        )
 
     def test_expand_album_title_dependencies_prepends_title_page_sources(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -209,7 +209,7 @@ class TestAICaption(unittest.TestCase):
                 ocr_text="",
             )
         ctor.assert_called_once_with(
-            model_name="qwen/qwen3.5-9b",
+            model_name=["qwen/qwen3.5-9b"],
             prompt_text="Describe this exact image",
             max_new_tokens=64,
             temperature=0.1,
@@ -219,6 +219,55 @@ class TestAICaption(unittest.TestCase):
         )
         self.assertEqual(out.engine, "lmstudio")
         self.assertEqual(out.text, "caption text")
+
+    def test_lmstudio_captioner_falls_back_to_next_model(self):
+        response_payload = {
+            "choices": [
+                {
+                    "message": {
+                        "content": json.dumps(
+                            {
+                                "ocr_text": "Temple of Heaven",
+                                "author_text": "Temple of Heaven",
+                                "scene_text": "",
+                                "location_name": "",
+                                "album_title": "",
+                                "ocr_lang": "en",
+                            }
+                        )
+                    }
+                }
+            ]
+        }
+
+        attempted_models = []
+
+        def fake_request(url, *, payload=None, timeout):
+            attempted_models.append(payload["model"])
+            if payload["model"] == "bad-model":
+                raise RuntimeError("bad-model failed")
+            return response_payload
+
+        with tempfile.TemporaryDirectory() as tmp:
+            image_path = Path(tmp) / "sample.jpg"
+            image_path.write_bytes(b"not-a-real-jpeg")
+            with (
+                mock.patch.object(_caption_lmstudio, "_build_data_url", return_value="data:image/jpeg;base64,abc123"),
+                mock.patch.object(_caption_lmstudio, "_lmstudio_request_json", side_effect=fake_request),
+            ):
+                captioner = ai_caption.LMStudioCaptioner(
+                    model_name=["bad-model", "good-model"],
+                    prompt_text="Describe this exact image",
+                    base_url="http://127.0.0.1:1234",
+                )
+                details = captioner.describe(
+                    image_path=image_path,
+                    prompt="Describe this exact image",
+                )
+
+        self.assertEqual(attempted_models, ["bad-model", "good-model"])
+        self.assertEqual(captioner._resolved_model_name, "good-model")
+        self.assertEqual(details.author_text, "Temple of Heaven")
 
    
     def test_estimate_locations_shown_records_shared_location_prompt(self):
