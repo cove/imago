@@ -202,7 +202,14 @@
       "Bash(sed -n '364,372p' photoalbums/tests/test_ai_caption.py)",
       "Bash(sed -n '446,454p' photoalbums/tests/test_ai_caption.py)",
       "Bash(sed -n '555,563p' photoalbums/tests/test_ai_caption.py)",
-      "Bash(sed -n '652,660p' photoalbums/tests/test_ai_caption.py)"
+      "Bash(sed -n '652,660p' photoalbums/tests/test_ai_caption.py)",
+      "Bash(python -c \"from photoalbums.lib.ai_view_regions import validate_region_set, validate_regions_for_write, RegionFailure, ValidationResult, detect_regions; print\\('imports ok'\\)\")",
+      "Bash(python -c \"from photoalbums.commands import run_detect_view_regions, run_crop_regions, run_render_pipeline; print\\('commands ok'\\)\")",
+      "Bash(python -m pytest photoalbums/tests/test_ai_view_regions.py -x -q)",
+      "Bash(python -m pytest photoalbums/tests/ -q)",
+      "Bash(python -m pytest photoalbums/tests/ -q --tb=no)",
+      "Bash(python -m pytest photoalbums/tests/ -q --tb=no -p no:warnings)",
+      "Bash(python -m pytest photoalbums/tests/test_ai_view_regions.py -q --tb=short)"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",

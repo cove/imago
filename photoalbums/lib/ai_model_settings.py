@@ -23,32 +23,47 @@ def _normalize_model_value(value: Any) -> str:
     return str(value or "").strip()
 
 
-def _normalize_model_map(value: Any) -> dict[str, str]:
+def _normalize_model_candidates(value: Any, *, alias: str) -> list[str]:
+    raw_values = value if isinstance(value, list) else [value]
+    models: list[str] = []
+    seen_model_names: set[str] = set()
+    for raw_model_name in raw_values:
+        model_name = _normalize_model_value(raw_model_name)
+        if not model_name:
+            raise RuntimeError(
+                f"AI model settings model '{alias}' must contain only non-empty strings: {AI_MODEL_SETTINGS_PATH}"
+            )
+        if model_name in seen_model_names:
+            raise RuntimeError(
+                f"AI model settings model '{alias}' duplicates '{model_name}': {AI_MODEL_SETTINGS_PATH}"
+            )
+        seen_model_names.add(model_name)
+        models.append(model_name)
+    if not models:
+        raise RuntimeError(
+            f"AI model settings model '{alias}' must contain at least one model name: {AI_MODEL_SETTINGS_PATH}"
+        )
+    return models
+
+
+def _normalize_model_map(value: Any) -> dict[str, list[str]]:
     if not isinstance(value, dict):
         raise RuntimeError(
             f"AI model settings 'models' must be a TOML table mapping aliases to model names: {AI_MODEL_SETTINGS_PATH}"
         )
-    models: dict[str, str] = {}
-    seen_model_names: set[str] = set()
-    for raw_alias, raw_model_name in value.items():
+    models: dict[str, list[str]] = {}
+    for raw_alias, raw_model_names in value.items():
         alias = _normalize_model_value(raw_alias)
-        model_name = _normalize_model_value(raw_model_name)
         if not alias:
             raise RuntimeError(f"AI model settings model aliases must be non-empty strings: {AI_MODEL_SETTINGS_PATH}")
-        if not model_name:
-            raise RuntimeError(
-                f"AI model settings model '{alias}' must be a non-empty string: {AI_MODEL_SETTINGS_PATH}"
-            )
-        if model_name in seen_model_names:
-            raise RuntimeError(f"AI model settings model '{alias}' duplicates '{model_name}': {AI_MODEL_SETTINGS_PATH}")
-        seen_model_names.add(model_name)
-        models[alias] = model_name
+        model_names = _normalize_model_candidates(raw_model_names, alias=alias)
+        models[alias] = model_names
     if not models:
         raise RuntimeError(f"AI model settings 'models' must contain at least one model: {AI_MODEL_SETTINGS_PATH}")
     return models
 
 
-def _resolve_selected_alias(payload: dict[str, Any], models: dict[str, str], field_name: str) -> str:
+def _resolve_selected_alias(payload: dict[str, Any], models: dict[str, list[str]], field_name: str) -> str:
     if field_name not in payload:
         raise RuntimeError(f"AI model settings must define '{field_name}': {AI_MODEL_SETTINGS_PATH}")
     selected = _normalize_model_value(payload.get(field_name))
@@ -68,7 +83,7 @@ def _resolve_lmstudio_base_url(payload: dict[str, Any]) -> str:
     return text or DEFAULT_LMSTUDIO_BASE_URL
 
 
-def _resolve_selected_alias_optional(payload: dict[str, Any], models: dict[str, str], field_name: str) -> str:
+def _resolve_selected_alias_optional(payload: dict[str, Any], models: dict[str, list[str]], field_name: str) -> str:
     selected = _normalize_model_value(payload.get(field_name))
     if not selected:
         return ""
@@ -77,6 +92,28 @@ def _resolve_selected_alias_optional(payload: dict[str, Any], models: dict[str, 
             f"AI model settings '{field_name}' must match one of the configured model aliases: {AI_MODEL_SETTINGS_PATH}"
         )
     return selected
+
+
+def _resolve_model_reference(
+    payload: dict[str, Any],
+    models: dict[str, list[str]],
+    field_name: str,
+    default: str,
+) -> list[str]:
+    selected = _normalize_model_value(payload.get(field_name))
+    if not selected:
+        return [default]
+    if selected in models:
+        return list(models[selected])
+    return [selected]
+
+
+def _first_model_name(models: list[str], default: str = "") -> str:
+    for model_name in list(models or []):
+        text = _normalize_model_value(model_name)
+        if text:
+            return text
+    return default
 
 
 def _resolve_ctm_validation_settings(payload: dict[str, Any]) -> dict[str, float]:
@@ -109,17 +146,24 @@ def load_ai_model_settings() -> dict[str, Any]:
     selected_ocr_model = _resolve_selected_alias(payload, models, "selected_ocr_model")
     selected_caption_model = _resolve_selected_alias(payload, models, "selected_caption_model")
     selected_ctm_model = _resolve_selected_alias_optional(payload, models, "selected_ctm_model")
-    view_region_model = _normalize_model_value(payload.get("view_region_model")) or DEFAULT_VIEW_REGION_MODEL
+    ocr_models = list(models.get(selected_ocr_model, []))
+    caption_models = list(models.get(selected_caption_model, []))
+    ctm_models = list(models.get(selected_ctm_model, []))
+    view_region_models = _resolve_model_reference(payload, models, "view_region_model", DEFAULT_VIEW_REGION_MODEL)
     return {
         "models": models,
         "selected_ocr_model": selected_ocr_model,
         "selected_caption_model": selected_caption_model,
         "selected_ctm_model": selected_ctm_model,
-        "ocr_model": models.get(selected_ocr_model, DEFAULT_OCR_MODEL),
-        "caption_model": models.get(selected_caption_model, DEFAULT_CAPTION_MODEL),
-        "ctm_model": models.get(selected_ctm_model, DEFAULT_CTM_MODEL),
+        "ocr_models": ocr_models,
+        "caption_models": caption_models,
+        "ctm_models": ctm_models,
+        "view_region_models": view_region_models,
+        "ocr_model": _first_model_name(ocr_models, DEFAULT_OCR_MODEL),
+        "caption_model": _first_model_name(caption_models, DEFAULT_CAPTION_MODEL),
+        "ctm_model": _first_model_name(ctm_models, DEFAULT_CTM_MODEL),
         "ctm_validation": _resolve_ctm_validation_settings(payload),
-        "view_region_model": view_region_model,
+        "view_region_model": _first_model_name(view_region_models, DEFAULT_VIEW_REGION_MODEL),
         "lmstudio_base_url": _resolve_lmstudio_base_url(payload),
     }
 
@@ -128,12 +172,24 @@ def default_ocr_model() -> str:
     return str(load_ai_model_settings()["ocr_model"])
 
 
+def default_ocr_models() -> list[str]:
+    return list(load_ai_model_settings()["ocr_models"])
+
+
 def default_caption_model() -> str:
     return str(load_ai_model_settings()["caption_model"])
 
 
+def default_caption_models() -> list[str]:
+    return list(load_ai_model_settings()["caption_models"])
+
+
 def default_view_region_model() -> str:
     return str(load_ai_model_settings()["view_region_model"])
+
+
+def default_view_region_models() -> list[str]:
+    return list(load_ai_model_settings()["view_region_models"])
 
 
 def default_lmstudio_base_url() -> str:
@@ -142,6 +198,10 @@ def default_lmstudio_base_url() -> str:
 
 def default_ctm_model() -> str:
     return str(load_ai_model_settings()["ctm_model"])
+
+
+def default_ctm_models() -> list[str]:
+    return list(load_ai_model_settings()["ctm_models"])
 
 
 def default_ctm_validation_settings() -> dict[str, float]:

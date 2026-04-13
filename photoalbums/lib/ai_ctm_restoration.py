@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 from urllib import request
 
-from .ai_model_settings import default_ctm_model, default_ctm_validation_settings, default_lmstudio_base_url
+from .ai_model_settings import default_ctm_model, default_ctm_models, default_ctm_validation_settings, default_lmstudio_base_url
 from .xmp_sidecar import read_ctm_from_archive_xmp, write_ctm_to_archive_xmp
 
 CTM_SCHEMA_NAME = "photoalbum_ctm_restoration"
@@ -75,7 +75,7 @@ def _request_payload(*, image_path: Path, model_name: str, strict: bool) -> dict
     user_text = (
         "Estimate a 3x3 color transformation matrix that reduces red-shift caused by cyan dye failure. "
         "Return only valid structured JSON. The matrix must be row-major with 9 numeric coefficients. "
-        "Keep the transform conservative and suitable for archival chromatic restoration."
+        "Make the transform conservative and suitable for archival chromatic restoration."
     )
     if strict:
         user_text += " If unsure, still return the best conservative matrix and explain warnings briefly."
@@ -240,24 +240,37 @@ def generate_ctm_for_image(
     validation_settings: dict[str, float] | None = None,
 ) -> CTMResult:
     image_path = Path(image_path)
-    selected_model = str(model_name or default_ctm_model()).strip()
-    if not selected_model:
+    selected_models = [str(model_name).strip()] if str(model_name or "").strip() else default_ctm_models()
+    if not selected_models:
+        fallback_model = str(default_ctm_model() or "").strip()
+        if fallback_model:
+            selected_models = [fallback_model]
+    if not selected_models:
         raise CTMValidationError("No CTM model configured")
     url = str(base_url or default_lmstudio_base_url()).rstrip("/") + "/chat/completions"
     last_error: Exception | None = None
-    for strict in (False, True, True):
-        try:
-            payload = _post_json(
-                url,
-                _request_payload(image_path=image_path, model_name=selected_model, strict=strict),
-                timeout=timeout_seconds,
-            )
-            text = _extract_text_from_response(payload)
-            result = parse_ctm_response(text, model_name=selected_model, source_path=str(image_path))
-            return validate_ctm_result(result, settings=validation_settings)
-        except Exception as exc:  # noqa: BLE001
-            last_error = exc
-    raise CTMValidationError(f"Failed to generate CTM for {image_path}: {last_error}")
+    errors: list[str] = []
+    for selected_model in selected_models:
+        model_error: Exception | None = None
+        for strict in (False, True, True):
+            try:
+                payload = _post_json(
+                    url,
+                    _request_payload(image_path=image_path, model_name=selected_model, strict=strict),
+                    timeout=timeout_seconds,
+                )
+                text = _extract_text_from_response(payload)
+                result = parse_ctm_response(text, model_name=selected_model, source_path=str(image_path))
+                return validate_ctm_result(result, settings=validation_settings)
+            except Exception as exc:  # noqa: BLE001
+                model_error = exc
+                last_error = exc
+        if model_error is not None:
+            errors.append(f"{selected_model}: {model_error}")
+    if last_error is not None and len(errors) <= 1:
+        raise CTMValidationError(f"Failed to generate CTM for {image_path}: {last_error}") from last_error
+    attempted = "; ".join(errors)
+    raise CTMValidationError(f"Failed to generate CTM for {image_path}: {attempted}") from last_error
 
 
 def apply_ctm_to_jpeg(jpeg_path: str | Path, matrix: list[float] | tuple[float, ...]) -> None:

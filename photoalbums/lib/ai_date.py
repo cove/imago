@@ -10,12 +10,13 @@ from ._caption_lmstudio import (
     _extract_structured_json_payload,
     _format_lmstudio_debug_response,
     _lmstudio_request_json,
+    _normalize_model_name_candidates,
     _select_lmstudio_model,
     normalize_lmstudio_base_url,
 )
 from ._lmstudio_helpers import LMStudioModelResolverMixin, emit_prompt_debug, single_string_response_format
 from ._prompt_skill import required_section_text
-from .ai_model_settings import default_caption_model, default_lmstudio_base_url
+from .ai_model_settings import default_caption_model, default_caption_models, default_lmstudio_base_url
 from .xmp_sidecar import _normalize_dc_date
 
 
@@ -97,7 +98,11 @@ class DateEstimateEngine(LMStudioModelResolverMixin):
         if normalized not in {"none", "lmstudio"}:
             raise ValueError(f"Unsupported date estimate engine: {engine}")
         self.engine = normalized
-        self.model_name = str(model_name or "").strip() or default_caption_model()
+        if str(model_name or "").strip():
+            self.model_names = [str(model_name).strip()]
+        else:
+            self.model_names = default_caption_models() or ([default_caption_model()] if default_caption_model() else [])
+        self.model_name = self.model_names[0] if self.model_names else ""
         self.base_url = normalize_lmstudio_base_url(
             str(lmstudio_base_url or "").strip(),
             default=default_lmstudio_base_url(),
@@ -112,6 +117,31 @@ class DateEstimateEngine(LMStudioModelResolverMixin):
     @property
     def effective_model_name(self) -> str:
         return str(self._resolved_model_name or self.model_name)
+
+    def _run_with_model_fallback(self, action):
+        errors: list[str] = []
+        candidates = _normalize_model_name_candidates(self.model_names or [self.model_name])
+        if not candidates:
+            candidates = [""]
+        last_error: Exception | None = None
+        for candidate in candidates:
+            self.model_name = candidate
+            self._resolved_model_name = ""
+            self.last_response_text = ""
+            self.last_finish_reason = ""
+            try:
+                result = action()
+            except Exception as exc:
+                last_error = exc
+                errors.append(f"{candidate}: {exc}")
+                continue
+            if not self._resolved_model_name:
+                self._resolved_model_name = str(candidate or "").strip()
+            return result
+        if last_error is not None and len(errors) <= 1:
+            raise last_error
+        attempted = "; ".join(errors)
+        raise RuntimeError(f"LM Studio model fallback failed: {attempted}") from last_error
 
     def estimate(
         self,
@@ -143,36 +173,39 @@ class DateEstimateEngine(LMStudioModelResolverMixin):
             )
             return DateEstimateOutput(engine=self.engine, fallback=True, error="")
         try:
-            payload = {
-                "model": self._resolve_model_name(),
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt},
-                ],
-                "response_format": _date_estimate_response_format(),
-                "max_tokens": min(128, int(self.max_tokens)),
-                "temperature": float(self.temperature),
-                "stream": False,
-            }
-            response_payload = _lmstudio_request_json(
-                f"{self.base_url}/chat/completions",
-                payload=payload,
-                timeout=self.timeout_seconds,
-            )
-            choices = list(response_payload.get("choices") or [])
-            if not choices:
-                return DateEstimateOutput(engine=self.engine, fallback=True, error="LM Studio returned no choices.")
-            message = dict(choices[0].get("message") or {})
-            self.last_finish_reason = str(choices[0].get("finish_reason") or "")
-            self.last_response_text = _format_lmstudio_debug_response(message.get("content"))
-            if not self.last_response_text:
-                self.last_response_text = _format_lmstudio_debug_response(message)
+            def run_request() -> str:
+                payload = {
+                    "model": self._resolve_model_name(),
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt},
+                    ],
+                    "response_format": _date_estimate_response_format(),
+                    "max_tokens": min(128, int(self.max_tokens)),
+                    "temperature": float(self.temperature),
+                    "stream": False,
+                }
+                response_payload = _lmstudio_request_json(
+                    f"{self.base_url}/chat/completions",
+                    payload=payload,
+                    timeout=self.timeout_seconds,
+                )
+                choices = list(response_payload.get("choices") or [])
+                if not choices:
+                    raise RuntimeError("LM Studio returned no choices.")
+                message = dict(choices[0].get("message") or {})
+                self.last_finish_reason = str(choices[0].get("finish_reason") or "")
+                self.last_response_text = _format_lmstudio_debug_response(message.get("content"))
+                if not self.last_response_text:
+                    self.last_response_text = _format_lmstudio_debug_response(message)
+                return _parse_date_estimate(
+                    message.get("content"),
+                    finish_reason=self.last_finish_reason,
+                )
+
+            estimated_date = self._run_with_model_fallback(run_request)
             response = self.last_response_text
             finish_reason = self.last_finish_reason
-            estimated_date = _parse_date_estimate(
-                message.get("content"),
-                finish_reason=self.last_finish_reason,
-            )
             return DateEstimateOutput(engine=self.engine, date=estimated_date, fallback=False, error="")
         except Exception as exc:
             response = str(self.last_response_text or "")

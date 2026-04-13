@@ -22,7 +22,7 @@ from photoalbums.lib.ai_photo_crops import (
     mwgrs_normalised_to_pixel_rect,
     resolve_region_caption,
 )
-from photoalbums.lib.xmp_sidecar import read_pipeline_step, write_pipeline_step
+from photoalbums.lib.xmp_sidecar import read_pipeline_step, read_region_list, write_pipeline_step
 
 
 # ---------------------------------------------------------------------------
@@ -153,6 +153,28 @@ def _write_region_xmp(xmp_path: Path, regions: list[dict], img_w: int, img_h: in
 
 
 class TestCropPageRegions(unittest.TestCase):
+    def test_derived_view_input_is_skipped(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            img_w, img_h = 200, 100
+            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir.mkdir()
+            photos_dir = Path(tmp) / "Egypt_1975_Photos"
+            view_jpg = view_dir / "Egypt_1975_B00_P01_D01-01_V.jpg"
+            view_xmp = view_jpg.with_suffix(".xmp")
+            _make_minimal_jpeg(view_jpg, img_w, img_h)
+            _write_region_xmp(
+                view_xmp,
+                [
+                    {"index": 0, "x": 0, "y": 0, "width": 200, "height": 100, "caption": "Derived"},
+                ],
+                img_w,
+                img_h,
+            )
+
+            count = crop_page_regions(view_jpg, photos_dir)
+            self.assertEqual(count, 0)
+            self.assertFalse(photos_dir.exists())
+
     def test_no_regions_returns_zero_crops(self):
         with tempfile.TemporaryDirectory() as tmp:
             view_dir = Path(tmp) / "Egypt_1975_View"
@@ -163,6 +185,30 @@ class TestCropPageRegions(unittest.TestCase):
             # No XMP sidecar -> no regions
             count = crop_page_regions(view_jpg, photos_dir)
             self.assertEqual(count, 0)
+            self.assertFalse(photos_dir.exists())
+
+    def test_no_regions_pipeline_state_clears_stale_region_list(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir.mkdir()
+            photos_dir = Path(tmp) / "Egypt_1975_Photos"
+            view_jpg = view_dir / "Egypt_1975_B00_P01_V.jpg"
+            view_xmp = view_jpg.with_suffix(".xmp")
+            _make_minimal_jpeg(view_jpg, 200, 100)
+            _write_region_xmp(
+                view_xmp,
+                [
+                    {"index": 0, "x": 200, "y": 100, "width": 200, "height": 100, "caption": "Overflow"},
+                ],
+                200,
+                100,
+            )
+            write_pipeline_step(view_xmp, "view_regions", model="test-model", extra={"result": "no_regions"})
+
+            count = crop_page_regions(view_jpg, photos_dir)
+
+            self.assertEqual(count, 0)
+            self.assertEqual(read_region_list(view_xmp, 200, 100), [])
             self.assertFalse(photos_dir.exists())
 
     def test_two_regions_writes_two_crops(self):
@@ -280,6 +326,31 @@ class TestCropPageRegions(unittest.TestCase):
             self.assertEqual(count, 1)
             # File should be a proper JPEG now
             self.assertNotEqual(existing_crop.read_bytes(), b"old content")
+
+    def test_empty_clamped_region_is_skipped(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            img_w, img_h = 200, 100
+            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir.mkdir()
+            photos_dir = Path(tmp) / "Egypt_1975_Photos"
+            view_jpg = view_dir / "Egypt_1975_B00_P01_V.jpg"
+            view_xmp = view_jpg.with_suffix(".xmp")
+            _make_minimal_jpeg(view_jpg, img_w, img_h)
+            _write_region_xmp(
+                view_xmp,
+                [
+                    {"index": 0, "x": img_w, "y": img_h, "width": img_w, "height": img_h, "caption": "Overflow"},
+                ],
+                img_w,
+                img_h,
+            )
+
+            with self.assertLogs("photoalbums.lib.ai_photo_crops", level="WARNING") as logs:
+                count = crop_page_regions(view_jpg, photos_dir)
+
+            self.assertEqual(count, 0)
+            self.assertTrue(any("Ignoring empty crop region" in line for line in logs.output))
+            self.assertFalse((photos_dir / "Egypt_1975_B00_P01_D01-00_V.jpg").exists())
 
 
 # ---------------------------------------------------------------------------
@@ -524,6 +595,39 @@ class TestCropPageRegionsPipelineState(unittest.TestCase):
             # State still written after force run
             self.assertIsNotNone(read_pipeline_step(view_xmp, "crop_regions"))
 
+    def test_missing_outputs_rerun_even_when_pipeline_state_exists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            img_w, img_h = 200, 100
+            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir.mkdir()
+            photos_dir = Path(tmp) / "Egypt_1975_Photos"
+            view_jpg = view_dir / "Egypt_1975_B00_P26_V.jpg"
+            view_xmp = view_jpg.with_suffix(".xmp")
+            _make_minimal_jpeg(view_jpg, img_w, img_h)
+            _write_region_xmp(
+                view_xmp,
+                [
+                    {"index": 0, "x": 0, "y": 0, "width": 100, "height": 100},
+                    {"index": 1, "x": 100, "y": 0, "width": 100, "height": 100},
+                ],
+                img_w,
+                img_h,
+            )
+
+            count1 = crop_page_regions(view_jpg, photos_dir)
+            self.assertEqual(count1, 2)
+            self.assertIsNotNone(read_pipeline_step(view_xmp, "crop_regions"))
+
+            missing_crop = photos_dir / "Egypt_1975_B00_P26_D02-00_V.jpg"
+            missing_sidecar = missing_crop.with_suffix(".xmp")
+            missing_crop.unlink()
+            missing_sidecar.unlink()
+
+            count2 = crop_page_regions(view_jpg, photos_dir)
+            self.assertEqual(count2, 1)
+            self.assertTrue(missing_crop.exists())
+            self.assertTrue(missing_sidecar.exists())
+
     def test_orphan_cleanup_on_force(self):
         with tempfile.TemporaryDirectory() as tmp:
             img_w, img_h = 200, 100
@@ -579,17 +683,18 @@ if __name__ == "__main__":
 class TestIntegrationCropPipeline(unittest.TestCase):
     """Integration tests for the full crop-regions pipeline step."""
 
-    def _setup_album(self, tmp: str, img_w: int = 200, img_h: int = 100) -> tuple:
+    def _setup_album(self, tmp: str, img_w: int = 200, img_h: int = 100, page: int = 1) -> tuple:
         """Create a minimal album structure. Returns (view_dir, photos_dir, view_jpg, view_xmp)."""
         root = Path(tmp)
         archive_dir = root / "Egypt_1975_Archive"
         archive_dir.mkdir(parents=True)
-        scan = archive_dir / "Egypt_1975_B00_P01_S01.tif"
+        page_token = f"P{page:02d}"
+        scan = archive_dir / f"Egypt_1975_B00_{page_token}_S01.tif"
         scan.write_bytes(b"tif")
         view_dir = root / "Egypt_1975_View"
         view_dir.mkdir(parents=True)
         photos_dir = root / "Egypt_1975_Photos"
-        view_jpg = view_dir / "Egypt_1975_B00_P01_V.jpg"
+        view_jpg = view_dir / f"Egypt_1975_B00_{page_token}_V.jpg"
         view_xmp = view_jpg.with_suffix(".xmp")
         _make_minimal_jpeg(view_jpg, img_w, img_h)
         return view_dir, photos_dir, view_jpg, view_xmp
@@ -710,7 +815,7 @@ class TestIntegrationCropPipeline(unittest.TestCase):
 
     def test_render_pipeline_releases_page_lock_on_failure(self):
         with tempfile.TemporaryDirectory() as tmp:
-            _, _, view_jpg, _ = self._setup_album(tmp, 200, 100)
+            _, _, view_jpg, _ = self._setup_album(tmp, 200, 100, page=26)
 
             with (
                 mock.patch("photoalbums.lib.ai_view_regions.detect_regions", side_effect=RuntimeError("boom")),
@@ -769,3 +874,69 @@ class TestIntegrationCropPipeline(unittest.TestCase):
                 crop_xmp = photos_dir / f"Egypt_1975_B00_P01_D{idx:02d}-00_V.xmp"
                 xml = crop_xmp.read_text(encoding="utf-8")
                 self.assertIn("Family reunion 1975", xml)
+
+    def test_run_crop_regions_generates_missing_view_regions_before_cropping(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            img_w, img_h = 200, 100
+            _, photos_dir, _, view_xmp = self._setup_album(tmp, img_w, img_h, page=26)
+
+            from photoalbums.commands import run_crop_regions
+            from photoalbums.lib.ai_view_regions import RegionResult
+            from photoalbums.lib.xmp_sidecar import write_xmp_sidecar
+
+            write_xmp_sidecar(
+                view_xmp,
+                creator_tool="test",
+                person_names=[],
+                subjects=[],
+                description="Egypt trip 1975",
+                ocr_text="",
+            )
+
+            with (
+                mock.patch(
+                    "photoalbums.lib.ai_view_regions.detect_regions",
+                    return_value=[RegionResult(index=0, x=0, y=0, width=200, height=100, caption_hint="Pyramid")],
+                ) as detect_mock,
+                mock.patch("photoalbums.lib.ai_model_settings.default_view_region_model", return_value="test-model"),
+                mock.patch("photoalbums.lib.album_sets.find_archive_set_by_photos_root", return_value=""),
+                mock.patch("photoalbums.lib.album_sets.read_people_roster", return_value={}),
+            ):
+                exit_code = run_crop_regions(
+                    album_id="Egypt_1975",
+                    photos_root=str(Path(tmp)),
+                    page=None,
+                    force=False,
+                )
+
+            self.assertEqual(exit_code, 0)
+            detect_mock.assert_called_once()
+            self.assertTrue((photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg").exists())
+
+    def test_run_crop_regions_skips_title_page_p01(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _, photos_dir, _, view_xmp = self._setup_album(tmp, 200, 100, page=1)
+
+            from photoalbums.commands import run_crop_regions
+            from photoalbums.lib.xmp_sidecar import write_xmp_sidecar
+
+            write_xmp_sidecar(
+                view_xmp,
+                creator_tool="test",
+                person_names=[],
+                subjects=[],
+                description="Egypt trip 1975",
+                ocr_text="",
+            )
+
+            with mock.patch("photoalbums.lib.ai_view_regions.detect_regions") as detect_mock:
+                exit_code = run_crop_regions(
+                    album_id="Egypt_1975",
+                    photos_root=str(Path(tmp)),
+                    page=None,
+                    force=False,
+                )
+
+            self.assertEqual(exit_code, 0)
+            detect_mock.assert_not_called()
+            self.assertFalse(any(photos_dir.glob("*.jpg")))

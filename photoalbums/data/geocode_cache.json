@@ -18013,6 +18013,18 @@
     "state": "",
     "status": "ok"
   },
+  "south america, brazil": {
+    "city": "Americana",
+    "country": "Brazil",
+    "display_name": "South America, Brazil, Americana, Sao Paulo, Brazil",
+    "latitude": "-22.6965925",
+    "longitude": "-47.3652706",
+    "query": "South America, Brazil",
+    "source": "nominatim",
+    "state": "São Paulo",
+    "status": "ok",
+    "sublocation": ""
+  },
   "south of london, england": {
     "display_name": "Islamic Centre of England, Kilburn High Road, South Hampstead, London Borough of Camden, Greater London, England, W9 1QB, United Kingdom",
     "latitude": "51.5353509",
@@ -18182,6 +18194,18 @@
     "source": "nominatim",
     "state": "Community of Madrid",
     "status": "ok"
+  },
+  "spain, morocco": {
+    "city": "Madrid",
+    "country": "Spain",
+    "display_name": "Spain, Morocco, Madrid, Community of Madrid, Spain",
+    "latitude": "40.4221104",
+    "longitude": "-3.7073814",
+    "query": "Spain, Morocco",
+    "source": "nominatim",
+    "state": "Community of Madrid",
+    "status": "ok",
+    "sublocation": "7 Calle del Marqués de Leganés"
   },
   "spanish riding school, vienna, austria": {
     "city": "Vienna",

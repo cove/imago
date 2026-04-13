@@ -18,7 +18,7 @@ The `_View/` and `_Archive/` directory naming pattern is established by `get_vie
 - Archival TIF crops (crops are JPEG view outputs only)
 - Re-running region detection if no regions exist (crop step skips silently if `mwg-rs:RegionList` is absent or empty)
 - Scaling or padding crops (write exact pixel rectangle)
-- Cropping derived `_D##-##_V.jpg` outputs
+- Cropping derived `_D##-##_V.jpg` outputs; those inputs are skipped entirely and never treated as crop sources
 
 ## Decisions
 
@@ -34,6 +34,8 @@ Region index is 1-based (matching MWG-RS `mwg-rs:Name` values `photo_1`, `photo_
 
 `crop_page_regions(view_path, photos_dir, *, force=False)` is called inside the same per-page loop that calls render, detect-regions, face-refresh, and ctm-apply. This avoids a second album scan and keeps all page work grouped together.
 
+Only page `_V.jpg` files are valid crop sources. Render-produced derived `_D##-##_V.jpg` outputs are already standalone images, so the crop step must skip them rather than attempting to interpret them as page layouts.
+
 ### Pipeline state is tracked on the page view sidecar, not on each crop
 
 `pipeline.crop_regions` is written to the page `_V.jpg` sidecar when all crops for that page complete. If any crop fails mid-page, the state is not written and the step re-runs on the next pipeline invocation. Individual crop sidecars do not carry a crop-step `pipeline` key.
@@ -41,6 +43,8 @@ Region index is 1-based (matching MWG-RS `mwg-rs:Name` values `photo_1`, `photo_
 ### MWG-RS normalised coords convert to pixel rectangles for crop
 
 `mwg-rs:stArea:x/y/w/h` are centre-point normalised (0-1). Convert to top-left pixel rect: `left = (cx - w/2) * img_w`, `top = (cy - h/2) * img_h`, etc. Clamp to image bounds before cropping.
+
+If clamping collapses the rectangle to zero width or zero height, that region is considered invalid for crop output. The step logs a warning and skips that region instead of trying to write an empty JPEG.
 
 ### Crops are cut from raw pixels; face refresh runs before CTM apply
 
@@ -63,6 +67,8 @@ The crop sidecar is created if missing and otherwise updated in place. The crop 
 |---|---|
 | No regions detected for a page | Crop step skips silently; no crops written; pipeline continues |
 | Region bounds extend beyond image edge | Clamp rect to `[0, img_w] x [0, img_h]` before crop; log a warning if clamp was significant (>5% of dimension) |
+| Region clamps to an empty rectangle | Log a warning and skip that region; continue remaining crops for the page |
+| Crop step invoked on `_D##-##_V.jpg` derived output | Skip that file entirely; crop generation only accepts page `_V.jpg` inputs |
 | Existing crops present but regions have changed | `--force` removes orphaned crop files for outputs that no longer correspond to a region while preserving matching sidecars in place |
 | `_Photos/` directory missing on first run | `mkdir(parents=True, exist_ok=True)` on first write |
 | Face-refresh skipped for crops | Crop JPEGs remain valid outputs; CTM can still be applied later and the page failure summary will show the face-refresh failure |

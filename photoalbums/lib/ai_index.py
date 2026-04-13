@@ -303,10 +303,11 @@ def discover_images(
         parent_names = {parent.name for parent in path.parents}
         in_archive = any(name.endswith("_Archive") for name in parent_names)
         in_view = any(name.endswith("_View") for name in parent_names)
+        in_photos = any(name.endswith("_Photos") for name in parent_names)
         if in_archive and include_archive:
             files.append(path)
             continue
-        if in_view and include_view:
+        if include_view and (in_view or in_photos):
             files.append(path)
             continue
     files.sort()
@@ -400,10 +401,11 @@ def _filter_files_by_tree(files: list[Path], *, include_archive: bool, include_v
         parent_names = {parent.name for parent in image_path.parents}
         in_archive = any(name.endswith("_Archive") for name in parent_names)
         in_view = any(name.endswith("_View") for name in parent_names)
+        in_photos = any(name.endswith("_Photos") for name in parent_names)
         if in_archive and include_archive:
             filtered.append(image_path)
             continue
-        if in_view and include_view:
+        if include_view and (in_view or in_photos):
             filtered.append(image_path)
             continue
     return filtered

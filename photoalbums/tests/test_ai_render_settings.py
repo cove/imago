@@ -33,6 +33,16 @@ class TestAIRenderSettings(unittest.TestCase):
             image.write_bytes(b"x")
             self.assertEqual(ars.find_archive_dir_for_image(image), archive)
 
+    def test_find_archive_dir_for_photos_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / "Family_Archive"
+            photos = Path(tmp) / "Family_Photos"
+            archive.mkdir()
+            photos.mkdir()
+            image = photos / "Family_2020_B01_P01_D01-00_V.jpg"
+            image.write_bytes(b"x")
+            self.assertEqual(ars.find_archive_dir_for_image(image), archive)
+
     def test_load_and_resolve_settings(self):
         with tempfile.TemporaryDirectory() as tmp:
             archive = Path(tmp) / "Family_Archive"

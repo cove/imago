@@ -37,7 +37,7 @@ def _write_minimal_xmp(path: Path, description: str = "") -> None:
     )
 
 
-def _make_test_album(root: Path, album: str = "Egypt_1975_B00") -> dict:
+def _make_test_album(root: Path, album: str = "Egypt_1975_B00", page: int = 26) -> dict:
     """Create a minimal archive+view directory structure for pipeline tests."""
     archive = root / f"{album}_Archive"
     view = root / f"{album}_View"
@@ -47,11 +47,12 @@ def _make_test_album(root: Path, album: str = "Egypt_1975_B00") -> dict:
     photos.mkdir(parents=True)
 
     # Create minimal scan file
-    scan = archive / f"{album}_P26_S01.tif"
+    page_token = f"P{page:02d}"
+    scan = archive / f"{album}_{page_token}_S01.tif"
     scan.write_bytes(b"tif")
 
     # Create pre-existing view JPEG and XMP (simulates a previous render)
-    view_jpg = view / f"{album}_P26_V.jpg"
+    view_jpg = view / f"{album}_{page_token}_V.jpg"
     view_jpg.write_bytes(b"viewjpeg")
     view_xmp = view_jpg.with_suffix(".xmp")
     _write_minimal_xmp(view_xmp, "A lovely page")
@@ -81,8 +82,17 @@ class TestRunRenderPipelineSkipsSteps(unittest.TestCase):
             dirs = _make_test_album(root)
             view_xmp = dirs["view_xmp"]
 
+            from photoalbums.lib.ai_view_regions import RegionResult, RegionWithCaption
+            from photoalbums.lib.xmp_sidecar import write_region_list
+
+            write_region_list(
+                view_xmp,
+                [RegionWithCaption(RegionResult(index=0, x=0, y=0, width=60, height=100), "")],
+                100,
+                100,
+            )
             # Pre-record the view_regions pipeline step
-            write_pipeline_step(view_xmp, "view_regions", model="test-model", extra={"result": "no_regions"})
+            write_pipeline_step(view_xmp, "view_regions", model="test-model", extra={"result": "regions_found"})
 
             captured = StringIO()
             with (
@@ -90,6 +100,7 @@ class TestRunRenderPipelineSkipsSteps(unittest.TestCase):
                 mock.patch("photoalbums.commands._release_page_pipeline_lock"),
                 mock.patch("photoalbums.stitch_oversized_pages.tif_to_jpg", return_value=False),
                 mock.patch("photoalbums.stitch_oversized_pages.stitch", return_value=False),
+                mock.patch("photoalbums.lib.ai_view_regions._image_dimensions", return_value=(100, 100)),
                 mock.patch("photoalbums.commands.run_render_pipeline.__wrapped__", side_effect=None) if hasattr(commands.run_render_pipeline, "__wrapped__") else mock.MagicMock(),
                 redirect_stdout(captured),
             ):
@@ -102,7 +113,7 @@ class TestRunRenderPipelineSkipsSteps(unittest.TestCase):
                 )
 
             self.assertEqual(result, 0)
-            self.assertIn("Skipping", captured.getvalue())
+            self.assertEqual(captured.getvalue(), "")
 
     def test_force_clears_view_regions_state(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -138,6 +149,73 @@ class TestRunRenderPipelineSkipsSteps(unittest.TestCase):
             self.assertIsNotNone(state)
             self.assertEqual(state.get("model"), "new-model")  # type: ignore[union-attr]
 
+    def test_render_pipeline_reruns_view_regions_when_region_list_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            dirs = _make_test_album(root)
+            view_xmp = dirs["view_xmp"]
+            write_pipeline_step(view_xmp, "view_regions", model="test-model", extra={"result": "regions_found"})
+
+            mock_regions = []
+
+            with (
+                mock.patch("photoalbums.commands._acquire_page_pipeline_lock", return_value=None),
+                mock.patch("photoalbums.commands._release_page_pipeline_lock"),
+                mock.patch("photoalbums.stitch_oversized_pages.tif_to_jpg", return_value=False),
+                mock.patch("photoalbums.stitch_oversized_pages.stitch", return_value=False),
+                mock.patch("photoalbums.stitch_oversized_pages.list_derived_images", return_value=[]),
+                mock.patch("photoalbums.lib.ai_view_regions.detect_regions", return_value=mock_regions) as detect_mock,
+                mock.patch("photoalbums.lib.ai_view_regions._image_dimensions", return_value=(100, 100)),
+                mock.patch("photoalbums.lib.ai_model_settings.default_view_region_model", return_value="gemma4"),
+                mock.patch("photoalbums.lib.album_sets.find_archive_set_by_photos_root", return_value=""),
+                mock.patch("photoalbums.lib.album_sets.read_people_roster", return_value={}),
+                mock.patch("photoalbums.lib.xmp_sidecar.read_ai_sidecar_state", return_value={}),
+                mock.patch("photoalbums.lib.ai_render_face_refresh.RenderFaceRefreshSession"),
+                redirect_stdout(StringIO()),
+            ):
+                result = commands.run_render_pipeline(
+                    album_id="Egypt_1975_B00",
+                    photos_root=str(root),
+                    page=None,
+                    force=False,
+                    skip_crops=True,
+                )
+
+            self.assertEqual(result, 0)
+            detect_mock.assert_called_once()
+
+    def test_render_pipeline_skips_title_page_region_steps(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _make_test_album(root, page=1)
+
+            captured = StringIO()
+            with (
+                mock.patch("photoalbums.commands._acquire_page_pipeline_lock", return_value=None),
+                mock.patch("photoalbums.commands._release_page_pipeline_lock"),
+                mock.patch("photoalbums.stitch_oversized_pages.tif_to_jpg", return_value=False),
+                mock.patch("photoalbums.stitch_oversized_pages.stitch", return_value=False),
+                mock.patch("photoalbums.stitch_oversized_pages.list_derived_images", return_value=[]),
+                mock.patch("photoalbums.lib.ai_view_regions.detect_regions") as detect_mock,
+                mock.patch("photoalbums.lib.ai_photo_crops.crop_page_regions") as crop_mock,
+                mock.patch("photoalbums.lib.ai_render_face_refresh.RenderFaceRefreshSession"),
+                redirect_stdout(captured),
+            ):
+                result = commands.run_render_pipeline(
+                    album_id="Egypt_1975_B00",
+                    photos_root=str(root),
+                    page=None,
+                    force=False,
+                    skip_crops=False,
+                )
+
+            self.assertEqual(result, 0)
+            detect_mock.assert_not_called()
+            crop_mock.assert_not_called()
+            output = captured.getvalue()
+            self.assertIn("detect-regions: skipped title page (P01)", output)
+            self.assertIn("crop-regions: skipped title page (P01)", output)
+
 
 class TestRunRenderPipelineNoRegions(unittest.TestCase):
     """Title page with no detected regions records no_regions state and does not fail."""
@@ -148,6 +226,7 @@ class TestRunRenderPipelineNoRegions(unittest.TestCase):
             dirs = _make_test_album(root, "Egypt_1975_B00")
             view_xmp = dirs["view_xmp"]
 
+            captured = StringIO()
             with (
                 mock.patch(
                     "photoalbums.lib.ai_view_regions.detect_regions",
@@ -158,7 +237,8 @@ class TestRunRenderPipelineNoRegions(unittest.TestCase):
                 mock.patch("photoalbums.lib.album_sets.find_archive_set_by_photos_root", return_value=""),
                 mock.patch("photoalbums.lib.album_sets.read_people_roster", return_value={}),
                 mock.patch("photoalbums.lib.xmp_sidecar.read_ai_sidecar_state", return_value={}),
-                redirect_stdout(StringIO()),
+                mock.patch("photoalbums.lib.ai_render_face_refresh.RenderFaceRefreshSession"),
+                redirect_stdout(captured),
             ):
                 result = commands.run_detect_view_regions(
                     album_id="Egypt_1975_B00",
@@ -171,6 +251,43 @@ class TestRunRenderPipelineNoRegions(unittest.TestCase):
             state = read_pipeline_step(view_xmp, "view_regions")
             self.assertIsNotNone(state)
             self.assertEqual(state.get("result"), "no_regions")  # type: ignore[union-attr]
+
+    def test_render_pipeline_prints_summary(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _make_test_album(root, "Egypt_1975_B00")
+
+            captured = StringIO()
+            with (
+                mock.patch("photoalbums.commands._acquire_page_pipeline_lock", return_value=None),
+                mock.patch("photoalbums.commands._release_page_pipeline_lock"),
+                mock.patch("photoalbums.stitch_oversized_pages.tif_to_jpg", return_value=False),
+                mock.patch("photoalbums.stitch_oversized_pages.stitch", return_value=False),
+                mock.patch("photoalbums.stitch_oversized_pages.list_derived_images", return_value=[]),
+                mock.patch("photoalbums.lib.ai_view_regions.detect_regions", return_value=[]),
+                mock.patch("photoalbums.lib.ai_view_regions._image_dimensions", return_value=(100, 100)),
+                mock.patch("photoalbums.lib.ai_model_settings.default_view_region_model", return_value="gemma4"),
+                mock.patch("photoalbums.lib.album_sets.find_archive_set_by_photos_root", return_value=""),
+                mock.patch("photoalbums.lib.album_sets.read_people_roster", return_value={}),
+                mock.patch("photoalbums.lib.xmp_sidecar.read_ai_sidecar_state", return_value={}),
+                mock.patch("photoalbums.lib.ai_render_face_refresh.RenderFaceRefreshSession"),
+                redirect_stdout(captured),
+            ):
+                result = commands.run_render_pipeline(
+                    album_id="Egypt_1975_B00",
+                    photos_root=str(root),
+                    page=None,
+                    force=False,
+                    skip_crops=True,
+                )
+
+            self.assertEqual(result, 0)
+            output = captured.getvalue()
+            self.assertIn("===== PIPELINE SUMMARY =====", output)
+            self.assertIn("Pages: 1 total, 1 completed, 0 failed", output)
+            self.assertIn("Warnings: 0", output)
+            self.assertIn("Errors: 0", output)
+            self.assertIn("Detect regions: 0 found, 1 no-regions, 0 skipped, 0 rerun", output)
 
 
 class TestRunRenderPipelineProvenance(unittest.TestCase):

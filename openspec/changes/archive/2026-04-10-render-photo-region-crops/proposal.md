@@ -11,6 +11,8 @@ Region detection identifies individual photo boundaries within a stitched view J
 - A `--skip-crops` flag suppresses the step without breaking the rest of the pipeline
 - Pipeline state tracked in `imago:Detections` so crops are not regenerated on subsequent runs unless `--force` is passed
 - Standalone CLI command `photoalbums crop-regions` for running the step independently
+- Crop generation only accepts page `_V.jpg` inputs; derived `_D##-##_V.jpg` render outputs are skipped and never treated as crop sources
+- Regions whose clamped bounds collapse to zero area are skipped with a warning instead of failing the page
 
 ## Capabilities
 

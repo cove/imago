@@ -44,7 +44,9 @@ class TestRunCTM(unittest.TestCase):
             )
 
             with (
-                mock.patch("photoalbums.stitch_oversized_pages.list_archive_dirs", return_value=[str(archive_dir)]),
+                mock.patch(
+                    "photoalbums.stitch_oversized_pages.list_archive_dirs", return_value=[str(archive_dir)]
+                ) as archive_dirs_mock,
                 mock.patch("photoalbums.stitch_oversized_pages.list_page_scans", return_value=[[str(scan)]]),
                 mock.patch("photoalbums.stitch_oversized_pages._require_primary_scan", return_value=str(scan)),
                 mock.patch(
@@ -57,6 +59,7 @@ class TestRunCTM(unittest.TestCase):
                     exit_code = commands.run_ctm(["generate", "--photos-root", str(root)])
 
             self.assertEqual(exit_code, 0)
+            archive_dirs_mock.assert_called_once_with(root)
             generate_mock.assert_called_once_with(
                 view,
                 archive_sidecar_path=scan.with_suffix(".xmp"),
@@ -315,7 +318,9 @@ class TestRunCTM(unittest.TestCase):
             )
 
             with (
-                mock.patch("photoalbums.stitch_oversized_pages.list_archive_dirs", return_value=[str(archive_dir)]),
+                mock.patch(
+                    "photoalbums.stitch_oversized_pages.list_archive_dirs", return_value=[str(archive_dir)]
+                ) as archive_dirs_mock,
                 mock.patch("photoalbums.stitch_oversized_pages.list_page_scans", return_value=[[str(scan)]]),
                 mock.patch("photoalbums.stitch_oversized_pages._require_primary_scan", return_value=str(scan)),
                 mock.patch("photoalbums.lib.ai_ctm_restoration.apply_ctm_to_jpeg") as apply_mock,
@@ -328,6 +333,7 @@ class TestRunCTM(unittest.TestCase):
                 )
 
                 self.assertEqual(exit_code, 0)
+                archive_dirs_mock.assert_called_once_with(root)
                 self.assertEqual(
                     [call.args[0] for call in apply_mock.call_args_list],
                     [view, crop],

@@ -28,6 +28,7 @@ class TestAIModelSettings(unittest.TestCase):
                     selected_ocr_model = "fast"
                     selected_caption_model = "big"
                     selected_ctm_model = "restoration"
+                    view_region_model = "restoration"
                     lmstudio_base_url = "http://lmstudio.local:1234/v1"
 
                     [ctm_validation]
@@ -37,9 +38,9 @@ class TestAIModelSettings(unittest.TestCase):
                     max_clipping_ratio = 0.25
 
                     [models]
-                    big = "qwen/qwen3-vl-30b"
-                    fast = "qwen/qwen3.5-9b"
-                    restoration = "google/gemma-4-31b-it"
+                    big = ["qwen/qwen3-vl-30b", "qwen/qwen3-vl-32b"]
+                    fast = ["qwen/qwen3.5-9b"]
+                    restoration = ["google/gemma-4-31b-it", "google/gemma-4-27b-it"]
                     """
                 ).strip()
                 + "\n",
@@ -54,20 +55,45 @@ class TestAIModelSettings(unittest.TestCase):
                 self.assertEqual(loaded["ocr_model"], "qwen/qwen3.5-9b")
                 self.assertEqual(loaded["caption_model"], "qwen/qwen3-vl-30b")
                 self.assertEqual(loaded["ctm_model"], "google/gemma-4-31b-it")
+                self.assertEqual(loaded["ocr_models"], ["qwen/qwen3.5-9b"])
+                self.assertEqual(loaded["caption_models"], ["qwen/qwen3-vl-30b", "qwen/qwen3-vl-32b"])
+                self.assertEqual(
+                    loaded["ctm_models"],
+                    ["google/gemma-4-31b-it", "google/gemma-4-27b-it"],
+                )
+                self.assertEqual(
+                    loaded["view_region_models"],
+                    ["google/gemma-4-31b-it", "google/gemma-4-27b-it"],
+                )
+                self.assertEqual(loaded["view_region_model"], "google/gemma-4-31b-it")
                 self.assertEqual(loaded["lmstudio_base_url"], "http://lmstudio.local:1234/v1")
                 self.assertEqual(
                     ai_model_settings.default_ocr_model(),
                     "qwen/qwen3.5-9b",
                 )
+                self.assertEqual(ai_model_settings.default_ocr_models(), ["qwen/qwen3.5-9b"])
                 self.assertEqual(
                     ai_model_settings.default_caption_model(),
                     "qwen/qwen3-vl-30b",
+                )
+                self.assertEqual(
+                    ai_model_settings.default_caption_models(),
+                    ["qwen/qwen3-vl-30b", "qwen/qwen3-vl-32b"],
                 )
                 self.assertEqual(
                     ai_model_settings.default_lmstudio_base_url(),
                     "http://lmstudio.local:1234/v1",
                 )
                 self.assertEqual(ai_model_settings.default_ctm_model(), "google/gemma-4-31b-it")
+                self.assertEqual(
+                    ai_model_settings.default_ctm_models(),
+                    ["google/gemma-4-31b-it", "google/gemma-4-27b-it"],
+                )
+                self.assertEqual(ai_model_settings.default_view_region_model(), "google/gemma-4-31b-it")
+                self.assertEqual(
+                    ai_model_settings.default_view_region_models(),
+                    ["google/gemma-4-31b-it", "google/gemma-4-27b-it"],
+                )
                 self.assertEqual(
                     ai_model_settings.default_ctm_validation_settings(),
                     {
@@ -81,9 +107,9 @@ class TestAIModelSettings(unittest.TestCase):
         self.assertEqual(
             loaded["models"],
             {
-                "big": "qwen/qwen3-vl-30b",
-                "fast": "qwen/qwen3.5-9b",
-                "restoration": "google/gemma-4-31b-it",
+                "big": ["qwen/qwen3-vl-30b", "qwen/qwen3-vl-32b"],
+                "fast": ["qwen/qwen3.5-9b"],
+                "restoration": ["google/gemma-4-31b-it", "google/gemma-4-27b-it"],
             },
         )
 
@@ -97,7 +123,7 @@ class TestAIModelSettings(unittest.TestCase):
                     selected_caption_model = "big"
 
                     [models]
-                    big = "qwen/qwen3-vl-30b"
+                    big = ["qwen/qwen3-vl-30b"]
                     """
                 ).strip()
                 + "\n",
@@ -140,7 +166,7 @@ class TestAIModelSettings(unittest.TestCase):
                     selected_caption_model = "big"
 
                     [models]
-                    big = "qwen/qwen3-vl-30b"
+                    big = ["qwen/qwen3-vl-30b"]
                     """
                 ).strip()
                 + "\n",
@@ -151,6 +177,30 @@ class TestAIModelSettings(unittest.TestCase):
                 loaded = ai_model_settings.load_ai_model_settings()
 
         self.assertEqual(loaded["lmstudio_base_url"], "http://localhost:1234/v1")
+
+    def test_load_ai_model_settings_allows_direct_view_region_model_identifier(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "ai_models.toml"
+            path.write_text(
+                textwrap.dedent(
+                    """
+                    selected_ocr_model = "big"
+                    selected_caption_model = "big"
+                    view_region_model = "google/gemma-4-26b-a4b"
+
+                    [models]
+                    big = ["qwen/qwen3-vl-30b"]
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            with mock.patch.object(ai_model_settings, "AI_MODEL_SETTINGS_PATH", path):
+                ai_model_settings.load_ai_model_settings.cache_clear()
+                loaded = ai_model_settings.load_ai_model_settings()
+
+        self.assertEqual(loaded["view_region_model"], "google/gemma-4-26b-a4b")
+        self.assertEqual(loaded["view_region_models"], ["google/gemma-4-26b-a4b"])
 
 
 if __name__ == "__main__":

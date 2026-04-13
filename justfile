@@ -92,11 +92,20 @@ photoalbums-render:
 photoalbums-render-validate:
   {{python}} photoalbums.py render validate
 
-photoalbums-detect-regions:
-  {{python}} photoalbums.py detect-view-regions --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums"
+photoalbums-detect-regions *args:
+  {{python}} photoalbums.py detect-view-regions --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
 
 photoalbums-crop-regions:
   {{python}} photoalbums.py crop-regions --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums"
+
+photoalbums-ctm-generate *args:
+  {{python}} photoalbums.py ctm generate --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
+
+photoalbums-ctm-review *args:
+  {{python}} photoalbums.py ctm review --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
+
+photoalbums-ctm-apply *args:
+  {{python}} photoalbums.py ctm-apply --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
 
 photoalbums-render-pipeline:
   {{python}} photoalbums.py render-pipeline --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums"

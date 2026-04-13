@@ -115,6 +115,16 @@ def build_parser() -> argparse.ArgumentParser:
     detect_vr_parser.add_argument("--photos-root", required=True, help="Path to the Photo Albums root directory")
     detect_vr_parser.add_argument("--page", default=None, help="Page number to process (e.g. '26'); omit for all pages")
     detect_vr_parser.add_argument("--force", action="store_true", help="Re-run detection even if regions already exist")
+    detect_vr_parser.add_argument(
+        "--redo-no-regions",
+        action="store_true",
+        help="Re-run detection on pages previously marked as having no regions",
+    )
+    detect_vr_parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Write per-image region detection request/response debug artifacts.",
+    )
 
     crop_regions_parser = subparsers.add_parser(
         "crop-regions",
@@ -153,6 +163,11 @@ def build_parser() -> argparse.ArgumentParser:
     render_pipeline_parser.add_argument("--page", default=None, help="Page number to process; omit for all pages")
     render_pipeline_parser.add_argument("--force", action="store_true", help="Re-run all pipeline steps")
     render_pipeline_parser.add_argument("--skip-crops", action="store_true", help="Skip the crop-regions step")
+    render_pipeline_parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Write per-image region detection request/response debug artifacts.",
+    )
 
     checksum_parser = subparsers.add_parser("checksum", help="Checksum manifest commands")
     checksum_sub = checksum_parser.add_subparsers(dest="checksum_kind", required=True)
@@ -238,6 +253,8 @@ def main(argv: list[str] | None = None) -> int:
             photos_root=args.photos_root,
             page=args.page,
             force=args.force,
+            redo_no_regions=bool(getattr(args, "redo_no_regions", False)),
+            debug=bool(getattr(args, "debug", False)),
         )
 
     if args.group == "crop-regions":
@@ -263,6 +280,7 @@ def main(argv: list[str] | None = None) -> int:
             page=args.page,
             force=args.force,
             skip_crops=bool(getattr(args, "skip_crops", False)),
+            debug=bool(getattr(args, "debug", False)),
         )
 
     if args.group == "ctm-apply":

@@ -83,6 +83,39 @@ class TestAICTMRestoration(unittest.TestCase):
             assert state is not None
             self.assertEqual(state["source_image_path"], image.name)
 
+    def test_generate_ctm_for_image_falls_back_to_next_model(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "image.jpg"
+            image.write_bytes(b"fake-jpeg")
+            attempted_models = []
+
+            def fake_post(url, payload, timeout):
+                attempted_models.append(payload["model"])
+                if payload["model"] == "bad-model":
+                    raise RuntimeError("bad-model failed")
+                return {
+                    "choices": [
+                        {
+                            "message": {
+                                "content": '{"matrix":[1.0,0,0,0,1.0,0,0,0,1.0],"confidence":0.8,"warnings":[],"reasoning_summary":"ok"}'
+                            }
+                        }
+                    ]
+                }
+
+            with (
+                mock.patch.object(ai_ctm_restoration, "_post_json", side_effect=fake_post),
+                mock.patch.object(ai_ctm_restoration, "default_ctm_models", return_value=["bad-model", "good-model"]),
+                mock.patch.object(ai_ctm_restoration, "default_ctm_model", return_value="bad-model"),
+                mock.patch.object(
+                    ai_ctm_restoration, "default_lmstudio_base_url", return_value="http://localhost:1234/v1"
+                ),
+            ):
+                result = ai_ctm_restoration.generate_ctm_for_image(image)
+
+        self.assertEqual(attempted_models[:4], ["bad-model", "bad-model", "bad-model", "good-model"])
+        self.assertEqual(result.model_name, "good-model")
+
     def test_apply_ctm_to_jpeg_identity_matrix_leaves_pixels_unchanged(self):
         try:
             import numpy as np

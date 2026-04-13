@@ -4,7 +4,7 @@ import urllib.request  # noqa: F401 — kept at module level for test patching v
 from dataclasses import dataclass
 from pathlib import Path
 
-from .ai_model_settings import default_caption_model, default_lmstudio_base_url
+from .ai_model_settings import default_caption_model, default_caption_models, default_lmstudio_base_url
 from ._caption_text import clean_text, clean_lines, dedupe, join_human  # noqa: F401
 from ._lmstudio_helpers import emit_prompt_debug as _emit_prompt_debug
 from ._caption_lmstudio import (  # noqa: F401
@@ -63,16 +63,22 @@ def _caption_has_meaningful_content(caption) -> bool:
 
 
 def resolve_caption_model(engine: str, model_name: str) -> str:
+    models = resolve_caption_models(engine, model_name)
+    return models[0] if models else ""
+
+
+def resolve_caption_models(engine: str, model_name: str) -> list[str]:
     normalized = str(engine or "").strip().lower()
     if normalized in {"qwen", "blip", "local"}:
         normalized = "lmstudio"
     text = str(model_name or "").strip()
     if text:
-        return text
-    configured = default_caption_model()
+        return [text]
+    configured = default_caption_models()
     if configured:
         return configured
-    return ""
+    fallback = default_caption_model()
+    return [fallback] if fallback else []
 
 
 @dataclass
@@ -146,7 +152,8 @@ class CaptionEngine:
             raise ValueError(f"Unsupported caption engine: {engine}")
         self.engine = normalized
         self._captioner = None
-        self._model_name = resolve_caption_model(normalized, model_name)
+        self._model_names = resolve_caption_models(normalized, model_name)
+        self._model_name = self._model_names[0] if self._model_names else ""
         self._caption_prompt = str(caption_prompt or "").strip()
         self._max_tokens = int(max_tokens)
         self._temperature = float(temperature)
@@ -171,7 +178,7 @@ class CaptionEngine:
         if self._captioner is not None:
             return
         self._captioner = LMStudioCaptioner(
-            model_name=self._model_name,
+            model_name=self._model_names,
             prompt_text=self._caption_prompt,
             max_new_tokens=self._max_tokens,
             temperature=self._temperature,
