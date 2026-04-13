@@ -1,7 +1,7 @@
 selected_ocr_model = "pc"
 selected_caption_model = "pc"
 selected_ctm_model = "pc"
-view_region_model = "pc"
+view_region_model = "docling"
 lmstudio_base_url = "http://127.0.0.1:1234/v1"
 
 [ctm_validation]
@@ -14,3 +14,4 @@ max_clipping_ratio = 0.34
 pc = [ "google/gemma-4-e2b"]
 primary = ["gemma-4-31b-it"]
 fallback = "google/gemma-4-e4b"
+docling = "granite-docling-258m"

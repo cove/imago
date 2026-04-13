@@ -204,6 +204,10 @@ def _write_crop_sidecar(
             seen.add(s)
             subjects.append(s)
 
+    ocr_text = str(view_state.get("ocr_text") or "").strip()
+    if not caption and ocr_text:
+        caption = ocr_text
+
     write_xmp_sidecar(
         crop_xmp,
         creator_tool="imago-crop-regions",
@@ -220,7 +224,7 @@ def _write_crop_sidecar(
         create_date=str(view_state.get("create_date") or "").strip(),
         dc_date=list(view_state.get("dc_date_values") or []),
         locations_shown=locations_shown,
-        ocr_text="",
+        ocr_text=ocr_text,
     )
 
 
