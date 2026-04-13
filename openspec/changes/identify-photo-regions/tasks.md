@@ -46,29 +46,25 @@
 - [x] 8.2 Include original image pixel dimensions in the user prompt (e.g. `"The full image is 3840×2880 pixels."`) to help the model reason about region boundaries at the correct scale
 - [x] 8.3 Set model temperature to `0.0` for fully deterministic region output
 
-## 9. Docling Engine — Config & Integration
+## 9. Docling Model — Parser & Integration
 
-- [ ] 9.1 Add `view_region_engine` key to `ai_models.toml` (values: `lmstudio` | `docling`; default: `lmstudio`) and expose it through `ai_model_settings.py`
-- [ ] 9.2 Add `docling` to project dependencies (`pyproject.toml` / `requirements.txt`)
-- [ ] 9.3 Create `photoalbums/lib/_docling_regions.py` with `detect_regions_docling(image_path, converter) -> list[RegionResult]` that calls `DocumentConverter`, extracts `PICTURE` elements, and converts docling bounding boxes to pixel `RegionResult` objects; direct docling's HF model downloads to `HF_MODEL_CACHE_DIR` (same as `ai_ocr.py`)
-- [ ] 9.4 Implement `DocumentConverter` reuse: instantiate once per CLI/MCP run and pass it into `detect_regions_docling()`, mirroring the existing `caption_engine_cache` / `ocr_engine_cache` pattern
-- [ ] 9.5 In `_docling_regions.py`, after extracting `PICTURE` elements and before caption association, merge any pair of regions that overlap by more than 15% of the smaller region's area into a single union bounding box; apply iteratively until no merging pairs remain (mirrors `_merge_boxes()` in `ai_page_layout.py`)
-- [ ] 9.6 Implement docling caption extraction in `_docling_regions.py` (runs after merge): collect `TEXT` elements from the same docling pass and associate using two rules — (1) centered-page caption: TEXT whose horizontal centre is in the middle third of the page and not adjacent to any photo boundary → broadcast to all regions with `caption_ambiguous=True`; (2) proximity caption: TEXT within one text-line height of one or more photo boundaries → associate with the photo(s) whose horizontal span it overlaps, broadcasting if it overlaps more than one
-- [ ] 9.7 Wire engine selection into `ai_view_regions.detect_regions_for_view()`: when `engine == "docling"` call `_docling_regions.detect_regions_docling`; skip the LM Studio retry loop entirely
-- [ ] 9.8 Write `view_regions` pipeline step in all outcomes: `result: "regions_found"` + `model: "docling"` on success; `result: "no_regions"` when no `PICTURE` elements found; `result: "validation_failed"` when validation fails (prevents infinite re-runs since docling is deterministic; re-processing requires `--force`)
+- [x] 9.1 Add a `docling` alias to `[models]` in `photoalbums/ai_models.toml` pointing to `granite-docling-258m`; set `view_region_model = "docling"` to activate it (the model alias name contains "docling", which triggers the docling code path by substring match)
+- [x] 9.2 Create `photoalbums/lib/_docling_parser.py` with `parse_doctag_response(content, img_w, img_h) -> list[RegionResult]` — parses the `<doctag>` XML returned by the granite-docling model; each `<picture>` element yields one `RegionResult`; the four `<loc_X>` child tags give top/left/bottom/right on a 0–500 scale, converted to pixel coordinates as `loc / 500 * dimension`; a `<caption>` child element sets `caption_hint` on that region
+- [x] 9.3 In `_docling_parser.py`, after building the initial region list, merge region pairs that overlap by more than 15% of the smaller area into a single union bounding box; repeat iteratively until no pairs exceed the threshold; merged regions carry no `caption_hint` (caption association runs after)
+- [x] 9.4 In `_docling_parser.py`, after merging, associate `<paragraph>` elements as caption fallback for regions whose `caption_hint` is still empty: assign a paragraph whose horizontal span overlaps the region and sits within one text-line height of its boundary; if a paragraph overlaps multiple regions equally, set `caption_ambiguous=True` on all; a paragraph centred in the middle third of the page width that is not adjacent to any single region is also broadcast to all regions with `caption_ambiguous=True`
+- [x] 9.5 In `ai_view_regions.detect_regions()`, before the existing LM Studio call, check if the resolved model name contains `"docling"` (case-insensitive); if so: send prompt `"Convert this page to docling."` with the image (no `response_format` schema), pass the raw text response to `parse_doctag_response()`, skip the repair-prompt retry loop, and handle outcomes as follows: regions pass validation → return them; no `<picture>` elements in response → write `view_regions` pipeline step `result: "no_regions"` and return `[]`; validation fails → write `view_regions` pipeline step `result: "validation_failed"` and return `[]` (the step prevents re-runs; `--force` clears it)
 
-## 9a. Tests for Docling Integration Code
+## 9a. Tests for Docling Parser Code
 
-- [ ] 9a.1 Test `_merge_overlapping_regions()`: two regions overlapping >15% → merged into union box; two regions overlapping ≤5% → unchanged; three-way chain merge (A overlaps B, B overlaps C) → all three merged
-- [ ] 9a.2 Test caption association rules: centered TEXT → broadcast to all regions; TEXT below one photo within threshold → assigned to that region only; TEXT below two photos → broadcast to both; TEXT outside all thresholds → ignored
-- [ ] 9a.3 Test coordinate conversion: given a mock docling bounding box and page size, verify the output pixel `RegionResult` matches expected values (exercises our conversion code, not docling internals)
+- [x] 9a.1 Test `parse_doctag_response()` using a doctag string with four `<picture>` elements (one with an embedded `<caption>`): verify pixel bounding boxes match expected conversions and `caption_hint` is extracted correctly
+- [x] 9a.2 Test merge logic in isolation: two regions overlapping >15% → merged to union box; two regions overlapping ≤5% → unchanged; three-way chain (A overlaps B, B overlaps C) → all three merged into one
+- [x] 9a.3 Test paragraph caption association: embedded `<caption>` takes priority over nearby `<paragraph>`; nearby `<paragraph>` fills empty `caption_hint`; centered paragraph broadcasts to all; paragraph outside threshold leaves `caption_hint` empty
 
 ## 10. OCR Text Propagation to Crop Sidecars
 
-- [ ] 10.1 In `ai_photo_crops._write_crop_sidecar()`: (1) set `dc:description` to the docling-extracted region caption; if that is empty, use the source view's `ocr_text` from `view_state` as the fallback; (2) always write the source view's `ocr_text` to `imago:OCRText` on the crop sidecar regardless of which value was used for `dc:description` (note: field name is `imago:OCRText`, matching `xmp_sidecar.py` line 826)
-- [ ] 10.2 Add unit tests: (a) docling caption present → used as `dc:description`, OCR text written to `imago:OCRText`; (b) no docling caption, OCR text present → OCR text used as both `dc:description` and `imago:OCRText`; (c) both empty → both fields empty, no error
+- [ ] 10.1 In `ai_photo_crops._write_crop_sidecar()`, `view_state` is already loaded from the source view's XMP sidecar before this function is called; replace the hardcoded `ocr_text=""` arg to `write_xmp_sidecar()` with `str(view_state.get("ocr_text") or "").strip()`; also update the `caption` local variable: if `resolve_region_caption()` returns empty and `ocr_text` is non-empty, set `caption = ocr_text` before passing to `write_xmp_sidecar()` (field is written as `imago:OCRText` per `xmp_sidecar.py` line 826)
+- [ ] 10.2 Add unit tests: (a) caption present → used as `dc:description`, OCR text written to `imago:OCRText`; (b) no caption, OCR text present → OCR text used as both `dc:description` and `imago:OCRText`; (c) both empty → both fields empty, no error
 
-## 11. CLI & MCP Updates for Docling Engine
+## 11. CLI & MCP — No Changes Required
 
-- [ ] 11.1 Expose `--engine lmstudio|docling` flag on the `detect-view-regions` CLI subcommand; default reads from `ai_models.toml`
-- [ ] 11.2 Update `photoalbums_detect_view_regions` MCP tool to pass engine selection through to `detect_regions_for_view()`
+The detect-view-regions command in `commands.py` reads `model_name = default_view_region_model()` from config and passes it through to `detect_regions()`. Switching to the docling model only requires changing the active alias in `ai_models.toml` (task 9.1). No new CLI flags or MCP tool changes are needed.

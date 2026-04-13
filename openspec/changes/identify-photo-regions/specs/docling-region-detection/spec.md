@@ -1,111 +1,102 @@
 ## ADDED Requirements
 
-### Requirement: Docling is selectable as the view-region detection engine
-The system SHALL support a `view_region_engine` config key in `ai_models.toml` with accepted values `lmstudio` (existing default) and `docling`. When `docling` is selected, the LM Studio vision API is not called; instead, docling's Python API processes the view image locally.
+### Requirement: Docling detection uses the existing LM Studio infrastructure
+When a view-region model whose name contains the substring `"docling"` (case-insensitive) is active, the system SHALL send the image to LM Studio using the same HTTP infrastructure as the existing Gemma4 path, but with a docling conversion prompt and a `<doctag>` response parser instead of the JSON bounding-box prompt and JSON parser. No new Python dependencies are required.
 
-#### Scenario: Engine defaults to lmstudio when not configured
-- **WHEN** `ai_models.toml` has no `view_region_engine` key
-- **THEN** the system behaves identically to the existing implementation (Gemma4 via LM Studio)
+#### Scenario: Docling model selected in ai_models.toml
+- **WHEN** the active `view_region_model` resolves to a model name containing `"docling"` (e.g. `granite-docling-258m`)
+- **THEN** the system uses the docling prompt and `<doctag>` parser; the LM Studio `response_format` JSON schema is NOT sent (the model returns plain text)
 
-#### Scenario: Docling engine selected
-- **WHEN** `ai_models.toml` contains `view_region_engine = "docling"`
-- **THEN** region detection uses docling's Python API and does not make any LM Studio HTTP calls
-
----
-
-### Requirement: Docling detects photo regions via layout analysis
-The system SHALL call docling's `DocumentConverter` on the view image and extract all items with label `DocItemLabel.PICTURE` as the detected photo regions. The resulting regions are written as a `mwg-rs:RegionList` to the view image's XMP sidecar using the existing `write_region_list()` path — identical output format to the LM Studio engine. The existing `crop_page_regions()` function reads from that XMP sidecar without any knowledge of which engine produced the regions.
-
-#### Scenario: Multiple photos on a page
-- **WHEN** docling processes a view image containing N distinct photograph prints
-- **THEN** the system returns N `RegionResult` objects, one per `PICTURE` element, with pixel bounding boxes derived from docling's provenance data
-
-#### Scenario: No pictures detected
-- **WHEN** docling finds no `PICTURE` elements
-- **THEN** the system returns an empty region list, logs a warning, writes no `mwg-rs:RegionList`, and writes the `view_regions` pipeline step with `result: "no_regions"` so subsequent runs skip detection and the cropper exits cleanly
-
-#### Scenario: Coordinate extraction
-- **WHEN** converting docling bounding boxes to pixel coordinates
-- **THEN** the system uses docling's page size metadata to convert normalised or point coordinates to integer pixel values consistent with the source view image dimensions
+#### Scenario: Non-docling model selected
+- **WHEN** the active model name does not contain `"docling"`
+- **THEN** the system behaves identically to the existing implementation (JSON bounding-box prompt, JSON parser)
 
 ---
 
-### Requirement: Overlapping PICTURE elements are merged before validation
-Album pages sometimes contain photos arranged in an artistic overlapping style. When docling returns two or more `PICTURE` elements whose bounding boxes overlap by more than 15% of the smaller element's area, the system SHALL merge them into a single bounding box (union of all merged elements) before passing to `validate_regions()`. This prevents the 5% overlap validation check from incorrectly rejecting intentional artistic arrangements.
+### Requirement: The docling prompt requests a doctag conversion
+The system SHALL send the prompt `"Convert this page to docling."` as the user message (with the image attached) when the docling path is active. No system prompt is required; the model is prompted only with the image and this single instruction.
 
-Merging is applied iteratively until no remaining pairs exceed the threshold (matching the existing `_merge_boxes()` approach in `ai_page_layout.py`). The merged region carries no `caption_hint` from either source element; caption association runs after merging on the final region list.
+---
+
+### Requirement: The doctag response is parsed into RegionResult objects
+The system SHALL parse the `<doctag>…</doctag>` XML returned by the model. Each `<picture>` element produces one `RegionResult`. Coordinates are carried as four consecutive `<loc_X>` child tags in order: **top, left, bottom, right** (ymin, xmin, ymax, xmax) on a 0–500 normalized scale (where 500 represents the full image dimension). Example: `<loc_68><loc_21><loc_250><loc_199>` = top=68, left=21, bottom=250, right=199. The system SHALL convert these to pixel coordinates using:
+
+```
+left_px   = round(loc_left   / 500 * img_w)
+top_px    = round(loc_top    / 500 * img_h)
+right_px  = round(loc_right  / 500 * img_w)
+bottom_px = round(loc_bottom / 500 * img_h)
+
+x      = left_px
+y      = top_px
+width  = right_px - left_px
+height = bottom_px - top_px
+```
+
+If a `<picture>` contains a `<caption>` child element, the caption's text content is used as `caption_hint` for that region.
+
+#### Scenario: Four pictures, one with an embedded caption
+- **WHEN** the model returns four `<picture>` elements and one has a `<caption>` child
+- **THEN** the system produces four `RegionResult` objects; the region with the caption has a non-empty `caption_hint`; the others have empty `caption_hint`
+
+#### Scenario: Malformed or missing doctag wrapper
+- **WHEN** the response does not contain a `<doctag>` element or contains no `<picture>` elements
+- **THEN** the system returns an empty region list and logs a WARNING
+
+---
+
+### Requirement: Paragraph elements provide additional caption hints
+`<paragraph>` elements in the `<doctag>` response that are within one text-line height of a `<picture>` boundary and whose horizontal span overlaps the picture SHALL be associated with that picture as `caption_hint` (if the picture has no embedded `<caption>`). If a paragraph overlaps two or more pictures equally, it is broadcast to all with `caption_ambiguous = True`.
+
+A centered paragraph (horizontal centre within the middle third of the page width) that is not adjacent to any single picture is broadcast to all regions with `caption_ambiguous = True`.
+
+---
+
+### Requirement: Overlapping picture elements are merged before validation
+When the parsed region list contains two or more `RegionResult` objects whose bounding boxes overlap by more than 15% of the smaller region's area, the system SHALL merge them into a single union bounding box. Merging is applied iteratively until no pairs exceed the threshold. The merged region carries no `caption_hint`; caption association runs on the final merged list.
 
 #### Scenario: Two photos overlapping artistically
-- **WHEN** docling detects two `PICTURE` elements that overlap by more than 15% of the smaller element's area
-- **THEN** they are merged into a single `RegionResult` whose bounds are the union of both bounding boxes, and validation sees one region, not two
+- **WHEN** two `<picture>` elements overlap by more than 15% of the smaller area
+- **THEN** they are merged into one `RegionResult` whose bounds are the union; validation sees one region
 
-#### Scenario: Two photos with minor bounding-box imprecision
-- **WHEN** two `PICTURE` elements overlap by 5% or less
-- **THEN** no merge occurs; the overlap validation check in `validate_regions()` passes normally
-
----
-
-### Requirement: Validation runs on docling output but does not trigger a retry
-The system SHALL run the existing `validate_regions()` logic (overlap, full-page, zero-area, insufficient coverage checks) on the docling region list. If validation fails, the failures are logged at ERROR level and the regions are NOT written to XMP. No retry or fallback to the LM Studio engine occurs.
-
-#### Scenario: Regions found and pass validation
-- **WHEN** docling output passes all validation checks
-- **THEN** regions are written to `mwg-rs:RegionList` and the `view_regions` pipeline step is written with `result: "regions_found"` and `model: "docling"`
-
-#### Scenario: Validation failure
-- **WHEN** docling output fails one or more validation checks
-- **THEN** failures are logged with region index and reason; the region list is NOT written to the XMP sidecar; the `view_regions` pipeline step is written with `result: "validation_failed"` so subsequent runs skip re-detection (preventing an infinite retry loop since docling is deterministic); re-processing requires `--force`
+#### Scenario: Minor bounding-box imprecision
+- **WHEN** two regions overlap by 5% or less
+- **THEN** no merge occurs; the existing overlap validation passes normally
 
 ---
 
-### Requirement: Caption text is extracted from docling Text elements
-The system SHALL collect all items with label `DocItemLabel.TEXT` from the docling output and associate each with photo regions using the following spatial rules. This logic is entirely application-level — docling provides only bounding boxes; caption-to-photo grouping is our own heuristic.
+### Requirement: Validation and pipeline step follow the same contract as the lmstudio engine
+The system SHALL run `validate_regions()` on the docling result list. Pipeline step outcomes:
 
-**Rule 1 — Centered page caption (broadcast):** A `TEXT` element whose horizontal centre falls within the middle third of the page width AND that is not within one text-line height of any single `PICTURE` boundary is treated as a page-level caption and broadcast to all regions with `caption_ambiguous = True`.
+| Outcome | Pipeline step written |
+|---|---|
+| Regions found, validation passes | `result: "regions_found"`, `model: <model-name>` |
+| No `<picture>` elements in response | `result: "no_regions"` |
+| Validation fails | `result: "validation_failed"` (prevents infinite re-runs; `--force` required to retry) |
 
-**Rule 2 — Grouped caption (proximity association):** A `TEXT` element that is within one text-line height of one or more `PICTURE` elements' boundaries is associated with the photo(s) whose horizontal span it overlaps. If it overlaps two or more photos equally, it is broadcast to those photos with `caption_ambiguous = True`.
-
-**Rule 3 — No match:** A `TEXT` element that does not satisfy either rule is ignored.
-
-Associated text is passed as `caption_hint` on each `RegionResult` so the existing `write_region_list()` stores it in the region XMP and `crop_page_regions()` picks it up via `resolve_region_caption()` without modification.
-
-#### Scenario: Caption centered on the page (applies to all photos)
-- **WHEN** a `TEXT` element is horizontally centred on the page and not adjacent to any single photo boundary
-- **THEN** it is broadcast to all regions as `caption_hint` with `caption_ambiguous = True`
-
-#### Scenario: Caption immediately below one photo
-- **WHEN** a `TEXT` element is within one text-line height below a single `PICTURE` element and its horizontal span overlaps only that photo
-- **THEN** it is assigned as `caption_hint` for that region only
-
-#### Scenario: Caption below a group of photos sharing a row
-- **WHEN** a `TEXT` element is within one text-line height below multiple `PICTURE` elements and its horizontal span overlaps all of them
-- **THEN** it is broadcast to those regions with `caption_ambiguous = True`
-
-#### Scenario: No qualifying text for a region
-- **WHEN** no `TEXT` element satisfies either rule for a given `PICTURE` region
-- **THEN** the region's `caption_hint` is set to an empty string
+The docling path does NOT retry with a repair prompt — if validation fails, the result is recorded and the user must intervene.
 
 ---
 
 ### Requirement: Crop XMP sidecars always carry page OCR text, and use it as caption fallback
 The existing `_write_crop_sidecar()` in `ai_photo_crops.py` currently passes `ocr_text=""`. The system SHALL instead:
 
-1. Always write the source view's `ocr_text` (from `view_state`) into `imago:OCRText` on the derived crop's XMP sidecar, giving downstream indexing full page context regardless of whether a per-region caption exists.
-2. Use `imago:OCRText` as the caption (`dc:description`) fallback when the docling-extracted region caption is empty. Caption priority for the crop:
-   1. docling `caption_hint` (non-empty)
-   2. `imago:OCRText` from the source view (non-empty)
-   3. `""` (empty)
+1. Always write the source view's `ocr_text` (from `view_state`) into `imago:OCRText` on the derived crop's XMP sidecar.
+2. Set `dc:description` to the region caption (from `resolve_region_caption()`); if that is empty, fall back to the `ocr_text` value.
 
-This fallback is applied in `_write_crop_sidecar()` after `resolve_region_caption()` produces an empty result.
+Caption priority for `dc:description`:
+1. Region caption from `resolve_region_caption()` (non-empty)
+2. Source view `ocr_text` (non-empty)
+3. `""` (empty)
 
-#### Scenario: Docling extracts a caption for the region
-- **WHEN** the region has a non-empty `caption_hint` from docling
-- **THEN** `dc:description` on the crop is set to that caption; `imago:OCRText` is written separately with the full page OCR text
+#### Scenario: Region has a docling caption
+- **WHEN** the region's `caption_hint` resolves to a non-empty caption
+- **THEN** `dc:description` is set to that caption; `imago:OCRText` is written with the page OCR text
 
-#### Scenario: No docling caption, source view has OCR text
-- **WHEN** `caption_hint` is empty and the source view XMP contains non-empty `ocr_text`
-- **THEN** `dc:description` on the crop is set to the OCR text; `imago:OCRText` is also written with that same text
+#### Scenario: No caption, source view has OCR text
+- **WHEN** `resolve_region_caption()` returns empty and source `ocr_text` is non-empty
+- **THEN** `dc:description` is set to the OCR text; `imago:OCRText` is written with the same text
 
-#### Scenario: No docling caption and no OCR text
-- **WHEN** both `caption_hint` and source `ocr_text` are empty
-- **THEN** `dc:description` is empty; `imago:OCRText` is empty; no error is raised
+#### Scenario: No caption and no OCR text
+- **WHEN** both are empty
+- **THEN** both fields are empty; no error is raised

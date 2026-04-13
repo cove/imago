@@ -534,6 +534,76 @@ class TestWriteCropSidecar(unittest.TestCase):
             # subjects are preserved via write_xmp_sidecar merge
             self.assertIn("manual-tag", xml)
 
+    def test_caption_present_used_as_description_ocr_written_separately(self):
+        # (a) caption present → caption in dc:description; imago:OCRText = ocr_text
+        # Note: write_xmp_sidecar puts ocr_text as x-default and caption as x-caption
+        # when both are non-empty. The XMP file will contain both.
+        with tempfile.TemporaryDirectory() as tmp:
+            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir.mkdir()
+            photos_dir = Path(tmp) / "Egypt_1975_Photos"
+            photos_dir.mkdir()
+            view_jpg = view_dir / "Egypt_1975_B00_P26_V.jpg"
+            _make_minimal_jpeg(view_jpg, 200, 100)
+
+            from photoalbums.lib.ai_photo_crops import _write_crop_sidecar
+            from photoalbums.lib.xmp_sidecar import read_ai_sidecar_state
+
+            crop_jpg = photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg"
+            crop_jpg.write_bytes(b"placeholder")
+            view_state = {"ocr_text": "Page OCR text here"}
+            _write_crop_sidecar(crop_jpg, view_jpg, "Region caption", view_state, [], [])
+
+            state = read_ai_sidecar_state(crop_jpg.with_suffix(".xmp"))
+            # OCR text is written to imago:OCRText
+            self.assertEqual(state["ocr_text"], "Page OCR text here")
+            # Caption is present in the XMP (x-caption layer)
+            xml = crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8")
+            self.assertIn("Region caption", xml)
+
+    def test_no_caption_ocr_text_used_as_description_and_ocr_field(self):
+        # (b) no caption, OCR text present → dc:description = ocr_text; imago:OCRText = ocr_text
+        with tempfile.TemporaryDirectory() as tmp:
+            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir.mkdir()
+            photos_dir = Path(tmp) / "Egypt_1975_Photos"
+            photos_dir.mkdir()
+            view_jpg = view_dir / "Egypt_1975_B00_P26_V.jpg"
+            _make_minimal_jpeg(view_jpg, 200, 100)
+
+            from photoalbums.lib.ai_photo_crops import _write_crop_sidecar
+            from photoalbums.lib.xmp_sidecar import read_ai_sidecar_state
+
+            crop_jpg = photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg"
+            crop_jpg.write_bytes(b"placeholder")
+            view_state = {"ocr_text": "Scanned page text"}
+            _write_crop_sidecar(crop_jpg, view_jpg, "", view_state, [], [])
+
+            state = read_ai_sidecar_state(crop_jpg.with_suffix(".xmp"))
+            self.assertEqual(state["description"], "Scanned page text")
+            self.assertEqual(state["ocr_text"], "Scanned page text")
+
+    def test_both_empty_no_error(self):
+        # (c) caption="" and ocr_text="" → both fields empty, no error
+        with tempfile.TemporaryDirectory() as tmp:
+            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir.mkdir()
+            photos_dir = Path(tmp) / "Egypt_1975_Photos"
+            photos_dir.mkdir()
+            view_jpg = view_dir / "Egypt_1975_B00_P26_V.jpg"
+            _make_minimal_jpeg(view_jpg, 200, 100)
+
+            from photoalbums.lib.ai_photo_crops import _write_crop_sidecar
+            from photoalbums.lib.xmp_sidecar import read_ai_sidecar_state
+
+            crop_jpg = photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg"
+            crop_jpg.write_bytes(b"placeholder")
+            _write_crop_sidecar(crop_jpg, view_jpg, "", {}, [], [])
+
+            state = read_ai_sidecar_state(crop_jpg.with_suffix(".xmp"))
+            self.assertEqual(state["description"], "")
+            self.assertEqual(state["ocr_text"], "")
+
 
 # ---------------------------------------------------------------------------
 # Pipeline state
