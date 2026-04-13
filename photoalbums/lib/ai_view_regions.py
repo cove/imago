@@ -887,6 +887,128 @@ def _write_failed_regions_debug_image(
 
 
 # ---------------------------------------------------------------------------
+# Docling detection path
+# ---------------------------------------------------------------------------
+
+
+def _detect_regions_docling(
+    path: Path,
+    *,
+    xmp_path: Path,
+    model: str,
+    base_url: str,
+    timeout: float,
+    img_w: int,
+    img_h: int,
+    force: bool,
+    debug_recorder=None,
+) -> list[RegionResult]:
+    """Run the docling detection path: send a single prompt, parse <doctag> response.
+
+    Writes view_regions pipeline step for no_regions and validation_failed outcomes
+    to prevent infinite re-runs. Returns validated regions on success, [] otherwise.
+    """
+    from ._docling_parser import parse_doctag_response  # pylint: disable=import-outside-toplevel
+    from .xmp_sidecar import write_pipeline_step  # pylint: disable=import-outside-toplevel
+
+    if not force:
+        # Check pipeline step to avoid re-running on known-bad outcomes
+        from .xmp_sidecar import read_pipeline_step  # pylint: disable=import-outside-toplevel
+
+        existing_step = read_pipeline_step(xmp_path, "view_regions") or {}
+        existing_result = str(existing_step.get("result") or "").strip()
+        if existing_result in ("no_regions", "validation_failed"):
+            log.info(
+                "Skipping docling detection for %s: pipeline step already recorded result=%r",
+                path,
+                existing_result,
+            )
+            return []
+
+    image_url, _resized_w, _resized_h = _build_data_url_with_size(path, DEFAULT_MAX_IMAGE_EDGE)
+    payload = {
+        "model": model,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Convert this page to docling."},
+                    {"type": "image_url", "image_url": {"url": image_url}},
+                ],
+            }
+        ],
+        "max_tokens": 4096,
+        "temperature": 0.0,
+    }
+
+    debug_metadata = {
+        "engine": "docling",
+        "model": model,
+        "original_image_width": int(img_w),
+        "original_image_height": int(img_h),
+    }
+
+    try:
+        response = _lmstudio_post(f"{base_url}/chat/completions", payload, timeout)
+    except Exception as exc:
+        _emit_prompt_debug(
+            debug_recorder,
+            step="view_regions",
+            engine="docling",
+            model=model,
+            prompt="Convert this page to docling.",
+            source_path=path,
+            prompt_source="runtime",
+            response="",
+            metadata={**debug_metadata, "error": str(exc)},
+        )
+        log.error("Docling LM Studio call failed for %s: %s", path, exc)
+        return []
+
+    choices = list(response.get("choices") or [])
+    if not choices:
+        log.error("Docling: LM Studio returned no choices for %s", path)
+        return []
+
+    content = choices[0].get("message", {}).get("content", "")
+    response_text = json.dumps(response, ensure_ascii=False, sort_keys=True)
+
+    _emit_prompt_debug(
+        debug_recorder,
+        step="view_regions",
+        engine="docling",
+        model=model,
+        prompt="Convert this page to docling.",
+        source_path=path,
+        prompt_source="runtime",
+        response=response_text,
+        metadata=debug_metadata,
+    )
+
+    regions = parse_doctag_response(content, img_w, img_h)
+
+    if not regions:
+        write_pipeline_step(xmp_path, "view_regions", model=model, extra={"result": "no_regions"})
+        log.info("Docling: no regions detected for %s", path)
+        return []
+
+    result = validate_region_set(regions, img_w=img_w, img_h=img_h)
+    if result.failures:
+        write_pipeline_step(xmp_path, "view_regions", model=model, extra={"result": "validation_failed"})
+        reasons = ", ".join(f.reason for f in result.failures)
+        log.error(
+            "Docling: region validation failed for %s (%d failure(s): %s); use --force to retry",
+            path,
+            len(result.failures),
+            reasons,
+        )
+        return []
+
+    _write_accepted_regions_debug_image(path, result.kept)
+    return result.kept
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -933,6 +1055,22 @@ def detect_regions(
     resolved_url = normalize_lmstudio_base_url(base_url or default_lmstudio_base_url())
 
     img_w, img_h = _image_dimensions(path)
+
+    # --- Docling code path ---
+    docling_model = next((m for m in resolved_models if "docling" in m.lower()), None)
+    if docling_model:
+        return _detect_regions_docling(
+            path,
+            xmp_path=xmp_path,
+            model=docling_model,
+            base_url=resolved_url,
+            timeout=timeout,
+            img_w=img_w,
+            img_h=img_h,
+            force=force,
+            debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
+        )
+
     _clear_regions_debug_images(path)
 
     prior_regions: list[RegionResult] | None = None

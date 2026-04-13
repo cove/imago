@@ -395,7 +395,9 @@ def run_crop_regions(*, album_id: str, photos_root: str, page: str | None, force
                         print(f"  detect-regions: {len(regions)} region(s)")
                     else:
                         write_region_list(xmp_path, [], img_w, img_h)
-                        write_pipeline_step(xmp_path, "view_regions", model=model_name, extra={"result": "no_regions"})
+                        existing_step = read_pipeline_step(xmp_path, "view_regions") or {}
+                        if str(existing_step.get("result") or "") != "validation_failed":
+                            write_pipeline_step(xmp_path, "view_regions", model=model_name, extra={"result": "no_regions"})
                         print(f"  detect-regions: no regions")
                 n = crop_page_regions(view_path, photos_dir, force=force)
                 if n > 0:
@@ -724,7 +726,9 @@ def run_render_pipeline(
                                 print(f"  detect-regions: {len(regions)} region(s)")
                             else:
                                 write_region_list(xmp_path, [], img_w, img_h)
-                                write_pipeline_step(xmp_path, "view_regions", model=model_name, extra={"result": "no_regions"})
+                                existing_step = read_pipeline_step(xmp_path, "view_regions") or {}
+                                if str(existing_step.get("result") or "") != "validation_failed":
+                                    write_pipeline_step(xmp_path, "view_regions", model=model_name, extra={"result": "no_regions"})
                                 summary["detect_regions_no_regions"] += 1
                                 failed_debug_path = _failed_regions_debug_path(view_path)
                                 if failed_debug_path.is_file():

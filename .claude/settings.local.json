@@ -210,7 +210,16 @@
       "Bash(python -m pytest photoalbums/tests/ -q --tb=no)",
       "Bash(python -m pytest photoalbums/tests/ -q --tb=no -p no:warnings)",
       "Bash(python -m pytest photoalbums/tests/test_ai_view_regions.py -q --tb=short)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(python -m pytest photoalbums/tests/test_docling_parser.py -v)",
+      "Bash(python3 -m pytest photoalbums/tests/test_docling_parser.py -v)",
+      "Bash(python3.12 -m pytest photoalbums/tests/test_docling_parser.py -v)",
+      "Bash(.venv/bin/pytest photoalbums/tests/test_docling_parser.py -v)",
+      "Bash(.venv/bin/pytest photoalbums/tests/test_ai_photo_crops.py::TestWriteCropSidecar -v)",
+      "Bash(.venv/bin/pytest photoalbums/tests/ -x -q)",
+      "Bash(.venv/bin/pytest photoalbums/tests/test_ai_view_regions.py::TestViewRegionPrompts -q)",
+      "Bash(.venv/bin/pytest photoalbums/tests/ -q --ignore=photoalbums/tests/test_ai_view_regions.py)",
+      "Bash(.venv/bin/pytest photoalbums/tests/ -q -k \"not test_prompts_describe_physical_print_boundaries_and_separators\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",
