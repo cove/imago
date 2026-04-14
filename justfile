@@ -13,19 +13,10 @@ bootstrap:
   {{python}} scripts/bootstrap_runtime.py
 
 test:
-  .\scripts\test.ps1 -q
-
-test-cast:
-  .\cast\scripts\test.ps1 -q
-
-test-photoalbums:
-  .\photoalbums\scripts\test.ps1 -q
-
-test-vhs:
-  .\vhs\scripts\test.ps1 -q
+  {{python}} -m pytest "cast/tests" "photoalbums/tests" "vhs/test" 
 
 evals:
-  uv run python -m pytest photoalbums/tests/test_rule_extraction_eval.py -v -m integration -s
+   {{python}} -m pytest photoalbums/tests/test_rule_extraction_eval.py -v -m integration -s
 
 format:
   {{ruff}} format .
