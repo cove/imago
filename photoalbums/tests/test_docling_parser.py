@@ -57,6 +57,32 @@ class TestParseDoctag(unittest.TestCase):
         empty_count = sum(1 for c in captions if not c)
         self.assertEqual(empty_count, 3)
 
+    def test_ignores_page_sentinel_picture(self):
+        xml = self._doctag([
+            self._picture(0, 0, 500, 500),
+            self._picture(34, 26, 215, 202),
+            self._picture(242, 27, 424, 211),
+            self._picture(35, 261, 215, 431),
+            self._picture(246, 262, 421, 430),
+        ])
+        regions = parse_doctag_response(xml, IMG_W, IMG_H)
+        self.assertEqual(len(regions), 4)
+        self.assertTrue(all(r.width < IMG_W and r.height < IMG_H for r in regions))
+
+    def test_parses_bare_picture_stream_without_doctag_wrapper(self):
+        xml = "\n".join([
+            "<loc_0><loc_0><loc_500><loc_500></picture>",
+            "<picture><loc_55><loc_5><loc_193><loc_155></picture>",
+            "<picture><loc_56><loc_187><loc_173><loc_400></picture>",
+            "<picture><loc_202><loc_5><loc_342><loc_155></picture>",
+            "<picture><loc_181><loc_190><loc_368><loc_367></picture>",
+            "<picture><loc_374><loc_189><loc_491><loc_400></picture>",
+            "<picture><loc_427><loc_415><loc_440><loc_435></picture>",
+        ])
+        regions = parse_doctag_response(xml, IMG_W, IMG_H)
+        self.assertEqual(len(regions), 6)
+        self.assertEqual([r.index for r in regions], list(range(6)))
+
     def test_pixel_conversion(self):
         # top=100, left=50, bottom=300, right=250  on 500-scale
         # IMG_W=1000, IMG_H=800

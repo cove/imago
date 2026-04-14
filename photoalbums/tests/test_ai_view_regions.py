@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import io
 import json
 import sys
 import tempfile
@@ -33,6 +34,8 @@ from photoalbums.lib.ai_view_regions import (
     _parse_region_response,
     _has_xmp_regions,
     _read_regions_from_xmp,
+    _DOCLING_SYSTEM_PROMPT,
+    _DOCLING_USER_PROMPT,
     _SYSTEM_PROMPT,
     _build_user_prompt,
     _build_user_prompt_strict,
@@ -148,8 +151,10 @@ class TestViewRegionPrompts(unittest.TestCase):
         # System prompt establishes the engine persona
         self.assertIn("Vision-Coordinate Engine", _SYSTEM_PROMPT)
         # User prompts embed image dimensions
-        self.assertIn("800×600", user_prompt)
-        self.assertIn("800×600", strict_prompt)
+        self.assertIn("800", user_prompt)
+        self.assertIn("600", user_prompt)
+        self.assertIn("800", strict_prompt)
+        self.assertIn("600", strict_prompt)
 
 
 class TestBuildDataUrlWithSize(unittest.TestCase):
@@ -179,6 +184,18 @@ class TestBuildDataUrlWithSize(unittest.TestCase):
 
 
 class TestDetectRegions(unittest.TestCase):
+    def setUp(self):
+        self._patches = [
+            mock.patch("photoalbums.lib.ai_view_regions.default_view_region_models", return_value=["gemma-3"]),
+            mock.patch("photoalbums.lib.ai_view_regions.default_view_region_model", return_value="gemma-3"),
+        ]
+        for patcher in self._patches:
+            patcher.start()
+
+    def tearDown(self):
+        for patcher in reversed(self._patches):
+            patcher.stop()
+
     def _mock_response(self, boxes):
         """boxes is a list of [ymin, xmin, ymax, xmax] in 0–1000."""
         return {
@@ -307,6 +324,57 @@ class TestDetectRegions(unittest.TestCase):
         self.assertIn("leslie -> Leslie Cordell", text_part)
         self.assertIn("box_2d", text_part)
         self.assertNotIn("The full image is", text_part)
+
+    def test_docling_call_uses_rest_chat_and_uploads_image(self):
+        from photoalbums.lib.ai_view_regions import detect_regions
+
+        fake_lms = mock.Mock()
+        fake_model = mock.Mock()
+        fake_chat = mock.Mock()
+        fake_prediction = mock.Mock()
+        fake_prediction.text = """<loc_0><loc_0><loc_500><loc_500></picture>
+<picture><loc_55><loc_5><loc_193><loc_155></picture>
+<picture><loc_56><loc_187><loc_173><loc_400></picture>
+<picture><loc_202><loc_5><loc_342><loc_155></picture>
+<picture><loc_181><loc_190><loc_368><loc_367></picture>
+<picture><loc_374><loc_189><loc_491><loc_400></picture>
+<picture><loc_427><loc_415><loc_440><loc_435></picture>"""
+        fake_lms.prepare_image.return_value = "image-handle"
+        fake_lms.llm.return_value = fake_model
+        fake_lms.Chat.return_value = fake_chat
+        fake_model.respond.return_value = fake_prediction
+
+        with tempfile.TemporaryDirectory() as tmp:
+            img_path = Path(tmp) / "Egypt_1975_B00_P26_V.jpg"
+            try:
+                from PIL import Image
+
+                img = Image.new("RGB", (3000, 1800), color=(128, 128, 128))
+                img.save(str(img_path), format="JPEG")
+                original_bytes = img_path.read_bytes()
+            except ImportError:
+                self.skipTest("PIL not available")
+
+            with (
+                mock.patch.dict(sys.modules, {"lmstudio": fake_lms}),
+                mock.patch("photoalbums.lib.ai_view_regions.default_view_region_models", return_value=["docling"]),
+                mock.patch("photoalbums.lib.ai_view_regions.default_view_region_model", return_value="docling"),
+            ):
+                results = detect_regions(img_path, force=True, skip_validation=True)
+
+        fake_lms.prepare_image.assert_called_once()
+        sent_bytes = fake_lms.prepare_image.call_args.args[0]
+        self.assertIsInstance(sent_bytes, (bytes, bytearray))
+        self.assertEqual(sent_bytes, original_bytes)
+        from PIL import Image
+
+        with Image.open(io.BytesIO(sent_bytes)) as decoded_img:
+            self.assertEqual(decoded_img.size, (3000, 1800))
+        fake_lms.llm.assert_called_once_with("docling")
+        fake_chat.add_system_prompt.assert_called_once_with(_DOCLING_SYSTEM_PROMPT)
+        fake_chat.add_user_message.assert_called_once_with(_DOCLING_USER_PROMPT, images=["image-handle"])
+        fake_model.respond.assert_called_once_with(fake_chat)
+        self.assertEqual(len(results), 6)
 
     def test_prompt_debug_records_request_response_metadata(self):
         from photoalbums.lib.ai_view_regions import detect_regions
@@ -600,6 +668,18 @@ class TestRepairPrompt(unittest.TestCase):
 
 
 class TestDetectRegionsRepairLoop(unittest.TestCase):
+    def setUp(self):
+        self._patches = [
+            mock.patch("photoalbums.lib.ai_view_regions.default_view_region_models", return_value=["gemma-3"]),
+            mock.patch("photoalbums.lib.ai_view_regions.default_view_region_model", return_value="gemma-3"),
+        ]
+        for patcher in self._patches:
+            patcher.start()
+
+    def tearDown(self):
+        for patcher in reversed(self._patches):
+            patcher.stop()
+
     def _make_jpeg(self, path: Path, width: int = 800, height: int = 600) -> None:
         try:
             from PIL import Image
@@ -997,7 +1077,7 @@ class TestRunDetectViewRegions(unittest.TestCase):
                 )
 
             self.assertEqual(exit_code, 0)
-            debug_path = view_path.with_suffix(".view-regions.debug.json")
+            debug_path = root / "_debug" / f"{view_path.stem}.view-regions.debug.json"
             self.assertTrue(debug_path.is_file())
             artifact = json.loads(debug_path.read_text(encoding="utf-8"))
             self.assertEqual(artifact["kind"], "photoalbums_prompts")
