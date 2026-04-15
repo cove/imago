@@ -86,3 +86,8 @@ class PromptDebugSession:
             "step_count": len(self._steps),
             "steps": [row.to_dict() for row in self._steps],
         }
+
+
+def debug_root_for_image_path(image_path: str | Path) -> Path:
+    path = Path(image_path)
+    return path.parent.parent / "_debug"

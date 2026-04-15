@@ -125,6 +125,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Write per-image region detection request/response debug artifacts.",
     )
+    detect_vr_parser.add_argument(
+        "--no-validation",
+        action="store_true",
+        help="Skip strict region validations (e.g. for docling)",
+    )
 
     crop_regions_parser = subparsers.add_parser(
         "crop-regions",
@@ -167,6 +172,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--debug",
         action="store_true",
         help="Write per-image region detection request/response debug artifacts.",
+    )
+    render_pipeline_parser.add_argument(
+        "--no-validation",
+        action="store_true",
+        help="Skip strict region validations (e.g. for docling)",
     )
 
     checksum_parser = subparsers.add_parser("checksum", help="Checksum manifest commands")
@@ -255,6 +265,7 @@ def main(argv: list[str] | None = None) -> int:
             force=args.force,
             redo_no_regions=bool(getattr(args, "redo_no_regions", False)),
             debug=bool(getattr(args, "debug", False)),
+            skip_validation=bool(getattr(args, "no_validation", False)),
         )
 
     if args.group == "crop-regions":
@@ -281,6 +292,7 @@ def main(argv: list[str] | None = None) -> int:
             force=args.force,
             skip_crops=bool(getattr(args, "skip_crops", False)),
             debug=bool(getattr(args, "debug", False)),
+            skip_validation=bool(getattr(args, "no_validation", False)),
         )
 
     if args.group == "ctm-apply":

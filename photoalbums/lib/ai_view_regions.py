@@ -18,8 +18,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ._lmstudio_helpers import emit_prompt_debug as _emit_prompt_debug
-from .ai_model_settings import default_lmstudio_base_url, default_view_region_model, default_view_region_models
+from .ai_model_settings import default_docling_preset, default_lmstudio_base_url, default_view_region_model, default_view_region_models
 from ._caption_lmstudio import normalize_lmstudio_base_url
+from .prompt_debug import debug_root_for_image_path
 
 if TYPE_CHECKING:
     from .prompt_debug import PromptDebugSession
@@ -27,7 +28,8 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT_SECONDS = 300.0
-DEFAULT_MAX_IMAGE_EDGE = 100
+DEFAULT_MAX_IMAGE_EDGE = 1500
+# 0 = don't rescale image
 _MAX_RETRIES = 3
 _MAX_SINGLE_REGION_PAGE_FRACTION = 0.90
 _MIN_TOTAL_REGION_PAGE_FRACTION = 0.50
@@ -308,6 +310,13 @@ def _build_repair_prompt(
 
 def _build_data_url_with_size(image_path: Path, max_edge: int) -> tuple[str, int, int]:
     """Return a base64 data URL plus the resized dimensions sent to the model."""
+    image_bytes, width, height = _build_resized_jpeg_bytes(image_path, max_edge)
+    data = base64.b64encode(image_bytes).decode("ascii")
+    return f"data:image/jpeg;base64,{data}", width, height
+
+
+def _build_resized_jpeg_bytes(image_path: Path, max_edge: int) -> tuple[bytes, int, int]:
+    """Return resized JPEG bytes plus the dimensions sent to the model."""
     from PIL import Image  # pylint: disable=import-outside-toplevel
     from .image_limits import allow_large_pillow_images  # pylint: disable=import-outside-toplevel
 
@@ -316,8 +325,7 @@ def _build_data_url_with_size(image_path: Path, max_edge: int) -> tuple[str, int
         allow_large_pillow_images(Image)
         with Image.open(io.BytesIO(jpeg_bytes)) as image:
             width, height = image.size
-        data = base64.b64encode(jpeg_bytes).decode("ascii")
-        return f"data:image/jpeg;base64,{data}", width, height
+        return jpeg_bytes, width, height
 
     allow_large_pillow_images(Image)
     image = Image.open(str(image_path)).convert("RGB")
@@ -330,8 +338,7 @@ def _build_data_url_with_size(image_path: Path, max_edge: int) -> tuple[str, int
         resized_w, resized_h = image.size
         buf = io.BytesIO()
         image.save(buf, format="JPEG", quality=92)
-        data = base64.b64encode(buf.getvalue()).decode("ascii")
-        return f"data:image/jpeg;base64,{data}", resized_w, resized_h
+        return buf.getvalue(), resized_w, resized_h
     finally:
         image.close()
 
@@ -347,6 +354,16 @@ def _lmstudio_post(url: str, payload: dict, timeout: float) -> dict:
         raise RuntimeError(f"LM Studio request failed: {details or f'HTTP {exc.code}'}") from exc
     except urllib.error.URLError as exc:
         raise RuntimeError(f"LM Studio is unreachable at {url}: {exc.reason}") from exc
+
+
+def _extract_sdk_prediction_text(prediction: object) -> str:
+    text = getattr(prediction, "text", None)
+    if text is not None:
+        return str(text)
+    content = getattr(prediction, "content", None)
+    if content is not None:
+        return str(content)
+    return str(prediction or "")
 
 
 def _call_vision_model(
@@ -743,7 +760,7 @@ def _failed_regions_debug_path(image_path: str | Path, attempt_number: int | Non
     filename = f"{path.stem}.view-regions.failed-boxes.jpg"
     if attempt_number is not None:
         filename = f"{path.stem}.view-regions.failed-boxes.attempt-{attempt_number:02d}.jpg"
-    return path.parent / "_debug" / filename
+    return debug_root_for_image_path(path) / filename
 
 
 def _accepted_regions_debug_path(image_path: str | Path, attempt_number: int | None = None) -> Path:
@@ -751,18 +768,18 @@ def _accepted_regions_debug_path(image_path: str | Path, attempt_number: int | N
     filename = f"{path.stem}.view-regions.accepted-boxes.jpg"
     if attempt_number is not None:
         filename = f"{path.stem}.view-regions.accepted-boxes.attempt-{attempt_number:02d}.jpg"
-    return path.parent / "_debug" / filename
+    return debug_root_for_image_path(path) / filename
 
 
 def _failed_regions_debug_paths(image_path: str | Path) -> list[Path]:
     path = Path(image_path)
-    debug_dir = path.parent / "_debug"
+    debug_dir = debug_root_for_image_path(path)
     return [*debug_dir.glob(f"{path.stem}.view-regions.failed-boxes*.jpg")]
 
 
 def _accepted_regions_debug_paths(image_path: str | Path) -> list[Path]:
     path = Path(image_path)
-    debug_dir = path.parent / "_debug"
+    debug_dir = debug_root_for_image_path(path)
     return [*debug_dir.glob(f"{path.stem}.view-regions.accepted-boxes*.jpg")]
 
 
@@ -896,23 +913,21 @@ def _detect_regions_docling(
     *,
     xmp_path: Path,
     model: str,
-    base_url: str,
-    timeout: float,
     img_w: int,
     img_h: int,
     force: bool,
     debug_recorder=None,
+    skip_validation: bool = False,
 ) -> list[RegionResult]:
-    """Run the docling detection path: send a single prompt, parse <doctag> response.
+    """Run the Docling library pipeline to detect photo regions.
 
     Writes view_regions pipeline step for no_regions and validation_failed outcomes
     to prevent infinite re-runs. Returns validated regions on success, [] otherwise.
     """
-    from ._docling_parser import parse_doctag_response  # pylint: disable=import-outside-toplevel
+    from ._docling_pipeline import run_docling_pipeline  # pylint: disable=import-outside-toplevel
     from .xmp_sidecar import write_pipeline_step  # pylint: disable=import-outside-toplevel
 
     if not force:
-        # Check pipeline step to avoid re-running on known-bad outcomes
         from .xmp_sidecar import read_pipeline_step  # pylint: disable=import-outside-toplevel
 
         existing_step = read_pipeline_step(xmp_path, "view_regions") or {}
@@ -925,72 +940,25 @@ def _detect_regions_docling(
             )
             return []
 
-    image_url, _resized_w, _resized_h = _build_data_url_with_size(path, DEFAULT_MAX_IMAGE_EDGE)
-    payload = {
-        "model": model,
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "Convert this page to docling."},
-                    {"type": "image_url", "image_url": {"url": image_url}},
-                ],
-            }
-        ],
-        "max_tokens": 4096,
-        "temperature": 0.0,
-    }
-
-    debug_metadata = {
-        "engine": "docling",
-        "model": model,
-        "original_image_width": int(img_w),
-        "original_image_height": int(img_h),
-    }
-
     try:
-        response = _lmstudio_post(f"{base_url}/chat/completions", payload, timeout)
-    except Exception as exc:
-        _emit_prompt_debug(
-            debug_recorder,
-            step="view_regions",
-            engine="docling",
-            model=model,
-            prompt="Convert this page to docling.",
-            source_path=path,
-            prompt_source="runtime",
-            response="",
-            metadata={**debug_metadata, "error": str(exc)},
+        regions = run_docling_pipeline(
+            path,
+            img_w=img_w,
+            img_h=img_h,
+            preset=default_docling_preset(),
         )
-        log.error("Docling LM Studio call failed for %s: %s", path, exc)
+    except Exception as exc:
+        log.error("Docling pipeline failed for %s: %s", path, exc)
         return []
-
-    choices = list(response.get("choices") or [])
-    if not choices:
-        log.error("Docling: LM Studio returned no choices for %s", path)
-        return []
-
-    content = choices[0].get("message", {}).get("content", "")
-    response_text = json.dumps(response, ensure_ascii=False, sort_keys=True)
-
-    _emit_prompt_debug(
-        debug_recorder,
-        step="view_regions",
-        engine="docling",
-        model=model,
-        prompt="Convert this page to docling.",
-        source_path=path,
-        prompt_source="runtime",
-        response=response_text,
-        metadata=debug_metadata,
-    )
-
-    regions = parse_doctag_response(content, img_w, img_h)
 
     if not regions:
         write_pipeline_step(xmp_path, "view_regions", model=model, extra={"result": "no_regions"})
         log.info("Docling: no regions detected for %s", path)
         return []
+
+    if skip_validation:
+        _write_accepted_regions_debug_image(path, regions)
+        return regions
 
     result = validate_region_set(regions, img_w=img_w, img_h=img_h)
     if result.failures:
@@ -1004,6 +972,7 @@ def _detect_regions_docling(
         )
         return []
 
+    write_pipeline_step(xmp_path, "view_regions", model=model, extra={"result": "regions_found"})
     _write_accepted_regions_debug_image(path, result.kept)
     return result.kept
 
@@ -1024,6 +993,7 @@ def detect_regions(
     page_caption: str = "",
     people_roster: dict[str, str] | None = None,
     prompt_debug: PromptDebugSession | None = None,
+    skip_validation: bool = False,
 ) -> list[RegionResult]:
     """Detect photo regions in a view JPG, writing results to the XMP sidecar.
 
@@ -1063,12 +1033,11 @@ def detect_regions(
             path,
             xmp_path=xmp_path,
             model=docling_model,
-            base_url=resolved_url,
-            timeout=timeout,
             img_w=img_w,
             img_h=img_h,
             force=force,
             debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
+            skip_validation=skip_validation,
         )
 
     _clear_regions_debug_images(path)

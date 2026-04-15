@@ -14,4 +14,9 @@ max_clipping_ratio = 0.34
 pc = [ "google/gemma-4-e2b"]
 primary = ["gemma-4-31b-it"]
 fallback = "google/gemma-4-e4b"
-docling = "granite-docling-258m"
+#docling = "granite-docling-258m"
+docling = "granite-docling-258m-mlx"
+#docling = "smoldocling-256m-preview"
+#docling = "smoldocling-256m-preview-i1"
+[docling_pipeline]
+preset = "granite_docling"

@@ -165,6 +165,7 @@ def load_ai_model_settings() -> dict[str, Any]:
         "ctm_validation": _resolve_ctm_validation_settings(payload),
         "view_region_model": _first_model_name(view_region_models, DEFAULT_VIEW_REGION_MODEL),
         "lmstudio_base_url": _resolve_lmstudio_base_url(payload),
+        "docling_preset": str((payload.get("docling_pipeline") or {}).get("preset") or "granite_docling"),
     }
 
 
@@ -206,3 +207,7 @@ def default_ctm_models() -> list[str]:
 
 def default_ctm_validation_settings() -> dict[str, float]:
     return dict(load_ai_model_settings()["ctm_validation"])
+
+
+def default_docling_preset() -> str:
+    return str(load_ai_model_settings()["docling_preset"])

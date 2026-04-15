@@ -1,70 +1,36 @@
-## 1. Config & Model Registration
+## 9b. Switch Docling Config to the Local Library Path
 
-- [x] 1.1 Add `view-region = "google/gemma-4-26b-a4b"` entry to `photoalbums/ai_models.toml`
-- [x] 1.2 Update `ai_model_settings.py` to read and expose `view_region_model` alongside existing model keys
+- [ ] 9b.1 Update `photoalbums/ai_models.toml` so the docling section only carries the preset needed by the library path; document that the preset must resolve from local model assets without a runtime fetch.
+- [ ] 9b.2 Remove `default_docling_model_id()` and the `docling_model_id` setting from `photoalbums/lib/ai_model_settings.py` if nothing else uses it.
+- [ ] 9b.3 Update any tests or config fixtures that still expect a Docling LM Studio model override or a Hugging Face-backed runtime fetch.
 
-## 2. Vision API — Region Detection
+## 9c. Update the Docling Pipeline Wrapper
 
-- [x] 2.1 Create `photoalbums/lib/ai_view_regions.py` with `detect_regions(image_path, force=False) -> list[RegionResult]`
-- [x] 2.2 Implement LM Studio vision call in `ai_view_regions.py`: build base64 image message, send to `/v1/chat/completions` with structured JSON prompt requesting `[{index, x, y, width, height, confidence, caption_hint}]`
-- [x] 2.3 Add JSON parse + retry loop (up to 3 attempts with stricter prompt on failure)
-- [x] 2.4 Add `RegionResult` dataclass with pixel bounds, confidence, and caption_hint fields
-- [x] 2.5 Implement XMP region read-back in `ai_view_regions.py`: parse existing `mwg-rs:RegionList` from the XMP sidecar to serve as cache (skip model call on `force=False` when regions already present)
+- [ ] 9c.1 Change `photoalbums/lib/_docling_pipeline.py` to call `VlmConvertOptions.from_preset(preset)` without `ApiVlmEngineOptions`.
+- [ ] 9c.2 Build `VlmPipelineOptions` for the local Docling path and keep `DocumentConverter` configured for `InputFormat.IMAGE`.
+- [ ] 9c.3 Preserve picture-item iteration, bbox-to-pixel conversion, and caption extraction from the `DoclingDocument`.
+- [ ] 9c.4 Keep the empty-document warning path and return `[]` when no picture items are found.
+- [ ] 9c.5 Make the Docling branch fail fast with the underlying model-resolution error if the local model assets are missing, rather than falling back to LM Studio or a remote fetch.
 
-## 3. Coordinate Conversion & Caption Association
+## 9d. Wire the New Path Through Callers and Tests
 
-- [x] 3.1 Implement `pixel_to_mwgrs(x, y, w, h, img_w, img_h) -> (cx, cy, nw, nh)` utility (centre-point normalised coords)
-- [x] 3.2 Add unit tests for coordinate conversion (edge cases: region at corner, full-image region)
-- [x] 3.3 Implement `associate_captions(regions, captions, img_width) -> list[RegionWithCaption]` using nearest-centre heuristic with 10%-width ambiguity threshold
+- [ ] 9d.1 Update `_detect_regions_docling()` in `photoalbums/lib/ai_view_regions.py` to stop passing `base_url` and `model_id` into the Docling pipeline.
+- [ ] 9d.2 Keep the existing `validate_regions()` behavior and pipeline-step outcomes unchanged.
+- [ ] 9d.3 Update `photoalbums/tests/test_docling_pipeline.py` to assert the local Docling configuration and remove LM Studio-specific expectations.
+- [ ] 9d.4 Update `photoalbums/tests/test_ai_view_regions.py` to cover the new Docling call signature.
+- [ ] 9d.5 Run the targeted Docling and region-detection tests, then the full test suite if the targeted run passes.
 
-## 4. XMP Write-back
+## 9e. Keep Crop Boundaries Sourced from XMP
 
-- [x] 4.1 Register MWG-RS namespace (`http://www.metadataworkinggroup.com/schemas/regions/`) and `stArea` namespace (`http://ns.adobe.com/xap/1.0/sType/Area#`) in `xmp_sidecar.py`
-- [x] 4.2 Add `write_region_list(xmp_path, regions_with_captions, img_w, img_h)` function to `xmp_sidecar.py` that builds `mwg-rs:RegionInfo` / `mwg-rs:RegionList` structure and replaces any existing region list
-- [x] 4.3 Verify round-trip with exiftool: written XMP can be read back with correct region coordinates
+- [ ] 9e.1 Update the spec and/or crop tests so `crop_page_regions()` is explicitly treated as reading `mwg-rs:RegionList` from the page view XMP sidecar.
+- [ ] 9e.2 Verify the crop step converts those stored regions into pixel rectangles and crops from the page `_V.jpg`.
+- [ ] 9e.3 Keep the crop step as the source of truth for crop boundaries, not the Docling pipeline output in memory.
 
-## 5. MCP Endpoints
+## 9f. Publish Page OCR and Scene Text in Top-Level dc:description
 
-- [x] 5.1 Add `photoalbums_detect_view_regions(album_id, page=None, force=False)` tool to `mcp_server.py` — enqueues async job via `JobRunner`, returns `job_id`
-- [x] 5.2 Add `photoalbums_review_view_regions(album_id, page)` tool to `mcp_server.py` — reads `mwg-rs:RegionList` from the XMP sidecar and returns structured dict with image path, dimensions, regions (pixel + normalised coords), and `caption_ambiguous` flag; returns `{"regions": [], "status": "not_detected"}` if no region list exists
-- [x] 5.3 Add `photoalbums_update_view_region(album_id, page, region_index, x, y, width, height)` tool to `mcp_server.py` — updates the specified `mwg-rs:RegionList` entry directly in the XMP sidecar, returns confirmation with new normalised coords
-
-## 6. CLI Integration
-
-- [x] 6.1 Add `detect-view-regions` subcommand to `photoalbums.py` CLI (`photoalbums.py detect-view-regions <album_id> [--page N] [--force]`)
-- [x] 6.2 Wire CLI command through to `ai_view_regions.detect_regions` + `xmp_sidecar.write_region_list`
-
-## 7. Tests
-
-- [x] 7.1 Add unit tests for `detect_regions` with a mocked LM Studio response (happy path + malformed JSON retry)
-- [x] 7.2 Add unit tests for `associate_captions` (unambiguous, ambiguous, no captions)
-- [x] 7.3 Add integration test for `write_region_list` verifying XMP output contains correct MWG-RS structure
-
-## 8. Prompt Improvements
-
-- [x] 8.1 Switch model output from pixel coords to normalised 0.0–1.0 coords; convert to pixel in `_parse_region_response` using actual image dimensions (fixes scaling bug where boxes appeared at 1/4 size in upper-left)
-- [x] 8.2 Include original image pixel dimensions in the user prompt (e.g. `"The full image is 3840×2880 pixels."`) to help the model reason about region boundaries at the correct scale
-- [x] 8.3 Set model temperature to `0.0` for fully deterministic region output
-
-## 9. Docling Model — Parser & Integration
-
-- [x] 9.1 Add a `docling` alias to `[models]` in `photoalbums/ai_models.toml` pointing to `granite-docling-258m`; set `view_region_model = "docling"` to activate it (the model alias name contains "docling", which triggers the docling code path by substring match)
-- [x] 9.2 Create `photoalbums/lib/_docling_parser.py` with `parse_doctag_response(content, img_w, img_h) -> list[RegionResult]` — parses the `<doctag>` XML returned by the granite-docling model; each `<picture>` element yields one `RegionResult`; the four `<loc_X>` child tags give top/left/bottom/right on a 0–500 scale, converted to pixel coordinates as `loc / 500 * dimension`; a `<caption>` child element sets `caption_hint` on that region
-- [x] 9.3 In `_docling_parser.py`, after building the initial region list, merge region pairs that overlap by more than 15% of the smaller area into a single union bounding box; repeat iteratively until no pairs exceed the threshold; merged regions carry no `caption_hint` (caption association runs after)
-- [x] 9.4 In `_docling_parser.py`, after merging, associate `<paragraph>` elements as caption fallback for regions whose `caption_hint` is still empty: assign a paragraph whose horizontal span overlaps the region and sits within one text-line height of its boundary; if a paragraph overlaps multiple regions equally, set `caption_ambiguous=True` on all; a paragraph centred in the middle third of the page width that is not adjacent to any single region is also broadcast to all regions with `caption_ambiguous=True`
-- [x] 9.5 In `ai_view_regions.detect_regions()`, before the existing LM Studio call, check if the resolved model name contains `"docling"` (case-insensitive); if so: send prompt `"Convert this page to docling."` with the image (no `response_format` schema), pass the raw text response to `parse_doctag_response()`, skip the repair-prompt retry loop, and handle outcomes as follows: regions pass validation → return them; no `<picture>` elements in response → write `view_regions` pipeline step `result: "no_regions"` and return `[]`; validation fails → write `view_regions` pipeline step `result: "validation_failed"` and return `[]` (the step prevents re-runs; `--force` clears it)
-
-## 9a. Tests for Docling Parser Code
-
-- [x] 9a.1 Test `parse_doctag_response()` using a doctag string with four `<picture>` elements (one with an embedded `<caption>`): verify pixel bounding boxes match expected conversions and `caption_hint` is extracted correctly
-- [x] 9a.2 Test merge logic in isolation: two regions overlapping >15% → merged to union box; two regions overlapping ≤5% → unchanged; three-way chain (A overlaps B, B overlaps C) → all three merged into one
-- [x] 9a.3 Test paragraph caption association: embedded `<caption>` takes priority over nearby `<paragraph>`; nearby `<paragraph>` fills empty `caption_hint`; centered paragraph broadcasts to all; paragraph outside threshold leaves `caption_hint` empty
-
-## 10. OCR Text Propagation to Crop Sidecars
-
-- [ ] 10.1 In `ai_photo_crops._write_crop_sidecar()`, `view_state` is already loaded from the source view's XMP sidecar before this function is called; replace the hardcoded `ocr_text=""` arg to `write_xmp_sidecar()` with `str(view_state.get("ocr_text") or "").strip()`; also update the `caption` local variable: if `resolve_region_caption()` returns empty and `ocr_text` is non-empty, set `caption = ocr_text` before passing to `write_xmp_sidecar()` (field is written as `imago:OCRText` per `xmp_sidecar.py` line 826)
-- [ ] 10.2 Add unit tests: (a) caption present → used as `dc:description`, OCR text written to `imago:OCRText`; (b) no caption, OCR text present → OCR text used as both `dc:description` and `imago:OCRText`; (c) both empty → both fields empty, no error
-
-## 11. CLI & MCP — No Changes Required
-
-The detect-view-regions command in `commands.py` reads `model_name = default_view_region_model()` from config and passes it through to `detect_regions()`. Switching to the docling model only requires changing the active alias in `ai_models.toml` (task 9.1). No new CLI flags or MCP tool changes are needed.
+- [ ] 9f.1 Update the page view XMP writer so the top-level `dc:description` combines the page OCR text and Gemma scene text into a human-readable summary.
+- [ ] 9f.2 Keep the raw `imago:OCRText` and `imago:SceneText` fields populated separately for indexing and debugging.
+- [ ] 9f.3 Ensure derived `_D##-##_V.jpg` outputs use the same top-level `dc:description` composition rule as the page view output.
+- [ ] 9f.4 Add crop-side OCR so `_Photos/_D##-00_V.jpg` outputs write the crop's own OCR text into `imago:OCRText`.
+- [ ] 9f.5 Ensure `_Photos/_D##-00_V.jpg` crop outputs set top-level `dc:description` to the region caption plus crop-local OCR text, caption first with a blank line between when both are present.
+- [ ] 9f.6 Add or update tests to verify that page-side, derived-view, and crop-side XMP all surface the right text in `dc:description` while preserving the raw text fields.

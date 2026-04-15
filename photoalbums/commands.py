@@ -431,7 +431,10 @@ def _release_page_pipeline_lock(lock_path: Path | None) -> None:
 def _write_view_regions_debug_artifact(prompt_debug, *, image_path: Path) -> Path | None:
     if prompt_debug is None or not prompt_debug.has_steps():
         return None
-    debug_path = image_path.with_suffix(".view-regions.debug.json")
+    from .lib.prompt_debug import debug_root_for_image_path
+
+    debug_path = debug_root_for_image_path(image_path) / f"{image_path.stem}.view-regions.debug.json"
+    debug_path.parent.mkdir(parents=True, exist_ok=True)
     debug_path.write_text(json.dumps(prompt_debug.to_artifact(), ensure_ascii=False, indent=2), encoding="utf-8")
     return debug_path
 
@@ -549,6 +552,7 @@ def run_render_pipeline(
     force: bool,
     skip_crops: bool,
     debug: bool = False,
+    skip_validation: bool = False,
 ) -> int:
     """Run the full render pipeline for matching pages.
 
@@ -682,7 +686,7 @@ def run_render_pipeline(
                                 img_w, img_h = _image_dimensions(view_path)
                                 stored = _read_regions_from_xmp(xmp_path, img_w, img_h)
                                 vresult = validate_region_set(stored, img_w=img_w, img_h=img_h)
-                                if vresult.valid:
+                                if vresult.valid or skip_validation:
                                     skip_detect = True
                                     summary["detect_regions_skipped"] += 1
                                 else:
@@ -708,6 +712,7 @@ def run_render_pipeline(
                                     page_caption=page_caption,
                                     people_roster=people_roster,
                                     prompt_debug=prompt_debug,
+                                    skip_validation=skip_validation,
                                 )
                             finally:
                                 debug_path = _write_view_regions_debug_artifact(prompt_debug, image_path=view_path)
@@ -861,6 +866,7 @@ def run_detect_view_regions(
     force: bool,
     redo_no_regions: bool = False,
     debug: bool = False,
+    skip_validation: bool = False,
 ) -> int:
     from .lib.ai_view_regions import (
         _accepted_regions_debug_path,
@@ -916,7 +922,7 @@ def run_detect_view_regions(
                         _w, _h = _image_dimensions(view_path)
                         stored = _read_regions_from_xmp(xmp_path, _w, _h)
                         vresult = validate_region_set(stored, img_w=_w, img_h=_h)
-                        if vresult.valid:
+                        if vresult.valid or skip_validation:
                             continue
                         n_fail = len(vresult.failures)
                         reasons = ", ".join(f.reason for f in vresult.failures)
@@ -942,6 +948,7 @@ def run_detect_view_regions(
                             page_caption=page_caption,
                             people_roster=people_roster,
                             prompt_debug=prompt_debug,
+                            skip_validation=skip_validation,
                         )
                     finally:
                         debug_path = _write_view_regions_debug_artifact(prompt_debug, image_path=view_path)
