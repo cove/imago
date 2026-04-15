@@ -1,65 +1,68 @@
 ## Context
 
-Album pages are scanned as multi-photo "view" JPGs (`*_V.jpg`). Individual photographs are packed edge-to-edge — there may be no visible background between them. The existing pipeline (`ai_page_layout.py`) handles basic layout classification but relies on geometry heuristics, not vision-model reasoning for seam detection between adjacent photos. `xmp_sidecar.py` already manages XMP write-back using Python's `xml.etree`, with a rich namespace registry. The MCP server (`mcp_server.py`) uses FastMCP and already exposes photoalbum job endpoints. LM Studio is already integrated via `_lmstudio_helpers.py`; its base URL and model selection live in `ai_models.toml`.
+The page-region stage is the point where the pipeline decides what becomes an individual photo crop. That stage should use Docling for page layout and caption extraction, but it must run from local model assets instead of reaching out to Hugging Face Hub or LM Studio during detection.
+
+The follow-up change keeps the Docling-based detection branch, but makes the branch explicitly local/offline. Downstream photo-text OCR remains a separate concern and is not part of the region-finding contract.
+
+The crop step must consume the region list stored in the page view XMP sidecar. That keeps region detection and crop generation decoupled while still making the stored `mwg-rs:RegionList` the source of truth for crop boundaries.
 
 ## Goals / Non-Goals
 
 **Goals:**
-- Add a new `ai_models.toml` entry for `google/gemma-4-26b-a4b` as the `view-region` model
-- Add `ai_view_regions.py` in `photoalbums/lib/` that calls LM Studio with a vision prompt and returns normalised bounding boxes for each detected photo within a view image
-- Write MWG-RS `RegionList` XMP data (namespace `http://www.metadataworkinggroup.com/schemas/regions/`) to the view JPG's sidecar or embedded XMP
-- Associate page-level captions with detected regions (closest spatial match; broadcast when ambiguous)
-- Expose two new MCP tools: `photoalbums_detect_view_regions` (trigger detection on a single image or album) and `photoalbums_review_view_regions` (return image + current region boxes for external AI validation)
+- Run Docling photo-region detection directly through the Python library.
+- Require the Docling branch to run from local model assets without runtime network fetches.
+- Preserve the existing non-Docling region-detection path.
+- Keep the current XMP writeback, validation, and pipeline-step contract intact.
+- Keep downstream OCR/text recognition separate from page-region detection.
 
 **Non-Goals:**
-- Splitting photos out of the view image (future step)
-- Assigning ShownLocation data (future step — regions must exist first)
-- Training or fine-tuning the vision model
-- Handling non-view images (scans, derived images)
+- Changing the non-Docling JSON region detector.
+- Changing crop generation, XMP schema, or review tooling.
+- Reworking the OCR engine selection for cropped photos.
 
 ## Decisions
 
-### Vision API call format
-Use the LM Studio OpenAI-compatible `/v1/chat/completions` endpoint with a `vision` message (base64 image). The prompt asks the model to return a JSON array of bounding boxes `[{index, x, y, width, height, confidence, caption_hint}]` as **normalised 0.0–1.0 coordinates** (top-left origin). Temperature is set to `0.0` for fully deterministic output. Rationale: structured JSON output is more reliable than free-text; normalised coords are scale-invariant regardless of how the model internally resizes the input image.
+1. Use Docling's preset-driven library path instead of an LM Studio API wrapper.
+   - Rationale: the preset already defines the prompt and response format; the extra LM Studio transport layer only adds failure modes and is the wrong place for page layout.
+   - Alternatives considered: keep `ApiVlmEngineOptions`, or replace the pipeline with a custom parser. Both were rejected because they preserve the external dependency or reintroduce brittle parsing.
 
-The user prompt includes the original pixel dimensions of the image (e.g., `"The full image is 3840×2880 pixels."`) so the model can reason about region boundaries at the correct scale.
+2. Keep `DocumentConverter` and `VlmPipeline` in the implementation, but require local model assets.
+   - Rationale: those are the supported library entry points and already produce structured `DoclingDocument` output that maps cleanly to `RegionResult`.
+   - Alternatives considered: reimplement picture extraction from raw doctags, or introduce a separate model server abstraction. Both add complexity without solving the stated problem.
 
-Alternatives considered:
-- Returning pixel coordinates from the model: initially implemented, but caused a "boxes bunched in the upper-left at 1/4 size" bug because vision models internally resize input to their own patch grid (e.g. 448×448), making pixel coords unreliable regardless of what we send
-- Asking the model to describe regions in prose then parsing: rejected as fragile
+3. Keep the `docling` model selector as a configuration gate, but make the selected preset resolve from local assets only.
+   - Rationale: the runtime should stay configuration-driven, but region detection must not depend on network resolution of model weights.
+   - Alternatives considered: add a second CLI flag or a separate model kind enum. Rejected to avoid UI churn for a narrow backend change.
 
-### XMP region schema
-Use MWG-RS `mwg-rs:RegionList` with `mwg-rs:RegionInfo` → `mwg-rs:AppliedToDimensions` + `mwg-rs:RegionList/rdf:Bag/rdf:li`. Each region carries:
-- `mwg-rs:Type = "Photo"`
-- `mwg-rs:Name` = region index (e.g., `"photo_1"`)
-- `stArea:x`, `stArea:y`, `stArea:w`, `stArea:h` (normalised 0–1, centre-point origin as per MWG spec)
-- `dc:description` = associated caption
+4. Preserve validation and pipeline-step outcomes.
+   - Rationale: the existing `no_regions` / `validation_failed` / `regions_found` contract prevents bad crops and infinite reruns.
+   - Alternatives considered: accept raw library output without validation. Rejected because it would trade one brittle backend for another.
 
-Rationale: MWG-RS is the standard used by Lightroom, digiKam, and other tools; it will survive round-trips through exiftool.
+5. Leave photo-text OCR as a downstream concern, not a region-detection concern.
+   - Rationale: LM Studio is a better fit for semantic text recognition on already-cropped photos than for finding page boundaries.
+   - Alternatives considered: keep OCR mixed into page-region detection. Rejected because it couples unrelated behaviors.
 
-Alternative: custom `imago:` namespace regions — rejected because it would not render in standard photo tools.
-
-### Caption association
-Spatial nearest-centre heuristic: the caption whose bounding box (or page text region) is closest to a photo region's centre gets assigned to that region. If no caption geometry is available, or if the closest caption is equidistant to two regions (within 10% of image width), the page caption is broadcast to all regions with a `captionAmbiguous=true` flag.
-
-### MCP endpoint design
-Two tools added to the existing `mcp_server.py`:
-1. `photoalbums_detect_view_regions(album_id, page=None, force=False)` — runs detection (async job) and returns `job_id`
-2. `photoalbums_review_view_regions(album_id, page)` — returns structured JSON with image path, image dimensions, and current region list; intended for an external AI to validate boundaries
-
-Detection results are written directly into the `_V.jpg` XMP sidecar (the existing `.xmp` file alongside the view image). The presence of a `mwg-rs:RegionList` block in the XMP is the cache signal — if it exists and `force=False`, detection is skipped. The XMP is the single source of truth; no separate JSON cache file is written.
+6. Keep the crop step reading boundaries from XMP instead of from Docling directly.
+   - Rationale: the page sidecar is the durable contract between detection and cropping, so the cropper should consume the stored region list rather than any in-memory detector output.
+   - Alternatives considered: pass detector boxes directly from region detection into crop generation. Rejected because it would weaken the sidecar as the source of truth.
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|---|---|
-| Model returns malformed JSON | Wrap in retry loop (up to 3 attempts) with a stricter JSON-only prompt; fall back to empty region list with error logged |
-| Adjacent photos with no visible seam confuse the model | Prompt includes explicit instruction to look for contextual clues (content discontinuity, perspective change) rather than borders; confidence score returned per region |
-| MWG-RS normalised coordinates differ from pixel coords | Conversion utility written and unit-tested separately from the API call |
-| LM Studio offline / slow | Detection is run as an async job (existing `JobRunner`); timeout configurable; review endpoint returns cached data even if model is offline |
-| Writing to XMP sidecar modifies file mtime | Expected; existing pipeline already writes XMP sidecars; document this for downstream hash checks |
+- [Risk] The local Docling engine may require more memory or a different hardware profile than the current path. -> Keep the preset-driven configuration narrow and document the expected local engine in the task rollout.
+- [Risk] The local model assets may be missing on some machines. -> Fail fast with the underlying model-resolution error and document the requirement to preload or cache the Docling weights locally.
+- [Risk] The local engine may still emit oversized regions on some pages. -> Keep the current validation step and add regression tests against representative pages; add geometry post-processing only if the defect remains after the backend swap.
+
+## Migration Plan
+
+1. Update the Docling-specific config so the branch no longer depends on a loaded LM Studio model or base URL.
+2. Update `_docling_pipeline.py` to call Docling directly with the preset-driven local engine path and local model assets.
+3. Update tests to assert the local Docling path and remove LM Studio-specific expectations.
+4. Run the existing validation and docling tests, then fix any geometry regressions before considering the change complete.
+
+Rollback:
+- Restore the previous LM Studio-backed Docling branch if the local engine is not stable enough in practice.
+- Because the non-Docling path is untouched, rollback can stay scoped to the Docling branch and its config.
 
 ## Open Questions
 
-- Should region detection run automatically as part of `scanwatch` (when a new view image appears) or only on explicit CLI/MCP request? → Default: explicit only; auto-trigger can be added later.
-- Is the LM Studio model address for view-region detection always the same host as caption/OCR, or should it be separately configurable? → Use same `lmstudio_base_url` for now; can split later.
+- Which local Docling engine should be considered canonical here: MLX, transformers, or another preset-backed engine? The implementation should use whichever preset can run from preloaded local assets without a runtime fetch.

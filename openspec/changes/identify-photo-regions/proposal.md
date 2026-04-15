@@ -1,33 +1,27 @@
 ## Why
 
-Each scanned album page lives in two sibling directories:
-
-- `<Album>_Archive/` — high-resolution per-scan TIFFs, one or more per page (e.g. `Egypt_1975_B00_P26_S01.tif`). These are the archival masters.
-- `<Album>_View/` — a single stitched JPEG per page (e.g. `Egypt_1975_B00_P26_V.jpg`). This is a colour-corrected composite of all scans for that page and is the working image for AI processing.
-
-View images contain multiple photographs packed edge-to-edge with no background border between them. To associate per-photo ShownLocation XMP metadata and eventually split them into individual files, we must first detect the boundary of each photo within the view JPG — a task that requires vision-model reasoning, not simple edge detection.
+The current page-region path doesn't work reliably for photo boundaries. Docling produces better photo boundary detection and caption extraction than the Gemma-based path, making it the right model for this layout work. The page-region stage still needs to run from local model assets and not depend on Hugging Face or LM Studio at runtime.
 
 ## What Changes
 
-- New pipeline step that sends a `_V.jpg` view image to the local LM Studio vision model (`google/gemma-4-26b-a4b`) and receives back bounding-box regions for each photo within that page
-- XMP region metadata (MWG-RS `RegionList`) written to the `_View/` JPG's XMP sidecar describing each detected photo region
-- Caption text from the page is associated with the closest region, or broadcast to all regions when ambiguous
-- New MCP tools added to the existing `mcp_server.py` that allow another AI agent to trigger detection, review boundaries, and correct them before any destructive split step
+- Use Docling for page-level photo region detection and caption extraction.
+- Require the Docling branch to run from local model assets, without LM Studio or Hugging Face Hub calls during region detection.
+- Keep the non-Docling scene text detection path unchanged.
+- Preserve the existing XMP pipeline-step contract and validation behavior for Docling results.
+- Keep downstream photo-text OCR as a separate concern; LM Studio is no longer part of region detection.
 
 ## Capabilities
 
 ### New Capabilities
-
-- `view-region-detection`: Detect individual photo boundaries within a stitched view JPG using the LM Studio vision API; return normalised bounding boxes with confidence scores
-- `view-xmp-regions`: Write detected regions as MWG-RS `RegionList` XMP metadata on the source view JPG, including caption association per region
-- `mcp-region-review`: MCP endpoint to process an album's view images and expose region data (image + boxes) for external AI validation
+- None
 
 ### Modified Capabilities
+- `docling-library-pipeline`: change the Docling region pipeline to use local model assets through the Docling library directly.
+- `docling-region-detection`: update the Docling-specific detection contract to reflect the offline/local library pipeline and its output.
+- `view-xmp-regions`: keep the page-side XMP region list as the single source of truth for crop boundaries consumed by the crop step.
 
 ## Impact
 
-- New dependency: LM Studio running locally with `google/gemma-4-26b-a4b` loaded (OpenAI-compatible API at `lmstudio_base_url` in `photoalbums/ai_models.toml`)
-- XMP metadata written to `_View/*.jpg` XMP sidecar files (non-destructive; original pixels unchanged; `_Archive/` TIFFs are not touched)
-- The `_View/*.xmp` sidecar is the single source of truth — detected regions are stored as `mwg-rs:RegionList` directly in the existing XMP file; no separate cache file is written
-- New tools added to the existing `mcp_server.py` (FastMCP); no new server process required
-- Affected code areas: `photoalbums/lib/` (new `ai_view_regions.py`), `photoalbums/lib/xmp_sidecar.py`, `mcp_server.py`, `photoalbums.py` CLI
+- Affected code: `photoalbums/lib/_docling_pipeline.py`, `photoalbums/lib/ai_view_regions.py`, related tests, and the Docling-related AI model configuration.
+- Dependency impact: Docling remains required, but the Docling region-detection path must not depend on a running LM Studio server or Hugging Face Hub access at runtime.
+- Behavior impact: Docling region detection becomes the local source of truth for crop-ready photo regions and caption hints before crop generation.
