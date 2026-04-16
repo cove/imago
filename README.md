@@ -44,7 +44,7 @@ Run a single project test suite (same command shape in each project):
 
 ## AI Model Storage
 
-Downloaded AI model weights are stored under the repo-level `modes/` directory.
+Downloaded AI model weights are stored under the repo-level `models/` directory.
 
 ## Cast quick start
 
