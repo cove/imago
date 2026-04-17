@@ -242,6 +242,7 @@ def crop_page_regions(
     *,
     force: bool = False,
     skip_restoration: bool = False,
+    force_restoration: bool = False,
     stats: CropPageStats | None = None,
 ) -> int:
     """Crop each detected region from a page view JPEG and write to photos_dir.
@@ -302,12 +303,14 @@ def crop_page_regions(
     # Pipeline state check
     if not force and read_pipeline_step(view_xmp, "crop_regions") is not None:
         if _has_complete_crop_outputs(view_path, photos_dir, len(regions)):
+            if not force_restoration:
+                if stats is not None:
+                    stats.skipped_existing_outputs = True
+                return 0
+        else:
             if stats is not None:
-                stats.skipped_existing_outputs = True
-            return 0
-        if stats is not None:
-            stats.reran_missing_outputs = True
-        print(f"  [crop-regions] Re-running {view_path.name} (pipeline state present but crop outputs are missing)")
+                stats.reran_missing_outputs = True
+            print(f"  [crop-regions] Re-running {view_path.name} (pipeline state present but crop outputs are missing)")
 
     # Force: clear pipeline state and orphaned crops
     if force:
@@ -330,7 +333,7 @@ def crop_page_regions(
                 region_index = region["index"] + 1  # 1-based
                 output_path = crop_output_path(view_path, region_index, photos_dir)
 
-                if output_path.exists() and not force:
+                if output_path.exists() and not force and not force_restoration:
                     continue
 
                 caption = resolve_region_caption(
@@ -369,9 +372,18 @@ def crop_page_regions(
                         )
                         continue
                     crop_img = page_img.crop((left, top, right, bottom))
+                    restoration_result = "skipped"
+                    restoration_model = None
                     if not skip_restoration:
-                        from .photo_restoration import restore_photo
-                        crop_img = restore_photo(crop_img)
+                        from .photo_restoration import (
+                            REAL_RESTORER_MODEL_NAME,
+                            RESTORE_RESULT_RESTORED,
+                            restore_photo_with_result,
+                        )
+
+                        crop_img, restoration_result = restore_photo_with_result(crop_img)
+                        if restoration_result == RESTORE_RESULT_RESTORED:
+                            restoration_model = REAL_RESTORER_MODEL_NAME
                     crop_img.save(str(output_path), format="JPEG", quality=95)
 
                     _write_crop_sidecar(
@@ -381,6 +393,12 @@ def crop_page_regions(
                         view_state,
                         locations_shown,
                         person_names,
+                    )
+                    write_pipeline_step(
+                        output_path.with_suffix(".xmp"),
+                        "photo_restoration",
+                        model=restoration_model,
+                        extra={"result": restoration_result},
                     )
                     crops_written += 1
                 except Exception as exc:

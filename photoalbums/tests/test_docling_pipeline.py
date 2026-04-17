@@ -63,6 +63,10 @@ def _make_convert_result(doc):
 
 
 class TestRunDoclingPipeline(unittest.TestCase):
+    def setUp(self):
+        import photoalbums.lib._docling_pipeline as _mod
+        _mod._converter_cache.clear()
+
     def _call(self, items, texts=None, img_w=1000, img_h=800):
         doc = _make_doc(items, texts=texts)
         convert_result = _make_convert_result(doc)

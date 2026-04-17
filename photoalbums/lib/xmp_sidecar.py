@@ -1953,7 +1953,17 @@ def propagate_archive_copy_safe_fields(
     view_ocr_text = str(view_state.get("ocr_text") or "").strip()
     ocr_text = archive_ocr_text if (archive_ocr_text and not view_ocr_text) else ""
 
-    if not locations_shown and not description and not ocr_text:
+    gps_latitude = str(view_state.get("gps_latitude") or archive_state.get("gps_latitude") or "")
+    gps_longitude = str(view_state.get("gps_longitude") or archive_state.get("gps_longitude") or "")
+    location_city = str(view_state.get("location_city") or archive_state.get("location_city") or "")
+    location_state = str(view_state.get("location_state") or archive_state.get("location_state") or "")
+    location_country = str(view_state.get("location_country") or archive_state.get("location_country") or "")
+    location_sublocation = str(view_state.get("location_sublocation") or archive_state.get("location_sublocation") or "")
+
+    has_gps = bool(gps_latitude and gps_longitude)
+    has_location = bool(location_city or location_country)
+
+    if not locations_shown and not description and not ocr_text and not has_gps and not has_location:
         return False
 
     existing_people = read_person_in_image(view_xmp)
@@ -1969,12 +1979,12 @@ def propagate_archive_copy_safe_fields(
         author_text=str(view_state.get("author_text") or archive_state.get("author_text") or ""),
         scene_text=str(view_state.get("scene_text") or archive_state.get("scene_text") or ""),
         album_title=str(view_state.get("album_title") or archive_state.get("album_title") or ""),
-        gps_latitude=str(view_state.get("gps_latitude") or ""),
-        gps_longitude=str(view_state.get("gps_longitude") or ""),
-        location_city=str(view_state.get("location_city") or ""),
-        location_state=str(view_state.get("location_state") or ""),
-        location_country=str(view_state.get("location_country") or ""),
-        location_sublocation=str(view_state.get("location_sublocation") or ""),
+        gps_latitude=gps_latitude,
+        gps_longitude=gps_longitude,
+        location_city=location_city,
+        location_state=location_state,
+        location_country=location_country,
+        location_sublocation=location_sublocation,
         source_text=str(view_state.get("source_text") or archive_state.get("source_text") or ""),
         dc_date=str(view_state.get("dc_date") or archive_state.get("dc_date") or ""),
         date_time_original=str(

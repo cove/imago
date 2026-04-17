@@ -443,6 +443,7 @@ def _detect_regions_docling(
     force: bool,
     prompt_debug: PromptDebugSession | None,
     skip_validation: bool,
+    write_debug: bool = False,
 ) -> list[RegionResult]:
     from ._docling_pipeline import (  # pylint: disable=import-outside-toplevel
         DoclingPipelineRuntimeError,
@@ -488,13 +489,15 @@ def _detect_regions_docling(
 
     if skip_validation:
         write_pipeline_step(xmp_path, "view_regions", model=model, extra={"result": "regions_found"})
-        _write_accepted_regions_debug_image(path, pipeline_result.regions)
+        if write_debug:
+            _write_accepted_regions_debug_image(path, pipeline_result.regions)
         return pipeline_result.regions
 
     validation = validate_region_set(pipeline_result.regions, img_w=img_w, img_h=img_h)
     if validation.failures:
         write_pipeline_step(xmp_path, "view_regions", model=model, extra={"result": "validation_failed"})
-        _write_failed_regions_debug_image(path, pipeline_result.regions, validation.failures)
+        if write_debug:
+            _write_failed_regions_debug_image(path, pipeline_result.regions, validation.failures)
         reasons = ", ".join(failure.reason for failure in validation.failures)
         log.error(
             "Docling: region validation failed for %s (%d failure(s): %s); use --force to retry",
@@ -505,7 +508,8 @@ def _detect_regions_docling(
         return []
 
     write_pipeline_step(xmp_path, "view_regions", model=model, extra={"result": "regions_found"})
-    _write_accepted_regions_debug_image(path, validation.kept)
+    if write_debug:
+        _write_accepted_regions_debug_image(path, validation.kept)
     return validation.kept
 
 
@@ -521,6 +525,7 @@ def detect_regions(
     people_roster: dict[str, str] | None = None,
     prompt_debug: PromptDebugSession | None = None,
     skip_validation: bool = False,
+    write_debug: bool = False,
 ) -> list[RegionResult]:
     del base_url, timeout, album_context, page_caption, people_roster
 
@@ -532,8 +537,9 @@ def detect_regions(
             img_w, img_h = _image_dimensions(path)
             cached = _read_regions_from_xmp(xmp_path, img_w, img_h)
             if cached:
-                _clear_regions_debug_images(path)
-                _write_accepted_regions_debug_image(path, cached)
+                if write_debug:
+                    _clear_regions_debug_images(path)
+                    _write_accepted_regions_debug_image(path, cached)
                 return cached
         except Exception as exc:  # pragma: no cover
             log.warning("Failed to read cached XMP regions for %s: %s", path, exc)
@@ -543,7 +549,8 @@ def detect_regions(
         raise RuntimeError(f"View region detection failed due to: non-Docling model configured for regions: {resolved_model}")
 
     img_w, img_h = _image_dimensions(path)
-    _clear_regions_debug_images(path)
+    if write_debug:
+        _clear_regions_debug_images(path)
     return _detect_regions_docling(
         path,
         xmp_path=xmp_path,
@@ -553,4 +560,5 @@ def detect_regions(
         force=force,
         prompt_debug=prompt_debug,
         skip_validation=skip_validation,
+        write_debug=write_debug,
     )
