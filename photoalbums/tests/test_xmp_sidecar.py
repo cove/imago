@@ -180,9 +180,9 @@ class TestXMPSidecar(unittest.TestCase):
                 "<Iptc4xmpExt:LocationCreated>1 Rathausplatz, Vienna, Austria</Iptc4xmpExt:LocationCreated>",
                 xml,
             )
-            self.assertNotIn("<photoshop:City>", xml)
-            self.assertNotIn("<photoshop:Country>", xml)
-            self.assertNotIn("<Iptc4xmpExt:Sublocation>", xml)
+            self.assertIn("<photoshop:City>Vienna</photoshop:City>", xml)
+            self.assertIn("<photoshop:Country>Austria</photoshop:Country>", xml)
+            self.assertIn("<Iptc4xmpExt:Sublocation>1 Rathausplatz</Iptc4xmpExt:Sublocation>", xml)
 
             state = xmp_sidecar.read_ai_sidecar_state(out)
             assert state is not None
@@ -191,7 +191,7 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertEqual(state["location_sublocation"], "1 Rathausplatz")
             self.assertEqual(state["location_created"], "1 Rathausplatz, Vienna, Austria")
 
-    def test_write_xmp_sidecar_omits_create_date_and_writes_processing_history(self):
+    def test_write_xmp_sidecar_round_trips_create_date_and_writes_processing_history(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "image.xmp"
             xmp_sidecar.write_xmp_sidecar(
@@ -214,7 +214,7 @@ class TestXMPSidecar(unittest.TestCase):
             )
 
             xml = out.read_text(encoding="utf-8")
-            self.assertNotIn("xmp:CreateDate", xml)
+            self.assertIn("<xmp:CreateDate>2026-03-25T12:34:56-07:00</xmp:CreateDate>", xml)
             self.assertIn("xmpMM:History", xml)
             self.assertNotIn("imago:StitchKey", xml)
             self.assertNotIn("imago:OcrRan", xml)
@@ -223,7 +223,7 @@ class TestXMPSidecar(unittest.TestCase):
 
             state = xmp_sidecar.read_ai_sidecar_state(out)
             assert state is not None
-            self.assertEqual(state["create_date"], "")
+            self.assertEqual(state["create_date"], "2026-03-25T12:34:56-07:00")
             self.assertEqual(state["stitch_key"], "Family_1986_B01_P01")
             self.assertEqual(state["ocr_authority_source"], "archive_stitched")
             self.assertEqual(state["ocr_ran"], True)
@@ -335,9 +335,9 @@ class TestXMPSidecar(unittest.TestCase):
             assert state is not None
             self.assertEqual(state["title"], "Temple of Heaven")
             self.assertEqual(state["title_source"], "author_text")
-            self.assertEqual(state["description"], "Temple of Heaven")
+            self.assertEqual(state["description"], "Ignored summary")
             xml = out.read_text(encoding="utf-8")
-            self.assertIn('xml:lang="x-default">Temple of Heaven</rdf:li>', xml)
+            self.assertIn('xml:lang="x-default">Temple of Heaven\nNO SMOKING</rdf:li>', xml)
             self.assertIn('xml:lang="x-caption">Ignored summary</rdf:li>', xml)
             self.assertIn('xml:lang="x-scene">NO SMOKING</rdf:li>', xml)
             self.assertIn("<imago:OCRText>Temple of Heaven", xml)
@@ -579,7 +579,7 @@ class TestXMPSidecar(unittest.TestCase):
                 ],
             )
 
-    def test_write_xmp_sidecar_removes_legacy_xmp_create_date_on_merge(self):
+    def test_write_xmp_sidecar_preserves_xmp_create_date_on_merge(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "image.xmp"
             out.write_text(
@@ -607,7 +607,72 @@ class TestXMPSidecar(unittest.TestCase):
             )
 
             xml = out.read_text(encoding="utf-8")
-            self.assertNotIn("xmp:CreateDate", xml)
+            self.assertIn("<xmp:CreateDate>2026-03-25T12:34:56-07:00</xmp:CreateDate>", xml)
+
+    def test_write_xmp_sidecar_preserves_inherited_rendered_metadata_on_merge(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "Egypt_1975_B00_P09_V.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=["travel", "egypt"],
+                description="Pyramids at Giza",
+                source_text="Egypt_1975_B00_P09_S01.tif; Egypt_1975_B00_P09_S02.tif",
+                ocr_text="EGYPT 1975",
+                author_text="Pyramids at Giza",
+                scene_text="Tour bus nearby",
+                location_city="Giza",
+                location_country="Egypt",
+                location_sublocation="Giza Plateau",
+                create_date="2026-03-25T19:35:00Z",
+                dc_date=["1975-03", "1975-04"],
+                locations_shown=[
+                    {
+                        "name": "Giza Necropolis",
+                        "world_region": "Africa",
+                        "country_code": "EG",
+                        "country_name": "Egypt",
+                        "province_or_state": "Giza",
+                        "city": "Giza",
+                        "sublocation": "Giza Plateau",
+                        "gps_latitude": "29.9792",
+                        "gps_longitude": "31.1342",
+                    }
+                ],
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                subphotos=[],
+            )
+
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-face-refresh",
+                person_names=["Alice Smith"],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+                detections_payload={"people": [{"name": "Alice Smith", "bbox": [1, 2, 3, 4]}], "objects": [], "ocr": {}, "caption": {}},
+                image_width=200,
+                image_height=100,
+            )
+
+            state = xmp_sidecar.read_ai_sidecar_state(out)
+            assert state is not None
+            self.assertEqual(state["description"], "Pyramids at Giza")
+            self.assertEqual(state["source_text"], "Egypt_1975_B00_P09_S01.tif; Egypt_1975_B00_P09_S02.tif")
+            self.assertEqual(state["ocr_text"], "EGYPT 1975")
+            self.assertEqual(state["author_text"], "Pyramids at Giza")
+            self.assertEqual(state["scene_text"], "Tour bus nearby")
+            self.assertEqual(state["create_date"], "2026-03-25T19:35:00Z")
+            self.assertEqual(state["dc_date_values"], ["1975-03", "1975-04"])
+            self.assertEqual(state["location_city"], "Giza")
+            self.assertEqual(state["location_country"], "Egypt")
+            self.assertEqual(state["location_sublocation"], "Giza Plateau")
+            self.assertEqual(xmp_sidecar.read_locations_shown(out)[0]["name"], "Giza Necropolis")
+            xml = out.read_text(encoding="utf-8")
+            self.assertIn("<rdf:li>travel</rdf:li>", xml)
+            self.assertIn("<rdf:li>egypt</rdf:li>", xml)
 
     def test_sidecar_has_expected_ai_fields_detects_complete_and_incomplete_sidecars(
         self,
@@ -848,8 +913,8 @@ class TestXMPSidecar(unittest.TestCase):
             assert state is not None
             self.assertEqual(state["title"], "Album page caption")
             self.assertEqual(state["album_title"], "Mainland China Book II")
-            self.assertEqual(state["gps_latitude"], "39,47.25N")
-            self.assertEqual(state["gps_longitude"], "100,18.43332E")
+            self.assertEqual(state["gps_latitude"], "39.7875")
+            self.assertEqual(state["gps_longitude"], "100.307222")
 
     def test_write_xmp_sidecar_derives_page_but_omits_scan_from_filename(self):
         with tempfile.TemporaryDirectory() as tmp:

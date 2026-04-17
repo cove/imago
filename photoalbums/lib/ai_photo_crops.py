@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import logging
+import os
 import re
 from pathlib import Path
 
@@ -31,19 +32,19 @@ class CropPageStats:
 
 
 def resolve_region_caption(
-    region_dc_description: str,
+    region_name: str,
     region_caption_hint: str,
     page_dc_description: str,
 ) -> str:
     """Return the best available caption for a region using priority order.
 
     Priority:
-    1. region_dc_description
+    1. region_name
     2. region_caption_hint
     3. page_dc_description
     4. "" (empty)
     """
-    for candidate in (region_dc_description, region_caption_hint, page_dc_description):
+    for candidate in (region_name, region_caption_hint, page_dc_description):
         text = str(candidate or "").strip()
         if text:
             return text
@@ -189,7 +190,7 @@ def _write_crop_sidecar(
 
     # Step 3: write provenance
     if view_doc_id:
-        source_rel = view_path.name
+        source_rel = Path(os.path.relpath(view_path, crop_xmp.parent)).as_posix()
         write_derived_from(crop_xmp, view_doc_id, source_path=source_rel)
         write_pantry_entry(crop_xmp, view_doc_id, source_path=source_rel)
 
@@ -204,9 +205,11 @@ def _write_crop_sidecar(
             seen.add(s)
             subjects.append(s)
 
+    page_description = str(view_state.get("description") or "").strip()
     ocr_text = str(view_state.get("ocr_text") or "").strip()
-    if not caption and ocr_text:
-        caption = ocr_text
+    if not caption:
+        caption = page_description or ocr_text
+    archive_source_text = str(view_state.get("source_text") or "").strip()
 
     write_xmp_sidecar(
         crop_xmp,
@@ -214,7 +217,7 @@ def _write_crop_sidecar(
         person_names=list(person_names),
         subjects=subjects,
         description=caption,
-        source_text=view_path.name,
+        source_text=archive_source_text,
         gps_latitude=str(view_state.get("gps_latitude") or "").strip(),
         gps_longitude=str(view_state.get("gps_longitude") or "").strip(),
         location_city=str(view_state.get("location_city") or "").strip(),

@@ -8,8 +8,12 @@ import tomllib
 DEFAULT_OCR_MODEL = ""
 DEFAULT_CAPTION_MODEL = ""
 DEFAULT_CTM_MODEL = ""
-DEFAULT_VIEW_REGION_MODEL = "google/gemma-4-26b-a4b"
+DEFAULT_VIEW_REGION_MODEL = "granite-docling-258m"
 DEFAULT_LMSTUDIO_BASE_URL = "http://localhost:1234/v1"
+DEFAULT_DOCLING_PRESET = "granite_docling"
+DEFAULT_DOCLING_BACKEND = "auto_inline"
+DEFAULT_DOCLING_DEVICE = "auto"
+DEFAULT_DOCLING_RETRIES = 3
 AI_MODEL_SETTINGS_PATH = Path(__file__).resolve().parents[1] / "ai_models.toml"
 DEFAULT_CTM_VALIDATION_SETTINGS = {
     "min_confidence": 0.35,
@@ -136,6 +140,41 @@ def _resolve_ctm_validation_settings(payload: dict[str, Any]) -> dict[str, float
     return resolved
 
 
+def _resolve_docling_pipeline_settings(payload: dict[str, Any]) -> dict[str, Any]:
+    raw = payload.get("docling_pipeline")
+    if raw is None:
+        raw = {}
+    if not isinstance(raw, dict):
+        raise RuntimeError(f"AI model settings 'docling_pipeline' must be a TOML table: {AI_MODEL_SETTINGS_PATH}")
+    preset = _normalize_model_value(raw.get("preset")) or DEFAULT_DOCLING_PRESET
+    backend = (_normalize_model_value(raw.get("backend")) or DEFAULT_DOCLING_BACKEND).lower()
+    if backend not in {"auto_inline", "transformers", "mlx"}:
+        raise RuntimeError(
+            "AI model settings docling_pipeline.backend must be one of "
+            f"'auto_inline', 'transformers', or 'mlx': {AI_MODEL_SETTINGS_PATH}"
+        )
+    device = (_normalize_model_value(raw.get("device")) or DEFAULT_DOCLING_DEVICE).lower()
+    if not device:
+        device = DEFAULT_DOCLING_DEVICE
+    retries_raw = raw.get("retries", DEFAULT_DOCLING_RETRIES)
+    try:
+        retries = int(retries_raw)
+    except Exception as exc:
+        raise RuntimeError(
+            f"AI model settings docling_pipeline.retries must be an integer: {AI_MODEL_SETTINGS_PATH}"
+        ) from exc
+    if retries < 1:
+        raise RuntimeError(
+            f"AI model settings docling_pipeline.retries must be at least 1: {AI_MODEL_SETTINGS_PATH}"
+        )
+    return {
+        "docling_preset": preset,
+        "docling_backend": backend,
+        "docling_device": device,
+        "docling_retries": retries,
+    }
+
+
 @lru_cache(maxsize=1)
 def load_ai_model_settings() -> dict[str, Any]:
     with open(AI_MODEL_SETTINGS_PATH, "rb") as f:
@@ -150,6 +189,7 @@ def load_ai_model_settings() -> dict[str, Any]:
     caption_models = list(models.get(selected_caption_model, []))
     ctm_models = list(models.get(selected_ctm_model, []))
     view_region_models = _resolve_model_reference(payload, models, "view_region_model", DEFAULT_VIEW_REGION_MODEL)
+    docling_pipeline = _resolve_docling_pipeline_settings(payload)
     return {
         "models": models,
         "selected_ocr_model": selected_ocr_model,
@@ -165,7 +205,7 @@ def load_ai_model_settings() -> dict[str, Any]:
         "ctm_validation": _resolve_ctm_validation_settings(payload),
         "view_region_model": _first_model_name(view_region_models, DEFAULT_VIEW_REGION_MODEL),
         "lmstudio_base_url": _resolve_lmstudio_base_url(payload),
-        "docling_preset": str((payload.get("docling_pipeline") or {}).get("preset") or "granite_docling"),
+        **docling_pipeline,
     }
 
 
@@ -211,3 +251,15 @@ def default_ctm_validation_settings() -> dict[str, float]:
 
 def default_docling_preset() -> str:
     return str(load_ai_model_settings()["docling_preset"])
+
+
+def default_docling_backend() -> str:
+    return str(load_ai_model_settings()["docling_backend"])
+
+
+def default_docling_device() -> str:
+    return str(load_ai_model_settings()["docling_device"])
+
+
+def default_docling_retries() -> int:
+    return int(load_ai_model_settings()["docling_retries"])

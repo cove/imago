@@ -316,6 +316,7 @@ def run_crop_regions(*, album_id: str, photos_root: str, page: str | None, force
     from .lib.ai_model_settings import default_view_region_model
     from .lib.ai_view_regions import (
         _accepted_regions_debug_path,
+        _docling_raw_debug_path,
         _failed_regions_debug_path,
         _has_xmp_regions,
         _image_dimensions,
@@ -387,6 +388,9 @@ def run_crop_regions(*, album_id: str, photos_root: str, page: str | None, force
                     accepted_debug_path = _accepted_regions_debug_path(view_path)
                     if accepted_debug_path.is_file():
                         print(f"  detect-regions: accepted boxes -> {accepted_debug_path}")
+                    raw_docling_debug_path = _docling_raw_debug_path(view_path)
+                    if raw_docling_debug_path.is_file():
+                        print(f"  detect-regions: docling debug -> {raw_docling_debug_path}")
                     if regions:
                         captions: list[dict] = []
                         regions_with_captions = associate_captions(regions, captions, img_w)
@@ -396,7 +400,7 @@ def run_crop_regions(*, album_id: str, photos_root: str, page: str | None, force
                     else:
                         write_region_list(xmp_path, [], img_w, img_h)
                         existing_step = read_pipeline_step(xmp_path, "view_regions") or {}
-                        if str(existing_step.get("result") or "") != "validation_failed":
+                        if str(existing_step.get("result") or "") not in {"no_regions", "validation_failed", "failed"}:
                             write_pipeline_step(xmp_path, "view_regions", model=model_name, extra={"result": "no_regions"})
                         print(f"  detect-regions: no regions")
                 n = crop_page_regions(view_path, photos_dir, force=force)
@@ -496,7 +500,7 @@ def _view_regions_step_complete(xmp_path: Path) -> bool:
     pipeline_state = read_pipeline_step(xmp_path, "view_regions")
     if pipeline_state is None:
         return False
-    if str(pipeline_state.get("result") or "").strip() == "no_regions":
+    if str(pipeline_state.get("result") or "").strip() in {"no_regions", "validation_failed", "failed"}:
         return True
     return _has_xmp_regions(xmp_path)
 
@@ -565,6 +569,7 @@ def run_render_pipeline(
     from .lib.ai_model_settings import default_view_region_model
     from .lib.ai_view_regions import (
         _accepted_regions_debug_path,
+        _docling_raw_debug_path,
         _failed_regions_debug_path,
         _has_xmp_regions,
         _image_dimensions,
@@ -576,6 +581,7 @@ def run_render_pipeline(
     from .lib.prompt_debug import PromptDebugSession
     from .lib.xmp_sidecar import (
         clear_pipeline_steps,
+        propagate_archive_copy_safe_fields,
         read_pipeline_step,
         write_pipeline_step,
         write_region_list,
@@ -667,6 +673,14 @@ def run_render_pipeline(
                     summary["pages_failed"] += 1
                     continue
 
+                # Step: propagate-archive-metadata
+                try:
+                    if view_path.is_file() and archive_sidecar.is_file():
+                        propagate_archive_copy_safe_fields(xmp_path, archive_sidecar)
+                except Exception as exc:
+                    print(f"  WARNING [propagate-archive-metadata]: {exc}", file=sys.stderr)
+                    summary["warnings"] += 1
+
                 if _is_title_page_view(view_path):
                     summary["detect_regions_skipped"] += 1
                     if not skip_crops:
@@ -721,6 +735,9 @@ def run_render_pipeline(
                             accepted_debug_path = _accepted_regions_debug_path(view_path)
                             if accepted_debug_path.is_file():
                                 print(f"  detect-regions: accepted boxes -> {accepted_debug_path}")
+                            raw_docling_debug_path = _docling_raw_debug_path(view_path)
+                            if raw_docling_debug_path.is_file():
+                                print(f"  detect-regions: docling debug -> {raw_docling_debug_path}")
                             # detect_regions validates internally and returns only the valid kept set
                             if regions:
                                 captions: list[dict] = []
@@ -732,7 +749,7 @@ def run_render_pipeline(
                             else:
                                 write_region_list(xmp_path, [], img_w, img_h)
                                 existing_step = read_pipeline_step(xmp_path, "view_regions") or {}
-                                if str(existing_step.get("result") or "") != "validation_failed":
+                                if str(existing_step.get("result") or "") not in {"no_regions", "validation_failed", "failed"}:
                                     write_pipeline_step(xmp_path, "view_regions", model=model_name, extra={"result": "no_regions"})
                                 summary["detect_regions_no_regions"] += 1
                                 failed_debug_path = _failed_regions_debug_path(view_path)
@@ -870,6 +887,7 @@ def run_detect_view_regions(
 ) -> int:
     from .lib.ai_view_regions import (
         _accepted_regions_debug_path,
+        _docling_raw_debug_path,
         _failed_regions_debug_path,
         _has_xmp_regions,
         _image_dimensions,
@@ -896,7 +914,6 @@ def run_detect_view_regions(
     errors = 0
     for view_dir in view_dirs:
         candidates = _iter_page_view_targets(view_dir, page)
-
         for view_path in candidates:
             xmp_path = view_path.with_suffix(".xmp")
             try:
@@ -908,78 +925,69 @@ def run_detect_view_regions(
                     if not _has_xmp_regions(xmp_path):
                         if not redo_no_regions:
                             continue
-                        # --redo-no-regions: reprocess pages that completed with no regions found
                         step = read_pipeline_step(xmp_path, "view_regions")
                         result = step.get("result") if step else None
-                        if result == "no_regions":
-                            redetect_reason = " (redo: no_regions)"
-                        else:
-                            redetect_reason = " (redo: regionlist missing)"
+                        redetect_reason = " (redo: no_regions)" if result == "no_regions" else " (redo: regionlist missing)"
                         clear_pipeline_steps(xmp_path, ["view_regions"])
                         force_detect = True
                     else:
-                        # Always revalidate stored regions — invalid stored sets must be reprocessed
-                        _w, _h = _image_dimensions(view_path)
-                        stored = _read_regions_from_xmp(xmp_path, _w, _h)
-                        vresult = validate_region_set(stored, img_w=_w, img_h=_h)
-                        if vresult.valid or skip_validation:
+                        img_w, img_h = _image_dimensions(view_path)
+                        stored = _read_regions_from_xmp(xmp_path, img_w, img_h)
+                        validation = validate_region_set(stored, img_w=img_w, img_h=img_h)
+                        if validation.valid or skip_validation:
                             continue
-                        n_fail = len(vresult.failures)
-                        reasons = ", ".join(f.reason for f in vresult.failures)
-                        redetect_reason = f" (revalidate: {n_fail} invalid region(s): {reasons})"
+                        reasons = ", ".join(f.reason for f in validation.failures)
+                        redetect_reason = f" (revalidate: {len(validation.failures)} invalid region(s): {reasons})"
                         clear_pipeline_steps(xmp_path, ["view_regions"])
-                        force_detect = True  # bypass XMP region cache; cleared step only clears pipeline state
+                        force_detect = True
+
                 print(f"Processing {view_path.name}{redetect_reason}...")
                 if not force and read_pipeline_step(xmp_path, "view_regions") is not None:
                     print(f"  Re-running {view_path.name} (pipeline state present but regions are missing)")
+
                 img_w, img_h = _image_dimensions(view_path)
                 album_context, page_caption, people_roster = _build_region_detection_context(view_path, root)
                 prompt_debug = PromptDebugSession(view_path, label=view_path.name) if debug else None
-                # detect_regions validates internally and retries with repair prompts on failures.
-                # The outer loop provides an additional last-resort retry if the model call itself fails.
-                _REGEN_RETRIES = 2
-                regions: list = []
-                for _attempt in range(1 + _REGEN_RETRIES):
-                    try:
-                        regions = detect_regions(
-                            view_path,
-                            force=force_detect,
-                            album_context=album_context,
-                            page_caption=page_caption,
-                            people_roster=people_roster,
-                            prompt_debug=prompt_debug,
-                            skip_validation=skip_validation,
-                        )
-                    finally:
-                        debug_path = _write_view_regions_debug_artifact(prompt_debug, image_path=view_path)
-                        if debug_path is not None:
-                            print(f"  Debug request/response log: {debug_path}")
-                    accepted_debug_path = _accepted_regions_debug_path(view_path)
-                    if accepted_debug_path.is_file():
-                        print(f"  Accepted boxes debug image: {accepted_debug_path}")
-                    if regions:
-                        break
-                    # No regions returned after all internal retries — outer last-resort retry
-                    force_detect = True
-                    if _attempt < _REGEN_RETRIES:
-                        print(f"  No regions detected, retrying ({_attempt + 1}/{_REGEN_RETRIES})...")
+                try:
+                    regions = detect_regions(
+                        view_path,
+                        force=force_detect,
+                        album_context=album_context,
+                        page_caption=page_caption,
+                        people_roster=people_roster,
+                        prompt_debug=prompt_debug,
+                        skip_validation=skip_validation,
+                    )
+                finally:
+                    debug_path = _write_view_regions_debug_artifact(prompt_debug, image_path=view_path)
+                    if debug_path is not None:
+                        print(f"  Debug request/response log: {debug_path}")
+
+                accepted_debug_path = _accepted_regions_debug_path(view_path)
+                if accepted_debug_path.is_file():
+                    print(f"  Accepted boxes debug image: {accepted_debug_path}")
+                raw_docling_debug_path = _docling_raw_debug_path(view_path)
+                if raw_docling_debug_path.is_file():
+                    print(f"  Docling raw debug: {raw_docling_debug_path}")
+
                 if not regions:
                     if redetect_reason:
-                        # Came from fix-invalid path; leave step unwritten so this page is retried next run
                         failed_debug_path = _failed_regions_debug_path(view_path)
                         if failed_debug_path.is_file():
                             print(f"  Failed boxes debug image: {failed_debug_path}")
-                        print("  No regions after retries; will retry next run.")
+                        print("  No regions detected; will retry next run.")
                         continue
                     write_region_list(xmp_path, [], img_w, img_h)
-                    write_pipeline_step(xmp_path, "view_regions", model=model_name, extra={"result": "no_regions"})
+                    existing_step = read_pipeline_step(xmp_path, "view_regions") or {}
+                    if str(existing_step.get("result") or "") not in {"no_regions", "validation_failed", "failed"}:
+                        write_pipeline_step(xmp_path, "view_regions", model=model_name, extra={"result": "no_regions"})
                     failed_debug_path = _failed_regions_debug_path(view_path)
                     if failed_debug_path.is_file():
                         print(f"  Failed boxes debug image: {failed_debug_path}")
                     print("  No regions detected.")
                     continue
-                captions: list[dict] = []  # Future: extract from existing XMP description
-                regions_with_captions = associate_captions(regions, captions, img_w)
+
+                regions_with_captions = associate_captions(regions, [], img_w)
                 write_region_list(xmp_path, regions_with_captions, img_w, img_h)
                 write_pipeline_step(xmp_path, "view_regions", model=model_name, extra={"result": "regions_found"})
                 print(f"  Wrote {len(regions)} region(s) to {xmp_path.name}")

@@ -7,6 +7,7 @@ from typing import Any
 from .ai_album_titles import _derived_name_match
 from .ai_location import _xmp_gps_to_decimal
 from .ai_render_settings import find_archive_dir_for_image
+from .xmpmm_provenance import read_derived_from
 from ..exiftool_utils import read_tag
 from ..naming import DERIVED_VIEW_RE
 from .xmp_sidecar import _dedupe, _normalize_xmp_datetime, read_ai_sidecar_state
@@ -84,6 +85,32 @@ def _resolve_derived_source_sidecar_state(
 ) -> dict[str, Any] | None:
     if not _is_derived_image_path(image_path) or not isinstance(sidecar_state, dict):
         return None
+    derived_from = read_derived_from(image_path.with_suffix(".xmp"))
+    derived_source_path = str(derived_from.get("source_path") or "").strip()
+    if derived_source_path:
+        source_candidate = Path(derived_source_path)
+        source_sidecar_candidates: list[Path] = []
+        if source_candidate.is_absolute():
+            source_sidecar_candidates.append(source_candidate.with_suffix(".xmp"))
+        else:
+            source_sidecar_candidates.append((image_path.parent / source_candidate).with_suffix(".xmp"))
+            source_name = source_candidate.name
+            if source_name:
+                source_sidecar_candidates.append((image_path.parent / source_name).with_suffix(".xmp"))
+            if image_path.parent.name.endswith("_Photos"):
+                view_dir = image_path.parent.parent / image_path.parent.name.replace("_Photos", "_View")
+                source_sidecar_candidates.append((view_dir / source_candidate).with_suffix(".xmp"))
+                if source_name:
+                    source_sidecar_candidates.append((view_dir / source_name).with_suffix(".xmp"))
+            archive_dir = find_archive_dir_for_image(image_path)
+            if archive_dir is not None and archive_dir.is_dir():
+                source_sidecar_candidates.append((archive_dir / source_candidate.name).with_suffix(".xmp"))
+        for source_sidecar_path in source_sidecar_candidates:
+            if not source_sidecar_path.is_file():
+                continue
+            source_state = read_ai_sidecar_state(source_sidecar_path)
+            if isinstance(source_state, dict):
+                return source_state
     archive_dir = find_archive_dir_for_image(image_path)
     if archive_dir is None or not archive_dir.is_dir():
         return None
