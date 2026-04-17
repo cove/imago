@@ -32,9 +32,11 @@ Run all project tests from repo root:
 - `uv run pytest -q`
 - `.\scripts\test.ps1 -q` (also runs the per-project Skylos duplicate-code gate)
 
-Enable the repo pre-push hook (runs this test suite before push):
+Enable the repo hooks:
 
 - `git config core.hooksPath .githooks`
+
+The tracked hooks use `ruff` for Python linting. `black` and `flake8` are deprecated in this repo and are no longer part of the hook flow. The pre-commit hook runs `ruff` on staged Python files and then runs tests for whichever project roots were touched.
 
 Run a single project test suite (same command shape in each project):
 

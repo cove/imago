@@ -241,6 +241,7 @@ def crop_page_regions(
     photos_dir: str | Path,
     *,
     force: bool = False,
+    skip_restoration: bool = False,
     stats: CropPageStats | None = None,
 ) -> int:
     """Crop each detected region from a page view JPEG and write to photos_dir.
@@ -368,6 +369,9 @@ def crop_page_regions(
                         )
                         continue
                     crop_img = page_img.crop((left, top, right, bottom))
+                    if not skip_restoration:
+                        from .photo_restoration import restore_photo
+                        crop_img = restore_photo(crop_img)
                     crop_img.save(str(output_path), format="JPEG", quality=95)
 
                     _write_crop_sidecar(

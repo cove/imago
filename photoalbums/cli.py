@@ -143,6 +143,9 @@ def build_parser() -> argparse.ArgumentParser:
     crop_regions_parser.add_argument(
         "--force", action="store_true", help="Re-crop even if pipeline state already recorded"
     )
+    crop_regions_parser.add_argument(
+        "--skip-restoration", action="store_true", help="Skip AI photo restoration step (faster on CPU)"
+    )
 
     face_refresh_parser = subparsers.add_parser(
         "face-refresh",
@@ -274,6 +277,7 @@ def main(argv: list[str] | None = None) -> int:
             photos_root=args.photos_root,
             page=args.page,
             force=args.force,
+            skip_restoration=bool(getattr(args, "skip_restoration", False)),
         )
 
     if args.group == "face-refresh":
