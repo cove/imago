@@ -310,7 +310,7 @@ def run_checksum_tree(*, base_dir: str, verify: bool) -> int:
     return int(sha3_tree_hashes.run(argv) or 0)
 
 
-def run_crop_regions(*, album_id: str, photos_root: str, page: str | None, force: bool) -> int:
+def run_crop_regions(*, album_id: str, photos_root: str, page: str | None, force: bool, skip_restoration: bool = False) -> int:
     """Run only the crop-regions step for matching album page view JPEGs."""
     from pathlib import Path
     from .lib.ai_model_settings import default_view_region_model
@@ -403,7 +403,7 @@ def run_crop_regions(*, album_id: str, photos_root: str, page: str | None, force
                         if str(existing_step.get("result") or "") not in {"no_regions", "validation_failed", "failed"}:
                             write_pipeline_step(xmp_path, "view_regions", model=model_name, extra={"result": "no_regions"})
                         print(f"  detect-regions: no regions")
-                n = crop_page_regions(view_path, photos_dir, force=force)
+                n = crop_page_regions(view_path, photos_dir, force=force, skip_restoration=skip_restoration)
                 if n > 0:
                     print(f"  Wrote {n} crop(s) to {photos_dir.name}/")
             except Exception as exc:
