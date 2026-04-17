@@ -419,6 +419,144 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             self.assertIsNotNone(state)
             self.assertEqual(state["model"], "buffalo_l")
 
+    def test_refresh_face_regions_preserves_inherited_page_metadata(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            view = base / "Egypt_1975_View"
+            view.mkdir()
+            image = view / "Egypt_1975_B00_P09_V.jpg"
+            image.write_bytes(b"rendered")
+            sidecar = image.with_suffix(".xmp")
+            xmp_sidecar.write_xmp_sidecar(
+                sidecar,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=["egypt", "travel"],
+                description="Pyramids at Giza",
+                source_text="Egypt_1975_B00_P09_S01.tif; Egypt_1975_B00_P09_S02.tif",
+                ocr_text="EGYPT 1975",
+                author_text="Pyramids at Giza",
+                scene_text="Tour bus nearby",
+                location_city="Giza",
+                location_country="Egypt",
+                location_sublocation="Giza Plateau",
+                create_date="2026-03-25T19:35:00Z",
+                dc_date=["1975-03", "1975-04"],
+                locations_shown=[
+                    {
+                        "name": "Giza Necropolis",
+                        "world_region": "Africa",
+                        "country_code": "EG",
+                        "country_name": "Egypt",
+                        "province_or_state": "Giza",
+                        "city": "Giza",
+                        "sublocation": "Giza Plateau",
+                        "gps_latitude": "29.9792",
+                        "gps_longitude": "31.1342",
+                    }
+                ],
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                image_width=200,
+                image_height=100,
+            )
+
+            def _write_people(image_path: Path, sidecar_path: Path) -> None:
+                xmp_sidecar.write_xmp_sidecar(
+                    sidecar_path,
+                    creator_tool="imago-test",
+                    person_names=["Alice Smith"],
+                    subjects=[],
+                    description="",
+                    source_text="",
+                    ocr_text="",
+                    detections_payload={"people": [{"name": "Alice Smith", "bbox": [10, 10, 30, 30]}], "objects": [], "ocr": {}, "caption": {}},
+                    image_width=200,
+                    image_height=100,
+                )
+
+            with mock.patch.object(
+                ai_render_face_refresh.RenderFaceRefreshSession, "_refresh_with_runner", side_effect=_write_people
+            ):
+                ran = ai_render_face_refresh.refresh_face_regions(image, sidecar, force=True)
+
+            self.assertTrue(ran)
+            state = xmp_sidecar.read_ai_sidecar_state(sidecar)
+            assert state is not None
+            self.assertEqual(state["description"], "Pyramids at Giza")
+            self.assertEqual(state["source_text"], "Egypt_1975_B00_P09_S01.tif; Egypt_1975_B00_P09_S02.tif")
+            self.assertEqual(state["dc_date_values"], ["1975-03", "1975-04"])
+            self.assertEqual(state["create_date"], "2026-03-25T19:35:00Z")
+            self.assertEqual(state["location_city"], "Giza")
+            self.assertEqual(state["location_country"], "Egypt")
+            self.assertEqual(xmp_sidecar.read_locations_shown(sidecar)[0]["name"], "Giza Necropolis")
+
+    def test_refresh_face_regions_preserves_inherited_crop_metadata(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            photos = base / "Egypt_1975_Photos"
+            photos.mkdir()
+            image = photos / "Egypt_1975_B00_P09_D01-00_V.jpg"
+            image.write_bytes(b"rendered")
+            sidecar = image.with_suffix(".xmp")
+            xmp_sidecar.write_xmp_sidecar(
+                sidecar,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=["egypt"],
+                description="Crop caption",
+                source_text="Egypt_1975_B00_P09_S01.tif",
+                ocr_text="EGYPT 1975",
+                location_city="Giza",
+                location_country="Egypt",
+                create_date="2026-03-25T19:35:00Z",
+                dc_date="1975-03",
+                locations_shown=[
+                    {
+                        "name": "Giza Necropolis",
+                        "world_region": "Africa",
+                        "country_code": "EG",
+                        "country_name": "Egypt",
+                        "province_or_state": "Giza",
+                        "city": "Giza",
+                        "sublocation": "",
+                        "gps_latitude": "29.9792",
+                        "gps_longitude": "31.1342",
+                    }
+                ],
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                image_width=200,
+                image_height=100,
+            )
+
+            def _write_people(image_path: Path, sidecar_path: Path) -> None:
+                xmp_sidecar.write_xmp_sidecar(
+                    sidecar_path,
+                    creator_tool="imago-test",
+                    person_names=["Alice Smith"],
+                    subjects=[],
+                    description="",
+                    source_text="",
+                    ocr_text="",
+                    detections_payload={"people": [{"name": "Alice Smith", "bbox": [10, 10, 30, 30]}], "objects": [], "ocr": {}, "caption": {}},
+                    image_width=200,
+                    image_height=100,
+                )
+
+            with mock.patch.object(
+                ai_render_face_refresh.RenderFaceRefreshSession, "_refresh_with_runner", side_effect=_write_people
+            ):
+                ran = ai_render_face_refresh.refresh_face_regions(image, sidecar, force=True)
+
+            self.assertTrue(ran)
+            state = xmp_sidecar.read_ai_sidecar_state(sidecar)
+            assert state is not None
+            self.assertEqual(state["description"], "Crop caption")
+            self.assertEqual(state["source_text"], "Egypt_1975_B00_P09_S01.tif")
+            self.assertEqual(state["dc_date_values"], ["1975-03"])
+            self.assertEqual(state["create_date"], "2026-03-25T19:35:00Z")
+            self.assertEqual(state["location_city"], "Giza")
+            self.assertEqual(xmp_sidecar.read_locations_shown(sidecar)[0]["name"], "Giza Necropolis")
+
     def test_refresh_face_regions_clears_person_in_image_when_no_matches(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)

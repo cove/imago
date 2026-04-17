@@ -28,8 +28,14 @@ class TestAIModelSettings(unittest.TestCase):
                     selected_ocr_model = "fast"
                     selected_caption_model = "big"
                     selected_ctm_model = "restoration"
-                    view_region_model = "restoration"
+                    view_region_model = "docling"
                     lmstudio_base_url = "http://lmstudio.local:1234/v1"
+
+                    [docling_pipeline]
+                    preset = "granite_docling"
+                    backend = "auto_inline"
+                    device = "auto"
+                    retries = 4
 
                     [ctm_validation]
                     min_confidence = 0.4
@@ -40,6 +46,7 @@ class TestAIModelSettings(unittest.TestCase):
                     [models]
                     big = ["qwen/qwen3-vl-30b", "qwen/qwen3-vl-32b"]
                     fast = ["qwen/qwen3.5-9b"]
+                    docling = ["granite-docling-258m"]
                     restoration = ["google/gemma-4-31b-it", "google/gemma-4-27b-it"]
                     """
                 ).strip()
@@ -63,10 +70,14 @@ class TestAIModelSettings(unittest.TestCase):
                 )
                 self.assertEqual(
                     loaded["view_region_models"],
-                    ["google/gemma-4-31b-it", "google/gemma-4-27b-it"],
+                    ["granite-docling-258m"],
                 )
-                self.assertEqual(loaded["view_region_model"], "google/gemma-4-31b-it")
+                self.assertEqual(loaded["view_region_model"], "granite-docling-258m")
                 self.assertEqual(loaded["lmstudio_base_url"], "http://lmstudio.local:1234/v1")
+                self.assertEqual(loaded["docling_preset"], "granite_docling")
+                self.assertEqual(loaded["docling_backend"], "auto_inline")
+                self.assertEqual(loaded["docling_device"], "auto")
+                self.assertEqual(loaded["docling_retries"], 4)
                 self.assertEqual(
                     ai_model_settings.default_ocr_model(),
                     "qwen/qwen3.5-9b",
@@ -89,11 +100,15 @@ class TestAIModelSettings(unittest.TestCase):
                     ai_model_settings.default_ctm_models(),
                     ["google/gemma-4-31b-it", "google/gemma-4-27b-it"],
                 )
-                self.assertEqual(ai_model_settings.default_view_region_model(), "google/gemma-4-31b-it")
+                self.assertEqual(ai_model_settings.default_view_region_model(), "granite-docling-258m")
                 self.assertEqual(
                     ai_model_settings.default_view_region_models(),
-                    ["google/gemma-4-31b-it", "google/gemma-4-27b-it"],
+                    ["granite-docling-258m"],
                 )
+                self.assertEqual(ai_model_settings.default_docling_preset(), "granite_docling")
+                self.assertEqual(ai_model_settings.default_docling_backend(), "auto_inline")
+                self.assertEqual(ai_model_settings.default_docling_device(), "auto")
+                self.assertEqual(ai_model_settings.default_docling_retries(), 4)
                 self.assertEqual(
                     ai_model_settings.default_ctm_validation_settings(),
                     {
@@ -108,6 +123,7 @@ class TestAIModelSettings(unittest.TestCase):
             loaded["models"],
             {
                 "big": ["qwen/qwen3-vl-30b", "qwen/qwen3-vl-32b"],
+                "docling": ["granite-docling-258m"],
                 "fast": ["qwen/qwen3.5-9b"],
                 "restoration": ["google/gemma-4-31b-it", "google/gemma-4-27b-it"],
             },
@@ -186,7 +202,7 @@ class TestAIModelSettings(unittest.TestCase):
                     """
                     selected_ocr_model = "big"
                     selected_caption_model = "big"
-                    view_region_model = "google/gemma-4-26b-a4b"
+                    view_region_model = "granite-docling-258m"
 
                     [models]
                     big = ["qwen/qwen3-vl-30b"]
@@ -199,8 +215,8 @@ class TestAIModelSettings(unittest.TestCase):
                 ai_model_settings.load_ai_model_settings.cache_clear()
                 loaded = ai_model_settings.load_ai_model_settings()
 
-        self.assertEqual(loaded["view_region_model"], "google/gemma-4-26b-a4b")
-        self.assertEqual(loaded["view_region_models"], ["google/gemma-4-26b-a4b"])
+        self.assertEqual(loaded["view_region_model"], "granite-docling-258m")
+        self.assertEqual(loaded["view_region_models"], ["granite-docling-258m"])
 
 
 if __name__ == "__main__":

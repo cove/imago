@@ -143,6 +143,37 @@ def write_derived_from(xmp_path: str | Path, source_document_id: str, source_pat
     _save_tree(tree, path)
 
 
+def read_derived_from(xmp_path: str | Path) -> dict[str, str]:
+    """Return the immediate xmpMM:DerivedFrom payload or {} if absent."""
+    path = Path(xmp_path)
+    if not path.is_file():
+        return {}
+    try:
+        tree = ET.parse(str(path))
+    except ET.ParseError:
+        return {}
+    root = tree.getroot()
+    if root is None:
+        return {}
+    rdf = root.find(_RDF_ROOT)
+    if rdf is None:
+        return {}
+    desc = rdf.find(_RDF_DESC)
+    if desc is None:
+        return {}
+    derived_from = desc.find(f"{{{_XMPMM_NS}}}DerivedFrom")
+    if derived_from is None:
+        return {}
+    source_document_id = str(derived_from.findtext(f"{{{_ST_REF_NS}}}documentID", default="") or "").strip()
+    source_path = str(derived_from.findtext(f"{{{_ST_REF_NS}}}filePath", default="") or "").strip()
+    payload: dict[str, str] = {}
+    if source_document_id:
+        payload["source_document_id"] = source_document_id
+    if source_path:
+        payload["source_path"] = source_path
+    return payload
+
+
 # ---------------------------------------------------------------------------
 # Pantry
 # ---------------------------------------------------------------------------

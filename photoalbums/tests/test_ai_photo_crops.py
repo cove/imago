@@ -461,6 +461,117 @@ class TestWriteCropSidecar(unittest.TestCase):
             self.assertIn("Cairo", xml)
             self.assertIn("Egypt", xml)
             self.assertIn("GPSLatitude", xml)
+            self.assertIn("<photoshop:City>Cairo</photoshop:City>", xml)
+            self.assertIn("<xmp:CreateDate>1975</xmp:CreateDate>", xml)
+
+    def test_crop_sidecar_keeps_archive_lineage_and_view_parentage(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir.mkdir()
+            photos_dir = Path(tmp) / "Egypt_1975_Photos"
+            photos_dir.mkdir()
+            view_jpg = view_dir / "Egypt_1975_B00_P26_V.jpg"
+            _make_minimal_jpeg(view_jpg, 200, 100)
+
+            from photoalbums.lib.ai_photo_crops import _write_crop_sidecar
+            from photoalbums.lib.xmp_sidecar import write_xmp_sidecar, read_ai_sidecar_state
+            from photoalbums.lib.xmpmm_provenance import assign_document_id
+
+            view_xmp = view_jpg.with_suffix(".xmp")
+            write_xmp_sidecar(
+                view_xmp,
+                creator_tool="test",
+                person_names=[],
+                subjects=["egypt"],
+                description="A page",
+                source_text="Egypt_1975_B00_P26_S01.tif; Egypt_1975_B00_P26_S02.tif",
+                ocr_text="",
+            )
+            assign_document_id(view_xmp)
+
+            crop_jpg = photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg"
+            crop_jpg.write_bytes(b"placeholder")
+            view_state = read_ai_sidecar_state(view_xmp)
+            assert view_state is not None
+            _write_crop_sidecar(crop_jpg, view_jpg, "Crop caption", view_state, [], [])
+
+            crop_xmp = crop_jpg.with_suffix(".xmp")
+            crop_state = read_ai_sidecar_state(crop_xmp)
+            assert crop_state is not None
+            self.assertEqual(
+                crop_state["source_text"],
+                "Egypt_1975_B00_P26_S01.tif; Egypt_1975_B00_P26_S02.tif",
+            )
+            xml = crop_xmp.read_text(encoding="utf-8")
+            self.assertIn("../Egypt_1975_View/Egypt_1975_B00_P26_V.jpg", xml)
+
+    def test_crop_sidecar_inherits_page_metadata_contract(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir.mkdir()
+            photos_dir = Path(tmp) / "Egypt_1975_Photos"
+            photos_dir.mkdir()
+            view_jpg = view_dir / "Egypt_1975_B00_P26_V.jpg"
+            _make_minimal_jpeg(view_jpg, 200, 100)
+
+            from photoalbums.lib.ai_photo_crops import _write_crop_sidecar
+            from photoalbums.lib.xmp_sidecar import (
+                read_ai_sidecar_state,
+                read_locations_shown,
+                write_xmp_sidecar,
+            )
+            from photoalbums.lib.xmpmm_provenance import assign_document_id
+
+            view_xmp = view_jpg.with_suffix(".xmp")
+            write_xmp_sidecar(
+                view_xmp,
+                creator_tool="test",
+                person_names=[],
+                subjects=["egypt", "travel"],
+                description="Pyramids at Giza",
+                source_text="Egypt_1975_B00_P26_S01.tif",
+                ocr_text="EGYPT 1975",
+                location_city="Giza",
+                location_country="Egypt",
+                location_sublocation="Giza Plateau",
+                create_date="2026-03-25T19:35:00Z",
+                dc_date=["1975-03", "1975-04"],
+                locations_shown=[
+                    {
+                        "name": "Giza Necropolis",
+                        "world_region": "Africa",
+                        "country_code": "EG",
+                        "country_name": "Egypt",
+                        "province_or_state": "Giza",
+                        "city": "Giza",
+                        "sublocation": "Giza Plateau",
+                        "gps_latitude": "29.9792",
+                        "gps_longitude": "31.1342",
+                    }
+                ],
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+            )
+            assign_document_id(view_xmp)
+
+            crop_jpg = photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg"
+            crop_jpg.write_bytes(b"placeholder")
+            view_state = read_ai_sidecar_state(view_xmp)
+            assert view_state is not None
+            _write_crop_sidecar(crop_jpg, view_jpg, "", view_state, read_locations_shown(view_xmp), [])
+
+            crop_state = read_ai_sidecar_state(crop_jpg.with_suffix(".xmp"))
+            assert crop_state is not None
+            self.assertEqual(crop_state["description"], "Pyramids at Giza")
+            self.assertEqual(crop_state["dc_date_values"], ["1975-03", "1975-04"])
+            self.assertEqual(crop_state["create_date"], "2026-03-25T19:35:00Z")
+            self.assertEqual(crop_state["location_city"], "Giza")
+            self.assertEqual(crop_state["location_country"], "Egypt")
+            self.assertEqual(crop_state["location_sublocation"], "Giza Plateau")
+            self.assertEqual(crop_state["source_text"], "Egypt_1975_B00_P26_S01.tif")
+            xml = crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8")
+            self.assertIn("<rdf:li>egypt</rdf:li>", xml)
+            self.assertIn("<rdf:li>travel</rdf:li>", xml)
+            self.assertIn("Giza Necropolis", xml)
 
     def test_empty_location_not_written(self):
         with tempfile.TemporaryDirectory() as tmp:

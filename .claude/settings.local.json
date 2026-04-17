@@ -234,7 +234,8 @@
       "Bash(rm photoalbums/lib/_docling_parser.py)",
       "Bash(rm photoalbums/tests/test_docling_parser.py)",
       "Bash(grep -rn \"_docling_parser\\\\|parse_doctag_response\" photoalbums/)",
-      "Bash(python -m pytest photoalbums/tests/test_docling_pipeline.py -v)"
+      "Bash(python -m pytest photoalbums/tests/test_docling_pipeline.py -v)",
+      "Bash(python *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",

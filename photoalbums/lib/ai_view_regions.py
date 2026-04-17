@@ -1,25 +1,20 @@
-"""Detect individual photo regions within stitched view JPGs using a vision model.
-
-The prompt asks for normalised bounding boxes, but some model/server combinations
-still emit pixel coordinates. Results are written directly into the view image's
-XMP sidecar as an MWG-RS RegionList. The XMP is both the cache and the ground truth.
-"""
+"""Detect page photo regions with Docling and persist them via XMP."""
 
 from __future__ import annotations
 
-import base64
-import io
+from dataclasses import dataclass, field, replace
 import json
 import logging
-import urllib.error
-import urllib.request
-from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ._lmstudio_helpers import emit_prompt_debug as _emit_prompt_debug
-from .ai_model_settings import default_docling_preset, default_lmstudio_base_url, default_view_region_model, default_view_region_models
-from ._caption_lmstudio import normalize_lmstudio_base_url
+from .ai_model_settings import (
+    default_docling_backend,
+    default_docling_device,
+    default_docling_preset,
+    default_docling_retries,
+    default_view_region_model,
+)
 from .prompt_debug import debug_root_for_image_path
 
 if TYPE_CHECKING:
@@ -28,23 +23,13 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT_SECONDS = 300.0
-DEFAULT_MAX_IMAGE_EDGE = 1500
-# 0 = don't rescale image
-_MAX_RETRIES = 3
 _MAX_SINGLE_REGION_PAGE_FRACTION = 0.90
 _MIN_TOTAL_REGION_PAGE_FRACTION = 0.50
 _MAX_OVERLAP_FRACTION = 0.05
 
 
-# ---------------------------------------------------------------------------
-# Data model
-# ---------------------------------------------------------------------------
-
-
 @dataclass(frozen=True)
 class RegionResult:
-    """A detected photo region in pixel coordinates (top-left origin)."""
-
     index: int
     x: int
     y: int
@@ -64,36 +49,22 @@ class RegionWithCaption:
 
 @dataclass(frozen=True)
 class RegionFailure:
-    """Why a single region (or region pair) failed validation."""
-
     region_index: int
-    reason: str  # "zero_area", "full_page", "overlap", "insufficient_page_coverage"
-    severity: str  # "hard" — always requires repair
-    overlap_with: int | None = None  # index of the overlapping peer
-    overlap_fraction: float | None = None  # fraction of the smaller box that was overlapped
-    page_fraction: float | None = None  # fraction of the page covered by the accepted region set
+    reason: str
+    severity: str
+    overlap_with: int | None = None
+    overlap_fraction: float | None = None
+    page_fraction: float | None = None
 
 
 @dataclass(frozen=True)
 class ValidationResult:
-    """Result of validating a candidate region set."""
-
-    valid: bool  # True when failures is empty
-    kept: list[RegionResult]  # regions that survive all checks, sorted by index
-    failures: list[RegionFailure]  # per-region and pairwise failure records
-
-
-# ---------------------------------------------------------------------------
-# Coordinate conversion
-# ---------------------------------------------------------------------------
+    valid: bool
+    kept: list[RegionResult]
+    failures: list[RegionFailure]
 
 
 def pixel_to_mwgrs(x: int, y: int, w: int, h: int, img_w: int, img_h: int) -> tuple[float, float, float, float]:
-    """Convert pixel top-left bounds to MWG-RS normalised centre-point coords.
-
-    Returns (cx, cy, nw, nh) all in [0, 1] relative to image dimensions.
-    MWG-RS uses centre x/y, fractional width/height.
-    """
     cx = (x + w / 2.0) / img_w
     cy = (y + h / 2.0) / img_h
     nw = w / img_w
@@ -101,478 +72,50 @@ def pixel_to_mwgrs(x: int, y: int, w: int, h: int, img_w: int, img_h: int) -> tu
     return cx, cy, nw, nh
 
 
-# ---------------------------------------------------------------------------
-# Caption association
-# ---------------------------------------------------------------------------
-
-
 def associate_captions(
     regions: list[RegionResult],
     captions: list[dict],
     img_width: int,
 ) -> list[RegionWithCaption]:
-    """Assign captions to regions using nearest-centre spatial heuristic.
-
-    captions is a list of dicts with keys: text, x, y, w, h (pixel coords).
-    If no caption has position data, or captions are equidistant within 10% of
-    image width to two regions, all regions receive the first caption and
-    caption_ambiguous=True.
-    """
     ambiguity_threshold = img_width * 0.10
 
-    def region_centre(r: RegionResult) -> tuple[float, float]:
-        return r.x + r.width / 2.0, r.y + r.height / 2.0
+    def region_centre(region: RegionResult) -> tuple[float, float]:
+        return region.x + region.width / 2.0, region.y + region.height / 2.0
 
-    def caption_centre(c: dict) -> tuple[float, float] | None:
+    def caption_centre(caption: dict) -> tuple[float, float] | None:
         try:
-            cx = float(c["x"]) + float(c["w"]) / 2.0
-            cy = float(c["y"]) + float(c["h"]) / 2.0
+            cx = float(caption["x"]) + float(caption["w"]) / 2.0
+            cy = float(caption["y"]) + float(caption["h"]) / 2.0
             return cx, cy
         except (KeyError, TypeError, ValueError):
             return None
 
-    def distance(p1: tuple[float, float], p2: tuple[float, float]) -> float:
-        return ((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2) ** 0.5
+    def distance(left: tuple[float, float], right: tuple[float, float]) -> float:
+        return ((left[0] - right[0]) ** 2 + (left[1] - right[1]) ** 2) ** 0.5
 
     results: list[RegionWithCaption] = []
+    for caption in captions:
+        centre = caption_centre(caption)
+        if centre is None:
+            text = str(caption.get("text") or "").strip()
+            return [RegionWithCaption(region, text, caption_ambiguous=True) for region in regions]
 
-    for cap in captions:
-        cc = caption_centre(cap)
-        if cc is None:
-            # No position — broadcast to all
-            broadcast_text = str(cap.get("text") or "").strip()
-            return [RegionWithCaption(r, broadcast_text, caption_ambiguous=True) for r in regions]
-
-        dists = [distance(region_centre(r), cc) for r in regions]
-        if len(dists) < 2:
+        distances = [distance(region_centre(region), centre) for region in regions]
+        if len(distances) < 2:
             best_idx = 0
         else:
-            sorted_dists = sorted(dists)
-            if sorted_dists[1] - sorted_dists[0] < ambiguity_threshold:
-                # Ambiguous — broadcast
-                broadcast_text = str(cap.get("text") or "").strip()
-                return [RegionWithCaption(r, broadcast_text, caption_ambiguous=True) for r in regions]
-            best_idx = dists.index(sorted_dists[0])
+            sorted_distances = sorted(distances)
+            if sorted_distances[1] - sorted_distances[0] < ambiguity_threshold:
+                text = str(caption.get("text") or "").strip()
+                return [RegionWithCaption(region, text, caption_ambiguous=True) for region in regions]
+            best_idx = distances.index(sorted_distances[0])
+        results.append(RegionWithCaption(regions[best_idx], str(caption.get("text") or "").strip()))
 
-        results.append(RegionWithCaption(regions[best_idx], str(cap.get("text") or "").strip()))
-
-    # Regions that got no caption assigned
-    assigned = {rwc.region.index for rwc in results}
-    for r in regions:
-        if r.index not in assigned:
-            results.append(RegionWithCaption(r, ""))
-
-    results.sort(key=lambda rwc: rwc.region.index)
-    return results
-
-
-# ---------------------------------------------------------------------------
-# LM Studio vision call
-# ---------------------------------------------------------------------------
-
-_REGION_RESPONSE_FORMAT = {
-    "type": "json_schema",
-    "json_schema": {
-        "name": "view_regions",
-        "strict": False,
-        "schema": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "box_2d": {
-                        "type": "array",
-                        "items": {"type": "number"},
-                        "minItems": 4,
-                        "maxItems": 4,
-                    },
-                    "label": {"type": "string"},
-                },
-                "required": ["box_2d", "label"],
-                "additionalProperties": False,
-            },
-        },
-    },
-}
-
-_SYSTEM_PROMPT = (
-    "You are a Vision-Coordinate Engine. "
-    "Your ONLY task is to detect the bounding boxes of physical photograph prints on a scrapbook or photo album page. "
-    "Detect only the outer boundaries of the printed photo rectangles. "
-    "Ignore objects inside photos (people, cars, buildings, scenery). "
-    "Ignore text labels, handwritten notes, caption strips, and album background paper. "
-    "Output ONLY a raw JSON array in the format: "
-    '[{"box_2d": [ymin, xmin, ymax, xmax], "label": "photograph"}]. '
-    "Use a normalized scale of 0–1000 for all coordinates "
-    "(ymin/ymax are thousandths of image height, xmin/xmax are thousandths of image width)."
-)
-
-
-_USER_PROMPT = (
-    "Step 1: Scan the page and count how many distinct rectangular photo prints are present. "
-    "Step 2: For each photo, identify the full outer boundary of the print ? "
-    "not the subject inside it. The album background paper, caption strips, and text labels "
-    "between prints are separators, not photos. "
-    "Step 3: Return a JSON array of bounding boxes ? one per photo, no overlaps. "
-    'Each element: {"box_2d": [ymin, xmin, ymax, xmax], "label": "photograph"}. '
-    "Coordinates are integers 0?1000 (ymin < ymax, xmin < xmax). "
-    "Self-correction: if a box is entirely inside another box, remove the outer box."
-)
-
-_STRICT_USER_PROMPT = (
-    "Carefully identify every distinct physical photograph print on this album page. "
-    "For each print: detect the full outer boundary of the paper rectangle itself ? "
-    "not objects inside the photo. "
-    "Ignore album background paper, text labels, handwritten notes, and caption strips. "
-    "Return ONLY a valid JSON array. "
-    'Each element MUST be {"box_2d": [ymin, xmin, ymax, xmax], "label": "photograph"}. '
-    "Coordinates are integers 0?1000 (ymin < ymax, xmin < xmax). No other text or keys."
-)
-
-
-def _prompt_image_dims(img_w: int, img_h: int) -> str:
-    return f"This image is {img_w}?{img_h} pixels. " if img_w > 0 and img_h > 0 else ""
-
-
-def _build_prompt(img_w: int, img_h: int, instructions: str) -> str:
-    return f"{_prompt_image_dims(img_w, img_h)}{instructions}"
-
-
-def _build_user_prompt(img_w: int, img_h: int) -> str:
-    return _build_prompt(img_w, img_h, _USER_PROMPT)
-
-
-def _build_user_prompt_strict(img_w: int, img_h: int) -> str:
-    return _build_prompt(img_w, img_h, _STRICT_USER_PROMPT)
-
-
-def _build_repair_prompt(
-    prior_regions: list[RegionResult],
-    failures: list[RegionFailure],
-    *,
-    img_w: int,
-    img_h: int,
-) -> str:
-    """Build a retry prompt that feeds back the previous region set and validation errors."""
-    lines = [
-        "The previous detection produced invalid regions that must be corrected.",
-        "",
-        "Prior region set (all regions as returned, box_2d = [ymin, xmin, ymax, xmax] in 0–1000):",
-    ]
-    for r in prior_regions:
-        if img_w > 0 and img_h > 0:
-            ymin = round(r.y / img_h * 1000)
-            xmin = round(r.x / img_w * 1000)
-            ymax = round((r.y + r.height) / img_h * 1000)
-            xmax = round((r.x + r.width) / img_w * 1000)
-            lines.append(f"  index={r.index}: box_2d=[{ymin}, {xmin}, {ymax}, {xmax}]")
-        else:
-            lines.append(f"  index={r.index}: x={r.x}, y={r.y}, width={r.width}, height={r.height}")
-    lines.append("")
-    lines.append("Validation failures that MUST be fixed in your new response:")
-    for f in failures:
-        if f.reason == "overlap":
-            pct = int(round((f.overlap_fraction or 0) * 100))
-            lines.append(
-                f"  Region {f.region_index} overlaps region {f.overlap_with} by {pct}% of the smaller box"
-                f" (limit: 5%) — these two regions must not overlap."
-            )
-        elif f.reason == "zero_area":
-            lines.append(
-                f"  Region {f.region_index} has zero or negative area —"
-                f" it must be a valid non-degenerate rectangle."
-            )
-        elif f.reason == "full_page":
-            lines.append(
-                f"  Region {f.region_index} covers ≥90% of the page —"
-                f" this is the album background, not a photo."
-            )
-        elif f.reason == "insufficient_page_coverage":
-            pct = int(round((f.page_fraction or 0) * 100))
-            lines.append(
-                f"  The combined region set covers only {pct}% of the page"
-                f" (minimum: 50%) — you likely missed one or more photographs."
-            )
-        else:
-            lines.append(f"  Region {f.region_index}: {f.reason}.")
-    lines.extend(
-        [
-            "",
-            "Return a COMPLETE revised JSON array for this same image that fixes ALL failures listed above.",
-            "Each physical photograph must have exactly one non-overlapping bounding box.",
-            "",
-            "Detect only the outer boundary of each physical photo print — "
-            "ignore album background paper, text labels, and objects inside photos.",
-        ]
-    )
-    return "\n".join(lines)
-
-
-def _build_data_url_with_size(image_path: Path, max_edge: int) -> tuple[str, int, int]:
-    """Return a base64 data URL plus the resized dimensions sent to the model."""
-    image_bytes, width, height = _build_resized_jpeg_bytes(image_path, max_edge)
-    data = base64.b64encode(image_bytes).decode("ascii")
-    return f"data:image/jpeg;base64,{data}", width, height
-
-
-def _build_resized_jpeg_bytes(image_path: Path, max_edge: int) -> tuple[bytes, int, int]:
-    """Return resized JPEG bytes plus the dimensions sent to the model."""
-    from PIL import Image  # pylint: disable=import-outside-toplevel
-    from .image_limits import allow_large_pillow_images  # pylint: disable=import-outside-toplevel
-
-    if max_edge <= 0 and image_path.suffix.lower() in {".jpg", ".jpeg"}:
-        jpeg_bytes = image_path.read_bytes()
-        allow_large_pillow_images(Image)
-        with Image.open(io.BytesIO(jpeg_bytes)) as image:
-            width, height = image.size
-        return jpeg_bytes, width, height
-
-    allow_large_pillow_images(Image)
-    image = Image.open(str(image_path)).convert("RGB")
-    try:
-        w, h = image.size
-        longest = max(w, h)
-        if longest > max_edge > 0:
-            scale = max_edge / longest
-            image = image.resize((max(1, int(w * scale)), max(1, int(h * scale))), Image.Resampling.LANCZOS)
-        resized_w, resized_h = image.size
-        buf = io.BytesIO()
-        image.save(buf, format="JPEG", quality=92)
-        return buf.getvalue(), resized_w, resized_h
-    finally:
-        image.close()
-
-
-def _lmstudio_post(url: str, payload: dict, timeout: float) -> dict:
-    body = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(url, data=body, method="POST", headers={"Content-Type": "application/json"})
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        details = exc.read().decode("utf-8", errors="replace").strip()
-        raise RuntimeError(f"LM Studio request failed: {details or f'HTTP {exc.code}'}") from exc
-    except urllib.error.URLError as exc:
-        raise RuntimeError(f"LM Studio is unreachable at {url}: {exc.reason}") from exc
-
-
-def _extract_sdk_prediction_text(prediction: object) -> str:
-    text = getattr(prediction, "text", None)
-    if text is not None:
-        return str(text)
-    content = getattr(prediction, "content", None)
-    if content is not None:
-        return str(content)
-    return str(prediction or "")
-
-
-def _call_vision_model(
-    image_path: Path,
-    *,
-    model: str,
-    base_url: str,
-    timeout: float,
-    img_w: int,
-    img_h: int,
-    strict_prompt: bool = False,
-    prior_regions: list[RegionResult] | None = None,
-    prior_failures: list[RegionFailure] | None = None,
-    album_context: str = "",
-    page_caption: str = "",
-    people_roster: dict[str, str] | None = None,
-    attempt_number: int = 1,
-    debug_recorder=None,
-) -> list[RegionResult]:
-    image_url, resized_w, resized_h = _build_data_url_with_size(image_path, DEFAULT_MAX_IMAGE_EDGE)
-    if prior_regions is not None and prior_failures is not None:
-        user_text = _build_repair_prompt(prior_regions, prior_failures, img_w=img_w, img_h=img_h)
-    else:
-        user_text = _build_user_prompt_strict(img_w, img_h) if strict_prompt else _build_user_prompt(img_w, img_h)
-    clean_album_context = str(album_context or "").strip()
-    if clean_album_context:
-        user_text = user_text + f" Album context: {clean_album_context}."
-    clean_page_caption = str(page_caption or "").strip()
-    if clean_page_caption:
-        user_text = user_text + f" Page caption context: {clean_page_caption}."
-    roster_entries = []
-    for shorthand, full_name in sorted((people_roster or {}).items()):
-        clean_shorthand = str(shorthand or "").strip().lower()
-        clean_full_name = str(full_name or "").strip()
-        if clean_shorthand and clean_full_name:
-            roster_entries.append(f"{clean_shorthand} -> {clean_full_name}")
-    if roster_entries:
-        user_text = (
-            user_text
-            + " People roster for expanding hyphenated shorthand when the caption context supports it: "
-            + "; ".join(roster_entries)
-            + "."
-        )
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": _SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": user_text},
-                    {"type": "image_url", "image_url": {"url": image_url}},
-                ],
-            },
-        ],
-        "response_format": _REGION_RESPONSE_FORMAT,
-        "max_tokens": 2048,
-        "temperature": 0.1,
-    }
-    is_repair = prior_regions is not None and prior_failures is not None
-    debug_metadata = {
-        "attempt_number": int(attempt_number),
-        "strict_prompt": bool(strict_prompt),
-        "repair_prompt": is_repair,
-        "prior_region_count": len(prior_regions) if prior_regions is not None else 0,
-        "prior_failure_count": len(prior_failures) if prior_failures is not None else 0,
-        "base_url": str(base_url or ""),
-        "original_image_width": int(img_w),
-        "original_image_height": int(img_h),
-        "sent_image_width": int(resized_w),
-        "sent_image_height": int(resized_h),
-    }
-    try:
-        response = _lmstudio_post(f"{base_url}/chat/completions", payload, timeout)
-    except Exception as exc:
-        _emit_prompt_debug(
-            debug_recorder,
-            step="view_regions",
-            engine="lmstudio",
-            model=model,
-            prompt=user_text,
-            system_prompt=_SYSTEM_PROMPT,
-            source_path=image_path,
-            prompt_source="runtime",
-            response="",
-            metadata={**debug_metadata, "error": str(exc)},
-        )
-        raise
-    response_text = json.dumps(response, ensure_ascii=False, sort_keys=True)
-    choices = list(response.get("choices") or [])
-    if not choices:
-        _emit_prompt_debug(
-            debug_recorder,
-            step="view_regions",
-            engine="lmstudio",
-            model=model,
-            prompt=user_text,
-            system_prompt=_SYSTEM_PROMPT,
-            source_path=image_path,
-            prompt_source="runtime",
-            response=response_text,
-            metadata={**debug_metadata, "error": "LM Studio returned no choices in response"},
-        )
-        raise RuntimeError("LM Studio returned no choices in response")
-    finish_reason = str(choices[0].get("finish_reason") or "").strip()
-    content = choices[0].get("message", {}).get("content", "")
-    # The model reports the pixel dimensions it saw, and we scale back to the original image.
-    try:
-        results = _parse_region_response(
-            content,
-            img_w=img_w,
-            img_h=img_h,
-        )
-    except Exception as exc:
-        _emit_prompt_debug(
-            debug_recorder,
-            step="view_regions",
-            engine="lmstudio",
-            model=model,
-            prompt=user_text,
-            system_prompt=_SYSTEM_PROMPT,
-            source_path=image_path,
-            prompt_source="runtime",
-            response=response_text,
-            finish_reason=finish_reason,
-            metadata={**debug_metadata, "error": str(exc)},
-        )
-        raise
-    _emit_prompt_debug(
-        debug_recorder,
-        step="view_regions",
-        engine="lmstudio",
-        model=model,
-        prompt=user_text,
-        system_prompt=_SYSTEM_PROMPT,
-        source_path=image_path,
-        prompt_source="runtime",
-        response=response_text,
-        finish_reason=finish_reason,
-        metadata={
-            **debug_metadata,
-            "returned_region_count": len(results),
-        },
-    )
-    return results
-
-
-
-def _parse_region_response(
-    content: str,
-    *,
-    img_w: int = 0,
-    img_h: int = 0,
-) -> list[RegionResult]:
-    """Parse a box_2d region response from the model.
-
-    The model returns a JSON array of {"box_2d": [ymin, xmin, ymax, xmax], "label": "photograph"}
-    where coordinates are in the 0–1000 range (thousandths of image dimensions).
-    """
-    text = str(content or "").strip()
-    if not text:
-        raise RuntimeError("Empty response from vision model")
-    try:
-        payload = json.loads(text)
-    except json.JSONDecodeError:
-        start = text.find("[")
-        if start >= 0:
-            try:
-                payload = json.loads(text[start:])
-            except json.JSONDecodeError:
-                raise RuntimeError(f"Could not parse JSON array from model response: {text[:200]!r}")
-        else:
-            raise RuntimeError(f"No JSON array in model response: {text[:200]!r}")
-    if not isinstance(payload, list):
-        raise RuntimeError(f"Expected JSON array from vision model, got: {type(payload).__name__}")
-    results: list[RegionResult] = []
-    for item in payload:
-        if not isinstance(item, dict):
-            continue
-        try:
-            box = list(item["box_2d"])
-            if len(box) != 4:
-                log.warning("Skipping region with wrong box_2d length %r", item)
-                continue
-            ymin, xmin, ymax, xmax = (max(0.0, min(1000.0, float(v))) for v in box)
-        except (KeyError, TypeError, ValueError) as exc:
-            log.warning("Skipping malformed region entry %r: %s", item, exc)
-            continue
-        if ymin >= ymax or xmin >= xmax:
-            log.warning("Skipping degenerate box_2d %r", box)
-            continue
-        if img_w > 0 and img_h > 0:
-            x = max(0, int(round(xmin / 1000 * img_w)))
-            y = max(0, int(round(ymin / 1000 * img_h)))
-            w = max(1, int(round((xmax - xmin) / 1000 * img_w)))
-            h = max(1, int(round((ymax - ymin) / 1000 * img_h)))
-        else:
-            # No image dims supplied — store as-is (test use only)
-            x, y = int(xmin), int(ymin)
-            w, h = max(1, int(xmax - xmin)), max(1, int(ymax - ymin))
-        results.append(
-            RegionResult(
-                index=len(results),
-                x=x,
-                y=y,
-                width=w,
-                height=h,
-            )
-        )
+    assigned = {row.region.index for row in results}
+    for region in regions:
+        if region.index not in assigned:
+            results.append(RegionWithCaption(region, ""))
+    results.sort(key=lambda row: row.region.index)
     return results
 
 
@@ -592,13 +135,6 @@ def validate_region_set(
     img_w: int,
     img_h: int,
 ) -> ValidationResult:
-    """Validate a candidate region set and return a structured result.
-
-    Checks each region for zero-area, single-region full-page coverage, pairwise
-    overlap, and minimum combined page coverage across the accepted region set.
-    All failures are hard-invalid and require repair before the set can be accepted.
-    Returns ValidationResult with valid=True only when failures is empty.
-    """
     img_area = img_w * img_h
     failures: list[RegionFailure] = []
     clamped: list[RegionResult] = []
@@ -618,7 +154,7 @@ def validate_region_set(
             continue
         clamped.append(replace(region, x=left, y=top, width=width, height=height))
 
-    ranked = sorted(clamped, key=lambda r: (-r.confidence, -(r.width * r.height), r.index))
+    ranked = sorted(clamped, key=lambda region: (-region.confidence, -(region.width * region.height), region.index))
     kept: list[RegionResult] = []
     for candidate in ranked:
         overlap_failure: RegionFailure | None = None
@@ -626,13 +162,12 @@ def validate_region_set(
             intersection = _intersection_area(candidate, existing)
             smaller_area = min(candidate.width * candidate.height, existing.width * existing.height)
             if smaller_area > 0 and (intersection / smaller_area) >= _MAX_OVERLAP_FRACTION:
-                frac = intersection / smaller_area
                 overlap_failure = RegionFailure(
                     region_index=candidate.index,
                     reason="overlap",
                     severity="hard",
                     overlap_with=existing.index,
-                    overlap_fraction=round(frac, 3),
+                    overlap_fraction=round(intersection / smaller_area, 3),
                 )
                 break
         if overlap_failure is not None:
@@ -640,24 +175,20 @@ def validate_region_set(
         else:
             kept.append(candidate)
 
-    total_coverage_fraction = 0.0
+    coverage_fraction = 0.0
     if img_area > 0:
-        total_coverage_fraction = sum(region.width * region.height for region in kept) / img_area
-    if kept and total_coverage_fraction < _MIN_TOTAL_REGION_PAGE_FRACTION:
+        coverage_fraction = sum(region.width * region.height for region in kept) / img_area
+    if kept and coverage_fraction < _MIN_TOTAL_REGION_PAGE_FRACTION:
         failures.append(
             RegionFailure(
                 region_index=-1,
                 reason="insufficient_page_coverage",
                 severity="hard",
-                page_fraction=round(total_coverage_fraction, 3),
+                page_fraction=round(coverage_fraction, 3),
             )
         )
 
-    return ValidationResult(
-        valid=len(failures) == 0,
-        kept=sorted(kept, key=lambda r: r.index),
-        failures=failures,
-    )
+    return ValidationResult(valid=len(failures) == 0, kept=sorted(kept, key=lambda region: region.index), failures=failures)
 
 
 def validate_regions_for_write(
@@ -666,18 +197,7 @@ def validate_regions_for_write(
     img_w: int,
     img_h: int,
 ) -> list[RegionResult]:
-    """Validate regions and return only those that pass all checks.
-
-    Convenience wrapper around validate_region_set that returns the kept list.
-    When any failures exist the full set should be retried via repair; this wrapper
-    is retained for call sites that only need the surviving region list.
-    """
     return validate_region_set(regions, img_w=img_w, img_h=img_h).kept
-
-
-# ---------------------------------------------------------------------------
-# XMP region read-back
-# ---------------------------------------------------------------------------
 
 
 def _xmp_path_for(image_path: Path) -> Path:
@@ -685,27 +205,22 @@ def _xmp_path_for(image_path: Path) -> Path:
 
 
 def _has_xmp_regions(xmp_path: Path) -> bool:
-    """Return True if the XMP sidecar already contains an mwg-rs:RegionList."""
     if not xmp_path.is_file():
         return False
     try:
-        content = xmp_path.read_text(encoding="utf-8", errors="replace")
-        return "mwg-rs:RegionList" in content
+        return "mwg-rs:RegionList" in xmp_path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return False
 
 
 def _read_regions_from_xmp(xmp_path: Path, img_w: int, img_h: int) -> list[RegionResult]:
-    """Parse RegionResult list from an existing XMP sidecar.
-
-    Reads mwg-rs stArea:x/y/w/h (normalised centre-point) and converts back
-    to pixel top-left coordinates. Returns empty list on any parse failure.
-    """
     import xml.etree.ElementTree as ET  # pylint: disable=import-outside-toplevel
 
     MWGRS_NS = "http://www.metadataworkinggroup.com/schemas/regions/"
     STAREA_NS = "http://ns.adobe.com/xap/1.0/sType/Area#"
     RDF_NS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    DC_NS = "http://purl.org/dc/elements/1.1/"
+    IMAGO_NS = "https://imago.local/ns/1.0/"
 
     try:
         tree = ET.parse(str(xmp_path))
@@ -718,7 +233,6 @@ def _read_regions_from_xmp(xmp_path: Path, img_w: int, img_h: int) -> list[Regio
         cy_t = li.get(f"{{{STAREA_NS}}}y")
         nw_t = li.get(f"{{{STAREA_NS}}}w")
         nh_t = li.get(f"{{{STAREA_NS}}}h")
-        name_t = li.get(f"{{{MWGRS_NS}}}Name") or ""
         if not all((cx_t, cy_t, nw_t, nh_t)):
             continue
         try:
@@ -728,22 +242,30 @@ def _read_regions_from_xmp(xmp_path: Path, img_w: int, img_h: int) -> list[Regio
             nh = float(nh_t)
         except (TypeError, ValueError):
             continue
-        px = max(0, int(round((cx - nw / 2.000) * img_w)))
-        py = max(0, int(round((cy - nh / 2.000) * img_h)))
+        px = max(0, int(round((cx - nw / 2.0) * img_w)))
+        py = max(0, int(round((cy - nh / 2.0) * img_h)))
         pw = max(1, int(round(nw * img_w)))
         ph = max(1, int(round(nh * img_h)))
-        idx = len(results)
-        try:
-            idx = int(name_t.split("_")[-1]) - 1
-        except (ValueError, IndexError):
-            pass
-        results.append(RegionResult(index=idx, x=px, y=py, width=pw, height=ph))
+        caption = str(li.get(f"{{{MWGRS_NS}}}Name") or "").strip()
+        if not caption:
+            desc_el = li.find(f".//{{{DC_NS}}}description")
+            if desc_el is not None:
+                text_el = desc_el.find(f".//{{{RDF_NS}}}li")
+                if text_el is not None and text_el.text:
+                    caption = text_el.text.strip()
+        if not caption:
+            caption = str(li.get(f"{{{IMAGO_NS}}}CaptionHint") or "").strip()
+        results.append(
+            RegionResult(
+                index=len(results),
+                x=px,
+                y=py,
+                width=pw,
+                height=ph,
+                caption_hint=caption,
+            )
+        )
     return results
-
-
-# ---------------------------------------------------------------------------
-# Image dimensions
-# ---------------------------------------------------------------------------
 
 
 def _image_dimensions(image_path: Path) -> tuple[int, int]:
@@ -752,7 +274,7 @@ def _image_dimensions(image_path: Path) -> tuple[int, int]:
 
     allow_large_pillow_images(Image)
     with Image.open(str(image_path)) as img:
-        return img.size  # (width, height)
+        return img.size
 
 
 def _failed_regions_debug_path(image_path: str | Path, attempt_number: int | None = None) -> Path:
@@ -771,16 +293,19 @@ def _accepted_regions_debug_path(image_path: str | Path, attempt_number: int | N
     return debug_root_for_image_path(path) / filename
 
 
+def _docling_raw_debug_path(image_path: str | Path) -> Path:
+    path = Path(image_path)
+    return debug_root_for_image_path(path) / f"{path.stem}.view-regions.docling.json"
+
+
 def _failed_regions_debug_paths(image_path: str | Path) -> list[Path]:
     path = Path(image_path)
-    debug_dir = debug_root_for_image_path(path)
-    return [*debug_dir.glob(f"{path.stem}.view-regions.failed-boxes*.jpg")]
+    return list(debug_root_for_image_path(path).glob(f"{path.stem}.view-regions.failed-boxes*.jpg"))
 
 
 def _accepted_regions_debug_paths(image_path: str | Path) -> list[Path]:
     path = Path(image_path)
-    debug_dir = debug_root_for_image_path(path)
-    return [*debug_dir.glob(f"{path.stem}.view-regions.accepted-boxes*.jpg")]
+    return list(debug_root_for_image_path(path).glob(f"{path.stem}.view-regions.accepted-boxes*.jpg"))
 
 
 def _clear_failed_regions_debug_image(image_path: str | Path) -> None:
@@ -816,7 +341,7 @@ def _write_accepted_regions_debug_image(
 
     overlay_regions: list[dict[str, object]] = []
     for region in sorted(regions, key=lambda item: item.index):
-        label_parts = []
+        label_parts: list[str] = []
         caption_hint = str(region.caption_hint or "").strip()
         if caption_hint:
             label_parts.append(caption_hint)
@@ -832,7 +357,6 @@ def _write_accepted_regions_debug_image(
                 "caption": " | ".join(label_parts),
             }
         )
-
     output_path = _accepted_regions_debug_path(image_path, attempt_number=attempt_number)
     try:
         render_regions_debug(image_path, overlay_regions, output_path)
@@ -858,28 +382,23 @@ def _write_failed_regions_debug_image(
     notes_by_index: dict[int, list[str]] = {}
     for failure in failures:
         if failure.reason == "overlap":
-            other_label = ""
-            if failure.overlap_with is not None:
-                other_label = f" with #{failure.overlap_with + 1}"
-            note = f"overlap{other_label}"
+            other = f" with #{failure.overlap_with + 1}" if failure.overlap_with is not None else ""
+            note = f"overlap{other}"
         elif failure.reason == "zero_area":
             note = "zero area"
         elif failure.reason == "full_page":
             note = "covers >=90% of page"
         elif failure.reason == "insufficient_page_coverage":
-            pct = int(round((failure.page_fraction or 0) * 100))
-            note = f"page coverage {pct}% < 50%"
+            note = f"page coverage {int(round((failure.page_fraction or 0) * 100))}% < 50%"
         else:
             note = failure.reason.replace("_", " ")
-
         if failure.region_index >= 0:
             notes_by_index.setdefault(failure.region_index, []).append(note)
         else:
             page_level_notes.append(note)
 
     overlay_regions: list[dict[str, object]] = []
-    sorted_regions = sorted(regions, key=lambda region: region.index)
-    for idx, region in enumerate(sorted_regions):
+    for idx, region in enumerate(sorted(regions, key=lambda item: item.index)):
         notes = list(notes_by_index.get(region.index, []))
         if idx == 0 and page_level_notes:
             notes = page_level_notes + notes
@@ -903,9 +422,15 @@ def _write_failed_regions_debug_image(
     return output_path
 
 
-# ---------------------------------------------------------------------------
-# Docling detection path
-# ---------------------------------------------------------------------------
+def _write_docling_raw_debug_artifact(image_path: str | Path, payload: dict[str, object]) -> Path | None:
+    output_path = _docling_raw_debug_path(image_path)
+    try:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError as exc:
+        log.warning("Failed to write Docling debug artifact %s: %s", output_path, exc)
+        return None
+    return output_path
 
 
 def _detect_regions_docling(
@@ -916,70 +441,72 @@ def _detect_regions_docling(
     img_w: int,
     img_h: int,
     force: bool,
-    debug_recorder=None,
-    skip_validation: bool = False,
+    prompt_debug: PromptDebugSession | None,
+    skip_validation: bool,
 ) -> list[RegionResult]:
-    """Run the Docling library pipeline to detect photo regions.
-
-    Writes view_regions pipeline step for no_regions and validation_failed outcomes
-    to prevent infinite re-runs. Returns validated regions on success, [] otherwise.
-    """
-    from ._docling_pipeline import run_docling_pipeline  # pylint: disable=import-outside-toplevel
-    from .xmp_sidecar import write_pipeline_step  # pylint: disable=import-outside-toplevel
+    from ._docling_pipeline import (  # pylint: disable=import-outside-toplevel
+        DoclingPipelineRuntimeError,
+        run_docling_pipeline,
+    )
+    from .xmp_sidecar import read_pipeline_step, write_pipeline_step  # pylint: disable=import-outside-toplevel
 
     if not force:
-        from .xmp_sidecar import read_pipeline_step  # pylint: disable=import-outside-toplevel
-
         existing_step = read_pipeline_step(xmp_path, "view_regions") or {}
         existing_result = str(existing_step.get("result") or "").strip()
-        if existing_result in ("no_regions", "validation_failed"):
-            log.info(
-                "Skipping docling detection for %s: pipeline step already recorded result=%r",
-                path,
-                existing_result,
-            )
+        if existing_result in {"no_regions", "validation_failed", "failed"}:
+            log.info("Skipping Docling detection for %s: pipeline step already recorded result=%r", path, existing_result)
             return []
 
     try:
-        regions = run_docling_pipeline(
+        pipeline_result = run_docling_pipeline(
             path,
             img_w=img_w,
             img_h=img_h,
             preset=default_docling_preset(),
+            backend=default_docling_backend(),
+            device=default_docling_device(),
+            retries=default_docling_retries(),
         )
+    except DoclingPipelineRuntimeError as exc:
+        if prompt_debug is not None and exc.debug_payload:
+            _write_docling_raw_debug_artifact(path, exc.debug_payload)
+        write_pipeline_step(xmp_path, "view_regions", model=model, extra={"result": "failed"})
+        log.error("Docling pipeline failed for %s: %s", path, exc)
+        return []
     except Exception as exc:
+        write_pipeline_step(xmp_path, "view_regions", model=model, extra={"result": "failed"})
         log.error("Docling pipeline failed for %s: %s", path, exc)
         return []
 
-    if not regions:
+    if prompt_debug is not None and pipeline_result.debug_payload:
+        _write_docling_raw_debug_artifact(path, pipeline_result.debug_payload)
+
+    if not pipeline_result.regions:
         write_pipeline_step(xmp_path, "view_regions", model=model, extra={"result": "no_regions"})
         log.info("Docling: no regions detected for %s", path)
         return []
 
     if skip_validation:
-        _write_accepted_regions_debug_image(path, regions)
-        return regions
+        write_pipeline_step(xmp_path, "view_regions", model=model, extra={"result": "regions_found"})
+        _write_accepted_regions_debug_image(path, pipeline_result.regions)
+        return pipeline_result.regions
 
-    result = validate_region_set(regions, img_w=img_w, img_h=img_h)
-    if result.failures:
+    validation = validate_region_set(pipeline_result.regions, img_w=img_w, img_h=img_h)
+    if validation.failures:
         write_pipeline_step(xmp_path, "view_regions", model=model, extra={"result": "validation_failed"})
-        reasons = ", ".join(f.reason for f in result.failures)
+        _write_failed_regions_debug_image(path, pipeline_result.regions, validation.failures)
+        reasons = ", ".join(failure.reason for failure in validation.failures)
         log.error(
             "Docling: region validation failed for %s (%d failure(s): %s); use --force to retry",
             path,
-            len(result.failures),
+            len(validation.failures),
             reasons,
         )
         return []
 
     write_pipeline_step(xmp_path, "view_regions", model=model, extra={"result": "regions_found"})
-    _write_accepted_regions_debug_image(path, result.kept)
-    return result.kept
-
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
+    _write_accepted_regions_debug_image(path, validation.kept)
+    return validation.kept
 
 
 def detect_regions(
@@ -995,14 +522,8 @@ def detect_regions(
     prompt_debug: PromptDebugSession | None = None,
     skip_validation: bool = False,
 ) -> list[RegionResult]:
-    """Detect photo regions in a view JPG, writing results to the XMP sidecar.
+    del base_url, timeout, album_context, page_caption, people_roster
 
-    If force=False and the XMP sidecar already contains an mwg-rs:RegionList,
-    returns the cached regions without calling the model.
-
-    On model call failure, retries up to _MAX_RETRIES times with a stricter
-    prompt. Returns [] and logs an error if all retries fail.
-    """
     path = Path(image_path)
     xmp_path = _xmp_path_for(path)
 
@@ -1017,107 +538,19 @@ def detect_regions(
         except Exception as exc:  # pragma: no cover
             log.warning("Failed to read cached XMP regions for %s: %s", path, exc)
 
-    resolved_models = [str(model).strip()] if str(model or "").strip() else default_view_region_models()
-    if not resolved_models:
-        fallback_model = str(default_view_region_model() or "").strip()
-        if fallback_model:
-            resolved_models = [fallback_model]
-    resolved_url = normalize_lmstudio_base_url(base_url or default_lmstudio_base_url())
+    resolved_model = str(model or "").strip() or str(default_view_region_model() or "").strip()
+    if "docling" not in resolved_model.lower():
+        raise RuntimeError(f"View region detection failed due to: non-Docling model configured for regions: {resolved_model}")
 
     img_w, img_h = _image_dimensions(path)
-
-    # --- Docling code path ---
-    docling_model = next((m for m in resolved_models if "docling" in m.lower()), None)
-    if docling_model:
-        return _detect_regions_docling(
-            path,
-            xmp_path=xmp_path,
-            model=docling_model,
-            img_w=img_w,
-            img_h=img_h,
-            force=force,
-            debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
-            skip_validation=skip_validation,
-        )
-
     _clear_regions_debug_images(path)
-
-    prior_regions: list[RegionResult] | None = None
-    prior_failures: list[RegionFailure] | None = None
-    last_exc: Exception | None = None
-    errors: list[str] = []
-
-    for resolved_model in resolved_models:
-        prior_regions = None
-        prior_failures = None
-        last_exc = None
-        for attempt in range(_MAX_RETRIES):
-            try:
-                raw = _call_vision_model(
-                    path,
-                    model=resolved_model,
-                    base_url=resolved_url,
-                    timeout=timeout,
-                    img_w=img_w,
-                    img_h=img_h,
-                    strict_prompt=(attempt > 0 and prior_failures is None),
-                    prior_regions=prior_regions,
-                    prior_failures=prior_failures,
-                    album_context=album_context,
-                    page_caption=page_caption,
-                    people_roster=people_roster,
-                    attempt_number=attempt + 1,
-                    debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
-                )
-            except Exception as exc:
-                last_exc = exc
-                log.warning("Region detection attempt %d/%d failed: %s", attempt + 1, _MAX_RETRIES, exc)
-                prior_regions = None
-                prior_failures = None
-                continue
-
-            result = validate_region_set(raw, img_w=img_w, img_h=img_h)
-            if not result.failures:
-                _write_accepted_regions_debug_image(path, result.kept, attempt_number=attempt + 1)
-                _write_accepted_regions_debug_image(path, result.kept)
-                return result.kept
-
-            # Validation failures - set up repair context for the next attempt.
-            prior_regions = raw
-            prior_failures = result.failures
-            attempt_debug_path = _write_failed_regions_debug_image(
-                path,
-                raw,
-                result.failures,
-                attempt_number=attempt + 1,
-            )
-            reasons = ", ".join(f.reason for f in result.failures)
-            log.warning(
-                "Region validation attempt %d/%d: %d failure(s) (%s), retrying with repair prompt",
-                attempt + 1,
-                _MAX_RETRIES,
-                len(result.failures),
-                reasons,
-            )
-            if attempt_debug_path is not None:
-                log.warning("Wrote failed-region debug image for attempt %d: %s", attempt + 1, attempt_debug_path)
-
-        if prior_failures:
-            errors.append(f"{resolved_model}: validation failed ({len(prior_failures)} failure(s))")
-        elif last_exc is not None:
-            errors.append(f"{resolved_model}: {last_exc}")
-
-    if prior_failures:
-        failed_debug_path = _write_failed_regions_debug_image(path, prior_regions or [], prior_failures)
-        log.error(
-            "All %d region detection attempts failed validation for %s (%d failure(s))",
-            _MAX_RETRIES,
-            path,
-            len(prior_failures),
-        )
-        if failed_debug_path is not None:
-            log.warning("Wrote failed-region debug image: %s", failed_debug_path)
-    else:
-        summary = "; ".join(errors) if errors else str(last_exc)
-        log.error("All configured region detection models failed for %s: %s", path, summary)
-    return []
+    return _detect_regions_docling(
+        path,
+        xmp_path=xmp_path,
+        model=resolved_model,
+        img_w=img_w,
+        img_h=img_h,
+        force=force,
+        prompt_debug=prompt_debug,
+        skip_validation=skip_validation,
+    )
