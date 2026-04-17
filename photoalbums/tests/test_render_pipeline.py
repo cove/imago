@@ -289,6 +289,41 @@ class TestRunRenderPipelineNoRegions(unittest.TestCase):
             self.assertIn("Errors: 0", output)
             self.assertIn("Detect regions: 0 found, 1 no-regions, 0 skipped, 0 rerun", output)
 
+    def test_render_pipeline_passes_force_restoration_to_crop_step(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _make_test_album(root, "Egypt_1975_B00")
+
+            captured = StringIO()
+            with (
+                mock.patch("photoalbums.commands._acquire_page_pipeline_lock", return_value=None),
+                mock.patch("photoalbums.commands._release_page_pipeline_lock"),
+                mock.patch("photoalbums.stitch_oversized_pages.tif_to_jpg", return_value=False),
+                mock.patch("photoalbums.stitch_oversized_pages.stitch", return_value=False),
+                mock.patch("photoalbums.stitch_oversized_pages.list_derived_images", return_value=[]),
+                mock.patch("photoalbums.lib.ai_view_regions.detect_regions", return_value=[]),
+                mock.patch("photoalbums.lib.ai_view_regions._image_dimensions", return_value=(100, 100)),
+                mock.patch("photoalbums.lib.ai_model_settings.default_view_region_model", return_value="gemma4"),
+                mock.patch("photoalbums.lib.album_sets.find_archive_set_by_photos_root", return_value=""),
+                mock.patch("photoalbums.lib.album_sets.read_people_roster", return_value={}),
+                mock.patch("photoalbums.lib.xmp_sidecar.read_ai_sidecar_state", return_value={}),
+                mock.patch("photoalbums.lib.ai_photo_crops.crop_page_regions", return_value=0) as crop_mock,
+                mock.patch("photoalbums.lib.ai_render_face_refresh.RenderFaceRefreshSession"),
+                redirect_stdout(captured),
+            ):
+                result = commands.run_render_pipeline(
+                    album_id="Egypt_1975_B00",
+                    photos_root=str(root),
+                    page=None,
+                    force=False,
+                    skip_crops=False,
+                    force_restoration=True,
+                )
+
+            self.assertEqual(result, 0)
+            crop_mock.assert_called_once()
+            self.assertTrue(crop_mock.call_args.kwargs["force_restoration"])
+
 
 class TestRunRenderPipelineProvenance(unittest.TestCase):
     """Provenance is written at file-creation time and survives later-step failures."""

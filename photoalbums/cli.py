@@ -146,6 +146,11 @@ def build_parser() -> argparse.ArgumentParser:
     crop_regions_parser.add_argument(
         "--skip-restoration", action="store_true", help="Skip AI photo restoration step (faster on CPU)"
     )
+    crop_regions_parser.add_argument(
+        "--force-restoration",
+        action="store_true",
+        help="Re-run photo restoration on existing crop outputs without forcing the full crop step.",
+    )
 
     face_refresh_parser = subparsers.add_parser(
         "face-refresh",
@@ -171,6 +176,11 @@ def build_parser() -> argparse.ArgumentParser:
     render_pipeline_parser.add_argument("--page", default=None, help="Page number to process; omit for all pages")
     render_pipeline_parser.add_argument("--force", action="store_true", help="Re-run all pipeline steps")
     render_pipeline_parser.add_argument("--skip-crops", action="store_true", help="Skip the crop-regions step")
+    render_pipeline_parser.add_argument(
+        "--force-restoration",
+        action="store_true",
+        help="Re-run photo restoration on existing crop outputs during crop-regions.",
+    )
     render_pipeline_parser.add_argument(
         "--debug",
         action="store_true",
@@ -278,6 +288,7 @@ def main(argv: list[str] | None = None) -> int:
             page=args.page,
             force=args.force,
             skip_restoration=bool(getattr(args, "skip_restoration", False)),
+            force_restoration=bool(getattr(args, "force_restoration", False)),
         )
 
     if args.group == "face-refresh":
@@ -295,6 +306,7 @@ def main(argv: list[str] | None = None) -> int:
             page=args.page,
             force=args.force,
             skip_crops=bool(getattr(args, "skip_crops", False)),
+            force_restoration=bool(getattr(args, "force_restoration", False)),
             debug=bool(getattr(args, "debug", False)),
             skip_validation=bool(getattr(args, "no_validation", False)),
         )

@@ -1,7 +1,7 @@
 ## 1. Setup
 
 - [x] 1.1 Follow the RealRestorer README to clone the repo, install the custom diffusers fork, and verify `from diffusers import RealRestorerPipeline` works
-- [ ] 1.2 Confirm model weights download automatically on first run via `from_pretrained`
+- [x] 1.2 Confirm model weights download automatically on first run via `from_pretrained`
 
 ## 2. photo_restoration Module
 

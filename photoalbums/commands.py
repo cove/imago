@@ -310,14 +310,19 @@ def run_checksum_tree(*, base_dir: str, verify: bool) -> int:
     return int(sha3_tree_hashes.run(argv) or 0)
 
 
-def run_crop_regions(*, album_id: str, photos_root: str, page: str | None, force: bool, skip_restoration: bool = False) -> int:
+def run_crop_regions(
+    *,
+    album_id: str,
+    photos_root: str,
+    page: str | None,
+    force: bool,
+    skip_restoration: bool = False,
+    force_restoration: bool = False,
+) -> int:
     """Run only the crop-regions step for matching album page view JPEGs."""
     from pathlib import Path
     from .lib.ai_model_settings import default_view_region_model
     from .lib.ai_view_regions import (
-        _accepted_regions_debug_path,
-        _docling_raw_debug_path,
-        _failed_regions_debug_path,
         _has_xmp_regions,
         _image_dimensions,
         _read_regions_from_xmp,
@@ -329,6 +334,10 @@ def run_crop_regions(*, album_id: str, photos_root: str, page: str | None, force
     from .lib.ai_photo_crops import crop_page_regions
     from .lib.xmp_sidecar import clear_pipeline_steps, read_pipeline_step, write_pipeline_step, write_region_list
     from .stitch_oversized_pages import get_photos_dirname
+
+    if skip_restoration and force_restoration:
+        print("Error: --skip-restoration and --force-restoration cannot be used together", file=sys.stderr)
+        return 2
 
     root = Path(photos_root)
     album_id_lower = album_id.casefold()
@@ -385,12 +394,6 @@ def run_crop_regions(*, album_id: str, photos_root: str, page: str | None, force
                         page_caption=page_caption,
                         people_roster=people_roster,
                     )
-                    accepted_debug_path = _accepted_regions_debug_path(view_path)
-                    if accepted_debug_path.is_file():
-                        print(f"  detect-regions: accepted boxes -> {accepted_debug_path}")
-                    raw_docling_debug_path = _docling_raw_debug_path(view_path)
-                    if raw_docling_debug_path.is_file():
-                        print(f"  detect-regions: docling debug -> {raw_docling_debug_path}")
                     if regions:
                         captions: list[dict] = []
                         regions_with_captions = associate_captions(regions, captions, img_w)
@@ -403,7 +406,13 @@ def run_crop_regions(*, album_id: str, photos_root: str, page: str | None, force
                         if str(existing_step.get("result") or "") not in {"no_regions", "validation_failed", "failed"}:
                             write_pipeline_step(xmp_path, "view_regions", model=model_name, extra={"result": "no_regions"})
                         print(f"  detect-regions: no regions")
-                n = crop_page_regions(view_path, photos_dir, force=force, skip_restoration=skip_restoration)
+                n = crop_page_regions(
+                    view_path,
+                    photos_dir,
+                    force=force,
+                    skip_restoration=skip_restoration,
+                    force_restoration=force_restoration,
+                )
                 if n > 0:
                     print(f"  Wrote {n} crop(s) to {photos_dir.name}/")
             except Exception as exc:
@@ -555,6 +564,7 @@ def run_render_pipeline(
     page: str | None,
     force: bool,
     skip_crops: bool,
+    force_restoration: bool = False,
     debug: bool = False,
     skip_validation: bool = False,
 ) -> int:
@@ -727,17 +737,19 @@ def run_render_pipeline(
                                     people_roster=people_roster,
                                     prompt_debug=prompt_debug,
                                     skip_validation=skip_validation,
+                                    write_debug=debug,
                                 )
                             finally:
                                 debug_path = _write_view_regions_debug_artifact(prompt_debug, image_path=view_path)
                                 if debug_path is not None:
                                     print(f"  detect-regions: debug -> {debug_path}")
-                            accepted_debug_path = _accepted_regions_debug_path(view_path)
-                            if accepted_debug_path.is_file():
-                                print(f"  detect-regions: accepted boxes -> {accepted_debug_path}")
-                            raw_docling_debug_path = _docling_raw_debug_path(view_path)
-                            if raw_docling_debug_path.is_file():
-                                print(f"  detect-regions: docling debug -> {raw_docling_debug_path}")
+                            if debug:
+                                accepted_debug_path = _accepted_regions_debug_path(view_path)
+                                if accepted_debug_path.is_file():
+                                    print(f"  detect-regions: accepted boxes -> {accepted_debug_path}")
+                                raw_docling_debug_path = _docling_raw_debug_path(view_path)
+                                if raw_docling_debug_path.is_file():
+                                    print(f"  detect-regions: docling debug -> {raw_docling_debug_path}")
                             # detect_regions validates internally and returns only the valid kept set
                             if regions:
                                 captions: list[dict] = []
@@ -752,9 +764,10 @@ def run_render_pipeline(
                                 if str(existing_step.get("result") or "") not in {"no_regions", "validation_failed", "failed"}:
                                     write_pipeline_step(xmp_path, "view_regions", model=model_name, extra={"result": "no_regions"})
                                 summary["detect_regions_no_regions"] += 1
-                                failed_debug_path = _failed_regions_debug_path(view_path)
-                                if failed_debug_path.is_file():
-                                    print(f"  detect-regions: failed boxes -> {failed_debug_path}")
+                                if debug:
+                                    failed_debug_path = _failed_regions_debug_path(view_path)
+                                    if failed_debug_path.is_file():
+                                        print(f"  detect-regions: failed boxes -> {failed_debug_path}")
                                 print(f"  detect-regions: no regions")
                     except Exception as exc:
                         print(f"  ERROR [detect-regions]: {exc}", file=sys.stderr)
@@ -767,7 +780,13 @@ def run_render_pipeline(
                 if not skip_crops and not _is_title_page_view(view_path):
                     try:
                         crop_stats = CropPageStats()
-                        n = crop_page_regions(view_path, photos_dir, force=force, stats=crop_stats)
+                        n = crop_page_regions(
+                            view_path,
+                            photos_dir,
+                            force=force,
+                            force_restoration=force_restoration,
+                            stats=crop_stats,
+                        )
                         summary["crops_written"] += n
                         summary["ignored_crop_regions"] += crop_stats.ignored_empty_regions
                         if crop_stats.skipped_existing_outputs:
@@ -957,18 +976,20 @@ def run_detect_view_regions(
                         people_roster=people_roster,
                         prompt_debug=prompt_debug,
                         skip_validation=skip_validation,
+                        write_debug=debug,
                     )
                 finally:
                     debug_path = _write_view_regions_debug_artifact(prompt_debug, image_path=view_path)
                     if debug_path is not None:
                         print(f"  Debug request/response log: {debug_path}")
 
-                accepted_debug_path = _accepted_regions_debug_path(view_path)
-                if accepted_debug_path.is_file():
-                    print(f"  Accepted boxes debug image: {accepted_debug_path}")
-                raw_docling_debug_path = _docling_raw_debug_path(view_path)
-                if raw_docling_debug_path.is_file():
-                    print(f"  Docling raw debug: {raw_docling_debug_path}")
+                if debug:
+                    accepted_debug_path = _accepted_regions_debug_path(view_path)
+                    if accepted_debug_path.is_file():
+                        print(f"  Accepted boxes debug image: {accepted_debug_path}")
+                    raw_docling_debug_path = _docling_raw_debug_path(view_path)
+                    if raw_docling_debug_path.is_file():
+                        print(f"  Docling raw debug: {raw_docling_debug_path}")
 
                 if not regions:
                     if redetect_reason:
