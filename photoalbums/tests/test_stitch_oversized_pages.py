@@ -6,6 +6,24 @@ from unittest import mock, skip
 from photoalbums import stitch_oversized_pages as sop
 
 
+class TestStitchOversizedPagesDiscovery(unittest.TestCase):
+    def test_list_derived_images_ignores_hidden_artifacts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp)
+            for name in [
+                ".!99163!Family_1907-1946_B01_P28_D01-03.png",
+                "Family_1907-1946_B01_P28_D01-03.png",
+            ]:
+                (archive / name).touch()
+
+            files = sop.list_derived_images(archive)
+
+            self.assertEqual(
+                [Path(path).name for path in files],
+                ["Family_1907-1946_B01_P28_D01-03.png"],
+            )
+
+
 @skip("Temporarily disabled due to invalid paths and not enough tokens to fix it")
 class TestStitchOversizedPages(unittest.TestCase):
     def test_sets_large_opencv_pixel_limit_for_stitching(self):
@@ -35,7 +53,7 @@ class TestStitchOversizedPages(unittest.TestCase):
     def test_get_view_dirname(self):
         base = Path("C:/Photos/EU_1973_B02_Archive")
         view = sop.get_view_dirname(base)
-        self.assertEqual(Path(view), Path("C:/Photos/EU_1973_B02_View"))
+        self.assertEqual(Path(view), Path("C:/Photos/EU_1973_B02_Pages"))
 
     def test_get_photos_dirname(self):
         base = Path("C:/Photos/Egypt_1975_Archive")
@@ -251,7 +269,7 @@ class TestStitchOversizedPages(unittest.TestCase):
     def test_copy_base_view_sidecar_uses_archive_s01_sidecar(self):
         with tempfile.TemporaryDirectory() as tmp:
             archive = Path(tmp) / "EU_1973_B02_Archive"
-            view = Path(tmp) / "EU_1973_B02_View"
+            view = Path(tmp) / "EU_1973_B02_Pages"
             archive.mkdir()
             view.mkdir()
             scan = archive / "EU_1973_B02_P05_S01.tif"
@@ -269,7 +287,7 @@ class TestStitchOversizedPages(unittest.TestCase):
 
     def test_index_rendered_view_image_runs_ai_index_for_view_output(self):
         with mock.patch("photoalbums.lib.ai_index.run", return_value=0) as run_mock:
-            sop._index_rendered_view_image("C:/Photos/EU_1973_B02_View/EU_1973_B02_P05_D01-02_V.jpg")
+            sop._index_rendered_view_image("C:/Photos/EU_1973_B02_Pages/EU_1973_B02_P05_D01-02_V.jpg")
 
         args = run_mock.call_args.args[0]
         self.assertEqual(args[0], "--photo")
@@ -279,7 +297,7 @@ class TestStitchOversizedPages(unittest.TestCase):
         with mock.patch(
             "photoalbums.lib.ai_index_runner.refresh_rendered_view_people_metadata",
         ) as refresh_mock:
-            sop._refresh_rendered_view_people("C:/Photos/EU_1973_B02_View/EU_1973_B02_P05_V.jpg")
+            sop._refresh_rendered_view_people("C:/Photos/EU_1973_B02_Pages/EU_1973_B02_P05_V.jpg")
 
         refresh_mock.assert_called_once()
         self.assertTrue(str(refresh_mock.call_args.args[0]).endswith("EU_1973_B02_P05_V.jpg"))
@@ -437,3 +455,4 @@ class TestStitchOversizedPages(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

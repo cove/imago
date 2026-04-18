@@ -15,6 +15,7 @@ from ..naming import (
     VIEW_VC_LEGACY_RE,
     VIEW_RECON_LEGACY_RE,
     VIEW_STITCHED_LEGACY_RE,
+    is_pages_dir,
 )
 
 PAGE_SPLIT_MODES = {"auto", "off"}
@@ -81,7 +82,7 @@ def classify_image_kind(image_path: str | Path) -> str:
     name = path.name
     stem = path.stem
     parent_names = {parent.name for parent in path.parents}
-    in_view = any(name.endswith("_View") for name in parent_names)
+    in_view = any(is_pages_dir(name) for name in parent_names)
 
     if suffix not in _IMAGE_EXTENSIONS:
         return "single_image"

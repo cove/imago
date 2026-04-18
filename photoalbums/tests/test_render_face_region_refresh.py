@@ -51,7 +51,7 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
     def test_refresh_rendered_view_people_metadata_uses_fresh_names_only(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            view = base / "Egypt_1975_B00_View"
+            view = base / "Egypt_1975_B00_Pages"
             view.mkdir()
             image = view / "Egypt_1975_B00_P09_V.jpg"
             image.write_bytes(b"rendered")
@@ -303,7 +303,7 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
     def test_refresh_face_regions_skips_when_pipeline_state_present(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            view = base / "Egypt_1975_View"
+            view = base / "Egypt_1975_Pages"
             view.mkdir()
             image = view / "Egypt_1975_B00_P09_V.jpg"
             image.write_bytes(b"rendered")
@@ -322,18 +322,22 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             )
             xmp_sidecar.write_pipeline_step(sidecar, "face_refresh", model="buffalo_l")
 
-            with mock.patch.object(
-                ai_render_face_refresh.RenderFaceRefreshSession, "_refresh_with_runner"
-            ) as refresh_mock:
+            with (
+                mock.patch.object(
+                    ai_render_face_refresh.RenderFaceRefreshSession, "_refresh_with_runner"
+                ) as refresh_mock,
+                mock.patch("builtins.print") as print_mock,
+            ):
                 ran = ai_render_face_refresh.refresh_face_regions(image, sidecar, force=False)
 
             self.assertFalse(ran)
             refresh_mock.assert_not_called()
+            print_mock.assert_not_called()
 
     def test_refresh_face_regions_cast_unavailable_leaves_sidecar_unchanged(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            view = base / "Egypt_1975_View"
+            view = base / "Egypt_1975_Pages"
             view.mkdir()
             image = view / "Egypt_1975_B00_P09_V.jpg"
             image.write_bytes(b"rendered")
@@ -368,7 +372,7 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
     def test_refresh_face_regions_writes_person_in_image_names(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            view = base / "Egypt_1975_View"
+            view = base / "Egypt_1975_Pages"
             view.mkdir()
             image = view / "Egypt_1975_B00_P09_V.jpg"
             image.write_bytes(b"rendered")
@@ -422,7 +426,7 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
     def test_refresh_face_regions_preserves_inherited_page_metadata(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            view = base / "Egypt_1975_View"
+            view = base / "Egypt_1975_Pages"
             view.mkdir()
             image = view / "Egypt_1975_B00_P09_V.jpg"
             image.write_bytes(b"rendered")
@@ -560,7 +564,7 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
     def test_refresh_face_regions_clears_person_in_image_when_no_matches(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            view = base / "Egypt_1975_View"
+            view = base / "Egypt_1975_Pages"
             view.mkdir()
             image = view / "Egypt_1975_B00_P09_V.jpg"
             image.write_bytes(b"rendered")
@@ -609,7 +613,7 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
     def test_run_face_refresh_processes_page_derived_and_crop_targets(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            view_dir = root / "Egypt_1975_View"
+            view_dir = root / "Egypt_1975_Pages"
             photos_dir = root / "Egypt_1975_Photos"
             view_dir.mkdir()
             photos_dir.mkdir()
@@ -647,7 +651,7 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
     def test_run_face_refresh_warns_and_continues_when_cast_unavailable(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            view_dir = root / "Egypt_1975_View"
+            view_dir = root / "Egypt_1975_Pages"
             view_dir.mkdir()
             page_view = view_dir / "Egypt_1975_B00_P01_V.jpg"
             page_view.write_bytes(b"rendered")
@@ -677,3 +681,4 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

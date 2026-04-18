@@ -57,6 +57,24 @@ class TestCommon(unittest.TestCase):
             )
             self.assertEqual([Path(p).name for p in groups[1]], ["Album_P03_S01.tif"])
 
+    def test_list_page_scan_groups_ignores_hidden_artifacts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            watch_dir = Path(tmp)
+            for name in [
+                ".!99154!Album_P02_S01.tif",
+                "Album_P02_S01.tif",
+                "Album_P02_S02.tif",
+            ]:
+                (watch_dir / name).touch()
+
+            groups = common.list_page_scan_groups(watch_dir, common.FILENAME_PATTERN)
+
+            self.assertEqual(len(groups), 1)
+            self.assertEqual(
+                [Path(p).name for p in groups[0]],
+                ["Album_P02_S01.tif", "Album_P02_S02.tif"],
+            )
+
     def test_list_page_scans_for_page(self):
         with tempfile.TemporaryDirectory() as tmp:
             watch_dir = Path(tmp)
@@ -68,6 +86,23 @@ class TestCommon(unittest.TestCase):
                 (watch_dir / name).touch()
 
             files = common.list_page_scans_for_page(watch_dir, 2)
+            self.assertEqual(
+                [Path(p).name for p in files],
+                ["Album_P02_S01.tif", "Album_P02_S02.tif"],
+            )
+
+    def test_list_page_scans_for_page_ignores_hidden_artifacts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            watch_dir = Path(tmp)
+            for name in [
+                ".!99154!Album_P02_S01.tif",
+                "Album_P02_S01.tif",
+                "Album_P02_S02.tif",
+            ]:
+                (watch_dir / name).touch()
+
+            files = common.list_page_scans_for_page(watch_dir, 2)
+
             self.assertEqual(
                 [Path(p).name for p in files],
                 ["Album_P02_S01.tif", "Album_P02_S02.tif"],

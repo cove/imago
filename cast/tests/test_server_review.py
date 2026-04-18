@@ -473,7 +473,7 @@ def test_photo_scan_rescan_returns_removed_counts(tmp_path):
             "faces": [],
             "per_photo": [],
             "photo_albums_root": str(tmp_path),
-            "view_glob": "Family*_View",
+            "view_glob": "Family*_Pages",
             "rescan_existing": True,
             "removed_faces": 4,
             "removed_reviews": 6,
@@ -490,7 +490,7 @@ def test_photo_scan_rescan_returns_removed_counts(tmp_path):
             f"http://127.0.0.1:{port}/api/ingest/photos/scan",
             {
                 "photo_albums_root": str(tmp_path),
-                "view_glob": "Family*_View",
+                "view_glob": "Family*_Pages",
                 "auto_queue": False,
                 "rescan_existing": True,
             },
@@ -783,3 +783,4 @@ def test_review_accept_keeps_item_pending_when_person_in_image_verification_fail
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+

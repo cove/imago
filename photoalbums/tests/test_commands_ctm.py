@@ -26,7 +26,7 @@ class TestRunCTM(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             archive_dir = root / "Family_2020_B01_Archive"
-            view_dir = root / "Family_2020_B01_View"
+            view_dir = root / "Family_2020_B01_Pages"
             archive_dir.mkdir()
             view_dir.mkdir()
             scan = archive_dir / "Family_2020_B01_P01_S01.tif"
@@ -74,7 +74,7 @@ class TestRunCTM(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             archive_dir = root / "Family_2020_B01_Archive"
-            view_dir = root / "Family_2020_B01_View"
+            view_dir = root / "Family_2020_B01_Pages"
             archive_dir.mkdir()
             view_dir.mkdir()
             scan = archive_dir / "Family_2020_B01_P01_S01.tif"
@@ -98,7 +98,7 @@ class TestRunCTM(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             archive_dir = root / "Family_2020_B01_Archive"
-            view_dir = root / "Family_2020_B01_View"
+            view_dir = root / "Family_2020_B01_Pages"
             archive_dir.mkdir()
             view_dir.mkdir()
             scan = archive_dir / "Family_2020_B01_P01_S01.tif"
@@ -144,7 +144,7 @@ class TestRunCTM(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             archive_dir = root / "Family_2020_B01_Archive"
-            view_dir = root / "Family_2020_B01_View"
+            view_dir = root / "Family_2020_B01_Pages"
             archive_dir.mkdir()
             view_dir.mkdir()
             scan = archive_dir / "Family_2020_B01_P01_S01.tif"
@@ -185,7 +185,7 @@ class TestRunCTM(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             archive_dir = root / "Family_2020_B01_Archive"
-            view_dir = root / "Family_2020_B01_View"
+            view_dir = root / "Family_2020_B01_Pages"
             archive_dir.mkdir()
             view_dir.mkdir()
             scan = archive_dir / "Family_2020_B01_P01_S01.tif"
@@ -281,7 +281,7 @@ class TestRunCTM(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             archive_dir = root / "Family_2020_B01_Archive"
-            view_dir = root / "Family_2020_B01_View"
+            view_dir = root / "Family_2020_B01_Pages"
             photos_dir = root / "Family_2020_B01_Photos"
             archive_dir.mkdir()
             view_dir.mkdir()
@@ -358,3 +358,4 @@ class TestRunCTM(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

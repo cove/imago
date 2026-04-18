@@ -40,7 +40,7 @@ def _write_minimal_xmp(path: Path, description: str = "") -> None:
 def _make_test_album(root: Path, album: str = "Egypt_1975_B00", page: int = 26) -> dict:
     """Create a minimal archive+view directory structure for pipeline tests."""
     archive = root / f"{album}_Archive"
-    view = root / f"{album}_View"
+    view = root / f"{album}_Pages"
     photos = root / f"{album}_Photos"
     archive.mkdir(parents=True)
     view.mkdir(parents=True)
@@ -62,6 +62,24 @@ def _make_test_album(root: Path, album: str = "Egypt_1975_B00", page: int = 26) 
         "archive": archive,
         "view": view,
         "photos": photos,
+        "scan": scan,
+        "view_jpg": view_jpg,
+        "view_xmp": view_xmp,
+    }
+
+
+def _add_test_page(album_dir: dict, album: str = "Egypt_1975_B00", page: int = 27) -> dict:
+    page_token = f"P{page:02d}"
+    scan = album_dir["archive"] / f"{album}_{page_token}_S01.tif"
+    scan.write_bytes(b"tif")
+
+    view_jpg = album_dir["view"] / f"{album}_{page_token}_V.jpg"
+    view_jpg.write_bytes(b"viewjpeg")
+    view_xmp = view_jpg.with_suffix(".xmp")
+    _write_minimal_xmp(view_xmp, "A lovely page")
+    assign_document_id(view_xmp)
+
+    return {
         "scan": scan,
         "view_jpg": view_jpg,
         "view_xmp": view_xmp,
@@ -415,5 +433,98 @@ class TestRunRenderPipelinePageLockRelease(unittest.TestCase):
             self.assertNotEqual(result, 0)
 
 
+class TestRunRenderPipelinePerPageScoping(unittest.TestCase):
+    def test_face_refresh_is_limited_to_current_page(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            album_dir = _make_test_album(root, page=26)
+            _add_test_page(album_dir, page=27)
+
+            refresh_calls: list[list[str]] = []
+            session = mock.Mock()
+            session.set_files.side_effect = lambda files: refresh_calls.append([path.name for path in files])
+
+            with (
+                mock.patch("photoalbums.commands._acquire_page_pipeline_lock", return_value=None),
+                mock.patch("photoalbums.commands._release_page_pipeline_lock"),
+                mock.patch("photoalbums.stitch_oversized_pages.tif_to_jpg", return_value=False),
+                mock.patch("photoalbums.stitch_oversized_pages.stitch", return_value=False),
+                mock.patch("photoalbums.stitch_oversized_pages.list_derived_images", return_value=[]),
+                mock.patch("photoalbums.lib.ai_view_regions.detect_regions", return_value=[]),
+                mock.patch("photoalbums.lib.ai_view_regions._image_dimensions", return_value=(100, 100)),
+                mock.patch("photoalbums.lib.ai_model_settings.default_view_region_model", return_value="gemma4"),
+                mock.patch("photoalbums.lib.album_sets.find_archive_set_by_photos_root", return_value=""),
+                mock.patch("photoalbums.lib.album_sets.read_people_roster", return_value={}),
+                mock.patch("photoalbums.lib.xmp_sidecar.read_ai_sidecar_state", return_value={}),
+                mock.patch("photoalbums.lib.ai_render_face_refresh.RenderFaceRefreshSession", return_value=session),
+                redirect_stdout(StringIO()),
+            ):
+                result = commands.run_render_pipeline(
+                    album_id="Egypt_1975_B00",
+                    photos_root=str(root),
+                    page=None,
+                    force=False,
+                    skip_crops=True,
+                )
+
+            self.assertEqual(result, 0)
+            self.assertEqual(
+                refresh_calls,
+                [
+                    ["Egypt_1975_B00_P26_V.jpg"],
+                    ["Egypt_1975_B00_P27_V.jpg"],
+                ],
+            )
+
+    def test_derived_renders_are_limited_to_current_page(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            album_dir = _make_test_album(root, page=26)
+            _add_test_page(album_dir, page=27)
+
+            derived_outputs = [
+                "Egypt_1975_B00_P26_D01-00.tif",
+                "Egypt_1975_B00_P27_D01-00.tif",
+            ]
+            rendered: list[str] = []
+
+            with (
+                mock.patch("photoalbums.commands._acquire_page_pipeline_lock", return_value=None),
+                mock.patch("photoalbums.commands._release_page_pipeline_lock"),
+                mock.patch("photoalbums.stitch_oversized_pages.tif_to_jpg", return_value=False),
+                mock.patch("photoalbums.stitch_oversized_pages.stitch", return_value=False),
+                mock.patch("photoalbums.stitch_oversized_pages.list_derived_images", return_value=derived_outputs),
+                mock.patch("photoalbums.lib.ai_view_regions.detect_regions", return_value=[]),
+                mock.patch("photoalbums.lib.ai_view_regions._image_dimensions", return_value=(100, 100)),
+                mock.patch("photoalbums.lib.ai_model_settings.default_view_region_model", return_value="gemma4"),
+                mock.patch("photoalbums.lib.album_sets.find_archive_set_by_photos_root", return_value=""),
+                mock.patch("photoalbums.lib.album_sets.read_people_roster", return_value={}),
+                mock.patch("photoalbums.lib.xmp_sidecar.read_ai_sidecar_state", return_value={}),
+                mock.patch(
+                    "photoalbums.stitch_oversized_pages.derived_to_jpg",
+                    side_effect=lambda derived, _view_dir: rendered.append(Path(derived).name),
+                ),
+                mock.patch("photoalbums.lib.ai_render_face_refresh.RenderFaceRefreshSession"),
+                redirect_stdout(StringIO()),
+            ):
+                result = commands.run_render_pipeline(
+                    album_id="Egypt_1975_B00",
+                    photos_root=str(root),
+                    page=None,
+                    force=False,
+                    skip_crops=True,
+                )
+
+            self.assertEqual(result, 0)
+            self.assertEqual(
+                rendered,
+                [
+                    "Egypt_1975_B00_P26_D01-00.tif",
+                    "Egypt_1975_B00_P27_D01-00.tif",
+                ],
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
+

@@ -73,22 +73,15 @@ class RenderFaceRefreshSession:
         *,
         force: bool = False,
     ) -> bool:
-        image = Path(image_path)
         sidecar = Path(sidecar_path)
         if force:
             clear_pipeline_steps(sidecar, ["face_refresh"])
         else:
             pipeline_state = read_pipeline_step(sidecar, "face_refresh")
             if pipeline_state is not None:
-                completed = str(pipeline_state.get("completed") or "").strip()
-                if completed:
-                    print(
-                        f"Skipping {image.name} face refresh (already completed at {completed}; use --force to rerun)"
-                    )
-                else:
-                    print(f"Skipping {image.name} face refresh (pipeline state present; use --force to rerun)")
                 return False
 
+        image = Path(image_path)
         self._refresh_with_runner(image, sidecar)
         write_pipeline_step(sidecar, "face_refresh", model="buffalo_l")
         return True

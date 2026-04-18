@@ -33,13 +33,17 @@ from photoalbums.common import (
     PHOTO_ALBUMS_DIR,
     configure_imagemagick,
     dir_created_ts,
+    is_ignored_artifact_name,
     list_archive_dirs,
     list_page_scan_groups,
 )
 from photoalbums.naming import (
+    ALBUM_DIR_SUFFIX_PAGES,
     BASE_PAGE_NAME_RE,
     SCAN_NAME_RE,
     SCAN_TIFF_RE,
+    pages_dir_for_album_dir,
+    photos_dir_for_album_dir,
     parse_album_filename,
 )
 
@@ -485,35 +489,12 @@ def build_stitched_image(files, stitcher_factory=None):
     raise RuntimeError("All stitching attempts failed")
 
 
-def _archive_sibling_dirname(path: str | Path, suffix: str) -> str:
-    """Return a sibling directory name by replacing the _Archive suffix with ``suffix``.
-
-    Example: ``Egypt_1975_Archive``, ``_View`` -> ``Egypt_1975_View``
-    """
-    base = Path(path).name
-    base_no_archive = base.replace("_Archive", "")
-    match = re.match(
-        r"^(?P<collection>[A-Za-z]+)_(?P<year>\d{4}(?:-\d{4})?)_(?P<rest>.+)$",
-        base_no_archive,
-    )
-    if match:
-        collection = match.group("collection")
-        year = match.group("year")
-        rest = match.group("rest")
-        return str(Path(path).parent / f"{collection}_{year}_{rest}{suffix}")
-    return str(Path(path).parent / f"{base_no_archive}{suffix}")
-
-
 def get_view_dirname(path: str | Path) -> str:
-    return _archive_sibling_dirname(path, "_View")
+    return str(pages_dir_for_album_dir(path))
 
 
 def get_photos_dirname(path: str | Path) -> str:
-    """Return the _Photos sibling directory path for the given _Archive directory.
-
-    Example: ``Egypt_1975_Archive`` -> ``Egypt_1975_Photos``
-    """
-    return _archive_sibling_dirname(path, "_Photos")
+    return str(photos_dir_for_album_dir(path))
 
 
 def _scan_number(path: str | Path) -> int:
@@ -656,6 +637,8 @@ def list_derived_media(directory: str | Path) -> list[str]:
 def _list_derived_media(directory: str | Path, extensions: tuple[str, ...]) -> list[str]:
     files = []
     for name in os.listdir(directory):
+        if is_ignored_artifact_name(name):
+            continue
         if not name.lower().endswith(extensions):
             continue
         if not _match_derived_tokens(name):

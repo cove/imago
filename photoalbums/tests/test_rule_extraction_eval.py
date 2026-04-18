@@ -3,7 +3,7 @@ Integration eval: validate caption quality using the real pipeline prompt.
 
 Builds the user prompt with `_build_local_prompt`,
 sends it with the production LM Studio system prompt and asserts on caption content.
-No intermediate rule-selection step — the full skill prompt is sent as-is.
+No intermediate rule-selection step â€” the full skill prompt is sent as-is.
 
 Requires LM Studio running with zai-org/glm-4.6v-flash loaded.
 All tests are auto-skipped if LM Studio is not reachable or the test image is missing.
@@ -47,20 +47,20 @@ from photoalbums.lib.ai_ocr import OCREngine  # noqa: E402
 _LMSTUDIO_BASE = "http://localhost:1234"
 _MODEL = "zai-org/glm-4.6v-flash"
 _RUNS_PER_CASE = 1
-_MIN_PASSING_RUNS = 1  # ≥2/3 runs must pass per case
+_MIN_PASSING_RUNS = 1  # â‰¥2/3 runs must pass per case
 
-# Stitched JPEG for the Dunhuang page — murals, exhibit signage, people
+# Stitched JPEG for the Dunhuang page â€” murals, exhibit signage, people
 _TEST_IMAGE = Path(
     r"C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums"
-    r"\China_1986_B02_View\China_1986_B02_P02_stitched.jpg"
+    r"\China_1986_B02_Pages\China_1986_B02_P02_stitched.jpg"
 )
 _TEST_IMAGE_P04 = Path(
     r"C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums"
-    r"\China_1986_B02_View\China_1986_B02_P04_stitched.jpg"
+    r"\China_1986_B02_Pages\China_1986_B02_P04_stitched.jpg"
 )
 _TEST_IMAGE_P16_D01 = Path(
     r"C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums"
-    r"\China_1986_B02_View\China_1986_B02_P16_D01-01_V.jpg"
+    r"\China_1986_B02_Pages\China_1986_B02_P16_D01-01_V.jpg"
 )
 
 # ---------------------------------------------------------------------------
@@ -184,7 +184,7 @@ def _call_caption_engine(base_url: str, image_path: Path, *, case: dict) -> dict
 
 
 def _call_pipeline(base_url: str, image_path: Path, *, case: dict) -> dict:
-    """Full pipeline: real face detection → position computation → caption (mirrors MCP call)."""
+    """Full pipeline: real face detection â†’ position computation â†’ caption (mirrors MCP call)."""
     from photoalbums.lib.ai_people import CastPeopleMatcher
 
     t0 = time.monotonic()
@@ -296,3 +296,4 @@ def test_caption_quality(lmstudio_url, case):
         f"    ocr_text:    {case.get('ocr_text', '')!r}\n"
         f"    album_title: {case.get('album_title', '')!r}\n" + "\n".join(failing_details)
     )
+

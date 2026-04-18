@@ -3,9 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from ..naming import (
+    ALBUM_DIR_SUFFIX_ARCHIVE,
+    ALBUM_DIR_SUFFIX_PAGES,
     BASE_PAGE_NAME_RE,
     DERIVED_NAME_RE,
     SCAN_NAME_RE,
+    album_sibling_dir,
+    album_dir_suffix,
     parse_album_filename,
 )
 from .ai_caption import clean_text
@@ -16,18 +20,18 @@ def _album_identity_key(image_path: Path) -> str:
     collection, year, book, _page = parse_album_filename(image_path.name)
     if collection != "Unknown":
         return f"{collection}_{year}_B{book}".casefold()
-    parent_name = str(image_path.parent.name or "")
-    base_name = parent_name.removesuffix("_Archive").removesuffix("_View")
-    return str((image_path.parent.parent / base_name).resolve()).casefold()
+    parent = image_path.parent
+    if album_dir_suffix(parent):
+        return str(album_sibling_dir(parent, ALBUM_DIR_SUFFIX_ARCHIVE).resolve()).casefold()
+    return str(parent.resolve()).casefold()
 
 
 def _album_directory_candidates(image_path: Path) -> list[Path]:
     out: list[Path] = [image_path.parent]
-    parent_name = str(image_path.parent.name or "")
-    base_name = parent_name.removesuffix("_Archive").removesuffix("_View")
-    root = image_path.parent.parent
-    for suffix in ("_Archive", "_View"):
-        candidate = root / f"{base_name}{suffix}"
+    if not album_dir_suffix(image_path.parent):
+        return out
+    for suffix in (ALBUM_DIR_SUFFIX_ARCHIVE, ALBUM_DIR_SUFFIX_PAGES):
+        candidate = album_sibling_dir(image_path.parent, suffix)
         if candidate in out or not candidate.is_dir():
             continue
         out.append(candidate)

@@ -263,7 +263,7 @@ class TestCropPageRegionsRestoration(unittest.TestCase):
         from photoalbums.tests.test_ai_photo_crops import _make_minimal_jpeg, _write_region_xmp
 
         with tempfile.TemporaryDirectory() as tmp:
-            view_dir = Path(tmp) / "Album_View"
+            view_dir = Path(tmp) / "Album_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Album_Photos"
             view_jpg = view_dir / "Album_B00_P02_V.jpg"
@@ -302,7 +302,7 @@ class TestCropPageRegionsRestoration(unittest.TestCase):
         from photoalbums.tests.test_ai_photo_crops import _make_minimal_jpeg, _write_region_xmp
 
         with tempfile.TemporaryDirectory() as tmp:
-            view_dir = Path(tmp) / "Album_View"
+            view_dir = Path(tmp) / "Album_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Album_Photos"
             view_jpg = view_dir / "Album_B00_P02_V.jpg"
@@ -333,7 +333,7 @@ class TestCropPageRegionsRestoration(unittest.TestCase):
         from photoalbums.tests.test_ai_photo_crops import _make_minimal_jpeg, _write_region_xmp
 
         with tempfile.TemporaryDirectory() as tmp:
-            view_dir = Path(tmp) / "Album_View"
+            view_dir = Path(tmp) / "Album_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Album_Photos"
             view_jpg = view_dir / "Album_B00_P02_V.jpg"
@@ -365,3 +365,4 @@ class TestCropPageRegionsRestoration(unittest.TestCase):
             self.assertEqual(second_restore.call_count, 1)
             state = read_pipeline_step(photos_dir / "Album_B00_P02_D01-00_V.xmp", "photo_restoration")
             self.assertEqual(state["result"], "restored")
+

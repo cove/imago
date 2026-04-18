@@ -1445,7 +1445,7 @@ class CastHandler(BaseHTTPRequestHandler):
 
     def _handle_ingest_photo_scan(self, payload: dict[str, Any]) -> None:
         root_dir = payload.get("photo_albums_root") or DEFAULT_PHOTO_ALBUMS_ROOT
-        view_glob = str(payload.get("view_glob") or "*_View")
+        view_glob = str(payload.get("view_glob") or "*_Pages")
         recursive = _coerce_bool(payload.get("recursive"), True)
         min_size = int(payload.get("min_size") or 40)
         max_faces_per_photo = int(payload.get("max_faces_per_photo") or 50)

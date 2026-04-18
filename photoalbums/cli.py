@@ -209,6 +209,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Verify hashes against existing manifests instead of generating them.",
     )
 
+    migrate_refs_parser = subparsers.add_parser(
+        "migrate-page-dir-refs",
+        help="Rewrite page-side XMP references from *_View to *_Pages under a Photo Albums root.",
+    )
+    migrate_refs_parser.add_argument("--photos-root", required=True, help="Path to the Photo Albums root directory")
+    migrate_refs_parser.add_argument(
+        "--verify-only",
+        action="store_true",
+        help="Fail if any .xmp files under the root still contain _View.",
+    )
+
     return parser
 
 
@@ -322,6 +333,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.group == "checksum":
         if args.checksum_kind == "tree":
             return commands.run_checksum_tree(base_dir=args.base_dir, verify=bool(args.verify))
+
+    if args.group == "migrate-page-dir-refs":
+        return commands.run_migrate_page_dir_refs(
+            photos_root=args.photos_root,
+            verify_only=bool(getattr(args, "verify_only", False)),
+        )
 
     parser.error("Unknown command.")
     return 2

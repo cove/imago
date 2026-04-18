@@ -86,8 +86,8 @@ photoalbums-render-validate:
 photoalbums-detect-regions *args:
   {{python}} photoalbums.py detect-view-regions --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
 
-photoalbums-crop-regions:
-  {{python}} photoalbums.py crop-regions --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums"
+photoalbums-crop-regions album="" *args:
+  {{python}} photoalbums.py crop-regions {{if album != "" { '"' + album + '"' } else { "" }}} --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
 
 photoalbums-ctm-generate *args:
   {{python}} photoalbums.py ctm generate --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
@@ -98,7 +98,7 @@ photoalbums-ctm-review *args:
 photoalbums-ctm-apply *args:
   {{python}} photoalbums.py ctm-apply --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
 
-photoalbums-render-pipeline:
+photoalbums-render-pipeline *args:
   {{python}} photoalbums.py render-pipeline --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums"
 
 photoalbums-watch:

@@ -24,7 +24,6 @@ log = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT_SECONDS = 300.0
 _MAX_SINGLE_REGION_PAGE_FRACTION = 0.90
-_MIN_TOTAL_REGION_PAGE_FRACTION = 0.50
 _MAX_OVERLAP_FRACTION = 0.05
 
 
@@ -174,19 +173,6 @@ def validate_region_set(
             failures.append(overlap_failure)
         else:
             kept.append(candidate)
-
-    coverage_fraction = 0.0
-    if img_area > 0:
-        coverage_fraction = sum(region.width * region.height for region in kept) / img_area
-    if kept and coverage_fraction < _MIN_TOTAL_REGION_PAGE_FRACTION:
-        failures.append(
-            RegionFailure(
-                region_index=-1,
-                reason="insufficient_page_coverage",
-                severity="hard",
-                page_fraction=round(coverage_fraction, 3),
-            )
-        )
 
     return ValidationResult(valid=len(failures) == 0, kept=sorted(kept, key=lambda region: region.index), failures=failures)
 
@@ -388,8 +374,6 @@ def _write_failed_regions_debug_image(
             note = "zero area"
         elif failure.reason == "full_page":
             note = "covers >=90% of page"
-        elif failure.reason == "insufficient_page_coverage":
-            note = f"page coverage {int(round((failure.page_fraction or 0) * 100))}% < 50%"
         else:
             note = failure.reason.replace("_", " ")
         if failure.region_index >= 0:

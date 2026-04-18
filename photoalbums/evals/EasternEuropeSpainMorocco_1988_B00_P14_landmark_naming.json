@@ -1,7 +1,7 @@
 {
   "eval_date": "2026-03-21",
   "what_is_tested": "Landmark proper-name override of OCR label",
-  "photo": "EasternEuropeSpainMorocco_1988_B00_View/EasternEuropeSpainMorocco_1988_B00_P14_stitched.jpg",
+  "photo": "EasternEuropeSpainMorocco_1988_B00_Pages/EasternEuropeSpainMorocco_1988_B00_P14_stitched.jpg",
   "notes": "The album's handwritten OCR label reads 'THE STONE BRIDGE BUILT BY THE TURKS', which the model was echoing verbatim. The bridge is Stari Most in Mostar, Bosnia (then Yugoslavia). The eval checks that the model uses the proper landmark name in both the main caption and all per-photo region descriptions, overriding the OCR label.",
   "pass_criteria": [
     "Main dc:description contains 'Stari Most' (recognized proper name, not 'stone bridge')",
@@ -51,9 +51,10 @@
     ]
   },
   "observations": [
-    "OCR label 'THE STONE BRIDGE BUILT BY THE TURKS' was a dominant signal — the model echoed 'stone bridge' even after a generic proper-name rule was added (first attempt)",
+    "OCR label 'THE STONE BRIDGE BUILT BY THE TURKS' was a dominant signal â€” the model echoed 'stone bridge' even after a generic proper-name rule was added (first attempt)",
     "The fix required two explicit reinforcements: (1) adding 'do NOT use the album's OCR label if it is a generic description. Example: the famous arched bridge in Mostar is called Stari Most' to Global Style & Behavior Rules, and (2) adding an identical override rule to Preamble Page Photo Regions for the region-description step",
     "After the fix, 'Stari Most' appears in the main caption and all three Mostar bridge region descriptions",
-    "Generalizes to other famous landmarks — the same rule references the Parthenon and Hagia Sophia as examples"
+    "Generalizes to other famous landmarks â€” the same rule references the Parthenon and Hagia Sophia as examples"
   ]
 }
+

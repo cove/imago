@@ -193,7 +193,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--include-view",
         action="store_true",
-        help="Include files in rendered *_View and *_Photos folders.",
+        help="Include files in rendered *_Pages and *_Photos folders.",
     )
     parser.add_argument(
         "--include-archive",

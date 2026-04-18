@@ -29,7 +29,7 @@ Open `http://127.0.0.1:8093`.
 
 - Ingest a photo path and auto-detect faces
 - Ingest a VHS/video path and sample frames for face detection
-- Bulk scan photo album view folders (for example `Photo Albums/*_View/*.jpg`)
+- Bulk scan photo album view folders (for example `Photo Albums/*_Pages/*.jpg`)
 - Save cropped face images under `cast/data/crops/`
 - Auto-enqueue each detected face into a "who is this?" review queue
 - Bulk-assign selected queue items to an existing person or type a new name to create+assign immediately
@@ -45,3 +45,4 @@ Open `http://127.0.0.1:8093`.
 - The web UI shows the active detector/embedding stack and warns when stored face rows are legacy detections from an older model path.
 - Matching uses cosine similarity over stored face embeddings.
 - This scaffold is designed for small local archives (for example up to a few dozen people).
+

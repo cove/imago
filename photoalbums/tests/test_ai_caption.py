@@ -21,7 +21,7 @@ class TestAICaption(unittest.TestCase):
             people=[],
             objects=[],
             ocr_text="",
-            source_path=Path("Photo Albums") / "Family_1980-1985_B08_View" / "Family_1980-1985_B08_P02.jpg",
+            source_path=Path("Photo Albums") / "Family_1980-1985_B08_Pages" / "Family_1980-1985_B08_P02.jpg",
         )
         self.assertIn("Use `author_text` for typewriter-written Courier text on white paper strips.", prompt)
         self.assertIn("Return empty strings when no applicable text exists for a field.", prompt)
@@ -50,7 +50,7 @@ class TestAICaption(unittest.TestCase):
             people=["Alice Example"],
             objects=["bench"],
             ocr_text="FAMILY BOOK",
-            source_path=Path("Photo Albums") / "Family_1980-1985_B08_View" / "Family_1980-1985_B08_P01.jpg",
+            source_path=Path("Photo Albums") / "Family_1980-1985_B08_Pages" / "Family_1980-1985_B08_P01.jpg",
             album_title="Family Book I",
         )
         self.assertIn("author_text", prompt)
@@ -75,7 +75,7 @@ class TestAICaption(unittest.TestCase):
             people=[],
             objects=[],
             ocr_text="MAINLAND CHINA 1986 BOOK 11",
-            source_path=Path("Photo Albums") / "China_1986_B02_View" / "China_1986_B02_P01.jpg",
+            source_path=Path("Photo Albums") / "China_1986_B02_Pages" / "China_1986_B02_P01.jpg",
         )
         self.assertIn("This is an album cover or title page.", prompt)
         self.assertIn("Use the OCR text from this page as the source of truth for `album_title`.", prompt)
@@ -788,3 +788,4 @@ class TestAICaption(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

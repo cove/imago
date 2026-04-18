@@ -85,7 +85,7 @@ python viewer/scan_media.py --imago-layout
 ```
 
 - Videos come from `~/Videos/VHS Clips` and `~/Videos/Videos` (if present).
-- Photos come from `*_View` folders found under OneDrive Photo Albums roots.
+- Photos come from `*_Pages` folders found under OneDrive Photo Albums roots.
 - You can override discovery roots:
   - `--videos-root "<path>"`
   - `--photos-root "<path>"`
@@ -113,3 +113,4 @@ Deploy the `viewer/` directory via Actions or publish branch, then serve from th
 - Browser apps cannot directly load arbitrary `file://` paths from an `http://` page. `server.py` bridges this by serving local files over `/media?id=...`.
 - Avoid injecting untrusted HTML into metadata values.
 - The app theme intentionally matches the VHS tuner visual style.
+
