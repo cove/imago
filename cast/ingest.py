@@ -8,6 +8,7 @@ from typing import Any
 
 import cv2
 import numpy as np
+from photoalbums.naming import archive_dir_for_album_dir, is_pages_dir
 
 # Suppress FutureWarnings from insightface internals (third-party library noise).
 warnings.filterwarnings(
@@ -468,7 +469,7 @@ class FaceIngestor:
         self,
         *,
         photo_albums_root: str | Path,
-        view_glob: str = "*_View",
+        view_glob: str = "*_Pages",
         recursive: bool = True,
         extensions: tuple[str, ...] = (".jpg", ".jpeg"),
     ) -> list[Path]:
@@ -483,7 +484,7 @@ class FaceIngestor:
             ext_set = {".jpg", ".jpeg"}
 
         files: list[Path] = []
-        for view_dir in sorted(root.glob(str(view_glob or "*_View"))):
+        for view_dir in sorted(root.glob(str(view_glob or "*_Pages"))):
             if not view_dir.is_dir():
                 continue
             iterator = view_dir.rglob("*") if recursive else view_dir.glob("*")
@@ -499,7 +500,7 @@ class FaceIngestor:
         self,
         *,
         photo_albums_root: str | Path,
-        view_glob: str = "*_View",
+        view_glob: str = "*_Pages",
         recursive: bool = True,
         extensions: tuple[str, ...] = (".tif", ".tiff"),
     ) -> list[Path]:
@@ -515,13 +516,12 @@ class FaceIngestor:
 
         files: list[Path] = []
         seen_dirs: set[Path] = set()
-        for view_dir in sorted(root.glob(str(view_glob or "*_View"))):
+        for view_dir in sorted(root.glob(str(view_glob or "*_Pages"))):
             if not view_dir.is_dir():
                 continue
-            name = str(view_dir.name)
-            if not name.endswith("_View"):
+            if not is_pages_dir(view_dir):
                 continue
-            archive_dir = (view_dir.parent / f"{name[:-5]}_Archive").resolve()
+            archive_dir = archive_dir_for_album_dir(view_dir).resolve()
             if archive_dir in seen_dirs:
                 continue
             seen_dirs.add(archive_dir)
@@ -540,7 +540,7 @@ class FaceIngestor:
         self,
         *,
         photo_albums_root: str | Path,
-        view_glob: str = "*_View",
+        view_glob: str = "*_Pages",
         recursive: bool = True,
         extensions: tuple[str, ...] = (".jpg", ".jpeg"),
         min_size: int = 40,

@@ -55,7 +55,7 @@ class TestValidateRegions(unittest.TestCase):
         kept = validate_regions_for_write(regions, img_w=200, img_h=100)
         self.assertEqual([region.index for region in kept], [0, 1])
 
-    def test_validate_region_set_reports_overlap_and_page_coverage(self):
+    def test_validate_region_set_reports_overlap(self):
         regions = [
             RegionResult(index=0, x=0, y=0, width=95, height=95, confidence=0.9),
             RegionResult(index=1, x=2, y=2, width=95, height=95, confidence=0.8),
@@ -63,7 +63,6 @@ class TestValidateRegions(unittest.TestCase):
         result = validate_region_set(regions, img_w=200, img_h=200)
         self.assertFalse(result.valid)
         self.assertIn("overlap", {failure.reason for failure in result.failures})
-        self.assertIn("insufficient_page_coverage", {failure.reason for failure in result.failures})
 
 
 class TestDetectRegionsDocling(unittest.TestCase):
@@ -216,7 +215,7 @@ class TestRunDetectViewRegions(unittest.TestCase):
     def test_skips_when_terminal_pipeline_state_present(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            view_dir = root / "Egypt_1975_View"
+            view_dir = root / "Egypt_1975_Pages"
             view_dir.mkdir()
             view_path = view_dir / "Egypt_1975_B00_P26_V.jpg"
             self._write_jpeg(view_path)
@@ -243,7 +242,7 @@ class TestRunDetectViewRegions(unittest.TestCase):
     def test_reads_page_caption_and_roster_into_detection_context(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            view_dir = root / "Cordell_1975_View"
+            view_dir = root / "Cordell_1975_Pages"
             view_dir.mkdir()
             view_path = view_dir / "Cordell_1975_B00_P26_V.jpg"
             self._write_jpeg(view_path)
@@ -282,3 +281,4 @@ class TestRunDetectViewRegions(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

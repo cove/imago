@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -650,7 +650,7 @@
             </div>
             <div class="field">
               <label for="scan-view-glob">Album Folder Glob</label>
-              <input id="scan-view-glob" class="mono" type="text" value="*_View" />
+              <input id="scan-view-glob" class="mono" type="text" value="*_Pages" />
             </div>
           </div>
           <div class="row">
@@ -1802,7 +1802,7 @@
         event.preventDefault();
         try {
           const root = String(document.getElementById("scan-root").value || "").trim();
-          const viewGlob = String(document.getElementById("scan-view-glob").value || "").trim() || "*_View";
+          const viewGlob = String(document.getElementById("scan-view-glob").value || "").trim() || "*_Pages";
           const maxFiles = Math.max(0, Number(document.getElementById("scan-max-files").value || 0) || 0);
           const maxFacesPerPhoto = Math.max(1, Number(document.getElementById("scan-max-faces").value || 50) || 50);
           const recursive = Boolean(document.getElementById("scan-recursive").checked);

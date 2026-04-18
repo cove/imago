@@ -211,6 +211,25 @@ def _write_crop_sidecar(
         caption = page_description or ocr_text
     archive_source_text = str(view_state.get("source_text") or "").strip()
 
+    # Compute effective location: page view state first, then archive scan fallback.
+    # Crops are created before the page view refresh may have written GPS/location,
+    # so we walk up to the archive scan if the page view has no GPS.
+    from .ai_sidecar_state import _sidecar_location_payload, _dc_source_scan_names
+    from .ai_render_settings import find_archive_dir_for_image
+    from .xmp_sidecar import read_ai_sidecar_state
+
+    effective_loc = _sidecar_location_payload(view_state)
+    if not str(effective_loc.get("gps_latitude") or "").strip():
+        archive_dir = find_archive_dir_for_image(view_path)
+        if archive_dir is not None and archive_dir.is_dir():
+            for scan_name in _dc_source_scan_names(archive_source_text)[:1]:
+                archive_state = read_ai_sidecar_state((archive_dir / scan_name).with_suffix(".xmp"))
+                if isinstance(archive_state, dict):
+                    archive_loc = _sidecar_location_payload(archive_state)
+                    if str(archive_loc.get("gps_latitude") or "").strip():
+                        effective_loc = archive_loc
+                        break
+
     write_xmp_sidecar(
         crop_xmp,
         creator_tool="imago-crop-regions",
@@ -218,12 +237,12 @@ def _write_crop_sidecar(
         subjects=subjects,
         description=caption,
         source_text=archive_source_text,
-        gps_latitude=str(view_state.get("gps_latitude") or "").strip(),
-        gps_longitude=str(view_state.get("gps_longitude") or "").strip(),
-        location_city=str(view_state.get("location_city") or "").strip(),
-        location_state=str(view_state.get("location_state") or "").strip(),
-        location_country=str(view_state.get("location_country") or "").strip(),
-        location_sublocation=str(view_state.get("location_sublocation") or "").strip(),
+        gps_latitude=str(effective_loc.get("gps_latitude") or "").strip(),
+        gps_longitude=str(effective_loc.get("gps_longitude") or "").strip(),
+        location_city=str(effective_loc.get("city") or view_state.get("location_city") or "").strip(),
+        location_state=str(effective_loc.get("state") or view_state.get("location_state") or "").strip(),
+        location_country=str(effective_loc.get("country") or view_state.get("location_country") or "").strip(),
+        location_sublocation=str(effective_loc.get("sublocation") or view_state.get("location_sublocation") or "").strip(),
         create_date=str(view_state.get("create_date") or "").strip(),
         dc_date=list(view_state.get("dc_date_values") or []),
         locations_shown=locations_shown,

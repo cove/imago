@@ -99,6 +99,7 @@ from .xmp_sidecar import (
     write_xmp_sidecar,
 )
 from .xmp_review import load_ai_xmp_review
+from ..naming import is_archive_dir, is_pages_dir, is_photos_dir
 
 # Re-exports from extracted modules — keep backward compatibility for tests and callers.
 from .ai_index_args import (  # noqa: F401
@@ -216,6 +217,7 @@ def _compute_people_positions(people_matches: list, image_path: Path) -> dict[st
 
     try:
         from PIL import Image as _PILImage  # pylint: disable=import-outside-toplevel
+        from .image_limits import allow_large_pillow_images  # pylint: disable=import-outside-toplevel
 
         allow_large_pillow_images(_PILImage)
         with _PILImage.open(str(image_path)) as _img:
@@ -301,9 +303,9 @@ def discover_images(
         if path.suffix.lower() not in extensions:
             continue
         parent_names = {parent.name for parent in path.parents}
-        in_archive = any(name.endswith("_Archive") for name in parent_names)
-        in_view = any(name.endswith("_View") for name in parent_names)
-        in_photos = any(name.endswith("_Photos") for name in parent_names)
+        in_archive = any(is_archive_dir(name) for name in parent_names)
+        in_view = any(is_pages_dir(name) for name in parent_names)
+        in_photos = any(is_photos_dir(name) for name in parent_names)
         if in_archive and include_archive:
             files.append(path)
             continue
@@ -345,7 +347,7 @@ def _append_geocode_artifact(*, image_path: Path, record: dict[str, Any]) -> Non
 
 
 def _is_archive_file(image_path: Path) -> bool:
-    return str(image_path.parent.name or "").endswith("_Archive")
+    return is_archive_dir(image_path.parent)
 
 
 def _page_sort_key(image_path: Path) -> tuple[str, int, int, str]:
@@ -399,9 +401,9 @@ def _filter_files_by_tree(files: list[Path], *, include_archive: bool, include_v
     filtered: list[Path] = []
     for image_path in files:
         parent_names = {parent.name for parent in image_path.parents}
-        in_archive = any(name.endswith("_Archive") for name in parent_names)
-        in_view = any(name.endswith("_View") for name in parent_names)
-        in_photos = any(name.endswith("_Photos") for name in parent_names)
+        in_archive = any(is_archive_dir(name) for name in parent_names)
+        in_view = any(is_pages_dir(name) for name in parent_names)
+        in_photos = any(is_photos_dir(name) for name in parent_names)
         if in_archive and include_archive:
             filtered.append(image_path)
             continue

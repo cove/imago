@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from .ai_page_layout import _normalize_enum_str, normalize_page_split_mode
+from ..naming import archive_dir_for_album_dir, is_archive_dir, is_pages_dir, is_photos_dir
 
 SETTINGS_FILENAME = "render_settings.json"
 OCR_ENGINES = {"none", "local", "lmstudio"}
@@ -255,15 +256,10 @@ def resolve_effective_settings(
 def find_archive_dir_for_image(image_path: str | Path) -> Path | None:
     path = Path(image_path)
     for parent in path.parents:
-        name = str(parent.name or "")
-        if name.endswith("_Archive"):
+        if is_archive_dir(parent):
             return parent
-        if name.endswith("_View"):
-            sibling = parent.with_name(name[: -len("_View")] + "_Archive")
-            if sibling.exists() and sibling.is_dir():
-                return sibling
-        if name.endswith("_Photos"):
-            sibling = parent.with_name(name[: -len("_Photos")] + "_Archive")
+        if is_pages_dir(parent) or is_photos_dir(parent):
+            sibling = archive_dir_for_album_dir(parent)
             if sibling.exists() and sibling.is_dir():
                 return sibling
     return None

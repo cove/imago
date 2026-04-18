@@ -334,6 +334,7 @@ def run_crop_regions(
     from .lib.ai_photo_crops import crop_page_regions
     from .lib.xmp_sidecar import clear_pipeline_steps, read_pipeline_step, write_pipeline_step, write_region_list
     from .stitch_oversized_pages import get_photos_dirname
+    from .naming import archive_dir_for_album_dir, is_pages_dir
 
     if skip_restoration and force_restoration:
         print("Error: --skip-restoration and --force-restoration cannot be used together", file=sys.stderr)
@@ -346,17 +347,15 @@ def run_crop_regions(
     view_dirs = sorted(
         d
         for d in root.iterdir()
-        if d.is_dir() and d.name.endswith("_View") and (not album_id or album_id_lower in d.name.casefold())
+        if d.is_dir() and is_pages_dir(d) and (not album_id or album_id_lower in d.name.casefold())
     )
     if not view_dirs:
-        print(f"No _View directories found matching '{album_id}' under {root}", file=sys.stderr)
+        print(f"No _Pages directories found matching '{album_id}' under {root}", file=sys.stderr)
         return 1
 
     errors = 0
     for view_dir in view_dirs:
-        # Derive _Photos directory from the _Archive sibling name
-        archive_name = view_dir.name.replace("_View", "_Archive")
-        archive_path = root / archive_name
+        archive_path = archive_dir_for_album_dir(view_dir)
         photos_dir = Path(get_photos_dirname(archive_path))
 
         candidates = _iter_page_view_targets(view_dir, page)
@@ -517,6 +516,7 @@ def _view_regions_step_complete(xmp_path: Path) -> bool:
 def run_face_refresh(*, album_id: str, photos_root: str, page: str | None, force: bool) -> int:
     from .lib.ai_render_face_refresh import FaceRefreshSkipped, RenderFaceRefreshSession
     from .stitch_oversized_pages import get_photos_dirname
+    from .naming import archive_dir_for_album_dir, is_pages_dir
 
     root = Path(photos_root)
     album_id_lower = album_id.casefold()
@@ -524,16 +524,15 @@ def run_face_refresh(*, album_id: str, photos_root: str, page: str | None, force
     view_dirs = sorted(
         d
         for d in root.iterdir()
-        if d.is_dir() and d.name.endswith("_View") and (not album_id or album_id_lower in d.name.casefold())
+        if d.is_dir() and is_pages_dir(d) and (not album_id or album_id_lower in d.name.casefold())
     )
     if not view_dirs:
-        print(f"No _View directories found matching '{album_id}' under {root}", file=sys.stderr)
+        print(f"No _Pages directories found matching '{album_id}' under {root}", file=sys.stderr)
         return 1
 
     targets: list[Path] = []
     for view_dir in view_dirs:
-        archive_name = view_dir.name.replace("_View", "_Archive")
-        archive_path = root / archive_name
+        archive_path = archive_dir_for_album_dir(view_dir)
         photos_dir = Path(get_photos_dirname(archive_path))
         targets.extend(_iter_face_refresh_targets(view_dir, photos_dir, page))
 
@@ -657,6 +656,8 @@ def run_render_pipeline(
             view_path = _view_page_output_path(primary_scan, view_dir)
             xmp_path = view_path.with_suffix(".xmp")
             archive_sidecar = primary_scan.with_suffix(".xmp")
+            current_page = str(primary_scan.stem.split("_P")[1].split("_")[0]).zfill(2)
+            current_page_token = f"_P{current_page}_"
             page_label = view_path.name
             summary["pages_seen"] += 1
             print(f"Processing {page_label}...")
@@ -672,9 +673,8 @@ def run_render_pipeline(
                     else:
                         tif_to_jpg(str(primary_scan), str(view_dir))
                     # Also render derived images for this page
-                    page_token = f"_P{str(primary_scan.stem.split('_P')[1].split('_')[0]).zfill(2)}_"
                     for derived in list_derived_images(archive):
-                        if page_token in Path(derived).name or not page:
+                        if current_page_token in Path(derived).name:
                             derived_to_jpg(derived, str(view_dir))
                 except Exception as exc:
                     print(f"  ERROR [render]: {exc}", file=sys.stderr)
@@ -804,7 +804,7 @@ def run_render_pipeline(
 
                 # Step: face-refresh (page view, derived views, and crops)
                 try:
-                    refresh_targets = _iter_face_refresh_targets(view_dir, photos_dir, page)
+                    refresh_targets = _iter_face_refresh_targets(view_dir, photos_dir, current_page)
                     face_session.set_files(refresh_targets)
                     for img_path in refresh_targets:
                         try:
@@ -843,8 +843,7 @@ def run_render_pipeline(
                         if _apply_ctm_if_needed(view_path, xmp_path, archive_sidecar):
                             summary["ctm_applied_outputs"] += 1
                     if photos_dir.is_dir():
-                        page_token = f"_P{str(primary_scan.stem.split('_P')[1].split('_')[0]).zfill(2)}_"
-                        for crop in sorted(photos_dir.glob(f"*{page_token}D*-00_V.jpg")):
+                        for crop in sorted(photos_dir.glob(f"*{current_page_token}D*-00_V.jpg")):
                             crop_xmp = crop.with_suffix(".xmp")
                             if _apply_ctm_if_needed(crop, crop_xmp, crop_xmp):
                                 summary["ctm_applied_outputs"] += 1
@@ -894,6 +893,35 @@ def run_render_pipeline(
     return 0
 
 
+def run_migrate_page_dir_refs(*, photos_root: str, verify_only: bool = False) -> int:
+    from .lib.page_reference_migration import find_sidecars_with_view_references, migrate_album_page_references
+
+    root = Path(photos_root)
+    if verify_only:
+        matches = find_sidecars_with_view_references(root)
+        if matches:
+            print(f"Found {len(matches)} sidecar(s) still containing _View under {root}", file=sys.stderr)
+            for path in matches[:20]:
+                print(f"  {path}", file=sys.stderr)
+            if len(matches) > 20:
+                print(f"  ... {len(matches) - 20} more", file=sys.stderr)
+            return 1
+        print(f"No .xmp files under {root} contain _View")
+        return 0
+
+    result = migrate_album_page_references(root)
+    print(
+        json.dumps(
+            {
+                "photos_root": str(root),
+                **result,
+            },
+            ensure_ascii=False,
+        )
+    )
+    return 0
+
+
 def run_detect_view_regions(
     *,
     album_id: str,
@@ -918,16 +946,17 @@ def run_detect_view_regions(
     from .lib.ai_model_settings import default_view_region_model
     from .lib.prompt_debug import PromptDebugSession
     from .lib.xmp_sidecar import clear_pipeline_steps, read_pipeline_step, write_pipeline_step, write_region_list
+    from .naming import is_pages_dir
 
     root = Path(photos_root)
     album_id_lower = album_id.casefold()
     model_name = default_view_region_model()
 
     view_dirs = sorted(
-        d for d in root.iterdir() if d.is_dir() and d.name.endswith("_View") and album_id_lower in d.name.casefold()
+        d for d in root.iterdir() if d.is_dir() and is_pages_dir(d) and album_id_lower in d.name.casefold()
     )
     if not view_dirs:
-        print(f"No _View directories found matching '{album_id}' under {root}", file=sys.stderr)
+        print(f"No _Pages directories found matching '{album_id}' under {root}", file=sys.stderr)
         return 1
 
     errors = 0

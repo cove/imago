@@ -156,7 +156,7 @@ class TestAIIndexLocking(unittest.TestCase):
 
     @skip("Temporarily disabled due to intermittent Windows KeyboardInterrupt reporting during pytest teardown.")
     def test_run_returns_error_when_batch_lock_exists(self):
-        view_dir = self.root / "Album_View"
+        view_dir = self.root / "Album_Pages"
         view_dir.mkdir(parents=True)
         (view_dir / "Photo_01.jpg").touch()
         batch_lock_path = ai_index._acquire_batch_processing_lock(self.root)
@@ -171,7 +171,7 @@ class TestAIIndexLocking(unittest.TestCase):
 
     @skip("Temporarily disabled due to intermittent Windows KeyboardInterrupt reporting during pytest teardown.")
     def test_sharded_run_ignores_existing_batch_lock(self):
-        view_dir = self.root / "Album_View"
+        view_dir = self.root / "Album_Pages"
         view_dir.mkdir(parents=True)
         image_path = view_dir / "Photo_01.jpg"
         image_path.touch()
@@ -198,7 +198,7 @@ class TestAIIndexLocking(unittest.TestCase):
 
     @skip("Temporarily disabled due to intermittent Windows KeyboardInterrupt reporting during pytest teardown.")
     def test_sharded_run_skips_locked_dependency_collision(self):
-        view_dir = self.root / "Album_View"
+        view_dir = self.root / "Album_Pages"
         view_dir.mkdir(parents=True)
         image_path = view_dir / "Photo_01.jpg"
         image_path.touch()
@@ -216,3 +216,4 @@ class TestAIIndexLocking(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

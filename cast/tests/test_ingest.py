@@ -14,8 +14,8 @@ from cast.storage import TextFaceStore
 
 def test_iter_photo_files_scans_view_dirs(tmp_path):
     root = tmp_path / "Photo Albums"
-    keep_a = root / "1988_View"
-    keep_b = root / "1992_View"
+    keep_a = root / "1988_Pages"
+    keep_b = root / "1992_Pages"
     skip = root / "1990_Archive"
     keep_a.mkdir(parents=True)
     keep_b.mkdir(parents=True)
@@ -34,7 +34,7 @@ def test_iter_photo_files_scans_view_dirs(tmp_path):
 
     files = ingestor.iter_photo_files(
         photo_albums_root=root,
-        view_glob="*_View",
+        view_glob="*_Pages",
         recursive=True,
     )
     names = sorted([Path(path).name for path in files])
@@ -115,9 +115,9 @@ def test_detect_handles_opencv_cascade_error(tmp_path):
 
 def test_ingest_photo_album_views_rescan_removes_matching_faces_and_reviews(tmp_path):
     root = tmp_path / "Photo Albums"
-    family_view = root / "Family_View"
+    family_view = root / "Family_Pages"
     family_archive = root / "Family_Archive"
-    other_view = root / "Other_View"
+    other_view = root / "Other_Pages"
     family_view.mkdir(parents=True)
     family_archive.mkdir(parents=True)
     other_view.mkdir(parents=True)
@@ -188,7 +188,7 @@ def test_ingest_photo_album_views_rescan_removes_matching_faces_and_reviews(tmp_
 
     result = ingestor.ingest_photo_album_views(
         photo_albums_root=root,
-        view_glob="Family_View",
+        view_glob="Family_Pages",
         recursive=True,
         max_files=0,
         rescan_existing=True,
@@ -281,3 +281,4 @@ def test_resolve_haarcascade_dir_falls_back_to_cv2_data_dir_neighbor(tmp_path, m
     )
 
     assert ingest._resolve_haarcascade_dir() == data_dir
+

@@ -20,7 +20,7 @@ class TestAIPageLayout(unittest.TestCase):
 
     def test_classify_image_kind_recognizes_page_variants(self):
         self.assertEqual(
-            ai_page_layout.classify_image_kind(Path("Family_View") / "Family_2020_B01_P01.jpg"),
+            ai_page_layout.classify_image_kind(Path("Family_Pages") / "Family_2020_B01_P01.jpg"),
             "page_view",
         )
         self.assertEqual(
@@ -28,20 +28,20 @@ class TestAIPageLayout(unittest.TestCase):
             "page_scan",
         )
         self.assertEqual(
-            ai_page_layout.classify_image_kind(Path("Family_View") / "Family_2020_B01_P01_D01-01_V.jpg"),
+            ai_page_layout.classify_image_kind(Path("Family_Pages") / "Family_2020_B01_P01_D01-01_V.jpg"),
             "derived",
         )
         self.assertEqual(
-            ai_page_layout.classify_image_kind(Path("Family_View") / "Family_2020_B01_P01_V.jpg"),
+            ai_page_layout.classify_image_kind(Path("Family_Pages") / "Family_2020_B01_P01_V.jpg"),
             "page_view",
         )
         # Legacy names still recognised during transition
         self.assertEqual(
-            ai_page_layout.classify_image_kind(Path("Family_View") / "Family_2020_B01_P01_VC.jpg"),
+            ai_page_layout.classify_image_kind(Path("Family_Pages") / "Family_2020_B01_P01_VC.jpg"),
             "page_view",
         )
         self.assertEqual(
-            ai_page_layout.classify_image_kind(Path("Family_View") / "Family_2020_B01_P01_stitched.jpg"),
+            ai_page_layout.classify_image_kind(Path("Family_Pages") / "Family_2020_B01_P01_stitched.jpg"),
             "page_view",
         )
 
@@ -82,3 +82,4 @@ class TestAIPageLayout(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -87,14 +87,14 @@ class TestMwgrsNormalisedToPixelRect(unittest.TestCase):
 
 class TestCropOutputPath(unittest.TestCase):
     def test_builds_expected_path(self):
-        view_path = Path("/Photos/Egypt_1975_View/Egypt_1975_B00_P26_V.jpg")
+        view_path = Path("/Photos/Egypt_1975_Pages/Egypt_1975_B00_P26_V.jpg")
         photos_dir = Path("/Photos/Egypt_1975_Photos")
         result = crop_output_path(view_path, 2, photos_dir)
         self.assertEqual(result.name, "Egypt_1975_B00_P26_D02-00_V.jpg")
         self.assertEqual(result.parent, photos_dir)
 
     def test_region_index_zero_padded(self):
-        view_path = Path("/Photos/Egypt_1975_View/Egypt_1975_B00_P01_V.jpg")
+        view_path = Path("/Photos/Egypt_1975_Pages/Egypt_1975_B00_P01_V.jpg")
         photos_dir = Path("/Photos/Egypt_1975_Photos")
         result = crop_output_path(view_path, 1, photos_dir)
         self.assertEqual(result.name, "Egypt_1975_B00_P01_D01-00_V.jpg")
@@ -170,7 +170,7 @@ class TestCropPageRegions(_NoOpRestorationMixin, unittest.TestCase):
     def test_derived_view_input_is_skipped(self):
         with tempfile.TemporaryDirectory() as tmp:
             img_w, img_h = 200, 100
-            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Egypt_1975_Photos"
             view_jpg = view_dir / "Egypt_1975_B00_P01_D01-01_V.jpg"
@@ -191,7 +191,7 @@ class TestCropPageRegions(_NoOpRestorationMixin, unittest.TestCase):
 
     def test_no_regions_returns_zero_crops(self):
         with tempfile.TemporaryDirectory() as tmp:
-            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Egypt_1975_Photos"
             view_jpg = view_dir / "Egypt_1975_B00_P01_V.jpg"
@@ -203,7 +203,7 @@ class TestCropPageRegions(_NoOpRestorationMixin, unittest.TestCase):
 
     def test_no_regions_pipeline_state_clears_stale_region_list(self):
         with tempfile.TemporaryDirectory() as tmp:
-            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Egypt_1975_Photos"
             view_jpg = view_dir / "Egypt_1975_B00_P01_V.jpg"
@@ -228,7 +228,7 @@ class TestCropPageRegions(_NoOpRestorationMixin, unittest.TestCase):
     def test_two_regions_writes_two_crops(self):
         with tempfile.TemporaryDirectory() as tmp:
             img_w, img_h = 200, 100
-            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Egypt_1975_Photos"
             view_jpg = view_dir / "Egypt_1975_B00_P01_V.jpg"
@@ -256,7 +256,7 @@ class TestCropPageRegions(_NoOpRestorationMixin, unittest.TestCase):
     def test_region_caption_resolved_correctly(self):
         with tempfile.TemporaryDirectory() as tmp:
             img_w, img_h = 200, 100
-            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Egypt_1975_Photos"
             view_jpg = view_dir / "Egypt_1975_B00_P01_V.jpg"
@@ -294,7 +294,7 @@ class TestCropPageRegions(_NoOpRestorationMixin, unittest.TestCase):
     def test_existing_file_skipped_without_force(self):
         with tempfile.TemporaryDirectory() as tmp:
             img_w, img_h = 200, 100
-            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Egypt_1975_Photos"
             photos_dir.mkdir()
@@ -321,7 +321,7 @@ class TestCropPageRegions(_NoOpRestorationMixin, unittest.TestCase):
     def test_existing_file_overwritten_with_force(self):
         with tempfile.TemporaryDirectory() as tmp:
             img_w, img_h = 200, 100
-            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Egypt_1975_Photos"
             photos_dir.mkdir()
@@ -348,7 +348,7 @@ class TestCropPageRegions(_NoOpRestorationMixin, unittest.TestCase):
     def test_empty_clamped_region_is_skipped(self):
         with tempfile.TemporaryDirectory() as tmp:
             img_w, img_h = 200, 100
-            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Egypt_1975_Photos"
             view_jpg = view_dir / "Egypt_1975_B00_P01_V.jpg"
@@ -380,7 +380,7 @@ class TestWriteCropSidecar(unittest.TestCase):
     def test_sidecar_contains_document_id_and_derived_from(self):
         with tempfile.TemporaryDirectory() as tmp:
             img_w, img_h = 200, 100
-            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Egypt_1975_Photos"
             photos_dir.mkdir()
@@ -418,7 +418,7 @@ class TestWriteCropSidecar(unittest.TestCase):
     def test_caption_written_when_provided(self):
         with tempfile.TemporaryDirectory() as tmp:
             img_w, img_h = 200, 100
-            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Egypt_1975_Photos"
             photos_dir.mkdir()
@@ -436,7 +436,7 @@ class TestWriteCropSidecar(unittest.TestCase):
 
     def test_no_dc_description_when_caption_empty(self):
         with tempfile.TemporaryDirectory() as tmp:
-            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Egypt_1975_Photos"
             photos_dir.mkdir()
@@ -454,7 +454,7 @@ class TestWriteCropSidecar(unittest.TestCase):
 
     def test_location_propagated_to_crop(self):
         with tempfile.TemporaryDirectory() as tmp:
-            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Egypt_1975_Photos"
             photos_dir.mkdir()
@@ -484,7 +484,7 @@ class TestWriteCropSidecar(unittest.TestCase):
 
     def test_crop_sidecar_keeps_archive_lineage_and_view_parentage(self):
         with tempfile.TemporaryDirectory() as tmp:
-            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Egypt_1975_Photos"
             photos_dir.mkdir()
@@ -521,11 +521,11 @@ class TestWriteCropSidecar(unittest.TestCase):
                 "Egypt_1975_B00_P26_S01.tif; Egypt_1975_B00_P26_S02.tif",
             )
             xml = crop_xmp.read_text(encoding="utf-8")
-            self.assertIn("../Egypt_1975_View/Egypt_1975_B00_P26_V.jpg", xml)
+            self.assertIn("../Egypt_1975_Pages/Egypt_1975_B00_P26_V.jpg", xml)
 
     def test_crop_sidecar_inherits_page_metadata_contract(self):
         with tempfile.TemporaryDirectory() as tmp:
-            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Egypt_1975_Photos"
             photos_dir.mkdir()
@@ -593,7 +593,7 @@ class TestWriteCropSidecar(unittest.TestCase):
 
     def test_empty_location_not_written(self):
         with tempfile.TemporaryDirectory() as tmp:
-            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Egypt_1975_Photos"
             photos_dir.mkdir()
@@ -612,7 +612,7 @@ class TestWriteCropSidecar(unittest.TestCase):
 
     def test_person_names_written_to_person_in_image(self):
         with tempfile.TemporaryDirectory() as tmp:
-            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Egypt_1975_Photos"
             photos_dir.mkdir()
@@ -631,7 +631,7 @@ class TestWriteCropSidecar(unittest.TestCase):
 
     def test_rerun_preserves_unrelated_sidecar_fields(self):
         with tempfile.TemporaryDirectory() as tmp:
-            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Egypt_1975_Photos"
             photos_dir.mkdir()
@@ -664,11 +664,11 @@ class TestWriteCropSidecar(unittest.TestCase):
             self.assertIn("manual-tag", xml)
 
     def test_caption_present_used_as_description_ocr_written_separately(self):
-        # (a) caption present → caption in dc:description; imago:OCRText = ocr_text
+        # (a) caption present â†’ caption in dc:description; imago:OCRText = ocr_text
         # Note: write_xmp_sidecar puts ocr_text as x-default and caption as x-caption
         # when both are non-empty. The XMP file will contain both.
         with tempfile.TemporaryDirectory() as tmp:
-            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Egypt_1975_Photos"
             photos_dir.mkdir()
@@ -691,9 +691,9 @@ class TestWriteCropSidecar(unittest.TestCase):
             self.assertIn("Region caption", xml)
 
     def test_no_caption_ocr_text_used_as_description_and_ocr_field(self):
-        # (b) no caption, OCR text present → dc:description = ocr_text; imago:OCRText = ocr_text
+        # (b) no caption, OCR text present â†’ dc:description = ocr_text; imago:OCRText = ocr_text
         with tempfile.TemporaryDirectory() as tmp:
-            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Egypt_1975_Photos"
             photos_dir.mkdir()
@@ -713,9 +713,9 @@ class TestWriteCropSidecar(unittest.TestCase):
             self.assertEqual(state["ocr_text"], "Scanned page text")
 
     def test_both_empty_no_error(self):
-        # (c) caption="" and ocr_text="" → both fields empty, no error
+        # (c) caption="" and ocr_text="" â†’ both fields empty, no error
         with tempfile.TemporaryDirectory() as tmp:
-            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Egypt_1975_Photos"
             photos_dir.mkdir()
@@ -743,7 +743,7 @@ class TestCropPageRegionsPipelineState(_NoOpRestorationMixin, unittest.TestCase)
     def test_second_call_without_force_skips(self):
         with tempfile.TemporaryDirectory() as tmp:
             img_w, img_h = 200, 100
-            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Egypt_1975_Photos"
             view_jpg = view_dir / "Egypt_1975_B00_P01_V.jpg"
@@ -770,7 +770,7 @@ class TestCropPageRegionsPipelineState(_NoOpRestorationMixin, unittest.TestCase)
     def test_force_clears_state_and_recrups(self):
         with tempfile.TemporaryDirectory() as tmp:
             img_w, img_h = 200, 100
-            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Egypt_1975_Photos"
             view_jpg = view_dir / "Egypt_1975_B00_P01_V.jpg"
@@ -797,7 +797,7 @@ class TestCropPageRegionsPipelineState(_NoOpRestorationMixin, unittest.TestCase)
     def test_missing_outputs_rerun_even_when_pipeline_state_exists(self):
         with tempfile.TemporaryDirectory() as tmp:
             img_w, img_h = 200, 100
-            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Egypt_1975_Photos"
             view_jpg = view_dir / "Egypt_1975_B00_P26_V.jpg"
@@ -830,7 +830,7 @@ class TestCropPageRegionsPipelineState(_NoOpRestorationMixin, unittest.TestCase)
     def test_orphan_cleanup_on_force(self):
         with tempfile.TemporaryDirectory() as tmp:
             img_w, img_h = 200, 100
-            view_dir = Path(tmp) / "Egypt_1975_View"
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
             photos_dir = Path(tmp) / "Egypt_1975_Photos"
             photos_dir.mkdir()
@@ -890,7 +890,7 @@ class TestIntegrationCropPipeline(_NoOpRestorationMixin, unittest.TestCase):
         page_token = f"P{page:02d}"
         scan = archive_dir / f"Egypt_1975_B00_{page_token}_S01.tif"
         scan.write_bytes(b"tif")
-        view_dir = root / "Egypt_1975_View"
+        view_dir = root / "Egypt_1975_Pages"
         view_dir.mkdir(parents=True)
         photos_dir = root / "Egypt_1975_Photos"
         view_jpg = view_dir / f"Egypt_1975_B00_{page_token}_V.jpg"
@@ -1234,3 +1234,4 @@ class TestIntegrationCropPipeline(_NoOpRestorationMixin, unittest.TestCase):
             self.assertEqual(exit_code, 0)
             detect_mock.assert_not_called()
             self.assertFalse(any(photos_dir.glob("*.jpg")))
+

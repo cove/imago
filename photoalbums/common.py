@@ -27,6 +27,10 @@ FILENAME_PATTERN = re.compile(
 PAGE_SCAN_RE = NAME_PAGE_SCAN_RE
 
 
+def is_ignored_artifact_name(name: str) -> bool:
+    return name.startswith(".")
+
+
 def _first_existing_path(candidates: Iterable[Path]) -> Path | None:
     seen: set[str] = set()
     for candidate in candidates:
@@ -234,7 +238,11 @@ def get_next_filename(watch_dir: str | Path, filename_pattern: re.Pattern = FILE
 
 def list_page_scan_groups(directory: str | Path, name_re: re.Pattern) -> List[List[str]]:
     dir_path = Path(directory)
-    files = [f.name for f in dir_path.iterdir() if f.is_file() and name_re.fullmatch(f.name)]
+    files = [
+        f.name
+        for f in dir_path.iterdir()
+        if f.is_file() and not is_ignored_artifact_name(f.name) and name_re.fullmatch(f.name)
+    ]
 
     def key(name: str) -> Tuple[int, int]:
         m = PAGE_SCAN_RE.search(name)
@@ -257,6 +265,8 @@ def list_page_scans_for_page(directory: str | Path, page_num: int) -> List[str]:
     files = []
     for entry in dir_path.iterdir():
         if not entry.is_file():
+            continue
+        if is_ignored_artifact_name(entry.name):
             continue
         if entry.suffix.lower() not in {".tif", ".tiff"}:
             continue

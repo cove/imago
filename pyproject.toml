@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "chardet<6",
+    "diffusers",
     "docling",
     "insightface",
     "largestinteriorrectangle",
@@ -19,6 +20,7 @@ dependencies = [
     "pandas",
     "pillow",
     "rembg[cpu]",
+    "realrestorer-diffuser",
     "stitching",
     "tifffile",
     "torch==2.10.0",
@@ -44,6 +46,10 @@ dev = [
 [tool.uv]
 package = false
 exclude-dependencies = ["opencv-python", "opencv-python-headless"]
+
+[tool.uv.sources]
+diffusers = { git = "https://github.com/yfyang007/RealRestorer.git", rev = "fa2a3e3c23768eb94748c5855d83cc2e340ab13b", subdirectory = "diffusers" }
+"realrestorer-diffuser" = { git = "https://github.com/yfyang007/RealRestorer.git", rev = "fa2a3e3c23768eb94748c5855d83cc2e340ab13b" }
 
 [tool.pytest.ini_options]
 testpaths = ["cast/tests", "photoalbums/tests", "vhs/test"]

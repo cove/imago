@@ -1,4 +1,4 @@
-﻿# imago
+# imago
 
 Family media archive for VHS digitization, photo album preservation, and shared face IDs.
 
@@ -60,7 +60,7 @@ Downloaded AI model weights are stored under the repo-level `models/` directory.
 From the Cast web UI you can:
 
 - ingest a photo path and detect/crop faces
-- bulk scan `Photo Albums/*_View` for `.jpg` photos and detect/crop faces
+- bulk scan `Photo Albums/*_Pages` for `.jpg` photos and detect/crop faces
 - ingest a VHS/video path (sampled frames) and detect/crop faces
 - review queued faces and label who each person is (one-by-one naming prompt included)
 - auto-prune obvious non-face detections from the pending queue
@@ -106,5 +106,6 @@ imago/
   cast.py        <- Cast CLI entrypoint
   photoalbums.py <- Photo Albums CLI entrypoint
 ```
+
 
 

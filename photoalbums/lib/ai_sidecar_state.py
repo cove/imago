@@ -9,7 +9,7 @@ from .ai_location import _xmp_gps_to_decimal
 from .ai_render_settings import find_archive_dir_for_image
 from .xmpmm_provenance import read_derived_from
 from ..exiftool_utils import read_tag
-from ..naming import DERIVED_VIEW_RE
+from ..naming import DERIVED_VIEW_RE, is_photos_dir, pages_dir_for_album_dir
 from .xmp_sidecar import _dedupe, _normalize_xmp_datetime, read_ai_sidecar_state
 
 MIN_EXISTING_SIDECAR_BYTES = 100
@@ -97,8 +97,8 @@ def _resolve_derived_source_sidecar_state(
             source_name = source_candidate.name
             if source_name:
                 source_sidecar_candidates.append((image_path.parent / source_name).with_suffix(".xmp"))
-            if image_path.parent.name.endswith("_Photos"):
-                view_dir = image_path.parent.parent / image_path.parent.name.replace("_Photos", "_View")
+            if is_photos_dir(image_path.parent):
+                view_dir = pages_dir_for_album_dir(image_path.parent)
                 source_sidecar_candidates.append((view_dir / source_candidate).with_suffix(".xmp"))
                 if source_name:
                     source_sidecar_candidates.append((view_dir / source_name).with_suffix(".xmp"))

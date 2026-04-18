@@ -1,11 +1,11 @@
 {
   "eval_date": "2026-03-21",
-  "what_is_tested": "Empty description when no famous landmark is visible — location_name must be empty",
-  "photo": "Family_1907-1946_B01_View/Family_1907-1946_B01_P05_D01_02.jpg",
+  "what_is_tested": "Empty description when no famous landmark is visible â€” location_name must be empty",
+  "photo": "Family_1907-1946_B01_Pages/Family_1907-1946_B01_P05_D01_02.jpg",
   "notes": "A 1907-1946 era photo of three children sitting in shallow beach water wearing matching red swimsuits and straw hats. No OCR text, no visible famous landmark or artwork. Tests that the model returns an empty dc:description (no famous named subject) and an empty location_name.",
   "pass_criteria": [
-    "dc:description is empty string — no famous landmark or artwork visible",
-    "location query (imago:Detections location.query) is empty string — 'a beach' or similar generic is a FAIL",
+    "dc:description is empty string â€” no famous landmark or artwork visible",
+    "location query (imago:Detections location.query) is empty string â€” 'a beach' or similar generic is a FAIL",
     "no GPS coordinates written to XMP (since none are visible in the image)"
   ],
   "result": {
@@ -21,24 +21,25 @@
     {
       "attempt": 1,
       "fix": "Added rule to Location Rules (strict) in SKILL.md: never use a generic place-type as the location query",
-      "outcome": "FAIL — model continued returning 'a beach'"
+      "outcome": "FAIL â€” model continued returning 'a beach'"
     },
     {
       "attempt": 2,
-      "fix": "Strengthened Output Format – Combined location_name description to explicitly prohibit generic place-types",
-      "outcome": "FAIL — model continued returning 'a beach'"
+      "fix": "Strengthened Output Format â€“ Combined location_name description to explicitly prohibit generic place-types",
+      "outcome": "FAIL â€” model continued returning 'a beach'"
     },
     {
       "attempt": 3,
       "fix": "Added code-level filter in _resolve_location_payload (ai_index.py): re.match(r'^(?:a|an)\\s+\\S', query) sets query='' before Nominatim call",
-      "outcome": "PASS — location block absent from XMP; no GPS written"
+      "outcome": "PASS â€” location block absent from XMP; no GPS written"
     }
   ],
   "observations": [
-    "Caption quality is good — describes people, clothing, setting, activity correctly",
+    "Caption quality is good â€” describes people, clothing, setting, activity correctly",
     "Model still returns 'a beach' as location_name (confirmed by two prompt-only failed attempts)",
-    "Code-level filter in _resolve_location_payload intercepts 'a/an <word>' patterns before Nominatim is called — deterministic and model-proof",
-    "No location block appears in imago:Detections; no exif:GPSLatitude/Longitude in XMP — correct behavior",
+    "Code-level filter in _resolve_location_payload intercepts 'a/an <word>' patterns before Nominatim is called â€” deterministic and model-proof",
+    "No location block appears in imago:Detections; no exif:GPSLatitude/Longitude in XMP â€” correct behavior",
     "Both prompt rules and code filter now in place as defense in depth"
   ]
 }
+

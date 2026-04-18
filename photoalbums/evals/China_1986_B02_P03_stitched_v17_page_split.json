@@ -1,8 +1,8 @@
 {
   "eval_date": "2026-03-21",
   "processor_signature": "page_split_v17_archive_stitched_ocr",
-  "photo": "China_1986_B02_View/China_1986_B02_P03_stitched.jpg",
-  "notes": "First eval of page-splitting + subphoto context prompts. This collage page (Mogao Caves, China 1986) has touching photos with no borders — the layout detector merges them all into 1 subphoto covering almost the full page. split_applied=true but subphoto_count=1.",
+  "photo": "China_1986_B02_Pages/China_1986_B02_P03_stitched.jpg",
+  "notes": "First eval of page-splitting + subphoto context prompts. This collage page (Mogao Caves, China 1986) has touching photos with no borders â€” the layout detector merges them all into 1 subphoto covering almost the full page. split_applied=true but subphoto_count=1.",
   "result": {
     "split_applied": true,
     "split_mode": "auto",
@@ -30,8 +30,9 @@
   },
   "observations": [
     "v17 description is notably more detailed: adds material descriptions (ornate green and gold), spatial context (visitors walking along a path flanked by trees), sky/terrain descriptions, color details on murals",
-    "The collage page has all photos touching — 1 merged crop was expected; a page with bordered photos would produce multiple subphotos",
+    "The collage page has all photos touching â€” 1 merged crop was expected; a page with bordered photos would produce multiple subphotos",
     "page_text stored correctly on subphoto XMP entry",
     "Next eval candidate: a page with photos separated by visible white borders/gutters to test multi-subphoto path"
   ]
 }
+

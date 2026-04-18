@@ -74,7 +74,7 @@ def collect_view_dirs(roots: Iterable[Path]) -> List[Path]:
     for root in roots:
         if not root.exists() or not root.is_dir():
             continue
-        for view_dir in sorted(root.rglob("*_View")):
+        for view_dir in sorted(root.rglob("*_Pages")):
             if not view_dir.is_dir():
                 continue
             key = str(view_dir.resolve()).lower()
@@ -186,7 +186,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--imago-layout",
         action="store_true",
-        help="Auto-scan project conventions: videos from VHS Clips/ + Videos/, photos from *_View folders.",
+        help="Auto-scan project conventions: videos from VHS Clips/ + Videos/, photos from *_Pages folders.",
     )
     parser.add_argument(
         "--videos-root",
@@ -198,7 +198,7 @@ def parse_args() -> argparse.Namespace:
         "--photos-root",
         action="append",
         default=[],
-        help="Additional root to search for *_View folders (used by --imago-layout).",
+        help="Additional root to search for *_Pages folders (used by --imago-layout).",
     )
     return parser.parse_args()
 
@@ -276,9 +276,9 @@ def main() -> int:
         if not video_roots:
             print("[scan_media] note: no video roots found (expected VHS Clips/ and/or Videos).")
         if not photo_search_roots:
-            print("[scan_media] note: no photo roots found for *_View discovery.")
+            print("[scan_media] note: no photo roots found for *_Pages discovery.")
         if photo_search_roots and not view_dirs:
-            print("[scan_media] note: no *_View folders found under photo roots.")
+            print("[scan_media] note: no *_Pages folders found under photo roots.")
     else:
         roots: List[Path] = [Path(raw).expanduser().resolve() for raw in args.root]
         for root in roots:

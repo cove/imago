@@ -20,7 +20,7 @@ def _iter_target_sidecars(photos_root: Path, album_filter: str) -> list[Path]:
     for sidecar_path in sorted(photos_root.rglob("*.xmp")):
         if sidecar_path.suffix.lower() != ".xmp":
             continue
-        if not sidecar_path.parent.name.endswith("_View"):
+        if not sidecar_path.parent.name.endswith("_Pages"):
             continue
         if not (sidecar_path.name.endswith("_V.xmp") or sidecar_path.name.endswith("_VC.xmp")):
             continue
@@ -75,7 +75,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--album",
         default="",
-        help="Optional substring filter against the parent _View directory name.",
+        help="Optional substring filter against the parent _Pages directory name.",
     )
     parser.add_argument(
         "--run",

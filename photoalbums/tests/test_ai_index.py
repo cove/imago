@@ -51,7 +51,7 @@ class TestAIIndex(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             archive = base / "Family_Archive"
-            view = base / "Family_View"
+            view = base / "Family_Pages"
             photos = base / "Family_Photos"
             archive.mkdir()
             view.mkdir()
@@ -82,7 +82,7 @@ class TestAIIndex(unittest.TestCase):
             Path("China_1986_B02_Archive/China_1986_B02_P02_S02.tif"),
             Path("China_1986_B02_Archive/China_1986_B02_P02_S01.tif"),
             Path("China_1986_B02_Archive/China_1986_B02_P02_D01-01.tif"),
-            Path("China_1986_B02_View/China_1986_B02_P02_V.jpg"),
+            Path("China_1986_B02_Pages/China_1986_B02_P02_V.jpg"),
         ]
 
         selected = ai_index._coalesce_archive_processing_files(files)
@@ -92,7 +92,7 @@ class TestAIIndex(unittest.TestCase):
             [
                 Path("China_1986_B02_Archive/China_1986_B02_P02_S01.tif"),
                 Path("China_1986_B02_Archive/China_1986_B02_P02_D01-01.tif"),
-                Path("China_1986_B02_View/China_1986_B02_P02_V.jpg"),
+                Path("China_1986_B02_Pages/China_1986_B02_P02_V.jpg"),
             ],
         )
 
@@ -140,7 +140,7 @@ class TestAIIndex(unittest.TestCase):
     def test_filter_files_by_tree_keeps_archive_only_when_view_not_requested(self):
         files = [
             Path("China_1986_B02_Archive/China_1986_B02_P01_S01.tif"),
-            Path("China_1986_B02_View/China_1986_B02_P01_V.jpg"),
+            Path("China_1986_B02_Pages/China_1986_B02_P01_V.jpg"),
             Path("China_1986_B02_Photos/China_1986_B02_P01_D01-00_V.jpg"),
         ]
 
@@ -151,7 +151,7 @@ class TestAIIndex(unittest.TestCase):
     def test_filter_files_by_tree_keeps_photos_when_view_requested(self):
         files = [
             Path("China_1986_B02_Archive/China_1986_B02_P01_S01.tif"),
-            Path("China_1986_B02_View/China_1986_B02_P01_V.jpg"),
+            Path("China_1986_B02_Pages/China_1986_B02_P01_V.jpg"),
             Path("China_1986_B02_Photos/China_1986_B02_P01_D01-00_V.jpg"),
         ]
 
@@ -160,7 +160,7 @@ class TestAIIndex(unittest.TestCase):
         self.assertEqual(
             filtered,
             [
-                Path("China_1986_B02_View/China_1986_B02_P01_V.jpg"),
+                Path("China_1986_B02_Pages/China_1986_B02_P01_V.jpg"),
                 Path("China_1986_B02_Photos/China_1986_B02_P01_D01-00_V.jpg"),
             ],
         )
@@ -239,7 +239,7 @@ class TestAIIndex(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             archive = base / "Egypt_1975_B00_Archive"
-            view = base / "Egypt_1975_B00_View"
+            view = base / "Egypt_1975_B00_Pages"
             archive.mkdir()
             view.mkdir()
             image = view / "Egypt_1975_B00_P39_stitched.jpg"
@@ -256,7 +256,7 @@ class TestAIIndex(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             archive = base / "Egypt_1975_B00_Archive"
-            view = base / "Egypt_1975_B00_View"
+            view = base / "Egypt_1975_B00_Pages"
             archive.mkdir()
             view.mkdir()
             image = view / "Egypt_1975_B00_P01.jpg"
@@ -272,7 +272,7 @@ class TestAIIndex(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             archive = base / "Egypt_1975_B00_Archive"
-            view = base / "Egypt_1975_B00_View"
+            view = base / "Egypt_1975_B00_Pages"
             archive.mkdir()
             view.mkdir()
             image = view / "Egypt_1975_B00_P39_D01-01_V.jpg"
@@ -289,7 +289,7 @@ class TestAIIndex(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             archive = base / "Family_1907-1946_B01_Archive"
-            view = base / "Family_1907-1946_B01_View"
+            view = base / "Family_1907-1946_B01_Pages"
             archive.mkdir()
             view.mkdir()
             archive_image = archive / "Family_1907-1946_B01_P03_D02-03.tif"
@@ -325,7 +325,7 @@ class TestAIIndex(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             archive = base / "Egypt_1975_B00_Archive"
-            view = base / "Egypt_1975_B00_View"
+            view = base / "Egypt_1975_B00_Pages"
             archive.mkdir()
             view.mkdir()
             title_image = view / "Egypt_1975_B00_P01.jpg"
@@ -349,7 +349,7 @@ class TestAIIndex(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             archive = base / "Egypt_1975_B00_Archive"
-            view = base / "Egypt_1975_B00_View"
+            view = base / "Egypt_1975_B00_Pages"
             archive.mkdir()
             view.mkdir()
             image = view / "Egypt_1975_B00_P05.jpg"
@@ -377,7 +377,7 @@ class TestAIIndex(unittest.TestCase):
 
     def test_page_scan_filenames_returns_empty_when_archive_dir_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
-            view = Path(tmp) / "Egypt_1975_B00_View"
+            view = Path(tmp) / "Egypt_1975_B00_Pages"
             view.mkdir()
             image = view / "Egypt_1975_B00_P39_stitched.jpg"
             image.write_bytes(b"x")
@@ -388,7 +388,7 @@ class TestAIIndex(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             archive = base / "England_1983_B02_Archive"
-            view = base / "England_1983_B02_View"
+            view = base / "England_1983_B02_Pages"
             archive.mkdir()
             view.mkdir()
             image = view / "England_1983_B02_P47_V.jpg"
@@ -404,7 +404,7 @@ class TestAIIndex(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             archive = base / "Egypt_1975_B00_Archive"
-            view = base / "Egypt_1975_B00_View"
+            view = base / "Egypt_1975_B00_Pages"
             archive.mkdir()
             view.mkdir()
             image = view / "Egypt_1975_B00_P39_V.jpg"
@@ -421,7 +421,7 @@ class TestAIIndex(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             archive = base / "Egypt_1975_B00_Archive"
-            view = base / "Egypt_1975_B00_View"
+            view = base / "Egypt_1975_B00_Pages"
             archive.mkdir()
             view.mkdir()
             image = view / "Egypt_1975_B00_P39_VC.jpg"
@@ -438,7 +438,7 @@ class TestAIIndex(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             archive = base / "Egypt_1975_B00_Archive"
-            view = base / "Egypt_1975_B00_View"
+            view = base / "Egypt_1975_B00_Pages"
             archive.mkdir()
             view.mkdir()
             image = view / "cover.jpg"
@@ -481,7 +481,7 @@ class TestAIIndex(unittest.TestCase):
         )
 
     def test_build_dc_source_with_no_scan_filenames_omits_file_reference(self):
-        # No archive TIFs found — honest result includes title + page but no filename.
+        # No archive TIFs found â€” honest result includes title + page but no filename.
         source = ai_index._build_dc_source(
             "ENGLAND BOOK 11 1983",
             Path("England_1983_B02_P47_V.jpg"),
@@ -564,7 +564,7 @@ class TestAIIndex(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             archive = base / "Egypt_1975_B00_Archive"
-            view = base / "Egypt_1975_B00_View"
+            view = base / "Egypt_1975_B00_Pages"
             archive.mkdir()
             view.mkdir()
             scan1 = archive / "Egypt_1975_B00_P02_S01.tif"
@@ -600,7 +600,7 @@ class TestAIIndex(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             archive = base / "Egypt_1975_B00_Archive"
-            view = base / "Egypt_1975_B00_View"
+            view = base / "Egypt_1975_B00_Pages"
             archive.mkdir()
             view.mkdir()
             scan1 = archive / "Egypt_1975_B00_P02_S01.tif"
@@ -877,7 +877,7 @@ class TestAIIndex(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             archive = base / "Egypt_1975_B00_Archive"
-            view = base / "Egypt_1975_B00_View"
+            view = base / "Egypt_1975_B00_Pages"
             archive.mkdir()
             view.mkdir()
             scan1 = archive / "Egypt_1975_B00_P02_S01.tif"
@@ -1219,7 +1219,7 @@ class TestAIIndex(unittest.TestCase):
     def test_run_chains_location_shown_repair_after_people_update(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            view = base / "Egypt_1975_B00_View"
+            view = base / "Egypt_1975_B00_Pages"
             view.mkdir()
             image = view / "Egypt_1975_B00_P09_V.jpg"
             image.write_bytes(b"scan")
@@ -1513,7 +1513,7 @@ class TestAIIndex(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             archive = base / "China_1986_B02_Archive"
-            view = base / "China_1986_B02_View"
+            view = base / "China_1986_B02_Pages"
             archive.mkdir()
             view.mkdir()
             scan1 = archive / "China_1986_B02_P02_S01.tif"
@@ -1838,7 +1838,7 @@ class TestAIIndex(unittest.TestCase):
             ocr_engine.read_text.return_value = "Latitude: 39.7875\nLongitude: 100.307222"
             caption_engine = mock.Mock()
             caption_engine.generate.return_value = SimpleNamespace(
-                text="Mogao Caves in Dunhuang, China (39°47′15″N 100°18′26″E).",
+                text="Mogao Caves in Dunhuang, China (39Â°47â€²15â€³N 100Â°18â€²26â€³E).",
                 engine="lmstudio",
                 ocr_text="Latitude: 39.7875\nLongitude: 100.307222",
                 gps_latitude="",
@@ -2465,7 +2465,7 @@ class TestAIIndex(unittest.TestCase):
     def test_run_force_rewrites_existing_sidecar_and_merges_embedded_source(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            photos = base / "Family_View"
+            photos = base / "Family_Pages"
             photos.mkdir()
             image = photos / "a.jpg"
             image.write_bytes(b"abc")
@@ -2530,7 +2530,7 @@ class TestAIIndex(unittest.TestCase):
     def test_run_skips_existing_current_sidecar_without_ai_processing(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            photos = base / "Family_View"
+            photos = base / "Family_Pages"
             photos.mkdir()
             image = photos / "a.jpg"
             image.write_bytes(b"abc")
@@ -2588,7 +2588,7 @@ class TestAIIndex(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             archive = base / "England_1983_B02_Archive"
-            view = base / "England_1983_B02_View"
+            view = base / "England_1983_B02_Pages"
             archive.mkdir()
             view.mkdir()
             image = view / "England_1983_B02_P47_V.jpg"
@@ -2635,7 +2635,7 @@ class TestAIIndex(unittest.TestCase):
                         str(base),
                         "--include-view",
                         "--album",
-                        "England_1983_B02_View",
+                        "England_1983_B02_Pages",
                         "--disable-people",
                         "--disable-objects",
                         "--ocr-engine",
@@ -2656,7 +2656,7 @@ class TestAIIndex(unittest.TestCase):
     def test_run_skips_current_sidecar_when_manifest_settings_are_stale(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            photos = base / "Family_View"
+            photos = base / "Family_Pages"
             photos.mkdir()
             image = photos / "a.jpg"
             image.write_bytes(b"abc")
@@ -2713,7 +2713,7 @@ class TestAIIndex(unittest.TestCase):
     def test_run_reprocesses_current_sidecar_when_ai_fields_are_incomplete(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            photos = base / "Family_View"
+            photos = base / "Family_Pages"
             photos.mkdir()
             image = photos / "a.jpg"
             image.write_bytes(b"abc")
@@ -2788,7 +2788,7 @@ class TestAIIndex(unittest.TestCase):
     def test_run_batch_repairs_missing_location_shown_without_full_reprocess(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            photos = base / "Family_View"
+            photos = base / "Family_Pages"
             photos.mkdir()
             image = photos / "a.jpg"
             image.write_bytes(b"abc")
@@ -2914,7 +2914,7 @@ class TestAIIndex(unittest.TestCase):
     def test_run_batch_repairs_missing_location_shown_when_flag_true_but_tag_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            photos = base / "Family_View"
+            photos = base / "Family_Pages"
             photos.mkdir()
             image = photos / "a.jpg"
             image.write_bytes(b"abc")
@@ -3017,7 +3017,7 @@ class TestAIIndex(unittest.TestCase):
     def test_run_batch_repairs_legacy_ai_location_shown_gps_without_full_reprocess(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            photos = base / "Family_View"
+            photos = base / "Family_Pages"
             photos.mkdir()
             image = photos / "a.jpg"
             image.write_bytes(b"abc")
@@ -3160,7 +3160,7 @@ class TestAIIndex(unittest.TestCase):
     def test_run_reprocesses_current_sidecar_when_lmstudio_caption_error_exists(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            photos = base / "Family_View"
+            photos = base / "Family_Pages"
             photos.mkdir()
             image = photos / "a.jpg"
             image.write_bytes(b"abc")
@@ -3253,7 +3253,7 @@ class TestAIIndex(unittest.TestCase):
     def test_run_rewrites_sidecar_when_image_is_newer(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            photos = base / "Family_View"
+            photos = base / "Family_Pages"
             photos.mkdir()
             image = photos / "a.jpg"
             image.write_bytes(b"abc")
@@ -3309,7 +3309,7 @@ class TestAIIndex(unittest.TestCase):
     def test_run_records_final_cast_store_signature(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            photos = base / "Family_View"
+            photos = base / "Family_Pages"
             photos.mkdir()
             image = photos / "a.jpg"
             image.write_bytes(b"abc")
@@ -3367,7 +3367,7 @@ class TestAIIndex(unittest.TestCase):
     def test_run_people_update_only_refreshes_detection_model_metadata(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            photos = base / "Family_View"
+            photos = base / "Family_Pages"
             photos.mkdir()
             image = photos / "a.jpg"
             image.write_bytes(b"abc")
@@ -3466,7 +3466,7 @@ class TestAIIndex(unittest.TestCase):
             self.skipTest("opencv drawing helpers unavailable")
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            photos = base / "Family_View"
+            photos = base / "Family_Pages"
             photos.mkdir()
             image = photos / "a.jpg"
             frame = np.zeros((120, 120, 3), dtype=np.uint8)
@@ -3556,7 +3556,7 @@ class TestAIIndex(unittest.TestCase):
     def test_run_stdout_prints_caption_only_and_skips_writes(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            photos = base / "Family_View"
+            photos = base / "Family_Pages"
             photos.mkdir()
             image = photos / "a.jpg"
             image.write_bytes(b"abc")
@@ -3610,7 +3610,7 @@ class TestAIIndex(unittest.TestCase):
     def test_run_stdout_emits_caption_fallback_warning(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            photos = base / "Family_View"
+            photos = base / "Family_Pages"
             photos.mkdir()
             image = photos / "a.jpg"
             image.write_bytes(b"abc")
@@ -3678,7 +3678,7 @@ class TestAIIndex(unittest.TestCase):
     def test_run_stdout_prints_filename_only_for_empty_description(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            photos = base / "Family_View"
+            photos = base / "Family_Pages"
             photos.mkdir()
             image = photos / "a.jpg"
             image.write_bytes(b"abc")
@@ -3746,7 +3746,7 @@ class TestAIIndex(unittest.TestCase):
     def test_resolve_album_title_hint_prefers_existing_p01_sidecar(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            album_dir = base / "China_1986_B02_View"
+            album_dir = base / "China_1986_B02_Pages"
             album_dir.mkdir()
             image = album_dir / "China_1986_B02_P02_stitched.jpg"
             image.write_bytes(b"abc")
@@ -3774,7 +3774,7 @@ class TestAIIndex(unittest.TestCase):
     def test_iter_album_cover_sidecars_excludes_detail_sidecars(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            album_dir = base / "China_1986_B02_View"
+            album_dir = base / "China_1986_B02_Pages"
             album_dir.mkdir()
             image = album_dir / "China_1986_B02_P02_stitched.jpg"
             image.write_bytes(b"abc")
@@ -3797,7 +3797,7 @@ class TestAIIndex(unittest.TestCase):
     def test_resolve_album_title_hint_ignores_p00_sidecar(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            album_dir = base / "China_1986_B02_View"
+            album_dir = base / "China_1986_B02_Pages"
             album_dir.mkdir()
             image = album_dir / "China_1986_B02_P02_stitched.jpg"
             image.write_bytes(b"abc")
@@ -3825,7 +3825,7 @@ class TestAIIndex(unittest.TestCase):
     def test_resolve_album_title_hint_ignores_p01_detail_sidecar(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            album_dir = base / "China_1986_B02_View"
+            album_dir = base / "China_1986_B02_Pages"
             album_dir.mkdir()
             image = album_dir / "China_1986_B02_P02_stitched.jpg"
             image.write_bytes(b"abc")
@@ -3853,7 +3853,7 @@ class TestAIIndex(unittest.TestCase):
     def test_resolve_album_title_hint_requires_existing_p01_sidecar(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            album_dir = base / "China_1986_B02_View"
+            album_dir = base / "China_1986_B02_Pages"
             album_dir.mkdir()
             image = album_dir / "China_1986_B02_P02_stitched.jpg"
             image.write_bytes(b"abc")
@@ -3875,14 +3875,14 @@ class TestAIIndex(unittest.TestCase):
             caption_engine = SimpleNamespace(
                 generate=mock.Mock(
                     return_value=SimpleNamespace(
-                        text="敦煌 历史文物展览",
+                        text="æ•¦ç…Œ åŽ†å²æ–‡ç‰©å±•è§ˆ",
                         engine="template",
                         fallback=False,
                         error="",
-                        ocr_text="敦煌 历史文物展览",
-                        author_text="敦煌 历史文物展览",
+                        ocr_text="æ•¦ç…Œ åŽ†å²æ–‡ç‰©å±•è§ˆ",
+                        author_text="æ•¦ç…Œ åŽ†å²æ–‡ç‰©å±•è§ˆ",
                         scene_text="",
-                        album_title="敦煌 历史文物展览",
+                        album_title="æ•¦ç…Œ åŽ†å²æ–‡ç‰©å±•è§ˆ",
                         title="",
                         location_name="",
                         people_present=False,
@@ -3915,7 +3915,7 @@ class TestAIIndex(unittest.TestCase):
                     ocr_language="eng",
                 )
 
-            self.assertEqual(analysis.album_title, "敦煌 历史文物展览")
+            self.assertEqual(analysis.album_title, "æ•¦ç…Œ åŽ†å²æ–‡ç‰©å±•è§ˆ")
 
     def test_run_image_analysis_uses_title_page_ocr_text_when_album_title_is_empty(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -4201,7 +4201,7 @@ class TestAIIndex(unittest.TestCase):
     def test_resolve_album_printed_title_hint_prefers_existing_p01_cover_sidecar(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            album_dir = base / "China_1986_B02_View"
+            album_dir = base / "China_1986_B02_Pages"
             album_dir.mkdir()
             image = album_dir / "China_1986_B02_P02_stitched.jpg"
             image.write_bytes(b"abc")
@@ -4229,7 +4229,7 @@ class TestAIIndex(unittest.TestCase):
     def test_resolve_album_printed_title_hint_ignores_p00_sidecar(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            album_dir = base / "China_1986_B02_View"
+            album_dir = base / "China_1986_B02_Pages"
             album_dir.mkdir()
             image = album_dir / "China_1986_B02_P02_stitched.jpg"
             image.write_bytes(b"abc")
@@ -4257,7 +4257,7 @@ class TestAIIndex(unittest.TestCase):
     def test_resolve_album_printed_title_hint_ignores_p01_detail_sidecar(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            album_dir = base / "China_1986_B02_View"
+            album_dir = base / "China_1986_B02_Pages"
             album_dir.mkdir()
             image = album_dir / "China_1986_B02_P02_stitched.jpg"
             image.write_bytes(b"abc")
@@ -4285,7 +4285,7 @@ class TestAIIndex(unittest.TestCase):
     def test_run_stdout_forces_processing_even_when_sidecar_exists(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            photos = base / "Family_View"
+            photos = base / "Family_Pages"
             photos.mkdir()
             image = photos / "a.jpg"
             image.write_bytes(b"abc")
@@ -4911,3 +4911,4 @@ class TestAIIndex(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

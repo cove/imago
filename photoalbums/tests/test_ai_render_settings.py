@@ -26,7 +26,7 @@ class TestAIRenderSettings(unittest.TestCase):
     def test_find_archive_dir_for_view_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             archive = Path(tmp) / "Family_Archive"
-            view = Path(tmp) / "Family_View"
+            view = Path(tmp) / "Family_Pages"
             archive.mkdir()
             view.mkdir()
             image = view / "b.jpg"
@@ -137,7 +137,7 @@ class TestAIRenderSettings(unittest.TestCase):
 
     def test_resolve_effective_settings_defaults_page_split_mode_to_off(self):
         effective = ars.resolve_effective_settings(
-            Path("Family_View") / "Family_1980-1985_B08_P01.jpg",
+            Path("Family_Pages") / "Family_1980-1985_B08_P01.jpg",
             defaults={},
             loaded=None,
         )
@@ -146,3 +146,4 @@ class TestAIRenderSettings(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
