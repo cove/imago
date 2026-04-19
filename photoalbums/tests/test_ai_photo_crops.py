@@ -99,6 +99,22 @@ class TestCropOutputPath(unittest.TestCase):
         result = crop_output_path(view_path, 1, photos_dir)
         self.assertEqual(result.name, "Egypt_1975_B00_P01_D01-00_V.jpg")
 
+    def test_uses_archive_offset_when_archive_has_existing_derived_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive_dir = root / "Egypt_1975_B00_Archive"
+            pages_dir = root / "Egypt_1975_B00_Pages"
+            photos_dir = root / "Egypt_1975_B00_Photos"
+            archive_dir.mkdir()
+            pages_dir.mkdir()
+            view_path = pages_dir / "Egypt_1975_B00_P26_V.jpg"
+            (archive_dir / "Egypt_1975_B00_P26_D01-01.png").write_bytes(b"derived")
+            (archive_dir / "Egypt_1975_B00_P26_D03-01.tif").write_bytes(b"derived")
+
+            result = crop_output_path(view_path, 2, photos_dir)
+
+            self.assertEqual(result.name, "Egypt_1975_B00_P26_D05-00_V.jpg")
+
 
 # ---------------------------------------------------------------------------
 # crop_page_regions
@@ -290,6 +306,36 @@ class TestCropPageRegions(_NoOpRestorationMixin, unittest.TestCase):
             self.assertTrue(crop_xmp.exists())
             xml = crop_xmp.read_text(encoding="utf-8")
             self.assertIn("Beach day", xml)
+
+    def test_existing_archive_derived_numbers_shift_crop_outputs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            img_w, img_h = 200, 100
+            root = Path(tmp)
+            archive_dir = root / "Egypt_1975_B00_Archive"
+            view_dir = root / "Egypt_1975_B00_Pages"
+            photos_dir = root / "Egypt_1975_B00_Photos"
+            archive_dir.mkdir()
+            view_dir.mkdir()
+            view_jpg = view_dir / "Egypt_1975_B00_P26_V.jpg"
+            view_xmp = view_jpg.with_suffix(".xmp")
+            _make_minimal_jpeg(view_jpg, img_w, img_h)
+            (archive_dir / "Egypt_1975_B00_P26_D01-01.png").write_bytes(b"derived")
+            (archive_dir / "Egypt_1975_B00_P26_D03-01.tif").write_bytes(b"derived")
+            _write_region_xmp(
+                view_xmp,
+                [
+                    {"index": 0, "x": 0, "y": 0, "width": 100, "height": 100, "caption": "Left photo"},
+                    {"index": 1, "x": 100, "y": 0, "width": 100, "height": 100, "caption": "Right photo"},
+                ],
+                img_w,
+                img_h,
+            )
+
+            count = crop_page_regions(view_jpg, photos_dir)
+
+            self.assertEqual(count, 2)
+            self.assertTrue((photos_dir / "Egypt_1975_B00_P26_D04-00_V.jpg").exists())
+            self.assertTrue((photos_dir / "Egypt_1975_B00_P26_D05-00_V.jpg").exists())
 
     def test_existing_file_skipped_without_force(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -502,7 +548,8 @@ class TestWriteCropSidecar(unittest.TestCase):
                 person_names=[],
                 subjects=["egypt"],
                 description="A page",
-                source_text="Egypt_1975_B00_P26_S01.tif; Egypt_1975_B00_P26_S02.tif",
+                album_title="Egypt 1975",
+                source_text="Egypt 1975 Page 26 Scan(s) S01 S02; Egypt_1975_B00_P26_S01.tif; Egypt_1975_B00_P26_S02.tif",
                 ocr_text="",
             )
             assign_document_id(view_xmp)
@@ -516,9 +563,10 @@ class TestWriteCropSidecar(unittest.TestCase):
             crop_xmp = crop_jpg.with_suffix(".xmp")
             crop_state = read_ai_sidecar_state(crop_xmp)
             assert crop_state is not None
+            self.assertEqual(crop_state["album_title"], "Egypt 1975")
             self.assertEqual(
                 crop_state["source_text"],
-                "Egypt_1975_B00_P26_S01.tif; Egypt_1975_B00_P26_S02.tif",
+                "Egypt 1975 Page 26 Scan(s) S01 S02; Egypt_1975_B00_P26_S01.tif; Egypt_1975_B00_P26_S02.tif",
             )
             xml = crop_xmp.read_text(encoding="utf-8")
             self.assertIn("../Egypt_1975_Pages/Egypt_1975_B00_P26_V.jpg", xml)
@@ -547,7 +595,8 @@ class TestWriteCropSidecar(unittest.TestCase):
                 person_names=[],
                 subjects=["egypt", "travel"],
                 description="Pyramids at Giza",
-                source_text="Egypt_1975_B00_P26_S01.tif",
+                album_title="Egypt 1975",
+                source_text="Egypt 1975 Page 26 Scan(s) S01; Egypt_1975_B00_P26_S01.tif",
                 ocr_text="EGYPT 1975",
                 location_city="Giza",
                 location_country="Egypt",
@@ -579,17 +628,73 @@ class TestWriteCropSidecar(unittest.TestCase):
 
             crop_state = read_ai_sidecar_state(crop_jpg.with_suffix(".xmp"))
             assert crop_state is not None
-            self.assertEqual(crop_state["description"], "Pyramids at Giza")
+            self.assertEqual(crop_state["description"], "EGYPT 1975")
+            self.assertEqual(crop_state["parent_ocr_text"], "EGYPT 1975")
+            self.assertEqual(crop_state["ocr_text"], "")
+            self.assertEqual(crop_state["album_title"], "Egypt 1975")
             self.assertEqual(crop_state["dc_date_values"], ["1975-03", "1975-04"])
             self.assertEqual(crop_state["create_date"], "2026-03-25T19:35:00Z")
             self.assertEqual(crop_state["location_city"], "Giza")
             self.assertEqual(crop_state["location_country"], "Egypt")
             self.assertEqual(crop_state["location_sublocation"], "Giza Plateau")
-            self.assertEqual(crop_state["source_text"], "Egypt_1975_B00_P26_S01.tif")
+            self.assertEqual(crop_state["source_text"], "Egypt 1975 Page 26 Scan(s) S01; Egypt_1975_B00_P26_S01.tif")
             xml = crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8")
             self.assertIn("<rdf:li>egypt</rdf:li>", xml)
             self.assertIn("<rdf:li>travel</rdf:li>", xml)
             self.assertIn("Giza Necropolis", xml)
+
+    def test_crop_sidecar_recovers_album_title_from_archive_for_source_verification(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive_dir = root / "Portugal_1988_B00_Archive"
+            archive_dir.mkdir()
+            view_dir = root / "Portugal_1988_B00_Pages"
+            view_dir.mkdir()
+            photos_dir = root / "Portugal_1988_B00_Photos"
+            photos_dir.mkdir()
+            for scan_name in ("Portugal_1988_B00_P23_S01.tif", "Portugal_1988_B00_P23_S02.tif"):
+                (archive_dir / scan_name).write_bytes(b"scan")
+            view_jpg = view_dir / "Portugal_1988_B00_P23_V.jpg"
+            _make_minimal_jpeg(view_jpg, 200, 100)
+
+            from photoalbums.lib.ai_photo_crops import _write_crop_sidecar
+            from photoalbums.lib.xmp_sidecar import read_ai_sidecar_state, write_xmp_sidecar
+
+            write_xmp_sidecar(
+                (archive_dir / "Portugal_1988_B00_P23_S01.xmp"),
+                creator_tool="test",
+                person_names=[],
+                subjects=[],
+                description="",
+                album_title="PANAMA CANAL & MEXICO 1987 PORTUGAL 1988",
+                source_text=(
+                    "PANAMA CANAL & MEXICO 1987 PORTUGAL 1988 Page 23 "
+                    "Scan(s) S01 S02; Portugal_1988_B00_P23_S01.tif; Portugal_1988_B00_P23_S02.tif"
+                ),
+                ocr_text="",
+            )
+
+            crop_jpg = photos_dir / "Portugal_1988_B00_P23_D01-00_V.jpg"
+            crop_jpg.write_bytes(b"placeholder")
+            _write_crop_sidecar(
+                crop_jpg,
+                view_jpg,
+                "",
+                {"source_text": "Page 23 Scan(s) S01 S02; Portugal_1988_B00_P23_S01.tif; Portugal_1988_B00_P23_S02.tif"},
+                [],
+                [],
+            )
+
+            crop_state = read_ai_sidecar_state(crop_jpg.with_suffix(".xmp"))
+            assert crop_state is not None
+            self.assertEqual(crop_state["album_title"], "PANAMA CANAL & MEXICO 1987 PORTUGAL 1988")
+            self.assertEqual(
+                crop_state["source_text"],
+                (
+                    "PANAMA CANAL & MEXICO 1987 PORTUGAL 1988 Page 23 "
+                    "Scan(s) S01 S02; Portugal_1988_B00_P23_S01.tif; Portugal_1988_B00_P23_S02.tif"
+                ),
+            )
 
     def test_empty_location_not_written(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -684,13 +789,16 @@ class TestWriteCropSidecar(unittest.TestCase):
             _write_crop_sidecar(crop_jpg, view_jpg, "Region caption", view_state, [], [])
 
             state = read_ai_sidecar_state(crop_jpg.with_suffix(".xmp"))
-            # OCR text is written to imago:OCRText
-            self.assertEqual(state["ocr_text"], "Page OCR text here")
-            # Caption is present in the XMP (x-caption layer)
             xml = crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8")
-            self.assertIn("Region caption", xml)
+            self.assertEqual(state["description"], "Region caption")
+            self.assertEqual(state["ocr_text"], "")
+            self.assertEqual(state["parent_ocr_text"], "Page OCR text here")
+            self.assertIn('xml:lang="x-default">Region caption</rdf:li>', xml)
+            self.assertIn("<imago:ParentOCRText>Page OCR text here</imago:ParentOCRText>", xml)
+            self.assertNotIn('xml:lang="x-caption"', xml)
+            self.assertNotIn("<imago:OCRText>", xml)
 
-    def test_no_caption_ocr_text_used_as_description_and_ocr_field(self):
+    def test_no_caption_ocr_text_used_as_parent_context_only(self):
         # (b) no caption, OCR text present â†’ dc:description = ocr_text; imago:OCRText = ocr_text
         with tempfile.TemporaryDirectory() as tmp:
             view_dir = Path(tmp) / "Egypt_1975_Pages"
@@ -709,8 +817,12 @@ class TestWriteCropSidecar(unittest.TestCase):
             _write_crop_sidecar(crop_jpg, view_jpg, "", view_state, [], [])
 
             state = read_ai_sidecar_state(crop_jpg.with_suffix(".xmp"))
-            self.assertEqual(state["description"], "Scanned page text")
-            self.assertEqual(state["ocr_text"], "Scanned page text")
+            xml = crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8")
+            self.assertEqual(state["description"], "")
+            self.assertEqual(state["ocr_text"], "")
+            self.assertEqual(state["parent_ocr_text"], "Scanned page text")
+            self.assertNotIn("dc:description", xml)
+            self.assertIn("<imago:ParentOCRText>Scanned page text</imago:ParentOCRText>", xml)
 
     def test_both_empty_no_error(self):
         # (c) caption="" and ocr_text="" â†’ both fields empty, no error
@@ -732,6 +844,7 @@ class TestWriteCropSidecar(unittest.TestCase):
             state = read_ai_sidecar_state(crop_jpg.with_suffix(".xmp"))
             self.assertEqual(state["description"], "")
             self.assertEqual(state["ocr_text"], "")
+            self.assertEqual(state["parent_ocr_text"], "")
 
 
 # ---------------------------------------------------------------------------
@@ -869,6 +982,52 @@ class TestCropPageRegionsPipelineState(_NoOpRestorationMixin, unittest.TestCase)
             self.assertFalse(orphan.exists())
             self.assertTrue((photos_dir / "Egypt_1975_B00_P01_D01-00_V.jpg").exists())
             self.assertTrue((photos_dir / "Egypt_1975_B00_P01_D02-00_V.jpg").exists())
+
+    def test_orphan_cleanup_on_force_uses_archive_offset(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            img_w, img_h = 200, 100
+            root = Path(tmp)
+            archive_dir = root / "Egypt_1975_B00_Archive"
+            view_dir = root / "Egypt_1975_B00_Pages"
+            photos_dir = root / "Egypt_1975_B00_Photos"
+            archive_dir.mkdir()
+            view_dir.mkdir()
+            view_jpg = view_dir / "Egypt_1975_B00_P01_V.jpg"
+            view_xmp = view_jpg.with_suffix(".xmp")
+            _make_minimal_jpeg(view_jpg, img_w, img_h)
+            (archive_dir / "Egypt_1975_B00_P01_D01-01.png").write_bytes(b"derived")
+            (archive_dir / "Egypt_1975_B00_P01_D03-01.tif").write_bytes(b"derived")
+
+            _write_region_xmp(
+                view_xmp,
+                [
+                    {"index": 0, "x": 0, "y": 0, "width": 66, "height": 100},
+                    {"index": 1, "x": 66, "y": 0, "width": 66, "height": 100},
+                    {"index": 2, "x": 132, "y": 0, "width": 68, "height": 100},
+                ],
+                img_w,
+                img_h,
+            )
+            count1 = crop_page_regions(view_jpg, photos_dir)
+            self.assertEqual(count1, 3)
+            orphan = photos_dir / "Egypt_1975_B00_P01_D06-00_V.jpg"
+            self.assertTrue(orphan.exists())
+
+            _write_region_xmp(
+                view_xmp,
+                [
+                    {"index": 0, "x": 0, "y": 0, "width": 100, "height": 100},
+                    {"index": 1, "x": 100, "y": 0, "width": 100, "height": 100},
+                ],
+                img_w,
+                img_h,
+            )
+            count2 = crop_page_regions(view_jpg, photos_dir, force=True)
+
+            self.assertEqual(count2, 2)
+            self.assertFalse(orphan.exists())
+            self.assertTrue((photos_dir / "Egypt_1975_B00_P01_D04-00_V.jpg").exists())
+            self.assertTrue((photos_dir / "Egypt_1975_B00_P01_D05-00_V.jpg").exists())
 
 
 if __name__ == "__main__":

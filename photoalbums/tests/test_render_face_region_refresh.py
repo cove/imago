@@ -15,6 +15,7 @@ if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
 from photoalbums.lib import ai_index, ai_index_runner, ai_render_face_refresh, xmp_sidecar
+from photoalbums.lib.ai_sidecar_state import _effective_sidecar_album_title
 
 
 def _image_region_ids(xmp_path: Path) -> list[str]:
@@ -486,7 +487,7 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             self.assertTrue(ran)
             state = xmp_sidecar.read_ai_sidecar_state(sidecar)
             assert state is not None
-            self.assertEqual(state["description"], "Pyramids at Giza")
+            self.assertEqual(state["description"], "OCR:\nEGYPT 1975\n\nScene Text:\nTour bus nearby")
             self.assertEqual(state["source_text"], "Egypt_1975_B00_P09_S01.tif; Egypt_1975_B00_P09_S02.tif")
             self.assertEqual(state["dc_date_values"], ["1975-03", "1975-04"])
             self.assertEqual(state["create_date"], "2026-03-25T19:35:00Z")
@@ -497,8 +498,29 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
     def test_refresh_face_regions_preserves_inherited_crop_metadata(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
+            pages = base / "Egypt_1975_Pages"
             photos = base / "Egypt_1975_Photos"
+            pages.mkdir()
             photos.mkdir()
+            page_image = pages / "Egypt_1975_B00_P09_V.jpg"
+            page_image.write_bytes(b"rendered")
+            page_sidecar = page_image.with_suffix(".xmp")
+            xmp_sidecar.write_xmp_sidecar(
+                page_sidecar,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=["egypt"],
+                description="Page caption",
+                album_title="Egypt 1975",
+                source_text="Egypt 1975 Page 09 Scan(s) S01; Egypt_1975_B00_P09_S01.tif",
+                ocr_text="EGYPT 1975",
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                image_width=200,
+                image_height=100,
+            )
+            from photoalbums.lib.xmpmm_provenance import assign_document_id, write_derived_from
+
+            page_doc_id = assign_document_id(page_sidecar)
             image = photos / "Egypt_1975_B00_P09_D01-00_V.jpg"
             image.write_bytes(b"rendered")
             sidecar = image.with_suffix(".xmp")
@@ -508,7 +530,8 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
                 person_names=[],
                 subjects=["egypt"],
                 description="Crop caption",
-                source_text="Egypt_1975_B00_P09_S01.tif",
+                album_title="Egypt 1975",
+                source_text="Egypt 1975 Page 09 Scan(s) S01; Egypt_1975_B00_P09_S01.tif",
                 ocr_text="EGYPT 1975",
                 location_city="Giza",
                 location_country="Egypt",
@@ -531,6 +554,7 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
                 image_width=200,
                 image_height=100,
             )
+            write_derived_from(sidecar, page_doc_id, source_path="../Egypt_1975_Pages/Egypt_1975_B00_P09_V.jpg")
 
             def _write_people(image_path: Path, sidecar_path: Path) -> None:
                 xmp_sidecar.write_xmp_sidecar(
@@ -555,11 +579,63 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             state = xmp_sidecar.read_ai_sidecar_state(sidecar)
             assert state is not None
             self.assertEqual(state["description"], "Crop caption")
-            self.assertEqual(state["source_text"], "Egypt_1975_B00_P09_S01.tif")
+            self.assertEqual(state["album_title"], "Egypt 1975")
+            self.assertEqual(state["source_text"], "Egypt 1975 Page 09 Scan(s) S01; Egypt_1975_B00_P09_S01.tif")
             self.assertEqual(state["dc_date_values"], ["1975-03"])
             self.assertEqual(state["create_date"], "2026-03-25T19:35:00Z")
             self.assertEqual(state["location_city"], "Giza")
             self.assertEqual(xmp_sidecar.read_locations_shown(sidecar)[0]["name"], "Giza Necropolis")
+
+    def test_effective_sidecar_album_title_uses_parent_view_for_crop_sidecars(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            pages = base / "Portugal_1988_B00_Pages"
+            photos = base / "Portugal_1988_B00_Photos"
+            pages.mkdir()
+            photos.mkdir()
+            page_image = pages / "Portugal_1988_B00_P23_V.jpg"
+            page_image.write_bytes(b"rendered")
+            page_sidecar = page_image.with_suffix(".xmp")
+            xmp_sidecar.write_xmp_sidecar(
+                page_sidecar,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                album_title="PANAMA CANAL & MEXICO 1987 PORTUGAL 1988",
+                source_text=(
+                    "PANAMA CANAL & MEXICO 1987 PORTUGAL 1988 Page 23 "
+                    "Scan(s) S01; Portugal_1988_B00_P23_S01.tif"
+                ),
+                ocr_text="",
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                image_width=200,
+                image_height=100,
+            )
+            from photoalbums.lib.xmpmm_provenance import assign_document_id, write_derived_from
+
+            page_doc_id = assign_document_id(page_sidecar)
+            crop_sidecar = photos / "Portugal_1988_B00_P23_D01-00_V.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                crop_sidecar,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="Page 23 Scan(s) S01; Portugal_1988_B00_P23_S01.tif",
+                ocr_text="",
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                image_width=200,
+                image_height=100,
+            )
+            write_derived_from(crop_sidecar, page_doc_id, source_path="../Portugal_1988_B00_Pages/Portugal_1988_B00_P23_V.jpg")
+
+            state = xmp_sidecar.read_ai_sidecar_state(crop_sidecar)
+            assert state is not None
+            self.assertEqual(
+                _effective_sidecar_album_title(photos / "Portugal_1988_B00_P23_D01-00_V.jpg", state),
+                "PANAMA CANAL & MEXICO 1987 PORTUGAL 1988",
+            )
 
     def test_refresh_face_regions_clears_person_in_image_when_no_matches(self):
         with tempfile.TemporaryDirectory() as tmp:

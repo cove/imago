@@ -89,6 +89,9 @@ photoalbums-detect-regions *args:
 photoalbums-crop-regions album="" *args:
   {{python}} photoalbums.py crop-regions {{if album != "" { '"' + album + '"' } else { "" }}} --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
 
+photoalbums-repair-crop-source album="" *args:
+  {{python}} photoalbums.py repair-crop-source {{if album != "" { '"' + album + '"' } else { "" }}} --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
+
 photoalbums-ctm-generate *args:
   {{python}} photoalbums.py ctm generate --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
 

@@ -47,6 +47,7 @@ from .ai_render_settings import (
 )
 from .ai_sidecar_state import (
     _compute_xmp_title,
+    _effective_sidecar_album_title,
     _effective_sidecar_location_payload,
     _effective_sidecar_ocr_text,
     _resolve_xmp_text_layers,
@@ -1095,6 +1096,8 @@ class IndexRunner:
                 else pu_people_match_names
             )
             pu_album_title = _resolve_album_title_hint(image_path)
+            if not pu_album_title:
+                pu_album_title = _effective_sidecar_album_title(image_path, state)
             pu_printed_title = _resolve_album_printed_title_hint(image_path, self.printed_album_title_cache)
             pu_people_payload = _serialize_people_matches(pu_people_matches)
             pu_prompt_debug = None
@@ -1342,7 +1345,7 @@ class IndexRunner:
         gps_object_labels = [
             str(r.get("label") or "") for r in list(det.get("objects") or []) if isinstance(r, dict) and r.get("label")
         ]
-        gps_album_title = str(state.get("album_title") or "").strip()
+        gps_album_title = _effective_sidecar_album_title(image_path, state)
         gps_printed_title = _resolve_album_printed_title_hint(image_path, self.printed_album_title_cache)
         gps_existing_location_name = str((dict(det.get("location") or {})).get("query") or "").strip()
 
@@ -1434,6 +1437,12 @@ class IndexRunner:
                 gps_subjects = _dedupe(
                     gps_object_labels + gps_ocr_keywords + ([gps_album_title] if gps_album_title else [])
                 )
+                gps_scan_filenames = _page_scan_filenames(image_path)
+                gps_source_text = (
+                    _build_dc_source(gps_album_title, image_path, gps_scan_filenames)
+                    if gps_scan_filenames
+                    else str(state.get("source_text") or "")
+                )
                 xmp_title, xmp_title_source = _compute_xmp_title(
                     image_path=image_path,
                     explicit_title=str(state.get("title") or ""),
@@ -1451,7 +1460,7 @@ class IndexRunner:
                     description=str(state.get("description") or ""),
                     album_title=gps_album_title,
                     location_payload=gps_location_payload,
-                    source_text=str(state.get("source_text") or ""),
+                    source_text=gps_source_text,
                     ocr_text=gps_ocr_text,
                     ocr_lang=str(state.get("ocr_lang") or ""),
                     author_text=str(state.get("author_text") or ""),

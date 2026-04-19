@@ -524,6 +524,44 @@ class TestRunRenderPipelinePerPageScoping(unittest.TestCase):
                 ],
             )
 
+    def test_derived_renders_write_to_photos_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _make_test_album(root, page=26)
+
+            derived_outputs = ["Egypt_1975_B00_P26_D01-00.tif"]
+            render_calls: list[tuple[str, str]] = []
+
+            with (
+                mock.patch("photoalbums.commands._acquire_page_pipeline_lock", return_value=None),
+                mock.patch("photoalbums.commands._release_page_pipeline_lock"),
+                mock.patch("photoalbums.stitch_oversized_pages.tif_to_jpg", return_value=False),
+                mock.patch("photoalbums.stitch_oversized_pages.stitch", return_value=False),
+                mock.patch("photoalbums.stitch_oversized_pages.list_derived_images", return_value=derived_outputs),
+                mock.patch("photoalbums.lib.ai_view_regions.detect_regions", return_value=[]),
+                mock.patch("photoalbums.lib.ai_view_regions._image_dimensions", return_value=(100, 100)),
+                mock.patch("photoalbums.lib.ai_model_settings.default_view_region_model", return_value="gemma4"),
+                mock.patch("photoalbums.lib.album_sets.find_archive_set_by_photos_root", return_value=""),
+                mock.patch("photoalbums.lib.album_sets.read_people_roster", return_value={}),
+                mock.patch("photoalbums.lib.xmp_sidecar.read_ai_sidecar_state", return_value={}),
+                mock.patch(
+                    "photoalbums.stitch_oversized_pages.derived_to_jpg",
+                    side_effect=lambda derived, output_dir: render_calls.append((Path(derived).name, Path(output_dir).name)),
+                ),
+                mock.patch("photoalbums.lib.ai_render_face_refresh.RenderFaceRefreshSession"),
+                redirect_stdout(StringIO()),
+            ):
+                result = commands.run_render_pipeline(
+                    album_id="Egypt_1975_B00",
+                    photos_root=str(root),
+                    page=None,
+                    force=False,
+                    skip_crops=True,
+                )
+
+            self.assertEqual(result, 0)
+            self.assertEqual(render_calls, [("Egypt_1975_B00_P26_D01-00.tif", "Egypt_1975_B00_Photos")])
+
 
 if __name__ == "__main__":
     unittest.main()
