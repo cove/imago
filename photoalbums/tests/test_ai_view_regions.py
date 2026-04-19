@@ -61,8 +61,9 @@ class TestValidateRegions(unittest.TestCase):
             RegionResult(index=1, x=2, y=2, width=95, height=95, confidence=0.8),
         ]
         result = validate_region_set(regions, img_w=200, img_h=200)
-        self.assertFalse(result.valid)
-        self.assertIn("overlap", {failure.reason for failure in result.failures})
+        self.assertTrue(result.valid)
+        self.assertEqual(result.failures, [])
+        self.assertEqual([region.index for region in result.kept], [0, 1])
 
 
 class TestDetectRegionsDocling(unittest.TestCase):

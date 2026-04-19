@@ -4,6 +4,7 @@ from pathlib import Path
 from textwrap import dedent
 
 from photoalbums.lib.caption_layout_migration import (
+    _crop_region_index,
     find_sidecars_with_legacy_caption_layout,
     migrate_album_caption_layout,
     migrate_sidecar_caption_layout,
@@ -165,3 +166,19 @@ def test_migrate_sidecar_caption_layout_leaves_current_sidecar_untouched(tmp_pat
 
     assert changed is False
     assert crop_xmp.read_text(encoding="utf-8") == original
+
+
+def test_crop_region_index_accounts_for_archive_derived_offset(tmp_path: Path) -> None:
+    archive_dir = tmp_path / "TheOrient_1974_B00_Archive"
+    pages_dir = tmp_path / "TheOrient_1974_B00_Pages"
+    photos_dir = tmp_path / "TheOrient_1974_B00_Photos"
+    archive_dir.mkdir()
+    pages_dir.mkdir()
+    photos_dir.mkdir()
+
+    (archive_dir / "TheOrient_1974_B00_P44_D01-01.png").write_bytes(b"derived")
+    (archive_dir / "TheOrient_1974_B00_P44_D02-01.png").write_bytes(b"derived")
+
+    crop_xmp = photos_dir / "TheOrient_1974_B00_P44_D03-00_V.xmp"
+
+    assert _crop_region_index(crop_xmp) == 0

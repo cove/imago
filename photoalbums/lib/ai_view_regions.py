@@ -24,7 +24,6 @@ log = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT_SECONDS = 300.0
 _MAX_SINGLE_REGION_PAGE_FRACTION = 0.90
-_MAX_OVERLAP_FRACTION = 0.05
 
 
 @dataclass(frozen=True)
@@ -116,18 +115,6 @@ def associate_captions(
             results.append(RegionWithCaption(region, ""))
     results.sort(key=lambda row: row.region.index)
     return results
-
-
-def _intersection_area(left: RegionResult, right: RegionResult) -> int:
-    x1 = max(left.x, right.x)
-    y1 = max(left.y, right.y)
-    x2 = min(left.x + left.width, right.x + right.width)
-    y2 = min(left.y + left.height, right.y + right.height)
-    if x2 <= x1 or y2 <= y1:
-        return 0
-    return (x2 - x1) * (y2 - y1)
-
-
 def validate_region_set(
     regions: list[RegionResult],
     *,
@@ -153,28 +140,7 @@ def validate_region_set(
             continue
         clamped.append(replace(region, x=left, y=top, width=width, height=height))
 
-    ranked = sorted(clamped, key=lambda region: (-region.confidence, -(region.width * region.height), region.index))
-    kept: list[RegionResult] = []
-    for candidate in ranked:
-        overlap_failure: RegionFailure | None = None
-        for existing in kept:
-            intersection = _intersection_area(candidate, existing)
-            smaller_area = min(candidate.width * candidate.height, existing.width * existing.height)
-            if smaller_area > 0 and (intersection / smaller_area) >= _MAX_OVERLAP_FRACTION:
-                overlap_failure = RegionFailure(
-                    region_index=candidate.index,
-                    reason="overlap",
-                    severity="hard",
-                    overlap_with=existing.index,
-                    overlap_fraction=round(intersection / smaller_area, 3),
-                )
-                break
-        if overlap_failure is not None:
-            failures.append(overlap_failure)
-        else:
-            kept.append(candidate)
-
-    return ValidationResult(valid=len(failures) == 0, kept=sorted(kept, key=lambda region: region.index), failures=failures)
+    return ValidationResult(valid=len(failures) == 0, kept=sorted(clamped, key=lambda region: region.index), failures=failures)
 
 
 def validate_regions_for_write(

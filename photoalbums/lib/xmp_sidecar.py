@@ -861,6 +861,11 @@ def build_xmp_tree(
         ocr_source = ET.SubElement(desc, f"{{{IMAGO_NS}}}OCRAuthoritySource")
         ocr_source.text = clean_ocr_authority_source
 
+    detections_payload = _with_processing_state(
+        detections_payload,
+        people_detected=people_detected,
+        people_identified=people_identified,
+    )
     if detections_payload:
         payload = ET.SubElement(desc, f"{{{IMAGO_NS}}}Detections")
         payload.text = json.dumps(detections_payload, ensure_ascii=False, sort_keys=True)
@@ -872,18 +877,6 @@ def build_xmp_tree(
             image_height,
         )
     _set_locations_shown_bag(desc, list(locations_shown) if locations_shown else [])
-    _add_processing_history(
-        desc,
-        _build_processing_history(
-            creator_tool=creator_tool,
-            history_when=history_when,
-            stitch_key=stitch_key,
-            ocr_ran=ocr_ran,
-            people_detected=people_detected,
-            people_identified=people_identified,
-            ocr_authority_source=ocr_authority_source,
-        ),
-    )
 
     tree = ET.ElementTree(xmpmeta)
     ET.indent(tree, space="  ")
@@ -1062,6 +1055,24 @@ def _write_detections_payload(tree: ET.ElementTree, path: str | Path, detections
     else:
         _set_simple_text(desc, f"{{{IMAGO_NS}}}Detections", "")
     _save_xmp_tree(tree, path)
+
+
+def _with_processing_state(
+    detections_payload: dict[str, object] | None,
+    *,
+    people_detected: bool,
+    people_identified: bool,
+) -> dict[str, object] | None:
+    if detections_payload is None:
+        return None
+    if not isinstance(detections_payload.get("processing"), dict):
+        return detections_payload
+    merged = dict(detections_payload)
+    processing = dict(merged.get("processing") or {})
+    processing["people_detected"] = bool(people_detected)
+    processing["people_identified"] = bool(people_identified)
+    merged["processing"] = processing
+    return merged
 
 
 def _get_alt_text(parent: ET.Element, tag: str, *, prefer_lang: str = "", fallback_to_any: bool = True) -> str:
@@ -1508,12 +1519,20 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
         "people_detected": (
             processing_state["people_detected"]
             if "people_detected" in processing_state
-            else _read_xmp_bool(desc, f"{{{IMAGO_NS}}}PeopleDetected")
+            else (
+                bool(processing_meta["people_detected"])
+                if isinstance(processing_meta.get("people_detected"), bool)
+                else _read_xmp_bool(desc, f"{{{IMAGO_NS}}}PeopleDetected")
+            )
         ),
         "people_identified": (
             processing_state["people_identified"]
             if "people_identified" in processing_state
-            else _read_xmp_bool(desc, f"{{{IMAGO_NS}}}PeopleIdentified")
+            else (
+                bool(processing_meta["people_identified"])
+                if isinstance(processing_meta.get("people_identified"), bool)
+                else _read_xmp_bool(desc, f"{{{IMAGO_NS}}}PeopleIdentified")
+            )
         ),
         "processor_signature": str(processing_meta.get("processor_signature") or "").strip(),
         "settings_signature": str(processing_meta.get("settings_signature") or "").strip(),
@@ -1717,6 +1736,11 @@ def _merge_xmp_tree(
         location_country=location_country,
         location_sublocation=location_sublocation,
     )
+    merged_detections_payload = _with_processing_state(
+        merged_detections_payload,
+        people_detected=people_detected,
+        people_identified=people_identified,
+    )
 
     _set_bag(desc, f"{{{DC_NS}}}subject", merged_subjects)
     _set_bag(desc, f"{{{IPTC_EXT_NS}}}PersonInImage", person_names)
@@ -1780,18 +1804,7 @@ def _merge_xmp_tree(
             image_height,
         )
     _set_locations_shown_bag(desc, merged_locations_shown)
-    _set_processing_history(
-        desc,
-        _build_processing_history(
-            creator_tool=creator_tool,
-            history_when=history_when,
-            stitch_key=stitch_key,
-            ocr_ran=ocr_ran,
-            people_detected=people_detected,
-            people_identified=people_identified,
-            ocr_authority_source=ocr_authority_source,
-        ),
-    )
+    _set_processing_history(desc, [])
     for legacy_tag in (
         f"{{{IMAGO_NS}}}StitchKey",
         f"{{{IMAGO_NS}}}OcrRan",

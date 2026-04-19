@@ -12,6 +12,7 @@ if str(REPO_ROOT) not in sys.path:
 from photoalbums.common import PHOTO_ALBUMS_DIR
 from photoalbums.lib.ai_index import _build_dc_source, _page_scan_filenames
 from photoalbums.lib.xmp_sidecar import DC_NS, _get_rdf_desc, _set_simple_text, read_ai_sidecar_state
+from photoalbums.scripts._repair_args import build_repair_parser
 
 
 def _iter_target_sidecars(photos_root: Path, album_filter: str) -> list[Path]:
@@ -64,23 +65,9 @@ def _repair_sidecar(sidecar_path: Path, *, dry_run: bool) -> str:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Repair stale dc:source values in view XMP sidecars without rerunning AI."
-    )
-    parser.add_argument(
-        "--photos-root",
-        default=str(PHOTO_ALBUMS_DIR),
-        help="Photo Albums root directory.",
-    )
-    parser.add_argument(
-        "--album",
-        default="",
-        help="Optional substring filter against the parent _Pages directory name.",
-    )
-    parser.add_argument(
-        "--run",
-        action="store_true",
-        help="Write changes in place. Omit for a dry run.",
+    parser = build_repair_parser(
+        description="Repair stale dc:source values in view XMP sidecars without rerunning AI.",
+        default_photos_root=str(PHOTO_ALBUMS_DIR),
     )
     return parser.parse_args(argv)
 

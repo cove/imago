@@ -24,6 +24,7 @@ from .xmp_sidecar import (
     _set_simple_text,
 )
 from .xmpmm_provenance import read_derived_from
+from .ai_photo_crops import highest_archive_derived_number
 from ..naming import DERIVED_NAME_RE, is_photos_dir, pages_dir_for_album_dir, parse_album_filename
 
 _DESCRIPTION_TAG = f"{{{DC_NS}}}description"
@@ -111,7 +112,16 @@ def _crop_region_index(sidecar_path: Path) -> int | None:
     match = DERIVED_NAME_RE.fullmatch(stem)
     if match is None:
         return None
-    return int(match.group("derived")) - 1
+    derived_number = int(match.group("derived"))
+    if is_photos_dir(sidecar_path.parent):
+        collection, year, book, page = parse_album_filename(sidecar_path.stem)
+        page_token = f"{int(page):02d}" if str(page).isdigit() else str(page)
+        view_path = pages_dir_for_album_dir(sidecar_path.parent) / f"{collection}_{year}_B{book}_P{page_token}_V.jpg"
+        archive_offset = highest_archive_derived_number(view_path)
+        if derived_number <= archive_offset:
+            return None
+        return derived_number - archive_offset - 1
+    return derived_number - 1
 
 
 def _resolve_parent_page_sidecar(crop_sidecar_path: Path) -> Path | None:
