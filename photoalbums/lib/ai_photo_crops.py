@@ -47,10 +47,19 @@ def resolve_region_caption(
     3. page_dc_description
     4. "" (empty)
     """
-    for candidate in (region_name, region_caption_hint, page_dc_description):
-        text = str(candidate or "").strip()
-        if text:
-            return text
+    region_text = str(region_name or "").strip()
+    hint_text = str(region_caption_hint or "").strip()
+    page_text = str(page_dc_description or "").strip()
+    region_is_placeholder = bool(re.fullmatch(r"photo_\d+", region_text, flags=re.IGNORECASE))
+
+    if region_text and not region_is_placeholder:
+        return region_text
+    if hint_text:
+        return hint_text
+    if page_text:
+        if region_is_placeholder and not page_text.startswith("Page caption:"):
+            return f"Page caption: {page_text}"
+        return page_text
     return ""
 
 

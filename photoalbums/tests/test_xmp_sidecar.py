@@ -191,7 +191,7 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertEqual(state["location_sublocation"], "1 Rathausplatz")
             self.assertEqual(state["location_created"], "1 Rathausplatz, Vienna, Austria")
 
-    def test_write_xmp_sidecar_round_trips_create_date_and_writes_processing_history(self):
+    def test_write_xmp_sidecar_round_trips_create_date(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "image.xmp"
             xmp_sidecar.write_xmp_sidecar(
@@ -215,7 +215,7 @@ class TestXMPSidecar(unittest.TestCase):
 
             xml = out.read_text(encoding="utf-8")
             self.assertIn("<xmp:CreateDate>2026-03-25T12:34:56-07:00</xmp:CreateDate>", xml)
-            self.assertIn("xmpMM:History", xml)
+            self.assertNotIn("xmpMM:History", xml)
             self.assertNotIn("imago:StitchKey", xml)
             self.assertNotIn("imago:OcrRan", xml)
             self.assertNotIn("imago:PeopleDetected", xml)
@@ -224,15 +224,10 @@ class TestXMPSidecar(unittest.TestCase):
             state = xmp_sidecar.read_ai_sidecar_state(out)
             assert state is not None
             self.assertEqual(state["create_date"], "2026-03-25T12:34:56-07:00")
-            self.assertEqual(state["stitch_key"], "Family_1986_B01_P01")
             self.assertEqual(state["ocr_authority_source"], "archive_stitched")
-            self.assertEqual(state["ocr_ran"], True)
-            self.assertEqual(state["people_detected"], True)
-            self.assertEqual(state["people_identified"], False)
             history = state["processing_history"]
             assert isinstance(history, list)
-            self.assertEqual(len(history), 3)
-            self.assertEqual(history[0]["when"], "2026-03-25T19:35:00Z")
+            self.assertEqual(len(history), 0)
 
     def test_write_xmp_sidecar_round_trips_dc_date(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -400,7 +395,7 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertEqual(state["description"], "EASTERN EUROPE SPAIN AND MOROCCO 1988")
             self.assertEqual(state["ocr_text"], "EASTERN EUROPE SPAIN AND MOROCCO 1988")
 
-    def test_write_xmp_sidecar_migrates_legacy_processing_fields_to_history(self):
+    def test_write_xmp_sidecar_strips_legacy_processing_fields(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "legacy.xmp"
             out.write_text(
@@ -437,7 +432,7 @@ class TestXMPSidecar(unittest.TestCase):
             )
 
             xml = out.read_text(encoding="utf-8")
-            self.assertIn("xmpMM:History", xml)
+            self.assertNotIn("xmpMM:History", xml)
             self.assertNotIn("imago:StitchKey", xml)
             self.assertNotIn("imago:OcrRan", xml)
             self.assertNotIn("imago:PeopleDetected", xml)
@@ -445,10 +440,10 @@ class TestXMPSidecar(unittest.TestCase):
 
             state = xmp_sidecar.read_ai_sidecar_state(out)
             assert state is not None
-            self.assertEqual(state["stitch_key"], "true")
-            self.assertEqual(state["ocr_ran"], True)
-            self.assertEqual(state["people_detected"], False)
-            self.assertEqual(state["people_identified"], False)
+            self.assertEqual(state["stitch_key"], "")
+            self.assertIsNone(state["ocr_ran"])
+            self.assertIsNone(state["people_detected"])
+            self.assertIsNone(state["people_identified"])
 
     def test_write_xmp_sidecar_merges_existing_fields_in_place(self):
         with tempfile.TemporaryDirectory() as tmp:

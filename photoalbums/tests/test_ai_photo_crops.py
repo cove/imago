@@ -47,6 +47,18 @@ class TestResolveRegionCaption(unittest.TestCase):
         result = resolve_region_caption("", "", "")
         self.assertEqual(result, "")
 
+    def test_placeholder_region_name_falls_back_to_prefixed_page_caption(self):
+        result = resolve_region_caption("photo_8", "", "Beach day")
+        self.assertEqual(result, "Page caption: Beach day")
+
+    def test_placeholder_region_name_still_allows_caption_hint(self):
+        result = resolve_region_caption("photo_8", "Pier at sunset", "Beach day")
+        self.assertEqual(result, "Pier at sunset")
+
+    def test_prefixed_page_caption_is_not_double_prefixed(self):
+        result = resolve_region_caption("photo_8", "", "Page caption: Beach day")
+        self.assertEqual(result, "Page caption: Beach day")
+
 
 # ---------------------------------------------------------------------------
 # mwgrs_normalised_to_pixel_rect
@@ -306,6 +318,42 @@ class TestCropPageRegions(_NoOpRestorationMixin, unittest.TestCase):
             self.assertTrue(crop_xmp.exists())
             xml = crop_xmp.read_text(encoding="utf-8")
             self.assertIn("Beach day", xml)
+
+    def test_placeholder_region_name_uses_prefixed_page_caption(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            img_w, img_h = 200, 100
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
+            view_dir.mkdir()
+            photos_dir = Path(tmp) / "Egypt_1975_Photos"
+            view_jpg = view_dir / "Egypt_1975_B00_P01_V.jpg"
+            view_xmp = view_jpg.with_suffix(".xmp")
+            _make_minimal_jpeg(view_jpg, img_w, img_h)
+
+            from photoalbums.lib.xmp_sidecar import read_ai_sidecar_state, write_xmp_sidecar
+
+            write_xmp_sidecar(
+                view_xmp,
+                creator_tool="test",
+                person_names=[],
+                subjects=[],
+                description="Harbor cruise",
+                ocr_text="",
+            )
+            _write_region_xmp(
+                view_xmp,
+                [
+                    {"index": 0, "x": 0, "y": 0, "width": 200, "height": 100, "caption": "photo_1"},
+                ],
+                img_w,
+                img_h,
+            )
+
+            count = crop_page_regions(view_jpg, photos_dir)
+            self.assertEqual(count, 1)
+
+            crop_state = read_ai_sidecar_state(photos_dir / "Egypt_1975_B00_P01_D01-00_V.xmp")
+            assert crop_state is not None
+            self.assertEqual(crop_state["description"], "Page caption: Harbor cruise")
 
     def test_existing_archive_derived_numbers_shift_crop_outputs(self):
         with tempfile.TemporaryDirectory() as tmp:
