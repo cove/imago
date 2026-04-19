@@ -821,7 +821,7 @@ def main() -> None:
 
         for media_path in list_derived_media(archive):
             try:
-                wrote = copy_derived_media(media_path, view)
+                wrote = copy_derived_media(media_path, photos)
                 if wrote:
                     success += 1
                 else:

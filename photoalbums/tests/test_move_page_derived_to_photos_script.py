@@ -37,6 +37,22 @@ def test_iter_move_operations_targets_only_derived_page_outputs(tmp_path: Path) 
     ]
 
 
+def test_iter_move_operations_includes_derived_media_outputs(tmp_path: Path) -> None:
+    pages_dir = tmp_path / "Egypt_1975_B00_Pages"
+    photos_dir = tmp_path / "Egypt_1975_B00_Photos"
+    pages_dir.mkdir()
+    photos_dir.mkdir()
+
+    derived_mp4 = pages_dir / "Egypt_1975_B00_P26_D01-01.mp4"
+    page_mp4 = pages_dir / "Egypt_1975_B00_P26.mp4"
+    derived_mp4.write_bytes(b"media")
+    page_mp4.write_bytes(b"page-media")
+
+    operations = MODULE._iter_move_operations(tmp_path)
+
+    assert operations == [MODULE.MoveOperation(derived_mp4, photos_dir / derived_mp4.name)]
+
+
 def test_execute_move_operations_moves_files_to_photos_dir(tmp_path: Path) -> None:
     pages_dir = tmp_path / "Egypt_1975_B00_Pages"
     pages_dir.mkdir()
