@@ -13,6 +13,8 @@ if str(REPO_ROOT) not in sys.path:
 from photoalbums.common import PHOTO_ALBUMS_DIR
 from photoalbums.naming import DERIVED_VIEW_RE, is_pages_dir, photos_dir_for_album_dir
 
+_DERIVED_MEDIA_SUFFIXES = {".jpg", ".xmp", ".mp4", ".mov", ".avi", ".m4v", ".pdf"}
+
 
 @dataclass(frozen=True)
 class MoveOperation:
@@ -38,9 +40,12 @@ def _iter_move_operations(photos_root: Path, *, album_filter: str = "", page: st
         for path in sorted(pages_dir.iterdir()):
             if not path.is_file():
                 continue
-            if path.suffix.lower() not in {".jpg", ".xmp"}:
+            if path.suffix.lower() not in _DERIVED_MEDIA_SUFFIXES:
                 continue
-            if DERIVED_VIEW_RE.search(path.stem) is None:
+            if path.suffix.lower() in {".jpg", ".xmp"}:
+                if DERIVED_VIEW_RE.search(path.stem) is None:
+                    continue
+            elif "_D" not in path.stem:
                 continue
             if not _matches_filters(path, album_filter=filter_text, page_filter=page_filter.casefold()):
                 continue
@@ -77,7 +82,7 @@ def _execute_move_operations(operations: list[MoveOperation], *, dry_run: bool) 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Move misrouted derived _D##-##_V JPG/XMP files from *_Pages to sibling *_Photos directories."
+        description="Move misrouted derived JPG/XMP/media files from *_Pages to sibling *_Photos directories."
     )
     parser.add_argument(
         "--photos-root",

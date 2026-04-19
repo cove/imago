@@ -356,6 +356,30 @@ class TestStitchOversizedPages(unittest.TestCase):
         self.assertTrue(str(index_mock.call_args.args[0]).endswith("EU_1973_B02_Photos\\EU_1973_B02_P05_D01-02_V.jpg"))
         self.assertTrue(str(refresh_mock.call_args.args[0]).endswith("EU_1973_B02_Photos\\EU_1973_B02_P05_D01-02_V.jpg"))
 
+    def test_main_copies_derived_media_to_photos_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / "EU_1973_B02_Archive"
+            archive.mkdir()
+            media = archive / "EU_1973_B02_P05_D01-02.mp4"
+            media.write_bytes(b"media")
+            copy_calls: list[tuple[str, str]] = []
+
+            with (
+                mock.patch("stitch_oversized_pages.PHOTO_ALBUMS_DIR", Path(tmp)),
+                mock.patch("stitch_oversized_pages.list_archive_dirs", return_value=[str(archive)]),
+                mock.patch("stitch_oversized_pages.list_page_scans", return_value=[]),
+                mock.patch("stitch_oversized_pages.list_derived_images", return_value=[]),
+                mock.patch("stitch_oversized_pages.list_derived_media", return_value=[str(media)]),
+                mock.patch(
+                    "stitch_oversized_pages.copy_derived_media",
+                    side_effect=lambda media_path, output_dir: copy_calls.append((Path(media_path).name, Path(output_dir).name))
+                    or True,
+                ),
+            ):
+                sop.main()
+
+        self.assertEqual(copy_calls, [("EU_1973_B02_P05_D01-02.mp4", "EU_1973_B02_Photos")])
+
     def test_apply_ctm_to_image_changes_pixels_deterministically(self):
         try:
             import numpy as np
