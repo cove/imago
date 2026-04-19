@@ -97,6 +97,64 @@ class TestPhotoalbumsCLI(unittest.TestCase):
             force=True,
         )
 
+    def test_migrate_caption_layout_dispatch(self):
+        fake = mock.Mock()
+        fake.run_migrate_caption_layout.return_value = 0
+
+        with mock.patch("cli._import_commands", return_value=fake):
+            rc = cli.main(["migrate-caption-layout", "--photos-root", "Photo Albums", "--verify-only"])
+
+        self.assertEqual(rc, 0)
+        fake.run_migrate_caption_layout.assert_called_once_with(
+            photos_root="Photo Albums",
+            verify_only=True,
+        )
+
+    def test_repair_crop_source_dispatch(self):
+        fake = mock.Mock()
+        fake.run_repair_crop_source.return_value = 0
+
+        with mock.patch("cli._import_commands", return_value=fake):
+            rc = cli.main(["repair-crop-source", "Portugal_1988_B00", "--photos-root", "Photo Albums", "--page", "23"])
+
+        self.assertEqual(rc, 0)
+        fake.run_repair_crop_source.assert_called_once_with(
+            album_id="Portugal_1988_B00",
+            photos_root="Photo Albums",
+            page="23",
+            verify_only=False,
+        )
+
+    def test_repair_crop_numbers_dispatch(self):
+        fake = mock.Mock()
+        fake.run_repair_crop_numbers.return_value = 0
+
+        with mock.patch("cli._import_commands", return_value=fake):
+            rc = cli.main(["repair-crop-numbers", "Family_1907-1946_B01", "--photos-root", "Photo Albums", "--page", "40"])
+
+        self.assertEqual(rc, 0)
+        fake.run_repair_crop_numbers.assert_called_once_with(
+            album_id="Family_1907-1946_B01",
+            photos_root="Photo Albums",
+            page="40",
+        )
+
+    def test_repair_page_derived_views_dispatch(self):
+        fake = mock.Mock()
+        fake.run_repair_page_derived_views.return_value = 0
+
+        with mock.patch("cli._import_commands", return_value=fake):
+            rc = cli.main(
+                ["repair-page-derived-views", "Family_1907-1946_B01", "--photos-root", "Photo Albums", "--page", "40"]
+            )
+
+        self.assertEqual(rc, 0)
+        fake.run_repair_page_derived_views.assert_called_once_with(
+            album_id="Family_1907-1946_B01",
+            photos_root="Photo Albums",
+            page="40",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

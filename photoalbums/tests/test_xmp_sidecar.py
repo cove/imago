@@ -314,7 +314,9 @@ class TestXMPSidecar(unittest.TestCase):
 
     def test_write_xmp_sidecar_round_trips_text_layers(self):
         with tempfile.TemporaryDirectory() as tmp:
-            out = Path(tmp) / "image.xmp"
+            pages_dir = Path(tmp) / "China_1986_B02_Pages"
+            pages_dir.mkdir()
+            out = pages_dir / "China_1986_B02_P01_V.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 out,
                 creator_tool="imago-test",
@@ -335,11 +337,11 @@ class TestXMPSidecar(unittest.TestCase):
             assert state is not None
             self.assertEqual(state["title"], "Temple of Heaven")
             self.assertEqual(state["title_source"], "author_text")
-            self.assertEqual(state["description"], "Ignored summary")
+            self.assertEqual(state["description"], "OCR:\nTemple of Heaven\nNO SMOKING\n\nScene Text:\nNO SMOKING")
             xml = out.read_text(encoding="utf-8")
-            self.assertIn('xml:lang="x-default">Temple of Heaven\nNO SMOKING</rdf:li>', xml)
-            self.assertIn('xml:lang="x-caption">Ignored summary</rdf:li>', xml)
-            self.assertIn('xml:lang="x-scene">NO SMOKING</rdf:li>', xml)
+            self.assertIn('xml:lang="x-default">OCR:\nTemple of Heaven\nNO SMOKING\n\nScene Text:\nNO SMOKING</rdf:li>', xml)
+            self.assertNotIn('xml:lang="x-caption"', xml)
+            self.assertNotIn('xml:lang="x-scene"', xml)
             self.assertIn("<imago:OCRText>Temple of Heaven", xml)
             self.assertIn("<imago:AuthorText>Temple of Heaven</imago:AuthorText>", xml)
             self.assertIn("<imago:SceneText>NO SMOKING</imago:SceneText>", xml)
@@ -487,8 +489,8 @@ class TestXMPSidecar(unittest.TestCase):
             root = ET.parse(out).getroot()
             xml = ET.tostring(root, encoding="unicode")
             self.assertIn("Preserve this field", xml)
-            self.assertIn('xml:lang="x-default">Dolores Cordell</rdf:li>', xml)
-            self.assertIn('xml:lang="x-caption">Updated description</rdf:li>', xml)
+            self.assertIn('xml:lang="x-default">Updated description</rdf:li>', xml)
+            self.assertNotIn('xml:lang="x-caption"', xml)
             self.assertIn("Updated description", xml)
             self.assertIn("Dolores Cordell", xml)
             self.assertIn("Family Book I", xml)

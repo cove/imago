@@ -330,6 +330,7 @@ class TestStitchOversizedPages(unittest.TestCase):
             archive.mkdir()
             derived = archive / "EU_1973_B02_P05_D01-02.tif"
             derived.write_bytes(b"derived")
+            render_calls: list[tuple[str, str]] = []
 
             with (
                 mock.patch("stitch_oversized_pages.PHOTO_ALBUMS_DIR", Path(tmp)),
@@ -337,16 +338,23 @@ class TestStitchOversizedPages(unittest.TestCase):
                 mock.patch("stitch_oversized_pages.list_page_scans", return_value=[]),
                 mock.patch("stitch_oversized_pages.list_derived_images", return_value=[str(derived)]),
                 mock.patch("stitch_oversized_pages.list_derived_media", return_value=[]),
-                mock.patch("stitch_oversized_pages.derived_to_jpg", return_value=True),
+                mock.patch(
+                    "stitch_oversized_pages.derived_to_jpg",
+                    side_effect=lambda derived_path, output_dir: render_calls.append(
+                        (Path(derived_path).name, Path(output_dir).name)
+                    )
+                    or True,
+                ),
                 mock.patch("stitch_oversized_pages._index_rendered_view_image") as index_mock,
                 mock.patch("stitch_oversized_pages._refresh_rendered_view_people") as refresh_mock,
             ):
                 sop.main()
 
+        self.assertEqual(render_calls, [("EU_1973_B02_P05_D01-02.tif", "EU_1973_B02_Photos")])
         index_mock.assert_called_once()
         refresh_mock.assert_called_once()
-        self.assertTrue(str(index_mock.call_args.args[0]).endswith("EU_1973_B02_P05_D01-02_V.jpg"))
-        self.assertTrue(str(refresh_mock.call_args.args[0]).endswith("EU_1973_B02_P05_D01-02_V.jpg"))
+        self.assertTrue(str(index_mock.call_args.args[0]).endswith("EU_1973_B02_Photos\\EU_1973_B02_P05_D01-02_V.jpg"))
+        self.assertTrue(str(refresh_mock.call_args.args[0]).endswith("EU_1973_B02_Photos\\EU_1973_B02_P05_D01-02_V.jpg"))
 
     def test_apply_ctm_to_image_changes_pixels_deterministically(self):
         try:

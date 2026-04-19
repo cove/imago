@@ -6,7 +6,7 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 from ._caption_text import dedupe as _dedupe
-from ..naming import SCAN_NAME_RE, parse_album_filename
+from ..naming import SCAN_NAME_RE, VIEW_PAGE_RE, is_pages_dir, is_photos_dir, parse_album_filename
 
 X_NS = "adobe:ns:meta/"
 RDF_NS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
@@ -46,6 +46,10 @@ _RDF_ALT = f"{{{RDF_NS}}}Alt"
 _RDF_SEQ = f"{{{RDF_NS}}}Seq"
 _RDF_LI = f"{{{RDF_NS}}}li"
 _RDF_PARSE_TYPE = f"{{{RDF_NS}}}parseType"
+
+DESCRIPTION_ROLE_PLAIN = "plain"
+DESCRIPTION_ROLE_PAGE = "page"
+DESCRIPTION_ROLE_CROP = "crop"
 
 
 def _xmp_datetime_now() -> str:
@@ -465,78 +469,61 @@ def _add_seq_text(parent: ET.Element, tag: str, value: str | list[str] | tuple[s
         item.text = text
 
 
-def _number_lines(text: str) -> str:
-    lines = [line for line in text.split("\n") if line.strip()]
-    if len(lines) <= 1:
-        return text.strip()
-    return "\n".join(f"{i + 1}. {line}" for i, line in enumerate(lines))
-
-
 def _page_description_summary(ocr_text: str, scene_text: str) -> str:
     clean_ocr = ocr_text.strip()
     clean_scene = scene_text.strip()
-    if clean_ocr and clean_scene and clean_scene in clean_ocr:
-        return clean_ocr
-    parts = [part for part in (clean_ocr, clean_scene) if part]
-    return "\n\n".join(parts)
+    if clean_ocr and clean_scene:
+        return f"OCR:\n{clean_ocr}\n\nScene Text:\n{clean_scene}"
+    return clean_ocr or clean_scene
 
 
-def _description_alt_entries(
+def _description_role_for_sidecar_path(sidecar_path: str | Path) -> str:
+    path = Path(sidecar_path)
+    if is_photos_dir(path.parent):
+        return DESCRIPTION_ROLE_CROP
+    if is_pages_dir(path.parent) and VIEW_PAGE_RE.search(path.stem):
+        return DESCRIPTION_ROLE_PAGE
+    return DESCRIPTION_ROLE_PLAIN
+
+
+def _description_default_text(
     *,
+    description_role: str,
     description: str,
     ocr_text: str,
     author_text: str,
     scene_text: str,
-) -> list[tuple[str, str]]:
+) -> str:
     clean_description = _normalize_xmp_text(description, multiline=True)
     clean_ocr = _normalize_xmp_text(ocr_text, multiline=True)
     clean_author = _normalize_xmp_text(author_text, multiline=True)
     clean_scene = _normalize_xmp_text(scene_text, multiline=True)
-    combined_page_text = _page_description_summary(clean_ocr, clean_scene)
-    if combined_page_text:
-        default_text = combined_page_text
-    elif clean_author:
-        default_text = _number_lines(clean_author)
-    else:
-        default_text = clean_description
-    entries: list[tuple[str, str]] = []
-    seen: set[str] = set()
-    for lang, value in (
-        ("x-default", default_text),
-        ("x-caption", clean_description if clean_description != default_text else ""),
-        ("x-author", clean_author if clean_author != default_text else ""),
-        ("x-scene", clean_scene if clean_scene != default_text else ""),
-    ):
-        if not value or value in seen:
-            continue
-        entries.append((lang, value))
-        seen.add(value)
-    return entries
+    if description_role == DESCRIPTION_ROLE_PAGE:
+        return _page_description_summary(clean_ocr, clean_scene) or clean_description
+    if description_role == DESCRIPTION_ROLE_CROP:
+        return clean_description
+    return clean_description or clean_ocr or clean_author or clean_scene
 
 
 def _add_description_with_text_layers(
     parent: ET.Element,
     tag: str,
+    description_role: str,
     description: str,
     ocr_text: str,
     author_text: str,
     scene_text: str,
 ) -> None:
-    """Write dc:description with full visible text in x-default and classified layers preserved."""
-    entries = _description_alt_entries(
+    text = _description_default_text(
+        description_role=description_role,
         description=description,
         ocr_text=ocr_text,
         author_text=author_text,
         scene_text=scene_text,
     )
-    if not entries:
+    if not text:
         return
-    field = ET.SubElement(parent, tag)
-    alt = ET.SubElement(field, _RDF_ALT)
-    for lang, value in entries:
-        item = ET.SubElement(alt, _RDF_LI)
-        item.set("{http://www.w3.org/XML/1998/namespace}lang", lang)
-        item.text = value
+    _add_alt_text(parent, tag, text)
 
 
 def _add_simple_text(parent: ET.Element, tag: str, value: str | int | float) -> None:
@@ -746,9 +733,11 @@ def build_xmp_tree(
     location_sublocation: str = "",
     source_text: str,
     ocr_text: str,
+    parent_ocr_text: str = "",
     ocr_lang: str = "",
     author_text: str = "",
     scene_text: str = "",
+    description_role: str = DESCRIPTION_ROLE_PLAIN,
     detections_payload: dict | None = None,
     subphotos: list[dict] | None = None,
     stitch_key: str = "",
@@ -785,6 +774,7 @@ def build_xmp_tree(
     _add_description_with_text_layers(
         desc,
         f"{{{DC_NS}}}description",
+        description_role,
         description,
         ocr_text,
         author_text,
@@ -846,6 +836,10 @@ def build_xmp_tree(
     if clean_ocr:
         ocr = ET.SubElement(desc, f"{{{IMAGO_NS}}}OCRText")
         ocr.text = clean_ocr
+    clean_parent_ocr = _normalize_xmp_text(parent_ocr_text, multiline=True)
+    if clean_parent_ocr:
+        parent_ocr = ET.SubElement(desc, f"{{{IMAGO_NS}}}ParentOCRText")
+        parent_ocr.text = clean_parent_ocr
     clean_ocr_lang = _normalize_xmp_text(ocr_lang)
     if clean_ocr_lang:
         ocr_lang_el = ET.SubElement(desc, f"{{{IMAGO_NS}}}OCRLang")
@@ -983,32 +977,25 @@ def _set_seq_text(parent: ET.Element, tag: str, value: str | list[str] | tuple[s
 def _set_description_with_text_layers(
     parent: ET.Element,
     tag: str,
+    description_role: str,
     description: str,
     ocr_text: str,
     author_text: str,
     scene_text: str,
 ) -> None:
-    """Set dc:description with full visible text in x-default and classified layers preserved."""
-    entries = _description_alt_entries(
+    text = _description_default_text(
+        description_role=description_role,
         description=description,
         ocr_text=ocr_text,
         author_text=author_text,
         scene_text=scene_text,
     )
     existing = parent.find(tag)
-    if not entries:
+    if not text:
         if existing is not None:
             parent.remove(existing)
         return
-
-    def _builder(field: ET.Element) -> None:
-        alt = ET.SubElement(field, _RDF_ALT)
-        for lang, value in entries:
-            item = ET.SubElement(alt, _RDF_LI)
-            item.set("{http://www.w3.org/XML/1998/namespace}lang", lang)
-            item.text = value
-
-    _replace_field(parent, tag, _builder)
+    _set_alt_text(parent, tag, text)
 
 
 def _set_simple_text(parent: ET.Element, tag: str, value: str | int | float, *, allow_empty: bool = False) -> None:
@@ -1136,13 +1123,15 @@ def _get_bag_values(parent: ET.Element, tag: str) -> list[str]:
     return values
 
 
-def _get_description_value(parent: ET.Element) -> str:
-    return _get_alt_text(parent, f"{{{DC_NS}}}description", prefer_lang="x-caption", fallback_to_any=False) or _get_alt_text(
-        parent,
-        f"{{{DC_NS}}}description",
-        prefer_lang="x-default",
-        fallback_to_any=False,
-    )
+def _get_description_value(parent: ET.Element, *, legacy_caption_first: bool = False) -> str:
+    if legacy_caption_first:
+        legacy_caption = _get_alt_text(parent, f"{{{DC_NS}}}description", prefer_lang="x-caption", fallback_to_any=False)
+        if legacy_caption:
+            return legacy_caption
+    default_text = _get_alt_text(parent, f"{{{DC_NS}}}description", prefer_lang="x-default", fallback_to_any=False)
+    if default_text:
+        return default_text
+    return _get_alt_text(parent, f"{{{DC_NS}}}description", prefer_lang="x-caption", fallback_to_any=False)
 
 
 def _coalesce_text(value: str, existing: str) -> str:
@@ -1456,6 +1445,12 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
             location_country=location_country,
             location_sublocation=location_sublocation,
         )
+    description_role = _description_role_for_sidecar_path(path)
+    legacy_crop_parent_ocr = (
+        str(desc.findtext(f"{{{IMAGO_NS}}}OCRText", default="") or "").strip()
+        if description_role == DESCRIPTION_ROLE_CROP
+        else ""
+    )
     return {
         "creator_tool": str(desc.findtext(f"{{{XMP_NS}}}CreatorTool", default="") or "").strip(),
         "create_date": _normalize_xmp_datetime(str(desc.findtext(f"{{{XMP_NS}}}CreateDate", default="") or "").strip()),
@@ -1465,7 +1460,7 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
             str(desc.findtext(f"{{{EXIF_NS}}}DateTimeOriginal", default="") or "").strip()
         ),
         "title": _get_alt_text(desc, f"{{{DC_NS}}}title", prefer_lang="x-default"),
-        "description": _get_description_value(desc),
+        "description": _get_description_value(desc, legacy_caption_first=description_role == DESCRIPTION_ROLE_CROP),
         "album_title": str(
             desc.findtext(f"{{{XMPDM_NS}}}album", default="")
             or desc.findtext(f"{{{IMAGO_NS}}}AlbumTitle", default="")
@@ -1488,6 +1483,9 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
         "location_sublocation": location_sublocation,
         "location_created": location_created,
         "ocr_text": str(desc.findtext(f"{{{IMAGO_NS}}}OCRText", default="") or "").strip(),
+        "parent_ocr_text": (
+            str(desc.findtext(f"{{{IMAGO_NS}}}ParentOCRText", default="") or "").strip() or legacy_crop_parent_ocr
+        ),
         "ocr_lang": str(desc.findtext(f"{{{IMAGO_NS}}}OCRLang", default="") or "").strip(),
         "author_text": str(desc.findtext(f"{{{IMAGO_NS}}}AuthorText", default="") or "").strip(),
         "scene_text": str(desc.findtext(f"{{{IMAGO_NS}}}SceneText", default="") or "").strip(),
@@ -1614,9 +1612,11 @@ def _merge_xmp_tree(
     location_sublocation: str = "",
     source_text: str,
     ocr_text: str,
+    parent_ocr_text: str = "",
     ocr_lang: str = "",
     author_text: str = "",
     scene_text: str = "",
+    description_role: str = DESCRIPTION_ROLE_PLAIN,
     detections_payload: dict | None = None,
     subphotos: list[dict] | None = None,
     stitch_key: str = "",
@@ -1640,7 +1640,10 @@ def _merge_xmp_tree(
     merged_subjects = _dedupe(_get_bag_values(desc, f"{{{DC_NS}}}subject") + list(subjects or []))
     title = _coalesce_text(title, _get_alt_text(desc, f"{{{DC_NS}}}title", prefer_lang="x-default"))
     title_source = _coalesce_text(title_source, str(desc.findtext(f"{{{IMAGO_NS}}}TitleSource", default="") or ""))
-    description = _coalesce_text(description, _get_description_value(desc))
+    description = _coalesce_text(
+        description,
+        _get_description_value(desc, legacy_caption_first=description_role == DESCRIPTION_ROLE_CROP),
+    )
     existing_dc_dates = _normalize_dc_dates(_get_seq_values(desc, f"{{{DC_NS}}}date"))
     normalized_dc_dates = _dedupe(existing_dc_dates + _normalize_dc_dates(dc_date)) or existing_dc_dates
     create_date = _coalesce_text(
@@ -1689,7 +1692,14 @@ def _merge_xmp_tree(
         location_sublocation=location_sublocation,
     ) or str(desc.findtext(f"{{{IPTC_EXT_NS}}}LocationCreated", default="") or "").strip()
     source_text = _coalesce_text(source_text, str(desc.findtext(f"{{{DC_NS}}}source", default="") or ""))
-    ocr_text = _coalesce_text(ocr_text, str(desc.findtext(f"{{{IMAGO_NS}}}OCRText", default="") or ""))
+    existing_ocr_text = str(desc.findtext(f"{{{IMAGO_NS}}}OCRText", default="") or "")
+    existing_parent_ocr_text = str(desc.findtext(f"{{{IMAGO_NS}}}ParentOCRText", default="") or "")
+    if description_role == DESCRIPTION_ROLE_CROP:
+        parent_ocr_text = _coalesce_text(parent_ocr_text, existing_parent_ocr_text or existing_ocr_text)
+        ocr_text = _coalesce_text(ocr_text, existing_ocr_text if existing_parent_ocr_text else "")
+    else:
+        ocr_text = _coalesce_text(ocr_text, existing_ocr_text)
+        parent_ocr_text = _coalesce_text(parent_ocr_text, existing_parent_ocr_text)
     ocr_lang = _coalesce_text(ocr_lang, str(desc.findtext(f"{{{IMAGO_NS}}}OCRLang", default="") or ""))
     author_text = _coalesce_text(author_text, str(desc.findtext(f"{{{IMAGO_NS}}}AuthorText", default="") or ""))
     scene_text = _coalesce_text(scene_text, str(desc.findtext(f"{{{IMAGO_NS}}}SceneText", default="") or ""))
@@ -1714,6 +1724,7 @@ def _merge_xmp_tree(
     _set_description_with_text_layers(
         desc,
         f"{{{DC_NS}}}description",
+        description_role,
         description,
         ocr_text,
         author_text,
@@ -1743,6 +1754,7 @@ def _merge_xmp_tree(
     )
     clean_ocr = str(ocr_text or "").strip()
     _set_simple_text(desc, f"{{{IMAGO_NS}}}OCRText", clean_ocr)
+    _set_simple_text(desc, f"{{{IMAGO_NS}}}ParentOCRText", str(parent_ocr_text or "").strip())
     _set_simple_text(desc, f"{{{IMAGO_NS}}}OCRLang", str(ocr_lang or "").strip())
     _set_simple_text(desc, f"{{{IMAGO_NS}}}AuthorText", str(author_text or "").strip())
     _set_simple_text(desc, f"{{{IMAGO_NS}}}SceneText", str(scene_text or "").strip())
@@ -1803,6 +1815,7 @@ def write_xmp_sidecar(
     title_source: str = "",
     description: str,
     ocr_text: str,
+    parent_ocr_text: str = "",
     ocr_lang: str = "",
     author_text: str = "",
     scene_text: str = "",
@@ -1831,6 +1844,7 @@ def write_xmp_sidecar(
 ) -> Path:
     path = Path(sidecar_path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    description_role = _description_role_for_sidecar_path(path)
     _, _, _, _page_str = parse_album_filename(path.stem)
     page_number = int(_page_str) if _page_str.isdigit() else 0
     _scan_m = SCAN_NAME_RE.search(path.name)
@@ -1846,6 +1860,7 @@ def write_xmp_sidecar(
             creator_tool=creator_tool,
             person_names=person_names,
             subjects=subjects,
+            description_role=description_role,
             title=title,
             title_source=title_source,
             description=description,
@@ -1858,6 +1873,7 @@ def write_xmp_sidecar(
             location_sublocation=location_sublocation,
             source_text=source_text,
             ocr_text=ocr_text,
+            parent_ocr_text=parent_ocr_text,
             ocr_lang=ocr_lang,
             author_text=author_text,
             scene_text=scene_text,
@@ -1884,6 +1900,7 @@ def write_xmp_sidecar(
             creator_tool=creator_tool,
             person_names=person_names,
             subjects=subjects,
+            description_role=description_role,
             title=title,
             title_source=title_source,
             description=description,
@@ -1896,6 +1913,7 @@ def write_xmp_sidecar(
             location_sublocation=location_sublocation,
             source_text=source_text,
             ocr_text=ocr_text,
+            parent_ocr_text=parent_ocr_text,
             ocr_lang=ocr_lang,
             author_text=author_text,
             scene_text=scene_text,

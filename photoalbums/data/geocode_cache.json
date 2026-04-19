@@ -13173,6 +13173,18 @@
     "query": "New Maidens Nunnery, Russia",
     "status": "miss"
   },
+  "new mexico": {
+    "city": "",
+    "country": "United States",
+    "display_name": "New Mexico, United States",
+    "latitude": "34.5802074",
+    "longitude": "-105.9960470",
+    "query": "New Mexico",
+    "source": "nominatim",
+    "state": "New Mexico",
+    "status": "ok",
+    "sublocation": ""
+  },
   "new town hall in munich, germany": {
     "query": "New Town Hall in Munich, Germany",
     "status": "miss"

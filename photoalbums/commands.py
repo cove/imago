@@ -672,10 +672,10 @@ def run_render_pipeline(
                         stitch(group, str(view_dir))
                     else:
                         tif_to_jpg(str(primary_scan), str(view_dir))
-                    # Also render derived images for this page
+                    # Render archive-derived images to _Photos; they are not page views.
                     for derived in list_derived_images(archive):
                         if current_page_token in Path(derived).name:
-                            derived_to_jpg(derived, str(view_dir))
+                            derived_to_jpg(derived, str(photos_dir))
                 except Exception as exc:
                     print(f"  ERROR [render]: {exc}", file=sys.stderr)
                     failures.append((page_label, "render", str(exc)))
@@ -914,6 +914,126 @@ def run_migrate_page_dir_refs(*, photos_root: str, verify_only: bool = False) ->
         json.dumps(
             {
                 "photos_root": str(root),
+                **result,
+            },
+            ensure_ascii=False,
+        )
+    )
+    return 0
+
+
+def run_migrate_caption_layout(*, photos_root: str, verify_only: bool = False) -> int:
+    from .lib.caption_layout_migration import (
+        find_sidecars_with_legacy_caption_layout,
+        migrate_album_caption_layout,
+    )
+
+    root = Path(photos_root)
+    if verify_only:
+        matches = find_sidecars_with_legacy_caption_layout(root)
+        if matches:
+            print(f"Found {len(matches)} sidecar(s) still using the legacy caption layout under {root}", file=sys.stderr)
+            for path in matches[:20]:
+                print(f"  {path}", file=sys.stderr)
+            if len(matches) > 20:
+                print(f"  ... {len(matches) - 20} more", file=sys.stderr)
+            return 1
+        print(f"No .xmp files under {root} use the legacy caption layout")
+        return 0
+
+    result = migrate_album_caption_layout(root)
+    print(
+        json.dumps(
+            {
+                "photos_root": str(root),
+                **result,
+            },
+            ensure_ascii=False,
+        )
+    )
+    return 0
+
+
+def run_repair_crop_source(
+    *,
+    album_id: str,
+    photos_root: str,
+    page: str | None,
+    verify_only: bool = False,
+) -> int:
+    from .lib.crop_source_repair import (
+        find_crop_sidecars_needing_source_repair,
+        repair_album_crop_sources,
+    )
+
+    root = Path(photos_root)
+    if verify_only:
+        matches = find_crop_sidecars_needing_source_repair(root, album_id=album_id, page=page)
+        if matches:
+            print(f"Found {len(matches)} crop sidecar(s) needing dc:source/AlbumTitle repair under {root}", file=sys.stderr)
+            for path in matches[:20]:
+                print(f"  {path}", file=sys.stderr)
+            if len(matches) > 20:
+                print(f"  ... {len(matches) - 20} more", file=sys.stderr)
+            return 1
+        print(f"No crop sidecars under {root} need dc:source/AlbumTitle repair")
+        return 0
+
+    result = repair_album_crop_sources(root, album_id=album_id, page=page)
+    print(
+        json.dumps(
+            {
+                "photos_root": str(root),
+                "album_id": album_id,
+                "page": str(page or ""),
+                **result,
+            },
+            ensure_ascii=False,
+        )
+    )
+    return 0
+
+
+def run_repair_crop_numbers(
+    *,
+    album_id: str,
+    photos_root: str,
+    page: str | None,
+) -> int:
+    from .lib.crop_number_repair import repair_album_crop_numbers
+
+    root = Path(photos_root)
+    result = repair_album_crop_numbers(root, album_id=album_id, page=page)
+    print(
+        json.dumps(
+            {
+                "photos_root": str(root),
+                "album_id": album_id,
+                "page": str(page or ""),
+                **result,
+            },
+            ensure_ascii=False,
+        )
+    )
+    return 0
+
+
+def run_repair_page_derived_views(
+    *,
+    album_id: str,
+    photos_root: str,
+    page: str | None,
+) -> int:
+    from .lib.page_derived_repair import repair_page_derived_views
+
+    root = Path(photos_root)
+    result = repair_page_derived_views(root, album_id=album_id, page=page)
+    print(
+        json.dumps(
+            {
+                "photos_root": str(root),
+                "album_id": album_id,
+                "page": str(page or ""),
                 **result,
             },
             ensure_ascii=False,

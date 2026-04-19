@@ -75,6 +75,13 @@ def _dc_source_scan_names(source_text: str) -> list[str]:
     return _dedupe(names)
 
 
+def _album_title_from_source_text(source_text: str) -> str:
+    text = str(source_text or "").strip()
+    if not text or " Page " not in text:
+        return ""
+    return text.split(" Page ", 1)[0].strip()
+
+
 def _is_derived_image_path(image_path: Path) -> bool:
     return _derived_name_match(image_path) is not None or DERIVED_VIEW_RE.search(Path(image_path).stem) is not None
 
@@ -122,6 +129,10 @@ def _resolve_derived_source_sidecar_state(
 
 
 def _resolve_derived_source_ocr_text(image_path: Path, sidecar_state: dict[str, Any] | None) -> str:
+    if isinstance(sidecar_state, dict):
+        parent_ocr_text = str(sidecar_state.get("parent_ocr_text") or "").strip()
+        if parent_ocr_text:
+            return parent_ocr_text
     source_state = _resolve_derived_source_sidecar_state(image_path, sidecar_state)
     if not isinstance(source_state, dict):
         return ""
@@ -151,6 +162,24 @@ def _sidecar_location_payload(sidecar_state: dict[str, Any] | None) -> dict[str,
     ):
         location["sublocation"] = str(sidecar_state.get("location_sublocation") or "").strip()
     return location
+
+
+def _effective_sidecar_album_title(image_path: Path, sidecar_state: dict[str, Any] | None) -> str:
+    if not isinstance(sidecar_state, dict):
+        return ""
+    album_title = str(sidecar_state.get("album_title") or "").strip()
+    if album_title:
+        return album_title
+    if _is_derived_image_path(image_path):
+        source_state = _resolve_derived_source_sidecar_state(image_path, sidecar_state)
+        if isinstance(source_state, dict):
+            source_album_title = str(source_state.get("album_title") or "").strip()
+            if source_album_title:
+                return source_album_title
+            source_text_title = _album_title_from_source_text(str(source_state.get("source_text") or ""))
+            if source_text_title:
+                return source_text_title
+    return _album_title_from_source_text(str(sidecar_state.get("source_text") or ""))
 
 
 def _effective_sidecar_location_payload(image_path: Path, sidecar_state: dict[str, Any] | None) -> dict[str, Any]:

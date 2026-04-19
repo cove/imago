@@ -700,7 +700,7 @@ def tif_to_jpg(tif_path: str, output_dir: str) -> bool:
     return True
 
 
-def derived_to_jpg(src_path: str, output_dir: str) -> bool:
+def derived_to_jpg(src_path: str, output_dir: str, *, force: bool = False) -> bool:
     _require_image_modules()
     os.makedirs(output_dir, exist_ok=True)
 
@@ -716,7 +716,7 @@ def derived_to_jpg(src_path: str, output_dir: str) -> bool:
         label = f"{collection} B{book} P{int(page):02d} D{d1}_{d2}"
     else:
         label = out_name
-    if _skip_existing_output(out, label):
+    if not force and _skip_existing_output(out, label):
         return False
 
     if not _validate_and_retry(src_path):
@@ -781,6 +781,7 @@ def main() -> None:
 
     for archive in archive_dirs:
         view = get_view_dirname(archive)
+        photos = get_photos_dirname(archive)
 
         for group in list_page_scans(archive):
             try:
@@ -804,8 +805,8 @@ def main() -> None:
 
         for derived in list_derived_images(archive):
             try:
-                wrote = derived_to_jpg(derived, view)
-                derived_view_path = _derived_view_output_path(derived, view)
+                wrote = derived_to_jpg(derived, photos)
+                derived_view_path = _derived_view_output_path(derived, photos)
                 if wrote or not derived_view_path.with_suffix(".xmp").is_file():
                     _index_rendered_view_image(derived_view_path)
                     _refresh_rendered_view_people(derived_view_path)

@@ -16,6 +16,9 @@ import os
 import re
 from pathlib import Path
 
+from ..naming import DERIVED_NAME_RE as ALBUM_DERIVED_NAME_RE
+from ..naming import archive_dir_for_album_dir, is_pages_dir
+
 log = logging.getLogger(__name__)
 
 
@@ -113,21 +116,64 @@ def mwgrs_normalised_to_pixel_rect(
 _DERIVED_NAME_RE = re.compile(r"_D\d{2}-\d{2}_V\b")
 
 
-def crop_output_path(view_path: str | Path, region_index: int, photos_dir: str | Path) -> Path:
-    """Build the _D{index:02d}-00_V.jpg path under photos_dir.
+def crop_page_prefix(view_path: str | Path) -> str:
+    stem = Path(view_path).stem  # e.g. Egypt_1975_B00_P26_V
+    return stem[:-2] if stem.endswith("_V") else stem
+
+
+def highest_archive_derived_number(view_path: str | Path) -> int:
+    """Return the highest D## already assigned in the sibling _Archive directory for this page."""
+    view_path = Path(view_path)
+    if not is_pages_dir(view_path.parent):
+        return 0
+    archive_dir = archive_dir_for_album_dir(view_path.parent)
+    if not archive_dir.is_dir():
+        return 0
+
+    page_prefix = crop_page_prefix(view_path)
+    highest = 0
+    for candidate in archive_dir.iterdir():
+        if not candidate.is_file() or candidate.suffix.lower() == ".xmp":
+            continue
+        stem = candidate.stem
+        if not stem.startswith(f"{page_prefix}_D"):
+            continue
+        match = ALBUM_DERIVED_NAME_RE.search(stem)
+        if match is None:
+            continue
+        highest = max(highest, int(match.group("derived")))
+    return highest
+
+
+def _crop_output_stem(view_path: str | Path, derived_number: int) -> str:
+    return f"{crop_page_prefix(view_path)}_D{derived_number:02d}-00_V"
+
+
+def crop_output_path(
+    view_path: str | Path,
+    region_index: int,
+    photos_dir: str | Path,
+    *,
+    archive_max_derived: int | None = None,
+) -> Path:
+    """Build the canonical _D{index:02d}-00_V.jpg path under photos_dir.
 
     region_index is 1-based (matching MWG-RS photo_1, photo_2, ...).
-    Example: Egypt_1975_B00_P26_V.jpg + index 2 -> Egypt_1975_B00_P26_D02-00_V.jpg
+    Crop numbering starts after the highest archive-derived number already used
+    for the same page in the sibling _Archive directory.
     """
-    stem = Path(view_path).stem  # e.g. Egypt_1975_B00_P26_V
-    # Strip trailing _V marker to get the page prefix
-    page_prefix = stem[:-2] if stem.endswith("_V") else stem
-    filename = f"{page_prefix}_D{region_index:02d}-00_V.jpg"
+    if archive_max_derived is None:
+        archive_max_derived = highest_archive_derived_number(view_path)
+    filename = f"{_crop_output_stem(view_path, archive_max_derived + region_index)}.jpg"
     return Path(photos_dir) / filename
 
 
 def _expected_crop_output_paths(view_path: str | Path, photos_dir: str | Path, region_count: int) -> list[Path]:
-    return [crop_output_path(view_path, index, photos_dir) for index in range(1, region_count + 1)]
+    archive_max_derived = highest_archive_derived_number(view_path)
+    return [
+        crop_output_path(view_path, index, photos_dir, archive_max_derived=archive_max_derived)
+        for index in range(1, region_count + 1)
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -160,6 +206,32 @@ def _read_subjects_from_xmp(sidecar_path: Path) -> list[str]:
     return subjects
 
 
+def _verify_crop_sidecar_metadata(
+    crop_xmp: Path,
+    *,
+    expected_album_title: str,
+    expected_source_text: str,
+) -> None:
+    from .xmp_sidecar import read_ai_sidecar_state
+
+    state = read_ai_sidecar_state(crop_xmp)
+    if not isinstance(state, dict):
+        raise RuntimeError(f"Crop sidecar verification failed due to unreadable XMP: {crop_xmp}")
+    actual_source_text = str(state.get("source_text") or "").strip()
+    if actual_source_text != expected_source_text:
+        raise RuntimeError(
+            f"Crop sidecar dc:source verification failed for {crop_xmp}: "
+            f"expected {expected_source_text!r}, got {actual_source_text!r}"
+        )
+    if expected_album_title:
+        actual_album_title = str(state.get("album_title") or "").strip()
+        if actual_album_title != expected_album_title:
+            raise RuntimeError(
+                f"Crop sidecar imago:AlbumTitle verification failed for {crop_xmp}: "
+                f"expected {expected_album_title!r}, got {actual_album_title!r}"
+            )
+
+
 def _write_crop_sidecar(
     crop_path: Path,
     view_path: Path,
@@ -175,6 +247,7 @@ def _write_crop_sidecar(
     PersonInImage. Preserves unrelated existing sidecar fields.
     """
     from .xmpmm_provenance import assign_document_id, write_derived_from, write_pantry_entry
+    from .ai_index_scan import _build_dc_source, _page_scan_filenames
     from .xmp_sidecar import write_xmp_sidecar
 
     crop_xmp = crop_path.with_suffix(".xmp")
@@ -206,18 +279,28 @@ def _write_crop_sidecar(
             subjects.append(s)
 
     page_description = str(view_state.get("description") or "").strip()
-    ocr_text = str(view_state.get("ocr_text") or "").strip()
+    parent_ocr_text = str(view_state.get("parent_ocr_text") or view_state.get("ocr_text") or "").strip()
     if not caption:
-        caption = page_description or ocr_text
+        caption = page_description
+    from .ai_sidecar_state import _dc_source_scan_names, _effective_sidecar_album_title, _sidecar_location_payload
+    from .ai_render_settings import find_archive_dir_for_image
+    from .xmp_sidecar import read_ai_sidecar_state
+
+    crop_album_title = _effective_sidecar_album_title(view_path, view_state)
     archive_source_text = str(view_state.get("source_text") or "").strip()
+    archive_scan_names = _page_scan_filenames(view_path) or _dc_source_scan_names(archive_source_text)
+    if not crop_album_title and archive_scan_names:
+        archive_dir = find_archive_dir_for_image(view_path)
+        if archive_dir is not None and archive_dir.is_dir():
+            archive_state = read_ai_sidecar_state((archive_dir / archive_scan_names[0]).with_suffix(".xmp"))
+            if isinstance(archive_state, dict):
+                crop_album_title = _effective_sidecar_album_title(view_path, archive_state)
+    if archive_scan_names:
+        archive_source_text = _build_dc_source(crop_album_title, view_path, archive_scan_names)
 
     # Compute effective location: page view state first, then archive scan fallback.
     # Crops are created before the page view refresh may have written GPS/location,
     # so we walk up to the archive scan if the page view has no GPS.
-    from .ai_sidecar_state import _sidecar_location_payload, _dc_source_scan_names
-    from .ai_render_settings import find_archive_dir_for_image
-    from .xmp_sidecar import read_ai_sidecar_state
-
     effective_loc = _sidecar_location_payload(view_state)
     if not str(effective_loc.get("gps_latitude") or "").strip():
         archive_dir = find_archive_dir_for_image(view_path)
@@ -236,6 +319,7 @@ def _write_crop_sidecar(
         person_names=list(person_names),
         subjects=subjects,
         description=caption,
+        album_title=crop_album_title,
         source_text=archive_source_text,
         gps_latitude=str(effective_loc.get("gps_latitude") or "").strip(),
         gps_longitude=str(effective_loc.get("gps_longitude") or "").strip(),
@@ -246,7 +330,13 @@ def _write_crop_sidecar(
         create_date=str(view_state.get("create_date") or "").strip(),
         dc_date=list(view_state.get("dc_date_values") or []),
         locations_shown=locations_shown,
-        ocr_text=ocr_text,
+        parent_ocr_text=parent_ocr_text,
+        ocr_text="",
+    )
+    _verify_crop_sidecar_metadata(
+        crop_xmp,
+        expected_album_title=crop_album_title,
+        expected_source_text=archive_source_text,
     )
 
 
@@ -345,12 +435,18 @@ def crop_page_regions(
 
     crops_written = 0
     failed = False
+    archive_max_derived = highest_archive_derived_number(view_path)
 
     try:
         with Image.open(view_path) as page_img:
             for region in regions:
                 region_index = region["index"] + 1  # 1-based
-                output_path = crop_output_path(view_path, region_index, photos_dir)
+                output_path = crop_output_path(
+                    view_path,
+                    region_index,
+                    photos_dir,
+                    archive_max_derived=archive_max_derived,
+                )
 
                 if output_path.exists() and not force and not force_restoration:
                     continue
@@ -437,20 +533,19 @@ def _remove_orphaned_crops(view_path: Path, photos_dir: Path, current_region_cou
     """Remove _D##-00_V.jpg crops (and sidecars) not produced by the current region set."""
     if not photos_dir.is_dir():
         return
-    stem = view_path.stem  # e.g. Egypt_1975_B00_P26_V
-    page_prefix = stem[:-2] if stem.endswith("_V") else stem
+    page_prefix = crop_page_prefix(view_path)
+    archive_max_derived = highest_archive_derived_number(view_path)
 
     # Build the set of paths that the current run will produce
-    expected_stems = {f"{page_prefix}_D{i:02d}-00_V" for i in range(1, current_region_count + 1)}
+    expected_stems = {
+        _crop_output_stem(view_path, archive_max_derived + index) for index in range(1, current_region_count + 1)
+    }
 
-    orphan_pattern = re.compile(rf"^{re.escape(page_prefix)}_D(\d{{2}})-00_V$")
+    orphan_pattern = re.compile(rf"^{re.escape(page_prefix)}_D(\d+)-00_V$")
     for f in list(photos_dir.iterdir()):
         if f.suffix.lower() not in {".jpg", ".jpeg", ".xmp"}:
             continue
         candidate_stem = f.stem
-        if f.suffix.lower() in {".xmp"}:
-            # strip .xmp to get stem
-            candidate_stem = Path(f.stem).stem if f.stem.endswith("_V") else f.stem
         if orphan_pattern.match(candidate_stem) and candidate_stem not in expected_stems:
             f.unlink(missing_ok=True)
             log.debug("Removed orphaned crop file: %s", f.name)
