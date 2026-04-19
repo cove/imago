@@ -152,7 +152,18 @@ def _write_region_xmp(xmp_path: Path, regions: list[dict], img_w: int, img_h: in
     write_region_list(xmp_path, rwcs, img_w, img_h)
 
 
-class TestCropPageRegions(unittest.TestCase):
+class _NoOpRestorationMixin:
+    def setUp(self):
+        super().setUp()
+        self._restore_patch = mock.patch("photoalbums.lib.photo_restoration.restore_photo", side_effect=lambda image: image)
+        self._restore_patch.start()
+
+    def tearDown(self):
+        self._restore_patch.stop()
+        super().tearDown()
+
+
+class TestCropPageRegions(_NoOpRestorationMixin, unittest.TestCase):
     def test_derived_view_input_is_skipped(self):
         with tempfile.TemporaryDirectory() as tmp:
             img_w, img_h = 200, 100
@@ -721,7 +732,7 @@ class TestWriteCropSidecar(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 
-class TestCropPageRegionsPipelineState(unittest.TestCase):
+class TestCropPageRegionsPipelineState(_NoOpRestorationMixin, unittest.TestCase):
     def test_second_call_without_force_skips(self):
         with tempfile.TemporaryDirectory() as tmp:
             img_w, img_h = 200, 100
@@ -861,7 +872,7 @@ if __name__ == "__main__":
 # ---------------------------------------------------------------------------
 
 
-class TestIntegrationCropPipeline(unittest.TestCase):
+class TestIntegrationCropPipeline(_NoOpRestorationMixin, unittest.TestCase):
     """Integration tests for the full crop-regions pipeline step."""
 
     def _setup_album(self, tmp: str, img_w: int = 200, img_h: int = 100, page: int = 1) -> tuple:
@@ -1093,6 +1104,46 @@ class TestIntegrationCropPipeline(unittest.TestCase):
             self.assertEqual(exit_code, 0)
             detect_mock.assert_called_once()
             self.assertTrue((photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg").exists())
+
+    def test_run_crop_regions_passes_skip_restoration(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            img_w, img_h = 200, 100
+            _, _, _, view_xmp = self._setup_album(tmp, img_w, img_h, page=26)
+
+            from photoalbums.commands import run_crop_regions
+            from photoalbums.lib.ai_view_regions import RegionResult
+            from photoalbums.lib.xmp_sidecar import write_xmp_sidecar
+
+            write_xmp_sidecar(
+                view_xmp,
+                creator_tool="test",
+                person_names=[],
+                subjects=[],
+                description="Egypt trip 1975",
+                ocr_text="",
+            )
+
+            with (
+                mock.patch(
+                    "photoalbums.lib.ai_view_regions.detect_regions",
+                    return_value=[RegionResult(index=0, x=0, y=0, width=200, height=100, caption_hint="Pyramid")],
+                ),
+                mock.patch("photoalbums.lib.ai_photo_crops.crop_page_regions", return_value=1) as crop_mock,
+                mock.patch("photoalbums.lib.ai_model_settings.default_view_region_model", return_value="test-model"),
+                mock.patch("photoalbums.lib.album_sets.find_archive_set_by_photos_root", return_value=""),
+                mock.patch("photoalbums.lib.album_sets.read_people_roster", return_value={}),
+            ):
+                exit_code = run_crop_regions(
+                    album_id="Egypt_1975",
+                    photos_root=str(Path(tmp)),
+                    page=None,
+                    force=False,
+                    skip_restoration=True,
+                )
+
+            self.assertEqual(exit_code, 0)
+            crop_mock.assert_called_once()
+            self.assertTrue(crop_mock.call_args.kwargs["skip_restoration"])
 
     def test_run_crop_regions_skips_title_page_p01(self):
         with tempfile.TemporaryDirectory() as tmp:
