@@ -1,4 +1,4 @@
-"""Crop detected photo regions from CTM-corrected page view JPEGs.
+"""Crop detected photo regions from page view JPEGs.
 
 Reads MWG-RS mwg-rs:RegionList from a page view sidecar, converts normalised
 centre-point coordinates to pixel rectangles, crops each region from the page
@@ -15,6 +15,7 @@ import logging
 import os
 import re
 from pathlib import Path
+from typing import Any
 
 from ..naming import DERIVED_NAME_RE as ALBUM_DERIVED_NAME_RE
 from ..naming import archive_dir_for_album_dir, is_pages_dir
@@ -61,6 +62,98 @@ def resolve_region_caption(
             return f"Page caption: {page_text}"
         return page_text
     return ""
+
+
+def _format_numbered_caption(caption: str, index: int) -> str:
+    text = str(caption or "").strip()
+    if not text:
+        return ""
+    if text[-1:] not in {".", "!", "?"}:
+        text = f"{text}."
+    return f"{index}. {text}"
+
+
+def _resolve_page_description_from_regions(regions: list[dict], fallback_description: str) -> str:
+    unique_captions: list[str] = []
+    seen: set[str] = set()
+    for region in regions:
+        if not isinstance(region, dict):
+            continue
+        caption = str(region.get("caption_hint") or region.get("caption") or "").strip()
+        if not caption:
+            continue
+        if re.fullmatch(r"photo_\d+", caption, flags=re.IGNORECASE):
+            continue
+        folded = caption.casefold()
+        if folded in seen:
+            continue
+        seen.add(folded)
+        unique_captions.append(caption)
+    if len(unique_captions) >= 2:
+        return " ".join(_format_numbered_caption(caption, index) for index, caption in enumerate(unique_captions, start=1))
+    if len(unique_captions) == 1:
+        return unique_captions[0]
+    return str(fallback_description or "").strip()
+
+
+def _normalize_region_location_payload(payload: dict[str, Any] | None) -> dict[str, str]:
+    if not isinstance(payload, dict):
+        return {}
+    normalized = {
+        key: str(payload.get(key) or "").strip()
+        for key in ("address", "city", "state", "country", "sublocation", "gps_latitude", "gps_longitude")
+    }
+    return {key: value for key, value in normalized.items() if value}
+
+
+def _materialize_region_location_payload(
+    payload: dict[str, Any] | None,
+    *,
+    geocoder,
+) -> dict[str, Any]:
+    normalized = _normalize_region_location_payload(payload)
+    if not normalized:
+        return {}
+    address = str(normalized.get("address") or "").strip()
+    has_gps = bool(normalized.get("gps_latitude") and normalized.get("gps_longitude"))
+    if not has_gps and address and geocoder is not None:
+        from .ai_location import _resolve_location_payload  # pylint: disable=import-outside-toplevel
+
+        geocoded = _resolve_location_payload(
+            geocoder=geocoder,
+            gps_latitude="",
+            gps_longitude="",
+            location_name=address,
+        )
+        if geocoded:
+            merged = dict(geocoded)
+            for key in ("city", "state", "country", "sublocation"):
+                if normalized.get(key):
+                    merged[key] = normalized[key]
+            return merged
+    return normalized
+
+
+def _update_page_description(
+    view_xmp: Path,
+    view_state: dict[str, Any],
+    *,
+    description: str,
+    locations_shown: list[dict],
+) -> None:
+    del view_state, locations_shown
+    import xml.etree.ElementTree as ET
+
+    from .xmp_sidecar import DC_NS, _get_or_create_rdf_desc, _set_alt_text
+
+    tree = ET.parse(view_xmp)
+    desc = _get_or_create_rdf_desc(tree)
+    existing = desc.find(f"{{{DC_NS}}}description")
+    if existing is not None:
+        desc.remove(existing)
+    _set_alt_text(desc, f"{{{DC_NS}}}description", description)
+    ET.indent(tree, space="  ")
+    tree.write(str(view_xmp), encoding="utf-8", xml_declaration=True)
 
 
 # ---------------------------------------------------------------------------
@@ -248,6 +341,8 @@ def _write_crop_sidecar(
     view_state: dict,
     locations_shown: list[dict],
     person_names: list[str],
+    region_location_payload: dict[str, Any] | None = None,
+    geocoder=None,
 ) -> None:
     """Write or update the XMP sidecar for a crop JPEG.
 
@@ -310,8 +405,10 @@ def _write_crop_sidecar(
     # Compute effective location: page view state first, then archive scan fallback.
     # Crops are created before the page view refresh may have written GPS/location,
     # so we walk up to the archive scan if the page view has no GPS.
-    effective_loc = _sidecar_location_payload(view_state)
-    if not str(effective_loc.get("gps_latitude") or "").strip():
+    effective_loc = _materialize_region_location_payload(region_location_payload, geocoder=geocoder)
+    if not effective_loc:
+        effective_loc = _sidecar_location_payload(view_state)
+    if not effective_loc or not str(effective_loc.get("gps_latitude") or "").strip():
         archive_dir = find_archive_dir_for_image(view_path)
         if archive_dir is not None and archive_dir.is_dir():
             for scan_name in _dc_source_scan_names(archive_source_text)[:1]:
@@ -439,12 +536,35 @@ def crop_page_regions(
     view_state: dict = read_ai_sidecar_state(view_xmp) or {}
     locations_shown: list[dict] = read_locations_shown(view_xmp)
     page_description = str(view_state.get("description") or "").strip()
+    resolved_page_description = _resolve_page_description_from_regions(regions, page_description)
+    if resolved_page_description != page_description:
+        _update_page_description(
+            view_xmp,
+            view_state,
+            description=resolved_page_description,
+            locations_shown=locations_shown,
+        )
+        view_state = dict(view_state)
+        view_state["description"] = resolved_page_description
+        page_description = resolved_page_description
 
     photos_dir.mkdir(parents=True, exist_ok=True)
 
     crops_written = 0
     failed = False
     archive_max_derived = highest_archive_derived_number(view_path)
+    geocoder = None
+    if any(
+        _normalize_region_location_payload(dict(region.get("location_override") or {}) or dict(region.get("location_payload") or {})).get("address")
+        and not _normalize_region_location_payload(
+            dict(region.get("location_override") or {}) or dict(region.get("location_payload") or {})
+        ).get("gps_latitude")
+        for region in regions
+        if isinstance(region, dict)
+    ):
+        from .ai_geocode import NominatimGeocoder
+
+        geocoder = NominatimGeocoder()
 
     try:
         with Image.open(view_path) as page_img:
@@ -464,6 +584,9 @@ def crop_page_regions(
                     region.get("caption") or "",
                     region.get("caption_hint") or "",
                     page_description,
+                )
+                region_location_payload = dict(region.get("location_override") or {}) or dict(
+                    region.get("location_payload") or {}
                 )
                 person_names = list(region.get("person_names") or [])
 
@@ -517,6 +640,8 @@ def crop_page_regions(
                         view_state,
                         locations_shown,
                         person_names,
+                        region_location_payload=region_location_payload,
+                        geocoder=geocoder,
                     )
                     write_pipeline_step(
                         output_path.with_suffix(".xmp"),

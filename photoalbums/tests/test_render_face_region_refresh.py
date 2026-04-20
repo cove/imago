@@ -487,7 +487,7 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             self.assertTrue(ran)
             state = xmp_sidecar.read_ai_sidecar_state(sidecar)
             assert state is not None
-            self.assertEqual(state["description"], "OCR:\nEGYPT 1975\n\nScene Text:\nTour bus nearby")
+            self.assertEqual(state["description"], "Caption:\nEGYPT 1975\n\nScene Text:\nTour bus nearby")
             self.assertEqual(state["source_text"], "Egypt_1975_B00_P09_S01.tif; Egypt_1975_B00_P09_S02.tif")
             self.assertEqual(state["dc_date_values"], ["1975-03", "1975-04"])
             self.assertEqual(state["create_date"], "2026-03-25T19:35:00Z")

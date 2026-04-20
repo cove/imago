@@ -447,6 +447,57 @@ def _lmstudio_locations_shown_response_format() -> dict[str, object]:
     }
 
 
+def _lmstudio_location_queries_response_format() -> dict[str, object]:
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "location_queries_payload",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "primary_query": {"type": "string"},
+                    "named_queries": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                },
+                "required": ["primary_query", "named_queries"],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
+def _is_lmstudio_location_queries_payload(payload: object) -> bool:
+    if not isinstance(payload, dict):
+        return False
+    if not isinstance(payload.get("named_queries"), list):
+        return False
+    return True
+
+
+def _parse_lmstudio_location_queries_payload(
+    value: object,
+    *,
+    finish_reason: str = "",
+) -> tuple[str, list[str]]:
+    """Return (primary_query, named_queries). Empty strings/lists on failure."""
+    raw = _decode_lmstudio_text(value)
+    text = str(raw or "").strip()
+    if not text:
+        return "", []
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        payload = _extract_structured_json_payload(text, is_valid=_is_lmstudio_location_queries_payload)
+    if not _is_lmstudio_location_queries_payload(payload):
+        return "", []
+    primary = clean_text(str(payload.get("primary_query") or ""))
+    named = [clean_text(str(q)) for q in list(payload.get("named_queries") or []) if str(q or "").strip()]
+    return primary, named
+
+
 def _lmstudio_people_count_response_format() -> dict[str, object]:
     return {
         "type": "json_schema",
@@ -485,29 +536,12 @@ def _lmstudio_page_caption_response_format() -> dict[str, object]:
                     "author_text": {"type": "string"},
                     "scene_text": {"type": "string"},
                     "location_name": {"type": "string"},
-                    "photo_regions": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "x": {"type": "number"},
-                                "y": {"type": "number"},
-                                "w": {"type": "number"},
-                                "h": {"type": "number"},
-                                "author_text": {"type": "string"},
-                                "scene_text": {"type": "string"},
-                            },
-                            "required": ["x", "y", "w", "h", "author_text", "scene_text"],
-                            "additionalProperties": False,
-                        },
-                    },
                 },
                 "required": [
                     "ocr_text",
                     "author_text",
                     "scene_text",
                     "location_name",
-                    "photo_regions",
                 ],
                 "additionalProperties": False,
             },
@@ -785,7 +819,7 @@ def _parse_lmstudio_page_caption(
     *,
     finish_reason: str = "",
 ) -> CaptionDetails:
-    """Parse a page-caption response (includes photo_regions) into CaptionDetails."""
+    """Parse a page-caption response into CaptionDetails."""
     raw = _decode_lmstudio_text(value)
     text = _truncate_long_decimals(str(raw or "").strip())
     finish_note = f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
@@ -815,14 +849,12 @@ def _parse_lmstudio_page_caption(
         )
     scene_text = clean_lines(str(payload_dict.get("scene_text") or ""))
     location_name = clean_text(str(payload_dict.get("location_name") or ""))
-    image_regions = _parse_image_regions(payload_dict)
     return CaptionDetails(
         text=clean_lines(author_text),
         ocr_text=str(ocr_text),
         location_name=location_name,
         author_text=clean_lines(author_text),
         scene_text=scene_text,
-        image_regions=image_regions,
     )
 
 
@@ -1251,6 +1283,62 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
             return CaptionDetails(
                 text="",
                 locations_shown=locations_shown,
+            )
+
+        return self._run_with_model_fallback(run_request)
+
+    def generate_location_queries(
+        self,
+        image_path: str | Path,
+        *,
+        prompt: str,
+    ) -> CaptionDetails:
+        def run_request() -> CaptionDetails:
+            resize_edge = (
+                int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
+            )
+            image_url = _build_data_url(image_path, resize_edge)
+            payload = {
+                "model": self._resolve_model_name(),
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": location_system_prompt(),
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {"type": "image_url", "image_url": {"url": image_url}},
+                        ],
+                    },
+                ],
+                "response_format": _lmstudio_location_queries_response_format(),
+                "max_tokens": min(256, int(self.max_new_tokens)),
+                "temperature": 0.0,
+                "stream": False,
+            }
+            response = _lmstudio_request_json(
+                f"{self.base_url}/chat/completions",
+                payload=payload,
+                timeout=self.timeout_seconds,
+            )
+            choices = list(response.get("choices") or [])
+            if not choices:
+                raise RuntimeError("LM Studio returned no choices.")
+            message = dict(choices[0].get("message") or {})
+            self.last_finish_reason = str(choices[0].get("finish_reason") or "")
+            self.last_response_text = _format_lmstudio_debug_response(message.get("content"))
+            if not self.last_response_text:
+                self.last_response_text = _format_lmstudio_debug_response(message)
+            primary_query, named_queries = _parse_lmstudio_location_queries_payload(
+                message.get("content"),
+                finish_reason=self.last_finish_reason,
+            )
+            return CaptionDetails(
+                text="",
+                location_name=primary_query,
+                locations_shown=[{"name": q} for q in named_queries],
             )
 
         return self._run_with_model_fallback(run_request)

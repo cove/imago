@@ -64,10 +64,12 @@ from .xmp_sidecar import (
     read_ai_sidecar_state,
     read_locations_shown,
     read_person_in_image,
+    read_pipeline_state,
     sidecar_has_expected_ai_fields,
     write_xmp_sidecar,
 )
 from .xmp_review import load_ai_xmp_review
+from .ai_index_steps import StepRunner
 
 from .ai_index_args import (
     IMAGE_EXTENSIONS,
@@ -788,44 +790,18 @@ class IndexRunner:
                     )
                 return
 
-            if not needs_full and people_update_only and not self.stdout_only:
-                chain_gps = bool(gps_update_only)
+            _extra_forced: set[str] = set()
+            if not needs_full and people_update_only:
                 if not isinstance(existing_sidecar_state, dict):
                     needs_full = True
                 else:
-                    self._process_people_update(
-                        idx,
-                        image_path,
-                        sidecar_path,
-                        effective,
-                        settings_sig,
-                        creator_tool,
-                        date_estimation_enabled,
-                        existing_sidecar_state,
-                        existing_xmp_people,
-                        people_matcher,
-                        current_cast_signature,
-                        chain_gps,
-                    )
-                    if not chain_gps:
-                        return
-                    if not self.dry_run:
-                        existing_sidecar_state = read_ai_sidecar_state(sidecar_path)
-                        existing_xmp_people = read_person_in_image(sidecar_path)
-
-            if not needs_full and gps_update_only and not self.stdout_only:
+                    _extra_forced.add("people")
+                    needs_full = True
+            if not needs_full and gps_update_only:
                 if not isinstance(existing_sidecar_state, dict):
                     return
-                self._process_gps_update(
-                    idx,
-                    image_path,
-                    sidecar_path,
-                    effective,
-                    creator_tool,
-                    existing_sidecar_state,
-                    existing_xmp_people,
-                )
-                return
+                _extra_forced.add("locations")
+                needs_full = True
 
             self._process_full(
                 idx,
@@ -842,6 +818,7 @@ class IndexRunner:
                 archive_stitched_ocr_required,
                 multi_scan_group_paths,
                 multi_scan_group_signature,
+                extra_forced_steps=_extra_forced if _extra_forced else None,
             )
         finally:
             _release_image_processing_lock(lock_path)
@@ -1023,9 +1000,9 @@ class IndexRunner:
             _emit_prompt_debug_artifact(prompt_debug, dry_run=self.dry_run)
             self.emit_error(f"[{idx}/{len(self.files)}] fail  {image_path.name}: {exc}")
 
-    # ── People-update fast-path ─────────────────────────────────────────────
+    # ── People-update fast-path (deleted — routed via _process_full + StepRunner) ──
 
-    def _process_people_update(  # noqa: C901
+    def _process_people_update(  # noqa: C901  # kept for external callers during transition
         self,
         idx: int,
         image_path: Path,
@@ -1509,6 +1486,7 @@ class IndexRunner:
         archive_stitched_ocr_required: bool,
         multi_scan_group_paths: list[Path],
         multi_scan_group_signature: str,
+        extra_forced_steps: set[str] | None = None,
     ) -> None:
         file_start = time.monotonic()
         stop_ticker = None
@@ -1623,6 +1601,33 @@ class IndexRunner:
                     if scan_ocr_authority is not None
                     else (layout.content_path if layout.page_like else image_path)
                 )
+                from .ai_index_propagate import _find_crop_paths_for_page, _crop_paths_signature as _cps_fn, run_propagate_to_crops  # pylint: disable=import-outside-toplevel
+                _crop_paths = _find_crop_paths_for_page(image_path)
+                _step_settings = {
+                    "ocr_engine": str(ocr_key[0]),
+                    "ocr_model": str(ocr_key[2]),
+                    "ocr_lang": str(ocr_key[1]),
+                    "scan_group_signature": multi_scan_group_signature,
+                    "cast_store_signature": current_cast_signature if bool(effective.get("enable_people", True)) else "",
+                    "caption_engine": str(caption_key[0]),
+                    "caption_model": str(caption_key[1]),
+                    "nominatim_base_url": str(getattr(self.geocoder, "base_url", "") or "") if self.geocoder else "",
+                    "model": str(effective.get("model", self.defaults.get("model", ""))),
+                    "enable_objects": bool(effective.get("enable_objects", True)),
+                    "crop_paths_signature": _cps_fn(_crop_paths),
+                }
+                _existing_pipeline_state = read_pipeline_state(sidecar_path)
+                _existing_detections = dict((existing_sidecar_state or {}).get("detections") or {})
+                _steps_arg = str(getattr(self.args, "steps", "") or "").strip()
+                _forced_steps = {s.strip() for s in _steps_arg.split(",") if s.strip()} if _steps_arg else set()
+                if extra_forced_steps:
+                    _forced_steps = _forced_steps | extra_forced_steps
+                _step_runner = StepRunner(
+                    settings=_step_settings,
+                    existing_pipeline_state=_existing_pipeline_state,
+                    existing_detections=_existing_detections,
+                    forced_steps=_forced_steps,
+                )
                 analysis = _run_image_analysis(
                     image_path=analysis_target,
                     people_image_path=people_analysis_source,
@@ -1651,6 +1656,8 @@ class IndexRunner:
                     context_location_hint=upstream_location_hint,
                     prompt_debug=prompt_debug,
                     title_page_location=self.title_page_location,
+                    step_runner=_step_runner,
+                    existing_sidecar_state=existing_sidecar_state,
                 )
                 resolved_album_title = analysis.album_title or album_title_hint
                 _store_album_printed_title_hint(
@@ -1687,10 +1694,19 @@ class IndexRunner:
                 _people_identified_flag = len(person_names) > 0
 
                 if not self.dry_run:
+                    # Merge step records atomically into the payload (Task 6.3)
+                    _pending_step_records = _step_runner.get_pending_records()
+                    if _pending_step_records:
+                        _existing_pipeline = dict(_existing_detections.get("pipeline") or {})
+                        _existing_pipeline.update(_pending_step_records)
+                        payload["pipeline"] = _existing_pipeline
+
                     location_payload = dict(payload.get("location") or {}) if isinstance(payload, dict) else {}
-                    effective_location_payload = _effective_sidecar_location_payload(image_path, existing_sidecar_state)
-                    if effective_location_payload:
-                        location_payload = effective_location_payload
+                    # Only apply existing-location override when the locations step didn't freshly run
+                    if not _step_runner.reran.get("locations"):
+                        effective_location_payload = _effective_sidecar_location_payload(image_path, existing_sidecar_state)
+                        if effective_location_payload:
+                            location_payload = effective_location_payload
                     if location_payload:
                         payload["location"] = location_payload
                     img_w, img_h = _get_image_dimensions(image_path)
@@ -1733,23 +1749,7 @@ class IndexRunner:
                         explicit_title=str(analysis.title or ""),
                         author_text=str(text_layers.get("author_text") or ""),
                     )
-                    subphotos_xml = [
-                        {
-                            "index": i + 1,
-                            "bounds": {
-                                "x": round(r["x"] * img_w),
-                                "y": round(r["y"] * img_h),
-                                "width": round(r["w"] * img_w),
-                                "height": round(r["h"] * img_h),
-                            },
-                            "description": r.get("author_text", ""),
-                            "author_text": r.get("author_text", ""),
-                            "scene_text": r.get("scene_text", ""),
-                            "people": [],
-                            "subjects": [],
-                        }
-                        for i, r in enumerate(analysis.image_regions or [])
-                    ] or None
+                    subphotos_xml = None
                     if people_matcher is not None:
                         current_cast_signature = str(people_matcher.store_signature())
                     stat = image_path.stat()
@@ -1803,6 +1803,19 @@ class IndexRunner:
                         people_identified=_people_identified_flag,
                         title_page_location=self.title_page_location,
                     )
+
+                    # ── propagate-to-crops step ────────────────────────────────
+                    _locations_out = dict(payload.get("location") or {})
+                    _people_out = list(payload.get("people") or [])
+
+                    def _do_propagate() -> dict:
+                        return run_propagate_to_crops(
+                            image_path,
+                            location_payload=_locations_out,
+                            people_payload=_people_out,
+                        )
+
+                    _step_runner.run("propagate-to-crops", _do_propagate)
 
             _emit_prompt_debug_artifact(prompt_debug, dry_run=self.dry_run)
             self.processed += 1

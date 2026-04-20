@@ -332,9 +332,9 @@ class TestXMPSidecar(unittest.TestCase):
             assert state is not None
             self.assertEqual(state["title"], "Temple of Heaven")
             self.assertEqual(state["title_source"], "author_text")
-            self.assertEqual(state["description"], "OCR:\nTemple of Heaven\nNO SMOKING\n\nScene Text:\nNO SMOKING")
+            self.assertEqual(state["description"], "Caption:\nTemple of Heaven\nNO SMOKING\n\nScene Text:\nNO SMOKING")
             xml = out.read_text(encoding="utf-8")
-            self.assertIn('xml:lang="x-default">OCR:\nTemple of Heaven\nNO SMOKING\n\nScene Text:\nNO SMOKING</rdf:li>', xml)
+            self.assertIn('xml:lang="x-default">Caption:\nTemple of Heaven\nNO SMOKING\n\nScene Text:\nNO SMOKING</rdf:li>', xml)
             self.assertNotIn('xml:lang="x-caption"', xml)
             self.assertNotIn('xml:lang="x-scene"', xml)
             self.assertIn("<imago:OCRText>Temple of Heaven", xml)
@@ -342,6 +342,87 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertIn("<imago:SceneText>NO SMOKING</imago:SceneText>", xml)
             self.assertEqual(state["author_text"], "Temple of Heaven")
             self.assertEqual(state["scene_text"], "NO SMOKING")
+
+    def test_region_list_round_trips_location_override_and_assigned_payload(self):
+        from photoalbums.lib.ai_view_regions import RegionResult, RegionWithCaption
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "page.xmp"
+            xmp_sidecar.write_region_list(
+                out,
+                [
+                    RegionWithCaption(
+                        RegionResult(
+                            index=0,
+                            x=0,
+                            y=0,
+                            width=400,
+                            height=300,
+                            caption_hint="Temple visit",
+                            location_payload={
+                                "gps_latitude": "25.6872",
+                                "gps_longitude": "32.6396",
+                                "city": "Luxor",
+                                "country": "Egypt",
+                            },
+                        ),
+                        "",
+                    ),
+                ],
+                800,
+                600,
+            )
+
+            tree = ET.parse(out)
+            desc = xmp_sidecar._get_rdf_desc(tree)
+            assert desc is not None
+            first_li = next(desc.iter(f"{{{xmp_sidecar.RDF_NS}}}li"))
+            xmp_sidecar._add_region_location_struct(
+                first_li,
+                f"{{{xmp_sidecar.IMAGO_NS}}}LocationOverride",
+                {"address": "Luxor Temple", "city": "Luxor", "country": "Egypt"},
+            )
+            tree.write(out, encoding="utf-8", xml_declaration=True)
+
+            regions = xmp_sidecar.read_region_list(out, 800, 600)
+
+        self.assertEqual(regions[0]["location_payload"]["city"], "Luxor")
+        self.assertEqual(regions[0]["location_override"]["address"], "Luxor Temple")
+
+    def test_write_region_list_preserves_existing_location_override(self):
+        from photoalbums.lib.ai_view_regions import RegionResult, RegionWithCaption
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "page.xmp"
+            xmp_sidecar.write_region_list(
+                out,
+                [RegionWithCaption(RegionResult(index=0, x=0, y=0, width=400, height=300), "Temple visit")],
+                800,
+                600,
+            )
+
+            tree = ET.parse(out)
+            desc = xmp_sidecar._get_rdf_desc(tree)
+            assert desc is not None
+            first_li = next(desc.iter(f"{{{xmp_sidecar.RDF_NS}}}li"))
+            xmp_sidecar._add_region_location_struct(
+                first_li,
+                f"{{{xmp_sidecar.IMAGO_NS}}}LocationOverride",
+                {"address": "Luxor Temple", "city": "Luxor", "country": "Egypt"},
+            )
+            tree.write(out, encoding="utf-8", xml_declaration=True)
+
+            xmp_sidecar.write_region_list(
+                out,
+                [RegionWithCaption(RegionResult(index=0, x=0, y=0, width=400, height=300), "Updated caption")],
+                800,
+                600,
+            )
+
+            regions = xmp_sidecar.read_region_list(out, 800, 600)
+
+        self.assertEqual(regions[0]["caption"], "Updated caption")
+        self.assertEqual(regions[0]["location_override"]["address"], "Luxor Temple")
 
     def test_write_xmp_sidecar_normalizes_literal_newline_escapes(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -995,30 +1076,6 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertIn("imago:AlbumTitle", xml)
             self.assertIn("New Album Title", xml)
 
-    def test_write_and_read_archive_ctm_metadata(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            out = Path(tmp) / "Family_2020_B01_P01_S01.xmp"
-            xmp_sidecar.write_ctm_to_archive_xmp(
-                out,
-                matrix=[1.05, -0.02, -0.01, -0.04, 1.35, -0.01, -0.03, -0.02, 1.55],
-                confidence=0.82,
-                warnings=["estimated_clipping_ratio:0.1111"],
-                reasoning_summary="conservative archival correction",
-                creator_tool="imago-test",
-                source_image_path="Family_2020_B01_P01_S01.tif",
-                model_name="google/gemma-4-31b-it",
-            )
-
-            xml = out.read_text(encoding="utf-8")
-            self.assertIn("crs:ColorMatrix1", xml)
-            self.assertIn("crs:HasSettings", xml)
-            state = xmp_sidecar.read_ctm_from_archive_xmp(out)
-            assert state is not None
-            self.assertEqual(len(state["matrix"]), 9)
-            self.assertAlmostEqual(float(state["confidence"]), 0.82)
-            self.assertEqual(state["model_name"], "google/gemma-4-31b-it")
-            self.assertEqual(state["source_image_path"], "Family_2020_B01_P01_S01.tif")
-
     def test_read_pipeline_state_returns_empty_dict_when_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "image.xmp"
@@ -1072,6 +1129,130 @@ class TestXMPSidecar(unittest.TestCase):
                 detections["pipeline"]["view_regions"]["model"],
                 "gemma-4",
             )
+
+    def test_read_pipeline_state_normalises_legacy_completed_entry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+                detections_payload={
+                    "pipeline": {
+                        "view_regions": {"completed": "2026-04-11T07:00:00Z", "model": "gemma"},
+                    },
+                },
+            )
+
+            state = xmp_sidecar.read_pipeline_state(out)
+            entry = state.get("view_regions")
+            assert entry is not None
+            self.assertEqual(entry["completed"], "2026-04-11T07:00:00Z")
+            self.assertEqual(entry["timestamp"], "2026-04-11T07:00:00Z")
+            self.assertEqual(entry["result"], "ok")
+            self.assertEqual(entry["input_hash"], "")
+            self.assertEqual(entry["model"], "gemma")
+
+    def test_read_pipeline_state_empty_input_hash_treated_as_stale(self):
+        """Entries with empty input_hash are always considered stale by StepRunner."""
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+                detections_payload={
+                    "pipeline": {
+                        "ocr": {"timestamp": "2026-04-11T07:00:00Z", "result": "ok", "input_hash": ""},
+                    },
+                },
+            )
+
+            state = xmp_sidecar.read_pipeline_state(out)
+            entry = state.get("ocr")
+            assert entry is not None
+            self.assertEqual(entry["input_hash"], "")
+
+    def test_migrate_pipeline_records_rewrites_legacy_entries(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+                detections_payload={
+                    "pipeline": {
+                        "view_regions": {"completed": "2026-04-11T07:00:00Z", "model": "gemma"},
+                        "crop_regions": {"timestamp": "2026-04-12T07:00:00Z", "result": "ok", "input_hash": "abc"},
+                    },
+                },
+            )
+
+            changed = xmp_sidecar.migrate_pipeline_records(out)
+
+            self.assertTrue(changed)
+            state = xmp_sidecar.read_pipeline_state(out)
+            view = state["view_regions"]
+            self.assertEqual(view["timestamp"], "2026-04-11T07:00:00Z")
+            self.assertEqual(view["completed"], "2026-04-11T07:00:00Z")
+            self.assertEqual(view["result"], "ok")
+            self.assertEqual(view["input_hash"], "")
+            crop = state["crop_regions"]
+            self.assertEqual(crop["timestamp"], "2026-04-12T07:00:00Z")
+            self.assertEqual(crop["input_hash"], "abc")
+
+    def test_migrate_pipeline_records_leaves_sidecars_without_pipeline_untouched(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+            )
+
+            changed = xmp_sidecar.migrate_pipeline_records(out)
+            self.assertFalse(changed)
+
+    def test_write_pipeline_steps_writes_new_schema(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+            )
+
+            xmp_sidecar.write_pipeline_steps(out, {
+                "ocr": {"timestamp": "2026-04-11T07:00:00Z", "result": "ok", "input_hash": "abc123"},
+            })
+
+            state = xmp_sidecar.read_pipeline_state(out)
+            entry = state.get("ocr")
+            assert entry is not None
+            self.assertEqual(entry["timestamp"], "2026-04-11T07:00:00Z")
+            self.assertEqual(entry["result"], "ok")
+            self.assertEqual(entry["input_hash"], "abc123")
+            self.assertNotIn("completed", entry)
 
     def test_clear_pipeline_steps_removes_only_named_steps(self):
         with tempfile.TemporaryDirectory() as tmp:

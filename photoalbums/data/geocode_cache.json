@@ -939,9 +939,33 @@
     "state": "",
     "status": "ok"
   },
+  "austrian parliament": {
+    "city": "Vienna",
+    "country": "Austria",
+    "display_name": "Austrian Parliament Building, 3, Dr.-Karl-Renner-Ring, Regierungsviertel, Katastralgemeinde Innere Stadt, Innere Stadt, Vienna, 1017, Austria",
+    "latitude": "48.2080870",
+    "longitude": "16.3584649",
+    "query": "Austrian Parliament",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "3 Dr.-Karl-Renner-Ring"
+  },
   "austrian parliament building, vienna, austria; schönbrunn gloriette, vienna, austria": {
     "query": "Austrian Parliament Building, Vienna, Austria; Schönbrunn Gloriette, Vienna, Austria",
     "status": "miss"
+  },
+  "avenue mohammed v, rabat, morocco": {
+    "city": "Salé",
+    "country": "Morocco",
+    "display_name": "Avenue Mohammed V, Rabat, Morocco, Sale, Rabat-Sale-Kenitra, Morocco",
+    "latitude": "34.0226917",
+    "longitude": "-6.7682071",
+    "query": "Avenue Mohammed V, Rabat, Morocco",
+    "source": "nominatim",
+    "state": "Rabat-Salé-Kénitra",
+    "status": "ok",
+    "sublocation": "Avenue Mohammed V"
   },
   "avila walls, avila, castile and león, spain": {
     "city": "Ávila",
@@ -3383,6 +3407,18 @@
     "state": "Andalusia",
     "status": "ok"
   },
+  "cathedral of seville, seville, spain": {
+    "city": "Seville",
+    "country": "Spain",
+    "display_name": "Cathedral of Seville, Calle Cardenal Carlos Amigo, Santa Cruz, Casco Antiguo, Seville, Sevilla, Andalusia, 41004, Spain",
+    "latitude": "37.3859150",
+    "longitude": "-5.9931406",
+    "query": "Cathedral of Seville, Seville, Spain",
+    "source": "nominatim",
+    "state": "Andalusia",
+    "status": "ok",
+    "sublocation": "Calle Cardenal Carlos Amigo"
+  },
   "cathedral of the archangel (great kremlin palace), moscow, russia": {
     "query": "Cathedral of the Archangel (Great Kremlin Palace), Moscow, Russia",
     "status": "miss"
@@ -3593,6 +3629,18 @@
     "source": "nominatim",
     "state": "",
     "status": "ok"
+  },
+  "charles bridge, prague, czech republic": {
+    "city": "Prague",
+    "country": "Czechia",
+    "display_name": "Charles Bridge, Lesser Town, obvod Praha 1, Prague, 116 93, Czechia",
+    "latitude": "50.0864857",
+    "longitude": "14.4113712",
+    "query": "Charles Bridge, Prague, Czech Republic",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Charles Bridge"
   },
   "charleston": {
     "city": "Charleston",
@@ -5855,6 +5903,22 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "dubrovnik, own city walls and harbor": {
+    "query": "Dubrovnik, own city walls and harbor",
+    "status": "miss"
+  },
+  "dubrovnik, own’s city center": {
+    "query": "Dubrovnik, own’s city center",
+    "status": "miss"
+  },
+  "dubrovnik, own’s city walls and old town": {
+    "query": "Dubrovnik, own’s city walls and old town",
+    "status": "miss"
+  },
+  "dubrovnik, own’s croatia": {
+    "query": "Dubrovnik, own’s Croatia",
+    "status": "miss"
+  },
   "dubrovnik, yugoslavia": {
     "query": "Dubrovnik, Yugoslavia",
     "status": "miss"
@@ -6813,6 +6877,18 @@
     "query": "Federal Assembly, Bern",
     "status": "miss"
   },
+  "fes medina, morocco": {
+    "city": "Fez",
+    "country": "Morocco",
+    "display_name": "Fes Medina, Morocco, Fez, Fez-Meknes, Morocco",
+    "latitude": "34.0631192",
+    "longitude": "-4.9737999",
+    "query": "Fes Medina, Morocco",
+    "source": "nominatim",
+    "state": "Fez-Meknes",
+    "status": "ok",
+    "sublocation": ""
+  },
   "fes morocco": {
     "display_name": "Fès ⴼⴰⵙ فاس, Pachalik du Fes باشوية فاس, Préfecture de Fès عمالة فاس, Fès-Meknès ⴼⴰⵙ-ⵎⴽⵏⴰⵙ فاس-مكناس, Maroc ⵍⵎⵖⵔⵉⴱ المغرب",
     "latitude": "34.0346534",
@@ -7048,6 +7124,18 @@
     "query": "Franciscan Monastery (Dubrovnik), Franciscan Monastery, Dubrovnik, Dubrovnik-Neretva County, Croatia",
     "status": "miss"
   },
+  "franciscan monastery, dubrovnik": {
+    "city": "Dubrovnik",
+    "country": "Croatia",
+    "display_name": "Franciscan Monastery, Dubrovnik, Dubrovnik, Croatia",
+    "latitude": "42.6667661",
+    "longitude": "18.0567684",
+    "query": "Franciscan Monastery, Dubrovnik",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Šetalište Nika i Meda Pucića"
+  },
   "galata bridge & new mosque": {
     "query": "Galata Bridge & New Mosque",
     "status": "miss"
@@ -7256,6 +7344,18 @@
     "query": "Gibraltar",
     "source": "nominatim",
     "status": "ok"
+  },
+  "gibraltar, uk": {
+    "city": "Dinton",
+    "country": "United Kingdom",
+    "display_name": "Gibraltar, Dinton-with-Ford and Upton, Dinton, Buckinghamshire, England, HP17 8TY, United Kingdom",
+    "latitude": "51.7919210",
+    "longitude": "-0.9022301",
+    "query": "Gibraltar, UK",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "gillman hot springs, nevada, united states": {
     "query": "Gillman Hot Springs, Nevada, United States",
@@ -8221,6 +8321,18 @@
     "query": "Highways of Utah & Colorado, Utah, Colorado, United States",
     "status": "miss"
   },
+  "hilton hotel": {
+    "city": "Cardiff",
+    "country": "United Kingdom",
+    "display_name": "Hilton Cardiff, Kingsway, Castle Quarter, Castle, Cardiff, Wales, CF10 3HH, United Kingdom",
+    "latitude": "51.4828939",
+    "longitude": "-3.1785574",
+    "query": "Hilton Hotel",
+    "source": "nominatim",
+    "state": "Wales",
+    "status": "ok",
+    "sublocation": "Kingsway"
+  },
   "hilton hotel - waikiki beach": {
     "city": "Honolulu",
     "country": "United States",
@@ -8635,6 +8747,18 @@
     "query": "Hotel Intercontinental Zagreb, Zagreb, Croatia",
     "status": "miss"
   },
+  "hotel intercontinental, zagreb, croatia": {
+    "query": "Hotel InterContinental, Zagreb, Croatia",
+    "status": "miss"
+  },
+  "hotel intercontinental, zagreb, own": {
+    "query": "Hotel Intercontinental, Zagreb, own",
+    "status": "miss"
+  },
+  "hotel intercontinental, zagreb, yugoslavia": {
+    "query": "Hotel InterContinental, Zagreb, Yugoslavia",
+    "status": "miss"
+  },
   "hotel jubilejnaja, minsk, belarus": {
     "query": "Hotel Jubilejnaja, Minsk, Belarus",
     "status": "miss"
@@ -8814,6 +8938,10 @@
   },
   "hungarian parliament building, buda castle hill, budapest, hungary": {
     "query": "Hungarian Parliament Building, Buda Castle Hill, Budapest, Hungary",
+    "status": "miss"
+  },
+  "hungarian parliament building, budapest, hungary": {
+    "query": "Hungarian Parliament Building, Budapest, Hungary",
     "status": "miss"
   },
   "hungary": {
@@ -10223,6 +10351,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "klagenfurt, own’s austria": {
+    "query": "Klagenfurt, own’s Austria",
+    "status": "miss"
+  },
   "knott's berry farm": {
     "city": "Buena Park",
     "country": "United States",
@@ -10767,6 +10899,10 @@
     "query": "Lenin's Tomb, Moscow, Russia",
     "status": "miss"
   },
+  "leopold own castle, salzburg, austria": {
+    "query": "Leopold own Castle, Salzburg, Austria",
+    "status": "miss"
+  },
   "leopoldskron castle": {
     "display_name": "Schloss Leopoldskron, 58, Leopoldskronstraße, Riedenburg, Salzburg, 5020, Österreich",
     "latitude": "47.7883513",
@@ -10892,6 +11028,18 @@
     "query": "Lhasa, Tibet, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "liberation square": {
+    "city": "Baghdad",
+    "country": "Iraq",
+    "display_name": "Liberation Square, Baghdad, Baghdad Governorate, Iraq",
+    "latitude": "33.3272672",
+    "longitude": "44.4086242",
+    "query": "Liberation Square",
+    "source": "nominatim",
+    "state": "Baghdad Governorate",
+    "status": "ok",
+    "sublocation": "Tahrir square"
   },
   "liberation square, cairo, egypt": {
     "query": "Liberation Square, Cairo, Egypt",
@@ -12205,6 +12353,18 @@
     "query": "Marquis of Pombal's Square, Lisbon, Portugal",
     "status": "miss"
   },
+  "marrakech medina, morocco": {
+    "city": "Marrakesh",
+    "country": "Morocco",
+    "display_name": "Marrakech Medina, Morocco, Marrakesh, Marrakech-Safi, Morocco",
+    "latitude": "31.6297130",
+    "longitude": "-7.9946313",
+    "query": "Marrakech Medina, Morocco",
+    "source": "nominatim",
+    "state": "Marrakech-Safi",
+    "status": "ok",
+    "sublocation": "Avenue Fatima Zohra"
+  },
   "marrakech, morocco": {
     "display_name": "Marrakech ⵎⵕⵕⴰⴽⵯⵛ مراكش, Pachalik de Marrakech, Préfecture de Marrakech عمالة مراكش, Marrakech-Safi ⵎⵕⵕⴰⴽⵛ-ⴰⵙⴼⵉ مراكش-أسفي, Maroc ⵍⵎⵖⵔⵉⴱ المغرب",
     "latitude": "31.6258257",
@@ -12479,6 +12639,18 @@
     "source": "nominatim",
     "state": "Tangier-Tetouan-Al Hoceima",
     "status": "ok"
+  },
+  "meridien hotel": {
+    "city": "Bamako",
+    "country": "Mali",
+    "display_name": "Meridien Hotel, Bamako, Mali",
+    "latitude": "12.6344395",
+    "longitude": "-7.9933355",
+    "query": "Meridien Hotel",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Boulevard du 22 Octobre"
   },
   "meridien hotel, cairo, egypt": {
     "city": "Cairo",
@@ -13116,6 +13288,18 @@
   "national theatre of prague, prague, czechia": {
     "query": "National Theatre of Prague, Prague, Czechia",
     "status": "miss"
+  },
+  "national theatre, prague, czech republic": {
+    "city": "Prague",
+    "country": "Czechia",
+    "display_name": "National Theatre, Prague, Czech Republic, Prague, Czechia",
+    "latitude": "50.0808638",
+    "longitude": "14.4135699",
+    "query": "National Theatre, Prague, Czech Republic",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Masarykovo nábřeží"
   },
   "netherlands": {
     "city": "",
@@ -14952,6 +15136,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "plaza mayor, salamanca, spain": {
+    "city": "Salamanca",
+    "country": "Spain",
+    "display_name": "Plaza Mayor, Salamanca, Spain, Salamanca, Castile and Leon, Spain",
+    "latitude": "40.9650282",
+    "longitude": "-5.6640558",
+    "query": "Plaza Mayor, Salamanca, Spain",
+    "source": "nominatim",
+    "state": "Castile and León",
+    "status": "ok",
+    "sublocation": "Plaza Mayor"
+  },
   "plodiv, bulgaria": {
     "city": "Plovdiv",
     "country": "Bulgaria",
@@ -15521,6 +15717,10 @@
     "query": "Prague, Czechoslovakia",
     "source": "nominatim",
     "status": "ok"
+  },
+  "prague, own czechoslovakia": {
+    "query": "Prague, own Czechoslovakia",
+    "status": "miss"
   },
   "preston": {
     "city": "Preston",
@@ -17570,6 +17770,10 @@
     "status": "ok",
     "sublocation": "47 Schönbrunner Schloßstraße"
   },
+  "schönbrunn palace gloriette, vienna": {
+    "query": "Schönbrunn Palace Gloriette, Vienna",
+    "status": "miss"
+  },
   "schönbrunn palace, austria": {
     "city": "Vienna",
     "country": "Austria",
@@ -18862,6 +19066,18 @@
     "source": "nominatim",
     "state": "",
     "status": "ok"
+  },
+  "stadtpark, vienna": {
+    "city": "Vienna",
+    "country": "Austria",
+    "display_name": "Stadtpark, Vienna, Vienna, Austria",
+    "latitude": "48.2028863",
+    "longitude": "16.3797236",
+    "query": "Stadtpark, Vienna",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Johannesgasse"
   },
   "stadtpark, vienna, austria": {
     "city": "Vienna",
@@ -20594,6 +20810,18 @@
   "the nile from the tower of cairo, egypt": {
     "query": "The Nile from the Tower of Cairo, Egypt",
     "status": "miss"
+  },
+  "the nile river": {
+    "city": "",
+    "country": "Egypt",
+    "display_name": "Nile River, Egypt",
+    "latitude": "22.7243780",
+    "longitude": "32.1053309",
+    "query": "The Nile River",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
   },
   "the nile river from our hotel, cairo, egypt - dec. 1975": {
     "query": "The Nile River from Our Hotel, Cairo, Egypt - Dec. 1975",
@@ -22555,6 +22783,10 @@
     "query": "Vienna Opera House, Vienna, Austria",
     "status": "miss"
   },
+  "vienna own city hall": {
+    "query": "Vienna own City Hall",
+    "status": "miss"
+  },
   "vienna, austria": {
     "display_name": "Wien, Österreich",
     "latitude": "48.2083537",
@@ -23590,6 +23822,10 @@
     "query": "Zagreb, Croatia; Karten, Austria",
     "status": "miss"
   },
+  "zagreb, own’s name": {
+    "query": "Zagreb, own’s name",
+    "status": "miss"
+  },
   "zagreb, yugoslavia": {
     "query": "Zagreb, Yugoslavia",
     "status": "miss"
@@ -23617,6 +23853,18 @@
     "query": "Zhuhai, Guangdong, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "ávila, spain": {
+    "city": "Ávila",
+    "country": "Spain",
+    "display_name": "Avila, Spain, Avila, Castile and Leon, Spain",
+    "latitude": "40.6564780",
+    "longitude": "-4.7002172",
+    "query": "Ávila, Spain",
+    "source": "nominatim",
+    "state": "Castile and León",
+    "status": "ok",
+    "sublocation": ""
   },
   "проспект мира, moscow, russia": {
     "city": "Moscow",

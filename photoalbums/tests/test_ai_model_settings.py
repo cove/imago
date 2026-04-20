@@ -27,7 +27,6 @@ class TestAIModelSettings(unittest.TestCase):
                     """
                     selected_ocr_model = "fast"
                     selected_caption_model = "big"
-                    selected_ctm_model = "restoration"
                     view_region_model = "docling"
                     lmstudio_base_url = "http://lmstudio.local:1234/v1"
 
@@ -37,17 +36,10 @@ class TestAIModelSettings(unittest.TestCase):
                     device = "auto"
                     retries = 4
 
-                    [ctm_validation]
-                    min_confidence = 0.4
-                    max_abs_coefficient = 3.5
-                    max_row_sum = 4.5
-                    max_clipping_ratio = 0.25
-
                     [models]
                     big = ["qwen/qwen3-vl-30b", "qwen/qwen3-vl-32b"]
                     fast = ["qwen/qwen3.5-9b"]
                     docling = ["granite-docling-258m"]
-                    restoration = ["google/gemma-4-31b-it", "google/gemma-4-27b-it"]
                     """
                 ).strip()
                 + "\n",
@@ -58,16 +50,10 @@ class TestAIModelSettings(unittest.TestCase):
                 loaded = ai_model_settings.load_ai_model_settings()
                 self.assertEqual(loaded["selected_ocr_model"], "fast")
                 self.assertEqual(loaded["selected_caption_model"], "big")
-                self.assertEqual(loaded["selected_ctm_model"], "restoration")
                 self.assertEqual(loaded["ocr_model"], "qwen/qwen3.5-9b")
                 self.assertEqual(loaded["caption_model"], "qwen/qwen3-vl-30b")
-                self.assertEqual(loaded["ctm_model"], "google/gemma-4-31b-it")
                 self.assertEqual(loaded["ocr_models"], ["qwen/qwen3.5-9b"])
                 self.assertEqual(loaded["caption_models"], ["qwen/qwen3-vl-30b", "qwen/qwen3-vl-32b"])
-                self.assertEqual(
-                    loaded["ctm_models"],
-                    ["google/gemma-4-31b-it", "google/gemma-4-27b-it"],
-                )
                 self.assertEqual(
                     loaded["view_region_models"],
                     ["granite-docling-258m"],
@@ -95,11 +81,6 @@ class TestAIModelSettings(unittest.TestCase):
                     ai_model_settings.default_lmstudio_base_url(),
                     "http://lmstudio.local:1234/v1",
                 )
-                self.assertEqual(ai_model_settings.default_ctm_model(), "google/gemma-4-31b-it")
-                self.assertEqual(
-                    ai_model_settings.default_ctm_models(),
-                    ["google/gemma-4-31b-it", "google/gemma-4-27b-it"],
-                )
                 self.assertEqual(ai_model_settings.default_view_region_model(), "granite-docling-258m")
                 self.assertEqual(
                     ai_model_settings.default_view_region_models(),
@@ -109,15 +90,6 @@ class TestAIModelSettings(unittest.TestCase):
                 self.assertEqual(ai_model_settings.default_docling_backend(), "auto_inline")
                 self.assertEqual(ai_model_settings.default_docling_device(), "auto")
                 self.assertEqual(ai_model_settings.default_docling_retries(), 4)
-                self.assertEqual(
-                    ai_model_settings.default_ctm_validation_settings(),
-                    {
-                        "min_confidence": 0.4,
-                        "max_abs_coefficient": 3.5,
-                        "max_row_sum": 4.5,
-                        "max_clipping_ratio": 0.25,
-                    },
-                )
 
         self.assertEqual(
             loaded["models"],
@@ -125,7 +97,6 @@ class TestAIModelSettings(unittest.TestCase):
                 "big": ["qwen/qwen3-vl-30b", "qwen/qwen3-vl-32b"],
                 "docling": ["granite-docling-258m"],
                 "fast": ["qwen/qwen3.5-9b"],
-                "restoration": ["google/gemma-4-31b-it", "google/gemma-4-27b-it"],
             },
         )
 

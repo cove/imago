@@ -144,6 +144,7 @@ def _get_converter(backend: str, device: str):
     from docling.backend.image_backend import ImageDocumentBackend  # pylint: disable=import-outside-toplevel
 
     pipeline_options = PdfPipelineOptions(
+        do_ocr=False,
         accelerator_options=AcceleratorOptions(device=device),
     )
     converter = DocumentConverter(

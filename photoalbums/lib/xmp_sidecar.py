@@ -443,6 +443,60 @@ def _set_locations_shown_bag(parent: ET.Element, locations: list[dict]) -> None:
     _add_locations_shown_bag(parent, locations)
 
 
+def _add_region_location_struct(parent: ET.Element, tag: str, payload: dict[str, object]) -> None:
+    if not isinstance(payload, dict):
+        return
+    clean_payload = {
+        key: str(payload.get(key) or "").strip()
+        for key in ("address", "city", "state", "country", "sublocation", "gps_latitude", "gps_longitude")
+    }
+    if not any(clean_payload.values()):
+        return
+    field = ET.SubElement(parent, tag)
+    field.set(_RDF_PARSE_TYPE, "Resource")
+    if clean_payload["address"]:
+        ET.SubElement(field, f"{{{IMAGO_NS}}}Address").text = _normalize_xmp_text(clean_payload["address"])
+    if clean_payload["city"]:
+        ET.SubElement(field, f"{{{PHOTOSHOP_NS}}}City").text = _normalize_xmp_text(clean_payload["city"])
+    if clean_payload["state"]:
+        ET.SubElement(field, f"{{{PHOTOSHOP_NS}}}State").text = _normalize_xmp_text(clean_payload["state"])
+    if clean_payload["country"]:
+        ET.SubElement(field, f"{{{PHOTOSHOP_NS}}}Country").text = _normalize_xmp_text(clean_payload["country"])
+    if clean_payload["sublocation"]:
+        ET.SubElement(field, f"{{{IPTC_EXT_NS}}}Sublocation").text = _normalize_xmp_text(clean_payload["sublocation"])
+    if clean_payload["gps_latitude"]:
+        ET.SubElement(field, f"{{{EXIF_NS}}}GPSLatitude").text = _format_xmp_gps_coordinate(
+            clean_payload["gps_latitude"],
+            axis="lat",
+        )
+    if clean_payload["gps_longitude"]:
+        ET.SubElement(field, f"{{{EXIF_NS}}}GPSLongitude").text = _format_xmp_gps_coordinate(
+            clean_payload["gps_longitude"],
+            axis="lon",
+        )
+
+
+def _read_region_location_struct(parent: ET.Element, tag: str) -> dict[str, str]:
+    try:
+        from .ai_location import _xmp_gps_to_decimal  # pylint: disable=import-outside-toplevel
+
+        field = parent.find(tag)
+        if field is None:
+            return {}
+        payload = {
+            "address": str(field.findtext(f"{{{IMAGO_NS}}}Address", default="") or "").strip(),
+            "city": str(field.findtext(f"{{{PHOTOSHOP_NS}}}City", default="") or "").strip(),
+            "state": str(field.findtext(f"{{{PHOTOSHOP_NS}}}State", default="") or "").strip(),
+            "country": str(field.findtext(f"{{{PHOTOSHOP_NS}}}Country", default="") or "").strip(),
+            "sublocation": str(field.findtext(f"{{{IPTC_EXT_NS}}}Sublocation", default="") or "").strip(),
+            "gps_latitude": _xmp_gps_to_decimal(field.findtext(f"{{{EXIF_NS}}}GPSLatitude", default=""), axis="lat"),
+            "gps_longitude": _xmp_gps_to_decimal(field.findtext(f"{{{EXIF_NS}}}GPSLongitude", default=""), axis="lon"),
+        }
+        return payload if any(payload.values()) else {}
+    except Exception:
+        return {}
+
+
 def _add_alt_text(parent: ET.Element, tag: str, value: str) -> None:
     text = _normalize_xmp_text(value, multiline=True)
     if not text:
@@ -473,7 +527,7 @@ def _page_description_summary(ocr_text: str, scene_text: str) -> str:
     clean_ocr = ocr_text.strip()
     clean_scene = scene_text.strip()
     if clean_ocr and clean_scene:
-        return f"OCR:\n{clean_ocr}\n\nScene Text:\n{clean_scene}"
+        return f"Caption:\n{clean_ocr}\n\nScene Text:\n{clean_scene}"
     return clean_ocr or clean_scene
 
 
@@ -1207,6 +1261,90 @@ def _read_xmp_bool(desc: ET.Element, tag: str) -> bool | None:
     return str(raw or "").strip().lower() == "true"
 
 
+def _normalize_pipeline_entry(entry: object) -> dict[str, object]:
+    """Normalise a legacy {"completed": ts} entry to the new schema on read."""
+    if not isinstance(entry, dict):
+        return {}
+    if "completed" in entry and "timestamp" not in entry:
+        normalized: dict[str, object] = dict(entry)
+        normalized["timestamp"] = normalized["completed"]
+        normalized.setdefault("result", "ok")
+        normalized.setdefault("input_hash", "")
+        return normalized
+    return dict(entry)
+
+
+def xmp_datetime_now() -> str:
+    """Return current UTC time formatted as XMP ISO-8601 string."""
+    return _xmp_datetime_now()
+
+
+def _has_legacy_pipeline_entries(xmp_path: Path) -> bool:
+    try:
+        tree = ET.parse(xmp_path)
+    except ET.ParseError:
+        return False
+    desc = _get_rdf_desc(tree)
+    if desc is None:
+        return False
+    pipeline = _read_detections_payload(desc).get("pipeline")
+    if not isinstance(pipeline, dict):
+        return False
+    return any(
+        isinstance(v, dict) and "completed" in v and "timestamp" not in v
+        for v in pipeline.values()
+    )
+
+
+def migrate_pipeline_records(xmp_path: str | Path) -> bool:
+    """Rewrite legacy {"completed": ts} pipeline entries to new schema in-place. Returns True if file was modified."""
+    path = Path(xmp_path)
+    if not path.is_file():
+        return False
+    try:
+        tree = ET.parse(path)
+    except ET.ParseError:
+        return False
+    desc = _get_rdf_desc(tree)
+    if desc is None:
+        return False
+    detections = _read_detections_payload(desc)
+    pipeline = detections.get("pipeline")
+    if not isinstance(pipeline, dict):
+        return False
+    changed = False
+    new_pipeline: dict[str, object] = {}
+    for k, v in pipeline.items():
+        if isinstance(v, dict) and "completed" in v and "timestamp" not in v:
+            entry = dict(v)
+            entry["timestamp"] = entry["completed"]
+            entry.setdefault("result", "ok")
+            entry.setdefault("input_hash", "")
+            new_pipeline[k] = entry
+            changed = True
+        else:
+            new_pipeline[k] = v
+    if changed:
+        detections["pipeline"] = new_pipeline
+        _write_detections_payload(tree, path, detections)
+    return changed
+
+
+def find_sidecars_with_legacy_pipeline_records(root: Path) -> list[Path]:
+    return [p for p in root.rglob("*.xmp") if _has_legacy_pipeline_entries(p)]
+
+
+def migrate_tree_pipeline_records(root: Path) -> dict[str, int]:
+    migrated = 0
+    skipped = 0
+    for xmp_path in root.rglob("*.xmp"):
+        if migrate_pipeline_records(xmp_path):
+            migrated += 1
+        else:
+            skipped += 1
+    return {"migrated": migrated, "skipped": skipped}
+
+
 def read_pipeline_state(xmp_path: str | Path) -> dict[str, object]:
     path = Path(xmp_path)
     if not path.is_file():
@@ -1219,7 +1357,9 @@ def read_pipeline_state(xmp_path: str | Path) -> dict[str, object]:
     if desc is None:
         return {}
     pipeline = _read_detections_payload(desc).get("pipeline")
-    return dict(pipeline) if isinstance(pipeline, dict) else {}
+    if not isinstance(pipeline, dict):
+        return {}
+    return {k: _normalize_pipeline_entry(v) for k, v in pipeline.items()}
 
 
 def read_pipeline_step(xmp_path: str | Path, step_name: str) -> dict[str, object] | None:
@@ -1249,6 +1389,20 @@ def write_pipeline_step(
     _write_detections_payload(tree, path, detections)
 
 
+def write_pipeline_steps(xmp_path: str | Path, updates: dict[str, dict]) -> None:
+    """Merge new-schema step records into imago:Detections["pipeline"], preserving existing keys."""
+    if not updates:
+        return
+    path = Path(xmp_path)
+    tree = _load_or_create_xmp_tree(path)
+    desc = _get_or_create_rdf_desc(tree)
+    detections = _read_detections_payload(desc)
+    pipeline = dict(detections.get("pipeline") or {})
+    pipeline.update(updates)
+    detections["pipeline"] = pipeline
+    _write_detections_payload(tree, path, detections)
+
+
 def clear_pipeline_steps(xmp_path: str | Path, step_names: list[str]) -> None:
     path = Path(xmp_path)
     if not path.is_file():
@@ -1269,6 +1423,35 @@ def clear_pipeline_steps(xmp_path: str | Path, step_names: list[str]) -> None:
     else:
         detections.pop("pipeline", None)
     _write_detections_payload(tree, path, detections)
+
+
+def is_step_stale(step_name: str, depends_on: list[str], pipeline_state: dict[str, object]) -> bool:
+    """Return True if step has no completed entry or any dependency's completed is newer."""
+    from datetime import datetime
+
+    def _parse_ts(entry: object) -> datetime | None:
+        if not isinstance(entry, dict):
+            return None
+        # Support both new "timestamp" and legacy "completed" keys
+        ts_str = str(entry.get("timestamp") or entry.get("completed") or "").strip()
+        if not ts_str:
+            return None
+        try:
+            return datetime.fromisoformat(ts_str)
+        except ValueError:
+            return None
+
+    step_entry = pipeline_state.get(step_name)
+    step_ts = _parse_ts(step_entry)
+    if step_ts is None:
+        return True
+
+    for dep_id in depends_on:
+        dep_ts = _parse_ts(pipeline_state.get(dep_id))
+        if dep_ts is not None and dep_ts > step_ts:
+            return True
+
+    return False
 
 
 def read_person_in_image(sidecar_path: str | Path) -> list[str]:
@@ -1311,108 +1494,6 @@ def read_locations_shown(sidecar_path: str | Path) -> list[dict[str, str]]:
         return _read_locations_shown_from_desc(desc)
     except Exception:
         return []
-
-
-def _normalize_ctm_matrix(value: list[object] | tuple[object, ...] | str | None) -> list[float]:
-    if value is None:
-        return []
-    if isinstance(value, str):
-        parts = [part.strip() for part in value.replace("\n", " ").split(",")]
-    else:
-        parts = [str(part).strip() for part in value]
-    matrix: list[float] = []
-    for part in parts:
-        if not part:
-            continue
-        try:
-            matrix.append(float(part))
-        except Exception:
-            return []
-    if len(matrix) != 9:
-        return []
-    return matrix
-
-
-def _format_ctm_matrix(matrix: list[float] | tuple[float, ...]) -> str:
-    return ", ".join(f"{float(value):.6f}".rstrip("0").rstrip(".") for value in matrix)
-
-
-def read_ctm_from_archive_xmp(sidecar_path: str | Path) -> dict[str, object] | None:
-    path = Path(sidecar_path)
-    if not path.is_file():
-        return None
-    try:
-        tree = ET.parse(path)
-    except ET.ParseError:
-        return None
-    desc = _get_rdf_desc(tree)  # type: ignore[arg-type]
-    if desc is None:
-        return None
-    matrix_text = str(desc.findtext(f"{{{CRS_NS}}}ColorMatrix1", default="") or "").strip()
-    matrix = _normalize_ctm_matrix(matrix_text)
-    if len(matrix) != 9:
-        return None
-    confidence_text = str(desc.findtext(f"{{{IMAGO_NS}}}CTMConfidence", default="") or "").strip()
-    try:
-        confidence = float(confidence_text) if confidence_text else 0.0
-    except Exception:
-        confidence = 0.0
-    warnings = _get_seq_values(desc, f"{{{IMAGO_NS}}}CTMWarnings")
-    return {
-        "matrix": matrix,
-        "confidence": confidence,
-        "warnings": warnings,
-        "reasoning_summary": str(desc.findtext(f"{{{IMAGO_NS}}}CTMReasoningSummary", default="") or "").strip(),
-        "model_name": str(desc.findtext(f"{{{IMAGO_NS}}}CTMModel", default="") or "").strip(),
-        "source_image_path": str(desc.findtext(f"{{{IMAGO_NS}}}CTMSourceImage", default="") or "").strip(),
-    }
-
-
-def write_ctm_to_archive_xmp(
-    sidecar_path: str | Path,
-    *,
-    matrix: list[float] | tuple[float, ...],
-    confidence: float,
-    warnings: list[str] | tuple[str, ...],
-    reasoning_summary: str,
-    creator_tool: str,
-    source_image_path: str,
-    model_name: str,
-) -> Path:
-    path = Path(sidecar_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tree: ET.ElementTree | None = None
-    if path.exists():
-        try:
-            tree = ET.parse(path)  # type: ignore[assignment]
-        except ET.ParseError:
-            tree = None
-    if tree is None:
-        tree = build_xmp_tree(
-            creator_tool=creator_tool,
-            person_names=[],
-            subjects=[],
-            description="",
-            album_title="",
-            gps_latitude="",
-            gps_longitude="",
-            source_text=str(source_image_path or "").strip(),
-            ocr_text="",
-        )
-    desc = _get_or_create_rdf_desc(tree)
-    _set_simple_text(
-        desc, f"{{{XMP_NS}}}CreatorTool", str(creator_tool or "").strip() or "https://github.com/cove/imago"
-    )
-    _set_simple_text(desc, f"{{{CRS_NS}}}HasSettings", "True")
-    _set_simple_text(desc, f"{{{CRS_NS}}}ColorMatrix1", _format_ctm_matrix(list(matrix)))
-    _set_simple_text(desc, f"{{{IMAGO_NS}}}CTMConfidence", f"{float(confidence):.6f}".rstrip("0").rstrip("."))
-    _set_seq_text(desc, f"{{{IMAGO_NS}}}CTMWarnings", [str(item).strip() for item in warnings if str(item).strip()])
-    _set_simple_text(desc, f"{{{IMAGO_NS}}}CTMReasoningSummary", str(reasoning_summary or "").strip())
-    _set_simple_text(desc, f"{{{IMAGO_NS}}}CTMSourceImage", str(source_image_path or "").strip())
-    _set_simple_text(desc, f"{{{IMAGO_NS}}}CTMModel", str(model_name or "").strip())
-    ET.indent(tree, space="  ")
-    tree.write(path, encoding="utf-8", xml_declaration=True)
-    return path
 
 
 def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
@@ -2050,7 +2131,12 @@ def write_region_list(
     path = Path(xmp_path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
+    existing_regions: list[dict] = []
     if path.is_file():
+        try:
+            existing_regions = read_region_list(path, img_w, img_h)
+        except Exception:
+            existing_regions = []
         try:
             tree: ET.ElementTree = ET.parse(str(path))  # type: ignore[assignment]
         except ET.ParseError:
@@ -2121,6 +2207,14 @@ def write_region_list(
             for name in person_names:
                 item = ET.SubElement(bag, _RDF_LI)
                 item.text = name
+
+        existing_region = existing_regions[r.index] if 0 <= int(r.index) < len(existing_regions) else {}
+        location_payload = dict(getattr(r, "location_payload", {}) or {})
+        location_override = dict(getattr(r, "location_override", {}) or {}) or dict(
+            existing_region.get("location_override") or {}
+        )
+        _add_region_location_struct(li, f"{{{IMAGO_NS}}}LocationAssigned", location_payload)
+        _add_region_location_struct(li, f"{{{IMAGO_NS}}}LocationOverride", location_override)
 
     # Update modify date
     desc.set(f"{{{XMP_NS}}}ModifyDate", _xmp_datetime_now())
@@ -2202,6 +2296,8 @@ def read_region_list(xmp_path: str | Path, img_w: int, img_h: int) -> list[dict]
                 "nh": nh,
                 "caption": caption,
                 "caption_hint": caption_hint,
+                "location_payload": _read_region_location_struct(li, f"{{{IMAGO_NS}}}LocationAssigned"),
+                "location_override": _read_region_location_struct(li, f"{{{IMAGO_NS}}}LocationOverride"),
                 "person_names": person_names,
                 "type": rtype,
             }

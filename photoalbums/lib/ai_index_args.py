@@ -232,4 +232,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=0,
         help="Zero-based shard index to process when --shard-count is greater than 1.",
     )
+    parser.add_argument(
+        "--steps",
+        default="",
+        help=(
+            "Comma-separated list of step names to force re-run unconditionally "
+            "(e.g. 'caption', 'ocr,people'). Downstream steps are also marked stale."
+        ),
+    )
     return parser.parse_args(argv)

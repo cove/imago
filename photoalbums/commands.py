@@ -66,229 +66,6 @@ def run_render() -> int:
     return _call_main(stitch_oversized_pages.main)
 
 
-def run_ctm(argv: list[str]) -> int:
-    from .lib import ai_ctm_restoration
-    from .lib.xmp_sidecar import clear_pipeline_steps, read_pipeline_step, write_pipeline_step
-    from .naming import parse_album_filename
-    from .stitch_oversized_pages import (
-        _require_primary_scan,
-        _view_page_output_path,
-        get_photos_dirname,
-        get_view_dirname,
-        list_archive_dirs,
-        list_page_scans,
-    )
-
-    def _match_archives(photos_root_text: str, album_id_text: str) -> list[Path]:
-        archives = [Path(path) for path in list_archive_dirs(Path(photos_root_text))]
-        if not album_id_text:
-            return archives
-        return [path for path in archives if path.name == f"{album_id_text}_Archive"]
-
-    def _resolve_ctm_source_image(primary_scan: Path) -> Path:
-        view_dir = Path(get_view_dirname(primary_scan.parent))
-        view_path = _view_page_output_path(primary_scan, view_dir)
-        if not view_path.is_file():
-            raise RuntimeError(f"CTM source stitched image not found: {view_path}")
-        return view_path
-
-    if not argv:
-        print("Error: missing CTM command")
-        return 2
-    command = str(argv[0]).strip().lower()
-    if command not in {"generate", "review"}:
-        print(f"Error: unknown CTM command: {command}")
-        return 2
-    args = list(argv[1:])
-    force = False
-    per_photo = False
-    album_id = ""
-    page = ""
-    photos_root = "."
-    index = 0
-    while index < len(args):
-        token = args[index]
-        if token == "--force":
-            force = True
-            index += 1
-            continue
-        if token == "--per-photo":
-            per_photo = True
-            index += 1
-            continue
-        if token == "--album-id" and index + 1 < len(args):
-            album_id = args[index + 1]
-            index += 2
-            continue
-        if token == "--page" and index + 1 < len(args):
-            page = args[index + 1]
-            index += 2
-            continue
-        if token == "--photos-root" and index + 1 < len(args):
-            photos_root = args[index + 1]
-            index += 2
-            continue
-        print(f"Error: unknown argument: {token}")
-        return 2
-
-    selected = _match_archives(photos_root, album_id)
-    if not selected:
-        if album_id:
-            print(f"Error: no archive matched album_id={album_id!r}")
-        else:
-            print(f"Error: no archive directories found under photos_root={photos_root!r}")
-        return 1
-
-    matched: list[Path] = []
-    for archive in selected:
-        for group in list_page_scans(archive):
-            primary = Path(_require_primary_scan(group))
-            if page and f"P{int(page):02d}" not in primary.name:
-                continue
-            matched.append(primary)
-    if not matched:
-        print("Error: no matching archive scan pages found")
-        return 1
-
-    if command == "generate":
-        for scan in matched:
-            targets: list[tuple[Path, Path, str]] = []
-            if per_photo:
-                _, _, _, page_str = parse_album_filename(scan.name)
-                photos_dir = Path(get_photos_dirname(scan.parent))
-                if photos_dir.is_dir():
-                    targets = [
-                        (crop, crop.with_suffix(".xmp"), crop.name)
-                        for crop in sorted(photos_dir.glob(f"*_P{int(page_str):02d}_D*-00_V.jpg"))
-                    ]
-            else:
-                targets = [(_resolve_ctm_source_image(scan), scan.with_suffix(".xmp"), scan.name)]
-
-            for source_image, sidecar_path, display_name in targets:
-                if force:
-                    clear_pipeline_steps(sidecar_path, ["ctm"])
-                else:
-                    pipeline_state = read_pipeline_step(sidecar_path, "ctm")
-                    if pipeline_state is not None:
-                        completed = str(pipeline_state.get("completed") or "").strip()
-                        if completed:
-                            print(
-                                f"Skipping {display_name} CTM generation (already completed at {completed}; use --force to rerun)"
-                            )
-                        else:
-                            print(
-                                f"Skipping {display_name} CTM generation (pipeline state present; use --force to rerun)"
-                            )
-                        continue
-
-                output_sidecar, result = ai_ctm_restoration.generate_and_store_ctm(
-                    source_image,
-                    archive_sidecar_path=sidecar_path,
-                    force=force,
-                )
-                write_pipeline_step(output_sidecar, "ctm", model=result.model_name or None)
-                print(
-                    json.dumps(
-                        {
-                            "image": display_name,
-                            "source_image": str(source_image),
-                            "archive_xmp": str(output_sidecar),
-                            **result.to_dict(),
-                        },
-                        ensure_ascii=False,
-                    )
-                )
-        return 0
-
-    for scan in matched:
-        state = ai_ctm_restoration.read_ctm_from_archive_xmp(scan.with_suffix(".xmp"))
-        print(
-            json.dumps(
-                {"image": scan.name, "archive_xmp": str(scan.with_suffix(".xmp")), "ctm": state}, ensure_ascii=False
-            )
-        )
-    return 0
-
-
-def run_ctm_apply(*, album_id: str, photos_root: str, page: str | None, force: bool) -> int:
-    from .lib import ai_ctm_restoration
-    from .lib.xmp_sidecar import clear_pipeline_steps, read_pipeline_step, write_pipeline_step
-    from .stitch_oversized_pages import (
-        _require_primary_scan,
-        _view_page_output_path,
-        get_photos_dirname,
-        get_view_dirname,
-        list_archive_dirs,
-        list_page_scans,
-    )
-
-    def _match_archives(photos_root_text: str, album_id_text: str) -> list[Path]:
-        archives = [Path(path) for path in list_archive_dirs(Path(photos_root_text))]
-        if not album_id_text:
-            return archives
-        return [path for path in archives if path.name == f"{album_id_text}_Archive"]
-
-    def _apply_if_needed(*, jpeg_path: Path, sidecar_path: Path, ctm_source_path: Path) -> None:
-        ctm_state = ai_ctm_restoration.read_ctm_from_archive_xmp(ctm_source_path)
-        if ctm_state is None:
-            return
-        if force:
-            clear_pipeline_steps(sidecar_path, ["ctm_applied"])
-        else:
-            existing = read_pipeline_step(sidecar_path, "ctm_applied")
-            if existing is not None:
-                print(f"Skipping {jpeg_path.name} CTM apply (pipeline state present; use --force to rerun)")
-                return
-        matrix = ctm_state.get("matrix")
-        if not isinstance(matrix, list) or len(matrix) != 9:
-            return
-        ai_ctm_restoration.apply_ctm_to_jpeg(jpeg_path, matrix)
-        write_pipeline_step(sidecar_path, "ctm_applied", model=str(ctm_state.get("model_name") or "").strip() or None)
-
-    selected = _match_archives(photos_root, album_id)
-    if not selected:
-        if album_id:
-            print(f"Error: no archive matched album_id={album_id!r}")
-        else:
-            print(f"Error: no archive directories found under photos_root={photos_root!r}")
-        return 1
-
-    matched: list[Path] = []
-    for archive in selected:
-        for group in list_page_scans(archive):
-            primary = Path(_require_primary_scan(group))
-            if page and f"P{int(page):02d}" not in primary.name:
-                continue
-            matched.append(primary)
-    if not matched:
-        print("Error: no matching archive scan pages found")
-        return 1
-
-    for scan in matched:
-        archive_sidecar = scan.with_suffix(".xmp")
-        view_dir = Path(get_view_dirname(scan.parent))
-        view_path = _view_page_output_path(scan, view_dir)
-        if view_path.is_file():
-            _apply_if_needed(
-                jpeg_path=view_path,
-                sidecar_path=view_path.with_suffix(".xmp"),
-                ctm_source_path=archive_sidecar,
-            )
-
-        photos_dir = Path(get_photos_dirname(scan.parent))
-        page_token = f"_P{int(page):02d}_" if page else f"_P{int(scan.stem.split('_P')[1].split('_')[0]):02d}_"
-        if not photos_dir.is_dir():
-            continue
-        for crop_path in sorted(photos_dir.glob(f"*{page_token}D*-00_V.jpg")):
-            crop_xmp = crop_path.with_suffix(".xmp")
-            _apply_if_needed(
-                jpeg_path=crop_path,
-                sidecar_path=crop_xmp,
-                ctm_source_path=crop_xmp,
-            )
-    return 0
-
-
 def run_stitch_validate() -> int:
     import stitch_oversized_pages_validate
 
@@ -570,9 +347,8 @@ def run_render_pipeline(
     """Run the full render pipeline for matching pages.
 
     Pipeline order per page:
-      render -> detect-regions -> crop-regions -> face-refresh -> ctm-apply
+      render -> detect-regions -> crop-regions -> face-refresh
     """
-    from .lib.ai_ctm_restoration import apply_ctm_to_jpeg, read_ctm_from_archive_xmp
     from .lib.ai_photo_crops import CropPageStats, crop_page_regions
     from .lib.ai_render_face_refresh import FaceRefreshSkipped, RenderFaceRefreshSession
     from .lib.ai_model_settings import default_view_region_model
@@ -637,7 +413,6 @@ def run_render_pipeline(
         "crop_steps_reran": 0,
         "crops_written": 0,
         "ignored_crop_regions": 0,
-        "ctm_applied_outputs": 0,
     }
 
     face_session = RenderFaceRefreshSession(photos_root=root)
@@ -821,39 +596,6 @@ def run_render_pipeline(
                     summary["pages_failed"] += 1
                     continue
 
-                # Step: ctm-apply (page view)
-                try:
-                    def _apply_ctm_if_needed(jpeg_path: Path, sidecar_path: Path, ctm_source: Path) -> bool:
-                        ctm_state = read_ctm_from_archive_xmp(ctm_source)
-                        if ctm_state is None:
-                            return False
-                        if force:
-                            clear_pipeline_steps(sidecar_path, ["ctm_applied"])
-                        else:
-                            if read_pipeline_step(sidecar_path, "ctm_applied") is not None:
-                                return False
-                        matrix = ctm_state.get("matrix")
-                        if not isinstance(matrix, list) or len(matrix) != 9:
-                            return False
-                        apply_ctm_to_jpeg(jpeg_path, matrix)
-                        write_pipeline_step(sidecar_path, "ctm_applied", model=str(ctm_state.get("model_name") or "").strip() or None)
-                        return True
-
-                    if view_path.is_file():
-                        if _apply_ctm_if_needed(view_path, xmp_path, archive_sidecar):
-                            summary["ctm_applied_outputs"] += 1
-                    if photos_dir.is_dir():
-                        for crop in sorted(photos_dir.glob(f"*{current_page_token}D*-00_V.jpg")):
-                            crop_xmp = crop.with_suffix(".xmp")
-                            if _apply_ctm_if_needed(crop, crop_xmp, crop_xmp):
-                                summary["ctm_applied_outputs"] += 1
-                except Exception as exc:
-                    print(f"  ERROR [ctm-apply]: {exc}", file=sys.stderr)
-                    failures.append((page_label, "ctm-apply", str(exc)))
-                    summary["errors"] += 1
-                    summary["pages_failed"] += 1
-                    continue
-
                 summary["pages_completed"] += 1
 
             except Exception as exc:
@@ -882,8 +624,6 @@ def run_render_pipeline(
         f"{summary['crop_steps_skipped']} skipped, "
         f"{summary['crop_steps_reran']} rerun"
     )
-    print(f"CTM apply: {summary['ctm_applied_outputs']} output(s) updated")
-
     if failures:
         print("\n===== PIPELINE FAILURE SUMMARY =====", file=sys.stderr)
         for page_name, step, msg in failures:
@@ -891,6 +631,451 @@ def run_render_pipeline(
         return 1
 
     return 0
+
+
+def print_pipeline_plan(
+    steps: list,
+    skip_ids: set[str],
+    redo_ids: set[str],
+    album_label: str,
+    page_count: int,
+) -> None:
+    total = len(steps)
+    print(f"Pipeline steps ({total} total):")
+    for i, step in enumerate(steps, 1):
+        annotation = ""
+        if step.id in skip_ids:
+            annotation = f"  (skipped: --skip {step.id})"
+        elif step.id in redo_ids:
+            annotation = "  (redo forced)"
+        print(f"  [{i}] {step.id}{annotation}")
+    if album_label:
+        print(f"Album: {album_label}, {page_count} page(s)")
+    else:
+        print(f"{page_count} page(s)")
+
+
+def run_process_pipeline(
+    *,
+    album_id: str,
+    photos_root: str,
+    page: str | None,
+    skip_ids: list[str],
+    redo_ids: list[str],
+    step_id: str | None,
+    force: bool,
+    debug: bool,
+    no_validation: bool,
+    skip_restoration: bool,
+    force_restoration: bool,
+    gps_only: bool = False,
+) -> int:
+    from .lib.pipeline import PIPELINE_STEPS, VALID_STEP_IDS
+    from .lib.xmp_sidecar import (
+        clear_pipeline_steps,
+        is_step_stale,
+        propagate_archive_copy_safe_fields,
+        read_pipeline_state,
+        read_pipeline_step,
+        write_pipeline_step,
+        write_region_list,
+    )
+    from .stitch_oversized_pages import (
+        _require_primary_scan,
+        _view_page_output_path,
+        get_photos_dirname,
+        get_view_dirname,
+        list_archive_dirs,
+        list_derived_images,
+        list_page_scans,
+        stitch,
+        tif_to_jpg,
+        derived_to_jpg,
+    )
+
+    root = Path(photos_root)
+    album_id_lower = album_id.casefold()
+
+    # Derive effective skip set
+    if step_id:
+        effective_skip_ids = set(sid for sid in VALID_STEP_IDS if sid != step_id)
+    else:
+        effective_skip_ids = set(skip_ids)
+
+    # --force means redo all steps
+    effective_redo_ids = set(VALID_STEP_IDS) if force else set(redo_ids)
+
+    # Collect archive directories
+    archives = [
+        Path(p)
+        for p in list_archive_dirs(root)
+        if not album_id or album_id_lower in Path(p).name.casefold()
+    ]
+    if not archives:
+        print(f"No archive directories found matching '{album_id}' under {root}", file=sys.stderr)
+        return 1
+
+    # Collect all page groups
+    all_pages: list[tuple] = []
+    for archive in archives:
+        view_dir = Path(get_view_dirname(archive))
+        photos_dir = Path(get_photos_dirname(archive))
+        page_groups = list_page_scans(archive)
+        if page is not None:
+            page_groups = [g for g in page_groups if f"P{str(page).zfill(2)}" in Path(_require_primary_scan(g)).name]
+        for group in page_groups:
+            all_pages.append((archive, view_dir, photos_dir, group))
+
+    if not all_pages:
+        print("No matching pages found.", file=sys.stderr)
+        return 1
+
+    active_steps = [s for s in PIPELINE_STEPS if s.id not in effective_skip_ids]
+    total_steps = len(active_steps)
+    album_label = album_id or ""
+    print_pipeline_plan(PIPELINE_STEPS, effective_skip_ids, effective_redo_ids, album_label, len(all_pages))
+
+    # Per-step counters: {step_id: {"run": int, "skipped": int, "failed": int, "detail": list}}
+    counters: dict[str, dict] = {
+        s.id: {"run": 0, "skipped": 0, "failed": 0, "detail": []} for s in PIPELINE_STEPS
+    }
+
+    # Track which steps have run this pass per page (for staleness cascade)
+    from .lib.ai_model_settings import default_view_region_model
+    from .lib.ai_view_regions import (
+        _has_xmp_regions,
+        _image_dimensions,
+        _read_regions_from_xmp,
+        associate_captions,
+        detect_regions,
+        validate_region_set,
+    )
+    from .lib.ai_photo_crops import CropPageStats, crop_page_regions
+    from .lib.ai_render_face_refresh import FaceRefreshSkipped, RenderFaceRefreshSession
+    from .lib.prompt_debug import PromptDebugSession
+
+    model_name = default_view_region_model()
+    face_session = RenderFaceRefreshSession(photos_root=root)
+
+    # Build IndexRunner once so engine caches are shared across pages
+    from .lib.ai_index_runner import IndexRunner
+    ai_runner_argv = ["--photos-root", str(root)]
+    if gps_only:
+        ai_runner_argv += ["--reprocess-mode", "gps"]
+    if force:
+        ai_runner_argv.append("--force")
+    if debug:
+        ai_runner_argv.append("--debug")
+    ai_runner = IndexRunner(ai_runner_argv)
+    ai_page_idx = 0
+
+    for archive, view_dir, photos_dir, group in all_pages:
+        primary_scan = Path(_require_primary_scan(group))
+        view_path = _view_page_output_path(primary_scan, view_dir)
+        xmp_path = view_path.with_suffix(".xmp")
+        archive_sidecar = primary_scan.with_suffix(".xmp")
+        current_page = str(primary_scan.stem.split("_P")[1].split("_")[0]).zfill(2)
+        current_page_token = f"_P{current_page}_"
+        page_label = view_path.name
+
+        # Track per-step completed timestamps for staleness after this pass
+        step_just_ran: set[str] = set()
+
+        for step_idx, step in enumerate(active_steps, 1):
+            prefix = f"[{step_idx}/{total_steps}] {step.id} {page_label}"
+
+            # Read current pipeline state for staleness check
+            pipeline_state = read_pipeline_state(xmp_path)
+
+            # Determine if we should force-redo this step
+            should_redo = step.id in effective_redo_ids
+
+            # Dependency staleness: recompute after any dep ran this pass
+            dep_ran = any(dep in step_just_ran for dep in step.depends_on)
+            stale = False
+            stale_dep = ""
+            if not should_redo and not dep_ran:
+                stale, stale_dep = _check_step_stale(step, pipeline_state)
+
+            force_this_step = should_redo or dep_ran or stale
+
+            print(f"{prefix}", end="", flush=True)
+
+            try:
+                if step.id == "render":
+                    outcome = _run_step_render(
+                        group=group,
+                        primary_scan=primary_scan,
+                        view_dir=view_dir,
+                        photos_dir=photos_dir,
+                        current_page_token=current_page_token,
+                        stitch=stitch,
+                        tif_to_jpg=tif_to_jpg,
+                        derived_to_jpg=derived_to_jpg,
+                        list_derived_images=list_derived_images,
+                        archive=archive,
+                    )
+                    counters["render"]["run"] += 1
+                    step_just_ran.add("render")
+                    _print_outcome(outcome, stale_dep)
+
+                elif step.id == "propagate-metadata":
+                    if view_path.is_file() and archive_sidecar.is_file():
+                        propagate_archive_copy_safe_fields(xmp_path, archive_sidecar)
+                        counters["propagate-metadata"]["run"] += 1
+                        step_just_ran.add("propagate-metadata")
+                        _print_outcome("done", stale_dep)
+                    else:
+                        counters["propagate-metadata"]["skipped"] += 1
+                        _print_outcome("skipped (no sidecar)", stale_dep)
+
+                elif step.id == "detect-regions":
+                    skipped, ran = _run_step_detect_regions(
+                        view_path=view_path,
+                        xmp_path=xmp_path,
+                        root=root,
+                        model_name=model_name,
+                        force=force_this_step,
+                        debug=debug,
+                        skip_validation=no_validation,
+                        counters=counters,
+                        prompt_debug_cls=PromptDebugSession if debug else None,
+                        write_region_list=write_region_list,
+                        read_pipeline_step=read_pipeline_step,
+                        write_pipeline_step=write_pipeline_step,
+                        clear_pipeline_steps=clear_pipeline_steps,
+                        detect_regions=detect_regions,
+                        associate_captions=associate_captions,
+                        validate_region_set=validate_region_set,
+                        _has_xmp_regions=_has_xmp_regions,
+                        _image_dimensions=_image_dimensions,
+                        _read_regions_from_xmp=_read_regions_from_xmp,
+                    )
+                    if skipped:
+                        counters["detect-regions"]["skipped"] += 1
+                        _print_outcome("skipped (already complete)", stale_dep)
+                    else:
+                        counters["detect-regions"]["run"] += 1
+                        step_just_ran.add("detect-regions")
+                        write_pipeline_step(xmp_path, "detect-regions")
+                        _print_outcome("done", stale_dep)
+
+                elif step.id == "crop-regions":
+                    if _is_title_page_view(view_path):
+                        counters["crop-regions"]["skipped"] += 1
+                        _print_outcome("skipped (title page)", stale_dep)
+                    else:
+                        if force_this_step:
+                            clear_pipeline_steps(xmp_path, ["crop_regions"])
+                        crop_stats = CropPageStats()
+                        n = crop_page_regions(
+                            view_path,
+                            photos_dir,
+                            force=force_this_step,
+                            skip_restoration=skip_restoration,
+                            force_restoration=force_restoration,
+                            stats=crop_stats,
+                        )
+                        if crop_stats.skipped_existing_outputs and n == 0:
+                            counters["crop-regions"]["skipped"] += 1
+                            _print_outcome("skipped (already complete)", stale_dep)
+                        else:
+                            counters["crop-regions"]["run"] += 1
+                            counters["crop-regions"]["detail"].append(f"{n} crops written")
+                            step_just_ran.add("crop-regions")
+                            write_pipeline_step(xmp_path, "crop-regions")
+                            _print_outcome("done", stale_dep)
+
+                elif step.id == "face-refresh":
+                    refresh_targets = _iter_face_refresh_targets(view_dir, photos_dir, current_page)
+                    face_session.set_files(refresh_targets)
+                    ran_any = False
+                    for img_path in refresh_targets:
+                        try:
+                            face_session.refresh_face_regions(img_path, img_path.with_suffix(".xmp"), force=force_this_step)
+                            ran_any = True
+                        except FaceRefreshSkipped:
+                            pass
+                    if ran_any:
+                        counters["face-refresh"]["run"] += 1
+                        step_just_ran.add("face-refresh")
+                        write_pipeline_step(xmp_path, "face-refresh")
+                        _print_outcome("done", stale_dep)
+                    else:
+                        counters["face-refresh"]["skipped"] += 1
+                        _print_outcome("skipped (already complete)", stale_dep)
+
+                elif step.id == "ai-index":
+                    if force_this_step:
+                        ai_runner.force_processing = True
+                    ai_page_idx += 1
+                    proc_before = ai_runner.processed
+                    skip_before = ai_runner.skipped
+                    fail_before = ai_runner.failures
+                    ai_runner._process_one(ai_page_idx, view_path)
+                    if ai_runner.failures > fail_before:
+                        counters["ai-index"]["failed"] += 1
+                        _print_outcome("ERROR", stale_dep)
+                    elif ai_runner.skipped > skip_before:
+                        counters["ai-index"]["skipped"] += 1
+                        _print_outcome("skipped (already complete)", stale_dep)
+                    else:
+                        counters["ai-index"]["run"] += 1
+                        step_just_ran.add("ai-index")
+                        write_pipeline_step(xmp_path, "ai-index")
+                        _print_outcome("done", stale_dep)
+                    continue
+
+            except Exception as exc:
+                counters[step.id]["failed"] += 1
+                print(f" ... ERROR: {exc}", file=sys.stderr, flush=True)
+                continue
+
+    # Print summary
+    print("\n===== PIPELINE SUMMARY =====")
+    for step in active_steps:
+        c = counters[step.id]
+        detail = ", ".join(c["detail"]) if c["detail"] else ""
+        detail_col = f"  ({detail})" if detail else ""
+        print(
+            f"  {step.id:<22} run={c['run']}  skipped={c['skipped']}  failed={c['failed']}{detail_col}"
+        )
+
+    any_failed = any(counters[s.id]["failed"] > 0 for s in active_steps)
+    return 1 if any_failed else 0
+
+
+def _check_step_stale(step, pipeline_state: dict) -> tuple[bool, str]:
+    from .lib.xmp_sidecar import is_step_stale
+    stale = is_step_stale(step.id, step.depends_on, pipeline_state)
+    if stale:
+        # Identify which dep triggered it
+        from datetime import datetime
+
+        def _parse_ts(entry: dict) -> str:
+            # Support both "timestamp" (new schema) and "completed" (legacy schema)
+            return str(entry.get("timestamp") or entry.get("completed") or "").strip()
+
+        step_entry = pipeline_state.get(step.id) or {}
+        step_ts_str = _parse_ts(step_entry)
+        if not step_ts_str:
+            return True, ""
+        try:
+            step_ts = datetime.fromisoformat(step_ts_str)
+        except ValueError:
+            return True, ""
+        for dep_id in step.depends_on:
+            dep_entry = pipeline_state.get(dep_id) or {}
+            dep_ts_str = _parse_ts(dep_entry)
+            if not dep_ts_str:
+                continue
+            try:
+                dep_ts = datetime.fromisoformat(dep_ts_str)
+                if dep_ts > step_ts:
+                    return True, dep_id
+            except ValueError:
+                continue
+    return False, ""
+
+
+def _print_outcome(outcome: str, stale_dep: str) -> None:
+    if stale_dep:
+        print(f" ... (re-run: {stale_dep} updated)", flush=True)
+    else:
+        print(f" ... {outcome}", flush=True)
+
+
+def _run_step_render(
+    *,
+    group,
+    primary_scan: Path,
+    view_dir: Path,
+    photos_dir: Path,
+    current_page_token: str,
+    stitch,
+    tif_to_jpg,
+    derived_to_jpg,
+    list_derived_images,
+    archive: Path,
+) -> str:
+    if len(group) > 1:
+        stitch(group, str(view_dir))
+    else:
+        tif_to_jpg(str(primary_scan), str(view_dir))
+    for derived in list_derived_images(archive):
+        if current_page_token in Path(derived).name:
+            derived_to_jpg(derived, str(photos_dir))
+    return "done"
+
+
+def _run_step_detect_regions(
+    *,
+    view_path: Path,
+    xmp_path: Path,
+    root: Path,
+    model_name: str,
+    force: bool,
+    debug: bool,
+    skip_validation: bool,
+    counters: dict,
+    prompt_debug_cls,
+    write_region_list,
+    read_pipeline_step,
+    write_pipeline_step,
+    clear_pipeline_steps,
+    detect_regions,
+    associate_captions,
+    validate_region_set,
+    _has_xmp_regions,
+    _image_dimensions,
+    _read_regions_from_xmp,
+) -> tuple[bool, bool]:
+    """Returns (skipped, ran)."""
+    if _is_title_page_view(view_path):
+        return True, False
+
+    if force:
+        clear_pipeline_steps(xmp_path, ["view_regions"])
+    elif _view_regions_step_complete(xmp_path):
+        if _has_xmp_regions(xmp_path):
+            img_w, img_h = _image_dimensions(view_path)
+            stored = _read_regions_from_xmp(xmp_path, img_w, img_h)
+            vresult = validate_region_set(stored, img_w=img_w, img_h=img_h)
+            if vresult.valid or skip_validation:
+                return True, False
+            clear_pipeline_steps(xmp_path, ["view_regions"])
+        else:
+            return True, False
+
+    img_w, img_h = _image_dimensions(view_path)
+    album_context, page_caption, people_roster = _build_region_detection_context(view_path, root)
+    prompt_debug = prompt_debug_cls(view_path, label=view_path.name) if prompt_debug_cls else None
+    try:
+        regions = detect_regions(
+            view_path,
+            force=force,
+            album_context=album_context,
+            page_caption=page_caption,
+            people_roster=people_roster,
+            prompt_debug=prompt_debug,
+            skip_validation=skip_validation,
+            write_debug=debug,
+        )
+    finally:
+        _write_view_regions_debug_artifact(prompt_debug, image_path=view_path)
+
+    if regions:
+        regions_with_captions = associate_captions(regions, [], img_w)
+        write_region_list(xmp_path, regions_with_captions, img_w, img_h)
+        write_pipeline_step(xmp_path, "view_regions", model=model_name, extra={"result": "regions_found"})
+        counters["detect-regions"]["detail"].append(f"{len(regions)} regions")
+    else:
+        write_region_list(xmp_path, [], img_w, img_h)
+        existing_step = read_pipeline_step(xmp_path, "view_regions") or {}
+        if str(existing_step.get("result") or "") not in {"no_regions", "validation_failed", "failed"}:
+            write_pipeline_step(xmp_path, "view_regions", model=model_name, extra={"result": "no_regions"})
+
+    return False, True
 
 
 def run_migrate_page_dir_refs(*, photos_root: str, verify_only: bool = False) -> int:
@@ -942,6 +1127,35 @@ def run_migrate_caption_layout(*, photos_root: str, verify_only: bool = False) -
         return 0
 
     result = migrate_album_caption_layout(root)
+    print(
+        json.dumps(
+            {
+                "photos_root": str(root),
+                **result,
+            },
+            ensure_ascii=False,
+        )
+    )
+    return 0
+
+
+def run_migrate_pipeline_records(*, photos_root: str, verify_only: bool = False) -> int:
+    from .lib.xmp_sidecar import find_sidecars_with_legacy_pipeline_records, migrate_tree_pipeline_records
+
+    root = Path(photos_root)
+    if verify_only:
+        matches = find_sidecars_with_legacy_pipeline_records(root)
+        if matches:
+            print(f"Found {len(matches)} sidecar(s) with legacy pipeline records under {root}", file=sys.stderr)
+            for path in matches[:20]:
+                print(f"  {path}", file=sys.stderr)
+            if len(matches) > 20:
+                print(f"  ... {len(matches) - 20} more", file=sys.stderr)
+            return 1
+        print(f"No .xmp files under {root} contain legacy pipeline records")
+        return 0
+
+    result = migrate_tree_pipeline_records(root)
     print(
         json.dumps(
             {
