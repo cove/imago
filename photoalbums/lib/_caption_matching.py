@@ -14,20 +14,22 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 CAPTION_MATCHING_PROMPT = (
-    "Number the photos from left to right and top to bottom first, then determine which caption goes with which photo.\n"
-    '`{"photo-1": "", "photo-2": "", "photo-3": ""}`\n'
-    "- Number as many `photo-N` keys as there are distinct photos on the page.\n"
-    "- Each value is the caption text that belongs to that photo; empty string if there is no caption.\n"
+    "Use the visible numbered region overlay as the authoritative region identity contract.\n"
+    '`{"region-1": "", "region-2": "", "region-3": ""}`\n'
+    "- Number as many `region-N` keys as there are visible numbered regions on the overlay.\n"
+    "- Each value is the caption text that belongs to that region; empty string if there is no caption.\n"
+    "- Use the visible overlay numbers directly. Do not renumber the regions and do not infer a separate left-to-right/top-to-bottom ordering.\n"
     "- If a caption refers to subjects shown in an adjacent photo (e.g. \"Their new home\" paired with a photo labelled \"GILBERT & HELEN\"), prepend the missing subject so the caption reads standalone (e.g. \"GILBERT & HELEN — Their new home\"). Do not rewrite or summarise; only prepend the minimum context needed.\n"
     "- Just return the JSON without any extra text or explanation."
 )
 MULTI_LOCATION_PROMPT_TEMPLATE = (
-    "Number the photos from left to right and top to bottom first, then determine which caption goes with which photo.\n"
-    '`{{"photo-1": {{"caption": "", "location": ""}}, "photo-2": {{"caption": "", "location": ""}}}}`\n'
-    "- Number as many `photo-N` keys as there are distinct photos on the page.\n"
-    '- "caption": the caption text that belongs to that photo; empty string if there is no caption.\n'
+    "Use the visible numbered region overlay as the authoritative region identity contract.\n"
+    '`{{"region-1": {{"caption": "", "location": ""}}, "region-2": {{"caption": "", "location": ""}}}}`\n'
+    "- Number as many `region-N` keys as there are visible numbered regions on the overlay.\n"
+    '- "caption": the caption text that belongs to that region; empty string if there is no caption.\n'
     '- "location": copy exactly one item from the Known locations list below; do not invent a new place name, do not repeat the caption text, and do not add dates or extra words. If none apply, return empty string.\n'
     "Known locations: {known_locations}\n"
+    "- Use the visible overlay numbers directly. Do not renumber the regions and do not infer a separate left-to-right/top-to-bottom ordering.\n"
     "- If a caption refers to subjects shown in an adjacent photo, prepend the missing subject so the caption reads standalone. Do not rewrite or summarise; only prepend the minimum context needed.\n"
     "- Just return the JSON without any extra text or explanation."
 )
@@ -208,9 +210,9 @@ def call_lmstudio_caption_matching(
     timeout: float = DEFAULT_TIMEOUT,
     locations_shown: list[dict] | None = None,
 ) -> dict[int, dict[str, str]]:
-    """Call the configured LM Studio model to match captions to numbered photos.
+    """Call the configured LM Studio model to match captions to numbered regions.
 
-    Returns a dict mapping 1-based photo index to caption/location fields.
+    Returns a dict mapping 1-based overlay region number to caption/location fields.
     Returns empty dict on any error (LM Studio offline, bad JSON, etc.).
     """
     path = Path(image_path)
@@ -273,10 +275,10 @@ def call_lmstudio_caption_matching(
     result: dict[int, dict[str, str]] = {}
     for key, value in parsed.items():
         key_str = str(key or "").strip()
-        if not key_str.startswith("photo-"):
+        if not key_str.startswith("region-"):
             continue
         try:
-            idx = int(key_str[6:])
+            idx = int(key_str[7:])
         except ValueError:
             continue
         if isinstance(value, dict):
@@ -293,12 +295,12 @@ def call_lmstudio_caption_matching(
 
 
 def assign_captions_from_lmstudio(regions: list, captions: dict[int, str | dict[str, str]]) -> list:
-    """Return regions with caption_hint populated from LM Studio's 1-based photo index mapping."""
+    """Return regions with caption_hint populated from LM Studio's overlay mapping."""
     from dataclasses import replace  # pylint: disable=import-outside-toplevel
 
     result = []
-    for position, region in enumerate(regions, start=1):
-        raw_value = captions.get(position, "")
+    for region in regions:
+        raw_value = captions.get(int(getattr(region, "index", -1)) + 1, "")
         if isinstance(raw_value, dict):
             caption = str(raw_value.get("caption") or "").strip()
             location = str(raw_value.get("location") or "").strip()

@@ -19,6 +19,14 @@ from typing import Any
 
 from ..naming import DERIVED_NAME_RE as ALBUM_DERIVED_NAME_RE
 from ..naming import archive_dir_for_album_dir, is_pages_dir
+from .metadata_resolver import (
+    build_location_filter_set as _resolver_build_location_filter_set,
+    filter_location_names_from_people as _resolver_filter_location_names_from_people,
+    match_caption_to_location_shown as _resolver_match_caption_to_location_shown,
+    normalize_location_payload as _resolver_normalize_location_payload,
+    resolve_crop_location as _resolver_resolve_crop_location,
+    resolve_person_in_image as _resolver_resolve_person_in_image,
+)
 
 log = logging.getLogger(__name__)
 
@@ -97,13 +105,31 @@ def _resolve_page_description_from_regions(regions: list[dict], fallback_descrip
 
 
 def _normalize_region_location_payload(payload: dict[str, Any] | None) -> dict[str, str]:
-    if not isinstance(payload, dict):
-        return {}
-    normalized = {
-        key: str(payload.get(key) or "").strip()
-        for key in ("address", "city", "state", "country", "sublocation", "gps_latitude", "gps_longitude")
-    }
-    return {key: value for key, value in normalized.items() if value}
+    return _resolver_normalize_location_payload(payload)
+
+
+def _build_location_filter_set(
+    locations_shown: list[dict],
+    location_payload: dict[str, Any] | None = None,
+) -> set[str]:
+    return _resolver_build_location_filter_set(
+        locations_shown=locations_shown,
+        location_payload=location_payload,
+    )
+
+
+def _filter_location_names_from_people(
+    person_names: list[str] | tuple[str, ...] | None,
+    location_filter_set: set[str] | None,
+) -> list[str]:
+    return _resolver_filter_location_names_from_people(person_names, location_filter_set)
+
+
+def _match_caption_to_location_shown(
+    caption: str,
+    locations_shown: list[dict],
+) -> dict[str, str] | None:
+    return _resolver_match_caption_to_location_shown(caption, locations_shown)
 
 
 def _materialize_region_location_payload(
@@ -342,6 +368,7 @@ def _write_crop_sidecar(
     locations_shown: list[dict],
     person_names: list[str],
     region_location_payload: dict[str, Any] | None = None,
+    region_location_override: dict[str, Any] | None = None,
     geocoder=None,
 ) -> None:
     """Write or update the XMP sidecar for a crop JPEG.
@@ -405,10 +432,8 @@ def _write_crop_sidecar(
     # Compute effective location: page view state first, then archive scan fallback.
     # Crops are created before the page view refresh may have written GPS/location,
     # so we walk up to the archive scan if the page view has no GPS.
-    effective_loc = _materialize_region_location_payload(region_location_payload, geocoder=geocoder)
-    if not effective_loc:
-        effective_loc = _sidecar_location_payload(view_state)
-    if not effective_loc or not str(effective_loc.get("gps_latitude") or "").strip():
+    page_location = _sidecar_location_payload(view_state)
+    if not page_location or not str(page_location.get("gps_latitude") or "").strip():
         archive_dir = find_archive_dir_for_image(view_path)
         if archive_dir is not None and archive_dir.is_dir():
             for scan_name in _dc_source_scan_names(archive_source_text)[:1]:
@@ -416,13 +441,28 @@ def _write_crop_sidecar(
                 if isinstance(archive_state, dict):
                     archive_loc = _sidecar_location_payload(archive_state)
                     if str(archive_loc.get("gps_latitude") or "").strip():
-                        effective_loc = archive_loc
+                        page_location = archive_loc
                         break
+    effective_loc = _materialize_region_location_payload(
+        _resolver_resolve_crop_location(
+            region_location_override=region_location_override,
+            region_location_assigned=region_location_payload,
+            caption=caption,
+            locations_shown=locations_shown,
+            page_location=page_location,
+        ),
+        geocoder=geocoder,
+    )
+    resolved_person_names = _resolver_resolve_person_in_image(
+        person_names,
+        locations_shown=locations_shown,
+        location_payload=effective_loc,
+    )
 
     write_xmp_sidecar(
         crop_xmp,
         creator_tool="imago-crop-regions",
-        person_names=list(person_names),
+        person_names=resolved_person_names,
         subjects=subjects,
         description=caption,
         album_title=crop_album_title,
@@ -585,9 +625,8 @@ def crop_page_regions(
                     region.get("caption_hint") or "",
                     page_description,
                 )
-                region_location_payload = dict(region.get("location_override") or {}) or dict(
-                    region.get("location_payload") or {}
-                )
+                region_location_override = dict(region.get("location_override") or {})
+                region_location_payload = dict(region.get("location_payload") or {})
                 person_names = list(region.get("person_names") or [])
 
                 try:
@@ -641,6 +680,7 @@ def crop_page_regions(
                         locations_shown,
                         person_names,
                         region_location_payload=region_location_payload,
+                        region_location_override=region_location_override,
                         geocoder=geocoder,
                     )
                     write_pipeline_step(

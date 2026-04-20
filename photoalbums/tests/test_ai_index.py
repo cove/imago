@@ -268,6 +268,32 @@ class TestAIIndex(unittest.TestCase):
                 ["Egypt_1975_B00_P01_S01.tif"],
             )
 
+    def test_write_sidecar_and_record_filters_location_strings_from_person_in_image(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "EasternEuropeSpainMorocco_1988_B00_P03_V.jpg"
+            sidecar = image.with_suffix(".xmp")
+            try:
+                from PIL import Image
+            except ImportError:
+                self.skipTest("PIL not available")
+            Image.new("RGB", (200, 100), color=(120, 120, 120)).save(image, format="JPEG")
+
+            ai_index_runner._write_sidecar_and_record(
+                sidecar,
+                image,
+                creator_tool="test",
+                person_names=["KARNTEN, AUSTRIA", "Audrey Cordell"],
+                subjects=[],
+                description="Page description",
+                album_title="Eastern Europe Spain and Morocco 1988",
+                location_payload={"city": "Karnten", "country": "Austria"},
+                source_text="",
+                ocr_text="",
+                detections_payload={"locations_shown": [{"name": "Karnten, Austria"}]},
+            )
+
+            self.assertEqual(xmp_sidecar.read_person_in_image(sidecar), ["Audrey Cordell"])
+
     def test_page_scan_filenames_uses_archive_scans_for_derived_view_page(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)

@@ -249,6 +249,14 @@ def _accepted_regions_debug_path(image_path: str | Path, attempt_number: int | N
     return debug_root_for_image_path(path) / filename
 
 
+def _region_association_overlay_path(image_path: str | Path, attempt_number: int | None = None) -> Path:
+    path = Path(image_path)
+    filename = f"{path.stem}.view-regions.association-overlay.jpg"
+    if attempt_number is not None:
+        filename = f"{path.stem}.view-regions.association-overlay.attempt-{attempt_number:02d}.jpg"
+    return debug_root_for_image_path(path) / filename
+
+
 def _docling_raw_debug_path(image_path: str | Path) -> Path:
     path = Path(image_path)
     return debug_root_for_image_path(path) / f"{path.stem}.view-regions.docling.json"
@@ -262,6 +270,11 @@ def _failed_regions_debug_paths(image_path: str | Path) -> list[Path]:
 def _accepted_regions_debug_paths(image_path: str | Path) -> list[Path]:
     path = Path(image_path)
     return list(debug_root_for_image_path(path).glob(f"{path.stem}.view-regions.accepted-boxes*.jpg"))
+
+
+def _region_association_overlay_paths(image_path: str | Path) -> list[Path]:
+    path = Path(image_path)
+    return list(debug_root_for_image_path(path).glob(f"{path.stem}.view-regions.association-overlay*.jpg"))
 
 
 def _clear_failed_regions_debug_image(image_path: str | Path) -> None:
@@ -282,9 +295,19 @@ def _clear_accepted_regions_debug_image(image_path: str | Path) -> None:
             log.warning("Failed to remove accepted-region debug image %s: %s", debug_path, exc)
 
 
+def _clear_region_association_overlay_image(image_path: str | Path) -> None:
+    for debug_path in _region_association_overlay_paths(image_path):
+        try:
+            if debug_path.is_file():
+                debug_path.unlink()
+        except OSError as exc:
+            log.warning("Failed to remove region-association overlay image %s: %s", debug_path, exc)
+
+
 def _clear_regions_debug_images(image_path: str | Path) -> None:
     _clear_failed_regions_debug_image(image_path)
     _clear_accepted_regions_debug_image(image_path)
+    _clear_region_association_overlay_image(image_path)
 
 
 def _write_accepted_regions_debug_image(
@@ -318,6 +341,33 @@ def _write_accepted_regions_debug_image(
         render_regions_debug(image_path, overlay_regions, output_path)
     except Exception as exc:
         log.warning("Failed to write accepted-region debug image %s: %s", output_path, exc)
+        return None
+    return output_path
+
+
+def _write_region_association_overlay_image(
+    image_path: str | Path,
+    regions: list[RegionResult],
+    *,
+    attempt_number: int | None = None,
+) -> Path | None:
+    from .ai_view_region_render import render_regions_overlay  # pylint: disable=import-outside-toplevel
+
+    overlay_regions = [
+        {
+            "index": region.index,
+            "x": region.x,
+            "y": region.y,
+            "width": region.width,
+            "height": region.height,
+        }
+        for region in sorted(regions, key=lambda item: item.index)
+    ]
+    output_path = _region_association_overlay_path(image_path, attempt_number=attempt_number)
+    try:
+        render_regions_overlay(image_path, overlay_regions, output_path)
+    except Exception as exc:
+        log.warning("Failed to write region-association overlay image %s: %s", output_path, exc)
         return None
     return output_path
 
@@ -390,13 +440,11 @@ def _write_docling_raw_debug_artifact(image_path: str | Path, payload: dict[str,
 def _apply_lmstudio_captions(
     regions: list[RegionResult],
     image_path: Path,
-    img_h: int,
     base_url: str,
 ) -> list[RegionResult]:
     from ._caption_matching import (  # pylint: disable=import-outside-toplevel
         assign_captions_from_lmstudio,
         call_lmstudio_caption_matching,
-        sort_regions_reading_order,
     )
     from .ai_geocode import NominatimGeocoder  # pylint: disable=import-outside-toplevel
     from .ai_index_scan import _page_scan_filenames  # pylint: disable=import-outside-toplevel
@@ -405,6 +453,7 @@ def _apply_lmstudio_captions(
     from .xmp_sidecar import read_locations_shown  # pylint: disable=import-outside-toplevel
 
     caption_model = default_caption_matching_model()
+    overlay_path = _write_region_association_overlay_image(image_path, regions)
     if not caption_model:
         log.debug("LM Studio caption matching skipped: caption_matching_model not configured in ai_models.toml")
         return regions
@@ -417,16 +466,15 @@ def _apply_lmstudio_captions(
             if locations_shown:
                 break
 
-    sorted_regions = sort_regions_reading_order(regions, img_h)
     captions = call_lmstudio_caption_matching(
-        image_path,
+        overlay_path or image_path,
         base_url=base_url or default_lmstudio_base_url(),
         model=caption_model,
         locations_shown=locations_shown,
     )
     if not captions:
-        return sorted_regions
-    matched_regions = assign_captions_from_lmstudio(sorted_regions, captions)
+        return regions
+    matched_regions = assign_captions_from_lmstudio(regions, captions)
     if len(locations_shown) < 2:
         return matched_regions
 
@@ -509,7 +557,7 @@ def _detect_regions_docling(
         return []
 
     if skip_validation:
-        final_regions = _apply_lmstudio_captions(pipeline_result.regions, path, img_h, base_url)
+        final_regions = _apply_lmstudio_captions(pipeline_result.regions, path, base_url)
         _write_step("regions_found")
         if write_debug:
             _write_accepted_regions_debug_image(path, final_regions)
@@ -529,7 +577,7 @@ def _detect_regions_docling(
         )
         return []
 
-    final_regions = _apply_lmstudio_captions(validation.kept, path, img_h, base_url)
+    final_regions = _apply_lmstudio_captions(validation.kept, path, base_url)
     _write_step("regions_found")
     if write_debug:
         _write_accepted_regions_debug_image(path, final_regions)
@@ -563,6 +611,7 @@ def detect_regions(
                 if write_debug:
                     _clear_regions_debug_images(path)
                     _write_accepted_regions_debug_image(path, cached)
+                _write_region_association_overlay_image(path, cached)
                 return cached
         except Exception as exc:  # pragma: no cover
             log.warning("Failed to read cached XMP regions for %s: %s", path, exc)

@@ -25,6 +25,7 @@ from photoalbums.lib.ai_view_regions import (
     _failed_regions_debug_path,
     _has_xmp_regions,
     _read_regions_from_xmp,
+    _region_association_overlay_path,
     associate_captions,
     detect_regions,
     pixel_to_mwgrs,
@@ -169,6 +170,7 @@ class TestDetectRegionsDocling(unittest.TestCase):
         self.assertEqual(len(regions), 1)
         self.assertEqual(regions[0].caption_hint, "Beach")
         self.assertTrue(_accepted_regions_debug_path(img_path).is_file())
+        self.assertTrue(_region_association_overlay_path(img_path).is_file())
         mock_pipeline.assert_not_called()
 
 
@@ -329,14 +331,14 @@ class TestCallGemma4CaptionMatchingParsing(unittest.TestCase):
                 )
 
     def test_clean_json_parsed_correctly(self):
-        result = self._call_with_response('{"photo-1": "At the beach", "photo-2": "Summer 1985"}')
+        result = self._call_with_response('{"region-1": "At the beach", "region-2": "Summer 1985"}')
         self.assertEqual(
             result,
             {1: {"caption": "At the beach", "location": ""}, 2: {"caption": "Summer 1985", "location": ""}},
         )
 
     def test_json_in_markdown_code_fence_extracted(self):
-        content = '```json\n{"photo-1": "Holiday", "photo-2": "Party"}\n```'
+        content = '```json\n{"region-1": "Holiday", "region-2": "Party"}\n```'
         result = self._call_with_response(content)
         self.assertEqual(
             result,
@@ -345,7 +347,7 @@ class TestCallGemma4CaptionMatchingParsing(unittest.TestCase):
 
     def test_multi_location_json_parsed_correctly(self):
         result = self._call_with_response(
-            '{"photo-1": {"caption": "Cairo street scene", "location": "Cairo, Egypt"}, "photo-2": {"caption": "Karnak Temple", "location": "Luxor, Egypt"}}',
+            '{"region-1": {"caption": "Cairo street scene", "location": "Cairo, Egypt"}, "region-2": {"caption": "Karnak Temple", "location": "Luxor, Egypt"}}',
             locations_shown=[{"name": "Cairo, Egypt"}, {"name": "Luxor, Egypt"}],
         )
         self.assertEqual(
@@ -358,7 +360,7 @@ class TestCallGemma4CaptionMatchingParsing(unittest.TestCase):
 
     def test_multi_location_response_normalizes_to_known_location_match(self):
         result = self._call_with_response(
-            '{"photo-1": {"caption": "Liberation Square - Cairo Egypt Dec. 1975", "location": "Liberation Square - Cairo Egypt Dec. 1975"}}',
+            '{"region-1": {"caption": "Liberation Square - Cairo Egypt Dec. 1975", "location": "Liberation Square - Cairo Egypt Dec. 1975"}}',
             locations_shown=[{"name": "Hilton Hotel"}, {"name": "Liberation Square"}],
         )
         self.assertEqual(
@@ -374,7 +376,7 @@ class TestCallGemma4CaptionMatchingParsing(unittest.TestCase):
     def test_single_location_prompt_uses_legacy_string_values(self):
         from photoalbums.lib._caption_matching import call_lmstudio_caption_matching
 
-        fake_response = {"choices": [{"message": {"content": '{"photo-1": "Holiday"}'}}]}
+        fake_response = {"choices": [{"message": {"content": '{"region-1": "Holiday"}'}}]}
         with mock.patch("photoalbums.lib._caption_matching._post_json", return_value=fake_response) as post_json:
             with mock.patch("photoalbums.lib._caption_matching._encode_image", return_value="data:image/jpeg;base64,abc"):
                 call_lmstudio_caption_matching(
@@ -384,13 +386,13 @@ class TestCallGemma4CaptionMatchingParsing(unittest.TestCase):
                     locations_shown=[{"name": "Cairo, Egypt"}],
                 )
         prompt = post_json.call_args.args[1]["messages"][0]["content"][1]["text"]
-        self.assertIn('{"photo-1": "", "photo-2": "", "photo-3": ""}', prompt)
+        self.assertIn('{"region-1": "", "region-2": "", "region-3": ""}', prompt)
         self.assertNotIn('"location": ""', prompt)
 
     def test_multi_location_prompt_uses_object_values_and_known_locations(self):
         from photoalbums.lib._caption_matching import call_lmstudio_caption_matching
 
-        fake_response = {"choices": [{"message": {"content": '{"photo-1": {"caption": "", "location": ""}}'}}]}
+        fake_response = {"choices": [{"message": {"content": '{"region-1": {"caption": "", "location": ""}}'}}]}
         with mock.patch("photoalbums.lib._caption_matching._post_json", return_value=fake_response) as post_json:
             with mock.patch("photoalbums.lib._caption_matching._encode_image", return_value="data:image/jpeg;base64,abc"):
                 call_lmstudio_caption_matching(
@@ -404,7 +406,7 @@ class TestCallGemma4CaptionMatchingParsing(unittest.TestCase):
         self.assertIn("Known locations: Cairo, Egypt, Luxor, Egypt", prompt)
 
     def test_malformed_json_returns_empty_dict(self):
-        result = self._call_with_response("Here is my answer: {photo-1: broken")
+        result = self._call_with_response("Here is my answer: {region-1: broken")
         self.assertEqual(result, {})
 
     def test_lmstudio_offline_returns_empty_dict(self):
@@ -458,6 +460,13 @@ class TestAssignCaptionsFromGemma4(unittest.TestCase):
         self.assertEqual(result[0].caption_hint, "Temple visit")
         self.assertEqual(result[0].location_hint, "Luxor, Egypt")
 
+    def test_unknown_overlay_key_is_ignored(self):
+        from photoalbums.lib._caption_matching import assign_captions_from_lmstudio
+
+        region = RegionResult(index=0, x=0, y=0, width=100, height=80)
+        result = assign_captions_from_lmstudio([region], {2: "Wrong region"})
+        self.assertEqual(result[0].caption_hint, "")
+
 
 class TestGemma4CaptionInDetectRegions(unittest.TestCase):
     """Integration-style: detect_regions with Gemma4 step wired in."""
@@ -468,7 +477,6 @@ class TestGemma4CaptionInDetectRegions(unittest.TestCase):
         Image.new("RGB", (200, 100), color=(120, 120, 120)).save(path, format="JPEG")
 
     def test_lmstudio_captions_assigned_when_model_configured(self):
-        from photoalbums.lib._caption_matching import sort_regions_reading_order, assign_captions_from_lmstudio
         from photoalbums.lib._docling_pipeline import DoclingPipelineResult
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -490,7 +498,7 @@ class TestGemma4CaptionInDetectRegions(unittest.TestCase):
                                 2: {"caption": "Caption B", "location": ""},
                                 3: {"caption": "Caption C", "location": ""},
                             },
-                        ):
+                        ) as caption_call:
                             regions = detect_regions(img_path, force=True, skip_validation=True)
 
         self.assertEqual(len(regions), 3)
@@ -498,6 +506,7 @@ class TestGemma4CaptionInDetectRegions(unittest.TestCase):
         self.assertIn("Caption A", captions)
         self.assertIn("Caption B", captions)
         self.assertIn("Caption C", captions)
+        self.assertTrue(str(caption_call.call_args.args[0]).endswith(".view-regions.association-overlay.jpg"))
 
     def test_lmstudio_offline_regions_saved_with_empty_captions(self):
         from photoalbums.lib._docling_pipeline import DoclingPipelineResult

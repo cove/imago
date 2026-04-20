@@ -86,7 +86,7 @@ class TestRunPropagateTocrops(unittest.TestCase):
             source_text="",
             ocr_text="",
         )
-        write_region_list(xmp_path, regions, img_width=800, img_height=600)
+        write_region_list(xmp_path, regions, 800, 600)
         return xmp_path
 
     def test_no_crops_when_not_pages_dir(self):
@@ -160,6 +160,60 @@ class TestRunPropagateTocrops(unittest.TestCase):
             assert step is not None
             self.assertEqual(step["result"], "ok")
             self.assertIn("timestamp", step)
+
+    def test_region_location_and_person_filter_are_resolved_per_crop(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            image, _pages_dir, photos_dir = self._setup_page_image(tmp_dir)
+            crop1 = photos_dir / "Family_2020_B01_P02_D01-00_V.jpg"
+            crop1.write_bytes(b"crop1")
+            _write_basic_crop_xmp(crop1.with_suffix(".xmp"))
+
+            xmp_path = image.with_suffix(".xmp")
+            from photoalbums.lib.ai_view_regions import RegionResult, RegionWithCaption
+            from photoalbums.lib.xmp_sidecar import write_region_list, write_xmp_sidecar
+
+            write_xmp_sidecar(
+                xmp_path,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="Page photo",
+                source_text="",
+                ocr_text="",
+                locations_shown=[{"name": "Karnten, Austria", "city": "Karnten", "country_name": "Austria"}],
+            )
+            write_region_list(
+                xmp_path,
+                [
+                    RegionWithCaption(
+                        RegionResult(
+                            index=0,
+                            x=0,
+                            y=0,
+                            width=100,
+                            height=100,
+                            caption_hint="KARNTEN, AUSTRIA",
+                            person_names=["KARNTEN, AUSTRIA", "Audrey Cordell"],
+                        ),
+                        "",
+                    )
+                ],
+                800,
+                600,
+            )
+
+            with mock.patch.object(ai_index_propagate, "_find_crop_paths_for_page", return_value=[crop1]):
+                run_propagate_to_crops(
+                    image,
+                    location_payload={"city": "Vienna", "country": "Austria"},
+                    people_payload=[],
+                )
+
+            state = xmp_sidecar.read_ai_sidecar_state(crop1.with_suffix(".xmp"))
+            assert state is not None
+            self.assertEqual(state["location_city"], "Karnten")
+            self.assertNotIn("KARNTEN, AUSTRIA", xmp_sidecar.read_person_in_image(crop1.with_suffix(".xmp")))
 
     def test_step_skipped_when_neither_upstream_reran(self):
         """StepRunner skips propagate-to-crops when hashes match for all inputs."""

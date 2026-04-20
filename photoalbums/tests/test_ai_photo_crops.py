@@ -17,6 +17,9 @@ if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
 from photoalbums.lib.ai_photo_crops import (
+    _build_location_filter_set,
+    _filter_location_names_from_people,
+    _match_caption_to_location_shown,
     _resolve_page_description_from_regions,
     crop_output_path,
     crop_page_regions,
@@ -91,6 +94,34 @@ class TestResolvePageDescriptionFromRegions(unittest.TestCase):
             "OCR fallback",
         )
         self.assertEqual(description, "OCR fallback")
+
+
+class TestMetadataResolverHelpers(unittest.TestCase):
+    def test_build_location_filter_set_includes_page_and_locations_shown(self):
+        filters = _build_location_filter_set(
+            [{"name": "Karnten, Austria"}],
+            {"city": "Luxor", "country": "Egypt"},
+        )
+        self.assertIn("KARNTEN AUSTRIA", filters)
+        self.assertIn("LUXOR EGYPT", filters)
+
+    def test_filter_location_names_from_people_removes_location_strings(self):
+        filtered = _filter_location_names_from_people(
+            ["KARNTEN, AUSTRIA", "Audrey Cordell"],
+            {"KARNTEN AUSTRIA"},
+        )
+        self.assertEqual(filtered, ["Audrey Cordell"])
+
+    def test_match_caption_to_location_shown_prefers_gps_entry(self):
+        match = _match_caption_to_location_shown(
+            "KARNTEN, AUSTRIA",
+            [
+                {"name": "Karnten, Austria"},
+                {"name": "Karnten, Austria", "gps_latitude": "46.6", "gps_longitude": "14.3"},
+            ],
+        )
+        assert match is not None
+        self.assertEqual(match["gps_latitude"], "46.6")
 
 
 # ---------------------------------------------------------------------------
@@ -832,6 +863,42 @@ class TestWriteCropSidecar(unittest.TestCase):
             self.assertEqual(crop_state["location_city"], "Luxor")
             self.assertEqual(crop_state["gps_latitude"], "25.7")
 
+    def test_crop_sidecar_matches_caption_to_location_shown_before_page_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            view_dir = Path(tmp) / "EasternEuropeSpainAndMorocco_1988_B00_Pages"
+            view_dir.mkdir()
+            photos_dir = Path(tmp) / "EasternEuropeSpainAndMorocco_1988_B00_Photos"
+            photos_dir.mkdir()
+            view_jpg = view_dir / "EasternEuropeSpainAndMorocco_1988_B00_P03_V.jpg"
+            _make_minimal_jpeg(view_jpg, 200, 100)
+
+            from photoalbums.lib.ai_photo_crops import _write_crop_sidecar
+            from photoalbums.lib.xmp_sidecar import read_ai_sidecar_state
+
+            crop_jpg = photos_dir / "EasternEuropeSpainAndMorocco_1988_B00_P03_D01-00_V.jpg"
+            crop_jpg.write_bytes(b"placeholder")
+            _write_crop_sidecar(
+                crop_jpg,
+                view_jpg,
+                "KARNTEN, AUSTRIA",
+                {"location_city": "Vienna", "location_country": "Austria"},
+                [
+                    {
+                        "name": "Karnten, Austria",
+                        "city": "Karnten",
+                        "country_name": "Austria",
+                        "gps_latitude": "46.6247",
+                        "gps_longitude": "14.3053",
+                    }
+                ],
+                [],
+            )
+
+            crop_state = read_ai_sidecar_state(crop_jpg.with_suffix(".xmp"))
+            assert crop_state is not None
+            self.assertEqual(crop_state["location_city"], "Karnten")
+            self.assertEqual(crop_state["gps_latitude"], "46.6247")
+
     def test_crop_sidecar_recovers_album_title_from_archive_for_source_verification(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -922,6 +989,32 @@ class TestWriteCropSidecar(unittest.TestCase):
             xml = crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8")
             self.assertIn("Audrey Cordell", xml)
             self.assertIn("PersonInImage", xml)
+
+    def test_person_names_filter_known_location_strings_before_write(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            view_dir = Path(tmp) / "EasternEuropeSpainAndMorocco_1988_B00_Pages"
+            view_dir.mkdir()
+            photos_dir = Path(tmp) / "EasternEuropeSpainAndMorocco_1988_B00_Photos"
+            photos_dir.mkdir()
+            view_jpg = view_dir / "EasternEuropeSpainAndMorocco_1988_B00_P03_V.jpg"
+            _make_minimal_jpeg(view_jpg, 200, 100)
+
+            from photoalbums.lib.ai_photo_crops import _write_crop_sidecar
+
+            crop_jpg = photos_dir / "EasternEuropeSpainAndMorocco_1988_B00_P03_D05-00_V.jpg"
+            crop_jpg.write_bytes(b"placeholder")
+            _write_crop_sidecar(
+                crop_jpg,
+                view_jpg,
+                "Temple visit",
+                {"location_city": "Karnten", "location_country": "Austria"},
+                [{"name": "Karnten, Austria"}],
+                ["KARNTEN, AUSTRIA", "Audrey Cordell"],
+            )
+
+            xml = crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8")
+            self.assertNotIn("KARNTEN, AUSTRIA", xml)
+            self.assertIn("Audrey Cordell", xml)
 
     def test_rerun_preserves_unrelated_sidecar_fields(self):
         with tempfile.TemporaryDirectory() as tmp:

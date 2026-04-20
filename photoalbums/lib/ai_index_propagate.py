@@ -9,12 +9,14 @@ from typing import Any
 from .xmp_sidecar import (
     _dedupe,
     read_ai_sidecar_state,
+    read_locations_shown,
     read_person_in_image,
     read_region_list,
     write_pipeline_steps,
     write_xmp_sidecar,
     xmp_datetime_now,
 )
+from .metadata_resolver import resolve_crop_location, resolve_person_in_image
 
 
 def _crop_paths_signature(crop_paths: list[Path]) -> str:
@@ -93,14 +95,7 @@ def run_propagate_to_crops(
 
     # Map region index → person names from imago:PersonNames (face recognition results)
     region_person_names: list[list[str]] = [list(r.get("person_names") or []) for r in regions]
-
-    # GPS from location_payload
-    gps_lat = str(location_payload.get("gps_latitude") or "").strip()
-    gps_lon = str(location_payload.get("gps_longitude") or "").strip()
-    loc_city = str(location_payload.get("city") or "").strip()
-    loc_state = str(location_payload.get("state") or "").strip()
-    loc_country = str(location_payload.get("country") or "").strip()
-    loc_sublocation = str(location_payload.get("sublocation") or "").strip()
+    locations_shown = read_locations_shown(sidecar_path)
 
     step_timestamp = xmp_datetime_now()
     crops_updated = 0
@@ -117,12 +112,24 @@ def run_propagate_to_crops(
         # Person names for this crop from imago:PersonNames on the matching region
         names_from_region = region_person_names[i] if i < len(region_person_names) else []
         existing_person_names = read_person_in_image(crop_xmp)
-        new_person_names = _dedupe(names_from_region + existing_person_names)
+        region_state = regions[i] if i < len(regions) else {}
+        crop_location = resolve_crop_location(
+            region_location_override=dict(region_state.get("location_override") or {}),
+            region_location_assigned=dict(region_state.get("location_payload") or {}),
+            caption=str(region_state.get("caption_hint") or region_state.get("caption") or ""),
+            locations_shown=locations_shown,
+            page_location=location_payload,
+        )
+        new_person_names = resolve_person_in_image(
+            _dedupe(names_from_region + existing_person_names),
+            locations_shown=locations_shown,
+            location_payload=crop_location,
+        )
 
         # Existing detections payload — update location
         existing_detections = dict(existing_state.get("detections") or {})
-        if location_payload:
-            existing_detections["location"] = location_payload
+        if crop_location:
+            existing_detections["location"] = crop_location
 
         # Pipeline record for this crop
         existing_pipeline = dict(existing_detections.get("pipeline") or {})
@@ -147,12 +154,12 @@ def run_propagate_to_crops(
             author_text=str(existing_state.get("author_text") or ""),
             scene_text=str(existing_state.get("scene_text") or ""),
             album_title=str(existing_state.get("album_title") or ""),
-            gps_latitude=gps_lat,
-            gps_longitude=gps_lon,
-            location_city=loc_city,
-            location_state=loc_state,
-            location_country=loc_country,
-            location_sublocation=loc_sublocation,
+            gps_latitude=str(crop_location.get("gps_latitude") or "").strip(),
+            gps_longitude=str(crop_location.get("gps_longitude") or "").strip(),
+            location_city=str(crop_location.get("city") or "").strip(),
+            location_state=str(crop_location.get("state") or "").strip(),
+            location_country=str(crop_location.get("country") or "").strip(),
+            location_sublocation=str(crop_location.get("sublocation") or "").strip(),
             source_text=str(existing_state.get("source_text") or ""),
             detections_payload=existing_detections,
             create_date=str(existing_state.get("create_date") or ""),
