@@ -92,6 +92,7 @@ class TestDetectRegionsDocling(unittest.TestCase):
                 mock.patch("photoalbums.lib.ai_view_regions.default_docling_device", return_value="auto"),
                 mock.patch("photoalbums.lib.ai_view_regions.default_docling_retries", return_value=3),
                 mock.patch("photoalbums.lib._docling_pipeline.run_docling_pipeline", return_value=fake_result) as mock_pipeline,
+                mock.patch("photoalbums.lib.ai_view_regions._apply_lmstudio_captions", side_effect=lambda regions, *_args: regions),
             ):
                 regions = detect_regions(img_path, force=True, prompt_debug=prompt_debug, skip_validation=True)
 

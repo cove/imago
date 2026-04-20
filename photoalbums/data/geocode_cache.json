@@ -12760,6 +12760,10 @@
     "status": "ok",
     "sublocation": ""
   },
+  "mirabell gardens (schloss mirabell)": {
+    "query": "Mirabell Gardens (Schloss Mirabell)",
+    "status": "miss"
+  },
   "mirabell gardens (schloss mirabell), salzburg, austria": {
     "query": "Mirabell Gardens (Schloss Mirabell), Salzburg, Austria",
     "status": "miss"
@@ -17101,6 +17105,10 @@
     "state": "Utah",
     "status": "ok",
     "sublocation": ""
+  },
+  "salzburg castle (hohensalzburg fortress)": {
+    "query": "Salzburg Castle (Hohensalzburg Fortress)",
+    "status": "miss"
   },
   "salzburg castle (hohensalzburg fortress), salzburg, austria": {
     "query": "Salzburg Castle (Hohensalzburg Fortress), Salzburg, Austria",
