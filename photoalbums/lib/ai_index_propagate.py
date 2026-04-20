@@ -91,8 +91,8 @@ def run_propagate_to_crops(
     except Exception:
         regions = []
 
-    # Map region index → person name from MWG-RS Name attribute
-    region_names: list[str] = [str(r.get("name") or "").strip() for r in regions]
+    # Map region index → person names from imago:PersonNames (face recognition results)
+    region_person_names: list[list[str]] = [list(r.get("person_names") or []) for r in regions]
 
     # GPS from location_payload
     gps_lat = str(location_payload.get("gps_latitude") or "").strip()
@@ -114,13 +114,10 @@ def run_propagate_to_crops(
         if not isinstance(existing_state, dict):
             continue
 
-        # Person name for this crop from the MWG-RS region
-        person_from_region = region_names[i] if i < len(region_names) else ""
+        # Person names for this crop from imago:PersonNames on the matching region
+        names_from_region = region_person_names[i] if i < len(region_person_names) else []
         existing_person_names = read_person_in_image(crop_xmp)
-        if person_from_region:
-            new_person_names = _dedupe([person_from_region] + existing_person_names)
-        else:
-            new_person_names = existing_person_names
+        new_person_names = _dedupe(names_from_region + existing_person_names)
 
         # Existing detections payload — update location
         existing_detections = dict(existing_state.get("detections") or {})
