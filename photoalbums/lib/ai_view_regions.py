@@ -13,6 +13,8 @@ from .ai_model_settings import (
     default_docling_device,
     default_docling_preset,
     default_docling_retries,
+    default_caption_matching_model,
+    default_lmstudio_base_url,
     default_view_region_model,
 )
 from .prompt_debug import debug_root_for_image_path
@@ -35,6 +37,8 @@ class RegionResult:
     height: int
     confidence: float = 1.0
     caption_hint: str = ""
+    location_hint: str = ""
+    location_payload: dict[str, object] = field(default_factory=dict)
     person_names: list[str] = field(default_factory=list)
 
 
@@ -383,6 +387,67 @@ def _write_docling_raw_debug_artifact(image_path: str | Path, payload: dict[str,
     return output_path
 
 
+def _apply_lmstudio_captions(
+    regions: list[RegionResult],
+    image_path: Path,
+    img_h: int,
+    base_url: str,
+) -> list[RegionResult]:
+    from ._caption_matching import (  # pylint: disable=import-outside-toplevel
+        assign_captions_from_lmstudio,
+        call_lmstudio_caption_matching,
+        sort_regions_reading_order,
+    )
+    from .ai_geocode import NominatimGeocoder  # pylint: disable=import-outside-toplevel
+    from .ai_index_scan import _page_scan_filenames  # pylint: disable=import-outside-toplevel
+    from .ai_location import _resolve_location_payload  # pylint: disable=import-outside-toplevel
+    from .ai_render_settings import find_archive_dir_for_image  # pylint: disable=import-outside-toplevel
+    from .xmp_sidecar import read_locations_shown  # pylint: disable=import-outside-toplevel
+
+    caption_model = default_caption_matching_model()
+    if not caption_model:
+        log.debug("LM Studio caption matching skipped: caption_matching_model not configured in ai_models.toml")
+        return regions
+
+    locations_shown: list[dict] = []
+    archive_dir = find_archive_dir_for_image(image_path)
+    if archive_dir is not None and archive_dir.is_dir():
+        for scan_name in _page_scan_filenames(image_path):
+            locations_shown = read_locations_shown((archive_dir / scan_name).with_suffix(".xmp"))
+            if locations_shown:
+                break
+
+    sorted_regions = sort_regions_reading_order(regions, img_h)
+    captions = call_lmstudio_caption_matching(
+        image_path,
+        base_url=base_url or default_lmstudio_base_url(),
+        model=caption_model,
+        locations_shown=locations_shown,
+    )
+    if not captions:
+        return sorted_regions
+    matched_regions = assign_captions_from_lmstudio(sorted_regions, captions)
+    if len(locations_shown) < 2:
+        return matched_regions
+
+    geocoder = NominatimGeocoder()
+    resolved_regions: list[RegionResult] = []
+    for region in matched_regions:
+        location_text = str(region.location_hint or "").strip()
+        location_payload = (
+            _resolve_location_payload(
+                geocoder=geocoder,
+                gps_latitude="",
+                gps_longitude="",
+                location_name=location_text,
+            )
+            if location_text
+            else {}
+        )
+        resolved_regions.append(replace(region, location_payload=location_payload))
+    return resolved_regions
+
+
 def _detect_regions_docling(
     path: Path,
     *,
@@ -391,6 +456,7 @@ def _detect_regions_docling(
     img_w: int,
     img_h: int,
     force: bool,
+    base_url: str = "",
     prompt_debug: PromptDebugSession | None,
     skip_validation: bool,
     write_debug: bool = False,
@@ -399,10 +465,15 @@ def _detect_regions_docling(
         DoclingPipelineRuntimeError,
         run_docling_pipeline,
     )
-    from .xmp_sidecar import read_pipeline_step, write_pipeline_step  # pylint: disable=import-outside-toplevel
+    from .xmp_sidecar import read_pipeline_step, write_pipeline_steps, xmp_datetime_now  # pylint: disable=import-outside-toplevel
+
+    _STEP_KEY = "detect-regions/docling"
+
+    def _write_step(result: str) -> None:
+        write_pipeline_steps(xmp_path, {_STEP_KEY: {"timestamp": xmp_datetime_now(), "result": result, "input_hash": "", "model": model}})
 
     if not force:
-        existing_step = read_pipeline_step(xmp_path, "view_regions") or {}
+        existing_step = read_pipeline_step(xmp_path, _STEP_KEY) or read_pipeline_step(xmp_path, "view_regions") or {}
         existing_result = str(existing_step.get("result") or "").strip()
         if existing_result in {"no_regions", "validation_failed", "failed"}:
             log.info("Skipping Docling detection for %s: pipeline step already recorded result=%r", path, existing_result)
@@ -421,11 +492,11 @@ def _detect_regions_docling(
     except DoclingPipelineRuntimeError as exc:
         if prompt_debug is not None and exc.debug_payload:
             _write_docling_raw_debug_artifact(path, exc.debug_payload)
-        write_pipeline_step(xmp_path, "view_regions", model=model, extra={"result": "failed"})
+        _write_step("failed")
         log.error("Docling pipeline failed for %s: %s", path, exc)
         return []
     except Exception as exc:
-        write_pipeline_step(xmp_path, "view_regions", model=model, extra={"result": "failed"})
+        _write_step("failed")
         log.error("Docling pipeline failed for %s: %s", path, exc)
         return []
 
@@ -433,19 +504,20 @@ def _detect_regions_docling(
         _write_docling_raw_debug_artifact(path, pipeline_result.debug_payload)
 
     if not pipeline_result.regions:
-        write_pipeline_step(xmp_path, "view_regions", model=model, extra={"result": "no_regions"})
+        _write_step("no_regions")
         log.info("Docling: no regions detected for %s", path)
         return []
 
     if skip_validation:
-        write_pipeline_step(xmp_path, "view_regions", model=model, extra={"result": "regions_found"})
+        final_regions = _apply_lmstudio_captions(pipeline_result.regions, path, img_h, base_url)
+        _write_step("regions_found")
         if write_debug:
-            _write_accepted_regions_debug_image(path, pipeline_result.regions)
-        return pipeline_result.regions
+            _write_accepted_regions_debug_image(path, final_regions)
+        return final_regions
 
     validation = validate_region_set(pipeline_result.regions, img_w=img_w, img_h=img_h)
     if validation.failures:
-        write_pipeline_step(xmp_path, "view_regions", model=model, extra={"result": "validation_failed"})
+        _write_step("validation_failed")
         if write_debug:
             _write_failed_regions_debug_image(path, pipeline_result.regions, validation.failures)
         reasons = ", ".join(failure.reason for failure in validation.failures)
@@ -457,10 +529,11 @@ def _detect_regions_docling(
         )
         return []
 
-    write_pipeline_step(xmp_path, "view_regions", model=model, extra={"result": "regions_found"})
+    final_regions = _apply_lmstudio_captions(validation.kept, path, img_h, base_url)
+    _write_step("regions_found")
     if write_debug:
-        _write_accepted_regions_debug_image(path, validation.kept)
-    return validation.kept
+        _write_accepted_regions_debug_image(path, final_regions)
+    return final_regions
 
 
 def detect_regions(
@@ -477,7 +550,7 @@ def detect_regions(
     skip_validation: bool = False,
     write_debug: bool = False,
 ) -> list[RegionResult]:
-    del base_url, timeout, album_context, page_caption, people_roster
+    del timeout, album_context, page_caption, people_roster
 
     path = Path(image_path)
     xmp_path = _xmp_path_for(path)
@@ -508,6 +581,7 @@ def detect_regions(
         img_w=img_w,
         img_h=img_h,
         force=force,
+        base_url=str(base_url or "").strip(),
         prompt_debug=prompt_debug,
         skip_validation=skip_validation,
         write_debug=write_debug,

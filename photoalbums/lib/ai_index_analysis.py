@@ -9,12 +9,9 @@ from typing import Any
 
 from .ai_caption import CaptionEngine
 from .ai_geocode import NominatimGeocoder
-from .ai_location import (
-    _resolve_location_metadata,
-    _resolve_location_payload,
-    _resolve_locations_shown,
-)
+from .ai_location import run_locations_step
 from .ai_ocr import OCREngine, extract_keywords
+from .ai_index_steps import StepRunner
 from .image_limits import allow_large_pillow_images
 from .prompt_debug import PromptDebugSession
 from .xmp_sidecar import _dedupe
@@ -353,6 +350,8 @@ def _run_image_analysis(
     context_location_hint: str = "",
     prompt_debug: PromptDebugSession | None = None,
     title_page_location: dict[str, str] | None = None,
+    step_runner: StepRunner | None = None,
+    existing_sidecar_state: dict | None = None,
 ) -> ImageAnalysis:
     # Deferred imports to avoid circular dependency with ai_index
     from .ai_index import (  # pylint: disable=import-outside-toplevel
@@ -368,184 +367,425 @@ def _run_image_analysis(
     page_photo_count = 0 if is_page_scan else 1
     people_input_path = people_image_path or image_path
     people_coordinate_path = people_source_path or people_input_path
+    existing_detections: dict[str, Any] = dict((existing_sidecar_state or {}).get("detections") or {})
+    debug_recorder = prompt_debug.record if prompt_debug is not None else None
+    geocode_recorder = lambda record: _append_geocode_artifact(image_path=image_path, record=record)
 
     with _prepare_ai_model_image(image_path) as model_image_path:
         object_labels: list[str] = []
         ocr_text = str(ocr_text_override or "").strip()
         clean_context_ocr = str(context_ocr_text or "").strip()
         clean_context_location = str(context_location_hint or "").strip()
+
+        # ── OCR step ──────────────────────────────────────────────────────────
         if ocr_text_override is None and ocr_engine.engine != "none":
             if step_fn:
                 step_fn("ocr")
-            ocr_text = ocr_engine.read_text(
-                model_image_path,
-                source_path=(caption_source_path or people_source_path or image_path),
-                debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
-                debug_step="ocr",
-            )
-        if step_fn:
-            step_fn("location")
-        gps_latitude, gps_longitude, location_name = _resolve_location_metadata(
-            requested_caption_engine=requested_caption_engine,
-            caption_engine=caption_engine,
-            model_image_path=model_image_path,
-            people=list(extra_people_names or []),
-            objects=[],
-            ocr_text=_contextualize_ocr_text(
-                ocr_text,
-                context_ocr_text=clean_context_ocr,
-                context_location_hint=clean_context_location,
-            ),
-            source_path=caption_source_path or people_source_path or image_path,
-            album_title=album_title,
-            printed_album_title=printed_album_title,
-            people_positions={},
-            fallback_location_name=clean_context_location,
-            prompt_debug=prompt_debug,
-            debug_step="location",
-        )
+            if step_runner is not None:
+                _ocr_ran = False
+
+                def _do_ocr() -> dict[str, Any]:
+                    nonlocal ocr_text, _ocr_ran
+                    text = ocr_engine.read_text(
+                        model_image_path,
+                        source_path=(caption_source_path or people_source_path or image_path),
+                        debug_recorder=debug_recorder,
+                        debug_step="ocr",
+                    )
+                    ocr_text = text
+                    _ocr_ran = True
+                    return {
+                        "ocr": {
+                            "engine": ocr_engine.engine,
+                            "model": str(ocr_engine.effective_model_name),
+                            "language": ocr_language,
+                            "keywords": [],
+                            "chars": len(text),
+                        }
+                    }
+
+                step_runner.run("ocr", _do_ocr, model=str(ocr_engine.effective_model_name))
+                if not _ocr_ran:
+                    # Step was fresh — load cached text
+                    from .ai_sidecar_state import _effective_sidecar_ocr_text  # pylint: disable=import-outside-toplevel
+                    ocr_text = str(_effective_sidecar_ocr_text(image_path, existing_sidecar_state) or "").strip()
+            else:
+                ocr_text = ocr_engine.read_text(
+                    model_image_path,
+                    source_path=(caption_source_path or people_source_path or image_path),
+                    debug_recorder=debug_recorder,
+                    debug_step="ocr",
+                )
+
+        # ── People step ───────────────────────────────────────────────────────
         combined_hint_text = " ".join(
             part for part in [str(people_hint_text or "").strip(), ocr_text, clean_context_ocr] if part
         ).strip()
-        people_matches = (
-            _match_people_with_cast_store_retry(
-                people_matcher=people_matcher,
-                image_path=people_input_path,
-                source_path=people_coordinate_path,
-                bbox_offset=people_bbox_offset,
-                hint_text=combined_hint_text,
+        people_matches: list = []
+        _faces_detected: int = 0
+        if step_runner is not None:
+            _people_ran = False
+
+            def _do_people() -> dict[str, Any]:
+                nonlocal people_matches, _faces_detected, _people_ran
+                matches = (
+                    _match_people_with_cast_store_retry(
+                        people_matcher=people_matcher,
+                        image_path=people_input_path,
+                        source_path=people_coordinate_path,
+                        bbox_offset=people_bbox_offset,
+                        hint_text=combined_hint_text,
+                    )
+                    if people_matcher
+                    else []
+                )
+                people_matches = matches
+                _faces_detected = (
+                    (_v if isinstance(_v := getattr(people_matcher, "last_faces_detected", 0), int) else 0)
+                    if people_matcher
+                    else 0
+                )
+                _people_ran = True
+                return {"people": _serialize_people_matches(matches)}
+
+            people_output = step_runner.run("people", _do_people)
+            if not _people_ran:
+                # Step was fresh — reconstruct people info from cache
+                cached_rows = [r for r in list(people_output.get("people") or []) if isinstance(r, dict)]
+                # Build lightweight proxy objects for position computation
+                _CachedMatch = type("_CachedMatch", (), {})
+                for row in cached_rows:
+                    obj = _CachedMatch()
+                    obj.name = str(row.get("name") or "")
+                    obj.score = float(row.get("score") or 0.0)
+                    obj.bbox = row.get("bbox") or []
+                    obj.certainty = float(row.get("certainty") or obj.score)
+                    obj.reviewed_by_human = bool(row.get("reviewed_by_human", False))
+                    obj.face_id = str(row.get("face_id") or "")
+                    people_matches.append(obj)
+        else:
+            people_matches = (
+                _match_people_with_cast_store_retry(
+                    people_matcher=people_matcher,
+                    image_path=people_input_path,
+                    source_path=people_coordinate_path,
+                    bbox_offset=people_bbox_offset,
+                    hint_text=combined_hint_text,
+                )
+                if people_matcher
+                else []
             )
-            if people_matcher
-            else []
-        )
-        people_match_names = _dedupe([row.name for row in people_matches])
+            _faces_detected = (
+                (_v if isinstance(_v := getattr(people_matcher, "last_faces_detected", 0), int) else 0)
+                if people_matcher
+                else 0
+            )
+
+        people_match_names = _dedupe([getattr(row, "name", None) or "" for row in people_matches])
+        people_match_names = [n for n in people_match_names if n]
         if step_fn:
             step_fn(_format_people_step_label("people", people_match_names))
+        people_names = _dedupe(people_match_names + list(extra_people_names or []))
+        people_positions = _compute_people_positions(people_matches, people_coordinate_path)
+
+        # ── Objects step ──────────────────────────────────────────────────────
         if step_fn:
             step_fn("objects")
-        object_matches = object_detector.detect_image(model_image_path) if object_detector else []
-        people_names = _dedupe(people_match_names + list(extra_people_names or []))
-        object_labels = [row.label for row in object_matches]
-        people_positions = _compute_people_positions(people_matches, people_coordinate_path)
+        object_matches: list = []
+        if step_runner is not None:
+            _objects_ran = False
+
+            def _do_objects() -> dict[str, Any] | None:
+                nonlocal object_matches, _objects_ran
+                if object_detector is None:
+                    return None
+                matches = object_detector.detect_image(model_image_path)
+                object_matches = matches
+                _objects_ran = True
+                return {
+                    "objects": [{"label": row.label, "score": round(row.score, 5)} for row in matches],
+                    "object_model": str(object_detector.model_name),
+                }
+
+            objects_output = step_runner.run(
+                "objects",
+                _do_objects,
+                model=str(object_detector.model_name) if object_detector else "",
+            )
+            if not _objects_ran:
+                cached_object_rows = [r for r in list(objects_output.get("objects") or []) if isinstance(r, dict)]
+                # Reconstruct proxy objects for label access
+                _CachedObjMatch = type("_CachedObjMatch", (), {})
+                for row in cached_object_rows:
+                    obj = _CachedObjMatch()
+                    obj.label = str(row.get("label") or "")
+                    obj.score = float(row.get("score") or 0.0)
+                    object_matches.append(obj)
+        else:
+            object_matches = object_detector.detect_image(model_image_path) if object_detector else []
+
+        object_labels = [getattr(row, "label", None) or row.get("label", "") if isinstance(row, dict) else getattr(row, "label", "") for row in object_matches]
+        object_labels = [str(l) for l in object_labels if l]
+
+        # ── Caption step ──────────────────────────────────────────────────────
         if step_fn:
             step_fn("caption")
-        caption_output = caption_engine.generate(
-            image_path=model_image_path,
+        caption_output = None
+        description = ""
+        author_text = ""
+        scene_text = ""
+        _caption_ocr_text = ""
+        _caption_ocr_lang = ""
+
+        if step_runner is not None:
+            _caption_ran = False
+
+            def _do_caption() -> dict[str, Any]:
+                nonlocal caption_output, _caption_ran
+                output = caption_engine.generate(
+                    image_path=model_image_path,
+                    people=people_names,
+                    objects=object_labels,
+                    ocr_text=ocr_text,
+                    source_path=caption_source_path or people_source_path or image_path,
+                    album_title=album_title,
+                    printed_album_title=printed_album_title,
+                    photo_count=page_photo_count,
+                    people_positions=people_positions,
+                    context_ocr_text=clean_context_ocr,
+                    debug_recorder=debug_recorder,
+                    debug_step="caption",
+                )
+                caption_output = output
+                _caption_ran = True
+                faces = (
+                    (_v if isinstance(_v := getattr(people_matcher, "last_faces_detected", 0), int) else 0)
+                    if people_matcher
+                    else 0
+                )
+                (local_pp, local_epc) = _estimate_people_from_detections(
+                    people_matches=people_matches,
+                    people_names=people_names,
+                    object_labels=object_labels,
+                    faces_detected=faces,
+                )
+                pp, epc = _resolve_people_count_metadata(
+                    requested_caption_engine=requested_caption_engine,
+                    caption_engine=caption_engine,
+                    model_image_path=model_image_path,
+                    people=people_names,
+                    objects=object_labels,
+                    ocr_text=ocr_text,
+                    source_path=caption_source_path or people_source_path or image_path,
+                    album_title=album_title,
+                    printed_album_title=printed_album_title,
+                    people_positions=people_positions,
+                    local_people_present=local_pp,
+                    local_estimated_people_count=local_epc,
+                    prompt_debug=prompt_debug,
+                    debug_step="people_count",
+                )
+                return {
+                    "caption": _build_caption_metadata(
+                        requested_engine=requested_caption_engine,
+                        effective_engine=str(output.engine),
+                        fallback=bool(output.fallback),
+                        error=str(output.error or ""),
+                        engine_error=str(getattr(output, "engine_error", "") or ""),
+                        model=str(caption_engine.effective_model_name),
+                        people_present=pp,
+                        estimated_people_count=epc,
+                    ),
+                }
+
+            caption_step_output = step_runner.run("caption", _do_caption, model=str(caption_engine.effective_model_name))
+            if _caption_ran and caption_output is not None:
+                description = str(caption_output.text or "")
+                author_text = str(getattr(caption_output, "author_text", "") or "")
+                scene_text = str(getattr(caption_output, "scene_text", "") or "")
+                _caption_ocr_text = str(getattr(caption_output, "ocr_text", "") or "")
+                _caption_ocr_lang = str(getattr(caption_output, "ocr_lang", "") or "")
+                _faces_detected = (
+                    (_v if isinstance(_v := getattr(people_matcher, "last_faces_detected", 0), int) else 0)
+                    if people_matcher
+                    else 0
+                )
+            else:
+                # Caption was fresh — load cached description from existing sidecar
+                description = str((existing_sidecar_state or {}).get("description") or "")
+                author_text = str((existing_sidecar_state or {}).get("author_text") or "")
+                scene_text = str((existing_sidecar_state or {}).get("scene_text") or "")
+                _caption_ocr_lang = str((existing_detections.get("ocr") or {}).get("language") or "")
+        else:
+            caption_output = caption_engine.generate(
+                image_path=model_image_path,
+                people=people_names,
+                objects=object_labels,
+                ocr_text=ocr_text,
+                source_path=caption_source_path or people_source_path or image_path,
+                album_title=album_title,
+                printed_album_title=printed_album_title,
+                photo_count=page_photo_count,
+                people_positions=people_positions,
+                context_ocr_text=clean_context_ocr,
+                debug_recorder=debug_recorder,
+                debug_step="caption",
+            )
+            _faces_detected = (
+                (_v if isinstance(_v := getattr(people_matcher, "last_faces_detected", 0), int) else 0)
+                if people_matcher
+                else 0
+            )
+            description = str(caption_output.text or "")
+            author_text = str(getattr(caption_output, "author_text", "") or "")
+            scene_text = str(getattr(caption_output, "scene_text", "") or "")
+            _caption_ocr_text = str(getattr(caption_output, "ocr_text", "") or "")
+            _caption_ocr_lang = str(getattr(caption_output, "ocr_lang", "") or "")
+
+    # ── Post model-image-context ──────────────────────────────────────────────
+    if ocr_text_override is None and not ocr_text:
+        ocr_text = _caption_ocr_text
+    ocr_keywords = extract_keywords(ocr_text, max_keywords=15)
+    subjects = _dedupe(object_labels + ocr_keywords)
+
+    # Build payload (step_runner path uses per-step output dicts; legacy path builds inline)
+    if step_runner is not None:
+        ocr_meta = dict(step_runner.existing_detections.get("ocr") or {})
+        if step_runner.reran.get("ocr"):
+            # Fresh OCR just ran — rebuild metadata with actual values
+            ocr_meta = {
+                "engine": ocr_engine.engine,
+                "model": str(ocr_engine.effective_model_name),
+                "language": ocr_language,
+                "keywords": ocr_keywords,
+                "chars": len(ocr_text),
+            }
+        else:
+            # Keep cached ocr metadata but update keywords from potentially-loaded text
+            if ocr_meta:
+                ocr_meta = dict(ocr_meta)
+                ocr_meta["keywords"] = ocr_keywords
+                ocr_meta["chars"] = len(ocr_text)
+
+        caption_meta = dict(
+            (caption_step_output if step_runner.reran.get("caption") else existing_detections).get("caption") or {}
+        )
+        objects_meta = list(
+            (objects_output if step_runner.reran.get("objects") else existing_detections).get("objects") or []
+        )
+        object_model_val = str(
+            (objects_output if step_runner.reran.get("objects") else existing_detections).get("object_model") or ""
+        )
+
+        payload: dict[str, Any] = {
+            "people": _serialize_people_matches(people_matches) if step_runner.reran.get("people") else list(existing_detections.get("people") or []),
+            "objects": objects_meta,
+            "ocr": ocr_meta,
+            "caption": caption_meta,
+        }
+        if object_model_val:
+            payload["object_model"] = object_model_val
+    else:
+        (
+            local_people_present,
+            local_estimated_people_count,
+        ) = _estimate_people_from_detections(
+            people_matches=people_matches,
+            people_names=people_names,
+            object_labels=object_labels,
+            faces_detected=_faces_detected,
+        )
+        people_present, estimated_people_count = _resolve_people_count_metadata(
+            requested_caption_engine=requested_caption_engine,
+            caption_engine=caption_engine,
+            model_image_path=model_image_path,
             people=people_names,
             objects=object_labels,
             ocr_text=ocr_text,
             source_path=caption_source_path or people_source_path or image_path,
             album_title=album_title,
             printed_album_title=printed_album_title,
-            photo_count=page_photo_count,
             people_positions=people_positions,
-            context_ocr_text=clean_context_ocr,
-            debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
-            debug_step="caption",
+            local_people_present=local_people_present,
+            local_estimated_people_count=local_estimated_people_count,
+            prompt_debug=prompt_debug,
+            debug_step="people_count",
         )
-        _faces_detected = (
-            (_v if isinstance(_v := getattr(people_matcher, "last_faces_detected", 0), int) else 0)
-            if people_matcher
-            else 0
-        )
+        payload = {
+            "people": _serialize_people_matches(people_matches),
+            "objects": [{"label": getattr(row, "label", ""), "score": round(getattr(row, "score", 0.0), 5)} for row in object_matches],
+            "ocr": {
+                "engine": str(caption_output.engine),
+                "model": str(caption_engine.effective_model_name),
+                "language": str(_caption_ocr_lang or ocr_language),
+                "keywords": ocr_keywords,
+                "chars": len(ocr_text),
+            },
+            "caption": _build_caption_metadata(
+                requested_engine=requested_caption_engine,
+                effective_engine=str(caption_output.engine),
+                fallback=bool(caption_output.fallback),
+                error=str(caption_output.error or ""),
+                engine_error=str(getattr(caption_output, "engine_error", "") or ""),
+                model=str(caption_engine.effective_model_name),
+                people_present=people_present,
+                estimated_people_count=estimated_people_count,
+            ),
+        }
+        if object_detector is not None:
+            payload["object_model"] = str(object_detector.model_name)
 
-    if ocr_text_override is None and not ocr_text:
-        ocr_text = str(getattr(caption_output, "ocr_text", "") or "").strip()
-    ocr_keywords = extract_keywords(ocr_text, max_keywords=15)
-    subjects = _dedupe(object_labels + ocr_keywords)
-    (
-        local_people_present,
-        local_estimated_people_count,
-    ) = _estimate_people_from_detections(
-        people_matches=people_matches,
-        people_names=people_names,
-        object_labels=object_labels,
-        faces_detected=_faces_detected,
-    )
-    people_present, estimated_people_count = _resolve_people_count_metadata(
-        requested_caption_engine=requested_caption_engine,
-        caption_engine=caption_engine,
-        model_image_path=model_image_path,
-        people=people_names,
-        objects=object_labels,
-        ocr_text=ocr_text,
-        source_path=caption_source_path or people_source_path or image_path,
-        album_title=album_title,
-        printed_album_title=printed_album_title,
-        people_positions=people_positions,
-        local_people_present=local_people_present,
-        local_estimated_people_count=local_estimated_people_count,
-        prompt_debug=prompt_debug,
-        debug_step="people_count",
-    )
-
-    payload = {
-        "people": _serialize_people_matches(people_matches),
-        "objects": [{"label": row.label, "score": round(row.score, 5)} for row in object_matches],
-        "ocr": {
-            "engine": str(caption_output.engine),
-            "model": str(caption_engine.effective_model_name),
-            "language": str(getattr(caption_output, "ocr_lang", "") or ocr_language),
-            "keywords": ocr_keywords,
-            "chars": len(ocr_text),
-        },
-        "caption": _build_caption_metadata(
-            requested_engine=requested_caption_engine,
-            effective_engine=str(caption_output.engine),
-            fallback=bool(caption_output.fallback),
-            error=str(caption_output.error or ""),
-            engine_error=str(getattr(caption_output, "engine_error", "") or ""),
-            model=str(caption_engine.effective_model_name),
-            people_present=people_present,
-            estimated_people_count=estimated_people_count,
-        ),
-    }
-    if object_detector is not None:
-        payload["object_model"] = str(object_detector.model_name)
-    location_payload = _resolve_location_payload(
-        geocoder=geocoder,
-        gps_latitude=gps_latitude,
-        gps_longitude=gps_longitude,
-        location_name=location_name,
-        artifact_recorder=(lambda record: _append_geocode_artifact(image_path=image_path, record=record)),
-        artifact_step="location",
-    )
-    location_payload, _ = _apply_title_page_location_config(
-        image_path=image_path,
-        location_payload=location_payload,
-        title_page_location=title_page_location,
-    )
-    if location_payload:
-        payload["location"] = location_payload
-
-    locations_shown, locations_shown_ran = _resolve_locations_shown(
-        requested_caption_engine=requested_caption_engine,
-        caption_engine=caption_engine,
-        model_image_path=image_path,
-        ocr_text=_contextualize_ocr_text(
+    # ── Location step (new StepRunner path) or legacy path ───────────────────
+    if step_runner is not None:
+        if step_fn:
+            step_fn("locations")
+        caption_text_for_locations = description
+        context_ocr_for_locations = _contextualize_ocr_text(
             ocr_text,
             context_ocr_text=clean_context_ocr,
             context_location_hint=clean_context_location,
-        ),
-        source_path=caption_source_path or people_source_path or image_path,
-        album_title=album_title,
-        printed_album_title=printed_album_title,
-        geocoder=geocoder,
-        prompt_debug=prompt_debug,
-        debug_step="locations_shown",
-        artifact_recorder=(lambda record: _append_geocode_artifact(image_path=image_path, record=record)),
-    )
-    if step_fn:
-        step_fn("locations_shown")
-    payload["locations_shown"] = locations_shown
-    payload["location_shown_ran"] = locations_shown_ran
+        )
 
-    description = caption_output.text
-    author_text = str(getattr(caption_output, "author_text", "") or "")
-    scene_text = str(getattr(caption_output, "scene_text", "") or "")
+        def _do_locations() -> dict[str, Any] | None:
+            return run_locations_step(
+                caption_engine=caption_engine,
+                image_path=image_path,
+                caption_text=caption_text_for_locations,
+                ocr_text=context_ocr_for_locations,
+                source_path=caption_source_path or people_source_path or image_path,
+                album_title=album_title,
+                printed_album_title=printed_album_title,
+                geocoder=geocoder,
+                prompt_debug=prompt_debug,
+                artifact_recorder=geocode_recorder,
+            )
+
+        locations_output = step_runner.run("locations", _do_locations, model=str(caption_engine.effective_model_name))
+        location_payload = dict(locations_output.get("location") or {})
+        locations_shown = list(locations_output.get("locations_shown") or [])
+        locations_shown_ran = bool(locations_output.get("location_shown_ran", False))
+
+        location_payload, _ = _apply_title_page_location_config(
+            image_path=image_path,
+            location_payload=location_payload,
+            title_page_location=title_page_location,
+        )
+        if location_payload:
+            payload["location"] = location_payload
+        if step_fn:
+            step_fn("locations_shown")
+        payload["locations_shown"] = locations_shown
+        payload["location_shown_ran"] = locations_shown_ran
+    else:
+        # Legacy path (step_runner=None): locations step not run; emit labels only
+        if step_fn:
+            step_fn("locations_shown")
+        payload["locations_shown"] = []
+        payload["location_shown_ran"] = False
+
     resolved_album_title = _resolve_title_page_album_title(
         image_path=image_path,
-        album_title=str(getattr(caption_output, "album_title", "") or ""),
+        album_title=str(getattr(caption_output, "album_title", "") if caption_output is not None else ""),
         ocr_text=ocr_text,
     )
     resolved_album_title = _require_album_title_for_title_page(
@@ -565,8 +805,8 @@ def _run_image_analysis(
         scene_text=scene_text,
         payload=payload,
         faces_detected=_faces_detected,
-        image_regions=list(getattr(caption_output, "image_regions", None) or []),
+        image_regions=list(getattr(caption_output, "image_regions", None) or []) if caption_output is not None else [],
         album_title=resolved_album_title,
-        title=str(getattr(caption_output, "title", "") or ""),
-        ocr_lang=str(getattr(caption_output, "ocr_lang", "") or ""),
+        title=str(getattr(caption_output, "title", "") if caption_output is not None else ""),
+        ocr_lang=str(_caption_ocr_lang or ocr_language),
     )

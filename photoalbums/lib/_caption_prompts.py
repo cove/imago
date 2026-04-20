@@ -49,8 +49,7 @@ def _build_local_prompt(
     clean_context_ocr = str(context_ocr_text or "").strip()
     if clean_context_ocr:
         lines.extend(_section("Preamble Upstream OCR Context", context_ocr_text=clean_context_ocr))
-    lines.extend(_section("Preamble Page Photo Regions Compact"))
-    lines.extend(_section("Output Format – Describe Page (with photo regions)"))
+    lines.extend(_section("Output Format – Describe Page"))
 
     return "\n".join(lines)
 
@@ -82,3 +81,30 @@ def _build_location_shown_prompt(*, ocr_text: str = "", album_title: str = "", p
     lines = _section("Preamble Location", album_title=album_hint, ocr_text=str(ocr_text or "").strip())
     lines.extend(_section("Output Format – Location Shown"))
     return "\n".join(lines)
+
+
+def _build_location_queries_prompt(
+    *,
+    caption_text: str = "",
+    ocr_text: str = "",
+    album_title: str = "",
+    printed_album_title: str = "",
+) -> str:
+    album_hint = str(album_title or "").strip() or str(printed_album_title or "").strip()
+    parts: list[str] = []
+    if album_hint:
+        parts.append(f"Album: {album_hint}")
+    if caption_text:
+        parts.append(f"Caption: {caption_text.strip()}")
+    if ocr_text:
+        parts.append(f"OCR text: {ocr_text.strip()}")
+    parts.append(
+        "Based on the image and the above context, identify the location(s) shown.\n"
+        "Nominatim accepts free-form place name queries in any language (e.g. \"Eiffel Tower, Paris, France\", "
+        "\"Cafe Paris, New York\"). Do NOT return raw latitude/longitude values — return human-readable place names "
+        "that Nominatim can resolve.\n"
+        "Return:\n"
+        "- primary_query: the single most specific location for the primary GPS (empty string if unknown)\n"
+        "- named_queries: list of named place queries shown in the image (may be empty)"
+    )
+    return "\n\n".join(parts)

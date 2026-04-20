@@ -77,25 +77,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("compress", help="Compress TIFF scans in-place where needed")
 
-    ctm_parser = subparsers.add_parser("ctm", help="Generate or review CTM restoration metadata")
-    ctm_sub = ctm_parser.add_subparsers(dest="ctm_kind", required=True)
-    for name in ("generate", "review"):
-        sub = ctm_sub.add_parser(name, help=f"{name.title()} CTM restoration metadata")
-        sub.add_argument("--album-id", help="Album identifier without _Archive suffix; omit for the full album set")
-        sub.add_argument("--page", help="Optional page number")
-        sub.add_argument("--photos-root", default=".", help="Photo Albums root")
-        if name == "generate":
-            sub.add_argument("--force", action="store_true", help="Regenerate even if CTM already exists")
-            sub.add_argument("--per-photo", action="store_true", help="Generate CTMs for crop JPEGs in _Photos/")
-
-    ctm_apply_parser = subparsers.add_parser("ctm-apply", help="Apply stored CTM matrices to rendered JPEGs")
-    ctm_apply_parser.add_argument(
-        "album_id", nargs="?", default="", help="Album identifier without _Archive suffix; omit for the full album set"
-    )
-    ctm_apply_parser.add_argument("--photos-root", required=True, help="Path to the Photo Albums root directory")
-    ctm_apply_parser.add_argument("--page", default=None, help="Page number to process; omit for all pages")
-    ctm_apply_parser.add_argument("--force", action="store_true", help="Re-apply even if pipeline state exists")
-
     render_parser = subparsers.add_parser("render", help="Render album page outputs (skips existing valid outputs)")
     render_sub = render_parser.add_subparsers(dest="render_kind", required=False)
     render_sub.add_parser("validate", help="Validate source scan stitchability without writing outputs")
@@ -231,6 +212,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Fail if any .xmp files under the root still use the legacy caption layout.",
     )
 
+    migrate_pipeline_parser = subparsers.add_parser(
+        "migrate-pipeline-records",
+        help="Rewrite legacy pipeline step records ({completed: ts}) to the new schema ({timestamp, result, input_hash}) across a directory tree.",
+    )
+    migrate_pipeline_parser.add_argument("--photos-root", required=True, help="Path to the Photo Albums root directory")
+    migrate_pipeline_parser.add_argument(
+        "--verify-only",
+        action="store_true",
+        help="Fail if any .xmp files under the root still contain legacy pipeline records.",
+    )
+
     repair_crop_source_parser = subparsers.add_parser(
         "repair-crop-source",
         help="Rewrite crop XMP imago:AlbumTitle and dc:source from archive scan lineage without rerunning crops.",
@@ -268,6 +260,48 @@ def build_parser() -> argparse.ArgumentParser:
     )
     repair_page_derived_views_parser.add_argument("--page", default=None, help="Page number to process; omit for all pages")
 
+    process_parser = subparsers.add_parser(
+        "process",
+        help="Run the full pipeline (render → propagate-metadata → detect-regions → crop-regions → face-refresh → ai-index).",
+    )
+    process_parser.add_argument("--photos-root", required=True, help="Path to the Photo Albums root directory")
+    process_parser.add_argument("--album", default="", dest="album_id", help="Album folder name fragment; omit for all albums")
+    process_parser.add_argument("--page", default=None, help="Page number to process; omit for all pages")
+    process_parser.add_argument(
+        "--skip",
+        dest="skip_ids",
+        action="append",
+        default=[],
+        metavar="STEP",
+        help="Skip a pipeline step by id (repeatable); mutually exclusive with --step",
+    )
+    process_parser.add_argument(
+        "--redo",
+        dest="redo_ids",
+        action="append",
+        default=[],
+        metavar="STEP",
+        help="Force-rerun a pipeline step by id (repeatable)",
+    )
+    process_parser.add_argument(
+        "--step",
+        dest="step_id",
+        default=None,
+        metavar="STEP",
+        help="Run exactly one step; mutually exclusive with --skip",
+    )
+    process_parser.add_argument("--force", action="store_true", help="Force-rerun all steps (shorthand for --redo on all)")
+    process_parser.add_argument("--debug", action="store_true", help="Write debug artifacts for detect-regions and ai-index")
+    process_parser.add_argument("--no-validation", action="store_true", help="Skip strict region validations")
+    process_parser.add_argument("--skip-restoration", action="store_true", help="Skip AI photo restoration in crop-regions")
+    process_parser.add_argument(
+        "--force-restoration", action="store_true", help="Re-run photo restoration in crop-regions"
+    )
+    process_parser.add_argument(
+        "--gps-only", action="store_true", help="Forward --reprocess-mode=gps to ai-index step"
+    )
+    process_parser.add_argument("--list-steps", action="store_true", help="Print the step registry and exit")
+
     return parser
 
 
@@ -275,6 +309,39 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args, extras = parser.parse_known_args(argv)
     commands = _import_commands()
+
+    if args.group == "process":
+        from .lib.pipeline import PIPELINE_STEPS, VALID_STEP_IDS, validate_step_ids
+
+        if bool(getattr(args, "list_steps", False)):
+            for i, step in enumerate(PIPELINE_STEPS, 1):
+                print(f"  [{i}] {step.id}  —  {step.label}")
+            return 0
+
+        if args.step_id and args.skip_ids:
+            parser.error("--step and --skip are mutually exclusive")
+
+        if args.step_id:
+            validate_step_ids([args.step_id], flag="--step")
+        if args.skip_ids:
+            validate_step_ids(args.skip_ids, flag="--skip")
+        if args.redo_ids:
+            validate_step_ids(args.redo_ids, flag="--redo")
+
+        return commands.run_process_pipeline(
+            album_id=args.album_id,
+            photos_root=args.photos_root,
+            page=args.page,
+            skip_ids=list(args.skip_ids or []),
+            redo_ids=list(args.redo_ids or []),
+            step_id=args.step_id,
+            force=bool(getattr(args, "force", False)),
+            debug=bool(getattr(args, "debug", False)),
+            no_validation=bool(getattr(args, "no_validation", False)),
+            skip_restoration=bool(getattr(args, "skip_restoration", False)),
+            force_restoration=bool(getattr(args, "force_restoration", False)),
+            gps_only=bool(getattr(args, "gps_only", False)),
+        )
 
     allow_extras = args.group == "ai"
     if extras and not allow_extras:
@@ -306,19 +373,6 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.group == "compress":
         return commands.run_compress_tiff()
-
-    if args.group == "ctm":
-        forwarded = [str(args.ctm_kind)]
-        if getattr(args, "album_id", None):
-            forwarded += ["--album-id", str(args.album_id)]
-        if getattr(args, "page", None):
-            forwarded += ["--page", str(args.page)]
-        forwarded += ["--photos-root", str(args.photos_root)]
-        if bool(getattr(args, "force", False)):
-            forwarded.append("--force")
-        if bool(getattr(args, "per_photo", False)):
-            forwarded.append("--per-photo")
-        return commands.run_ctm(forwarded)
 
     if args.group == "render":
         if not getattr(args, "render_kind", None):
@@ -370,14 +424,6 @@ def main(argv: list[str] | None = None) -> int:
             skip_validation=bool(getattr(args, "no_validation", False)),
         )
 
-    if args.group == "ctm-apply":
-        return commands.run_ctm_apply(
-            album_id=args.album_id,
-            photos_root=args.photos_root,
-            page=args.page,
-            force=args.force,
-        )
-
     if args.group == "checksum":
         if args.checksum_kind == "tree":
             return commands.run_checksum_tree(base_dir=args.base_dir, verify=bool(args.verify))
@@ -390,6 +436,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.group == "migrate-caption-layout":
         return commands.run_migrate_caption_layout(
+            photos_root=args.photos_root,
+            verify_only=bool(getattr(args, "verify_only", False)),
+        )
+
+    if args.group == "migrate-pipeline-records":
+        return commands.run_migrate_pipeline_records(
             photos_root=args.photos_root,
             verify_only=bool(getattr(args, "verify_only", False)),
         )

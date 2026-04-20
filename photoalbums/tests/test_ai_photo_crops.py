@@ -17,6 +17,7 @@ if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
 from photoalbums.lib.ai_photo_crops import (
+    _resolve_page_description_from_regions,
     crop_output_path,
     crop_page_regions,
     mwgrs_normalised_to_pixel_rect,
@@ -58,6 +59,38 @@ class TestResolveRegionCaption(unittest.TestCase):
     def test_prefixed_page_caption_is_not_double_prefixed(self):
         result = resolve_region_caption("photo_8", "", "Page caption: Beach day")
         self.assertEqual(result, "Page caption: Beach day")
+
+
+class TestResolvePageDescriptionFromRegions(unittest.TestCase):
+    def test_multiple_unique_captions_become_numbered_list(self):
+        description = _resolve_page_description_from_regions(
+            [
+                {"caption_hint": "Temple visit"},
+                {"caption_hint": "Nile cruise"},
+            ],
+            "Fallback",
+        )
+        self.assertEqual(description, "1. Temple visit. 2. Nile cruise.")
+
+    def test_single_caption_stays_unnumbered(self):
+        description = _resolve_page_description_from_regions(
+            [
+                {"caption_hint": "Temple visit"},
+                {"caption_hint": "Temple visit"},
+            ],
+            "Fallback",
+        )
+        self.assertEqual(description, "Temple visit")
+
+    def test_no_real_captions_falls_back_to_existing_description(self):
+        description = _resolve_page_description_from_regions(
+            [
+                {"caption_hint": ""},
+                {"caption_hint": "photo_1"},
+            ],
+            "OCR fallback",
+        )
+        self.assertEqual(description, "OCR fallback")
 
 
 # ---------------------------------------------------------------------------
@@ -690,6 +723,114 @@ class TestWriteCropSidecar(unittest.TestCase):
             self.assertIn("<rdf:li>egypt</rdf:li>", xml)
             self.assertIn("<rdf:li>travel</rdf:li>", xml)
             self.assertIn("Giza Necropolis", xml)
+
+    def test_crop_sidecar_prefers_region_location_payload(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
+            view_dir.mkdir()
+            photos_dir = Path(tmp) / "Egypt_1975_Photos"
+            photos_dir.mkdir()
+            view_jpg = view_dir / "Egypt_1975_B00_P26_V.jpg"
+            _make_minimal_jpeg(view_jpg, 200, 100)
+
+            from photoalbums.lib.ai_photo_crops import _write_crop_sidecar
+            from photoalbums.lib.xmp_sidecar import read_ai_sidecar_state, write_xmp_sidecar
+
+            view_xmp = view_jpg.with_suffix(".xmp")
+            write_xmp_sidecar(
+                view_xmp,
+                creator_tool="test",
+                person_names=[],
+                subjects=[],
+                description="Pyramids at Giza",
+                album_title="Egypt 1975",
+                source_text="Egypt 1975 Page 26 Scan(s) S01; Egypt_1975_B00_P26_S01.tif",
+                ocr_text="EGYPT 1975",
+                location_city="Cairo",
+                location_country="Egypt",
+            )
+
+            crop_jpg = photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg"
+            crop_jpg.write_bytes(b"placeholder")
+            view_state = read_ai_sidecar_state(view_xmp)
+            assert view_state is not None
+            _write_crop_sidecar(
+                crop_jpg,
+                view_jpg,
+                "Temple visit",
+                view_state,
+                [],
+                [],
+                region_location_payload={
+                    "gps_latitude": "25.6872",
+                    "gps_longitude": "32.6396",
+                    "city": "Luxor",
+                    "country": "Egypt",
+                },
+            )
+
+            crop_state = read_ai_sidecar_state(crop_jpg.with_suffix(".xmp"))
+            assert crop_state is not None
+            self.assertEqual(crop_state["location_city"], "Luxor")
+            self.assertEqual(crop_state["gps_latitude"], "25.6872")
+
+    def test_crop_sidecar_geocodes_region_override_address_without_page_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
+            view_dir.mkdir()
+            photos_dir = Path(tmp) / "Egypt_1975_Photos"
+            photos_dir.mkdir()
+            view_jpg = view_dir / "Egypt_1975_B00_P26_V.jpg"
+            _make_minimal_jpeg(view_jpg, 200, 100)
+
+            from photoalbums.lib.ai_photo_crops import _write_crop_sidecar
+            from photoalbums.lib.xmp_sidecar import read_ai_sidecar_state, write_xmp_sidecar
+
+            view_xmp = view_jpg.with_suffix(".xmp")
+            write_xmp_sidecar(
+                view_xmp,
+                creator_tool="test",
+                person_names=[],
+                subjects=[],
+                description="Pyramids at Giza",
+                album_title="Egypt 1975",
+                source_text="Egypt 1975 Page 26 Scan(s) S01; Egypt_1975_B00_P26_S01.tif",
+                ocr_text="EGYPT 1975",
+                location_city="Cairo",
+                location_country="Egypt",
+            )
+
+            crop_jpg = photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg"
+            crop_jpg.write_bytes(b"placeholder")
+            view_state = read_ai_sidecar_state(view_xmp)
+            assert view_state is not None
+            geocoder = mock.Mock()
+            geocoder.geocode.return_value = mock.Mock(
+                query="Luxor Temple",
+                display_name="Luxor Temple, Luxor, Egypt",
+                latitude="25.7",
+                longitude="32.639",
+                source="nominatim",
+                city="Luxor",
+                state="Luxor",
+                country="Egypt",
+                sublocation="Luxor Temple",
+            )
+            _write_crop_sidecar(
+                crop_jpg,
+                view_jpg,
+                "Temple visit",
+                view_state,
+                [],
+                [],
+                region_location_payload={"address": "Luxor Temple"},
+                geocoder=geocoder,
+            )
+
+            crop_state = read_ai_sidecar_state(crop_jpg.with_suffix(".xmp"))
+            assert crop_state is not None
+            self.assertEqual(crop_state["location_city"], "Luxor")
+            self.assertEqual(crop_state["gps_latitude"], "25.7")
 
     def test_crop_sidecar_recovers_album_title_from_archive_for_source_verification(self):
         with tempfile.TemporaryDirectory() as tmp:

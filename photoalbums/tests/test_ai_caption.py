@@ -27,7 +27,8 @@ class TestAICaption(unittest.TestCase):
         self.assertIn("Return empty strings when no applicable text exists for a field.", prompt)
         self.assertIn("classified subsets of `ocr_text`, not replacements for it", prompt)
         self.assertIn("Fill them whenever the classification is supported", prompt)
-        self.assertIn("This page contains multiple photographs.", prompt)
+        self.assertNotIn("This page contains multiple photographs.", prompt)
+        self.assertNotIn("photo_regions", prompt)
         self.assertNotIn("This is an album cover or title page.", prompt)
         self.assertNotIn("Album title hint:", prompt)
         self.assertNotIn("Album classification hint:", prompt)
@@ -165,27 +166,6 @@ class TestAICaption(unittest.TestCase):
         self.assertFalse(out.fallback)
         self.assertEqual(out.error, "")
         self.assertEqual(out.location_name, "Dubrovnik")
-
-    def test_generate_does_not_mark_photo_region_only_caption_as_fallback(self):
-        fake_lmstudio = mock.Mock()
-        fake_lmstudio.describe_page.return_value = ai_caption.CaptionDetails(
-            text="",
-            ocr_text="",
-            author_text="",
-            scene_text="",
-            image_regions=[{"x": 0.11, "y": 0.044, "w": 0.469, "h": 0.492}],
-        )
-        with mock.patch("photoalbums.lib.ai_caption.LMStudioCaptioner", return_value=fake_lmstudio):
-            engine = ai_caption.CaptionEngine(engine="lmstudio")
-            out = engine.generate(
-                image_path="sample.jpg",
-                people=[],
-                objects=[],
-                ocr_text="",
-            )
-        self.assertFalse(out.fallback)
-        self.assertEqual(out.error, "")
-        self.assertEqual(out.image_regions, [{"x": 0.11, "y": 0.044, "w": 0.469, "h": 0.492}])
 
     def test_lmstudio_engine_forwards_caption_settings(self):
         fake_lmstudio = mock.Mock()

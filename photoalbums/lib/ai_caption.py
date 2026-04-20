@@ -49,16 +49,6 @@ def _caption_has_meaningful_content(caption) -> bool:
     ):
         if clean_text(str(getattr(caption, field_name, "") or "")):
             return True
-    for row in list(getattr(caption, "image_regions", None) or []):
-        if not isinstance(row, dict):
-            continue
-        if clean_text(str(row.get("author_text") or "")) or clean_text(str(row.get("scene_text") or "")):
-            return True
-        try:
-            if float(row.get("w", 0) or 0) > 0 and float(row.get("h", 0) or 0) > 0:
-                return True
-        except (TypeError, ValueError):
-            continue
     return False
 
 
@@ -93,16 +83,11 @@ class CaptionOutput:
     estimated_people_count: int = 0
     fallback: bool = False
     error: str = ""
-    image_regions: list[dict] = None
     album_title: str = ""
     title: str = ""
     author_text: str = ""
     scene_text: str = ""
     engine_error: str = ""
-
-    def __post_init__(self):
-        if self.image_regions is None:
-            self.image_regions = []
 
 
 @dataclass
@@ -130,6 +115,19 @@ class LocationsShownOutput:
     locations_shown: list[dict] | None = None
     fallback: bool = False
     error: str = ""
+
+
+@dataclass
+class LocationQueryResult:
+    engine: str
+    primary_query: str = ""
+    named_queries: list[str] = None
+    fallback: bool = False
+    error: str = ""
+
+    def __post_init__(self):
+        if self.named_queries is None:
+            self.named_queries = []
 
 
 class CaptionEngine:
@@ -238,7 +236,6 @@ class CaptionEngine:
                 estimated_people_count=max(0, int(getattr(caption, "estimated_people_count", 0) or 0)),
                 fallback=not has_content,
                 error=("" if has_content else f"{self.engine.upper()} returned empty output."),
-                image_regions=list(getattr(caption, "image_regions", None) or []),
                 album_title=str(getattr(caption, "album_title", "") or ""),
                 title=str(getattr(caption, "title", "") or ""),
                 author_text=str(getattr(caption, "author_text", "") or ""),
@@ -466,6 +463,76 @@ class CaptionEngine:
             finish_reason = str(getattr(self._captioner, "last_finish_reason", "") or "")
             error_text = str(exc)
             return LocationsShownOutput(
+                engine=self.engine,
+                fallback=True,
+                error=error_text,
+            )
+        finally:
+            metadata = {}
+            if error_text:
+                metadata["error"] = error_text
+            _emit_prompt_debug(
+                debug_recorder,
+                step=debug_step,
+                engine=self.engine,
+                model=self.effective_model_name,
+                prompt=prompt,
+                system_prompt=location_system_prompt(),
+                source_path=source_path or image_path,
+                prompt_source=("custom" if self._caption_prompt else "skill"),
+                response=response,
+                finish_reason=finish_reason,
+                metadata=metadata,
+            )
+
+    def generate_location_queries(
+        self,
+        image_path: str | Path,
+        *,
+        caption_text: str,
+        ocr_text: str = "",
+        source_path: str | Path | None = None,
+        album_title: str = "",
+        printed_album_title: str = "",
+        debug_recorder=None,
+        debug_step: str = "location_queries",
+    ) -> LocationQueryResult:
+        if self.engine != "lmstudio":
+            return LocationQueryResult(
+                engine=self.engine,
+                fallback=True,
+                error=f"{self.engine.upper()} location queries not implemented.",
+            )
+        self._ensure_captioner()
+        from ._caption_prompts import _build_location_queries_prompt
+
+        prompt = _build_location_queries_prompt(
+            caption_text=caption_text,
+            ocr_text=ocr_text,
+            album_title=album_title,
+            printed_album_title=printed_album_title,
+        )
+        response = ""
+        finish_reason = ""
+        error_text = ""
+        try:
+            details = self._captioner.generate_location_queries(  # type: ignore[attr-defined]
+                image_path=image_path,
+                prompt=prompt,
+            )
+            response = str(getattr(self._captioner, "last_response_text", "") or "")
+            finish_reason = str(getattr(self._captioner, "last_finish_reason", "") or "")
+            named = [d.get("name", "") for d in (details.locations_shown or []) if d.get("name")]
+            return LocationQueryResult(
+                engine=self.engine,
+                primary_query=str(details.location_name or "").strip(),
+                named_queries=[q for q in named if q],
+            )
+        except Exception as exc:
+            response = str(getattr(self._captioner, "last_response_text", "") or "")
+            finish_reason = str(getattr(self._captioner, "last_finish_reason", "") or "")
+            error_text = str(exc)
+            return LocationQueryResult(
                 engine=self.engine,
                 fallback=True,
                 error=error_text,

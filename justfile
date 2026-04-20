@@ -71,38 +71,35 @@ mcp-http:
 photoalbums-map:
   {{python}} photoalbums.py metadata map "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" --port 8095
 
-photoalbums-ai:
-  {{python}} photoalbums.py ai
+photoalbums-process *args:
+  {{python}} photoalbums.py process --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
 
-photoalbums-ai-gps:
-  {{python}} photoalbums.py ai gps
+photoalbums-steps:
+  {{python}} photoalbums.py process --photos-root "." --list-steps
 
-photoalbums-render:
-  {{python}} photoalbums.py render
+photoalbums-ai *args:
+  {{python}} photoalbums.py process --step ai-index --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
+
+photoalbums-ai-gps *args:
+  {{python}} photoalbums.py process --step ai-index --gps-only --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
+
+photoalbums-render *args:
+  {{python}} photoalbums.py process --step render --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
 
 photoalbums-render-validate:
   {{python}} photoalbums.py render validate
 
+photoalbums-render-pipeline *args:
+  {{python}} photoalbums.py process --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
+
 photoalbums-detect-regions *args:
-  {{python}} photoalbums.py detect-view-regions --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
+  {{python}} photoalbums.py process --step detect-regions --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
 
-photoalbums-crop-regions album="" *args:
-  {{python}} photoalbums.py crop-regions {{if album != "" { '"' + album + '"' } else { "" }}} --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
-
-photoalbums-repair-crop-source album="" *args:
-  {{python}} photoalbums.py repair-crop-source {{if album != "" { '"' + album + '"' } else { "" }}} --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
-
-photoalbums-ctm-generate *args:
-  {{python}} photoalbums.py ctm generate --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
+photoalbums-crop-regions *args:
+  {{python}} photoalbums.py process --step crop-regions --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
 
 photoalbums-ctm-review *args:
   {{python}} photoalbums.py ctm review --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
-
-photoalbums-ctm-apply *args:
-  {{python}} photoalbums.py ctm-apply --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
-
-photoalbums-render-pipeline *args:
-  {{python}} photoalbums.py render-pipeline --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums"
 
 photoalbums-watch:
   {{python}} photoalbums.py watch

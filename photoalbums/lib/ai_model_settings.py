@@ -7,20 +7,14 @@ import tomllib
 
 DEFAULT_OCR_MODEL = ""
 DEFAULT_CAPTION_MODEL = ""
-DEFAULT_CTM_MODEL = ""
 DEFAULT_VIEW_REGION_MODEL = "granite-docling-258m"
 DEFAULT_LMSTUDIO_BASE_URL = "http://localhost:1234/v1"
 DEFAULT_DOCLING_PRESET = "granite_docling"
 DEFAULT_DOCLING_BACKEND = "auto_inline"
 DEFAULT_DOCLING_DEVICE = "auto"
 DEFAULT_DOCLING_RETRIES = 3
+DEFAULT_CAPTION_MATCHING_MODEL = ""
 AI_MODEL_SETTINGS_PATH = Path(__file__).resolve().parents[1] / "ai_models.toml"
-DEFAULT_CTM_VALIDATION_SETTINGS = {
-    "min_confidence": 0.35,
-    "max_abs_coefficient": 3.0,
-    "max_row_sum": 4.0,
-    "max_clipping_ratio": 0.34,
-}
 
 
 def _normalize_model_value(value: Any) -> str:
@@ -120,26 +114,6 @@ def _first_model_name(models: list[str], default: str = "") -> str:
     return default
 
 
-def _resolve_ctm_validation_settings(payload: dict[str, Any]) -> dict[str, float]:
-    raw = payload.get("ctm_validation")
-    if raw is None:
-        return dict(DEFAULT_CTM_VALIDATION_SETTINGS)
-    if not isinstance(raw, dict):
-        raise RuntimeError(f"AI model settings 'ctm_validation' must be a TOML table: {AI_MODEL_SETTINGS_PATH}")
-    resolved = dict(DEFAULT_CTM_VALIDATION_SETTINGS)
-    for key in resolved:
-        value = raw.get(key)
-        if value is None:
-            continue
-        try:
-            resolved[key] = float(value)
-        except Exception as exc:
-            raise RuntimeError(
-                f"AI model settings ctm_validation.{key} must be numeric: {AI_MODEL_SETTINGS_PATH}"
-            ) from exc
-    return resolved
-
-
 def _resolve_docling_pipeline_settings(payload: dict[str, Any]) -> dict[str, Any]:
     raw = payload.get("docling_pipeline")
     if raw is None:
@@ -184,26 +158,23 @@ def load_ai_model_settings() -> dict[str, Any]:
     models = _normalize_model_map(payload.get("models"))
     selected_ocr_model = _resolve_selected_alias(payload, models, "selected_ocr_model")
     selected_caption_model = _resolve_selected_alias(payload, models, "selected_caption_model")
-    selected_ctm_model = _resolve_selected_alias_optional(payload, models, "selected_ctm_model")
     ocr_models = list(models.get(selected_ocr_model, []))
     caption_models = list(models.get(selected_caption_model, []))
-    ctm_models = list(models.get(selected_ctm_model, []))
     view_region_models = _resolve_model_reference(payload, models, "view_region_model", DEFAULT_VIEW_REGION_MODEL)
+    caption_matching_models = _resolve_model_reference(payload, models, "caption_matching_model", DEFAULT_CAPTION_MATCHING_MODEL)
     docling_pipeline = _resolve_docling_pipeline_settings(payload)
     return {
         "models": models,
         "selected_ocr_model": selected_ocr_model,
         "selected_caption_model": selected_caption_model,
-        "selected_ctm_model": selected_ctm_model,
         "ocr_models": ocr_models,
         "caption_models": caption_models,
-        "ctm_models": ctm_models,
         "view_region_models": view_region_models,
+        "caption_matching_models": caption_matching_models,
         "ocr_model": _first_model_name(ocr_models, DEFAULT_OCR_MODEL),
         "caption_model": _first_model_name(caption_models, DEFAULT_CAPTION_MODEL),
-        "ctm_model": _first_model_name(ctm_models, DEFAULT_CTM_MODEL),
-        "ctm_validation": _resolve_ctm_validation_settings(payload),
         "view_region_model": _first_model_name(view_region_models, DEFAULT_VIEW_REGION_MODEL),
+        "caption_matching_model": _first_model_name(caption_matching_models, DEFAULT_CAPTION_MATCHING_MODEL),
         "lmstudio_base_url": _resolve_lmstudio_base_url(payload),
         **docling_pipeline,
     }
@@ -237,18 +208,6 @@ def default_lmstudio_base_url() -> str:
     return str(load_ai_model_settings()["lmstudio_base_url"])
 
 
-def default_ctm_model() -> str:
-    return str(load_ai_model_settings()["ctm_model"])
-
-
-def default_ctm_models() -> list[str]:
-    return list(load_ai_model_settings()["ctm_models"])
-
-
-def default_ctm_validation_settings() -> dict[str, float]:
-    return dict(load_ai_model_settings()["ctm_validation"])
-
-
 def default_docling_preset() -> str:
     return str(load_ai_model_settings()["docling_preset"])
 
@@ -263,3 +222,11 @@ def default_docling_device() -> str:
 
 def default_docling_retries() -> int:
     return int(load_ai_model_settings()["docling_retries"])
+
+
+def default_caption_matching_model() -> str:
+    return str(load_ai_model_settings()["caption_matching_model"])
+
+
+def default_caption_matching_models() -> list[str]:
+    return list(load_ai_model_settings()["caption_matching_models"])

@@ -235,7 +235,12 @@
       "Bash(rm photoalbums/tests/test_docling_parser.py)",
       "Bash(grep -rn \"_docling_parser\\\\|parse_doctag_response\" photoalbums/)",
       "Bash(python -m pytest photoalbums/tests/test_docling_pipeline.py -v)",
-      "Bash(python *)"
+      "Bash(python *)",
+      "Bash(uv run *)",
+      "Bash(xargs grep *)",
+      "Bash(grep -c '^\\\\- \\\\[ \\\\]' openspec/changes/photoalbum-scan-render-pipeline/tasks.md)",
+      "Bash(grep -c '^\\\\- \\\\[x\\\\]' openspec/changes/photoalbum-scan-render-pipeline/tasks.md)",
+      "Bash(ls openspec/changes/photoalbum-scan-render-pipeline/specs/)"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",

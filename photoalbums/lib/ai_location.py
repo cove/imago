@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from .ai_caption import _normalize_gps_value
 from .ai_geocode import NominatimGeocoder
 from .prompt_debug import PromptDebugSession
+
+if TYPE_CHECKING:
+    from .ai_caption import CaptionEngine
 
 _COORDINATE_LABEL_RE = re.compile(
     r"\b(?P<label>lat(?:itude)?|lon(?:gitude)?|long)\b\s*[:=]?\s*"
@@ -312,7 +315,7 @@ def _has_legacy_ai_locations_shown_gps(sidecar_state: dict[str, Any] | None) -> 
         )
         if not has_gps:
             continue
-        if str(location.get("gps_source") or "").strip().lower() != "nominatim":
+        if str(location.get("gps_source") or "").strip().lower() not in {"nominatim", "manual"}:
             return True
     return False
 
@@ -399,3 +402,110 @@ def _resolve_locations_shown(
                         normalized["sublocation"] = str(getattr(geocoded, "sublocation", "") or "").strip()
         validated.append(normalized)
     return validated, True
+
+
+def run_locations_step(
+    *,
+    caption_engine: "CaptionEngine",
+    image_path: Path,
+    caption_text: str,
+    ocr_text: str = "",
+    source_path: Path | None = None,
+    album_title: str = "",
+    printed_album_title: str = "",
+    geocoder: NominatimGeocoder | None = None,
+    prompt_debug: PromptDebugSession | None = None,
+    artifact_recorder=None,
+) -> dict[str, Any] | None:
+    """Run the consolidated locations step.
+
+    Returns a dict with location, locations_shown, location_shown_ran keys,
+    or None if the engine is not configured (not-applicable).
+    """
+    if str(getattr(caption_engine, "engine", "") or "").strip().lower() != "lmstudio":
+        return None
+
+    debug_recorder = prompt_debug.record if prompt_debug is not None else None
+    result = caption_engine.generate_location_queries(
+        image_path=image_path,
+        caption_text=caption_text,
+        ocr_text=ocr_text,
+        source_path=source_path,
+        album_title=album_title,
+        printed_album_title=printed_album_title,
+        debug_recorder=debug_recorder,
+        debug_step="location_queries",
+    )
+
+    if result.fallback:
+        # AI call failed — record ran with empty results so downstream can still proceed
+        return {
+            "location": {},
+            "locations_shown": [],
+            "location_shown_ran": True,
+        }
+
+    # Resolve primary GPS query
+    location_payload = _resolve_location_payload(
+        geocoder=geocoder,
+        gps_latitude="",
+        gps_longitude="",
+        location_name=result.primary_query,
+        artifact_recorder=artifact_recorder,
+        artifact_step="location",
+    )
+
+    # Resolve named location queries
+    locations_shown: list[dict[str, Any]] = []
+    for query in (result.named_queries or []):
+        query = str(query or "").strip()
+        if not query:
+            continue
+        entry: dict[str, Any] = {"name": query}
+        if geocoder is not None:
+            try:
+                geocoded = geocoder.geocode(query)
+            except Exception as exc:
+                geocoded = None
+                _record_geocode_lookup(
+                    artifact_recorder=artifact_recorder,
+                    step="locations_shown",
+                    query=query,
+                    error=str(exc or "").strip(),
+                )
+            else:
+                _record_geocode_lookup(
+                    artifact_recorder=artifact_recorder,
+                    step="locations_shown",
+                    query=query,
+                    result=geocoded,
+                )
+            if geocoded is not None:
+                entry["gps_latitude"] = str(geocoded.latitude).strip()
+                entry["gps_longitude"] = str(geocoded.longitude).strip()
+                entry["gps_source"] = "nominatim"
+                for field in ("city", "state", "country", "sublocation"):
+                    val = str(getattr(geocoded, field, "") or "").strip()
+                    if val:
+                        entry[field] = val
+        # Normalise into the canonical locations_shown schema
+        normalized: dict[str, Any] = {
+            "name": entry.get("name", query),
+            "world_region": "",
+            "country_name": entry.get("country", ""),
+            "country_code": "",
+            "province_or_state": entry.get("state", ""),
+            "city": entry.get("city", ""),
+            "sublocation": entry.get("sublocation", ""),
+        }
+        if entry.get("gps_latitude"):
+            normalized["gps_latitude"] = entry["gps_latitude"]
+            normalized["gps_longitude"] = entry["gps_longitude"]
+            normalized["gps_source"] = entry.get("gps_source", "nominatim")
+        locations_shown.append(normalized)
+
+    return {
+        "location": location_payload,
+        "locations_shown": locations_shown,
+        "location_shown_ran": True,
+    }

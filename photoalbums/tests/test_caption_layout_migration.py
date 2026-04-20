@@ -126,7 +126,7 @@ def test_migrate_album_caption_layout_rewrites_page_and_crop_sidecars_in_place(t
 
     page_xml = page_xmp.read_text(encoding="utf-8")
     assert "Preserve page field" in page_xml
-    assert "OCR:\nTEMPLE OF HEAVEN\nNO SMOKING\n\nScene Text:\nNO SMOKING" in page_xml
+    assert "Caption:\nTEMPLE OF HEAVEN\nNO SMOKING\n\nScene Text:\nNO SMOKING" in page_xml
     assert 'xml:lang="x-caption"' not in page_xml
     assert 'xml:lang="x-scene"' not in page_xml
 
