@@ -100,6 +100,35 @@ class TestRenderRegionsDebug(unittest.TestCase):
             self.assertEqual(out_w, small_w)
             self.assertEqual(out_h, small_h)
 
+    def test_prompt_safe_overlay_ignores_caption_text(self):
+        from photoalbums.lib.ai_view_region_render import render_regions_overlay
+
+        regions_a = [{"index": 0, "x": 50, "y": 30, "width": 120, "height": 90, "caption": "Temple visit"}]
+        regions_b = [{"index": 0, "x": 50, "y": 30, "width": 120, "height": 90, "caption": "Audrey Cordell"}]
+        with tempfile.TemporaryDirectory() as tmp:
+            img_path = Path(tmp) / "test_V.jpg"
+            _make_jpeg(400, 300, img_path)
+            out_a = Path(tmp) / "overlay_a.jpg"
+            out_b = Path(tmp) / "overlay_b.jpg"
+
+            result_a = render_regions_overlay(img_path, regions_a, out_a)
+            result_b = render_regions_overlay(img_path, regions_b, out_b)
+
+            self.assertEqual(result_a, result_b)
+
+    def test_prompt_safe_overlay_draws_region_marks(self):
+        from photoalbums.lib.ai_view_region_render import render_regions_overlay
+
+        regions = [{"index": 0, "x": 40, "y": 40, "width": 120, "height": 120}]
+        with tempfile.TemporaryDirectory() as tmp:
+            img_path = Path(tmp) / "test_V.jpg"
+            _make_jpeg(300, 300, img_path)
+            out_path = Path(tmp) / "overlay.jpg"
+
+            result = render_regions_overlay(img_path, regions, out_path)
+
+            self.assertNotEqual(result, img_path.read_bytes())
+
 
 if __name__ == "__main__":
     unittest.main()

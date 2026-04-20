@@ -57,6 +57,7 @@ from .ai_sidecar_state import (
     has_valid_sidecar,
     read_embedded_create_date,
 )
+from .metadata_resolver import resolve_person_in_image
 from .prompt_debug import PromptDebugSession
 from .xmp_sidecar import (
     _dedupe,
@@ -180,10 +181,19 @@ def _write_sidecar_and_record(
         detections_payload=detections_payload,
         title_page_location=title_page_location,
     )
+    resolved_person_names = resolve_person_in_image(
+        person_names,
+        locations_shown=(
+            list(detections_payload.get("locations_shown") or [])
+            if isinstance(detections_payload, dict)
+            else []
+        ),
+        location_payload=loc,
+    )
     write_xmp_sidecar(
         sidecar_path,
         creator_tool=creator_tool,
-        person_names=person_names,
+        person_names=resolved_person_names,
         subjects=subjects,
         title=title,
         title_source=title_source,
@@ -211,8 +221,8 @@ def _write_sidecar_and_record(
         image_width=img_w,
         image_height=img_h,
         ocr_ran=ocr_ran,
-        people_detected=people_detected,
-        people_identified=people_identified,
+        people_detected=bool(people_detected or resolved_person_names),
+        people_identified=bool(resolved_person_names),
         locations_shown=detections_payload.get("locations_shown") if detections_payload else None,
     )
     _append_xmp_job_artifact(image_path, sidecar_path)
@@ -944,8 +954,16 @@ class IndexRunner:
                     "ocr_authority_hash": str((existing_sidecar_state or {}).get("ocr_authority_hash") or ""),
                     "analysis_mode": refresh_analysis_mode,
                 }
-                write_xmp_sidecar(
+                refresh_write_location = dict((refresh_detections or {}).get("location") or {})
+                if not refresh_write_location:
+                    refresh_write_location = dict(refresh_location or {})
+                if refresh_gps_lat and not refresh_write_location.get("gps_latitude"):
+                    refresh_write_location["gps_latitude"] = refresh_gps_lat
+                if refresh_gps_lon and not refresh_write_location.get("gps_longitude"):
+                    refresh_write_location["gps_longitude"] = refresh_gps_lon
+                _write_sidecar_and_record(
                     sidecar_path,
+                    image_path,
                     creator_tool=creator_tool,
                     person_names=list(review.get("person_names") or []),
                     subjects=list(review.get("subjects") or []),
@@ -953,18 +971,14 @@ class IndexRunner:
                     title_source=xmp_title_source,
                     description=str(review.get("description") or ""),
                     album_title=refresh_album_title,
-                    gps_latitude=refresh_gps_lat,
-                    gps_longitude=refresh_gps_lon,
-                    location_city=str(refresh_location.get("city") or ""),
-                    location_state=str(refresh_location.get("state") or ""),
-                    location_country=str(refresh_location.get("country") or ""),
-                    location_sublocation=str(refresh_location.get("sublocation") or ""),
+                    location_payload=refresh_write_location,
                     source_text=_build_dc_source(
                         refresh_album_title,
                         image_path,
                         _page_scan_filenames(image_path),
                     ),
                     ocr_text=refresh_ocr_text,
+                    ocr_lang=str(review.get("ocr_lang") or ""),
                     author_text=str(text_layers.get("author_text") or ""),
                     scene_text=str(text_layers.get("scene_text") or ""),
                     detections_payload=refresh_detections,
@@ -973,14 +987,10 @@ class IndexRunner:
                     create_date=(str(review.get("create_date") or "").strip() or read_embedded_create_date(image_path)),
                     dc_date=refresh_dc_date,
                     date_time_original=refresh_date_time_original,
-                    history_when=_xmp_timestamp_from_path(image_path),
-                    image_width=_get_image_dimensions(image_path)[0],
-                    image_height=_get_image_dimensions(image_path)[1],
                     ocr_ran=bool(review.get("ocr_ran")),
                     people_detected=bool(review.get("people_detected")),
                     people_identified=bool(review.get("people_identified")),
-                    ocr_lang=str(review.get("ocr_lang") or ""),
-                    locations_shown=refresh_detections.get("locations_shown") if refresh_detections else None,
+                    title_page_location=self.title_page_location,
                 )
 
             if not self.dry_run:

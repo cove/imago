@@ -1,6 +1,6 @@
 """Diagnostic: run LM Studio caption matching on a single album page image.
 
-Runs the standard Docling layout pipeline, sorts regions into reading order,
+Runs the standard Docling layout pipeline, generates the numbered overlay,
 calls the configured LM Studio model for caption assignment, and prints the
 merged result. Useful for inspecting caption quality on a specific page.
 
@@ -102,34 +102,31 @@ def main() -> int:
         return 1
     _print_regions(regions, "Raw output (model order)")
 
-    from photoalbums.lib._caption_matching import (  # pylint: disable=import-outside-toplevel
-        sort_regions_reading_order,
-        call_lmstudio_caption_matching,
-        assign_captions_from_lmstudio,
-    )
+    from photoalbums.lib._caption_matching import call_lmstudio_caption_matching, assign_captions_from_lmstudio  # pylint: disable=import-outside-toplevel
     from photoalbums.lib.ai_model_settings import default_caption_matching_model  # pylint: disable=import-outside-toplevel
+    from photoalbums.lib.ai_view_regions import _write_region_association_overlay_image  # pylint: disable=import-outside-toplevel
 
-    sorted_regions = sort_regions_reading_order(regions, img_h)
-    _print_regions(sorted_regions, "Reading order")
+    overlay_path = _write_region_association_overlay_image(image_path, regions)
+    print(f"\n[2] Region-association overlay: {overlay_path or '(write failed)'}")
 
     model = args.model or default_caption_matching_model()
-    print(f"\n[2] LM Studio caption matching (url={args.lmstudio_url}, model={model or 'auto'})")
-    captions = call_lmstudio_caption_matching(image_path, base_url=args.lmstudio_url, model=model, timeout=300.0)
+    print(f"\n[3] LM Studio caption matching (url={args.lmstudio_url}, model={model or 'auto'})")
+    captions = call_lmstudio_caption_matching(overlay_path or image_path, base_url=args.lmstudio_url, model=model, timeout=300.0)
     if not captions:
         print("  No captions returned (LM Studio offline or parse error)")
     else:
         print(f"  Response: {captions}")
 
-    print("\n[3] Merged result")
-    merged = assign_captions_from_lmstudio(sorted_regions, captions)
+    print("\n[4] Merged result")
+    merged = assign_captions_from_lmstudio(regions, captions)
     for i, r in enumerate(merged, start=1):
         caption = r.caption_hint or "(no caption)"
-        print(f"  photo-{i}: x={r.x} y={r.y} w={r.width} h={r.height} | {caption!r}")
+        print(f"  region-{r.index + 1}: x={r.x} y={r.y} w={r.width} h={r.height} | {caption!r}")
 
     if args.debug_image:
-        print("\n[4] Writing debug image...")
+        print("\n[5] Writing debug image...")
         try:
-            out_path = _write_debug_image(image_path, sorted_regions)
+            out_path = _write_debug_image(image_path, regions)
             print(f"  Written: {out_path}")
         except Exception as exc:
             print(f"  ERROR writing debug image: {exc}", file=sys.stderr)

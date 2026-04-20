@@ -1,8 +1,4 @@
-"""Debug rendering of detected photo regions over a view JPG.
-
-Draws coloured labelled bounding boxes on a downscaled copy of the image.
-Used for visual validation of region detection results before splitting.
-"""
+"""Debug rendering of detected photo regions over a view JPG."""
 
 from __future__ import annotations
 
@@ -24,20 +20,13 @@ _PALETTE = [
     (0, 160, 255),  # deepskyblue
 ]
 
-
-def render_regions_debug(
+def _render_regions(
     image_path: str | Path,
     regions: list[dict],
     output_path: str | Path,
+    *,
+    prompt_safe: bool,
 ) -> bytes:
-    """Draw region bounding boxes on a downscaled copy of the view image.
-
-    regions is a list of dicts as returned by xmp_sidecar.read_region_list:
-      {index, x, y, width, height, caption, ...} — pixel coords, top-left origin.
-
-    Saves annotated JPEG to output_path and returns the JPEG bytes.
-    The original image is not modified.
-    """
     from PIL import Image, ImageDraw, ImageFont  # pylint: disable=import-outside-toplevel
 
     allow_large_pillow_images(Image)
@@ -85,9 +74,9 @@ def render_regions_debug(
 
             draw.rectangle([x0, y0, x1, y1], outline=colour, width=outline_width)
 
-            caption = str(reg.get("caption") or "").strip()
             label = f"#{idx + 1}"
-            if caption:
+            caption = str(reg.get("caption") or "").strip()
+            if caption and not prompt_safe:
                 max_cap = 30
                 label += f" {caption[:max_cap]}{'…' if len(caption) > max_cap else ''}"
 
@@ -107,3 +96,19 @@ def render_regions_debug(
         return jpeg_bytes
     finally:
         img.close()
+
+
+def render_regions_debug(
+    image_path: str | Path,
+    regions: list[dict],
+    output_path: str | Path,
+) -> bytes:
+    return _render_regions(image_path, regions, output_path, prompt_safe=False)
+
+
+def render_regions_overlay(
+    image_path: str | Path,
+    regions: list[dict],
+    output_path: str | Path,
+) -> bytes:
+    return _render_regions(image_path, regions, output_path, prompt_safe=True)

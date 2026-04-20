@@ -12709,6 +12709,10 @@
     "status": "ok",
     "sublocation": "King Edward's Drive"
   },
+  "mimara art museum": {
+    "query": "Mimara Art Museum",
+    "status": "miss"
+  },
   "mimara art museum, croatia": {
     "query": "Mimara Art Museum, Croatia",
     "status": "miss"
@@ -16117,6 +16121,18 @@
     "state": "California",
     "status": "ok",
     "sublocation": ""
+  },
+  "regent street": {
+    "city": "City of Westminster",
+    "country": "United Kingdom",
+    "display_name": "Regent Street, St. James's, East Marylebone, Mayfair, City of Westminster, Greater London, England, W1B 5SD, United Kingdom",
+    "latitude": "51.5109622",
+    "longitude": "-0.1386840",
+    "query": "Regent Street",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Regent Street"
   },
   "regent street, london": {
     "display_name": "Regent Street, St. James's, East Marylebone, Mayfair, City of Westminster, Greater London, England, W1B 5SJ, United Kingdom",
