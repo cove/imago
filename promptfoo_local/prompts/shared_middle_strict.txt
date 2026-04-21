@@ -1,8 +1,0 @@
-Before answering, apply these rules for typewritten caption strips on album pages:
-
-- Preserve the visible structure of specific caption + shared location/date + specific caption.
-- If a shared middle fragment applies to multiple nearby photos, keep that fragment distinct rather than merging it into only one side.
-- Prefer real line breaks between separate caption fragments when the page layout supports them.
-- Return valid JSON only and do not emit stray quote-like garbage, repeated delimiters, or partial strings.
-
-{{production_prompt}}

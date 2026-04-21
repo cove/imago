@@ -1733,26 +1733,17 @@ def _merge_xmp_tree(
     people_detected: bool = False,
     people_identified: bool = False,
     locations_shown: list[dict] | None = None,
-    replace_subjects: bool = False,
-    replace_description: bool = False,
-    replace_locations_shown: bool = False,
 ) -> ET.ElementTree:
     del subphotos, scan_number
     desc = _get_or_create_rdf_desc(tree)
     existing_detections_payload = _read_detections_payload(desc)
-    if replace_subjects:
-        merged_subjects = _dedupe(list(subjects or []))
-    else:
-        merged_subjects = _dedupe(_get_bag_values(desc, f"{{{DC_NS}}}subject") + list(subjects or []))
+    merged_subjects = _dedupe(_get_bag_values(desc, f"{{{DC_NS}}}subject") + list(subjects or []))
     title = _coalesce_text(title, _get_alt_text(desc, f"{{{DC_NS}}}title", prefer_lang="x-default"))
     title_source = _coalesce_text(title_source, str(desc.findtext(f"{{{IMAGO_NS}}}TitleSource", default="") or ""))
-    if replace_description:
-        description = str(description or "").strip()
-    else:
-        description = _coalesce_text(
-            description,
-            _get_description_value(desc, legacy_caption_first=description_role == DESCRIPTION_ROLE_CROP),
-        )
+    description = _coalesce_text(
+        description,
+        _get_description_value(desc, legacy_caption_first=description_role == DESCRIPTION_ROLE_CROP),
+    )
     existing_dc_dates = _normalize_dc_dates(_get_seq_values(desc, f"{{{DC_NS}}}date"))
     normalized_dc_dates = _dedupe(existing_dc_dates + _normalize_dc_dates(dc_date)) or existing_dc_dates
     create_date = _coalesce_text(
@@ -1817,10 +1808,7 @@ def _merge_xmp_tree(
         str(desc.findtext(f"{{{IMAGO_NS}}}OCRAuthoritySource", default="") or ""),
     )
     stitch_key = _coalesce_text(stitch_key, str(desc.findtext(f"{{{IMAGO_NS}}}StitchKey", default="") or ""))
-    if replace_locations_shown:
-        merged_locations_shown = list(locations_shown or [])
-    else:
-        merged_locations_shown = list(locations_shown) if locations_shown else _read_locations_shown_from_desc(desc)
+    merged_locations_shown = list(locations_shown) if locations_shown else _read_locations_shown_from_desc(desc)
     merged_detections_payload = detections_payload if detections_payload is not None else (existing_detections_payload or None)
     merged_detections_payload = _with_location_detections(
         merged_detections_payload,
@@ -1947,9 +1935,6 @@ def write_xmp_sidecar(
     people_detected: bool = False,
     people_identified: bool = False,
     locations_shown: list[dict] | None = None,
-    replace_subjects: bool = False,
-    replace_description: bool = False,
-    replace_locations_shown: bool = False,
 ) -> Path:
     path = Path(sidecar_path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -2042,9 +2027,6 @@ def write_xmp_sidecar(
             people_detected=people_detected,
             people_identified=people_identified,
             locations_shown=locations_shown,
-            replace_subjects=replace_subjects,
-            replace_description=replace_description,
-            replace_locations_shown=replace_locations_shown,
         )
     tree.write(path, encoding="utf-8", xml_declaration=True)
     return path

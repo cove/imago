@@ -405,22 +405,6 @@ class TestCallGemma4CaptionMatchingParsing(unittest.TestCase):
         prompt = post_json.call_args.args[1]["messages"][0]["content"][1]["text"]
         self.assertIn('"location": ""', prompt)
         self.assertIn("Known locations: Cairo, Egypt, Luxor, Egypt", prompt)
-        self.assertIn("repeat that exact caption text for every covered region", prompt)
-
-    def test_single_location_prompt_mentions_shared_caption_rule(self):
-        from photoalbums.lib._caption_matching import call_lmstudio_caption_matching
-
-        fake_response = {"choices": [{"message": {"content": '{"region-1": "Holiday"}'}}]}
-        with mock.patch("photoalbums.lib._caption_matching._post_json", return_value=fake_response) as post_json:
-            with mock.patch("photoalbums.lib._caption_matching._encode_image", return_value="data:image/jpeg;base64,abc"):
-                call_lmstudio_caption_matching(
-                    "fake.jpg",
-                    base_url="http://localhost:1234/v1",
-                    model="gemma",
-                    locations_shown=[{"name": "Cairo, Egypt"}],
-                )
-        prompt = post_json.call_args.args[1]["messages"][0]["content"][1]["text"]
-        self.assertIn("repeat that exact caption text for every covered region", prompt)
 
     def test_malformed_json_returns_empty_dict(self):
         result = self._call_with_response("Here is my answer: {region-1: broken")

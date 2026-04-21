@@ -19,10 +19,6 @@ CAPTION_MATCHING_PROMPT = (
     "- Number as many `region-N` keys as there are visible numbered regions on the overlay.\n"
     "- Each value is the caption text that belongs to that region; empty string if there is no caption.\n"
     "- Use the visible overlay numbers directly. Do not renumber the regions and do not infer a separate left-to-right/top-to-bottom ordering.\n"
-    "- A single visible page caption may apply to multiple photos. When one caption clearly covers multiple regions, repeat that exact caption text for every covered region instead of assigning it to only one region.\n"
-    "- Grouped-photo captions are valid: for example stacked photos in one column, adjacent photos under one label, or any nearby set that is clearly covered by the same page caption.\n"
-    "- Do not use page-wide headers, place/date banners, or general page context text as a region caption when a more specific nearby photo caption is visible. Prefer the photo-specific caption.\n"
-    "- Example: if two photos are vertically stacked in one column and there is one specific caption strip under that column, assign that same caption to both photos in the column.\n"
     "- If a caption refers to subjects shown in an adjacent photo (e.g. \"Their new home\" paired with a photo labelled \"GILBERT & HELEN\"), prepend the missing subject so the caption reads standalone (e.g. \"GILBERT & HELEN — Their new home\"). Do not rewrite or summarise; only prepend the minimum context needed.\n"
     "- Just return the JSON without any extra text or explanation."
 )
@@ -34,10 +30,6 @@ MULTI_LOCATION_PROMPT_TEMPLATE = (
     '- "location": copy exactly one item from the Known locations list below; do not invent a new place name, do not repeat the caption text, and do not add dates or extra words. If none apply, return empty string.\n'
     "Known locations: {known_locations}\n"
     "- Use the visible overlay numbers directly. Do not renumber the regions and do not infer a separate left-to-right/top-to-bottom ordering.\n"
-    "- A single visible page caption may apply to multiple photos. When one caption clearly covers multiple regions, repeat that exact caption text for every covered region instead of assigning it to only one region.\n"
-    '- Choose "location" independently for each region even when multiple regions share the same caption text.\n'
-    "- Do not use page-wide headers, place/date banners, or general page context text as a region caption when a more specific nearby photo caption is visible. Prefer the photo-specific caption.\n"
-    "- Example: if two photos are vertically stacked in one column and there is one specific caption strip under that column, assign that same caption to both photos in the column.\n"
     "- If a caption refers to subjects shown in an adjacent photo, prepend the missing subject so the caption reads standalone. Do not rewrite or summarise; only prepend the minimum context needed.\n"
     "- Just return the JSON without any extra text or explanation."
 )

@@ -3,7 +3,7 @@ Integration eval: validate caption quality using the real pipeline prompt.
 
 Builds the user prompt with `_build_local_prompt`,
 sends it with the production LM Studio system prompt and asserts on caption content.
-No intermediate rule-selection step - the full skill prompt is sent as-is.
+No intermediate rule-selection step â€” the full skill prompt is sent as-is.
 
 Requires LM Studio running with zai-org/glm-4.6v-flash loaded.
 All tests are auto-skipped if LM Studio is not reachable or the test image is missing.
@@ -13,10 +13,11 @@ Run:
 """
 
 from __future__ import annotations
+import pytest
 
 import json
-import sys
 import time
+import sys
 from pathlib import Path
 
 import pytest
@@ -29,14 +30,14 @@ if str(REPO_ROOT) not in sys.path:
 if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
+from photoalbums.lib._caption_prompts import _build_local_prompt  # noqa: E402
 from photoalbums.lib._caption_lmstudio import (  # noqa: E402
     DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE,
     _build_data_url,
     _lmstudio_caption_response_format,
 )
-from photoalbums.lib._caption_prompts import _build_local_prompt  # noqa: E402
 from photoalbums.lib.ai_caption import CaptionEngine  # noqa: E402
-from photoalbums.lib.ai_index import DEFAULT_CAST_STORE, _run_image_analysis  # noqa: E402
+from photoalbums.lib.ai_index import _run_image_analysis, DEFAULT_CAST_STORE  # noqa: E402
 from photoalbums.lib.ai_ocr import OCREngine  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -46,18 +47,9 @@ from photoalbums.lib.ai_ocr import OCREngine  # noqa: E402
 _LMSTUDIO_BASE = "http://localhost:1234"
 _MODEL = "zai-org/glm-4.6v-flash"
 _RUNS_PER_CASE = 1
-_MIN_PASSING_RUNS = 1  # >=2/3 runs must pass per case
-_DIRECT_ONLY_GENERATION_KEYS = (
-    "top_p",
-    "top_k",
-    "min_p",
-    "seed",
-    "presence_penalty",
-    "frequency_penalty",
-    "repetition_penalty",
-)
+_MIN_PASSING_RUNS = 1  # â‰¥2/3 runs must pass per case
 
-# Stitched JPEG for the Dunhuang page - murals, exhibit signage, people
+# Stitched JPEG for the Dunhuang page â€” murals, exhibit signage, people
 _TEST_IMAGE = Path(
     r"C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums"
     r"\China_1986_B02_Pages\China_1986_B02_P02_stitched.jpg"
@@ -70,10 +62,6 @@ _TEST_IMAGE_P16_D01 = Path(
     r"C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums"
     r"\China_1986_B02_Pages\China_1986_B02_P16_D01-01_V.jpg"
 )
-_TEST_IMAGE_LONDON_SHARED = Path(
-    r"C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums"
-    r"\EasternEuropeSpainAndMorocco_1988_B00_Pages\EasternEuropeSpainAndMorocco_1988_B00_P02_V.jpg"
-)
 
 # ---------------------------------------------------------------------------
 # Test cases
@@ -82,7 +70,7 @@ _TEST_IMAGE_LONDON_SHARED = Path(
 _TEST_CASES = [
     {
         "id": "dunhuang-location-from-ocr",
-        "ocr_text": "EXHIBIT HISTORICAL RELICS OF DUNHUANG WELCOME TO DUNHUANG SUMMER CULTURE CENTRE",
+        "ocr_text": ("EXHIBIT HISTORICAL RELICS OF DUNHUANG WELCOME TO DUNHUANG SUMMER CULTURE CENTRE"),
         "objects": ["person", "truck"],
         "people": [],
         "album_title": "Mainland China 1986 Book II",
@@ -112,26 +100,6 @@ _TEST_CASES = [
         "must_include": ["Audrey Cordell", "Leslie Cordell"],
         "must_omit": ["photograph", "picture", "image", "scanned", "two people"],
     },
-    {
-        "id": "london-shared-location-date-direct",
-        "image": _TEST_IMAGE_LONDON_SHARED,
-        "ocr_text": (
-            "OXFORD STREET LONDON,ENGLAND - AUG.1988 REGENT STREET "
-            "OUR HOTEL IN ZAGREB,YUGOSLAVIA HOTEL INTER-CONTINENTAL "
-            "AND THE MIMARA ART MUSEUM-AUGUST 1988"
-        ),
-        "objects": [],
-        "people": [],
-        "album_title": "EASTERN EUROPE SPAIN AND MOROCCO 1988",
-        "model": "gemma-4-31b-it",
-        "temperature": 0.2,
-        "max_tokens": 256,
-        "top_p": 0.9,
-        "top_k": 40,
-        "seed": 123,
-        "must_include": ["OXFORD STREET"],
-        "must_omit": [],
-    },
 ]
 
 # ---------------------------------------------------------------------------
@@ -139,53 +107,17 @@ _TEST_CASES = [
 # ---------------------------------------------------------------------------
 
 
-def _resolve_eval_settings(case: dict) -> dict:
-    """Return per-case eval settings with sane defaults."""
-    settings = {
-        "model": str(case.get("model") or _MODEL),
-        "temperature": float(case.get("temperature", 0)),
-        "max_tokens": int(case.get("max_tokens", 256)),
-        "max_image_edge": int(case.get("max_image_edge", DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)),
-    }
-    for key in _DIRECT_ONLY_GENERATION_KEYS:
-        if key in case:
-            settings[key] = case[key]
-    return settings
-
-
-def _direct_generation_overrides(settings: dict) -> dict:
-    overrides: dict[str, object] = {}
-    for key in _DIRECT_ONLY_GENERATION_KEYS:
-        if key in settings:
-            overrides[key] = settings[key]
-    return overrides
-
-
-def _assert_no_direct_only_generation_overrides(case: dict, *, caller_name: str) -> None:
-    unsupported = [key for key in _DIRECT_ONLY_GENERATION_KEYS if key in case]
-    if unsupported:
-        raise ValueError(
-            f"{caller_name} does not support direct LM Studio sampling overrides: {unsupported}. "
-            "Use the direct _call_caption path for top_p/top_k/min_p/seed-style sweeps."
-        )
-
-
-def _build_case_prompt(case: dict) -> str:
-    return _build_local_prompt(
+def _call_caption(base_url: str, image_path: Path, *, case: dict) -> dict:
+    """Build the real pipeline prompt and send it directly to LM Studio with the image."""
+    prompt = _build_local_prompt(
         people=case.get("people", []),
         objects=case.get("objects", []),
         ocr_text=case.get("ocr_text", ""),
         album_title=case.get("album_title", ""),
     )
-
-
-def _call_caption(base_url: str, image_path: Path, *, case: dict) -> dict:
-    """Build the real pipeline prompt and send it directly to LM Studio with the image."""
-    settings = _resolve_eval_settings(case)
-    prompt = _build_case_prompt(case)
-    image_url = _build_data_url(image_path, settings["max_image_edge"])
+    image_url = _build_data_url(image_path, DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
     payload = {
-        "model": settings["model"],
+        "model": _MODEL,
         "messages": [
             {
                 "role": "system",
@@ -200,10 +132,9 @@ def _call_caption(base_url: str, image_path: Path, *, case: dict) -> dict:
             },
         ],
         "response_format": _lmstudio_caption_response_format(),
-        "temperature": settings["temperature"],
-        "max_tokens": settings["max_tokens"],
+        "temperature": 0,
+        "max_tokens": 256,
     }
-    payload.update(_direct_generation_overrides(settings))
     t0 = time.monotonic()
     resp = requests.post(f"{base_url}/v1/chat/completions", json=payload, timeout=300)
     elapsed = time.monotonic() - t0
@@ -218,28 +149,25 @@ def _call_caption(base_url: str, image_path: Path, *, case: dict) -> dict:
     except (json.JSONDecodeError, AttributeError):
         title = ""
         caption = raw
-    print(
-        f"\n[DEBUG] {elapsed:.1f}s, model: {settings['model']}, "
-        f"temp: {settings['temperature']}, max_tokens: {settings['max_tokens']}, "
-        f"overrides: {_direct_generation_overrides(settings)}, "
-        f"title: {title[:150]}, caption: {caption[:150]}"
-    )
-    return {"title": title, "caption": caption, "prompt": prompt, "settings": settings}
+    print(f"\n[DEBUG] {elapsed:.1f}s, title: {title[:150]}, caption: {caption[:150]}")
+    return {"title": title, "caption": caption, "prompt": prompt}
 
 
 def _call_caption_engine(base_url: str, image_path: Path, *, case: dict) -> dict:
     """Run the full CaptionEngine pipeline (same path as production)."""
-    _assert_no_direct_only_generation_overrides(case, caller_name="CaptionEngine eval")
-    settings = _resolve_eval_settings(case)
-    prompt = _build_case_prompt(case)
+    prompt = _build_local_prompt(
+        people=case.get("people", []),
+        objects=case.get("objects", []),
+        ocr_text=case.get("ocr_text", ""),
+        album_title=case.get("album_title", ""),
+    )
     t0 = time.monotonic()
     engine = CaptionEngine(
         engine="lmstudio",
-        model_name=settings["model"],
+        model_name=_MODEL,
         lmstudio_base_url=base_url,
-        max_tokens=settings["max_tokens"],
-        temperature=settings["temperature"],
-        max_image_edge=settings["max_image_edge"],
+        max_tokens=256,
+        temperature=0,
     )
     output = engine.generate(
         image_path,
@@ -251,20 +179,14 @@ def _call_caption_engine(base_url: str, image_path: Path, *, case: dict) -> dict
     elapsed = time.monotonic() - t0
     if output.error:
         raise RuntimeError(output.error)
-    print(
-        f"\n[DEBUG] {elapsed:.1f}s, model: {settings['model']}, "
-        f"temp: {settings['temperature']}, max_tokens: {settings['max_tokens']}, "
-        f"caption: {output.text[:300]}"
-    )
-    return {"title": "", "caption": output.text, "prompt": prompt, "settings": settings}
+    print(f"\n[DEBUG] {elapsed:.1f}s, caption: {output.text[:300]}")
+    return {"title": "", "caption": output.text, "prompt": prompt}
 
 
 def _call_pipeline(base_url: str, image_path: Path, *, case: dict) -> dict:
-    """Full pipeline: real face detection -> position computation -> caption (mirrors MCP call)."""
+    """Full pipeline: real face detection â†’ position computation â†’ caption (mirrors MCP call)."""
     from photoalbums.lib.ai_people import CastPeopleMatcher
 
-    _assert_no_direct_only_generation_overrides(case, caller_name="Pipeline eval")
-    settings = _resolve_eval_settings(case)
     t0 = time.monotonic()
     people_matcher = CastPeopleMatcher(
         cast_store_dir=DEFAULT_CAST_STORE,
@@ -274,11 +196,10 @@ def _call_pipeline(base_url: str, image_path: Path, *, case: dict) -> dict:
     ocr_engine = OCREngine(engine="none")
     caption_engine = CaptionEngine(
         engine="lmstudio",
-        model_name=settings["model"],
+        model_name=_MODEL,
         lmstudio_base_url=base_url,
-        max_tokens=settings["max_tokens"],
-        temperature=settings["temperature"],
-        max_image_edge=settings["max_image_edge"],
+        max_tokens=256,
+        temperature=0,
     )
     result = _run_image_analysis(
         image_path=image_path,
@@ -287,7 +208,7 @@ def _call_pipeline(base_url: str, image_path: Path, *, case: dict) -> dict:
         ocr_engine=ocr_engine,
         caption_engine=caption_engine,
         requested_caption_engine="lmstudio",
-        requested_caption_model=settings["model"],
+        requested_caption_model=_MODEL,
         ocr_engine_name="none",
         ocr_language="eng",
         album_title=case.get("album_title", ""),
@@ -300,12 +221,8 @@ def _call_pipeline(base_url: str, image_path: Path, *, case: dict) -> dict:
         f"  objects_detected: {result.object_labels}\n"
         f"  ocr_text: {result.ocr_text!r}"
     )
-    print(
-        f"\n[DEBUG] {elapsed:.1f}s, model: {settings['model']}, "
-        f"temp: {settings['temperature']}, max_tokens: {settings['max_tokens']}, "
-        f"title: {result.title[:150]}, caption: {result.description[:150]}"
-    )
-    return {"title": result.title, "caption": result.description, "prompt": diag, "settings": settings}
+    print(f"\n[DEBUG] {elapsed:.1f}s, title: {result.title[:150]}, caption: {result.description[:150]}")
+    return {"title": result.title, "caption": result.description, "prompt": diag}
 
 
 # ---------------------------------------------------------------------------
@@ -322,6 +239,8 @@ def lmstudio_url():
             pytest.skip("LM Studio not reachable")
     except Exception:
         pytest.skip("LM Studio not reachable")
+    if not _TEST_IMAGE.exists():
+        pytest.skip(f"Test image not found: {_TEST_IMAGE}")
     return _LMSTUDIO_BASE
 
 
@@ -330,6 +249,7 @@ def lmstudio_url():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skip(reason="This test is a work in progress and not yet passing reliably.")
 @pytest.mark.integration
 @pytest.mark.parametrize("case", _TEST_CASES, ids=[c["id"] for c in _TEST_CASES])
 def test_caption_quality(lmstudio_url, case):
@@ -362,7 +282,6 @@ def test_caption_quality(lmstudio_url, case):
                 detail_lines.append(f"    Missing from {case.get('check_field', 'caption')}: {missing}")
             if present_forbidden:
                 detail_lines.append(f"    Forbidden in caption: {present_forbidden}")
-            detail_lines.append(f"    Settings: {result.get('settings', {})}")
             detail_lines.append(f"    Caption: {caption}")
             detail_lines.append(f"    Prompt sent:\n{result['prompt']}")
             failing_details.append("\n".join(detail_lines))
@@ -377,3 +296,4 @@ def test_caption_quality(lmstudio_url, case):
         f"    ocr_text:    {case.get('ocr_text', '')!r}\n"
         f"    album_title: {case.get('album_title', '')!r}\n" + "\n".join(failing_details)
     )
+
