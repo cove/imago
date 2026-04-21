@@ -1,6 +1,7 @@
 set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 python := "uv run python"
 ruff := "uv run ruff"
+photoalbums_root := `uv run python -c "from photoalbums.common import get_photo_albums_dir; print(get_photo_albums_dir())"`
 
 [default]
 default:
@@ -69,37 +70,16 @@ mcp-http:
   {{python}} mcp_server.py --transport http --host 0.0.0.0 --port 8090 --console-host 192.168.4.26
 
 photoalbums-map:
-  {{python}} photoalbums.py metadata map "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" --port 8095
+  {{python}} photoalbums.py metadata map "{{photoalbums_root}}" --port 8095
 
-photoalbums-process *args:
-  {{python}} photoalbums.py process --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
-
-photoalbums-steps:
+photoalbums-list-steps:
   {{python}} photoalbums.py process --photos-root "." --list-steps
 
-photoalbums-ai *args:
-  {{python}} photoalbums.py process --step ai-index --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
-
-photoalbums-ai-gps *args:
-  {{python}} photoalbums.py process --step ai-index --gps-only --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
-
 photoalbums-render *args:
-  {{python}} photoalbums.py process --step render --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
+  {{python}} photoalbums.py process --photos-root "{{photoalbums_root}}" {{args}}
 
 photoalbums-render-validate:
   {{python}} photoalbums.py render validate
-
-photoalbums-render-pipeline *args:
-  {{python}} photoalbums.py process --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
-
-photoalbums-detect-regions *args:
-  {{python}} photoalbums.py process --step detect-regions --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
-
-photoalbums-crop-regions *args:
-  {{python}} photoalbums.py process --step crop-regions --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
-
-photoalbums-ctm-review *args:
-  {{python}} photoalbums.py ctm review --photos-root "C:\Users\covec\OneDrive\Cordell, Leslie & Audrey\Photo Albums" {{args}}
 
 photoalbums-watch:
   {{python}} photoalbums.py watch
