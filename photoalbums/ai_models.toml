@@ -5,9 +5,9 @@ caption_matching_model = "primary"
 lmstudio_base_url = "http://127.0.0.1:1234/v1"
 
 [models]
-pc = [ "gemma-4-31b-it"]
-primary = ["gemma-4-31b-it"]
-fallback = "google/gemma-4-e4b"
+pc = [ "gemma-4-e4b-it-mlx"]
+primary = ["gemma-4-e4b-it-mlx"]
+fallback = "gemma-4-e4b-it-mlx"
 docling = "granite-docling-258m"
 [docling_pipeline]
 preset = "granite_docling"
