@@ -181,6 +181,7 @@ clearly: which photo, what the symptom is, and what the likely cause is.
 ## Preamble Describe
 - Use `author_text` for typewriter-written Courier text on white paper strips.
 - Use `scene_text` only for readable text inside the photographed scene itself, not the page itself.
+- Read the capations from left to right, there can be a hierarchy to the capations, where a capation in the center of a line refers to both the left and right photo, where the left and right photos have more specifc capations that refer to just themselves. You'll need to examine the photos to help get a hint as to what capation goes with the photo too.
 - Return empty strings when no applicable text exists for a field.
 
 ## Preamble Upstream OCR Context
@@ -212,10 +213,14 @@ clearly: which photo, what the symptom is, and what the likely cause is.
 - Estimate a single photo date for XMP `dc:date`.
 - First look for an explicit or strongly implied date in the OCR text.
 - If the OCR text does not support a date, use the album title as the fallback date range hint.
+- Treat month abbreviations with or without a trailing period as explicit month evidence, even when OCR spacing is imperfect.
 - When only a year is supported, return the year only.
 - When a month and year are supported, return `YYYY-MM`.
 - When a full calendar date is supported, return `YYYY-MM-DD`.
 - If the visible text implies an approximate date, round to the nearest supported precision without adding unsupported detail.
+- Example: `AUG. 1988` -> `1988-08`.
+- Example: `AUG.1988` -> `1988-08`.
+- Example: `AUGUST 1988` -> `1988-08`.
 - Example: `about January 1988` -> `1988-01`.
 - Example: `early 1988` -> `1988`.
 - Example: `winter 1988` -> `1988`.
