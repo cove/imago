@@ -1,0 +1,27 @@
+{
+  "variants": [
+    {
+      "id": "gemma31b_seed123_tp09_tk40",
+      "model": "gemma-4-31b-it",
+      "temperature": 0.0,
+      "max_tokens": 256,
+      "top_p": 0.9,
+      "top_k": 40,
+      "min_p": 0.05,
+      "seed": 123,
+      "stream": false,
+      "image_max_edge": 1600
+    },
+    {
+      "id": "gemma31b_seed123_greedy",
+      "model": "gemma-4-31b-it",
+      "temperature": 0.0,
+      "max_tokens": 256,
+      "top_p": 1.0,
+      "top_k": 0,
+      "seed": 123,
+      "stream": false,
+      "image_max_edge": 1600
+    }
+  ]
+}

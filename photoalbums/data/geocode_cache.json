@@ -951,6 +951,18 @@
     "status": "ok",
     "sublocation": "3 Dr.-Karl-Renner-Ring"
   },
+  "austrian parliament building": {
+    "city": "Vienna",
+    "country": "Austria",
+    "display_name": "Austrian Parliament Building, 3, Dr.-Karl-Renner-Ring, Regierungsviertel, Katastralgemeinde Innere Stadt, Innere Stadt, Vienna, 1017, Austria",
+    "latitude": "48.2080870",
+    "longitude": "16.3584649",
+    "query": "Austrian Parliament Building",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "3 Dr.-Karl-Renner-Ring"
+  },
   "austrian parliament building, vienna, austria; schönbrunn gloriette, vienna, austria": {
     "query": "Austrian Parliament Building, Vienna, Austria; Schönbrunn Gloriette, Vienna, Austria",
     "status": "miss"
@@ -2562,6 +2574,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "buda castle district": {
+    "city": "Budapest",
+    "country": "Hungary",
+    "display_name": "Buda Castle District, Budapest, Hungary",
+    "latitude": "47.4978227",
+    "longitude": "19.0399872",
+    "query": "Buda Castle District",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Clark Ádám tér"
+  },
   "buda castle district, budapest, hungary": {
     "city": "Budapest",
     "country": "Hungary",
@@ -2615,6 +2639,10 @@
     "source": "nominatim",
     "state": "",
     "status": "ok"
+  },
+  "budapest city skyline": {
+    "query": "Budapest City Skyline",
+    "status": "miss"
   },
   "budapest city skyline, hungary": {
     "query": "Budapest City Skyline, Hungary",
@@ -3592,6 +3620,30 @@
     "query": "Chapel Bridge, Switzerland",
     "status": "miss"
   },
+  "charles bridge": {
+    "city": "Prague",
+    "country": "Czechia",
+    "display_name": "Charles Bridge, Lesser Town, obvod Praha 1, Prague, 116 93, Czechia",
+    "latitude": "50.0864857",
+    "longitude": "14.4113712",
+    "query": "Charles Bridge",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Charles Bridge"
+  },
+  "charles bridge (karlův most)": {
+    "city": "Prague",
+    "country": "Czechia",
+    "display_name": "Charles Bridge, Old Town, obvod Praha 1, Prague, 116 93, Czechia",
+    "latitude": "50.0866258",
+    "longitude": "14.4101485",
+    "query": "Charles Bridge (Karlův most)",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Charles Bridge"
+  },
   "charles bridge (karlův most), prague, czech republic": {
     "city": "Prague",
     "country": "Czechia",
@@ -3629,6 +3681,18 @@
     "source": "nominatim",
     "state": "",
     "status": "ok"
+  },
+  "charles bridge, prague": {
+    "city": "Prague",
+    "country": "Czechia",
+    "display_name": "Charles Bridge, Lesser Town, obvod Praha 1, Prague, 116 93, Czechia",
+    "latitude": "50.0864857",
+    "longitude": "14.4113712",
+    "query": "Charles Bridge, Prague",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Charles Bridge"
   },
   "charles bridge, prague, czech republic": {
     "city": "Prague",
@@ -4298,6 +4362,18 @@
     "state": "",
     "status": "ok",
     "sublocation": "1 Hantverkargatan"
+  },
+  "city hall, vienna": {
+    "city": "Vienna",
+    "country": "Austria",
+    "display_name": "Vienna City Hall, 1, City Hall Square, Regierungsviertel, Katastralgemeinde Innere Stadt, Innere Stadt, Vienna, 1010, Austria",
+    "latitude": "48.2108257",
+    "longitude": "16.3565728",
+    "query": "City Hall, Vienna",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "1 City Hall Square"
   },
   "city hall, vienna, austria": {
     "display_name": "Rathaus, 1, Rathausplatz, Regierungsviertel, Innere Stadt, Wien, 1010, Österreich",
@@ -5911,6 +5987,10 @@
     "query": "Dubrovnik, own’s city center",
     "status": "miss"
   },
+  "dubrovnik, own’s city walls and fortifications": {
+    "query": "Dubrovnik, own’s city walls and fortifications",
+    "status": "miss"
+  },
   "dubrovnik, own’s city walls and old town": {
     "query": "Dubrovnik, own’s city walls and old town",
     "status": "miss"
@@ -6945,6 +7025,18 @@
     "status": "ok",
     "sublocation": ""
   },
+  "fisherman's bastion": {
+    "city": "Budapest",
+    "country": "Hungary",
+    "display_name": "Fisherman's Bastion, Budapest, Hungary",
+    "latitude": "47.5023053",
+    "longitude": "19.0346998",
+    "query": "Fisherman's Bastion",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Szentháromság tér"
+  },
   "fisherman's bastion and matthias church, budapest, hungary": {
     "query": "Fisherman's Bastion and Matthias Church, Budapest, Hungary",
     "status": "miss"
@@ -7608,6 +7700,10 @@
     "source": "nominatim",
     "state": "Oaxaca",
     "status": "ok"
+  },
+  "gloriette, schönbrunn palace": {
+    "query": "Gloriette, Schönbrunn Palace",
+    "status": "miss"
   },
   "golden deer sculpture, stockholm, sweden": {
     "query": "Golden Deer Sculpture, Stockholm, Sweden",
@@ -8390,6 +8486,18 @@
     "state": "Cairo",
     "status": "ok"
   },
+  "hofburg palace": {
+    "city": "Vienna",
+    "country": "Austria",
+    "display_name": "Hofburg Palace, Vienna, Austria",
+    "latitude": "48.2063293",
+    "longitude": "16.3656259",
+    "query": "Hofburg Palace",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Stallburggasse"
+  },
   "hofburg palace, austria": {
     "city": "Vienna",
     "country": "Austria",
@@ -8753,6 +8861,10 @@
   },
   "hotel intercontinental, zagreb, own": {
     "query": "Hotel Intercontinental, Zagreb, own",
+    "status": "miss"
+  },
+  "hotel intercontinental, zagreb, own’s yugoslavia": {
+    "query": "Hotel Intercontinental, Zagreb, own’s Yugoslavia",
     "status": "miss"
   },
   "hotel intercontinental, zagreb, yugoslavia": {
@@ -10831,6 +10943,18 @@
     "query": "Leaving Aswan - Dec. 1975",
     "status": "miss"
   },
+  "left photo": {
+    "city": "Tiraspol",
+    "country": "Moldova",
+    "display_name": "Tiras-Photo, Krasnodonskaya Street, Oktyabrskiy, Tiraspol, Tiraspol City Council, Administrative-territorial units of the left bank of Nistru, Pridnestrovie, MD-5725, Moldova",
+    "latitude": "46.8354932",
+    "longitude": "29.6647466",
+    "query": "Left photo",
+    "source": "nominatim",
+    "state": "Pridnestrovie",
+    "status": "ok",
+    "sublocation": "Krasnodonskaya Street"
+  },
   "leggett, united states": {
     "city": "Leggett",
     "country": "United States",
@@ -10899,6 +11023,10 @@
     "query": "Lenin's Tomb, Moscow, Russia",
     "status": "miss"
   },
+  "leopold l'kron castle, salzburg, austria": {
+    "query": "Leopold l'Kron Castle, Salzburg, Austria",
+    "status": "miss"
+  },
   "leopold own castle, salzburg, austria": {
     "query": "Leopold own Castle, Salzburg, Austria",
     "status": "miss"
@@ -10933,6 +11061,10 @@
     "state": "Salzburg",
     "status": "ok",
     "sublocation": "58 Leopoldskronstraße"
+  },
+  "leopoldskron palace, salzburg, austria": {
+    "query": "Leopoldskron Palace, Salzburg, Austria",
+    "status": "miss"
   },
   "leslie's home & school in indianapolis": {
     "query": "Leslie's home & school in Indianapolis",
@@ -12416,6 +12548,18 @@
     "query": "Mathias Church, Hungary",
     "status": "miss"
   },
+  "matthias church": {
+    "city": "Budapest",
+    "country": "Hungary",
+    "display_name": "Matthias Church, Budapest, Hungary",
+    "latitude": "47.5020090",
+    "longitude": "19.0342058",
+    "query": "Matthias Church",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "2 Szentháromság tér"
+  },
   "matthias church, budapest, hungary": {
     "city": "Budapest",
     "country": "Hungary",
@@ -12527,6 +12671,10 @@
     "query": "Mausoleum of the First Qin Emperor, Xi'an, Shaanxi, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "maussolais de mohammed v, rabat, morocco": {
+    "query": "Maussolais de Mohammed V, Rabat, Morocco",
+    "status": "miss"
   },
   "mayflower memorial, southampton, southampton, england, united kingdom": {
     "city": "Southampton",
@@ -12719,6 +12867,10 @@
   },
   "mimara art museum, zagreb, croatia": {
     "query": "Mimara Art Museum, Zagreb, Croatia",
+    "status": "miss"
+  },
+  "mimara art museum, zagreb, own’s yugoslavia": {
+    "query": "Mimara Art Museum, Zagreb, own’s Yugoslavia",
     "status": "miss"
   },
   "minneapolis, minnesota": {
@@ -13289,6 +13441,22 @@
     "status": "ok",
     "sublocation": "581 Santa Fe"
   },
+  "national theatre": {
+    "city": "Greater London",
+    "country": "United Kingdom",
+    "display_name": "National Theatre, Waterloo Bridge, South Bank, Waterloo, London Borough of Lambeth, Greater London, England, SE1 8TL, United Kingdom",
+    "latitude": "51.5070387",
+    "longitude": "-0.1145302",
+    "query": "National Theatre",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Waterloo Bridge"
+  },
+  "national theatre of prague": {
+    "query": "National Theatre of Prague",
+    "status": "miss"
+  },
   "national theatre of prague, prague, czech republic": {
     "query": "National Theatre of Prague, Prague, Czech Republic",
     "status": "miss"
@@ -13296,6 +13464,18 @@
   "national theatre of prague, prague, czechia": {
     "query": "National Theatre of Prague, Prague, Czechia",
     "status": "miss"
+  },
+  "national theatre, prague": {
+    "city": "Prague",
+    "country": "Czechia",
+    "display_name": "National Theatre, Prague, Prague, Czechia",
+    "latitude": "50.0808638",
+    "longitude": "14.4135699",
+    "query": "National Theatre, Prague",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Masarykovo nábřeží"
   },
   "national theatre, prague, czech republic": {
     "city": "Prague",
@@ -13673,6 +13853,18 @@
   "nile from the tower of cairo, meridien hotel, nation square - cairo, egypt, dec. 1975": {
     "query": "Nile from the Tower of Cairo, Meridien Hotel, Nation Square - Cairo, Egypt, Dec. 1975",
     "status": "miss"
+  },
+  "nile river": {
+    "city": "",
+    "country": "Egypt",
+    "display_name": "Nile River, Egypt",
+    "latitude": "22.7243780",
+    "longitude": "32.1053309",
+    "query": "Nile River",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
   },
   "nile river, aswan, egypt": {
     "query": "Nile River, Aswan, Egypt",
@@ -15633,6 +15825,18 @@
     "status": "ok",
     "sublocation": ""
   },
+  "prague castle": {
+    "city": "Prague",
+    "country": "Czechia",
+    "display_name": "Prague Castle, Prague, Czechia",
+    "latitude": "50.0908114",
+    "longitude": "14.4005225",
+    "query": "Prague Castle",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Ke Hradu"
+  },
   "prague castle (hradčany), prague, czech republic": {
     "city": "Prague",
     "country": "Czechia",
@@ -15922,6 +16126,18 @@
     "query": "Puzhou District, Gansu, China",
     "status": "miss"
   },
+  "pyramid": {
+    "city": "Karlsruhe",
+    "country": "Germany",
+    "display_name": "Pyramid, Karlsruhe, Baden-Wurttemberg, Germany",
+    "latitude": "49.0092310",
+    "longitude": "8.4039055",
+    "query": "Pyramid",
+    "source": "nominatim",
+    "state": "Baden-Württemberg",
+    "status": "ok",
+    "sublocation": "Karl-Friedrich-Straße"
+  },
   "pyramids of giza, giza, egypt": {
     "city": "Ash Sheikh Zayed",
     "country": "Egypt",
@@ -16129,9 +16345,9 @@
   "regent street": {
     "city": "City of Westminster",
     "country": "United Kingdom",
-    "display_name": "Regent Street, St. James's, East Marylebone, Mayfair, City of Westminster, Greater London, England, W1B 5SD, United Kingdom",
-    "latitude": "51.5109622",
-    "longitude": "-0.1386840",
+    "display_name": "Regent Street, St. James's, East Marylebone, Mayfair, City of Westminster, Greater London, England, W1B 4ES, United Kingdom",
+    "latitude": "51.5099897",
+    "longitude": "-0.1372531",
     "query": "Regent Street",
     "source": "nominatim",
     "state": "England",
@@ -16297,6 +16513,10 @@
     "query": "Rhine Valley, Germany",
     "source": "nominatim",
     "status": "ok"
+  },
+  "right photo": {
+    "query": "Right photo",
+    "status": "miss"
   },
   "rio de janeiro, brazil": {
     "city": "Rio de Janeiro",
@@ -16844,6 +17064,18 @@
     "query": "Russia, Moscow",
     "source": "nominatim",
     "state": "Moscow",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "s": {
+    "city": "",
+    "country": "Haiti",
+    "display_name": "Sud Department, Haiti",
+    "latitude": "18.2612839",
+    "longitude": "-73.8444985",
+    "query": "s",
+    "source": "nominatim",
+    "state": "Sud Department",
     "status": "ok",
     "sublocation": ""
   },
@@ -18474,6 +18706,18 @@
     "state": "Lazio",
     "status": "ok"
   },
+  "sphinx": {
+    "city": "Fieschertal",
+    "country": "Switzerland",
+    "display_name": "Sphinx, Jungfraujoch, Fieschertal, Goms, Valais/Wallis, 3801, Switzerland",
+    "latitude": "46.5475020",
+    "longitude": "7.9850462",
+    "query": "Sphinx",
+    "source": "nominatim",
+    "state": "Valais/Wallis",
+    "status": "ok",
+    "sublocation": "Jungfraujoch"
+  },
   "spiral pavilion (phra wihan), bangkok, thailand": {
     "query": "Spiral Pavilion (Phra Wihan), Bangkok, Thailand",
     "status": "miss"
@@ -19778,6 +20022,18 @@
     "query": "Tangermed, Morocco",
     "status": "miss"
   },
+  "tangier, morocco": {
+    "city": "Tangier",
+    "country": "Morocco",
+    "display_name": "Tangier, Morocco, Tangier, Tangier-Tetouan-Al Hoceima, Morocco",
+    "latitude": "35.7696302",
+    "longitude": "-5.8033522",
+    "query": "Tangier, Morocco",
+    "source": "nominatim",
+    "state": "Tangier-Tetouan-Al Hoceima",
+    "status": "ok",
+    "sublocation": ""
+  },
   "tarabia fisherman village, bosporus, istanbul, turkey": {
     "query": "Tarabia Fisherman Village, Bosporus, Istanbul, Turkey",
     "status": "miss"
@@ -20006,6 +20262,18 @@
     "query": "Terracotta Warriors, Xi'an, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "test": {
+    "city": "Luxembourg",
+    "country": "Luxembourg",
+    "display_name": "test, Luxembourg, Canton Luxembourg, 2630, Luxembourg",
+    "latitude": "49.6133486",
+    "longitude": "6.1566503",
+    "query": "Test",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
   },
   "texas state capitol building, texas, united states": {
     "query": "Texas State Capitol Building, Texas, United States",
@@ -21893,6 +22161,18 @@
     "state": "England",
     "status": "ok"
   },
+  "tower of cairo": {
+    "city": "Cairo",
+    "country": "Egypt",
+    "display_name": "Embassy of New Zealand, 2005c, Kornish Al Nil Street, El Sabteya, El Sahel, Al-Sabtiyya, Cairo, 11631, Egypt",
+    "latitude": "30.0720943",
+    "longitude": "31.2279115",
+    "query": "Tower of Cairo",
+    "source": "nominatim",
+    "state": "Cairo",
+    "status": "ok",
+    "sublocation": "2005c Kornish Al Nil Street"
+  },
   "tower of cairo, cairo, egypt": {
     "city": "New Administrative Capital",
     "country": "Egypt",
@@ -23075,6 +23355,18 @@
   "welsh folk museum, wales": {
     "query": "Welsh Folk Museum, Wales",
     "status": "miss"
+  },
+  "wenceslas square (václavské náměstí)": {
+    "city": "Prague",
+    "country": "Czechia",
+    "display_name": "Starbucks, 795/40, Wenceslas Square, New Town, obvod Praha 1, Prague, 110 00, Czechia",
+    "latitude": "50.0814283",
+    "longitude": "14.4267126",
+    "query": "Wenceslas Square (Václavské náměstí)",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "795/40 Wenceslas Square"
   },
   "wenceslas square (václavské náměstí), prague, czech republic": {
     "city": "Prague",

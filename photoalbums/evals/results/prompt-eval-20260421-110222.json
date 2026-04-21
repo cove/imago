@@ -1,0 +1,80 @@
+{
+  "started_at": "2026-04-21T11:02:22.931534-07:00",
+  "finished_at": "2026-04-21T11:09:23.671511-07:00",
+  "photos_root": "C:\\Users\\covec\\OneDrive\\Cordell, Leslie & Audrey\\Photo Albums",
+  "results": [
+    {
+      "eval_id": "EasternEuropeSpainAndMorocco_1988_B00_P02_shared_location_date",
+      "eval_file": "C:\\Users\\covec\\Videos\\imago\\photoalbums\\evals\\EasternEuropeSpainAndMorocco_1988_B00_P02_shared_location_date.json",
+      "photo": "C:\\Users\\covec\\OneDrive\\Cordell, Leslie & Audrey\\Photo Albums\\EasternEuropeSpainAndMorocco_1988_B00_Pages\\EasternEuropeSpainAndMorocco_1988_B00_P02_V.jpg",
+      "prompt_id": "production",
+      "prompt_file": "",
+      "prompt_hash": "5106969d6866",
+      "settings_id": "gemma31b_seed123_tp09_tk40",
+      "settings": {
+        "model": "gemma-4-31b-it",
+        "endpoint": "http://127.0.0.1:1234/v1/chat/completions",
+        "response_format": "page_caption_payload",
+        "temperature": 0.0,
+        "max_tokens": 256,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.05,
+        "seed": 123,
+        "stream": false,
+        "image_max_edge": 1600,
+        "id": "gemma31b_seed123_tp09_tk40"
+      },
+      "started_at": "2026-04-21T11:02:22.931534-07:00",
+      "prompt_text": "- Use `author_text` for typewriter-written Courier text on white paper strips.\n- Use `scene_text` only for readable text inside the photographed scene itself, not the page itself.\n- Preserve real line breaks in `author_text` between distinct caption fragments when that structure helps show which photos share a label, place, or date.\n- When the visible typed caption pattern is `specific caption` + `shared place/date` + `specific caption`, keep the shared place/date as its own line instead of merging it into only one neighboring caption.\n- Example `author_text` for a shared middle strip:\n- `OXFORD STREET`\n- `LONDON, ENGLAND - AUG. 1988`\n- `REGENT STREET`\n- Return empty strings when no applicable text exists for a field.\n`{\"ocr_text\": \"\", \"author_text\": \"\", \"scene_text\": \"\", \"location_name\": \"\"}`\n- `ocr_text`: you're an OCR engine when processing this, look for all clearly legible visible text on the page, copied verbatim with original capitalization, punctuation, spacing, and real line breaks.\n- `author_text`: you're an OCR engine when processing this, typed album-authored annotation text that's typed on a typewriter on strips of white paper, otherwise empty string.\n- Recover the full `author_text` when the strip is visibly present but cropped in this scan and the supplied `ocr_text` contains the missing words.\n- Preserve meaningful line breaks between separate typed caption fragments in `author_text`; shared location/date fragments should remain standalone when they apply to multiple photos.\n- `scene_text`: you're an OCR engine when processing this, readable text visible inside photographs, otherwise empty string.\n- `author_text` and `scene_text` are classified subsets of `ocr_text`, not replacements for it. Fill them whenever the classification is supported by the page.\n- The example JSON uses empty strings as placeholders. Do not copy literal `...` from any example or schema text.\n- `location_name`: concise geocoding query for GPS lookup when supported strongly enough by visible evidence; otherwise empty string.\n- Prefer `place, city/state, country` style queries over ambiguous short names when the broader geography is supported by the page or album context.\n- `album_title`: for album title pages or cover pages — the full album title as a single-line storage string, with any printed line breaks replaced by spaces (e.g. `\"Egypt 1975\"`, `\"Mainland China Book 11\"`, `\"Europe 1973 Egypt 1974\"`). Empty string for all other pages.\n- `ocr_lang`: BCP-47 language code of the primary non-English text in `author_text` or `scene_text` (e.g. `\"zh\"`, `\"fr\"`, `\"ar\"` for Chinese, French, Arabic). Use `\"en\"` for English-only text. Empty string when there is no visible text.\n- Just return the JSON without any extra text or explanation.",
+      "valid_json": false,
+      "parse_error": "",
+      "error": "LM Studio request failed: {\"error\":\"The model has crashed without additional information. (Exit code: null)\"}",
+      "checks": {
+        "passed": false,
+        "failures": [
+          "exception:LM Studio request failed: {\"error\":\"The model has crashed without additional information. (Exit code: null)\"}"
+        ]
+      }
+    },
+    {
+      "eval_id": "EasternEuropeSpainAndMorocco_1988_B00_P02_shared_location_date",
+      "eval_file": "C:\\Users\\covec\\Videos\\imago\\photoalbums\\evals\\EasternEuropeSpainAndMorocco_1988_B00_P02_shared_location_date.json",
+      "photo": "C:\\Users\\covec\\OneDrive\\Cordell, Leslie & Audrey\\Photo Albums\\EasternEuropeSpainAndMorocco_1988_B00_Pages\\EasternEuropeSpainAndMorocco_1988_B00_P02_V.jpg",
+      "prompt_id": "production",
+      "prompt_file": "",
+      "prompt_hash": "5106969d6866",
+      "settings_id": "gemma31b_seed123_greedy",
+      "settings": {
+        "model": "gemma-4-31b-it",
+        "endpoint": "http://127.0.0.1:1234/v1/chat/completions",
+        "response_format": "page_caption_payload",
+        "temperature": 0.0,
+        "max_tokens": 256,
+        "top_p": 1.0,
+        "top_k": 0,
+        "min_p": 0.05,
+        "seed": 123,
+        "stream": false,
+        "image_max_edge": 1600,
+        "id": "gemma31b_seed123_greedy"
+      },
+      "started_at": "2026-04-21T11:03:08.843206-07:00",
+      "prompt_text": "- Use `author_text` for typewriter-written Courier text on white paper strips.\n- Use `scene_text` only for readable text inside the photographed scene itself, not the page itself.\n- Preserve real line breaks in `author_text` between distinct caption fragments when that structure helps show which photos share a label, place, or date.\n- When the visible typed caption pattern is `specific caption` + `shared place/date` + `specific caption`, keep the shared place/date as its own line instead of merging it into only one neighboring caption.\n- Example `author_text` for a shared middle strip:\n- `OXFORD STREET`\n- `LONDON, ENGLAND - AUG. 1988`\n- `REGENT STREET`\n- Return empty strings when no applicable text exists for a field.\n`{\"ocr_text\": \"\", \"author_text\": \"\", \"scene_text\": \"\", \"location_name\": \"\"}`\n- `ocr_text`: you're an OCR engine when processing this, look for all clearly legible visible text on the page, copied verbatim with original capitalization, punctuation, spacing, and real line breaks.\n- `author_text`: you're an OCR engine when processing this, typed album-authored annotation text that's typed on a typewriter on strips of white paper, otherwise empty string.\n- Recover the full `author_text` when the strip is visibly present but cropped in this scan and the supplied `ocr_text` contains the missing words.\n- Preserve meaningful line breaks between separate typed caption fragments in `author_text`; shared location/date fragments should remain standalone when they apply to multiple photos.\n- `scene_text`: you're an OCR engine when processing this, readable text visible inside photographs, otherwise empty string.\n- `author_text` and `scene_text` are classified subsets of `ocr_text`, not replacements for it. Fill them whenever the classification is supported by the page.\n- The example JSON uses empty strings as placeholders. Do not copy literal `...` from any example or schema text.\n- `location_name`: concise geocoding query for GPS lookup when supported strongly enough by visible evidence; otherwise empty string.\n- Prefer `place, city/state, country` style queries over ambiguous short names when the broader geography is supported by the page or album context.\n- `album_title`: for album title pages or cover pages — the full album title as a single-line storage string, with any printed line breaks replaced by spaces (e.g. `\"Egypt 1975\"`, `\"Mainland China Book 11\"`, `\"Europe 1973 Egypt 1974\"`). Empty string for all other pages.\n- `ocr_lang`: BCP-47 language code of the primary non-English text in `author_text` or `scene_text` (e.g. `\"zh\"`, `\"fr\"`, `\"ar\"` for Chinese, French, Arabic). Use `\"en\"` for English-only text. Empty string when there is no visible text.\n- Just return the JSON without any extra text or explanation.",
+      "finish_reason": "stop",
+      "raw_response": "{\n  \"ocr_text\": \"OXFORD STREET LONDON, ENGLAND - AUG. 1988 REGENT STREET\\n\\nOUR HOTEL IN ZAGREB, VUGOSLAVIA\\nHOTEL INTER-CONTINENTAL\\nAND THE\\nMIMARA ART MUSEUM-AUGUST 1988\",\n  \"author_text\": \"OXFORD STREET\\nLONDON, ENGLAND - AUG. 1988\\nREGENT STREET\\n\\nOUR HOTEL IN ZAGREB, VUGOSLAVIA\\nHOTEL INTER-CONTINENTAL\\nAND THE\\nMIMARA ART MUSEUM-AUGUST 1988\",\n  \"scene_text\": \"\",\n  \"location_name\": \"Zagreb, owns Yugoslavia\"\n}",
+      "parsed_json": {
+        "ocr_text": "OXFORD STREET LONDON, ENGLAND - AUG. 1988 REGENT STREET\n\nOUR HOTEL IN ZAGREB, VUGOSLAVIA\nHOTEL INTER-CONTINENTAL\nAND THE\nMIMARA ART MUSEUM-AUGUST 1988",
+        "author_text": "OXFORD STREET\nLONDON, ENGLAND - AUG. 1988\nREGENT STREET\n\nOUR HOTEL IN ZAGREB, VUGOSLAVIA\nHOTEL INTER-CONTINENTAL\nAND THE\nMIMARA ART MUSEUM-AUGUST 1988",
+        "scene_text": "",
+        "location_name": "Zagreb, owns Yugoslavia"
+      },
+      "valid_json": true,
+      "parse_error": "",
+      "checks": {
+        "passed": true,
+        "failures": []
+      }
+    }
+  ]
+}

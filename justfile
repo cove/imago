@@ -18,6 +18,9 @@ test:
 evals:
    {{python}} -m pytest photoalbums/tests/test_rule_extraction_eval.py -v -m integration -s
 
+evals-compare:
+  {{python}} -m pytest photoalbums/tests/test_rule_extraction_eval.py -v -m integration -s -k london-shared-location-date-direct
+
 format:
   {{ruff}} format .
 
@@ -58,6 +61,14 @@ vhs-subtitles archive="":
 
 vhs-metadata-build:
   {{python}} vhs/vhs.py metadata build
+
+[working-directory: "promptfoo_local"]
+promptfoo-eval eval_filter="shared_location_date":
+  $env:PROMPTFOO_EVAL_FILTER='{{eval_filter}}'; npm run eval
+
+[working-directory: "promptfoo_local"]
+promptfoo-view:
+   $env:PROMPTFOO_VIEW_HOST="0.0.0.0"; npm run view
 
 vhs-metadata-embed file="":
   {{python}} vhs/vhs.py metadata embed {{if file != "" { '"' + file + '"' } else { "" }}}

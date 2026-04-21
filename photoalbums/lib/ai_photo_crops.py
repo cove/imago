@@ -22,9 +22,9 @@ from ..naming import archive_dir_for_album_dir, is_pages_dir
 from .metadata_resolver import (
     build_location_filter_set as _resolver_build_location_filter_set,
     filter_location_names_from_people as _resolver_filter_location_names_from_people,
+    location_payload_from_location_shown as _resolver_location_payload_from_location_shown,
     match_caption_to_location_shown as _resolver_match_caption_to_location_shown,
     normalize_location_payload as _resolver_normalize_location_payload,
-    resolve_crop_location as _resolver_resolve_crop_location,
     resolve_person_in_image as _resolver_resolve_person_in_image,
 )
 
@@ -360,6 +360,53 @@ def _verify_crop_sidecar_metadata(
             )
 
 
+def _matched_location_shown(caption: str, locations_shown: list[dict]) -> list[dict]:
+    """Return the single LocationShown entry whose text best matches caption."""
+    if not caption or not locations_shown:
+        return []
+    matched_payload = _resolver_match_caption_to_location_shown(caption, locations_shown)
+    if not matched_payload:
+        return []
+    for loc in locations_shown:
+        if _resolver_location_payload_from_location_shown(loc) == matched_payload:
+            return [loc]
+    return []
+
+
+def _matched_location_shown_for_payload(
+    payload: dict[str, Any] | None,
+    locations_shown: list[dict],
+) -> list[dict]:
+    normalized_payload = _normalize_region_location_payload(payload)
+    if not normalized_payload or not locations_shown:
+        return []
+    preferred_lat = str(normalized_payload.get("gps_latitude") or "").strip()
+    preferred_lon = str(normalized_payload.get("gps_longitude") or "").strip()
+    preferred_address = str(normalized_payload.get("address") or "").strip()
+    preferred_sublocation = str(normalized_payload.get("sublocation") or "").strip()
+    preferred_city = str(normalized_payload.get("city") or "").strip()
+    preferred_country = str(normalized_payload.get("country") or "").strip()
+    for loc in locations_shown:
+        candidate_payload = _resolver_location_payload_from_location_shown(loc)
+        candidate_address = str(candidate_payload.get("address") or "").strip()
+        candidate_lat = str(candidate_payload.get("gps_latitude") or "").strip()
+        candidate_lon = str(candidate_payload.get("gps_longitude") or "").strip()
+        if preferred_address and candidate_address == preferred_address:
+            return [loc]
+        if preferred_lat and preferred_lon and candidate_lat == preferred_lat and candidate_lon == preferred_lon:
+            return [loc]
+        if (
+            preferred_sublocation
+            and preferred_city
+            and preferred_country
+            and str(candidate_payload.get("sublocation") or "").strip() == preferred_sublocation
+            and str(candidate_payload.get("city") or "").strip() == preferred_city
+            and str(candidate_payload.get("country") or "").strip() == preferred_country
+        ):
+            return [loc]
+    return []
+
+
 def _write_crop_sidecar(
     crop_path: Path,
     view_path: Path,
@@ -369,7 +416,9 @@ def _write_crop_sidecar(
     person_names: list[str],
     region_location_payload: dict[str, Any] | None = None,
     region_location_override: dict[str, Any] | None = None,
+    inherit_page_description: bool = True,
     geocoder=None,
+    object_detector=None,
 ) -> None:
     """Write or update the XMP sidecar for a crop JPEG.
 
@@ -399,19 +448,13 @@ def _write_crop_sidecar(
         write_pantry_entry(crop_xmp, view_doc_id, source_path=source_rel)
 
     # Step 4: write metadata via write_xmp_sidecar (handles merge)
-    # Merge view subjects with any subjects already on the crop sidecar
-    view_subjects = _read_subjects_from_xmp(view_xmp)
-    crop_subjects = _read_subjects_from_xmp(crop_xmp)
-    seen: set[str] = set()
+    # Subjects are computed below after crop_album_title is resolved.
+    replace_subjects = False
     subjects: list[str] = []
-    for s in crop_subjects + view_subjects:
-        if s not in seen:
-            seen.add(s)
-            subjects.append(s)
 
     page_description = str(view_state.get("description") or "").strip()
     parent_ocr_text = str(view_state.get("parent_ocr_text") or view_state.get("ocr_text") or "").strip()
-    if not caption:
+    if not caption and inherit_page_description:
         caption = page_description
     from .ai_sidecar_state import _dc_source_scan_names, _effective_sidecar_album_title, _sidecar_location_payload
     from .ai_render_settings import find_archive_dir_for_image
@@ -429,6 +472,27 @@ def _write_crop_sidecar(
     if archive_scan_names:
         archive_source_text = _build_dc_source(crop_album_title, view_path, archive_scan_names)
 
+    # Build subjects: run YOLO on the crop for accurate per-crop object labels,
+    # or fall back to inheriting from the page view (which aggregates all regions).
+    if object_detector is not None:
+        try:
+            detections = object_detector.detect_image(crop_path)
+            object_labels = [d.label for d in detections]
+        except Exception:
+            log.warning("Object detection failed for %s; using empty object labels", crop_path.name)
+            object_labels = []
+        from .xmp_sidecar import _dedupe as _xs_dedupe
+        subjects = _xs_dedupe(([crop_album_title] if crop_album_title else []) + object_labels)
+        replace_subjects = True
+    else:
+        view_subjects = _read_subjects_from_xmp(view_xmp)
+        crop_subjects = _read_subjects_from_xmp(crop_xmp)
+        seen: set[str] = set()
+        for s in crop_subjects + view_subjects:
+            if s not in seen:
+                seen.add(s)
+                subjects.append(s)
+
     # Compute effective location: page view state first, then archive scan fallback.
     # Crops are created before the page view refresh may have written GPS/location,
     # so we walk up to the archive scan if the page view has no GPS.
@@ -443,16 +507,20 @@ def _write_crop_sidecar(
                     if str(archive_loc.get("gps_latitude") or "").strip():
                         page_location = archive_loc
                         break
-    effective_loc = _materialize_region_location_payload(
-        _resolver_resolve_crop_location(
-            region_location_override=region_location_override,
-            region_location_assigned=region_location_payload,
-            caption=caption,
-            locations_shown=locations_shown,
-            page_location=page_location,
-        ),
-        geocoder=geocoder,
+    preferred_region_location = _normalize_region_location_payload(region_location_override) or _normalize_region_location_payload(
+        region_location_payload
     )
+    if preferred_region_location:
+        effective_loc = _materialize_region_location_payload(preferred_region_location, geocoder=geocoder)
+    elif caption and geocoder is not None:
+        effective_loc = _materialize_region_location_payload({"address": caption}, geocoder=geocoder)
+    elif len(locations_shown) == 1:
+        effective_loc = _materialize_region_location_payload(
+            _resolver_location_payload_from_location_shown(locations_shown[0]),
+            geocoder=geocoder,
+        )
+    else:
+        effective_loc = _materialize_region_location_payload(page_location, geocoder=geocoder)
     resolved_person_names = _resolver_resolve_person_in_image(
         person_names,
         locations_shown=locations_shown,
@@ -475,9 +543,12 @@ def _write_crop_sidecar(
         location_sublocation=str(effective_loc.get("sublocation") or view_state.get("location_sublocation") or "").strip(),
         create_date=str(view_state.get("create_date") or "").strip(),
         dc_date=list(view_state.get("dc_date_values") or []),
-        locations_shown=locations_shown,
+        locations_shown=_matched_location_shown_for_payload(effective_loc, locations_shown) or None,
         parent_ocr_text=parent_ocr_text,
         ocr_text="",
+        replace_subjects=replace_subjects,
+        replace_description=True,
+        replace_locations_shown=True,
     )
     _verify_crop_sidecar_metadata(
         crop_xmp,
@@ -595,7 +666,9 @@ def crop_page_regions(
     archive_max_derived = highest_archive_derived_number(view_path)
     geocoder = None
     if any(
-        _normalize_region_location_payload(dict(region.get("location_override") or {}) or dict(region.get("location_payload") or {})).get("address")
+        _normalize_region_location_payload(dict(region.get("location_override") or {}) or dict(region.get("location_payload") or {})).get(
+            "address"
+        )
         and not _normalize_region_location_payload(
             dict(region.get("location_override") or {}) or dict(region.get("location_payload") or {})
         ).get("gps_latitude")
@@ -605,6 +678,13 @@ def crop_page_regions(
         from .ai_geocode import NominatimGeocoder
 
         geocoder = NominatimGeocoder()
+
+    object_detector = None
+    try:
+        from .ai_objects import YOLOObjectDetector
+        object_detector = YOLOObjectDetector()
+    except Exception:
+        log.warning("Object detector unavailable; crop subjects will be inherited from page view")
 
     try:
         with Image.open(view_path) as page_img:
@@ -621,7 +701,7 @@ def crop_page_regions(
                     continue
 
                 caption = resolve_region_caption(
-                    region.get("caption") or "",
+                    region.get("name") or region.get("caption") or "",
                     region.get("caption_hint") or "",
                     page_description,
                 )
@@ -682,6 +762,7 @@ def crop_page_regions(
                         region_location_payload=region_location_payload,
                         region_location_override=region_location_override,
                         geocoder=geocoder,
+                        object_detector=object_detector,
                     )
                     write_pipeline_step(
                         output_path.with_suffix(".xmp"),

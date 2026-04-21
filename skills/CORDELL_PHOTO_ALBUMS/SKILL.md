@@ -11,7 +11,7 @@ description: >-
   filenames — even if they don't say "skill".
 metadata:
   author: Cove Schneider
-  version: 1.1.2
+  version: 1.1.3
   mcp-server: imago
   documentation: references/photoalbums.md
   ocr-model: zai-org/glm-4.6v-flash
@@ -135,6 +135,7 @@ clearly: which photo, what the symptom is, and what the likely cause is.
 ## Global Style & Behavior Rules (apply to every mode)
 - If evidence is insufficient, omit the detail or use the empty string, false, or 0 required by the output schema.
 - When quoting visible text, reproduce it exactly as printed.
+- Preserve the visible caption structure when typed labels mix photo-specific text with shared location/date text. Do not flatten a shared middle fragment into only the left or right label if it visibly applies to multiple nearby photos.
 - Think step-by-step internally if needed, but output only the final JSON.
 
 ## People Rules
@@ -181,6 +182,12 @@ clearly: which photo, what the symptom is, and what the likely cause is.
 ## Preamble Describe
 - Use `author_text` for typewriter-written Courier text on white paper strips.
 - Use `scene_text` only for readable text inside the photographed scene itself, not the page itself.
+- Preserve real line breaks in `author_text` between distinct caption fragments when that structure helps show which photos share a label, place, or date.
+- When the visible typed caption pattern is `specific caption` + `shared place/date` + `specific caption`, keep the shared place/date as its own line instead of merging it into only one neighboring caption.
+- Example `author_text` for a shared middle strip:
+- `OXFORD STREET`
+- `LONDON, ENGLAND - AUG. 1988`
+- `REGENT STREET`
 - Return empty strings when no applicable text exists for a field.
 
 ## Preamble Upstream OCR Context
@@ -212,10 +219,14 @@ clearly: which photo, what the symptom is, and what the likely cause is.
 - Estimate a single photo date for XMP `dc:date`.
 - First look for an explicit or strongly implied date in the OCR text.
 - If the OCR text does not support a date, use the album title as the fallback date range hint.
+- Treat month abbreviations with or without a trailing period as explicit month evidence, even when OCR spacing is imperfect.
 - When only a year is supported, return the year only.
 - When a month and year are supported, return `YYYY-MM`.
 - When a full calendar date is supported, return `YYYY-MM-DD`.
 - If the visible text implies an approximate date, round to the nearest supported precision without adding unsupported detail.
+- Example: `AUG. 1988` -> `1988-08`.
+- Example: `AUG.1988` -> `1988-08`.
+- Example: `AUGUST 1988` -> `1988-08`.
 - Example: `about January 1988` -> `1988-01`.
 - Example: `early 1988` -> `1988`.
 - Example: `winter 1988` -> `1988`.
@@ -238,6 +249,7 @@ clearly: which photo, what the symptom is, and what the likely cause is.
 - `ocr_text`: you're an OCR engine when processing this, look for all clearly legible visible text on the page, copied verbatim with original capitalization, punctuation, spacing, and real line breaks.
 - `author_text`: you're an OCR engine when processing this, typed album-authored annotation text that's typed on a typewriter on strips of white paper, otherwise empty string.
 - Recover the full `author_text` when the strip is visibly present but cropped in this scan and the supplied `ocr_text` contains the missing words.
+- Preserve meaningful line breaks between separate typed caption fragments in `author_text`; shared location/date fragments should remain standalone when they apply to multiple photos.
 - `scene_text`: you're an OCR engine when processing this, readable text visible inside photographs, otherwise empty string.
 - `author_text` and `scene_text` are classified subsets of `ocr_text`, not replacements for it. Fill them whenever the classification is supported by the page.
 - The example JSON uses empty strings as placeholders. Do not copy literal `...` from any example or schema text.

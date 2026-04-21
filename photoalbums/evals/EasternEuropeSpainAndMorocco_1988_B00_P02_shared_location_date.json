@@ -1,0 +1,40 @@
+{
+  "eval_date": "2026-04-21",
+  "what_is_tested": "Shared middle caption fragment should apply London location/date to multiple top-row photos",
+  "photo": "EasternEuropeSpainAndMorocco_1988_B00_Pages/EasternEuropeSpainAndMorocco_1988_B00_P02_V.jpg",
+  "notes": "Top row contains three London street photos. The typed strip reads 'OXFORD STREET   LONDON, ENGLAND - AUG. 1988   REGENT STREET'. The left and center photos should inherit the Oxford Street-specific label plus the shared London/date fragment. The right photo should inherit the Regent Street-specific label plus the same shared London/date fragment. This eval bypasses pipeline caching and calls LM Studio directly with the production page prompt and JSON schema.",
+  "pass_criteria": [
+    "Model returns valid JSON matching the page-caption schema",
+    "OCR/author output preserves the shared middle fragment as distinct structure rather than flattening it into only one neighboring caption",
+    "Returned text clearly supports a month-level date of 1988-08 from 'AUG. 1988'",
+    "Result does not collapse into repeated garbage tokens or malformed JSON"
+  ],
+  "run_config": {
+    "model": "gemma-4-31b-it",
+    "endpoint": "http://127.0.0.1:1234/v1/chat/completions",
+    "response_format": "page_caption_payload",
+    "temperature": 0.2,
+    "max_tokens": 256,
+    "top_p": 0.9,
+    "top_k": 40,
+    "min_p": 0.05,
+    "seed": 123,
+    "stream": false,
+    "image_max_edge": 1600
+  },
+  "input_context": {
+    "album_title": "EASTERN EUROPE SPAIN AND MOROCCO 1988",
+    "ocr_text": "OXFORD STREET LONDON,ENGLAND - AUG.1988 REGENT STREET OUR HOTEL IN ZAGREB,YUGOSLAVIA HOTEL INTER-CONTINENTAL AND THE MIMARA ART MUSEUM-AUGUST 1988"
+  },
+  "direct_model_result": {
+    "finish_reason": "length",
+    "raw_response": "{\"ocr_text\": \"OXFORD STREET\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">\\\">...",
+    "json_parse_error": "JSONDecodeError: Unterminated string starting at: line 1 column 14 (char 13)"
+  },
+  "observations": [
+    "This direct call reproduced the failure without writing through the pipeline, so caching is not the root cause of the malformed page-caption output",
+    "The model failed before the semantic question of shared caption assignment could be evaluated; it did not produce valid structured JSON",
+    "The failure mode changed across runs: earlier pipeline runs showed malformed long strings, and a later streamed run hit an LM Studio runtime error; the direct non-streaming run still fails with runaway repeated tokens",
+    "Because the direct model output is malformed, prompt quality and model/runtime reliability must be separated from downstream XMP propagation or cache concerns"
+  ]
+}
