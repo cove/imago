@@ -622,6 +622,7 @@ class IndexRunner:
             and not source_refresh_required
             and not date_refresh_required
             and not self.force_processing
+            and self.reprocess_mode != "gps"
             and not people_update_only
             and not gps_repair_requested
         ):

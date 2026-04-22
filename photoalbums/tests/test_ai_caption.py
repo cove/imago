@@ -765,6 +765,42 @@ class TestAICaption(unittest.TestCase):
         self.assertEqual(details.gps_longitude, "100.307222")
         self.assertEqual(details.location_name, "Mogao Caves, Dunhuang, Gansu, China")
 
+    def test_parse_lmstudio_location_queries_payload_preserves_country_context(self):
+        primary, named = _caption_lmstudio._parse_lmstudio_location_queries_payload(
+            json.dumps(
+                {
+                    "primary_query": "Versailles, France",
+                    "named_queries": [
+                        {
+                            "name": "Palace of Versailles",
+                            "world_region": "Europe",
+                            "country_name": "France",
+                            "country_code": "FR",
+                            "province_or_state": "Ile-de-France",
+                            "city": "Versailles",
+                            "sublocation": "",
+                        }
+                    ],
+                }
+            )
+        )
+
+        self.assertEqual(primary, "Versailles, France")
+        self.assertEqual(
+            named,
+            [
+                {
+                    "name": "Palace of Versailles",
+                    "world_region": "Europe",
+                    "country_name": "France",
+                    "country_code": "FR",
+                    "province_or_state": "Ile-de-France",
+                    "city": "Versailles",
+                    "sublocation": "",
+                }
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

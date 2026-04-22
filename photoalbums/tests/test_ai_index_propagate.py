@@ -214,6 +214,141 @@ class TestRunPropagateTocrops(unittest.TestCase):
             assert state is not None
             self.assertEqual(state["location_city"], "Karnten")
             self.assertNotIn("KARNTEN, AUSTRIA", xmp_sidecar.read_person_in_image(crop1.with_suffix(".xmp")))
+            self.assertEqual(
+                xmp_sidecar.read_locations_shown(crop1.with_suffix(".xmp")),
+                [
+                    {
+                        "name": "Karnten, Austria",
+                        "world_region": "",
+                        "country_code": "",
+                        "country_name": "Austria",
+                        "province_or_state": "",
+                        "city": "Karnten",
+                        "sublocation": "",
+                        "gps_latitude": "",
+                        "gps_longitude": "",
+                    }
+                ],
+            )
+
+    def test_locations_shown_are_cleared_on_crop_rewrite(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            image, _pages_dir, photos_dir = self._setup_page_image(tmp_dir)
+            crop1 = photos_dir / "Family_2020_B01_P02_D01-00_V.jpg"
+            crop1.write_bytes(b"crop1")
+
+            xmp_path = image.with_suffix(".xmp")
+            locations_shown = [
+                {
+                    "name": "Hassan II Mosque",
+                    "city": "Casablanca",
+                    "country_name": "Morocco",
+                    "sublocation": "Boulevard de la Corniche",
+                }
+            ]
+            xmp_sidecar.write_xmp_sidecar(
+                xmp_path,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="Page photo",
+                source_text="",
+                ocr_text="",
+                locations_shown=locations_shown,
+            )
+            xmp_sidecar.write_xmp_sidecar(
+                crop1.with_suffix(".xmp"),
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="Crop photo",
+                source_text="",
+                ocr_text="",
+                locations_shown=locations_shown,
+            )
+
+            with mock.patch.object(ai_index_propagate, "_find_crop_paths_for_page", return_value=[crop1]):
+                run_propagate_to_crops(
+                    image,
+                    location_payload={"city": "Casablanca", "country": "Morocco"},
+                    people_payload=[],
+                )
+
+            self.assertEqual(xmp_sidecar.read_locations_shown(crop1.with_suffix(".xmp")), [])
+
+    def test_region_location_payload_writes_crop_specific_locations_shown(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            image, _pages_dir, photos_dir = self._setup_page_image(tmp_dir)
+            crop1 = photos_dir / "Family_2020_B01_P02_D01-00_V.jpg"
+            crop1.write_bytes(b"crop1")
+            _write_basic_crop_xmp(crop1.with_suffix(".xmp"))
+
+            xmp_path = image.with_suffix(".xmp")
+            from photoalbums.lib.ai_view_regions import RegionResult, RegionWithCaption
+            from photoalbums.lib.xmp_sidecar import write_region_list, write_xmp_sidecar
+
+            write_xmp_sidecar(
+                xmp_path,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="Page photo",
+                source_text="",
+                ocr_text="",
+            )
+            write_region_list(
+                xmp_path,
+                [
+                    RegionWithCaption(
+                        RegionResult(
+                            index=0,
+                            x=0,
+                            y=0,
+                            width=100,
+                            height=100,
+                            caption_hint="Temple visit",
+                            location_payload={
+                                "address": "Karnak Temple",
+                                "city": "Luxor",
+                                "state": "Luxor",
+                                "country": "Egypt",
+                                "sublocation": "Karnak",
+                                "gps_latitude": "25.7188",
+                                "gps_longitude": "32.6573",
+                            },
+                        ),
+                        "",
+                    )
+                ],
+                800,
+                600,
+            )
+
+            with mock.patch.object(ai_index_propagate, "_find_crop_paths_for_page", return_value=[crop1]):
+                run_propagate_to_crops(
+                    image,
+                    location_payload={"city": "Cairo", "country": "Egypt"},
+                    people_payload=[],
+                )
+
+            self.assertEqual(
+                xmp_sidecar.read_locations_shown(crop1.with_suffix(".xmp")),
+                [
+                    {
+                        "name": "Karnak Temple",
+                        "world_region": "",
+                        "country_code": "",
+                        "country_name": "Egypt",
+                        "province_or_state": "Luxor",
+                        "city": "Luxor",
+                        "sublocation": "Karnak",
+                        "gps_latitude": "25.7188",
+                        "gps_longitude": "32.6573",
+                    }
+                ],
+            )
 
     def test_step_skipped_when_neither_upstream_reran(self):
         """StepRunner skips propagate-to-crops when hashes match for all inputs."""

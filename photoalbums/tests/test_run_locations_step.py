@@ -108,7 +108,7 @@ class TestRunLocationsStep(unittest.TestCase):
     def test_named_queries_stored_with_coordinates_when_geocoder_available(self):
         engine = _make_caption_engine(
             primary_query="Versailles",
-            named_queries=["Palace of Versailles"],
+            named_queries=[{"name": "Palace of Versailles", "city": "Versailles", "country_name": "France"}],
         )
         geocoder = _make_geocoder(latitude=48.8049, longitude=2.1204)
 
@@ -124,13 +124,17 @@ class TestRunLocationsStep(unittest.TestCase):
         shown = result["locations_shown"]
         self.assertEqual(len(shown), 1)
         self.assertEqual(shown[0]["name"], "Palace of Versailles")
+        geocoder.geocode.assert_called_once_with("Palace of Versailles, Versailles, France")
         self.assertIn("gps_latitude", shown[0])
         self.assertEqual(shown[0]["gps_source"], "nominatim")
 
     def test_named_queries_stored_without_coordinates_when_nominatim_unavailable(self):
         engine = _make_caption_engine(
             primary_query="",
-            named_queries=["Eiffel Tower", "Louvre Museum"],
+            named_queries=[
+                {"name": "Eiffel Tower", "city": "Paris", "country_name": "France"},
+                {"name": "Louvre Museum", "city": "Paris", "country_name": "France"},
+            ],
         )
         geocoder = _make_geocoder(latitude=None)  # geocoder returns None
 
@@ -148,6 +152,8 @@ class TestRunLocationsStep(unittest.TestCase):
         self.assertEqual(shown[0]["name"], "Eiffel Tower")
         self.assertNotIn("gps_latitude", shown[0])
         self.assertEqual(shown[1]["name"], "Louvre Museum")
+        self.assertEqual(geocoder.geocode.call_args_list[0].args[0], "Eiffel Tower, Paris, France")
+        self.assertEqual(geocoder.geocode.call_args_list[1].args[0], "Louvre Museum, Paris, France")
 
     def test_fallback_returns_empty_location_with_ran_true(self):
         engine = _make_caption_engine(fallback=True, error="model offline")

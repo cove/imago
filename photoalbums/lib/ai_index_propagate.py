@@ -17,6 +17,7 @@ from .xmp_sidecar import (
     xmp_datetime_now,
 )
 from .metadata_resolver import resolve_crop_location, resolve_person_in_image
+from .metadata_resolver import resolve_crop_locations_shown
 
 
 def _crop_paths_signature(crop_paths: list[Path]) -> str:
@@ -120,6 +121,12 @@ def run_propagate_to_crops(
             locations_shown=locations_shown,
             page_location=location_payload,
         )
+        crop_locations_shown = resolve_crop_locations_shown(
+            region_location_override=dict(region_state.get("location_override") or {}),
+            region_location_assigned=dict(region_state.get("location_payload") or {}),
+            caption=str(region_state.get("caption_hint") or region_state.get("caption") or ""),
+            locations_shown=locations_shown,
+        )
         new_person_names = resolve_person_in_image(
             _dedupe(names_from_region + existing_person_names),
             locations_shown=locations_shown,
@@ -160,6 +167,7 @@ def run_propagate_to_crops(
             location_state=str(crop_location.get("state") or "").strip(),
             location_country=str(crop_location.get("country") or "").strip(),
             location_sublocation=str(crop_location.get("sublocation") or "").strip(),
+            locations_shown=crop_locations_shown,
             source_text=str(existing_state.get("source_text") or ""),
             detections_payload=existing_detections,
             create_date=str(existing_state.get("create_date") or ""),

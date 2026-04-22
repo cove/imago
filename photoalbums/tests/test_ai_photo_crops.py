@@ -683,7 +683,7 @@ class TestWriteCropSidecar(unittest.TestCase):
             xml = crop_xmp.read_text(encoding="utf-8")
             self.assertIn("../Egypt_1975_Pages/Egypt_1975_B00_P26_V.jpg", xml)
 
-    def test_crop_sidecar_inherits_page_metadata_contract(self):
+    def test_crop_sidecar_keeps_scalar_page_location_without_locations_shown_bag(self):
         with tempfile.TemporaryDirectory() as tmp:
             view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
@@ -753,7 +753,7 @@ class TestWriteCropSidecar(unittest.TestCase):
             xml = crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8")
             self.assertIn("<rdf:li>egypt</rdf:li>", xml)
             self.assertIn("<rdf:li>travel</rdf:li>", xml)
-            self.assertIn("Giza Necropolis", xml)
+            self.assertEqual(read_locations_shown(crop_jpg.with_suffix(".xmp")), [])
 
     def test_crop_sidecar_prefers_region_location_payload(self):
         with tempfile.TemporaryDirectory() as tmp:

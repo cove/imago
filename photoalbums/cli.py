@@ -300,6 +300,11 @@ def build_parser() -> argparse.ArgumentParser:
     process_parser.add_argument(
         "--gps-only", action="store_true", help="Forward --reprocess-mode=gps to ai-index step"
     )
+    process_parser.add_argument(
+        "--refresh-gps",
+        action="store_true",
+        help="Run the full pipeline but force ai-index to rerun GPS geocoding via --reprocess-mode=gps",
+    )
     process_parser.add_argument("--list-steps", action="store_true", help="Print the step registry and exit")
 
     return parser
@@ -341,6 +346,7 @@ def main(argv: list[str] | None = None) -> int:
             skip_restoration=bool(getattr(args, "skip_restoration", False)),
             force_restoration=bool(getattr(args, "force_restoration", False)),
             gps_only=bool(getattr(args, "gps_only", False)),
+            refresh_gps=bool(getattr(args, "refresh_gps", False)),
         )
 
     allow_extras = args.group == "ai"

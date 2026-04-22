@@ -105,6 +105,9 @@ def _build_location_queries_prompt(
         "that Nominatim can resolve.\n"
         "Return:\n"
         "- primary_query: the single most specific location for the primary GPS (empty string if unknown)\n"
-        "- named_queries: list of named place queries shown in the image (may be empty)"
+        "- named_queries: list of named places shown in the image (may be empty)\n"
+        "Each named_queries item should be an object with: name, world_region, country_name, country_code, "
+        "province_or_state, city, sublocation.\n"
+        "Include country_name and other broader geography when supported so the later Nominatim query is less ambiguous."
     )
     return "\n\n".join(parts)

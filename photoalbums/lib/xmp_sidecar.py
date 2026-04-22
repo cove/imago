@@ -1808,7 +1808,9 @@ def _merge_xmp_tree(
         str(desc.findtext(f"{{{IMAGO_NS}}}OCRAuthoritySource", default="") or ""),
     )
     stitch_key = _coalesce_text(stitch_key, str(desc.findtext(f"{{{IMAGO_NS}}}StitchKey", default="") or ""))
-    merged_locations_shown = list(locations_shown) if locations_shown else _read_locations_shown_from_desc(desc)
+    merged_locations_shown = (
+        list(locations_shown) if locations_shown is not None else _read_locations_shown_from_desc(desc)
+    )
     merged_detections_payload = detections_payload if detections_payload is not None else (existing_detections_payload or None)
     merged_detections_payload = _with_location_detections(
         merged_detections_payload,

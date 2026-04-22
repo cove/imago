@@ -475,7 +475,7 @@ def _write_crop_sidecar(
         location_sublocation=str(effective_loc.get("sublocation") or view_state.get("location_sublocation") or "").strip(),
         create_date=str(view_state.get("create_date") or "").strip(),
         dc_date=list(view_state.get("dc_date_values") or []),
-        locations_shown=locations_shown,
+        locations_shown=[],
         parent_ocr_text=parent_ocr_text,
         ocr_text="",
     )
