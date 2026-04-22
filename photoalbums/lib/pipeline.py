@@ -71,6 +71,14 @@ def _make_steps() -> list[PipelineStep]:
             depends_on=["crop-regions"],
             redo_clears=["ai-index"],
         ),
+        PipelineStep(
+            id="verify-crops",
+            label="Review each page's crops against the page image and page/crop XMP context",
+            run_fn=_noop_run,
+            skip_check_fn=None,
+            depends_on=["ai-index"],
+            redo_clears=["verify-crops"],
+        ),
     ]
 
 

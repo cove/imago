@@ -198,13 +198,14 @@ class CaptionEngine:
         photo_count: int = 1,
         people_positions: dict[str, str] | None = None,
         context_ocr_text: str = "",
+        prompt_prefix: str = "",
         debug_recorder=None,
         debug_step: str = "caption",
     ) -> CaptionOutput:
         if self.engine == "none":
             return CaptionOutput(text="", engine="none")
         self._ensure_captioner()
-        prompt = self._caption_prompt or _build_local_prompt(
+        base_prompt = self._caption_prompt or _build_local_prompt(
             people=people,
             objects=objects,
             ocr_text=ocr_text,
@@ -214,6 +215,7 @@ class CaptionEngine:
             people_positions=people_positions,
             context_ocr_text=context_ocr_text,
         )
+        prompt = "\n\n".join(part for part in (str(prompt_prefix or "").strip(), base_prompt) if part).strip()
         response = ""
         finish_reason = ""
         error_text = ""
@@ -494,6 +496,7 @@ class CaptionEngine:
         source_path: str | Path | None = None,
         album_title: str = "",
         printed_album_title: str = "",
+        prompt_prefix: str = "",
         debug_recorder=None,
         debug_step: str = "location_queries",
     ) -> LocationQueryResult:
@@ -506,12 +509,13 @@ class CaptionEngine:
         self._ensure_captioner()
         from ._caption_prompts import _build_location_queries_prompt
 
-        prompt = _build_location_queries_prompt(
+        base_prompt = _build_location_queries_prompt(
             caption_text=caption_text,
             ocr_text=ocr_text,
             album_title=album_title,
             printed_album_title=printed_album_title,
         )
+        prompt = "\n\n".join(part for part in (str(prompt_prefix or "").strip(), base_prompt) if part).strip()
         response = ""
         finish_reason = ""
         error_text = ""

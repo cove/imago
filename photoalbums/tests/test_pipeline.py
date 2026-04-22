@@ -211,6 +211,255 @@ class TestRunProcessPipelineSmoke(unittest.TestCase):
         )
         ai_runner._process_one.assert_called_once()
 
+    def test_verify_crops_runs_after_ai_index(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "Test_2024_B01_Archive"
+            pages = root / "Test_2024_B01_Pages"
+            photos = root / "Test_2024_B01_Photos"
+            archive.mkdir()
+            pages.mkdir()
+            photos.mkdir()
+            scan = archive / "Test_2024_B01_P01_S01.tif"
+            scan.write_bytes(b"abc")
+            view_path = pages / "Test_2024_B01_P01_V.jpg"
+            view_path.write_bytes(b"jpg")
+            view_path.with_suffix(".xmp").write_text(
+                '<?xml version="1.0" encoding="UTF-8"?><x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about=""/></rdf:RDF></x:xmpmeta>',
+                encoding="utf-8",
+            )
+
+            with (
+                patch("photoalbums.stitch_oversized_pages.list_archive_dirs", return_value=[str(archive)]),
+                patch("photoalbums.stitch_oversized_pages.list_page_scans", return_value=[[str(scan)]]),
+                patch("photoalbums.stitch_oversized_pages.get_view_dirname", return_value=str(pages)),
+                patch("photoalbums.stitch_oversized_pages.get_photos_dirname", return_value=str(photos)),
+                patch("photoalbums.stitch_oversized_pages._require_primary_scan", return_value=str(scan)),
+                patch("photoalbums.stitch_oversized_pages._view_page_output_path", return_value=view_path),
+                patch("photoalbums.commands._print_outcome"),
+                patch("photoalbums.commands._print_ai_index_discovery_summary"),
+                patch("photoalbums.commands._print_verify_crops_summary"),
+                patch("photoalbums.lib.ai_verify_crops.run_verify_crops_page", return_value={"status": "ok", "results": [], "page_input_hash": "abc", "artifact_path": "artifact.json", "missing_context": []}) as verify_mock,
+                patch("photoalbums.lib.ai_verify_crops.persist_verify_crops_state") as persist_mock,
+            ):
+                ai_runner = MagicMock()
+                ai_runner._process_one.return_value = None
+                ai_runner.processed = 0
+                ai_runner.skipped = 0
+                ai_runner.failures = 0
+                ai_runner.force_processing = False
+                ai_runner.defaults = {"caption_model": "glm-test", "lmstudio_base_url": "http://localhost:1234/v1"}
+                with patch("photoalbums.lib.ai_index_runner.IndexRunner", return_value=ai_runner):
+                    from photoalbums.commands import run_process_pipeline
+
+                    code = run_process_pipeline(
+                        album_id="",
+                        photos_root=str(root),
+                        page=None,
+                        skip_ids=["render", "propagate-metadata", "detect-regions", "crop-regions", "face-refresh"],
+                        redo_ids=[],
+                        step_id=None,
+                        force=False,
+                        debug=False,
+                        no_validation=False,
+                        skip_restoration=False,
+                        force_restoration=False,
+                        gps_only=False,
+                        refresh_gps=False,
+                    )
+
+        self.assertEqual(code, 0)
+        ai_runner._process_one.assert_called_once()
+        verify_mock.assert_called_once()
+        persist_mock.assert_called_once()
+        verify_args = verify_mock.call_args
+        self.assertEqual(verify_args.args[0], view_path)
+        self.assertEqual(verify_args.kwargs["model_name"], "glm-test")
+        self.assertEqual(verify_args.kwargs["base_url"], "http://localhost:1234/v1")
+
+    def test_verify_crops_executes_per_page(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "Test_2024_B01_Archive"
+            pages = root / "Test_2024_B01_Pages"
+            photos = root / "Test_2024_B01_Photos"
+            archive.mkdir()
+            pages.mkdir()
+            photos.mkdir()
+
+            scan1 = archive / "Test_2024_B01_P01_S01.tif"
+            scan2 = archive / "Test_2024_B01_P02_S01.tif"
+            scan1.write_bytes(b"abc")
+            scan2.write_bytes(b"def")
+            view1 = pages / "Test_2024_B01_P01_V.jpg"
+            view2 = pages / "Test_2024_B01_P02_V.jpg"
+            view1.write_bytes(b"jpg")
+            view2.write_bytes(b"jpg")
+            for view_path in (view1, view2):
+                view_path.with_suffix(".xmp").write_text(
+                    '<?xml version="1.0" encoding="UTF-8"?><x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about=""/></rdf:RDF></x:xmpmeta>',
+                    encoding="utf-8",
+                )
+
+            with (
+                patch("photoalbums.stitch_oversized_pages.list_archive_dirs", return_value=[str(archive)]),
+                patch("photoalbums.stitch_oversized_pages.list_page_scans", return_value=[[str(scan1)], [str(scan2)]]),
+                patch("photoalbums.stitch_oversized_pages.get_view_dirname", return_value=str(pages)),
+                patch("photoalbums.stitch_oversized_pages.get_photos_dirname", return_value=str(photos)),
+                patch("photoalbums.stitch_oversized_pages._require_primary_scan", side_effect=[str(scan1), str(scan2)]),
+                patch("photoalbums.stitch_oversized_pages._view_page_output_path", side_effect=[view1, view2]),
+                patch("photoalbums.commands._print_outcome"),
+                patch("photoalbums.commands._print_ai_index_discovery_summary"),
+                patch("photoalbums.commands._print_verify_crops_summary"),
+                patch("photoalbums.lib.ai_verify_crops.run_verify_crops_page", return_value={"status": "ok", "results": [], "page_input_hash": "abc", "artifact_path": "artifact.json", "missing_context": []}) as verify_mock,
+                patch("photoalbums.lib.ai_verify_crops.persist_verify_crops_state"),
+            ):
+                ai_runner = MagicMock()
+                ai_runner._process_one.return_value = None
+                ai_runner.processed = 0
+                ai_runner.skipped = 0
+                ai_runner.failures = 0
+                ai_runner.force_processing = False
+                ai_runner.defaults = {"caption_model": "glm-test", "lmstudio_base_url": "http://localhost:1234/v1"}
+                with patch("photoalbums.lib.ai_index_runner.IndexRunner", return_value=ai_runner):
+                    from photoalbums.commands import run_process_pipeline
+
+                    code = run_process_pipeline(
+                        album_id="",
+                        photos_root=str(root),
+                        page=None,
+                        skip_ids=["render", "propagate-metadata", "detect-regions", "crop-regions", "face-refresh"],
+                        redo_ids=[],
+                        step_id=None,
+                        force=False,
+                        debug=False,
+                        no_validation=False,
+                        skip_restoration=False,
+                        force_restoration=False,
+                        gps_only=False,
+                        refresh_gps=False,
+                    )
+
+        self.assertEqual(code, 0)
+        self.assertEqual(verify_mock.call_count, 2)
+
+    def test_verify_crops_receives_finalized_page_and_crop_metadata(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "Test_2024_B01_Archive"
+            pages = root / "Test_2024_B01_Pages"
+            photos = root / "Test_2024_B01_Photos"
+            archive.mkdir()
+            pages.mkdir()
+            photos.mkdir()
+
+            scan = archive / "Test_2024_B01_P01_S01.tif"
+            scan.write_bytes(b"abc")
+            view_path = pages / "Test_2024_B01_P01_V.jpg"
+            crop_path = photos / "Test_2024_B01_P01_D01-00_V.jpg"
+
+            from PIL import Image
+            Image.new("RGB", (40, 20), "white").save(view_path)
+            Image.new("RGB", (20, 20), "white").save(crop_path)
+
+            captured: dict[str, str] = {}
+
+            def fake_process_one(_page_idx, _view_path):
+                from photoalbums.lib.ai_view_regions import RegionResult, RegionWithCaption
+                from photoalbums.lib.xmp_sidecar import write_region_list, write_xmp_sidecar
+
+                write_xmp_sidecar(
+                    view_path.with_suffix(".xmp"),
+                    creator_tool="imago-test",
+                    person_names=[],
+                    subjects=[],
+                    description="Final page description",
+                    source_text="Test_2024_B01_P01_S01.tif",
+                    ocr_text="AUG. 1988",
+                    author_text="Final page caption",
+                    detections_payload={},
+                )
+                write_region_list(
+                    view_path.with_suffix(".xmp"),
+                    [RegionWithCaption(RegionResult(index=0, x=0, y=0, width=20, height=20, caption_hint=""), "")],
+                    40,
+                    20,
+                )
+                write_xmp_sidecar(
+                    crop_path.with_suffix(".xmp"),
+                    creator_tool="imago-test",
+                    person_names=[],
+                    subjects=[],
+                    description="Final crop caption",
+                    source_text="Test_2024_B01_P01_S01.tif",
+                    ocr_text="AUG. 1988",
+                    detections_payload={},
+                )
+
+            def fake_verify(page_image_path, **_kwargs):
+                from photoalbums.lib.ai_verify_crops import load_page_verifier_inputs
+
+                inputs = load_page_verifier_inputs(page_image_path)
+                captured["page_xmp_text"] = str(inputs["page_xmp_text"])
+                captured["crop_xmp_text"] = str(inputs["crops"][0]["crop_xmp_text"])
+                return {
+                    "status": "ok",
+                    "results": [],
+                    "page_input_hash": "abc",
+                    "artifact_path": "artifact.json",
+                    "missing_context": [],
+                }
+
+            with (
+                patch("photoalbums.stitch_oversized_pages.list_archive_dirs", return_value=[str(archive)]),
+                patch("photoalbums.stitch_oversized_pages.list_page_scans", return_value=[[str(scan)]]),
+                patch("photoalbums.stitch_oversized_pages.get_view_dirname", return_value=str(pages)),
+                patch("photoalbums.stitch_oversized_pages.get_photos_dirname", return_value=str(photos)),
+                patch("photoalbums.stitch_oversized_pages._require_primary_scan", return_value=str(scan)),
+                patch("photoalbums.stitch_oversized_pages._view_page_output_path", return_value=view_path),
+                patch("photoalbums.commands._print_outcome"),
+                patch("photoalbums.commands._print_ai_index_discovery_summary"),
+                patch("photoalbums.commands._print_verify_crops_summary"),
+                patch("photoalbums.lib.ai_verify_crops.run_verify_crops_page", side_effect=fake_verify),
+                patch("photoalbums.lib.ai_verify_crops.persist_verify_crops_state"),
+            ):
+                ai_runner = MagicMock()
+                ai_runner._process_one.side_effect = fake_process_one
+                ai_runner.processed = 0
+                ai_runner.skipped = 0
+                ai_runner.failures = 0
+                ai_runner.force_processing = False
+                ai_runner.defaults = {"caption_model": "glm-test", "lmstudio_base_url": "http://localhost:1234/v1"}
+                with patch("photoalbums.lib.ai_index_runner.IndexRunner", return_value=ai_runner):
+                    from photoalbums.commands import run_process_pipeline
+
+                    code = run_process_pipeline(
+                        album_id="",
+                        photos_root=str(root),
+                        page=None,
+                        skip_ids=["render", "propagate-metadata", "detect-regions", "crop-regions", "face-refresh"],
+                        redo_ids=[],
+                        step_id=None,
+                        force=False,
+                        debug=False,
+                        no_validation=False,
+                        skip_restoration=False,
+                        force_restoration=False,
+                        gps_only=False,
+                        refresh_gps=False,
+                    )
+
+        self.assertEqual(code, 0)
+        self.assertIn("author_text: Final page caption", captured["page_xmp_text"])
+        self.assertIn("AUG. 1988", captured["page_xmp_text"])
+        self.assertIn("Final crop caption", captured["crop_xmp_text"])
+
 
 if __name__ == "__main__":
     unittest.main()

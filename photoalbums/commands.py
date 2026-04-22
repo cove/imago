@@ -755,6 +755,7 @@ def run_process_pipeline(
     )
     from .lib.ai_photo_crops import CropPageStats, crop_page_regions
     from .lib.ai_render_face_refresh import FaceRefreshSkipped, RenderFaceRefreshSession
+    from .lib.ai_verify_crops import persist_verify_crops_state, run_verify_crops_page
     from .lib.prompt_debug import PromptDebugSession
 
     model_name = default_view_region_model()
@@ -927,6 +928,26 @@ def run_process_pipeline(
                         step_just_ran.add("ai-index")
                         write_pipeline_step(xmp_path, "ai-index")
                         _print_outcome("done", stale_dep)
+                        _print_ai_index_discovery_summary(sidecar_path=xmp_path)
+                    continue
+
+                elif step.id == "verify-crops":
+                    if not force_this_step and read_pipeline_step(xmp_path, "verify-crops") is not None:
+                        counters["verify-crops"]["skipped"] += 1
+                        _print_outcome("skipped (already complete)", stale_dep)
+                    else:
+                        verify_result = run_verify_crops_page(
+                            view_path,
+                            model_name=str(ai_runner.defaults.get("caption_model") or ""),
+                            base_url=str(ai_runner.defaults.get("lmstudio_base_url") or ""),
+                            logger=lambda message: print(f"    {message}", flush=True),
+                        )
+                        persist_verify_crops_state(view_path, verify_result)
+                        counters["verify-crops"]["run"] += 1
+                        step_just_ran.add("verify-crops")
+                        counters["verify-crops"]["detail"].append(_format_verify_crops_detail(verify_result))
+                        _print_outcome("done", stale_dep)
+                        _print_verify_crops_summary(view_path, verify_result)
                     continue
 
             except Exception as exc:
@@ -986,6 +1007,87 @@ def _print_outcome(outcome: str, stale_dep: str) -> None:
         print(f" ... (re-run: {stale_dep} updated)", flush=True)
     else:
         print(f" ... {outcome}", flush=True)
+
+
+def _print_ai_index_discovery_summary(*, sidecar_path: Path) -> None:
+    from .lib.xmp_sidecar import read_ai_sidecar_state
+
+    state = read_ai_sidecar_state(sidecar_path)
+    if not isinstance(state, dict):
+        return
+    detections = dict(state.get("detections") or {})
+    caption = str(state.get("description") or "").strip()
+    if caption:
+        print(f"    ai-index caption: {caption}", flush=True)
+    dc_date = str(state.get("dc_date") or "").strip()
+    if dc_date:
+        print(f"    ai-index date: {dc_date}", flush=True)
+    location_parts = [
+        str(state.get("location_sublocation") or "").strip(),
+        str(state.get("location_city") or "").strip(),
+        str(state.get("location_state") or "").strip(),
+        str(state.get("location_country") or "").strip(),
+    ]
+    location_text = ", ".join(part for part in location_parts if part)
+    if location_text:
+        print(f"    ai-index shown_location: {location_text}", flush=True)
+    gps_lat = str(state.get("gps_latitude") or "").strip()
+    gps_lon = str(state.get("gps_longitude") or "").strip()
+    if gps_lat or gps_lon:
+        print(f"    ai-index gps: {gps_lat or '?'} {gps_lon or '?'}", flush=True)
+    locations_shown = list(detections.get("locations_shown") or [])
+    if locations_shown:
+        names = []
+        for row in locations_shown:
+            if not isinstance(row, dict):
+                continue
+            name = str(row.get("name") or row.get("city") or row.get("country_name") or "").strip()
+            if name:
+                names.append(name)
+        if names:
+            print(f"    ai-index locations_shown: {', '.join(names)}", flush=True)
+
+
+def _format_verify_crops_detail(verify_result: dict[str, object]) -> str:
+    status = str(verify_result.get("status") or "")
+    if status != "ok":
+        missing = ", ".join(list(verify_result.get("missing_context") or []))
+        return f"missing_context={missing or 'unknown'}"
+    result_count = len(list(verify_result.get("results") or []))
+    flagged = 0
+    for row in list(verify_result.get("results") or []):
+        review = dict(row.get("review") or {})
+        if any(
+            str((review.get(concern) or {}).get("verdict") or "") in {"bad", "uncertain"}
+            for concern in ("caption", "gps", "shown_location", "date", "overall")
+        ):
+            flagged += 1
+    return f"{result_count} reviewed, {flagged} flagged"
+
+
+def _print_verify_crops_summary(view_path: Path, verify_result: dict[str, object]) -> None:
+    status = str(verify_result.get("status") or "")
+    if status != "ok":
+        missing = ", ".join(list(verify_result.get("missing_context") or []))
+        print(f"    verify-crops missing context: {missing}", flush=True)
+        return
+    for row in list(verify_result.get("results") or []):
+        review = dict(row.get("review") or {})
+        concerns: list[str] = []
+        for concern in ("caption", "gps", "shown_location", "date", "overall"):
+            verdict = str((review.get(concern) or {}).get("verdict") or "")
+            if verdict in {"bad", "uncertain"}:
+                reason = str((review.get(concern) or {}).get("failure_reason") or "").strip()
+                concern_text = f"{concern}={verdict}"
+                if reason:
+                    concern_text += f" ({reason})"
+                concerns.append(concern_text)
+        if concerns:
+            crop_name = Path(str(row.get("crop_image_path") or "")).name
+            print(f"    verify-crops {crop_name}: {'; '.join(concerns)}", flush=True)
+    artifact_path = str(verify_result.get("artifact_path") or "").strip()
+    if artifact_path:
+        print(f"    verify-crops artifact: {artifact_path}", flush=True)
 
 
 def _run_step_render(
