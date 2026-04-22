@@ -3219,6 +3219,78 @@ class TestAIIndex(unittest.TestCase):
             )
             self.assertEqual(detections["location_shown_ran"], True)
 
+    def test_reprocess_mode_gps_bypasses_current_xmp_skip(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            photos = base / "Family_Pages"
+            photos.mkdir()
+            image = photos / "a.jpg"
+            image.write_bytes(b"abc")
+            sidecar = image.with_suffix(".xmp")
+            xmp_sidecar.write_xmp_sidecar(
+                sidecar,
+                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
+                person_names=[],
+                subjects=["hello"],
+                description="Travel photo",
+                album_title="Spain 1988",
+                source_text=ai_index._build_dc_source("Spain 1988", image, ai_index._page_scan_filenames(image)),
+                ocr_text="ROCK OF GIBRALTAR",
+                dc_date="1988",
+                detections_payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {
+                        "engine": "local",
+                        "language": "eng",
+                        "keywords": ["gibraltar"],
+                        "chars": 18,
+                        "model": "qwen-current-ocr",
+                    },
+                    "caption": {
+                        "requested_engine": "lmstudio",
+                        "effective_engine": "lmstudio",
+                        "fallback": False,
+                        "error": "",
+                        "model": "caption-current",
+                    },
+                    "location_shown_ran": True,
+                },
+                subphotos=[],
+                ocr_ran=True,
+                people_detected=False,
+                people_identified=False,
+            )
+
+            with (
+                mock.patch.object(
+                    ai_index_runner,
+                    "_init_caption_engine",
+                    return_value=SimpleNamespace(effective_model_name="caption-current"),
+                ) as caption_engine_mock,
+                mock.patch.object(ai_index_runner.IndexRunner, "_process_full") as process_full_mock,
+                mock.patch.object(ai_index_runner.IndexRunner, "_process_refresh") as process_refresh_mock,
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--include-view",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "local",
+                        "--caption-engine",
+                        "lmstudio",
+                        "--reprocess-mode",
+                        "gps",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            process_full_mock.assert_called_once()
+            process_refresh_mock.assert_not_called()
+
     def test_run_reprocesses_current_sidecar_when_lmstudio_caption_error_exists(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)

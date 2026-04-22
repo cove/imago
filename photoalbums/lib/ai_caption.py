@@ -121,7 +121,7 @@ class LocationsShownOutput:
 class LocationQueryResult:
     engine: str
     primary_query: str = ""
-    named_queries: list[str] = None
+    named_queries: list[dict[str, str]] = None
     fallback: bool = False
     error: str = ""
 
@@ -522,7 +522,23 @@ class CaptionEngine:
             )
             response = str(getattr(self._captioner, "last_response_text", "") or "")
             finish_reason = str(getattr(self._captioner, "last_finish_reason", "") or "")
-            named = [d.get("name", "") for d in (details.locations_shown or []) if d.get("name")]
+            named = []
+            for entry in list(details.locations_shown or []):
+                if not isinstance(entry, dict):
+                    continue
+                if not str(entry.get("name") or "").strip():
+                    continue
+                named.append(
+                    {
+                        "name": str(entry.get("name") or "").strip(),
+                        "world_region": str(entry.get("world_region") or "").strip(),
+                        "country_name": str(entry.get("country_name") or "").strip(),
+                        "country_code": str(entry.get("country_code") or "").strip(),
+                        "province_or_state": str(entry.get("province_or_state") or "").strip(),
+                        "city": str(entry.get("city") or "").strip(),
+                        "sublocation": str(entry.get("sublocation") or "").strip(),
+                    }
+                )
             return LocationQueryResult(
                 engine=self.engine,
                 primary_query=str(details.location_name or "").strip(),

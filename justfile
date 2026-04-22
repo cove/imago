@@ -78,6 +78,9 @@ photoalbums-list-steps:
 photoalbums-render *args:
   {{python}} photoalbums.py process --photos-root "{{photoalbums_root}}" {{args}}
 
+photoalbums-refresh-gps *args:
+  {{python}} photoalbums.py process --photos-root "{{photoalbums_root}}" --refresh-gps {{args}}
+
 photoalbums-render-validate:
   {{python}} photoalbums.py render validate
 

@@ -669,6 +669,7 @@ def run_process_pipeline(
     skip_restoration: bool,
     force_restoration: bool,
     gps_only: bool = False,
+    refresh_gps: bool = False,
 ) -> int:
     from .lib.pipeline import PIPELINE_STEPS, VALID_STEP_IDS
     from .lib.xmp_sidecar import (
@@ -704,6 +705,8 @@ def run_process_pipeline(
 
     # --force means redo all steps
     effective_redo_ids = set(VALID_STEP_IDS) if force else set(redo_ids)
+    if refresh_gps:
+        effective_redo_ids.add("ai-index")
 
     # Collect archive directories
     archives = [
@@ -760,7 +763,7 @@ def run_process_pipeline(
     # Build IndexRunner once so engine caches are shared across pages
     from .lib.ai_index_runner import IndexRunner
     ai_runner_argv = ["--photos-root", str(root)]
-    if gps_only:
+    if gps_only or refresh_gps:
         ai_runner_argv += ["--reprocess-mode", "gps"]
     if force:
         ai_runner_argv.append("--force")

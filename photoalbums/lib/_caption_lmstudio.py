@@ -459,7 +459,20 @@ def _lmstudio_location_queries_response_format() -> dict[str, object]:
                     "primary_query": {"type": "string"},
                     "named_queries": {
                         "type": "array",
-                        "items": {"type": "string"},
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "world_region": {"type": "string"},
+                                "country_name": {"type": "string"},
+                                "country_code": {"type": "string"},
+                                "province_or_state": {"type": "string"},
+                                "city": {"type": "string"},
+                                "sublocation": {"type": "string"},
+                            },
+                            "required": [],
+                            "additionalProperties": False,
+                        },
                     },
                 },
                 "required": ["primary_query", "named_queries"],
@@ -470,18 +483,14 @@ def _lmstudio_location_queries_response_format() -> dict[str, object]:
 
 
 def _is_lmstudio_location_queries_payload(payload: object) -> bool:
-    if not isinstance(payload, dict):
-        return False
-    if not isinstance(payload.get("named_queries"), list):
-        return False
-    return True
+    return _is_lmstudio_dict_list_payload(payload, "named_queries")
 
 
 def _parse_lmstudio_location_queries_payload(
     value: object,
     *,
     finish_reason: str = "",
-) -> tuple[str, list[str]]:
+) -> tuple[str, list[dict[str, str]]]:
     """Return (primary_query, named_queries). Empty strings/lists on failure."""
     raw = _decode_lmstudio_text(value)
     text = str(raw or "").strip()
@@ -494,7 +503,21 @@ def _parse_lmstudio_location_queries_payload(
     if not _is_lmstudio_location_queries_payload(payload):
         return "", []
     primary = clean_text(str(payload.get("primary_query") or ""))
-    named = [clean_text(str(q)) for q in list(payload.get("named_queries") or []) if str(q or "").strip()]
+    named: list[dict[str, str]] = []
+    for item in list(payload.get("named_queries") or []):
+        if not isinstance(item, dict):
+            continue
+        normalized = {
+            "name": clean_text(str(item.get("name") or "")),
+            "world_region": clean_text(str(item.get("world_region") or "")),
+            "country_name": clean_text(str(item.get("country_name") or "")),
+            "country_code": clean_text(str(item.get("country_code") or "")),
+            "province_or_state": clean_text(str(item.get("province_or_state") or "")),
+            "city": clean_text(str(item.get("city") or "")),
+            "sublocation": clean_text(str(item.get("sublocation") or "")),
+        }
+        if normalized["name"]:
+            named.append(normalized)
     return primary, named
 
 
@@ -731,13 +754,17 @@ def _parse_lmstudio_structured_location_payload(
 
 
 def _is_lmstudio_locations_shown_payload(payload: object) -> bool:
+    return _is_lmstudio_dict_list_payload(payload, "locations_shown")
+
+
+def _is_lmstudio_dict_list_payload(payload: object, key: str) -> bool:
     if not isinstance(payload, dict):
         return False
-    locations = payload.get("locations_shown")
-    if not isinstance(locations, list):
+    values = payload.get(key)
+    if not isinstance(values, list):
         return False
-    for loc in locations:
-        if not isinstance(loc, dict):
+    for value in values:
+        if not isinstance(value, dict):
             return False
     return True
 
@@ -1338,7 +1365,7 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
             return CaptionDetails(
                 text="",
                 location_name=primary_query,
-                locations_shown=[{"name": q} for q in named_queries],
+                locations_shown=named_queries,
             )
 
         return self._run_with_model_fallback(run_request)

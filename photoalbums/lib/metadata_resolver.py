@@ -47,6 +47,28 @@ def location_payload_from_location_shown(location: dict[str, Any] | None) -> dic
     return {key: value for key, value in payload.items() if value}
 
 
+def location_shown_from_payload(payload: dict[str, Any] | None) -> dict[str, str]:
+    normalized = normalize_location_payload(payload)
+    if not normalized:
+        return {}
+    address = str(normalized.get("address") or "").strip()
+    sublocation = str(normalized.get("sublocation") or "").strip()
+    city = str(normalized.get("city") or "").strip()
+    state = str(normalized.get("state") or "").strip()
+    country = str(normalized.get("country") or "").strip()
+    name = address or sublocation or ", ".join(part for part in (city, state, country) if part)
+    location = {
+        "name": name,
+        "city": city,
+        "province_or_state": state,
+        "country_name": country,
+        "sublocation": sublocation,
+        "gps_latitude": str(normalized.get("gps_latitude") or "").strip(),
+        "gps_longitude": str(normalized.get("gps_longitude") or "").strip(),
+    }
+    return {key: value for key, value in location.items() if value}
+
+
 def _normalize_location_text(value: str) -> str:
     text = _LOCATION_TEXT_RE.sub(" ", str(value or "").upper()).strip()
     return " ".join(text.split())
@@ -165,6 +187,42 @@ def match_caption_to_location_shown(
     return best_match
 
 
+def match_location_shown_row(
+    caption: str,
+    locations_shown: list[dict[str, Any]] | None,
+) -> dict[str, Any] | None:
+    normalized_caption = _normalize_location_text(caption)
+    if not normalized_caption:
+        return None
+    best_match: dict[str, Any] | None = None
+    best_score = -1
+    best_has_gps = False
+    for location in list(locations_shown or []):
+        if not isinstance(location, dict):
+            continue
+        payload = location_payload_from_location_shown(location)
+        if not payload:
+            continue
+        has_gps = bool(payload.get("gps_latitude") and payload.get("gps_longitude"))
+        for variant in _location_text_variants(location):
+            normalized_variant = _normalize_location_text(variant)
+            if not normalized_variant:
+                continue
+            if normalized_variant == normalized_caption:
+                score = len(normalized_variant) + 1000
+            elif normalized_variant in normalized_caption:
+                score = len(normalized_variant)
+            elif normalized_caption in normalized_variant:
+                score = len(normalized_caption)
+            else:
+                continue
+            if score > best_score or (score == best_score and has_gps and not best_has_gps):
+                best_match = dict(location)
+                best_score = score
+                best_has_gps = has_gps
+    return best_match
+
+
 def resolve_crop_location(
     *,
     region_location_override: dict[str, Any] | None,
@@ -183,3 +241,22 @@ def resolve_crop_location(
     if matched_location:
         return matched_location
     return normalize_location_payload(page_location)
+
+
+def resolve_crop_locations_shown(
+    *,
+    region_location_override: dict[str, Any] | None,
+    region_location_assigned: dict[str, Any] | None,
+    caption: str,
+    locations_shown: list[dict[str, Any]] | None,
+) -> list[dict[str, str]]:
+    override_location = location_shown_from_payload(region_location_override)
+    if override_location:
+        return [override_location]
+    assigned_location = location_shown_from_payload(region_location_assigned)
+    if assigned_location:
+        return [assigned_location]
+    matched_location = match_location_shown_row(caption, locations_shown)
+    if isinstance(matched_location, dict) and matched_location:
+        return [matched_location]
+    return []

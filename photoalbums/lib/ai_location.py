@@ -457,11 +457,21 @@ def run_locations_step(
 
     # Resolve named location queries
     locations_shown: list[dict[str, Any]] = []
-    for query in (result.named_queries or []):
-        query = str(query or "").strip()
+    for named_location in (result.named_queries or []):
+        if not isinstance(named_location, dict):
+            continue
+        entry: dict[str, Any] = {
+            "name": str(named_location.get("name") or "").strip(),
+            "world_region": str(named_location.get("world_region") or "").strip(),
+            "country_name": str(named_location.get("country_name") or "").strip(),
+            "country_code": str(named_location.get("country_code") or "").strip(),
+            "province_or_state": str(named_location.get("province_or_state") or "").strip(),
+            "city": str(named_location.get("city") or "").strip(),
+            "sublocation": str(named_location.get("sublocation") or "").strip(),
+        }
+        query = _build_locations_shown_query(entry)
         if not query:
             continue
-        entry: dict[str, Any] = {"name": query}
         if geocoder is not None:
             try:
                 geocoded = geocoder.geocode(query)
@@ -490,11 +500,11 @@ def run_locations_step(
                         entry[field] = val
         # Normalise into the canonical locations_shown schema
         normalized: dict[str, Any] = {
-            "name": entry.get("name", query),
-            "world_region": "",
-            "country_name": entry.get("country", ""),
-            "country_code": "",
-            "province_or_state": entry.get("state", ""),
+            "name": entry.get("name", ""),
+            "world_region": entry.get("world_region", ""),
+            "country_name": entry.get("country_name", "") or entry.get("country", ""),
+            "country_code": entry.get("country_code", ""),
+            "province_or_state": entry.get("province_or_state", "") or entry.get("state", ""),
             "city": entry.get("city", ""),
             "sublocation": entry.get("sublocation", ""),
         }

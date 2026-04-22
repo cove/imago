@@ -150,9 +150,66 @@ class TestRunProcessPipelineSmoke(unittest.TestCase):
                         skip_restoration=False,
                         force_restoration=False,
                         gps_only=False,
+                        refresh_gps=False,
                     )
             # No pages found returns 1; the orchestrator didn't crash
             self.assertIn(code, (0, 1))
+
+    def test_refresh_gps_forces_ai_index_redo_and_gps_reprocess_mode(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "Test_2024_B01_Archive"
+            archive.mkdir()
+            scan = archive / "Test_2024_B01_P01_S01.tif"
+            scan.write_bytes(b"abc")
+
+            with (
+                patch("photoalbums.stitch_oversized_pages.list_archive_dirs", return_value=[str(archive)]),
+                patch("photoalbums.stitch_oversized_pages.list_page_scans", return_value=[[str(scan)]]),
+                patch("photoalbums.stitch_oversized_pages.get_view_dirname", return_value=str(root / "Test_2024_B01_Pages")),
+                patch("photoalbums.stitch_oversized_pages.get_photos_dirname", return_value=str(root / "Test_2024_B01_Photos")),
+                patch("photoalbums.stitch_oversized_pages._require_primary_scan", return_value=str(scan)),
+                patch("photoalbums.stitch_oversized_pages._view_page_output_path", return_value=root / "Test_2024_B01_Pages" / "Test_2024_B01_P01_V.jpg"),
+                patch("photoalbums.lib.xmp_sidecar.read_pipeline_state", return_value={"ai-index": {"completed": "2026-04-21T00:00:00Z"}}),
+                patch("photoalbums.commands._check_step_stale", return_value=(False, "")),
+                patch("photoalbums.lib.xmp_sidecar.write_pipeline_step"),
+                patch("photoalbums.commands._print_outcome"),
+            ):
+                ai_runner = MagicMock()
+                ai_runner._process_one.return_value = None
+                ai_runner.processed = 0
+                ai_runner.skipped = 0
+                ai_runner.failures = 0
+                ai_runner.force_processing = False
+                with patch("photoalbums.lib.ai_index_runner.IndexRunner", return_value=ai_runner) as runner_cls:
+                    from photoalbums.commands import run_process_pipeline
+
+                    code = run_process_pipeline(
+                        album_id="",
+                        photos_root=str(root),
+                        page=None,
+                        skip_ids=["render", "propagate-metadata", "detect-regions", "crop-regions", "face-refresh"],
+                        redo_ids=[],
+                        step_id=None,
+                        force=False,
+                        debug=False,
+                        no_validation=False,
+                        skip_restoration=False,
+                        force_restoration=False,
+                        gps_only=False,
+                        refresh_gps=True,
+                    )
+
+        self.assertEqual(code, 0)
+        self.assertTrue(
+            any(
+                "--reprocess-mode" in list(call.args[0]) and "gps" in list(call.args[0])
+                for call in runner_cls.call_args_list
+            )
+        )
+        ai_runner._process_one.assert_called_once()
 
 
 if __name__ == "__main__":
