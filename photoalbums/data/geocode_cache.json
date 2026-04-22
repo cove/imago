@@ -13086,6 +13086,10 @@
     "status": "ok",
     "sublocation": "58 Leopoldskronstraße"
   },
+  "leopoldskron palace, salzburg, austria": {
+    "query": "Leopoldskron Palace, Salzburg, Austria",
+    "status": "miss"
+  },
   "leslie's home & school in indianapolis": {
     "query": "Leslie's home & school in Indianapolis",
     "status": "miss"
