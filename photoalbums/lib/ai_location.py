@@ -415,6 +415,7 @@ def run_locations_step(
     printed_album_title: str = "",
     geocoder: NominatimGeocoder | None = None,
     prompt_debug: PromptDebugSession | None = None,
+    prompt_prefix: str = "",
     artifact_recorder=None,
 ) -> dict[str, Any] | None:
     """Run the consolidated locations step.
@@ -433,6 +434,7 @@ def run_locations_step(
         source_path=source_path,
         album_title=album_title,
         printed_album_title=printed_album_title,
+        prompt_prefix=prompt_prefix,
         debug_recorder=debug_recorder,
         debug_step="location_queries",
     )

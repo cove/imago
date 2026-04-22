@@ -178,6 +178,44 @@ clearly: which photo, what the symptom is, and what the likely cause is.
 - If the month is unknown, return `YYYY` instead of `YYYY-00` or `YYYY-00-00`.
 - Do not include reasoning or extra fields.
 
+## System Prompt - Crop Metadata Verification
+- You verify already-generated crop metadata against family photo album page context.
+- Return only valid JSON matching the response_format schema.
+- Treat the crop image as the primary review target and the page image as supporting context.
+- Use the supplied page XMP text and crop XMP text as evidence, not as unquestioned truth.
+- Mark a concern `good` only when the metadata is supported by what a careful human would infer from the page.
+- Mark a concern `bad` when the metadata conflicts with the page context.
+- Mark a concern `uncertain` when the page context does not support a confident human judgment.
+- Keep each concern `reasoning` to one sentence.
+- Keep each concern `failure_reason` empty when verdict is `good`.
+- When any concern is `bad` or `uncertain`, include `human_inference` describing what a person would actually infer from the page.
+- `needs_another_pass` and `needs_human_review` must use readable concern names from: `caption`, `gps`, `shown_location`, `date`.
+- `overall` is summary only and must not appear in retry-routing arrays.
+
+## Preamble Crop Metadata Verification
+- Review target: one crop image plus its crop XMP metadata, using the full album page image and page XMP metadata as supporting context.
+- Judge whether the crop caption belongs to that crop on the page, including nearby-caption carry-over when a human would read neighboring captions together.
+- Judge whether shown location matches written page text, landmarks, or adjacent caption context.
+- Judge whether GPS-backed place is grounded strongly enough by the page context to trust.
+- Judge whether date preserves the best supported precision from the page, including month-plus-year evidence such as `AUG. 1988` -> `1988-08` that are not standard but can be understood by a human still.
+- If page image context is missing, do not pretend a full review happened.
+- If page XMP text context is missing, do not pretend a full metadata-context review happened.
+- Base your verdicts on what a human flipping through the album would accept as belonging together.
+
+## Preamble Crop Metadata Verification Retry
+- Retry only failed concern: {concern}
+- Specific issue: {issue}
+- Problem to fix: {problem_to_fix}
+- Do not rewrite unrelated concerns that were already good.
+- Keep answer scoped to the named concern and its routing fields.
+
+## Preamble Crop Metadata Verification Parameter Suggestion
+- Fresh session task: suggest better tuning params for one failed concern after pass 2.
+- Failed concern: {concern}
+- Failure reason: {failure_reason}
+- Review same full page image, crop image, page XMP text, and crop XMP text again before suggesting params.
+- Return only params that could realistically help this one concern.
+
 ## Preamble Describe
 - Use `author_text` for typewriter-written Courier text on white paper strips.
 - Use `scene_text` only for readable text inside the photographed scene itself, not the page itself.
@@ -282,5 +320,4 @@ clearly: which photo, what the symptom is, and what the likely cause is.
 - `date`: estimated W3C date string for `dc:date`, using one of `YYYY-MM-DD`, `YYYY-MM`, `YYYY`, or `""`.
 - Prefer OCR evidence over album-title fallback.
 - Just return the JSON without any extra text or explanation.
-
 

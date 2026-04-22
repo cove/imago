@@ -149,10 +149,12 @@ class DateEstimateEngine(LMStudioModelResolverMixin):
         ocr_text: str,
         album_title: str,
         source_path: str | Path | None = None,
+        prompt_prefix: str = "",
         debug_recorder=None,
         debug_step: str = "date_estimate",
     ) -> DateEstimateOutput:
-        prompt = _build_date_estimate_prompt(ocr_text=ocr_text, album_title=album_title)
+        base_prompt = _build_date_estimate_prompt(ocr_text=ocr_text, album_title=album_title)
+        prompt = "\n\n".join(part for part in (str(prompt_prefix or "").strip(), base_prompt) if part).strip()
         system_prompt = date_estimate_system_prompt()
         response = ""
         finish_reason = ""

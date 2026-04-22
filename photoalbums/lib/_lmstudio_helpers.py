@@ -35,6 +35,21 @@ def emit_prompt_debug(
 
 
 def single_string_response_format(*, schema_name: str, field_name: str) -> dict[str, object]:
+    return json_schema_response_format(
+        schema_name=schema_name,
+        properties={
+            str(field_name): {"type": "string"},
+        },
+        required=[str(field_name)],
+    )
+
+
+def json_schema_response_format(
+    *,
+    schema_name: str,
+    properties: dict[str, object],
+    required: list[str],
+) -> dict[str, object]:
     return {
         "type": "json_schema",
         "json_schema": {
@@ -42,10 +57,8 @@ def single_string_response_format(*, schema_name: str, field_name: str) -> dict[
             "strict": True,
             "schema": {
                 "type": "object",
-                "properties": {
-                    str(field_name): {"type": "string"},
-                },
-                "required": [str(field_name)],
+                "properties": dict(properties),
+                "required": list(required),
                 "additionalProperties": False,
             },
         },
