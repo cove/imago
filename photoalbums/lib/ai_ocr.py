@@ -21,7 +21,7 @@ from ._caption_lmstudio import (
     _normalize_model_name_candidates,
 )
 from ._lmstudio_helpers import emit_prompt_debug as _emit_prompt_debug, single_string_response_format
-from ._prompt_skill import required_section_text
+from .ai_prompt_assets import load_params, load_prompt, params_metadata, prompt_metadata
 
 STOPWORDS = {
     "the",
@@ -58,15 +58,7 @@ DEFAULT_LOCAL_OCR_MAX_PIXELS = 4_194_304
 DEFAULT_LOCAL_OCR_MAX_IMAGE_EDGE = 2048
 DEFAULT_LMSTUDIO_OCR_BASE_URL = "http://localhost:1234/v1"
 DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS = 300.0
-DEFAULT_LOCAL_OCR_PROMPT = (
-    "Extract all visible text from this image.\n"
-    "- Return only the extracted text, copied exactly as it appears.\n"
-    "- Preserve line breaks when they are visually clear.\n"
-    "- Do not describe the image.\n"
-    "- Do not invent, guess, or fill in text that is not clearly visible.\n"
-    "- Do not use placeholder or example text such as 'The quick brown fox' or 'Lorem ipsum'.\n"
-    "- If there is no readable text, return an empty string."
-)
+DEFAULT_LOCAL_OCR_PROMPT = load_prompt("ai-index/ocr/user.md").rendered
 _LEGACY_OCR_ENGINE_ALIASES = {
     "docstrange": "local",
     "qwen": "local",
@@ -103,7 +95,27 @@ def _normalize_lmstudio_ocr_base_url(value: str) -> str:
 
 
 def ocr_system_prompt() -> str:
-    return required_section_text("System Prompt - OCR")
+    return load_prompt("ai-index/ocr/system.md").rendered
+
+
+def ocr_user_prompt() -> str:
+    return load_prompt("ai-index/ocr/user.md").rendered
+
+
+def _ocr_params() -> dict[str, object]:
+    return dict(load_params("ai-index/ocr/params.toml").values)
+
+
+def _ocr_debug_metadata(*, resolved_params: dict[str, object]) -> dict[str, object]:
+    metadata = {}
+    metadata.update(
+        prompt_metadata(
+            load_prompt("ai-index/ocr/system.md"),
+            load_prompt("ai-index/ocr/user.md"),
+        )
+    )
+    metadata.update(params_metadata(load_params("ai-index/ocr/params.toml"), resolved_params))
+    return metadata
 
 
 def _lmstudio_ocr_post(base_url: str, payload: dict, timeout: float) -> dict:
@@ -469,13 +481,20 @@ class OCREngine:
         debug_recorder=None,
         debug_step: str = "ocr",
     ) -> str:
+        params = _ocr_params()
+        user_prompt = ocr_user_prompt()
+        timeout_seconds = float(params.get("timeout_seconds", DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS))
         if not self._lmstudio_model:
             self._lmstudio_model = _lmstudio_ocr_select_model(
                 self.base_url,
-                DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS,
+                timeout_seconds,
                 self._model_name,
             )
-        data_url = _build_ocr_data_url(image_path, DEFAULT_LOCAL_OCR_MAX_IMAGE_EDGE, DEFAULT_LOCAL_OCR_MAX_PIXELS)
+        data_url = _build_ocr_data_url(
+            image_path,
+            int(params.get("max_image_edge", DEFAULT_LOCAL_OCR_MAX_IMAGE_EDGE)),
+            int(params.get("max_pixels", DEFAULT_LOCAL_OCR_MAX_PIXELS)),
+        )
         payload = {
             "model": self._lmstudio_model,
             "messages": [
@@ -487,20 +506,20 @@ class OCREngine:
                     "role": "user",
                     "content": [
                         {"type": "image_url", "image_url": {"url": data_url}},
-                        {"type": "text", "text": DEFAULT_LOCAL_OCR_PROMPT},
+                        {"type": "text", "text": user_prompt},
                     ],
                 },
             ],
             "response_format": _lmstudio_ocr_response_format(),
-            "max_tokens": DEFAULT_LOCAL_OCR_MAX_NEW_TOKENS,
-            "temperature": 0.0,
+            "max_tokens": int(params.get("max_new_tokens", DEFAULT_LOCAL_OCR_MAX_NEW_TOKENS)),
+            "temperature": float(params.get("temperature", 0.0)),
             "stream": False,
         }
         raw_response = ""
         finish_reason = ""
         error_text = ""
         try:
-            response = _lmstudio_ocr_post(self.base_url, payload, DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS)
+            response = _lmstudio_ocr_post(self.base_url, payload, timeout_seconds)
             choices = list(response.get("choices") or [])
             if not choices:
                 raise RuntimeError("LM Studio returned no choices.")
@@ -518,6 +537,17 @@ class OCREngine:
             raise
         finally:
             metadata = {}
+            metadata.update(
+                _ocr_debug_metadata(
+                    resolved_params={
+                        "max_tokens": int(params.get("max_new_tokens", DEFAULT_LOCAL_OCR_MAX_NEW_TOKENS)),
+                        "temperature": float(params.get("temperature", 0.0)),
+                        "max_image_edge": int(params.get("max_image_edge", DEFAULT_LOCAL_OCR_MAX_IMAGE_EDGE)),
+                        "max_pixels": int(params.get("max_pixels", DEFAULT_LOCAL_OCR_MAX_PIXELS)),
+                        "timeout_seconds": timeout_seconds,
+                    }
+                )
+            )
             if error_text:
                 metadata["error"] = error_text
             _emit_prompt_debug(
@@ -525,7 +555,7 @@ class OCREngine:
                 step=debug_step,
                 engine=self.engine,
                 model=self.effective_model_name,
-                prompt=DEFAULT_LOCAL_OCR_PROMPT,
+                prompt=user_prompt,
                 system_prompt=ocr_system_prompt(),
                 source_path=source_path or image_path,
                 response=raw_response,
@@ -541,6 +571,8 @@ class OCREngine:
         debug_recorder=None,
         debug_step: str = "ocr",
     ) -> str:
+        params = _ocr_params()
+        user_prompt = ocr_user_prompt()
         self._ensure_loaded()
 
         from PIL import Image  # pylint: disable=import-outside-toplevel
@@ -553,8 +585,8 @@ class OCREngine:
         try:
             working_image = _resize_for_ocr(
                 image,
-                DEFAULT_LOCAL_OCR_MAX_IMAGE_EDGE,
-                DEFAULT_LOCAL_OCR_MAX_PIXELS,
+                int(params.get("max_image_edge", DEFAULT_LOCAL_OCR_MAX_IMAGE_EDGE)),
+                int(params.get("max_pixels", DEFAULT_LOCAL_OCR_MAX_PIXELS)),
             )
             if hasattr(self._processor, "apply_chat_template"):
                 messages = [
@@ -562,7 +594,7 @@ class OCREngine:
                         "role": "user",
                         "content": [
                             {"type": "image"},
-                            {"type": "text", "text": DEFAULT_LOCAL_OCR_PROMPT},
+                            {"type": "text", "text": user_prompt},
                         ],
                     }
                 ]
@@ -580,7 +612,7 @@ class OCREngine:
                         add_generation_prompt=True,
                     )
             else:
-                prompt_text = DEFAULT_LOCAL_OCR_PROMPT
+                prompt_text = user_prompt
 
             inputs = self._processor(
                 text=[prompt_text],
@@ -598,7 +630,7 @@ class OCREngine:
             with self._torch.inference_mode():
                 generated_ids = self._model.generate(
                     **inputs,
-                    max_new_tokens=DEFAULT_LOCAL_OCR_MAX_NEW_TOKENS,
+                    max_new_tokens=int(params.get("max_new_tokens", DEFAULT_LOCAL_OCR_MAX_NEW_TOKENS)),
                     do_sample=False,
                 )
 
@@ -619,6 +651,16 @@ class OCREngine:
             raise
         finally:
             metadata = {}
+            metadata.update(
+                _ocr_debug_metadata(
+                    resolved_params={
+                        "max_tokens": int(params.get("max_new_tokens", DEFAULT_LOCAL_OCR_MAX_NEW_TOKENS)),
+                        "temperature": 0.0,
+                        "max_image_edge": int(params.get("max_image_edge", DEFAULT_LOCAL_OCR_MAX_IMAGE_EDGE)),
+                        "max_pixels": int(params.get("max_pixels", DEFAULT_LOCAL_OCR_MAX_PIXELS)),
+                    }
+                )
+            )
             if error_text:
                 metadata["error"] = error_text
             _emit_prompt_debug(

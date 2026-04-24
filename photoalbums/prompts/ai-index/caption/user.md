@@ -1,0 +1,4 @@
+- Use `author_text` for typewriter-written Courier text on white paper strips.
+- Use `scene_text` only for readable text inside the photographed scene itself, not the page itself.
+- Read the capations from left to right, there can be a hierarchy to the capations, where a capation in the center of a line refers to both the left and right photo, where the left and right photos have more specifc capations that refer to just themselves. You'll need to examine the photos to help get a hint as to what capation goes with the photo too.
+- Return empty strings when no applicable text exists for a field.

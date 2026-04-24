@@ -1,0 +1,1 @@
+- Count the number of clearly visible real people.

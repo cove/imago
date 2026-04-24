@@ -3,18 +3,10 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from ._prompt_skill import section as _section
-
-# ---------------------------------------------------------------------------
-# Position helpers
-# ---------------------------------------------------------------------------
+from .ai_prompt_assets import PromptAsset, load_prompt, prompt_metadata
 
 
 def _position_label(cx: float, cy: float) -> str:
-    """Return a human-readable position label from normalised centre coordinates.
-
-    cx and cy are in [0, 1] where (0, 0) is the top-left corner.
-    """
     v = "upper" if cy < 0.4 else ("lower" if cy > 0.6 else "centre")
     h = "left" if cx < 0.4 else ("right" if cx > 0.6 else "centre")
     if v == "centre" and h == "centre":
@@ -31,6 +23,55 @@ def _looks_like_title_page(source_path: str | Path | None) -> bool:
     return bool(re.search(r"_P0[01](?:_|\.|$)", name, flags=re.IGNORECASE))
 
 
+def _join_assets(assets: list[PromptAsset]) -> str:
+    return "\n".join(asset.rendered for asset in assets if asset.rendered).strip()
+
+
+def _load_caption_assets(*, source_path: str | Path | None, context_ocr_text: str = "") -> list[PromptAsset]:
+    assets = [load_prompt("ai-index/caption/user.md")]
+    if _looks_like_title_page(source_path):
+        assets.append(load_prompt("ai-index/caption/cover-page.md"))
+    clean_context_ocr = str(context_ocr_text or "").strip()
+    if clean_context_ocr:
+        assets.append(
+            load_prompt(
+                "ai-index/caption/upstream-ocr-context.md",
+                {"context_ocr_text": clean_context_ocr},
+            )
+        )
+    assets.append(load_prompt("ai-index/caption/output-page.md"))
+    return assets
+
+
+def caption_prompt_metadata(*, source_path: str | Path | None, context_ocr_text: str = "") -> dict[str, object]:
+    return prompt_metadata(*_load_caption_assets(source_path=source_path, context_ocr_text=context_ocr_text))
+
+
+def people_count_prompt_metadata() -> dict[str, object]:
+    return prompt_metadata(
+        load_prompt("ai-index/people-count/user.md"),
+        load_prompt("ai-index/people-count/output.md"),
+    )
+
+
+def location_prompt_metadata() -> dict[str, object]:
+    return prompt_metadata(
+        load_prompt("ai-index/locations/user.md"),
+        load_prompt("ai-index/locations/output-location.md"),
+    )
+
+
+def location_shown_prompt_metadata() -> dict[str, object]:
+    return prompt_metadata(
+        load_prompt("ai-index/locations/user.md"),
+        load_prompt("ai-index/locations/output-shown.md"),
+    )
+
+
+def location_queries_prompt_metadata() -> dict[str, object]:
+    return prompt_metadata(load_prompt("ai-index/locations/query-user.md"))
+
+
 def _build_local_prompt(
     *,
     people: list[str],
@@ -42,16 +83,8 @@ def _build_local_prompt(
     people_positions: dict[str, str] | None = None,
     context_ocr_text: str = "",
 ) -> str:
-    del people, objects, album_title, printed_album_title, people_positions
-    lines = _section("Preamble Describe")
-    if _looks_like_title_page(source_path):
-        lines.extend(_section("Preamble Cover Page", ocr_text=ocr_text))
-    clean_context_ocr = str(context_ocr_text or "").strip()
-    if clean_context_ocr:
-        lines.extend(_section("Preamble Upstream OCR Context", context_ocr_text=clean_context_ocr))
-    lines.extend(_section("Output Format – Describe Page"))
-
-    return "\n".join(lines)
+    del people, objects, ocr_text, album_title, printed_album_title, people_positions
+    return _join_assets(_load_caption_assets(source_path=source_path, context_ocr_text=context_ocr_text))
 
 
 def _build_people_count_prompt(
@@ -64,23 +97,50 @@ def _build_people_count_prompt(
     printed_album_title: str = "",
     people_positions: dict[str, str] | None = None,
 ) -> str:
-    lines = _section("Preamble People Count")
-    lines.extend(_section("Output Format – People Count"))
-    return "\n".join(lines)
+    del people, objects, ocr_text, source_path, album_title, printed_album_title, people_positions
+    return _join_assets(
+        [
+            load_prompt("ai-index/people-count/user.md"),
+            load_prompt("ai-index/people-count/output.md"),
+        ]
+    )
+
+
+def _build_location_prompt_for_output(
+    output_path: str,
+    *,
+    ocr_text: str = "",
+    album_title: str = "",
+    printed_album_title: str = "",
+) -> str:
+    album_hint = str(album_title or "").strip() or str(printed_album_title or "").strip()
+    return _join_assets(
+        [
+            load_prompt(
+                "ai-index/locations/user.md",
+                {"album_title": album_hint, "ocr_text": str(ocr_text or "").strip()},
+            ),
+            load_prompt(output_path),
+        ]
+    )
 
 
 def _build_location_prompt(*, ocr_text: str = "", album_title: str = "", printed_album_title: str = "") -> str:
-    album_hint = str(album_title or "").strip() or str(printed_album_title or "").strip()
-    lines = _section("Preamble Location", album_title=album_hint, ocr_text=str(ocr_text or "").strip())
-    lines.extend(_section("Output Format – Location"))
-    return "\n".join(lines)
+    return _build_location_prompt_for_output(
+        "ai-index/locations/output-location.md",
+        ocr_text=ocr_text,
+        album_title=album_title,
+        printed_album_title=printed_album_title,
+    )
 
 
 def _build_location_shown_prompt(*, ocr_text: str = "", album_title: str = "", printed_album_title: str = "") -> str:
-    album_hint = str(album_title or "").strip() or str(printed_album_title or "").strip()
-    lines = _section("Preamble Location", album_title=album_hint, ocr_text=str(ocr_text or "").strip())
-    lines.extend(_section("Output Format – Location Shown"))
-    return "\n".join(lines)
+    return _build_location_prompt_for_output(
+        "ai-index/locations/output-shown.md",
+        ocr_text=ocr_text,
+        album_title=album_title,
+        printed_album_title=printed_album_title,
+    )
 
 
 def _build_location_queries_prompt(
@@ -98,16 +158,5 @@ def _build_location_queries_prompt(
         parts.append(f"Caption: {caption_text.strip()}")
     if ocr_text:
         parts.append(f"OCR text: {ocr_text.strip()}")
-    parts.append(
-        "Based on the image and the above context, identify the location(s) shown.\n"
-        "Nominatim accepts free-form place name queries in any language (e.g. \"Eiffel Tower, Paris, France\", "
-        "\"Cafe Paris, New York\"). Do NOT return raw latitude/longitude values — return human-readable place names "
-        "that Nominatim can resolve.\n"
-        "Return:\n"
-        "- primary_query: the single most specific location for the primary GPS (empty string if unknown)\n"
-        "- named_queries: list of named places shown in the image (may be empty)\n"
-        "Each named_queries item should be an object with: name, world_region, country_name, country_code, "
-        "province_or_state, city, sublocation.\n"
-        "Include country_name and other broader geography when supported so the later Nominatim query is less ambiguous."
-    )
+    parts.append(load_prompt("ai-index/locations/query-user.md").rendered)
     return "\n\n".join(parts)

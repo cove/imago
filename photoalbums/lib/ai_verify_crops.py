@@ -22,7 +22,7 @@ from ._caption_lmstudio import (
     _select_lmstudio_model,
 )
 from ._lmstudio_helpers import emit_prompt_debug, json_schema_response_format
-from ._prompt_skill import required_section_text, section_text
+from .ai_prompt_assets import load_params, load_prompt, params_metadata, prompt_metadata
 from .ai_photo_crops import _expected_crop_output_paths
 from .prompt_debug import PromptDebugSession
 from .xmp_review import load_ai_xmp_review
@@ -34,7 +34,41 @@ VERDICTS = {"good", "bad", "uncertain"}
 
 
 def verification_system_prompt() -> str:
-    return required_section_text("System Prompt - Crop Metadata Verification")
+    return load_prompt("verify-crops/verification/system.md").rendered
+
+
+def _verification_params() -> dict[str, object]:
+    return dict(load_params("verify-crops/verification/params.toml").values)
+
+
+def _verify_prompt_metadata(*, variant: str, resolved_params: dict[str, object]) -> dict[str, object]:
+    if variant == "retry":
+        prompt_assets = [load_prompt("verify-crops/retry/user.md")]
+        params_asset = load_params("verify-crops/retry/params.toml")
+    elif variant == "parameter-suggestion":
+        prompt_assets = [load_prompt("verify-crops/parameter-suggestion/user.md")]
+        params_asset = load_params("verify-crops/parameter-suggestion/params.toml")
+    else:
+        prompt_assets = [
+            load_prompt("verify-crops/verification/system.md"),
+            load_prompt("verify-crops/verification/user.md"),
+        ]
+        params_asset = load_params("verify-crops/verification/params.toml")
+    metadata = {}
+    metadata.update(prompt_metadata(*prompt_assets))
+    metadata.update(params_metadata(params_asset, resolved_params))
+    return metadata
+
+
+def verify_crops_prompt_hash_payload() -> dict[str, object]:
+    return {
+        "verification": _verify_prompt_metadata(variant="verification", resolved_params=_verification_params()),
+        "retry": _verify_prompt_metadata(variant="retry", resolved_params=dict(load_params("verify-crops/retry/params.toml").values)),
+        "parameter_suggestion": _verify_prompt_metadata(
+            variant="parameter-suggestion",
+            resolved_params=dict(load_params("verify-crops/parameter-suggestion/params.toml").values),
+        ),
+    }
 
 
 def _concern_schema() -> dict[str, object]:
@@ -111,30 +145,36 @@ def _format_location_payload(review: dict[str, object]) -> str:
     return ", ".join(parts)
 
 
-def render_xmp_review_text(review: dict[str, object]) -> str:
+def render_xmp_review_text(review: dict[str, object], *, include_ocr_text: bool = True) -> str:
     lines: list[str] = []
-    simple_fields = (
+    simple_fields: list[tuple[str, object]] = [
         ("title", review.get("title")),
         ("album_title", review.get("album_title")),
         ("description", review.get("description")),
         ("dc_date", review.get("dc_date")),
-        ("author_text", review.get("author_text")),
-        ("scene_text", review.get("scene_text")),
-        ("ocr_text", review.get("ocr_text")),
-        ("source_text", review.get("source_text")),
-    )
+    ]
+    if include_ocr_text:
+        simple_fields.extend(
+            [
+                ("author_text", review.get("author_text")),
+                ("scene_text", review.get("scene_text")),
+                ("ocr_text", review.get("ocr_text")),
+            ]
+        )
+    simple_fields.append(("source_text", review.get("source_text")))
     for label, value in simple_fields:
         text = _clean_text(value)
         if text:
             lines.append(f"{label}: {text}")
-    location_text = _format_location_payload(review)
-    if location_text:
-        lines.append(f"location: {location_text}")
-    detections = review.get("detections")
-    if isinstance(detections, dict):
-        locations_shown = list(detections.get("locations_shown") or [])
-        if locations_shown:
-            lines.append(f"locations_shown: {json.dumps(locations_shown, ensure_ascii=False, sort_keys=True)}")
+    if include_ocr_text:
+        location_text = _format_location_payload(review)
+        if location_text:
+            lines.append(f"location: {location_text}")
+        detections = review.get("detections")
+        if isinstance(detections, dict):
+            locations_shown = list(detections.get("locations_shown") or [])
+            if locations_shown:
+                lines.append(f"locations_shown: {json.dumps(locations_shown, ensure_ascii=False, sort_keys=True)}")
     person_names = list(review.get("person_names") or [])
     if person_names:
         lines.append(f"person_names: {json.dumps(person_names, ensure_ascii=False)}")
@@ -142,6 +182,79 @@ def render_xmp_review_text(review: dict[str, object]) -> str:
     if subjects:
         lines.append(f"subjects: {json.dumps(subjects, ensure_ascii=False)}")
     return "\n".join(lines).strip()
+
+
+def _location_verification_entries(
+    review: dict[str, object],
+    *,
+    geocoder: NominatimGeocoder | None,
+) -> list[dict[str, object]]:
+    entries: list[dict[str, object]] = []
+    primary_lat = _clean_text(review.get("gps_latitude"))
+    primary_lon = _clean_text(review.get("gps_longitude"))
+    if primary_lat and primary_lon:
+        entries.append(
+            {
+                "kind": "primary_gps",
+                "description": _clean_text(review.get("description")),
+                "gps_latitude": primary_lat,
+                "gps_longitude": primary_lon,
+            }
+        )
+
+    detections = review.get("detections")
+    locations_shown = list(detections.get("locations_shown") or []) if isinstance(detections, dict) else []
+    for idx, location in enumerate(locations_shown, 1):
+        if not isinstance(location, dict):
+            continue
+        lat = _clean_text(location.get("gps_latitude"))
+        lon = _clean_text(location.get("gps_longitude"))
+        if not lat or not lon:
+            continue
+        entries.append(
+            {
+                "kind": "shown_location",
+                "index": idx,
+                "description": _clean_text(review.get("description")),
+                "gps_latitude": lat,
+                "gps_longitude": lon,
+            }
+        )
+
+    if geocoder is None:
+        return entries
+    for entry in entries:
+        result = geocoder.reverse_geocode(
+            _clean_text(entry.get("gps_latitude")),
+            _clean_text(entry.get("gps_longitude")),
+        )
+        if result is None:
+            entry["nominatim_reverse_lookup"] = "miss"
+            continue
+        entry["nominatim_reverse_lookup"] = {
+            "display_name": _clean_text(getattr(result, "display_name", "")),
+            "city": _clean_text(getattr(result, "city", "")),
+            "state": _clean_text(getattr(result, "state", "")),
+            "country": _clean_text(getattr(result, "country", "")),
+            "sublocation": _clean_text(getattr(result, "sublocation", "")),
+            "source": _clean_text(getattr(result, "source", "")) or "nominatim",
+        }
+    return entries
+
+
+def render_location_verification_text(
+    review: dict[str, object],
+    *,
+    geocoder: NominatimGeocoder | None,
+) -> str:
+    entries = _location_verification_entries(review, geocoder=geocoder)
+    if not entries:
+        return ""
+    return json.dumps(entries, ensure_ascii=False, sort_keys=True)
+
+
+def _review_text_without_ocr(review: dict[str, object]) -> str:
+    return render_xmp_review_text(review, include_ocr_text=False)
 
 
 def _context_payload_hash(payload: object) -> str:
@@ -189,7 +302,11 @@ def _image_dimensions(path: Path) -> tuple[int, int]:
         return image.size
 
 
-def load_page_verifier_inputs(page_image_path: Path) -> dict[str, object]:
+def load_page_verifier_inputs(
+    page_image_path: Path,
+    *,
+    geocoder: NominatimGeocoder | None = None,
+) -> dict[str, object]:
     page_path = Path(page_image_path)
     page_xmp = page_path.with_suffix(".xmp")
     page_image_exists = page_path.is_file()
@@ -201,19 +318,26 @@ def load_page_verifier_inputs(page_image_path: Path) -> dict[str, object]:
         missing_context.append("page_xmp")
 
     page_review = load_ai_xmp_review(page_xmp) if page_xmp_exists else {}
-    page_context_text = render_xmp_review_text(page_review) if isinstance(page_review, dict) else ""
+    page_context_text = _review_text_without_ocr(page_review) if isinstance(page_review, dict) else ""
+    page_location_text = (
+        render_location_verification_text(page_review, geocoder=geocoder) if isinstance(page_review, dict) else ""
+    )
 
     crop_inputs: list[dict[str, object]] = []
     for crop_path in _read_page_crop_paths(page_path):
         crop_xmp = crop_path.with_suffix(".xmp")
         crop_review = load_ai_xmp_review(crop_xmp) if crop_xmp.is_file() else {}
-        crop_context_text = render_xmp_review_text(crop_review) if isinstance(crop_review, dict) else ""
+        crop_context_text = _review_text_without_ocr(crop_review) if isinstance(crop_review, dict) else ""
+        crop_location_text = (
+            render_location_verification_text(crop_review, geocoder=geocoder) if isinstance(crop_review, dict) else ""
+        )
         crop_inputs.append(
             {
                 "crop_image_path": str(crop_path.resolve()),
                 "crop_xmp_path": str(crop_xmp.resolve()),
                 "crop_xmp_exists": crop_xmp.is_file(),
                 "crop_xmp_text": crop_context_text,
+                "crop_location_verification_text": crop_location_text,
             }
         )
 
@@ -223,6 +347,7 @@ def load_page_verifier_inputs(page_image_path: Path) -> dict[str, object]:
         "page_image_exists": page_image_exists,
         "page_xmp_exists": page_xmp_exists,
         "page_xmp_text": page_context_text,
+        "page_location_verification_text": page_location_text,
         "missing_context": missing_context,
         "crops": crop_inputs,
     }
@@ -234,32 +359,42 @@ def build_verification_prompt(
     crop_image_name: str,
     page_xmp_text: str,
     crop_xmp_text: str,
+    page_location_verification_text: str = "",
+    crop_location_verification_text: str = "",
 ) -> str:
-    parts = [section_text("Preamble Crop Metadata Verification").strip()]
+    parts = [load_prompt("verify-crops/verification/user.md").rendered]
     parts.append(f"Page image file: {page_image_name}")
     parts.append(f"Crop image file: {crop_image_name}")
     parts.append("Page XMP text:")
     parts.append(page_xmp_text or "(missing)")
     parts.append("Crop XMP text:")
     parts.append(crop_xmp_text or "(missing)")
+    parts.append("Page location verification evidence:")
+    parts.append(page_location_verification_text or "(no GPS coordinates)")
+    parts.append("Crop location verification evidence:")
+    parts.append(crop_location_verification_text or "(no GPS coordinates)")
     return "\n\n".join(part for part in parts if part).strip()
 
 
 def build_retry_prompt(*, concern: str, issue: str, problem_to_fix: str) -> str:
-    return section_text(
-        "Preamble Crop Metadata Verification Retry",
-        concern=str(concern or "").strip(),
-        issue=str(issue or "").strip(),
-        problem_to_fix=str(problem_to_fix or "").strip(),
-    ).strip()
+    return load_prompt(
+        "verify-crops/retry/user.md",
+        {
+            "concern": str(concern or "").strip(),
+            "issue": str(issue or "").strip(),
+            "problem_to_fix": str(problem_to_fix or "").strip(),
+        },
+    ).rendered
 
 
 def build_parameter_suggestion_prompt(*, concern: str, failure_reason: str) -> str:
-    return section_text(
-        "Preamble Crop Metadata Verification Parameter Suggestion",
-        concern=str(concern or "").strip(),
-        failure_reason=str(failure_reason or "").strip(),
-    ).strip()
+    return load_prompt(
+        "verify-crops/parameter-suggestion/user.md",
+        {
+            "concern": str(concern or "").strip(),
+            "failure_reason": str(failure_reason or "").strip(),
+        },
+    ).rendered
 
 
 def parse_parameter_suggestion_payload(payload: object) -> dict[str, object]:
@@ -283,7 +418,21 @@ def _current_crop_xmp_text(crop_image_path: Path) -> str:
     review = load_ai_xmp_review(crop_xmp)
     if not isinstance(review, dict):
         return ""
-    return render_xmp_review_text(review)
+    return _review_text_without_ocr(review)
+
+
+def _current_crop_location_verification_text(
+    crop_image_path: Path,
+    *,
+    geocoder: NominatimGeocoder | None,
+) -> str:
+    crop_xmp = crop_image_path.with_suffix(".xmp")
+    if not crop_xmp.is_file():
+        return ""
+    review = load_ai_xmp_review(crop_xmp)
+    if not isinstance(review, dict):
+        return ""
+    return render_location_verification_text(review, geocoder=geocoder)
 
 
 def _call_structured_vision_payload(
@@ -362,19 +511,59 @@ def _call_structured_vision_request(
     error_label: str,
     parser,
 ) -> tuple[dict[str, object], str, str, str]:
-    payload, resolved_model, response_text, finish_reason = _call_structured_vision_payload(
-        page_image_path=page_image_path,
-        crop_image_path=crop_image_path,
-        prompt=prompt,
-        model_name=model_name,
-        base_url=base_url,
-        max_tokens=max_tokens,
-        temperature=temperature,
-        max_image_edge=max_image_edge,
-        response_format=response_format,
-        error_label=error_label,
-    )
-    return parser(payload), resolved_model, response_text, finish_reason
+    resolved_model = ""
+    response_text = ""
+    try:
+        payload, resolved_model, response_text, finish_reason = _call_structured_vision_payload(
+            page_image_path=page_image_path,
+            crop_image_path=crop_image_path,
+            prompt=prompt,
+            model_name=model_name,
+            base_url=base_url,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            max_image_edge=max_image_edge,
+            response_format=response_format,
+            error_label=error_label,
+        )
+        return parser(payload), resolved_model, response_text, finish_reason
+    except Exception as exc:
+        focused_prompt = f"{prompt}\n\nYour previous response failed: {exc}. Please ensure you return valid JSON adhering exactly to the requested schema."
+        try:
+            payload, resolved_model, response_text, finish_reason = _call_structured_vision_payload(
+                page_image_path=page_image_path,
+                crop_image_path=crop_image_path,
+                prompt=focused_prompt,
+                model_name=model_name,
+                base_url=base_url,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                max_image_edge=max_image_edge,
+                response_format=response_format,
+                error_label=f"{error_label} Retry",
+            )
+            return parser(payload), resolved_model, response_text, finish_reason
+        except Exception as exc2:
+            if parser is parse_parameter_suggestion_payload:
+                return {
+                    "caption_max_tokens": max_tokens,
+                    "caption_temperature": temperature,
+                    "caption_max_edge": max_image_edge,
+                    "reason": f"Fallback parameters used because suggestion failed: {exc2}",
+                }, resolved_model or model_name, response_text, "error"
+            return {
+                **{
+                    name: {
+                        "verdict": "uncertain",
+                        "reasoning": "Verification failed due to parse or API error.",
+                        "failure_reason": str(exc2),
+                    }
+                    for name in VERIFICATION_CONCERNS
+                },
+                "human_inference": "Verification failed completely.",
+                "needs_another_pass": [],
+                "needs_human_review": list(ROUTABLE_CONCERNS),
+            }, resolved_model or model_name, response_text, "error"
 
 
 def _normalize_routing(values: object) -> list[str]:
@@ -404,7 +593,7 @@ def _normalize_concern(name: str, payload: object) -> dict[str, str]:
     if verdict == "good":
         failure_reason = ""
     elif not failure_reason:
-        raise ValueError(f"Concern '{name}' failure_reason is required for verdict '{verdict}'.")
+        failure_reason = reasoning
     return {
         "verdict": verdict,
         "reasoning": reasoning,
@@ -714,6 +903,8 @@ def _rerun_verification_for_crop(
     page_path: Path,
     crop_path: Path,
     page_xmp_text: str,
+    page_location_verification_text: str,
+    geocoder: NominatimGeocoder | None,
     model_name: str,
     base_url: str,
     max_tokens: int,
@@ -723,11 +914,14 @@ def _rerun_verification_for_crop(
     verification_pass: str,
 ) -> tuple[dict[str, object], str, str, str]:
     crop_xmp_text = _current_crop_xmp_text(crop_path)
+    crop_location_verification_text = _current_crop_location_verification_text(crop_path, geocoder=geocoder)
     prompt = build_verification_prompt(
         page_image_name=page_path.name,
         crop_image_name=crop_path.name,
         page_xmp_text=page_xmp_text,
         crop_xmp_text=crop_xmp_text,
+        page_location_verification_text=page_location_verification_text,
+        crop_location_verification_text=crop_location_verification_text,
     )
     parsed, resolved_model, response_text, finish_reason = _call_structured_vision_request(
         page_image_path=page_path,
@@ -750,10 +944,19 @@ def _rerun_verification_for_crop(
         prompt=prompt,
         system_prompt=verification_system_prompt(),
         source_path=crop_path,
-        prompt_source="skills/CORDELL_PHOTO_ALBUMS/SKILL.md",
+        prompt_source="photoalbums/prompts/verify-crops/verification",
         response=response_text,
         finish_reason=finish_reason,
         metadata={
+            **_verify_prompt_metadata(
+                variant="verification",
+                resolved_params={
+                    "max_tokens": int(max_tokens),
+                    "temperature": float(temperature),
+                    "max_image_edge": int(max_image_edge),
+                    "timeout_seconds": DEFAULT_LMSTUDIO_TIMEOUT_SECONDS,
+                },
+            ),
             "page_image_path": str(page_path.resolve()),
             "verification_pass": verification_pass,
         },
@@ -798,9 +1001,23 @@ def run_verify_crops_page(
     debug_recorder=None,
     logger=None,
 ) -> dict[str, object]:
+    default_params = _verification_params()
+    max_tokens = int(max_tokens if max_tokens is not None else default_params.get("max_tokens", 512))
+    temperature = float(temperature if temperature is not None else default_params.get("temperature", 0.0))
+    max_image_edge = int(
+        max_image_edge if max_image_edge is not None else default_params.get("max_image_edge", DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
+    )
+    resolved_params = {
+        "max_tokens": int(max_tokens),
+        "temperature": float(temperature),
+        "max_image_edge": int(max_image_edge),
+        "timeout_seconds": float(default_params.get("timeout_seconds", DEFAULT_LMSTUDIO_TIMEOUT_SECONDS)),
+    }
     page_path = Path(page_image_path)
-    inputs = load_page_verifier_inputs(page_path)
+    geocoder = NominatimGeocoder()
+    inputs = load_page_verifier_inputs(page_path, geocoder=geocoder)
     page_xmp_text = _clean_text(inputs.get("page_xmp_text"))
+    page_location_verification_text = _clean_text(inputs.get("page_location_verification_text"))
     missing_context = list(inputs.get("missing_context") or [])
     crop_inputs = list(inputs.get("crops") or [])
     artifact: dict[str, object] = {
@@ -815,11 +1032,15 @@ def run_verify_crops_page(
         {
             "page_image": _image_signature(page_path) if page_path.is_file() else None,
             "page_xmp_text": page_xmp_text,
+            "page_location_verification_text": page_location_verification_text,
             "page_pipeline_state": read_pipeline_state(page_path.with_suffix(".xmp")),
+            "prompt_assets": verify_crops_prompt_hash_payload(),
+            "resolved_params": resolved_params,
             "crops": [
                 {
                     "crop_image": _image_signature(Path(str(item.get("crop_image_path") or ""))),
                     "crop_xmp_text": _clean_text(item.get("crop_xmp_text")),
+                    "crop_location_verification_text": _clean_text(item.get("crop_location_verification_text")),
                 }
                 for item in crop_inputs
                 if Path(str(item.get("crop_image_path") or "")).is_file()
@@ -845,11 +1066,14 @@ def run_verify_crops_page(
     for crop_input in crop_inputs:
         crop_path = Path(str(crop_input.get("crop_image_path") or ""))
         crop_xmp_text = _clean_text(crop_input.get("crop_xmp_text"))
+        crop_location_verification_text = _clean_text(crop_input.get("crop_location_verification_text"))
         prompt = build_verification_prompt(
             page_image_name=page_path.name,
             crop_image_name=crop_path.name,
             page_xmp_text=page_xmp_text,
             crop_xmp_text=crop_xmp_text,
+            page_location_verification_text=page_location_verification_text,
+            crop_location_verification_text=crop_location_verification_text,
         )
         parsed, resolved_model, response_text, finish_reason = _call_structured_vision_request(
             page_image_path=page_path,
@@ -872,10 +1096,13 @@ def run_verify_crops_page(
             prompt=prompt,
             system_prompt=verification_system_prompt(),
             source_path=crop_path,
-            prompt_source="skills/CORDELL_PHOTO_ALBUMS/SKILL.md",
+            prompt_source="photoalbums/prompts/verify-crops/verification",
             response=response_text,
             finish_reason=finish_reason,
-            metadata={"page_image_path": str(page_path.resolve())},
+            metadata={
+                **_verify_prompt_metadata(variant="verification", resolved_params=resolved_params),
+                "page_image_path": str(page_path.resolve()),
+            },
         )
         row = {
             "crop_image_path": str(crop_path.resolve()),
@@ -925,6 +1152,8 @@ def run_verify_crops_page(
                     page_path=page_path,
                     crop_path=crop_path,
                     page_xmp_text=page_xmp_text,
+                    page_location_verification_text=page_location_verification_text,
+                    geocoder=geocoder,
                     model_name=model_name,
                     base_url=base_url,
                     max_tokens=max_tokens,
@@ -959,26 +1188,35 @@ def run_verify_crops_page(
             current_failure_reason = _clean_text(dict(current_review.get(concern) or {}).get("failure_reason")) or failure_reason
             current_issue = _concern_issue_text(dict(current_review.get(concern) or {}))
             current_crop_xmp_text = _current_crop_xmp_text(crop_path)
+            current_crop_location_verification_text = _current_crop_location_verification_text(
+                crop_path,
+                geocoder=geocoder,
+            )
             parameter_prompt = build_parameter_suggestion_prompt(
                 concern=concern,
                 failure_reason=current_failure_reason,
+            )
+            parameter_context_prompt = "\n\n".join(
+                part
+                for part in (
+                    parameter_prompt,
+                    "Page XMP text:",
+                    page_xmp_text or "(missing)",
+                    "Crop XMP text:",
+                    current_crop_xmp_text or "(missing)",
+                    "Page location verification evidence:",
+                    page_location_verification_text or "(no GPS coordinates)",
+                    "Crop location verification evidence:",
+                    current_crop_location_verification_text or "(no GPS coordinates)",
+                )
+                if part
             )
             if callable(logger):
                 logger(f"verify-crops parameter suggestion pass 3 {crop_path.name} {concern}: full-context session")
             suggested_params, suggestion_model, suggestion_response_text, suggestion_finish_reason = _call_structured_vision_request(
                 page_image_path=page_path,
                 crop_image_path=crop_path,
-                prompt="\n\n".join(
-                    part
-                    for part in (
-                        parameter_prompt,
-                        "Page XMP text:",
-                        page_xmp_text or "(missing)",
-                        "Crop XMP text:",
-                        current_crop_xmp_text or "(missing)",
-                    )
-                    if part
-                ),
+                prompt=parameter_context_prompt,
                 model_name=model_name,
                 base_url=base_url,
                 max_tokens=max_tokens,
@@ -993,23 +1231,14 @@ def run_verify_crops_page(
                 step="verify-crops",
                 engine="lmstudio",
                 model=suggestion_model,
-                prompt="\n\n".join(
-                    part
-                    for part in (
-                        parameter_prompt,
-                        "Page XMP text:",
-                        page_xmp_text or "(missing)",
-                        "Crop XMP text:",
-                        current_crop_xmp_text or "(missing)",
-                    )
-                    if part
-                ),
+                prompt=parameter_context_prompt,
                 system_prompt=verification_system_prompt(),
                 source_path=crop_path,
-                prompt_source="skills/CORDELL_PHOTO_ALBUMS/SKILL.md",
+                prompt_source="photoalbums/prompts/verify-crops/parameter-suggestion",
                 response=suggestion_response_text,
                 finish_reason=suggestion_finish_reason,
                 metadata={
+                    **_verify_prompt_metadata(variant="parameter-suggestion", resolved_params=resolved_params),
                     "page_image_path": str(page_path.resolve()),
                     "verification_pass": "parameter-suggestion-pass-3",
                 },
@@ -1050,6 +1279,8 @@ def run_verify_crops_page(
                     page_path=page_path,
                     crop_path=crop_path,
                     page_xmp_text=page_xmp_text,
+                    page_location_verification_text=page_location_verification_text,
+                    geocoder=geocoder,
                     model_name=model_name,
                     base_url=base_url,
                     max_tokens=max_tokens,

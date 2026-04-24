@@ -13,6 +13,7 @@ if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
 from photoalbums.lib import ai_caption, _caption_lmstudio
+from photoalbums.lib._caption_prompts import _build_location_queries_prompt
 
 
 class TestAICaption(unittest.TestCase):
@@ -84,6 +85,7 @@ class TestAICaption(unittest.TestCase):
     def test_system_prompts_load_from_skill_sections(self):
         self.assertIn("Count clearly visible real people only.", ai_caption.people_count_system_prompt())
         self.assertIn("leave GPS fields empty", ai_caption.location_system_prompt())
+        self.assertIn("include a country name in the query", ai_caption.location_system_prompt())
 
     def test_build_location_prompt_includes_album_and_ocr_hints(self):
         prompt = ai_caption._build_location_prompt(
@@ -92,9 +94,21 @@ class TestAICaption(unittest.TestCase):
         )
         self.assertIn("The album name is: China 1986 Book 11", prompt)
         self.assertIn("The OCR text on the page is: TEMPLE OF HEAVEN\nBEIJING", prompt)
-        self.assertIn("prefer a disambiguating geocoding query", prompt)
-        self.assertIn("Avoid ambiguous bare place names like `Oxford`", prompt)
-        self.assertIn("Include country, state/province, or broad region", prompt)
+        self.assertIn("include a country name so the Nominatim geocoding query is not ambiguous", prompt)
+        self.assertIn("choose the single best country from the album title", prompt)
+        self.assertIn("Do not return country-less queries like `Oxford`", prompt)
+        self.assertIn("Include a country name in every non-empty query", prompt)
+
+    def test_build_location_queries_prompt_requires_country_queries(self):
+        prompt = _build_location_queries_prompt(
+            caption_text="Dubrovnik waterfront",
+            ocr_text="DUBROVNIK",
+            album_title="Yugoslavia 1972",
+        )
+        self.assertIn("Every non-empty Nominatim query must include a country name", prompt)
+        self.assertIn("choose the single best country from the Album value above", prompt)
+        self.assertIn("primary_query: the single most specific location for the primary GPS, including country", prompt)
+        self.assertIn("Include country_name for every named query", prompt)
 
     def test_build_location_prompt_falls_back_to_printed_album_title(self):
         prompt = ai_caption._build_location_prompt(

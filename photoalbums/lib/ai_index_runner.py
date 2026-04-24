@@ -59,6 +59,7 @@ from .ai_sidecar_state import (
 )
 from .metadata_resolver import resolve_person_in_image
 from .prompt_debug import PromptDebugSession
+from .ai_prompt_assets import load_params
 from .xmp_sidecar import (
     _dedupe,
     _resolve_date_time_original,
@@ -269,9 +270,16 @@ class IndexRunner:
 
         self.single_photo = str(self.args.photo or "").strip()
 
+        caption_params = load_params("ai-index/caption/params.toml").values
         default_caption_max_tokens = int(self.args.caption_max_tokens)
         if "--caption-max-tokens" not in self.explicit_flags and str(self.args.caption_engine) == "lmstudio":
-            default_caption_max_tokens = max(default_caption_max_tokens, int(DEFAULT_LMSTUDIO_MAX_NEW_TOKENS))
+            default_caption_max_tokens = int(caption_params.get("max_tokens", DEFAULT_LMSTUDIO_MAX_NEW_TOKENS))
+        default_caption_temperature = float(self.args.caption_temperature)
+        if "--caption-temperature" not in self.explicit_flags and str(self.args.caption_engine) == "lmstudio":
+            default_caption_temperature = float(caption_params.get("temperature", self.args.caption_temperature))
+        default_caption_max_edge = int(self.args.caption_max_edge)
+        if "--caption-max-edge" not in self.explicit_flags and str(self.args.caption_engine) == "lmstudio":
+            default_caption_max_edge = int(caption_params.get("max_image_edge", self.args.caption_max_edge))
 
         self.defaults = {
             "skip": False,
@@ -284,8 +292,8 @@ class IndexRunner:
             "caption_model": resolve_caption_model(str(self.args.caption_engine), str(self.args.caption_model)),
             "caption_prompt": str(self.requested_caption_prompt),
             "caption_max_tokens": int(default_caption_max_tokens),
-            "caption_temperature": float(self.args.caption_temperature),
-            "caption_max_edge": int(self.args.caption_max_edge),
+            "caption_temperature": float(default_caption_temperature),
+            "caption_max_edge": int(default_caption_max_edge),
             "lmstudio_base_url": normalize_lmstudio_base_url(str(self.args.lmstudio_base_url)),
             "people_threshold": float(self.args.people_threshold),
             "object_threshold": float(self.args.object_threshold),
@@ -343,8 +351,10 @@ class IndexRunner:
                 lmstudio_base_url=caption_key[5],
                 max_image_edge=int(caption_key[6]),
                 stream=True,
+                override_sources=dict(effective.get("_override_sources") or {}),
             )
             self.caption_engine_cache[caption_key] = caption_engine
+        caption_engine.override_sources = dict(effective.get("_override_sources") or {})
         return caption_engine
 
     def _get_date_engine(self, effective: dict[str, Any]) -> DateEstimateEngine:
@@ -507,6 +517,26 @@ class IndexRunner:
             str(effective.get("caption_engine", self.defaults["caption_engine"])),
             str(effective.get("caption_model", self.defaults["caption_model"])),
         )
+        override_sources: dict[str, str] = {}
+        cli_flags_by_key = {
+            "caption_prompt": {
+                "--caption-prompt",
+                "--local-prompt",
+                "--qwen-prompt",
+                "--caption-prompt-file",
+                "--local-prompt-file",
+                "--qwen-prompt-file",
+            },
+            "caption_max_tokens": {"--caption-max-tokens"},
+            "caption_temperature": {"--caption-temperature"},
+            "caption_max_edge": {"--caption-max-edge"},
+        }
+        for key, flags in cli_flags_by_key.items():
+            if any(flag in self.explicit_flags for flag in flags):
+                override_sources[key] = "cli"
+            elif loaded_settings is not None and effective.get(key) != self.defaults.get(key):
+                override_sources[key] = f"render_settings:{settings_file}"
+        effective["_override_sources"] = override_sources
         settings_sig = _settings_signature(effective)
         creator_tool = str(effective.get("creator_tool", self.args.creator_tool))
         date_estimation_enabled = (
@@ -530,7 +560,15 @@ class IndexRunner:
                 min_face_size=int(people_key[2]),
             )
             self.people_matcher_cache[people_key] = people_matcher
-        return people_matcher, str(people_matcher.store_signature())
+        return people_matcher, self._people_invalidation_signature(people_matcher)
+
+    def _people_invalidation_signature(self, people_matcher: Any) -> str:
+        reviewed_signature_fn = getattr(people_matcher, "reviewed_identity_signature", None)
+        if callable(reviewed_signature_fn):
+            reviewed_signature = reviewed_signature_fn()
+            if isinstance(reviewed_signature, str) and reviewed_signature.strip():
+                return reviewed_signature
+        return str(people_matcher.store_signature())
 
     # ── Per-image dispatch ──────────────────────────────────────────────────
 
@@ -1117,8 +1155,10 @@ class IndexRunner:
                         lmstudio_base_url=caption_key[5],
                         max_image_edge=int(caption_key[6]),
                         stream=True,
+                        override_sources=dict(effective.get("_override_sources") or {}),
                     )
                     self.caption_engine_cache[caption_key] = pu_caption_engine
+                pu_caption_engine.override_sources = dict(effective.get("_override_sources") or {})
                 pu_people_positions = _compute_people_positions(pu_people_matches, image_path)
                 _pu_step("caption")
                 pu_prompt_debug = PromptDebugSession(image_path, label=_display_work_label(image_path))
@@ -1253,7 +1293,7 @@ class IndexRunner:
                     title_source=str(state.get("title_source") or ""),
                     author_text=str(text_layers.get("author_text") or ""),
                 )
-                current_cast_signature = str(people_matcher.store_signature())
+                current_cast_signature = self._people_invalidation_signature(people_matcher)
                 pu_proc = dict((pu_updated_det.get("processing") or {}))
                 pu_proc["cast_store_signature"] = current_cast_signature
                 if date_estimation_enabled or pu_dc_date:
@@ -1364,8 +1404,10 @@ class IndexRunner:
                     lmstudio_base_url=caption_key[5],
                     max_image_edge=int(caption_key[6]),
                     stream=True,
+                    override_sources=dict(effective.get("_override_sources") or {}),
                 )
                 self.caption_engine_cache[caption_key] = gps_caption_engine
+            gps_caption_engine.override_sources = dict(effective.get("_override_sources") or {})
 
             gps_prompt_debug = PromptDebugSession(image_path, label=_display_work_label(image_path))
             _gps_step("location")
@@ -1554,8 +1596,10 @@ class IndexRunner:
                     lmstudio_base_url=caption_key[5],
                     max_image_edge=int(caption_key[6]),
                     stream=not self.stdout_only,
+                    override_sources=dict(effective.get("_override_sources") or {}),
                 )
                 self.caption_engine_cache[caption_key] = caption_engine
+            caption_engine.override_sources = dict(effective.get("_override_sources") or {})
 
             ocr_key = (
                 str(effective.get("ocr_engine", self.defaults["ocr_engine"])),
@@ -1705,11 +1749,14 @@ class IndexRunner:
                 _people_identified_flag = len(person_names) > 0
 
                 if not self.dry_run:
-                    # Merge step records atomically into the payload (Task 6.3)
+                    # Preserve unrelated pipeline markers (for example face_refresh)
+                    # while atomically merging any ai-index step records from this run.
                     _pending_step_records = _step_runner.get_pending_records()
-                    if _pending_step_records:
-                        _existing_pipeline = dict(_existing_detections.get("pipeline") or {})
-                        _existing_pipeline.update(_pending_step_records)
+                    _existing_pipeline = dict(_existing_detections.get("pipeline") or {})
+                    _payload_pipeline = dict(payload.get("pipeline") or {})
+                    _existing_pipeline.update(_payload_pipeline)
+                    _existing_pipeline.update(_pending_step_records)
+                    if _existing_pipeline:
                         payload["pipeline"] = _existing_pipeline
 
                     location_payload = dict(payload.get("location") or {}) if isinstance(payload, dict) else {}
@@ -1762,7 +1809,7 @@ class IndexRunner:
                     )
                     subphotos_xml = None
                     if people_matcher is not None:
-                        current_cast_signature = str(people_matcher.store_signature())
+                        current_cast_signature = self._people_invalidation_signature(people_matcher)
                     stat = image_path.stat()
                     payload["processing"] = {
                         "processor_signature": PROCESSOR_SIGNATURE,

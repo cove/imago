@@ -32,7 +32,13 @@ from ._caption_prompts import (  # noqa: F401
     _build_location_prompt,
     _build_people_count_prompt,
     _build_local_prompt,
+    caption_prompt_metadata,
+    location_prompt_metadata,
+    location_queries_prompt_metadata,
+    location_shown_prompt_metadata,
+    people_count_prompt_metadata,
 )
+from .ai_prompt_assets import load_params, params_metadata
 
 
 def _caption_has_meaningful_content(caption) -> bool:
@@ -69,6 +75,10 @@ def resolve_caption_models(engine: str, model_name: str) -> list[str]:
         return configured
     fallback = default_caption_model()
     return [fallback] if fallback else []
+
+
+def _params_debug(relative_path: str, resolved: dict[str, object], overrides: dict[str, str] | None = None) -> dict[str, object]:
+    return params_metadata(load_params(relative_path), resolved, overrides)
 
 
 @dataclass
@@ -142,6 +152,7 @@ class CaptionEngine:
         lmstudio_base_url: str = "",
         max_image_edge: int = 0,
         stream: bool = False,
+        override_sources: dict[str, str] | None = None,
     ):
         normalized = str(engine or "lmstudio").strip().lower()
         if normalized in {"qwen", "blip", "local"}:
@@ -161,6 +172,7 @@ class CaptionEngine:
         )
         self._max_image_edge = max(0, int(max_image_edge))
         self._stream = bool(stream)
+        self.override_sources = dict(override_sources or {})
 
     @property
     def effective_model_name(self) -> str:
@@ -258,6 +270,23 @@ class CaptionEngine:
             )
         finally:
             metadata = {"photo_count": int(photo_count)}
+            metadata.update(
+                caption_prompt_metadata(
+                    source_path=source_path or image_path,
+                    context_ocr_text=context_ocr_text,
+                )
+            )
+            metadata.update(
+                _params_debug(
+                    "ai-index/caption/params.toml",
+                    {
+                        "max_tokens": int(self._max_tokens),
+                        "temperature": float(self._temperature),
+                        "max_image_edge": int(self._max_image_edge),
+                    },
+                    {**({"caption_prompt": "custom"} if self._caption_prompt else {}), **self.override_sources},
+                )
+            )
             if error_text:
                 metadata["error"] = error_text
             _emit_prompt_debug(
@@ -268,7 +297,7 @@ class CaptionEngine:
                 prompt=prompt,
                 system_prompt="",
                 source_path=source_path or image_path,
-                prompt_source=("custom" if self._caption_prompt else "skill"),
+                prompt_source=("custom" if self._caption_prompt else "photoalbums/prompts/ai-index/caption"),
                 response=response,
                 finish_reason=finish_reason,
                 metadata=metadata,
@@ -332,6 +361,17 @@ class CaptionEngine:
             )
         finally:
             metadata = {}
+            metadata.update(people_count_prompt_metadata())
+            metadata.update(
+                _params_debug(
+                    "ai-index/people-count/params.toml",
+                    {
+                        "max_tokens": min(48, int(self._max_tokens)),
+                        "temperature": 0.0,
+                        "max_image_edge": int(self._max_image_edge),
+                    },
+                )
+            )
             if error_text:
                 metadata["error"] = error_text
             _emit_prompt_debug(
@@ -342,7 +382,7 @@ class CaptionEngine:
                 prompt=prompt,
                 system_prompt=people_count_system_prompt(),
                 source_path=source_path or image_path,
-                prompt_source=("custom" if self._caption_prompt else "skill"),
+                prompt_source="photoalbums/prompts/ai-index/people-count",
                 response=response,
                 finish_reason=finish_reason,
                 metadata=metadata,
@@ -403,6 +443,17 @@ class CaptionEngine:
             )
         finally:
             metadata = {}
+            metadata.update(location_prompt_metadata())
+            metadata.update(
+                _params_debug(
+                    "ai-index/locations/params.toml",
+                    {
+                        "max_tokens": min(96, int(self._max_tokens)),
+                        "temperature": 0.0,
+                        "max_image_edge": int(self._max_image_edge),
+                    },
+                )
+            )
             if error_text:
                 metadata["error"] = error_text
             _emit_prompt_debug(
@@ -413,7 +464,7 @@ class CaptionEngine:
                 prompt=prompt,
                 system_prompt=location_system_prompt(),
                 source_path=source_path or image_path,
-                prompt_source=("custom" if self._caption_prompt else "skill"),
+                prompt_source="photoalbums/prompts/ai-index/locations",
                 response=response,
                 finish_reason=finish_reason,
                 metadata=metadata,
@@ -471,6 +522,17 @@ class CaptionEngine:
             )
         finally:
             metadata = {}
+            metadata.update(location_shown_prompt_metadata())
+            metadata.update(
+                _params_debug(
+                    "ai-index/locations/params.toml",
+                    {
+                        "max_tokens": min(256, int(self._max_tokens)),
+                        "temperature": 0.0,
+                        "max_image_edge": int(self._max_image_edge),
+                    },
+                )
+            )
             if error_text:
                 metadata["error"] = error_text
             _emit_prompt_debug(
@@ -481,7 +543,7 @@ class CaptionEngine:
                 prompt=prompt,
                 system_prompt=location_system_prompt(),
                 source_path=source_path or image_path,
-                prompt_source=("custom" if self._caption_prompt else "skill"),
+                prompt_source="photoalbums/prompts/ai-index/locations",
                 response=response,
                 finish_reason=finish_reason,
                 metadata=metadata,
@@ -559,6 +621,17 @@ class CaptionEngine:
             )
         finally:
             metadata = {}
+            metadata.update(location_queries_prompt_metadata())
+            metadata.update(
+                _params_debug(
+                    "ai-index/locations/params.toml",
+                    {
+                        "max_tokens": min(256, int(self._max_tokens)),
+                        "temperature": 0.0,
+                        "max_image_edge": int(self._max_image_edge),
+                    },
+                )
+            )
             if error_text:
                 metadata["error"] = error_text
             _emit_prompt_debug(
@@ -569,7 +642,7 @@ class CaptionEngine:
                 prompt=prompt,
                 system_prompt=location_system_prompt(),
                 source_path=source_path or image_path,
-                prompt_source=("custom" if self._caption_prompt else "skill"),
+                prompt_source="photoalbums/prompts/ai-index/locations",
                 response=response,
                 finish_reason=finish_reason,
                 metadata=metadata,

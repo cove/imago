@@ -1,0 +1,3 @@
+- The following OCR text comes from the parent album page XMP and is context only: {context_ocr_text}
+- Use it only to disambiguate cropped annotations, partial captions, or place names visible in the current image.
+- Do not copy words from this context into `ocr_text`, `author_text`, or `scene_text` unless they are visible in the current image.
