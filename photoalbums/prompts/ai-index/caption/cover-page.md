@@ -2,5 +2,4 @@
 - Use the OCR text from this page as the source of truth for `album_title`.
 - Read the full album title exactly as printed on the cover, including all countries, years, and book numbers if present.
 - Output `album_title` as a single-line storage title: preserve the printed words and order, but replace line breaks with spaces.
-- Do not output literal `\n` sequences inside `album_title`.
 - Do not normalize, romanize book numbers, or otherwise rewrite the title text.
