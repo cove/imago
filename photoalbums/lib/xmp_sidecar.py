@@ -457,11 +457,11 @@ def _add_region_location_struct(parent: ET.Element, tag: str, payload: dict[str,
     if clean_payload["address"]:
         ET.SubElement(field, f"{{{IMAGO_NS}}}Address").text = _normalize_xmp_text(clean_payload["address"])
     if clean_payload["city"]:
-        ET.SubElement(field, f"{{{PHOTOSHOP_NS}}}City").text = _normalize_xmp_text(clean_payload["city"])
+        ET.SubElement(field, f"{{{IPTC_EXT_NS}}}City").text = _normalize_xmp_text(clean_payload["city"])
     if clean_payload["state"]:
-        ET.SubElement(field, f"{{{PHOTOSHOP_NS}}}State").text = _normalize_xmp_text(clean_payload["state"])
+        ET.SubElement(field, f"{{{IPTC_EXT_NS}}}ProvinceState").text = _normalize_xmp_text(clean_payload["state"])
     if clean_payload["country"]:
-        ET.SubElement(field, f"{{{PHOTOSHOP_NS}}}Country").text = _normalize_xmp_text(clean_payload["country"])
+        ET.SubElement(field, f"{{{IPTC_EXT_NS}}}CountryName").text = _normalize_xmp_text(clean_payload["country"])
     if clean_payload["sublocation"]:
         ET.SubElement(field, f"{{{IPTC_EXT_NS}}}Sublocation").text = _normalize_xmp_text(clean_payload["sublocation"])
     if clean_payload["gps_latitude"]:
@@ -485,9 +485,9 @@ def _read_region_location_struct(parent: ET.Element, tag: str) -> dict[str, str]
             return {}
         payload = {
             "address": str(field.findtext(f"{{{IMAGO_NS}}}Address", default="") or "").strip(),
-            "city": str(field.findtext(f"{{{PHOTOSHOP_NS}}}City", default="") or "").strip(),
-            "state": str(field.findtext(f"{{{PHOTOSHOP_NS}}}State", default="") or "").strip(),
-            "country": str(field.findtext(f"{{{PHOTOSHOP_NS}}}Country", default="") or "").strip(),
+            "city": str(field.findtext(f"{{{IPTC_EXT_NS}}}City", default="") or "").strip(),
+            "state": str(field.findtext(f"{{{IPTC_EXT_NS}}}ProvinceState", default="") or "").strip(),
+            "country": str(field.findtext(f"{{{IPTC_EXT_NS}}}CountryName", default="") or "").strip(),
             "sublocation": str(field.findtext(f"{{{IPTC_EXT_NS}}}Sublocation", default="") or "").strip(),
             "gps_latitude": _xmp_gps_to_decimal(field.findtext(f"{{{EXIF_NS}}}GPSLatitude", default=""), axis="lat"),
             "gps_longitude": _xmp_gps_to_decimal(field.findtext(f"{{{EXIF_NS}}}GPSLongitude", default=""), axis="lon"),
@@ -861,11 +861,12 @@ def build_xmp_tree(
         )
         _add_simple_text(desc, f"{{{EXIF_NS}}}GPSMapDatum", "WGS-84")
         _add_simple_text(desc, f"{{{EXIF_NS}}}GPSVersionID", "2.3.0.0")
-    if str(location_city or "").strip():
+    write_photoshop_location = description_role != DESCRIPTION_ROLE_CROP
+    if write_photoshop_location and str(location_city or "").strip():
         _add_simple_text(desc, f"{{{PHOTOSHOP_NS}}}City", str(location_city or "").strip())
-    if str(location_state or "").strip():
+    if write_photoshop_location and str(location_state or "").strip():
         _add_simple_text(desc, f"{{{PHOTOSHOP_NS}}}State", str(location_state or "").strip())
-    if str(location_country or "").strip():
+    if write_photoshop_location and str(location_country or "").strip():
         _add_simple_text(desc, f"{{{PHOTOSHOP_NS}}}Country", str(location_country or "").strip())
     if str(location_sublocation or "").strip():
         _add_simple_text(desc, f"{{{IPTC_EXT_NS}}}Sublocation", str(location_sublocation or "").strip())
@@ -886,12 +887,13 @@ def build_xmp_tree(
     creator = ET.SubElement(desc, f"{{{XMP_NS}}}CreatorTool")
     creator.text = _normalize_xmp_text(creator_tool) or "https://github.com/cove/imago"
 
+    write_ocr_text_fields = description_role != DESCRIPTION_ROLE_CROP
     clean_ocr = _normalize_xmp_text(ocr_text, multiline=True)
-    if clean_ocr:
+    if write_ocr_text_fields and clean_ocr:
         ocr = ET.SubElement(desc, f"{{{IMAGO_NS}}}OCRText")
         ocr.text = clean_ocr
     clean_parent_ocr = _normalize_xmp_text(parent_ocr_text, multiline=True)
-    if clean_parent_ocr:
+    if write_ocr_text_fields and clean_parent_ocr:
         parent_ocr = ET.SubElement(desc, f"{{{IMAGO_NS}}}ParentOCRText")
         parent_ocr.text = clean_parent_ocr
     clean_ocr_lang = _normalize_xmp_text(ocr_lang)
@@ -1496,6 +1498,64 @@ def read_locations_shown(sidecar_path: str | Path) -> list[dict[str, str]]:
         return []
 
 
+def _read_sidecar_location_state(
+    desc: ET.Element,
+    *,
+    detections_payload: dict | None,
+    description_role: str,
+    xmp_gps_to_decimal,
+) -> dict[str, str]:
+    location_payload = dict((detections_payload or {}).get("location") or {})
+    location_state = {
+        "gps_latitude": (
+            xmp_gps_to_decimal(desc.findtext(f"{{{EXIF_NS}}}GPSLatitude", default=""), axis="lat")
+            if xmp_gps_to_decimal is not None
+            else str(desc.findtext(f"{{{EXIF_NS}}}GPSLatitude", default="") or "").strip()
+        ),
+        "gps_longitude": (
+            xmp_gps_to_decimal(desc.findtext(f"{{{EXIF_NS}}}GPSLongitude", default=""), axis="lon")
+            if xmp_gps_to_decimal is not None
+            else str(desc.findtext(f"{{{EXIF_NS}}}GPSLongitude", default="") or "").strip()
+        ),
+        "location_city": str(desc.findtext(f"{{{PHOTOSHOP_NS}}}City", default="") or "").strip(),
+        "location_state": str(desc.findtext(f"{{{PHOTOSHOP_NS}}}State", default="") or "").strip(),
+        "location_country": str(desc.findtext(f"{{{PHOTOSHOP_NS}}}Country", default="") or "").strip(),
+        "location_sublocation": str(desc.findtext(f"{{{IPTC_EXT_NS}}}Sublocation", default="") or "").strip(),
+        "location_created": str(desc.findtext(f"{{{IPTC_EXT_NS}}}LocationCreated", default="") or "").strip(),
+    }
+    for target_key, payload_key in (
+        ("location_city", "city"),
+        ("location_state", "state"),
+        ("location_country", "country"),
+        ("location_sublocation", "sublocation"),
+    ):
+        location_state[target_key] = location_state[target_key] or str(location_payload.get(payload_key) or "").strip()
+
+    crop_locations_shown = _read_locations_shown_from_desc(desc)
+    crop_location = (
+        crop_locations_shown[0]
+        if description_role == DESCRIPTION_ROLE_CROP and len(crop_locations_shown) == 1
+        else {}
+    )
+    for target_key, crop_key in (
+        ("location_city", "city"),
+        ("location_state", "province_or_state"),
+        ("location_country", "country_name"),
+        ("location_sublocation", "sublocation"),
+        ("gps_latitude", "gps_latitude"),
+        ("gps_longitude", "gps_longitude"),
+    ):
+        location_state[target_key] = location_state[target_key] or str(crop_location.get(crop_key) or "").strip()
+
+    location_state["location_created"] = location_state["location_created"] or _format_location_created(
+        location_city=location_state["location_city"],
+        location_state=location_state["location_state"],
+        location_country=location_state["location_country"],
+        location_sublocation=location_state["location_sublocation"],
+    )
+    return location_state
+
+
 def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
     path = Path(sidecar_path)
     if not path.is_file():
@@ -1516,32 +1576,12 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
         from .ai_location import _xmp_gps_to_decimal  # pylint: disable=import-outside-toplevel
     except Exception:  # pragma: no cover - defensive import fallback
         _xmp_gps_to_decimal = None
-    location_payload = dict((detections_payload or {}).get("location") or {})
-    location_city = str(desc.findtext(f"{{{PHOTOSHOP_NS}}}City", default="") or "").strip()
-    location_state = str(desc.findtext(f"{{{PHOTOSHOP_NS}}}State", default="") or "").strip()
-    location_country = str(desc.findtext(f"{{{PHOTOSHOP_NS}}}Country", default="") or "").strip()
-    location_sublocation = str(desc.findtext(f"{{{IPTC_EXT_NS}}}Sublocation", default="") or "").strip()
-    location_created = str(desc.findtext(f"{{{IPTC_EXT_NS}}}LocationCreated", default="") or "").strip()
-    if not location_city:
-        location_city = str(location_payload.get("city") or "").strip()
-    if not location_state:
-        location_state = str(location_payload.get("state") or "").strip()
-    if not location_country:
-        location_country = str(location_payload.get("country") or "").strip()
-    if not location_sublocation:
-        location_sublocation = str(location_payload.get("sublocation") or "").strip()
-    if not location_created:
-        location_created = _format_location_created(
-            location_city=location_city,
-            location_state=location_state,
-            location_country=location_country,
-            location_sublocation=location_sublocation,
-        )
     description_role = _description_role_for_sidecar_path(path)
-    legacy_crop_parent_ocr = (
-        str(desc.findtext(f"{{{IMAGO_NS}}}OCRText", default="") or "").strip()
-        if description_role == DESCRIPTION_ROLE_CROP
-        else ""
+    location_state = _read_sidecar_location_state(
+        desc,
+        detections_payload=detections_payload,
+        description_role=description_role,
+        xmp_gps_to_decimal=_xmp_gps_to_decimal,
     )
     return {
         "creator_tool": str(desc.findtext(f"{{{XMP_NS}}}CreatorTool", default="") or "").strip(),
@@ -1559,24 +1599,22 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
             or ""
         ).strip(),
         "source_text": str(desc.findtext(f"{{{DC_NS}}}source", default="") or "").strip(),
-        "gps_latitude": (
-            _xmp_gps_to_decimal(desc.findtext(f"{{{EXIF_NS}}}GPSLatitude", default=""), axis="lat")
-            if _xmp_gps_to_decimal is not None
-            else str(desc.findtext(f"{{{EXIF_NS}}}GPSLatitude", default="") or "").strip()
+        "gps_latitude": location_state["gps_latitude"],
+        "gps_longitude": location_state["gps_longitude"],
+        "location_city": location_state["location_city"],
+        "location_state": location_state["location_state"],
+        "location_country": location_state["location_country"],
+        "location_sublocation": location_state["location_sublocation"],
+        "location_created": location_state["location_created"],
+        "ocr_text": (
+            ""
+            if description_role == DESCRIPTION_ROLE_CROP
+            else str(desc.findtext(f"{{{IMAGO_NS}}}OCRText", default="") or "").strip()
         ),
-        "gps_longitude": (
-            _xmp_gps_to_decimal(desc.findtext(f"{{{EXIF_NS}}}GPSLongitude", default=""), axis="lon")
-            if _xmp_gps_to_decimal is not None
-            else str(desc.findtext(f"{{{EXIF_NS}}}GPSLongitude", default="") or "").strip()
-        ),
-        "location_city": location_city,
-        "location_state": location_state,
-        "location_country": location_country,
-        "location_sublocation": location_sublocation,
-        "location_created": location_created,
-        "ocr_text": str(desc.findtext(f"{{{IMAGO_NS}}}OCRText", default="") or "").strip(),
         "parent_ocr_text": (
-            str(desc.findtext(f"{{{IMAGO_NS}}}ParentOCRText", default="") or "").strip() or legacy_crop_parent_ocr
+            ""
+            if description_role == DESCRIPTION_ROLE_CROP
+            else str(desc.findtext(f"{{{IMAGO_NS}}}ParentOCRText", default="") or "").strip()
         ),
         "ocr_lang": str(desc.findtext(f"{{{IMAGO_NS}}}OCRLang", default="") or "").strip(),
         "author_text": str(desc.findtext(f"{{{IMAGO_NS}}}AuthorText", default="") or "").strip(),
@@ -1775,29 +1813,40 @@ def _merge_xmp_tree(
         str(desc.findtext(f"{{{EXIF_NS}}}GPSLongitude", default="") or ""),
         axis="lon",
     )
-    location_city = _coalesce_text(location_city, str(desc.findtext(f"{{{PHOTOSHOP_NS}}}City", default="") or ""))
-    location_state = _coalesce_text(location_state, str(desc.findtext(f"{{{PHOTOSHOP_NS}}}State", default="") or ""))
-    location_country = _coalesce_text(
-        location_country,
-        str(desc.findtext(f"{{{PHOTOSHOP_NS}}}Country", default="") or ""),
-    )
-    location_sublocation = _coalesce_text(
-        location_sublocation,
-        str(desc.findtext(f"{{{IPTC_EXT_NS}}}Sublocation", default="") or ""),
-    )
-    location_created = _format_location_created(
+    if description_role == DESCRIPTION_ROLE_CROP:
+        location_city = str(location_city or "").strip()
+        location_state = str(location_state or "").strip()
+        location_country = str(location_country or "").strip()
+        location_sublocation = str(location_sublocation or "").strip()
+    else:
+        location_city = _coalesce_text(location_city, str(desc.findtext(f"{{{PHOTOSHOP_NS}}}City", default="") or ""))
+        location_state = _coalesce_text(location_state, str(desc.findtext(f"{{{PHOTOSHOP_NS}}}State", default="") or ""))
+        location_country = _coalesce_text(
+            location_country,
+            str(desc.findtext(f"{{{PHOTOSHOP_NS}}}Country", default="") or ""),
+        )
+        location_sublocation = _coalesce_text(
+            location_sublocation,
+            str(desc.findtext(f"{{{IPTC_EXT_NS}}}Sublocation", default="") or ""),
+        )
+    formatted_location_created = _format_location_created(
         location_city=location_city,
         location_state=location_state,
         location_country=location_country,
         location_sublocation=location_sublocation,
-    ) or str(desc.findtext(f"{{{IPTC_EXT_NS}}}LocationCreated", default="") or "").strip()
+    )
+    location_created = (
+        formatted_location_created
+        if description_role == DESCRIPTION_ROLE_CROP
+        else formatted_location_created or str(desc.findtext(f"{{{IPTC_EXT_NS}}}LocationCreated", default="") or "").strip()
+    )
     source_text = _coalesce_text(source_text, str(desc.findtext(f"{{{DC_NS}}}source", default="") or ""))
-    existing_ocr_text = str(desc.findtext(f"{{{IMAGO_NS}}}OCRText", default="") or "")
-    existing_parent_ocr_text = str(desc.findtext(f"{{{IMAGO_NS}}}ParentOCRText", default="") or "")
     if description_role == DESCRIPTION_ROLE_CROP:
-        parent_ocr_text = _coalesce_text(parent_ocr_text, existing_parent_ocr_text or existing_ocr_text)
-        ocr_text = _coalesce_text(ocr_text, existing_ocr_text if existing_parent_ocr_text else "")
+        parent_ocr_text = ""
+        ocr_text = ""
     else:
+        existing_ocr_text = str(desc.findtext(f"{{{IMAGO_NS}}}OCRText", default="") or "")
+        existing_parent_ocr_text = str(desc.findtext(f"{{{IMAGO_NS}}}ParentOCRText", default="") or "")
         ocr_text = _coalesce_text(ocr_text, existing_ocr_text)
         parent_ocr_text = _coalesce_text(parent_ocr_text, existing_parent_ocr_text)
     ocr_lang = _coalesce_text(ocr_lang, str(desc.findtext(f"{{{IMAGO_NS}}}OCRLang", default="") or ""))
@@ -1842,9 +1891,14 @@ def _merge_xmp_tree(
     _set_simple_text(desc, f"{{{XMP_NS}}}CreateDate", create_date)
     _set_simple_text(desc, f"{{{IMAGO_NS}}}AlbumTitle", str(album_title or "").strip())
     _set_gps_fields(desc, gps_latitude, gps_longitude)
-    _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}City", str(location_city or "").strip())
-    _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}State", str(location_state or "").strip())
-    _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}Country", str(location_country or "").strip())
+    if description_role == DESCRIPTION_ROLE_CROP:
+        _remove_field(desc, f"{{{PHOTOSHOP_NS}}}City")
+        _remove_field(desc, f"{{{PHOTOSHOP_NS}}}State")
+        _remove_field(desc, f"{{{PHOTOSHOP_NS}}}Country")
+    else:
+        _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}City", str(location_city or "").strip())
+        _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}State", str(location_state or "").strip())
+        _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}Country", str(location_country or "").strip())
     _set_simple_text(desc, f"{{{IPTC_EXT_NS}}}Sublocation", str(location_sublocation or "").strip())
     _set_simple_text(
         desc,
@@ -1859,9 +1913,13 @@ def _merge_xmp_tree(
         f"{{{XMP_NS}}}CreatorTool",
         str(creator_tool or "").strip() or "https://github.com/cove/imago",
     )
-    clean_ocr = str(ocr_text or "").strip()
-    _set_simple_text(desc, f"{{{IMAGO_NS}}}OCRText", clean_ocr)
-    _set_simple_text(desc, f"{{{IMAGO_NS}}}ParentOCRText", str(parent_ocr_text or "").strip())
+    if description_role == DESCRIPTION_ROLE_CROP:
+        _remove_field(desc, f"{{{IMAGO_NS}}}OCRText")
+        _remove_field(desc, f"{{{IMAGO_NS}}}ParentOCRText")
+    else:
+        clean_ocr = str(ocr_text or "").strip()
+        _set_simple_text(desc, f"{{{IMAGO_NS}}}OCRText", clean_ocr)
+        _set_simple_text(desc, f"{{{IMAGO_NS}}}ParentOCRText", str(parent_ocr_text or "").strip())
     _set_simple_text(desc, f"{{{IMAGO_NS}}}OCRLang", str(ocr_lang or "").strip())
     _set_simple_text(desc, f"{{{IMAGO_NS}}}AuthorText", str(author_text or "").strip())
     _set_simple_text(desc, f"{{{IMAGO_NS}}}SceneText", str(scene_text or "").strip())

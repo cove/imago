@@ -211,6 +211,65 @@ class TestRunProcessPipelineSmoke(unittest.TestCase):
         )
         ai_runner._process_one.assert_called_once()
 
+    def test_face_refresh_skips_when_targets_report_current(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "Test_2024_B01_Archive"
+            pages = root / "Test_2024_B01_Pages"
+            photos = root / "Test_2024_B01_Photos"
+            archive.mkdir()
+            pages.mkdir()
+            photos.mkdir()
+            scan = archive / "Test_2024_B01_P02_S01.tif"
+            scan.write_bytes(b"abc")
+            view_path = pages / "Test_2024_B01_P02_V.jpg"
+            target = photos / "Test_2024_B01_P02_D01-00_V.jpg"
+
+            session = MagicMock()
+            session.refresh_face_regions.return_value = False
+            ai_runner = MagicMock()
+            ai_runner.defaults = {"caption_model": "glm-test", "lmstudio_base_url": "http://localhost:1234/v1"}
+
+            with (
+                patch("photoalbums.stitch_oversized_pages.list_archive_dirs", return_value=[str(archive)]),
+                patch("photoalbums.stitch_oversized_pages.list_page_scans", return_value=[[str(scan)]]),
+                patch("photoalbums.stitch_oversized_pages.get_view_dirname", return_value=str(pages)),
+                patch("photoalbums.stitch_oversized_pages.get_photos_dirname", return_value=str(photos)),
+                patch("photoalbums.stitch_oversized_pages._require_primary_scan", return_value=str(scan)),
+                patch("photoalbums.stitch_oversized_pages._view_page_output_path", return_value=view_path),
+                patch("photoalbums.lib.xmp_sidecar.read_pipeline_state", return_value={}),
+                patch("photoalbums.lib.xmp_sidecar.write_pipeline_step") as write_step,
+                patch("photoalbums.commands._check_step_stale", return_value=(True, "crop-regions")),
+                patch("photoalbums.commands._iter_face_refresh_targets", return_value=[target]),
+                patch("photoalbums.commands._print_outcome") as print_outcome,
+                patch("photoalbums.lib.ai_render_face_refresh.RenderFaceRefreshSession", return_value=session),
+                patch("photoalbums.lib.ai_index_runner.IndexRunner", return_value=ai_runner),
+            ):
+                from photoalbums.commands import run_process_pipeline
+
+                code = run_process_pipeline(
+                    album_id="",
+                    photos_root=str(root),
+                    page=None,
+                    skip_ids=[],
+                    redo_ids=[],
+                    step_id="face-refresh",
+                    force=False,
+                    debug=False,
+                    no_validation=False,
+                    skip_restoration=False,
+                    force_restoration=False,
+                    gps_only=False,
+                    refresh_gps=False,
+                )
+
+        self.assertEqual(code, 0)
+        session.refresh_face_regions.assert_called_once_with(target, target.with_suffix(".xmp"), force=False)
+        write_step.assert_not_called()
+        print_outcome.assert_called_once_with("skipped (already complete)", "")
+
     def test_verify_crops_runs_after_ai_index(self):
         import tempfile
 
@@ -456,8 +515,9 @@ class TestRunProcessPipelineSmoke(unittest.TestCase):
                     )
 
         self.assertEqual(code, 0)
-        self.assertIn("author_text: Final page caption", captured["page_xmp_text"])
-        self.assertIn("AUG. 1988", captured["page_xmp_text"])
+        self.assertIn("description:", captured["page_xmp_text"])
+        self.assertNotIn("ocr_text", captured["page_xmp_text"])
+        self.assertNotIn("author_text:", captured["page_xmp_text"])
         self.assertIn("Final crop caption", captured["crop_xmp_text"])
 
 

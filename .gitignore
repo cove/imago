@@ -50,6 +50,9 @@ cast/data/*.tmp
 # MCP job runtime state
 mcp/jobs/
 
+# Dagster instance storage
+.dagster/
+
 # Skill eval workspaces
 skills/*-workspace/
 .omx/

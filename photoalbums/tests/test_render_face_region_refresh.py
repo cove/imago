@@ -335,6 +335,114 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             refresh_mock.assert_not_called()
             print_mock.assert_not_called()
 
+    def test_refresh_face_regions_skips_page_when_legacy_page_step_present(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            view = base / "Egypt_1975_Pages"
+            view.mkdir()
+            image = view / "Egypt_1975_B00_P09_V.jpg"
+            image.write_bytes(b"rendered")
+            sidecar = image.with_suffix(".xmp")
+            xmp_sidecar.write_xmp_sidecar(
+                sidecar,
+                creator_tool="imago-test",
+                person_names=["Old Name"],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                image_width=200,
+                image_height=100,
+            )
+            xmp_sidecar.write_pipeline_step(sidecar, "face-refresh", model="buffalo_l")
+
+            with mock.patch.object(
+                ai_render_face_refresh.RenderFaceRefreshSession, "_refresh_with_runner"
+            ) as refresh_mock:
+                ran = ai_render_face_refresh.refresh_face_regions(image, sidecar, force=False)
+
+            self.assertFalse(ran)
+            refresh_mock.assert_not_called()
+
+    def test_refresh_face_regions_skips_when_sidecar_has_no_people(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            view = base / "Egypt_1975_Pages"
+            view.mkdir()
+            image = view / "Egypt_1975_B00_P09_V.jpg"
+            image.write_bytes(b"rendered")
+            sidecar = image.with_suffix(".xmp")
+            xmp_sidecar.write_xmp_sidecar(
+                sidecar,
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+                detections_payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {},
+                    "caption": {},
+                    "processing": {},
+                },
+                image_width=200,
+                image_height=100,
+                people_detected=False,
+                people_identified=False,
+            )
+
+            with mock.patch.object(
+                ai_render_face_refresh.RenderFaceRefreshSession, "_refresh_with_runner"
+            ) as refresh_mock:
+                ran = ai_render_face_refresh.refresh_face_regions(image, sidecar, force=False)
+
+            self.assertFalse(ran)
+            refresh_mock.assert_not_called()
+
+    def test_refresh_face_regions_skips_crop_when_parent_page_has_no_people(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            pages = base / "Egypt_1975_B00_Pages"
+            photos = base / "Egypt_1975_B00_Photos"
+            pages.mkdir()
+            photos.mkdir()
+            page_image = pages / "Egypt_1975_B00_P09_V.jpg"
+            crop_image = photos / "Egypt_1975_B00_P09_D01-00_V.jpg"
+            page_image.write_bytes(b"rendered")
+            crop_image.write_bytes(b"crop")
+            xmp_sidecar.write_xmp_sidecar(
+                page_image.with_suffix(".xmp"),
+                creator_tool="imago-test",
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+                detections_payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {},
+                    "caption": {},
+                    "processing": {},
+                },
+                image_width=200,
+                image_height=100,
+                people_detected=False,
+                people_identified=False,
+            )
+
+            with mock.patch.object(
+                ai_render_face_refresh.RenderFaceRefreshSession, "_refresh_with_runner"
+            ) as refresh_mock:
+                session = ai_render_face_refresh.RenderFaceRefreshSession(photos_root=base)
+                ran = session.refresh_face_regions(crop_image, crop_image.with_suffix(".xmp"), force=False)
+
+            self.assertFalse(ran)
+            refresh_mock.assert_not_called()
+
     def test_refresh_face_regions_cast_unavailable_leaves_sidecar_unchanged(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)

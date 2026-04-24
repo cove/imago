@@ -385,9 +385,14 @@ class TestXMPSidecar(unittest.TestCase):
             tree.write(out, encoding="utf-8", xml_declaration=True)
 
             regions = xmp_sidecar.read_region_list(out, 800, 600)
+            xml = out.read_text(encoding="utf-8")
 
         self.assertEqual(regions[0]["location_payload"]["city"], "Luxor")
         self.assertEqual(regions[0]["location_override"]["address"], "Luxor Temple")
+        self.assertIn("<Iptc4xmpExt:City>Luxor</Iptc4xmpExt:City>", xml)
+        self.assertIn("<Iptc4xmpExt:CountryName>Egypt</Iptc4xmpExt:CountryName>", xml)
+        self.assertNotIn("photoshop:City", xml)
+        self.assertNotIn("photoshop:Country", xml)
 
     def test_write_region_list_preserves_existing_location_override(self):
         from photoalbums.lib.ai_view_regions import RegionResult, RegionWithCaption
@@ -420,9 +425,14 @@ class TestXMPSidecar(unittest.TestCase):
             )
 
             regions = xmp_sidecar.read_region_list(out, 800, 600)
+            xml = out.read_text(encoding="utf-8")
 
         self.assertEqual(regions[0]["caption"], "Updated caption")
         self.assertEqual(regions[0]["location_override"]["address"], "Luxor Temple")
+        self.assertIn("<Iptc4xmpExt:City>Luxor</Iptc4xmpExt:City>", xml)
+        self.assertIn("<Iptc4xmpExt:CountryName>Egypt</Iptc4xmpExt:CountryName>", xml)
+        self.assertNotIn("photoshop:City", xml)
+        self.assertNotIn("photoshop:Country", xml)
 
     def test_write_xmp_sidecar_normalizes_literal_newline_escapes(self):
         with tempfile.TemporaryDirectory() as tmp:

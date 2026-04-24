@@ -133,13 +133,13 @@ def test_migrate_album_caption_layout_rewrites_page_and_crop_sidecars_in_place(t
     crop_xml = crop_xmp.read_text(encoding="utf-8")
     assert "Preserve crop field" in crop_xml
     assert 'xml:lang="x-default">Authoritative region caption</rdf:li>' in crop_xml
-    assert "<imago:ParentOCRText>TEMPLE OF HEAVEN\nNO SMOKING</imago:ParentOCRText>" in crop_xml
+    assert "<imago:ParentOCRText>" not in crop_xml
     assert 'xml:lang="x-caption"' not in crop_xml
     assert "<imago:OCRText>TEMPLE OF HEAVEN\nNO SMOKING</imago:OCRText>" not in crop_xml
     assert find_sidecars_with_legacy_caption_layout(tmp_path) == []
 
 
-def test_migrate_sidecar_caption_layout_leaves_current_sidecar_untouched(tmp_path: Path) -> None:
+def test_migrate_sidecar_caption_layout_removes_current_crop_parent_ocr(tmp_path: Path) -> None:
     crop_xmp = _write(
         tmp_path / "Egypt_1975_B00_Photos" / "Egypt_1975_B00_P26_D01-00_V.xmp",
         """
@@ -160,12 +160,13 @@ def test_migrate_sidecar_caption_layout_leaves_current_sidecar_untouched(tmp_pat
         </x:xmpmeta>
         """,
     )
-    original = crop_xmp.read_text(encoding="utf-8")
 
     changed = migrate_sidecar_caption_layout(crop_xmp)
 
-    assert changed is False
-    assert crop_xmp.read_text(encoding="utf-8") == original
+    assert changed is True
+    xml = crop_xmp.read_text(encoding="utf-8")
+    assert "<imago:ParentOCRText>" not in xml
+    assert 'xml:lang="x-default">Authoritative region caption</rdf:li>' in xml
 
 
 def test_crop_region_index_accounts_for_archive_derived_offset(tmp_path: Path) -> None:

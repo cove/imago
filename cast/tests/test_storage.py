@@ -356,3 +356,48 @@ def test_write_json_retries_permission_error_on_replace(tmp_path, monkeypatch):
     faces = store.list_faces()
     assert len(faces) == 1
     assert faces[0]["source_path"] == "photoalbums/retry.jpg"
+
+
+def test_reviewed_identity_signature_ignores_pending_face_ingest(tmp_path):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+
+    baseline = store.reviewed_identity_signature()
+    face = store.add_face(
+        embedding=[0.1, 0.2, 0.3],
+        source_type="photo",
+        source_path="photoalbums/pending.jpg",
+    )
+
+    assert store.reviewed_identity_signature() == baseline
+
+    person = store.add_person(name="Audrey")
+    store.assign_face(
+        face["face_id"],
+        person["person_id"],
+        reviewed_by_human=True,
+        review_status="confirmed",
+    )
+
+    assert store.reviewed_identity_signature() != baseline
+
+
+def test_reviewed_identity_signature_changes_for_ignored_face(tmp_path):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+
+    face = store.add_face(
+        embedding=[0.1, 0.2, 0.3],
+        source_type="photo",
+        source_path="photoalbums/ignored.jpg",
+    )
+    baseline = store.reviewed_identity_signature()
+
+    store.assign_face(
+        face["face_id"],
+        None,
+        reviewed_by_human=True,
+        review_status="ignored",
+    )
+
+    assert store.reviewed_identity_signature() != baseline

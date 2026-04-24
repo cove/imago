@@ -3498,6 +3498,86 @@ class TestAIIndex(unittest.TestCase):
             det = write_mock.call_args.kwargs["detections_payload"]
             self.assertEqual(det["processing"]["cast_store_signature"], "sig-after")
 
+    def test_run_preserves_existing_pipeline_markers(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            photos = base / "Family_Pages"
+            photos.mkdir()
+            image = photos / "a.jpg"
+            image.write_bytes(b"abc")
+            sidecar = image.with_suffix(".xmp")
+            xmp_sidecar.write_xmp_sidecar(
+                sidecar,
+                creator_tool="https://github.com/cove/imago",
+                person_names=[],
+                subjects=["hello"],
+                description="Old description",
+                source_text="",
+                ocr_text="hello",
+                detections_payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {"engine": "none", "language": "eng"},
+                    "caption": {"engine": "template"},
+                    "pipeline": {
+                        "face_refresh": {
+                            "completed": "2026-04-22T00:00:00Z",
+                            "model": "buffalo_l",
+                        }
+                    },
+                },
+                image_width=100,
+                image_height=100,
+            )
+
+            analysis = ai_index.ImageAnalysis(
+                image_path=image,
+                people_names=[],
+                object_labels=[],
+                ocr_text="hello",
+                ocr_keywords=["hello"],
+                subjects=["hello"],
+                description="Alice",
+                payload={
+                    "people": [],
+                    "objects": [],
+                    "ocr": {"engine": "none", "language": "eng"},
+                    "caption": {"engine": "template"},
+                },
+            )
+
+            with (
+                mock.patch.object(
+                    ai_index_runner,
+                    "prepare_image_layout",
+                    side_effect=lambda *args, **kwargs: self._mock_layout(image),
+                ),
+                mock.patch.object(ai_index_runner, "_run_image_analysis", return_value=analysis),
+                mock.patch.object(ai_index_runner, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--include-view",
+                        "--force",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "none",
+                        "--caption-engine",
+                        "none",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            write_mock.assert_called_once()
+            det = write_mock.call_args.kwargs["detections_payload"]
+            self.assertIn("pipeline", det)
+            self.assertIn("face_refresh", det["pipeline"])
+            self.assertEqual(det["pipeline"]["face_refresh"]["model"], "buffalo_l")
+
     def test_run_people_update_only_refreshes_detection_model_metadata(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)

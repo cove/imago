@@ -111,7 +111,7 @@ class TestRunPropagateTocrops(unittest.TestCase):
                 result = run_propagate_to_crops(image, location_payload={}, people_payload=[])
             self.assertEqual(result["crops_updated"], 0)
 
-    def test_gps_written_to_crops_when_location_reruns(self):
+    def test_page_scalar_location_not_written_to_crops_when_location_reruns(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_dir = Path(tmp)
             image, pages_dir, photos_dir = self._setup_page_image(tmp_dir)
@@ -137,12 +137,12 @@ class TestRunPropagateTocrops(unittest.TestCase):
 
             state1 = xmp_sidecar.read_ai_sidecar_state(crop1.with_suffix(".xmp"))
             assert state1 is not None
-            self.assertEqual(str(state1.get("gps_latitude") or ""), "48.8566")
-            self.assertEqual(str(state1.get("gps_longitude") or ""), "2.3522")
+            self.assertEqual(str(state1.get("gps_latitude") or ""), "")
+            self.assertEqual(str(state1.get("gps_longitude") or ""), "")
 
             state2 = xmp_sidecar.read_ai_sidecar_state(crop2.with_suffix(".xmp"))
             assert state2 is not None
-            self.assertEqual(str(state2.get("gps_latitude") or ""), "48.8566")
+            self.assertEqual(str(state2.get("gps_latitude") or ""), "")
 
     def test_pipeline_record_written_to_each_crop(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -213,6 +213,8 @@ class TestRunPropagateTocrops(unittest.TestCase):
             state = xmp_sidecar.read_ai_sidecar_state(crop1.with_suffix(".xmp"))
             assert state is not None
             self.assertEqual(state["location_city"], "Karnten")
+            xml = crop1.with_suffix(".xmp").read_text(encoding="utf-8")
+            self.assertNotIn("photoshop:City", xml)
             self.assertNotIn("KARNTEN, AUSTRIA", xmp_sidecar.read_person_in_image(crop1.with_suffix(".xmp")))
             self.assertEqual(
                 xmp_sidecar.read_locations_shown(crop1.with_suffix(".xmp")),
@@ -231,7 +233,7 @@ class TestRunPropagateTocrops(unittest.TestCase):
                 ],
             )
 
-    def test_locations_shown_are_cleared_on_crop_rewrite(self):
+    def test_single_location_shown_is_kept_on_crop_rewrite(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_dir = Path(tmp)
             image, _pages_dir, photos_dir = self._setup_page_image(tmp_dir)
@@ -275,7 +277,22 @@ class TestRunPropagateTocrops(unittest.TestCase):
                     people_payload=[],
                 )
 
-            self.assertEqual(xmp_sidecar.read_locations_shown(crop1.with_suffix(".xmp")), [])
+            self.assertEqual(
+                xmp_sidecar.read_locations_shown(crop1.with_suffix(".xmp")),
+                [
+                    {
+                        "name": "Hassan II Mosque",
+                        "world_region": "",
+                        "country_code": "",
+                        "country_name": "Morocco",
+                        "province_or_state": "",
+                        "city": "Casablanca",
+                        "sublocation": "Boulevard de la Corniche",
+                        "gps_latitude": "",
+                        "gps_longitude": "",
+                    }
+                ],
+            )
 
     def test_region_location_payload_writes_crop_specific_locations_shown(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -349,6 +366,8 @@ class TestRunPropagateTocrops(unittest.TestCase):
                     }
                 ],
             )
+            xml = crop1.with_suffix(".xmp").read_text(encoding="utf-8")
+            self.assertNotIn("photoshop:City", xml)
 
     def test_step_skipped_when_neither_upstream_reran(self):
         """StepRunner skips propagate-to-crops when hashes match for all inputs."""

@@ -24,7 +24,9 @@ from .metadata_resolver import (
     filter_location_names_from_people as _resolver_filter_location_names_from_people,
     match_caption_to_location_shown as _resolver_match_caption_to_location_shown,
     normalize_location_payload as _resolver_normalize_location_payload,
+    location_shown_from_payload as _resolver_location_shown_from_payload,
     resolve_crop_location as _resolver_resolve_crop_location,
+    resolve_crop_locations_shown as _resolver_resolve_crop_locations_shown,
     resolve_person_in_image as _resolver_resolve_person_in_image,
 )
 
@@ -453,6 +455,15 @@ def _write_crop_sidecar(
         ),
         geocoder=geocoder,
     )
+    crop_locations_shown = _resolver_resolve_crop_locations_shown(
+        region_location_override=region_location_override,
+        region_location_assigned=region_location_payload,
+        caption=caption,
+        locations_shown=locations_shown,
+    )
+    if effective_loc and not crop_locations_shown:
+        crop_location_shown = _resolver_location_shown_from_payload(effective_loc)
+        crop_locations_shown = [crop_location_shown] if crop_location_shown else []
     resolved_person_names = _resolver_resolve_person_in_image(
         person_names,
         locations_shown=locations_shown,
@@ -469,15 +480,16 @@ def _write_crop_sidecar(
         source_text=archive_source_text,
         gps_latitude=str(effective_loc.get("gps_latitude") or "").strip(),
         gps_longitude=str(effective_loc.get("gps_longitude") or "").strip(),
-        location_city=str(effective_loc.get("city") or view_state.get("location_city") or "").strip(),
-        location_state=str(effective_loc.get("state") or view_state.get("location_state") or "").strip(),
-        location_country=str(effective_loc.get("country") or view_state.get("location_country") or "").strip(),
-        location_sublocation=str(effective_loc.get("sublocation") or view_state.get("location_sublocation") or "").strip(),
+        location_city=str(effective_loc.get("city") or "").strip(),
+        location_state=str(effective_loc.get("state") or "").strip(),
+        location_country=str(effective_loc.get("country") or "").strip(),
+        location_sublocation=str(effective_loc.get("sublocation") or "").strip(),
         create_date=str(view_state.get("create_date") or "").strip(),
         dc_date=list(view_state.get("dc_date_values") or []),
-        locations_shown=[],
+        locations_shown=crop_locations_shown,
         parent_ocr_text=parent_ocr_text,
         ocr_text="",
+        detections_payload={"location": effective_loc} if effective_loc else None,
     )
     _verify_crop_sidecar_metadata(
         crop_xmp,

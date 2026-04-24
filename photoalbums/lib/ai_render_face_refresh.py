@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from .ai_index_runner import IndexRunner
@@ -11,6 +12,8 @@ from .xmp_sidecar import (
     read_pipeline_step,
     write_pipeline_step,
 )
+
+_DERIVED_VIEW_RE = re.compile(r"^(?P<page>.+_P\d{2})_D\d{2}-\d{2}_V\.jpg$")
 
 
 class FaceRefreshSkipped(RuntimeError):
@@ -74,17 +77,70 @@ class RenderFaceRefreshSession:
         force: bool = False,
     ) -> bool:
         sidecar = Path(sidecar_path)
+        image = Path(image_path)
         if force:
             clear_pipeline_steps(sidecar, ["face_refresh"])
         else:
             pipeline_state = read_pipeline_step(sidecar, "face_refresh")
             if pipeline_state is not None:
                 return False
+            legacy_page_state = read_pipeline_step(sidecar, "face-refresh")
+            if legacy_page_state is not None and self._is_page_view_target(image):
+                return False
+            if not self._has_face_refresh_work(image, sidecar):
+                return False
 
-        image = Path(image_path)
         self._refresh_with_runner(image, sidecar)
         write_pipeline_step(sidecar, "face_refresh", model="buffalo_l")
         return True
+
+    @staticmethod
+    def _is_page_view_target(image_path: Path) -> bool:
+        name = image_path.name
+        return name.endswith("_V.jpg") and re.search(r"_D\d{2}-\d{2}_V\.jpg$", name) is None
+
+    @classmethod
+    def _has_face_refresh_work(cls, image_path: Path, sidecar_path: Path) -> bool:
+        signal = cls._face_refresh_signal(sidecar_path)
+        if signal is not None:
+            return signal
+        source_page_sidecar = cls._source_page_sidecar(image_path)
+        if source_page_sidecar is None or source_page_sidecar == sidecar_path:
+            return True
+        source_signal = cls._face_refresh_signal(source_page_sidecar)
+        return source_signal is not False
+
+    @staticmethod
+    def _face_refresh_signal(sidecar_path: Path) -> bool | None:
+        if not sidecar_path.is_file():
+            return None
+        state = read_ai_sidecar_state(sidecar_path)
+        if not isinstance(state, dict):
+            return None
+        if read_person_in_image(sidecar_path):
+            return True
+        if state.get("people_detected") is True or state.get("people_identified") is True:
+            return True
+        detections = state.get("detections")
+        if isinstance(detections, dict):
+            people = detections.get("people")
+            if isinstance(people, list) and any(isinstance(row, dict) for row in people):
+                return True
+        if state.get("people_detected") is False and state.get("people_identified") is not True:
+            return False
+        return None
+
+    @staticmethod
+    def _source_page_sidecar(image_path: Path) -> Path | None:
+        match = _DERIVED_VIEW_RE.match(image_path.name)
+        if match is None:
+            return None
+        page_sidecar_name = f"{match.group('page')}_V.xmp"
+        parent = image_path.parent
+        if parent.name.endswith("_Photos"):
+            pages_dir = parent.with_name(f"{parent.name[:-len('_Photos')]}_Pages")
+            return pages_dir / page_sidecar_name
+        return parent / page_sidecar_name
 
 
 def refresh_face_regions(
