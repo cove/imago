@@ -60,9 +60,9 @@
 - [x] 4.1 Add parsing tests for `good` verdicts
 - [x] 4.2 Add parsing tests for `bad` verdicts
 - [x] 4.3 Add parsing tests for `uncertain` verdicts
-- [ ] 4.4 Add fixture coverage for obviously correct page/crop pairs
-- [ ] 4.5 Add fixture coverage for obviously wrong page/crop pairs
-- [ ] 4.6 Add fixture coverage for ambiguous page/crop pairs
+- [x] 4.4 Add fixture coverage for obviously correct page/crop pairs
+- [x] 4.5 Add fixture coverage for obviously wrong page/crop pairs
+- [x] 4.6 Add fixture coverage for ambiguous page/crop pairs
 - [x] 4.7 Add integration coverage that `verify-crops` runs after `ai-index`
 - [x] 4.8 Add integration coverage that `verify-crops` executes per page
 - [x] 4.9 Add integration coverage that `verify-crops` receives finalized page/crop metadata

@@ -316,6 +316,9 @@ class CastPeopleMatcher:
     def store_signature(self) -> str:
         return self._store.store_signature()
 
+    def reviewed_identity_signature(self) -> str:
+        return self._store.reviewed_identity_signature()
+
     def _normalize_embedding_safe(self, raw_embedding: Any) -> np.ndarray | None:
         try:
             return self._normalize_embedding(self._parse_embedding(raw_embedding))

@@ -15,6 +15,7 @@ from .ai_index_steps import StepRunner
 from .image_limits import allow_large_pillow_images
 from .prompt_debug import PromptDebugSession
 from .xmp_sidecar import _dedupe
+from .ai_sidecar_state import _is_derived_image_path
 
 from .ai_album_titles import (
     _require_album_title_for_title_page,
@@ -747,6 +748,8 @@ def _run_image_analysis(
         )
 
         def _do_locations() -> dict[str, Any] | None:
+            if _is_derived_image_path(image_path):
+                return None
             return run_locations_step(
                 caption_engine=caption_engine,
                 image_path=image_path,

@@ -87,16 +87,23 @@ def _sidecar_current(image_path: Path, sidecar_path: Path) -> bool:
 
 
 def _current_cast_signature(cast_store: str | Path) -> str:
-    root = Path(cast_store)
-    parts: list[str] = []
-    for name in CAST_SIGNATURE_FILES:
-        path = root / name
-        try:
-            stat = path.stat()
-            parts.append(f"{path.name}:{int(stat.st_size)}:{int(stat.st_mtime_ns)}")
-        except FileNotFoundError:
-            parts.append(f"{path.name}:missing")
-    return "|".join(parts)
+    try:
+        from cast.storage import TextFaceStore  # pylint: disable=import-outside-toplevel
+
+        store = TextFaceStore(Path(cast_store))
+        store.ensure_files()
+        return str(store.reviewed_identity_signature())
+    except Exception:
+        root = Path(cast_store)
+        parts: list[str] = []
+        for name in CAST_SIGNATURE_FILES:
+            path = root / name
+            try:
+                stat = path.stat()
+                parts.append(f"{path.name}:{int(stat.st_size)}:{int(stat.st_mtime_ns)}")
+            except FileNotFoundError:
+                parts.append(f"{path.name}:missing")
+        return "|".join(parts)
 
 
 def _image_summary(

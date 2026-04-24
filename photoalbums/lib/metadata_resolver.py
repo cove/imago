@@ -231,6 +231,7 @@ def resolve_crop_location(
     locations_shown: list[dict[str, Any]] | None,
     page_location: dict[str, Any] | None,
 ) -> dict[str, str]:
+    del page_location
     override_payload = normalize_location_payload(region_location_override)
     if override_payload:
         return override_payload
@@ -240,7 +241,9 @@ def resolve_crop_location(
     matched_location = match_caption_to_location_shown(caption, locations_shown)
     if matched_location:
         return matched_location
-    return normalize_location_payload(page_location)
+    if len(list(locations_shown or [])) == 1:
+        return location_payload_from_location_shown(list(locations_shown or [])[0])
+    return {}
 
 
 def resolve_crop_locations_shown(
@@ -259,4 +262,7 @@ def resolve_crop_locations_shown(
     matched_location = match_location_shown_row(caption, locations_shown)
     if isinstance(matched_location, dict) and matched_location:
         return [matched_location]
+    if len(list(locations_shown or [])) == 1:
+        only_location = list(locations_shown or [])[0]
+        return [only_location] if isinstance(only_location, dict) else []
     return []

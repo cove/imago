@@ -610,7 +610,7 @@ class TestWriteCropSidecar(unittest.TestCase):
             xml = crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8")
             self.assertNotIn("dc:description", xml)
 
-    def test_location_propagated_to_crop(self):
+    def test_page_scalar_location_not_propagated_to_crop(self):
         with tempfile.TemporaryDirectory() as tmp:
             view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
@@ -634,10 +634,10 @@ class TestWriteCropSidecar(unittest.TestCase):
             _write_crop_sidecar(crop_jpg, view_jpg, "", view_state, [], [])
 
             xml = crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8")
-            self.assertIn("Cairo", xml)
-            self.assertIn("Egypt", xml)
-            self.assertIn("GPSLatitude", xml)
-            self.assertIn("<photoshop:City>Cairo</photoshop:City>", xml)
+            self.assertNotIn("Cairo", xml)
+            self.assertNotIn("Egypt", xml)
+            self.assertNotIn("GPSLatitude", xml)
+            self.assertNotIn("photoshop:City", xml)
             self.assertIn("<xmp:CreateDate>1975</xmp:CreateDate>", xml)
 
     def test_crop_sidecar_keeps_archive_lineage_and_view_parentage(self):
@@ -683,7 +683,7 @@ class TestWriteCropSidecar(unittest.TestCase):
             xml = crop_xmp.read_text(encoding="utf-8")
             self.assertIn("../Egypt_1975_Pages/Egypt_1975_B00_P26_V.jpg", xml)
 
-    def test_crop_sidecar_keeps_scalar_page_location_without_locations_shown_bag(self):
+    def test_crop_sidecar_uses_single_page_location_shown_without_photoshop_scalars(self):
         with tempfile.TemporaryDirectory() as tmp:
             view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
@@ -741,7 +741,7 @@ class TestWriteCropSidecar(unittest.TestCase):
             crop_state = read_ai_sidecar_state(crop_jpg.with_suffix(".xmp"))
             assert crop_state is not None
             self.assertEqual(crop_state["description"], "EGYPT 1975")
-            self.assertEqual(crop_state["parent_ocr_text"], "EGYPT 1975")
+            self.assertEqual(crop_state["parent_ocr_text"], "")
             self.assertEqual(crop_state["ocr_text"], "")
             self.assertEqual(crop_state["album_title"], "Egypt 1975")
             self.assertEqual(crop_state["dc_date_values"], ["1975-03", "1975-04"])
@@ -753,7 +753,23 @@ class TestWriteCropSidecar(unittest.TestCase):
             xml = crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8")
             self.assertIn("<rdf:li>egypt</rdf:li>", xml)
             self.assertIn("<rdf:li>travel</rdf:li>", xml)
-            self.assertEqual(read_locations_shown(crop_jpg.with_suffix(".xmp")), [])
+            self.assertEqual(
+                read_locations_shown(crop_jpg.with_suffix(".xmp")),
+                [
+                    {
+                        "name": "Giza Necropolis",
+                        "world_region": "Africa",
+                        "country_code": "EG",
+                        "country_name": "Egypt",
+                        "province_or_state": "Giza",
+                        "city": "Giza",
+                        "sublocation": "Giza Plateau",
+                        "gps_latitude": "29.9792",
+                        "gps_longitude": "31.1342",
+                    }
+                ],
+            )
+            self.assertNotIn("photoshop:City", xml)
 
     def test_crop_sidecar_prefers_region_location_payload(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -804,6 +820,9 @@ class TestWriteCropSidecar(unittest.TestCase):
             assert crop_state is not None
             self.assertEqual(crop_state["location_city"], "Luxor")
             self.assertEqual(crop_state["gps_latitude"], "25.6872")
+            xml = crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8")
+            self.assertNotIn("photoshop:City", xml)
+            self.assertIn("Iptc4xmpExt:LocationShown", xml)
 
     def test_crop_sidecar_geocodes_region_override_address_without_page_fallback(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -862,6 +881,9 @@ class TestWriteCropSidecar(unittest.TestCase):
             assert crop_state is not None
             self.assertEqual(crop_state["location_city"], "Luxor")
             self.assertEqual(crop_state["gps_latitude"], "25.7")
+            xml = crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8")
+            self.assertNotIn("photoshop:City", xml)
+            self.assertIn("Iptc4xmpExt:LocationShown", xml)
 
     def test_crop_sidecar_matches_caption_to_location_shown_before_page_fallback(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -898,6 +920,9 @@ class TestWriteCropSidecar(unittest.TestCase):
             assert crop_state is not None
             self.assertEqual(crop_state["location_city"], "Karnten")
             self.assertEqual(crop_state["gps_latitude"], "46.6247")
+            xml = crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8")
+            self.assertNotIn("photoshop:City", xml)
+            self.assertIn("Iptc4xmpExt:LocationShown", xml)
 
     def test_crop_sidecar_recovers_album_title_from_archive_for_source_verification(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1050,10 +1075,7 @@ class TestWriteCropSidecar(unittest.TestCase):
             # subjects are preserved via write_xmp_sidecar merge
             self.assertIn("manual-tag", xml)
 
-    def test_caption_present_used_as_description_ocr_written_separately(self):
-        # (a) caption present â†’ caption in dc:description; imago:OCRText = ocr_text
-        # Note: write_xmp_sidecar puts ocr_text as x-default and caption as x-caption
-        # when both are non-empty. The XMP file will contain both.
+    def test_caption_present_used_as_description_without_crop_ocr_fields(self):
         with tempfile.TemporaryDirectory() as tmp:
             view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
@@ -1074,14 +1096,13 @@ class TestWriteCropSidecar(unittest.TestCase):
             xml = crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8")
             self.assertEqual(state["description"], "Region caption")
             self.assertEqual(state["ocr_text"], "")
-            self.assertEqual(state["parent_ocr_text"], "Page OCR text here")
+            self.assertEqual(state["parent_ocr_text"], "")
             self.assertIn('xml:lang="x-default">Region caption</rdf:li>', xml)
-            self.assertIn("<imago:ParentOCRText>Page OCR text here</imago:ParentOCRText>", xml)
+            self.assertNotIn("<imago:ParentOCRText>", xml)
             self.assertNotIn('xml:lang="x-caption"', xml)
             self.assertNotIn("<imago:OCRText>", xml)
 
-    def test_no_caption_ocr_text_used_as_parent_context_only(self):
-        # (b) no caption, OCR text present â†’ dc:description = ocr_text; imago:OCRText = ocr_text
+    def test_no_caption_does_not_write_crop_ocr_fields(self):
         with tempfile.TemporaryDirectory() as tmp:
             view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
@@ -1102,9 +1123,10 @@ class TestWriteCropSidecar(unittest.TestCase):
             xml = crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8")
             self.assertEqual(state["description"], "")
             self.assertEqual(state["ocr_text"], "")
-            self.assertEqual(state["parent_ocr_text"], "Scanned page text")
+            self.assertEqual(state["parent_ocr_text"], "")
             self.assertNotIn("dc:description", xml)
-            self.assertIn("<imago:ParentOCRText>Scanned page text</imago:ParentOCRText>", xml)
+            self.assertNotIn("<imago:ParentOCRText>", xml)
+            self.assertNotIn("<imago:OCRText>", xml)
 
     def test_both_empty_no_error(self):
         # (c) caption="" and ocr_text="" â†’ both fields empty, no error

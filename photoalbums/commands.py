@@ -894,10 +894,15 @@ def run_process_pipeline(
                     refresh_targets = _iter_face_refresh_targets(view_dir, photos_dir, current_page)
                     face_session.set_files(refresh_targets)
                     ran_any = False
+                    force_refresh_targets = should_redo
                     for img_path in refresh_targets:
                         try:
-                            face_session.refresh_face_regions(img_path, img_path.with_suffix(".xmp"), force=force_this_step)
-                            ran_any = True
+                            if face_session.refresh_face_regions(
+                                img_path,
+                                img_path.with_suffix(".xmp"),
+                                force=force_refresh_targets,
+                            ):
+                                ran_any = True
                         except FaceRefreshSkipped:
                             pass
                     if ran_any:
@@ -907,7 +912,7 @@ def run_process_pipeline(
                         _print_outcome("done", stale_dep)
                     else:
                         counters["face-refresh"]["skipped"] += 1
-                        _print_outcome("skipped (already complete)", stale_dep)
+                        _print_outcome("skipped (already complete)", "")
 
                 elif step.id == "ai-index":
                     if force_this_step:

@@ -183,15 +183,6 @@ def _read_page_summary(page_sidecar_path: Path | None) -> str:
     return _page_description_summary(ocr_text, scene_text) or _get_description_value(desc)
 
 
-def _read_page_ocr_text(page_sidecar_path: Path | None) -> str:
-    if page_sidecar_path is None:
-        return ""
-    desc = _load_desc(page_sidecar_path)
-    if desc is None:
-        return ""
-    return str(desc.findtext(_OCR_TEXT_TAG, default="") or "").strip()
-
-
 def _logical_crop_description(
     *,
     current_default: str,
@@ -217,9 +208,9 @@ def sidecar_needs_caption_layout_migration(sidecar_path: str | Path) -> bool:
     if _LEGACY_DESCRIPTION_LANGS.intersection(langs):
         return True
     if _description_role_for_sidecar_path(path) == DESCRIPTION_ROLE_CROP:
-        if str(desc.findtext(_OCR_TEXT_TAG, default="") or "").strip() and not str(
-            desc.findtext(_PARENT_OCR_TEXT_TAG, default="") or ""
-        ).strip():
+        if str(desc.findtext(_OCR_TEXT_TAG, default="") or "").strip():
+            return True
+        if str(desc.findtext(_PARENT_OCR_TEXT_TAG, default="") or "").strip():
             return True
     return False
 
@@ -248,7 +239,6 @@ def migrate_sidecar_caption_layout(sidecar_path: str | Path) -> bool:
     elif role == DESCRIPTION_ROLE_CROP:
         page_sidecar_path = _resolve_parent_page_sidecar(path)
         page_description = _read_page_summary(page_sidecar_path)
-        page_ocr_text = _read_page_ocr_text(page_sidecar_path)
         region_caption = _read_parent_region_caption(page_sidecar_path, _crop_region_index(path))
         legacy_caption = _get_alt_text(desc, _DESCRIPTION_TAG, prefer_lang="x-caption", fallback_to_any=False)
         current_default = _get_alt_text(desc, _DESCRIPTION_TAG, prefer_lang="x-default", fallback_to_any=False)
@@ -260,11 +250,9 @@ def migrate_sidecar_caption_layout(sidecar_path: str | Path) -> bool:
             parent_page_description=page_description,
         )
         caption = _first_nonempty(region_caption, legacy_caption, logical_description, page_description)
-        parent_ocr_text = _first_nonempty(existing_parent_ocr, legacy_parent_ocr, page_ocr_text)
         changed |= _set_description(desc, caption)
-        changed |= _set_simple_field(desc, _PARENT_OCR_TEXT_TAG, parent_ocr_text)
-        if legacy_parent_ocr and (not existing_parent_ocr or legacy_parent_ocr == existing_parent_ocr):
-            changed |= _set_simple_field(desc, _OCR_TEXT_TAG, "")
+        changed |= _set_simple_field(desc, _PARENT_OCR_TEXT_TAG, "")
+        changed |= _set_simple_field(desc, _OCR_TEXT_TAG, "")
     else:
         plain_description = _first_nonempty(
             _get_alt_text(desc, _DESCRIPTION_TAG, prefer_lang="x-caption", fallback_to_any=False),

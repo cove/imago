@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import threading
 import time
@@ -868,6 +869,49 @@ class TextFaceStore:
                 except FileNotFoundError:
                     parts.append(f"{path.name}:missing")
             return "|".join(parts)
+
+    def reviewed_identity_signature(self) -> str:
+        with self._lock:
+            people_rows = self.list_people()
+            face_rows = self.list_faces()
+
+        people_payload = [
+            {
+                "person_id": str(row.get("person_id") or "").strip(),
+                "display_name": str(row.get("display_name") or "").strip(),
+                "aliases": [str(item or "").strip() for item in list(row.get("aliases") or []) if str(item or "").strip()],
+                "notes": str(row.get("notes") or "").strip(),
+                "updated_at": str(row.get("updated_at") or "").strip(),
+            }
+            for row in people_rows
+            if str(row.get("person_id") or "").strip()
+        ]
+        people_payload.sort(key=lambda row: row["person_id"])
+
+        reviewed_face_payload: list[dict[str, Any]] = []
+        for row in face_rows:
+            face_id = str(row.get("face_id") or "").strip()
+            review_status = face_review_status(row)
+            if not face_id or review_status not in FACE_REVIEW_STATUSES:
+                continue
+            reviewed_face_payload.append(
+                {
+                    "face_id": face_id,
+                    "person_id": str(row.get("person_id") or "").strip(),
+                    "review_status": review_status,
+                    "reviewed_by_human": bool(face_is_human_reviewed(row)),
+                    "reviewed_at": str(row.get("reviewed_at") or "").strip(),
+                    "updated_at": str(row.get("updated_at") or "").strip(),
+                }
+            )
+        reviewed_face_payload.sort(key=lambda row: row["face_id"])
+
+        payload = {
+            "people": people_payload,
+            "reviewed_faces": reviewed_face_payload,
+        }
+        serialized = json.dumps(payload, sort_keys=True, ensure_ascii=True, separators=(",", ":"))
+        return hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:16]
 
     def reset_pending_unknown(self, *, remove_crops: bool = True) -> dict[str, int]:
         removed_faces = 0

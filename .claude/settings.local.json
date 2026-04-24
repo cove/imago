@@ -240,11 +240,15 @@
       "Bash(xargs grep *)",
       "Bash(grep -c '^\\\\- \\\\[ \\\\]' openspec/changes/photoalbum-scan-render-pipeline/tasks.md)",
       "Bash(grep -c '^\\\\- \\\\[x\\\\]' openspec/changes/photoalbum-scan-render-pipeline/tasks.md)",
-      "Bash(ls openspec/changes/photoalbum-scan-render-pipeline/specs/)"
+      "Bash(ls openspec/changes/photoalbum-scan-render-pipeline/specs/)",
+      "Bash(openspec validate *)",
+      "Read(//c/Users/covec/Videos/**)",
+      "Read(//c/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums/**)"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",
-      "c:\\Users\\covec\\Downloads"
+      "c:\\Users\\covec\\Downloads",
+      "C:\\Users\\covec"
     ]
   },
   "disabledMcpjsonServers": [
