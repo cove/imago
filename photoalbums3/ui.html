@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pipeline Explorer</title>
+    <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            display: flex;
+            height: 100vh;
+        }
+
+        #dag-container {
+            flex: 1;
+            border-right: 1px solid #30363d;
+            position: relative;
+        }
+
+        #cy {
+            width: 100%;
+            height: 100%;
+            background: #0d1117;
+        }
+
+        #inspector {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .inspector-header {
+            padding: 16px;
+            border-bottom: 1px solid #30363d;
+            background: #161b22;
+        }
+
+        .inspector-header h2 {
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        .inspector-header .status {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-top: 8px;
+        }
+
+        .status.pending { background: #6e40aa; }
+        .status.running { background: #1f6feb; }
+        .status.done { background: #238636; }
+        .status.failed { background: #da3633; }
+        .status.skipped { background: #6e40aa; opacity: 0.6; }
+
+        .inspector-content {
+            flex: 1;
+            overflow: auto;
+            padding: 16px;
+        }
+
+        .io-section {
+            margin-bottom: 24px;
+        }
+
+        .io-section h3 {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #8b949e;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .io-box {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 12px;
+            font-family: "Monaco", "Courier New", monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow: auto;
+            line-height: 1.4;
+        }
+
+        .io-box code {
+            color: #79c0ff;
+        }
+
+        .prompt-editor {
+            margin-top: 16px;
+            display: none;
+        }
+
+        .prompt-editor.active {
+            display: block;
+        }
+
+        .prompt-editor textarea {
+            width: 100%;
+            height: 120px;
+            padding: 8px;
+            font-family: "Monaco", "Courier New", monospace;
+            font-size: 12px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            border-radius: 4px;
+            resize: vertical;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            background: #238636;
+            color: white;
+            font-weight: 600;
+        }
+
+        button:hover {
+            background: #2ea043;
+        }
+
+        button.secondary {
+            background: #1f6feb;
+        }
+
+        button.secondary:hover {
+            background: #388bfd;
+        }
+
+        button.danger {
+            background: #da3633;
+        }
+
+        button.danger:hover {
+            background: #f85149;
+        }
+
+        .no-selection {
+            text-align: center;
+            color: #6e40aa;
+            padding: 32px 16px;
+        }
+
+        .controls {
+            padding: 16px;
+            border-bottom: 1px solid #30363d;
+            display: flex;
+            gap: 8px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #30363d;
+            background: #0d1117;
+            color: #c9d1d9;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div id="dag-container">
+        <div id="cy"></div>
+    </div>
+
+    <div id="inspector">
+        <div class="controls">
+            <input type="text" id="pageIdInput" placeholder="Enter page ID">
+            <button id="runBtn">Run Pipeline</button>
+            <button id="forceBtn" class="secondary">Force Rerun</button>
+        </div>
+
+        <div class="inspector-header">
+            <h2 id="stepTitle">Select a step</h2>
+            <span id="stepStatus" class="status"></span>
+        </div>
+
+        <div id="inspectorContent" class="inspector-content">
+            <div class="no-selection">← Click a step to inspect</div>
+        </div>
+    </div>
+
+    <script>
+        let cy = null;
+        let selectedStep = null;
+        let ws = null;
+        let pageId = "page_001";
+
+        // Initialize Cytoscape DAG
+        async function initDAG() {
+            const dagResponse = await fetch("/api/pipeline/dag");
+            const dag = await dagResponse.json();
+
+            const elements = [];
+
+            // Add nodes
+            dag.steps.forEach((step) => {
+                elements.push({
+                    data: {
+                        id: step.id,
+                        label: step.label,
+                        hasPrompt: step.has_prompt,
+                    },
+                });
+            });
+
+            // Add edges
+            dag.edges.forEach((edge) => {
+                elements.push({
+                    data: {
+                        source: edge.from,
+                        target: edge.to,
+                    },
+                });
+            });
+
+            cy = cytoscape({
+                container: document.getElementById("cy"),
+                elements: elements,
+                style: [
+                    {
+                        selector: "node",
+                        style: {
+                            "background-color": "#1f6feb",
+                            "label": "data(id)",
+                            "text-valign": "center",
+                            "text-halign": "center",
+                            "font-size": "12px",
+                            "width": "60px",
+                            "height": "60px",
+                            "color": "#c9d1d9",
+                        },
+                    },
+                    {
+                        selector: "node[hasPrompt]",
+                        style: {
+                            "border-width": "2px",
+                            "border-color": "#79c0ff",
+                        },
+                    },
+                    {
+                        selector: "edge",
+                        style: {
+                            "line-color": "#30363d",
+                            "target-arrow-color": "#30363d",
+                            "target-arrow-shape": "triangle",
+                        },
+                    },
+                ],
+                layout: {
+                    name: "dagre",
+                    directed: true,
+                    nodeSep: 50,
+                    rankSep: 100,
+                },
+            });
+
+            // Click handlers
+            cy.on("tap", "node", (e) => {
+                selectedStep = e.target.id();
+                updateInspector(selectedStep);
+                e.target.style("background-color", "#238636");
+                cy.elements(`node[id != "${selectedStep}"]`).style(
+                    "background-color",
+                    "#1f6feb"
+                );
+            });
+        }
+
+        // Update inspector when step is selected
+        async function updateInspector(stepId) {
+            const response = await fetch(`/api/step/${stepId}`);
+            const data = await response.json();
+            const exec = data.execution;
+            const def = data.definition;
+
+            document.getElementById("stepTitle").textContent = def.label;
+            document.getElementById("stepStatus").textContent = exec.status;
+            document.getElementById("stepStatus").className = `status ${exec.status}`;
+
+            let html = `
+                <div class="io-section">
+                    <h3>Status</h3>
+                    <div class="io-box">
+                        Status: <code>${exec.status}</code><br>
+                        Input Hash: <code>${exec.input_hash.substring(0, 8)}</code><br>
+                        Duration: <code>${exec.duration.toFixed(2)}s</code>
+                    </div>
+                </div>
+
+                <div class="io-section">
+                    <h3>Inputs</h3>
+                    <div class="io-box"><code>${JSON.stringify(exec.inputs, null, 2)}</code></div>
+                </div>
+
+                <div class="io-section">
+                    <h3>Outputs</h3>
+                    <div class="io-box"><code>${JSON.stringify(exec.outputs, null, 2)}</code></div>
+                </div>
+            `;
+
+            if (def.prompt) {
+                html += `
+                    <div class="io-section">
+                        <h3>Prompt</h3>
+                        <div class="io-box"><code>${def.prompt}</code></div>
+                        <div class="prompt-editor active">
+                            <textarea id="promptEditor">${def.prompt}</textarea>
+                            <div class="button-group">
+                                <button class="secondary" onclick="savePrompt('${stepId}')">Save & Retry</button>
+                                <button class="danger" onclick="resetPrompt()">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (exec.error) {
+                html += `
+                    <div class="io-section">
+                        <h3>Error</h3>
+                        <div class="io-box" style="color: #f85149;"><code>${exec.error}</code></div>
+                    </div>
+                `;
+            }
+
+            html += `
+                <div class="button-group" style="margin-top: 24px;">
+                    <button onclick="retryStep('${stepId}')">Retry Step</button>
+                    <button class="secondary" onclick="runFromStep('${stepId}')">Run From Here</button>
+                </div>
+            `;
+
+            document.getElementById("inspectorContent").innerHTML = html;
+        }
+
+        async function savePrompt(stepId) {
+            const newPrompt = document.getElementById("promptEditor").value;
+            await fetch("/api/step/override", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: `step_id=${stepId}&param=prompt&value=${encodeURIComponent(newPrompt)}`,
+            });
+            await retryStep(stepId);
+        }
+
+        async function retryStep(stepId) {
+            await fetch("/api/step/execute", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: `step_id=${stepId}&force=true`,
+            });
+            updateInspector(stepId);
+        }
+
+        async function runFromStep(stepId) {
+            await fetch("/api/pipeline/run", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: `page_id=${pageId}&context={}&final_step=${stepId}&force=false`,
+            });
+        }
+
+        function resetPrompt() {
+            if (selectedStep) updateInspector(selectedStep);
+        }
+
+        // WebSocket for real-time updates
+        function connectWebSocket() {
+            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                if (msg.type === "step_complete" && selectedStep === msg.step.step_id) {
+                    updateInspector(selectedStep);
+                }
+            };
+
+            ws.onerror = (error) => console.error("WebSocket error:", error);
+        }
+
+        // Event listeners
+        document.getElementById("runBtn").addEventListener("click", async () => {
+            pageId = document.getElementById("pageIdInput").value || "page_001";
+            await fetch("/api/pipeline/run", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: `page_id=${pageId}&context={}`,
+            });
+        });
+
+        document.getElementById("forceBtn").addEventListener("click", async () => {
+            pageId = document.getElementById("pageIdInput").value || "page_001";
+            await fetch("/api/pipeline/run", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: `page_id=${pageId}&context={}&force=true`,
+            });
+        });
+
+        // Init
+        initDAG();
+        connectWebSocket();
+    </script>
+</body>
+</html>
