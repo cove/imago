@@ -233,7 +233,7 @@ clearly: which photo, what the symptom is, and what the likely cause is.
 - Do not normalize, romanize book numbers, or otherwise rewrite the title text.
 
 ## Output Format – Describe Page (with photo regions)
-`{"ocr_text": "", "author_text": "", "scene_text": "", "location_name": "", "photo_regions": [{"x": 0.0, "y": 0.0, "w": 0.5, "h": 0.5, "author_text": "", "scene_text": ""}]}`
+`{"ocr_text": "", "author_text": "", "scene_text": "", "location_name": ""}`
 
 - `ocr_text`: you're an OCR engine when processing this, look for all clearly legible visible text on the page, copied verbatim with original capitalization, punctuation, spacing, and real line breaks.
 - `author_text`: you're an OCR engine when processing this, typed album-authored annotation text that's typed on a typewriter on strips of white paper, otherwise empty string.
@@ -243,7 +243,6 @@ clearly: which photo, what the symptom is, and what the likely cause is.
 - The example JSON uses empty strings as placeholders. Do not copy literal `...` from any example or schema text.
 - `location_name`: concise geocoding query for GPS lookup when supported strongly enough by visible evidence; otherwise empty string.
 - Prefer `place, city/state, country` style queries over ambiguous short names when the broader geography is supported by the page or album context.
-- `photo_regions`: list each distinct photograph; x/y/w/h are normalized rectangle coordinates (0–1, top-left origin, relative to full image); round each value to at most 3 decimal places (e.g. `0.297`, not `0.2978260869...`)
 - `album_title`: for album title pages or cover pages — the full album title as a single-line storage string, with any printed line breaks replaced by spaces (e.g. `"Egypt 1975"`, `"Mainland China Book 11"`, `"Europe 1973 Egypt 1974"`). Empty string for all other pages.
 - `ocr_lang`: BCP-47 language code of the primary non-English text in `author_text` or `scene_text` (e.g. `"zh"`, `"fr"`, `"ar"` for Chinese, French, Arabic). Use `"en"` for English-only text. Empty string when there is no visible text.
 - Just return the JSON without any extra text or explanation.
