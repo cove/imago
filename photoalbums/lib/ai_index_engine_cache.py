@@ -59,17 +59,21 @@ def _init_caption_engine(
     lmstudio_base_url: str,
     max_image_edge: int,
     stream: bool = False,
+    override_sources: dict[str, str] | None = None,
 ):
-    return CaptionEngine(
-        engine=str(engine),
-        model_name=str(model_name),
-        caption_prompt=str(caption_prompt),
-        max_tokens=int(max_tokens),
-        temperature=float(temperature),
-        lmstudio_base_url=str(lmstudio_base_url),
-        max_image_edge=int(max_image_edge),
-        stream=stream,
-    )
+    kwargs = {
+        "engine": str(engine),
+        "model_name": str(model_name),
+        "caption_prompt": str(caption_prompt),
+        "max_tokens": int(max_tokens),
+        "temperature": float(temperature),
+        "lmstudio_base_url": str(lmstudio_base_url),
+        "max_image_edge": int(max_image_edge),
+        "stream": stream,
+    }
+    if override_sources:
+        kwargs["override_sources"] = dict(override_sources)
+    return CaptionEngine(**kwargs)
 
 
 def _init_date_engine(

@@ -1,0 +1,10 @@
+- Review target: one crop image plus its crop XMP metadata, using the full album page image and page XMP metadata as supporting context.
+- Judge whether the crop caption belongs to that crop on the page, including nearby-caption carry-over when a human would read neighboring captions together.
+- Judge whether shown location matches the crop image, `dc:description`, or visible landmarks.
+- Judge whether the GPS coordinates are generally consistent with the crop image and `dc:description`.
+- For GPS and shown-location concerns, use the supplied location verification evidence: GPS coordinates plus Nominatim reverse-lookup name. OCR text is intentionally not supplied for location verification.
+- If the reverse-lookup name and GPS coordinates align with what is visible in the image or stated in `dc:description`, consider the location grounded and mark it as good.
+- Judge whether date preserves the best supported precision from the page, including month-plus-year evidence such as `AUG. 1988` -> `1988-08` that are not standard but can be understood by a human still.
+- If page image context is missing, do not pretend a full review happened.
+- If page XMP text context is missing, do not pretend a full metadata-context review happened.
+- Base your verdicts on what a human flipping through the album would accept as belonging together.

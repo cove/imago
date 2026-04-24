@@ -7,6 +7,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from .ai_prompt_assets import asset_hashes
 from .xmp_sidecar import xmp_datetime_now
 
 
@@ -18,6 +19,10 @@ def _sha16(*parts: str) -> str:
 def _sha16_data(data: Any) -> str:
     serialized = json.dumps(data, sort_keys=True, default=str)
     return _sha16(serialized)
+
+
+def _prompt_hash_payload(*paths: str) -> str:
+    return _sha16_data(asset_hashes(*paths))
 
 
 @dataclass(frozen=True)
@@ -51,11 +56,24 @@ def ocr_input_hash(settings: dict[str, Any], output_hashes: dict[str, str]) -> s
         settings.get("ocr_model", ""),
         settings.get("ocr_lang", ""),
         settings.get("scan_group_signature", ""),
+        _prompt_hash_payload(
+            "ai-index/ocr/system.md",
+            "ai-index/ocr/user.md",
+            "ai-index/ocr/params.toml",
+        ),
     )
 
 
 def people_input_hash(settings: dict[str, Any], output_hashes: dict[str, str]) -> str:
-    return _sha16(settings.get("cast_store_signature", ""))
+    return _sha16(
+        settings.get("cast_store_signature", ""),
+        _prompt_hash_payload(
+            "ai-index/people-count/system.md",
+            "ai-index/people-count/user.md",
+            "ai-index/people-count/output.md",
+            "ai-index/people-count/params.toml",
+        ),
+    )
 
 
 def caption_input_hash(settings: dict[str, Any], output_hashes: dict[str, str]) -> str:
@@ -63,6 +81,13 @@ def caption_input_hash(settings: dict[str, Any], output_hashes: dict[str, str]) 
         settings.get("caption_engine", ""),
         settings.get("caption_model", ""),
         output_hashes.get("people", ""),
+        _prompt_hash_payload(
+            "ai-index/caption/user.md",
+            "ai-index/caption/upstream-ocr-context.md",
+            "ai-index/caption/cover-page.md",
+            "ai-index/caption/output-page.md",
+            "ai-index/caption/params.toml",
+        ),
     )
 
 
@@ -74,7 +99,14 @@ def locations_input_hash(settings: dict[str, Any], output_hashes: dict[str, str]
         settings.get("caption_model", ""),
         output_hashes.get("caption", ""),
         settings.get("nominatim_base_url", ""),
-        "1",  # locations_prompt_version
+        _prompt_hash_payload(
+            "ai-index/locations/system.md",
+            "ai-index/locations/user.md",
+            "ai-index/locations/output-location.md",
+            "ai-index/locations/output-shown.md",
+            "ai-index/locations/query-user.md",
+            "ai-index/locations/params.toml",
+        ),
     )
 
 
@@ -95,6 +127,12 @@ def date_estimate_input_hash(settings: dict[str, Any], output_hashes: dict[str, 
         model,
         output_hashes.get("ocr", ""),
         output_hashes.get("caption", ""),
+        _prompt_hash_payload(
+            "ai-index/date-estimate/system.md",
+            "ai-index/date-estimate/user.md",
+            "ai-index/date-estimate/output.md",
+            "ai-index/date-estimate/params.toml",
+        ),
     )
 
 

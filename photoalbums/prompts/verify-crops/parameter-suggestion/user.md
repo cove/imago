@@ -1,0 +1,5 @@
+- Fresh session task: suggest better tuning params for one failed concern after pass 2.
+- Failed concern: {concern}
+- Failure reason: {failure_reason}
+- Review same full page image, crop image, page XMP text, and crop XMP text again before suggesting params.
+- Return only params that could realistically help this one concern.

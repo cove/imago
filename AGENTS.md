@@ -21,11 +21,11 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 ## Project Skills
 
 - Project-local skills live under `skills/`.
-- Check `skills/` before changing AI prompting, captioning, indexing, or other model-behavior workflows in this repo.
-- The base skill is `skills/CORDELL_PHOTO_ALBUMS/SKILL.md` (orchestration, shared rules, shared prompt sections).
-- `_caption_prompts.py` loads all prompt sections from `skills/CORDELL_PHOTO_ALBUMS/SKILL.md`.
+- Check `photoalbums/prompts/` before changing runtime AI prompting, captioning, indexing, or other model-behavior workflows in this repo.
+- `photoalbums/prompts/` is the runtime prompt source of truth for the `photoalbums/` pipeline.
+- The base skill is `skills/CORDELL_PHOTO_ALBUMS/SKILL.md` for operator workflow documentation.
 - Supporting skill documentation may live next to a skill under `references/` or as additional markdown files in `skills/`.
-- If code loads prompt sections from a `SKILL.md`, update the skill file rather than adding brittle response post-processing in Python.
+- If code loads prompt assets from `photoalbums/prompts/`, update the prompt file or adjacent `params.toml` rather than adding brittle response post-processing in Python.
 
 ## Photo Album File Naming Convention
 

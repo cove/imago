@@ -15,7 +15,7 @@ from ._caption_lmstudio import (
     normalize_lmstudio_base_url,
 )
 from ._lmstudio_helpers import LMStudioModelResolverMixin, emit_prompt_debug, single_string_response_format
-from ._prompt_skill import required_section_text
+from .ai_prompt_assets import load_params, load_prompt, params_metadata, prompt_metadata
 from .ai_model_settings import default_caption_model, default_caption_models, default_lmstudio_base_url
 from .xmp_sidecar import _normalize_dc_date
 
@@ -29,11 +29,28 @@ def _is_date_estimate_payload(payload: object) -> bool:
 
 
 def date_estimate_system_prompt() -> str:
-    return required_section_text("System Prompt - Date Estimate")
+    return load_prompt("ai-index/date-estimate/system.md").rendered
+
+
+def _date_params() -> dict[str, object]:
+    return dict(load_params("ai-index/date-estimate/params.toml").values)
+
+
+def _date_prompt_metadata(resolved_params: dict[str, object]) -> dict[str, object]:
+    metadata = {}
+    metadata.update(
+        prompt_metadata(
+            load_prompt("ai-index/date-estimate/system.md"),
+            load_prompt("ai-index/date-estimate/user.md"),
+            load_prompt("ai-index/date-estimate/output.md"),
+        )
+    )
+    metadata.update(params_metadata(load_params("ai-index/date-estimate/params.toml"), resolved_params))
+    return metadata
 
 
 def _build_date_estimate_prompt(*, ocr_text: str, album_title: str) -> str:
-    lines = [required_section_text("Preamble Date Estimate")]
+    lines = [load_prompt("ai-index/date-estimate/user.md").rendered]
     clean_album_title = str(album_title or "").strip()
     clean_ocr_text = str(ocr_text or "").strip()
     if clean_album_title:
@@ -43,7 +60,7 @@ def _build_date_estimate_prompt(*, ocr_text: str, album_title: str) -> str:
         lines.append(clean_ocr_text)
     else:
         lines.append("OCR text: ")
-    lines.append(required_section_text("Output Format - Date Estimate"))
+    lines.append(load_prompt("ai-index/date-estimate/output.md").rendered)
     return "\n".join(lines)
 
 
@@ -92,6 +109,7 @@ class DateEstimateEngine(LMStudioModelResolverMixin):
         max_tokens: int = 96,
         temperature: float = 0.0,
     ) -> None:
+        params = _date_params()
         normalized = str(engine or "lmstudio").strip().lower()
         if normalized in {"qwen", "blip", "local"}:
             normalized = "lmstudio"
@@ -107,9 +125,9 @@ class DateEstimateEngine(LMStudioModelResolverMixin):
             str(lmstudio_base_url or "").strip(),
             default=default_lmstudio_base_url(),
         )
-        self.max_tokens = max(32, int(max_tokens))
-        self.temperature = max(0.0, float(temperature))
-        self.timeout_seconds = DEFAULT_LMSTUDIO_TIMEOUT_SECONDS
+        self.max_tokens = max(32, int(max_tokens if max_tokens is not None else params.get("max_tokens", 96)))
+        self.temperature = max(0.0, float(temperature if temperature is not None else params.get("temperature", 0.0)))
+        self.timeout_seconds = float(params.get("timeout_seconds", DEFAULT_LMSTUDIO_TIMEOUT_SECONDS))
         self._resolved_model_name = ""
         self.last_response_text = ""
         self.last_finish_reason = ""
@@ -168,10 +186,19 @@ class DateEstimateEngine(LMStudioModelResolverMixin):
                 prompt=prompt,
                 system_prompt=system_prompt,
                 source_path=source_path,
-                prompt_source="skill",
+                prompt_source="photoalbums/prompts/ai-index/date-estimate",
                 response="",
                 finish_reason="",
-                metadata={"skipped": True},
+                metadata={
+                    **_date_prompt_metadata(
+                        {
+                            "max_tokens": min(128, int(self.max_tokens)),
+                            "temperature": float(self.temperature),
+                            "timeout_seconds": float(self.timeout_seconds),
+                        }
+                    ),
+                    "skipped": True,
+                },
             )
             return DateEstimateOutput(engine=self.engine, fallback=True, error="")
         try:
@@ -216,6 +243,15 @@ class DateEstimateEngine(LMStudioModelResolverMixin):
             return DateEstimateOutput(engine=self.engine, fallback=True, error=error_text)
         finally:
             metadata: dict[str, object] = {}
+            metadata.update(
+                _date_prompt_metadata(
+                    {
+                        "max_tokens": min(128, int(self.max_tokens)),
+                        "temperature": float(self.temperature),
+                        "timeout_seconds": float(self.timeout_seconds),
+                    }
+                )
+            )
             if error_text:
                 metadata["error"] = error_text
             emit_prompt_debug(
@@ -226,7 +262,7 @@ class DateEstimateEngine(LMStudioModelResolverMixin):
                 prompt=prompt,
                 system_prompt=system_prompt,
                 source_path=source_path,
-                prompt_source="skill",
+                prompt_source="photoalbums/prompts/ai-index/date-estimate",
                 response=response,
                 finish_reason=finish_reason,
                 metadata=metadata,

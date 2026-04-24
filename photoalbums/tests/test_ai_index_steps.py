@@ -94,6 +94,11 @@ class TestInputHashIsolation(unittest.TestCase):
         settings_b = {**self.BASE_SETTINGS, "ocr_model": "ocr-b"}
         self.assertEqual(people_input_hash(settings_a, {}), people_input_hash(settings_b, {}))
 
+    def test_people_hash_changes_when_reviewed_identity_signature_changes(self):
+        settings_a = {**self.BASE_SETTINGS, "cast_store_signature": "reviewed-a"}
+        settings_b = {**self.BASE_SETTINGS, "cast_store_signature": "reviewed-b"}
+        self.assertNotEqual(people_input_hash(settings_a, {}), people_input_hash(settings_b, {}))
+
     def test_caption_hash_includes_people_output_hash(self):
         h_without = caption_input_hash(self.BASE_SETTINGS, {})
         h_with = caption_input_hash(self.BASE_SETTINGS, {"people": "people-hash-abc"})

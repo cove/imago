@@ -1,0 +1,3 @@
+max_tokens = 96
+temperature = 0.0
+timeout_seconds = 300.0

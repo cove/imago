@@ -1,0 +1,2 @@
+- Return only valid JSON matching the response_format schema.
+- Do not include reasoning or extra fields.

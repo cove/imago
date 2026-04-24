@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import io
 import json
+import time
 import re
 import urllib.error
 import urllib.request
@@ -13,7 +14,7 @@ from typing import Any, Callable, Sequence, TypeVar
 from ._caption_text import clean_text, clean_lines
 from .image_limits import allow_large_pillow_images
 from ._lmstudio_helpers import LMStudioModelResolverMixin
-from ._prompt_skill import required_section_text
+from .ai_prompt_assets import load_params, load_prompt
 
 DEFAULT_LMSTUDIO_MAX_NEW_TOKENS = 8129
 DEFAULT_LMSTUDIO_BASE_URL = "http://localhost:1234/v1"
@@ -887,21 +888,29 @@ def _parse_lmstudio_page_caption(
 
 def _lmstudio_request_json(url: str, *, payload: dict | None = None, timeout: float) -> dict:
     body = None if payload is None else json.dumps(payload).encode("utf-8")
-    request = urllib.request.Request(
-        url,
-        data=body,
-        method="POST" if payload is not None else "GET",
-        headers={"Content-Type": "application/json"} if payload is not None else {},
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=float(timeout)) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        details = exc.read().decode("utf-8", errors="replace").strip()
-        message = details or f"HTTP {exc.code}"
-        raise RuntimeError(f"LM Studio request failed: {message}") from exc
-    except urllib.error.URLError as exc:
-        raise RuntimeError(f"LM Studio is unreachable at {url}: {exc.reason}") from exc
+    attempts = 3
+    for attempt in range(1, attempts + 1):
+        request = urllib.request.Request(
+            url,
+            data=body,
+            method="POST" if payload is not None else "GET",
+            headers={"Content-Type": "application/json"} if payload is not None else {},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=float(timeout)) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            if exc.code not in (500, 502, 503, 504) or attempt == attempts:
+                details = exc.read().decode("utf-8", errors="replace").strip()
+                message = details or f"HTTP {exc.code}"
+                raise RuntimeError(f"LM Studio request failed: {message}") from exc
+            time.sleep(min(5 * attempt, 15))
+        except (urllib.error.URLError, ConnectionError, TimeoutError) as exc:
+            if attempt == attempts:
+                reason = getattr(exc, "reason", str(exc))
+                raise RuntimeError(f"LM Studio is unreachable at {url}: {reason}") from exc
+            time.sleep(min(5 * attempt, 15))
+    return {}
 
 
 def _lmstudio_stream_tokens(url: str, payload: dict, timeout: float):
@@ -998,15 +1007,19 @@ _DESCRIBE_CONFIGS: dict[str, tuple] = {
 
 
 def people_count_system_prompt() -> str:
-    return required_section_text("System Prompt - People Count")
+    return load_prompt("ai-index/people-count/system.md").rendered
 
 
 def location_system_prompt() -> str:
-    return required_section_text("System Prompt - Location")
+    return load_prompt("ai-index/locations/system.md").rendered
 
 
 def location_shown_system_prompt() -> str:
     return location_system_prompt()
+
+
+def _step_params(relative_path: str) -> dict[str, object]:
+    return dict(load_params(relative_path).values)
 
 
 class LMStudioCaptioner(LMStudioModelResolverMixin):
@@ -1152,6 +1165,7 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
         prompt: str,
     ) -> CaptionDetails:
         def run_request() -> CaptionDetails:
+            params = _step_params("ai-index/people-count/params.toml")
             resize_edge = (
                 int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
             )
@@ -1172,8 +1186,8 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
                     },
                 ],
                 "response_format": _lmstudio_people_count_response_format(),
-                "max_tokens": min(48, int(self.max_new_tokens)),
-                "temperature": 0.0,
+                "max_tokens": min(int(params.get("max_tokens", 48)), int(self.max_new_tokens)),
+                "temperature": float(params.get("temperature", 0.0)),
                 "stream": False,
             }
             response = _lmstudio_request_json(
@@ -1208,6 +1222,7 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
         prompt: str,
     ) -> CaptionDetails:
         def run_request() -> CaptionDetails:
+            params = _step_params("ai-index/locations/params.toml")
             resize_edge = (
                 int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
             )
@@ -1228,8 +1243,8 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
                     },
                 ],
                 "response_format": _lmstudio_location_response_format(),
-                "max_tokens": min(96, int(self.max_new_tokens)),
-                "temperature": 0.0,
+                "max_tokens": min(int(params.get("location_max_tokens", 96)), int(self.max_new_tokens)),
+                "temperature": float(params.get("temperature", 0.0)),
                 "stream": False,
             }
             response = _lmstudio_request_json(
@@ -1265,6 +1280,7 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
         prompt: str,
     ) -> CaptionDetails:
         def run_request() -> CaptionDetails:
+            params = _step_params("ai-index/locations/params.toml")
             resize_edge = (
                 int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
             )
@@ -1286,8 +1302,8 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
                     },
                 ],
                 "response_format": _lmstudio_locations_shown_response_format(),
-                "max_tokens": min(256, int(self.max_new_tokens)),
-                "temperature": 0.0,
+                "max_tokens": min(int(params.get("locations_shown_max_tokens", 256)), int(self.max_new_tokens)),
+                "temperature": float(params.get("temperature", 0.0)),
                 "stream": False,
             }
             response = _lmstudio_request_json(
@@ -1321,6 +1337,7 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
         prompt: str,
     ) -> CaptionDetails:
         def run_request() -> CaptionDetails:
+            params = _step_params("ai-index/locations/params.toml")
             resize_edge = (
                 int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
             )
@@ -1341,8 +1358,8 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
                     },
                 ],
                 "response_format": _lmstudio_location_queries_response_format(),
-                "max_tokens": min(256, int(self.max_new_tokens)),
-                "temperature": 0.0,
+                "max_tokens": min(int(params.get("location_queries_max_tokens", 256)), int(self.max_new_tokens)),
+                "temperature": float(params.get("temperature", 0.0)),
                 "stream": False,
             }
             response = _lmstudio_request_json(

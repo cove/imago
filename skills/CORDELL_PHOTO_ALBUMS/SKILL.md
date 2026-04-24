@@ -1,14 +1,14 @@
----
+﻿---
 name: cordell-photo-albums
 description: >-
   Orchestration skill for AI captioning and indexing of Cordell family photo albums (scanned by
   Audrey Cordell). Use this skill whenever: kicking off or monitoring a photoalbums AI indexing job,
   checking the manifest summary (how many photos are done vs pending), reviewing or diagnosing caption
   quality (cut-off captions, empty captions, wrong people names, missing location metadata), reprocessing
-  individual photos, or troubleshooting why captions look wrong. Also contains shared vision model prompt
-  sections (rules, output formats, hints) used by the GLM captioning pipeline. Invoke any time the user
+  individual photos, or troubleshooting why captions look wrong. Runtime prompt text and tuning live under
+  photoalbums/prompts/. Invoke any time the user
   mentions photo albums, Audrey's albums, AI index, manifest summary, caption problems, or specific photo
-  filenames — even if they don't say "skill".
+  filenames - even if they don't say "skill".
 metadata:
   author: Cove Schneider
   version: 1.1.2
@@ -22,17 +22,13 @@ metadata:
 
 ## Overview
 
-This skill serves two purposes that live in the same file:
+This skill is operator workflow documentation for using the `imago` MCP tools to run and monitor AI
+indexing jobs on Cordell family photo albums. Runtime prompt text, output-format guidance, and tunable
+model-call parameters are owned by `photoalbums/prompts/` and adjacent `params.toml` files.
 
-**1. Claude workflow** — instructions for using the `imago` MCP tools to run and monitor AI indexing jobs
-on Cordell family photo albums. See the Workflow and Quality Monitoring sections below.
+Do not edit this skill to change production OCR, caption, people-count, location, date-estimate, or
+verify-crops prompt behavior. Edit the corresponding file under `photoalbums/prompts/` instead.
 
-**2. Shared vision model prompt sections** — rules, output formats, and hint templates loaded at runtime
-by `photoalbums/lib/_caption_prompts.py`. These sections are parsed by exact `## Section Name` heading —
-do not rename them. Read `references/photoalbums.md` for full pipeline documentation.
-
-Legacy album-type-specific preambles are deprecated. The runtime pipeline now uses the base skill's
-generic prompt sections directly.
 
 ## Requirements
 
@@ -51,10 +47,10 @@ All album files follow the pattern `{Collection}_{Year}_B{book}_P{page}_{type}.{
 
 | Type token | Role | Archive ext | View ext |
 |------------|------|-------------|----------|
-| `_S##` | Raw scan | `.tif` | — |
-| `_D##-##` | Derived image | `.tif` | — |
-| `_V` | View page (any scan count) | — | `.jpg` |
-| `_D##-##_V` | View derived image | — | `.jpg` |
+| `_S##` | Raw scan | `.tif` | - |
+| `_D##-##` | Derived image | `.tif` | - |
+| `_V` | View page (any scan count) | - | `.jpg` |
+| `_D##-##_V` | View derived image | - | `.jpg` |
 
 - Pages start at P01. P00 is not valid.
 - `_V` always marks a view output; `_S##` always marks an archive scan.
@@ -67,8 +63,8 @@ All album files follow the pattern `{Collection}_{Year}_B{book}_P{page}_{type}.{
 The default pipeline runs three inference modes per image: Describe, People Count, and Location.
 The Describe response produces OCR text and caption together in one combined call, and the
 Describe response must always include verbatim visible text in `ocr_text`. Engine selection and
-mode branching are controlled by `photoalbums/ai_models.toml` and render settings — the skill
-templates apply to all modes.
+mode branching are controlled by `photoalbums/ai_models.toml`, render settings, and prompt assets
+under `photoalbums/prompts/`.
 
 ---
 
@@ -92,12 +88,12 @@ Before processing any album pages, the cover page (P01) must be processed so the
 
 1. Call `photoalbums_album_status(album="...")` and inspect `cover_candidates` plus `cover_ready`.
 2. If the cover page has not been processed yet (state is `pending` or absent), run a targeted job first:
-   `photoalbums_ai_index(photo="<AlbumName>_B<book>_P01")` — wait for it to complete before continuing.
+   `photoalbums_ai_index(photo="<AlbumName>_B<book>_P01")` - wait for it to complete before continuing.
 3. If the cover was previously processed but predates this change (its `xmpDM:album` field may be empty or missing the year), reprocess it:
    `photoalbums_ai_index(photo="<AlbumName>_B<book>_P01", reprocess_mode="all")`
-4. Once the cover is done, proceed with the full album job — non-cover pages will pick up the title from the cover's XMP sidecar automatically.
+4. Once the cover is done, proceed with the full album job - non-cover pages will pick up the title from the cover's XMP sidecar automatically.
 
-This step is especially important when processing a single page (e.g. `photo=...P25`) — always run the cover page first if the title is unknown.
+This step is especially important when processing a single page (e.g. `photo=...P25`) - always run the cover page first if the title is unknown.
 
 ### Start a job
 Call `photoalbums_ai_index` to launch a background job. It returns a `job_id` immediately.
@@ -109,7 +105,7 @@ Call `photoalbums_ai_index` to launch a background job. It returns a `job_id` im
 - Pass `album_set` only when you need a non-default archive set.
 
 ### Monitor progress
-Poll `job_status(job_id)` periodically (every 30–60 seconds for large runs). It returns status metadata
+Poll `job_status(job_id)` periodically (every 30-60 seconds for large runs). It returns status metadata
 only. When you need output, call `job_logs(job_id)` to retrieve the log text for
 quality review. Use `photoalbums_job_artifacts(job_id)` to inspect XMP outputs and prompt-debug artifacts for
 specific photos. Use `job_list` to see all recent jobs if you've lost track of an ID.
@@ -132,192 +128,4 @@ clearly: which photo, what the symptom is, and what the likely cause is.
 
 ---
 
-## Global Style & Behavior Rules (apply to every mode)
-- If evidence is insufficient, omit the detail or use the empty string, false, or 0 required by the output schema.
-- When quoting visible text, reproduce it exactly as printed.
-- Think step-by-step internally if needed, but output only the final JSON.
-
-## People Rules
-- Count only clearly visible real people in the main photo.
-- Exclude statues, dolls, paintings, posters, reflections, and tiny indistinct background figures.
-- Hyphen-separated names in visible text (for example `leslie-tommy-robert`) indicate left-to-right order.
-- When typed annotation text clearly names people for a specific photo, use those names only when both the page layout and the visible photo content support that match.
-
-## System Prompt - People Count
-- You count visible people in photographs.
-- Return only valid JSON matching the response_format schema.
-- Count clearly visible real people only.
-- Do not include reasoning or extra fields.
-
-## System Prompt - Location
-- You extract location metadata for photographs.
-- Return only valid JSON matching the response_format schema.
-- When the response schema asks for `location_name`, only return GPS coordinates when exact coordinates are explicitly visible in the image or OCR text.
-- If exact coordinates are not explicit, leave GPS fields empty.
-- When the response schema asks for `locations_shown`, only include famous locations that can be confidently identified from visible evidence.
-- If no famous locations are identifiable, return an empty array.
-- Do not include reasoning or extra fields.
-
-## System Prompt - OCR
-- You are an OCR engine.
-- Return only valid JSON matching the response_format schema.
-- Put the extracted text in the text field.
-- If there is no readable text, return an empty text field.
-- Do not describe the image, show reasoning, or add extra fields.
-
-## System Prompt - Date Estimate
-- You estimate a photo date for XMP `dc:date`.
-- Return only valid JSON matching the response_format schema.
-- Use OCR text as the primary source of truth.
-- If OCR text does not support a date, fall back to the album title.
-- Return the most precise supported W3C date value: `YYYY-MM-DD`, `YYYY-MM`, `YYYY`, or an empty string.
-- Do not invent a month or day unless the supplied text supports it.
-- If the source only supports an approximate or rounded date, return the nearest honest precision instead of inventing missing parts.
-- Never use placeholder components like `00` for month or day.
-- If the day is unknown, return `YYYY-MM` instead of `YYYY-MM-00`.
-- If the month is unknown, return `YYYY` instead of `YYYY-00` or `YYYY-00-00`.
-- Do not include reasoning or extra fields.
-
-## System Prompt - Crop Metadata Verification
-- You verify already-generated crop metadata against family photo album page context.
-- Return only valid JSON matching the response_format schema.
-- Treat the crop image as the primary review target and the page image as supporting context.
-- Use the supplied page XMP text and crop XMP text as evidence, not as unquestioned truth.
-- Mark a concern `good` only when the metadata is supported by what a careful human would infer from the page.
-- Mark a concern `bad` when the metadata conflicts with the page context.
-- Mark a concern `uncertain` when the page context does not support a confident human judgment.
-- Keep each concern `reasoning` to one sentence.
-- Keep each concern `failure_reason` empty when verdict is `good`.
-- When any concern is `bad` or `uncertain`, include `human_inference` describing what a person would actually infer from the page.
-- `needs_another_pass` and `needs_human_review` must use readable concern names from: `caption`, `gps`, `shown_location`, `date`.
-- `overall` is summary only and must not appear in retry-routing arrays.
-
-## Preamble Crop Metadata Verification
-- Review target: one crop image plus its crop XMP metadata, using the full album page image and page XMP metadata as supporting context.
-- Judge whether the crop caption belongs to that crop on the page, including nearby-caption carry-over when a human would read neighboring captions together.
-- Judge whether shown location matches written page text, landmarks, or adjacent caption context.
-- Judge whether GPS-backed place is grounded strongly enough by the page context to trust.
-- Judge whether date preserves the best supported precision from the page, including month-plus-year evidence such as `AUG. 1988` -> `1988-08` that are not standard but can be understood by a human still.
-- If page image context is missing, do not pretend a full review happened.
-- If page XMP text context is missing, do not pretend a full metadata-context review happened.
-- Base your verdicts on what a human flipping through the album would accept as belonging together.
-
-## Preamble Crop Metadata Verification Retry
-- Retry only failed concern: {concern}
-- Specific issue: {issue}
-- Problem to fix: {problem_to_fix}
-- Do not rewrite unrelated concerns that were already good.
-- Keep answer scoped to the named concern and its routing fields.
-
-## Preamble Crop Metadata Verification Parameter Suggestion
-- Fresh session task: suggest better tuning params for one failed concern after pass 2.
-- Failed concern: {concern}
-- Failure reason: {failure_reason}
-- Review same full page image, crop image, page XMP text, and crop XMP text again before suggesting params.
-- Return only params that could realistically help this one concern.
-
-## Preamble Describe
-- Use `author_text` for typewriter-written Courier text on white paper strips.
-- Use `scene_text` only for readable text inside the photographed scene itself, not the page itself.
-- Read the capations from left to right, there can be a hierarchy to the capations, where a capation in the center of a line refers to both the left and right photo, where the left and right photos have more specifc capations that refer to just themselves. You'll need to examine the photos to help get a hint as to what capation goes with the photo too.
-- Return empty strings when no applicable text exists for a field.
-
-## Preamble Upstream OCR Context
-- The following OCR text comes from the parent album page XMP and is context only: {context_ocr_text}
-- Use it only to disambiguate cropped annotations, partial captions, or place names visible in the current image.
-- Do not copy words from this context into `ocr_text`, `author_text`, or `scene_text` unless they are visible in the current image.
-
-## Preamble People Count
-- Count the number of clearly visible real people.
-
-## Preamble Location
-- If the response schema asks for `location_name`, determine the most useful location metadata supported by visible evidence.
-- When returning `location_name`, prefer a disambiguating geocoding query that includes the country, state/province, or broad region when that context is supported by the visible evidence, OCR text, or album title.
-- Avoid ambiguous bare place names like `Oxford` when a more specific query like `Oxford, England` or `Oxford, United Kingdom` is supported.
-- Album titles can have multiple country or region names in them, including a year, but you need to return just one country or region name only. For example "Spain and Morocco 1988", you'd look at the picture and OCR text to determine if the country is "Spain" or "Morocco" but not both, and "Egypt 1975" you'd pick "Egypt" but not "1975".
-- If the response schema asks for `locations_shown`, identify distinct famous locations visible in the photographs on this page.
-- Examples: landmarks, monuments, city skylines, famous natural features, iconic buildings.
-- OCR text hints about the general location are provided to help identify specific famous locations, often these hints are the exact name of the location or landmark and little other work is needed.
-- Only include locations that are well-known and can be identified with reasonable confidence.
-- Include locations even if only mentioned in OCR text without visual confirmation in the photo.
-- Example: if OCR says "Paris, London, Rome", return three array entries, one for each city.
-- Include `name` when the landmark or place itself can be named, not just the city or country.
-- Use `name` for the full location name, for example `Tower Bridge`, `Westminster Abbey`, or `St. Mark's Square`.
-- Leave `name` empty when only the broader city or country can be identified.
-- The album name is: {album_title}
-- The OCR text on the page is: {ocr_text}
-
-## Preamble Date Estimate
-- Estimate a single photo date for XMP `dc:date`.
-- First look for an explicit or strongly implied date in the OCR text.
-- If the OCR text does not support a date, use the album title as the fallback date range hint.
-- Treat month abbreviations with or without a trailing period as explicit month evidence, even when OCR spacing is imperfect.
-- When only a year is supported, return the year only.
-- When a month and year are supported, return `YYYY-MM`.
-- When a full calendar date is supported, return `YYYY-MM-DD`.
-- If the visible text implies an approximate date, round to the nearest supported precision without adding unsupported detail.
-- Example: `AUG. 1988` -> `1988-08`.
-- Example: `AUG.1988` -> `1988-08`.
-- Example: `AUGUST 1988` -> `1988-08`.
-- Example: `about January 1988` -> `1988-01`.
-- Example: `early 1988` -> `1988`.
-- Example: `winter 1988` -> `1988`.
-- Never return `00` for an unknown month or day; reduce precision instead.
-- Example: `January 1988` -> `1988-01`, not `1988-01-00`.
-- Example: `1988` -> `1988`, not `1988-00` or `1988-00-00`.
-- If neither OCR text nor album title supports any date estimate, return the empty string.
-
-## Preamble Cover Page
-- This is an album cover or title page.
-- Use the OCR text from this page as the source of truth for `album_title`.
-- Read the full album title exactly as printed on the cover, including all countries, years, and book numbers if present.
-- Output `album_title` as a single-line storage title: preserve the printed words and order, but replace line breaks with spaces.
-- Do not output literal `\n` sequences inside `album_title`.
-- Do not normalize, romanize book numbers, or otherwise rewrite the title text.
-
-## Output Format – Describe Page
-`{"ocr_text": "", "author_text": "", "scene_text": "", "location_name": ""}`
-
-- `ocr_text`: you're an OCR engine when processing this, look for all clearly legible visible text on the page, copied verbatim with original capitalization, punctuation, spacing, and real line breaks.
-- `author_text`: you're an OCR engine when processing this, typed album-authored annotation text that's typed on a typewriter on strips of white paper, otherwise empty string.
-- Recover the full `author_text` when the strip is visibly present but cropped in this scan and the supplied `ocr_text` contains the missing words.
-- `scene_text`: you're an OCR engine when processing this, readable text visible inside photographs, otherwise empty string.
-- `author_text` and `scene_text` are classified subsets of `ocr_text`, not replacements for it. Fill them whenever the classification is supported by the page.
-- The example JSON uses empty strings as placeholders. Do not copy literal `...` from any example or schema text.
-- `location_name`: concise geocoding query for GPS lookup when supported strongly enough by visible evidence; otherwise empty string.
-- Prefer `place, city/state, country` style queries over ambiguous short names when the broader geography is supported by the page or album context.
-- `album_title`: for album title pages or cover pages — the full album title as a single-line storage string, with any printed line breaks replaced by spaces (e.g. `"Egypt 1975"`, `"Mainland China Book 11"`, `"Europe 1973 Egypt 1974"`). Empty string for all other pages.
-- `ocr_lang`: BCP-47 language code of the primary non-English text in `author_text` or `scene_text` (e.g. `"zh"`, `"fr"`, `"ar"` for Chinese, French, Arabic). Use `"en"` for English-only text. Empty string when there is no visible text.
-- Just return the JSON without any extra text or explanation.
-
-## Output Format – People Count
-`{"people_present": false, "estimated_people_count": 0}`
-
-- `people_present`: true if one or more clearly visible real people are present, otherwise false.
-- `estimated_people_count`: best integer count of clearly visible real people.
-- Just return the JSON without any extra text or explanation.
-
-## Output Format – Location
-`{"location_name": "", "gps_latitude": "", "gps_longitude": ""}`
-
-- `location_name`: concise geocoding query or empty string.
-- Include country, state/province, or broad region when supported so Nominatim is less likely to resolve to the wrong place.
-- `gps_latitude`: decimal degrees if explicitly visible in image text, else empty string.
-- `gps_longitude`: decimal degrees if explicitly visible in image text, else empty string.
-- Just return the JSON without any extra text or explanation.
-
-## Output Format – Location Shown
-`{"locations_shown": [{"name": "", "world_region": "", "country_name": "", "country_code": "", "province_or_state": "", "city": "", "sublocation": ""}]}`
-
-- Return empty array if no famous locations are identifiable.
-- Each location should include as many hierarchical levels as known.
-- country_code: 2-letter ISO 3166-1 alpha-2 code if known.
-- Just return the JSON without any extra text or explanation.
-
-## Output Format - Date Estimate
-`{"date": ""}`
-
-- `date`: estimated W3C date string for `dc:date`, using one of `YYYY-MM-DD`, `YYYY-MM`, `YYYY`, or `""`.
-- Prefer OCR evidence over album-title fallback.
-- Just return the JSON without any extra text or explanation.
 
