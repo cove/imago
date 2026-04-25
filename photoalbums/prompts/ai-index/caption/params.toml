@@ -1,5 +1,0 @@
-max_tokens = 8129
-temperature = 0.2
-max_image_edge = 0
-timeout_seconds = 300.0
-thinking = false

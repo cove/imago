@@ -15,7 +15,6 @@ from ._caption_lmstudio import (
     normalize_lmstudio_base_url,
 )
 from ._lmstudio_helpers import LMStudioModelResolverMixin, emit_prompt_debug, single_string_response_format
-from .ai_prompt_assets import load_params, load_prompt, params_metadata, prompt_metadata
 from .ai_model_settings import default_caption_model, default_caption_models, default_lmstudio_base_url
 from .xmp_sidecar import _normalize_dc_date
 
@@ -28,29 +27,61 @@ def _is_date_estimate_payload(payload: object) -> bool:
     return isinstance(payload, dict) and isinstance(payload.get("date"), str)
 
 
+_DATE_SYSTEM_PROMPT = (
+    "- You estimate a photo date for XMP `dc:date`.\n"
+    "- Return only valid JSON matching the response_format schema.\n"
+    "- Use OCR text as the primary source of truth.\n"
+    "- If OCR text does not support a date, fall back to the album title.\n"
+    "- Return the most precise supported W3C date value: `YYYY-MM-DD`, `YYYY-MM`, `YYYY`, or an empty string.\n"
+    "- Do not invent a month or day unless the supplied text supports it.\n"
+    "- If the source only supports an approximate or rounded date, return the nearest honest precision instead of inventing missing parts.\n"
+    "- Never use placeholder components like `00` for month or day.\n"
+    "- If the day is unknown, return `YYYY-MM` instead of `YYYY-MM-00`.\n"
+    "- If the month is unknown, return `YYYY` instead of `YYYY-00` or `YYYY-00-00`.\n"
+    "- Do not include reasoning or extra fields."
+)
+_DATE_USER_PROMPT = (
+    "- Estimate a single photo date for XMP `dc:date`.\n"
+    "- First look for an explicit or strongly implied date in the OCR text.\n"
+    "- If the OCR text does not support a date, use the album title as the fallback date range hint.\n"
+    "- Treat month abbreviations with or without a trailing period as explicit month evidence, even when OCR spacing is imperfect.\n"
+    "- When only a year is supported, return the year only.\n"
+    "- When a month and year are supported, return `YYYY-MM`.\n"
+    "- When a full calendar date is supported, return `YYYY-MM-DD`.\n"
+    "- If the visible text implies an approximate date, round to the nearest supported precision without adding unsupported detail.\n"
+    "- Example: `AUG. 1988` -> `1988-08`.\n"
+    "- Example: `AUG.1988` -> `1988-08`.\n"
+    "- Example: `AUGUST 1988` -> `1988-08`.\n"
+    "- Example: `about January 1988` -> `1988-01`.\n"
+    "- Example: `early 1988` -> `1988`.\n"
+    "- Example: `winter 1988` -> `1988`.\n"
+    "- Never return `00` for an unknown month or day; reduce precision instead.\n"
+    "- Example: `January 1988` -> `1988-01`, not `1988-01-00`.\n"
+    "- Example: `1988` -> `1988`, not `1988-00` or `1988-00-00`.\n"
+    "- If neither OCR text nor album title supports any date estimate, return the empty string."
+)
+_DATE_OUTPUT_PROMPT = (
+    '`{"date": ""}`\n'
+    "- `date`: estimated W3C date string for `dc:date`, using one of `YYYY-MM-DD`, `YYYY-MM`, `YYYY`, or `\"\"`.\n"
+    "- Prefer OCR evidence over album-title fallback.\n"
+    "- Just return the JSON without any extra text or explanation."
+)
+
+
 def date_estimate_system_prompt() -> str:
-    return load_prompt("ai-index/date-estimate/system.md").rendered
+    return _DATE_SYSTEM_PROMPT
 
 
 def _date_params() -> dict[str, object]:
-    return dict(load_params("ai-index/date-estimate/params.toml").values)
+    return {"max_tokens": 96, "temperature": 0.0, "timeout_seconds": 300.0}
 
 
 def _date_prompt_metadata(resolved_params: dict[str, object]) -> dict[str, object]:
-    metadata = {}
-    metadata.update(
-        prompt_metadata(
-            load_prompt("ai-index/date-estimate/system.md"),
-            load_prompt("ai-index/date-estimate/user.md"),
-            load_prompt("ai-index/date-estimate/output.md"),
-        )
-    )
-    metadata.update(params_metadata(load_params("ai-index/date-estimate/params.toml"), resolved_params))
-    return metadata
+    return {}
 
 
 def _build_date_estimate_prompt(*, ocr_text: str, album_title: str) -> str:
-    lines = [load_prompt("ai-index/date-estimate/user.md").rendered]
+    lines = [_DATE_USER_PROMPT]
     clean_album_title = str(album_title or "").strip()
     clean_ocr_text = str(ocr_text or "").strip()
     if clean_album_title:
@@ -60,7 +91,7 @@ def _build_date_estimate_prompt(*, ocr_text: str, album_title: str) -> str:
         lines.append(clean_ocr_text)
     else:
         lines.append("OCR text: ")
-    lines.append(load_prompt("ai-index/date-estimate/output.md").rendered)
+    lines.append(_DATE_OUTPUT_PROMPT)
     return "\n".join(lines)
 
 

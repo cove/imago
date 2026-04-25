@@ -35,31 +35,30 @@ class StepDef:
 # ── Step declarations ──────────────────────────────────────────────────────────
 
 STEPS: dict[str, StepDef] = {
-    "ocr": StepDef("ocr", [], ["ocr"]),
+    "metadata": StepDef("metadata", [], ["ocr", "caption", "location", "locations_shown", "location_shown_ran"]),
     "people": StepDef("people", [], ["people"]),
-    "caption": StepDef("caption", ["ocr", "people"], ["caption"]),
-    "locations": StepDef("locations", ["caption"], ["location", "locations_shown", "location_shown_ran"]),
     "objects": StepDef("objects", [], ["objects", "object_model"]),
-    "date-estimate": StepDef("date-estimate", ["ocr", "caption"], []),
-    "propagate-to-crops": StepDef("propagate-to-crops", ["locations", "people"], []),
+    "propagate-to-crops": StepDef("propagate-to-crops", ["metadata", "people"], []),
 }
 
 # Topological order for execution
-STEP_ORDER = ["ocr", "people", "objects", "caption", "locations", "date-estimate", "propagate-to-crops"]
+STEP_ORDER = ["metadata", "people", "objects", "propagate-to-crops"]
 
 
 # ── Input hash functions ───────────────────────────────────────────────────────
 
-def ocr_input_hash(settings: dict[str, Any], output_hashes: dict[str, str]) -> str:
+def metadata_input_hash(settings: dict[str, Any], output_hashes: dict[str, str]) -> str:
+    if str(settings.get("caption_engine", "")).strip().lower() != "lmstudio":
+        return ""
+    model = str(settings.get("caption_model", "")).strip()
+    if not model:
+        return ""
     return _sha16(
-        settings.get("ocr_engine", ""),
-        settings.get("ocr_model", ""),
-        settings.get("ocr_lang", ""),
-        settings.get("scan_group_signature", ""),
+        model,
+        settings.get("nominatim_base_url", ""),
         _prompt_hash_payload(
-            "ai-index/ocr/system.md",
-            "ai-index/ocr/user.md",
-            "ai-index/ocr/params.toml",
+            "ai-index/metadata/system.md",
+            "ai-index/metadata/params.toml",
         ),
     )
 
@@ -76,39 +75,6 @@ def people_input_hash(settings: dict[str, Any], output_hashes: dict[str, str]) -
     )
 
 
-def caption_input_hash(settings: dict[str, Any], output_hashes: dict[str, str]) -> str:
-    return _sha16(
-        settings.get("caption_engine", ""),
-        settings.get("caption_model", ""),
-        output_hashes.get("people", ""),
-        _prompt_hash_payload(
-            "ai-index/caption/user.md",
-            "ai-index/caption/upstream-ocr-context.md",
-            "ai-index/caption/cover-page.md",
-            "ai-index/caption/output-page.md",
-            "ai-index/caption/params.toml",
-        ),
-    )
-
-
-def locations_input_hash(settings: dict[str, Any], output_hashes: dict[str, str]) -> str:
-    if str(settings.get("caption_engine", "")).strip().lower() != "lmstudio":
-        return ""
-    return _sha16(
-        settings.get("caption_engine", ""),
-        settings.get("caption_model", ""),
-        output_hashes.get("caption", ""),
-        settings.get("nominatim_base_url", ""),
-        _prompt_hash_payload(
-            "ai-index/locations/system.md",
-            "ai-index/locations/user.md",
-            "ai-index/locations/output-location.md",
-            "ai-index/locations/output-shown.md",
-            "ai-index/locations/params.toml",
-        ),
-    )
-
-
 def objects_input_hash(settings: dict[str, Any], output_hashes: dict[str, str]) -> str:
     model = str(settings.get("model", "")).strip()
     if not model or not settings.get("enable_objects", True):
@@ -116,40 +82,18 @@ def objects_input_hash(settings: dict[str, Any], output_hashes: dict[str, str]) 
     return _sha16(model)
 
 
-def date_estimate_input_hash(settings: dict[str, Any], output_hashes: dict[str, str]) -> str:
-    if str(settings.get("caption_engine", "")).strip().lower() != "lmstudio":
-        return ""
-    model = str(settings.get("caption_model", "")).strip()
-    if not model:
-        return ""
-    return _sha16(
-        model,
-        output_hashes.get("ocr", ""),
-        output_hashes.get("caption", ""),
-        _prompt_hash_payload(
-            "ai-index/date-estimate/system.md",
-            "ai-index/date-estimate/user.md",
-            "ai-index/date-estimate/output.md",
-            "ai-index/date-estimate/params.toml",
-        ),
-    )
-
-
 def propagate_to_crops_input_hash(settings: dict[str, Any], output_hashes: dict[str, str]) -> str:
     return _sha16(
-        output_hashes.get("locations", ""),
+        output_hashes.get("metadata", ""),
         output_hashes.get("people", ""),
         settings.get("crop_paths_signature", ""),
     )
 
 
 STEP_HASH_FNS: dict[str, Callable[[dict[str, Any], dict[str, str]], str]] = {
-    "ocr": ocr_input_hash,
+    "metadata": metadata_input_hash,
     "people": people_input_hash,
-    "caption": caption_input_hash,
-    "locations": locations_input_hash,
     "objects": objects_input_hash,
-    "date-estimate": date_estimate_input_hash,
     "propagate-to-crops": propagate_to_crops_input_hash,
 }
 

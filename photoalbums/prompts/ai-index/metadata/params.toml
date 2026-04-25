@@ -1,0 +1,4 @@
+max_tokens = 2048
+temperature = 0.1
+max_image_edge = 0
+timeout_seconds = 300.0

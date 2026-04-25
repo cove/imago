@@ -281,7 +281,7 @@ class CaptionEngine:
             )
             metadata.update(
                 _params_debug(
-                    "ai-index/caption/params.toml",
+                    "ai-index/metadata/params.toml",
                     {
                         "max_tokens": int(self._max_tokens),
                         "temperature": float(self._temperature),
@@ -449,7 +449,7 @@ class CaptionEngine:
             metadata.update(location_prompt_metadata())
             metadata.update(
                 _params_debug(
-                    "ai-index/locations/params.toml",
+                    "ai-index/metadata/params.toml",
                     {
                         "max_tokens": min(96, int(self._max_tokens)),
                         "temperature": 0.0,
@@ -528,7 +528,7 @@ class CaptionEngine:
             metadata.update(location_shown_prompt_metadata())
             metadata.update(
                 _params_debug(
-                    "ai-index/locations/params.toml",
+                    "ai-index/metadata/params.toml",
                     {
                         "max_tokens": min(256, int(self._max_tokens)),
                         "temperature": 0.0,
@@ -627,7 +627,7 @@ class CaptionEngine:
             metadata.update(location_queries_prompt_metadata())
             metadata.update(
                 _params_debug(
-                    "ai-index/locations/params.toml",
+                    "ai-index/metadata/params.toml",
                     {
                         "max_tokens": min(256, int(self._max_tokens)),
                         "temperature": 0.0,

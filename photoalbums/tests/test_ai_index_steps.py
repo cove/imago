@@ -17,9 +17,7 @@ from photoalbums.lib.ai_index_steps import (
     STEP_ORDER,
     STEPS,
     StepRunner,
-    caption_input_hash,
-    date_estimate_input_hash,
-    ocr_input_hash,
+    metadata_input_hash,
     objects_input_hash,
     people_input_hash,
     propagate_to_crops_input_hash,
@@ -40,32 +38,28 @@ class TestStepDependencyOrder(unittest.TestCase):
                     f"{dep} must come before {step_name} in STEP_ORDER",
                 )
 
-    def test_ocr_has_no_dependencies(self):
-        self.assertEqual(STEPS["ocr"].depends_on, [])
+    def test_metadata_has_no_dependencies(self):
+        self.assertEqual(STEPS["metadata"].depends_on, [])
 
     def test_people_has_no_dependencies(self):
         self.assertEqual(STEPS["people"].depends_on, [])
 
-    def test_caption_depends_on_ocr_and_people(self):
-        self.assertIn("ocr", STEPS["caption"].depends_on)
-        self.assertIn("people", STEPS["caption"].depends_on)
-
-    def test_locations_depends_on_caption(self):
-        self.assertIn("caption", STEPS["locations"].depends_on)
-
-    def test_propagate_depends_on_locations_and_people(self):
-        self.assertIn("locations", STEPS["propagate-to-crops"].depends_on)
+    def test_propagate_depends_on_metadata_and_people(self):
+        self.assertIn("metadata", STEPS["propagate-to-crops"].depends_on)
         self.assertIn("people", STEPS["propagate-to-crops"].depends_on)
+
+    def test_metadata_output_keys(self):
+        keys = STEPS["metadata"].output_keys
+        self.assertIn("ocr", keys)
+        self.assertIn("caption", keys)
+        self.assertIn("location", keys)
+        self.assertIn("locations_shown", keys)
 
 
 class TestInputHashIsolation(unittest.TestCase):
     """Verify that changing settings for one step does not affect another step's hash."""
 
     BASE_SETTINGS = {
-        "ocr_engine": "local",
-        "ocr_model": "qwen-ocr",
-        "ocr_lang": "eng",
-        "scan_group_signature": "",
         "cast_store_signature": "abc123",
         "caption_engine": "lmstudio",
         "caption_model": "qwen-vl-chat",
@@ -75,50 +69,38 @@ class TestInputHashIsolation(unittest.TestCase):
         "crop_paths_signature": "xyz",
     }
 
-    def test_ocr_hash_ignores_caption_model(self):
-        settings_a = {**self.BASE_SETTINGS, "caption_model": "qwen-vl-chat"}
-        settings_b = {**self.BASE_SETTINGS, "caption_model": "different-caption-model"}
-        self.assertEqual(
-            ocr_input_hash(settings_a, {}),
-            ocr_input_hash(settings_b, {}),
-            "OCR hash must not change when caption_model changes",
-        )
+    def test_metadata_hash_empty_when_non_lmstudio(self):
+        settings = {**self.BASE_SETTINGS, "caption_engine": "none", "caption_model": ""}
+        self.assertEqual(metadata_input_hash(settings, {}), "")
 
-    def test_ocr_hash_ignores_cast_store_signature(self):
+    def test_metadata_hash_changes_with_caption_model(self):
+        settings_a = {**self.BASE_SETTINGS, "caption_model": "model-a"}
+        settings_b = {**self.BASE_SETTINGS, "caption_model": "model-b"}
+        self.assertNotEqual(metadata_input_hash(settings_a, {}), metadata_input_hash(settings_b, {}))
+
+    def test_metadata_hash_changes_with_nominatim_url(self):
+        settings_a = {**self.BASE_SETTINGS, "nominatim_base_url": "http://host-a"}
+        settings_b = {**self.BASE_SETTINGS, "nominatim_base_url": "http://host-b"}
+        self.assertNotEqual(metadata_input_hash(settings_a, {}), metadata_input_hash(settings_b, {}))
+
+    def test_metadata_hash_ignores_cast_store_signature(self):
         settings_a = {**self.BASE_SETTINGS, "cast_store_signature": "sig-a"}
         settings_b = {**self.BASE_SETTINGS, "cast_store_signature": "sig-b"}
-        self.assertEqual(ocr_input_hash(settings_a, {}), ocr_input_hash(settings_b, {}))
+        self.assertEqual(metadata_input_hash(settings_a, {}), metadata_input_hash(settings_b, {}))
 
-    def test_people_hash_ignores_ocr_model(self):
-        settings_a = {**self.BASE_SETTINGS, "ocr_model": "ocr-a"}
-        settings_b = {**self.BASE_SETTINGS, "ocr_model": "ocr-b"}
+    def test_people_hash_ignores_caption_model(self):
+        settings_a = {**self.BASE_SETTINGS, "caption_model": "model-a"}
+        settings_b = {**self.BASE_SETTINGS, "caption_model": "model-b"}
         self.assertEqual(people_input_hash(settings_a, {}), people_input_hash(settings_b, {}))
 
-    def test_people_hash_changes_when_reviewed_identity_signature_changes(self):
+    def test_people_hash_changes_when_cast_store_signature_changes(self):
         settings_a = {**self.BASE_SETTINGS, "cast_store_signature": "reviewed-a"}
         settings_b = {**self.BASE_SETTINGS, "cast_store_signature": "reviewed-b"}
         self.assertNotEqual(people_input_hash(settings_a, {}), people_input_hash(settings_b, {}))
 
-    def test_caption_hash_includes_people_output_hash(self):
-        h_without = caption_input_hash(self.BASE_SETTINGS, {})
-        h_with = caption_input_hash(self.BASE_SETTINGS, {"people": "people-hash-abc"})
-        self.assertNotEqual(h_without, h_with)
-
-    def test_caption_hash_ignores_ocr_model(self):
-        settings_a = {**self.BASE_SETTINGS, "ocr_model": "ocr-a"}
-        settings_b = {**self.BASE_SETTINGS, "ocr_model": "ocr-b"}
-        self.assertEqual(
-            caption_input_hash(settings_a, {}),
-            caption_input_hash(settings_b, {}),
-        )
-
     def test_objects_hash_empty_when_disabled(self):
         settings = {**self.BASE_SETTINGS, "enable_objects": False}
         self.assertEqual(objects_input_hash(settings, {}), "")
-
-    def test_date_estimate_hash_empty_when_non_lmstudio(self):
-        settings = {**self.BASE_SETTINGS, "caption_engine": "none", "caption_model": ""}
-        self.assertEqual(date_estimate_input_hash(settings, {}), "")
 
     def test_propagate_hash_includes_crop_paths_signature(self):
         settings_a = {**self.BASE_SETTINGS, "crop_paths_signature": "crops-a"}
@@ -128,13 +110,14 @@ class TestInputHashIsolation(unittest.TestCase):
             propagate_to_crops_input_hash(settings_b, {}),
         )
 
+    def test_propagate_hash_includes_metadata_output_hash(self):
+        h_without = propagate_to_crops_input_hash(self.BASE_SETTINGS, {})
+        h_with = propagate_to_crops_input_hash(self.BASE_SETTINGS, {"metadata": "metadata-hash-abc"})
+        self.assertNotEqual(h_without, h_with)
+
 
 class TestStepRunner(unittest.TestCase):
     SETTINGS = {
-        "ocr_engine": "local",
-        "ocr_model": "qwen-ocr",
-        "ocr_lang": "eng",
-        "scan_group_signature": "",
         "cast_store_signature": "abc",
         "caption_engine": "lmstudio",
         "caption_model": "qwen-vl",
@@ -161,144 +144,126 @@ class TestStepRunner(unittest.TestCase):
         runner = self._make_runner()
         called = []
 
-        def do_ocr():
-            called.append("ocr")
-            return {"ocr": {"text": "hello"}}
+        def do_people():
+            called.append("people")
+            return {"people": []}
 
-        runner.run("ocr", do_ocr)
-        self.assertIn("ocr", called)
-        self.assertTrue(runner.reran["ocr"])
+        runner.run("people", do_people)
+        self.assertIn("people", called)
+        self.assertTrue(runner.reran["people"])
 
     def test_step_skipped_when_hash_matches(self):
-        # Compute the expected hash for OCR
         runner = self._make_runner()
-        ocr_hash = runner._compute_input_hash("ocr")
+        people_hash = runner._compute_input_hash("people")
 
         pipeline_state = {
-            "ai-index/ocr": {"timestamp": "2026-04-11T00:00:00Z", "result": "ok", "input_hash": ocr_hash},
+            "ai-index/people": {"timestamp": "2026-04-11T00:00:00Z", "result": "ok", "input_hash": people_hash},
         }
-        runner = self._make_runner(pipeline_state=pipeline_state, detections={"ocr": {"text": "cached"}})
+        runner = self._make_runner(pipeline_state=pipeline_state, detections={"people": [{"name": "cached"}]})
 
         called = []
 
-        def do_ocr():
-            called.append("ocr")
-            return {"ocr": {"text": "fresh"}}
+        def do_people():
+            called.append("people")
+            return {"people": [{"name": "fresh"}]}
 
-        result = runner.run("ocr", do_ocr)
-        self.assertEqual(called, [], "OCR should be skipped when hash matches")
-        self.assertFalse(runner.reran["ocr"])
-        self.assertEqual(result["ocr"], {"text": "cached"})
+        result = runner.run("people", do_people)
+        self.assertEqual(called, [], "people should be skipped when hash matches")
+        self.assertFalse(runner.reran["people"])
+        self.assertEqual(result["people"], [{"name": "cached"}])
 
     def test_upstream_reran_forces_downstream_stale(self):
-        # People step has matching hash, but we force it stale
         runner = self._make_runner(forced_steps={"people"})
 
         people_call_count = [0]
-        caption_call_count = [0]
+        propagate_call_count = [0]
 
         def do_people():
             people_call_count[0] += 1
             return {"people": [{"name": "Alice"}]}
 
-        def do_caption():
-            caption_call_count[0] += 1
-            return {"caption": {"description": "Photo of Alice"}}
+        def do_propagate():
+            propagate_call_count[0] += 1
+            return {"crops_updated": 1}
 
-        runner.run("ocr", lambda: {"ocr": {"text": "hello"}})
+        runner.run("metadata", lambda: {"ocr": {}, "caption": {}, "location": {}, "locations_shown": [], "location_shown_ran": False})
         runner.run("people", do_people)
-        runner.run("caption", do_caption)
+        runner.run("propagate-to-crops", do_propagate)
 
         self.assertEqual(people_call_count[0], 1, "people must run when forced")
-        self.assertEqual(caption_call_count[0], 1, "caption must run when people reran")
+        self.assertEqual(propagate_call_count[0], 1, "propagate must run when people reran")
         self.assertTrue(runner.reran["people"])
-        self.assertTrue(runner.reran["caption"])
+        self.assertTrue(runner.reran["propagate-to-crops"])
 
     def test_hash_match_skips_step_and_cascades_skip_to_downstream(self):
         """When all hashes match, all steps should be skipped."""
         runner = self._make_runner()
-        ocr_hash = runner._compute_input_hash("ocr")
         people_hash = runner._compute_input_hash("people")
-        # Caption hash needs ocr and people hashes in output_hashes, so just use empty for now
-        # and set up state as if previously run
         pipeline_state = {
-            "ai-index/ocr": {"timestamp": "2026-04-11T00:00:00Z", "result": "ok", "input_hash": ocr_hash},
             "ai-index/people": {"timestamp": "2026-04-11T00:00:00Z", "result": "ok", "input_hash": people_hash},
         }
         runner2 = self._make_runner(
             pipeline_state=pipeline_state,
-            detections={"ocr": {"text": "cached"}, "people": [{"name": "Bob"}]},
+            detections={"people": [{"name": "Bob"}]},
         )
 
-        ocr_called = [False]
         people_called = [False]
-
-        def do_ocr():
-            ocr_called[0] = True
-            return {"ocr": {"text": "fresh"}}
 
         def do_people():
             people_called[0] = True
             return {"people": [{"name": "Fresh"}]}
 
-        runner2.run("ocr", do_ocr)
         runner2.run("people", do_people)
 
-        self.assertFalse(ocr_called[0])
         self.assertFalse(people_called[0])
-        self.assertFalse(runner2.reran["ocr"])
         self.assertFalse(runner2.reran["people"])
 
     def test_pending_records_populated_for_run_steps(self):
         runner = self._make_runner()
-        runner.run("ocr", lambda: {"ocr": {"text": "hello"}})
+        runner.run("people", lambda: {"people": []})
         records = runner.get_pending_records()
-        self.assertIn("ai-index/ocr", records)
-        self.assertEqual(records["ai-index/ocr"]["result"], "ok")
-        self.assertIn("timestamp", records["ai-index/ocr"])
-        self.assertIn("input_hash", records["ai-index/ocr"])
+        self.assertIn("ai-index/people", records)
+        self.assertEqual(records["ai-index/people"]["result"], "ok")
+        self.assertIn("timestamp", records["ai-index/people"])
+        self.assertIn("input_hash", records["ai-index/people"])
 
     def test_pending_records_empty_for_skipped_steps(self):
         runner = self._make_runner()
-        ocr_hash = runner._compute_input_hash("ocr")
+        people_hash = runner._compute_input_hash("people")
         pipeline_state = {
-            "ai-index/ocr": {"timestamp": "2026-04-11T00:00:00Z", "result": "ok", "input_hash": ocr_hash},
+            "ai-index/people": {"timestamp": "2026-04-11T00:00:00Z", "result": "ok", "input_hash": people_hash},
         }
-        runner2 = self._make_runner(pipeline_state=pipeline_state, detections={"ocr": {}})
-        runner2.run("ocr", lambda: {"ocr": {"text": "fresh"}})
+        runner2 = self._make_runner(pipeline_state=pipeline_state, detections={"people": []})
+        runner2.run("people", lambda: {"people": [{"name": "fresh"}]})
         records = runner2.get_pending_records()
-        self.assertNotIn("ai-index/ocr", records)
+        self.assertNotIn("ai-index/people", records)
 
     def test_forced_step_runs_even_when_hash_matches(self):
         runner = self._make_runner()
-        ocr_hash = runner._compute_input_hash("ocr")
+        people_hash = runner._compute_input_hash("people")
         pipeline_state = {
-            "ai-index/ocr": {"timestamp": "2026-04-11T00:00:00Z", "result": "ok", "input_hash": ocr_hash},
+            "ai-index/people": {"timestamp": "2026-04-11T00:00:00Z", "result": "ok", "input_hash": people_hash},
         }
         runner2 = self._make_runner(
             pipeline_state=pipeline_state,
-            detections={"ocr": {"text": "cached"}},
-            forced_steps={"ocr"},
+            detections={"people": [{"name": "cached"}]},
+            forced_steps={"people"},
         )
         called = [False]
 
-        def do_ocr():
+        def do_people():
             called[0] = True
-            return {"ocr": {"text": "fresh"}}
+            return {"people": [{"name": "fresh"}]}
 
-        runner2.run("ocr", do_ocr)
+        runner2.run("people", do_people)
         self.assertTrue(called[0])
-        self.assertTrue(runner2.reran["ocr"])
+        self.assertTrue(runner2.reran["people"])
 
 
 class TestForcedStepsPropagation(unittest.TestCase):
-    """Task 7.3/7.4: Verify --steps CLI arg propagates forced staleness correctly."""
+    """Verify --steps CLI arg propagates forced staleness correctly."""
 
     SETTINGS = {
-        "ocr_engine": "local",
-        "ocr_model": "qwen-ocr",
-        "ocr_lang": "eng",
-        "scan_group_signature": "",
         "cast_store_signature": "abc",
         "caption_engine": "lmstudio",
         "caption_model": "qwen-vl",
@@ -308,24 +273,20 @@ class TestForcedStepsPropagation(unittest.TestCase):
         "crop_paths_signature": "",
     }
 
-    def test_forced_caption_step_skips_ocr_and_people_but_runs_caption_and_downstream(self):
-        """--steps caption: ocr and people skip (hash match), caption and downstream run."""
-        # Build pipeline state with matching hashes for ocr and people
+    def test_forced_metadata_step_causes_propagate_to_run(self):
+        """--steps metadata: people skips (hash match), metadata and propagate run."""
         base_runner = StepRunner(
             settings=self.SETTINGS,
             existing_pipeline_state={},
             existing_detections={},
             forced_steps=set(),
         )
-        ocr_hash = base_runner._compute_input_hash("ocr")
         people_hash = base_runner._compute_input_hash("people")
 
         pipeline_state = {
-            "ai-index/ocr": {"timestamp": "2026-04-11T00:00:00Z", "result": "ok", "input_hash": ocr_hash},
             "ai-index/people": {"timestamp": "2026-04-11T00:00:00Z", "result": "ok", "input_hash": people_hash},
         }
         existing_detections = {
-            "ocr": {"text": "cached-ocr"},
             "people": [{"name": "CachedPerson"}],
         }
 
@@ -333,30 +294,23 @@ class TestForcedStepsPropagation(unittest.TestCase):
             settings=self.SETTINGS,
             existing_pipeline_state=pipeline_state,
             existing_detections=existing_detections,
-            forced_steps={"caption"},  # --steps caption
+            forced_steps={"metadata"},
         )
 
-        ocr_called = [False]
+        metadata_called = [False]
         people_called = [False]
-        caption_called = [False]
-        locations_called = [False]
+        propagate_called = [False]
 
-        runner.run("ocr", lambda: (ocr_called.__setitem__(0, True) or {"ocr": {"text": "fresh"}}))
+        runner.run("metadata", lambda: (metadata_called.__setitem__(0, True) or {"ocr": {}, "caption": {}, "location": {}, "locations_shown": [], "location_shown_ran": True}))
         runner.run("people", lambda: (people_called.__setitem__(0, True) or {"people": []}))
-        runner.run("caption", lambda: (caption_called.__setitem__(0, True) or {"caption": {"desc": "fresh"}}))
-        runner.run("locations", lambda: (locations_called.__setitem__(0, True) or {"location": {}, "locations_shown": [], "location_shown_ran": True}))
+        runner.run("propagate-to-crops", lambda: (propagate_called.__setitem__(0, True) or {"crops_updated": 0}))
 
-        # OCR and people should be skipped (hash matches, not forced)
-        self.assertFalse(ocr_called[0], "OCR must be skipped when hash matches and not forced")
+        self.assertTrue(metadata_called[0], "metadata must run when forced")
         self.assertFalse(people_called[0], "people must be skipped when hash matches and not forced")
-        # Caption must run (forced)
-        self.assertTrue(caption_called[0], "caption must run when forced by --steps")
-        # Locations must run (caption reran, and locations depends on caption)
-        self.assertTrue(locations_called[0], "locations must run when upstream caption reran")
-        self.assertTrue(runner.reran["caption"])
-        self.assertTrue(runner.reran["locations"])
-        self.assertFalse(runner.reran["ocr"])
+        self.assertTrue(propagate_called[0], "propagate must run when metadata reran")
+        self.assertTrue(runner.reran["metadata"])
         self.assertFalse(runner.reran["people"])
+        self.assertTrue(runner.reran["propagate-to-crops"])
 
 
 if __name__ == "__main__":

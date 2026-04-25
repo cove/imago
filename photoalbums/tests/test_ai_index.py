@@ -5091,6 +5091,7 @@ class TestAIIndex(unittest.TestCase):
             lmstudio_base_url="http://localhost:1234",
             max_image_edge=1024,
             stream=False,
+            thinking=False,
         )
 
 

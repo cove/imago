@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from .ai_prompt_assets import PromptAsset, load_prompt, prompt_metadata
@@ -18,29 +17,13 @@ def _position_label(cx: float, cy: float) -> str:
     return f"{v}-{h}"
 
 
-def _looks_like_title_page(source_path: str | Path | None) -> bool:
-    name = Path(source_path).name if source_path else ""
-    return bool(re.search(r"_P0[01](?:_|\.|$)", name, flags=re.IGNORECASE))
-
-
 def _join_assets(assets: list[PromptAsset]) -> str:
     return "\n".join(asset.rendered for asset in assets if asset.rendered).strip()
 
 
 def _load_caption_assets(*, source_path: str | Path | None, context_ocr_text: str = "") -> list[PromptAsset]:
-    assets = [load_prompt("ai-index/caption/user.md")]
-    if _looks_like_title_page(source_path):
-        assets.append(load_prompt("ai-index/caption/cover-page.md"))
-    clean_context_ocr = str(context_ocr_text or "").strip()
-    if clean_context_ocr:
-        assets.append(
-            load_prompt(
-                "ai-index/caption/upstream-ocr-context.md",
-                {"context_ocr_text": clean_context_ocr},
-            )
-        )
-    assets.append(load_prompt("ai-index/caption/output-page.md"))
-    return assets
+    del source_path, context_ocr_text
+    return []
 
 
 def caption_prompt_metadata(*, source_path: str | Path | None, context_ocr_text: str = "") -> dict[str, object]:
@@ -55,21 +38,15 @@ def people_count_prompt_metadata() -> dict[str, object]:
 
 
 def location_prompt_metadata() -> dict[str, object]:
-    return prompt_metadata(
-        load_prompt("ai-index/locations/user.md"),
-        load_prompt("ai-index/locations/output-location.md"),
-    )
+    return {}
 
 
 def location_shown_prompt_metadata() -> dict[str, object]:
-    return prompt_metadata(
-        load_prompt("ai-index/locations/user.md"),
-        load_prompt("ai-index/locations/output-shown.md"),
-    )
+    return {}
 
 
 def location_queries_prompt_metadata() -> dict[str, object]:
-    return prompt_metadata(load_prompt("ai-index/locations/user.md"))
+    return {}
 
 
 def _build_local_prompt(
@@ -113,16 +90,8 @@ def _build_location_prompt_for_output(
     album_title: str = "",
     printed_album_title: str = "",
 ) -> str:
-    album_hint = str(album_title or "").strip() or str(printed_album_title or "").strip()
-    return _join_assets(
-        [
-            load_prompt(
-                "ai-index/locations/user.md",
-                {"album_title": album_hint, "ocr_text": str(ocr_text or "").strip()},
-            ),
-            load_prompt(output_path),
-        ]
-    )
+    del output_path, ocr_text, album_title, printed_album_title
+    return ""
 
 
 def _build_location_prompt(*, ocr_text: str = "", album_title: str = "", printed_album_title: str = "") -> str:
@@ -150,14 +119,7 @@ def _build_location_queries_prompt(
     album_title: str = "",
     printed_album_title: str = "",
 ) -> str:
-    album_hint = str(album_title or "").strip() or str(printed_album_title or "").strip()
-    parts: list[str] = []
+    del ocr_text, album_title, printed_album_title
     if caption_text:
-        parts.append(f"Caption: {caption_text.strip()}")
-    parts.append(
-        load_prompt(
-            "ai-index/locations/user.md",
-            {"album_title": album_hint, "ocr_text": str(ocr_text or "").strip()},
-        ).rendered
-    )
-    return "\n\n".join(parts)
+        return f"Caption: {caption_text.strip()}"
+    return ""

@@ -13,120 +13,13 @@ if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
 from photoalbums.lib import ai_caption, _caption_lmstudio
-from photoalbums.lib._caption_prompts import _build_location_queries_prompt
 
 
 class TestAICaption(unittest.TestCase):
-    def test_build_local_prompt_is_concise_and_generic(self):
-        prompt = ai_caption._build_local_prompt(
-            people=[],
-            objects=[],
-            ocr_text="",
-            source_path=Path("Photo Albums") / "Family_1980-1985_B08_Pages" / "Family_1980-1985_B08_P02.jpg",
-        )
-        self.assertIn("Use `author_text` for typewriter-written Courier text on white paper strips.", prompt)
-        self.assertIn("Return empty strings when no applicable text exists for a field.", prompt)
-        self.assertIn("classified subsets of `ocr_text`, not replacements for it", prompt)
-        self.assertIn("Fill them whenever the classification is supported", prompt)
-        self.assertNotIn("This page contains multiple photographs.", prompt)
-        self.assertNotIn("photo_regions", prompt)
-        self.assertNotIn("This is an album cover or title page.", prompt)
-        self.assertNotIn("Album title hint:", prompt)
-        self.assertNotIn("Album classification hint:", prompt)
-        self.assertNotIn("Preamble Combined", prompt)
-
-    def test_build_local_prompt_mentions_split_typewritten_strips(self):
-        prompt = ai_caption._build_local_prompt(
-            people=[],
-            objects=[],
-            ocr_text="SHOW AT THE DUNHUANG CULTURAL CENTRE",
-            source_path=Path("Photo Albums") / "China_1986_B02_Archive" / "China_1986_B02_P02_S01.tif",
-        )
-        self.assertIn(
-            "Recover the full `author_text` when the strip is visibly present but cropped in this scan", prompt
-        )
-        self.assertIn("the supplied `ocr_text` contains the missing words", prompt)
-
-    def test_build_local_prompt_groups_runtime_hints_into_single_block(self):
-        prompt = ai_caption._build_local_prompt(
-            people=["Alice Example"],
-            objects=["bench"],
-            ocr_text="FAMILY BOOK",
-            source_path=Path("Photo Albums") / "Family_1980-1985_B08_Pages" / "Family_1980-1985_B08_P01.jpg",
-            album_title="Family Book I",
-        )
-        self.assertIn("author_text", prompt)
-        self.assertIn("scene_text", prompt)
-        self.assertNotIn("Detected objects:", prompt)
-        self.assertNotIn("OCR text hint:", prompt)
-
-    def test_build_local_prompt_includes_upstream_ocr_context_only_when_supplied(self):
-        prompt = ai_caption._build_local_prompt(
-            people=[],
-            objects=[],
-            ocr_text="",
-            source_path=Path("Photo Albums") / "China_1986_B02_Archive" / "China_1986_B02_P02_D01-01.tif",
-            context_ocr_text="TEMPLE OF HEAVEN\nBEIJING",
-        )
-        self.assertIn("The following OCR text comes from the parent album page XMP and is context only", prompt)
-        self.assertIn("TEMPLE OF HEAVEN\nBEIJING", prompt)
-        self.assertIn("Do not copy words from this context", prompt)
-
-    def test_build_local_prompt_includes_cover_page_prompt_for_title_pages(self):
-        prompt = ai_caption._build_local_prompt(
-            people=[],
-            objects=[],
-            ocr_text="MAINLAND CHINA 1986 BOOK 11",
-            source_path=Path("Photo Albums") / "China_1986_B02_Pages" / "China_1986_B02_P01.jpg",
-        )
-        self.assertIn("This is an album cover or title page.", prompt)
-        self.assertIn("Use the OCR text from this page as the source of truth for `album_title`.", prompt)
-
     def test_system_prompts_load_from_skill_sections(self):
         self.assertIn("Count clearly visible real people only.", ai_caption.people_count_system_prompt())
         self.assertIn("leave GPS fields empty", ai_caption.location_system_prompt())
         self.assertIn("include a country name in the query", ai_caption.location_system_prompt())
-
-    def test_build_location_prompt_includes_album_and_ocr_hints(self):
-        prompt = ai_caption._build_location_prompt(
-            ocr_text="TEMPLE OF HEAVEN\nBEIJING",
-            album_title="China 1986 Book 11",
-        )
-        self.assertIn("The album name is: China 1986 Book 11", prompt)
-        self.assertIn("The OCR text on the page is: TEMPLE OF HEAVEN\nBEIJING", prompt)
-        self.assertIn("include a country name so the Nominatim geocoding query is not ambiguous", prompt)
-        self.assertIn("choose the single best country from the album title", prompt)
-        self.assertIn("Do not return country-less queries like `Oxford`", prompt)
-        self.assertIn("Include a country name in every non-empty query", prompt)
-
-    def test_build_location_queries_prompt_requires_country_queries(self):
-        prompt = _build_location_queries_prompt(
-            caption_text="Dubrovnik waterfront",
-            ocr_text="DUBROVNIK",
-            album_title="Yugoslavia 1972",
-        )
-        self.assertIn("Every non-empty Nominatim query must include a country name", prompt)
-        self.assertIn("choose the single best country from the Album value above", prompt)
-        self.assertIn("primary_query: the single most specific location for the primary GPS, including country", prompt)
-        self.assertIn("Include country_name for every named query", prompt)
-
-    def test_build_location_prompt_falls_back_to_printed_album_title(self):
-        prompt = ai_caption._build_location_prompt(
-            ocr_text="MOGAO CAVES",
-            album_title="",
-            printed_album_title="Mainland China 1986 Book 11",
-        )
-        self.assertIn("The album name is: Mainland China 1986 Book 11", prompt)
-        self.assertIn("The OCR text on the page is: MOGAO CAVES", prompt)
-
-    def test_build_local_prompt_includes_disambiguating_location_query_guidance(self):
-        prompt = ai_caption._build_local_prompt(
-            people=[],
-            objects=[],
-            ocr_text="LONDON GARDENS",
-            source_path=Path("Photo Albums") / "Europe_1973_Archive" / "Europe_1973_B01_P02_S01.tif",
-        )
-        self.assertIn("Prefer `place, city/state, country` style queries", prompt)
 
     def test_caption_engine_none_returns_empty_text(self):
         engine = ai_caption.CaptionEngine(engine="none")
@@ -210,6 +103,7 @@ class TestAICaption(unittest.TestCase):
             base_url=ai_caption.DEFAULT_LMSTUDIO_BASE_URL,
             max_image_edge=1024,
             stream=False,
+            thinking=False,
         )
         self.assertEqual(out.engine, "lmstudio")
         self.assertEqual(out.text, "caption text")
@@ -264,76 +158,6 @@ class TestAICaption(unittest.TestCase):
         self.assertEqual(details.author_text, "Temple of Heaven")
 
    
-    def test_estimate_locations_shown_records_shared_location_prompt(self):
-        fake_lmstudio = mock.Mock()
-        fake_lmstudio.estimate_locations_shown.return_value = ai_caption.CaptionDetails(
-            text="",
-            locations_shown=[{"name": "Hassan II Mosque", "country_name": "Morocco"}],
-        )
-        fake_lmstudio._resolved_model_name = ""
-        fake_lmstudio.last_response_text = '{"locations_shown":[{"name":"Hassan II Mosque","country_name":"Morocco"}]}'
-        fake_lmstudio.last_finish_reason = "stop"
-        records = []
-        with mock.patch("photoalbums.lib.ai_caption.LMStudioCaptioner", return_value=fake_lmstudio):
-            engine = ai_caption.CaptionEngine(
-                engine="lmstudio",
-                model_name="qwen/qwen3.5-9b",
-            )
-            engine.estimate_locations_shown(
-                image_path="sample.jpg",
-                ocr_text="EASTERN EUROPE SPAIN AND MOROCCO 1988",
-                album_title="Spain and Morocco 1988",
-                source_path="sample.jpg",
-                debug_recorder=lambda **row: records.append(row),
-                debug_step="locations_shown_refresh",
-            )
-        self.assertEqual(len(records), 1)
-        self.assertEqual(records[0]["step"], "locations_shown_refresh")
-        self.assertEqual(records[0]["system_prompt"], ai_caption.location_system_prompt())
-        self.assertIn("If the response schema asks for `locations_shown`", records[0]["prompt"])
-        self.assertIn("The album name is: Spain and Morocco 1988", records[0]["prompt"])
-        self.assertIn("The OCR text on the page is: EASTERN EUROPE SPAIN AND MOROCCO 1988", records[0]["prompt"])
-        self.assertIn("EASTERN EUROPE SPAIN AND MOROCCO 1988", records[0]["prompt"])
-        self.assertEqual(records[0]["response"], fake_lmstudio.last_response_text)
-        self.assertEqual(records[0]["finish_reason"], "stop")
-
-    def test_estimate_location_records_album_and_ocr_hints_in_prompt(self):
-        fake_lmstudio = mock.Mock()
-        fake_lmstudio.estimate_location.return_value = ai_caption.CaptionDetails(
-            text="",
-            location_name="Mogao Caves, Dunhuang, Gansu, China",
-            gps_latitude="",
-            gps_longitude="",
-        )
-        fake_lmstudio._resolved_model_name = ""
-        fake_lmstudio.last_response_text = (
-            '{"location_name":"Mogao Caves, Dunhuang, Gansu, China","gps_latitude":"","gps_longitude":""}'
-        )
-        fake_lmstudio.last_finish_reason = "stop"
-        records = []
-        with mock.patch("photoalbums.lib.ai_caption.LMStudioCaptioner", return_value=fake_lmstudio):
-            engine = ai_caption.CaptionEngine(
-                engine="lmstudio",
-                model_name="qwen/qwen3.5-9b",
-            )
-            engine.estimate_location(
-                image_path="sample.jpg",
-                people=[],
-                objects=[],
-                ocr_text="TEMPLE OF HEAVEN\nBEIJING",
-                source_path="sample.jpg",
-                album_title="China 1986 Book 11",
-                debug_recorder=lambda **row: records.append(row),
-                debug_step="location_refresh",
-            )
-        self.assertEqual(len(records), 1)
-        self.assertEqual(records[0]["step"], "location_refresh")
-        self.assertEqual(records[0]["system_prompt"], ai_caption.location_system_prompt())
-        self.assertIn("The album name is: China 1986 Book 11", records[0]["prompt"])
-        self.assertIn("The OCR text on the page is: TEMPLE OF HEAVEN\nBEIJING", records[0]["prompt"])
-        self.assertEqual(records[0]["response"], fake_lmstudio.last_response_text)
-        self.assertEqual(records[0]["finish_reason"], "stop")
-
     def test_location_shown_system_prompt_aliases_shared_location_prompt(self):
         self.assertEqual(ai_caption.location_shown_system_prompt(), ai_caption.location_system_prompt())
 

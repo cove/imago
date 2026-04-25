@@ -24,6 +24,7 @@ from .ai_caption import (
     resolve_caption_model,
 )
 from .ai_date import DateEstimateEngine
+from .ai_metadata import MetadataEngine
 from .ai_geocode import NominatimGeocoder
 from .ai_location import (
     _has_legacy_ai_locations_shown_gps,
@@ -268,7 +269,7 @@ class IndexRunner:
 
         self.single_photo = str(self.args.photo or "").strip()
 
-        caption_params = load_params("ai-index/caption/params.toml").values
+        caption_params = load_params("ai-index/metadata/params.toml").values
         default_caption_max_tokens = int(self.args.caption_max_tokens)
         if "--caption-max-tokens" not in self.explicit_flags and str(self.args.caption_engine) == "lmstudio":
             default_caption_max_tokens = int(caption_params.get("max_tokens", DEFAULT_LMSTUDIO_MAX_NEW_TOKENS))
@@ -307,6 +308,7 @@ class IndexRunner:
         self.ocr_engine_cache: dict[tuple[str, str, str, str], OCREngine] = {}
         self.caption_engine_cache: dict[tuple[str, str, str, int, float, str, int, bool], CaptionEngine] = {}
         self.date_engine_cache: dict[tuple[str, str, int, float, str], DateEstimateEngine] = {}
+        self.metadata_engine_cache: dict[tuple[str, str, str], MetadataEngine] = {}
         self.archive_scan_ocr_cache: dict[str, ArchiveScanOCRAuthority] = {}
         self.printed_album_title_cache: dict[str, str] = {}
         self.geocoder = NominatimGeocoder()
@@ -377,6 +379,21 @@ class IndexRunner:
             )
             self.date_engine_cache[date_key] = date_engine
         return date_engine
+
+    def _get_metadata_engine(self, effective: dict[str, Any]) -> MetadataEngine:
+        engine = str(effective.get("caption_engine", self.defaults["caption_engine"]))
+        model = str(effective.get("caption_model", self.defaults["caption_model"]))
+        base_url = str(effective.get("lmstudio_base_url", self.defaults["lmstudio_base_url"]))
+        metadata_key = (engine, model, base_url)
+        cached = self.metadata_engine_cache.get(metadata_key)
+        if cached is None:
+            cached = MetadataEngine(
+                engine=engine,
+                model_name=model,
+                lmstudio_base_url=base_url,
+            )
+            self.metadata_engine_cache[metadata_key] = cached
+        return cached
 
     def _record_success(self, idx: int, file_start: float) -> None:
         self.processed += 1
@@ -847,7 +864,7 @@ class IndexRunner:
             if not needs_full and gps_update_only:
                 if not isinstance(existing_sidecar_state, dict):
                     return
-                _extra_forced.add("locations")
+                _extra_forced.add("metadata")
                 needs_full = True
 
             self._process_full(
@@ -1709,6 +1726,7 @@ class IndexRunner:
                     title_page_location=self.title_page_location,
                     step_runner=_step_runner,
                     existing_sidecar_state=existing_sidecar_state,
+                    metadata_engine=self._get_metadata_engine(effective),
                 )
                 resolved_album_title = analysis.album_title or album_title_hint
                 _store_album_printed_title_hint(
@@ -1756,8 +1774,8 @@ class IndexRunner:
                         payload["pipeline"] = _existing_pipeline
 
                     location_payload = dict(payload.get("location") or {}) if isinstance(payload, dict) else {}
-                    # Only apply existing-location override when the locations step didn't freshly run
-                    if not _step_runner.reran.get("locations"):
+                    # Only apply existing-location override when the metadata/locations step didn't freshly run
+                    if not _step_runner.reran.get("metadata") and not _step_runner.reran.get("locations"):
                         effective_location_payload = _effective_sidecar_location_payload(image_path, existing_sidecar_state)
                         if effective_location_payload:
                             location_payload = effective_location_payload
@@ -1773,19 +1791,11 @@ class IndexRunner:
                         ),
                         context="write",
                     )
-                    date_engine = (
-                        self._get_date_engine(effective)
-                        if date_estimation_enabled and not _has_dc_date(_dc_date_value(existing_sidecar_state))
-                        else None
-                    )
-                    final_dc_date = _resolve_dc_date(
-                        existing_dc_date=_dc_date_value(existing_sidecar_state),
-                        ocr_text=ocr_text,
-                        album_title=final_album_title,
-                        image_path=image_path,
-                        date_engine=date_engine,
-                        prompt_debug=prompt_debug,
-                    )
+                    _metadata_dc_date = str(analysis.dc_date or "").strip()
+                    if _metadata_dc_date and not _has_dc_date(_dc_date_value(existing_sidecar_state)):
+                        final_dc_date = _metadata_dc_date
+                    else:
+                        final_dc_date = _dc_date_value(existing_sidecar_state)
                     final_date_time_original = _resolve_date_time_original(
                         dc_date=final_dc_date,
                         date_time_original=str((existing_sidecar_state or {}).get("date_time_original") or ""),

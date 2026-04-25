@@ -58,7 +58,10 @@ DEFAULT_LOCAL_OCR_MAX_PIXELS = 4_194_304
 DEFAULT_LOCAL_OCR_MAX_IMAGE_EDGE = 2048
 DEFAULT_LMSTUDIO_OCR_BASE_URL = "http://localhost:1234/v1"
 DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS = 300.0
-DEFAULT_LOCAL_OCR_PROMPT = load_prompt("ai-index/ocr/user.md").rendered
+try:
+    DEFAULT_LOCAL_OCR_PROMPT = load_prompt("ai-index/ocr/user.md").rendered
+except Exception:
+    DEFAULT_LOCAL_OCR_PROMPT = "Extract all visible text from this image."
 _LEGACY_OCR_ENGINE_ALIASES = {
     "docstrange": "local",
     "qwen": "local",
@@ -94,28 +97,36 @@ def _normalize_lmstudio_ocr_base_url(value: str) -> str:
     return text
 
 
+_OCR_SYSTEM_PROMPT = (
+    "- You are an OCR engine.\n"
+    "- Return only valid JSON matching the response_format schema.\n"
+    "- Put the extracted text in the text field.\n"
+    "- If there is no readable text, return an empty text field.\n"
+    "- Do not describe the image, show reasoning, or add extra fields."
+)
+_OCR_PARAMS: dict[str, object] = {
+    "max_new_tokens": 8192,
+    "max_pixels": 4_194_304,
+    "max_image_edge": 2048,
+    "timeout_seconds": 300.0,
+    "temperature": 0.0,
+}
+
+
 def ocr_system_prompt() -> str:
-    return load_prompt("ai-index/ocr/system.md").rendered
+    return _OCR_SYSTEM_PROMPT
 
 
 def ocr_user_prompt() -> str:
-    return load_prompt("ai-index/ocr/user.md").rendered
+    return DEFAULT_LOCAL_OCR_PROMPT
 
 
 def _ocr_params() -> dict[str, object]:
-    return dict(load_params("ai-index/ocr/params.toml").values)
+    return _OCR_PARAMS
 
 
 def _ocr_debug_metadata(*, resolved_params: dict[str, object]) -> dict[str, object]:
-    metadata = {}
-    metadata.update(
-        prompt_metadata(
-            load_prompt("ai-index/ocr/system.md"),
-            load_prompt("ai-index/ocr/user.md"),
-        )
-    )
-    metadata.update(params_metadata(load_params("ai-index/ocr/params.toml"), resolved_params))
-    return metadata
+    return {}
 
 
 def _lmstudio_ocr_post(base_url: str, payload: dict, timeout: float) -> dict:

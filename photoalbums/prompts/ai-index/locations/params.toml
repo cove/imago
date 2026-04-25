@@ -1,6 +1,0 @@
-location_max_tokens = 96
-locations_shown_max_tokens = 256
-location_queries_max_tokens = 256
-temperature = 0.1
-max_image_edge = 0
-timeout_seconds = 300.0
