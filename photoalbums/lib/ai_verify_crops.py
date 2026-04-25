@@ -682,7 +682,6 @@ def _write_retry_sidecar(
     _write_sidecar_and_record(
         image_path.with_suffix(".xmp"),
         image_path,
-        creator_tool=_clean_text(state.get("creator_tool")),
         person_names=list(review.get("person_names") or []),
         subjects=list(review.get("subjects") or []),
         title=_clean_text(state.get("title")),
@@ -708,14 +707,14 @@ def _write_retry_sidecar(
     )
 
 
-def _retry_settings(image_path: Path) -> tuple[dict[str, object], str]:
+def _retry_settings(image_path: Path) -> dict[str, object]:
     runner = IndexRunner(["--photo", str(image_path), "--include-view"])
-    effective, _settings_sig, creator_tool, _date_estimation_enabled = runner._resolve_effective_settings(image_path)
+    effective, _settings_sig, _date_estimation_enabled = runner._resolve_effective_settings(image_path)
     effective["lmstudio_base_url"] = normalize_lmstudio_base_url(
         str(effective.get("lmstudio_base_url") or ""),
         default=default_lmstudio_base_url(),
     )
-    return dict(effective), str(creator_tool or "")
+    return dict(effective)
 
 
 def _effective_tuning_params(effective: dict[str, object]) -> dict[str, object]:
@@ -756,7 +755,7 @@ def _run_pass2_retry(
     state = read_ai_sidecar_state(crop_image_path.with_suffix(".xmp"))
     if not isinstance(state, dict):
         raise RuntimeError(f"Concern retry failed because sidecar state could not be read: {crop_image_path.with_suffix('.xmp')}")
-    effective, _creator_tool = _retry_settings(crop_image_path)
+    effective = _retry_settings(crop_image_path)
     effective = _apply_tuning_params(effective, tuning_params)
     applied_tuning = _effective_tuning_params(effective)
     prompt_prefix = build_retry_prompt(

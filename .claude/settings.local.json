@@ -243,7 +243,8 @@
       "Bash(ls openspec/changes/photoalbum-scan-render-pipeline/specs/)",
       "Bash(openspec validate *)",
       "Read(//c/Users/covec/Videos/**)",
-      "Read(//c/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums/**)"
+      "Read(//c/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums/**)",
+      "Bash(just dupes *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",

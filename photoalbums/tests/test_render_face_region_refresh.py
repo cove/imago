@@ -59,7 +59,6 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             stat = image.stat()
             xmp_sidecar.write_xmp_sidecar(
                 image.with_suffix(".xmp"),
-                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
                 person_names=["Old Name"],
                 subjects=["egypt"],
                 description="Travel photo",
@@ -180,7 +179,6 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
 
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=["New Name"],
                 subjects=[],
                 description="",
@@ -238,7 +236,6 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
 
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -282,7 +279,6 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
 
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -311,7 +307,6 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             sidecar = image.with_suffix(".xmp")
             xmp_sidecar.write_xmp_sidecar(
                 sidecar,
-                creator_tool="imago-test",
                 person_names=["Old Name"],
                 subjects=[],
                 description="",
@@ -345,7 +340,6 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             sidecar = image.with_suffix(".xmp")
             xmp_sidecar.write_xmp_sidecar(
                 sidecar,
-                creator_tool="imago-test",
                 person_names=["Old Name"],
                 subjects=[],
                 description="",
@@ -375,7 +369,6 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             sidecar = image.with_suffix(".xmp")
             xmp_sidecar.write_xmp_sidecar(
                 sidecar,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -415,7 +408,6 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             crop_image.write_bytes(b"crop")
             xmp_sidecar.write_xmp_sidecar(
                 page_image.with_suffix(".xmp"),
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -453,7 +445,6 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             sidecar = image.with_suffix(".xmp")
             xmp_sidecar.write_xmp_sidecar(
                 sidecar,
-                creator_tool="imago-test",
                 person_names=["Old Name"],
                 subjects=[],
                 description="",
@@ -488,7 +479,6 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             sidecar = image.with_suffix(".xmp")
             xmp_sidecar.write_xmp_sidecar(
                 sidecar,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -502,7 +492,6 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             def _write_people(image_path: Path, sidecar_path: Path) -> None:
                 xmp_sidecar.write_xmp_sidecar(
                     sidecar_path,
-                    creator_tool="imago-test",
                     person_names=["Alice Smith", "Bob Jones"],
                     subjects=[],
                     description="",
@@ -542,7 +531,6 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             sidecar = image.with_suffix(".xmp")
             xmp_sidecar.write_xmp_sidecar(
                 sidecar,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=["egypt", "travel"],
                 description="Pyramids at Giza",
@@ -576,7 +564,6 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             def _write_people(image_path: Path, sidecar_path: Path) -> None:
                 xmp_sidecar.write_xmp_sidecar(
                     sidecar_path,
-                    creator_tool="imago-test",
                     person_names=["Alice Smith"],
                     subjects=[],
                     description="",
@@ -615,7 +602,6 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             page_sidecar = page_image.with_suffix(".xmp")
             xmp_sidecar.write_xmp_sidecar(
                 page_sidecar,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=["egypt"],
                 description="Page caption",
@@ -634,7 +620,6 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             sidecar = image.with_suffix(".xmp")
             xmp_sidecar.write_xmp_sidecar(
                 sidecar,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=["egypt"],
                 description="Crop caption",
@@ -667,7 +652,6 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             def _write_people(image_path: Path, sidecar_path: Path) -> None:
                 xmp_sidecar.write_xmp_sidecar(
                     sidecar_path,
-                    creator_tool="imago-test",
                     person_names=["Alice Smith"],
                     subjects=[],
                     description="",
@@ -706,7 +690,6 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             page_sidecar = page_image.with_suffix(".xmp")
             xmp_sidecar.write_xmp_sidecar(
                 page_sidecar,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -726,7 +709,6 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             crop_sidecar = photos / "Portugal_1988_B00_P23_D01-00_V.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 crop_sidecar,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -755,7 +737,6 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             sidecar = image.with_suffix(".xmp")
             xmp_sidecar.write_xmp_sidecar(
                 sidecar,
-                creator_tool="imago-test",
                 person_names=["Old Name"],
                 subjects=[],
                 description="",
@@ -774,7 +755,6 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             def _clear_people(image_path: Path, sidecar_path: Path) -> None:
                 xmp_sidecar.write_xmp_sidecar(
                     sidecar_path,
-                    creator_tool="imago-test",
                     person_names=[],
                     subjects=[],
                     description="",

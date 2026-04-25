@@ -148,7 +148,6 @@ def _write_sidecar_and_record(
     sidecar_path: Path,
     image_path: Path,
     *,
-    creator_tool: str,
     person_names: list[str],
     subjects: list[str],
     title: str = "",
@@ -193,7 +192,6 @@ def _write_sidecar_and_record(
     )
     write_xmp_sidecar(
         sidecar_path,
-        creator_tool=creator_tool,
         person_names=resolved_person_names,
         subjects=subjects,
         title=title,
@@ -299,7 +297,6 @@ class IndexRunner:
             "object_threshold": float(self.args.object_threshold),
             "min_face_size": int(self.args.min_face_size),
             "model": str(self.args.model),
-            "creator_tool": str(self.args.creator_tool),
         }
 
         self.archive_settings_cache: dict[str, tuple[Path, dict[str, Any]]] = {}
@@ -538,11 +535,10 @@ class IndexRunner:
                 override_sources[key] = f"render_settings:{settings_file}"
         effective["_override_sources"] = override_sources
         settings_sig = _settings_signature(effective)
-        creator_tool = str(effective.get("creator_tool", self.args.creator_tool))
         date_estimation_enabled = (
             str(effective.get("caption_engine", self.defaults["caption_engine"])).strip().lower() == "lmstudio"
         )
-        return effective, settings_sig, creator_tool, date_estimation_enabled
+        return effective, settings_sig, date_estimation_enabled
 
     def _get_people_matcher_and_signature(self, effective: dict[str, Any]) -> tuple[Any, str]:
         if not bool(effective.get("enable_people", True)):
@@ -576,7 +572,7 @@ class IndexRunner:
         sidecar_path = image_path.with_suffix(".xmp")
         existing_xmp_people = read_person_in_image(sidecar_path)
 
-        effective, settings_sig, creator_tool, date_estimation_enabled = self._resolve_effective_settings(image_path)
+        effective, settings_sig, date_estimation_enabled = self._resolve_effective_settings(image_path)
 
         existing_sidecar_valid = has_valid_sidecar(image_path)
         existing_sidecar_current = has_current_sidecar(image_path) if existing_sidecar_valid else False
@@ -597,7 +593,6 @@ class IndexRunner:
         if existing_sidecar_valid:
             existing_sidecar_complete = sidecar_has_expected_ai_fields(
                 sidecar_path,
-                creator_tool=creator_tool,
                 enable_people=bool(effective.get("enable_people", True)),
                 enable_objects=bool(effective.get("enable_objects", True)),
                 ocr_engine=str(effective.get("ocr_engine", self.defaults["ocr_engine"])),
@@ -832,7 +827,6 @@ class IndexRunner:
                         sidecar_path,
                         effective,
                         settings_sig,
-                        creator_tool,
                         date_estimation_enabled,
                         existing_sidecar_state,
                         current_cast_signature,
@@ -858,7 +852,6 @@ class IndexRunner:
                 sidecar_path,
                 effective,
                 settings_sig,
-                creator_tool,
                 date_estimation_enabled,
                 existing_sidecar_state,
                 existing_xmp_people,
@@ -881,7 +874,6 @@ class IndexRunner:
         sidecar_path: Path,
         effective: dict[str, Any],
         settings_sig: str,
-        creator_tool: str,
         date_estimation_enabled: bool,
         existing_sidecar_state: dict | None,
         current_cast_signature: str,
@@ -1003,7 +995,6 @@ class IndexRunner:
                 _write_sidecar_and_record(
                     sidecar_path,
                     image_path,
-                    creator_tool=creator_tool,
                     person_names=list(review.get("person_names") or []),
                     subjects=list(review.get("subjects") or []),
                     title=xmp_title,
@@ -1058,7 +1049,6 @@ class IndexRunner:
         sidecar_path: Path,
         effective: dict[str, Any],
         settings_sig: str,
-        creator_tool: str,
         date_estimation_enabled: bool,
         existing_sidecar_state: dict | None,
         existing_xmp_people: list[str],
@@ -1307,7 +1297,6 @@ class IndexRunner:
                 _write_sidecar_and_record(
                     sidecar_path,
                     image_path,
-                    creator_tool=creator_tool,
                     person_names=pu_person_names,
                     subjects=pu_subjects,
                     title=xmp_title,
@@ -1356,7 +1345,6 @@ class IndexRunner:
         image_path: Path,
         sidecar_path: Path,
         effective: dict[str, Any],
-        creator_tool: str,
         existing_sidecar_state: dict | None,
         existing_xmp_people: list[str],
     ) -> None:
@@ -1482,7 +1470,6 @@ class IndexRunner:
                 _write_sidecar_and_record(
                     sidecar_path,
                     image_path,
-                    creator_tool=creator_tool,
                     person_names=list(existing_xmp_people),
                     subjects=gps_subjects,
                     title=xmp_title,
@@ -1530,7 +1517,6 @@ class IndexRunner:
         sidecar_path: Path,
         effective: dict[str, Any],
         settings_sig: str,
-        creator_tool: str,
         date_estimation_enabled: bool,
         existing_sidecar_state: dict | None,
         existing_xmp_people: list[str],
@@ -1833,7 +1819,6 @@ class IndexRunner:
                     _write_sidecar_and_record(
                         sidecar_path,
                         image_path,
-                        creator_tool=creator_tool,
                         person_names=person_names,
                         subjects=subjects,
                         title=xmp_title,
@@ -1919,7 +1904,7 @@ def refresh_rendered_view_people_metadata(
 
     runner = IndexRunner(["--photo", str(rendered_image_path), "--include-view"])
     runner.files = [rendered_image_path]
-    effective, settings_sig, creator_tool, date_estimation_enabled = runner._resolve_effective_settings(
+    effective, settings_sig, date_estimation_enabled = runner._resolve_effective_settings(
         rendered_image_path
     )
     people_matcher, current_cast_signature = runner._get_people_matcher_and_signature(effective)
@@ -1932,7 +1917,6 @@ def refresh_rendered_view_people_metadata(
         rendered_sidecar_path,
         effective,
         settings_sig,
-        creator_tool,
         date_estimation_enabled,
         existing_sidecar_state,
         read_person_in_image(rendered_sidecar_path),

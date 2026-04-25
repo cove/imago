@@ -360,7 +360,6 @@ class TestCropPageRegions(_NoOpRestorationMixin, unittest.TestCase):
 
             write_xmp_sidecar(
                 view_xmp,
-                creator_tool="test",
                 person_names=[],
                 subjects=[],
                 description="Beach day",
@@ -397,7 +396,6 @@ class TestCropPageRegions(_NoOpRestorationMixin, unittest.TestCase):
 
             write_xmp_sidecar(
                 view_xmp,
-                creator_tool="test",
                 person_names=[],
                 subjects=[],
                 description="Harbor cruise",
@@ -550,7 +548,6 @@ class TestWriteCropSidecar(unittest.TestCase):
 
             write_xmp_sidecar(
                 view_xmp,
-                creator_tool="test",
                 person_names=[],
                 subjects=[],
                 description="A page",
@@ -656,7 +653,6 @@ class TestWriteCropSidecar(unittest.TestCase):
             view_xmp = view_jpg.with_suffix(".xmp")
             write_xmp_sidecar(
                 view_xmp,
-                creator_tool="test",
                 person_names=[],
                 subjects=["egypt"],
                 description="A page",
@@ -703,7 +699,6 @@ class TestWriteCropSidecar(unittest.TestCase):
             view_xmp = view_jpg.with_suffix(".xmp")
             write_xmp_sidecar(
                 view_xmp,
-                creator_tool="test",
                 person_names=[],
                 subjects=["egypt", "travel"],
                 description="Pyramids at Giza",
@@ -786,7 +781,6 @@ class TestWriteCropSidecar(unittest.TestCase):
             view_xmp = view_jpg.with_suffix(".xmp")
             write_xmp_sidecar(
                 view_xmp,
-                creator_tool="test",
                 person_names=[],
                 subjects=[],
                 description="Pyramids at Giza",
@@ -839,7 +833,6 @@ class TestWriteCropSidecar(unittest.TestCase):
             view_xmp = view_jpg.with_suffix(".xmp")
             write_xmp_sidecar(
                 view_xmp,
-                creator_tool="test",
                 person_names=[],
                 subjects=[],
                 description="Pyramids at Giza",
@@ -943,7 +936,6 @@ class TestWriteCropSidecar(unittest.TestCase):
 
             write_xmp_sidecar(
                 (archive_dir / "Portugal_1988_B00_P23_S01.xmp"),
-                creator_tool="test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -1060,7 +1052,6 @@ class TestWriteCropSidecar(unittest.TestCase):
             crop_xmp = crop_jpg.with_suffix(".xmp")
             write_xmp_sidecar(
                 crop_xmp,
-                creator_tool="manual",
                 person_names=[],
                 subjects=["manual-tag"],
                 description="",
@@ -1373,7 +1364,6 @@ class TestIntegrationCropPipeline(_NoOpRestorationMixin, unittest.TestCase):
 
             write_xmp_sidecar(
                 view_xmp,
-                creator_tool="test",
                 person_names=[],
                 subjects=[],
                 description="Egypt trip 1975",
@@ -1513,7 +1503,6 @@ class TestIntegrationCropPipeline(_NoOpRestorationMixin, unittest.TestCase):
 
             write_xmp_sidecar(
                 view_xmp,
-                creator_tool="test",
                 person_names=[],
                 subjects=[],
                 description="Family reunion 1975",
@@ -1548,7 +1537,6 @@ class TestIntegrationCropPipeline(_NoOpRestorationMixin, unittest.TestCase):
 
             write_xmp_sidecar(
                 view_xmp,
-                creator_tool="test",
                 person_names=[],
                 subjects=[],
                 description="Egypt trip 1975",
@@ -1586,7 +1574,6 @@ class TestIntegrationCropPipeline(_NoOpRestorationMixin, unittest.TestCase):
 
             write_xmp_sidecar(
                 view_xmp,
-                creator_tool="test",
                 person_names=[],
                 subjects=[],
                 description="Egypt trip 1975",
@@ -1626,7 +1613,6 @@ class TestIntegrationCropPipeline(_NoOpRestorationMixin, unittest.TestCase):
 
             write_xmp_sidecar(
                 view_xmp,
-                creator_tool="test",
                 person_names=[],
                 subjects=[],
                 description="Egypt trip 1975",
@@ -1679,7 +1665,6 @@ class TestIntegrationCropPipeline(_NoOpRestorationMixin, unittest.TestCase):
 
             write_xmp_sidecar(
                 view_xmp,
-                creator_tool="test",
                 person_names=[],
                 subjects=[],
                 description="Egypt trip 1975",

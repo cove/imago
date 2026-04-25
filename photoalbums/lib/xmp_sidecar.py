@@ -772,7 +772,6 @@ def _add_iptc_image_regions(
 
 def build_xmp_tree(
     *,
-    creator_tool: str,
     person_names: list[str],
     subjects: list[str],
     title: str = "",
@@ -883,9 +882,6 @@ def build_xmp_tree(
     if page_number > 0:
         _add_simple_text(desc, f"{{{PHOTOSHOP_NS}}}PageNumber", str(page_number))
     _add_simple_text(desc, f"{{{DC_NS}}}source", _normalize_xmp_text(source_text))
-
-    creator = ET.SubElement(desc, f"{{{XMP_NS}}}CreatorTool")
-    creator.text = _normalize_xmp_text(creator_tool) or "https://github.com/cove/imago"
 
     write_ocr_text_fields = description_role != DESCRIPTION_ROLE_CROP
     clean_ocr = _normalize_xmp_text(ocr_text, multiline=True)
@@ -1584,7 +1580,6 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
         xmp_gps_to_decimal=_xmp_gps_to_decimal,
     )
     return {
-        "creator_tool": str(desc.findtext(f"{{{XMP_NS}}}CreatorTool", default="") or "").strip(),
         "create_date": _normalize_xmp_datetime(str(desc.findtext(f"{{{XMP_NS}}}CreateDate", default="") or "").strip()),
         "dc_date": dc_date_values[0] if dc_date_values else "",
         "dc_date_values": dc_date_values,
@@ -1668,7 +1663,6 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
 def sidecar_has_expected_ai_fields(
     sidecar_path: str | Path,
     *,
-    creator_tool: str,
     enable_people: bool,
     enable_objects: bool,
     ocr_engine: str,
@@ -1676,8 +1670,6 @@ def sidecar_has_expected_ai_fields(
 ) -> bool:
     state = read_ai_sidecar_state(sidecar_path)
     if not isinstance(state, dict):
-        return False
-    if str(state.get("creator_tool") or "").strip() != str(creator_tool or "").strip():
         return False
     detections = state.get("detections")
     if not isinstance(detections, dict):
@@ -1735,7 +1727,6 @@ def sidecar_has_expected_ai_fields(
 def _merge_xmp_tree(
     tree: ET.ElementTree,
     *,
-    creator_tool: str,
     person_names: list[str],
     subjects: list[str],
     title: str = "",
@@ -1908,11 +1899,6 @@ def _merge_xmp_tree(
     _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}PageNumber", str(page_number) if page_number > 0 else "")
     _remove_field(desc, f"{{{IMAGO_NS}}}ScanNumber")
     _set_simple_text(desc, f"{{{DC_NS}}}source", str(source_text or "").strip())
-    _set_simple_text(
-        desc,
-        f"{{{XMP_NS}}}CreatorTool",
-        str(creator_tool or "").strip() or "https://github.com/cove/imago",
-    )
     if description_role == DESCRIPTION_ROLE_CROP:
         _remove_field(desc, f"{{{IMAGO_NS}}}OCRText")
         _remove_field(desc, f"{{{IMAGO_NS}}}ParentOCRText")
@@ -1953,6 +1939,7 @@ def _merge_xmp_tree(
         f"{{{IMAGO_NS}}}PeopleIdentified",
         f"{{{IMAGO_NS}}}SubPhotos",
         f"{{{XMPDM_NS}}}album",
+        f"{{{XMP_NS}}}CreatorTool",
     ):
         _remove_field(desc, legacy_tag)
     ET.indent(tree, space="  ")
@@ -1962,7 +1949,6 @@ def _merge_xmp_tree(
 def write_xmp_sidecar(
     sidecar_path: str | Path,
     *,
-    creator_tool: str,
     person_names: list[str],
     subjects: list[str],
     title: str = "",
@@ -2011,7 +1997,6 @@ def write_xmp_sidecar(
             tree = None
     if tree is None:
         tree = build_xmp_tree(
-            creator_tool=creator_tool,
             person_names=person_names,
             subjects=subjects,
             description_role=description_role,
@@ -2051,7 +2036,6 @@ def write_xmp_sidecar(
     else:
         tree = _merge_xmp_tree(
             tree,
-            creator_tool=creator_tool,
             person_names=person_names,
             subjects=subjects,
             description_role=description_role,
@@ -2142,7 +2126,6 @@ def propagate_archive_copy_safe_fields(
 
     write_xmp_sidecar(
         view_xmp,
-        creator_tool=str(view_state.get("creator_tool") or archive_state.get("creator_tool") or ""),
         person_names=existing_people,
         subjects=[],
         description=description,

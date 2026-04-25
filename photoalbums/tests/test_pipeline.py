@@ -435,7 +435,6 @@ class TestRunProcessPipelineSmoke(unittest.TestCase):
 
                 write_xmp_sidecar(
                     view_path.with_suffix(".xmp"),
-                    creator_tool="imago-test",
                     person_names=[],
                     subjects=[],
                     description="Final page description",
@@ -452,7 +451,6 @@ class TestRunProcessPipelineSmoke(unittest.TestCase):
                 )
                 write_xmp_sidecar(
                     crop_path.with_suffix(".xmp"),
-                    creator_tool="imago-test",
                     person_names=[],
                     subjects=[],
                     description="Final crop caption",

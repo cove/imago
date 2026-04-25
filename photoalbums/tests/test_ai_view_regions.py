@@ -255,7 +255,6 @@ class TestRunDetectViewRegions(unittest.TestCase):
 
             write_xmp_sidecar(
                 view_path.with_suffix(".xmp"),
-                creator_tool="test",
                 person_names=[],
                 subjects=[],
                 description="audrey-leslie on the lawn",
@@ -544,7 +543,6 @@ class TestGemma4CaptionInDetectRegions(unittest.TestCase):
             (archive_dir / "Egypt_1975_B00_P26_S01.tif").write_bytes(b"scan")
             write_xmp_sidecar(
                 (archive_dir / "Egypt_1975_B00_P26_S01.xmp"),
-                creator_tool="test",
                 person_names=[],
                 subjects=[],
                 description="",

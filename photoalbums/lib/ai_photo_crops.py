@@ -472,7 +472,6 @@ def _write_crop_sidecar(
 
     write_xmp_sidecar(
         crop_xmp,
-        creator_tool="imago-crop-regions",
         person_names=resolved_person_names,
         subjects=subjects,
         description=caption,

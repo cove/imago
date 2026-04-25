@@ -149,7 +149,6 @@ def run_propagate_to_crops(
 
         write_xmp_sidecar(
             crop_xmp,
-            creator_tool=str(existing_state.get("creator_tool") or "imago"),
             person_names=new_person_names,
             subjects=list(existing_state.get("subjects") or []),
             title=str(existing_state.get("title") or ""),

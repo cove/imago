@@ -1022,7 +1022,6 @@ class CastHandler(BaseHTTPRequestHandler):
             merge_persons_xmp(
                 xmp_path,
                 all_names,
-                creator_tool="cast-review",
             )
             verified_names = read_person_in_image(xmp_path)
             if display_name.casefold() not in {str(name or "").casefold() for name in verified_names}:

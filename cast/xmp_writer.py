@@ -6,13 +6,11 @@ import xml.etree.ElementTree as ET
 # Namespaces copied from photoalbums/lib/xmp_sidecar.py (stdlib only, no cross-project import)
 X_NS = "adobe:ns:meta/"
 RDF_NS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-XMP_NS = "http://ns.adobe.com/xap/1.0/"
 IPTC_EXT_NS = "http://iptc.org/std/Iptc4xmpExt/2008-02-29/"
 DC_NS = "http://purl.org/dc/elements/1.1/"
 
 ET.register_namespace("x", X_NS)
 ET.register_namespace("rdf", RDF_NS)
-ET.register_namespace("xmp", XMP_NS)
 ET.register_namespace("Iptc4xmpExt", IPTC_EXT_NS)
 ET.register_namespace("dc", DC_NS)
 
@@ -23,7 +21,6 @@ _RDF_ALT = f"{{{RDF_NS}}}Alt"
 _RDF_LI = f"{{{RDF_NS}}}li"
 _RDF_DESC = f"{{{RDF_NS}}}Description"
 _RDF_ROOT = f"{{{RDF_NS}}}RDF"
-_XMP_CREATOR = f"{{{XMP_NS}}}CreatorTool"
 
 
 def _get_rdf_desc(tree: ET.ElementTree) -> ET.Element | None:  # type: ignore[type-arg]
@@ -107,7 +104,6 @@ def merge_persons_xmp(
     sidecar_path: Path,
     person_names: list[str],
     *,
-    creator_tool: str = "cast-label-photos",
     description: str | None = None,
 ) -> Path:
     """
@@ -117,7 +113,7 @@ def merge_persons_xmp(
       updated; all other fields (dc:description, dc:subject, imago:*, etc.) are
       preserved untouched, unless `description` is provided.
     - If the sidecar does not exist, a minimal XMP file is created containing
-      only PersonInImage and xmp:CreatorTool.
+      only PersonInImage.
 
     Returns the path that was written.
     """
@@ -134,8 +130,7 @@ def merge_persons_xmp(
             tree.write(str(sidecar_path), encoding="UTF-8", xml_declaration=True)
             return sidecar_path
 
-    # No existing sidecar (or parse failure) — write a minimal file
-    _write_minimal(sidecar_path, names, creator_tool=creator_tool, description=description)
+    _write_minimal(sidecar_path, names, description=description)
     return sidecar_path
 
 
@@ -199,21 +194,16 @@ def _write_minimal(
     sidecar_path: Path,
     names: list[str],
     *,
-    creator_tool: str,
     description: str | None = None,
 ) -> None:
-    """Create a minimal XMP sidecar with only PersonInImage and CreatorTool."""
+    """Create a minimal XMP sidecar with only PersonInImage."""
     sidecar_path.parent.mkdir(parents=True, exist_ok=True)
 
     xmpmeta = ET.Element(f"{{{X_NS}}}xmpmeta")
-    xmpmeta.set(f"{{{X_NS}}}xmptk", creator_tool)
     rdf_rdf = ET.SubElement(xmpmeta, _RDF_ROOT)
     rdf_rdf.set("xmlns:rdf", RDF_NS)
     desc = ET.SubElement(rdf_rdf, _RDF_DESC)
     desc.set(f"{{{RDF_NS}}}about", "")
-
-    creator = ET.SubElement(desc, _XMP_CREATOR)
-    creator.text = creator_tool
 
     person_elem = ET.SubElement(desc, _PERSON_TAG)
     bag = ET.SubElement(person_elem, _RDF_BAG)

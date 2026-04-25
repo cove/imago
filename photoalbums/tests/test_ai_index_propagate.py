@@ -23,7 +23,6 @@ from photoalbums.lib import xmp_sidecar
 def _write_basic_crop_xmp(path: Path, person_names: list[str] | None = None) -> None:
     xmp_sidecar.write_xmp_sidecar(
         path,
-        creator_tool="imago-test",
         person_names=person_names or [],
         subjects=[],
         description="Crop photo",
@@ -79,7 +78,6 @@ class TestRunPropagateTocrops(unittest.TestCase):
         # Write basic XMP then add regions
         xmp_sidecar.write_xmp_sidecar(
             xmp_path,
-            creator_tool="imago-test",
             person_names=region_names,
             subjects=[],
             description="Page photo",
@@ -175,7 +173,6 @@ class TestRunPropagateTocrops(unittest.TestCase):
 
             write_xmp_sidecar(
                 xmp_path,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="Page photo",
@@ -251,7 +248,6 @@ class TestRunPropagateTocrops(unittest.TestCase):
             ]
             xmp_sidecar.write_xmp_sidecar(
                 xmp_path,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="Page photo",
@@ -261,7 +257,6 @@ class TestRunPropagateTocrops(unittest.TestCase):
             )
             xmp_sidecar.write_xmp_sidecar(
                 crop1.with_suffix(".xmp"),
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="Crop photo",
@@ -308,7 +303,6 @@ class TestRunPropagateTocrops(unittest.TestCase):
 
             write_xmp_sidecar(
                 xmp_path,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="Page photo",

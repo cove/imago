@@ -562,7 +562,6 @@ HTML = r"""<!DOCTYPE html>
       <section class="xmp-card">
         <h3>Summary</h3>
         <div class="xmp-kv">
-          ${renderValue('Creator Tool', data.creator_tool)}
           ${renderValue('Title', data.title)}
           ${renderValue('Album Title', data.album_title)}
           ${renderValue('People In Image', summary.people_in_image_count)}
