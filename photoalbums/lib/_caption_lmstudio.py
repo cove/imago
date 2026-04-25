@@ -1010,8 +1010,20 @@ def people_count_system_prompt() -> str:
     return load_prompt("ai-index/people-count/system.md").rendered
 
 
+_LOCATION_SYSTEM_PROMPT = (
+    "- You extract location metadata for photographs.\n"
+    "- Return only valid JSON matching the response_format schema.\n"
+    "- When the response schema asks for `location_name`, only return GPS coordinates when exact coordinates are explicitly visible in the image or OCR text.\n"
+    "- If exact coordinates are not explicit, leave GPS fields empty.\n"
+    "- If returning `location_name`, include a country name in the query. If the country is not visible on the page, choose the single best country from the album title.\n"
+    "- When the response schema asks for `locations_shown`, only include famous locations that can be confidently identified from visible evidence.\n"
+    "- If no famous locations are identifiable, return an empty array.\n"
+    "- Do not include reasoning or extra fields."
+)
+
+
 def location_system_prompt() -> str:
-    return load_prompt("ai-index/locations/system.md").rendered
+    return _LOCATION_SYSTEM_PROMPT
 
 
 def location_shown_system_prompt() -> str:
@@ -1226,7 +1238,7 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
         prompt: str,
     ) -> CaptionDetails:
         def run_request() -> CaptionDetails:
-            params = _step_params("ai-index/locations/params.toml")
+            params: dict[str, object] = {}
             resize_edge = (
                 int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
             )
@@ -1284,7 +1296,7 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
         prompt: str,
     ) -> CaptionDetails:
         def run_request() -> CaptionDetails:
-            params = _step_params("ai-index/locations/params.toml")
+            params: dict[str, object] = {}
             resize_edge = (
                 int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
             )
@@ -1341,7 +1353,7 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
         prompt: str,
     ) -> CaptionDetails:
         def run_request() -> CaptionDetails:
-            params = _step_params("ai-index/locations/params.toml")
+            params: dict[str, object] = {}
             resize_edge = (
                 int(self.max_image_edge) if self.max_image_edge > 0 else int(DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
             )
