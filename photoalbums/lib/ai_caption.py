@@ -152,6 +152,7 @@ class CaptionEngine:
         lmstudio_base_url: str = "",
         max_image_edge: int = 0,
         stream: bool = False,
+        thinking: bool = False,
         override_sources: dict[str, str] | None = None,
     ):
         normalized = str(engine or "lmstudio").strip().lower()
@@ -172,6 +173,7 @@ class CaptionEngine:
         )
         self._max_image_edge = max(0, int(max_image_edge))
         self._stream = bool(stream)
+        self._thinking = bool(thinking)
         self.override_sources = dict(override_sources or {})
 
     @property
@@ -195,6 +197,7 @@ class CaptionEngine:
             base_url=self._lmstudio_base_url,
             max_image_edge=self._max_image_edge,
             stream=self._stream,
+            thinking=self._thinking,
         )
 
     def generate(

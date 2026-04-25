@@ -69,7 +69,7 @@ def location_shown_prompt_metadata() -> dict[str, object]:
 
 
 def location_queries_prompt_metadata() -> dict[str, object]:
-    return prompt_metadata(load_prompt("ai-index/locations/query-user.md"))
+    return prompt_metadata(load_prompt("ai-index/locations/user.md"))
 
 
 def _build_local_prompt(
@@ -152,11 +152,12 @@ def _build_location_queries_prompt(
 ) -> str:
     album_hint = str(album_title or "").strip() or str(printed_album_title or "").strip()
     parts: list[str] = []
-    if album_hint:
-        parts.append(f"Album: {album_hint}")
     if caption_text:
         parts.append(f"Caption: {caption_text.strip()}")
-    if ocr_text:
-        parts.append(f"OCR text: {ocr_text.strip()}")
-    parts.append(load_prompt("ai-index/locations/query-user.md").rendered)
+    parts.append(
+        load_prompt(
+            "ai-index/locations/user.md",
+            {"album_title": album_hint, "ocr_text": str(ocr_text or "").strip()},
+        ).rendered
+    )
     return "\n\n".join(parts)
