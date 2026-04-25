@@ -610,7 +610,7 @@ def detect_regions(
             if cached:
                 if write_debug:
                     _clear_regions_debug_images(path)
-                    _write_accepted_regions_debug_image(path, cached)
+                _write_accepted_regions_debug_image(path, cached)
                 _write_region_association_overlay_image(path, cached)
                 return cached
         except Exception as exc:  # pragma: no cover
