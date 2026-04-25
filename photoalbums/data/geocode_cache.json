@@ -358,6 +358,18 @@
     "status": "ok",
     "sublocation": "115 Regent Street"
   },
+  "51.51071683,-0.1385965": {
+    "city": "City of Westminster",
+    "country": "United Kingdom",
+    "display_name": "L.K. Bennett, 115, Regent Street, St. James's, East Marylebone, Mayfair, City of Westminster, Greater London, England, W1B 4HW, United Kingdom",
+    "latitude": "51.5104368",
+    "longitude": "-0.1385367",
+    "query": "51.51071683,-0.1385965",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "115 Regent Street"
+  },
   "51.51096217,-0.138684": {
     "city": "City of Westminster",
     "country": "United Kingdom",

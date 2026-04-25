@@ -1036,6 +1036,7 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
         timeout_seconds: float = DEFAULT_LMSTUDIO_TIMEOUT_SECONDS,
         max_image_edge: int = 0,
         stream: bool = False,
+        thinking: bool = False,
     ):
         self.model_names = _normalize_model_name_candidates(model_name)
         self.model_name = self.model_names[0] if self.model_names else ""
@@ -1046,6 +1047,7 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
         self.timeout_seconds = max(5.0, float(timeout_seconds))
         self.max_image_edge = max(0, int(max_image_edge))
         self.stream = bool(stream)
+        self.thinking = bool(thinking)
         self._resolved_model_name = ""
         self.last_response_text = ""
         self.last_finish_reason = ""
@@ -1105,6 +1107,8 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
                 "temperature": float(self.temperature),
                 "stream": self.stream,
             }
+            if self.thinking:
+                payload["thinking"] = {"type": "enabled", "budget_tokens": int(self.max_new_tokens)}
             if self.stream:
                 print(
                     f"  Running LM Studio model ({self._resolve_model_name()})...",

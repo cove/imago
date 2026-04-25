@@ -3,4 +3,3 @@
 - Return empty array if no famous locations are identifiable.
 - Each location should include as many hierarchical levels as known.
 - country_code: 2-letter ISO 3166-1 alpha-2 code if known.
-- Just return the JSON without any extra text or explanation.

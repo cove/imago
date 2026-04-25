@@ -1,17 +1,5 @@
-- If the response schema asks for `location_name`, determine the most useful location metadata supported by visible evidence.
-- When returning `location_name`, include a country name so the Nominatim geocoding query is not ambiguous. Do not return country-less queries like `Oxford` or `Dubrovnik`.
-- Prefer a disambiguating `place, city/state, country` query when the city, state/province, or broad region is supported by visible evidence, OCR text, or album title.
-- If the page or OCR text supports a location but does not show the country, choose the single best country from the album title and append it to `location_name`.
-- Album titles can have multiple country or region names in them, including a year, but you need to return just one country or region name only. For example "Spain and Morocco 1988", you'd look at the picture and OCR text to determine if the country is "Spain" or "Morocco" but not both, and "Egypt 1975" you'd pick "Egypt" but not "1975".
-- Avoid ambiguous bare place names when a more specific query like `Oxford, England` or `Oxford, United Kingdom` is supported.
-- If the response schema asks for `locations_shown`, identify distinct famous locations visible in the photographs on this page.
-- Examples: landmarks, monuments, city skylines, famous natural features, iconic buildings.
-- OCR text hints about the general location are provided to help identify specific famous locations, often these hints are the exact name of the location or landmark and little other work is needed.
-- Only include locations that are well-known and can be identified with reasonable confidence.
-- Include locations even if only mentioned in OCR text without visual confirmation in the photo.
-- Example: if OCR says "Paris, London, Rome", return three array entries, one for each city.
-- Include `name` when the landmark or place itself can be named, not just the city or country.
-- Use `name` for the full location name, for example `Tower Bridge`, `Westminster Abbey`, or `St. Mark's Square`.
-- Leave `name` empty when only the broader city or country can be identified.
+Analyze every distinct numbered photograph, moving from left to right across the top row first (Top Row), then proceeding down and continuing sequentially until all photos are covered. For every single photograph, perform two tasks:
+- Determine the corresponding caption/description: Think like an experienced human curator or viewer. Do not rely solely on explicit text if the visual evidence strongly suggests a common, well-known location or subject (e.g., recognizing classic London streetscapes). If a photo is visually similar to another known location in the set, infer its likely context.
+- Provide a Nominatim query for its location: Follow strict formatting rules for `location_#_name`. If multiple locations are possible (e.g., various European cities), narrow the choice based on contextual clues from other photos in this album (e.g., if one photo is clearly London, assume related street scenes are also in the UK unless contradicted).
+- Crucial Contextual Rule: When analyzing a sequence of photos (like the Top Row), if one photo is explicitly identified as being in 'London, England,' treat visually similar photos within that sequence with a high probability of also belonging to the same general location unless visual evidence strongly suggests otherwise.
 - The album name is: {album_title}
-- The OCR text on the page is: {ocr_text}

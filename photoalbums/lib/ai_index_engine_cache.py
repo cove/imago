@@ -58,6 +58,7 @@ def _init_caption_engine(
     lmstudio_base_url: str,
     max_image_edge: int,
     stream: bool = False,
+    thinking: bool = False,
     override_sources: dict[str, str] | None = None,
 ):
     kwargs = {
@@ -69,6 +70,7 @@ def _init_caption_engine(
         "lmstudio_base_url": str(lmstudio_base_url),
         "max_image_edge": int(max_image_edge),
         "stream": stream,
+        "thinking": thinking,
     }
     if override_sources:
         kwargs["override_sources"] = dict(override_sources)

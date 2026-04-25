@@ -104,7 +104,6 @@ def locations_input_hash(settings: dict[str, Any], output_hashes: dict[str, str]
             "ai-index/locations/user.md",
             "ai-index/locations/output-location.md",
             "ai-index/locations/output-shown.md",
-            "ai-index/locations/query-user.md",
             "ai-index/locations/params.toml",
         ),
     )

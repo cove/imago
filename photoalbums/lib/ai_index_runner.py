@@ -278,6 +278,7 @@ class IndexRunner:
         default_caption_max_edge = int(self.args.caption_max_edge)
         if "--caption-max-edge" not in self.explicit_flags and str(self.args.caption_engine) == "lmstudio":
             default_caption_max_edge = int(caption_params.get("max_image_edge", self.args.caption_max_edge))
+        default_caption_thinking = bool(caption_params.get("thinking", False))
 
         self.defaults = {
             "skip": False,
@@ -292,6 +293,7 @@ class IndexRunner:
             "caption_max_tokens": int(default_caption_max_tokens),
             "caption_temperature": float(default_caption_temperature),
             "caption_max_edge": int(default_caption_max_edge),
+            "caption_thinking": bool(default_caption_thinking),
             "lmstudio_base_url": normalize_lmstudio_base_url(str(self.args.lmstudio_base_url)),
             "people_threshold": float(self.args.people_threshold),
             "object_threshold": float(self.args.object_threshold),
@@ -303,7 +305,7 @@ class IndexRunner:
         self.people_matcher_cache: dict[tuple[str, float, int], Any] = {}
         self.object_detector_cache: dict[tuple[str, float], Any] = {}
         self.ocr_engine_cache: dict[tuple[str, str, str, str], OCREngine] = {}
-        self.caption_engine_cache: dict[tuple[str, str, str, int, float, str, int], CaptionEngine] = {}
+        self.caption_engine_cache: dict[tuple[str, str, str, int, float, str, int, bool], CaptionEngine] = {}
         self.date_engine_cache: dict[tuple[str, str, int, float, str], DateEstimateEngine] = {}
         self.archive_scan_ocr_cache: dict[str, ArchiveScanOCRAuthority] = {}
         self.printed_album_title_cache: dict[str, str] = {}
@@ -336,6 +338,7 @@ class IndexRunner:
             float(effective.get("caption_temperature", self.defaults["caption_temperature"])),
             str(effective.get("lmstudio_base_url", self.defaults["lmstudio_base_url"])),
             int(effective.get("caption_max_edge", self.defaults["caption_max_edge"])),
+            bool(effective.get("caption_thinking", self.defaults["caption_thinking"])),
         )
         caption_engine = self.caption_engine_cache.get(caption_key)
         if caption_engine is None:
@@ -348,6 +351,7 @@ class IndexRunner:
                 lmstudio_base_url=caption_key[5],
                 max_image_edge=int(caption_key[6]),
                 stream=True,
+                thinking=bool(caption_key[7]),
                 override_sources=dict(effective.get("_override_sources") or {}),
             )
             self.caption_engine_cache[caption_key] = caption_engine
@@ -1133,6 +1137,7 @@ class IndexRunner:
                     float(effective.get("caption_temperature", self.defaults["caption_temperature"])),
                     str(effective.get("lmstudio_base_url", self.defaults["lmstudio_base_url"])),
                     int(effective.get("caption_max_edge", self.defaults["caption_max_edge"])),
+                    bool(effective.get("caption_thinking", self.defaults["caption_thinking"])),
                 )
                 pu_caption_engine = self.caption_engine_cache.get(caption_key)
                 if pu_caption_engine is None:
@@ -1145,6 +1150,7 @@ class IndexRunner:
                         lmstudio_base_url=caption_key[5],
                         max_image_edge=int(caption_key[6]),
                         stream=True,
+                        thinking=bool(caption_key[7]),
                         override_sources=dict(effective.get("_override_sources") or {}),
                     )
                     self.caption_engine_cache[caption_key] = pu_caption_engine
@@ -1380,6 +1386,7 @@ class IndexRunner:
                 float(effective.get("caption_temperature", self.defaults["caption_temperature"])),
                 str(effective.get("lmstudio_base_url", self.defaults["lmstudio_base_url"])),
                 int(effective.get("caption_max_edge", self.defaults["caption_max_edge"])),
+                bool(effective.get("caption_thinking", self.defaults["caption_thinking"])),
             )
             gps_caption_engine = self.caption_engine_cache.get(caption_key)
             if gps_caption_engine is None:
@@ -1392,6 +1399,7 @@ class IndexRunner:
                     lmstudio_base_url=caption_key[5],
                     max_image_edge=int(caption_key[6]),
                     stream=True,
+                    thinking=bool(caption_key[7]),
                     override_sources=dict(effective.get("_override_sources") or {}),
                 )
                 self.caption_engine_cache[caption_key] = gps_caption_engine
@@ -1570,6 +1578,7 @@ class IndexRunner:
                 float(effective.get("caption_temperature", self.defaults["caption_temperature"])),
                 str(effective.get("lmstudio_base_url", self.defaults["lmstudio_base_url"])),
                 int(effective.get("caption_max_edge", self.defaults["caption_max_edge"])),
+                bool(effective.get("caption_thinking", self.defaults["caption_thinking"])),
             )
             caption_engine = self.caption_engine_cache.get(caption_key)
             if caption_engine is None:
@@ -1582,6 +1591,7 @@ class IndexRunner:
                     lmstudio_base_url=caption_key[5],
                     max_image_edge=int(caption_key[6]),
                     stream=not self.stdout_only,
+                    thinking=bool(caption_key[7]),
                     override_sources=dict(effective.get("_override_sources") or {}),
                 )
                 self.caption_engine_cache[caption_key] = caption_engine
