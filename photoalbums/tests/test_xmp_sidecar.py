@@ -20,7 +20,6 @@ class TestXMPSidecar(unittest.TestCase):
             out = Path(tmp) / "image.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=["Alice", "Bob", "Alice"],
                 subjects=["dog", "park", "dog"],
                 description="People: Alice, Bob. Objects: dog, park.",
@@ -49,7 +48,6 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertIn("Alice", xml)
             self.assertIn("Bob", xml)
             self.assertIn("dog", xml)
-            self.assertIn("imago-test", xml)
             self.assertIn("Welcome to the park", xml)
             self.assertIn("Mainland China Book II", xml)
             self.assertIn("GPSLatitude", xml)
@@ -67,7 +65,6 @@ class TestXMPSidecar(unittest.TestCase):
             out = Path(tmp) / "image.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -142,7 +139,6 @@ class TestXMPSidecar(unittest.TestCase):
             out = Path(tmp) / "image.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -162,7 +158,6 @@ class TestXMPSidecar(unittest.TestCase):
             out = Path(tmp) / "image.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -196,7 +191,6 @@ class TestXMPSidecar(unittest.TestCase):
             out = Path(tmp) / "image.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -234,7 +228,6 @@ class TestXMPSidecar(unittest.TestCase):
             out = Path(tmp) / "image.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -262,7 +255,6 @@ class TestXMPSidecar(unittest.TestCase):
             out = Path(tmp) / "image.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -314,7 +306,6 @@ class TestXMPSidecar(unittest.TestCase):
             out = pages_dir / "China_1986_B02_P01_V.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 title="Temple of Heaven",
@@ -439,7 +430,6 @@ class TestXMPSidecar(unittest.TestCase):
             out = Path(tmp) / "image.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 title="Line 1\\nLine 2",
@@ -466,7 +456,6 @@ class TestXMPSidecar(unittest.TestCase):
             out = Path(tmp) / "image.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -494,7 +483,6 @@ class TestXMPSidecar(unittest.TestCase):
 <x:xmpmeta xmlns:x="adobe:ns:meta/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:imago="https://imago.local/ns/1.0/" xmlns:xmp="http://ns.adobe.com/xap/1.0/">
   <rdf:RDF>
     <rdf:Description rdf:about="">
-      <xmp:CreatorTool>imago-test</xmp:CreatorTool>
       <imago:StitchKey>true</imago:StitchKey>
       <imago:OcrRan>true</imago:OcrRan>
       <imago:PeopleDetected>false</imago:PeopleDetected>
@@ -508,7 +496,6 @@ class TestXMPSidecar(unittest.TestCase):
 
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -559,7 +546,6 @@ class TestXMPSidecar(unittest.TestCase):
 
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=["Dolores Cordell"],
                 subjects=["baby"],
                 description="Updated description",
@@ -601,7 +587,6 @@ class TestXMPSidecar(unittest.TestCase):
 
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -686,7 +671,6 @@ class TestXMPSidecar(unittest.TestCase):
 
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -702,7 +686,6 @@ class TestXMPSidecar(unittest.TestCase):
             out = Path(tmp) / "Egypt_1975_B00_P09_V.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=["travel", "egypt"],
                 description="Pyramids at Giza",
@@ -734,7 +717,6 @@ class TestXMPSidecar(unittest.TestCase):
 
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-face-refresh",
                 person_names=["Alice Smith"],
                 subjects=[],
                 description="",
@@ -771,7 +753,6 @@ class TestXMPSidecar(unittest.TestCase):
 
             xmp_sidecar.write_xmp_sidecar(
                 complete,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=["mainland", "china"],
                 description="This is the cover or title page of Mainland China Book II.",
@@ -802,7 +783,6 @@ class TestXMPSidecar(unittest.TestCase):
 <x:xmpmeta xmlns:x="adobe:ns:meta/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:xmp="http://ns.adobe.com/xap/1.0/">
   <rdf:RDF>
     <rdf:Description rdf:about="">
-      <xmp:CreatorTool>imago-test</xmp:CreatorTool>
       <dc:description>
         <rdf:Alt>
           <rdf:li xml:lang="x-default">Old description</rdf:li>
@@ -818,7 +798,6 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertTrue(
                 xmp_sidecar.sidecar_has_expected_ai_fields(
                     complete,
-                    creator_tool="imago-test",
                     enable_people=True,
                     enable_objects=True,
                     ocr_engine="local",
@@ -828,50 +807,6 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertFalse(
                 xmp_sidecar.sidecar_has_expected_ai_fields(
                     incomplete,
-                    creator_tool="imago-test",
-                    enable_people=True,
-                    enable_objects=True,
-                    ocr_engine="local",
-                    caption_engine="template",
-                )
-            )
-
-    def test_sidecar_has_expected_ai_fields_rejects_creator_tool_mismatch(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            complete = Path(tmp) / "complete.xmp"
-            xmp_sidecar.write_xmp_sidecar(
-                complete,
-                creator_tool="imago-photoalbums-ai-index",
-                person_names=[],
-                subjects=["mainland", "china"],
-                description="This is the cover or title page of Mainland China Book II.",
-                album_title="Mainland China Book II",
-                source_text="",
-                ocr_text="MAINLAND CHINA 1986 BOOK 11",
-                detections_payload={
-                    "people": [],
-                    "objects": [],
-                    "ocr": {
-                        "engine": "local",
-                        "language": "eng",
-                        "chars": 27,
-                        "keywords": ["mainland"],
-                    },
-                    "caption": {
-                        "requested_engine": "template",
-                        "effective_engine": "template",
-                        "fallback": False,
-                        "error": "",
-                        "model": "",
-                    },
-                },
-                subphotos=[],
-            )
-
-            self.assertFalse(
-                xmp_sidecar.sidecar_has_expected_ai_fields(
-                    complete,
-                    creator_tool="https://github.com/cove/imago",
                     enable_people=True,
                     enable_objects=True,
                     ocr_engine="local",
@@ -884,7 +819,6 @@ class TestXMPSidecar(unittest.TestCase):
             sidecar = Path(tmp) / "reasoning.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 sidecar,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=["person"],
                 description=(
@@ -918,7 +852,6 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertFalse(
                 xmp_sidecar.sidecar_has_expected_ai_fields(
                     sidecar,
-                    creator_tool="imago-test",
                     enable_people=True,
                     enable_objects=True,
                     ocr_engine="lmstudio",
@@ -931,7 +864,6 @@ class TestXMPSidecar(unittest.TestCase):
             sidecar = Path(tmp) / "reasoning_ocr.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 sidecar,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="This is the cover or title page of Mainland China Book II, a Photo Essay.",
@@ -965,7 +897,6 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertFalse(
                 xmp_sidecar.sidecar_has_expected_ai_fields(
                     sidecar,
-                    creator_tool="imago-test",
                     enable_people=True,
                     enable_objects=True,
                     ocr_engine="lmstudio",
@@ -978,7 +909,6 @@ class TestXMPSidecar(unittest.TestCase):
             sidecar = Path(tmp) / "album_title.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 sidecar,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 title="Album page caption",
@@ -1009,7 +939,6 @@ class TestXMPSidecar(unittest.TestCase):
             out = Path(tmp) / "China_1986_B02_P17_S01.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -1026,7 +955,6 @@ class TestXMPSidecar(unittest.TestCase):
             out = Path(tmp) / "image.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -1042,7 +970,6 @@ class TestXMPSidecar(unittest.TestCase):
             out = Path(tmp) / "image.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -1073,7 +1000,6 @@ class TestXMPSidecar(unittest.TestCase):
             )
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -1091,7 +1017,6 @@ class TestXMPSidecar(unittest.TestCase):
             out = Path(tmp) / "image.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -1106,7 +1031,6 @@ class TestXMPSidecar(unittest.TestCase):
             out = Path(tmp) / "image.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -1145,7 +1069,6 @@ class TestXMPSidecar(unittest.TestCase):
             out = Path(tmp) / "image.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -1173,7 +1096,6 @@ class TestXMPSidecar(unittest.TestCase):
             out = Path(tmp) / "image.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -1196,7 +1118,6 @@ class TestXMPSidecar(unittest.TestCase):
             out = Path(tmp) / "image.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -1228,7 +1149,6 @@ class TestXMPSidecar(unittest.TestCase):
             out = Path(tmp) / "image.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -1244,7 +1164,6 @@ class TestXMPSidecar(unittest.TestCase):
             out = Path(tmp) / "image.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -1269,7 +1188,6 @@ class TestXMPSidecar(unittest.TestCase):
             out = Path(tmp) / "image.xmp"
             xmp_sidecar.write_xmp_sidecar(
                 out,
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="",

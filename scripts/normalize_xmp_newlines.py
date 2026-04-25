@@ -27,7 +27,6 @@ TEXT_TAGS = {
     f"{{{DC_NS}}}source",
     f"{{{DC_NS}}}description",
     f"{{{DC_NS}}}title",
-    f"{{{XMP_NS}}}CreatorTool",
     f"{{{XMP_NS}}}CreateDate",
     f"{{{IPTC_EXT_NS}}}PersonInImage",
     f"{{{IPTC_EXT_NS}}}LocationShown",

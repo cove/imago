@@ -9,7 +9,6 @@ from ..common import PHOTO_ALBUMS_DIR
 
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp"}
-DEFAULT_CREATOR_TOOL = "https://github.com/cove/imago"
 DEFAULT_CAST_STORE = Path(__file__).resolve().parents[2] / "cast" / "data"
 
 
@@ -50,7 +49,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Photo Albums root directory.",
     )
     parser.add_argument("--cast-store", default=str(DEFAULT_CAST_STORE), help="Cast store directory.")
-    parser.add_argument("--creator-tool", default=DEFAULT_CREATOR_TOOL, help="XMP CreatorTool value.")
     parser.add_argument("--model", default="models/yolo11n.pt", help="Ultralytics model path/name.")
     parser.add_argument(
         "--object-threshold",

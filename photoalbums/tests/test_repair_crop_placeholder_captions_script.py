@@ -26,7 +26,6 @@ def _write_album(tmp_path: Path, *, region_name: str, crop_description: str) -> 
     page_sidecar = pages_dir / "Russia_1984_B02_P36_V.xmp"
     write_xmp_sidecar(
         page_sidecar,
-        creator_tool="imago-test",
         person_names=[],
         subjects=[],
         description="Canal walk",
@@ -47,7 +46,6 @@ def _write_album(tmp_path: Path, *, region_name: str, crop_description: str) -> 
     crop_sidecar = photos_dir / "Russia_1984_B02_P36_D01-00_V.xmp"
     write_xmp_sidecar(
         crop_sidecar,
-        creator_tool="imago-test",
         person_names=[],
         subjects=[],
         description=crop_description,
@@ -111,7 +109,6 @@ def test_repair_sidecar_skips_when_parent_region_is_missing(tmp_path: Path) -> N
     page_sidecar = pages_dir / "England_1983_B01_P03_V.xmp"
     write_xmp_sidecar(
         page_sidecar,
-        creator_tool="imago-test",
         person_names=[],
         subjects=[],
         description="Village walk",
@@ -121,7 +118,6 @@ def test_repair_sidecar_skips_when_parent_region_is_missing(tmp_path: Path) -> N
     crop_sidecar = photos_dir / "England_1983_B01_P03_D01-00_V.xmp"
     write_xmp_sidecar(
         crop_sidecar,
-        creator_tool="imago-test",
         person_names=[],
         subjects=[],
         description="Village walk",

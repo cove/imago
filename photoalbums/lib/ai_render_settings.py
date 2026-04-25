@@ -164,10 +164,6 @@ def _normalize_settings_block(raw: dict[str, Any], defaults: dict[str, Any]) -> 
             block.get("model"),
             str(defaults.get("model", "models/yolo11n.pt")),
         ),
-        "creator_tool": _normalize_text(
-            block.get("creator_tool"),
-            str(defaults.get("creator_tool", "https://github.com/cove/imago")),
-        ),
     }
 
 

@@ -428,7 +428,6 @@ class TestConsoleHTTPStream(unittest.TestCase):
         sidecar_path = image_path.with_suffix(".xmp")
         xmp_sidecar.write_xmp_sidecar(
             sidecar_path,
-            creator_tool="https://github.com/cove/imago",
             person_names=["Alice Example"],
             subjects=["bench"],
             description="Alice Example on a bench.",

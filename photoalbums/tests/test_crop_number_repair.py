@@ -29,7 +29,6 @@ def _build_album(
     page_sidecar = page_image.with_suffix(".xmp")
     write_xmp_sidecar(
         page_sidecar,
-        creator_tool="imago-test",
         person_names=[],
         subjects=[],
         description="Page 40",
@@ -48,7 +47,6 @@ def _build_album(
         crop_sidecar = crop_image.with_suffix(".xmp")
         write_xmp_sidecar(
             crop_sidecar,
-            creator_tool="imago-test",
             person_names=[],
             subjects=[],
             description=f"Crop {number}",

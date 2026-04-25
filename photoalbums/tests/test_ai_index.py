@@ -281,7 +281,6 @@ class TestAIIndex(unittest.TestCase):
             ai_index_runner._write_sidecar_and_record(
                 sidecar,
                 image,
-                creator_tool="test",
                 person_names=["KARNTEN, AUSTRIA", "Audrey Cordell"],
                 subjects=[],
                 description="Page description",
@@ -601,7 +600,6 @@ class TestAIIndex(unittest.TestCase):
             derived.write_bytes(b"view")
             xmp_sidecar.write_xmp_sidecar(
                 scan1.with_suffix(".xmp"),
-                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
                 person_names=[],
                 subjects=["egypt"],
                 description="Scan sidecar",
@@ -637,7 +635,6 @@ class TestAIIndex(unittest.TestCase):
             derived.write_bytes(b"view")
             xmp_sidecar.write_xmp_sidecar(
                 scan1.with_suffix(".xmp"),
-                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
                 person_names=[],
                 subjects=["egypt"],
                 description="Scan sidecar",
@@ -770,7 +767,6 @@ class TestAIIndex(unittest.TestCase):
             }
             xmp_sidecar.write_xmp_sidecar(
                 image.with_suffix(".xmp"),
-                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
                 person_names=[],
                 subjects=["egypt"],
                 description="Travel photo",
@@ -852,7 +848,6 @@ class TestAIIndex(unittest.TestCase):
             }
             xmp_sidecar.write_xmp_sidecar(
                 image.with_suffix(".xmp"),
-                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
                 person_names=[],
                 subjects=["egypt"],
                 description="Travel photo",
@@ -915,7 +910,6 @@ class TestAIIndex(unittest.TestCase):
             scan1_stat = scan1.stat()
             xmp_sidecar.write_xmp_sidecar(
                 scan1.with_suffix(".xmp"),
-                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
                 person_names=[],
                 subjects=["egypt"],
                 description="Source scan sidecar",
@@ -984,7 +978,6 @@ class TestAIIndex(unittest.TestCase):
             }
             xmp_sidecar.write_xmp_sidecar(
                 image.with_suffix(".xmp"),
-                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
                 person_names=[],
                 subjects=["egypt", "derived"],
                 description="Derived image",
@@ -1093,7 +1086,6 @@ class TestAIIndex(unittest.TestCase):
             }
             xmp_sidecar.write_xmp_sidecar(
                 image.with_suffix(".xmp"),
-                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
                 person_names=[],
                 subjects=["egypt"],
                 description="Travel photo",
@@ -1181,7 +1173,6 @@ class TestAIIndex(unittest.TestCase):
             }
             xmp_sidecar.write_xmp_sidecar(
                 image.with_suffix(".xmp"),
-                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
                 person_names=[],
                 subjects=["egypt"],
                 description="Travel photo",
@@ -1281,7 +1272,6 @@ class TestAIIndex(unittest.TestCase):
             }
             xmp_sidecar.write_xmp_sidecar(
                 image.with_suffix(".xmp"),
-                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
                 person_names=[],
                 subjects=["egypt"],
                 description="Travel photo",
@@ -2598,7 +2588,6 @@ class TestAIIndex(unittest.TestCase):
             image.write_bytes(b"abc")
             xmp_sidecar.write_xmp_sidecar(
                 image.with_suffix(".xmp"),
-                creator_tool="https://github.com/cove/imago",
                 person_names=[],
                 subjects=[],
                 description="",
@@ -2658,7 +2647,6 @@ class TestAIIndex(unittest.TestCase):
             (archive / "England_1983_B02_P47_S01.tif").write_bytes(b"scan")
             xmp_sidecar.write_xmp_sidecar(
                 image.with_suffix(".xmp"),
-                creator_tool="https://github.com/cove/imago",
                 person_names=[],
                 subjects=["ENGLAND BOOK 11 1983"],
                 description="",
@@ -2725,7 +2713,6 @@ class TestAIIndex(unittest.TestCase):
             sidecar = image.with_suffix(".xmp")
             xmp_sidecar.write_xmp_sidecar(
                 sidecar,
-                creator_tool="https://github.com/cove/imago",
                 person_names=[],
                 subjects=["hello"],
                 description="Old description",
@@ -2785,7 +2772,6 @@ class TestAIIndex(unittest.TestCase):
 <x:xmpmeta xmlns:x="adobe:ns:meta/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:xmp="http://ns.adobe.com/xap/1.0/">
   <rdf:RDF>
     <rdf:Description rdf:about="">
-      <xmp:CreatorTool>https://github.com/cove/imago</xmp:CreatorTool>
       <dc:description>
         <rdf:Alt>
           <rdf:li xml:lang="x-default">Old description</rdf:li>
@@ -2857,7 +2843,6 @@ class TestAIIndex(unittest.TestCase):
             sidecar = image.with_suffix(".xmp")
             xmp_sidecar.write_xmp_sidecar(
                 sidecar,
-                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
                 person_names=[],
                 subjects=["hello"],
                 description="Travel photo",
@@ -2983,7 +2968,6 @@ class TestAIIndex(unittest.TestCase):
             sidecar = image.with_suffix(".xmp")
             xmp_sidecar.write_xmp_sidecar(
                 sidecar,
-                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
                 person_names=[],
                 subjects=["hello"],
                 description="Travel photo",
@@ -3086,7 +3070,6 @@ class TestAIIndex(unittest.TestCase):
             sidecar = image.with_suffix(".xmp")
             xmp_sidecar.write_xmp_sidecar(
                 sidecar,
-                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
                 person_names=[],
                 subjects=["hello"],
                 description="Travel photo",
@@ -3229,7 +3212,6 @@ class TestAIIndex(unittest.TestCase):
             sidecar = image.with_suffix(".xmp")
             xmp_sidecar.write_xmp_sidecar(
                 sidecar,
-                creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
                 person_names=[],
                 subjects=["hello"],
                 description="Travel photo",
@@ -3300,7 +3282,6 @@ class TestAIIndex(unittest.TestCase):
             image.write_bytes(b"abc")
             xmp_sidecar.write_xmp_sidecar(
                 image.with_suffix(".xmp"),
-                creator_tool="https://github.com/cove/imago",
                 person_names=[],
                 subjects=[],
                 description="Old description",
@@ -3508,7 +3489,6 @@ class TestAIIndex(unittest.TestCase):
             sidecar = image.with_suffix(".xmp")
             xmp_sidecar.write_xmp_sidecar(
                 sidecar,
-                creator_tool="https://github.com/cove/imago",
                 person_names=[],
                 subjects=["hello"],
                 description="Old description",
@@ -3588,7 +3568,6 @@ class TestAIIndex(unittest.TestCase):
             sidecar = image.with_suffix(".xmp")
             xmp_sidecar.write_xmp_sidecar(
                 sidecar,
-                creator_tool="https://github.com/cove/imago",
                 person_names=["Alice"],
                 subjects=["hello"],
                 description="Old description",
@@ -3966,7 +3945,6 @@ class TestAIIndex(unittest.TestCase):
             image.write_bytes(b"abc")
             xmp_sidecar.write_xmp_sidecar(
                 album_dir / "China_1986_B02_P01.xmp",
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="This is the cover or title page of Mainland China Book II, a Photo Essay.",
@@ -4017,7 +3995,6 @@ class TestAIIndex(unittest.TestCase):
             image.write_bytes(b"abc")
             xmp_sidecar.write_xmp_sidecar(
                 album_dir / "China_1986_B02_P00.xmp",
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="This is the cover or title page of Mainland China Book II, a Photo Essay.",
@@ -4045,7 +4022,6 @@ class TestAIIndex(unittest.TestCase):
             image.write_bytes(b"abc")
             xmp_sidecar.write_xmp_sidecar(
                 album_dir / "China_1986_B02_P01_D01-01.xmp",
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=["derived", "listing"],
                 description="Derived image sidecar that should not drive album title lookup.",
@@ -4322,7 +4298,6 @@ class TestAIIndex(unittest.TestCase):
                 ai_index._write_sidecar_and_record(
                     sidecar,
                     image,
-                    creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
                     person_names=[],
                     subjects=[],
                     description="Title page",
@@ -4369,7 +4344,6 @@ class TestAIIndex(unittest.TestCase):
                 ai_index._write_sidecar_and_record(
                     sidecar,
                     image,
-                    creator_tool=ai_index.DEFAULT_CREATOR_TOOL,
                     person_names=[],
                     subjects=[],
                     description="Page",
@@ -4421,7 +4395,6 @@ class TestAIIndex(unittest.TestCase):
             image.write_bytes(b"abc")
             xmp_sidecar.write_xmp_sidecar(
                 album_dir / "China_1986_B02_P01.xmp",
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="This is the cover or title page of Mainland China Book II, a Photo Essay.",
@@ -4449,7 +4422,6 @@ class TestAIIndex(unittest.TestCase):
             image.write_bytes(b"abc")
             xmp_sidecar.write_xmp_sidecar(
                 album_dir / "China_1986_B02_P00.xmp",
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="Legacy P00 sidecar should no longer be used.",
@@ -4477,7 +4449,6 @@ class TestAIIndex(unittest.TestCase):
             image.write_bytes(b"abc")
             xmp_sidecar.write_xmp_sidecar(
                 album_dir / "China_1986_B02_P01_D01-01.xmp",
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=["derived", "listing"],
                 description="Derived image sidecar that should not drive printed title lookup.",

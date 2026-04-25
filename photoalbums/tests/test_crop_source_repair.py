@@ -32,7 +32,6 @@ def _build_album(tmp_path: Path) -> tuple[Path, Path]:
     page_sidecar = page_image.with_suffix(".xmp")
     write_xmp_sidecar(
         page_sidecar,
-        creator_tool="imago-test",
         person_names=[],
         subjects=[],
         description="",
@@ -50,7 +49,6 @@ def _build_album(tmp_path: Path) -> tuple[Path, Path]:
 
     write_xmp_sidecar(
         archive_dir / "Portugal_1988_B00_P23_S01.xmp",
-        creator_tool="imago-test",
         person_names=[],
         subjects=[],
         description="",
@@ -67,7 +65,6 @@ def _build_album(tmp_path: Path) -> tuple[Path, Path]:
     crop_sidecar = crop_image.with_suffix(".xmp")
     write_xmp_sidecar(
         crop_sidecar,
-        creator_tool="imago-test",
         person_names=[],
         subjects=[],
         description="",

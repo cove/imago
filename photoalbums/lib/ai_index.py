@@ -104,7 +104,6 @@ from ..naming import is_archive_dir, is_pages_dir, is_photos_dir
 # Re-exports from extracted modules — keep backward compatibility for tests and callers.
 from .ai_index_args import (  # noqa: F401
     DEFAULT_CAST_STORE,
-    DEFAULT_CREATOR_TOOL,
     IMAGE_EXTENSIONS,
     _absolute_cli_path,
     _explicit_cli_flags,

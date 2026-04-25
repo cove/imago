@@ -878,7 +878,6 @@ class MapHandler(BaseHTTPRequestHandler):
 
         write_xmp_sidecar(
             target_path,
-            creator_tool=str(existing.get("creator_tool") or ""),
             person_names=read_person_in_image(target_path),
             subjects=[],
             description=str(existing.get("description", "")),
@@ -976,7 +975,6 @@ class MapHandler(BaseHTTPRequestHandler):
 
         write_xmp_sidecar(
             target_path,
-            creator_tool=str(existing.get("creator_tool") or ""),
             person_names=read_person_in_image(target_path),
             subjects=[],
             description=str(existing.get("description", "")),

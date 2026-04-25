@@ -185,7 +185,6 @@ class TestAIVerifyCrops(unittest.TestCase):
 
             xmp_sidecar.write_xmp_sidecar(
                 page_image.with_suffix(".xmp"),
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="Page caption",
@@ -195,7 +194,6 @@ class TestAIVerifyCrops(unittest.TestCase):
             )
             xmp_sidecar.write_xmp_sidecar(
                 crop_image.with_suffix(".xmp"),
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="Crop caption",
@@ -575,7 +573,6 @@ class TestAIVerifyCrops(unittest.TestCase):
 
             xmp_sidecar.write_xmp_sidecar(
                 page_image.with_suffix(".xmp"),
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="Page caption",
@@ -585,7 +582,6 @@ class TestAIVerifyCrops(unittest.TestCase):
             )
             xmp_sidecar.write_xmp_sidecar(
                 crop_image.with_suffix(".xmp"),
-                creator_tool="imago-test",
                 person_names=[],
                 subjects=[],
                 description="Crop caption",

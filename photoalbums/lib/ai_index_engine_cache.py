@@ -14,7 +14,6 @@ from .ai_model_settings import default_lmstudio_base_url
 
 
 PROCESSOR_SIGNATURE = "page_split_v17_people_recovery_any_people"
-DEFAULT_CREATOR_TOOL = "https://github.com/cove/imago"
 
 
 def _init_people_matcher(
@@ -111,7 +110,6 @@ def _settings_signature(settings: dict[str, Any]) -> str:
         "object_threshold": float(settings.get("object_threshold", 0.30)),
         "min_face_size": int(settings.get("min_face_size", 40)),
         "model": str(settings.get("model", "models/yolo11n.pt")),
-        "creator_tool": str(settings.get("creator_tool", DEFAULT_CREATOR_TOOL)),
         "caption_engine": caption_engine,
         "caption_model": caption_model,
         "caption_prompt": str(settings.get("caption_prompt", "")),

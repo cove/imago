@@ -69,7 +69,6 @@ class TestAIRenderSettings(unittest.TestCase):
                 "object_threshold": 0.30,
                 "min_face_size": 40,
                 "model": "models/yolo11n.pt",
-                "creator_tool": "tool-default",
             }
 
             payload = {
@@ -85,7 +84,6 @@ class TestAIRenderSettings(unittest.TestCase):
                     "img1.jpg": {
                         "enable_people": True,
                         "people_threshold": 0.88,
-                        "creator_tool": "tool-image",
                         "caption_max_edge": 960,
                         "lmstudio_base_url": "http://localhost:1234",
                     }
@@ -107,7 +105,6 @@ class TestAIRenderSettings(unittest.TestCase):
             self.assertEqual(effective["lmstudio_base_url"], "http://localhost:1234")
             self.assertAlmostEqual(effective["people_threshold"], 0.88)
             self.assertEqual(effective["model"], "yolo11x.pt")
-            self.assertEqual(effective["creator_tool"], "tool-image")
 
     def test_load_and_resolve_settings_preserves_lmstudio_ocr_engine(self):
         with tempfile.TemporaryDirectory() as tmp:

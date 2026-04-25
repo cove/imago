@@ -304,7 +304,6 @@ class TestPhotoalbumsLoadXmp(AlbumSetConfigMixin, unittest.TestCase):
         sidecar_path = image_path.with_suffix(".xmp")
         xmp_sidecar.write_xmp_sidecar(
             sidecar_path,
-            creator_tool="https://github.com/cove/imago",
             person_names=["Alice Example"],
             subjects=["park", "bench"],
             title="Album page caption",
@@ -354,7 +353,6 @@ class TestPhotoalbumsLoadXmp(AlbumSetConfigMixin, unittest.TestCase):
         self.assertEqual(result["resolved_from"], "xmp_path")
         self.assertIsNone(result["photo_path"])
         self.assertEqual(result["sidecar_path"], str(sidecar_path.resolve()))
-        self.assertEqual(result["creator_tool"], "https://github.com/cove/imago")
         self.assertEqual(result["title"], "Album page caption")
         self.assertEqual(result["person_names"], ["Alice Example"])
         self.assertEqual(result["subjects"], ["park", "bench"])
@@ -432,7 +430,6 @@ class TestPhotoalbumsMcpQueries(AlbumSetConfigMixin, unittest.TestCase):
         sidecar_path = image_path.with_suffix(".xmp")
         xmp_sidecar.write_xmp_sidecar(
             sidecar_path,
-            creator_tool="https://github.com/cove/imago",
             person_names=["Alice Example"] if people_detected else [],
             subjects=["park"],
             title="Album page caption",
