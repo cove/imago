@@ -11,7 +11,6 @@ from ._caption_lmstudio import (
     _extract_structured_json_payload,
     _format_lmstudio_debug_response,
     _lmstudio_request_json,
-    _normalize_model_name_candidates,
     _select_lmstudio_model,
     normalize_lmstudio_base_url,
 )
@@ -160,35 +159,6 @@ class MetadataEngine(LMStudioModelResolverMixin):
         self._resolved_model_name = ""
         self.last_response_text = ""
         self.last_finish_reason = ""
-
-    @property
-    def effective_model_name(self) -> str:
-        return str(self._resolved_model_name or self.model_name)
-
-    def _run_with_model_fallback(self, action):
-        errors: list[str] = []
-        candidates = _normalize_model_name_candidates(self.model_names or [self.model_name])
-        if not candidates:
-            candidates = [""]
-        last_error: Exception | None = None
-        for candidate in candidates:
-            self.model_name = candidate
-            self._resolved_model_name = ""
-            self.last_response_text = ""
-            self.last_finish_reason = ""
-            try:
-                result = action()
-            except Exception as exc:
-                last_error = exc
-                errors.append(f"{candidate}: {exc}")
-                continue
-            if not self._resolved_model_name:
-                self._resolved_model_name = str(candidate or "").strip()
-            return result
-        if last_error is not None and len(errors) <= 1:
-            raise last_error
-        attempted = "; ".join(errors)
-        raise RuntimeError(f"LM Studio model fallback failed: {attempted}") from last_error
 
     def analyze(
         self,

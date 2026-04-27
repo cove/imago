@@ -13,7 +13,7 @@ from typing import Any, Callable, Sequence, TypeVar
 
 from ._caption_text import clean_text, clean_lines
 from .image_limits import allow_large_pillow_images
-from ._lmstudio_helpers import LMStudioModelResolverMixin
+from ._lmstudio_helpers import LMStudioModelResolverMixin, _normalize_model_name_candidates
 from .ai_prompt_assets import load_params, load_prompt
 
 DEFAULT_LMSTUDIO_MAX_NEW_TOKENS = 8129
@@ -1014,20 +1014,6 @@ def normalize_lmstudio_base_url(value: str, default: str = DEFAULT_LMSTUDIO_BASE
     return f"{text}/v1"
 
 
-def _normalize_model_name_candidates(model_name: str | Sequence[str]) -> list[str]:
-    if isinstance(model_name, str):
-        candidates = [model_name]
-    else:
-        candidates = list(model_name or [])
-    normalized: list[str] = []
-    seen: set[str] = set()
-    for raw_candidate in candidates:
-        candidate = str(raw_candidate or "").strip()
-        if not candidate or candidate in seen:
-            continue
-        seen.add(candidate)
-        normalized.append(candidate)
-    return normalized
 
 
 _DESCRIBE_CONFIGS: dict[str, tuple] = {
