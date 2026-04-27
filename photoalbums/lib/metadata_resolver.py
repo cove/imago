@@ -15,6 +15,8 @@ _LOCATION_KEYS = (
     "gps_longitude",
 )
 _LOCATION_TEXT_RE = re.compile(r"[^A-Z0-9]+")
+_MIN_TOKEN_MATCH_COUNT = 2
+_LOCATION_CAPTION_MAX_WORDS = 6
 
 
 def normalize_location_payload(payload: dict[str, Any] | None) -> dict[str, str]:
@@ -69,9 +71,32 @@ def location_shown_from_payload(payload: dict[str, Any] | None) -> dict[str, str
     return {key: value for key, value in location.items() if value}
 
 
+def location_payload_from_caption(caption: str) -> dict[str, str]:
+    text = " ".join(str(caption or "").replace("\n", " ").split()).strip(" ,.;")
+    if not text or "," not in text:
+        return {}
+    words = [word for word in _normalize_location_text(text).split() if word]
+    if len(words) > _LOCATION_CAPTION_MAX_WORDS:
+        return {}
+    return {"address": text}
+
+
 def _normalize_location_text(value: str) -> str:
     text = _LOCATION_TEXT_RE.sub(" ", str(value or "").upper()).strip()
     return " ".join(text.split())
+
+
+def _token_match_score(normalized_caption: str, normalized_variant: str) -> int:
+    tokens = [token for token in normalized_variant.split() if len(token) > 2]
+    if len(tokens) < _MIN_TOKEN_MATCH_COUNT:
+        return -1
+    compact_caption = normalized_caption.replace(" ", "")
+    matched_tokens = [token for token in tokens if token in normalized_caption or token in compact_caption]
+    if len(matched_tokens) < _MIN_TOKEN_MATCH_COUNT:
+        return -1
+    if len(matched_tokens) < len(tokens) and "HOTEL" not in matched_tokens:
+        return -1
+    return sum(len(token) for token in matched_tokens)
 
 
 def _location_text_variants(location: dict[str, Any] | None) -> list[str]:
@@ -179,7 +204,9 @@ def match_caption_to_location_shown(
             elif normalized_caption in normalized_variant:
                 score = len(normalized_caption)
             else:
-                continue
+                score = _token_match_score(normalized_caption, normalized_variant)
+                if score < 0:
+                    continue
             if score > best_score or (score == best_score and has_gps and not best_has_gps):
                 best_match = payload
                 best_score = score
@@ -215,7 +242,9 @@ def match_location_shown_row(
             elif normalized_caption in normalized_variant:
                 score = len(normalized_caption)
             else:
-                continue
+                score = _token_match_score(normalized_caption, normalized_variant)
+                if score < 0:
+                    continue
             if score > best_score or (score == best_score and has_gps and not best_has_gps):
                 best_match = dict(location)
                 best_score = score
@@ -241,6 +270,9 @@ def resolve_crop_location(
     matched_location = match_caption_to_location_shown(caption, locations_shown)
     if matched_location:
         return matched_location
+    caption_location = location_payload_from_caption(caption)
+    if caption_location:
+        return caption_location
     if len(list(locations_shown or [])) == 1:
         return location_payload_from_location_shown(list(locations_shown or [])[0])
     return {}

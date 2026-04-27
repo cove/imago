@@ -174,6 +174,18 @@
     "status": "ok",
     "sublocation": "219 Diamond Avenue"
   },
+  "45.8082458,15.9668413": {
+    "city": "City of Zagreb",
+    "country": "Croatia",
+    "display_name": "45.8082458,15.9668413, City of Zagreb, Croatia",
+    "latitude": "45.8081890",
+    "longitude": "15.9672311",
+    "query": "45.8082458,15.9668413",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "5 Rooseveltov trg"
+  },
   "45.80824583,15.96684133": {
     "city": "City of Zagreb",
     "country": "Croatia",
@@ -981,12 +993,47 @@
     "status": "ok"
   },
   "alicante, spain": {
-    "display_name": "Alacant / Alicante, l'Alacantí, Alacant / Alicante, Comunitat Valenciana, España",
+    "city": "Alicante",
+    "country": "Spain",
+    "display_name": "Alicante, Spain, Alicante, Valencian Community, Spain",
     "latitude": "38.3436365",
     "longitude": "-0.4881708",
     "query": "Alicante, Spain",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "ES-VC",
+        "ISO3166-2-lvl6": "ES-A",
+        "city": "Alicante",
+        "country": "Spain",
+        "country_code": "es",
+        "province": "Alacant / Alicante",
+        "region": "l'Alacantí",
+        "state": "Valencian Community"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "38.1604664",
+        "38.5370661",
+        "-0.6566950",
+        "-0.3750868"
+      ],
+      "category": "boundary",
+      "display_name": "Alicante, l'Alacantí, Alacant / Alicante, Valencian Community, Spain",
+      "importance": 0.6545671055665687,
+      "lat": "38.3436365",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-0.4881708",
+      "name": "Alicante",
+      "osm_id": 342792,
+      "osm_type": "relation",
+      "place_id": 272544340,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
-    "status": "ok"
+    "state": "Valencian Community",
+    "status": "ok",
+    "sublocation": ""
   },
   "alicante, spain - september 1988": {
     "query": "ALICANTE, SPAIN - SEPTEMBER 1988",
@@ -1985,6 +2032,18 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "beckenham junction railway station, united kingdom": {
+    "city": "Greater London",
+    "country": "United Kingdom",
+    "display_name": "Beckenham Junction, Rectory Road, Beckenham, London Borough of Bromley, Greater London, England, BR3 1HP, United Kingdom",
+    "latitude": "51.4110623",
+    "longitude": "-0.0259866",
+    "query": "Beckenham Junction railway station, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Rectory Road"
+  },
   "beckenham junction station, beckenham, england": {
     "display_name": "Beckenham Junction Station, Rectory Road, Beckenham, London Borough of Bromley, Greater London, England, BR3 1HP, United Kingdom",
     "latitude": "51.4107963",
@@ -2303,6 +2362,18 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "big ben, london, england": {
+    "city": "City of Westminster",
+    "country": "United Kingdom",
+    "display_name": "Big Ben, Bridge Street, Westminster, Millbank, City of Westminster, Greater London, England, SW1A 2JR, United Kingdom",
+    "latitude": "51.5007042",
+    "longitude": "-0.1245721",
+    "query": "Big Ben, London, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Bridge Street"
   },
   "big ben, london, england, united kingdom": {
     "city": "Greater London",
@@ -4297,6 +4368,18 @@
     "status": "ok",
     "sublocation": ""
   },
+  "carinthia, austria": {
+    "city": "",
+    "country": "Austria",
+    "display_name": "Carinthia, Austria",
+    "latitude": "46.7500001",
+    "longitude": "13.8333333",
+    "query": "Carinthia, Austria",
+    "source": "nominatim",
+    "state": "Carinthia",
+    "status": "ok",
+    "sublocation": ""
+  },
   "cartagena, colombia": {
     "city": "Cartagena",
     "country": "Colombia",
@@ -4634,6 +4717,18 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "cerne abbas, england": {
+    "city": "",
+    "country": "United Kingdom",
+    "display_name": "Cerne Abbas, Dorset, England, United Kingdom",
+    "latitude": "50.8079558",
+    "longitude": "-2.4793386",
+    "query": "Cerne Abbas, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "ceuta and fes, morocco": {
     "query": "Ceuta and Fes, Morocco",
@@ -5279,6 +5374,18 @@
     "query": "Christchurch Priory, Christchurch, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "christchurch priory, england": {
+    "city": "Christchurch",
+    "country": "United Kingdom",
+    "display_name": "Christchurch Priory, Quay Road, Purewell, Christchurch, Bournemouth, Christchurch and Poole, England, BH23 1BU, United Kingdom",
+    "latitude": "50.7321405",
+    "longitude": "-1.7742169",
+    "query": "Christchurch Priory, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Quay Road"
   },
   "christchurch priory, united kingdom": {
     "city": "Christchurch",
@@ -6381,6 +6488,18 @@
     "latitude": "50.6388880",
     "longitude": "-2.0572257",
     "query": "Corfe Castle, Dorset, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "corfe castle, england": {
+    "city": "Corfe Castle",
+    "country": "United Kingdom",
+    "display_name": "Corfe Castle, Dorset, England, United Kingdom",
+    "latitude": "50.6388880",
+    "longitude": "-2.0572257",
+    "query": "Corfe Castle, England",
     "source": "nominatim",
     "state": "England",
     "status": "ok",
@@ -7616,12 +7735,44 @@
     "status": "miss"
   },
   "dubrovnik, croatia": {
-    "display_name": "Grad Dubrovnik, Dubrovačko-neretvanska županija, Hrvatska",
+    "city": "Dubrovnik",
+    "country": "Croatia",
+    "display_name": "Dubrovnik, Dubrovnik-Neretva County, Croatia",
     "latitude": "42.6491029",
     "longitude": "18.0939501",
     "query": "Dubrovnik, Croatia",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "HR-19",
+        "city": "Dubrovnik",
+        "country": "Croatia",
+        "country_code": "hr",
+        "county": "Dubrovnik-Neretva County"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "42.6208867",
+        "42.7803608",
+        "17.7655924",
+        "18.1581147"
+      ],
+      "category": "boundary",
+      "display_name": "Dubrovnik, Dubrovnik-Neretva County, Croatia",
+      "importance": 0.6502369539398906,
+      "lat": "42.6491029",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "18.0939501",
+      "name": "Dubrovnik",
+      "osm_id": 8796464,
+      "osm_type": "relation",
+      "place_id": 51940643,
+      "place_rank": 14,
+      "type": "administrative"
+    },
     "source": "nominatim",
-    "status": "ok"
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
   },
   "dubrovnik, dalmatia, croatia": {
     "display_name": "Dubrovnik, Ulica Domovinskog rata, Ćurlini, Sinj, Grad Sinj, Splitsko-dalmatinska županija, 21230, Hrvatska",
@@ -8913,6 +9064,18 @@
     "status": "ok",
     "sublocation": ""
   },
+  "fisherman's bastion": {
+    "city": "Budapest",
+    "country": "Hungary",
+    "display_name": "Fisherman's Bastion, Budapest, Hungary",
+    "latitude": "47.5023053",
+    "longitude": "19.0346998",
+    "query": "Fisherman's Bastion",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Schulek Frigyes lépcső"
+  },
   "fisherman's bastion and matthias church, budapest, hungary": {
     "query": "Fisherman's Bastion and Matthias Church, Budapest, Hungary",
     "status": "miss"
@@ -9361,6 +9524,18 @@
     "status": "ok",
     "sublocation": "London Road"
   },
+  "germany": {
+    "city": "",
+    "country": "Germany",
+    "display_name": "Germany",
+    "latitude": "51.1638175",
+    "longitude": "10.4478313",
+    "query": "Germany",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
   "germany, berlin": {
     "city": "Berlin",
     "country": "Germany",
@@ -9763,6 +9938,18 @@
     "status": "ok",
     "sublocation": ""
   },
+  "glastonbury abbey, england": {
+    "city": "Glastonbury",
+    "country": "United Kingdom",
+    "display_name": "Glastonbury Abbey, Silver Street, Beckery, Glastonbury, Somerset, England, BA6 8BU, United Kingdom",
+    "latitude": "51.1463870",
+    "longitude": "-2.7154745",
+    "query": "Glastonbury Abbey, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Silver Street"
+  },
   "glendale, calif.": {
     "city": "Glendale",
     "country": "United States",
@@ -10070,6 +10257,10 @@
     "query": "Great Sphinx of Giza, Cairo, Egypt",
     "status": "miss"
   },
+  "great sphinx of giza, egypt": {
+    "query": "Great Sphinx of Giza, Egypt",
+    "status": "miss"
+  },
   "great sphinx of giza, giza governorate, egypt": {
     "query": "Great Sphinx of Giza, Giza Governorate, Egypt",
     "status": "miss"
@@ -10278,6 +10469,10 @@
     "status": "ok",
     "sublocation": "3 Red Square"
   },
+  "gustavus ii adolphus monument": {
+    "query": "Gustavus II Adolphus Monument",
+    "status": "miss"
+  },
   "gustavus ii adolphus monument, budapest, hungary": {
     "query": "Gustavus II Adolphus Monument, Budapest, Hungary",
     "status": "miss"
@@ -10402,6 +10597,18 @@
     "query": "Harbour from the Lighthouse, Scarborough, Scarborough, England, United Kingdom",
     "status": "miss"
   },
+  "harbour house, dover, england": {
+    "city": "Dover",
+    "country": "United Kingdom",
+    "display_name": "Harbour House, Clarendon, Dover, Kent, England, CT17 9BU, United Kingdom",
+    "latitude": "51.1211120",
+    "longitude": "1.3133313",
+    "query": "Harbour House, Dover, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "harbourside market square, helsinki, finland": {
     "query": "HARBOURSIDE MARKET SQUARE, Helsinki, Finland",
     "status": "miss"
@@ -10437,6 +10644,18 @@
   "hasburg family castle, germany": {
     "query": "Hasburg Family Castle, Germany",
     "status": "miss"
+  },
+  "hassan ii mosque": {
+    "city": "Casablanca",
+    "country": "Morocco",
+    "display_name": "Hassan II Mosque, Casablanca, Morocco",
+    "latitude": "33.6082243",
+    "longitude": "-7.6324728",
+    "query": "Hassan II Mosque",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Boulevard Sidi Mohammed Ben Abdellah"
   },
   "hassan ii mosque, morocco": {
     "city": "Casablanca",
@@ -10779,6 +10998,10 @@
   },
   "highways of utah & colorado, utah, colorado, united states": {
     "query": "Highways of Utah & Colorado, Utah, Colorado, United States",
+    "status": "miss"
+  },
+  "hilton cairo nile garden hotel, egypt": {
+    "query": "Hilton Cairo Nile Garden Hotel, Egypt",
     "status": "miss"
   },
   "hilton hotel": {
@@ -11242,6 +11465,18 @@
     "status": "ok",
     "sublocation": ""
   },
+  "hospital of st cross, winchester, england": {
+    "city": "Winchester",
+    "country": "United Kingdom",
+    "display_name": "Hospital of Saint Cross, Back Street, St Cross, Winchester, Hampshire, England, SO23 9SB, United Kingdom",
+    "latitude": "51.0470405",
+    "longitude": "-1.3219816",
+    "query": "Hospital of St Cross, Winchester, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Back Street"
+  },
   "hospital of st. cross, winchester": {
     "city": "Winchester",
     "country": "United Kingdom",
@@ -11337,6 +11572,22 @@
   },
   "hotel intercontinental zagreb, zagreb, croatia": {
     "query": "Hotel Intercontinental Zagreb, Zagreb, Croatia",
+    "status": "miss"
+  },
+  "hotel intercontinental, belgrade, serbia": {
+    "city": "Belgrade",
+    "country": "Serbia",
+    "display_name": "Hotel Intercontinental, Belgrade, Serbia, Belgrade, Serbia",
+    "latitude": "44.8094406",
+    "longitude": "20.4341261",
+    "query": "Hotel Intercontinental, Belgrade, Serbia",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Crowne Plaza Belgrade"
+  },
+  "hotel intercontinental, belgrade, yugoslavia": {
+    "query": "Hotel InterContinental, Belgrade, Yugoslavia",
     "status": "miss"
   },
   "hotel intercontinental, zagreb, croatia": {
@@ -12426,6 +12677,18 @@
     "status": "ok",
     "sublocation": "葆台路"
   },
+  "karnak temple complex, luxor, egypt": {
+    "city": "Old Karnak",
+    "country": "Egypt",
+    "display_name": "Karnak Temple Complex, Karnak Temple Square, Old Karnak, Luxor, 81693, Egypt",
+    "latitude": "25.7196939",
+    "longitude": "32.6527265",
+    "query": "Karnak Temple Complex, Luxor, Egypt",
+    "source": "nominatim",
+    "state": "Luxor",
+    "status": "ok",
+    "sublocation": "Karnak Temple Square"
+  },
   "karnak temple, luxor, egypt": {
     "display_name": "Karnak Temple Square, الكرنك القديم, الأقصر, 81693, مصر",
     "latitude": "25.7204345",
@@ -12455,12 +12718,43 @@
     "status": "miss"
   },
   "karnten, austria": {
-    "display_name": "Kärnten, Österreich",
+    "city": "",
+    "country": "Austria",
+    "display_name": "Carinthia, Austria",
     "latitude": "46.7500001",
     "longitude": "13.8333333",
     "query": "KARNTEN, AUSTRIA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "AT-2",
+        "country": "Austria",
+        "country_code": "at",
+        "state": "Carinthia"
+      },
+      "addresstype": "state",
+      "boundingbox": [
+        "46.3722987",
+        "47.1312975",
+        "12.6568293",
+        "15.0651507"
+      ],
+      "category": "boundary",
+      "display_name": "Carinthia, Austria",
+      "importance": 0.6612279915692584,
+      "lat": "46.7500001",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "13.8333333",
+      "name": "Carinthia",
+      "osm_id": 52345,
+      "osm_type": "relation",
+      "place_id": 62454473,
+      "place_rank": 8,
+      "type": "administrative"
+    },
     "source": "nominatim",
-    "status": "ok"
+    "state": "Carinthia",
+    "status": "ok",
+    "sublocation": ""
   },
   "karnten, austria; salzburg, austria": {
     "query": "Karnten, Austria; Salzburg, Austria",
@@ -15193,6 +15487,18 @@
     "state": "Luxor",
     "status": "ok"
   },
+  "luxor temple, egypt": {
+    "city": "Old Karnak",
+    "country": "Egypt",
+    "display_name": "Luxor Temple, Avenue of Sphinxes, Luxor City, Old Karnak, Luxor, 81693, Egypt",
+    "latitude": "25.6995250",
+    "longitude": "32.6390695",
+    "query": "Luxor Temple, Egypt",
+    "source": "nominatim",
+    "state": "Luxor",
+    "status": "ok",
+    "sublocation": "Avenue of Sphinxes"
+  },
   "luxor temple, luxor, egypt": {
     "display_name": "معبد الأقصر, شارع البوسطة, مدينه الاقصر, الأقصر, 85951, مصر",
     "latitude": "25.6995250",
@@ -15302,12 +15608,44 @@
     "status": "ok"
   },
   "madrid, spain": {
-    "display_name": "Madrid, Comunidad de Madrid, España",
+    "city": "Madrid",
+    "country": "Spain",
+    "display_name": "Madrid, Community of Madrid, Spain",
     "latitude": "40.4167820",
     "longitude": "-3.7035070",
     "query": "Madrid, Spain",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "ES-MD",
+        "city": "Madrid",
+        "country": "Spain",
+        "country_code": "es",
+        "state": "Community of Madrid"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "40.3119774",
+        "40.6437293",
+        "-3.8889539",
+        "-3.5183264"
+      ],
+      "category": "boundary",
+      "display_name": "Madrid, Community of Madrid, Spain",
+      "importance": 0.8186903991321961,
+      "lat": "40.4167820",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-3.7035070",
+      "name": "Madrid",
+      "osm_id": 5326784,
+      "osm_type": "relation",
+      "place_id": 425949479,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
-    "status": "ok"
+    "state": "Community of Madrid",
+    "status": "ok",
+    "sublocation": ""
   },
   "madrid, spain; royal palace, madrid, spain; plaza mayor, salamanca, spain": {
     "query": "Madrid, Spain; Royal Palace, Madrid, Spain; Plaza Mayor, Salamanca, Spain",
@@ -16889,6 +17227,18 @@
     "status": "ok",
     "sublocation": "581 Santa Fe"
   },
+  "national maritime museum, greenwich, united kingdom": {
+    "city": "Greater London",
+    "country": "United Kingdom",
+    "display_name": "National Maritime Museum, Romney Road, Greenwich Town Centre, East Greenwich, Royal Borough of Greenwich, Greater London, England, SE10 9NF, United Kingdom",
+    "latitude": "51.4807759",
+    "longitude": "-0.0051225",
+    "query": "National Maritime Museum, Greenwich, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Romney Road"
+  },
   "national theatre of prague": {
     "query": "National Theatre of Prague",
     "status": "miss"
@@ -18059,6 +18409,51 @@
     "query": "Oxford Street, London, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "oxford street, london, england - aug. 1988": {
+    "city": "City of Westminster",
+    "country": "United Kingdom",
+    "display_name": "Oxford Street, East Marylebone, Mayfair, City of Westminster, Greater London, England, W1D 2HY, United Kingdom",
+    "latitude": "51.5158803",
+    "longitude": "-0.1362447",
+    "query": "OXFORD STREET, LONDON, ENGLAND - AUG. 1988",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl8": "GB-WSM",
+        "city": "City of Westminster",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "postcode": "W1D 2HY",
+        "quarter": "East Marylebone",
+        "road": "Oxford Street",
+        "state": "England",
+        "suburb": "Mayfair"
+      },
+      "addresstype": "road",
+      "boundingbox": [
+        "51.5158424",
+        "51.5159191",
+        "-0.1366281",
+        "-0.1358613"
+      ],
+      "category": "highway",
+      "display_name": "Oxford Street, East Marylebone, Mayfair, City of Westminster, Greater London, England, W1D 2HY, United Kingdom",
+      "importance": 0.5226832117987572,
+      "lat": "51.5158803",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-0.1362447",
+      "name": "Oxford Street",
+      "osm_id": 746024419,
+      "osm_type": "way",
+      "place_id": 259721267,
+      "place_rank": 26,
+      "type": "primary"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Oxford Street"
   },
   "oxford street, london, england, united kingdom": {
     "display_name": "Oxford Street, Marylebone, City of Westminster, Greater London, England, W1C 1LX, United Kingdom",
@@ -19496,6 +19891,18 @@
     "query": "Polperro, Cornwall, United Kingdom",
     "source": "nominatim",
     "status": "ok"
+  },
+  "polperro, england": {
+    "city": "Polperro",
+    "country": "United Kingdom",
+    "display_name": "Polperro, Cornwall, England, United Kingdom",
+    "latitude": "50.3315086",
+    "longitude": "-4.5190177",
+    "query": "Polperro, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "polperro, england, united kingdom": {
     "city": "Polperro",
@@ -21269,6 +21676,18 @@
     "query": "Royal Pantheon, Bangkok, Thailand",
     "status": "miss"
   },
+  "royal pavilion, brighton, england": {
+    "city": "Brighton",
+    "country": "United Kingdom",
+    "display_name": "Royal Pavilion, 4-5, Pavilion Buildings, Queen's Park, Brighton, Brighton and Hove, England, BN1 1EE, United Kingdom",
+    "latitude": "50.8223914",
+    "longitude": "-0.1376506",
+    "query": "Royal Pavilion, Brighton, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "4-5 Pavilion Buildings"
+  },
   "royal pavilion, brighton, england, united kingdom": {
     "city": "Brighton",
     "country": "United Kingdom",
@@ -21619,6 +22038,18 @@
     "state": "Maryland",
     "status": "ok"
   },
+  "salisbury mall, england": {
+    "city": "Salisbury",
+    "country": "United Kingdom",
+    "display_name": "Southons of Salisbury, Old George Mall, The Friary, Salisbury, Wiltshire, England, SP1 2DD, United Kingdom",
+    "latitude": "51.0676304",
+    "longitude": "-1.7940766",
+    "query": "Salisbury Mall, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Old George Mall"
+  },
   "salisbury mall, salisbury": {
     "city": "Salisbury",
     "country": "United States",
@@ -21699,6 +22130,18 @@
     "latitude": "51.0703484",
     "longitude": "-1.7999023",
     "query": "Salisbury Playhouse, Salisbury, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Malthouse Lane"
+  },
+  "salisbury playhouse, united kingdom": {
+    "city": "Salisbury",
+    "country": "United Kingdom",
+    "display_name": "Salisbury Playhouse, Malthouse Lane, The Close, Salisbury, Wiltshire, England, SP2 7RA, United Kingdom",
+    "latitude": "51.0703484",
+    "longitude": "-1.7999023",
+    "query": "Salisbury Playhouse, United Kingdom",
     "source": "nominatim",
     "state": "England",
     "status": "ok",
@@ -21863,12 +22306,45 @@
     "sublocation": "GRIFFNER Square Salzburg"
   },
   "salzburg, austria": {
-    "display_name": "Salzburg, 5020, Österreich",
+    "city": "Salzburg",
+    "country": "Austria",
+    "display_name": "Salzburg, 5020, Austria",
     "latitude": "47.7981346",
     "longitude": "13.0464806",
     "query": "Salzburg, Austria",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "AT-5",
+        "city": "Salzburg",
+        "country": "Austria",
+        "country_code": "at",
+        "postcode": "5020",
+        "state": "Salzburg"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "47.7512115",
+        "47.8543925",
+        "12.9856478",
+        "13.1275256"
+      ],
+      "category": "boundary",
+      "display_name": "Salzburg, 5020, Austria",
+      "importance": 0.6958514766295458,
+      "lat": "47.7981346",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "13.0464806",
+      "name": "Salzburg",
+      "osm_id": 86538,
+      "osm_type": "relation",
+      "place_id": 63315223,
+      "place_rank": 12,
+      "type": "administrative"
+    },
     "source": "nominatim",
-    "status": "ok"
+    "state": "Salzburg",
+    "status": "ok",
+    "sublocation": ""
   },
   "salzburg, austria; prague, czechoslovakia": {
     "query": "Salzburg, Austria; Prague, Czechoslovakia",
@@ -24352,6 +24828,10 @@
     "state": "Federation of Bosnia and Herzegovina",
     "status": "ok"
   },
+  "stari most, mostar, yugoslavia": {
+    "query": "Stari Most, Mostar, Yugoslavia",
+    "status": "miss"
+  },
   "state historical museum, moscow, russia": {
     "city": "",
     "country": "Russia",
@@ -24414,6 +24894,10 @@
   },
   "statue of ramases the second, memphis, egypt": {
     "query": "Statue of Ramases the Second, Memphis, Egypt",
+    "status": "miss"
+  },
+  "statue of ramesses ii, memphis, egypt": {
+    "query": "Statue of Ramesses II, Memphis, Egypt",
     "status": "miss"
   },
   "statue of ramesses the second, memphis, egypt": {
@@ -25321,6 +25805,18 @@
     "state": "",
     "status": "ok",
     "sublocation": "158 Wang Doem Road"
+  },
+  "temple of hatshepsut, egypt": {
+    "city": "New Al Qarnh City",
+    "country": "Egypt",
+    "display_name": "Temple of Hatshepsut, Maabad Hatshebsout Road, Sheikh Abd el-Qurna, New Al Qarnh City, Luxor, 85958, Egypt",
+    "latitude": "25.7372398",
+    "longitude": "32.6086902",
+    "query": "Temple of Hatshepsut, Egypt",
+    "source": "nominatim",
+    "state": "Luxor",
+    "status": "ok",
+    "sublocation": "Maabad Hatshebsout Road"
   },
   "temple of karnak, luxor, egypt": {
     "display_name": "معبد الأقصر, طريق الكباش, مدينه الاقصر, الكرنك القديم, الأقصر, 81693, مصر",
@@ -28161,6 +28657,18 @@
     "status": "ok",
     "sublocation": ""
   },
+  "torre abbey sands, torquay, england": {
+    "city": "Torquay",
+    "country": "United Kingdom",
+    "display_name": "Torre Abbey Sands, Torre, Torquay, Torbay, Devon and Torbay, England, United Kingdom",
+    "latitude": "50.4616634",
+    "longitude": "-3.5370200",
+    "query": "Torre Abbey Sands, Torquay, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "torre abbey sands, torquay, inner harbour and waldon hill, torquay, the harbour from vane hill, torquay, devon, england": {
     "query": "Torre Abbey Sands, Torquay, Inner Harbour and Waldon Hill, Torquay, The Harbour from Vane Hill, Torquay, Devon, England",
     "status": "miss"
@@ -29162,6 +29670,18 @@
     "status": "ok",
     "sublocation": "Victoria Embankment"
   },
+  "victoria embankment gardens, london, united kingdom": {
+    "city": "City of Westminster",
+    "country": "United Kingdom",
+    "display_name": "Victoria Embankment Gardens, Westminster, Covent Garden, City of Westminster, Greater London, England, United Kingdom",
+    "latitude": "51.5086886",
+    "longitude": "-0.1213274",
+    "query": "Victoria Embankment Gardens, London, United Kingdom",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Victoria Embankment Gardens"
+  },
   "victoria embankment london": {
     "display_name": "Victoria Embankment, St Clement Danes, Covent Garden, City of Westminster, Greater London, England, WC2R 2NS, United Kingdom",
     "latitude": "51.5106223",
@@ -29414,6 +29934,30 @@
   "vienna city hall and stadtpark, vienna, austria": {
     "query": "Vienna City Hall and Stadtpark, Vienna, Austria",
     "status": "miss"
+  },
+  "vienna city hall, austria": {
+    "city": "Vienna",
+    "country": "Austria",
+    "display_name": "Vienna City Hall, 1, Rathausplatz, Regierungsviertel, Katastralgemeinde Innere Stadt, Innere Stadt, Vienna, 1010, Austria",
+    "latitude": "48.2108257",
+    "longitude": "16.3565728",
+    "query": "Vienna City Hall, Austria",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "1 Rathausplatz"
+  },
+  "vienna city hall, vienna, austria": {
+    "city": "Vienna",
+    "country": "Austria",
+    "display_name": "Vienna City Hall, 1, City Hall Square, Regierungsviertel, Katastralgemeinde Innere Stadt, Innere Stadt, Vienna, 1010, Austria",
+    "latitude": "48.2108257",
+    "longitude": "16.3565728",
+    "query": "Vienna City Hall, Vienna, Austria",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "1 City Hall Square"
   },
   "vienna opera house": {
     "query": "Vienna Opera House",
@@ -29784,6 +30328,18 @@
     "query": "Welsh Folk Museum, Wales",
     "status": "miss"
   },
+  "wenceslas square (václavské náměstí)": {
+    "city": "Prague",
+    "country": "Czechia",
+    "display_name": "Starbucks, 795/40, Wenceslas Square, New Town, obvod Praha 1, Prague, 110 00, Czechia",
+    "latitude": "50.0814283",
+    "longitude": "14.4267126",
+    "query": "Wenceslas Square (Václavské náměstí)",
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "795/40 Wenceslas Square"
+  },
   "wenceslas square (václavské náměstí), prague, czech republic": {
     "city": "Prague",
     "country": "Czechia",
@@ -29870,6 +30426,18 @@
   "westgate and westgate gardens, canterbury, united kingdom": {
     "query": "Westgate and Westgate Gardens, Canterbury, United Kingdom",
     "status": "miss"
+  },
+  "westgate gardens, canterbury, england": {
+    "city": "Canterbury",
+    "country": "United Kingdom",
+    "display_name": "Westgate Gardens, St. Mildred's, Canterbury, Kent, England, CT1 2DD, United Kingdom",
+    "latitude": "51.2803016",
+    "longitude": "1.0736845",
+    "query": "Westgate Gardens, Canterbury, England",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "westminster abbey": {
     "city": "City of Westminster",

@@ -22,9 +22,10 @@ from ..naming import archive_dir_for_album_dir, is_pages_dir
 from .metadata_resolver import (
     build_location_filter_set as _resolver_build_location_filter_set,
     filter_location_names_from_people as _resolver_filter_location_names_from_people,
+    location_payload_from_caption as _resolver_location_payload_from_caption,
+    location_shown_from_payload as _resolver_location_shown_from_payload,
     match_caption_to_location_shown as _resolver_match_caption_to_location_shown,
     normalize_location_payload as _resolver_normalize_location_payload,
-    location_shown_from_payload as _resolver_location_shown_from_payload,
     resolve_crop_location as _resolver_resolve_crop_location,
     resolve_crop_locations_shown as _resolver_resolve_crop_locations_shown,
     resolve_person_in_image as _resolver_resolve_person_in_image,
@@ -100,7 +101,8 @@ def _resolve_page_description_from_regions(regions: list[dict], fallback_descrip
         seen.add(folded)
         unique_captions.append(caption)
     if len(unique_captions) >= 2:
-        return " ".join(_format_numbered_caption(caption, index) for index, caption in enumerate(unique_captions, start=1))
+        numbered = ", ".join(_format_numbered_caption(caption, index) for index, caption in enumerate(unique_captions, start=1))
+        return f"Page Captions: {numbered}"
     if len(unique_captions) == 1:
         return unique_captions[0]
     return str(fallback_description or "").strip()
@@ -464,6 +466,11 @@ def _write_crop_sidecar(
     if effective_loc and not crop_locations_shown:
         crop_location_shown = _resolver_location_shown_from_payload(effective_loc)
         crop_locations_shown = [crop_location_shown] if crop_location_shown else []
+    if effective_loc and crop_locations_shown and not all(
+        str(location.get("gps_latitude") or "").strip() for location in crop_locations_shown
+    ):
+        crop_location_shown = _resolver_location_shown_from_payload(effective_loc)
+        crop_locations_shown = [crop_location_shown] if crop_location_shown else crop_locations_shown
     resolved_person_names = _resolver_resolve_person_in_image(
         person_names,
         locations_shown=locations_shown,
@@ -610,6 +617,21 @@ def crop_page_regions(
         and not _normalize_region_location_payload(
             dict(region.get("location_override") or {}) or dict(region.get("location_payload") or {})
         ).get("gps_latitude")
+        for region in regions
+        if isinstance(region, dict)
+    ) or any(
+        (str(location.get("address") or "").strip() or str(location.get("name") or "").strip())
+        and not str(location.get("gps_latitude") or "").strip()
+        for location in locations_shown
+        if isinstance(location, dict)
+    ) or any(
+        _resolver_location_payload_from_caption(
+            resolve_region_caption(
+                region.get("caption") or "",
+                region.get("caption_hint") or "",
+                page_description,
+            )
+        )
         for region in regions
         if isinstance(region, dict)
     ):

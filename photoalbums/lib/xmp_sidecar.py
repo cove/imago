@@ -2217,6 +2217,24 @@ def write_region_list(
     applied.set(f"{{{STAREA_NS}}}h", str(img_h))
     applied.set(f"{{{STAREA_NS}}}unit", "pixel")
 
+    # Look up the AI metadata's verbatim per-photo response, if any, so we
+    # can fill in mwg-rs:Name even when the caller (e.g. detect-regions)
+    # passes regions with empty captions. The detections payload is the
+    # source of truth — see _do_metadata in ai_index_analysis.
+    detections_payload = _read_detections_payload(desc)
+    metadata_photos_by_number: dict[int, dict] = {}
+    caption_block = detections_payload.get("caption")
+    if isinstance(caption_block, dict):
+        for entry in list(caption_block.get("photos") or []):
+            if not isinstance(entry, dict):
+                continue
+            try:
+                pn = int(entry.get("photo_number") or 0)
+            except (TypeError, ValueError):
+                pn = 0
+            if pn > 0:
+                metadata_photos_by_number[pn] = entry
+
     # mwg-rs:RegionList
     region_list_el = ET.SubElement(region_info, f"{{{MWGRS_NS}}}RegionList")
     bag = ET.SubElement(region_list_el, _RDF_BAG)
@@ -2224,7 +2242,19 @@ def write_region_list(
     for rwc in regions_with_captions:
         r = rwc.region
         cx, cy, nw, nh = pixel_to_mwgrs(r.x, r.y, r.width, r.height, img_w, img_h)
-        region_caption = str(rwc.caption or getattr(r, "caption_hint", "") or "").strip()
+        existing_region = existing_regions[r.index] if 0 <= int(r.index) < len(existing_regions) else {}
+        photo_number = int(getattr(r, "photo_number", 0) or 0) or int(existing_region.get("photo_number") or 0)
+
+        # Caption resolution: explicit caption on the RegionWithCaption →
+        # AI-derived caption from detections.caption.photos (matched by
+        # photo_number). If both are empty, mwg-rs:Name stays empty — we do
+        # not fall back to caption_hint or any other field, because the AI
+        # is the source of truth and an empty AI caption means there is no
+        # caption text on the page for this photo.
+        region_caption = str(rwc.caption or "").strip()
+        if not region_caption and photo_number > 0:
+            ai_entry = metadata_photos_by_number.get(photo_number) or {}
+            region_caption = str(ai_entry.get("caption") or "").strip()
 
         li = ET.SubElement(bag, _RDF_LI)
         li.set(_RDF_PARSE_TYPE, "Resource")
@@ -2242,16 +2272,20 @@ def write_region_list(
         if caption_hint:
             li.set(f"{{{IMAGO_NS}}}CaptionHint", caption_hint)
 
+        # photo_number was resolved above (from RegionWithCaption / region /
+        # existing region) and is shared with the caption lookup.
+        if photo_number > 0:
+            li.set(f"{{{IMAGO_NS}}}PhotoNumber", str(photo_number))
+
         person_names = list(getattr(r, "person_names", ()) or ())
         person_names = [str(n).strip() for n in person_names if str(n).strip()]
         if person_names:
             pn_el = ET.SubElement(li, f"{{{IMAGO_NS}}}PersonNames")
-            bag = ET.SubElement(pn_el, _RDF_BAG)
+            pn_bag = ET.SubElement(pn_el, _RDF_BAG)
             for name in person_names:
-                item = ET.SubElement(bag, _RDF_LI)
+                item = ET.SubElement(pn_bag, _RDF_LI)
                 item.text = name
 
-        existing_region = existing_regions[r.index] if 0 <= int(r.index) < len(existing_regions) else {}
         location_payload = dict(getattr(r, "location_payload", {}) or {})
         location_override = dict(getattr(r, "location_override", {}) or {}) or dict(
             existing_region.get("location_override") or {}
@@ -2316,6 +2350,7 @@ def read_region_list(xmp_path: str | Path, img_w: int, img_h: int) -> list[dict]
                     caption = li_text.text.strip()
 
         caption_hint = str(li.get(f"{{{IMAGO_NS}}}CaptionHint") or "").strip()
+        photo_number = int(li.get(f"{{{IMAGO_NS}}}PhotoNumber") or 0)
 
         person_names: list[str] = []
         pn_el = li.find(f"{{{IMAGO_NS}}}PersonNames")
@@ -2339,6 +2374,7 @@ def read_region_list(xmp_path: str | Path, img_w: int, img_h: int) -> list[dict]
                 "nh": nh,
                 "caption": caption,
                 "caption_hint": caption_hint,
+                "photo_number": photo_number,
                 "location_payload": _read_region_location_struct(li, f"{{{IMAGO_NS}}}LocationAssigned"),
                 "location_override": _read_region_location_struct(li, f"{{{IMAGO_NS}}}LocationOverride"),
                 "person_names": person_names,

@@ -20,6 +20,27 @@ from photoalbums.lib.ai_index_propagate import _crop_paths_signature, run_propag
 from photoalbums.lib import xmp_sidecar
 
 
+class _FakeGeocodeResult:
+    def __init__(self, query: str, latitude: str, longitude: str, city: str, country: str):
+        self.query = query
+        self.latitude = latitude
+        self.longitude = longitude
+        self.display_name = f"{city}, {country}"
+        self.source = "nominatim"
+        self.city = city
+        self.state = ""
+        self.country = country
+        self.sublocation = ""
+
+
+class _FakeGeocoder:
+    def __init__(self, result: _FakeGeocodeResult):
+        self.result = result
+
+    def geocode(self, query: str):
+        return self.result
+
+
 def _write_basic_crop_xmp(path: Path, person_names: list[str] | None = None) -> None:
     xmp_sidecar.write_xmp_sidecar(
         path,
@@ -159,6 +180,52 @@ class TestRunPropagateTocrops(unittest.TestCase):
             self.assertEqual(step["result"], "ok")
             self.assertIn("timestamp", step)
 
+    def test_region_caption_fills_empty_crop_description(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            image, _pages_dir, photos_dir = self._setup_page_image(tmp_dir)
+            crop1 = photos_dir / "Family_2020_B01_P02_D01-00_V.jpg"
+            crop1.write_bytes(b"crop1")
+            xmp_sidecar.write_xmp_sidecar(
+                crop1.with_suffix(".xmp"),
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+            )
+
+            xmp_path = image.with_suffix(".xmp")
+            from photoalbums.lib.ai_view_regions import RegionResult, RegionWithCaption
+            from photoalbums.lib.xmp_sidecar import write_region_list, write_xmp_sidecar
+
+            write_xmp_sidecar(
+                xmp_path,
+                person_names=[],
+                subjects=[],
+                description="Page photo",
+                source_text="",
+                ocr_text="",
+            )
+            write_region_list(
+                xmp_path,
+                [
+                    RegionWithCaption(
+                        RegionResult(index=0, x=0, y=0, width=100, height=100, caption_hint="stale hint"),
+                        "OXFORD STREET, LONDON, ENGLAND - AUG. 1988",
+                    )
+                ],
+                800,
+                600,
+            )
+
+            with mock.patch.object(ai_index_propagate, "_find_crop_paths_for_page", return_value=[crop1]):
+                run_propagate_to_crops(image, location_payload={}, people_payload=[])
+
+            state = xmp_sidecar.read_ai_sidecar_state(crop1.with_suffix(".xmp"))
+            assert state is not None
+            self.assertEqual(state["description"], "OXFORD STREET, LONDON, ENGLAND - AUG. 1988")
+
     def test_region_location_and_person_filter_are_resolved_per_crop(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_dir = Path(tmp)
@@ -200,7 +267,13 @@ class TestRunPropagateTocrops(unittest.TestCase):
                 600,
             )
 
-            with mock.patch.object(ai_index_propagate, "_find_crop_paths_for_page", return_value=[crop1]):
+            fake_geocoder = _FakeGeocoder(
+                _FakeGeocodeResult("Karnten, Austria", "46.75", "13.8333333", "Karnten", "Austria")
+            )
+            with (
+                mock.patch.object(ai_index_propagate, "_find_crop_paths_for_page", return_value=[crop1]),
+                mock.patch("photoalbums.lib.ai_geocode.NominatimGeocoder", return_value=fake_geocoder),
+            ):
                 run_propagate_to_crops(
                     image,
                     location_payload={"city": "Vienna", "country": "Austria"},
@@ -213,22 +286,12 @@ class TestRunPropagateTocrops(unittest.TestCase):
             xml = crop1.with_suffix(".xmp").read_text(encoding="utf-8")
             self.assertNotIn("photoshop:City", xml)
             self.assertNotIn("KARNTEN, AUSTRIA", xmp_sidecar.read_person_in_image(crop1.with_suffix(".xmp")))
-            self.assertEqual(
-                xmp_sidecar.read_locations_shown(crop1.with_suffix(".xmp")),
-                [
-                    {
-                        "name": "Karnten, Austria",
-                        "world_region": "",
-                        "country_code": "",
-                        "country_name": "Austria",
-                        "province_or_state": "",
-                        "city": "Karnten",
-                        "sublocation": "",
-                        "gps_latitude": "",
-                        "gps_longitude": "",
-                    }
-                ],
-            )
+            crop_locations_shown = xmp_sidecar.read_locations_shown(crop1.with_suffix(".xmp"))
+            self.assertEqual(crop_locations_shown[0]["name"], "Karnten, Austria")
+            self.assertEqual(crop_locations_shown[0]["city"], "Karnten")
+            self.assertEqual(crop_locations_shown[0]["country_name"], "Austria")
+            self.assertTrue(crop_locations_shown[0]["gps_latitude"])
+            self.assertTrue(crop_locations_shown[0]["gps_longitude"])
 
     def test_single_location_shown_is_kept_on_crop_rewrite(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -265,29 +328,31 @@ class TestRunPropagateTocrops(unittest.TestCase):
                 locations_shown=locations_shown,
             )
 
-            with mock.patch.object(ai_index_propagate, "_find_crop_paths_for_page", return_value=[crop1]):
+            fake_geocoder = _FakeGeocoder(
+                _FakeGeocodeResult(
+                    "Hassan II Mosque, Casablanca, Morocco",
+                    "33.6082243",
+                    "-7.6324728",
+                    "Casablanca",
+                    "Morocco",
+                )
+            )
+            with (
+                mock.patch.object(ai_index_propagate, "_find_crop_paths_for_page", return_value=[crop1]),
+                mock.patch("photoalbums.lib.ai_geocode.NominatimGeocoder", return_value=fake_geocoder),
+            ):
                 run_propagate_to_crops(
                     image,
                     location_payload={"city": "Casablanca", "country": "Morocco"},
                     people_payload=[],
                 )
 
-            self.assertEqual(
-                xmp_sidecar.read_locations_shown(crop1.with_suffix(".xmp")),
-                [
-                    {
-                        "name": "Hassan II Mosque",
-                        "world_region": "",
-                        "country_code": "",
-                        "country_name": "Morocco",
-                        "province_or_state": "",
-                        "city": "Casablanca",
-                        "sublocation": "Boulevard de la Corniche",
-                        "gps_latitude": "",
-                        "gps_longitude": "",
-                    }
-                ],
-            )
+            crop_locations_shown = xmp_sidecar.read_locations_shown(crop1.with_suffix(".xmp"))
+            self.assertEqual(crop_locations_shown[0]["name"], "Hassan II Mosque")
+            self.assertEqual(crop_locations_shown[0]["city"], "Casablanca")
+            self.assertEqual(crop_locations_shown[0]["country_name"], "Morocco")
+            self.assertTrue(crop_locations_shown[0]["gps_latitude"])
+            self.assertTrue(crop_locations_shown[0]["gps_longitude"])
 
     def test_region_location_payload_writes_crop_specific_locations_shown(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -362,6 +427,64 @@ class TestRunPropagateTocrops(unittest.TestCase):
             )
             xml = crop1.with_suffix(".xmp").read_text(encoding="utf-8")
             self.assertNotIn("photoshop:City", xml)
+
+    def test_page_dc_date_propagated_to_crops_without_existing_date(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            image, pages_dir, photos_dir = self._setup_page_image(tmp_dir)
+            crop1 = photos_dir / "Family_2020_B01_P02_D01-00_V.jpg"
+            crop1.write_bytes(b"crop1")
+            _write_basic_crop_xmp(crop1.with_suffix(".xmp"))
+
+            xmp_sidecar.write_xmp_sidecar(
+                image.with_suffix(".xmp"),
+                person_names=[],
+                subjects=[],
+                description="Page photo",
+                source_text="",
+                ocr_text="",
+                dc_date=["1988-08"],
+            )
+
+            with mock.patch.object(ai_index_propagate, "_find_crop_paths_for_page", return_value=[crop1]):
+                run_propagate_to_crops(image, location_payload={}, people_payload=[])
+
+            state = xmp_sidecar.read_ai_sidecar_state(crop1.with_suffix(".xmp"))
+            assert state is not None
+            self.assertEqual(state.get("dc_date_values"), ["1988-08"])
+
+    def test_crop_own_date_takes_precedence_over_page_date(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            image, pages_dir, photos_dir = self._setup_page_image(tmp_dir)
+            crop1 = photos_dir / "Family_2020_B01_P02_D01-00_V.jpg"
+            crop1.write_bytes(b"crop1")
+            xmp_sidecar.write_xmp_sidecar(
+                crop1.with_suffix(".xmp"),
+                person_names=[],
+                subjects=[],
+                description="Crop photo",
+                source_text="",
+                ocr_text="",
+                dc_date=["1988-08-15"],
+            )
+
+            xmp_sidecar.write_xmp_sidecar(
+                image.with_suffix(".xmp"),
+                person_names=[],
+                subjects=[],
+                description="Page photo",
+                source_text="",
+                ocr_text="",
+                dc_date=["1988-08"],
+            )
+
+            with mock.patch.object(ai_index_propagate, "_find_crop_paths_for_page", return_value=[crop1]):
+                run_propagate_to_crops(image, location_payload={}, people_payload=[])
+
+            state = xmp_sidecar.read_ai_sidecar_state(crop1.with_suffix(".xmp"))
+            assert state is not None
+            self.assertEqual(state.get("dc_date_values"), ["1988-08-15"])
 
     def test_step_skipped_when_neither_upstream_reran(self):
         """StepRunner skips propagate-to-crops when hashes match for all inputs."""

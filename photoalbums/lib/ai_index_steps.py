@@ -54,11 +54,16 @@ def metadata_input_hash(settings: dict[str, Any], output_hashes: dict[str, str])
     if not model:
         return ""
     return _sha16(
+        # Bump this version when the metadata step's persistent output
+        # (the verbatim AI response stored under detections.caption.photos)
+        # changes in a way that requires existing caches to be re-run.
+        "v3-detections-photos",
         model,
         settings.get("nominatim_base_url", ""),
         _prompt_hash_payload(
             "ai-index/metadata/system.md",
             "ai-index/metadata/params.toml",
+            "ai-index/metadata/schema.json",
         ),
     )
 

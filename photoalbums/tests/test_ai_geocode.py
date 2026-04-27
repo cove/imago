@@ -13,6 +13,7 @@ if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
 from photoalbums.lib import ai_geocode
+from photoalbums.lib.ai_location import _resolve_location_payload
 
 
 class TestAIGeocode(unittest.TestCase):
@@ -58,9 +59,11 @@ class TestAIGeocode(unittest.TestCase):
             self.assertEqual(result.latitude, "39.9361")
             self.assertEqual(result.longitude, "94.8076")
             self.assertEqual(result.display_name, "Mogao Caves, Dunhuang, Jiuquan, Gansu, China")
+            self.assertEqual(result.raw["lat"], "39.9361")
             self.assertTrue(cache_path.exists())
             cached = json.loads(cache_path.read_text(encoding="utf-8"))
             self.assertIn("mogao caves, dunhuang, gansu, china", cached)
+            self.assertEqual(cached["mogao caves, dunhuang, gansu, china"]["raw"]["lon"], "94.8076")
 
     def test_geocode_uses_cached_result_without_network(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -75,6 +78,7 @@ class TestAIGeocode(unittest.TestCase):
                             "display_name": "Mogao Caves, Dunhuang, Jiuquan, Gansu, China",
                             "source": "nominatim",
                             "status": "ok",
+                            "raw": {"lat": "39.9361", "lon": "94.8076"},
                         }
                     }
                 ),
@@ -162,6 +166,109 @@ class TestAIGeocode(unittest.TestCase):
                 cached["vienna city hall, vienna, austria"]["sublocation"],
                 "1 Rathausplatz",
             )
+
+    def test_location_payload_falls_back_from_yugoslavia_city_to_modern_country(self):
+        class _FakeResult:
+            query = "Zagreb, Croatia"
+            latitude = "45.8130967"
+            longitude = "15.9772795"
+            display_name = "Grad Zagreb, Hrvatska"
+            source = "nominatim"
+            city = "City of Zagreb"
+            state = ""
+            country = "Croatia"
+            sublocation = ""
+
+        class _FakeGeocoder:
+            def __init__(self):
+                self.queries = []
+
+            def geocode(self, query):
+                self.queries.append(query)
+                return _FakeResult() if query == "Zagreb, Croatia" else None
+
+        geocoder = _FakeGeocoder()
+        result = _resolve_location_payload(
+            geocoder=geocoder,
+            gps_latitude="",
+            gps_longitude="",
+            location_name="Hotel InterContinental, Zagreb, Yugoslavia",
+        )
+
+        self.assertEqual(
+            geocoder.queries,
+            [
+                "Hotel InterContinental, Zagreb, Yugoslavia",
+                "Hotel InterContinental, Zagreb, Croatia",
+                "Zagreb, Croatia",
+            ],
+        )
+        self.assertEqual(result["gps_latitude"], 45.8130967)
+        self.assertEqual(result["country"], "Croatia")
+
+    def test_location_payload_prefers_modern_full_yugoslavia_query_before_old_city_query(self):
+        class _FakeResult:
+            query = "Hotel InterContinental, Belgrade, Serbia"
+            latitude = "44.8094406"
+            longitude = "20.4341261"
+            display_name = "Hotel Intercontinental, Belgrade, Serbia"
+            source = "nominatim"
+            city = "Belgrade"
+            state = ""
+            country = "Serbia"
+            sublocation = ""
+
+        class _FakeGeocoder:
+            def __init__(self):
+                self.queries = []
+
+            def geocode(self, query):
+                self.queries.append(query)
+                return _FakeResult() if query == "Hotel InterContinental, Belgrade, Serbia" else None
+
+        geocoder = _FakeGeocoder()
+        result = _resolve_location_payload(
+            geocoder=geocoder,
+            gps_latitude="",
+            gps_longitude="",
+            location_name="Hotel InterContinental, Belgrade, Yugoslavia",
+        )
+
+        self.assertEqual(
+            geocoder.queries,
+            [
+                "Hotel InterContinental, Belgrade, Yugoslavia",
+                "Hotel InterContinental, Belgrade, Serbia",
+            ],
+        )
+        self.assertEqual(result["gps_latitude"], 44.8094406)
+        self.assertEqual(result["country"], "Serbia")
+
+    def test_location_payload_includes_raw_nominatim_result(self):
+        class _FakeResult:
+            query = "Karnten, Austria"
+            latitude = "46.75"
+            longitude = "13.8333333"
+            display_name = "KARNTEN, AUSTRIA"
+            source = "nominatim"
+            city = ""
+            state = ""
+            country = ""
+            sublocation = ""
+            raw = {"place_id": 123, "lat": "46.75", "lon": "13.8333333"}
+
+        class _FakeGeocoder:
+            def geocode(self, query):
+                return _FakeResult()
+
+        result = _resolve_location_payload(
+            geocoder=_FakeGeocoder(),
+            gps_latitude="",
+            gps_longitude="",
+            location_name="Karnten, Austria",
+        )
+
+        self.assertEqual(result["nominatim"]["raw"]["place_id"], 123)
 
 
 if __name__ == "__main__":

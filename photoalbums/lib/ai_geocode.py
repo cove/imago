@@ -6,7 +6,7 @@ import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 DEFAULT_GEOCODER_BASE_URL = "https://nominatim.openstreetmap.org"
@@ -208,6 +208,7 @@ class GeocodeResult:
     state: str = ""
     country: str = ""
     sublocation: str = ""
+    raw: dict[str, object] = field(default_factory=dict)
 
 
 class NominatimGeocoder:
@@ -228,7 +229,7 @@ class NominatimGeocoder:
         self._cache = self._load_cache()
         self._last_request_started_at = 0.0
 
-    def _load_cache(self) -> dict[str, dict[str, str]]:
+    def _load_cache(self) -> dict[str, dict[str, object]]:
         if not self.cache_path.is_file():
             return {}
         try:
@@ -237,11 +238,11 @@ class NominatimGeocoder:
             return {}
         if not isinstance(payload, dict):
             return {}
-        rows: dict[str, dict[str, str]] = {}
+        rows: dict[str, dict[str, object]] = {}
         for key, value in payload.items():
             if not isinstance(key, str) or not isinstance(value, dict):
                 continue
-            rows[key] = {str(field): str(item) for field, item in value.items()}
+            rows[key] = dict(value)
         return rows
 
     def _save_cache(self) -> None:
@@ -272,6 +273,7 @@ class NominatimGeocoder:
             "state": result.state,
             "country": result.country,
             "sublocation": result.sublocation,
+            "raw": result.raw,
             "status": "ok",
         }
         self._save_cache()
@@ -309,6 +311,7 @@ class NominatimGeocoder:
             state=str(row.get("state") or "").strip(),
             country=str(row.get("country") or "").strip(),
             sublocation=str(row.get("sublocation") or "").strip(),
+            raw=dict(row.get("raw") or {}) if isinstance(row.get("raw"), dict) else {},
         )
 
     def geocode(self, query: str) -> GeocodeResult | None:
@@ -316,7 +319,7 @@ class NominatimGeocoder:
         if not clean_query:
             return None
         cached = self._cached_result(clean_query)
-        if cached is not None:
+        if cached is not None and cached.raw:
             return cached
         if self._cache.get(self._cache_key(clean_query), {}).get("status") == "miss":
             return None
@@ -344,9 +347,13 @@ class NominatimGeocoder:
             with urllib.request.urlopen(request, timeout=float(self.timeout_seconds)) as response:
                 payload = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
+            if cached is not None:
+                return cached
             details = exc.read().decode("utf-8", errors="replace").strip()
             raise RuntimeError(f"Nominatim geocoding request failed: {details or f'HTTP {exc.code}'}") from exc
         except urllib.error.URLError as exc:
+            if cached is not None:
+                return cached
             raise RuntimeError(f"Nominatim is unreachable at {self.base_url}: {exc.reason}") from exc
 
         if not isinstance(payload, list) or not payload:
@@ -386,6 +393,7 @@ class NominatimGeocoder:
                 state=str(address.get("state") or "").strip(),
                 country=str(address.get("country") or "").strip(),
             ),
+            raw=dict(top),
         )
         self._cache_result(result)
         return result
@@ -398,7 +406,7 @@ class NominatimGeocoder:
 
         query = f"{lat_str},{lon_str}"
         cached = self._cached_result(query)
-        if cached is not None:
+        if cached is not None and cached.raw:
             return cached
         if self._cache.get(self._cache_key(query), {}).get("status") == "miss":
             return None
@@ -426,9 +434,13 @@ class NominatimGeocoder:
             with urllib.request.urlopen(request, timeout=float(self.timeout_seconds)) as response:
                 payload = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
+            if cached is not None:
+                return cached
             details = exc.read().decode("utf-8", errors="replace").strip()
             raise RuntimeError(f"Nominatim reverse geocoding request failed: {details or f'HTTP {exc.code}'}") from exc
         except urllib.error.URLError as exc:
+            if cached is not None:
+                return cached
             raise RuntimeError(f"Nominatim is unreachable at {self.base_url}: {exc.reason}") from exc
 
         if not isinstance(payload, dict):
@@ -467,6 +479,7 @@ class NominatimGeocoder:
                 state=str(address.get("state") or "").strip(),
                 country=str(address.get("country") or "").strip(),
             ),
+            raw=dict(payload),
         )
         self._cache_result(result)
         return result

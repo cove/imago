@@ -16,8 +16,14 @@ from .xmp_sidecar import (
     write_xmp_sidecar,
     xmp_datetime_now,
 )
-from .metadata_resolver import resolve_crop_location, resolve_person_in_image
-from .metadata_resolver import resolve_crop_locations_shown
+from .metadata_resolver import (
+    location_shown_from_payload,
+    location_payload_from_caption,
+    normalize_location_payload,
+    resolve_crop_location,
+    resolve_crop_locations_shown,
+    resolve_person_in_image,
+)
 
 
 def _crop_paths_signature(crop_paths: list[Path]) -> str:
@@ -79,7 +85,7 @@ def _read_regions_safe(sidecar_path: Path, img_w: int, img_h: int) -> list[dict]
 
 
 def _region_caption(region_state: dict) -> str:
-    return str(region_state.get("caption_hint") or region_state.get("caption") or "")
+    return str(region_state.get("caption") or region_state.get("caption_hint") or "")
 
 
 def _resolve_crop_metadata(
@@ -88,6 +94,7 @@ def _resolve_crop_metadata(
     page_location: dict[str, Any],
     names_from_region: list[str],
     existing_person_names: list[str],
+    geocoder: Any = None,
 ) -> tuple[dict, list, list[str]]:
     region_override = dict(region_state.get("location_override") or {})
     region_assigned = dict(region_state.get("location_payload") or {})
@@ -99,18 +106,49 @@ def _resolve_crop_metadata(
         locations_shown=locations_shown,
         page_location=page_location,
     )
+    crop_location = _materialize_crop_location(crop_location, geocoder=geocoder)
     crop_locations_shown = resolve_crop_locations_shown(
         region_location_override=region_override,
         region_location_assigned=region_assigned,
         caption=caption,
         locations_shown=locations_shown,
     )
+    if crop_location and (
+        not crop_locations_shown
+        or not all(str(location.get("gps_latitude") or "").strip() for location in crop_locations_shown)
+    ):
+        materialized_location_shown = location_shown_from_payload(crop_location)
+        crop_locations_shown = [materialized_location_shown] if materialized_location_shown else crop_locations_shown
     new_person_names = resolve_person_in_image(
         _dedupe(names_from_region + existing_person_names),
         locations_shown=locations_shown,
         location_payload=crop_location,
     )
     return crop_location, crop_locations_shown, new_person_names
+
+
+def _materialize_crop_location(payload: dict[str, Any] | None, *, geocoder: Any = None) -> dict[str, Any]:
+    normalized = normalize_location_payload(payload)
+    if not normalized:
+        return {}
+    address = str(normalized.get("address") or "").strip()
+    has_gps = bool(normalized.get("gps_latitude") and normalized.get("gps_longitude"))
+    if not has_gps and address and geocoder is not None:
+        from .ai_location import _resolve_location_payload  # pylint: disable=import-outside-toplevel
+
+        geocoded = _resolve_location_payload(
+            geocoder=geocoder,
+            gps_latitude="",
+            gps_longitude="",
+            location_name=address,
+        )
+        if geocoded:
+            merged = dict(geocoded)
+            for key in ("address", "city", "state", "country", "sublocation"):
+                if normalized.get(key):
+                    merged[key] = normalized[key]
+            return merged
+    return normalized
 
 
 def _build_detections_payload(
@@ -140,15 +178,19 @@ def _write_propagated_crop(
     crop_locations_shown: list,
     new_person_names: list[str],
     step_timestamp: str,
+    region_caption: str = "",
+    page_dc_date_values: list[str] | None = None,
 ) -> None:
     detections_payload = _build_detections_payload(existing_state, crop_location, step_timestamp)
+    dc_date = list(existing_state.get("dc_date_values") or page_dc_date_values or [])
+    description = _str_field(existing_state, "description") or str(region_caption or "").strip()
     write_xmp_sidecar(
         crop_xmp,
         person_names=new_person_names,
         subjects=list(existing_state.get("subjects") or []),
         title=_str_field(existing_state, "title"),
         title_source=_str_field(existing_state, "title_source"),
-        description=_str_field(existing_state, "description"),
+        description=description,
         ocr_text=_str_field(existing_state, "ocr_text"),
         parent_ocr_text=_str_field(existing_state, "parent_ocr_text"),
         ocr_lang=_str_field(existing_state, "ocr_lang"),
@@ -165,7 +207,7 @@ def _write_propagated_crop(
         source_text=_str_field(existing_state, "source_text"),
         detections_payload=detections_payload,
         create_date=_str_field(existing_state, "create_date"),
-        dc_date=list(existing_state.get("dc_date_values") or []),
+        dc_date=dc_date,
         date_time_original=_str_field(existing_state, "date_time_original"),
         ocr_ran=bool(existing_state.get("ocr_ran", False)),
         people_detected=bool(new_person_names),
@@ -180,6 +222,8 @@ def _propagate_one_crop(
     locations_shown: list,
     page_location: dict[str, Any],
     step_timestamp: str,
+    page_dc_date_values: list[str] | None = None,
+    geocoder: Any = None,
 ) -> bool:
     if not crop_xmp.is_file():
         return False
@@ -193,6 +237,7 @@ def _propagate_one_crop(
         page_location,
         names_from_region,
         existing_person_names,
+        geocoder=geocoder,
     )
     _write_propagated_crop(
         crop_xmp,
@@ -201,6 +246,8 @@ def _propagate_one_crop(
         crop_locations_shown,
         new_person_names,
         step_timestamp,
+        region_caption=_region_caption(region_state),
+        page_dc_date_values=page_dc_date_values,
     )
     return True
 
@@ -225,7 +272,23 @@ def run_propagate_to_crops(
     regions = _read_regions_safe(sidecar_path, img_w, img_h)
     region_person_names: list[list[str]] = [list(r.get("person_names") or []) for r in regions]
     locations_shown = read_locations_shown(sidecar_path)
+    page_state = read_ai_sidecar_state(sidecar_path)
+    page_dc_date_values = list((page_state or {}).get("dc_date_values") or [])
     step_timestamp = xmp_datetime_now()
+    geocoder = None
+    if any(
+        (normalize_location_payload(location).get("address") or str(location.get("name") or "").strip())
+        and not normalize_location_payload(location).get("gps_latitude")
+        for location in locations_shown
+        if isinstance(location, dict)
+    ) or any(
+        location_payload_from_caption(_region_caption(region))
+        for region in regions
+        if isinstance(region, dict)
+    ):
+        from .ai_geocode import NominatimGeocoder  # pylint: disable=import-outside-toplevel
+
+        geocoder = NominatimGeocoder()
 
     crops_updated = 0
     for i, crop_path in enumerate(crop_paths):
@@ -238,6 +301,8 @@ def run_propagate_to_crops(
             locations_shown,
             location_payload,
             step_timestamp,
+            page_dc_date_values=page_dc_date_values,
+            geocoder=geocoder,
         ):
             crops_updated += 1
 

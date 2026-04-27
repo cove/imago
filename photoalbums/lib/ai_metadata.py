@@ -16,44 +16,19 @@ from ._caption_lmstudio import (
     normalize_lmstudio_base_url,
 )
 from ._lmstudio_helpers import LMStudioModelResolverMixin, emit_prompt_debug
-from .ai_prompt_assets import load_params, load_prompt, params_metadata, prompt_metadata
+from .ai_prompt_assets import load_params, load_prompt, load_schema, params_metadata, prompt_metadata
 from .ai_model_settings import default_caption_model, default_caption_models, default_lmstudio_base_url
 
 _DEFAULT_MAX_IMAGE_EDGE = 1920
 
-_PHOTO_SCHEMA: dict = {
-    "type": "object",
-    "properties": {
-        "location": {"type": "string"},
-        "location_name": {"type": "string"},
-        "est_date": {"type": "string"},
-        "scene_ocr": {"type": "string"},
-        "caption": {"type": "string"},
-    },
-    "required": ["location", "location_name", "est_date", "scene_ocr", "caption"],
-    "additionalProperties": False,
-}
 
-
-def _metadata_response_format(n_photos: int) -> dict:
-    n = max(1, int(n_photos))
-    properties: dict = {"people_count": {"type": "integer"}}
-    required = ["people_count"]
-    for i in range(1, n + 1):
-        key = f"photo_{i}"
-        properties[key] = _PHOTO_SCHEMA
-        required.append(key)
+def _metadata_response_format() -> dict:
     return {
         "type": "json_schema",
         "json_schema": {
             "name": "metadata_payload",
             "strict": True,
-            "schema": {
-                "type": "object",
-                "properties": properties,
-                "required": required,
-                "additionalProperties": False,
-            },
+            "schema": load_schema("ai-index/metadata/schema.json").values,
         },
     }
 
@@ -62,47 +37,54 @@ def _metadata_system_prompt() -> str:
     return load_prompt("ai-index/metadata/system.md").rendered
 
 
+def _metadata_user_prompt(album_title: str = "") -> str:
+    return load_prompt(
+        "ai-index/metadata/user.md",
+        variables={"album_title": str(album_title or "").strip()} if album_title else None,
+    ).rendered
+
+
 def _metadata_params() -> dict:
     return dict(load_params("ai-index/metadata/params.toml").values)
 
 
 def _metadata_prompt_metadata(resolved_params: dict) -> dict:
     metadata: dict = {}
-    metadata.update(prompt_metadata(load_prompt("ai-index/metadata/system.md")))
+    metadata.update(prompt_metadata(load_prompt("ai-index/metadata/system.md"), load_prompt("ai-index/metadata/user.md"), load_schema("ai-index/metadata/schema.json")))
     metadata.update(params_metadata(load_params("ai-index/metadata/params.toml"), resolved_params))
     return metadata
 
 
-def _is_metadata_payload(payload: object, n_photos: int) -> bool:
+def _is_metadata_payload(payload: object) -> bool:
     if not isinstance(payload, dict):
         return False
-    if not isinstance(payload.get("people_count"), int):
-        return False
-    for i in range(1, max(1, n_photos) + 1):
-        if not isinstance(payload.get(f"photo_{i}"), dict):
-            return False
-    return True
+    return isinstance(payload.get("photos"), list)
 
 
 @dataclass
 class MetadataPhotoResult:
+    photo_number: int = 0
     location: str = ""
     location_name: str = ""
     est_date: str = ""
     scene_ocr: str = ""
     caption: str = ""
+    people_count: int = 0
 
 
 @dataclass
 class MetadataResult:
     engine: str = ""
-    people_count: int = 0
-    photos: dict[str, MetadataPhotoResult] = field(default_factory=dict)
+    photos: list[MetadataPhotoResult] = field(default_factory=list)
     fallback: bool = False
     error: str = ""
 
+    @property
+    def people_count(self) -> int:
+        return sum(p.people_count for p in self.photos)
 
-def _parse_metadata_response(value: object, n_photos: int, *, finish_reason: str = "") -> MetadataResult:
+
+def _parse_metadata_response(value: object, *, finish_reason: str = "") -> MetadataResult:
     raw = _decode_lmstudio_text(value)
     text = str(raw or "").strip()
     finish_note = f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
@@ -111,25 +93,32 @@ def _parse_metadata_response(value: object, n_photos: int, *, finish_reason: str
     try:
         payload = json.loads(text)
     except json.JSONDecodeError as exc:
-        payload = _extract_structured_json_payload(text, is_valid=lambda p: _is_metadata_payload(p, n_photos))
+        payload = _extract_structured_json_payload(text, is_valid=_is_metadata_payload)
         if payload is None:
             raise RuntimeError(f"LM Studio returned invalid metadata JSON: {text}") from exc
+    # If the top-level parse succeeded but the document doesn't match the
+    # expected schema (e.g. the model emitted a reasoning preamble that
+    # itself happened to be valid JSON), search the full text for a payload
+    # that does.
+    if not _is_metadata_payload(payload):
+        alt = _extract_structured_json_payload(text, is_valid=_is_metadata_payload)
+        if alt is not None:
+            payload = alt
     if not isinstance(payload, dict):
         raise RuntimeError(f"LM Studio returned non-dict metadata: {text}")
-    people_count = int(payload.get("people_count") or 0)
-    photos: dict[str, MetadataPhotoResult] = {}
-    for i in range(1, max(1, n_photos) + 1):
-        key = f"photo_{i}"
-        photo_data = payload.get(key)
+    photos: list[MetadataPhotoResult] = []
+    for photo_data in list(payload.get("photos") or []):
         if isinstance(photo_data, dict):
-            photos[key] = MetadataPhotoResult(
+            photos.append(MetadataPhotoResult(
+                photo_number=int(photo_data.get("photo_number") or 0),
                 location=str(photo_data.get("location") or "").strip(),
                 location_name=str(photo_data.get("location_name") or "").strip(),
                 est_date=str(photo_data.get("est_date") or "").strip(),
                 scene_ocr=str(photo_data.get("scene_ocr") or "").strip(),
                 caption=str(photo_data.get("caption") or "").strip(),
-            )
-    return MetadataResult(people_count=people_count, photos=photos)
+                people_count=int(photo_data.get("people_count") or 0),
+            ))
+    return MetadataResult(photos=photos)
 
 
 class MetadataEngine(LMStudioModelResolverMixin):
@@ -205,19 +194,13 @@ class MetadataEngine(LMStudioModelResolverMixin):
         self,
         image_path: Path | str,
         *,
-        n_photos: int = 1,
         album_title: str = "",
         source_path: Path | str | None = None,
         debug_recorder=None,
         debug_step: str = "metadata",
     ) -> MetadataResult:
         system_prompt = _metadata_system_prompt()
-        user_parts = ["Analyze this album page."]
-        clean_album = str(album_title or "").strip()
-        if clean_album:
-            user_parts.append(f"Album title: {clean_album}")
-        user_prompt = "\n".join(user_parts)
-        n = max(1, int(n_photos))
+        user_prompt = _metadata_user_prompt(album_title)
         response = ""
         finish_reason = ""
         error_text = ""
@@ -259,10 +242,16 @@ class MetadataEngine(LMStudioModelResolverMixin):
                             ],
                         },
                     ],
-                    "response_format": _metadata_response_format(n),
+                    "response_format": _metadata_response_format(),
                     "max_tokens": int(self.max_tokens),
                     "temperature": float(self.temperature),
                     "stream": False,
+                    # Tell the chat template to skip <think> emission. LM Studio
+                    # forwards this passthrough to the model's tokenizer chat
+                    # template (Qwen3 / DeepSeek-style). Templates that don't
+                    # recognise the kwarg ignore it harmlessly; for those we
+                    # also strip <think>...</think> from the response.
+                    "chat_template_kwargs": {"enable_thinking": False},
                 }
                 response_payload = _lmstudio_request_json(
                     f"{self.base_url}/chat/completions",
@@ -279,7 +268,6 @@ class MetadataEngine(LMStudioModelResolverMixin):
                     self.last_response_text = _format_lmstudio_debug_response(message)
                 result = _parse_metadata_response(
                     message.get("content"),
-                    n,
                     finish_reason=self.last_finish_reason,
                 )
                 result.engine = self.engine

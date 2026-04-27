@@ -244,7 +244,20 @@
       "Bash(openspec validate *)",
       "Read(//c/Users/covec/Videos/**)",
       "Read(//c/Users/covec/OneDrive/Cordell, Leslie & Audrey/Photo Albums/**)",
-      "Bash(just dupes *)"
+      "Bash(just dupes *)",
+      "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_xmp_sidecar.py -x --no-header -q)",
+      "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_ai_view_regions.py photoalbums/tests/test_ai_index_propagate.py photoalbums/tests/test_ai_photo_crops.py -x --no-header -q)",
+      "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_ai_index_propagate.py photoalbums/tests/test_ai_photo_crops.py --no-header -q)",
+      "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_ai_index.py -k \"metadata or analysis\" --no-header -q)",
+      "Bash(.venv/Scripts/python.exe -c \"from photoalbums.lib.ai_index_analysis import _update_region_captions_from_metadata; print\\('import ok'\\)\")",
+      "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_ai_index_metadata_regions.py -v --no-header)",
+      "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_xmp_sidecar.py photoalbums/tests/test_ai_index_propagate.py photoalbums/tests/test_ai_photo_crops.py photoalbums/tests/test_ai_index_metadata_regions.py --no-header -q)",
+      "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_ai_index.py -k \"run_image_analysis\" --no-header -q)",
+      "Bash(.venv/Scripts/python.exe -c \"from photoalbums.lib.xmp_sidecar import read_ai_sidecar_state, read_pipeline_step, read_region_list; from photoalbums.lib.ai_view_regions import _region_association_overlay_path; print\\('imports ok'\\)\")",
+      "Bash(.venv/Scripts/python.exe -m photoalbums.scripts.diagnose_region_captions)",
+      "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_ai_index.py -k \"run_image_analysis or metadata or analysis\" --no-header -q)",
+      "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_ai_index.py -k \"metadata or caption or analysis or run_image\" --no-header -q)",
+      "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_ai_index_metadata_regions.py photoalbums/tests/test_xmp_sidecar.py photoalbums/tests/test_ai_index_propagate.py photoalbums/tests/test_ai_photo_crops.py --no-header -q)"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",

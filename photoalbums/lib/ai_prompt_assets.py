@@ -49,6 +49,12 @@ class SchemaAsset:
     values: dict[str, Any]
     hash: str
 
+    def metadata(self) -> dict[str, object]:
+        return {
+            "path": str(self.path),
+            "hash": self.hash,
+        }
+
 
 def prompt_root() -> Path:
     return PROMPT_ROOT
@@ -174,7 +180,7 @@ def load_schema(relative_path: str | Path) -> SchemaAsset:
     return SchemaAsset(path=path, values=dict(values), hash=content_hash(values))
 
 
-def prompt_metadata(*assets: PromptAsset) -> dict[str, object]:
+def prompt_metadata(*assets: PromptAsset | SchemaAsset) -> dict[str, object]:
     rows = [asset.metadata() for asset in assets if asset.path]
     return {
         "prompt_paths": [str(row["path"]) for row in rows],
