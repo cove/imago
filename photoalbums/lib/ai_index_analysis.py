@@ -327,6 +327,70 @@ def _get_image_dimensions(image_path: Path) -> tuple[int, int]:
         return 0, 0
 
 
+def _update_region_captions_from_metadata(image_path: Path, photo_captions_list: list[dict]) -> None:
+    """Apply per-photo captions from metadata step output to region caption_hints in the XMP.
+
+    photo_captions_list is the ``photo_captions`` key from the metadata step output:
+    [{"photo_number": int, "caption": str}, ...]
+
+    Safe to call whether the step ran fresh or was loaded from cache.
+    """
+    from .ai_view_regions import RegionResult, RegionWithCaption  # pylint: disable=import-outside-toplevel
+    from .xmp_sidecar import read_region_list, write_region_list  # pylint: disable=import-outside-toplevel
+
+    if not photo_captions_list:
+        return
+    xmp_path = image_path.with_suffix(".xmp")
+    if not xmp_path.is_file():
+        return
+    img_w, img_h = _get_image_dimensions(image_path)
+    if img_w <= 0 or img_h <= 0:
+        return
+    regions = read_region_list(xmp_path, img_w, img_h)
+    if not regions:
+        return
+
+    # photo_number is 1-based; map to 0-based region index
+    photo_captions: dict[int, str] = {}
+    photo_numbers: dict[int, int] = {}
+    for entry in photo_captions_list:
+        pn = int(entry.get("photo_number") or 0)
+        if pn > 0:
+            region_idx = pn - 1
+            photo_numbers[region_idx] = pn
+            caption = str(entry.get("caption") or "").strip()
+            if caption:
+                photo_captions[region_idx] = caption
+
+    if not photo_captions and not photo_numbers:
+        return
+
+    updated = False
+    rwcs = []
+    for r in regions:
+        i = r["index"]
+        existing_hint = str(r.get("caption_hint") or "").strip()
+        new_hint = photo_captions.get(i, "") or existing_hint
+        new_pn = photo_numbers.get(i, 0) or int(r.get("photo_number") or 0)
+        if new_hint != existing_hint or new_pn != int(r.get("photo_number") or 0):
+            updated = True
+        region_obj = RegionResult(
+            index=i,
+            x=r["x"],
+            y=r["y"],
+            width=r["width"],
+            height=r["height"],
+            caption_hint=new_hint,
+            location_payload=dict(r.get("location_payload") or {}),
+            person_names=list(r.get("person_names") or []),
+            photo_number=new_pn,
+        )
+        rwcs.append(RegionWithCaption(region=region_obj, caption=new_hint))
+
+    if updated:
+        write_region_list(xmp_path, rwcs, img_w, img_h)
+
+
 def _run_image_analysis(
     *,
     image_path: Path,
@@ -662,41 +726,40 @@ def _run_image_analysis(
             nonlocal ocr_text, description, author_text, scene_text, _metadata_dc_date, _metadata_ran, location_payload, locations_shown, locations_shown_ran
             if _is_derived_image_path(image_path):
                 return None
-            try:
-                from .xmp_sidecar import read_region_list  # pylint: disable=import-outside-toplevel
-                _sidecar = image_path.with_suffix(".xmp")
-                if is_page_scan and _sidecar.is_file():
-                    from PIL import Image as _PILImage  # pylint: disable=import-outside-toplevel
-                    from .image_limits import allow_large_pillow_images  # pylint: disable=import-outside-toplevel
-                    allow_large_pillow_images(_PILImage)
-                    with _PILImage.open(str(image_path)) as _img:
-                        _w, _h = _img.size
-                    _regions = read_region_list(_sidecar, _w, _h)
-                    n_photos = max(1, len(_regions))
-                else:
-                    n_photos = 1
-            except Exception:
-                n_photos = 1
+            metadata_image_path = image_path
+            if is_page_scan:
+                from .ai_view_regions import _region_association_overlay_path  # pylint: disable=import-outside-toplevel
+                # For page-like images the overlay lives next to the original
+                # page view, not next to the temp content_path that's used as
+                # image_path here.
+                overlay_lookup_path = Path(caption_source_path) if caption_source_path else image_path
+                overlay_path = _region_association_overlay_path(overlay_lookup_path)
+                if overlay_path.is_file():
+                    metadata_image_path = overlay_path
             result = metadata_engine.analyze(
-                image_path,
-                n_photos=n_photos,
+                metadata_image_path,
                 album_title=album_title,
                 source_path=caption_source_path or people_source_path or image_path,
                 debug_recorder=debug_recorder,
                 debug_step="metadata",
             )
             _metadata_ran = True
-            all_captions = [p.caption for p in result.photos.values() if p.caption]
-            all_scene_ocr = [p.scene_ocr for p in result.photos.values() if p.scene_ocr]
+            seen: set[str] = set()
+            all_captions: list[str] = []
+            for p in result.photos:
+                if p.caption and p.caption.casefold() not in seen:
+                    seen.add(p.caption.casefold())
+                    all_captions.append(p.caption)
+            all_scene_ocr = [p.scene_ocr for p in result.photos if p.scene_ocr]
             description = " ".join(all_captions)
             author_text = description
             scene_text = "\n".join(all_scene_ocr)
             ocr_text = "\n".join(filter(None, [author_text, scene_text]))
-            for photo in result.photos.values():
+            for photo in result.photos:
                 if photo.est_date:
                     _metadata_dc_date = photo.est_date
                     break
-            primary_location = next((p.location for p in result.photos.values() if p.location), "")
+            primary_location = next((p.location for p in result.photos if p.location), "")
             loc_payload: dict[str, Any] = {}
             if primary_location:
                 loc_payload = _resolve_location_payload(
@@ -708,10 +771,37 @@ def _run_image_analysis(
                     artifact_step="location",
                 )
             location_payload = loc_payload
-            locs_shown = [{"name": p.location_name} for p in result.photos.values() if p.location_name]
+            locs_shown = [{"name": p.location_name} for p in result.photos if p.location_name]
             locations_shown = locs_shown
             locations_shown_ran = True
             ocr_kw = extract_keywords(ocr_text, max_keywords=15)
+            # Store the AI's verbatim per-photo response under
+            # detections.caption.photos so it survives in the XMP and can be
+            # re-applied to mwg-rs:Name whenever regions are (re)written —
+            # even if the metadata step itself is being served from cache by
+            # then.
+            verbatim_photos = [
+                {
+                    "photo_number": int(p.photo_number),
+                    "location": str(p.location or ""),
+                    "location_name": str(p.location_name or ""),
+                    "est_date": str(p.est_date or ""),
+                    "scene_ocr": str(p.scene_ocr or ""),
+                    "caption": str(p.caption or ""),
+                    "people_count": int(p.people_count),
+                }
+                for p in result.photos
+            ]
+            # Apply now too, so the user sees mwg-rs:Name populated on the
+            # current run without waiting for the next regions write.
+            _update_region_captions_from_metadata(
+                Path(caption_source_path) if caption_source_path else image_path,
+                [
+                    {"photo_number": p["photo_number"], "caption": p["caption"]}
+                    for p in verbatim_photos
+                    if p["photo_number"] > 0
+                ],
+            )
             return {
                 "ocr": {
                     "engine": metadata_engine.engine,
@@ -727,6 +817,7 @@ def _run_image_analysis(
                     "model": str(metadata_engine.effective_model_name),
                     "people_present": bool(result.people_count > 0),
                     "estimated_people_count": result.people_count,
+                    "photos": verbatim_photos,
                 },
                 "location": location_payload,
                 "locations_shown": locations_shown,

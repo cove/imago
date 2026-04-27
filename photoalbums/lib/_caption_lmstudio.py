@@ -284,9 +284,36 @@ def _build_data_url(image_path: str | Path, max_image_edge: int) -> str:
         image.close()
 
 
+# Strip any <think>...</think> reasoning blocks (and the matching closer)
+# from a model response. Some chat templates emit thinking inline in
+# message.content even when chat_template_kwargs.enable_thinking=false,
+# and reasoning models trained outside the OpenAI reasoning_content
+# convention do this by default.
+_THINKING_TAG_RE = re.compile(
+    r"<\s*(think|thinking|reasoning|reflection)\b[^>]*>.*?<\s*/\s*\1\s*>",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+# Some models open a think block but never close it (the closing tag falls
+# off the end of the response, or they emit a stray opener at the start).
+# In that case strip from the opener through to the first '{' that begins a
+# JSON object, which is the structured-output payload we actually want.
+_DANGLING_THINKING_RE = re.compile(
+    r"<\s*(think|thinking|reasoning|reflection)\b[^>]*>.*?(?=\{)",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+
+
+def _strip_thinking(text: str) -> str:
+    if not text:
+        return text
+    cleaned = _THINKING_TAG_RE.sub("", text)
+    cleaned = _DANGLING_THINKING_RE.sub("", cleaned)
+    return cleaned.strip()
+
+
 def _decode_lmstudio_text(value: object) -> str:
     if isinstance(value, str):
-        return value
+        return _strip_thinking(value)
     if isinstance(value, list):
         parts: list[str] = []
         for item in value:
@@ -298,7 +325,7 @@ def _decode_lmstudio_text(value: object) -> str:
             text = item.get("text")
             if text:
                 parts.append(str(text))
-        return "\n".join(part for part in parts if part).strip()
+        return _strip_thinking("\n".join(part for part in parts if part).strip())
     return ""
 
 
@@ -886,10 +913,13 @@ def _parse_lmstudio_page_caption(
     )
 
 
+_LMSTUDIO_RETRY_ATTEMPTS = 10
+_LMSTUDIO_RETRYABLE_HTTP_CODES = (400, 404, 500, 502, 503, 504)
+
+
 def _lmstudio_request_json(url: str, *, payload: dict | None = None, timeout: float) -> dict:
     body = None if payload is None else json.dumps(payload).encode("utf-8")
-    attempts = 3
-    for attempt in range(1, attempts + 1):
+    for attempt in range(1, _LMSTUDIO_RETRY_ATTEMPTS + 1):
         request = urllib.request.Request(
             url,
             data=body,
@@ -900,13 +930,13 @@ def _lmstudio_request_json(url: str, *, payload: dict | None = None, timeout: fl
             with urllib.request.urlopen(request, timeout=float(timeout)) as response:
                 return json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
-            if exc.code not in (500, 502, 503, 504) or attempt == attempts:
+            if exc.code not in _LMSTUDIO_RETRYABLE_HTTP_CODES or attempt == _LMSTUDIO_RETRY_ATTEMPTS:
                 details = exc.read().decode("utf-8", errors="replace").strip()
                 message = details or f"HTTP {exc.code}"
                 raise RuntimeError(f"LM Studio request failed: {message}") from exc
             time.sleep(min(5 * attempt, 15))
         except (urllib.error.URLError, ConnectionError, TimeoutError) as exc:
-            if attempt == attempts:
+            if attempt == _LMSTUDIO_RETRY_ATTEMPTS:
                 reason = getattr(exc, "reason", str(exc))
                 raise RuntimeError(f"LM Studio is unreachable at {url}: {reason}") from exc
             time.sleep(min(5 * attempt, 15))
@@ -1128,12 +1158,20 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
                     flush=True,
                 )
                 tokens: list[str] = []
-                for token in _lmstudio_stream_tokens(
-                    f"{self.base_url}/chat/completions",
-                    payload,
-                    self.timeout_seconds,
-                ):
-                    tokens.append(token)
+                for attempt in range(1, _LMSTUDIO_RETRY_ATTEMPTS + 1):
+                    try:
+                        tokens = list(
+                            _lmstudio_stream_tokens(
+                                f"{self.base_url}/chat/completions",
+                                payload,
+                                self.timeout_seconds,
+                            )
+                        )
+                        break
+                    except (RuntimeError, urllib.error.URLError, ConnectionError, TimeoutError):
+                        if attempt == _LMSTUDIO_RETRY_ATTEMPTS:
+                            raise
+                        time.sleep(min(5 * attempt, 15))
                 print("\r\033[K", end="", flush=True)
                 self.last_response_text = "".join(tokens)
                 return parse_fn(self.last_response_text)

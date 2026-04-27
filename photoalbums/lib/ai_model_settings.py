@@ -13,7 +13,6 @@ DEFAULT_DOCLING_PRESET = "granite_docling"
 DEFAULT_DOCLING_BACKEND = "auto_inline"
 DEFAULT_DOCLING_DEVICE = "auto"
 DEFAULT_DOCLING_RETRIES = 3
-DEFAULT_CAPTION_MATCHING_MODEL = ""
 AI_MODEL_SETTINGS_PATH = Path(__file__).resolve().parents[1] / "ai_models.toml"
 
 
@@ -161,7 +160,6 @@ def load_ai_model_settings() -> dict[str, Any]:
     ocr_models = list(models.get(selected_ocr_model, []))
     caption_models = list(models.get(selected_caption_model, []))
     view_region_models = _resolve_model_reference(payload, models, "view_region_model", DEFAULT_VIEW_REGION_MODEL)
-    caption_matching_models = _resolve_model_reference(payload, models, "caption_matching_model", DEFAULT_CAPTION_MATCHING_MODEL)
     docling_pipeline = _resolve_docling_pipeline_settings(payload)
     return {
         "models": models,
@@ -170,11 +168,9 @@ def load_ai_model_settings() -> dict[str, Any]:
         "ocr_models": ocr_models,
         "caption_models": caption_models,
         "view_region_models": view_region_models,
-        "caption_matching_models": caption_matching_models,
         "ocr_model": _first_model_name(ocr_models, DEFAULT_OCR_MODEL),
         "caption_model": _first_model_name(caption_models, DEFAULT_CAPTION_MODEL),
         "view_region_model": _first_model_name(view_region_models, DEFAULT_VIEW_REGION_MODEL),
-        "caption_matching_model": _first_model_name(caption_matching_models, DEFAULT_CAPTION_MATCHING_MODEL),
         "lmstudio_base_url": _resolve_lmstudio_base_url(payload),
         **docling_pipeline,
     }
@@ -224,9 +220,3 @@ def default_docling_retries() -> int:
     return int(load_ai_model_settings()["docling_retries"])
 
 
-def default_caption_matching_model() -> str:
-    return str(load_ai_model_settings()["caption_matching_model"])
-
-
-def default_caption_matching_models() -> list[str]:
-    return list(load_ai_model_settings()["caption_matching_models"])

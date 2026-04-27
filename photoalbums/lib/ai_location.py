@@ -100,7 +100,7 @@ def _merge_location_estimates(
 
 
 def _serialize_geocode_result(result: Any) -> dict[str, Any]:
-    return {
+    payload = {
         "query": str(getattr(result, "query", "") or "").strip(),
         "display_name": str(getattr(result, "display_name", "") or "").strip(),
         "latitude": str(getattr(result, "latitude", "") or "").strip(),
@@ -111,6 +111,10 @@ def _serialize_geocode_result(result: Any) -> dict[str, Any]:
         "country": str(getattr(result, "country", "") or "").strip(),
         "sublocation": str(getattr(result, "sublocation", "") or "").strip(),
     }
+    raw = getattr(result, "raw", None)
+    if isinstance(raw, dict) and raw:
+        payload["raw"] = raw
+    return payload
 
 
 def _record_geocode_lookup(
@@ -234,42 +238,44 @@ def _resolve_location_payload(
         return payload
     geocode_error = ""
     if query and geocoder is not None:
-        try:
-            result = geocoder.geocode(query)
-        except Exception as exc:
-            result = None
-            geocode_error = str(exc or "").strip()
-            _record_geocode_lookup(
-                artifact_recorder=artifact_recorder,
-                step=artifact_step,
-                query=query,
-                error=geocode_error,
-            )
-        else:
-            _record_geocode_lookup(
-                artifact_recorder=artifact_recorder,
-                step=artifact_step,
-                query=query,
-                result=result,
-            )
-        if result is not None:
-            loc: dict[str, Any] = {
-                "query": result.query,
-                "display_name": result.display_name,
-                "gps_latitude": float(result.latitude),
-                "gps_longitude": float(result.longitude),
-                "map_datum": "WGS-84",
-                "source": result.source,
-            }
-            if str(getattr(result, "city", "") or "").strip():
-                loc["city"] = str(result.city).strip()
-            if str(getattr(result, "state", "") or "").strip():
-                loc["state"] = str(result.state).strip()
-            if str(getattr(result, "country", "") or "").strip():
-                loc["country"] = str(result.country).strip()
-            if str(getattr(result, "sublocation", "") or "").strip():
-                loc["sublocation"] = str(result.sublocation).strip()
-            return loc
+        for geocode_query in _fallback_geocode_queries(query):
+            try:
+                result = geocoder.geocode(geocode_query)
+            except Exception as exc:
+                result = None
+                geocode_error = str(exc or "").strip()
+                _record_geocode_lookup(
+                    artifact_recorder=artifact_recorder,
+                    step=artifact_step,
+                    query=geocode_query,
+                    error=geocode_error,
+                )
+            else:
+                _record_geocode_lookup(
+                    artifact_recorder=artifact_recorder,
+                    step=artifact_step,
+                    query=geocode_query,
+                    result=result,
+                )
+            if result is not None:
+                loc: dict[str, Any] = {
+                    "query": result.query,
+                    "display_name": result.display_name,
+                    "gps_latitude": float(result.latitude),
+                    "gps_longitude": float(result.longitude),
+                    "map_datum": "WGS-84",
+                    "source": result.source,
+                }
+                if str(getattr(result, "city", "") or "").strip():
+                    loc["city"] = str(result.city).strip()
+                if str(getattr(result, "state", "") or "").strip():
+                    loc["state"] = str(result.state).strip()
+                if str(getattr(result, "country", "") or "").strip():
+                    loc["country"] = str(result.country).strip()
+                if str(getattr(result, "sublocation", "") or "").strip():
+                    loc["sublocation"] = str(result.sublocation).strip()
+                loc["nominatim"] = _serialize_geocode_result(result)
+                return loc
     if query and geocode_error:
         return {
             "query": query,
@@ -277,6 +283,46 @@ def _resolve_location_payload(
             "source": "nominatim",
         }
     return {}
+
+
+def _fallback_geocode_queries(query: str) -> list[str]:
+    clean_query = str(query or "").strip()
+    if not clean_query:
+        return []
+    queries = [clean_query]
+    parts = [part.strip() for part in clean_query.split(",") if part.strip()]
+    if len(parts) >= 2 and parts[-1].casefold() == "yugoslavia":
+        country = _modern_country_for_yugoslav_city(parts[-2])
+        if country:
+            if len(parts) >= 3:
+                queries.append(", ".join([*parts[:-1], country]))
+            queries.append(f"{parts[-2]}, {country}")
+    if len(parts) >= 3:
+        queries.append(", ".join(parts[-2:]))
+    deduped: list[str] = []
+    for candidate in queries:
+        key = candidate.casefold()
+        if key not in {item.casefold() for item in deduped}:
+            deduped.append(candidate)
+    return deduped
+
+
+def _modern_country_for_yugoslav_city(city: str) -> str:
+    city_key = _normalize_location_token(city)
+    countries = {
+        "belgrade": "Serbia",
+        "dubrovnik": "Croatia",
+        "ljubljana": "Slovenia",
+        "mostar": "Bosnia and Herzegovina",
+        "sarajevo": "Bosnia and Herzegovina",
+        "skopje": "North Macedonia",
+        "zagreb": "Croatia",
+    }
+    return countries.get(city_key, "")
+
+
+def _normalize_location_token(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", str(value or "").casefold()).strip()
 
 
 def _build_locations_shown_query(location: dict[str, Any]) -> str:

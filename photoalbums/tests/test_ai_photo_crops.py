@@ -26,6 +26,7 @@ from photoalbums.lib.ai_photo_crops import (
     mwgrs_normalised_to_pixel_rect,
     resolve_region_caption,
 )
+from photoalbums.lib.metadata_resolver import location_payload_from_caption, resolve_crop_location
 from photoalbums.lib.xmp_sidecar import read_pipeline_step, read_region_list, write_pipeline_step
 
 
@@ -73,7 +74,7 @@ class TestResolvePageDescriptionFromRegions(unittest.TestCase):
             ],
             "Fallback",
         )
-        self.assertEqual(description, "1. Temple visit. 2. Nile cruise.")
+        self.assertEqual(description, "Page Captions: 1. Temple visit., 2. Nile cruise.")
 
     def test_single_caption_stays_unnumbered(self):
         description = _resolve_page_description_from_regions(
@@ -122,6 +123,41 @@ class TestMetadataResolverHelpers(unittest.TestCase):
         )
         assert match is not None
         self.assertEqual(match["gps_latitude"], "46.6")
+
+    def test_match_caption_to_location_shown_allows_noncontiguous_tokens(self):
+        match = _match_caption_to_location_shown(
+            "OUR HOTEL IN ZAGREB, YUGOSLAVIA HOTEL INTER-CONTINENTAL AND THE MIMARA ART MUSEUM-AUGUST 1988",
+            [
+                {"name": "Mimara Art Museum, Zagreb, Yugoslavia"},
+                {"name": "Hotel InterContinental, Zagreb, Yugoslavia"},
+            ],
+        )
+        assert match is not None
+        self.assertEqual(match["address"], "Hotel InterContinental, Zagreb, Yugoslavia")
+
+    def test_match_caption_to_location_shown_allows_generic_hotel_caption(self):
+        match = _match_caption_to_location_shown(
+            "OUR HOTEL IN BELGRADE YUGOSLAVIA",
+            [
+                {"name": "Hotel InterContinental, Belgrade, Yugoslavia"},
+                {"name": "Sarajevo, Yugoslavia"},
+            ],
+        )
+        assert match is not None
+        self.assertEqual(match["address"], "Hotel InterContinental, Belgrade, Yugoslavia")
+
+    def test_location_payload_from_caption_accepts_short_location_query(self):
+        self.assertEqual(location_payload_from_caption("KARNTEN, AUSTRIA"), {"address": "KARNTEN, AUSTRIA"})
+
+    def test_resolve_crop_location_uses_queryable_caption_when_shown_location_misses(self):
+        location = resolve_crop_location(
+            region_location_override={},
+            region_location_assigned={},
+            caption="KARNTEN, AUSTRIA",
+            locations_shown=[{"name": "Lindwurmbrunnen, Klagenfurt, Austria"}],
+            page_location={},
+        )
+        self.assertEqual(location, {"address": "KARNTEN, AUSTRIA"})
 
 
 # ---------------------------------------------------------------------------

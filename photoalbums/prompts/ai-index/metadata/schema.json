@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "properties": {
+    "photos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "photo_number": {"type": "integer"},
+          "location": {"type": "string"},
+          "location_name": {"type": "string"},
+          "est_date": {"type": "string"},
+          "scene_ocr": {"type": "string"},
+          "caption": {"type": "string"},
+          "people_count": {"type": "integer"}
+        },
+        "required": ["photo_number", "location", "location_name", "est_date", "scene_ocr", "caption", "people_count"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["photos"],
+  "additionalProperties": false
+}

@@ -55,21 +55,6 @@ def _get_region_result():
     return _RegionResult
 
 
-def _resolve_caption(doc, picture_item) -> str:
-    for ref in list(getattr(picture_item, "captions", ()) or ()):
-        cref = str(getattr(ref, "cref", "") or "")
-        parts = cref.lstrip("#/").split("/")
-        if len(parts) != 2 or parts[0] != "texts":
-            continue
-        try:
-            text_item = doc.texts[int(parts[1])]
-        except (IndexError, ValueError):
-            continue
-        text = str(getattr(text_item, "text", "") or "").strip()
-        if text:
-            return text
-    return ""
-
 
 def _to_jsonable(value: Any) -> Any:
     if hasattr(value, "export_to_dict"):
@@ -231,7 +216,6 @@ def run_docling_pipeline(
                     y=max(0, round(top)),
                     width=max(1, round(right - left)),
                     height=max(1, round(bottom - top)),
-                    caption_hint=_resolve_caption(doc, item),
                 )
             )
 
