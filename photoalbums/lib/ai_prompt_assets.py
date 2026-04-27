@@ -31,7 +31,7 @@ class PromptAsset:
 
 
 @dataclass(frozen=True)
-class ParamsAsset:
+class _DictAsset:
     path: Path
     values: dict[str, Any]
     hash: str
@@ -44,16 +44,13 @@ class ParamsAsset:
 
 
 @dataclass(frozen=True)
-class SchemaAsset:
-    path: Path
-    values: dict[str, Any]
-    hash: str
+class ParamsAsset(_DictAsset):
+    pass
 
-    def metadata(self) -> dict[str, object]:
-        return {
-            "path": str(self.path),
-            "hash": self.hash,
-        }
+
+@dataclass(frozen=True)
+class SchemaAsset(_DictAsset):
+    pass
 
 
 def prompt_root() -> Path:
