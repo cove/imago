@@ -683,6 +683,9 @@ def tif_to_jpg(tif_path: str, output_dir: str) -> bool:
     )
     label = f"{collection} B{book} P{int(page):02d}"
     if _skip_existing_output(out, label):
+        xmp_out = Path(out).with_suffix(".xmp")
+        if not xmp_out.exists():
+            write_render_provenance(xmp_out, [tif_path])
         return False
 
     if not _validate_and_retry(tif_path):
@@ -717,6 +720,9 @@ def derived_to_jpg(src_path: str, output_dir: str, *, force: bool = False) -> bo
     else:
         label = out_name
     if not force and _skip_existing_output(out, label):
+        xmp_out = Path(out).with_suffix(".xmp")
+        if not xmp_out.exists():
+            write_render_provenance(xmp_out, [src_path])
         return False
 
     if not _validate_and_retry(src_path):
@@ -754,6 +760,9 @@ def stitch(files, output_dir: str) -> bool:
     )
     label = f"{collection} B{book} P{int(page):02d}"
     if _skip_existing_output(out, label):
+        xmp_out = Path(out).with_suffix(".xmp")
+        if not xmp_out.exists():
+            write_render_provenance(xmp_out, files)
         return False
 
     for f in files:
