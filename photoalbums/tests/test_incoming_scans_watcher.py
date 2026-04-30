@@ -16,7 +16,7 @@ class DummyEvent:
 
 
 class TestIncomingScansWatcher(unittest.TestCase):
-    def test_on_created_registers_pending_event(self):
+    def test_on_created_auto_applies_event(self):
         import incoming_scans_watcher
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -26,25 +26,32 @@ class TestIncomingScansWatcher(unittest.TestCase):
             incoming.touch()
             event = DummyEvent(str(incoming))
 
-            info_mock = mock.Mock()
-            alert_mock = mock.Mock()
             service = incoming_scans_watcher.ScanWatchService(
                 root=Path(tmp),
-                alert_fn=alert_mock,
                 sleep_fn=lambda *_: None,
             )
+            apply_mock = mock.Mock(return_value={"event": {"status": "completed"}, "archive": {}})
+            service.apply_decision = apply_mock
+
             handler = incoming_scans_watcher.IncomingScanHandler(
                 service,
                 sleep_fn=lambda *_: None,
-                log_info_fn=info_mock,
+                log_info_fn=mock.Mock(),
             )
 
             handler.on_created(event)
 
-            status = service.status()
-            self.assertEqual(status["pending_event_count"], 1)
-            info_mock.assert_called_once()
-            alert_mock.assert_called_once()
+            # wait for the daemon thread to call apply_decision
+            import time
+            for _ in range(20):
+                if apply_mock.called:
+                    break
+                time.sleep(0.05)
+
+            apply_mock.assert_called_once()
+            target_name = apply_mock.call_args[0][1]
+            self.assertTrue(target_name.endswith(".tif"))
+            self.assertIn("_P01_S01", target_name)
 
     def test_on_created_ignores_other_files(self):
         import incoming_scans_watcher

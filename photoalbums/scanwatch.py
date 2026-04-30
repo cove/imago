@@ -20,8 +20,10 @@ try:
     from .common import (
         INCOMING_NAME,
         PAGE_SCAN_RE,
+        PHOTO_ALBUMS_DIR,
         PHOTO_SCANNING_DIR,
         configure_imagemagick,
+        get_next_filename,
         list_page_scans_for_page,
         open_image_fullscreen,
         process_tiff_in_place,
@@ -31,8 +33,10 @@ except ImportError:
     from common import (
         INCOMING_NAME,
         PAGE_SCAN_RE,
+        PHOTO_ALBUMS_DIR,
         PHOTO_SCANNING_DIR,
         configure_imagemagick,
+        get_next_filename,
         list_page_scans_for_page,
         open_image_fullscreen,
         process_tiff_in_place,
@@ -45,6 +49,7 @@ try:
         ScanEvent,
         alert_beep,
         cleanup_preview_file,
+        save_stitch_preview,
         _normalize_path,
         _now,
         validate_stitch,
@@ -55,6 +60,7 @@ except ImportError:
         ScanEvent,
         alert_beep,
         cleanup_preview_file,
+        save_stitch_preview,
         _normalize_path,
         _now,
         validate_stitch,
@@ -192,7 +198,7 @@ class ScanWatchService:
             archives.setdefault(archive_dir, ArchiveState(archive_dir=archive_dir))
 
         for archive_dir in list(archives):
-            self._sync_archive_state(archive_dir, archives=archives)
+            self._sync_archive_state(archive_dir, archives=archives, validate=False)
             self._sync_pending_events_for_archive(archive_dir, events=events, archives=archives)
 
         with self._lock:
@@ -363,6 +369,7 @@ class ScanWatchService:
         archive_dir: str,
         *,
         archives: dict[str, ArchiveState] | None = None,
+        validate: bool = True,
     ) -> ArchiveState:
         archive_map = archives if archives is not None else self._archives
         archive = archive_map.get(archive_dir)
@@ -385,17 +392,18 @@ class ScanWatchService:
             page = int(match.group("page"))
             archive.page_scan_counts[page] = max(archive.page_scan_counts.get(page, 0), int(match.group("scan")))
 
-        for page, count in archive.page_scan_counts.items():
-            if count < 2:
-                continue
-            files = list_page_scans_for_page(dir_path, page)
-            try:
-                stitch_validated, _ = self.validate_stitch_fn(files, save_preview=False)
-            except Exception as exc:
-                self.log_error_fn(f"{dir_path.name} page {page:02d} validation failed: {exc}")
-                stitch_validated = False
-            if not stitch_validated:
-                archive.needs_rescan_pages.add(page)
+        if validate:
+            for page, count in archive.page_scan_counts.items():
+                if count < 2:
+                    continue
+                files = list_page_scans_for_page(dir_path, page)
+                try:
+                    stitch_validated, _ = self.validate_stitch_fn(files, save_preview=False)
+                except Exception as exc:
+                    self.log_error_fn(f"{dir_path.name} page {page:02d} validation failed: {exc}")
+                    stitch_validated = False
+                if not stitch_validated:
+                    archive.needs_rescan_pages.add(page)
 
         return archive
 
@@ -443,20 +451,34 @@ class IncomingScanHandler(FileSystemEventHandler):
         self.sleep_fn = sleep_fn or time.sleep
         self.log_info_fn = log_info_fn or print
 
+    def _handle_incoming(self, path: str) -> None:
+        if Path(path).name.lower() != self.service.incoming_name.lower():
+            return
+        self.sleep_fn(2.0)
+        scan_event = self.service.register_incoming(path)
+        archive_dir = scan_event.archive_dir
+        target_name = get_next_filename(archive_dir)
+        self.log_info_fn(f"Auto-applying scan event {scan_event.id} -> {target_name}")
+        threading.Thread(
+            target=self.service.apply_decision,
+            args=(scan_event.id, target_name),
+            daemon=True,
+        ).start()
+
     def on_created(self, event) -> None:
         if event.is_directory:
             return
-        if Path(event.src_path).name.lower() != self.service.incoming_name.lower():
-            return
+        self._handle_incoming(event.src_path)
 
-        self.sleep_fn(2.0)
-        scan_event = self.service.register_incoming(event.src_path)
-        self.log_info_fn(f"Pending scan event {scan_event.id}: {scan_event.incoming_path}")
-        self.service.alert_fn()
+    def on_moved(self, event) -> None:
+        if event.is_directory:
+            return
+        self._handle_incoming(event.dest_path)
 
 
 def main() -> None:
-    service = ScanWatchService()
+    service = ScanWatchService(root=PHOTO_ALBUMS_DIR)
+    print(f"Starting watcher — scanning {service.root} ...")
     status = service.start()
     print(f"Watching for {service.incoming_name} in:")
     print(status["root"])
