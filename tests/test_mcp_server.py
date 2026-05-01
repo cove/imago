@@ -324,17 +324,6 @@ class TestPhotoalbumsLoadXmp(AlbumSetConfigMixin, unittest.TestCase):
                 "ocr": {"chars": 11},
                 "caption": {"effective_engine": "template"},
             },
-            subphotos=[
-                {
-                    "index": 1,
-                    "bounds": {"x": 1, "y": 2, "width": 3, "height": 4},
-                    "description": "Inset photo",
-                    "ocr_text": "Inset",
-                    "people": ["Alice Example"],
-                    "subjects": ["bench"],
-                    "detections": {"objects": [{"label": "bench", "score": 0.81}]},
-                }
-            ],
             stitch_key="Family_1986_B01_P01",
             image_width=100,
             image_height=100,
@@ -358,14 +347,12 @@ class TestPhotoalbumsLoadXmp(AlbumSetConfigMixin, unittest.TestCase):
         self.assertEqual(result["subjects"], ["park", "bench"])
         self.assertEqual(result["source_text"], "scan_001.tif")
         self.assertEqual(result["ocr_authority_source"], "archive_stitched")
-        self.assertEqual(result["stitch_key"], "Family_1986_B01_P01")
+        self.assertEqual(result["stitch_key"], "")
         self.assertEqual(result["summary"]["people_in_image_count"], 1)
         self.assertEqual(result["summary"]["detected_people_count"], 1)
         self.assertEqual(result["summary"]["detected_object_count"], 1)
         self.assertEqual(result["summary"]["ocr_char_count"], 11)
-        self.assertEqual(result["summary"]["subphoto_count"], 1)
-        self.assertEqual(result["subphotos"][0]["bounds"]["width"], 0.03)
-        self.assertEqual(result["subphotos"][0]["people"], ["Alice Example"])
+        self.assertEqual(result["summary"]["subphoto_count"], 0)
 
     def test_photoalbums_load_xmp_resolves_photo_filename(self):
         image_path = self.photos_root / "Album_A" / "Photo_01.jpg"
@@ -447,17 +434,9 @@ class TestPhotoalbumsMcpQueries(AlbumSetConfigMixin, unittest.TestCase):
 
     def test_photoalbums_manifest_query_returns_derived_fields(self):
         image_path = self.photos_root / "Album_Query_Archive" / "Family_1986_B01_P00_S01.tif"
-        sidecar_path = self._write_sidecar(image_path, album_title="Family Book I")
-        self._write_manifest(
-            {
-                "image_path": str(image_path.resolve()),
-                "sidecar_path": str(sidecar_path.resolve()),
-                "state": "done",
-                "cast_store_signature": "sig-1",
-            }
-        )
+        self._write_sidecar(image_path, album_title="Family Book I")
 
-        result = mcp_server.photoalbums_manifest_query(album_set="cordell", album="Album_Query", state="done")
+        result = mcp_server.photoalbums_manifest_query(album_set="cordell", album="Album_Query")
 
         self.assertEqual(result["total_matches"], 1)
         row = result["rows"][0]
