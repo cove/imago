@@ -10,14 +10,22 @@
     "python.defaultInterpreterPath": ".venv\\Scripts\\python.exe",
     "python.terminal.activateEnvironment": true,
     "terminal.integrated.profiles.windows": {
-        "imago": {
-            "source": "PowerShell",
+        "Imago (Claude Code)": {
+          "path": "cmd.exe",
+          "args": ["/C", "cd /d C:\\users\\covec\\videos\\imago && claude"]
+        },
+        "Imago (Codex)": {
+          "path": "cmd.exe",
+          "args": ["/C", "cd /d C:\\users\\covec\\videos\\imago && codex"]
         }
     },
+    "terminal.integrated.focusAfterRun" : true,
     "terminal.integrated.defaultProfile.windows": "imago",
     "chatgpt.commentCodeLensEnabled": false,
     "terminal.explorerKind": "external",
     "terminal.integrated.accessibleViewFocusOnCommandExecution": true,
+    "dev.containers.dockerPath": "docker", 
+    "dev.containers.executeInWSL": true,
     "VsCodeTaskButtons.tasks": [
     {
       "label": "$(debug-start) Start MCP",

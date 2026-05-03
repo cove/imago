@@ -24,6 +24,7 @@ from .metadata_resolver import (
     filter_location_names_from_people as _resolver_filter_location_names_from_people,
     location_payload_from_caption as _resolver_location_payload_from_caption,
     location_shown_from_payload as _resolver_location_shown_from_payload,
+    materialize_location_payload as _resolver_materialize_location_payload,
     match_caption_to_location_shown as _resolver_match_caption_to_location_shown,
     normalize_location_payload as _resolver_normalize_location_payload,
     resolve_crop_location as _resolver_resolve_crop_location,
@@ -101,7 +102,9 @@ def _resolve_page_description_from_regions(regions: list[dict], fallback_descrip
         seen.add(folded)
         unique_captions.append(caption)
     if len(unique_captions) >= 2:
-        numbered = ", ".join(_format_numbered_caption(caption, index) for index, caption in enumerate(unique_captions, start=1))
+        numbered = ", ".join(
+            _format_numbered_caption(caption, index) for index, caption in enumerate(unique_captions, start=1)
+        )
         return f"Page Captions: {numbered}"
     if len(unique_captions) == 1:
         return unique_captions[0]
@@ -141,27 +144,7 @@ def _materialize_region_location_payload(
     *,
     geocoder,
 ) -> dict[str, Any]:
-    normalized = _normalize_region_location_payload(payload)
-    if not normalized:
-        return {}
-    address = str(normalized.get("address") or "").strip()
-    has_gps = bool(normalized.get("gps_latitude") and normalized.get("gps_longitude"))
-    if not has_gps and address and geocoder is not None:
-        from .ai_location import _resolve_location_payload  # pylint: disable=import-outside-toplevel
-
-        geocoded = _resolve_location_payload(
-            geocoder=geocoder,
-            gps_latitude="",
-            gps_longitude="",
-            location_name=address,
-        )
-        if geocoded:
-            merged = dict(geocoded)
-            for key in ("city", "state", "country", "sublocation"):
-                if normalized.get(key):
-                    merged[key] = normalized[key]
-            return merged
-    return normalized
+    return _resolver_materialize_location_payload(payload, geocoder=geocoder)
 
 
 def _update_page_description(
@@ -466,8 +449,10 @@ def _write_crop_sidecar(
     if effective_loc and not crop_locations_shown:
         crop_location_shown = _resolver_location_shown_from_payload(effective_loc)
         crop_locations_shown = [crop_location_shown] if crop_location_shown else []
-    if effective_loc and crop_locations_shown and not all(
-        str(location.get("gps_latitude") or "").strip() for location in crop_locations_shown
+    if (
+        effective_loc
+        and crop_locations_shown
+        and not all(str(location.get("gps_latitude") or "").strip() for location in crop_locations_shown)
     ):
         crop_location_shown = _resolver_location_shown_from_payload(effective_loc)
         crop_locations_shown = [crop_location_shown] if crop_location_shown else crop_locations_shown
@@ -486,6 +471,7 @@ def _write_crop_sidecar(
         source_text=archive_source_text,
         gps_latitude=str(effective_loc.get("gps_latitude") or "").strip(),
         gps_longitude=str(effective_loc.get("gps_longitude") or "").strip(),
+        location_address=str(effective_loc.get("address") or "").strip(),
         location_city=str(effective_loc.get("city") or "").strip(),
         location_state=str(effective_loc.get("state") or "").strip(),
         location_country=str(effective_loc.get("country") or "").strip(),
@@ -612,28 +598,34 @@ def crop_page_regions(
     failed = False
     archive_max_derived = highest_archive_derived_number(view_path)
     geocoder = None
-    if any(
-        _normalize_region_location_payload(dict(region.get("location_override") or {}) or dict(region.get("location_payload") or {})).get("address")
-        and not _normalize_region_location_payload(
-            dict(region.get("location_override") or {}) or dict(region.get("location_payload") or {})
-        ).get("gps_latitude")
-        for region in regions
-        if isinstance(region, dict)
-    ) or any(
-        (str(location.get("address") or "").strip() or str(location.get("name") or "").strip())
-        and not str(location.get("gps_latitude") or "").strip()
-        for location in locations_shown
-        if isinstance(location, dict)
-    ) or any(
-        _resolver_location_payload_from_caption(
-            resolve_region_caption(
-                region.get("caption") or "",
-                region.get("caption_hint") or "",
-                page_description,
-            )
+    if (
+        any(
+            _normalize_region_location_payload(
+                dict(region.get("location_override") or {}) or dict(region.get("location_payload") or {})
+            ).get("address")
+            and not _normalize_region_location_payload(
+                dict(region.get("location_override") or {}) or dict(region.get("location_payload") or {})
+            ).get("gps_latitude")
+            for region in regions
+            if isinstance(region, dict)
         )
-        for region in regions
-        if isinstance(region, dict)
+        or any(
+            (str(location.get("address") or "").strip() or str(location.get("name") or "").strip())
+            and not str(location.get("gps_latitude") or "").strip()
+            for location in locations_shown
+            if isinstance(location, dict)
+        )
+        or any(
+            _resolver_location_payload_from_caption(
+                resolve_region_caption(
+                    region.get("caption") or "",
+                    region.get("caption_hint") or "",
+                    page_description,
+                )
+            )
+            for region in regions
+            if isinstance(region, dict)
+        )
     ):
         from .ai_geocode import NominatimGeocoder
 

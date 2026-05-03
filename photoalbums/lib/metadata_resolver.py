@@ -26,6 +26,30 @@ def normalize_location_payload(payload: dict[str, Any] | None) -> dict[str, str]
     return {key: value for key, value in normalized.items() if value}
 
 
+def materialize_location_payload(payload: dict[str, Any] | None, *, geocoder: Any = None) -> dict[str, Any]:
+    normalized = normalize_location_payload(payload)
+    if not normalized:
+        return {}
+    address = str(normalized.get("address") or "").strip()
+    has_gps = bool(normalized.get("gps_latitude") and normalized.get("gps_longitude"))
+    if not has_gps and address and geocoder is not None:
+        from .ai_location import _resolve_location_payload  # pylint: disable=import-outside-toplevel
+
+        geocoded = _resolve_location_payload(
+            geocoder=geocoder,
+            gps_latitude="",
+            gps_longitude="",
+            location_name=address,
+        )
+        if geocoded:
+            merged = dict(geocoded)
+            for key in ("address", "city", "state", "country", "sublocation"):
+                if normalized.get(key):
+                    merged[key] = normalized[key]
+            return merged
+    return normalized
+
+
 def location_payload_from_location_shown(location: dict[str, Any] | None) -> dict[str, str]:
     if not isinstance(location, dict):
         return {}
@@ -154,9 +178,7 @@ def filter_location_names_from_people(
             continue
         normalized_name = _normalize_location_text(clean_name)
         if normalized_name and any(
-            normalized_name == location_text
-            or normalized_name in location_text
-            or location_text in normalized_name
+            normalized_name == location_text or normalized_name in location_text or location_text in normalized_name
             for location_text in location_filter_set
         ):
             continue

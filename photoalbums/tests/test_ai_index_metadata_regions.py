@@ -20,7 +20,7 @@ if str(REPO_ROOT) not in sys.path:
 if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
-from photoalbums.lib.ai_index_analysis import _update_region_captions_from_metadata
+from photoalbums.lib.ai_index_analysis import _metadata_photo_payload, _update_region_captions_from_metadata
 from photoalbums.lib.ai_view_regions import RegionResult, RegionWithCaption
 from photoalbums.lib.xmp_sidecar import read_region_list, write_region_list
 
@@ -81,9 +81,7 @@ class TestUpdateRegionCaptionsFromMetadata(unittest.TestCase):
             image = Path(tmp) / "no-sidecar.jpg"
             _make_minimal_jpeg(image)
             # No XMP written next to image
-            _update_region_captions_from_metadata(
-                image, [{"photo_number": 1, "caption": "ignored"}]
-            )
+            _update_region_captions_from_metadata(image, [{"photo_number": 1, "caption": "ignored"}])
             self.assertFalse(image.with_suffix(".xmp").exists())
 
     def test_does_nothing_when_photo_captions_empty(self):
@@ -119,6 +117,39 @@ class TestUpdateRegionCaptionsFromMetadata(unittest.TestCase):
             self.assertEqual(regions[0]["caption"], "")
             self.assertEqual(regions[1]["caption"], "")
 
+    def test_corrected_caption_replaces_region_caption(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "page.jpg"
+            _make_minimal_jpeg(image)
+            xmp_path = _seed_regions_xmp(image, count=1)
+
+            _update_region_captions_from_metadata(
+                image,
+                [
+                    {
+                        "photo_number": 1,
+                        "caption": "KARNTEN, AUSTRIA",
+                        "corrected_caption": "Karnten, Austria",
+                    }
+                ],
+            )
+
+            regions = read_region_list(xmp_path, 800, 600)
+            self.assertEqual(regions[0]["caption"], "Karnten, Austria")
+
+    def test_metadata_photo_payload_keeps_original_caption_in_detections(self):
+        payload = _metadata_photo_payload(
+            {
+                "photo_number": 1,
+                "caption": "KARNTEN, AUSTRIA",
+                "corrected_caption": "Karnten, Austria",
+                "people_count": 0,
+            }
+        )
+
+        self.assertEqual(payload["caption"], "Karnten, Austria")
+        self.assertEqual(payload["OriginalCapation"], "KARNTEN, AUSTRIA")
+
     def test_ai_caption_overwrites_existing_hint(self):
         """The metadata AI's numbered caption is the authoritative region name."""
         with tempfile.TemporaryDirectory() as tmp:
@@ -138,9 +169,7 @@ class TestUpdateRegionCaptionsFromMetadata(unittest.TestCase):
             )
             write_region_list(xmp_path, [existing], 800, 600)
 
-            _update_region_captions_from_metadata(
-                image, [{"photo_number": 1, "caption": "AI override"}]
-            )
+            _update_region_captions_from_metadata(image, [{"photo_number": 1, "caption": "AI override"}])
 
             regions = read_region_list(xmp_path, 800, 600)
             self.assertEqual(regions[0]["caption"], "AI override")
@@ -169,9 +198,7 @@ class TestUpdateRegionCaptionsFromMetadata(unittest.TestCase):
             )
             write_region_list(xmp_path, [seeded], 800, 600)
 
-            _update_region_captions_from_metadata(
-                image, [{"photo_number": 1, "caption": ""}]
-            )
+            _update_region_captions_from_metadata(image, [{"photo_number": 1, "caption": ""}])
 
             regions = read_region_list(xmp_path, 800, 600)
             self.assertEqual(regions[0]["caption"], "")
@@ -188,14 +215,22 @@ class TestUpdateRegionCaptionsFromMetadata(unittest.TestCase):
             seeded = [
                 RegionWithCaption(
                     RegionResult(
-                        index=0, x=0, y=0, width=100, height=100,
+                        index=0,
+                        x=0,
+                        y=0,
+                        width=100,
+                        height=100,
                         person_names=["Alice", "Bob"],
                     ),
                     caption="",
                 ),
                 RegionWithCaption(
                     RegionResult(
-                        index=1, x=200, y=0, width=100, height=100,
+                        index=1,
+                        x=200,
+                        y=0,
+                        width=100,
+                        height=100,
                         person_names=["Carol"],
                     ),
                     caption="",
@@ -313,13 +348,23 @@ class TestWriteRegionListAppliesStoredAIPhotos(unittest.TestCase):
             rwcs = [
                 RegionWithCaption(
                     RegionResult(
-                        index=0, x=0, y=0, width=100, height=100, photo_number=1,
+                        index=0,
+                        x=0,
+                        y=0,
+                        width=100,
+                        height=100,
+                        photo_number=1,
                     ),
                     caption="",
                 ),
                 RegionWithCaption(
                     RegionResult(
-                        index=1, x=200, y=0, width=100, height=100, photo_number=2,
+                        index=1,
+                        x=200,
+                        y=0,
+                        width=100,
+                        height=100,
+                        photo_number=2,
                     ),
                     caption="",
                 ),
@@ -332,20 +377,61 @@ class TestWriteRegionListAppliesStoredAIPhotos(unittest.TestCase):
             self.assertEqual(regions[1]["caption"], "Regent Street, London")
             self.assertEqual(regions[1]["photo_number"], 2)
 
+    def test_write_region_list_prefers_stored_corrected_caption(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "page.jpg"
+            _make_minimal_jpeg(image)
+            xmp_path = self._seed_xmp_with_detections(
+                image,
+                [
+                    {
+                        "photo_number": 1,
+                        "caption": "KARNTEN, AUSTRIA",
+                        "corrected_caption": "Karnten, Austria",
+                        "OriginalCapation": "KARNTEN, AUSTRIA",
+                    }
+                ],
+            )
+
+            write_region_list(
+                xmp_path,
+                [
+                    RegionWithCaption(
+                        RegionResult(
+                            index=0,
+                            x=0,
+                            y=0,
+                            width=100,
+                            height=100,
+                            photo_number=1,
+                        ),
+                        caption="",
+                    )
+                ],
+                800,
+                600,
+            )
+
+            regions = read_region_list(xmp_path, 800, 600)
+            self.assertEqual(regions[0]["caption"], "Karnten, Austria")
+
     def test_explicit_caption_takes_precedence_over_stored(self):
         """If the caller explicitly sets RegionWithCaption.caption, it wins
         over whatever's in detections.caption.photos."""
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "page.jpg"
             _make_minimal_jpeg(image)
-            xmp_path = self._seed_xmp_with_detections(
-                image, [{"photo_number": 1, "caption": "Stored AI caption"}]
-            )
+            xmp_path = self._seed_xmp_with_detections(image, [{"photo_number": 1, "caption": "Stored AI caption"}])
 
             rwcs = [
                 RegionWithCaption(
                     RegionResult(
-                        index=0, x=0, y=0, width=100, height=100, photo_number=1,
+                        index=0,
+                        x=0,
+                        y=0,
+                        width=100,
+                        height=100,
+                        photo_number=1,
                     ),
                     caption="Caller override",
                 )
@@ -365,7 +451,12 @@ class TestWriteRegionListAppliesStoredAIPhotos(unittest.TestCase):
             rwcs = [
                 RegionWithCaption(
                     RegionResult(
-                        index=0, x=0, y=0, width=100, height=100, photo_number=1,
+                        index=0,
+                        x=0,
+                        y=0,
+                        width=100,
+                        height=100,
+                        photo_number=1,
                     ),
                     caption="",
                 )
@@ -381,14 +472,17 @@ class TestWriteRegionListAppliesStoredAIPhotos(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "page.jpg"
             _make_minimal_jpeg(image)
-            xmp_path = self._seed_xmp_with_detections(
-                image, [{"photo_number": 1, "caption": ""}]
-            )
+            xmp_path = self._seed_xmp_with_detections(image, [{"photo_number": 1, "caption": ""}])
 
             rwcs = [
                 RegionWithCaption(
                     RegionResult(
-                        index=0, x=0, y=0, width=100, height=100, photo_number=1,
+                        index=0,
+                        x=0,
+                        y=0,
+                        width=100,
+                        height=100,
+                        photo_number=1,
                     ),
                     caption="From caller",
                 )
@@ -462,6 +556,18 @@ class TestMetadataResponseParsing(unittest.TestCase):
         result = _parse_metadata_response(raw)
         self.assertEqual(result.photos[0].caption, "Hello")
 
+    def test_parse_metadata_response_reads_corrected_caption(self):
+        from photoalbums.lib.ai_metadata import _parse_metadata_response
+
+        raw = (
+            '{"photos": [{"photo_number": 1, "location": "", '
+            '"location_name": "", "est_date": "", "scene_ocr": "", '
+            '"caption": "KARNTEN, AUSTRIA", "corrected_caption": "Karnten, Austria", '
+            '"people_count": 0}]}'
+        )
+        result = _parse_metadata_response(raw)
+        self.assertEqual(result.photos[0].corrected_caption, "Karnten, Austria")
+
     def test_request_payload_disables_thinking(self):
         """The metadata engine sends chat_template_kwargs.enable_thinking=false
         so thinking-capable templates skip emitting reasoning."""
@@ -484,15 +590,11 @@ class TestMetadataResponseParsing(unittest.TestCase):
         engine.base_url = "http://localhost:1234/v1"
 
         with mock.patch.object(ai_metadata, "_lmstudio_request_json", side_effect=_fake_request):
-            with mock.patch.object(
-                ai_metadata, "_build_data_url", return_value="data:image/jpeg;base64,xx"
-            ):
+            with mock.patch.object(ai_metadata, "_build_data_url", return_value="data:image/jpeg;base64,xx"):
                 engine.analyze(Path("/dev/null"))
 
         self.assertIn("chat_template_kwargs", captured["payload"])
-        self.assertEqual(
-            captured["payload"]["chat_template_kwargs"], {"enable_thinking": False}
-        )
+        self.assertEqual(captured["payload"]["chat_template_kwargs"], {"enable_thinking": False})
 
 
 if __name__ == "__main__":

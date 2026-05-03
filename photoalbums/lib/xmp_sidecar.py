@@ -359,11 +359,15 @@ def _add_bag(parent: ET.Element, tag: str, values: list[str]) -> None:
 
 def _format_location_created(
     *,
+    location_address: str = "",
     location_city: str = "",
     location_state: str = "",
     location_country: str = "",
     location_sublocation: str = "",
 ) -> str:
+    address = str(location_address or "").strip()
+    if address:
+        return address
     parts: list[str] = []
     seen: set[str] = set()
     for value in (location_sublocation, location_city, location_state, location_country):
@@ -396,6 +400,39 @@ def _with_location_detections(
     if location:
         payload["location"] = location
     return payload or None
+
+
+def _location_shown_identity(location: dict) -> tuple[str, ...]:
+    values: list[str] = []
+    for key in (
+        "name",
+        "world_region",
+        "country_code",
+        "country_name",
+        "province_or_state",
+        "city",
+        "sublocation",
+        "gps_latitude",
+        "gps_longitude",
+    ):
+        values.append(" ".join(str(location.get(key) or "").casefold().replace(",", " ").split()))
+    return tuple(values)
+
+
+def _dedupe_locations_shown(locations: list[dict] | None) -> list[dict]:
+    deduped: list[dict] = []
+    seen: set[tuple[str, ...]] = set()
+    for location in list(locations or []):
+        if not isinstance(location, dict):
+            continue
+        if not any(str(value or "").strip() for value in location.values()):
+            continue
+        identity = _location_shown_identity(location)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        deduped.append(location)
+    return deduped
 
 
 def _add_locations_shown_bag(parent: ET.Element, locations: list[dict]) -> None:
@@ -440,7 +477,7 @@ def _set_locations_shown_bag(parent: ET.Element, locations: list[dict]) -> None:
     existing = parent.find(f"{{{IPTC_EXT_NS}}}LocationShown")
     if existing is not None:
         parent.remove(existing)
-    _add_locations_shown_bag(parent, locations)
+    _add_locations_shown_bag(parent, _dedupe_locations_shown(locations))
 
 
 def _add_region_location_struct(parent: ET.Element, tag: str, payload: dict[str, object]) -> None:
@@ -780,6 +817,7 @@ def build_xmp_tree(
     album_title: str,
     gps_latitude: str,
     gps_longitude: str,
+    location_address: str = "",
     location_city: str = "",
     location_state: str = "",
     location_country: str = "",
@@ -873,6 +911,7 @@ def build_xmp_tree(
         desc,
         f"{{{IPTC_EXT_NS}}}LocationCreated",
         _format_location_created(
+            location_address=location_address,
             location_city=location_city,
             location_state=location_state,
             location_country=location_country,
@@ -1188,7 +1227,9 @@ def _get_bag_values(parent: ET.Element, tag: str) -> list[str]:
 
 def _get_description_value(parent: ET.Element, *, legacy_caption_first: bool = False) -> str:
     if legacy_caption_first:
-        legacy_caption = _get_alt_text(parent, f"{{{DC_NS}}}description", prefer_lang="x-caption", fallback_to_any=False)
+        legacy_caption = _get_alt_text(
+            parent, f"{{{DC_NS}}}description", prefer_lang="x-caption", fallback_to_any=False
+        )
         if legacy_caption:
             return legacy_caption
     default_text = _get_alt_text(parent, f"{{{DC_NS}}}description", prefer_lang="x-default", fallback_to_any=False)
@@ -1246,7 +1287,7 @@ def _read_locations_shown_from_desc(desc: ET.Element) -> list[dict[str, str]]:
             }
             if any(row.values()):
                 rows.append(row)
-        return rows
+        return _dedupe_locations_shown(rows)
     except Exception:
         return []
 
@@ -1288,10 +1329,7 @@ def _has_legacy_pipeline_entries(xmp_path: Path) -> bool:
     pipeline = _read_detections_payload(desc).get("pipeline")
     if not isinstance(pipeline, dict):
         return False
-    return any(
-        isinstance(v, dict) and "completed" in v and "timestamp" not in v
-        for v in pipeline.values()
-    )
+    return any(isinstance(v, dict) and "completed" in v and "timestamp" not in v for v in pipeline.values())
 
 
 def migrate_pipeline_records(xmp_path: str | Path) -> bool:
@@ -1529,9 +1567,7 @@ def _read_sidecar_location_state(
 
     crop_locations_shown = _read_locations_shown_from_desc(desc)
     crop_location = (
-        crop_locations_shown[0]
-        if description_role == DESCRIPTION_ROLE_CROP and len(crop_locations_shown) == 1
-        else {}
+        crop_locations_shown[0] if description_role == DESCRIPTION_ROLE_CROP and len(crop_locations_shown) == 1 else {}
     )
     for target_key, crop_key in (
         ("location_city", "city"),
@@ -1735,6 +1771,7 @@ def _merge_xmp_tree(
     album_title: str,
     gps_latitude: str,
     gps_longitude: str,
+    location_address: str = "",
     location_city: str = "",
     location_state: str = "",
     location_country: str = "",
@@ -1753,6 +1790,7 @@ def _merge_xmp_tree(
     create_date: str = "",
     dc_date: str | list[str] | tuple[str, ...] = "",
     date_time_original: str = "",
+    replace_dc_date: bool = False,
     history_when: str = "",
     image_width: int = 0,
     image_height: int = 0,
@@ -1774,7 +1812,10 @@ def _merge_xmp_tree(
         _get_description_value(desc, legacy_caption_first=description_role == DESCRIPTION_ROLE_CROP),
     )
     existing_dc_dates = _normalize_dc_dates(_get_seq_values(desc, f"{{{DC_NS}}}date"))
-    normalized_dc_dates = _dedupe(existing_dc_dates + _normalize_dc_dates(dc_date)) or existing_dc_dates
+    incoming_dc_dates = _normalize_dc_dates(dc_date)
+    normalized_dc_dates = (
+        incoming_dc_dates if replace_dc_date else _dedupe(existing_dc_dates + incoming_dc_dates) or existing_dc_dates
+    )
     create_date = _coalesce_text(
         _normalize_xmp_datetime(create_date),
         _normalize_xmp_datetime(str(desc.findtext(f"{{{XMP_NS}}}CreateDate", default="") or "").strip()),
@@ -1805,13 +1846,17 @@ def _merge_xmp_tree(
         axis="lon",
     )
     if description_role == DESCRIPTION_ROLE_CROP:
+        location_address = str(location_address or "").strip()
         location_city = str(location_city or "").strip()
         location_state = str(location_state or "").strip()
         location_country = str(location_country or "").strip()
         location_sublocation = str(location_sublocation or "").strip()
     else:
+        location_address = str(location_address or "").strip()
         location_city = _coalesce_text(location_city, str(desc.findtext(f"{{{PHOTOSHOP_NS}}}City", default="") or ""))
-        location_state = _coalesce_text(location_state, str(desc.findtext(f"{{{PHOTOSHOP_NS}}}State", default="") or ""))
+        location_state = _coalesce_text(
+            location_state, str(desc.findtext(f"{{{PHOTOSHOP_NS}}}State", default="") or "")
+        )
         location_country = _coalesce_text(
             location_country,
             str(desc.findtext(f"{{{PHOTOSHOP_NS}}}Country", default="") or ""),
@@ -1821,6 +1866,7 @@ def _merge_xmp_tree(
             str(desc.findtext(f"{{{IPTC_EXT_NS}}}Sublocation", default="") or ""),
         )
     formatted_location_created = _format_location_created(
+        location_address=location_address,
         location_city=location_city,
         location_state=location_state,
         location_country=location_country,
@@ -1829,7 +1875,8 @@ def _merge_xmp_tree(
     location_created = (
         formatted_location_created
         if description_role == DESCRIPTION_ROLE_CROP
-        else formatted_location_created or str(desc.findtext(f"{{{IPTC_EXT_NS}}}LocationCreated", default="") or "").strip()
+        else formatted_location_created
+        or str(desc.findtext(f"{{{IPTC_EXT_NS}}}LocationCreated", default="") or "").strip()
     )
     source_text = _coalesce_text(source_text, str(desc.findtext(f"{{{DC_NS}}}source", default="") or ""))
     if description_role == DESCRIPTION_ROLE_CROP:
@@ -1851,7 +1898,9 @@ def _merge_xmp_tree(
     merged_locations_shown = (
         list(locations_shown) if locations_shown is not None else _read_locations_shown_from_desc(desc)
     )
-    merged_detections_payload = detections_payload if detections_payload is not None else (existing_detections_payload or None)
+    merged_detections_payload = (
+        detections_payload if detections_payload is not None else (existing_detections_payload or None)
+    )
     merged_detections_payload = _with_location_detections(
         merged_detections_payload,
         location_city=location_city,
@@ -1962,6 +2011,7 @@ def write_xmp_sidecar(
     album_title: str = "",
     gps_latitude: str = "",
     gps_longitude: str = "",
+    location_address: str = "",
     location_city: str = "",
     location_state: str = "",
     location_country: str = "",
@@ -1974,6 +2024,7 @@ def write_xmp_sidecar(
     create_date: str = "",
     dc_date: str | list[str] | tuple[str, ...] = "",
     date_time_original: str = "",
+    replace_dc_date: bool = False,
     history_when: str = "",
     image_width: int = 0,
     image_height: int = 0,
@@ -2006,6 +2057,7 @@ def write_xmp_sidecar(
             album_title=album_title,
             gps_latitude=gps_latitude,
             gps_longitude=gps_longitude,
+            location_address=location_address,
             location_city=location_city,
             location_state=location_state,
             location_country=location_country,
@@ -2045,6 +2097,7 @@ def write_xmp_sidecar(
             album_title=album_title,
             gps_latitude=gps_latitude,
             gps_longitude=gps_longitude,
+            location_address=location_address,
             location_city=location_city,
             location_state=location_state,
             location_country=location_country,
@@ -2062,6 +2115,7 @@ def write_xmp_sidecar(
             create_date=create_date,
             dc_date=dc_date,
             date_time_original=date_time_original,
+            replace_dc_date=replace_dc_date,
             history_when=history_when,
             image_width=image_width,
             image_height=image_height,
@@ -2114,7 +2168,9 @@ def propagate_archive_copy_safe_fields(
     location_city = str(view_state.get("location_city") or archive_state.get("location_city") or "")
     location_state = str(view_state.get("location_state") or archive_state.get("location_state") or "")
     location_country = str(view_state.get("location_country") or archive_state.get("location_country") or "")
-    location_sublocation = str(view_state.get("location_sublocation") or archive_state.get("location_sublocation") or "")
+    location_sublocation = str(
+        view_state.get("location_sublocation") or archive_state.get("location_sublocation") or ""
+    )
 
     has_gps = bool(gps_latitude and gps_longitude)
     has_location = bool(location_city or location_country)
@@ -2142,9 +2198,7 @@ def propagate_archive_copy_safe_fields(
         location_sublocation=location_sublocation,
         source_text=str(view_state.get("source_text") or archive_state.get("source_text") or ""),
         dc_date=str(view_state.get("dc_date") or archive_state.get("dc_date") or ""),
-        date_time_original=str(
-            view_state.get("date_time_original") or archive_state.get("date_time_original") or ""
-        ),
+        date_time_original=str(view_state.get("date_time_original") or archive_state.get("date_time_original") or ""),
         locations_shown=locations_shown,
     )
     return True
@@ -2254,7 +2308,7 @@ def write_region_list(
         region_caption = str(rwc.caption or "").strip()
         if not region_caption and photo_number > 0:
             ai_entry = metadata_photos_by_number.get(photo_number) or {}
-            region_caption = str(ai_entry.get("caption") or "").strip()
+            region_caption = str(ai_entry.get("corrected_caption") or ai_entry.get("caption") or "").strip()
 
         li = ET.SubElement(bag, _RDF_LI)
         li.set(_RDF_PARSE_TYPE, "Resource")

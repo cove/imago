@@ -134,6 +134,60 @@ class TestXMPSidecar(unittest.TestCase):
                 ],
             )
 
+    def test_write_xmp_sidecar_dedupes_locations_shown(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            location = {
+                "name": "Oxford Street",
+                "country_name": "United Kingdom",
+                "city": "London",
+                "gps_latitude": "51.5154",
+                "gps_longitude": "-0.1410",
+            }
+
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+                locations_shown=[dict(location), dict(location)],
+            )
+
+            self.assertEqual(len(xmp_sidecar.read_locations_shown(out)), 1)
+
+    def test_crop_location_created_uses_full_address(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            photos_dir = Path(tmp) / "Family_2020_B01_Photos"
+            photos_dir.mkdir()
+            out = photos_dir / "Family_2020_B01_P02_D01-00_V.xmp"
+
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                person_names=[],
+                subjects=[],
+                description="Crop",
+                source_text="Family_2020_B01_P02_S01.tif",
+                ocr_text="",
+                gps_latitude="51.5154",
+                gps_longitude="-0.1410",
+                location_address="Oxford Street, London W1C, United Kingdom",
+                location_city="London",
+                location_state="England",
+                location_country="United Kingdom",
+                location_sublocation="Oxford Street",
+            )
+
+            state = xmp_sidecar.read_ai_sidecar_state(out)
+            assert state is not None
+            self.assertEqual(state["location_created"], "Oxford Street, London W1C, United Kingdom")
+            xml = out.read_text(encoding="utf-8")
+            self.assertIn(
+                "<Iptc4xmpExt:LocationCreated>Oxford Street, London W1C, United Kingdom</Iptc4xmpExt:LocationCreated>",
+                xml,
+            )
+
     def test_write_xmp_sidecar_round_trips_ocr_authority_source(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "image.xmp"
@@ -277,6 +331,40 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertEqual(state["dc_date_values"], ["1934-09", "1934-10"])
             self.assertEqual(state["date_time_original"], "1934-09-15T12:00:00")
 
+    def test_write_xmp_sidecar_can_replace_existing_dc_dates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="scan_001.tif",
+                ocr_text="",
+                dc_date="1980",
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                subphotos=[],
+            )
+
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="scan_001.tif",
+                ocr_text="",
+                dc_date="1986",
+                replace_dc_date=True,
+                detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
+                subphotos=[],
+            )
+
+            state = xmp_sidecar.read_ai_sidecar_state(out)
+            assert state is not None
+            self.assertEqual(state["dc_date"], "1986")
+            self.assertEqual(state["dc_date_values"], ["1986"])
+            self.assertEqual(state["date_time_original"], "1986-07-01T12:00:00")
+
     def test_normalize_dc_date_coerces_partial_formatting_errors(self):
         self.assertEqual(xmp_sidecar._normalize_dc_date("1988-1"), "1988-01")
         self.assertEqual(xmp_sidecar._normalize_dc_date("1988/01/00"), "1988-01")
@@ -325,7 +413,9 @@ class TestXMPSidecar(unittest.TestCase):
             self.assertEqual(state["title_source"], "author_text")
             self.assertEqual(state["description"], "Caption:\nTemple of Heaven\nNO SMOKING\n\nScene Text:\nNO SMOKING")
             xml = out.read_text(encoding="utf-8")
-            self.assertIn('xml:lang="x-default">Caption:\nTemple of Heaven\nNO SMOKING\n\nScene Text:\nNO SMOKING</rdf:li>', xml)
+            self.assertIn(
+                'xml:lang="x-default">Caption:\nTemple of Heaven\nNO SMOKING\n\nScene Text:\nNO SMOKING</rdf:li>', xml
+            )
             self.assertNotIn('xml:lang="x-caption"', xml)
             self.assertNotIn('xml:lang="x-scene"', xml)
             self.assertIn("<imago:OCRText>Temple of Heaven", xml)
@@ -722,7 +812,12 @@ class TestXMPSidecar(unittest.TestCase):
                 description="",
                 source_text="",
                 ocr_text="",
-                detections_payload={"people": [{"name": "Alice Smith", "bbox": [1, 2, 3, 4]}], "objects": [], "ocr": {}, "caption": {}},
+                detections_payload={
+                    "people": [{"name": "Alice Smith", "bbox": [1, 2, 3, 4]}],
+                    "objects": [],
+                    "ocr": {},
+                    "caption": {},
+                },
                 image_width=200,
                 image_height=100,
             )
@@ -1171,9 +1266,12 @@ class TestXMPSidecar(unittest.TestCase):
                 ocr_text="",
             )
 
-            xmp_sidecar.write_pipeline_steps(out, {
-                "ocr": {"timestamp": "2026-04-11T07:00:00Z", "result": "ok", "input_hash": "abc123"},
-            })
+            xmp_sidecar.write_pipeline_steps(
+                out,
+                {
+                    "ocr": {"timestamp": "2026-04-11T07:00:00Z", "result": "ok", "input_hash": "abc123"},
+                },
+            )
 
             state = xmp_sidecar.read_pipeline_state(out)
             entry = state.get("ocr")

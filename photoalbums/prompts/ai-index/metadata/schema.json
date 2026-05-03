@@ -12,9 +12,10 @@
           "est_date": {"type": "string"},
           "scene_ocr": {"type": "string"},
           "caption": {"type": "string"},
+          "corrected_caption": {"type": "string"},
           "people_count": {"type": "integer"}
         },
-        "required": ["photo_number", "location", "location_name", "est_date", "scene_ocr", "caption", "people_count"],
+        "required": ["photo_number", "location", "location_name", "est_date", "scene_ocr", "caption", "corrected_caption", "people_count"],
         "additionalProperties": false
       }
     }

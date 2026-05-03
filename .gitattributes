@@ -1,2 +1,6 @@
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
 vhs/bin/** filter=lfs diff=lfs merge=lfs -text
 vhs/software/** filter=lfs diff=lfs merge=lfs -text

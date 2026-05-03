@@ -257,7 +257,10 @@
       "Bash(.venv/Scripts/python.exe -m photoalbums.scripts.diagnose_region_captions)",
       "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_ai_index.py -k \"run_image_analysis or metadata or analysis\" --no-header -q)",
       "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_ai_index.py -k \"metadata or caption or analysis or run_image\" --no-header -q)",
-      "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_ai_index_metadata_regions.py photoalbums/tests/test_xmp_sidecar.py photoalbums/tests/test_ai_index_propagate.py photoalbums/tests/test_ai_photo_crops.py --no-header -q)"
+      "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_ai_index_metadata_regions.py photoalbums/tests/test_xmp_sidecar.py photoalbums/tests/test_ai_index_propagate.py photoalbums/tests/test_ai_photo_crops.py --no-header -q)",
+      "Bash(grep \"\\\\.xmp$\")",
+      "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_incoming_scans_watcher.py -v --no-header -q)",
+      "Bash(echo \"Exit: $?\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",
@@ -267,5 +270,6 @@
   },
   "disabledMcpjsonServers": [
     "imago"
-  ]
+  ],
+  "outputStyle": "Explanatory"
 }

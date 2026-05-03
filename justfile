@@ -19,8 +19,8 @@ test:
 evals:
    {{python}} -m pytest photoalbums/tests/test_rule_extraction_eval.py -v -m integration -s
 
-format:
-  {{ruff}} format .
+format *paths:
+  {{ruff}} format {{if paths != "" { paths } else { "." }}}
 
 lint:
   {{python}} scripts/check_ruff.py

@@ -3,3 +3,4 @@
 - Problem to fix: {problem_to_fix}
 - Do not rewrite unrelated concerns that were already good.
 - Keep answer scoped to the named concern and its routing fields.
+- For date retries, if the problem says the current date conflicts with the file naming convention, use the filename or album-title year as the correction unless visible page text supports a more precise date in that same year.

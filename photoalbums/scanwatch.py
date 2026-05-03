@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import time
 import uuid
 import threading
@@ -29,6 +30,7 @@ try:
         process_tiff_in_place,
         rename_with_retry,
     )
+    from .terminal_images import display_inline_image
 except ImportError:
     from common import (
         INCOMING_NAME,
@@ -42,6 +44,7 @@ except ImportError:
         process_tiff_in_place,
         rename_with_retry,
     )
+    from terminal_images import display_inline_image
 
 try:
     from .scanwatch_core import (
@@ -66,6 +69,8 @@ except ImportError:
         validate_stitch,
     )
 
+INCOMING_BACKLOG_RE = re.compile(r"^incoming_scan(?P<number>\d{4})\.tif$", re.IGNORECASE)
+
 
 class ScanWatchService:
     def __init__(
@@ -81,6 +86,7 @@ class ScanWatchService:
         process_tiff_fn=process_tiff_in_place,
         validate_stitch_fn=validate_stitch,
         open_image_fn=open_image_fullscreen,
+        display_image_fn=display_inline_image,
     ) -> None:
         self.root = _normalize_path(root)
         self.incoming_name = incoming_name
@@ -92,12 +98,14 @@ class ScanWatchService:
         self.process_tiff_fn = process_tiff_fn
         self.validate_stitch_fn = validate_stitch_fn
         self.open_image_fn = open_image_fn
+        self.display_image_fn = display_image_fn
         self._lock = threading.RLock()
         self._events: dict[str, ScanEvent] = {}
         self._events_by_path: dict[str, str] = {}
         self._archives: dict[str, ArchiveState] = {}
         self._observer: Observer | None = None
         self._handler: IncomingScanHandler | None = None
+        self._auto_apply_lock = threading.Lock()
 
     def set_root(self, root: str | Path) -> None:
         self.root = _normalize_path(root)
@@ -183,7 +191,7 @@ class ScanWatchService:
         for path in self.root.rglob("*"):
             if not path.is_file():
                 continue
-            if path.name.lower() == self.incoming_name.lower():
+            if self._is_incoming_name(path.name):
                 archive_dir = str(path.parent.resolve(strict=False))
                 event = ScanEvent(
                     id=str(uuid.uuid4())[:8],
@@ -232,22 +240,25 @@ class ScanWatchService:
         observer.start()
         self._handler = handler
         self._observer = observer
+        threading.Thread(target=self.apply_pending_incoming_scans, daemon=True).start()
         return self.status()
 
-    def stop(self) -> dict[str, object]:
+    def stop(self, *, timeout: float | None = 5.0) -> dict[str, object]:
         observer = self._observer
         self._observer = None
         self._handler = None
         if observer is None:
             return self.status()
         observer.stop()
-        observer.join()
+        observer.join(timeout=timeout)
+        if observer.is_alive():
+            self.log_error_fn(f"Watcher observer did not stop within {timeout} seconds.")
         return self.status()
 
     def register_incoming(self, incoming_path: str | Path) -> ScanEvent:
         path = _normalize_path(incoming_path)
-        if path.name.lower() != self.incoming_name.lower():
-            raise ValueError(f"Expected {self.incoming_name}, got {path.name}")
+        if not self._is_incoming_name(path.name):
+            raise ValueError(f"Expected {self.incoming_name} or incoming_scan####.tif, got {path.name}")
         archive_dir = str(path.parent)
 
         with self._lock:
@@ -269,6 +280,35 @@ class ScanWatchService:
             archive.incoming_path = event.incoming_path
             archive.pending_event_ids.append(event.id)
             return event
+
+    def apply_pending_incoming_scans(
+        self,
+        root: str | Path | None = None,
+        *,
+        log_info_fn: Callable[[str], None] | None = None,
+    ) -> list[dict[str, object]]:
+        log_info = log_info_fn or self.log_info_fn
+        with self._auto_apply_lock:
+            self._register_existing_incoming_scans(root)
+            results = []
+            for event in self._pending_incoming_events(root):
+                with self._lock:
+                    current = self._events.get(event.id)
+                    if current is None or current.status != "pending":
+                        continue
+                target_name = get_next_filename(event.archive_dir)
+                log_info(f"Auto-applying scan event {event.id} -> {target_name}")
+                try:
+                    results.append(self.apply_decision(event.id, target_name))
+                except Exception as exc:
+                    self.log_error_fn(f"Auto-apply scan event {event.id} failed: {exc}")
+                    with self._lock:
+                        failed = self._events.get(event.id)
+                        if failed is not None:
+                            failed.status = "failed"
+                            failed.note = str(exc)
+                            failed.updated_at = _now()
+            return results
 
     def apply_decision(
         self,
@@ -310,6 +350,8 @@ class ScanWatchService:
                 event.updated_at = _now()
             return event.to_dict()
 
+        self.display_image_fn(new_path, title=f"Renamed scan: {target_name}", log_error=self.log_error_fn)
+
         with self._lock:
             self._events_by_path.pop(event.incoming_path, None)
 
@@ -322,8 +364,12 @@ class ScanWatchService:
             if len(files) >= 2:
                 stitch_validated, preview_path = self.validate_stitch_fn(files, save_preview=True)
                 if stitch_validated and preview_path is not None and open_preview:
-                    viewer = self.open_image_fn(str(preview_path))
-                    cleanup_preview_file(preview_path, viewer)
+                    self.display_image_fn(
+                        preview_path,
+                        title=f"Stitched preview: page {page_num:02d}",
+                        log_error=self.log_error_fn,
+                    )
+                    cleanup_preview_file(preview_path)
                 elif preview_path is not None:
                     cleanup_preview_file(preview_path)
 
@@ -437,6 +483,37 @@ class ScanWatchService:
             return None
         return int(match.group("page"))
 
+    def _is_incoming_name(self, name: str) -> bool:
+        return name.lower() == self.incoming_name.lower() or INCOMING_BACKLOG_RE.fullmatch(name) is not None
+
+    def _register_existing_incoming_scans(self, root: str | Path | None = None) -> None:
+        scan_root = _normalize_path(root) if root is not None else self.root
+        if not scan_root.exists():
+            return
+        paths = [path for path in scan_root.rglob("*") if path.is_file() and self._is_incoming_name(path.name)]
+        for path in sorted(paths, key=self._incoming_path_sort_key):
+            self.register_incoming(path)
+
+    def _pending_incoming_events(self, root: str | Path | None = None) -> list[ScanEvent]:
+        scan_root = _normalize_path(root) if root is not None else None
+        with self._lock:
+            events = [
+                event
+                for event in self._events.values()
+                if event.status == "pending"
+                and self._is_incoming_name(Path(event.incoming_path).name)
+                and (scan_root is None or Path(event.incoming_path).is_relative_to(scan_root))
+            ]
+        return sorted(events, key=lambda event: self._incoming_path_sort_key(event.incoming_path))
+
+    @staticmethod
+    def _incoming_path_sort_key(path: str | Path) -> tuple[int, int, str]:
+        path = Path(path)
+        match = INCOMING_BACKLOG_RE.fullmatch(path.name)
+        if match is not None:
+            return (0, int(match.group("number")), str(path))
+        return (1, 0, str(path))
+
 
 class IncomingScanHandler(FileSystemEventHandler):
     def __init__(
@@ -452,16 +529,14 @@ class IncomingScanHandler(FileSystemEventHandler):
         self.log_info_fn = log_info_fn or print
 
     def _handle_incoming(self, path: str) -> None:
-        if Path(path).name.lower() != self.service.incoming_name.lower():
+        incoming_path = Path(path)
+        if not self.service._is_incoming_name(incoming_path.name):
             return
         self.sleep_fn(2.0)
-        scan_event = self.service.register_incoming(path)
-        archive_dir = scan_event.archive_dir
-        target_name = get_next_filename(archive_dir)
-        self.log_info_fn(f"Auto-applying scan event {scan_event.id} -> {target_name}")
         threading.Thread(
-            target=self.service.apply_decision,
-            args=(scan_event.id, target_name),
+            target=self.service.apply_pending_incoming_scans,
+            args=(incoming_path.parent,),
+            kwargs={"log_info_fn": self.log_info_fn},
             daemon=True,
         ).start()
 
@@ -478,16 +553,17 @@ class IncomingScanHandler(FileSystemEventHandler):
 
 def main() -> None:
     service = ScanWatchService(root=PHOTO_ALBUMS_DIR)
-    print(f"Starting watcher — scanning {service.root} ...")
-    status = service.start()
-    print(f"Watching for {service.incoming_name} in:")
-    print(status["root"])
-
     try:
+        print(f"Starting watcher - scanning {service.root} ...")
+        status = service.start()
+        print(f"Watching for {service.incoming_name} in:")
+        print(status["root"])
+
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        service.stop()
+        service.stop(timeout=2.0)
+        print("Watcher stopped.")
 
 
 __all__ = [

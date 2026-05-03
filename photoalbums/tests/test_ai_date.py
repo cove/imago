@@ -14,6 +14,17 @@ from photoalbums.lib import ai_date
 
 
 class TestAIDate(unittest.TestCase):
+    def test_date_estimate_prompt_includes_filename_year(self):
+        prompt = ai_date._build_date_estimate_prompt(
+            ocr_text="BILL GOODWIN IN THE PARK",
+            album_title="Mainland China Book II",
+            source_path=Path("MainlandChina_1986_B01_P04_D01-00_V.jpg"),
+        )
+
+        self.assertIn("Image file: MainlandChina_1986_B01_P04_D01-00_V.jpg", prompt)
+        self.assertIn("Filename year: 1986", prompt)
+        self.assertIn("use the filename year as the fallback year", prompt)
+
     def test_parse_date_estimate_coerces_zero_day_to_month_precision(self):
         self.assertEqual(
             ai_date._parse_date_estimate('{"date":"1988-01-00"}'),
