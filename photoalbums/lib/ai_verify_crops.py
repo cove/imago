@@ -700,6 +700,7 @@ def _write_retry_sidecar(
         create_date=_clean_text(state.get("create_date")),
         dc_date=_clean_text(dc_date if dc_date is not None else state.get("dc_date")),
         date_time_original=_clean_text(state.get("date_time_original")),
+        replace_dc_date=dc_date is not None,
         ocr_ran=bool(state.get("ocr_ran")),
         people_detected=bool(state.get("people_detected")),
         people_identified=bool(state.get("people_identified")),

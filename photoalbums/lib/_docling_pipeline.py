@@ -55,7 +55,6 @@ def _get_region_result():
     return _RegionResult
 
 
-
 def _to_jsonable(value: Any) -> Any:
     if hasattr(value, "export_to_dict"):
         return value.export_to_dict()  # type: ignore[no-any-return]
@@ -209,6 +208,19 @@ def run_docling_pipeline(
                 page_height = float(doc.pages[prov.page_no].size.height)
             bbox = prov.bbox.to_top_left_origin(page_height=page_height)
             left, top, right, bottom = bbox.as_tuple()
+
+            caption_hint = ""
+            if hasattr(item, "captions") and item.captions:
+                caption_ref = item.captions[0]
+                if hasattr(caption_ref, "cref") and caption_ref.cref:
+                    text_idx_str = caption_ref.cref.split("/")[-1]
+                    try:
+                        text_idx = int(text_idx_str)
+                        if hasattr(doc, "texts") and 0 <= text_idx < len(doc.texts):
+                            caption_hint = str(getattr(doc.texts[text_idx], "text", "")).strip()
+                    except (ValueError, IndexError, AttributeError):
+                        pass
+
             regions.append(
                 RegionResult(
                     index=len(regions),
@@ -216,6 +228,7 @@ def run_docling_pipeline(
                     y=max(0, round(top)),
                     width=max(1, round(right - left)),
                     height=max(1, round(bottom - top)),
+                    caption_hint=caption_hint,
                 )
             )
 

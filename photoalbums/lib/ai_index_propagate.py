@@ -19,6 +19,7 @@ from .xmp_sidecar import (
 from .metadata_resolver import (
     location_shown_from_payload,
     location_payload_from_caption,
+    materialize_location_payload,
     normalize_location_payload,
     resolve_crop_location,
     resolve_crop_locations_shown,
@@ -35,6 +36,7 @@ def _get_image_dimensions_safe(image_path: Path) -> tuple[int, int]:
     try:
         from PIL import Image as _PILImage
         from .image_limits import allow_large_pillow_images
+
         allow_large_pillow_images(_PILImage)
         with _PILImage.open(str(image_path)) as img:
             return img.size
@@ -128,32 +130,10 @@ def _resolve_crop_metadata(
 
 
 def _materialize_crop_location(payload: dict[str, Any] | None, *, geocoder: Any = None) -> dict[str, Any]:
-    normalized = normalize_location_payload(payload)
-    if not normalized:
-        return {}
-    address = str(normalized.get("address") or "").strip()
-    has_gps = bool(normalized.get("gps_latitude") and normalized.get("gps_longitude"))
-    if not has_gps and address and geocoder is not None:
-        from .ai_location import _resolve_location_payload  # pylint: disable=import-outside-toplevel
-
-        geocoded = _resolve_location_payload(
-            geocoder=geocoder,
-            gps_latitude="",
-            gps_longitude="",
-            location_name=address,
-        )
-        if geocoded:
-            merged = dict(geocoded)
-            for key in ("address", "city", "state", "country", "sublocation"):
-                if normalized.get(key):
-                    merged[key] = normalized[key]
-            return merged
-    return normalized
+    return materialize_location_payload(payload, geocoder=geocoder)
 
 
-def _build_detections_payload(
-    existing_state: dict, crop_location: dict, step_timestamp: str
-) -> dict:
+def _build_detections_payload(existing_state: dict, crop_location: dict, step_timestamp: str) -> dict:
     existing_detections = dict(existing_state.get("detections") or {})
     if crop_location:
         existing_detections["location"] = crop_location
@@ -199,6 +179,7 @@ def _write_propagated_crop(
         album_title=_str_field(existing_state, "album_title"),
         gps_latitude=_str_field(crop_location, "gps_latitude").strip(),
         gps_longitude=_str_field(crop_location, "gps_longitude").strip(),
+        location_address=_str_field(crop_location, "address").strip(),
         location_city=_str_field(crop_location, "city").strip(),
         location_state=_str_field(crop_location, "state").strip(),
         location_country=_str_field(crop_location, "country").strip(),
@@ -281,11 +262,7 @@ def run_propagate_to_crops(
         and not normalize_location_payload(location).get("gps_latitude")
         for location in locations_shown
         if isinstance(location, dict)
-    ) or any(
-        location_payload_from_caption(_region_caption(region))
-        for region in regions
-        if isinstance(region, dict)
-    ):
+    ) or any(location_payload_from_caption(_region_caption(region)) for region in regions if isinstance(region, dict)):
         from .ai_geocode import NominatimGeocoder  # pylint: disable=import-outside-toplevel
 
         geocoder = NominatimGeocoder()

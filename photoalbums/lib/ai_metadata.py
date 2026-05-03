@@ -49,7 +49,13 @@ def _metadata_params() -> dict:
 
 def _metadata_prompt_metadata(resolved_params: dict) -> dict:
     metadata: dict = {}
-    metadata.update(prompt_metadata(load_prompt("ai-index/metadata/system.md"), load_prompt("ai-index/metadata/user.md"), load_schema("ai-index/metadata/schema.json")))
+    metadata.update(
+        prompt_metadata(
+            load_prompt("ai-index/metadata/system.md"),
+            load_prompt("ai-index/metadata/user.md"),
+            load_schema("ai-index/metadata/schema.json"),
+        )
+    )
     metadata.update(params_metadata(load_params("ai-index/metadata/params.toml"), resolved_params))
     return metadata
 
@@ -68,6 +74,7 @@ class MetadataPhotoResult:
     est_date: str = ""
     scene_ocr: str = ""
     caption: str = ""
+    corrected_caption: str = ""
     people_count: int = 0
 
 
@@ -108,15 +115,18 @@ def _parse_metadata_response(value: object, *, finish_reason: str = "") -> Metad
     photos: list[MetadataPhotoResult] = []
     for photo_data in list(payload.get("photos") or []):
         if isinstance(photo_data, dict):
-            photos.append(MetadataPhotoResult(
-                photo_number=int(photo_data.get("photo_number") or 0),
-                location=str(photo_data.get("location") or "").strip(),
-                location_name=str(photo_data.get("location_name") or "").strip(),
-                est_date=str(photo_data.get("est_date") or "").strip(),
-                scene_ocr=str(photo_data.get("scene_ocr") or "").strip(),
-                caption=str(photo_data.get("caption") or "").strip(),
-                people_count=int(photo_data.get("people_count") or 0),
-            ))
+            photos.append(
+                MetadataPhotoResult(
+                    photo_number=int(photo_data.get("photo_number") or 0),
+                    location=str(photo_data.get("location") or "").strip(),
+                    location_name=str(photo_data.get("location_name") or "").strip(),
+                    est_date=str(photo_data.get("est_date") or "").strip(),
+                    scene_ocr=str(photo_data.get("scene_ocr") or "").strip(),
+                    caption=str(photo_data.get("caption") or "").strip(),
+                    corrected_caption=str(photo_data.get("corrected_caption") or "").strip(),
+                    people_count=int(photo_data.get("people_count") or 0),
+                )
+            )
     return MetadataResult(photos=photos)
 
 
@@ -188,9 +198,7 @@ class MetadataEngine(LMStudioModelResolverMixin):
                 response="",
                 finish_reason="",
                 metadata={
-                    **_metadata_prompt_metadata(
-                        {"max_tokens": self.max_tokens, "temperature": self.temperature}
-                    ),
+                    **_metadata_prompt_metadata({"max_tokens": self.max_tokens, "temperature": self.temperature}),
                     "skipped": True,
                 },
             )

@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..naming import parse_album_filename
 from ._caption_lmstudio import (
     DEFAULT_LMSTUDIO_TIMEOUT_SECONDS,
     _decode_lmstudio_text,
@@ -30,7 +31,9 @@ _DATE_SYSTEM_PROMPT = (
     "- You estimate a photo date for XMP `dc:date`.\n"
     "- Return only valid JSON matching the response_format schema.\n"
     "- Use OCR text as the primary source of truth.\n"
-    "- If OCR text does not support a date, fall back to the album title.\n"
+    "- If OCR text does not support a date, fall back to the filename year, then the album title.\n"
+    "- When OCR text supports a month or day but no year, use the filename year if available, otherwise the album title year.\n"
+    "- Do not infer a different year from visual style when a filename year or album title year is available.\n"
     "- Return the most precise supported W3C date value: `YYYY-MM-DD`, `YYYY-MM`, `YYYY`, or an empty string.\n"
     "- Do not invent a month or day unless the supplied text supports it.\n"
     "- If the source only supports an approximate or rounded date, return the nearest honest precision instead of inventing missing parts.\n"
@@ -42,7 +45,9 @@ _DATE_SYSTEM_PROMPT = (
 _DATE_USER_PROMPT = (
     "- Estimate a single photo date for XMP `dc:date`.\n"
     "- First look for an explicit or strongly implied date in the OCR text.\n"
-    "- If the OCR text does not support a date, use the album title as the fallback date range hint.\n"
+    "- If the OCR text does not support a date, use the filename year as the fallback year, then the album title year.\n"
+    "- If OCR text gives a month or day without a year, combine that precision with the filename year, then the album title year.\n"
+    "- Treat the filename year as album context, not as a technical capture date.\n"
     "- Treat month abbreviations with or without a trailing period as explicit month evidence, even when OCR spacing is imperfect.\n"
     "- When only a year is supported, return the year only.\n"
     "- When a month and year are supported, return `YYYY-MM`.\n"
@@ -57,12 +62,12 @@ _DATE_USER_PROMPT = (
     "- Never return `00` for an unknown month or day; reduce precision instead.\n"
     "- Example: `January 1988` -> `1988-01`, not `1988-01-00`.\n"
     "- Example: `1988` -> `1988`, not `1988-00` or `1988-00-00`.\n"
-    "- If neither OCR text nor album title supports any date estimate, return the empty string."
+    "- If neither OCR text, filename, nor album title supports any date estimate, return the empty string."
 )
 _DATE_OUTPUT_PROMPT = (
     '`{"date": ""}`\n'
     "- `date`: estimated W3C date string for `dc:date`, using one of `YYYY-MM-DD`, `YYYY-MM`, `YYYY`, or `\"\"`.\n"
-    "- Prefer OCR evidence over album-title fallback.\n"
+    "- Prefer OCR evidence over filename or album-title fallback.\n"
     "- Just return the JSON without any extra text or explanation."
 )
 
@@ -79,10 +84,23 @@ def _date_prompt_metadata(resolved_params: dict[str, object]) -> dict[str, objec
     return {}
 
 
-def _build_date_estimate_prompt(*, ocr_text: str, album_title: str) -> str:
+def _filename_year(source_path: str | Path | None) -> str:
+    if source_path is None:
+        return ""
+    _collection, year, _book, _page = parse_album_filename(Path(source_path).name)
+    return year if year != "Unknown" else ""
+
+
+def _build_date_estimate_prompt(*, ocr_text: str, album_title: str, source_path: str | Path | None = None) -> str:
     lines = [_DATE_USER_PROMPT]
     clean_album_title = str(album_title or "").strip()
     clean_ocr_text = str(ocr_text or "").strip()
+    clean_source_name = Path(source_path).name if source_path is not None else ""
+    clean_filename_year = _filename_year(source_path)
+    if clean_source_name:
+        lines.append(f"Image file: {clean_source_name}")
+    if clean_filename_year:
+        lines.append(f"Filename year: {clean_filename_year}")
     if clean_album_title:
         lines.append(f"Album title: {clean_album_title}")
     if clean_ocr_text:
@@ -172,7 +190,7 @@ class DateEstimateEngine(LMStudioModelResolverMixin):
         debug_recorder=None,
         debug_step: str = "date_estimate",
     ) -> DateEstimateOutput:
-        base_prompt = _build_date_estimate_prompt(ocr_text=ocr_text, album_title=album_title)
+        base_prompt = _build_date_estimate_prompt(ocr_text=ocr_text, album_title=album_title, source_path=source_path)
         prompt = "\n\n".join(part for part in (str(prompt_prefix or "").strip(), base_prompt) if part).strip()
         system_prompt = date_estimate_system_prompt()
         response = ""

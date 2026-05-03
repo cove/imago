@@ -4,7 +4,7 @@
 - Judge whether the GPS coordinates are generally consistent with the crop image and `dc:description`.
 - For GPS and shown-location concerns, use the supplied location verification evidence: GPS coordinates plus Nominatim reverse-lookup name. OCR text is intentionally not supplied for location verification.
 - If the reverse-lookup name and GPS coordinates align with what is visible in the image or stated in `dc:description`, consider the location grounded and mark it as good.
-- Judge whether date preserves the best supported precision from the page, including month-plus-year evidence such as `AUG. 1988` -> `1988-08` that are not standard but can be understood by a human still.
+- Judge whether date preserves the best supported precision from the page, including month-plus-year evidence such as `AUG. 1988` -> `1988-08` that is non-standard but human-readable. If no date is visible in the page context, accept the album title year as the correct fallback year. Do not mark an album-title-year-only date as uncertain merely because the page itself lacks a visible date.
 - If page image context is missing, do not pretend a full review happened.
 - If page XMP text context is missing, do not pretend a full metadata-context review happened.
 - Base your verdicts on what a human flipping through the album would accept as belonging together.

@@ -54,6 +54,17 @@ HTML = r"""<!DOCTYPE html>
   .search-box button:hover { background: #243046; }
   .search-box button:disabled { opacity: 0.5; cursor: not-allowed; }
 
+  .location-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
+  .location-table th, .location-table td { border-bottom: 1px solid #2b2b2b; padding: 6px 4px; vertical-align: top; text-align: left; }
+  .location-table th { color: #888; font-size: 11px; text-transform: uppercase; font-weight: 700; }
+  .location-table td { color: #bbb; }
+  .location-table .field-kind { color: #dbe7ff; font-weight: 700; white-space: nowrap; }
+  .location-table .row-actions { display: flex; flex-direction: column; gap: 4px; min-width: 100px; }
+  .location-table input { width: 100%; min-width: 130px; padding: 6px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; font-size: 12px; }
+  .location-table button { padding: 5px 7px; border-radius: 4px; border: 1px solid #4a7fc1; background: #1d2940; color: #dbe7ff; font-size: 12px; cursor: pointer; }
+  .location-table button:hover { background: #243046; }
+  .location-table button.danger { border-color: #8b3838; background: #3a1717; color: #ffd7d7; }
+
   .details-card .tag { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #666; font-weight: 600; }
   .details-card p { font-size: 13px; color: #aaa; }
   .details-card .empty { font-size: 12px; color: #555; font-style: italic; text-align: center; padding: 20px; }
@@ -277,16 +288,65 @@ HTML = r"""<!DOCTYPE html>
     return `/api/image?path=${encodeURIComponent(path)}`;
   }
 
+  function safeText(val) {
+    return val ? String(val).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';
+  }
+
+  function locationSummary(row) {
+    return [
+      row.location_created,
+      row.name,
+      row.sublocation,
+      row.city,
+      row.province_or_state || row.state,
+      row.country_name || row.country,
+      row.gps_latitude && row.gps_longitude ? `${row.gps_latitude}, ${row.gps_longitude}` : ''
+    ].filter(Boolean).join(', ');
+  }
+
+  function renderLocationTable(data) {
+    const shownRows = Array.isArray(data.locations_shown) ? data.locations_shown : [];
+    const rows = [
+      {
+        kind: 'Created',
+        idx: -1,
+        deletable: false,
+        location_created: data.location_created || [data.city, data.state, data.country].filter(Boolean).join(', '),
+        city: data.city || '',
+        state: data.state || '',
+        country: data.country || '',
+        gps_latitude: data.lat || '',
+        gps_longitude: data.lon || ''
+      },
+      ...shownRows.map((row, idx) => Object.assign({ kind: 'Shown', idx, deletable: true }, row))
+    ];
+    const body = rows.map(row => `
+      <tr>
+        <td class="field-kind">${row.kind}</td>
+        <td>${safeText(locationSummary(row)) || '(Unknown)'}</td>
+        <td class="row-actions">
+          <input id="location-search-${row.idx}" type="text" placeholder="Search location..." onkeydown="if(event.key==='Enter') searchLocation(${row.idx})">
+          <button onclick="searchLocation(${row.idx})">Move</button>
+          ${row.deletable ? `<button class="danger" onclick="deleteShownLocation(${row.idx})">Remove</button>` : ''}
+        </td>
+      </tr>
+    `).join('');
+    return `
+      <table class="location-table">
+        <thead><tr><th>Field</th><th>Value</th><th>Edit</th></tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+      <button onclick="addShownLocation()" style="margin-top:8px;padding:6px 10px;border-radius:4px;border:1px solid #4a7fc1;background:#1d2940;color:#dbe7ff;cursor:pointer;">Add Shown Location</button>
+    `;
+  }
+
   function renderSidebar(data) {
     const content = document.getElementById('sidebar-content');
     if (!data) {
       content.innerHTML = `<div class="details-card"><div class="empty">Select a marker on the map to view XMP details.</div></div>`;
       return;
     }
-    const safe = (val) => val ? String(val).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';
-    
-    // Attempt to render image, plus relevant OCR or description details
-    const locText = [data.city, data.state, data.country].filter(Boolean).join(', ');
+    const safe = safeText;
 
     let navHtml = '';
     if (currentLocationItems.length > 1) {
@@ -306,12 +366,8 @@ HTML = r"""<!DOCTYPE html>
         <div class="info">
           <h2>${safe(data.path.split(/[\\/]/).pop())}</h2>
           <div>
-            <div class="tag">Address</div>
-            <p>${safe(locText) || '(Unknown)'}</p>
-            <div class="search-box">
-              <input type="text" id="location-search" placeholder="Type new location..." onkeydown="if(event.key==='Enter') searchLocation()">
-              <button id="search-btn" onclick="searchLocation()">Move Here</button>
-            </div>
+            <div class="tag">Locations</div>
+            ${renderLocationTable(data)}
           </div>
           <div>
             <div class="tag">OCR Text</div>
@@ -467,9 +523,9 @@ HTML = r"""<!DOCTYPE html>
     }
   }
 
-  async function searchLocation() {
-    const input = document.getElementById('location-search');
-    const btn = document.getElementById('search-btn');
+  async function searchLocation(locIdx = -1) {
+    const input = document.getElementById(`location-search-${locIdx}`);
+    const btn = input ? input.parentElement.querySelector('button') : null;
     if (!input || !input.value.trim() || !selectedMarkerKey) return;
     
     input.disabled = true;
@@ -490,32 +546,39 @@ HTML = r"""<!DOCTYPE html>
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           path: selectedMarkerKey,
-          query: input.value.trim()
+          query: input.value.trim(),
+          loc_idx: locIdx
         })
       });
       const result = await resp.json();
       if (result.ok) {
-        undoStack.push({
-           path: itemData.path,
-           lat: itemData.lat,
-           lon: itemData.lon,
-           city: '', // Don't have prev city easily, lat/lon is used for undo
-           state: '',
-           country: ''
-        });
-        updateUndoButton();
+        if (locIdx < 0) {
+          undoStack.push({
+             path: itemData.path,
+             lat: itemData.lat,
+             lon: itemData.lon,
+             city: '', // Don't have prev city easily, lat/lon is used for undo
+             state: '',
+             country: ''
+          });
+          updateUndoButton();
 
-        marker.setLatLng([result.lat, result.lon]);
-        map.panTo([result.lat, result.lon]);
-        showToast(`Moved to ${result.city || result.country || 'new location'}`);
+          marker.setLatLng([result.lat, result.lon]);
+          map.panTo([result.lat, result.lon]);
+        }
+        showToast(`Updated ${locIdx < 0 ? 'created' : 'shown'} location`);
         
         const originalItem = allItemsData.get(selectedMarkerKey);
         if (originalItem) {
-           originalItem.lat = result.lat;
-           originalItem.lon = result.lon;
-           originalItem.city = result.city;
-           originalItem.state = result.state;
-           originalItem.country = result.country;
+           if (locIdx < 0) {
+             originalItem.lat = result.lat;
+             originalItem.lon = result.lon;
+             originalItem.city = result.city;
+             originalItem.state = result.state;
+             originalItem.country = result.country;
+             originalItem.location_created = result.location_created || result.query || [result.city, result.state, result.country].filter(Boolean).join(', ');
+           }
+           originalItem.locations_shown = result.locations_shown || originalItem.locations_shown || [];
            renderSidebar(originalItem);
         }
       } else {
@@ -531,9 +594,45 @@ HTML = r"""<!DOCTYPE html>
       if (input) input.disabled = false;
       if (btn) {
         btn.disabled = false;
-        btn.textContent = 'Move Here';
+        btn.textContent = 'Move';
       }
     }
+  }
+
+  async function deleteShownLocation(locIdx) {
+    if (!selectedMarkerKey || locIdx < 0) return;
+    try {
+      const resp = await fetch('/api/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          path: selectedMarkerKey,
+          action: 'delete_shown_location',
+          loc_idx: locIdx
+        })
+      });
+      const result = await resp.json();
+      if (!result.ok) {
+        showToast(result.error || 'Remove failed', 'error');
+        return;
+      }
+      const item = allItemsData.get(selectedMarkerKey);
+      if (item) {
+        item.locations_shown = result.locations_shown || [];
+        renderSidebar(item);
+      }
+      showToast('Removed shown location');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  function addShownLocation() {
+    const item = allItemsData.get(selectedMarkerKey);
+    if (!item) return;
+    if (!Array.isArray(item.locations_shown)) item.locations_shown = [];
+    item.locations_shown.push({});
+    renderSidebar(item);
   }
 
   async function loadMarkers() {
@@ -713,6 +812,8 @@ class MapHandler(BaseHTTPRequestHandler):
                     "city": city,
                     "state": str(state.get("location_state", "") or ""),
                     "country": str(state.get("location_country", "") or ""),
+                    "location_created": str(state.get("location_created", "") or ""),
+                    "location_sublocation": str(state.get("location_sublocation", "") or ""),
                     "ocr_text": str(state.get("ocr_text", "") or ""),
                     "description": str(state.get("description", "") or ""),
                     "locations_shown": read_locations_shown(p),
@@ -876,6 +977,22 @@ class MapHandler(BaseHTTPRequestHandler):
                 exif_state = state
                 exif_country = country
 
+        updated_detections = dict(existing.get("detections") or {})
+        if action != "delete_shown_location" and idx < 0:
+            new_loc: dict = {
+                "gps_latitude": float(lat),
+                "gps_longitude": float(lon),
+                "map_datum": "WGS-84",
+                "source": "nominatim",
+            }
+            if city:
+                new_loc["city"] = city
+            if state:
+                new_loc["state"] = state
+            if country:
+                new_loc["country"] = country
+            updated_detections["location"] = new_loc
+
         write_xmp_sidecar(
             target_path,
             person_names=read_person_in_image(target_path),
@@ -884,6 +1001,9 @@ class MapHandler(BaseHTTPRequestHandler):
             ocr_text=str(existing.get("ocr_text", "")),
             gps_latitude=exif_lat,
             gps_longitude=exif_lon,
+            location_address=(
+                str(existing.get("location_created", "")) if idx >= 0 or action == "delete_shown_location" else ""
+            ),
             location_city=exif_city,
             location_state=exif_state,
             location_country=exif_country,
@@ -899,14 +1019,23 @@ class MapHandler(BaseHTTPRequestHandler):
             dc_date=str(existing.get("dc_date", "")),
             date_time_original=str(existing.get("date_time_original", "")),
             stitch_key=str(existing.get("stitch_key", "")),
-            detections_payload=existing.get("detections"),
+            detections_payload=updated_detections,
             ocr_ran=bool(existing.get("ocr_ran")),
             people_detected=bool(existing.get("people_detected")),
             people_identified=bool(existing.get("people_identified")),
             source_text=str(existing.get("source_text", "")),
         )
 
-        self._send_json({"ok": True, "city": city, "state": state, "country": country})
+        self._send_json(
+            {
+                "ok": True,
+                "city": city,
+                "state": state,
+                "country": country,
+                "location_created": ", ".join(part for part in (city, state, country) if part),
+                "locations_shown": read_locations_shown(target_path),
+            }
+        )
 
     def _handle_geocode_and_update(self) -> None:
         try:
@@ -957,7 +1086,7 @@ class MapHandler(BaseHTTPRequestHandler):
             locations_shown[idx]["city"] = city
             locations_shown[idx]["province_or_state"] = state
             locations_shown[idx]["country_name"] = country
-            locations_shown[idx]["name"] = city
+            locations_shown[idx]["name"] = str(query or city)
             locations_shown[idx]["gps_latitude"] = str(lat)
             locations_shown[idx]["gps_longitude"] = str(lon)
 
@@ -973,6 +1102,23 @@ class MapHandler(BaseHTTPRequestHandler):
             exif_state = state
             exif_country = country
 
+        updated_detections = dict(existing.get("detections") or {})
+        if idx < 0:
+            new_loc: dict = {
+                "gps_latitude": float(lat),
+                "gps_longitude": float(lon),
+                "map_datum": "WGS-84",
+                "source": "nominatim",
+                "query": query,
+            }
+            if city:
+                new_loc["city"] = city
+            if state:
+                new_loc["state"] = state
+            if country:
+                new_loc["country"] = country
+            updated_detections["location"] = new_loc
+
         write_xmp_sidecar(
             target_path,
             person_names=read_person_in_image(target_path),
@@ -981,6 +1127,7 @@ class MapHandler(BaseHTTPRequestHandler):
             ocr_text=str(existing.get("ocr_text", "")),
             gps_latitude=exif_lat,
             gps_longitude=exif_lon,
+            location_address=str(query or "") if idx < 0 else str(existing.get("location_created", "")),
             location_city=exif_city,
             location_state=exif_state,
             location_country=exif_country,
@@ -996,7 +1143,7 @@ class MapHandler(BaseHTTPRequestHandler):
             dc_date=str(existing.get("dc_date", "")),
             date_time_original=str(existing.get("date_time_original", "")),
             stitch_key=str(existing.get("stitch_key", "")),
-            detections_payload=existing.get("detections"),
+            detections_payload=updated_detections,
             ocr_ran=bool(existing.get("ocr_ran")),
             people_detected=bool(existing.get("people_detected")),
             people_identified=bool(existing.get("people_identified")),
@@ -1004,7 +1151,18 @@ class MapHandler(BaseHTTPRequestHandler):
         )
 
         self._send_json(
-            {"ok": True, "lat": lat, "lon": lon, "city": city, "state": state, "country": country, "loc_idx": idx}
+            {
+                "ok": True,
+                "lat": lat,
+                "lon": lon,
+                "city": city,
+                "state": state,
+                "country": country,
+                "loc_idx": idx,
+                "query": query,
+                "location_created": str(query or ""),
+                "locations_shown": read_locations_shown(target_path),
+            }
         )
 
     def _send_html(self, content: str) -> None:

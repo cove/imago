@@ -169,6 +169,7 @@ def _write_sidecar_and_record(
     create_date: str = "",
     dc_date: str | list[str] = "",
     date_time_original: str = "",
+    replace_dc_date: bool = False,
     ocr_ran: bool = False,
     people_detected: bool = False,
     people_identified: bool = False,
@@ -186,9 +187,7 @@ def _write_sidecar_and_record(
     resolved_person_names = resolve_person_in_image(
         person_names,
         locations_shown=(
-            list(detections_payload.get("locations_shown") or [])
-            if isinstance(detections_payload, dict)
-            else []
+            list(detections_payload.get("locations_shown") or []) if isinstance(detections_payload, dict) else []
         ),
         location_payload=loc,
     )
@@ -202,6 +201,7 @@ def _write_sidecar_and_record(
         album_title=album_title,
         gps_latitude=str(loc.get("gps_latitude") or ""),
         gps_longitude=str(loc.get("gps_longitude") or ""),
+        location_address=str(loc.get("address") or ""),
         location_city=str(loc.get("city") or ""),
         location_state=str(loc.get("state") or ""),
         location_country=str(loc.get("country") or ""),
@@ -218,6 +218,7 @@ def _write_sidecar_and_record(
         create_date=create_date,
         dc_date=dc_date,
         date_time_original=date_time_original,
+        replace_dc_date=replace_dc_date,
         history_when=_xmp_timestamp_from_path(image_path),
         image_width=img_w,
         image_height=img_h,
@@ -402,15 +403,11 @@ def _full_processing_payload(
     return {
         "processor_signature": PROCESSOR_SIGNATURE,
         "settings_signature": settings_sig,
-        "cast_store_signature": (
-            current_cast_signature if bool(effective.get("enable_people", True)) else ""
-        ),
+        "cast_store_signature": (current_cast_signature if bool(effective.get("enable_people", True)) else ""),
         "size": int(stat.st_size),
         "mtime_ns": int(stat.st_mtime_ns),
         "date_estimate_input_hash": date_hash,
-        "ocr_authority_signature": (
-            str(scan_ocr_authority.signature) if scan_ocr_authority is not None else ""
-        ),
+        "ocr_authority_signature": (str(scan_ocr_authority.signature) if scan_ocr_authority is not None else ""),
         "ocr_authority_hash": ocr_authority_hash,
         "analysis_mode": str(analysis_mode),
     }
@@ -454,9 +451,7 @@ def _people_matcher_faces(people_matcher: Any) -> int:
     return last if isinstance(last, int) else 0
 
 
-def _pu_match_people(
-    people_matcher: Any, image_path: Path, ocr_text: str
-) -> tuple[list[Any], int]:
+def _pu_match_people(people_matcher: Any, image_path: Path, ocr_text: str) -> tuple[list[Any], int]:
     if not people_matcher:
         return [], 0
     matches = _match_people_with_cast_store_retry(
@@ -506,16 +501,10 @@ def _gps_inputs_from_state(
     ocr_text = _effective_sidecar_ocr_text(image_path, state)
     ocr_keywords = list((det.get("ocr") or {}).get("keywords") or [])
     people_names = _dedupe(
-        [
-            str(r.get("name") or "")
-            for r in list(det.get("people") or [])
-            if isinstance(r, dict) and r.get("name")
-        ]
+        [str(r.get("name") or "") for r in list(det.get("people") or []) if isinstance(r, dict) and r.get("name")]
     )
     object_labels = [
-        str(r.get("label") or "")
-        for r in list(det.get("objects") or [])
-        if isinstance(r, dict) and r.get("label")
+        str(r.get("label") or "") for r in list(det.get("objects") or []) if isinstance(r, dict) and r.get("label")
     ]
     album_title = _effective_sidecar_album_title(image_path, state)
     printed_title = _resolve_album_printed_title_hint(image_path, printed_album_title_cache)
@@ -628,9 +617,7 @@ def _refresh_processing_payload(
     return {
         "processor_signature": PROCESSOR_SIGNATURE,
         "settings_signature": settings_sig,
-        "cast_store_signature": (
-            current_cast_signature if bool(effective.get("enable_people", True)) else ""
-        ),
+        "cast_store_signature": (current_cast_signature if bool(effective.get("enable_people", True)) else ""),
         "size": int(stat.st_size),
         "mtime_ns": int(stat.st_mtime_ns),
         "date_estimate_input_hash": _date_estimate_input_hash(refresh_ocr_text, refresh_album_title),
@@ -656,9 +643,7 @@ def _refresh_text_layers(
     )
 
 
-def _refresh_xmp_title(
-    image_path: Path, review: dict[str, Any], text_layers: dict[str, str]
-) -> tuple[str, str]:
+def _refresh_xmp_title(image_path: Path, review: dict[str, Any], text_layers: dict[str, str]) -> tuple[str, str]:
     return _compute_xmp_title(
         image_path=image_path,
         explicit_title=str(review.get("title") or ""),
@@ -942,9 +927,7 @@ class IndexRunner:
         return caption_engine
 
     def _get_caption_engine(self, effective: dict[str, Any]) -> CaptionEngine:
-        return self._get_caption_engine_for_key(
-            self._caption_key_from_effective(effective), effective
-        )
+        return self._get_caption_engine_for_key(self._caption_key_from_effective(effective), effective)
 
     def _get_date_engine(self, effective: dict[str, Any]) -> DateEstimateEngine:
         date_key = (
@@ -1175,9 +1158,7 @@ class IndexRunner:
             return
 
         if state.people_matcher is None:
-            state.people_matcher, state.current_cast_signature = self._get_people_matcher_and_signature(
-                state.effective
-            )
+            state.people_matcher, state.current_cast_signature = self._get_people_matcher_and_signature(state.effective)
 
         self._evaluate_multi_scan(state)
         self._evaluate_extra_reprocess_reasons(state)
@@ -1207,9 +1188,7 @@ class IndexRunner:
         sidecar_path = state.sidecar_path
         effective = state.effective
         state.existing_sidecar_valid = has_valid_sidecar(image_path)
-        state.existing_sidecar_current = (
-            has_current_sidecar(image_path) if state.existing_sidecar_valid else False
-        )
+        state.existing_sidecar_current = has_current_sidecar(image_path) if state.existing_sidecar_valid else False
         if state.existing_sidecar_valid:
             state.existing_sidecar_state = read_ai_sidecar_state(sidecar_path)
         if state.existing_sidecar_valid and not state.existing_sidecar_current:
@@ -1265,9 +1244,7 @@ class IndexRunner:
         old_cast_signature = str(state.existing_sidecar_state.get("cast_store_signature") or "")
         if not (old_cast_signature and _sidecar_has_people_to_refresh(state.existing_sidecar_state)):
             return
-        state.people_matcher, state.current_cast_signature = self._get_people_matcher_and_signature(
-            state.effective
-        )
+        state.people_matcher, state.current_cast_signature = self._get_people_matcher_and_signature(state.effective)
         if old_cast_signature != state.current_cast_signature:
             state.people_update_only = True
             state.reprocess_reasons.append("cast_store_signature_changed")
@@ -1301,8 +1278,7 @@ class IndexRunner:
             state.reprocess_reasons.append("sidecar_incomplete")
         existing_album_title = str((state.existing_sidecar_state or {}).get("album_title") or "").strip()
         if not existing_album_title and (
-            _is_album_title_source_candidate(state.image_path)
-            or _resolve_album_title_from_sidecars(state.image_path)
+            _is_album_title_source_candidate(state.image_path) or _resolve_album_title_from_sidecars(state.image_path)
         ):
             state.reprocess_required = True
             state.reprocess_reasons.append("missing_album_title")
@@ -1641,10 +1617,7 @@ class IndexRunner:
                 if preserve_existing_xmp_people
                 else pu_people_match_names
             )
-            pu_album_title = (
-                _resolve_album_title_hint(image_path)
-                or _effective_sidecar_album_title(image_path, state)
-            )
+            pu_album_title = _resolve_album_title_hint(image_path) or _effective_sidecar_album_title(image_path, state)
             pu_printed_title = _resolve_album_printed_title_hint(image_path, self.printed_album_title_cache)
             pu_people_payload = _serialize_people_matches(pu_people_matches)
             people_names_changed = pu_person_names != existing_xmp_people
@@ -2166,13 +2139,9 @@ class IndexRunner:
         return _progress_ticker(prefix)
 
     def _init_full_engines(self, effective: dict[str, Any]) -> "_FullEngines":
-        object_detector = self._get_object_detector(effective) if bool(
-            effective.get("enable_objects", True)
-        ) else None
+        object_detector = self._get_object_detector(effective) if bool(effective.get("enable_objects", True)) else None
         caption_key = self._caption_key_from_effective(effective)
-        caption_engine = self._get_caption_engine_for_key(
-            caption_key, effective, stream=not self.stdout_only
-        )
+        caption_engine = self._get_caption_engine_for_key(caption_key, effective, stream=not self.stdout_only)
         ocr_engine, ocr_key = self._get_ocr_engine(effective)
         return _FullEngines(
             caption_engine=caption_engine,
@@ -2196,16 +2165,12 @@ class IndexRunner:
             self.object_detector_cache[object_key] = detector
         return detector
 
-    def _get_ocr_engine(
-        self, effective: dict[str, Any]
-    ) -> tuple[OCREngine, tuple[str, str, str, str]]:
+    def _get_ocr_engine(self, effective: dict[str, Any]) -> tuple[OCREngine, tuple[str, str, str, str]]:
         ocr_key = (
             str(effective.get("ocr_engine", self.defaults["ocr_engine"])),
             str(effective.get("ocr_lang", self.defaults["ocr_lang"])),
             str(effective.get("ocr_model", self.defaults["ocr_model"])),
-            normalize_lmstudio_base_url(
-                str(effective.get("lmstudio_base_url", self.defaults["lmstudio_base_url"]))
-            ),
+            normalize_lmstudio_base_url(str(effective.get("lmstudio_base_url", self.defaults["lmstudio_base_url"]))),
         )
         engine = self.ocr_engine_cache.get(ocr_key)
         if engine is None:
@@ -2265,9 +2230,7 @@ class IndexRunner:
             "ocr_model": str(engines.ocr_key[2]),
             "ocr_lang": str(engines.ocr_key[1]),
             "scan_group_signature": multi_scan_group_signature,
-            "cast_store_signature": (
-                current_cast_signature if bool(effective.get("enable_people", True)) else ""
-            ),
+            "cast_store_signature": (current_cast_signature if bool(effective.get("enable_people", True)) else ""),
             "caption_engine": str(engines.caption_key[0]),
             "caption_model": str(engines.caption_key[1]),
             "nominatim_base_url": str(getattr(self.geocoder, "base_url", "") or "") if self.geocoder else "",
@@ -2343,9 +2306,7 @@ class IndexRunner:
             extra_people_names=existing_xmp_people,
             is_page_scan=layout.page_like,
             ocr_text_override=(
-                scan_ocr_authority.ocr_text
-                if scan_ocr_authority is not None
-                else (derived_ocr_override or None)
+                scan_ocr_authority.ocr_text if scan_ocr_authority is not None else (derived_ocr_override or None)
             ),
             context_ocr_text=hints.upstream_context_ocr,
             context_location_hint=hints.upstream_location_hint,
@@ -2363,9 +2324,7 @@ class IndexRunner:
         )
         person_names = _dedupe(analysis.people_names + existing_xmp_people)
         subjects = _dedupe(analysis.subjects + ([resolved_album_title] if resolved_album_title else []))
-        description = (
-            _build_flat_page_description(analysis=analysis) if layout.page_like else analysis.description
-        )
+        description = _build_flat_page_description(analysis=analysis) if layout.page_like else analysis.description
         payload = _build_flat_payload(layout, analysis)
         analysis_mode = "page_flat" if layout.page_like else "single_image"
         ocr_authority_hash = str(scan_ocr_authority.ocr_hash) if scan_ocr_authority is not None else ""
@@ -2497,9 +2456,7 @@ class IndexRunner:
 
         outcome.step_runner.run("propagate-to-crops", _do_propagate)
 
-    def _emit_full_completion(
-        self, idx: int, image_path: Path, outcome: "_FullAnalysisOutcome"
-    ) -> None:
+    def _emit_full_completion(self, idx: int, image_path: Path, outcome: "_FullAnalysisOutcome") -> None:
         if self.stdout_only:
             payload = outcome.payload
             caption_meta = dict(payload.get("caption") or {}) if isinstance(payload, dict) else {}
@@ -2528,9 +2485,7 @@ def refresh_rendered_view_people_metadata(
 
     runner = IndexRunner(["--photo", str(rendered_image_path), "--include-view"])
     runner.files = [rendered_image_path]
-    effective, settings_sig, date_estimation_enabled = runner._resolve_effective_settings(
-        rendered_image_path
-    )
+    effective, settings_sig, date_estimation_enabled = runner._resolve_effective_settings(rendered_image_path)
     people_matcher, current_cast_signature = runner._get_people_matcher_and_signature(effective)
     if people_matcher is None:
         return

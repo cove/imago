@@ -43,6 +43,7 @@ class TestIncomingScansWatcher(unittest.TestCase):
 
             # wait for the daemon thread to call apply_decision
             import time
+
             for _ in range(20):
                 if apply_mock.called:
                     break
@@ -52,6 +53,44 @@ class TestIncomingScansWatcher(unittest.TestCase):
             target_name = apply_mock.call_args[0][1]
             self.assertTrue(target_name.endswith(".tif"))
             self.assertIn("_P01_S01", target_name)
+
+    def test_on_created_numbered_scan_applies_backlog_in_numeric_order(self):
+        import incoming_scans_watcher
+        import time
+
+        with tempfile.TemporaryDirectory() as tmp:
+            watch_dir = Path(tmp) / "Album_Archive"
+            watch_dir.mkdir()
+            (watch_dir / "incoming_scan0002.tif").write_text("second")
+            first = watch_dir / "incoming_scan0001.tif"
+            first.write_text("first")
+            event = DummyEvent(str(watch_dir / "incoming_scan0002.tif"))
+
+            service = incoming_scans_watcher.ScanWatchService(
+                root=Path(tmp),
+                process_tiff_fn=mock.Mock(return_value=True),
+                validate_stitch_fn=lambda *_args, **_kwargs: (True, None),
+                open_image_fn=mock.Mock(),
+                display_image_fn=mock.Mock(return_value=False),
+                sleep_fn=lambda *_: None,
+            )
+            handler = incoming_scans_watcher.IncomingScanHandler(
+                service,
+                sleep_fn=lambda *_: None,
+                log_info_fn=mock.Mock(),
+            )
+
+            handler.on_created(event)
+
+            for _ in range(20):
+                if not first.exists():
+                    break
+                time.sleep(0.05)
+
+            self.assertEqual((watch_dir / "Album_P01_S01.tif").read_text(), "first")
+            self.assertEqual((watch_dir / "Album_P02_S01.tif").read_text(), "second")
+            self.assertFalse((watch_dir / "incoming_scan0001.tif").exists())
+            self.assertFalse((watch_dir / "incoming_scan0002.tif").exists())
 
     def test_on_created_ignores_other_files(self):
         import incoming_scans_watcher

@@ -86,13 +86,16 @@ class TestDetectRegionsDocling(unittest.TestCase):
             prompt_debug = PromptDebugSession(img_path, label=img_path.name)
 
             with (
-                mock.patch("photoalbums.lib.ai_view_regions.default_view_region_model", return_value="granite-docling-258m"),
+                mock.patch(
+                    "photoalbums.lib.ai_view_regions.default_view_region_model", return_value="granite-docling-258m"
+                ),
                 mock.patch("photoalbums.lib.ai_view_regions.default_docling_preset", return_value="granite_docling"),
                 mock.patch("photoalbums.lib.ai_view_regions.default_docling_backend", return_value="auto_inline"),
                 mock.patch("photoalbums.lib.ai_view_regions.default_docling_device", return_value="auto"),
                 mock.patch("photoalbums.lib.ai_view_regions.default_docling_retries", return_value=3),
-                mock.patch("photoalbums.lib._docling_pipeline.run_docling_pipeline", return_value=fake_result) as mock_pipeline,
-                mock.patch("photoalbums.lib.ai_view_regions._apply_lmstudio_captions", side_effect=lambda regions, *_args: regions),
+                mock.patch(
+                    "photoalbums.lib._docling_pipeline.run_docling_pipeline", return_value=fake_result
+                ) as mock_pipeline,
             ):
                 regions = detect_regions(img_path, force=True, prompt_debug=prompt_debug, skip_validation=True)
 
@@ -115,10 +118,14 @@ class TestDetectRegionsDocling(unittest.TestCase):
             runtime_error = Exception("boom")
             runtime_error.debug_payload = {"error": "boom"}  # type: ignore[attr-defined]
             with (
-                mock.patch("photoalbums.lib.ai_view_regions.default_view_region_model", return_value="granite-docling-258m"),
+                mock.patch(
+                    "photoalbums.lib.ai_view_regions.default_view_region_model", return_value="granite-docling-258m"
+                ),
                 mock.patch(
                     "photoalbums.lib._docling_pipeline.run_docling_pipeline",
-                    side_effect=__import__("photoalbums.lib._docling_pipeline", fromlist=["DoclingPipelineRuntimeError"]).DoclingPipelineRuntimeError(
+                    side_effect=__import__(
+                        "photoalbums.lib._docling_pipeline", fromlist=["DoclingPipelineRuntimeError"]
+                    ).DoclingPipelineRuntimeError(
                         "Docling pipeline failed due to: boom",
                         debug_payload={"error": "boom"},
                     ),
@@ -129,7 +136,9 @@ class TestDetectRegionsDocling(unittest.TestCase):
                 state = read_pipeline_step(xmp_path, "detect-regions/docling")
                 assert state is not None
                 self.assertEqual(state["result"], "failed")
-                self.assertEqual(json.loads(_docling_raw_debug_path(img_path).read_text(encoding="utf-8")), {"error": "boom"})
+                self.assertEqual(
+                    json.loads(_docling_raw_debug_path(img_path).read_text(encoding="utf-8")), {"error": "boom"}
+                )
 
     def test_detect_regions_records_validation_failed_without_retrying_cached_failure(self):
         fake_regions = [RegionResult(index=0, x=0, y=0, width=800, height=600)]
@@ -141,8 +150,12 @@ class TestDetectRegionsDocling(unittest.TestCase):
             xmp_path = img_path.with_suffix(".xmp")
 
             with (
-                mock.patch("photoalbums.lib.ai_view_regions.default_view_region_model", return_value="granite-docling-258m"),
-                mock.patch("photoalbums.lib._docling_pipeline.run_docling_pipeline", return_value=fake_result) as mock_pipeline,
+                mock.patch(
+                    "photoalbums.lib.ai_view_regions.default_view_region_model", return_value="granite-docling-258m"
+                ),
+                mock.patch(
+                    "photoalbums.lib._docling_pipeline.run_docling_pipeline", return_value=fake_result
+                ) as mock_pipeline,
             ):
                 regions = detect_regions(img_path, force=True)
                 self.assertEqual(regions, [])
@@ -197,14 +210,16 @@ class TestRegionListXmpRoundTrip(unittest.TestCase):
             self.assertTrue(_has_xmp_regions(xmp_path))
 
             xml = xmp_path.read_text(encoding="utf-8")
-            self.assertIn('mwg-rs:Name="Left hint"', xml)
+            # caption_hint goes to imago:CaptionHint when caption is empty
+            self.assertIn('imago:CaptionHint="Left hint"', xml)
+            # caption goes to mwg-rs:Name
             self.assertIn('mwg-rs:Name="Right caption"', xml)
             self.assertNotIn("dc:description", xml)
 
             read_back = read_region_list(xmp_path, 800, 600)
             reread_regions = _read_regions_from_xmp(xmp_path, 800, 600)
 
-        self.assertEqual(read_back[0]["caption"], "Left hint")
+        self.assertEqual(read_back[0]["caption_hint"], "Left hint")
         self.assertEqual(read_back[1]["caption"], "Right caption")
         self.assertEqual(reread_regions[0].caption_hint, "Left hint")
         self.assertEqual(reread_regions[1].caption_hint, "Right caption")
@@ -281,6 +296,6 @@ class TestRunDetectViewRegions(unittest.TestCase):
         self.assertEqual(kwargs["album_context"], "Cordell 1975, book 00, page 26")
         self.assertEqual(kwargs["people_roster"], {"audrey": "Audrey Cordell", "leslie": "Leslie Cordell"})
 
+
 if __name__ == "__main__":
     unittest.main()
-
