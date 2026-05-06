@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import sys
 import time
 import uuid
 import threading
@@ -25,6 +26,7 @@ try:
         PHOTO_SCANNING_DIR,
         configure_imagemagick,
         get_next_filename,
+        list_page_scan_groups,
         list_page_scans_for_page,
         open_image_fullscreen,
         process_tiff_in_place,
@@ -39,6 +41,7 @@ except ImportError:
         PHOTO_SCANNING_DIR,
         configure_imagemagick,
         get_next_filename,
+        list_page_scan_groups,
         list_page_scans_for_page,
         open_image_fullscreen,
         process_tiff_in_place,
@@ -70,6 +73,38 @@ except ImportError:
     )
 
 INCOMING_BACKLOG_RE = re.compile(r"^incoming_scan(?P<number>\d{4})\.tif$", re.IGNORECASE)
+
+
+class _TransientStatus:
+    def __init__(self, message: str, *, stream=None) -> None:
+        self.message = message
+        self.stream = stream or sys.stdout
+        self._width = 0
+        self._active = False
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, _exc_type, _exc, _tb) -> None:
+        self.stop()
+
+    def start(self) -> None:
+        is_tty = getattr(self.stream, "isatty", lambda: False)
+        if not is_tty():
+            return
+        text = f"| {self.message}"
+        self._width = len(text)
+        self.stream.write(f"\r{text}")
+        self.stream.flush()
+        self._active = True
+
+    def stop(self) -> None:
+        if not self._active:
+            return
+        self.stream.write("\r" + (" " * self._width) + "\r")
+        self.stream.flush()
+        self._active = False
 
 
 class ScanWatchService:
@@ -299,7 +334,8 @@ class ScanWatchService:
                 target_name = get_next_filename(event.archive_dir)
                 log_info(f"Auto-applying scan event {event.id} -> {target_name}")
                 try:
-                    results.append(self.apply_decision(event.id, target_name))
+                    with _TransientStatus(f"Applying scan event {event.id} -> {target_name} ..."):
+                        results.append(self.apply_decision(event.id, target_name))
                 except Exception as exc:
                     self.log_error_fn(f"Auto-apply scan event {event.id} failed: {exc}")
                     with self._lock:
@@ -410,6 +446,37 @@ class ScanWatchService:
                 "new_path": str(new_path),
             }
 
+    def stitch_last_scans(self) -> dict[str, object]:
+        latest = self._latest_page_scan_group()
+        if latest is None:
+            raise ValueError(f"No page scans found under {self.root}")
+
+        archive_dir, page_num, files = latest
+        if len(files) < 2:
+            raise ValueError(
+                f"Last page {Path(archive_dir).name} P{page_num:02d} has {len(files)} scan(s); need at least 2"
+            )
+
+        try:
+            from .stitch_oversized_pages import _view_page_output_path, get_view_dirname, stitch
+        except ImportError:
+            from stitch_oversized_pages import _view_page_output_path, get_view_dirname, stitch
+
+        view_dir = Path(get_view_dirname(archive_dir))
+        wrote = stitch(files, str(view_dir), force=True)
+        output_path = _view_page_output_path(files[0], view_dir)
+        if output_path.is_file():
+            self.display_image_fn(output_path, title=f"Stitched page: {output_path.name}", log_error=self.log_error_fn)
+
+        self._sync_archive_state(str(archive_dir))
+        return {
+            "archive_dir": str(archive_dir),
+            "page_num": page_num,
+            "files": files,
+            "output_path": str(output_path),
+            "wrote": wrote,
+        }
+
     def _sync_archive_state(
         self,
         archive_dir: str,
@@ -483,6 +550,91 @@ class ScanWatchService:
             return None
         return int(match.group("page"))
 
+    def _latest_page_scan_group(self) -> tuple[Path, int, list[str]] | None:
+        event_group = self._latest_event_page_scan_group()
+        if event_group is not None:
+            return event_group
+        return self._latest_mtime_page_scan_group()
+
+    def _latest_event_page_scan_group(self) -> tuple[Path, int, list[str]] | None:
+        latest_event = self._latest_page_event()
+        if latest_event is None:
+            return None
+
+        page_num = latest_event.page_num or self._parse_page_num(latest_event.target_name)
+        if page_num is None:
+            return None
+
+        archive_dir = Path(latest_event.archive_dir)
+        try:
+            files = list_page_scans_for_page(archive_dir, page_num)
+        except OSError as exc:
+            self.log_error_fn(f"List event page scans failed: {exc}")
+            return None
+        if not files:
+            return None
+        return archive_dir, page_num, files
+
+    def _latest_page_event(self) -> ScanEvent | None:
+        with self._lock:
+            events = [
+                event
+                for event in self._events.values()
+                if event.status in {"completed", "needs_rescan", "processing"}
+                and (event.page_num is not None or self._parse_page_num(event.target_name) is not None)
+            ]
+        if not events:
+            return None
+        return max(events, key=lambda event: (event.updated_at, event.created_at, event.id))
+
+    def _latest_mtime_page_scan_group(self) -> tuple[Path, int, list[str]] | None:
+        latest: tuple[float, str, int, Path, list[str]] | None = None
+        for archive_dir in self._scan_search_archives():
+            dir_path = Path(archive_dir)
+            if not dir_path.is_dir():
+                continue
+            for files in self._page_scan_groups_for_archive(dir_path):
+                candidate = self._latest_mtime_page_scan_group_candidate(dir_path, files)
+                if candidate is not None and (latest is None or candidate[:3] > latest[:3]):
+                    latest = candidate
+
+        if latest is None:
+            return None
+        return latest[3], latest[2], latest[4]
+
+    def _scan_search_archives(self) -> list[str]:
+        with self._lock:
+            archive_dirs = list(self._archives)
+        if not archive_dirs and self.root.exists():
+            self.rebuild()
+            with self._lock:
+                archive_dirs = list(self._archives)
+        return archive_dirs
+
+    def _page_scan_groups_for_archive(self, dir_path: Path) -> list[list[str]]:
+        try:
+            return list_page_scan_groups(dir_path, re.compile(r"^.+_P\d+_S\d+\.tif$", re.IGNORECASE))
+        except OSError as exc:
+            self.log_error_fn(f"List page scans failed: {exc}")
+            return []
+
+    def _latest_mtime_page_scan_group_candidate(
+        self,
+        dir_path: Path,
+        files: list[str],
+    ) -> tuple[float, str, int, Path, list[str]] | None:
+        if not files:
+            return None
+        page_num = self._parse_page_num(Path(files[0]).name)
+        if page_num is None:
+            return None
+        try:
+            newest_mtime = max(Path(path).stat().st_mtime for path in files)
+        except OSError as exc:
+            self.log_error_fn(f"Read scan timestamp failed: {exc}")
+            return None
+        return newest_mtime, str(dir_path), page_num, dir_path, files
+
     def _is_incoming_name(self, name: str) -> bool:
         return name.lower() == self.incoming_name.lower() or INCOMING_BACKLOG_RE.fullmatch(name) is not None
 
@@ -532,7 +684,8 @@ class IncomingScanHandler(FileSystemEventHandler):
         incoming_path = Path(path)
         if not self.service._is_incoming_name(incoming_path.name):
             return
-        self.sleep_fn(2.0)
+        with _TransientStatus(f"Detected incoming scan {incoming_path.name}; waiting for write to finish ..."):
+            self.sleep_fn(2.0)
         threading.Thread(
             target=self.service.apply_pending_incoming_scans,
             args=(incoming_path.parent,),
@@ -551,19 +704,77 @@ class IncomingScanHandler(FileSystemEventHandler):
         self._handle_incoming(event.dest_path)
 
 
+def _print_keyboard_prompt() -> None:
+    print("Keyboard shortcuts: S) stitch last page scans together  Q) quit watcher")
+
+
+def _read_keyboard_command() -> str | None:
+    if sys.platform.startswith("win"):
+        try:
+            import msvcrt
+        except Exception:
+            return None
+
+        if not msvcrt.kbhit():
+            return None
+        key = msvcrt.getwch()
+        if key in {"\x00", "\xe0"}:
+            msvcrt.getwch()
+            return None
+        return key.lower()
+
+    try:
+        import select
+
+        if select.select([sys.stdin], [], [], 0)[0]:
+            return sys.stdin.read(1).lower()
+    except Exception:
+        return None
+    return None
+
+
+def _handle_keyboard_command(service: ScanWatchService, command: str) -> bool:
+    if command == "q":
+        return False
+    if command == "s":
+        try:
+            with _TransientStatus("Stitching last page scans ..."):
+                result = service.stitch_last_scans()
+            print(f"Stitched page {result['page_num']:02d}: {result['output_path']}")
+        except Exception as exc:
+            service.log_error_fn(f"Stitch last scans failed: {exc}")
+        _print_keyboard_prompt()
+    return True
+
+
 def main() -> None:
     service = ScanWatchService(root=PHOTO_ALBUMS_DIR)
+    stopped = False
     try:
         print(f"Starting watcher - scanning {service.root} ...")
         status = service.start()
         print(f"Watching for {service.incoming_name} in:")
         print(status["root"])
+        _print_keyboard_prompt()
 
-        while True:
-            time.sleep(1)
+        keep_running = True
+        while keep_running:
+            command = _read_keyboard_command()
+            if command is not None:
+                if command == "q":
+                    with _TransientStatus("Stopping watcher ..."):
+                        service.stop(timeout=2.0)
+                    stopped = True
+                    print("Watcher stopped.")
+                    return
+                keep_running = _handle_keyboard_command(service, command)
+            time.sleep(0.1)
     except KeyboardInterrupt:
-        service.stop(timeout=2.0)
-        print("Watcher stopped.")
+        pass
+    finally:
+        if not stopped:
+            service.stop(timeout=2.0)
+            print("Watcher stopped.")
 
 
 __all__ = [

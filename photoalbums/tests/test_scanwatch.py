@@ -1,6 +1,7 @@
 import sys
 import tempfile
 import unittest
+import os
 from pathlib import Path
 from unittest import mock
 
@@ -11,7 +12,30 @@ if str(ROOT) not in sys.path:
 import scanwatch  # noqa: E402
 
 
+class TtyBuffer:
+    def __init__(self):
+        self.text = ""
+
+    def write(self, value):
+        self.text += value
+
+    def flush(self):
+        pass
+
+    def isatty(self):
+        return True
+
+
 class TestScanWatch(unittest.TestCase):
+    def test_transient_status_writes_and_clears_tty_line(self):
+        stream = TtyBuffer()
+
+        with scanwatch._TransientStatus("Working ...", stream=stream):
+            self.assertIn("| Working ...", stream.text)
+
+        self.assertTrue(stream.text.endswith("\r"))
+        self.assertIn("\r" + (" " * len("| Working ...")) + "\r", stream.text)
+
     def test_apply_decision_marks_rescan(self):
         with tempfile.TemporaryDirectory() as tmp:
             archive_dir = Path(tmp) / "Album_Archive"
@@ -177,6 +201,117 @@ class TestScanWatch(unittest.TestCase):
                 title="Stitched preview: page 02",
                 log_error=error_mock,
             )
+
+    def test_stitch_last_scans_uses_last_event_page_group(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive_dir = Path(tmp) / "Album_Archive"
+            archive_dir.mkdir()
+            view_dir = Path(tmp) / "Album_Pages"
+            output_path = view_dir / "Album_P12_V.jpg"
+
+            earlier_page_files = [
+                archive_dir / "Album_P09_S01.tif",
+                archive_dir / "Album_P09_S02.tif",
+            ]
+            last_page_files = [
+                archive_dir / "Album_P12_S01.tif",
+                archive_dir / "Album_P12_S02.tif",
+                archive_dir / "Album_P12_S03.tif",
+                archive_dir / "Album_P12_S04.tif",
+            ]
+            for path in [*earlier_page_files, *last_page_files]:
+                path.touch()
+            for path in earlier_page_files:
+                os.utime(path, (2000, 2000))
+            for path in last_page_files:
+                os.utime(path, (1000, 1000))
+
+            display_mock = mock.Mock()
+            service = scanwatch.ScanWatchService(
+                root=Path(tmp),
+                validate_stitch_fn=lambda *_args, **_kwargs: (True, None),
+                display_image_fn=display_mock,
+                sleep_fn=lambda *_: None,
+            )
+            service.rebuild()
+            service._events["last-event"] = scanwatch.ScanEvent(
+                id="last-event",
+                archive_dir=str(archive_dir.resolve(strict=False)),
+                incoming_path=str(archive_dir / "incoming_scan.tif"),
+                status="completed",
+                target_name="Album_P12_S04.tif",
+                page_num=12,
+            )
+
+            with (
+                mock.patch("stitch_oversized_pages.get_view_dirname", return_value=str(view_dir)),
+                mock.patch("stitch_oversized_pages._view_page_output_path", return_value=output_path),
+                mock.patch("stitch_oversized_pages.stitch", return_value=True) as stitch_mock,
+            ):
+                result = service.stitch_last_scans()
+
+            stitch_mock.assert_called_once_with([str(path) for path in last_page_files], str(view_dir), force=True)
+            self.assertEqual(result["page_num"], 12)
+            self.assertEqual(result["output_path"], str(output_path))
+            display_mock.assert_not_called()
+
+    def test_stitch_last_scans_falls_back_to_newest_mtime_without_event(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive_dir = Path(tmp) / "Album_Archive"
+            archive_dir.mkdir()
+            view_dir = Path(tmp) / "Album_Pages"
+            output_path = view_dir / "Album_P09_V.jpg"
+
+            newer_mtime_files = [
+                archive_dir / "Album_P09_S01.tif",
+                archive_dir / "Album_P09_S02.tif",
+            ]
+            higher_page_files = [
+                archive_dir / "Album_P12_S01.tif",
+                archive_dir / "Album_P12_S02.tif",
+            ]
+            for path in [*newer_mtime_files, *higher_page_files]:
+                path.touch()
+            for path in newer_mtime_files:
+                os.utime(path, (2000, 2000))
+            for path in higher_page_files:
+                os.utime(path, (1000, 1000))
+
+            service = scanwatch.ScanWatchService(
+                root=Path(tmp),
+                validate_stitch_fn=lambda *_args, **_kwargs: (True, None),
+                display_image_fn=mock.Mock(),
+                sleep_fn=lambda *_: None,
+            )
+            service.rebuild()
+
+            with (
+                mock.patch("stitch_oversized_pages.get_view_dirname", return_value=str(view_dir)),
+                mock.patch("stitch_oversized_pages._view_page_output_path", return_value=output_path),
+                mock.patch("stitch_oversized_pages.stitch", return_value=True) as stitch_mock,
+            ):
+                result = service.stitch_last_scans()
+
+            stitch_mock.assert_called_once_with([str(path) for path in newer_mtime_files], str(view_dir), force=True)
+            self.assertEqual(result["page_num"], 9)
+            self.assertEqual(result["output_path"], str(output_path))
+
+    def test_stitch_last_scans_requires_multiple_scans(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive_dir = Path(tmp) / "Album_Archive"
+            archive_dir.mkdir()
+            (archive_dir / "Album_P01_S01.tif").touch()
+
+            service = scanwatch.ScanWatchService(
+                root=Path(tmp),
+                validate_stitch_fn=lambda *_args, **_kwargs: (True, None),
+                display_image_fn=mock.Mock(),
+                sleep_fn=lambda *_: None,
+            )
+            service.rebuild()
+
+            with self.assertRaisesRegex(ValueError, "need at least 2"):
+                service.stitch_last_scans()
 
 
 if __name__ == "__main__":
