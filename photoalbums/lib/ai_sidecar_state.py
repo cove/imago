@@ -146,22 +146,22 @@ def _sidecar_location_payload(sidecar_state: dict[str, Any] | None) -> dict[str,
     location = dict(detections.get("location") or {}) if isinstance(detections, dict) else {}
     gps_latitude = _xmp_gps_to_decimal(sidecar_state.get("gps_latitude"), axis="lat")
     gps_longitude = _xmp_gps_to_decimal(sidecar_state.get("gps_longitude"), axis="lon")
-    if gps_latitude and not str(location.get("gps_latitude") or "").strip():
-        location["gps_latitude"] = gps_latitude
-    if gps_longitude and not str(location.get("gps_longitude") or "").strip():
-        location["gps_longitude"] = gps_longitude
-    if str(sidecar_state.get("location_city") or "").strip() and not str(location.get("city") or "").strip():
-        location["city"] = str(sidecar_state.get("location_city") or "").strip()
-    if str(sidecar_state.get("location_state") or "").strip() and not str(location.get("state") or "").strip():
-        location["state"] = str(sidecar_state.get("location_state") or "").strip()
-    if str(sidecar_state.get("location_country") or "").strip() and not str(location.get("country") or "").strip():
-        location["country"] = str(sidecar_state.get("location_country") or "").strip()
-    if (
-        str(sidecar_state.get("location_sublocation") or "").strip()
-        and not str(location.get("sublocation") or "").strip()
+    _fill_location_value(location, "gps_latitude", gps_latitude)
+    _fill_location_value(location, "gps_longitude", gps_longitude)
+    for state_key, location_key in (
+        ("location_city", "city"),
+        ("location_state", "state"),
+        ("location_country", "country"),
+        ("location_sublocation", "sublocation"),
     ):
-        location["sublocation"] = str(sidecar_state.get("location_sublocation") or "").strip()
+        _fill_location_value(location, location_key, sidecar_state.get(state_key))
     return location
+
+
+def _fill_location_value(location: dict[str, Any], key: str, value: Any) -> None:
+    clean = str(value or "").strip()
+    if clean and not str(location.get(key) or "").strip():
+        location[key] = clean
 
 
 def _effective_sidecar_album_title(image_path: Path, sidecar_state: dict[str, Any] | None) -> str:

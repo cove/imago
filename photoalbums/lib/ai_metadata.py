@@ -96,6 +96,13 @@ def _parse_metadata_response(value: object, *, finish_reason: str = "") -> Metad
     finish_note = f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
     if not text:
         raise RuntimeError(f"LM Studio returned empty metadata content.{finish_note}")
+    payload = _metadata_payload_from_text(text)
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"LM Studio returned non-dict metadata: {text}")
+    return MetadataResult(photos=_metadata_photos_from_payload(payload))
+
+
+def _metadata_payload_from_text(text: str) -> object:
     try:
         payload = json.loads(text)
     except json.JSONDecodeError as exc:
@@ -110,24 +117,28 @@ def _parse_metadata_response(value: object, *, finish_reason: str = "") -> Metad
         alt = _extract_structured_json_payload(text, is_valid=_is_metadata_payload)
         if alt is not None:
             payload = alt
-    if not isinstance(payload, dict):
-        raise RuntimeError(f"LM Studio returned non-dict metadata: {text}")
+    return payload
+
+
+def _metadata_photos_from_payload(payload: dict) -> list[MetadataPhotoResult]:
     photos: list[MetadataPhotoResult] = []
     for photo_data in list(payload.get("photos") or []):
         if isinstance(photo_data, dict):
-            photos.append(
-                MetadataPhotoResult(
-                    photo_number=int(photo_data.get("photo_number") or 0),
-                    location=str(photo_data.get("location") or "").strip(),
-                    location_name=str(photo_data.get("location_name") or "").strip(),
-                    est_date=str(photo_data.get("est_date") or "").strip(),
-                    scene_ocr=str(photo_data.get("scene_ocr") or "").strip(),
-                    caption=str(photo_data.get("caption") or "").strip(),
-                    corrected_caption=str(photo_data.get("corrected_caption") or "").strip(),
-                    people_count=int(photo_data.get("people_count") or 0),
-                )
-            )
-    return MetadataResult(photos=photos)
+            photos.append(_metadata_photo_from_dict(photo_data))
+    return photos
+
+
+def _metadata_photo_from_dict(photo_data: dict) -> MetadataPhotoResult:
+    return MetadataPhotoResult(
+        photo_number=int(photo_data.get("photo_number") or 0),
+        location=str(photo_data.get("location") or "").strip(),
+        location_name=str(photo_data.get("location_name") or "").strip(),
+        est_date=str(photo_data.get("est_date") or "").strip(),
+        scene_ocr=str(photo_data.get("scene_ocr") or "").strip(),
+        caption=str(photo_data.get("caption") or "").strip(),
+        corrected_caption=str(photo_data.get("corrected_caption") or "").strip(),
+        people_count=int(photo_data.get("people_count") or 0),
+    )
 
 
 class MetadataEngine(LMStudioModelResolverMixin):

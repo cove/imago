@@ -299,40 +299,20 @@ def main(argv: list[str] | None = None) -> int:
     MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     if args.rollback:
-        if not MANIFEST_PATH.exists():
-            print(f"ERROR: no manifest found at {MANIFEST_PATH}", file=sys.stderr)
-            return 1
-        plan = json.loads(MANIFEST_PATH.read_text())["plan"]
-        plan = rollback_plan(plan)
-        results = execute_plan(plan, {})
-        ok = sum(1 for r in results if r["status"] == "ok")
-        err = [r for r in results if r["status"] not in {"ok", "skipped_missing"}]
-        print(f"Rollback: {ok} ok, {len(err)} errors")
-        for e in err:
-            print(f"  ERROR: {e}")
-        return 0 if not err else 1
+        return _run_rollback()
 
     print(f"Scanning {root} ...")
     plan = build_rename_plan(root)
     plan = _pair_image_and_xmp(plan)
 
-    counts: dict[str, int] = {}
-    for entry in plan:
-        counts[entry["kind"]] = counts.get(entry["kind"], 0) + 1
-
-    print(f"\nRename plan ({len(plan)} operations):")
-    for kind, count in sorted(counts.items()):
-        print(f"  {kind}: {count}")
+    _print_plan_counts(plan)
 
     if not plan:
         print("Nothing to rename.")
         return 0
 
     conflicts = [e["new"] for e in plan if Path(e["new"]).exists()]
-    if conflicts:
-        print(f"\nWARNING: {len(conflicts)} target paths already exist:")
-        for c in conflicts[:10]:
-            print(f"  {c}")
+    _print_conflicts(conflicts)
 
     print("\nComputing pre-flight hashes ...")
     hashes_before = compute_hashes(plan)
@@ -344,11 +324,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Manifest written to {MANIFEST_PATH}")
 
     if not args.run:
-        print("\nDRY RUN -- pass --run to execute.")
-        for entry in plan[:15]:
-            print(f"  [{entry['kind']}] {Path(entry['old']).name}  ->  {Path(entry['new']).name}")
-        if len(plan) > 15:
-            print(f"  ... and {len(plan) - 15} more")
+        _print_dry_run_sample(plan)
         return 0
 
     print(f"\nExecuting {len(plan)} renames ...")
@@ -359,14 +335,59 @@ def main(argv: list[str] | None = None) -> int:
     VERIFY_REPORT_PATH.write_text(json.dumps(report, indent=2))
     print(f"\nVerification: {report['ok']}/{report['total']} ok")
 
-    if report["errors"]:
-        print(f"ERRORS ({len(report['errors'])}):")
-        for e in report["errors"]:
-            print(f"  {e}")
+    if _print_verify_errors(report):
         return 1
 
     print("Migration complete.")
     return 0
+
+
+def _run_rollback() -> int:
+    if not MANIFEST_PATH.exists():
+        print(f"ERROR: no manifest found at {MANIFEST_PATH}", file=sys.stderr)
+        return 1
+    plan = rollback_plan(json.loads(MANIFEST_PATH.read_text())["plan"])
+    results = execute_plan(plan, {})
+    ok = sum(1 for r in results if r["status"] == "ok")
+    err = [r for r in results if r["status"] not in {"ok", "skipped_missing"}]
+    print(f"Rollback: {ok} ok, {len(err)} errors")
+    for e in err:
+        print(f"  ERROR: {e}")
+    return 0 if not err else 1
+
+
+def _print_plan_counts(plan: list[dict]) -> None:
+    counts: dict[str, int] = {}
+    for entry in plan:
+        counts[entry["kind"]] = counts.get(entry["kind"], 0) + 1
+    print(f"\nRename plan ({len(plan)} operations):")
+    for kind, count in sorted(counts.items()):
+        print(f"  {kind}: {count}")
+
+
+def _print_conflicts(conflicts: list[str]) -> None:
+    if not conflicts:
+        return
+    print(f"\nWARNING: {len(conflicts)} target paths already exist:")
+    for c in conflicts[:10]:
+        print(f"  {c}")
+
+
+def _print_dry_run_sample(plan: list[dict]) -> None:
+    print("\nDRY RUN -- pass --run to execute.")
+    for entry in plan[:15]:
+        print(f"  [{entry['kind']}] {Path(entry['old']).name}  ->  {Path(entry['new']).name}")
+    if len(plan) > 15:
+        print(f"  ... and {len(plan) - 15} more")
+
+
+def _print_verify_errors(report: dict) -> bool:
+    if not report["errors"]:
+        return False
+    print(f"ERRORS ({len(report['errors'])}):")
+    for e in report["errors"]:
+        print(f"  {e}")
+    return True
 
 
 if __name__ == "__main__":

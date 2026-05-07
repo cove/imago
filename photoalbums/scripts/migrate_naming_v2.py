@@ -115,27 +115,7 @@ def build_rename_plan(root: Path) -> list[dict]:
 
         # --- PanamaCanal rename (TIFs included; possibly combined with naming convention transform) ---
         if OLD_PANAMA in str(path):
-            new_name = path.name.replace(OLD_PANAMA, NEW_PANAMA)
-            new_stem = Path(new_name).stem
-            new_suffix = Path(new_name).suffix
-            # Inside _View dirs also apply the stitched→VR / bare→V transform
-            if parent_name.endswith("_View"):
-                ms = _STITCHED_STEM_RE.match(new_stem)
-                mb = _BARE_VIEW_STEM_RE.match(new_stem)
-                if ms:
-                    new_name = f"{ms.group('base')}_VC{new_suffix}"
-                    kind = "panama_stitched_to_vc"
-                elif mb and new_suffix.lower() in {".jpg", ".jpeg"}:
-                    new_name = f"{mb.group('base')}_V{new_suffix}"
-                    kind = "panama_bare_to_v"
-                else:
-                    kind = "panama_file"
-            else:
-                kind = "panama_file"
-            new_path = parent / new_name
-            if new_path != path:
-                plan.append({"old": str(path), "new": str(new_path), "kind": kind})
-                seen_new.add(new_path)
+            _append_panama_file_rename(plan, seen_new, path, parent_name=parent_name)
             continue
 
         # Non-Panama TIFs need no further renaming
@@ -147,42 +127,24 @@ def build_rename_plan(root: Path) -> list[dict]:
             continue
 
         # --- _stitched → _VR ---
-        m = _STITCHED_STEM_RE.match(stem)
-        if m:
-            base = m.group("base")
-            new_path = parent / f"{base}_VC{suffix}"
-            if new_path != path:
-                if new_path in seen_new:
-                    print(f"  CONFLICT: {new_path} already in plan", file=sys.stderr)
-                    continue
-                plan.append({"old": str(path), "new": str(new_path), "kind": "stitched_to_vc"})
-                seen_new.add(new_path)
+        if _append_view_stem_rename(plan, seen_new, path, stem=stem, suffix=suffix, regex=_STITCHED_STEM_RE, suffix_token="_VC", kind="stitched_to_vc"):
             continue
 
         # --- _VR → _VC (rename from previous migration pass) ---
-        m = _VR_STEM_RE.match(stem)
-        if m:
-            base = m.group("base")
-            new_path = parent / f"{base}_VC{suffix}"
-            if new_path != path:
-                if new_path in seen_new:
-                    print(f"  CONFLICT: {new_path} already in plan", file=sys.stderr)
-                    continue
-                plan.append({"old": str(path), "new": str(new_path), "kind": "vr_to_vc"})
-                seen_new.add(new_path)
+        if _append_view_stem_rename(plan, seen_new, path, stem=stem, suffix=suffix, regex=_VR_STEM_RE, suffix_token="_VC", kind="vr_to_vc"):
             continue
 
         # --- bare _P## → _P##_V ---
-        m = _BARE_VIEW_STEM_RE.match(stem)
-        if m and suffix.lower() in {".jpg", ".jpeg"}:
-            base = m.group("base")
-            new_path = parent / f"{base}_V{suffix}"
-            if new_path != path:
-                if new_path in seen_new:
-                    print(f"  CONFLICT: {new_path} already in plan", file=sys.stderr)
-                    continue
-                plan.append({"old": str(path), "new": str(new_path), "kind": "bare_to_v"})
-                seen_new.add(new_path)
+        if suffix.lower() in {".jpg", ".jpeg"} and _append_view_stem_rename(
+            plan,
+            seen_new,
+            path,
+            stem=stem,
+            suffix=suffix,
+            regex=_BARE_VIEW_STEM_RE,
+            suffix_token="_V",
+            kind="bare_to_v",
+        ):
             continue
 
     # --- PanamaCanal directory renames (collected last, applied last) ---
@@ -199,6 +161,54 @@ def build_rename_plan(root: Path) -> list[dict]:
             )
 
     return plan
+
+
+def _append_panama_file_rename(plan: list[dict], seen_new: set[Path], path: Path, *, parent_name: str) -> None:
+    new_name = path.name.replace(OLD_PANAMA, NEW_PANAMA)
+    kind = "panama_file"
+    if parent_name.endswith("_View"):
+        new_name, kind = _panama_view_name(new_name)
+    new_path = path.parent / new_name
+    if new_path != path:
+        plan.append({"old": str(path), "new": str(new_path), "kind": kind})
+        seen_new.add(new_path)
+
+
+def _panama_view_name(new_name: str) -> tuple[str, str]:
+    new_stem = Path(new_name).stem
+    new_suffix = Path(new_name).suffix
+    stitched_match = _STITCHED_STEM_RE.match(new_stem)
+    if stitched_match:
+        return f"{stitched_match.group('base')}_VC{new_suffix}", "panama_stitched_to_vc"
+    bare_match = _BARE_VIEW_STEM_RE.match(new_stem)
+    if bare_match and new_suffix.lower() in {".jpg", ".jpeg"}:
+        return f"{bare_match.group('base')}_V{new_suffix}", "panama_bare_to_v"
+    return new_name, "panama_file"
+
+
+def _append_view_stem_rename(
+    plan: list[dict],
+    seen_new: set[Path],
+    path: Path,
+    *,
+    stem: str,
+    suffix: str,
+    regex: re.Pattern,
+    suffix_token: str,
+    kind: str,
+) -> bool:
+    match = regex.match(stem)
+    if not match:
+        return False
+    new_path = path.parent / f"{match.group('base')}{suffix_token}{suffix}"
+    if new_path == path:
+        return True
+    if new_path in seen_new:
+        print(f"  CONFLICT: {new_path} already in plan", file=sys.stderr)
+        return True
+    plan.append({"old": str(path), "new": str(new_path), "kind": kind})
+    seen_new.add(new_path)
+    return True
 
 
 def _pair_image_and_xmp(plan: list[dict]) -> list[dict]:
@@ -423,33 +433,14 @@ def main(argv: list[str] | None = None) -> int:
 
     # --- Rollback ---
     if args.rollback:
-        if not MANIFEST_PATH.exists():
-            print(f"ERROR: no manifest found at {MANIFEST_PATH}", file=sys.stderr)
-            return 1
-        plan = json.loads(MANIFEST_PATH.read_text())["plan"]
-        plan = rollback_plan(plan)
-        hashes: dict[str, str] = {}
-        print(f"Rolling back {len(plan)} operations ...")
-        results = execute_plan(plan, hashes)
-        ok = sum(1 for r in results if r["status"] == "ok")
-        err = [r for r in results if r["status"] not in {"ok", "skipped_missing"}]
-        print(f"Rollback: {ok} ok, {len(err)} errors")
-        for e in err:
-            print(f"  ERROR: {e}")
-        return 0 if not err else 1
+        return _run_rollback()
 
     # --- Phase 1: Inventory ---
     print(f"Scanning {root} ...")
     plan = build_rename_plan(root)
     plan = _pair_image_and_xmp(plan)
 
-    counts: dict[str, int] = {}
-    for entry in plan:
-        counts[entry["kind"]] = counts.get(entry["kind"], 0) + 1
-
-    print(f"\nRename plan ({len(plan)} operations):")
-    for kind, count in sorted(counts.items()):
-        print(f"  {kind}: {count}")
+    _print_plan_counts(plan)
 
     if not plan:
         print("Nothing to rename.")
@@ -504,6 +495,30 @@ def main(argv: list[str] | None = None) -> int:
 
     print("Migration complete. Review the verification report, then run --regen-checksums.")
     return 0
+
+
+def _run_rollback() -> int:
+    if not MANIFEST_PATH.exists():
+        print(f"ERROR: no manifest found at {MANIFEST_PATH}", file=sys.stderr)
+        return 1
+    plan = rollback_plan(json.loads(MANIFEST_PATH.read_text())["plan"])
+    print(f"Rolling back {len(plan)} operations ...")
+    results = execute_plan(plan, {})
+    ok = sum(1 for r in results if r["status"] == "ok")
+    err = [r for r in results if r["status"] not in {"ok", "skipped_missing"}]
+    print(f"Rollback: {ok} ok, {len(err)} errors")
+    for e in err:
+        print(f"  ERROR: {e}")
+    return 0 if not err else 1
+
+
+def _print_plan_counts(plan: list[dict]) -> None:
+    counts: dict[str, int] = {}
+    for entry in plan:
+        counts[entry["kind"]] = counts.get(entry["kind"], 0) + 1
+    print(f"\nRename plan ({len(plan)} operations):")
+    for kind, count in sorted(counts.items()):
+        print(f"  {kind}: {count}")
 
 
 if __name__ == "__main__":
