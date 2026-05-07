@@ -1,6 +1,4 @@
-from pathlib import Path
-
-from common import chapter_frame_bounds, get_bad_frames_for_chapter, parse_chapters
+from common import METADATA_DIR, chapter_frame_bounds, get_bad_frames_for_chapter, parse_chapters
 from vhs_pipeline import render_pipeline
 
 ARCHIVE = "callahan_01_archive"
@@ -8,8 +6,7 @@ RICE_TOSS_TITLE = "1995 - Jim & Linda Wedding - 10 Rice Toss Send-Off (March 18,
 
 
 def test_rice_toss_render_settings_sources_are_clean_and_in_bounds() -> None:
-    root = Path(__file__).resolve().parents[1]
-    meta_dir = root / "metadata" / ARCHIVE
+    meta_dir = METADATA_DIR / ARCHIVE
     chapters_path = meta_dir / "chapters.ffmetadata"
     settings_path = meta_dir / "render_settings.json"
     if not chapters_path.exists() or not settings_path.exists():
