@@ -113,13 +113,13 @@ When `just dupes` reports a duplicate-code finding (SKY-C401):
 <claude-mem-context>
 # Memory Context
 
-# [imago] recent context, 2026-05-07 9:30am PDT
+# [imago] recent context, 2026-05-07 10:26am PDT
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (21,711t read) | 503,700t work | 96% savings
+Stats: 50 obs (21,488t read) | 496,183t work | 96% savings
 
 ### Apr 29, 2026
 S21 Ctrl-C hang fix: apply_decision offloaded to daemon thread; git diff reviewed showing unrelated pending changes (Apr 29, 6:12 PM)
@@ -131,7 +131,6 @@ S24 photoalbums-map showing San Marino, Italy instead of San Marino, CA — debu
 58 12:24p 🔵 map_server.py _handle_geocode_and_update Has idx-Branching Logic That Skips Main GPS Update
 60 " 🔵 Root Cause Confirmed: XMP GPS Coordinates Written as San Marino, Europe Due to Bare "San Marino" Geocode Query
 61 " 🔵 map_server.py Router Has Duplicate Route Registrations With Typo in Second Block
-62 " 🔵 NominatimGeocoder Architecture: No Country Bias, limit=1, Cache-First with Raw-Field Guard
 59 " 🔵 XMP File Family_1989-1993_B10_P05_D01-00_V.xmp Not Found Under imago Project Directory
 63 12:25p 🔵 Move Function (searchLocation JS) Never Sends loc_idx — Always Targets Primary GPS (idx=-1 Branch)
 64 12:27p 🔵 geocode_cache.json "san marino" Entry Lacks "raw" Field — Causes Cache Bypass and Live Nominatim Call Every Time
@@ -187,6 +186,7 @@ S32 Troubleshoot why OSC 777 notification command works over SSH but fails when 
 S34 Add Windows-only environment variable to Nushell startup configuration while excluding macOS (May 7, 1:01 AM)
 109 1:14a ✅ Codex goals feature enabled via chezmoi-managed config
 110 " 🔵 Chezmoi apply timeout with interactive state lock contention
+113 9:30a 🔵 Codebase complexity analysis reveals high-complexity hotspots across photoalbums, vhs, and cast modules
 
-Access 504k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 496k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>
