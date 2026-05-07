@@ -2141,7 +2141,9 @@ def _merged_location_created(desc: ET.Element, *, values: dict[str, object], des
     )
     if description_role == DESCRIPTION_ROLE_CROP:
         return formatted_location_created
-    return formatted_location_created or str(desc.findtext(f"{{{IPTC_EXT_NS}}}LocationCreated", default="") or "").strip()
+    return (
+        formatted_location_created or str(desc.findtext(f"{{{IPTC_EXT_NS}}}LocationCreated", default="") or "").strip()
+    )
 
 
 def _merged_detections_with_processing(
@@ -2763,7 +2765,9 @@ def _add_mwgrs_region_item(
     cx, cy, nw, nh = pixel_to_mwgrs(r.x, r.y, r.width, r.height, img_w, img_h)
     existing_region = existing_regions[r.index] if 0 <= int(r.index) < len(existing_regions) else {}
     photo_number = int(getattr(r, "photo_number", 0) or 0) or int(existing_region.get("photo_number") or 0)
-    region_caption = _region_caption_text(rwc, photo_number=photo_number, metadata_photos_by_number=metadata_photos_by_number)
+    region_caption = _region_caption_text(
+        rwc, photo_number=photo_number, metadata_photos_by_number=metadata_photos_by_number
+    )
 
     li = ET.SubElement(bag, _RDF_LI)
     li.set(_RDF_PARSE_TYPE, "Resource")
@@ -2773,7 +2777,9 @@ def _add_mwgrs_region_item(
     _set_region_optional_attrs(li, r, photo_number=photo_number)
     _add_region_person_names(li, getattr(r, "person_names", ()) or ())
     _add_region_location_struct(li, f"{{{IMAGO_NS}}}LocationAssigned", dict(getattr(r, "location_payload", {}) or {}))
-    location_override = dict(getattr(r, "location_override", {}) or {}) or dict(existing_region.get("location_override") or {})
+    location_override = dict(getattr(r, "location_override", {}) or {}) or dict(
+        existing_region.get("location_override") or {}
+    )
     _add_region_location_struct(li, f"{{{IMAGO_NS}}}LocationOverride", location_override)
 
 

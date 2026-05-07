@@ -127,11 +127,22 @@ def build_rename_plan(root: Path) -> list[dict]:
             continue
 
         # --- _stitched → _VR ---
-        if _append_view_stem_rename(plan, seen_new, path, stem=stem, suffix=suffix, regex=_STITCHED_STEM_RE, suffix_token="_VC", kind="stitched_to_vc"):
+        if _append_view_stem_rename(
+            plan,
+            seen_new,
+            path,
+            stem=stem,
+            suffix=suffix,
+            regex=_STITCHED_STEM_RE,
+            suffix_token="_VC",
+            kind="stitched_to_vc",
+        ):
             continue
 
         # --- _VR → _VC (rename from previous migration pass) ---
-        if _append_view_stem_rename(plan, seen_new, path, stem=stem, suffix=suffix, regex=_VR_STEM_RE, suffix_token="_VC", kind="vr_to_vc"):
+        if _append_view_stem_rename(
+            plan, seen_new, path, stem=stem, suffix=suffix, regex=_VR_STEM_RE, suffix_token="_VC", kind="vr_to_vc"
+        ):
             continue
 
         # --- bare _P## → _P##_V ---

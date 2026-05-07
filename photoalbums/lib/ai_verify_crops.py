@@ -1596,13 +1596,7 @@ def _verify_crops_page_entry(verify_result: dict[str, object], crop_results: lis
 
 
 def _review_concern_names(crop_results: list, field: str) -> list[str]:
-    return sorted(
-        {
-            concern
-            for row in crop_results
-            for concern in list((row.get("review") or {}).get(field) or [])
-        }
-    )
+    return sorted({concern for row in crop_results for concern in list((row.get("review") or {}).get(field) or [])})
 
 
 def _verify_crop_concern_states(review: dict, review_provenance: dict) -> dict[str, dict]:
