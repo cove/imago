@@ -394,24 +394,12 @@ class ScanWatchService:
             self._events_by_path.pop(event.incoming_path, None)
 
         page_num = self._parse_page_num(target_name)
-        preview_path: Path | None = None
-        stitch_validated: bool | None = None
-
-        if validate_stitch and page_num is not None:
-            files = list_page_scans_for_page(archive_dir, page_num)
-            if len(files) >= 2:
-                self.log_info_fn(f"  [validate-stitch] page {page_num:02d} ({len(files)} scan(s))")
-                stitch_validated, preview_path = self.validate_stitch_fn(files, save_preview=True)
-                if stitch_validated and preview_path is not None and open_preview:
-                    self.log_info_fn(f"  [display-stitch] page {page_num:02d}")
-                    self.display_image_fn(
-                        preview_path,
-                        title=f"Stitched preview: page {page_num:02d}",
-                        log_error=self.log_error_fn,
-                    )
-                    cleanup_preview_file(preview_path)
-                elif preview_path is not None:
-                    cleanup_preview_file(preview_path)
+        stitch_validated = self._validate_applied_scan_stitch(
+            archive_dir,
+            page_num=page_num,
+            validate_stitch=validate_stitch,
+            open_preview=open_preview,
+        )
 
         self.log_info_fn(f"  [sync-archive] {Path(event.archive_dir).name}")
         self._sync_archive_state(str(archive_dir), validate=False)
@@ -424,23 +412,13 @@ class ScanWatchService:
             event.stitch_validated = stitch_validated
             event.updated_at = _now()
 
-            if page_num is None or stitch_validated is None:
-                event.status = "completed"
-                event.note = "processed"
-                if archive is not None and page_num is not None:
-                    archive.needs_rescan_pages.discard(page_num)
-            elif stitch_validated:
-                event.status = "completed"
-                event.note = "stitch validated"
-                if archive is not None:
-                    archive.needs_rescan_pages.discard(page_num)
-            else:
-                event.status = "needs_rescan"
-                event.note = f"page {page_num:02d} stitch failed; scan another copy of the same page"
-                if archive is not None:
-                    archive.needs_rescan_pages.add(page_num)
-                self.log_error_fn(f"{target_name} STITCH FAILED")
-                self.alert_fn()
+            self._finalize_applied_scan_status(
+                event,
+                archive,
+                target_name=target_name,
+                page_num=page_num,
+                stitch_validated=stitch_validated,
+            )
 
             if archive is not None and event.id not in archive.pending_event_ids:
                 archive.pending_event_ids.append(event.id)
@@ -450,6 +428,71 @@ class ScanWatchService:
                 "archive": archive.to_dict() if archive is not None else {"archive_dir": str(archive_dir)},
                 "new_path": str(new_path),
             }
+
+    def _validate_applied_scan_stitch(
+        self,
+        archive_dir: Path,
+        *,
+        page_num: int | None,
+        validate_stitch: bool,
+        open_preview: bool,
+    ) -> bool | None:
+        if not validate_stitch or page_num is None:
+            return None
+        files = list_page_scans_for_page(archive_dir, page_num)
+        if len(files) < 2:
+            return None
+        self.log_info_fn(f"  [validate-stitch] page {page_num:02d} ({len(files)} scan(s))")
+        stitch_validated, preview_path = self.validate_stitch_fn(files, save_preview=True)
+        self._handle_stitch_preview(page_num, stitch_validated=stitch_validated, preview_path=preview_path, open_preview=open_preview)
+        return stitch_validated
+
+    def _handle_stitch_preview(
+        self,
+        page_num: int,
+        *,
+        stitch_validated: bool,
+        preview_path: Path | None,
+        open_preview: bool,
+    ) -> None:
+        if preview_path is None:
+            return
+        if stitch_validated and open_preview:
+            self.log_info_fn(f"  [display-stitch] page {page_num:02d}")
+            self.display_image_fn(
+                preview_path,
+                title=f"Stitched preview: page {page_num:02d}",
+                log_error=self.log_error_fn,
+            )
+        cleanup_preview_file(preview_path)
+
+    def _finalize_applied_scan_status(
+        self,
+        event: ScanEvent,
+        archive: ArchiveState | None,
+        *,
+        target_name: str,
+        page_num: int | None,
+        stitch_validated: bool | None,
+    ) -> None:
+        if page_num is None or stitch_validated is None:
+            event.status = "completed"
+            event.note = "processed"
+            if archive is not None and page_num is not None:
+                archive.needs_rescan_pages.discard(page_num)
+            return
+        if stitch_validated:
+            event.status = "completed"
+            event.note = "stitch validated"
+            if archive is not None:
+                archive.needs_rescan_pages.discard(page_num)
+            return
+        event.status = "needs_rescan"
+        event.note = f"page {page_num:02d} stitch failed; scan another copy of the same page"
+        if archive is not None:
+            archive.needs_rescan_pages.add(page_num)
+        self.log_error_fn(f"{target_name} STITCH FAILED")
+        self.alert_fn()
 
     def stitch_last_scans(self) -> dict[str, object]:
         latest = self._latest_page_scan_group()

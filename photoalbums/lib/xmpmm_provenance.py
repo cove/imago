@@ -36,25 +36,12 @@ for _prefix, _uri in [
 # Re-use the shared helper from xmp_sidecar to avoid duplication
 from .xmp_sidecar import (  # noqa: E402
     _get_or_create_rdf_desc as _get_or_create_desc,
+    _read_or_create_xmp_tree as _load_tree,
     clear_pipeline_steps,
     read_pipeline_state,
     read_pipeline_step,
     write_pipeline_step,
 )
-
-
-def _load_tree(path: Path) -> ET.ElementTree:
-    """Load an XMP tree, creating a minimal skeleton if the file is missing or invalid."""
-    if path.is_file():
-        try:
-            return ET.parse(str(path))  # type: ignore[return-value]
-        except ET.ParseError:
-            pass
-    xmpmeta = ET.Element(f"{{{_X_NS}}}xmpmeta")
-    xmpmeta.set(f"{{{_X_NS}}}xmptk", "imago")
-    rdf = ET.SubElement(xmpmeta, _RDF_ROOT)
-    ET.SubElement(rdf, _RDF_DESC).set(f"{{{_RDF_NS}}}about", "")
-    return ET.ElementTree(xmpmeta)
 
 
 def _save_tree(tree: ET.ElementTree, path: Path) -> None:

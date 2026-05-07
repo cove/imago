@@ -93,13 +93,7 @@ def _resolve_archive_scan_authoritative_ocr(
         get_view_dirname,
     )
 
-    collection, year, book, page = parse_album_filename(image_path.name)
-    view_jpg: Path | None = None
-    if collection != "Unknown":
-        view_dir = Path(get_view_dirname(image_path.parent))
-        candidate = view_dir / f"{collection}_{year}_B{book}_P{int(page):02d}_V.jpg"
-        if candidate.is_file():
-            view_jpg = candidate
+    view_jpg = _archive_scan_view_jpg(image_path, get_view_dirname=get_view_dirname)
 
     def _run_authoritative_ocr(source_path: Path) -> tuple[str, tuple[str, ...], str]:
         if ocr_engine is None or ocr_engine.engine == "none":
@@ -134,39 +128,17 @@ def _resolve_archive_scan_authoritative_ocr(
         with tempfile.TemporaryDirectory(prefix="imago-archive-ocr-") as tmp_dir_name:
             stitched = build_stitched_image([str(path) for path in group_paths])
             tmp_path = Path(tmp_dir_name) / f"{group_paths[0].stem}_ocr_stitched.jpg"
-            wrote_temp_image = False
-            if hasattr(cv2, "imwrite"):
-                wrote_temp_image = bool(cv2.imwrite(str(tmp_path), stitched))
-            else:
-                try:
-                    from PIL import Image  # pylint: disable=import-outside-toplevel
-
-                    rgb_image = stitched[:, :, ::-1] if len(stitched.shape) == 3 else stitched
-                    Image.fromarray(rgb_image).save(tmp_path, format="JPEG", quality=95)
-                    wrote_temp_image = True
-                except Exception:
-                    wrote_temp_image = False
-            if not wrote_temp_image:
+            if not _write_stitched_jpeg(cv2, stitched, tmp_path):
                 raise RuntimeError(f"Could not write temporary stitched OCR image: {tmp_path}")
-            cap_wrote = False
             ocr_source_path = tmp_path
+            cap_path = None
             if stitched_image_dir is not None:
                 cap_path = stitched_image_dir / f"{group_paths[0].stem}_stitched.jpg"
-                if hasattr(cv2, "imwrite"):
-                    cap_wrote = bool(cv2.imwrite(str(cap_path), stitched))
-                else:
-                    try:
-                        from PIL import Image  # pylint: disable=import-outside-toplevel
-
-                        rgb_image = stitched[:, :, ::-1] if len(stitched.shape) == 3 else stitched
-                        Image.fromarray(rgb_image).save(cap_path, format="JPEG", quality=95)
-                        cap_wrote = True
-                    except Exception:
-                        pass
-            if cap_wrote:
+            cap_wrote = cap_path is not None and _write_stitched_jpeg(cv2, stitched, cap_path)
+            if cap_wrote and cap_path is not None:
                 ocr_source_path = cap_path
             ocr_text, ocr_keywords, ocr_hash = _run_authoritative_ocr(ocr_source_path)
-            if cap_wrote:
+            if cap_wrote and cap_path is not None:
                 stitched_cap_path = cap_path
 
     result = ArchiveScanOCRAuthority(
@@ -180,6 +152,27 @@ def _resolve_archive_scan_authoritative_ocr(
     )
     cache[page_key] = result
     return result
+
+
+def _archive_scan_view_jpg(image_path: Path, *, get_view_dirname) -> Path | None:
+    collection, year, book, page = parse_album_filename(image_path.name)
+    if collection == "Unknown":
+        return None
+    candidate = Path(get_view_dirname(image_path.parent)) / f"{collection}_{year}_B{book}_P{int(page):02d}_V.jpg"
+    return candidate if candidate.is_file() else None
+
+
+def _write_stitched_jpeg(cv2, stitched, path: Path) -> bool:
+    if hasattr(cv2, "imwrite"):
+        return bool(cv2.imwrite(str(path), stitched))
+    try:
+        from PIL import Image  # pylint: disable=import-outside-toplevel
+
+        rgb_image = stitched[:, :, ::-1] if len(stitched.shape) == 3 else stitched
+        Image.fromarray(rgb_image).save(path, format="JPEG", quality=95)
+        return True
+    except Exception:
+        return False
 
 
 def _page_scan_filenames(image_path: Path) -> list[str]:
