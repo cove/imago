@@ -296,4 +296,3 @@ def test_caption_quality(lmstudio_url, case):
         f"    ocr_text:    {case.get('ocr_text', '')!r}\n"
         f"    album_title: {case.get('album_title', '')!r}\n" + "\n".join(failing_details)
     )
-

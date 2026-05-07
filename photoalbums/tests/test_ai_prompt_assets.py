@@ -30,7 +30,9 @@ class TestAIPromptAssets(unittest.TestCase):
                 )
 
         self.assertEqual(asset.rendered, "Album: Egypt 1975\nStatic line")
-        self.assertEqual(asset.hash, ai_prompt_assets.content_hash("Album: {album_title}\nOCR: {ocr_text}\nStatic line\n"))
+        self.assertEqual(
+            asset.hash, ai_prompt_assets.content_hash("Album: {album_title}\nOCR: {ocr_text}\nStatic line\n")
+        )
         self.assertEqual(asset.path, prompt)
 
     def test_missing_prompt_file_includes_path_and_os_error(self):

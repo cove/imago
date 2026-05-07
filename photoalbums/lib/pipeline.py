@@ -92,8 +92,7 @@ def validate_step_ids(ids: list[str], *, flag: str) -> list[str]:
     unknown = [sid for sid in ids if sid not in VALID_STEP_IDS]
     if unknown:
         print(
-            f"Error: unknown step id(s) for {flag}: {', '.join(unknown)}\n"
-            f"Valid step ids: {', '.join(VALID_STEP_IDS)}",
+            f"Error: unknown step id(s) for {flag}: {', '.join(unknown)}\nValid step ids: {', '.join(VALID_STEP_IDS)}",
             file=sys.stderr,
         )
         sys.exit(2)

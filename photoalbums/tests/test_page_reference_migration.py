@@ -51,8 +51,8 @@ def test_migrate_album_page_references_updates_only_matching_sidecars(tmp_path: 
     changed = tmp_path / "changed.xmp"
     changed.write_text(
         (
-            '<stRef:filePath>../Europe_1985_B02_View/Europe_1985_B02_P18_V.jpg</stRef:filePath>'
-            '<dc:description>Album_View label</dc:description>'
+            "<stRef:filePath>../Europe_1985_B02_View/Europe_1985_B02_P18_V.jpg</stRef:filePath>"
+            "<dc:description>Album_View label</dc:description>"
         ),
         encoding="utf-8",
     )

@@ -40,6 +40,7 @@ def _resolve_runtime(torch) -> tuple[object, str]:
 
 def _installed_ram_bytes() -> int | None:
     if os.name == "nt":
+
         class _MemoryStatusEx(ctypes.Structure):
             _fields_ = [
                 ("dwLength", ctypes.c_ulong),

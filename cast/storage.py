@@ -879,7 +879,9 @@ class TextFaceStore:
             {
                 "person_id": str(row.get("person_id") or "").strip(),
                 "display_name": str(row.get("display_name") or "").strip(),
-                "aliases": [str(item or "").strip() for item in list(row.get("aliases") or []) if str(item or "").strip()],
+                "aliases": [
+                    str(item or "").strip() for item in list(row.get("aliases") or []) if str(item or "").strip()
+                ],
                 "notes": str(row.get("notes") or "").strip(),
                 "updated_at": str(row.get("updated_at") or "").strip(),
             }

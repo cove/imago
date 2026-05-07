@@ -206,6 +206,32 @@ class TestStitchOversizedPages(unittest.TestCase):
         build_mock.assert_not_called()
         write_mock.assert_not_called()
 
+    def test_stitch_force_rewrites_existing_valid_output(self):
+        files = [
+            "C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_S01.tif",
+            "C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_S02.tif",
+            "C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_S03.tif",
+            "C:/Photos/EU_1973_B02_Archive/EU_1973_B02_P05_S04.tif",
+        ]
+        fake_result = mock.Mock()
+        fake_result.size = 1
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "EU_1973_B02_P05_V.jpg"
+            out.write_bytes(b"x" * 1024)
+            with (
+                mock.patch("stitch_oversized_pages._require_stitcher"),
+                mock.patch("stitch_oversized_pages._require_image_modules"),
+                mock.patch("stitch_oversized_pages._validate_and_retry", return_value=True),
+                mock.patch("stitch_oversized_pages.validate_image_with_pillow", return_value=True),
+                mock.patch("stitch_oversized_pages.build_stitched_image", return_value=fake_result) as build_mock,
+                mock.patch("stitch_oversized_pages.write_jpeg") as write_mock,
+            ):
+                wrote = sop.stitch(files, tmp, force=True)
+
+        self.assertTrue(wrote)
+        build_mock.assert_called_once_with(files)
+        write_mock.assert_called_once_with(fake_result, str(Path(tmp) / "EU_1973_B02_P05_V.jpg"))
+
     def test_build_stitched_image_raises_partial_panorama_error(self):
         class PartialPanoramaStitcher:
             def stitch(self, _files):
@@ -340,10 +366,9 @@ class TestStitchOversizedPages(unittest.TestCase):
                 mock.patch("stitch_oversized_pages.list_derived_media", return_value=[]),
                 mock.patch(
                     "stitch_oversized_pages.derived_to_jpg",
-                    side_effect=lambda derived_path, output_dir: render_calls.append(
-                        (Path(derived_path).name, Path(output_dir).name)
-                    )
-                    or True,
+                    side_effect=lambda derived_path, output_dir: (
+                        render_calls.append((Path(derived_path).name, Path(output_dir).name)) or True
+                    ),
                 ),
                 mock.patch("stitch_oversized_pages._index_rendered_view_image") as index_mock,
                 mock.patch("stitch_oversized_pages._refresh_rendered_view_people") as refresh_mock,
@@ -354,7 +379,9 @@ class TestStitchOversizedPages(unittest.TestCase):
         index_mock.assert_called_once()
         refresh_mock.assert_called_once()
         self.assertTrue(str(index_mock.call_args.args[0]).endswith("EU_1973_B02_Photos\\EU_1973_B02_P05_D01-02_V.jpg"))
-        self.assertTrue(str(refresh_mock.call_args.args[0]).endswith("EU_1973_B02_Photos\\EU_1973_B02_P05_D01-02_V.jpg"))
+        self.assertTrue(
+            str(refresh_mock.call_args.args[0]).endswith("EU_1973_B02_Photos\\EU_1973_B02_P05_D01-02_V.jpg")
+        )
 
     def test_main_copies_derived_media_to_photos_directory(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -372,8 +399,9 @@ class TestStitchOversizedPages(unittest.TestCase):
                 mock.patch("stitch_oversized_pages.list_derived_media", return_value=[str(media)]),
                 mock.patch(
                     "stitch_oversized_pages.copy_derived_media",
-                    side_effect=lambda media_path, output_dir: copy_calls.append((Path(media_path).name, Path(output_dir).name))
-                    or True,
+                    side_effect=lambda media_path, output_dir: (
+                        copy_calls.append((Path(media_path).name, Path(output_dir).name)) or True
+                    ),
                 ),
             ):
                 sop.main()
@@ -487,4 +515,3 @@ class TestStitchOversizedPages(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

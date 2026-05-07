@@ -365,4 +365,3 @@ class TestCropPageRegionsRestoration(unittest.TestCase):
             self.assertEqual(second_restore.call_count, 1)
             state = read_pipeline_step(photos_dir / "Album_B00_P02_D01-00_V.xmp", "photo_restoration")
             self.assertEqual(state["result"], "restored")
-

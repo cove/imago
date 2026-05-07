@@ -20,6 +20,7 @@ _PALETTE = [
     (0, 160, 255),  # deepskyblue
 ]
 
+
 def _render_regions(
     image_path: str | Path,
     regions: list[dict],

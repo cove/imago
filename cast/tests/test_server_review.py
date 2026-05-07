@@ -783,4 +783,3 @@ def test_review_accept_keeps_item_pending_when_person_in_image_verification_fail
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
-

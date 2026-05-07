@@ -113,32 +113,21 @@ When `just dupes` reports a duplicate-code finding (SKY-C401):
 <claude-mem-context>
 # Memory Context
 
-# [imago] recent context, 2026-05-01 4:28pm PDT
+# [imago] recent context, 2026-05-07 9:30am PDT
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (22,228t read) | 414,982t work | 95% savings
+Stats: 50 obs (21,711t read) | 503,700t work | 96% savings
 
 ### Apr 29, 2026
-S17 Investigating why watcher may not have picked up moved incoming_scan.tif — checking OneDrive path resolution and verifying watcher was restarted. (Apr 29, 6:02 PM)
-S18 Photoalbums watcher: fix CLI path, on_moved detection, and slow startup — then explain pending scan event behavior (Apr 29, 6:04 PM)
-S19 Scanwatch pending event — user expected auto-rename but watcher requires explicit apply_decision call (Apr 29, 6:07 PM)
-S20 Scanwatch auto-rename: watcher now auto-applies get_next_filename instead of waiting for manual apply_decision (Apr 29, 6:12 PM)
 S21 Ctrl-C hang fix: apply_decision offloaded to daemon thread; git diff reviewed showing unrelated pending changes (Apr 29, 6:12 PM)
 S22 Commit and push scanwatch auto-rename feature — shipped as b0eecfa3 to github.com/cove/imago (Apr 29, 6:18 PM)
 S23 Investigating `just photoalbums-watch` recipe failure at line 88 with exit code 1 (Apr 29, 6:23 PM)
 ### Apr 30, 2026
-51 2:50p 🔵 photoalbums Environment Verified: Paths Resolve and Imports Succeed
-52 2:51p 🔵 photoalbums.py Root Script Has No "watch" Command
-53 " 🔵 photoalbums watch Command Architecture: cli.py → commands.py → incoming_scans_watcher
-54 2:52p 🔵 commands.py Self-Patches sys.path to Enable Bare Module Imports
 S24 photoalbums-map showing San Marino, Italy instead of San Marino, CA — debugging GPS geocoding bug in XMP pipeline (Apr 30, 2:52 PM)
 ### May 1, 2026
-55 12:20p 🔵 claude-mem hook hang investigation: settings configuration examined
-56 12:23p 🔵 photoalbums-map GPS Location Not Updating After Move Function
-57 " 🔵 geocode_cache.json Contains Ambiguous "San Marino" Entry Resolving to European Country
 58 12:24p 🔵 map_server.py _handle_geocode_and_update Has idx-Branching Logic That Skips Main GPS Update
 60 " 🔵 Root Cause Confirmed: XMP GPS Coordinates Written as San Marino, Europe Due to Bare "San Marino" Geocode Query
 61 " 🔵 map_server.py Router Has Duplicate Route Registrations With Typo in Second Block
@@ -167,6 +156,7 @@ S25 photoalbums-map GPS location bug: map pin showing San Marino, Italy instead 
 82 12:50p 🔴 Family_1989-1993_B10_P05_D01-00_V.xmp manually corrected from European to California GPS
 83 12:51p 🔵 Test suite blocked by Windows WinError 448 on vhs/metadata mount point
 84 12:52p ✅ photoalbums test suite passes 525/525 after map_server Detections fix
+S26 Investigate why Docling caption_hints are mismatched between Family_1994_B00_P03_D03-00_V.xmp and D07-00_V.xmp — each XMP holds the other photo's caption (May 1, 12:52 PM)
 85 1:15p 🔵 Docling Caption Mismatch Between XMP Files (D03/D07 Swapped)
 86 " 🔵 Docling Caption Resolution Uses cref Index Into doc.texts — Likely Source of Caption Swap Bug
 87 " 🔵 Caption/dc:description Handling Spread Across ~30 Python Files in imago/photoalbums
@@ -182,8 +172,21 @@ S25 photoalbums-map GPS location bug: map pin showing San Marino, Italy instead 
 97 1:29p 🔵 Smoking Gun Found: Page View XMP Contains All 9 Region CaptionHints — D03/D07 Captions Match Spatial Positions But Are Swapped Relative to Physical Photos
 98 1:30p 🔵 Docling Debug JSON Files Not Present for P03 — Raw Docling Output Unavailable for Root Cause Analysis
 99 " 🔵 Debug Root for Photo Album Images Is `_debug/` Subdirectory Under the Album Root
-S26 Investigate why Docling caption_hints are mismatched between Family_1994_B00_P03_D03-00_V.xmp and D07-00_V.xmp — each XMP holds the other photo's caption (May 1, 1:32 PM)
+S27 Configure statusline from shell PS1 configuration (May 1, 1:32 PM)
 100 1:43p 🔵 Architecture Clarification: Docling Only Draws Bounding Boxes — LM Studio (Gemma4) Assigns Captions to Photos
+### May 3, 2026
+101 2:52p 🔵 No PS1 statusline configuration found in shell config files
+S28 User requested "ntt" - no session activity or work output recorded (May 3, 2:53 PM)
+102 7:06p 🔵 No PS1 configuration found in shell files
+S32 Troubleshoot why OSC 777 notification command works over SSH but fails when run in Zellij with Nushell (May 3, 8:38 PM)
+### May 6, 2026
+105 10:38p 🔵 Ripgrep crashes with heap corruption when searching Codex configuration directories
+107 10:39p 🔵 PowerShell heap corruption resolved by explicitly granting escalated sandbox permissions
+108 10:48p 🔵 Hook fallback mechanism uses direct OSC escape codes for terminal notifications
+### May 7, 2026
+S34 Add Windows-only environment variable to Nushell startup configuration while excluding macOS (May 7, 1:01 AM)
+109 1:14a ✅ Codex goals feature enabled via chezmoi-managed config
+110 " 🔵 Chezmoi apply timeout with interactive state lock contention
 
-Access 415k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 504k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

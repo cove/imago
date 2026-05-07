@@ -99,7 +99,7 @@ class TestAIVerifyCrops(unittest.TestCase):
                 patch.object(
                     ai_verify_crops,
                     "_call_structured_vision_request",
-                    return_value=(review, "glm-test", "{\"ok\": true}", "stop"),
+                    return_value=(review, "glm-test", '{"ok": true}', "stop"),
                 ) as request_mock,
             ):
                 ai_verify_crops.run_verify_crops_page(page_image)
@@ -130,11 +130,19 @@ class TestAIVerifyCrops(unittest.TestCase):
 
     def test_parse_verification_payload_requires_human_inference_for_bad_or_uncertain(self):
         payload = {
-            "caption": {"verdict": "bad", "reasoning": "Caption belongs to nearby photo.", "failure_reason": "Wrong caption."},
+            "caption": {
+                "verdict": "bad",
+                "reasoning": "Caption belongs to nearby photo.",
+                "failure_reason": "Wrong caption.",
+            },
             "gps": {"verdict": "good", "reasoning": "GPS is supported.", "failure_reason": ""},
             "shown_location": {"verdict": "good", "reasoning": "Shown location matches.", "failure_reason": ""},
             "date": {"verdict": "good", "reasoning": "Date matches page text.", "failure_reason": ""},
-            "overall": {"verdict": "bad", "reasoning": "Set does not belong together.", "failure_reason": "Caption mismatch."},
+            "overall": {
+                "verdict": "bad",
+                "reasoning": "Set does not belong together.",
+                "failure_reason": "Caption mismatch.",
+            },
             "human_inference": "",
             "needs_another_pass": ["caption"],
             "needs_human_review": [],
@@ -145,11 +153,23 @@ class TestAIVerifyCrops(unittest.TestCase):
 
     def test_parse_verification_payload_keeps_bad_and_uncertain_routing(self):
         payload = {
-            "caption": {"verdict": "bad", "reasoning": "Caption belongs to nearby photo.", "failure_reason": "Wrong caption."},
-            "gps": {"verdict": "uncertain", "reasoning": "Page context too vague.", "failure_reason": "Not enough place evidence."},
+            "caption": {
+                "verdict": "bad",
+                "reasoning": "Caption belongs to nearby photo.",
+                "failure_reason": "Wrong caption.",
+            },
+            "gps": {
+                "verdict": "uncertain",
+                "reasoning": "Page context too vague.",
+                "failure_reason": "Not enough place evidence.",
+            },
             "shown_location": {"verdict": "good", "reasoning": "Shown location matches.", "failure_reason": ""},
             "date": {"verdict": "good", "reasoning": "Date matches page text.", "failure_reason": ""},
-            "overall": {"verdict": "uncertain", "reasoning": "Some evidence conflicts.", "failure_reason": "Caption and GPS unresolved."},
+            "overall": {
+                "verdict": "uncertain",
+                "reasoning": "Some evidence conflicts.",
+                "failure_reason": "Caption and GPS unresolved.",
+            },
             "human_inference": "Human would read this as a neighboring caption and a vague place reference.",
             "needs_another_pass": ["caption", "gps", "date"],
             "needs_human_review": ["gps", "shown_location"],
@@ -213,11 +233,23 @@ class TestAIVerifyCrops(unittest.TestCase):
                         "crop_xmp_path": str(crop_image.with_suffix(".xmp")),
                         "model": "glm-test",
                         "review": {
-                            "caption": {"verdict": "bad", "reasoning": "Caption shifted right.", "failure_reason": "Caption belongs to neighbor."},
+                            "caption": {
+                                "verdict": "bad",
+                                "reasoning": "Caption shifted right.",
+                                "failure_reason": "Caption belongs to neighbor.",
+                            },
                             "gps": {"verdict": "good", "reasoning": "GPS is supported.", "failure_reason": ""},
-                            "shown_location": {"verdict": "uncertain", "reasoning": "Page only says Spain.", "failure_reason": "Too vague for city."},
+                            "shown_location": {
+                                "verdict": "uncertain",
+                                "reasoning": "Page only says Spain.",
+                                "failure_reason": "Too vague for city.",
+                            },
                             "date": {"verdict": "good", "reasoning": "Date matches page.", "failure_reason": ""},
-                            "overall": {"verdict": "uncertain", "reasoning": "Caption and shown location unresolved.", "failure_reason": "Two concerns unresolved."},
+                            "overall": {
+                                "verdict": "uncertain",
+                                "reasoning": "Caption and shown location unresolved.",
+                                "failure_reason": "Two concerns unresolved.",
+                            },
                             "human_inference": "Human would infer neighboring caption carry-over and only country-level place evidence.",
                             "needs_another_pass": ["caption", "shown_location"],
                             "needs_human_review": [],
@@ -273,17 +305,29 @@ class TestAIVerifyCrops(unittest.TestCase):
                 ],
             }
             parsed_review = {
-                "caption": {"verdict": "bad", "reasoning": "Caption drifted to a neighboring crop.", "failure_reason": "Caption belongs to the crop on the left."},
+                "caption": {
+                    "verdict": "bad",
+                    "reasoning": "Caption drifted to a neighboring crop.",
+                    "failure_reason": "Caption belongs to the crop on the left.",
+                },
                 "gps": {"verdict": "good", "reasoning": "GPS is supported.", "failure_reason": ""},
                 "shown_location": {"verdict": "good", "reasoning": "Shown location matches.", "failure_reason": ""},
                 "date": {"verdict": "good", "reasoning": "Date matches page text.", "failure_reason": ""},
-                "overall": {"verdict": "bad", "reasoning": "Caption mismatch makes the set unreliable.", "failure_reason": "Caption mismatch."},
+                "overall": {
+                    "verdict": "bad",
+                    "reasoning": "Caption mismatch makes the set unreliable.",
+                    "failure_reason": "Caption mismatch.",
+                },
                 "human_inference": "Human would attach the nearby caption to the left crop instead.",
                 "needs_another_pass": ["caption"],
                 "needs_human_review": [],
             }
             follow_up_review = {
-                "caption": {"verdict": "good", "reasoning": "Caption now matches the page context.", "failure_reason": ""},
+                "caption": {
+                    "verdict": "good",
+                    "reasoning": "Caption now matches the page context.",
+                    "failure_reason": "",
+                },
                 "gps": {"verdict": "good", "reasoning": "GPS is supported.", "failure_reason": ""},
                 "shown_location": {"verdict": "good", "reasoning": "Shown location matches.", "failure_reason": ""},
                 "date": {"verdict": "good", "reasoning": "Date matches page text.", "failure_reason": ""},
@@ -299,8 +343,8 @@ class TestAIVerifyCrops(unittest.TestCase):
                     ai_verify_crops,
                     "_call_structured_vision_request",
                     side_effect=[
-                        (parsed_review, "glm-test", "{\"ok\": true}", "stop"),
-                        (follow_up_review, "glm-test", "{\"ok\": true}", "stop"),
+                        (parsed_review, "glm-test", '{"ok": true}', "stop"),
+                        (follow_up_review, "glm-test", '{"ok": true}', "stop"),
                     ],
                 ),
                 patch.object(
@@ -325,7 +369,7 @@ class TestAIVerifyCrops(unittest.TestCase):
             self.assertEqual(result["results"][0]["review"]["caption"]["verdict"], "good")
             retry_mock.assert_called_once()
             artifact = Path(result["artifact_path"]).read_text(encoding="utf-8")
-            self.assertIn("\"retry_attempts\"", artifact)
+            self.assertIn('"retry_attempts"', artifact)
 
     def test_run_verify_crops_page_logs_before_after_retry_values(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -357,11 +401,19 @@ class TestAIVerifyCrops(unittest.TestCase):
                 ],
             }
             parsed_review = {
-                "caption": {"verdict": "bad", "reasoning": "Caption drifted to a neighboring crop.", "failure_reason": "Caption belongs to the crop on the left."},
+                "caption": {
+                    "verdict": "bad",
+                    "reasoning": "Caption drifted to a neighboring crop.",
+                    "failure_reason": "Caption belongs to the crop on the left.",
+                },
                 "gps": {"verdict": "good", "reasoning": "GPS is supported.", "failure_reason": ""},
                 "shown_location": {"verdict": "good", "reasoning": "Shown location matches.", "failure_reason": ""},
                 "date": {"verdict": "good", "reasoning": "Date matches page text.", "failure_reason": ""},
-                "overall": {"verdict": "bad", "reasoning": "Caption mismatch makes the set unreliable.", "failure_reason": "Caption mismatch."},
+                "overall": {
+                    "verdict": "bad",
+                    "reasoning": "Caption mismatch makes the set unreliable.",
+                    "failure_reason": "Caption mismatch.",
+                },
                 "human_inference": "Human would attach the nearby caption to the left crop instead.",
                 "needs_another_pass": ["caption"],
                 "needs_human_review": [],
@@ -374,7 +426,7 @@ class TestAIVerifyCrops(unittest.TestCase):
                     ai_verify_crops,
                     "_call_structured_vision_request",
                     side_effect=[
-                        (parsed_review, "glm-test", "{\"ok\": true}", "stop"),
+                        (parsed_review, "glm-test", '{"ok": true}', "stop"),
                         (
                             {
                                 "caption_max_tokens": 144,
@@ -383,7 +435,7 @@ class TestAIVerifyCrops(unittest.TestCase):
                                 "reason": "Try a tighter caption rerun.",
                             },
                             "glm-test",
-                            "{\"caption_max_tokens\": 144}",
+                            '{"caption_max_tokens": 144}',
                             "stop",
                         ),
                     ],
@@ -449,31 +501,55 @@ class TestAIVerifyCrops(unittest.TestCase):
                 ],
             }
             first_review = {
-                "caption": {"verdict": "bad", "reasoning": "Caption drifted to a neighboring crop.", "failure_reason": "Caption belongs to the crop on the left."},
+                "caption": {
+                    "verdict": "bad",
+                    "reasoning": "Caption drifted to a neighboring crop.",
+                    "failure_reason": "Caption belongs to the crop on the left.",
+                },
                 "gps": {"verdict": "good", "reasoning": "GPS is supported.", "failure_reason": ""},
                 "shown_location": {"verdict": "good", "reasoning": "Shown location matches.", "failure_reason": ""},
                 "date": {"verdict": "good", "reasoning": "Date matches page text.", "failure_reason": ""},
-                "overall": {"verdict": "bad", "reasoning": "Caption mismatch makes the set unreliable.", "failure_reason": "Caption mismatch."},
+                "overall": {
+                    "verdict": "bad",
+                    "reasoning": "Caption mismatch makes the set unreliable.",
+                    "failure_reason": "Caption mismatch.",
+                },
                 "human_inference": "Human would attach the nearby caption to the left crop instead.",
                 "needs_another_pass": ["caption"],
                 "needs_human_review": [],
             }
             second_review = {
-                "caption": {"verdict": "bad", "reasoning": "Caption is still mismatched.", "failure_reason": "Caption still belongs to the neighboring crop."},
+                "caption": {
+                    "verdict": "bad",
+                    "reasoning": "Caption is still mismatched.",
+                    "failure_reason": "Caption still belongs to the neighboring crop.",
+                },
                 "gps": {"verdict": "good", "reasoning": "GPS is supported.", "failure_reason": ""},
                 "shown_location": {"verdict": "good", "reasoning": "Shown location matches.", "failure_reason": ""},
                 "date": {"verdict": "good", "reasoning": "Date matches page text.", "failure_reason": ""},
-                "overall": {"verdict": "bad", "reasoning": "Caption remains unresolved.", "failure_reason": "Caption mismatch remains."},
+                "overall": {
+                    "verdict": "bad",
+                    "reasoning": "Caption remains unresolved.",
+                    "failure_reason": "Caption mismatch remains.",
+                },
                 "human_inference": "Human would still attach the caption to the neighboring crop instead.",
                 "needs_another_pass": ["caption"],
                 "needs_human_review": [],
             }
             third_review = {
-                "caption": {"verdict": "uncertain", "reasoning": "Caption is still not trustworthy after the third pass.", "failure_reason": "Caption remains ambiguous between neighboring crops."},
+                "caption": {
+                    "verdict": "uncertain",
+                    "reasoning": "Caption is still not trustworthy after the third pass.",
+                    "failure_reason": "Caption remains ambiguous between neighboring crops.",
+                },
                 "gps": {"verdict": "good", "reasoning": "GPS is supported.", "failure_reason": ""},
                 "shown_location": {"verdict": "good", "reasoning": "Shown location matches.", "failure_reason": ""},
                 "date": {"verdict": "good", "reasoning": "Date matches page text.", "failure_reason": ""},
-                "overall": {"verdict": "uncertain", "reasoning": "Caption is still unresolved overall.", "failure_reason": "Caption ambiguity remains."},
+                "overall": {
+                    "verdict": "uncertain",
+                    "reasoning": "Caption is still unresolved overall.",
+                    "failure_reason": "Caption ambiguity remains.",
+                },
                 "human_inference": "Human would still see the caption as ambiguous between adjacent crops.",
                 "needs_another_pass": ["caption"],
                 "needs_human_review": [],
@@ -485,8 +561,8 @@ class TestAIVerifyCrops(unittest.TestCase):
                     ai_verify_crops,
                     "_call_structured_vision_request",
                     side_effect=[
-                        (first_review, "glm-test", "{\"ok\": true}", "stop"),
-                        (second_review, "glm-test", "{\"ok\": true}", "stop"),
+                        (first_review, "glm-test", '{"ok": true}', "stop"),
+                        (second_review, "glm-test", '{"ok": true}', "stop"),
                         (
                             {
                                 "caption_max_tokens": 144,
@@ -495,10 +571,10 @@ class TestAIVerifyCrops(unittest.TestCase):
                                 "reason": "Use a slightly larger crop context window.",
                             },
                             "glm-test",
-                            "{\"caption_max_tokens\": 144}",
+                            '{"caption_max_tokens": 144}',
                             "stop",
                         ),
-                        (third_review, "glm-test", "{\"ok\": true}", "stop"),
+                        (third_review, "glm-test", '{"ok": true}', "stop"),
                     ],
                 ) as request_mock,
                 patch.object(ai_verify_crops, "_current_crop_xmp_text", return_value="crop context revised"),
@@ -601,11 +677,23 @@ class TestAIVerifyCrops(unittest.TestCase):
                         "crop_xmp_path": str(crop_image.with_suffix(".xmp")),
                         "model": "glm-test",
                         "review": {
-                            "caption": {"verdict": "good", "reasoning": "Caption matches after pass 3.", "failure_reason": ""},
+                            "caption": {
+                                "verdict": "good",
+                                "reasoning": "Caption matches after pass 3.",
+                                "failure_reason": "",
+                            },
                             "gps": {"verdict": "good", "reasoning": "GPS is supported.", "failure_reason": ""},
-                            "shown_location": {"verdict": "good", "reasoning": "Shown location matches.", "failure_reason": ""},
+                            "shown_location": {
+                                "verdict": "good",
+                                "reasoning": "Shown location matches.",
+                                "failure_reason": "",
+                            },
                             "date": {"verdict": "good", "reasoning": "Date matches page.", "failure_reason": ""},
-                            "overall": {"verdict": "good", "reasoning": "Everything is now aligned.", "failure_reason": ""},
+                            "overall": {
+                                "verdict": "good",
+                                "reasoning": "Everything is now aligned.",
+                                "failure_reason": "",
+                            },
                             "human_inference": "",
                             "needs_another_pass": [],
                             "needs_human_review": [],
@@ -621,10 +709,30 @@ class TestAIVerifyCrops(unittest.TestCase):
                                 },
                                 "retry_count": 2,
                             },
-                            "gps": {"prompt_variant": "base", "model": "glm-test", "tuning_params": {}, "retry_count": 0},
-                            "shown_location": {"prompt_variant": "base", "model": "glm-test", "tuning_params": {}, "retry_count": 0},
-                            "date": {"prompt_variant": "base", "model": "glm-test", "tuning_params": {}, "retry_count": 0},
-                            "overall": {"prompt_variant": "base", "model": "glm-test", "tuning_params": {}, "retry_count": 0},
+                            "gps": {
+                                "prompt_variant": "base",
+                                "model": "glm-test",
+                                "tuning_params": {},
+                                "retry_count": 0,
+                            },
+                            "shown_location": {
+                                "prompt_variant": "base",
+                                "model": "glm-test",
+                                "tuning_params": {},
+                                "retry_count": 0,
+                            },
+                            "date": {
+                                "prompt_variant": "base",
+                                "model": "glm-test",
+                                "tuning_params": {},
+                                "retry_count": 0,
+                            },
+                            "overall": {
+                                "prompt_variant": "base",
+                                "model": "glm-test",
+                                "tuning_params": {},
+                                "retry_count": 0,
+                            },
                         },
                     }
                 ],
@@ -638,7 +746,6 @@ class TestAIVerifyCrops(unittest.TestCase):
             self.assertEqual(concerns["caption"]["provenance"]["prompt_variant"], "parameter-suggestion")
             self.assertEqual(concerns["caption"]["provenance"]["retry_count"], 2)
             self.assertEqual(concerns["caption"]["provenance"]["tuning_params"]["caption_max_edge"], 2048)
-
 
     def test_fixture_obviously_correct_pair_all_verdicts_good(self):
         """Fixture: page caption, date, and location all agree with the crop metadata."""
@@ -681,11 +788,31 @@ class TestAIVerifyCrops(unittest.TestCase):
                 ],
             }
             all_good_review = {
-                "caption": {"verdict": "good", "reasoning": "Caption matches adjacent text on the page.", "failure_reason": ""},
-                "gps": {"verdict": "good", "reasoning": "GPS is consistent with Springfield, Ohio.", "failure_reason": ""},
-                "shown_location": {"verdict": "good", "reasoning": "Shown location matches page context.", "failure_reason": ""},
-                "date": {"verdict": "good", "reasoning": "1992-07 matches JULY 1992 on the page.", "failure_reason": ""},
-                "overall": {"verdict": "good", "reasoning": "Crop, caption, date, and location are mutually consistent.", "failure_reason": ""},
+                "caption": {
+                    "verdict": "good",
+                    "reasoning": "Caption matches adjacent text on the page.",
+                    "failure_reason": "",
+                },
+                "gps": {
+                    "verdict": "good",
+                    "reasoning": "GPS is consistent with Springfield, Ohio.",
+                    "failure_reason": "",
+                },
+                "shown_location": {
+                    "verdict": "good",
+                    "reasoning": "Shown location matches page context.",
+                    "failure_reason": "",
+                },
+                "date": {
+                    "verdict": "good",
+                    "reasoning": "1992-07 matches JULY 1992 on the page.",
+                    "failure_reason": "",
+                },
+                "overall": {
+                    "verdict": "good",
+                    "reasoning": "Crop, caption, date, and location are mutually consistent.",
+                    "failure_reason": "",
+                },
                 "human_inference": "",
                 "needs_another_pass": [],
                 "needs_human_review": [],
@@ -696,7 +823,7 @@ class TestAIVerifyCrops(unittest.TestCase):
                 patch.object(
                     ai_verify_crops,
                     "_call_structured_vision_request",
-                    return_value=(all_good_review, "glm-test", "{\"ok\": true}", "stop"),
+                    return_value=(all_good_review, "glm-test", '{"ok": true}', "stop"),
                 ),
             ):
                 result = ai_verify_crops.run_verify_crops_page(page_image)
@@ -731,10 +858,7 @@ class TestAIVerifyCrops(unittest.TestCase):
                 "page_xmp_path": str(page_image.with_suffix(".xmp").resolve()),
                 "page_image_exists": True,
                 "page_xmp_exists": True,
-                "page_xmp_text": (
-                    "description: Dad at the ballgame; Mom cooking dinner\n"
-                    "author_text: SUMMER 1988"
-                ),
+                "page_xmp_text": ("description: Dad at the ballgame; Mom cooking dinner\nauthor_text: SUMMER 1988"),
                 "page_location_verification_text": "",
                 "missing_context": [],
                 "crops": [
@@ -742,20 +866,25 @@ class TestAIVerifyCrops(unittest.TestCase):
                         "crop_image_path": str(crop_image.resolve()),
                         "crop_xmp_path": str(crop_image.with_suffix(".xmp").resolve()),
                         "crop_xmp_exists": True,
-                        "crop_xmp_text": (
-                            "description: Dad at the ballgame\n"
-                            "dc_date: 1988"
-                        ),
+                        "crop_xmp_text": ("description: Dad at the ballgame\ndc_date: 1988"),
                         "crop_location_verification_text": "",
                     }
                 ],
             }
             wrong_caption_review = {
-                "caption": {"verdict": "bad", "reasoning": "The crop shows Mom cooking in a kitchen, not Dad at a ballgame.", "failure_reason": "Caption belongs to the adjacent photo on the left, not this crop."},
+                "caption": {
+                    "verdict": "bad",
+                    "reasoning": "The crop shows Mom cooking in a kitchen, not Dad at a ballgame.",
+                    "failure_reason": "Caption belongs to the adjacent photo on the left, not this crop.",
+                },
                 "gps": {"verdict": "good", "reasoning": "No GPS to verify.", "failure_reason": ""},
                 "shown_location": {"verdict": "good", "reasoning": "No specific location shown.", "failure_reason": ""},
                 "date": {"verdict": "good", "reasoning": "1988 matches SUMMER 1988 on the page.", "failure_reason": ""},
-                "overall": {"verdict": "bad", "reasoning": "Caption is assigned to the wrong photo.", "failure_reason": "Caption mismatch makes the crop-metadata set unreliable."},
+                "overall": {
+                    "verdict": "bad",
+                    "reasoning": "Caption is assigned to the wrong photo.",
+                    "failure_reason": "Caption mismatch makes the crop-metadata set unreliable.",
+                },
                 "human_inference": "A person reading the page would assign 'Dad at the ballgame' to the photo on the left and 'Mom cooking dinner' to this crop.",
                 "needs_another_pass": ["caption"],
                 "needs_human_review": [],
@@ -783,20 +912,36 @@ class TestAIVerifyCrops(unittest.TestCase):
                     ai_verify_crops,
                     "_call_structured_vision_request",
                     side_effect=[
-                        (wrong_caption_review, "glm-test", "{\"ok\": true}", "stop"),
+                        (wrong_caption_review, "glm-test", '{"ok": true}', "stop"),
                         (
                             {
-                                "caption": {"verdict": "good", "reasoning": "Caption now matches the crop.", "failure_reason": ""},
+                                "caption": {
+                                    "verdict": "good",
+                                    "reasoning": "Caption now matches the crop.",
+                                    "failure_reason": "",
+                                },
                                 "gps": {"verdict": "good", "reasoning": "No GPS to verify.", "failure_reason": ""},
-                                "shown_location": {"verdict": "good", "reasoning": "No specific location shown.", "failure_reason": ""},
-                                "date": {"verdict": "good", "reasoning": "1988 matches the page.", "failure_reason": ""},
-                                "overall": {"verdict": "good", "reasoning": "Corrected caption matches the crop.", "failure_reason": ""},
+                                "shown_location": {
+                                    "verdict": "good",
+                                    "reasoning": "No specific location shown.",
+                                    "failure_reason": "",
+                                },
+                                "date": {
+                                    "verdict": "good",
+                                    "reasoning": "1988 matches the page.",
+                                    "failure_reason": "",
+                                },
+                                "overall": {
+                                    "verdict": "good",
+                                    "reasoning": "Corrected caption matches the crop.",
+                                    "failure_reason": "",
+                                },
                                 "human_inference": "",
                                 "needs_another_pass": [],
                                 "needs_human_review": [],
                             },
                             "glm-test",
-                            "{\"ok\": true}",
+                            '{"ok": true}',
                             "stop",
                         ),
                     ],
@@ -807,7 +952,10 @@ class TestAIVerifyCrops(unittest.TestCase):
             self.assertEqual(result["status"], "ok")
             row = result["results"][0]
             self.assertEqual(row["initial_review"]["caption"]["verdict"], "bad")
-            self.assertEqual(row["initial_review"]["caption"]["failure_reason"], "Caption belongs to the adjacent photo on the left, not this crop.")
+            self.assertEqual(
+                row["initial_review"]["caption"]["failure_reason"],
+                "Caption belongs to the adjacent photo on the left, not this crop.",
+            )
             self.assertIn("retry_attempts", row)
             self.assertEqual(row["retry_attempts"][0]["concern"], "caption")
             self.assertEqual(row["review"]["caption"]["verdict"], "good")
@@ -831,11 +979,7 @@ class TestAIVerifyCrops(unittest.TestCase):
                 "page_xmp_path": str(page_image.with_suffix(".xmp").resolve()),
                 "page_image_exists": True,
                 "page_xmp_exists": True,
-                "page_xmp_text": (
-                    "description: Vacation\n"
-                    "author_text: 1975\n"
-                    "location: country=USA"
-                ),
+                "page_xmp_text": ("description: Vacation\nauthor_text: 1975\nlocation: country=USA"),
                 "page_location_verification_text": "",
                 "missing_context": [],
                 "crops": [
@@ -855,28 +999,52 @@ class TestAIVerifyCrops(unittest.TestCase):
             # Page only says 1975 and USA — date month and city are uncertain
             ambiguous_review = {
                 "caption": {"verdict": "good", "reasoning": "Caption matches page description.", "failure_reason": ""},
-                "gps": {"verdict": "uncertain", "reasoning": "Page only says USA; Denver GPS cannot be confirmed.", "failure_reason": "Page context too broad to trust the GPS place."},
-                "shown_location": {"verdict": "uncertain", "reasoning": "Page says USA but crop says Denver — city is unsupported.", "failure_reason": "Page does not name a city or state to support Denver."},
-                "date": {"verdict": "uncertain", "reasoning": "Page says 1975 only; 1975-06 month cannot be confirmed.", "failure_reason": "No month evidence on page."},
-                "overall": {"verdict": "uncertain", "reasoning": "Location and date are under-supported.", "failure_reason": "Multiple concerns unresolved."},
+                "gps": {
+                    "verdict": "uncertain",
+                    "reasoning": "Page only says USA; Denver GPS cannot be confirmed.",
+                    "failure_reason": "Page context too broad to trust the GPS place.",
+                },
+                "shown_location": {
+                    "verdict": "uncertain",
+                    "reasoning": "Page says USA but crop says Denver — city is unsupported.",
+                    "failure_reason": "Page does not name a city or state to support Denver.",
+                },
+                "date": {
+                    "verdict": "uncertain",
+                    "reasoning": "Page says 1975 only; 1975-06 month cannot be confirmed.",
+                    "failure_reason": "No month evidence on page.",
+                },
+                "overall": {
+                    "verdict": "uncertain",
+                    "reasoning": "Location and date are under-supported.",
+                    "failure_reason": "Multiple concerns unresolved.",
+                },
                 "human_inference": "A reader would only infer year 1975 and USA; they could not confirm Denver or the June month.",
                 "needs_another_pass": ["date"],
                 "needs_human_review": ["gps", "shown_location"],
             }
             pass2_result = {
-                "pass": 2, "concern": "date", "prompt_variant": "retry",
+                "pass": 2,
+                "concern": "date",
+                "prompt_variant": "retry",
                 "issue": "Page says 1975 only; 1975-06 month cannot be confirmed.",
                 "failure_reason": "No month evidence on page.",
-                "before_value": "1975-06", "after_value": "1975-06",
-                "changed": False, "model": "glm-test",
+                "before_value": "1975-06",
+                "after_value": "1975-06",
+                "changed": False,
+                "model": "glm-test",
                 "tuning_params": {"caption_max_tokens": 96, "caption_temperature": 0.2, "caption_max_edge": 0},
             }
             pass3_result = {
-                "pass": 3, "concern": "date", "prompt_variant": "parameter-suggestion",
+                "pass": 3,
+                "concern": "date",
+                "prompt_variant": "parameter-suggestion",
                 "issue": "Page says 1975 only; 1975-06 month cannot be confirmed.",
                 "failure_reason": "No month evidence on page.",
-                "before_value": "1975-06", "after_value": "1975-06",
-                "changed": False, "model": "glm-test",
+                "before_value": "1975-06",
+                "after_value": "1975-06",
+                "changed": False,
+                "model": "glm-test",
                 "tuning_params": {"caption_max_tokens": 96, "caption_temperature": 0.1, "caption_max_edge": 0},
             }
 
@@ -887,10 +1055,17 @@ class TestAIVerifyCrops(unittest.TestCase):
                     ai_verify_crops,
                     "_call_structured_vision_request",
                     side_effect=[
-                        (ambiguous_review, "glm-test", "{\"ok\": true}", "stop"),
+                        (ambiguous_review, "glm-test", '{"ok": true}', "stop"),
                         (
-                            {"caption_max_tokens": 96, "caption_temperature": 0.1, "caption_max_edge": 0, "reason": "Reduce temperature for date."},
-                            "glm-test", "{\"ok\": true}", "stop",
+                            {
+                                "caption_max_tokens": 96,
+                                "caption_temperature": 0.1,
+                                "caption_max_edge": 0,
+                                "reason": "Reduce temperature for date.",
+                            },
+                            "glm-test",
+                            '{"ok": true}',
+                            "stop",
                         ),
                     ],
                 ),
