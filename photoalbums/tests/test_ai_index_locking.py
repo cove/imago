@@ -104,7 +104,7 @@ class TestAIIndexLocking(unittest.TestCase):
             self.assertIn("already processing", str(exc.exception))
         finally:
             ai_index._release_image_processing_lock(lock_path)
-    
+
     @skip("Temporarily disabled due to intermittent Windows KeyboardInterrupt reporting during pytest teardown.")
     def test_image_processing_lock_clears_stale_lock(self):
         image_path = self.root / "Photo_01.jpg"
@@ -141,7 +141,7 @@ class TestAIIndexLocking(unittest.TestCase):
 
         self.assertEqual(unlink.call_count, 2)
         sleep.assert_called_once_with(0.1)
-    
+
     @skip("Temporarily disabled due to intermittent Windows KeyboardInterrupt reporting during pytest teardown.")
     def test_run_returns_error_when_single_photo_is_locked(self):
         image_path = self.root / "Photo_01.jpg"
@@ -216,4 +216,3 @@ class TestAIIndexLocking(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

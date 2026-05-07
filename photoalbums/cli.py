@@ -230,7 +230,9 @@ def build_parser() -> argparse.ArgumentParser:
     repair_crop_source_parser.add_argument(
         "album_id", nargs="?", default="", help="Album folder name fragment; omit for all albums"
     )
-    repair_crop_source_parser.add_argument("--photos-root", required=True, help="Path to the Photo Albums root directory")
+    repair_crop_source_parser.add_argument(
+        "--photos-root", required=True, help="Path to the Photo Albums root directory"
+    )
     repair_crop_source_parser.add_argument("--page", default=None, help="Page number to process; omit for all pages")
     repair_crop_source_parser.add_argument(
         "--verify-only",
@@ -245,7 +247,9 @@ def build_parser() -> argparse.ArgumentParser:
     repair_crop_numbers_parser.add_argument(
         "album_id", nargs="?", default="", help="Album folder name fragment; omit for all albums"
     )
-    repair_crop_numbers_parser.add_argument("--photos-root", required=True, help="Path to the Photo Albums root directory")
+    repair_crop_numbers_parser.add_argument(
+        "--photos-root", required=True, help="Path to the Photo Albums root directory"
+    )
     repair_crop_numbers_parser.add_argument("--page", default=None, help="Page number to process; omit for all pages")
 
     repair_page_derived_views_parser = subparsers.add_parser(
@@ -258,14 +262,18 @@ def build_parser() -> argparse.ArgumentParser:
     repair_page_derived_views_parser.add_argument(
         "--photos-root", required=True, help="Path to the Photo Albums root directory"
     )
-    repair_page_derived_views_parser.add_argument("--page", default=None, help="Page number to process; omit for all pages")
+    repair_page_derived_views_parser.add_argument(
+        "--page", default=None, help="Page number to process; omit for all pages"
+    )
 
     process_parser = subparsers.add_parser(
         "process",
         help="Run the full pipeline (render → propagate-metadata → detect-regions → crop-regions → face-refresh → ai-index).",
     )
     process_parser.add_argument("--photos-root", required=True, help="Path to the Photo Albums root directory")
-    process_parser.add_argument("--album", default="", dest="album_id", help="Album folder name fragment; omit for all albums")
+    process_parser.add_argument(
+        "--album", default="", dest="album_id", help="Album folder name fragment; omit for all albums"
+    )
     process_parser.add_argument("--page", default=None, help="Page number to process; omit for all pages")
     process_parser.add_argument(
         "--skip",
@@ -290,16 +298,20 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="STEP",
         help="Run exactly one step; mutually exclusive with --skip",
     )
-    process_parser.add_argument("--force", action="store_true", help="Force-rerun all steps (shorthand for --redo on all)")
-    process_parser.add_argument("--debug", action="store_true", help="Write debug artifacts for detect-regions and ai-index")
+    process_parser.add_argument(
+        "--force", action="store_true", help="Force-rerun all steps (shorthand for --redo on all)"
+    )
+    process_parser.add_argument(
+        "--debug", action="store_true", help="Write debug artifacts for detect-regions and ai-index"
+    )
     process_parser.add_argument("--no-validation", action="store_true", help="Skip strict region validations")
-    process_parser.add_argument("--skip-restoration", action="store_true", help="Skip AI photo restoration in crop-regions")
+    process_parser.add_argument(
+        "--skip-restoration", action="store_true", help="Skip AI photo restoration in crop-regions"
+    )
     process_parser.add_argument(
         "--force-restoration", action="store_true", help="Re-run photo restoration in crop-regions"
     )
-    process_parser.add_argument(
-        "--gps-only", action="store_true", help="Forward --reprocess-mode=gps to ai-index step"
-    )
+    process_parser.add_argument("--gps-only", action="store_true", help="Forward --reprocess-mode=gps to ai-index step")
     process_parser.add_argument(
         "--refresh-gps",
         action="store_true",
@@ -310,85 +322,85 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = build_parser()
-    args, extras = parser.parse_known_args(argv)
-    commands = _import_commands()
+def _run_process_group(parser: argparse.ArgumentParser, args, commands) -> int:
+    from .lib.pipeline import PIPELINE_STEPS, validate_step_ids
 
-    if args.group == "process":
-        from .lib.pipeline import PIPELINE_STEPS, VALID_STEP_IDS, validate_step_ids
+    if bool(getattr(args, "list_steps", False)):
+        for i, step in enumerate(PIPELINE_STEPS, 1):
+            print(f"  [{i}] {step.id}  —  {step.label}")
+        return 0
 
-        if bool(getattr(args, "list_steps", False)):
-            for i, step in enumerate(PIPELINE_STEPS, 1):
-                print(f"  [{i}] {step.id}  —  {step.label}")
-            return 0
+    if args.step_id and args.skip_ids:
+        parser.error("--step and --skip are mutually exclusive")
 
-        if args.step_id and args.skip_ids:
-            parser.error("--step and --skip are mutually exclusive")
+    if args.step_id:
+        validate_step_ids([args.step_id], flag="--step")
+    if args.skip_ids:
+        validate_step_ids(args.skip_ids, flag="--skip")
+    if args.redo_ids:
+        validate_step_ids(args.redo_ids, flag="--redo")
 
-        if args.step_id:
-            validate_step_ids([args.step_id], flag="--step")
-        if args.skip_ids:
-            validate_step_ids(args.skip_ids, flag="--skip")
-        if args.redo_ids:
-            validate_step_ids(args.redo_ids, flag="--redo")
+    return commands.run_process_pipeline(
+        album_id=args.album_id,
+        photos_root=args.photos_root,
+        page=args.page,
+        skip_ids=list(args.skip_ids or []),
+        redo_ids=list(args.redo_ids or []),
+        step_id=args.step_id,
+        force=bool(getattr(args, "force", False)),
+        debug=bool(getattr(args, "debug", False)),
+        no_validation=bool(getattr(args, "no_validation", False)),
+        skip_restoration=bool(getattr(args, "skip_restoration", False)),
+        force_restoration=bool(getattr(args, "force_restoration", False)),
+        gps_only=bool(getattr(args, "gps_only", False)),
+        refresh_gps=bool(getattr(args, "refresh_gps", False)),
+    )
 
-        return commands.run_process_pipeline(
-            album_id=args.album_id,
-            photos_root=args.photos_root,
-            page=args.page,
-            skip_ids=list(args.skip_ids or []),
-            redo_ids=list(args.redo_ids or []),
-            step_id=args.step_id,
-            force=bool(getattr(args, "force", False)),
-            debug=bool(getattr(args, "debug", False)),
-            no_validation=bool(getattr(args, "no_validation", False)),
-            skip_restoration=bool(getattr(args, "skip_restoration", False)),
-            force_restoration=bool(getattr(args, "force_restoration", False)),
-            gps_only=bool(getattr(args, "gps_only", False)),
-            refresh_gps=bool(getattr(args, "refresh_gps", False)),
-        )
 
-    allow_extras = args.group == "ai"
-    if extras and not allow_extras:
-        parser.error("Unrecognized arguments: " + " ".join(extras))
+def _run_ai_group(parser: argparse.ArgumentParser, args, extras: list[str], commands) -> int:
+    forwarded = list(extras or [])
+    if forwarded and forwarded[0] == "steps":
+        _print_ai_steps()
+        return 0
+    if forwarded and forwarded[0] == "gps":
+        forwarded = ["--reprocess-mode", "gps", *forwarded[1:]]
+    if forwarded and forwarded[0] == "index":
+        forwarded = forwarded[1:]
+    elif forwarded and not str(forwarded[0]).startswith("-"):
+        parser.error(f"Unknown ai command: {forwarded[0]}")
+    forwarded = _strip_remainder(forwarded)
+    if bool(getattr(args, "ai_help", False)):
+        forwarded = ["--help", *forwarded]
+    return commands.run_ai_index(forwarded)
 
-    if args.group == "ai":
-        forwarded = list(extras or [])
-        if forwarded and forwarded[0] == "steps":
-            _print_ai_steps()
-            return 0
-        if forwarded and forwarded[0] == "gps":
-            forwarded = ["--reprocess-mode", "gps", *forwarded[1:]]
-        if forwarded and forwarded[0] == "index":
-            forwarded = forwarded[1:]
-        elif forwarded and not str(forwarded[0]).startswith("-"):
-            parser.error(f"Unknown ai command: {forwarded[0]}")
-        forwarded = _strip_remainder(forwarded)
-        if bool(getattr(args, "ai_help", False)):
-            forwarded = ["--help", *forwarded]
-        return commands.run_ai_index(forwarded)
 
+def _run_metadata_group(args, commands) -> int | None:
+    if args.metadata_kind == "apply":
+        return commands.run_apply_metadata()
+    if args.metadata_kind == "tsv":
+        return commands.run_create_metadata_tsv()
+    if args.metadata_kind == "map":
+        return commands.run_metadata_map(paths=args.paths, port=args.port)
+    return None
+
+
+def _run_render_group(args, commands) -> int | None:
+    if not getattr(args, "render_kind", None):
+        return commands.run_render()
+    if args.render_kind == "validate":
+        return commands.run_stitch_validate()
+    return None
+
+
+def _run_primary_group(parser: argparse.ArgumentParser, args, commands) -> int | None:
     if args.group == "metadata":
-        if args.metadata_kind == "apply":
-            return commands.run_apply_metadata()
-        if args.metadata_kind == "tsv":
-            return commands.run_create_metadata_tsv()
-        if args.metadata_kind == "map":
-            return commands.run_metadata_map(paths=args.paths, port=args.port)
-
+        return _run_metadata_group(args, commands)
     if args.group == "compress":
         return commands.run_compress_tiff()
-
     if args.group == "render":
-        if not getattr(args, "render_kind", None):
-            return commands.run_render()
-        if args.render_kind == "validate":
-            return commands.run_stitch_validate()
-
+        return _run_render_group(args, commands)
     if args.group == "watch":
         return commands.run_watch_incoming()
-
     if args.group == "detect-view-regions":
         return commands.run_detect_view_regions(
             album_id=args.album_id,
@@ -399,7 +411,6 @@ def main(argv: list[str] | None = None) -> int:
             debug=bool(getattr(args, "debug", False)),
             skip_validation=bool(getattr(args, "no_validation", False)),
         )
-
     if args.group == "crop-regions":
         return commands.run_crop_regions(
             album_id=args.album_id,
@@ -409,7 +420,6 @@ def main(argv: list[str] | None = None) -> int:
             skip_restoration=bool(getattr(args, "skip_restoration", False)),
             force_restoration=bool(getattr(args, "force_restoration", False)),
         )
-
     if args.group == "face-refresh":
         return commands.run_face_refresh(
             album_id=args.album_id,
@@ -417,7 +427,6 @@ def main(argv: list[str] | None = None) -> int:
             page=args.page,
             force=args.force,
         )
-
     if args.group == "render-pipeline":
         return commands.run_render_pipeline(
             album_id=args.album_id,
@@ -429,29 +438,24 @@ def main(argv: list[str] | None = None) -> int:
             debug=bool(getattr(args, "debug", False)),
             skip_validation=bool(getattr(args, "no_validation", False)),
         )
-
     if args.group == "checksum":
         if args.checksum_kind == "tree":
             return commands.run_checksum_tree(base_dir=args.base_dir, verify=bool(args.verify))
-
     if args.group == "migrate-page-dir-refs":
         return commands.run_migrate_page_dir_refs(
             photos_root=args.photos_root,
             verify_only=bool(getattr(args, "verify_only", False)),
         )
-
     if args.group == "migrate-caption-layout":
         return commands.run_migrate_caption_layout(
             photos_root=args.photos_root,
             verify_only=bool(getattr(args, "verify_only", False)),
         )
-
     if args.group == "migrate-pipeline-records":
         return commands.run_migrate_pipeline_records(
             photos_root=args.photos_root,
             verify_only=bool(getattr(args, "verify_only", False)),
         )
-
     if args.group == "repair-crop-source":
         return commands.run_repair_crop_source(
             album_id=args.album_id,
@@ -459,20 +463,38 @@ def main(argv: list[str] | None = None) -> int:
             page=args.page,
             verify_only=bool(getattr(args, "verify_only", False)),
         )
-
     if args.group == "repair-crop-numbers":
         return commands.run_repair_crop_numbers(
             album_id=args.album_id,
             photos_root=args.photos_root,
             page=args.page,
         )
-
     if args.group == "repair-page-derived-views":
         return commands.run_repair_page_derived_views(
             album_id=args.album_id,
             photos_root=args.photos_root,
             page=args.page,
         )
+    return None
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args, extras = parser.parse_known_args(argv)
+    commands = _import_commands()
+
+    if args.group == "process":
+        return _run_process_group(parser, args, commands)
+
+    if extras and args.group != "ai":
+        parser.error("Unrecognized arguments: " + " ".join(extras))
+
+    if args.group == "ai":
+        return _run_ai_group(parser, args, list(extras or []), commands)
+
+    result = _run_primary_group(parser, args, commands)
+    if result is not None:
+        return result
 
     parser.error("Unknown command.")
     return 2

@@ -115,6 +115,24 @@ def _dedupe_variants(values: list[str]) -> tuple[str, ...]:
     return tuple(_dedupe(values))
 
 
+def _person_names_by_id(people: list[dict[str, Any]]) -> dict[str, str]:
+    return {
+        str(row.get("person_id")): str(row.get("display_name"))
+        for row in people
+        if str(row.get("person_id") or "").strip() and str(row.get("display_name") or "").strip()
+    }
+
+
+def _person_variants_by_id(people: list[dict[str, Any]]) -> dict[str, tuple[str, ...]]:
+    return {
+        str(row.get("person_id")): _dedupe_variants(
+            [str(row.get("display_name") or "")] + [str(item or "") for item in list(row.get("aliases") or [])]
+        )
+        for row in people
+        if str(row.get("person_id") or "").strip()
+    }
+
+
 def _box_iou(
     left: list[int] | tuple[int, int, int, int],
     right: list[int] | tuple[int, int, int, int],
@@ -269,18 +287,20 @@ class CastPeopleMatcher:
         faces = self._store.list_faces()
         people = self._store.list_people()
         self._store_signature = self._store.store_signature()
-        self._person_name_by_id = {
-            str(row.get("person_id")): str(row.get("display_name"))
-            for row in people
-            if str(row.get("person_id") or "").strip() and str(row.get("display_name") or "").strip()
-        }
-        self._person_variants_by_id = {
-            str(row.get("person_id")): _dedupe_variants(
-                [str(row.get("display_name") or "")] + [str(item or "") for item in list(row.get("aliases") or [])]
-            )
-            for row in people
-            if str(row.get("person_id") or "").strip()
-        }
+        self._person_name_by_id = _person_names_by_id(people)
+        self._person_variants_by_id = _person_variants_by_id(people)
+        faces_by_source, ignored_embeddings, known_faces = self._classify_faces(faces)
+        self._faces_by_source = faces_by_source
+        self._ignored_embeddings = ignored_embeddings
+        self._prototypes = self._build_prototypes(
+            known_faces,
+            allowed_embedding_model_ids=self._active_embedding_models,
+        )
+
+    def _classify_faces(
+        self,
+        faces: list[dict[str, Any]],
+    ) -> tuple[dict[str, list[dict[str, Any]]], list[np.ndarray], list[dict[str, Any]]]:
         faces_by_source: dict[str, list[dict[str, Any]]] = {}
         ignored_embeddings: list[np.ndarray] = []
         known_faces: list[dict[str, Any]] = []
@@ -289,24 +309,20 @@ class CastPeopleMatcher:
             if source_key:
                 faces_by_source.setdefault(source_key, []).append(face)
             status = str(self._face_review_status(face) or "").strip().lower()
-            if status in {"ignored", "rejected"} and self._face_uses_active_model(face):
+            if self._is_ignored_active_face(face, status=status):
                 emb = self._normalize_embedding_safe(face.get("embedding"))
                 if emb is not None:
                     ignored_embeddings.append(emb)
-            person_id = str(face.get("person_id") or "").strip()
-            if not person_id:
-                continue
-            if status in {"ignored", "rejected"}:
-                continue
-            if not self._face_uses_active_model(face):
-                continue
-            known_faces.append(face)
-        self._faces_by_source = faces_by_source
-        self._ignored_embeddings = ignored_embeddings
-        self._prototypes = self._build_prototypes(
-            known_faces,
-            allowed_embedding_model_ids=self._active_embedding_models,
-        )
+            if self._is_known_active_face(face, status=status):
+                known_faces.append(face)
+        return faces_by_source, ignored_embeddings, known_faces
+
+    def _is_ignored_active_face(self, face: dict[str, Any], *, status: str) -> bool:
+        return status in {"ignored", "rejected"} and self._face_uses_active_model(face)
+
+    def _is_known_active_face(self, face: dict[str, Any], *, status: str) -> bool:
+        person_id = str(face.get("person_id") or "").strip()
+        return bool(person_id and status not in {"ignored", "rejected"} and self._face_uses_active_model(face))
 
     def _maybe_refresh(self) -> None:
         current = self._store.store_signature()
@@ -655,6 +671,129 @@ class CastPeopleMatcher:
             return build_rembg_bgr(image_bgr)
         raise ValueError(f"Unsupported analysis variant: {analysis_variant}")
 
+    def _valid_detected_faces(self, image, width: int, height: int) -> list[tuple[int, int, int, int]]:
+        valid_faces: list[tuple[int, int, int, int]] = []
+        for x, y, ww, hh in sorted(self._detect_faces(image), key=lambda f: f[0]):
+            x0, y0, x1, y1 = self._expand_box(x, y, ww, hh, width, height)
+            crop = image[y0:y1, x0:x1]
+            if crop is None or crop.size == 0:
+                continue
+            if self._is_valid_face_crop(crop):
+                valid_faces.append((x, y, ww, hh))
+        return valid_faces
+
+    def _match_or_create_face_record(
+        self,
+        *,
+        crop,
+        source_key: str,
+        absolute_bbox: list[int],
+        match_iou: float,
+        analysis_image_path: str,
+        analysis_variant: str,
+        refresh_active_face: bool,
+    ) -> dict[str, Any]:
+        face = self._find_existing_face(
+            source_path=source_key,
+            bbox=absolute_bbox,
+            min_iou=float(match_iou),
+        )
+        if face is None:
+            return self._create_face_record(
+                crop_bgr=crop,
+                source_path=source_key,
+                bbox=absolute_bbox,
+                analysis_image_path=analysis_image_path,
+                analysis_variant=analysis_variant,
+            )
+
+        review_status = str(self._face_review_status(face) or "").strip().lower()
+        person_id = str(face.get("person_id") or "").strip()
+        face_is_locked = review_status == "confirmed" and bool(person_id) and self._face_is_human_reviewed(face)
+        should_refresh_active = (
+            bool(refresh_active_face) and review_status not in {"ignored", "rejected"} and not face_is_locked
+        )
+        if self._face_uses_active_model(face) and not should_refresh_active:
+            return self._ensure_crop(face, crop)
+        return self._refresh_face_record(
+            face,
+            crop_bgr=crop,
+            bbox=absolute_bbox,
+            analysis_image_path=analysis_image_path,
+            analysis_variant=analysis_variant,
+        )
+
+    def _store_match_if_better(self, by_name: dict[str, PersonMatch], candidate: PersonMatch) -> None:
+        current = by_name.get(candidate.name)
+        if (
+            current is None
+            or candidate.certainty > current.certainty
+            or (candidate.certainty == current.certainty and candidate.score > current.score)
+        ):
+            by_name[candidate.name] = candidate
+
+    def _store_confirmed_face_match(self, face: dict[str, Any], by_name: dict[str, PersonMatch]) -> bool:
+        review_status = str(self._face_review_status(face) or "").strip().lower()
+        person_id = str(face.get("person_id") or "").strip()
+        if not person_id or not self._face_is_human_reviewed(face) or review_status != "confirmed":
+            return False
+        name = self._person_name_by_id.get(person_id, "")
+        if not name:
+            return True
+        self._store_match_if_better(
+            by_name,
+            PersonMatch(
+                name=name,
+                score=1.0,
+                face_id=str(face.get("face_id") or ""),
+                certainty=1.0,
+                reviewed_by_human=True,
+                bbox=list(face.get("bbox") or []),
+            ),
+        )
+        return True
+
+    def _suggest_face_candidates(self, embedding, hint_text: str) -> list[dict[str, Any]]:
+        raw_candidates: list[dict[str, Any]] = []
+        if self._prototypes:
+            try:
+                raw_candidates = self._suggest(
+                    query_embedding=embedding,
+                    prototypes=self._prototypes,
+                    top_k=max(3, self.review_top_k),
+                    min_similarity=-1.0,
+                )
+            except Exception:
+                raw_candidates = []
+        return self._apply_hint_scores(raw_candidates, hint_text)
+
+    def _store_suggested_face_match(
+        self,
+        *,
+        face: dict[str, Any],
+        suggested: dict[str, Any] | None,
+        by_name: dict[str, PersonMatch],
+    ) -> bool:
+        if not suggested:
+            return False
+        suggested_person_id = str(suggested.get("person_id") or "").strip()
+        name = self._person_name_by_id.get(suggested_person_id, "")
+        if not name:
+            return False
+        score = float(suggested.get("score") or 0.0)
+        self._store_match_if_better(
+            by_name,
+            PersonMatch(
+                name=name,
+                score=score,
+                face_id=str(face.get("face_id") or ""),
+                certainty=min(0.99, max(0.0, score)),
+                reviewed_by_human=False,
+                bbox=list(face.get("bbox") or []),
+            ),
+        )
+        return True
+
     def match_image(
         self,
         image_path: str | Path,
@@ -684,17 +823,7 @@ class CastPeopleMatcher:
         normalized_variant = str(analysis_variant or "original").strip().lower() or "original"
 
         # Collect valid faces sorted left-to-right for positional name hint assignment.
-        all_detected = self._detect_faces(image)
-        all_detected_sorted = sorted(all_detected, key=lambda f: f[0])
-        valid_faces: list[tuple[int, int, int, int]] = []
-        for x, y, ww, hh in all_detected_sorted:
-            x0, y0, x1, y1 = self._expand_box(x, y, ww, hh, width, height)
-            crop = image[y0:y1, x0:x1]
-            if crop is None or crop.size == 0:
-                continue
-            if not self._is_valid_face_crop(crop):
-                continue
-            valid_faces.append((x, y, ww, hh))
+        valid_faces = self._valid_detected_faces(image, width, height)
         total_valid = len(valid_faces)
         self.last_faces_detected = total_valid
 
@@ -703,74 +832,28 @@ class CastPeopleMatcher:
             crop = image[y0:y1, x0:x1]
 
             absolute_bbox = _offset_box((x, y, ww, hh), bbox_offset)
-            face = self._find_existing_face(
-                source_path=source_key,
-                bbox=absolute_bbox,
-                min_iou=float(match_iou),
+            face = self._match_or_create_face_record(
+                crop=crop,
+                source_key=source_key,
+                absolute_bbox=absolute_bbox,
+                match_iou=match_iou,
+                analysis_image_path=str(path),
+                analysis_variant=normalized_variant,
+                refresh_active_face=refresh_active_face,
             )
-            if face is None:
-                face = self._create_face_record(
-                    crop_bgr=crop,
-                    source_path=source_key,
-                    bbox=absolute_bbox,
-                    analysis_image_path=str(path),
-                    analysis_variant=normalized_variant,
-                )
-            else:
-                review_status = str(self._face_review_status(face) or "").strip().lower()
-                person_id = str(face.get("person_id") or "").strip()
-                face_is_locked = review_status == "confirmed" and bool(person_id) and self._face_is_human_reviewed(face)
-                should_refresh_active = (
-                    bool(refresh_active_face) and review_status not in {"ignored", "rejected"} and not face_is_locked
-                )
-                if self._face_uses_active_model(face) and not should_refresh_active:
-                    face = self._ensure_crop(face, crop)
-                else:
-                    face = self._refresh_face_record(
-                        face,
-                        crop_bgr=crop,
-                        bbox=absolute_bbox,
-                        analysis_image_path=str(path),
-                        analysis_variant=normalized_variant,
-                    )
 
             review_status = str(self._face_review_status(face) or "").strip().lower()
             if review_status in {"ignored", "rejected"}:
                 continue
 
-            person_id = str(face.get("person_id") or "").strip()
-            if person_id and self._face_is_human_reviewed(face) and review_status == "confirmed":
-                name = self._person_name_by_id.get(person_id, "")
-                if name:
-                    current = by_name.get(name)
-                    candidate = PersonMatch(
-                        name=name,
-                        score=1.0,
-                        face_id=str(face.get("face_id") or ""),
-                        certainty=1.0,
-                        reviewed_by_human=True,
-                        bbox=list(face.get("bbox") or []),
-                    )
-                    if current is None or candidate.certainty > current.certainty or candidate.score > current.score:
-                        by_name[name] = candidate
+            if self._store_confirmed_face_match(face, by_name):
                 continue
 
             embedding = face.get("embedding") or self._arcface_embed(crop) or self._embed(crop)
             if self._matches_ignored_face(embedding):
                 continue
 
-            raw_candidates: list[dict[str, Any]] = []
-            if self._prototypes:
-                try:
-                    raw_candidates = self._suggest(
-                        query_embedding=embedding,
-                        prototypes=self._prototypes,
-                        top_k=max(3, self.review_top_k),
-                        min_similarity=-1.0,
-                    )
-                except Exception:
-                    raw_candidates = []
-            candidates = self._apply_hint_scores(raw_candidates, hint_text)
+            candidates = self._suggest_face_candidates(embedding, hint_text)
             suggested, _margin = self._choose_candidate(
                 candidates=candidates,
                 face_quality=face.get("quality"),
@@ -779,27 +862,8 @@ class CastPeopleMatcher:
                 min_face_quality=self.min_face_quality,
                 min_sample_count=self.min_sample_count,
             )
-            if suggested:
-                suggested_person_id = str(suggested.get("person_id") or "").strip()
-                name = self._person_name_by_id.get(suggested_person_id, "")
-                if name:
-                    score = float(suggested.get("score") or 0.0)
-                    current = by_name.get(name)
-                    candidate = PersonMatch(
-                        name=name,
-                        score=score,
-                        face_id=str(face.get("face_id") or ""),
-                        certainty=min(0.99, max(0.0, score)),
-                        reviewed_by_human=False,
-                        bbox=list(face.get("bbox") or []),
-                    )
-                    if (
-                        current is None
-                        or candidate.certainty > current.certainty
-                        or (candidate.certainty == current.certainty and candidate.score > current.score)
-                    ):
-                        by_name[name] = candidate
-                    continue
+            if self._store_suggested_face_match(face=face, suggested=suggested, by_name=by_name):
+                continue
 
             name_hints = self._build_face_name_hints(
                 hint_text=hint_text,

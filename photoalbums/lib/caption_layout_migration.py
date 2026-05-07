@@ -140,7 +140,9 @@ def _resolve_parent_page_sidecar(crop_sidecar_path: Path) -> Path | None:
     if is_photos_dir(crop_sidecar_path.parent):
         collection, year, book, page = parse_album_filename(crop_sidecar_path.stem)
         page_token = f"{int(page):02d}" if str(page).isdigit() else str(page)
-        candidates.append(pages_dir_for_album_dir(crop_sidecar_path.parent) / f"{collection}_{year}_B{book}_P{page_token}_V.xmp")
+        candidates.append(
+            pages_dir_for_album_dir(crop_sidecar_path.parent) / f"{collection}_{year}_B{book}_P{page_token}_V.xmp"
+        )
     for candidate in candidates:
         resolved = candidate.resolve(strict=False)
         if resolved in seen:

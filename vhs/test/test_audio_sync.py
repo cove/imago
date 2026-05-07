@@ -13,6 +13,7 @@ import shutil
 from pathlib import Path
 
 from common import (
+    METADATA_DIR,
     _canonicalize_audio_sync_offsets,
     _migrate_v2_to_v3,
     get_audio_sync_offset_for_chapter,
@@ -23,7 +24,6 @@ from common import (
 )
 from vhs_pipeline import render_pipeline
 
-ROOT = Path(__file__).resolve().parents[1]
 _DUMMY_PATH = Path("/dev/null/src.mkv")
 _DUMMY_DEST = Path("/dev/null/out.mkv")
 
@@ -119,7 +119,7 @@ def test_load_render_settings_migrates_v2_to_v3() -> None:
     import json
 
     archive = "__audio_sync_unit_migrate"
-    meta_dir = ROOT / "metadata" / archive
+    meta_dir = METADATA_DIR / archive
     try:
         meta_dir.mkdir(parents=True, exist_ok=True)
         settings_path = meta_dir / "render_settings.json"
@@ -149,7 +149,7 @@ def test_load_render_settings_migrates_v2_to_v3() -> None:
 
 def test_get_audio_sync_offset_returns_zero_when_no_entries() -> None:
     archive = "__audio_sync_unit_get"
-    meta_dir = ROOT / "metadata" / archive
+    meta_dir = METADATA_DIR / archive
     try:
         _path, settings = load_render_settings(archive, create=True)
         save_render_settings(archive, settings)
@@ -161,7 +161,7 @@ def test_get_audio_sync_offset_returns_zero_when_no_entries() -> None:
 
 def test_get_audio_sync_offset_matches_by_midpoint() -> None:
     archive = "__audio_sync_unit_get2"
-    meta_dir = ROOT / "metadata" / archive
+    meta_dir = METADATA_DIR / archive
     try:
         _path, settings = load_render_settings(archive, create=True)
         settings["audio_sync_offsets"] = [
@@ -180,7 +180,7 @@ def test_get_audio_sync_offset_matches_by_midpoint() -> None:
 
 def test_get_audio_sync_offset_returns_zero_when_midpoint_not_covered() -> None:
     archive = "__audio_sync_unit_get3"
-    meta_dir = ROOT / "metadata" / archive
+    meta_dir = METADATA_DIR / archive
     try:
         _path, settings = load_render_settings(archive, create=True)
         settings["audio_sync_offsets"] = [
@@ -200,7 +200,7 @@ def test_get_audio_sync_offset_returns_zero_when_midpoint_not_covered() -> None:
 
 def test_update_audio_sync_writes_new_entry() -> None:
     archive = "__audio_sync_unit_upd1"
-    meta_dir = ROOT / "metadata" / archive
+    meta_dir = METADATA_DIR / archive
     try:
         update_chapter_audio_sync_in_render_settings(archive, ch_start=100, ch_end=500, offset_seconds=0.3)
         offset = get_audio_sync_offset_for_chapter(archive, ch_start=100, ch_end=500)
@@ -211,7 +211,7 @@ def test_update_audio_sync_writes_new_entry() -> None:
 
 def test_update_audio_sync_overwrites_existing_entry() -> None:
     archive = "__audio_sync_unit_upd2"
-    meta_dir = ROOT / "metadata" / archive
+    meta_dir = METADATA_DIR / archive
     try:
         update_chapter_audio_sync_in_render_settings(archive, ch_start=100, ch_end=500, offset_seconds=0.3)
         update_chapter_audio_sync_in_render_settings(archive, ch_start=100, ch_end=500, offset_seconds=-0.2)
@@ -223,7 +223,7 @@ def test_update_audio_sync_overwrites_existing_entry() -> None:
 
 def test_update_audio_sync_clears_entry_when_zero() -> None:
     archive = "__audio_sync_unit_upd3"
-    meta_dir = ROOT / "metadata" / archive
+    meta_dir = METADATA_DIR / archive
     try:
         update_chapter_audio_sync_in_render_settings(archive, ch_start=100, ch_end=500, offset_seconds=0.3)
         update_chapter_audio_sync_in_render_settings(archive, ch_start=100, ch_end=500, offset_seconds=0.0)
@@ -237,7 +237,7 @@ def test_update_audio_sync_clears_entry_when_zero() -> None:
 
 def test_update_audio_sync_preserves_entries_outside_chapter_span() -> None:
     archive = "__audio_sync_unit_upd4"
-    meta_dir = ROOT / "metadata" / archive
+    meta_dir = METADATA_DIR / archive
     try:
         # Set up two entries: [0,200) and [800,1000)
         update_chapter_audio_sync_in_render_settings(archive, ch_start=0, ch_end=200, offset_seconds=0.1)
@@ -254,7 +254,7 @@ def test_update_audio_sync_preserves_entries_outside_chapter_span() -> None:
 
 def test_update_audio_sync_splits_overlapping_entry() -> None:
     archive = "__audio_sync_unit_upd5"
-    meta_dir = ROOT / "metadata" / archive
+    meta_dir = METADATA_DIR / archive
     try:
         # One wide entry [0,1000)
         update_chapter_audio_sync_in_render_settings(archive, ch_start=0, ch_end=1000, offset_seconds=0.4)

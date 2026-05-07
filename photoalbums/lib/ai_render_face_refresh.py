@@ -36,9 +36,7 @@ class RenderFaceRefreshSession:
         if not isinstance(existing_sidecar_state, dict):
             raise RuntimeError(f"Rendered sidecar could not be parsed for face refresh: {sidecar_path}")
 
-        effective, settings_sig, _date_estimation_enabled = self.runner._resolve_effective_settings(
-            image_path
-        )
+        effective, settings_sig, _date_estimation_enabled = self.runner._resolve_effective_settings(image_path)
         try:
             people_matcher, current_cast_signature = self.runner._get_people_matcher_and_signature(effective)
         except Exception as exc:
@@ -137,7 +135,7 @@ class RenderFaceRefreshSession:
         page_sidecar_name = f"{match.group('page')}_V.xmp"
         parent = image_path.parent
         if parent.name.endswith("_Photos"):
-            pages_dir = parent.with_name(f"{parent.name[:-len('_Photos')]}_Pages")
+            pages_dir = parent.with_name(f"{parent.name[: -len('_Photos')]}_Pages")
             return pages_dir / page_sidecar_name
         return parent / page_sidecar_name
 

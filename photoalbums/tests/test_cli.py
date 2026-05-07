@@ -156,7 +156,9 @@ class TestPhotoalbumsCLI(unittest.TestCase):
         fake.run_repair_crop_numbers.return_value = 0
 
         with mock.patch("cli._import_commands", return_value=fake):
-            rc = cli.main(["repair-crop-numbers", "Family_1907-1946_B01", "--photos-root", "Photo Albums", "--page", "40"])
+            rc = cli.main(
+                ["repair-crop-numbers", "Family_1907-1946_B01", "--photos-root", "Photo Albums", "--page", "40"]
+            )
 
         self.assertEqual(rc, 0)
         fake.run_repair_crop_numbers.assert_called_once_with(

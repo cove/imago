@@ -989,7 +989,9 @@ class TestWriteCropSidecar(unittest.TestCase):
                 crop_jpg,
                 view_jpg,
                 "",
-                {"source_text": "Page 23 Scan(s) S01 S02; Portugal_1988_B00_P23_S01.tif; Portugal_1988_B00_P23_S02.tif"},
+                {
+                    "source_text": "Page 23 Scan(s) S01 S02; Portugal_1988_B00_P23_S01.tif; Portugal_1988_B00_P23_S02.tif"
+                },
                 [],
                 [],
             )
@@ -1718,4 +1720,3 @@ class TestIntegrationCropPipeline(_NoOpRestorationMixin, unittest.TestCase):
             self.assertEqual(exit_code, 0)
             detect_mock.assert_not_called()
             self.assertFalse(any(photos_dir.glob("*.jpg")))
-

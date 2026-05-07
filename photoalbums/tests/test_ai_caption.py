@@ -79,7 +79,10 @@ class TestAICaption(unittest.TestCase):
         fake_lmstudio.describe_page.return_value = ai_caption.CaptionDetails(text="caption text")
         with (
             mock.patch("photoalbums.lib.ai_caption.LMStudioCaptioner", return_value=fake_lmstudio) as ctor,
-            mock.patch("photoalbums.lib.ai_caption.default_lmstudio_base_url", return_value=ai_caption.DEFAULT_LMSTUDIO_BASE_URL),
+            mock.patch(
+                "photoalbums.lib.ai_caption.default_lmstudio_base_url",
+                return_value=ai_caption.DEFAULT_LMSTUDIO_BASE_URL,
+            ),
         ):
             engine = ai_caption.CaptionEngine(
                 engine="lmstudio",
@@ -157,7 +160,6 @@ class TestAICaption(unittest.TestCase):
         self.assertEqual(captioner._resolved_model_name, "good-model")
         self.assertEqual(details.author_text, "Temple of Heaven")
 
-   
     def test_location_shown_system_prompt_aliases_shared_location_prompt(self):
         self.assertEqual(ai_caption.location_shown_system_prompt(), ai_caption.location_system_prompt())
 
@@ -642,4 +644,3 @@ class TestAICaption(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

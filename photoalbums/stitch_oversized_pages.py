@@ -747,7 +747,7 @@ def derived_to_jpg(src_path: str, output_dir: str, *, force: bool = False) -> bo
     return True
 
 
-def stitch(files, output_dir: str) -> bool:
+def stitch(files, output_dir: str, *, force: bool = False) -> bool:
     _require_image_modules()
     os.makedirs(output_dir, exist_ok=True)
     _require_primary_scan(files)
@@ -759,7 +759,7 @@ def stitch(files, output_dir: str) -> bool:
         f"{collection}_{year}_B{book}_P{int(page):02d}_V.jpg",
     )
     label = f"{collection} B{book} P{int(page):02d}"
-    if _skip_existing_output(out, label):
+    if not force and _skip_existing_output(out, label):
         xmp_out = Path(out).with_suffix(".xmp")
         if not xmp_out.exists():
             write_render_provenance(xmp_out, files)
@@ -789,75 +789,111 @@ def main() -> None:
     archive_dirs.sort(key=dir_created_ts, reverse=True)
 
     for archive in archive_dirs:
-        view = get_view_dirname(archive)
-        photos = get_photos_dirname(archive)
+        archive_success, archive_skipped, archive_failed = _process_archive_render_outputs(archive, failed)
+        success += archive_success
+        skipped += archive_skipped
+        failures += archive_failed
 
-        for group in list_page_scans(archive):
-            try:
-                primary_scan = _require_primary_scan(group)
-                if len(group) > 1:
-                    wrote = stitch(group, view)
-                else:
-                    wrote = tif_to_jpg(primary_scan, view)
-                page_view_path = _view_page_output_path(primary_scan, view)
-                if wrote or not page_view_path.with_suffix(".xmp").is_file():
-                    _copy_base_view_sidecar(primary_scan, view)
-                    _refresh_rendered_view_people(page_view_path)
-                if wrote:
-                    success += 1
-                else:
-                    skipped += 1
-            except Exception as exc:
-                failures += 1
-                failed.append(group)
-                print("Error:", exc)
+    _print_render_summary(success=success, skipped=skipped, failures=failures, failed=failed)
+    for group in failed:
+        print(" -", ", ".join(os.path.basename(x) for x in group))
 
-        for derived in list_derived_images(archive):
-            try:
-                wrote = derived_to_jpg(derived, photos)
-                derived_view_path = _derived_view_output_path(derived, photos)
-                if wrote or not derived_view_path.with_suffix(".xmp").is_file():
-                    _index_rendered_view_image(derived_view_path)
-                    _refresh_rendered_view_people(derived_view_path)
-                if wrote:
-                    success += 1
-                else:
-                    skipped += 1
-            except Exception as exc:
-                failures += 1
-                failed.append([derived])
-                print("Error:", exc)
 
-        for media_path in list_derived_media(archive):
-            try:
-                wrote = copy_derived_media(media_path, photos)
-                if wrote:
-                    success += 1
-                else:
-                    skipped += 1
-            except Exception as exc:
-                failures += 1
-                failed.append([media_path])
-                print("Error:", exc)
+def _process_archive_render_outputs(archive: str, failed: list) -> tuple[int, int, int]:
+    view = get_view_dirname(archive)
+    photos = get_photos_dirname(archive)
+    success = skipped = failures = 0
+    for handler in (
+        lambda: _process_page_scan_groups(archive, view, failed),
+        lambda: _process_derived_images(archive, photos, failed),
+        lambda: _process_derived_media(archive, photos, failed),
+    ):
+        handler_success, handler_skipped, handler_failures = handler()
+        success += handler_success
+        skipped += handler_skipped
+        failures += handler_failures
+    return success, skipped, failures
 
+
+def _count_wrote(wrote: bool) -> tuple[int, int]:
+    return (1, 0) if wrote else (0, 1)
+
+
+def _process_page_scan_groups(archive: str, view: str, failed: list) -> tuple[int, int, int]:
+    success = skipped = failures = 0
+    for group in list_page_scans(archive):
+        try:
+            primary_scan = _require_primary_scan(group)
+            wrote = stitch(group, view) if len(group) > 1 else tif_to_jpg(primary_scan, view)
+            page_view_path = _view_page_output_path(primary_scan, view)
+            if wrote or not page_view_path.with_suffix(".xmp").is_file():
+                _copy_base_view_sidecar(primary_scan, view)
+                _refresh_rendered_view_people(page_view_path)
+            wrote_success, wrote_skipped = _count_wrote(wrote)
+            success += wrote_success
+            skipped += wrote_skipped
+        except Exception as exc:
+            failures += 1
+            failed.append(group)
+            print("Error:", exc)
+    return success, skipped, failures
+
+
+def _process_derived_images(archive: str, photos: str, failed: list) -> tuple[int, int, int]:
+    success = skipped = failures = 0
+    for derived in list_derived_images(archive):
+        try:
+            wrote = derived_to_jpg(derived, photos)
+            derived_view_path = _derived_view_output_path(derived, photos)
+            if wrote or not derived_view_path.with_suffix(".xmp").is_file():
+                _index_rendered_view_image(derived_view_path)
+                _refresh_rendered_view_people(derived_view_path)
+            wrote_success, wrote_skipped = _count_wrote(wrote)
+            success += wrote_success
+            skipped += wrote_skipped
+        except Exception as exc:
+            failures += 1
+            failed.append([derived])
+            print("Error:", exc)
+    return success, skipped, failures
+
+
+def _process_derived_media(archive: str, photos: str, failed: list) -> tuple[int, int, int]:
+    success = skipped = failures = 0
+    for media_path in list_derived_media(archive):
+        try:
+            wrote = copy_derived_media(media_path, photos)
+            wrote_success, wrote_skipped = _count_wrote(wrote)
+            success += wrote_success
+            skipped += wrote_skipped
+        except Exception as exc:
+            failures += 1
+            failed.append([media_path])
+            print("Error:", exc)
+    return success, skipped, failures
+
+
+def _print_render_summary(*, success: int, skipped: int, failures: int, failed: list) -> None:
     print("\n===== SUMMARY =====")
     print("Successful:", success)
     print("Skipped:", skipped)
     print("Failed:", failures)
-    if failed:
-        print("\n===== FAILURES (DETAILS) =====")
-        for group in failed:
-            if group:
-                collection, year, book, page = parse_album_filename(group[0])
-                base = f"{collection}_{year}_B{book}_P{int(page):02d}"
-            else:
-                base = "Unknown"
-            print(f"FAILED: {base}")
-            print("Files:")
-            for file_path in group:
-                print(f"  - {file_path}")
+    if not failed:
+        return
+    print("\n===== FAILURES (DETAILS) =====")
     for group in failed:
-        print(" -", ", ".join(os.path.basename(x) for x in group))
+        base = _failed_group_base(group)
+        print(f"FAILED: {base}")
+        print("Files:")
+        for file_path in group:
+            print(f"  - {file_path}")
+
+
+def _failed_group_base(group: list) -> str:
+    if not group:
+        return "Unknown"
+    collection, year, book, page = parse_album_filename(group[0])
+    return f"{collection}_{year}_B{book}_P{int(page):02d}"
 
 
 if __name__ == "__main__":

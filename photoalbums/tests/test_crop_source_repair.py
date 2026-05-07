@@ -97,8 +97,7 @@ def test_repair_crop_sidecar_source_rewrites_album_title_and_dc_source(tmp_path:
     assert state is not None
     assert state["album_title"] == "PANAMA CANAL & MEXICO 1987 PORTUGAL 1988"
     assert (
-        state["source_text"]
-        == "PANAMA CANAL & MEXICO 1987 PORTUGAL 1988 Page 23 Scan(s) S01 S02; "
+        state["source_text"] == "PANAMA CANAL & MEXICO 1987 PORTUGAL 1988 Page 23 Scan(s) S01 S02; "
         "Portugal_1988_B00_P23_S01.tif; Portugal_1988_B00_P23_S02.tif"
     )
 

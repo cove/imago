@@ -47,6 +47,7 @@ STEP_ORDER = ["metadata", "people", "objects", "propagate-to-crops"]
 
 # ── Input hash functions ───────────────────────────────────────────────────────
 
+
 def metadata_input_hash(settings: dict[str, Any], output_hashes: dict[str, str]) -> str:
     if str(settings.get("caption_engine", "")).strip().lower() != "lmstudio":
         return ""
@@ -104,6 +105,7 @@ STEP_HASH_FNS: dict[str, Callable[[dict[str, Any], dict[str, str]], str]] = {
 
 
 # ── StepRunner ─────────────────────────────────────────────────────────────────
+
 
 class StepRunner:
     """Evaluates staleness per step, skips fresh steps, runs stale steps, accumulates records."""

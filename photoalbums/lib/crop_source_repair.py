@@ -56,16 +56,16 @@ def _resolve_expected_crop_metadata(sidecar_path: str | Path) -> tuple[str, str,
 
 
 def crop_sidecar_needs_source_repair(sidecar_path: str | Path) -> bool:
-    expected_album_title, expected_source_text, current_album_title, current_source_text = _resolve_expected_crop_metadata(
-        sidecar_path
+    expected_album_title, expected_source_text, current_album_title, current_source_text = (
+        _resolve_expected_crop_metadata(sidecar_path)
     )
     return current_album_title != expected_album_title or current_source_text != expected_source_text
 
 
 def repair_crop_sidecar_source(sidecar_path: str | Path) -> bool:
     path = Path(sidecar_path)
-    expected_album_title, expected_source_text, current_album_title, current_source_text = _resolve_expected_crop_metadata(
-        path
+    expected_album_title, expected_source_text, current_album_title, current_source_text = (
+        _resolve_expected_crop_metadata(path)
     )
     if current_album_title == expected_album_title and current_source_text == expected_source_text:
         return False

@@ -119,7 +119,9 @@ class TestRunRenderPipelineSkipsSteps(unittest.TestCase):
                 mock.patch("photoalbums.stitch_oversized_pages.tif_to_jpg", return_value=False),
                 mock.patch("photoalbums.stitch_oversized_pages.stitch", return_value=False),
                 mock.patch("photoalbums.lib.ai_view_regions._image_dimensions", return_value=(100, 100)),
-                mock.patch("photoalbums.commands.run_render_pipeline.__wrapped__", side_effect=None) if hasattr(commands.run_render_pipeline, "__wrapped__") else mock.MagicMock(),
+                mock.patch("photoalbums.commands.run_render_pipeline.__wrapped__", side_effect=None)
+                if hasattr(commands.run_render_pipeline, "__wrapped__")
+                else mock.MagicMock(),
                 redirect_stdout(captured),
             ):
                 # Call detect-regions standalone to verify skip logic
@@ -383,6 +385,7 @@ class TestRunRenderPipelineProvenance(unittest.TestCase):
             _write_minimal_xmp(scan_xmp)
             assign_document_id(scan_xmp)
             from photoalbums.stitch_oversized_pages import write_render_provenance
+
             write_render_provenance(view_xmp, [str(scan)])
 
             # Now simulate detect-regions failure - provenance is still there
@@ -546,7 +549,9 @@ class TestRunRenderPipelinePerPageScoping(unittest.TestCase):
                 mock.patch("photoalbums.lib.xmp_sidecar.read_ai_sidecar_state", return_value={}),
                 mock.patch(
                     "photoalbums.stitch_oversized_pages.derived_to_jpg",
-                    side_effect=lambda derived, output_dir: render_calls.append((Path(derived).name, Path(output_dir).name)),
+                    side_effect=lambda derived, output_dir: render_calls.append(
+                        (Path(derived).name, Path(output_dir).name)
+                    ),
                 ),
                 mock.patch("photoalbums.lib.ai_render_face_refresh.RenderFaceRefreshSession"),
                 redirect_stdout(StringIO()),
@@ -565,4 +570,3 @@ class TestRunRenderPipelinePerPageScoping(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

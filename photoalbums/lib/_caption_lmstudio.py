@@ -1014,8 +1014,6 @@ def normalize_lmstudio_base_url(value: str, default: str = DEFAULT_LMSTUDIO_BASE
     return f"{text}/v1"
 
 
-
-
 _DESCRIBE_CONFIGS: dict[str, tuple] = {
     "photo": (_lmstudio_caption_response_format, _parse_lmstudio_structured_caption),
     "page": (_lmstudio_page_caption_response_format, _parse_lmstudio_page_caption),
