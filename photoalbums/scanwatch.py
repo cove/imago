@@ -334,8 +334,7 @@ class ScanWatchService:
                 target_name = get_next_filename(event.archive_dir)
                 log_info(f"Auto-applying scan event {event.id} -> {target_name}")
                 try:
-                    with _TransientStatus(f"Applying scan event {event.id} -> {target_name} ..."):
-                        results.append(self.apply_decision(event.id, target_name))
+                    results.append(self.apply_decision(event.id, target_name))
                 except Exception as exc:
                     self.log_error_fn(f"Auto-apply scan event {event.id} failed: {exc}")
                     with self._lock:
@@ -371,6 +370,7 @@ class ScanWatchService:
         if new_path.exists():
             raise ValueError(f"Target already exists: {new_path}")
 
+        self.log_info_fn(f"  [rename] {old_path.name} -> {target_name}")
         if not self.rename_fn(old_path, new_path, log_error=self.log_error_fn):
             with self._lock:
                 event.status = "failed"
@@ -378,6 +378,7 @@ class ScanWatchService:
                 event.updated_at = _now()
             return event.to_dict()
 
+        self.log_info_fn(f"  [process-tiff] {target_name}")
         if not self.process_tiff_fn(new_path, log_error=self.log_error_fn):
             with self._lock:
                 event.status = "failed"
@@ -386,6 +387,7 @@ class ScanWatchService:
                 event.updated_at = _now()
             return event.to_dict()
 
+        self.log_info_fn(f"  [display] {target_name}")
         self.display_image_fn(new_path, title=f"Renamed scan: {target_name}", log_error=self.log_error_fn)
 
         with self._lock:
@@ -398,8 +400,10 @@ class ScanWatchService:
         if validate_stitch and page_num is not None:
             files = list_page_scans_for_page(archive_dir, page_num)
             if len(files) >= 2:
+                self.log_info_fn(f"  [validate-stitch] page {page_num:02d} ({len(files)} scan(s))")
                 stitch_validated, preview_path = self.validate_stitch_fn(files, save_preview=True)
                 if stitch_validated and preview_path is not None and open_preview:
+                    self.log_info_fn(f"  [display-stitch] page {page_num:02d}")
                     self.display_image_fn(
                         preview_path,
                         title=f"Stitched preview: page {page_num:02d}",
@@ -409,7 +413,8 @@ class ScanWatchService:
                 elif preview_path is not None:
                     cleanup_preview_file(preview_path)
 
-        self._sync_archive_state(str(archive_dir))
+        self.log_info_fn(f"  [sync-archive] {Path(event.archive_dir).name}")
+        self._sync_archive_state(str(archive_dir), validate=False)
         self._sync_pending_events_for_archive(str(archive_dir))
         archive = self._archives.get(str(archive_dir))
 
@@ -491,6 +496,7 @@ class ScanWatchService:
             archive_map[archive_dir] = archive
 
         archive.page_scan_counts = {}
+        prior_needs_rescan = set() if validate else set(archive.needs_rescan_pages)
         archive.needs_rescan_pages = set()
 
         dir_path = Path(archive_dir)
@@ -517,6 +523,11 @@ class ScanWatchService:
                     stitch_validated = False
                 if not stitch_validated:
                     archive.needs_rescan_pages.add(page)
+        else:
+            archive.needs_rescan_pages = {
+                page for page in prior_needs_rescan
+                if archive.page_scan_counts.get(page, 0) >= 2
+            }
 
         return archive
 
