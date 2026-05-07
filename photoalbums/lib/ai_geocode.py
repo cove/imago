@@ -107,19 +107,30 @@ def _display_name_sublocation(*, display_name: str, city: str = "", state: str =
     parts = [part for part in parts if part]
     if not parts:
         return ""
-    country_folded = _clean_display_part(country).casefold()
-    city_folded = _clean_display_part(city).casefold()
-    state_folded = _clean_display_part(state).casefold()
-    while parts and country_folded and _clean_display_part(parts[-1]).casefold() == country_folded:
+    _trim_display_name_tail(parts, country=country, city=city, state=state)
+    return _street_sublocation(parts)
+
+
+def _trim_display_name_tail(parts: list[str], *, country: str = "", city: str = "", state: str = "") -> None:
+    _pop_matching_tail(parts, country)
+    _pop_postcode_tail(parts)
+    _pop_matching_tail(parts, city)
+    _pop_matching_tail(parts, state)
+    _pop_postcode_tail(parts)
+
+
+def _pop_matching_tail(parts: list[str], value: str) -> None:
+    folded = _clean_display_part(value).casefold()
+    while parts and folded and _clean_display_part(parts[-1]).casefold() == folded:
         parts.pop()
+
+
+def _pop_postcode_tail(parts: list[str]) -> None:
     while parts and _looks_like_postcode(parts[-1]):
         parts.pop()
-    while parts and city_folded and _clean_display_part(parts[-1]).casefold() == city_folded:
-        parts.pop()
-    while parts and state_folded and _clean_display_part(parts[-1]).casefold() == state_folded:
-        parts.pop()
-    while parts and _looks_like_postcode(parts[-1]):
-        parts.pop()
+
+
+def _street_sublocation(parts: list[str]) -> str:
     for idx, part in enumerate(parts):
         if _has_street_hint(part):
             if idx > 0 and _looks_like_house_number(parts[idx - 1]):
@@ -295,24 +306,21 @@ class NominatimGeocoder:
         longitude = str(row.get("longitude") or "").strip()
         if not latitude or not longitude:
             return None
-        return GeocodeResult(
-            query=str(row.get("query") or _clean_query(query)),
-            latitude=latitude,
-            longitude=longitude,
-            display_name=_normalize_display_name(
-                query=str(row.get("query") or _clean_query(query)),
-                display_name=str(row.get("display_name") or "").strip(),
-                city=str(row.get("city") or "").strip(),
-                state=str(row.get("state") or "").strip(),
-                country=str(row.get("country") or "").strip(),
-            ),
-            source=str(row.get("source") or "nominatim"),
-            city=str(row.get("city") or "").strip(),
-            state=str(row.get("state") or "").strip(),
-            country=str(row.get("country") or "").strip(),
-            sublocation=str(row.get("sublocation") or "").strip(),
-            raw=dict(row.get("raw") or {}) if isinstance(row.get("raw"), dict) else {},
-        )
+        return _geocode_result_from_cache_row(row, query=query, latitude=latitude, longitude=longitude)
+
+    def _read_json(self, request: urllib.request.Request, *, cached: GeocodeResult | None, action: str):
+        try:
+            with urllib.request.urlopen(request, timeout=float(self.timeout_seconds)) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            if cached is not None:
+                return cached
+            details = exc.read().decode("utf-8", errors="replace").strip()
+            raise RuntimeError(f"Nominatim {action} request failed: {details or f'HTTP {exc.code}'}") from exc
+        except urllib.error.URLError as exc:
+            if cached is not None:
+                return cached
+            raise RuntimeError(f"Nominatim is unreachable at {self.base_url}: {exc.reason}") from exc
 
     def geocode(self, query: str) -> GeocodeResult | None:
         clean_query = _clean_query(query)
@@ -343,18 +351,9 @@ class NominatimGeocoder:
                 "User-Agent": self.user_agent,
             },
         )
-        try:
-            with urllib.request.urlopen(request, timeout=float(self.timeout_seconds)) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-        except urllib.error.HTTPError as exc:
-            if cached is not None:
-                return cached
-            details = exc.read().decode("utf-8", errors="replace").strip()
-            raise RuntimeError(f"Nominatim geocoding request failed: {details or f'HTTP {exc.code}'}") from exc
-        except urllib.error.URLError as exc:
-            if cached is not None:
-                return cached
-            raise RuntimeError(f"Nominatim is unreachable at {self.base_url}: {exc.reason}") from exc
+        payload = self._read_json(request, cached=cached, action="geocoding")
+        if isinstance(payload, GeocodeResult):
+            return payload
 
         if not isinstance(payload, list) or not payload:
             self._cache_miss(clean_query)
@@ -368,33 +367,7 @@ class NominatimGeocoder:
         if not latitude or not longitude:
             self._cache_miss(clean_query)
             return None
-        address = top.get("address") or {}
-        city = str(
-            address.get("city") or address.get("town") or address.get("village") or address.get("municipality") or ""
-        ).strip()
-        result = GeocodeResult(
-            query=clean_query,
-            latitude=latitude,
-            longitude=longitude,
-            display_name=_normalize_display_name(
-                query=clean_query,
-                display_name=str(top.get("display_name") or "").strip(),
-                city=city,
-                state=str(address.get("state") or "").strip(),
-                country=str(address.get("country") or "").strip(),
-            ),
-            city=city,
-            state=str(address.get("state") or "").strip(),
-            country=str(address.get("country") or "").strip(),
-            sublocation=_sublocation_from_nominatim(
-                display_name=str(top.get("display_name") or "").strip(),
-                address=address,
-                city=city,
-                state=str(address.get("state") or "").strip(),
-                country=str(address.get("country") or "").strip(),
-            ),
-            raw=dict(top),
-        )
+        result = _geocode_result_from_nominatim_payload(top, query=clean_query, latitude=latitude, longitude=longitude)
         self._cache_result(result)
         return result
 
@@ -430,18 +403,9 @@ class NominatimGeocoder:
                 "User-Agent": self.user_agent,
             },
         )
-        try:
-            with urllib.request.urlopen(request, timeout=float(self.timeout_seconds)) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-        except urllib.error.HTTPError as exc:
-            if cached is not None:
-                return cached
-            details = exc.read().decode("utf-8", errors="replace").strip()
-            raise RuntimeError(f"Nominatim reverse geocoding request failed: {details or f'HTTP {exc.code}'}") from exc
-        except urllib.error.URLError as exc:
-            if cached is not None:
-                return cached
-            raise RuntimeError(f"Nominatim is unreachable at {self.base_url}: {exc.reason}") from exc
+        payload = self._read_json(request, cached=cached, action="reverse geocoding")
+        if isinstance(payload, GeocodeResult):
+            return payload
 
         if not isinstance(payload, dict):
             self._cache_miss(query)
@@ -453,33 +417,76 @@ class NominatimGeocoder:
             self._cache_miss(query)
             return None
 
-        address = payload.get("address") or {}
-        city = str(
-            address.get("city") or address.get("town") or address.get("village") or address.get("municipality") or ""
-        ).strip()
-
-        result = GeocodeResult(
-            query=query,
-            latitude=latitude,
-            longitude=longitude,
-            display_name=_normalize_display_name(
-                query=query,
-                display_name=str(payload.get("display_name") or "").strip(),
-                city=city,
-                state=str(address.get("state") or "").strip(),
-                country=str(address.get("country") or "").strip(),
-            ),
-            city=city,
-            state=str(address.get("state") or "").strip(),
-            country=str(address.get("country") or "").strip(),
-            sublocation=_sublocation_from_nominatim(
-                display_name=str(payload.get("display_name") or "").strip(),
-                address=address,
-                city=city,
-                state=str(address.get("state") or "").strip(),
-                country=str(address.get("country") or "").strip(),
-            ),
-            raw=dict(payload),
-        )
+        result = _geocode_result_from_nominatim_payload(payload, query=query, latitude=latitude, longitude=longitude)
         self._cache_result(result)
         return result
+
+
+def _geocode_result_from_cache_row(
+    row: dict,
+    *,
+    query: str,
+    latitude: str,
+    longitude: str,
+) -> GeocodeResult:
+    row_query = str(row.get("query") or _clean_query(query))
+    city = str(row.get("city") or "").strip()
+    state = str(row.get("state") or "").strip()
+    country = str(row.get("country") or "").strip()
+    return GeocodeResult(
+        query=row_query,
+        latitude=latitude,
+        longitude=longitude,
+        display_name=_normalize_display_name(
+            query=row_query,
+            display_name=str(row.get("display_name") or "").strip(),
+            city=city,
+            state=state,
+            country=country,
+        ),
+        source=str(row.get("source") or "nominatim"),
+        city=city,
+        state=state,
+        country=country,
+        sublocation=str(row.get("sublocation") or "").strip(),
+        raw=dict(row.get("raw") or {}) if isinstance(row.get("raw"), dict) else {},
+    )
+
+
+def _geocode_result_from_nominatim_payload(
+    payload: dict,
+    *,
+    query: str,
+    latitude: str,
+    longitude: str,
+) -> GeocodeResult:
+    address = payload.get("address") or {}
+    city = str(
+        address.get("city") or address.get("town") or address.get("village") or address.get("municipality") or ""
+    ).strip()
+    state = str(address.get("state") or "").strip()
+    country = str(address.get("country") or "").strip()
+    display_name = str(payload.get("display_name") or "").strip()
+    return GeocodeResult(
+        query=query,
+        latitude=latitude,
+        longitude=longitude,
+        display_name=_normalize_display_name(
+            query=query,
+            display_name=display_name,
+            city=city,
+            state=state,
+            country=country,
+        ),
+        city=city,
+        state=state,
+        country=country,
+        sublocation=_sublocation_from_nominatim(
+            display_name=display_name,
+            address=address,
+            city=city,
+            state=state,
+            country=country,
+        ),
+        raw=dict(payload),
+    )

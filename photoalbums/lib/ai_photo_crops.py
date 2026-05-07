@@ -347,61 +347,20 @@ def _verify_crop_sidecar_metadata(
             )
 
 
-def _write_crop_sidecar(
-    crop_path: Path,
-    view_path: Path,
-    caption: str,
-    view_state: dict,
-    locations_shown: list[dict],
-    person_names: list[str],
-    region_location_payload: dict[str, Any] | None = None,
-    region_location_override: dict[str, Any] | None = None,
-    geocoder=None,
-) -> None:
-    """Write or update the XMP sidecar for a crop JPEG.
-
-    Writes DocumentID, DerivedFrom, Pantry, dc:description (if caption),
-    dc:source, location/date/subject metadata from view_state, and
-    PersonInImage. Preserves unrelated existing sidecar fields.
-    """
-    from .xmpmm_provenance import assign_document_id, write_derived_from, write_pantry_entry
-    from .ai_index_scan import _build_dc_source, _page_scan_filenames
-    from .xmp_sidecar import write_xmp_sidecar
-
-    crop_xmp = crop_path.with_suffix(".xmp")
-    view_xmp = view_path.with_suffix(".xmp")
-
-    # Step 1: ensure crop sidecar exists and has a DocumentID
-    assign_document_id(crop_xmp)
-
-    # Step 2: get the page view's DocumentID for provenance links
-    from .xmpmm_provenance import read_document_id
-
-    view_doc_id = read_document_id(view_xmp)
-
-    # Step 3: write provenance
-    if view_doc_id:
-        source_rel = Path(os.path.relpath(view_path, crop_xmp.parent)).as_posix()
-        write_derived_from(crop_xmp, view_doc_id, source_path=source_rel)
-        write_pantry_entry(crop_xmp, view_doc_id, source_path=source_rel)
-
-    # Step 4: write metadata via write_xmp_sidecar (handles merge)
-    # Merge view subjects with any subjects already on the crop sidecar
-    view_subjects = _read_subjects_from_xmp(view_xmp)
-    crop_subjects = _read_subjects_from_xmp(crop_xmp)
+def _merged_crop_subjects(view_xmp: Path, crop_xmp: Path) -> list[str]:
     seen: set[str] = set()
     subjects: list[str] = []
-    for s in crop_subjects + view_subjects:
-        if s not in seen:
-            seen.add(s)
-            subjects.append(s)
+    for subject in _read_subjects_from_xmp(crop_xmp) + _read_subjects_from_xmp(view_xmp):
+        if subject not in seen:
+            seen.add(subject)
+            subjects.append(subject)
+    return subjects
 
-    page_description = str(view_state.get("description") or "").strip()
-    parent_ocr_text = str(view_state.get("parent_ocr_text") or view_state.get("ocr_text") or "").strip()
-    if not caption:
-        caption = page_description
-    from .ai_sidecar_state import _dc_source_scan_names, _effective_sidecar_album_title, _sidecar_location_payload
+
+def _crop_source_metadata(view_path: Path, view_state: dict) -> tuple[str, str]:
+    from .ai_index_scan import _build_dc_source, _page_scan_filenames
     from .ai_render_settings import find_archive_dir_for_image
+    from .ai_sidecar_state import _dc_source_scan_names, _effective_sidecar_album_title
     from .xmp_sidecar import read_ai_sidecar_state
 
     crop_album_title = _effective_sidecar_album_title(view_path, view_state)
@@ -415,21 +374,40 @@ def _write_crop_sidecar(
                 crop_album_title = _effective_sidecar_album_title(view_path, archive_state)
     if archive_scan_names:
         archive_source_text = _build_dc_source(crop_album_title, view_path, archive_scan_names)
+    return crop_album_title, archive_source_text
 
-    # Compute effective location: page view state first, then archive scan fallback.
-    # Crops are created before the page view refresh may have written GPS/location,
-    # so we walk up to the archive scan if the page view has no GPS.
+
+def _page_location_for_crop(view_path: Path, view_state: dict, archive_source_text: str) -> dict:
+    from .ai_render_settings import find_archive_dir_for_image
+    from .ai_sidecar_state import _dc_source_scan_names, _sidecar_location_payload
+    from .xmp_sidecar import read_ai_sidecar_state
+
     page_location = _sidecar_location_payload(view_state)
-    if not page_location or not str(page_location.get("gps_latitude") or "").strip():
-        archive_dir = find_archive_dir_for_image(view_path)
-        if archive_dir is not None and archive_dir.is_dir():
-            for scan_name in _dc_source_scan_names(archive_source_text)[:1]:
-                archive_state = read_ai_sidecar_state((archive_dir / scan_name).with_suffix(".xmp"))
-                if isinstance(archive_state, dict):
-                    archive_loc = _sidecar_location_payload(archive_state)
-                    if str(archive_loc.get("gps_latitude") or "").strip():
-                        page_location = archive_loc
-                        break
+    if page_location and str(page_location.get("gps_latitude") or "").strip():
+        return page_location
+
+    archive_dir = find_archive_dir_for_image(view_path)
+    if archive_dir is None or not archive_dir.is_dir():
+        return page_location
+
+    for scan_name in _dc_source_scan_names(archive_source_text)[:1]:
+        archive_state = read_ai_sidecar_state((archive_dir / scan_name).with_suffix(".xmp"))
+        if isinstance(archive_state, dict):
+            archive_loc = _sidecar_location_payload(archive_state)
+            if str(archive_loc.get("gps_latitude") or "").strip():
+                return archive_loc
+    return page_location
+
+
+def _resolved_crop_location_metadata(
+    *,
+    caption: str,
+    locations_shown: list[dict],
+    page_location: dict,
+    region_location_payload: dict[str, Any] | None,
+    region_location_override: dict[str, Any] | None,
+    geocoder,
+) -> tuple[dict, list[dict]]:
     effective_loc = _materialize_region_location_payload(
         _resolver_resolve_crop_location(
             region_location_override=region_location_override,
@@ -456,6 +434,69 @@ def _write_crop_sidecar(
     ):
         crop_location_shown = _resolver_location_shown_from_payload(effective_loc)
         crop_locations_shown = [crop_location_shown] if crop_location_shown else crop_locations_shown
+    return effective_loc, crop_locations_shown
+
+
+def _write_crop_sidecar(
+    crop_path: Path,
+    view_path: Path,
+    caption: str,
+    view_state: dict,
+    locations_shown: list[dict],
+    person_names: list[str],
+    region_location_payload: dict[str, Any] | None = None,
+    region_location_override: dict[str, Any] | None = None,
+    geocoder=None,
+) -> None:
+    """Write or update the XMP sidecar for a crop JPEG.
+
+    Writes DocumentID, DerivedFrom, Pantry, dc:description (if caption),
+    dc:source, location/date/subject metadata from view_state, and
+    PersonInImage. Preserves unrelated existing sidecar fields.
+    """
+    from .xmpmm_provenance import assign_document_id, write_derived_from, write_pantry_entry
+    from .xmp_sidecar import write_xmp_sidecar
+
+    crop_xmp = crop_path.with_suffix(".xmp")
+    view_xmp = view_path.with_suffix(".xmp")
+
+    # Step 1: ensure crop sidecar exists and has a DocumentID
+    assign_document_id(crop_xmp)
+
+    # Step 2: get the page view's DocumentID for provenance links
+    from .xmpmm_provenance import read_document_id
+
+    view_doc_id = read_document_id(view_xmp)
+
+    # Step 3: write provenance
+    if view_doc_id:
+        source_rel = Path(os.path.relpath(view_path, crop_xmp.parent)).as_posix()
+        write_derived_from(crop_xmp, view_doc_id, source_path=source_rel)
+        write_pantry_entry(crop_xmp, view_doc_id, source_path=source_rel)
+
+    # Step 4: write metadata via write_xmp_sidecar (handles merge)
+    # Merge view subjects with any subjects already on the crop sidecar
+    subjects = _merged_crop_subjects(view_xmp, crop_xmp)
+
+    page_description = str(view_state.get("description") or "").strip()
+    parent_ocr_text = str(view_state.get("parent_ocr_text") or view_state.get("ocr_text") or "").strip()
+    if not caption:
+        caption = page_description
+
+    crop_album_title, archive_source_text = _crop_source_metadata(view_path, view_state)
+
+    # Compute effective location: page view state first, then archive scan fallback.
+    # Crops are created before the page view refresh may have written GPS/location,
+    # so we walk up to the archive scan if the page view has no GPS.
+    page_location = _page_location_for_crop(view_path, view_state, archive_source_text)
+    effective_loc, crop_locations_shown = _resolved_crop_location_metadata(
+        caption=caption,
+        locations_shown=locations_shown,
+        page_location=page_location,
+        region_location_payload=region_location_payload,
+        region_location_override=region_location_override,
+        geocoder=geocoder,
+    )
     resolved_person_names = _resolver_resolve_person_in_image(
         person_names,
         locations_shown=locations_shown,
@@ -493,6 +534,147 @@ def _write_crop_sidecar(
 # ---------------------------------------------------------------------------
 # Main crop function
 # ---------------------------------------------------------------------------
+
+
+def _region_location_needs_geocoder(region: dict, page_description: str) -> bool:
+    payload = dict(region.get("location_override") or {}) or dict(region.get("location_payload") or {})
+    normalized = _normalize_region_location_payload(payload)
+    if normalized.get("address") and not normalized.get("gps_latitude"):
+        return True
+    caption_location = _resolver_location_payload_from_caption(
+        resolve_region_caption(
+            region.get("caption") or "",
+            region.get("caption_hint") or "",
+            page_description,
+        )
+    )
+    return bool(caption_location)
+
+
+def _crop_run_needs_geocoder(regions: list, locations_shown: list[dict], page_description: str) -> bool:
+    if any(_region_location_needs_geocoder(region, page_description) for region in regions if isinstance(region, dict)):
+        return True
+    return any(
+        (str(location.get("address") or "").strip() or str(location.get("name") or "").strip())
+        and not str(location.get("gps_latitude") or "").strip()
+        for location in locations_shown
+        if isinstance(location, dict)
+    )
+
+
+def _crop_region_rect(
+    *,
+    region: dict,
+    view_path: Path,
+    img_w: int,
+    img_h: int,
+    stats: CropPageStats | None,
+) -> tuple[int, int, int, int] | None:
+    left, top, right, bottom = mwgrs_normalised_to_pixel_rect(
+        region["cx"],
+        region["cy"],
+        region["nw"],
+        region["nh"],
+        img_w,
+        img_h,
+        warn_on_significant_clamp=False,
+    )
+    if right > left and bottom > top:
+        return left, top, right, bottom
+    if stats is not None:
+        stats.ignored_empty_regions += 1
+    log.warning(
+        "Ignoring empty crop region for %s after clamping: rect=(%d, %d, %d, %d) img=(%d, %d)",
+        view_path.name,
+        left,
+        top,
+        right,
+        bottom,
+        img_w,
+        img_h,
+    )
+    return None
+
+
+def _restore_crop_image(crop_img, skip_restoration: bool):
+    restoration_result = "skipped"
+    restoration_model = None
+    if skip_restoration:
+        return crop_img, restoration_result, restoration_model
+
+    from .photo_restoration import (
+        REAL_RESTORER_MODEL_NAME,
+        RESTORE_RESULT_RESTORED,
+        restore_photo_with_result,
+    )
+
+    crop_img, restoration_result = restore_photo_with_result(crop_img)
+    if restoration_result == RESTORE_RESULT_RESTORED:
+        restoration_model = REAL_RESTORER_MODEL_NAME
+    return crop_img, restoration_result, restoration_model
+
+
+def _write_page_crop_region(
+    *,
+    page_img,
+    region: dict,
+    view_path: Path,
+    photos_dir: Path,
+    view_state: dict,
+    locations_shown: list[dict],
+    page_description: str,
+    img_w: int,
+    img_h: int,
+    archive_max_derived: int,
+    force: bool,
+    force_restoration: bool,
+    skip_restoration: bool,
+    stats: CropPageStats | None,
+    geocoder,
+) -> bool:
+    from .xmp_sidecar import write_pipeline_step
+
+    region_index = region["index"] + 1
+    output_path = crop_output_path(
+        view_path,
+        region_index,
+        photos_dir,
+        archive_max_derived=archive_max_derived,
+    )
+    if output_path.exists() and not force and not force_restoration:
+        return False
+
+    rect = _crop_region_rect(region=region, view_path=view_path, img_w=img_w, img_h=img_h, stats=stats)
+    if rect is None:
+        return False
+
+    caption = resolve_region_caption(
+        region.get("caption") or "",
+        region.get("caption_hint") or "",
+        page_description,
+    )
+    crop_img = page_img.crop(rect)
+    crop_img, restoration_result, restoration_model = _restore_crop_image(crop_img, skip_restoration)
+    crop_img.save(str(output_path), format="JPEG", quality=95)
+
+    _write_crop_sidecar(
+        output_path,
+        view_path,
+        caption,
+        view_state,
+        locations_shown,
+        list(region.get("person_names") or []),
+        region_location_payload=dict(region.get("location_payload") or {}),
+        region_location_override=dict(region.get("location_override") or {}),
+        geocoder=geocoder,
+    )
+    write_pipeline_step(
+        output_path.with_suffix(".xmp"),
+        "photo_restoration",
+        model=restoration_model,
+        extra={"result": restoration_result},
+    )
+    return True
 
 
 def crop_page_regions(
@@ -560,16 +742,17 @@ def crop_page_regions(
         return 0
 
     # Pipeline state check
-    if not force and read_pipeline_step(view_xmp, "crop_regions") is not None:
-        if _has_complete_crop_outputs(view_path, photos_dir, len(regions)):
-            if not force_restoration:
-                if stats is not None:
-                    stats.skipped_existing_outputs = True
-                return 0
-        else:
-            if stats is not None:
-                stats.reran_missing_outputs = True
-            print(f"  [crop-regions] Re-running {view_path.name} (pipeline state present but crop outputs are missing)")
+    if _should_skip_existing_crop_regions(
+        view_path,
+        view_xmp,
+        photos_dir,
+        region_count=len(regions),
+        force=force,
+        force_restoration=force_restoration,
+        stats=stats,
+        read_pipeline_step=read_pipeline_step,
+    ):
+        return 0
 
     # Force: clear pipeline state and orphaned crops
     if force:
@@ -577,155 +760,187 @@ def crop_page_regions(
         _remove_orphaned_crops(view_path, photos_dir, len(regions))
 
     # Read page-level metadata
-    view_state: dict = read_ai_sidecar_state(view_xmp) or {}
-    locations_shown: list[dict] = read_locations_shown(view_xmp)
-    page_description = str(view_state.get("description") or "").strip()
-    resolved_page_description = _resolve_page_description_from_regions(regions, page_description)
-    if resolved_page_description != page_description:
-        _update_page_description(
-            view_xmp,
-            view_state,
-            description=resolved_page_description,
-            locations_shown=locations_shown,
-        )
-        view_state = dict(view_state)
-        view_state["description"] = resolved_page_description
-        page_description = resolved_page_description
+    view_state, locations_shown, page_description = _crop_page_metadata(
+        view_xmp,
+        regions=regions,
+        read_ai_sidecar_state=read_ai_sidecar_state,
+        read_locations_shown=read_locations_shown,
+    )
 
     photos_dir.mkdir(parents=True, exist_ok=True)
 
-    crops_written = 0
-    failed = False
     archive_max_derived = highest_archive_derived_number(view_path)
     geocoder = None
-    if (
-        any(
-            _normalize_region_location_payload(
-                dict(region.get("location_override") or {}) or dict(region.get("location_payload") or {})
-            ).get("address")
-            and not _normalize_region_location_payload(
-                dict(region.get("location_override") or {}) or dict(region.get("location_payload") or {})
-            ).get("gps_latitude")
-            for region in regions
-            if isinstance(region, dict)
-        )
-        or any(
-            (str(location.get("address") or "").strip() or str(location.get("name") or "").strip())
-            and not str(location.get("gps_latitude") or "").strip()
-            for location in locations_shown
-            if isinstance(location, dict)
-        )
-        or any(
-            _resolver_location_payload_from_caption(
-                resolve_region_caption(
-                    region.get("caption") or "",
-                    region.get("caption_hint") or "",
-                    page_description,
-                )
-            )
-            for region in regions
-            if isinstance(region, dict)
-        )
-    ):
+    if _crop_run_needs_geocoder(regions, locations_shown, page_description):
         from .ai_geocode import NominatimGeocoder
 
         geocoder = NominatimGeocoder()
 
-    try:
-        with Image.open(view_path) as page_img:
-            for region in regions:
-                region_index = region["index"] + 1  # 1-based
-                output_path = crop_output_path(
-                    view_path,
-                    region_index,
-                    photos_dir,
-                    archive_max_derived=archive_max_derived,
-                )
-
-                if output_path.exists() and not force and not force_restoration:
-                    continue
-
-                caption = resolve_region_caption(
-                    region.get("caption") or "",
-                    region.get("caption_hint") or "",
-                    page_description,
-                )
-                region_location_override = dict(region.get("location_override") or {})
-                region_location_payload = dict(region.get("location_payload") or {})
-                person_names = list(region.get("person_names") or [])
-
-                try:
-                    cx = region["cx"]
-                    cy = region["cy"]
-                    nw = region["nw"]
-                    nh = region["nh"]
-                    left, top, right, bottom = mwgrs_normalised_to_pixel_rect(
-                        cx,
-                        cy,
-                        nw,
-                        nh,
-                        img_w,
-                        img_h,
-                        warn_on_significant_clamp=False,
-                    )
-                    if right <= left or bottom <= top:
-                        if stats is not None:
-                            stats.ignored_empty_regions += 1
-                        log.warning(
-                            "Ignoring empty crop region for %s after clamping: rect=(%d, %d, %d, %d) img=(%d, %d)",
-                            view_path.name,
-                            left,
-                            top,
-                            right,
-                            bottom,
-                            img_w,
-                            img_h,
-                        )
-                        continue
-                    crop_img = page_img.crop((left, top, right, bottom))
-                    restoration_result = "skipped"
-                    restoration_model = None
-                    if not skip_restoration:
-                        from .photo_restoration import (
-                            REAL_RESTORER_MODEL_NAME,
-                            RESTORE_RESULT_RESTORED,
-                            restore_photo_with_result,
-                        )
-
-                        crop_img, restoration_result = restore_photo_with_result(crop_img)
-                        if restoration_result == RESTORE_RESULT_RESTORED:
-                            restoration_model = REAL_RESTORER_MODEL_NAME
-                    crop_img.save(str(output_path), format="JPEG", quality=95)
-
-                    _write_crop_sidecar(
-                        output_path,
-                        view_path,
-                        caption,
-                        view_state,
-                        locations_shown,
-                        person_names,
-                        region_location_payload=region_location_payload,
-                        region_location_override=region_location_override,
-                        geocoder=geocoder,
-                    )
-                    write_pipeline_step(
-                        output_path.with_suffix(".xmp"),
-                        "photo_restoration",
-                        model=restoration_model,
-                        extra={"result": restoration_result},
-                    )
-                    crops_written += 1
-                except Exception as exc:
-                    log.error("Failed to write crop %s: %s", output_path.name, exc)
-                    failed = True
-    except Exception as exc:
-        log.error("Failed to read page image %s: %s", view_path, exc)
-        return 0
+    crops_written, failed = _write_page_crop_regions(
+        Image,
+        view_path=view_path,
+        photos_dir=photos_dir,
+        regions=regions,
+        view_state=view_state,
+        locations_shown=locations_shown,
+        page_description=page_description,
+        img_w=img_w,
+        img_h=img_h,
+        archive_max_derived=archive_max_derived,
+        force=force,
+        force_restoration=force_restoration,
+        skip_restoration=skip_restoration,
+        stats=stats,
+        geocoder=geocoder,
+    )
 
     if not failed:
         write_pipeline_step(view_xmp, "crop_regions")
 
     return crops_written
+
+
+def _should_skip_existing_crop_regions(
+    view_path: Path,
+    view_xmp: Path,
+    photos_dir: Path,
+    *,
+    region_count: int,
+    force: bool,
+    force_restoration: bool,
+    stats: CropPageStats | None,
+    read_pipeline_step,
+) -> bool:
+    if force or read_pipeline_step(view_xmp, "crop_regions") is None:
+        return False
+    if _has_complete_crop_outputs(view_path, photos_dir, region_count):
+        if not force_restoration:
+            if stats is not None:
+                stats.skipped_existing_outputs = True
+            return True
+        return False
+    if stats is not None:
+        stats.reran_missing_outputs = True
+    print(f"  [crop-regions] Re-running {view_path.name} (pipeline state present but crop outputs are missing)")
+    return False
+
+
+def _crop_page_metadata(
+    view_xmp: Path,
+    *,
+    regions: list[dict],
+    read_ai_sidecar_state,
+    read_locations_shown,
+) -> tuple[dict, list[dict], str]:
+    view_state: dict = read_ai_sidecar_state(view_xmp) or {}
+    locations_shown: list[dict] = read_locations_shown(view_xmp)
+    page_description = str(view_state.get("description") or "").strip()
+    resolved_page_description = _resolve_page_description_from_regions(regions, page_description)
+    if resolved_page_description == page_description:
+        return view_state, locations_shown, page_description
+    _update_page_description(
+        view_xmp,
+        view_state,
+        description=resolved_page_description,
+        locations_shown=locations_shown,
+    )
+    view_state = dict(view_state)
+    view_state["description"] = resolved_page_description
+    return view_state, locations_shown, resolved_page_description
+
+
+def _write_page_crop_regions(
+    Image,
+    *,
+    view_path: Path,
+    photos_dir: Path,
+    regions: list[dict],
+    view_state: dict,
+    locations_shown: list[dict],
+    page_description: str,
+    img_w: int,
+    img_h: int,
+    archive_max_derived: int,
+    force: bool,
+    force_restoration: bool,
+    skip_restoration: bool,
+    stats: CropPageStats | None,
+    geocoder,
+) -> tuple[int, bool]:
+    try:
+        with Image.open(view_path) as page_img:
+            return _write_open_page_crop_regions(
+                page_img=page_img,
+                view_path=view_path,
+                photos_dir=photos_dir,
+                regions=regions,
+                view_state=view_state,
+                locations_shown=locations_shown,
+                page_description=page_description,
+                img_w=img_w,
+                img_h=img_h,
+                archive_max_derived=archive_max_derived,
+                force=force,
+                force_restoration=force_restoration,
+                skip_restoration=skip_restoration,
+                stats=stats,
+                geocoder=geocoder,
+            )
+    except Exception as exc:
+        log.error("Failed to read page image %s: %s", view_path, exc)
+        return 0, True
+
+
+def _write_open_page_crop_regions(
+    *,
+    page_img,
+    view_path: Path,
+    photos_dir: Path,
+    regions: list[dict],
+    view_state: dict,
+    locations_shown: list[dict],
+    page_description: str,
+    img_w: int,
+    img_h: int,
+    archive_max_derived: int,
+    force: bool,
+    force_restoration: bool,
+    skip_restoration: bool,
+    stats: CropPageStats | None,
+    geocoder,
+) -> tuple[int, bool]:
+    crops_written = 0
+    failed = False
+    for region in regions:
+        try:
+            if _write_page_crop_region(
+                page_img=page_img,
+                region=region,
+                view_path=view_path,
+                photos_dir=photos_dir,
+                view_state=view_state,
+                locations_shown=locations_shown,
+                page_description=page_description,
+                img_w=img_w,
+                img_h=img_h,
+                archive_max_derived=archive_max_derived,
+                force=force,
+                force_restoration=force_restoration,
+                skip_restoration=skip_restoration,
+                stats=stats,
+                geocoder=geocoder,
+            ):
+                crops_written += 1
+        except Exception as exc:
+            output_path = crop_output_path(
+                view_path,
+                region["index"] + 1,
+                photos_dir,
+                archive_max_derived=archive_max_derived,
+            )
+            log.error("Failed to write crop %s: %s", output_path.name, exc)
+            failed = True
+    return crops_written, failed
 
 
 def _remove_orphaned_crops(view_path: Path, photos_dir: Path, current_region_count: int) -> None:

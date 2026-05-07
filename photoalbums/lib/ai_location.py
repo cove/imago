@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
-from .ai_caption import _normalize_gps_value
+from .ai_caption import _named_location_query, _normalize_gps_value
 from .ai_geocode import NominatimGeocoder
 from .prompt_debug import PromptDebugSession
 
@@ -52,6 +52,13 @@ def _extract_explicit_gps_from_text(text: str) -> tuple[str, str]:
     if not raw:
         return "", ""
 
+    lat_text, lon_text = _extract_labeled_gps(raw)
+    if lat_text and lon_text:
+        return lat_text, lon_text
+    return _extract_hemisphere_gps(raw, lat_text=lat_text, lon_text=lon_text)
+
+
+def _extract_labeled_gps(raw: str) -> tuple[str, str]:
     lat_text = ""
     lon_text = ""
     for match in _COORDINATE_LABEL_RE.finditer(raw):
@@ -66,7 +73,10 @@ def _extract_explicit_gps_from_text(text: str) -> tuple[str, str]:
             lon_text = value
         if lat_text and lon_text:
             return lat_text, lon_text
+    return lat_text, lon_text
 
+
+def _extract_hemisphere_gps(raw: str, *, lat_text: str = "", lon_text: str = "") -> tuple[str, str]:
     for match in _COORDINATE_HEMISPHERE_RE.finditer(raw):
         value = str(match.group(0) or "").strip()
         if not value:
@@ -227,55 +237,17 @@ def _resolve_location_payload(
     if re.match(r"^(?:a|an)\s+\S", query, re.IGNORECASE):
         query = ""
     if lat_text and lon_text:
-        payload: dict[str, Any] = {
-            "gps_latitude": float(lat_text),
-            "gps_longitude": float(lon_text),
-            "map_datum": "WGS-84",
-            "source": "caption",
-        }
-        if query:
-            payload["query"] = query
-        return payload
+        return _caption_location_payload(lat_text=lat_text, lon_text=lon_text, query=query)
     geocode_error = ""
     if query and geocoder is not None:
-        for geocode_query in _fallback_geocode_queries(query):
-            try:
-                result = geocoder.geocode(geocode_query)
-            except Exception as exc:
-                result = None
-                geocode_error = str(exc or "").strip()
-                _record_geocode_lookup(
-                    artifact_recorder=artifact_recorder,
-                    step=artifact_step,
-                    query=geocode_query,
-                    error=geocode_error,
-                )
-            else:
-                _record_geocode_lookup(
-                    artifact_recorder=artifact_recorder,
-                    step=artifact_step,
-                    query=geocode_query,
-                    result=result,
-                )
-            if result is not None:
-                loc: dict[str, Any] = {
-                    "query": result.query,
-                    "display_name": result.display_name,
-                    "gps_latitude": float(result.latitude),
-                    "gps_longitude": float(result.longitude),
-                    "map_datum": "WGS-84",
-                    "source": result.source,
-                }
-                if str(getattr(result, "city", "") or "").strip():
-                    loc["city"] = str(result.city).strip()
-                if str(getattr(result, "state", "") or "").strip():
-                    loc["state"] = str(result.state).strip()
-                if str(getattr(result, "country", "") or "").strip():
-                    loc["country"] = str(result.country).strip()
-                if str(getattr(result, "sublocation", "") or "").strip():
-                    loc["sublocation"] = str(result.sublocation).strip()
-                loc["nominatim"] = _serialize_geocode_result(result)
-                return loc
+        loc, geocode_error = _resolve_geocoded_location_payload(
+            geocoder,
+            query=query,
+            artifact_recorder=artifact_recorder,
+            artifact_step=artifact_step,
+        )
+        if loc:
+            return loc
     if query and geocode_error:
         return {
             "query": query,
@@ -283,6 +255,67 @@ def _resolve_location_payload(
             "source": "nominatim",
         }
     return {}
+
+
+def _caption_location_payload(*, lat_text: str, lon_text: str, query: str) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "gps_latitude": float(lat_text),
+        "gps_longitude": float(lon_text),
+        "map_datum": "WGS-84",
+        "source": "caption",
+    }
+    if query:
+        payload["query"] = query
+    return payload
+
+
+def _resolve_geocoded_location_payload(
+    geocoder: NominatimGeocoder,
+    *,
+    query: str,
+    artifact_recorder=None,
+    artifact_step: str,
+) -> tuple[dict[str, Any], str]:
+    geocode_error = ""
+    for geocode_query in _fallback_geocode_queries(query):
+        try:
+            result = geocoder.geocode(geocode_query)
+        except Exception as exc:
+            result = None
+            geocode_error = str(exc or "").strip()
+            _record_geocode_lookup(
+                artifact_recorder=artifact_recorder,
+                step=artifact_step,
+                query=geocode_query,
+                error=geocode_error,
+            )
+        else:
+            _record_geocode_lookup(
+                artifact_recorder=artifact_recorder,
+                step=artifact_step,
+                query=geocode_query,
+                result=result,
+            )
+        if result is not None:
+            return _location_payload_from_geocode_result(result), geocode_error
+    return {}, geocode_error
+
+
+def _location_payload_from_geocode_result(result) -> dict[str, Any]:
+    loc: dict[str, Any] = {
+        "query": result.query,
+        "display_name": result.display_name,
+        "gps_latitude": float(result.latitude),
+        "gps_longitude": float(result.longitude),
+        "map_datum": "WGS-84",
+        "source": result.source,
+    }
+    for field in ("city", "state", "country", "sublocation"):
+        value = str(getattr(result, field, "") or "").strip()
+        if value:
+            loc[field] = value
+    loc["nominatim"] = _serialize_geocode_result(result)
+    return loc
 
 
 def _fallback_geocode_queries(query: str) -> list[str]:
@@ -389,17 +422,17 @@ def _resolve_locations_shown(
     estimate_locations_shown = getattr(caption_engine, "estimate_locations_shown", None)
     if not callable(estimate_locations_shown):
         return [], False
-    try:
-        result = estimate_locations_shown(
-            image_path=model_image_path,
-            ocr_text=ocr_text,
-            source_path=source_path,
-            album_title=album_title,
-            printed_album_title=printed_album_title,
-            debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
-            debug_step=debug_step,
-        )
-    except Exception:
+    result = _estimate_locations_shown(
+        estimate_locations_shown,
+        model_image_path=model_image_path,
+        ocr_text=ocr_text,
+        source_path=source_path,
+        album_title=album_title,
+        printed_album_title=printed_album_title,
+        prompt_debug=prompt_debug,
+        debug_step=debug_step,
+    )
+    if result is None:
         return [], False
     fallback = getattr(result, "fallback", False)
     if not isinstance(fallback, bool) or fallback:
@@ -411,43 +444,81 @@ def _resolve_locations_shown(
     for loc in locations:
         if not isinstance(loc, dict):
             continue
-        normalized = {
-            "name": str(loc.get("name") or "").strip(),
-            "world_region": str(loc.get("world_region") or "").strip(),
-            "country_name": str(loc.get("country_name") or "").strip(),
-            "country_code": str(loc.get("country_code") or "").strip(),
-            "province_or_state": str(loc.get("province_or_state") or "").strip(),
-            "city": str(loc.get("city") or "").strip(),
-            "sublocation": str(loc.get("sublocation") or "").strip(),
-        }
-        if geocoder is not None:
-            query = _build_locations_shown_query(normalized)
-            if query:
-                try:
-                    geocoded = geocoder.geocode(query)
-                except Exception as exc:
-                    geocoded = None
-                    _record_geocode_lookup(
-                        artifact_recorder=artifact_recorder,
-                        step=debug_step,
-                        query=query,
-                        error=str(exc or "").strip(),
-                    )
-                else:
-                    _record_geocode_lookup(
-                        artifact_recorder=artifact_recorder,
-                        step=debug_step,
-                        query=query,
-                        result=geocoded,
-                    )
-                if geocoded is not None:
-                    normalized["gps_latitude"] = str(geocoded.latitude).strip()
-                    normalized["gps_longitude"] = str(geocoded.longitude).strip()
-                    normalized["gps_source"] = "nominatim"
-                    if not str(normalized.get("sublocation") or "").strip():
-                        normalized["sublocation"] = str(getattr(geocoded, "sublocation", "") or "").strip()
+        normalized = _normalized_location_shown(loc)
+        _geocode_location_shown(
+            normalized,
+            geocoder=geocoder,
+            artifact_recorder=artifact_recorder,
+            debug_step=debug_step,
+        )
         validated.append(normalized)
     return validated, True
+
+
+def _estimate_locations_shown(
+    estimate_locations_shown,
+    *,
+    model_image_path: Path,
+    ocr_text: str,
+    source_path: Path,
+    album_title: str,
+    printed_album_title: str,
+    prompt_debug: PromptDebugSession | None,
+    debug_step: str,
+):
+    try:
+        return estimate_locations_shown(
+            image_path=model_image_path,
+            ocr_text=ocr_text,
+            source_path=source_path,
+            album_title=album_title,
+            printed_album_title=printed_album_title,
+            debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
+            debug_step=debug_step,
+        )
+    except Exception:
+        return None
+
+
+def _normalized_location_shown(loc: dict) -> dict[str, Any]:
+    return dict(_named_location_query(loc))
+
+
+def _geocode_location_shown(
+    normalized: dict[str, Any],
+    *,
+    geocoder: NominatimGeocoder | None,
+    artifact_recorder=None,
+    debug_step: str,
+) -> None:
+    if geocoder is None:
+        return
+    query = _build_locations_shown_query(normalized)
+    if not query:
+        return
+    try:
+        geocoded = geocoder.geocode(query)
+    except Exception as exc:
+        _record_geocode_lookup(
+            artifact_recorder=artifact_recorder,
+            step=debug_step,
+            query=query,
+            error=str(exc or "").strip(),
+        )
+        return
+    _record_geocode_lookup(
+        artifact_recorder=artifact_recorder,
+        step=debug_step,
+        query=query,
+        result=geocoded,
+    )
+    if geocoded is None:
+        return
+    normalized["gps_latitude"] = str(geocoded.latitude).strip()
+    normalized["gps_longitude"] = str(geocoded.longitude).strip()
+    normalized["gps_source"] = "nominatim"
+    if not str(normalized.get("sublocation") or "").strip():
+        normalized["sublocation"] = str(getattr(geocoded, "sublocation", "") or "").strip()
 
 
 def run_locations_step(
@@ -503,67 +574,84 @@ def run_locations_step(
         artifact_step="location",
     )
 
-    # Resolve named location queries
+    return {
+        "location": location_payload,
+        "locations_shown": _resolve_named_location_queries(
+            result.named_queries or [],
+            geocoder=geocoder,
+            artifact_recorder=artifact_recorder,
+        ),
+        "location_shown_ran": True,
+    }
+
+
+def _resolve_named_location_queries(
+    named_queries,
+    *,
+    geocoder: NominatimGeocoder | None,
+    artifact_recorder=None,
+) -> list[dict[str, Any]]:
     locations_shown: list[dict[str, Any]] = []
-    for named_location in (result.named_queries or []):
+    for named_location in named_queries:
         if not isinstance(named_location, dict):
             continue
-        entry: dict[str, Any] = {
-            "name": str(named_location.get("name") or "").strip(),
-            "world_region": str(named_location.get("world_region") or "").strip(),
-            "country_name": str(named_location.get("country_name") or "").strip(),
-            "country_code": str(named_location.get("country_code") or "").strip(),
-            "province_or_state": str(named_location.get("province_or_state") or "").strip(),
-            "city": str(named_location.get("city") or "").strip(),
-            "sublocation": str(named_location.get("sublocation") or "").strip(),
-        }
+        entry = _normalized_location_shown(named_location)
         query = _build_locations_shown_query(entry)
         if not query:
             continue
-        if geocoder is not None:
-            try:
-                geocoded = geocoder.geocode(query)
-            except Exception as exc:
-                geocoded = None
-                _record_geocode_lookup(
-                    artifact_recorder=artifact_recorder,
-                    step="locations_shown",
-                    query=query,
-                    error=str(exc or "").strip(),
-                )
-            else:
-                _record_geocode_lookup(
-                    artifact_recorder=artifact_recorder,
-                    step="locations_shown",
-                    query=query,
-                    result=geocoded,
-                )
-            if geocoded is not None:
-                entry["gps_latitude"] = str(geocoded.latitude).strip()
-                entry["gps_longitude"] = str(geocoded.longitude).strip()
-                entry["gps_source"] = "nominatim"
-                for field in ("city", "state", "country", "sublocation"):
-                    val = str(getattr(geocoded, field, "") or "").strip()
-                    if val:
-                        entry[field] = val
-        # Normalise into the canonical locations_shown schema
-        normalized: dict[str, Any] = {
-            "name": entry.get("name", ""),
-            "world_region": entry.get("world_region", ""),
-            "country_name": entry.get("country_name", "") or entry.get("country", ""),
-            "country_code": entry.get("country_code", ""),
-            "province_or_state": entry.get("province_or_state", "") or entry.get("state", ""),
-            "city": entry.get("city", ""),
-            "sublocation": entry.get("sublocation", ""),
-        }
-        if entry.get("gps_latitude"):
-            normalized["gps_latitude"] = entry["gps_latitude"]
-            normalized["gps_longitude"] = entry["gps_longitude"]
-            normalized["gps_source"] = entry.get("gps_source", "nominatim")
-        locations_shown.append(normalized)
+        _geocode_location_query_entry(entry, query=query, geocoder=geocoder, artifact_recorder=artifact_recorder)
+        locations_shown.append(_canonical_location_shown_entry(entry))
+    return locations_shown
 
-    return {
-        "location": location_payload,
-        "locations_shown": locations_shown,
-        "location_shown_ran": True,
+
+def _geocode_location_query_entry(
+    entry: dict[str, Any],
+    *,
+    query: str,
+    geocoder: NominatimGeocoder | None,
+    artifact_recorder=None,
+) -> None:
+    if geocoder is None:
+        return
+    try:
+        geocoded = geocoder.geocode(query)
+    except Exception as exc:
+        _record_geocode_lookup(
+            artifact_recorder=artifact_recorder,
+            step="locations_shown",
+            query=query,
+            error=str(exc or "").strip(),
+        )
+        return
+    _record_geocode_lookup(
+        artifact_recorder=artifact_recorder,
+        step="locations_shown",
+        query=query,
+        result=geocoded,
+    )
+    if geocoded is None:
+        return
+    entry["gps_latitude"] = str(geocoded.latitude).strip()
+    entry["gps_longitude"] = str(geocoded.longitude).strip()
+    entry["gps_source"] = "nominatim"
+    for field in ("city", "state", "country", "sublocation"):
+        val = str(getattr(geocoded, field, "") or "").strip()
+        if val:
+            entry[field] = val
+
+
+def _canonical_location_shown_entry(entry: dict[str, Any]) -> dict[str, Any]:
+    normalized: dict[str, Any] = {
+        "name": entry.get("name", ""),
+        "world_region": entry.get("world_region", ""),
+        "country_name": entry.get("country_name", "") or entry.get("country", ""),
+        "country_code": entry.get("country_code", ""),
+        "province_or_state": entry.get("province_or_state", "") or entry.get("state", ""),
+        "city": entry.get("city", ""),
+        "sublocation": entry.get("sublocation", ""),
     }
+    if entry.get("gps_latitude"):
+        normalized["gps_latitude"] = entry["gps_latitude"]
+        normalized["gps_longitude"] = entry["gps_longitude"]
+        normalized["gps_source"] = entry.get("gps_source", "nominatim")
+    return normalized

@@ -185,7 +185,9 @@ def prompt_metadata(*assets: PromptAsset | SchemaAsset) -> dict[str, object]:
     }
 
 
-def params_metadata(asset: ParamsAsset | None, resolved: dict[str, Any], overrides: dict[str, str] | None = None) -> dict[str, object]:
+def params_metadata(
+    asset: ParamsAsset | None, resolved: dict[str, Any], overrides: dict[str, str] | None = None
+) -> dict[str, object]:
     metadata: dict[str, object] = {
         "resolved_params": dict(resolved),
         "override_sources": dict(overrides or {}),

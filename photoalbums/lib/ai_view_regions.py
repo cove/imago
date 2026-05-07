@@ -118,6 +118,8 @@ def associate_captions(
             results.append(RegionWithCaption(region, ""))
     results.sort(key=lambda row: row.region.index)
     return results
+
+
 def validate_region_set(
     regions: list[RegionResult],
     *,
@@ -143,7 +145,9 @@ def validate_region_set(
             continue
         clamped.append(replace(region, x=left, y=top, width=width, height=height))
 
-    return ValidationResult(valid=len(failures) == 0, kept=sorted(clamped, key=lambda region: region.index), failures=failures)
+    return ValidationResult(
+        valid=len(failures) == 0, kept=sorted(clamped, key=lambda region: region.index), failures=failures
+    )
 
 
 def validate_regions_for_write(
@@ -457,13 +461,17 @@ def _detect_regions_docling(
     _STEP_KEY = "detect-regions/docling"
 
     def _write_step(result: str) -> None:
-        write_pipeline_steps(xmp_path, {_STEP_KEY: {"timestamp": xmp_datetime_now(), "result": result, "input_hash": "", "model": model}})
+        write_pipeline_steps(
+            xmp_path, {_STEP_KEY: {"timestamp": xmp_datetime_now(), "result": result, "input_hash": "", "model": model}}
+        )
 
     if not force:
         existing_step = read_pipeline_step(xmp_path, _STEP_KEY) or read_pipeline_step(xmp_path, "view_regions") or {}
         existing_result = str(existing_step.get("result") or "").strip()
         if existing_result in {"no_regions", "validation_failed", "failed"}:
-            log.info("Skipping Docling detection for %s: pipeline step already recorded result=%r", path, existing_result)
+            log.info(
+                "Skipping Docling detection for %s: pipeline step already recorded result=%r", path, existing_result
+            )
             return []
 
     try:
@@ -556,7 +564,9 @@ def detect_regions(
 
     resolved_model = str(model or "").strip() or str(default_view_region_model() or "").strip()
     if "docling" not in resolved_model.lower():
-        raise RuntimeError(f"View region detection failed due to: non-Docling model configured for regions: {resolved_model}")
+        raise RuntimeError(
+            f"View region detection failed due to: non-Docling model configured for regions: {resolved_model}"
+        )
 
     img_w, img_h = _image_dimensions(path)
     if write_debug:

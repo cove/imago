@@ -77,7 +77,9 @@ def resolve_caption_models(engine: str, model_name: str) -> list[str]:
     return [fallback] if fallback else []
 
 
-def _params_debug(relative_path: str, resolved: dict[str, object], overrides: dict[str, str] | None = None) -> dict[str, object]:
+def _params_debug(
+    relative_path: str, resolved: dict[str, object], overrides: dict[str, str] | None = None
+) -> dict[str, object]:
     return params_metadata(load_params(relative_path), resolved, overrides)
 
 
@@ -138,6 +140,90 @@ class LocationQueryResult:
     def __post_init__(self):
         if self.named_queries is None:
             self.named_queries = []
+
+
+def _caption_output_from_result(caption, *, engine: str) -> CaptionOutput:
+    has_content = _caption_has_meaningful_content(caption)
+    return CaptionOutput(
+        text=caption.text,
+        engine=engine,
+        ocr_text=str(getattr(caption, "ocr_text", "") or ""),
+        gps_latitude=caption.gps_latitude,
+        gps_longitude=caption.gps_longitude,
+        location_name=caption.location_name,
+        people_present=bool(getattr(caption, "people_present", False)),
+        estimated_people_count=max(0, int(getattr(caption, "estimated_people_count", 0) or 0)),
+        fallback=not has_content,
+        error=("" if has_content else f"{engine.upper()} returned empty output."),
+        album_title=str(getattr(caption, "album_title", "") or ""),
+        title=str(getattr(caption, "title", "") or ""),
+        author_text=str(getattr(caption, "author_text", "") or ""),
+        scene_text=str(getattr(caption, "scene_text", "") or ""),
+        engine_error="",
+    )
+
+
+def _caption_debug_metadata(
+    *,
+    photo_count: int,
+    source_path: str | Path,
+    context_ocr_text: str,
+    max_tokens: int,
+    temperature: float,
+    max_image_edge: int,
+    caption_prompt: str,
+    override_sources: dict,
+) -> dict:
+    metadata = {"photo_count": int(photo_count)}
+    metadata.update(caption_prompt_metadata(source_path=source_path, context_ocr_text=context_ocr_text))
+    metadata.update(
+        _params_debug(
+            "ai-index/metadata/params.toml",
+            {
+                "max_tokens": int(max_tokens),
+                "temperature": float(temperature),
+                "max_image_edge": int(max_image_edge),
+            },
+            {**({"caption_prompt": "custom"} if caption_prompt else {}), **override_sources},
+        )
+    )
+    return metadata
+
+
+def _named_location_queries(locations_shown) -> list[dict[str, str]]:
+    named = []
+    for entry in list(locations_shown or []):
+        if isinstance(entry, dict) and str(entry.get("name") or "").strip():
+            named.append(_named_location_query(entry))
+    return named
+
+
+def _named_location_query(entry: dict) -> dict[str, str]:
+    return {
+        "name": str(entry.get("name") or "").strip(),
+        "world_region": str(entry.get("world_region") or "").strip(),
+        "country_name": str(entry.get("country_name") or "").strip(),
+        "country_code": str(entry.get("country_code") or "").strip(),
+        "province_or_state": str(entry.get("province_or_state") or "").strip(),
+        "city": str(entry.get("city") or "").strip(),
+        "sublocation": str(entry.get("sublocation") or "").strip(),
+    }
+
+
+def _location_queries_debug_metadata(*, max_tokens: int, max_image_edge: int) -> dict:
+    metadata = {}
+    metadata.update(location_queries_prompt_metadata())
+    metadata.update(
+        _params_debug(
+            "ai-index/metadata/params.toml",
+            {
+                "max_tokens": min(256, int(max_tokens)),
+                "temperature": 0.0,
+                "max_image_edge": int(max_image_edge),
+            },
+        )
+    )
+    return metadata
 
 
 class CaptionEngine:
@@ -241,25 +327,7 @@ class CaptionEngine:
             )
             response = str(getattr(self._captioner, "last_response_text", "") or "")
             finish_reason = str(getattr(self._captioner, "last_finish_reason", "") or "")
-            has_content = _caption_has_meaningful_content(caption)
-            result = CaptionOutput(
-                text=caption.text,
-                engine=self.engine,
-                ocr_text=str(getattr(caption, "ocr_text", "") or ""),
-                gps_latitude=caption.gps_latitude,
-                gps_longitude=caption.gps_longitude,
-                location_name=caption.location_name,
-                people_present=bool(getattr(caption, "people_present", False)),
-                estimated_people_count=max(0, int(getattr(caption, "estimated_people_count", 0) or 0)),
-                fallback=not has_content,
-                error=("" if has_content else f"{self.engine.upper()} returned empty output."),
-                album_title=str(getattr(caption, "album_title", "") or ""),
-                title=str(getattr(caption, "title", "") or ""),
-                author_text=str(getattr(caption, "author_text", "") or ""),
-                scene_text=str(getattr(caption, "scene_text", "") or ""),
-                engine_error="",
-            )
-            return result
+            return _caption_output_from_result(caption, engine=self.engine)
         except Exception as exc:
             response = str(getattr(self._captioner, "last_response_text", "") or "")
             finish_reason = str(getattr(self._captioner, "last_finish_reason", "") or "")
@@ -272,23 +340,15 @@ class CaptionEngine:
                 engine_error=error_text,
             )
         finally:
-            metadata = {"photo_count": int(photo_count)}
-            metadata.update(
-                caption_prompt_metadata(
-                    source_path=source_path or image_path,
-                    context_ocr_text=context_ocr_text,
-                )
-            )
-            metadata.update(
-                _params_debug(
-                    "ai-index/metadata/params.toml",
-                    {
-                        "max_tokens": int(self._max_tokens),
-                        "temperature": float(self._temperature),
-                        "max_image_edge": int(self._max_image_edge),
-                    },
-                    {**({"caption_prompt": "custom"} if self._caption_prompt else {}), **self.override_sources},
-                )
+            metadata = _caption_debug_metadata(
+                photo_count=photo_count,
+                source_path=source_path or image_path,
+                context_ocr_text=context_ocr_text,
+                max_tokens=self._max_tokens,
+                temperature=self._temperature,
+                max_image_edge=self._max_image_edge,
+                caption_prompt=self._caption_prompt,
+                override_sources=self.override_sources,
             )
             if error_text:
                 metadata["error"] = error_text
@@ -591,27 +651,10 @@ class CaptionEngine:
             )
             response = str(getattr(self._captioner, "last_response_text", "") or "")
             finish_reason = str(getattr(self._captioner, "last_finish_reason", "") or "")
-            named = []
-            for entry in list(details.locations_shown or []):
-                if not isinstance(entry, dict):
-                    continue
-                if not str(entry.get("name") or "").strip():
-                    continue
-                named.append(
-                    {
-                        "name": str(entry.get("name") or "").strip(),
-                        "world_region": str(entry.get("world_region") or "").strip(),
-                        "country_name": str(entry.get("country_name") or "").strip(),
-                        "country_code": str(entry.get("country_code") or "").strip(),
-                        "province_or_state": str(entry.get("province_or_state") or "").strip(),
-                        "city": str(entry.get("city") or "").strip(),
-                        "sublocation": str(entry.get("sublocation") or "").strip(),
-                    }
-                )
             return LocationQueryResult(
                 engine=self.engine,
                 primary_query=str(details.location_name or "").strip(),
-                named_queries=[q for q in named if q],
+                named_queries=_named_location_queries(details.locations_shown),
             )
         except Exception as exc:
             response = str(getattr(self._captioner, "last_response_text", "") or "")
@@ -623,17 +666,9 @@ class CaptionEngine:
                 error=error_text,
             )
         finally:
-            metadata = {}
-            metadata.update(location_queries_prompt_metadata())
-            metadata.update(
-                _params_debug(
-                    "ai-index/metadata/params.toml",
-                    {
-                        "max_tokens": min(256, int(self._max_tokens)),
-                        "temperature": 0.0,
-                        "max_image_edge": int(self._max_image_edge),
-                    },
-                )
+            metadata = _location_queries_debug_metadata(
+                max_tokens=self._max_tokens,
+                max_image_edge=self._max_image_edge,
             )
             if error_text:
                 metadata["error"] = error_text

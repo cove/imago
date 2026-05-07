@@ -749,6 +749,75 @@ HTML = r"""<!DOCTYPE html>
 """
 
 
+def _existing_exif_location(existing: dict) -> tuple[str, str, str, str, str]:
+    return (
+        str(existing.get("gps_latitude", "")),
+        str(existing.get("gps_longitude", "")),
+        str(existing.get("location_city", "")),
+        str(existing.get("location_state", "")),
+        str(existing.get("location_country", "")),
+    )
+
+
+def _delete_location_update(
+    existing: dict, locations_shown: list, *, idx: int
+) -> tuple[str, str, str, str, str, str, str, str]:
+    if 0 <= idx < len(locations_shown):
+        locations_shown.pop(idx)
+    exif_lat, exif_lon, exif_city, exif_state, exif_country = _existing_exif_location(existing)
+    return "", "", "", exif_lat, exif_lon, exif_city, exif_state, exif_country
+
+
+def _location_update_geocode(payload: dict, *, lat, lon) -> tuple[str, str, str]:
+    if payload.get("undoing") and "city" in payload:
+        return payload.get("city") or "", payload.get("state") or "", payload.get("country") or ""
+    geo_res = _GEOCODER.reverse_geocode(lat, lon)
+    if not geo_res:
+        return "", "", ""
+    return geo_res.city, geo_res.state, geo_res.country
+
+
+def _apply_location_update_target(
+    existing: dict,
+    locations_shown: list,
+    *,
+    idx: int,
+    lat,
+    lon,
+    city: str,
+    state: str,
+    country: str,
+) -> tuple[str, str, str, str, str]:
+    if idx >= 0:
+        if idx >= len(locations_shown):
+            locations_shown.append({})
+        locations_shown[idx].update(
+            {
+                "city": city,
+                "province_or_state": state,
+                "country_name": country,
+                "name": city,
+                "gps_latitude": str(lat),
+                "gps_longitude": str(lon),
+            }
+        )
+        return _existing_exif_location(existing)
+    return str(lat), str(lon), city, state, country
+
+
+def _updated_base_location_detection(*, lat, lon, city: str, state: str, country: str) -> dict:
+    new_loc: dict = {
+        "gps_latitude": float(lat),
+        "gps_longitude": float(lon),
+        "map_datum": "WGS-84",
+        "source": "nominatim",
+    }
+    for key, value in (("city", city), ("state", state), ("country", country)):
+        if value:
+            new_loc[key] = value
+    return new_loc
+
+
 class MapHandler(BaseHTTPRequestHandler):
     protocol_version: ClassVar[str] = "HTTP/1.1"
 
@@ -922,76 +991,41 @@ class MapHandler(BaseHTTPRequestHandler):
         locations_shown = read_locations_shown(target_path)
 
         if action == "delete_shown_location":
-            if 0 <= idx < len(locations_shown):
-                locations_shown.pop(idx)
-            city, state, country = "", "", ""
-            # Inherit unchanged Exif variables
-            exif_lat = str(existing.get("gps_latitude", ""))
-            exif_lon = str(existing.get("gps_longitude", ""))
-            exif_city = str(existing.get("location_city", ""))
-            exif_state = str(existing.get("location_state", ""))
-            exif_country = str(existing.get("location_country", ""))
+            city, state, country, exif_lat, exif_lon, exif_city, exif_state, exif_country = _delete_location_update(
+                existing,
+                locations_shown,
+                idx=idx,
+            )
         else:
             if lat is None or lon is None:
                 self._send_json({"error": "Missing lat or lon"}, status=HTTPStatus.BAD_REQUEST)
                 return
 
-            city, state, country = "", "", ""
-            if payload.get("undoing") and "city" in payload:
-                city = payload.get("city") or ""
-                state = payload.get("state") or ""
-                country = payload.get("country") or ""
-            else:
-                try:
-                    geo_res = _GEOCODER.reverse_geocode(lat, lon)
-                    if geo_res:
-                        city = geo_res.city
-                        state = geo_res.state
-                        country = geo_res.country
-                except Exception as e:
-                    self._send_json({"error": f"Nominatim error: {e}"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
-                    return
-
-            if idx >= 0:
-                # Target specific Location Shown
-                if idx >= len(locations_shown):
-                    locations_shown.append({})
-                locations_shown[idx]["city"] = city
-                locations_shown[idx]["province_or_state"] = state
-                locations_shown[idx]["country_name"] = country
-                locations_shown[idx]["name"] = city
-                locations_shown[idx]["gps_latitude"] = str(lat)
-                locations_shown[idx]["gps_longitude"] = str(lon)
-
-                # Exif remains unmodified
-                exif_lat = str(existing.get("gps_latitude", ""))
-                exif_lon = str(existing.get("gps_longitude", ""))
-                exif_city = str(existing.get("location_city", ""))
-                exif_state = str(existing.get("location_state", ""))
-                exif_country = str(existing.get("location_country", ""))
-            else:
-                # Target Base Exif
-                exif_lat = str(lat)
-                exif_lon = str(lon)
-                exif_city = city
-                exif_state = state
-                exif_country = country
+            try:
+                city, state, country = _location_update_geocode(payload, lat=lat, lon=lon)
+            except Exception as e:
+                self._send_json({"error": f"Nominatim error: {e}"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+                return
+            exif_lat, exif_lon, exif_city, exif_state, exif_country = _apply_location_update_target(
+                existing,
+                locations_shown,
+                idx=idx,
+                lat=lat,
+                lon=lon,
+                city=city,
+                state=state,
+                country=country,
+            )
 
         updated_detections = dict(existing.get("detections") or {})
         if action != "delete_shown_location" and idx < 0:
-            new_loc: dict = {
-                "gps_latitude": float(lat),
-                "gps_longitude": float(lon),
-                "map_datum": "WGS-84",
-                "source": "nominatim",
-            }
-            if city:
-                new_loc["city"] = city
-            if state:
-                new_loc["state"] = state
-            if country:
-                new_loc["country"] = country
-            updated_detections["location"] = new_loc
+            updated_detections["location"] = _updated_base_location_detection(
+                lat=lat,
+                lon=lon,
+                city=city,
+                state=state,
+                country=country,
+            )
 
         write_xmp_sidecar(
             target_path,

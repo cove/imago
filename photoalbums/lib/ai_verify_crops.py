@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any
 
 from .ai_caption import CaptionEngine, normalize_lmstudio_base_url
 from .ai_date import DateEstimateEngine
@@ -63,7 +62,9 @@ def _verify_prompt_metadata(*, variant: str, resolved_params: dict[str, object])
 def verify_crops_prompt_hash_payload() -> dict[str, object]:
     return {
         "verification": _verify_prompt_metadata(variant="verification", resolved_params=_verification_params()),
-        "retry": _verify_prompt_metadata(variant="retry", resolved_params=dict(load_params("verify-crops/retry/params.toml").values)),
+        "retry": _verify_prompt_metadata(
+            variant="retry", resolved_params=dict(load_params("verify-crops/retry/params.toml").values)
+        ),
         "parameter_suggestion": _verify_prompt_metadata(
             variant="parameter-suggestion",
             resolved_params=dict(load_params("verify-crops/parameter-suggestion/params.toml").values),
@@ -545,25 +546,35 @@ def _call_structured_vision_request(
             return parser(payload), resolved_model, response_text, finish_reason
         except Exception as exc2:
             if parser is parse_parameter_suggestion_payload:
-                return {
-                    "caption_max_tokens": max_tokens,
-                    "caption_temperature": temperature,
-                    "caption_max_edge": max_image_edge,
-                    "reason": f"Fallback parameters used because suggestion failed: {exc2}",
-                }, resolved_model or model_name, response_text, "error"
-            return {
-                **{
-                    name: {
-                        "verdict": "uncertain",
-                        "reasoning": "Verification failed due to parse or API error.",
-                        "failure_reason": str(exc2),
-                    }
-                    for name in VERIFICATION_CONCERNS
+                return (
+                    {
+                        "caption_max_tokens": max_tokens,
+                        "caption_temperature": temperature,
+                        "caption_max_edge": max_image_edge,
+                        "reason": f"Fallback parameters used because suggestion failed: {exc2}",
+                    },
+                    resolved_model or model_name,
+                    response_text,
+                    "error",
+                )
+            return (
+                {
+                    **{
+                        name: {
+                            "verdict": "uncertain",
+                            "reasoning": "Verification failed due to parse or API error.",
+                            "failure_reason": str(exc2),
+                        }
+                        for name in VERIFICATION_CONCERNS
+                    },
+                    "human_inference": "Verification failed completely.",
+                    "needs_another_pass": [],
+                    "needs_human_review": list(ROUTABLE_CONCERNS),
                 },
-                "human_inference": "Verification failed completely.",
-                "needs_another_pass": [],
-                "needs_human_review": list(ROUTABLE_CONCERNS),
-            }, resolved_model or model_name, response_text, "error"
+                resolved_model or model_name,
+                response_text,
+                "error",
+            )
 
 
 def _normalize_routing(values: object) -> list[str]:
@@ -612,9 +623,7 @@ def parse_verification_payload(payload: object) -> dict[str, object]:
     normalized["human_inference"] = human_inference
     normalized["needs_another_pass"] = _normalize_routing(payload.get("needs_another_pass"))
     normalized["needs_human_review"] = _normalize_routing(payload.get("needs_human_review"))
-    good_concerns = {
-        name for name in ROUTABLE_CONCERNS if normalized[name]["verdict"] == "good"
-    }
+    good_concerns = {name for name in ROUTABLE_CONCERNS if normalized[name]["verdict"] == "good"}
     normalized["needs_another_pass"] = [
         name for name in list(normalized["needs_another_pass"]) if name not in good_concerns
     ]
@@ -694,7 +703,9 @@ def _write_retry_sidecar(
         ocr_lang=_clean_text(state.get("ocr_lang")),
         author_text=_clean_text(state.get("author_text")),
         scene_text=_clean_text(state.get("scene_text")),
-        detections_payload=dict(detections_payload if detections_payload is not None else state.get("detections") or {}),
+        detections_payload=dict(
+            detections_payload if detections_payload is not None else state.get("detections") or {}
+        ),
         stitch_key=_clean_text(state.get("stitch_key")),
         ocr_authority_source=_clean_text(state.get("ocr_authority_source")),
         create_date=_clean_text(state.get("create_date")),
@@ -742,6 +753,136 @@ def _apply_tuning_params(effective: dict[str, object], tuning_params: dict[str, 
     return tuned
 
 
+def _retry_caption_concern(
+    *,
+    crop_image_path: Path,
+    state: dict,
+    effective: dict[str, object],
+    prompt_prefix: str,
+) -> str:
+    caption_engine = CaptionEngine(
+        engine=str(effective.get("caption_engine") or "lmstudio"),
+        model_name=str(effective.get("caption_model") or ""),
+        max_tokens=int(effective.get("caption_max_tokens") or 96),
+        temperature=float(effective.get("caption_temperature") or 0.2),
+        lmstudio_base_url=str(effective.get("lmstudio_base_url") or DEFAULT_LMSTUDIO_BASE_URL),
+        max_image_edge=int(effective.get("caption_max_edge") or 0),
+        stream=False,
+    )
+    result = caption_engine.generate(
+        crop_image_path,
+        people=list(state.get("person_names") or []),
+        objects=[
+            _clean_text(row.get("label"))
+            for row in list((state.get("detections") or {}).get("objects") or [])
+            if isinstance(row, dict) and _clean_text(row.get("label"))
+        ],
+        ocr_text=_clean_text(state.get("ocr_text")),
+        source_path=crop_image_path,
+        album_title=_clean_text(state.get("album_title")),
+        printed_album_title=_clean_text(state.get("album_title")),
+        prompt_prefix=prompt_prefix,
+    )
+    if result.fallback:
+        raise RuntimeError(f"Concern retry failed due to caption rerun error: {result.error}")
+    detections = dict(state.get("detections") or {})
+    caption_meta = dict(detections.get("caption") or {})
+    caption_meta["model"] = str(caption_engine.effective_model_name)
+    detections["caption"] = caption_meta
+    _write_retry_sidecar(
+        image_path=crop_image_path,
+        state=state,
+        description=str(result.text or ""),
+        detections_payload=detections,
+    )
+    return str(caption_engine.effective_model_name or "")
+
+
+def _retry_location_concern(
+    *,
+    crop_image_path: Path,
+    state: dict,
+    effective: dict[str, object],
+    prompt_prefix: str,
+    concern: str,
+) -> str:
+    caption_engine = CaptionEngine(
+        engine=str(effective.get("caption_engine") or "lmstudio"),
+        model_name=str(effective.get("caption_model") or ""),
+        max_tokens=int(effective.get("caption_max_tokens") or 96),
+        temperature=float(effective.get("caption_temperature") or 0.2),
+        lmstudio_base_url=str(effective.get("lmstudio_base_url") or DEFAULT_LMSTUDIO_BASE_URL),
+        max_image_edge=int(effective.get("caption_max_edge") or 0),
+        stream=False,
+    )
+    prompt_debug = PromptDebugSession(crop_image_path, label=crop_image_path.name)
+    locations_output = run_locations_step(
+        caption_engine=caption_engine,
+        image_path=crop_image_path,
+        caption_text=_clean_text(state.get("description")),
+        ocr_text=_clean_text(state.get("ocr_text")),
+        source_path=crop_image_path,
+        album_title=_clean_text(state.get("album_title")),
+        printed_album_title=_clean_text(state.get("album_title")),
+        geocoder=NominatimGeocoder(),
+        prompt_debug=prompt_debug,
+        prompt_prefix=prompt_prefix,
+    )
+    if locations_output is None:
+        raise RuntimeError(f"Concern retry failed because locations step is not configured for: {crop_image_path}")
+    location_payload = dict(locations_output.get("location") or {})
+    current_location = _location_payload_from_state(state)
+    preserved_keys = (
+        ("city", "state", "country", "sublocation")
+        if concern == "gps"
+        else ("gps_latitude", "gps_longitude", "query", "display_name")
+    )
+    for key in preserved_keys:
+        if _clean_text(current_location.get(key)):
+            location_payload[key] = current_location[key]
+    detections = dict(state.get("detections") or {})
+    detections["location"] = location_payload
+    detections["locations_shown"] = list(locations_output.get("locations_shown") or [])
+    detections["location_shown_ran"] = bool(locations_output.get("location_shown_ran"))
+    _write_retry_sidecar(
+        image_path=crop_image_path,
+        state=state,
+        location_payload=location_payload,
+        detections_payload=detections,
+    )
+    return str(caption_engine.effective_model_name or "")
+
+
+def _retry_date_concern(
+    *,
+    crop_image_path: Path,
+    state: dict,
+    effective: dict[str, object],
+    prompt_prefix: str,
+) -> str:
+    date_engine = DateEstimateEngine(
+        engine=str(effective.get("caption_engine") or "lmstudio"),
+        model_name=str(effective.get("caption_model") or ""),
+        lmstudio_base_url=str(effective.get("lmstudio_base_url") or DEFAULT_LMSTUDIO_BASE_URL),
+        max_tokens=int(effective.get("caption_max_tokens") or 96),
+        temperature=float(effective.get("caption_temperature") or 0.0),
+    )
+    result = date_engine.estimate(
+        ocr_text=_clean_text(state.get("ocr_text")),
+        album_title=_clean_text(state.get("album_title")),
+        source_path=crop_image_path,
+        prompt_prefix=prompt_prefix,
+    )
+    if result.fallback:
+        raise RuntimeError(f"Concern retry failed due to date rerun error: {result.error}")
+    _write_retry_sidecar(
+        image_path=crop_image_path,
+        state=state,
+        dc_date=str(result.date or ""),
+    )
+    return str(date_engine.effective_model_name or "")
+
+
 def _run_pass2_retry(
     *,
     crop_image_path: Path,
@@ -755,7 +896,9 @@ def _run_pass2_retry(
 ) -> dict[str, object]:
     state = read_ai_sidecar_state(crop_image_path.with_suffix(".xmp"))
     if not isinstance(state, dict):
-        raise RuntimeError(f"Concern retry failed because sidecar state could not be read: {crop_image_path.with_suffix('.xmp')}")
+        raise RuntimeError(
+            f"Concern retry failed because sidecar state could not be read: {crop_image_path.with_suffix('.xmp')}"
+        )
     effective = _retry_settings(crop_image_path)
     effective = _apply_tuning_params(effective, tuning_params)
     applied_tuning = _effective_tuning_params(effective)
@@ -768,112 +911,27 @@ def _run_pass2_retry(
     if callable(logger):
         logger(f"verify-crops retry pass {retry_pass} {crop_image_path.name} {concern}: {failure_reason}")
 
-    retry_model = ""
-
     if concern == "caption":
-        caption_engine = CaptionEngine(
-            engine=str(effective.get("caption_engine") or "lmstudio"),
-            model_name=str(effective.get("caption_model") or ""),
-            max_tokens=int(effective.get("caption_max_tokens") or 96),
-            temperature=float(effective.get("caption_temperature") or 0.2),
-            lmstudio_base_url=str(effective.get("lmstudio_base_url") or DEFAULT_LMSTUDIO_BASE_URL),
-            max_image_edge=int(effective.get("caption_max_edge") or 0),
-            stream=False,
-        )
-        result = caption_engine.generate(
-            crop_image_path,
-            people=list(state.get("person_names") or []),
-            objects=[
-                _clean_text(row.get("label"))
-                for row in list((state.get("detections") or {}).get("objects") or [])
-                if isinstance(row, dict) and _clean_text(row.get("label"))
-            ],
-            ocr_text=_clean_text(state.get("ocr_text")),
-            source_path=crop_image_path,
-            album_title=_clean_text(state.get("album_title")),
-            printed_album_title=_clean_text(state.get("album_title")),
-            prompt_prefix=prompt_prefix,
-        )
-        if result.fallback:
-            raise RuntimeError(f"Concern retry failed due to caption rerun error: {result.error}")
-        retry_model = str(caption_engine.effective_model_name or "")
-        detections = dict(state.get("detections") or {})
-        caption_meta = dict(detections.get("caption") or {})
-        caption_meta["model"] = str(caption_engine.effective_model_name)
-        detections["caption"] = caption_meta
-        _write_retry_sidecar(
-            image_path=crop_image_path,
+        retry_model = _retry_caption_concern(
+            crop_image_path=crop_image_path,
             state=state,
-            description=str(result.text or ""),
-            detections_payload=detections,
+            effective=effective,
+            prompt_prefix=prompt_prefix,
         )
     elif concern in {"gps", "shown_location"}:
-        caption_engine = CaptionEngine(
-            engine=str(effective.get("caption_engine") or "lmstudio"),
-            model_name=str(effective.get("caption_model") or ""),
-            max_tokens=int(effective.get("caption_max_tokens") or 96),
-            temperature=float(effective.get("caption_temperature") or 0.2),
-            lmstudio_base_url=str(effective.get("lmstudio_base_url") or DEFAULT_LMSTUDIO_BASE_URL),
-            max_image_edge=int(effective.get("caption_max_edge") or 0),
-            stream=False,
-        )
-        prompt_debug = PromptDebugSession(crop_image_path, label=crop_image_path.name)
-        locations_output = run_locations_step(
-            caption_engine=caption_engine,
-            image_path=crop_image_path,
-            caption_text=_clean_text(state.get("description")),
-            ocr_text=_clean_text(state.get("ocr_text")),
-            source_path=crop_image_path,
-            album_title=_clean_text(state.get("album_title")),
-            printed_album_title=_clean_text(state.get("album_title")),
-            geocoder=NominatimGeocoder(),
-            prompt_debug=prompt_debug,
-            prompt_prefix=prompt_prefix,
-        )
-        if locations_output is None:
-            raise RuntimeError(f"Concern retry failed because locations step is not configured for: {crop_image_path}")
-        retry_model = str(caption_engine.effective_model_name or "")
-        location_payload = dict(locations_output.get("location") or {})
-        current_location = _location_payload_from_state(state)
-        if concern == "gps":
-            for key in ("city", "state", "country", "sublocation"):
-                if _clean_text(current_location.get(key)):
-                    location_payload[key] = current_location[key]
-        else:
-            for key in ("gps_latitude", "gps_longitude", "query", "display_name"):
-                if _clean_text(current_location.get(key)):
-                    location_payload[key] = current_location[key]
-        detections = dict(state.get("detections") or {})
-        detections["location"] = location_payload
-        detections["locations_shown"] = list(locations_output.get("locations_shown") or [])
-        detections["location_shown_ran"] = bool(locations_output.get("location_shown_ran"))
-        _write_retry_sidecar(
-            image_path=crop_image_path,
+        retry_model = _retry_location_concern(
+            crop_image_path=crop_image_path,
             state=state,
-            location_payload=location_payload,
-            detections_payload=detections,
+            effective=effective,
+            prompt_prefix=prompt_prefix,
+            concern=concern,
         )
     elif concern == "date":
-        date_engine = DateEstimateEngine(
-            engine=str(effective.get("caption_engine") or "lmstudio"),
-            model_name=str(effective.get("caption_model") or ""),
-            lmstudio_base_url=str(effective.get("lmstudio_base_url") or DEFAULT_LMSTUDIO_BASE_URL),
-            max_tokens=int(effective.get("caption_max_tokens") or 96),
-            temperature=float(effective.get("caption_temperature") or 0.0),
-        )
-        result = date_engine.estimate(
-            ocr_text=_clean_text(state.get("ocr_text")),
-            album_title=_clean_text(state.get("album_title")),
-            source_path=crop_image_path,
-            prompt_prefix=prompt_prefix,
-        )
-        if result.fallback:
-            raise RuntimeError(f"Concern retry failed due to date rerun error: {result.error}")
-        retry_model = str(date_engine.effective_model_name or "")
-        _write_retry_sidecar(
-            image_path=crop_image_path,
+        retry_model = _retry_date_concern(
+            crop_image_path=crop_image_path,
             state=state,
-            dc_date=str(result.date or ""),
+            effective=effective,
+            prompt_prefix=prompt_prefix,
         )
     else:
         raise RuntimeError(f"Unsupported concern retry: {concern}")
@@ -990,6 +1048,389 @@ def _update_routing_for_escalation(review: dict[str, object], concern: str) -> d
     return updated
 
 
+def _verify_single_crop(
+    *,
+    crop_input: dict[str, object],
+    page_path: Path,
+    page_xmp_text: str,
+    page_location_verification_text: str,
+    geocoder: NominatimGeocoder,
+    model_name: str,
+    base_url: str,
+    max_tokens: int,
+    temperature: float,
+    max_image_edge: int,
+    resolved_params: dict[str, object],
+    debug_recorder=None,
+    logger=None,
+) -> dict[str, object]:
+    crop_path = Path(str(crop_input.get("crop_image_path") or ""))
+    crop_xmp_text = _clean_text(crop_input.get("crop_xmp_text"))
+    crop_location_verification_text = _clean_text(crop_input.get("crop_location_verification_text"))
+    prompt = build_verification_prompt(
+        page_image_name=page_path.name,
+        crop_image_name=crop_path.name,
+        page_xmp_text=page_xmp_text,
+        crop_xmp_text=crop_xmp_text,
+        page_location_verification_text=page_location_verification_text,
+        crop_location_verification_text=crop_location_verification_text,
+    )
+    parsed, resolved_model, response_text, finish_reason = _call_structured_vision_request(
+        page_image_path=page_path,
+        crop_image_path=crop_path,
+        prompt=prompt,
+        model_name=model_name,
+        base_url=base_url,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        max_image_edge=max_image_edge,
+        response_format=verification_response_format(),
+        error_label="Verification",
+        parser=parse_verification_payload,
+    )
+    emit_prompt_debug(
+        debug_recorder,
+        step="verify-crops",
+        engine="lmstudio",
+        model=resolved_model,
+        prompt=prompt,
+        system_prompt=verification_system_prompt(),
+        source_path=crop_path,
+        prompt_source="photoalbums/prompts/verify-crops/verification",
+        response=response_text,
+        finish_reason=finish_reason,
+        metadata={
+            **_verify_prompt_metadata(variant="verification", resolved_params=resolved_params),
+            "page_image_path": str(page_path.resolve()),
+        },
+    )
+    row: dict[str, object] = {
+        "crop_image_path": str(crop_path.resolve()),
+        "crop_xmp_path": str(crop_path.with_suffix(".xmp").resolve()),
+        "review": parsed,
+        "response_text": response_text,
+        "model": resolved_model,
+        "finish_reason": finish_reason,
+    }
+    current_review = dict(parsed)
+    review_provenance = {
+        name: {
+            "prompt_variant": "base",
+            "model": resolved_model,
+            "tuning_params": {},
+            "retry_count": 0,
+        }
+        for name in VERIFICATION_CONCERNS
+    }
+    retry_attempts = _retry_crop_concerns(
+        crop_path=crop_path,
+        page_path=page_path,
+        page_xmp_text=page_xmp_text,
+        page_location_verification_text=page_location_verification_text,
+        geocoder=geocoder,
+        model_name=model_name,
+        base_url=base_url,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        max_image_edge=max_image_edge,
+        resolved_params=resolved_params,
+        current_review=current_review,
+        review_provenance=review_provenance,
+        parsed=parsed,
+        debug_recorder=debug_recorder,
+        logger=logger,
+    )
+    if retry_attempts:
+        row["retry_attempts"] = retry_attempts
+        row["initial_review"] = parsed
+    row["review"] = current_review
+    row["review_provenance"] = review_provenance
+    return row
+
+
+def _log_retry_result(logger, *, crop_path: Path, concern: str, retry_pass: int, attempt: dict[str, object]) -> None:
+    if not callable(logger):
+        return
+    before_value = _clean_text(attempt.get("before_value")) or "(empty)"
+    after_value = _clean_text(attempt.get("after_value")) or "(empty)"
+    change_text = "changed" if bool(attempt.get("changed")) else "unchanged"
+    logger(
+        f"verify-crops retry pass {retry_pass} result {crop_path.name} {concern}: {before_value} -> {after_value} ({change_text})"
+    )
+
+
+def _log_follow_up_result(logger, *, crop_path: Path, concern: str, verification: dict[str, object] | None) -> None:
+    if not callable(logger):
+        return
+    verdict = _clean_text((verification or {}).get("verdict"))
+    if verdict == "good":
+        logger(f"verify-crops follow-up verification {crop_path.name} {concern}: good")
+    else:
+        logger(f"verify-crops follow-up verification {crop_path.name} {concern}: remained unresolved")
+
+
+def _run_follow_up_if_changed(
+    *,
+    attempt: dict[str, object],
+    concern: str,
+    crop_path: Path,
+    page_path: Path,
+    page_xmp_text: str,
+    page_location_verification_text: str,
+    geocoder: NominatimGeocoder,
+    model_name: str,
+    base_url: str,
+    max_tokens: int,
+    temperature: float,
+    max_image_edge: int,
+    verification_pass: str,
+    debug_recorder=None,
+    logger=None,
+) -> dict[str, object] | None:
+    if not bool(attempt.get("changed")):
+        _log_follow_up_result(logger, crop_path=crop_path, concern=concern, verification=None)
+        return None
+    current_review, follow_up_model, _follow_up_text, _follow_up_finish = _rerun_verification_for_crop(
+        page_path=page_path,
+        crop_path=crop_path,
+        page_xmp_text=page_xmp_text,
+        page_location_verification_text=page_location_verification_text,
+        geocoder=geocoder,
+        model_name=model_name,
+        base_url=base_url,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        max_image_edge=max_image_edge,
+        debug_recorder=debug_recorder,
+        verification_pass=verification_pass,
+    )
+    verification = _follow_up_verification_summary(
+        concern=concern,
+        review=current_review,
+        model=follow_up_model,
+    )
+    attempt["verification"] = verification
+    _log_follow_up_result(logger, crop_path=crop_path, concern=concern, verification=verification)
+    return current_review
+
+
+def _retry_crop_concerns(
+    *,
+    crop_path: Path,
+    page_path: Path,
+    page_xmp_text: str,
+    page_location_verification_text: str,
+    geocoder: NominatimGeocoder,
+    model_name: str,
+    base_url: str,
+    max_tokens: int,
+    temperature: float,
+    max_image_edge: int,
+    resolved_params: dict[str, object],
+    current_review: dict[str, object],
+    review_provenance: dict[str, object],
+    parsed: dict[str, object],
+    debug_recorder=None,
+    logger=None,
+) -> list[dict[str, object]]:
+    retry_attempts: list[dict[str, object]] = []
+    for concern in list(parsed.get("needs_another_pass") or []):
+        concern_payload = dict(current_review.get(concern) or {})
+        failure_reason = _clean_text(concern_payload.get("failure_reason"))
+        if not failure_reason:
+            continue
+        retry_attempt = _run_pass2_retry(
+            crop_image_path=crop_path,
+            concern=concern,
+            issue=_concern_issue_text(concern_payload),
+            failure_reason=failure_reason,
+            retry_pass=2,
+            prompt_variant="retry",
+            logger=logger,
+        )
+        _log_retry_result(logger, crop_path=crop_path, concern=concern, retry_pass=2, attempt=retry_attempt)
+        follow_up_review = _run_follow_up_if_changed(
+            attempt=retry_attempt,
+            concern=concern,
+            crop_path=crop_path,
+            page_path=page_path,
+            page_xmp_text=page_xmp_text,
+            page_location_verification_text=page_location_verification_text,
+            geocoder=geocoder,
+            model_name=model_name,
+            base_url=base_url,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            max_image_edge=max_image_edge,
+            verification_pass="follow-up-pass-2",
+            debug_recorder=debug_recorder,
+            logger=logger,
+        )
+        if follow_up_review is not None:
+            current_review.clear()
+            current_review.update(follow_up_review)
+            review_provenance[concern] = {
+                "prompt_variant": "retry",
+                "model": _clean_text(retry_attempt.get("model")),
+                "tuning_params": dict(retry_attempt.get("tuning_params") or {}),
+                "retry_count": 1,
+            }
+        retry_attempts.append(retry_attempt)
+        if _clean_text(dict(current_review.get(concern) or {}).get("verdict")) != "good":
+            pass3_attempt = _run_parameter_suggestion_retry(
+                crop_path=crop_path,
+                page_path=page_path,
+                concern=concern,
+                failure_reason=failure_reason,
+                page_xmp_text=page_xmp_text,
+                page_location_verification_text=page_location_verification_text,
+                geocoder=geocoder,
+                model_name=model_name,
+                base_url=base_url,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                max_image_edge=max_image_edge,
+                resolved_params=resolved_params,
+                current_review=current_review,
+                debug_recorder=debug_recorder,
+                logger=logger,
+            )
+            review_provenance[concern] = {
+                "prompt_variant": "parameter-suggestion",
+                "model": _clean_text(pass3_attempt.get("model")),
+                "tuning_params": dict(pass3_attempt.get("tuning_params") or {}),
+                "retry_count": 2,
+            }
+            retry_attempts.append(pass3_attempt)
+            if _clean_text(dict(current_review.get(concern) or {}).get("verdict")) != "good":
+                updated_review = _update_routing_for_escalation(current_review, concern)
+                current_review.clear()
+                current_review.update(updated_review)
+    return retry_attempts
+
+
+def _run_parameter_suggestion_retry(
+    *,
+    crop_path: Path,
+    page_path: Path,
+    concern: str,
+    failure_reason: str,
+    page_xmp_text: str,
+    page_location_verification_text: str,
+    geocoder: NominatimGeocoder,
+    model_name: str,
+    base_url: str,
+    max_tokens: int,
+    temperature: float,
+    max_image_edge: int,
+    resolved_params: dict[str, object],
+    current_review: dict[str, object],
+    debug_recorder=None,
+    logger=None,
+) -> dict[str, object]:
+    current_failure_reason = (
+        _clean_text(dict(current_review.get(concern) or {}).get("failure_reason")) or failure_reason
+    )
+    current_issue = _concern_issue_text(dict(current_review.get(concern) or {}))
+    current_crop_xmp_text = _current_crop_xmp_text(crop_path)
+    current_crop_location_verification_text = _current_crop_location_verification_text(crop_path, geocoder=geocoder)
+    parameter_prompt = build_parameter_suggestion_prompt(concern=concern, failure_reason=current_failure_reason)
+    parameter_context_prompt = "\n\n".join(
+        part
+        for part in (
+            parameter_prompt,
+            "Page XMP text:",
+            page_xmp_text or "(missing)",
+            "Crop XMP text:",
+            current_crop_xmp_text or "(missing)",
+            "Page location verification evidence:",
+            page_location_verification_text or "(no GPS coordinates)",
+            "Crop location verification evidence:",
+            current_crop_location_verification_text or "(no GPS coordinates)",
+        )
+        if part
+    )
+    if callable(logger):
+        logger(f"verify-crops parameter suggestion pass 3 {crop_path.name} {concern}: full-context session")
+    suggested_params, suggestion_model, suggestion_response_text, suggestion_finish_reason = (
+        _call_structured_vision_request(
+            page_image_path=page_path,
+            crop_image_path=crop_path,
+            prompt=parameter_context_prompt,
+            model_name=model_name,
+            base_url=base_url,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            max_image_edge=max_image_edge,
+            response_format=parameter_suggestion_response_format(),
+            error_label="Parameter suggestion",
+            parser=parse_parameter_suggestion_payload,
+        )
+    )
+    emit_prompt_debug(
+        debug_recorder,
+        step="verify-crops",
+        engine="lmstudio",
+        model=suggestion_model,
+        prompt=parameter_context_prompt,
+        system_prompt=verification_system_prompt(),
+        source_path=crop_path,
+        prompt_source="photoalbums/prompts/verify-crops/parameter-suggestion",
+        response=suggestion_response_text,
+        finish_reason=suggestion_finish_reason,
+        metadata={
+            **_verify_prompt_metadata(variant="parameter-suggestion", resolved_params=resolved_params),
+            "page_image_path": str(page_path.resolve()),
+            "verification_pass": "parameter-suggestion-pass-3",
+        },
+    )
+    if callable(logger):
+        logger(
+            "verify-crops selected pass 3 params "
+            f"{crop_path.name} {concern}: "
+            f"max_tokens={suggested_params['caption_max_tokens']}, "
+            f"temperature={suggested_params['caption_temperature']}, "
+            f"max_edge={suggested_params['caption_max_edge']}"
+        )
+    pass3_attempt = _run_pass2_retry(
+        crop_image_path=crop_path,
+        concern=concern,
+        issue=current_issue,
+        failure_reason=current_failure_reason,
+        retry_pass=3,
+        prompt_variant="parameter-suggestion",
+        tuning_params=suggested_params,
+        logger=logger,
+    )
+    pass3_attempt["parameter_suggestion"] = {
+        "model": suggestion_model,
+        "params": suggested_params,
+        "reason": _clean_text(suggested_params.get("reason")),
+    }
+    _log_retry_result(logger, crop_path=crop_path, concern=concern, retry_pass=3, attempt=pass3_attempt)
+    follow_up_review = _run_follow_up_if_changed(
+        attempt=pass3_attempt,
+        concern=concern,
+        crop_path=crop_path,
+        page_path=page_path,
+        page_xmp_text=page_xmp_text,
+        page_location_verification_text=page_location_verification_text,
+        geocoder=geocoder,
+        model_name=model_name,
+        base_url=base_url,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        max_image_edge=max_image_edge,
+        verification_pass="follow-up-pass-3",
+        debug_recorder=debug_recorder,
+        logger=logger,
+    )
+    if follow_up_review is not None:
+        current_review.clear()
+        current_review.update(follow_up_review)
+    return pass3_attempt
+
+
 def run_verify_crops_page(
     page_image_path: str | Path,
     *,
@@ -1005,7 +1446,9 @@ def run_verify_crops_page(
     max_tokens = int(max_tokens if max_tokens is not None else default_params.get("max_tokens", 512))
     temperature = float(temperature if temperature is not None else default_params.get("temperature", 0.0))
     max_image_edge = int(
-        max_image_edge if max_image_edge is not None else default_params.get("max_image_edge", DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
+        max_image_edge
+        if max_image_edge is not None
+        else default_params.get("max_image_edge", DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
     )
     resolved_params = {
         "max_tokens": int(max_tokens),
@@ -1064,259 +1507,23 @@ def run_verify_crops_page(
         }
 
     for crop_input in crop_inputs:
-        crop_path = Path(str(crop_input.get("crop_image_path") or ""))
-        crop_xmp_text = _clean_text(crop_input.get("crop_xmp_text"))
-        crop_location_verification_text = _clean_text(crop_input.get("crop_location_verification_text"))
-        prompt = build_verification_prompt(
-            page_image_name=page_path.name,
-            crop_image_name=crop_path.name,
-            page_xmp_text=page_xmp_text,
-            crop_xmp_text=crop_xmp_text,
-            page_location_verification_text=page_location_verification_text,
-            crop_location_verification_text=crop_location_verification_text,
-        )
-        parsed, resolved_model, response_text, finish_reason = _call_structured_vision_request(
-            page_image_path=page_path,
-            crop_image_path=crop_path,
-            prompt=prompt,
-            model_name=model_name,
-            base_url=base_url,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            max_image_edge=max_image_edge,
-            response_format=verification_response_format(),
-            error_label="Verification",
-            parser=parse_verification_payload,
-        )
-        emit_prompt_debug(
-            debug_recorder,
-            step="verify-crops",
-            engine="lmstudio",
-            model=resolved_model,
-            prompt=prompt,
-            system_prompt=verification_system_prompt(),
-            source_path=crop_path,
-            prompt_source="photoalbums/prompts/verify-crops/verification",
-            response=response_text,
-            finish_reason=finish_reason,
-            metadata={
-                **_verify_prompt_metadata(variant="verification", resolved_params=resolved_params),
-                "page_image_path": str(page_path.resolve()),
-            },
-        )
-        row = {
-            "crop_image_path": str(crop_path.resolve()),
-            "crop_xmp_path": str(crop_path.with_suffix(".xmp").resolve()),
-            "review": parsed,
-            "response_text": response_text,
-            "model": resolved_model,
-            "finish_reason": finish_reason,
-        }
-        current_review = dict(parsed)
-        review_provenance = {
-            name: {
-                "prompt_variant": "base",
-                "model": resolved_model,
-                "tuning_params": {},
-                "retry_count": 0,
-            }
-            for name in VERIFICATION_CONCERNS
-        }
-        retry_attempts: list[dict[str, object]] = []
-        for concern in list(parsed.get("needs_another_pass") or []):
-            concern_payload = dict(current_review.get(concern) or {})
-            failure_reason = _clean_text(concern_payload.get("failure_reason"))
-            if not failure_reason:
-                continue
-            retry_attempt = (
-                _run_pass2_retry(
-                    crop_image_path=crop_path,
-                    concern=concern,
-                    issue=_concern_issue_text(concern_payload),
-                    failure_reason=failure_reason,
-                    retry_pass=2,
-                    prompt_variant="retry",
-                    logger=logger,
-                )
-            )
-            if callable(logger):
-                before_value = _clean_text(retry_attempt.get("before_value")) or "(empty)"
-                after_value = _clean_text(retry_attempt.get("after_value")) or "(empty)"
-                change_text = "changed" if bool(retry_attempt.get("changed")) else "unchanged"
-                logger(
-                    f"verify-crops retry pass 2 result {crop_path.name} {concern}: "
-                    f"{before_value} -> {after_value} ({change_text})"
-                )
-            if bool(retry_attempt.get("changed")):
-                current_review, follow_up_model, _follow_up_text, _follow_up_finish = _rerun_verification_for_crop(
-                    page_path=page_path,
-                    crop_path=crop_path,
-                    page_xmp_text=page_xmp_text,
-                    page_location_verification_text=page_location_verification_text,
-                    geocoder=geocoder,
-                    model_name=model_name,
-                    base_url=base_url,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    max_image_edge=max_image_edge,
-                    debug_recorder=debug_recorder,
-                    verification_pass="follow-up-pass-2",
-                )
-                retry_attempt["verification"] = _follow_up_verification_summary(
-                    concern=concern,
-                    review=current_review,
-                    model=follow_up_model,
-                )
-                review_provenance[concern] = {
-                    "prompt_variant": "retry",
-                    "model": _clean_text(retry_attempt.get("model")),
-                    "tuning_params": dict(retry_attempt.get("tuning_params") or {}),
-                    "retry_count": 1,
-                }
-                if callable(logger):
-                    verdict = _clean_text((retry_attempt.get("verification") or {}).get("verdict"))
-                    if verdict == "good":
-                        logger(f"verify-crops follow-up verification {crop_path.name} {concern}: good")
-                    else:
-                        logger(f"verify-crops follow-up verification {crop_path.name} {concern}: remained unresolved")
-            elif callable(logger):
-                logger(f"verify-crops follow-up verification {crop_path.name} {concern}: remained unresolved")
-            retry_attempts.append(retry_attempt)
-            if _clean_text(dict(current_review.get(concern) or {}).get("verdict")) == "good":
-                continue
-
-            current_failure_reason = _clean_text(dict(current_review.get(concern) or {}).get("failure_reason")) or failure_reason
-            current_issue = _concern_issue_text(dict(current_review.get(concern) or {}))
-            current_crop_xmp_text = _current_crop_xmp_text(crop_path)
-            current_crop_location_verification_text = _current_crop_location_verification_text(
-                crop_path,
+        artifact["results"].append(
+            _verify_single_crop(
+                crop_input=crop_input,
+                page_path=page_path,
+                page_xmp_text=page_xmp_text,
+                page_location_verification_text=page_location_verification_text,
                 geocoder=geocoder,
-            )
-            parameter_prompt = build_parameter_suggestion_prompt(
-                concern=concern,
-                failure_reason=current_failure_reason,
-            )
-            parameter_context_prompt = "\n\n".join(
-                part
-                for part in (
-                    parameter_prompt,
-                    "Page XMP text:",
-                    page_xmp_text or "(missing)",
-                    "Crop XMP text:",
-                    current_crop_xmp_text or "(missing)",
-                    "Page location verification evidence:",
-                    page_location_verification_text or "(no GPS coordinates)",
-                    "Crop location verification evidence:",
-                    current_crop_location_verification_text or "(no GPS coordinates)",
-                )
-                if part
-            )
-            if callable(logger):
-                logger(f"verify-crops parameter suggestion pass 3 {crop_path.name} {concern}: full-context session")
-            suggested_params, suggestion_model, suggestion_response_text, suggestion_finish_reason = _call_structured_vision_request(
-                page_image_path=page_path,
-                crop_image_path=crop_path,
-                prompt=parameter_context_prompt,
                 model_name=model_name,
                 base_url=base_url,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 max_image_edge=max_image_edge,
-                response_format=parameter_suggestion_response_format(),
-                error_label="Parameter suggestion",
-                parser=parse_parameter_suggestion_payload,
-            )
-            emit_prompt_debug(
-                debug_recorder,
-                step="verify-crops",
-                engine="lmstudio",
-                model=suggestion_model,
-                prompt=parameter_context_prompt,
-                system_prompt=verification_system_prompt(),
-                source_path=crop_path,
-                prompt_source="photoalbums/prompts/verify-crops/parameter-suggestion",
-                response=suggestion_response_text,
-                finish_reason=suggestion_finish_reason,
-                metadata={
-                    **_verify_prompt_metadata(variant="parameter-suggestion", resolved_params=resolved_params),
-                    "page_image_path": str(page_path.resolve()),
-                    "verification_pass": "parameter-suggestion-pass-3",
-                },
-            )
-            if callable(logger):
-                logger(
-                    "verify-crops selected pass 3 params "
-                    f"{crop_path.name} {concern}: "
-                    f"max_tokens={suggested_params['caption_max_tokens']}, "
-                    f"temperature={suggested_params['caption_temperature']}, "
-                    f"max_edge={suggested_params['caption_max_edge']}"
-                )
-            pass3_attempt = _run_pass2_retry(
-                crop_image_path=crop_path,
-                concern=concern,
-                issue=current_issue,
-                failure_reason=current_failure_reason,
-                retry_pass=3,
-                prompt_variant="parameter-suggestion",
-                tuning_params=suggested_params,
+                resolved_params=resolved_params,
+                debug_recorder=debug_recorder,
                 logger=logger,
             )
-            pass3_attempt["parameter_suggestion"] = {
-                "model": suggestion_model,
-                "params": suggested_params,
-                "reason": _clean_text(suggested_params.get("reason")),
-            }
-            if callable(logger):
-                before_value = _clean_text(pass3_attempt.get("before_value")) or "(empty)"
-                after_value = _clean_text(pass3_attempt.get("after_value")) or "(empty)"
-                change_text = "changed" if bool(pass3_attempt.get("changed")) else "unchanged"
-                logger(
-                    f"verify-crops retry pass 3 result {crop_path.name} {concern}: "
-                    f"{before_value} -> {after_value} ({change_text})"
-                )
-            if bool(pass3_attempt.get("changed")):
-                current_review, follow_up_model, _follow_up_text, _follow_up_finish = _rerun_verification_for_crop(
-                    page_path=page_path,
-                    crop_path=crop_path,
-                    page_xmp_text=page_xmp_text,
-                    page_location_verification_text=page_location_verification_text,
-                    geocoder=geocoder,
-                    model_name=model_name,
-                    base_url=base_url,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    max_image_edge=max_image_edge,
-                    debug_recorder=debug_recorder,
-                    verification_pass="follow-up-pass-3",
-                )
-                pass3_attempt["verification"] = _follow_up_verification_summary(
-                    concern=concern,
-                    review=current_review,
-                    model=follow_up_model,
-                )
-                if callable(logger):
-                    verdict = _clean_text((pass3_attempt.get("verification") or {}).get("verdict"))
-                    if verdict == "good":
-                        logger(f"verify-crops follow-up verification {crop_path.name} {concern}: good")
-                    else:
-                        logger(f"verify-crops follow-up verification {crop_path.name} {concern}: remained unresolved")
-            elif callable(logger):
-                logger(f"verify-crops follow-up verification {crop_path.name} {concern}: remained unresolved")
-            review_provenance[concern] = {
-                "prompt_variant": "parameter-suggestion",
-                "model": _clean_text(pass3_attempt.get("model")),
-                "tuning_params": dict(pass3_attempt.get("tuning_params") or {}),
-                "retry_count": 2,
-            }
-            retry_attempts.append(pass3_attempt)
-            if _clean_text(dict(current_review.get(concern) or {}).get("verdict")) != "good":
-                current_review = _update_routing_for_escalation(current_review, concern)
-        if retry_attempts:
-            row["retry_attempts"] = retry_attempts
-            row["initial_review"] = parsed
-        row["review"] = current_review
-        row["review_provenance"] = review_provenance
-        artifact["results"].append(row)
+        )
 
     artifact["summary"] = {
         "status": "ok",
@@ -1329,10 +1536,7 @@ def run_verify_crops_page(
                 "needs_human_review": row["review"]["needs_human_review"],
             }
             for row in list(artifact["results"])
-            if any(
-                row["review"][name]["verdict"] in {"bad", "uncertain"}
-                for name in VERIFICATION_CONCERNS
-            )
+            if any(row["review"][name]["verdict"] in {"bad", "uncertain"} for name in VERIFICATION_CONCERNS)
         ],
     }
     output_path = _artifact_output_path(page_path)
@@ -1353,51 +1557,12 @@ def persist_verify_crops_state(
     page_path = Path(page_image_path)
     page_xmp = page_path.with_suffix(".xmp")
     crop_results = list(verify_result.get("results") or [])
-    page_entry = {
-        "timestamp": xmp_datetime_now(),
-        "input_hash": str(verify_result.get("page_input_hash") or ""),
-        "result": "ok" if str(verify_result.get("status") or "") == "ok" else "missing-context",
-        "page_verification_ran": True,
-        "missing_context": list(verify_result.get("missing_context") or []),
-        "artifact_path": _clean_text(verify_result.get("artifact_path")),
-        "reviewed_crop_count": len(crop_results),
-        "needs_another_pass": sorted(
-            {
-                concern
-                for row in crop_results
-                for concern in list((row.get("review") or {}).get("needs_another_pass") or [])
-            }
-        ),
-        "needs_human_review": sorted(
-            {
-                concern
-                for row in crop_results
-                for concern in list((row.get("review") or {}).get("needs_human_review") or [])
-            }
-        ),
-    }
-    write_pipeline_steps(page_xmp, {"verify-crops": page_entry})
+    write_pipeline_steps(page_xmp, {"verify-crops": _verify_crops_page_entry(verify_result, crop_results)})
 
     for row in crop_results:
         crop_xmp = Path(str(row.get("crop_xmp_path") or ""))
         review = dict(row.get("review") or {})
         review_provenance = dict(row.get("review_provenance") or {})
-        concern_states = {
-            name: {
-                "status": review[name]["verdict"],
-                "reasoning": review[name]["reasoning"],
-                "failure_reason": review[name]["failure_reason"],
-                "provenance": dict(review_provenance.get(name) or {}),
-            }
-            for name in ROUTABLE_CONCERNS
-            if isinstance(review.get(name), dict)
-        }
-        concern_states["overall"] = {
-            "status": review["overall"]["verdict"],
-            "reasoning": review["overall"]["reasoning"],
-            "failure_reason": review["overall"]["failure_reason"],
-            "provenance": dict(review_provenance.get("overall") or {}),
-        }
         write_pipeline_steps(
             crop_xmp,
             {
@@ -1410,7 +1575,47 @@ def persist_verify_crops_state(
                     "human_inference": _clean_text(review.get("human_inference")),
                     "needs_another_pass": list(review.get("needs_another_pass") or []),
                     "needs_human_review": list(review.get("needs_human_review") or []),
-                    "concerns": concern_states,
+                    "concerns": _verify_crop_concern_states(review, review_provenance),
                 }
             },
         )
+
+
+def _verify_crops_page_entry(verify_result: dict[str, object], crop_results: list) -> dict[str, object]:
+    return {
+        "timestamp": xmp_datetime_now(),
+        "input_hash": str(verify_result.get("page_input_hash") or ""),
+        "result": "ok" if str(verify_result.get("status") or "") == "ok" else "missing-context",
+        "page_verification_ran": True,
+        "missing_context": list(verify_result.get("missing_context") or []),
+        "artifact_path": _clean_text(verify_result.get("artifact_path")),
+        "reviewed_crop_count": len(crop_results),
+        "needs_another_pass": _review_concern_names(crop_results, "needs_another_pass"),
+        "needs_human_review": _review_concern_names(crop_results, "needs_human_review"),
+    }
+
+
+def _review_concern_names(crop_results: list, field: str) -> list[str]:
+    return sorted({concern for row in crop_results for concern in list((row.get("review") or {}).get(field) or [])})
+
+
+def _verify_crop_concern_states(review: dict, review_provenance: dict) -> dict[str, dict]:
+    concern_states = {
+        name: _verify_crop_concern_state(review[name], dict(review_provenance.get(name) or {}))
+        for name in ROUTABLE_CONCERNS
+        if isinstance(review.get(name), dict)
+    }
+    concern_states["overall"] = _verify_crop_concern_state(
+        review["overall"],
+        dict(review_provenance.get("overall") or {}),
+    )
+    return concern_states
+
+
+def _verify_crop_concern_state(review_state: dict, provenance: dict) -> dict[str, object]:
+    return {
+        "status": review_state["verdict"],
+        "reasoning": review_state["reasoning"],
+        "failure_reason": review_state["failure_reason"],
+        "provenance": provenance,
+    }

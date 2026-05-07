@@ -30,5 +30,5 @@ fi
 
 if printf '%s\n' "$staged_files" | grep -q '^vhs/'; then
   echo "[pre-commit] Running VHS tests..."
-  uv run python -m pytest vhs/test -q -m "not playwright"
+  TEST_ENV=1 uv run python -m pytest --confcutdir=vhs/test vhs/test -q -m "not playwright"
 fi

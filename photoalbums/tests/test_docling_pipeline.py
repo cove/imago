@@ -58,13 +58,20 @@ def _make_convert_result(doc):
         pages=[],
         timings={},
         confidence={},
-        model_dump=lambda mode="json": {"status": "success", "errors": [], "pages": [], "timings": {}, "confidence": {}},
+        model_dump=lambda mode="json": {
+            "status": "success",
+            "errors": [],
+            "pages": [],
+            "timings": {},
+            "confidence": {},
+        },
     )
 
 
 class TestRunDoclingPipeline(unittest.TestCase):
     def setUp(self):
         import photoalbums.lib._docling_pipeline as _mod
+
         _mod._converter_cache.clear()
 
     def _call(self, items, texts=None, img_w=1000, img_h=800):
@@ -131,7 +138,9 @@ class TestRunDoclingPipeline(unittest.TestCase):
             image_path = Path(tmpdir) / "source.jpg"
             Image.new("RGB", (200, 100), color="white").save(image_path, format="JPEG", quality=95)
             with (
-                mock.patch("docling.document_converter.DocumentConverter.__init__", return_value=None) as mock_converter_init,
+                mock.patch(
+                    "docling.document_converter.DocumentConverter.__init__", return_value=None
+                ) as mock_converter_init,
                 mock.patch("docling.document_converter.DocumentConverter.convert", return_value=convert_result),
                 mock.patch("photoalbums.lib._docling_pipeline._get_region_result") as mock_rr,
             ):
@@ -160,7 +169,9 @@ class TestRunDoclingPipeline(unittest.TestCase):
             image_path = Path(tmpdir) / "source.jpg"
             Image.new("RGB", (200, 100), color="white").save(image_path, format="JPEG", quality=95)
             with (
-                mock.patch("docling.document_converter.DocumentConverter.convert", side_effect=RuntimeError("backend boom")) as mock_convert,
+                mock.patch(
+                    "docling.document_converter.DocumentConverter.convert", side_effect=RuntimeError("backend boom")
+                ) as mock_convert,
                 mock.patch("photoalbums.lib._docling_pipeline._get_region_result") as mock_rr,
             ):
                 from photoalbums.lib.ai_view_regions import RegionResult

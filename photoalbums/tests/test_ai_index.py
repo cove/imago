@@ -1739,7 +1739,9 @@ class TestAIIndex(unittest.TestCase):
                     ocr_language="eng",
                 )
 
-            ocr_engine.read_text.assert_called_once_with(scaled, source_path=image, debug_recorder=None, debug_step="ocr")
+            ocr_engine.read_text.assert_called_once_with(
+                scaled, source_path=image, debug_recorder=None, debug_step="ocr"
+            )
             people_matcher.match_image.assert_called_once_with(
                 image,
                 source_path=image,
@@ -5097,4 +5099,3 @@ class TestAIIndex(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
