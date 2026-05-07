@@ -569,7 +569,12 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
                     description="",
                     source_text="",
                     ocr_text="",
-                    detections_payload={"people": [{"name": "Alice Smith", "bbox": [10, 10, 30, 30]}], "objects": [], "ocr": {}, "caption": {}},
+                    detections_payload={
+                        "people": [{"name": "Alice Smith", "bbox": [10, 10, 30, 30]}],
+                        "objects": [],
+                        "ocr": {},
+                        "caption": {},
+                    },
                     image_width=200,
                     image_height=100,
                 )
@@ -657,7 +662,12 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
                     description="",
                     source_text="",
                     ocr_text="",
-                    detections_payload={"people": [{"name": "Alice Smith", "bbox": [10, 10, 30, 30]}], "objects": [], "ocr": {}, "caption": {}},
+                    detections_payload={
+                        "people": [{"name": "Alice Smith", "bbox": [10, 10, 30, 30]}],
+                        "objects": [],
+                        "ocr": {},
+                        "caption": {},
+                    },
                     image_width=200,
                     image_height=100,
                 )
@@ -695,8 +705,7 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
                 description="",
                 album_title="PANAMA CANAL & MEXICO 1987 PORTUGAL 1988",
                 source_text=(
-                    "PANAMA CANAL & MEXICO 1987 PORTUGAL 1988 Page 23 "
-                    "Scan(s) S01; Portugal_1988_B00_P23_S01.tif"
+                    "PANAMA CANAL & MEXICO 1987 PORTUGAL 1988 Page 23 Scan(s) S01; Portugal_1988_B00_P23_S01.tif"
                 ),
                 ocr_text="",
                 detections_payload={"people": [], "objects": [], "ocr": {}, "caption": {}},
@@ -718,7 +727,9 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
                 image_width=200,
                 image_height=100,
             )
-            write_derived_from(crop_sidecar, page_doc_id, source_path="../Portugal_1988_B00_Pages/Portugal_1988_B00_P23_V.jpg")
+            write_derived_from(
+                crop_sidecar, page_doc_id, source_path="../Portugal_1988_B00_Pages/Portugal_1988_B00_P23_V.jpg"
+            )
 
             state = xmp_sidecar.read_ai_sidecar_state(crop_sidecar)
             assert state is not None
@@ -845,4 +856,3 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

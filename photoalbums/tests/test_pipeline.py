@@ -31,15 +31,15 @@ class TestStepIdValidation(unittest.TestCase):
 
     def test_cli_step_and_skip_mutually_exclusive(self):
         from photoalbums.cli import build_parser
+
         parser = build_parser()
-        args, _ = parser.parse_known_args(
-            ["process", "--photos-root", ".", "--step", "render"]
-        )
+        args, _ = parser.parse_known_args(["process", "--photos-root", ".", "--step", "render"])
         self.assertEqual(args.step_id, "render")
         self.assertEqual(args.skip_ids, [])
 
     def test_cli_list_steps_exits_0(self):
         from photoalbums.cli import main
+
         with patch("sys.stdout", new_callable=StringIO) as mock_out:
             code = main(["process", "--photos-root", ".", "--list-steps"])
         self.assertEqual(code, 0)
@@ -137,6 +137,7 @@ class TestRunProcessPipelineSmoke(unittest.TestCase):
             with patch("photoalbums.stitch_oversized_pages.list_archive_dirs", return_value=[str(archive)]):
                 with patch("photoalbums.stitch_oversized_pages.list_page_scans", return_value=[]):
                     from photoalbums.commands import run_process_pipeline
+
                     code = run_process_pipeline(
                         album_id="",
                         photos_root=str(root),
@@ -168,11 +169,23 @@ class TestRunProcessPipelineSmoke(unittest.TestCase):
             with (
                 patch("photoalbums.stitch_oversized_pages.list_archive_dirs", return_value=[str(archive)]),
                 patch("photoalbums.stitch_oversized_pages.list_page_scans", return_value=[[str(scan)]]),
-                patch("photoalbums.stitch_oversized_pages.get_view_dirname", return_value=str(root / "Test_2024_B01_Pages")),
-                patch("photoalbums.stitch_oversized_pages.get_photos_dirname", return_value=str(root / "Test_2024_B01_Photos")),
+                patch(
+                    "photoalbums.stitch_oversized_pages.get_view_dirname",
+                    return_value=str(root / "Test_2024_B01_Pages"),
+                ),
+                patch(
+                    "photoalbums.stitch_oversized_pages.get_photos_dirname",
+                    return_value=str(root / "Test_2024_B01_Photos"),
+                ),
                 patch("photoalbums.stitch_oversized_pages._require_primary_scan", return_value=str(scan)),
-                patch("photoalbums.stitch_oversized_pages._view_page_output_path", return_value=root / "Test_2024_B01_Pages" / "Test_2024_B01_P01_V.jpg"),
-                patch("photoalbums.lib.xmp_sidecar.read_pipeline_state", return_value={"ai-index": {"completed": "2026-04-21T00:00:00Z"}}),
+                patch(
+                    "photoalbums.stitch_oversized_pages._view_page_output_path",
+                    return_value=root / "Test_2024_B01_Pages" / "Test_2024_B01_P01_V.jpg",
+                ),
+                patch(
+                    "photoalbums.lib.xmp_sidecar.read_pipeline_state",
+                    return_value={"ai-index": {"completed": "2026-04-21T00:00:00Z"}},
+                ),
                 patch("photoalbums.commands._check_step_stale", return_value=(False, "")),
                 patch("photoalbums.lib.xmp_sidecar.write_pipeline_step"),
                 patch("photoalbums.commands._print_outcome"),
@@ -300,7 +313,16 @@ class TestRunProcessPipelineSmoke(unittest.TestCase):
                 patch("photoalbums.commands._print_outcome"),
                 patch("photoalbums.commands._print_ai_index_discovery_summary"),
                 patch("photoalbums.commands._print_verify_crops_summary"),
-                patch("photoalbums.lib.ai_verify_crops.run_verify_crops_page", return_value={"status": "ok", "results": [], "page_input_hash": "abc", "artifact_path": "artifact.json", "missing_context": []}) as verify_mock,
+                patch(
+                    "photoalbums.lib.ai_verify_crops.run_verify_crops_page",
+                    return_value={
+                        "status": "ok",
+                        "results": [],
+                        "page_input_hash": "abc",
+                        "artifact_path": "artifact.json",
+                        "missing_context": [],
+                    },
+                ) as verify_mock,
                 patch("photoalbums.lib.ai_verify_crops.persist_verify_crops_state") as persist_mock,
             ):
                 ai_runner = MagicMock()
@@ -374,7 +396,16 @@ class TestRunProcessPipelineSmoke(unittest.TestCase):
                 patch("photoalbums.commands._print_outcome"),
                 patch("photoalbums.commands._print_ai_index_discovery_summary"),
                 patch("photoalbums.commands._print_verify_crops_summary"),
-                patch("photoalbums.lib.ai_verify_crops.run_verify_crops_page", return_value={"status": "ok", "results": [], "page_input_hash": "abc", "artifact_path": "artifact.json", "missing_context": []}) as verify_mock,
+                patch(
+                    "photoalbums.lib.ai_verify_crops.run_verify_crops_page",
+                    return_value={
+                        "status": "ok",
+                        "results": [],
+                        "page_input_hash": "abc",
+                        "artifact_path": "artifact.json",
+                        "missing_context": [],
+                    },
+                ) as verify_mock,
                 patch("photoalbums.lib.ai_verify_crops.persist_verify_crops_state"),
             ):
                 ai_runner = MagicMock()
@@ -424,6 +455,7 @@ class TestRunProcessPipelineSmoke(unittest.TestCase):
             crop_path = photos / "Test_2024_B01_P01_D01-00_V.jpg"
 
             from PIL import Image
+
             Image.new("RGB", (40, 20), "white").save(view_path)
             Image.new("RGB", (20, 20), "white").save(crop_path)
 

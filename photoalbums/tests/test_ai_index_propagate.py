@@ -89,6 +89,7 @@ class TestRunPropagateTocrops(unittest.TestCase):
         xmp_path = image.with_suffix(".xmp")
         from photoalbums.lib.xmp_sidecar import write_region_list
         from photoalbums.lib.ai_view_regions import RegionWithCaption, RegionResult
+
         regions = [
             RegionWithCaption(
                 RegionResult(index=i, x=i * 100, y=0, width=100, height=100),

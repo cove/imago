@@ -54,7 +54,9 @@ def _collect_page_crop_pairs(photos_dir: Path, *, page: str | None = None) -> di
             jpg_path = pair.get("jpg")
             xmp_path = pair.get("xmp")
             if not isinstance(jpg_path, Path) or not isinstance(xmp_path, Path):
-                raise FileNotFoundError(f"Crop pair repair failed due to missing companion file for {photos_dir / stem}")
+                raise FileNotFoundError(
+                    f"Crop pair repair failed due to missing companion file for {photos_dir / stem}"
+                )
             page_pairs.append(
                 {
                     "jpg": jpg_path,

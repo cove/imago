@@ -31,9 +31,7 @@ def _normalize_model_candidates(value: Any, *, alias: str) -> list[str]:
                 f"AI model settings model '{alias}' must contain only non-empty strings: {AI_MODEL_SETTINGS_PATH}"
             )
         if model_name in seen_model_names:
-            raise RuntimeError(
-                f"AI model settings model '{alias}' duplicates '{model_name}': {AI_MODEL_SETTINGS_PATH}"
-            )
+            raise RuntimeError(f"AI model settings model '{alias}' duplicates '{model_name}': {AI_MODEL_SETTINGS_PATH}")
         seen_model_names.add(model_name)
         models.append(model_name)
     if not models:
@@ -137,9 +135,7 @@ def _resolve_docling_pipeline_settings(payload: dict[str, Any]) -> dict[str, Any
             f"AI model settings docling_pipeline.retries must be an integer: {AI_MODEL_SETTINGS_PATH}"
         ) from exc
     if retries < 1:
-        raise RuntimeError(
-            f"AI model settings docling_pipeline.retries must be at least 1: {AI_MODEL_SETTINGS_PATH}"
-        )
+        raise RuntimeError(f"AI model settings docling_pipeline.retries must be at least 1: {AI_MODEL_SETTINGS_PATH}")
     return {
         "docling_preset": preset,
         "docling_backend": backend,
@@ -218,5 +214,3 @@ def default_docling_device() -> str:
 
 def default_docling_retries() -> int:
     return int(load_ai_model_settings()["docling_retries"])
-
-

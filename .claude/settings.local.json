@@ -260,7 +260,10 @@
       "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_ai_index_metadata_regions.py photoalbums/tests/test_xmp_sidecar.py photoalbums/tests/test_ai_index_propagate.py photoalbums/tests/test_ai_photo_crops.py --no-header -q)",
       "Bash(grep \"\\\\.xmp$\")",
       "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_incoming_scans_watcher.py -v --no-header -q)",
-      "Bash(echo \"Exit: $?\")"
+      "Bash(echo \"Exit: $?\")",
+      "Bash(chezmoi status *)",
+      "mcp__plugin_mem0_mem0__search_memories",
+      "mcp__plugin_mem0_mem0__get_memories"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",

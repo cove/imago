@@ -281,4 +281,3 @@ def test_resolve_haarcascade_dir_falls_back_to_cv2_data_dir_neighbor(tmp_path, m
     )
 
     assert ingest._resolve_haarcascade_dir() == data_dir
-

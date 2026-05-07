@@ -66,7 +66,7 @@ _DATE_USER_PROMPT = (
 )
 _DATE_OUTPUT_PROMPT = (
     '`{"date": ""}`\n'
-    "- `date`: estimated W3C date string for `dc:date`, using one of `YYYY-MM-DD`, `YYYY-MM`, `YYYY`, or `\"\"`.\n"
+    '- `date`: estimated W3C date string for `dc:date`, using one of `YYYY-MM-DD`, `YYYY-MM`, `YYYY`, or `""`.\n'
     "- Prefer OCR evidence over filename or album-title fallback.\n"
     "- Just return the JSON without any extra text or explanation."
 )
@@ -167,7 +167,9 @@ class DateEstimateEngine(LMStudioModelResolverMixin):
         if str(model_name or "").strip():
             self.model_names = [str(model_name).strip()]
         else:
-            self.model_names = default_caption_models() or ([default_caption_model()] if default_caption_model() else [])
+            self.model_names = default_caption_models() or (
+                [default_caption_model()] if default_caption_model() else []
+            )
         self.model_name = self.model_names[0] if self.model_names else ""
         self.base_url = normalize_lmstudio_base_url(
             str(lmstudio_base_url or "").strip(),
@@ -221,6 +223,7 @@ class DateEstimateEngine(LMStudioModelResolverMixin):
             )
             return DateEstimateOutput(engine=self.engine, fallback=True, error="")
         try:
+
             def run_request() -> str:
                 payload = {
                     "model": self._resolve_model_name(),

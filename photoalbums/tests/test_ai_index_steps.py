@@ -186,7 +186,10 @@ class TestStepRunner(unittest.TestCase):
             propagate_call_count[0] += 1
             return {"crops_updated": 1}
 
-        runner.run("metadata", lambda: {"ocr": {}, "caption": {}, "location": {}, "locations_shown": [], "location_shown_ran": False})
+        runner.run(
+            "metadata",
+            lambda: {"ocr": {}, "caption": {}, "location": {}, "locations_shown": [], "location_shown_ran": False},
+        )
         runner.run("people", do_people)
         runner.run("propagate-to-crops", do_propagate)
 
@@ -301,9 +304,15 @@ class TestForcedStepsPropagation(unittest.TestCase):
         people_called = [False]
         propagate_called = [False]
 
-        runner.run("metadata", lambda: (metadata_called.__setitem__(0, True) or {"ocr": {}, "caption": {}, "location": {}, "locations_shown": [], "location_shown_ran": True}))
-        runner.run("people", lambda: (people_called.__setitem__(0, True) or {"people": []}))
-        runner.run("propagate-to-crops", lambda: (propagate_called.__setitem__(0, True) or {"crops_updated": 0}))
+        runner.run(
+            "metadata",
+            lambda: (
+                metadata_called.__setitem__(0, True)
+                or {"ocr": {}, "caption": {}, "location": {}, "locations_shown": [], "location_shown_ran": True}
+            ),
+        )
+        runner.run("people", lambda: people_called.__setitem__(0, True) or {"people": []})
+        runner.run("propagate-to-crops", lambda: propagate_called.__setitem__(0, True) or {"crops_updated": 0})
 
         self.assertTrue(metadata_called[0], "metadata must run when forced")
         self.assertFalse(people_called[0], "people must be skipped when hash matches and not forced")
