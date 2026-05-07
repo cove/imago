@@ -66,7 +66,7 @@ class TestScanWatch(unittest.TestCase):
             self.assertEqual(result["event"]["status"], "needs_rescan")
             self.assertIn(2, result["archive"]["needs_rescan_pages"])
             process_mock.assert_called_once()
-            self.assertEqual(validate_mock.call_count, 2)
+            self.assertEqual(validate_mock.call_count, 1)
             alert_mock.assert_called_once()
             error_mock.assert_called()
 
