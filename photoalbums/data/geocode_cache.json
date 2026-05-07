@@ -2694,6 +2694,48 @@
     "query": "Asablanca, Morocco",
     "status": "miss"
   },
+  "asbury park, new jersey, usa": {
+    "city": "Asbury Park",
+    "country": "United States",
+    "display_name": "Asbury Park, Monmouth County, New Jersey, 07711, United States",
+    "latitude": "40.2203907",
+    "longitude": "-74.0120817",
+    "query": "Asbury Park, New Jersey, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NJ",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Monmouth County",
+        "postcode": "07711",
+        "state": "New Jersey",
+        "town": "Asbury Park"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "40.2131250",
+        "40.2312220",
+        "-74.0272560",
+        "-73.9946810"
+      ],
+      "category": "boundary",
+      "display_name": "Asbury Park, Monmouth County, New Jersey, 07711, United States",
+      "importance": 0.5175138989826271,
+      "lat": "40.2203907",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-74.0120817",
+      "name": "Asbury Park",
+      "osm_id": 170406,
+      "osm_type": "relation",
+      "place_id": 332175685,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "New Jersey",
+    "status": "ok",
+    "sublocation": ""
+  },
   "astana, kazakhstan": {
     "city": "",
     "country": "Kazakhstan",
@@ -2958,6 +3000,91 @@
     },
     "source": "nominatim",
     "state": "Attica",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "auburn cord duesenberg museum, usa": {
+    "city": "Auburn",
+    "country": "United States",
+    "display_name": "Auburn Cord Duesenberg Automobile Museum, Wayne Street, Auburn, DeKalb County, Indiana, 46706, United States",
+    "latitude": "41.3556759",
+    "longitude": "-85.0572410",
+    "query": "Auburn Cord Duesenberg Museum, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-IN",
+        "country": "United States",
+        "country_code": "us",
+        "county": "DeKalb County",
+        "postcode": "46706",
+        "road": "Wayne Street",
+        "state": "Indiana",
+        "tourism": "Auburn Cord Duesenberg Automobile Museum",
+        "town": "Auburn"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "41.3552807",
+        "41.3560568",
+        "-85.0577187",
+        "-85.0566561"
+      ],
+      "category": "tourism",
+      "display_name": "Auburn Cord Duesenberg Automobile Museum, Wayne Street, Auburn, DeKalb County, Indiana, 46706, United States",
+      "importance": 0.30712213255484094,
+      "lat": "41.3556759",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-85.0572410",
+      "name": "Auburn Cord Duesenberg Automobile Museum",
+      "osm_id": 151842965,
+      "osm_type": "way",
+      "place_id": 343453364,
+      "place_rank": 30,
+      "type": "museum"
+    },
+    "source": "nominatim",
+    "state": "Indiana",
+    "status": "ok",
+    "sublocation": "Wayne Street"
+  },
+  "auburn, indiana, usa": {
+    "city": "Auburn",
+    "country": "United States",
+    "display_name": "Auburn, DeKalb County, Indiana, United States",
+    "latitude": "41.3669902",
+    "longitude": "-85.0588632",
+    "query": "Auburn, Indiana, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-IN",
+        "country": "United States",
+        "country_code": "us",
+        "county": "DeKalb County",
+        "state": "Indiana",
+        "town": "Auburn"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "41.3426940",
+        "41.3973210",
+        "-85.0978015",
+        "-85.0220500"
+      ],
+      "category": "boundary",
+      "display_name": "Auburn, DeKalb County, Indiana, United States",
+      "importance": 0.4514692368753542,
+      "lat": "41.3669902",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-85.0588632",
+      "name": "Auburn",
+      "osm_id": 127768,
+      "osm_type": "relation",
+      "place_id": 343518512,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Indiana",
     "status": "ok",
     "sublocation": ""
   },
@@ -4707,6 +4834,47 @@
     "status": "ok",
     "sublocation": "Anselm Road"
   },
+  "biloxi, mississippi, usa": {
+    "city": "Biloxi",
+    "country": "United States",
+    "display_name": "Biloxi, Harrison County, Mississippi, United States",
+    "latitude": "30.4007626",
+    "longitude": "-88.8893818",
+    "query": "Biloxi, Mississippi, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MS",
+        "city": "Biloxi",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Harrison County",
+        "state": "Mississippi"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "30.3604767",
+        "30.4941828",
+        "-89.0341067",
+        "-88.8188170"
+      ],
+      "category": "boundary",
+      "display_name": "Biloxi, Harrison County, Mississippi, United States",
+      "importance": 0.5669144378906594,
+      "lat": "30.4007626",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-88.8893818",
+      "name": "Biloxi",
+      "osm_id": 109956,
+      "osm_type": "relation",
+      "place_id": 303074378,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Mississippi",
+    "status": "ok",
+    "sublocation": ""
+  },
   "bingling temple, china": {
     "city": "Zhaoshan",
     "country": "China",
@@ -5731,6 +5899,48 @@
     "latitude": "37.9317766",
     "longitude": "-121.6960260",
     "query": "Brentwood, California, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Contra Costa County",
+        "postcode": "94513",
+        "state": "California",
+        "town": "Brentwood"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "37.8888313",
+        "37.9712486",
+        "-121.7600321",
+        "-121.6778037"
+      ],
+      "category": "boundary",
+      "display_name": "Brentwood, Contra Costa County, California, 94513, United States",
+      "importance": 0.5048867206423362,
+      "lat": "37.9317766",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-121.6960260",
+      "name": "Brentwood",
+      "osm_id": 112194,
+      "osm_type": "relation",
+      "place_id": 298960423,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "brentwood, usa": {
+    "city": "Brentwood",
+    "country": "United States",
+    "display_name": "Brentwood, Contra Costa County, California, 94513, United States",
+    "latitude": "37.9317766",
+    "longitude": "-121.6960260",
+    "query": "Brentwood, USA",
     "raw": {
       "address": {
         "ISO3166-2-lvl4": "US-CA",
@@ -7422,6 +7632,48 @@
     "status": "ok",
     "sublocation": ""
   },
+  "cape elizabeth, maine, usa": {
+    "city": "Cape Elizabeth",
+    "country": "United States",
+    "display_name": "Cape Elizabeth, Cumberland County, Maine, 04107, United States",
+    "latitude": "43.5964405",
+    "longitude": "-70.2284765",
+    "query": "Cape Elizabeth, Maine, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-ME",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Cumberland County",
+        "postcode": "04107",
+        "state": "Maine",
+        "village": "Cape Elizabeth"
+      },
+      "addresstype": "village",
+      "boundingbox": [
+        "43.4985682",
+        "43.6341047",
+        "-70.2810745",
+        "-70.1071936"
+      ],
+      "category": "boundary",
+      "display_name": "Cape Elizabeth, Cumberland County, Maine, 04107, United States",
+      "importance": 0.4475694317102816,
+      "lat": "43.5964405",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-70.2284765",
+      "name": "Cape Elizabeth",
+      "osm_id": 11155161,
+      "osm_type": "relation",
+      "place_id": 363654034,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Maine",
+    "status": "ok",
+    "sublocation": ""
+  },
   "capitol building in austin, texas, austin, texas, united states": {
     "query": "Capitol Building in Austin, Texas, Austin, Texas, United States",
     "status": "miss"
@@ -8934,6 +9186,48 @@
     "source": "nominatim",
     "state": "Illinois",
     "status": "ok"
+  },
+  "chicago, usa": {
+    "city": "Chicago",
+    "country": "United States",
+    "display_name": "Chicago, South Chicago Township, Cook County, Illinois, United States",
+    "latitude": "41.8755616",
+    "longitude": "-87.6244212",
+    "query": "Chicago, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-IL",
+        "city": "Chicago",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Cook County",
+        "municipality": "South Chicago Township",
+        "state": "Illinois"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "41.6445310",
+        "42.0230529",
+        "-87.9400876",
+        "-87.5240812"
+      ],
+      "category": "boundary",
+      "display_name": "Chicago, South Chicago Township, Cook County, Illinois, United States",
+      "importance": 0.8016380325327707,
+      "lat": "41.8755616",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-87.6244212",
+      "name": "Chicago",
+      "osm_id": 122604,
+      "osm_type": "relation",
+      "place_id": 343640270,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Illinois",
+    "status": "ok",
+    "sublocation": ""
   },
   "chillon castle, switzerland": {
     "city": "Veytaux",
@@ -11111,6 +11405,10 @@
     "query": "Countryside South of London, England, UK",
     "status": "miss"
   },
+  "cove, dolores, gloria david, sarah": {
+    "query": "COVE, DOLORES, GLORIA DAVID, SARAH",
+    "status": "miss"
+  },
   "coventry": {
     "city": "Coventry",
     "country": "United Kingdom",
@@ -11648,6 +11946,100 @@
     "state": "England",
     "status": "ok"
   },
+  "cypress gardens, florida, usa": {
+    "city": "Winter Haven",
+    "country": "United States",
+    "display_name": "Legoland Florida, 1, Marshall Drive, Cypress Gardens, Winter Haven, Polk County, Florida, 33884, United States",
+    "latitude": "27.9920627",
+    "longitude": "-81.6919685",
+    "query": "Cypress Gardens, Florida, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-FL",
+        "city": "Winter Haven",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Polk County",
+        "hamlet": "Cypress Gardens",
+        "house_number": "1",
+        "postcode": "33884",
+        "road": "Marshall Drive",
+        "state": "Florida",
+        "tourism": "Legoland Florida"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "27.9870433",
+        "27.9971283",
+        "-81.6953712",
+        "-81.6893821"
+      ],
+      "category": "tourism",
+      "display_name": "Legoland Florida, 1, Marshall Drive, Cypress Gardens, Winter Haven, Polk County, Florida, 33884, United States",
+      "importance": 0.4491022588632987,
+      "lat": "27.9920627",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-81.6919685",
+      "name": "Legoland Florida",
+      "osm_id": 384130687,
+      "osm_type": "way",
+      "place_id": 304618180,
+      "place_rank": 30,
+      "type": "theme_park"
+    },
+    "source": "nominatim",
+    "state": "Florida",
+    "status": "ok",
+    "sublocation": "1 Marshall Drive"
+  },
+  "cyprus gardens, florida, usa": {
+    "city": "Winter Haven",
+    "country": "United States",
+    "display_name": "Cyprus Campground and RV Park, Cypress Gardens Boulevard, Winter Haven, Polk County, Florida, 33884, United States",
+    "latitude": "27.9773323",
+    "longitude": "-81.6510626",
+    "query": "Cyprus Gardens, Florida, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-FL",
+        "city": "Winter Haven",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Polk County",
+        "postcode": "33884",
+        "road": "Cypress Gardens Boulevard",
+        "state": "Florida",
+        "tourism": "Cyprus Campground and RV Park"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "27.9772823",
+        "27.9773823",
+        "-81.6511126",
+        "-81.6510126"
+      ],
+      "category": "tourism",
+      "display_name": "Cyprus Campground and RV Park, Cypress Gardens Boulevard, Winter Haven, Polk County, Florida, 33884, United States",
+      "importance": 5.33722438391244e-05,
+      "lat": "27.9773323",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-81.6510626",
+      "name": "Cyprus Campground and RV Park",
+      "osm_id": 13688427002,
+      "osm_type": "node",
+      "place_id": 304721012,
+      "place_rank": 30,
+      "type": "caravan_site"
+    },
+    "source": "nominatim",
+    "state": "Florida",
+    "status": "ok",
+    "sublocation": "Cypress Gardens Boulevard"
+  },
+  "cyress gardens, florida, usa": {
+    "query": "Cyress Gardens, Florida, USA",
+    "status": "miss"
+  },
   "daibutsuden, japan": {
     "city": "Yamagata",
     "country": "Japan",
@@ -11915,6 +12307,47 @@
     "latitude": "42.3315509",
     "longitude": "-83.0466403",
     "query": "Detroit, Michigan, United States",
+    "source": "nominatim",
+    "state": "Michigan",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "detroit, michigan, usa": {
+    "city": "Detroit",
+    "country": "United States",
+    "display_name": "Detroit, Wayne County, Michigan, United States",
+    "latitude": "42.3315509",
+    "longitude": "-83.0466403",
+    "query": "Detroit, Michigan, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MI",
+        "city": "Detroit",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Wayne County",
+        "state": "Michigan"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "42.2551920",
+        "42.4503959",
+        "-83.2879590",
+        "-82.9104391"
+      ],
+      "category": "boundary",
+      "display_name": "Detroit, Wayne County, Michigan, United States",
+      "importance": 0.7321719627376911,
+      "lat": "42.3315509",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-83.0466403",
+      "name": "Detroit",
+      "osm_id": 134591,
+      "osm_type": "relation",
+      "place_id": 342606323,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Michigan",
     "status": "ok",
@@ -13878,6 +14311,47 @@
   "eugene's house, indiana, indiana, united states": {
     "query": "Eugene's House, Indiana, Indiana, United States",
     "status": "miss"
+  },
+  "eureka, california, usa": {
+    "city": "Eureka",
+    "country": "United States",
+    "display_name": "Eureka, Humboldt County, California, United States",
+    "latitude": "40.8018746",
+    "longitude": "-124.1707558",
+    "query": "Eureka, California, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Eureka",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Humboldt County",
+        "state": "California"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "40.7449140",
+        "40.8312950",
+        "-124.2083470",
+        "-124.0882930"
+      ],
+      "category": "boundary",
+      "display_name": "Eureka, Humboldt County, California, United States",
+      "importance": 0.5366806267037146,
+      "lat": "40.8018746",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-124.1707558",
+      "name": "Eureka",
+      "osm_id": 7931953,
+      "osm_type": "relation",
+      "place_id": 323965790,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
   },
   "europe": {
     "city": "",
@@ -15926,6 +16400,10 @@
     "query": "Gloria - Hollywood, Calif.",
     "status": "miss"
   },
+  "gloria david, sarah": {
+    "query": "GLORIA DAVID, SARAH",
+    "status": "miss"
+  },
   "gloria's home": {
     "city": "Oaxaca City",
     "country": "Mexico",
@@ -15936,6 +16414,53 @@
     "source": "nominatim",
     "state": "Oaxaca",
     "status": "ok"
+  },
+  "gloria, eugene": {
+    "city": "Kropyvnytskyi",
+    "country": "Ukraine",
+    "display_name": "GLORIA, EUGENE, Kropyvnytskyi, Kirovohrad Oblast, Ukraine",
+    "latitude": "48.5006672",
+    "longitude": "32.2315423",
+    "query": "GLORIA, EUGENE",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "UA-35",
+        "amenity": "Глорія",
+        "borough": "Fortechnyi district",
+        "city": "Kropyvnytskyi",
+        "country": "Ukraine",
+        "country_code": "ua",
+        "district": "Kropyvnytskyi Raion",
+        "municipality": "Кропивницька міська громада",
+        "postcode": "25030",
+        "road": "Eugene Telnov street",
+        "state": "Kirovohrad Oblast",
+        "suburb": "Cheremushky"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "48.5005525",
+        "48.5007170",
+        "32.2314318",
+        "32.2317044"
+      ],
+      "category": "amenity",
+      "display_name": "Глорія, Eugene Telnov street, Cheremushky, Fortechnyi district, Kropyvnytskyi, Кропивницька міська громада, Kropyvnytskyi Raion, Kirovohrad Oblast, 25030, Ukraine",
+      "importance": 6.331349660482212e-05,
+      "lat": "48.5006672",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "32.2315423",
+      "name": "Глорія",
+      "osm_id": 352058736,
+      "osm_type": "way",
+      "place_id": 178608627,
+      "place_rank": 30,
+      "type": "restaurant"
+    },
+    "source": "nominatim",
+    "state": "Kirovohrad Oblast",
+    "status": "ok",
+    "sublocation": "Eugene Telnov street"
   },
   "golden deer sculpture, stockholm, sweden": {
     "query": "Golden Deer Sculpture, Stockholm, Sweden",
@@ -16141,6 +16666,47 @@
     "query": "Grand Beach, Ontario, Canada",
     "source": "nominatim",
     "state": "Ontario",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "grand beach, usa": {
+    "city": "Grand Beach",
+    "country": "United States",
+    "display_name": "Grand Beach, Berrien County, Michigan, United States",
+    "latitude": "41.7733739",
+    "longitude": "-86.7975279",
+    "query": "Grand Beach, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MI",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Berrien County",
+        "state": "Michigan",
+        "village": "Grand Beach"
+      },
+      "addresstype": "village",
+      "boundingbox": [
+        "41.7628990",
+        "41.7848184",
+        "-86.8022180",
+        "-86.7751077"
+      ],
+      "category": "boundary",
+      "display_name": "Grand Beach, Berrien County, Michigan, United States",
+      "importance": 0.3576195967348456,
+      "lat": "41.7733739",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-86.7975279",
+      "name": "Grand Beach",
+      "osm_id": 135072,
+      "osm_type": "relation",
+      "place_id": 341592856,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Michigan",
     "status": "ok",
     "sublocation": ""
   },
@@ -19400,6 +19966,47 @@
     "status": "ok",
     "sublocation": ""
   },
+  "indio, california, usa": {
+    "city": "Indio",
+    "country": "United States",
+    "display_name": "Indio, Riverside County, California, United States",
+    "latitude": "33.7192808",
+    "longitude": "-116.2188054",
+    "query": "Indio, California, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Indio",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Riverside County",
+        "state": "California"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "33.6710030",
+        "33.8165406",
+        "-116.3012841",
+        "-116.1641752"
+      ],
+      "category": "boundary",
+      "display_name": "Indio, Riverside County, California, United States",
+      "importance": 0.5362088169912365,
+      "lat": "33.7192808",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-116.2188054",
+      "name": "Indio",
+      "osm_id": 2632192,
+      "osm_type": "relation",
+      "place_id": 317869206,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "inner harbour and waldon hill, torquay": {
     "query": "Inner Harbour and Waldon Hill, Torquay",
     "status": "miss"
@@ -19904,6 +20511,10 @@
     "status": "ok",
     "sublocation": ""
   },
+  "jerry , dolores , donald , gloria, eugene": {
+    "query": "JERRY , DOLORES , DONALD , GLORIA, EUGENE",
+    "status": "miss"
+  },
   "jesuit church (lucerne), switzerland": {
     "query": "Jesuit Church (Lucerne), Switzerland",
     "status": "miss"
@@ -20059,6 +20670,48 @@
     "query": "Jiuquan, Gansu, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "john f. kennedy space center, florida, usa": {
+    "city": "",
+    "country": "United States",
+    "display_name": "John F. Kennedy Space Center, Brevard County, Florida, 32899, United States",
+    "latitude": "28.5192310",
+    "longitude": "-80.6432498",
+    "query": "John F. Kennedy Space Center, Florida, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-FL",
+        "aeroway": "John F. Kennedy Space Center",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Brevard County",
+        "postcode": "32899",
+        "state": "Florida"
+      },
+      "addresstype": "aeroway",
+      "boundingbox": [
+        "28.5081064",
+        "28.6434390",
+        "-80.7128920",
+        "-80.5873566"
+      ],
+      "category": "aeroway",
+      "display_name": "John F. Kennedy Space Center, Brevard County, Florida, 32899, United States",
+      "importance": 5.3262378881468184e-05,
+      "lat": "28.5192310",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-80.6432498",
+      "name": "John F. Kennedy Space Center",
+      "osm_id": 8013130,
+      "osm_type": "relation",
+      "place_id": 278756977,
+      "place_rank": 30,
+      "type": "spaceport"
+    },
+    "source": "nominatim",
+    "state": "Florida",
+    "status": "ok",
+    "sublocation": ""
   },
   "jokhang temple": {
     "city": "Chengguan District",
@@ -22399,6 +23052,47 @@
     "status": "ok",
     "sublocation": ""
   },
+  "lake havasu, arizona, usa": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Lake Havasu, Mohave County, Arizona, United States",
+    "latitude": "34.4105067",
+    "longitude": "-114.2908721",
+    "query": "Lake Havasu, Arizona, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-AZ",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Mohave County",
+        "reservoir": "Lake Havasu",
+        "state": "Arizona"
+      },
+      "addresstype": "reservoir",
+      "boundingbox": [
+        "34.2885892",
+        "34.5323974",
+        "-114.4052428",
+        "-114.0967941"
+      ],
+      "category": "water",
+      "display_name": "Lake Havasu, Mohave County, Arizona, United States",
+      "importance": 0.39122798236215983,
+      "lat": "34.4105067",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-114.2908721",
+      "name": "Lake Havasu",
+      "osm_id": 374012,
+      "osm_type": "relation",
+      "place_id": 397858013,
+      "place_rank": 20,
+      "type": "reservoir"
+    },
+    "source": "nominatim",
+    "state": "Arizona",
+    "status": "ok",
+    "sublocation": ""
+  },
   "lake nasser": {
     "city": "Wadi Halfa",
     "country": "Sudan",
@@ -22696,6 +23390,47 @@
     "query": "lanzhou,china",
     "source": "nominatim",
     "state": "Gansu",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "las vegas, nevada, usa": {
+    "city": "Las Vegas",
+    "country": "United States",
+    "display_name": "Las Vegas, Clark County, Nevada, United States",
+    "latitude": "36.1674263",
+    "longitude": "-115.1484131",
+    "query": "Las Vegas, Nevada, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NV",
+        "city": "Las Vegas",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Clark County",
+        "state": "Nevada"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "36.1295540",
+        "36.4014810",
+        "-115.4065750",
+        "-115.0620660"
+      ],
+      "category": "boundary",
+      "display_name": "Las Vegas, Clark County, Nevada, United States",
+      "importance": 0.7237796065136439,
+      "lat": "36.1674263",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-115.1484131",
+      "name": "Las Vegas",
+      "osm_id": 170117,
+      "osm_type": "relation",
+      "place_id": 420388888,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Nevada",
     "status": "ok",
     "sublocation": ""
   },
@@ -24504,6 +25239,48 @@
     "status": "ok",
     "sublocation": ""
   },
+  "loveland pass, colorado, usa": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Loveland Pass, US 6, Clear Creek County, Colorado, United States",
+    "latitude": "39.6639360",
+    "longitude": "-105.8789355",
+    "query": "Loveland Pass, Colorado, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CO",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Clear Creek County",
+        "road": "US 6",
+        "state": "Colorado",
+        "tourism": "Loveland Pass"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "39.6638860",
+        "39.6639860",
+        "-105.8789855",
+        "-105.8788855"
+      ],
+      "category": "tourism",
+      "display_name": "Loveland Pass, US 6, Clear Creek County, Colorado, United States",
+      "importance": 0.28875241632417264,
+      "lat": "39.6639360",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-105.8789355",
+      "name": "Loveland Pass",
+      "osm_id": 1867660938,
+      "osm_type": "node",
+      "place_id": 304523094,
+      "place_rank": 30,
+      "type": "viewpoint"
+    },
+    "source": "nominatim",
+    "state": "Colorado",
+    "status": "ok",
+    "sublocation": "US 6"
+  },
   "lovely square by our hotel, minsk, belarus": {
     "query": "Lovely Square by Our Hotel, Minsk, Belarus",
     "status": "miss"
@@ -26091,9 +26868,134 @@
     "status": "ok",
     "sublocation": ""
   },
+  "minneapolis, minnesota, usa": {
+    "city": "Minneapolis",
+    "country": "United States",
+    "display_name": "Minneapolis, Hennepin County, Minnesota, United States",
+    "latitude": "44.9772995",
+    "longitude": "-93.2654692",
+    "query": "Minneapolis, Minnesota, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MN",
+        "city": "Minneapolis",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Hennepin County",
+        "state": "Minnesota"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "44.8901500",
+        "45.0512498",
+        "-93.3291250",
+        "-93.1938590"
+      ],
+      "category": "boundary",
+      "display_name": "Minneapolis, Hennepin County, Minnesota, United States",
+      "importance": 0.6954156537035846,
+      "lat": "44.9772995",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-93.2654692",
+      "name": "Minneapolis",
+      "osm_id": 136712,
+      "osm_type": "relation",
+      "place_id": 347069736,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Minnesota",
+    "status": "ok",
+    "sublocation": ""
+  },
   "minneapolis, minnesota, usa, united states": {
     "query": "Minneapolis, Minnesota, USA, United States",
     "status": "miss"
+  },
+  "minnesota state capitol, st. paul, minnesota, usa": {
+    "city": "Saint Paul",
+    "country": "United States",
+    "display_name": "Minnesota State Capitol, Aurora Promenade, Downtown, Saint Paul, Ramsey County, Minnesota, 55155, United States",
+    "latitude": "44.9551922",
+    "longitude": "-93.1022203",
+    "query": "Minnesota State Capitol, St. Paul, Minnesota, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MN",
+        "building": "Minnesota State Capitol",
+        "city": "Saint Paul",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Ramsey County",
+        "postcode": "55155",
+        "road": "Aurora Promenade",
+        "state": "Minnesota",
+        "suburb": "Downtown"
+      },
+      "addresstype": "building",
+      "boundingbox": [
+        "44.9550470",
+        "44.9553394",
+        "-93.1029527",
+        "-93.1014892"
+      ],
+      "category": "building",
+      "display_name": "Minnesota State Capitol, Aurora Promenade, Downtown, Saint Paul, Ramsey County, Minnesota, 55155, United States",
+      "importance": 0.45649642172460403,
+      "lat": "44.9551922",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-93.1022203",
+      "name": "Minnesota State Capitol",
+      "osm_id": 5480142,
+      "osm_type": "relation",
+      "place_id": 345459374,
+      "place_rank": 30,
+      "type": "public"
+    },
+    "source": "nominatim",
+    "state": "Minnesota",
+    "status": "ok",
+    "sublocation": "Aurora Promenade"
+  },
+  "minnesota, usa": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Minnesota, United States",
+    "latitude": "45.9896587",
+    "longitude": "-94.6113288",
+    "query": "Minnesota, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MN",
+        "country": "United States",
+        "country_code": "us",
+        "state": "Minnesota"
+      },
+      "addresstype": "state",
+      "boundingbox": [
+        "43.4994288",
+        "49.3844722",
+        "-97.2392619",
+        "-89.4833850"
+      ],
+      "category": "boundary",
+      "display_name": "Minnesota, United States",
+      "importance": 0.7735178270105365,
+      "lat": "45.9896587",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-94.6113288",
+      "name": "Minnesota",
+      "osm_id": 165471,
+      "osm_type": "relation",
+      "place_id": 346027281,
+      "place_rank": 8,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Minnesota",
+    "status": "ok",
+    "sublocation": ""
   },
   "minsk, belarus": {
     "city": "Minsk",
@@ -26415,6 +27317,48 @@
     "source": "nominatim",
     "state": "Vaud",
     "status": "ok"
+  },
+  "montréal, canada": {
+    "city": "Montreal",
+    "country": "Canada",
+    "display_name": "Montreal, Urban agglomeration of Montreal, Montreal (administrative region), Quebec, Canada",
+    "latitude": "45.5031824",
+    "longitude": "-73.5698065",
+    "query": "Montréal, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-QC",
+        "city": "Montreal",
+        "country": "Canada",
+        "country_code": "ca",
+        "county": "Urban agglomeration of Montreal",
+        "state": "Quebec",
+        "state_district": "Montreal (administrative region)"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "45.4100756",
+        "45.7047897",
+        "-73.9741567",
+        "-73.4742952"
+      ],
+      "category": "boundary",
+      "display_name": "Montreal, Urban agglomeration of Montreal, Montreal (administrative region), Quebec, Canada",
+      "importance": 0.7683399932257889,
+      "lat": "45.5031824",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-73.5698065",
+      "name": "Montreal",
+      "osm_id": 1634158,
+      "osm_type": "relation",
+      "place_id": 336851425,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Quebec",
+    "status": "ok",
+    "sublocation": ""
   },
   "monument in the center of town, fairbanks, alaska, united states": {
     "query": "Monument in the Center of Town, Fairbanks, Alaska, United States",
@@ -26944,6 +27888,45 @@
     "query": "Nashville, Tennessee, USA, United States",
     "status": "miss"
   },
+  "nassau, bahamas": {
+    "city": "Nassau",
+    "country": "Bahamas",
+    "display_name": "Nassau, New Providence, Bahamas",
+    "latitude": "25.0782266",
+    "longitude": "-77.3383438",
+    "query": "Nassau, Bahamas",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl8": "BS-NP",
+        "city": "Nassau",
+        "country": "Bahamas",
+        "country_code": "bs"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "24.9182266",
+        "25.2382266",
+        "-77.4983438",
+        "-77.1783438"
+      ],
+      "category": "place",
+      "display_name": "Nassau, New Providence, Bahamas",
+      "importance": 0.6196765274225213,
+      "lat": "25.0782266",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-77.3383438",
+      "name": "Nassau",
+      "osm_id": 115664268,
+      "osm_type": "node",
+      "place_id": 278725314,
+      "place_rank": 15,
+      "type": "city"
+    },
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
   "national congress of argentina, argentina": {
     "city": "Buenos Aires",
     "country": "Argentina",
@@ -27185,6 +28168,47 @@
     "state": "",
     "status": "ok",
     "sublocation": "New Mosque Yard"
+  },
+  "new orleans, louisiana, usa": {
+    "city": "New Orleans",
+    "country": "United States",
+    "display_name": "New Orleans, Orleans Parish, Louisiana, United States",
+    "latitude": "29.9561422",
+    "longitude": "-90.0733934",
+    "query": "New Orleans, Louisiana, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-LA",
+        "city": "New Orleans",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Orleans Parish",
+        "state": "Louisiana"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "29.8654809",
+        "30.1994687",
+        "-90.1399307",
+        "-89.6251763"
+      ],
+      "category": "boundary",
+      "display_name": "New Orleans, Orleans Parish, Louisiana, United States",
+      "importance": 0.7240046227015887,
+      "lat": "29.9561422",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-90.0733934",
+      "name": "New Orleans",
+      "osm_id": 131885,
+      "osm_type": "relation",
+      "place_id": 280895318,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Louisiana",
+    "status": "ok",
+    "sublocation": ""
   },
   "new town hall in munich": {
     "query": "New Town Hall in Munich",
@@ -27710,6 +28734,51 @@
     "status": "ok",
     "sublocation": ""
   },
+  "nicollet mall, minneapolis, usa": {
+    "city": "Minneapolis",
+    "country": "United States",
+    "display_name": "Nicollet Mall, Downtown West, Central, Minneapolis, Hennepin County, Minnesota, 55402, United States",
+    "latitude": "44.9749448",
+    "longitude": "-93.2739446",
+    "query": "Nicollet Mall, Minneapolis, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MN",
+        "city": "Minneapolis",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Hennepin County",
+        "neighbourhood": "Downtown West",
+        "postcode": "55402",
+        "road": "Nicollet Mall",
+        "state": "Minnesota",
+        "suburb": "Central"
+      },
+      "addresstype": "road",
+      "boundingbox": [
+        "44.9710843",
+        "44.9788053",
+        "-93.2771801",
+        "-93.2706905"
+      ],
+      "category": "highway",
+      "display_name": "Nicollet Mall, Downtown West, Central, Minneapolis, Hennepin County, Minnesota, 55402, United States",
+      "importance": 0.28939223170644257,
+      "lat": "44.9749448",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-93.2739446",
+      "name": "Nicollet Mall",
+      "osm_id": 805502115,
+      "osm_type": "way",
+      "place_id": 346928720,
+      "place_rank": 26,
+      "type": "living_street"
+    },
+    "source": "nominatim",
+    "state": "Minnesota",
+    "status": "ok",
+    "sublocation": "Nicollet Mall"
+  },
   "night club in rio, rio de janeiro, brazil": {
     "city": "Rio de Janeiro",
     "country": "Brazil",
@@ -28022,6 +29091,49 @@
     "query": "Ogunkuit, Maine, United States of America",
     "status": "miss"
   },
+  "ogunquit beach, maine, usa": {
+    "city": "Ogunquit",
+    "country": "United States",
+    "display_name": "Ogunquit Beach, Ogunquit, York County, Maine, 03907, United States",
+    "latitude": "43.2530695",
+    "longitude": "-70.5921692",
+    "query": "Ogunquit Beach, Maine, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-ME",
+        "beach": "Ogunquit Beach",
+        "country": "United States",
+        "country_code": "us",
+        "county": "York County",
+        "postcode": "03907",
+        "state": "Maine",
+        "village": "Ogunquit"
+      },
+      "addresstype": "beach",
+      "boundingbox": [
+        "43.2474138",
+        "43.2582756",
+        "-70.5963153",
+        "-70.5901033"
+      ],
+      "category": "natural",
+      "display_name": "Ogunquit Beach, Ogunquit, York County, Maine, 03907, United States",
+      "importance": 0.10671175936522466,
+      "lat": "43.2530695",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-70.5921692",
+      "name": "Ogunquit Beach",
+      "osm_id": 438218314,
+      "osm_type": "way",
+      "place_id": 334875995,
+      "place_rank": 22,
+      "type": "beach"
+    },
+    "source": "nominatim",
+    "state": "Maine",
+    "status": "ok",
+    "sublocation": ""
+  },
   "ogunquit, maine, united states": {
     "city": "Ogunquit",
     "country": "United States",
@@ -28255,6 +29367,10 @@
     "state": "",
     "status": "ok",
     "sublocation": "2 Opernring"
+  },
+  "ordway music theatre, st. paul, minnesota, usa": {
+    "query": "Ordway Music Theatre, St. Paul, Minnesota, USA",
+    "status": "miss"
   },
   "oregon redwoods": {
     "city": "",
@@ -29529,6 +30645,50 @@
     "query": "Pavilion at Torquay, Torquay, United Kingdom",
     "status": "miss"
   },
+  "peggy's cove, nova scotia, canada": {
+    "city": "Greenfield",
+    "country": "Canada",
+    "display_name": "Peggy's Cove Trail, Greenfield, Region of Queens Municipality, Queens County, Nova Scotia, B0T 1E0, Canada",
+    "latitude": "44.2937262",
+    "longitude": "-64.8548065",
+    "query": "Peggy's Cove, Nova Scotia, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-NS",
+        "country": "Canada",
+        "country_code": "ca",
+        "county": "Queens County",
+        "municipality": "Region of Queens Municipality",
+        "postcode": "B0T 1E0",
+        "road": "Peggy's Cove Trail",
+        "state": "Nova Scotia",
+        "village": "Greenfield"
+      },
+      "addresstype": "road",
+      "boundingbox": [
+        "44.2920831",
+        "44.2940578",
+        "-64.8586452",
+        "-64.8501683"
+      ],
+      "category": "highway",
+      "display_name": "Peggy's Cove Trail, Greenfield, Region of Queens Municipality, Queens County, Nova Scotia, B0T 1E0, Canada",
+      "importance": 0.053379456015869346,
+      "lat": "44.2937262",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-64.8548065",
+      "name": "Peggy's Cove Trail",
+      "osm_id": 68648096,
+      "osm_type": "way",
+      "place_id": 336912181,
+      "place_rank": 26,
+      "type": "residential"
+    },
+    "source": "nominatim",
+    "state": "Nova Scotia",
+    "status": "ok",
+    "sublocation": "Peggy's Cove Trail"
+  },
   "pembroke, england": {
     "display_name": "Pembroke, Sally Port Gardens, Brompton, Gillingham, Medway, England, ME4 4UH, United Kingdom",
     "latitude": "51.3977787",
@@ -29556,6 +30716,47 @@
     "query": "Penance, Cornwall, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "pensacola, florida, usa": {
+    "city": "Pensacola",
+    "country": "United States",
+    "display_name": "Pensacola, Escambia County, Florida, United States",
+    "latitude": "30.4213090",
+    "longitude": "-87.2169149",
+    "query": "Pensacola, Florida, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-FL",
+        "city": "Pensacola",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Escambia County",
+        "state": "Florida"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "30.3955428",
+        "30.5104858",
+        "-87.2588885",
+        "-87.1497213"
+      ],
+      "category": "boundary",
+      "display_name": "Pensacola, Escambia County, Florida, United States",
+      "importance": 0.6027300648340661,
+      "lat": "30.4213090",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-87.2169149",
+      "name": "Pensacola",
+      "osm_id": 119016,
+      "osm_type": "relation",
+      "place_id": 302369583,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Florida",
+    "status": "ok",
+    "sublocation": ""
   },
   "penzance, cornwall": {
     "city": "Penzance",
@@ -32087,6 +33288,48 @@
     "query": "Qinling Mountains, Shaanxi, China",
     "status": "miss"
   },
+  "quebec city, canada": {
+    "city": "Quebec",
+    "country": "Canada",
+    "display_name": "Quebec City, Canada, Quebec, Canada",
+    "latitude": "46.8137431",
+    "longitude": "-71.2084061",
+    "query": "Quebec City, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-QC",
+        "city": "Quebec",
+        "country": "Canada",
+        "country_code": "ca",
+        "county": "Urban agglomeration of Québec",
+        "state": "Quebec",
+        "state_district": "Capitale-Nationale"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "46.7277099",
+        "46.9806797",
+        "-71.5492175",
+        "-71.1336606"
+      ],
+      "category": "boundary",
+      "display_name": "Quebec, Urban agglomeration of Québec, Capitale-Nationale, Quebec, Canada",
+      "importance": 0.6704283611183218,
+      "lat": "46.8137431",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-71.2084061",
+      "name": "Quebec",
+      "osm_id": 2319206,
+      "osm_type": "relation",
+      "place_id": 336423003,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Quebec",
+    "status": "ok",
+    "sublocation": ""
+  },
   "queen hatshepsut temple, egypt": {
     "query": "Queen Hatshepsut Temple, Egypt",
     "status": "miss"
@@ -32303,6 +33546,10 @@
   },
   "railway station, cologne, germany": {
     "query": "Railway Station, Cologne, Germany",
+    "status": "miss"
+  },
+  "ran marino, usa": {
+    "query": "Ran Marino, USA",
     "status": "miss"
   },
   "rathaus, austria": {
@@ -35235,6 +36482,47 @@
     "query": "Sandrington, Hampshire, England",
     "status": "miss"
   },
+  "santa barbara, california, usa": {
+    "city": "Santa Barbara",
+    "country": "United States",
+    "display_name": "Santa Barbara, Santa Barbara County, California, United States",
+    "latitude": "34.4221319",
+    "longitude": "-119.7026670",
+    "query": "Santa Barbara, California, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Santa Barbara",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Santa Barbara County",
+        "state": "California"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "34.3360290",
+        "34.4639220",
+        "-119.8597910",
+        "-119.6399059"
+      ],
+      "category": "boundary",
+      "display_name": "Santa Barbara, Santa Barbara County, California, United States",
+      "importance": 0.6392154578460826,
+      "lat": "34.4221319",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-119.7026670",
+      "name": "Santa Barbara",
+      "osm_id": 112224,
+      "osm_type": "relation",
+      "place_id": 320328054,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "santa cruz district, seville, andalusia, spain": {
     "query": "Santa Cruz District, Seville, Andalusia, Spain",
     "status": "miss"
@@ -37530,6 +38818,48 @@
     "query": "St. Alexander Nevsky Patriarchal Cathedral, Sofia, Bulgaria",
     "status": "miss"
   },
+  "st. augustine, florida, usa": {
+    "city": "Saint Augustine",
+    "country": "United States",
+    "display_name": "Saint Augustine, Saint Johns County, Florida, 32084, United States",
+    "latitude": "29.8946952",
+    "longitude": "-81.3145395",
+    "query": "St. Augustine, Florida, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-FL",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Saint Johns County",
+        "postcode": "32084",
+        "state": "Florida",
+        "town": "Saint Augustine"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "29.8463226",
+        "29.9555444",
+        "-81.3445902",
+        "-81.2657081"
+      ],
+      "category": "boundary",
+      "display_name": "Saint Augustine, Saint Johns County, Florida, 32084, United States",
+      "importance": 0.5608159507405109,
+      "lat": "29.8946952",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-81.3145395",
+      "name": "Saint Augustine",
+      "osm_id": 117524,
+      "osm_type": "relation",
+      "place_id": 402479661,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Florida",
+    "status": "ok",
+    "sublocation": ""
+  },
   "st. basil's cathedral, moscow, russia": {
     "city": "Moscow",
     "country": "Russia",
@@ -37698,6 +39028,46 @@
     "query": "St. Ives, United Kingdom",
     "source": "nominatim",
     "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "st. louis, usa": {
+    "city": "St. Louis",
+    "country": "United States",
+    "display_name": "St. Louis, Missouri, United States",
+    "latitude": "38.6254063",
+    "longitude": "-90.1900090",
+    "query": "St. Louis, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MO",
+        "city": "St. Louis",
+        "country": "United States",
+        "country_code": "us",
+        "state": "Missouri"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "38.5318587",
+        "38.7743018",
+        "-90.3206525",
+        "-90.1641941"
+      ],
+      "category": "boundary",
+      "display_name": "St. Louis, Missouri, United States",
+      "importance": 0.7152835326900137,
+      "lat": "38.6254063",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-90.1900090",
+      "name": "St. Louis",
+      "osm_id": 1180533,
+      "osm_type": "relation",
+      "place_id": 311048535,
+      "place_rank": 12,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Missouri",
     "status": "ok",
     "sublocation": ""
   },
@@ -37903,6 +39273,47 @@
   "st. paul's cathedral, piccadilly circus, london, england": {
     "query": "St. Paul's Cathedral, Piccadilly Circus, London, England",
     "status": "miss"
+  },
+  "st. paul, minnesota, usa": {
+    "city": "Saint Paul",
+    "country": "United States",
+    "display_name": "Saint Paul, Ramsey County, Minnesota, United States",
+    "latitude": "44.9497487",
+    "longitude": "-93.0931028",
+    "query": "St. Paul, Minnesota, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MN",
+        "city": "Saint Paul",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Ramsey County",
+        "state": "Minnesota"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "44.8872692",
+        "44.9920237",
+        "-93.2078138",
+        "-93.0043117"
+      ],
+      "category": "boundary",
+      "display_name": "Saint Paul, Ramsey County, Minnesota, United States",
+      "importance": 0.6467045767108192,
+      "lat": "44.9497487",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-93.0931028",
+      "name": "Saint Paul",
+      "osm_id": 136612,
+      "osm_type": "relation",
+      "place_id": 344882783,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Minnesota",
+    "status": "ok",
+    "sublocation": ""
   },
   "st. peter's basilica, vatican city": {
     "city": "",
@@ -38116,6 +39527,47 @@
     "state": "",
     "status": "ok",
     "sublocation": "Johannesgasse"
+  },
+  "stamford, connecticut, usa": {
+    "city": "Stamford",
+    "country": "United States",
+    "display_name": "Stamford, Western Connecticut Planning Region, Connecticut, United States",
+    "latitude": "41.0534302",
+    "longitude": "-73.5387341",
+    "query": "Stamford, Connecticut, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CT",
+        "city": "Stamford",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Western Connecticut Planning Region",
+        "state": "Connecticut"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "40.9645138",
+        "41.1799290",
+        "-73.6339806",
+        "-73.4954009"
+      ],
+      "category": "boundary",
+      "display_name": "Stamford, Western Connecticut Planning Region, Connecticut, United States",
+      "importance": 0.5850877096462171,
+      "lat": "41.0534302",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-73.5387341",
+      "name": "Stamford",
+      "osm_id": 3306055,
+      "osm_type": "relation",
+      "place_id": 353574218,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Connecticut",
+    "status": "ok",
+    "sublocation": ""
   },
   "stanley park, vancouver b.c., canada": {
     "city": "Vancouver",
@@ -42332,6 +43784,53 @@
     "query": "The Tower of Skulls, Turkey",
     "status": "miss"
   },
+  "the twin cities - minneapolis, mn": {
+    "city": "Falcon Heights",
+    "country": "United States",
+    "display_name": "University of Minnesota, Twin Cities Campus, Southeast 5th Street, Marcy-Holmes, Dinkytown, University, Falcon Heights, Hennepin County, Minnesota, 55455, United States",
+    "latitude": "44.9863418",
+    "longitude": "-93.1794451",
+    "query": "The Twin Cities - Minneapolis, MN",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MN",
+        "amenity": "University of Minnesota, Twin Cities Campus",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Hennepin County",
+        "neighbourhood": "Marcy-Holmes",
+        "postcode": "55455",
+        "quarter": "Dinkytown",
+        "road": "Southeast 5th Street",
+        "state": "Minnesota",
+        "suburb": "University",
+        "village": "Falcon Heights"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "44.9570809",
+        "44.9988646",
+        "-93.2468353",
+        "-93.1679862"
+      ],
+      "category": "amenity",
+      "display_name": "University of Minnesota, Twin Cities Campus, Southeast 5th Street, Marcy-Holmes, Dinkytown, University, Falcon Heights, Hennepin County, Minnesota, 55455, United States",
+      "importance": 0.6564814808837448,
+      "lat": "44.9863418",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-93.1794451",
+      "name": "University of Minnesota, Twin Cities Campus",
+      "osm_id": 2217609,
+      "osm_type": "relation",
+      "place_id": 344922909,
+      "place_rank": 30,
+      "type": "university"
+    },
+    "source": "nominatim",
+    "state": "Minnesota",
+    "status": "ok",
+    "sublocation": "Southeast 5th Street"
+  },
   "the vatican city, italy": {
     "query": "The Vatican City, Italy",
     "status": "miss"
@@ -42351,6 +43850,51 @@
   "the white cliffs of dover, dover castle, dover, england": {
     "query": "The White Cliffs of Dover, Dover Castle, Dover, England",
     "status": "miss"
+  },
+  "the white house, washington d.c., usa": {
+    "city": "Washington",
+    "country": "United States",
+    "display_name": "White House, 1600, Pennsylvania Avenue Northwest, Ward 2, Washington, District of Columbia, 20500, United States",
+    "latitude": "38.8976387",
+    "longitude": "-77.0365528",
+    "query": "The White House, Washington D.C., USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-DC",
+        "borough": "Ward 2",
+        "city": "Washington",
+        "country": "United States",
+        "country_code": "us",
+        "house_number": "1600",
+        "office": "White House",
+        "postcode": "20500",
+        "road": "Pennsylvania Avenue Northwest",
+        "state": "District of Columbia"
+      },
+      "addresstype": "office",
+      "boundingbox": [
+        "38.8974904",
+        "38.8977959",
+        "-77.0368541",
+        "-77.0362517"
+      ],
+      "category": "office",
+      "display_name": "White House, 1600, Pennsylvania Avenue Northwest, Ward 2, Washington, District of Columbia, 20500, United States",
+      "importance": 0.6958339719610435,
+      "lat": "38.8976387",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-77.0365528",
+      "name": "White House",
+      "osm_id": 19761182,
+      "osm_type": "relation",
+      "place_id": 421264291,
+      "place_rank": 30,
+      "type": "government"
+    },
+    "source": "nominatim",
+    "state": "District of Columbia",
+    "status": "ok",
+    "sublocation": "1600 Pennsylvania Avenue Northwest"
   },
   "the wild goose pagoda": {
     "query": "The Wild Goose Pagoda",
@@ -46116,6 +47660,46 @@
   "warship wasa, stockholm, sweden": {
     "query": "Warship Wasa, Stockholm, Sweden",
     "status": "miss"
+  },
+  "washington d.c., usa": {
+    "city": "Washington",
+    "country": "United States",
+    "display_name": "Washington, District of Columbia, United States",
+    "latitude": "38.8950982",
+    "longitude": "-77.0363849",
+    "query": "Washington D.C., USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-DC",
+        "city": "Washington",
+        "country": "United States",
+        "country_code": "us",
+        "state": "District of Columbia"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "38.7916303",
+        "38.9959680",
+        "-77.1197949",
+        "-76.9093660"
+      ],
+      "category": "place",
+      "display_name": "Washington, District of Columbia, United States",
+      "importance": 0.8147699678478604,
+      "lat": "38.8950982",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-77.0363849",
+      "name": "Washington",
+      "osm_id": 5396194,
+      "osm_type": "relation",
+      "place_id": 394370670,
+      "place_rank": 16,
+      "type": "city"
+    },
+    "source": "nominatim",
+    "state": "District of Columbia",
+    "status": "ok",
+    "sublocation": ""
   },
   "wat phra kaew, bangkok, thailand": {
     "city": "Bangkok",

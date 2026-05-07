@@ -263,7 +263,35 @@
       "Bash(echo \"Exit: $?\")",
       "Bash(chezmoi status *)",
       "mcp__plugin_mem0_mem0__search_memories",
-      "mcp__plugin_mem0_mem0__get_memories"
+      "mcp__plugin_mem0_mem0__get_memories",
+      "Read(//Users/cove/.config/**)",
+      "Read(//Users/cove/**)",
+      "Bash(starship config *)",
+      "Bash(starship --version)",
+      "Bash(starship statusline *)",
+      "Bash(claude --version)",
+      "Bash(starship module *)",
+      "Bash(env)",
+      "Bash(sqlite3 ~/.claude/.search-index/usage.db \".tables\")",
+      "Bash(sqlite3 ~/.claude/.search-index/usage.db \".schema\")",
+      "Bash(sqlite3 *)",
+      "Bash(chmod +x *)",
+      "Bash(~/.claude/statusline.sh)",
+      "Bash(cp /Users/cove/.claude/starship.toml /Users/cove/.local/share/chezmoi/dot_claude/starship.toml)",
+      "Bash(cp /Users/cove/.claude/settings.json /Users/cove/.local/share/chezmoi/dot_claude/settings.json)",
+      "Bash(codex --help)",
+      "Bash(zellij action *)",
+      "Bash(ZELLIJ=1 ZELLIJ_SESSION_NAME=dev echo '{}')",
+      "Bash(~/.claude/hooks/update-zellij-title.sh)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(ZELLIJ=1 cat /dev/null)",
+      "Bash(python3 *)",
+      "Bash(chezmoi git *)",
+      "Bash(nu --stdin /Users/cove/.claude/hooks/statusline.nu)",
+      "Bash(nu *)",
+      "Bash(chezmoi add *)",
+      "Bash(curl -s https://code.claude.com/docs/en/hooks.md)",
+      "WebSearch"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",
@@ -274,5 +302,6 @@
   "disabledMcpjsonServers": [
     "imago"
   ],
-  "outputStyle": "Explanatory"
+  "outputStyle": "Explanatory",
+  "spinnerTipsEnabled": false
 }
