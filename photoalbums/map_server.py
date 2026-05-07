@@ -759,7 +759,9 @@ def _existing_exif_location(existing: dict) -> tuple[str, str, str, str, str]:
     )
 
 
-def _delete_location_update(existing: dict, locations_shown: list, *, idx: int) -> tuple[str, str, str, str, str, str, str, str]:
+def _delete_location_update(
+    existing: dict, locations_shown: list, *, idx: int
+) -> tuple[str, str, str, str, str, str, str, str]:
     if 0 <= idx < len(locations_shown):
         locations_shown.pop(idx)
     exif_lat, exif_lon, exif_city, exif_state, exif_country = _existing_exif_location(existing)

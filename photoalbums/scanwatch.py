@@ -444,7 +444,9 @@ class ScanWatchService:
             return None
         self.log_info_fn(f"  [validate-stitch] page {page_num:02d} ({len(files)} scan(s))")
         stitch_validated, preview_path = self.validate_stitch_fn(files, save_preview=True)
-        self._handle_stitch_preview(page_num, stitch_validated=stitch_validated, preview_path=preview_path, open_preview=open_preview)
+        self._handle_stitch_preview(
+            page_num, stitch_validated=stitch_validated, preview_path=preview_path, open_preview=open_preview
+        )
         return stitch_validated
 
     def _handle_stitch_preview(
@@ -568,8 +570,7 @@ class ScanWatchService:
                     archive.needs_rescan_pages.add(page)
         else:
             archive.needs_rescan_pages = {
-                page for page in prior_needs_rescan
-                if archive.page_scan_counts.get(page, 0) >= 2
+                page for page in prior_needs_rescan if archive.page_scan_counts.get(page, 0) >= 2
             }
 
         return archive

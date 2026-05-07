@@ -1026,7 +1026,9 @@ def _build_step_runner_analysis_payload(
     return payload
 
 
-def _step_runner_people_payload(*, step_runner: StepRunner, existing_detections: dict[str, Any], people_matches: list) -> list:
+def _step_runner_people_payload(
+    *, step_runner: StepRunner, existing_detections: dict[str, Any], people_matches: list
+) -> list:
     if step_runner.reran.get("people"):
         return _serialize_people_matches(people_matches)
     return list(existing_detections.get("people") or [])

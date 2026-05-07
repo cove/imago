@@ -1101,8 +1101,7 @@ def _run_pipeline_face_refresh_step(
     for img_path in refresh_targets:
         try:
             ran_any = (
-                face_session.refresh_face_regions(img_path, img_path.with_suffix(".xmp"), force=should_redo)
-                or ran_any
+                face_session.refresh_face_regions(img_path, img_path.with_suffix(".xmp"), force=should_redo) or ran_any
             )
         except deps["FaceRefreshSkipped"]:
             pass
@@ -1274,7 +1273,9 @@ def run_process_pipeline(
     # Build IndexRunner once so engine caches are shared across pages
     from .lib.ai_index_runner import IndexRunner
 
-    ai_runner = IndexRunner(_pipeline_ai_runner_argv(root, gps_only=gps_only, refresh_gps=refresh_gps, force=force, debug=debug))
+    ai_runner = IndexRunner(
+        _pipeline_ai_runner_argv(root, gps_only=gps_only, refresh_gps=refresh_gps, force=force, debug=debug)
+    )
     deps = {
         "CropPageStats": CropPageStats,
         "FaceRefreshSkipped": FaceRefreshSkipped,
@@ -1360,7 +1361,9 @@ def _collect_pipeline_pages(
     for archive in archives:
         view_dir = Path(get_view_dirname(archive))
         photos_dir = Path(get_photos_dirname(archive))
-        for group in _pipeline_page_groups(archive, page=page, _require_primary_scan=_require_primary_scan, list_page_scans=list_page_scans):
+        for group in _pipeline_page_groups(
+            archive, page=page, _require_primary_scan=_require_primary_scan, list_page_scans=list_page_scans
+        ):
             all_pages.append((archive, view_dir, photos_dir, group))
     return all_pages
 
@@ -1406,7 +1409,12 @@ def _process_pipeline_pages(
 ) -> None:
     ai_page_idx = 0
     for archive, view_dir, photos_dir, group in all_pages:
-        page_context = _pipeline_page_context(group, view_dir=view_dir, _require_primary_scan=_require_primary_scan, _view_page_output_path=_view_page_output_path)
+        page_context = _pipeline_page_context(
+            group,
+            view_dir=view_dir,
+            _require_primary_scan=_require_primary_scan,
+            _view_page_output_path=_view_page_output_path,
+        )
         step_just_ran: set[str] = set()
         for step_idx, step in enumerate(active_steps, 1):
             ai_page_idx = _run_process_pipeline_step(
