@@ -54,7 +54,22 @@ The pipeline keys nearly every operation off filename structure, so consistent n
 | Extracted photo crop | `{Collection}_{Year}_B{Book}_P{Page:02d}_D{Crop:02d}-{Iter:02d}_V.jpg` | `Egypt_1975_B01_P05_D00-00_V.jpg` |
 | XMP sidecar | `{image_filename}.xmp` (alongside the JPEG/TIFF) | `Egypt_1975_B01_P05_V.xmp` |
 
-Field semantics:
+**Type Tokens** — control what stage and format a file represents:
+
+| Token | Meaning | Storage Format | Notes |
+|-------|---------|---|---|
+| `_S##` | Raw scan (archive) | `.tif` or `.png` | Original input from scanner; never processed |
+| `_D##-##` | Derived image (intermediate) | `.tif` | Extracted crop or intermediate product; not a final view |
+| `_V` | View (final rendered) | `.jpg` | Always marks a rendered/display-ready output; page views and crop views both end in `_V.jpg` |
+| `_D##-##_V` | View of derived image | `.jpg` | Extracted crop rendered as JPEG; the combination of `_D##-##` (derived) + `_V` (view) |
+
+**Invariant rules:**
+- `_S##` appears only on archive scans (`.tif`); indicates raw, unprocessed input.
+- `_V` appears only on rendered JPEGs; indicates the file is display-ready.
+- `_D##-##` appears on both intermediate TIFs and on rendered `_D##-##_V.jpg` crops.
+- Archive files are `.tif` or `.png`; view files are `.jpg`. No exceptions.
+
+**Field semantics:**
 - **Collection** — alphanumeric, no underscores (e.g., `Egypt`, `Cordell`)
 - **Year** — `YYYY` or `YYYY-YYYY` range
 - **Book** — two digits (`00`–`99`) or the ellipsis character `…` (U+2026) for unknown
@@ -1231,6 +1246,15 @@ Where Base = `{Collection}_{Year}_B{Book}`
 | **Page View (stitched)** | `{Collection}_{Year}_B{Book}_P{Page:02d}_V.jpg` | `Egypt_1975_B01_P05_V.jpg` |
 | **Crop (extracted photo)** | `{Collection}_{Year}_B{Book}_P{Page:02d}_D{Crop:02d}-{Iter:02d}_V.jpg` | `Egypt_1975_B01_P05_D00-00_V.jpg` |
 | **XMP Sidecar** | `{source_filename}.xmp` | `Egypt_1975_B01_P05_V.xmp` |
+
+**Type Tokens** — control what stage and format a file represents:
+
+| Token | Meaning | Storage | Notes |
+|-------|---------|---------|-------|
+| `_S##` | Raw scan | `.tif` or `.png` | Original input; never processed |
+| `_D##-##` | Derived image | `.tif` | Extracted crop or intermediate; not a final view |
+| `_V` | View (rendered) | `.jpg` | Always marks display-ready output; page views and crop views end in `_V.jpg` |
+| `_D##-##_V` | View of derived | `.jpg` | Extracted crop rendered as JPEG |
 
 **Field Definitions:**
 - **Collection:** Alphanumeric string (no underscores), e.g., "Egypt", "Cordell", "Hawaii"
