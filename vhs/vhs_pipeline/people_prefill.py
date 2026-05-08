@@ -160,40 +160,45 @@ def _load_chapter_context_from_tsv(archive: str, chapter_title: str) -> dict[str
             row = {str(k or "").strip().lower(): str(v or "").strip() for k, v in (raw_row or {}).items()}
             if str(row.get("title") or "").strip() != target:
                 continue
-
-            tb = _parse_timebase(row.get("timebase"))
-            start_raw_text = str(row.get("start_raw") or row.get("start") or "").strip()
-            end_raw_text = str(row.get("end_raw") or row.get("end") or "").strip()
-            if not tb or not re.fullmatch(r"-?\d+", start_raw_text) or not re.fullmatch(r"-?\d+", end_raw_text):
-                continue
-
-            tb_num, tb_den = tb
-            start_raw = int(start_raw_text)
-            end_raw = int(end_raw_text)
-            start_sec = float(Fraction(start_raw) * Fraction(tb_num, tb_den))
-            end_sec = float(Fraction(end_raw) * Fraction(tb_num, tb_den))
-            start_frame, end_frame = chapter_frame_bounds(
-                {
-                    "start_raw": start_raw,
-                    "end_raw": end_raw,
-                    "timebase_num": tb_num,
-                    "timebase_den": tb_den,
-                },
-                fps_num=FPS_NUM,
-                fps_den=FPS_DEN,
-            )
-            if end_sec <= start_sec or int(end_frame) <= int(start_frame):
-                continue
-            return {
-                "archive": str(archive or "").strip(),
-                "title": target,
-                "start_sec": float(start_sec),
-                "end_sec": float(end_sec),
-                "duration_sec": float(end_sec - start_sec),
-                "start_frame": int(start_frame),
-                "end_frame": int(end_frame),
-            }
+            context = _chapter_context_from_tsv_row(row, archive=archive, target=target)
+            if context is not None:
+                return context
     return None
+
+
+def _chapter_context_from_tsv_row(row: dict[str, str], *, archive: str, target: str) -> dict[str, Any] | None:
+    tb = _parse_timebase(row.get("timebase"))
+    start_raw_text = str(row.get("start_raw") or row.get("start") or "").strip()
+    end_raw_text = str(row.get("end_raw") or row.get("end") or "").strip()
+    if not tb or not re.fullmatch(r"-?\d+", start_raw_text) or not re.fullmatch(r"-?\d+", end_raw_text):
+        return None
+
+    tb_num, tb_den = tb
+    start_raw = int(start_raw_text)
+    end_raw = int(end_raw_text)
+    start_sec = float(Fraction(start_raw) * Fraction(tb_num, tb_den))
+    end_sec = float(Fraction(end_raw) * Fraction(tb_num, tb_den))
+    start_frame, end_frame = chapter_frame_bounds(
+        {
+            "start_raw": start_raw,
+            "end_raw": end_raw,
+            "timebase_num": tb_num,
+            "timebase_den": tb_den,
+        },
+        fps_num=FPS_NUM,
+        fps_den=FPS_DEN,
+    )
+    if end_sec <= start_sec or int(end_frame) <= int(start_frame):
+        return None
+    return {
+        "archive": str(archive or "").strip(),
+        "title": target,
+        "start_sec": float(start_sec),
+        "end_sec": float(end_sec),
+        "duration_sec": float(end_sec - start_sec),
+        "start_frame": int(start_frame),
+        "end_frame": int(end_frame),
+    }
 
 
 def _load_chapter_context(archive: str, chapter_title: str) -> dict[str, Any]:
@@ -377,6 +382,205 @@ class PrefillResult:
     chapter_end_sec: float
 
 
+def _people_names_by_id(people_rows: list[Any]) -> dict[str, str]:
+    people_by_id: dict[str, str] = {}
+    for row in list(people_rows or []):
+        if not isinstance(row, dict):
+            continue
+        person_id = str(row.get("person_id") or "").strip()
+        display_name = re.sub(r"\s+", " ", str(row.get("display_name") or "").strip())
+        if person_id and display_name:
+            people_by_id[person_id] = display_name
+    return people_by_id
+
+
+def _prefill_observations(
+    *,
+    faces_rows: list[Any],
+    people_by_id: dict[str, str],
+    archive: str,
+    chapter_title: str,
+    archive_keys: set[str],
+    chapter_start: float,
+    chapter_duration: float,
+    min_quality: float,
+    source_counts: dict[str, int],
+) -> tuple[list[tuple[float, str]], int, int]:
+    observations: list[tuple[float, str]] = []
+    matched_faces = 0
+    vhs_faces = 0
+    for row in list(faces_rows or []):
+        observation = _prefill_observation_for_face(
+            row,
+            people_by_id=people_by_id,
+            archive=archive,
+            chapter_title=chapter_title,
+            archive_keys=archive_keys,
+            chapter_start=chapter_start,
+            chapter_duration=chapter_duration,
+            min_quality=min_quality,
+        )
+        if observation is None:
+            if isinstance(row, dict) and str(row.get("source_type") or "").strip().lower() == "vhs":
+                vhs_faces += 1
+            continue
+        local_sec, person_name, mode = observation
+        vhs_faces += 1
+        matched_faces += 1
+        source_counts[mode] = int(source_counts.get(mode, 0)) + 1
+        observations.append((round(float(local_sec), 3), person_name))
+    return observations, matched_faces, vhs_faces
+
+
+def _prefill_observation_for_face(
+    row: Any,
+    *,
+    people_by_id: dict[str, str],
+    archive: str,
+    chapter_title: str,
+    archive_keys: set[str],
+    chapter_start: float,
+    chapter_duration: float,
+    min_quality: float,
+) -> tuple[float, str, str] | None:
+    if not isinstance(row, dict):
+        return None
+    if str(row.get("source_type") or "").strip().lower() != "vhs":
+        return None
+    person_id = str(row.get("person_id") or "").strip()
+    person_name = people_by_id.get(person_id)
+    timestamp = _parse_seconds(row.get("timestamp"))
+    if not person_id or not person_name or timestamp is None:
+        return None
+    raw_quality = row.get("quality")
+    if raw_quality is not None:
+        try:
+            if float(raw_quality) < float(min_quality):
+                return None
+        except Exception:
+            return None
+    mode = _classify_face_source(
+        str(row.get("source_path") or "").strip(),
+        archive=archive,
+        chapter_title=chapter_title,
+        archive_source_keys=archive_keys,
+    )
+    if not mode:
+        return None
+    local_sec = float(timestamp) - chapter_start if mode == "archive" else float(timestamp)
+    if local_sec < 0.0 or local_sec > chapter_duration:
+        return None
+    return local_sec, person_name, mode
+
+
+def _prefill_entries_from_observations(
+    *,
+    observations: list[tuple[float, str]],
+    person_hits: dict[str, int],
+    chapter_duration: float,
+    default_step_seconds: float,
+    min_step_seconds: float,
+    max_step_seconds: float,
+    min_segment_seconds: float,
+    merge_gap_seconds: float,
+) -> tuple[list[dict[str, Any]], float]:
+    by_time = _observations_by_time(observations)
+    times = sorted(by_time.keys())
+    step = _estimate_step_seconds(
+        times,
+        default_step=float(default_step_seconds),
+        min_step=float(min_step_seconds),
+        max_step=float(max_step_seconds),
+    )
+    rows = _prefill_candidate_rows(
+        by_time=by_time,
+        times=times,
+        person_hits=person_hits,
+        chapter_duration=chapter_duration,
+        half_window=max(0.15, step * 0.45),
+        min_segment_seconds=max(0.25, float(min_segment_seconds)),
+    )
+    merged = _merge_prefill_rows(rows, merge_gap=max(0.0, float(merge_gap_seconds)))
+    entries: list[dict[str, Any]] = []
+    for row in merged:
+        entry = _prefill_entry_from_row(row)
+        if entry is not None:
+            entries.append(entry)
+    return entries, step
+
+
+def _observations_by_time(observations: list[tuple[float, str]]) -> dict[float, dict[str, int]]:
+    by_time: dict[float, dict[str, int]] = {}
+    for ts, name in observations:
+        bucket = by_time.setdefault(float(ts), {})
+        bucket[name] = int(bucket.get(name, 0)) + 1
+    return by_time
+
+
+def _prefill_candidate_rows(
+    *,
+    by_time: dict[float, dict[str, int]],
+    times: list[float],
+    person_hits: dict[str, int],
+    chapter_duration: float,
+    half_window: float,
+    min_segment_seconds: float,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for ts in times:
+        counts = by_time[ts]
+        ordered_names = sorted(
+            counts.keys(),
+            key=lambda n: (-int(counts.get(n, 0)), -int(person_hits.get(n, 0)), str(n).lower()),
+        )
+        people = " | ".join(ordered_names)
+        if not people:
+            continue
+        start = max(0.0, float(ts) - half_window)
+        end = min(chapter_duration, float(ts) + half_window)
+        if end - start < min_segment_seconds:
+            start, end = _expand_prefill_segment(ts, chapter_duration, min_segment_seconds)
+        rows.append({"start": float(start), "end": float(end), "people": people})
+    return rows
+
+
+def _expand_prefill_segment(ts: float, chapter_duration: float, min_segment_seconds: float) -> tuple[float, float]:
+    center = float(ts)
+    return (
+        max(0.0, center - (min_segment_seconds * 0.5)),
+        min(chapter_duration, center + (min_segment_seconds * 0.5)),
+    )
+
+
+def _merge_prefill_rows(rows: list[dict[str, Any]], *, merge_gap: float) -> list[dict[str, Any]]:
+    merged: list[dict[str, Any]] = []
+    for row in rows:
+        start = float(row["start"])
+        end = float(row["end"])
+        people = str(row["people"])
+        if end <= start:
+            continue
+        if merged and str(merged[-1]["people"]) == people and start <= float(merged[-1]["end"]) + merge_gap:
+            merged[-1]["end"] = max(float(merged[-1]["end"]), end)
+            continue
+        merged.append({"start": start, "end": end, "people": people})
+    return merged
+
+
+def _prefill_entry_from_row(row: dict[str, Any]) -> dict[str, Any] | None:
+    start = round(float(row["start"]), 3)
+    end = round(float(row["end"]), 3)
+    if end <= start:
+        return None
+    return {
+        "start_seconds": float(start),
+        "end_seconds": float(end),
+        "start": _to_timestamp(start),
+        "end": _to_timestamp(end),
+        "people": str(row["people"]),
+    }
+
+
 def prefill_people_from_cast(
     *,
     archive: str,
@@ -400,63 +604,21 @@ def prefill_people_from_cast(
     people_rows = people_payload.get("people", []) if isinstance(people_payload, dict) else []
     faces_rows = _read_jsonl(cast_root / "faces.jsonl")
 
-    people_by_id: dict[str, str] = {}
-    for row in list(people_rows or []):
-        if not isinstance(row, dict):
-            continue
-        person_id = str(row.get("person_id") or "").strip()
-        display_name = re.sub(r"\s+", " ", str(row.get("display_name") or "").strip())
-        if person_id and display_name:
-            people_by_id[person_id] = display_name
+    people_by_id = _people_names_by_id(people_rows)
 
     archive_keys = _archive_source_keys(archive)
-    observations: list[tuple[float, str]] = []
     source_counts = {"chapter": 0, "archive": 0}
-    matched_faces = 0
-    vhs_faces = 0
-
-    for row in list(faces_rows or []):
-        if not isinstance(row, dict):
-            continue
-        if str(row.get("source_type") or "").strip().lower() != "vhs":
-            continue
-        vhs_faces += 1
-        person_id = str(row.get("person_id") or "").strip()
-        if not person_id:
-            continue
-        person_name = people_by_id.get(person_id)
-        if not person_name:
-            continue
-        timestamp = _parse_seconds(row.get("timestamp"))
-        if timestamp is None:
-            continue
-        raw_quality = row.get("quality")
-        if raw_quality is not None:
-            try:
-                if float(raw_quality) < float(min_quality):
-                    continue
-            except Exception:
-                continue
-
-        source_path = str(row.get("source_path") or "").strip()
-        mode = _classify_face_source(
-            source_path,
-            archive=archive,
-            chapter_title=chapter_title,
-            archive_source_keys=archive_keys,
-        )
-        if not mode:
-            continue
-        if mode == "archive":
-            local_sec = float(timestamp) - chapter_start
-        else:
-            local_sec = float(timestamp)
-        if local_sec < 0.0 or local_sec > chapter_duration:
-            continue
-
-        matched_faces += 1
-        source_counts[mode] = int(source_counts.get(mode, 0)) + 1
-        observations.append((round(float(local_sec), 3), person_name))
+    observations, matched_faces, vhs_faces = _prefill_observations(
+        faces_rows=faces_rows,
+        people_by_id=people_by_id,
+        archive=archive,
+        chapter_title=chapter_title,
+        archive_keys=archive_keys,
+        chapter_start=chapter_start,
+        chapter_duration=chapter_duration,
+        min_quality=min_quality,
+        source_counts=source_counts,
+    )
 
     if not observations:
         return PrefillResult(
@@ -491,79 +653,16 @@ def prefill_people_from_cast(
             chapter_end_sec=chapter_end,
         )
 
-    by_time: dict[float, dict[str, int]] = {}
-    for ts, name in observations:
-        bucket = by_time.setdefault(float(ts), {})
-        bucket[name] = int(bucket.get(name, 0)) + 1
-
-    times = sorted(by_time.keys())
-    step = _estimate_step_seconds(
-        times,
-        default_step=float(default_step_seconds),
-        min_step=float(min_step_seconds),
-        max_step=float(max_step_seconds),
+    entries, sample_step_seconds = _prefill_entries_from_observations(
+        observations=observations,
+        person_hits=person_hits,
+        chapter_duration=chapter_duration,
+        default_step_seconds=default_step_seconds,
+        min_step_seconds=min_step_seconds,
+        max_step_seconds=max_step_seconds,
+        min_segment_seconds=min_segment_seconds,
+        merge_gap_seconds=merge_gap_seconds,
     )
-    half_window = max(0.15, step * 0.45)
-    min_seg = max(0.25, float(min_segment_seconds))
-    merge_gap = max(0.0, float(merge_gap_seconds))
-
-    rows: list[dict[str, Any]] = []
-    for ts in times:
-        counts = by_time[ts]
-        ordered_names = sorted(
-            counts.keys(),
-            key=lambda n: (
-                -int(counts.get(n, 0)),
-                -int(person_hits.get(n, 0)),
-                str(n).lower(),
-            ),
-        )
-        people = " | ".join(ordered_names)
-        if not people:
-            continue
-        start = max(0.0, float(ts) - half_window)
-        end = min(chapter_duration, float(ts) + half_window)
-        if end - start < min_seg:
-            center = float(ts)
-            start = max(0.0, center - (min_seg * 0.5))
-            end = min(chapter_duration, center + (min_seg * 0.5))
-        rows.append(
-            {
-                "start": float(start),
-                "end": float(end),
-                "people": people,
-            }
-        )
-
-    merged: list[dict[str, Any]] = []
-    for row in rows:
-        start = float(row["start"])
-        end = float(row["end"])
-        people = str(row["people"])
-        if end <= start:
-            continue
-        if merged:
-            prev = merged[-1]
-            if str(prev["people"]) == people and start <= float(prev["end"]) + merge_gap:
-                prev["end"] = max(float(prev["end"]), end)
-                continue
-        merged.append({"start": start, "end": end, "people": people})
-
-    entries: list[dict[str, Any]] = []
-    for row in merged:
-        start = round(float(row["start"]), 3)
-        end = round(float(row["end"]), 3)
-        if end <= start:
-            continue
-        entries.append(
-            {
-                "start_seconds": float(start),
-                "end_seconds": float(end),
-                "start": _to_timestamp(start),
-                "end": _to_timestamp(end),
-                "people": str(row["people"]),
-            }
-        )
 
     return PrefillResult(
         entries=entries,
@@ -574,7 +673,7 @@ def prefill_people_from_cast(
             "faces_used": int(len(observations)),
             "entries_generated": int(len(entries)),
             "unique_people": int(len(keep_names)),
-            "sample_step_seconds": float(round(step, 3)),
+            "sample_step_seconds": float(round(sample_step_seconds, 3)),
             "source_counts": source_counts,
         },
         chapter_start_sec=chapter_start,

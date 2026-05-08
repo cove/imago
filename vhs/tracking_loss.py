@@ -503,76 +503,23 @@ def _run_with_config(config: TrackingLossConfig):
 
     iqr_mult = float(config.iqr_mult)
 
-    # Load or compute raw scores
-    signal_norm = None
-    total_frames = None
-
-    if scores_tsv:
-        if not scores_tsv.exists():
-            raise FileNotFoundError(f"Scores TSV not found: {scores_tsv}")
-        indices, scores, chroma_scores, noise_scores, tear_scores, wave_scores = load_scores_tsv(scores_tsv)
-        start_frame, end_frame = min(indices), max(indices)
-        if video_path.exists():
-            cap = cv2.VideoCapture(str(video_path))
-            if cap.isOpened():
-                total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            cap.release()
-        print(f"Loaded {len(indices)} frame scores from: {scores_tsv}")
-    else:
-        if not video_path.exists():
-            raise FileNotFoundError(f"Video file not found: {video_path}")
-        (
-            total_frames,
-            start_frame,
-            end_frame,
-            indices,
-            chroma_scores,
-            noise_scores,
-            tear_scores,
-            wave_scores,
-        ) = score_video_frames(
-            video_path=video_path,
-            start_frame=config.start_frame,
-            max_frame=config.max_frame,
-            frame_step=config.frame_step,
-            crop_top=config.crop_top,
-            crop_bottom=config.crop_bottom,
-            crop_left=config.crop_left,
-            crop_right=config.crop_right,
-        )
-        scores_np, signal_norm = combine_signal_scores(
-            chroma_scores,
-            noise_scores,
-            tear_scores,
-            wave_scores,
-            config.weight_chroma,
-            config.weight_noise,
-            config.weight_tear,
-            config.weight_wave,
-            include_norm=True,
-        )
-        scores = scores_np.astype(np.float64).tolist()
+    (
+        indices,
+        scores,
+        chroma_scores,
+        noise_scores,
+        tear_scores,
+        wave_scores,
+        signal_norm,
+        total_frames,
+        start_frame,
+        end_frame,
+    ) = _load_or_score_frames(config, video_path, scores_tsv)
 
     scores_np = np.asarray(scores, dtype=np.float64)
     evaluated_set = set(indices)
 
-    # Load chapters
-    raw_chapters = []
-    chapters = []
-    chapter_overlap = {"original_count": 0, "excluded_count": 0, "kept_count": 0}
-    chapters_source = None
-    if chapters_file.exists():
-        raw_chapters = parse_chapters_ffmetadata(chapters_file)
-        chapters, chapter_overlap = resolve_overlapping_chapters(raw_chapters)
-        chapters_source = str(chapters_file)
-        print(
-            f"Loaded {len(raw_chapters)} chapters from: {chapters_file} "
-            f"(kept {len(chapters)}, excluded overlaps: {chapter_overlap['excluded_count']})"
-        )
-        for ch in chapters:
-            print(f"  [{ch['start']:>7} - {ch['end']:>7}]  {ch.get('title', '?')}")
-    else:
-        print(f"WARNING: chapters file not found ({chapters_file}); using single window over all frames.")
+    raw_chapters, chapters, chapter_overlap, chapters_source = _load_tracking_chapters(chapters_file)
 
     # Per-chapter IQR thresholds - now uses config.iqr_mult
     thresholds, chapter_ids, window_info = compute_per_frame_thresholds(
@@ -655,32 +602,13 @@ def _run_with_config(config: TrackingLossConfig):
         },
     }
 
-    if raw_chapters:
-        predicted_bad = set(bad_frames)
-        tp = len(predicted_bad & existing_bad_eval)
-        fp = len(predicted_bad - existing_bad_eval)
-        fn = len(existing_bad_eval - predicted_bad)
-        tn = len(evaluated_set) - tp - fp - fn
-        prec = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-        rec = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0
-        summary["comparison_to_existing_bad_frames"] = {
-            "path": str(chapters_file),
-            "existing_bad_frames_in_window": int(len(existing_bad_eval)),
-            "predicted_bad_frames": int(len(predicted_bad)),
-            "tp": int(tp),
-            "fp": int(fp),
-            "fn": int(fn),
-            "tn": int(tn),
-            "precision": float(prec),
-            "recall": float(rec),
-            "f1": float(f1),
-        }
-    else:
-        summary["comparison_to_existing_bad_frames"] = {
-            "path": str(chapters_file),
-            "note": "chapters not found; comparison skipped",
-        }
+    summary["comparison_to_existing_bad_frames"] = _comparison_to_existing_bad_frames(
+        raw_chapters=raw_chapters,
+        chapters_file=chapters_file,
+        existing_bad_eval=existing_bad_eval,
+        bad_frames=bad_frames,
+        evaluated_set=evaluated_set,
+    )
 
     chapter_updates = build_chapter_bad_frame_updates(
         chapters=chapters,
@@ -704,6 +632,130 @@ def _run_with_config(config: TrackingLossConfig):
         "evaluated_frames": int(len(indices)),
         "bad_frames": int(len(bad_frames)),
         "good_frames": int(len(good_frames)),
+    }
+
+
+def _load_or_score_frames(config: TrackingLossConfig, video_path: Path, scores_tsv: Path | None):
+    signal_norm = None
+    total_frames = None
+    if scores_tsv:
+        if not scores_tsv.exists():
+            raise FileNotFoundError(f"Scores TSV not found: {scores_tsv}")
+        indices, scores, chroma_scores, noise_scores, tear_scores, wave_scores = load_scores_tsv(scores_tsv)
+        start_frame, end_frame = min(indices), max(indices)
+        total_frames = _video_frame_count(video_path)
+        print(f"Loaded {len(indices)} frame scores from: {scores_tsv}")
+        return (
+            indices,
+            scores,
+            chroma_scores,
+            noise_scores,
+            tear_scores,
+            wave_scores,
+            signal_norm,
+            total_frames,
+            start_frame,
+            end_frame,
+        )
+
+    if not video_path.exists():
+        raise FileNotFoundError(f"Video file not found: {video_path}")
+    total_frames, start_frame, end_frame, indices, chroma_scores, noise_scores, tear_scores, wave_scores = (
+        score_video_frames(
+            video_path=video_path,
+            start_frame=config.start_frame,
+            max_frame=config.max_frame,
+            frame_step=config.frame_step,
+            crop_top=config.crop_top,
+            crop_bottom=config.crop_bottom,
+            crop_left=config.crop_left,
+            crop_right=config.crop_right,
+        )
+    )
+    scores_np, signal_norm = combine_signal_scores(
+        chroma_scores,
+        noise_scores,
+        tear_scores,
+        wave_scores,
+        config.weight_chroma,
+        config.weight_noise,
+        config.weight_tear,
+        config.weight_wave,
+        include_norm=True,
+    )
+    scores = scores_np.astype(np.float64).tolist()
+    return (
+        indices,
+        scores,
+        chroma_scores,
+        noise_scores,
+        tear_scores,
+        wave_scores,
+        signal_norm,
+        total_frames,
+        start_frame,
+        end_frame,
+    )
+
+
+def _video_frame_count(video_path: Path) -> int | None:
+    if not video_path.exists():
+        return None
+    cap = cv2.VideoCapture(str(video_path))
+    try:
+        return int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) if cap.isOpened() else None
+    finally:
+        cap.release()
+
+
+def _load_tracking_chapters(chapters_file: Path):
+    if not chapters_file.exists():
+        print(f"WARNING: chapters file not found ({chapters_file}); using single window over all frames.")
+        return [], [], {"original_count": 0, "excluded_count": 0, "kept_count": 0}, None
+
+    raw_chapters = parse_chapters_ffmetadata(chapters_file)
+    chapters, chapter_overlap = resolve_overlapping_chapters(raw_chapters)
+    print(
+        f"Loaded {len(raw_chapters)} chapters from: {chapters_file} "
+        f"(kept {len(chapters)}, excluded overlaps: {chapter_overlap['excluded_count']})"
+    )
+    for ch in chapters:
+        print(f"  [{ch['start']:>7} - {ch['end']:>7}]  {ch.get('title', '?')}")
+    return raw_chapters, chapters, chapter_overlap, str(chapters_file)
+
+
+def _comparison_to_existing_bad_frames(
+    *,
+    raw_chapters,
+    chapters_file: Path,
+    existing_bad_eval: set[int],
+    bad_frames: list[int],
+    evaluated_set: set[int],
+):
+    if not raw_chapters:
+        return {
+            "path": str(chapters_file),
+            "note": "chapters not found; comparison skipped",
+        }
+    predicted_bad = set(bad_frames)
+    tp = len(predicted_bad & existing_bad_eval)
+    fp = len(predicted_bad - existing_bad_eval)
+    fn = len(existing_bad_eval - predicted_bad)
+    tn = len(evaluated_set) - tp - fp - fn
+    prec = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+    rec = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+    f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0
+    return {
+        "path": str(chapters_file),
+        "existing_bad_frames_in_window": int(len(existing_bad_eval)),
+        "predicted_bad_frames": int(len(predicted_bad)),
+        "tp": int(tp),
+        "fp": int(fp),
+        "fn": int(fn),
+        "tn": int(tn),
+        "precision": float(prec),
+        "recall": float(rec),
+        "f1": float(f1),
     }
 
 

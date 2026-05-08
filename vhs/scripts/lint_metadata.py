@@ -142,21 +142,9 @@ def _lint_archive(
 
     summary["chapters"] = len(chapters)
 
-    if not str(ffmeta.get("title", "")).strip():
-        findings.append(Finding("WARN", archive, "Missing global title="))
-    if not str(ffmeta.get("author", "")).strip():
-        findings.append(Finding("WARN", archive, "Missing global author="))
+    _lint_global_metadata(findings, archive, ffmeta)
 
-    titles = [str(ch.get("title", "")).strip() for ch in chapters]
-    duplicates = [title for title, count in Counter(titles).items() if title and count > 1]
-    if duplicates:
-        findings.append(
-            Finding(
-                "WARN",
-                archive,
-                f"Duplicate chapter titles ({len(duplicates)}): {duplicates[0]!r}",
-            )
-        )
+    _lint_duplicate_titles(findings, archive, chapters)
 
     previous = None
     max_sec_drift = Fraction(0, 1)
@@ -164,19 +152,7 @@ def _lint_archive(
 
     for idx, ch in enumerate(chapters, start=1):
         label = f"ch{idx}"
-        title = str(ch.get("title", "")).strip()
-        if not title:
-            findings.append(Finding("ERROR", archive, f"{label}: missing title"))
-
-        for req in ("start_raw", "end_raw"):
-            if req not in ch:
-                findings.append(
-                    Finding(
-                        "ERROR",
-                        archive,
-                        f"{label}: missing {req.replace('_raw', '').upper()}",
-                    )
-                )
+        _lint_chapter_required_fields(findings, archive, label, ch)
 
         try:
             start_raw = int(ch.get("start_raw"))
@@ -188,51 +164,11 @@ def _lint_archive(
         if end_raw < start_raw:
             findings.append(Finding("ERROR", archive, f"{label}: END ({end_raw}) < START ({start_raw})"))
 
-        if "timebase" not in ch:
-            findings.append(Finding("WARN", archive, f"{label}: missing TIMEBASE (defaults to 1/1)"))
-            tb = Fraction(1, 1)
-        else:
-            try:
-                tb = _parse_fraction(str(ch.get("timebase")))
-            except Exception as exc:
-                findings.append(Finding("ERROR", archive, f"{label}: invalid TIMEBASE ({exc})"))
-                continue
+        tb = _lint_chapter_timebase(findings, archive, label, ch, summary, target_timebase)
+        if tb is None:
+            continue
 
-        tb_text = f"{tb.numerator}/{tb.denominator}"
-        summary["timebases"].add(tb_text)
-        if tb != target_timebase:
-            findings.append(Finding("INFO", archive, f"{label}: legacy TIMEBASE={tb_text}"))
-
-        unknown_keys: list[str] = []
-        for key in ch.keys():
-            key_s = str(key)
-            if key_s in DERIVED_CHAPTER_KEYS:
-                continue
-            if key_s.startswith("#"):
-                findings.append(
-                    Finding(
-                        "WARN",
-                        archive,
-                        f"{label}: comment-style key parsed literally: {key_s}",
-                    )
-                )
-                continue
-            if key_s in CANONICAL_CHAPTER_KEYS:
-                continue
-            if key_s.startswith("recording_"):
-                continue
-            if key_s in LIKELY_TYPO_MAP:
-                findings.append(
-                    Finding(
-                        "WARN",
-                        archive,
-                        f"{label}: probable typo key '{key_s}' (did you mean '{LIKELY_TYPO_MAP[key_s]}')",
-                    )
-                )
-                continue
-            unknown_keys.append(key_s)
-        for key_s in sorted(set(unknown_keys)):
-            findings.append(Finding("WARN", archive, f"{label}: unknown chapter key '{key_s}'"))
+        _lint_chapter_keys(findings, archive, label, ch)
 
         start_frame, end_frame = chapter_frame_bounds(ch, fps_num=30000, fps_den=1001)
         if previous is not None:
@@ -252,62 +188,157 @@ def _lint_archive(
         previous = (start_frame, end_frame, label)
 
         if simulate_conversion:
-            converted_start = _round_fraction_nearest_int(Fraction(start_raw) * tb / target_timebase)
-            converted_end = _round_fraction_nearest_int(Fraction(end_raw) * tb / target_timebase)
-
-            original_start_frame = _round_fraction_nearest_int(Fraction(start_raw) * tb * FPS)
-            original_end_frame = _round_fraction_nearest_int(Fraction(end_raw) * tb * FPS)
-            converted_start_frame = _round_fraction_nearest_int(Fraction(converted_start) * target_timebase * FPS)
-            converted_end_frame = _round_fraction_nearest_int(Fraction(converted_end) * target_timebase * FPS)
-
-            if (converted_start_frame, converted_end_frame) != (
-                original_start_frame,
-                original_end_frame,
-            ):
-                conversion_mismatches += 1
-                findings.append(
-                    Finding(
-                        "ERROR",
-                        archive,
-                        (
-                            f"{label}: converted frame mismatch "
-                            f"({converted_start_frame},{converted_end_frame}) != "
-                            f"({original_start_frame},{original_end_frame})"
-                        ),
-                    )
-                )
-
-            start_drift = abs(Fraction(converted_start) * target_timebase - Fraction(start_raw) * tb)
-            end_drift = abs(Fraction(converted_end) * target_timebase - Fraction(end_raw) * tb)
-            max_sec_drift = max(max_sec_drift, start_drift, end_drift)
+            drift, mismatched = _lint_chapter_conversion(
+                findings,
+                archive,
+                label,
+                start_raw,
+                end_raw,
+                tb,
+                target_timebase,
+            )
+            conversion_mismatches += int(mismatched)
+            max_sec_drift = max(max_sec_drift, drift)
 
     if simulate_conversion:
-        allowed = target_timebase / 2
-        if max_sec_drift > allowed:
+        _append_conversion_summary(findings, archive, target_timebase, max_sec_drift, conversion_mismatches)
+
+    return findings, summary
+
+
+def _lint_duplicate_titles(findings: list[Finding], archive: str, chapters: list[dict]) -> None:
+    titles = [str(ch.get("title", "")).strip() for ch in chapters]
+    duplicates = [title for title, count in Counter(titles).items() if title and count > 1]
+    if duplicates:
+        findings.append(Finding("WARN", archive, f"Duplicate chapter titles ({len(duplicates)}): {duplicates[0]!r}"))
+
+
+def _lint_global_metadata(findings: list[Finding], archive: str, ffmeta: dict) -> None:
+    if not str(ffmeta.get("title", "")).strip():
+        findings.append(Finding("WARN", archive, "Missing global title="))
+    if not str(ffmeta.get("author", "")).strip():
+        findings.append(Finding("WARN", archive, "Missing global author="))
+
+
+def _lint_chapter_keys(findings: list[Finding], archive: str, label: str, chapter: dict) -> None:
+    unknown_keys: list[str] = []
+    for key in chapter.keys():
+        key_s = str(key)
+        if key_s in DERIVED_CHAPTER_KEYS or key_s in CANONICAL_CHAPTER_KEYS or key_s.startswith("recording_"):
+            continue
+        if key_s.startswith("#"):
+            findings.append(Finding("WARN", archive, f"{label}: comment-style key parsed literally: {key_s}"))
+            continue
+        if key_s in LIKELY_TYPO_MAP:
             findings.append(
                 Finding(
-                    "ERROR",
-                    archive,
-                    (
-                        "Simulated conversion drift exceeds half target tick: "
-                        f"max={float(max_sec_drift):.9f}s allowed={float(allowed):.9f}s"
-                    ),
+                    "WARN", archive, f"{label}: probable typo key '{key_s}' (did you mean '{LIKELY_TYPO_MAP[key_s]}')"
                 )
             )
+            continue
+        unknown_keys.append(key_s)
+    for key_s in sorted(set(unknown_keys)):
+        findings.append(Finding("WARN", archive, f"{label}: unknown chapter key '{key_s}'"))
+
+
+def _lint_chapter_required_fields(findings: list[Finding], archive: str, label: str, chapter: dict) -> None:
+    if not str(chapter.get("title", "")).strip():
+        findings.append(Finding("ERROR", archive, f"{label}: missing title"))
+    for req in ("start_raw", "end_raw"):
+        if req not in chapter:
+            findings.append(Finding("ERROR", archive, f"{label}: missing {req.replace('_raw', '').upper()}"))
+
+
+def _lint_chapter_timebase(
+    findings: list[Finding],
+    archive: str,
+    label: str,
+    chapter: dict,
+    summary: dict,
+    target_timebase: Fraction,
+) -> Fraction | None:
+    if "timebase" not in chapter:
+        findings.append(Finding("WARN", archive, f"{label}: missing TIMEBASE (defaults to 1/1)"))
+        tb = Fraction(1, 1)
+    else:
+        try:
+            tb = _parse_fraction(str(chapter.get("timebase")))
+        except Exception as exc:
+            findings.append(Finding("ERROR", archive, f"{label}: invalid TIMEBASE ({exc})"))
+            return None
+    tb_text = f"{tb.numerator}/{tb.denominator}"
+    summary["timebases"].add(tb_text)
+    if tb != target_timebase:
+        findings.append(Finding("INFO", archive, f"{label}: legacy TIMEBASE={tb_text}"))
+    return tb
+
+
+def _lint_chapter_conversion(
+    findings: list[Finding],
+    archive: str,
+    label: str,
+    start_raw: int,
+    end_raw: int,
+    tb: Fraction,
+    target_timebase: Fraction,
+) -> tuple[Fraction, bool]:
+    converted_start = _round_fraction_nearest_int(Fraction(start_raw) * tb / target_timebase)
+    converted_end = _round_fraction_nearest_int(Fraction(end_raw) * tb / target_timebase)
+
+    original_start_frame = _round_fraction_nearest_int(Fraction(start_raw) * tb * FPS)
+    original_end_frame = _round_fraction_nearest_int(Fraction(end_raw) * tb * FPS)
+    converted_start_frame = _round_fraction_nearest_int(Fraction(converted_start) * target_timebase * FPS)
+    converted_end_frame = _round_fraction_nearest_int(Fraction(converted_end) * target_timebase * FPS)
+
+    mismatched = (converted_start_frame, converted_end_frame) != (original_start_frame, original_end_frame)
+    if mismatched:
         findings.append(
             Finding(
-                "INFO",
+                "ERROR",
                 archive,
                 (
-                    "Simulated conversion summary: "
-                    f"frame_mismatches={conversion_mismatches}, "
-                    f"max_time_drift={float(max_sec_drift):.9f}s, "
-                    f"allowed_half_tick={float(allowed):.9f}s"
+                    f"{label}: converted frame mismatch "
+                    f"({converted_start_frame},{converted_end_frame}) != "
+                    f"({original_start_frame},{original_end_frame})"
                 ),
             )
         )
+    start_drift = abs(Fraction(converted_start) * target_timebase - Fraction(start_raw) * tb)
+    end_drift = abs(Fraction(converted_end) * target_timebase - Fraction(end_raw) * tb)
+    return max(start_drift, end_drift), bool(mismatched)
 
-    return findings, summary
+
+def _append_conversion_summary(
+    findings: list[Finding],
+    archive: str,
+    target_timebase: Fraction,
+    max_sec_drift: Fraction,
+    conversion_mismatches: int,
+) -> None:
+    allowed = target_timebase / 2
+    if max_sec_drift > allowed:
+        findings.append(
+            Finding(
+                "ERROR",
+                archive,
+                (
+                    "Simulated conversion drift exceeds half target tick: "
+                    f"max={float(max_sec_drift):.9f}s allowed={float(allowed):.9f}s"
+                ),
+            )
+        )
+    findings.append(
+        Finding(
+            "INFO",
+            archive,
+            (
+                "Simulated conversion summary: "
+                f"frame_mismatches={conversion_mismatches}, "
+                f"max_time_drift={float(max_sec_drift):.9f}s, "
+                f"allowed_half_tick={float(allowed):.9f}s"
+            ),
+        )
+    )
 
 
 def main() -> int:

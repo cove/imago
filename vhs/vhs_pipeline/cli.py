@@ -198,97 +198,104 @@ def main(argv=None):
     if extras and args.group not in allowed_extras:
         parser.error("Unrecognized arguments: " + " ".join(extras))
 
-    if args.group == "convert":
-        from vhs_pipeline import commands
+    from vhs_pipeline import commands
 
+    handler = {
+        "convert": _run_convert_command,
+        "metadata": _run_metadata_command,
+        "proxy": _run_proxy_command,
+        "tuner": _run_tuner_command,
+        "render": _run_render_command,
+        "subtitles": _run_subtitles_command,
+        "compare": _run_compare_command,
+        "verify": _run_verify_command,
+        "checksum": _run_checksum_command,
+        "people": _run_people_command,
+    }.get(str(args.group or ""))
+    if handler is None:
+        parser.error("Unknown command.")
+        return 2
+    return handler(args, extras, commands)
+
+
+def _run_convert_command(args, _extras, commands):
+    if args.group == "convert":
         if args.convert_kind == "avi":
             return commands.run_convert_avi(args.files)
         if args.convert_kind == "umatic":
             return commands.run_convert_umatic(args.files)
 
-    if args.group == "metadata":
-        from vhs_pipeline import commands
 
-        if args.metadata_kind == "build":
-            return commands.run_generate_archive_metadata()
-        if args.metadata_kind == "migrate-chapters":
-            return commands.run_convert_ffmetadata_to_chapters_tsv(overwrite=args.overwrite)
-        if args.metadata_kind == "embed":
-            return commands.run_embed_metadata(args.files)
+def _run_metadata_command(args, _extras, commands):
+    if args.metadata_kind == "build":
+        return commands.run_generate_archive_metadata()
+    if args.metadata_kind == "migrate-chapters":
+        return commands.run_convert_ffmetadata_to_chapters_tsv(overwrite=args.overwrite)
+    if args.metadata_kind == "embed":
+        return commands.run_embed_metadata(args.files)
 
-    if args.group == "proxy":
-        from vhs_pipeline import commands
 
-        return commands.run_make_proxies(show_frame_number=args.frame_number)
+def _run_proxy_command(args, _extras, commands):
+    return commands.run_make_proxies(show_frame_number=args.frame_number)
 
-    if args.group == "tuner":
-        from vhs_pipeline import commands
 
-        return commands.run_tuner(host=args.host, port=args.port)
+def _run_tuner_command(args, _extras, commands):
+    return commands.run_tuner(host=args.host, port=args.port)
 
-    if args.group == "render":
-        from vhs_pipeline import commands
 
-        render_argv = list(extras or []) + list(args.render_args or [])
-        if render_argv and render_argv[0] == "--":
-            render_argv = render_argv[1:]
-        return commands.run_make_videos(render_argv)
+def _run_render_command(args, extras, commands):
+    render_argv = list(extras or []) + list(args.render_args or [])
+    if render_argv and render_argv[0] == "--":
+        render_argv = render_argv[1:]
+    return commands.run_make_videos(render_argv)
 
-    if args.group == "subtitles":
-        from vhs_pipeline import commands
 
-        return commands.run_make_subtitles(
-            archive_filters=args.archive,
-            title_filters=args.title,
-            title_exact=bool(args.title_exact),
+def _run_subtitles_command(args, _extras, commands):
+    return commands.run_make_subtitles(
+        archive_filters=args.archive,
+        title_filters=args.title,
+        title_exact=bool(args.title_exact),
+    )
+
+
+def _run_compare_command(args, _extras, commands):
+    compare_argv = []
+    _append_repeat(compare_argv, args.archive, "--archive")
+    _append_repeat(compare_argv, args.title, "--title")
+    _append_option(compare_argv, args.height, "--height")
+    _append_option(compare_argv, args.max, "--max")
+    _append_flag(compare_argv, args.overwrite, "--overwrite")
+    _append_option(compare_argv, args.output_root, "--output-root")
+    return commands.run_make_comparisons(compare_argv)
+
+
+def _run_verify_command(args, _extras, commands):
+    verify_argv = []
+    if args.manifest:
+        verify_argv.append(str(args.manifest))
+    if args.blake3:
+        verify_argv.append("--blake3")
+    elif args.sha3:
+        verify_argv.append("--sha3")
+    if args.verify_kind == "archive":
+        return commands.run_verify_archive(verify_argv)
+    if args.verify_kind == "drive":
+        return commands.run_verify_drive(verify_argv)
+
+
+def _run_checksum_command(args, _extras, commands):
+    if args.checksum_kind == "drive":
+        return commands.run_generate_drive_checksum()
+
+
+def _run_people_command(args, _extras, commands):
+    if args.people_kind == "prefill":
+        return commands.run_people_prefill(
+            archive=args.archive,
+            chapter=args.chapter,
+            cast_store=args.cast_store,
+            min_quality=args.min_quality,
+            min_name_hits=args.min_name_hits,
+            apply=bool(args.apply),
+            audit_file=args.audit_file,
         )
-
-    if args.group == "compare":
-        from vhs_pipeline import commands
-
-        compare_argv = []
-        _append_repeat(compare_argv, args.archive, "--archive")
-        _append_repeat(compare_argv, args.title, "--title")
-        _append_option(compare_argv, args.height, "--height")
-        _append_option(compare_argv, args.max, "--max")
-        _append_flag(compare_argv, args.overwrite, "--overwrite")
-        _append_option(compare_argv, args.output_root, "--output-root")
-        return commands.run_make_comparisons(compare_argv)
-
-    if args.group == "verify":
-        from vhs_pipeline import commands
-
-        verify_argv = []
-        if args.manifest:
-            verify_argv.append(str(args.manifest))
-        if args.blake3:
-            verify_argv.append("--blake3")
-        elif args.sha3:
-            verify_argv.append("--sha3")
-        if args.verify_kind == "archive":
-            return commands.run_verify_archive(verify_argv)
-        if args.verify_kind == "drive":
-            return commands.run_verify_drive(verify_argv)
-
-    if args.group == "checksum":
-        from vhs_pipeline import commands
-
-        if args.checksum_kind == "drive":
-            return commands.run_generate_drive_checksum()
-
-    if args.group == "people":
-        from vhs_pipeline import commands
-
-        if args.people_kind == "prefill":
-            return commands.run_people_prefill(
-                archive=args.archive,
-                chapter=args.chapter,
-                cast_store=args.cast_store,
-                min_quality=args.min_quality,
-                min_name_hits=args.min_name_hits,
-                apply=bool(args.apply),
-                audit_file=args.audit_file,
-            )
-
-    parser.error("Unknown command.")
-    return 2

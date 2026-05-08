@@ -294,54 +294,21 @@ class CastHandler(BaseHTTPRequestHandler):
         suggested_margin = None
         suggested_confident = bool(suggested_person_id)
 
-        if status == "pending" and face and face_embedding_model(face) not in ACTIVE_EMBEDDING_MODELS:
-            source_candidates = []
-        elif status == "pending" and face and prototypes and not source_candidates:
-            top_k = max(3, len(source_candidates))
-            try:
-                live_candidates = suggest_people_from_prototypes(
-                    query_embedding=face.get("embedding") or [],
-                    prototypes=prototypes,
-                    top_k=top_k,
-                    min_similarity=-1.0,
-                )
-            except Exception:
-                live_candidates = []
-            if live_candidates:
-                source_candidates = live_candidates
+        source_candidates = self._review_source_candidates(
+            status=status,
+            face=face,
+            source_candidates=source_candidates,
+            prototypes=prototypes,
+        )
         if status == "pending":
-            suggested, margin = choose_suggested_candidate(
-                candidates=source_candidates,
-                face_quality=face.get("quality") if isinstance(face, dict) else None,
-                min_similarity=DEFAULT_MIN_SIMILARITY,
-                min_margin=DEFAULT_MIN_MARGIN,
-                min_face_quality=DEFAULT_MIN_FACE_QUALITY,
-                min_sample_count=DEFAULT_MIN_SAMPLE_COUNT,
+            suggested_person_id, suggested_score, suggested_margin, suggested_confident = (
+                self._pending_review_suggestion(
+                    face=face,
+                    source_candidates=source_candidates,
+                )
             )
-            suggested_confident = suggested is not None
-            suggested_margin = float(margin)
-            if suggested is None:
-                suggested_person_id = None
-                suggested_score = None
-            else:
-                suggested_person_id = str(suggested.get("person_id") or "").strip() or None
-                _score = suggested.get("score")
-                suggested_score = float(_score) if _score is not None else None
 
-        candidates = []
-        for row in source_candidates:
-            if not isinstance(row, dict):
-                continue
-            person_id = str(row.get("person_id") or "").strip()
-            person = people_by_id.get(person_id, {})
-            candidates.append(
-                {
-                    "person_id": person_id,
-                    "person_name": str(person.get("display_name", "")),
-                    "score": float(row.get("score", 0.0)),
-                    "sample_count": int(row.get("sample_count", 0)),
-                }
-            )
+        candidates = self._candidate_summaries(source_candidates, people_by_id)
         decided_person_id = str(review.get("decided_person_id") or "").strip() or None
         decided_person = people_by_id.get(decided_person_id or "")
         suggested_person = people_by_id.get(suggested_person_id or "")
@@ -363,6 +330,73 @@ class CastHandler(BaseHTTPRequestHandler):
             "updated_at": str(review.get("updated_at", "")),
             "face": self._face_summary(face, people_by_id) if face else None,
         }
+
+    def _review_source_candidates(
+        self,
+        *,
+        status: str,
+        face: dict[str, Any],
+        source_candidates: list[Any],
+        prototypes: dict[str, dict[str, Any]] | None,
+    ) -> list[Any]:
+        if status != "pending" or not face:
+            return source_candidates
+        if face_embedding_model(face) not in ACTIVE_EMBEDDING_MODELS:
+            return []
+        if not prototypes or source_candidates:
+            return source_candidates
+        try:
+            live_candidates = suggest_people_from_prototypes(
+                query_embedding=face.get("embedding") or [],
+                prototypes=prototypes,
+                top_k=max(3, len(source_candidates)),
+                min_similarity=-1.0,
+            )
+        except Exception:
+            return source_candidates
+        return live_candidates or source_candidates
+
+    def _pending_review_suggestion(
+        self,
+        *,
+        face: dict[str, Any],
+        source_candidates: list[Any],
+    ) -> tuple[str | None, float | None, float, bool]:
+        suggested, margin = choose_suggested_candidate(
+            candidates=source_candidates,
+            face_quality=face.get("quality") if isinstance(face, dict) else None,
+            min_similarity=DEFAULT_MIN_SIMILARITY,
+            min_margin=DEFAULT_MIN_MARGIN,
+            min_face_quality=DEFAULT_MIN_FACE_QUALITY,
+            min_sample_count=DEFAULT_MIN_SAMPLE_COUNT,
+        )
+        if suggested is None:
+            return None, None, float(margin), False
+        suggested_person_id = str(suggested.get("person_id") or "").strip() or None
+        score = suggested.get("score")
+        suggested_score = float(score) if score is not None else None
+        return suggested_person_id, suggested_score, float(margin), True
+
+    def _candidate_summaries(
+        self,
+        source_candidates: list[Any],
+        people_by_id: dict[str, dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        candidates = []
+        for row in source_candidates:
+            if not isinstance(row, dict):
+                continue
+            person_id = str(row.get("person_id") or "").strip()
+            person = people_by_id.get(person_id, {})
+            candidates.append(
+                {
+                    "person_id": person_id,
+                    "person_name": str(person.get("display_name", "")),
+                    "score": float(row.get("score", 0.0)),
+                    "sample_count": int(row.get("sample_count", 0)),
+                }
+            )
+        return candidates
 
     def _state_payload(
         self,
@@ -711,21 +745,8 @@ class CastHandler(BaseHTTPRequestHandler):
 
         assigned_face = None
         if clean_status == "accepted":
-            pending_face = self.store.get_face(str(review.get("face_id") or ""))
-            if not pending_face:
-                raise RequestError("Unknown face_id.")
             assert decided_person_id is not None
-            try:
-                self._write_accepted_face_xmp(
-                    review_id=review_id,
-                    face=pending_face,
-                    person_id=decided_person_id,
-                )
-            except Exception as exc:
-                raise RequestError(
-                    f"XMP write-back failed for review {review_id} face {str(review.get('face_id') or '').strip()}: {exc}",
-                    status=HTTPStatus.INTERNAL_SERVER_ERROR,
-                ) from exc
+            self._write_review_acceptance_xmp(review, review_id, decided_person_id)
         try:
             updated_review = self.store.resolve_review_item(
                 review_id=review_id,
@@ -755,6 +776,28 @@ class CastHandler(BaseHTTPRequestHandler):
             except Exception as exc:
                 raise RequestError(f"Review updated but face assignment failed: {exc}") from exc
         return updated_review, assigned_face
+
+    def _write_review_acceptance_xmp(
+        self,
+        review: dict[str, Any],
+        review_id: str,
+        decided_person_id: str,
+    ) -> None:
+        pending_face = self.store.get_face(str(review.get("face_id") or ""))
+        if not pending_face:
+            raise RequestError("Unknown face_id.")
+        try:
+            self._write_accepted_face_xmp(
+                review_id=review_id,
+                face=pending_face,
+                person_id=decided_person_id,
+            )
+        except Exception as exc:
+            face_id = str(review.get("face_id") or "").strip()
+            raise RequestError(
+                f"XMP write-back failed for review {review_id} face {face_id}: {exc}",
+                status=HTTPStatus.INTERNAL_SERVER_ERROR,
+            ) from exc
 
     def _suggestion_policy_from_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
         return {
@@ -1025,49 +1068,91 @@ class CastHandler(BaseHTTPRequestHandler):
             )
             verified_names = read_person_in_image(xmp_path)
             if display_name.casefold() not in {str(name or "").casefold() for name in verified_names}:
-                print(
-                    "[cast] "
-                    + json.dumps(
-                        {
-                            "event": "xmp_write_back_verification_failed",
-                            "review_id": str(review_id or "").strip(),
-                            "face_id": str(face.get("face_id") or "").strip(),
-                            "person_id": str(person_id or "").strip(),
-                            "display_name": display_name,
-                            "source_path": source_path,
-                            "xmp_path": str(xmp_path),
-                            "bbox": list(face.get("bbox") or []),
-                            "timestamp": str(face.get("timestamp") or "").strip(),
-                            "expected_person_in_image": display_name,
-                            "verified_person_in_image": [str(name or "") for name in verified_names],
-                        },
-                        ensure_ascii=True,
-                    ),
-                    file=sys.stderr,
+                self._log_xmp_write_back_verification_failed(
+                    review_id=review_id,
+                    face=face,
+                    person_id=person_id,
+                    display_name=display_name,
+                    source_path=source_path,
+                    xmp_path=xmp_path,
+                    verified_names=verified_names,
                 )
                 raise RuntimeError(f"Assigned person was not written to Iptc4xmpExt:PersonInImage: {display_name}")
         except Exception as exc:
-            print(
-                "[cast] "
-                + json.dumps(
-                    {
-                        "event": "xmp_write_back_failed",
-                        "review_id": str(review_id or "").strip(),
-                        "face_id": str(face.get("face_id") or "").strip(),
-                        "person_id": str(person_id or "").strip(),
-                        "display_name": display_name,
-                        "source_path": source_path,
-                        "xmp_path": str(xmp_path),
-                        "bbox": list(face.get("bbox") or []),
-                        "timestamp": str(face.get("timestamp") or "").strip(),
-                        "error_type": type(exc).__name__,
-                        "error": str(exc),
-                    },
-                    ensure_ascii=True,
-                ),
-                file=sys.stderr,
+            self._log_xmp_write_back_failed(
+                review_id=review_id,
+                face=face,
+                person_id=person_id,
+                display_name=display_name,
+                source_path=source_path,
+                xmp_path=xmp_path,
+                exc=exc,
             )
             raise
+
+    def _log_xmp_write_back_verification_failed(
+        self,
+        *,
+        review_id: str,
+        face: dict[str, Any],
+        person_id: str,
+        display_name: str,
+        source_path: str,
+        xmp_path: Path,
+        verified_names: list[str],
+    ) -> None:
+        print(
+            "[cast] "
+            + json.dumps(
+                {
+                    "event": "xmp_write_back_verification_failed",
+                    "review_id": str(review_id or "").strip(),
+                    "face_id": str(face.get("face_id") or "").strip(),
+                    "person_id": str(person_id or "").strip(),
+                    "display_name": display_name,
+                    "source_path": source_path,
+                    "xmp_path": str(xmp_path),
+                    "bbox": list(face.get("bbox") or []),
+                    "timestamp": str(face.get("timestamp") or "").strip(),
+                    "expected_person_in_image": display_name,
+                    "verified_person_in_image": [str(name or "") for name in verified_names],
+                },
+                ensure_ascii=True,
+            ),
+            file=sys.stderr,
+        )
+
+    def _log_xmp_write_back_failed(
+        self,
+        *,
+        review_id: str,
+        face: dict[str, Any],
+        person_id: str,
+        display_name: str,
+        source_path: str,
+        xmp_path: Path,
+        exc: Exception,
+    ) -> None:
+        print(
+            "[cast] "
+            + json.dumps(
+                {
+                    "event": "xmp_write_back_failed",
+                    "review_id": str(review_id or "").strip(),
+                    "face_id": str(face.get("face_id") or "").strip(),
+                    "person_id": str(person_id or "").strip(),
+                    "display_name": display_name,
+                    "source_path": source_path,
+                    "xmp_path": str(xmp_path),
+                    "bbox": list(face.get("bbox") or []),
+                    "timestamp": str(face.get("timestamp") or "").strip(),
+                    "error_type": type(exc).__name__,
+                    "error": str(exc),
+                },
+                ensure_ascii=True,
+            ),
+            file=sys.stderr,
+        )
 
     def _handle_suggest(self, payload: dict[str, Any]) -> None:
         top_k = max(1, _coerce_int(payload.get("top_k"), 3))

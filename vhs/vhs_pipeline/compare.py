@@ -161,73 +161,23 @@ def run_comparisons(argv=None):
         print("No archive MKVs found.")
         return 0
 
+    counters = {
+        "created": created,
+        "skipped_existing": skipped_existing,
+        "skipped_missing_processed": skipped_missing_processed,
+        "skipped_missing_inputs": skipped_missing_inputs,
+    }
     for source in archive_mkvs:
-        archive_name = source.stem
-        if not _contains_filter(archive_name, args.archive):
-            continue
-
-        original_source_path = archive_dir_for(archive_name) / f"{archive_name}_proxy.mp4"
-        chapters_file = METADATA_DIR / archive_name / "chapters.ffmetadata"
-        if not original_source_path.exists():
-            print(f"Skipping {archive_name}: missing original source clip {original_source_path}")
-            skipped_missing_inputs += 1
-            continue
-        if not chapters_file.exists():
-            print(f"Skipping {archive_name}: missing chapters metadata {chapters_file}")
-            skipped_missing_inputs += 1
-            continue
-
-        _, chapters = parse_chapters(chapters_file)
-        if not chapters:
-            print(f"Skipping {archive_name}: no chapters found")
-            continue
-
-        effective_root = output_root or (clips_dir_for(archive_name) / "chapter_comparisons")
-        out_dir = effective_root / archive_name
-        out_dir.mkdir(parents=True, exist_ok=True)
-
-        for idx, chapter in enumerate(chapters, start=1):
-            title = str(chapter.get("title", "")).strip()
-            if not title:
-                continue
-            if not _contains_filter(title, args.title):
-                continue
-
-            start_sec = float(chapter.get("start", 0.0))
-            end_sec = float(chapter.get("end", 0.0))
-            duration_sec = max(0.0, end_sec - start_sec)
-            if duration_sec <= 0.0:
-                print(f"Skipping chapter with invalid duration: {title}")
-                continue
-
-            processed_path = find_processed_chapter_mp4(title, archive_name)
-            if not processed_path:
-                print(f"Skipping {archive_name} / {title}: missing processed chapter MP4")
-                skipped_missing_processed += 1
-                continue
-
-            out_name = f"{idx:02d}_{safe(title)}{OUTPUT_SUFFIX}"
-            out_path = out_dir / out_name
-            if is_chapter_done(out_path) and not args.overwrite:
-                print(f"Skipping existing comparison: {out_path.name}")
-                skipped_existing += 1
-                continue
-
-            print(f"Building comparison: {archive_name} / {title}")
-            make_side_by_side(
-                original_source_path=original_source_path,
-                processed_path=processed_path,
-                start_sec=start_sec,
-                duration_sec=duration_sec,
-                out_path=out_path,
-                height=args.height,
-            )
-            created += 1
-
+        if _run_archive_comparisons(source, args=args, output_root=output_root, counters=counters):
+            created = int(counters["created"])
             if args.max > 0 and created >= args.max:
                 print(f"Reached --max={args.max}.")
                 print(f"Created {created} comparison video(s).")
                 return 0
+    created = int(counters["created"])
+    skipped_existing = int(counters["skipped_existing"])
+    skipped_missing_processed = int(counters["skipped_missing_processed"])
+    skipped_missing_inputs = int(counters["skipped_missing_inputs"])
 
     print(f"Created {created} comparison video(s).")
     print(f"Skipped existing: {skipped_existing}")
@@ -235,6 +185,77 @@ def run_comparisons(argv=None):
     print(f"Skipped missing original-source/metadata inputs: {skipped_missing_inputs}")
     print("Done.")
     return 0
+
+
+def _run_archive_comparisons(source: Path, *, args, output_root: Path | None, counters: dict[str, int]) -> bool:
+    archive_name = source.stem
+    if not _contains_filter(archive_name, args.archive):
+        return False
+
+    original_source_path = archive_dir_for(archive_name) / f"{archive_name}_proxy.mp4"
+    chapters_file = METADATA_DIR / archive_name / "chapters.ffmetadata"
+    if not original_source_path.exists():
+        print(f"Skipping {archive_name}: missing original source clip {original_source_path}")
+        counters["skipped_missing_inputs"] += 1
+        return False
+    if not chapters_file.exists():
+        print(f"Skipping {archive_name}: missing chapters metadata {chapters_file}")
+        counters["skipped_missing_inputs"] += 1
+        return False
+
+    _, chapters = parse_chapters(chapters_file)
+    if not chapters:
+        print(f"Skipping {archive_name}: no chapters found")
+        return False
+
+    effective_root = output_root or (clips_dir_for(archive_name) / "chapter_comparisons")
+    out_dir = effective_root / archive_name
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    for idx, chapter in enumerate(chapters, start=1):
+        if _run_chapter_comparison(
+            archive_name=archive_name,
+            original_source_path=original_source_path,
+            out_dir=out_dir,
+            idx=idx,
+            chapter=chapter,
+            args=args,
+            counters=counters,
+        ):
+            return True
+    return False
+
+
+def _run_chapter_comparison(*, archive_name, original_source_path, out_dir, idx, chapter, args, counters) -> bool:
+    title = str(chapter.get("title", "")).strip()
+    if not title or not _contains_filter(title, args.title):
+        return False
+    start_sec = float(chapter.get("start", 0.0))
+    duration_sec = max(0.0, float(chapter.get("end", 0.0)) - start_sec)
+    if duration_sec <= 0.0:
+        print(f"Skipping chapter with invalid duration: {title}")
+        return False
+    processed_path = find_processed_chapter_mp4(title, archive_name)
+    if not processed_path:
+        print(f"Skipping {archive_name} / {title}: missing processed chapter MP4")
+        counters["skipped_missing_processed"] += 1
+        return False
+    out_path = out_dir / f"{idx:02d}_{safe(title)}{OUTPUT_SUFFIX}"
+    if is_chapter_done(out_path) and not args.overwrite:
+        print(f"Skipping existing comparison: {out_path.name}")
+        counters["skipped_existing"] += 1
+        return False
+    print(f"Building comparison: {archive_name} / {title}")
+    make_side_by_side(
+        original_source_path=original_source_path,
+        processed_path=processed_path,
+        start_sec=start_sec,
+        duration_sec=duration_sec,
+        out_path=out_path,
+        height=args.height,
+    )
+    counters["created"] += 1
+    return bool(args.max > 0 and counters["created"] >= args.max)
 
 
 def main(argv=None):
