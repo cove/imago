@@ -29,36 +29,63 @@
 - **Preprocessing:** Disabled in scanner settings; all color correction and auto-rotation handled in post-processing
 
 ### 1.2 Directory Structure
+
+All artifacts for a single album live in three sibling directories with the same base name `{Base} = {Collection}_{Year}_B{Book}`:
+
 ```
 {PHOTOS_ROOT}/
-├── {Collection}_{Year}_B{Book}_Album_Archive/
-│   ├── (raw TIFF scans)
+├── {Base}_Archive/
+│   ├── (raw TIFF scans, one or more per album page)
 │   └── (subdirectories for multi-page/multi-scan albums)
-├── {Collection}_{Year}_B{Book}_Album_Pages/
-│   └── (stitched page view JPEGs and XMP sidecars)
-└── {Collection}_{Year}_B{Book}_Album_Photos/
-    └── (extracted crop photos and metadata)
+├── {Base}_Pages/
+│   └── (stitched page-view JPEGs and their .xmp sidecars)
+└── {Base}_Photos/
+    └── (cropped individual photos and their .xmp sidecars)
 ```
 
-### 1.3 Required Configuration (Embedded Values)
+### 1.3 File Naming Convention
 
-The system needs these configuration values (historically in separate TOML/JSON files, documented here for completeness):
+The pipeline keys nearly every operation off filename structure, so consistent naming is mandatory at ingest. Detailed regexes and validation rules live in Section 11; the four canonical patterns are summarized here:
 
-**Album Sets Configuration:**
-- Maps photos root directory to archive set identifier
-- Specifies path to people roster CSV for face matching
-- Example: `photos_root = "/path/to/Photo Albums"`, `people_roster_path = "people.csv"`
+| Artifact | Pattern | Example |
+|----------|---------|---------|
+| Raw TIFF scan | `{Collection}_{Year}_B{Book}_P{Page:02d}_S{Scan:02d}.tif` | `Egypt_1975_B01_P05_S01.tif` |
+| Stitched page view | `{Collection}_{Year}_B{Book}_P{Page:02d}_V.jpg` | `Egypt_1975_B01_P05_V.jpg` |
+| Extracted photo crop | `{Collection}_{Year}_B{Book}_P{Page:02d}_D{Crop:02d}-{Iter:02d}_V.jpg` | `Egypt_1975_B01_P05_D00-00_V.jpg` |
+| XMP sidecar | `{image_filename}.xmp` (alongside the JPEG/TIFF) | `Egypt_1975_B01_P05_V.xmp` |
 
-**AI Models Configuration:**
-- OCR/Caption model selection: `google/gemma-4-31b` (via lmstudio)
-- View region model: Docling with `granite_docling` preset, `auto_inline` backend, `auto` device
-- Docling retries: `3` attempts
-- Restoration: RealRestorer enabled with standard parameters
+Field semantics:
+- **Collection** — alphanumeric, no underscores (e.g., `Egypt`, `Cordell`)
+- **Year** — `YYYY` or `YYYY-YYYY` range
+- **Book** — two digits (`00`–`99`) or the ellipsis character `…` (U+2026) for unknown
+- **Page** — two digits, leading zero required (`P05`, not `P5`)
+- **Scan** — two digits indicating the scan index for an oversized page (`S01`, `S02`, …)
+- **Crop** — two digits, sequential index of detected photos on a page (`D00`, `D01`, …)
+- **Iter** — two-digit reprocessing iteration; the first version is `00`
+- `_V` is a literal suffix marking a "view" (rendered/derived) artifact
 
-**Render Settings (Optional):**
+### 1.4 Required Specs (What the Pipeline Needs)
+
+The pipeline expects these properties of its environment and inputs to be provided by the operator, regardless of how the values are stored:
+
+**Per-archive specs the system needs:**
+- **Photos root:** absolute path to the `{PHOTOS_ROOT}` directory containing the `_Archive` / `_Pages` / `_Photos` siblings described in 1.2
+- **People roster:** path (or null) to a CSV listing known people for face-matching; expected columns include name and reference image path
+- **Album-title hint:** a human-readable album title string used to seed the metadata extractor (see Section 5.3.1)
+
+**AI baseline specs:**
+- **OCR/caption model and host:** `google/gemma-4-31b` served by an lmstudio-compatible endpoint at `http://127.0.0.1:1234/v1` (or a `localhost` equivalent)
+- **Layout-analysis pipeline:** Docling configured with preset `granite_docling`, backend `auto_inline`, device `auto`, retries `3`
+- **Photo-restoration pipeline:** RealRestorer at the pinned commit (Section 5.0); skipped automatically if the host has insufficient RAM
+
+**Render specs (defaults when no per-album override is supplied):**
 - JPEG quality: `95`
-- Render scale: `1.0` (100%)
-- Per-album stitch detector override: e.g., `"sift"` (defaults to full AFFINE_STITCH_ATTEMPTS sequence)
+- Render scale: `1.0` (full resolution)
+- Stitch detector strategy: the full `AFFINE_STITCH_ATTEMPTS` sequence (Section 2.4), with optional per-album overrides like `"sift"`
+
+**External-service specs:**
+- **Nominatim:** reachable HTTPS endpoint, default `https://nominatim.openstreetmap.org`, with a custom `User-Agent` (`imago-photoalbums-ai-index/1.0`)
+- **Local cache directory:** writable `{PHOTOALBUMS_DIR}/data/` for `geocode_cache.json` and similar artifacts
 
 ---
 
@@ -103,7 +130,7 @@ Try stitching attempts in order; first successful attempt is used. Each attempt 
 - First successful stitch is used; remaining attempts skipped
 
 **Linear Fallback (Secondary Method)**
-When affine stitching fails, use linear (sequential) stitching with optimized overlap detection:
+When all five affine attempts fail **and exactly two input scans exist**, fall back to linear (sequential) stitching with optimized overlap detection. For three or more scans, no linear fallback is attempted—the build raises an error so the operator can investigate.
 
 **Linear Stitching Parameters:**
 | Parameter | Value | Purpose |
@@ -216,14 +243,16 @@ If item has associated captions:
 7. **Note:** This is just a hint. The actual region caption comes from **Gemma-4 metadata extraction** (see Section 5.3.1), not from Docling.
 
 **Step 6: Create Region Result Object**
-For each picture, record:
-- index: sequential count (0, 1, 2, ...)
-- x, y: top-left corner pixel coordinates
-- width, height: dimensions in pixels
-- caption_hint: hint extracted from Docling (may be empty), or empty string
-- location_hint: optional location hint (usually empty from Docling)
-- person_names: optional list of person names (usually empty from Docling)
-- photo_number: optional photo identifier (defaults to 0 from Docling)
+For each picture, record a frozen dataclass with these fields:
+- `index` (int): sequential count (0, 1, 2, ...)
+- `x`, `y` (int): top-left corner pixel coordinates
+- `width`, `height` (int): dimensions in pixels
+- `confidence` (float, default 1.0): detector confidence; Docling does not expose a per-item score, so this is 1.0 unless filled later
+- `caption_hint` (str, default ""): hint extracted from Docling captions (may be empty)
+- `location_hint` (str, default ""): optional location hint (usually empty from Docling)
+- `location_payload` (dict, default {}): structured location result added later in the pipeline (empty when produced by Docling)
+- `person_names` (list[str], default []): list of person names (empty from Docling)
+- `photo_number` (int, default 0): optional photo identifier
 
 **Important:** The actual caption text that becomes `mwg-rs:Name` in XMP comes from the **Gemma-4 metadata extraction** (lmstudio model), not from Docling. Docling only provides bounding boxes and optional hints.
 
@@ -239,9 +268,9 @@ After extracting pixel coordinates, convert to normalized center-point format fo
 Validate detected regions before persisting to XMP:
 
 **Validation Rules:**
-- **Zero Area:** If `width <= 0` or `height <= 0` → reject with severity "hard"
-- **Full Page:** If region occupies ≥90% of page area → reject with severity "hard"
-- **Clamping Check:** Clamp to image bounds; log warning if clamped by >5% of any dimension
+- **Zero Area:** If `width <= 0` or `height <= 0` → reject with severity `hard`, reason `zero_area`
+- **Full Page:** If region occupies ≥90% (`_MAX_SINGLE_REGION_PAGE_FRACTION = 0.90`) of page area → reject with severity `hard`, reason `full_page`
+- **Bounds Clamping:** Coordinates outside the image are silently clamped to `[0, img_w] × [0, img_h]`; no warning is emitted
 
 **Validation Output:**
 Return a validation result object containing:
@@ -275,8 +304,7 @@ For each region in XMP sidecar:
 2. Convert normalized to pixel coordinates:
    - Calculate float pixel positions: left_f = (cx - width/2) × img_w, top_f = (cy - height/2) × img_h, right_f = (cx + width/2) × img_w, bottom_f = (cy + height/2) × img_h
    - Round and clamp to image bounds: left = max(0, round(left_f)), top = max(0, round(top_f)), right = min(img_w, round(right_f)), bottom = min(img_h, round(bottom_f))
-3. Check clamping amount: if any dimension was clamped by more than 5% of image size, log a warning
-4. Extract rectangular region from image using bounds (top:bottom, left:right)
+3. Extract rectangular region from image using bounds (top:bottom, left:right)
 
 ### 4.4 Photo Restoration
 
@@ -322,10 +350,10 @@ Call the RealRestorer pipeline with the following parameters:
 
 **1. OCR/Caption Extraction Engine**
 - **Service Type:** Local inference server (lmstudio)
-- **Server URL:** `http://127.0.0.1:1234/v1`
+- **Server URL:** `http://127.0.0.1:1234/v1` (TOML config) or `http://localhost:1234/v1` (code default fallback)
 - **Model Name:** `google/gemma-4-31b` (Google Gemma 4, 31 billion parameters)
-- **Model Source:** Hugging Face
-- **Fallback Model:** Same as primary (`google/gemma-4-31b`)
+- **Model Source:** Hugging Face / lmstudio model registry
+- **Per-purpose model lists:** `pc = ["google/gemma-4-31b"]` (people-count), `primary = ["google/gemma-4-31b"]` (general)
 
 **2. View Region Detection (Photo Detection)**
 - **Service Type:** Docling layout analysis pipeline
@@ -351,9 +379,9 @@ Call the RealRestorer pipeline with the following parameters:
 - **Purpose:** Match detected faces against people roster
 
 **5. Object Detection (Optional)**
-- **Model:** YOLOv11 nano
-- **Model Path:** `ultralytics/yolo11n.pt`
-- **Default Threshold:** 0.25 (configurable)
+- **Model:** YOLOv11 nano (Ultralytics)
+- **Model Path:** `models/yolo11n.pt` (resolved relative to the photoalbums package)
+- **Default Confidence Threshold:** `0.30` (configurable)
 
 ### 5.1 Overview
 For each page view, run a series of AI analyses on the original page and extracted crops, writing results to XMP sidecars.
@@ -540,6 +568,27 @@ Individual cropped photos inherit page-level metadata (caption, date, location) 
 **Format:** XML with RDF namespaces and custom schema
 
 ### 6.2 Namespace Declarations
+
+The sidecar declares the following prefixes. Standard interop prefixes (dc, exif, xmpMM, etc.) carry data that downstream tools (Bridge, Lightroom, exiftool) can read; `imago:` and the `stArea`/`stEvt`/`stRef` structured-type namespaces carry pipeline-specific state.
+
+| Prefix | Namespace URI | Purpose |
+|--------|---------------|---------|
+| `x` | `adobe:ns:meta/` | XMP packet container |
+| `rdf` | `http://www.w3.org/1999/02/22-rdf-syntax-ns#` | RDF/XML structure |
+| `dc` | `http://purl.org/dc/elements/1.1/` | Dublin Core |
+| `xmp` | `http://ns.adobe.com/xap/1.0/` | XMP core |
+| `xmpMM` | `http://ns.adobe.com/xap/1.0/mm/` | Media management / provenance |
+| `xmpDM` | `http://ns.adobe.com/xmp/1.0/DynamicMedia/` | Dynamic media (rarely written) |
+| `exif` | `http://ns.adobe.com/exif/1.0/` | EXIF (dates, GPS, dimensions) |
+| `Iptc4xmpExt` | `http://iptc.org/std/Iptc4xmpExt/2008-02-29/` | IPTC extension (people, location) |
+| `photoshop` | `http://ns.adobe.com/photoshop/1.0/` | Photoshop city/state/country/page |
+| `crs` | `http://ns.adobe.com/camera-raw-settings/1.0/` | Camera Raw (rarely written) |
+| `mwg-rs` | `http://www.metadataworkinggroup.com/schemas/regions/` | MWG region list |
+| `stArea` | `http://ns.adobe.com/xap/1.0/sType/Area#` | Region coordinate attributes |
+| `stEvt` | `http://ns.adobe.com/xap/1.0/sType/ResourceEvent#` | xmpMM:History events |
+| `stRef` | `http://ns.adobe.com/xap/1.0/sType/ResourceRef#` | xmpMM:DerivedFrom references |
+| `imago` | `https://imago.local/ns/1.0/` | Custom imago fields and JSON detections |
+
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <x:xmpmeta xmlns:x="adobe:ns:meta/">
@@ -548,16 +597,22 @@ Individual cropped photos inherit page-level metadata (caption, date, location) 
       xmlns:dc="http://purl.org/dc/elements/1.1/"
       xmlns:xmp="http://ns.adobe.com/xap/1.0/"
       xmlns:xmpMM="http://ns.adobe.com/xap/1.0/mm/"
+      xmlns:xmpDM="http://ns.adobe.com/xmp/1.0/DynamicMedia/"
       xmlns:exif="http://ns.adobe.com/exif/1.0/"
       xmlns:Iptc4xmpExt="http://iptc.org/std/Iptc4xmpExt/2008-02-29/"
-      xmlns:imago="https://imago.local/ns/1.0/"
       xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/"
-      xmlns:xmpDM="http://ns.adobe.com/xmp/1.0/DynamicMedia/"
       xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
-      xmlns:mwg-rs="http://www.metadataworkinggroup.com/schemas/regions/">
+      xmlns:mwg-rs="http://www.metadataworkinggroup.com/schemas/regions/"
+      xmlns:stArea="http://ns.adobe.com/xap/1.0/sType/Area#"
+      xmlns:stEvt="http://ns.adobe.com/xap/1.0/sType/ResourceEvent#"
+      xmlns:stRef="http://ns.adobe.com/xap/1.0/sType/ResourceRef#"
+      xmlns:imago="https://imago.local/ns/1.0/">
 ```
 
 ### 6.3 Dublin Core (dc:) Metadata
+
+Note: `dc:creator` is **not** written. People are recorded under `Iptc4xmpExt:PersonInImage` (Section 6.5).
+
 ```xml
 <dc:title>
   <rdf:Alt>
@@ -573,15 +628,9 @@ Individual cropped photos inherit page-level metadata (caption, date, location) 
 
 <dc:date>
   <rdf:Seq>
-    <rdf:li>{YYYY-MM-DDTHH:MM:SS format or YYYY-MM or YYYY}</rdf:li>
+    <rdf:li>{YYYY-MM-DDTHH:MM:SS or YYYY-MM-DD or YYYY-MM or YYYY}</rdf:li>
   </rdf:Seq>
 </dc:date>
-
-<dc:creator>
-  <rdf:Seq>
-    <rdf:li>{person_name}</rdf:li>
-  </rdf:Seq>
-</dc:creator>
 
 <dc:subject>
   <rdf:Bag>
@@ -594,103 +643,143 @@ Individual cropped photos inherit page-level metadata (caption, date, location) 
 
 ### 6.4 EXIF Metadata
 ```xml
-<exif:DateTimeOriginal>{YYYY:MM:DD HH:MM:SS}</exif:DateTimeOriginal>
-<exif:ImageWidth>{width}</exif:ImageWidth>
-<exif:ImageLength>{height}</exif:ImageLength>
-<exif:GPSLatitude>{lat_degrees},{lat_minutes},{lat_seconds}</exif:GPSLatitude>
-<exif:GPSLongitude>{lon_degrees},{lon_minutes},{lon_seconds}</exif:GPSLongitude>
-<exif:GPSAltitude>{altitude_in_meters}</exif:GPSAltitude>
+<exif:DateTimeOriginal>{ISO8601 datetime}</exif:DateTimeOriginal>
+<exif:GPSLatitude>{lat in DMS or signed-decimal string}</exif:GPSLatitude>
+<exif:GPSLongitude>{lon in DMS or signed-decimal string}</exif:GPSLongitude>
+<exif:GPSMapDatum>WGS-84</exif:GPSMapDatum>
+<exif:GPSVersionID>2.3.0.0</exif:GPSVersionID>
 ```
 
-### 6.5 IPTC-Ext (iptc:) Metadata
+`exif:ImageWidth`/`exif:ImageLength` are not written by the pipeline; consumers should derive dimensions from the JPEG itself.
+
+### 6.5 IPTC-Ext (Iptc4xmpExt:) Metadata
+
 ```xml
+<Iptc4xmpExt:PersonInImage>
+  <rdf:Bag>
+    <rdf:li>{person_name}</rdf:li>
+  </rdf:Bag>
+</Iptc4xmpExt:PersonInImage>
+
 <Iptc4xmpExt:LocationShown>
   <rdf:Bag>
-    <rdf:li>
-      <Iptc4xmpExt:LocationName>{location}</Iptc4xmpExt:LocationName>
-      <Iptc4xmpExt:LocationCreated>
-        <!-- nested location hierarchy -->
-      </Iptc4xmpExt:LocationCreated>
+    <rdf:li rdf:parseType="Resource">
+      <Iptc4xmpExt:LocationName>
+        <rdf:Alt>
+          <rdf:li xml:lang="x-default">{display_name}</rdf:li>
+        </rdf:Alt>
+      </Iptc4xmpExt:LocationName>
+      <Iptc4xmpExt:WorldRegion>{region}</Iptc4xmpExt:WorldRegion>
+      <Iptc4xmpExt:CountryCode>{ISO 3166-1 alpha-2}</Iptc4xmpExt:CountryCode>
+      <Iptc4xmpExt:CountryName>{country}</Iptc4xmpExt:CountryName>
+      <Iptc4xmpExt:ProvinceState>{state}</Iptc4xmpExt:ProvinceState>
+      <Iptc4xmpExt:City>{city}</Iptc4xmpExt:City>
+      <Iptc4xmpExt:Sublocation>{sublocation}</Iptc4xmpExt:Sublocation>
+      <exif:GPSLatitude>{lat}</exif:GPSLatitude>
+      <exif:GPSLongitude>{lon}</exif:GPSLongitude>
     </rdf:li>
   </rdf:Bag>
 </Iptc4xmpExt:LocationShown>
+
+<Iptc4xmpExt:Sublocation>{sublocation}</Iptc4xmpExt:Sublocation>
+<Iptc4xmpExt:LocationCreated>{formatted location string}</Iptc4xmpExt:LocationCreated>
 ```
+
+`photoshop:City`, `photoshop:State`, `photoshop:Country`, and `photoshop:PageNumber` are mirrored alongside the IPTC fields for tools that read the Photoshop namespace.
 
 ### 6.6 Imago Custom Schema (imago:)
 **Namespace:** `https://imago.local/ns/1.0/`
 
+The imago schema has two parts:
+
+1. **Discrete XML elements** for editorial / OCR text that benefits from staying queryable as XML.
+2. **A single `imago:Detections` JSON blob** for evolving operational state (people, objects, captions, location, processing/pipeline). This avoids RDF schema churn as new pipeline steps are added.
+
+#### 6.6.1 Discrete imago: Elements
+
 ```xml
-<imago:ProcessingStatus>{state}</imago:ProcessingStatus>
-<imago:PipelineSteps>
-  <rdf:Seq>
-    <rdf:li>
-      <rdf:Description>
-        <imago:StepName>{step_name}</imago:StepName>
-        <imago:StepModel>{model_name}</imago:StepModel>
-        <imago:StepResult>{result_status}</imago:StepResult>
-        <imago:StepTimestamp>{ISO8601_datetime}</imago:StepTimestamp>
-        <imago:StepExtra>{JSON_object}</imago:StepExtra>
-      </rdf:Description>
-    </rdf:li>
-  </rdf:Seq>
-</imago:PipelineSteps>
-
-<imago:PersonCount>{count}</imago:PersonCount>
-<imago:PersonInImage>
-  <rdf:Bag>
-    <rdf:li>
-      <rdf:Description>
-        <imago:PersonName>{name}</imago:PersonName>
-        <imago:MatchConfidence>{0.0-1.0}</imago:MatchConfidence>
-        <imago:MatchSource>{source}</imago:MatchSource>
-      </rdf:Description>
-    </rdf:li>
-  </rdf:Bag>
-</imago:PersonInImage>
-
-<imago:ObjectDetections>
-  <rdf:Bag>
-    <rdf:li>
-      <rdf:Description>
-        <imago:ObjectClass>{class_label}</imago:ObjectClass>
-        <imago:Confidence>{0.0-1.0}</imago:Confidence>
-      </rdf:Description>
-    </rdf:li>
-  </rdf:Bag>
-</imago:ObjectDetections>
-
-<imago:LocationPayload>{JSON_object}</imago:LocationPayload>
-<imago:LocationReverse>{JSON_from_Nominatim}</imago:LocationReverse>
+<imago:AlbumTitle>{album_title}</imago:AlbumTitle>
+<imago:OCRText>{full_page_ocr}</imago:OCRText>
+<imago:ParentOCRText>{ocr_from_parent_page}</imago:ParentOCRText>
+<imago:OCRLang>{language_code}</imago:OCRLang>
+<imago:AuthorText>{handwritten_author_annotations}</imago:AuthorText>
+<imago:SceneText>{text_visible_in_photo_scene}</imago:SceneText>
+<imago:TitleSource>{origin_of_dc:title}</imago:TitleSource>
+<imago:OCRAuthoritySource>{authoritative_ocr_provider}</imago:OCRAuthoritySource>
 ```
+
+#### 6.6.2 imago:Detections JSON
+
+A single text element whose value is a JSON object:
+
+```xml
+<imago:Detections>{...JSON object...}</imago:Detections>
+```
+
+JSON top-level keys (each optional):
+
+| Key | Type | Contents |
+|-----|------|----------|
+| `people` | array | People records (name, confidence, source, bbox, etc.) |
+| `objects` | array | Object detections (class, confidence, bbox) from YOLO |
+| `caption` | object | AI caption record (text, source model, confidence) |
+| `location` | object | Resolved location: `{city, state, country, sublocation, ...}` |
+| `processing` | object | Per-stage flags such as `people_detected`, `people_identified`, `ocr_ran` |
+| `pipeline` | object | Step records keyed by step name (see below) |
+
+**Pipeline step records** live under `pipeline.{step_name}` and contain stage-specific keys. Common keys observed:
+
+| Key | Meaning |
+|-----|---------|
+| `timestamp` | ISO-8601 when the step completed |
+| `result` | Status string (e.g., `"ok"`, `"no_regions"`, `"failed"`) |
+| `input_hash` | Hash of inputs used to detect re-run requirement |
+| `artifact_path` | Path to a debug or output artifact, if any |
+| Stage-specific fields | e.g., `concerns`, `human_inference`, `needs_another_pass`, `needs_human_review` for `verify_crops` |
+
+There is **no** `imago:ProcessingStatus` XML attribute, no `imago:PipelineSteps` rdf:Seq, and no separate `imago:PersonCount`/`imago:PersonInImage`/`imago:ObjectDetections`/`imago:LocationPayload`/`imago:LocationReverse` elements. All of that data lives inside `imago:Detections`.
 
 ### 6.7 MWG-RS Region Metadata (mwg-rs:)
-**Use Case:** Photo region detection results and crop metadata
-**Schema:** MWG (Metadata Working Group) regions specification
+**Use Case:** Photo region bounding boxes on a page view sidecar
+**Schema:** MWG (Metadata Working Group) regions, using Adobe `stArea:` structured-type attributes
+
+Coordinates are written as **attributes** on the `rdf:li` element using the `stArea:` namespace, **not** as nested `mwg-rs:x` / `mwg-rs:y` child elements. `mwg-rs:Type` and `mwg-rs:Name` are also attributes. Per-region imago-namespace fields (`imago:PhotoNumber`, `imago:CaptionHint`) are likewise attributes; structured location data and person lists are written as child elements.
 
 ```xml
-<mwg-rs:RegionList>
-  <rdf:Bag>
-    <rdf:li>
-      <rdf:Description>
-        <!-- Bounding box in normalized center-point coords (0-1) -->
-        <mwg-rs:Area>
-          <rdf:Description>
-            <mwg-rs:x>{cx}</mwg-rs:x>
-            <mwg-rs:y>{cy}</mwg-rs:y>
-            <mwg-rs:w>{width}</mwg-rs:w>
-            <mwg-rs:h>{height}</mwg-rs:h>
-            <mwg-rs:unit>normalized</mwg-rs:unit>
-          </rdf:Description>
-        </mwg-rs:Area>
-        
-        <!-- Region type and caption/name (from Gemma-4 metadata extraction - see Section 5.3.1) -->
-        <mwg-rs:Type>Photo</mwg-rs:Type>
-        <mwg-rs:Name>{caption_text_from_gemma4_metadata}</mwg-rs:Name>
-      </rdf:Description>
-    </rdf:li>
-  </rdf:Bag>
-</mwg-rs:RegionList>
+<mwg-rs:Regions rdf:parseType="Resource">
+  <mwg-rs:RegionList>
+    <rdf:Bag>
+      <rdf:li rdf:parseType="Resource"
+              mwg-rs:Type="Photo"
+              mwg-rs:Name="{caption_text_from_gemma4_metadata}"
+              stArea:x="{cx}"
+              stArea:y="{cy}"
+              stArea:w="{width}"
+              stArea:h="{height}"
+              stArea:unit="normalized"
+              imago:PhotoNumber="{1-based_index}"
+              imago:CaptionHint="{docling_caption_hint}">
+        <imago:PersonNames>
+          <rdf:Bag>
+            <rdf:li>{person_name}</rdf:li>
+          </rdf:Bag>
+        </imago:PersonNames>
+        <imago:LocationAssigned rdf:parseType="Resource">
+          <!-- city, state, country, GPS, etc. -->
+        </imago:LocationAssigned>
+        <imago:LocationOverride rdf:parseType="Resource">
+          <!-- manual override of LocationAssigned -->
+        </imago:LocationOverride>
+      </rdf:li>
+    </rdf:Bag>
+  </mwg-rs:RegionList>
+</mwg-rs:Regions>
 ```
+
+- `stArea:x`, `stArea:y`: normalized **center-point** coordinates (0.0–1.0)
+- `stArea:w`, `stArea:h`: normalized width and height (0.0–1.0)
+- `stArea:unit`: always `"normalized"`
+- Coordinates are formatted with six decimal places (e.g., `0.500000`)
 
 ### 6.8 XMP Standard Fields (xmp:)
 ```xml
@@ -701,17 +790,29 @@ Individual cropped photos inherit page-level metadata (caption, date, location) 
 ```
 
 ### 6.9 XMP Media Management (xmpMM:)
+
+History events use the Adobe `stEvt:` structured type (not bare `xmpMM:` child elements). `xmpMM:DerivedFrom` uses `stRef:`. `xmpMM:Pantry` is an rdf:Bag of cross-pipeline tracking entries.
+
 ```xml
-<xmpMM:DocumentID>urn:uuid:{unique-id}</xmpMM:DocumentID>
-<xmpMM:InstanceID>urn:uuid:{instance-id}</xmpMM:InstanceID>
+<xmpMM:DocumentID>uuid:{unique-id}</xmpMM:DocumentID>
+<xmpMM:DerivedFrom rdf:parseType="Resource">
+  <stRef:documentID>uuid:{source-document-id}</stRef:documentID>
+  <stRef:filePath>{optional source path}</stRef:filePath>
+</xmpMM:DerivedFrom>
+<xmpMM:Pantry>
+  <rdf:Bag>
+    <rdf:li rdf:parseType="Resource">
+      <xmpMM:DocumentID>uuid:{tracked-id}</xmpMM:DocumentID>
+    </rdf:li>
+  </rdf:Bag>
+</xmpMM:Pantry>
 <xmpMM:History>
   <rdf:Seq>
-    <rdf:li>
-      <rdf:Description>
-        <xmpMM:action>created</xmpMM:action>
-        <xmpMM:when>{timestamp}</xmpMM:when>
-        <xmpMM:software>imago-photoalbums</xmpMM:software>
-      </rdf:Description>
+    <rdf:li rdf:parseType="Resource">
+      <stEvt:action>{action_name}</stEvt:action>
+      <stEvt:softwareAgent>{agent_id}</stEvt:softwareAgent>
+      <stEvt:when>{ISO8601 timestamp}</stEvt:when>
+      <stEvt:parameters>{JSON or text payload}</stEvt:parameters>
     </rdf:li>
   </rdf:Seq>
 </xmpMM:History>
@@ -731,65 +832,60 @@ Individual cropped photos inherit page-level metadata (caption, date, location) 
   <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
     <rdf:Description
       xmlns:dc="http://purl.org/dc/elements/1.1/"
-      xmlns:exif="http://ns.adobe.com/exif/1.0/"
       xmlns:xmp="http://ns.adobe.com/xap/1.0/"
       xmlns:imago="https://imago.local/ns/1.0/"
-      xmlns:mwg-rs="http://www.metadataworkinggroup.com/schemas/regions/">
-      
+      xmlns:mwg-rs="http://www.metadataworkinggroup.com/schemas/regions/"
+      xmlns:stArea="http://ns.adobe.com/xap/1.0/sType/Area#">
+
       <dc:title>
         <rdf:Alt>
           <rdf:li xml:lang="x-default">Egypt 1975, Book B, Page 05</rdf:li>
         </rdf:Alt>
       </dc:title>
-      
+
       <dc:description>
         <rdf:Alt>
           <rdf:li xml:lang="x-default">Vacation photos from Cairo. Two photos: 1. Temple entrance with tourists. 2. Local market scene.</rdf:li>
         </rdf:Alt>
       </dc:description>
-      
+
       <dc:date>
         <rdf:Seq>
           <rdf:li>1975-08</rdf:li>
         </rdf:Seq>
       </dc:date>
-      
-      <exif:ImageWidth>3200</exif:ImageWidth>
-      <exif:ImageLength>2400</exif:ImageLength>
-      
-      <mwg-rs:RegionList>
-        <rdf:Bag>
-          <rdf:li>
-            <rdf:Description>
-              <mwg-rs:Area>
-                <rdf:Description>
-                  <mwg-rs:x>0.25</mwg-rs:x>
-                  <mwg-rs:y>0.30</mwg-rs:y>
-                  <mwg-rs:w>0.35</mwg-rs:w>
-                  <mwg-rs:h>0.40</mwg-rs:h>
-                  <mwg-rs:unit>normalized</mwg-rs:unit>
-                </rdf:Description>
-              </mwg-rs:Area>
-              <mwg-rs:Type>Photo</mwg-rs:Type>
-              <mwg-rs:Name>1</mwg-rs:Name>
-            </rdf:Description>
-          </rdf:li>
-        </rdf:Bag>
-      </mwg-rs:RegionList>
-      
-      <imago:ProcessingStatus>complete</imago:ProcessingStatus>
-      <imago:PipelineSteps>
-        <rdf:Seq>
-          <rdf:li>
-            <rdf:Description>
-              <imago:StepName>view_regions</imago:StepName>
-              <imago:StepModel>docling-standard-image</imago:StepModel>
-              <imago:StepResult>regions_found</imago:StepResult>
-              <imago:StepTimestamp>2024-05-08T14:30:00Z</imago:StepTimestamp>
-            </rdf:Description>
-          </rdf:li>
-        </rdf:Seq>
-      </imago:PipelineSteps>
+
+      <imago:AlbumTitle>Egypt 1975</imago:AlbumTitle>
+      <imago:OCRText>Cairo temple 1975 ...</imago:OCRText>
+
+      <mwg-rs:Regions rdf:parseType="Resource">
+        <mwg-rs:RegionList>
+          <rdf:Bag>
+            <rdf:li rdf:parseType="Resource"
+                    mwg-rs:Type="Photo"
+                    mwg-rs:Name="Cairo temple 1975"
+                    stArea:x="0.250000"
+                    stArea:y="0.300000"
+                    stArea:w="0.350000"
+                    stArea:h="0.400000"
+                    stArea:unit="normalized"
+                    imago:PhotoNumber="1"
+                    imago:CaptionHint="Cairo temple"/>
+          </rdf:Bag>
+        </mwg-rs:RegionList>
+      </mwg-rs:Regions>
+
+      <imago:Detections>{
+        "processing": {"people_detected": true, "ocr_ran": true},
+        "pipeline": {
+          "view_regions": {
+            "timestamp": "2024-05-08T14:30:00Z",
+            "result": "ok",
+            "input_hash": "sha256:..."
+          }
+        },
+        "caption": {"text": "Cairo temple 1975", "source": "google/gemma-4-31b"}
+      }</imago:Detections>
     </rdf:Description>
   </rdf:RDF>
 </x:xmpmeta>
@@ -803,60 +899,79 @@ Individual cropped photos inherit page-level metadata (caption, date, location) 
     <rdf:Description
       xmlns:dc="http://purl.org/dc/elements/1.1/"
       xmlns:exif="http://ns.adobe.com/exif/1.0/"
+      xmlns:Iptc4xmpExt="http://iptc.org/std/Iptc4xmpExt/2008-02-29/"
+      xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/"
       xmlns:imago="https://imago.local/ns/1.0/">
-      
+
       <dc:title>
         <rdf:Alt>
           <rdf:li xml:lang="x-default">Temple entrance with tourists</rdf:li>
         </rdf:Alt>
       </dc:title>
-      
+
       <dc:description>
         <rdf:Alt>
           <rdf:li xml:lang="x-default">Temple entrance. Handwritten caption: "Cairo temple 1975"</rdf:li>
         </rdf:Alt>
       </dc:description>
-      
+
       <dc:date>
         <rdf:Seq>
           <rdf:li>1975-08</rdf:li>
         </rdf:Seq>
       </dc:date>
-      
-      <dc:source>Egypt_1975_B01_P05_S01_V.jpg</dc:source>
-      
-      <exif:ImageWidth>1024</exif:ImageWidth>
-      <exif:ImageLength>768</exif:ImageLength>
-      <exif:GPSLatitude>30.0288,3.0,0.0</exif:GPSLatitude>
-      <exif:GPSLongitude>31.2495,0.0,0.0</exif:GPSLongitude>
-      
-      <imago:PersonCount>4</imago:PersonCount>
-      <imago:LocationPayload>{
-        "inferred_location": "Cairo, Egypt",
-        "confidence": 0.85,
-        "source": "image_content"
-      }</imago:LocationPayload>
-      
-      <imago:ProcessingStatus>complete</imago:ProcessingStatus>
-      <imago:PipelineSteps>
-        <rdf:Seq>
-          <rdf:li>
-            <rdf:Description>
-              <imago:StepName>crop</imago:StepName>
-              <imago:StepResult>success</imago:StepResult>
-              <imago:StepTimestamp>2024-05-08T14:35:00Z</imago:StepTimestamp>
-            </rdf:Description>
-          </rdf:li>
-          <rdf:li>
-            <rdf:Description>
-              <imago:StepName>restoration</imago:StepName>
-              <imago:StepModel>RealRestorer</imago:StepModel>
-              <imago:StepResult>restored</imago:StepResult>
-              <imago:StepTimestamp>2024-05-08T14:36:00Z</imago:StepTimestamp>
-            </rdf:Description>
-          </rdf:li>
-        </rdf:Seq>
-      </imago:PipelineSteps>
+
+      <dc:source>Egypt_1975_B01_P05_V.jpg</dc:source>
+
+      <exif:DateTimeOriginal>1975-08-01T00:00:00</exif:DateTimeOriginal>
+      <exif:GPSLatitude>30,1,43.68N</exif:GPSLatitude>
+      <exif:GPSLongitude>31,14,58.20E</exif:GPSLongitude>
+      <exif:GPSMapDatum>WGS-84</exif:GPSMapDatum>
+      <exif:GPSVersionID>2.3.0.0</exif:GPSVersionID>
+
+      <Iptc4xmpExt:PersonInImage>
+        <rdf:Bag>
+          <rdf:li>Jane Doe</rdf:li>
+          <rdf:li>John Doe</rdf:li>
+        </rdf:Bag>
+      </Iptc4xmpExt:PersonInImage>
+
+      <photoshop:City>Cairo</photoshop:City>
+      <photoshop:Country>Egypt</photoshop:Country>
+
+      <imago:OCRText>Cairo temple 1975</imago:OCRText>
+      <imago:AuthorText>Cairo temple 1975</imago:AuthorText>
+
+      <imago:Detections>{
+        "people": [
+          {"name": "Jane Doe", "confidence": 0.91, "source": "cast"},
+          {"name": "John Doe", "confidence": 0.88, "source": "cast"}
+        ],
+        "objects": [
+          {"class": "person", "confidence": 0.97}
+        ],
+        "caption": {"text": "Temple entrance with tourists", "source": "google/gemma-4-31b"},
+        "location": {
+          "city": "Cairo", "country": "Egypt",
+          "gps_latitude": 30.0288, "gps_longitude": 31.2495,
+          "source": "ai_caption"
+        },
+        "processing": {"people_detected": true, "people_identified": true, "ocr_ran": true},
+        "pipeline": {
+          "crop":        {"timestamp": "2024-05-08T14:35:00Z", "result": "ok",       "input_hash": "sha256:..."},
+          "restoration": {"timestamp": "2024-05-08T14:36:00Z", "result": "ok",       "input_hash": "sha256:..."},
+          "verify_crops":{"timestamp": "2024-05-08T14:40:00Z", "result": "ok",
+                          "concerns": {
+                            "caption":        {"verdict": "good", "reasoning": "matches handwritten note"},
+                            "gps":            {"verdict": "good", "reasoning": "Nominatim lookup matches"},
+                            "shown_location": {"verdict": "good", "reasoning": "landmark visible"},
+                            "date":           {"verdict": "good", "reasoning": "album title year"},
+                            "overall":        {"verdict": "good", "reasoning": "all concerns clear"}
+                          },
+                          "needs_another_pass": [],
+                          "needs_human_review": []}
+        }
+      }</imago:Detections>
     </rdf:Description>
   </rdf:RDF>
 </x:xmpmeta>
@@ -905,14 +1020,27 @@ Verify crops after region detection and AI processing.
 ```
 
 ### 7.4 Verification Concerns
-Evaluated fields: `caption`, `gps`, `shown_location`, `date`
 
-**Verdict Values:**
+The pipeline tracks five concerns, but only four are routable for retry:
+
+- `VERIFICATION_CONCERNS = ("caption", "gps", "shown_location", "date", "overall")`
+- `ROUTABLE_CONCERNS = ("caption", "gps", "shown_location", "date")` — eligible to appear in `needs_another_pass` / `needs_human_review`
+
+`overall` is a summary-only verdict and never appears in retry-routing arrays.
+
+**Verdict Values:** `good`, `bad`, `uncertain`
 - `good`: Metadata supported by page context
 - `bad`: Metadata conflicts with page context
 - `uncertain`: Insufficient page context for confident judgment
 
-**Output:** JSON array of concern objects with verdicts + reasoning
+**Inference Parameters (defaults):**
+| Parameter | Value |
+|-----------|-------|
+| max_tokens | 512 |
+| temperature | 0.0 |
+| max_image_edge | from settings |
+
+**Per-concern record:** `{verdict, reasoning, failure_reason}` plus top-level `human_inference`, `needs_another_pass`, `needs_human_review`.
 
 ### 7.5 Retry & Human Review Routing
 If verification finds concerns:
@@ -924,27 +1052,30 @@ If verification finds concerns:
 ## 8. Location Resolution & Fallbacks
 
 ### 8.1 Location Payload Structure
-Internal representation of location metadata during processing:
+Internal representation of resolved location metadata. Fields are flat at the top level (no `inferred_location` / `confidence` / `explicit_gps` wrappers); the raw Nominatim response, when present, lives under the `nominatim` key:
 
 ```json
 {
-  "inferred_location": "Cairo, Egypt",
-  "confidence": 0.75,
-  "source": "image_content",
-  "explicit_gps": null,
-  "location_shown": {
-    "city": "Cairo",
-    "country": "Egypt",
-    "additional": "Temple district"
-  },
-  "nominatim_result": {
+  "query": "Cairo, Egypt",
+  "display_name": "Cairo, Egypt",
+  "gps_latitude": 30.0288,
+  "gps_longitude": 31.2495,
+  "map_datum": "WGS-84",
+  "source": "ai_caption",
+  "city": "Cairo",
+  "state": "Cairo Governorate",
+  "country": "Egypt",
+  "sublocation": "Temple district",
+  "nominatim": {
     "lat": "30.0288",
     "lon": "31.2495",
     "display_name": "...",
-    "address": { ... }
+    "address": { "country": "...", "city": "...", "...": "..." }
   }
 }
 ```
+
+Optional sub-keys (`city`, `state`, `country`, `sublocation`, `nominatim`) are omitted when not available.
 
 ### 8.2 Location Extraction
 **Input:** AI-generated location string from page OCR
@@ -964,7 +1095,7 @@ Internal representation of location metadata during processing:
 **Request Parameters:**
 - `lat`, `lon`: coordinates
 - `format`: "json"
-- `zoom`: 10 (city/county level detail)
+- `zoom`: `18` (building / address-level detail; the most precise zoom Nominatim accepts)
 - `timeout`: 20.0 seconds
 
 ### 8.4 Cache Management
@@ -976,16 +1107,15 @@ Internal representation of location metadata during processing:
 - Skip failed requests (timeout, 404, rate limit)
 
 ### 8.5 Rate Limiting
-- **Min Interval:** 1.0 second between Nominatim requests
-- **Backoff:** Exponential (2s, 4s, 8s, 16s) on timeout/error
-- **Max Retries:** 3 attempts before giving up
+- **Min Interval:** 1.0 second between Nominatim requests, enforced by a simple `_throttle()` sleep before each request
+- **Backoff:** None. The current implementation does **not** retry with exponential backoff—a network or HTTP failure raises a `RuntimeError` immediately
+- **Max Retries:** 0 (single attempt per query)
 
 ### 8.6 Fallback Behavior by Scenario
 
 **Scenario: Nominatim unavailable (network error)**
-- Log warning
-- Retry with exponential backoff (up to 3 attempts)
-- If still fails: store original location string only, no coordinates
+- The geocoder raises `RuntimeError` on the first failure
+- Calling code is responsible for catching it; the resolved location is left unfilled and processing continues with whatever string evidence is available
 
 **Scenario: Location string not found**
 - Return empty/null coordinates
@@ -993,73 +1123,85 @@ Internal representation of location metadata during processing:
 - Continue processing
 
 **Scenario: Rate limited (HTTP 429)**
-- Sleep 60+ seconds
-- Retry request
-- If persists: skip geocoding for remaining batch
+- Treated as a request failure; raised to the caller (no automatic backoff/retry)
 
 **Scenario: Invalid coordinates**
 - Skip reverse lookup
 - Preserve original coordinates in XMP
 
+The geocode cache (Section 8.4) absorbs most repeat traffic, so repeated failures typically don't compound across runs.
+
 ---
 
 ## 9. Pipeline State Tracking
 
-### 9.1 Processing Status in XMP
-Field: `imago:ProcessingStatus`
-Values:
-- `pending`: Not yet processed
-- `processing`: Currently running
-- `complete`: Successfully finished
-- `failed`: Error occurred
+Pipeline state is **not** modeled as discrete RDF elements. Both the per-stage flags and the per-step records are stored as JSON inside the single `imago:Detections` element (see Section 6.6.2). There is no `imago:ProcessingStatus` attribute and no `imago:PipelineSteps` rdf:Seq.
 
-### 9.2 Pipeline Steps
-Field: `imago:PipelineSteps` (rdf:Seq of step descriptions)
+### 9.1 Per-Stage Flags
+Stored under `imago:Detections.processing` as boolean flags. Stage names observed in code include:
+- `people_detected`
+- `people_identified`
+- `ocr_ran`
+- (other stage-specific keys added as new pipeline steps come online)
 
-**Per-Step Metadata:**
-- `imago:StepName`: identifier (e.g., "view_regions", "crop", "restoration", "ai_caption")
-- `imago:StepModel`: model/service used (e.g., "docling-standard-image", "RealRestorer", "Claude-opus")
-- `imago:StepResult`: outcome (e.g., "regions_found", "success", "no_regions", "failed")
-- `imago:StepTimestamp`: ISO 8601 timestamp when step completed
-- `imago:StepExtra`: arbitrary JSON object with step-specific details (e.g., `{"result": "no_regions"}`)
+### 9.2 Pipeline Step Records
+Stored under `imago:Detections.pipeline.{step_name}` as a JSON object per step. Common step names: `view_regions`, `crop`, `restoration`, `ai_caption`, `ai_metadata`, `verify_crops`, `geocode`.
+
+**Common per-step keys:**
+| Key | Meaning |
+|-----|---------|
+| `timestamp` | ISO 8601 when step completed |
+| `result` | Outcome string (e.g., `"ok"`, `"no_regions"`, `"validation_failed"`, `"failed"`) |
+| `input_hash` | Hash of inputs used to detect re-run requirement |
+| `artifact_path` | Path to a debug/output artifact, if produced |
+
+**Step-specific extras (examples):**
+- `verify_crops` adds: `concerns` (per-concern dict of `{verdict, reasoning, failure_reason, provenance}`), `human_inference`, `needs_another_pass`, `needs_human_review`, `page_verification_ran`
 
 ### 9.3 Skip Existing Logic
-When determining whether to reprocess:
-1. Check if XMP exists and is readable
-2. Look for pipeline step with target name
-3. If step result is in terminal states (`no_regions`, `validation_failed`, `failed`), consider complete
-4. If step result is in success states (`regions_found`, `success`), verify metadata presence
-5. If metadata missing despite success state, force reprocess
+When determining whether to reprocess a stage:
+1. Read the sidecar and parse `imago:Detections` JSON
+2. Look up `pipeline.{step_name}`
+3. If the stored `input_hash` matches the current inputs and `result` is a terminal state (e.g., `ok`, `no_regions`, `validation_failed`, `failed`), skip
+4. If the result claims success but downstream metadata is missing, force reprocess
+5. If no record exists, run the step
 
 ---
 
-## 10. Configuration & Settings
+## 10. Storing the Specs (Reference File Layouts)
 
-### 10.1 Album Sets (`album_sets.toml`)
+Section 1.4 describes *what* the system needs. This section shows one concrete way to persist those specs on disk so the pipeline can read them; a reimplementation may use any equivalent storage. Filenames here are descriptive, not required.
+
+### 10.1 Album-Set Spec (TOML example)
 ```toml
 [archive_set_name]
 photos_root = "/path/to/Photo Albums"
 people_roster_path = "people.csv"
 ```
 
-Maps archive sets to directory roots and people roster files.
+Maps an archive-set identifier to its `{PHOTOS_ROOT}` directory and its people roster.
 
-### 10.2 AI Models (`ai_models.toml`)
+### 10.2 AI-Models Spec (TOML example)
 ```toml
 [archive_set_name.docling]
-preset = "standard"
+preset  = "granite_docling"
 backend = "auto_inline"
-device = "auto"
+device  = "auto"
 retries = 3
+lmstudio_base_url = "http://127.0.0.1:1234/v1"
+
+[archive_set_name.lmstudio]
+primary = ["google/gemma-4-31b"]
+pc      = ["google/gemma-4-31b"]
 
 [archive_set_name.restoration]
-enabled = true
+enabled    = true
 model_name = "RealRestorer/RealRestorer"
 ```
 
-Per-archive model configuration overrides.
+Per-archive overrides for the AI baseline. Values shown here are the defaults the current codebase ships with.
 
-### 10.3 Render Settings (`render_settings.json`)
+### 10.3 Render Spec (JSON example)
 ```json
 {
   "archive_settings": {
@@ -1074,7 +1216,7 @@ Per-archive model configuration overrides.
 }
 ```
 
-Per-album rendering control parameters.
+Per-album rendering overrides. With no override, stitching uses the full `AFFINE_STITCH_ATTEMPTS` sequence (Section 2.4).
 
 ---
 
