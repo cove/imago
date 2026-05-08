@@ -3489,6 +3489,46 @@
     "query": "Bampo Village, China",
     "status": "miss"
   },
+  "banff, canada": {
+    "city": "Banff",
+    "country": "Canada",
+    "display_name": "Banff, Alberta, Canada",
+    "latitude": "51.1750760",
+    "longitude": "-115.5720773",
+    "query": "Banff, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-AB",
+        "country": "Canada",
+        "country_code": "ca",
+        "state": "Alberta",
+        "town": "Banff"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "51.1612529",
+        "51.1934089",
+        "-115.5910001",
+        "-115.5452022"
+      ],
+      "category": "boundary",
+      "display_name": "Banff, Alberta, Canada",
+      "importance": 0.5356054074506971,
+      "lat": "51.1750760",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-115.5720773",
+      "name": "Banff",
+      "osm_id": 8452792,
+      "osm_type": "relation",
+      "place_id": 349264931,
+      "place_rank": 12,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Alberta",
+    "status": "ok",
+    "sublocation": ""
+  },
   "bangkok thialand airport, bangkok, thailand": {
     "query": "Bangkok Thialand Airport, Bangkok, Thailand",
     "status": "miss"
@@ -12520,6 +12560,10 @@
     "state": "",
     "status": "ok"
   },
+  "dolores linda, darlene": {
+    "query": "DOLORES LINDA, DARLENE",
+    "status": "miss"
+  },
   "dolores' 9th birthday, july 31st 1956": {
     "query": "Dolores' 9th Birthday, July 31st 1956",
     "status": "miss"
@@ -12539,6 +12583,18 @@
     "state": "Colorado",
     "status": "ok",
     "sublocation": ""
+  },
+  "dolores, darlene": {
+    "query": "DOLORES, DARLENE",
+    "status": "miss"
+  },
+  "dolores, gloria, darlene, linda, mother, leslie": {
+    "query": "DOLORES, GLORIA, DARLENE, LINDA, MOTHER, LESLIE",
+    "status": "miss"
+  },
+  "dolores, mother, audrey": {
+    "query": "DOLORES, MOTHER, AUDREY",
+    "status": "miss"
   },
   "dom": {
     "city": "Saas-Fee",
@@ -16415,6 +16471,10 @@
     "state": "Oaxaca",
     "status": "ok"
   },
+  "gloria, audrey, mother, dolores linda, darlene": {
+    "query": "GLORIA, AUDREY, MOTHER, DOLORES LINDA, DARLENE",
+    "status": "miss"
+  },
   "gloria, eugene": {
     "city": "Kropyvnytskyi",
     "country": "Ukraine",
@@ -19514,6 +19574,47 @@
     "query": "Hungary",
     "source": "nominatim",
     "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "huntington, usa": {
+    "city": "Huntington",
+    "country": "United States",
+    "display_name": "Huntington, Cabell County, West Virginia, United States",
+    "latitude": "38.4192496",
+    "longitude": "-82.4451540",
+    "query": "Huntington, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-WV",
+        "city": "Huntington",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Cabell County",
+        "state": "West Virginia"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "38.3759913",
+        "38.4396988",
+        "-82.5317857",
+        "-82.3531930"
+      ],
+      "category": "boundary",
+      "display_name": "Huntington, Cabell County, West Virginia, United States",
+      "importance": 0.5575724843108563,
+      "lat": "38.4192496",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-82.4451540",
+      "name": "Huntington",
+      "osm_id": 239931,
+      "osm_type": "relation",
+      "place_id": 338860173,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "West Virginia",
     "status": "ok",
     "sublocation": ""
   },
@@ -23092,6 +23193,51 @@
     "state": "Arizona",
     "status": "ok",
     "sublocation": ""
+  },
+  "lake louise, canada": {
+    "city": "",
+    "country": "Canada",
+    "display_name": "Lake Louise, Improvement District No. 9, Alberta, Canada",
+    "latitude": "51.4249668",
+    "longitude": "-116.1775350",
+    "query": "Lake Louise, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-AB",
+        "country": "Canada",
+        "country_code": "ca",
+        "county": "Improvement District No. 9",
+        "hamlet": "Lake Louise",
+        "state": "Alberta"
+      },
+      "addresstype": "hamlet",
+      "boundingbox": [
+        "51.4049668",
+        "51.4449668",
+        "-116.1975350",
+        "-116.1575350"
+      ],
+      "category": "place",
+      "display_name": "Lake Louise, Improvement District No. 9, Alberta, Canada",
+      "importance": 0.5200563866485242,
+      "lat": "51.4249668",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-116.1775350",
+      "name": "Lake Louise",
+      "osm_id": 2665400241,
+      "osm_type": "node",
+      "place_id": 376358788,
+      "place_rank": 20,
+      "type": "hamlet"
+    },
+    "source": "nominatim",
+    "state": "Alberta",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "lake louise, canada august 1965": {
+    "query": "LAKE LOUISE, CANADA AUGUST 1965",
+    "status": "miss"
   },
   "lake nasser": {
     "city": "Wadi Halfa",
@@ -27584,6 +27730,56 @@
   "mother and child statue, lanzhou, china": {
     "query": "Mother and Child Statue, Lanzhou, China",
     "status": "miss"
+  },
+  "mother, audrey": {
+    "query": "MOTHER, AUDREY",
+    "status": "miss"
+  },
+  "mother, leslie": {
+    "city": "Leslie",
+    "country": "United Kingdom",
+    "display_name": "St Mary Mother of God, High Street, Macedonia, Leslie, Fife, Scotland, KY6 3AE, United Kingdom",
+    "latitude": "56.2027438",
+    "longitude": "-3.2103307",
+    "query": "MOTHER, LESLIE",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-SCT",
+        "ISO3166-2-lvl6": "GB-FIF",
+        "amenity": "St Mary Mother of God",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Fife",
+        "postcode": "KY6 3AE",
+        "road": "High Street",
+        "state": "Scotland",
+        "suburb": "Macedonia",
+        "village": "Leslie"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "56.2025853",
+        "56.2028694",
+        "-3.2105260",
+        "-3.2101355"
+      ],
+      "category": "amenity",
+      "display_name": "St Mary Mother of God, High Street, Macedonia, Leslie, Fife, Scotland, KY6 3AE, United Kingdom",
+      "importance": 5.128328374146666e-05,
+      "lat": "56.2027438",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-3.2103307",
+      "name": "St Mary Mother of God",
+      "osm_id": 59709072,
+      "osm_type": "way",
+      "place_id": 254263788,
+      "place_rank": 30,
+      "type": "place_of_worship"
+    },
+    "source": "nominatim",
+    "state": "Scotland",
+    "status": "ok",
+    "sublocation": "High Street"
   },
   "mount fuji, japan": {
     "city": "Oyama",
@@ -35468,6 +35664,47 @@
     "query": "Salisbury, Wiltshire, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "salt lake city, usa": {
+    "city": "Salt Lake City",
+    "country": "United States",
+    "display_name": "Salt Lake City, Salt Lake County, Utah, United States",
+    "latitude": "40.7596198",
+    "longitude": "-111.8867970",
+    "query": "Salt Lake City, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-UT",
+        "city": "Salt Lake City",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Salt Lake County",
+        "state": "Utah"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "40.6999263",
+        "40.8533905",
+        "-112.1013916",
+        "-111.7404843"
+      ],
+      "category": "boundary",
+      "display_name": "Salt Lake City, Salt Lake County, Utah, United States",
+      "importance": 0.6958864719365697,
+      "lat": "40.7596198",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-111.8867970",
+      "name": "Salt Lake City",
+      "osm_id": 198770,
+      "osm_type": "relation",
+      "place_id": 422374751,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Utah",
+    "status": "ok",
+    "sublocation": ""
   },
   "salt lake city, utah": {
     "city": "Salt Lake City",
