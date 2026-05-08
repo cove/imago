@@ -16,8 +16,17 @@
   - Year: 4-digit YYYY or YYYY-YYYY range
   - Book: 2-digit number (00-99) or special ellipsis character
   - Page: 2-digit page number within album
-  - Scan: 2-digit scan number per page
+  - Scan: 2-digit scan number per page (multiple scans per page due to oversized originals)
 - **Scanner Configuration:** All preprocessing disabled—scans are raw, unrotated TIFF files
+
+### 1.1a Scanner Hardware & Specifications
+- **Device:** Epson Perfection V19 II flatbed scanner
+- **Max Scan Width:** 8.5 inches (at full width for document scanning)
+- **Physical Constraint:** Photo album pages are typically 11" × 14" or larger, exceeding scanner width
+- **Scanning Method:** Multiple overlapping passes per album page (e.g., left portion, center, right portion)
+- **Overlap Requirements:** 8-42% horizontal overlap between adjacent scans to enable stitching
+- **Resolution:** Scans at native optical resolution (~600-1200 DPI depending on album condition)
+- **Preprocessing:** Disabled in scanner settings; all color correction and auto-rotation handled in post-processing
 
 ### 1.2 Directory Structure
 ```
@@ -40,7 +49,16 @@
 
 ## 2. Page Rendering (Stitch Oversized Pages)
 
-### 2.1 Purpose
+### 2.1 Purpose & Hardware Context
+Photo album pages (typically 11" × 14" or larger) exceed the maximum scan width of the Epson Perfection V19 II scanner (which has a physical scan width of ~8.5" for standard documents). Therefore:
+
+- **Physical Constraint:** The Epson Perfection V19 II can only scan up to 8.5 inches wide at native resolution
+- **Solution:** Scan each oversized album page in multiple overlapping passes (left column, center, right column, etc.)
+- **Goal:** Combine these overlapping scans into a single unified page view JPEG with correct geometry
+
+The stitching process reconstructs the full album page from 2-4 overlapping TIFF scans per page, accounting for varying overlap amounts and slight perspective differences in the scanned regions.
+
+### 2.2 Purpose
 Combine multiple TIFF scans of a single album page into a single stitched view JPEG.
 
 ### 2.2 Entry Point
@@ -1042,15 +1060,16 @@ If you modify stitching fallback parameters, Docling presets, restoration prompt
 
 ## 15. Key Dependencies & External Services
 
-### 15.1 Python Libraries
-- `cv2` (OpenCV): Image stitching and manipulation
-- `numpy`: Array operations
-- `Pillow (PIL)`: Image reading/writing
-- `stitching`: Affine stitcher implementation
-- `diffusers`: RealRestorer pipeline (optional)
-- `docling`: Document layout and image region detection
-- `anthropic`: Claude API client for AI processing
-- `xml.etree.ElementTree`: XMP sidecar generation/parsing
+### 15.1 Python Libraries & Versions
+- `opencv-contrib-python` **4.10.0.84**: Image stitching (AffineStitcher), feature detection (SIFT, AKAZE, BRISK), image manipulation
+- `numpy` **2.4.3**: Array operations and matrix math for image processing
+- `pillow` **12.1.1**: Image I/O (JPEG, TIFF, PNG), EXIF handling, image format conversion
+- `stitching` **0.6.1**: High-level affine stitcher wrapper (uses OpenCV backend)
+- `docling` **2.88.0**: Document layout analysis and image region detection (photo detection from page layouts)
+- `diffusers` (RealRestorer fork): RealRestorer pipeline for photo restoration (from https://github.com/yfyang007/RealRestorer.git)
+- `torch` **2.10.0**: Neural network inference for RealRestorer and other ML models
+- `anthropic`: Claude API client for vision-based OCR, caption extraction, and location estimation
+- `xml.etree.ElementTree`: Standard library for XMP sidecar generation/parsing
 
 ### 15.2 External Services
 - **Nominatim (OpenStreetMap):** Geocoding service (https://nominatim.openstreetmap.org)
