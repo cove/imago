@@ -3088,6 +3088,10 @@
     "status": "ok",
     "sublocation": ""
   },
+  "audrey beth, nina": {
+    "query": "AUDREY BETH, NINA",
+    "status": "miss"
+  },
   "aurora (cruiser), saint petersburg, russia": {
     "city": "Saint Petersburg",
     "country": "Russia",
@@ -4764,6 +4768,48 @@
   "bicycle parking lot, xian, china": {
     "query": "Bicycle Parking Lot, Xian, China",
     "status": "miss"
+  },
+  "big bear lake, california, usa": {
+    "city": "Big Bear Lake",
+    "country": "United States",
+    "display_name": "Big Bear Lake, San Bernardino County, California, 92315, United States",
+    "latitude": "34.2440587",
+    "longitude": "-116.9101800",
+    "query": "Big Bear Lake, California, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "San Bernardino County",
+        "postcode": "92315",
+        "state": "California",
+        "town": "Big Bear Lake"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "34.2248463",
+        "34.2708133",
+        "-116.9623138",
+        "-116.7702258"
+      ],
+      "category": "boundary",
+      "display_name": "Big Bear Lake, San Bernardino County, California, 92315, United States",
+      "importance": 0.49663093092076543,
+      "lat": "34.2440587",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-116.9101800",
+      "name": "Big Bear Lake",
+      "osm_id": 253749,
+      "osm_type": "relation",
+      "place_id": 319753824,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
   },
   "big ben - london - westminster abbey": {
     "query": "Big Ben - London - Westminster Abbey",
@@ -7071,6 +7117,49 @@
     "source": "nominatim",
     "state": "California",
     "status": "ok"
+  },
+  "california, october 1969": {
+    "city": "Bakersfield",
+    "country": "United States",
+    "display_name": "October Sky Way, Bakersfield, Kern County, California, 93313, United States",
+    "latitude": "35.2831132",
+    "longitude": "-119.0287911",
+    "query": "California, October 1969",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Bakersfield",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Kern County",
+        "postcode": "93313",
+        "road": "October Sky Way",
+        "state": "California"
+      },
+      "addresstype": "road",
+      "boundingbox": [
+        "35.2814728",
+        "35.2853785",
+        "-119.0300309",
+        "-119.0286483"
+      ],
+      "category": "highway",
+      "display_name": "October Sky Way, Bakersfield, Kern County, California, 93313, United States",
+      "importance": 0.05340102311741814,
+      "lat": "35.2831132",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-119.0287911",
+      "name": "October Sky Way",
+      "osm_id": 171335735,
+      "osm_type": "way",
+      "place_id": 320245722,
+      "place_rank": 26,
+      "type": "residential"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": "October Sky Way"
   },
   "california, united states": {
     "city": "",
@@ -11289,6 +11378,10 @@
     "state": "California",
     "status": "ok"
   },
+  "coronado, california, october 1969": {
+    "query": "Coronado, California, October 1969",
+    "status": "miss"
+  },
   "coronado, california, united states": {
     "city": "Coronado",
     "country": "United States",
@@ -12183,6 +12276,10 @@
     "query": "Danube River fort",
     "status": "miss"
   },
+  "david,sherry, darlene, audrey beth, nina": {
+    "query": "DAVID,SHERRY, DARLENE, AUDREY BETH, NINA",
+    "status": "miss"
+  },
   "dean & tawnya's home, indiana, indianapolis": {
     "query": "Dean & Tawnya's Home, Indiana, Indianapolis",
     "status": "miss"
@@ -12560,10 +12657,6 @@
     "state": "",
     "status": "ok"
   },
-  "dolores linda, darlene": {
-    "query": "DOLORES LINDA, DARLENE",
-    "status": "miss"
-  },
   "dolores' 9th birthday, july 31st 1956": {
     "query": "Dolores' 9th Birthday, July 31st 1956",
     "status": "miss"
@@ -12583,18 +12676,6 @@
     "state": "Colorado",
     "status": "ok",
     "sublocation": ""
-  },
-  "dolores, darlene": {
-    "query": "DOLORES, DARLENE",
-    "status": "miss"
-  },
-  "dolores, gloria, darlene, linda, mother, leslie": {
-    "query": "DOLORES, GLORIA, DARLENE, LINDA, MOTHER, LESLIE",
-    "status": "miss"
-  },
-  "dolores, mother, audrey": {
-    "query": "DOLORES, MOTHER, AUDREY",
-    "status": "miss"
   },
   "dom": {
     "city": "Saas-Fee",
@@ -16471,10 +16552,6 @@
     "state": "Oaxaca",
     "status": "ok"
   },
-  "gloria, audrey, mother, dolores linda, darlene": {
-    "query": "GLORIA, AUDREY, MOTHER, DOLORES LINDA, DARLENE",
-    "status": "miss"
-  },
   "gloria, eugene": {
     "city": "Kropyvnytskyi",
     "country": "Ukraine",
@@ -16545,6 +16622,47 @@
     "latitude": "37.7693681",
     "longitude": "-122.4821837",
     "query": "Golden Gate Park, San Francisco, California, United States of America",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "golden gate park, san francisco, usa": {
+    "city": "San Francisco",
+    "country": "United States",
+    "display_name": "Golden Gate Park, San Francisco, California, United States",
+    "latitude": "37.7693681",
+    "longitude": "-122.4821837",
+    "query": "Golden Gate Park, San Francisco, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "San Francisco",
+        "country": "United States",
+        "country_code": "us",
+        "park": "Golden Gate Park",
+        "state": "California"
+      },
+      "addresstype": "park",
+      "boundingbox": [
+        "37.7641420",
+        "37.7746518",
+        "-122.5108673",
+        "-122.4531800"
+      ],
+      "category": "leisure",
+      "display_name": "Golden Gate Park, San Francisco, California, United States",
+      "importance": 0.4859384485461709,
+      "lat": "37.7693681",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-122.4821837",
+      "name": "Golden Gate Park",
+      "osm_id": 158602261,
+      "osm_type": "way",
+      "place_id": 323342695,
+      "place_rank": 24,
+      "type": "park"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -19018,6 +19136,47 @@
     "query": "hong kong,china",
     "source": "nominatim",
     "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "honolulu, hawaii, usa": {
+    "city": "Honolulu",
+    "country": "United States",
+    "display_name": "Honolulu, Honolulu County, Hawaii, United States",
+    "latitude": "21.3045470",
+    "longitude": "-157.8556760",
+    "query": "Honolulu, Hawaii, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-HI",
+        "city": "Honolulu",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Honolulu County",
+        "state": "Hawaii"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "21.2548159",
+        "21.4021936",
+        "-157.9503569",
+        "-157.6486277"
+      ],
+      "category": "place",
+      "display_name": "Honolulu, Honolulu County, Hawaii, United States",
+      "importance": 0.6733709368178348,
+      "lat": "21.3045470",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-157.8556760",
+      "name": "Honolulu",
+      "osm_id": 119231,
+      "osm_type": "relation",
+      "place_id": 378382329,
+      "place_rank": 16,
+      "type": "city"
+    },
+    "source": "nominatim",
+    "state": "Hawaii",
     "status": "ok",
     "sublocation": ""
   },
@@ -22856,6 +23015,47 @@
     "status": "ok",
     "sublocation": ""
   },
+  "laguna beach, usa": {
+    "city": "Laguna Beach",
+    "country": "United States",
+    "display_name": "Laguna Beach, Orange County, California, United States",
+    "latitude": "33.5426975",
+    "longitude": "-117.7853660",
+    "query": "Laguna Beach, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Orange County",
+        "state": "California",
+        "town": "Laguna Beach"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "33.4427421",
+        "33.6102985",
+        "-117.8645581",
+        "-117.7311832"
+      ],
+      "category": "boundary",
+      "display_name": "Laguna Beach, Orange County, California, United States",
+      "importance": 0.5211427200459763,
+      "lat": "33.5426975",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-117.7853660",
+      "name": "Laguna Beach",
+      "osm_id": 5972857,
+      "osm_type": "relation",
+      "place_id": 315017269,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "laguna hills": {
     "city": "Laguna Hills",
     "country": "United States",
@@ -23234,10 +23434,6 @@
     "state": "Alberta",
     "status": "ok",
     "sublocation": ""
-  },
-  "lake louise, canada august 1965": {
-    "query": "LAKE LOUISE, CANADA AUGUST 1965",
-    "status": "miss"
   },
   "lake nasser": {
     "city": "Wadi Halfa",
@@ -23718,6 +23914,10 @@
     "state": "Salzburg",
     "status": "ok",
     "sublocation": "58 Leopoldskronstraße"
+  },
+  "leslie - april, 1970 san juan capistrano": {
+    "query": "LESLIE - APRIL, 1970 SAN JUAN CAPISTRANO",
+    "status": "miss"
   },
   "leslie's home & school in indianapolis": {
     "query": "Leslie's home & school in Indianapolis",
@@ -24298,6 +24498,10 @@
     "state": "England",
     "status": "ok",
     "sublocation": ""
+  },
+  "linda - feb, 1970 altadena calif": {
+    "query": "LINDA - FEB, 1970 ALTADENA CALIF",
+    "status": "miss"
   },
   "lindwurmbrunnen": {
     "city": "Klagenfurt",
@@ -26556,6 +26760,47 @@
     "state": "",
     "status": "ok"
   },
+  "maui, hawaii, usa": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Maui, Maui County, Hawaii, United States",
+    "latitude": "20.8029568",
+    "longitude": "-156.3106833",
+    "query": "Maui, Hawaii, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-HI",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Maui County",
+        "island": "Maui",
+        "state": "Hawaii"
+      },
+      "addresstype": "island",
+      "boundingbox": [
+        "20.5744337",
+        "21.0315610",
+        "-156.6972445",
+        "-155.9790919"
+      ],
+      "category": "place",
+      "display_name": "Maui, Maui County, Hawaii, United States",
+      "importance": 0.5978005512146745,
+      "lat": "20.8029568",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-156.3106833",
+      "name": "Maui",
+      "osm_id": 3403431,
+      "osm_type": "relation",
+      "place_id": 378144310,
+      "place_rank": 17,
+      "type": "island"
+    },
+    "source": "nominatim",
+    "state": "Hawaii",
+    "status": "ok",
+    "sublocation": ""
+  },
   "mausoleum": {
     "city": "Bückeburg",
     "country": "Germany",
@@ -26894,6 +27139,48 @@
     "source": "nominatim",
     "state": "Cairo",
     "status": "ok"
+  },
+  "mexicali, mexico": {
+    "city": "Mexicali",
+    "country": "Mexico",
+    "display_name": "Mexicali, Mexicali Municipality, Baja California, 21000, Mexico",
+    "latitude": "32.6245314",
+    "longitude": "-115.4526040",
+    "query": "Mexicali, Mexico",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "MX-BCN",
+        "city": "Mexicali",
+        "country": "Mexico",
+        "country_code": "mx",
+        "county": "Mexicali Municipality",
+        "postcode": "21000",
+        "state": "Baja California"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "32.4645314",
+        "32.7845314",
+        "-115.6126040",
+        "-115.2926040"
+      ],
+      "category": "place",
+      "display_name": "Mexicali, Mexicali Municipality, Baja California, 21000, Mexico",
+      "importance": 0.5633190783837775,
+      "lat": "32.6245314",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-115.4526040",
+      "name": "Mexicali",
+      "osm_id": 213601095,
+      "osm_type": "node",
+      "place_id": 318651020,
+      "place_rank": 16,
+      "type": "city"
+    },
+    "source": "nominatim",
+    "state": "Baja California",
+    "status": "ok",
+    "sublocation": ""
   },
   "mexico": {
     "city": "",
@@ -27730,56 +28017,6 @@
   "mother and child statue, lanzhou, china": {
     "query": "Mother and Child Statue, Lanzhou, China",
     "status": "miss"
-  },
-  "mother, audrey": {
-    "query": "MOTHER, AUDREY",
-    "status": "miss"
-  },
-  "mother, leslie": {
-    "city": "Leslie",
-    "country": "United Kingdom",
-    "display_name": "St Mary Mother of God, High Street, Macedonia, Leslie, Fife, Scotland, KY6 3AE, United Kingdom",
-    "latitude": "56.2027438",
-    "longitude": "-3.2103307",
-    "query": "MOTHER, LESLIE",
-    "raw": {
-      "address": {
-        "ISO3166-2-lvl4": "GB-SCT",
-        "ISO3166-2-lvl6": "GB-FIF",
-        "amenity": "St Mary Mother of God",
-        "country": "United Kingdom",
-        "country_code": "gb",
-        "county": "Fife",
-        "postcode": "KY6 3AE",
-        "road": "High Street",
-        "state": "Scotland",
-        "suburb": "Macedonia",
-        "village": "Leslie"
-      },
-      "addresstype": "amenity",
-      "boundingbox": [
-        "56.2025853",
-        "56.2028694",
-        "-3.2105260",
-        "-3.2101355"
-      ],
-      "category": "amenity",
-      "display_name": "St Mary Mother of God, High Street, Macedonia, Leslie, Fife, Scotland, KY6 3AE, United Kingdom",
-      "importance": 5.128328374146666e-05,
-      "lat": "56.2027438",
-      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
-      "lon": "-3.2103307",
-      "name": "St Mary Mother of God",
-      "osm_id": 59709072,
-      "osm_type": "way",
-      "place_id": 254263788,
-      "place_rank": 30,
-      "type": "place_of_worship"
-    },
-    "source": "nominatim",
-    "state": "Scotland",
-    "status": "ok",
-    "sublocation": "High Street"
   },
   "mount fuji, japan": {
     "city": "Oyama",
@@ -29255,6 +29492,47 @@
     "state": "Bavaria",
     "status": "ok",
     "sublocation": "1 Chevauleger Brücke"
+  },
+  "oahu, hawaii, usa": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Oahu, Hawaii, USA, Hawaii, United States",
+    "latitude": "21.4834365",
+    "longitude": "-158.0364837",
+    "query": "Oahu, Hawaii, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-HI",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Honolulu County",
+        "island": "Oʻahu",
+        "state": "Hawaii"
+      },
+      "addresstype": "island",
+      "boundingbox": [
+        "21.2548159",
+        "21.7120060",
+        "-158.2805762",
+        "-157.6486277"
+      ],
+      "category": "place",
+      "display_name": "Oʻahu, Honolulu County, Hawaii, United States",
+      "importance": 0.5803159810298222,
+      "lat": "21.4834365",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-158.0364837",
+      "name": "Oʻahu",
+      "osm_id": 3489649,
+      "osm_type": "relation",
+      "place_id": 378089276,
+      "place_rank": 17,
+      "type": "island"
+    },
+    "source": "nominatim",
+    "state": "Hawaii",
+    "status": "ok",
+    "sublocation": ""
   },
   "obelisk in st. peter's square, vatican city": {
     "query": "Obelisk in St. Peter's Square, Vatican City",
@@ -36009,6 +36287,52 @@
     "status": "ok",
     "sublocation": ""
   },
+  "san diego zoo, usa": {
+    "city": "San Diego",
+    "country": "United States",
+    "display_name": "San Diego Zoo, 2920, Zoo Drive, Hillcrest, San Diego, San Diego County, California, 92101, United States",
+    "latitude": "32.7359874",
+    "longitude": "-117.1506542",
+    "query": "San Diego Zoo, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "San Diego",
+        "country": "United States",
+        "country_code": "us",
+        "county": "San Diego County",
+        "house_number": "2920",
+        "postcode": "92101",
+        "road": "Zoo Drive",
+        "state": "California",
+        "suburb": "Hillcrest",
+        "tourism": "San Diego Zoo"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "32.7323883",
+        "32.7395572",
+        "-117.1555548",
+        "-117.1458640"
+      ],
+      "category": "tourism",
+      "display_name": "San Diego Zoo, 2920, Zoo Drive, Hillcrest, San Diego, San Diego County, California, 92101, United States",
+      "importance": 0.468661830424943,
+      "lat": "32.7359874",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-117.1506542",
+      "name": "San Diego Zoo",
+      "osm_id": 31274621,
+      "osm_type": "way",
+      "place_id": 318386712,
+      "place_rank": 30,
+      "type": "zoo"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": "2920 Zoo Drive"
+  },
   "san diego, california": {
     "city": "San Diego",
     "country": "United States",
@@ -36019,6 +36343,10 @@
     "source": "nominatim",
     "state": "California",
     "status": "ok"
+  },
+  "san diego, california, october 1969": {
+    "query": "San Diego, California, October 1969",
+    "status": "miss"
   },
   "san diego, california, united states": {
     "city": "San Diego",
@@ -37373,6 +37701,48 @@
     "status": "ok",
     "sublocation": ""
   },
+  "sequoia national park, usa": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Sequoia National Park, Tulare County, California, 93262, United States",
+    "latitude": "36.4958407",
+    "longitude": "-118.5599194",
+    "query": "Sequoia National Park, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Tulare County",
+        "nature_reserve": "Sequoia National Park",
+        "postcode": "93262",
+        "state": "California"
+      },
+      "addresstype": "nature_reserve",
+      "boundingbox": [
+        "36.2910769",
+        "36.7006603",
+        "-118.9195403",
+        "-118.2349488"
+      ],
+      "category": "leisure",
+      "display_name": "Sequoia National Park, Tulare County, California, 93262, United States",
+      "importance": 0.5304838998210305,
+      "lat": "36.4958407",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-118.5599194",
+      "name": "Sequoia National Park",
+      "osm_id": 175060,
+      "osm_type": "relation",
+      "place_id": 320615327,
+      "place_rank": 24,
+      "type": "nature_reserve"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "sera monastery": {
     "display_name": "སེ་ར་དགོན། 色拉寺, 色拉北路, སྔགས་པ་གླིང་ཁའི་སྡེ་ཁུལ། 阿坝林卡社区, 娘热街道 ཉང་བྲན་ཁྲོམ་གཞུང།, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
     "latitude": "29.6978525",
@@ -38141,6 +38511,47 @@
     },
     "source": "nominatim",
     "state": "Sofia-City",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "solvang, california, usa": {
+    "city": "Solvang",
+    "country": "United States",
+    "display_name": "Solvang, Santa Barbara County, California, United States",
+    "latitude": "34.5960743",
+    "longitude": "-120.1383736",
+    "query": "Solvang, California, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Santa Barbara County",
+        "state": "California",
+        "village": "Solvang"
+      },
+      "addresstype": "village",
+      "boundingbox": [
+        "34.5588880",
+        "34.6107670",
+        "-120.1549110",
+        "-120.1199210"
+      ],
+      "category": "boundary",
+      "display_name": "Solvang, Santa Barbara County, California, United States",
+      "importance": 0.4619996762105012,
+      "lat": "34.5960743",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-120.1383736",
+      "name": "Solvang",
+      "osm_id": 18154990,
+      "osm_type": "relation",
+      "place_id": 314687634,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "California",
     "status": "ok",
     "sublocation": ""
   },
