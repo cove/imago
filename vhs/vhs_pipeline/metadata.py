@@ -261,20 +261,8 @@ def generate_ffmetadata_from_chapters_tsv(chapters_tsv_path: Path, out_path: Pat
         print(f"  Generated FFmetadata: {out_path}")
         return Path(out_path)
 
-    global_order: list[str] = [
-        str(col)[len(TSV_FFMETA_PREFIX) :] for col in list(header or []) if str(col or "").startswith(TSV_FFMETA_PREFIX)
-    ]
-
-    global_values: dict[str, str] = {}
-    for key in global_order:
-        col = f"{TSV_FFMETA_PREFIX}{key}"
-        chosen = ""
-        for row in rows_sorted:
-            value = _as_text((row or {}).get(col, ""))
-            chosen = value
-            if value != "":
-                break
-        global_values[key] = chosen
+    global_order = _global_ffmetadata_order(header)
+    global_values = _global_ffmetadata_values(global_order, rows_sorted)
 
     lines: list[str] = [";FFMETADATA1"]
     for key in global_order:
@@ -301,101 +289,130 @@ def generate_ffmetadata_from_chapters_tsv(chapters_tsv_path: Path, out_path: Pat
     return out
 
 
+def _global_ffmetadata_order(header: list[str]) -> list[str]:
+    return [
+        str(col)[len(TSV_FFMETA_PREFIX) :] for col in list(header or []) if str(col or "").startswith(TSV_FFMETA_PREFIX)
+    ]
+
+
+def _first_nonempty_column_value(rows: list[dict[str, Any]], column: str) -> str:
+    chosen = ""
+    for row in rows:
+        value = _as_text((row or {}).get(column, ""))
+        chosen = value
+        if value != "":
+            break
+    return chosen
+
+
+def _global_ffmetadata_values(global_order: list[str], rows_sorted: list[dict[str, Any]]) -> dict[str, str]:
+    return {key: _first_nonempty_column_value(rows_sorted, f"{TSV_FFMETA_PREFIX}{key}") for key in global_order}
+
+
 def _load_master_chapters(
     chapters_tsv_path: Path,
 ) -> tuple[dict[str, str], list[dict[str, Any]]]:
     header, rows = _read_chapters_tsv_rows(chapters_tsv_path)
     rows_sorted = _sort_rows_by_index(rows)
+    ffmeta = _load_master_ffmetadata(header, rows_sorted)
+    chapters = [_load_master_chapter_row(row, header) for row in rows_sorted]
+
+    return ffmeta, chapters
+
+
+def _load_master_ffmetadata(header: list[str], rows_sorted: list[dict[str, Any]]) -> dict[str, str]:
     ffmeta: dict[str, str] = {}
     for col in list(header or []):
         key = str(col or "")
         if not key.startswith(TSV_FFMETA_PREFIX):
             continue
         name = key[len(TSV_FFMETA_PREFIX) :].strip().lower()
-        if not name:
-            continue
-        chosen = ""
-        for row in rows_sorted:
-            value = _as_text((row or {}).get(key, ""))
-            chosen = value
-            if value != "":
-                break
-        ffmeta[name] = chosen
+        if name:
+            ffmeta[name] = _first_nonempty_column_value(rows_sorted, key)
+    return ffmeta
 
-    chapters: list[dict[str, Any]] = []
-    for row in rows_sorted:
-        chapter_keys = _chapter_keys_for_row(header)
-        chapter: dict[str, Any] = {}
-        for key in chapter_keys:
-            key_text = str(key or "").strip()
-            if not key_text or key_text.startswith(TSV_META_PREFIX) or key_text.startswith(TSV_FFMETA_PREFIX):
-                continue
+
+def _load_master_chapter_row(row: dict[str, Any], header: list[str]) -> dict[str, Any]:
+    chapter: dict[str, Any] = {}
+    for key in _chapter_keys_for_row(header):
+        key_text = str(key or "").strip()
+        if key_text and not key_text.startswith((TSV_META_PREFIX, TSV_FFMETA_PREFIX)):
             chapter[key_text.lower()] = _as_text((row or {}).get(key_text, ""))
+    _fill_extra_chapter_fields(chapter, row, header)
+    _fill_chapter_timebase(chapter)
+    _fill_chapter_raw_bounds(chapter)
+    _fill_chapter_second_bounds(chapter)
+    _fill_chapter_title(chapter)
+    return chapter
 
-        for key in list(header or []):
-            key_text = str(key or "").strip()
-            if (
-                not key_text
-                or key_text.startswith(TSV_META_PREFIX)
-                or key_text.startswith(TSV_FFMETA_PREFIX)
-                or key_text.lower() in chapter
-            ):
-                continue
-            value = _as_text((row or {}).get(key_text, ""))
-            if value != "":
-                chapter[key_text.lower()] = value
 
-        tb = _as_text(chapter.get("timebase", "")).strip()
-        if tb:
-            parsed_tb = _parse_timebase(tb)
-            if parsed_tb is not None:
-                chapter["timebase_num"], chapter["timebase_den"] = parsed_tb
-        else:
-            tb_num = _safe_int(chapter.get("timebase_num"))
-            tb_den = _safe_int(chapter.get("timebase_den"))
-            if tb_num is not None and tb_den not in (None, 0):
-                chapter["timebase_num"] = int(tb_num)
-                chapter["timebase_den"] = int(tb_den)
+def _fill_extra_chapter_fields(chapter: dict[str, Any], row: dict[str, Any], header: list[str]) -> None:
+    for key in list(header or []):
+        key_text = str(key or "").strip()
+        if (
+            not key_text
+            or key_text.startswith(TSV_META_PREFIX)
+            or key_text.startswith(TSV_FFMETA_PREFIX)
+            or key_text.lower() in chapter
+        ):
+            continue
+        value = _as_text((row or {}).get(key_text, ""))
+        if value != "":
+            chapter[key_text.lower()] = value
 
-        start_raw = _safe_int(chapter.get("start_raw"))
-        end_raw = _safe_int(chapter.get("end_raw"))
-        if start_raw is None:
-            start_raw = _safe_int(chapter.get("start"))
-        if end_raw is None:
-            end_raw = _safe_int(chapter.get("end"))
-        if start_raw is None:
-            start_raw = _safe_int(chapter.get("start_frame"))
-        if end_raw is None:
-            end_raw = _safe_int(chapter.get("end_frame"))
-        if start_raw is not None:
-            chapter["start_raw"] = int(start_raw)
-        if end_raw is not None:
-            chapter["end_raw"] = int(end_raw)
 
-        if "timebase_num" not in chapter or "timebase_den" not in chapter:
-            start_val = _as_text(chapter.get("start", "")).strip()
-            end_val = _as_text(chapter.get("end", "")).strip()
-            try:
-                if start_val:
-                    chapter["start_seconds"] = float(start_val)
-                    chapter["start"] = float(start_val)
-            except Exception:
-                pass
-            try:
-                if end_val:
-                    chapter["end_seconds"] = float(end_val)
-                    chapter["end"] = float(end_val)
-            except Exception:
-                pass
+def _fill_chapter_timebase(chapter: dict[str, Any]) -> None:
+    tb = _as_text(chapter.get("timebase", "")).strip()
+    if tb:
+        parsed_tb = _parse_timebase(tb)
+        if parsed_tb is not None:
+            chapter["timebase_num"], chapter["timebase_den"] = parsed_tb
+        return
+    tb_num = _safe_int(chapter.get("timebase_num"))
+    tb_den = _safe_int(chapter.get("timebase_den"))
+    if tb_num is not None and tb_den not in (None, 0):
+        chapter["timebase_num"] = int(tb_num)
+        chapter["timebase_den"] = int(tb_den)
 
-        if not _as_text(chapter.get("title")).strip():
-            alt = _as_text(chapter.get("chaptertitle") or chapter.get("chapter_title")).strip()
-            if alt:
-                chapter["title"] = alt
 
-        chapters.append(chapter)
+def _fill_chapter_raw_bounds(chapter: dict[str, Any]) -> None:
+    start_raw = _safe_int(chapter.get("start_raw"))
+    end_raw = _safe_int(chapter.get("end_raw"))
+    if start_raw is None:
+        start_raw = _safe_int(chapter.get("start"))
+    if end_raw is None:
+        end_raw = _safe_int(chapter.get("end"))
+    if start_raw is None:
+        start_raw = _safe_int(chapter.get("start_frame"))
+    if end_raw is None:
+        end_raw = _safe_int(chapter.get("end_frame"))
+    if start_raw is not None:
+        chapter["start_raw"] = int(start_raw)
+    if end_raw is not None:
+        chapter["end_raw"] = int(end_raw)
 
-    return ffmeta, chapters
+
+def _fill_chapter_second_bounds(chapter: dict[str, Any]) -> None:
+    if "timebase_num" in chapter and "timebase_den" in chapter:
+        return
+    for key in ("start", "end"):
+        value = _as_text(chapter.get(key, "")).strip()
+        if not value:
+            continue
+        try:
+            parsed = float(value)
+        except Exception:
+            continue
+        chapter[f"{key}_seconds"] = parsed
+        chapter[key] = parsed
+
+
+def _fill_chapter_title(chapter: dict[str, Any]) -> None:
+    if _as_text(chapter.get("title")).strip():
+        return
+    alt = _as_text(chapter.get("chaptertitle") or chapter.get("chapter_title")).strip()
+    if alt:
+        chapter["title"] = alt
 
 
 def _chapter_seconds(chapter: dict, boundary: str) -> float:

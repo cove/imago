@@ -249,32 +249,52 @@ class FaceIngestor:
             return []
         h, w = image_bgr.shape[:2]
         if self._insightface is not None:
-            if h < 12 or w < 12:
-                return []
-            try:
-                faces = list(self._insightface.get(image_bgr) or [])
-            except Exception:
-                return []
-            out: list[tuple[int, int, int, int]] = []
-            for face in faces:
-                score = float(getattr(face, "det_score", 0.0) or 0.0)
-                if score < self._insightface_score_threshold:
-                    continue
-                try:
-                    bbox = np.asarray(getattr(face, "bbox"), dtype=np.float32).reshape(-1)
-                except Exception:
-                    continue
-                if bbox.size < 4:
-                    continue
-                x = int(max(0, min(round(float(bbox[0])), w - 1)))
-                y = int(max(0, min(round(float(bbox[1])), h - 1)))
-                x2 = int(max(x + 1, min(round(float(bbox[2])), w)))
-                y2 = int(max(y + 1, min(round(float(bbox[3])), h)))
-                fw, fh = x2 - x, y2 - y
-                if min(fw, fh) < max(1, int(min_size)):
-                    continue
-                out.append((x, y, fw, fh))
-            return out
+            return self._detect_insightface(image_bgr, min_size=int(min_size))
+        return self._detect_haar(image_bgr, min_size=int(min_size))
+
+    def _detect_insightface(self, image_bgr: np.ndarray, *, min_size: int) -> list[tuple[int, int, int, int]]:
+        h, w = image_bgr.shape[:2]
+        if h < 12 or w < 12:
+            return []
+        try:
+            faces = list(self._insightface.get(image_bgr) or [])
+        except Exception:
+            return []
+        out: list[tuple[int, int, int, int]] = []
+        for face in faces:
+            box = self._insightface_box(face, image_width=w, image_height=h, min_size=min_size)
+            if box is not None:
+                out.append(box)
+        return out
+
+    def _insightface_box(
+        self,
+        face: Any,
+        *,
+        image_width: int,
+        image_height: int,
+        min_size: int,
+    ) -> tuple[int, int, int, int] | None:
+        score = float(getattr(face, "det_score", 0.0) or 0.0)
+        if score < self._insightface_score_threshold:
+            return None
+        try:
+            bbox = np.asarray(getattr(face, "bbox"), dtype=np.float32).reshape(-1)
+        except Exception:
+            return None
+        if bbox.size < 4:
+            return None
+        x = int(max(0, min(round(float(bbox[0])), image_width - 1)))
+        y = int(max(0, min(round(float(bbox[1])), image_height - 1)))
+        x2 = int(max(x + 1, min(round(float(bbox[2])), image_width)))
+        y2 = int(max(y + 1, min(round(float(bbox[3])), image_height)))
+        fw, fh = x2 - x, y2 - y
+        if min(fw, fh) < max(1, int(min_size)):
+            return None
+        return x, y, fw, fh
+
+    def _detect_haar(self, image_bgr: np.ndarray, *, min_size: int) -> list[tuple[int, int, int, int]]:
+        h, w = image_bgr.shape[:2]
         # Haar cascade fallback
         gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
         gray = cv2.equalizeHist(gray)
@@ -297,6 +317,39 @@ class FaceIngestor:
         if rows.ndim == 1:
             rows = rows.reshape(1, -1)
         return [(int(r[0]), int(r[1]), int(r[2]), int(r[3])) for r in rows if int(r[2]) > 0 and int(r[3]) > 0]
+
+    def _create_face_from_crop(
+        self,
+        *,
+        crop_bgr: np.ndarray,
+        source_type: str,
+        source_path: str,
+        timestamp: str,
+        bbox: list[int],
+        metadata: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        if crop_bgr is None or crop_bgr.size == 0:
+            return None
+        if not self.is_valid_face_crop(crop_bgr):
+            return None
+        arcface_embedding = compute_arcface_embedding(crop_bgr)
+        metadata["detector_model"] = (
+            CURRENT_FACE_DETECTOR_MODEL if self._insightface is not None else FALLBACK_FACE_DETECTOR_MODEL
+        )
+        metadata["embedding_model"] = (
+            CURRENT_FACE_EMBEDDING_MODEL if arcface_embedding is not None else FALLBACK_FACE_EMBEDDING_MODEL
+        )
+        face = self.store.add_face(
+            embedding=arcface_embedding or compute_simple_embedding(crop_bgr),
+            source_type=source_type,
+            source_path=source_path,
+            timestamp=timestamp,
+            bbox=bbox,
+            quality=estimate_face_quality(crop_bgr),
+            metadata=metadata,
+        )
+        crop_rel = self._save_crop(str(face.get("face_id")), crop_bgr)
+        return self.store.update_face(str(face.get("face_id")), crop_path=crop_rel)
 
     def _save_crop(self, face_id: str, crop_bgr: np.ndarray) -> str:
         crops_dir = self.store.root_dir / "crops"
@@ -338,36 +391,18 @@ class FaceIngestor:
         created: list[dict[str, Any]] = []
         for x, y, w, h in detections:
             x0, y0, x1, y1 = _expand_box(x, y, w, h, width, height)
-            crop = image[y0:y1, x0:x1]
-            if crop is None or crop.size == 0:
-                continue
-            if not self.is_valid_face_crop(crop):
-                continue
-            arcface_embedding = compute_arcface_embedding(crop)
-            embedding = arcface_embedding or compute_simple_embedding(crop)
-            quality = estimate_face_quality(crop)
-            detector_model = (
-                CURRENT_FACE_DETECTOR_MODEL if self._insightface is not None else FALLBACK_FACE_DETECTOR_MODEL
-            )
-            embedding_model = (
-                CURRENT_FACE_EMBEDDING_MODEL if arcface_embedding is not None else FALLBACK_FACE_EMBEDDING_MODEL
-            )
-            face = self.store.add_face(
-                embedding=embedding,
+            face = self._create_face_from_crop(
+                crop_bgr=image[y0:y1, x0:x1],
                 source_type="photo",
                 source_path=source,
                 timestamp="",
                 bbox=[int(x), int(y), int(w), int(h)],
-                quality=quality,
                 metadata={
                     "ingest": "photo",
-                    "detector_model": detector_model,
-                    "embedding_model": embedding_model,
                 },
             )
-            crop_rel = self._save_crop(str(face.get("face_id")), crop)
-            face = self.store.update_face(str(face.get("face_id")), crop_path=crop_rel)
-            created.append(face)
+            if face is not None:
+                created.append(face)
         return created
 
     def ingest_vhs(
@@ -413,45 +448,16 @@ class FaceIngestor:
                 if limit_seconds > 0.0 and seconds > limit_seconds:
                     break
                 sampled_frames += 1
-                boxes = self._detect(frame, min_size=int(min_size))
-                height, width = frame.shape[:2]
-                for x, y, w, h in boxes:
-                    if max_faces > 0 and len(created) >= int(max_faces):
-                        break
-                    x0, y0, x1, y1 = _expand_box(x, y, w, h, width, height)
-                    crop = frame[y0:y1, x0:x1]
-                    if crop is None or crop.size == 0:
-                        continue
-                    if not self.is_valid_face_crop(crop):
-                        continue
-                    arcface_embedding = compute_arcface_embedding(crop)
-                    embedding = arcface_embedding or compute_simple_embedding(crop)
-                    quality = estimate_face_quality(crop)
-                    timestamp = _timestamp_from_seconds(seconds)
-                    detector_model = (
-                        CURRENT_FACE_DETECTOR_MODEL if self._insightface is not None else FALLBACK_FACE_DETECTOR_MODEL
-                    )
-                    embedding_model = (
-                        CURRENT_FACE_EMBEDDING_MODEL if arcface_embedding is not None else FALLBACK_FACE_EMBEDDING_MODEL
-                    )
-                    face = self.store.add_face(
-                        embedding=embedding,
-                        source_type="vhs",
-                        source_path=source,
-                        timestamp=timestamp,
-                        bbox=[int(x), int(y), int(w), int(h)],
-                        quality=quality,
-                        metadata={
-                            "ingest": "vhs",
-                            "frame_index": int(frame_idx),
-                            "fps": round(float(fps), 5),
-                            "detector_model": detector_model,
-                            "embedding_model": embedding_model,
-                        },
-                    )
-                    crop_rel = self._save_crop(str(face.get("face_id")), crop)
-                    face = self.store.update_face(str(face.get("face_id")), crop_path=crop_rel)
-                    created.append(face)
+                self._ingest_vhs_frame_faces(
+                    frame=frame,
+                    frame_idx=frame_idx,
+                    seconds=seconds,
+                    source=source,
+                    min_size=int(min_size),
+                    max_faces=int(max_faces),
+                    fps=fps,
+                    created=created,
+                )
                 if max_faces > 0 and len(created) >= int(max_faces):
                     break
                 frame_idx += 1
@@ -464,6 +470,39 @@ class FaceIngestor:
             "faces_created": int(len(created)),
             "source_path": str(source_path or path),
         }
+
+    def _ingest_vhs_frame_faces(
+        self,
+        *,
+        frame: np.ndarray,
+        frame_idx: int,
+        seconds: float,
+        source: str,
+        min_size: int,
+        max_faces: int,
+        fps: float,
+        created: list[dict[str, Any]],
+    ) -> None:
+        boxes = self._detect(frame, min_size=int(min_size))
+        height, width = frame.shape[:2]
+        for x, y, w, h in boxes:
+            if max_faces > 0 and len(created) >= max_faces:
+                break
+            x0, y0, x1, y1 = _expand_box(x, y, w, h, width, height)
+            face = self._create_face_from_crop(
+                crop_bgr=frame[y0:y1, x0:x1],
+                source_type="vhs",
+                source_path=source,
+                timestamp=_timestamp_from_seconds(seconds),
+                bbox=[int(x), int(y), int(w), int(h)],
+                metadata={
+                    "ingest": "vhs",
+                    "frame_index": int(frame_idx),
+                    "fps": round(float(fps), 5),
+                },
+            )
+            if face is not None:
+                created.append(face)
 
     def iter_photo_files(
         self,

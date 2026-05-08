@@ -39,8 +39,10 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from common import (
     FFMPEG_BIN,
+    FFPROBE_BIN,
     METADATA_DIR,
     WHISPER_MODEL_DIR,
+    _canonicalize_gamma_ranges,
     archive_dir_for,
     clips_dir_for,
     videos_dir_for,
@@ -367,59 +369,44 @@ def _normalize_gamma_ranges_payload(
     ch_start: int | None = None,
     ch_end: int | None = None,
 ) -> list[dict[str, Any]]:
-    rows: list[tuple[int, int, float, int]] = []
-    for idx, item in enumerate(list(raw_ranges or [])):
-        start = end = gamma = None
-        if isinstance(item, dict):
-            start = item.get("start_frame")
-            end = item.get("end_frame")
-            gamma = item.get("gamma")
-        elif isinstance(item, (list, tuple)) and len(item) >= 3:
-            start, end, gamma = item[0], item[1], item[2]
-        try:
-            a = int(start)
-            b = int(end)
-        except Exception:
-            continue
-        if b <= a:
-            continue
-        if ch_start is not None and ch_end is not None:
-            a = max(int(ch_start), a)
-            b = min(int(ch_end), b)
-            if b <= a:
-                continue
-        g = normalize_gamma_value(gamma, default=1.0)
-        rows.append((a, b, g, idx))
-    if not rows:
-        return []
+    rows = []
+    for item in list(raw_ranges or []):
+        row = _normalize_gamma_range_payload_item(item, ch_start=ch_start, ch_end=ch_end)
+        if row is not None:
+            rows.append(row)
+    return [dict(row) for row in _canonicalize_gamma_ranges(rows)]
 
-    boundaries = set()
-    for a, b, _g, _idx in rows:
-        boundaries.add(int(a))
-        boundaries.add(int(b))
-    cuts = sorted(boundaries)
-    out: list[tuple[int, int, float]] = []
-    for i in range(len(cuts) - 1):
-        seg_a = int(cuts[i])
-        seg_b = int(cuts[i + 1])
-        if seg_b <= seg_a:
-            continue
-        winner_idx = -1
-        winner_gamma = None
-        for a, b, g, idx in rows:
-            if a <= seg_a and seg_b <= b and idx >= winner_idx:
-                winner_idx = idx
-                winner_gamma = float(g)
-        if winner_gamma is None:
-            continue
-        if out and out[-1][1] == seg_a and abs(float(out[-1][2]) - float(winner_gamma)) < 1e-6:
-            prev_a, _prev_b, prev_g = out[-1]
-            out[-1] = (prev_a, seg_b, prev_g)
-        else:
-            out.append((seg_a, seg_b, float(winner_gamma)))
-    return [
-        {"start_frame": int(a), "end_frame": int(b), "gamma": round(float(g), 4)} for a, b, g in out if int(b) > int(a)
-    ]
+
+def _normalize_gamma_range_payload_item(
+    item: Any,
+    *,
+    ch_start: int | None,
+    ch_end: int | None,
+) -> dict[str, Any] | None:
+    start = end = gamma = None
+    if isinstance(item, dict):
+        start = item.get("start_frame")
+        end = item.get("end_frame")
+        gamma = item.get("gamma")
+    elif isinstance(item, (list, tuple)) and len(item) >= 3:
+        start, end, gamma = item[0], item[1], item[2]
+    try:
+        a = int(start)
+        b = int(end)
+    except Exception:
+        return None
+    if b <= a:
+        return None
+    if ch_start is not None and ch_end is not None:
+        a = max(int(ch_start), a)
+        b = min(int(ch_end), b)
+        if b <= a:
+            return None
+    return {
+        "start_frame": a,
+        "end_frame": b,
+        "gamma": normalize_gamma_value(gamma, default=1.0),
+    }
 
 
 def _frame_to_seconds(frame_id: int) -> float:
@@ -979,45 +966,10 @@ def _load_split_entries_for_chapter(
     if not rows:
         return _default_split_entries_for_chapter(chapter_key, chapter_frame_count)
 
-    sub_entries: list[dict[str, Any]] = []
-
-    # Legacy format: rows have a parent_chapter column.
-    is_legacy = any(_row_ci_get(row, "parent_chapter") is not None for row in rows)
-
-    if is_legacy:
-        for row in rows:
-            parent = _row_ci_get(row, "parent_chapter")
-            if str(parent or "").strip() != chapter_key:
-                continue
-            start_frame, end_frame = _chapter_row_bounds(row)
-            if start_frame is None or end_frame is None or end_frame <= start_frame:
-                continue
-            title = _chapter_row_title(row) or chapter_key
-            sub_entries.append(
-                {
-                    "start_frame": int(start_frame) - chapter_start,
-                    "end_frame": int(end_frame) - chapter_start,
-                    "title": title,
-                }
-            )
+    if any(_row_ci_get(row, "parent_chapter") is not None for row in rows):
+        sub_entries = _legacy_split_entries(rows, chapter_key, chapter_start)
     else:
-        # Canonical format: find rows within [chapter_start, chapter_end] that are
-        # not the parent chapter row itself.
-        for row in rows:
-            if _chapter_row_matches(row, chapter_key, chapter_start):
-                continue
-            start_frame, end_frame = _chapter_row_bounds(row)
-            if start_frame is None or end_frame is None or end_frame <= start_frame:
-                continue
-            if int(start_frame) >= chapter_start and int(end_frame) <= chapter_end:
-                title = _chapter_row_title(row) or chapter_key
-                sub_entries.append(
-                    {
-                        "start_frame": int(start_frame) - chapter_start,
-                        "end_frame": int(end_frame) - chapter_start,
-                        "title": title,
-                    }
-                )
+        sub_entries = _canonical_split_entries(rows, chapter_key, chapter_start, chapter_end)
 
     if not sub_entries:
         return _default_split_entries_for_chapter(chapter_key, chapter_frame_count)
@@ -1026,6 +978,59 @@ def _load_split_entries_for_chapter(
         sub_entries,
         chapter_frame_count=chapter_frame_count,
     ) or _default_split_entries_for_chapter(chapter_key, chapter_frame_count)
+
+
+def _split_entry_from_bounds(
+    row: dict[str, Any],
+    *,
+    chapter_key: str,
+    chapter_start: int,
+) -> dict[str, Any] | None:
+    start_frame, end_frame = _chapter_row_bounds(row)
+    if start_frame is None or end_frame is None or end_frame <= start_frame:
+        return None
+    return {
+        "start_frame": int(start_frame) - chapter_start,
+        "end_frame": int(end_frame) - chapter_start,
+        "title": _chapter_row_title(row) or chapter_key,
+    }
+
+
+def _legacy_split_entries(rows: list[dict[str, Any]], chapter_key: str, chapter_start: int) -> list[dict[str, Any]]:
+    sub_entries: list[dict[str, Any]] = []
+    for row in rows:
+        parent = _row_ci_get(row, "parent_chapter")
+        if str(parent or "").strip() != chapter_key:
+            continue
+        entry = _split_entry_from_bounds(row, chapter_key=chapter_key, chapter_start=chapter_start)
+        if entry is not None:
+            sub_entries.append(entry)
+    return sub_entries
+
+
+def _canonical_split_entries(
+    rows: list[dict[str, Any]],
+    chapter_key: str,
+    chapter_start: int,
+    chapter_end: int,
+) -> list[dict[str, Any]]:
+    sub_entries: list[dict[str, Any]] = []
+    for row in rows:
+        if _chapter_row_matches(row, chapter_key, chapter_start):
+            continue
+        start_frame, end_frame = _chapter_row_bounds(row)
+        if start_frame is None or end_frame is None or end_frame <= start_frame:
+            continue
+        if int(start_frame) < chapter_start or int(end_frame) > chapter_end:
+            continue
+        sub_entries.append(
+            {
+                "start_frame": int(start_frame) - chapter_start,
+                "end_frame": int(end_frame) - chapter_start,
+                "title": _chapter_row_title(row) or chapter_key,
+            }
+        )
+    return sub_entries
 
 
 def _save_split_entries_for_chapter(
@@ -1055,21 +1060,12 @@ def _save_split_entries_for_chapter(
 
     ffmetadata, chapter_fields, global_fields, ffmeta_chapter = _chapters_ffmetadata_context(archive_name, chapter_key)
 
-    # Build the list of (global_start, global_end, title) entries to upsert.
-    # Each is an independent chapter range — no parent-child relationship.
-    entries_to_save: list[tuple[int, int, str]] = []
-    if normalized_local:
-        for idx, item in enumerate(list(normalized_local)):
-            local_start = int(item.get("start_frame", 0))
-            local_end = int(item.get("end_frame", 0))
-            if local_end <= local_start:
-                continue
-            global_start = chapter_start + local_start
-            global_end = chapter_start + local_end
-            title = _normalize_subtitle_optional_text(item.get("title")) or chapter_key or f"Chapter {idx + 1}"
-            entries_to_save.append((global_start, global_end, title))
-    if not entries_to_save:
-        entries_to_save.append((chapter_start, chapter_end, chapter_key))
+    entries_to_save = _split_entries_to_global_ranges(
+        normalized_local,
+        chapter_start=chapter_start,
+        chapter_end=chapter_end,
+        chapter_key=chapter_key,
+    )
 
     # Map (title, start_frame) → (global_start, global_end, title) for the entries we're saving.
     entries_key_map: dict[tuple[str, int], tuple[int, int, str]] = {
@@ -1079,79 +1075,152 @@ def _save_split_entries_for_chapter(
     # Build a template row for constructing new rows that don't yet exist in the TSV.
     # Use any existing row as the base so metadata fields (archive name, dates, etc.) are inherited.
     # Fall back to building from ffmetadata when no existing rows are available.
-    template_row: dict[str, Any] = {}
-    existing_template = next((dict(r) for r in existing_rows if r), None)
-    if existing_template is not None:
-        template_row = existing_template
-    else:
-        chapter_defaults: dict[str, str] = {}
-        if isinstance(ffmeta_chapter, dict):
-            for key in chapter_fields:
-                if key in CHAPTER_FFMETADATA_COMPUTED_KEYS:
-                    continue
-                if key == "start":
-                    chapter_defaults[key] = str(int(chapter_start))
-                elif key == "end":
-                    chapter_defaults[key] = str(int(chapter_end))
-                elif key == "title":
-                    chapter_defaults[key] = chapter_key
-                else:
-                    chapter_defaults[key] = str(ffmeta_chapter.get(key, "") or "").strip()
-        chapter_order = [key for key in chapter_fields if key not in CHAPTER_FFMETADATA_COMPUTED_KEYS]
-        for key in global_fields:
-            template_row[f"{TSV_FFMETA_PREFIX}{key}"] = str(ffmetadata.get(key, "") or "").strip()
-        for key in chapter_order:
-            template_row[key] = str(chapter_defaults.get(key, "") or "")
-        if "title" not in {str(k).strip().lower() for k in chapter_order}:
-            template_row["title"] = chapter_key
+    template_row = _split_save_template_row(
+        existing_rows=existing_rows,
+        ffmeta_chapter=ffmeta_chapter,
+        ffmetadata=ffmetadata,
+        chapter_fields=chapter_fields,
+        global_fields=global_fields,
+        chapter_start=chapter_start,
+        chapter_end=chapter_end,
+        chapter_key=chapter_key,
+    )
 
     # Merge: chapters are flat, independent ranges — no parent-child dropping.
     # For exact title+start matches, update the existing row in place.
     # When saving a single entry for the loaded chapter, treat it as editing that
     # loaded row in place even if its start/title changed in the editor.
     # All other existing rows are kept exactly as-is.
-    single_entry_update = len(entries_to_save) == 1
-    single_entry = entries_to_save[0] if single_entry_update else None
+    merged_rows, placed = _merge_split_save_rows(
+        existing_rows=existing_rows,
+        existing_header=existing_header,
+        entries_to_save=entries_to_save,
+        entries_key_map=entries_key_map,
+        chapter_key=chapter_key,
+        chapter_start=chapter_start,
+    )
+
+    # Append new rows for entries not yet present in the TSV.
+    _append_missing_split_save_rows(merged_rows, placed, entries_to_save, template_row, existing_header)
+
+    merged_rows = _reindex_canonical_chapter_rows(merged_rows)
+    columns = _split_save_columns(existing_header, global_fields, merged_rows)
+
+    _write_chapters_tsv_rows(path, columns, merged_rows)
+    return path, len(entries_to_save)
+
+
+def _split_entries_to_global_ranges(
+    normalized_local: list[dict[str, Any]],
+    *,
+    chapter_start: int,
+    chapter_end: int,
+    chapter_key: str,
+) -> list[tuple[int, int, str]]:
+    entries_to_save: list[tuple[int, int, str]] = []
+    for idx, item in enumerate(list(normalized_local or [])):
+        local_start = int(item.get("start_frame", 0))
+        local_end = int(item.get("end_frame", 0))
+        if local_end <= local_start:
+            continue
+        title = _normalize_subtitle_optional_text(item.get("title")) or chapter_key or f"Chapter {idx + 1}"
+        entries_to_save.append((chapter_start + local_start, chapter_start + local_end, title))
+    return entries_to_save or [(chapter_start, chapter_end, chapter_key)]
+
+
+def _split_save_template_row(
+    *,
+    existing_rows: list[dict[str, Any]],
+    ffmeta_chapter: dict[str, Any] | None,
+    ffmetadata: dict[str, Any],
+    chapter_fields: list[str],
+    global_fields: list[str],
+    chapter_start: int,
+    chapter_end: int,
+    chapter_key: str,
+) -> dict[str, Any]:
+    existing_template = next((dict(r) for r in existing_rows if r), None)
+    if existing_template is not None:
+        return existing_template
+    template_row: dict[str, Any] = {}
+    chapter_defaults = _split_save_chapter_defaults(
+        ffmeta_chapter, chapter_fields, chapter_start, chapter_end, chapter_key
+    )
+    chapter_order = [key for key in chapter_fields if key not in CHAPTER_FFMETADATA_COMPUTED_KEYS]
+    for key in global_fields:
+        template_row[f"{TSV_FFMETA_PREFIX}{key}"] = str(ffmetadata.get(key, "") or "").strip()
+    for key in chapter_order:
+        template_row[key] = str(chapter_defaults.get(key, "") or "")
+    if "title" not in {str(k).strip().lower() for k in chapter_order}:
+        template_row["title"] = chapter_key
+    return template_row
+
+
+def _split_save_chapter_defaults(ffmeta_chapter, chapter_fields, chapter_start, chapter_end, chapter_key):
+    chapter_defaults: dict[str, str] = {}
+    if not isinstance(ffmeta_chapter, dict):
+        return chapter_defaults
+    for key in chapter_fields:
+        if key in CHAPTER_FFMETADATA_COMPUTED_KEYS:
+            continue
+        if key == "start":
+            chapter_defaults[key] = str(int(chapter_start))
+        elif key == "end":
+            chapter_defaults[key] = str(int(chapter_end))
+        elif key == "title":
+            chapter_defaults[key] = chapter_key
+        else:
+            chapter_defaults[key] = str(ffmeta_chapter.get(key, "") or "").strip()
+    return chapter_defaults
+
+
+def _merge_split_save_rows(
+    *,
+    existing_rows: list[dict[str, Any]],
+    existing_header: list[str],
+    entries_to_save: list[tuple[int, int, str]],
+    entries_key_map: dict[tuple[str, int], tuple[int, int, str]],
+    chapter_key: str,
+    chapter_start: int,
+) -> tuple[list[dict[str, Any]], set[tuple[str, int]]]:
+    single_entry = entries_to_save[0] if len(entries_to_save) == 1 else None
     loaded_chapter_key = (chapter_key, chapter_start)
     replaced_loaded_chapter = False
     placed: set[tuple[str, int]] = set()
     merged_rows: list[dict[str, Any]] = []
     for raw_row in list(existing_rows):
         row = dict(raw_row or {})
-        start_frame, _end_frame = _chapter_row_bounds(row)
-        row_title = _chapter_row_title(row)
-        if start_frame is None:
+        row_key = (_chapter_row_title(row), _chapter_row_bounds(row)[0])
+        if row_key[1] is None:
             merged_rows.append(row)
             continue
-        row_key = (row_title, start_frame)
-        if row_key in entries_key_map:
-            if row_key not in placed:
-                new_start, new_end, new_title = entries_key_map[row_key]
-                merged_rows.append(
-                    _build_chapter_row_from_template(row, existing_header, new_start, new_end, new_title)
-                )
-                placed.add((new_title, new_start))
-            # else: duplicate row for the same entry — drop it.
-        elif single_entry_update and row_key == loaded_chapter_key and single_entry is not None:
-            if not replaced_loaded_chapter:
-                new_start, new_end, new_title = single_entry
-                merged_rows.append(
-                    _build_chapter_row_from_template(row, existing_header, new_start, new_end, new_title)
-                )
-                placed.add((new_title, new_start))
-                replaced_loaded_chapter = True
-            # else: duplicate row for the loaded chapter — drop it.
-        else:
+        if row_key in entries_key_map and row_key not in placed:
+            _append_split_save_row(merged_rows, placed, row, existing_header, entries_key_map[row_key])
+        elif single_entry is not None and row_key == loaded_chapter_key and not replaced_loaded_chapter:
+            _append_split_save_row(merged_rows, placed, row, existing_header, single_entry)
+            replaced_loaded_chapter = True
+        elif row_key not in entries_key_map:
+            if single_entry is not None and row_key == loaded_chapter_key:
+                continue
             merged_rows.append(row)
+    return merged_rows, placed
 
-    # Append new rows for entries not yet present in the TSV.
+
+def _append_split_save_row(merged_rows, placed, template_row, existing_header, entry):
+    new_start, new_end, new_title = entry
+    merged_rows.append(_build_chapter_row_from_template(template_row, existing_header, new_start, new_end, new_title))
+    placed.add((new_title, new_start))
+
+
+def _append_missing_split_save_rows(merged_rows, placed, entries_to_save, template_row, existing_header) -> None:
     for global_start, global_end, title in entries_to_save:
         if (title, global_start) not in placed:
             merged_rows.append(
                 _build_chapter_row_from_template(template_row, existing_header, global_start, global_end, title)
             )
 
-    merged_rows = _reindex_canonical_chapter_rows(merged_rows)
+
+def _split_save_columns(existing_header, global_fields, merged_rows):
     columns: list[str] = []
     seen_columns: set[str] = set()
     seen_columns_lower: set[str] = set()
@@ -1179,9 +1248,7 @@ def _save_split_entries_for_chapter(
     for row in merged_rows:
         for col in list((row or {}).keys()):
             _add_col(col)
-
-    _write_chapters_tsv_rows(path, columns, merged_rows)
-    return path, len(entries_to_save)
+    return columns
 
 
 def _parse_frame_value(raw: Any) -> int | None:
@@ -1951,17 +2018,8 @@ def _load_contact_sheet_images_from_video(
 
     video_path_str = str(video_path)
     with session._video_cap_lock:
-        # Reuse the session's VideoCapture if it's already open for this video.
-        if session._video_cap is None or session._video_cap_path != video_path_str or not session._video_cap.isOpened():
-            if session._video_cap is not None:
-                session._video_cap.release()
-            session._video_cap = cv2.VideoCapture(video_path_str)
-            session._video_cap_path = video_path_str
-            session._video_cap_last_fid = -1
-            if not session._video_cap.isOpened():
-                session._video_cap.release()
-                session._video_cap = None
-                return out
+        if not _ensure_session_video_capture(session, video_path_str):
+            return out
         cap = session._video_cap
         read_offset = int(session.frame_source_read_offset)
         prev_read_fid = session._video_cap_last_fid
@@ -1984,6 +2042,21 @@ def _load_contact_sheet_images_from_video(
             out[int(fid)] = Image.fromarray(cv2.cvtColor(thumb_bgr, cv2.COLOR_BGR2RGB))
         session._video_cap_last_fid = prev_read_fid
     return out
+
+
+def _ensure_session_video_capture(session: SessionState, video_path_str: str) -> bool:
+    if session._video_cap is not None and session._video_cap_path == video_path_str and session._video_cap.isOpened():
+        return True
+    if session._video_cap is not None:
+        session._video_cap.release()
+    session._video_cap = cv2.VideoCapture(video_path_str)
+    session._video_cap_path = video_path_str
+    session._video_cap_last_fid = -1
+    if session._video_cap.isOpened():
+        return True
+    session._video_cap.release()
+    session._video_cap = None
+    return False
 
 
 def _contact_sheet_image_data_urls(
@@ -2389,6 +2462,217 @@ def _load_whisper_transcribe_module() -> Any:
     return _WHISPER_TRANSCRIBE_MODULE
 
 
+def _parse_contact_sheet_params(params: dict[str, list[str]]) -> tuple[int, int, int] | None:
+    raw_start = str((params.get("start", [""])[0] or "").strip())
+    raw_count = str((params.get("count", [""])[0] or "").strip())
+    raw_columns = str((params.get("columns", [""])[0] or "").strip())
+    if (
+        not raw_start
+        or not raw_count
+        or not re.fullmatch(r"-?\d+", raw_start)
+        or not re.fullmatch(r"-?\d+", raw_count)
+        or (raw_columns and not re.fullmatch(r"-?\d+", raw_columns))
+    ):
+        return None
+    return max(0, int(raw_start)), max(1, int(raw_count)), max(1, int(raw_columns or CONTACT_SHEET_COLUMNS))
+
+
+def _session_scores_threshold_bad_count(session: SessionState):
+    scores = combined_score(session.sigs, session.wc, session.wn, session.wt, session.ww)
+    thr = float(compute_threshold(scores, session.t_mode, session.iqr_k, session.tval, session.bpct))
+    bad = sum(
+        1 for i, fid in enumerate(session.fids) if _frame_status(session, int(fid), float(scores[i]), thr)[0] == "bad"
+    )
+    return scores, thr, bad
+
+
+def _ai_region_frame_payloads(session: SessionState, scores, thr: float, idx_start: int, idx_end: int) -> list[dict]:
+    frames_out = []
+    for i in range(idx_start, idx_end + 1):
+        fid = int(session.fids[i])
+        score = float(scores[i])
+        status, source = _frame_status(session, fid, score, thr)
+        sigs_at = {k: round(float(v[i]), 4) for k, v in session.sigs.items() if i < len(v)}
+        frames_out.append(
+            {
+                "fid": fid,
+                "local_frame": max(0, fid - int(session.start_frame)),
+                "score": round(score, 4),
+                "status": status,
+                "source": source,
+                "image_url": _frame_image_url(fid),
+                "signals": sigs_at,
+            }
+        )
+    return frames_out
+
+
+def _boundary_frame_urls(fids: list[int]) -> dict[str, str]:
+    n = len(fids)
+    return {
+        "first": _frame_image_url(int(fids[0])),
+        "first_plus_5": _frame_image_url(int(fids[min(5, n - 1)])),
+        "last_minus_5": _frame_image_url(int(fids[max(0, n - 6)])),
+        "last": _frame_image_url(int(fids[-1])),
+    }
+
+
+def _middle_frame_sample(frame_images: list[str], limit: int = 32) -> list[str]:
+    n = len(frame_images)
+    mid_b64 = frame_images[n // 3 : 2 * n // 3]
+    step = max(1, len(mid_b64) // int(limit))
+    return mid_b64[::step][: int(limit)]
+
+
+def _preview_mode_flags(preview_mode: str) -> tuple[str, bool, bool, bool]:
+    apply_freeze = True
+    apply_gamma = True
+    if preview_mode == "review":
+        apply_gamma = False
+    elif preview_mode == "gamma":
+        apply_freeze = False
+    elif preview_mode == "audio_sync":
+        apply_freeze = False
+        apply_gamma = False
+    return preview_mode, apply_freeze, apply_gamma, preview_mode == "audio_sync"
+
+
+def _preview_local_bad_frames(session: SessionState, start_frame: int, end_frame: int) -> list[int]:
+    bad_global = [int(fid) for fid in _selected_bad_frame_ids(session) if int(start_frame) <= int(fid) < int(end_frame)]
+    return [int(fid) - int(start_frame) for fid in bad_global]
+
+
+def _preview_stage_names(
+    windows_freeze: bool,
+    windows_filter: bool,
+    gamma_only_mode: bool,
+    skip_deinterlace: bool,
+) -> list[str]:
+    stage_names: list[str] = []
+    if windows_freeze:
+        stage_names.append("Applying FreezeFrame repairs")
+    if windows_filter:
+        stage_names.append("Applying gamma correction" if gamma_only_mode else "Deinterlacing/filtering")
+    elif sys.platform != "win32" and not skip_deinterlace:
+        stage_names.append("Fallback deinterlacing")
+    stage_names.append("Encoding preview")
+    return stage_names
+
+
+def _preview_stage_progress_callback(
+    session: SessionState,
+    *,
+    chapter_len: int,
+    total_frames_all: int,
+    total_stages: int,
+):
+    def _set_stage_progress(stage_idx: int, frame_done: int, stage_label: str) -> None:
+        done = max(0, min(chapter_len, int(frame_done)))
+        overall_done = min(total_frames_all, (stage_idx * chapter_len) + done)
+        frac = float(done) / float(max(1, chapter_len))
+        pct = ((float(stage_idx) + frac) / float(total_stages)) * 100.0
+        _set_preview_progress(
+            session,
+            running=True,
+            progress=max(1.0, min(99.5, pct)),
+            message=f"{stage_label}... ({done}/{chapter_len} frames)",
+            frame_done=overall_done,
+            frame_total=total_frames_all,
+        )
+
+    return _set_stage_progress
+
+
+def _preview_success_message(
+    *,
+    session: SessionState,
+    preview_mode: str,
+    apply_freeze: bool,
+    apply_gamma: bool,
+    local_bad: list[int],
+    source_label: str,
+    used_non_windows_fallback: bool,
+) -> str:
+    mode_desc = (
+        preview_mode if preview_mode in {"review", "gamma", "people", "subtitles", "split", "summary"} else "combined"
+    )
+    msg = (
+        f"Preview render ready for {session.chapter}: "
+        f"mode={mode_desc}, freeze={'on' if apply_freeze else 'off'}, gamma={'on' if apply_gamma else 'off'}. "
+        f"{len(local_bad)} loaded bad frame(s) applied from current review state. "
+        f"Source: {source_label}."
+    )
+    if used_non_windows_fallback and local_bad:
+        msg += " Note: non-Windows fallback cannot apply AviSynth FreezeFrame repair logic."
+    return msg
+
+
+def _subtitle_progress_bar_factory(session: SessionState, original_tqdm: Any, segment_total: int):
+    progress_prefix = "Transcribing audio with Whisper..."
+
+    class _SubtitlesProgressBar:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            self._inner = original_tqdm(*args, **kwargs)
+            total_raw = getattr(self._inner, "total", None)
+            try:
+                total_val = float(total_raw)
+            except Exception:
+                total_val = float(segment_total or 0)
+            self._total = max(1.0, total_val) if total_val > 0 else max(1.0, float(segment_total or 1))
+            _set_subtitles_progress(
+                session,
+                progress=20.0,
+                message=progress_prefix,
+                segment_done=0,
+                segment_total=max(1, int(round(self._total))),
+            )
+
+        def __enter__(self) -> "_SubtitlesProgressBar":
+            if hasattr(self._inner, "__enter__"):
+                self._inner.__enter__()
+            return self
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> Any:
+            if hasattr(self._inner, "__exit__"):
+                return self._inner.__exit__(exc_type, exc, tb)
+            return False
+
+        def update(self, n: int = 1) -> Any:
+            out = self._inner.update(n)
+            done = _coerce_subtitle_progress_done(getattr(self._inner, "n", 0))
+            frac = min(1.0, done / max(1.0, self._total))
+            _set_subtitles_progress(
+                session,
+                progress=20.0 + (frac * 75.0),
+                message=progress_prefix,
+                segment_done=max(0, int(round(done))),
+                segment_total=max(1, int(round(self._total))),
+            )
+            if bool(session.subtitles_cancel_requested):
+                raise _SubtitlesCancelledError("Subtitle generation cancelled.")
+            return out
+
+        def close(self) -> Any:
+            if hasattr(self._inner, "close"):
+                return self._inner.close()
+            return None
+
+        def __iter__(self) -> Any:
+            return iter(self._inner)
+
+        def __getattr__(self, name: str) -> Any:
+            return getattr(self._inner, name)
+
+    return _SubtitlesProgressBar
+
+
+def _coerce_subtitle_progress_done(raw: Any) -> float:
+    try:
+        return max(0.0, float(raw))
+    except Exception:
+        return 0.0
+
+
 class WizardHandler(BaseHTTPRequestHandler):
     server_version = "VHSTuner/1.0"
 
@@ -2486,39 +2770,10 @@ class WizardHandler(BaseHTTPRequestHandler):
             self._send_error_json(str(empty_message), code=HTTPStatus.NOT_FOUND)
             return
 
-        start = 0
-        end = total_size - 1
-        status = HTTPStatus.OK
-        content_range = None
-
-        range_header = str(self.headers.get("Range", "") or "").strip()
-        if range_header:
-            m = re.match(r"bytes=(\d*)-(\d*)$", range_header)
-            if m:
-                g_start, g_end = m.groups()
-                if g_start:
-                    start = int(g_start)
-                if g_end:
-                    end = int(g_end)
-                if not g_end:
-                    end = total_size - 1
-                if g_start and not g_end:
-                    end = total_size - 1
-                if start < 0:
-                    start = 0
-                if end >= total_size:
-                    end = total_size - 1
-                if start > end or start >= total_size:
-                    self.send_response(HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
-                    self.send_header("Content-Range", f"bytes */{total_size}")
-                    self.send_header("Accept-Ranges", "bytes")
-                    self.send_header("Cache-Control", "no-store")
-                    if self._set_cookie:
-                        self.send_header("Set-Cookie", self._set_cookie)
-                    self.end_headers()
-                    return
-                status = HTTPStatus.PARTIAL_CONTENT
-                content_range = f"bytes {start}-{end}/{total_size}"
+        range_result = self._media_range_result(total_size)
+        if range_result is None:
+            return
+        start, end, status, content_range = range_result
 
         length = (end - start) + 1
         self.send_response(status)
@@ -2547,6 +2802,41 @@ class WizardHandler(BaseHTTPRequestHandler):
                     # seeks/cancels range requests). Treat as non-fatal.
                     return
                 remaining -= len(chunk)
+
+    def _media_range_result(self, total_size: int) -> tuple[int, int, HTTPStatus, str | None] | None:
+        start = 0
+        end = total_size - 1
+        status = HTTPStatus.OK
+        content_range = None
+
+        range_header = str(self.headers.get("Range", "") or "").strip()
+        if not range_header:
+            return start, end, status, content_range
+        m = re.match(r"bytes=(\d*)-(\d*)$", range_header)
+        if not m:
+            return start, end, status, content_range
+        g_start, g_end = m.groups()
+        if g_start:
+            start = int(g_start)
+        if g_end:
+            end = int(g_end)
+        if not g_end:
+            end = total_size - 1
+        start = max(0, start)
+        end = min(end, total_size - 1)
+        if start > end or start >= total_size:
+            self._send_unsatisfiable_media_range(total_size)
+            return None
+        return start, end, HTTPStatus.PARTIAL_CONTENT, f"bytes {start}-{end}/{total_size}"
+
+    def _send_unsatisfiable_media_range(self, total_size: int) -> None:
+        self.send_response(HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
+        self.send_header("Content-Range", f"bytes */{total_size}")
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Cache-Control", "no-store")
+        if self._set_cookie:
+            self.send_header("Set-Cookie", self._set_cookie)
+        self.end_headers()
 
     def _send_video_file(self, path: Path) -> None:
         self._send_media_file(
@@ -2580,15 +2870,8 @@ class WizardHandler(BaseHTTPRequestHandler):
             return None, "Invalid chapter frame span for audio."
 
         cache_key = self._chapter_audio_cache_key(session)
-        existing_raw = str(session.chapter_audio_path or "").strip()
-        existing = Path(existing_raw) if existing_raw else None
-        if (
-            existing
-            and session.chapter_audio_key == cache_key
-            and existing.exists()
-            and existing.is_file()
-            and int(existing.stat().st_size) > 44
-        ):
+        existing = self._existing_chapter_audio_file(session, cache_key)
+        if existing is not None:
             return existing, ""
 
         source_video = _resolve_archive_video(session.archive)
@@ -2600,66 +2883,10 @@ class WizardHandler(BaseHTTPRequestHandler):
         if float(end_sec) <= float(start_sec):
             return None, "Invalid chapter time range for audio."
 
-        out_dir = Path(tempfile.gettempdir()) / "vhs_plain_wizard_audio"
-        out_dir.mkdir(parents=True, exist_ok=True)
+        out_path = self._chapter_audio_output_path(session, cache_key)
 
-        archive_slug = slugify(str(session.archive or "archive")) or "archive"
-        chapter_slug = slugify(str(session.chapter or "chapter")) or "chapter"
-        key_hash = uuid.uuid5(uuid.NAMESPACE_URL, cache_key).hex[:16]
-        out_name = f"{archive_slug}_{chapter_slug}_{int(session.start_frame)}_{int(session.end_frame)}_{key_hash}.wav"
-        out_path = out_dir / out_name
-
-        needs_extract = True
-        try:
-            needs_extract = (not out_path.exists()) or (int(out_path.stat().st_size) <= 44)
-        except Exception:
-            needs_extract = True
-
-        if needs_extract:
-            offset = float(session.audio_sync_offset or 0.0)
-            cmd = [
-                str(FFMPEG_BIN),
-                "-nostdin",
-                "-v",
-                "error",
-            ]
-            if abs(offset) < 1e-6:
-                cmd += [
-                    "-ss",
-                    f"{float(start_sec):.3f}",
-                    "-to",
-                    f"{float(end_sec):.3f}",
-                ]
-            cmd += [
-                "-i",
-                str(source_video),
-                "-vn",
-            ]
-            if abs(offset) >= 1e-6:
-                chapter_dur = max(0.001, float(end_sec) - float(start_sec))
-                audio_start_raw = float(start_sec) + offset
-                audio_end_raw = float(end_sec) + offset
-                audio_start_clamped = max(0.0, audio_start_raw)
-                audio_end_clamped = max(audio_start_clamped + 0.001, audio_end_raw)
-                silence_prepend_sec = max(0.0, -audio_start_raw)
-                af_parts = [
-                    f"atrim=start={audio_start_clamped:.6f}:end={audio_end_clamped:.6f}",
-                    "asetpts=PTS-STARTPTS",
-                ]
-                if silence_prepend_sec > 1e-4:
-                    af_parts.append(f"adelay={silence_prepend_sec * 1000:.1f}:all=1")
-                af_parts.append(f"apad=whole_dur={chapter_dur:.6f}")
-                cmd += ["-af", ",".join(af_parts)]
-            cmd += [
-                "-ac",
-                "1",
-                "-ar",
-                "16000",
-                "-c:a",
-                "pcm_s16le",
-                "-y",
-                str(out_path),
-            ]
+        if self._chapter_audio_needs_extract(out_path):
+            cmd = self._chapter_audio_extract_cmd(session, source_video, out_path, start_sec, end_sec)
             proc = subprocess.run(
                 cmd,
                 check=False,
@@ -2673,6 +2900,68 @@ class WizardHandler(BaseHTTPRequestHandler):
         session.chapter_audio_key = cache_key
         session.chapter_audio_path = str(out_path)
         return out_path, ""
+
+    def _existing_chapter_audio_file(self, session: SessionState, cache_key: str) -> Path | None:
+        existing_raw = str(session.chapter_audio_path or "").strip()
+        existing = Path(existing_raw) if existing_raw else None
+        if (
+            existing
+            and session.chapter_audio_key == cache_key
+            and existing.exists()
+            and existing.is_file()
+            and int(existing.stat().st_size) > 44
+        ):
+            return existing
+        return None
+
+    def _chapter_audio_output_path(self, session: SessionState, cache_key: str) -> Path:
+        out_dir = Path(tempfile.gettempdir()) / "vhs_plain_wizard_audio"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        archive_slug = slugify(str(session.archive or "archive")) or "archive"
+        chapter_slug = slugify(str(session.chapter or "chapter")) or "chapter"
+        key_hash = uuid.uuid5(uuid.NAMESPACE_URL, cache_key).hex[:16]
+        out_name = f"{archive_slug}_{chapter_slug}_{int(session.start_frame)}_{int(session.end_frame)}_{key_hash}.wav"
+        return out_dir / out_name
+
+    def _chapter_audio_needs_extract(self, out_path: Path) -> bool:
+        try:
+            return (not out_path.exists()) or (int(out_path.stat().st_size) <= 44)
+        except Exception:
+            return True
+
+    def _chapter_audio_extract_cmd(
+        self,
+        session: SessionState,
+        source_video: Path,
+        out_path: Path,
+        start_sec: float,
+        end_sec: float,
+    ) -> list[str]:
+        offset = float(session.audio_sync_offset or 0.0)
+        cmd = [str(FFMPEG_BIN), "-nostdin", "-v", "error"]
+        if abs(offset) < 1e-6:
+            cmd += ["-ss", f"{float(start_sec):.3f}", "-to", f"{float(end_sec):.3f}"]
+        cmd += ["-i", str(source_video), "-vn"]
+        if abs(offset) >= 1e-6:
+            cmd += ["-af", self._chapter_audio_offset_filter(offset, start_sec, end_sec)]
+        cmd += ["-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", "-y", str(out_path)]
+        return cmd
+
+    def _chapter_audio_offset_filter(self, offset: float, start_sec: float, end_sec: float) -> str:
+        chapter_dur = max(0.001, float(end_sec) - float(start_sec))
+        audio_start_raw = float(start_sec) + offset
+        audio_end_raw = float(end_sec) + offset
+        audio_start_clamped = max(0.0, audio_start_raw)
+        audio_end_clamped = max(audio_start_clamped + 0.001, audio_end_raw)
+        silence_prepend_sec = max(0.0, -audio_start_raw)
+        af_parts = [
+            f"atrim=start={audio_start_clamped:.6f}:end={audio_end_clamped:.6f}",
+            "asetpts=PTS-STARTPTS",
+        ]
+        if silence_prepend_sec > 1e-4:
+            af_parts.append(f"adelay={silence_prepend_sec * 1000:.1f}:all=1")
+        af_parts.append(f"apad=whole_dur={chapter_dur:.6f}")
+        return ",".join(af_parts)
 
     _AUDIO_SYNC_PAD_SECONDS = 20.0
 
@@ -2761,161 +3050,39 @@ class WizardHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
 
         if parsed.path == "/":
-            if not INDEX_HTML.exists():
-                self._send_text("Missing index.html", code=HTTPStatus.INTERNAL_SERVER_ERROR)
-                return
-            self._send_text(
-                INDEX_HTML.read_text(encoding="utf-8"),
-                content_type="text/html; charset=utf-8",
-            )
+            self._handle_get_index()
             return
 
         if parsed.path.endswith((".js", ".css")) and "/" not in parsed.path.lstrip("/"):
-            cache_key = parsed.path.lstrip("/")
-            cached = _STATIC_FILE_CACHE.get(cache_key)
-            if cached is None:
-                static_path = STATIC_DIR / cache_key
-                if not static_path.exists() or not static_path.is_file():
-                    self._send_text("Not found", code=HTTPStatus.NOT_FOUND)
-                    return
-                content_type = (
-                    "application/javascript; charset=utf-8"
-                    if parsed.path.endswith(".js")
-                    else "text/css; charset=utf-8"
-                )
-                cached = (content_type, static_path.read_bytes())
-                _STATIC_FILE_CACHE[cache_key] = cached
-            self._send_bytes(cached[1], content_type=cached[0], cache_control="no-store")
+            self._handle_get_static_file(parsed)
             return
 
         if parsed.path == "/preview":
-            preview_raw = str(session.preview_video_path or "").strip()
-            preview_path = Path(preview_raw) if preview_raw else None
-            if not preview_path or not preview_path.exists() or not preview_path.is_file():
-                self._send_text(
-                    "Preview render is not ready yet. Run Preview Render from Step 2 first.",
-                    code=HTTPStatus.NOT_FOUND,
-                )
-                return
-            self._send_text(
-                self._preview_page_html(session),
-                content_type="text/html; charset=utf-8",
-            )
+            self._handle_get_preview_page(session)
             return
 
         if parsed.path == "/api/preview_video":
-            preview_raw = str(session.preview_video_path or "").strip()
-            preview_path = Path(preview_raw) if preview_raw else None
-            if not preview_path or not preview_path.exists() or not preview_path.is_file():
-                self._send_error_json("Preview render is not ready yet.", code=HTTPStatus.NOT_FOUND)
-                return
-            self._send_video_file(preview_path)
+            self._handle_get_preview_video(session)
             return
 
         if parsed.path == "/api/chapter_audio":
-            audio_path, err = self._ensure_chapter_audio_file(session)
-            if err or audio_path is None:
-                self._send_error_json(err or "Chapter audio is not available.", code=HTTPStatus.NOT_FOUND)
-                return
-            self._send_audio_file(audio_path)
+            self._handle_get_chapter_audio(session)
             return
 
         if parsed.path == "/api/audio_sync_info":
-            sync_path, err, padded_start, video_offset = self._ensure_audio_sync_file(session)
-            if err or sync_path is None:
-                self._send_error_json(
-                    err or "Audio sync file is not available.",
-                    code=HTTPStatus.NOT_FOUND,
-                )
-                return
-            chapter_duration = _frame_to_seconds(session.end_frame) - _frame_to_seconds(session.start_frame)
-            self._send_json(
-                {
-                    "ok": True,
-                    "padded_start_sec": float(padded_start),
-                    "video_offset_sec": float(video_offset),
-                    "chapter_duration_sec": float(chapter_duration),
-                    "pad_seconds": float(self._AUDIO_SYNC_PAD_SECONDS),
-                    "offset_seconds": float(session.audio_sync_offset),
-                }
-            )
+            self._handle_get_audio_sync_info(session)
             return
 
         if parsed.path == "/api/audio_sync_audio":
-            sync_path, err, _padded_start, _video_offset = self._ensure_audio_sync_file(session)
-            if err or sync_path is None:
-                self._send_error_json(
-                    err or "Audio sync file is not available.",
-                    code=HTTPStatus.NOT_FOUND,
-                )
-                return
-            self._send_audio_file(sync_path)
+            self._handle_get_audio_sync_audio(session)
             return
 
         if parsed.path == "/api/frame_image":
-            params = parse_qs(parsed.query)
-            raw_fid = str((params.get("fid", [""])[0] or "").strip())
-            if not raw_fid or not re.fullmatch(r"-?\d+", raw_fid):
-                self._send_error_json("Missing or invalid frame id.", code=HTTPStatus.BAD_REQUEST)
-                return
-            data_url = _lookup_frame_image_data_url(session, int(raw_fid))
-            decoded = _decode_frame_image_data_url(data_url)
-            if decoded is None:
-                # Thumbnail not in session cache — fetch on-demand from video
-                fid_images = _load_contact_sheet_images_from_video(session, [int(raw_fid)])
-                fid_result = fid_images.get(int(raw_fid))
-                if isinstance(fid_result, Image.Image):
-                    out_buf = io.BytesIO()
-                    fid_result.save(out_buf, format="JPEG", quality=85)
-                    decoded = ("image/jpeg", out_buf.getvalue())
-                elif isinstance(fid_result, str):
-                    decoded = _decode_frame_image_data_url(fid_result)
-            if decoded is None:
-                self._send_error_json("Frame image is not available.", code=HTTPStatus.NOT_FOUND)
-                return
-            content_type, payload = decoded
-            self._send_bytes(
-                payload,
-                content_type=content_type,
-                cache_control="private, max-age=3600, immutable",
-            )
+            self._handle_get_frame_image(session, parsed)
             return
 
         if parsed.path == "/api/frame_contact_sheet":
-            params = parse_qs(parsed.query)
-            raw_start = str((params.get("start", [""])[0] or "").strip())
-            raw_count = str((params.get("count", [""])[0] or "").strip())
-            raw_columns = str((params.get("columns", [""])[0] or "").strip())
-            if (
-                not raw_start
-                or not raw_count
-                or not re.fullmatch(r"-?\d+", raw_start)
-                or not re.fullmatch(r"-?\d+", raw_count)
-                or (raw_columns and not re.fullmatch(r"-?\d+", raw_columns))
-            ):
-                self._send_error_json(
-                    "Missing or invalid contact sheet parameters.",
-                    code=HTTPStatus.BAD_REQUEST,
-                )
-                return
-            start_index = max(0, int(raw_start))
-            count = max(1, int(raw_count))
-            columns = max(1, int(raw_columns or CONTACT_SHEET_COLUMNS))
-            built, sheet_complete = _cached_contact_sheet_bytes(
-                session,
-                start_index=start_index,
-                count=count,
-                columns=columns,
-            )
-            if built is None:
-                self._send_error_json("Frame contact sheet is not available.", code=HTTPStatus.NOT_FOUND)
-                return
-            content_type, payload = built
-            self._send_bytes(
-                payload,
-                content_type=content_type,
-                cache_control=("private, max-age=3600, immutable" if sheet_complete else "no-store"),
-            )
+            self._handle_get_frame_contact_sheet(session, parsed)
             return
 
         if parsed.path == "/api/archives":
@@ -2925,278 +3092,390 @@ class WizardHandler(BaseHTTPRequestHandler):
             return
 
         if parsed.path == "/api/archive_state":
-            params = parse_qs(parsed.query)
-            archive = str((params.get("archive", [""])[0] or "").strip())
-            chapter = str((params.get("chapter", [""])[0] or "").strip())
-            if not archive:
-                archives = _get_archives()
-                archive = archives[0] if archives else ""
-            state = _archive_state(session, archive, selected_title=(chapter or None))
-            self._send_json({"ok": True, "archive_state": state})
+            self._handle_get_archive_state(session, parsed)
             return
 
         if parsed.path == "/api/summary":
-            if not session.fids:
-                self._send_error_json("No loaded chapter data yet.")
-                return
-            self._send_json({"ok": True, **_summary_payload(session)})
+            self._handle_get_summary(session)
             return
 
         if parsed.path == "/api/load_progress":
-            progress_payload: dict[str, Any] = {
-                "ok": True,
-                "running": bool(session.load_running),
-                "progress": float(session.load_progress),
-                "message": str(session.load_message or ""),
-                "sample_done": int(session.load_sample_done),
-                "sample_total": int(session.load_sample_total),
-            }
-            if session.load_meta_ready:
-                progress_payload["people_profile"] = {
-                    "entries": list(session.people_entries),
-                    "source": "people_tsv",
-                }
-                progress_payload["subtitles_profile"] = {
-                    "entries": list(session.subtitle_entries),
-                    "source": "subtitles_tsv",
-                }
-            self._send_json(progress_payload)
+            self._handle_get_load_progress(session)
             return
 
-        if parsed.path == "/api/preview_progress":
-            self._send_json(
-                {
-                    "ok": True,
-                    "running": bool(session.preview_running),
-                    "progress": float(session.preview_progress),
-                    "message": str(session.preview_message or ""),
-                    "frame_done": int(session.preview_frame_done),
-                    "frame_total": int(session.preview_frame_total),
-                }
-            )
-            return
-
-        if parsed.path == "/api/subtitles_progress":
-            self._send_json(
-                {
-                    "ok": True,
-                    "running": bool(session.subtitles_running),
-                    "progress": float(session.subtitles_progress),
-                    "message": str(session.subtitles_message or ""),
-                    "segment_done": int(session.subtitles_segment_done),
-                    "segment_total": int(session.subtitles_segment_total),
-                }
-            )
-            return
-
-        if parsed.path == "/api/load_review":
-            self._send_json(
-                {
-                    "ok": True,
-                    "running": bool(session.load_running),
-                    "contact_sheet": _contact_sheet_config_payload(session),
-                    "review": _build_partial_review_payload(
-                        session,
-                        include_images=False,
-                    ),
-                }
-            )
+        progress_handler = {
+            "/api/preview_progress": lambda: self._handle_get_preview_progress(session),
+            "/api/subtitles_progress": lambda: self._handle_get_subtitles_progress(session),
+            "/api/load_review": lambda: self._handle_get_load_review(session),
+        }.get(parsed.path)
+        if progress_handler is not None:
+            progress_handler()
             return
 
         # -----------------------------------------------------------------------
         # AI-agent endpoints  (/api/ai/*)
         # -----------------------------------------------------------------------
 
-        if parsed.path == "/api/ai/signal_data":
-            if not session.fids or not session.sigs:
-                self._send_error_json("No loaded chapter data yet.")
-                return
-            scores = combined_score(session.sigs, session.wc, session.wn, session.wt, session.ww)
-            thr = float(compute_threshold(scores, session.t_mode, session.iqr_k, session.tval, session.bpct))
-            bad = sum(
-                1
-                for i, fid in enumerate(session.fids)
-                if _frame_status(session, int(fid), float(scores[i]), thr)[0] == "bad"
-            )
-            self._send_json(
-                {
-                    "ok": True,
-                    "archive": str(session.archive),
-                    "chapter": str(session.chapter),
-                    "start_frame": int(session.start_frame),
-                    "end_frame": int(session.end_frame),
-                    "iqr_k": float(session.iqr_k),
-                    "threshold": round(thr, 4),
-                    "fids": [int(f) for f in session.fids],
-                    "scores": [round(float(s), 4) for s in scores],
-                    "signals": {k: [round(float(x), 4) for x in v] for k, v in session.sigs.items()},
-                    "stats": {
-                        "total": len(session.fids),
-                        "bad": bad,
-                        "good": len(session.fids) - bad,
-                        "overrides": len(session.overrides),
-                    },
-                }
-            )
-            return
-
-        if parsed.path == "/api/ai/suggest_k":
-            if not session.fids or not session.sigs:
-                self._send_error_json("No loaded chapter data yet.")
-                return
-            scores = combined_score(session.sigs, session.wc, session.wn, session.wt, session.ww)
-            current_thr = float(compute_threshold(scores, session.t_mode, session.iqr_k, session.tval, session.bpct))
-            current_bad = sum(
-                1
-                for i, fid in enumerate(session.fids)
-                if _frame_status(session, int(fid), float(scores[i]), current_thr)[0] == "bad"
-            )
-            result = suggest_iqr_k(scores)  # type: ignore[arg-type]
-            result.update(
-                {
-                    "ok": True,
-                    "current_k": float(session.iqr_k),
-                    "current_threshold": round(current_thr, 4),
-                    "current_bad_count": current_bad,
-                }
-            )
-            self._send_json(result)
-            return
-
-        if parsed.path == "/api/ai/spike_regions":
-            if not session.fids or not session.sigs:
-                self._send_error_json("No loaded chapter data yet.")
-                return
-            params = parse_qs(parsed.query)
-            context = int((params.get("context", ["8"])[0] or "8"))
-            scores = combined_score(session.sigs, session.wc, session.wn, session.wt, session.ww)
-            thr = float(compute_threshold(scores, session.t_mode, session.iqr_k, session.tval, session.bpct))
-            regions = find_spike_regions(session.fids, scores, thr, context_frames=context)  # type: ignore[arg-type]
-            total_bad = sum(r["bad_frame_count"] for r in regions)
-            self._send_json(
-                {
-                    "ok": True,
-                    "threshold": round(thr, 4),
-                    "iqr_k": float(session.iqr_k),
-                    "total_bad_frames": total_bad,
-                    "total_regions": len(regions),
-                    "regions": regions,
-                }
-            )
-            return
-
-        if parsed.path == "/api/ai/frames_in_region":
-            if not session.fids or not session.sigs:
-                self._send_error_json("No loaded chapter data yet.")
-                return
-            params = parse_qs(parsed.query)
-            try:
-                start_fid = int(params.get("start_fid", ["0"])[0])
-                end_fid = int(params.get("end_fid", ["0"])[0])
-            except (ValueError, IndexError):
-                self._send_error_json("start_fid and end_fid are required integers.")
-                return
-            scores = combined_score(session.sigs, session.wc, session.wn, session.wt, session.ww)
-            thr = float(compute_threshold(scores, session.t_mode, session.iqr_k, session.tval, session.bpct))
-            # Find index range within session.fids
-            idx_start = bisect.bisect_left(session.fids, start_fid)
-            idx_end = bisect.bisect_right(session.fids, end_fid) - 1
-            if idx_start > idx_end or idx_start >= len(session.fids):
-                self._send_json({"ok": True, "frames": [], "contact_sheet_url": ""})
-                return
-            frames_out = []
-            for i in range(idx_start, idx_end + 1):
-                fid = int(session.fids[i])
-                score = float(scores[i])
-                status, source = _frame_status(session, fid, score, thr)
-                sigs_at = {k: round(float(v[i]), 4) for k, v in session.sigs.items() if i < len(v)}
-                frames_out.append(
-                    {
-                        "fid": fid,
-                        "local_frame": max(0, fid - int(session.start_frame)),
-                        "score": round(score, 4),
-                        "status": status,
-                        "source": source,
-                        "image_url": _frame_image_url(fid),
-                        "signals": sigs_at,
-                    }
-                )
-            count = idx_end - idx_start + 1
-            contact_url = _frame_contact_sheet_url(idx_start, count=count, columns=8)
-            self._send_json(
-                {
-                    "ok": True,
-                    "frames": frames_out,
-                    "contact_sheet_url": contact_url,
-                }
-            )
-            return
-
-        if parsed.path == "/api/ai/chapter_state":
-            if not session.fids:
-                self._send_error_json("No loaded chapter data yet.")
-                return
-            scores = combined_score(session.sigs, session.wc, session.wn, session.wt, session.ww)
-            thr = float(compute_threshold(scores, session.t_mode, session.iqr_k, session.tval, session.bpct))
-            bad = sum(
-                1
-                for i, fid in enumerate(session.fids)
-                if _frame_status(session, int(fid), float(scores[i]), thr)[0] == "bad"
-            )
-            # Build boundary frame URLs: first, last, first+5, last-5
-            fids = session.fids
-            n = len(fids)
-            boundary_urls = {
-                "first": _frame_image_url(int(fids[0])),
-                "first_plus_5": _frame_image_url(int(fids[min(5, n - 1)])),
-                "last_minus_5": _frame_image_url(int(fids[max(0, n - 6)])),
-                "last": _frame_image_url(int(fids[-1])),
-            }
-            self._send_json(
-                {
-                    "ok": True,
-                    "archive": str(session.archive),
-                    "chapter": str(session.chapter),
-                    "start_frame": int(session.start_frame),
-                    "end_frame": int(session.end_frame),
-                    "duration_frames": int(session.end_frame) - int(session.start_frame),
-                    "iqr_k": float(session.iqr_k),
-                    "threshold": round(thr, 4),
-                    "bad_frame_count": bad,
-                    "force_all_frames_good": bool(session.force_all_frames_good),
-                    "gamma_default": float(session.gamma_default),
-                    "gamma_ranges": list(session.gamma_ranges),
-                    "people_entries": list(session.people_entries),
-                    "subtitle_entries": list(session.subtitle_entries),
-                    "split_entries": list(session.split_entries),
-                    "auto_transcript": str(session.auto_transcript),
-                    "boundary_frame_urls": boundary_urls,
-                }
-            )
-            return
-
-        if parsed.path == "/api/ai/suggest_gamma":
-            if not session.fids or not session.b64:
-                self._send_error_json("No loaded chapter data yet.")
-                return
-            # Sample ~32 frames from the middle third of the chapter
-            n = len(session.b64)
-            lo = n // 3
-            hi = 2 * n // 3
-            mid_b64 = session.b64[lo:hi]
-            step = max(1, len(mid_b64) // 32)
-            sample = mid_b64[::step][:32]
-            result = estimate_gamma_from_frames(sample)
-            result.update(
-                {
-                    "ok": True,
-                    "current_gamma_default": float(session.gamma_default),
-                }
-            )
-            self._send_json(result)
+        if parsed.path.startswith("/api/ai/"):
+            self._handle_get_ai(session, parsed)
             return
 
         self._send_error_json("Not found", code=HTTPStatus.NOT_FOUND)
+
+    def _handle_get_index(self) -> None:
+        if not INDEX_HTML.exists():
+            self._send_text("Missing index.html", code=HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+        self._send_text(INDEX_HTML.read_text(encoding="utf-8"), content_type="text/html; charset=utf-8")
+
+    def _handle_get_static_file(self, parsed) -> None:
+        cache_key = parsed.path.lstrip("/")
+        cached = _STATIC_FILE_CACHE.get(cache_key)
+        if cached is None:
+            static_path = STATIC_DIR / cache_key
+            if not static_path.exists() or not static_path.is_file():
+                self._send_text("Not found", code=HTTPStatus.NOT_FOUND)
+                return
+            content_type = (
+                "application/javascript; charset=utf-8" if parsed.path.endswith(".js") else "text/css; charset=utf-8"
+            )
+            cached = (content_type, static_path.read_bytes())
+            _STATIC_FILE_CACHE[cache_key] = cached
+        self._send_bytes(cached[1], content_type=cached[0], cache_control="no-store")
+
+    def _handle_get_preview_page(self, session: SessionState) -> None:
+        preview_path = self._session_preview_path(session)
+        if preview_path is None:
+            self._send_text(
+                "Preview render is not ready yet. Run Preview Render from Step 2 first.", code=HTTPStatus.NOT_FOUND
+            )
+            return
+        self._send_text(self._preview_page_html(session), content_type="text/html; charset=utf-8")
+
+    def _handle_get_preview_video(self, session: SessionState) -> None:
+        preview_path = self._session_preview_path(session)
+        if preview_path is None:
+            self._send_error_json("Preview render is not ready yet.", code=HTTPStatus.NOT_FOUND)
+            return
+        self._send_video_file(preview_path)
+
+    def _session_preview_path(self, session: SessionState) -> Path | None:
+        preview_raw = str(session.preview_video_path or "").strip()
+        preview_path = Path(preview_raw) if preview_raw else None
+        if not preview_path or not preview_path.exists() or not preview_path.is_file():
+            return None
+        return preview_path
+
+    def _handle_get_chapter_audio(self, session: SessionState) -> None:
+        audio_path, err = self._ensure_chapter_audio_file(session)
+        if err or audio_path is None:
+            self._send_error_json(err or "Chapter audio is not available.", code=HTTPStatus.NOT_FOUND)
+            return
+        self._send_audio_file(audio_path)
+
+    def _handle_get_audio_sync_info(self, session: SessionState) -> None:
+        sync_path, err, padded_start, video_offset = self._ensure_audio_sync_file(session)
+        if err or sync_path is None:
+            self._send_error_json(err or "Audio sync file is not available.", code=HTTPStatus.NOT_FOUND)
+            return
+        chapter_duration = _frame_to_seconds(session.end_frame) - _frame_to_seconds(session.start_frame)
+        self._send_json(
+            {
+                "ok": True,
+                "padded_start_sec": float(padded_start),
+                "video_offset_sec": float(video_offset),
+                "chapter_duration_sec": float(chapter_duration),
+                "pad_seconds": float(self._AUDIO_SYNC_PAD_SECONDS),
+                "offset_seconds": float(session.audio_sync_offset),
+            }
+        )
+
+    def _handle_get_audio_sync_audio(self, session: SessionState) -> None:
+        sync_path, err, _padded_start, _video_offset = self._ensure_audio_sync_file(session)
+        if err or sync_path is None:
+            self._send_error_json(err or "Audio sync file is not available.", code=HTTPStatus.NOT_FOUND)
+            return
+        self._send_audio_file(sync_path)
+
+    def _handle_get_archive_state(self, session: SessionState, parsed) -> None:
+        params = parse_qs(parsed.query)
+        archive = str((params.get("archive", [""])[0] or "").strip())
+        chapter = str((params.get("chapter", [""])[0] or "").strip())
+        if not archive:
+            archives = _get_archives()
+            archive = archives[0] if archives else ""
+        state = _archive_state(session, archive, selected_title=(chapter or None))
+        self._send_json({"ok": True, "archive_state": state})
+
+    def _handle_get_summary(self, session: SessionState) -> None:
+        if not session.fids:
+            self._send_error_json("No loaded chapter data yet.")
+            return
+        self._send_json({"ok": True, **_summary_payload(session)})
+
+    def _handle_get_load_progress(self, session: SessionState) -> None:
+        progress_payload: dict[str, Any] = {
+            "ok": True,
+            "running": bool(session.load_running),
+            "progress": float(session.load_progress),
+            "message": str(session.load_message or ""),
+            "sample_done": int(session.load_sample_done),
+            "sample_total": int(session.load_sample_total),
+        }
+        if session.load_meta_ready:
+            progress_payload["people_profile"] = {"entries": list(session.people_entries), "source": "people_tsv"}
+            progress_payload["subtitles_profile"] = {
+                "entries": list(session.subtitle_entries),
+                "source": "subtitles_tsv",
+            }
+        self._send_json(progress_payload)
+
+    def _handle_get_preview_progress(self, session: SessionState) -> None:
+        WizardHandler._send_named_worker_progress(self, session, "preview")
+
+    def _handle_get_subtitles_progress(self, session: SessionState) -> None:
+        WizardHandler._send_named_worker_progress(self, session, "subtitles")
+
+    def _send_named_worker_progress(self, session: SessionState, worker_name: str) -> None:
+        configs = {
+            "preview": (
+                "preview_running",
+                "preview_progress",
+                "preview_message",
+                "frame_done",
+                "preview_frame_done",
+                "frame_total",
+                "preview_frame_total",
+            ),
+            "subtitles": (
+                "subtitles_running",
+                "subtitles_progress",
+                "subtitles_message",
+                "segment_done",
+                "subtitles_segment_done",
+                "segment_total",
+                "subtitles_segment_total",
+            ),
+        }
+        WizardHandler._send_worker_progress(self, session, *configs[worker_name])
+
+    def _send_worker_progress(
+        self,
+        session: SessionState,
+        running_attr: str,
+        progress_attr: str,
+        message_attr: str,
+        done_key: str,
+        done_attr: str,
+        total_key: str,
+        total_attr: str,
+    ) -> None:
+        self._send_json(
+            {
+                "ok": True,
+                "running": bool(getattr(session, running_attr)),
+                "progress": float(getattr(session, progress_attr)),
+                "message": str(getattr(session, message_attr) or ""),
+                done_key: int(getattr(session, done_attr)),
+                total_key: int(getattr(session, total_attr)),
+            }
+        )
+
+    def _handle_get_load_review(self, session: SessionState) -> None:
+        self._send_json(
+            {
+                "ok": True,
+                "running": bool(session.load_running),
+                "contact_sheet": _contact_sheet_config_payload(session),
+                "review": _build_partial_review_payload(session, include_images=False),
+            }
+        )
+
+    def _handle_get_frame_image(self, session: SessionState, parsed) -> None:
+        params = parse_qs(parsed.query)
+        raw_fid = str((params.get("fid", [""])[0] or "").strip())
+        if not raw_fid or not re.fullmatch(r"-?\d+", raw_fid):
+            self._send_error_json("Missing or invalid frame id.", code=HTTPStatus.BAD_REQUEST)
+            return
+        decoded = self._frame_image_payload(session, int(raw_fid))
+        if decoded is None:
+            self._send_error_json("Frame image is not available.", code=HTTPStatus.NOT_FOUND)
+            return
+        content_type, payload = decoded
+        self._send_bytes(payload, content_type=content_type, cache_control="private, max-age=3600, immutable")
+
+    def _frame_image_payload(self, session: SessionState, fid: int) -> tuple[str, bytes] | None:
+        decoded = _decode_frame_image_data_url(_lookup_frame_image_data_url(session, int(fid)))
+        if decoded is not None:
+            return decoded
+        fid_images = _load_contact_sheet_images_from_video(session, [int(fid)])
+        fid_result = fid_images.get(int(fid))
+        if isinstance(fid_result, Image.Image):
+            out_buf = io.BytesIO()
+            fid_result.save(out_buf, format="JPEG", quality=85)
+            return "image/jpeg", out_buf.getvalue()
+        if isinstance(fid_result, str):
+            return _decode_frame_image_data_url(fid_result)
+        return None
+
+    def _handle_get_frame_contact_sheet(self, session: SessionState, parsed) -> None:
+        params = parse_qs(parsed.query)
+        parsed_params = _parse_contact_sheet_params(params)
+        if parsed_params is None:
+            self._send_error_json("Missing or invalid contact sheet parameters.", code=HTTPStatus.BAD_REQUEST)
+            return
+        start_index, count, columns = parsed_params
+        built, sheet_complete = _cached_contact_sheet_bytes(
+            session,
+            start_index=start_index,
+            count=count,
+            columns=columns,
+        )
+        if built is None:
+            self._send_error_json("Frame contact sheet is not available.", code=HTTPStatus.NOT_FOUND)
+            return
+        content_type, payload = built
+        self._send_bytes(
+            payload,
+            content_type=content_type,
+            cache_control=("private, max-age=3600, immutable" if sheet_complete else "no-store"),
+        )
+
+    def _handle_get_ai_signal_data(self, session: SessionState) -> None:
+        if not session.fids or not session.sigs:
+            self._send_error_json("No loaded chapter data yet.")
+            return
+        scores, thr, bad = _session_scores_threshold_bad_count(session)
+        self._send_json(
+            {
+                "ok": True,
+                "archive": str(session.archive),
+                "chapter": str(session.chapter),
+                "start_frame": int(session.start_frame),
+                "end_frame": int(session.end_frame),
+                "iqr_k": float(session.iqr_k),
+                "threshold": round(thr, 4),
+                "fids": [int(f) for f in session.fids],
+                "scores": [round(float(s), 4) for s in scores],
+                "signals": {k: [round(float(x), 4) for x in v] for k, v in session.sigs.items()},
+                "stats": {
+                    "total": len(session.fids),
+                    "bad": bad,
+                    "good": len(session.fids) - bad,
+                    "overrides": len(session.overrides),
+                },
+            }
+        )
+
+    def _handle_get_ai_suggest_k(self, session: SessionState) -> None:
+        if not session.fids or not session.sigs:
+            self._send_error_json("No loaded chapter data yet.")
+            return
+        scores, current_thr, current_bad = _session_scores_threshold_bad_count(session)
+        result = suggest_iqr_k(scores)  # type: ignore[arg-type]
+        result.update(
+            {
+                "ok": True,
+                "current_k": float(session.iqr_k),
+                "current_threshold": round(current_thr, 4),
+                "current_bad_count": current_bad,
+            }
+        )
+        self._send_json(result)
+
+    def _handle_get_ai(self, session: SessionState, parsed) -> None:
+        handlers = {
+            "/api/ai/signal_data": lambda: self._handle_get_ai_signal_data(session),
+            "/api/ai/suggest_k": lambda: self._handle_get_ai_suggest_k(session),
+            "/api/ai/spike_regions": lambda: self._handle_get_ai_spike_regions(session, parsed),
+            "/api/ai/frames_in_region": lambda: self._handle_get_ai_frames_in_region(session, parsed),
+            "/api/ai/chapter_state": lambda: self._handle_get_ai_chapter_state(session),
+            "/api/ai/suggest_gamma": lambda: self._handle_get_ai_suggest_gamma(session),
+        }
+        handler = handlers.get(parsed.path)
+        if handler is None:
+            self._send_error_json("Not found", code=HTTPStatus.NOT_FOUND)
+            return
+        handler()
+
+    def _handle_get_ai_spike_regions(self, session: SessionState, parsed) -> None:
+        if not session.fids or not session.sigs:
+            self._send_error_json("No loaded chapter data yet.")
+            return
+        params = parse_qs(parsed.query)
+        context = int((params.get("context", ["8"])[0] or "8"))
+        scores, thr, _bad = _session_scores_threshold_bad_count(session)
+        regions = find_spike_regions(session.fids, scores, thr, context_frames=context)  # type: ignore[arg-type]
+        self._send_json(
+            {
+                "ok": True,
+                "threshold": round(thr, 4),
+                "iqr_k": float(session.iqr_k),
+                "total_bad_frames": sum(r["bad_frame_count"] for r in regions),
+                "total_regions": len(regions),
+                "regions": regions,
+            }
+        )
+
+    def _handle_get_ai_frames_in_region(self, session: SessionState, parsed) -> None:
+        if not session.fids or not session.sigs:
+            self._send_error_json("No loaded chapter data yet.")
+            return
+        params = parse_qs(parsed.query)
+        try:
+            start_fid = int(params.get("start_fid", ["0"])[0])
+            end_fid = int(params.get("end_fid", ["0"])[0])
+        except (ValueError, IndexError):
+            self._send_error_json("start_fid and end_fid are required integers.")
+            return
+        scores, thr, _bad = _session_scores_threshold_bad_count(session)
+        idx_start = bisect.bisect_left(session.fids, start_fid)
+        idx_end = bisect.bisect_right(session.fids, end_fid) - 1
+        if idx_start > idx_end or idx_start >= len(session.fids):
+            self._send_json({"ok": True, "frames": [], "contact_sheet_url": ""})
+            return
+        self._send_json(
+            {
+                "ok": True,
+                "frames": _ai_region_frame_payloads(session, scores, thr, idx_start, idx_end),
+                "contact_sheet_url": _frame_contact_sheet_url(idx_start, count=idx_end - idx_start + 1, columns=8),
+            }
+        )
+
+    def _handle_get_ai_chapter_state(self, session: SessionState) -> None:
+        if not session.fids:
+            self._send_error_json("No loaded chapter data yet.")
+            return
+        _scores, thr, bad = _session_scores_threshold_bad_count(session)
+        self._send_json(
+            {
+                "ok": True,
+                "archive": str(session.archive),
+                "chapter": str(session.chapter),
+                "start_frame": int(session.start_frame),
+                "end_frame": int(session.end_frame),
+                "duration_frames": int(session.end_frame) - int(session.start_frame),
+                "iqr_k": float(session.iqr_k),
+                "threshold": round(thr, 4),
+                "bad_frame_count": bad,
+                "force_all_frames_good": bool(session.force_all_frames_good),
+                "gamma_default": float(session.gamma_default),
+                "gamma_ranges": list(session.gamma_ranges),
+                "people_entries": list(session.people_entries),
+                "subtitle_entries": list(session.subtitle_entries),
+                "split_entries": list(session.split_entries),
+                "auto_transcript": str(session.auto_transcript),
+                "boundary_frame_urls": _boundary_frame_urls(session.fids),
+            }
+        )
+
+    def _handle_get_ai_suggest_gamma(self, session: SessionState) -> None:
+        if not session.fids or not session.b64:
+            self._send_error_json("No loaded chapter data yet.")
+            return
+        result = estimate_gamma_from_frames(_middle_frame_sample(session.b64))
+        result.update({"ok": True, "current_gamma_default": float(session.gamma_default)})
+        self._send_json(result)
 
     def do_POST(self) -> None:
         session = self._ensure_session()
@@ -3209,181 +3488,184 @@ class WizardHandler(BaseHTTPRequestHandler):
             return
 
         if parsed.path == "/api/load_chapter":
-            self._handle_load_chapter(session, payload)
+            WizardHandler._handle_load_chapter(self, session, payload)
             return
 
         if parsed.path == "/api/cancel_load":
-            session.load_cancel_requested = True
-            if session.load_running:
-                _set_load_progress(
-                    session,
-                    message="Cancel requested... stopping after current frame.",
-                )
-            self._send_json(
-                {
-                    "ok": True,
-                    "running": bool(session.load_running),
-                    "message": (
-                        "Cancel requested... stopping after current frame."
-                        if session.load_running
-                        else "No active load to cancel."
-                    ),
-                }
-            )
+            WizardHandler._handle_cancel_load(self, session)
             return
 
         if parsed.path == "/api/cancel_subtitles":
-            session.subtitles_cancel_requested = True
-            if session.subtitles_running:
-                _set_subtitles_progress(
-                    session,
-                    message="Cancel requested... stopping after current decode chunk.",
-                )
-            self._send_json(
-                {
-                    "ok": True,
-                    "running": bool(session.subtitles_running),
-                    "message": (
-                        "Cancel requested... stopping after current decode chunk."
-                        if session.subtitles_running
-                        else "No active subtitle generation to cancel."
-                    ),
-                }
-            )
+            WizardHandler._handle_cancel_subtitles(self, session)
             return
 
         if parsed.path == "/api/apply_iqr":
-            if not session.fids:
-                self._send_error_json("No loaded chapter data yet.")
-                return
-            session.iqr_k = _normalize_iqr_k(payload.get("iqr_k", session.iqr_k), default=session.iqr_k)
-            if "force_all_frames_good" in payload:
-                session.force_all_frames_good = _normalize_payload_bool(
-                    payload.get("force_all_frames_good"),
-                    default=session.force_all_frames_good,
-                )
-            review = _build_review_payload(session, include_images=False)
-            self._send_json({"ok": True, "review": review})
+            WizardHandler._handle_apply_iqr(self, session, payload)
             return
 
         if parsed.path == "/api/set_force_all_good":
-            self._handle_set_force_all_good(session, payload)
+            WizardHandler._handle_set_force_all_good(self, session, payload)
             return
 
         if parsed.path == "/api/toggle_frame":
-            if not session.fids and not session.partial_fids:
-                self._send_error_json("No loaded chapter data yet.")
-                return
-            try:
-                fid = int(payload.get("fid"))
-            except Exception:
-                self._send_error_json("Missing or invalid frame id.")
-                return
-            self._handle_toggle_frame(session, fid)
+            WizardHandler._handle_toggle_frame_payload(self, session, payload)
             return
 
         if parsed.path == "/api/set_frame_range":
-            if not session.fids and not session.partial_fids:
-                self._send_error_json("No loaded chapter data yet.")
-                return
-            try:
-                start_fid = int(payload.get("start_fid"))
-                end_fid = int(payload.get("end_fid"))
-            except Exception:
-                self._send_error_json("Missing or invalid range frame ids.")
-                return
-            status_raw = str(payload.get("status", "bad") or "bad").strip().lower()
-            status = "good" if status_raw == "good" else "bad"
-            self._handle_set_frame_range(session, start_fid, end_fid, status)
+            WizardHandler._handle_set_frame_range_payload(self, session, payload)
             return
 
         if parsed.path == "/api/preview_render":
-            self._handle_preview_render(session, payload)
+            WizardHandler._handle_preview_render(self, session, payload)
             return
 
         if parsed.path == "/api/people_prefill_cast":
-            self._handle_people_prefill_cast(session, payload)
+            WizardHandler._handle_people_prefill_cast(self, session, payload)
             return
 
         if parsed.path == "/api/subtitles_generate":
-            self._handle_subtitles_generate(session, payload)
+            WizardHandler._handle_subtitles_generate(self, session, payload)
             return
 
         if parsed.path == "/api/set_auto_transcript":
-            self._handle_set_auto_transcript(session, payload)
+            WizardHandler._handle_set_auto_transcript(self, session, payload)
             return
 
         if parsed.path == "/api/save":
-            self._handle_save(session, payload)
+            WizardHandler._handle_save(self, session, payload)
             return
 
         if parsed.path == "/api/save_progress":
-            self._handle_save_progress(session, payload)
+            WizardHandler._handle_save_progress(self, session, payload)
             return
 
         if parsed.path == "/api/rename_chapter":
-            archive = str(payload.get("archive", "")).strip()
-            old_title = str(payload.get("old_title", "")).strip()
-            new_title = str(payload.get("new_title", "")).strip()
-            if not archive or not old_title or not new_title:
-                self._send_error_json("Missing archive, old_title, or new_title.")
-                return
-            if old_title == new_title:
-                self._send_json(
-                    {
-                        "ok": True,
-                        "old_title": old_title,
-                        "new_title": new_title,
-                        "renamed_files": [],
-                    }
-                )
-                return
-            tsv_path = _chapters_tsv_path(archive)
-            if not tsv_path.exists():
-                self._send_error_json(f"No chapters.tsv found for archive: {archive}")
-                return
-            header, rows = _read_chapters_tsv_rows(tsv_path)
-            title_key = next((k for k in header if k.strip().lower() == "title"), None)
-            if not title_key:
-                self._send_error_json("chapters.tsv has no 'title' column.")
-                return
-            matched = False
-            for row in rows:
-                if row.get(title_key, "").strip() == old_title:
-                    row[title_key] = new_title
-                    matched = True
-                    break
-            if not matched:
-                self._send_error_json(f"Chapter not found: {old_title!r}")
-                return
-            _write_chapters_tsv_rows(tsv_path, header, rows)
-            renamed_files = _rename_chapter_outputs(old_title, new_title, archive)
-            self._send_json(
-                {
-                    "ok": True,
-                    "old_title": old_title,
-                    "new_title": new_title,
-                    "renamed_files": renamed_files,
-                }
-            )
+            WizardHandler._handle_rename_chapter(self, payload)
             return
 
         if parsed.path == "/api/perf_report":
-            prof_client_path = str(os.environ.get("VHS_PROFILE_CLIENT", "")).strip()
-            if not prof_client_path:
-                self._send_json({"ok": False, "error": "Client profiling not enabled on server"})
-                return
-            entry = {**payload, "_server_ts": __import__("time").time()}
-            try:
-                with open(prof_client_path, "a", encoding="utf-8") as fh:
-                    fh.write(json.dumps(entry, separators=(",", ":")) + "\n")
-            except Exception as exc:
-                self._send_error_json(f"Failed to write profile: {exc}")
-                return
-            self._send_json({"ok": True})
+            WizardHandler._handle_perf_report(self, payload)
             return
 
         self._send_error_json("Not found", code=HTTPStatus.NOT_FOUND)
+
+    def _handle_cancel_load(self, session: SessionState) -> None:
+        WizardHandler._handle_cancel_worker(self, session, "load")
+
+    def _handle_cancel_subtitles(self, session: SessionState) -> None:
+        WizardHandler._handle_cancel_worker(self, session, "subtitles")
+
+    def _handle_cancel_worker(self, session: SessionState, worker_name: str) -> None:
+        configs = {
+            "load": (
+                "load_cancel_requested",
+                "load_running",
+                _set_load_progress,
+                "Cancel requested... stopping after current frame.",
+                "No active load to cancel.",
+            ),
+            "subtitles": (
+                "subtitles_cancel_requested",
+                "subtitles_running",
+                _set_subtitles_progress,
+                "Cancel requested... stopping after current decode chunk.",
+                "No active subtitle generation to cancel.",
+            ),
+        }
+        cancel_attr, running_attr, progress_fn, active_message, inactive_message = configs[worker_name]
+        setattr(session, cancel_attr, True)
+        running = bool(getattr(session, running_attr))
+        if running:
+            progress_fn(session, message=active_message)
+        self._send_json({"ok": True, "running": running, "message": active_message if running else inactive_message})
+
+    def _handle_apply_iqr(self, session: SessionState, payload: dict[str, Any]) -> None:
+        if not session.fids:
+            self._send_error_json("No loaded chapter data yet.")
+            return
+        session.iqr_k = _normalize_iqr_k(payload.get("iqr_k", session.iqr_k), default=session.iqr_k)
+        if "force_all_frames_good" in payload:
+            session.force_all_frames_good = _normalize_payload_bool(
+                payload.get("force_all_frames_good"),
+                default=session.force_all_frames_good,
+            )
+        self._send_json({"ok": True, "review": _build_review_payload(session, include_images=False)})
+
+    def _handle_toggle_frame_payload(self, session: SessionState, payload: dict[str, Any]) -> None:
+        if not session.fids and not session.partial_fids:
+            self._send_error_json("No loaded chapter data yet.")
+            return
+        try:
+            fid = int(payload.get("fid"))
+        except Exception:
+            self._send_error_json("Missing or invalid frame id.")
+            return
+        WizardHandler._handle_toggle_frame(self, session, fid)
+
+    def _handle_set_frame_range_payload(self, session: SessionState, payload: dict[str, Any]) -> None:
+        if not session.fids and not session.partial_fids:
+            self._send_error_json("No loaded chapter data yet.")
+            return
+        try:
+            start_fid = int(payload.get("start_fid"))
+            end_fid = int(payload.get("end_fid"))
+        except Exception:
+            self._send_error_json("Missing or invalid range frame ids.")
+            return
+        status_raw = str(payload.get("status", "bad") or "bad").strip().lower()
+        WizardHandler._handle_set_frame_range(
+            self,
+            session,
+            start_fid,
+            end_fid,
+            "good" if status_raw == "good" else "bad",
+        )
+
+    def _handle_rename_chapter(self, payload: dict[str, Any]) -> None:
+        archive = str(payload.get("archive", "")).strip()
+        old_title = str(payload.get("old_title", "")).strip()
+        new_title = str(payload.get("new_title", "")).strip()
+        if not archive or not old_title or not new_title:
+            self._send_error_json("Missing archive, old_title, or new_title.")
+            return
+        if old_title == new_title:
+            self._send_json({"ok": True, "old_title": old_title, "new_title": new_title, "renamed_files": []})
+            return
+        result = WizardHandler._rename_chapter_in_tsv(self, archive, old_title, new_title)
+        if isinstance(result, str):
+            self._send_error_json(result)
+            return
+        renamed_files = _rename_chapter_outputs(old_title, new_title, archive)
+        self._send_json({"ok": True, "old_title": old_title, "new_title": new_title, "renamed_files": renamed_files})
+
+    def _rename_chapter_in_tsv(self, archive: str, old_title: str, new_title: str) -> str | None:
+        tsv_path = _chapters_tsv_path(archive)
+        if not tsv_path.exists():
+            return f"No chapters.tsv found for archive: {archive}"
+        header, rows = _read_chapters_tsv_rows(tsv_path)
+        title_key = next((k for k in header if k.strip().lower() == "title"), None)
+        if not title_key:
+            return "chapters.tsv has no 'title' column."
+        for row in rows:
+            if row.get(title_key, "").strip() == old_title:
+                row[title_key] = new_title
+                _write_chapters_tsv_rows(tsv_path, header, rows)
+                return None
+        return f"Chapter not found: {old_title!r}"
+
+    def _handle_perf_report(self, payload: dict[str, Any]) -> None:
+        prof_client_path = str(os.environ.get("VHS_PROFILE_CLIENT", "")).strip()
+        if not prof_client_path:
+            self._send_json({"ok": False, "error": "Client profiling not enabled on server"})
+            return
+        entry = {**payload, "_server_ts": __import__("time").time()}
+        try:
+            with open(prof_client_path, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(entry, separators=(",", ":")) + "\n")
+        except Exception as exc:
+            self._send_error_json(f"Failed to write profile: {exc}")
+            return
+        self._send_json({"ok": True})
 
     def _handle_load_chapter(self, session: SessionState, payload: dict[str, Any]) -> None:
         def fail(message: str) -> None:
@@ -3439,74 +3721,8 @@ class WizardHandler(BaseHTTPRequestHandler):
         session.start_frame, session.end_frame = _normalize_frame_span(default_start, default_end)
         session.debug_extract = bool(payload.get("debug_extract", session.debug_extract))
         session.iqr_k = iqr_k
-        session.force_all_frames_good = _normalize_payload_bool(
-            payload.get("force_all_frames_good"),
-            default=session.force_all_frames_good,
-        )
-        session.preview_video_path = ""
-        session.chapter_audio_path = ""
-        session.chapter_audio_key = ""
-        _close_session_video_cap(session)
-        session.fids = []
-        session.b64 = []
-        session.sigs = {}
-        session.overrides = _chapter_bad_overrides(
-            archive=session.archive,
-            chapter_title=session.chapter,
-            ch_start=session.start_frame,
-            ch_end=session.end_frame,
-        )
-        session.gamma_default = 1.0
-        session.gamma_ranges = []
-        session.audio_sync_offset = 0.0
-        session.people_entries = []
-        session.subtitle_entries = []
-        session.split_entries = []
-        session.partial_fids = []
-        session.partial_b64 = []
-        session.partial_sigs = {"chroma": [], "noise": [], "tear": [], "wave": []}
-        session.frame_source_video_path = ""
-        session.frame_source_read_offset = 0
-        session.load_meta_ready = False
-
-        # Load metadata from disk early — fast TSV reads that don't require frame extraction.
-        gamma_profile = get_gamma_profile_for_chapter(
-            archive=session.archive,
-            ch_start=session.start_frame,
-            ch_end=session.end_frame,
-        )
-        session.gamma_default = normalize_gamma_value(gamma_profile.get("default_gamma", 1.0), default=1.0)
-        session.gamma_ranges = _normalize_gamma_ranges_payload(
-            gamma_profile.get("ranges", []),
-            ch_start=session.start_frame,
-            ch_end=session.end_frame,
-        )
-        session.audio_sync_offset = get_audio_sync_offset_for_chapter(
-            archive=session.archive,
-            ch_start=session.start_frame,
-            ch_end=session.end_frame,
-        )
-        session.people_entries = _load_people_entries_for_chapter(
-            archive=session.archive,
-            ch_start=session.start_frame,
-            ch_end=session.end_frame,
-        )
-        session.subtitle_entries = _load_subtitle_entries_for_chapter(
-            archive=session.archive,
-            ch_start=session.start_frame,
-            ch_end=session.end_frame,
-        )
-        session.auto_transcript = get_transcript_mode_for_chapter(
-            archive=session.archive,
-            chapter_title=session.chapter,
-        )
-        session.split_entries = _load_split_entries_for_chapter(
-            archive=session.archive,
-            chapter_title=session.chapter,
-            ch_start=session.start_frame,
-            ch_end=session.end_frame,
-        )
-        session.load_meta_ready = True
+        WizardHandler._reset_loaded_chapter_session(self, session, payload)
+        gamma_profile = WizardHandler._load_chapter_metadata(self, session)
 
         video = _resolve_archive_video(session.archive)
         if not video:
@@ -3562,60 +3778,9 @@ class WizardHandler(BaseHTTPRequestHandler):
 
         if cancelled():
             return
-        frame_target = max(1, int(n_frames))
-        stage_start = 30.0
-        stage_end = 92.0
-
-        def _sample_progress(frac: float, desc: str | None = None) -> None:
-            _ = desc
-            try:
-                f = float(frac)
-            except Exception:
-                f = 0.0
-            f = max(0.0, min(1.0, f))
-            done = max(0, min(frame_target, int(round(f * frame_target))))
-            p = stage_start + f * (stage_end - stage_start)
-            _set_load_progress(
-                session,
-                progress=p,
-                message=f"Loading frames {done}/{frame_target}",
-                sample_done=done,
-                sample_total=frame_target,
-            )
-
-        def _sample_frame(
-            fid: int,
-            frame_b64: str,
-            chroma: float,
-            noise: float,
-            tear: float,
-            wave: float,
-            _done: int,
-            _total: int,
-        ) -> None:
-            session.partial_fids.append(int(fid))
-            session.partial_b64.append(str(frame_b64 or ""))
-            session.partial_sigs["chroma"].append(float(chroma))
-            session.partial_sigs["noise"].append(float(noise))
-            session.partial_sigs["tear"].append(float(tear))
-            session.partial_sigs["wave"].append(float(wave))
-
-        fids, b64, sigs, err = extract_frames(
-            str(read_video),
-            session.start_frame,
-            session.end_frame,
-            int(n_frames),
-            session.archive,
-            session.chapter,
-            include_thumbs=False,
-            frame_read_offset=frame_read_offset,
-            progress=_sample_progress,
-            should_cancel=lambda: bool(session.load_cancel_requested),
-            frame_callback=_sample_frame,
-        )
-        if err or fids is None or b64 is None or sigs is None:
-            fail(err or "Failed to extract frames.")
+        if not WizardHandler._load_chapter_frame_samples(self, session, read_video, n_frames, frame_read_offset, fail):
             return
+        frame_target = max(1, int(n_frames))
         _set_load_progress(
             session,
             progress=95.0,
@@ -3623,10 +3788,6 @@ class WizardHandler(BaseHTTPRequestHandler):
             sample_done=frame_target,
             sample_total=frame_target,
         )
-
-        session.fids = [int(x) for x in fids]
-        session.b64 = list(b64)
-        session.sigs = dict(sigs)
 
         details = {
             "archive": session.archive,
@@ -3684,6 +3845,132 @@ class WizardHandler(BaseHTTPRequestHandler):
         )
         session.load_cancel_requested = False
         self._send_json({"ok": True, "review": review, "settings": details})
+
+    def _load_chapter_frame_samples(
+        self,
+        session: SessionState,
+        read_video: Path,
+        n_frames: int,
+        frame_read_offset: int,
+        fail: Callable[[str], None],
+    ) -> bool:
+        frame_target = max(1, int(n_frames))
+
+        def _sample_progress(frac: float, desc: str | None = None) -> None:
+            _ = desc
+            try:
+                f = float(frac)
+            except Exception:
+                f = 0.0
+            f = max(0.0, min(1.0, f))
+            done = max(0, min(frame_target, int(round(f * frame_target))))
+            _set_load_progress(
+                session,
+                progress=30.0 + f * 62.0,
+                message=f"Loading frames {done}/{frame_target}",
+                sample_done=done,
+                sample_total=frame_target,
+            )
+
+        def _sample_frame(fid, frame_b64, chroma, noise, tear, wave, _done, _total) -> None:
+            session.partial_fids.append(int(fid))
+            session.partial_b64.append(str(frame_b64 or ""))
+            session.partial_sigs["chroma"].append(float(chroma))
+            session.partial_sigs["noise"].append(float(noise))
+            session.partial_sigs["tear"].append(float(tear))
+            session.partial_sigs["wave"].append(float(wave))
+
+        fids, b64, sigs, err = extract_frames(
+            str(read_video),
+            session.start_frame,
+            session.end_frame,
+            int(n_frames),
+            session.archive,
+            session.chapter,
+            include_thumbs=False,
+            frame_read_offset=frame_read_offset,
+            progress=_sample_progress,
+            should_cancel=lambda: bool(session.load_cancel_requested),
+            frame_callback=_sample_frame,
+        )
+        if err or fids is None or b64 is None or sigs is None:
+            fail(err or "Failed to extract frames.")
+            return False
+        session.fids = [int(x) for x in fids]
+        session.b64 = list(b64)
+        session.sigs = dict(sigs)
+        return True
+
+    def _reset_loaded_chapter_session(self, session: SessionState, payload: dict[str, Any]) -> None:
+        session.force_all_frames_good = _normalize_payload_bool(
+            payload.get("force_all_frames_good"),
+            default=session.force_all_frames_good,
+        )
+        session.preview_video_path = ""
+        session.chapter_audio_path = ""
+        session.chapter_audio_key = ""
+        _close_session_video_cap(session)
+        session.fids = []
+        session.b64 = []
+        session.sigs = {}
+        session.overrides = _chapter_bad_overrides(
+            archive=session.archive,
+            chapter_title=session.chapter,
+            ch_start=session.start_frame,
+            ch_end=session.end_frame,
+        )
+        session.gamma_default = 1.0
+        session.gamma_ranges = []
+        session.audio_sync_offset = 0.0
+        session.people_entries = []
+        session.subtitle_entries = []
+        session.split_entries = []
+        session.partial_fids = []
+        session.partial_b64 = []
+        session.partial_sigs = {"chroma": [], "noise": [], "tear": [], "wave": []}
+        session.frame_source_video_path = ""
+        session.frame_source_read_offset = 0
+        session.load_meta_ready = False
+
+    def _load_chapter_metadata(self, session: SessionState) -> dict[str, Any]:
+        gamma_profile = get_gamma_profile_for_chapter(
+            archive=session.archive,
+            ch_start=session.start_frame,
+            ch_end=session.end_frame,
+        )
+        session.gamma_default = normalize_gamma_value(gamma_profile.get("default_gamma", 1.0), default=1.0)
+        session.gamma_ranges = _normalize_gamma_ranges_payload(
+            gamma_profile.get("ranges", []),
+            ch_start=session.start_frame,
+            ch_end=session.end_frame,
+        )
+        session.audio_sync_offset = get_audio_sync_offset_for_chapter(
+            archive=session.archive,
+            ch_start=session.start_frame,
+            ch_end=session.end_frame,
+        )
+        session.people_entries = _load_people_entries_for_chapter(
+            archive=session.archive,
+            ch_start=session.start_frame,
+            ch_end=session.end_frame,
+        )
+        session.subtitle_entries = _load_subtitle_entries_for_chapter(
+            archive=session.archive,
+            ch_start=session.start_frame,
+            ch_end=session.end_frame,
+        )
+        session.auto_transcript = get_transcript_mode_for_chapter(
+            archive=session.archive,
+            chapter_title=session.chapter,
+        )
+        session.split_entries = _load_split_entries_for_chapter(
+            archive=session.archive,
+            chapter_title=session.chapter,
+            ch_start=session.start_frame,
+            ch_end=session.end_frame,
+        )
+        session.load_meta_ready = True
+        return dict(gamma_profile or {})
 
     def _handle_toggle_frame(self, session: SessionState, fid: int) -> None:
         if bool(session.force_all_frames_good):
@@ -3901,46 +4188,11 @@ class WizardHandler(BaseHTTPRequestHandler):
             fail("Archive and chapter context are missing.")
             return
 
-        payload = payload or {}
-        preview_mode = str(payload.get("preview_mode", "") or "").strip().lower()
-        if "force_all_frames_good" in payload:
-            session.force_all_frames_good = _normalize_payload_bool(
-                payload.get("force_all_frames_good"),
-                default=session.force_all_frames_good,
-            )
-        apply_freeze = True
-        apply_gamma = True
-        skip_deinterlace = preview_mode == "audio_sync"
-        if preview_mode == "review":
-            apply_gamma = False
-        elif preview_mode == "gamma":
-            apply_freeze = False
-        elif preview_mode == "summary":
-            apply_freeze = True
-            apply_gamma = True
-        elif preview_mode == "audio_sync":
-            apply_freeze = False
-            apply_gamma = False
-
-        raw_gamma_profile = payload.get("gamma_profile")
-        if raw_gamma_profile is None:
-            raw_gamma_profile = payload.get("gamma")
-        if isinstance(raw_gamma_profile, dict):
-            session.gamma_default = normalize_gamma_value(
-                raw_gamma_profile.get("default_gamma", session.gamma_default),
-                default=session.gamma_default,
-            )
-            session.gamma_ranges = _normalize_gamma_ranges_payload(
-                raw_gamma_profile.get("ranges", session.gamma_ranges),
-                ch_start=session.start_frame,
-                ch_end=session.end_frame,
-            )
-        raw_audio_sync = payload.get("audio_sync_profile")
-        if isinstance(raw_audio_sync, dict):
-            try:
-                session.audio_sync_offset = float(raw_audio_sync.get("offset_seconds", session.audio_sync_offset))
-            except Exception:
-                pass
+        preview_mode, apply_freeze, apply_gamma, skip_deinterlace = WizardHandler._apply_preview_payload(
+            self,
+            session,
+            payload or {},
+        )
 
         try:
             from vhs_pipeline.render_pipeline import (
@@ -3958,76 +4210,35 @@ class WizardHandler(BaseHTTPRequestHandler):
             fail(f"Preview render is unavailable: {type(exc).__name__}: {exc}")
             return
 
-        proxy_video = archive_dir_for(session.archive) / f"{session.archive}_proxy.mp4"
-        archive_video = archive_dir_for(session.archive) / f"{session.archive}.mkv"
-        if proxy_video.exists():
-            source_video = proxy_video
-            source_label = "proxy"
-        elif archive_video.exists():
-            source_video = archive_video
-            source_label = "archive (proxy missing)"
-        else:
+        source_video, source_label = WizardHandler._preview_source_video(self, session)
+        if source_video is None:
             fail(f"No source video found for '{session.archive}'.")
             return
 
         start_frame, end_frame = _normalize_frame_span(session.start_frame, session.end_frame)
         chapter_len = max(1, int(end_frame) - int(start_frame))
-        debug_overlay = (
-            bool(session.debug_extract)
-            or _env_truthy(TUNER_DEBUG_EXTRACT_ENV)
-            or _env_truthy(RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV)
-        )
-        # Preview generation reuses the same frame-accurate chapter extract as
-        # the review flow so frame indices stay aligned across the tuner.
-        extracted, ex_err = _ensure_render_chapter_extract(
-            source_video=source_video,
-            archive=session.archive,
-            chapter_title=session.chapter,
-            ch_start=start_frame,
-            ch_end=end_frame,
-            debug_overlay=debug_overlay,
-            audio_offset_seconds=session.audio_sync_offset,
-        )
+        extracted, ex_err = WizardHandler._preview_extract(self, session, source_video, start_frame, end_frame)
         if ex_err or extracted is None:
             fail(ex_err or "Failed to extract preview chapter segment.")
             return
 
-        bad_global = [
-            int(fid) for fid in _selected_bad_frame_ids(session) if int(start_frame) <= int(fid) < int(end_frame)
-        ]
-        local_bad = [int(fid) - int(start_frame) for fid in bad_global] if apply_freeze else []
+        local_bad = _preview_local_bad_frames(session, start_frame, end_frame) if apply_freeze else []
         local_repairs = local_bad_frames_to_repairs(local_bad) if local_bad else []
 
-        preview_root = PROJECT_ROOT / "tmp" / "plain_html_wizard_preview"
-        preview_dir = preview_root / (
-            f"{session.archive}__{slugify(session.chapter)}__{int(start_frame)}_{int(end_frame)}"
-        )
-        preview_dir.mkdir(parents=True, exist_ok=True)
-
+        preview_dir = WizardHandler._preview_output_dir(self, session, start_frame, end_frame)
         freeze_avs = preview_dir / "freeze.avs"
         filter_avs = preview_dir / "script.avs"
         repaired_extracted = preview_dir / "repaired_extracted.mkv"
         qtgmc = preview_dir / "qtgmc.mkv"
         preview_video = preview_dir / "preview_render.mp4"
 
-        filter_script = METADATA_DIR / session.archive / "filter.avs"
-        chapter_filter_script = METADATA_DIR / session.archive / f"{session.chapter}.avs"
-        if chapter_filter_script.exists():
-            filter_script = chapter_filter_script
+        filter_script = WizardHandler._preview_filter_script(self, session)
 
-        freeze_input = extracted
         used_non_windows_fallback = False
         gamma_only_mode = preview_mode == "gamma"
         windows_filter = bool(sys.platform == "win32" and apply_gamma and (gamma_only_mode or filter_script.exists()))
         windows_freeze = bool(sys.platform == "win32" and bool(local_bad))
-        stage_names: list[str] = []
-        if windows_freeze:
-            stage_names.append("Applying FreezeFrame repairs")
-        if windows_filter:
-            stage_names.append("Applying gamma correction" if gamma_only_mode else "Deinterlacing/filtering")
-        elif sys.platform != "win32" and not skip_deinterlace:
-            stage_names.append("Fallback deinterlacing")
-        stage_names.append("Encoding preview")
+        stage_names = _preview_stage_names(windows_freeze, windows_filter, gamma_only_mode, skip_deinterlace)
         total_stages = max(1, len(stage_names))
         total_frames_all = max(1, chapter_len * total_stages)
 
@@ -4040,169 +4251,56 @@ class WizardHandler(BaseHTTPRequestHandler):
             frame_total=total_frames_all,
         )
 
-        def _set_stage_progress(stage_idx: int, frame_done: int, stage_label: str) -> None:
-            done = max(0, min(chapter_len, int(frame_done)))
-            overall_done = min(total_frames_all, (stage_idx * chapter_len) + done)
-            frac = float(done) / float(max(1, chapter_len))
-            pct = ((float(stage_idx) + frac) / float(total_stages)) * 100.0
-            _set_preview_progress(
-                session,
-                running=True,
-                progress=max(1.0, min(99.5, pct)),
-                message=f"{stage_label}... ({done}/{chapter_len} frames)",
-                frame_done=overall_done,
-                frame_total=total_frames_all,
-            )
+        _set_stage_progress = _preview_stage_progress_callback(
+            session,
+            chapter_len=chapter_len,
+            total_frames_all=total_frames_all,
+            total_stages=total_stages,
+        )
 
         stage_idx = 0
 
         try:
-            if sys.platform == "win32":
-                if local_bad:
-                    stage_label = stage_names[stage_idx]
-                    freeze_script = make_freeze_only_avs(
-                        extracted,
-                        bad_source_frames=local_bad,
-                        bad_repair_ranges=local_repairs,
-                        chapter_start_frame=start_frame,
-                        chapter_end_frame=end_frame,
-                        source_clearance=BADFRAME_SOURCE_CLEARANCE,
-                    )
-                    freeze_avs.write_text(freeze_script, encoding="ascii")
-                    ok, detail = self._run_cmd_with_progress(
-                        make_render_avs_ffv1(freeze_avs, extracted, repaired_extracted),
-                        "Preview freeze stage",
-                        on_frame=lambda n: _set_stage_progress(stage_idx, n, stage_label),
-                    )
-                    if not ok:
-                        fail(detail)
-                        return
-                    _set_stage_progress(stage_idx, chapter_len, stage_label)
-                    stage_idx += 1
-                    assert_expected_frame_count(
-                        repaired_extracted,
-                        chapter_len,
-                        f"preview repaired chapter '{session.chapter}'",
-                    )
-                    freeze_input = repaired_extracted
-
-                if windows_filter:
-                    stage_label = stage_names[stage_idx]
-                    gamma_default = normalize_gamma_value(session.gamma_default, default=1.0)
-                    gamma_ranges = _normalize_gamma_ranges_payload(
-                        session.gamma_ranges,
-                        ch_start=start_frame,
-                        ch_end=end_frame,
-                    )
-                    if gamma_only_mode:
-                        script_text = make_gamma_only_avs(
-                            freeze_input,
-                            chapter_start_frame=start_frame,
-                            chapter_end_frame=end_frame,
-                            gamma_default=gamma_default,
-                            gamma_ranges=gamma_ranges,
-                        )
-                    else:
-                        script_text = make_create_avs(
-                            freeze_input,
-                            filter_script,
-                            bad_source_frames=[],
-                            bad_repair_ranges=[],
-                            chapter_start_frame=start_frame,
-                            chapter_end_frame=end_frame,
-                            gamma_default=gamma_default,
-                            gamma_ranges=gamma_ranges,
-                            no_bob=False,
-                            source_clearance=0,
-                        )
-                    filter_avs.write_text(script_text, encoding="ascii")
-                    stage_cmd_label = "Preview gamma stage" if gamma_only_mode else "Preview deinterlace stage"
-                    ok, detail = self._run_cmd_with_progress(
-                        make_deinterlace(filter_avs, freeze_input, qtgmc),
-                        stage_cmd_label,
-                        on_frame=lambda n: _set_stage_progress(stage_idx, n, stage_label),
-                    )
-                    if not ok:
-                        fail(detail)
-                        return
-                    _set_stage_progress(stage_idx, chapter_len, stage_label)
-                    stage_idx += 1
-                else:
-                    shutil.copy2(freeze_input, qtgmc)
-            elif skip_deinterlace:
-                shutil.copy2(freeze_input, qtgmc)
-            else:
-                used_non_windows_fallback = True
-                stage_label = stage_names[stage_idx]
-                ok, detail = self._run_cmd_with_progress(
-                    make_deinterlace_ffmpeg_fallback(extracted, qtgmc, no_bob=False),
-                    "Preview fallback deinterlace stage",
-                    on_frame=lambda n: _set_stage_progress(stage_idx, n, stage_label),
-                )
-                if not ok:
-                    fail(detail)
-                    return
-                _set_stage_progress(stage_idx, chapter_len, stage_label)
-                stage_idx += 1
-
-            assert_expected_frame_count(
-                qtgmc,
-                chapter_len,
-                f"preview qtgmc chapter '{session.chapter}'",
+            stage_idx, used_non_windows_fallback = WizardHandler._run_preview_processing_stages(
+                self,
+                session=session,
+                extracted=extracted,
+                freeze_avs=freeze_avs,
+                filter_avs=filter_avs,
+                repaired_extracted=repaired_extracted,
+                qtgmc=qtgmc,
+                filter_script=filter_script,
+                local_bad=local_bad,
+                local_repairs=local_repairs,
+                start_frame=start_frame,
+                end_frame=end_frame,
+                chapter_len=chapter_len,
+                stage_names=stage_names,
+                stage_idx=stage_idx,
+                windows_filter=windows_filter,
+                gamma_only_mode=gamma_only_mode,
+                skip_deinterlace=skip_deinterlace,
+                set_stage_progress=_set_stage_progress,
+                fail=fail,
+                make_freeze_only_avs=make_freeze_only_avs,
+                make_render_avs_ffv1=make_render_avs_ffv1,
+                make_gamma_only_avs=make_gamma_only_avs,
+                make_create_avs=make_create_avs,
+                make_deinterlace=make_deinterlace,
+                make_deinterlace_ffmpeg_fallback=make_deinterlace_ffmpeg_fallback,
+                assert_expected_frame_count=assert_expected_frame_count,
+                badframe_source_clearance=BADFRAME_SOURCE_CLEARANCE,
             )
         except Exception as exc:
             fail(f"Preview render failed: {type(exc).__name__}: {exc}")
             return
 
         stage_label = stage_names[stage_idx if stage_idx < len(stage_names) else (len(stage_names) - 1)]
-        ok, detail = self._run_cmd_with_progress(
-            [
-                FFMPEG_BIN,
-                "-nostdin",
-                "-v",
-                "error",
-                "-i",
-                str(qtgmc),
-                "-map",
-                "0:v:0",
-                "-map",
-                "0:a:0?",
-                *(
-                    (
-                        "-vf",
-                        _build_audio_sync_hud_vf(
-                            archive_dir_for(session.archive) / f"{session.archive}.mkv",
-                            start_frame,
-                            end_frame,
-                            session.audio_sync_offset,
-                        ),
-                    )
-                    if preview_mode == "audio_sync"
-                    else ()
-                ),
-                "-pix_fmt",
-                "yuv420p",
-                "-fps_mode:v:0",
-                "passthrough",
-                "-c:v",
-                "libx264",
-                "-preset",
-                "veryfast",
-                "-crf",
-                "18",
-                "-c:a",
-                "aac",
-                "-b:a",
-                "96k",
-                "-ar",
-                "48000",
-                "-ac",
-                "1",
-                "-movflags",
-                "+faststart",
-                "-y",
-                str(preview_video),
-            ],
+        ok, detail = WizardHandler._run_cmd_with_progress(
+            self,
+            WizardHandler._preview_encode_cmd(
+                self, session, qtgmc, preview_video, preview_mode, start_frame, end_frame
+            ),
             "Preview encode stage",
             on_frame=lambda n: _set_stage_progress(stage_idx, n, stage_label),
         )
@@ -4211,37 +4309,16 @@ class WizardHandler(BaseHTTPRequestHandler):
             return
         _set_stage_progress(stage_idx, chapter_len, stage_label)
 
-        session.preview_video_path = str(preview_video.resolve())
-        mode_desc = (
-            preview_mode
-            if preview_mode in {"review", "gamma", "people", "subtitles", "split", "summary"}
-            else "combined"
-        )
-        msg = (
-            f"Preview render ready for {session.chapter}: "
-            f"mode={mode_desc}, freeze={'on' if apply_freeze else 'off'}, gamma={'on' if apply_gamma else 'off'}. "
-            f"{len(local_bad)} loaded bad frame(s) applied from current review state. "
-            f"Source: {source_label}."
-        )
-        if used_non_windows_fallback and local_bad:
-            msg += " Note: non-Windows fallback cannot apply AviSynth FreezeFrame repair logic."
-        _set_preview_progress(
-            session,
-            running=False,
-            progress=100.0,
-            message="Preview render complete.",
-            frame_done=total_frames_all,
-            frame_total=total_frames_all,
-        )
-        self._send_json(
-            {
-                "ok": True,
-                "message": msg,
-                "preview_path": str(preview_video),
-                "preview_url": "/api/preview_video",
-                "preview_page_url": "/preview",
-                "bad_frame_count": int(len(local_bad)),
-            }
+        self._send_preview_render_success(
+            session=session,
+            preview_video=preview_video,
+            preview_mode=preview_mode,
+            apply_freeze=apply_freeze,
+            apply_gamma=apply_gamma,
+            local_bad=local_bad,
+            source_label=source_label,
+            used_non_windows_fallback=used_non_windows_fallback,
+            total_frames_all=total_frames_all,
         )
 
     def _handle_people_prefill_cast(self, session: SessionState, payload: dict[str, Any] | None = None) -> None:
@@ -4386,117 +4463,16 @@ class WizardHandler(BaseHTTPRequestHandler):
         )
 
         try:
-            with tempfile.TemporaryDirectory(prefix="vhs_subtitles_") as tmp_dir:
-                audio_path = Path(tmp_dir) / "chapter_audio.wav"
-                cmd = make_extract_audio(
-                    source_video,
-                    audio_path,
-                    start_sec=start_sec,
-                    end_sec=end_sec,
-                    audio_offset_seconds=session.audio_sync_offset,
-                )
-                proc = subprocess.run(
-                    cmd,
-                    check=False,
-                    capture_output=True,
-                    text=True,
-                )
-                if proc.returncode != 0 or not audio_path.exists():
-                    detail = (proc.stderr or proc.stdout or "").strip()
-                    raise RuntimeError(detail or "ffmpeg audio extraction failed.")
-                if bool(session.subtitles_cancel_requested):
-                    raise _SubtitlesCancelledError("Subtitle generation cancelled.")
-
-                segment_total = 0
-                try:
-                    with wave.open(str(audio_path), "rb") as wf:
-                        sample_rate = int(wf.getframerate() or 0)
-                        sample_count = int(wf.getnframes() or 0)
-                    if sample_rate > 0 and sample_count > 0:
-                        duration_sec = float(sample_count) / float(sample_rate)
-                        segment_total = max(1, int(round(duration_sec * 50.0)))
-                except Exception:
-                    segment_total = 0
-
-                _set_subtitles_progress(
-                    session,
-                    progress=20.0,
-                    message="Transcribing audio with Whisper...",
-                    segment_done=0,
-                    segment_total=segment_total,
-                )
-
-                progress_prefix = "Transcribing audio with Whisper..."
-                tqdm_module = getattr(transcribe_module, "tqdm", None)
-                original_tqdm = getattr(tqdm_module, "tqdm", None) if tqdm_module is not None else None
-
-                class _SubtitlesProgressBar:
-                    def __init__(self, *args: Any, **kwargs: Any) -> None:
-                        self._inner = original_tqdm(*args, **kwargs)
-                        total_raw = getattr(self._inner, "total", None)
-                        try:
-                            total_val = float(total_raw)
-                        except Exception:
-                            total_val = float(segment_total or 0)
-                        self._total = max(1.0, total_val) if total_val > 0 else max(1.0, float(segment_total or 1))
-                        _set_subtitles_progress(
-                            session,
-                            progress=20.0,
-                            message=progress_prefix,
-                            segment_done=0,
-                            segment_total=max(1, int(round(self._total))),
-                        )
-
-                    def __enter__(self) -> "_SubtitlesProgressBar":
-                        if hasattr(self._inner, "__enter__"):
-                            self._inner.__enter__()
-                        return self
-
-                    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> Any:
-                        if hasattr(self._inner, "__exit__"):
-                            return self._inner.__exit__(exc_type, exc, tb)
-                        return False
-
-                    def update(self, n: int = 1) -> Any:
-                        out = self._inner.update(n)
-                        done_raw = getattr(self._inner, "n", 0)
-                        try:
-                            done = max(0.0, float(done_raw))
-                        except Exception:
-                            done = 0.0
-                        frac = min(1.0, done / max(1.0, self._total))
-                        _set_subtitles_progress(
-                            session,
-                            progress=20.0 + (frac * 75.0),
-                            message=progress_prefix,
-                            segment_done=max(0, int(round(done))),
-                            segment_total=max(1, int(round(self._total))),
-                        )
-                        if bool(session.subtitles_cancel_requested):
-                            raise _SubtitlesCancelledError("Subtitle generation cancelled.")
-                        return out
-
-                    def close(self) -> Any:
-                        if hasattr(self._inner, "close"):
-                            return self._inner.close()
-                        return None
-
-                    def __iter__(self) -> Any:
-                        return iter(self._inner)
-
-                    def __getattr__(self, name: str) -> Any:
-                        return getattr(self._inner, name)
-
-                with _WHISPER_TQDM_PATCH_LOCK:
-                    if callable(original_tqdm):
-                        setattr(tqdm_module, "tqdm", _SubtitlesProgressBar)
-                    try:
-                        result = whisper_transcribe(model, audio_path, prompt_text=prompt_text)
-                    finally:
-                        if callable(original_tqdm):
-                            setattr(tqdm_module, "tqdm", original_tqdm)
-                if bool(session.subtitles_cancel_requested):
-                    raise _SubtitlesCancelledError("Subtitle generation cancelled.")
+            result = WizardHandler._run_subtitles_whisper_transcribe(
+                self,
+                session=session,
+                source_video=source_video,
+                start_sec=start_sec,
+                end_sec=end_sec,
+                model=model,
+                transcribe_module=transcribe_module,
+                prompt_text=prompt_text,
+            )
         except _SubtitlesCancelledError:
             fail("Subtitle generation cancelled.")
             return
@@ -4555,6 +4531,407 @@ class WizardHandler(BaseHTTPRequestHandler):
                 },
             }
         )
+
+    def _apply_preview_payload(
+        self,
+        session: SessionState,
+        payload: dict[str, Any],
+    ) -> tuple[str, bool, bool, bool]:
+        preview_mode = str(payload.get("preview_mode", "") or "").strip().lower()
+        if "force_all_frames_good" in payload:
+            session.force_all_frames_good = _normalize_payload_bool(
+                payload.get("force_all_frames_good"),
+                default=session.force_all_frames_good,
+            )
+        WizardHandler._apply_preview_gamma_payload(self, session, payload)
+        WizardHandler._apply_preview_audio_sync_payload(self, session, payload)
+        return _preview_mode_flags(preview_mode)
+
+    def _apply_preview_gamma_payload(self, session: SessionState, payload: dict[str, Any]) -> None:
+        raw_gamma_profile = payload.get("gamma_profile")
+        if raw_gamma_profile is None:
+            raw_gamma_profile = payload.get("gamma")
+        if not isinstance(raw_gamma_profile, dict):
+            return
+        session.gamma_default = normalize_gamma_value(
+            raw_gamma_profile.get("default_gamma", session.gamma_default),
+            default=session.gamma_default,
+        )
+        session.gamma_ranges = _normalize_gamma_ranges_payload(
+            raw_gamma_profile.get("ranges", session.gamma_ranges),
+            ch_start=session.start_frame,
+            ch_end=session.end_frame,
+        )
+
+    def _apply_preview_audio_sync_payload(self, session: SessionState, payload: dict[str, Any]) -> None:
+        raw_audio_sync = payload.get("audio_sync_profile")
+        if not isinstance(raw_audio_sync, dict):
+            return
+        try:
+            session.audio_sync_offset = float(raw_audio_sync.get("offset_seconds", session.audio_sync_offset))
+        except Exception:
+            pass
+
+    def _preview_source_video(self, session: SessionState) -> tuple[Path | None, str]:
+        proxy_video = archive_dir_for(session.archive) / f"{session.archive}_proxy.mp4"
+        archive_video = archive_dir_for(session.archive) / f"{session.archive}.mkv"
+        if proxy_video.exists():
+            return proxy_video, "proxy"
+        if archive_video.exists():
+            return archive_video, "archive (proxy missing)"
+        return None, ""
+
+    def _preview_extract(
+        self,
+        session: SessionState,
+        source_video: Path,
+        start_frame: int,
+        end_frame: int,
+    ) -> tuple[Path | None, str]:
+        debug_overlay = (
+            bool(session.debug_extract)
+            or _env_truthy(TUNER_DEBUG_EXTRACT_ENV)
+            or _env_truthy(RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV)
+        )
+        return _ensure_render_chapter_extract(
+            source_video=source_video,
+            archive=session.archive,
+            chapter_title=session.chapter,
+            ch_start=start_frame,
+            ch_end=end_frame,
+            debug_overlay=debug_overlay,
+            audio_offset_seconds=session.audio_sync_offset,
+        )
+
+    def _preview_output_dir(self, session: SessionState, start_frame: int, end_frame: int) -> Path:
+        preview_root = PROJECT_ROOT / "tmp" / "plain_html_wizard_preview"
+        preview_dir = (
+            preview_root / f"{session.archive}__{slugify(session.chapter)}__{int(start_frame)}_{int(end_frame)}"
+        )
+        preview_dir.mkdir(parents=True, exist_ok=True)
+        return preview_dir
+
+    def _preview_filter_script(self, session: SessionState) -> Path:
+        filter_script = METADATA_DIR / session.archive / "filter.avs"
+        chapter_filter_script = METADATA_DIR / session.archive / f"{session.chapter}.avs"
+        return chapter_filter_script if chapter_filter_script.exists() else filter_script
+
+    def _send_preview_render_success(
+        self,
+        *,
+        session: SessionState,
+        preview_video: Path,
+        preview_mode: str,
+        apply_freeze: bool,
+        apply_gamma: bool,
+        local_bad: list[int],
+        source_label: str,
+        used_non_windows_fallback: bool,
+        total_frames_all: int,
+    ) -> None:
+        session.preview_video_path = str(preview_video.resolve())
+        msg = _preview_success_message(
+            session=session,
+            preview_mode=preview_mode,
+            apply_freeze=apply_freeze,
+            apply_gamma=apply_gamma,
+            local_bad=local_bad,
+            source_label=source_label,
+            used_non_windows_fallback=used_non_windows_fallback,
+        )
+        _set_preview_progress(
+            session,
+            running=False,
+            progress=100.0,
+            message="Preview render complete.",
+            frame_done=total_frames_all,
+            frame_total=total_frames_all,
+        )
+        self._send_json(
+            {
+                "ok": True,
+                "message": msg,
+                "preview_path": str(preview_video),
+                "preview_url": "/api/preview_video",
+                "preview_page_url": "/preview",
+                "bad_frame_count": int(len(local_bad)),
+            }
+        )
+
+    def _run_preview_processing_stages(self, **kwargs: Any) -> tuple[int, bool]:
+        if sys.platform == "win32":
+            return WizardHandler._run_preview_windows_stages(self, **kwargs), False
+        if kwargs["skip_deinterlace"]:
+            shutil.copy2(kwargs["extracted"], kwargs["qtgmc"])
+            kwargs["assert_expected_frame_count"](
+                kwargs["qtgmc"],
+                kwargs["chapter_len"],
+                f"preview qtgmc chapter '{kwargs['session'].chapter}'",
+            )
+            return int(kwargs["stage_idx"]), False
+        stage_idx = WizardHandler._run_preview_fallback_stage(self, **kwargs)
+        kwargs["assert_expected_frame_count"](
+            kwargs["qtgmc"],
+            kwargs["chapter_len"],
+            f"preview qtgmc chapter '{kwargs['session'].chapter}'",
+        )
+        return stage_idx, True
+
+    def _run_preview_windows_stages(self, **kwargs: Any) -> int:
+        stage_idx = int(kwargs["stage_idx"])
+        freeze_input = kwargs["extracted"]
+        stage_kwargs = dict(kwargs)
+        stage_kwargs.pop("stage_idx", None)
+        if kwargs["local_bad"]:
+            freeze_input = WizardHandler._run_preview_freeze_stage(self, stage_idx=stage_idx, **stage_kwargs)
+            stage_idx += 1
+        if kwargs["windows_filter"]:
+            WizardHandler._run_preview_filter_stage(
+                self, stage_idx=stage_idx, freeze_input=freeze_input, **stage_kwargs
+            )
+            stage_idx += 1
+        else:
+            shutil.copy2(freeze_input, kwargs["qtgmc"])
+        kwargs["assert_expected_frame_count"](
+            kwargs["qtgmc"],
+            kwargs["chapter_len"],
+            f"preview qtgmc chapter '{kwargs['session'].chapter}'",
+        )
+        return stage_idx
+
+    def _run_preview_freeze_stage(self, *, stage_idx: int, **kwargs: Any) -> Path:
+        stage_label = kwargs["stage_names"][stage_idx]
+        freeze_script = kwargs["make_freeze_only_avs"](
+            kwargs["extracted"],
+            bad_source_frames=kwargs["local_bad"],
+            bad_repair_ranges=kwargs["local_repairs"],
+            chapter_start_frame=kwargs["start_frame"],
+            chapter_end_frame=kwargs["end_frame"],
+            source_clearance=kwargs["badframe_source_clearance"],
+        )
+        kwargs["freeze_avs"].write_text(freeze_script, encoding="ascii")
+        ok, detail = WizardHandler._run_cmd_with_progress(
+            self,
+            kwargs["make_render_avs_ffv1"](kwargs["freeze_avs"], kwargs["extracted"], kwargs["repaired_extracted"]),
+            "Preview freeze stage",
+            on_frame=lambda n: kwargs["set_stage_progress"](stage_idx, n, stage_label),
+        )
+        if not ok:
+            kwargs["fail"](detail)
+            raise RuntimeError(detail)
+        kwargs["set_stage_progress"](stage_idx, kwargs["chapter_len"], stage_label)
+        kwargs["assert_expected_frame_count"](
+            kwargs["repaired_extracted"],
+            kwargs["chapter_len"],
+            f"preview repaired chapter '{kwargs['session'].chapter}'",
+        )
+        return kwargs["repaired_extracted"]
+
+    def _run_preview_filter_stage(self, *, stage_idx: int, freeze_input: Path, **kwargs: Any) -> None:
+        stage_label = kwargs["stage_names"][stage_idx]
+        script_text = WizardHandler._preview_filter_script_text(self, freeze_input=freeze_input, **kwargs)
+        kwargs["filter_avs"].write_text(script_text, encoding="ascii")
+        stage_cmd_label = "Preview gamma stage" if kwargs["gamma_only_mode"] else "Preview deinterlace stage"
+        ok, detail = WizardHandler._run_cmd_with_progress(
+            self,
+            kwargs["make_deinterlace"](kwargs["filter_avs"], freeze_input, kwargs["qtgmc"]),
+            stage_cmd_label,
+            on_frame=lambda n: kwargs["set_stage_progress"](stage_idx, n, stage_label),
+        )
+        if not ok:
+            kwargs["fail"](detail)
+            raise RuntimeError(detail)
+        kwargs["set_stage_progress"](stage_idx, kwargs["chapter_len"], stage_label)
+
+    def _preview_filter_script_text(self, *, freeze_input: Path, **kwargs: Any) -> str:
+        gamma_default = normalize_gamma_value(kwargs["session"].gamma_default, default=1.0)
+        gamma_ranges = _normalize_gamma_ranges_payload(
+            kwargs["session"].gamma_ranges,
+            ch_start=kwargs["start_frame"],
+            ch_end=kwargs["end_frame"],
+        )
+        if kwargs["gamma_only_mode"]:
+            return kwargs["make_gamma_only_avs"](
+                freeze_input,
+                chapter_start_frame=kwargs["start_frame"],
+                chapter_end_frame=kwargs["end_frame"],
+                gamma_default=gamma_default,
+                gamma_ranges=gamma_ranges,
+            )
+        return kwargs["make_create_avs"](
+            freeze_input,
+            kwargs["filter_script"],
+            bad_source_frames=[],
+            bad_repair_ranges=[],
+            chapter_start_frame=kwargs["start_frame"],
+            chapter_end_frame=kwargs["end_frame"],
+            gamma_default=gamma_default,
+            gamma_ranges=gamma_ranges,
+            no_bob=False,
+            source_clearance=0,
+        )
+
+    def _run_preview_fallback_stage(self, **kwargs: Any) -> int:
+        stage_idx = int(kwargs["stage_idx"])
+        stage_label = kwargs["stage_names"][stage_idx]
+        ok, detail = WizardHandler._run_cmd_with_progress(
+            self,
+            kwargs["make_deinterlace_ffmpeg_fallback"](kwargs["extracted"], kwargs["qtgmc"], no_bob=False),
+            "Preview fallback deinterlace stage",
+            on_frame=lambda n: kwargs["set_stage_progress"](stage_idx, n, stage_label),
+        )
+        if not ok:
+            kwargs["fail"](detail)
+            raise RuntimeError(detail)
+        kwargs["set_stage_progress"](stage_idx, kwargs["chapter_len"], stage_label)
+        return stage_idx + 1
+
+    def _preview_encode_cmd(
+        self,
+        session: SessionState,
+        qtgmc: Path,
+        preview_video: Path,
+        preview_mode: str,
+        start_frame: int,
+        end_frame: int,
+    ) -> list[Any]:
+        hud_args: tuple[Any, ...] = ()
+        if preview_mode == "audio_sync":
+            hud_args = (
+                "-vf",
+                _build_audio_sync_hud_vf(
+                    archive_dir_for(session.archive) / f"{session.archive}.mkv",
+                    start_frame,
+                    end_frame,
+                    session.audio_sync_offset,
+                ),
+            )
+        return [
+            FFMPEG_BIN,
+            "-nostdin",
+            "-v",
+            "error",
+            "-i",
+            str(qtgmc),
+            "-map",
+            "0:v:0",
+            "-map",
+            "0:a:0?",
+            *hud_args,
+            "-pix_fmt",
+            "yuv420p",
+            "-fps_mode:v:0",
+            "passthrough",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-crf",
+            "18",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "96k",
+            "-ar",
+            "48000",
+            "-ac",
+            "1",
+            "-movflags",
+            "+faststart",
+            "-y",
+            str(preview_video),
+        ]
+
+    def _run_subtitles_whisper_transcribe(
+        self,
+        *,
+        session: SessionState,
+        source_video: Path,
+        start_sec: float,
+        end_sec: float,
+        model: Any,
+        transcribe_module: Any,
+        prompt_text: str,
+    ) -> Any:
+        with tempfile.TemporaryDirectory(prefix="vhs_subtitles_") as tmp_dir:
+            audio_path = Path(tmp_dir) / "chapter_audio.wav"
+            WizardHandler._extract_subtitles_audio(self, session, source_video, audio_path, start_sec, end_sec)
+            segment_total = WizardHandler._subtitle_audio_segment_total(self, audio_path)
+            _set_subtitles_progress(
+                session,
+                progress=20.0,
+                message="Transcribing audio with Whisper...",
+                segment_done=0,
+                segment_total=segment_total,
+            )
+            return WizardHandler._transcribe_with_progress_patch(
+                self,
+                session=session,
+                model=model,
+                audio_path=audio_path,
+                transcribe_module=transcribe_module,
+                prompt_text=prompt_text,
+                segment_total=segment_total,
+            )
+
+    def _extract_subtitles_audio(
+        self,
+        session: SessionState,
+        source_video: Path,
+        audio_path: Path,
+        start_sec: float,
+        end_sec: float,
+    ) -> None:
+        cmd = make_extract_audio(
+            source_video,
+            audio_path,
+            start_sec=start_sec,
+            end_sec=end_sec,
+            audio_offset_seconds=session.audio_sync_offset,
+        )
+        proc = subprocess.run(cmd, check=False, capture_output=True, text=True)
+        if proc.returncode != 0 or not audio_path.exists():
+            detail = (proc.stderr or proc.stdout or "").strip()
+            raise RuntimeError(detail or "ffmpeg audio extraction failed.")
+        if bool(session.subtitles_cancel_requested):
+            raise _SubtitlesCancelledError("Subtitle generation cancelled.")
+
+    def _subtitle_audio_segment_total(self, audio_path: Path) -> int:
+        try:
+            with wave.open(str(audio_path), "rb") as wf:
+                sample_rate = int(wf.getframerate() or 0)
+                sample_count = int(wf.getnframes() or 0)
+            if sample_rate > 0 and sample_count > 0:
+                duration_sec = float(sample_count) / float(sample_rate)
+                return max(1, int(round(duration_sec * 50.0)))
+        except Exception:
+            return 0
+        return 0
+
+    def _transcribe_with_progress_patch(
+        self,
+        *,
+        session: SessionState,
+        model: Any,
+        audio_path: Path,
+        transcribe_module: Any,
+        prompt_text: str,
+        segment_total: int,
+    ) -> Any:
+        tqdm_module = getattr(transcribe_module, "tqdm", None)
+        original_tqdm = getattr(tqdm_module, "tqdm", None) if tqdm_module is not None else None
+        progress_bar = _subtitle_progress_bar_factory(session, original_tqdm, segment_total)
+        with _WHISPER_TQDM_PATCH_LOCK:
+            if callable(original_tqdm):
+                setattr(tqdm_module, "tqdm", progress_bar)
+            try:
+                result = whisper_transcribe(model, audio_path, prompt_text=prompt_text)
+            finally:
+                if callable(original_tqdm):
+                    setattr(tqdm_module, "tqdm", original_tqdm)
+        if bool(session.subtitles_cancel_requested):
+            raise _SubtitlesCancelledError("Subtitle generation cancelled.")
+        return result
 
     def _handle_set_auto_transcript(self, session: SessionState, payload: dict[str, Any] | None = None) -> None:
         if not session.archive or not session.chapter:

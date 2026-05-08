@@ -580,6 +580,25 @@ def normalize_gamma_value(raw: object, default: float = 1.0) -> float:
 
 
 def _canonicalize_gamma_ranges(raw_ranges) -> list[dict[str, float | int]]:
+    entries = _gamma_range_entries(raw_ranges)
+    if not entries:
+        return []
+    cuts = _gamma_range_boundaries(entries)
+    if len(cuts) < 2:
+        return []
+    resolved = _resolve_gamma_ranges(entries, cuts)
+    return [
+        {
+            "start_frame": int(a),
+            "end_frame": int(b),
+            "gamma": round(float(g), 4),
+        }
+        for a, b, g in resolved
+        if int(b) > int(a)
+    ]
+
+
+def _gamma_range_entries(raw_ranges) -> list[tuple[int, int, float, int]]:
     entries: list[tuple[int, int, float, int]] = []
     for idx, item in enumerate(list(raw_ranges or [])):
         start = end = None
@@ -601,17 +620,21 @@ def _canonicalize_gamma_ranges(raw_ranges) -> list[dict[str, float | int]]:
             continue
         g = normalize_gamma_value(gamma, default=1.0)
         entries.append((a, b, g, idx))
-    if not entries:
-        return []
+    return entries
 
+
+def _gamma_range_boundaries(entries: list[tuple[int, int, float, int]]) -> list[int]:
     boundaries = set()
     for a, b, _g, _idx in entries:
         boundaries.add(int(a))
         boundaries.add(int(b))
-    cuts = sorted(boundaries)
-    if len(cuts) < 2:
-        return []
+    return sorted(boundaries)
 
+
+def _resolve_gamma_ranges(
+    entries: list[tuple[int, int, float, int]],
+    cuts: list[int],
+) -> list[tuple[int, int, float]]:
     resolved: list[tuple[int, int, float]] = []
     for i in range(len(cuts) - 1):
         seg_a = int(cuts[i])
@@ -631,16 +654,7 @@ def _canonicalize_gamma_ranges(raw_ranges) -> list[dict[str, float | int]]:
             resolved[-1] = (prev_a, seg_b, prev_g)
         else:
             resolved.append((seg_a, seg_b, float(winner_gamma)))
-
-    return [
-        {
-            "start_frame": int(a),
-            "end_frame": int(b),
-            "gamma": round(float(g), 4),
-        }
-        for a, b, g in resolved
-        if int(b) > int(a)
-    ]
+    return resolved
 
 
 def _clip_gamma_ranges_to_span(
@@ -1113,22 +1127,7 @@ def update_chapter_frame_lists_in_ffmetadata(path, chapter_frame_lists):
     if not p.exists():
         raise FileNotFoundError(f"chapters.ffmetadata not found: {p}")
 
-    def _norm_title(text):
-        return " ".join(str(text or "").strip().lower().split())
-
-    pending = {}
-    for raw_title, raw_fields in (chapter_frame_lists or {}).items():
-        nk = _norm_title(raw_title)
-        if not nk:
-            continue
-        field_map = {}
-        for raw_key, vals in dict(raw_fields or {}).items():
-            key = _normalize_frame_list_key(raw_key)
-            if not key:
-                continue
-            field_map[key] = list(vals or [])
-        if field_map:
-            pending[nk] = field_map
+    pending = _normalize_pending_chapter_frame_lists(chapter_frame_lists)
     if not pending:
         return 0
 
@@ -1150,32 +1149,10 @@ def update_chapter_frame_lists_in_ffmetadata(path, chapter_frame_lists):
             block.append(lines[i])
             i += 1
 
-        title = ""
-        for bline in block:
-            s = bline.strip()
-            if "=" in s and not s.startswith(";"):
-                k, v = s.split("=", 1)
-                if k.strip().lower() == "title":
-                    title = v.strip()
-                    break
-
-        nk = _norm_title(title)
+        nk = _normalized_chapter_title(_ffmetadata_block_title(block))
         updates = pending.get(nk)
         should_update = updates is not None
-        remove_keys = set(updates.keys()) if should_update else set()
-
-        title_idx = -1
-        cleaned = []
-        for bline in block:
-            s = bline.strip()
-            if "=" in s and not s.startswith(";"):
-                k, _v = s.split("=", 1)
-                key = k.strip().lower()
-                if key == "title":
-                    title_idx = len(cleaned)
-                if should_update and key in remove_keys:
-                    continue
-            cleaned.append(bline)
+        cleaned, title_idx = _clean_frame_list_block(block, updates if should_update else None)
 
         if should_update:
             insert_at = title_idx + 1 if title_idx >= 0 else len(cleaned)
@@ -1192,6 +1169,54 @@ def update_chapter_frame_lists_in_ffmetadata(path, chapter_frame_lists):
 
     p.write_text("\n".join(out) + "\n", encoding="utf-8")
     return touched
+
+
+def _normalized_chapter_title(text):
+    return " ".join(str(text or "").strip().lower().split())
+
+
+def _normalize_pending_chapter_frame_lists(chapter_frame_lists):
+    pending = {}
+    for raw_title, raw_fields in (chapter_frame_lists or {}).items():
+        nk = _normalized_chapter_title(raw_title)
+        if not nk:
+            continue
+        field_map = {}
+        for raw_key, vals in dict(raw_fields or {}).items():
+            key = _normalize_frame_list_key(raw_key)
+            if key:
+                field_map[key] = list(vals or [])
+        if field_map:
+            pending[nk] = field_map
+    return pending
+
+
+def _ffmetadata_block_title(block):
+    for bline in block:
+        s = bline.strip()
+        if "=" not in s or s.startswith(";"):
+            continue
+        k, v = s.split("=", 1)
+        if k.strip().lower() == "title":
+            return v.strip()
+    return ""
+
+
+def _clean_frame_list_block(block, updates):
+    remove_keys = set(updates.keys()) if updates else set()
+    title_idx = -1
+    cleaned = []
+    for bline in block:
+        s = bline.strip()
+        if "=" in s and not s.startswith(";"):
+            k, _v = s.split("=", 1)
+            key = k.strip().lower()
+            if key == "title":
+                title_idx = len(cleaned)
+            if updates and key in remove_keys:
+                continue
+        cleaned.append(bline)
+    return cleaned, title_idx
 
 
 def update_chapter_bad_frames_in_ffmetadata(path, chapter_bad_frames):

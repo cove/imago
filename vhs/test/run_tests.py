@@ -414,77 +414,78 @@ def test_step_6_badframe_repair_injection_and_comment():
     print("Testing step_6_make_videos badframe repair injection and filmed comment...")
     step_6_make_videos = import_step_6_module()
 
-    out = step_6_make_videos.build_badframe_prefilter_lines([6, 7, 8, 20])
-    assert out.count("FreezeFrame(") == 2
-    assert "FreezeFrame(20,20,23)" in out
-    assert "FreezeFrame(6,8,9)" in out
-    assert out.find("FreezeFrame(6,8,9)") < out.find("FreezeFrame(20,20,23)")
-
-    out_override = step_6_make_videos.build_badframe_prefilter_lines(bad_repair_ranges=[(10, 12, 20), (30, 30, None)])
-    assert "FreezeFrame(30,30,33)" in out_override
-    assert "FreezeFrame(10,12,20)" in out_override
-
-    out_invalid_override = step_6_make_videos.build_badframe_prefilter_lines(bad_repair_ranges=[(6, 8, 7)])
-    assert "FreezeFrame(6,8,9)" in out_invalid_override
-
-    try:
-        step_6_make_videos._build_badframe_freezeframe_lines([(6, 8, 7)])
-        raise AssertionError("Expected RuntimeError for bad FreezeFrame source.")
-    except RuntimeError as e:
-        assert "source is also bad" in str(e)
-
-    try:
-        step_6_make_videos._build_badframe_freezeframe_lines([(6, 8, 20), (8, 10, 30)])
-        raise AssertionError("Expected RuntimeError for overlapping FreezeFrame ranges.")
-    except RuntimeError as e:
-        assert "overlapping FreezeFrame ranges" in str(e)
-
-    out_forward_only = step_6_make_videos.build_badframe_prefilter_lines(
-        bad_repair_ranges=[(0, 0, None), (10, 10, None)]
-    )
-    # Auto-picked ranges should always use future source frames.
-    assert "FreezeFrame(10,10,13)" in out_forward_only
-    assert "FreezeFrame(10,10,9)" not in out_forward_only
-
-    out_forward_only_adjacent = step_6_make_videos.build_badframe_prefilter_lines(
-        bad_repair_ranges=[(1, 1, None), (2, 2, None)]
-    )
-    assert "FreezeFrame(1,1,4)" in out_forward_only_adjacent
-    assert "FreezeFrame(2,2,5)" in out_forward_only_adjacent
-    assert "FreezeFrame(2,2,1)" not in out_forward_only_adjacent
-
-    out_monotonic = step_6_make_videos.build_badframe_prefilter_lines(
-        bad_repair_ranges=[(0, 0, None), (100, 100, None)]
-    )
-    # Source-frame selection should remain forward and monotonic.
-    assert "FreezeFrame(100,100,103)" in out_monotonic
-    assert "FreezeFrame(100,100,99)" not in out_monotonic
-
-    out_post = step_6_make_videos.build_badframe_postfilter_lines([6, 7, 8, 20])
-    # Post-QTGMC stabilization is single-rate when QTGMC uses FPSDivisor=2.
-    assert "FreezeFrame(20,20,23)" in out_post
-    assert "FreezeFrame(6,8,9)" in out_post
-
-    c_none = step_6_make_videos.build_filmed_comment(
-        None, "1995-03-18T19:25:00-08:00", "Altadena", "Tape 01", "00:01:00", "00:02:00"
-    )
-    assert c_none.startswith("Filmed on ")
-    assert "Filmed by" not in c_none
-
-    c_name = step_6_make_videos.build_filmed_comment(
-        "Jim",
-        "1995-03-18T19:25:00-08:00",
-        "Altadena",
-        "Tape 01",
-        "00:01:00",
-        "00:02:00",
-    )
-    assert c_name.startswith("Filmed by Jim on ")
+    _assert_badframe_prefilter_contract(step_6_make_videos)
+    _assert_badframe_repair_errors(step_6_make_videos)
+    _assert_badframe_source_selection_contract(step_6_make_videos)
+    _assert_badframe_comment_contract(step_6_make_videos)
 
     print("Test step_6_make_videos badframe repair injection and filmed comment: PASSED.")
     del sys.modules["step_6_make_videos"]
     sys.modules.pop("whisper", None)
     sys.modules.pop("whisper.utils", None)
+
+
+def _assert_badframe_prefilter_contract(step_6_make_videos) -> None:
+    out = step_6_make_videos.build_badframe_prefilter_lines([6, 7, 8, 20])
+    assert out.count("FreezeFrame(") == 2
+    _assert_contains_all(out, ["FreezeFrame(20,20,23)", "FreezeFrame(6,8,9)"])
+    assert out.find("FreezeFrame(6,8,9)") < out.find("FreezeFrame(20,20,23)")
+    out_override = step_6_make_videos.build_badframe_prefilter_lines(bad_repair_ranges=[(10, 12, 20), (30, 30, None)])
+    _assert_contains_all(out_override, ["FreezeFrame(30,30,33)", "FreezeFrame(10,12,20)"])
+    out_invalid_override = step_6_make_videos.build_badframe_prefilter_lines(bad_repair_ranges=[(6, 8, 7)])
+    assert "FreezeFrame(6,8,9)" in out_invalid_override
+    out_post = step_6_make_videos.build_badframe_postfilter_lines([6, 7, 8, 20])
+    _assert_contains_all(out_post, ["FreezeFrame(20,20,23)", "FreezeFrame(6,8,9)"])
+
+
+def _assert_badframe_repair_errors(step_6_make_videos) -> None:
+    _assert_runtime_error_contains(
+        lambda: step_6_make_videos._build_badframe_freezeframe_lines([(6, 8, 7)]),
+        "source is also bad",
+    )
+    _assert_runtime_error_contains(
+        lambda: step_6_make_videos._build_badframe_freezeframe_lines([(6, 8, 20), (8, 10, 30)]),
+        "overlapping FreezeFrame ranges",
+    )
+
+
+def _assert_badframe_source_selection_contract(step_6_make_videos) -> None:
+    cases = [
+        ([(0, 0, None), (10, 10, None)], ["FreezeFrame(10,10,13)"], ["FreezeFrame(10,10,9)"]),
+        ([(1, 1, None), (2, 2, None)], ["FreezeFrame(1,1,4)", "FreezeFrame(2,2,5)"], ["FreezeFrame(2,2,1)"]),
+        ([(0, 0, None), (100, 100, None)], ["FreezeFrame(100,100,103)"], ["FreezeFrame(100,100,99)"]),
+    ]
+    for ranges, required, forbidden in cases:
+        out = step_6_make_videos.build_badframe_prefilter_lines(bad_repair_ranges=ranges)
+        _assert_contains_all(out, required)
+        _assert_contains_none(out, forbidden)
+
+
+def _assert_badframe_comment_contract(step_6_make_videos) -> None:
+    args = ("1995-03-18T19:25:00-08:00", "Altadena", "Tape 01", "00:01:00", "00:02:00")
+    c_none = step_6_make_videos.build_filmed_comment(None, *args)
+    assert c_none.startswith("Filmed on ")
+    assert "Filmed by" not in c_none
+    c_name = step_6_make_videos.build_filmed_comment("Jim", *args)
+    assert c_name.startswith("Filmed by Jim on ")
+
+
+def _assert_contains_all(text: str, needles: list[str]) -> None:
+    missing = [needle for needle in needles if needle not in text]
+    assert not missing
+
+
+def _assert_contains_none(text: str, needles: list[str]) -> None:
+    present = [needle for needle in needles if needle in text]
+    assert not present
+
+
+def _assert_runtime_error_contains(fn, expected: str) -> None:
+    try:
+        fn()
+        raise AssertionError("Expected RuntimeError.")
+    except RuntimeError as exc:
+        assert expected in str(exc)
 
 
 def test_step_6_badframe_split_strategy_logic_paths():
@@ -1685,73 +1686,84 @@ def test_step_6_badframe_randomized_generation_100_cases():
     ]
     assert len(pregenerated_cases) == 100
 
-    def _simulate_shown_frames(frame_count, resolved_ranges):
-        shown = list(range(frame_count))
-        for a, b, src in resolved_ranges:
-            for fi in range(int(a), int(b) + 1):
-                shown[fi] = int(src)
-        return shown
-
     for case_idx, (frame_count, bad_frames) in enumerate(pregenerated_cases):
-        bad_frames = sorted({int(f) for f in bad_frames if 0 <= int(f) < int(frame_count)})
-
-        bad_set = set(bad_frames)
-        with contextlib.redirect_stdout(io.StringIO()):
-            resolved = step_6_make_videos._resolve_badframe_repair_ranges(
-                bad_source_frames=bad_frames,
-                max_source_frame=frame_count - 1,
-            )
-
-        repaired_targets = set()
-        last_end = -1
-        for a, b, src in resolved:
-            assert 0 <= int(a) <= int(b) < frame_count
-            assert int(a) > last_end
-            assert 0 <= int(src) < frame_count
-            assert int(src) not in bad_set
-            for fi in range(int(a), int(b) + 1):
-                assert fi in bad_set
-                repaired_targets.add(fi)
-            last_end = int(b)
-
-        expected_unrepaired = _expected_unrepaired_targets(frame_count, bad_set, step_6_make_videos)
-        expected_repaired = bad_set - expected_unrepaired
-
-        if not bad_set:
-            assert resolved == []
-            assert repaired_targets == set()
-        else:
-            assert repaired_targets == expected_repaired, (
-                f"Case {case_idx} repaired targets mismatch: "
-                f"expected={sorted(expected_repaired)} actual={sorted(repaired_targets)}"
-            )
-
-        lines = step_6_make_videos._build_badframe_freezeframe_lines(resolved, frame_multiplier=1)
-        if not resolved:
-            assert lines == ""
-        else:
-            assert lines.count("FreezeFrame(") == len(resolved)
-            line_ranges = []
-            for line in lines.splitlines():
-                m = re.search(r"FreezeFrame\((\d+),(\d+),(\d+)\)", line)
-                if m:
-                    line_ranges.append(tuple(int(v) for v in m.groups()))
-            expected_line_ranges = [(int(a), int(b), int(src)) for (a, b, src) in resolved]
-            assert line_ranges == expected_line_ranges
-
-        shown = _simulate_shown_frames(frame_count, resolved)
-        for fi in range(frame_count):
-            if fi in repaired_targets:
-                assert shown[fi] not in bad_set
-            elif fi in bad_set:
-                assert fi in expected_unrepaired
-            else:
-                assert shown[fi] == fi
+        _assert_randomized_badframe_case(step_6_make_videos, case_idx, frame_count, bad_frames)
 
     print("Test step_6_make_videos badframe randomized generation (100 cases): PASSED.")
     del sys.modules["step_6_make_videos"]
     sys.modules.pop("whisper", None)
     sys.modules.pop("whisper.utils", None)
+
+
+def _simulate_shown_frames(frame_count, resolved_ranges):
+    shown = list(range(frame_count))
+    for a, b, src in resolved_ranges:
+        for fi in range(int(a), int(b) + 1):
+            shown[fi] = int(src)
+    return shown
+
+
+def _assert_randomized_badframe_case(step_6_make_videos, case_idx, frame_count, bad_frames) -> None:
+    bad_frames = sorted({int(f) for f in bad_frames if 0 <= int(f) < int(frame_count)})
+    bad_set = set(bad_frames)
+    with contextlib.redirect_stdout(io.StringIO()):
+        resolved = step_6_make_videos._resolve_badframe_repair_ranges(
+            bad_source_frames=bad_frames,
+            max_source_frame=frame_count - 1,
+        )
+    repaired_targets = _assert_resolved_repair_ranges(resolved, frame_count, bad_set)
+    expected_unrepaired = _expected_unrepaired_targets(frame_count, bad_set, step_6_make_videos)
+    expected_repaired = bad_set - expected_unrepaired
+    if not bad_set:
+        assert resolved == []
+        assert repaired_targets == set()
+    else:
+        assert repaired_targets == expected_repaired, (
+            f"Case {case_idx} repaired targets mismatch: "
+            f"expected={sorted(expected_repaired)} actual={sorted(repaired_targets)}"
+        )
+    _assert_freezeframe_lines_match_resolved(step_6_make_videos, resolved)
+    _assert_simulated_frames_safe(frame_count, resolved, repaired_targets, bad_set, expected_unrepaired)
+
+
+def _assert_resolved_repair_ranges(resolved, frame_count, bad_set):
+    repaired_targets = set()
+    last_end = -1
+    for a, b, src in resolved:
+        assert 0 <= int(a) <= int(b) < frame_count
+        assert int(a) > last_end
+        assert 0 <= int(src) < frame_count
+        assert int(src) not in bad_set
+        for fi in range(int(a), int(b) + 1):
+            assert fi in bad_set
+            repaired_targets.add(fi)
+        last_end = int(b)
+    return repaired_targets
+
+
+def _assert_freezeframe_lines_match_resolved(step_6_make_videos, resolved) -> None:
+    lines = step_6_make_videos._build_badframe_freezeframe_lines(resolved, frame_multiplier=1)
+    if not resolved:
+        assert lines == ""
+        return
+    assert lines.count("FreezeFrame(") == len(resolved)
+    line_ranges = []
+    for line in lines.splitlines():
+        m = re.search(r"FreezeFrame\((\d+),(\d+),(\d+)\)", line)
+        if m:
+            line_ranges.append(tuple(int(v) for v in m.groups()))
+    assert line_ranges == [(int(a), int(b), int(src)) for (a, b, src) in resolved]
+
+
+def _assert_simulated_frames_safe(frame_count, resolved, repaired_targets, bad_set, expected_unrepaired) -> None:
+    shown = _simulate_shown_frames(frame_count, resolved)
+    for fi in range(frame_count):
+        if fi in repaired_targets:
+            assert shown[fi] not in bad_set
+        elif fi in bad_set:
+            assert fi in expected_unrepaired
+        else:
+            assert shown[fi] == fi
 
 
 def test_step_6_badframe_exhaustive_small_patterns_no_overlap():
@@ -1762,51 +1774,7 @@ def test_step_6_badframe_exhaustive_small_patterns_no_overlap():
     for frame_count in (10, 11, 12):
         # Exhaustive: every bad/good pattern for this frame length.
         for mask in range(1 << frame_count):
-            bad_frames = [fi for fi in range(frame_count) if (mask >> fi) & 1]
-            bad_set = set(bad_frames)
-            with contextlib.redirect_stdout(io.StringIO()):
-                resolved = step_6_make_videos._resolve_badframe_repair_ranges(
-                    bad_source_frames=bad_frames,
-                    max_source_frame=frame_count - 1,
-                )
-
-            repaired_targets = set()
-            last_end = -1
-            for a, b, src in resolved:
-                ia, ib, isrc = int(a), int(b), int(src)
-                assert 0 <= ia <= ib < frame_count
-                assert ia > last_end
-                assert 0 <= isrc < frame_count
-                assert isrc not in bad_set
-                for fi in range(ia, ib + 1):
-                    assert fi in bad_set
-                    repaired_targets.add(fi)
-                last_end = ib
-
-            expected_unrepaired = _expected_unrepaired_targets(frame_count, bad_set, step_6_make_videos)
-            expected_repaired = bad_set - expected_unrepaired
-            assert repaired_targets == expected_repaired, (
-                f"frame_count={frame_count} mask={mask} repaired mismatch: "
-                f"expected={sorted(expected_repaired)} actual={sorted(repaired_targets)}"
-            )
-
-            lines = step_6_make_videos._build_badframe_freezeframe_lines(
-                resolved,
-                frame_multiplier=1,
-            )
-            if not resolved:
-                assert lines == ""
-            else:
-                parsed = []
-                for line in lines.splitlines():
-                    m = re.search(r"FreezeFrame\((\d+),(\d+),(\d+)\)", line)
-                    if m:
-                        parsed.append(tuple(int(v) for v in m.groups()))
-                assert parsed == [(int(a), int(b), int(src)) for a, b, src in resolved]
-                prev_end = -1
-                for a, b, _src in parsed:
-                    assert a > prev_end
-                    prev_end = b
+            _assert_exhaustive_badframe_pattern(step_6_make_videos, frame_count, mask)
             total_patterns += 1
 
     assert total_patterns == (1 << 10) + (1 << 11) + (1 << 12)
@@ -1814,6 +1782,24 @@ def test_step_6_badframe_exhaustive_small_patterns_no_overlap():
     del sys.modules["step_6_make_videos"]
     sys.modules.pop("whisper", None)
     sys.modules.pop("whisper.utils", None)
+
+
+def _assert_exhaustive_badframe_pattern(step_6_make_videos, frame_count: int, mask: int) -> None:
+    bad_frames = [fi for fi in range(frame_count) if (mask >> fi) & 1]
+    bad_set = set(bad_frames)
+    with contextlib.redirect_stdout(io.StringIO()):
+        resolved = step_6_make_videos._resolve_badframe_repair_ranges(
+            bad_source_frames=bad_frames,
+            max_source_frame=frame_count - 1,
+        )
+    repaired_targets = _assert_resolved_repair_ranges(resolved, frame_count, bad_set)
+    expected_unrepaired = _expected_unrepaired_targets(frame_count, bad_set, step_6_make_videos)
+    expected_repaired = bad_set - expected_unrepaired
+    assert repaired_targets == expected_repaired, (
+        f"frame_count={frame_count} mask={mask} repaired mismatch: "
+        f"expected={sorted(expected_repaired)} actual={sorted(repaired_targets)}"
+    )
+    _assert_freezeframe_lines_match_resolved(step_6_make_videos, resolved)
 
 
 def test_step_6_make_create_avs_includes_chapter_bounds():
@@ -2069,284 +2055,476 @@ def test_step_6_frame_quality_ingest_exact_archive01():
         sys.modules.pop("whisper.utils", None)
 
 
+def _e2e_keep_outputs(env_name):
+    return os.getenv(env_name, "1").strip() not in {"0", "false", "False"}
+
+
+def _cv2_available(test_name):
+    try:
+        import cv2  # noqa: F401
+    except Exception:
+        print(f"Skipping {test_name}: OpenCV (cv2) is unavailable in this Python.")
+        return False
+    return True
+
+
+def _cleanup_step_6_module():
+    del sys.modules["step_6_make_videos"]
+    sys.modules.pop("whisper", None)
+    sys.modules.pop("whisper.utils", None)
+
+
+def _callahan_proxy_path():
+    return ROOT.parent / "video_data" / "callahan" / "Archive" / "callahan_01_archive_proxy.mp4"
+
+
+def _vf_select(frame_start, frame_end):
+    return f"select='between(n\\,{frame_start}\\,{frame_end})',setpts=N/FRAME_RATE/TB"
+
+
+def _ffmpeg_frame_md5(in_path, out_path, vf_select=None):
+    cmd = [str(FFMPEG_BIN), "-nostdin", "-v", "error", "-i", str(in_path)]
+    if vf_select:
+        cmd.extend(["-vf", vf_select])
+    cmd.extend(["-an", "-f", "framemd5", "-y", str(out_path)])
+    subprocess.run(cmd, check=True)
+
+
+def _assert_frame_hashes_match(src_md5, clip_md5, frame_count, message):
+    src_hashes = _framemd5_hashes(src_md5)
+    clip_hashes = _framemd5_hashes(clip_md5)
+    assert len(src_hashes) == frame_count
+    assert len(clip_hashes) == frame_count
+    assert src_hashes == clip_hashes, message
+
+
+def _add_silent_audio_track(video_only_path, numbered_path):
+    subprocess.run(
+        [
+            str(FFMPEG_BIN),
+            "-nostdin",
+            "-v",
+            "error",
+            "-i",
+            str(video_only_path),
+            "-f",
+            "lavfi",
+            "-i",
+            "anullsrc=r=48000:cl=mono",
+            "-shortest",
+            "-map",
+            "0:v:0",
+            "-map",
+            "1:a:0",
+            "-c:v",
+            "copy",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "64k",
+            "-y",
+            str(numbered_path),
+        ],
+        check=True,
+    )
+
+
+def _write_numbered_overlay_clip(ctx, overlay):
+    import cv2
+
+    cap = cv2.VideoCapture(str(ctx["clip_path"]))
+    assert cap.isOpened(), f"Unable to open extracted clip: {ctx['clip_path']}"
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    if fps <= 0:
+        fps = 30000.0 / 1001.0
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    assert width == 720 and height == 480, f"Unexpected proxy frame size: {width}x{height}"
+
+    writer = cv2.VideoWriter(
+        str(ctx["numbered_video_only_path"]),
+        cv2.VideoWriter_fourcc(*"mp4v"),
+        float(fps),
+        (width, height),
+    )
+    assert writer.isOpened(), f"Unable to open numbered writer: {ctx['numbered_path']}"
+
+    for idx in range(ctx["frame_count"]):
+        ok, frame = cap.read()
+        assert ok, f"Extracted clip ended early at frame {idx}."
+        frame_id = ctx["frame_start"] + idx
+        _draw_frame_id_overlay(frame, frame_id, **overlay)
+        writer.write(frame)
+    extra_ok, _extra = cap.read()
+    cap.release()
+    writer.release()
+    assert not extra_ok, "Extracted clip had more frames than expected selection."
+    _add_silent_audio_track(ctx["numbered_video_only_path"], ctx["numbered_path"])
+
+
+def _verify_numbered_clip_overlay(ctx, overlay):
+    import cv2
+
+    cap_num = cv2.VideoCapture(str(ctx["numbered_path"]))
+    assert cap_num.isOpened(), f"Unable to open numbered clip: {ctx['numbered_path']}"
+    for idx in range(ctx["frame_count"]):
+        ok, frame = cap_num.read()
+        assert ok, f"Numbered clip ended early at frame {idx}."
+        decoded_id, valid = _decode_frame_id_overlay(frame, **overlay)
+        assert valid, f"Overlay checksum invalid in numbered clip frame {idx}."
+        expected = ctx["frame_start"] + idx
+        assert decoded_id == expected, (
+            f"Overlay decode mismatch in numbered clip frame {idx}: got {decoded_id}, expected {expected}."
+        )
+    cap_num.release()
+
+
+def _render_avs_to_filtered(avs_path, filtered_path):
+    subprocess.run(
+        [
+            str(FFMPEG_BIN),
+            "-nostdin",
+            "-v",
+            "error",
+            "-i",
+            str(avs_path),
+            "-an",
+            "-c:v",
+            "libx264",
+            "-crf",
+            "0",
+            "-preset",
+            "ultrafast",
+            "-pix_fmt",
+            "yuv420p",
+            "-y",
+            str(filtered_path),
+        ],
+        check=True,
+    )
+
+
+def _proxy_badframe_context():
+    proxy_path = _callahan_proxy_path()
+    meta_dir = ROOT / "metadata" / "callahan_01_archive"
+    filter_src = meta_dir / "filter.avs"
+    frame_quality_src = meta_dir / "frame_quality.tsv"
+    if not proxy_path.exists() or not filter_src.exists() or not frame_quality_src.exists():
+        print("Skipping proxy overlay E2E test: archive proxy/filter/frame_quality not found.")
+        return None
+
+    frame_start = 0
+    frame_end = int(os.getenv("RUN_PROXY_BADFRAME_E2E_END", "18025"))
+    if frame_end < frame_start:
+        raise AssertionError("RUN_PROXY_BADFRAME_E2E_END must be >= 0.")
+    work_dir = ROOT / "test" / "_proxy_badframe_e2e"
+    work_dir.mkdir(parents=True, exist_ok=True)
+    stem = f"proxy_01_{frame_start}_{frame_end}"
+    ctx = _e2e_paths(work_dir, stem, ".mp4", frame_start, frame_end)
+    ctx.update(
+        {
+            "proxy_path": proxy_path,
+            "filter_copy": work_dir / "filter_copy.avs",
+            "frame_quality_copy": work_dir / "frame_quality_copy.tsv",
+        }
+    )
+    shutil.copy(filter_src, ctx["filter_copy"])
+    shutil.copy(frame_quality_src, ctx["frame_quality_copy"])
+    return ctx
+
+
+def _e2e_paths(work_dir, stem, clip_suffix, frame_start, frame_end):
+    return {
+        "work_dir": work_dir,
+        "frame_start": frame_start,
+        "frame_end": frame_end,
+        "frame_count": frame_end - frame_start + 1,
+        "clip_path": work_dir / f"{stem}_clip{clip_suffix}",
+        "numbered_video_only_path": work_dir / f"{stem}_numbered_video_only.mp4",
+        "numbered_path": work_dir / f"{stem}_numbered.mp4",
+        "filtered_path": work_dir / f"{stem}_filtered.mp4",
+        "avs_path": work_dir / f"{stem}_script.avs",
+        "src_md5": work_dir / f"{stem}_src.md5",
+        "clip_md5": work_dir / f"{stem}_clip.md5",
+    }
+
+
+def _extract_proxy_clip(ctx):
+    subprocess.run(
+        [
+            str(FFMPEG_BIN),
+            "-nostdin",
+            "-v",
+            "error",
+            "-i",
+            str(ctx["proxy_path"]),
+            "-vf",
+            _vf_select(ctx["frame_start"], ctx["frame_end"]),
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "libx264",
+            "-crf",
+            "0",
+            "-preset",
+            "ultrafast",
+            "-pix_fmt",
+            "yuv420p",
+            "-an",
+            "-y",
+            str(ctx["clip_path"]),
+        ],
+        check=True,
+    )
+
+
+def _verify_extracted_clip(ctx, mismatch_message):
+    vf_select = _vf_select(ctx["frame_start"], ctx["frame_end"])
+    _ffmpeg_frame_md5(ctx["proxy_path"], ctx["src_md5"], vf_select=vf_select)
+    _ffmpeg_frame_md5(ctx["clip_path"], ctx["clip_md5"])
+    _assert_frame_hashes_match(ctx["src_md5"], ctx["clip_md5"], ctx["frame_count"], mismatch_message)
+
+
+def _render_proxy_badframe_filter(step_6_make_videos, ctx):
+    repairs = step_6_make_videos.load_badframe_repairs(ctx["frame_quality_copy"])
+    fake_chapter = {"start": 0.0, "end": (ctx["frame_end"] + 1) * 1001.0 / 30000.0}
+    local_repairs = step_6_make_videos.map_bad_repairs_to_chapter_local_ranges(repairs, fake_chapter)
+    script_text = step_6_make_videos.make_create_avs(
+        str(ctx["numbered_path"]),
+        ctx["filter_copy"],
+        bad_repair_ranges=local_repairs,
+        chapter_start_frame=0,
+        chapter_end_frame=ctx["frame_count"],
+        no_bob=True,
+    )
+    ctx["avs_path"].write_text(script_text, encoding="ascii")
+    _render_avs_to_filtered(ctx["avs_path"], ctx["filtered_path"])
+
+
+def _proxy_bad_set(step_6_make_videos, ctx):
+    bad_set = set()
+    for a, b in step_6_make_videos.load_badframe_ranges(ctx["frame_quality_copy"]):
+        lo = max(ctx["frame_start"], int(a))
+        hi = min(ctx["frame_end"], int(b))
+        for f in range(lo, hi + 1):
+            bad_set.add(f)
+    return bad_set
+
+
+def _assert_filtered_clip_avoids_bad_frames(ctx, overlay, bad_set):
+    import cv2
+
+    mapped_overlay = dict(
+        zip(
+            ("x", "y", "cell_w", "cell_h"),
+            _map_overlay_geometry_callahan01_to_filtered(
+                overlay["x"],
+                overlay["y"],
+                overlay["cell_w"],
+                overlay["cell_h"],
+            ),
+        )
+    )
+    mapped_overlay["bits"] = overlay["bits"]
+    cap_out = cv2.VideoCapture(str(ctx["filtered_path"]))
+    assert cap_out.isOpened(), f"Unable to open filtered clip: {ctx['filtered_path']}"
+    violations, decode_failures = _scan_filtered_badframe_output(cap_out, ctx, mapped_overlay, bad_set)
+    cap_out.release()
+
+    assert not decode_failures, "Failed to decode frame-id overlay in filtered clip: " + repr(decode_failures[:20])
+    assert not violations, "Filtered output displayed bad source frame IDs: " + repr(violations[:20])
+
+
+def _scan_filtered_badframe_output(cap_out, ctx, overlay, bad_set):
+    violations = []
+    decode_failures = []
+    for idx in range(ctx["frame_count"]):
+        ok, frame = cap_out.read()
+        if not ok:
+            violations.append((idx, "missing_frame"))
+            break
+        shown_id, valid = _decode_frame_id_overlay(frame, **overlay)
+        if not valid:
+            decode_failures.append((idx, shown_id))
+            if len(decode_failures) >= 20:
+                break
+            continue
+        if shown_id in bad_set:
+            violations.append((idx, shown_id))
+            if len(violations) >= 20:
+                break
+    return violations, decode_failures
+
+
+def _run_proxy_badframe_overlay_e2e(step_6_make_videos, ctx):
+    overlay = {"x": 180, "y": 330, "bits": 24, "cell_w": 20, "cell_h": 28}
+    _extract_proxy_clip(ctx)
+    _verify_extracted_clip(ctx, "Extracted clip frame order/content mismatch.")
+    _write_numbered_overlay_clip(ctx, overlay)
+    _verify_numbered_clip_overlay(ctx, overlay)
+    _render_proxy_badframe_filter(step_6_make_videos, ctx)
+    _assert_filtered_clip_avoids_bad_frames(ctx, overlay, _proxy_bad_set(step_6_make_videos, ctx))
+
+
 def test_step_6_proxy_badframes_overlay_e2e():
     print("Testing step_6_make_videos proxy overlay + OpenCV decode badframe safety...")
     if os.getenv("RUN_PROXY_BADFRAME_E2E", "0").strip() != "1":
         print("Skipping proxy overlay E2E test. Set RUN_PROXY_BADFRAME_E2E=1 to enable.")
         return
-
-    keep_outputs = os.getenv("RUN_PROXY_BADFRAME_E2E_KEEP", "1").strip() not in {
-        "0",
-        "false",
-        "False",
-    }
-
-    try:
-        import cv2  # noqa: F401
-    except Exception:
-        print("Skipping proxy overlay E2E test: OpenCV (cv2) is unavailable in this Python.")
+    if not _cv2_available("proxy overlay E2E test"):
         return
 
     step_6_make_videos = import_step_6_module()
     try:
-        proxy_path = ROOT.parent / "video_data" / "callahan" / "Archive" / "callahan_01_archive_proxy.mp4"
-        meta_dir = ROOT / "metadata" / "callahan_01_archive"
-        filter_src = meta_dir / "filter.avs"
-        frame_quality_src = meta_dir / "frame_quality.tsv"
-        if not proxy_path.exists() or not filter_src.exists() or not frame_quality_src.exists():
-            print("Skipping proxy overlay E2E test: archive proxy/filter/frame_quality not found.")
+        ctx = _proxy_badframe_context()
+        if ctx is None:
             return
-
-        frame_start = 0
-        frame_end = int(os.getenv("RUN_PROXY_BADFRAME_E2E_END", "18025"))
-        if frame_end < frame_start:
-            raise AssertionError("RUN_PROXY_BADFRAME_E2E_END must be >= 0.")
-        frame_count = frame_end - frame_start + 1
-
-        work_dir = ROOT / "test" / "_proxy_badframe_e2e"
-        work_dir.mkdir(parents=True, exist_ok=True)
-        stem = f"proxy_01_{frame_start}_{frame_end}"
-        clip_path = work_dir / f"{stem}_clip.mp4"
-        numbered_video_only_path = work_dir / f"{stem}_numbered_video_only.mp4"
-        numbered_path = work_dir / f"{stem}_numbered.mp4"
-        filtered_path = work_dir / f"{stem}_filtered.mp4"
-        avs_path = work_dir / f"{stem}_script.avs"
-        src_md5 = work_dir / f"{stem}_src.md5"
-        clip_md5 = work_dir / f"{stem}_clip.md5"
-        filter_copy = work_dir / "filter_copy.avs"
-        frame_quality_copy = work_dir / "frame_quality_copy.tsv"
-        shutil.copy(filter_src, filter_copy)
-        shutil.copy(frame_quality_src, frame_quality_copy)
-
-        vf_select = f"select='between(n\\,{frame_start}\\,{frame_end})',setpts=N/FRAME_RATE/TB"
-        subprocess.run(
-            [
-                str(FFMPEG_BIN),
-                "-nostdin",
-                "-v",
-                "error",
-                "-i",
-                str(proxy_path),
-                "-vf",
-                vf_select,
-                "-map",
-                "0:v:0",
-                "-c:v",
-                "libx264",
-                "-crf",
-                "0",
-                "-preset",
-                "ultrafast",
-                "-pix_fmt",
-                "yuv420p",
-                "-an",
-                "-y",
-                str(clip_path),
-            ],
-            check=True,
-        )
-
-        # Verify extracted frame order/identity exactly matches selected source frames.
-        subprocess.run(
-            [
-                str(FFMPEG_BIN),
-                "-nostdin",
-                "-v",
-                "error",
-                "-i",
-                str(proxy_path),
-                "-vf",
-                vf_select,
-                "-an",
-                "-f",
-                "framemd5",
-                "-y",
-                str(src_md5),
-            ],
-            check=True,
-        )
-        subprocess.run(
-            [
-                str(FFMPEG_BIN),
-                "-nostdin",
-                "-v",
-                "error",
-                "-i",
-                str(clip_path),
-                "-an",
-                "-f",
-                "framemd5",
-                "-y",
-                str(clip_md5),
-            ],
-            check=True,
-        )
-        src_hashes = _framemd5_hashes(src_md5)
-        clip_hashes = _framemd5_hashes(clip_md5)
-        assert len(src_hashes) == frame_count
-        assert len(clip_hashes) == frame_count
-        assert src_hashes == clip_hashes, "Extracted clip frame order/content mismatch."
-
-        # Draw frame IDs on every frame so downstream filter output can be decoded.
-        import cv2
-
-        cap = cv2.VideoCapture(str(clip_path))
-        assert cap.isOpened(), f"Unable to open extracted clip: {clip_path}"
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        if fps <= 0:
-            fps = 30000.0 / 1001.0
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        assert width == 720 and height == 480, f"Unexpected proxy frame size: {width}x{height}"
-
-        bits = 24
-        cell_w = 20
-        cell_h = 28
-        draw_x = 180
-        draw_y = 330
-
-        writer = cv2.VideoWriter(
-            str(numbered_video_only_path),
-            cv2.VideoWriter_fourcc(*"mp4v"),
-            float(fps),
-            (width, height),
-        )
-        assert writer.isOpened(), f"Unable to open numbered writer: {numbered_path}"
-
-        for idx in range(frame_count):
-            ok, frame = cap.read()
-            assert ok, f"Extracted clip ended early at frame {idx}."
-            frame_id = frame_start + idx
-            _draw_frame_id_overlay(frame, frame_id, draw_x, draw_y, bits=bits, cell_w=cell_w, cell_h=cell_h)
-            writer.write(frame)
-        extra_ok, _extra = cap.read()
-        cap.release()
-        writer.release()
-        assert not extra_ok, "Extracted clip had more frames than expected selection."
-
-        # Add a short silent audio track so FFmpegSource2/AVS can open this clip reliably.
-        subprocess.run(
-            [
-                str(FFMPEG_BIN),
-                "-nostdin",
-                "-v",
-                "error",
-                "-i",
-                str(numbered_video_only_path),
-                "-f",
-                "lavfi",
-                "-i",
-                "anullsrc=r=48000:cl=mono",
-                "-shortest",
-                "-map",
-                "0:v:0",
-                "-map",
-                "1:a:0",
-                "-c:v",
-                "copy",
-                "-c:a",
-                "aac",
-                "-b:a",
-                "64k",
-                "-y",
-                str(numbered_path),
-            ],
-            check=True,
-        )
-
-        # Sanity-check OpenCV decoding on the numbered clip itself.
-        cap_num = cv2.VideoCapture(str(numbered_path))
-        assert cap_num.isOpened(), f"Unable to open numbered clip: {numbered_path}"
-        for idx in range(frame_count):
-            ok, frame = cap_num.read()
-            assert ok, f"Numbered clip ended early at frame {idx}."
-            decoded_id, valid = _decode_frame_id_overlay(frame, draw_x, draw_y, bits=bits, cell_w=cell_w, cell_h=cell_h)
-            assert valid, f"Overlay checksum invalid in numbered clip frame {idx}."
-            assert decoded_id == frame_start + idx, (
-                f"Overlay decode mismatch in numbered clip frame {idx}: got {decoded_id}, expected {frame_start + idx}."
-            )
-        cap_num.release()
-
-        repairs = step_6_make_videos.load_badframe_repairs(frame_quality_copy)
-        fake_chapter = {
-            "start": 0.0,
-            "end": (frame_end + 1) * 1001.0 / 30000.0,
-        }
-        local_repairs = step_6_make_videos.map_bad_repairs_to_chapter_local_ranges(repairs, fake_chapter)
-        script_text = step_6_make_videos.make_create_avs(
-            str(numbered_path),
-            filter_copy,
-            bad_repair_ranges=local_repairs,
-            chapter_start_frame=0,
-            chapter_end_frame=frame_count,
-            no_bob=True,
-        )
-        avs_path.write_text(script_text, encoding="ascii")
-
-        subprocess.run(
-            [
-                str(FFMPEG_BIN),
-                "-nostdin",
-                "-v",
-                "error",
-                "-i",
-                str(avs_path),
-                "-an",
-                "-c:v",
-                "libx264",
-                "-crf",
-                "0",
-                "-preset",
-                "ultrafast",
-                "-pix_fmt",
-                "yuv420p",
-                "-y",
-                str(filtered_path),
-            ],
-            check=True,
-        )
-
-        bad_set = set()
-        for a, b in step_6_make_videos.load_badframe_ranges(frame_quality_copy):
-            lo = max(frame_start, int(a))
-            hi = min(frame_end, int(b))
-            if hi < lo:
-                continue
-            for f in range(lo, hi + 1):
-                bad_set.add(f)
-
-        rx, ry, rw, rh = _map_overlay_geometry_callahan01_to_filtered(draw_x, draw_y, cell_w, cell_h)
-        cap_out = cv2.VideoCapture(str(filtered_path))
-        assert cap_out.isOpened(), f"Unable to open filtered clip: {filtered_path}"
-        violations = []
-        decode_failures = []
-        for idx in range(frame_count):
-            ok, frame = cap_out.read()
-            if not ok:
-                violations.append((idx, "missing_frame"))
-                break
-            shown_id, valid = _decode_frame_id_overlay(frame, rx, ry, bits=bits, cell_w=rw, cell_h=rh)
-            if not valid:
-                decode_failures.append((idx, shown_id))
-                if len(decode_failures) >= 20:
-                    break
-                continue
-            if shown_id in bad_set:
-                violations.append((idx, shown_id))
-                if len(violations) >= 20:
-                    break
-        cap_out.release()
-
-        assert not decode_failures, "Failed to decode frame-id overlay in filtered clip: " + repr(decode_failures[:20])
-        assert not violations, "Filtered output displayed bad source frame IDs: " + repr(violations[:20])
+        _run_proxy_badframe_overlay_e2e(step_6_make_videos, ctx)
         print("Test step_6_make_videos proxy overlay + OpenCV decode badframe safety: PASSED.")
-
-        if not keep_outputs:
-            shutil.rmtree(work_dir, ignore_errors=True)
+        if not _e2e_keep_outputs("RUN_PROXY_BADFRAME_E2E_KEEP"):
+            shutil.rmtree(ctx["work_dir"], ignore_errors=True)
     finally:
-        del sys.modules["step_6_make_videos"]
-        sys.modules.pop("whisper", None)
-        sys.modules.pop("whisper.utils", None)
+        _cleanup_step_6_module()
+
+
+def _qtgmc_freeze_context():
+    proxy_path = _callahan_proxy_path()
+    if not proxy_path.exists():
+        print("Skipping QTGMC FreezeFrame E2E test: callahan_01 proxy not found.")
+        return None
+
+    frame_start = int(os.getenv("RUN_QTGMC_FREEZE_E2E_START", "12000"))
+    frame_end = int(os.getenv("RUN_QTGMC_FREEZE_E2E_END", str(frame_start + 6999)))
+    if frame_end < frame_start:
+        raise AssertionError("RUN_QTGMC_FREEZE_E2E_END must be >= RUN_QTGMC_FREEZE_E2E_START.")
+    frame_count = frame_end - frame_start + 1
+    if frame_count < 6000:
+        raise AssertionError(
+            f"QTGMC FreezeFrame E2E requires at least 6000 frames; got {frame_count} ({frame_start}-{frame_end})."
+        )
+
+    work_dir = ROOT / "test" / "_qtgmc_freeze_e2e"
+    work_dir.mkdir(parents=True, exist_ok=True)
+    stem = f"qtgmc_freeze_{frame_start}_{frame_end}"
+    ctx = _e2e_paths(work_dir, stem, ".mkv", frame_start, frame_end)
+    ctx.update({"proxy_path": proxy_path, "filter_path": work_dir / f"{stem}_qtgmc_filter.avs"})
+    return ctx
+
+
+def _extract_qtgmc_clip(step_6_make_videos, ctx):
+    extract_start_sec = ctx["frame_start"] * 1001.0 / 30000.0
+    extract_end_sec = (ctx["frame_end"] + 1) * 1001.0 / 30000.0
+    subprocess.run(
+        step_6_make_videos.make_extract_chapter(
+            ctx["proxy_path"],
+            extract_start_sec,
+            extract_end_sec,
+            ctx["clip_path"],
+            start_frame=ctx["frame_start"],
+            end_frame=ctx["frame_end"] + 1,
+        ),
+        check=True,
+    )
+
+
+def _qtgmc_bad_ranges(frame_count):
+    ranges = [
+        (0, 2),
+        (47, 55),
+        (1024, 1041),
+        (3072, 3099),
+        (frame_count // 2 - 12, frame_count // 2 + 17),
+        (frame_count - 140, frame_count - 121),
+        (frame_count - 6, frame_count - 1),
+    ]
+    clipped = [(max(0, int(a)), min(frame_count - 1, int(b))) for a, b in ranges if int(a) <= int(b)]
+    return [r for r in clipped if r[0] <= r[1]]
+
+
+def _resolved_qtgmc_repairs(step_6_make_videos, frame_count):
+    bad_ranges_local = _qtgmc_bad_ranges(frame_count)
+    assert bad_ranges_local, "No valid bad ranges for QTGMC FreezeFrame E2E."
+    resolved = step_6_make_videos._resolve_badframe_repair_ranges(
+        bad_repair_ranges=[(a, b, None) for a, b in bad_ranges_local],
+        max_source_frame=frame_count - 1,
+    )
+    assert resolved, "No resolved badframe repairs generated for long-range E2E."
+    return resolved
+
+
+def _expected_qtgmc_shown(frame_count, resolved_local_repairs):
+    expected_local_shown = list(range(frame_count))
+    for a, b, src in resolved_local_repairs:
+        assert src is not None
+        for fi in range(max(0, int(a)), min(frame_count - 1, int(b)) + 1):
+            expected_local_shown[fi] = int(src)
+    return expected_local_shown
+
+
+def _render_qtgmc_freeze_filter(step_6_make_videos, ctx, resolved_local_repairs):
+    ctx["filter_path"].write_text(
+        'c = last\nc = c.AssumeTFF()\nc = QTGMC(Preset="Very Fast", FPSDivisor=2)\nc\n',
+        encoding="ascii",
+    )
+    script_text = step_6_make_videos.make_create_avs(
+        str(ctx["numbered_path"]),
+        ctx["filter_path"],
+        bad_repair_ranges=resolved_local_repairs,
+        chapter_start_frame=0,
+        chapter_end_frame=ctx["frame_count"],
+        no_bob=True,
+    )
+    assert "FreezeFrame(" in script_text, "AVS script is missing FreezeFrame repair lines."
+    assert ctx["filter_path"].name in script_text, "AVS script does not import the QTGMC filter script."
+    ctx["avs_path"].write_text(script_text, encoding="ascii")
+    _render_avs_to_filtered(ctx["avs_path"], ctx["filtered_path"])
+
+
+def _assert_qtgmc_filtered_matches(ctx, overlay, expected_local_shown):
+    import cv2
+
+    cap_out = cv2.VideoCapture(str(ctx["filtered_path"]))
+    assert cap_out.isOpened(), f"Unable to open filtered clip: {ctx['filtered_path']}"
+    mismatches, decode_failures = _scan_qtgmc_filtered_output(cap_out, ctx, overlay, expected_local_shown)
+    cap_out.release()
+
+    assert not decode_failures, "Failed to decode frame-id overlay in QTGMC filtered long clip: " + repr(
+        decode_failures[:20]
+    )
+    assert not mismatches, "QTGMC+FreezeFrame long-range drift/mapping mismatch: " + repr(mismatches[:20])
+
+
+def _scan_qtgmc_filtered_output(cap_out, ctx, overlay, expected_local_shown):
+    mismatches = []
+    decode_failures = []
+    for idx in range(ctx["frame_count"]):
+        ok, frame = cap_out.read()
+        if not ok:
+            mismatches.append((idx, "missing_frame"))
+            break
+        shown_id, valid = _decode_frame_id_overlay(frame, **overlay)
+        if not valid:
+            decode_failures.append((idx, shown_id))
+            if len(decode_failures) >= 20:
+                break
+            continue
+        expected_global = ctx["frame_start"] + expected_local_shown[idx]
+        if int(shown_id) != int(expected_global):
+            mismatches.append((idx, int(shown_id), int(expected_global)))
+            if len(mismatches) >= 20:
+                break
+    return mismatches, decode_failures
+
+
+def _run_qtgmc_freeze_e2e(step_6_make_videos, ctx):
+    overlay = {"x": 170, "y": 320, "bits": 24, "cell_w": 20, "cell_h": 30}
+    _extract_qtgmc_clip(step_6_make_videos, ctx)
+    _verify_extracted_clip(ctx, "Extracted long clip frame order/content mismatch.")
+    _write_numbered_overlay_clip(ctx, overlay)
+    resolved_local_repairs = _resolved_qtgmc_repairs(step_6_make_videos, ctx["frame_count"])
+    expected_local_shown = _expected_qtgmc_shown(ctx["frame_count"], resolved_local_repairs)
+    _render_qtgmc_freeze_filter(step_6_make_videos, ctx, resolved_local_repairs)
+    _assert_qtgmc_filtered_matches(ctx, overlay, expected_local_shown)
 
 
 def test_step_6_qtgmc_freezeframe_long_e2e():
@@ -2357,270 +2535,20 @@ def test_step_6_qtgmc_freezeframe_long_e2e():
     if sys.platform != "win32":
         print("Skipping QTGMC FreezeFrame E2E test: AviSynth/QTGMC path is Windows-only.")
         return
-
-    keep_outputs = os.getenv("RUN_QTGMC_FREEZE_E2E_KEEP", "1").strip() not in {
-        "0",
-        "false",
-        "False",
-    }
-
-    try:
-        import cv2  # noqa: F401
-    except Exception:
-        print("Skipping QTGMC FreezeFrame E2E test: OpenCV (cv2) is unavailable in this Python.")
+    if not _cv2_available("QTGMC FreezeFrame E2E test"):
         return
 
     step_6_make_videos = import_step_6_module()
     try:
-        proxy_path = ROOT.parent / "video_data" / "callahan" / "Archive" / "callahan_01_archive_proxy.mp4"
-        if not proxy_path.exists():
-            print("Skipping QTGMC FreezeFrame E2E test: callahan_01 proxy not found.")
+        ctx = _qtgmc_freeze_context()
+        if ctx is None:
             return
-
-        frame_start = int(os.getenv("RUN_QTGMC_FREEZE_E2E_START", "12000"))
-        frame_end = int(os.getenv("RUN_QTGMC_FREEZE_E2E_END", str(frame_start + 6999)))
-        if frame_end < frame_start:
-            raise AssertionError("RUN_QTGMC_FREEZE_E2E_END must be >= RUN_QTGMC_FREEZE_E2E_START.")
-        frame_count = frame_end - frame_start + 1
-        if frame_count < 6000:
-            raise AssertionError(
-                f"QTGMC FreezeFrame E2E requires at least 6000 frames; got {frame_count} ({frame_start}-{frame_end})."
-            )
-
-        work_dir = ROOT / "test" / "_qtgmc_freeze_e2e"
-        work_dir.mkdir(parents=True, exist_ok=True)
-        stem = f"qtgmc_freeze_{frame_start}_{frame_end}"
-        clip_path = work_dir / f"{stem}_clip.mkv"
-        numbered_video_only_path = work_dir / f"{stem}_numbered_video_only.mp4"
-        numbered_path = work_dir / f"{stem}_numbered.mp4"
-        filtered_path = work_dir / f"{stem}_filtered.mp4"
-        avs_path = work_dir / f"{stem}_script.avs"
-        filter_path = work_dir / f"{stem}_qtgmc_filter.avs"
-        src_md5 = work_dir / f"{stem}_src.md5"
-        clip_md5 = work_dir / f"{stem}_clip.md5"
-
-        vf_select = f"select='between(n\\,{frame_start}\\,{frame_end})',setpts=N/FRAME_RATE/TB"
-        extract_start_sec = frame_start * 1001.0 / 30000.0
-        extract_end_sec = (frame_end + 1) * 1001.0 / 30000.0
-        subprocess.run(
-            step_6_make_videos.make_extract_chapter(
-                proxy_path,
-                extract_start_sec,
-                extract_end_sec,
-                clip_path,
-                start_frame=frame_start,
-                end_frame=frame_end + 1,
-            ),
-            check=True,
-        )
-
-        subprocess.run(
-            [
-                str(FFMPEG_BIN),
-                "-nostdin",
-                "-v",
-                "error",
-                "-i",
-                str(proxy_path),
-                "-vf",
-                vf_select,
-                "-an",
-                "-f",
-                "framemd5",
-                "-y",
-                str(src_md5),
-            ],
-            check=True,
-        )
-        subprocess.run(
-            [
-                str(FFMPEG_BIN),
-                "-nostdin",
-                "-v",
-                "error",
-                "-i",
-                str(clip_path),
-                "-an",
-                "-f",
-                "framemd5",
-                "-y",
-                str(clip_md5),
-            ],
-            check=True,
-        )
-        src_hashes = _framemd5_hashes(src_md5)
-        clip_hashes = _framemd5_hashes(clip_md5)
-        assert len(src_hashes) == frame_count
-        assert len(clip_hashes) == frame_count
-        assert src_hashes == clip_hashes, "Extracted long clip frame order/content mismatch."
-
-        import cv2
-
-        cap = cv2.VideoCapture(str(clip_path))
-        assert cap.isOpened(), f"Unable to open extracted clip: {clip_path}"
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        if fps <= 0:
-            fps = 30000.0 / 1001.0
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        assert width == 720 and height == 480, f"Unexpected proxy frame size: {width}x{height}"
-
-        bits = 24
-        cell_w = 20
-        cell_h = 30
-        draw_x = 170
-        draw_y = 320
-
-        writer = cv2.VideoWriter(
-            str(numbered_video_only_path),
-            cv2.VideoWriter_fourcc(*"mp4v"),
-            float(fps),
-            (width, height),
-        )
-        assert writer.isOpened(), f"Unable to open numbered writer: {numbered_path}"
-
-        for idx in range(frame_count):
-            ok, frame = cap.read()
-            assert ok, f"Extracted clip ended early at frame {idx}."
-            frame_id = frame_start + idx
-            _draw_frame_id_overlay(frame, frame_id, draw_x, draw_y, bits=bits, cell_w=cell_w, cell_h=cell_h)
-            writer.write(frame)
-        extra_ok, _extra = cap.read()
-        cap.release()
-        writer.release()
-        assert not extra_ok, "Extracted clip had more frames than expected selection."
-
-        subprocess.run(
-            [
-                str(FFMPEG_BIN),
-                "-nostdin",
-                "-v",
-                "error",
-                "-i",
-                str(numbered_video_only_path),
-                "-f",
-                "lavfi",
-                "-i",
-                "anullsrc=r=48000:cl=mono",
-                "-shortest",
-                "-map",
-                "0:v:0",
-                "-map",
-                "1:a:0",
-                "-c:v",
-                "copy",
-                "-c:a",
-                "aac",
-                "-b:a",
-                "64k",
-                "-y",
-                str(numbered_path),
-            ],
-            check=True,
-        )
-
-        # Synthetic bad ranges across the long clip to catch drift at boundaries and deep timeline positions.
-        bad_ranges_local = [
-            (0, 2),
-            (47, 55),
-            (1024, 1041),
-            (3072, 3099),
-            (frame_count // 2 - 12, frame_count // 2 + 17),
-            (frame_count - 140, frame_count - 121),
-            (frame_count - 6, frame_count - 1),
-        ]
-        bad_ranges_local = [
-            (max(0, int(a)), min(frame_count - 1, int(b))) for a, b in bad_ranges_local if int(a) <= int(b)
-        ]
-        bad_ranges_local = [r for r in bad_ranges_local if r[0] <= r[1]]
-        assert bad_ranges_local, "No valid bad ranges for QTGMC FreezeFrame E2E."
-
-        resolved_local_repairs = step_6_make_videos._resolve_badframe_repair_ranges(
-            bad_repair_ranges=[(a, b, None) for a, b in bad_ranges_local],
-            max_source_frame=frame_count - 1,
-        )
-        assert resolved_local_repairs, "No resolved badframe repairs generated for long-range E2E."
-
-        expected_local_shown = list(range(frame_count))
-        for a, b, src in resolved_local_repairs:
-            assert src is not None
-            for fi in range(max(0, int(a)), min(frame_count - 1, int(b)) + 1):
-                expected_local_shown[fi] = int(src)
-
-        filter_path.write_text(
-            'c = last\nc = c.AssumeTFF()\nc = QTGMC(Preset="Very Fast", FPSDivisor=2)\nc\n',
-            encoding="ascii",
-        )
-
-        script_text = step_6_make_videos.make_create_avs(
-            str(numbered_path),
-            filter_path,
-            bad_repair_ranges=resolved_local_repairs,
-            chapter_start_frame=0,
-            chapter_end_frame=frame_count,
-            no_bob=True,
-        )
-        assert "FreezeFrame(" in script_text, "AVS script is missing FreezeFrame repair lines."
-        assert filter_path.name in script_text, "AVS script does not import the QTGMC filter script."
-        avs_path.write_text(script_text, encoding="ascii")
-
-        subprocess.run(
-            [
-                str(FFMPEG_BIN),
-                "-nostdin",
-                "-v",
-                "error",
-                "-i",
-                str(avs_path),
-                "-an",
-                "-c:v",
-                "libx264",
-                "-crf",
-                "0",
-                "-preset",
-                "ultrafast",
-                "-pix_fmt",
-                "yuv420p",
-                "-y",
-                str(filtered_path),
-            ],
-            check=True,
-        )
-
-        cap_out = cv2.VideoCapture(str(filtered_path))
-        assert cap_out.isOpened(), f"Unable to open filtered clip: {filtered_path}"
-        mismatches = []
-        decode_failures = []
-        for idx in range(frame_count):
-            ok, frame = cap_out.read()
-            if not ok:
-                mismatches.append((idx, "missing_frame"))
-                break
-            shown_id, valid = _decode_frame_id_overlay(frame, draw_x, draw_y, bits=bits, cell_w=cell_w, cell_h=cell_h)
-            if not valid:
-                decode_failures.append((idx, shown_id))
-                if len(decode_failures) >= 20:
-                    break
-                continue
-            expected_global = frame_start + expected_local_shown[idx]
-            if int(shown_id) != int(expected_global):
-                mismatches.append((idx, int(shown_id), int(expected_global)))
-                if len(mismatches) >= 20:
-                    break
-        cap_out.release()
-
-        assert not decode_failures, "Failed to decode frame-id overlay in QTGMC filtered long clip: " + repr(
-            decode_failures[:20]
-        )
-        assert not mismatches, "QTGMC+FreezeFrame long-range drift/mapping mismatch: " + repr(mismatches[:20])
+        _run_qtgmc_freeze_e2e(step_6_make_videos, ctx)
         print("Test step_6_make_videos QTGMC + FreezeFrame long-range drift safety: PASSED.")
-
-        if not keep_outputs:
-            shutil.rmtree(work_dir, ignore_errors=True)
+        if not _e2e_keep_outputs("RUN_QTGMC_FREEZE_E2E_KEEP"):
+            shutil.rmtree(ctx["work_dir"], ignore_errors=True)
     finally:
-        del sys.modules["step_6_make_videos"]
-        sys.modules.pop("whisper", None)
-        sys.modules.pop("whisper.utils", None)
+        _cleanup_step_6_module()
 
 
 def test_step_drive_checksums():

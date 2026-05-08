@@ -265,135 +265,154 @@ def test_static_html_contains_live_iqr_spark_and_fullscreen_controls() -> None:
         for f in sorted(static_dir.glob("*.html")) + sorted(static_dir.glob("*.css")) + sorted(static_dir.glob("*.js"))
     )
 
-    assert 'id="helpBtn"' not in html
-    assert 'id="helpModal"' in html
-    assert 'id="helpCloseBtn"' in html
-    assert "openHelpModal()" in html
-    assert "closeHelpModal()" in html
-    assert "helpBtnEl.addEventListener('click', openHelpModal)" in html
-    assert "event.key === 'Escape'" in html
-    assert 'id="stepPills"' in html
-    assert "const STEP_DEFS = [" in html
-    assert "const STEP_MODE_TO_FIRST = new Map();" in html
-    assert "const navActionButtons = new Map();" in html
-    assert "setStepByMode(" in html
-    assert "function navigateToStep(rawStep)" in html
-    assert "stepPillsEl.addEventListener('click'" in html
-    assert "pill.type = 'button';" in html
-    assert 'id="nextToReview"' not in html
-    assert 'id="nextToGamma"' not in html
-    assert 'id="backToLoad"' not in html
-    assert 'id="backToReview"' not in html
+    _assert_all_strings_present(
+        html,
+        [
+            'id="helpModal"',
+            'id="helpCloseBtn"',
+            "openHelpModal()",
+            "closeHelpModal()",
+            "helpBtnEl.addEventListener('click', openHelpModal)",
+            "event.key === 'Escape'",
+            'id="stepPills"',
+            "const STEP_DEFS = [",
+            "const STEP_MODE_TO_FIRST = new Map();",
+            "const navActionButtons = new Map();",
+            "setStepByMode(",
+            "function navigateToStep(rawStep)",
+            "stepPillsEl.addEventListener('click'",
+            "pill.type = 'button';",
+            'id="iqrK" type="range" min="0" max="12"',
+            'id="forceAllFramesGood" type="checkbox"',
+            'id="gammaLevel" type="range" min="0.05" max="8.00"',
+            'id="gammaMode"',
+            'id="sparkPlayBtn"',
+            'id="iqrSpark"',
+            'id="toggleFullscreen"',
+            'id="previewRender"',
+            "grid-template-rows: auto auto minmax(0, 1fr) auto;",
+            "iqrEl.addEventListener('input'",
+            "iqrEl.addEventListener('change'",
+            "scheduleAutoApplyIqr()",
+            "scheduleVisibleRangeRefresh()",
+            "frameGridEl.addEventListener('scroll'",
+            "normalizeWheelToPixels(",
+            "window.addEventListener('wheel', relayWheelToFrameGrid, { passive: false, capture: true })",
+            "frameGridEl.scrollBy({ top: deltaPx * 1.75, behavior: 'auto' })",
+            "const sprite = frameContactSheetSpecForIndex(frameIndex, gridMetrics);",
+            "return { image: '', sprite, replaced: false, note: '' };",
+            ".frame-card.loading .frame-thumb-sprite {",
+            "opacity: 0.94;",
+            "bottom: 12px;",
+            ": !isChapterLoadInFlight;",
+            'id="overlayProgressFill"',
+            'id="overlayProgressText"',
+            'id="overlayEtaText"',
+            'id="overlayCancelBtn"',
+            "startLoadProgress(",
+            "finishLoadProgress(",
+            "pollLoadProgressOnce()",
+            "api('/api/load_progress')",
+            "api('/api/preview_render', 'POST'",
+            "audio_sync_profile: {",
+            "api('/api/set_force_all_good', 'POST'",
+            "renderReadyAtFromSamples(",
+            "ETA ",
+            "/3 sample",
+            "api('/api/cancel_load', 'POST', {})",
+            "seekFrameGridFromSparkClientX(",
+            "queueSparkDragSeek(",
+            "toggleSparkWindowPlayback(",
+            "window.requestAnimationFrame(runSparkWindowPlaybackFrameClock)",
+            "const VHS_FRAME_MS = VHS_FRAME_SECONDS * 1000;",
+            "sparkPlayBtnEl.addEventListener('click', openFlipbookPanel)",
+            "iqrSparkEl.addEventListener('pointerdown'",
+            "iqrSparkEl.addEventListener('pointermove'",
+            "frameGridEl.scrollTo({ top, behavior: 'auto' })",
+            "const sparkThreshold = themeVar('--spark-threshold', '#ff646e');",
+            "function applySparklineCache(cache, frames)",
+            "function buildReviewSparklineCache(frames, threshold)",
+            "function buildGammaSparklineCache(frames, gammaLevel)",
+            "replaceGammaScores(new Map());",
+            "const FRAME_GRID_CONTACT_SHEET_PREFETCH_AHEAD = 2;",
+            "function prefetchVisibleFrameSheets(metricsRaw = null, rangeRaw = null)",
+            "prefetchFrameContactSheet(next.url);",
+            "const FLIPBOOK_AUDIO_CLOCK_STALL_FRAMES = 8;",
+            "sparkPlayAudioClockStallCount += 1;",
+            "return tc;",
+            "frame.status === 'bad'",
+            "event.target.closest('.frame-card')",
+            "window.open(target, '_blank', 'noopener')",
+            'id="subtitlesGenerate"',
+            'id="subtitlesClear"',
+            'id="subtitlesEditor"',
+            'id="peopleMeta"',
+            'id="subtitlesMeta"',
+            "subtitles-editor-grid",
+            "label: 'Chapter'",
+            "Save and Return to Chapter",
+            "Use the Chapter step to edit the loaded chapter range",
+            "Chapter step | range",
+            "active-row",
+            'data-sub-field="text"',
+            "parseSubtitlesEditorGrid(",
+            "syncSubtitlesEditorToCursor(",
+            "const peopleMetaEl = document.getElementById('peopleMeta');",
+            "const subtitlesMetaEl = document.getElementById('subtitlesMeta');",
+            "peopleMetaEl.classList.toggle('hidden-ui', !peopleMode)",
+            "subtitlesMetaEl.classList.toggle('hidden-ui', !subtitlesMode)",
+            'id="timelineAudioPlay"',
+            'id="timelineAudioTrack"',
+            'id="timelineAudioWave"',
+            'id="timelineAudioPlayhead"',
+            'id="timelineAudio"',
+            'id="flipbookSubtitles"',
+            'id="flipbookAudio"',
+            'id="flipbookVolume"',
+            "renderFlipbookSubtitles(",
+            "applyFlipbookVolume(",
+            "ensureTimelineAudioLoaded(",
+            "toggleTimelineAudioPlayback(",
+            "people-timeline-audio-underlay",
+            "/api/chapter_audio",
+            "updatePeopleStepLayoutSizing(",
+            "data-subtitle-row-delete",
+            "subtitle-timeline-bar",
+            "subtitle-timeline-input",
+            "subtitle-timeline-delete",
+            "editSubtitleTimelineEntry(",
+            "clearSubtitlesEntries()",
+            "subtitlesClearBtnEl.addEventListener('click', clearSubtitlesEntries)",
+            "deleteSubtitleTimelineEntry(",
+            "people-timeline-zoom-btn",
+            "api('/api/subtitles_generate', 'POST'",
+        ],
+    )
+    _assert_all_strings_absent(
+        html,
+        [
+            'id="helpBtn"',
+            'id="nextToReview"',
+            'id="nextToGamma"',
+            'id="backToLoad"',
+            'id="backToReview"',
+            "data-split-row-delete",
+            "next row starts at end + 1",
+            "window.prompt('Edit subtitle text'",
+            "peopleTimelineEl.addEventListener('wheel'",
+            "Toggle Good/Bad",
+        ],
+    )
 
-    assert 'id="iqrK" type="range" min="0" max="12"' in html
-    assert 'id="forceAllFramesGood" type="checkbox"' in html
-    assert 'id="gammaLevel" type="range" min="0.05" max="8.00"' in html
-    assert 'id="gammaMode"' in html
-    assert 'id="sparkPlayBtn"' in html
-    assert 'id="iqrSpark"' in html
-    assert 'id="toggleFullscreen"' in html
-    assert 'id="previewRender"' in html
-    assert "grid-template-rows: auto auto minmax(0, 1fr) auto;" in html
-    assert "iqrEl.addEventListener('input'" in html
-    assert "iqrEl.addEventListener('change'" in html
-    assert "scheduleAutoApplyIqr()" in html
-    assert "scheduleVisibleRangeRefresh()" in html
-    assert "frameGridEl.addEventListener('scroll'" in html
-    assert "normalizeWheelToPixels(" in html
-    assert "window.addEventListener('wheel', relayWheelToFrameGrid, { passive: false, capture: true })" in html
-    assert "frameGridEl.scrollBy({ top: deltaPx * 1.75, behavior: 'auto' })" in html
-    assert "const sprite = frameContactSheetSpecForIndex(frameIndex, gridMetrics);" in html
-    assert "return { image: '', sprite, replaced: false, note: '' };" in html
-    assert ".frame-card.loading .frame-thumb-sprite {" in html
-    assert "opacity: 0.94;" in html
-    assert "bottom: 12px;" in html
-    assert ": !isChapterLoadInFlight;" in html
-    assert 'id="overlayProgressFill"' in html
-    assert 'id="overlayProgressText"' in html
-    assert 'id="overlayEtaText"' in html
-    assert 'id="overlayCancelBtn"' in html
-    assert "startLoadProgress(" in html
-    assert "finishLoadProgress(" in html
-    assert "pollLoadProgressOnce()" in html
-    assert "api('/api/load_progress')" in html
-    assert "api('/api/preview_render', 'POST'" in html
-    assert "audio_sync_profile: {" in html
-    assert "api('/api/set_force_all_good', 'POST'" in html
-    assert "renderReadyAtFromSamples(" in html
-    assert "ETA " in html
-    assert "/3 sample" in html
-    assert "api('/api/cancel_load', 'POST', {})" in html
-    assert "seekFrameGridFromSparkClientX(" in html
-    assert "queueSparkDragSeek(" in html
-    assert "toggleSparkWindowPlayback(" in html
-    assert "window.requestAnimationFrame(runSparkWindowPlaybackFrameClock)" in html
-    assert "const VHS_FRAME_MS = VHS_FRAME_SECONDS * 1000;" in html
-    assert "sparkPlayBtnEl.addEventListener('click', openFlipbookPanel)" in html
-    assert "iqrSparkEl.addEventListener('pointerdown'" in html
-    assert "iqrSparkEl.addEventListener('pointermove'" in html
-    assert "frameGridEl.scrollTo({ top, behavior: 'auto' })" in html
-    assert "const sparkThreshold = themeVar('--spark-threshold', '#ff646e');" in html
-    assert "function applySparklineCache(cache, frames)" in html
-    assert "function buildReviewSparklineCache(frames, threshold)" in html
-    assert "function buildGammaSparklineCache(frames, gammaLevel)" in html
-    assert "replaceGammaScores(new Map());" in html
-    assert "const FRAME_GRID_CONTACT_SHEET_PREFETCH_AHEAD = 2;" in html
-    assert "function prefetchVisibleFrameSheets(metricsRaw = null, rangeRaw = null)" in html
-    assert "prefetchFrameContactSheet(next.url);" in html
-    assert "const FLIPBOOK_AUDIO_CLOCK_STALL_FRAMES = 8;" in html
-    assert "sparkPlayAudioClockStallCount += 1;" in html
-    assert "return tc;" in html
-    assert "frame.status === 'bad'" in html
-    assert "event.target.closest('.frame-card')" in html
-    assert "window.open(target, '_blank', 'noopener')" in html
-    assert 'id="subtitlesGenerate"' in html
-    assert 'id="subtitlesClear"' in html
-    assert 'id="subtitlesEditor"' in html
-    assert 'id="peopleMeta"' in html
-    assert 'id="subtitlesMeta"' in html
-    assert "subtitles-editor-grid" in html
-    assert "label: 'Chapter'" in html
-    assert "Save and Return to Chapter" in html
-    assert "Use the Chapter step to edit the loaded chapter range" in html
-    assert "Chapter step | range" in html
-    assert "data-split-row-delete" not in html
-    assert "next row starts at end + 1" not in html
-    assert "active-row" in html
-    assert 'data-sub-field="text"' in html
-    assert "parseSubtitlesEditorGrid(" in html
-    assert "syncSubtitlesEditorToCursor(" in html
-    assert "const peopleMetaEl = document.getElementById('peopleMeta');" in html
-    assert "const subtitlesMetaEl = document.getElementById('subtitlesMeta');" in html
-    assert "peopleMetaEl.classList.toggle('hidden-ui', !peopleMode)" in html
-    assert "subtitlesMetaEl.classList.toggle('hidden-ui', !subtitlesMode)" in html
-    assert 'id="timelineAudioPlay"' in html
-    assert 'id="timelineAudioTrack"' in html
-    assert 'id="timelineAudioWave"' in html
-    assert 'id="timelineAudioPlayhead"' in html
-    assert 'id="timelineAudio"' in html
-    assert 'id="flipbookSubtitles"' in html
-    assert 'id="flipbookAudio"' in html
-    assert 'id="flipbookVolume"' in html
-    assert "renderFlipbookSubtitles(" in html
-    assert "applyFlipbookVolume(" in html
-    assert "ensureTimelineAudioLoaded(" in html
-    assert "toggleTimelineAudioPlayback(" in html
-    assert "people-timeline-audio-underlay" in html
-    assert "/api/chapter_audio" in html
-    assert "updatePeopleStepLayoutSizing(" in html
-    assert "data-subtitle-row-delete" in html
-    assert "subtitle-timeline-bar" in html
-    assert "subtitle-timeline-input" in html
-    assert "subtitle-timeline-delete" in html
-    assert "editSubtitleTimelineEntry(" in html
-    assert "clearSubtitlesEntries()" in html
-    assert "subtitlesClearBtnEl.addEventListener('click', clearSubtitlesEntries)" in html
-    assert "window.prompt('Edit subtitle text'" not in html
-    assert "deleteSubtitleTimelineEntry(" in html
-    assert "people-timeline-zoom-btn" in html
-    assert "peopleTimelineEl.addEventListener('wheel'" not in html
-    assert "api('/api/subtitles_generate', 'POST'" in html
-    assert "Toggle Good/Bad" not in html
+
+def _assert_all_strings_present(haystack: str, needles: list[str]) -> None:
+    missing = [needle for needle in needles if needle not in haystack]
+    assert not missing
+
+
+def _assert_all_strings_absent(haystack: str, needles: list[str]) -> None:
+    present = [needle for needle in needles if needle in haystack]
+    assert not present
 
 
 def test_set_load_progress_updates_and_clamps_state() -> None:
@@ -868,29 +887,47 @@ def test_handle_load_chapter_populates_session_from_video_and_metadata(
         },
     )
 
+    _assert_loaded_chapter_state(handler, session, archive_name, chapter, extract_path)
+
+
+def _assert_loaded_chapter_state(
+    handler: _HandlerStub,
+    session: SessionState,
+    archive_name: str,
+    chapter: str,
+    extract_path: Path,
+) -> None:
     assert handler.error is None
     assert handler.payload is not None
     assert handler.payload["ok"] is True
-    assert session.archive == archive_name
-    assert session.chapter == chapter
-    assert session.start_frame == 100
-    assert session.end_frame == 103
-    assert session.iqr_k == 2.5
-    assert session.force_all_frames_good is True
-    assert session.frame_source_video_path == str(extract_path)
-    assert session.frame_source_read_offset == 100
-    assert session.preview_video_path == ""
-    assert session.chapter_audio_path == ""
-    assert session.chapter_audio_key == ""
-    assert session.fids == [100, 101, 102]
-    assert session.partial_fids == [100, 101]
-    assert session.gamma_default == 1.25
-    assert session.auto_transcript == "append"
+    expected_session_values = {
+        "archive": archive_name,
+        "chapter": chapter,
+        "start_frame": 100,
+        "end_frame": 103,
+        "iqr_k": 2.5,
+        "force_all_frames_good": True,
+        "frame_source_video_path": str(extract_path),
+        "frame_source_read_offset": 100,
+        "preview_video_path": "",
+        "chapter_audio_path": "",
+        "chapter_audio_key": "",
+        "fids": [100, 101, 102],
+        "partial_fids": [100, 101],
+        "gamma_default": 1.25,
+        "auto_transcript": "append",
+    }
+    for key, value in expected_session_values.items():
+        assert getattr(session, key) == value
     assert [row["people"] for row in session.people_entries] == ["Lynda", "Jim | Linda"]
     assert [row["text"] for row in session.subtitle_entries] == ["Opening line"]
-    assert handler.payload["settings"]["loaded_count"] == 3
-    assert handler.payload["settings"]["start_frame"] == 100
-    assert handler.payload["settings"]["end_frame"] == 103
+    expected_settings = {
+        "loaded_count": 3,
+        "start_frame": 100,
+        "end_frame": 103,
+    }
+    for key, value in expected_settings.items():
+        assert handler.payload["settings"][key] == value
     assert handler.payload["settings"]["gamma_profile"]["source"] == "render_settings"
     assert handler.payload["settings"]["people_profile"]["entries"] == session.people_entries
     assert handler.payload["settings"]["subtitles_profile"]["entries"] == session.subtitle_entries

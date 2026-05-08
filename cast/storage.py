@@ -71,6 +71,68 @@ def normalize_face_record(face: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
+def _apply_person_updates(row: dict[str, Any], fields: dict[str, Any]) -> None:
+    for key, value in dict(fields or {}).items():
+        if key in {"person_id", "created_at"}:
+            continue
+        if key == "display_name":
+            clean_name = str(value or "").strip()
+            if not clean_name:
+                raise ValueError("Person name is required.")
+            row[key] = clean_name
+            continue
+        if key == "aliases":
+            if isinstance(value, list):
+                row[key] = [str(item).strip() for item in value if str(item).strip()]
+            elif isinstance(value, str):
+                row[key] = [part.strip() for part in value.split(",") if part.strip()]
+            continue
+        if key == "notes":
+            row[key] = str(value or "").strip()
+
+
+def _apply_face_updates(row: dict[str, Any], fields: dict[str, Any]) -> None:
+    for key, value in dict(fields or {}).items():
+        if key in {"face_id", "created_at"}:
+            continue
+        if key == "reviewed_by_human":
+            row[key] = bool(value)
+            continue
+        if key == "review_status":
+            row[key] = normalize_face_review_status(
+                value,
+                person_id=row.get("person_id"),
+            )
+            continue
+        if key == "reviewed_at":
+            row[key] = str(value or "").strip()
+            continue
+        row[key] = value
+
+
+def _apply_face_assignment(
+    row: dict[str, Any],
+    *,
+    person_key: str | None,
+    normalized_status: str | None,
+    reviewed_by_human: bool | None,
+    now: str,
+) -> None:
+    row["person_id"] = person_key
+    if normalized_status is not None:
+        row["review_status"] = normalized_status
+        if normalized_status in {"ignored", "rejected"}:
+            row["person_id"] = None
+    elif reviewed_by_human is True and person_key:
+        row["review_status"] = "confirmed"
+    if reviewed_by_human is not None:
+        row["reviewed_by_human"] = bool(reviewed_by_human)
+        row["reviewed_at"] = now if bool(reviewed_by_human) else ""
+    elif normalized_status in FACE_REVIEW_STATUSES:
+        row["reviewed_by_human"] = True
+        row["reviewed_at"] = now
+
+
 _FACE_CHUNK_SIZE = 1000
 
 
@@ -328,23 +390,7 @@ class TextFaceStore:
                     continue
                 if str(row.get("person_id")) != person_key:
                     continue
-                for key, value in dict(fields or {}).items():
-                    if key in {"person_id", "created_at"}:
-                        continue
-                    if key == "display_name":
-                        clean_name = str(value or "").strip()
-                        if not clean_name:
-                            raise ValueError("Person name is required.")
-                        row[key] = clean_name
-                        continue
-                    if key == "aliases":
-                        if isinstance(value, list):
-                            row[key] = [str(item).strip() for item in value if str(item).strip()]
-                        elif isinstance(value, str):
-                            row[key] = [part.strip() for part in value.split(",") if part.strip()]
-                        continue
-                    if key == "notes":
-                        row[key] = str(value or "").strip()
+                _apply_person_updates(row, dict(fields or {}))
                 row["updated_at"] = now
                 self._write_json(self.people_path, {"people": people})
                 return dict(row)
@@ -457,58 +503,35 @@ class TextFaceStore:
                 rows = self._read_chunk(chunk_idx)
                 if not isinstance(rows, list):
                     rows = []
-                for row in rows:
-                    if not isinstance(row, dict):
-                        continue
-                    if str(row.get("face_id")) != face_key:
-                        continue
-                    for key, value in dict(fields or {}).items():
-                        if key in {"face_id", "created_at"}:
-                            continue
-                        if key == "reviewed_by_human":
-                            row[key] = bool(value)
-                            continue
-                        if key == "review_status":
-                            row[key] = normalize_face_review_status(
-                                value,
-                                person_id=row.get("person_id"),
-                            )
-                            continue
-                        if key == "reviewed_at":
-                            row[key] = str(value or "").strip()
-                            continue
-                        row[key] = value
-                    row["updated_at"] = now
+                updated = self._update_face_row(rows, face_key, dict(fields or {}), now)
+                if updated is not None:
                     self._write_chunk(chunk_idx, rows)
-                    return normalize_face_record(row)
+                    return updated
             queue_rows = self._read_json(self.faces_queue_path)
             if not isinstance(queue_rows, list):
                 queue_rows = []
-            for row in queue_rows:
-                if not isinstance(row, dict):
-                    continue
-                if str(row.get("face_id")) != face_key:
-                    continue
-                for key, value in dict(fields or {}).items():
-                    if key in {"face_id", "created_at"}:
-                        continue
-                    if key == "reviewed_by_human":
-                        row[key] = bool(value)
-                        continue
-                    if key == "review_status":
-                        row[key] = normalize_face_review_status(
-                            value,
-                            person_id=row.get("person_id"),
-                        )
-                        continue
-                    if key == "reviewed_at":
-                        row[key] = str(value or "").strip()
-                        continue
-                    row[key] = value
-                row["updated_at"] = now
+            updated = self._update_face_row(queue_rows, face_key, dict(fields or {}), now)
+            if updated is not None:
                 self._write_json(self.faces_queue_path, queue_rows)
-                return normalize_face_record(row)
+                return updated
         raise ValueError(f"Unknown face_id: {face_key}")
+
+    def _update_face_row(
+        self,
+        rows: list[Any],
+        face_key: str,
+        fields: dict[str, Any],
+        now: str,
+    ) -> dict[str, Any] | None:
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            if str(row.get("face_id")) != face_key:
+                continue
+            _apply_face_updates(row, fields)
+            row["updated_at"] = now
+            return normalize_face_record(row)
+        return None
 
     def assign_face(
         self,
@@ -533,52 +556,58 @@ class TextFaceStore:
                 rows = self._read_chunk(chunk_idx)
                 if not isinstance(rows, list):
                     rows = []
-                for row in rows:
-                    if not isinstance(row, dict):
-                        continue
-                    if str(row.get("face_id")) != face_key:
-                        continue
-                    row["person_id"] = person_key
-                    if normalized_status is not None:
-                        row["review_status"] = normalized_status
-                        if normalized_status in {"ignored", "rejected"}:
-                            row["person_id"] = None
-                    elif reviewed_by_human is True and person_key:
-                        row["review_status"] = "confirmed"
-                    if reviewed_by_human is not None:
-                        row["reviewed_by_human"] = bool(reviewed_by_human)
-                        row["reviewed_at"] = now if bool(reviewed_by_human) else ""
-                    elif normalized_status in FACE_REVIEW_STATUSES:
-                        row["reviewed_by_human"] = True
-                        row["reviewed_at"] = now
-                    row["updated_at"] = now
+                updated = self._assign_face_row(
+                    rows,
+                    face_key,
+                    person_key=person_key,
+                    normalized_status=normalized_status,
+                    reviewed_by_human=reviewed_by_human,
+                    now=now,
+                )
+                if updated is not None:
                     self._write_chunk(chunk_idx, rows)
-                    return normalize_face_record(row)
+                    return updated
             queue_rows = self._read_json(self.faces_queue_path)
             if not isinstance(queue_rows, list):
                 queue_rows = []
-            for row in queue_rows:
-                if not isinstance(row, dict):
-                    continue
-                if str(row.get("face_id")) != face_key:
-                    continue
-                row["person_id"] = person_key
-                if normalized_status is not None:
-                    row["review_status"] = normalized_status
-                    if normalized_status in {"ignored", "rejected"}:
-                        row["person_id"] = None
-                elif reviewed_by_human is True and person_key:
-                    row["review_status"] = "confirmed"
-                if reviewed_by_human is not None:
-                    row["reviewed_by_human"] = bool(reviewed_by_human)
-                    row["reviewed_at"] = now if bool(reviewed_by_human) else ""
-                elif normalized_status in FACE_REVIEW_STATUSES:
-                    row["reviewed_by_human"] = True
-                    row["reviewed_at"] = now
-                row["updated_at"] = now
+            updated = self._assign_face_row(
+                queue_rows,
+                face_key,
+                person_key=person_key,
+                normalized_status=normalized_status,
+                reviewed_by_human=reviewed_by_human,
+                now=now,
+            )
+            if updated is not None:
                 self._write_json(self.faces_queue_path, queue_rows)
-                return normalize_face_record(row)
+                return updated
         raise ValueError(f"Unknown face_id: {face_key}")
+
+    def _assign_face_row(
+        self,
+        rows: list[Any],
+        face_key: str,
+        *,
+        person_key: str | None,
+        normalized_status: str | None,
+        reviewed_by_human: bool | None,
+        now: str,
+    ) -> dict[str, Any] | None:
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            if str(row.get("face_id")) != face_key:
+                continue
+            _apply_face_assignment(
+                row,
+                person_key=person_key,
+                normalized_status=normalized_status,
+                reviewed_by_human=reviewed_by_human,
+                now=now,
+            )
+            row["updated_at"] = now
+            return normalize_face_record(row)
+        return None
 
     def list_review_items(self) -> list[dict[str, Any]]:
         with self._lock:
@@ -688,14 +717,7 @@ class TextFaceStore:
         if clean_status not in {"ignored", "rejected", "skipped"}:
             raise ValueError("status must be one of: ignored, rejected, skipped")
 
-        ordered_review_ids: list[str] = []
-        review_id_set: set[str] = set()
-        for raw_review_id in review_ids:
-            review_id = str(raw_review_id or "").strip()
-            if not review_id or review_id in review_id_set:
-                continue
-            review_id_set.add(review_id)
-            ordered_review_ids.append(review_id)
+        ordered_review_ids = self._normalize_review_ids(review_ids)
         if not ordered_review_ids:
             raise ValueError("review_ids is required.")
 
@@ -705,42 +727,16 @@ class TextFaceStore:
             if not isinstance(review_rows, list):
                 review_rows = []
 
-            matched_reviews: list[dict[str, Any]] = []
-            matched_review_ids: set[str] = set()
-            matched_face_ids: set[str] = set()
-            kept_reviews: list[dict[str, Any]] = []
-
-            for row in review_rows:
-                if not isinstance(row, dict):
-                    continue
-                review_id = str(row.get("review_id") or "").strip()
-                if review_id not in review_id_set:
-                    kept_reviews.append(row)
-                    continue
-                matched_review_ids.add(review_id)
-                updated = dict(row)
-                if clean_status == "skipped":
-                    updated["status"] = "pending"
-                    updated["skip_count"] = int(updated.get("skip_count") or 0) + 1
-                    updated["last_skipped_at"] = now
-                    updated["decided_person_id"] = None
-                    updated["decided_at"] = ""
-                    matched_reviews.append(updated)
-                    continue
-                updated["status"] = clean_status
-                updated["decided_person_id"] = None
-                updated["decided_at"] = now
-                face_id = str(updated.get("face_id") or "").strip()
-                if face_id:
-                    matched_face_ids.add(face_id)
-                matched_reviews.append(updated)
-
+            kept_reviews, matched_reviews, matched_review_ids, matched_face_ids = self._bulk_review_updates(
+                review_rows=review_rows,
+                review_id_set=set(ordered_review_ids),
+                clean_status=clean_status,
+                now=now,
+            )
             missing_review_ids = [review_id for review_id in ordered_review_ids if review_id not in matched_review_ids]
             if missing_review_ids:
                 raise ValueError(f"Unknown review_id: {missing_review_ids[0]}")
 
-            for row in matched_reviews:
-                row["updated_at"] = now
             if clean_status == "skipped":
                 self._write_json(self.review_path, kept_reviews + matched_reviews)
                 return {
@@ -752,20 +748,7 @@ class TextFaceStore:
             if not isinstance(face_rows, list):
                 face_rows = []
 
-            updated_faces = 0
-            for row in face_rows:
-                if not isinstance(row, dict):
-                    continue
-                face_id = str(row.get("face_id") or "").strip()
-                if face_id not in matched_face_ids:
-                    continue
-                row["person_id"] = None
-                row["review_status"] = clean_status
-                row["reviewed_by_human"] = True
-                row["reviewed_at"] = now
-                row["updated_at"] = now
-                updated_faces += 1
-
+            updated_faces = self._bulk_update_review_faces(face_rows, matched_face_ids, clean_status, now)
             if updated_faces != len(matched_face_ids):
                 raise ValueError("One or more review items reference an unknown face_id.")
 
@@ -775,6 +758,125 @@ class TextFaceStore:
                 "updated_reviews": int(len(matched_reviews)),
                 "updated_faces": int(updated_faces),
             }
+
+    def _normalize_review_ids(self, review_ids: list[str]) -> list[str]:
+        ordered_review_ids: list[str] = []
+        seen: set[str] = set()
+        for raw_review_id in review_ids:
+            review_id = str(raw_review_id or "").strip()
+            if not review_id or review_id in seen:
+                continue
+            seen.add(review_id)
+            ordered_review_ids.append(review_id)
+        return ordered_review_ids
+
+    def _bulk_review_updates(
+        self,
+        *,
+        review_rows: list[Any],
+        review_id_set: set[str],
+        clean_status: str,
+        now: str,
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], set[str], set[str]]:
+        matched_reviews: list[dict[str, Any]] = []
+        matched_review_ids: set[str] = set()
+        matched_face_ids: set[str] = set()
+        kept_reviews: list[dict[str, Any]] = []
+
+        for row in review_rows:
+            if not isinstance(row, dict):
+                continue
+            review_id = str(row.get("review_id") or "").strip()
+            if review_id not in review_id_set:
+                kept_reviews.append(row)
+                continue
+            matched_review_ids.add(review_id)
+            updated = self._bulk_review_update_row(row, clean_status=clean_status, now=now)
+            if clean_status != "skipped":
+                face_id = str(updated.get("face_id") or "").strip()
+                if face_id:
+                    matched_face_ids.add(face_id)
+            matched_reviews.append(updated)
+        return kept_reviews, matched_reviews, matched_review_ids, matched_face_ids
+
+    def _bulk_review_update_row(self, row: dict[str, Any], *, clean_status: str, now: str) -> dict[str, Any]:
+        updated = dict(row)
+        if clean_status == "skipped":
+            updated["status"] = "pending"
+            updated["skip_count"] = int(updated.get("skip_count") or 0) + 1
+            updated["last_skipped_at"] = now
+            updated["decided_person_id"] = None
+            updated["decided_at"] = ""
+        else:
+            updated["status"] = clean_status
+            updated["decided_person_id"] = None
+            updated["decided_at"] = now
+        updated["updated_at"] = now
+        return updated
+
+    def _bulk_update_review_faces(
+        self,
+        face_rows: list[Any],
+        matched_face_ids: set[str],
+        clean_status: str,
+        now: str,
+    ) -> int:
+        updated_faces = 0
+        for row in face_rows:
+            if not isinstance(row, dict):
+                continue
+            face_id = str(row.get("face_id") or "").strip()
+            if face_id not in matched_face_ids:
+                continue
+            row["person_id"] = None
+            row["review_status"] = clean_status
+            row["reviewed_by_human"] = True
+            row["reviewed_at"] = now
+            row["updated_at"] = now
+            updated_faces += 1
+        return updated_faces
+
+    def _faces_without_sources(
+        self,
+        face_rows: list[Any],
+        source_keys: set[str],
+    ) -> tuple[list[dict[str, Any]], set[str], list[Path], int]:
+        removed_face_ids: set[str] = set()
+        crop_paths: list[Path] = []
+        kept_faces: list[dict[str, Any]] = []
+        removed_faces = 0
+        for row in face_rows:
+            if not isinstance(row, dict):
+                continue
+            source_path = str(row.get("source_path") or "").strip()
+            if source_path not in source_keys:
+                kept_faces.append(row)
+                continue
+            face_id = str(row.get("face_id") or "").strip()
+            if face_id:
+                removed_face_ids.add(face_id)
+            crop_rel = str(row.get("crop_path") or "").strip()
+            if crop_rel:
+                crop_paths.append(Path(crop_rel))
+            removed_faces += 1
+        return kept_faces, removed_face_ids, crop_paths, removed_faces
+
+    def _reviews_without_faces(
+        self,
+        review_rows: list[Any],
+        removed_face_ids: set[str],
+    ) -> tuple[list[dict[str, Any]], int]:
+        kept_reviews: list[dict[str, Any]] = []
+        removed_reviews = 0
+        for row in review_rows:
+            if not isinstance(row, dict):
+                continue
+            face_id = str(row.get("face_id") or "").strip()
+            if face_id in removed_face_ids:
+                removed_reviews += 1
+                continue
+            kept_reviews.append(row)
+        return kept_reviews, removed_reviews
 
     def _remove_crop_paths(self, crop_paths: list[Path]) -> int:
         removed_crops = 0
@@ -819,33 +921,11 @@ class TextFaceStore:
             if not isinstance(review_rows, list):
                 review_rows = []
 
-            removed_face_ids: set[str] = set()
-            crop_paths: list[Path] = []
-            kept_faces: list[dict[str, Any]] = []
-            for row in face_rows:
-                if not isinstance(row, dict):
-                    continue
-                source_path = str(row.get("source_path") or "").strip()
-                if source_path not in source_keys:
-                    kept_faces.append(row)
-                    continue
-                face_id = str(row.get("face_id") or "").strip()
-                if face_id:
-                    removed_face_ids.add(face_id)
-                crop_rel = str(row.get("crop_path") or "").strip()
-                if crop_rel:
-                    crop_paths.append(Path(crop_rel))
-                removed_faces += 1
-
-            kept_reviews: list[dict[str, Any]] = []
-            for row in review_rows:
-                if not isinstance(row, dict):
-                    continue
-                face_id = str(row.get("face_id") or "").strip()
-                if face_id in removed_face_ids:
-                    removed_reviews += 1
-                    continue
-                kept_reviews.append(row)
+            kept_faces, removed_face_ids, crop_paths, removed_faces = self._faces_without_sources(
+                face_rows,
+                source_keys,
+            )
+            kept_reviews, removed_reviews = self._reviews_without_faces(review_rows, removed_face_ids)
 
             self._write_all_faces(kept_faces)
             self._write_json(self.review_path, kept_reviews)

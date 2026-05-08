@@ -171,50 +171,7 @@ def _chapter_from_tsv_row(archive: str, row: dict[str, str]) -> dict | None:
     if not title:
         return None
 
-    start_frame = _parse_int_value(lower.get("start_frame"))
-    end_frame = _parse_int_value(lower.get("end_frame"))
-    start_sec: float | None = None
-    end_sec: float | None = None
-
-    if start_frame is None or end_frame is None:
-        tb = _parse_timebase_value(lower.get("timebase"))
-        start_raw = _parse_int_value(lower.get("start_raw"))
-        end_raw = _parse_int_value(lower.get("end_raw"))
-        if start_raw is None:
-            start_raw = _parse_int_value(lower.get("start"))
-        if end_raw is None:
-            end_raw = _parse_int_value(lower.get("end"))
-
-        if tb is not None and start_raw is not None and end_raw is not None:
-            tb_num, tb_den = tb
-            start_sec = float(Fraction(int(start_raw), 1) * Fraction(int(tb_num), int(tb_den)))
-            end_sec = float(Fraction(int(end_raw), 1) * Fraction(int(tb_num), int(tb_den)))
-            start_frame, end_frame = chapter_frame_bounds(
-                {
-                    "start_raw": int(start_raw),
-                    "end_raw": int(end_raw),
-                    "timebase_num": int(tb_num),
-                    "timebase_den": int(tb_den),
-                },
-                fps_num=30000,
-                fps_den=1001,
-            )
-        else:
-            if tb is None and start_raw is not None and end_raw is not None:
-                start_frame = int(start_raw)
-                end_frame = int(end_raw)
-            if start_frame is None or end_frame is None:
-                start_seconds = _parse_float_value(lower.get("start_seconds"))
-                end_seconds = _parse_float_value(lower.get("end_seconds"))
-                if start_seconds is None:
-                    start_seconds = _parse_float_value(lower.get("start"))
-                if end_seconds is None:
-                    end_seconds = _parse_float_value(lower.get("end"))
-                if start_seconds is not None and end_seconds is not None:
-                    start_sec = float(start_seconds)
-                    end_sec = float(end_seconds)
-                    start_frame = int(round(float(start_seconds) * 30000.0 / 1001.0))
-                    end_frame = int(round(float(end_seconds) * 30000.0 / 1001.0))
+    start_frame, end_frame, start_sec, end_sec = _chapter_tsv_bounds(lower)
 
     if start_frame is None or end_frame is None:
         return None
@@ -233,6 +190,61 @@ def _chapter_from_tsv_row(archive: str, row: dict[str, str]) -> dict | None:
         "end_frame": int(end_i),
         "bad_frames": get_bad_frames_for_chapter(str(archive or ""), title),
     }
+
+
+def _chapter_tsv_bounds(lower: dict[str, str]) -> tuple[int | None, int | None, float | None, float | None]:
+    start_frame = _parse_int_value(lower.get("start_frame"))
+    end_frame = _parse_int_value(lower.get("end_frame"))
+    if start_frame is not None and end_frame is not None:
+        return start_frame, end_frame, None, None
+
+    start_raw = _parse_int_value(lower.get("start_raw"))
+    end_raw = _parse_int_value(lower.get("end_raw"))
+    if start_raw is None:
+        start_raw = _parse_int_value(lower.get("start"))
+    if end_raw is None:
+        end_raw = _parse_int_value(lower.get("end"))
+    tb = _parse_timebase_value(lower.get("timebase"))
+    if tb is not None and start_raw is not None and end_raw is not None:
+        return _chapter_tsv_timebase_bounds(start_raw, end_raw, tb)
+    if tb is None and start_raw is not None and end_raw is not None:
+        return int(start_raw), int(end_raw), None, None
+    return _chapter_tsv_second_bounds(lower)
+
+
+def _chapter_tsv_timebase_bounds(
+    start_raw: int,
+    end_raw: int,
+    timebase: tuple[int, int],
+) -> tuple[int, int, float, float]:
+    tb_num, tb_den = timebase
+    start_sec = float(Fraction(int(start_raw), 1) * Fraction(int(tb_num), int(tb_den)))
+    end_sec = float(Fraction(int(end_raw), 1) * Fraction(int(tb_num), int(tb_den)))
+    start_frame, end_frame = chapter_frame_bounds(
+        {
+            "start_raw": int(start_raw),
+            "end_raw": int(end_raw),
+            "timebase_num": int(tb_num),
+            "timebase_den": int(tb_den),
+        },
+        fps_num=30000,
+        fps_den=1001,
+    )
+    return start_frame, end_frame, start_sec, end_sec
+
+
+def _chapter_tsv_second_bounds(lower: dict[str, str]) -> tuple[int | None, int | None, float | None, float | None]:
+    start_seconds = _parse_float_value(lower.get("start_seconds"))
+    end_seconds = _parse_float_value(lower.get("end_seconds"))
+    if start_seconds is None:
+        start_seconds = _parse_float_value(lower.get("start"))
+    if end_seconds is None:
+        end_seconds = _parse_float_value(lower.get("end"))
+    if start_seconds is None or end_seconds is None:
+        return None, None, None, None
+    start_frame = int(round(float(start_seconds) * 30000.0 / 1001.0))
+    end_frame = int(round(float(end_seconds) * 30000.0 / 1001.0))
+    return start_frame, end_frame, float(start_seconds), float(end_seconds)
 
 
 def load_archive_chapters_tsv(path: Path, archive: str) -> list[dict]:
@@ -887,16 +899,7 @@ def extract_frames(
     frame_callback=None,
 ) -> tuple[list[int] | None, list[str] | None, dict | None, str]:
     start_i, end_i = _normalize_frame_span(start, end)
-    if frame_ids is None:
-        target_n = max(1, min(int(n), max(1, end_i - start_i)))
-        frame_ids = np.linspace(start_i, end_i - 1, target_n, dtype=int).tolist()
-    else:
-        frame_ids = [int(x) for x in frame_ids if start_i <= int(x) < end_i]
-        frame_ids = sorted(set(frame_ids))
-        if not frame_ids:
-            target_n = max(1, min(int(n), max(1, end_i - start_i)))
-            frame_ids = np.linspace(start_i, end_i - 1, target_n, dtype=int).tolist()
-    assert frame_ids is not None
+    frame_ids = _extract_target_frame_ids(start_i, end_i, n, frame_ids)
     frame_set = set(frame_ids)
 
     cached_fids, cached_sigs, cached_thumbs = load_cached_signals(
@@ -907,10 +910,7 @@ def extract_frames(
         end_frame=end_i,
         frame_read_offset=frame_read_offset,
     )
-    cached_lookup: dict[int, dict[str, float]] = {}
-    if cached_fids and cached_sigs:
-        for i, fid in enumerate(cached_fids):
-            cached_lookup[fid] = {k: float(v[i]) for k, v in cached_sigs.items()}
+    cached_lookup = _cached_signal_lookup(cached_fids, cached_sigs)
     thumb_lookup: dict[int, str] = dict(cached_thumbs or {})
 
     cap: cv2.VideoCapture | None = None
@@ -936,24 +936,15 @@ def extract_frames(
 
         bgr = None
         if need_decode:
-            if read_fid < 0:
-                bgr = np.zeros((240, 320, 3), dtype=np.uint8)
-            else:
-                if cap is None:
-                    cap = cv2.VideoCapture(str(video_path))
-                    if not cap.isOpened():
-                        cap.release()
-                        cap = None
-                        return None, None, None, f"Cannot open video: {video_path}"
-                # Skip seek when frames are sequential — cap is already at the right position
-                if prev_read_fid is None or read_fid != prev_read_fid + 1:
-                    cap.set(cv2.CAP_PROP_POS_FRAMES, int(read_fid))
-                ok, read_bgr = cap.read()
-                prev_read_fid = read_fid
-                if not ok or read_bgr is None:
-                    bgr = np.zeros((240, 320, 3), dtype=np.uint8)
-                else:
-                    bgr = read_bgr
+            cap, bgr, error = _read_extract_frame(
+                video_path=video_path,
+                cap=cap,
+                read_fid=read_fid,
+                prev_read_fid=prev_read_fid,
+            )
+            if error:
+                return None, None, None, error
+            prev_read_fid = read_fid
 
         if include_thumbs:
             if cached_thumb:
@@ -1004,17 +995,7 @@ def extract_frames(
     }
 
     # Merge into persistent cache
-    all_fids_l: list[int] = list(frame_ids)
-    all_sigs_l: dict[str, list[float]] = {k: list(v) for k, v in sigs.items()}
-    if cached_fids and cached_sigs:
-        for i, fid in enumerate(cached_fids):
-            if fid not in frame_set:
-                all_fids_l.append(fid)
-                for k, arr in cached_sigs.items():
-                    all_sigs_l[k].append(float(arr[i]))
-    order = list(np.argsort(all_fids_l))
-    sorted_fids = [all_fids_l[i] for i in order]
-    sorted_sigs = {k: np.array([v[i] for i in order]) for k, v in all_sigs_l.items()}
+    sorted_fids, sorted_sigs = _merge_extract_cache(frame_ids, frame_set, sigs, cached_fids, cached_sigs)
     save_cached_signals(
         archive,
         ch_title,
@@ -1028,6 +1009,62 @@ def extract_frames(
     )
 
     return frame_ids, frames_b64, sigs, ""
+
+
+def _extract_target_frame_ids(start_i: int, end_i: int, n: int, frame_ids: list[int] | None) -> list[int]:
+    def _sample_ids() -> list[int]:
+        target_n = max(1, min(int(n), max(1, end_i - start_i)))
+        return np.linspace(start_i, end_i - 1, target_n, dtype=int).tolist()
+
+    if frame_ids is None:
+        return _sample_ids()
+    filtered = sorted({int(x) for x in frame_ids if start_i <= int(x) < end_i})
+    return filtered or _sample_ids()
+
+
+def _cached_signal_lookup(cached_fids, cached_sigs) -> dict[int, dict[str, float]]:
+    cached_lookup: dict[int, dict[str, float]] = {}
+    if cached_fids and cached_sigs:
+        for i, fid in enumerate(cached_fids):
+            cached_lookup[fid] = {k: float(v[i]) for k, v in cached_sigs.items()}
+    return cached_lookup
+
+
+def _read_extract_frame(
+    *,
+    video_path: str,
+    cap: cv2.VideoCapture | None,
+    read_fid: int,
+    prev_read_fid: int | None,
+) -> tuple[cv2.VideoCapture | None, np.ndarray, str]:
+    if read_fid < 0:
+        return cap, np.zeros((240, 320, 3), dtype=np.uint8), ""
+    if cap is None:
+        cap = cv2.VideoCapture(str(video_path))
+        if not cap.isOpened():
+            cap.release()
+            return None, np.zeros((240, 320, 3), dtype=np.uint8), f"Cannot open video: {video_path}"
+    if prev_read_fid is None or read_fid != prev_read_fid + 1:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, int(read_fid))
+    ok, read_bgr = cap.read()
+    if not ok or read_bgr is None:
+        return cap, np.zeros((240, 320, 3), dtype=np.uint8), ""
+    return cap, read_bgr, ""
+
+
+def _merge_extract_cache(frame_ids, frame_set, sigs, cached_fids, cached_sigs):
+    all_fids_l: list[int] = list(frame_ids)
+    all_sigs_l: dict[str, list[float]] = {k: list(v) for k, v in sigs.items()}
+    if cached_fids and cached_sigs:
+        for i, fid in enumerate(cached_fids):
+            if fid not in frame_set:
+                all_fids_l.append(fid)
+                for k, arr in cached_sigs.items():
+                    all_sigs_l[k].append(float(arr[i]))
+    order = list(np.argsort(all_fids_l))
+    sorted_fids = [all_fids_l[i] for i in order]
+    sorted_sigs = {k: np.array([v[i] for i in order]) for k, v in all_sigs_l.items()}
+    return sorted_fids, sorted_sigs
 
 
 # ===============================================================================
