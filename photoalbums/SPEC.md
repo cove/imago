@@ -395,17 +395,15 @@ For each page view, run a series of AI analyses on the original page and extract
 ### 5.3 Page-Level Processing
 
 #### 5.3.1 OCR & Caption Extraction
-**Current Implementation:** lmstudio with `google/gemma-4-31b` via local HTTP API
-**Aspirational Design:** Claude API with vision (documented below for future reference)
 
-**Current Setup:**
-- **Service:** Local lmstudio server at `http://127.0.0.1:1234/v1`
-- **Model:** `google/gemma-4-31b` (Google Gemma 4 31B parameters)
-- **Request Type:** JSON completion via `/v1/chat/completions` endpoint
-- **Structured Output:** JSON schema validation (response_format with json_schema)
+This step extracts a structured metadata record per visible photograph (caption, location, estimated date, OCR'd scene text, people count) from the full page view image.
 
-**Prompts Used (Current):**
-Located in `photoalbums/prompts/ai-index/metadata/`:
+**Baseline:**
+- **Service:** lmstudio-compatible local HTTP server at `http://127.0.0.1:1234/v1`
+- **Model:** `google/gemma-4-31b`
+- **Endpoint:** `/v1/chat/completions` with `response_format` set to `json_schema` for structured output
+
+**Prompt Source:** `photoalbums/prompts/ai-index/metadata/` (`system.md`, `user.md`, `schema.json`, `params.toml`)
 
 **System Prompt** (`system.md`):
 ```
@@ -461,19 +459,12 @@ Album title: {album_title}
 }
 ```
 
-**Aspirational Alternative (Claude API):**
-For a clean rewrite, consider using Claude API with vision:
-- **Model:** claude-opus-4-1 or later
-- **Request Type:** `/v1/messages` with vision capabilities
-- **Same prompts and parameters as above would apply**
-
 #### 5.3.2 People Count (Per-Crop Refinement)
-For each detected crop, optionally run separate people-counting to refine estimates.
+For each detected crop, optionally run a separate people-counting request to refine estimates.
 
-**Current Implementation:** lmstudio with `google/gemma-4-31b`
+**Baseline:** same lmstudio server and `google/gemma-4-31b` model as 5.3.1.
 
-**Prompts Used (Current):**
-Located in `photoalbums/prompts/ai-index/people-count/`:
+**Prompt Source:** `photoalbums/prompts/ai-index/people-count/` (`system.md`, `user.md`, `output.md`, `params.toml`)
 
 **System Prompt** (`system.md`):
 ```
@@ -1306,15 +1297,17 @@ Where Base = `{Collection}_{Year}_B{Book}`
 - If both fail: skip image
 
 ### 12.2 Network Failures
-**Nominatim timeout:**
-- Retry with exponential backoff (1s, 2s, 4s base)
-- Max 3 attempts
-- If all fail: skip geocoding for image
 
-**Claude API failure:**
-- Log error
-- Skip AI extraction step
-- Continue with remaining images
+**Nominatim failure (timeout, HTTP error, 429):**
+- Baseline behavior: the geocoder raises and the calling step records the failure; no automatic retry/backoff (see Section 8.5)
+- The cached entry, if any, is still served on later runs
+
+**lmstudio (Gemma-4) failure:**
+- Log error with the request payload identifier
+- Mark the AI step's pipeline record with a non-`ok` `result`
+- Continue with remaining images; downstream steps that depend on the missing metadata are skipped
+
+A reimplementation that swaps the AI provider (e.g., a hosted vision API) is free to add retry policies — but the baseline does not.
 
 ### 12.3 Processing Locks
 To prevent concurrent processing of same image:
@@ -1366,29 +1359,43 @@ When `--debug` flag enabled:
 
 ---
 
-## 14. Maintenance & Updates
+## 14. Maintaining the Baseline Snapshot
 
-### 14.1 Keeping SPEC.md Current
-This specification references specific:
-- **Prompts:** In `photoalbums/prompts/` directory
-- **Models:** Specified by name in model configuration
-- **Parameters:** In `params.toml` files and code constants
-- **Services:** Nominatim URL, Claude API, Cast service
+This document is a **labeled snapshot of a working implementation**, not a forward-looking design. A reimplementation is free to improve on the baseline, but the values recorded here must continue to describe what the current code actually does so the working example is never lost.
 
-When any of these change:
-1. Update relevant source files (prompts, code constants)
-2. Update corresponding sections in SPEC.md
-3. Document the rationale for change in commit message
-4. Consider backward-compatibility impact
+### 14.1 What Counts as Baseline (Update When Code Changes)
 
-### 14.2 Version Tracking
-Include version/timestamp in SPEC.md header when document is updated.
+The following are load-bearing baseline values. If the code drifts from any of them, update the spec in the same change:
 
-### 14.3 Algorithm Changes
-If you modify stitching fallback parameters, Docling presets, restoration prompts, or verification logic:
-1. Update exact values in this spec
-2. Consider whether change affects reprocessing requirements
-3. Document in commit message why change improves output quality
+| Category | Examples of baseline values to keep in sync |
+|----------|---------------------------------------------|
+| Library versions | `opencv-contrib-python`, `pillow`, `stitching`, `docling`, `torch` (Section 15.1) |
+| Models | `google/gemma-4-31b`, RealRestorer commit hash, YOLO weights path (Section 5.0) |
+| Inference parameters | `max_tokens`, `temperature`, `timeout_seconds` per prompt (Sections 5.3.1, 5.3.2, 7.4) |
+| Stitching | `AFFINE_STITCH_ATTEMPTS` ordering, linear-fallback constants (Section 2.4) |
+| Docling | `preset`, `backend`, `device`, `retries`, `do_ocr` (Section 3.3) |
+| Restoration | Prompt text, `num_inference_steps`, `guidance_scale`, `seed`, `size_level` (Section 4.4) |
+| Geocoder | User-Agent, timeout, min interval, reverse-lookup `zoom`, retry policy (Section 8) |
+| Format contracts | XMP namespaces, MWG-RS attribute layout, file-naming patterns (Sections 6, 11) |
+| Prompt text | Exact `system.md`/`user.md` contents under `photoalbums/prompts/` (Sections 5.3.1, 5.3.2, 7.3) |
+
+### 14.2 What Is Not Baseline (Reimplementation Is Free to Change)
+
+These are accidents of the current implementation; a reimplementation may diverge without updating the baseline section, as long as functional behavior in Sections 1–9 still holds:
+
+- Specific Python library choices (e.g., using `xml.etree.ElementTree` vs. `lxml`)
+- Internal helper names, exception class names, and module layout
+- Retry policies for network calls (the baseline has none for Nominatim — adding sensible retries is an *improvement*, not a deviation)
+- Storage format of the operator-supplied specs (TOML vs. JSON vs. env vars; see Section 10)
+
+### 14.3 Update Checklist
+
+When any code change affects a baseline value above:
+
+1. Update the literal value in the relevant SPEC section.
+2. If the change alters re-run semantics (e.g., new `input_hash` inputs), note it in Section 9.
+3. Record the date and commit hash of the new baseline at the top of the document.
+4. In the commit message, state which baseline value moved and why — this is the audit trail for the snapshot.
 
 ---
 
@@ -1400,15 +1407,15 @@ If you modify stitching fallback parameters, Docling presets, restoration prompt
 - `stitching` **0.6.1**: High-level affine stitcher wrapper (uses OpenCV backend)
 - `docling` **2.88.0**: Document layout analysis and image region detection (photo detection from page layouts)
 - `diffusers` (RealRestorer fork): RealRestorer pipeline for photo restoration (from https://github.com/yfyang007/RealRestorer.git)
-- `torch` **2.10.0**: Neural network inference for RealRestorer and other ML models
-- `anthropic`: Claude API client for vision-based OCR, caption extraction, and location estimation
-- `xml.etree.ElementTree`: Standard library for XMP sidecar generation/parsing
+- `torch` **2.10.0**: Hardware/precision detection for RealRestorer and other ML models
+
+The XMP sidecar reader/writer uses Python's standard-library `xml.etree.ElementTree`; that's an implementation choice and a reimplementation may use any equivalent XML library.
 
 ### 15.2 External Services
-- **Nominatim (OpenStreetMap):** Geocoding service (https://nominatim.openstreetmap.org)
-- **Claude API:** Vision & text processing for OCR, captions, people counting, location estimation
-- **Cast Service:** Face recognition and people matching (internal/custom)
-- **YOLO:** Object detection (optional, via external model)
+- **lmstudio (local):** Hosts `google/gemma-4-31b` for OCR/caption/metadata extraction at `http://127.0.0.1:1234/v1`
+- **Nominatim (OpenStreetMap):** Forward and reverse geocoding at `https://nominatim.openstreetmap.org`
+- **Cast Service:** Face recognition / people matching (internal/custom)
+- **YOLO (Ultralytics):** Optional object detection via local `models/yolo11n.pt`
 
 ### 15.3 System Tools
 - **ImageMagick (`magick` command):** Fallback image reading for problematic formats
@@ -1427,9 +1434,9 @@ If you modify stitching fallback parameters, Docling presets, restoration prompt
 
 ### 16.2 Memory Usage
 - Page view JPEG in memory: ~50-500 MB (depending on resolution)
-- RealRestorer model: ~42 GB loaded (but uses CPU offload if needed)
+- RealRestorer model: ~42 GB loaded (uses CPU offload if needed)
 - Docling converter: ~200 MB (cached per session)
-- Claude API: Minimal (image sent to remote service)
+- lmstudio host process: governed by the loaded Gemma-4 model (separate process; not counted against the pipeline's RSS)
 
 ### 16.3 Disk Space
 - Each album page JPEG: ~2-20 MB
