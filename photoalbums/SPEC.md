@@ -58,9 +58,9 @@ Field semantics:
 - **Collection** — alphanumeric, no underscores (e.g., `Egypt`, `Cordell`)
 - **Year** — `YYYY` or `YYYY-YYYY` range
 - **Book** — two digits (`00`–`99`) or the ellipsis character `…` (U+2026) for unknown
-- **Page** — two digits, leading zero required (`P05`, not `P5`)
-- **Scan** — two digits indicating the scan index for an oversized page (`S01`, `S02`, …)
-- **Crop** — two digits, sequential index of detected photos on a page (`D00`, `D01`, …)
+- **Page** — two digits in range `01`–`99` (P00 is not valid; leading zero required: `P05`, not `P5`)
+- **Scan** — two digits (`01`, `02`, …) indicating the scan index for an oversized page
+- **Crop** — two digits (`00`, `01`, …), sequential index of detected photos on a page
 - **Iter** — two-digit reprocessing iteration; the first version is `00`
 - `_V` is a literal suffix marking a "view" (rendered/derived) artifact
 
@@ -1238,7 +1238,7 @@ Where Base = `{Collection}_{Year}_B{Book}`
 - **Book:** 2-digit book number (00-99), ellipsis character (…), or unknown marker
   - Valid: `00` through `99` or `…` (ellipsis, U+2026)
   - Note: Legacy systems may use corrupted encoding of ellipsis
-- **Page:** 2-digit page number within book, e.g., "05" (leading zero required)
+- **Page:** 2-digit page number within book in range `01` through `99` (P00 is not valid). Leading zero required, e.g., "05"
 - **Scan:** 2-digit scan index per page, e.g., "01", "02" (multiple scans per page due to scanner width limit)
 - **Crop:** 2-digit crop index within page, e.g., "00", "01" (sequential index of photos detected on page)
 - **Iteration:** 2-digit iteration version, e.g., "00" (first version, useful if re-processing crops)
@@ -1249,27 +1249,31 @@ Where Base = `{Collection}_{Year}_B{Book}`
 - Must match: `{Collection}_{Year}_B{Book}_P{Page:02d}_S{Scan:02d}.tif`
 - Collection: any alphanumeric characters except underscore
 - Year: exactly 4 digits, or 4 digits + hyphen + 4 digits
-- Book: exactly 2 digits, ellipsis, or unknown marker (case-insensitive file matching)
-- Page: exactly 2 decimal digits (case-insensitive)
+- Book: exactly 2 digits (00-99), ellipsis, or unknown marker (case-insensitive file matching)
+- Page: exactly 2 decimal digits in range 01-99 (P00 is invalid; case-insensitive)
 - Scan: exactly 2 decimal digits (case-insensitive)
 - Extension: `.tif` (case-insensitive)
-- Example: `Egypt_1975_B01_P05_S01.tif` ✓, `Egypt_1975_B01_P5_S1.tif` ✗ (no leading zeros)
+- Valid example: `Egypt_1975_B01_P05_S01.tif` ✓
+- Invalid examples: `Egypt_1975_B01_P5_S1.tif` ✗ (no leading zeros), `Egypt_1975_B01_P00_S01.tif` ✗ (P00 not allowed)
 
 **Page View File Validation:**
 - Must end with: `_P{Page:02d}_V.jpg` (case-insensitive)
 - Capture base album identifier: `{Collection}_{Year}_B{Book}`
-- Page: exactly 2 decimal digits
+- Page: exactly 2 decimal digits in range 01-99 (P00 is invalid)
 - Marker: literal `_V` (view)
 - Extension: `.jpg` (case-insensitive)
-- Example: `Egypt_1975_B01_P05_V.jpg` ✓
+- Valid example: `Egypt_1975_B01_P05_V.jpg` ✓
+- Invalid example: `Egypt_1975_B01_P00_V.jpg` ✗ (P00 not allowed)
 
 **Crop File Validation:**
 - Must match: `{Collection}_{Year}_B{Book}_P{Page:02d}_D{Crop:02d}-{Iter:02d}_V.jpg`
-- Crop index: 1–2 decimal digits (00-99)
-- Iteration index: 1–2 decimal digits (00-99)
+- Page: exactly 2 decimal digits in range 01-99 (P00 is invalid)
+- Crop index: exactly 2 decimal digits (00-99)
+- Iteration index: exactly 2 decimal digits (00-99)
 - Marker: literal `_V` (view/version)
 - Extension: `.jpg` (case-insensitive)
-- Example: `Egypt_1975_B01_P05_D00-00_V.jpg` ✓, `Egypt_1975_B01_P05_D0-0_V.jpg` ✗ (single digit)
+- Valid example: `Egypt_1975_B01_P05_D00-00_V.jpg` ✓
+- Invalid examples: `Egypt_1975_B01_P05_D0-0_V.jpg` ✗ (single digit), `Egypt_1975_B01_P00_D00-00_V.jpg` ✗ (P00 not allowed)
 
 **XMP Sidecar Validation:**
 - Must be parallel to image file with `.xmp` extension
