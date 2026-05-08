@@ -1079,43 +1079,67 @@ Per-album rendering control parameters.
 
 ### 11.1 File Naming Patterns
 
-**Album Directory Base Name:**
-```
-{Collection}_{Year}_B{Book:02d}_{Album}
-```
+**Album Directory Structure:**
+All album content is organized in three sibling directories with the same base name:
+- `{Base}_Archive`: Raw TIFF scans
+- `{Base}_Pages`: Stitched page JPEGs
+- `{Base}_Photos`: Cropped individual photos
 
-**TIFF Scan:**
-```
-{Collection}_{Year}_B{Book:02d}_P{Page:02d}_S{Scan:02d}.tif
-```
+Where Base = `{Collection}_{Year}_B{Book}`
 
-**Page View:**
-```
-{Collection}_{Year}_B{Book:02d}_P{Page:02d}_V.jpg
-```
+**Complete Naming Pattern:**
 
-**Cropped Photo:**
-```
-{Collection}_{Year}_B{Book:02d}_P{Page:02d}_D{CropIndex:02d}-{IterationIndex:02d}_V.jpg
-```
+| File Type | Pattern | Example |
+|-----------|---------|---------|
+| **TIFF Scan (raw)** | `{Collection}_{Year}_B{Book}_P{Page:02d}_S{Scan:02d}.tif` | `Egypt_1975_B01_P05_S01.tif` |
+| **Page View (stitched)** | `{Collection}_{Year}_B{Book}_P{Page:02d}_V.jpg` | `Egypt_1975_B01_P05_V.jpg` |
+| **Crop (extracted photo)** | `{Collection}_{Year}_B{Book}_P{Page:02d}_D{Crop:02d}-{Iter:02d}_V.jpg` | `Egypt_1975_B01_P05_D00-00_V.jpg` |
+| **XMP Sidecar** | `{source_filename}.xmp` | `Egypt_1975_B01_P05_V.xmp` |
 
-Notation:
-- Collection: alphanumeric string
-- Year: YYYY or YYYY-YYYY range
-- Book: 2-digit number, ellipsis char, or unknown marker
-- Page: 2-digit decimal
-- Scan: 2-digit decimal
-- CropIndex: 2-digit index within page (00, 01, 02, ...)
-- IterationIndex: 2-digit iteration number (00=first crop, useful for versioning)
+**Field Definitions:**
+- **Collection:** Alphanumeric string (no underscores), e.g., "Egypt", "Cordell", "Hawaii"
+- **Year:** 4-digit year or year range, e.g., "1975" or "1975-1976"
+- **Book:** 2-digit book number (00-99), ellipsis character (…), or unknown marker
+  - Valid: `00` through `99` or `…` (ellipsis, U+2026)
+  - Note: Legacy systems may use corrupted encoding of ellipsis
+- **Page:** 2-digit page number within book, e.g., "05" (leading zero required)
+- **Scan:** 2-digit scan index per page, e.g., "01", "02" (multiple scans per page due to scanner width limit)
+- **Crop:** 2-digit crop index within page, e.g., "00", "01" (sequential index of photos detected on page)
+- **Iteration:** 2-digit iteration version, e.g., "00" (first version, useful if re-processing crops)
 
-### 11.2 Regex Patterns
-See `/photoalbums/naming.py` for authoritative patterns:
-- `SCAN_TIFF_RE`: Match raw TIFF scan filenames
-- `SCAN_NAME_RE`: Match page/scan identifiers
-- `DERIVED_NAME_RE`: Match cropped photo filenames
-- `BASE_PAGE_NAME_RE`: Match base album identifier
-- `VIEW_PAGE_RE`: Match page view files
-- `DERIVED_VIEW_RE`: Match derived crop files
+### 11.2 Validation & Parsing Rules
+
+**TIFF Scan File Validation:**
+- Must match: `{Collection}_{Year}_B{Book}_P{Page:02d}_S{Scan:02d}.tif`
+- Collection: any alphanumeric characters except underscore
+- Year: exactly 4 digits, or 4 digits + hyphen + 4 digits
+- Book: exactly 2 digits, ellipsis, or unknown marker (case-insensitive file matching)
+- Page: exactly 2 decimal digits (case-insensitive)
+- Scan: exactly 2 decimal digits (case-insensitive)
+- Extension: `.tif` (case-insensitive)
+- Example: `Egypt_1975_B01_P05_S01.tif` ✓, `Egypt_1975_B01_P5_S1.tif` ✗ (no leading zeros)
+
+**Page View File Validation:**
+- Must end with: `_P{Page:02d}_V.jpg` (case-insensitive)
+- Capture base album identifier: `{Collection}_{Year}_B{Book}`
+- Page: exactly 2 decimal digits
+- Marker: literal `_V` (view)
+- Extension: `.jpg` (case-insensitive)
+- Example: `Egypt_1975_B01_P05_V.jpg` ✓
+
+**Crop File Validation:**
+- Must match: `{Collection}_{Year}_B{Book}_P{Page:02d}_D{Crop:02d}-{Iter:02d}_V.jpg`
+- Crop index: 1–2 decimal digits (00-99)
+- Iteration index: 1–2 decimal digits (00-99)
+- Marker: literal `_V` (view/version)
+- Extension: `.jpg` (case-insensitive)
+- Example: `Egypt_1975_B01_P05_D00-00_V.jpg` ✓, `Egypt_1975_B01_P05_D0-0_V.jpg` ✗ (single digit)
+
+**XMP Sidecar Validation:**
+- Must be parallel to image file with `.xmp` extension
+- Examples:
+  - `Egypt_1975_B01_P05_V.jpg` → `Egypt_1975_B01_P05_V.xmp`
+  - `Egypt_1975_B01_P05_D00-00_V.jpg` → `Egypt_1975_B01_P05_D00-00_V.xmp`
 
 ---
 
