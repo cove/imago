@@ -40,10 +40,25 @@
     └── (extracted crop photos and metadata)
 ```
 
-### 1.3 Required Configuration Files
-- `album_sets.toml`: Mapping of Photos root paths to archive sets (for people roster lookup)
-- `ai_models.toml`: Model endpoint and parameter overrides per archive set
-- Per-archive `render_settings.json`: Render overrides (if present)
+### 1.3 Required Configuration (Embedded Values)
+
+The system needs these configuration values (historically in separate TOML/JSON files, documented here for completeness):
+
+**Album Sets Configuration:**
+- Maps photos root directory to archive set identifier
+- Specifies path to people roster CSV for face matching
+- Example: `photos_root = "/path/to/Photo Albums"`, `people_roster_path = "people.csv"`
+
+**AI Models Configuration:**
+- OCR/Caption model selection: `google/gemma-4-31b` (via lmstudio)
+- View region model: Docling with `granite_docling` preset, `auto_inline` backend, `auto` device
+- Docling retries: `3` attempts
+- Restoration: RealRestorer enabled with standard parameters
+
+**Render Settings (Optional):**
+- JPEG quality: `95`
+- Render scale: `1.0` (100%)
+- Per-album stitch detector override: e.g., `"sift"` (defaults to full AFFINE_STITCH_ATTEMPTS sequence)
 
 ---
 
@@ -138,20 +153,14 @@ Identify individual photographs within a stitched page view JPEG using Docling's
 **Library:** `docling` **2.88.0**
 **Pipeline Type:** Standard image pipeline (image layout analysis, NOT document text extraction, NOT OCR)
 
-**Configuration (from ai_models.toml):**
-```toml
-[docling_pipeline]
-preset = "granite_docling"
-backend = "auto_inline"
-device = "auto"
-retries = 3
-```
-
-**Settings Explained:**
-- **preset:** `granite_docling` - pipeline tuning optimized for document layout analysis
-- **backend:** `auto_inline` - automatically selects best backend (can force: "transformers" or "mlx")
-- **device:** `auto` - auto-detects GPU/MPS/CPU availability
-- **retries:** `3` - retry up to 3 times if first attempt returns no regions
+**Configuration Settings (Embedded):**
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| **preset** | `granite_docling` | Pipeline tuning optimized for document layout analysis |
+| **backend** | `auto_inline` | Auto-select best inference backend (fallback options: "transformers" or "mlx") |
+| **device** | `auto` | Auto-detect available hardware (GPU/MPS/CPU) |
+| **retries** | `3` | Retry up to 3 times if first run detects no photo regions |
+| **do_ocr** | `False` | Explicitly disable OCR—layout analysis only, no text extraction |
 
 ### 3.4 Docling Pipeline Processing Steps
 
@@ -354,52 +363,44 @@ output_image = result.images[0]
 
 ### 5.0 Current Baseline (Starting Point for Reimplementation)
 
-**Important:** This section documents the exact AI models and services used in the current implementation. This is the baseline from which any rewrite should measure improvements or changes.
+**Important:** This section documents the exact AI models, services, and configurations used in the current implementation. This baseline is self-contained—no external files needed to understand the system.
 
-**Current AI Stack (as of last update):**
-- **OCR/Caption Engine:** lmstudio local inference server
-  - **Model:** `google/gemma-4-31b` (Gemma 4 31B via Hugging Face)
-  - **Server URL:** `http://127.0.0.1:1234/v1` (local, requires manual lmstudio startup)
-  - **Fallback Models:** Same as primary (configurable in ai_models.toml)
-  
-- **View Region Detection (Photo Detection):**
-  - **Model:** `granite-docling-258m` (Granite Document Layout Analysis 258M parameters)
-  - **Backend:** docling standard image pipeline
-  - **Preset:** `granite_docling`
-  
-- **Photo Restoration:**
-  - **Model:** RealRestorer (from https://github.com/yfyang007/RealRestorer.git)
-  - **Version:** Pinned to commit `fa2a3e3c23768eb94748c5855d83cc2e340ab13b`
-  - **Inference settings:** 28 steps, 3.0 guidance scale, seed=42, size_level=1024
-  
-- **Face Recognition (Optional):**
-  - **Service:** Cast (internal face matching service)
-  - **Model:** buffalo_l (via InsightFace)
-  
-- **Object Detection (Optional):**
-  - **Model:** YOLOv11 nano (`ultralytics/yolo11n.pt`)
-  - **Threshold:** Configurable (default 0.25)
+**Current AI Stack:**
 
-**Configuration File:** `ai_models.toml`
-```toml
-selected_ocr_model = "pc"
-selected_caption_model = "pc"
-view_region_model = "docling"
-caption_matching_model = "primary"
-lmstudio_base_url = "http://127.0.0.1:1234/v1"
+**1. OCR/Caption Extraction Engine**
+- **Service Type:** Local inference server (lmstudio)
+- **Server URL:** `http://127.0.0.1:1234/v1`
+- **Model Name:** `google/gemma-4-31b` (Google Gemma 4, 31 billion parameters)
+- **Model Source:** Hugging Face
+- **Fallback Model:** Same as primary (`google/gemma-4-31b`)
 
-[models]
-pc = ["google/gemma-4-31b"]
-primary = ["google/gemma-4-31b"]
-fallback = ["google/gemma-4-31b"]
-docling = "granite-docling-258m"
+**2. View Region Detection (Photo Detection)**
+- **Service Type:** Docling layout analysis pipeline
+- **Pipeline Preset:** `granite_docling`
+- **Backend:** `auto_inline` (automatically selects best backend: transformers or mlx)
+- **Device:** `auto` (automatically detects GPU/MPS/CPU)
+- **Retry Attempts:** 3 (if no regions found, retry up to 3 times)
 
-[docling_pipeline]
-preset = "granite_docling"
-backend = "auto_inline"
-device = "auto"
-retries = 3
-```
+**3. Photo Restoration**
+- **Model:** RealRestorer diffusion pipeline
+- **Repository:** https://github.com/yfyang007/RealRestorer.git
+- **Pinned Commit:** `fa2a3e3c23768eb94748c5855d83cc2e340ab13b`
+- **Inference Parameters:**
+  - num_inference_steps = 28
+  - guidance_scale = 3.0
+  - seed = 42
+  - size_level = 1024
+- **Restoration Prompt:** "Please restore this low-quality image, recovering its normal brightness and clarity."
+
+**4. Face Recognition (Optional)**
+- **Service Type:** Cast (internal face matching service)
+- **Model:** buffalo_l (via InsightFace)
+- **Purpose:** Match detected faces against people roster
+
+**5. Object Detection (Optional)**
+- **Model:** YOLOv11 nano
+- **Model Path:** `ultralytics/yolo11n.pt`
+- **Default Threshold:** 0.25 (configurable)
 
 ### 5.1 Overview
 For each page view, run a series of AI analyses on the original page and extracted crops, writing results to XMP sidecars.
@@ -446,13 +447,13 @@ Analyze this album page.
 Album title: {album_title}
 ```
 
-**Parameters** (`params.toml`):
-```toml
-max_tokens = 2048
-temperature = 0.1
-max_image_edge = 0
-timeout_seconds = 300.0
-```
+**Inference Parameters (Embedded):**
+| Parameter | Value | Purpose |
+|-----------|-------|---------|
+| max_tokens | 2048 | Maximum length of model response |
+| temperature | 0.1 | Low temperature for deterministic output (0.1 = very focused) |
+| max_image_edge | 0 | Image size limit (0 = no limit) |
+| timeout_seconds | 300.0 | API timeout for inference (5 minutes) |
 
 **Output Schema** (`schema.json`):
 ```json
@@ -511,15 +512,18 @@ Located in `photoalbums/prompts/ai-index/people-count/`:
 {"count": 0}
 ```
 
-**Parameters** (`params.toml`):
-```toml
-max_tokens = 48
-temperature = 0.0
-max_image_edge = 0
-timeout_seconds = 300.0
-```
+**Inference Parameters (Embedded):**
+| Parameter | Value | Purpose |
+|-----------|-------|---------|
+| max_tokens | 48 | Very short response (just a count number) |
+| temperature | 0.0 | Maximum determinism (no sampling, greedy decoding) |
+| max_image_edge | 0 | Image size limit (0 = no limit) |
+| timeout_seconds | 300.0 | API timeout for inference (5 minutes) |
 
-**Output Schema:** JSON with field: `count` (integer)
+**Output Schema:** JSON with single field:
+```json
+{"count": 0}
+```
 
 #### 5.3.3 People Matching (Optional)
 Use Cast service (external face matching system) to match detected faces against roster.
