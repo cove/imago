@@ -109,22 +109,33 @@ Before raw TIFF scans can enter the main pipeline, they must be:
 2. **Validated:** Tested to ensure stitching is possible (if multiple scans per page)
 3. **Registered:** Renamed and moved into the archive directory with the correct naming convention
 
-A long-running **ScanWatchService** monitors an `{INCOMING_NAME}` directory (typically `{PHOTOS_ROOT}/incoming/`) for new `.tif` files matching the pattern `incoming_scan_NNNN.tif`. When detected:
+A long-running **ScanWatchService** monitors an `{INCOMING_NAME}` directory (typically `{PHOTOS_ROOT}/incoming/`) for new `.tif` files matching **either** of these patterns:
+- `incoming_scan.tif` (default single-scan placeholder)
+- `incoming_scan_NNNN.tif` (backlog: numbered 0001–9999 for multiple queued scans)
+
+When detected:
 
 **Per-file workflow:**
-1. Log the incoming scan event with a unique ID
-2. Parse the filename to determine target archive set and page number
-3. **Group scans:** Collect all scans for the same (Collection, Year, Book, Page) if multiple scans per page
-4. **Validate stitch:** Attempt to stitch multi-scan groups using SIFT/BRISK detectors (simplified subset vs. full pipeline)
+1. Log the incoming scan event with a unique ID and register it as pending
+2. **Determine target filename:** Inspect the archive directory's existing TIF files and compute the next filename to use
+   - List all `.tif` files in `{Archive}_Archive/`
+   - Filter for valid album-naming pattern (`{Collection}_{Year}_B{Book}_P##_S##.tif`)
+   - If none exist: target is `{prefix}_P01_S01.tif` (first page, first scan)
+   - If some exist: sort by filename and increment the last one:
+     - If last page is P01, move to P02_S01 (start a new page)
+     - Otherwise, increment scan number; if scan > 2, wrap to next page P##_S01
+3. **Group scans:** Collect all pending scans for the same (Collection, Year, Book, Page)
+4. **Validate stitch:** Attempt to stitch multi-scan groups using SIFT 0.3 / BRISK 0.1 detectors (simplified subset, not the full `AFFINE_STITCH_ATTEMPTS`)
    - If stitch succeeds: mark the group as valid and ready for pipeline processing
-   - If stitch fails: alert the operator (beep + modal on Windows) requesting a rescan
-5. **Apply decision:**
-   - On success: rename files to final naming convention (e.g., `incoming_scan_0001.tif` → `Egypt_1975_B01_P05_S01.tif`)
-   - Move files to `{Archive}_Archive/` directory
-   - Create a `ScanEvent` record tracking the timestamp and stitch validation result
+   - If stitch fails: alert the operator (beep + Windows modal requesting a rescan); do NOT apply
+5. **Apply on success:**
+   - Rename incoming file to target filename (e.g., `incoming_scan_0001.tif` → `Egypt_1975_B01_P05_S01.tif`)
+   - Move file to `{Archive}_Archive/` directory
+   - Process TIFF in place (convert to standard format, ensure proper orientation, etc.)
+   - Create a `ScanEvent` record with `status=applied`, recording the timestamp, target name, and `stitch_validated` flag
 6. **Sync archive state:** Update the `ArchiveState` for the target album set:
-   - Record how many scans now exist per page
-   - Flag pages that need rescan if a previous stitch failed
+   - Increment page scan count: `page_scan_counts[page] += 1`
+   - If stitch failed and now retrying, remove from `needs_rescan_pages`
 
 **Configuration:**
 - **Scanning directory:** `PHOTO_SCANNING_DIR` (default: `{PHOTOS_ROOT}/scanning/`)
