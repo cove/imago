@@ -1062,7 +1062,6 @@ If you modify stitching fallback parameters, Docling presets, restoration prompt
 
 ### 15.1 Python Libraries & Versions
 - `opencv-contrib-python` **4.10.0.84**: Image stitching (AffineStitcher), feature detection (SIFT, AKAZE, BRISK), image manipulation
-- `numpy` **2.4.3**: Array operations and matrix math for image processing
 - `pillow` **12.1.1**: Image I/O (JPEG, TIFF, PNG), EXIF handling, image format conversion
 - `stitching` **0.6.1**: High-level affine stitcher wrapper (uses OpenCV backend)
 - `docling` **2.88.0**: Document layout analysis and image region detection (photo detection from page layouts)
