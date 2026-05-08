@@ -205,25 +205,27 @@ For each picture item:
 5. Calculate dimensions: width = right - left, height = bottom - top
 6. Clamp to valid ranges: x ≥ 0, y ≥ 0, width ≥ 1, height ≥ 1
 
-**Step 5: Extract Caption Text (from Region)**
+**Step 5: Extract Caption Hints (Optional, from Docling)**
 If item has associated captions:
 1. Get first caption reference
 2. Caption reference contains a "cref" value (reference string, format: "path/to/text/INDEX")
 3. Extract the numeric index from the end of cref
 4. Look up that index in document.texts array
-5. If found, extract and clean the text value as the region's caption text
+5. If found, extract and clean the text value as a caption hint
 6. If not found or parsing fails, use empty string (silent failure is acceptable)
-7. **This caption text becomes the region's name in the XMP (`mwg-rs:Name` field)**
+7. **Note:** This is just a hint. The actual region caption comes from **Gemma-4 metadata extraction** (see Section 5.3.1), not from Docling.
 
 **Step 6: Create Region Result Object**
 For each picture, record:
 - index: sequential count (0, 1, 2, ...)
 - x, y: top-left corner pixel coordinates
 - width, height: dimensions in pixels
-- caption_hint: extracted caption text from Docling (this becomes the region's name in XMP), or empty string
+- caption_hint: hint extracted from Docling (may be empty), or empty string
 - location_hint: optional location hint (usually empty from Docling)
 - person_names: optional list of person names (usually empty from Docling)
 - photo_number: optional photo identifier (defaults to 0 from Docling)
+
+**Important:** The actual caption text that becomes `mwg-rs:Name` in XMP comes from the **Gemma-4 metadata extraction** (lmstudio model), not from Docling. Docling only provides bounding boxes and optional hints.
 
 **Step 7: Coordinate Conversion to MWG-RS Normalized Format**
 After extracting pixel coordinates, convert to normalized center-point format for XMP storage:
@@ -681,9 +683,9 @@ Individual cropped photos inherit page-level metadata (caption, date, location) 
           </rdf:Description>
         </mwg-rs:Area>
         
-        <!-- Region type and caption/name (extracted from Docling) -->
+        <!-- Region type and caption/name (from Gemma-4 metadata extraction - see Section 5.3.1) -->
         <mwg-rs:Type>Photo</mwg-rs:Type>
-        <mwg-rs:Name>{caption_text_from_docling}</mwg-rs:Name>
+        <mwg-rs:Name>{caption_text_from_gemma4_metadata}</mwg-rs:Name>
       </rdf:Description>
     </rdf:li>
   </rdf:Bag>
