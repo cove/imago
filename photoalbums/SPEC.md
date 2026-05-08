@@ -847,7 +847,7 @@ Coordinates are written as **attributes** on the `rdf:li` element using the `stA
 
 ### 6.9 XMP Media Management (xmpMM:)
 
-History events use the Adobe `stEvt:` structured type (not bare `xmpMM:` child elements). `xmpMM:DerivedFrom` uses `stRef:`. `xmpMM:Pantry` is an rdf:Bag of cross-pipeline tracking entries.
+Tracks document identity and provenance. `xmpMM:DerivedFrom` uses `stRef:` structured type to link to source files. `xmpMM:Pantry` is an rdf:Bag of cross-pipeline tracking entries.
 
 ```xml
 <xmpMM:DocumentID>uuid:{unique-id}</xmpMM:DocumentID>
@@ -862,16 +862,6 @@ History events use the Adobe `stEvt:` structured type (not bare `xmpMM:` child e
     </rdf:li>
   </rdf:Bag>
 </xmpMM:Pantry>
-<xmpMM:History>
-  <rdf:Seq>
-    <rdf:li rdf:parseType="Resource">
-      <stEvt:action>{action_name}</stEvt:action>
-      <stEvt:softwareAgent>{agent_id}</stEvt:softwareAgent>
-      <stEvt:when>{ISO8601 timestamp}</stEvt:when>
-      <stEvt:parameters>{JSON or text payload}</stEvt:parameters>
-    </rdf:li>
-  </rdf:Seq>
-</xmpMM:History>
 ```
 
 ### 6.10 Date Format Normalization
