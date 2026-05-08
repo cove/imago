@@ -86,39 +86,48 @@ Scans are grouped by (Collection, Year, Book, Page). All scans with the same pag
 ### 2.4 Stitching Algorithm
 
 **Affine Stitching (Primary Method)**
-Try stitching attempts in order; first successful attempt is used:
-```
-AFFINE_STITCH_ATTEMPTS = [
-    {"detector": "sift", "confidence_threshold": 0.3},
-    {"detector": "sift", "confidence_threshold": 0.1},
-    {"detector": "akaze", "confidence_threshold": 0.3},
-    {"detector": "akaze", "confidence_threshold": 0.1},
-    {"detector": "brisk", "confidence_threshold": 0.1},
-]
-```
-- Uses `stitching.AffineStitcher` library
-- Attempt parameters control feature detection and match confidence requirements
-- Falls back to next method if current fails or produces invalid output
+Try stitching attempts in order; first successful attempt is used. Each attempt uses different feature detector and confidence settings:
+
+| Attempt | Detector | Confidence Threshold | Notes |
+|---------|----------|----------------------|-------|
+| 1 | SIFT | 0.3 | Most permissive: high match tolerance |
+| 2 | SIFT | 0.1 | Tighter: require stronger matches |
+| 3 | AKAZE | 0.3 | Switch to AKAZE detector, high tolerance |
+| 4 | AKAZE | 0.1 | AKAZE with tight matching |
+| 5 | BRISK | 0.1 | BRISK detector as final option |
+
+- Feature detectors (SIFT, AKAZE, BRISK) identify characteristic points between overlapping images
+- Confidence threshold determines how strong feature matches must be to accept the stitching
+- Lower threshold = more permissive matching (may include false matches)
+- If current attempt fails or produces invalid output, proceed to next attempt
+- First successful stitch is used; remaining attempts skipped
 
 **Linear Fallback (Secondary Method)**
-When affine stitching fails, use linear stitching with optimized overlap parameters:
-```
-LINEAR_FALLBACK_TARGET_WIDTH = 640
-LINEAR_FALLBACK_MIN_OVERLAP_FRAC = 0.08
-LINEAR_FALLBACK_MAX_OVERLAP_FRAC = 0.42
-LINEAR_FALLBACK_MAX_VERTICAL_SHIFT_FRAC = 0.08
-LINEAR_FALLBACK_MIN_SHARED_HEIGHT_FRAC = 0.6
-LINEAR_FALLBACK_MIN_DETAIL_FRAC = 0.05
-LINEAR_FALLBACK_OVERLAP_STEP = 12
-LINEAR_FALLBACK_VERTICAL_STEP = 4
-LINEAR_FALLBACK_REFINE_OVERLAP_RADIUS = 12
-LINEAR_FALLBACK_REFINE_VERTICAL_RADIUS = 4
-LINEAR_FALLBACK_EXPANSION_RATIO = 1.02
-```
-- Scales images to target width for faster alignment
-- Searches optimal overlap and vertical shift within tolerance ranges
-- Refines results in tighter radius around best candidate
-- Expands final canvas slightly to prevent clipping
+When affine stitching fails, use linear (sequential) stitching with optimized overlap detection:
+
+**Linear Stitching Parameters:**
+| Parameter | Value | Purpose |
+|-----------|-------|---------|
+| target_width | 640 px | Resize images to this width for faster analysis |
+| min_overlap | 0.08 | Minimum acceptable overlap between scans (8% of width) |
+| max_overlap | 0.42 | Maximum acceptable overlap (42% of width) |
+| max_vertical_shift | 0.08 | Allow up to 8% vertical misalignment |
+| min_shared_height | 0.6 | Overlapping regions must share 60% of height |
+| min_detail | 0.05 | Require 5% detail/features in overlap for validation |
+| overlap_search_step | 12 | Search for optimal overlap in 12-pixel increments |
+| vertical_search_step | 4 | Search for optimal vertical alignment in 4-pixel increments |
+| refine_overlap_radius | 12 px | Fine-tune overlap within ±12 pixels of best guess |
+| refine_vertical_radius | 4 px | Fine-tune vertical alignment within ±4 pixels |
+| expansion_ratio | 1.02 | Expand final canvas by 2% to prevent edge clipping |
+
+**Algorithm:**
+1. Resize scans to target width (640 px) for speed
+2. Search for optimal overlap amount (8%–42% range) in 12-pixel steps
+3. Search for optimal vertical alignment in 4-pixel steps
+4. Validate that overlapping regions share enough detail and height
+5. Refine best result with tighter search radius (±12 px overlap, ±4 px vertical)
+6. Expand output canvas by 2% to ensure no clipping of edges
+7. Composite aligned images into final stitched output
 
 ### 2.5 Image Format Handling
 - **Input Formats:** TIFF (with auto-orient), JPEG, PNG
@@ -164,108 +173,60 @@ Identify individual photographs within a stitched page view JPEG using Docling's
 
 ### 3.4 Docling Pipeline Processing Steps
 
-**Step 1: Initialize DocumentConverter**
-```python
-converter = DocumentConverter(
-    format_options={
-        InputFormat.IMAGE: PdfFormatOption(
-            pipeline_options=PdfPipelineOptions(
-                do_ocr=False,  # IMPORTANT: Layout analysis only, no OCR
-                accelerator_options=AcceleratorOptions(device=device),
-            ),
-            backend=ImageDocumentBackend,  # Use image-optimized backend
-        )
-    }
-)
-```
+**Step 1: Initialize Document Converter**
+Create a DocumentConverter instance configured with:
+- Input format: IMAGE
+- Backend: ImageDocumentBackend (image-optimized, not document-optimized)
+- Pipeline options: do_ocr=False (CRITICAL: layout analysis only, no text extraction)
+- Accelerator: Use specified device (GPU/MPS/CPU as configured)
 
-**Step 2: Run Pipeline (with Retries)**
-```python
-for attempt in range(1, max_attempts + 1):
-    convert_result = converter.convert(str(image_path))
-    # ... extract regions ...
-    if regions_found:
-        break
-    else:
-        retry
-```
+**Step 2: Run Pipeline with Retry Loop**
+For each attempt (up to max_attempts):
+1. Call converter.convert(image_path)
+2. This internally runs Docling's standard image layout analysis
+3. Docling outputs a document object with detected items and metadata
+4. If regions detected → break from retry loop
+5. Else if attempts remaining → log warning and retry
+6. Else if no more attempts → log final warning, return empty list
 
-The pipeline internally:
-- Analyzes visual structure and layout of the page image
-- Detects regions with `label == DocItemLabel.PICTURE`
-- Returns document object with detected items and their metadata
-
-**Step 3: Extract Picture Items**
-```python
-doc = convert_result.document
-regions = []
-for item, _level in doc.iterate_items():
-    # Filter for picture items only
-    if item.label != DocItemLabel.PICTURE:
-        continue
-    
-    # Skip items without provenance metadata
-    if not item.prov:
-        continue
-    
-    prov = item.prov[0]  # Use first provenance entry
-```
+**Step 3: Extract Picture Items from Document**
+Iterate through all items in the document:
+1. Filter for items with label = "PICTURE" (Docling's classification for photos/images)
+2. Skip items without provenance metadata (provenance contains layout information)
+3. Use first provenance entry from the list
+4. Collect all matching picture items
 
 **Step 4: Extract Bounding Box from Provenance**
-```python
-# Determine page height for coordinate transformation
-page_height = float(img_h)
-if getattr(prov, "page_no", None) in getattr(doc, "pages", {}):
-    page_height = float(doc.pages[prov.page_no].size.height)
-
-# Convert bbox to top-left origin coordinate system
-bbox = prov.bbox.to_top_left_origin(page_height=page_height)
-left, top, right, bottom = bbox.as_tuple()
-
-# Round to pixel coordinates and clamp to 0
-x = max(0, round(left))
-y = max(0, round(top))
-width = max(1, round(right - left))
-height = max(1, round(bottom - top))
-```
+For each picture item:
+1. Get page height (from document.pages if available, else use image_height)
+2. Extract bbox from provenance metadata
+3. Convert bbox coordinate system to top-left origin (if necessary)
+4. Extract four values: left, top, right, bottom (in pixels)
+5. Calculate dimensions: width = right - left, height = bottom - top
+6. Clamp to valid ranges: x ≥ 0, y ≥ 0, width ≥ 1, height ≥ 1
 
 **Step 5: Extract Caption Hints (Optional)**
-```python
-caption_hint = ""
-if hasattr(item, "captions") and item.captions:
-    caption_ref = item.captions[0]
-    if hasattr(caption_ref, "cref") and caption_ref.cref:
-        # cref format: "path/to/text/12" → extract index 12
-        text_idx_str = caption_ref.cref.split("/")[-1]
-        try:
-            text_idx = int(text_idx_str)
-            if hasattr(doc, "texts") and 0 <= text_idx < len(doc.texts):
-                caption_hint = str(getattr(doc.texts[text_idx], "text", "")).strip()
-        except (ValueError, IndexError, AttributeError):
-            pass  # Silently ignore parsing failures
-```
+If item has associated captions:
+1. Get first caption reference
+2. Caption reference contains a "cref" value (reference string, format: "path/to/text/INDEX")
+3. Extract the numeric index from the end of cref
+4. Look up that index in document.texts array
+5. If found, extract and clean the text value as caption_hint
+6. If not found or parsing fails, use empty string (silent failure is acceptable)
 
-**Step 6: Create RegionResult Object**
-```python
-regions.append(RegionResult(
-    index=len(regions),
-    x=x,
-    y=y,
-    width=width,
-    height=height,
-    caption_hint=caption_hint,
-))
-```
+**Step 6: Create Region Result Object**
+For each picture, record:
+- index: sequential count (0, 1, 2, ...)
+- x, y: top-left corner pixel coordinates
+- width, height: dimensions in pixels
+- caption_hint: extracted text or empty string
 
-**Step 7: Coordinate Conversion to MWG-RS**
-After extraction, convert pixel coordinates to MWG-RS normalized center-point format:
-```python
-cx = (x + width/2) / img_w
-cy = (y + height/2) / img_h
-nw = width / img_w
-nh = height / img_h
-# Store in XMP as: cx, cy, nw, nh (all values 0.0-1.0)
-```
+**Step 7: Coordinate Conversion to MWG-RS Normalized Format**
+After extracting pixel coordinates, convert to normalized center-point format for XMP storage:
+- Calculate center point: cx = (x + width/2) / img_width, cy = (y + height/2) / img_height
+- Calculate normalized dimensions: nw = width / img_width, nh = height / img_height
+- Result: cx, cy, nw, nh (all values in range 0.0–1.0)
+- Store in XMP as MWG-RS region with this normalized format
 
 ### 3.5 Region Validation
 
@@ -277,13 +238,10 @@ Validate detected regions before persisting to XMP:
 - **Clamping Check:** Clamp to image bounds; log warning if clamped by >5% of any dimension
 
 **Validation Output:**
-```python
-ValidationResult(
-    valid: bool,           # True if all regions pass validation
-    kept: List[RegionResult],  # Validated regions
-    failures: List[RegionFailure],  # Rejected regions with reasons
-)
-```
+Return a validation result object containing:
+- valid: boolean flag (true if all regions passed validation, false if any rejections)
+- kept: list of RegionResult objects that passed validation
+- failures: list of RegionFailure objects describing rejected regions with reason codes
 
 ### 3.6 Retry Logic
 
@@ -307,20 +265,12 @@ Extract individual cropped photos from page view JPEG using detected region boun
 
 ### 4.3 Region Extraction
 For each region in XMP sidecar:
-1. Read MWG-RS normalized center-point coords (cx, cy, width, height)
-2. Convert to pixel rectangle:
-   ```
-   left_f = (cx - width/2) * img_w
-   top_f = (cy - height/2) * img_h
-   right_f = (cx + width/2) * img_w
-   bottom_f = (cy + height/2) * img_h
-   left = max(0, round(left_f))
-   top = max(0, round(top_f))
-   right = min(img_w, round(right_f))
-   bottom = min(img_h, round(bottom_f))
-   ```
-3. Clamp to image bounds; log warning if clamped by >5% of image dimension
-4. Extract crop: `crop = image[top:bottom, left:right]`
+1. Read MWG-RS normalized center-point coordinates: cx (center x), cy (center y), width, height (all in 0.0–1.0 range)
+2. Convert normalized to pixel coordinates:
+   - Calculate float pixel positions: left_f = (cx - width/2) × img_w, top_f = (cy - height/2) × img_h, right_f = (cx + width/2) × img_w, bottom_f = (cy + height/2) × img_h
+   - Round and clamp to image bounds: left = max(0, round(left_f)), top = max(0, round(top_f)), right = min(img_w, round(right_f)), bottom = min(img_h, round(bottom_f))
+3. Check clamping amount: if any dimension was clamped by more than 5% of image size, log a warning
+4. Extract rectangular region from image using bounds (top:bottom, left:right)
 
 ### 4.4 Photo Restoration
 
@@ -330,23 +280,20 @@ For each region in XMP sidecar:
 - **Availability Check:** Try importing from `diffusers` library; skip if unavailable
 - **RAM Requirement:** Model repo size ≈41.8 GB; skip if installed RAM < repo size
 
-**Restoration Inference:**
-```python
-result = pipe(
-    image=crop_image,
-    prompt="Please restore this low-quality image, recovering its normal brightness and clarity.",
-    num_inference_steps=28,
-    guidance_scale=3.0,
-    seed=42,
-    size_level=1024,
-)
-output_image = result.images[0]
-```
+**Restoration Inference Process:**
+Call the RealRestorer pipeline with the following parameters:
+- Input: crop_image (PIL Image object or equivalent)
+- Prompt: "Please restore this low-quality image, recovering its normal brightness and clarity."
+- Inference steps: 28 (diffusion steps)
+- Guidance scale: 3.0 (strength of prompt adherence)
+- Seed: 42 (fixed seed for reproducibility)
+- Size level: 1024 (output resolution)
+- Output: First image from results array
 
-**Runtime:** Automatically selects dtype and device:
-- CUDA available → `torch.bfloat16` + "cuda" with `pipe.enable_model_cpu_offload()`
-- MPS available → `torch.float32` + "mps"
-- CPU fallback → `torch.float32` + "cpu"
+**Runtime Configuration:** Automatically detect hardware and select precision:
+- If CUDA GPU available → Use bfloat16 precision with "cuda" device, enable CPU offload for memory efficiency
+- Else if MPS (Metal Performance Shaders) available → Use float32 precision with "mps" device
+- Else → Use float32 precision with "cpu" device
 
 **Fallback Behavior:**
 - If RealRestorer unavailable (not installed): return original crop unchanged, log "restoration_unavailable"
