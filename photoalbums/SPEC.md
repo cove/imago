@@ -14,7 +14,7 @@
 - **Filename Pattern:** `{Collection}_{Year}_B{Book:02d}_P{Page:02d}_S{Scan:02d}.tif`
   - Collection: alphanumeric (e.g., "Egypt", "Cordell")
   - Year: 4-digit YYYY or YYYY-YYYY range
-  - Book: 2-digit number (00-99) or special ellipsis character
+  - Book: 2-digit number (00-99)
   - Page: 2-digit page number within album
   - Scan: 2-digit scan number per page (multiple scans per page due to oversized originals)
 - **Scanner Configuration:** All preprocessing disabled—scans are raw, unrotated TIFF files
@@ -51,7 +51,7 @@ The pipeline keys nearly every operation off filename structure, so consistent n
 |----------|---------|---------|
 | Raw TIFF scan | `{Collection}_{Year}_B{Book}_P{Page:02d}_S{Scan:02d}.tif` | `Egypt_1975_B01_P05_S01.tif` |
 | Stitched page view | `{Collection}_{Year}_B{Book}_P{Page:02d}_V.jpg` | `Egypt_1975_B01_P05_V.jpg` |
-| Extracted photo crop | `{Collection}_{Year}_B{Book}_P{Page:02d}_D{Crop:02d}-{Iter:02d}_V.jpg` | `Egypt_1975_B01_P05_D00-00_V.jpg` |
+| Derived photo view | `{Collection}_{Year}_B{Book}_P{Page:02d}_D{Derived:02d}-{Iter:02d}_V.jpg` | `Egypt_1975_B01_P05_D00-00_V.jpg` |
 | XMP sidecar | `{image_filename}.xmp` (alongside the JPEG/TIFF) | `Egypt_1975_B01_P05_V.xmp` |
 
 **Type Tokens** — control what stage and format a file represents:
@@ -64,19 +64,21 @@ The pipeline keys nearly every operation off filename structure, so consistent n
 | `_D##-##_V` | View of derived image | `.jpg` | Extracted crop rendered as JPEG; the combination of `_D##-##` (derived) + `_V` (view) |
 
 **Invariant rules:**
-- `_S##` appears only on archive scans (`.tif`); indicates raw, unprocessed input.
-- `_V` appears only on rendered JPEGs; indicates the file is display-ready.
-- `_D##-##` appears on both intermediate TIFs and on rendered `_D##-##_V.jpg` crops.
-- Archive files are `.tif` or `.png`; view files are `.jpg`. No exceptions.
+- `_V` always and only marks a view output. `_S##` always and only marks an archive scan.
+- `_D##-##` identifies a derived image; append `_V` for the view JPEG.
+- Archive files are `.tif` and `.png`; view files are `.jpg` — no exceptions.
+- `dc:source` on any view file references the archive TIF scan(s) it was derived from.
+- Pages are numbered starting at P01. P00 is not a valid page number.
+- XMP sidecars share the same stem as their companion image file (`.xmp` extension).
 
 **Field semantics:**
 - **Collection** — alphanumeric, no underscores (e.g., `Egypt`, `Cordell`)
 - **Year** — `YYYY` or `YYYY-YYYY` range
-- **Book** — two digits (`00`–`99`) or the ellipsis character `…` (U+2026) for unknown
+- **Book** — two digits (`00`–`99`)
 - **Page** — two digits in range `01`–`99` (P00 is not valid; leading zero required: `P05`, not `P5`)
 - **Scan** — two digits (`01`, `02`, …) indicating the scan index for an oversized page
-- **Crop** — two digits (`00`, `01`, …), sequential index of detected photos on a page
-- **Iter** — two-digit reprocessing iteration; the first version is `00`
+- **Derived** — two digits (`00`, `01`, …), per-page index of a derived photo extracted from the page
+- **Iter** — two-digit version of the derived (`D##`) image; the first version is `00`, and increments when the derived photo is re-derived (e.g., recropped, regeometried) from the same source page region
 - `_V` is a literal suffix marking a "view" (rendered/derived) artifact
 
 ### 1.4 Required Specs (What the Pipeline Needs)
@@ -361,7 +363,7 @@ Extract individual cropped photos from page view JPEG using detected region boun
 ### 4.2 Entry Point
 - **Input:** Page view JPEG + XMP region metadata
 - **Output:** Individual crop JPEGs in `{PHOTOS_ROOT}/_Photos/`
-- **Naming:** `{Album}_P{Page:02d}_D{CropIndex:02d}-00_V.jpg`
+- **Naming:** `{Album}_P{Page:02d}_D{Derived:02d}-00_V.jpg`
 
 ### 4.3 Region Extraction
 For each region in XMP sidecar:
@@ -1284,7 +1286,7 @@ Where Base = `{Collection}_{Year}_B{Book}`
 |-----------|---------|---------|
 | **TIFF Scan (raw)** | `{Collection}_{Year}_B{Book}_P{Page:02d}_S{Scan:02d}.tif` | `Egypt_1975_B01_P05_S01.tif` |
 | **Page View (stitched)** | `{Collection}_{Year}_B{Book}_P{Page:02d}_V.jpg` | `Egypt_1975_B01_P05_V.jpg` |
-| **Crop (extracted photo)** | `{Collection}_{Year}_B{Book}_P{Page:02d}_D{Crop:02d}-{Iter:02d}_V.jpg` | `Egypt_1975_B01_P05_D00-00_V.jpg` |
+| **Derived photo view** | `{Collection}_{Year}_B{Book}_P{Page:02d}_D{Derived:02d}-{Iter:02d}_V.jpg` | `Egypt_1975_B01_P05_D00-00_V.jpg` |
 | **XMP Sidecar** | `{source_filename}.xmp` | `Egypt_1975_B01_P05_V.xmp` |
 
 **Type Tokens** — control what stage and format a file represents:
@@ -1299,13 +1301,12 @@ Where Base = `{Collection}_{Year}_B{Book}`
 **Field Definitions:**
 - **Collection:** Alphanumeric string (no underscores), e.g., "Egypt", "Cordell", "Hawaii"
 - **Year:** 4-digit year or year range, e.g., "1975" or "1975-1976"
-- **Book:** 2-digit book number (00-99), ellipsis character (…), or unknown marker
-  - Valid: `00` through `99` or `…` (ellipsis, U+2026)
-  - Note: Legacy systems may use corrupted encoding of ellipsis
+- **Book:** 2-digit book number (00-99)
+  - Valid: `00` through `99`
 - **Page:** 2-digit page number within book in range `01` through `99` (P00 is not valid). Leading zero required, e.g., "05"
 - **Scan:** 2-digit scan index per page, e.g., "01", "02" (multiple scans per page due to scanner width limit)
-- **Crop:** 2-digit crop index within page, e.g., "00", "01" (sequential index of photos detected on page)
-- **Iteration:** 2-digit iteration version, e.g., "00" (first version, useful if re-processing crops)
+- **Derived:** 2-digit per-page index of a derived photo extracted from the page, e.g., "00", "01"
+- **Iter:** 2-digit version of the derived (`D##`) image, e.g., "00" (first version); increments when the derived photo is re-derived (recropped, regeometried) from the same source page region
 
 ### 11.2 Validation & Parsing Rules
 
@@ -1313,29 +1314,29 @@ Where Base = `{Collection}_{Year}_B{Book}`
 - Must match: `{Collection}_{Year}_B{Book}_P{Page:02d}_S{Scan:02d}.tif`
 - Collection: any alphanumeric characters except underscore
 - Year: exactly 4 digits, or 4 digits + hyphen + 4 digits
-- Book: exactly 2 digits (00-99), ellipsis, or unknown marker (case-insensitive file matching)
-- Page: exactly 2 decimal digits in range 01-99 (P00 is invalid; case-insensitive)
-- Scan: exactly 2 decimal digits (case-insensitive)
-- Extension: `.tif` (case-insensitive)
+- Book: exactly 2 digits (00-99)
+- Page: exactly 2 decimal digits in range 01-99 (P00 is invalid)
+- Scan: exactly 2 decimal digits
+- Extension: `.tif`
 - Valid example: `Egypt_1975_B01_P05_S01.tif` ✓
 - Invalid examples: `Egypt_1975_B01_P5_S1.tif` ✗ (no leading zeros), `Egypt_1975_B01_P00_S01.tif` ✗ (P00 not allowed)
 
 **Page View File Validation:**
-- Must end with: `_P{Page:02d}_V.jpg` (case-insensitive)
+- Must end with: `_P{Page:02d}_V.jpg`
 - Capture base album identifier: `{Collection}_{Year}_B{Book}`
 - Page: exactly 2 decimal digits in range 01-99 (P00 is invalid)
-- Marker: literal `_V` (view)
-- Extension: `.jpg` (case-insensitive)
+- Type token: literal `_V` (view)
+- Extension: `.jpg`
 - Valid example: `Egypt_1975_B01_P05_V.jpg` ✓
 - Invalid example: `Egypt_1975_B01_P00_V.jpg` ✗ (P00 not allowed)
 
-**Crop File Validation:**
-- Must match: `{Collection}_{Year}_B{Book}_P{Page:02d}_D{Crop:02d}-{Iter:02d}_V.jpg`
+**Derived Photo File Validation:**
+- Must match: `{Collection}_{Year}_B{Book}_P{Page:02d}_D{Derived:02d}-{Iter:02d}_V.jpg`
 - Page: exactly 2 decimal digits in range 01-99 (P00 is invalid)
-- Crop index: exactly 2 decimal digits (00-99)
-- Iteration index: exactly 2 decimal digits (00-99)
-- Marker: literal `_V` (view/version)
-- Extension: `.jpg` (case-insensitive)
+- Derived index: exactly 2 decimal digits (00-99)
+- Iter index: exactly 2 decimal digits (00-99)
+- Type token: literal `_V` (view)
+- Extension: `.jpg`
 - Valid example: `Egypt_1975_B01_P05_D00-00_V.jpg` ✓
 - Invalid examples: `Egypt_1975_B01_P05_D0-0_V.jpg` ✗ (single digit), `Egypt_1975_B01_P00_D00-00_V.jpg` ✗ (P00 not allowed)
 
