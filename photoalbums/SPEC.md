@@ -102,6 +102,45 @@ The pipeline expects these properties of its environment and inputs to be provid
 - **Nominatim:** reachable HTTPS endpoint, default `https://nominatim.openstreetmap.org`, with a custom `User-Agent` (`imago-photoalbums-ai-index/1.0`)
 - **Local cache directory:** writable `{PHOTOALBUMS_DIR}/data/` for `geocode_cache.json` and similar artifacts
 
+### 1.5 Scan Acquisition & Validation (Watcher System)
+
+Before raw TIFF scans can enter the main pipeline, they must be:
+1. **Acquired:** Transferred from the scanner to a designated "incoming scans" directory
+2. **Validated:** Tested to ensure stitching is possible (if multiple scans per page)
+3. **Registered:** Renamed and moved into the archive directory with the correct naming convention
+
+A long-running **ScanWatchService** monitors an `{INCOMING_NAME}` directory (typically `{PHOTOS_ROOT}/incoming/`) for new `.tif` files matching the pattern `incoming_scan_NNNN.tif`. When detected:
+
+**Per-file workflow:**
+1. Log the incoming scan event with a unique ID
+2. Parse the filename to determine target archive set and page number
+3. **Group scans:** Collect all scans for the same (Collection, Year, Book, Page) if multiple scans per page
+4. **Validate stitch:** Attempt to stitch multi-scan groups using SIFT/BRISK detectors (simplified subset vs. full pipeline)
+   - If stitch succeeds: mark the group as valid and ready for pipeline processing
+   - If stitch fails: alert the operator (beep + modal on Windows) requesting a rescan
+5. **Apply decision:**
+   - On success: rename files to final naming convention (e.g., `incoming_scan_0001.tif` → `Egypt_1975_B01_P05_S01.tif`)
+   - Move files to `{Archive}_Archive/` directory
+   - Create a `ScanEvent` record tracking the timestamp and stitch validation result
+6. **Sync archive state:** Update the `ArchiveState` for the target album set:
+   - Record how many scans now exist per page
+   - Flag pages that need rescan if a previous stitch failed
+
+**Configuration:**
+- **Scanning directory:** `PHOTO_SCANNING_DIR` (default: `{PHOTOS_ROOT}/scanning/`)
+- **Incoming subdir:** `INCOMING_NAME` (default: `incoming`)
+- **Alert behavior:** Beep + Windows messagebox on stitch failure (silent on Unix/Linux)
+- **Stitch validation:** Simplified subset (SIFT 0.3, BRISK 0.1) vs. full pipeline's `AFFINE_STITCH_ATTEMPTS` (faster feedback)
+
+**Data structures:**
+- **ScanEvent:** `{id, archive_dir, incoming_path, created_at, updated_at, status, target_name, page_num, stitch_validated, note}`
+  - status: `pending`, `processing`, `applied`, `failed`
+  - stitch_validated: `True` if group stitched successfully, `False` if failed, `None` if single scan
+- **ArchiveState:** `{archive_dir, incoming_path, pending_event_ids, page_scan_counts, needs_rescan_pages}`
+  - Tracks which pages have how many scans and which pages need operator attention
+
+**Note:** The watcher is optional — raw scans can be manually renamed and placed in `{Archive}_Archive/` without going through the watcher. The watcher is a convenience for operator feedback during the ingest phase.
+
 ---
 
 ## 2. Page Rendering (Stitch Oversized Pages)
