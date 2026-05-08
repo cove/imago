@@ -135,8 +135,10 @@ Identify individual photographs within a stitched page view JPEG using Docling's
 
 ### 3.3 Docling Configuration
 
+**Current Model:** `granite-docling-258m` (IBM Granite Document Layout Analysis 258M parameters)
+
 **Pipeline Type:** Standard image pipeline (not OCR, not document)
-```
+```python
 PdfPipelineOptions(
     do_ocr=False,
     accelerator_options=AcceleratorOptions(device={device}),
@@ -144,11 +146,20 @@ PdfPipelineOptions(
 ImageDocumentBackend
 ```
 
-**Settings:**
-- Preset: from `default_docling_preset()` (e.g., "fast", "standard", "high_quality")
-- Backend: from `default_docling_backend()` (e.g., "auto_inline", "transformers", "mlx")
-- Device: from `default_docling_device()` (e.g., "auto", "cpu", "cuda", "mps")
-- Retries: from `default_docling_retries()` (attempts if no regions found)
+**Settings (from ai_models.toml):**
+```toml
+[docling_pipeline]
+preset = "granite_docling"
+backend = "auto_inline"
+device = "auto"
+retries = 3
+```
+
+**Mapping:**
+- **Preset:** `granite_docling` (optimized for the Granite model)
+- **Backend:** `auto_inline` (automatic backend selection; can be "transformers" or "mlx")
+- **Device:** `auto` (auto-detects GPU/MPS/CPU; can be explicitly set)
+- **Retries:** `3` (retry up to 3 times if no regions detected on first attempt)
 
 **Region Extraction from Docling Output:**
 1. Iterate `document.pages[page_idx].iterate_items()`
@@ -241,6 +252,55 @@ output_image = result.images[0]
 
 ## 5. AI Processing Pipeline
 
+### 5.0 Current Baseline (Starting Point for Reimplementation)
+
+**Important:** This section documents the exact AI models and services used in the current implementation. This is the baseline from which any rewrite should measure improvements or changes.
+
+**Current AI Stack (as of last update):**
+- **OCR/Caption Engine:** lmstudio local inference server
+  - **Model:** `google/gemma-4-31b` (Gemma 4 31B via Hugging Face)
+  - **Server URL:** `http://127.0.0.1:1234/v1` (local, requires manual lmstudio startup)
+  - **Fallback Models:** Same as primary (configurable in ai_models.toml)
+  
+- **View Region Detection (Photo Detection):**
+  - **Model:** `granite-docling-258m` (Granite Document Layout Analysis 258M parameters)
+  - **Backend:** docling standard image pipeline
+  - **Preset:** `granite_docling`
+  
+- **Photo Restoration:**
+  - **Model:** RealRestorer (from https://github.com/yfyang007/RealRestorer.git)
+  - **Version:** Pinned to commit `fa2a3e3c23768eb94748c5855d83cc2e340ab13b`
+  - **Inference settings:** 28 steps, 3.0 guidance scale, seed=42, size_level=1024
+  
+- **Face Recognition (Optional):**
+  - **Service:** Cast (internal face matching service)
+  - **Model:** buffalo_l (via InsightFace)
+  
+- **Object Detection (Optional):**
+  - **Model:** YOLOv11 nano (`ultralytics/yolo11n.pt`)
+  - **Threshold:** Configurable (default 0.25)
+
+**Configuration File:** `ai_models.toml`
+```toml
+selected_ocr_model = "pc"
+selected_caption_model = "pc"
+view_region_model = "docling"
+caption_matching_model = "primary"
+lmstudio_base_url = "http://127.0.0.1:1234/v1"
+
+[models]
+pc = ["google/gemma-4-31b"]
+primary = ["google/gemma-4-31b"]
+fallback = ["google/gemma-4-31b"]
+docling = "granite-docling-258m"
+
+[docling_pipeline]
+preset = "granite_docling"
+backend = "auto_inline"
+device = "auto"
+retries = 3
+```
+
 ### 5.1 Overview
 For each page view, run a series of AI analyses on the original page and extracted crops, writing results to XMP sidecars.
 
@@ -253,10 +313,19 @@ For each page view, run a series of AI analyses on the original page and extract
 ### 5.3 Page-Level Processing
 
 #### 5.3.1 OCR & Caption Extraction
-**Model:** Claude API with vision
-**Prompt:** Structured metadata extraction from page images
+**Current Implementation:** lmstudio with `google/gemma-4-31b` via local HTTP API
+**Aspirational Design:** Claude API with vision (documented below for future reference)
 
-**System Prompt:**
+**Current Setup:**
+- **Service:** Local lmstudio server at `http://127.0.0.1:1234/v1`
+- **Model:** `google/gemma-4-31b` (Google Gemma 4 31B parameters)
+- **Request Type:** JSON completion via `/v1/chat/completions` endpoint
+- **Structured Output:** JSON schema validation (response_format with json_schema)
+
+**Prompts Used (Current):**
+Located in `photoalbums/prompts/ai-index/metadata/`:
+
+**System Prompt** (`system.md`):
 ```
 - You extract metadata from scanned photo album pages.
 - Return only valid JSON matching the response_format schema.
@@ -271,23 +340,60 @@ For each page view, run a series of AI analyses on the original page and extract
 - `people_count`: Number of clearly visible people in the photo.
 ```
 
-**User Prompt:**
+**User Prompt** (`user.md`):
 ```
 Analyze this album page.
 Album title: {album_title}
 ```
 
-**Parameters:**
-- `max_tokens = 2048`
-- `temperature = 0.1`
-- `timeout = 300.0 seconds`
+**Parameters** (`params.toml`):
+```toml
+max_tokens = 2048
+temperature = 0.1
+max_image_edge = 0
+timeout_seconds = 300.0
+```
 
-**Output Schema:** JSON with fields: `photos[]` (array of photo metadata objects)
+**Output Schema** (`schema.json`):
+```json
+{
+  "type": "object",
+  "properties": {
+    "photos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "photo_number": {"type": "integer"},
+          "location": {"type": "string"},
+          "location_name": {"type": "string"},
+          "est_date": {"type": "string"},
+          "scene_ocr": {"type": "string"},
+          "caption": {"type": "string"},
+          "corrected_caption": {"type": "string"},
+          "people_count": {"type": "integer"}
+        }
+      }
+    }
+  }
+}
+```
+
+**Aspirational Alternative (Claude API):**
+For a clean rewrite, consider using Claude API with vision:
+- **Model:** claude-opus-4-1 or later
+- **Request Type:** `/v1/messages` with vision capabilities
+- **Same prompts and parameters as above would apply**
 
 #### 5.3.2 People Count (Per-Crop Refinement)
 For each detected crop, optionally run separate people-counting to refine estimates.
 
-**System Prompt:**
+**Current Implementation:** lmstudio with `google/gemma-4-31b`
+
+**Prompts Used (Current):**
+Located in `photoalbums/prompts/ai-index/people-count/`:
+
+**System Prompt** (`system.md`):
 ```
 - You count visible people in photographs.
 - Return only valid JSON matching the response_format schema.
@@ -295,15 +401,23 @@ For each detected crop, optionally run separate people-counting to refine estima
 - Do not include reasoning or extra fields.
 ```
 
-**User Prompt:**
+**User Prompt** (`user.md`):
 ```
 - Count the number of clearly visible real people.
 ```
 
-**Parameters:**
-- `max_tokens = 48`
-- `temperature = 0.0`
-- `timeout = 300.0 seconds`
+**Output Format** (`output.md`):
+```json
+{"count": 0}
+```
+
+**Parameters** (`params.toml`):
+```toml
+max_tokens = 48
+temperature = 0.0
+max_image_edge = 0
+timeout_seconds = 300.0
+```
 
 **Output Schema:** JSON with field: `count` (integer)
 
