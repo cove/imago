@@ -124,29 +124,21 @@ LINEAR_FALLBACK_EXPANSION_RATIO = 1.02
 
 ---
 
-## 3. Photo Region Detection
+## 3. Photo Region Detection (Docling Pipeline)
 
-### 3.1 Purpose
-Identify individual photographs within a stitched page view JPEG using Docling's standard image pipeline.
+### 3.1 Purpose & Overview
+Identify individual photographs within a stitched page view JPEG using Docling's document layout analysis pipeline. Docling analyzes the visual structure of the page to detect and extract photo regions.
 
 ### 3.2 Entry Point
 - **Input:** Page view JPEG (`{Album}_P{Page:02d}_V.jpg`)
 - **Output:** Bounding boxes as MWG-RS region metadata in XMP sidecar
 
-### 3.3 Docling Configuration
+### 3.3 Docling Pipeline Configuration
 
-**Current Model:** `granite-docling-258m` (IBM Granite Document Layout Analysis 258M parameters)
+**Library:** `docling` **2.88.0**
+**Pipeline Type:** Standard image pipeline (image layout analysis, NOT document text extraction, NOT OCR)
 
-**Pipeline Type:** Standard image pipeline (not OCR, not document)
-```python
-PdfPipelineOptions(
-    do_ocr=False,
-    accelerator_options=AcceleratorOptions(device={device}),
-)
-ImageDocumentBackend
-```
-
-**Settings (from ai_models.toml):**
+**Configuration (from ai_models.toml):**
 ```toml
 [docling_pipeline]
 preset = "granite_docling"
@@ -155,34 +147,142 @@ device = "auto"
 retries = 3
 ```
 
-**Mapping:**
-- **Preset:** `granite_docling` (optimized for the Granite model)
-- **Backend:** `auto_inline` (automatic backend selection; can be "transformers" or "mlx")
-- **Device:** `auto` (auto-detects GPU/MPS/CPU; can be explicitly set)
-- **Retries:** `3` (retry up to 3 times if no regions detected on first attempt)
+**Settings Explained:**
+- **preset:** `granite_docling` - pipeline tuning optimized for document layout analysis
+- **backend:** `auto_inline` - automatically selects best backend (can force: "transformers" or "mlx")
+- **device:** `auto` - auto-detects GPU/MPS/CPU availability
+- **retries:** `3` - retry up to 3 times if first attempt returns no regions
 
-**Region Extraction from Docling Output:**
-1. Iterate `document.pages[page_idx].iterate_items()`
-2. Filter for items with `label == DocItemLabel.PICTURE`
-3. Extract bounding boxes from `item.prov[0].bbox` (top-left origin)
-4. Convert pixel coordinates to top-left origin (if needed): `bbox.to_top_left_origin(page_height)`
-5. Extract caption hints from `item.captions[0].cref` → `document.texts[idx]`
+### 3.4 Docling Pipeline Processing Steps
 
-**Coordinate Output:**
-- Format: pixel coordinates (x, y, width, height) in image space
-- Convert to MWG-RS normalized center-point coords: 
-  ```
-  cx = (x + w/2) / img_w
-  cy = (y + h/2) / img_h
-  nw = w / img_w
-  nh = h / img_h
-  ```
+**Step 1: Initialize DocumentConverter**
+```python
+converter = DocumentConverter(
+    format_options={
+        InputFormat.IMAGE: PdfFormatOption(
+            pipeline_options=PdfPipelineOptions(
+                do_ocr=False,  # IMPORTANT: Layout analysis only, no OCR
+                accelerator_options=AcceleratorOptions(device=device),
+            ),
+            backend=ImageDocumentBackend,  # Use image-optimized backend
+        )
+    }
+)
+```
 
-### 3.4 Region Validation
-Validate detected regions before persisting:
-- **Zero Area:** Region has width ≤ 0 or height ≤ 0 → reject
-- **Full Page:** Region occupies ≥90% of page area → reject
-- **Clamping:** Clamp regions to image bounds; log warnings if clamped by >5% of image dimension
+**Step 2: Run Pipeline (with Retries)**
+```python
+for attempt in range(1, max_attempts + 1):
+    convert_result = converter.convert(str(image_path))
+    # ... extract regions ...
+    if regions_found:
+        break
+    else:
+        retry
+```
+
+The pipeline internally:
+- Analyzes visual structure and layout of the page image
+- Detects regions with `label == DocItemLabel.PICTURE`
+- Returns document object with detected items and their metadata
+
+**Step 3: Extract Picture Items**
+```python
+doc = convert_result.document
+regions = []
+for item, _level in doc.iterate_items():
+    # Filter for picture items only
+    if item.label != DocItemLabel.PICTURE:
+        continue
+    
+    # Skip items without provenance metadata
+    if not item.prov:
+        continue
+    
+    prov = item.prov[0]  # Use first provenance entry
+```
+
+**Step 4: Extract Bounding Box from Provenance**
+```python
+# Determine page height for coordinate transformation
+page_height = float(img_h)
+if getattr(prov, "page_no", None) in getattr(doc, "pages", {}):
+    page_height = float(doc.pages[prov.page_no].size.height)
+
+# Convert bbox to top-left origin coordinate system
+bbox = prov.bbox.to_top_left_origin(page_height=page_height)
+left, top, right, bottom = bbox.as_tuple()
+
+# Round to pixel coordinates and clamp to 0
+x = max(0, round(left))
+y = max(0, round(top))
+width = max(1, round(right - left))
+height = max(1, round(bottom - top))
+```
+
+**Step 5: Extract Caption Hints (Optional)**
+```python
+caption_hint = ""
+if hasattr(item, "captions") and item.captions:
+    caption_ref = item.captions[0]
+    if hasattr(caption_ref, "cref") and caption_ref.cref:
+        # cref format: "path/to/text/12" → extract index 12
+        text_idx_str = caption_ref.cref.split("/")[-1]
+        try:
+            text_idx = int(text_idx_str)
+            if hasattr(doc, "texts") and 0 <= text_idx < len(doc.texts):
+                caption_hint = str(getattr(doc.texts[text_idx], "text", "")).strip()
+        except (ValueError, IndexError, AttributeError):
+            pass  # Silently ignore parsing failures
+```
+
+**Step 6: Create RegionResult Object**
+```python
+regions.append(RegionResult(
+    index=len(regions),
+    x=x,
+    y=y,
+    width=width,
+    height=height,
+    caption_hint=caption_hint,
+))
+```
+
+**Step 7: Coordinate Conversion to MWG-RS**
+After extraction, convert pixel coordinates to MWG-RS normalized center-point format:
+```python
+cx = (x + width/2) / img_w
+cy = (y + height/2) / img_h
+nw = width / img_w
+nh = height / img_h
+# Store in XMP as: cx, cy, nw, nh (all values 0.0-1.0)
+```
+
+### 3.5 Region Validation
+
+Validate detected regions before persisting to XMP:
+
+**Validation Rules:**
+- **Zero Area:** If `width <= 0` or `height <= 0` → reject with severity "hard"
+- **Full Page:** If region occupies ≥90% of page area → reject with severity "hard"
+- **Clamping Check:** Clamp to image bounds; log warning if clamped by >5% of any dimension
+
+**Validation Output:**
+```python
+ValidationResult(
+    valid: bool,           # True if all regions pass validation
+    kept: List[RegionResult],  # Validated regions
+    failures: List[RegionFailure],  # Rejected regions with reasons
+)
+```
+
+### 3.6 Retry Logic
+
+If no regions found on attempt N:
+1. Log warning: `"no picture items found for {path} on attempt N/MAX, retrying"`
+2. Record error: `{"attempt": N, "error": "no_regions"}`
+3. Retry (up to `retries` times)
+4. If all retries exhausted with no regions: log final warning and return empty list
 
 ---
 
