@@ -82,8 +82,8 @@ class TestPrintPipelinePlan(unittest.TestCase):
     def test_no_annotation_for_normal_steps(self):
         output = self._capture_plan(["crop-regions"], ["ai-index"])
         # render has neither skip nor redo
-        lines = [l for l in output.splitlines() if "render" in l and "detect" not in l and "crop" not in l]
-        self.assertTrue(any("skipped" not in l and "redo" not in l for l in lines))
+        lines = [line for line in output.splitlines() if "render" in line and "detect" not in line and "crop" not in line]
+        self.assertTrue(any("skipped" not in line and "redo" not in line for line in lines))
 
     def test_gps_only_not_annotated_by_plan(self):
         # gps-only is a flag, not a plan annotation; plan just shows step ids

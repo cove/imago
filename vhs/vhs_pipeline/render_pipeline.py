@@ -4,7 +4,11 @@
 # transcribing audio to SRT/VTT, converting SRT to ASS subtitles, and encoding final MP4s
 # with embedded metadata and subtitles for access/delivery copies.
 #
-import argparse, math, shutil, time, re
+import argparse
+import math
+import shutil
+import time
+import re
 import sys
 from pathlib import Path
 
@@ -150,45 +154,99 @@ def parse_args(argv=None):
     return p.parse_args(argv)
 
 
-def _normalize_bad_repair_ranges(bad_source_frames=None, bad_repair_ranges=None):
+def _frames_to_contiguous_ranges(bad_source_frames):
+    frames = sorted({int(f) for f in (bad_source_frames or []) if int(f) >= 0})
+    if not frames:
+        return []
     ranges = []
-    if bad_repair_ranges is None:
-        bad_source_frames = bad_source_frames or []
-        frames = sorted({int(f) for f in bad_source_frames if int(f) >= 0})
-        if not frames:
-            return []
-        start = prev = frames[0]
-        for f in frames[1:]:
-            if f == prev + 1:
-                prev = f
-                continue
-            ranges.append((start, prev, None))
-            start = prev = f
+    start = prev = frames[0]
+    for f in frames[1:]:
+        if f == prev + 1:
+            prev = f
+            continue
         ranges.append((start, prev, None))
-    else:
-        for item in bad_repair_ranges:
-            if len(item) < 2:
-                continue
-            try:
-                a = int(item[0])
-                b = int(item[1])
-            except Exception:
-                continue
-            src = None
-            if len(item) >= 3 and item[2] not in (None, ""):
-                try:
-                    src = int(item[2])
-                except Exception:
-                    src = None
-            if b < a:
-                a, b = b, a
-            if b < 0:
-                continue
-            a = max(0, a)
-            ranges.append((a, b, src))
-        if not ranges:
-            return []
+        start = prev = f
+    ranges.append((start, prev, None))
     return ranges
+
+
+def _parse_repair_range_item(item):
+    if len(item) < 2:
+        return None
+    try:
+        a, b = int(item[0]), int(item[1])
+    except Exception:
+        return None
+    src = None
+    if len(item) >= 3 and item[2] not in (None, ""):
+        try:
+            src = int(item[2])
+        except Exception:
+            src = None
+    if b < a:
+        a, b = b, a
+    if b < 0:
+        return None
+    return (max(0, a), b, src)
+
+
+def _normalize_bad_repair_ranges(bad_source_frames=None, bad_repair_ranges=None):
+    if bad_repair_ranges is None:
+        return _frames_to_contiguous_ranges(bad_source_frames)
+    ranges = [r for item in bad_repair_ranges if (r := _parse_repair_range_item(item)) is not None]
+    return ranges
+
+
+def _source_frame_is_clear(src, bad_set, clearance):
+    if src in bad_set:
+        return False
+    if clearance <= 0:
+        return True
+    return not any(f in bad_set for f in range(int(src) - clearance, int(src) + clearance + 1))
+
+
+def _choose_repair_source_after(b, bad_set, max_allowed_src, clearance, extra_skip=0):
+    src = b + 1 + max(0, int(extra_skip))
+    while True:
+        while src in bad_set:
+            src += 1
+        if max_allowed_src is not None and src > max_allowed_src:
+            return None
+        if _source_frame_is_clear(src, bad_set, clearance):
+            return src
+        src += 1
+
+
+def _choose_repair_source_before(a, bad_set, clearance, extra_skip=0):
+    src = a - 1 - max(0, int(extra_skip))
+    while src >= 0:
+        while src in bad_set and src >= 0:
+            src -= 1
+        if src < 0:
+            return None
+        if _source_frame_is_clear(src, bad_set, clearance):
+            return src
+        src -= 1
+    return None
+
+
+def _resolve_single_repair_range(a, b, src_override, bad_set, max_allowed_src, clearance):
+    src = src_override
+    src_out_of_bounds = max_allowed_src is not None and src is not None and src > max_allowed_src
+    if src is not None and src not in bad_set and not src_out_of_bounds:
+        return (a, b, src)
+    if src is not None and (src in bad_set or src_out_of_bounds):
+        print(f"Badframe source override {src} is invalid for range {a}-{b}; falling back to auto neighbor source selection.")
+    span = int(b) - int(a) + 1
+    source_skip = BADFRAME_SINGLE_FRAME_SOURCE_SKIP if span == 1 else 0
+    next_src = _choose_repair_source_after(b, bad_set, max_allowed_src, clearance, extra_skip=source_skip)
+    if next_src is not None:
+        return (int(a), int(b), int(next_src))
+    prev_src = _choose_repair_source_before(a, bad_set, clearance, extra_skip=source_skip)
+    if prev_src is None:
+        print(f"Unable to find clean source frame for bad range {a}-{b}; leaving this range unrepaired.")
+        return None
+    return (int(a), int(b), int(prev_src))
 
 
 def _resolve_badframe_repair_ranges(
@@ -204,74 +262,15 @@ def _resolve_badframe_repair_ranges(
     if not ranges:
         return []
 
-    bad_set = set()
-    for a, b, _src in ranges:
-        for f in range(a, b + 1):
-            bad_set.add(f)
-
+    bad_set = {f for a, b, _src in ranges for f in range(a, b + 1)}
     max_allowed_src = None if max_source_frame is None else int(max_source_frame)
-
     clearance = max(0, int(source_clearance))
-
-    def source_is_clear(src):
-        if src in bad_set:
-            return False
-        if clearance <= 0:
-            return True
-        for f in range(int(src) - clearance, int(src) + clearance + 1):
-            if f in bad_set:
-                return False
-        return True
-
-    def choose_repair_source_after(b, extra_skip=0):
-        src = b + 1 + max(0, int(extra_skip))
-        while True:
-            while src in bad_set:
-                src += 1
-            if max_allowed_src is not None and src > max_allowed_src:
-                return None
-            if source_is_clear(src):
-                return src
-            src += 1
-
-    def choose_repair_source_before(a, extra_skip=0):
-        src = a - 1 - max(0, int(extra_skip))
-        while src >= 0:
-            while src in bad_set and src >= 0:
-                src -= 1
-            if src < 0:
-                return None
-            if source_is_clear(src):
-                return src
-            src -= 1
-        return None
 
     resolved_ranges = []
     for a, b, src_override in sorted(ranges, key=lambda x: (x[0], x[1])):
-        src = src_override
-        src_out_of_bounds = max_allowed_src is not None and src is not None and src > max_allowed_src
-        if src is not None and src not in bad_set and not src_out_of_bounds:
-            resolved_ranges.append((a, b, src))
-            continue
-
-        if src is not None and (src in bad_set or src_out_of_bounds):
-            print(
-                f"Badframe source override {src} is invalid for range {a}-{b}; "
-                "falling back to auto neighbor source selection."
-            )
-
-        span = int(b) - int(a) + 1
-        source_skip = BADFRAME_SINGLE_FRAME_SOURCE_SKIP if span == 1 else 0
-        next_src = choose_repair_source_after(b, extra_skip=source_skip)
-
-        src = next_src
-        if src is None:
-            prev_src = choose_repair_source_before(a, extra_skip=source_skip)
-            if prev_src is None:
-                print(f"Unable to find clean source frame for bad range {a}-{b}; leaving this range unrepaired.")
-                continue
-            src = prev_src
-        resolved_ranges.append((int(a), int(b), int(src)))
+        result = _resolve_single_repair_range(a, b, src_override, bad_set, max_allowed_src, clearance)
+        if result is not None:
+            resolved_ranges.append(result)
 
     return _merge_badframe_repairs(resolved_ranges)
 

@@ -15,7 +15,6 @@ from ..naming import SCAN_TIFF_RE, parse_album_filename
 from .ai_index_analysis import (
     ArchiveScanOCRAuthority,
     ImageAnalysis,
-    _get_image_dimensions,
     _prepare_ai_model_image,
 )
 
@@ -69,6 +68,39 @@ def _scan_group_signature(group_paths: list[Path]) -> str:
     return _hash_text("|".join(parts))
 
 
+def _run_ocr_on_path(
+    source_path: Path, ocr_engine, step_fn, debug_recorder, debug_step
+) -> tuple[str, tuple[str, ...], str]:
+    if ocr_engine is None or ocr_engine.engine == "none":
+        return "", (), ""
+    if step_fn:
+        step_fn("ocr")
+    with _prepare_ai_model_image(source_path) as model_image_path:
+        ocr_text = ocr_engine.read_text(model_image_path, debug_recorder=debug_recorder, debug_step=debug_step)
+    return ocr_text, tuple(extract_keywords(ocr_text, max_keywords=15)), _hash_text(ocr_text)
+
+
+def _stitch_and_run_ocr(
+    group_paths: list[Path], build_stitched_image, cv2,
+    stitched_image_dir: Path | None, step_fn, ocr_engine, debug_recorder, debug_step,
+) -> tuple[str, tuple[str, ...], str, Path | None]:
+    if step_fn:
+        step_fn("stitch")
+    with tempfile.TemporaryDirectory(prefix="imago-archive-ocr-") as tmp_dir_name:
+        stitched = build_stitched_image([str(path) for path in group_paths])
+        tmp_path = Path(tmp_dir_name) / f"{group_paths[0].stem}_ocr_stitched.jpg"
+        if not _write_stitched_jpeg(cv2, stitched, tmp_path):
+            raise RuntimeError(f"Could not write temporary stitched OCR image: {tmp_path}")
+        ocr_source_path = tmp_path
+        cap_path = stitched_image_dir / f"{group_paths[0].stem}_stitched.jpg" if stitched_image_dir else None
+        cap_wrote = cap_path is not None and _write_stitched_jpeg(cv2, stitched, cap_path)
+        if cap_wrote and cap_path is not None:
+            ocr_source_path = cap_path
+        ocr_text, ocr_keywords, ocr_hash = _run_ocr_on_path(ocr_source_path, ocr_engine, step_fn, debug_recorder, debug_step)
+        cap_result = cap_path if cap_wrote and cap_path is not None else None
+        return ocr_text, ocr_keywords, ocr_hash, cap_result
+
+
 def _resolve_archive_scan_authoritative_ocr(
     *,
     image_path: Path,
@@ -88,58 +120,21 @@ def _resolve_archive_scan_authoritative_ocr(
     if cached is not None and cached.signature == group_signature and (ocr_engine is None or bool(cached.ocr_hash)):
         return cached
 
-    from ..stitch_oversized_pages import (  # pylint: disable=import-outside-toplevel
-        build_stitched_image,
-        get_view_dirname,
-    )
+    from ..stitch_oversized_pages import build_stitched_image, get_view_dirname  # pylint: disable=import-outside-toplevel
 
     view_jpg = _archive_scan_view_jpg(image_path, get_view_dirname=get_view_dirname)
 
-    def _run_authoritative_ocr(source_path: Path) -> tuple[str, tuple[str, ...], str]:
-        if ocr_engine is None or ocr_engine.engine == "none":
-            return "", (), ""
-        if step_fn:
-            step_fn("ocr")
-        with _prepare_ai_model_image(source_path) as model_image_path:
-            ocr_text = ocr_engine.read_text(
-                model_image_path,
-                debug_recorder=debug_recorder,
-                debug_step=debug_step,
-            )
-        return ocr_text, tuple(extract_keywords(ocr_text, max_keywords=15)), _hash_text(ocr_text)
-
-    stitched_cap_path: Path | None = view_jpg
-    ocr_text = ""
-    ocr_keywords: tuple[str, ...] = ()
-    ocr_hash = ""
-
     if view_jpg is not None:
-        ocr_text, ocr_keywords, ocr_hash = _run_authoritative_ocr(view_jpg)
-
-    if view_jpg is None:
-        if step_fn:
-            step_fn("stitch")
-
+        ocr_text, ocr_keywords, ocr_hash = _run_ocr_on_path(view_jpg, ocr_engine, step_fn, debug_recorder, debug_step)
+        stitched_cap_path: Path | None = view_jpg
+    else:
         try:
             import cv2  # pylint: disable=import-outside-toplevel
-        except Exception as exc:  # pragma: no cover - dependency optional in tests
+        except Exception as exc:  # pragma: no cover
             raise RuntimeError("opencv-python is required for stitched archive OCR.") from exc
-
-        with tempfile.TemporaryDirectory(prefix="imago-archive-ocr-") as tmp_dir_name:
-            stitched = build_stitched_image([str(path) for path in group_paths])
-            tmp_path = Path(tmp_dir_name) / f"{group_paths[0].stem}_ocr_stitched.jpg"
-            if not _write_stitched_jpeg(cv2, stitched, tmp_path):
-                raise RuntimeError(f"Could not write temporary stitched OCR image: {tmp_path}")
-            ocr_source_path = tmp_path
-            cap_path = None
-            if stitched_image_dir is not None:
-                cap_path = stitched_image_dir / f"{group_paths[0].stem}_stitched.jpg"
-            cap_wrote = cap_path is not None and _write_stitched_jpeg(cv2, stitched, cap_path)
-            if cap_wrote and cap_path is not None:
-                ocr_source_path = cap_path
-            ocr_text, ocr_keywords, ocr_hash = _run_authoritative_ocr(ocr_source_path)
-            if cap_wrote and cap_path is not None:
-                stitched_cap_path = cap_path
+        ocr_text, ocr_keywords, ocr_hash, stitched_cap_path = _stitch_and_run_ocr(
+            group_paths, build_stitched_image, cv2, stitched_image_dir, step_fn, ocr_engine, debug_recorder, debug_step
+        )
 
     result = ArchiveScanOCRAuthority(
         page_key=page_key,

@@ -90,56 +90,53 @@ def _iter_album_files(root: Path):
             yield dp / fname
 
 
+def _try_vc_to_v_rename(path: Path, stem: str, suffix: str, parent: Path, plan: list[dict], seen_new: set[Path]) -> bool:
+    m = _VC_STEM_RE.match(stem)
+    if not m:
+        return False
+    new_path = parent / f"{m.group('base')}_V{suffix}"
+    if new_path != path:
+        _add(plan, seen_new, path, new_path, "vc_to_v")
+    return True
+
+
+def _process_v3_rename_file(path: Path, plan: list[dict], seen_new: set[Path]) -> None:
+    suffix_lower = path.suffix.lower()
+    if suffix_lower not in {".jpg", ".jpeg", ".tif", ".tiff", ".xmp"}:
+        return
+    stem = path.stem
+    suffix = path.suffix
+    parent = path.parent
+    parent_name = parent.name
+    in_view = parent_name.endswith("_View")
+    in_archive = parent_name.endswith("_Archive")
+    if not in_view and not in_archive:
+        return
+    if in_view and suffix_lower in {".jpg", ".jpeg"}:
+        if _try_vc_to_v_rename(path, stem, suffix, parent, plan, seen_new):
+            return
+    if suffix_lower == ".xmp":
+        return
+    if in_archive and suffix_lower in {".tif", ".tiff"}:
+        if re.search(r"_S\d+$", stem, re.IGNORECASE):
+            return
+    m = _DERIVED_UNDER_RE.match(stem)
+    if m and not m.group("suf"):
+        iter_part = m.group("iter")
+        pre = m.group("pre")
+        if in_archive and suffix_lower in {".tif", ".tiff"}:
+            new_path = parent / f"{pre}-{iter_part}{suffix}"
+            _add(plan, seen_new, path, new_path, "derived_archive_hyphen")
+        elif in_view and suffix_lower in {".jpg", ".jpeg"}:
+            new_path = parent / f"{pre}-{iter_part}_V{suffix}"
+            _add(plan, seen_new, path, new_path, "derived_view_hyphen_v")
+
+
 def build_rename_plan(root: Path) -> list[dict]:
     plan: list[dict] = []
     seen_new: set[Path] = set()
-
     for path in _iter_album_files(root):
-        suffix_lower = path.suffix.lower()
-        if suffix_lower not in {".jpg", ".jpeg", ".tif", ".tiff", ".xmp"}:
-            continue
-
-        stem = path.stem
-        suffix = path.suffix
-        parent = path.parent
-        parent_name = parent.name
-
-        in_view = parent_name.endswith("_View")
-        in_archive = parent_name.endswith("_Archive")
-
-        if not in_view and not in_archive:
-            continue
-
-        # --- _VC → _V (view only, jpg only) ---
-        if in_view and suffix_lower in {".jpg", ".jpeg"}:
-            m = _VC_STEM_RE.match(stem)
-            if m:
-                new_path = parent / f"{m.group('base')}_V{suffix}"
-                if new_path != path:
-                    _add(plan, seen_new, path, new_path, "vc_to_v")
-                continue
-
-        # --- _D##_## → _D##-## (archive tif) or _D##-##_V (view jpg) ---
-        # Skip XMP here — handled by _pair_image_and_xmp
-        if suffix_lower == ".xmp":
-            continue
-        # Skip archive scan TIFs
-        if in_archive and suffix_lower in {".tif", ".tiff"}:
-            if re.search(r"_S\d+$", stem, re.IGNORECASE):
-                continue
-
-        m = _DERIVED_UNDER_RE.match(stem)
-        if m and not m.group("suf"):
-            # No trailing suffix — could be archive tif or old-style view jpg
-            iter_part = m.group("iter")
-            pre = m.group("pre")
-            if in_archive and suffix_lower in {".tif", ".tiff"}:
-                new_path = parent / f"{pre}-{iter_part}{suffix}"
-                _add(plan, seen_new, path, new_path, "derived_archive_hyphen")
-            elif in_view and suffix_lower in {".jpg", ".jpeg"}:
-                new_path = parent / f"{pre}-{iter_part}_V{suffix}"
-                _add(plan, seen_new, path, new_path, "derived_view_hyphen_v")
-
+        _process_v3_rename_file(path, plan, seen_new)
     return plan
 
 

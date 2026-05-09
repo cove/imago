@@ -358,7 +358,7 @@ class TestRunRenderPipelineProvenance(unittest.TestCase):
             # Assign DocumentID to the archive scan sidecar first (as _ensure_archive_page_sidecar would)
             scan_xmp = scan.with_suffix(".xmp")
             _write_minimal_xmp(scan_xmp)
-            scan_doc_id = assign_document_id(scan_xmp)
+            assign_document_id(scan_xmp)
 
             # Call write_render_provenance directly
             from photoalbums.stitch_oversized_pages import write_render_provenance

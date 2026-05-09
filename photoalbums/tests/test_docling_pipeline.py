@@ -20,10 +20,10 @@ if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
 
-def _make_bbox(l, t, r, b):
+def _make_bbox(left, t, r, b):
     from docling_core.types.doc import BoundingBox, CoordOrigin
 
-    return BoundingBox(l=l, t=t, r=r, b=b, coord_origin=CoordOrigin.TOPLEFT)
+    return BoundingBox(l=left, t=t, r=r, b=b, coord_origin=CoordOrigin.TOPLEFT)
 
 
 def _make_picture_item(bbox, caption_text=None):
@@ -41,7 +41,8 @@ def _make_doc(items, texts=None):
     def iterate_items(*args, **kwargs):
         return [(item, 0) for item in items]
 
-    export_to_dict = lambda: {"items": len(items), "texts": [str(getattr(text, "text", "") or "") for text in texts]}
+    def export_to_dict():
+        return {"items": len(items), "texts": [str(getattr(text, "text", "") or "") for text in texts]}
     return SimpleNamespace(
         iterate_items=iterate_items,
         texts=texts,

@@ -29,7 +29,7 @@ try:
 except Exception:
     AffineStitcher = None
 
-from photoalbums.common import (
+from photoalbums.common import (  # noqa: E402
     PHOTO_ALBUMS_DIR,
     configure_imagemagick,
     dir_created_ts,
@@ -37,8 +37,7 @@ from photoalbums.common import (
     list_archive_dirs,
     list_page_scan_groups,
 )
-from photoalbums.naming import (
-    ALBUM_DIR_SUFFIX_PAGES,
+from photoalbums.naming import (  # noqa: E402
     BASE_PAGE_NAME_RE,
     SCAN_NAME_RE,
     SCAN_TIFF_RE,
@@ -289,6 +288,19 @@ def _score_linear_overlap(
     return float(diff[detail_mask].mean())
 
 
+def _coarse_overlap_search(left_map, right_map, min_overlap: int, max_overlap: int, max_dy: int):
+    best = None
+    for overlap in range(min_overlap, max_overlap + 1, LINEAR_FALLBACK_OVERLAP_STEP):
+        for dy in range(-max_dy, max_dy + 1, LINEAR_FALLBACK_VERTICAL_STEP):
+            score = _score_linear_overlap(left_map, right_map, overlap, dy)
+            if score is None:
+                continue
+            candidate = (score, overlap, dy)
+            if best is None or candidate < best:
+                best = candidate
+    return best
+
+
 def _search_linear_overlap(left_img, right_img) -> tuple[float, int, int]:
     width = max(left_img.shape[1], right_img.shape[1])
     scale = min(1.0, LINEAR_FALLBACK_TARGET_WIDTH / max(width, 1))
@@ -326,16 +338,7 @@ def _search_linear_overlap(left_img, right_img) -> tuple[float, int, int]:
     )
     max_dy = int(max(left_map.shape[0], right_map.shape[0]) * LINEAR_FALLBACK_MAX_VERTICAL_SHIFT_FRAC)
 
-    best: tuple[float, int, int] | None = None
-    for overlap in range(min_overlap, max_overlap + 1, LINEAR_FALLBACK_OVERLAP_STEP):
-        for dy in range(-max_dy, max_dy + 1, LINEAR_FALLBACK_VERTICAL_STEP):
-            score = _score_linear_overlap(left_map, right_map, overlap, dy)
-            if score is None:
-                continue
-            candidate = (score, overlap, dy)
-            if best is None or candidate < best:
-                best = candidate
-
+    best = _coarse_overlap_search(left_map, right_map, min_overlap, max_overlap, max_dy)
     if best is None:
         raise RuntimeError("Linear overlap search could not find a shared region")
 

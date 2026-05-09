@@ -12,7 +12,6 @@ from .xmp_sidecar import (
     read_locations_shown,
     read_person_in_image,
     read_region_list,
-    write_pipeline_steps,
     write_xmp_sidecar,
     xmp_datetime_now,
 )

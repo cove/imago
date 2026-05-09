@@ -3,102 +3,34 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import sys
-import tempfile
 import time
 from pathlib import Path
 from typing import Any
 
 from .ai_album_titles import (
     _album_identity_key,
-    _album_title_valid_in_sidecars,
-    _base_page_name_match,
     _derived_name_match,
-    _expand_album_title_dependencies,
     _is_album_title_source_candidate,
-    _iter_album_cover_sidecars,
-    _looks_like_album_title_page,
-    _require_album_title_for_title_page,
-    _resolve_album_printed_title_hint,
-    _resolve_album_title_from_sidecars,
-    _resolve_album_title_hint,
-    _resolve_title_page_album_title,
     _scan_name_match,
-    _store_album_printed_title_hint,
-    _title_page_match,
-)
-from .album_sets import find_archive_set_by_photos_root
-from .ai_caption import (
-    CaptionEngine,
-    DEFAULT_LMSTUDIO_MAX_NEW_TOKENS,
-    clean_text,
-    _normalize_gps_value,
-    normalize_lmstudio_base_url,
-    resolve_caption_model,
 )
 from .ai_date import DateEstimateEngine
-from .ai_model_settings import default_lmstudio_base_url, default_ocr_model
-from .ai_ocr import OCREngine, extract_keywords
-from .ai_page_layout import prepare_image_layout
-from .ai_geocode import NominatimGeocoder
-from .ai_location import (
-    _extract_explicit_gps_from_text,
-    _has_legacy_ai_locations_shown_gps,
-    _merge_location_estimates,
-    _resolve_location_metadata,
-    _resolve_location_payload,
-    _resolve_locations_shown,
-    _xmp_gps_to_decimal,
-)
-from .ai_processing_locks import (
-    BATCH_LOCK_SUFFIX,
-    JOB_ID_ENV,
-    PROCESSING_LOCK_SUFFIX,
-    _acquire_batch_processing_lock,
-    _acquire_image_processing_lock,
-    _release_batch_processing_lock,
-    _release_image_processing_lock,
-)
 from .ai_render_settings import (
     find_archive_dir_for_image,
-    load_render_settings,
-    resolve_effective_settings,
 )
 from .ai_sidecar_state import (
-    MIN_EXISTING_SIDECAR_BYTES,
-    _compute_xmp_title,
-    _dc_source_scan_names,
-    _effective_sidecar_location_payload,
     _effective_sidecar_ocr_text,
-    _is_derived_image_path,
-    _resolve_derived_source_sidecar_state,
-    _resolve_xmp_text_layers,
-    _sidecar_current_for_paths,
-    _sidecar_location_payload,
-    _xmp_timestamp_from_path,
     has_current_sidecar,
     has_valid_sidecar,
-    read_embedded_create_date,
 )
 from .prompt_debug import PromptDebugSession
-from ..common import PHOTO_ALBUMS_DIR
-from ..exiftool_utils import read_tag
 from ..naming import (
-    DERIVED_VIEW_RE,
-    SCAN_TIFF_RE,
     parse_album_filename,
 )
 from .xmp_sidecar import (
     _dedupe,
-    _normalize_xmp_datetime,
     _resolve_date_time_original,
     read_ai_sidecar_state,
-    read_locations_shown,
-    read_person_in_image,
-    sidecar_has_expected_ai_fields,
-    write_xmp_sidecar,
 )
-from .xmp_review import load_ai_xmp_review
 from ..naming import is_archive_dir, is_pages_dir, is_photos_dir
 
 # Re-exports from extracted modules — keep backward compatibility for tests and callers.
@@ -546,6 +478,16 @@ def _apply_title_page_location_config(
     return loc, detections
 
 
+def _known_sidecar_needs_reprocess(path: Path, stat: os.stat_result, sidecar_state: dict[str, Any]) -> bool:
+    if str(sidecar_state.get("processor_signature") or "") != PROCESSOR_SIGNATURE:
+        return True
+    recorded_size = int(sidecar_state.get("size") or -1)
+    recorded_mtime = int(sidecar_state.get("mtime_ns") or -1)
+    if int(stat.st_size) != recorded_size or int(stat.st_mtime_ns) != recorded_mtime:
+        return True
+    return not has_current_sidecar(path)
+
+
 def needs_processing(
     path: Path,
     sidecar_state: dict[str, Any] | None,
@@ -570,13 +512,7 @@ def needs_processing(
     if reprocess_required:
         return True
     if sidecar_state is not None:
-        if str(sidecar_state.get("processor_signature") or "") != PROCESSOR_SIGNATURE:
-            return True
-        recorded_size = int(sidecar_state.get("size") or -1)
-        recorded_mtime = int(sidecar_state.get("mtime_ns") or -1)
-        if int(stat.st_size) != recorded_size or int(stat.st_mtime_ns) != recorded_mtime:
-            return True
-        return not has_current_sidecar(path)
+        return _known_sidecar_needs_reprocess(path, stat, sidecar_state)
     if not has_valid_sidecar(path):
         return True
     return int(sidecar_path.stat().st_mtime_ns) < int(stat.st_mtime_ns)

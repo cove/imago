@@ -10,7 +10,7 @@ from email.utils import formatdate, parsedate_to_datetime
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, Optional, Tuple
 from urllib.parse import parse_qs, urlparse
 
 VIEWER_DIR = Path(__file__).resolve().parent
@@ -163,98 +163,35 @@ class ViewerHandler(SimpleHTTPRequestHandler):
             return
         super().do_HEAD()
 
-    def _serve_media(self, parsed, send_body: bool) -> None:
-        params = parse_qs(parsed.query)
-        item_id = str((params.get("id") or [""])[0]).strip()
-        if not item_id:
-            self.send_error(HTTPStatus.BAD_REQUEST, "Missing media id.")
-            return
-
-        target, err = _resolve_item_path(item_id, getattr(self.server, "allow_roots", []))
-        if target is None:
-            self.send_error(HTTPStatus.NOT_FOUND, err)
-            return
-
-        stat = target.stat()
-        file_size = stat.st_size
-        mtime = stat.st_mtime
-        mtime_ns = stat.st_mtime_ns
-        etag = _make_etag(file_size, mtime_ns)
-        last_modified = formatdate(mtime, usegmt=True)
-        ctype = mimetypes.guess_type(str(target))[0] or "application/octet-stream"
-
-        if_none_match = self.headers.get("If-None-Match", "")
-        if if_none_match and _etag_matches(if_none_match, etag):
-            self.send_response(HTTPStatus.NOT_MODIFIED)
-            self.send_header("ETag", etag)
-            self.send_header("Last-Modified", last_modified)
-            self.send_header("Cache-Control", MEDIA_CACHE_CONTROL)
-            self.send_header("Accept-Ranges", "bytes")
-            self.end_headers()
-            return
-
-        if_modified_since = self.headers.get("If-Modified-Since", "")
-        if if_modified_since and not if_none_match:
-            since_ts = _parse_http_date(if_modified_since)
-            if since_ts is not None and int(mtime) <= int(since_ts):
-                self.send_response(HTTPStatus.NOT_MODIFIED)
-                self.send_header("ETag", etag)
-                self.send_header("Last-Modified", last_modified)
-                self.send_header("Cache-Control", MEDIA_CACHE_CONTROL)
-                self.send_header("Accept-Ranges", "bytes")
-                self.end_headers()
-                return
-
-        range_header = self.headers.get("Range", "")
-        if_range = self.headers.get("If-Range", "").strip()
-        if range_header and if_range:
-            if if_range.startswith(("W/", '"')):
-                if not _etag_matches(if_range, etag):
-                    range_header = ""
-            else:
-                if_range_ts = _parse_http_date(if_range)
-                if if_range_ts is None or int(mtime) > int(if_range_ts):
-                    range_header = ""
-
-        byte_range = None
-
-        if range_header:
-            try:
-                byte_range = _parse_range(range_header, file_size)
-            except ValueError:
-                byte_range = None
-            if byte_range is None:
-                self.send_response(HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
-                self.send_header("Content-Range", f"bytes */{file_size}")
-                self.send_header("Accept-Ranges", "bytes")
-                self.send_header("ETag", etag)
-                self.send_header("Last-Modified", last_modified)
-                self.send_header("Cache-Control", MEDIA_CACHE_CONTROL)
-                self.end_headers()
-                return
-
-        if byte_range is None:
-            start, end = 0, file_size - 1
-            status = HTTPStatus.OK
-        else:
-            start, end = byte_range
-            status = HTTPStatus.PARTIAL_CONTENT
-
-        length = (end - start) + 1
-        self.send_response(status)
-        self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", str(length))
-        self.send_header("Accept-Ranges", "bytes")
+    def _send_not_modified(self, etag: str, last_modified: str) -> None:
+        self.send_response(HTTPStatus.NOT_MODIFIED)
         self.send_header("ETag", etag)
         self.send_header("Last-Modified", last_modified)
-        if status == HTTPStatus.PARTIAL_CONTENT:
-            self.send_header("Content-Range", f"bytes {start}-{end}/{file_size}")
         self.send_header("Cache-Control", MEDIA_CACHE_CONTROL)
+        self.send_header("Accept-Ranges", "bytes")
         self.end_headers()
 
-        if not send_body:
-            return
+    def _is_not_modified(self, etag: str, mtime: float) -> bool:
+        if_none_match = self.headers.get("If-None-Match", "")
+        if if_none_match:
+            return _etag_matches(if_none_match, etag)
+        if_modified_since = self.headers.get("If-Modified-Since", "")
+        if if_modified_since:
+            since_ts = _parse_http_date(if_modified_since)
+            return since_ts is not None and int(mtime) <= int(since_ts)
+        return False
 
+    def _effective_range_header(self, etag: str, mtime: float) -> str:
+        range_header = self.headers.get("Range", "")
+        if_range = self.headers.get("If-Range", "").strip()
+        if not range_header or not if_range:
+            return range_header
+        if if_range.startswith(("W/", '"')):
+            return range_header if _etag_matches(if_range, etag) else ""
+        if_range_ts = _parse_http_date(if_range)
+        return range_header if (if_range_ts is not None and int(mtime) <= int(if_range_ts)) else ""
+
+    def _stream_file_body(self, target: Path, start: int, length: int) -> None:
         try:
             with target.open("rb") as handle:
                 handle.seek(start)
@@ -273,6 +210,66 @@ class ViewerHandler(SimpleHTTPRequestHandler):
                 # Expected transient disconnect from browser or remote client.
                 return
             raise
+
+    def _serve_media(self, parsed, send_body: bool) -> None:
+        params = parse_qs(parsed.query)
+        item_id = str((params.get("id") or [""])[0]).strip()
+        if not item_id:
+            self.send_error(HTTPStatus.BAD_REQUEST, "Missing media id.")
+            return
+
+        target, err = _resolve_item_path(item_id, getattr(self.server, "allow_roots", []))
+        if target is None:
+            self.send_error(HTTPStatus.NOT_FOUND, err)
+            return
+
+        stat = target.stat()
+        file_size = stat.st_size
+        mtime = stat.st_mtime
+        etag = _make_etag(file_size, stat.st_mtime_ns)
+        last_modified = formatdate(mtime, usegmt=True)
+        ctype = mimetypes.guess_type(str(target))[0] or "application/octet-stream"
+
+        if self._is_not_modified(etag, mtime):
+            self._send_not_modified(etag, last_modified)
+            return
+
+        range_header = self._effective_range_header(etag, mtime)
+        byte_range = None
+        if range_header:
+            try:
+                byte_range = _parse_range(range_header, file_size)
+            except ValueError:
+                byte_range = None
+            if byte_range is None:
+                self.send_response(HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
+                self.send_header("Content-Range", f"bytes */{file_size}")
+                self.send_header("Accept-Ranges", "bytes")
+                self.send_header("ETag", etag)
+                self.send_header("Last-Modified", last_modified)
+                self.send_header("Cache-Control", MEDIA_CACHE_CONTROL)
+                self.end_headers()
+                return
+
+        if byte_range is None:
+            start, end, status = 0, file_size - 1, HTTPStatus.OK
+        else:
+            start, end, status = byte_range[0], byte_range[1], HTTPStatus.PARTIAL_CONTENT
+
+        length = (end - start) + 1
+        self.send_response(status)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(length))
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("ETag", etag)
+        self.send_header("Last-Modified", last_modified)
+        if status == HTTPStatus.PARTIAL_CONTENT:
+            self.send_header("Content-Range", f"bytes {start}-{end}/{file_size}")
+        self.send_header("Cache-Control", MEDIA_CACHE_CONTROL)
+        self.end_headers()
+
+        if send_body:
+            self._stream_file_body(target, start, length)
 
 
 def parse_args() -> argparse.Namespace:

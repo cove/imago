@@ -3516,16 +3516,6 @@
                 }
             }
         ],
-        "./photoalbums/tests/test_ai_orientation.py": [
-            {
-                "code": "reportAttributeAccessIssue",
-                "range": {
-                    "startColumn": 16,
-                    "endColumn": 30,
-                    "lineCount": 1
-                }
-            }
-        ],
         "./photoalbums/tests/test_ai_photo_crops.py": [
             {
                 "code": "reportArgumentType",

@@ -27,7 +27,6 @@
 
 import argparse
 from dataclasses import dataclass
-import re
 from pathlib import Path
 
 import cv2

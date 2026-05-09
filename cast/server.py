@@ -721,6 +721,21 @@ class CastHandler(BaseHTTPRequestHandler):
                 return row
         return None
 
+    def _assign_face_after_review(
+        self, clean_status: str, updated_review: dict, decided_person_id: str | None
+    ) -> dict[str, Any] | None:
+        if clean_status not in {"accepted", "ignored", "rejected"}:
+            return None
+        try:
+            return self.store.assign_face(
+                str(updated_review.get("face_id")),
+                decided_person_id if clean_status == "accepted" else None,
+                reviewed_by_human=True,
+                review_status="confirmed" if clean_status == "accepted" else clean_status,
+            )
+        except Exception as exc:
+            raise RequestError(f"Review updated but face assignment failed: {exc}") from exc
+
     def _apply_review_decision(
         self,
         *,
@@ -740,42 +755,18 @@ class CastHandler(BaseHTTPRequestHandler):
             if not decided_person_id:
                 raise RequestError("person_id is required for accepted decisions with no suggestion.")
         if clean_status == "skipped":
-            updated_review = self.store.defer_review_item(review_id)
-            return updated_review, None
+            return self.store.defer_review_item(review_id), None
 
-        assigned_face = None
         if clean_status == "accepted":
             assert decided_person_id is not None
             self._write_review_acceptance_xmp(review, review_id, decided_person_id)
         try:
             updated_review = self.store.resolve_review_item(
-                review_id=review_id,
-                status=clean_status,
-                decided_person_id=decided_person_id,
+                review_id=review_id, status=clean_status, decided_person_id=decided_person_id,
             )
         except Exception as exc:
             raise RequestError(str(exc)) from exc
-        if clean_status == "accepted":
-            try:
-                assigned_face = self.store.assign_face(
-                    str(updated_review.get("face_id")),
-                    decided_person_id,
-                    reviewed_by_human=True,
-                    review_status="confirmed",
-                )
-            except Exception as exc:
-                raise RequestError(f"Review updated but face assignment failed: {exc}") from exc
-        elif clean_status in {"ignored", "rejected"}:
-            try:
-                assigned_face = self.store.assign_face(
-                    str(updated_review.get("face_id")),
-                    None,
-                    reviewed_by_human=True,
-                    review_status=clean_status,
-                )
-            except Exception as exc:
-                raise RequestError(f"Review updated but face assignment failed: {exc}") from exc
-        return updated_review, assigned_face
+        return updated_review, self._assign_face_after_review(clean_status, updated_review, decided_person_id)
 
     def _write_review_acceptance_xmp(
         self,
@@ -985,42 +976,37 @@ class CastHandler(BaseHTTPRequestHandler):
             return None
         return (hours * 3600.0) + (minutes * 60.0) + seconds
 
+    def _build_frame_seek_attempts(self, face: dict[str, Any]) -> list[tuple[str, float]]:
+        attempts: list[tuple[str, float]] = []
+        metadata = face.get("metadata")
+        if isinstance(metadata, dict):
+            raw_frame = metadata.get("frame_index")
+            if raw_frame is not None:
+                try:
+                    attempts.append(("frame", float(max(0, int(float(raw_frame))))))
+                except Exception:
+                    pass
+        seconds = self._parse_timestamp_seconds(face.get("timestamp"))
+        if seconds is not None:
+            attempts.append(("msec", float(seconds) * 1000.0))
+        if not attempts:
+            attempts.append(("frame", 0.0))
+        return attempts
+
     def _extract_video_frame(self, video_path: Path, face: dict[str, Any]) -> Any | None:
         cap = cv2.VideoCapture(str(video_path))
         if not cap.isOpened():
             return None
         try:
-            attempts: list[tuple[str, float]] = []
-            metadata = face.get("metadata")
-            if isinstance(metadata, dict):
-                raw_frame = metadata.get("frame_index")
-                if raw_frame is not None:
-                    try:
-                        frame_index = max(0, int(float(raw_frame)))
-                        attempts.append(("frame", float(frame_index)))
-                    except Exception:
-                        pass
-
-            seconds = self._parse_timestamp_seconds(face.get("timestamp"))
-            if seconds is not None:
-                attempts.append(("msec", float(seconds) * 1000.0))
-            if not attempts:
-                attempts.append(("frame", 0.0))
-
-            for mode, value in attempts:
-                if mode == "frame":
-                    cap.set(cv2.CAP_PROP_POS_FRAMES, float(value))
-                else:
-                    cap.set(cv2.CAP_PROP_POS_MSEC, float(value))
+            for mode, value in self._build_frame_seek_attempts(face):
+                prop = cv2.CAP_PROP_POS_FRAMES if mode == "frame" else cv2.CAP_PROP_POS_MSEC
+                cap.set(prop, float(value))
                 ok, frame = cap.read()
                 if ok and frame is not None:
                     return frame
-
             cap.set(cv2.CAP_PROP_POS_FRAMES, 0.0)
             ok, frame = cap.read()
-            if ok and frame is not None:
-                return frame
-            return None
+            return frame if (ok and frame is not None) else None
         finally:
             cap.release()
 
@@ -1633,76 +1619,64 @@ class CastHandler(BaseHTTPRequestHandler):
             status=HTTPStatus.OK,
         )
 
+    def _load_face_source_image(self, face: dict[str, Any]):
+        source_ref = self._resolve_face_source_path(face)
+        if source_ref is None:
+            self._error("Source image is unavailable for this face.", status=HTTPStatus.NOT_FOUND)
+            return None
+        source_kind, source_path = source_ref
+        if source_kind == "video":
+            image = self._extract_video_frame(source_path, face)
+            if image is None:
+                self._error("Unable to read source frame from video.", status=HTTPStatus.INTERNAL_SERVER_ERROR)
+            return image
+        image = cv2.imread(str(source_path))
+        if image is None:
+            self._error("Unable to read source image.", status=HTTPStatus.INTERNAL_SERVER_ERROR)
+        return image
+
+    def _draw_face_bbox(self, image, face: dict[str, Any]):
+        bbox = list(face.get("bbox") or [])
+        if len(bbox) < 4:
+            return
+        try:
+            x, y, w, h = [int(float(v)) for v in bbox[:4]]
+            if w > 0 and h > 0:
+                x0 = max(0, min(x, image.shape[1] - 1))
+                y0 = max(0, min(y, image.shape[0] - 1))
+                x1 = max(x0 + 1, min(x + w, image.shape[1]))
+                y1 = max(y0 + 1, min(y + h, image.shape[0]))
+                cv2.rectangle(image, (x0, y0), (x1, y1), (0, 255, 255), 3)
+        except Exception:
+            pass
+
     def _handle_get_face_source(self, face_id: str, query: dict[str, list[str]]) -> None:
         face = self.store.get_face(str(face_id))
         if not face:
             self._not_found()
             return
-        source_ref = self._resolve_face_source_path(face)
-        if source_ref is None:
-            self._error(
-                "Source image is unavailable for this face.",
-                status=HTTPStatus.NOT_FOUND,
-            )
+        image = self._load_face_source_image(face)
+        if image is None:
             return
-        source_kind, source_path = source_ref
-        if source_kind == "video":
-            image = self._extract_video_frame(source_path, face)
-            if image is None:
-                self._error(
-                    "Unable to read source frame from video.",
-                    status=HTTPStatus.INTERNAL_SERVER_ERROR,
-                )
-                return
-        else:
-            image = cv2.imread(str(source_path))
-            if image is None:
-                self._error(
-                    "Unable to read source image.",
-                    status=HTTPStatus.INTERNAL_SERVER_ERROR,
-                )
-                return
 
-        highlight = str((query.get("highlight") or ["1"])[0]).strip() not in {
-            "0",
-            "false",
-            "False",
-        }
-        max_dim_raw = str((query.get("max_dim") or ["1800"])[0]).strip()
+        highlight = str((query.get("highlight") or ["1"])[0]).strip() not in {"0", "false", "False"}
         try:
-            max_dim = int(max_dim_raw)
+            max_dim = max(256, min(5000, int(str((query.get("max_dim") or ["1800"])[0]).strip())))
         except Exception:
             max_dim = 1800
-        max_dim = max(256, min(5000, int(max_dim)))
 
         if highlight:
-            bbox = list(face.get("bbox") or [])
-            if len(bbox) >= 4:
-                try:
-                    x, y, w, h = [int(float(v)) for v in bbox[:4]]
-                    if w > 0 and h > 0:
-                        x0 = max(0, min(x, image.shape[1] - 1))
-                        y0 = max(0, min(y, image.shape[0] - 1))
-                        x1 = max(x0 + 1, min(x + w, image.shape[1]))
-                        y1 = max(y0 + 1, min(y + h, image.shape[0]))
-                        cv2.rectangle(image, (x0, y0), (x1, y1), (0, 255, 255), 3)
-                except Exception:
-                    pass
+            self._draw_face_bbox(image, face)
 
         h, w = image.shape[:2]
-        top = max(int(w), int(h))
-        if top > max_dim:
-            scale = float(max_dim) / float(top)
-            out_w = max(1, int(round(float(w) * scale)))
-            out_h = max(1, int(round(float(h) * scale)))
-            image = cv2.resize(image, (out_w, out_h), interpolation=cv2.INTER_AREA)
+        if max(w, h) > max_dim:
+            scale = float(max_dim) / float(max(w, h))
+            image = cv2.resize(image, (max(1, int(round(w * scale))), max(1, int(round(h * scale)))),
+                               interpolation=cv2.INTER_AREA)
 
         ok, encoded = cv2.imencode(".jpg", image, [int(cv2.IMWRITE_JPEG_QUALITY), 90])  # type: ignore[arg-type]
         if not ok:
-            self._error(
-                "Failed to encode source image.",
-                status=HTTPStatus.INTERNAL_SERVER_ERROR,
-            )
+            self._error("Failed to encode source image.", status=HTTPStatus.INTERNAL_SERVER_ERROR)
             return
         self._send_bytes(bytes(encoded), "image/jpeg", status=HTTPStatus.OK)
 
@@ -1742,58 +1716,35 @@ class CastHandler(BaseHTTPRequestHandler):
             return
         self._not_found()
 
+    _POST_ROUTE_MAP = {
+        "/api/people": "_handle_create_person",
+        "/api/people/update": "_handle_update_person",
+        "/api/faces": "_handle_create_face",
+        "/api/faces/assign": "_handle_assign_face",
+        "/api/suggest": "_handle_suggest",
+        "/api/review/enqueue": "_handle_review_enqueue",
+        "/api/review/resolve": "_handle_review_resolve",
+        "/api/review/bulk_resolve": "_handle_bulk_review_resolve",
+        "/api/review/bulk_assign": "_handle_bulk_review_assign",
+        "/api/review/prune_false_positives": "_handle_prune_false_positives",
+        "/api/reset/pending_unknown": "_handle_reset_pending_unknown",
+        "/api/ingest/photo": "_handle_ingest_photo",
+        "/api/ingest/vhs": "_handle_ingest_vhs",
+        "/api/ingest/photos/scan": "_handle_ingest_photo_scan",
+    }
+
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
-        path = parsed.path
         try:
             payload = self._read_json()
         except Exception as exc:
             self._error(str(exc))
             return
-
-        if path == "/api/people":
-            self._handle_create_person(payload)
-            return
-        if path == "/api/people/update":
-            self._handle_update_person(payload)
-            return
-        if path == "/api/faces":
-            self._handle_create_face(payload)
-            return
-        if path == "/api/faces/assign":
-            self._handle_assign_face(payload)
-            return
-        if path == "/api/suggest":
-            self._handle_suggest(payload)
-            return
-        if path == "/api/review/enqueue":
-            self._handle_review_enqueue(payload)
-            return
-        if path == "/api/review/resolve":
-            self._handle_review_resolve(payload)
-            return
-        if path == "/api/review/bulk_resolve":
-            self._handle_bulk_review_resolve(payload)
-            return
-        if path == "/api/review/bulk_assign":
-            self._handle_bulk_review_assign(payload)
-            return
-        if path == "/api/review/prune_false_positives":
-            self._handle_prune_false_positives(payload)
-            return
-        if path == "/api/reset/pending_unknown":
-            self._handle_reset_pending_unknown(payload)
-            return
-        if path == "/api/ingest/photo":
-            self._handle_ingest_photo(payload)
-            return
-        if path == "/api/ingest/vhs":
-            self._handle_ingest_vhs(payload)
-            return
-        if path == "/api/ingest/photos/scan":
-            self._handle_ingest_photo_scan(payload)
-            return
-        self._not_found()
+        handler_name = self._POST_ROUTE_MAP.get(parsed.path)
+        if handler_name:
+            getattr(self, handler_name)(payload)
+        else:
+            self._not_found()
 
 
 def run(host: str, port: int, store: TextFaceStore, lmstudio_url: str = DEFAULT_LMSTUDIO_URL) -> None:

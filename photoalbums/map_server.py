@@ -1,7 +1,6 @@
 """HTTP server for map-based XMP location correction."""
 
 import json
-import os
 import urllib.parse
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -890,6 +889,18 @@ class MapHandler(BaseHTTPRequestHandler):
             )
         self._send_json(results)
 
+    @staticmethod
+    def _tiff_to_jpeg_bytes(p: Path) -> bytes:
+        import io
+        from PIL import Image
+
+        with Image.open(p) as img:
+            if img.mode not in ("RGB", "L"):
+                img = img.convert("RGB")
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=85)
+            return buf.getvalue()
+
     def _serve_image(self, query: dict[str, list[str]]) -> None:
         path_values = query.get("path") or []
         image_path = str(path_values[0] if path_values else "").strip()
@@ -925,17 +936,8 @@ class MapHandler(BaseHTTPRequestHandler):
             ct = "image/png"
         elif ext in (".tif", ".tiff"):
             # Browsers cannot display TIFF files natively. Convert to JPEG in memory for the web UI.
-            import io
-            from PIL import Image
-
             try:
-                with Image.open(p) as img:
-                    # Convert to RGB if necessary (e.g. CMYK or palettes)
-                    if img.mode not in ("RGB", "L"):
-                        img = img.convert("RGB")
-                    buf = io.BytesIO()
-                    img.save(buf, format="JPEG", quality=85)
-                    data = buf.getvalue()
+                data = self._tiff_to_jpeg_bytes(p)
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", "image/jpeg")
                 self.send_header("Content-Length", str(len(data)))
@@ -1071,6 +1073,23 @@ class MapHandler(BaseHTTPRequestHandler):
             }
         )
 
+    @staticmethod
+    def _build_nominatim_location(lat: float, lon: float, city: str, state: str, country: str, query: str) -> dict:
+        loc: dict = {
+            "gps_latitude": float(lat),
+            "gps_longitude": float(lon),
+            "map_datum": "WGS-84",
+            "source": "nominatim",
+            "query": query,
+        }
+        if city:
+            loc["city"] = city
+        if state:
+            loc["state"] = state
+        if country:
+            loc["country"] = country
+        return loc
+
     def _handle_geocode_and_update(self) -> None:
         try:
             length = int(self.headers.get("Content-Length", 0))
@@ -1138,20 +1157,7 @@ class MapHandler(BaseHTTPRequestHandler):
 
         updated_detections = dict(existing.get("detections") or {})
         if idx < 0:
-            new_loc: dict = {
-                "gps_latitude": float(lat),
-                "gps_longitude": float(lon),
-                "map_datum": "WGS-84",
-                "source": "nominatim",
-                "query": query,
-            }
-            if city:
-                new_loc["city"] = city
-            if state:
-                new_loc["state"] = state
-            if country:
-                new_loc["country"] = country
-            updated_detections["location"] = new_loc
+            updated_detections["location"] = self._build_nominatim_location(lat, lon, city, state, country, query)
 
         write_xmp_sidecar(
             target_path,

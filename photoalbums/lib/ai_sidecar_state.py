@@ -86,6 +86,26 @@ def _is_derived_image_path(image_path: Path) -> bool:
     return _derived_name_match(image_path) is not None or DERIVED_VIEW_RE.search(Path(image_path).stem) is not None
 
 
+def _build_source_sidecar_candidates(image_path: Path, source_candidate: Path) -> list[Path]:
+    candidates: list[Path] = []
+    if source_candidate.is_absolute():
+        candidates.append(source_candidate.with_suffix(".xmp"))
+    else:
+        candidates.append((image_path.parent / source_candidate).with_suffix(".xmp"))
+        source_name = source_candidate.name
+        if source_name:
+            candidates.append((image_path.parent / source_name).with_suffix(".xmp"))
+        if is_photos_dir(image_path.parent):
+            view_dir = pages_dir_for_album_dir(image_path.parent)
+            candidates.append((view_dir / source_candidate).with_suffix(".xmp"))
+            if source_name:
+                candidates.append((view_dir / source_name).with_suffix(".xmp"))
+        archive_dir = find_archive_dir_for_image(image_path)
+        if archive_dir is not None and archive_dir.is_dir():
+            candidates.append((archive_dir / source_candidate.name).with_suffix(".xmp"))
+    return candidates
+
+
 def _resolve_derived_source_sidecar_state(
     image_path: Path,
     sidecar_state: dict[str, Any] | None,
@@ -95,23 +115,7 @@ def _resolve_derived_source_sidecar_state(
     derived_from = read_derived_from(image_path.with_suffix(".xmp"))
     derived_source_path = str(derived_from.get("source_path") or "").strip()
     if derived_source_path:
-        source_candidate = Path(derived_source_path)
-        source_sidecar_candidates: list[Path] = []
-        if source_candidate.is_absolute():
-            source_sidecar_candidates.append(source_candidate.with_suffix(".xmp"))
-        else:
-            source_sidecar_candidates.append((image_path.parent / source_candidate).with_suffix(".xmp"))
-            source_name = source_candidate.name
-            if source_name:
-                source_sidecar_candidates.append((image_path.parent / source_name).with_suffix(".xmp"))
-            if is_photos_dir(image_path.parent):
-                view_dir = pages_dir_for_album_dir(image_path.parent)
-                source_sidecar_candidates.append((view_dir / source_candidate).with_suffix(".xmp"))
-                if source_name:
-                    source_sidecar_candidates.append((view_dir / source_name).with_suffix(".xmp"))
-            archive_dir = find_archive_dir_for_image(image_path)
-            if archive_dir is not None and archive_dir.is_dir():
-                source_sidecar_candidates.append((archive_dir / source_candidate.name).with_suffix(".xmp"))
+        source_sidecar_candidates = _build_source_sidecar_candidates(image_path, Path(derived_source_path))
         for source_sidecar_path in source_sidecar_candidates:
             if not source_sidecar_path.is_file():
                 continue

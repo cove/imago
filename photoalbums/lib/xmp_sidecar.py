@@ -125,6 +125,13 @@ def _partial_dc_date_parts(text: str) -> list[str]:
     return parts
 
 
+def _normalize_zero_month_date(parts: list[str], year_text: str) -> str:
+    if len(parts) == 2:
+        return year_text
+    day_text = parts[2]
+    return year_text if day_text.isdigit() and int(day_text) == 0 else ""
+
+
 def _normalize_partial_dc_date_parts(parts: list[str]) -> str:
     if len(parts) == 1:
         return parts[0] if len(parts[0]) == 4 and parts[0].isdigit() else ""
@@ -135,10 +142,7 @@ def _normalize_partial_dc_date_parts(parts: list[str]) -> str:
         return ""
     month = int(month_text)
     if month == 0:
-        if len(parts) == 2:
-            return year_text
-        day_text = parts[2]
-        return year_text if day_text.isdigit() and int(day_text) == 0 else ""
+        return _normalize_zero_month_date(parts, year_text)
     if month < 1 or month > 12:
         return ""
     normalized_month = f"{month:02d}"
@@ -349,11 +353,14 @@ def _derive_processing_state(history: list[dict[str, object]]) -> dict[str, obje
                 state["ocr_authority_source"] = ocr_authority_source
             continue
         if stage == "people":
-            if isinstance(parameters.get("people_detected"), bool):
-                state["people_detected"] = bool(parameters["people_detected"])
-            if isinstance(parameters.get("people_identified"), bool):
-                state["people_identified"] = bool(parameters["people_identified"])
+            _apply_people_stage(state, parameters)
     return state
+
+
+def _apply_people_stage(state: dict[str, object], parameters: dict[str, object]) -> None:
+    for key in ("people_detected", "people_identified"):
+        if isinstance(parameters.get(key), bool):
+            state[key] = bool(parameters[key])
 
 
 def _add_bag(parent: ET.Element, tag: str, values: list[str]) -> None:
@@ -2818,6 +2825,28 @@ def _add_region_person_names(parent: ET.Element, names) -> None:
         item.text = name
 
 
+def _read_region_caption(li: ET.Element) -> str:
+    caption = str(li.get(f"{{{MWGRS_NS}}}Name") or "").strip()
+    if not caption:
+        desc_el = li.find(f".//{{{DC_NS}}}description")
+        if desc_el is not None:
+            li_text = desc_el.find(f".//{{{RDF_NS}}}li")
+            if li_text is not None and li_text.text:
+                caption = li_text.text.strip()
+    return caption
+
+
+def _read_region_person_names(li: ET.Element) -> list[str]:
+    person_names: list[str] = []
+    pn_el = li.find(f"{{{IMAGO_NS}}}PersonNames")
+    if pn_el is not None:
+        for pn_li in pn_el.iter(f"{{{RDF_NS}}}li"):
+            name = str(pn_li.text or "").strip()
+            if name:
+                person_names.append(name)
+    return person_names
+
+
 def read_region_list(xmp_path: str | Path, img_w: int, img_h: int) -> list[dict]:
     """Read the mwg-rs:RegionList from an XMP sidecar.
 
@@ -2859,24 +2888,10 @@ def read_region_list(xmp_path: str | Path, img_w: int, img_h: int) -> list[dict]
         pw = max(1, int(round(nw * img_w)))
         ph = max(1, int(round(nh * img_h)))
 
-        caption = str(li.get(f"{{{MWGRS_NS}}}Name") or "").strip()
-        if not caption:
-            desc_el = li.find(f".//{{{DC_NS}}}description")
-            if desc_el is not None:
-                li_text = desc_el.find(f".//{{{RDF_NS}}}li")
-                if li_text is not None and li_text.text:
-                    caption = li_text.text.strip()
-
+        caption = _read_region_caption(li)
         caption_hint = str(li.get(f"{{{IMAGO_NS}}}CaptionHint") or "").strip()
         photo_number = int(li.get(f"{{{IMAGO_NS}}}PhotoNumber") or 0)
-
-        person_names: list[str] = []
-        pn_el = li.find(f"{{{IMAGO_NS}}}PersonNames")
-        if pn_el is not None:
-            for pn_li in pn_el.iter(f"{{{RDF_NS}}}li"):
-                name = str(pn_li.text or "").strip()
-                if name:
-                    person_names.append(name)
+        person_names = _read_region_person_names(li)
 
         results.append(
             {

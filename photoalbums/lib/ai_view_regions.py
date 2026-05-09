@@ -73,44 +73,49 @@ def pixel_to_mwgrs(x: int, y: int, w: int, h: int, img_w: int, img_h: int) -> tu
     return cx, cy, nw, nh
 
 
+def _region_centre(region: RegionResult) -> tuple[float, float]:
+    return region.x + region.width / 2.0, region.y + region.height / 2.0
+
+
+def _caption_centre(caption: dict) -> tuple[float, float] | None:
+    try:
+        return float(caption["x"]) + float(caption["w"]) / 2.0, float(caption["y"]) + float(caption["h"]) / 2.0
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _point_distance(left: tuple[float, float], right: tuple[float, float]) -> float:
+    return ((left[0] - right[0]) ** 2 + (left[1] - right[1]) ** 2) ** 0.5
+
+
+def _best_region_for_caption(
+    regions: list[RegionResult], centre: tuple[float, float], ambiguity_threshold: float
+) -> int | None:
+    distances = [_point_distance(_region_centre(r), centre) for r in regions]
+    if len(distances) < 2:
+        return 0
+    sorted_d = sorted(distances)
+    if sorted_d[1] - sorted_d[0] < ambiguity_threshold:
+        return None
+    return distances.index(sorted_d[0])
+
+
 def associate_captions(
     regions: list[RegionResult],
     captions: list[dict],
     img_width: int,
 ) -> list[RegionWithCaption]:
     ambiguity_threshold = img_width * 0.10
-
-    def region_centre(region: RegionResult) -> tuple[float, float]:
-        return region.x + region.width / 2.0, region.y + region.height / 2.0
-
-    def caption_centre(caption: dict) -> tuple[float, float] | None:
-        try:
-            cx = float(caption["x"]) + float(caption["w"]) / 2.0
-            cy = float(caption["y"]) + float(caption["h"]) / 2.0
-            return cx, cy
-        except (KeyError, TypeError, ValueError):
-            return None
-
-    def distance(left: tuple[float, float], right: tuple[float, float]) -> float:
-        return ((left[0] - right[0]) ** 2 + (left[1] - right[1]) ** 2) ** 0.5
-
     results: list[RegionWithCaption] = []
     for caption in captions:
-        centre = caption_centre(caption)
+        text = str(caption.get("text") or "").strip()
+        centre = _caption_centre(caption)
         if centre is None:
-            text = str(caption.get("text") or "").strip()
             return [RegionWithCaption(region, text, caption_ambiguous=True) for region in regions]
-
-        distances = [distance(region_centre(region), centre) for region in regions]
-        if len(distances) < 2:
-            best_idx = 0
-        else:
-            sorted_distances = sorted(distances)
-            if sorted_distances[1] - sorted_distances[0] < ambiguity_threshold:
-                text = str(caption.get("text") or "").strip()
-                return [RegionWithCaption(region, text, caption_ambiguous=True) for region in regions]
-            best_idx = distances.index(sorted_distances[0])
-        results.append(RegionWithCaption(regions[best_idx], str(caption.get("text") or "").strip()))
+        best_idx = _best_region_for_caption(regions, centre, ambiguity_threshold)
+        if best_idx is None:
+            return [RegionWithCaption(region, text, caption_ambiguous=True) for region in regions]
+        results.append(RegionWithCaption(regions[best_idx], text))
 
     assigned = {row.region.index for row in results}
     for region in regions:
@@ -440,6 +445,43 @@ def _write_docling_raw_debug_artifact(image_path: str | Path, payload: dict[str,
     return output_path
 
 
+def _write_docling_pipeline_step(xmp_path: Path, result: str, model: str) -> None:
+    from .xmp_sidecar import write_pipeline_steps, xmp_datetime_now  # pylint: disable=import-outside-toplevel
+
+    _STEP_KEY = "detect-regions/docling"
+    write_pipeline_steps(xmp_path, {_STEP_KEY: {"timestamp": xmp_datetime_now(), "result": result, "input_hash": "", "model": model}})
+
+
+def _docling_skip_check(xmp_path: Path, path: Path) -> bool:
+    from .xmp_sidecar import read_pipeline_step  # pylint: disable=import-outside-toplevel
+
+    _STEP_KEY = "detect-regions/docling"
+    existing_step = read_pipeline_step(xmp_path, _STEP_KEY) or read_pipeline_step(xmp_path, "view_regions") or {}
+    existing_result = str(existing_step.get("result") or "").strip()
+    if existing_result in {"no_regions", "validation_failed", "failed"}:
+        log.info("Skipping Docling detection for %s: pipeline step already recorded result=%r", path, existing_result)
+        return True
+    return False
+
+
+def _apply_docling_validation(
+    path: Path, xmp_path: Path, model: str, regions: list, img_w: int, img_h: int, write_debug: bool
+) -> list[RegionResult]:
+    validation = validate_region_set(regions, img_w=img_w, img_h=img_h)
+    if validation.failures:
+        _write_docling_pipeline_step(xmp_path, "validation_failed", model)
+        if write_debug:
+            _write_failed_regions_debug_image(path, regions, validation.failures)
+        reasons = ", ".join(failure.reason for failure in validation.failures)
+        log.error("Docling: region validation failed for %s (%d failure(s): %s); use --force to retry",
+                  path, len(validation.failures), reasons)
+        return []
+    _write_docling_pipeline_step(xmp_path, "regions_found", model)
+    if write_debug:
+        _write_accepted_regions_debug_image(path, validation.kept)
+    return validation.kept
+
+
 def _detect_regions_docling(
     path: Path,
     *,
@@ -452,46 +494,25 @@ def _detect_regions_docling(
     skip_validation: bool,
     write_debug: bool = False,
 ) -> list[RegionResult]:
-    from ._docling_pipeline import (  # pylint: disable=import-outside-toplevel
-        DoclingPipelineRuntimeError,
-        run_docling_pipeline,
-    )
-    from .xmp_sidecar import read_pipeline_step, write_pipeline_steps, xmp_datetime_now  # pylint: disable=import-outside-toplevel
+    from ._docling_pipeline import DoclingPipelineRuntimeError, run_docling_pipeline  # pylint: disable=import-outside-toplevel
 
-    _STEP_KEY = "detect-regions/docling"
-
-    def _write_step(result: str) -> None:
-        write_pipeline_steps(
-            xmp_path, {_STEP_KEY: {"timestamp": xmp_datetime_now(), "result": result, "input_hash": "", "model": model}}
-        )
-
-    if not force:
-        existing_step = read_pipeline_step(xmp_path, _STEP_KEY) or read_pipeline_step(xmp_path, "view_regions") or {}
-        existing_result = str(existing_step.get("result") or "").strip()
-        if existing_result in {"no_regions", "validation_failed", "failed"}:
-            log.info(
-                "Skipping Docling detection for %s: pipeline step already recorded result=%r", path, existing_result
-            )
-            return []
+    if not force and _docling_skip_check(xmp_path, path):
+        return []
 
     try:
         pipeline_result = run_docling_pipeline(
-            path,
-            img_w=img_w,
-            img_h=img_h,
-            preset=default_docling_preset(),
-            backend=default_docling_backend(),
-            device=default_docling_device(),
-            retries=default_docling_retries(),
+            path, img_w=img_w, img_h=img_h,
+            preset=default_docling_preset(), backend=default_docling_backend(),
+            device=default_docling_device(), retries=default_docling_retries(),
         )
     except DoclingPipelineRuntimeError as exc:
         if prompt_debug is not None and exc.debug_payload:
             _write_docling_raw_debug_artifact(path, exc.debug_payload)
-        _write_step("failed")
+        _write_docling_pipeline_step(xmp_path, "failed", model)
         log.error("Docling pipeline failed for %s: %s", path, exc)
         return []
     except Exception as exc:
-        _write_step("failed")
+        _write_docling_pipeline_step(xmp_path, "failed", model)
         log.error("Docling pipeline failed for %s: %s", path, exc)
         return []
 
@@ -499,36 +520,17 @@ def _detect_regions_docling(
         _write_docling_raw_debug_artifact(path, pipeline_result.debug_payload)
 
     if not pipeline_result.regions:
-        _write_step("no_regions")
+        _write_docling_pipeline_step(xmp_path, "no_regions", model)
         log.info("Docling: no regions detected for %s", path)
         return []
 
     if skip_validation:
-        final_regions = pipeline_result.regions
-        _write_step("regions_found")
+        _write_docling_pipeline_step(xmp_path, "regions_found", model)
         if write_debug:
-            _write_accepted_regions_debug_image(path, final_regions)
-        return final_regions
+            _write_accepted_regions_debug_image(path, pipeline_result.regions)
+        return pipeline_result.regions
 
-    validation = validate_region_set(pipeline_result.regions, img_w=img_w, img_h=img_h)
-    if validation.failures:
-        _write_step("validation_failed")
-        if write_debug:
-            _write_failed_regions_debug_image(path, pipeline_result.regions, validation.failures)
-        reasons = ", ".join(failure.reason for failure in validation.failures)
-        log.error(
-            "Docling: region validation failed for %s (%d failure(s): %s); use --force to retry",
-            path,
-            len(validation.failures),
-            reasons,
-        )
-        return []
-
-    final_regions = validation.kept
-    _write_step("regions_found")
-    if write_debug:
-        _write_accepted_regions_debug_image(path, final_regions)
-    return final_regions
+    return _apply_docling_validation(path, xmp_path, model, pipeline_result.regions, img_w, img_h, write_debug)
 
 
 def detect_regions(

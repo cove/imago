@@ -21,6 +21,35 @@ def _json_default(path: Path) -> Any:
     return []
 
 
+def _parse_jsonl_text(text: str) -> list[dict]:
+    rows: list[dict] = []
+    for raw in text.splitlines():
+        line = str(raw or "").strip()
+        if not line:
+            continue
+        item = _try_json_loads(line)
+        if isinstance(item, dict):
+            rows.append(item)
+    if rows:
+        return rows
+    stripped = text.strip()
+    if stripped.startswith("["):
+        try:
+            payload = json.loads(stripped)
+            if isinstance(payload, list):
+                return [dict(item) for item in payload if isinstance(item, dict)]
+        except json.JSONDecodeError:
+            pass
+    return []
+
+
+def _try_json_loads(text: str) -> Any:
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return None
+
+
 FACE_REVIEW_STATUSES = {"confirmed", "ignored", "rejected"}
 _WRITE_RETRY_ATTEMPTS = 8
 _WRITE_RETRY_DELAY_SECONDS = 0.1
@@ -277,37 +306,12 @@ class TextFaceStore:
         if not path.exists():
             return _json_default(path)
         if self._is_jsonl(path):
-            text = path.read_text(encoding="utf-8")
-            rows = []
-            for raw in text.splitlines():
-                line = str(raw or "").strip()
-                if not line:
-                    continue
-                try:
-                    item = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if isinstance(item, dict):
-                    rows.append(item)
-            if rows:
-                return rows
-            stripped = text.strip()
-            if stripped.startswith("["):
-                try:
-                    payload = json.loads(stripped)
-                except json.JSONDecodeError:
-                    return []
-                if isinstance(payload, list):
-                    return [dict(item) for item in payload if isinstance(item, dict)]
-            return rows
-
+            return _parse_jsonl_text(path.read_text(encoding="utf-8"))
         text = path.read_text(encoding="utf-8").strip()
         if not text:
             return _json_default(path)
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            return _json_default(path)
+        result = _try_json_loads(text)
+        return result if result is not None else _json_default(path)
 
     def _write_json(self, path: Path, data: Any) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -995,59 +999,63 @@ class TextFaceStore:
         serialized = json.dumps(payload, sort_keys=True, ensure_ascii=True, separators=(",", ":"))
         return hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:16]
 
-    def reset_pending_unknown(self, *, remove_crops: bool = True) -> dict[str, int]:
-        removed_faces = 0
-        removed_reviews = 0
-        removed_crops = 0
+    def _partition_unknown_faces(
+        self, face_rows: list
+    ) -> tuple[list[dict], set[str], list[Path], int]:
+        unknown_face_ids: set[str] = set()
+        crop_paths: list[Path] = []
+        kept_faces: list[dict[str, Any]] = []
+        removed = 0
+        for row in face_rows:
+            if not isinstance(row, dict):
+                continue
+            face_id = str(row.get("face_id") or "").strip()
+            person_id = str(row.get("person_id") or "").strip()
+            if person_id or face_review_status(row) in {"ignored", "rejected"}:
+                kept_faces.append(row)
+                continue
+            if face_id:
+                unknown_face_ids.add(face_id)
+            crop_rel = str(row.get("crop_path") or "").strip()
+            if crop_rel:
+                crop_paths.append(Path(crop_rel))
+            removed += 1
+        return kept_faces, unknown_face_ids, crop_paths, removed
 
+    def _filter_reviews(self, review_rows: list, unknown_face_ids: set[str]) -> tuple[list[dict], int]:
+        kept: list[dict[str, Any]] = []
+        removed = 0
+        for row in review_rows:
+            if not isinstance(row, dict):
+                continue
+            status = str(row.get("status") or "").strip().lower()
+            face_id = str(row.get("face_id") or "").strip()
+            if status == "pending" or face_id in unknown_face_ids:
+                removed += 1
+                continue
+            kept.append(row)
+        return kept, removed
+
+    def reset_pending_unknown(self, *, remove_crops: bool = True) -> dict[str, int]:
         with self._lock:
             face_rows = self._read_all_faces()
+            review_rows = self._read_json(self.review_path)
             if not isinstance(face_rows, list):
                 face_rows = []
-            review_rows = self._read_json(self.review_path)
             if not isinstance(review_rows, list):
                 review_rows = []
 
-            unknown_face_ids: set[str] = set()
-            crop_paths: list[Path] = []
-            kept_faces: list[dict[str, Any]] = []
-            for row in face_rows:
-                if not isinstance(row, dict):
-                    continue
-                face_id = str(row.get("face_id") or "").strip()
-                person_id = str(row.get("person_id") or "").strip()
-                review_status = face_review_status(row)
-                if person_id or review_status in {"ignored", "rejected"}:
-                    kept_faces.append(row)
-                    continue
-                if face_id:
-                    unknown_face_ids.add(face_id)
-                crop_rel = str(row.get("crop_path") or "").strip()
-                if crop_rel:
-                    crop_paths.append(Path(crop_rel))
-                removed_faces += 1
-
-            kept_reviews: list[dict[str, Any]] = []
-            for row in review_rows:
-                if not isinstance(row, dict):
-                    continue
-                status = str(row.get("status") or "").strip().lower()
-                face_id = str(row.get("face_id") or "").strip()
-                if status == "pending" or face_id in unknown_face_ids:
-                    removed_reviews += 1
-                    continue
-                kept_reviews.append(row)
+            kept_faces, unknown_face_ids, crop_paths, removed_faces = self._partition_unknown_faces(face_rows)
+            kept_reviews, removed_reviews = self._filter_reviews(review_rows, unknown_face_ids)
 
             self._write_all_faces(kept_faces)
             self._write_json(self.review_path, kept_reviews)
-
-            if remove_crops:
-                removed_crops = self._remove_crop_paths(crop_paths)
+            removed_crops = self._remove_crop_paths(crop_paths) if remove_crops else 0
 
         return {
-            "removed_faces": int(removed_faces),
-            "removed_reviews": int(removed_reviews),
-            "removed_crops": int(removed_crops),
+            "removed_faces": removed_faces,
+            "removed_reviews": removed_reviews,
+            "removed_crops": removed_crops,
             "kept_faces": int(len(self.list_faces())),
             "kept_reviews": int(len(self.list_review_items())),
         }

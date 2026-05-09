@@ -1,6 +1,5 @@
 """Tests for _rename_chapter_outputs in the VHS tuner server."""
 
-import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 

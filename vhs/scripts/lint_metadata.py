@@ -87,6 +87,52 @@ def _iter_archive_dirs(globs: Iterable[str]) -> list[Path]:
     return out
 
 
+def _lint_ffmeta_header(findings: list[Finding], archive: str, raw_lines: list[str]) -> None:
+    first_nonblank = next((line.strip() for line in raw_lines if line.strip()), "")
+    if first_nonblank != ";FFMETADATA1":
+        findings.append(Finding("WARN", archive, "First non-empty line is not ';FFMETADATA1'"))
+
+
+def _lint_render_settings(findings: list[Finding], archive: str, path: Path, required: bool) -> None:
+    if path.exists():
+        return
+    if required:
+        findings.append(Finding("WARN", archive, "Missing render_settings.json"))
+    else:
+        findings.append(Finding("INFO", archive, "Missing render_settings.json (created automatically when needed)"))
+
+
+def _lint_chapter_in_sequence(findings, archive, label, ch, previous, simulate_conversion, target_timebase, summary):
+    _lint_chapter_required_fields(findings, archive, label, ch)
+    try:
+        start_raw = int(ch.get("start_raw"))
+        end_raw = int(ch.get("end_raw"))
+    except Exception:
+        findings.append(Finding("ERROR", archive, f"{label}: non-integer START/END"))
+        return previous, Fraction(0, 1), False
+    if end_raw < start_raw:
+        findings.append(Finding("ERROR", archive, f"{label}: END ({end_raw}) < START ({start_raw})"))
+    tb = _lint_chapter_timebase(findings, archive, label, ch, summary, target_timebase)
+    if tb is None:
+        return previous, Fraction(0, 1), False
+    _lint_chapter_keys(findings, archive, label, ch)
+    start_frame, end_frame = chapter_frame_bounds(ch, fps_num=30000, fps_den=1001)
+    if previous is not None:
+        prev_start, prev_end, prev_label = previous
+        if start_frame < prev_end:
+            findings.append(Finding(
+                "WARN", archive,
+                f"{label}: overlaps {prev_label} "
+                f"(frames {start_frame}-{max(start_frame, end_frame - 1)} "
+                f"vs previous {prev_start}-{max(prev_start, prev_end - 1)})",
+            ))
+    drift = Fraction(0, 1)
+    mismatched = False
+    if simulate_conversion:
+        drift, mismatched = _lint_chapter_conversion(findings, archive, label, start_raw, end_raw, tb, target_timebase)
+    return (start_frame, end_frame, label), drift, mismatched
+
+
 def _lint_archive(
     archive_dir: Path,
     *,
@@ -110,25 +156,8 @@ def _lint_archive(
         return findings, summary
 
     raw_lines = ffmeta_path.read_text(encoding="utf-8", errors="replace").splitlines()
-    first_nonblank = ""
-    for line in raw_lines:
-        text = line.strip()
-        if text:
-            first_nonblank = text
-            break
-    if first_nonblank != ";FFMETADATA1":
-        findings.append(Finding("WARN", archive, "First non-empty line is not ';FFMETADATA1'"))
-
-    if require_render_settings and not render_settings_path.exists():
-        findings.append(Finding("WARN", archive, "Missing render_settings.json"))
-    if not require_render_settings and not render_settings_path.exists():
-        findings.append(
-            Finding(
-                "INFO",
-                archive,
-                "Missing render_settings.json (created automatically when needed)",
-            )
-        )
+    _lint_ffmeta_header(findings, archive, raw_lines)
+    _lint_render_settings(findings, archive, render_settings_path, require_render_settings)
 
     try:
         ffmeta, chapters = parse_chapters(ffmeta_path)
@@ -141,9 +170,7 @@ def _lint_archive(
         return findings, summary
 
     summary["chapters"] = len(chapters)
-
     _lint_global_metadata(findings, archive, ffmeta)
-
     _lint_duplicate_titles(findings, archive, chapters)
 
     previous = None
@@ -151,54 +178,11 @@ def _lint_archive(
     conversion_mismatches = 0
 
     for idx, ch in enumerate(chapters, start=1):
-        label = f"ch{idx}"
-        _lint_chapter_required_fields(findings, archive, label, ch)
-
-        try:
-            start_raw = int(ch.get("start_raw"))
-            end_raw = int(ch.get("end_raw"))
-        except Exception:
-            findings.append(Finding("ERROR", archive, f"{label}: non-integer START/END"))
-            continue
-
-        if end_raw < start_raw:
-            findings.append(Finding("ERROR", archive, f"{label}: END ({end_raw}) < START ({start_raw})"))
-
-        tb = _lint_chapter_timebase(findings, archive, label, ch, summary, target_timebase)
-        if tb is None:
-            continue
-
-        _lint_chapter_keys(findings, archive, label, ch)
-
-        start_frame, end_frame = chapter_frame_bounds(ch, fps_num=30000, fps_den=1001)
-        if previous is not None:
-            prev_start, prev_end, prev_label = previous
-            if start_frame < prev_end:
-                findings.append(
-                    Finding(
-                        "WARN",
-                        archive,
-                        (
-                            f"{label}: overlaps {prev_label} "
-                            f"(frames {start_frame}-{max(start_frame, end_frame - 1)} "
-                            f"vs previous {prev_start}-{max(prev_start, prev_end - 1)})"
-                        ),
-                    )
-                )
-        previous = (start_frame, end_frame, label)
-
-        if simulate_conversion:
-            drift, mismatched = _lint_chapter_conversion(
-                findings,
-                archive,
-                label,
-                start_raw,
-                end_raw,
-                tb,
-                target_timebase,
-            )
-            conversion_mismatches += int(mismatched)
-            max_sec_drift = max(max_sec_drift, drift)
+        previous, drift, mismatched = _lint_chapter_in_sequence(
+            findings, archive, f"ch{idx}", ch, previous, simulate_conversion, target_timebase, summary
+        )
+        conversion_mismatches += int(mismatched)
+        max_sec_drift = max(max_sec_drift, drift)
 
     if simulate_conversion:
         _append_conversion_summary(findings, archive, target_timebase, max_sec_drift, conversion_mismatches)

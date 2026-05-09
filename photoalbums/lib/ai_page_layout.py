@@ -79,7 +79,6 @@ def normalize_page_split_mode(value: object, default: str = "off") -> str:
 def classify_image_kind(image_path: str | Path) -> str:
     path = Path(image_path)
     suffix = path.suffix.lower()
-    name = path.name
     stem = path.stem
     parent_names = {parent.name for parent in path.parents}
     in_view = any(is_pages_dir(name) for name in parent_names)

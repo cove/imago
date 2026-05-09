@@ -17,12 +17,10 @@ if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
 from photoalbums.lib.ai_view_regions import (
-    RegionFailure,
     RegionResult,
     RegionWithCaption,
     _accepted_regions_debug_path,
     _docling_raw_debug_path,
-    _failed_regions_debug_path,
     _has_xmp_regions,
     _read_regions_from_xmp,
     _region_association_overlay_path,

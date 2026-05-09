@@ -160,6 +160,37 @@ def _prompt_for_face(
         return raw
 
 
+def _lookup_person_name(person_id: str, store: TextFaceStore) -> str | None:
+    if not person_id:
+        return None
+    for p in store.list_people():
+        if str(p.get("person_id")) == person_id:
+            return str(p.get("display_name", ""))
+    return None
+
+
+def _label_single_face(
+    face: dict[str, Any], photo_path: Path, idx: int, total_faces: int, store: TextFaceStore
+) -> list[str] | None:
+    face_id = str(face.get("face_id", "")).strip()
+    crop_rel = face.get("crop_path", "")
+    crop_path = (store.root_dir / crop_rel) if crop_rel else None
+    existing_person_name = _lookup_person_name(str(face.get("person_id") or "").strip(), store)
+    raw = _prompt_for_face(
+        photo_path, face_index=idx, total_faces=total_faces,
+        suggestions=get_ai_suggestions(face, store), crop_path=crop_path, existing_person=existing_person_name,
+    )
+    if raw is None:
+        return None
+    parts = [p.strip() for p in raw.split(",") if p.strip()]
+    if not parts:
+        return None
+    person = resolve_or_create_person(parts[0], store)
+    if face_id:
+        store.assign_face(face_id, str(person.get("person_id")), reviewed_by_human=True, review_status="confirmed")
+    return parts
+
+
 def label_photo(
     photo_path: Path,
     store: TextFaceStore,
@@ -167,28 +198,15 @@ def label_photo(
     *,
     overwrite: bool = False,
 ) -> LabelResult:
-    """
-    Process a single photo:
-    1. Skip if XMP already has PersonInImage (unless overwrite).
-    2. Reuse or ingest face records.
-    3. Prompt user for each face.
-    4. Assign face->person in Cast DB and write XMP sidecar.
-    """
     xmp_path = photo_path.with_suffix(".xmp")
 
-    if not overwrite:
-        existing = read_person_in_image(xmp_path)
-        if existing:
-            return LabelResult(photo_path=photo_path, status="skipped_existing")
+    if not overwrite and read_person_in_image(xmp_path):
+        return LabelResult(photo_path=photo_path, status="skipped_existing")
 
-    # Reuse existing face records for this photo; ingest if none
     faces = get_faces_for_photo(str(photo_path), store)
     if not faces:
         try:
-            faces = ingestor.ingest_photo(
-                image_path=photo_path,
-                source_path=str(photo_path),
-            )
+            faces = ingestor.ingest_photo(image_path=photo_path, source_path=str(photo_path))
         except Exception as exc:
             print(f"  Warning: could not ingest {photo_path.name}: {exc}")
             faces = []
@@ -198,53 +216,13 @@ def label_photo(
 
     confirmed_names: list[str] = []
     faces_labeled = 0
-
     for idx, face in enumerate(faces, 1):
-        face_id = str(face.get("face_id", "")).strip()
-        crop_rel = face.get("crop_path", "")
-        crop_path = (store.root_dir / crop_rel) if crop_rel else None
-
-        existing_person_id = str(face.get("person_id") or "").strip()
-        existing_person_name: str | None = None
-        if existing_person_id:
-            for p in store.list_people():
-                if str(p.get("person_id")) == existing_person_id:
-                    existing_person_name = str(p.get("display_name", ""))
-                    break
-
-        suggestions = get_ai_suggestions(face, store)
-
-        raw = _prompt_for_face(
-            photo_path,
-            face_index=idx,
-            total_faces=len(faces),
-            suggestions=suggestions,
-            crop_path=crop_path,
-            existing_person=existing_person_name,
-        )
-
-        if raw is None:
+        names = _label_single_face(face, photo_path, idx, len(faces), store)
+        if names is None:
             continue
-
-        # Parse comma-separated names; assign first name to this face record
-        parts = [p.strip() for p in raw.split(",") if p.strip()]
-        if not parts:
-            continue
-
-        primary_name = parts[0]
-        person = resolve_or_create_person(primary_name, store)
-        if face_id:
-            store.assign_face(
-                face_id,
-                str(person.get("person_id")),
-                reviewed_by_human=True,
-                review_status="confirmed",
-            )
-
-        for name in parts:
+        for name in names:
             if name not in confirmed_names:
                 confirmed_names.append(name)
-
         faces_labeled += 1
 
     if not confirmed_names:
@@ -252,13 +230,7 @@ def label_photo(
 
     merge_persons_xmp(xmp_path, confirmed_names)
     print(f"\n  Saved: {', '.join(confirmed_names)} → {xmp_path.name}")
-
-    return LabelResult(
-        photo_path=photo_path,
-        status="labeled",
-        faces_labeled=faces_labeled,
-        person_names=confirmed_names,
-    )
+    return LabelResult(photo_path=photo_path, status="labeled", faces_labeled=faces_labeled, person_names=confirmed_names)
 
 
 def run_label_photos(

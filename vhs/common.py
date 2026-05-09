@@ -9,9 +9,13 @@
 # - Measures media duration via ffprobe.
 #
 import json
-import os, shutil, subprocess, sys
+import os
+import shutil
+import subprocess
+import sys
 import hashlib
 from dataclasses import replace as dataclass_replace
+from fractions import Fraction
 from pathlib import Path
 
 # ---------------------------------------------------------
@@ -302,9 +306,6 @@ def apply_config_overrides(config, **overrides):
     if not cleaned:
         return config
     return dataclass_replace(config, **cleaned)
-
-
-from fractions import Fraction
 
 
 def _np():
@@ -1254,7 +1255,7 @@ def duration(path):
             text=True,
         ).strip()
         return float(out) if out else 0
-    except:
+    except Exception:
         return 0
 
 

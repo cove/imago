@@ -11,22 +11,14 @@ if str(ROOT) not in sys.path:
 from lib import ai_orientation  # noqa: E402
 
 
-class FakeOrientationResult:
-    def __init__(self, right_side_up):
-        self.engine = "lmstudio"
-        self.right_side_up = right_side_up
-        self.fallback = False
-        self.error = ""
-
-
 class FakeOrientationEngine:
     effective_model_name = "vision-model"
 
     def __init__(self, right_side_up):
-        self.right_side_up = right_side_up
+        self._result = ai_orientation.OrientationResult(engine="lmstudio", right_side_up=right_side_up)
 
-    def analyze(self, *_args, **_kwargs):
-        return FakeOrientationResult(self.right_side_up)
+    def analyze(self, *_args, **_kwargs) -> ai_orientation.OrientationResult:
+        return self._result
 
 
 class TestAIOrientation(unittest.TestCase):

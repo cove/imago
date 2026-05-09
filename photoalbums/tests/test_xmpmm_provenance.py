@@ -17,7 +17,6 @@ if str(MODULE_ROOT) not in sys.path:
 
 from photoalbums.lib.xmpmm_provenance import (
     assign_document_id,
-    read_document_id,
     write_creation_provenance,
     write_derived_from,
     write_pantry_entry,

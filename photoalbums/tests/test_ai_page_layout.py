@@ -66,7 +66,6 @@ class TestAIPageLayout(unittest.TestCase):
     def test_load_image_bgr_handles_single_channel_3d(self):
         """Regression: cv2.imread with IMREAD_UNCHANGED can return (H,W,1) for some TIFs."""
         try:
-            import cv2
             import numpy as np
         except Exception as exc:  # pragma: no cover - dependency optional
             self.skipTest(f"opencv/numpy unavailable: {exc}")

@@ -5,7 +5,7 @@ import os
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Protocol
 
 from ._caption_lmstudio import (
     DEFAULT_LMSTUDIO_TIMEOUT_SECONDS,
@@ -52,6 +52,12 @@ class OrientationResult:
     right_side_up: bool | None = None
     fallback: bool = False
     error: str = ""
+
+
+class _OrientationEngineProtocol(Protocol):
+    effective_model_name: str
+
+    def analyze(self, image_path: Path | str, *, source_path: Path | str | None = ...) -> OrientationResult: ...
 
 
 def _parse_orientation_response(value: object, *, finish_reason: str = "") -> OrientationResult:
@@ -236,7 +242,7 @@ def _pillow_save_kwargs(image, path: Path) -> dict:
 def correct_orientation_after_scan(
     image_path: Path | str,
     *,
-    engine: OrientationEngine | None = None,
+    engine: _OrientationEngineProtocol | None = None,
     log_info: Callable[[str], None] | None = None,
 ) -> dict:
     orientation_engine = engine or OrientationEngine()

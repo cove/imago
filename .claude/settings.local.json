@@ -293,7 +293,11 @@
       "Bash(curl -s https://code.claude.com/docs/en/hooks.md)",
       "WebSearch",
       "Bash(pip show *)",
-      "Bash(.venv/bin/python -m pylint --version)"
+      "Bash(.venv/bin/python -m pylint --version)",
+      "Bash(just typecheck *)",
+      "Bash(just --list)",
+      "Bash(just lint *)",
+      "Bash(sort -t'\\(' -k2 -rn)"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",
@@ -304,6 +308,6 @@
   "disabledMcpjsonServers": [
     "imago"
   ],
-  "outputStyle": "Explanatory",
+  "outputStyle": "default",
   "spinnerTipsEnabled": false
 }

@@ -85,7 +85,7 @@ class TestRenderRegionsDebug(unittest.TestCase):
 
     def test_small_image_not_upscaled(self):
         from PIL import Image
-        from photoalbums.lib.ai_view_region_render import render_regions_debug, _MAX_EDGE
+        from photoalbums.lib.ai_view_region_render import render_regions_debug
 
         with tempfile.TemporaryDirectory() as tmp:
             small_w, small_h = 400, 300

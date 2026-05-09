@@ -111,6 +111,14 @@ def _normalize_hint_text(value: str) -> str:
     return f" {' '.join(text.split())} ".strip() + " "
 
 
+def _add_hint(hints: list, seen_names: set, name: str, person_id, confidence: float, source: str) -> None:
+    key = name.casefold()
+    if key in seen_names:
+        return
+    seen_names.add(key)
+    hints.append({"name": name, "person_id": person_id, "confidence": confidence, "source": source})
+
+
 def _dedupe_variants(values: list[str]) -> tuple[str, ...]:
     return tuple(_dedupe(values))
 
@@ -520,6 +528,20 @@ class CastPeopleMatcher:
                     return person_id
         return None
 
+    def _add_sequence_name_hints(
+        self, parts: list[str], face_index: int, total_faces: int,
+        source: str, positional_source: str, hints: list, seen_names: set,
+    ) -> None:
+        if len(parts) == total_faces:
+            name = parts[face_index].title()
+            person_id = self._find_person_id_by_name(name)
+            _add_hint(hints, seen_names, name, person_id, 0.85 if person_id else 0.65, positional_source)
+        else:
+            for name_raw in parts:
+                name = name_raw.title()
+                person_id = self._find_person_id_by_name(name)
+                _add_hint(hints, seen_names, name, person_id, 0.65 if person_id else 0.45, source)
+
     def _build_face_name_hints(
         self,
         hint_text: str,
@@ -527,71 +549,27 @@ class CastPeopleMatcher:
         face_index: int,
         total_faces: int,
     ) -> list[dict[str, Any]]:
-        """Build name hints for a specific face from OCR/hint text and filename.
-
-        Hyphen-separated sequences (e.g. "Karl-Billy-Leslie") are assigned
-        positionally when the count matches total_faces; otherwise all names
-        are shown as non-positional hints. Individual Cast person names found
-        anywhere in hint_text are also included.
-        """
         hints: list[dict[str, Any]] = []
         seen_names: set[str] = set()
 
-        def _add(name: str, person_id: str | None, confidence: float, source: str) -> None:
-            key = name.casefold()
-            if key in seen_names:
-                return
-            seen_names.add(key)
-            hints.append(
-                {
-                    "name": name,
-                    "person_id": person_id,
-                    "confidence": confidence,
-                    "source": source,
-                }
-            )
-
-        # 1. Hyphen-separated sequences in hint_text
         for seq_match in re.finditer(r"\b([a-zA-Z]{2,}(?:-[a-zA-Z]{2,})+)\b", hint_text):
             parts = [p.strip() for p in seq_match.group(0).split("-") if len(p.strip()) >= 2]
-            if len(parts) < 2:
-                continue
-            if len(parts) == total_faces:
-                # Positional: this face gets the name at its left-to-right index
-                name = parts[face_index].title()
-                person_id = self._find_person_id_by_name(name)
-                _add(name, person_id, 0.85 if person_id else 0.65, "positional_caption")
-            else:
-                for name_raw in parts:
-                    name = name_raw.title()
-                    person_id = self._find_person_id_by_name(name)
-                    _add(name, person_id, 0.65 if person_id else 0.45, "caption")
+            if len(parts) >= 2:
+                self._add_sequence_name_hints(parts, face_index, total_faces, "caption", "positional_caption", hints, seen_names)
 
-        # 2. Individual Cast person names found in hint_text
         normalized = _normalize_hint_text(hint_text)
         for person_id, variants in self._person_variants_by_id.items():
             for variant in variants:
                 phrase = _normalize_hint_text(variant).strip()
-                if not phrase:
-                    continue
-                if f" {phrase} " in normalized:
+                if phrase and f" {phrase} " in normalized:
                     name = self._person_name_by_id.get(person_id, variant)
-                    _add(name, person_id, 0.5, "caption")
+                    _add_hint(hints, seen_names, name, person_id, 0.5, "caption")
                     break
 
-        # 3. Hyphen-separated sequences in the source filename stem
         stem = Path(source_path).stem
         stem_parts = [p.strip() for p in stem.split("-") if re.match(r"^[a-zA-Z]{2,}$", p.strip())]
         if len(stem_parts) >= 2:
-            if len(stem_parts) == total_faces:
-                name = stem_parts[face_index].title()
-                person_id = self._find_person_id_by_name(name)
-                _add(name, person_id, 0.85 if person_id else 0.65, "positional_filename")
-            else:
-                for name_raw in stem_parts:
-                    name = name_raw.title()
-                    person_id = self._find_person_id_by_name(name)
-                    _add(name, person_id, 0.65 if person_id else 0.45, "filename")
+            self._add_sequence_name_hints(stem_parts, face_index, total_faces, "filename", "positional_filename", hints, seen_names)
 
         return hints
 

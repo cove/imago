@@ -140,9 +140,6 @@ from .ai_index import (
     _has_dc_date,
     _dc_date_needs_refresh,
     _resolve_dc_date,
-    _configured_title_page_location_payload,
-    _is_archive_file,
-    _page_sort_key,
 )
 
 
@@ -980,6 +977,25 @@ class IndexRunner:
             self._process_one(idx, image_path)
         return self._summarize()
 
+    def _discover_multi_photo_files(self) -> None:
+        self.files = discover_images(
+            self.photos_root,
+            include_archive=self.include_archive,
+            include_view=self.include_view,
+            extensions=self.ext_set,
+        )
+        album_filter = str(self.args.album or "").strip()
+        if album_filter:
+            album_lower = album_filter.casefold()
+            self.files = [f for f in self.files if album_lower in f.parent.name.casefold()]
+        self.files = _coalesce_archive_processing_files(self.files)
+        photo_offset = int(self.args.photo_offset or 0)
+        if photo_offset > 0:
+            self.files = self.files[photo_offset:]
+        if self.args.max_images and self.args.max_images > 0:
+            self.files = self.files[: int(self.args.max_images)]
+        self.files = _apply_shard(self.files, self.shard_count, self.shard_index)
+
     def _setup(self) -> int | None:
         if self.single_photo:
             if self.shard_count > 1:
@@ -990,23 +1006,7 @@ class IndexRunner:
             self.files = [photo_path]
             self.force_processing = True
         else:
-            self.files = discover_images(
-                self.photos_root,
-                include_archive=self.include_archive,
-                include_view=self.include_view,
-                extensions=self.ext_set,
-            )
-            album_filter = str(self.args.album or "").strip()
-            if album_filter:
-                album_lower = album_filter.casefold()
-                self.files = [f for f in self.files if album_lower in f.parent.name.casefold()]
-            self.files = _coalesce_archive_processing_files(self.files)
-            photo_offset = int(self.args.photo_offset or 0)
-            if photo_offset > 0:
-                self.files = self.files[photo_offset:]
-            if self.args.max_images and self.args.max_images > 0:
-                self.files = self.files[: int(self.args.max_images)]
-            self.files = _apply_shard(self.files, self.shard_count, self.shard_index)
+            self._discover_multi_photo_files()
 
         original_file_count = len(self.files)
         self.files = _expand_album_title_dependencies(self.files, self.ext_set)

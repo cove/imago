@@ -96,7 +96,7 @@ def main(argv: list[str]) -> int:
     # 4. Overlay path
     overlay_path = _region_association_overlay_path(image_path)
     print()
-    print(f"-- association-overlay --")
+    print("-- association-overlay --")
     print(f"  expected: {overlay_path}")
     print(f"  exists:   {overlay_path.is_file()}")
     if not overlay_path.is_file():

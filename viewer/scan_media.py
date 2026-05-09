@@ -203,6 +203,82 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _deduplicate_roots(candidates: List[Path]) -> List[Path]:
+    seen: set = set()
+    result: List[Path] = []
+    for cand in candidates:
+        if not cand.exists() or not cand.is_dir():
+            continue
+        key = str(cand.resolve()).lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(cand.resolve())
+    return result
+
+
+def _scan_imago_layout_albums(args, max_items: int) -> Tuple[List[Dict], int]:
+    home = Path.home()
+    inferred_video_candidates = [home / "Videos"]
+    inferred_photo_candidates = [
+        home / "OneDrive" / "Cordell, Leslie & Audrey" / "Photo Albums",
+        home / "Library" / "CloudStorage" / "OneDrive-Personal" / "Cordell, Leslie & Audrey" / "Photo Albums",
+    ]
+    explicit_video_roots = [Path(p).expanduser().resolve() for p in args.videos_root]
+    explicit_photo_roots = [Path(p).expanduser().resolve() for p in args.photos_root]
+
+    video_search_roots = _deduplicate_roots([*explicit_video_roots, *inferred_video_candidates])
+    video_roots = collect_named_dirs(video_search_roots, names=["VHS Clips", "Videos"], max_depth=5, include_root=False)
+    photo_search_roots = _deduplicate_roots([*explicit_photo_roots, *inferred_photo_candidates])
+
+    albums: List[Dict] = []
+    total_items = 0
+    album_idx = 1
+    for root in video_roots:
+        album, _ = build_album(root, recursive=True, max_items=max_items, album_index=album_idx)
+        album["items"] = [it for it in album["items"] if it.get("type") == "video"]
+        count = len(album["items"])
+        albums.append(album)
+        total_items += count
+        print(f"[scan_media] video root {root} -> {count} item(s)")
+        album_idx += 1
+
+    view_dirs = collect_view_dirs(photo_search_roots)
+    for view_dir in view_dirs:
+        album, _ = build_album(view_dir, recursive=True, max_items=max_items, album_index=album_idx)
+        album["items"] = [it for it in album["items"] if it.get("type") == "image"]
+        count = len(album["items"])
+        albums.append(album)
+        total_items += count
+        print(f"[scan_media] photo view {view_dir} -> {count} item(s)")
+        album_idx += 1
+
+    if not video_roots:
+        print("[scan_media] note: no video roots found (expected VHS Clips/ and/or Videos).")
+    if not photo_search_roots:
+        print("[scan_media] note: no photo roots found for *_Pages discovery.")
+    if photo_search_roots and not view_dirs:
+        print("[scan_media] note: no *_Pages folders found under photo roots.")
+    return albums, total_items
+
+
+def _scan_explicit_root_albums(args, recursive: bool, max_items: int) -> Tuple[List[Dict], int]:
+    roots: List[Path] = [Path(raw).expanduser().resolve() for raw in args.root]
+    for root in roots:
+        if not root.exists():
+            raise FileNotFoundError(f"Root does not exist: {root}")
+        if not root.is_dir():
+            raise NotADirectoryError(f"Root is not a directory: {root}")
+    albums: List[Dict] = []
+    total_items = 0
+    for idx, root in enumerate(roots, start=1):
+        album, count = build_album(root, recursive=recursive, max_items=max_items, album_index=idx)
+        albums.append(album)
+        total_items += count
+        print(f"[scan_media] {root} -> {count} item(s)")
+    return albums, total_items
+
+
 def main() -> int:
     args = parse_args()
     recursive = not args.no_recursive
@@ -210,88 +286,10 @@ def main() -> int:
     if not args.imago_layout and not args.root:
         raise SystemExit("Provide at least one --root, or use --imago-layout.")
 
-    albums: List[Dict] = []
-    total_items = 0
-
     if args.imago_layout:
-        home = Path.home()
-        inferred_video_candidates = [home / "Videos"]
-        inferred_photo_candidates = [
-            home / "OneDrive" / "Cordell, Leslie & Audrey" / "Photo Albums",
-            home / "Library" / "CloudStorage" / "OneDrive-Personal" / "Cordell, Leslie & Audrey" / "Photo Albums",
-        ]
-
-        explicit_video_roots = [Path(p).expanduser().resolve() for p in args.videos_root]
-        explicit_photo_roots = [Path(p).expanduser().resolve() for p in args.photos_root]
-
-        video_search_roots: List[Path] = []
-        seen_video_search = set()
-        for cand in [*explicit_video_roots, *inferred_video_candidates]:
-            if not cand.exists() or not cand.is_dir():
-                continue
-            key = str(cand.resolve()).lower()
-            if key in seen_video_search:
-                continue
-            seen_video_search.add(key)
-            video_search_roots.append(cand.resolve())
-        video_roots = collect_named_dirs(
-            video_search_roots,
-            names=["VHS Clips", "Videos"],
-            max_depth=5,
-            include_root=False,
-        )
-
-        photo_search_roots: List[Path] = []
-        seen_photo = set()
-        for cand in [*explicit_photo_roots, *inferred_photo_candidates]:
-            if not cand.exists() or not cand.is_dir():
-                continue
-            key = str(cand.resolve()).lower()
-            if key in seen_photo:
-                continue
-            seen_photo.add(key)
-            photo_search_roots.append(cand.resolve())
-
-        album_idx = 1
-        for root in video_roots:
-            album, count = build_album(root, recursive=True, max_items=max_items, album_index=album_idx)
-            # Keep only video files for explicit video roots.
-            album["items"] = [it for it in album["items"] if it.get("type") == "video"]
-            count = len(album["items"])
-            albums.append(album)
-            total_items += count
-            print(f"[scan_media] video root {root} -> {count} item(s)")
-            album_idx += 1
-
-        view_dirs = collect_view_dirs(photo_search_roots)
-        for view_dir in view_dirs:
-            album, count = build_album(view_dir, recursive=True, max_items=max_items, album_index=album_idx)
-            album["items"] = [it for it in album["items"] if it.get("type") == "image"]
-            count = len(album["items"])
-            albums.append(album)
-            total_items += count
-            print(f"[scan_media] photo view {view_dir} -> {count} item(s)")
-            album_idx += 1
-
-        if not video_roots:
-            print("[scan_media] note: no video roots found (expected VHS Clips/ and/or Videos).")
-        if not photo_search_roots:
-            print("[scan_media] note: no photo roots found for *_Pages discovery.")
-        if photo_search_roots and not view_dirs:
-            print("[scan_media] note: no *_Pages folders found under photo roots.")
+        albums, total_items = _scan_imago_layout_albums(args, max_items)
     else:
-        roots: List[Path] = [Path(raw).expanduser().resolve() for raw in args.root]
-        for root in roots:
-            if not root.exists():
-                raise FileNotFoundError(f"Root does not exist: {root}")
-            if not root.is_dir():
-                raise NotADirectoryError(f"Root is not a directory: {root}")
-
-        for idx, root in enumerate(roots, start=1):
-            album, count = build_album(root, recursive=recursive, max_items=max_items, album_index=idx)
-            albums.append(album)
-            total_items += count
-            print(f"[scan_media] {root} -> {count} item(s)")
+        albums, total_items = _scan_explicit_root_albums(args, recursive, max_items)
 
     payload = {"albums": albums}
     output = Path(args.output).expanduser().resolve()

@@ -393,24 +393,20 @@ def _run_render_group(args, commands) -> int | None:
     return None
 
 
-def _run_primary_group(parser: argparse.ArgumentParser, args, commands) -> int | None:
-    if args.group == "metadata":
-        return _run_metadata_group(args, commands)
-    if args.group == "compress":
-        return commands.run_compress_tiff()
-    if args.group == "render":
-        return _run_render_group(args, commands)
-    if args.group == "watch":
-        if bool(getattr(args, "list_steps", False)):
-            try:
-                from .scanwatch import WATCHER_STEPS
-            except ImportError:
-                from scanwatch import WATCHER_STEPS
+def _run_watch_group(args, commands) -> int | None:
+    if bool(getattr(args, "list_steps", False)):
+        try:
+            from .scanwatch import WATCHER_STEPS
+        except ImportError:
+            from scanwatch import WATCHER_STEPS  # noqa: E402
 
-            for i, (step_id, label) in enumerate(WATCHER_STEPS, 1):
-                print(f"  [{i}] {step_id}  —  {label}")
-            return 0
-        return commands.run_watch_incoming()
+        for i, (step_id, label) in enumerate(WATCHER_STEPS, 1):
+            print(f"  [{i}] {step_id}  —  {label}")
+        return 0
+    return commands.run_watch_incoming()
+
+
+def _run_album_pipeline_group(args, commands) -> int | None:
     if args.group == "detect-view-regions":
         return commands.run_detect_view_regions(
             album_id=args.album_id,
@@ -448,24 +444,21 @@ def _run_primary_group(parser: argparse.ArgumentParser, args, commands) -> int |
             debug=bool(getattr(args, "debug", False)),
             skip_validation=bool(getattr(args, "no_validation", False)),
         )
-    if args.group == "checksum":
-        if args.checksum_kind == "tree":
-            return commands.run_checksum_tree(base_dir=args.base_dir, verify=bool(args.verify))
+    return None
+
+
+def _run_migrate_group(args, commands) -> int | None:
+    verify_only = bool(getattr(args, "verify_only", False))
     if args.group == "migrate-page-dir-refs":
-        return commands.run_migrate_page_dir_refs(
-            photos_root=args.photos_root,
-            verify_only=bool(getattr(args, "verify_only", False)),
-        )
+        return commands.run_migrate_page_dir_refs(photos_root=args.photos_root, verify_only=verify_only)
     if args.group == "migrate-caption-layout":
-        return commands.run_migrate_caption_layout(
-            photos_root=args.photos_root,
-            verify_only=bool(getattr(args, "verify_only", False)),
-        )
+        return commands.run_migrate_caption_layout(photos_root=args.photos_root, verify_only=verify_only)
     if args.group == "migrate-pipeline-records":
-        return commands.run_migrate_pipeline_records(
-            photos_root=args.photos_root,
-            verify_only=bool(getattr(args, "verify_only", False)),
-        )
+        return commands.run_migrate_pipeline_records(photos_root=args.photos_root, verify_only=verify_only)
+    return None
+
+
+def _run_repair_group(args, commands) -> int | None:
     if args.group == "repair-crop-source":
         return commands.run_repair_crop_source(
             album_id=args.album_id,
@@ -474,17 +467,32 @@ def _run_primary_group(parser: argparse.ArgumentParser, args, commands) -> int |
             verify_only=bool(getattr(args, "verify_only", False)),
         )
     if args.group == "repair-crop-numbers":
-        return commands.run_repair_crop_numbers(
-            album_id=args.album_id,
-            photos_root=args.photos_root,
-            page=args.page,
-        )
+        return commands.run_repair_crop_numbers(album_id=args.album_id, photos_root=args.photos_root, page=args.page)
     if args.group == "repair-page-derived-views":
         return commands.run_repair_page_derived_views(
-            album_id=args.album_id,
-            photos_root=args.photos_root,
-            page=args.page,
+            album_id=args.album_id, photos_root=args.photos_root, page=args.page
         )
+    return None
+
+
+def _run_primary_group(parser: argparse.ArgumentParser, args, commands) -> int | None:
+    if args.group == "metadata":
+        return _run_metadata_group(args, commands)
+    if args.group == "compress":
+        return commands.run_compress_tiff()
+    if args.group == "render":
+        return _run_render_group(args, commands)
+    if args.group == "watch":
+        return _run_watch_group(args, commands)
+    if args.group in ("detect-view-regions", "crop-regions", "face-refresh", "render-pipeline"):
+        return _run_album_pipeline_group(args, commands)
+    if args.group == "checksum":
+        if args.checksum_kind == "tree":
+            return commands.run_checksum_tree(base_dir=args.base_dir, verify=bool(args.verify))
+    if args.group in ("migrate-page-dir-refs", "migrate-caption-layout", "migrate-pipeline-records"):
+        return _run_migrate_group(args, commands)
+    if args.group in ("repair-crop-source", "repair-crop-numbers", "repair-page-derived-views"):
+        return _run_repair_group(args, commands)
     return None
 
 

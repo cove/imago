@@ -804,12 +804,11 @@ def _parse_lmstudio_locations_shown_payload(
 ) -> list[dict[str, Any]]:
     raw = _decode_lmstudio_text(value)
     text = str(raw or "").strip()
-    finish_note = f" finish_reason={finish_reason}." if str(finish_reason or "").strip() else ""
     if not text:
         return []
     try:
         payload = json.loads(text)
-    except json.JSONDecodeError as exc:
+    except json.JSONDecodeError:
         payload = _extract_structured_json_payload(
             text,
             is_valid=_is_lmstudio_locations_shown_payload,
@@ -943,6 +942,24 @@ def _lmstudio_request_json(url: str, *, payload: dict | None = None, timeout: fl
     return {}
 
 
+def _parse_lmstudio_sse_chunk(data: str, current_event: str) -> str | None:
+    try:
+        chunk = json.loads(data)
+    except json.JSONDecodeError:
+        if current_event == "error":
+            raise RuntimeError(f"LM Studio request failed: {data}")
+        return None
+    error_message = _extract_lmstudio_error_message(chunk)
+    if current_event == "error" or (error_message and not list(chunk.get("choices") or [])):
+        raise RuntimeError(f"LM Studio request failed: {error_message}")
+    choices = list(chunk.get("choices") or [])
+    if not choices:
+        return None
+    delta = dict(choices[0].get("delta") or {})
+    content = delta.get("content")
+    return str(content) if content else None
+
+
 def _lmstudio_stream_tokens(url: str, payload: dict, timeout: float):
     body = json.dumps(payload).encode("utf-8")
     request = urllib.request.Request(
@@ -964,22 +981,9 @@ def _lmstudio_stream_tokens(url: str, payload: dict, timeout: float):
                 data = line[6:]
                 if data == "[DONE]":
                     break
-                try:
-                    chunk = json.loads(data)
-                except json.JSONDecodeError:
-                    if current_event == "error":
-                        raise RuntimeError(f"LM Studio request failed: {data}")
-                    continue
-                error_message = _extract_lmstudio_error_message(chunk)
-                if current_event == "error" or (error_message and not list(chunk.get("choices") or [])):
-                    raise RuntimeError(f"LM Studio request failed: {error_message}")
-                choices = list(chunk.get("choices") or [])
-                if not choices:
-                    continue
-                delta = dict(choices[0].get("delta") or {})
-                content = delta.get("content")
+                content = _parse_lmstudio_sse_chunk(data, current_event)
                 if content:
-                    yield str(content)
+                    yield content
                 current_event = ""
     except urllib.error.HTTPError as exc:
         details = exc.read().decode("utf-8", errors="replace").strip()

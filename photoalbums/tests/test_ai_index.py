@@ -10,7 +10,6 @@ from unittest import mock
 
 import cv2
 import numpy as np
-import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MODULE_ROOT = Path(__file__).resolve().parents[1]
@@ -2481,10 +2480,6 @@ class TestAIIndex(unittest.TestCase):
     def test_build_flat_page_description_uses_cover_caption_with_book_note_on_fallback(
         self,
     ):
-        layout = SimpleNamespace(
-            original_path=Path("China_1986_B02_P01.jpg"),
-            content_path=Path("page.jpg"),
-        )
         analysis = ai_index.ImageAnalysis(
             image_path=Path("page.jpg"),
             people_names=[],
@@ -3251,7 +3246,7 @@ class TestAIIndex(unittest.TestCase):
                     ai_index_runner,
                     "_init_caption_engine",
                     return_value=SimpleNamespace(effective_model_name="caption-current"),
-                ) as caption_engine_mock,
+                ),
                 mock.patch.object(ai_index_runner.IndexRunner, "_process_full") as process_full_mock,
                 mock.patch.object(ai_index_runner.IndexRunner, "_process_refresh") as process_refresh_mock,
             ):

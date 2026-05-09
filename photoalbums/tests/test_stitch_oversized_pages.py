@@ -473,7 +473,7 @@ class TestStitchOversizedPages(unittest.TestCase):
 
     def test_write_jpeg_raises_on_imwrite_failure(self):
         try:
-            import numpy as np
+            pass
         except Exception as exc:
             self.skipTest(f"numpy unavailable: {exc}")
 

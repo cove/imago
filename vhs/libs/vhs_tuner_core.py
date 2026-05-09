@@ -321,26 +321,7 @@ def _source_signature_token(source: str | Path | None) -> str:
     return hashlib.blake2b(marker.encode("utf-8"), digest_size=8).hexdigest()
 
 
-def _cleanup_tuner_cache(force: bool = False) -> None:
-    global _LAST_CACHE_CLEANUP_TS
-    now = time.time()
-    interval_sec = _env_int("VHS_TUNER_CACHE_CLEANUP_INTERVAL_SEC", default=300, minimum=30)
-    if not force and (now - _LAST_CACHE_CLEANUP_TS) < float(interval_sec):
-        return
-    _LAST_CACHE_CLEANUP_TS = now
-
-    root = TUNER_CACHE_ROOT
-    if not root.exists():
-        return
-
-    ttl_days = _env_int("VHS_TUNER_CACHE_TTL_DAYS", default=14, minimum=1)
-    max_bytes = _env_int(
-        "VHS_TUNER_CACHE_MAX_BYTES",
-        default=2 * 1024 * 1024 * 1024,
-        minimum=64 * 1024 * 1024,
-    )
-    cutoff = now - (float(ttl_days) * 86400.0)
-
+def _evict_cache_files(root: Path, cutoff: float, max_bytes: int) -> None:
     files: list[tuple[float, int, Path]] = []
     total_bytes = 0
     for p in root.rglob("*"):
@@ -371,6 +352,29 @@ def _cleanup_tuner_cache(force: bool = False) -> None:
                 total_bytes -= size
             except Exception:
                 continue
+
+
+def _cleanup_tuner_cache(force: bool = False) -> None:
+    global _LAST_CACHE_CLEANUP_TS
+    now = time.time()
+    interval_sec = _env_int("VHS_TUNER_CACHE_CLEANUP_INTERVAL_SEC", default=300, minimum=30)
+    if not force and (now - _LAST_CACHE_CLEANUP_TS) < float(interval_sec):
+        return
+    _LAST_CACHE_CLEANUP_TS = now
+
+    root = TUNER_CACHE_ROOT
+    if not root.exists():
+        return
+
+    ttl_days = _env_int("VHS_TUNER_CACHE_TTL_DAYS", default=14, minimum=1)
+    max_bytes = _env_int(
+        "VHS_TUNER_CACHE_MAX_BYTES",
+        default=2 * 1024 * 1024 * 1024,
+        minimum=64 * 1024 * 1024,
+    )
+    cutoff = now - (float(ttl_days) * 86400.0)
+
+    _evict_cache_files(root, cutoff, max_bytes)
 
     dirs = [p for p in root.rglob("*") if p.is_dir()]
     dirs.sort(key=lambda p: len(p.parts), reverse=True)
@@ -703,6 +707,34 @@ def _signals_cache_path(
     return TUNER_FRAME_CACHE_DIR / f"{key}.json.gz"
 
 
+def _parse_cached_signals(sigs_raw: dict, fids: list[int]) -> dict[str, np.ndarray] | None:
+    out_sigs: dict[str, np.ndarray] = {}
+    for key in _CACHE_SIGNAL_KEYS:
+        vals = sigs_raw.get(key)
+        if not isinstance(vals, list) or len(vals) != len(fids):
+            return None
+        try:
+            out_sigs[key] = np.asarray([float(v) for v in vals], dtype=np.float64)
+        except Exception:
+            return None
+    return out_sigs
+
+
+def _parse_cached_thumbs(thumbs_raw: object) -> dict[int, str]:
+    thumbs: dict[int, str] = {}
+    if not isinstance(thumbs_raw, dict):
+        return thumbs
+    for raw_fid, raw_b64 in thumbs_raw.items():
+        if not isinstance(raw_b64, str):
+            continue
+        try:
+            fid_i = int(raw_fid)
+        except Exception:
+            continue
+        thumbs[fid_i] = raw_b64
+    return thumbs
+
+
 def load_cached_signals(
     archive: str,
     ch_title: str,
@@ -746,26 +778,11 @@ def load_cached_signals(
     except Exception:
         return None, None, None
 
-    out_sigs: dict[str, np.ndarray] = {}
-    for key in _CACHE_SIGNAL_KEYS:
-        vals = sigs_raw.get(key)
-        if not isinstance(vals, list) or len(vals) != len(fids):
-            return None, None, None
-        try:
-            out_sigs[key] = np.asarray([float(v) for v in vals], dtype=np.float64)
-        except Exception:
-            return None, None, None
+    out_sigs = _parse_cached_signals(sigs_raw, fids)
+    if out_sigs is None:
+        return None, None, None
 
-    thumbs: dict[int, str] = {}
-    if isinstance(thumbs_raw, dict):
-        for raw_fid, raw_b64 in thumbs_raw.items():
-            if not isinstance(raw_b64, str):
-                continue
-            try:
-                fid_i = int(raw_fid)
-            except Exception:
-                continue
-            thumbs[fid_i] = raw_b64
+    thumbs = _parse_cached_thumbs(thumbs_raw)
 
     try:
         path.touch()

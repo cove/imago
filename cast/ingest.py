@@ -24,7 +24,7 @@ warnings.filterwarnings(
     module=r"insightface",
 )
 
-from .storage import TextFaceStore
+from .storage import TextFaceStore  # noqa: E402
 
 CURRENT_FACE_EMBEDDING_MODEL = "insightface.buffalo_l.arcface_512"
 CURRENT_FACE_DETECTOR_MODEL = "insightface.buffalo_l.detector"
@@ -405,6 +405,15 @@ class FaceIngestor:
                 created.append(face)
         return created
 
+    @staticmethod
+    def _validate_video_path(path: Path) -> None:
+        if not path.exists():
+            raise FileNotFoundError(f"Video file does not exist: {path}")
+        if path.is_dir():
+            raise IsADirectoryError(f"Video path is a directory. Provide a video file path instead: {path}")
+        if not path.is_file():
+            raise FileNotFoundError(f"Video path is not a regular file: {path}")
+
     def ingest_vhs(
         self,
         *,
@@ -417,12 +426,7 @@ class FaceIngestor:
     ) -> dict[str, Any]:
         self._ensure_primary_model_ready()
         path = Path(video_path)
-        if not path.exists():
-            raise FileNotFoundError(f"Video file does not exist: {path}")
-        if path.is_dir():
-            raise IsADirectoryError(f"Video path is a directory. Provide a video file path instead: {path}")
-        if not path.is_file():
-            raise FileNotFoundError(f"Video path is not a regular file: {path}")
+        self._validate_video_path(path)
         cap = cv2.VideoCapture(str(path))
         if not cap.isOpened():
             raise RuntimeError(f"Unable to open video file: {path}")
@@ -535,6 +539,11 @@ class FaceIngestor:
                 files.append(path.resolve())
         return files
 
+    @staticmethod
+    def _collect_archive_dir_files(archive_dir: Path, ext_set: set[str], recursive: bool) -> list[Path]:
+        iterator = archive_dir.rglob("*") if recursive else archive_dir.glob("*")
+        return [path.resolve() for path in sorted(iterator) if path.is_file() and path.suffix.lower() in ext_set]
+
     def _iter_matching_archive_scan_files(
         self,
         *,
@@ -566,13 +575,7 @@ class FaceIngestor:
             seen_dirs.add(archive_dir)
             if not archive_dir.is_dir():
                 continue
-            iterator = archive_dir.rglob("*") if recursive else archive_dir.glob("*")
-            for path in sorted(iterator):
-                if not path.is_file():
-                    continue
-                if path.suffix.lower() not in ext_set:
-                    continue
-                files.append(path.resolve())
+            files.extend(self._collect_archive_dir_files(archive_dir, ext_set, recursive))
         return files
 
     def ingest_photo_album_views(

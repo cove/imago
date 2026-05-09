@@ -20,7 +20,6 @@ import time
 import sys
 from pathlib import Path
 
-import pytest
 import requests
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

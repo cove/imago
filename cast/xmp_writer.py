@@ -134,6 +134,28 @@ def merge_persons_xmp(
     return sidecar_path
 
 
+def _update_dc_description(
+    desc: ET.Element,  # type: ignore[type-arg]
+    desc_elem: ET.Element | None,  # type: ignore[type-arg]
+    clean: str,
+) -> None:
+    if clean:
+        if desc_elem is None:
+            desc_elem = ET.SubElement(desc, _DC_DESC_TAG)
+        alt = desc_elem.find(_RDF_ALT)
+        if alt is None:
+            desc_elem.clear()
+            alt = ET.SubElement(desc_elem, _RDF_ALT)
+        else:
+            for li in list(alt.findall(_RDF_LI)):
+                alt.remove(li)
+        li = ET.SubElement(alt, _RDF_LI)
+        li.set("{http://www.w3.org/XML/1998/namespace}lang", "x-default")
+        li.text = clean
+    elif desc_elem is not None:
+        desc.remove(desc_elem)
+
+
 def _merge_into_tree(
     tree: ET.ElementTree,  # type: ignore[type-arg]
     names: list[str],
@@ -172,22 +194,7 @@ def _merge_into_tree(
     if description is not None:
         clean = _normalize_xmp_text(description, multiline=True)
         desc_elem = desc.find(_DC_DESC_TAG)
-        if clean:
-            if desc_elem is None:
-                desc_elem = ET.SubElement(desc, _DC_DESC_TAG)
-            alt = desc_elem.find(_RDF_ALT)
-            if alt is None:
-                desc_elem.clear()
-                alt = ET.SubElement(desc_elem, _RDF_ALT)
-            else:
-                # Remove existing li items
-                for li in list(alt.findall(_RDF_LI)):
-                    alt.remove(li)
-            li = ET.SubElement(alt, _RDF_LI)
-            li.set("{http://www.w3.org/XML/1998/namespace}lang", "x-default")
-            li.text = clean
-        elif desc_elem is not None:
-            desc.remove(desc_elem)
+        _update_dc_description(desc, desc_elem, clean)
 
 
 def _write_minimal(

@@ -59,7 +59,6 @@ from common import (
     update_chapter_transcript_in_chapters_tsv,
 )
 from libs.vhs_tuner_core import (
-    _bgr_to_jpeg_b64,
     _chapter_bad_overrides,
     _chapter_extract_cache_path,
     _ensure_render_chapter_extract,
@@ -453,6 +452,33 @@ def _parse_timestamp_seconds(raw: Any) -> float | None:
     return max(0.0, float(value))
 
 
+def _parse_and_clip_timestamps(
+    start_raw: Any, end_raw: Any, duration: float | None
+) -> tuple[float, float] | None:
+    start = _parse_timestamp_seconds(start_raw)
+    end = _parse_timestamp_seconds(end_raw)
+    if start is None or end is None or end <= start:
+        return None
+    if duration is not None:
+        start = max(0.0, min(duration, float(start)))
+        end = max(0.0, min(duration, float(end)))
+        if end <= start:
+            return None
+    return float(start), float(end)
+
+
+def _extract_people_fields(item: Any) -> tuple[Any, Any, Any]:
+    if isinstance(item, dict):
+        return (
+            item.get("start_seconds", item.get("start")),
+            item.get("end_seconds", item.get("end")),
+            item.get("people"),
+        )
+    if isinstance(item, (list, tuple)) and len(item) >= 3:
+        return item[0], item[1], item[2]
+    return None, None, None
+
+
 def _normalize_people_entries_payload(
     raw_entries: Any,
     *,
@@ -467,26 +493,15 @@ def _normalize_people_entries_payload(
             duration = None
 
     for idx, item in enumerate(list(raw_entries or [])):
-        start_raw = end_raw = people_raw = None
-        if isinstance(item, dict):
-            start_raw = item.get("start_seconds", item.get("start"))
-            end_raw = item.get("end_seconds", item.get("end"))
-            people_raw = item.get("people")
-        elif isinstance(item, (list, tuple)) and len(item) >= 3:
-            start_raw, end_raw, people_raw = item[0], item[1], item[2]
-        start = _parse_timestamp_seconds(start_raw)
-        end = _parse_timestamp_seconds(end_raw)
-        if start is None or end is None or end <= start:
+        start_raw, end_raw, people_raw = _extract_people_fields(item)
+        timestamps = _parse_and_clip_timestamps(start_raw, end_raw, duration)
+        if timestamps is None:
             continue
-        if duration is not None:
-            start = max(0.0, min(duration, float(start)))
-            end = max(0.0, min(duration, float(end)))
-            if end <= start:
-                continue
+        start, end = timestamps
         people = re.sub(r"\s+", " ", str(people_raw or "")).strip()
         if not people:
             continue
-        rows.append((float(start), float(end), people, int(idx)))
+        rows.append((start, end, people, int(idx)))
 
     if not rows:
         return []
@@ -538,6 +553,28 @@ def _format_subtitle_confidence(raw: Any) -> str:
     return f"{parsed:.4f}".rstrip("0").rstrip(".")
 
 
+def _extract_subtitle_fields(item: Any) -> tuple[Any, Any, Any, Any, Any, Any]:
+    if isinstance(item, dict):
+        return (
+            item.get("start_seconds", item.get("start")),
+            item.get("end_seconds", item.get("end")),
+            item.get("text"),
+            item.get("speaker"),
+            item.get("confidence"),
+            item.get("source"),
+        )
+    if isinstance(item, (list, tuple)) and len(item) >= 3:
+        return (
+            item[0],
+            item[1],
+            item[2],
+            item[3] if len(item) >= 4 else None,
+            item[4] if len(item) >= 5 else None,
+            item[5] if len(item) >= 6 else None,
+        )
+    return None, None, None, None, None, None
+
+
 def _normalize_subtitle_entries_payload(
     raw_entries: Any,
     *,
@@ -552,39 +589,18 @@ def _normalize_subtitle_entries_payload(
             duration = None
 
     for idx, item in enumerate(list(raw_entries or [])):
-        start_raw = end_raw = text_raw = None
-        speaker_raw = confidence_raw = source_raw = None
-        if isinstance(item, dict):
-            start_raw = item.get("start_seconds", item.get("start"))
-            end_raw = item.get("end_seconds", item.get("end"))
-            text_raw = item.get("text")
-            speaker_raw = item.get("speaker")
-            confidence_raw = item.get("confidence")
-            source_raw = item.get("source")
-        elif isinstance(item, (list, tuple)) and len(item) >= 3:
-            start_raw, end_raw, text_raw = item[0], item[1], item[2]
-            if len(item) >= 4:
-                speaker_raw = item[3]
-            if len(item) >= 5:
-                confidence_raw = item[4]
-            if len(item) >= 6:
-                source_raw = item[5]
-        start = _parse_timestamp_seconds(start_raw)
-        end = _parse_timestamp_seconds(end_raw)
-        if start is None or end is None or end <= start:
+        start_raw, end_raw, text_raw, speaker_raw, confidence_raw, source_raw = _extract_subtitle_fields(item)
+        timestamps = _parse_and_clip_timestamps(start_raw, end_raw, duration)
+        if timestamps is None:
             continue
-        if duration is not None:
-            start = max(0.0, min(duration, float(start)))
-            end = max(0.0, min(duration, float(end)))
-            if end <= start:
-                continue
+        start, end = timestamps
         text = _normalize_subtitle_optional_text(text_raw)
         if not text:
             continue
         speaker = _normalize_subtitle_optional_text(speaker_raw)
         confidence = _parse_subtitle_confidence(confidence_raw)
         source = _normalize_subtitle_optional_text(source_raw)
-        rows.append((float(start), float(end), text, speaker, confidence, source, int(idx)))
+        rows.append((start, end, text, speaker, confidence, source, int(idx)))
 
     if not rows:
         return []
@@ -668,6 +684,33 @@ def _rename_chapter_outputs(old_title: str, new_title: str, archive: str) -> lis
     return renamed
 
 
+def _extract_split_fields(item: Any) -> tuple[Any, Any, Any]:
+    if isinstance(item, dict):
+        return (
+            item.get("start_frame", item.get("start")),
+            item.get("end_frame", item.get("end")),
+            item.get("title", item.get("text")),
+        )
+    if isinstance(item, (list, tuple)) and len(item) >= 3:
+        return item[0], item[1], item[2]
+    return None, None, None
+
+
+def _parse_and_clip_frames(
+    start_raw: Any, end_raw: Any, frame_cap: int | None
+) -> tuple[int, int] | None:
+    start = _parse_frame_value(start_raw)
+    end = _parse_frame_value(end_raw)
+    if start is None or end is None or end <= start:
+        return None
+    if frame_cap is not None:
+        start = max(0, min(int(frame_cap), int(start)))
+        end = max(0, min(int(frame_cap), int(end)))
+        if end <= start:
+            return None
+    return int(start), int(end)
+
+
 def _normalize_split_entries_payload(
     raw_entries: Any,
     *,
@@ -682,27 +725,15 @@ def _normalize_split_entries_payload(
             frame_cap = None
 
     for idx, item in enumerate(list(raw_entries or [])):
-        start_raw = end_raw = title_raw = None
-        if isinstance(item, dict):
-            start_raw = item.get("start_frame", item.get("start"))
-            end_raw = item.get("end_frame", item.get("end"))
-            title_raw = item.get("title", item.get("text"))
-        elif isinstance(item, (list, tuple)) and len(item) >= 3:
-            start_raw, end_raw, title_raw = item[0], item[1], item[2]
-
-        start = _parse_frame_value(start_raw)
-        end = _parse_frame_value(end_raw)
-        if start is None or end is None or end <= start:
+        start_raw, end_raw, title_raw = _extract_split_fields(item)
+        frames = _parse_and_clip_frames(start_raw, end_raw, frame_cap)
+        if frames is None:
             continue
-        if frame_cap is not None:
-            start = max(0, min(int(frame_cap), int(start)))
-            end = max(0, min(int(frame_cap), int(end)))
-            if end <= start:
-                continue
+        start_frame, end_frame = frames
         title = _normalize_subtitle_optional_text(title_raw)
         if not title:
             continue
-        rows.append((int(start), int(end), title, int(idx)))
+        rows.append((start_frame, end_frame, title, int(idx)))
 
     if not rows:
         return []
@@ -1471,6 +1502,28 @@ def _load_people_entries_for_chapter(archive: str, ch_start: int, ch_end: int) -
     )
 
 
+def _people_local_to_global_rows(
+    normalized_local: list[dict[str, Any]], chapter_start_sec: float, chapter_len_sec: float
+) -> list[tuple[float, float, str]]:
+    chapter_rows: list[tuple[float, float, str]] = []
+    for item in normalized_local:
+        start_local = _parse_timestamp_seconds(item.get("start_seconds", item.get("start")))
+        end_local = _parse_timestamp_seconds(item.get("end_seconds", item.get("end")))
+        if start_local is None or end_local is None or end_local <= start_local:
+            continue
+        people = re.sub(r"\s+", " ", str(item.get("people", "")).strip())
+        if not people:
+            continue
+        local_start_sec = max(0.0, min(float(chapter_len_sec), float(start_local)))
+        local_end_sec = max(0.0, min(float(chapter_len_sec), float(end_local)))
+        if local_end_sec <= local_start_sec:
+            if local_start_sec >= float(chapter_len_sec):
+                continue
+            local_end_sec = min(float(chapter_len_sec), float(local_start_sec) + _frame_to_seconds(1))
+        chapter_rows.append((chapter_start_sec + local_start_sec, chapter_start_sec + local_end_sec, str(people)))
+    return chapter_rows
+
+
 def _save_people_entries_for_chapter(
     archive: str,
     ch_start: int,
@@ -1500,34 +1553,9 @@ def _save_people_entries_for_chapter(
             kept.append((float(chapter_end_sec), float(end), str(people)))
 
     normalized_local = _normalize_people_entries_payload(
-        local_entries,
-        chapter_duration_seconds=max(0.0, float(chapter_len_sec)),
+        local_entries, chapter_duration_seconds=max(0.0, float(chapter_len_sec))
     )
-    chapter_rows: list[tuple[float, float, str]] = []
-    for item in normalized_local:
-        start_local = _parse_timestamp_seconds(item.get("start_seconds", item.get("start")))
-        end_local = _parse_timestamp_seconds(item.get("end_seconds", item.get("end")))
-        if start_local is None or end_local is None or end_local <= start_local:
-            continue
-        people = re.sub(r"\s+", " ", str(item.get("people", "")).strip())
-        if not people:
-            continue
-        local_start_sec = max(0.0, min(float(chapter_len_sec), float(start_local)))
-        local_end_sec = max(0.0, min(float(chapter_len_sec), float(end_local)))
-        if local_end_sec <= local_start_sec:
-            if local_start_sec >= float(chapter_len_sec):
-                continue
-            local_end_sec = min(float(chapter_len_sec), float(local_start_sec) + _frame_to_seconds(1))
-        global_start_sec = float(chapter_start_sec) + float(local_start_sec)
-        global_end_sec = float(chapter_start_sec) + float(local_end_sec)
-        chapter_rows.append(
-            (
-                float(global_start_sec),
-                float(global_end_sec),
-                str(people),
-            )
-        )
-
+    chapter_rows = _people_local_to_global_rows(normalized_local, chapter_start_sec, chapter_len_sec)
     merged = _canonicalize_people_tsv_rows([*kept, *chapter_rows])
     _write_people_tsv_rows(path, merged)
     return path, len(chapter_rows)
@@ -1566,6 +1594,37 @@ def _load_subtitle_entries_for_chapter(archive: str, ch_start: int, ch_end: int)
         local_entries,
         chapter_duration_seconds=max(0.0, float(chapter_end_sec) - float(chapter_start_sec)),
     )
+
+
+def _subtitle_local_to_global_rows(
+    normalized_local: list[dict[str, Any]], chapter_start_sec: float, chapter_len_sec: float
+) -> list[tuple[float, float, str, str, float | None, str]]:
+    chapter_rows: list[tuple[float, float, str, str, float | None, str]] = []
+    for item in normalized_local:
+        start_local = _parse_timestamp_seconds(item.get("start_seconds", item.get("start")))
+        end_local = _parse_timestamp_seconds(item.get("end_seconds", item.get("end")))
+        if start_local is None or end_local is None or end_local <= start_local:
+            continue
+        text = _normalize_subtitle_optional_text(item.get("text", ""))
+        if not text:
+            continue
+        local_start_sec = max(0.0, min(float(chapter_len_sec), float(start_local)))
+        local_end_sec = max(0.0, min(float(chapter_len_sec), float(end_local)))
+        if local_end_sec <= local_start_sec:
+            if local_start_sec >= float(chapter_len_sec):
+                continue
+            local_end_sec = min(float(chapter_len_sec), float(local_start_sec) + _frame_to_seconds(1))
+        chapter_rows.append(
+            (
+                chapter_start_sec + local_start_sec,
+                chapter_start_sec + local_end_sec,
+                text,
+                _normalize_subtitle_optional_text(item.get("speaker", "")),
+                _parse_subtitle_confidence(item.get("confidence")),
+                _normalize_subtitle_optional_text(item.get("source", "")),
+            )
+        )
+    return chapter_rows
 
 
 def _save_subtitle_entries_for_chapter(
@@ -1624,40 +1683,35 @@ def _save_subtitle_entries_for_chapter(
             )
 
     normalized_local = _normalize_subtitle_entries_payload(
-        local_entries,
-        chapter_duration_seconds=max(0.0, float(chapter_len_sec)),
+        local_entries, chapter_duration_seconds=max(0.0, float(chapter_len_sec))
     )
-    chapter_rows: list[tuple[float, float, str, str, float | None, str]] = []
-    for item in normalized_local:
-        start_local = _parse_timestamp_seconds(item.get("start_seconds", item.get("start")))
-        end_local = _parse_timestamp_seconds(item.get("end_seconds", item.get("end")))
-        if start_local is None or end_local is None or end_local <= start_local:
-            continue
-        text = _normalize_subtitle_optional_text(item.get("text", ""))
-        if not text:
-            continue
-        local_start_sec = max(0.0, min(float(chapter_len_sec), float(start_local)))
-        local_end_sec = max(0.0, min(float(chapter_len_sec), float(end_local)))
-        if local_end_sec <= local_start_sec:
-            if local_start_sec >= float(chapter_len_sec):
-                continue
-            local_end_sec = min(float(chapter_len_sec), float(local_start_sec) + _frame_to_seconds(1))
-        global_start_sec = float(chapter_start_sec) + float(local_start_sec)
-        global_end_sec = float(chapter_start_sec) + float(local_end_sec)
-        chapter_rows.append(
-            (
-                float(global_start_sec),
-                float(global_end_sec),
-                text,
-                _normalize_subtitle_optional_text(item.get("speaker", "")),
-                _parse_subtitle_confidence(item.get("confidence")),
-                _normalize_subtitle_optional_text(item.get("source", "")),
-            )
-        )
-
+    chapter_rows = _subtitle_local_to_global_rows(normalized_local, chapter_start_sec, chapter_len_sec)
     merged = _canonicalize_subtitles_tsv_rows([*kept, *chapter_rows])
     _write_subtitles_tsv_rows(path, merged)
     return path, len(chapter_rows)
+
+
+def _get_profile_raw(payload: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        val = payload.get(key)
+        if val is not None:
+            return val
+    return None
+
+
+def _apply_entries_profile(
+    payload: dict[str, Any],
+    *keys: str,
+    default: list[Any],
+    normalize_fn: Callable,
+    **kw: Any,
+) -> list[Any]:
+    raw = _get_profile_raw(payload, *keys)
+    if isinstance(raw, dict):
+        return normalize_fn(raw.get("entries", default), **kw)
+    if isinstance(raw, list):
+        return normalize_fn(raw, **kw)
+    return default
 
 
 def _apply_profiles_from_payload(session: SessionState, payload: dict[str, Any] | None) -> None:
@@ -1668,9 +1722,7 @@ def _apply_profiles_from_payload(session: SessionState, payload: dict[str, Any] 
             default=session.force_all_frames_good,
         )
 
-    raw_gamma_profile = payload.get("gamma_profile")
-    if raw_gamma_profile is None:
-        raw_gamma_profile = payload.get("gamma")
+    raw_gamma_profile = _get_profile_raw(payload, "gamma_profile", "gamma")
     if isinstance(raw_gamma_profile, dict):
         session.gamma_default = normalize_gamma_value(
             raw_gamma_profile.get("default_gamma", session.gamma_default),
@@ -1682,7 +1734,7 @@ def _apply_profiles_from_payload(session: SessionState, payload: dict[str, Any] 
             ch_end=session.end_frame,
         )
 
-    raw_audio_sync = payload.get("audio_sync_profile")
+    raw_audio_sync = _get_profile_raw(payload, "audio_sync_profile")
     if isinstance(raw_audio_sync, dict):
         try:
             session.audio_sync_offset = float(raw_audio_sync.get("offset_seconds", session.audio_sync_offset))
@@ -1693,48 +1745,25 @@ def _apply_profiles_from_payload(session: SessionState, payload: dict[str, Any] 
         0.0,
         _frame_to_seconds(session.end_frame) - _frame_to_seconds(session.start_frame),
     )
-    raw_people_profile = payload.get("people_profile")
-    if raw_people_profile is None:
-        raw_people_profile = payload.get("people")
-    if isinstance(raw_people_profile, dict):
-        session.people_entries = _normalize_people_entries_payload(
-            raw_people_profile.get("entries", session.people_entries),
-            chapter_duration_seconds=chapter_duration,
-        )
-    elif isinstance(raw_people_profile, list):
-        session.people_entries = _normalize_people_entries_payload(
-            raw_people_profile,
-            chapter_duration_seconds=chapter_duration,
-        )
-
-    raw_subtitles_profile = payload.get("subtitles_profile")
-    if raw_subtitles_profile is None:
-        raw_subtitles_profile = payload.get("subtitles")
-    if isinstance(raw_subtitles_profile, dict):
-        session.subtitle_entries = _normalize_subtitle_entries_payload(
-            raw_subtitles_profile.get("entries", session.subtitle_entries),
-            chapter_duration_seconds=chapter_duration,
-        )
-    elif isinstance(raw_subtitles_profile, list):
-        session.subtitle_entries = _normalize_subtitle_entries_payload(
-            raw_subtitles_profile,
-            chapter_duration_seconds=chapter_duration,
-        )
-
+    session.people_entries = _apply_entries_profile(
+        payload, "people_profile", "people",
+        default=session.people_entries,
+        normalize_fn=_normalize_people_entries_payload,
+        chapter_duration_seconds=chapter_duration,
+    )
+    session.subtitle_entries = _apply_entries_profile(
+        payload, "subtitles_profile", "subtitles",
+        default=session.subtitle_entries,
+        normalize_fn=_normalize_subtitle_entries_payload,
+        chapter_duration_seconds=chapter_duration,
+    )
     chapter_frame_count = max(1, int(session.end_frame) - int(session.start_frame))
-    raw_split_profile = payload.get("split_profile")
-    if raw_split_profile is None:
-        raw_split_profile = payload.get("split")
-    if isinstance(raw_split_profile, dict):
-        session.split_entries = _normalize_split_entries_payload(
-            raw_split_profile.get("entries", session.split_entries),
-            chapter_frame_count=chapter_frame_count,
-        )
-    elif isinstance(raw_split_profile, list):
-        session.split_entries = _normalize_split_entries_payload(
-            raw_split_profile,
-            chapter_frame_count=chapter_frame_count,
-        )
+    session.split_entries = _apply_entries_profile(
+        payload, "split_profile", "split",
+        default=session.split_entries,
+        normalize_fn=_normalize_split_entries_payload,
+        chapter_frame_count=chapter_frame_count,
+    )
 
 
 def _persist_session_progress(
@@ -2135,7 +2164,6 @@ def _build_contact_sheet_bytes(
     )
     if not images:
         return None, False
-    start = max(0, int(start_index))
     max_count = max(1, int(count))
     cols = max(1, int(columns))
     actual_count = max(0, min(len(images), max_count))
@@ -2318,86 +2346,78 @@ def _selected_bad_frame_ids(session: SessionState) -> list[int]:
     return out
 
 
+def _summary_gamma_text(gamma_ranges: list[dict[str, Any]]) -> str:
+    if not gamma_ranges:
+        return "Gamma ranges: (none)"
+    lines = ["Gamma ranges:"]
+    for item in gamma_ranges:
+        lines.append(
+            f"- {int(item['start_frame'])}-{int(item['end_frame'])} (end exclusive): gamma {float(item['gamma']):.3f}"
+        )
+    return "\n".join(lines)
+
+
+def _summary_people_text(people_entries: list[dict[str, Any]]) -> str:
+    if not people_entries:
+        return "People subtitle entries: (none)"
+    lines = [f"People subtitle entries: {len(people_entries)}"]
+    for item in people_entries:
+        lines.append(f"- {item['start']} - {item['end']}: {item['people']}")
+    return "\n".join(lines)
+
+
+def _summary_subtitle_entry_suffix(item: dict[str, Any]) -> str:
+    extras = []
+    if str(item.get("speaker", "")).strip():
+        extras.append(f"speaker={item['speaker']}")
+    confidence = _format_subtitle_confidence(item.get("confidence"))
+    if confidence:
+        extras.append(f"confidence={confidence}")
+    if str(item.get("source", "")).strip():
+        extras.append(f"source={item['source']}")
+    return f" ({', '.join(extras)})" if extras else ""
+
+
+def _summary_subtitles_text(subtitle_entries: list[dict[str, Any]]) -> str:
+    if not subtitle_entries:
+        return "Subtitle entries: (none)"
+    lines = [f"Subtitle entries: {len(subtitle_entries)}"]
+    for item in subtitle_entries[:25]:
+        suffix = _summary_subtitle_entry_suffix(item)
+        lines.append(f"- {item['start']} - {item['end']}: {item['text']}{suffix}")
+    if len(subtitle_entries) > 25:
+        lines.append(f"- +{len(subtitle_entries) - 25} more")
+    return "\n".join(lines)
+
+
+def _summary_split_text(split_entries: list[dict[str, Any]]) -> str:
+    if not split_entries:
+        return "Chapter entries: (none)"
+    lines = [f"Chapter entries: {len(split_entries)}"]
+    for item in split_entries[:25]:
+        lines.append(f"- {int(item['start_frame'])}-{int(item['end_frame'])} (local frames): {str(item['title'])}")
+    if len(split_entries) > 25:
+        lines.append(f"- +{len(split_entries) - 25} more")
+    return "\n".join(lines)
+
+
 def _summary_payload(session: SessionState) -> dict[str, Any]:
     review = _build_review_payload(session, include_images=False)
     bad_ids = [str(f["fid"]) for f in review["frames"] if f["status"] == "bad"]
     preview = ", ".join(bad_ids)
+    chapter_duration = max(0.0, _frame_to_seconds(session.end_frame) - _frame_to_seconds(session.start_frame))
     gamma_ranges = _normalize_gamma_ranges_payload(
-        session.gamma_ranges,
-        ch_start=session.start_frame,
-        ch_end=session.end_frame,
+        session.gamma_ranges, ch_start=session.start_frame, ch_end=session.end_frame
     )
-    gamma_lines = []
-    if gamma_ranges:
-        gamma_lines.append("Gamma ranges:")
-        for item in gamma_ranges:
-            gamma_lines.append(
-                f"- {int(item['start_frame'])}-{int(item['end_frame'])} (end exclusive): gamma {float(item['gamma']):.3f}"
-            )
-    else:
-        gamma_lines.append("Gamma ranges: (none)")
-    gamma_text = "\n".join(gamma_lines)
-
     people_entries = _normalize_people_entries_payload(
-        session.people_entries,
-        chapter_duration_seconds=max(
-            0.0,
-            _frame_to_seconds(session.end_frame) - _frame_to_seconds(session.start_frame),
-        ),
+        session.people_entries, chapter_duration_seconds=chapter_duration
     )
-    people_lines = []
-    if people_entries:
-        people_lines.append(f"People subtitle entries: {len(people_entries)}")
-        for item in people_entries:
-            people_lines.append(f"- {item['start']} - {item['end']}: {item['people']}")
-    else:
-        people_lines.append("People subtitle entries: (none)")
-    people_text = "\n".join(people_lines)
-
     subtitle_entries = _normalize_subtitle_entries_payload(
-        session.subtitle_entries,
-        chapter_duration_seconds=max(
-            0.0,
-            _frame_to_seconds(session.end_frame) - _frame_to_seconds(session.start_frame),
-        ),
+        session.subtitle_entries, chapter_duration_seconds=chapter_duration
     )
-    subtitle_lines = []
-    if subtitle_entries:
-        subtitle_lines.append(f"Subtitle entries: {len(subtitle_entries)}")
-        for item in subtitle_entries[:25]:
-            extras = []
-            if str(item.get("speaker", "")).strip():
-                extras.append(f"speaker={item['speaker']}")
-            confidence = _format_subtitle_confidence(item.get("confidence"))
-            if confidence:
-                extras.append(f"confidence={confidence}")
-            if str(item.get("source", "")).strip():
-                extras.append(f"source={item['source']}")
-            suffix = f" ({', '.join(extras)})" if extras else ""
-            subtitle_lines.append(f"- {item['start']} - {item['end']}: {item['text']}{suffix}")
-        if len(subtitle_entries) > 25:
-            subtitle_lines.append(f"- +{len(subtitle_entries) - 25} more")
-    else:
-        subtitle_lines.append("Subtitle entries: (none)")
-    subtitles_text = "\n".join(subtitle_lines)
-
     split_entries = _normalize_split_entries_payload(
-        session.split_entries,
-        chapter_frame_count=max(1, int(session.end_frame) - int(session.start_frame)),
+        session.split_entries, chapter_frame_count=max(1, int(session.end_frame) - int(session.start_frame))
     )
-    split_lines = []
-    if split_entries:
-        split_lines.append(f"Chapter entries: {len(split_entries)}")
-        for item in split_entries[:25]:
-            split_lines.append(
-                f"- {int(item['start_frame'])}-{int(item['end_frame'])} (local frames): {str(item['title'])}"
-            )
-        if len(split_entries) > 25:
-            split_lines.append(f"- +{len(split_entries) - 25} more")
-    else:
-        split_lines.append("Chapter entries: (none)")
-    split_text = "\n".join(split_lines)
-
     summary_text = (
         f"Archive: {session.archive}\n"
         f"Chapter: {session.chapter}\n"
@@ -2411,10 +2431,10 @@ def _summary_payload(session: SessionState) -> dict[str, Any]:
         f"Manual overrides: {review['stats']['overrides']}\n"
         f"Force all frames good: {'on' if session.force_all_frames_good else 'off'}\n"
         f"Gamma default: {float(session.gamma_default):.3f}\n"
-        f"{gamma_text}\n"
-        f"{people_text}\n\n"
-        f"{subtitles_text}\n\n"
-        f"{split_text}\n\n"
+        f"{_summary_gamma_text(gamma_ranges)}\n"
+        f"{_summary_people_text(people_entries)}\n\n"
+        f"{_summary_subtitles_text(subtitle_entries)}\n\n"
+        f"{_summary_split_text(split_entries)}\n\n"
         f"BAD frame IDs (loaded set):\n{preview or '(none)'}"
     )
     return {"summary": summary_text, "review": review}
@@ -2607,63 +2627,90 @@ def _preview_success_message(
     return msg
 
 
-def _subtitle_progress_bar_factory(session: SessionState, original_tqdm: Any, segment_total: int):
-    progress_prefix = "Transcribing audio with Whisper..."
-
-    class _SubtitlesProgressBar:
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            self._inner = original_tqdm(*args, **kwargs)
-            total_raw = getattr(self._inner, "total", None)
+def _collect_stderr_with_frame_progress(proc: Any, on_frame: Any | None) -> list[str]:
+    err_lines: list[str] = []
+    if proc.stderr is None:
+        return err_lines
+    for raw in proc.stderr:
+        line = str(raw or "").strip()
+        if line:
+            err_lines.append(line)
+            if len(err_lines) > 80:
+                err_lines = err_lines[-80:]
+        m = re.match(r"^frame\s*=\s*(\d+)$", line)
+        if m and on_frame is not None:
             try:
-                total_val = float(total_raw)
+                on_frame(int(m.group(1)))
             except Exception:
-                total_val = float(segment_total or 0)
-            self._total = max(1.0, total_val) if total_val > 0 else max(1.0, float(segment_total or 1))
-            _set_subtitles_progress(
-                session,
-                progress=20.0,
-                message=progress_prefix,
-                segment_done=0,
-                segment_total=max(1, int(round(self._total))),
-            )
+                pass
+    return err_lines
 
-        def __enter__(self) -> "_SubtitlesProgressBar":
-            if hasattr(self._inner, "__enter__"):
-                self._inner.__enter__()
-            return self
 
-        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> Any:
-            if hasattr(self._inner, "__exit__"):
-                return self._inner.__exit__(exc_type, exc, tb)
-            return False
+class _SubtitlesProgressBarBase:
+    _PROGRESS_PREFIX = "Transcribing audio with Whisper..."
+    _session: Any
+    _original_tqdm: Any
+    _segment_total: int
 
-        def update(self, n: int = 1) -> Any:
-            out = self._inner.update(n)
-            done = _coerce_subtitle_progress_done(getattr(self._inner, "n", 0))
-            frac = min(1.0, done / max(1.0, self._total))
-            _set_subtitles_progress(
-                session,
-                progress=20.0 + (frac * 75.0),
-                message=progress_prefix,
-                segment_done=max(0, int(round(done))),
-                segment_total=max(1, int(round(self._total))),
-            )
-            if bool(session.subtitles_cancel_requested):
-                raise _SubtitlesCancelledError("Subtitle generation cancelled.")
-            return out
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self._inner = self._original_tqdm(*args, **kwargs)
+        total_raw = getattr(self._inner, "total", None)
+        try:
+            total_val = float(total_raw)
+        except Exception:
+            total_val = float(self._segment_total or 0)
+        self._total = max(1.0, total_val) if total_val > 0 else max(1.0, float(self._segment_total or 1))
+        _set_subtitles_progress(
+            self._session,
+            progress=20.0,
+            message=self._PROGRESS_PREFIX,
+            segment_done=0,
+            segment_total=max(1, int(round(self._total))),
+        )
 
-        def close(self) -> Any:
-            if hasattr(self._inner, "close"):
-                return self._inner.close()
-            return None
+    def __enter__(self) -> "_SubtitlesProgressBarBase":
+        if hasattr(self._inner, "__enter__"):
+            self._inner.__enter__()
+        return self
 
-        def __iter__(self) -> Any:
-            return iter(self._inner)
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> Any:
+        if hasattr(self._inner, "__exit__"):
+            return self._inner.__exit__(exc_type, exc, tb)
+        return False
 
-        def __getattr__(self, name: str) -> Any:
-            return getattr(self._inner, name)
+    def update(self, n: int = 1) -> Any:
+        out = self._inner.update(n)
+        done = _coerce_subtitle_progress_done(getattr(self._inner, "n", 0))
+        frac = min(1.0, done / max(1.0, self._total))
+        _set_subtitles_progress(
+            self._session,
+            progress=20.0 + (frac * 75.0),
+            message=self._PROGRESS_PREFIX,
+            segment_done=max(0, int(round(done))),
+            segment_total=max(1, int(round(self._total))),
+        )
+        if bool(self._session.subtitles_cancel_requested):
+            raise _SubtitlesCancelledError("Subtitle generation cancelled.")
+        return out
 
-    return _SubtitlesProgressBar
+    def close(self) -> Any:
+        if hasattr(self._inner, "close"):
+            return self._inner.close()
+        return None
+
+    def __iter__(self) -> Any:
+        return iter(self._inner)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+
+def _subtitle_progress_bar_factory(session: SessionState, original_tqdm: Any, segment_total: int) -> type:
+    return type(
+        "_SubtitlesProgressBar",
+        (_SubtitlesProgressBarBase,),
+        {"_session": session, "_original_tqdm": original_tqdm, "_segment_total": segment_total},
+    )
 
 
 def _coerce_subtitle_progress_done(raw: Any) -> float:
@@ -3049,75 +3096,34 @@ class WizardHandler(BaseHTTPRequestHandler):
         session = self._ensure_session()
         parsed = urlparse(self.path)
 
-        if parsed.path == "/":
-            self._handle_get_index()
-            return
-
         if parsed.path.endswith((".js", ".css")) and "/" not in parsed.path.lstrip("/"):
             self._handle_get_static_file(parsed)
             return
 
-        if parsed.path == "/preview":
-            self._handle_get_preview_page(session)
+        if parsed.path.startswith("/api/ai/"):
+            self._handle_get_ai(session, parsed)
             return
 
-        if parsed.path == "/api/preview_video":
-            self._handle_get_preview_video(session)
-            return
-
-        if parsed.path == "/api/chapter_audio":
-            self._handle_get_chapter_audio(session)
-            return
-
-        if parsed.path == "/api/audio_sync_info":
-            self._handle_get_audio_sync_info(session)
-            return
-
-        if parsed.path == "/api/audio_sync_audio":
-            self._handle_get_audio_sync_audio(session)
-            return
-
-        if parsed.path == "/api/frame_image":
-            self._handle_get_frame_image(session, parsed)
-            return
-
-        if parsed.path == "/api/frame_contact_sheet":
-            self._handle_get_frame_contact_sheet(session, parsed)
-            return
-
-        if parsed.path == "/api/archives":
-            archives = _get_archives()
-            selected = session.archive if session.archive in archives else (archives[0] if archives else "")
-            self._send_json({"ok": True, "archives": archives, "selected": selected})
-            return
-
-        if parsed.path == "/api/archive_state":
-            self._handle_get_archive_state(session, parsed)
-            return
-
-        if parsed.path == "/api/summary":
-            self._handle_get_summary(session)
-            return
-
-        if parsed.path == "/api/load_progress":
-            self._handle_get_load_progress(session)
-            return
-
-        progress_handler = {
+        dispatch: dict[str, Any] = {
+            "/": lambda: self._handle_get_index(),
+            "/preview": lambda: self._handle_get_preview_page(session),
+            "/api/preview_video": lambda: self._handle_get_preview_video(session),
+            "/api/chapter_audio": lambda: self._handle_get_chapter_audio(session),
+            "/api/audio_sync_info": lambda: self._handle_get_audio_sync_info(session),
+            "/api/audio_sync_audio": lambda: self._handle_get_audio_sync_audio(session),
+            "/api/frame_image": lambda: self._handle_get_frame_image(session, parsed),
+            "/api/frame_contact_sheet": lambda: self._handle_get_frame_contact_sheet(session, parsed),
+            "/api/archives": lambda: self._handle_get_archives(session),
+            "/api/archive_state": lambda: self._handle_get_archive_state(session, parsed),
+            "/api/summary": lambda: self._handle_get_summary(session),
+            "/api/load_progress": lambda: self._handle_get_load_progress(session),
             "/api/preview_progress": lambda: self._handle_get_preview_progress(session),
             "/api/subtitles_progress": lambda: self._handle_get_subtitles_progress(session),
             "/api/load_review": lambda: self._handle_get_load_review(session),
-        }.get(parsed.path)
-        if progress_handler is not None:
-            progress_handler()
-            return
-
-        # -----------------------------------------------------------------------
-        # AI-agent endpoints  (/api/ai/*)
-        # -----------------------------------------------------------------------
-
-        if parsed.path.startswith("/api/ai/"):
-            self._handle_get_ai(session, parsed)
+        }
+        handler = dispatch.get(parsed.path)
+        if handler is not None:
+            handler()
             return
 
         self._send_error_json("Not found", code=HTTPStatus.NOT_FOUND)
@@ -3127,6 +3133,11 @@ class WizardHandler(BaseHTTPRequestHandler):
             self._send_text("Missing index.html", code=HTTPStatus.INTERNAL_SERVER_ERROR)
             return
         self._send_text(INDEX_HTML.read_text(encoding="utf-8"), content_type="text/html; charset=utf-8")
+
+    def _handle_get_archives(self, session: SessionState) -> None:
+        archives = _get_archives()
+        selected = session.archive if session.archive in archives else (archives[0] if archives else "")
+        self._send_json({"ok": True, "archives": archives, "selected": selected})
 
     def _handle_get_static_file(self, parsed) -> None:
         cache_key = parsed.path.lstrip("/")
@@ -3487,64 +3498,26 @@ class WizardHandler(BaseHTTPRequestHandler):
             self._send_error_json("Invalid JSON body")
             return
 
-        if parsed.path == "/api/load_chapter":
-            WizardHandler._handle_load_chapter(self, session, payload)
-            return
-
-        if parsed.path == "/api/cancel_load":
-            WizardHandler._handle_cancel_load(self, session)
-            return
-
-        if parsed.path == "/api/cancel_subtitles":
-            WizardHandler._handle_cancel_subtitles(self, session)
-            return
-
-        if parsed.path == "/api/apply_iqr":
-            WizardHandler._handle_apply_iqr(self, session, payload)
-            return
-
-        if parsed.path == "/api/set_force_all_good":
-            WizardHandler._handle_set_force_all_good(self, session, payload)
-            return
-
-        if parsed.path == "/api/toggle_frame":
-            WizardHandler._handle_toggle_frame_payload(self, session, payload)
-            return
-
-        if parsed.path == "/api/set_frame_range":
-            WizardHandler._handle_set_frame_range_payload(self, session, payload)
-            return
-
-        if parsed.path == "/api/preview_render":
-            WizardHandler._handle_preview_render(self, session, payload)
-            return
-
-        if parsed.path == "/api/people_prefill_cast":
-            WizardHandler._handle_people_prefill_cast(self, session, payload)
-            return
-
-        if parsed.path == "/api/subtitles_generate":
-            WizardHandler._handle_subtitles_generate(self, session, payload)
-            return
-
-        if parsed.path == "/api/set_auto_transcript":
-            WizardHandler._handle_set_auto_transcript(self, session, payload)
-            return
-
-        if parsed.path == "/api/save":
-            WizardHandler._handle_save(self, session, payload)
-            return
-
-        if parsed.path == "/api/save_progress":
-            WizardHandler._handle_save_progress(self, session, payload)
-            return
-
-        if parsed.path == "/api/rename_chapter":
-            WizardHandler._handle_rename_chapter(self, payload)
-            return
-
-        if parsed.path == "/api/perf_report":
-            WizardHandler._handle_perf_report(self, payload)
+        dispatch: dict[str, Any] = {
+            "/api/load_chapter": lambda: self._handle_load_chapter(session, payload),
+            "/api/cancel_load": lambda: self._handle_cancel_load(session),
+            "/api/cancel_subtitles": lambda: self._handle_cancel_subtitles(session),
+            "/api/apply_iqr": lambda: self._handle_apply_iqr(session, payload),
+            "/api/set_force_all_good": lambda: self._handle_set_force_all_good(session, payload),
+            "/api/toggle_frame": lambda: self._handle_toggle_frame_payload(session, payload),
+            "/api/set_frame_range": lambda: self._handle_set_frame_range_payload(session, payload),
+            "/api/preview_render": lambda: self._handle_preview_render(session, payload),
+            "/api/people_prefill_cast": lambda: self._handle_people_prefill_cast(session, payload),
+            "/api/subtitles_generate": lambda: self._handle_subtitles_generate(session, payload),
+            "/api/set_auto_transcript": lambda: self._handle_set_auto_transcript(session, payload),
+            "/api/save": lambda: self._handle_save(session, payload),
+            "/api/save_progress": lambda: self._handle_save_progress(session, payload),
+            "/api/rename_chapter": lambda: self._handle_rename_chapter(payload),
+            "/api/perf_report": lambda: self._handle_perf_report(payload),
+        }
+        handler = dispatch.get(parsed.path)
+        if handler is not None:
+            handler()
             return
 
         self._send_error_json("Not found", code=HTTPStatus.NOT_FOUND)
@@ -3667,6 +3640,58 @@ class WizardHandler(BaseHTTPRequestHandler):
             return
         self._send_json({"ok": True})
 
+    def _parse_load_chapter_payload(
+        self,
+        session: SessionState,
+        payload: dict[str, Any],
+        fail: Callable[[str], None],
+    ) -> tuple[str, int, int, float] | None:
+        archive = str(payload.get("archive", session.archive) or "").strip()
+        chapter = str(payload.get("chapter", session.chapter) or "").strip()
+        if not archive or not chapter:
+            fail("Archive and chapter are required.")
+            return None
+        if bool(session.load_cancel_requested):
+            fail("Load cancelled.")
+            return None
+        _archive_state(session, archive, selected_title=chapter)
+        chapter_obj = _find_chapter(session.chapters, chapter)
+        if not chapter_obj:
+            fail("Selected chapter was not found.")
+            return None
+        default_start = int(chapter_obj.get("start_frame", 0))
+        default_end = int(chapter_obj.get("end_frame", default_start + 1))
+        try:
+            iqr_k = _normalize_iqr_k(payload.get("iqr_k", session.iqr_k), default=session.iqr_k)
+        except Exception:
+            fail("Invalid numeric load settings.")
+            return None
+        return chapter, default_start, default_end, iqr_k
+
+    def _do_render_chapter_extract(
+        self,
+        session: SessionState,
+        video: Path,
+        debug_overlay: bool,
+        fail: Callable[[str], None],
+    ) -> Path | None:
+        try:
+            read_video_p, ex_err = _ensure_render_chapter_extract(
+                source_video=video,
+                archive=session.archive,
+                chapter_title=session.chapter,
+                ch_start=session.start_frame,
+                ch_end=session.end_frame,
+                debug_overlay=debug_overlay,
+            )
+        except Exception as exc:
+            fail(f"Render extract failed: {type(exc).__name__}: {exc}")
+            return None
+        if ex_err or read_video_p is None:
+            fail(ex_err or "Render extract failed")
+            return None
+        return read_video_p
+
     def _handle_load_chapter(self, session: SessionState, payload: dict[str, Any]) -> None:
         def fail(message: str) -> None:
             _set_load_progress(
@@ -3678,12 +3703,6 @@ class WizardHandler(BaseHTTPRequestHandler):
             session.load_cancel_requested = False
             self._send_error_json(message)
 
-        def cancelled() -> bool:
-            if not bool(session.load_cancel_requested):
-                return False
-            fail("Load cancelled.")
-            return True
-
         session.load_cancel_requested = False
         _set_load_progress(
             session,
@@ -3694,28 +3713,10 @@ class WizardHandler(BaseHTTPRequestHandler):
             sample_total=0,
         )
 
-        archive = str(payload.get("archive", session.archive) or "").strip()
-        chapter = str(payload.get("chapter", session.chapter) or "").strip()
-        if not archive or not chapter:
-            fail("Archive and chapter are required.")
+        parsed = self._parse_load_chapter_payload(session, payload, fail)
+        if parsed is None:
             return
-
-        if cancelled():
-            return
-        _archive_state(session, archive, selected_title=chapter)
-        chapter_obj = _find_chapter(session.chapters, chapter)
-        if not chapter_obj:
-            fail("Selected chapter was not found.")
-            return
-
-        default_start = int(chapter_obj.get("start_frame", 0))
-        default_end = int(chapter_obj.get("end_frame", default_start + 1))
-
-        try:
-            iqr_k = _normalize_iqr_k(payload.get("iqr_k", session.iqr_k), default=session.iqr_k)
-        except Exception:
-            fail("Invalid numeric load settings.")
-            return
+        chapter, default_start, default_end, iqr_k = parsed
 
         session.chapter = chapter
         session.start_frame, session.end_frame = _normalize_frame_span(default_start, default_end)
@@ -3731,7 +3732,8 @@ class WizardHandler(BaseHTTPRequestHandler):
         session.frame_source_video_path = str(video)
         session.frame_source_read_offset = 0
 
-        if cancelled():
+        if bool(session.load_cancel_requested):
+            fail("Load cancelled.")
             return
         n_frames = max(1, int(session.end_frame) - int(session.start_frame))
         _set_load_progress(
@@ -3741,34 +3743,20 @@ class WizardHandler(BaseHTTPRequestHandler):
             sample_done=0,
             sample_total=int(n_frames),
         )
-        read_video = video
-        frame_read_offset = 0
-
-        debug_overlay = (
-            bool(session.debug_extract)
-            or _env_truthy(TUNER_DEBUG_EXTRACT_ENV)
-            or _env_truthy(RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV)
-        )
 
         # Build a frame-accurate review extract first; later frame IDs and
         # manual bad-frame edits are defined relative to this exact span.
         _set_load_progress(session, progress=8.0, message="Extracting chapter segment...")
-        if cancelled():
+        if bool(session.load_cancel_requested):
+            fail("Load cancelled.")
             return
-        try:
-            read_video_p, ex_err = _ensure_render_chapter_extract(
-                source_video=video,
-                archive=session.archive,
-                chapter_title=session.chapter,
-                ch_start=session.start_frame,
-                ch_end=session.end_frame,
-                debug_overlay=debug_overlay,
-            )
-        except Exception as exc:
-            fail(f"Render extract failed: {type(exc).__name__}: {exc}")
-            return
-        if ex_err or read_video_p is None:
-            fail(ex_err or "Render extract failed")
+        debug_overlay = any([
+            bool(session.debug_extract),
+            _env_truthy(TUNER_DEBUG_EXTRACT_ENV),
+            _env_truthy(RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV),
+        ])
+        read_video_p = self._do_render_chapter_extract(session, video, debug_overlay, fail)
+        if read_video_p is None:
             return
         read_video = read_video_p
         frame_read_offset = session.start_frame
@@ -3776,7 +3764,8 @@ class WizardHandler(BaseHTTPRequestHandler):
         session.frame_source_read_offset = int(frame_read_offset)
         _set_load_progress(session, progress=28.0, message="Chapter extract ready; loading frames...")
 
-        if cancelled():
+        if bool(session.load_cancel_requested):
+            fail("Load cancelled.")
             return
         if not WizardHandler._load_chapter_frame_samples(self, session, read_video, n_frames, frame_read_offset, fail):
             return
@@ -4144,21 +4133,8 @@ class WizardHandler(BaseHTTPRequestHandler):
             text=True,
             bufsize=1,
         )
-        err_lines: list[str] = []
         try:
-            if proc.stderr is not None:
-                for raw in proc.stderr:
-                    line = str(raw or "").strip()
-                    if line:
-                        err_lines.append(line)
-                        if len(err_lines) > 80:
-                            err_lines = err_lines[-80:]
-                    m = re.match(r"^frame\s*=\s*(\d+)$", line)
-                    if m and on_frame is not None:
-                        try:
-                            on_frame(int(m.group(1)))
-                        except Exception:
-                            pass
+            err_lines = _collect_stderr_with_frame_progress(proc, on_frame)
         finally:
             rc = proc.wait()
 
@@ -4382,6 +4358,50 @@ class WizardHandler(BaseHTTPRequestHandler):
             }
         )
 
+    def _validate_subtitles_prereqs(
+        self,
+        session: SessionState,
+        payload: dict[str, Any] | None,
+        fail: Callable[[str], None],
+    ) -> tuple[str, Any] | None:
+        if not session.archive or not session.chapter:
+            fail("Load a chapter before generating subtitles.")
+            return None
+        if int(session.end_frame) <= int(session.start_frame):
+            fail("Invalid chapter frame span for subtitle generation.")
+            return None
+        if bool(session.subtitles_running):
+            self._send_error_json("Subtitle generation is already running for this session.")
+            return None
+        payload = payload or {}
+        mode = str(payload.get("mode") or "replace").strip().lower()
+        if mode not in {"replace", "append"}:
+            mode = "replace"
+        source_video = _resolve_archive_video(session.archive)
+        if not source_video:
+            fail(f"No archive video found for '{session.archive}'.")
+            return None
+        return mode, source_video
+
+    def _apply_subtitle_generation_result(
+        self,
+        session: SessionState,
+        generated: list,
+        mode: str,
+        chapter_duration: float,
+    ) -> str:
+        if generated:
+            if mode == "append":
+                merged = _normalize_subtitle_entries_payload(
+                    [*(session.subtitle_entries or []), *generated],
+                    chapter_duration_seconds=chapter_duration,
+                )
+            else:
+                merged = generated
+            session.subtitle_entries = list(merged)
+            return f"Generated {len(generated)} subtitle entr{'y' if len(generated) == 1 else 'ies'} ({mode})."
+        return "Whisper returned no subtitle segments for this chapter."
+
     def _handle_subtitles_generate(self, session: SessionState, payload: dict[str, Any] | None = None) -> None:
         def fail(message: str) -> None:
             _set_subtitles_progress(
@@ -4401,24 +4421,10 @@ class WizardHandler(BaseHTTPRequestHandler):
             fail("Subtitle generation cancelled.")
             return True
 
-        if not session.archive or not session.chapter:
-            fail("Load a chapter before generating subtitles.")
+        prereqs = self._validate_subtitles_prereqs(session, payload, fail)
+        if prereqs is None:
             return
-        if int(session.end_frame) <= int(session.start_frame):
-            fail("Invalid chapter frame span for subtitle generation.")
-            return
-        if bool(session.subtitles_running):
-            self._send_error_json("Subtitle generation is already running for this session.")
-            return
-        payload = payload or {}
-        mode = str(payload.get("mode") or "replace").strip().lower()
-        if mode not in {"replace", "append"}:
-            mode = "replace"
-
-        source_video = _resolve_archive_video(session.archive)
-        if not source_video:
-            fail(f"No archive video found for '{session.archive}'.")
-            return
+        mode, source_video = prereqs
 
         session.subtitles_cancel_requested = False
         _set_subtitles_progress(
@@ -4492,18 +4498,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             subtitle_entries_from_whisper_result(result),
             chapter_duration_seconds=chapter_duration,
         )
-        if generated:
-            if mode == "append":
-                merged = _normalize_subtitle_entries_payload(
-                    [*(session.subtitle_entries or []), *generated],
-                    chapter_duration_seconds=chapter_duration,
-                )
-            else:
-                merged = generated
-            session.subtitle_entries = list(merged)
-            message = f"Generated {len(generated)} subtitle entr{'y' if len(generated) == 1 else 'ies'} ({mode})."
-        else:
-            message = "Whisper returned no subtitle segments for this chapter."
+        message = self._apply_subtitle_generation_result(session, generated, mode, chapter_duration)
 
         _set_subtitles_progress(
             session,

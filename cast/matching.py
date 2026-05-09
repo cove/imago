@@ -85,9 +85,8 @@ def build_person_prototypes(
     for face in list(faces or []):
         if not isinstance(face, dict):
             continue
-        if allowed_embedding_model_ids is not None:
-            if face_embedding_model(face) not in allowed_embedding_model_ids:
-                continue
+        if allowed_embedding_model_ids is not None and face_embedding_model(face) not in allowed_embedding_model_ids:
+            continue
         person_id = str(face.get("person_id") or "").strip()
         if not person_id:
             continue

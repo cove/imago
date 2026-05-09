@@ -37,10 +37,6 @@ for _prefix, _uri in [
 from .xmp_sidecar import (  # noqa: E402
     _get_or_create_rdf_desc as _get_or_create_desc,
     _read_or_create_xmp_tree as _load_tree,
-    clear_pipeline_steps,
-    read_pipeline_state,
-    read_pipeline_step,
-    write_pipeline_step,
 )
 
 

@@ -428,63 +428,34 @@ def _render_pipeline_render_page(
             deps["derived_to_jpg"](derived, str(photos_dir))
 
 
-def _render_pipeline_detect_regions(
-    *,
-    view_path: Path,
-    xmp_path: Path,
-    root: Path,
-    model_name: str,
-    force: bool,
-    debug: bool,
-    skip_validation: bool,
-    summary: dict[str, int],
-    deps: dict,
-) -> None:
-    skip_detect = False
+def _check_skip_detect_regions(
+    xmp_path: Path, view_path: Path, force: bool, skip_validation: bool, summary: dict, deps: dict
+) -> bool:
     if force:
         deps["clear_pipeline_steps"](xmp_path, ["view_regions"])
-    elif _view_regions_step_complete(xmp_path):
-        if deps["_has_xmp_regions"](xmp_path):
-            img_w, img_h = deps["_image_dimensions"](view_path)
-            stored = deps["_read_regions_from_xmp"](xmp_path, img_w, img_h)
-            vresult = deps["validate_region_set"](stored, img_w=img_w, img_h=img_h)
-            if vresult.valid or skip_validation:
-                skip_detect = True
-                summary["detect_regions_skipped"] += 1
-            else:
-                n_fail = len(vresult.failures)
-                reasons = ", ".join(f.reason for f in vresult.failures)
-                print(f"  detect-regions: revalidate: {n_fail} invalid region(s): {reasons}")
-                deps["clear_pipeline_steps"](xmp_path, ["view_regions"])
-        else:
-            skip_detect = True
-            summary["detect_regions_skipped"] += 1
-    if skip_detect:
-        return
-
-    if not force and deps["read_pipeline_step"](xmp_path, "view_regions") is not None:
-        summary["detect_regions_reran"] += 1
-        print("  detect-regions: re-run (pipeline state present but regions are missing)")
+        return False
+    if not _view_regions_step_complete(xmp_path):
+        return False
+    if not deps["_has_xmp_regions"](xmp_path):
+        summary["detect_regions_skipped"] += 1
+        return True
     img_w, img_h = deps["_image_dimensions"](view_path)
-    album_context, page_caption, people_roster = _build_region_detection_context(view_path, root)
-    prompt_debug = deps["PromptDebugSession"](view_path, label=view_path.name) if debug else None
-    try:
-        regions = deps["detect_regions"](
-            view_path,
-            force=force,
-            album_context=album_context,
-            page_caption=page_caption,
-            people_roster=people_roster,
-            prompt_debug=prompt_debug,
-            skip_validation=skip_validation,
-            write_debug=debug,
-        )
-    finally:
-        debug_path = _write_view_regions_debug_artifact(prompt_debug, image_path=view_path)
-        if debug_path is not None:
-            print(f"  detect-regions: debug -> {debug_path}")
-    if debug:
-        _print_render_pipeline_debug_paths(view_path, deps)
+    stored = deps["_read_regions_from_xmp"](xmp_path, img_w, img_h)
+    vresult = deps["validate_region_set"](stored, img_w=img_w, img_h=img_h)
+    if vresult.valid or skip_validation:
+        summary["detect_regions_skipped"] += 1
+        return True
+    n_fail = len(vresult.failures)
+    reasons = ", ".join(f.reason for f in vresult.failures)
+    print(f"  detect-regions: revalidate: {n_fail} invalid region(s): {reasons}")
+    deps["clear_pipeline_steps"](xmp_path, ["view_regions"])
+    return False
+
+
+def _write_detect_regions_result(
+    xmp_path: Path, view_path: Path, regions: list, img_w: int, img_h: int,
+    model_name: str, debug: bool, summary: dict, deps: dict,
+) -> None:
     if regions:
         regions_with_captions = deps["associate_captions"](regions, [], img_w)
         deps["write_region_list"](xmp_path, regions_with_captions, img_w, img_h)
@@ -502,6 +473,42 @@ def _render_pipeline_detect_regions(
             if failed_debug_path.is_file():
                 print(f"  detect-regions: failed boxes -> {failed_debug_path}")
         print("  detect-regions: no regions")
+
+
+def _render_pipeline_detect_regions(
+    *,
+    view_path: Path,
+    xmp_path: Path,
+    root: Path,
+    model_name: str,
+    force: bool,
+    debug: bool,
+    skip_validation: bool,
+    summary: dict[str, int],
+    deps: dict,
+) -> None:
+    if _check_skip_detect_regions(xmp_path, view_path, force, skip_validation, summary, deps):
+        return
+
+    if not force and deps["read_pipeline_step"](xmp_path, "view_regions") is not None:
+        summary["detect_regions_reran"] += 1
+        print("  detect-regions: re-run (pipeline state present but regions are missing)")
+    img_w, img_h = deps["_image_dimensions"](view_path)
+    album_context, page_caption, people_roster = _build_region_detection_context(view_path, root)
+    prompt_debug = deps["PromptDebugSession"](view_path, label=view_path.name) if debug else None
+    try:
+        regions = deps["detect_regions"](
+            view_path, force=force, album_context=album_context, page_caption=page_caption,
+            people_roster=people_roster, prompt_debug=prompt_debug,
+            skip_validation=skip_validation, write_debug=debug,
+        )
+    finally:
+        debug_path = _write_view_regions_debug_artifact(prompt_debug, image_path=view_path)
+        if debug_path is not None:
+            print(f"  detect-regions: debug -> {debug_path}")
+    if debug:
+        _print_render_pipeline_debug_paths(view_path, deps)
+    _write_detect_regions_result(xmp_path, view_path, regions, img_w, img_h, model_name, debug, summary, deps)
 
 
 def _print_render_pipeline_debug_paths(view_path: Path, deps: dict) -> None:
@@ -581,6 +588,17 @@ def _record_render_pipeline_failure(
     summary["pages_failed"] += 1
 
 
+def _render_pipeline_propagate_metadata(*, xmp_path, view_path, archive_sidecar, failures, summary, page_label, deps):
+    try:
+        if view_path.is_file() and archive_sidecar.is_file():
+            deps["propagate_archive_copy_safe_fields"](xmp_path, archive_sidecar)
+    except Exception as exc:
+        _record_render_pipeline_failure(
+            failures=failures, summary=summary, page_label=page_label,
+            step="propagate-archive-metadata", exc=exc, warning=True,
+        )
+
+
 def _run_render_pipeline_page(
     *,
     archive: Path,
@@ -628,18 +646,10 @@ def _run_render_pipeline_page(
             )
             return
 
-        try:
-            if view_path.is_file() and archive_sidecar.is_file():
-                deps["propagate_archive_copy_safe_fields"](xmp_path, archive_sidecar)
-        except Exception as exc:
-            _record_render_pipeline_failure(
-                failures=failures,
-                summary=summary,
-                page_label=page_label,
-                step="propagate-archive-metadata",
-                exc=exc,
-                warning=True,
-            )
+        _render_pipeline_propagate_metadata(
+            xmp_path=xmp_path, view_path=view_path, archive_sidecar=archive_sidecar,
+            failures=failures, summary=summary, page_label=page_label, deps=deps,
+        )
 
         if _is_title_page_view(view_path):
             summary["detect_regions_skipped"] += 1
@@ -650,37 +660,25 @@ def _run_render_pipeline_page(
         else:
             try:
                 _render_pipeline_detect_regions(
-                    view_path=view_path,
-                    xmp_path=xmp_path,
-                    root=root,
-                    model_name=model_name,
-                    force=force,
-                    debug=debug,
-                    skip_validation=skip_validation,
-                    summary=summary,
-                    deps=deps,
+                    view_path=view_path, xmp_path=xmp_path, root=root, model_name=model_name,
+                    force=force, debug=debug, skip_validation=skip_validation, summary=summary, deps=deps,
                 )
             except Exception as exc:
                 _record_render_pipeline_failure(
                     failures=failures, summary=summary, page_label=page_label, step="detect-regions", exc=exc
                 )
                 return
-
-        if not skip_crops and not _is_title_page_view(view_path):
-            try:
-                _render_pipeline_crop_regions(
-                    view_path=view_path,
-                    photos_dir=photos_dir,
-                    force=force,
-                    force_restoration=force_restoration,
-                    summary=summary,
-                    deps=deps,
-                )
-            except Exception as exc:
-                _record_render_pipeline_failure(
-                    failures=failures, summary=summary, page_label=page_label, step="crop-regions", exc=exc
-                )
-                return
+            if not skip_crops:
+                try:
+                    _render_pipeline_crop_regions(
+                        view_path=view_path, photos_dir=photos_dir, force=force,
+                        force_restoration=force_restoration, summary=summary, deps=deps,
+                    )
+                except Exception as exc:
+                    _record_render_pipeline_failure(
+                        failures=failures, summary=summary, page_label=page_label, step="crop-regions", exc=exc
+                    )
+                    return
 
         try:
             _render_pipeline_face_refresh(
@@ -950,44 +948,16 @@ def _run_process_pipeline_step(
             step_just_ran.add("render")
             _print_outcome(outcome, stale_dep)
         elif step.id == "propagate-metadata":
-            if view_path.is_file() and archive_sidecar.is_file():
-                deps["propagate_archive_copy_safe_fields"](xmp_path, archive_sidecar)
-                counters["propagate-metadata"]["run"] += 1
-                step_just_ran.add("propagate-metadata")
-                _print_outcome("done", stale_dep)
-            else:
-                counters["propagate-metadata"]["skipped"] += 1
-                _print_outcome("skipped (no sidecar)", stale_dep)
-        elif step.id == "detect-regions":
-            skipped, _ran = _run_step_detect_regions(
-                view_path=view_path,
-                xmp_path=xmp_path,
-                root=root,
-                model_name=model_name,
-                force=force_this_step,
-                debug=debug,
-                skip_validation=no_validation,
-                counters=counters,
-                prompt_debug_cls=deps["PromptDebugSession"] if debug else None,
-                write_region_list=deps["write_region_list"],
-                read_pipeline_step=deps["read_pipeline_step"],
-                write_pipeline_step=deps["write_pipeline_step"],
-                clear_pipeline_steps=deps["clear_pipeline_steps"],
-                detect_regions=deps["detect_regions"],
-                associate_captions=deps["associate_captions"],
-                validate_region_set=deps["validate_region_set"],
-                _has_xmp_regions=deps["_has_xmp_regions"],
-                _image_dimensions=deps["_image_dimensions"],
-                _read_regions_from_xmp=deps["_read_regions_from_xmp"],
+            _run_pipeline_propagate_metadata_step(
+                xmp_path=xmp_path, view_path=view_path, archive_sidecar=archive_sidecar,
+                counters=counters, step_just_ran=step_just_ran, stale_dep=stale_dep, deps=deps,
             )
-            if skipped:
-                counters["detect-regions"]["skipped"] += 1
-                _print_outcome("skipped (already complete)", stale_dep)
-            else:
-                counters["detect-regions"]["run"] += 1
-                step_just_ran.add("detect-regions")
-                deps["write_pipeline_step"](xmp_path, "detect-regions")
-                _print_outcome("done", stale_dep)
+        elif step.id == "detect-regions":
+            _run_pipeline_detect_regions_step(
+                view_path=view_path, xmp_path=xmp_path, root=root, model_name=model_name,
+                force=force_this_step, debug=debug, no_validation=no_validation,
+                counters=counters, step_just_ran=step_just_ran, stale_dep=stale_dep, deps=deps,
+            )
         elif step.id == "crop-regions":
             _run_pipeline_crop_regions_step(
                 view_path=view_path,
@@ -1041,6 +1011,48 @@ def _run_process_pipeline_step(
         counters[step.id]["failed"] += 1
         print(f" ... ERROR: {exc}", file=sys.stderr, flush=True)
     return ai_page_idx
+
+
+def _run_pipeline_propagate_metadata_step(
+    *, xmp_path, view_path, archive_sidecar, counters, step_just_ran, stale_dep, deps
+) -> None:
+    if view_path.is_file() and archive_sidecar.is_file():
+        deps["propagate_archive_copy_safe_fields"](xmp_path, archive_sidecar)
+        counters["propagate-metadata"]["run"] += 1
+        step_just_ran.add("propagate-metadata")
+        _print_outcome("done", stale_dep)
+    else:
+        counters["propagate-metadata"]["skipped"] += 1
+        _print_outcome("skipped (no sidecar)", stale_dep)
+
+
+def _run_pipeline_detect_regions_step(
+    *, view_path, xmp_path, root, model_name, force, debug, no_validation,
+    counters, step_just_ran, stale_dep, deps,
+) -> None:
+    skipped, _ran = _run_step_detect_regions(
+        view_path=view_path, xmp_path=xmp_path, root=root, model_name=model_name,
+        force=force, debug=debug, skip_validation=no_validation, counters=counters,
+        prompt_debug_cls=deps["PromptDebugSession"] if debug else None,
+        write_region_list=deps["write_region_list"],
+        read_pipeline_step=deps["read_pipeline_step"],
+        write_pipeline_step=deps["write_pipeline_step"],
+        clear_pipeline_steps=deps["clear_pipeline_steps"],
+        detect_regions=deps["detect_regions"],
+        associate_captions=deps["associate_captions"],
+        validate_region_set=deps["validate_region_set"],
+        _has_xmp_regions=deps["_has_xmp_regions"],
+        _image_dimensions=deps["_image_dimensions"],
+        _read_regions_from_xmp=deps["_read_regions_from_xmp"],
+    )
+    if skipped:
+        counters["detect-regions"]["skipped"] += 1
+        _print_outcome("skipped (already complete)", stale_dep)
+    else:
+        counters["detect-regions"]["run"] += 1
+        step_just_ran.add("detect-regions")
+        deps["write_pipeline_step"](xmp_path, "detect-regions")
+        _print_outcome("done", stale_dep)
 
 
 def _run_pipeline_crop_regions_step(
@@ -1968,19 +1980,14 @@ def run_detect_view_regions(
                     )
 
                 if not regions:
-                    if _handle_no_detected_view_regions(
-                        view_path,
-                        xmp_path,
-                        redetect_reason=redetect_reason,
-                        img_w=img_w,
-                        img_h=img_h,
-                        model_name=model_name,
+                    _handle_no_detected_view_regions(
+                        view_path, xmp_path, redetect_reason=redetect_reason,
+                        img_w=img_w, img_h=img_h, model_name=model_name,
                         _failed_regions_debug_path=_failed_regions_debug_path,
                         read_pipeline_step=read_pipeline_step,
                         write_pipeline_step=write_pipeline_step,
                         write_region_list=write_region_list,
-                    ):
-                        continue
+                    )
                     continue
 
                 regions_with_captions = associate_captions(regions, [], img_w)

@@ -1227,7 +1227,8 @@ def vhs_get_chapters(archive: str) -> dict:
     path = Path(VHS_DIR) / "metadata" / archive / "chapters.tsv"
     if not path.exists():
         return {"archive": archive, "chapters": None}
-    import csv, io
+    import csv
+    import io
 
     text = path.read_text(encoding="utf-8")
     reader = csv.DictReader(io.StringIO(text), delimiter="\t")

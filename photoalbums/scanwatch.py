@@ -552,6 +552,21 @@ class ScanWatchService:
             "wrote": wrote,
         }
 
+    @staticmethod
+    def _scan_page_counts(dir_path: Path) -> dict[int, int]:
+        counts: dict[int, int] = {}
+        for entry in dir_path.iterdir():
+            if not entry.is_file():
+                continue
+            if entry.suffix.lower() not in {".tif", ".tiff"}:
+                continue
+            match = PAGE_SCAN_RE.search(entry.name)
+            if not match:
+                continue
+            page = int(match.group("page"))
+            counts[page] = max(counts.get(page, 0), int(match.group("scan")))
+        return counts
+
     def _sync_archive_state(
         self,
         archive_dir: str,
@@ -565,21 +580,11 @@ class ScanWatchService:
             archive = ArchiveState(archive_dir=archive_dir)
             archive_map[archive_dir] = archive
 
-        archive.page_scan_counts = {}
         prior_needs_rescan = set() if validate else set(archive.needs_rescan_pages)
         archive.needs_rescan_pages = set()
 
         dir_path = Path(archive_dir)
-        for entry in dir_path.iterdir():
-            if not entry.is_file():
-                continue
-            if entry.suffix.lower() not in {".tif", ".tiff"}:
-                continue
-            match = PAGE_SCAN_RE.search(entry.name)
-            if not match:
-                continue
-            page = int(match.group("page"))
-            archive.page_scan_counts[page] = max(archive.page_scan_counts.get(page, 0), int(match.group("scan")))
+        archive.page_scan_counts = self._scan_page_counts(dir_path)
 
         if validate:
             for page, count in archive.page_scan_counts.items():

@@ -140,6 +140,20 @@ def _make_writable(path: Path) -> None:
         path.chmod(0o666)
 
 
+def _remove_orphan_view_files(orphan_views: list[Path]) -> int:
+    removed = 0
+    for orphan_jpg in orphan_views:
+        _make_writable(orphan_jpg)
+        orphan_jpg.unlink(missing_ok=True)
+        removed += 1
+        orphan_xmp = orphan_jpg.with_suffix(".xmp")
+        if orphan_xmp.is_file():
+            _make_writable(orphan_xmp)
+            orphan_xmp.unlink(missing_ok=True)
+            removed += 1
+    return removed
+
+
 def _repair_page_view_set(
     expected_targets: list[tuple[Path, Path]],
     actual_views: list[Path],
@@ -197,17 +211,7 @@ def _repair_page_view_set(
                 raise FileExistsError(f"Unstaged page-derived repair target already exists: {target_xmp}")
             temp_xmp.rename(target_xmp)
 
-    orphan_files_removed = 0
-    for orphan_jpg in orphan_views:
-        _make_writable(orphan_jpg)
-        orphan_jpg.unlink(missing_ok=True)
-        orphan_files_removed += 1
-        orphan_xmp = orphan_jpg.with_suffix(".xmp")
-        if orphan_xmp.is_file():
-            _make_writable(orphan_xmp)
-            orphan_xmp.unlink(missing_ok=True)
-            orphan_files_removed += 1
-
+    orphan_files_removed = _remove_orphan_view_files(orphan_views)
     return len(planned), orphan_files_removed, missing_expected
 
 

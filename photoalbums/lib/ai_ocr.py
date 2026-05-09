@@ -21,7 +21,7 @@ from ._caption_lmstudio import (
     _normalize_model_name_candidates,
 )
 from ._lmstudio_helpers import emit_prompt_debug as _emit_prompt_debug, single_string_response_format
-from .ai_prompt_assets import load_params, load_prompt, params_metadata, prompt_metadata
+from .ai_prompt_assets import load_prompt
 
 STOPWORDS = {
     "the",
