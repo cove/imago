@@ -81,18 +81,12 @@ photoalbums-list-scan-pipeline-steps:
 photoalbums-render-pipeline *args:
   {{python}} -m photoalbums process --photos-root "{{photoalbums_root}}" {{args}}
 
-photoalbums-render *args:
-  @just photoalbums-render-pipeline {{args}}
-
 photoalbums-refresh-gps *args:
   {{python}} -m photoalbums process --photos-root "{{photoalbums_root}}" --refresh-gps {{args}}
 
 photoalbums-render-validate:
   {{python}} -m photoalbums render validate
 
-photoalbums-watch-scans:
+photoalbums-scan-pipeline:
   {{python}} -m photoalbums watch
-
-photoalbums-watch:
-  @just photoalbums-watch-scans
   
