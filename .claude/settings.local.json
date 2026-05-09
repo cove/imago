@@ -291,7 +291,9 @@
       "Bash(nu *)",
       "Bash(chezmoi add *)",
       "Bash(curl -s https://code.claude.com/docs/en/hooks.md)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(pip show *)",
+      "Bash(.venv/bin/python -m pylint --version)"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",
