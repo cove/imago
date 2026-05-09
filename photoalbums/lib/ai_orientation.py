@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Protocol
@@ -195,6 +196,18 @@ class OrientationEngine(LMStudioModelResolverMixin):
             )
 
 
+def _replace_with_retry(src: Path, dst: Path, attempts: int = 30, delay: float = 1.0) -> None:
+    last_exc: Exception | None = None
+    for _ in range(attempts):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError as exc:
+            last_exc = exc
+            time.sleep(delay)
+    raise last_exc  # type: ignore[misc]
+
+
 def rotate_image_180_in_place(image_path: Path | str) -> None:
     from PIL import Image, ImageSequence  # pylint: disable=import-outside-toplevel
 
@@ -217,7 +230,7 @@ def rotate_image_180_in_place(image_path: Path | str) -> None:
                 frames[0].save(tmp_path, save_all=True, append_images=frames[1:], **save_kwargs)
             else:
                 frames[0].save(tmp_path, **save_kwargs)
-        os.replace(tmp_path, path)
+        _replace_with_retry(tmp_path, path)
     except Exception:
         tmp_path.unlink(missing_ok=True)
         raise

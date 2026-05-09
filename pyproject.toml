@@ -29,6 +29,7 @@ dependencies = [
     "ultralytics",
     "wand",
     "watchdog",
+    "qodo>=0.1.0",
 ]
 
 [dependency-groups]

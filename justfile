@@ -42,6 +42,12 @@ quality:
   {{python}} scripts/check_basedpyright.py
   {{python}} scripts/check_skylos.py
 
+verification:
+  uv run qodo
+
+security:
+  uv run dryrun
+
 cast-init:
   {{python}} -m cast init
 

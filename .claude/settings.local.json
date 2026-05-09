@@ -297,7 +297,11 @@
       "Bash(just typecheck *)",
       "Bash(just --list)",
       "Bash(just lint *)",
-      "Bash(sort -t'\\(' -k2 -rn)"
+      "Bash(sort -t'\\(' -k2 -rn)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\covec\\\\Videos\\\\imago\" -Recurse -Depth 3)",
+      "Bash(Select-Object -Property FullName, PSIsContainer)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(just deadcode *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",

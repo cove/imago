@@ -33,7 +33,7 @@ try:
         rename_with_retry,
     )
     from .terminal_images import display_inline_image
-    from .lib.ai_orientation import correct_orientation_after_scan
+    from .lib.ai_orientation import correct_orientation_after_scan, rotate_image_180_in_place
 except ImportError:
     from common import (
         INCOMING_NAME,
@@ -49,7 +49,7 @@ except ImportError:
         rename_with_retry,
     )
     from terminal_images import display_inline_image
-    from lib.ai_orientation import correct_orientation_after_scan
+    from lib.ai_orientation import correct_orientation_after_scan, rotate_image_180_in_place
 
 try:
     from .scanwatch_core import (
@@ -147,6 +147,7 @@ class ScanWatchService:
         self.open_image_fn = open_image_fn
         self.display_image_fn = display_image_fn
         self.orient_image_fn = orient_image_fn
+        self._orientation_cache: dict[tuple[str, int], int] = {}
         self._lock = threading.RLock()
         self._events: dict[str, ScanEvent] = {}
         self._events_by_path: dict[str, str] = {}
@@ -284,6 +285,7 @@ class ScanWatchService:
 
         handler = IncomingScanHandler(self)
         observer = Observer()
+        observer.daemon = True
         observer.schedule(handler, str(self.root), recursive=True)
         observer.start()
         self._handler = handler
@@ -400,9 +402,22 @@ class ScanWatchService:
                 event.updated_at = _now()
             return event.to_dict()
 
+        _ori_match = PAGE_SCAN_RE.search(target_name)
+        _scan_num = int(_ori_match.group("scan")) if _ori_match else None
+        _page_num_key = int(_ori_match.group("page")) if _ori_match else None
+        _cache_key = (str(archive_dir), _page_num_key) if _page_num_key is not None else None
+
         self.log_info_fn(f"  [orientation] {target_name}")
         try:
-            self.orient_image_fn(new_path, log_info=self.log_info_fn)
+            if _scan_num is not None and _scan_num > 1 and _cache_key is not None and _cache_key in self._orientation_cache:
+                cached_degrees = self._orientation_cache[_cache_key]
+                if cached_degrees != 0:
+                    self.log_info_fn(f"  [rotate] {target_name} {cached_degrees} degrees (matched S01)")
+                    rotate_image_180_in_place(new_path)
+            else:
+                orientation_result = self.orient_image_fn(new_path, log_info=self.log_info_fn)
+                if _cache_key is not None and _scan_num == 1:
+                    self._orientation_cache[_cache_key] = orientation_result.get("rotation_applied_degrees", 0)
         except Exception as exc:
             with self._lock:
                 event.status = "failed"
@@ -819,8 +834,6 @@ def _read_keyboard_command() -> str | None:
 
 
 def _handle_keyboard_command(service: ScanWatchService, command: str) -> bool:
-    if command == "q":
-        return False
     if command == "s":
         try:
             with _TransientStatus("Stitching last page scans ..."):
