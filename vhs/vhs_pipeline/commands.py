@@ -135,6 +135,6 @@ def run_people_prefill(
         )
         print(f"Wrote {int(written)} chapter-local row(s) to: {people_path}")
     else:
-        print("Dry run only. Use --apply to write metadata/<archive>/people.tsv.")
+        print("Dry run only. Use --apply to write vhs/metadata/<archive>/people.tsv.")
 
     return 0

@@ -75,17 +75,11 @@ photoalbums-map:
 photoalbums-list-render-pipeline-steps:
   {{python}} -m photoalbums process --photos-root "." --list-steps
 
-photoalbums-list-scan-pipeline-steps:
-  {{python}} -m photoalbums watch --list-steps
-
 photoalbums-render-pipeline *args:
   {{python}} -m photoalbums process --photos-root "{{photoalbums_root}}" {{args}}
 
-photoalbums-refresh-gps *args:
-  {{python}} -m photoalbums process --photos-root "{{photoalbums_root}}" --refresh-gps {{args}}
-
-photoalbums-render-validate:
-  {{python}} -m photoalbums render validate
+photoalbums-list-scan-pipeline-steps:
+  {{python}} -m photoalbums watch --list-steps
 
 photoalbums-scan-pipeline:
   {{python}} -m photoalbums watch

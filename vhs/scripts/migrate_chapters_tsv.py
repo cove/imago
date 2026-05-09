@@ -16,7 +16,7 @@ from vhs_pipeline.metadata import convert_all_ffmetadata_to_chapters_tsv
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Generate metadata/*/chapters.tsv from chapters.ffmetadata files.",
+        description="Generate vhs/metadata/*/chapters.tsv from chapters.ffmetadata files.",
     )
     parser.add_argument(
         "--metadata-root",

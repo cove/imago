@@ -3512,7 +3512,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             "/api/set_auto_transcript": lambda: self._handle_set_auto_transcript(session, payload),
             "/api/save": lambda: self._handle_save(session, payload),
             "/api/save_progress": lambda: self._handle_save_progress(session, payload),
-            "/api/rename_chapter": lambda: self._handle_rename_chapter(payload),
+            "/api/rename_chapter": lambda: WizardHandler._handle_rename_chapter(self, payload),
             "/api/perf_report": lambda: self._handle_perf_report(payload),
         }
         handler = dispatch.get(parsed.path)
@@ -3713,7 +3713,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             sample_total=0,
         )
 
-        parsed = self._parse_load_chapter_payload(session, payload, fail)
+        parsed = WizardHandler._parse_load_chapter_payload(self, session, payload, fail)
         if parsed is None:
             return
         chapter, default_start, default_end, iqr_k = parsed
@@ -3755,7 +3755,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             _env_truthy(TUNER_DEBUG_EXTRACT_ENV),
             _env_truthy(RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV),
         ])
-        read_video_p = self._do_render_chapter_extract(session, video, debug_overlay, fail)
+        read_video_p = WizardHandler._do_render_chapter_extract(self, session, video, debug_overlay, fail)
         if read_video_p is None:
             return
         read_video = read_video_p
@@ -4421,7 +4421,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             fail("Subtitle generation cancelled.")
             return True
 
-        prereqs = self._validate_subtitles_prereqs(session, payload, fail)
+        prereqs = WizardHandler._validate_subtitles_prereqs(self, session, payload, fail)
         if prereqs is None:
             return
         mode, source_video = prereqs
@@ -4498,7 +4498,7 @@ class WizardHandler(BaseHTTPRequestHandler):
             subtitle_entries_from_whisper_result(result),
             chapter_duration_seconds=chapter_duration,
         )
-        message = self._apply_subtitle_generation_result(session, generated, mode, chapter_duration)
+        message = WizardHandler._apply_subtitle_generation_result(self, session, generated, mode, chapter_duration)
 
         _set_subtitles_progress(
             session,

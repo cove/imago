@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import glob
 from collections import Counter
 from dataclasses import dataclass
 from fractions import Fraction
@@ -12,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from common import chapter_frame_bounds, parse_chapters
+from common import METADATA_DIR, chapter_frame_bounds, parse_chapters
 
 DERIVED_CHAPTER_KEYS = {"start_raw", "end_raw", "timebase_num", "timebase_den"}
 
@@ -76,7 +77,8 @@ def _iter_archive_dirs(globs: Iterable[str]) -> list[Path]:
     out: list[Path] = []
     seen: set[Path] = set()
     for pattern in globs:
-        for path in sorted(Path().glob(pattern)):
+        for raw_path in sorted(glob.glob(str(pattern))):
+            path = Path(raw_path)
             if not path.is_dir():
                 continue
             resolved = path.resolve()
@@ -333,7 +335,7 @@ def main() -> int:
         "--glob",
         action="append",
         default=None,
-        help="Archive directory glob(s). Repeatable. Default: metadata/*_archive",
+        help="Archive directory glob(s). Repeatable. Default: vhs/metadata/*_archive",
     )
     parser.add_argument(
         "--target-timebase",
@@ -363,7 +365,7 @@ def main() -> int:
     args = parser.parse_args()
 
     target_timebase = _parse_fraction(args.target_timebase)
-    globs = list(args.glob) if args.glob else ["metadata/*_archive"]
+    globs = list(args.glob) if args.glob else [str(METADATA_DIR / "*_archive")]
     archive_dirs = _iter_archive_dirs(globs)
     if not archive_dirs:
         print("No archive directories matched the provided --glob pattern(s).")

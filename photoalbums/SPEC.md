@@ -78,7 +78,7 @@ The pipeline keys nearly every operation off filename structure, so consistent n
 - **Page** — two digits in range `01`–`99` (P00 is not valid; leading zero required: `P05`, not `P5`)
 - **Scan** — two digits (`01`, `02`, …) indicating the scan index for an oversized page
 - **Derived** — two digits (`00`, `01`, …), per-page index of a derived photo extracted from the page
-- **Iter** — two-digit version of the derived (`D##`) image; the first version is `00`, and increments when the derived photo is re-derived (e.g., recropped, regeometried) from the same source page region
+- **Iter** — two-digit version of the derived (`D##`) image; the first version is `01`, and increments when the derived photo is re-derived (e.g., recropped, regeometried, colorized) from the same source page region
 - `_V` is a literal suffix marking a "view" (rendered/derived) artifact
 
 ### 1.4 Required Specs (What the Pipeline Needs)

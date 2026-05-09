@@ -1162,7 +1162,7 @@ def vhs_generate_subtitles(
     """Start a job to generate subtitle sidecars via Whisper transcription. Returns a job ID.
 
     Args:
-        archive: Archive name (metadata/<archive>).
+        archive: Archive name (vhs/metadata/<archive>).
         title: Chapter title.
     """
     args = [PYTHON, VHS_SCRIPT, "subtitles"]
@@ -1240,7 +1240,7 @@ def vhs_people_prefill(archive: str, chapter: str) -> dict:
     """Start a job to prefill people metadata for a VHS chapter from the Cast store. Returns a job ID.
 
     Args:
-        archive: Archive name (metadata/<archive>).
+        archive: Archive name (vhs/metadata/<archive>).
         chapter: Exact chapter title.
     """
     args = [

@@ -33,7 +33,7 @@ Generate `chapters.tsv` masters from existing `chapters.ffmetadata` files:
 - `uv run python scripts/migrate_chapters_tsv.py [--overwrite]`
 
 Lint metadata and simulate TIMEBASE conversion safety:
-- `uv run python scripts/lint_metadata.py --glob "metadata/bennett*_archive" --simulate-timebase-conversion`
+- `uv run python scripts/lint_metadata.py --simulate-timebase-conversion`
 
 Embed ffmetadata into existing archive MKVs (no re-encode):
 - `uv run python vhs.py metadata embed <archive1.mkv> <archive2.mkv> ...`
@@ -74,7 +74,7 @@ Tracking-loss classifier utility:
 Directory Notes
 ---------------
 
-- `metadata/` contains per-archive metadata (`chapters.tsv` master, generated `chapters.ffmetadata`, `render_settings.json`, `people.tsv`, markers, etc.).
+- `vhs/metadata/` contains per-archive metadata (`chapters.tsv` master, generated `chapters.ffmetadata`, `render_settings.json`, `people.tsv`, markers, etc.).
 - `vhs_pipeline/` contains command implementations used by `vhs.py`.
 - `legacy_steps/` contains legacy `step_*` entrypoints and historical step docs.
 - `../models/`, `software/`, `manuals/`, `screenshots/` contain model/data/tool references.
@@ -90,7 +90,7 @@ Platform Notes
 Render Settings
 ---------------
 
-Each archive now uses `metadata/<archive>/render_settings.json` for render controls.
+Each archive now uses `vhs/metadata/<archive>/render_settings.json` for render controls.
 
 - `archive_settings`: archive-wide defaults (for example `transcript`).
 - `chapter_settings`: optional per-chapter overrides.
@@ -101,7 +101,7 @@ Each archive now uses `metadata/<archive>/render_settings.json` for render contr
 People Subtitle TSV
 -------------------
 
-`metadata/<archive>/people.tsv` now uses archive-global time ranges:
+`vhs/metadata/<archive>/people.tsv` now uses archive-global time ranges:
 
 - Header: `start<TAB>end<TAB>people`
 - Times are `HH:MM:SS.mmm` and `end` is exclusive.

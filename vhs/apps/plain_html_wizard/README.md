@@ -93,9 +93,9 @@ Step 5: Summary + save
 2. Confirm bad-frame, gamma, and people subtitle settings.
 3. Click `Save and Return to Chapter`.
 4. The tuner saves:
-   - `metadata/<archive>/render_settings.json` (`BAD_FRAMES` + gamma)
-   - `metadata/<archive>/people.tsv` (people subtitle ranges)
-   - `metadata/<archive>/subtitles.tsv` (dialogue subtitle ranges and optional metadata)
+   - `vhs/metadata/<archive>/render_settings.json` (`BAD_FRAMES` + gamma)
+   - `vhs/metadata/<archive>/people.tsv` (people subtitle ranges)
+   - `vhs/metadata/<archive>/subtitles.tsv` (dialogue subtitle ranges and optional metadata)
 
 How `BAD_FRAMES` maps to AviSynth `FreezeFrame`
 -----------------------------------------------
@@ -111,7 +111,7 @@ How `BAD_FRAMES` maps to AviSynth `FreezeFrame`
   (for example "01 Full Wedding") inherit bad frames that were marked in
   overlapping subchapters, set:
   - `archive_settings.inherit_bad_frames_from_overlaps = true`
-    in `metadata/<archive>/render_settings.json`.
+    in `vhs/metadata/<archive>/render_settings.json`.
 
 Status and cancellation
 -----------------------

@@ -10,7 +10,12 @@ from typing import Any
 from .ai_album_titles import (
     _album_identity_key,
     _derived_name_match,
+    _expand_album_title_dependencies,
+    _iter_album_cover_sidecars,
     _is_album_title_source_candidate,
+    _looks_like_album_title_page,
+    _resolve_album_printed_title_hint,
+    _resolve_album_title_hint,
     _scan_name_match,
 )
 from .ai_date import DateEstimateEngine
@@ -18,9 +23,19 @@ from .ai_render_settings import (
     find_archive_dir_for_image,
 )
 from .ai_sidecar_state import (
+    MIN_EXISTING_SIDECAR_BYTES,
+    _compute_xmp_title,
+    _effective_sidecar_location_payload,
     _effective_sidecar_ocr_text,
+    _resolve_xmp_text_layers,
     has_current_sidecar,
     has_valid_sidecar,
+)
+from .ai_location import (
+    _has_legacy_ai_locations_shown_gps,
+    _resolve_location_metadata,
+    _resolve_location_payload,
+    _resolve_locations_shown,
 )
 from .prompt_debug import PromptDebugSession
 from ..naming import (

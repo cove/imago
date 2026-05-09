@@ -44,7 +44,7 @@ def build_parser():
     metadata_sub.add_parser("build", help="Generate archive metadata outputs and checksums")
     metadata_migrate = metadata_sub.add_parser(
         "migrate-chapters",
-        help="Generate metadata/*/chapters.tsv from chapters.ffmetadata files",
+        help="Generate vhs/metadata/*/chapters.tsv from chapters.ffmetadata files",
     )
     metadata_migrate.add_argument(
         "--overwrite",
@@ -159,7 +159,7 @@ def build_parser():
         "prefill",
         help="Use cast database matches to prefill chapter people subtitle ranges",
     )
-    people_prefill.add_argument("--archive", required=True, help="Archive name (metadata/<archive>)")
+    people_prefill.add_argument("--archive", required=True, help="Archive name (vhs/metadata/<archive>)")
     people_prefill.add_argument("--chapter", required=True, help="Exact chapter title")
     people_prefill.add_argument(
         "--cast-store",
@@ -181,7 +181,7 @@ def build_parser():
     people_prefill.add_argument(
         "--apply",
         action="store_true",
-        help="Write generated rows into metadata/<archive>/people.tsv",
+        help="Write generated rows into vhs/metadata/<archive>/people.tsv",
     )
     people_prefill.add_argument(
         "--audit-file",
