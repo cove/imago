@@ -2078,4 +2078,4 @@ def _print_failed_regions_debug_path(view_path: Path, *, _failed_regions_debug_p
 
 
 if __name__ == "__main__":
-    raise SystemExit("Internal module. Run: uv run python photoalbums.py ...")
+    raise SystemExit("Internal module. Run: uv run python -m photoalbums ...")

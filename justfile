@@ -14,7 +14,7 @@ bootstrap:
   {{python}} scripts/bootstrap_runtime.py
 
 test:
-  {{python}} -m pytest "cast/tests" "photoalbums/tests" "vhs/test" 
+  {{python}} -m pytest "cast/tests" "photoalbums/tests" "vhs/test" "tests"
 
 evals:
    {{python}} -m pytest photoalbums/tests/test_rule_extraction_eval.py -v -m integration -s
@@ -43,10 +43,10 @@ quality:
   {{python}} scripts/check_skylos.py
 
 cast-init:
-  {{python}} cast.py init
+  {{python}} -m cast init
 
 cast-web:
-  {{python}} cast.py web
+  {{python}} -m cast web
 
 vhs-tuner:
   {{python}} vhs/vhs.py tuner
@@ -67,31 +67,31 @@ vhs-verify-archive archive="":
   {{python}} vhs/vhs.py verify archive {{if archive != "" { "--archive " + archive } else { "" }}}
 
 mcp-http:
-  {{python}} mcp_server.py --transport http --host 0.0.0.0 --port 8090 --console-host 192.168.4.26
+  {{python}} -m imago_mcp.server --transport http --host 0.0.0.0 --port 8090 --console-host 192.168.4.26
 
 photoalbums-map:
-  {{python}} photoalbums.py metadata map "{{photoalbums_root}}" --port 8095
+  {{python}} -m photoalbums metadata map "{{photoalbums_root}}" --port 8095
 
 photoalbums-list-render-pipeline-steps:
-  {{python}} photoalbums.py process --photos-root "." --list-steps
+  {{python}} -m photoalbums process --photos-root "." --list-steps
 
 photoalbums-list-scan-pipeline-steps:
-  {{python}} photoalbums.py watch --list-steps
+  {{python}} -m photoalbums watch --list-steps
 
 photoalbums-render-pipeline *args:
-  {{python}} photoalbums.py process --photos-root "{{photoalbums_root}}" {{args}}
+  {{python}} -m photoalbums process --photos-root "{{photoalbums_root}}" {{args}}
 
 photoalbums-render *args:
   @just photoalbums-render-pipeline {{args}}
 
 photoalbums-refresh-gps *args:
-  {{python}} photoalbums.py process --photos-root "{{photoalbums_root}}" --refresh-gps {{args}}
+  {{python}} -m photoalbums process --photos-root "{{photoalbums_root}}" --refresh-gps {{args}}
 
 photoalbums-render-validate:
-  {{python}} photoalbums.py render validate
+  {{python}} -m photoalbums render validate
 
 photoalbums-watch-scans:
-  {{python}} photoalbums.py watch
+  {{python}} -m photoalbums watch
 
 photoalbums-watch:
   @just photoalbums-watch-scans

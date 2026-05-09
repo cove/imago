@@ -173,7 +173,7 @@ class TestScanWatch(unittest.TestCase):
             service.apply_decision(event.id, "Album_P01_S01.tif")
 
             display_mock.assert_called_once_with(
-                archive_dir / "Album_P01_S01.tif",
+                (archive_dir / "Album_P01_S01.tif").resolve(strict=False),
                 title="Renamed scan: Album_P01_S01.tif",
                 log_error=error_mock,
             )
@@ -292,7 +292,11 @@ class TestScanWatch(unittest.TestCase):
             ):
                 result = service.stitch_last_scans()
 
-            stitch_mock.assert_called_once_with([str(path) for path in last_page_files], str(view_dir), force=True)
+            stitch_mock.assert_called_once_with(
+                [str(path.resolve(strict=False)) for path in last_page_files],
+                str(view_dir),
+                force=True,
+            )
             self.assertEqual(result["page_num"], 12)
             self.assertEqual(result["output_path"], str(output_path))
             display_mock.assert_not_called()
@@ -334,7 +338,11 @@ class TestScanWatch(unittest.TestCase):
             ):
                 result = service.stitch_last_scans()
 
-            stitch_mock.assert_called_once_with([str(path) for path in newer_mtime_files], str(view_dir), force=True)
+            stitch_mock.assert_called_once_with(
+                [str(path.resolve(strict=False)) for path in newer_mtime_files],
+                str(view_dir),
+                force=True,
+            )
             self.assertEqual(result["page_num"], 9)
             self.assertEqual(result["output_path"], str(output_path))
 

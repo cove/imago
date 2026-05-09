@@ -22,13 +22,13 @@ from threading import Thread
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, urlsplit
 
-from mcp_console_ui import HTML
+from imago_mcp.console_ui import HTML
 from photoalbums.lib.xmp_review import load_ai_xmp_review
 
 if TYPE_CHECKING:
-    from mcp_job_runner import JobRunner
+    from imago_mcp.job_runner import JobRunner
 
-_JOBS_STATE = Path(__file__).resolve().parent / "mcp" / "jobs" / "jobs.json"
+_JOBS_STATE = Path(__file__).resolve().parents[1] / "mcp" / "jobs" / "jobs.json"
 
 DEFAULT_PORT = 8091
 

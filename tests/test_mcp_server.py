@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import mcp_server
+from imago_mcp import server as mcp_server
 from photoalbums.lib import album_sets, xmp_sidecar
 
 
@@ -281,7 +281,7 @@ class TestPhotoalbumsCTMJobs(AlbumSetConfigMixin, unittest.TestCase):
         self.assertEqual(result["job_id"], "job123")
         job_name, args = self.runner.start.call_args.args[:2]
         self.assertEqual(job_name, "photoalbums_ctm_generate:cordell")
-        self.assertEqual(args[:4], [mcp_server.PYTHON, mcp_server.PHOTOALBUMS_SCRIPT, "ctm", "generate"])
+        self.assertEqual(args[:5], [*mcp_server.PHOTOALBUMS_COMMAND, "ctm", "generate"])
         self.assertIn("--photos-root", args)
         self.assertNotIn("--album-id", args)
         self.assertIn("--force", args)
@@ -292,7 +292,7 @@ class TestPhotoalbumsCTMJobs(AlbumSetConfigMixin, unittest.TestCase):
         self.assertEqual(result["job_id"], "job123")
         job_name, args = self.runner.start.call_args.args[:2]
         self.assertEqual(job_name, "photoalbums_ctm_review:Family_2020_B01:p3")
-        self.assertEqual(args[:4], [mcp_server.PYTHON, mcp_server.PHOTOALBUMS_SCRIPT, "ctm", "review"])
+        self.assertEqual(args[:5], [*mcp_server.PHOTOALBUMS_COMMAND, "ctm", "review"])
         self.assertEqual(args[args.index("--album-id") + 1], "Family_2020_B01")
         self.assertEqual(args[args.index("--page") + 1], "3")
 

@@ -527,7 +527,7 @@ class FaceIngestor:
             if not view_dir.is_dir():
                 continue
             iterator = view_dir.rglob("*") if recursive else view_dir.glob("*")
-            for path in iterator:
+            for path in sorted(iterator):
                 if not path.is_file():
                     continue
                 if path.suffix.lower() not in ext_set:
@@ -567,7 +567,7 @@ class FaceIngestor:
             if not archive_dir.is_dir():
                 continue
             iterator = archive_dir.rglob("*") if recursive else archive_dir.glob("*")
-            for path in iterator:
+            for path in sorted(iterator):
                 if not path.is_file():
                     continue
                 if path.suffix.lower() not in ext_set:

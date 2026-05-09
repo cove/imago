@@ -52,10 +52,10 @@ diffusers = { git = "https://github.com/yfyang007/RealRestorer.git", rev = "fa2a
 "realrestorer-diffuser" = { git = "https://github.com/yfyang007/RealRestorer.git", rev = "fa2a3e3c23768eb94748c5855d83cc2e340ab13b" }
 
 [tool.pytest.ini_options]
-testpaths = ["cast/tests", "photoalbums/tests", "vhs/test"]
+testpaths = ["cast/tests", "photoalbums/tests", "vhs/test", "tests"]
 # On Windows, colored pytest output has intermittently surfaced as
 # KeyboardInterrupt failures in photoalbums tests via colorama/console handling.
-addopts = "--color=no"
+addopts = "--color=no -p scripts.pytest_config"
 markers = [
     "integration: tests that require external services (LM Studio, network) — excluded from pre-push",
 ]

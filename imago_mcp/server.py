@@ -1,8 +1,4 @@
-"""Unified MCP server for imago projects (cast, photoalbums, vhs).
-
-Run with:  python mcp_server.py
-Or register in Claude Desktop / any MCP client.
-"""
+"""Unified MCP server for imago projects (cast, photoalbums, vhs)."""
 
 from __future__ import annotations
 
@@ -12,8 +8,8 @@ from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 
-from mcp_console import start_console
-from mcp_job_runner import JobRunner
+from imago_mcp.console import start_console
+from imago_mcp.job_runner import JobRunner
 from photoalbums.lib import album_sets
 from photoalbums.lib.mcp_queries import (
     album_status as photoalbums_album_status_query,
@@ -27,14 +23,14 @@ from photoalbums.lib.xmp_review import (
 )
 from photoalbums.scanwatch import ScanWatchService
 
-REPO_ROOT = Path(__file__).resolve().parent
+REPO_ROOT = Path(__file__).resolve().parents[1]
 PYTHON = str(REPO_ROOT / ".venv" / "Scripts" / "python.exe")
 
 CAST_STORE_DEFAULT = str(REPO_ROOT / "cast" / "data")
 VHS_DIR = str(REPO_ROOT / "vhs")
 VHS_SCRIPT = str(REPO_ROOT / "vhs" / "vhs.py")
-CAST_SCRIPT = str(REPO_ROOT / "cast.py")
-PHOTOALBUMS_SCRIPT = str(REPO_ROOT / "photoalbums.py")
+CAST_COMMAND = [PYTHON, "-m", "cast"]
+PHOTOALBUMS_COMMAND = [PYTHON, "-m", "photoalbums"]
 PHOTOALBUMS_LMSTUDIO_BASE_URLS = (
     "http://192.168.4.72:1234",
     "http://192.168.4.21:1234",
@@ -307,7 +303,7 @@ def cast_start_web(host: str = "0.0.0.0", port: int = 8093) -> dict:
         host: Bind host (default 0.0.0.0).
         port: Bind port (default 8093).
     """
-    args = [PYTHON, CAST_SCRIPT, "web", "--host", host, "--port", str(port)]
+    args = [*CAST_COMMAND, "web", "--host", host, "--port", str(port)]
     return _job_started(runner.start("cast_web_ui", args))
 
 
@@ -537,8 +533,7 @@ def photoalbums_ai_index(
         raise ValueError("workers must be at least 1")
     set_config = _archive_set(album_set)
     args = [
-        PYTHON,
-        PHOTOALBUMS_SCRIPT,
+        *PHOTOALBUMS_COMMAND,
         "ai",
         "index",
         "--photos-root",
@@ -587,7 +582,7 @@ def photoalbums_ai_index(
 def photoalbums_compress(album_set: Optional[str] = None) -> dict:
     """Start a job to compress TIFF scans in-place. Returns a job ID."""
     set_config = _archive_set(album_set)
-    args = [PYTHON, PHOTOALBUMS_SCRIPT, "compress", "--photos-root", str(set_config.photos_root)]
+    args = [*PHOTOALBUMS_COMMAND, "compress", "--photos-root", str(set_config.photos_root)]
     return _job_started(runner.start(f"photoalbums_compress:{set_config.name}", args))
 
 
@@ -601,8 +596,7 @@ def photoalbums_stitch(validate_only: bool = False, album_set: Optional[str] = N
     set_config = _archive_set(album_set)
     subcommand = "validate" if validate_only else "build"
     args = [
-        PYTHON,
-        PHOTOALBUMS_SCRIPT,
+        *PHOTOALBUMS_COMMAND,
         "stitch",
         subcommand,
         "--photos-root",
@@ -621,8 +615,7 @@ def photoalbums_generate_ctm(
     """Start a job to generate archive XMP CTM metadata for a page, album, or album set."""
     set_config = _archive_set(album_set)
     args = [
-        PYTHON,
-        PHOTOALBUMS_SCRIPT,
+        *PHOTOALBUMS_COMMAND,
         "ctm",
         "generate",
         "--photos-root",
@@ -647,8 +640,7 @@ def photoalbums_review_ctm(
     """Return stored archive XMP CTM metadata for a page, album, or album set."""
     set_config = _archive_set(album_set)
     args = [
-        PYTHON,
-        PHOTOALBUMS_SCRIPT,
+        *PHOTOALBUMS_COMMAND,
         "ctm",
         "review",
         "--photos-root",
@@ -843,8 +835,7 @@ def photoalbums_detect_view_regions(
     """
     set_config = _archive_set(album_set)
     args = [
-        PYTHON,
-        PHOTOALBUMS_SCRIPT,
+        *PHOTOALBUMS_COMMAND,
         "detect-view-regions",
         album_id,
         "--photos-root",

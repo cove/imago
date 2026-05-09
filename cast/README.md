@@ -13,8 +13,8 @@ This module is text-file based and keeps three files in `cast/data/` by default:
 ## Run web UI
 
 ```bash
-uv run python cast.py init
-uv run python cast.py web
+uv run python -m cast init
+uv run python -m cast web
 ```
 
 Open `http://127.0.0.1:8093`.
@@ -41,8 +41,7 @@ Open `http://127.0.0.1:8093`.
 
 ## Notes
 
-- Cast web ingest and `cast.py label-photos` now require InsightFace `buffalo_l` and will refuse to ingest if it is unavailable instead of silently falling back to OpenCV Haar cascades.
+- Cast web ingest and `uv run python -m cast label-photos` now require InsightFace `buffalo_l` and will refuse to ingest if it is unavailable instead of silently falling back to OpenCV Haar cascades.
 - The web UI shows the active detector/embedding stack and warns when stored face rows are legacy detections from an older model path.
 - Matching uses cosine similarity over stored face embeddings.
 - This scaffold is designed for small local archives (for example up to a few dozen people).
-

@@ -3,7 +3,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-_ROOT = Path(__file__).parent.resolve()
+_ROOT = Path(__file__).resolve().parents[1]
 _VHS = str(_ROOT / "vhs")
 _PHOTOALBUMS = str(_ROOT / "photoalbums")
 

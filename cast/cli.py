@@ -13,7 +13,7 @@ def default_store_dir() -> Path:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="cast.py",
+        prog="python -m cast",
         description="Shared face identity storage and web review UI.",
     )
     parser.add_argument(

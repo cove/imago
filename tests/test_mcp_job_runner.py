@@ -14,8 +14,8 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import mcp_job_runner
-import mcp_console
+from imago_mcp import console as mcp_console
+from imago_mcp import job_runner as mcp_job_runner
 from photoalbums.lib import xmp_sidecar
 
 _FAKE_JOB = {

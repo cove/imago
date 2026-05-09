@@ -38,7 +38,7 @@ def _print_ai_steps() -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="photoalbums.py",
+        prog="python -m photoalbums",
         description="Unified command surface for photo album archive workflows.",
     )
     subparsers = parser.add_subparsers(dest="group", required=True)
@@ -511,4 +511,4 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit("Internal module. Run: uv run python photoalbums.py ...")
+    raise SystemExit("Internal module. Run: uv run python -m photoalbums ...")

@@ -15,7 +15,7 @@ from typing import Optional
 
 from photoalbums.lib.ai_processing_locks import _cleanup_stale_processing_locks
 
-REPO_ROOT = Path(__file__).resolve().parent
+REPO_ROOT = Path(__file__).resolve().parents[1]
 JOBS_DIR = REPO_ROOT / "mcp" / "jobs"
 JOBS_STATE = JOBS_DIR / "jobs.json"
 
@@ -76,10 +76,13 @@ class JobRunner:
     def _job_cleanup_metadata(args: list[str]) -> dict[str, str] | None:
         if len(args) < 5:
             return None
-        script_path = Path(str(args[1]))
-        if script_path.name != "photoalbums.py":
+        if [str(part) for part in args[1:3]] == ["-m", "photoalbums"]:
+            command_offset = 3
+        elif Path(str(args[1])).name == "photoalbums.py":
+            command_offset = 2
+        else:
             return None
-        if [str(part) for part in args[2:4]] != ["ai", "index"]:
+        if [str(part) for part in args[command_offset : command_offset + 2]] != ["ai", "index"]:
             return None
         try:
             photos_root = str(args[args.index("--photos-root") + 1]).strip()
