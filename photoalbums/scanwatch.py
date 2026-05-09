@@ -33,6 +33,7 @@ try:
         rename_with_retry,
     )
     from .terminal_images import display_inline_image
+    from .lib.ai_orientation import correct_orientation_after_scan
 except ImportError:
     from common import (
         INCOMING_NAME,
@@ -48,6 +49,7 @@ except ImportError:
         rename_with_retry,
     )
     from terminal_images import display_inline_image
+    from lib.ai_orientation import correct_orientation_after_scan
 
 try:
     from .scanwatch_core import (
@@ -122,6 +124,7 @@ class ScanWatchService:
         validate_stitch_fn=validate_stitch,
         open_image_fn=open_image_fullscreen,
         display_image_fn=display_inline_image,
+        orient_image_fn=correct_orientation_after_scan,
     ) -> None:
         self.root = _normalize_path(root)
         self.incoming_name = incoming_name
@@ -134,6 +137,7 @@ class ScanWatchService:
         self.validate_stitch_fn = validate_stitch_fn
         self.open_image_fn = open_image_fn
         self.display_image_fn = display_image_fn
+        self.orient_image_fn = orient_image_fn
         self._lock = threading.RLock()
         self._events: dict[str, ScanEvent] = {}
         self._events_by_path: dict[str, str] = {}
@@ -385,6 +389,18 @@ class ScanWatchService:
                 event.target_name = target_name
                 event.note = "processing failed"
                 event.updated_at = _now()
+            return event.to_dict()
+
+        self.log_info_fn(f"  [orientation] {target_name}")
+        try:
+            self.orient_image_fn(new_path, log_info=self.log_info_fn)
+        except Exception as exc:
+            with self._lock:
+                event.status = "failed"
+                event.target_name = target_name
+                event.note = f"orientation failed: {exc}"
+                event.updated_at = _now()
+            self.log_error_fn(f"Orientation failed for {target_name}: {exc}")
             return event.to_dict()
 
         self.log_info_fn(f"  [display] {target_name}")

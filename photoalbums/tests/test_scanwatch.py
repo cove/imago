@@ -12,6 +12,10 @@ if str(ROOT) not in sys.path:
 import scanwatch  # noqa: E402
 
 
+def noop_orientation(*_args, **_kwargs):
+    return {"right_side_up": True, "rotation_applied_degrees": 0}
+
+
 class TtyBuffer:
     def __init__(self):
         self.text = ""
@@ -55,6 +59,7 @@ class TestScanWatch(unittest.TestCase):
                 validate_stitch_fn=validate_mock,
                 open_image_fn=mock.Mock(),
                 display_image_fn=mock.Mock(return_value=False),
+                orient_image_fn=noop_orientation,
                 alert_fn=alert_mock,
                 log_error_fn=error_mock,
                 sleep_fn=lambda *_: None,
@@ -132,6 +137,7 @@ class TestScanWatch(unittest.TestCase):
                 validate_stitch_fn=lambda *_args, **_kwargs: (True, None),
                 open_image_fn=mock.Mock(),
                 display_image_fn=mock.Mock(return_value=False),
+                orient_image_fn=noop_orientation,
                 sleep_fn=lambda *_: None,
             )
 
@@ -158,6 +164,7 @@ class TestScanWatch(unittest.TestCase):
                 process_tiff_fn=mock.Mock(return_value=True),
                 validate_stitch_fn=lambda *_args, **_kwargs: (True, None),
                 display_image_fn=display_mock,
+                orient_image_fn=noop_orientation,
                 log_error_fn=error_mock,
                 sleep_fn=lambda *_: None,
             )
@@ -170,6 +177,40 @@ class TestScanWatch(unittest.TestCase):
                 title="Renamed scan: Album_P01_S01.tif",
                 log_error=error_mock,
             )
+
+    def test_apply_decision_orients_after_processing_before_display(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive_dir = Path(tmp) / "Album_Archive"
+            archive_dir.mkdir()
+            incoming = archive_dir / "incoming_scan.tif"
+            incoming.touch()
+            calls = []
+
+            def process_tiff(*_args, **_kwargs):
+                calls.append("process")
+                return True
+
+            def orient_image(*_args, **_kwargs):
+                calls.append("orientation")
+                return {"right_side_up": True, "rotation_applied_degrees": 0}
+
+            def display_image(*_args, **_kwargs):
+                calls.append("display")
+                return True
+
+            service = scanwatch.ScanWatchService(
+                root=Path(tmp),
+                process_tiff_fn=process_tiff,
+                validate_stitch_fn=lambda *_args, **_kwargs: (True, None),
+                display_image_fn=display_image,
+                orient_image_fn=orient_image,
+                sleep_fn=lambda *_: None,
+            )
+
+            event = service.register_incoming(incoming)
+            service.apply_decision(event.id, "Album_P01_S01.tif")
+
+            self.assertEqual(calls[:3], ["process", "orientation", "display"])
 
     def test_apply_decision_displays_successful_stitch_preview(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -189,6 +230,7 @@ class TestScanWatch(unittest.TestCase):
                 process_tiff_fn=mock.Mock(return_value=True),
                 validate_stitch_fn=mock.Mock(return_value=(True, preview)),
                 display_image_fn=display_mock,
+                orient_image_fn=noop_orientation,
                 log_error_fn=error_mock,
                 sleep_fn=lambda *_: None,
             )

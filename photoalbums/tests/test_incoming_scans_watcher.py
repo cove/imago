@@ -15,6 +15,10 @@ class DummyEvent:
         self.is_directory = is_directory
 
 
+def noop_orientation(*_args, **_kwargs):
+    return {"right_side_up": True, "rotation_applied_degrees": 0}
+
+
 class TestIncomingScansWatcher(unittest.TestCase):
     def test_on_created_auto_applies_event(self):
         import incoming_scans_watcher
@@ -72,6 +76,7 @@ class TestIncomingScansWatcher(unittest.TestCase):
                 validate_stitch_fn=lambda *_args, **_kwargs: (True, None),
                 open_image_fn=mock.Mock(),
                 display_image_fn=mock.Mock(return_value=False),
+                orient_image_fn=noop_orientation,
                 sleep_fn=lambda *_: None,
             )
             handler = incoming_scans_watcher.IncomingScanHandler(

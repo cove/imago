@@ -9,27 +9,20 @@ from ._caption_lmstudio import (
     _build_data_url,
     _decode_lmstudio_text,
     _extract_structured_json_payload,
-    _format_lmstudio_debug_response,
     _lmstudio_request_json,
     _select_lmstudio_model,
     normalize_lmstudio_base_url,
 )
 from ._lmstudio_helpers import LMStudioModelResolverMixin, emit_prompt_debug
-from .ai_prompt_assets import load_params, load_prompt, load_schema, params_metadata, prompt_metadata
+from .ai_lmstudio_structured import run_engine_with_model_fallback, schema_response_format, step_prompt_assets_metadata
+from .ai_prompt_assets import load_params, load_prompt
 from .ai_model_settings import default_caption_model, default_caption_models, default_lmstudio_base_url
 
 _DEFAULT_MAX_IMAGE_EDGE = 1920
 
 
 def _metadata_response_format() -> dict:
-    return {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "metadata_payload",
-            "strict": True,
-            "schema": load_schema("ai-index/metadata/schema.json").values,
-        },
-    }
+    return schema_response_format(schema_name="metadata_payload", schema_path="ai-index/metadata/schema.json")
 
 
 def _metadata_system_prompt() -> str:
@@ -48,16 +41,7 @@ def _metadata_params() -> dict:
 
 
 def _metadata_prompt_metadata(resolved_params: dict) -> dict:
-    metadata: dict = {}
-    metadata.update(
-        prompt_metadata(
-            load_prompt("ai-index/metadata/system.md"),
-            load_prompt("ai-index/metadata/user.md"),
-            load_schema("ai-index/metadata/schema.json"),
-        )
-    )
-    metadata.update(params_metadata(load_params("ai-index/metadata/params.toml"), resolved_params))
-    return metadata
+    return step_prompt_assets_metadata(step="metadata", resolved_params=resolved_params)
 
 
 def _is_metadata_payload(payload: object) -> bool:
@@ -216,53 +200,16 @@ class MetadataEngine(LMStudioModelResolverMixin):
             return MetadataResult(engine=self.engine, fallback=True, error="")
 
         try:
-            image_url = _build_data_url(image_path, self.max_image_edge)
-
-            def run_request() -> MetadataResult:
-                payload = {
-                    "model": self._resolve_model_name(),
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": user_prompt},
-                                {"type": "image_url", "image_url": {"url": image_url}},
-                            ],
-                        },
-                    ],
-                    "response_format": _metadata_response_format(),
-                    "max_tokens": int(self.max_tokens),
-                    "temperature": float(self.temperature),
-                    "stream": False,
-                    # Tell the chat template to skip <think> emission. LM Studio
-                    # forwards this passthrough to the model's tokenizer chat
-                    # template (Qwen3 / DeepSeek-style). Templates that don't
-                    # recognise the kwarg ignore it harmlessly; for those we
-                    # also strip <think>...</think> from the response.
-                    "chat_template_kwargs": {"enable_thinking": False},
-                }
-                response_payload = _lmstudio_request_json(
-                    f"{self.base_url}/chat/completions",
-                    payload=payload,
-                    timeout=self.timeout_seconds,
-                )
-                choices = list(response_payload.get("choices") or [])
-                if not choices:
-                    raise RuntimeError("LM Studio returned no choices.")
-                message = dict(choices[0].get("message") or {})
-                self.last_finish_reason = str(choices[0].get("finish_reason") or "")
-                self.last_response_text = _format_lmstudio_debug_response(message.get("content"))
-                if not self.last_response_text:
-                    self.last_response_text = _format_lmstudio_debug_response(message)
-                result = _parse_metadata_response(
-                    message.get("content"),
-                    finish_reason=self.last_finish_reason,
-                )
-                result.engine = self.engine
-                return result
-
-            result = self._run_with_model_fallback(run_request)
+            result = run_engine_with_model_fallback(
+                self,
+                image_path=image_path,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                response_format=_metadata_response_format(),
+                parse_fn=_parse_metadata_response,
+                request_json=_lmstudio_request_json,
+                build_data_url=_build_data_url,
+            )
             response = self.last_response_text
             finish_reason = self.last_finish_reason
             return result

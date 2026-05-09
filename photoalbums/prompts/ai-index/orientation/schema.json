@@ -1,0 +1,8 @@
+{
+  "type": "object",
+  "properties": {
+    "right_side_up": {"type": "boolean"}
+  },
+  "required": ["right_side_up"],
+  "additionalProperties": false
+}
