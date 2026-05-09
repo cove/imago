@@ -2043,10 +2043,20 @@ def _load_contact_sheet_images_from_video(
     if not missing:
         return out
 
+    _load_missing_contact_sheet_images(session, video_path, missing, out)
+    return out
+
+
+def _load_missing_contact_sheet_images(
+    session: SessionState,
+    video_path: Path,
+    missing: list[int],
+    out: dict[int, str | Image.Image],
+) -> None:
     video_path_str = str(video_path)
     with session._video_cap_lock:
         if not _ensure_session_video_capture(session, video_path_str):
-            return out
+            return
         cap = session._video_cap
         read_offset = int(session.frame_source_read_offset)
         prev_read_fid = session._video_cap_last_fid
@@ -2068,7 +2078,6 @@ def _load_contact_sheet_images_from_video(
             thumb_bgr = cv2.resize(read_bgr, (160, thumb_h), interpolation=cv2.INTER_AREA)
             out[int(fid)] = Image.fromarray(cv2.cvtColor(thumb_bgr, cv2.COLOR_BGR2RGB))
         session._video_cap_last_fid = prev_read_fid
-    return out
 
 
 def _ensure_session_video_capture(session: SessionState, video_path_str: str) -> bool:

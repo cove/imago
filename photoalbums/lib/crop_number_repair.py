@@ -72,6 +72,75 @@ def _temporary_pair_path(path: Path, ordinal: int) -> Path:
     return path.with_name(f"{path.stem}.tmp-crop-number-repair-{ordinal}{path.suffix}")
 
 
+def _plan_page_crop_repairs(
+    page_pairs: list[dict[str, Path | int]],
+    view_path: Path,
+    photos_dir: Path,
+    archive_max_derived: int,
+) -> list[dict[str, Path]]:
+    planned: list[dict[str, Path]] = []
+    for index, pair in enumerate(page_pairs, start=1):
+        target_jpg = crop_output_path(view_path, index, photos_dir, archive_max_derived=archive_max_derived)
+        target_xmp = target_jpg.with_suffix(".xmp")
+        current_jpg = pair["jpg"]
+        current_xmp = pair["xmp"]
+        assert isinstance(current_jpg, Path)
+        assert isinstance(current_xmp, Path)
+        if current_jpg == target_jpg and current_xmp == target_xmp:
+            continue
+        planned.append(
+            {
+                "current_jpg": current_jpg,
+                "current_xmp": current_xmp,
+                "target_jpg": target_jpg,
+                "target_xmp": target_xmp,
+            }
+        )
+    return planned
+
+
+def _stage_crop_repair_pairs(planned: list[dict[str, Path]]) -> list[dict[str, Path]]:
+    staged: list[dict[str, Path]] = []
+    for ordinal, pair in enumerate(planned, start=1):
+        temp_jpg = _temporary_pair_path(pair["current_jpg"], ordinal)
+        temp_xmp = _temporary_pair_path(pair["current_xmp"], ordinal)
+        if temp_jpg.exists() or temp_xmp.exists():
+            raise FileExistsError(f"Temporary crop repair path already exists: {temp_jpg}")
+        pair["current_jpg"].rename(temp_jpg)
+        pair["current_xmp"].rename(temp_xmp)
+        staged.append(
+            {
+                "temp_jpg": temp_jpg,
+                "temp_xmp": temp_xmp,
+                "target_jpg": pair["target_jpg"],
+                "target_xmp": pair["target_xmp"],
+                "old_jpg": pair["current_jpg"],
+                "old_xmp": pair["current_xmp"],
+            }
+        )
+    return staged
+
+
+def _apply_staged_crop_repair_pairs(staged: list[dict[str, Path]]) -> list[dict[str, str]]:
+    renames: list[dict[str, str]] = []
+    for pair in staged:
+        target_jpg = pair["target_jpg"]
+        target_xmp = pair["target_xmp"]
+        if target_jpg.exists() or target_xmp.exists():
+            raise FileExistsError(f"Crop repair target already exists and was not staged away: {target_jpg}")
+        pair["temp_jpg"].rename(target_jpg)
+        pair["temp_xmp"].rename(target_xmp)
+        renames.append(
+            {
+                "old_jpg": str(pair["old_jpg"]),
+                "new_jpg": str(target_jpg),
+                "old_xmp": str(pair["old_xmp"]),
+                "new_xmp": str(target_xmp),
+            }
+        )
+    return renames
+
+
 def repair_album_crop_numbers(
     photos_root: str | Path,
     *,
@@ -98,70 +167,12 @@ def repair_album_crop_numbers(
             files_scanned += len(page_pairs)
             view_path = pages_dir / f"{page_prefix}_V.jpg"
             archive_max_derived = highest_archive_derived_number(view_path)
-
-            planned: list[dict[str, Path]] = []
-            for index, pair in enumerate(page_pairs, start=1):
-                target_jpg = crop_output_path(
-                    view_path,
-                    index,
-                    photos_dir,
-                    archive_max_derived=archive_max_derived,
-                )
-                target_xmp = target_jpg.with_suffix(".xmp")
-                current_jpg = pair["jpg"]
-                current_xmp = pair["xmp"]
-                assert isinstance(current_jpg, Path)
-                assert isinstance(current_xmp, Path)
-                if current_jpg == target_jpg and current_xmp == target_xmp:
-                    continue
-                planned.append(
-                    {
-                        "current_jpg": current_jpg,
-                        "current_xmp": current_xmp,
-                        "target_jpg": target_jpg,
-                        "target_xmp": target_xmp,
-                    }
-                )
+            planned = _plan_page_crop_repairs(page_pairs, view_path, photos_dir, archive_max_derived)
 
             if not planned:
                 continue
 
-            staged: list[dict[str, Path]] = []
-            for ordinal, pair in enumerate(planned, start=1):
-                temp_jpg = _temporary_pair_path(pair["current_jpg"], ordinal)
-                temp_xmp = _temporary_pair_path(pair["current_xmp"], ordinal)
-                if temp_jpg.exists() or temp_xmp.exists():
-                    raise FileExistsError(f"Temporary crop repair path already exists: {temp_jpg}")
-                pair["current_jpg"].rename(temp_jpg)
-                pair["current_xmp"].rename(temp_xmp)
-                staged.append(
-                    {
-                        "temp_jpg": temp_jpg,
-                        "temp_xmp": temp_xmp,
-                        "target_jpg": pair["target_jpg"],
-                        "target_xmp": pair["target_xmp"],
-                        "old_jpg": pair["current_jpg"],
-                        "old_xmp": pair["current_xmp"],
-                    }
-                )
-
-            for pair in staged:
-                target_jpg = pair["target_jpg"]
-                target_xmp = pair["target_xmp"]
-                temp_jpg = pair["temp_jpg"]
-                temp_xmp = pair["temp_xmp"]
-                if target_jpg.exists() or target_xmp.exists():
-                    raise FileExistsError(f"Crop repair target already exists and was not staged away: {target_jpg}")
-                temp_jpg.rename(target_jpg)
-                temp_xmp.rename(target_xmp)
-                renames.append(
-                    {
-                        "old_jpg": str(pair["old_jpg"]),
-                        "new_jpg": str(target_jpg),
-                        "old_xmp": str(pair["old_xmp"]),
-                        "new_xmp": str(target_xmp),
-                    }
-                )
+            renames.extend(_apply_staged_crop_repair_pairs(_stage_crop_repair_pairs(planned)))
 
             pages_changed += 1
             files_changed += len(planned)

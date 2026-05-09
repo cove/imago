@@ -1950,37 +1950,7 @@ def test_step_6_real_badframes_do_not_pick_bad_sources():
 
     violations = []
     for ch in chapters:
-        start, end = step_6_make_videos.chapter_global_frame_bounds(ch)
-        max_local = (end - start) - 1
-        if max_local < 0:
-            continue
-
-        local_repairs = step_6_make_videos.map_bad_repairs_to_chapter_local_ranges(repairs, ch)
-        if not local_repairs:
-            continue
-
-        local_bad = set(step_6_make_videos.map_bad_ranges_to_chapter_local_frames(raw_ranges, ch))
-        resolved = step_6_make_videos._resolve_badframe_repair_ranges(
-            bad_repair_ranges=local_repairs,
-            max_source_frame=max_local,
-        )
-
-        replacement_by_frame = {}
-        for a, b, src in resolved:
-            if src < 0 or src > max_local:
-                violations.append((ch.get("title", ""), a, b, src, "out_of_bounds"))
-                continue
-            if src in local_bad:
-                violations.append((ch.get("title", ""), a, b, src, "bad_source"))
-            for f in range(max(0, a), min(max_local, b) + 1):
-                replacement_by_frame[f] = src
-
-        for f in range(max_local + 1):
-            shown = replacement_by_frame.get(f, f)
-            if shown in local_bad:
-                violations.append((ch.get("title", ""), f, f, shown, "shown_bad"))
-                if len(violations) >= 20:
-                    break
+        violations.extend(_step_6_badframe_source_violations(step_6_make_videos, repairs, raw_ranges, ch))
         if len(violations) >= 20:
             break
 
@@ -1989,6 +1959,52 @@ def test_step_6_real_badframes_do_not_pick_bad_sources():
     del sys.modules["step_6_make_videos"]
     sys.modules.pop("whisper", None)
     sys.modules.pop("whisper.utils", None)
+
+
+def _step_6_badframe_source_violations(step_6_make_videos, repairs, raw_ranges, ch):
+    start, end = step_6_make_videos.chapter_global_frame_bounds(ch)
+    max_local = (end - start) - 1
+    if max_local < 0:
+        return []
+
+    local_repairs = step_6_make_videos.map_bad_repairs_to_chapter_local_ranges(repairs, ch)
+    if not local_repairs:
+        return []
+
+    local_bad = set(step_6_make_videos.map_bad_ranges_to_chapter_local_frames(raw_ranges, ch))
+    resolved = step_6_make_videos._resolve_badframe_repair_ranges(
+        bad_repair_ranges=local_repairs,
+        max_source_frame=max_local,
+    )
+    violations = _step_6_resolved_source_violations(ch, resolved, max_local, local_bad)
+    violations.extend(_step_6_shown_bad_violations(ch, resolved, max_local, local_bad))
+    return violations
+
+
+def _step_6_resolved_source_violations(ch, resolved, max_local, local_bad):
+    violations = []
+    for a, b, src in resolved:
+        if src < 0 or src > max_local:
+            violations.append((ch.get("title", ""), a, b, src, "out_of_bounds"))
+            continue
+        if src in local_bad:
+            violations.append((ch.get("title", ""), a, b, src, "bad_source"))
+    return violations
+
+
+def _step_6_shown_bad_violations(ch, resolved, max_local, local_bad):
+    replacement_by_frame = {}
+    for a, b, src in resolved:
+        for f in range(max(0, a), min(max_local, b) + 1):
+            replacement_by_frame[f] = src
+    violations = []
+    for f in range(max_local + 1):
+        shown = replacement_by_frame.get(f, f)
+        if shown in local_bad:
+            violations.append((ch.get("title", ""), f, f, shown, "shown_bad"))
+            if len(violations) >= 20:
+                break
+    return violations
 
 
 def test_step_6_frame_quality_ingest_exact_archive01():

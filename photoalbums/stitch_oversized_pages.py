@@ -439,8 +439,6 @@ def build_stitched_image(files, stitcher_factory=None):
     stitcher_factory = _stitcher_factory(stitcher_factory)
     attempts = [dict(cfg) for cfg in AFFINE_STITCH_ATTEMPTS]
 
-    partial_warning = None
-    last_exc: Exception | None = None
     loaded_images = None
 
     def ensure_loaded_images():
@@ -449,27 +447,9 @@ def build_stitched_image(files, stitcher_factory=None):
             loaded_images = [_read_stitch_image(path) for path in files]
         return loaded_images
 
-    for cfg in attempts:
-        try:
-            with warnings.catch_warnings(record=True) as caught:
-                warnings.simplefilter("always")
-                result = stitcher_factory(**cfg).stitch(files)
-            partial_warning = next(
-                (w for w in caught if "not all images are included in the final panorama" in str(w.message).lower()),
-                None,
-            )
-            if partial_warning is not None:
-                result = None
-                continue
-            if result is not None and getattr(result, "size", 0):
-                shape = getattr(result, "shape", None)
-                if (not isinstance(shape, tuple) or len(shape) < 2) or _result_expands_canvas(
-                    result,
-                    ensure_loaded_images(),
-                ):
-                    return result
-        except Exception as exc:
-            last_exc = exc
+    result, partial_warning, last_exc = _try_affine_stitch_attempts(files, attempts, stitcher_factory, ensure_loaded_images)
+    if result is not None:
+        return result
 
     if len(files) == 2:
         try:
@@ -489,6 +469,34 @@ def build_stitched_image(files, stitcher_factory=None):
     if last_exc is not None:
         raise RuntimeError("All stitching attempts failed") from last_exc
     raise RuntimeError("All stitching attempts failed")
+
+
+def _try_affine_stitch_attempts(files, attempts, stitcher_factory, ensure_loaded_images):
+    partial_warning = None
+    last_exc: Exception | None = None
+    for cfg in attempts:
+        try:
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                result = stitcher_factory(**cfg).stitch(files)
+            partial_warning = next(
+                (w for w in caught if "not all images are included in the final panorama" in str(w.message).lower()),
+                None,
+            )
+            if partial_warning is not None:
+                continue
+            if _stitched_result_usable(result, ensure_loaded_images):
+                return result, partial_warning, last_exc
+        except Exception as exc:
+            last_exc = exc
+    return None, partial_warning, last_exc
+
+
+def _stitched_result_usable(result, ensure_loaded_images) -> bool:
+    if result is None or not getattr(result, "size", 0):
+        return False
+    shape = getattr(result, "shape", None)
+    return (not isinstance(shape, tuple) or len(shape) < 2) or _result_expands_canvas(result, ensure_loaded_images())
 
 
 def get_view_dirname(path: str | Path) -> str:

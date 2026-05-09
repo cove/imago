@@ -273,47 +273,40 @@ def _prepare_ai_model_image(image_path: Path):
     temp_dir = tempfile.TemporaryDirectory(prefix="imago-ai-")
     try:
         out_path = Path(temp_dir.name) / f"{path.stem}_ai.jpg"
-        with Image.open(str(path)) as image:
-            working = ImageOps.exif_transpose(image)
-            if working.mode not in {"RGB", "L"}:
-                working = working.convert("RGB")
-            width, height = working.size
-            scale = min(
-                0.95,
-                max(
-                    0.2,
-                    ((AI_MODEL_MAX_SOURCE_BYTES / float(max(1, source_size))) ** 0.5) * 0.92,
-                ),
-            )
-            quality = 90
-            candidate = working
-            created_candidate = False
-            while True:
-                new_size = (
-                    max(1, int(round(width * scale))),
-                    max(1, int(round(height * scale))),
-                )
-                if new_size != candidate.size:
-                    if created_candidate:
-                        candidate.close()
-                    resampling = getattr(getattr(working, "Resampling", None), "LANCZOS", None)
-                    if resampling is None:
-                        resampling = 1
-                    candidate = working.resize(new_size, resampling)
-                    created_candidate = True
-                save_image = candidate.convert("RGB") if candidate.mode != "RGB" else candidate
-                save_image.save(out_path, format="JPEG", quality=quality, optimize=True)
-                if save_image is not candidate:
-                    save_image.close()
-                if int(out_path.stat().st_size) <= AI_MODEL_MAX_SOURCE_BYTES or scale <= 0.25:
-                    break
-                scale = max(0.25, scale * 0.85)
-                quality = max(72, quality - 5)
-            if created_candidate:
-                candidate.close()
+        _write_resized_ai_model_image(Image, ImageOps, path, out_path, source_size)
         yield out_path
     finally:
         temp_dir.cleanup()
+
+
+def _write_resized_ai_model_image(Image, ImageOps, image_path: Path, out_path: Path, source_size: int) -> None:
+    with Image.open(str(image_path)) as image:
+        working = ImageOps.exif_transpose(image)
+        if working.mode not in {"RGB", "L"}:
+            working = working.convert("RGB")
+        width, height = working.size
+        scale = min(0.95, max(0.2, ((AI_MODEL_MAX_SOURCE_BYTES / float(max(1, source_size))) ** 0.5) * 0.92))
+        quality = 90
+        candidate = working
+        created_candidate = False
+        while True:
+            new_size = (max(1, int(round(width * scale))), max(1, int(round(height * scale))))
+            if new_size != candidate.size:
+                if created_candidate:
+                    candidate.close()
+                resampling = getattr(getattr(working, "Resampling", None), "LANCZOS", None)
+                candidate = working.resize(new_size, resampling if resampling is not None else 1)
+                created_candidate = True
+            save_image = candidate.convert("RGB") if candidate.mode != "RGB" else candidate
+            save_image.save(out_path, format="JPEG", quality=quality, optimize=True)
+            if save_image is not candidate:
+                save_image.close()
+            if int(out_path.stat().st_size) <= AI_MODEL_MAX_SOURCE_BYTES or scale <= 0.25:
+                break
+            scale = max(0.25, scale * 0.85)
+            quality = max(72, quality - 5)
+        if created_candidate:
+            candidate.close()
 
 
 def _get_image_dimensions(image_path: Path) -> tuple[int, int]:

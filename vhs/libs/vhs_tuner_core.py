@@ -944,11 +944,9 @@ def extract_frames(
             progress(idx / n_total, desc=f"Frame {fid}...")
 
         c = cached_lookup.get(int(fid))
-        cached_thumb = thumb_lookup.get(int(fid), "")
-        need_decode = c is None or (include_thumbs and not cached_thumb)
-
+        cached_thumb = str(thumb_lookup.get(int(fid), "") or "")
         bgr = None
-        if need_decode:
+        if c is None or (include_thumbs and not cached_thumb):
             cap, bgr, error = _read_extract_frame(
                 video_path=video_path,
                 cap=cap,
@@ -959,32 +957,12 @@ def extract_frames(
                 return None, None, None, error
             prev_read_fid = read_fid
 
-        if include_thumbs:
-            if cached_thumb:
-                frame_thumb = cached_thumb
-            else:
-                frame_thumb = _bgr_to_jpeg_b64(bgr if bgr is not None else np.zeros((240, 320, 3), dtype=np.uint8))
-                thumb_lookup[int(fid)] = frame_thumb
-            frames_b64.append(frame_thumb)
-        else:
-            frame_thumb = ""
-
-        if c is not None:
-            ch = float(c["chroma"])
-            no = float(c["noise"])
-            te = float(c["tear"])
-            wa = float(c["wave"])
-            chroma_s.append(ch)
-            noise_s.append(no)
-            tear_s.append(te)
-            wave_s.append(wa)
-        else:
-            compute_bgr = bgr if bgr is not None else np.zeros((240, 320, 3), dtype=np.uint8)
-            ch, no, te, wa = _compute_signals(compute_bgr)
-            chroma_s.append(ch)
-            noise_s.append(no)
-            tear_s.append(te)
-            wave_s.append(wa)
+        frame_thumb = _extract_frame_thumb(include_thumbs, cached_thumb, bgr, thumb_lookup, int(fid), frames_b64)
+        ch, no, te, wa = _extract_frame_signals(c, bgr)
+        chroma_s.append(ch)
+        noise_s.append(no)
+        tear_s.append(te)
+        wave_s.append(wa)
         if callable(frame_callback):
             frame_callback(
                 int(fid),
@@ -1022,6 +1000,28 @@ def extract_frames(
     )
 
     return frame_ids, frames_b64, sigs, ""
+
+
+def _extract_frame_thumb(
+    include_thumbs: bool,
+    cached_thumb: str,
+    bgr,
+    thumb_lookup: dict[int, str],
+    fid: int,
+    frames_b64: list[str],
+) -> str:
+    if not include_thumbs:
+        return ""
+    frame_thumb = cached_thumb or _bgr_to_jpeg_b64(bgr if bgr is not None else np.zeros((240, 320, 3), dtype=np.uint8))
+    thumb_lookup[int(fid)] = frame_thumb
+    frames_b64.append(frame_thumb)
+    return frame_thumb
+
+
+def _extract_frame_signals(c, bgr) -> tuple[float, float, float, float]:
+    if c is not None:
+        return float(c["chroma"]), float(c["noise"]), float(c["tear"]), float(c["wave"])
+    return _compute_signals(bgr if bgr is not None else np.zeros((240, 320, 3), dtype=np.uint8))
 
 
 def _extract_target_frame_ids(start_i: int, end_i: int, n: int, frame_ids: list[int] | None) -> list[int]:

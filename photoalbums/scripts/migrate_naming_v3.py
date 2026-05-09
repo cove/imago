@@ -107,9 +107,7 @@ def _process_v3_rename_file(path: Path, plan: list[dict], seen_new: set[Path]) -
     stem = path.stem
     suffix = path.suffix
     parent = path.parent
-    parent_name = parent.name
-    in_view = parent_name.endswith("_View")
-    in_archive = parent_name.endswith("_Archive")
+    in_view, in_archive = _album_file_context(parent)
     if not in_view and not in_archive:
         return
     if in_view and suffix_lower in {".jpg", ".jpeg"}:
@@ -120,6 +118,25 @@ def _process_v3_rename_file(path: Path, plan: list[dict], seen_new: set[Path]) -
     if in_archive and suffix_lower in {".tif", ".tiff"}:
         if re.search(r"_S\d+$", stem, re.IGNORECASE):
             return
+    _try_derived_hyphen_rename(path, stem, suffix, suffix_lower, parent, in_view, in_archive, plan, seen_new)
+
+
+def _album_file_context(parent: Path) -> tuple[bool, bool]:
+    parent_name = parent.name
+    return parent_name.endswith("_View"), parent_name.endswith("_Archive")
+
+
+def _try_derived_hyphen_rename(
+    path: Path,
+    stem: str,
+    suffix: str,
+    suffix_lower: str,
+    parent: Path,
+    in_view: bool,
+    in_archive: bool,
+    plan: list[dict],
+    seen_new: set[Path],
+) -> None:
     m = _DERIVED_UNDER_RE.match(stem)
     if m and not m.group("suf"):
         iter_part = m.group("iter")

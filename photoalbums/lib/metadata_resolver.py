@@ -198,47 +198,21 @@ def resolve_person_in_image(
     )
 
 
-def match_caption_to_location_shown(
-    caption: str,
-    locations_shown: list[dict[str, Any]] | None,
-) -> dict[str, str] | None:
-    normalized_caption = _normalize_location_text(caption)
-    if not normalized_caption:
-        return None
-    best_match: dict[str, str] | None = None
-    best_score = -1
-    best_has_gps = False
-    for location in list(locations_shown or []):
-        if not isinstance(location, dict):
-            continue
-        payload = location_payload_from_location_shown(location)
-        if not payload:
-            continue
-        has_gps = bool(payload.get("gps_latitude") and payload.get("gps_longitude"))
-        for variant in _location_text_variants(location):
-            normalized_variant = _normalize_location_text(variant)
-            if not normalized_variant:
-                continue
-            if normalized_variant == normalized_caption:
-                score = len(normalized_variant) + 1000
-            elif normalized_variant in normalized_caption:
-                score = len(normalized_variant)
-            elif normalized_caption in normalized_variant:
-                score = len(normalized_caption)
-            else:
-                score = _token_match_score(normalized_caption, normalized_variant)
-                if score < 0:
-                    continue
-            if score > best_score or (score == best_score and has_gps and not best_has_gps):
-                best_match = payload
-                best_score = score
-                best_has_gps = has_gps
-    return best_match
+def _caption_location_score(normalized_caption: str, normalized_variant: str) -> int:
+    if normalized_variant == normalized_caption:
+        return len(normalized_variant) + 1000
+    if normalized_variant in normalized_caption:
+        return len(normalized_variant)
+    if normalized_caption in normalized_variant:
+        return len(normalized_caption)
+    return _token_match_score(normalized_caption, normalized_variant)
 
 
-def match_location_shown_row(
+def _best_location_shown_match(
     caption: str,
     locations_shown: list[dict[str, Any]] | None,
+    *,
+    return_row: bool,
 ) -> dict[str, Any] | None:
     normalized_caption = _normalize_location_text(caption)
     if not normalized_caption:
@@ -257,21 +231,28 @@ def match_location_shown_row(
             normalized_variant = _normalize_location_text(variant)
             if not normalized_variant:
                 continue
-            if normalized_variant == normalized_caption:
-                score = len(normalized_variant) + 1000
-            elif normalized_variant in normalized_caption:
-                score = len(normalized_variant)
-            elif normalized_caption in normalized_variant:
-                score = len(normalized_caption)
-            else:
-                score = _token_match_score(normalized_caption, normalized_variant)
-                if score < 0:
-                    continue
+            score = _caption_location_score(normalized_caption, normalized_variant)
+            if score < 0:
+                continue
             if score > best_score or (score == best_score and has_gps and not best_has_gps):
-                best_match = dict(location)
+                best_match = dict(location) if return_row else payload
                 best_score = score
                 best_has_gps = has_gps
     return best_match
+
+
+def match_caption_to_location_shown(
+    caption: str,
+    locations_shown: list[dict[str, Any]] | None,
+) -> dict[str, str] | None:
+    return _best_location_shown_match(caption, locations_shown, return_row=False)
+
+
+def match_location_shown_row(
+    caption: str,
+    locations_shown: list[dict[str, Any]] | None,
+) -> dict[str, Any] | None:
+    return _best_location_shown_match(caption, locations_shown, return_row=True)
 
 
 def resolve_crop_location(

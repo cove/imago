@@ -364,29 +364,6 @@ def parse_chapters(path):
     in_chapter = False
     seen_chapter = False
 
-    def finalize(ch):
-        tb_num = 1
-        tb_den = 1
-        if "timebase" in ch:
-            tb_num, tb_den = _parse_timebase_fraction(ch["timebase"])
-        tb = Fraction(int(tb_num), int(tb_den))
-        ch["timebase_num"] = int(tb_num)
-        ch["timebase_den"] = int(tb_den)
-
-        if "start" in ch:
-            s_raw = int(ch["start"])
-            ch["start_raw"] = int(s_raw)
-            ch["start"] = float(Fraction(s_raw) * tb)
-        else:
-            ch["start"] = float(ch.get("start", 0.0))
-
-        if "end" in ch:
-            e_raw = int(ch["end"])
-            ch["end_raw"] = int(e_raw)
-            ch["end"] = float(Fraction(e_raw) * tb)
-        else:
-            ch["end"] = float(ch.get("end", 0.0))
-
     for raw_line in path.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()
         if not line:
@@ -399,9 +376,8 @@ def parse_chapters(path):
             continue
 
         if line == "[CHAPTER]":
-            # finish previous chapter
             if cur and in_chapter:
-                finalize(cur)
+                _finalize_parsed_chapter(cur)
                 chapters.append(cur)
             cur = {}
             in_chapter = True
@@ -412,12 +388,32 @@ def parse_chapters(path):
             k, v = line.split("=", 1)
             cur[k.lower()] = v.strip()
 
-    # finalize last chapter
     if cur and in_chapter:
-        finalize(cur)
+        _finalize_parsed_chapter(cur)
         chapters.append(cur)
 
     return ffmetadata, chapters
+
+
+def _finalize_parsed_chapter(ch):
+    tb_num = 1
+    tb_den = 1
+    if "timebase" in ch:
+        tb_num, tb_den = _parse_timebase_fraction(ch["timebase"])
+    tb = Fraction(int(tb_num), int(tb_den))
+    ch["timebase_num"] = int(tb_num)
+    ch["timebase_den"] = int(tb_den)
+    _apply_chapter_bound(ch, "start", "start_raw", tb)
+    _apply_chapter_bound(ch, "end", "end_raw", tb)
+
+
+def _apply_chapter_bound(ch, key, raw_key, tb):
+    if key in ch:
+        raw_value = int(ch[key])
+        ch[raw_key] = int(raw_value)
+        ch[key] = float(Fraction(raw_value) * tb)
+    else:
+        ch[key] = float(ch.get(key, 0.0))
 
 
 def parse_bad_frames_csv(text):

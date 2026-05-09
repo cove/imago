@@ -176,14 +176,31 @@ def ffmetadata_to_chapters_tsv(ffmetadata_path: Path, out_path: Path | None = No
     source = Path(ffmetadata_path)
     target = Path(out_path) if out_path is not None else (source.parent / "chapters.tsv")
     _header_line, globals_list, chapter_lists = _parse_ffmetadata_raw(source)
+    global_order, global_values = _ffmetadata_global_columns(globals_list)
+    chapter_columns = _ffmetadata_chapter_columns(chapter_lists)
+    rows = _ffmetadata_chapter_rows(chapter_lists, global_order, global_values, chapter_columns)
 
+    columns = [
+        TSV_META_CHAPTER_INDEX_COL,
+        *[f"{TSV_FFMETA_PREFIX}{key}" for key in global_order],
+        *chapter_columns,
+    ]
+    _write_chapters_tsv_rows(target, columns, rows)
+    print(f"  Generated chapters master TSV: {target}")
+    return target
+
+
+def _ffmetadata_global_columns(globals_list: list[tuple[str, str]]) -> tuple[list[str], dict[str, str]]:
     global_order: list[str] = []
     global_values: dict[str, str] = {}
     for key, value in globals_list:
         if key not in global_order:
             global_order.append(key)
         global_values[key] = value
+    return global_order, global_values
 
+
+def _ffmetadata_chapter_columns(chapter_lists: list[list[tuple[str, str]]]) -> list[str]:
     chapter_columns: list[str] = []
     for chapter in list(chapter_lists or []):
         seen_keys: set[str] = set()
@@ -193,7 +210,15 @@ def ffmetadata_to_chapters_tsv(ffmetadata_path: Path, out_path: Path | None = No
             seen_keys.add(key)
             if key not in chapter_columns:
                 chapter_columns.append(key)
+    return chapter_columns
 
+
+def _ffmetadata_chapter_rows(
+    chapter_lists: list[list[tuple[str, str]]],
+    global_order: list[str],
+    global_values: dict[str, str],
+    chapter_columns: list[str],
+) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     chapter_rows = list(chapter_lists or [])
     if not chapter_rows:
@@ -210,15 +235,7 @@ def ffmetadata_to_chapters_tsv(ffmetadata_path: Path, out_path: Path | None = No
         for key in chapter_columns:
             row[key] = chapter_values.get(key, "")
         rows.append(row)
-
-    columns = [
-        TSV_META_CHAPTER_INDEX_COL,
-        *[f"{TSV_FFMETA_PREFIX}{key}" for key in global_order],
-        *chapter_columns,
-    ]
-    _write_chapters_tsv_rows(target, columns, rows)
-    print(f"  Generated chapters master TSV: {target}")
-    return target
+    return rows
 
 
 def convert_all_ffmetadata_to_chapters_tsv(

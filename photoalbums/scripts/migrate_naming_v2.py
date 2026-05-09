@@ -102,64 +102,57 @@ def build_rename_plan(root: Path) -> list[dict]:
     seen_new: set[Path] = set()
 
     for path in _iter_album_files(root):
-        suffix_lower = path.suffix.lower()
-        is_image_or_xmp = suffix_lower in {".jpg", ".jpeg", ".xmp"}
-        is_tif = suffix_lower in {".tif", ".tiff"}
-        if not is_image_or_xmp and not is_tif:
-            continue
+        _process_rename_plan_path(plan, seen_new, path)
 
-        stem = path.stem
-        suffix = path.suffix
-        parent = path.parent
-        parent_name = parent.name
+    _append_panama_dir_renames(plan, root)
+    return plan
 
-        # --- PanamaCanal rename (TIFs included; possibly combined with naming convention transform) ---
-        if OLD_PANAMA in str(path):
-            _append_panama_file_rename(plan, seen_new, path, parent_name=parent_name)
-            continue
 
-        # Non-Panama TIFs need no further renaming
-        if is_tif:
-            continue
+def _process_rename_plan_path(plan: list[dict], seen_new: set[Path], path: Path) -> None:
+    suffix_lower = path.suffix.lower()
+    is_image_or_xmp = suffix_lower in {".jpg", ".jpeg", ".xmp"}
+    is_tif = suffix_lower in {".tif", ".tiff"}
+    if not is_image_or_xmp and not is_tif:
+        return
 
-        # Only rename non-Panama files inside _View directories
-        if not parent_name.endswith("_View"):
-            continue
+    parent_name = path.parent.name
+    if OLD_PANAMA in str(path):
+        _append_panama_file_rename(plan, seen_new, path, parent_name=parent_name)
+        return
+    if is_tif or not parent_name.endswith("_View"):
+        return
 
-        # --- _stitched → _VR ---
-        if _append_view_stem_rename(
+    if _append_view_stem_rename(
+        plan,
+        seen_new,
+        path,
+        stem=path.stem,
+        suffix=path.suffix,
+        regex=_STITCHED_STEM_RE,
+        suffix_token="_VC",
+        kind="stitched_to_vc",
+    ):
+        return
+    if _append_view_stem_rename(
+        plan, seen_new, path, stem=path.stem, suffix=path.suffix, regex=_VR_STEM_RE, suffix_token="_VC", kind="vr_to_vc"
+    ):
+        return
+    if suffix_lower in {".jpg", ".jpeg"}:
+        _append_view_stem_rename(
             plan,
             seen_new,
             path,
-            stem=stem,
-            suffix=suffix,
-            regex=_STITCHED_STEM_RE,
-            suffix_token="_VC",
-            kind="stitched_to_vc",
-        ):
-            continue
-
-        # --- _VR → _VC (rename from previous migration pass) ---
-        if _append_view_stem_rename(
-            plan, seen_new, path, stem=stem, suffix=suffix, regex=_VR_STEM_RE, suffix_token="_VC", kind="vr_to_vc"
-        ):
-            continue
-
-        # --- bare _P## → _P##_V ---
-        if suffix.lower() in {".jpg", ".jpeg"} and _append_view_stem_rename(
-            plan,
-            seen_new,
-            path,
-            stem=stem,
-            suffix=suffix,
+            stem=path.stem,
+            suffix=path.suffix,
             regex=_BARE_VIEW_STEM_RE,
             suffix_token="_V",
             kind="bare_to_v",
-        ):
-            continue
+        )
 
-    # --- PanamaCanal directory renames (collected last, applied last) ---
+
+def _append_panama_dir_renames(plan: list[dict], root: Path) -> None:
     for dirpath, dirnames, _ in os.walk(root, topdown=False):
+        dirnames.sort()
         dp = Path(dirpath)
         if OLD_PANAMA in dp.name:
             new_dir = dp.parent / dp.name.replace(OLD_PANAMA, NEW_PANAMA)
@@ -170,8 +163,6 @@ def build_rename_plan(root: Path) -> list[dict]:
                     "kind": "panama_dir",
                 }
             )
-
-    return plan
 
 
 def _append_panama_file_rename(plan: list[dict], seen_new: set[Path], path: Path, *, parent_name: str) -> None:
@@ -329,38 +320,14 @@ def verify_results(
             continue
 
         old_key = entry["old"]
-        # For panama file/xmp entries the manifest records the interim path (file
-        # renamed inside the still-old-named directory).  By the time verify runs the
-        # directory rename has also been applied, so compute the actual final path.
-        interim = Path(entry["new"])
-        if "panama" in entry["kind"] and entry["kind"] != "panama_dir":
-            final = Path(str(interim).replace(OLD_PANAMA, NEW_PANAMA))
-        else:
-            final = interim
-
+        final = _final_verify_path(entry)
         if not final.exists():
             errors.append(f"Post-rename file missing: {final}")
             continue
 
-        # Verify XMP is valid XML
-        if final.suffix.lower() == ".xmp":
-            try:
-                ET.parse(final)
-            except ET.ParseError as exc:
-                errors.append(f"XMP not valid XML after rename: {final}: {exc}")
-
-        # Verify PanamaCanal token removed from XMP
-        if "panama" in entry["kind"] and final.suffix.lower() == ".xmp":
-            text = final.read_text(encoding="utf-8", errors="replace")
-            if OLD_PANAMA in text:
-                errors.append(f"Old PanamaCanal token still present in: {final}")
-
-        # Verify content hash unchanged (XMP may have been patched, so skip hash
-        # check for panama XMPs whose content was intentionally modified)
-        if old_key in hashes_before and "panama" not in entry["kind"]:
-            new_hash = _sha256(final)
-            if new_hash != hashes_before[old_key]:
-                errors.append(f"Hash mismatch after rename: {final}")
+        _verify_xmp_result(entry, final, errors)
+        if old_key in hashes_before and "panama" not in entry["kind"] and _sha256(final) != hashes_before[old_key]:
+            errors.append(f"Hash mismatch after rename: {final}")
 
     report = {
         "total": len(results),
@@ -369,6 +336,24 @@ def verify_results(
         "warnings": warnings,
     }
     return report
+
+
+def _final_verify_path(entry: dict) -> Path:
+    interim = Path(entry["new"])
+    if "panama" in entry["kind"] and entry["kind"] != "panama_dir":
+        return Path(str(interim).replace(OLD_PANAMA, NEW_PANAMA))
+    return interim
+
+
+def _verify_xmp_result(entry: dict, final: Path, errors: list[str]) -> None:
+    if final.suffix.lower() != ".xmp":
+        return
+    try:
+        ET.parse(final)
+    except ET.ParseError as exc:
+        errors.append(f"XMP not valid XML after rename: {final}: {exc}")
+    if "panama" in entry["kind"] and OLD_PANAMA in final.read_text(encoding="utf-8", errors="replace"):
+        errors.append(f"Old PanamaCanal token still present in: {final}")
 
 
 # ---------------------------------------------------------------------------
@@ -436,17 +421,18 @@ def main(argv: list[str] | None = None) -> int:
 
     MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-    # --- Regen checksums only ---
     if args.regen_checksums:
         print(f"Regenerating SHA256SUMS under {root} ...")
         regen_checksums(root)
         return 0
 
-    # --- Rollback ---
     if args.rollback:
         return _run_rollback()
 
-    # --- Phase 1: Inventory ---
+    return _run_migration(root, run=bool(args.run))
+
+
+def _run_migration(root: Path, *, run: bool) -> int:
     print(f"Scanning {root} ...")
     plan = build_rename_plan(root)
     plan = _pair_image_and_xmp(plan)
@@ -457,17 +443,15 @@ def main(argv: list[str] | None = None) -> int:
         print("Nothing to rename.")
         return 0
 
-    # Check for conflicts
     new_paths = [e["new"] for e in plan]
     conflicts = [p for p in new_paths if Path(p).exists()]
     if conflicts:
         print(f"\nWARNING: {len(conflicts)} target paths already exist:")
         for c in conflicts[:10]:
             print(f"  {c}")
-        if not args.run:
+        if not run:
             print("Resolve conflicts before running --run.")
 
-    # --- Phase 2: Pre-flight hash ---
     print("\nComputing pre-flight hashes ...")
     hashes_before = compute_hashes(plan)
     print(f"Hashed {len(hashes_before)} files.")
@@ -478,21 +462,13 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Manifest written to {MANIFEST_PATH}")
     print(f"Hashes written to {HASHES_BEFORE_PATH}")
 
-    if not args.run:
-        print("\nDRY RUN -- pass --run to execute.")
-        # Print sample
-        sample = plan[:15]
-        for entry in sample:
-            print(f"  [{entry['kind']}] {Path(entry['old']).name}  ->  {Path(entry['new']).name}")
-        if len(plan) > 15:
-            print(f"  ... and {len(plan) - 15} more")
+    if not run:
+        _print_dry_run_sample(plan)
         return 0
 
-    # --- Phase 3: Execute ---
     print(f"\nExecuting {len(plan)} renames ...")
     results = execute_plan(plan, hashes_before)
 
-    # --- Phase 4: Verify ---
     print("Verifying ...")
     report = verify_results(results, hashes_before)
     VERIFY_REPORT_PATH.write_text(json.dumps(report, indent=2))
@@ -506,6 +482,14 @@ def main(argv: list[str] | None = None) -> int:
 
     print("Migration complete. Review the verification report, then run --regen-checksums.")
     return 0
+
+
+def _print_dry_run_sample(plan: list[dict]) -> None:
+    print("\nDRY RUN -- pass --run to execute.")
+    for entry in plan[:15]:
+        print(f"  [{entry['kind']}] {Path(entry['old']).name}  ->  {Path(entry['new']).name}")
+    if len(plan) > 15:
+        print(f"  ... and {len(plan) - 15} more")
 
 
 def _run_rollback() -> int:
