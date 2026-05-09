@@ -14,3 +14,5 @@ echo "[pre-push] Running Vulture dead-code check..."
 uv run python scripts/check_vulture.py
 echo "[pre-push] Running Radon complexity check..."
 just complexity
+echo "[pre-push] Running tests..."
+just test
