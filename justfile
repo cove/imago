@@ -72,8 +72,11 @@ mcp-http:
 photoalbums-map:
   {{python}} photoalbums.py metadata map "{{photoalbums_root}}" --port 8095
 
-photoalbums-list-steps:
+photoalbums-list-render-steps:
   {{python}} photoalbums.py process --photos-root "." --list-steps
+
+photoalbums-list-watcher-steps:
+  {{python}} photoalbums.py watch --list-steps
 
 photoalbums-render *args:
   {{python}} photoalbums.py process --photos-root "{{photoalbums_root}}" {{args}}

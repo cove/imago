@@ -81,7 +81,8 @@ def build_parser() -> argparse.ArgumentParser:
     render_sub = render_parser.add_subparsers(dest="render_kind", required=False)
     render_sub.add_parser("validate", help="Validate source scan stitchability without writing outputs")
 
-    subparsers.add_parser("watch", help="Watch for incoming scans and register pending events")
+    watch_parser = subparsers.add_parser("watch", help="Watch for incoming scans and register pending events")
+    watch_parser.add_argument("--list-steps", action="store_true", help="Print watcher ingest steps and exit")
 
     detect_vr_parser = subparsers.add_parser(
         "detect-view-regions",
@@ -400,6 +401,15 @@ def _run_primary_group(parser: argparse.ArgumentParser, args, commands) -> int |
     if args.group == "render":
         return _run_render_group(args, commands)
     if args.group == "watch":
+        if bool(getattr(args, "list_steps", False)):
+            try:
+                from .scanwatch import WATCHER_STEPS
+            except ImportError:
+                from scanwatch import WATCHER_STEPS
+
+            for i, (step_id, label) in enumerate(WATCHER_STEPS, 1):
+                print(f"  [{i}] {step_id}  —  {label}")
+            return 0
         return commands.run_watch_incoming()
     if args.group == "detect-view-regions":
         return commands.run_detect_view_regions(

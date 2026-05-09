@@ -75,6 +75,15 @@ except ImportError:
     )
 
 INCOMING_BACKLOG_RE = re.compile(r"^incoming_scan(?P<number>\d{4})\.tif$", re.IGNORECASE)
+WATCHER_STEPS: tuple[tuple[str, str], ...] = (
+    ("detect-incoming", "Detect incoming_scan.tif or numbered incoming_scan####.tif files"),
+    ("rename", "Rename the incoming TIFF to the next archive scan filename"),
+    ("process-tiff", "Normalize TIFF alpha, compression, and predictor settings"),
+    ("orientation", "Use AI to check if the scan is right side up and rotate 180 degrees when needed"),
+    ("display", "Display the renamed scan preview"),
+    ("validate-stitch", "Validate multi-scan page stitchability when the page has more than one scan"),
+    ("sync-archive", "Refresh watcher archive state and rescan bookkeeping"),
+)
 
 
 class _TransientStatus:

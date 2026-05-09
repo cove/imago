@@ -47,6 +47,17 @@ class TestStepIdValidation(unittest.TestCase):
         for step_id in VALID_STEP_IDS:
             self.assertIn(step_id, output)
 
+    def test_cli_list_watcher_steps_exits_0(self):
+        from photoalbums.cli import main
+
+        with patch("sys.stdout", new_callable=StringIO) as mock_out:
+            code = main(["watch", "--list-steps"])
+        self.assertEqual(code, 0)
+        output = mock_out.getvalue()
+        self.assertIn("process-tiff", output)
+        self.assertIn("orientation", output)
+        self.assertIn("validate-stitch", output)
+
 
 class TestPrintPipelinePlan(unittest.TestCase):
     def _capture_plan(self, skip_ids, redo_ids, album_label="", page_count=0):
