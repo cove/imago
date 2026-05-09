@@ -83,4 +83,7 @@ photoalbums-list-scan-pipeline-steps:
 
 photoalbums-scan-pipeline:
   {{python}} -m photoalbums watch
-  
+
+photoalbums-bennett-scan-pipeline:
+  {{python}} -m photoalbums.bennett watch
+
