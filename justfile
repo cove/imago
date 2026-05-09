@@ -26,7 +26,7 @@ lint:
   {{python}} scripts/check_ruff.py
 
 typecheck:
-  {{python}} scripts/check_pyright.py
+  {{python}} scripts/check_basedpyright.py
 
 dupes:
   {{python}} scripts/check_skylos.py
@@ -39,7 +39,7 @@ complexity:
 
 quality:
   {{python}} scripts/check_ruff.py
-  {{python}} scripts/check_pyright.py
+  {{python}} scripts/check_basedpyright.py
   {{python}} scripts/check_skylos.py
 
 cast-init:

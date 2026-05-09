@@ -33,9 +33,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "basedpyright",
     "opencv-stubs",
-    "pylint",
-    "pyright",
     "pytest",
     "radon",
     "ruff",
