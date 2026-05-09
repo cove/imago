@@ -54,7 +54,6 @@ FILENAME_RE_NO_SCAN = BASE_PAGE_NAME_RE
 
 IMAGE_EXTS = (".tif", ".tiff", ".jpg", ".jpeg", ".png")
 MEDIA_EXTS = (".mp4", ".pdf")
-LEGACY_DERIVED_RE = re.compile(r"_D(?P<d1>\d{2})_(?P<d2>\d{2})", re.IGNORECASE)
 
 AFFINE_STITCH_ATTEMPTS = (
     {"detector": "sift", "confidence_threshold": 0.3},

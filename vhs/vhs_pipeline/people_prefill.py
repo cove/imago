@@ -82,10 +82,6 @@ def _parse_tsv_time_or_frame_seconds(raw: Any) -> float | None:
     return _parse_seconds(text)
 
 
-def _seconds_to_frame(seconds: float) -> int:
-    return int(round(max(0.0, float(seconds)) * float(FPS_NUM) / float(FPS_DEN)))
-
-
 def _read_json(path: Path, default: Any) -> Any:
     if not path.exists():
         return default

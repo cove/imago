@@ -226,32 +226,6 @@ class TextFaceStore:
         self._write_json(self._chunk_path(index), rows)
         self._chunk_cache[index] = rows
 
-    def _migrate_queue_to_chunks(self) -> dict[str, int]:
-        queue_path = self.faces_queue_path
-        if not queue_path.exists():
-            return {"migrated": 0, "chunks": 0}
-        queue_rows = self._read_json(queue_path)
-        if not isinstance(queue_rows, list):
-            return {"migrated": 0, "chunks": 0}
-        if not queue_rows:
-            return {"migrated": 0, "chunks": 0}
-        manifest = self._load_manifest()
-        migrated = 0
-        chunk_index = 0
-        while queue_rows:
-            chunk_rows = queue_rows[:_FACE_CHUNK_SIZE]
-            queue_rows = queue_rows[_FACE_CHUNK_SIZE:]
-            for row in chunk_rows:
-                face_id = str(row.get("face_id") or "").strip()
-                if face_id:
-                    manifest[face_id] = chunk_index
-            self._write_chunk(chunk_index, chunk_rows)
-            chunk_index += 1
-            migrated += len(chunk_rows)
-        self._save_manifest(manifest)
-        queue_path.unlink(missing_ok=True)
-        return {"migrated": migrated, "chunks": chunk_index}
-
     def ensure_files(self) -> None:
         with self._lock:
             self.root_dir.mkdir(parents=True, exist_ok=True)
@@ -286,13 +260,6 @@ class TextFaceStore:
             chunk_idx += 1
         self._save_manifest(manifest)
         self.faces_queue_path.unlink(missing_ok=True)
-
-    def _clear_chunks(self) -> None:
-        manifest = self._load_manifest()
-        for idx in set(manifest.values()):
-            self._chunk_path(idx).unlink(missing_ok=True)
-        self._save_manifest({})
-        self._face_manifest = {}
 
     def _ensure_json_file(self, path: Path) -> None:
         if path.exists():
@@ -999,9 +966,7 @@ class TextFaceStore:
         serialized = json.dumps(payload, sort_keys=True, ensure_ascii=True, separators=(",", ":"))
         return hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:16]
 
-    def _partition_unknown_faces(
-        self, face_rows: list
-    ) -> tuple[list[dict], set[str], list[Path], int]:
+    def _partition_unknown_faces(self, face_rows: list) -> tuple[list[dict], set[str], list[Path], int]:
         unknown_face_ids: set[str] = set()
         crop_paths: list[Path] = []
         kept_faces: list[dict[str, Any]] = []

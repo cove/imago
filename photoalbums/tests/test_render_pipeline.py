@@ -86,11 +86,6 @@ def _add_test_page(album_dir: dict, album: str = "Egypt_1975_B00", page: int = 2
     }
 
 
-def _mock_render_noop(album_dir: dict) -> None:
-    """Patch stitch/tif_to_jpg so they don't do real image work."""
-    pass
-
-
 class TestRunRenderPipelineSkipsSteps(unittest.TestCase):
     """Second run without --force skips completed steps."""
 

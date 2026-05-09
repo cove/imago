@@ -217,59 +217,6 @@ def _serialize_history_parameters(parameters: dict[str, object]) -> str:
     return json.dumps(parameters, ensure_ascii=False, sort_keys=True)
 
 
-def _build_processing_history(
-    *,
-    creator_tool: str,
-    history_when: str,
-    stitch_key: str,
-    ocr_ran: bool,
-    people_detected: bool,
-    people_identified: bool,
-    ocr_authority_source: str,
-) -> list[dict[str, object]]:
-    when_text = _normalize_xmp_datetime(history_when) or _xmp_datetime_now()
-    agent_text = str(creator_tool or "").strip() or "https://github.com/cove/imago"
-    ocr_parameters: dict[str, object] = {
-        "stage": "ocr",
-        "ocr_ran": bool(ocr_ran),
-    }
-    clean_ocr_authority = str(ocr_authority_source or "").strip()
-    if clean_ocr_authority:
-        ocr_parameters["ocr_authority_source"] = clean_ocr_authority
-    history: list[dict[str, object]] = [
-        {
-            "action": "analyzed",
-            "when": when_text,
-            "software_agent": agent_text,
-            "parameters": {
-                "stage": "people",
-                "people_detected": bool(people_detected),
-                "people_identified": bool(people_identified),
-            },
-        },
-        {
-            "action": "processed",
-            "when": when_text,
-            "software_agent": agent_text,
-            "parameters": ocr_parameters,
-        },
-    ]
-    clean_stitch_key = str(stitch_key or "").strip()
-    if clean_stitch_key:
-        history.append(
-            {
-                "action": "stitched",
-                "when": when_text,
-                "software_agent": agent_text,
-                "parameters": {
-                    "stage": "stitch",
-                    "stitch_key": clean_stitch_key,
-                },
-            }
-        )
-    return history
-
-
 def _add_processing_history(parent: ET.Element, history: list[dict[str, object]]) -> None:
     if not history:
         return
@@ -740,18 +687,6 @@ def _add_iptc_face_regions(
         _add_alt_text(li, f"{{{IPTC_EXT_NS}}}Name", name)
 
 
-def _set_iptc_face_regions(
-    parent: ET.Element,
-    people: list[dict],
-    image_width: int,
-    image_height: int,
-) -> None:
-    existing = parent.find(f"{{{IPTC_EXT_NS}}}ImageRegion")
-    if existing is not None:
-        parent.remove(existing)
-    _add_iptc_face_regions(parent, people, image_width, image_height)
-
-
 def _image_region_is_face(item: ET.Element) -> bool:
     region_type = str(item.findtext(f"{{{IPTC_EXT_NS}}}RCtype", default="") or "").strip().lower()
     if region_type.startswith("face-"):
@@ -778,56 +713,6 @@ def _replace_iptc_face_regions(
         if not list(field):
             parent.remove(field)
     _add_iptc_face_regions(parent, people, image_width, image_height)
-
-
-def _add_iptc_image_regions(
-    parent: ET.Element,
-    subphotos: list[dict],
-    image_width: int,
-    image_height: int,
-) -> None:
-    """Write Iptc4xmpExt:ImageRegion entries for photo subregions (IPTC standard)."""
-    if not subphotos or image_width <= 0 or image_height <= 0:
-        return
-    bag = _get_or_create_iptc_image_region_bag(parent)
-    for row in subphotos:
-        bounds = dict(row.get("bounds") or {})
-        bx = int(bounds.get("x", 0))
-        by = int(bounds.get("y", 0))
-        bw = int(bounds.get("width", 0))
-        bh = int(bounds.get("height", 0))
-        if bw <= 0 or bh <= 0:
-            continue
-        rx = bx / image_width
-        ry = by / image_height
-        rw = bw / image_width
-        rh = bh / image_height
-        idx = int(row.get("index", 0))
-        li = ET.SubElement(bag, _RDF_LI)
-        li.set(f"{{{RDF_NS}}}parseType", "Resource")
-        boundary = ET.SubElement(li, f"{{{IPTC_EXT_NS}}}RegionBoundary")
-        boundary.set(f"{{{RDF_NS}}}parseType", "Resource")
-        ET.SubElement(boundary, f"{{{IPTC_EXT_NS}}}rbShape").text = "rectangle"
-        ET.SubElement(boundary, f"{{{IPTC_EXT_NS}}}rbUnit").text = "relative"
-        ET.SubElement(boundary, f"{{{IPTC_EXT_NS}}}rbX").text = f"{rx:.6f}"
-        ET.SubElement(boundary, f"{{{IPTC_EXT_NS}}}rbY").text = f"{ry:.6f}"
-        ET.SubElement(boundary, f"{{{IPTC_EXT_NS}}}rbW").text = f"{rw:.6f}"
-        ET.SubElement(boundary, f"{{{IPTC_EXT_NS}}}rbH").text = f"{rh:.6f}"
-        ET.SubElement(li, f"{{{IPTC_EXT_NS}}}rId").text = f"photo-{idx}" if idx > 0 else "photo"
-        author_text = str(row.get("author_text") or row.get("description") or "").strip()
-        scene_text = str(row.get("scene_text") or "").strip()
-        if author_text:
-            _add_alt_text(li, f"{{{DC_NS}}}description", author_text)
-        _add_simple_text(li, f"{{{IMAGO_NS}}}SceneText", scene_text)
-        _add_bag(li, f"{{{IMAGO_NS}}}People", _dedupe(list(row.get("people") or [])))
-        _add_bag(li, f"{{{IMAGO_NS}}}Subjects", _dedupe(list(row.get("subjects") or [])))
-        detections = row.get("detections")
-        if isinstance(detections, dict):
-            _add_simple_text(
-                li,
-                f"{{{IMAGO_NS}}}Detections",
-                json.dumps(detections, ensure_ascii=False, sort_keys=True),
-            )
 
 
 def _add_xmp_date_fields(
@@ -1291,11 +1176,6 @@ def _get_seq_values(parent: ET.Element, tag: str) -> list[str]:
         return values
     text = str(field.text or "").strip()
     return [text] if text else []
-
-
-def _get_seq_text(parent: ET.Element, tag: str) -> str:
-    values = _get_seq_values(parent, tag)
-    return values[0] if values else ""
 
 
 def _get_bag_values(parent: ET.Element, tag: str) -> list[str]:

@@ -84,31 +84,6 @@ class TestRunPropagateTocrops(unittest.TestCase):
         image.write_bytes(b"fake-jpeg")
         return image, pages_dir, photos_dir
 
-    def _write_page_xmp_with_regions(self, image: Path, region_names: list[str]) -> Path:
-        """Write page XMP with MWG-RS face regions using real region names."""
-        xmp_path = image.with_suffix(".xmp")
-        from photoalbums.lib.xmp_sidecar import write_region_list
-        from photoalbums.lib.ai_view_regions import RegionWithCaption, RegionResult
-
-        regions = [
-            RegionWithCaption(
-                RegionResult(index=i, x=i * 100, y=0, width=100, height=100),
-                "",
-            )
-            for i in range(len(region_names))
-        ]
-        # Write basic XMP then add regions
-        xmp_sidecar.write_xmp_sidecar(
-            xmp_path,
-            person_names=region_names,
-            subjects=[],
-            description="Page photo",
-            source_text="",
-            ocr_text="",
-        )
-        write_region_list(xmp_path, regions, 800, 600)
-        return xmp_path
-
     def test_no_crops_when_not_pages_dir(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_dir = Path(tmp)

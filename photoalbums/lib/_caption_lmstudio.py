@@ -600,38 +600,6 @@ def _lmstudio_page_caption_response_format() -> dict[str, object]:
     }
 
 
-def _parse_image_regions(payload: dict) -> list[dict]:
-    """Extract and validate photo_regions from a parsed payload dict.
-
-    Clamps x/y/w/h to [0, 1] and discards any entry with w<=0 or h<=0.
-    """
-    raw = list(payload.get("photo_regions") or [])
-    result = []
-    for item in raw:
-        if not isinstance(item, dict):
-            continue
-        try:
-            x = max(0.0, min(1.0, float(item.get("x") or 0)))
-            y = max(0.0, min(1.0, float(item.get("y") or 0)))
-            w = max(0.0, min(1.0, float(item.get("w") or 0)))
-            h = max(0.0, min(1.0, float(item.get("h") or 0)))
-        except (TypeError, ValueError):
-            continue
-        if w <= 0 or h <= 0:
-            continue
-        result.append(
-            {
-                "x": x,
-                "y": y,
-                "w": w,
-                "h": h,
-                "author_text": clean_text(str(item.get("author_text") or "")),
-                "scene_text": clean_text(str(item.get("scene_text") or "")),
-            }
-        )
-    return result
-
-
 def _lmstudio_error_preview(value: str, *, limit: int = 180) -> str:
     text = clean_text(value)
     if not text:

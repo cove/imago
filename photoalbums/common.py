@@ -175,10 +175,6 @@ def count_totals(
     return totals
 
 
-def file_modified_ts(path: Path) -> float:
-    return float(path.stat().st_mtime)
-
-
 def dir_created_ts(path: str | Path) -> float:
     """
     Return a sortable timestamp for "created".

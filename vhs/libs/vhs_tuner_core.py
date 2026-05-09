@@ -79,10 +79,6 @@ def load_archive_chapters(path: Path) -> list[dict]:
     return result
 
 
-# Backward-compatible alias for older callers.
-parse_ffmetadata_chapters = load_archive_chapters
-
-
 def _metadata_archive_dir(archive: str) -> Path:
     return METADATA_DIR / str(archive or "").strip()
 

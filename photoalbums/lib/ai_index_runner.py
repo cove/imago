@@ -29,9 +29,6 @@ from .ai_metadata import MetadataEngine
 from .ai_geocode import NominatimGeocoder
 from .ai_location import (
     _has_legacy_ai_locations_shown_gps,
-    _resolve_location_metadata,
-    _resolve_location_payload,
-    _resolve_locations_shown,
     _xmp_gps_to_decimal,
 )
 from .ai_ocr import OCREngine
@@ -121,7 +118,6 @@ from .ai_index import (
     _mirror_page_sidecars,
     _append_xmp_job_artifact,
     _emit_prompt_debug_artifact,
-    _append_geocode_artifact,
     discover_images,
     _coalesce_archive_processing_files,
     _filter_files_by_tree,
@@ -479,102 +475,6 @@ def _pu_finalize_detections(
     return {**pu_updated_det, "processing": pu_proc}
 
 
-@dataclass
-class _GpsInputs:
-    detections: dict[str, Any]
-    ocr_text: str
-    ocr_keywords: list[str]
-    people_names: list[str]
-    object_labels: list[str]
-    album_title: str
-    printed_title: str
-    existing_location_name: str
-
-
-def _gps_inputs_from_state(
-    image_path: Path, state: dict[str, Any], printed_album_title_cache: dict[str, str]
-) -> _GpsInputs:
-    det = state.get("detections") or {}
-    ocr_text = _effective_sidecar_ocr_text(image_path, state)
-    ocr_keywords = list((det.get("ocr") or {}).get("keywords") or [])
-    people_names = _dedupe(
-        [str(r.get("name") or "") for r in list(det.get("people") or []) if isinstance(r, dict) and r.get("name")]
-    )
-    object_labels = [
-        str(r.get("label") or "") for r in list(det.get("objects") or []) if isinstance(r, dict) and r.get("label")
-    ]
-    album_title = _effective_sidecar_album_title(image_path, state)
-    printed_title = _resolve_album_printed_title_hint(image_path, printed_album_title_cache)
-    existing_location_name = str((dict(det.get("location") or {})).get("query") or "").strip()
-    return _GpsInputs(
-        detections=det,
-        ocr_text=ocr_text,
-        ocr_keywords=ocr_keywords,
-        people_names=people_names,
-        object_labels=object_labels,
-        album_title=album_title,
-        printed_title=printed_title,
-        existing_location_name=existing_location_name,
-    )
-
-
-def _gps_updated_detections(
-    det: dict[str, Any],
-    gps_location_payload: dict[str, Any],
-    gps_locations_shown: list[Any],
-    gps_locations_shown_ran: bool,
-) -> dict[str, Any]:
-    updated = {**det}
-    if gps_location_payload:
-        updated["location"] = gps_location_payload
-    elif "location" in updated:
-        del updated["location"]
-    updated["locations_shown"] = gps_locations_shown
-    updated["location_shown_ran"] = gps_locations_shown_ran
-    return updated
-
-
-def _state_writer_kwargs(
-    *,
-    state: dict[str, Any],
-    image_path: Path,
-    person_names: list[str],
-    subjects: list[str],
-    title: str,
-    title_source: str,
-    album_title: str,
-    location_payload: dict[str, Any],
-    source_text: str,
-    ocr_text: str,
-    detections_payload: dict[str, Any],
-    dc_date: Any,
-    date_time_original: str,
-) -> dict[str, Any]:
-    return dict(
-        person_names=person_names,
-        subjects=subjects,
-        title=title,
-        title_source=title_source,
-        description=str(state.get("description") or ""),
-        album_title=album_title,
-        location_payload=location_payload,
-        source_text=source_text,
-        ocr_text=ocr_text,
-        ocr_lang=str(state.get("ocr_lang") or ""),
-        author_text=str(state.get("author_text") or ""),
-        scene_text=str(state.get("scene_text") or ""),
-        detections_payload=detections_payload,
-        stitch_key=str(state.get("stitch_key") or ""),
-        ocr_authority_source=str(state.get("ocr_authority_source") or ""),
-        create_date=(str(state.get("create_date") or "").strip() or read_embedded_create_date(image_path)),
-        dc_date=dc_date,
-        date_time_original=date_time_original,
-        ocr_ran=bool(state.get("ocr_ran")),
-        people_detected=bool(state.get("people_detected")),
-        people_identified=bool(state.get("people_identified")),
-    )
-
-
 def _refresh_gps_coords(refresh_location: dict[str, Any], review: dict[str, Any]) -> tuple[str, str]:
     refresh_gps_lat = str(refresh_location.get("gps_latitude") or "").strip()
     refresh_gps_lon = str(refresh_location.get("gps_longitude") or "").strip()
@@ -923,9 +823,6 @@ class IndexRunner:
         caption_engine.override_sources = dict(effective.get("_override_sources") or {})
         return caption_engine
 
-    def _get_caption_engine(self, effective: dict[str, Any]) -> CaptionEngine:
-        return self._get_caption_engine_for_key(self._caption_key_from_effective(effective), effective)
-
     def _get_date_engine(self, effective: dict[str, Any]) -> DateEstimateEngine:
         date_key = (
             str(effective.get("caption_engine", self.defaults["caption_engine"])),
@@ -960,10 +857,6 @@ class IndexRunner:
             )
             self.metadata_engine_cache[metadata_key] = cached
         return cached
-
-    def _record_success(self, idx: int, file_start: float) -> None:
-        self.processed += 1
-        self.completed_times.append(time.monotonic() - file_start)
 
     def _record_failure(self, idx: int, image_path: Path, exc: Exception) -> None:
         self.failures += 1
@@ -1868,60 +1761,6 @@ class IndexRunner:
 
     # ── GPS-update path ─────────────────────────────────────────────────────
 
-    def _process_gps_update(
-        self,
-        idx: int,
-        image_path: Path,
-        sidecar_path: Path,
-        effective: dict[str, Any],
-        existing_sidecar_state: dict | None,
-        existing_xmp_people: list[str],
-    ) -> None:
-        state = existing_sidecar_state
-        if not isinstance(state, dict):
-            return
-        file_start = time.monotonic()
-        gps_inputs = _gps_inputs_from_state(image_path, state, self.printed_album_title_cache)
-
-        prefix = self._format_progress_prefix(idx, image_path)
-        print(prefix, flush=True)
-        _gps_stop, _gps_step = _progress_ticker(prefix)
-
-        try:
-            caption_key = self._caption_key_from_effective(effective)
-            gps_caption_engine = self._get_caption_engine_for_key(caption_key, effective)
-            gps_prompt_debug = PromptDebugSession(image_path, label=_display_work_label(image_path))
-            gps_location_payload, gps_locations_shown, gps_locations_shown_ran = self._run_gps_resolution(
-                image_path=image_path,
-                caption_key=caption_key,
-                caption_engine=gps_caption_engine,
-                gps_inputs=gps_inputs,
-                prompt_debug=gps_prompt_debug,
-                step_fn=_gps_step,
-            )
-            _emit_prompt_debug_artifact(gps_prompt_debug, dry_run=self.dry_run)
-
-            if not self.dry_run:
-                self._write_gps_payload(
-                    sidecar_path=sidecar_path,
-                    image_path=image_path,
-                    state=state,
-                    existing_xmp_people=existing_xmp_people,
-                    gps_inputs=gps_inputs,
-                    gps_location_payload=gps_location_payload,
-                    gps_locations_shown=gps_locations_shown,
-                    gps_locations_shown_ran=gps_locations_shown_ran,
-                )
-
-            self.processed += 1
-            self.completed_times.append(time.monotonic() - file_start)
-            _gps_stop()
-            self._emit_ok(idx, image_path, "[gps]")
-        except Exception as exc:
-            self.failures += 1
-            _gps_stop()
-            self.emit_error(f"[{idx}/{len(self.files)}] fail  {image_path.name}: {exc}")
-
     def _format_progress_prefix(self, idx: int, image_path: Path) -> str:
         eta_str = _format_eta(self.completed_times, len(self.files) - idx + 1)
         eta_part = f"  {eta_str}" if eta_str else ""
@@ -1936,116 +1775,6 @@ class IndexRunner:
         print(
             f"[{idx}/{len(self.files)}]{eta_part}  ok    {image_path.name}{suffix_text}",
             flush=True,
-        )
-
-    def _run_gps_resolution(
-        self,
-        *,
-        image_path: Path,
-        caption_key: tuple[str, str, str, int, float, str, int, bool],
-        caption_engine: CaptionEngine,
-        gps_inputs: "_GpsInputs",
-        prompt_debug: PromptDebugSession,
-        step_fn: Any,
-    ) -> tuple[dict[str, Any], list[Any], bool]:
-        recorder = lambda record: _append_geocode_artifact(image_path=image_path, record=record)  # noqa: E731
-        step_fn("location")
-        with _prepare_ai_model_image(image_path) as gps_model_path:
-            gps_latitude, gps_longitude, location_name = _resolve_location_metadata(
-                requested_caption_engine=str(caption_key[0]),
-                caption_engine=caption_engine,
-                model_image_path=gps_model_path,
-                people=gps_inputs.people_names,
-                objects=gps_inputs.object_labels,
-                ocr_text=gps_inputs.ocr_text,
-                source_path=image_path,
-                album_title=gps_inputs.album_title,
-                printed_album_title=gps_inputs.printed_title,
-                people_positions={},
-                fallback_location_name=gps_inputs.existing_location_name,
-                prompt_debug=prompt_debug,
-                debug_step="location_gps_step",
-            )
-            step_fn("locations_shown")
-            locations_shown, locations_shown_ran = _resolve_locations_shown(
-                requested_caption_engine=str(caption_key[0]),
-                caption_engine=caption_engine,
-                model_image_path=gps_model_path,
-                ocr_text=gps_inputs.ocr_text,
-                source_path=image_path,
-                album_title=gps_inputs.album_title,
-                printed_album_title=gps_inputs.printed_title,
-                geocoder=self.geocoder,
-                prompt_debug=prompt_debug,
-                debug_step="locations_shown_gps_step",
-                artifact_recorder=recorder,
-            )
-        location_payload = _resolve_location_payload(
-            geocoder=self.geocoder,
-            gps_latitude=gps_latitude,
-            gps_longitude=gps_longitude,
-            location_name=location_name,
-            artifact_recorder=recorder,
-            artifact_step="location_gps_step",
-        )
-        location_payload, _ = _apply_title_page_location_config(
-            image_path=image_path,
-            location_payload=location_payload,
-            title_page_location=self.title_page_location,
-        )
-        return location_payload, locations_shown, locations_shown_ran
-
-    def _write_gps_payload(
-        self,
-        *,
-        sidecar_path: Path,
-        image_path: Path,
-        state: dict,
-        existing_xmp_people: list[str],
-        gps_inputs: "_GpsInputs",
-        gps_location_payload: dict[str, Any],
-        gps_locations_shown: list[Any],
-        gps_locations_shown_ran: bool,
-    ) -> None:
-        gps_updated_det = _gps_updated_detections(
-            gps_inputs.detections, gps_location_payload, gps_locations_shown, gps_locations_shown_ran
-        )
-        gps_subjects = _dedupe(
-            gps_inputs.object_labels
-            + gps_inputs.ocr_keywords
-            + ([gps_inputs.album_title] if gps_inputs.album_title else [])
-        )
-        gps_scan_filenames = _page_scan_filenames(image_path)
-        gps_source_text = (
-            _build_dc_source(gps_inputs.album_title, image_path, gps_scan_filenames)
-            if gps_scan_filenames
-            else str(state.get("source_text") or "")
-        )
-        xmp_title, xmp_title_source = _compute_xmp_title(
-            image_path=image_path,
-            explicit_title=str(state.get("title") or ""),
-            title_source=str(state.get("title_source") or ""),
-            author_text=str(state.get("author_text") or ""),
-        )
-        _write_sidecar_and_record(
-            sidecar_path,
-            image_path,
-            **_state_writer_kwargs(
-                state=state,
-                image_path=image_path,
-                person_names=list(existing_xmp_people),
-                subjects=gps_subjects,
-                title=xmp_title,
-                title_source=xmp_title_source,
-                album_title=gps_inputs.album_title,
-                location_payload=gps_location_payload,
-                source_text=gps_source_text,
-                ocr_text=gps_inputs.ocr_text,
-                detections_payload=gps_updated_det,
-                dc_date=_dc_date_value(state),
-                date_time_original=str(state.get("date_time_original") or ""),
-            ),
-            title_page_location=self.title_page_location,
         )
 
     # ── Full processing path ────────────────────────────────────────────────

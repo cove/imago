@@ -161,10 +161,6 @@ def archive_checksum_file_for(archive_name: str) -> Path:
     return archive_dir_for(archive_name) / "SHA256SUMS"
 
 
-def drive_checksum_file_for(archive_name: str) -> Path:
-    return archive_dir_for(archive_name) / "SHA256SUMS_DRIVE"
-
-
 QTGMC_DIR = FFMPEG_DIR
 DRIVE_CHECKSUM_FILE = VIDEO_DATA_DIR / "SHA256SUMS_DRIVE"
 

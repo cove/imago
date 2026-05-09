@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .ai_album_titles import (
+from .ai_album_titles import (  # noqa: F401
     _album_identity_key,
     _derived_name_match,
     _expand_album_title_dependencies,
@@ -22,7 +22,7 @@ from .ai_date import DateEstimateEngine
 from .ai_render_settings import (
     find_archive_dir_for_image,
 )
-from .ai_sidecar_state import (
+from .ai_sidecar_state import (  # noqa: F401
     MIN_EXISTING_SIDECAR_BYTES,
     _compute_xmp_title,
     _effective_sidecar_location_payload,
@@ -31,7 +31,7 @@ from .ai_sidecar_state import (
     has_current_sidecar,
     has_valid_sidecar,
 )
-from .ai_location import (
+from .ai_location import (  # noqa: F401
     _has_legacy_ai_locations_shown_gps,
     _resolve_location_metadata,
     _resolve_location_payload,

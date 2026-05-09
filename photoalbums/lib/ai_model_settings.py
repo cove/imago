@@ -78,17 +78,6 @@ def _resolve_lmstudio_base_url(payload: dict[str, Any]) -> str:
     return text or DEFAULT_LMSTUDIO_BASE_URL
 
 
-def _resolve_selected_alias_optional(payload: dict[str, Any], models: dict[str, list[str]], field_name: str) -> str:
-    selected = _normalize_model_value(payload.get(field_name))
-    if not selected:
-        return ""
-    if selected not in models:
-        raise RuntimeError(
-            f"AI model settings '{field_name}' must match one of the configured model aliases: {AI_MODEL_SETTINGS_PATH}"
-        )
-    return selected
-
-
 def _resolve_model_reference(
     payload: dict[str, Any],
     models: dict[str, list[str]],

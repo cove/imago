@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import sys
 import time
-import urllib.request
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -51,58 +50,6 @@ class RequestError(Exception):
     def __init__(self, message: str, *, status: int = 400):
         super().__init__(str(message))
         self.status = int(status)
-
-
-def _rewrite_description_via_lmstudio(
-    description: str,
-    person_names: list[str],
-    *,
-    base_url: str,
-) -> str | None:
-    """Best-effort: ask LM Studio to substitute generic references with actual names.
-
-    Returns the updated description string, or None if the call fails or is skipped.
-    """
-    if not description or not person_names:
-        return None
-    names_str = ", ".join(person_names)
-    prompt = (
-        "You are editing a photo description. "
-        "Some people in the photo are now identified by name. "
-        "Where the description uses a generic or collective reference to a person "
-        "(any phrase that does not use a name, regardless of how many people it refers to), "
-        "replace it with the actual name if you can confidently determine which person is meant. "
-        "If there are more people in the description than known names, substitute only what "
-        "is unambiguous and leave the rest as a generic reference. "
-        "Do not add, remove, or invent any detail beyond substituting names. "
-        "Return only the updated description with no explanation.\n\n"
-        f"Known people in this photo: {names_str}\n\n"
-        f"Description: {description}"
-    )
-    payload = json.dumps(
-        {
-            "model": "loaded-model",
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 256,
-            "temperature": 0.1,
-            "stream": False,
-        }
-    ).encode("utf-8")
-    req = urllib.request.Request(
-        f"{base_url.rstrip('/')}/chat/completions",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=DEFAULT_LMSTUDIO_TIMEOUT_SECONDS) as resp:
-            result = json.loads(resp.read().decode("utf-8"))
-            text = str(result.get("choices", [{}])[0].get("message", {}).get("content", "") or "").strip()
-            if text:
-                return text
-    except Exception as exc:
-        print(f"[cast] description rewrite skipped: {exc}", file=sys.stderr)
-    return None
 
 
 def _coerce_bool(value: Any, default: bool = False) -> bool:
@@ -762,7 +709,9 @@ class CastHandler(BaseHTTPRequestHandler):
             self._write_review_acceptance_xmp(review, review_id, decided_person_id)
         try:
             updated_review = self.store.resolve_review_item(
-                review_id=review_id, status=clean_status, decided_person_id=decided_person_id,
+                review_id=review_id,
+                status=clean_status,
+                decided_person_id=decided_person_id,
             )
         except Exception as exc:
             raise RequestError(str(exc)) from exc
@@ -1671,8 +1620,9 @@ class CastHandler(BaseHTTPRequestHandler):
         h, w = image.shape[:2]
         if max(w, h) > max_dim:
             scale = float(max_dim) / float(max(w, h))
-            image = cv2.resize(image, (max(1, int(round(w * scale))), max(1, int(round(h * scale)))),
-                               interpolation=cv2.INTER_AREA)
+            image = cv2.resize(
+                image, (max(1, int(round(w * scale))), max(1, int(round(h * scale)))), interpolation=cv2.INTER_AREA
+            )
 
         ok, encoded = cv2.imencode(".jpg", image, [int(cv2.IMWRITE_JPEG_QUALITY), 90])  # type: ignore[arg-type]
         if not ok:

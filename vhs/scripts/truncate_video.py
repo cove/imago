@@ -14,11 +14,9 @@ FFMPEG_DIR = None
 if sys.platform == "win32":
     FFMPEG_DIR = BASE / "software" / "Windows" / "FFmpeg-QTGMC Easy 2025.01.11"
     FFMPEG = FFMPEG_DIR / "ffmpeg.exe"
-    FFPROBE = FFMPEG_DIR / "ffprobe.exe"
 elif sys.platform == "darwin":
     FFMPEG_DIR = BASE / "bin"
     FFMPEG = FFMPEG_DIR / "ffmpeg-8.0.1.darwin.arm64"
-    FFPROBE = FFMPEG_DIR / "ffprobe-8.0.1.darwin.arm64"
 else:
     raise Exception(f"Unsupported platform: {sys.platform}")
 

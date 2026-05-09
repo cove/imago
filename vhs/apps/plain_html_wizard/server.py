@@ -412,10 +412,6 @@ def _frame_to_seconds(frame_id: int) -> float:
     return float(int(frame_id) * FPS_DEN) / float(FPS_NUM)
 
 
-def _seconds_to_frame(seconds: float) -> int:
-    return int(round(max(0.0, float(seconds)) * float(FPS_NUM) / float(FPS_DEN)))
-
-
 def _seconds_to_timestamp(seconds: float) -> str:
     secs = max(0.0, float(seconds))
     total_ms = int(round(secs * 1000.0))
@@ -452,9 +448,7 @@ def _parse_timestamp_seconds(raw: Any) -> float | None:
     return max(0.0, float(value))
 
 
-def _parse_and_clip_timestamps(
-    start_raw: Any, end_raw: Any, duration: float | None
-) -> tuple[float, float] | None:
+def _parse_and_clip_timestamps(start_raw: Any, end_raw: Any, duration: float | None) -> tuple[float, float] | None:
     start = _parse_timestamp_seconds(start_raw)
     end = _parse_timestamp_seconds(end_raw)
     if start is None or end is None or end <= start:
@@ -696,9 +690,7 @@ def _extract_split_fields(item: Any) -> tuple[Any, Any, Any]:
     return None, None, None
 
 
-def _parse_and_clip_frames(
-    start_raw: Any, end_raw: Any, frame_cap: int | None
-) -> tuple[int, int] | None:
+def _parse_and_clip_frames(start_raw: Any, end_raw: Any, frame_cap: int | None) -> tuple[int, int] | None:
     start = _parse_frame_value(start_raw)
     end = _parse_frame_value(end_raw)
     if start is None or end is None or end <= start:
@@ -1746,20 +1738,26 @@ def _apply_profiles_from_payload(session: SessionState, payload: dict[str, Any] 
         _frame_to_seconds(session.end_frame) - _frame_to_seconds(session.start_frame),
     )
     session.people_entries = _apply_entries_profile(
-        payload, "people_profile", "people",
+        payload,
+        "people_profile",
+        "people",
         default=session.people_entries,
         normalize_fn=_normalize_people_entries_payload,
         chapter_duration_seconds=chapter_duration,
     )
     session.subtitle_entries = _apply_entries_profile(
-        payload, "subtitles_profile", "subtitles",
+        payload,
+        "subtitles_profile",
+        "subtitles",
         default=session.subtitle_entries,
         normalize_fn=_normalize_subtitle_entries_payload,
         chapter_duration_seconds=chapter_duration,
     )
     chapter_frame_count = max(1, int(session.end_frame) - int(session.start_frame))
     session.split_entries = _apply_entries_profile(
-        payload, "split_profile", "split",
+        payload,
+        "split_profile",
+        "split",
         default=session.split_entries,
         normalize_fn=_normalize_split_entries_payload,
         chapter_frame_count=chapter_frame_count,
@@ -3750,11 +3748,13 @@ class WizardHandler(BaseHTTPRequestHandler):
         if bool(session.load_cancel_requested):
             fail("Load cancelled.")
             return
-        debug_overlay = any([
-            bool(session.debug_extract),
-            _env_truthy(TUNER_DEBUG_EXTRACT_ENV),
-            _env_truthy(RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV),
-        ])
+        debug_overlay = any(
+            [
+                bool(session.debug_extract),
+                _env_truthy(TUNER_DEBUG_EXTRACT_ENV),
+                _env_truthy(RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV),
+            ]
+        )
         read_video_p = WizardHandler._do_render_chapter_extract(self, session, video, debug_overlay, fail)
         if read_video_p is None:
             return
@@ -4090,21 +4090,6 @@ class WizardHandler(BaseHTTPRequestHandler):
                 "frames": None,
             }
         self._send_json({"ok": True, "review": review})
-
-    def _run_cmd(self, cmd: list[Any], label: str) -> tuple[bool, str]:
-        proc = subprocess.run(
-            [str(x) for x in cmd],
-            capture_output=True,
-            text=True,
-        )
-        if proc.returncode == 0:
-            return True, ""
-        detail = (proc.stderr or proc.stdout or "").strip()
-        if not detail:
-            detail = f"{label} failed with exit code {int(proc.returncode)}."
-        else:
-            detail = f"{label} failed: {detail}"
-        return False, detail
 
     def _run_cmd_with_progress(
         self,

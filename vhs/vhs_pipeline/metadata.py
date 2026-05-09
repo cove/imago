@@ -175,7 +175,7 @@ def _parse_ffmetadata_raw(
 def ffmetadata_to_chapters_tsv(ffmetadata_path: Path, out_path: Path | None = None) -> Path:
     source = Path(ffmetadata_path)
     target = Path(out_path) if out_path is not None else (source.parent / "chapters.tsv")
-    header_line, globals_list, chapter_lists = _parse_ffmetadata_raw(source)
+    _header_line, globals_list, chapter_lists = _parse_ffmetadata_raw(source)
 
     global_order: list[str] = []
     global_values: dict[str, str] = {}
