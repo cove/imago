@@ -72,14 +72,17 @@ mcp-http:
 photoalbums-map:
   {{python}} photoalbums.py metadata map "{{photoalbums_root}}" --port 8095
 
-photoalbums-list-render-steps:
+photoalbums-list-render-pipeline-steps:
   {{python}} photoalbums.py process --photos-root "." --list-steps
 
-photoalbums-list-watcher-steps:
+photoalbums-list-scan-pipeline-steps:
   {{python}} photoalbums.py watch --list-steps
 
-photoalbums-render *args:
+photoalbums-render-pipeline *args:
   {{python}} photoalbums.py process --photos-root "{{photoalbums_root}}" {{args}}
+
+photoalbums-render *args:
+  @just photoalbums-render-pipeline {{args}}
 
 photoalbums-refresh-gps *args:
   {{python}} photoalbums.py process --photos-root "{{photoalbums_root}}" --refresh-gps {{args}}
@@ -87,6 +90,9 @@ photoalbums-refresh-gps *args:
 photoalbums-render-validate:
   {{python}} photoalbums.py render validate
 
-photoalbums-watch:
+photoalbums-watch-scans:
   {{python}} photoalbums.py watch
+
+photoalbums-watch:
+  @just photoalbums-watch-scans
   
