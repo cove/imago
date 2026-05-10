@@ -320,6 +320,28 @@ def _get_image_dimensions(image_path: Path) -> tuple[int, int]:
         return 0, 0
 
 
+def _build_region_with_caption(r: dict, photo_captions: dict[int, str], photo_numbers: dict[int, int]) -> tuple[Any, bool]:
+    from .ai_view_regions import RegionResult, RegionWithCaption  # pylint: disable=import-outside-toplevel
+
+    i = r["index"]
+    existing_hint = str(r.get("caption_hint") or "").strip()
+    new_hint = photo_captions.get(i, "") or existing_hint
+    new_pn = photo_numbers.get(i, 0) or int(r.get("photo_number") or 0)
+    changed = new_hint != existing_hint or new_pn != int(r.get("photo_number") or 0)
+    region_obj = RegionResult(
+        index=i,
+        x=r["x"],
+        y=r["y"],
+        width=r["width"],
+        height=r["height"],
+        caption_hint=new_hint,
+        location_payload=dict(r.get("location_payload") or {}),
+        person_names=list(r.get("person_names") or []),
+        photo_number=new_pn,
+    )
+    return RegionWithCaption(region=region_obj, caption=new_hint), changed
+
+
 def _update_region_captions_from_metadata(image_path: Path, photo_captions_list: list[dict]) -> None:
     """Apply per-photo captions from metadata step output to region caption_hints in the XMP.
 
@@ -328,7 +350,6 @@ def _update_region_captions_from_metadata(image_path: Path, photo_captions_list:
 
     Safe to call whether the step ran fresh or was loaded from cache.
     """
-    from .ai_view_regions import RegionResult, RegionWithCaption  # pylint: disable=import-outside-toplevel
     from .xmp_sidecar import read_region_list, write_region_list  # pylint: disable=import-outside-toplevel
 
     if not photo_captions_list:
@@ -351,24 +372,10 @@ def _update_region_captions_from_metadata(image_path: Path, photo_captions_list:
     updated = False
     rwcs = []
     for r in regions:
-        i = r["index"]
-        existing_hint = str(r.get("caption_hint") or "").strip()
-        new_hint = photo_captions.get(i, "") or existing_hint
-        new_pn = photo_numbers.get(i, 0) or int(r.get("photo_number") or 0)
-        if new_hint != existing_hint or new_pn != int(r.get("photo_number") or 0):
+        rwc, changed = _build_region_with_caption(r, photo_captions, photo_numbers)
+        if changed:
             updated = True
-        region_obj = RegionResult(
-            index=i,
-            x=r["x"],
-            y=r["y"],
-            width=r["width"],
-            height=r["height"],
-            caption_hint=new_hint,
-            location_payload=dict(r.get("location_payload") or {}),
-            person_names=list(r.get("person_names") or []),
-            photo_number=new_pn,
-        )
-        rwcs.append(RegionWithCaption(region=region_obj, caption=new_hint))
+        rwcs.append(rwc)
 
     if updated:
         write_region_list(xmp_path, rwcs, img_w, img_h)
@@ -400,33 +407,43 @@ def _metadata_region_caption(photo: Any) -> str:
     return caption
 
 
+def _metadata_photo_fields_dict(photo: dict) -> tuple[str, str, dict[str, Any]]:
+    caption = str(photo.get("caption") or "").strip()
+    corrected = str(photo.get("corrected_caption") or "").strip()
+    payload: dict[str, Any] = {
+        "photo_number": int(photo.get("photo_number") or 0),
+        "location": str(photo.get("location") or ""),
+        "location_name": str(photo.get("location_name") or ""),
+        "est_date": str(photo.get("est_date") or ""),
+        "scene_ocr": str(photo.get("scene_ocr") or ""),
+        "caption": _metadata_region_caption(photo),
+        "corrected_caption": corrected,
+        "people_count": int(photo.get("people_count") or 0),
+    }
+    return caption, corrected, payload
+
+
+def _metadata_photo_fields_obj(photo: Any) -> tuple[str, str, dict[str, Any]]:
+    caption = str(getattr(photo, "caption", "") or "").strip()
+    corrected = str(getattr(photo, "corrected_caption", "") or "").strip()
+    payload: dict[str, Any] = {
+        "photo_number": int(getattr(photo, "photo_number", 0) or 0),
+        "location": str(getattr(photo, "location", "") or ""),
+        "location_name": str(getattr(photo, "location_name", "") or ""),
+        "est_date": str(getattr(photo, "est_date", "") or ""),
+        "scene_ocr": str(getattr(photo, "scene_ocr", "") or ""),
+        "caption": _metadata_region_caption(photo),
+        "corrected_caption": corrected,
+        "people_count": int(getattr(photo, "people_count", 0) or 0),
+    }
+    return caption, corrected, payload
+
+
 def _metadata_photo_payload(photo: Any) -> dict[str, Any]:
     if isinstance(photo, dict):
-        caption = str(photo.get("caption") or "").strip()
-        corrected = str(photo.get("corrected_caption") or "").strip()
-        payload = {
-            "photo_number": int(photo.get("photo_number") or 0),
-            "location": str(photo.get("location") or ""),
-            "location_name": str(photo.get("location_name") or ""),
-            "est_date": str(photo.get("est_date") or ""),
-            "scene_ocr": str(photo.get("scene_ocr") or ""),
-            "caption": _metadata_region_caption(photo),
-            "corrected_caption": corrected,
-            "people_count": int(photo.get("people_count") or 0),
-        }
+        caption, corrected, payload = _metadata_photo_fields_dict(photo)
     else:
-        caption = str(getattr(photo, "caption", "") or "").strip()
-        corrected = str(getattr(photo, "corrected_caption", "") or "").strip()
-        payload = {
-            "photo_number": int(getattr(photo, "photo_number", 0) or 0),
-            "location": str(getattr(photo, "location", "") or ""),
-            "location_name": str(getattr(photo, "location_name", "") or ""),
-            "est_date": str(getattr(photo, "est_date", "") or ""),
-            "scene_ocr": str(getattr(photo, "scene_ocr", "") or ""),
-            "caption": _metadata_region_caption(photo),
-            "corrected_caption": corrected,
-            "people_count": int(getattr(photo, "people_count", 0) or 0),
-        }
+        caption, corrected, payload = _metadata_photo_fields_obj(photo)
     if corrected and corrected != caption:
         payload["OriginalCapation"] = caption
     return payload
@@ -615,6 +632,22 @@ def _caption_text_fields(caption_output: Any) -> dict[str, str]:
     }
 
 
+def _caption_step_cached_result(
+    empty: dict[str, Any],
+    caption_step_output: Any,
+    existing_sidecar_state: dict | None,
+    existing_detections: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        **empty,
+        "caption_step_output": dict(caption_step_output or {}),
+        "description": str((existing_sidecar_state or {}).get("description") or ""),
+        "author_text": str((existing_sidecar_state or {}).get("author_text") or ""),
+        "scene_text": str((existing_sidecar_state or {}).get("scene_text") or ""),
+        "caption_ocr_lang": str((existing_detections.get("ocr") or {}).get("language") or ""),
+    }
+
+
 def _run_caption_analysis_step(
     *,
     image_path: Path,
@@ -653,13 +686,15 @@ def _run_caption_analysis_step(
     if metadata_engine is not None:
         return empty
 
+    source_path = caption_source_path or people_source_path or image_path
+
     def _generate_caption():
         return caption_engine.generate(
             image_path=model_image_path,
             people=people_names,
             objects=object_labels,
             ocr_text=ocr_text,
-            source_path=caption_source_path or people_source_path or image_path,
+            source_path=source_path,
             album_title=album_title,
             printed_album_title=printed_album_title,
             photo_count=page_photo_count,
@@ -699,7 +734,7 @@ def _run_caption_analysis_step(
             people=people_names,
             objects=object_labels,
             ocr_text=ocr_text,
-            source_path=caption_source_path or people_source_path or image_path,
+            source_path=source_path,
             album_title=album_title,
             printed_album_title=printed_album_title,
             people_positions=people_positions,
@@ -731,13 +766,131 @@ def _run_caption_analysis_step(
             "caption_step_output": dict(caption_step_output or {}),
             "faces_detected": _last_faces_detected(people_matcher),
         }
+    return _caption_step_cached_result(empty, caption_step_output, existing_sidecar_state, existing_detections)
+
+
+def _metadata_image_path_for_step(
+    image_path: Path, caption_source_path: Path | None, is_page_scan: bool
+) -> Path:
+    if not is_page_scan:
+        return image_path
+    from .ai_view_regions import _region_association_overlay_path  # pylint: disable=import-outside-toplevel
+
+    overlay_lookup_path = Path(caption_source_path) if caption_source_path else image_path
+    overlay_path = _region_association_overlay_path(overlay_lookup_path)
+    return overlay_path if overlay_path.is_file() else image_path
+
+
+def _extract_metadata_text_fields(result: Any, state: dict[str, Any]) -> None:
+    seen: set[str] = set()
+    all_captions: list[str] = []
+    for photo in result.photos:
+        caption = _metadata_region_caption(photo)
+        if caption and caption.casefold() not in seen:
+            seen.add(caption.casefold())
+            all_captions.append(caption)
+    scene_ocr = [photo.scene_ocr for photo in result.photos if photo.scene_ocr]
+    state["description"] = " ".join(all_captions)
+    state["author_text"] = state["description"]
+    state["scene_text"] = "\n".join(scene_ocr)
+    state["ocr_text"] = "\n".join(filter(None, [state["author_text"], state["scene_text"]]))
+    state["metadata_dc_date"] = next((photo.est_date for photo in result.photos if photo.est_date), "")
+
+
+def _metadata_cached_state(
+    state: dict[str, Any],
+    image_path: Path,
+    existing_sidecar_state: dict | None,
+) -> None:
+    from .ai_sidecar_state import _effective_sidecar_ocr_text  # pylint: disable=import-outside-toplevel
+
+    state["description"] = str((existing_sidecar_state or {}).get("description") or "")
+    state["author_text"] = str((existing_sidecar_state or {}).get("author_text") or "")
+    state["scene_text"] = str((existing_sidecar_state or {}).get("scene_text") or "")
+    state["ocr_text"] = str(_effective_sidecar_ocr_text(image_path, existing_sidecar_state) or "").strip()
+    state["location_payload"] = dict(state["metadata_output"].get("location") or {})
+    state["locations_shown"] = list(state["metadata_output"].get("locations_shown") or [])
+    state["locations_shown_ran"] = bool(state["metadata_output"].get("location_shown_ran", False))
+
+
+def _metadata_primary_location(result: Any) -> str:
+    return next(
+        (
+            photo.location or photo.location_name or photo.corrected_caption
+            for photo in result.photos
+            if photo.location or photo.location_name or photo.corrected_caption
+        ),
+        "",
+    )
+
+
+def _metadata_step_location_payload(
+    primary_location: str,
+    geocoder: NominatimGeocoder | None,
+    geocode_recorder,
+) -> dict[str, Any]:
+    if not primary_location:
+        return {}
+    return _resolve_location_payload(
+        geocoder=geocoder,
+        gps_latitude="",
+        gps_longitude="",
+        location_name=primary_location,
+        artifact_recorder=geocode_recorder,
+        artifact_step="location",
+    )
+
+
+def _metadata_step_update_state(
+    result: Any,
+    state: dict[str, Any],
+    image_path: Path,
+    caption_source_path: Path | None,
+    geocoder: NominatimGeocoder | None,
+    geocode_recorder,
+) -> None:
+    _extract_metadata_text_fields(result, state)
+    primary_location = _metadata_primary_location(result)
+    state["location_payload"] = _metadata_step_location_payload(primary_location, geocoder, geocode_recorder)
+    state["locations_shown"] = [{"name": photo.location_name} for photo in result.photos if photo.location_name]
+    state["locations_shown_ran"] = True
+    _update_region_captions_from_metadata(
+        Path(caption_source_path) if caption_source_path else image_path,
+        [
+            {"photo_number": int(photo.photo_number), "caption": _metadata_region_caption(photo)}
+            for photo in result.photos
+            if int(photo.photo_number) > 0
+        ],
+    )
+
+
+def _metadata_step_build_output(
+    result: Any,
+    state: dict[str, Any],
+    metadata_engine: MetadataEngine,
+) -> dict[str, Any]:
+    ocr_kw = extract_keywords(str(state["ocr_text"]), max_keywords=15)
+    metadata_photos = [_metadata_photo_payload(photo) for photo in result.photos]
     return {
-        **empty,
-        "caption_step_output": dict(caption_step_output or {}),
-        "description": str((existing_sidecar_state or {}).get("description") or ""),
-        "author_text": str((existing_sidecar_state or {}).get("author_text") or ""),
-        "scene_text": str((existing_sidecar_state or {}).get("scene_text") or ""),
-        "caption_ocr_lang": str((existing_detections.get("ocr") or {}).get("language") or ""),
+        "ocr": {
+            "engine": metadata_engine.engine,
+            "model": str(metadata_engine.effective_model_name),
+            "language": "",
+            "keywords": ocr_kw,
+            "chars": len(str(state["ocr_text"])),
+        },
+        "caption": {
+            "effective_engine": metadata_engine.engine,
+            "fallback": bool(result.fallback),
+            "error": str(result.error or ""),
+            "model": str(metadata_engine.effective_model_name),
+            "people_present": bool(result.people_count > 0),
+            "estimated_people_count": result.people_count,
+            "photos": metadata_photos,
+        },
+        "location": state["location_payload"],
+        "locations_shown": state["locations_shown"],
+        "location_shown_ran": state["locations_shown_ran"],
     }
 
 
@@ -778,104 +931,23 @@ def _run_metadata_analysis_step(
     def _do_metadata() -> dict[str, Any] | None:
         if _is_derived_image_path(image_path):
             return None
-        metadata_image_path = image_path
-        if is_page_scan:
-            from .ai_view_regions import _region_association_overlay_path  # pylint: disable=import-outside-toplevel
-
-            overlay_lookup_path = Path(caption_source_path) if caption_source_path else image_path
-            overlay_path = _region_association_overlay_path(overlay_lookup_path)
-            if overlay_path.is_file():
-                metadata_image_path = overlay_path
+        metadata_image_path = _metadata_image_path_for_step(image_path, caption_source_path, is_page_scan)
+        source = caption_source_path or people_source_path or image_path
         result = metadata_engine.analyze(
             metadata_image_path,
             album_title=album_title,
-            source_path=caption_source_path or people_source_path or image_path,
+            source_path=source,
             debug_recorder=debug_recorder,
             debug_step="metadata",
         )
         ran["value"] = True
-        seen: set[str] = set()
-        all_captions: list[str] = []
-        for photo in result.photos:
-            caption = _metadata_region_caption(photo)
-            if caption and caption.casefold() not in seen:
-                seen.add(caption.casefold())
-                all_captions.append(caption)
-        scene_ocr = [photo.scene_ocr for photo in result.photos if photo.scene_ocr]
-        state["description"] = " ".join(all_captions)
-        state["author_text"] = state["description"]
-        state["scene_text"] = "\n".join(scene_ocr)
-        state["ocr_text"] = "\n".join(filter(None, [state["author_text"], state["scene_text"]]))
-        state["metadata_dc_date"] = next((photo.est_date for photo in result.photos if photo.est_date), "")
-        primary_location = next(
-            (
-                photo.location or photo.location_name or photo.corrected_caption
-                for photo in result.photos
-                if photo.location or photo.location_name or photo.corrected_caption
-            ),
-            "",
-        )
-        state["location_payload"] = (
-            _resolve_location_payload(
-                geocoder=geocoder,
-                gps_latitude="",
-                gps_longitude="",
-                location_name=primary_location,
-                artifact_recorder=geocode_recorder,
-                artifact_step="location",
-            )
-            if primary_location
-            else {}
-        )
-        state["locations_shown"] = [{"name": photo.location_name} for photo in result.photos if photo.location_name]
-        state["locations_shown_ran"] = True
-        ocr_kw = extract_keywords(str(state["ocr_text"]), max_keywords=15)
-        metadata_photos = [_metadata_photo_payload(photo) for photo in result.photos]
-        _update_region_captions_from_metadata(
-            Path(caption_source_path) if caption_source_path else image_path,
-            [
-                {
-                    "photo_number": int(photo.photo_number),
-                    "caption": _metadata_region_caption(photo),
-                }
-                for photo in result.photos
-                if int(photo.photo_number) > 0
-            ],
-        )
-        return {
-            "ocr": {
-                "engine": metadata_engine.engine,
-                "model": str(metadata_engine.effective_model_name),
-                "language": "",
-                "keywords": ocr_kw,
-                "chars": len(str(state["ocr_text"])),
-            },
-            "caption": {
-                "effective_engine": metadata_engine.engine,
-                "fallback": bool(result.fallback),
-                "error": str(result.error or ""),
-                "model": str(metadata_engine.effective_model_name),
-                "people_present": bool(result.people_count > 0),
-                "estimated_people_count": result.people_count,
-                "photos": metadata_photos,
-            },
-            "location": state["location_payload"],
-            "locations_shown": state["locations_shown"],
-            "location_shown_ran": state["locations_shown_ran"],
-        }
+        _metadata_step_update_state(result, state, image_path, caption_source_path, geocoder, geocode_recorder)
+        return _metadata_step_build_output(result, state, metadata_engine)
 
     metadata_output = step_runner.run("metadata", _do_metadata, model=str(metadata_engine.effective_model_name))
     state["metadata_output"] = dict(metadata_output or {})
     if not ran["value"]:
-        from .ai_sidecar_state import _effective_sidecar_ocr_text  # pylint: disable=import-outside-toplevel
-
-        state["description"] = str((existing_sidecar_state or {}).get("description") or "")
-        state["author_text"] = str((existing_sidecar_state or {}).get("author_text") or "")
-        state["scene_text"] = str((existing_sidecar_state or {}).get("scene_text") or "")
-        state["ocr_text"] = str(_effective_sidecar_ocr_text(image_path, existing_sidecar_state) or "").strip()
-        state["location_payload"] = dict(state["metadata_output"].get("location") or {})
-        state["locations_shown"] = list(state["metadata_output"].get("locations_shown") or [])
-        state["locations_shown_ran"] = bool(state["metadata_output"].get("location_shown_ran", False))
+        _metadata_cached_state(state, image_path, existing_sidecar_state)
     state["location_payload"], _ = apply_title_location(
         image_path=image_path,
         location_payload=state["location_payload"],
@@ -1326,6 +1398,63 @@ def _attach_location_payload(
     payload["location_shown_ran"] = False
 
 
+def _unpack_model_state(model_state: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "model_image_path": model_state["model_image_path"],
+        "clean_context_ocr": str(model_state["clean_context_ocr"]),
+        "clean_context_location": str(model_state["clean_context_location"]),
+        "ocr_text": str(model_state["ocr_text"]),
+        "people_matches": list(model_state["people_matches"]),
+        "people_names": list(model_state["people_names"]),
+        "people_positions": list(model_state["people_positions"]),
+        "object_matches": list(model_state["object_matches"]),
+        "objects_output": dict(model_state["objects_output"]),
+        "object_labels": list(model_state["object_labels"]),
+        "caption_output": model_state["caption_output"],
+        "caption_step_output": dict(model_state["caption_step_output"]),
+        "description": str(model_state["description"]),
+        "author_text": str(model_state["author_text"]),
+        "scene_text": str(model_state["scene_text"]),
+        "caption_ocr_text": str(model_state["caption_ocr_text"]),
+        "caption_ocr_lang": str(model_state["caption_ocr_lang"]),
+        "faces_detected": int(model_state["faces_detected"]),
+    }
+
+
+def _ria_override_ocr_from_caption(
+    ocr_text: str,
+    caption_ocr_text: str,
+    ocr_text_override: str | None,
+    metadata_engine: MetadataEngine | None,
+) -> str:
+    if ocr_text_override is None and not ocr_text and metadata_engine is None:
+        return caption_ocr_text
+    return ocr_text
+
+
+def _ria_apply_metadata_values(
+    ms: dict[str, Any],
+    metadata_state: dict[str, Any],
+    metadata_engine: MetadataEngine | None,
+    step_runner: StepRunner | None,
+) -> dict[str, Any]:
+    out = {
+        "metadata_output": {},
+        "metadata_dc_date": "",
+        "description": ms["description"],
+        "author_text": ms["author_text"],
+        "scene_text": ms["scene_text"],
+        "ocr_text": ms["ocr_text"],
+        "location_payload": {},
+        "locations_shown": [],
+        "locations_shown_ran": False,
+    }
+    if metadata_engine is not None and step_runner is not None:
+        mv = _metadata_state_values(metadata_state)
+        out.update(mv)
+    return out
+
+
 def _run_image_analysis(
     *,
     image_path: Path,
@@ -1376,13 +1505,7 @@ def _run_image_analysis(
     def geocode_recorder(record) -> None:
         _append_geocode_artifact(image_path=image_path, record=record)
 
-    metadata_output: dict[str, Any] = {}
-    _metadata_dc_date = ""
-    location_payload: dict[str, Any] = {}
-    locations_shown: list = []
-    locations_shown_ran = False
-
-    model_state = _run_model_image_analysis_steps(
+    ms = _unpack_model_state(_run_model_image_analysis_steps(
         image_path=image_path,
         people_input_path=people_input_path,
         people_coordinate_path=people_coordinate_path,
@@ -1413,25 +1536,7 @@ def _run_image_analysis(
         match_people=_match_people_with_cast_store_retry,
         format_people_step_label=_format_people_step_label,
         compute_people_positions=_compute_people_positions,
-    )
-    model_image_path = model_state["model_image_path"]
-    clean_context_ocr = str(model_state["clean_context_ocr"])
-    clean_context_location = str(model_state["clean_context_location"])
-    ocr_text = str(model_state["ocr_text"])
-    people_matches = list(model_state["people_matches"])
-    people_names = list(model_state["people_names"])
-    people_positions = list(model_state["people_positions"])
-    object_matches = list(model_state["object_matches"])
-    objects_output = dict(model_state["objects_output"])
-    object_labels = list(model_state["object_labels"])
-    caption_output = model_state["caption_output"]
-    caption_step_output = dict(model_state["caption_step_output"])
-    description = str(model_state["description"])
-    author_text = str(model_state["author_text"])
-    scene_text = str(model_state["scene_text"])
-    _caption_ocr_text = str(model_state["caption_ocr_text"])
-    _caption_ocr_lang = str(model_state["caption_ocr_lang"])
-    _faces_detected = int(model_state["faces_detected"])
+    ))
 
     metadata_state = _run_metadata_analysis_step(
         image_path=image_path,
@@ -1449,51 +1554,42 @@ def _run_image_analysis(
         title_page_location=title_page_location,
         apply_title_location=_apply_title_page_location_config,
     )
-    if metadata_engine is not None and step_runner is not None:
-        metadata_values = _metadata_state_values(metadata_state)
-        metadata_output = metadata_values["metadata_output"]
-        _metadata_dc_date = metadata_values["metadata_dc_date"]
-        description = metadata_values["description"]
-        author_text = metadata_values["author_text"]
-        scene_text = metadata_values["scene_text"]
-        ocr_text = metadata_values["ocr_text"]
-        location_payload = metadata_values["location_payload"]
-        locations_shown = metadata_values["locations_shown"]
-        locations_shown_ran = metadata_values["locations_shown_ran"]
-
-    # ── Post model-image-context ──────────────────────────────────────────────
-    if ocr_text_override is None and not ocr_text and metadata_engine is None:
-        ocr_text = _caption_ocr_text
+    av = _ria_apply_metadata_values(ms, metadata_state, metadata_engine, step_runner)
+    ocr_text = _ria_override_ocr_from_caption(
+        av["ocr_text"], ms["caption_ocr_text"], ocr_text_override, metadata_engine
+    )
     ocr_keywords = extract_keywords(ocr_text, max_keywords=15)
-    subjects = _dedupe(object_labels + ocr_keywords)
-
+    subjects = _dedupe(ms["object_labels"] + ocr_keywords)
     payload = _build_analysis_payload(
         step_runner=step_runner,
         existing_detections=existing_detections,
-        metadata_output=metadata_output,
-        caption_step_output=caption_step_output,
-        objects_output=objects_output,
-        people_matches=people_matches,
-        people_names=people_names,
-        object_matches=object_matches,
-        object_labels=object_labels,
-        faces_detected=_faces_detected,
+        metadata_output=av["metadata_output"],
+        caption_step_output=ms["caption_step_output"],
+        objects_output=ms["objects_output"],
+        people_matches=ms["people_matches"],
+        people_names=ms["people_names"],
+        object_matches=ms["object_matches"],
+        object_labels=ms["object_labels"],
+        faces_detected=ms["faces_detected"],
         ocr_text=ocr_text,
         ocr_keywords=ocr_keywords,
         ocr_engine=ocr_engine,
         ocr_language=ocr_language,
         requested_caption_engine=requested_caption_engine,
         caption_engine=caption_engine,
-        caption_output=caption_output,
-        caption_ocr_lang=_caption_ocr_lang,
-        model_image_path=model_image_path,
+        caption_output=ms["caption_output"],
+        caption_ocr_lang=ms["caption_ocr_lang"],
+        model_image_path=ms["model_image_path"],
         source_path=caption_source_path or people_source_path or image_path,
         album_title=album_title,
         printed_album_title=printed_album_title,
-        people_positions=people_positions,
+        people_positions=ms["people_positions"],
         prompt_debug=prompt_debug,
         object_detector=object_detector,
     )
+    location_payload = av["location_payload"]
+    locations_shown = av["locations_shown"]
+    locations_shown_ran = av["locations_shown_ran"]
 
     # ── Location step (legacy caption_engine path) or via metadata step ───────
     if step_runner is not None and metadata_engine is None:
@@ -1502,10 +1598,10 @@ def _run_image_analysis(
             caption_source_path=caption_source_path,
             people_source_path=people_source_path,
             caption_engine=caption_engine,
-            description=description,
+            description=av["description"],
             ocr_text=ocr_text,
-            clean_context_ocr=clean_context_ocr,
-            clean_context_location=clean_context_location,
+            clean_context_ocr=ms["clean_context_ocr"],
+            clean_context_location=ms["clean_context_location"],
             album_title=album_title,
             printed_album_title=printed_album_title,
             geocoder=geocoder,
@@ -1518,6 +1614,57 @@ def _run_image_analysis(
             step_fn=step_fn,
         )
 
+    return _build_image_analysis(
+        image_path=image_path,
+        caption_output=ms["caption_output"],
+        ocr_text=ocr_text,
+        ocr_language=ocr_language,
+        ocr_keywords=ocr_keywords,
+        subjects=subjects,
+        people_names=ms["people_names"],
+        object_labels=ms["object_labels"],
+        description=av["description"],
+        author_text=av["author_text"],
+        scene_text=av["scene_text"],
+        payload=payload,
+        faces_detected=ms["faces_detected"],
+        album_title=album_title,
+        caption_ocr_lang=ms["caption_ocr_lang"],
+        metadata_dc_date=av["metadata_dc_date"],
+        location_payload=location_payload,
+        locations_shown=locations_shown,
+        locations_shown_ran=locations_shown_ran,
+        step_runner=step_runner,
+        metadata_engine=metadata_engine,
+        step_fn=step_fn,
+    )
+
+
+def _build_image_analysis(
+    *,
+    image_path,
+    caption_output,
+    ocr_text,
+    ocr_language,
+    ocr_keywords,
+    subjects,
+    people_names,
+    object_labels,
+    description,
+    author_text,
+    scene_text,
+    payload,
+    faces_detected,
+    album_title,
+    caption_ocr_lang,
+    metadata_dc_date,
+    location_payload,
+    locations_shown,
+    locations_shown_ran,
+    step_runner,
+    metadata_engine,
+    step_fn,
+) -> ImageAnalysis:
     _attach_location_payload(
         payload=payload,
         step_runner=step_runner,
@@ -1527,7 +1674,6 @@ def _run_image_analysis(
         locations_shown_ran=locations_shown_ran,
         step_fn=step_fn,
     )
-
     resolved_album_title = _analysis_album_title(
         image_path=image_path,
         caption_output=caption_output,
@@ -1545,12 +1691,12 @@ def _run_image_analysis(
         author_text=author_text,
         scene_text=scene_text,
         payload=payload,
-        faces_detected=_faces_detected,
+        faces_detected=faces_detected,
         image_regions=_caption_image_regions(caption_output),
         album_title=resolved_album_title,
         title=_caption_title(caption_output),
-        ocr_lang=str(_caption_ocr_lang or ocr_language),
-        dc_date=_metadata_dc_date,
+        ocr_lang=str(caption_ocr_lang or ocr_language),
+        dc_date=metadata_dc_date,
     )
 
 

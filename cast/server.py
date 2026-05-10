@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import sys
 import time
 from http import HTTPStatus
@@ -8,6 +9,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
+
+log = logging.getLogger(__name__)
 
 import cv2
 
@@ -224,23 +227,18 @@ class CastHandler(BaseHTTPRequestHandler):
             "updated_at": str(face.get("updated_at", "")),
         }
 
-    def _review_summary(
+    def _resolve_review_suggestion(
         self,
         review: dict[str, Any],
-        *,
-        people_by_id: dict[str, dict[str, Any]],
-        faces_by_id: dict[str, dict[str, Any]],
-        prototypes: dict[str, dict[str, Any]] | None = None,
-    ) -> dict[str, Any]:
-        face_id = str(review.get("face_id", ""))
-        face = faces_by_id.get(face_id, {})
-        status = str(review.get("status", ""))
-        source_candidates = list(review.get("candidates") or [])
+        face: dict[str, Any],
+        status: str,
+        source_candidates: list[Any],
+        prototypes: dict[str, dict[str, Any]] | None,
+    ) -> tuple[str | None, Any, Any, bool, list[Any]]:
         suggested_person_id = str(review.get("suggested_person_id") or "").strip() or None
         suggested_score = review.get("suggested_score")
         suggested_margin = None
         suggested_confident = bool(suggested_person_id)
-
         source_candidates = self._review_source_candidates(
             status=status,
             face=face,
@@ -254,6 +252,24 @@ class CastHandler(BaseHTTPRequestHandler):
                     source_candidates=source_candidates,
                 )
             )
+        return suggested_person_id, suggested_score, suggested_margin, suggested_confident, source_candidates
+
+    def _review_summary(
+        self,
+        review: dict[str, Any],
+        *,
+        people_by_id: dict[str, dict[str, Any]],
+        faces_by_id: dict[str, dict[str, Any]],
+        prototypes: dict[str, dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        face_id = str(review.get("face_id", ""))
+        face = faces_by_id.get(face_id, {})
+        status = str(review.get("status", ""))
+        source_candidates = list(review.get("candidates") or [])
+
+        suggested_person_id, suggested_score, suggested_margin, suggested_confident, source_candidates = (
+            self._resolve_review_suggestion(review, face, status, source_candidates, prototypes)
+        )
 
         candidates = self._candidate_summaries(source_candidates, people_by_id)
         decided_person_id = str(review.get("decided_person_id") or "").strip() or None
@@ -345,6 +361,52 @@ class CastHandler(BaseHTTPRequestHandler):
             )
         return candidates
 
+    def _collect_unknown_faces(
+        self,
+        faces: list[dict[str, Any]],
+        people_by_id: dict[str, dict[str, Any]],
+        unknown_limit: int,
+    ) -> tuple[int, int, list[dict[str, Any]]]:
+        unknown_faces: list[dict[str, Any]] = []
+        total_unknown_faces = 0
+        legacy_faces = 0
+        for face in faces:
+            if not self._face_detector_model(face) or face_embedding_model(face) not in ACTIVE_EMBEDDING_MODELS:
+                legacy_faces += 1
+            if str(face.get("person_id") or "").strip():
+                continue
+            if str(face_review_status(face)).strip().lower() in {"ignored", "rejected"}:
+                continue
+            total_unknown_faces += 1
+            if unknown_limit <= 0 or len(unknown_faces) < unknown_limit:
+                unknown_faces.append(self._face_summary(face, people_by_id))
+        return total_unknown_faces, legacy_faces, unknown_faces
+
+    def _collect_pending_reviews(
+        self,
+        reviews: list[dict[str, Any]],
+        people_by_id: dict[str, dict[str, Any]],
+        faces_by_id: dict[str, dict[str, Any]],
+        prototypes: dict[str, dict[str, Any]] | None,
+        pending_limit: int,
+    ) -> tuple[int, list[dict[str, Any]]]:
+        pending_reviews: list[dict[str, Any]] = []
+        total_pending_reviews = 0
+        for item in reviews:
+            if str(item.get("status") or "").strip().lower() != "pending":
+                continue
+            total_pending_reviews += 1
+            if pending_limit <= 0 or len(pending_reviews) < pending_limit:
+                pending_reviews.append(
+                    self._review_summary(
+                        item,
+                        people_by_id=people_by_id,
+                        faces_by_id=faces_by_id,
+                        prototypes=prototypes,
+                    )
+                )
+        return total_pending_reviews, pending_reviews
+
     def _state_payload(
         self,
         *,
@@ -360,35 +422,12 @@ class CastHandler(BaseHTTPRequestHandler):
             faces,
             allowed_embedding_model_ids=ACTIVE_EMBEDDING_MODELS,
         )
-        unknown_faces: list[dict[str, Any]] = []
-        pending_reviews: list[dict[str, Any]] = []
-        total_unknown_faces = 0
-        total_pending_reviews = 0
-        legacy_faces = 0
-        for face in faces:
-            if not self._face_detector_model(face) or face_embedding_model(face) not in ACTIVE_EMBEDDING_MODELS:
-                legacy_faces += 1
-            if str(face.get("person_id") or "").strip():
-                continue
-            if str(face_review_status(face)).strip().lower() in {"ignored", "rejected"}:
-                continue
-            total_unknown_faces += 1
-            if unknown_limit <= 0 or len(unknown_faces) < unknown_limit:
-                unknown_faces.append(self._face_summary(face, people_by_id))
-
-        for item in reviews:
-            if str(item.get("status") or "").strip().lower() != "pending":
-                continue
-            total_pending_reviews += 1
-            if pending_limit <= 0 or len(pending_reviews) < pending_limit:
-                pending_reviews.append(
-                    self._review_summary(
-                        item,
-                        people_by_id=people_by_id,
-                        faces_by_id=faces_by_id,
-                        prototypes=prototypes,
-                    )
-                )
+        total_unknown_faces, legacy_faces, unknown_faces = self._collect_unknown_faces(
+            faces, people_by_id, unknown_limit
+        )
+        total_pending_reviews, pending_reviews = self._collect_pending_reviews(
+            reviews, people_by_id, faces_by_id, prototypes, pending_limit
+        )
         return {
             "ok": True,
             "counts": {
@@ -584,12 +623,30 @@ class CastHandler(BaseHTTPRequestHandler):
             return
         self._send_json({"ok": True, "face": face}, status=HTTPStatus.CREATED)
 
-    def _handle_assign_face(self, payload: dict[str, Any]) -> None:
+    def _parse_assign_face_payload(
+        self, payload: dict[str, Any]
+    ) -> tuple[str, str | None, bool | None, str | None]:
         face_id = str(payload.get("face_id") or "").strip()
         person_id = str(payload.get("person_id") or "").strip() or None
         has_reviewed_flag = "reviewed_by_human" in payload
         reviewed_by_human = _coerce_bool(payload.get("reviewed_by_human"), False) if has_reviewed_flag else None
         review_status = str(payload.get("review_status") or "").strip().lower() or None
+        return face_id, person_id, reviewed_by_human, review_status
+
+    def _maybe_resolve_reviews_after_assign(
+        self, face_id: str, face: dict[str, Any], reviewed_by_human: bool | None, review_status: str | None
+    ) -> None:
+        if not reviewed_by_human:
+            return
+        pending_status = "accepted" if str(face.get("person_id") or "").strip() else str(review_status or "skipped")
+        self._resolve_pending_reviews_for_face(
+            face_id,
+            status=pending_status,
+            decided_person_id=str(face.get("person_id") or "").strip() or None,
+        )
+
+    def _handle_assign_face(self, payload: dict[str, Any]) -> None:
+        face_id, person_id, reviewed_by_human, review_status = self._parse_assign_face_payload(payload)
         if not face_id:
             self._error("face_id is required.")
             return
@@ -603,13 +660,7 @@ class CastHandler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._error(str(exc))
             return
-        if reviewed_by_human:
-            pending_status = "accepted" if str(face.get("person_id") or "").strip() else str(review_status or "skipped")
-            self._resolve_pending_reviews_for_face(
-                face_id,
-                status=pending_status,
-                decided_person_id=str(face.get("person_id") or "").strip() or None,
-            )
+        self._maybe_resolve_reviews_after_assign(face_id, face, reviewed_by_human, review_status)
         self._send_json({"ok": True, "face": face})
 
     def _parse_aliases(self, aliases_raw: Any) -> list[str]:
@@ -683,13 +734,12 @@ class CastHandler(BaseHTTPRequestHandler):
         except Exception as exc:
             raise RequestError(f"Review updated but face assignment failed: {exc}") from exc
 
-    def _apply_review_decision(
+    def _validate_review_decision(
         self,
-        *,
         review: dict[str, Any],
         status: str,
         person_id: str | None,
-    ) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    ) -> tuple[str, str, str | None]:
         review_id = str(review.get("review_id") or "").strip()
         if not review_id:
             raise RequestError("review_id is required.")
@@ -701,20 +751,37 @@ class CastHandler(BaseHTTPRequestHandler):
             decided_person_id = str(review.get("suggested_person_id") or "").strip() or None
             if not decided_person_id:
                 raise RequestError("person_id is required for accepted decisions with no suggestion.")
-        if clean_status == "skipped":
-            return self.store.defer_review_item(review_id), None
+        return review_id, clean_status, decided_person_id
 
-        if clean_status == "accepted":
-            assert decided_person_id is not None
-            self._write_review_acceptance_xmp(review, review_id, decided_person_id)
+    def _resolve_review_item_store(
+        self,
+        review_id: str,
+        clean_status: str,
+        decided_person_id: str | None,
+    ) -> dict[str, Any]:
         try:
-            updated_review = self.store.resolve_review_item(
+            return self.store.resolve_review_item(
                 review_id=review_id,
                 status=clean_status,
                 decided_person_id=decided_person_id,
             )
         except Exception as exc:
             raise RequestError(str(exc)) from exc
+
+    def _apply_review_decision(
+        self,
+        *,
+        review: dict[str, Any],
+        status: str,
+        person_id: str | None,
+    ) -> tuple[dict[str, Any], dict[str, Any] | None]:
+        review_id, clean_status, decided_person_id = self._validate_review_decision(review, status, person_id)
+        if clean_status == "skipped":
+            return self.store.defer_review_item(review_id), None
+        if clean_status == "accepted":
+            assert decided_person_id is not None
+            self._write_review_acceptance_xmp(review, review_id, decided_person_id)
+        updated_review = self._resolve_review_item_store(review_id, clean_status, decided_person_id)
         return updated_review, self._assign_face_after_review(clean_status, updated_review, decided_person_id)
 
     def _write_review_acceptance_xmp(
@@ -903,7 +970,8 @@ class CastHandler(BaseHTTPRequestHandler):
         if ":" not in text:
             try:
                 seconds = float(text)
-            except Exception:
+            except Exception as exc:
+                log.debug("could not parse timestamp seconds from %r: %s", text, exc)
                 return None
             return seconds if seconds >= 0.0 else None
 
@@ -919,7 +987,8 @@ class CastHandler(BaseHTTPRequestHandler):
             hours = float(h_raw)
             minutes = float(m_raw)
             seconds = float(s_raw)
-        except Exception:
+        except Exception as exc:
+            log.debug("could not parse timestamp components from %r: %s", text, exc)
             return None
         if hours < 0.0 or minutes < 0.0 or seconds < 0.0:
             return None
@@ -959,6 +1028,61 @@ class CastHandler(BaseHTTPRequestHandler):
         finally:
             cap.release()
 
+    def _log_xmp_lock_wait_completed(
+        self,
+        *,
+        review_id: str,
+        face: dict[str, Any],
+        source_path: str,
+        xmp_path: Path,
+        img_path: Path,
+    ) -> None:
+        print(
+            "[cast] "
+            + json.dumps(
+                {
+                    "event": "photoalbums_lock_wait_completed",
+                    "review_id": str(review_id or "").strip(),
+                    "face_id": str(face.get("face_id") or "").strip(),
+                    "source_path": source_path,
+                    "xmp_path": str(xmp_path),
+                    "lock_path": str(_photoalbums_processing_lock_path(img_path)),
+                },
+                ensure_ascii=True,
+            ),
+            file=sys.stderr,
+        )
+
+    def _merge_person_into_xmp(
+        self,
+        *,
+        review_id: str,
+        face: dict[str, Any],
+        person_id: str,
+        display_name: str,
+        source_path: str,
+        xmp_path: Path,
+    ) -> None:
+        existing = read_person_in_image(xmp_path)
+        all_names = (
+            existing
+            if display_name.casefold() in {str(name or "").casefold() for name in existing}
+            else existing + [display_name]
+        )
+        merge_persons_xmp(xmp_path, all_names)
+        verified_names = read_person_in_image(xmp_path)
+        if display_name.casefold() not in {str(name or "").casefold() for name in verified_names}:
+            self._log_xmp_write_back_verification_failed(
+                review_id=review_id,
+                face=face,
+                person_id=person_id,
+                display_name=display_name,
+                source_path=source_path,
+                xmp_path=xmp_path,
+                verified_names=verified_names,
+            )
+            raise RuntimeError(f"Assigned person was not written to Iptc4xmpExt:PersonInImage: {display_name}")
+
     def _write_accepted_face_xmp(
         self,
         *,
@@ -976,43 +1100,21 @@ class CastHandler(BaseHTTPRequestHandler):
         try:
             waited_for_lock = _wait_for_photoalbums_processing_lock(img_path)
             if waited_for_lock:
-                print(
-                    "[cast] "
-                    + json.dumps(
-                        {
-                            "event": "photoalbums_lock_wait_completed",
-                            "review_id": str(review_id or "").strip(),
-                            "face_id": str(face.get("face_id") or "").strip(),
-                            "source_path": source_path,
-                            "xmp_path": str(xmp_path),
-                            "lock_path": str(_photoalbums_processing_lock_path(img_path)),
-                        },
-                        ensure_ascii=True,
-                    ),
-                    file=sys.stderr,
-                )
-            existing = read_person_in_image(xmp_path)
-            all_names = (
-                existing
-                if display_name.casefold() in {str(name or "").casefold() for name in existing}
-                else existing + [display_name]
-            )
-            merge_persons_xmp(
-                xmp_path,
-                all_names,
-            )
-            verified_names = read_person_in_image(xmp_path)
-            if display_name.casefold() not in {str(name or "").casefold() for name in verified_names}:
-                self._log_xmp_write_back_verification_failed(
+                self._log_xmp_lock_wait_completed(
                     review_id=review_id,
                     face=face,
-                    person_id=person_id,
-                    display_name=display_name,
                     source_path=source_path,
                     xmp_path=xmp_path,
-                    verified_names=verified_names,
+                    img_path=img_path,
                 )
-                raise RuntimeError(f"Assigned person was not written to Iptc4xmpExt:PersonInImage: {display_name}")
+            self._merge_person_into_xmp(
+                review_id=review_id,
+                face=face,
+                person_id=person_id,
+                display_name=display_name,
+                source_path=source_path,
+                xmp_path=xmp_path,
+            )
         except Exception as exc:
             self._log_xmp_write_back_failed(
                 review_id=review_id,
@@ -1190,14 +1292,49 @@ class CastHandler(BaseHTTPRequestHandler):
             }
         )
 
-    def _handle_bulk_review_assign(self, payload: dict[str, Any]) -> None:
+    def _parse_review_ids(self, payload: dict[str, Any]) -> list[str] | None:
         raw_review_ids = payload.get("review_ids")
         if not isinstance(raw_review_ids, list):
             self._error("review_ids must be a list.")
-            return
+            return None
         review_ids = [str(item or "").strip() for item in raw_review_ids if str(item or "").strip()]
         if not review_ids:
             self._error("review_ids is required.")
+            return None
+        return review_ids
+
+    def _apply_bulk_assign_loop(
+        self, review_ids: list[str], resolved_person_id: str | None
+    ) -> tuple[int, int] | None:
+        updated_reviews = 0
+        updated_faces = 0
+        for review_id in review_ids:
+            review = self._find_review_item(review_id)
+            if not review:
+                self._error(
+                    f"Bulk assign stopped after {updated_reviews} review(s): Unknown review_id: {review_id}",
+                )
+                return None
+            try:
+                _updated_review, assigned_face = self._apply_review_decision(
+                    review=review,
+                    status="accepted",
+                    person_id=resolved_person_id,
+                )
+            except RequestError as exc:
+                self._error(
+                    f"Bulk assign stopped after {updated_reviews} review(s): {exc}",
+                    status=exc.status,
+                )
+                return None
+            updated_reviews += 1
+            if assigned_face is not None:
+                updated_faces += 1
+        return updated_reviews, updated_faces
+
+    def _handle_bulk_review_assign(self, payload: dict[str, Any]) -> None:
+        review_ids = self._parse_review_ids(payload)
+        if review_ids is None:
             return
         try:
             person, created = self._resolve_or_create_person(
@@ -1210,31 +1347,11 @@ class CastHandler(BaseHTTPRequestHandler):
             self._error(str(exc), status=exc.status)
             return
 
-        updated_reviews = 0
-        updated_faces = 0
         resolved_person_id = str(person.get("person_id") or "").strip() or None
-        for review_id in review_ids:
-            review = self._find_review_item(review_id)
-            if not review:
-                self._error(
-                    f"Bulk assign stopped after {updated_reviews} review(s): Unknown review_id: {review_id}",
-                )
-                return
-            try:
-                _updated_review, assigned_face = self._apply_review_decision(
-                    review=review,
-                    status="accepted",
-                    person_id=resolved_person_id,
-                )
-            except RequestError as exc:
-                self._error(
-                    f"Bulk assign stopped after {updated_reviews} review(s): {exc}",
-                    status=exc.status,
-                )
-                return
-            updated_reviews += 1
-            if assigned_face is not None:
-                updated_faces += 1
+        counts = self._apply_bulk_assign_loop(review_ids, resolved_person_id)
+        if counts is None:
+            return
+        updated_reviews, updated_faces = counts
 
         self._send_json(
             {
@@ -1247,6 +1364,36 @@ class CastHandler(BaseHTTPRequestHandler):
             }
         )
 
+    def _load_face_crop_image(self, face: dict[str, Any]):
+        crop_rel = str(face.get("crop_path") or "").strip()
+        if not crop_rel:
+            return None
+        try:
+            crop_abs = self._validate_store_relative_file(crop_rel)
+        except Exception:
+            log.debug("invalid store-relative crop path %r, skipping", crop_rel, exc_info=True)
+            return None
+        if not crop_abs.exists():
+            return None
+        return cv2.imread(str(crop_abs))
+
+    def _prune_single_review(self, review: dict[str, Any]) -> bool | None:
+        review_id = str(review.get("review_id") or "").strip()
+        face_id = str(review.get("face_id") or "").strip()
+        if not review_id or not face_id:
+            return None
+        face = self.store.get_face(face_id)
+        if not face:
+            return None
+        image = self._load_face_crop_image(face)
+        if image is None:
+            return None
+        if bool(self.server.ingestor.is_valid_face_crop(image)):
+            return False
+        self.store.resolve_review_item(review_id=review_id, status="rejected", decided_person_id=None)
+        self.store.assign_face(face_id, None, reviewed_by_human=True, review_status="rejected")
+        return True
+
     def _handle_prune_false_positives(self, payload: dict[str, Any]) -> None:
         max_items = int(payload.get("max_items") or 0)
         pending = [
@@ -1258,45 +1405,12 @@ class CastHandler(BaseHTTPRequestHandler):
         pruned = 0
         checked = 0
         for review in pending:
-            review_id = str(review.get("review_id") or "").strip()
-            face_id = str(review.get("face_id") or "").strip()
-            if not review_id or not face_id:
-                continue
-            face = self.store.get_face(face_id)
-            if not face:
-                continue
-            crop_rel = str(face.get("crop_path") or "").strip()
-            if not crop_rel:
-                continue
-            try:
-                crop_abs = self._validate_store_relative_file(crop_rel)
-            except Exception:
-                continue
-            if not crop_abs.exists():
-                continue
-            image = cv2.imread(str(crop_abs))
-            if image is None:
+            result = self._prune_single_review(review)
+            if result is None:
                 continue
             checked += 1
-            looks_valid = bool(
-                self.server.ingestor.is_valid_face_crop(
-                    image,
-                )
-            )
-            if looks_valid:
-                continue
-            self.store.resolve_review_item(
-                review_id=review_id,
-                status="rejected",
-                decided_person_id=None,
-            )
-            self.store.assign_face(
-                face_id,
-                None,
-                reviewed_by_human=True,
-                review_status="rejected",
-            )
-            pruned += 1
+            if result:
+                pruned += 1
 
         self._send_json(
             {
@@ -1332,6 +1446,35 @@ class CastHandler(BaseHTTPRequestHandler):
             }
         )
 
+    def _auto_queue_faces(
+        self,
+        faces: list[dict[str, Any]],
+        top_k: int,
+        policy: dict[str, Any],
+    ) -> tuple[int, int]:
+        reviews_created = 0
+        reviews_reused = 0
+        for face in faces:
+            face_id = str(face.get("face_id") or "").strip()
+            if not face_id:
+                continue
+            try:
+                _review, existing = self._enqueue_review_for_face(
+                    face_id=face_id,
+                    top_k=top_k,
+                    min_similarity=float(policy["min_similarity"]),
+                    min_margin=float(policy["min_margin"]),
+                    min_face_quality=float(policy["min_face_quality"]),
+                    min_sample_count=int(policy["min_sample_count"]),
+                )
+                if existing:
+                    reviews_reused += 1
+                else:
+                    reviews_created += 1
+            except Exception:
+                continue
+        return reviews_created, reviews_reused
+
     def _handle_ingest_photo(self, payload: dict[str, Any]) -> None:
         image_path = payload.get("image_path")
         source_path = payload.get("source_path")
@@ -1357,29 +1500,9 @@ class CastHandler(BaseHTTPRequestHandler):
             self._error(str(exc))
             return
 
-        reviews_created = 0
-        reviews_reused = 0
-        if auto_queue:
-            for face in faces:
-                face_id = str(face.get("face_id") or "").strip()
-                if not face_id:
-                    continue
-                try:
-                    _review, existing = self._enqueue_review_for_face(
-                        face_id=face_id,
-                        top_k=top_k,
-                        min_similarity=float(policy["min_similarity"]),
-                        min_margin=float(policy["min_margin"]),
-                        min_face_quality=float(policy["min_face_quality"]),
-                        min_sample_count=int(policy["min_sample_count"]),
-                    )
-                    if existing:
-                        reviews_reused += 1
-                    else:
-                        reviews_created += 1
-                except Exception:
-                    continue
-
+        reviews_created, reviews_reused = (
+            self._auto_queue_faces(faces, top_k, policy) if auto_queue else (0, 0)
+        )
         people_by_id = {str(row.get("person_id")): row for row in self.store.list_people()}
         face_rows = [self._face_summary(face, people_by_id) for face in faces]
         self._send_json(
@@ -1424,29 +1547,9 @@ class CastHandler(BaseHTTPRequestHandler):
             return
 
         faces = list(result.get("faces") or [])
-        reviews_created = 0
-        reviews_reused = 0
-        if auto_queue:
-            for face in faces:
-                face_id = str(face.get("face_id") or "").strip()
-                if not face_id:
-                    continue
-                try:
-                    _review, existing = self._enqueue_review_for_face(
-                        face_id=face_id,
-                        top_k=top_k,
-                        min_similarity=float(policy["min_similarity"]),
-                        min_margin=float(policy["min_margin"]),
-                        min_face_quality=float(policy["min_face_quality"]),
-                        min_sample_count=int(policy["min_sample_count"]),
-                    )
-                    if existing:
-                        reviews_reused += 1
-                    else:
-                        reviews_created += 1
-                except Exception:
-                    continue
-
+        reviews_created, reviews_reused = (
+            self._auto_queue_faces(faces, top_k, policy) if auto_queue else (0, 0)
+        )
         people_by_id = {str(row.get("person_id")): row for row in self.store.list_people()}
         face_rows = [self._face_summary(face, people_by_id) for face in faces]
         self._send_json(
@@ -1489,29 +1592,9 @@ class CastHandler(BaseHTTPRequestHandler):
             return
 
         faces = list(result.get("faces") or [])
-        reviews_created = 0
-        reviews_reused = 0
-        if auto_queue:
-            for face in faces:
-                face_id = str(face.get("face_id") or "").strip()
-                if not face_id:
-                    continue
-                try:
-                    _review, existing = self._enqueue_review_for_face(
-                        face_id=face_id,
-                        top_k=top_k,
-                        min_similarity=float(policy["min_similarity"]),
-                        min_margin=float(policy["min_margin"]),
-                        min_face_quality=float(policy["min_face_quality"]),
-                        min_sample_count=int(policy["min_sample_count"]),
-                    )
-                    if existing:
-                        reviews_reused += 1
-                    else:
-                        reviews_created += 1
-                except Exception:
-                    continue
-
+        reviews_created, reviews_reused = (
+            self._auto_queue_faces(faces, top_k, policy) if auto_queue else (0, 0)
+        )
         top_photos = sorted(
             list(result.get("per_photo") or []),
             key=lambda row: int(row.get("faces_created", 0)),
@@ -1630,17 +1713,43 @@ class CastHandler(BaseHTTPRequestHandler):
             return
         self._send_bytes(bytes(encoded), "image/jpeg", status=HTTPStatus.OK)
 
+    def _handle_get_face_path_routes(
+        self, parts: list[str], query: dict[str, list[str]]
+    ) -> bool:
+        if len(parts) == 4 and parts[0] == "api" and parts[1] == "faces":
+            if parts[3] == "crop":
+                self._handle_get_face_crop(parts[2])
+                return True
+            if parts[3] == "source":
+                self._handle_get_face_source(parts[2], query)
+                return True
+        return False
+
+    def _handle_get_api_route(self, path: str, query: dict[str, list[str]]) -> bool:
+        if path == "/api/state":
+            self._handle_get_state(query)
+            return True
+        if path == "/api/people":
+            self._handle_get_people()
+            return True
+        if path == "/api/faces":
+            self._handle_get_faces(query)
+            return True
+        if path == "/api/review":
+            self._handle_get_review(query)
+            return True
+        if path == "/api/review/clusters":
+            self._handle_get_review_clusters(query)
+            return True
+        return False
+
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         path = parsed.path
         query = parse_qs(parsed.query)
 
         parts = [item for item in path.split("/") if item]
-        if len(parts) == 4 and parts[0] == "api" and parts[1] == "faces" and parts[3] == "crop":
-            self._handle_get_face_crop(parts[2])
-            return
-        if len(parts) == 4 and parts[0] == "api" and parts[1] == "faces" and parts[3] == "source":
-            self._handle_get_face_source(parts[2], query)
+        if self._handle_get_face_path_routes(parts, query):
             return
 
         if path == "/":
@@ -1649,20 +1758,7 @@ class CastHandler(BaseHTTPRequestHandler):
                 return
             self._send_html(_INDEX.read_text(encoding="utf-8"))
             return
-        if path == "/api/state":
-            self._handle_get_state(query)
-            return
-        if path == "/api/people":
-            self._handle_get_people()
-            return
-        if path == "/api/faces":
-            self._handle_get_faces(query)
-            return
-        if path == "/api/review":
-            self._handle_get_review(query)
-            return
-        if path == "/api/review/clusters":
-            self._handle_get_review_clusters(query)
+        if self._handle_get_api_route(path, query):
             return
         self._not_found()
 

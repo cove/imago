@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import threading
 import time
 import uuid
@@ -9,6 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 
 def utc_now_iso() -> str:
@@ -46,7 +49,8 @@ def _parse_jsonl_text(text: str) -> list[dict]:
 def _try_json_loads(text: str) -> Any:
     try:
         return json.loads(text)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as exc:
+        log.debug("json parse failed: %s", exc)
         return None
 
 
@@ -100,6 +104,13 @@ def normalize_face_record(face: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
+def _apply_person_aliases(row: dict[str, Any], value: Any) -> None:
+    if isinstance(value, list):
+        row["aliases"] = [str(item).strip() for item in value if str(item).strip()]
+    elif isinstance(value, str):
+        row["aliases"] = [part.strip() for part in value.split(",") if part.strip()]
+
+
 def _apply_person_updates(row: dict[str, Any], fields: dict[str, Any]) -> None:
     for key, value in dict(fields or {}).items():
         if key in {"person_id", "created_at"}:
@@ -111,10 +122,7 @@ def _apply_person_updates(row: dict[str, Any], fields: dict[str, Any]) -> None:
             row[key] = clean_name
             continue
         if key == "aliases":
-            if isinstance(value, list):
-                row[key] = [str(item).strip() for item in value if str(item).strip()]
-            elif isinstance(value, str):
-                row[key] = [part.strip() for part in value.split(",") if part.strip()]
+            _apply_person_aliases(row, value)
             continue
         if key == "notes":
             row[key] = str(value or "").strip()
@@ -921,12 +929,8 @@ class TextFaceStore:
                     parts.append(f"{path.name}:missing")
             return "|".join(parts)
 
-    def reviewed_identity_signature(self) -> str:
-        with self._lock:
-            people_rows = self.list_people()
-            face_rows = self.list_faces()
-
-        people_payload = [
+    def _build_people_payload(self, people_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        payload = [
             {
                 "person_id": str(row.get("person_id") or "").strip(),
                 "display_name": str(row.get("display_name") or "").strip(),
@@ -939,15 +943,17 @@ class TextFaceStore:
             for row in people_rows
             if str(row.get("person_id") or "").strip()
         ]
-        people_payload.sort(key=lambda row: row["person_id"])
+        payload.sort(key=lambda row: row["person_id"])
+        return payload
 
-        reviewed_face_payload: list[dict[str, Any]] = []
+    def _build_reviewed_faces_payload(self, face_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        payload: list[dict[str, Any]] = []
         for row in face_rows:
             face_id = str(row.get("face_id") or "").strip()
             review_status = face_review_status(row)
             if not face_id or review_status not in FACE_REVIEW_STATUSES:
                 continue
-            reviewed_face_payload.append(
+            payload.append(
                 {
                     "face_id": face_id,
                     "person_id": str(row.get("person_id") or "").strip(),
@@ -957,7 +963,16 @@ class TextFaceStore:
                     "updated_at": str(row.get("updated_at") or "").strip(),
                 }
             )
-        reviewed_face_payload.sort(key=lambda row: row["face_id"])
+        payload.sort(key=lambda row: row["face_id"])
+        return payload
+
+    def reviewed_identity_signature(self) -> str:
+        with self._lock:
+            people_rows = self.list_people()
+            face_rows = self.list_faces()
+
+        people_payload = self._build_people_payload(people_rows)
+        reviewed_face_payload = self._build_reviewed_faces_payload(face_rows)
 
         payload = {
             "people": people_payload,

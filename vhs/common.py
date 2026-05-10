@@ -525,9 +525,9 @@ def render_settings_path(archive: str) -> Path:
     return METADATA_DIR / str(archive or "").strip() / "render_settings.json"
 
 
-GAMMA_CORRECTION_DEFAULT_KEY = "gamma_correction_default"
-GAMMA_CORRECTION_RANGES_KEY = "gamma_correction_ranges"
-AUDIO_SYNC_OFFSETS_KEY = "audio_sync_offsets"
+GAMMA_CORRECTION_DEFAULT_KEY = "gamma_correction_default"  # noqa: SKY-L014
+GAMMA_CORRECTION_RANGES_KEY = "gamma_correction_ranges"  # noqa: SKY-L014
+AUDIO_SYNC_OFFSETS_KEY = "audio_sync_offsets"  # noqa: SKY-L014
 
 
 def _render_settings_template() -> dict:
@@ -898,6 +898,25 @@ def update_chapter_audio_sync_in_render_settings(
     return save_render_settings(archive, settings)
 
 
+def _bad_frames_in_range(all_bad: list[int], start: int, end: int) -> list[int]:
+    return [f for f in all_bad if start <= f < end]
+
+
+def _find_chapter_frame_range(archive: str, title: str) -> tuple[int, int] | None:
+    for ext in ("chapters.tsv", "chapters.ffmetadata"):
+        chapters_path = METADATA_DIR / str(archive or "").strip() / ext
+        if not chapters_path.exists():
+            continue
+        _, chapters = parse_chapters(chapters_path)
+        chapter_obj = next(
+            (ch for ch in chapters if str(ch.get("title", "")).strip() == title),
+            None,
+        )
+        if chapter_obj is not None:
+            return chapter_frame_bounds(chapter_obj, fps_num=30000, fps_den=1001)
+    return None
+
+
 def get_bad_frames_for_chapter(
     archive: str,
     chapter_title: str,
@@ -909,22 +928,14 @@ def get_bad_frames_for_chapter(
     if not all_bad:
         return []
     if ch_start is not None and ch_end is not None:
-        return [f for f in all_bad if ch_start <= f < ch_end]
+        return _bad_frames_in_range(all_bad, ch_start, ch_end)
     title = str(chapter_title or "").strip()
     if not title:
         return []
-    for ext in ("chapters.tsv", "chapters.ffmetadata"):
-        chapters_path = METADATA_DIR / str(archive or "").strip() / ext
-        if chapters_path.exists():
-            _, chapters = parse_chapters(chapters_path)
-            chapter_obj = next(
-                (ch for ch in chapters if str(ch.get("title", "")).strip() == title),
-                None,
-            )
-            if chapter_obj is not None:
-                start_frame, end_frame = chapter_frame_bounds(chapter_obj, fps_num=30000, fps_den=1001)
-                return [f for f in all_bad if start_frame <= f < end_frame]
-    return []
+    bounds = _find_chapter_frame_range(archive, title)
+    if bounds is None:
+        return []
+    return _bad_frames_in_range(all_bad, bounds[0], bounds[1])
 
 
 def merge_bad_frames_in_render_settings(archive: str, new_frames) -> Path:

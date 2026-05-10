@@ -36,54 +36,7 @@ def _print_ai_steps() -> None:
         print(line)
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="python -m photoalbums",
-        description="Unified command surface for photo album archive workflows.",
-    )
-    subparsers = parser.add_subparsers(dest="group", required=True)
-
-    ai_parser = subparsers.add_parser(
-        "ai",
-        add_help=False,
-        help="AI-assisted indexing (people -> objects -> combined OCR+caption -> XMP).",
-    )
-    ai_parser.add_argument(
-        "-h",
-        "--help",
-        dest="ai_help",
-        action="store_true",
-        help="Show ai index help.",
-    )
-
-    metadata_parser = subparsers.add_parser("metadata", help="Metadata commands")
-    metadata_sub = metadata_parser.add_subparsers(dest="metadata_kind", required=True)
-    metadata_sub.add_parser("apply", help="Apply standardized metadata tags to TIFF scans")
-    metadata_sub.add_parser("tsv", help="Deprecated metadata.tsv export command")
-    map_parser = metadata_sub.add_parser(
-        "map", help="Launch a local Web UI map to manually drag-and-drop GPS locations"
-    )
-    map_parser.add_argument(
-        "paths",
-        nargs="+",
-        help="Directories or .xmp files to load into the map",
-    )
-    map_parser.add_argument(
-        "--port",
-        type=int,
-        default=8095,
-        help="Port to run the HTTP map server on (default 8095)",
-    )
-
-    subparsers.add_parser("compress", help="Compress TIFF scans in-place where needed")
-
-    render_parser = subparsers.add_parser("render", help="Render album page outputs (skips existing valid outputs)")
-    render_sub = render_parser.add_subparsers(dest="render_kind", required=False)
-    render_sub.add_parser("validate", help="Validate source scan stitchability without writing outputs")
-
-    watch_parser = subparsers.add_parser("watch", help="Watch for incoming scans and register pending events")
-    watch_parser.add_argument("--list-steps", action="store_true", help="Print watcher ingest steps and exit")
-
+def _add_detection_and_pipeline_subparsers(subparsers) -> None:
     detect_vr_parser = subparsers.add_parser(
         "detect-view-regions",
         help="Detect photo regions in view JPGs and write MWG-RS XMP region metadata.",
@@ -173,6 +126,57 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Skip strict region validations (e.g. for docling)",
     )
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="python -m photoalbums",
+        description="Unified command surface for photo album archive workflows.",
+    )
+    subparsers = parser.add_subparsers(dest="group", required=True)
+
+    ai_parser = subparsers.add_parser(
+        "ai",
+        add_help=False,
+        help="AI-assisted indexing (people -> objects -> combined OCR+caption -> XMP).",
+    )
+    ai_parser.add_argument(
+        "-h",
+        "--help",
+        dest="ai_help",
+        action="store_true",
+        help="Show ai index help.",
+    )
+
+    metadata_parser = subparsers.add_parser("metadata", help="Metadata commands")
+    metadata_sub = metadata_parser.add_subparsers(dest="metadata_kind", required=True)
+    metadata_sub.add_parser("apply", help="Apply standardized metadata tags to TIFF scans")
+    metadata_sub.add_parser("tsv", help="Deprecated metadata.tsv export command")
+    map_parser = metadata_sub.add_parser(
+        "map", help="Launch a local Web UI map to manually drag-and-drop GPS locations"
+    )
+    map_parser.add_argument(
+        "paths",
+        nargs="+",
+        help="Directories or .xmp files to load into the map",
+    )
+    map_parser.add_argument(
+        "--port",
+        type=int,
+        default=8095,
+        help="Port to run the HTTP map server on (default 8095)",
+    )
+
+    subparsers.add_parser("compress", help="Compress TIFF scans in-place where needed")
+
+    render_parser = subparsers.add_parser("render", help="Render album page outputs (skips existing valid outputs)")
+    render_sub = render_parser.add_subparsers(dest="render_kind", required=False)
+    render_sub.add_parser("validate", help="Validate source scan stitchability without writing outputs")
+
+    watch_parser = subparsers.add_parser("watch", help="Watch for incoming scans and register pending events")
+    watch_parser.add_argument("--list-steps", action="store_true", help="Print watcher ingest steps and exit")
+
+    _add_detection_and_pipeline_subparsers(subparsers)
 
     checksum_parser = subparsers.add_parser("checksum", help="Checksum manifest commands")
     checksum_sub = checksum_parser.add_subparsers(dest="checksum_kind", required=True)

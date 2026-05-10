@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import glob
+import logging
 import shutil
 import subprocess
 import sys
@@ -9,6 +10,8 @@ import xml.etree.ElementTree as ET
 from fractions import Fraction
 from pathlib import Path
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 import importlib.metadata
 
@@ -53,7 +56,8 @@ def _safe_int(value: Any) -> int | None:
         return None
     try:
         return int(text)
-    except Exception:
+    except Exception as exc:
+        log.debug("could not parse int from %r: %s", text, exc)
         return None
 
 
@@ -68,7 +72,8 @@ def _parse_timebase(value: str) -> tuple[int, int] | None:
     try:
         num = int(num_s.strip())
         den = int(den_s.strip())
-    except Exception:
+    except Exception as exc:
+        log.debug("could not parse timebase %r: %s", raw, exc)
         return None
     if den == 0:
         return None

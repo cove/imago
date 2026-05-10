@@ -753,14 +753,8 @@ def _apply_tuning_params(effective: dict[str, object], tuning_params: dict[str, 
     return tuned
 
 
-def _retry_caption_concern(
-    *,
-    crop_image_path: Path,
-    state: dict,
-    effective: dict[str, object],
-    prompt_prefix: str,
-) -> str:
-    caption_engine = CaptionEngine(
+def _build_caption_engine(effective: dict[str, object]) -> CaptionEngine:
+    return CaptionEngine(
         engine=str(effective.get("caption_engine") or "lmstudio"),
         model_name=str(effective.get("caption_model") or ""),
         max_tokens=int(effective.get("caption_max_tokens") or 96),
@@ -769,14 +763,28 @@ def _retry_caption_concern(
         max_image_edge=int(effective.get("caption_max_edge") or 0),
         stream=False,
     )
+
+
+def _state_object_labels(state: dict) -> list[str]:
+    return [
+        _clean_text(row.get("label"))
+        for row in list((state.get("detections") or {}).get("objects") or [])
+        if isinstance(row, dict) and _clean_text(row.get("label"))
+    ]
+
+
+def _retry_caption_concern(
+    *,
+    crop_image_path: Path,
+    state: dict,
+    effective: dict[str, object],
+    prompt_prefix: str,
+) -> str:
+    caption_engine = _build_caption_engine(effective)
     result = caption_engine.generate(
         crop_image_path,
         people=list(state.get("person_names") or []),
-        objects=[
-            _clean_text(row.get("label"))
-            for row in list((state.get("detections") or {}).get("objects") or [])
-            if isinstance(row, dict) and _clean_text(row.get("label"))
-        ],
+        objects=_state_object_labels(state),
         ocr_text=_clean_text(state.get("ocr_text")),
         source_path=crop_image_path,
         album_title=_clean_text(state.get("album_title")),
@@ -798,6 +806,22 @@ def _retry_caption_concern(
     return str(caption_engine.effective_model_name or "")
 
 
+def _preserved_location_keys(concern: str) -> tuple[str, ...]:
+    if concern == "gps":
+        return ("city", "state", "country", "sublocation")
+    return ("gps_latitude", "gps_longitude", "query", "display_name")
+
+
+def _merge_preserved_location_keys(
+    location_payload: dict,
+    current_location: dict,
+    concern: str,
+) -> None:
+    for key in _preserved_location_keys(concern):
+        if _clean_text(current_location.get(key)):
+            location_payload[key] = current_location[key]
+
+
 def _retry_location_concern(
     *,
     crop_image_path: Path,
@@ -806,15 +830,7 @@ def _retry_location_concern(
     prompt_prefix: str,
     concern: str,
 ) -> str:
-    caption_engine = CaptionEngine(
-        engine=str(effective.get("caption_engine") or "lmstudio"),
-        model_name=str(effective.get("caption_model") or ""),
-        max_tokens=int(effective.get("caption_max_tokens") or 96),
-        temperature=float(effective.get("caption_temperature") or 0.2),
-        lmstudio_base_url=str(effective.get("lmstudio_base_url") or DEFAULT_LMSTUDIO_BASE_URL),
-        max_image_edge=int(effective.get("caption_max_edge") or 0),
-        stream=False,
-    )
+    caption_engine = _build_caption_engine(effective)
     prompt_debug = PromptDebugSession(crop_image_path, label=crop_image_path.name)
     locations_output = run_locations_step(
         caption_engine=caption_engine,
@@ -831,15 +847,7 @@ def _retry_location_concern(
     if locations_output is None:
         raise RuntimeError(f"Concern retry failed because locations step is not configured for: {crop_image_path}")
     location_payload = dict(locations_output.get("location") or {})
-    current_location = _location_payload_from_state(state)
-    preserved_keys = (
-        ("city", "state", "country", "sublocation")
-        if concern == "gps"
-        else ("gps_latitude", "gps_longitude", "query", "display_name")
-    )
-    for key in preserved_keys:
-        if _clean_text(current_location.get(key)):
-            location_payload[key] = current_location[key]
+    _merge_preserved_location_keys(location_payload, _location_payload_from_state(state), concern)
     detections = dict(state.get("detections") or {})
     detections["location"] = location_payload
     detections["locations_shown"] = list(locations_output.get("locations_shown") or [])
@@ -1431,6 +1439,80 @@ def _run_parameter_suggestion_retry(
     return pass3_attempt
 
 
+def _resolve_verify_crops_params(
+    max_tokens: int,
+    temperature: float,
+    max_image_edge: int,
+) -> dict[str, object]:
+    default_params = _verification_params()
+    resolved_tokens = int(max_tokens if max_tokens is not None else default_params.get("max_tokens", 512))
+    resolved_temp = float(temperature if temperature is not None else default_params.get("temperature", 0.0))
+    resolved_edge = int(
+        max_image_edge
+        if max_image_edge is not None
+        else default_params.get("max_image_edge", DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
+    )
+    return {
+        "max_tokens": resolved_tokens,
+        "temperature": resolved_temp,
+        "max_image_edge": resolved_edge,
+        "timeout_seconds": float(default_params.get("timeout_seconds", DEFAULT_LMSTUDIO_TIMEOUT_SECONDS)),
+    }
+
+
+def _build_page_input_hash(
+    page_path: Path,
+    page_xmp_text: str,
+    page_location_verification_text: str,
+    crop_inputs: list,
+    resolved_params: dict,
+) -> str:
+    crops_hash_inputs = [
+        {
+            "crop_image": _image_signature(Path(str(item.get("crop_image_path") or ""))),
+            "crop_xmp_text": _clean_text(item.get("crop_xmp_text")),
+            "crop_location_verification_text": _clean_text(item.get("crop_location_verification_text")),
+        }
+        for item in crop_inputs
+        if Path(str(item.get("crop_image_path") or "")).is_file()
+    ]
+    return _context_payload_hash(
+        {
+            "page_image": _image_signature(page_path) if page_path.is_file() else None,
+            "page_xmp_text": page_xmp_text,
+            "page_location_verification_text": page_location_verification_text,
+            "page_pipeline_state": read_pipeline_state(page_path.with_suffix(".xmp")),
+            "prompt_assets": verify_crops_prompt_hash_payload(),
+            "resolved_params": resolved_params,
+            "crops": crops_hash_inputs,
+        }
+    )
+
+
+def _write_verify_crops_artifact(page_path: Path, artifact: dict) -> Path:
+    output_path = _artifact_output_path(page_path)
+    output_path.write_text(json.dumps(artifact, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return output_path
+
+
+def _build_ok_summary(results: list) -> dict[str, object]:
+    bad_or_uncertain = [
+        {
+            "crop_image_path": row["crop_image_path"],
+            "needs_another_pass": row["review"]["needs_another_pass"],
+            "needs_human_review": row["review"]["needs_human_review"],
+        }
+        for row in results
+        if any(row["review"][name]["verdict"] in {"bad", "uncertain"} for name in VERIFICATION_CONCERNS)
+    ]
+    return {
+        "status": "ok",
+        "crop_count": len(results),
+        "retry_attempt_count": sum(len(list(row.get("retry_attempts") or [])) for row in results),
+        "bad_or_uncertain": bad_or_uncertain,
+    }
+
+
 def run_verify_crops_page(
     page_image_path: str | Path,
     *,
@@ -1442,20 +1524,10 @@ def run_verify_crops_page(
     debug_recorder=None,
     logger=None,
 ) -> dict[str, object]:
-    default_params = _verification_params()
-    max_tokens = int(max_tokens if max_tokens is not None else default_params.get("max_tokens", 512))
-    temperature = float(temperature if temperature is not None else default_params.get("temperature", 0.0))
-    max_image_edge = int(
-        max_image_edge
-        if max_image_edge is not None
-        else default_params.get("max_image_edge", DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE)
-    )
-    resolved_params = {
-        "max_tokens": int(max_tokens),
-        "temperature": float(temperature),
-        "max_image_edge": int(max_image_edge),
-        "timeout_seconds": float(default_params.get("timeout_seconds", DEFAULT_LMSTUDIO_TIMEOUT_SECONDS)),
-    }
+    resolved_params = _resolve_verify_crops_params(max_tokens, temperature, max_image_edge)
+    max_tokens = int(resolved_params["max_tokens"])
+    temperature = float(resolved_params["temperature"])
+    max_image_edge = int(resolved_params["max_image_edge"])
     page_path = Path(page_image_path)
     geocoder = NominatimGeocoder()
     inputs = load_page_verifier_inputs(page_path, geocoder=geocoder)
@@ -1471,24 +1543,8 @@ def run_verify_crops_page(
         "missing_context": list(missing_context),
         "results": [],
     }
-    page_input_hash = _context_payload_hash(
-        {
-            "page_image": _image_signature(page_path) if page_path.is_file() else None,
-            "page_xmp_text": page_xmp_text,
-            "page_location_verification_text": page_location_verification_text,
-            "page_pipeline_state": read_pipeline_state(page_path.with_suffix(".xmp")),
-            "prompt_assets": verify_crops_prompt_hash_payload(),
-            "resolved_params": resolved_params,
-            "crops": [
-                {
-                    "crop_image": _image_signature(Path(str(item.get("crop_image_path") or ""))),
-                    "crop_xmp_text": _clean_text(item.get("crop_xmp_text")),
-                    "crop_location_verification_text": _clean_text(item.get("crop_location_verification_text")),
-                }
-                for item in crop_inputs
-                if Path(str(item.get("crop_image_path") or "")).is_file()
-            ],
-        }
+    page_input_hash = _build_page_input_hash(
+        page_path, page_xmp_text, page_location_verification_text, crop_inputs, resolved_params
     )
 
     if missing_context:
@@ -1496,8 +1552,7 @@ def run_verify_crops_page(
             "status": "missing-context",
             "missing_context": list(missing_context),
         }
-        output_path = _artifact_output_path(page_path)
-        output_path.write_text(json.dumps(artifact, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        output_path = _write_verify_crops_artifact(page_path, artifact)
         return {
             "status": "missing-context",
             "page_input_hash": page_input_hash,
@@ -1525,22 +1580,8 @@ def run_verify_crops_page(
             )
         )
 
-    artifact["summary"] = {
-        "status": "ok",
-        "crop_count": len(artifact["results"]),
-        "retry_attempt_count": sum(len(list(row.get("retry_attempts") or [])) for row in list(artifact["results"])),
-        "bad_or_uncertain": [
-            {
-                "crop_image_path": row["crop_image_path"],
-                "needs_another_pass": row["review"]["needs_another_pass"],
-                "needs_human_review": row["review"]["needs_human_review"],
-            }
-            for row in list(artifact["results"])
-            if any(row["review"][name]["verdict"] in {"bad", "uncertain"} for name in VERIFICATION_CONCERNS)
-        ],
-    }
-    output_path = _artifact_output_path(page_path)
-    output_path.write_text(json.dumps(artifact, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    artifact["summary"] = _build_ok_summary(list(artifact["results"]))
+    output_path = _write_verify_crops_artifact(page_path, artifact)
     return {
         "status": "ok",
         "page_input_hash": page_input_hash,

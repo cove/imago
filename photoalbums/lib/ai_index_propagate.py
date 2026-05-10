@@ -232,6 +232,51 @@ def _propagate_one_crop(
     return True
 
 
+def _location_needs_geocoding(location: dict) -> bool:
+    normalized = normalize_location_payload(location)
+    has_address = bool(normalized.get("address") or str(location.get("name") or "").strip())
+    has_gps = bool(normalized.get("gps_latitude"))
+    return has_address and not has_gps
+
+
+def _propagation_needs_geocoder(locations_shown: list, regions: list) -> bool:
+    if any(_location_needs_geocoding(loc) for loc in locations_shown if isinstance(loc, dict)):
+        return True
+    return any(
+        location_payload_from_caption(_region_caption(region))
+        for region in regions
+        if isinstance(region, dict)
+    )
+
+
+def _propagate_all_crops(
+    crop_paths: list[Path],
+    regions: list[dict],
+    region_person_names: list[list[str]],
+    locations_shown: list,
+    location_payload: dict[str, Any],
+    step_timestamp: str,
+    page_dc_date_values: list[str],
+    geocoder: Any,
+) -> int:
+    crops_updated = 0
+    for i, crop_path in enumerate(crop_paths):
+        names_from_region = region_person_names[i] if i < len(region_person_names) else []
+        region_state = regions[i] if i < len(regions) else {}
+        if _propagate_one_crop(
+            crop_path.with_suffix(".xmp"),
+            region_state,
+            names_from_region,
+            locations_shown,
+            location_payload,
+            step_timestamp,
+            page_dc_date_values=page_dc_date_values,
+            geocoder=geocoder,
+        ):
+            crops_updated += 1
+    return crops_updated
+
+
 def run_propagate_to_crops(
     image_path: Path,
     *,
@@ -256,30 +301,19 @@ def run_propagate_to_crops(
     page_dc_date_values = list((page_state or {}).get("dc_date_values") or [])
     step_timestamp = xmp_datetime_now()
     geocoder = None
-    if any(
-        (normalize_location_payload(location).get("address") or str(location.get("name") or "").strip())
-        and not normalize_location_payload(location).get("gps_latitude")
-        for location in locations_shown
-        if isinstance(location, dict)
-    ) or any(location_payload_from_caption(_region_caption(region)) for region in regions if isinstance(region, dict)):
+    if _propagation_needs_geocoder(locations_shown, regions):
         from .ai_geocode import NominatimGeocoder  # pylint: disable=import-outside-toplevel
 
         geocoder = NominatimGeocoder()
 
-    crops_updated = 0
-    for i, crop_path in enumerate(crop_paths):
-        names_from_region = region_person_names[i] if i < len(region_person_names) else []
-        region_state = regions[i] if i < len(regions) else {}
-        if _propagate_one_crop(
-            crop_path.with_suffix(".xmp"),
-            region_state,
-            names_from_region,
-            locations_shown,
-            location_payload,
-            step_timestamp,
-            page_dc_date_values=page_dc_date_values,
-            geocoder=geocoder,
-        ):
-            crops_updated += 1
-
+    crops_updated = _propagate_all_crops(
+        crop_paths,
+        regions,
+        region_person_names,
+        locations_shown,
+        location_payload,
+        step_timestamp,
+        page_dc_date_values,
+        geocoder,
+    )
     return {"crops_updated": crops_updated}

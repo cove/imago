@@ -286,6 +286,71 @@ class CaptionEngine:
             thinking=self._thinking,
         )
 
+    def _build_caption_prompt(
+        self,
+        image_path: str | Path,
+        *,
+        people: list[str],
+        objects: list[str],
+        ocr_text: str,
+        source_path: str | Path | None,
+        album_title: str,
+        printed_album_title: str,
+        people_positions: dict[str, str] | None,
+        context_ocr_text: str,
+        prompt_prefix: str,
+    ) -> str:
+        base = self._caption_prompt or _build_local_prompt(
+            people=people,
+            objects=objects,
+            ocr_text=ocr_text,
+            source_path=source_path or image_path,
+            album_title=album_title,
+            printed_album_title=printed_album_title,
+            people_positions=people_positions,
+            context_ocr_text=context_ocr_text,
+        )
+        prefix = str(prompt_prefix or "").strip()
+        return "\n\n".join(part for part in (prefix, base) if part).strip()
+
+    def _emit_caption_debug(
+        self,
+        debug_recorder,
+        debug_step: str,
+        prompt: str,
+        source_path: str | Path,
+        response: str,
+        finish_reason: str,
+        error_text: str,
+        photo_count: int,
+        context_ocr_text: str,
+    ) -> None:
+        metadata = _caption_debug_metadata(
+            photo_count=photo_count,
+            source_path=source_path,
+            context_ocr_text=context_ocr_text,
+            max_tokens=self._max_tokens,
+            temperature=self._temperature,
+            max_image_edge=self._max_image_edge,
+            caption_prompt=self._caption_prompt,
+            override_sources=self.override_sources,
+        )
+        if error_text:
+            metadata["error"] = error_text
+        _emit_prompt_debug(
+            debug_recorder,
+            step=debug_step,
+            engine=self.engine,
+            model=self.effective_model_name,
+            prompt=prompt,
+            system_prompt="",
+            source_path=source_path,
+            prompt_source=("custom" if self._caption_prompt else "photoalbums/prompts/ai-index/caption"),
+            response=response,
+            finish_reason=finish_reason,
+            metadata=metadata,
+        )
+
     def generate(
         self,
         image_path: str | Path,
@@ -306,17 +371,19 @@ class CaptionEngine:
         if self.engine == "none":
             return CaptionOutput(text="", engine="none")
         self._ensure_captioner()
-        base_prompt = self._caption_prompt or _build_local_prompt(
+        effective_source = source_path or image_path
+        prompt = self._build_caption_prompt(
+            image_path,
             people=people,
             objects=objects,
             ocr_text=ocr_text,
-            source_path=source_path or image_path,
+            source_path=source_path,
             album_title=album_title,
             printed_album_title=printed_album_title,
             people_positions=people_positions,
             context_ocr_text=context_ocr_text,
+            prompt_prefix=prompt_prefix,
         )
-        prompt = "\n\n".join(part for part in (str(prompt_prefix or "").strip(), base_prompt) if part).strip()
         response = ""
         finish_reason = ""
         error_text = ""
@@ -340,30 +407,16 @@ class CaptionEngine:
                 engine_error=error_text,
             )
         finally:
-            metadata = _caption_debug_metadata(
-                photo_count=photo_count,
-                source_path=source_path or image_path,
-                context_ocr_text=context_ocr_text,
-                max_tokens=self._max_tokens,
-                temperature=self._temperature,
-                max_image_edge=self._max_image_edge,
-                caption_prompt=self._caption_prompt,
-                override_sources=self.override_sources,
-            )
-            if error_text:
-                metadata["error"] = error_text
-            _emit_prompt_debug(
+            self._emit_caption_debug(
                 debug_recorder,
-                step=debug_step,
-                engine=self.engine,
-                model=self.effective_model_name,
+                debug_step,
                 prompt=prompt,
-                system_prompt="",
-                source_path=source_path or image_path,
-                prompt_source=("custom" if self._caption_prompt else "photoalbums/prompts/ai-index/caption"),
+                source_path=effective_source,
                 response=response,
                 finish_reason=finish_reason,
-                metadata=metadata,
+                error_text=error_text,
+                photo_count=photo_count,
+                context_ocr_text=context_ocr_text,
             )
 
     def estimate_people(

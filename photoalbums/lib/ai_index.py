@@ -623,25 +623,22 @@ def _dc_date_needs_refresh(
     return current_hash != str(sidecar_state.get("date_estimate_input_hash") or "").strip()
 
 
-def _resolve_dc_date(
+def _clean_existing_dc_date(existing_dc_date: str | list[str]) -> str | list[str] | None:
+    if isinstance(existing_dc_date, list):
+        clean = [str(item or "").strip() for item in existing_dc_date if str(item or "").strip()]
+        return clean if clean else None
+    clean = str(existing_dc_date or "").strip()
+    return clean if clean else None
+
+
+def _estimate_dc_date_from_engine(
     *,
-    existing_dc_date: str | list[str],
     ocr_text: str,
     album_title: str,
     image_path: Path,
-    date_engine: DateEstimateEngine | None,
+    date_engine: DateEstimateEngine,
     prompt_debug: PromptDebugSession | None,
-) -> str | list[str]:
-    if isinstance(existing_dc_date, list):
-        clean_existing = [str(item or "").strip() for item in existing_dc_date if str(item or "").strip()]
-        if clean_existing:
-            return clean_existing
-    else:
-        clean_existing = str(existing_dc_date or "").strip()
-        if clean_existing:
-            return clean_existing
-    if date_engine is None:
-        return ""
+) -> str:
     input_hash = _date_estimate_input_hash(ocr_text, album_title)
     if not input_hash:
         return ""
@@ -655,6 +652,29 @@ def _resolve_dc_date(
     if str(result.error or "").strip():
         raise RuntimeError(f"Date estimate failed: {result.error}")
     return str(result.date or "").strip()
+
+
+def _resolve_dc_date(
+    *,
+    existing_dc_date: str | list[str],
+    ocr_text: str,
+    album_title: str,
+    image_path: Path,
+    date_engine: DateEstimateEngine | None,
+    prompt_debug: PromptDebugSession | None,
+) -> str | list[str]:
+    cleaned = _clean_existing_dc_date(existing_dc_date)
+    if cleaned is not None:
+        return cleaned
+    if date_engine is None:
+        return ""
+    return _estimate_dc_date_from_engine(
+        ocr_text=ocr_text,
+        album_title=album_title,
+        image_path=image_path,
+        date_engine=date_engine,
+        prompt_debug=prompt_debug,
+    )
 
 
 def _write_sidecar_and_record(*args: Any, **kwargs: Any) -> None:

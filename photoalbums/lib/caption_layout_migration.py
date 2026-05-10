@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 import stat
 import xml.etree.ElementTree as ET
+
+log = logging.getLogger(__name__)
 
 from .xmp_sidecar import (
     DC_NS,
@@ -49,7 +52,8 @@ def _load_desc(xmp_path: str | Path) -> ET.Element | None:
         return None
     try:
         tree = ET.parse(path)
-    except ET.ParseError:
+    except ET.ParseError as exc:
+        log.debug("Failed to parse XMP sidecar %s: %s", xmp_path, exc)
         return None
     return _get_rdf_desc(tree)
 

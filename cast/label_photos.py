@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterator
+
+log = logging.getLogger(__name__)
 
 from .ingest import CURRENT_FACE_EMBEDDING_MODEL
 from .matching import face_embedding_model, suggest_people
@@ -146,7 +149,8 @@ def _prompt_for_face(
     while True:
         try:
             raw = input("\n  Names (comma-sep), 's' skip, 'q' quit: ").strip()
-        except EOFError:
+        except EOFError as exc:
+            log.debug("stdin closed during name prompt: %s", exc)
             return None
 
         if raw.lower() in ("q", "quit"):

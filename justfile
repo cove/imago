@@ -29,6 +29,9 @@ typecheck:
   {{python}} scripts/check_basedpyright.py
 
 dupes:
+  {{python}} scripts/check_skylos.py --duplicates-only
+
+skylos:
   {{python}} scripts/check_skylos.py
 
 deadcode:
@@ -92,4 +95,3 @@ photoalbums-scan-pipeline:
 
 photoalbums-bennett-scan-pipeline:
   {{python}} -m photoalbums.bennett watch
-

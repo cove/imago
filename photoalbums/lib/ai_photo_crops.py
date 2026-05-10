@@ -437,72 +437,33 @@ def _resolved_crop_location_metadata(
     return effective_loc, crop_locations_shown
 
 
-def _write_crop_sidecar(
-    crop_path: Path,
-    view_path: Path,
-    caption: str,
-    view_state: dict,
-    locations_shown: list[dict],
-    person_names: list[str],
-    region_location_payload: dict[str, Any] | None = None,
-    region_location_override: dict[str, Any] | None = None,
-    geocoder=None,
-) -> None:
-    """Write or update the XMP sidecar for a crop JPEG.
+def _write_crop_provenance(crop_xmp: Path, view_path: Path, view_xmp: Path) -> None:
+    from .xmpmm_provenance import assign_document_id, read_document_id, write_derived_from, write_pantry_entry
 
-    Writes DocumentID, DerivedFrom, Pantry, dc:description (if caption),
-    dc:source, location/date/subject metadata from view_state, and
-    PersonInImage. Preserves unrelated existing sidecar fields.
-    """
-    from .xmpmm_provenance import assign_document_id, write_derived_from, write_pantry_entry
-    from .xmp_sidecar import write_xmp_sidecar
-
-    crop_xmp = crop_path.with_suffix(".xmp")
-    view_xmp = view_path.with_suffix(".xmp")
-
-    # Step 1: ensure crop sidecar exists and has a DocumentID
     assign_document_id(crop_xmp)
-
-    # Step 2: get the page view's DocumentID for provenance links
-    from .xmpmm_provenance import read_document_id
-
     view_doc_id = read_document_id(view_xmp)
-
-    # Step 3: write provenance
     if view_doc_id:
         source_rel = Path(os.path.relpath(view_path, crop_xmp.parent)).as_posix()
         write_derived_from(crop_xmp, view_doc_id, source_path=source_rel)
         write_pantry_entry(crop_xmp, view_doc_id, source_path=source_rel)
 
-    # Step 4: write metadata via write_xmp_sidecar (handles merge)
-    # Merge view subjects with any subjects already on the crop sidecar
+
+def _write_crop_xmp_metadata(
+    crop_xmp: Path,
+    *,
+    caption: str,
+    view_state: dict,
+    view_xmp: Path,
+    crop_album_title: str,
+    archive_source_text: str,
+    effective_loc: dict,
+    crop_locations_shown: list[dict],
+    resolved_person_names: list[str],
+    parent_ocr_text: str,
+) -> None:
+    from .xmp_sidecar import write_xmp_sidecar
+
     subjects = _merged_crop_subjects(view_xmp, crop_xmp)
-
-    page_description = str(view_state.get("description") or "").strip()
-    parent_ocr_text = str(view_state.get("parent_ocr_text") or view_state.get("ocr_text") or "").strip()
-    if not caption:
-        caption = page_description
-
-    crop_album_title, archive_source_text = _crop_source_metadata(view_path, view_state)
-
-    # Compute effective location: page view state first, then archive scan fallback.
-    # Crops are created before the page view refresh may have written GPS/location,
-    # so we walk up to the archive scan if the page view has no GPS.
-    page_location = _page_location_for_crop(view_path, view_state, archive_source_text)
-    effective_loc, crop_locations_shown = _resolved_crop_location_metadata(
-        caption=caption,
-        locations_shown=locations_shown,
-        page_location=page_location,
-        region_location_payload=region_location_payload,
-        region_location_override=region_location_override,
-        geocoder=geocoder,
-    )
-    resolved_person_names = _resolver_resolve_person_in_image(
-        person_names,
-        locations_shown=locations_shown,
-        location_payload=effective_loc,
-    )
-
     write_xmp_sidecar(
         crop_xmp,
         person_names=resolved_person_names,
@@ -523,6 +484,64 @@ def _write_crop_sidecar(
         parent_ocr_text=parent_ocr_text,
         ocr_text="",
         detections_payload={"location": effective_loc} if effective_loc else None,
+    )
+
+
+def _write_crop_sidecar(
+    crop_path: Path,
+    view_path: Path,
+    caption: str,
+    view_state: dict,
+    locations_shown: list[dict],
+    person_names: list[str],
+    region_location_payload: dict[str, Any] | None = None,
+    region_location_override: dict[str, Any] | None = None,
+    geocoder=None,
+) -> None:
+    """Write or update the XMP sidecar for a crop JPEG.
+
+    Writes DocumentID, DerivedFrom, Pantry, dc:description (if caption),
+    dc:source, location/date/subject metadata from view_state, and
+    PersonInImage. Preserves unrelated existing sidecar fields.
+    """
+    crop_xmp = crop_path.with_suffix(".xmp")
+    view_xmp = view_path.with_suffix(".xmp")
+
+    _write_crop_provenance(crop_xmp, view_path, view_xmp)
+
+    page_description = str(view_state.get("description") or "").strip()
+    parent_ocr_text = str(view_state.get("parent_ocr_text") or view_state.get("ocr_text") or "").strip()
+    if not caption:
+        caption = page_description
+
+    crop_album_title, archive_source_text = _crop_source_metadata(view_path, view_state)
+
+    page_location = _page_location_for_crop(view_path, view_state, archive_source_text)
+    effective_loc, crop_locations_shown = _resolved_crop_location_metadata(
+        caption=caption,
+        locations_shown=locations_shown,
+        page_location=page_location,
+        region_location_payload=region_location_payload,
+        region_location_override=region_location_override,
+        geocoder=geocoder,
+    )
+    resolved_person_names = _resolver_resolve_person_in_image(
+        person_names,
+        locations_shown=locations_shown,
+        location_payload=effective_loc,
+    )
+
+    _write_crop_xmp_metadata(
+        crop_xmp,
+        caption=caption,
+        view_state=view_state,
+        view_xmp=view_xmp,
+        crop_album_title=crop_album_title,
+        archive_source_text=archive_source_text,
+        effective_loc=effective_loc,
+        crop_locations_shown=crop_locations_shown,
+        resolved_person_names=resolved_person_names,
+        parent_ocr_text=parent_ocr_text,
     )
     _verify_crop_sidecar_metadata(
         crop_xmp,

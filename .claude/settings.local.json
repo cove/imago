@@ -301,7 +301,13 @@
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\covec\\\\Videos\\\\imago\" -Recurse -Depth 3)",
       "Bash(Select-Object -Property FullName, PSIsContainer)",
       "Bash(Format-Table -AutoSize)",
-      "Bash(just deadcode *)"
+      "Bash(just deadcode *)",
+      "Bash(just skylos *)",
+      "Bash(Select-String \" HIGH \")",
+      "Bash(.venv/Scripts/skylos.exe --help)",
+      "Bash(skylos --help)",
+      "Bash(awk -F: '{if \\($2 >= 1360 && $2 <= 1385\\) print}')",
+      "Bash(awk -F: '{if \\($1 >= 1365 && $1 <= 1385\\) print}')"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",

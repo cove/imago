@@ -646,11 +646,7 @@ def _expected_unrepaired_targets(frame_count, bad_set, step_6_make_videos):
     return unrepaired
 
 
-def test_step_6_badframe_randomized_generation_100_cases():
-    print("Testing step_6_make_videos badframe resolver with 100 pre-generated patterns...")
-    step_6_make_videos = import_step_6_module()
-
-    pregenerated_cases = [
+_BADFRAME_100_CASES = [
         (18, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]),
         (19, []),
         (
@@ -1683,12 +1679,15 @@ def test_step_6_badframe_randomized_generation_100_cases():
                 41,
             ],
         ),
-    ]
-    assert len(pregenerated_cases) == 100
+]
 
-    for case_idx, (frame_count, bad_frames) in enumerate(pregenerated_cases):
+
+def test_step_6_badframe_randomized_generation_100_cases():
+    print("Testing step_6_make_videos badframe resolver with 100 pre-generated patterns...")
+    step_6_make_videos = import_step_6_module()
+    assert len(_BADFRAME_100_CASES) == 100
+    for case_idx, (frame_count, bad_frames) in enumerate(_BADFRAME_100_CASES):
         _assert_randomized_badframe_case(step_6_make_videos, case_idx, frame_count, bad_frames)
-
     print("Test step_6_make_videos badframe randomized generation (100 cases): PASSED.")
     del sys.modules["step_6_make_videos"]
     sys.modules.pop("whisper", None)
@@ -2007,64 +2006,79 @@ def _step_6_shown_bad_violations(ch, resolved, max_local, local_bad):
     return violations
 
 
+def _parse_bad_frames_from_tsv(frame_quality_tsv) -> set:
+    bad_exact = set()
+    idx_frame = 0
+    idx_bad = 2
+    for raw in frame_quality_tsv.read_text(encoding="utf-8", errors="ignore").splitlines():
+        s = raw.strip()
+        if not s or s.startswith("#"):
+            continue
+        parts = [p.strip() for p in s.split("\t")]
+        low = [p.lower() for p in parts]
+        if low and low[0] == "frame":
+            idx_frame = low.index("frame")
+            idx_bad = low.index("bad_frame")
+            continue
+        try:
+            frame = int(parts[idx_frame])
+            is_bad = int(parts[idx_bad]) == 1
+        except Exception:
+            continue
+        if is_bad:
+            bad_exact.add(frame)
+    return bad_exact
+
+
+def _collect_bad_from_repairs(repairs) -> set:
+    bad_from_repairs = set()
+    for a, b, _src in repairs:
+        for f in range(int(a), int(b) + 1):
+            bad_from_repairs.add(f)
+    return bad_from_repairs
+
+
+def _assert_chapter_frame_mappings(step_6_make_videos, chapters, raw_ranges, bad_exact) -> None:
+    for ch in chapters:
+        start, end = step_6_make_videos.chapter_global_frame_bounds(ch)
+        expect_local = {f - start for f in bad_exact if start <= f <= max(start, end - 1)}
+        got_local = set(step_6_make_videos.map_bad_ranges_to_chapter_local_frames(raw_ranges, ch))
+        assert got_local == expect_local, (
+            f"chapter mapping mismatch for '{ch.get('title', '')}': "
+            f"missing={sorted(expect_local - got_local)[:10]} "
+            f"extra={sorted(got_local - expect_local)[:10]}"
+        )
+
+
+def _run_step_6_frame_quality_ingest_exact_archive01(step_6_make_videos) -> None:
+    real_meta = ROOT / "metadata" / "callahan_01_archive"
+    frame_quality_tsv = real_meta / "frame_quality.tsv"
+    chapters_file = real_meta / "chapters.ffmetadata"
+    if not frame_quality_tsv.exists() or not chapters_file.exists():
+        print("Skipping exact frame-quality ingest test: callahan_01 metadata not present.")
+        return
+
+    bad_exact = _parse_bad_frames_from_tsv(frame_quality_tsv)
+    repairs = step_6_make_videos.load_badframe_repairs(frame_quality_tsv)
+    bad_from_repairs = _collect_bad_from_repairs(repairs)
+
+    assert bad_from_repairs == bad_exact, (
+        "step_6 frame_quality ingestion mismatch: "
+        f"missing={sorted(bad_exact - bad_from_repairs)[:20]} "
+        f"extra={sorted(bad_from_repairs - bad_exact)[:20]}"
+    )
+
+    _ffm, chapters = parse_chapters(chapters_file)
+    raw_ranges = [(a, b) for (a, b, _src) in repairs]
+    _assert_chapter_frame_mappings(step_6_make_videos, chapters, raw_ranges, bad_exact)
+    print("Test step_6_make_videos exact ingest from archive-01 frame_quality.tsv: PASSED.")
+
+
 def test_step_6_frame_quality_ingest_exact_archive01():
     print("Testing step_6_make_videos exact ingest from archive-01 frame_quality.tsv...")
     step_6_make_videos = import_step_6_module()
     try:
-        real_meta = ROOT / "metadata" / "callahan_01_archive"
-        frame_quality_tsv = real_meta / "frame_quality.tsv"
-        chapters_file = real_meta / "chapters.ffmetadata"
-        if not frame_quality_tsv.exists() or not chapters_file.exists():
-            print("Skipping exact frame-quality ingest test: callahan_01 metadata not present.")
-            return
-
-        # Exact bad-frame set from source TSV.
-        bad_exact = set()
-        idx_frame = 0
-        idx_bad = 2
-        for raw in frame_quality_tsv.read_text(encoding="utf-8", errors="ignore").splitlines():
-            s = raw.strip()
-            if not s or s.startswith("#"):
-                continue
-            parts = [p.strip() for p in s.split("\t")]
-            low = [p.lower() for p in parts]
-            if low and low[0] == "frame":
-                idx_frame = low.index("frame")
-                idx_bad = low.index("bad_frame")
-                continue
-            try:
-                frame = int(parts[idx_frame])
-                is_bad = int(parts[idx_bad]) == 1
-            except Exception:
-                continue
-            if is_bad:
-                bad_exact.add(frame)
-
-        repairs = step_6_make_videos.load_badframe_repairs(frame_quality_tsv)
-        bad_from_repairs = set()
-        for a, b, _src in repairs:
-            for f in range(int(a), int(b) + 1):
-                bad_from_repairs.add(f)
-
-        assert bad_from_repairs == bad_exact, (
-            "step_6 frame_quality ingestion mismatch: "
-            f"missing={sorted(bad_exact - bad_from_repairs)[:20]} "
-            f"extra={sorted(bad_from_repairs - bad_exact)[:20]}"
-        )
-
-        # Chapter-local mapping should preserve the exact per-chapter intersections.
-        _ffm, chapters = parse_chapters(chapters_file)
-        raw_ranges = [(a, b) for (a, b, _src) in repairs]
-        for ch in chapters:
-            start, end = step_6_make_videos.chapter_global_frame_bounds(ch)
-            expect_local = {f - start for f in bad_exact if start <= f <= max(start, end - 1)}
-            got_local = set(step_6_make_videos.map_bad_ranges_to_chapter_local_frames(raw_ranges, ch))
-            assert got_local == expect_local, (
-                f"chapter mapping mismatch for '{ch.get('title', '')}': "
-                f"missing={sorted(expect_local - got_local)[:10]} "
-                f"extra={sorted(got_local - expect_local)[:10]}"
-            )
-        print("Test step_6_make_videos exact ingest from archive-01 frame_quality.tsv: PASSED.")
+        _run_step_6_frame_quality_ingest_exact_archive01(step_6_make_videos)
     finally:
         del sys.modules["step_6_make_videos"]
         sys.modules.pop("whisper", None)

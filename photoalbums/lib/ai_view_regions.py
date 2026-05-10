@@ -80,7 +80,8 @@ def _region_centre(region: RegionResult) -> tuple[float, float]:
 def _caption_centre(caption: dict) -> tuple[float, float] | None:
     try:
         return float(caption["x"]) + float(caption["w"]) / 2.0, float(caption["y"]) + float(caption["h"]) / 2.0
-    except (KeyError, TypeError, ValueError):
+    except (KeyError, TypeError, ValueError) as exc:
+        log.debug("Cannot compute caption centre: %s", exc)
         return None
 
 
@@ -448,15 +449,15 @@ def _write_docling_raw_debug_artifact(image_path: str | Path, payload: dict[str,
 def _write_docling_pipeline_step(xmp_path: Path, result: str, model: str) -> None:
     from .xmp_sidecar import write_pipeline_steps, xmp_datetime_now  # pylint: disable=import-outside-toplevel
 
-    _STEP_KEY = "detect-regions/docling"
-    write_pipeline_steps(xmp_path, {_STEP_KEY: {"timestamp": xmp_datetime_now(), "result": result, "input_hash": "", "model": model}})
+    _STEP_NAME = "detect-regions/docling"
+    write_pipeline_steps(xmp_path, {_STEP_NAME: {"timestamp": xmp_datetime_now(), "result": result, "input_hash": "", "model": model}})
 
 
 def _docling_skip_check(xmp_path: Path, path: Path) -> bool:
     from .xmp_sidecar import read_pipeline_step  # pylint: disable=import-outside-toplevel
 
-    _STEP_KEY = "detect-regions/docling"
-    existing_step = read_pipeline_step(xmp_path, _STEP_KEY) or read_pipeline_step(xmp_path, "view_regions") or {}
+    _STEP_NAME = "detect-regions/docling"
+    existing_step = read_pipeline_step(xmp_path, _STEP_NAME) or read_pipeline_step(xmp_path, "view_regions") or {}
     existing_result = str(existing_step.get("result") or "").strip()
     if existing_result in {"no_regions", "validation_failed", "failed"}:
         log.info("Skipping Docling detection for %s: pipeline step already recorded result=%r", path, existing_result)

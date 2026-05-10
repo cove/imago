@@ -154,12 +154,9 @@ def _remove_orphan_view_files(orphan_views: list[Path]) -> int:
     return removed
 
 
-def _repair_page_view_set(
-    expected_targets: list[tuple[Path, Path]],
-    actual_views: list[Path],
-) -> tuple[int, int, int]:
-    matches, orphan_views, missing_expected = _pair_expected_and_actual(expected_targets, actual_views)
-
+def _plan_renames(
+    matches: list[tuple[Path, Path, Path]],
+) -> list[dict[str, Path | None]]:
     planned: list[dict[str, Path | None]] = []
     for _, target_jpg, current_jpg in matches:
         current_xmp = current_jpg.with_suffix(".xmp")
@@ -174,10 +171,11 @@ def _repair_page_view_set(
                 "target_xmp": target_xmp,
             }
         )
+    return planned
 
+
+def _stage_renames(planned: list[dict[str, Path | None]]) -> list[dict[str, Path | None]]:
     staged: list[dict[str, Path | None]] = []
-    staged_target_jpgs = {Path(pair["target_jpg"]) for pair in planned}
-    staged_target_xmps = {Path(pair["target_xmp"]) for pair in planned}
     for ordinal, pair in enumerate(planned, start=1):
         current_jpg = Path(pair["current_jpg"])
         temp_jpg = _temporary_path(current_jpg, ordinal)
@@ -197,7 +195,12 @@ def _repair_page_view_set(
                 "target_xmp": Path(pair["target_xmp"]),
             }
         )
+    return staged
 
+
+def _commit_renames(staged: list[dict[str, Path | None]], planned: list[dict[str, Path | None]]) -> None:
+    staged_target_jpgs = {Path(pair["target_jpg"]) for pair in planned}
+    staged_target_xmps = {Path(pair["target_xmp"]) for pair in planned}
     for pair in staged:
         temp_jpg = Path(pair["temp_jpg"])
         target_jpg = Path(pair["target_jpg"])
@@ -211,6 +214,15 @@ def _repair_page_view_set(
                 raise FileExistsError(f"Unstaged page-derived repair target already exists: {target_xmp}")
             temp_xmp.rename(target_xmp)
 
+
+def _repair_page_view_set(
+    expected_targets: list[tuple[Path, Path]],
+    actual_views: list[Path],
+) -> tuple[int, int, int]:
+    matches, orphan_views, missing_expected = _pair_expected_and_actual(expected_targets, actual_views)
+    planned = _plan_renames(matches)
+    staged = _stage_renames(planned)
+    _commit_renames(staged, planned)
     orphan_files_removed = _remove_orphan_view_files(orphan_views)
     return len(planned), orphan_files_removed, missing_expected
 

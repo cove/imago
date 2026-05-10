@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 import subprocess
@@ -6,6 +7,8 @@ import tempfile
 import time
 from pathlib import Path
 from typing import Callable, Iterable, List, Tuple
+
+log = logging.getLogger(__name__)
 
 try:
     from .naming import PAGE_SCAN_RE as NAME_PAGE_SCAN_RE
@@ -291,13 +294,15 @@ def open_image_fullscreen(path: str, fallback_to_default: bool = False):
     if sys.platform.startswith("darwin"):
         try:
             return subprocess.Popen(["open", path])
-        except Exception:
+        except Exception as exc:
+            log.debug("open failed for %s: %s", path, exc)
             return None
 
     if fallback_to_default:
         try:
             return subprocess.Popen(["xdg-open", path])
-        except Exception:
+        except Exception as exc:
+            log.debug("xdg-open failed for %s: %s", path, exc)
             return None
     return None
 

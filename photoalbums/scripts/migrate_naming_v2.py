@@ -261,31 +261,32 @@ def _sha256(path: Path) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _apply_plan_entry(entry: dict, old: Path, new: Path, result: dict) -> None:
+    if entry["kind"] == "panama_dir":
+        if old.exists():
+            os.rename(old, new)
+        return
+    if not old.exists():
+        result["status"] = "skipped_missing"
+    elif new.exists() and new != old:
+        result["status"] = "skipped_conflict"
+        result["error"] = f"Target already exists: {new}"
+    else:
+        if "panama" in entry["kind"] and old.suffix.lower() == ".xmp":
+            _patch_panama_xmp(old)
+        os.rename(old, new)
+
+
 def execute_plan(plan: list[dict], hashes_before: dict[str, str]) -> list[dict]:
     results: list[dict] = []
-    # Files first, directories last
     files = [e for e in plan if e["kind"] != "panama_dir"]
     dirs = [e for e in plan if e["kind"] == "panama_dir"]
-
     for entry in files + dirs:
         old = Path(entry["old"])
         new = Path(entry["new"])
         result = {"old": entry["old"], "new": entry["new"], "kind": entry["kind"], "status": "ok", "error": ""}
         try:
-            if entry["kind"] == "panama_dir":
-                if old.exists():
-                    os.rename(old, new)
-            else:
-                if not old.exists():
-                    result["status"] = "skipped_missing"
-                elif new.exists() and new != old:
-                    result["status"] = "skipped_conflict"
-                    result["error"] = f"Target already exists: {new}"
-                else:
-                    # Patch PanamaCanal token in XMP content before renaming
-                    if "panama" in entry["kind"] and old.suffix.lower() == ".xmp":
-                        _patch_panama_xmp(old)
-                    os.rename(old, new)
+            _apply_plan_entry(entry, old, new, result)
         except Exception as exc:
             result["status"] = "error"
             result["error"] = str(exc)

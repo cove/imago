@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import json
+import logging
 import subprocess
 from pathlib import Path
 from typing import Iterable
+
+log = logging.getLogger(__name__)
 
 
 def read_tag(file_path: str | Path, tag: str) -> str | None:
@@ -14,7 +17,8 @@ def read_tag(file_path: str | Path, tag: str) -> str | None:
             text=True,
             check=True,
         )
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        log.debug("exiftool read_tag failed for %s tag %s: %s", file_path, tag, exc)
         return None
     return result.stdout.strip()
 

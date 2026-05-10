@@ -1165,28 +1165,47 @@ class IndexRunner:
             _scan_group_signature(state.multi_scan_group_paths) if state.archive_stitched_ocr_required else ""
         )
 
-    def _evaluate_extra_reprocess_reasons(self, state: _ProcessOneState) -> None:
+    @staticmethod
+    def _check_sidecar_incomplete(state: _ProcessOneState) -> None:
         if state.existing_sidecar_valid and not state.existing_sidecar_complete:
             state.reprocess_required = True
             state.reprocess_reasons.append("sidecar_incomplete")
+
+    @staticmethod
+    def _check_album_title_missing(state: _ProcessOneState) -> None:
         existing_album_title = str((state.existing_sidecar_state or {}).get("album_title") or "").strip()
         if not existing_album_title and (
-            _is_album_title_source_candidate(state.image_path) or _resolve_album_title_from_sidecars(state.image_path)
+            _is_album_title_source_candidate(state.image_path)
+            or _resolve_album_title_from_sidecars(state.image_path)
         ):
             state.reprocess_required = True
             state.reprocess_reasons.append("missing_album_title")
+
+    @staticmethod
+    def _check_stitched_authority_mismatch(state: _ProcessOneState) -> None:
+        ocr_text = str((state.existing_sidecar_state or {}).get("ocr_text") or "")
         if state.archive_stitched_ocr_required and not _sidecar_matches_stitched_authority(
-            state, _hash_text(str((state.existing_sidecar_state or {}).get("ocr_text") or ""))
+            state, _hash_text(ocr_text)
         ):
             state.reprocess_required = True
             state.reprocess_reasons.append("missing_stitched_authority")
-        if state.existing_sidecar_state is not None:
-            old_sig = str(state.existing_sidecar_state.get("settings_signature") or "")
-            if old_sig != state.settings_sig and not (
-                state.existing_sidecar_current and state.existing_sidecar_complete
-            ):
-                state.reprocess_required = True
-                state.reprocess_reasons.append("settings_signature_mismatch")
+
+    @staticmethod
+    def _check_settings_sig_mismatch(state: _ProcessOneState) -> None:
+        if state.existing_sidecar_state is None:
+            return
+        old_sig = str(state.existing_sidecar_state.get("settings_signature") or "")
+        if old_sig != state.settings_sig and not (
+            state.existing_sidecar_current and state.existing_sidecar_complete
+        ):
+            state.reprocess_required = True
+            state.reprocess_reasons.append("settings_signature_mismatch")
+
+    def _evaluate_extra_reprocess_reasons(self, state: _ProcessOneState) -> None:
+        self._check_sidecar_incomplete(state)
+        self._check_album_title_missing(state)
+        self._check_stitched_authority_mismatch(state)
+        self._check_settings_sig_mismatch(state)
 
     def _decide_processing_mode(self, state: _ProcessOneState) -> None:
         state.needs_full = needs_processing(
@@ -1666,6 +1685,60 @@ class IndexRunner:
             return str(effective.get("ocr_model", self.defaults["ocr_model"]))
         return ""
 
+    def _pu_resolve_dates(
+        self,
+        *,
+        image_path: Path,
+        state: dict,
+        effective: dict[str, Any],
+        date_estimation_enabled: bool,
+        pu_album_title: str,
+        pu_inputs: "_PeopleUpdateInputs",
+        pu_prompt_debug: PromptDebugSession | None,
+    ) -> tuple[str, str, str]:
+        date_engine = self._refresh_date_engine(effective, date_estimation_enabled, state)
+        pu_dc_date = _resolve_dc_date(
+            existing_dc_date=_dc_date_value(state),
+            ocr_text=pu_inputs.existing_ocr_text,
+            album_title=pu_album_title,
+            image_path=image_path,
+            date_engine=date_engine,
+            prompt_debug=pu_prompt_debug,
+        )
+        pu_date_time_original = _resolve_date_time_original(
+            dc_date=pu_dc_date,
+            date_time_original=str(state.get("date_time_original") or ""),
+        )
+        pu_source_text = _build_dc_source(pu_album_title, image_path, _page_scan_filenames(image_path))
+        return pu_dc_date, pu_date_time_original, pu_source_text
+
+    def _pu_resolve_text_and_title(
+        self,
+        *,
+        image_path: Path,
+        state: dict,
+        pu_updated_det: dict[str, Any],
+        pu_inputs: "_PeopleUpdateInputs",
+    ) -> tuple[dict[str, Any], str, str]:
+        pu_page_like = (
+            str((pu_updated_det.get("caption") or {}).get("effective_engine") or "").strip() == "page-summary"
+        )
+        text_layers = _resolve_xmp_text_layers(
+            image_path=image_path,
+            ocr_text=pu_inputs.existing_ocr_text,
+            page_like=pu_page_like,
+            ocr_authority_source=str(state.get("ocr_authority_source") or ""),
+            author_text=str(state.get("author_text") or ""),
+            scene_text=str(state.get("scene_text") or ""),
+        )
+        xmp_title, xmp_title_source = _compute_xmp_title(
+            image_path=image_path,
+            explicit_title=str(state.get("title") or ""),
+            title_source=str(state.get("title_source") or ""),
+            author_text=str(text_layers.get("author_text") or ""),
+        )
+        return text_layers, xmp_title, xmp_title_source
+
     def _write_pu_payload(
         self,
         *,
@@ -1693,36 +1766,20 @@ class IndexRunner:
             ),
             context="people update",
         )
-        date_engine = self._refresh_date_engine(effective, date_estimation_enabled, state)
-        pu_dc_date = _resolve_dc_date(
-            existing_dc_date=_dc_date_value(state),
-            ocr_text=pu_inputs.existing_ocr_text,
-            album_title=pu_album_title,
+        pu_dc_date, pu_date_time_original, pu_source_text = self._pu_resolve_dates(
             image_path=image_path,
-            date_engine=date_engine,
-            prompt_debug=pu_prompt_debug,
+            state=state,
+            effective=effective,
+            date_estimation_enabled=date_estimation_enabled,
+            pu_album_title=pu_album_title,
+            pu_inputs=pu_inputs,
+            pu_prompt_debug=pu_prompt_debug,
         )
-        pu_date_time_original = _resolve_date_time_original(
-            dc_date=pu_dc_date,
-            date_time_original=str(state.get("date_time_original") or ""),
-        )
-        pu_source_text = _build_dc_source(pu_album_title, image_path, _page_scan_filenames(image_path))
-        pu_page_like = (
-            str((pu_updated_det.get("caption") or {}).get("effective_engine") or "").strip() == "page-summary"
-        )
-        text_layers = _resolve_xmp_text_layers(
+        text_layers, xmp_title, xmp_title_source = self._pu_resolve_text_and_title(
             image_path=image_path,
-            ocr_text=pu_inputs.existing_ocr_text,
-            page_like=pu_page_like,
-            ocr_authority_source=str(state.get("ocr_authority_source") or ""),
-            author_text=str(state.get("author_text") or ""),
-            scene_text=str(state.get("scene_text") or ""),
-        )
-        xmp_title, xmp_title_source = _compute_xmp_title(
-            image_path=image_path,
-            explicit_title=str(state.get("title") or ""),
-            title_source=str(state.get("title_source") or ""),
-            author_text=str(text_layers.get("author_text") or ""),
+            state=state,
+            pu_updated_det=pu_updated_det,
+            pu_inputs=pu_inputs,
         )
         current_cast_signature = self._people_invalidation_signature(people_matcher)
         pu_updated_det = _pu_finalize_detections(
@@ -1733,6 +1790,7 @@ class IndexRunner:
             album_title=pu_album_title,
             stamp_date_hash=date_estimation_enabled or bool(pu_dc_date),
         )
+        create_date = str(state.get("create_date") or "").strip() or read_embedded_create_date(image_path)
         _write_sidecar_and_record(
             sidecar_path,
             image_path,
@@ -1750,7 +1808,7 @@ class IndexRunner:
             detections_payload=pu_updated_det,
             stitch_key=str(state.get("stitch_key") or ""),
             ocr_authority_source=str(state.get("ocr_authority_source") or ""),
-            create_date=(str(state.get("create_date") or "").strip() or read_embedded_create_date(image_path)),
+            create_date=create_date,
             dc_date=pu_dc_date,
             date_time_original=pu_date_time_original,
             ocr_ran=bool(state.get("ocr_ran") or True),
@@ -2077,6 +2135,52 @@ class IndexRunner:
             existing_detections=existing_detections,
         )
 
+    @staticmethod
+    def _full_resolve_album_and_dates(
+        image_path: Path,
+        outcome: "_FullAnalysisOutcome",
+        existing_sidecar_state: dict | None,
+    ) -> tuple[str, str, str]:
+        final_album_title = _require_album_title_for_title_page(
+            image_path=image_path,
+            album_title=_resolve_title_page_album_title(
+                image_path=image_path,
+                album_title=(outcome.resolved_album_title or _resolve_album_title_hint(image_path)),
+                ocr_text=outcome.ocr_text,
+            ),
+            context="write",
+        )
+        final_dc_date = _full_final_dc_date(outcome.analysis, existing_sidecar_state)
+        existing_dto = str((existing_sidecar_state or {}).get("date_time_original") or "")
+        final_date_time_original = _resolve_date_time_original(
+            dc_date=final_dc_date,
+            date_time_original=existing_dto,
+        )
+        return final_album_title, final_dc_date, final_date_time_original
+
+    @staticmethod
+    def _full_resolve_text_layers(
+        image_path: Path,
+        outcome: "_FullAnalysisOutcome",
+        layout: Any,
+        scan_ocr_authority: ArchiveScanOCRAuthority | None,
+    ) -> tuple[dict[str, Any], str, str]:
+        ocr_authority_source = "archive_stitched" if scan_ocr_authority is not None else ""
+        text_layers = _resolve_xmp_text_layers(
+            image_path=image_path,
+            ocr_text=outcome.ocr_text,
+            page_like=bool(layout.page_like),
+            ocr_authority_source=ocr_authority_source,
+            author_text=str(outcome.analysis.author_text or ""),
+            scene_text=str(outcome.analysis.scene_text or ""),
+        )
+        xmp_title, xmp_title_source = _compute_xmp_title(
+            image_path=image_path,
+            explicit_title=str(outcome.analysis.title or ""),
+            author_text=str(text_layers.get("author_text") or ""),
+        )
+        return text_layers, xmp_title, xmp_title_source
+
     def _write_full_payload(
         self,
         *,
@@ -2100,35 +2204,15 @@ class IndexRunner:
         )
         if location_payload:
             payload["location"] = location_payload
-        final_album_title = _require_album_title_for_title_page(
-            image_path=image_path,
-            album_title=_resolve_title_page_album_title(
-                image_path=image_path,
-                album_title=(outcome.resolved_album_title or _resolve_album_title_hint(image_path)),
-                ocr_text=outcome.ocr_text,
-            ),
-            context="write",
+        final_album_title, final_dc_date, final_date_time_original = self._full_resolve_album_and_dates(
+            image_path, outcome, existing_sidecar_state
         )
-        final_dc_date = _full_final_dc_date(analysis, existing_sidecar_state)
-        final_date_time_original = _resolve_date_time_original(
-            dc_date=final_dc_date,
-            date_time_original=str((existing_sidecar_state or {}).get("date_time_original") or ""),
-        )
-        text_layers = _resolve_xmp_text_layers(
-            image_path=image_path,
-            ocr_text=outcome.ocr_text,
-            page_like=bool(layout.page_like),
-            ocr_authority_source=("archive_stitched" if scan_ocr_authority is not None else ""),
-            author_text=str(analysis.author_text or ""),
-            scene_text=str(analysis.scene_text or ""),
-        )
-        xmp_title, xmp_title_source = _compute_xmp_title(
-            image_path=image_path,
-            explicit_title=str(analysis.title or ""),
-            author_text=str(text_layers.get("author_text") or ""),
+        text_layers, xmp_title, xmp_title_source = self._full_resolve_text_layers(
+            image_path, outcome, layout, scan_ocr_authority
         )
         if people_matcher is not None:
             current_cast_signature = self._people_invalidation_signature(people_matcher)
+        ocr_authority_source = "archive_stitched" if scan_ocr_authority is not None else ""
         payload["processing"] = _full_processing_payload(
             image_path=image_path,
             settings_sig=settings_sig,
@@ -2143,6 +2227,7 @@ class IndexRunner:
             analysis_mode=outcome.analysis_mode,
             date_estimation_enabled=date_estimation_enabled,
         )
+        ocr_engine_name = str(effective.get("ocr_engine", self.defaults["ocr_engine"])).lower()
         _write_sidecar_and_record(
             sidecar_path,
             image_path,
@@ -2160,11 +2245,11 @@ class IndexRunner:
             scene_text=str(text_layers.get("scene_text") or ""),
             detections_payload=payload,
             subphotos=None,
-            ocr_authority_source=("archive_stitched" if scan_ocr_authority is not None else ""),
+            ocr_authority_source=ocr_authority_source,
             create_date=read_embedded_create_date(image_path),
             dc_date=final_dc_date,
             date_time_original=final_date_time_original,
-            ocr_ran=str(effective.get("ocr_engine", self.defaults["ocr_engine"])).lower() != "none",
+            ocr_ran=ocr_engine_name != "none",
             people_detected=analysis.faces_detected > 0 or len(outcome.person_names) > 0,
             people_identified=len(outcome.person_names) > 0,
             title_page_location=self.title_page_location,

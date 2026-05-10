@@ -218,20 +218,14 @@ def iqr_threshold_for_window(window_scores, iqr_mult=3.5):
     return q3 + float(iqr_mult) * (q3 - q1)
 
 
-def compute_per_frame_thresholds(scores, indices, chapters, window_size, iqr_mult=3.5):
-    scores_np = np.asarray(scores, dtype=np.float64)
-    n = len(scores_np)
-    thresholds = np.full(n, np.nan)
-    win_size = max(1, int(window_size))
+def _window_q1_q3(wscores):
+    finite = wscores[np.isfinite(wscores)]
+    q1 = float(np.percentile(finite, 25)) if finite.size else float("nan")
+    q3 = float(np.percentile(finite, 75)) if finite.size else float("nan")
+    return q1, q3
 
-    chapter_ids = assign_frames_to_chapters(indices, chapters)
-    positions_by_chapter = {}
-    for pos, cid in enumerate(chapter_ids):
-        positions_by_chapter.setdefault(cid, []).append(pos)
 
-    window_info = []
-
-    # Chapter-aligned windows
+def _apply_chapter_windows(scores_np, indices, chapters, positions_by_chapter, thresholds, window_info, win_size, iqr_mult):
     for cid, ch_positions in positions_by_chapter.items():
         if cid < 0 or cid >= len(chapters):
             continue
@@ -248,9 +242,7 @@ def compute_per_frame_thresholds(scores, indices, chapters, window_size, iqr_mul
             thresh = iqr_threshold_for_window(wscores, iqr_mult=iqr_mult)
             for p in positions:
                 thresholds[p] = thresh
-            finite = wscores[np.isfinite(wscores)]
-            q1 = float(np.percentile(finite, 25)) if finite.size else float("nan")
-            q3 = float(np.percentile(finite, 75)) if finite.size else float("nan")
+            q1, q3 = _window_q1_q3(wscores)
             window_info.append(
                 {
                     "chapter_id": int(cid),
@@ -267,7 +259,8 @@ def compute_per_frame_thresholds(scores, indices, chapters, window_size, iqr_mul
                 }
             )
 
-    # Fallback for frames outside chapters
+
+def _apply_fallback_windows(scores_np, indices, positions_by_chapter, thresholds, window_info, win_size, iqr_mult):
     fallback_positions = positions_by_chapter.get(-1, [])
     fallback_groups = {}
     for pos in fallback_positions:
@@ -279,9 +272,7 @@ def compute_per_frame_thresholds(scores, indices, chapters, window_size, iqr_mul
         thresh = iqr_threshold_for_window(wscores, iqr_mult=iqr_mult)
         for p in positions:
             thresholds[p] = thresh
-        finite = wscores[np.isfinite(wscores)]
-        q1 = float(np.percentile(finite, 25)) if finite.size else float("nan")
-        q3 = float(np.percentile(finite, 75)) if finite.size else float("nan")
+        q1, q3 = _window_q1_q3(wscores)
         window_info.append(
             {
                 "chapter_id": -1,
@@ -297,6 +288,23 @@ def compute_per_frame_thresholds(scores, indices, chapters, window_size, iqr_mul
                 "threshold": float(thresh),
             }
         )
+
+
+def compute_per_frame_thresholds(scores, indices, chapters, window_size, iqr_mult=3.5):
+    scores_np = np.asarray(scores, dtype=np.float64)
+    n = len(scores_np)
+    thresholds = np.full(n, np.nan)
+    win_size = max(1, int(window_size))
+
+    chapter_ids = assign_frames_to_chapters(indices, chapters)
+    positions_by_chapter = {}
+    for pos, cid in enumerate(chapter_ids):
+        positions_by_chapter.setdefault(cid, []).append(pos)
+
+    window_info = []
+
+    _apply_chapter_windows(scores_np, indices, chapters, positions_by_chapter, thresholds, window_info, win_size, iqr_mult)
+    _apply_fallback_windows(scores_np, indices, positions_by_chapter, thresholds, window_info, win_size, iqr_mult)
 
     global_fallback = iqr_threshold_for_window(scores_np, iqr_mult=iqr_mult)
     thresholds = np.where(np.isfinite(thresholds), thresholds, global_fallback)
@@ -412,9 +420,41 @@ def _try_parse_float(text):
         return np.nan
 
 
+def _resolve_tsv_column_indices(header_map):
+    fi_col = header_map.get("frame", 0)
+    sc_col = header_map.get("score", 1)
+    c_col = header_map.get("chroma_loss", header_map.get("edge_energy", -1))
+    n_col = header_map.get("noise_energy", header_map.get("row_instability", -1))
+    t_col = header_map.get("row_tear", header_map.get("field_mismatch", -1))
+    w_col = header_map.get("wave_energy", -1)
+    return fi_col, sc_col, c_col, n_col, t_col, w_col
+
+
+def _safe_col_float(parts, col_idx, default=None):
+    if default is None:
+        default = np.nan
+    return _try_parse_float(parts[col_idx]) if 0 <= col_idx < len(parts) else default
+
+
+def _parse_tsv_data_row(parts, fi_col, sc_col, c_col, n_col, t_col, w_col):
+    if len(parts) <= max(fi_col, sc_col):
+        return None
+    try:
+        fi = int(parts[fi_col])
+        sc = float(parts[sc_col])
+    except ValueError:  # noqa: SKY-L007
+        return None
+    c = _safe_col_float(parts, c_col)
+    n = _safe_col_float(parts, n_col)
+    t = _safe_col_float(parts, t_col)
+    w = _safe_col_float(parts, w_col, 0.0)
+    return fi, sc, c, n, t, w
+
+
 def load_scores_tsv(path):
     """Load a previously saved per-frame scores TSV (supports old/new column names)."""
     rows, header_map = [], {}
+    fi_col, sc_col, c_col, n_col, t_col, w_col = _resolve_tsv_column_indices(header_map)
     for raw_line in Path(path).read_text(encoding="utf-8", errors="ignore").splitlines():
         line = raw_line.strip()
         if not line:
@@ -423,36 +463,16 @@ def load_scores_tsv(path):
         lowered = [p.strip().lower() for p in parts]
         if lowered and lowered[0] == "frame":
             header_map = {name: idx for idx, name in enumerate(lowered)}
+            fi_col, sc_col, c_col, n_col, t_col, w_col = _resolve_tsv_column_indices(header_map)
             continue
-        fi_col = header_map.get("frame", 0)
-        sc_col = header_map.get("score", 1)
-        c_col = header_map.get("chroma_loss", header_map.get("edge_energy", -1))
-        n_col = header_map.get("noise_energy", header_map.get("row_instability", -1))
-        t_col = header_map.get("row_tear", header_map.get("field_mismatch", -1))
-        w_col = header_map.get("wave_energy", -1)
-        if len(parts) <= max(fi_col, sc_col):
-            continue
-        try:
-            fi = int(parts[fi_col])
-            sc = float(parts[sc_col])
-        except ValueError:
-            continue
-        c = _try_parse_float(parts[c_col]) if 0 <= c_col < len(parts) else np.nan
-        n = _try_parse_float(parts[n_col]) if 0 <= n_col < len(parts) else np.nan
-        t = _try_parse_float(parts[t_col]) if 0 <= t_col < len(parts) else np.nan
-        w = _try_parse_float(parts[w_col]) if 0 <= w_col < len(parts) else 0.0
-        rows.append((fi, sc, c, n, t, w))
+        row = _parse_tsv_data_row(parts, fi_col, sc_col, c_col, n_col, t_col, w_col)
+        if row is not None:
+            rows.append(row)
     if not rows:
         raise ValueError(f"No frame/score rows found in {path}")
     rows.sort(key=lambda x: x[0])
-    return (
-        [r[0] for r in rows],
-        [r[1] for r in rows],
-        [r[2] for r in rows],
-        [r[3] for r in rows],
-        [r[4] for r in rows],
-        [r[5] for r in rows],
-    )
+    frames, scores, chromas, noises, tears, waves = zip(*rows)
+    return list(frames), list(scores), list(chromas), list(noises), list(tears), list(waves)
 
 
 def finite_stats(values):
@@ -484,6 +504,93 @@ def build_chapter_bad_frame_updates(chapters, evaluated_indices, bad_frames):
         global_bad = sorted(fi for fi in bad_set if start <= fi < end)
         updates[title] = global_bad
     return updates
+
+
+def _build_run_summary(
+    archive_name, video_path, config, total_frames, start_frame, end_frame,
+    indices, scores_np, chroma_scores, noise_scores, tear_scores, wave_scores,
+    signal_norm, iqr_mult, chapters_source, chapters, chapter_overlap,
+    window_info, good_frames, bad_frames, bad_ranges,
+):
+    return {
+        "archive": archive_name,
+        "video_path": str(video_path),
+        "detector": "tracking_loss_chapter_iqr",
+        "total_video_frames": (None if total_frames is None else int(total_frames)),
+        "evaluated_frame_start": int(start_frame),
+        "evaluated_frame_end": int(end_frame),
+        "evaluated_frame_step": int(max(1, config.frame_step)),
+        "evaluated_frames": int(len(indices)),
+        "crop": {k: int(getattr(config, f"crop_{k}")) for k in ("top", "bottom", "left", "right")},
+        "signals": {
+            "description": {
+                "chroma_loss": "1 - mean(HSV saturation)/255; high = desaturated/grey",
+                "noise_energy": "std(row_variance)/mean(row_variance); high = noisy rows present",
+                "row_tear": "95th-pct row-to-neighbour abs diff; high = rows horizontally torn",
+                "wave_energy": "std of high-passed per-row horizontal CoM; high = wavy/wobbly rows",
+            },
+            "weights": {
+                "chroma": float(config.weight_chroma),
+                "noise": float(config.weight_noise),
+                "tear": float(config.weight_tear),
+                "wave": float(config.weight_wave),
+            },
+            "normalization": signal_norm,
+            "chroma_loss": finite_stats(chroma_scores),
+            "noise_energy": finite_stats(noise_scores),
+            "row_tear": finite_stats(tear_scores),
+            "wave_energy": finite_stats(wave_scores),
+        },
+        "thresholding": {
+            "method": "chapter_aligned_window_iqr",
+            "formula": f"Q3 + {iqr_mult} x IQR (per chapter-aligned window)",
+            "iqr_mult": iqr_mult,
+            "threshold_window_size": int(config.threshold_window_size),
+            "chapters_file": chapters_source,
+            "chapter_count": len(chapters),
+            "chapter_overlap_resolution": chapter_overlap,
+            "windows": window_info,
+        },
+        "score_min": float(np.min(scores_np)),
+        "score_max": float(np.max(scores_np)),
+        "score_mean": float(np.mean(scores_np)),
+        "good_frames": int(len(good_frames)),
+        "bad_frames": int(len(bad_frames)),
+        "predicted_bad_ranges": int(len(bad_ranges)),
+        "png_samples": {
+            "enabled": False,
+            "note": "PNG sample export is disabled; use `uv run python vhs.py tuner` for frame review.",
+            "review_output_dir": None,
+            "review_manifest": None,
+            "bad": {"requested": 0, "written": 0, "failed": []},
+            "good": {"requested": 0, "written": 0, "failed": []},
+        },
+    }
+
+
+def _apply_and_report_chapter_updates(config, chapters, indices, bad_frames, chapters_file):
+    chapter_updates = build_chapter_bad_frame_updates(
+        chapters=chapters,
+        evaluated_indices=indices,
+        bad_frames=bad_frames,
+    )
+    archive_name = str(config.archive or "").strip()
+    flat_bad_frames = [f for frames in chapter_updates.values() for f in frames]
+    touched_path = merge_bad_frames_in_render_settings(archive_name, flat_bad_frames)
+    touched = len(chapter_updates)
+    print(
+        f"Updated bad_frames in render settings: {touched_path} "
+        f"({touched} chapter(s) evaluated, {len(flat_bad_frames)} frame(s) added)"
+    )
+    print("Outputs:                render_settings.json (bad_frames) only")
+    return {
+        "chapters_file": chapters_file,
+        "render_settings_file": touched_path,
+        "updated_chapters": int(touched),
+        "evaluated_frames": int(len(indices)),
+        "bad_frames": int(len(bad_frames)),
+        "good_frames": int(len(indices) - len(bad_frames)),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -546,60 +653,29 @@ def _run_with_config(config: TrackingLossConfig):
         existing_bad_eval = evaluated_set.intersection(parse_existing_bad_frames_from_chapters(raw_chapters))
 
     # In-memory run summary (not written to disk).
-    summary = {
-        "archive": archive_name,
-        "video_path": str(video_path),
-        "detector": "tracking_loss_chapter_iqr",
-        "total_video_frames": (None if total_frames is None else int(total_frames)),
-        "evaluated_frame_start": int(start_frame),
-        "evaluated_frame_end": int(end_frame),
-        "evaluated_frame_step": int(max(1, config.frame_step)),
-        "evaluated_frames": int(len(indices)),
-        "crop": {k: int(getattr(config, f"crop_{k}")) for k in ("top", "bottom", "left", "right")},
-        "signals": {
-            "description": {
-                "chroma_loss": "1 - mean(HSV saturation)/255; high = desaturated/grey",
-                "noise_energy": "std(row_variance)/mean(row_variance); high = noisy rows present",
-                "row_tear": "95th-pct row-to-neighbour abs diff; high = rows horizontally torn",
-                "wave_energy": "std of high-passed per-row horizontal CoM; high = wavy/wobbly rows",
-            },
-            "weights": {
-                "chroma": float(config.weight_chroma),
-                "noise": float(config.weight_noise),
-                "tear": float(config.weight_tear),
-                "wave": float(config.weight_wave),
-            },
-            "normalization": signal_norm,
-            "chroma_loss": finite_stats(chroma_scores),
-            "noise_energy": finite_stats(noise_scores),
-            "row_tear": finite_stats(tear_scores),
-            "wave_energy": finite_stats(wave_scores),
-        },
-        "thresholding": {
-            "method": "chapter_aligned_window_iqr",
-            "formula": f"Q3 + {iqr_mult} x IQR (per chapter-aligned window)",
-            "iqr_mult": iqr_mult,
-            "threshold_window_size": int(config.threshold_window_size),
-            "chapters_file": chapters_source,
-            "chapter_count": len(chapters),
-            "chapter_overlap_resolution": chapter_overlap,
-            "windows": window_info,
-        },
-        "score_min": float(np.min(scores_np)),
-        "score_max": float(np.max(scores_np)),
-        "score_mean": float(np.mean(scores_np)),
-        "good_frames": int(len(good_frames)),
-        "bad_frames": int(len(bad_frames)),
-        "predicted_bad_ranges": int(len(bad_ranges)),
-        "png_samples": {
-            "enabled": False,
-            "note": "PNG sample export is disabled; use `uv run python vhs.py tuner` for frame review.",
-            "review_output_dir": None,
-            "review_manifest": None,
-            "bad": {"requested": 0, "written": 0, "failed": []},
-            "good": {"requested": 0, "written": 0, "failed": []},
-        },
-    }
+    summary = _build_run_summary(
+        archive_name=archive_name,
+        video_path=video_path,
+        config=config,
+        total_frames=total_frames,
+        start_frame=start_frame,
+        end_frame=end_frame,
+        indices=indices,
+        scores_np=scores_np,
+        chroma_scores=chroma_scores,
+        noise_scores=noise_scores,
+        tear_scores=tear_scores,
+        wave_scores=wave_scores,
+        signal_norm=signal_norm,
+        iqr_mult=iqr_mult,
+        chapters_source=chapters_source,
+        chapters=chapters,
+        chapter_overlap=chapter_overlap,
+        window_info=window_info,
+        good_frames=good_frames,
+        bad_frames=bad_frames,
+        bad_ranges=bad_ranges,
+    )
 
     summary["comparison_to_existing_bad_frames"] = _comparison_to_existing_bad_frames(
         raw_chapters=raw_chapters,
@@ -609,29 +685,13 @@ def _run_with_config(config: TrackingLossConfig):
         evaluated_set=evaluated_set,
     )
 
-    chapter_updates = build_chapter_bad_frame_updates(
+    return _apply_and_report_chapter_updates(
+        config=config,
         chapters=chapters,
-        evaluated_indices=indices,
+        indices=indices,
         bad_frames=bad_frames,
+        chapters_file=chapters_file,
     )
-    archive_name = str(config.archive or "").strip()
-    flat_bad_frames = [f for frames in chapter_updates.values() for f in frames]
-    touched_path = merge_bad_frames_in_render_settings(archive_name, flat_bad_frames)
-    touched = len(chapter_updates)
-    print(
-        f"Updated bad_frames in render settings: {touched_path} "
-        f"({touched} chapter(s) evaluated, {len(flat_bad_frames)} frame(s) added)"
-    )
-    print("Outputs:                render_settings.json (bad_frames) only")
-
-    return {
-        "chapters_file": chapters_file,
-        "render_settings_file": touched_path,
-        "updated_chapters": int(touched),
-        "evaluated_frames": int(len(indices)),
-        "bad_frames": int(len(bad_frames)),
-        "good_frames": int(len(good_frames)),
-    }
 
 
 def _load_or_score_frames(config: TrackingLossConfig, video_path: Path, scores_tsv: Path | None):

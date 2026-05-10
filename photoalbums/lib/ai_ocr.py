@@ -3,12 +3,15 @@ from __future__ import annotations
 import base64
 import io
 import json
+import logging
 import math
 import os
 import re
 import urllib.error
 import urllib.request
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 from .model_store import HF_MODEL_CACHE_DIR
 from .ai_model_settings import default_lmstudio_base_url, default_ocr_model, default_ocr_models
@@ -253,7 +256,8 @@ def _recover_truncated_ocr_text(raw: str) -> str | None:
     fragment = re.sub(r"\\(?:[uU][0-9a-fA-F]{0,3}|.?)$", "", fragment)
     try:
         return json.loads('"' + fragment + '"')
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as exc:
+        log.debug("could not recover unterminated string: %s", exc)
         return None
 
 
@@ -270,7 +274,8 @@ def _recover_unterminated_ocr_text(raw: str) -> str | None:
     fragment = re.sub(r"\\(?:[uU][0-9a-fA-F]{0,3}|.?)$", "", fragment)
     try:
         return json.loads('"' + fragment + '"')
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as exc:
+        log.debug("could not recover leaked field ocr text: %s", exc)
         return None
 
 
@@ -292,6 +297,37 @@ def _fix_json_escaping(text: str) -> str:
     return text
 
 
+def _parse_ocr_json_text(text: str, *, finish_reason: str, finish_note: str):
+    try:
+        return json.loads(text), None
+    except json.JSONDecodeError as exc:
+        fixed_text = _fix_json_escaping(text)
+        try:
+            return json.loads(fixed_text), None
+        except json.JSONDecodeError:
+            pass
+        return None, exc
+
+
+def _recover_ocr_payload_from_text(
+    text: str, *, exc, finish_reason: str, finish_note: str
+):
+    payload = _extract_structured_json_payload(text)
+    if payload is not None:
+        return payload
+    recovered = _recover_unterminated_ocr_text(text)
+    if recovered is not None:
+        return _normalize_ocr_text(recovered)
+    if str(finish_reason or "").strip() == "length":
+        recovered = _recover_truncated_ocr_text(text)
+        if recovered is not None:
+            return _normalize_ocr_text(recovered)
+    snippet = text[:180] + ("..." if len(text) > 180 else "")
+    raise RuntimeError(
+        f"LM Studio returned invalid structured OCR JSON: {exc.msg}; raw={snippet!r}.{finish_note}"
+    ) from exc
+
+
 def _parse_lmstudio_structured_ocr(value: object, *, finish_reason: str = "") -> str:
     raw = _decode_lmstudio_text(value)
     text = str(raw or "").strip()
@@ -302,27 +338,14 @@ def _parse_lmstudio_structured_ocr(value: object, *, finish_reason: str = "") ->
             "Check that the loaded model supports structured output and that the LM Studio server is current."
             f"{finish_note}"
         )
-    try:
-        payload = json.loads(text)
-    except json.JSONDecodeError as exc:
-        # Try to fix common JSON escaping issues before falling back to extraction
-        fixed_text = _fix_json_escaping(text)
-        try:
-            payload = json.loads(fixed_text)
-        except json.JSONDecodeError:
-            payload = _extract_structured_json_payload(text)
-            if payload is None:
-                recovered = _recover_unterminated_ocr_text(text)
-                if recovered is not None:
-                    return _normalize_ocr_text(recovered)
-                if str(finish_reason or "").strip() == "length":
-                    recovered = _recover_truncated_ocr_text(text)
-                    if recovered is not None:
-                        return _normalize_ocr_text(recovered)
-                snippet = text[:180] + ("..." if len(text) > 180 else "")
-                raise RuntimeError(
-                    f"LM Studio returned invalid structured OCR JSON: {exc.msg}; raw={snippet!r}.{finish_note}"
-                ) from exc
+    payload, parse_exc = _parse_ocr_json_text(text, finish_reason=finish_reason, finish_note=finish_note)
+    if parse_exc is not None:
+        result = _recover_ocr_payload_from_text(
+            text, exc=parse_exc, finish_reason=finish_reason, finish_note=finish_note
+        )
+        if isinstance(result, str):
+            return result
+        payload = result
     if not isinstance(payload, dict):
         snippet = text[:180] + ("..." if len(text) > 180 else "")
         raise RuntimeError(
@@ -574,6 +597,44 @@ class OCREngine:
                 metadata=metadata,
             )
 
+    def _build_local_ocr_prompt_text(self, user_prompt: str) -> str:
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": user_prompt},
+                ],
+            }
+        ]
+        try:
+            return self._processor.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+                chat_template_kwargs={"enable_thinking": False},
+            )
+        except TypeError:
+            return self._processor.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+
+    def _move_inputs_to_device(self, inputs) -> None:
+        device = getattr(self._model, "device", None)
+        if device is not None:
+            for key, value in list(inputs.items()):
+                if hasattr(value, "to"):
+                    inputs[key] = value.to(device)
+
+    def _strip_prompt_tokens(self, generated_ids, inputs):
+        input_ids = inputs.get("input_ids")
+        if hasattr(generated_ids, "shape") and input_ids is not None and hasattr(input_ids, "shape"):
+            prompt_tokens = int(input_ids.shape[-1])
+            return generated_ids[:, prompt_tokens:]
+        return generated_ids
+
     def _read_text_local(
         self,
         path: Path,
@@ -600,28 +661,7 @@ class OCREngine:
                 int(params.get("max_pixels", DEFAULT_LOCAL_OCR_MAX_PIXELS)),
             )
             if hasattr(self._processor, "apply_chat_template"):
-                messages = [
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "image"},
-                            {"type": "text", "text": user_prompt},
-                        ],
-                    }
-                ]
-                try:
-                    prompt_text = self._processor.apply_chat_template(
-                        messages,
-                        tokenize=False,
-                        add_generation_prompt=True,
-                        chat_template_kwargs={"enable_thinking": False},
-                    )
-                except TypeError:
-                    prompt_text = self._processor.apply_chat_template(
-                        messages,
-                        tokenize=False,
-                        add_generation_prompt=True,
-                    )
+                prompt_text = self._build_local_ocr_prompt_text(user_prompt)
             else:
                 prompt_text = user_prompt
 
@@ -632,11 +672,7 @@ class OCREngine:
                 return_tensors="pt",
             )
 
-            device = getattr(self._model, "device", None)
-            if device is not None:
-                for key, value in list(inputs.items()):
-                    if hasattr(value, "to"):
-                        inputs[key] = value.to(device)
+            self._move_inputs_to_device(inputs)
 
             with self._torch.inference_mode():
                 generated_ids = self._model.generate(
@@ -645,10 +681,7 @@ class OCREngine:
                     do_sample=False,
                 )
 
-            input_ids = inputs.get("input_ids")
-            if hasattr(generated_ids, "shape") and input_ids is not None and hasattr(input_ids, "shape"):
-                prompt_tokens = int(input_ids.shape[-1])
-                generated_ids = generated_ids[:, prompt_tokens:]
+            generated_ids = self._strip_prompt_tokens(generated_ids, inputs)
 
             decoded = self._processor.batch_decode(
                 generated_ids,
@@ -688,41 +721,44 @@ class OCREngine:
                 working_image.close()
             image.close()
 
-    def read_text(
+    def _read_text_lmstudio_with_fallback(
         self,
-        image_path: str | Path,
+        path: Path,
         *,
-        source_path: str | Path | None = None,
-        debug_recorder=None,
-        debug_step: str = "ocr",
+        source_path: str | Path | None,
+        debug_recorder,
+        debug_step: str,
     ) -> str:
-        path = Path(image_path)
-        if self.engine == "none":
-            return ""
-        if self.engine == "lmstudio":
-            candidate_models = _normalize_model_name_candidates(self._model_names or [self._model_name]) or [""]
-            last_error: Exception | None = None
-            errors: list[str] = []
-            for candidate in candidate_models:
-                self._model_name = candidate
-                self._lmstudio_model = ""
-                try:
-                    return self._read_text_lmstudio(
-                        path,
-                        source_path=source_path,
-                        debug_recorder=debug_recorder,
-                        debug_step=debug_step,
-                    )
-                except Exception as exc:
-                    last_error = exc
-                    errors.append(f"{candidate}: {exc}")
-                    continue
-            if last_error is not None and len(errors) <= 1:
-                raise last_error
-            attempted = "; ".join(errors)
-            raise RuntimeError(f"LM Studio model fallback failed: {attempted}") from last_error
-        if self.engine != "local":
-            return ""
+        candidate_models = _normalize_model_name_candidates(self._model_names or [self._model_name]) or [""]
+        last_error: Exception | None = None
+        errors: list[str] = []
+        for candidate in candidate_models:
+            self._model_name = candidate
+            self._lmstudio_model = ""
+            try:
+                return self._read_text_lmstudio(
+                    path,
+                    source_path=source_path,
+                    debug_recorder=debug_recorder,
+                    debug_step=debug_step,
+                )
+            except Exception as exc:
+                last_error = exc
+                errors.append(f"{candidate}: {exc}")
+                continue
+        if last_error is not None and len(errors) <= 1:
+            raise last_error
+        attempted = "; ".join(errors)
+        raise RuntimeError(f"LM Studio model fallback failed: {attempted}") from last_error
+
+    def _read_text_local_with_fallback(
+        self,
+        path: Path,
+        *,
+        source_path: str | Path | None,
+        debug_recorder,
+        debug_step: str,
+    ) -> str:
         candidate_models = _normalize_model_name_candidates(self._model_names or [self._model_name])
         last_error: Exception | None = None
         errors: list[str] = []
@@ -744,6 +780,33 @@ class OCREngine:
             raise last_error
         attempted = "; ".join(errors)
         raise RuntimeError(f"Local OCR model fallback failed: {attempted}") from last_error
+
+    def read_text(
+        self,
+        image_path: str | Path,
+        *,
+        source_path: str | Path | None = None,
+        debug_recorder=None,
+        debug_step: str = "ocr",
+    ) -> str:
+        path = Path(image_path)
+        if self.engine == "none":
+            return ""
+        if self.engine == "lmstudio":
+            return self._read_text_lmstudio_with_fallback(
+                path,
+                source_path=source_path,
+                debug_recorder=debug_recorder,
+                debug_step=debug_step,
+            )
+        if self.engine != "local":
+            return ""
+        return self._read_text_local_with_fallback(
+            path,
+            source_path=source_path,
+            debug_recorder=debug_recorder,
+            debug_step=debug_step,
+        )
 
 
 def extract_keywords(text: str, *, max_keywords: int = 15) -> list[str]:

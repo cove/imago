@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 import sys
 import time
@@ -7,6 +8,8 @@ import uuid
 import threading
 from pathlib import Path
 from typing import Callable
+
+log = logging.getLogger(__name__)
 
 try:
     from watchdog.events import FileSystemEventHandler
@@ -369,13 +372,7 @@ class ScanWatchService:
         open_preview: bool = True,
     ) -> dict[str, object]:
         with self._lock:
-            event = self._events.get(event_id)
-            if event is None:
-                raise ValueError(f"Event {event_id} not found")
-            if event.status not in {"pending", "needs_rescan"}:
-                raise ValueError(f"Event {event_id} is not actionable (status: {event.status})")
-            if not target_name or not target_name.lower().endswith((".tif", ".tiff")):
-                raise ValueError("target_name must end with .tif or .tiff")
+            event = self._validate_event_for_apply(event_id, target_name)
             event.status = "processing"
             event.updated_at = _now()
 
@@ -385,47 +382,17 @@ class ScanWatchService:
         if new_path.exists():
             raise ValueError(f"Target already exists: {new_path}")
 
-        self.log_info_fn(f"  [rename] {old_path.name} -> {target_name}")
-        if not self.rename_fn(old_path, new_path, log_error=self.log_error_fn):
-            with self._lock:
-                event.status = "failed"
-                event.note = "rename failed"
-                event.updated_at = _now()
-            return event.to_dict()
+        failed = self._apply_rename_step(event, old_path, new_path, target_name)
+        if failed is not None:
+            return failed
 
-        self.log_info_fn(f"  [process-tiff] {target_name}")
-        if not self.process_tiff_fn(new_path, log_error=self.log_error_fn):
-            with self._lock:
-                event.status = "failed"
-                event.target_name = target_name
-                event.note = "processing failed"
-                event.updated_at = _now()
-            return event.to_dict()
+        failed = self._apply_process_tiff_step(event, new_path, target_name)
+        if failed is not None:
+            return failed
 
-        _ori_match = PAGE_SCAN_RE.search(target_name)
-        _scan_num = int(_ori_match.group("scan")) if _ori_match else None
-        _page_num_key = int(_ori_match.group("page")) if _ori_match else None
-        _cache_key = (str(archive_dir), _page_num_key) if _page_num_key is not None else None
-
-        self.log_info_fn(f"  [orientation] {target_name}")
-        try:
-            if _scan_num is not None and _scan_num > 1 and _cache_key is not None and _cache_key in self._orientation_cache:
-                cached_degrees = self._orientation_cache[_cache_key]
-                if cached_degrees != 0:
-                    self.log_info_fn(f"  [rotate] {target_name} {cached_degrees} degrees (matched S01)")
-                    rotate_image_180_in_place(new_path)
-            else:
-                orientation_result = self.orient_image_fn(new_path, log_info=self.log_info_fn)
-                if _cache_key is not None and _scan_num == 1:
-                    self._orientation_cache[_cache_key] = orientation_result.get("rotation_applied_degrees", 0)
-        except Exception as exc:
-            with self._lock:
-                event.status = "failed"
-                event.target_name = target_name
-                event.note = f"orientation failed: {exc}"
-                event.updated_at = _now()
-            self.log_error_fn(f"Orientation failed for {target_name}: {exc}")
-            return event.to_dict()
+        failed = self._apply_orientation_step(event, new_path, target_name, archive_dir)
+        if failed is not None:
+            return failed
 
         self.log_info_fn(f"  [display] {target_name}")
         self.display_image_fn(new_path, title=f"Renamed scan: {target_name}", log_error=self.log_error_fn)
@@ -468,6 +435,75 @@ class ScanWatchService:
                 "archive": archive.to_dict() if archive is not None else {"archive_dir": str(archive_dir)},
                 "new_path": str(new_path),
             }
+
+    def _validate_event_for_apply(self, event_id: str, target_name: str) -> "ScanEvent":
+        event = self._events.get(event_id)
+        if event is None:
+            raise ValueError(f"Event {event_id} not found")
+        if event.status not in {"pending", "needs_rescan"}:
+            raise ValueError(f"Event {event_id} is not actionable (status: {event.status})")
+        if not target_name or not target_name.lower().endswith((".tif", ".tiff")):
+            raise ValueError("target_name must end with .tif or .tiff")
+        return event
+
+    def _apply_rename_step(
+        self, event: "ScanEvent", old_path: Path, new_path: Path, target_name: str
+    ) -> "dict[str, object] | None":
+        self.log_info_fn(f"  [rename] {old_path.name} -> {target_name}")
+        if not self.rename_fn(old_path, new_path, log_error=self.log_error_fn):
+            with self._lock:
+                event.status = "failed"
+                event.note = "rename failed"
+                event.updated_at = _now()
+            return event.to_dict()
+        return None
+
+    def _apply_process_tiff_step(
+        self, event: "ScanEvent", new_path: Path, target_name: str
+    ) -> "dict[str, object] | None":
+        self.log_info_fn(f"  [process-tiff] {target_name}")
+        if not self.process_tiff_fn(new_path, log_error=self.log_error_fn):
+            with self._lock:
+                event.status = "failed"
+                event.target_name = target_name
+                event.note = "processing failed"
+                event.updated_at = _now()
+            return event.to_dict()
+        return None
+
+    def _apply_orientation_step(
+        self, event: "ScanEvent", new_path: Path, target_name: str, archive_dir: Path
+    ) -> "dict[str, object] | None":
+        _ori_match = PAGE_SCAN_RE.search(target_name)
+        _scan_num = int(_ori_match.group("scan")) if _ori_match else None
+        _page_num_key = int(_ori_match.group("page")) if _ori_match else None
+        _cache_key = (str(archive_dir), _page_num_key) if _page_num_key is not None else None
+
+        self.log_info_fn(f"  [orientation] {target_name}")
+        try:
+            self._run_orientation_with_cache(new_path, target_name, _scan_num, _cache_key)
+        except Exception as exc:
+            with self._lock:
+                event.status = "failed"
+                event.target_name = target_name
+                event.note = f"orientation failed: {exc}"
+                event.updated_at = _now()
+            self.log_error_fn(f"Orientation failed for {target_name}: {exc}")
+            return event.to_dict()
+        return None
+
+    def _run_orientation_with_cache(
+        self, new_path: Path, target_name: str, scan_num: "int | None", cache_key: "tuple | None"
+    ) -> None:
+        if scan_num is not None and scan_num > 1 and cache_key is not None and cache_key in self._orientation_cache:
+            cached_degrees = self._orientation_cache[cache_key]
+            if cached_degrees != 0:
+                self.log_info_fn(f"  [rotate] {target_name} {cached_degrees} degrees (matched S01)")
+                rotate_image_180_in_place(new_path)
+        else:
+            orientation_result = self.orient_image_fn(new_path, log_info=self.log_info_fn)
+            if cache_key is not None and scan_num == 1:
+                self._orientation_cache[cache_key] = orientation_result.get("rotation_applied_degrees", 0)
 
     def _validate_applied_scan_stitch(
         self,
@@ -812,7 +848,8 @@ def _read_keyboard_command() -> str | None:
     if sys.platform.startswith("win"):
         try:
             import msvcrt
-        except Exception:
+        except Exception as exc:
+            log.debug("msvcrt unavailable: %s", exc)
             return None
 
         if not msvcrt.kbhit():
@@ -828,7 +865,8 @@ def _read_keyboard_command() -> str | None:
 
         if select.select([sys.stdin], [], [], 0)[0]:
             return sys.stdin.read(1).lower()
-    except Exception:
+    except Exception as exc:
+        log.debug("stdin select failed: %s", exc)
         return None
     return None
 

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import cv2
+
+log = logging.getLogger(__name__)
 import numpy as np
 
 _REMBG_REMOVE = None
@@ -30,7 +33,8 @@ def _load_rembg() -> tuple[Any, Any]:
 def _load_onnxruntime() -> Any | None:
     try:
         import onnxruntime as ort  # type: ignore[import]
-    except Exception:
+    except Exception as exc:
+        log.debug("onnxruntime not available: %s", exc)
         return None
     return ort
 

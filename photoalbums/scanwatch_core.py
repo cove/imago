@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import sys
 import tempfile
@@ -8,6 +9,8 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 try:
     from stitching import AffineStitcher
@@ -60,7 +63,8 @@ def alert_beep() -> None:
 def save_stitch_preview(panorama) -> Path | None:
     try:
         import cv2
-    except Exception:
+    except Exception as exc:
+        log.debug("cv2 unavailable for stitch preview: %s", exc)
         return None
 
     fd, temp_name = tempfile.mkstemp(suffix=".tif")
@@ -86,7 +90,8 @@ def _cleanup_temp_file(path: Path, attempts: int = 60, delay: float = 2.0, initi
             return
         except PermissionError:
             time.sleep(delay)
-        except Exception:
+        except Exception as exc:
+            log.debug("temp file cleanup failed for %s: %s", path, exc)
             return
 
 

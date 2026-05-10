@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
 import os
 import time
 from pathlib import Path
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 PROCESSING_LOCK_SUFFIX = ".photoalbums-ai.lock"
 BATCH_LOCK_SUFFIX = ".photoalbums-ai.batch.lock"
@@ -42,6 +45,7 @@ def _release_image_processing_lock(lock_path: Path | None) -> None:
             lock_path.unlink()
             return
         except FileNotFoundError:
+            log.debug("Lock file already removed: %s", lock_path)
             return
         except PermissionError as exc:
             if getattr(exc, "winerror", None) != 32:

@@ -68,23 +68,30 @@ class CaptionDetails:
     def __contains__(self, item: object) -> bool:
         return str(item or "") in self.text
 
+    def _fields_equal(self, other: "CaptionDetails") -> bool:
+        scalar_match = (
+            self.text == other.text
+            and self.ocr_text == other.ocr_text
+            and self.gps_latitude == other.gps_latitude
+            and self.gps_longitude == other.gps_longitude
+            and self.location_name == other.location_name
+            and self.author_text == other.author_text
+        )
+        if not scalar_match:
+            return False
+        return (
+            self.scene_text == other.scene_text
+            and self.people_present == other.people_present
+            and self.estimated_people_count == other.estimated_people_count
+            and self.name_suggestions == other.name_suggestions
+            and self.image_regions == other.image_regions
+            and self.album_title == other.album_title
+            and self.title == other.title
+        )
+
     def __eq__(self, other: object) -> bool:
         if isinstance(other, CaptionDetails):
-            return (
-                self.text == other.text
-                and self.ocr_text == other.ocr_text
-                and self.gps_latitude == other.gps_latitude
-                and self.gps_longitude == other.gps_longitude
-                and self.location_name == other.location_name
-                and self.author_text == other.author_text
-                and self.scene_text == other.scene_text
-                and self.people_present == other.people_present
-                and self.estimated_people_count == other.estimated_people_count
-                and self.name_suggestions == other.name_suggestions
-                and self.image_regions == other.image_regions
-                and self.album_title == other.album_title
-                and self.title == other.title
-            )
+            return self._fields_equal(other)
         if isinstance(other, str):
             return self.text == other
         return False
@@ -514,6 +521,29 @@ def _is_lmstudio_location_queries_payload(payload: object) -> bool:
     return _is_lmstudio_dict_list_payload(payload, "named_queries")
 
 
+def _normalize_location_query_item(item: dict) -> dict[str, str]:
+    return {
+        "name": clean_text(str(item.get("name") or "")),
+        "world_region": clean_text(str(item.get("world_region") or "")),
+        "country_name": clean_text(str(item.get("country_name") or "")),
+        "country_code": clean_text(str(item.get("country_code") or "")),
+        "province_or_state": clean_text(str(item.get("province_or_state") or "")),
+        "city": clean_text(str(item.get("city") or "")),
+        "sublocation": clean_text(str(item.get("sublocation") or "")),
+    }
+
+
+def _collect_named_queries(payload: dict) -> list[dict[str, str]]:
+    named: list[dict[str, str]] = []
+    for item in list(payload.get("named_queries") or []):
+        if not isinstance(item, dict):
+            continue
+        normalized = _normalize_location_query_item(item)
+        if normalized["name"]:
+            named.append(normalized)
+    return named
+
+
 def _parse_lmstudio_location_queries_payload(
     value: object,
     *,
@@ -531,22 +561,7 @@ def _parse_lmstudio_location_queries_payload(
     if not _is_lmstudio_location_queries_payload(payload):
         return "", []
     primary = clean_text(str(payload.get("primary_query") or ""))
-    named: list[dict[str, str]] = []
-    for item in list(payload.get("named_queries") or []):
-        if not isinstance(item, dict):
-            continue
-        normalized = {
-            "name": clean_text(str(item.get("name") or "")),
-            "world_region": clean_text(str(item.get("world_region") or "")),
-            "country_name": clean_text(str(item.get("country_name") or "")),
-            "country_code": clean_text(str(item.get("country_code") or "")),
-            "province_or_state": clean_text(str(item.get("province_or_state") or "")),
-            "city": clean_text(str(item.get("city") or "")),
-            "sublocation": clean_text(str(item.get("sublocation") or "")),
-        }
-        if normalized["name"]:
-            named.append(normalized)
-    return primary, named
+    return primary, _collect_named_queries(payload)
 
 
 def _lmstudio_people_count_response_format() -> dict[str, object]:
@@ -610,6 +625,57 @@ def _lmstudio_error_preview(value: str, *, limit: int = 180) -> str:
     return snippet
 
 
+def _decode_caption_json(text: str, finish_note: str) -> dict:
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        payload = _extract_structured_json_payload(text, is_valid=_is_lmstudio_caption_payload)
+        if payload is None:
+            preview = _lmstudio_error_preview(text)
+            raise RuntimeError(
+                f"LM Studio returned invalid structured caption JSON: {exc.msg}; raw={preview!r}.{finish_note}"
+            ) from exc
+    if not isinstance(payload, dict):
+        preview = _lmstudio_error_preview(text)
+        raise RuntimeError(
+            f"LM Studio returned structured caption JSON that is not an object; raw={preview!r}.{finish_note}"
+        )
+    return payload
+
+
+def _validate_caption_required_strings(payload: dict, text: str, finish_note: str) -> tuple[str, str]:
+    ocr_text = payload.get("ocr_text")
+    if not isinstance(ocr_text, str):
+        preview = _lmstudio_error_preview(text)
+        raise RuntimeError(
+            f"LM Studio structured caption JSON is missing an ocr_text string; raw={preview!r}.{finish_note}"
+        )
+    author_text = payload.get("author_text")
+    if not isinstance(author_text, str):
+        preview = _lmstudio_error_preview(text)
+        raise RuntimeError(
+            f"LM Studio structured caption JSON is missing an author_text string; raw={preview!r}.{finish_note}"
+        )
+    return str(ocr_text), str(author_text)
+
+
+def _extract_caption_payload_fields(
+    payload: dict,
+) -> tuple[str, str, str, str, bool, int, list[dict[str, object]], str]:
+    scene_text = clean_lines(str(payload.get("scene_text") or ""))
+    gps_latitude = _normalize_gps_value(str(payload.get("gps_latitude") or ""), axis="lat")
+    gps_longitude = _normalize_gps_value(str(payload.get("gps_longitude") or ""), axis="lon")
+    location_name = clean_text(str(payload.get("location_name") or ""))
+    people_present = bool(payload.get("people_present") or False)
+    try:
+        estimated_people_count = max(0, int(payload.get("estimated_people_count") or 0))
+    except Exception:
+        estimated_people_count = 0
+    name_suggestions = list(payload.get("name_suggestions") or [])
+    album_title = clean_text(str(payload.get("album_title") or ""))
+    return scene_text, gps_latitude, gps_longitude, location_name, people_present, estimated_people_count, name_suggestions, album_title
+
+
 def _parse_lmstudio_structured_caption_payload(
     value: object,
     *,
@@ -624,48 +690,11 @@ def _parse_lmstudio_structured_caption_payload(
             "Check that the loaded model supports structured output and that the LM Studio server is current."
             f"{finish_note}"
         )
-    try:
-        payload = json.loads(text)
-    except json.JSONDecodeError as exc:
-        payload = _extract_structured_json_payload(
-            text,
-            is_valid=_is_lmstudio_caption_payload,
-        )
-        if payload is None:
-            preview = _lmstudio_error_preview(text)
-            raise RuntimeError(
-                f"LM Studio returned invalid structured caption JSON: {exc.msg}; raw={preview!r}.{finish_note}"
-            ) from exc
-    if not isinstance(payload, dict):
-        preview = _lmstudio_error_preview(text)
-        raise RuntimeError(
-            f"LM Studio returned structured caption JSON that is not an object; raw={preview!r}.{finish_note}"
-        )
-    ocr_text = payload.get("ocr_text")
-    if not isinstance(ocr_text, str):
-        preview = _lmstudio_error_preview(text)
-        raise RuntimeError(
-            f"LM Studio structured caption JSON is missing an ocr_text string; raw={preview!r}.{finish_note}"
-        )
-    author_text = payload.get("author_text")
-    if not isinstance(author_text, str):
-        preview = _lmstudio_error_preview(text)
-        raise RuntimeError(
-            f"LM Studio structured caption JSON is missing an author_text string; raw={preview!r}.{finish_note}"
-        )
-    scene_text = clean_lines(str(payload.get("scene_text") or ""))
-    gps_latitude = _normalize_gps_value(str(payload.get("gps_latitude") or ""), axis="lat")
-    gps_longitude = _normalize_gps_value(str(payload.get("gps_longitude") or ""), axis="lon")
-    location_name = clean_text(str(payload.get("location_name") or ""))
-    people_present = bool(payload.get("people_present") or False)
-    try:
-        estimated_people_count = max(0, int(payload.get("estimated_people_count") or 0))
-    except Exception:
-        estimated_people_count = 0
-    name_suggestions = list(payload.get("name_suggestions") or [])
-    album_title = clean_text(str(payload.get("album_title") or ""))
+    payload = _decode_caption_json(text, finish_note)
+    ocr_text, author_text = _validate_caption_required_strings(payload, text, finish_note)
+    scene_text, gps_latitude, gps_longitude, location_name, people_present, estimated_people_count, name_suggestions, album_title = _extract_caption_payload_fields(payload)
     return (
-        str(ocr_text),
+        ocr_text,
         clean_lines(author_text),
         scene_text,
         gps_latitude,
@@ -765,6 +794,30 @@ def _is_lmstudio_dict_list_payload(payload: object, key: str) -> bool:
     return True
 
 
+def _normalize_location_shown_item(loc: dict) -> dict[str, str]:
+    return {
+        "name": str(loc.get("name") or "").strip(),
+        "world_region": str(loc.get("world_region") or "").strip(),
+        "country_name": str(loc.get("country_name") or "").strip(),
+        "country_code": str(loc.get("country_code") or "").strip(),
+        "province_or_state": str(loc.get("province_or_state") or "").strip(),
+        "city": str(loc.get("city") or "").strip(),
+        "sublocation": str(loc.get("sublocation") or "").strip(),
+    }
+
+
+def _decode_locations_shown_json(text: str) -> dict | None:
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        payload = _extract_structured_json_payload(text, is_valid=_is_lmstudio_locations_shown_payload)
+        if payload is None:
+            return None
+    if not _is_lmstudio_locations_shown_payload(payload):
+        return None
+    return payload
+
+
 def _parse_lmstudio_locations_shown_payload(
     value: object,
     *,
@@ -774,33 +827,14 @@ def _parse_lmstudio_locations_shown_payload(
     text = str(raw or "").strip()
     if not text:
         return []
-    try:
-        payload = json.loads(text)
-    except json.JSONDecodeError:
-        payload = _extract_structured_json_payload(
-            text,
-            is_valid=_is_lmstudio_locations_shown_payload,
-        )
-        if payload is None:
-            return []
-    if not _is_lmstudio_locations_shown_payload(payload):
+    payload = _decode_locations_shown_json(text)
+    if payload is None:
         return []
-    locations = payload.get("locations_shown") or []
     result: list[dict[str, Any]] = []
-    for loc in locations:
+    for loc in list(payload.get("locations_shown") or []):
         if not isinstance(loc, dict):
             continue
-        result.append(
-            {
-                "name": str(loc.get("name") or "").strip(),
-                "world_region": str(loc.get("world_region") or "").strip(),
-                "country_name": str(loc.get("country_name") or "").strip(),
-                "country_code": str(loc.get("country_code") or "").strip(),
-                "province_or_state": str(loc.get("province_or_state") or "").strip(),
-                "city": str(loc.get("city") or "").strip(),
-                "sublocation": str(loc.get("sublocation") or "").strip(),
-            }
-        )
+        result.append(_normalize_location_shown_item(loc))
     return result
 
 
@@ -928,6 +962,24 @@ def _parse_lmstudio_sse_chunk(data: str, current_event: str) -> str | None:
     return str(content) if content else None
 
 
+def _iter_lmstudio_sse_tokens(response):
+    current_event = ""
+    for raw_line in response:
+        line = raw_line.decode("utf-8").rstrip("\r\n")
+        if line.startswith("event: "):
+            current_event = line[7:].strip().lower()
+            continue
+        if not line.startswith("data: "):
+            continue
+        data = line[6:]
+        if data == "[DONE]":
+            break
+        content = _parse_lmstudio_sse_chunk(data, current_event)
+        if content:
+            yield content
+        current_event = ""
+
+
 def _lmstudio_stream_tokens(url: str, payload: dict, timeout: float):
     body = json.dumps(payload).encode("utf-8")
     request = urllib.request.Request(
@@ -938,21 +990,7 @@ def _lmstudio_stream_tokens(url: str, payload: dict, timeout: float):
     )
     try:
         with urllib.request.urlopen(request, timeout=float(timeout)) as response:
-            current_event = ""
-            for raw_line in response:
-                line = raw_line.decode("utf-8").rstrip("\r\n")
-                if line.startswith("event: "):
-                    current_event = line[7:].strip().lower()
-                    continue
-                if not line.startswith("data: "):
-                    continue
-                data = line[6:]
-                if data == "[DONE]":
-                    break
-                content = _parse_lmstudio_sse_chunk(data, current_event)
-                if content:
-                    yield content
-                current_event = ""
+            yield from _iter_lmstudio_sse_tokens(response)
     except urllib.error.HTTPError as exc:
         details = exc.read().decode("utf-8", errors="replace").strip()
         message = details or f"HTTP {exc.code}"

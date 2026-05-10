@@ -195,6 +195,25 @@ def _page_scan_filenames(image_path: Path) -> list[str]:
     return [p.name for p in scans]
 
 
+def _resolve_source_filenames_and_scan_nums(
+    image_path: Path, scan_filenames: list[str]
+) -> tuple[list[str], list[int]]:
+    source_filenames = _dedupe([str(fn or "").strip() for fn in scan_filenames if str(fn or "").strip()])
+    if not source_filenames and (scan_match := _scan_name_match(image_path)):
+        return [image_path.name], [int(scan_match.group("scan"))]
+    scan_nums = sorted(int(sm.group("scan")) for fn in source_filenames if (sm := _scan_name_match(fn)))
+    return source_filenames, scan_nums
+
+
+def _build_dc_source_label(album_title: str, page_number: int, scan_nums: list[int]) -> str:
+    parts: list[str] = [p for p in [str(album_title or "").strip()] if p]
+    if page_number > 0:
+        parts.append(f"Page {page_number:02d}")
+    if scan_nums:
+        parts.append("Scan(s) " + " ".join(f"S{n:02d}" for n in scan_nums))
+    return " ".join(parts)
+
+
 def _build_dc_source(album_title: str, image_path: Path, scan_filenames: list[str]) -> str:
     """Build a human-readable dc:source string followed by source scan filenames.
 
@@ -202,18 +221,8 @@ def _build_dc_source(album_title: str, image_path: Path, scan_filenames: list[st
     """
     _, _, _, _page_str = parse_album_filename(image_path.name)
     page_number = int(_page_str) if _page_str.isdigit() else 0
-    source_filenames = _dedupe([str(fn or "").strip() for fn in scan_filenames if str(fn or "").strip()])
-    if not source_filenames and (scan_match := _scan_name_match(image_path)):
-        source_filenames = [image_path.name]
-        scan_nums = [int(scan_match.group("scan"))]
-    else:
-        scan_nums = sorted(int(sm.group("scan")) for fn in source_filenames if (sm := _scan_name_match(fn)))
-    parts: list[str] = [p for p in [str(album_title or "").strip()] if p]
-    if page_number > 0:
-        parts.append(f"Page {page_number:02d}")
-    if scan_nums:
-        parts.append("Scan(s) " + " ".join(f"S{n:02d}" for n in scan_nums))
-    label = " ".join(parts)
+    source_filenames, scan_nums = _resolve_source_filenames_and_scan_nums(image_path, scan_filenames)
+    label = _build_dc_source_label(album_title, page_number, scan_nums)
     return "; ".join(p for p in [label] + source_filenames if p)
 
 

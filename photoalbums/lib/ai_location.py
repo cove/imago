@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
+
+log = logging.getLogger(__name__)
 
 from .ai_caption import _named_location_query, _normalize_gps_value
 from .ai_geocode import NominatimGeocoder
@@ -153,6 +156,42 @@ def _record_geocode_lookup(
     artifact_recorder(payload)
 
 
+def _fallback_location_triple(
+    local_gps_latitude: str,
+    local_gps_longitude: str,
+    fallback_location_name: str,
+) -> tuple[str, str, str]:
+    return (local_gps_latitude, local_gps_longitude, str(fallback_location_name or "").strip())
+
+
+def _call_estimate_location(
+    estimate_location,
+    *,
+    model_image_path: Path,
+    people: list[str],
+    objects: list[str],
+    ocr_text: str,
+    source_path: Path,
+    album_title: str,
+    printed_album_title: str,
+    people_positions: dict[str, str],
+    prompt_debug,
+    debug_step: str,
+):
+    return estimate_location(
+        image_path=model_image_path,
+        people=people,
+        objects=objects,
+        ocr_text=ocr_text,
+        source_path=source_path,
+        album_title=album_title,
+        printed_album_title=printed_album_title,
+        people_positions=people_positions,
+        debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
+        debug_step=debug_step,
+    )
+
+
 def _resolve_location_metadata(
     *,
     requested_caption_engine: str,
@@ -170,22 +209,16 @@ def _resolve_location_metadata(
     debug_step: str = "location",
 ) -> tuple[str, str, str]:
     local_gps_latitude, local_gps_longitude = _extract_explicit_gps_from_text(ocr_text)
+    fallback_triple = _fallback_location_triple(local_gps_latitude, local_gps_longitude, fallback_location_name)
     if str(requested_caption_engine or "").strip().lower() != "lmstudio":
-        return (
-            local_gps_latitude,
-            local_gps_longitude,
-            str(fallback_location_name or "").strip(),
-        )
+        return fallback_triple
     estimate_location = getattr(caption_engine, "estimate_location", None)
     if not callable(estimate_location):
-        return (
-            local_gps_latitude,
-            local_gps_longitude,
-            str(fallback_location_name or "").strip(),
-        )
+        return fallback_triple
     try:
-        result = estimate_location(
-            image_path=model_image_path,
+        result = _call_estimate_location(
+            estimate_location,
+            model_image_path=model_image_path,
             people=people,
             objects=objects,
             ocr_text=ocr_text,
@@ -193,22 +226,14 @@ def _resolve_location_metadata(
             album_title=album_title,
             printed_album_title=printed_album_title,
             people_positions=people_positions,
-            debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
+            prompt_debug=prompt_debug,
             debug_step=debug_step,
         )
     except Exception:
-        return (
-            local_gps_latitude,
-            local_gps_longitude,
-            str(fallback_location_name or "").strip(),
-        )
+        return fallback_triple
     fallback = getattr(result, "fallback", False)
     if not isinstance(fallback, bool) or fallback:
-        return (
-            local_gps_latitude,
-            local_gps_longitude,
-            str(fallback_location_name or "").strip(),
-        )
+        return fallback_triple
     return _merge_location_estimates(
         local_gps_latitude=local_gps_latitude,
         local_gps_longitude=local_gps_longitude,
@@ -476,7 +501,8 @@ def _estimate_locations_shown(
             debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
             debug_step=debug_step,
         )
-    except Exception:
+    except Exception as exc:
+        log.debug("location extraction failed for %s: %s", source_path, exc)
         return None
 
 

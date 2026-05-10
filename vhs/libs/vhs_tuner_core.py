@@ -8,6 +8,7 @@ import gzip
 import hashlib
 import io
 import json
+import logging
 import os
 import re
 import subprocess
@@ -16,6 +17,8 @@ import tempfile
 import time
 from fractions import Fraction
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 import cv2
 import numpy as np
@@ -97,7 +100,8 @@ def _parse_int_value(raw: object) -> int | None:
         return None
     try:
         return int(text)
-    except Exception:
+    except Exception as exc:
+        log.debug("Failed to parse int %r: %s", raw, exc)
         return None
 
 
@@ -107,7 +111,8 @@ def _parse_float_value(raw: object) -> float | None:
         return None
     try:
         return float(text)
-    except Exception:
+    except Exception as exc:
+        log.debug("Failed to parse float %r: %s", raw, exc)
         return None
 
 
@@ -123,7 +128,8 @@ def _parse_timebase_value(raw: object) -> tuple[int, int] | None:
         else:
             num = int(text)
             den = 1
-    except Exception:
+    except Exception as exc:
+        log.debug("Failed to parse timebase %r: %s", raw, exc)
         return None
     if den == 0:
         return None
@@ -156,14 +162,37 @@ def _read_chapters_tsv_rows(path: Path) -> list[dict[str, str]]:
     return rows
 
 
-def _chapter_from_tsv_row(archive: str, row: dict[str, str]) -> dict | None:
+def _lower_row_keys(row: dict[str, str]) -> dict[str, str]:
     lower: dict[str, str] = {}
     for _k, _v in dict(row or {}).items():
         _key = str(_k or "").strip().lower()
         _val = str(_v or "").strip()
         if _key and (_key not in lower or _val):
             lower[_key] = _val
-    title = str(lower.get("title") or lower.get("chaptertitle") or lower.get("chapter_title") or "").strip()
+    return lower
+
+
+def _chapter_title_from_lower(lower: dict[str, str]) -> str:
+    return str(lower.get("title") or lower.get("chaptertitle") or lower.get("chapter_title") or "").strip()
+
+
+def _chapter_frame_seconds(
+    start_frame: int,
+    end_frame: int,
+    start_sec: float | None,
+    end_sec: float | None,
+) -> tuple[int, int, float, float]:
+    start_i, end_i = _normalize_frame_span(int(start_frame), int(end_frame))
+    if start_sec is None:
+        start_sec = float(start_i) * 1001.0 / 30000.0
+    if end_sec is None:
+        end_sec = float(end_i) * 1001.0 / 30000.0
+    return start_i, end_i, float(start_sec), float(end_sec)
+
+
+def _chapter_from_tsv_row(archive: str, row: dict[str, str]) -> dict | None:
+    lower = _lower_row_keys(row)
+    title = _chapter_title_from_lower(lower)
     if not title:
         return None
 
@@ -172,16 +201,12 @@ def _chapter_from_tsv_row(archive: str, row: dict[str, str]) -> dict | None:
     if start_frame is None or end_frame is None:
         return None
 
-    start_i, end_i = _normalize_frame_span(int(start_frame), int(end_frame))
-    if start_sec is None:
-        start_sec = float(start_i) * 1001.0 / 30000.0
-    if end_sec is None:
-        end_sec = float(end_i) * 1001.0 / 30000.0
+    start_i, end_i, start_sec, end_sec = _chapter_frame_seconds(start_frame, end_frame, start_sec, end_sec)
 
     return {
         "title": title,
-        "start_sec": float(start_sec),
-        "end_sec": float(end_sec),
+        "start_sec": start_sec,
+        "end_sec": end_sec,
         "start_frame": int(start_i),
         "end_frame": int(end_i),
         "bad_frames": get_bad_frames_for_chapter(str(archive or ""), title),
@@ -409,6 +434,32 @@ def _chapter_extract_cache_path(
     return TUNER_EXTRACT_DIR / key / "extracted.mkv"
 
 
+def _parse_ffprobe_kv_line(line: str) -> tuple[str, int] | None:
+    if "=" not in line:
+        return None
+    key, value = line.split("=", 1)
+    token = str(value or "").strip()
+    if not token or token.upper() == "N/A":
+        return None
+    try:
+        parsed = int(token)
+    except Exception:
+        log.debug("ffprobe kv value not an integer: %r", token)
+        return None
+    if parsed <= 0:
+        return None
+    return str(key or "").strip(), int(parsed)
+
+
+def _parse_ffprobe_frame_counts(out: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for raw in str(out or "").splitlines():
+        kv = _parse_ffprobe_kv_line(str(raw or "").strip())
+        if kv is not None:
+            counts[kv[0]] = kv[1]
+    return counts
+
+
 def _probe_video_frame_count(path: Path) -> int:
     p = Path(path)
     if not p.exists():
@@ -430,21 +481,7 @@ def _probe_video_frame_count(path: Path) -> int:
         out = subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT)
     except Exception:
         return 0
-    counts: dict[str, int] = {}
-    for raw in str(out or "").splitlines():
-        line = str(raw or "").strip()
-        if "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        token = str(value or "").strip()
-        if not token or token.upper() == "N/A":
-            continue
-        try:
-            parsed = int(token)
-        except Exception:
-            continue
-        if parsed > 0:
-            counts[str(key or "").strip()] = int(parsed)
+    counts = _parse_ffprobe_frame_counts(out)
     return int(counts.get("nb_read_frames") or counts.get("nb_frames") or 0)
 
 
@@ -565,6 +602,44 @@ def _chapter_bad_overrides(
     return out
 
 
+def _classify_frame_is_bad(
+    fid_i: int,
+    sc: float,
+    overrides: dict[int, str],
+    thr: float,
+    force_all_frames_good: bool,
+) -> bool:
+    if force_all_frames_good:
+        return False
+    ov = overrides.get(fid_i)
+    if ov == "bad":
+        return True
+    if ov == "good":
+        return False
+    return bool(float(sc) >= float(thr))
+
+
+def _update_bad_frame_set(
+    bad_set: set[int],
+    *,
+    fids: list[int],
+    scores,
+    overrides: dict[int, str],
+    start: int,
+    end: int,
+    thr: float,
+    force_all_frames_good: bool,
+) -> None:
+    for fid, sc in zip(fids, scores):
+        fid_i = int(fid)
+        if not (start <= fid_i < end):
+            continue
+        if _classify_frame_is_bad(fid_i, float(sc), overrides, thr, force_all_frames_good):
+            bad_set.add(fid_i)
+        else:
+            bad_set.discard(fid_i)
+
+
 def _persist_visible_bad_frames(
     *,
     archive: str,
@@ -600,24 +675,16 @@ def _persist_visible_bad_frames(
     scores = combined_score(sigs, wc, wn, wt, ww)
     thr = compute_threshold(scores, tm, ik, tv, bp)
 
-    for fid, sc in zip(fids, scores):
-        fid_i = int(fid)
-        if not (start <= fid_i < end):
-            continue
-        if bool(force_all_frames_good):
-            is_bad = False
-        else:
-            ov = overrides.get(fid_i)
-            if ov == "bad":
-                is_bad = True
-            elif ov == "good":
-                is_bad = False
-            else:
-                is_bad = bool(float(sc) >= float(thr))
-        if is_bad:
-            existing_global_bad.add(int(fid_i))
-        else:
-            existing_global_bad.discard(int(fid_i))
+    _update_bad_frame_set(
+        existing_global_bad,
+        fids=fids,
+        scores=scores,
+        overrides=overrides,
+        start=start,
+        end=end,
+        thr=thr,
+        force_all_frames_good=force_all_frames_good,
+    )
 
     out_global = sorted(existing_global_bad)
     out_path = replace_chapter_bad_frames_in_render_settings(
@@ -711,7 +778,8 @@ def _parse_cached_signals(sigs_raw: dict, fids: list[int]) -> dict[str, np.ndarr
             return None
         try:
             out_sigs[key] = np.asarray([float(v) for v in vals], dtype=np.float64)
-        except Exception:
+        except Exception as exc:
+            log.debug("Failed to parse cached signal %r: %s", key, exc)
             return None
     return out_sigs
 
@@ -787,6 +855,47 @@ def load_cached_signals(
     return fids, out_sigs, thumbs
 
 
+def _build_signals_out(sigs: dict, fids_out: list[int]) -> dict[str, list[float]] | None:
+    n = len(fids_out)
+    sigs_out: dict[str, list[float]] = {}
+    for key in _CACHE_SIGNAL_KEYS:
+        arr = np.asarray(sigs.get(key, []), dtype=np.float64)
+        if int(arr.shape[0]) != n:
+            return None
+        sigs_out[key] = [float(v) for v in arr.tolist()]
+    return sigs_out
+
+
+def _build_thumbs_out(thumbs_by_fid: dict[int, str] | None, fid_set: set[int]) -> dict[str, str]:
+    thumbs_out: dict[str, str] = {}
+    for raw_fid, raw_b64 in dict(thumbs_by_fid or {}).items():
+        try:
+            fid_i = int(raw_fid)
+        except Exception:
+            continue
+        if fid_i not in fid_set:
+            continue
+        b64 = str(raw_b64 or "")
+        if b64:
+            thumbs_out[str(fid_i)] = b64
+    return thumbs_out
+
+
+def _write_signals_cache(path: Path, payload: dict) -> bool:
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    try:
+        with gzip.open(tmp_path, "wt", encoding="utf-8") as fh:
+            json.dump(payload, fh, separators=(",", ":"))
+        os.replace(tmp_path, path)
+        return True
+    except Exception:
+        try:
+            tmp_path.unlink()
+        except Exception:
+            pass
+        return False
+
+
 def save_cached_signals(
     archive: str,
     ch_title: str,
@@ -803,26 +912,11 @@ def save_cached_signals(
         return
 
     fids_out = [int(x) for x in fids]
-    n = len(fids_out)
-    sigs_out: dict[str, list[float]] = {}
-    for key in _CACHE_SIGNAL_KEYS:
-        arr = np.asarray(sigs.get(key, []), dtype=np.float64)
-        if int(arr.shape[0]) != n:
-            return
-        sigs_out[key] = [float(v) for v in arr.tolist()]
+    sigs_out = _build_signals_out(sigs, fids_out)
+    if sigs_out is None:
+        return
 
-    fid_set = set(fids_out)
-    thumbs_out: dict[str, str] = {}
-    for raw_fid, raw_b64 in dict(thumbs_by_fid or {}).items():
-        try:
-            fid_i = int(raw_fid)
-        except Exception:
-            continue
-        if fid_i not in fid_set:
-            continue
-        b64 = str(raw_b64 or "")
-        if b64:
-            thumbs_out[str(fid_i)] = b64
+    thumbs_out = _build_thumbs_out(thumbs_by_fid, set(fids_out))
 
     s, e = _normalize_frame_span(start_frame, end_frame)
     path = _signals_cache_path(
@@ -848,16 +942,7 @@ def save_cached_signals(
         "thumbs": thumbs_out,
     }
 
-    tmp_path = path.with_suffix(path.suffix + ".tmp")
-    try:
-        with gzip.open(tmp_path, "wt", encoding="utf-8") as fh:
-            json.dump(payload, fh, separators=(",", ":"))
-        os.replace(tmp_path, path)
-    except Exception:
-        try:
-            tmp_path.unlink()
-        except Exception:
-            pass
+    if not _write_signals_cache(path, payload):
         return
     _cleanup_tuner_cache()
 
@@ -895,6 +980,43 @@ def _bgr_to_jpeg_b64(bgr: np.ndarray, width: int = 160) -> str:
     buf = io.BytesIO()
     Image.fromarray(cv2.cvtColor(thumb, cv2.COLOR_BGR2RGB)).save(buf, format="JPEG", quality=72)
     return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
+def _process_extracted_frame(
+    *,
+    fid: int,
+    idx: int,
+    bgr,
+    cached_lookup: dict,
+    thumb_lookup: dict[int, str],
+    frames_b64: list[str],
+    chroma_s: list,
+    noise_s: list,
+    tear_s: list,
+    wave_s: list,
+    include_thumbs: bool,
+    frame_ids: list[int],
+    frame_callback,
+) -> None:
+    c = cached_lookup.get(fid)
+    cached_thumb = str(thumb_lookup.get(fid, "") or "")
+    frame_thumb = _extract_frame_thumb(include_thumbs, cached_thumb, bgr, thumb_lookup, fid, frames_b64)
+    ch, no, te, wa = _extract_frame_signals(c, bgr)
+    chroma_s.append(ch)
+    noise_s.append(no)
+    tear_s.append(te)
+    wave_s.append(wa)
+    if callable(frame_callback):
+        frame_callback(
+            fid,
+            frame_thumb,
+            float(ch),
+            float(no),
+            float(te),
+            float(wa),
+            idx + 1,
+            len(frame_ids),
+        )
 
 
 def extract_frames(
@@ -943,37 +1065,34 @@ def extract_frames(
         if progress is not None:
             progress(idx / n_total, desc=f"Frame {fid}...")
 
-        c = cached_lookup.get(int(fid))
-        cached_thumb = str(thumb_lookup.get(int(fid), "") or "")
-        bgr = None
-        if c is None or (include_thumbs and not cached_thumb):
-            cap, bgr, error = _read_extract_frame(
-                video_path=video_path,
-                cap=cap,
-                read_fid=read_fid,
-                prev_read_fid=prev_read_fid,
-            )
-            if error:
-                return None, None, None, error
-            prev_read_fid = read_fid
+        cap, bgr, prev_read_fid, error = _load_frame_if_needed(
+            video_path=video_path,
+            cap=cap,
+            fid=int(fid),
+            read_fid=read_fid,
+            prev_read_fid=prev_read_fid,
+            cached_lookup=cached_lookup,
+            thumb_lookup=thumb_lookup,
+            include_thumbs=include_thumbs,
+        )
+        if error:
+            return None, None, None, error
 
-        frame_thumb = _extract_frame_thumb(include_thumbs, cached_thumb, bgr, thumb_lookup, int(fid), frames_b64)
-        ch, no, te, wa = _extract_frame_signals(c, bgr)
-        chroma_s.append(ch)
-        noise_s.append(no)
-        tear_s.append(te)
-        wave_s.append(wa)
-        if callable(frame_callback):
-            frame_callback(
-                int(fid),
-                frame_thumb,
-                float(ch),
-                float(no),
-                float(te),
-                float(wa),
-                idx + 1,
-                len(frame_ids),
-            )
+        _process_extracted_frame(
+            fid=int(fid),
+            idx=idx,
+            bgr=bgr,
+            cached_lookup=cached_lookup,
+            thumb_lookup=thumb_lookup,
+            frames_b64=frames_b64,
+            chroma_s=chroma_s,
+            noise_s=noise_s,
+            tear_s=tear_s,
+            wave_s=wave_s,
+            include_thumbs=include_thumbs,
+            frame_ids=frame_ids,
+            frame_callback=frame_callback,
+        )
 
     if cap is not None:
         cap.release()
@@ -1041,6 +1160,32 @@ def _cached_signal_lookup(cached_fids, cached_sigs) -> dict[int, dict[str, float
         for i, fid in enumerate(cached_fids):
             cached_lookup[fid] = {k: float(v[i]) for k, v in cached_sigs.items()}
     return cached_lookup
+
+
+def _load_frame_if_needed(
+    *,
+    video_path: str,
+    cap: cv2.VideoCapture | None,
+    fid: int,
+    read_fid: int,
+    prev_read_fid: int | None,
+    cached_lookup: dict,
+    thumb_lookup: dict[int, str],
+    include_thumbs: bool,
+) -> tuple[cv2.VideoCapture | None, np.ndarray | None, int | None, str]:
+    c = cached_lookup.get(fid)
+    cached_thumb = str(thumb_lookup.get(fid, "") or "")
+    if c is not None and not (include_thumbs and not cached_thumb):
+        return cap, None, prev_read_fid, ""
+    cap, bgr, error = _read_extract_frame(
+        video_path=video_path,
+        cap=cap,
+        read_fid=read_fid,
+        prev_read_fid=prev_read_fid,
+    )
+    if error:
+        return cap, bgr, prev_read_fid, error
+    return cap, bgr, read_fid, ""
 
 
 def _read_extract_frame(
@@ -1683,6 +1828,34 @@ def _chapter_details_md(ch: dict | None) -> str:
     )
 
 
+def _resolve_chapter_value(
+    selected_title: str | None,
+    chapter_titles: list[str],
+    titles: list[str],
+) -> str:
+    if selected_title and str(selected_title) in chapter_titles:
+        return str(selected_title)
+    if chapter_titles:
+        return chapter_titles[0]
+    return titles[0] if titles else CHAPTER_SELECT_LABEL
+
+
+def _resolve_chapter_status(
+    archive: str,
+    chapter_titles: list[str],
+    chapter_source: str,
+) -> str:
+    if chapter_titles:
+        return ""
+    tsv_exists = bool(archive and _chapters_tsv_path(archive).exists())
+    ffmeta_exists = bool(archive and _chapters_ffmetadata_path(archive).exists())
+    if chapter_source == "chapters.tsv" or tsv_exists:
+        return "`No chapters available in chapters.tsv for selected archive.`"
+    if chapter_source == "chapters.ffmetadata" or ffmeta_exists:
+        return "`No chapters available in chapters.ffmetadata for selected archive.`"
+    return "`No chapters metadata found for selected archive.`"
+
+
 def build_archive_state(
     archive: str,
     selected_title: str | None = None,
@@ -1692,26 +1865,14 @@ def build_archive_state(
     chapter_titles = [str(ch.get("title", "")) for ch in chapters if str(ch.get("title", ""))]
     chapter_rows, compact_rows = _chapter_rows(chapters)
 
-    if selected_title and str(selected_title) in chapter_titles:
-        chapter_value = str(selected_title)
-    else:
-        chapter_value = chapter_titles[0] if chapter_titles else (titles[0] if titles else CHAPTER_SELECT_LABEL)
+    chapter_value = _resolve_chapter_value(selected_title, chapter_titles, titles)
 
     picked = _find_chapter(chapters, chapter_value)
     start_frame = int(picked["start_frame"]) if picked else None
     end_frame = int(picked["end_frame"]) if picked else None
     details = _chapter_details_md(picked)
 
-    tsv_exists = bool(archive and _chapters_tsv_path(archive).exists())
-    ffmeta_exists = bool(archive and _chapters_ffmetadata_path(archive).exists())
-    if chapter_titles:
-        status = ""
-    elif chapter_source == "chapters.tsv" or tsv_exists:
-        status = "`No chapters available in chapters.tsv for selected archive.`"
-    elif chapter_source == "chapters.ffmetadata" or ffmeta_exists:
-        status = "`No chapters available in chapters.ffmetadata for selected archive.`"
-    else:
-        status = "`No chapters metadata found for selected archive.`"
+    status = _resolve_chapter_status(archive, chapter_titles, chapter_source)
 
     return {
         "titles": titles,

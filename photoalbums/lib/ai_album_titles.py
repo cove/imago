@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 from ..naming import (
     ALBUM_DIR_SUFFIX_ARCHIVE,
@@ -92,7 +95,8 @@ def _title_page_scan_match(path: str | Path):
     try:
         page_number = int(match.group("page"))
         scan_number = int(match.group("scan"))
-    except (ValueError, IndexError):
+    except (ValueError, IndexError) as exc:
+        log.debug("could not parse scan name groups from %s: %s", path, exc)
         return None
     if page_number == 1 and scan_number == 1:
         return match
@@ -105,7 +109,8 @@ def _title_page_base_match(path: str | Path):
         return None
     try:
         page_number = int(match.group("page"))
-    except (ValueError, IndexError):
+    except (ValueError, IndexError) as exc:
+        log.debug("could not parse page number from %s: %s", path, exc)
         return None
     if page_number == 1:
         return match

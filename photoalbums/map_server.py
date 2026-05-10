@@ -817,6 +817,108 @@ def _updated_base_location_detection(*, lat, lon, city: str, state: str, country
     return new_loc
 
 
+def _parse_gps_coords(state: dict) -> tuple[float, float]:
+    lat_str = str(state.get("gps_latitude") or "").strip()
+    lon_str = str(state.get("gps_longitude") or "").strip()
+    if lat_str and lon_str:
+        try:
+            return _xmp_gps_to_decimal(lat_str, axis="lat"), _xmp_gps_to_decimal(lon_str, axis="lon")
+        except Exception:
+            pass
+    return 0.0, 0.0
+
+
+def _write_location_xmp_sidecar(
+    target_path: "Path",
+    existing: dict,
+    *,
+    gps_latitude: str,
+    gps_longitude: str,
+    location_address: str,
+    location_city: str,
+    location_state: str,
+    location_country: str,
+    locations_shown: list,
+    detections_payload: dict,
+) -> None:
+    write_xmp_sidecar(
+        target_path,
+        person_names=read_person_in_image(target_path),
+        subjects=[],
+        description=str(existing.get("description", "")),
+        ocr_text=str(existing.get("ocr_text", "")),
+        gps_latitude=gps_latitude,
+        gps_longitude=gps_longitude,
+        location_address=location_address,
+        location_city=location_city,
+        location_state=location_state,
+        location_country=location_country,
+        locations_shown=locations_shown,
+        title=str(existing.get("title", "")),
+        album_title=str(existing.get("album_title", "")),
+        ocr_lang=str(existing.get("ocr_lang", "")),
+        author_text=str(existing.get("author_text", "")),
+        scene_text=str(existing.get("scene_text", "")),
+        title_source=str(existing.get("title_source", "")),
+        ocr_authority_source=str(existing.get("ocr_authority_source", "")),
+        create_date=str(existing.get("create_date", "")),
+        dc_date=str(existing.get("dc_date", "")),
+        date_time_original=str(existing.get("date_time_original", "")),
+        stitch_key=str(existing.get("stitch_key", "")),
+        detections_payload=detections_payload,
+        ocr_ran=bool(existing.get("ocr_ran")),
+        people_detected=bool(existing.get("people_detected")),
+        people_identified=bool(existing.get("people_identified")),
+        source_text=str(existing.get("source_text", "")),
+    )
+
+
+def _geocode_apply_shown_location(
+    locations_shown: list,
+    existing: dict,
+    idx: int,
+    *,
+    lat: float,
+    lon: float,
+    city: str,
+    state: str,
+    country: str,
+    query: str,
+) -> tuple[str, str, str, str, str]:
+    if idx >= len(locations_shown):
+        locations_shown.append({})
+    locations_shown[idx]["city"] = city
+    locations_shown[idx]["province_or_state"] = state
+    locations_shown[idx]["country_name"] = country
+    locations_shown[idx]["name"] = str(query or city)
+    locations_shown[idx]["gps_latitude"] = str(lat)
+    locations_shown[idx]["gps_longitude"] = str(lon)
+    return (
+        str(existing.get("gps_latitude", "")),
+        str(existing.get("gps_longitude", "")),
+        str(existing.get("location_city", "")),
+        str(existing.get("location_state", "")),
+        str(existing.get("location_country", "")),
+    )
+
+
+def _build_marker_entry(p: "Path", state: dict) -> dict:
+    lat, lon = _parse_gps_coords(state)
+    return {
+        "path": str(p),
+        "lat": float(lat),
+        "lon": float(lon),
+        "city": str(state.get("location_city", "") or ""),
+        "state": str(state.get("location_state", "") or ""),
+        "country": str(state.get("location_country", "") or ""),
+        "location_created": str(state.get("location_created", "") or ""),
+        "location_sublocation": str(state.get("location_sublocation", "") or ""),
+        "ocr_text": str(state.get("ocr_text", "") or ""),
+        "description": str(state.get("description", "") or ""),
+        "locations_shown": read_locations_shown(p),
+    }
+
+
 class MapHandler(BaseHTTPRequestHandler):
     protocol_version: ClassVar[str] = "HTTP/1.1"
 
@@ -857,36 +959,8 @@ class MapHandler(BaseHTTPRequestHandler):
             state = read_ai_sidecar_state(p)
             if not state:
                 continue
-
-            lat_str = str(state.get("gps_latitude") or "").strip()
-            lon_str = str(state.get("gps_longitude") or "").strip()
-
-            if lat_str and lon_str:
-                try:
-                    lat = _xmp_gps_to_decimal(lat_str, axis="lat")
-                    lon = _xmp_gps_to_decimal(lon_str, axis="lon")
-                except Exception:
-                    lat, lon = 0.0, 0.0
-            else:
-                lat, lon = 0.0, 0.0
-
-            city = str(state.get("location_city", "") or "")
-
-            results.append(
-                {
-                    "path": str(p),
-                    "lat": float(lat),
-                    "lon": float(lon),
-                    "city": city,
-                    "state": str(state.get("location_state", "") or ""),
-                    "country": str(state.get("location_country", "") or ""),
-                    "location_created": str(state.get("location_created", "") or ""),
-                    "location_sublocation": str(state.get("location_sublocation", "") or ""),
-                    "ocr_text": str(state.get("ocr_text", "") or ""),
-                    "description": str(state.get("description", "") or ""),
-                    "locations_shown": read_locations_shown(p),
-                }
-            )
+            marker = _build_marker_entry(p, state)
+            results.append(marker)
         self._send_json(results)
 
     @staticmethod
@@ -961,80 +1035,82 @@ class MapHandler(BaseHTTPRequestHandler):
         except Exception:
             self._send_json({"error": "Read error"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
-    def _handle_update(self) -> None:
+    def _read_json_payload(self) -> dict | None:
         try:
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length)
-            payload = json.loads(body.decode("utf-8"))
+            return json.loads(body.decode("utf-8"))
         except Exception as e:
             self._send_json({"error": str(e)}, status=HTTPStatus.BAD_REQUEST)
+            return None
+
+    def _load_xmp_for_update(self, path_str: str | None) -> tuple[Path | None, dict | None, list]:
+        if not path_str:
+            self._send_json({"error": "Missing path"}, status=HTTPStatus.BAD_REQUEST)
+            return None, None, []
+        target_path = Path(path_str)
+        if not target_path.is_file():
+            self._send_json({"error": "XMP file not found"}, status=HTTPStatus.NOT_FOUND)
+            return None, None, []
+        existing = read_ai_sidecar_state(target_path)
+        if not existing:
+            self._send_json({"error": "Could not read XMP"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+            return None, None, []
+        return target_path, existing, read_locations_shown(target_path)
+
+    def _compute_update_location(
+        self,
+        existing: dict,
+        locations_shown: list,
+        payload: dict,
+        action: str,
+        lat,
+        lon,
+        idx: int,
+    ) -> tuple | None:
+        if action == "delete_shown_location":
+            return _delete_location_update(existing, locations_shown, idx=idx)
+        if lat is None or lon is None:
+            self._send_json({"error": "Missing lat or lon"}, status=HTTPStatus.BAD_REQUEST)
+            return None
+        try:
+            city, state, country = _location_update_geocode(payload, lat=lat, lon=lon)
+        except Exception as e:
+            self._send_json({"error": f"Nominatim error: {e}"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+            return None
+        exif_lat, exif_lon, exif_city, exif_state, exif_country = _apply_location_update_target(
+            existing, locations_shown, idx=idx, lat=lat, lon=lon, city=city, state=state, country=country,
+        )
+        return city, state, country, exif_lat, exif_lon, exif_city, exif_state, exif_country
+
+    def _handle_update(self) -> None:
+        payload = self._read_json_payload()
+        if payload is None:
             return
 
-        target_path_str = payload.get("path")
         lat = payload.get("lat")
         lon = payload.get("lon")
         idx = payload.get("loc_idx", -1)
         action = payload.get("action", "update")
 
-        if not target_path_str:
-            self._send_json({"error": "Missing path"}, status=HTTPStatus.BAD_REQUEST)
+        target_path, existing, locations_shown = self._load_xmp_for_update(payload.get("path"))
+        if target_path is None:
             return
 
-        target_path = Path(target_path_str)
-        if not target_path.is_file():
-            self._send_json({"error": "XMP file not found"}, status=HTTPStatus.NOT_FOUND)
+        result = self._compute_update_location(existing, locations_shown, payload, action, lat, lon, idx)
+        if result is None:
             return
-
-        existing = read_ai_sidecar_state(target_path)
-        if not existing:
-            self._send_json({"error": "Could not read XMP"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
-            return
-
-        locations_shown = read_locations_shown(target_path)
-
-        if action == "delete_shown_location":
-            city, state, country, exif_lat, exif_lon, exif_city, exif_state, exif_country = _delete_location_update(
-                existing,
-                locations_shown,
-                idx=idx,
-            )
-        else:
-            if lat is None or lon is None:
-                self._send_json({"error": "Missing lat or lon"}, status=HTTPStatus.BAD_REQUEST)
-                return
-
-            try:
-                city, state, country = _location_update_geocode(payload, lat=lat, lon=lon)
-            except Exception as e:
-                self._send_json({"error": f"Nominatim error: {e}"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
-                return
-            exif_lat, exif_lon, exif_city, exif_state, exif_country = _apply_location_update_target(
-                existing,
-                locations_shown,
-                idx=idx,
-                lat=lat,
-                lon=lon,
-                city=city,
-                state=state,
-                country=country,
-            )
+        city, state, country, exif_lat, exif_lon, exif_city, exif_state, exif_country = result
 
         updated_detections = dict(existing.get("detections") or {})
         if action != "delete_shown_location" and idx < 0:
             updated_detections["location"] = _updated_base_location_detection(
-                lat=lat,
-                lon=lon,
-                city=city,
-                state=state,
-                country=country,
+                lat=lat, lon=lon, city=city, state=state, country=country,
             )
 
-        write_xmp_sidecar(
+        _write_location_xmp_sidecar(
             target_path,
-            person_names=read_person_in_image(target_path),
-            subjects=[],
-            description=str(existing.get("description", "")),
-            ocr_text=str(existing.get("ocr_text", "")),
+            existing,
             gps_latitude=exif_lat,
             gps_longitude=exif_lon,
             location_address=(
@@ -1044,22 +1120,7 @@ class MapHandler(BaseHTTPRequestHandler):
             location_state=exif_state,
             location_country=exif_country,
             locations_shown=locations_shown,
-            title=str(existing.get("title", "")),
-            album_title=str(existing.get("album_title", "")),
-            ocr_lang=str(existing.get("ocr_lang", "")),
-            author_text=str(existing.get("author_text", "")),
-            scene_text=str(existing.get("scene_text", "")),
-            title_source=str(existing.get("title_source", "")),
-            ocr_authority_source=str(existing.get("ocr_authority_source", "")),
-            create_date=str(existing.get("create_date", "")),
-            dc_date=str(existing.get("dc_date", "")),
-            date_time_original=str(existing.get("date_time_original", "")),
-            stitch_key=str(existing.get("stitch_key", "")),
             detections_payload=updated_detections,
-            ocr_ran=bool(existing.get("ocr_ran")),
-            people_detected=bool(existing.get("people_detected")),
-            people_identified=bool(existing.get("people_identified")),
-            source_text=str(existing.get("source_text", "")),
         )
 
         self._send_json(
@@ -1090,13 +1151,38 @@ class MapHandler(BaseHTTPRequestHandler):
             loc["country"] = country
         return loc
 
-    def _handle_geocode_and_update(self) -> None:
+    def _geocode_query(self, query: str) -> tuple | None:
         try:
-            length = int(self.headers.get("Content-Length", 0))
-            body = self.rfile.read(length)
-            payload = json.loads(body.decode("utf-8"))
+            geo_res = _GEOCODER.geocode(query)
+            if not geo_res:
+                self._send_json({"error": f"Address not found for: {query}"}, status=HTTPStatus.BAD_REQUEST)
+                return None
+            return geo_res.latitude, geo_res.longitude, geo_res.city, geo_res.state, geo_res.country
         except Exception as e:
-            self._send_json({"error": str(e)}, status=HTTPStatus.BAD_REQUEST)
+            self._send_json({"error": f"Nominatim error: {e}"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+            return None
+
+    def _resolve_geocode_location_fields(
+        self,
+        existing: dict,
+        locations_shown: list,
+        idx: int,
+        lat: float,
+        lon: float,
+        city: str,
+        state: str,
+        country: str,
+        query: str,
+    ) -> tuple[str, str, str, str, str]:
+        if idx >= 0:
+            return _geocode_apply_shown_location(
+                locations_shown, existing, idx, lat=lat, lon=lon, city=city, state=state, country=country, query=query
+            )
+        return str(lat), str(lon), city, state, country
+
+    def _handle_geocode_and_update(self) -> None:
+        payload = self._read_json_payload()
+        if payload is None:
             return
 
         target_path_str = payload.get("path")
@@ -1107,64 +1193,31 @@ class MapHandler(BaseHTTPRequestHandler):
             self._send_json({"error": "Missing path or query"}, status=HTTPStatus.BAD_REQUEST)
             return
 
-        target_path = Path(target_path_str)
-        if not target_path.is_file():
+        target_path_check = Path(target_path_str)
+        if not target_path_check.is_file():
             self._send_json({"error": "XMP file not found"}, status=HTTPStatus.NOT_FOUND)
             return
 
-        try:
-            geo_res = _GEOCODER.geocode(query)
-            if not geo_res:
-                self._send_json({"error": f"Address not found for: {query}"}, status=HTTPStatus.BAD_REQUEST)
-                return
-            lat = geo_res.latitude
-            lon = geo_res.longitude
-            city = geo_res.city
-            state = geo_res.state
-            country = geo_res.country
-        except Exception as e:
-            self._send_json({"error": f"Nominatim error: {e}"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+        geo = self._geocode_query(query)
+        if geo is None:
+            return
+        lat, lon, city, state, country = geo
+
+        target_path, existing, locations_shown = self._load_xmp_for_update(target_path_str)
+        if target_path is None:
             return
 
-        existing = read_ai_sidecar_state(target_path)
-        if not existing:
-            self._send_json({"error": "Could not read XMP"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
-            return
-
-        locations_shown = read_locations_shown(target_path)
-
-        if idx >= 0:
-            if idx >= len(locations_shown):
-                locations_shown.append({})
-            locations_shown[idx]["city"] = city
-            locations_shown[idx]["province_or_state"] = state
-            locations_shown[idx]["country_name"] = country
-            locations_shown[idx]["name"] = str(query or city)
-            locations_shown[idx]["gps_latitude"] = str(lat)
-            locations_shown[idx]["gps_longitude"] = str(lon)
-
-            exif_lat = str(existing.get("gps_latitude", ""))
-            exif_lon = str(existing.get("gps_longitude", ""))
-            exif_city = str(existing.get("location_city", ""))
-            exif_state = str(existing.get("location_state", ""))
-            exif_country = str(existing.get("location_country", ""))
-        else:
-            exif_lat = str(lat)
-            exif_lon = str(lon)
-            exif_city = city
-            exif_state = state
-            exif_country = country
+        exif_lat, exif_lon, exif_city, exif_state, exif_country = self._resolve_geocode_location_fields(
+            existing, locations_shown, idx, lat, lon, city, state, country, query
+        )
 
         updated_detections = dict(existing.get("detections") or {})
         if idx < 0:
             updated_detections["location"] = self._build_nominatim_location(lat, lon, city, state, country, query)
 
-        write_xmp_sidecar(
+        _write_location_xmp_sidecar(
             target_path,
-            person_names=read_person_in_image(target_path),
-            subjects=[],
-            description=str(existing.get("description", "")),
-            ocr_text=str(existing.get("ocr_text", "")),
+            existing,
             gps_latitude=exif_lat,
             gps_longitude=exif_lon,
             location_address=str(query or "") if idx < 0 else str(existing.get("location_created", "")),
@@ -1172,22 +1225,7 @@ class MapHandler(BaseHTTPRequestHandler):
             location_state=exif_state,
             location_country=exif_country,
             locations_shown=locations_shown,
-            title=str(existing.get("title", "")),
-            album_title=str(existing.get("album_title", "")),
-            ocr_lang=str(existing.get("ocr_lang", "")),
-            author_text=str(existing.get("author_text", "")),
-            scene_text=str(existing.get("scene_text", "")),
-            title_source=str(existing.get("title_source", "")),
-            ocr_authority_source=str(existing.get("ocr_authority_source", "")),
-            create_date=str(existing.get("create_date", "")),
-            dc_date=str(existing.get("dc_date", "")),
-            date_time_original=str(existing.get("date_time_original", "")),
-            stitch_key=str(existing.get("stitch_key", "")),
             detections_payload=updated_detections,
-            ocr_ran=bool(existing.get("ocr_ran")),
-            people_detected=bool(existing.get("people_detected")),
-            people_identified=bool(existing.get("people_identified")),
-            source_text=str(existing.get("source_text", "")),
         )
 
         self._send_json(

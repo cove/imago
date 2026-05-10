@@ -260,6 +260,35 @@ def read_job_artifacts(
     }
 
 
+def _collect_reprocess_reasons(
+    image_path: Path,
+    sidecar_path: Path,
+    sidecar_state: dict[str, Any] | None,
+    current_cast_signature: str,
+) -> list[str]:
+    reasons: list[str] = []
+    if not sidecar_path.is_file():
+        reasons.append("sidecar_missing")
+    elif not _sidecar_current(image_path, sidecar_path):
+        reasons.append("sidecar_older_than_image")
+    if len(_scan_group_paths(image_path)) > 1:
+        if _clean_text((sidecar_state or {}).get("ocr_authority_source")) != "archive_stitched":
+            reasons.append("missing_stitched_authority")
+    recorded_cast_signature = _clean_text((sidecar_state or {}).get("cast_store_signature"))
+    people_detected = (sidecar_state or {}).get("people_detected")
+    if sidecar_state is not None and recorded_cast_signature != current_cast_signature and people_detected is not False:
+        reasons.append("cast_store_signature_changed")
+    return reasons
+
+
+def _tally_reason_counts(matches: list[dict[str, Any]]) -> dict[str, int]:
+    reason_counts: dict[str, int] = {}
+    for m in matches:
+        for r in m.get("reprocess_reasons", []):
+            reason_counts[r] = reason_counts.get(r, 0) + 1
+    return reason_counts
+
+
 def reprocess_audit(
     *,
     photos_root: str | Path,
@@ -273,29 +302,9 @@ def reprocess_audit(
     matches: list[dict[str, Any]] = []
     for image_path in files:
         sidecar_path, _sidecar_exists, sidecar_state = _sidecar_state(image_path)
-        reasons: list[str] = []
-
-        if not sidecar_path.is_file():
-            reasons.append("sidecar_missing")
-        elif not _sidecar_current(image_path, sidecar_path):
-            reasons.append("sidecar_older_than_image")
-
-        if len(_scan_group_paths(image_path)) > 1:
-            if _clean_text((sidecar_state or {}).get("ocr_authority_source")) != "archive_stitched":
-                reasons.append("missing_stitched_authority")
-
-        recorded_cast_signature = _clean_text((sidecar_state or {}).get("cast_store_signature"))
-        people_detected = (sidecar_state or {}).get("people_detected")
-        if (
-            sidecar_state is not None
-            and recorded_cast_signature != current_cast_signature
-            and people_detected is not False
-        ):
-            reasons.append("cast_store_signature_changed")
-
+        reasons = _collect_reprocess_reasons(image_path, sidecar_path, sidecar_state, current_cast_signature)
         if not reasons:
             continue
-
         entry = _image_summary(image_path, sidecar_path, sidecar_state)
         entry["reprocess_reasons"] = reasons
         matches.append(entry)
@@ -303,16 +312,12 @@ def reprocess_audit(
     matches.sort(
         key=lambda row: (str(row.get("album_dir") or "").casefold(), str(row.get("file_name") or "").casefold())
     )
-    reason_counts: dict[str, int] = {}
-    for m in matches:
-        for r in m.get("reprocess_reasons", []):
-            reason_counts[r] = reason_counts.get(r, 0) + 1
     limited = matches[: max(0, int(limit))]
     return {
         "photos_root": str(Path(photos_root)),
         "cast_store": str(Path(cast_store)),
         "album_filter": _clean_text(album),
         "total_matches": len(matches),
-        "reason_counts": reason_counts,
+        "reason_counts": _tally_reason_counts(matches),
         "rows": limited,
     }

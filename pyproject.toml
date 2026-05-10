@@ -82,3 +82,6 @@ ignore = ["E203", "E501", "F403", "F405"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10
+
+[tool.skylos]
+max_lines = 200

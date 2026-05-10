@@ -30,6 +30,33 @@ def _matches_filters(path: Path, *, album_filter: str, page_filter: str) -> bool
     return True
 
 
+def _is_derived_media_file(path: Path) -> bool:
+    suffix = path.suffix.lower()
+    if suffix not in _DERIVED_MEDIA_SUFFIXES:
+        return False
+    if suffix in {".jpg", ".xmp"}:
+        return DERIVED_VIEW_RE.search(path.stem) is not None
+    return "_D" in path.stem
+
+
+def _collect_operations_for_pages_dir(
+    pages_dir: Path,
+    photos_dir: Path,
+    filter_text: str,
+    page_filter: str,
+) -> list[MoveOperation]:
+    operations: list[MoveOperation] = []
+    for path in sorted(pages_dir.iterdir()):
+        if not path.is_file():
+            continue
+        if not _is_derived_media_file(path):
+            continue
+        if not _matches_filters(path, album_filter=filter_text, page_filter=page_filter):
+            continue
+        operations.append(MoveOperation(source=path, target=photos_dir / path.name))
+    return operations
+
+
 def _iter_move_operations(photos_root: Path, *, album_filter: str = "", page: str = "") -> list[MoveOperation]:
     page_filter = f"{int(page):02d}" if str(page or "").strip().isdigit() else ""
     filter_text = str(album_filter or "").casefold()
@@ -37,19 +64,9 @@ def _iter_move_operations(photos_root: Path, *, album_filter: str = "", page: st
 
     for pages_dir in sorted(path for path in photos_root.iterdir() if path.is_dir() and is_pages_dir(path)):
         photos_dir = photos_dir_for_album_dir(pages_dir)
-        for path in sorted(pages_dir.iterdir()):
-            if not path.is_file():
-                continue
-            if path.suffix.lower() not in _DERIVED_MEDIA_SUFFIXES:
-                continue
-            if path.suffix.lower() in {".jpg", ".xmp"}:
-                if DERIVED_VIEW_RE.search(path.stem) is None:
-                    continue
-            elif "_D" not in path.stem:
-                continue
-            if not _matches_filters(path, album_filter=filter_text, page_filter=page_filter.casefold()):
-                continue
-            operations.append(MoveOperation(source=path, target=photos_dir / path.name))
+        operations.extend(
+            _collect_operations_for_pages_dir(pages_dir, photos_dir, filter_text, page_filter.casefold())
+        )
 
     return operations
 

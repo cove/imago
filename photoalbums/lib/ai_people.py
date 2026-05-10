@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import logging
 from pathlib import Path
 import re
 import sys
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 import numpy as np
 
@@ -346,7 +349,8 @@ class CastPeopleMatcher:
     def _normalize_embedding_safe(self, raw_embedding: Any) -> np.ndarray | None:
         try:
             return self._normalize_embedding(self._parse_embedding(raw_embedding))
-        except Exception:
+        except Exception as exc:
+            log.debug("embedding normalization failed: %s", exc)
             return None
 
     def _detect_faces(self, image_bgr) -> list[tuple[int, int, int, int]]:
@@ -491,27 +495,30 @@ class CastPeopleMatcher:
         self._reload_state()
         return updated
 
+    def _variant_hint_score(self, variant: str, normalized: str) -> float:
+        phrase = _normalize_hint_text(variant).strip()
+        if not phrase:
+            return 0.0
+        tokens = [token for token in phrase.split() if len(token) >= 4]
+        if f" {phrase} " in normalized:
+            return 0.08 if len(tokens) >= 2 else 0.05
+        token_hits = [token for token in tokens if f" {token} " in normalized]
+        if len(token_hits) >= 2:
+            return 0.05
+        if len(token_hits) == 1 and len(token_hits[0]) >= 5:
+            return 0.015
+        return 0.0
+
     def _hint_bonus_by_person_id(self, hint_text: str) -> dict[str, float]:
         normalized = _normalize_hint_text(hint_text)
         if not normalized.strip():
             return {}
         bonuses: dict[str, float] = {}
         for person_id, variants in self._person_variants_by_id.items():
-            best = 0.0
-            for variant in variants:
-                phrase = _normalize_hint_text(variant).strip()
-                if not phrase:
-                    continue
-                tokens = [token for token in phrase.split() if len(token) >= 4]
-                phrase_match = f" {phrase} " in normalized
-                if phrase_match:
-                    best = max(best, 0.08 if len(tokens) >= 2 else 0.05)
-                    continue
-                token_hits = [token for token in tokens if f" {token} " in normalized]
-                if len(token_hits) >= 2:
-                    best = max(best, 0.05)
-                elif len(token_hits) == 1 and len(token_hits[0]) >= 5:
-                    best = max(best, 0.015)
+            best = max(
+                (self._variant_hint_score(variant, normalized) for variant in variants),
+                default=0.0,
+            )
             if best > 0.0:
                 bonuses[person_id] = best
         return bonuses
@@ -772,6 +779,62 @@ class CastPeopleMatcher:
         )
         return True
 
+    def _process_detected_face(
+        self,
+        *,
+        image,
+        x: int, y: int, ww: int, hh: int,
+        width: int, height: int,
+        bbox_offset: tuple[int, int],
+        source_key: str,
+        path,
+        normalized_variant: str,
+        match_iou: float,
+        refresh_active_face: bool,
+        hint_text: str,
+        face_rank: int,
+        total_valid: int,
+        by_name: dict,
+    ) -> None:
+        x0, y0, x1, y1 = self._expand_box(x, y, ww, hh, width, height)
+        crop = image[y0:y1, x0:x1]
+        absolute_bbox = _offset_box((x, y, ww, hh), bbox_offset)
+        face = self._match_or_create_face_record(
+            crop=crop,
+            source_key=source_key,
+            absolute_bbox=absolute_bbox,
+            match_iou=match_iou,
+            analysis_image_path=str(path),
+            analysis_variant=normalized_variant,
+            refresh_active_face=refresh_active_face,
+        )
+        review_status = str(self._face_review_status(face) or "").strip().lower()
+        if review_status in {"ignored", "rejected"}:
+            return
+        if self._store_confirmed_face_match(face, by_name):
+            return
+        embedding = face.get("embedding") or self._arcface_embed(crop) or self._embed(crop)
+        if self._matches_ignored_face(embedding):
+            return
+        candidates = self._suggest_face_candidates(embedding, hint_text)
+        suggested, _margin = self._choose_candidate(
+            candidates=candidates,
+            face_quality=face.get("quality"),
+            min_similarity=self.min_similarity,
+            min_margin=self.min_margin,
+            min_face_quality=self.min_face_quality,
+            min_sample_count=self.min_sample_count,
+        )
+        if self._store_suggested_face_match(face=face, suggested=suggested, by_name=by_name):
+            return
+        name_hints = self._build_face_name_hints(
+            hint_text=hint_text,
+            source_path=source_key,
+            face_index=face_rank,
+            total_faces=total_valid,
+        )
+        self._queue_for_review(face, candidates, name_hints=name_hints)
+
     def match_image(
         self,
         image_path: str | Path,
@@ -806,50 +869,21 @@ class CastPeopleMatcher:
         self.last_faces_detected = total_valid
 
         for face_rank, (x, y, ww, hh) in enumerate(valid_faces):
-            x0, y0, x1, y1 = self._expand_box(x, y, ww, hh, width, height)
-            crop = image[y0:y1, x0:x1]
-
-            absolute_bbox = _offset_box((x, y, ww, hh), bbox_offset)
-            face = self._match_or_create_face_record(
-                crop=crop,
+            self._process_detected_face(
+                image=image,
+                x=x, y=y, ww=ww, hh=hh,
+                width=width, height=height,
+                bbox_offset=bbox_offset,
                 source_key=source_key,
-                absolute_bbox=absolute_bbox,
+                path=path,
+                normalized_variant=normalized_variant,
                 match_iou=match_iou,
-                analysis_image_path=str(path),
-                analysis_variant=normalized_variant,
                 refresh_active_face=refresh_active_face,
-            )
-
-            review_status = str(self._face_review_status(face) or "").strip().lower()
-            if review_status in {"ignored", "rejected"}:
-                continue
-
-            if self._store_confirmed_face_match(face, by_name):
-                continue
-
-            embedding = face.get("embedding") or self._arcface_embed(crop) or self._embed(crop)
-            if self._matches_ignored_face(embedding):
-                continue
-
-            candidates = self._suggest_face_candidates(embedding, hint_text)
-            suggested, _margin = self._choose_candidate(
-                candidates=candidates,
-                face_quality=face.get("quality"),
-                min_similarity=self.min_similarity,
-                min_margin=self.min_margin,
-                min_face_quality=self.min_face_quality,
-                min_sample_count=self.min_sample_count,
-            )
-            if self._store_suggested_face_match(face=face, suggested=suggested, by_name=by_name):
-                continue
-
-            name_hints = self._build_face_name_hints(
                 hint_text=hint_text,
-                source_path=source_key,
-                face_index=face_rank,
-                total_faces=total_valid,
+                face_rank=face_rank,
+                total_valid=total_valid,
+                by_name=by_name,
             )
-            self._queue_for_review(face, candidates, name_hints=name_hints)
 
         out = list(by_name.values())
         out.sort(

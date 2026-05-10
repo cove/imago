@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import csv
 import json
+import logging
 import re
 from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
 from statistics import median
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 from common import METADATA_DIR, archive_dir_for, chapter_frame_bounds, parse_chapters, safe
 
@@ -35,7 +38,8 @@ def _parse_seconds(raw: Any) -> float | None:
             sec = float(int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2]))
         else:
             return None
-    except Exception:
+    except Exception as exc:
+        log.debug("could not parse seconds from %r: %s", raw, exc)
         return None
     if not (sec == sec):
         return None
@@ -58,7 +62,8 @@ def _parse_frame(raw: Any) -> int | None:
         return None
     try:
         frame = int(text)
-    except Exception:
+    except Exception as exc:
+        log.debug("could not parse frame from %r: %s", text, exc)
         return None
     if frame < 0:
         return None
@@ -133,7 +138,8 @@ def _parse_timebase(raw: Any) -> tuple[int, int] | None:
         else:
             num = int(text)
             den = 1
-    except Exception:
+    except Exception as exc:
+        log.debug("could not parse timebase from %r: %s", raw, exc)
         return None
     if den == 0:
         return None
@@ -301,6 +307,35 @@ def _estimate_step_seconds(
     return step
 
 
+def _is_people_tsv_header_line(lower: str) -> bool:
+    return (
+        lower.startswith("start_frame\t")
+        or lower.startswith("start_frame,end_frame")
+        or lower.startswith("start\t")
+        or lower.startswith("start,end")
+    )
+
+
+def _parse_people_tsv_line(line: str) -> tuple[float, float, str] | None:
+    lower = line.lower()
+    if _is_people_tsv_header_line(lower):
+        return None
+    parts = line.split("\t") if "\t" in line else line.split(",")
+    if len(parts) < 3:
+        return None
+    start = _parse_tsv_time_or_frame_seconds(parts[0])
+    end = _parse_tsv_time_or_frame_seconds(parts[1])
+    people = re.sub(r"\s+", " ", ",".join(parts[2:]).strip())
+    if start is None or end is None or not people:
+        return None
+    if float(end) <= float(start):
+        if abs(float(end) - float(start)) < 1e-9:
+            end = float(start) + _frame_to_seconds(1)
+        else:
+            return None
+    return float(start), float(end), str(people)
+
+
 def _read_people_tsv_rows(path: Path) -> list[tuple[float, float, str]]:
     rows: list[tuple[float, float, str]] = []
     if not path.exists():
@@ -309,25 +344,9 @@ def _read_people_tsv_rows(path: Path) -> list[tuple[float, float, str]]:
         line = str(raw or "").strip()
         if not line or line.startswith("#"):
             continue
-        lower = line.lower()
-        if lower.startswith("start_frame\t") or lower.startswith("start_frame,end_frame"):
-            continue
-        if lower.startswith("start\t") or lower.startswith("start,end"):
-            continue
-        parts = line.split("\t") if "\t" in line else line.split(",")
-        if len(parts) < 3:
-            continue
-        start = _parse_tsv_time_or_frame_seconds(parts[0])
-        end = _parse_tsv_time_or_frame_seconds(parts[1])
-        people = re.sub(r"\s+", " ", ",".join(parts[2:]).strip())
-        if start is None or end is None or not people:
-            continue
-        if float(end) <= float(start):
-            if abs(float(end) - float(start)) < 1e-9:
-                end = float(start) + _frame_to_seconds(1)
-            else:
-                continue
-        rows.append((float(start), float(end), str(people)))
+        result = _parse_people_tsv_line(line)
+        if result is not None:
+            rows.append(result)
     return rows
 
 
@@ -428,6 +447,20 @@ def _prefill_observations(
     return observations, matched_faces, vhs_faces
 
 
+def _check_face_quality(raw_quality, min_quality: float) -> bool:
+    if raw_quality is None:
+        return True
+    try:
+        return float(raw_quality) >= float(min_quality)
+    except Exception as exc:
+        log.debug("could not compare quality %r against threshold: %s", raw_quality, exc)
+        return False
+
+
+def _face_local_sec(timestamp: float, mode: str, chapter_start: float) -> float:
+    return float(timestamp) - chapter_start if mode == "archive" else float(timestamp)
+
+
 def _prefill_observation_for_face(
     row: Any,
     *,
@@ -448,13 +481,8 @@ def _prefill_observation_for_face(
     timestamp = _parse_seconds(row.get("timestamp"))
     if not person_id or not person_name or timestamp is None:
         return None
-    raw_quality = row.get("quality")
-    if raw_quality is not None:
-        try:
-            if float(raw_quality) < float(min_quality):
-                return None
-        except Exception:
-            return None
+    if not _check_face_quality(row.get("quality"), min_quality):
+        return None
     mode = _classify_face_source(
         str(row.get("source_path") or "").strip(),
         archive=archive,
@@ -463,7 +491,7 @@ def _prefill_observation_for_face(
     )
     if not mode:
         return None
-    local_sec = float(timestamp) - chapter_start if mode == "archive" else float(timestamp)
+    local_sec = _face_local_sec(timestamp, mode, chapter_start)
     if local_sec < 0.0 or local_sec > chapter_duration:
         return None
     return local_sec, person_name, mode
@@ -677,19 +705,11 @@ def prefill_people_from_cast(
     )
 
 
-def apply_prefill_entries_to_people_tsv(
-    *,
-    archive: str,
-    chapter_title: str,
-    entries: list[dict[str, Any]],
-) -> tuple[Path, int]:
-    chapter = _load_chapter_context(archive, chapter_title)
-    chapter_start_sec = float(chapter["start_sec"])
-    chapter_end_sec = float(chapter["end_sec"])
-    chapter_len_sec = max(_frame_to_seconds(1), float(chapter_end_sec) - float(chapter_start_sec))
-    tsv_path = METADATA_DIR / str(archive or "").strip() / "people.tsv"
-
-    existing = _read_people_tsv_rows(tsv_path)
+def _split_existing_rows_around_chapter(
+    existing: list[tuple[float, float, str]],
+    chapter_start_sec: float,
+    chapter_end_sec: float,
+) -> list[tuple[float, float, str]]:
     kept: list[tuple[float, float, str]] = []
     for start, end, people in existing:
         if float(end) <= float(chapter_start_sec) or float(start) >= float(chapter_end_sec):
@@ -699,7 +719,14 @@ def apply_prefill_entries_to_people_tsv(
             kept.append((float(start), float(chapter_start_sec), str(people)))
         if float(end) > float(chapter_end_sec):
             kept.append((float(chapter_end_sec), float(end), str(people)))
+    return kept
 
+
+def _build_chapter_rows(
+    entries: list[dict[str, Any]],
+    chapter_start_sec: float,
+    chapter_len_sec: float,
+) -> list[tuple[float, float, str]]:
     chapter_rows: list[tuple[float, float, str]] = []
     for item in list(entries or []):
         start_local = _parse_seconds(item.get("start_seconds", item.get("start")))
@@ -720,6 +747,24 @@ def apply_prefill_entries_to_people_tsv(
                 str(people),
             )
         )
+    return chapter_rows
+
+
+def apply_prefill_entries_to_people_tsv(
+    *,
+    archive: str,
+    chapter_title: str,
+    entries: list[dict[str, Any]],
+) -> tuple[Path, int]:
+    chapter = _load_chapter_context(archive, chapter_title)
+    chapter_start_sec = float(chapter["start_sec"])
+    chapter_end_sec = float(chapter["end_sec"])
+    chapter_len_sec = max(_frame_to_seconds(1), float(chapter_end_sec) - float(chapter_start_sec))
+    tsv_path = METADATA_DIR / str(archive or "").strip() / "people.tsv"
+
+    existing = _read_people_tsv_rows(tsv_path)
+    kept = _split_existing_rows_around_chapter(existing, chapter_start_sec, chapter_end_sec)
+    chapter_rows = _build_chapter_rows(entries, chapter_start_sec, chapter_len_sec)
 
     merged = _canonicalize_people_tsv_rows([*kept, *chapter_rows])
     _write_people_tsv_rows(tsv_path, merged)

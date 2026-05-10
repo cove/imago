@@ -33,6 +33,42 @@ class PromptDebugStep:
         }
 
 
+def _has_step_content(prompt: str, system_prompt: str, response: str, finish_reason: str) -> bool:
+    return bool(
+        str(prompt or "").strip()
+        or str(system_prompt or "").strip()
+        or str(response or "").strip()
+        or str(finish_reason or "").strip()
+    )
+
+
+def _build_debug_step(
+    *,
+    step: str,
+    engine: str,
+    model: str,
+    prompt: str,
+    system_prompt: str,
+    source_path: str | Path | None,
+    prompt_source: str,
+    response: str,
+    finish_reason: str,
+    metadata: dict[str, Any] | None,
+) -> PromptDebugStep:
+    return PromptDebugStep(
+        step=str(step or "").strip(),
+        engine=str(engine or "").strip(),
+        model=str(model or "").strip(),
+        prompt=str(prompt or ""),
+        system_prompt=str(system_prompt or ""),
+        source_path=str(source_path or "").strip(),
+        prompt_source=str(prompt_source or "").strip(),
+        response=str(response or ""),
+        finish_reason=str(finish_reason or "").strip(),
+        metadata=dict(metadata or {}),
+    )
+
+
 class PromptDebugSession:
     def __init__(self, image_path: str | Path, *, label: str = "") -> None:
         self.image_path = Path(image_path)
@@ -53,25 +89,20 @@ class PromptDebugSession:
         finish_reason: str = "",
         metadata: dict[str, Any] | None = None,
     ) -> None:
-        if (
-            not str(prompt or "").strip()
-            and not str(system_prompt or "").strip()
-            and not str(response or "").strip()
-            and not str(finish_reason or "").strip()
-        ):
+        if not _has_step_content(prompt, system_prompt, response, finish_reason):
             return
         self._steps.append(
-            PromptDebugStep(
-                step=str(step or "").strip(),
-                engine=str(engine or "").strip(),
-                model=str(model or "").strip(),
-                prompt=str(prompt or ""),
-                system_prompt=str(system_prompt or ""),
-                source_path=str(source_path or "").strip(),
-                prompt_source=str(prompt_source or "").strip(),
-                response=str(response or ""),
-                finish_reason=str(finish_reason or "").strip(),
-                metadata=dict(metadata or {}),
+            _build_debug_step(
+                step=step,
+                engine=engine,
+                model=model,
+                prompt=prompt,
+                system_prompt=system_prompt,
+                source_path=source_path,
+                prompt_source=prompt_source,
+                response=response,
+                finish_reason=finish_reason,
+                metadata=metadata,
             )
         )
 

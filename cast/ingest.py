@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import contextlib
 import io
+import logging
 import warnings
 from pathlib import Path
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 import cv2
 import numpy as np
@@ -125,7 +128,8 @@ def compute_arcface_embedding(face_bgr: np.ndarray) -> list[float] | None:
         if norm > 1e-12:
             vec = vec / norm
         return [float(v) for v in vec.tolist()]
-    except Exception:
+    except Exception as exc:
+        log.debug("embedding extraction failed: %s", exc)
         return None
 
 
@@ -280,7 +284,8 @@ class FaceIngestor:
             return None
         try:
             bbox = np.asarray(getattr(face, "bbox"), dtype=np.float32).reshape(-1)
-        except Exception:
+        except Exception as exc:
+            log.debug("bbox extraction failed: %s", exc)
             return None
         if bbox.size < 4:
             return None
@@ -430,41 +435,17 @@ class FaceIngestor:
         cap = cv2.VideoCapture(str(path))
         if not cap.isOpened():
             raise RuntimeError(f"Unable to open video file: {path}")
+        fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
+        if fps <= 1e-6:
+            fps = 29.97
+        stride = max(1, int(round(max(0.1, float(sample_every_seconds)) * fps)))
+        limit_seconds = float(max_duration_seconds or 0.0)
+        source = str(source_path or path)
         try:
-            fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
-            if fps <= 1e-6:
-                fps = 29.97
-            stride = max(1, int(round(max(0.1, float(sample_every_seconds)) * fps)))
-            limit_seconds = float(max_duration_seconds or 0.0)
-            source = str(source_path or path)
-
-            frame_idx = 0
-            sampled_frames = 0
-            created: list[dict[str, Any]] = []
-            while True:
-                ok, frame = cap.read()
-                if not ok or frame is None:
-                    break
-                if frame_idx % stride != 0:
-                    frame_idx += 1
-                    continue
-                seconds = float(frame_idx) / float(fps)
-                if limit_seconds > 0.0 and seconds > limit_seconds:
-                    break
-                sampled_frames += 1
-                self._ingest_vhs_frame_faces(
-                    frame=frame,
-                    frame_idx=frame_idx,
-                    seconds=seconds,
-                    source=source,
-                    min_size=int(min_size),
-                    max_faces=int(max_faces),
-                    fps=fps,
-                    created=created,
-                )
-                if max_faces > 0 and len(created) >= int(max_faces):
-                    break
-                frame_idx += 1
+            sampled_frames, created = self._sample_vhs_frames(
+                cap=cap, fps=fps, stride=stride, limit_seconds=limit_seconds,
+                source=source, min_size=int(min_size), max_faces=int(max_faces),
+            )
         finally:
             cap.release()
 
@@ -474,6 +455,33 @@ class FaceIngestor:
             "faces_created": int(len(created)),
             "source_path": str(source_path or path),
         }
+
+    def _sample_vhs_frames(
+        self, *, cap, fps: float, stride: int, limit_seconds: float,
+        source: str, min_size: int, max_faces: int,
+    ) -> tuple[int, list[dict[str, Any]]]:
+        frame_idx = 0
+        sampled_frames = 0
+        created: list[dict[str, Any]] = []
+        while True:
+            ok, frame = cap.read()
+            if not ok or frame is None:
+                break
+            if frame_idx % stride != 0:
+                frame_idx += 1
+                continue
+            seconds = float(frame_idx) / float(fps)
+            if limit_seconds > 0.0 and seconds > limit_seconds:
+                break
+            sampled_frames += 1
+            self._ingest_vhs_frame_faces(
+                frame=frame, frame_idx=frame_idx, seconds=seconds, source=source,
+                min_size=min_size, max_faces=max_faces, fps=fps, created=created,
+            )
+            if max_faces > 0 and len(created) >= max_faces:
+                break
+            frame_idx += 1
+        return sampled_frames, created
 
     def _ingest_vhs_frame_faces(
         self,
@@ -578,19 +586,16 @@ class FaceIngestor:
             files.extend(self._collect_archive_dir_files(archive_dir, ext_set, recursive))
         return files
 
-    def ingest_photo_album_views(
+    def _collect_deduplicated_photo_files(
         self,
         *,
         photo_albums_root: str | Path,
-        view_glob: str = "*_Pages",
-        recursive: bool = True,
-        extensions: tuple[str, ...] = (".jpg", ".jpeg"),
-        min_size: int = 40,
-        max_faces_per_photo: int = 50,
-        max_files: int = 0,
-        rescan_existing: bool = False,
-    ) -> dict[str, Any]:
-        self._ensure_primary_model_ready()
+        view_glob: str,
+        recursive: bool,
+        extensions: tuple[str, ...],
+        max_files: int,
+        rescan_existing: bool,
+    ) -> list[Path]:
         view_files = self.iter_photo_files(
             photo_albums_root=photo_albums_root,
             view_glob=view_glob,
@@ -616,18 +621,21 @@ class FaceIngestor:
             photo_files.append(path)
         if max_files and max_files > 0:
             photo_files = photo_files[: int(max_files)]
+        return photo_files
 
-        removed = {
-            "removed_faces": 0,
-            "removed_reviews": 0,
-            "removed_crops": 0,
-        }
+    def _remove_existing_faces_if_rescan(
+        self, photo_files: list[Path], rescan_existing: bool
+    ) -> dict[str, int]:
         if rescan_existing and photo_files:
-            removed = self.store.remove_faces_for_sources(
+            return self.store.remove_faces_for_sources(
                 source_paths=[str(path) for path in photo_files],
                 remove_crops=True,
             )
+        return {"removed_faces": 0, "removed_reviews": 0, "removed_crops": 0}
 
+    def _ingest_all_photos(
+        self, photo_files: list[Path], min_size: int, max_faces_per_photo: int
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         all_faces: list[dict[str, Any]] = []
         per_photo: list[dict[str, Any]] = []
         for photo_path in photo_files:
@@ -638,16 +646,24 @@ class FaceIngestor:
                 max_faces=max_faces_per_photo,
             )
             all_faces.extend(created)
-            per_photo.append(
-                {
-                    "photo_path": str(photo_path),
-                    "faces_created": int(len(created)),
-                }
-            )
+            per_photo.append({"photo_path": str(photo_path), "faces_created": int(len(created))})
+        return all_faces, per_photo
 
+    def _build_scan_summary(
+        self,
+        photo_files: list[Path],
+        all_faces: list[dict[str, Any]],
+        per_photo: list[dict[str, Any]],
+        photo_albums_root: str | Path,
+        view_glob: str,
+        rescan_existing: bool,
+        removed: dict[str, int],
+    ) -> dict[str, Any]:
         return {
             "photo_files_scanned": int(len(photo_files)),
-            "view_files_scanned": int(len([path for path in photo_files if path.suffix.lower() in {".jpg", ".jpeg"}])),
+            "view_files_scanned": int(
+                len([path for path in photo_files if path.suffix.lower() in {".jpg", ".jpeg"}])
+            ),
             "archive_scan_files_scanned": int(
                 len([path for path in photo_files if path.suffix.lower() in {".tif", ".tiff"}])
             ),
@@ -659,3 +675,30 @@ class FaceIngestor:
             "rescan_existing": bool(rescan_existing),
             **removed,
         }
+
+    def ingest_photo_album_views(
+        self,
+        *,
+        photo_albums_root: str | Path,
+        view_glob: str = "*_Pages",
+        recursive: bool = True,
+        extensions: tuple[str, ...] = (".jpg", ".jpeg"),
+        min_size: int = 40,
+        max_faces_per_photo: int = 50,
+        max_files: int = 0,
+        rescan_existing: bool = False,
+    ) -> dict[str, Any]:
+        self._ensure_primary_model_ready()
+        photo_files = self._collect_deduplicated_photo_files(
+            photo_albums_root=photo_albums_root,
+            view_glob=view_glob,
+            recursive=recursive,
+            extensions=extensions,
+            max_files=max_files,
+            rescan_existing=rescan_existing,
+        )
+        removed = self._remove_existing_faces_if_rescan(photo_files, rescan_existing)
+        all_faces, per_photo = self._ingest_all_photos(photo_files, min_size, max_faces_per_photo)
+        return self._build_scan_summary(
+            photo_files, all_faces, per_photo, photo_albums_root, view_glob, rescan_existing, removed
+        )

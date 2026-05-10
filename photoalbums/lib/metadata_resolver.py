@@ -50,10 +50,8 @@ def materialize_location_payload(payload: dict[str, Any] | None, *, geocoder: An
     return normalized
 
 
-def location_payload_from_location_shown(location: dict[str, Any] | None) -> dict[str, str]:
-    if not isinstance(location, dict):
-        return {}
-    payload = {
+def _extract_location_shown_fields(location: dict[str, Any]) -> dict[str, str]:
+    return {
         "address": str(location.get("name") or "").strip(),
         "city": str(location.get("city") or "").strip(),
         "state": str(location.get("province_or_state") or location.get("state") or "").strip(),
@@ -62,28 +60,30 @@ def location_payload_from_location_shown(location: dict[str, Any] | None) -> dic
         "gps_latitude": str(location.get("gps_latitude") or "").strip(),
         "gps_longitude": str(location.get("gps_longitude") or "").strip(),
     }
+
+
+def _fill_address_from_parts(payload: dict[str, str]) -> None:
     if not payload["address"]:
-        parts = [
-            payload["sublocation"],
-            payload["city"],
-            payload["state"],
-            payload["country"],
-        ]
+        parts = [payload["sublocation"], payload["city"], payload["state"], payload["country"]]
         payload["address"] = ", ".join(part for part in parts if part)
+
+
+def location_payload_from_location_shown(location: dict[str, Any] | None) -> dict[str, str]:
+    if not isinstance(location, dict):
+        return {}
+    payload = _extract_location_shown_fields(location)
+    _fill_address_from_parts(payload)
     return {key: value for key, value in payload.items() if value}
 
 
-def location_shown_from_payload(payload: dict[str, Any] | None) -> dict[str, str]:
-    normalized = normalize_location_payload(payload)
-    if not normalized:
-        return {}
+def _build_location_shown_dict(normalized: dict[str, str]) -> dict[str, str]:
     address = str(normalized.get("address") or "").strip()
     sublocation = str(normalized.get("sublocation") or "").strip()
     city = str(normalized.get("city") or "").strip()
     state = str(normalized.get("state") or "").strip()
     country = str(normalized.get("country") or "").strip()
     name = address or sublocation or ", ".join(part for part in (city, state, country) if part)
-    location = {
+    return {
         "name": name,
         "city": city,
         "province_or_state": state,
@@ -92,6 +92,13 @@ def location_shown_from_payload(payload: dict[str, Any] | None) -> dict[str, str
         "gps_latitude": str(normalized.get("gps_latitude") or "").strip(),
         "gps_longitude": str(normalized.get("gps_longitude") or "").strip(),
     }
+
+
+def location_shown_from_payload(payload: dict[str, Any] | None) -> dict[str, str]:
+    normalized = normalize_location_payload(payload)
+    if not normalized:
+        return {}
+    location = _build_location_shown_dict(normalized)
     return {key: value for key, value in location.items() if value}
 
 
@@ -123,18 +130,15 @@ def _token_match_score(normalized_caption: str, normalized_variant: str) -> int:
     return sum(len(token) for token in matched_tokens)
 
 
-def _location_text_variants(location: dict[str, Any] | None) -> list[str]:
-    if not isinstance(location, dict):
-        return []
+def _resolve_location_payload(location: dict[str, Any]) -> dict[str, str]:
     payload = location_payload_from_location_shown(location)
     if not payload:
         payload = normalize_location_payload(location)
-    address = str(payload.get("address") or "").strip()
-    city = str(payload.get("city") or "").strip()
-    state = str(payload.get("state") or "").strip()
-    country = str(payload.get("country") or "").strip()
-    sublocation = str(payload.get("sublocation") or "").strip()
-    variants = [
+    return payload
+
+
+def _build_location_variants(address: str, city: str, state: str, country: str, sublocation: str) -> list[str]:
+    return [
         address,
         ", ".join(part for part in (sublocation, city, state, country) if part),
         ", ".join(part for part in (city, state, country) if part),
@@ -144,6 +148,18 @@ def _location_text_variants(location: dict[str, Any] | None) -> list[str]:
         country,
         sublocation,
     ]
+
+
+def _location_text_variants(location: dict[str, Any] | None) -> list[str]:
+    if not isinstance(location, dict):
+        return []
+    payload = _resolve_location_payload(location)
+    address = str(payload.get("address") or "").strip()
+    city = str(payload.get("city") or "").strip()
+    state = str(payload.get("state") or "").strip()
+    country = str(payload.get("country") or "").strip()
+    sublocation = str(payload.get("sublocation") or "").strip()
+    variants = _build_location_variants(address, city, state, country, sublocation)
     return [variant for variant in _dedupe(variants) if str(variant or "").strip()]
 
 
@@ -165,6 +181,13 @@ def build_location_filter_set(
     return filters
 
 
+def _name_matches_location(normalized_name: str, location_filter_set: set[str]) -> bool:
+    return any(
+        normalized_name == location_text or normalized_name in location_text or location_text in normalized_name
+        for location_text in location_filter_set
+    )
+
+
 def filter_location_names_from_people(
     person_names: list[str] | tuple[str, ...] | None,
     location_filter_set: set[str] | None,
@@ -177,10 +200,7 @@ def filter_location_names_from_people(
         if not clean_name:
             continue
         normalized_name = _normalize_location_text(clean_name)
-        if normalized_name and any(
-            normalized_name == location_text or normalized_name in location_text or location_text in normalized_name
-            for location_text in location_filter_set
-        ):
+        if normalized_name and _name_matches_location(normalized_name, location_filter_set):
             continue
         filtered.append(clean_name)
     return _dedupe(filtered)
@@ -208,6 +228,31 @@ def _caption_location_score(normalized_caption: str, normalized_variant: str) ->
     return _token_match_score(normalized_caption, normalized_variant)
 
 
+def _score_location_variants(
+    normalized_caption: str,
+    location: dict[str, Any],
+    payload: dict[str, Any],
+    has_gps: bool,
+    best_score: int,
+    best_has_gps: bool,
+    best_match: dict[str, Any] | None,
+    *,
+    return_row: bool,
+) -> tuple[dict[str, Any] | None, int, bool]:
+    for variant in _location_text_variants(location):
+        normalized_variant = _normalize_location_text(variant)
+        if not normalized_variant:
+            continue
+        score = _caption_location_score(normalized_caption, normalized_variant)
+        if score < 0:
+            continue
+        if score > best_score or (score == best_score and has_gps and not best_has_gps):
+            best_match = dict(location) if return_row else payload
+            best_score = score
+            best_has_gps = has_gps
+    return best_match, best_score, best_has_gps
+
+
 def _best_location_shown_match(
     caption: str,
     locations_shown: list[dict[str, Any]] | None,
@@ -227,17 +272,9 @@ def _best_location_shown_match(
         if not payload:
             continue
         has_gps = bool(payload.get("gps_latitude") and payload.get("gps_longitude"))
-        for variant in _location_text_variants(location):
-            normalized_variant = _normalize_location_text(variant)
-            if not normalized_variant:
-                continue
-            score = _caption_location_score(normalized_caption, normalized_variant)
-            if score < 0:
-                continue
-            if score > best_score or (score == best_score and has_gps and not best_has_gps):
-                best_match = dict(location) if return_row else payload
-                best_score = score
-                best_has_gps = has_gps
+        best_match, best_score, best_has_gps = _score_location_variants(
+            normalized_caption, location, payload, has_gps, best_score, best_has_gps, best_match, return_row=return_row
+        )
     return best_match
 
 

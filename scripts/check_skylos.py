@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Fail on Skylos duplicate-code findings, scanning each project separately."""
+"""Run Skylos quality checks, scanning each project separately."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from typing import Any
 
 DEFAULT_PROJECTS = ["photoalbums", "vhs", "cast"]
 SKYLOS_CLONE_RULE_ID = "SKY-C401"
+SKYLOS_DUPES_ONLY_ARG = "--duplicates-only"
 
 
 def _skylos_executable() -> Path:
@@ -41,12 +42,16 @@ def run_skylos(project: str) -> tuple[int, dict[str, Any], str, str]:
     return 0, payload, result.stdout, result.stderr
 
 
-def clone_findings(payload: dict[str, Any]) -> list[dict[str, Any]]:
+def quality_findings(payload: dict[str, Any]) -> list[dict[str, Any]]:
     findings = payload.get("quality", [])
     if not isinstance(findings, list):
         return []
+    return [finding for finding in findings if isinstance(finding, dict)]
+
+
+def clone_findings(payload: dict[str, Any]) -> list[dict[str, Any]]:
     return [
-        finding for finding in findings if isinstance(finding, dict) and finding.get("rule_id") == SKYLOS_CLONE_RULE_ID
+        finding for finding in quality_findings(payload) if finding.get("rule_id") == SKYLOS_CLONE_RULE_ID
     ]
 
 
@@ -64,15 +69,31 @@ def _print_clone_failure(project: str, findings: list[dict[str, Any]]) -> None:
         file=sys.stderr,
     )
     for finding in findings:
-        file_name = finding.get("basename") or Path(str(finding.get("file", ""))).name
+        file_name = finding.get("basename") or Path(str(finding.get("file", ""))).name or "?"
         line = finding.get("line", "?")
         message = str(finding.get("message", "duplicate code detected"))
         print(f"  - {file_name}:{line} {message}", file=sys.stderr)
 
 
+def _print_quality_failure(project: str, findings: list[dict[str, Any]]) -> None:
+    print(
+        f"[skylos] {project}: found {len(findings)} quality finding(s)",
+        file=sys.stderr,
+    )
+    for finding in findings:
+        rule_id = str(finding.get("rule_id", "SKY-?"))
+        severity = str(finding.get("severity", "?")).upper()
+        file_name = finding.get("basename") or Path(str(finding.get("file", ""))).name or "?"
+        line = finding.get("line", "?")
+        message = str(finding.get("message", "quality issue detected"))
+        print(f"  - {rule_id} {severity} {file_name}:{line} {message}", file=sys.stderr)
+
+
 def main(argv: list[str] | None = None) -> int:
-    projects = argv or DEFAULT_PROJECTS
-    found_duplicates = False
+    args = list(argv or [])
+    duplicates_only = SKYLOS_DUPES_ONLY_ARG in args
+    projects = [arg for arg in args if arg != SKYLOS_DUPES_ONLY_ARG] or DEFAULT_PROJECTS
+    found_issues = False
 
     for project in projects:
         returncode, payload, stdout, stderr = run_skylos(project)
@@ -80,12 +101,15 @@ def main(argv: list[str] | None = None) -> int:
             _print_process_failure(project, returncode, stdout, stderr)
             return returncode
 
-        findings = clone_findings(payload)
+        findings = clone_findings(payload) if duplicates_only else quality_findings(payload)
         if findings:
-            found_duplicates = True
-            _print_clone_failure(project, findings)
+            found_issues = True
+            if duplicates_only:
+                _print_clone_failure(project, findings)
+            else:
+                _print_quality_failure(project, findings)
 
-    return 1 if found_duplicates else 0
+    return 1 if found_issues else 0
 
 
 if __name__ == "__main__":

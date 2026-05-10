@@ -76,11 +76,19 @@ def _coerce_int(value: Any, default: int) -> int:
         return int(default)
 
 
-def build_person_prototypes(
+def _face_quality(face: dict[str, Any]) -> float:
+    raw_quality = face.get("quality")
+    try:
+        quality = float(raw_quality) if raw_quality is not None else 0.5
+    except Exception:
+        quality = 0.5
+    return max(0.0, min(1.0, quality))
+
+
+def _build_person_buckets(
     faces: list[dict[str, Any]],
-    *,
-    allowed_embedding_model_ids: set[str] | None = None,
-) -> dict[str, dict[str, Any]]:
+    allowed_embedding_model_ids: set[str] | None,
+) -> dict[str, list[tuple[float, np.ndarray]]]:
     buckets: dict[str, list[tuple[float, np.ndarray]]] = {}
     for face in list(faces or []):
         if not isinstance(face, dict):
@@ -90,42 +98,48 @@ def build_person_prototypes(
         person_id = str(face.get("person_id") or "").strip()
         if not person_id:
             continue
-        emb = face.get("embedding")
         try:
-            vector = normalize_embedding(parse_embedding(emb))
+            vector = normalize_embedding(parse_embedding(face.get("embedding")))
         except Exception:
             continue
-        raw_quality = face.get("quality")
-        try:
-            quality = float(raw_quality) if raw_quality is not None else 0.5
-        except Exception:
-            quality = 0.5
-        quality = max(0.0, min(1.0, quality))
-        buckets.setdefault(person_id, []).append((quality, vector))
+        buckets.setdefault(person_id, []).append((_face_quality(face), vector))
+    return buckets
 
+
+def _prototype_from_pairs(pairs: list[tuple[float, np.ndarray]]) -> dict[str, Any] | None:
+    ranked = sorted(pairs, key=lambda row: row[0], reverse=True)[:_MAX_SAMPLES_PER_PERSON]
+    vectors = [row[1] for row in ranked]
+    dims = {tuple(vec.shape) for vec in vectors}
+    if len(dims) != 1:
+        return None
+    stacked = np.vstack(vectors)
+    weights = np.asarray(
+        [0.35 + (0.65 * float(row[0])) for row in ranked],
+        dtype=np.float32,
+    ).reshape(-1, 1)
+    proto = normalize_embedding(np.sum(stacked * weights, axis=0))
+    exemplars = [row[1] for row in ranked[:_EXEMPLAR_COUNT]]
+    return {
+        "embedding": proto,
+        "count": int(len(ranked)),
+        "dimension": int(stacked.shape[1]),
+        "exemplars": exemplars,
+    }
+
+
+def build_person_prototypes(
+    faces: list[dict[str, Any]],
+    *,
+    allowed_embedding_model_ids: set[str] | None = None,
+) -> dict[str, dict[str, Any]]:
+    buckets = _build_person_buckets(faces, allowed_embedding_model_ids)
     out: dict[str, dict[str, Any]] = {}
     for person_id, pairs in buckets.items():
         if not pairs:
             continue
-        ranked = sorted(pairs, key=lambda row: row[0], reverse=True)[:_MAX_SAMPLES_PER_PERSON]
-        vectors = [row[1] for row in ranked]
-        dims = {tuple(vec.shape) for vec in vectors}
-        if len(dims) != 1:
-            continue
-        stacked = np.vstack(vectors)
-        weights = np.asarray(
-            [0.35 + (0.65 * float(row[0])) for row in ranked],
-            dtype=np.float32,
-        ).reshape(-1, 1)
-        weighted_mean = np.sum(stacked * weights, axis=0)
-        proto = normalize_embedding(weighted_mean)
-        exemplars = [row[1] for row in ranked[:_EXEMPLAR_COUNT]]
-        out[person_id] = {
-            "embedding": proto,
-            "count": int(len(ranked)),
-            "dimension": int(stacked.shape[1]),
-            "exemplars": exemplars,
-        }
+        proto = _prototype_from_pairs(pairs)
+        if proto is not None:
+            out[person_id] = proto
     return out
 
 

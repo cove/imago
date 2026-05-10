@@ -63,7 +63,8 @@ def _installed_ram_bytes() -> int | None:
     try:
         page_size = os.sysconf("SC_PAGE_SIZE")
         page_count = os.sysconf("SC_PHYS_PAGES")
-    except (AttributeError, OSError, ValueError):
+    except (AttributeError, OSError, ValueError) as exc:
+        log.debug("Cannot read physical memory via sysconf: %s", exc)
         return None
     return int(page_size) * int(page_count)
 

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from collections import Counter
+import logging
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 import numpy as np
 
@@ -29,7 +32,8 @@ def _normalized_embedding(face: dict[str, Any]) -> np.ndarray | None:
         return None
     try:
         return normalize_embedding(parse_embedding(face.get("embedding") or []))
-    except Exception:
+    except Exception as exc:
+        log.debug("embedding normalization failed: %s", exc)
         return None
 
 
@@ -87,6 +91,37 @@ def _distance_stats(vectors: np.ndarray, medoid: np.ndarray) -> dict[str, float]
     }
 
 
+def _cluster_item_from_review(
+    review: dict[str, Any],
+    faces_by_id: dict[str, dict[str, Any]],
+    allowed_embedding_model_ids: set[str],
+) -> dict[str, Any] | None:
+    if str(review.get("status") or "").strip().lower() != "pending":
+        return None
+    face_id = str(review.get("face_id") or "").strip()
+    if not face_id:
+        return None
+    face = faces_by_id.get(face_id)
+    if not isinstance(face, dict):
+        return None
+    if str(face.get("person_id") or "").strip():
+        return None
+    if str(face.get("review_status") or "").strip().lower() in {"ignored", "rejected"}:
+        return None
+    if face_embedding_model(face) not in allowed_embedding_model_ids:
+        return None
+    vector = _normalized_embedding(face)
+    if vector is None:
+        return None
+    return {
+        "review_id": str(review.get("review_id") or "").strip(),
+        "face_id": face_id,
+        "vector": vector,
+        "quality": _coerce_quality(face.get("quality")),
+        "source_path": str(face.get("source_path") or "").strip(),
+    }
+
+
 def _pending_cluster_items(
     reviews: list[dict[str, Any]],
     faces_by_id: dict[str, dict[str, Any]],
@@ -96,32 +131,9 @@ def _pending_cluster_items(
     for review in list(reviews or []):
         if not isinstance(review, dict):
             continue
-        if str(review.get("status") or "").strip().lower() != "pending":
-            continue
-        face_id = str(review.get("face_id") or "").strip()
-        if not face_id:
-            continue
-        face = faces_by_id.get(face_id)
-        if not isinstance(face, dict):
-            continue
-        if str(face.get("person_id") or "").strip():
-            continue
-        if str(face.get("review_status") or "").strip().lower() in {"ignored", "rejected"}:
-            continue
-        if face_embedding_model(face) not in allowed_embedding_model_ids:
-            continue
-        vector = _normalized_embedding(face)
-        if vector is None:
-            continue
-        pending_items.append(
-            {
-                "review_id": str(review.get("review_id") or "").strip(),
-                "face_id": face_id,
-                "vector": vector,
-                "quality": _coerce_quality(face.get("quality")),
-                "source_path": str(face.get("source_path") or "").strip(),
-            }
-        )
+        item = _cluster_item_from_review(review, faces_by_id, allowed_embedding_model_ids)
+        if item is not None:
+            pending_items.append(item)
     return pending_items
 
 
@@ -199,6 +211,48 @@ def _suggest_cluster_person(
     return suggested, suggested_margin, float(matching_count) / float(len(members))
 
 
+def _cluster_geometry(
+    members: list[dict[str, Any]],
+    *,
+    sample_face_limit: int,
+) -> tuple[np.ndarray, dict[str, Any], list[str], set[str], list[float], np.ndarray, dict[str, Any]]:
+    member_vectors = np.vstack([item["vector"] for item in members]).astype(np.float32, copy=False)
+    medoid_offset = _medoid_index(member_vectors)
+    medoid_member = members[medoid_offset]
+    medoid_vector = member_vectors[medoid_offset]
+    stats = _distance_stats(member_vectors, medoid_vector)
+    sample_face_ids = _top_sample_face_ids(
+        members=members,
+        member_vectors=member_vectors,
+        medoid_vector=medoid_vector,
+        sample_face_limit=sample_face_limit,
+    )
+    source_paths = {str(item["source_path"]) for item in members if str(item["source_path"])}
+    quality_values = [float(item["quality"]) for item in members]
+    centroid = normalize_embedding(np.mean(member_vectors, axis=0))
+    return member_vectors, medoid_member, sample_face_ids, source_paths, quality_values, centroid, stats
+
+
+def _cluster_suggestion_fields(
+    *,
+    suggested: dict[str, Any] | None,
+    suggested_margin: float,
+    suggested_consensus: float,
+    reviewable: bool,
+    min_consensus: float,
+) -> dict[str, Any]:
+    suggested_person_id = str((suggested or {}).get("person_id") or "").strip() or None
+    suggested_score = float((suggested or {}).get("score") or 0.0) if suggested else None
+    suggested_confident = bool(reviewable and suggested_person_id and suggested_consensus >= float(min_consensus))
+    return {
+        "suggested_person_id": suggested_person_id,
+        "suggested_score": suggested_score,
+        "suggested_margin": float(suggested_margin),
+        "suggested_consensus": float(suggested_consensus),
+        "suggested_confident": suggested_confident,
+    }
+
+
 def _review_cluster_payload(
     *,
     members: list[dict[str, Any]],
@@ -212,20 +266,10 @@ def _review_cluster_payload(
     min_consensus: float,
     sample_face_limit: int,
 ) -> dict[str, Any]:
-    member_vectors = np.vstack([item["vector"] for item in members]).astype(np.float32, copy=False)
-    medoid_offset = _medoid_index(member_vectors)
-    medoid_member = members[medoid_offset]
-    medoid_vector = member_vectors[medoid_offset]
-    centroid = normalize_embedding(np.mean(member_vectors, axis=0))
-    stats = _distance_stats(member_vectors, medoid_vector)
-    sample_face_ids = _top_sample_face_ids(
-        members=members,
-        member_vectors=member_vectors,
-        medoid_vector=medoid_vector,
+    member_vectors, medoid_member, sample_face_ids, source_paths, quality_values, centroid, stats = _cluster_geometry(
+        members,
         sample_face_limit=sample_face_limit,
     )
-    source_paths = {str(item["source_path"]) for item in members if str(item["source_path"])}
-    quality_values = [float(item["quality"]) for item in members]
     suggested, suggested_margin, suggested_consensus = _suggest_cluster_person(
         centroid=centroid,
         members=members,
@@ -237,10 +281,14 @@ def _review_cluster_payload(
         min_face_quality=min_face_quality,
         min_sample_count=min_sample_count,
     )
-    suggested_person_id = str((suggested or {}).get("person_id") or "").strip() or None
-    suggested_score = float((suggested or {}).get("score") or 0.0) if suggested else None
     reviewable = bool(stats["p90_distance"] <= float(eps))
-    suggested_confident = bool(reviewable and suggested_person_id and suggested_consensus >= float(min_consensus))
+    suggestion = _cluster_suggestion_fields(
+        suggested=suggested,
+        suggested_margin=suggested_margin,
+        suggested_consensus=suggested_consensus,
+        reviewable=reviewable,
+        min_consensus=min_consensus,
+    )
     return {
         "cluster_id": str(medoid_member["face_id"]),
         "size": int(len(members)),
@@ -255,11 +303,7 @@ def _review_cluster_payload(
         "median_distance": float(stats["median_distance"]),
         "p90_distance": float(stats["p90_distance"]),
         "reviewable": reviewable,
-        "suggested_person_id": suggested_person_id,
-        "suggested_score": suggested_score,
-        "suggested_margin": float(suggested_margin),
-        "suggested_consensus": float(suggested_consensus),
-        "suggested_confident": suggested_confident,
+        **suggestion,
     }
 
 

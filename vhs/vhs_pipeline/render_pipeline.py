@@ -5,12 +5,15 @@
 # with embedded metadata and subtitles for access/delivery copies.
 #
 import argparse
+import logging
 import math
 import shutil
 import time
 import re
 import sys
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 try:
     import whisper
@@ -175,7 +178,8 @@ def _parse_repair_range_item(item):
         return None
     try:
         a, b = int(item[0]), int(item[1])
-    except Exception:
+    except Exception as exc:
+        log.debug("could not parse repair range item %r: %s", item, exc)
         return None
     src = None
     if len(item) >= 3 and item[2] not in (None, ""):
@@ -887,7 +891,8 @@ def _parse_subtitle_confidence(raw):
         return None
     try:
         value = float(text)
-    except Exception:
+    except Exception as exc:
+        log.debug("could not parse subtitle confidence from %r: %s", text, exc)
         return None
     if not (value == value):
         return None
@@ -949,6 +954,35 @@ def _to_vtt_time(seconds):
     return _to_srt_time(seconds).replace(",", ".")
 
 
+def _is_people_tsv_header(lower: str) -> bool:
+    return (
+        lower.startswith("start_frame\t")
+        or lower.startswith("start_frame,end_frame")
+        or lower.startswith("start\t")
+        or lower.startswith("start,end")
+    )
+
+
+def _parse_people_tsv_row(text: str):
+    lower = text.lower()
+    if _is_people_tsv_header(lower):
+        return None
+    parts = text.split("\t") if "\t" in text else text.split(",")
+    if len(parts) < 3:
+        return None
+    start_sec = _parse_tsv_time_or_frame_seconds(parts[0])
+    end_sec = _parse_tsv_time_or_frame_seconds(parts[1])
+    people = _normalize_people_text(",".join(parts[2:]))
+    if start_sec is None or end_sec is None or not people:
+        return None
+    if float(end_sec) <= float(start_sec):
+        if abs(float(end_sec) - float(start_sec)) < 1e-9:
+            end_sec = float(start_sec) + _frame_to_subtitle_seconds(1)
+        else:
+            return None
+    return float(start_sec), float(end_sec), str(people)
+
+
 def _load_people_tsv_entries(tsv_path):
     rows = []
     raw = Path(tsv_path).read_text(encoding="utf-8-sig", errors="ignore").splitlines()
@@ -956,25 +990,9 @@ def _load_people_tsv_entries(tsv_path):
         text = str(line or "").strip()
         if not text or text.startswith("#"):
             continue
-        lower = text.lower()
-        if lower.startswith("start_frame\t") or lower.startswith("start_frame,end_frame"):
-            continue
-        if lower.startswith("start\t") or lower.startswith("start,end"):
-            continue
-        parts = text.split("\t") if "\t" in text else text.split(",")
-        if len(parts) < 3:
-            continue
-        start_sec = _parse_tsv_time_or_frame_seconds(parts[0])
-        end_sec = _parse_tsv_time_or_frame_seconds(parts[1])
-        people = _normalize_people_text(",".join(parts[2:]))
-        if start_sec is None or end_sec is None or not people:
-            continue
-        if float(end_sec) <= float(start_sec):
-            if abs(float(end_sec) - float(start_sec)) < 1e-9:
-                end_sec = float(start_sec) + _frame_to_subtitle_seconds(1)
-            else:
-                continue
-        rows.append((float(start_sec), float(end_sec), str(people)))
+        result = _parse_people_tsv_row(text)
+        if result is not None:
+            rows.append(result)
     rows.sort(key=lambda item: (item[0], item[1], item[2].lower()))
     return rows
 
@@ -1015,6 +1033,45 @@ def load_people_entries_for_chapter(tsv_path, chapter_start_frame, chapter_end_f
     )
 
 
+def _is_subtitles_tsv_header(lower: str) -> bool:
+    return (
+        lower.startswith("start_frame\t")
+        or lower.startswith("start_frame,start")
+        or lower.startswith("start\t")
+        or lower.startswith("start,end")
+    )
+
+
+def _parse_subtitle_tsv_row(text: str):
+    lower = text.lower()
+    if _is_subtitles_tsv_header(lower):
+        return None
+    parts = text.split("\t") if "\t" in text else text.split(",")
+    if len(parts) < 3:
+        return None
+    start_sec = _parse_tsv_time_or_frame_seconds(parts[0])
+    end_sec = _parse_tsv_time_or_frame_seconds(parts[1])
+    subtitle_text = _normalize_subtitle_text(parts[2])
+    speaker = _normalize_subtitle_optional_text(parts[3]) if len(parts) >= 4 else ""
+    confidence = _parse_subtitle_confidence(parts[4]) if len(parts) >= 5 else None
+    source = _normalize_subtitle_optional_text(parts[5]) if len(parts) >= 6 else ""
+    if start_sec is None or end_sec is None or not subtitle_text:
+        return None
+    if float(end_sec) <= float(start_sec):
+        if abs(float(end_sec) - float(start_sec)) < 1e-9:
+            end_sec = float(start_sec) + _frame_to_subtitle_seconds(1)
+        else:
+            return None
+    return {
+        "start_seconds": float(start_sec),
+        "end_seconds": float(end_sec),
+        "text": subtitle_text,
+        "speaker": speaker,
+        "confidence": confidence,
+        "source": source,
+    }
+
+
 def _load_subtitles_tsv_entries(tsv_path):
     rows = []
     raw = Path(tsv_path).read_text(encoding="utf-8-sig", errors="ignore").splitlines()
@@ -1022,40 +1079,9 @@ def _load_subtitles_tsv_entries(tsv_path):
         text = str(line or "").strip()
         if not text or text.startswith("#"):
             continue
-        lower = text.lower()
-        if (
-            lower.startswith("start_frame\t")
-            or lower.startswith("start_frame,start")
-            or lower.startswith("start\t")
-            or lower.startswith("start,end")
-        ):
-            continue
-        parts = text.split("\t") if "\t" in text else text.split(",")
-        if len(parts) < 3:
-            continue
-        start_sec = _parse_tsv_time_or_frame_seconds(parts[0])
-        end_sec = _parse_tsv_time_or_frame_seconds(parts[1])
-        subtitle_text = _normalize_subtitle_text(parts[2])
-        speaker = _normalize_subtitle_optional_text(parts[3]) if len(parts) >= 4 else ""
-        confidence = _parse_subtitle_confidence(parts[4]) if len(parts) >= 5 else None
-        source = _normalize_subtitle_optional_text(parts[5]) if len(parts) >= 6 else ""
-        if start_sec is None or end_sec is None or not subtitle_text:
-            continue
-        if float(end_sec) <= float(start_sec):
-            if abs(float(end_sec) - float(start_sec)) < 1e-9:
-                end_sec = float(start_sec) + _frame_to_subtitle_seconds(1)
-            else:
-                continue
-        rows.append(
-            {
-                "start_seconds": float(start_sec),
-                "end_seconds": float(end_sec),
-                "text": subtitle_text,
-                "speaker": speaker,
-                "confidence": confidence,
-                "source": source,
-            }
-        )
+        result = _parse_subtitle_tsv_row(text)
+        if result is not None:
+            rows.append(result)
     rows.sort(
         key=lambda item: (
             float(item.get("start_seconds", 0.0)),

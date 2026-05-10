@@ -41,6 +41,19 @@ class ObjectDetection:
     score: float
 
 
+def _boxes_to_label_scores(boxes, names: dict) -> dict[str, float]:
+    cls_vals = boxes.cls.tolist() if getattr(boxes, "cls", None) is not None else []
+    conf_vals = boxes.conf.tolist() if getattr(boxes, "conf", None) is not None else []
+    labels_by_name: dict[str, float] = {}
+    for idx, raw in enumerate(cls_vals):
+        label = str(names.get(int(raw), int(raw)))
+        score = float(conf_vals[idx]) if idx < len(conf_vals) else 0.0
+        current = labels_by_name.get(label)
+        if current is None or score > current:
+            labels_by_name[label] = score
+    return labels_by_name
+
+
 class YOLOObjectDetector:
     def __init__(
         self,
@@ -86,19 +99,8 @@ class YOLOObjectDetector:
         boxes = getattr(result, "boxes", None)
         if boxes is None:
             return []
-
         names = getattr(result, "names", {}) or {}
-        labels_by_name: dict[str, float] = {}
-
-        cls_vals = boxes.cls.tolist() if getattr(boxes, "cls", None) is not None else []
-        conf_vals = boxes.conf.tolist() if getattr(boxes, "conf", None) is not None else []
-        for idx, raw in enumerate(cls_vals):
-            label = str(names.get(int(raw), int(raw)))
-            score = float(conf_vals[idx]) if idx < len(conf_vals) else 0.0
-            current = labels_by_name.get(label)
-            if current is None or score > current:
-                labels_by_name[label] = score
-
+        labels_by_name = _boxes_to_label_scores(boxes, names)
         out = [ObjectDetection(label=label, score=score) for label, score in labels_by_name.items()]
         out.sort(key=lambda row: row.score, reverse=True)
         return out
