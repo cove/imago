@@ -7,7 +7,8 @@ from typing import Any, TYPE_CHECKING
 
 log = logging.getLogger(__name__)
 
-from .ai_caption import _named_location_query, _normalize_gps_value
+from .ai_caption import _normalize_gps_value
+from ._caption_lmstudio import _normalize_location_shown_item as _named_location_query
 from .ai_geocode import NominatimGeocoder
 from .prompt_debug import PromptDebugSession
 
