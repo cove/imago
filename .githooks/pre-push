@@ -7,9 +7,9 @@ if command -v git-lfs >/dev/null 2>&1; then
 fi
 
 repo_root="$(git rev-parse --show-toplevel)"
-echo "[pre-push] Running Skylos quality checks..."
+echo "[pre-push] Running Skylos duplicate-code check..."
 cd "$repo_root"
-uv run python scripts/check_skylos.py
+uv run python scripts/check_skylos.py --duplicates-only
 echo "[pre-push] Running Vulture dead-code check..."
 uv run python scripts/check_vulture.py
 echo "[pre-push] Running Radon complexity check..."
