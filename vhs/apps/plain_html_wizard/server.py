@@ -254,12 +254,9 @@ _PROGRESS_FIELDS: dict[str, tuple[str, str, str]] = {
 def _set_named_progress(
     session: SessionState,
     kind: str,
-    running: bool | None,
-    progress: float | None,
-    message: str | None,
-    count_done: int | None,
-    count_total: int | None,
+    progress_state: tuple[bool | None, float | None, str | None, int | None, int | None],
 ) -> None:
+    running, progress, message, count_done, count_total = progress_state
     prefix, done_field, total_field = _PROGRESS_FIELDS[kind]
     _set_progress(
         session,
@@ -277,7 +274,7 @@ def _set_named_progress(
 def _set_load_progress(
     session: SessionState, *, running=None, progress=None, message=None, sample_done=None, sample_total=None
 ) -> None:
-    _set_named_progress(session, "load", running, progress, message, sample_done, sample_total)
+    _set_named_progress(session, "load", (running, progress, message, sample_done, sample_total))
 
 
 def _probe_archive_stream_start_times(mkv_path: Path) -> tuple[float, float]:
@@ -335,13 +332,13 @@ def _build_audio_sync_hud_vf(
 def _set_preview_progress(
     session: SessionState, *, running=None, progress=None, message=None, frame_done=None, frame_total=None
 ) -> None:
-    _set_named_progress(session, "preview", running, progress, message, frame_done, frame_total)
+    _set_named_progress(session, "preview", (running, progress, message, frame_done, frame_total))
 
 
 def _set_subtitles_progress(
     session: SessionState, *, running=None, progress=None, message=None, segment_done=None, segment_total=None
 ) -> None:
-    _set_named_progress(session, "subtitles", running, progress, message, segment_done, segment_total)
+    _set_named_progress(session, "subtitles", (running, progress, message, segment_done, segment_total))
 
 
 def _normalize_iqr_k(raw: Any, default: float = 3.5) -> float:
@@ -819,7 +816,7 @@ def _write_chapters_tsv_rows(path: Path, columns: list[str], rows: list[dict[str
             writer.writerow(row)
 
 
-def _row_ci_get(row: dict[str, Any], *names: str) -> Any:
+def _row_ci_get(row: dict[str, Any], *names: str) -> Any | None:
     lowered: dict[str, Any] = {}
     for key, value in dict(row or {}).items():
         text = str(key or "").strip().lower()
@@ -888,6 +885,17 @@ def _canonical_chapters_base(path: Path, archive_name: str) -> tuple[list[str], 
         return _read_chapters_tsv_rows(tmp_path)
 
 
+def _apply_chapter_key_to_row(row, key, global_start, global_end, title):
+    """Update a single chapter row field based on its lowercased key name."""
+    lowered = str(key or "").strip().lower()
+    if lowered == "start":
+        row[key] = str(int(global_start))
+    elif lowered == "end":
+        row[key] = str(int(global_end))
+    elif lowered == "title":
+        row[key] = str(title)
+
+
 def _build_chapter_row_from_template(
     template_row: dict[str, Any],
     header: list[str],
@@ -904,13 +912,7 @@ def _build_chapter_row_from_template(
     row = dict(template_row or {})
     chapter_keys = _chapter_order_keys_for_row(header)
     for key in chapter_keys:
-        lowered = str(key or "").strip().lower()
-        if lowered == "start":
-            row[key] = str(int(global_start))
-        elif lowered == "end":
-            row[key] = str(int(global_end))
-        elif lowered == "title":
-            row[key] = str(title)
+        _apply_chapter_key_to_row(row, key, global_start, global_end, title)
     if not any(str(key or "").strip().lower() == "title" for key in chapter_keys):
         row["title"] = str(title)
     row[TSV_META_CHAPTER_INDEX_COL] = ""
@@ -1194,6 +1196,17 @@ def _split_save_template_row(
     return template_row
 
 
+def _chapter_default_value(key, ffmeta_chapter, chapter_start, chapter_end, chapter_key):
+    """Return the default value for a single chapter field."""
+    if key == "start":
+        return str(int(chapter_start))
+    if key == "end":
+        return str(int(chapter_end))
+    if key == "title":
+        return chapter_key
+    return str(ffmeta_chapter.get(key, "") or "").strip()
+
+
 def _split_save_chapter_defaults(ffmeta_chapter, chapter_fields, chapter_start, chapter_end, chapter_key):
     chapter_defaults: dict[str, str] = {}
     if not isinstance(ffmeta_chapter, dict):
@@ -1201,15 +1214,28 @@ def _split_save_chapter_defaults(ffmeta_chapter, chapter_fields, chapter_start, 
     for key in chapter_fields:
         if key in CHAPTER_FFMETADATA_COMPUTED_KEYS:
             continue
-        if key == "start":
-            chapter_defaults[key] = str(int(chapter_start))
-        elif key == "end":
-            chapter_defaults[key] = str(int(chapter_end))
-        elif key == "title":
-            chapter_defaults[key] = chapter_key
-        else:
-            chapter_defaults[key] = str(ffmeta_chapter.get(key, "") or "").strip()
+        chapter_defaults[key] = _chapter_default_value(key, ffmeta_chapter, chapter_start, chapter_end, chapter_key)
     return chapter_defaults
+
+
+def _process_merge_row(
+    row,
+    row_key,
+    outputs: tuple[list, set, bool],
+    merge_ctx: tuple[list[str], dict, tuple | None, tuple[str, int]],
+):
+    """Process one existing row during merge; return updated outputs tuple."""
+    merged_rows, placed, replaced_loaded_chapter = outputs
+    existing_header, entries_key_map, single_entry, loaded_chapter_key = merge_ctx
+    if row_key in entries_key_map and row_key not in placed:
+        _append_split_save_row(merged_rows, placed, row, existing_header, entries_key_map[row_key])
+        return (merged_rows, placed, replaced_loaded_chapter)
+    if single_entry is not None and row_key == loaded_chapter_key and not replaced_loaded_chapter:
+        _append_split_save_row(merged_rows, placed, row, existing_header, single_entry)
+        return (merged_rows, placed, True)
+    if row_key not in entries_key_map and (single_entry is None or row_key != loaded_chapter_key):
+        merged_rows.append(row)
+    return (merged_rows, placed, replaced_loaded_chapter)
 
 
 def _merge_split_save_rows(
@@ -1232,15 +1258,11 @@ def _merge_split_save_rows(
         if row_key[1] is None:
             merged_rows.append(row)
             continue
-        if row_key in entries_key_map and row_key not in placed:
-            _append_split_save_row(merged_rows, placed, row, existing_header, entries_key_map[row_key])
-        elif single_entry is not None and row_key == loaded_chapter_key and not replaced_loaded_chapter:
-            _append_split_save_row(merged_rows, placed, row, existing_header, single_entry)
-            replaced_loaded_chapter = True
-        elif row_key not in entries_key_map:
-            if single_entry is not None and row_key == loaded_chapter_key:
-                continue
-            merged_rows.append(row)
+        merged_rows, placed, replaced_loaded_chapter = _process_merge_row(
+            row, row_key,
+            (merged_rows, placed, replaced_loaded_chapter),
+            (existing_header, entries_key_map, single_entry, loaded_chapter_key),
+        )
     return merged_rows, placed
 
 
@@ -1369,7 +1391,8 @@ def _canonicalize_people_tsv_rows(
         try:
             a = float(start)
             b = float(end)
-        except Exception:
+        except Exception as exc:
+            log.debug("skipping people entry with non-numeric start/end times: %s", exc)
             continue
         if float(b) <= float(a):
             continue
@@ -1449,7 +1472,8 @@ def _canonicalize_subtitles_tsv_rows(
         try:
             a = float(start)
             b = float(end)
-        except Exception:
+        except Exception as exc:
+            log.debug("skipping subtitle entry with non-numeric start/end times: %s", exc)
             continue
         if float(b) <= float(a):
             continue
@@ -1716,7 +1740,7 @@ def _save_subtitle_entries_for_chapter(
     return path, len(chapter_rows)
 
 
-def _get_profile_raw(payload: dict[str, Any], *keys: str) -> Any:
+def _get_profile_raw(payload: dict[str, Any], *keys: str) -> Any | None:
     for key in keys:
         val = payload.get(key)
         if val is not None:
@@ -1763,8 +1787,8 @@ def _apply_profiles_from_payload(session: SessionState, payload: dict[str, Any] 
     if isinstance(raw_audio_sync, dict):
         try:
             session.audio_sync_offset = float(raw_audio_sync.get("offset_seconds", session.audio_sync_offset))
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("could not apply audio sync offset from profile: %s", exc)
 
     chapter_duration = max(
         0.0,
@@ -2682,8 +2706,8 @@ def _collect_stderr_with_frame_progress(proc: Any, on_frame: Any | None) -> list
         if m and on_frame is not None:
             try:
                 on_frame(int(m.group(1)))
-            except Exception:
-                pass
+            except Exception as exc:
+                log.debug("on_frame callback raised an error for frame %s: %s", m.group(1), exc)
     return err_lines
 
 
@@ -2734,7 +2758,7 @@ class _SubtitlesProgressBarBase:
             raise _SubtitlesCancelledError("Subtitle generation cancelled.")
         return out
 
-    def close(self) -> Any:
+    def close(self) -> Any | None:
         if hasattr(self._inner, "close"):
             return self._inner.close()
         return None
@@ -2761,6 +2785,15 @@ def _coerce_subtitle_progress_done(raw: Any) -> float:
         return 0.0
 
 
+def _override_bad_delta(ov: str, auto_is_bad: bool) -> int:
+    """Return the delta to apply to the bad count for a single frame override."""
+    if ov == "good" and auto_is_bad:
+        return -1
+    if ov == "bad" and not auto_is_bad:
+        return 1
+    return 0
+
+
 def _count_bad_with_overrides(scores_arr, thr: float, fids_list, overrides: dict, total: int) -> int:
     bad = int(np.sum(scores_arr >= thr))
     for fid_key, ov in overrides.items():
@@ -2768,10 +2801,7 @@ def _count_bad_with_overrides(scores_arr, thr: float, fids_list, overrides: dict
         idx = bisect.bisect_left(fids_list, fid)
         if idx < total and fids_list[idx] == fid:
             auto_is_bad = bool(float(scores_arr[idx]) >= thr)
-            if ov == "good" and auto_is_bad:
-                bad -= 1
-            elif ov == "bad" and not auto_is_bad:
-                bad += 1
+            bad += _override_bad_delta(ov, auto_is_bad)
     return max(0, bad)
 
 
@@ -2818,11 +2848,9 @@ def _build_save_message(
     session: SessionState,
     count: int,
     analyzed: int,
-    gamma_count: int,
-    people_count: int,
-    subtitle_count: int,
-    split_count: int,
+    counts: tuple[int, int, int, int],
 ) -> str:
+    gamma_count, people_count, subtitle_count, split_count = counts
     return (
         f"Saved BAD_FRAMES for {session.chapter} "
         f"({int(analyzed)} analyzed, {int(count)} bad). "
@@ -2837,7 +2865,8 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
     server_version = "VHSTuner/1.0"
 
     def log_message(self, _format: str, *args: Any) -> None:
-        pass  # suppress per-request stderr noise
+        """Suppress default HTTP request logging."""
+        return
 
     def handle_error(self, request: Any, client_address: Any) -> None:
         # Silence expected client-disconnect errors (aborted/reset connections)
@@ -3397,19 +3426,14 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
                 "subtitles_segment_total",
             ),
         }
-        WizardHandler._send_worker_progress(self, session, *configs[worker_name])
+        WizardHandler._send_worker_progress(self, session, configs[worker_name])
 
     def _send_worker_progress(
         self,
         session: SessionState,
-        running_attr: str,
-        progress_attr: str,
-        message_attr: str,
-        done_key: str,
-        done_attr: str,
-        total_key: str,
-        total_attr: str,
+        attrs: tuple[str, str, str, str, str, str, str],
     ) -> None:
+        running_attr, progress_attr, message_attr, done_key, done_attr, total_key, total_attr = attrs
         self._send_json(
             {
                 "ok": True,
@@ -4005,8 +4029,8 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
             session.start_frame,
             session.end_frame,
             int(n_frames),
-            session.archive,
-            session.chapter,
+            archive=session.archive,
+            ch_title=session.chapter,
             include_thumbs=False,
             frame_read_offset=frame_read_offset,
             progress=_sample_progress,
@@ -4132,7 +4156,8 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
         for frame in list(current.get("frames", [])):
             try:
                 fid_i = int(frame.get("fid"))
-            except Exception:
+            except Exception as exc:
+                log.debug("skipping frame with invalid fid in bulk status update: %s", exc)
                 continue
             if fid_i < lo or fid_i > hi:
                 continue
@@ -4297,22 +4322,18 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
     def _preview_render_final_encode(
         self,
         session: SessionState,
-        stage_names: list[str],
-        stage_idx: int,
-        chapter_len: int,
-        set_stage_progress: Callable,
-        qtgmc: Path,
-        preview_video: Path,
-        preview_mode: str,
-        start_frame: int,
-        end_frame: int,
+        render_config: tuple[list[str], int, int, Callable, Path, Path, str, int, int],
         fail: Callable[[str], None],
     ) -> bool:
+        (
+            stage_names, stage_idx, chapter_len, set_stage_progress,
+            qtgmc, preview_video, preview_mode, start_frame, end_frame,
+        ) = render_config
         stage_label = stage_names[stage_idx if stage_idx < len(stage_names) else (len(stage_names) - 1)]
         ok, detail = WizardHandler._run_cmd_with_progress(
             self,
             WizardHandler._preview_encode_cmd(
-                self, session, qtgmc, preview_video, preview_mode, start_frame, end_frame
+                self, session, qtgmc, preview_video, (preview_mode, start_frame, end_frame)
             ),
             "Preview encode stage",
             on_frame=lambda n: set_stage_progress(stage_idx, n, stage_label),
@@ -4349,13 +4370,9 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
     def _setup_preview_stage_context(
         self,
         session: SessionState,
-        chapter_len: int,
-        preview_mode: str,
-        apply_gamma: bool,
-        skip_deinterlace: bool,
-        local_bad: list,
-        filter_script: Path,
+        stage_config: tuple[int, str, bool, bool, list, Path],
     ) -> tuple[list[str], int, bool, bool, Callable]:
+        chapter_len, preview_mode, apply_gamma, skip_deinterlace, local_bad, filter_script = stage_config
         gamma_only_mode = preview_mode == "gamma"
         windows_filter = bool(sys.platform == "win32" and apply_gamma and (gamma_only_mode or filter_script.exists()))
         windows_freeze = bool(sys.platform == "win32" and bool(local_bad))
@@ -4420,7 +4437,7 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
 
         stage_names, total_frames_all, windows_filter, gamma_only_mode, _set_stage_progress = (
             WizardHandler._setup_preview_stage_context(
-                self, session, chapter_len, preview_mode, apply_gamma, skip_deinterlace, local_bad, filter_script
+                self, session, (chapter_len, preview_mode, apply_gamma, skip_deinterlace, local_bad, filter_script)
             )
         )
 
@@ -4465,15 +4482,10 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
         if not WizardHandler._preview_render_final_encode(
             self,
             session=session,
-            stage_names=stage_names,
-            stage_idx=stage_idx,
-            chapter_len=chapter_len,
-            set_stage_progress=_set_stage_progress,
-            qtgmc=qtgmc,
-            preview_video=preview_video,
-            preview_mode=preview_mode,
-            start_frame=start_frame,
-            end_frame=end_frame,
+            render_config=(
+                stage_names, stage_idx, chapter_len, _set_stage_progress,
+                qtgmc, preview_video, preview_mode, start_frame, end_frame,
+            ),
             fail=fail,
         ):
             return
@@ -4773,8 +4785,8 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
             return
         try:
             session.audio_sync_offset = float(raw_audio_sync.get("offset_seconds", session.audio_sync_offset))
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("could not apply audio sync offset from preview payload: %s", exc)
 
     def _preview_source_video(self, session: SessionState) -> tuple[Path | None, str]:
         proxy_video = archive_dir_for(session.archive) / f"{session.archive}_proxy.mp4"
@@ -4995,10 +5007,9 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
         session: SessionState,
         qtgmc: Path,
         preview_video: Path,
-        preview_mode: str,
-        start_frame: int,
-        end_frame: int,
+        encode_params: tuple[str, int, int],
     ) -> list[Any]:
+        preview_mode, start_frame, end_frame = encode_params
         hud_args: tuple[Any, ...] = ()
         if preview_mode == "audio_sync":
             hud_args = (
@@ -5180,7 +5191,7 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
         gamma_count = len(session.gamma_ranges)
         metadata_path = _resolve_save_metadata_path(session, out_path, gamma_path, split_path)
         message = _build_save_message(
-            session, count, analyzed, gamma_count, people_count, subtitle_count, split_count
+            session, count, analyzed, (gamma_count, people_count, subtitle_count, split_count)
         )
         archive_state = _archive_state(session, session.archive, selected_title=session.chapter)
         self._send_json(

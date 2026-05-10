@@ -49,6 +49,28 @@ PHOTOALBUMS_LOCK_POLL_SECONDS = 0.25
 read_xmp_description = _read_xmp_description
 
 
+def _parse_suggestion_policy(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "min_similarity": _coerce_float(payload.get("min_similarity"), DEFAULT_MIN_SIMILARITY),
+        "min_margin": _coerce_float(payload.get("min_margin"), DEFAULT_MIN_MARGIN),
+        "min_face_quality": _coerce_float(payload.get("min_face_quality"), DEFAULT_MIN_FACE_QUALITY),
+        "min_sample_count": max(
+            1,
+            _coerce_int(payload.get("min_sample_count"), DEFAULT_MIN_SAMPLE_COUNT),
+        ),
+    }
+
+
+def _resolve_media_path(raw_path: Any) -> Path:
+    text = str(raw_path or "").strip()
+    if not text:
+        raise ValueError("Path is required.")
+    path = Path(text).expanduser()
+    if not path.is_absolute():
+        path = (Path.cwd() / path).resolve()
+    return path
+
+
 class RequestError(Exception):
     def __init__(self, message: str, *, status: int = 400):
         super().__init__(str(message))
@@ -149,9 +171,7 @@ class _CastHandlerFaceMixin:
             return
         self._send_json({"ok": True, "face": face}, status=HTTPStatus.CREATED)
 
-    def _parse_assign_face_payload(
-        self, payload: dict[str, Any]
-    ) -> tuple[str, str | None, bool | None, str | None]:
+    def _parse_assign_face_payload(self, payload: dict[str, Any]) -> tuple[str, str | None, bool | None, str | None]:
         face_id = str(payload.get("face_id") or "").strip()
         person_id = str(payload.get("person_id") or "").strip() or None
         has_reviewed_flag = "reviewed_by_human" in payload
@@ -227,10 +247,10 @@ class _CastHandlerFaceMixin:
             "False",
         }
         top_k = max(1, _coerce_int(payload.get("top_k"), 3))
-        policy = self._suggestion_policy_from_payload(payload)
+        policy = _parse_suggestion_policy(payload)
 
         try:
-            path = self._resolve_media_path(image_path)
+            path = _resolve_media_path(image_path)
             faces = self.server.ingestor.ingest_photo(
                 image_path=path,
                 source_path=str(source_path or path),
@@ -241,9 +261,7 @@ class _CastHandlerFaceMixin:
             self._error(str(exc))
             return
 
-        reviews_created, reviews_reused = (
-            self._auto_queue_faces(faces, top_k, policy) if auto_queue else (0, 0)
-        )
+        reviews_created, reviews_reused = self._auto_queue_faces(faces, top_k, policy) if auto_queue else (0, 0)
         people_by_id = {str(row.get("person_id")): row for row in self.store.list_people()}
         face_rows = [self._face_summary(face, people_by_id) for face in faces]
         self._send_json(
@@ -271,10 +289,10 @@ class _CastHandlerFaceMixin:
             "False",
         }
         top_k = max(1, _coerce_int(payload.get("top_k"), 3))
-        policy = self._suggestion_policy_from_payload(payload)
+        policy = _parse_suggestion_policy(payload)
 
         try:
-            path = self._resolve_media_path(video_path)
+            path = _resolve_media_path(video_path)
             result = self.server.ingestor.ingest_vhs(
                 video_path=path,
                 source_path=str(source_path or path),
@@ -288,9 +306,7 @@ class _CastHandlerFaceMixin:
             return
 
         faces = list(result.get("faces") or [])
-        reviews_created, reviews_reused = (
-            self._auto_queue_faces(faces, top_k, policy) if auto_queue else (0, 0)
-        )
+        reviews_created, reviews_reused = self._auto_queue_faces(faces, top_k, policy) if auto_queue else (0, 0)
         people_by_id = {str(row.get("person_id")): row for row in self.store.list_people()}
         face_rows = [self._face_summary(face, people_by_id) for face in faces]
         self._send_json(
@@ -316,11 +332,11 @@ class _CastHandlerFaceMixin:
         auto_queue = _coerce_bool(payload.get("auto_queue"), True)
         rescan_existing = _coerce_bool(payload.get("rescan_existing"), False)
         top_k = max(1, _coerce_int(payload.get("top_k"), 3))
-        policy = self._suggestion_policy_from_payload(payload)
+        policy = _parse_suggestion_policy(payload)
 
         try:
             result = self.server.ingestor.ingest_photo_album_views(
-                photo_albums_root=self._resolve_media_path(root_dir),
+                photo_albums_root=_resolve_media_path(root_dir),
                 view_glob=view_glob,
                 recursive=recursive,
                 min_size=min_size,
@@ -333,9 +349,7 @@ class _CastHandlerFaceMixin:
             return
 
         faces = list(result.get("faces") or [])
-        reviews_created, reviews_reused = (
-            self._auto_queue_faces(faces, top_k, policy) if auto_queue else (0, 0)
-        )
+        reviews_created, reviews_reused = self._auto_queue_faces(faces, top_k, policy) if auto_queue else (0, 0)
         top_photos = sorted(
             list(result.get("per_photo") or []),
             key=lambda row: int(row.get("faces_created", 0)),
@@ -459,7 +473,7 @@ class _CastHandlerReviewMixin:
             self._error("face_id is required.")
             return
         top_k = max(1, _coerce_int(payload.get("top_k"), 3))
-        policy = self._suggestion_policy_from_payload(payload)
+        policy = _parse_suggestion_policy(payload)
         try:
             review, existing = self._enqueue_review_for_face(
                 face_id=face_id,
@@ -538,9 +552,7 @@ class _CastHandlerReviewMixin:
             return None
         return review_ids
 
-    def _apply_bulk_assign_loop(
-        self, review_ids: list[str], resolved_person_id: str | None
-    ) -> tuple[int, int] | None:
+    def _apply_bulk_assign_loop(self, review_ids: list[str], resolved_person_id: str | None) -> tuple[int, int] | None:
         updated_reviews = 0
         updated_faces = 0
         for review_id in review_ids:
@@ -1246,17 +1258,6 @@ class CastHandler(_CastHandlerFaceMixin, _CastHandlerReviewMixin, BaseHTTPReques
                 status=HTTPStatus.INTERNAL_SERVER_ERROR,
             ) from exc
 
-    def _suggestion_policy_from_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return {
-            "min_similarity": _coerce_float(payload.get("min_similarity"), DEFAULT_MIN_SIMILARITY),
-            "min_margin": _coerce_float(payload.get("min_margin"), DEFAULT_MIN_MARGIN),
-            "min_face_quality": _coerce_float(payload.get("min_face_quality"), DEFAULT_MIN_FACE_QUALITY),
-            "min_sample_count": max(
-                1,
-                _coerce_int(payload.get("min_sample_count"), DEFAULT_MIN_SAMPLE_COUNT),
-            ),
-        }
-
     def _find_pending_review_for_face(self, face_id: str) -> dict[str, Any] | None:
         for row in self.store.list_review_items():
             if str(row.get("face_id")) == str(face_id) and str(row.get("status")) == "pending":
@@ -1333,15 +1334,6 @@ class CastHandler(_CastHandlerFaceMixin, _CastHandlerReviewMixin, BaseHTTPReques
             status="pending",
         )
         return review, False
-
-    def _resolve_media_path(self, raw_path: Any) -> Path:
-        text = str(raw_path or "").strip()
-        if not text:
-            raise ValueError("Path is required.")
-        path = Path(text).expanduser()
-        if not path.is_absolute():
-            path = (Path.cwd() / path).resolve()
-        return path
 
     def _validate_store_relative_file(self, rel_path: str) -> Path:
         clean_rel = str(rel_path or "").strip()
@@ -1723,9 +1715,7 @@ class CastHandler(_CastHandlerFaceMixin, _CastHandlerReviewMixin, BaseHTTPReques
         except Exception as exc:
             log.debug("failed to draw bounding box on image: %s", exc)
 
-    def _handle_get_face_path_routes(
-        self, parts: list[str], query: dict[str, list[str]]
-    ) -> bool:
+    def _handle_get_face_path_routes(self, parts: list[str], query: dict[str, list[str]]) -> bool:
         if len(parts) == 4 and parts[0] == "api" and parts[1] == "faces":
             if parts[3] == "crop":
                 self._handle_get_face_crop(parts[2])
