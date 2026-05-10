@@ -15,6 +15,7 @@ from .ai_model_settings import (
     default_docling_retries,
     default_view_region_model,
 )
+from .image_limits import get_image_dimensions as _image_dimensions  # noqa
 from .prompt_debug import debug_root_for_image_path
 
 if TYPE_CHECKING:
@@ -234,14 +235,7 @@ def _read_regions_from_xmp(xmp_path: Path, img_w: int, img_h: int) -> list[Regio
     return results
 
 
-def _image_dimensions(image_path: Path) -> tuple[int, int]:
-    from PIL import Image  # pylint: disable=import-outside-toplevel
 
-    from .image_limits import allow_large_pillow_images  # pylint: disable=import-outside-toplevel
-
-    allow_large_pillow_images(Image)
-    with Image.open(str(image_path)) as img:
-        return img.size
 
 
 def _failed_regions_debug_path(image_path: str | Path, attempt_number: int | None = None) -> Path:
@@ -576,7 +570,9 @@ def detect_regions(
 
     if not force and _has_xmp_regions(xmp_path):
         try:
-            img_w, img_h = _image_dimensions(path)
+            from .image_limits import get_image_dimensions  # pylint: disable=import-outside-toplevel
+
+            img_w, img_h = get_image_dimensions(path)
             cached = _read_regions_from_xmp(xmp_path, img_w, img_h)
         except Exception as exc:  # pragma: no cover
             log.warning("Failed to read cached XMP regions for %s: %s", path, exc)
@@ -594,7 +590,9 @@ def detect_regions(
             f"View region detection failed due to: non-Docling model configured for regions: {resolved_model}"
         )
 
-    img_w, img_h = _image_dimensions(path)
+    from .image_limits import get_image_dimensions  # pylint: disable=import-outside-toplevel
+
+    img_w, img_h = get_image_dimensions(path)
     if write_debug:
         _clear_regions_debug_images(path)
     return _detect_regions_docling(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 log = logging.getLogger(__name__)
@@ -16,6 +17,14 @@ def allow_large_pillow_images(image_module=None) -> Any | None:
         return None
     image.MAX_IMAGE_PIXELS = None
     return image
+
+
+def get_image_dimensions(image_path: Path) -> tuple[int, int]:
+    from PIL import Image  # pylint: disable=import-outside-toplevel
+
+    allow_large_pillow_images(Image)
+    with Image.open(str(image_path)) as img:
+        return img.size
 
 
 try:

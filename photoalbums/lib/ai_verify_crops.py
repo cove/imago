@@ -279,11 +279,13 @@ def _artifact_output_path(page_image_path: Path) -> Path:
 
 
 def _read_page_crop_paths(page_image_path: Path) -> list[Path]:
+    from .image_limits import get_image_dimensions  # pylint: disable=import-outside-toplevel
+
     page_xmp = page_image_path.with_suffix(".xmp")
     if not page_xmp.is_file():
         return []
     try:
-        regions = read_region_list(page_xmp, *_image_dimensions(page_image_path))
+        regions = read_region_list(page_xmp, *get_image_dimensions(page_image_path))
     except Exception:
         return []
     if not regions:
@@ -291,16 +293,6 @@ def _read_page_crop_paths(page_image_path: Path) -> list[Path]:
     photos_dir = page_image_path.parent.parent / page_image_path.parent.name.replace("_Pages", "_Photos")
     candidates = _expected_crop_output_paths(page_image_path, photos_dir, len(regions))
     return [path for path in candidates if path.is_file()]
-
-
-def _image_dimensions(path: Path) -> tuple[int, int]:
-    from PIL import Image  # pylint: disable=import-outside-toplevel
-
-    from .image_limits import allow_large_pillow_images  # pylint: disable=import-outside-toplevel
-
-    allow_large_pillow_images(Image)
-    with Image.open(str(path)) as image:
-        return image.size
 
 
 def load_page_verifier_inputs(
