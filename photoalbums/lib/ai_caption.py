@@ -19,6 +19,7 @@ from ._caption_lmstudio import (  # noqa: F401
     _extract_structured_json_payload,
     _looks_like_reasoning_or_prompt_echo,
     _normalize_gps_value,
+    _normalize_location_shown_item,
     _parse_lmstudio_structured_caption,
     _parse_lmstudio_structured_caption_payload,
     _resize_caption_image,
@@ -194,20 +195,8 @@ def _named_location_queries(locations_shown) -> list[dict[str, str]]:
     named = []
     for entry in list(locations_shown or []):
         if isinstance(entry, dict) and str(entry.get("name") or "").strip():
-            named.append(_named_location_query(entry))
+            named.append(_normalize_location_shown_item(entry))
     return named
-
-
-def _named_location_query(entry: dict) -> dict[str, str]:
-    return {
-        "name": str(entry.get("name") or "").strip(),
-        "world_region": str(entry.get("world_region") or "").strip(),
-        "country_name": str(entry.get("country_name") or "").strip(),
-        "country_code": str(entry.get("country_code") or "").strip(),
-        "province_or_state": str(entry.get("province_or_state") or "").strip(),
-        "city": str(entry.get("city") or "").strip(),
-        "sublocation": str(entry.get("sublocation") or "").strip(),
-    }
 
 
 def _location_queries_debug_metadata(*, max_tokens: int, max_image_edge: int) -> dict:
