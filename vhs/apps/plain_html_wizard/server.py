@@ -5,14 +5,14 @@ import base64
 import binascii
 import bisect
 import cProfile
-import json
+import csv
 import html
 import importlib
+import io
+import json
 import logging
 import os
 import re
-import csv
-import io
 import shutil
 import subprocess
 import sys
@@ -23,14 +23,15 @@ import uuid
 log = logging.getLogger(__name__)
 import wave
 from collections import OrderedDict
+from collections.abc import Callable
+from contextlib import redirect_stdout
 from dataclasses import dataclass, field
 from http import HTTPStatus
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from urllib.parse import parse_qs, urlparse
-from contextlib import redirect_stdout
 
 import cv2
 import numpy as np
@@ -48,7 +49,6 @@ from common import (
     _canonicalize_gamma_ranges,
     archive_dir_for,
     clips_dir_for,
-    videos_dir_for,
     combined_score,
     compute_threshold,
     get_audio_sync_offset_for_chapter,
@@ -60,8 +60,11 @@ from common import (
     update_chapter_audio_sync_in_render_settings,
     update_chapter_gamma_in_render_settings,
     update_chapter_transcript_in_chapters_tsv,
+    videos_dir_for,
 )
 from libs.vhs_tuner_core import (
+    RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV,
+    TUNER_DEBUG_EXTRACT_ENV,
     _chapter_bad_overrides,
     _chapter_extract_cache_path,
     _ensure_render_chapter_extract,
@@ -78,11 +81,9 @@ from libs.vhs_tuner_core import (
     persist_bad_frames_for_chapter,
     slugify,
     suggest_iqr_k,
-    RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV,
-    TUNER_DEBUG_EXTRACT_ENV,
 )
-from vhs_pipeline.people_prefill import prefill_people_from_cast
 from vhs_pipeline.metadata import ffmetadata_to_chapters_tsv
+from vhs_pipeline.people_prefill import prefill_people_from_cast
 from vhs_pipeline.render_pipeline import (
     make_extract_audio,
     subtitle_entries_from_whisper_result,
@@ -192,7 +193,7 @@ class SessionState:
     _video_cap_lock: Any = field(default_factory=threading.Lock, repr=False, compare=False)
 
 
-def _close_session_video_cap(session: "SessionState") -> None:
+def _close_session_video_cap(session: SessionState) -> None:
     """Release the session's cached VideoCapture if open. Call when switching videos."""
     with session._video_cap_lock:
         if session._video_cap is not None:
@@ -1259,7 +1260,8 @@ def _merge_split_save_rows(
             merged_rows.append(row)
             continue
         merged_rows, placed, replaced_loaded_chapter = _process_merge_row(
-            row, row_key,
+            row,
+            row_key,
             (merged_rows, placed, replaced_loaded_chapter),
             (existing_header, entries_key_map, single_entry, loaded_chapter_key),
         )
@@ -1419,7 +1421,7 @@ def _write_people_tsv_rows(path: Path, rows: list[tuple[float, float, str]]) -> 
     p.parent.mkdir(parents=True, exist_ok=True)
     lines = [PEOPLE_TSV_HEADER]
     for start, end, people in list(rows or []):
-        lines.append(f"{_seconds_to_timestamp(float(start))}\t{_seconds_to_timestamp(float(end))}\t{str(people)}")
+        lines.append(f"{_seconds_to_timestamp(float(start))}\t{_seconds_to_timestamp(float(end))}\t{people!s}")
     p.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -2051,7 +2053,7 @@ def _cached_load_signals(
     global _SIGNALS_MEMO_KEY, _SIGNALS_MEMO_VAL
     key = (archive, chapter, str(video_path), start_frame, end_frame, frame_read_offset)
     with _SIGNALS_MEMO_LOCK:
-        if _SIGNALS_MEMO_KEY == key and _SIGNALS_MEMO_VAL is not None:
+        if key == _SIGNALS_MEMO_KEY and _SIGNALS_MEMO_VAL is not None:
             return _SIGNALS_MEMO_VAL
     result = load_cached_signals(
         archive,
@@ -2347,7 +2349,7 @@ def _build_review_payload(
             "bad": int(bad),
             "good": int(total - bad),
             "shown": total,
-            "overrides": int(len(session.overrides)),
+            "overrides": len(session.overrides),
         },
         "force_all_frames_good": bool(session.force_all_frames_good),
         "frames": frames,
@@ -2460,7 +2462,7 @@ def _summary_split_text(split_entries: list[dict[str, Any]]) -> str:
         return "Chapter entries: (none)"
     lines = [f"Chapter entries: {len(split_entries)}"]
     for item in split_entries[:25]:
-        lines.append(f"- {int(item['start_frame'])}-{int(item['end_frame'])} (local frames): {str(item['title'])}")
+        lines.append(f"- {int(item['start_frame'])}-{int(item['end_frame'])} (local frames): {item['title']!s}")
     if len(split_entries) > 25:
         lines.append(f"- +{len(split_entries) - 25} more")
     return "\n".join(lines)
@@ -2733,7 +2735,7 @@ class _SubtitlesProgressBarBase:
             segment_total=max(1, int(round(self._total))),
         )
 
-    def __enter__(self) -> "_SubtitlesProgressBarBase":
+    def __enter__(self) -> _SubtitlesProgressBarBase:
         if hasattr(self._inner, "__enter__"):
             self._inner.__enter__()
         return self
@@ -2805,9 +2807,7 @@ def _count_bad_with_overrides(scores_arr, thr: float, fids_list, overrides: dict
     return max(0, bad)
 
 
-def _resolve_frame_effective_status(
-    session: SessionState, fid_i: int, final_ids: set[int]
-) -> tuple[str, bool]:
+def _resolve_frame_effective_status(session: SessionState, fid_i: int, final_ids: set[int]) -> tuple[str, bool]:
     if session.fids and session.sigs and fid_i in final_ids:
         scores = combined_score(session.sigs, session.wc, session.wn, session.wt, session.ww)
         thr = float(compute_threshold(scores, session.t_mode, session.iqr_k, session.tval, session.bpct))
@@ -2824,9 +2824,7 @@ def _resolve_frame_effective_status(
     return effective, True
 
 
-def _resolve_save_metadata_path(
-    session: SessionState, out_path: Any, gamma_path: Any, split_path: Any
-) -> str:
+def _resolve_save_metadata_path(session: SessionState, out_path: Any, gamma_path: Any, split_path: Any) -> str:
     archive_name = str(session.archive or "").strip()
     chapters_path = METADATA_DIR / archive_name / "chapters.tsv"
     subtitles_path = METADATA_DIR / archive_name / "subtitles.tsv"
@@ -2861,7 +2859,7 @@ def _build_save_message(
     )
 
 
-class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
+class WizardHandler(BaseHTTPRequestHandler):
     server_version = "VHSTuner/1.0"
 
     def log_message(self, _format: str, *args: Any) -> None:
@@ -3567,7 +3565,7 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
             self._send_error_json("No loaded chapter data yet.")
             return
         params = parse_qs(parsed.query)
-        context = int((params.get("context", ["8"])[0] or "8"))
+        context = int(params.get("context", ["8"])[0] or "8")
         scores, thr, _bad = _session_scores_threshold_bad_count(session)
         regions = find_spike_regions(session.fids, scores, thr, context_frames=context)  # type: ignore[arg-type]
         self._send_json(
@@ -3940,7 +3938,7 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
             "end_frame": session.end_frame,
             "force_all_frames_good": bool(session.force_all_frames_good),
             "chapter_frame_count": int(session.end_frame - session.start_frame),
-            "loaded_count": int(len(session.fids)),
+            "loaded_count": len(session.fids),
             "contact_sheet": _contact_sheet_config_payload(session),
             "extract_cache": str(
                 _chapter_extract_cache_path(
@@ -4116,8 +4114,6 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
         session.load_meta_ready = True
         return dict(gamma_profile or {})
 
-
-
     def _handle_toggle_frame(self, session: SessionState, fid: int) -> None:
         if bool(session.force_all_frames_good):
             self._send_error_json("Disable 'Force all frames good' before editing frame statuses.")
@@ -4209,7 +4205,7 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
                     "bad": int(bad),
                     "good": int(total - bad),
                     "shown": total,
-                    "overrides": int(len(session.overrides)),
+                    "overrides": len(session.overrides),
                 },
                 "force_all_frames_good": bool(session.force_all_frames_good),
                 "frames": None,
@@ -4279,6 +4275,7 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
                 make_gamma_only_avs,
                 make_render_avs_ffv1,
             )
+
             return {
                 "BADFRAME_SOURCE_CLEARANCE": BADFRAME_SOURCE_CLEARANCE,
                 "assert_expected_frame_count": assert_expected_frame_count,
@@ -4326,8 +4323,15 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
         fail: Callable[[str], None],
     ) -> bool:
         (
-            stage_names, stage_idx, chapter_len, set_stage_progress,
-            qtgmc, preview_video, preview_mode, start_frame, end_frame,
+            stage_names,
+            stage_idx,
+            chapter_len,
+            set_stage_progress,
+            qtgmc,
+            preview_video,
+            preview_mode,
+            start_frame,
+            end_frame,
         ) = render_config
         stage_label = stage_names[stage_idx if stage_idx < len(stage_names) else (len(stage_names) - 1)]
         ok, detail = WizardHandler._run_cmd_with_progress(
@@ -4428,8 +4432,8 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
             return
 
         preview_dir = WizardHandler._preview_output_dir(self, session, start_frame, end_frame)
-        freeze_avs, filter_avs, repaired_extracted, qtgmc, preview_video = (
-            WizardHandler._preview_render_setup_paths(self, session, preview_dir)
+        freeze_avs, filter_avs, repaired_extracted, qtgmc, preview_video = WizardHandler._preview_render_setup_paths(
+            self, session, preview_dir
         )
 
         filter_script = WizardHandler._preview_filter_script(self, session)
@@ -4483,8 +4487,15 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
             self,
             session=session,
             render_config=(
-                stage_names, stage_idx, chapter_len, _set_stage_progress,
-                qtgmc, preview_video, preview_mode, start_frame, end_frame,
+                stage_names,
+                stage_idx,
+                chapter_len,
+                _set_stage_progress,
+                qtgmc,
+                preview_video,
+                preview_mode,
+                start_frame,
+                end_frame,
             ),
             fail=fail,
         ):
@@ -4568,7 +4579,7 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
             {
                 "ok": True,
                 "message": message,
-                "generated_count": int(len(generated)),
+                "generated_count": len(generated),
                 "mode": mode,
                 "cast_store_dir": str(Path(cast_store_dir)),
                 "stats": dict(result.stats or {}),
@@ -4735,7 +4746,7 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
             {
                 "ok": True,
                 "message": message,
-                "generated_count": int(len(generated)),
+                "generated_count": len(generated),
                 "mode": mode,
                 "subtitles_profile": {
                     "entries": list(session.subtitle_entries),
@@ -4870,7 +4881,7 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
                 "preview_path": str(preview_video),
                 "preview_url": "/api/preview_video",
                 "preview_page_url": "/preview",
-                "bad_frame_count": int(len(local_bad)),
+                "bad_frame_count": len(local_bad),
             }
         )
 
@@ -5138,12 +5149,12 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
         progress_bar = _subtitle_progress_bar_factory(session, original_tqdm, segment_total)
         with _WHISPER_TQDM_PATCH_LOCK:
             if callable(original_tqdm):
-                setattr(tqdm_module, "tqdm", progress_bar)
+                tqdm_module.tqdm = progress_bar
             try:
                 result = whisper_transcribe(model, audio_path, prompt_text=prompt_text)
             finally:
                 if callable(original_tqdm):
-                    setattr(tqdm_module, "tqdm", original_tqdm)
+                    tqdm_module.tqdm = original_tqdm
         if bool(session.subtitles_cancel_requested):
             raise _SubtitlesCancelledError("Subtitle generation cancelled.")
         return result
@@ -5165,8 +5176,6 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
             return
         session.auto_transcript = mode
         self._send_json({"ok": True, "auto_transcript": mode})
-
-
 
     def _handle_save(self, session: SessionState, payload: dict[str, Any] | None = None) -> None:
         if not session.fids:
@@ -5228,7 +5237,7 @@ class WizardHandler(BaseHTTPRequestHandler):  # noqa: SKY-Q702
                 "message": (
                     f"Progress saved for {session.chapter}: "
                     f"BAD_FRAMES {int(count)}/{int(analyzed)}, "
-                    f"gamma ranges {int(len(session.gamma_ranges))}, "
+                    f"gamma ranges {len(session.gamma_ranges)}, "
                     f"people entries {int(people_count)}, "
                     f"subtitle entries {int(subtitle_count)}, "
                     f"split entries {int(split_count)}."

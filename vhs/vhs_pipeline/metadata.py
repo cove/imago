@@ -24,6 +24,7 @@ from common import (
     archive_dir_for,
     write_sha3_manifest,
 )
+
 from vhs_pipeline.render_pipeline import (
     ENCODE_AUDIO_BITRATE,
     ENCODE_AUDIO_CHANNELS,
@@ -423,7 +424,8 @@ def _fill_chapter_second_bounds(chapter: dict[str, Any]) -> None:
             continue
         try:
             parsed = float(value)
-        except Exception:
+        except Exception as exc:
+            log.debug("failed to parse chapter %s value %r: %s", key, value, exc)
             continue
         chapter[f"{key}_seconds"] = parsed
         chapter[key] = parsed
@@ -445,12 +447,12 @@ def _chapter_seconds(chapter: dict, boundary: str) -> float:
         tb_den = chapter.get("timebase_den")
         if raw is not None and tb_num is not None and tb_den is not None:
             return float(Fraction(int(raw), 1) * Fraction(int(tb_num), int(tb_den)))
-    except Exception:
-        pass
+    except Exception as exc:
+        log.debug("failed to compute chapter %s seconds from timebase: %s", boundary, exc)
     try:
         return float(chapter.get(f"{boundary}_seconds") or 0.0)
-    except Exception:
-        pass
+    except Exception as exc:
+        log.debug("failed to parse chapter %s_seconds: %s", boundary, exc)
     return float(chapter.get(boundary, 0.0) or 0.0)
 
 
@@ -504,8 +506,8 @@ def generate_mkv_chapters_xml(chapters_tsv_path: Path, out_path: Path):
 
     try:
         ET.indent(root, space="  ", level=0)
-    except AttributeError:
-        pass
+    except AttributeError as exc:
+        log.debug("ET.indent not available on this Python version: %s", exc)
 
     out_path.write_text(
         '<?xml version="1.0" encoding="UTF-8"?>\n'

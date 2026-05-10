@@ -15,8 +15,8 @@ from ._caption_lmstudio import (
 )
 from ._lmstudio_helpers import LMStudioModelResolverMixin, emit_prompt_debug
 from .ai_lmstudio_structured import run_engine_with_model_fallback, schema_response_format, step_prompt_assets_metadata
-from .ai_prompt_assets import load_params, load_prompt
 from .ai_model_settings import default_caption_model, default_caption_models, default_lmstudio_base_url
+from .ai_prompt_assets import load_params, load_prompt
 
 _DEFAULT_MAX_IMAGE_EDGE = 1920
 

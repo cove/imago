@@ -189,7 +189,7 @@ def test_run_pipeline_embeds_all_chapters_within_full_movie_range(monkeypatch, t
     def _fake_run(cmd, cwd=None):
         _ = cwd
         run_calls.append([str(x) for x in cmd])
-        return None
+        return
 
     monkeypatch.setattr(render_pipeline, "all_store_archive_dirs", lambda: [archive_dir])
     monkeypatch.setattr(render_pipeline, "METADATA_DIR", metadata_dir)

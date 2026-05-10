@@ -7,10 +7,10 @@
 import argparse
 import logging
 import math
-import shutil
-import time
 import re
+import shutil
 import sys
+import time
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -33,10 +33,15 @@ if _cached_common is not None:
     expected_common = (_VHS_ROOT / "common.py").resolve()
     if _cached_common_file != expected_common:
         del sys.modules["common"]
-from common import *  # noqa: F401,F403,F405
+from common import *
+
 from vhs_pipeline.people_prefill import (
     _frame_to_seconds as _frame_to_subtitle_seconds,
+)
+from vhs_pipeline.people_prefill import (
     _parse_seconds as _parse_subtitle_ts,
+)
+from vhs_pipeline.people_prefill import (
     _parse_tsv_time_or_frame_seconds,
 )
 
@@ -173,7 +178,7 @@ def _frames_to_contiguous_ranges(bad_source_frames):
     return ranges
 
 
-def _parse_repair_range_item(item):
+def _parse_repair_range_item(item) -> tuple | None:
     if len(item) < 2:
         return None
     try:
@@ -209,7 +214,7 @@ def _source_frame_is_clear(src, bad_set, clearance):
     return not any(f in bad_set for f in range(int(src) - clearance, int(src) + clearance + 1))
 
 
-def _choose_repair_source_after(b, bad_set, max_allowed_src, clearance, extra_skip=0):
+def _choose_repair_source_after(b, bad_set, max_allowed_src, clearance, extra_skip=0) -> int | None:
     src = b + 1 + max(0, int(extra_skip))
     while True:
         while src in bad_set:
@@ -221,7 +226,7 @@ def _choose_repair_source_after(b, bad_set, max_allowed_src, clearance, extra_sk
         src += 1
 
 
-def _choose_repair_source_before(a, bad_set, clearance, extra_skip=0):
+def _choose_repair_source_before(a, bad_set, clearance, extra_skip=0) -> int | None:
     src = a - 1 - max(0, int(extra_skip))
     while src >= 0:
         while src in bad_set and src >= 0:
@@ -234,13 +239,16 @@ def _choose_repair_source_before(a, bad_set, clearance, extra_skip=0):
     return None
 
 
-def _resolve_single_repair_range(a, b, src_override, bad_set, max_allowed_src, clearance):
+def _resolve_single_repair_range(a, b, src_override, bad_set, *, limits: tuple | None = None) -> tuple | None:
+    max_allowed_src, clearance = limits if limits is not None else (None, 0)
     src = src_override
     src_out_of_bounds = max_allowed_src is not None and src is not None and src > max_allowed_src
     if src is not None and src not in bad_set and not src_out_of_bounds:
         return (a, b, src)
     if src is not None and (src in bad_set or src_out_of_bounds):
-        print(f"Badframe source override {src} is invalid for range {a}-{b}; falling back to auto neighbor source selection.")
+        print(
+            f"Badframe source override {src} is invalid for range {a}-{b}; falling back to auto neighbor source selection."
+        )
     span = int(b) - int(a) + 1
     source_skip = BADFRAME_SINGLE_FRAME_SOURCE_SKIP if span == 1 else 0
     next_src = _choose_repair_source_after(b, bad_set, max_allowed_src, clearance, extra_skip=source_skip)
@@ -272,7 +280,7 @@ def _resolve_badframe_repair_ranges(
 
     resolved_ranges = []
     for a, b, src_override in sorted(ranges, key=lambda x: (x[0], x[1])):
-        result = _resolve_single_repair_range(a, b, src_override, bad_set, max_allowed_src, clearance)
+        result = _resolve_single_repair_range(a, b, src_override, bad_set, limits=(max_allowed_src, clearance))
         if result is not None:
             resolved_ranges.append(result)
 
@@ -321,7 +329,8 @@ def _normalize_gamma_range_entries(gamma_ranges):
         try:
             a = int(start)
             b = int(end)
-        except Exception:
+        except Exception as exc:
+            log.debug("skipping gamma segment with non-integer start/end: %s", exc)
             continue
         if b <= a:
             continue
@@ -496,12 +505,12 @@ def srt_to_ass(srt_path, ass_path, font="Calibri", fontsize=40):
             if not line:
                 continue
             people_match = re.fullmatch(r"\[(.+)\]", line)
-            if people_match is not None:
-                people_text = _format_people_display_text(people_match.group(1))
-                if people_text:
-                    ass_lines.append(r"{\rPeople}" + people_text + r"{\rDefault}")
+            if people_match is None:
+                ass_lines.append(line)
                 continue
-            ass_lines.append(line)
+            people_text = _format_people_display_text(people_match.group(1))
+            if people_text:
+                ass_lines.append(r"{\rPeople}" + people_text + r"{\rDefault}")
         if not ass_lines:
             continue
         text = ASS_NEWLINE.join(ass_lines)
@@ -550,9 +559,7 @@ def _bridge_bad_ranges(ranges):
         left_len = lb - la + 1
         right_len = b - a + 1
         should_bridge = False
-        if gap <= BADFRAME_BRIDGE_ALWAYS_GAP:
-            should_bridge = True
-        elif gap <= BADFRAME_BRIDGE_SINGLETON_GAP and (left_len == 1 or right_len == 1):
+        if gap <= BADFRAME_BRIDGE_ALWAYS_GAP or (gap <= BADFRAME_BRIDGE_SINGLETON_GAP and (left_len == 1 or right_len == 1)):
             should_bridge = True
         if should_bridge:
             merged[-1] = (la, max(lb, b))
@@ -831,7 +838,8 @@ def _global_badframe_rows(data_rows, *, idx_frame, idx_bad):
         try:
             frame = int(row[idx_frame])
             bad = int(row[idx_bad])
-        except Exception:
+        except Exception as exc:
+            log.debug("skipping bad-frame row with invalid frame/bad value: %s", exc)
             continue
         if bad == 1 and frame >= 0:
             bad_frames.append(frame)
@@ -847,7 +855,8 @@ def _local_badframe_rows(data_rows, *, idx_chapter, idx_local, idx_bad, chapter_
             ch = str(row[idx_chapter]).strip()
             local_f = int(row[idx_local])
             bad = int(row[idx_bad])
-        except Exception:
+        except Exception as exc:
+            log.debug("skipping local bad-frame row with invalid values: %s", exc)
             continue
         if ch == chapter_title and bad == 1 and local_f >= 0:
             bad_frames.append(chapter_start_frame + local_f)
@@ -885,7 +894,7 @@ def _normalize_subtitle_optional_text(raw):
     return text
 
 
-def _parse_subtitle_confidence(raw):
+def _parse_subtitle_confidence(raw) -> float | None:
     text = str(raw or "").strip()
     if not text:
         return None
@@ -963,7 +972,7 @@ def _is_people_tsv_header(lower: str) -> bool:
     )
 
 
-def _parse_people_tsv_row(text: str):
+def _parse_people_tsv_row(text: str) -> tuple | None:
     lower = text.lower()
     if _is_people_tsv_header(lower):
         return None
@@ -1042,7 +1051,7 @@ def _is_subtitles_tsv_header(lower: str) -> bool:
     )
 
 
-def _parse_subtitle_tsv_row(text: str):
+def _parse_subtitle_tsv_row(text: str) -> dict | None:
     lower = text.lower()
     if _is_subtitles_tsv_header(lower):
         return None
@@ -1586,7 +1595,8 @@ def probe_video_frame_count(path):
             continue
         try:
             v = int(token)
-        except Exception:
+        except Exception as exc:
+            log.debug("skipping non-integer frame count token %r: %s", token, exc)
             continue
         if v > 0:
             return int(v)
@@ -1634,7 +1644,8 @@ def _subtitle_io(subtitle_tracks):
     return input_args, output_args
 
 
-def build_filmed_comment(author, creation_time, location, archive_tape_title, start_hms, end_hms):
+def build_filmed_comment(author, creation_time, location, archive_tape_title, *, time_range: tuple[str, str]):
+    start_hms, end_hms = time_range
     author_text = "" if author is None else str(author).strip()
     location_text = "" if location is None else str(location).strip()
     if location_text.lower() in {"none", "null"}:
@@ -1649,21 +1660,23 @@ def build_filmed_comment(author, creation_time, location, archive_tape_title, st
 
 def make_encode_final_x264(
     temp_qtgmc,
-    subtitle_tracks,
     final_file,
-    author,
-    title,
-    archive_tape_title,
-    start_hms,
-    end_hms,
-    creation_time,
-    location,
+    *,
+    metadata: dict,
+    subtitle_tracks=None,
     chapter_metadata_path=None,
     include_audio=True,
 ):
     subtitle_tracks = subtitle_tracks or []
+    author = metadata.get("author")
+    title = metadata.get("title")
+    archive_tape_title = metadata.get("archive_tape_title")
+    start_hms = metadata.get("start_hms")
+    end_hms = metadata.get("end_hms")
+    creation_time = metadata.get("creation_time")
+    location = metadata.get("location")
     sub_inputs, sub_outputs = _subtitle_io(subtitle_tracks)
-    comment = build_filmed_comment(author, creation_time, location, archive_tape_title, start_hms, end_hms)
+    comment = build_filmed_comment(author, creation_time, location, archive_tape_title, time_range=(start_hms, end_hms))
     metadata_inputs = []
     metadata_input_index = None
     if chapter_metadata_path:
@@ -1831,6 +1844,20 @@ def make_deinterlace_ffmpeg_fallback(temp_extracted, temp_qtgmc, no_bob=False):
     ]
 
 
+def _parse_whisper_confidence(avg_logprob) -> float | None:
+    """Convert a Whisper avg_logprob value to a [0, 1] confidence float, or None."""
+    if avg_logprob is None:
+        return None
+    try:
+        logprob = float(avg_logprob)
+        if logprob != logprob:  # NaN check
+            return None
+        return max(0.0, min(1.0, float(math.exp(logprob))))
+    except (OverflowError, ValueError, TypeError) as exc:
+        logging.debug("Failed to parse whisper confidence from avg_logprob %r: %s", avg_logprob, exc)
+        return None
+
+
 def subtitle_entries_from_whisper_result(result):
     entries = []
     segments = list((result or {}).get("segments") or [])
@@ -1841,14 +1868,7 @@ def subtitle_entries_from_whisper_result(result):
         if start_sec is None or end_sec is None or float(end_sec) <= float(start_sec) or not text:
             continue
         avg_logprob = seg.get("avg_logprob")
-        confidence = None
-        try:
-            if avg_logprob is not None:
-                logprob = float(avg_logprob)
-                if logprob == logprob:
-                    confidence = max(0.0, min(1.0, float(math.exp(logprob))))
-        except Exception:
-            confidence = None
+        confidence = _parse_whisper_confidence(avg_logprob)
         entries.append(
             {
                 "start_seconds": float(start_sec),
@@ -1888,8 +1908,8 @@ def _ensure_derived_metadata_current(meta_dir):
     """Regenerate chapters.ffmetadata, markers.tsv, and markers.mkvchapters.xml from chapters.tsv if stale."""
     from vhs_pipeline.metadata import (
         generate_ffmetadata_from_chapters_tsv,
-        generate_tsv_metadata,
         generate_mkv_chapters_xml,
+        generate_tsv_metadata,
     )
 
     chapters_tsv = Path(meta_dir) / "chapters.tsv"
@@ -1909,7 +1929,7 @@ def _ensure_derived_metadata_current(meta_dir):
 
 def _load_chapters_from_tsv(chapters_tsv_path):
     """Load chapters from master chapters.tsv, returning (ffmeta, chapters) compatible with parse_chapters format."""
-    from vhs_pipeline.metadata import _load_master_chapters, _chapter_seconds
+    from vhs_pipeline.metadata import _chapter_seconds, _load_master_chapters
 
     ffmeta, chapters = _load_master_chapters(Path(chapters_tsv_path))
     for ch in chapters:
@@ -2002,7 +2022,7 @@ def _chapter_filter_script(archive_name, title):
     return filter_script
 
 
-def _chapter_output_context(args, archive_ctx, ch, cur_count, total_chapters, debug_extracted_frames):
+def _chapter_output_context(args, archive_ctx, ch, cur_count, total_chapters, *, debug_extracted_frames=False):
     title = ch.get("title")
     start_sec = ch["start"]
     end_sec = ch["end"]
@@ -2322,7 +2342,7 @@ def _prepare_subtitle_tracks(ctx, model):
     return subtitle_tracks, model
 
 
-def _chapter_metadata_file(ctx):
+def _chapter_metadata_file(ctx) -> Path | None:
     chapter_metadata_file = ctx["temp_dir"] / "output_chapters.ffmetadata"
     chapter_count = write_output_chapter_ffmetadata(
         ctx["master_header"],
@@ -2344,15 +2364,17 @@ def _encode_final_chapter(ctx, subtitle_tracks):
     print("Final encoding...")
     cmd = make_encode_final_x264(
         ctx["qtgmc"],
-        subtitle_tracks,
         ctx["final_file"],
-        ctx["ch"].get("author", ctx["ffm"].get("author")),
-        ctx["title"],
-        ctx["ffm"].get("title"),
-        format_hms(ctx["start_sec"]),
-        format_hms(ctx["end_sec"]),
-        ctx["ch"].get("creation_time"),
-        ctx["ch"].get("location"),
+        metadata={
+            "author": ctx["ch"].get("author", ctx["ffm"].get("author")),
+            "title": ctx["title"],
+            "archive_tape_title": ctx["ffm"].get("title"),
+            "start_hms": format_hms(ctx["start_sec"]),
+            "end_hms": format_hms(ctx["end_sec"]),
+            "creation_time": ctx["ch"].get("creation_time"),
+            "location": ctx["ch"].get("location"),
+        },
+        subtitle_tracks=subtitle_tracks,
         chapter_metadata_path=_chapter_metadata_file(ctx),
         include_audio=ctx["include_audio"],
     )
@@ -2375,8 +2397,13 @@ def _keep_render_temp():
     return str(os.getenv("RENDER_KEEP_TEMP", "0")).strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _render_chapter_or_skip(args, archive_ctx, ch, cur_count, total_chapters, model, debug_extracted_frames):
-    ctx = _chapter_output_context(args, archive_ctx, ch, cur_count, total_chapters, debug_extracted_frames)
+def _render_chapter_or_skip(
+    args, archive_ctx, ch, *, model, chapter_info: tuple[int, int], debug_extracted_frames=False
+):
+    cur_count, total_chapters = chapter_info
+    ctx = _chapter_output_context(
+        args, archive_ctx, ch, cur_count, total_chapters, debug_extracted_frames=debug_extracted_frames
+    )
     _attach_chapter_entries(ctx)
     rebuild_selected = bool(args.title)
     if chapter_done(ctx["final_file"]) and not rebuild_selected and not _subtitles_only(args):
@@ -2419,7 +2446,14 @@ def _run_archive_render(args, src, model, debug_extracted_frames):
 
     total_chapters = len(chapters)
     for i, ch in enumerate(chapters):
-        model = _render_chapter_or_skip(args, archive_ctx, ch, i + 1, total_chapters, model, debug_extracted_frames)
+        model = _render_chapter_or_skip(
+            args,
+            archive_ctx,
+            ch,
+            model=model,
+            chapter_info=(i + 1, total_chapters),
+            debug_extracted_frames=debug_extracted_frames,
+        )
     print("All done")
     return model
 

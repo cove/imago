@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import logging
-from pathlib import Path
 import re
 import sys
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 log = logging.getLogger(__name__)
 
 import numpy as np
 
-from .xmp_sidecar import _dedupe
 from .ai_people_preprocess import build_rembg_bgr
+from .xmp_sidecar import _dedupe
 
 
 def _import_cast_modules() -> tuple[Any, ...]:
@@ -536,18 +536,34 @@ class CastPeopleMatcher:
         return None
 
     def _add_sequence_name_hints(
-        self, parts: list[str], face_index: int, total_faces: int,
-        *, source: str, positional_source: str, hints: list, seen_names: set,
+        self,
+        parts: list[str],
+        face_index: int,
+        total_faces: int,
+        *,
+        source: str,
+        positional_source: str,
+        hints: list,
+        seen_names: set,
     ) -> None:
         if len(parts) == total_faces:
             name = parts[face_index].title()
             person_id = self._find_person_id_by_name(name)
-            _add_hint(hints, seen_names, name, person_id=person_id, confidence=0.85 if person_id else 0.65, source=positional_source)
+            _add_hint(
+                hints,
+                seen_names,
+                name,
+                person_id=person_id,
+                confidence=0.85 if person_id else 0.65,
+                source=positional_source,
+            )
         else:
             for name_raw in parts:
                 name = name_raw.title()
                 person_id = self._find_person_id_by_name(name)
-                _add_hint(hints, seen_names, name, person_id=person_id, confidence=0.65 if person_id else 0.45, source=source)
+                _add_hint(
+                    hints, seen_names, name, person_id=person_id, confidence=0.65 if person_id else 0.45, source=source
+                )
 
     def _build_face_name_hints(
         self,
@@ -562,7 +578,15 @@ class CastPeopleMatcher:
         for seq_match in re.finditer(r"\b([a-zA-Z]{2,}(?:-[a-zA-Z]{2,})+)\b", hint_text):
             parts = [p.strip() for p in seq_match.group(0).split("-") if len(p.strip()) >= 2]
             if len(parts) >= 2:
-                self._add_sequence_name_hints(parts, face_index, total_faces, source="caption", positional_source="positional_caption", hints=hints, seen_names=seen_names)
+                self._add_sequence_name_hints(
+                    parts,
+                    face_index,
+                    total_faces,
+                    source="caption",
+                    positional_source="positional_caption",
+                    hints=hints,
+                    seen_names=seen_names,
+                )
 
         normalized = _normalize_hint_text(hint_text)
         for person_id, variants in self._person_variants_by_id.items():
@@ -576,7 +600,15 @@ class CastPeopleMatcher:
         stem = Path(source_path).stem
         stem_parts = [p.strip() for p in stem.split("-") if re.match(r"^[a-zA-Z]{2,}$", p.strip())]
         if len(stem_parts) >= 2:
-            self._add_sequence_name_hints(stem_parts, face_index, total_faces, source="filename", positional_source="positional_filename", hints=hints, seen_names=seen_names)
+            self._add_sequence_name_hints(
+                stem_parts,
+                face_index,
+                total_faces,
+                source="filename",
+                positional_source="positional_filename",
+                hints=hints,
+                seen_names=seen_names,
+            )
 
         return hints
 
@@ -783,8 +815,12 @@ class CastPeopleMatcher:
         self,
         *,
         image,
-        x: int, y: int, ww: int, hh: int,
-        width: int, height: int,
+        x: int,
+        y: int,
+        ww: int,
+        hh: int,
+        width: int,
+        height: int,
         bbox_offset: tuple[int, int],
         source_key: str,
         path,
@@ -871,8 +907,12 @@ class CastPeopleMatcher:
         for face_rank, (x, y, ww, hh) in enumerate(valid_faces):
             self._process_detected_face(
                 image=image,
-                x=x, y=y, ww=ww, hh=hh,
-                width=width, height=height,
+                x=x,
+                y=y,
+                ww=ww,
+                hh=hh,
+                width=width,
+                height=height,
                 bbox_offset=bbox_offset,
                 source_key=source_key,
                 path=path,

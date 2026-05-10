@@ -14,6 +14,19 @@ from common import (
 )
 
 
+def _parse_verify_arg(arg, remaining, i):
+    """Return (algo, archive, manifest, consumed_extra) for one argument."""
+    if arg in ("--blake3", "--b3"):
+        return "blake3", None, None, 0
+    if arg in ("--sha3", "--sha3-256"):
+        return "sha3", None, None, 0
+    if arg == "--archive" and i + 1 < len(remaining):
+        return None, remaining[i + 1], None, 1
+    if arg.startswith("--archive="):
+        return None, arg.split("=", 1)[1], None, 0
+    return None, None, arg, 0
+
+
 def parse_verify_args(argv):
     algo = "auto"
     manifest = None
@@ -22,19 +35,32 @@ def parse_verify_args(argv):
     i = 0
     while i < len(remaining):
         arg = remaining[i]
-        if arg in ("--blake3", "--b3"):
-            algo = "blake3"
-        elif arg in ("--sha3", "--sha3-256"):
-            algo = "sha3"
-        elif arg == "--archive" and i + 1 < len(remaining):
-            i += 1
-            archive = remaining[i]
-        elif arg.startswith("--archive="):
-            archive = arg.split("=", 1)[1]
-        else:
-            manifest = arg
-        i += 1
+        new_algo, new_archive, new_manifest, extra = _parse_verify_arg(arg, remaining, i)
+        if new_algo:
+            algo = new_algo
+        if new_archive:
+            archive = new_archive
+        if new_manifest:
+            manifest = new_manifest
+        i += 1 + extra
     return manifest, algo, archive
+
+
+def _verify_all_archives(algo):
+    archive_dirs = all_store_archive_dirs()
+    if not archive_dirs:
+        raise SystemExit("No archives found. Use --archive <name> or pass a manifest path.")
+    failed = 0
+    for root_dir in archive_dirs:
+        manifest_path = root_dir / "SHA256SUMS"
+        if not manifest_path.exists():
+            print(f"Skipping {root_dir} (no SHA256SUMS)\n")
+            continue
+        print(f"Verifying: {manifest_path}\n")
+        rc = verify_manifest(root_dir, manifest_path, algo=algo)
+        if rc:
+            failed += 1
+    return failed
 
 
 def verify_archive(argv=None):
@@ -46,20 +72,7 @@ def verify_archive(argv=None):
         root_dir = archive_dir_for(archive)
         manifest_path = archive_checksum_file_for(archive)
     else:
-        archive_dirs = all_store_archive_dirs()
-        if not archive_dirs:
-            raise SystemExit("No archives found. Use --archive <name> or pass a manifest path.")
-        failed = 0
-        for root_dir in archive_dirs:
-            manifest_path = root_dir / "SHA256SUMS"
-            if not manifest_path.exists():
-                print(f"Skipping {root_dir} (no SHA256SUMS)\n")
-                continue
-            print(f"Verifying: {manifest_path}\n")
-            rc = verify_manifest(root_dir, manifest_path, algo=algo)
-            if rc:
-                failed += 1
-        return failed
+        return _verify_all_archives(algo)
     print(f"Verifying: {manifest_path}\n")
     return verify_manifest(root_dir, manifest_path, algo=algo)
 

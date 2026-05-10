@@ -13,13 +13,13 @@ Run:
 """
 
 from __future__ import annotations
-import pytest
 
 import json
-import time
 import sys
+import time
 from pathlib import Path
 
+import pytest
 import requests
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -29,15 +29,15 @@ if str(REPO_ROOT) not in sys.path:
 if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
-from photoalbums.lib._caption_prompts import _build_local_prompt  # noqa: E402
-from photoalbums.lib._caption_lmstudio import (  # noqa: E402
+from photoalbums.lib._caption_lmstudio import (
     DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE,
     _build_data_url,
     _lmstudio_caption_response_format,
 )
-from photoalbums.lib.ai_caption import CaptionEngine  # noqa: E402
-from photoalbums.lib.ai_index import _run_image_analysis, DEFAULT_CAST_STORE  # noqa: E402
-from photoalbums.lib.ai_ocr import OCREngine  # noqa: E402
+from photoalbums.lib._caption_prompts import _build_local_prompt
+from photoalbums.lib.ai_caption import CaptionEngine
+from photoalbums.lib.ai_index import DEFAULT_CAST_STORE, _run_image_analysis
+from photoalbums.lib.ai_ocr import OCREngine
 
 # ---------------------------------------------------------------------------
 # Config

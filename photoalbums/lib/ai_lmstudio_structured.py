@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from ._caption_lmstudio import (
     _build_data_url,
     _format_lmstudio_debug_response,
+)
+from ._caption_lmstudio import (
     _lmstudio_request_json as _default_lmstudio_request_json,
 )
 from .ai_prompt_assets import load_params, load_prompt, load_schema, params_metadata, prompt_metadata

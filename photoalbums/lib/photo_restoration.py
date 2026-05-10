@@ -10,7 +10,7 @@ from __future__ import annotations
 import ctypes
 import logging
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from PIL import Image as PILImage
@@ -73,7 +73,7 @@ def _format_bytes_gb(value: int) -> str:
     return f"{value / 1_000_000_000:.1f} GB"
 
 
-def _get_pipeline():
+def _get_pipeline() -> Any | None:
     global _pipeline
     if _pipeline is _UNAVAILABLE:
         return None
@@ -81,8 +81,8 @@ def _get_pipeline():
         return _pipeline
 
     try:
-        from diffusers import RealRestorerPipeline
         import torch
+        from diffusers import RealRestorerPipeline
     except ImportError:
         log.warning(
             "RealRestorer is not installed; photo restoration will be skipped. "
@@ -92,7 +92,7 @@ def _get_pipeline():
         return None
 
     installed_ram = _installed_ram_bytes()
-    if installed_ram is not None and REAL_RESTORER_REPO_BYTES >= installed_ram:
+    if installed_ram is not None and installed_ram <= REAL_RESTORER_REPO_BYTES:
         log.warning(
             "RealRestorer pipeline setup refused: model repo size %s is greater than or equal to installed RAM %s",
             _format_bytes_gb(REAL_RESTORER_REPO_BYTES),
@@ -120,7 +120,7 @@ def _get_pipeline():
     return _pipeline
 
 
-def restore_photo_with_result(image: "PILImage.Image") -> tuple["PILImage.Image", str]:
+def restore_photo_with_result(image: PILImage.Image) -> tuple[PILImage.Image, str]:
     """Restore a cropped photo using RealRestorer and report the outcome.
 
     Returns ``(image, result)`` where ``result`` is one of:
@@ -147,7 +147,7 @@ def restore_photo_with_result(image: "PILImage.Image") -> tuple["PILImage.Image"
         return image, RESTORE_RESULT_FAILED
 
 
-def restore_photo(image: "PILImage.Image") -> "PILImage.Image":
+def restore_photo(image: PILImage.Image) -> PILImage.Image:
     """Restore a cropped photo using RealRestorer.
 
     Accepts an in-memory PIL Image and returns a restored PIL Image.

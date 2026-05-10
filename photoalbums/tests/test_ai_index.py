@@ -25,8 +25,8 @@ from photoalbums.lib import (
     ai_index_args,
     ai_index_engine_cache,
     ai_index_runner,
+    xmp_sidecar,
 )
-from photoalbums.lib import xmp_sidecar
 
 
 class TestAIIndex(unittest.TestCase):
@@ -2456,30 +2456,29 @@ class TestAIIndex(unittest.TestCase):
             )
 
             stdout = io.StringIO()
-            with redirect_stdout(stdout):
-                with (
-                    mock.patch.object(
-                        ai_index_runner,
-                        "prepare_image_layout",
-                        side_effect=lambda *args, **kwargs: self._mock_layout(image),
-                    ),
-                    mock.patch.object(ai_index_runner, "_run_image_analysis", return_value=analysis) as analysis_mock,
-                    mock.patch.object(ai_index_runner, "_build_flat_payload", return_value=analysis.payload),
-                    mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
-                ):
-                    result = ai_index.run(
-                        [
-                            "--photos-root",
-                            str(base),
-                            "--include-view",
-                            "--disable-people",
-                            "--disable-objects",
-                            "--ocr-engine",
-                            "none",
-                            "--caption-engine",
-                            "lmstudio",
-                        ]
-                    )
+            with (
+                redirect_stdout(stdout), mock.patch.object(
+                    ai_index_runner,
+                    "prepare_image_layout",
+                    side_effect=lambda *args, **kwargs: self._mock_layout(image),
+                ),
+                mock.patch.object(ai_index_runner, "_run_image_analysis", return_value=analysis) as analysis_mock,
+                mock.patch.object(ai_index_runner, "_build_flat_payload", return_value=analysis.payload),
+                mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
+            ):
+                result = ai_index.run(
+                    [
+                        "--photos-root",
+                        str(base),
+                        "--include-view",
+                        "--disable-people",
+                        "--disable-objects",
+                        "--ocr-engine",
+                        "none",
+                        "--caption-engine",
+                        "lmstudio",
+                    ]
+                )
 
             self.assertEqual(result, 0)
             analysis_mock.assert_called_once()

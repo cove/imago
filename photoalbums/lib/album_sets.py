@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import tomllib
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
-import tomllib
 
 ALBUM_SETS_PATH = Path(__file__).resolve().parents[1] / "album_sets.toml"
 VALID_KINDS = {"archive", "scanwatch"}

@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from ..exiftool_utils import read_tag
+from ..naming import DERIVED_VIEW_RE, is_photos_dir, pages_dir_for_album_dir
 from .ai_album_titles import _derived_name_match
 from .ai_location import _xmp_gps_to_decimal
 from .ai_render_settings import find_archive_dir_for_image
-from .xmpmm_provenance import read_derived_from
-from ..exiftool_utils import read_tag
-from ..naming import DERIVED_VIEW_RE, is_photos_dir, pages_dir_for_album_dir
 from .xmp_sidecar import _dedupe, _normalize_xmp_datetime, read_ai_sidecar_state
+from .xmpmm_provenance import read_derived_from
 
 MIN_EXISTING_SIDECAR_BYTES = 100
 
@@ -49,7 +49,7 @@ def _xmp_timestamp_from_path(path: Path) -> str:
         timestamp = path.stat().st_mtime
     except OSError:
         return ""
-    text = datetime.fromtimestamp(timestamp, tz=timezone.utc).replace(microsecond=0).isoformat()
+    text = datetime.fromtimestamp(timestamp, tz=UTC).replace(microsecond=0).isoformat()
     return text.replace("+00:00", "Z")
 
 

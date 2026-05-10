@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from contextlib import contextmanager
 import logging
+from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -121,11 +121,11 @@ def _get_converter(backend: str, device: str):
     cache_key = (backend, device)
     if cache_key in _converter_cache:
         return _converter_cache[cache_key]
+    from docling.backend.image_backend import ImageDocumentBackend  # pylint: disable=import-outside-toplevel
     from docling.datamodel.accelerator_options import AcceleratorOptions  # pylint: disable=import-outside-toplevel
     from docling.datamodel.base_models import InputFormat  # pylint: disable=import-outside-toplevel
     from docling.datamodel.pipeline_options import PdfPipelineOptions  # pylint: disable=import-outside-toplevel
     from docling.document_converter import DocumentConverter, PdfFormatOption  # pylint: disable=import-outside-toplevel
-    from docling.backend.image_backend import ImageDocumentBackend  # pylint: disable=import-outside-toplevel
 
     pipeline_options = PdfPipelineOptions(
         do_ocr=False,
@@ -155,8 +155,8 @@ def _extract_caption_hint(item: Any, doc: Any) -> str:
         text_idx = int(text_idx_str)
         if hasattr(doc, "texts") and 0 <= text_idx < len(doc.texts):
             return str(getattr(doc.texts[text_idx], "text", "")).strip()
-    except (ValueError, IndexError, AttributeError):
-        pass
+    except (ValueError, IndexError, AttributeError) as exc:
+        log.debug("Failed to resolve caption text for ref %r: %s", caption_ref, exc)
     return ""
 
 

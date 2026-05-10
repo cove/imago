@@ -1,3 +1,4 @@
+import contextlib
 import os
 import shutil
 import tempfile
@@ -7,6 +8,30 @@ from pathlib import Path
 import pytest
 
 from photoalbums.lib import ai_index
+
+
+class _BodyReader:
+    def __init__(self, body):
+        self._body = body
+
+    def read(self):
+        return self._body
+
+
+def FakeLMStudioResponse(body):
+    return contextlib.nullcontext(_BodyReader(body))
+
+
+class _ChunkIterator:
+    def __init__(self, chunks):
+        self._chunks = chunks
+
+    def __iter__(self):
+        yield from self._chunks
+
+
+def FakeIterableResponse(chunks):
+    return contextlib.nullcontext(_ChunkIterator(chunks))
 
 
 class _WritableTemporaryDirectory:

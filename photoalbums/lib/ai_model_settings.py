@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import tomllib
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
-import tomllib
 
 DEFAULT_OCR_MODEL = ""
 DEFAULT_CAPTION_MODEL = ""

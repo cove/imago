@@ -27,7 +27,8 @@ from .matching import (
     suggest_people_from_prototypes,
 )
 from .storage import TextFaceStore, face_is_human_reviewed, face_review_status
-from .xmp_writer import merge_persons_xmp, read_person_in_image, read_xmp_description as _read_xmp_description
+from .xmp_writer import merge_persons_xmp, read_person_in_image
+from .xmp_writer import read_xmp_description as _read_xmp_description
 
 _HERE = Path(__file__).resolve().parent
 _STATIC = _HERE / "static"
@@ -634,15 +635,13 @@ class _CastHandlerReviewMixin:
                 "ok": True,
                 "checked": int(checked),
                 "pruned": int(pruned),
-                "remaining_pending": int(
-                    len(
+                "remaining_pending": len(
                         [
                             row
                             for row in self.store.list_review_items()
                             if str(row.get("status", "")).strip().lower() == "pending"
                         ]
-                    )
-                ),
+                    ),
             }
         )
 
@@ -1063,7 +1062,7 @@ class CastHandler(_CastHandlerFaceMixin, _CastHandlerReviewMixin, BaseHTTPReques
             {
                 "ok": True,
                 "counts": {
-                    "clusters": int(len(clusters)),
+                    "clusters": len(clusters),
                     "clustered_reviews": int(total_clustered_reviews),
                 },
                 "clusters": payload_clusters,

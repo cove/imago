@@ -4,9 +4,8 @@ import argparse
 import os
 from pathlib import Path
 
-from .ai_model_settings import default_lmstudio_base_url, default_ocr_model
 from ..common import PHOTO_ALBUMS_DIR
-
+from .ai_model_settings import default_lmstudio_base_url, default_ocr_model
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp"}
 DEFAULT_CAST_STORE = Path(__file__).resolve().parents[2] / "cast" / "data"

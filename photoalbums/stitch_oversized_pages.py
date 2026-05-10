@@ -42,10 +42,9 @@ from photoalbums.naming import (  # noqa: E402
     SCAN_NAME_RE,
     SCAN_TIFF_RE,
     pages_dir_for_album_dir,
-    photos_dir_for_album_dir,
     parse_album_filename,
+    photos_dir_for_album_dir,
 )
-
 
 NEW_NAME_RE = SCAN_TIFF_RE
 DERIVED_RE = re.compile(r"_D(?P<d1>\d{2})-(?P<d2>\d{2})", re.IGNORECASE)

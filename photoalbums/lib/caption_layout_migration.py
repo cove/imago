@@ -2,22 +2,24 @@ from __future__ import annotations
 
 import logging
 import os
-from pathlib import Path
 import stat
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 log = logging.getLogger(__name__)
 
+from ..naming import DERIVED_NAME_RE, is_photos_dir, pages_dir_for_album_dir, parse_album_filename
+from .ai_photo_crops import highest_archive_derived_number
 from .xmp_sidecar import (
-    DC_NS,
-    DESCRIPTION_ROLE_CROP,
-    DESCRIPTION_ROLE_PLAIN,
-    DESCRIPTION_ROLE_PAGE,
-    IMAGO_NS,
-    MWGRS_NS,
     _RDF_ALT,
     _RDF_BAG,
     _RDF_LI,
+    DC_NS,
+    DESCRIPTION_ROLE_CROP,
+    DESCRIPTION_ROLE_PAGE,
+    DESCRIPTION_ROLE_PLAIN,
+    IMAGO_NS,
+    MWGRS_NS,
     _description_role_for_sidecar_path,
     _get_alt_text,
     _get_description_value,
@@ -27,8 +29,6 @@ from .xmp_sidecar import (
     _set_simple_text,
 )
 from .xmpmm_provenance import read_derived_from
-from .ai_photo_crops import highest_archive_derived_number
-from ..naming import DERIVED_NAME_RE, is_photos_dir, pages_dir_for_album_dir, parse_album_filename
 
 _DESCRIPTION_TAG = f"{{{DC_NS}}}description"
 _OCR_TEXT_TAG = f"{{{IMAGO_NS}}}OCRText"

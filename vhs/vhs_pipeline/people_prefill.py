@@ -106,7 +106,8 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
             continue
         try:
             item = json.loads(text)
-        except Exception:
+        except Exception as exc:
+            log.debug("failed to parse JSON line in people prefill file: %s", exc)
             continue
         if isinstance(item, dict):
             rows.append(item)
@@ -121,8 +122,8 @@ def _chapter_boundary_seconds(chapter: dict[str, Any], boundary: str) -> float:
     if raw_value is not None and tb_num is not None and tb_den:
         try:
             return float(int(raw_value) * int(tb_num) / float(int(tb_den)))
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("failed to compute chapter %s seconds from timebase: %s", boundary, exc)
     return float(chapter.get(boundary, 0.0) or 0.0)
 
 
@@ -249,8 +250,8 @@ def _source_path_key(path: str | Path) -> str:
     else:
         try:
             p = p.resolve()
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("failed to resolve path %r: %s", p, exc)
     return str(p).replace("\\", "/").lower()
 
 
@@ -358,7 +359,8 @@ def _canonicalize_people_tsv_rows(
         try:
             a = float(start)
             b = float(end)
-        except Exception:
+        except Exception as exc:
+            log.debug("failed to parse people interval start/end (%r, %r): %s", start, end, exc)
             continue
         if float(b) <= float(a):
             continue
@@ -694,9 +696,9 @@ def prefill_people_from_cast(
             "faces_total": len(faces_rows),
             "faces_vhs": int(vhs_faces),
             "faces_matched": int(matched_faces),
-            "faces_used": int(len(observations)),
-            "entries_generated": int(len(entries)),
-            "unique_people": int(len(keep_names)),
+            "faces_used": len(observations),
+            "entries_generated": len(entries),
+            "unique_people": len(keep_names),
             "sample_step_seconds": float(round(sample_step_seconds, 3)),
             "source_counts": source_counts,
         },
@@ -768,7 +770,7 @@ def apply_prefill_entries_to_people_tsv(
 
     merged = _canonicalize_people_tsv_rows([*kept, *chapter_rows])
     _write_people_tsv_rows(tsv_path, merged)
-    return tsv_path, int(len(chapter_rows))
+    return tsv_path, len(chapter_rows)
 
 
 def write_prefill_audit_tsv(path: Path, entries: list[dict[str, Any]]) -> Path:
@@ -776,6 +778,6 @@ def write_prefill_audit_tsv(path: Path, entries: list[dict[str, Any]]) -> Path:
     out.parent.mkdir(parents=True, exist_ok=True)
     lines = ["start\tend\tpeople"]
     for row in list(entries or []):
-        lines.append(f"{str(row.get('start') or '')}\t{str(row.get('end') or '')}\t{str(row.get('people') or '')}")
+        lines.append(f"{row.get('start') or ''!s}\t{row.get('end') or ''!s}\t{row.get('people') or ''!s}")
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return out

@@ -15,8 +15,8 @@ if str(REPO_ROOT) not in sys.path:
 if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
-from photoalbums.lib.ai_location import run_locations_step
 from photoalbums.lib.ai_caption import LocationQueryResult
+from photoalbums.lib.ai_location import run_locations_step
 
 
 def _make_caption_engine(engine_name="lmstudio", primary_query="", named_queries=None, fallback=False, error=""):

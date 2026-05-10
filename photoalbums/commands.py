@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import logging
 import sys
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 MODULE_DIR = Path(__file__).resolve().parent
 if str(MODULE_DIR) not in sys.path:
@@ -87,6 +90,59 @@ def run_checksum_tree(*, base_dir: str, verify: bool) -> int:
     return int(sha3_tree_hashes.run(argv) or 0)
 
 
+def _run_crop_regions_for_view(
+    view_path,
+    *,
+    root,
+    model_name,
+    photos_dir,
+    force,
+    skip_restoration,
+    force_restoration,
+    _has_xmp_regions,
+    _image_dimensions,
+    _read_regions_from_xmp,
+    associate_captions,
+    clear_pipeline_steps,
+    detect_regions,
+    read_pipeline_step,
+    validate_region_set,
+    write_pipeline_step,
+    write_region_list,
+    crop_page_regions,
+) -> int:
+    """Process a single view path through the crop-regions pipeline. Returns 1 on error, 0 on success."""
+    try:
+        _ensure_crop_regions_inputs(
+            view_path,
+            root=root,
+            model_name=model_name,
+            _has_xmp_regions=_has_xmp_regions,
+            _image_dimensions=_image_dimensions,
+            _read_regions_from_xmp=_read_regions_from_xmp,
+            associate_captions=associate_captions,
+            clear_pipeline_steps=clear_pipeline_steps,
+            detect_regions=detect_regions,
+            read_pipeline_step=read_pipeline_step,
+            validate_region_set=validate_region_set,
+            write_pipeline_step=write_pipeline_step,
+            write_region_list=write_region_list,
+        )
+        n = crop_page_regions(
+            view_path,
+            photos_dir,
+            force=force,
+            skip_restoration=skip_restoration,
+            force_restoration=force_restoration,
+        )
+        if n > 0:
+            print(f"  Wrote {n} crop(s) to {photos_dir.name}/")
+        return 0
+    except Exception as exc:
+        print(f"  ERROR: {exc}", file=sys.stderr)
+        return 1
+
+
 def run_crop_regions(
     *,
     album_id: str,
@@ -98,7 +154,9 @@ def run_crop_regions(
 ) -> int:
     """Run only the crop-regions step for matching album page view JPEGs."""
     from pathlib import Path
+
     from .lib.ai_model_settings import default_view_region_model
+    from .lib.ai_photo_crops import crop_page_regions
     from .lib.ai_view_regions import (
         _has_xmp_regions,
         _image_dimensions,
@@ -107,10 +165,9 @@ def run_crop_regions(
         detect_regions,
         validate_region_set,
     )
-    from .lib.ai_photo_crops import crop_page_regions
     from .lib.xmp_sidecar import clear_pipeline_steps, read_pipeline_step, write_pipeline_step, write_region_list
-    from .stitch_oversized_pages import get_photos_dirname
     from .naming import archive_dir_for_album_dir, is_pages_dir
+    from .stitch_oversized_pages import get_photos_dirname
 
     if skip_restoration and force_restoration:
         print("Error: --skip-restoration and --force-restoration cannot be used together", file=sys.stderr)
@@ -138,34 +195,26 @@ def run_crop_regions(
 
         for view_path in candidates:
             print(f"Processing {view_path.name}...")
-            try:
-                _ensure_crop_regions_inputs(
-                    view_path,
-                    root=root,
-                    model_name=model_name,
-                    _has_xmp_regions=_has_xmp_regions,
-                    _image_dimensions=_image_dimensions,
-                    _read_regions_from_xmp=_read_regions_from_xmp,
-                    associate_captions=associate_captions,
-                    clear_pipeline_steps=clear_pipeline_steps,
-                    detect_regions=detect_regions,
-                    read_pipeline_step=read_pipeline_step,
-                    validate_region_set=validate_region_set,
-                    write_pipeline_step=write_pipeline_step,
-                    write_region_list=write_region_list,
-                )
-                n = crop_page_regions(
-                    view_path,
-                    photos_dir,
-                    force=force,
-                    skip_restoration=skip_restoration,
-                    force_restoration=force_restoration,
-                )
-                if n > 0:
-                    print(f"  Wrote {n} crop(s) to {photos_dir.name}/")
-            except Exception as exc:
-                print(f"  ERROR: {exc}", file=sys.stderr)
-                errors += 1
+            errors += _run_crop_regions_for_view(
+                view_path,
+                root=root,
+                model_name=model_name,
+                photos_dir=photos_dir,
+                force=force,
+                skip_restoration=skip_restoration,
+                force_restoration=force_restoration,
+                _has_xmp_regions=_has_xmp_regions,
+                _image_dimensions=_image_dimensions,
+                _read_regions_from_xmp=_read_regions_from_xmp,
+                associate_captions=associate_captions,
+                clear_pipeline_steps=clear_pipeline_steps,
+                detect_regions=detect_regions,
+                read_pipeline_step=read_pipeline_step,
+                validate_region_set=validate_region_set,
+                write_pipeline_step=write_pipeline_step,
+                write_region_list=write_region_list,
+                crop_page_regions=crop_page_regions,
+            )
 
     return 1 if errors else 0
 
@@ -368,8 +417,8 @@ def _view_regions_step_complete(xmp_path: Path) -> bool:
 
 def run_face_refresh(*, album_id: str, photos_root: str, page: str | None, force: bool) -> int:
     from .lib.ai_render_face_refresh import FaceRefreshSkipped, RenderFaceRefreshSession
-    from .stitch_oversized_pages import get_photos_dirname
     from .naming import archive_dir_for_album_dir, is_pages_dir
+    from .stitch_oversized_pages import get_photos_dirname
 
     root = Path(photos_root)
     album_id_lower = album_id.casefold()
@@ -429,7 +478,7 @@ def _render_pipeline_render_page(
 
 
 def _check_skip_detect_regions(
-    xmp_path: Path, view_path: Path, force: bool, skip_validation: bool, summary: dict, deps: dict
+    xmp_path: Path, view_path: Path, *, force: bool, skip_validation: bool, summary: dict, deps: dict
 ) -> bool:
     if force:
         deps["clear_pipeline_steps"](xmp_path, ["view_regions"])
@@ -453,8 +502,16 @@ def _check_skip_detect_regions(
 
 
 def _write_detect_regions_result(
-    xmp_path: Path, view_path: Path, regions: list, img_w: int, img_h: int,
-    model_name: str, debug: bool, summary: dict, deps: dict,
+    xmp_path: Path,
+    view_path: Path,
+    regions: list,
+    *,
+    img_w: int,
+    img_h: int,
+    model_name: str,
+    debug: bool,
+    summary: dict,
+    deps: dict,
 ) -> None:
     if regions:
         regions_with_captions = deps["associate_captions"](regions, [], img_w)
@@ -487,7 +544,7 @@ def _render_pipeline_detect_regions(
     summary: dict[str, int],
     deps: dict,
 ) -> None:
-    if _check_skip_detect_regions(xmp_path, view_path, force, skip_validation, summary, deps):
+    if _check_skip_detect_regions(xmp_path, view_path, force=force, skip_validation=skip_validation, summary=summary, deps=deps):
         return
 
     if not force and deps["read_pipeline_step"](xmp_path, "view_regions") is not None:
@@ -508,7 +565,10 @@ def _render_pipeline_detect_regions(
             print(f"  detect-regions: debug -> {debug_path}")
     if debug:
         _print_render_pipeline_debug_paths(view_path, deps)
-    _write_detect_regions_result(xmp_path, view_path, regions, img_w, img_h, model_name, debug, summary, deps)
+    _write_detect_regions_result(
+        xmp_path, view_path, regions,
+        img_w=img_w, img_h=img_h, model_name=model_name, debug=debug, summary=summary, deps=deps,
+    )
 
 
 def _print_render_pipeline_debug_paths(view_path: Path, deps: dict) -> None:
@@ -599,6 +659,100 @@ def _render_pipeline_propagate_metadata(*, xmp_path, view_path, archive_sidecar,
         )
 
 
+def _run_render_pipeline_locked_steps(
+    *,
+    group,
+    primary_scan: Path,
+    view_path: Path,
+    xmp_path: Path,
+    archive_sidecar: Path,
+    view_dir: Path,
+    photos_dir: Path,
+    archive: Path,
+    current_page: str,
+    current_page_token: str,
+    root: Path,
+    model_name: str,
+    force: bool,
+    skip_crops: bool,
+    force_restoration: bool,
+    debug: bool,
+    skip_validation: bool,
+    page_label: str,
+    summary: dict,
+    failures: list,
+    face_session,
+    deps: dict,
+) -> None:
+    """Execute all per-page pipeline steps inside an acquired lock."""
+    try:
+        _render_pipeline_render_page(
+            group=group,
+            primary_scan=primary_scan,
+            view_dir=view_dir,
+            photos_dir=photos_dir,
+            current_page_token=current_page_token,
+            archive=archive,
+            deps=deps,
+        )
+    except Exception as exc:
+        _record_render_pipeline_failure(
+            failures=failures, summary=summary, page_label=page_label, step="render", exc=exc
+        )
+        return
+
+    _render_pipeline_propagate_metadata(
+        xmp_path=xmp_path, view_path=view_path, archive_sidecar=archive_sidecar,
+        failures=failures, summary=summary, page_label=page_label, deps=deps,
+    )
+
+    if _is_title_page_view(view_path):
+        summary["detect_regions_skipped"] += 1
+        print("  detect-regions: skipped title page (P01)")
+        if not skip_crops:
+            summary["crop_steps_skipped"] += 1
+            print("  crop-regions: skipped title page (P01)")
+    else:
+        try:
+            _render_pipeline_detect_regions(
+                view_path=view_path, xmp_path=xmp_path, root=root, model_name=model_name,
+                force=force, debug=debug, skip_validation=skip_validation, summary=summary, deps=deps,
+            )
+        except Exception as exc:
+            _record_render_pipeline_failure(
+                failures=failures, summary=summary, page_label=page_label, step="detect-regions", exc=exc
+            )
+            return
+        if not skip_crops:
+            try:
+                _render_pipeline_crop_regions(
+                    view_path=view_path, photos_dir=photos_dir, force=force,
+                    force_restoration=force_restoration, summary=summary, deps=deps,
+                )
+            except Exception as exc:
+                _record_render_pipeline_failure(
+                    failures=failures, summary=summary, page_label=page_label, step="crop-regions", exc=exc
+                )
+                return
+
+    try:
+        _render_pipeline_face_refresh(
+            view_dir=view_dir,
+            photos_dir=photos_dir,
+            current_page=current_page,
+            force=force,
+            summary=summary,
+            face_session=face_session,
+            deps=deps,
+        )
+    except Exception as exc:
+        _record_render_pipeline_failure(
+            failures=failures, summary=summary, page_label=page_label, step="face-refresh", exc=exc
+        )
+        return
+    summary["pages_completed"] += 1
+
+
 def _run_render_pipeline_page(
     *,
     archive: Path,
@@ -630,72 +784,30 @@ def _run_render_pipeline_page(
 
     try:
         lock_path = _acquire_page_pipeline_lock(view_path)
-        try:
-            _render_pipeline_render_page(
-                group=group,
-                primary_scan=primary_scan,
-                view_dir=view_dir,
-                photos_dir=photos_dir,
-                current_page_token=current_page_token,
-                archive=archive,
-                deps=deps,
-            )
-        except Exception as exc:
-            _record_render_pipeline_failure(
-                failures=failures, summary=summary, page_label=page_label, step="render", exc=exc
-            )
-            return
-
-        _render_pipeline_propagate_metadata(
-            xmp_path=xmp_path, view_path=view_path, archive_sidecar=archive_sidecar,
-            failures=failures, summary=summary, page_label=page_label, deps=deps,
+        _run_render_pipeline_locked_steps(
+            group=group,
+            primary_scan=primary_scan,
+            view_path=view_path,
+            xmp_path=xmp_path,
+            archive_sidecar=archive_sidecar,
+            view_dir=view_dir,
+            photos_dir=photos_dir,
+            archive=archive,
+            current_page=current_page,
+            current_page_token=current_page_token,
+            root=root,
+            model_name=model_name,
+            force=force,
+            skip_crops=skip_crops,
+            force_restoration=force_restoration,
+            debug=debug,
+            skip_validation=skip_validation,
+            page_label=page_label,
+            summary=summary,
+            failures=failures,
+            face_session=face_session,
+            deps=deps,
         )
-
-        if _is_title_page_view(view_path):
-            summary["detect_regions_skipped"] += 1
-            print("  detect-regions: skipped title page (P01)")
-            if not skip_crops:
-                summary["crop_steps_skipped"] += 1
-                print("  crop-regions: skipped title page (P01)")
-        else:
-            try:
-                _render_pipeline_detect_regions(
-                    view_path=view_path, xmp_path=xmp_path, root=root, model_name=model_name,
-                    force=force, debug=debug, skip_validation=skip_validation, summary=summary, deps=deps,
-                )
-            except Exception as exc:
-                _record_render_pipeline_failure(
-                    failures=failures, summary=summary, page_label=page_label, step="detect-regions", exc=exc
-                )
-                return
-            if not skip_crops:
-                try:
-                    _render_pipeline_crop_regions(
-                        view_path=view_path, photos_dir=photos_dir, force=force,
-                        force_restoration=force_restoration, summary=summary, deps=deps,
-                    )
-                except Exception as exc:
-                    _record_render_pipeline_failure(
-                        failures=failures, summary=summary, page_label=page_label, step="crop-regions", exc=exc
-                    )
-                    return
-
-        try:
-            _render_pipeline_face_refresh(
-                view_dir=view_dir,
-                photos_dir=photos_dir,
-                current_page=current_page,
-                force=force,
-                summary=summary,
-                face_session=face_session,
-                deps=deps,
-            )
-        except Exception as exc:
-            _record_render_pipeline_failure(
-                failures=failures, summary=summary, page_label=page_label, step="face-refresh", exc=exc
-            )
-            return
-        summary["pages_completed"] += 1
     except Exception as exc:
         _record_render_pipeline_failure(
             failures=failures, summary=summary, page_label=page_label, step="page-lock", exc=exc
@@ -720,9 +832,9 @@ def run_render_pipeline(
     Pipeline order per page:
       render -> detect-regions -> crop-regions -> face-refresh
     """
+    from .lib.ai_model_settings import default_view_region_model
     from .lib.ai_photo_crops import CropPageStats, crop_page_regions
     from .lib.ai_render_face_refresh import FaceRefreshSkipped, RenderFaceRefreshSession
-    from .lib.ai_model_settings import default_view_region_model
     from .lib.ai_view_regions import (
         _accepted_regions_debug_path,
         _docling_raw_debug_path,
@@ -745,6 +857,7 @@ def run_render_pipeline(
     from .stitch_oversized_pages import (
         _require_primary_scan,
         _view_page_output_path,
+        derived_to_jpg,
         get_photos_dirname,
         get_view_dirname,
         list_archive_dirs,
@@ -752,7 +865,6 @@ def run_render_pipeline(
         list_page_scans,
         stitch,
         tif_to_jpg,
-        derived_to_jpg,
     )
 
     root = Path(photos_root)
@@ -1159,8 +1271,8 @@ def _run_pipeline_face_refresh_step(
             ran_any = (
                 face_session.refresh_face_regions(img_path, img_path.with_suffix(".xmp"), force=should_redo) or ran_any
             )
-        except deps["FaceRefreshSkipped"]:
-            pass
+        except deps["FaceRefreshSkipped"] as exc:
+            log.debug("Face refresh skipped for %s: %s", img_path, exc)
     if ran_any:
         counters["face-refresh"]["run"] += 1
         step_just_ran.add("face-refresh")
@@ -1261,6 +1373,7 @@ def run_process_pipeline(
     from .stitch_oversized_pages import (
         _require_primary_scan,
         _view_page_output_path,
+        derived_to_jpg,
         get_photos_dirname,
         get_view_dirname,
         list_archive_dirs,
@@ -1268,7 +1381,6 @@ def run_process_pipeline(
         list_page_scans,
         stitch,
         tif_to_jpg,
-        derived_to_jpg,
     )
 
     root = Path(photos_root)
@@ -1310,6 +1422,9 @@ def run_process_pipeline(
 
     # Track which steps have run this pass per page (for staleness cascade)
     from .lib.ai_model_settings import default_view_region_model
+    from .lib.ai_photo_crops import CropPageStats, crop_page_regions
+    from .lib.ai_render_face_refresh import FaceRefreshSkipped, RenderFaceRefreshSession
+    from .lib.ai_verify_crops import persist_verify_crops_state, run_verify_crops_page
     from .lib.ai_view_regions import (
         _has_xmp_regions,
         _image_dimensions,
@@ -1318,9 +1433,6 @@ def run_process_pipeline(
         detect_regions,
         validate_region_set,
     )
-    from .lib.ai_photo_crops import CropPageStats, crop_page_regions
-    from .lib.ai_render_face_refresh import FaceRefreshSkipped, RenderFaceRefreshSession
-    from .lib.ai_verify_crops import persist_verify_crops_state, run_verify_crops_page
     from .lib.prompt_debug import PromptDebugSession
 
     model_name = default_view_region_model()
@@ -1550,10 +1662,11 @@ def _check_step_stale(step, pipeline_state: dict) -> tuple[bool, str]:
                 continue
             try:
                 dep_ts = datetime.fromisoformat(dep_ts_str)
-                if dep_ts > step_ts:
-                    return True, dep_id
-            except ValueError:
+            except ValueError as exc:
+                log.debug("Invalid ISO timestamp in dependency %r: %s", dep_ts_str, exc)
                 continue
+            if dep_ts > step_ts:
+                return True, dep_id
     return False, ""
 
 
@@ -1719,15 +1832,14 @@ def _run_step_detect_regions(
     if force:
         clear_pipeline_steps(xmp_path, ["view_regions"])
     elif _view_regions_step_complete(xmp_path):
-        if _has_xmp_regions(xmp_path):
-            img_w, img_h = _image_dimensions(view_path)
-            stored = _read_regions_from_xmp(xmp_path, img_w, img_h)
-            vresult = validate_region_set(stored, img_w=img_w, img_h=img_h)
-            if vresult.valid or skip_validation:
-                return True, False
-            clear_pipeline_steps(xmp_path, ["view_regions"])
-        else:
+        if not _has_xmp_regions(xmp_path):
             return True, False
+        img_w, img_h = _image_dimensions(view_path)
+        stored = _read_regions_from_xmp(xmp_path, img_w, img_h)
+        vresult = validate_region_set(stored, img_w=img_w, img_h=img_h)
+        if vresult.valid or skip_validation:
+            return True, False
+        clear_pipeline_steps(xmp_path, ["view_regions"])
 
     img_w, img_h = _image_dimensions(view_path)
     album_context, page_caption, people_roster = _build_region_detection_context(view_path, root)
@@ -1953,6 +2065,7 @@ def run_detect_view_regions(
     debug: bool = False,
     skip_validation: bool = False,
 ) -> int:
+    from .lib.ai_model_settings import default_view_region_model
     from .lib.ai_view_regions import (
         _accepted_regions_debug_path,
         _docling_raw_debug_path,
@@ -1964,7 +2077,6 @@ def run_detect_view_regions(
         detect_regions,
         validate_region_set,
     )
-    from .lib.ai_model_settings import default_view_region_model
     from .lib.prompt_debug import PromptDebugSession
     from .lib.xmp_sidecar import clear_pipeline_steps, read_pipeline_step, write_pipeline_step, write_region_list
     from .naming import is_pages_dir

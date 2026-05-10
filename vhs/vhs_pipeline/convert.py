@@ -159,7 +159,7 @@ def convert_umatic_to_archive(paths):
     return count
 
 
-def _validate_archive_file_for_metadata(src, metadata_dir):
+def _validate_archive_file_for_metadata(src, metadata_dir) -> Path | None:
     if not src.exists():
         print(f"File not found: {src}")
         return None

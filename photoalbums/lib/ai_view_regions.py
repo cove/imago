@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
 import json
 import logging
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -65,7 +65,8 @@ class ValidationResult:
     failures: list[RegionFailure]
 
 
-def pixel_to_mwgrs(x: int, y: int, w: int, h: int, img_w: int, img_h: int) -> tuple[float, float, float, float]:
+def pixel_to_mwgrs(x: int, y: int, w: int, h: int, *, img_size: tuple[int, int]) -> tuple[float, float, float, float]:
+    img_w, img_h = img_size
     cx = (x + w / 2.0) / img_w
     cy = (y + h / 2.0) / img_h
     nw = w / img_w
@@ -205,7 +206,8 @@ def _read_regions_from_xmp(xmp_path: Path, img_w: int, img_h: int) -> list[Regio
             cy = float(cy_t)
             nw = float(nw_t)
             nh = float(nh_t)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError) as exc:
+            log.debug("Skipping region with invalid coordinate values: %s", exc)
             continue
         px = max(0, int(round((cx - nw / 2.0) * img_w)))
         py = max(0, int(round((cy - nh / 2.0) * img_h)))
@@ -214,10 +216,9 @@ def _read_regions_from_xmp(xmp_path: Path, img_w: int, img_h: int) -> list[Regio
         caption = str(li.get(f"{{{MWGRS_NS}}}Name") or "").strip()
         if not caption:
             desc_el = li.find(f".//{{{DC_NS}}}description")
-            if desc_el is not None:
-                text_el = desc_el.find(f".//{{{RDF_NS}}}li")
-                if text_el is not None and text_el.text:
-                    caption = text_el.text.strip()
+            text_el = desc_el.find(f".//{{{RDF_NS}}}li") if desc_el is not None else None
+            if text_el is not None and text_el.text:
+                caption = text_el.text.strip()
         if not caption:
             caption = str(li.get(f"{{{IMAGO_NS}}}CaptionHint") or "").strip()
         results.append(
@@ -235,6 +236,7 @@ def _read_regions_from_xmp(xmp_path: Path, img_w: int, img_h: int) -> list[Regio
 
 def _image_dimensions(image_path: Path) -> tuple[int, int]:
     from PIL import Image  # pylint: disable=import-outside-toplevel
+
     from .image_limits import allow_large_pillow_images  # pylint: disable=import-outside-toplevel
 
     allow_large_pillow_images(Image)
@@ -381,6 +383,18 @@ def _write_region_association_overlay_image(
     return output_path
 
 
+def _failure_note(failure: RegionFailure) -> str:
+    """Return a human-readable note string for a region validation failure."""
+    if failure.reason == "overlap":
+        other = f" with #{failure.overlap_with + 1}" if failure.overlap_with is not None else ""
+        return f"overlap{other}"
+    if failure.reason == "zero_area":
+        return "zero area"
+    if failure.reason == "full_page":
+        return "covers >=90% of page"
+    return failure.reason.replace("_", " ")
+
+
 def _write_failed_regions_debug_image(
     image_path: str | Path,
     regions: list[RegionResult],
@@ -396,15 +410,7 @@ def _write_failed_regions_debug_image(
     page_level_notes: list[str] = []
     notes_by_index: dict[int, list[str]] = {}
     for failure in failures:
-        if failure.reason == "overlap":
-            other = f" with #{failure.overlap_with + 1}" if failure.overlap_with is not None else ""
-            note = f"overlap{other}"
-        elif failure.reason == "zero_area":
-            note = "zero area"
-        elif failure.reason == "full_page":
-            note = "covers >=90% of page"
-        else:
-            note = failure.reason.replace("_", " ")
+        note = _failure_note(failure)
         if failure.region_index >= 0:
             notes_by_index.setdefault(failure.region_index, []).append(note)
         else:
@@ -450,7 +456,9 @@ def _write_docling_pipeline_step(xmp_path: Path, result: str, model: str) -> Non
     from .xmp_sidecar import write_pipeline_steps, xmp_datetime_now  # pylint: disable=import-outside-toplevel
 
     _STEP_NAME = "detect-regions/docling"
-    write_pipeline_steps(xmp_path, {_STEP_NAME: {"timestamp": xmp_datetime_now(), "result": result, "input_hash": "", "model": model}})
+    write_pipeline_steps(
+        xmp_path, {_STEP_NAME: {"timestamp": xmp_datetime_now(), "result": result, "input_hash": "", "model": model}}
+    )
 
 
 def _docling_skip_check(xmp_path: Path, path: Path) -> bool:
@@ -466,16 +474,21 @@ def _docling_skip_check(xmp_path: Path, path: Path) -> bool:
 
 
 def _apply_docling_validation(
-    path: Path, xmp_path: Path, model: str, regions: list, img_w: int, img_h: int, write_debug: bool
+    path: Path, xmp_path: Path, model: str, regions: list, img_size: tuple[int, int], *, write_debug: bool = False
 ) -> list[RegionResult]:
+    img_w, img_h = img_size
     validation = validate_region_set(regions, img_w=img_w, img_h=img_h)
     if validation.failures:
         _write_docling_pipeline_step(xmp_path, "validation_failed", model)
         if write_debug:
             _write_failed_regions_debug_image(path, regions, validation.failures)
         reasons = ", ".join(failure.reason for failure in validation.failures)
-        log.error("Docling: region validation failed for %s (%d failure(s): %s); use --force to retry",
-                  path, len(validation.failures), reasons)
+        log.error(
+            "Docling: region validation failed for %s (%d failure(s): %s); use --force to retry",
+            path,
+            len(validation.failures),
+            reasons,
+        )
         return []
     _write_docling_pipeline_step(xmp_path, "regions_found", model)
     if write_debug:
@@ -495,16 +508,23 @@ def _detect_regions_docling(
     skip_validation: bool,
     write_debug: bool = False,
 ) -> list[RegionResult]:
-    from ._docling_pipeline import DoclingPipelineRuntimeError, run_docling_pipeline  # pylint: disable=import-outside-toplevel
+    from ._docling_pipeline import (  # pylint: disable=import-outside-toplevel
+        DoclingPipelineRuntimeError,
+        run_docling_pipeline,
+    )
 
     if not force and _docling_skip_check(xmp_path, path):
         return []
 
     try:
         pipeline_result = run_docling_pipeline(
-            path, img_w=img_w, img_h=img_h,
-            preset=default_docling_preset(), backend=default_docling_backend(),
-            device=default_docling_device(), retries=default_docling_retries(),
+            path,
+            img_w=img_w,
+            img_h=img_h,
+            preset=default_docling_preset(),
+            backend=default_docling_backend(),
+            device=default_docling_device(),
+            retries=default_docling_retries(),
         )
     except DoclingPipelineRuntimeError as exc:
         if prompt_debug is not None and exc.debug_payload:
@@ -531,7 +551,9 @@ def _detect_regions_docling(
             _write_accepted_regions_debug_image(path, pipeline_result.regions)
         return pipeline_result.regions
 
-    return _apply_docling_validation(path, xmp_path, model, pipeline_result.regions, img_w, img_h, write_debug)
+    return _apply_docling_validation(
+        path, xmp_path, model, pipeline_result.regions, (img_w, img_h), write_debug=write_debug
+    )
 
 
 def detect_regions(
@@ -556,14 +578,15 @@ def detect_regions(
         try:
             img_w, img_h = _image_dimensions(path)
             cached = _read_regions_from_xmp(xmp_path, img_w, img_h)
-            if cached:
-                if write_debug:
-                    _clear_regions_debug_images(path)
-                _write_accepted_regions_debug_image(path, cached)
-                _write_region_association_overlay_image(path, cached)
-                return cached
         except Exception as exc:  # pragma: no cover
             log.warning("Failed to read cached XMP regions for %s: %s", path, exc)
+            cached = []
+        if cached:
+            if write_debug:
+                _clear_regions_debug_images(path)
+            _write_accepted_regions_debug_image(path, cached)
+            _write_region_association_overlay_image(path, cached)
+            return cached
 
     resolved_model = str(model or "").strip() or str(default_view_region_model() or "").strip()
     if "docling" not in resolved_model.lower():

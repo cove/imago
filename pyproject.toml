@@ -5,42 +5,42 @@ description = "Family media archive for VHS digitization, photo album preservati
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "chardet<6",
-    "diffusers",
-    "docling",
-    "insightface",
-    "largestinteriorrectangle",
-    "llvmlite",
-    "lmstudio",
-    "numba",
-    "numpy",
-    "onnxruntime",
-    "opencv-contrib-python==4.10.0.84",
-    "openai-whisper==20250625",
-    "pandas",
-    "pillow",
-    "rembg[cpu]",
-    "realrestorer-diffuser",
-    "stitching",
-    "tifffile",
-    "torch==2.10.0",
-    "tqdm",
-    "transformers",
-    "ultralytics",
-    "wand",
-    "watchdog",
-    "qodo>=0.1.0",
+  "chardet<6",
+  "diffusers",
+  "docling",
+  "insightface",
+  "largestinteriorrectangle",
+  "llvmlite",
+  "lmstudio",
+  "numba",
+  "numpy",
+  "onnxruntime",
+  "opencv-contrib-python==4.10.0.84",
+  "openai-whisper==20250625",
+  "pandas",
+  "pillow",
+  "rembg[cpu]",
+  "realrestorer-diffuser",
+  "stitching",
+  "tifffile",
+  "torch==2.10.0",
+  "tqdm",
+  "transformers",
+  "ultralytics",
+  "wand",
+  "watchdog",
+  "qodo>=0.1.0",
 ]
 
 [dependency-groups]
 dev = [
-    "basedpyright",
-    "opencv-stubs",
-    "pytest",
-    "radon",
-    "ruff",
-    "skylos",
-    "vulture",
+  "basedpyright",
+  "opencv-stubs",
+  "pytest",
+  "radon",
+  "ruff",
+  "skylos",
+  "vulture",
 ]
 
 [tool.uv]
@@ -57,7 +57,7 @@ testpaths = ["cast/tests", "photoalbums/tests", "vhs/test", "tests"]
 # KeyboardInterrupt failures in photoalbums tests via colorama/console handling.
 addopts = "--color=no -p scripts.pytest_config"
 markers = [
-    "integration: tests that require external services (LM Studio, network) — excluded from pre-push",
+  "integration: tests that require external services (LM Studio, network) — excluded from pre-push",
 ]
 
 [tool.ruff]
@@ -70,15 +70,53 @@ quote-style = "double"
 indent-style = "space"
 
 [tool.ruff.lint]
-select = ["C90", "E4", "E7", "E9", "F"]
-ignore = ["E203", "E501", "F403", "F405"]
+select = [
+  "E",    # pycodestyle errors
+  "F",    # Pyflakes
+  "W",    # pycodestyle warnings
+  "I",    # isort (import ordering)
+  "N",    # pep8-naming
+  "UP",   # pyupgrade (modern syntax)
+  "B",    # flake8-bugbear
+  "SIM",  # flake8-simplify
+  "C4",   # flake8-comprehensions
+  "RUF",  # ruff-specific rules
+  "PT",   # flake8-pytest-style
+  "C90",  # mccabe complexity
+  "T20",  # flake8-print
+  "RET",  # flake8-return
+  "ARG",  # flake8-unused-arguments
+  "PIE",  # flake8-pie
+  "Q",    # flake8-quotes
+  "TRY",  # tryceratops (exception handling)
+  "PERF", # perflint (performance)
+]
+ignore = [
+  "E203",    # whitespace before ':' (formatter handles it)
+  "E501",    # line too long (line-length 120 handled by formatter)
+  "F403",    # star imports
+  "F405",    # undefined names from star imports
+  "PT009",   # pytest-assert-* (assert argument ordering is stylistic)
+  "PLR0913", # too many arguments
+  "PLR0912", # too many branches
+  "D",       # pydocstyle (project policy: no docstrings)
+  "ANN",     # flake8-annotations (basedpyright handles type checking)
+]
 
 [tool.ruff.lint.per-file-ignores]
 # sys.path manipulation before imports is intentional in standalone scripts and test files
 "photoalbums/tests/*.py" = ["E402"]
-"photoalbums/scripts/*.py" = ["E402"]
+"photoalbums/scripts/*.py" = ["E402", "T20"]
+"photoalbums/lib/*.py" = ["E402"]
 "tests/*.py" = ["E402"]
 "vhs/**/*.py" = ["E402"]
+"cast/**/*.py" = ["E402", "T20"]
+# CLI tools and scripts use print for user-facing output
+"scripts/*.py" = ["T20"]
+"vhs/scripts/*.py" = ["T20"]
+"vhs/vhs_pipeline/*.py" = ["T20"]
+"photoalbums/commands.py" = ["T20"]
+"photoalbums/cli.py" = ["T20"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10

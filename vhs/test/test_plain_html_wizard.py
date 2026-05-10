@@ -1,39 +1,38 @@
 import csv
 import wave
+from unittest import skip
 
 import pytest
-from unittest import skip
 
 pytest.importorskip("numpy")
 pytest.importorskip("cv2")
 
-from pathlib import Path
 import shutil
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
-
-from common import merge_bad_frames_in_render_settings
 from apps.plain_html_wizard import server as wizard_server
-from libs.vhs_tuner_core import _chapter_bad_overrides
 from apps.plain_html_wizard.server import (
     CONTACT_SHEET_COLUMNS,
     SessionState,
-    _build_review_payload,
+    WizardHandler,
     _build_contact_sheet_bytes,
     _build_partial_review_payload,
+    _build_review_payload,
     _decode_frame_image_data_url,
-    _frame_image_url,
     _frame_contact_sheet_url,
-    _lookup_frame_image_data_url,
+    _frame_image_url,
     _load_split_entries_for_chapter,
-    _selected_bad_frame_ids,
+    _lookup_frame_image_data_url,
     _normalize_iqr_k,
     _normalize_subtitle_entries_payload,
     _save_split_entries_for_chapter,
+    _selected_bad_frame_ids,
     _set_load_progress,
-    WizardHandler,
 )
+from common import merge_bad_frames_in_render_settings
+from libs.vhs_tuner_core import _chapter_bad_overrides
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX_HTML = ROOT / "apps" / "plain_html_wizard" / "static" / "index.html"

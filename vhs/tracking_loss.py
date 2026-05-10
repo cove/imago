@@ -26,6 +26,7 @@
 #
 
 import argparse
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -33,16 +34,18 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 
+log = logging.getLogger(__name__)
+
 from common import (
     ARCHIVE_DIR,
     METADATA_DIR,
     apply_config_overrides,
     chapter_frame_bounds,
     combine_signal_scores,
+    merge_bad_frames_in_render_settings,
     parse_bad_frames_csv,
     parse_chapters,
     require_non_empty,
-    merge_bad_frames_in_render_settings,
 )
 
 DEFAULT_ARCHIVE = "callahan_01_archive"
@@ -161,6 +164,19 @@ def parse_chapters_ffmetadata(path):
     return chapters
 
 
+def _find_overlapping_excludes(kept, spans, exclude, i):
+    """Mark the larger of each overlapping chapter pair for exclusion."""
+    a0, a1 = int(kept[i]["start"]), int(kept[i]["end"])
+    for j in range(i + 1, len(kept)):
+        b0, b1 = int(kept[j]["start"]), int(kept[j]["end"])
+        if a1 <= b0 or b1 <= a0:
+            continue
+        if spans[i] > spans[j]:
+            exclude.add(i)
+        elif spans[j] > spans[i]:
+            exclude.add(j)
+
+
 def resolve_overlapping_chapters(chapters):
     """Drop the larger chapter when two chapters overlap."""
     kept = list(chapters or [])
@@ -173,15 +189,7 @@ def resolve_overlapping_chapters(chapters):
     spans = [max(1, int(ch["end"]) - int(ch["start"])) for ch in kept]
     exclude = set()
     for i in range(len(kept)):
-        for j in range(i + 1, len(kept)):
-            a0, a1 = int(kept[i]["start"]), int(kept[i]["end"])
-            b0, b1 = int(kept[j]["start"]), int(kept[j]["end"])
-            if a1 <= b0 or b1 <= a0:
-                continue
-            if spans[i] > spans[j]:
-                exclude.add(i)
-            elif spans[j] > spans[i]:
-                exclude.add(j)
+        _find_overlapping_excludes(kept, spans, exclude, i)
     filtered = [ch for idx, ch in enumerate(kept) if idx not in exclude]
     return filtered, {
         "original_count": len(kept),
@@ -225,7 +233,19 @@ def _window_q1_q3(wscores):
     return q1, q3
 
 
-def _apply_chapter_windows(scores_np, indices, chapters, positions_by_chapter, thresholds, window_info, win_size, iqr_mult):
+@dataclass
+class _WindowContext:
+    """Shared mutable state threaded through the window-threshold helpers."""
+
+    scores_np: "np.ndarray"
+    indices: list
+    thresholds: "np.ndarray"
+    window_info: list
+    win_size: int
+    iqr_mult: float = 3.5
+
+
+def _apply_chapter_windows(wctx: "_WindowContext", chapters, positions_by_chapter):
     for cid, ch_positions in positions_by_chapter.items():
         if cid < 0 or cid >= len(chapters):
             continue
@@ -233,17 +253,17 @@ def _apply_chapter_windows(scores_np, indices, chapters, positions_by_chapter, t
         ch_s = int(ch["start"])
         ch_e = int(ch["end"])
         title = ch.get("title", f"chapter_{cid}")
-        for win_s in range(ch_s, ch_e, win_size):
-            win_e = min(ch_e, win_s + win_size)
-            positions = [p for p in ch_positions if win_s <= int(indices[p]) < win_e]
+        for win_s in range(ch_s, ch_e, wctx.win_size):
+            win_e = min(ch_e, win_s + wctx.win_size)
+            positions = [p for p in ch_positions if win_s <= int(wctx.indices[p]) < win_e]
             if not positions:
                 continue
-            wscores = scores_np[positions]
-            thresh = iqr_threshold_for_window(wscores, iqr_mult=iqr_mult)
+            wscores = wctx.scores_np[positions]
+            thresh = iqr_threshold_for_window(wscores, iqr_mult=wctx.iqr_mult)
             for p in positions:
-                thresholds[p] = thresh
+                wctx.thresholds[p] = thresh
             q1, q3 = _window_q1_q3(wscores)
-            window_info.append(
+            wctx.window_info.append(
                 {
                     "chapter_id": int(cid),
                     "title": title,
@@ -254,37 +274,37 @@ def _apply_chapter_windows(scores_np, indices, chapters, positions_by_chapter, t
                     "q1": q1,
                     "q3": q3,
                     "iqr": q3 - q1,
-                    "iqr_mult": float(iqr_mult),
+                    "iqr_mult": float(wctx.iqr_mult),
                     "threshold": float(thresh),
                 }
             )
 
 
-def _apply_fallback_windows(scores_np, indices, positions_by_chapter, thresholds, window_info, win_size, iqr_mult):
+def _apply_fallback_windows(wctx: "_WindowContext", positions_by_chapter):
     fallback_positions = positions_by_chapter.get(-1, [])
     fallback_groups = {}
     for pos in fallback_positions:
-        fi = int(indices[pos])
-        key = (fi // win_size) * win_size
+        fi = int(wctx.indices[pos])
+        key = (fi // wctx.win_size) * wctx.win_size
         fallback_groups.setdefault(key, []).append(pos)
     for win_s, positions in sorted(fallback_groups.items()):
-        wscores = scores_np[positions]
-        thresh = iqr_threshold_for_window(wscores, iqr_mult=iqr_mult)
+        wscores = wctx.scores_np[positions]
+        thresh = iqr_threshold_for_window(wscores, iqr_mult=wctx.iqr_mult)
         for p in positions:
-            thresholds[p] = thresh
+            wctx.thresholds[p] = thresh
         q1, q3 = _window_q1_q3(wscores)
-        window_info.append(
+        wctx.window_info.append(
             {
                 "chapter_id": -1,
                 "title": "no_chapter_fallback",
                 "window_type": "fallback",
                 "window_start_frame": int(win_s),
-                "window_end_frame": int(win_s + win_size - 1),
+                "window_end_frame": int(win_s + wctx.win_size - 1),
                 "frame_count_in_window": len(positions),
                 "q1": q1,
                 "q3": q3,
                 "iqr": q3 - q1,
-                "iqr_mult": float(iqr_mult),
+                "iqr_mult": float(wctx.iqr_mult),
                 "threshold": float(thresh),
             }
         )
@@ -303,8 +323,16 @@ def compute_per_frame_thresholds(scores, indices, chapters, window_size, iqr_mul
 
     window_info = []
 
-    _apply_chapter_windows(scores_np, indices, chapters, positions_by_chapter, thresholds, window_info, win_size, iqr_mult)
-    _apply_fallback_windows(scores_np, indices, positions_by_chapter, thresholds, window_info, win_size, iqr_mult)
+    wctx = _WindowContext(
+        scores_np=scores_np,
+        indices=indices,
+        thresholds=thresholds,
+        window_info=window_info,
+        win_size=win_size,
+        iqr_mult=iqr_mult,
+    )
+    _apply_chapter_windows(wctx, chapters, positions_by_chapter)
+    _apply_fallback_windows(wctx, positions_by_chapter)
 
     global_fallback = iqr_threshold_for_window(scores_np, iqr_mult=iqr_mult)
     thresholds = np.where(np.isfinite(thresholds), thresholds, global_fallback)
@@ -321,10 +349,10 @@ def score_video_frames(
     start_frame,
     max_frame,
     frame_step,
-    crop_top,
-    crop_bottom,
-    crop_left,
-    crop_right,
+    crop_top=0,
+    crop_bottom=0,
+    crop_left=0,
+    crop_right=0,
 ):
     cap = cv2.VideoCapture(str(video_path))
     if not cap.isOpened():
@@ -386,7 +414,8 @@ def parse_existing_bad_frames_from_chapters(chapters):
         try:
             start = int(ch.get("start", 0))
             end = int(ch.get("end", 0))
-        except Exception:
+        except Exception as exc:
+            log.debug("failed to parse chapter start/end in bad frames: %s", exc)
             continue
         if end <= start:
             continue
@@ -436,13 +465,13 @@ def _safe_col_float(parts, col_idx, default=None):
     return _try_parse_float(parts[col_idx]) if 0 <= col_idx < len(parts) else default
 
 
-def _parse_tsv_data_row(parts, fi_col, sc_col, c_col, n_col, t_col, w_col):
+def _parse_tsv_data_row(parts, fi_col, sc_col, c_col=-1, n_col=-1, t_col=-1, w_col=-1) -> tuple | None:
     if len(parts) <= max(fi_col, sc_col):
         return None
     try:
         fi = int(parts[fi_col])
         sc = float(parts[sc_col])
-    except ValueError:  # noqa: SKY-L007
+    except ValueError:
         return None
     c = _safe_col_float(parts, c_col)
     n = _safe_col_float(parts, n_col)
@@ -494,7 +523,8 @@ def build_chapter_bad_frame_updates(chapters, evaluated_indices, bad_frames):
         try:
             start = int(ch.get("start", 0))
             end = int(ch.get("end", 0))
-        except Exception:
+        except Exception as exc:
+            log.debug("failed to parse chapter start/end for bad frame updates: %s", exc)
             continue
         if end <= start:
             continue
@@ -506,22 +536,44 @@ def build_chapter_bad_frame_updates(chapters, evaluated_indices, bad_frames):
     return updates
 
 
-def _build_run_summary(
-    archive_name, video_path, config, total_frames, start_frame, end_frame,
-    indices, scores_np, chroma_scores, noise_scores, tear_scores, wave_scores,
-    signal_norm, iqr_mult, chapters_source, chapters, chapter_overlap,
-    window_info, good_frames, bad_frames, bad_ranges,
-):
+@dataclass
+class _RunSummaryParams:
+    """All inputs needed to build the detection-run summary dict."""
+
+    archive_name: str
+    video_path: object
+    config: object
+    total_frames: object
+    start_frame: int
+    end_frame: int
+    indices: list
+    scores_np: "np.ndarray"
+    chroma_scores: list
+    noise_scores: list
+    tear_scores: list
+    wave_scores: list
+    signal_norm: object
+    iqr_mult: float
+    chapters_source: object
+    chapters: list
+    chapter_overlap: object
+    window_info: list
+    good_frames: list
+    bad_frames: list
+    bad_ranges: list
+
+
+def _build_run_summary(p: "_RunSummaryParams"):
     return {
-        "archive": archive_name,
-        "video_path": str(video_path),
+        "archive": p.archive_name,
+        "video_path": str(p.video_path),
         "detector": "tracking_loss_chapter_iqr",
-        "total_video_frames": (None if total_frames is None else int(total_frames)),
-        "evaluated_frame_start": int(start_frame),
-        "evaluated_frame_end": int(end_frame),
-        "evaluated_frame_step": int(max(1, config.frame_step)),
-        "evaluated_frames": int(len(indices)),
-        "crop": {k: int(getattr(config, f"crop_{k}")) for k in ("top", "bottom", "left", "right")},
+        "total_video_frames": (None if p.total_frames is None else int(p.total_frames)),
+        "evaluated_frame_start": int(p.start_frame),
+        "evaluated_frame_end": int(p.end_frame),
+        "evaluated_frame_step": int(max(1, p.config.frame_step)),
+        "evaluated_frames": len(p.indices),
+        "crop": {k: int(getattr(p.config, f"crop_{k}")) for k in ("top", "bottom", "left", "right")},
         "signals": {
             "description": {
                 "chroma_loss": "1 - mean(HSV saturation)/255; high = desaturated/grey",
@@ -530,33 +582,33 @@ def _build_run_summary(
                 "wave_energy": "std of high-passed per-row horizontal CoM; high = wavy/wobbly rows",
             },
             "weights": {
-                "chroma": float(config.weight_chroma),
-                "noise": float(config.weight_noise),
-                "tear": float(config.weight_tear),
-                "wave": float(config.weight_wave),
+                "chroma": float(p.config.weight_chroma),
+                "noise": float(p.config.weight_noise),
+                "tear": float(p.config.weight_tear),
+                "wave": float(p.config.weight_wave),
             },
-            "normalization": signal_norm,
-            "chroma_loss": finite_stats(chroma_scores),
-            "noise_energy": finite_stats(noise_scores),
-            "row_tear": finite_stats(tear_scores),
-            "wave_energy": finite_stats(wave_scores),
+            "normalization": p.signal_norm,
+            "chroma_loss": finite_stats(p.chroma_scores),
+            "noise_energy": finite_stats(p.noise_scores),
+            "row_tear": finite_stats(p.tear_scores),
+            "wave_energy": finite_stats(p.wave_scores),
         },
         "thresholding": {
             "method": "chapter_aligned_window_iqr",
-            "formula": f"Q3 + {iqr_mult} x IQR (per chapter-aligned window)",
-            "iqr_mult": iqr_mult,
-            "threshold_window_size": int(config.threshold_window_size),
-            "chapters_file": chapters_source,
-            "chapter_count": len(chapters),
-            "chapter_overlap_resolution": chapter_overlap,
-            "windows": window_info,
+            "formula": f"Q3 + {p.iqr_mult} x IQR (per chapter-aligned window)",
+            "iqr_mult": p.iqr_mult,
+            "threshold_window_size": int(p.config.threshold_window_size),
+            "chapters_file": p.chapters_source,
+            "chapter_count": len(p.chapters),
+            "chapter_overlap_resolution": p.chapter_overlap,
+            "windows": p.window_info,
         },
-        "score_min": float(np.min(scores_np)),
-        "score_max": float(np.max(scores_np)),
-        "score_mean": float(np.mean(scores_np)),
-        "good_frames": int(len(good_frames)),
-        "bad_frames": int(len(bad_frames)),
-        "predicted_bad_ranges": int(len(bad_ranges)),
+        "score_min": float(np.min(p.scores_np)),
+        "score_max": float(np.max(p.scores_np)),
+        "score_mean": float(np.mean(p.scores_np)),
+        "good_frames": len(p.good_frames),
+        "bad_frames": len(p.bad_frames),
+        "predicted_bad_ranges": len(p.bad_ranges),
         "png_samples": {
             "enabled": False,
             "note": "PNG sample export is disabled; use `uv run python vhs.py tuner` for frame review.",
@@ -587,8 +639,8 @@ def _apply_and_report_chapter_updates(config, chapters, indices, bad_frames, cha
         "chapters_file": chapters_file,
         "render_settings_file": touched_path,
         "updated_chapters": int(touched),
-        "evaluated_frames": int(len(indices)),
-        "bad_frames": int(len(bad_frames)),
+        "evaluated_frames": len(indices),
+        "bad_frames": len(bad_frames),
         "good_frames": int(len(indices) - len(bad_frames)),
     }
 
@@ -654,27 +706,29 @@ def _run_with_config(config: TrackingLossConfig):
 
     # In-memory run summary (not written to disk).
     summary = _build_run_summary(
-        archive_name=archive_name,
-        video_path=video_path,
-        config=config,
-        total_frames=total_frames,
-        start_frame=start_frame,
-        end_frame=end_frame,
-        indices=indices,
-        scores_np=scores_np,
-        chroma_scores=chroma_scores,
-        noise_scores=noise_scores,
-        tear_scores=tear_scores,
-        wave_scores=wave_scores,
-        signal_norm=signal_norm,
-        iqr_mult=iqr_mult,
-        chapters_source=chapters_source,
-        chapters=chapters,
-        chapter_overlap=chapter_overlap,
-        window_info=window_info,
-        good_frames=good_frames,
-        bad_frames=bad_frames,
-        bad_ranges=bad_ranges,
+        _RunSummaryParams(
+            archive_name=archive_name,
+            video_path=video_path,
+            config=config,
+            total_frames=total_frames,
+            start_frame=start_frame,
+            end_frame=end_frame,
+            indices=indices,
+            scores_np=scores_np,
+            chroma_scores=chroma_scores,
+            noise_scores=noise_scores,
+            tear_scores=tear_scores,
+            wave_scores=wave_scores,
+            signal_norm=signal_norm,
+            iqr_mult=iqr_mult,
+            chapters_source=chapters_source,
+            chapters=chapters,
+            chapter_overlap=chapter_overlap,
+            window_info=window_info,
+            good_frames=good_frames,
+            bad_frames=bad_frames,
+            bad_ranges=bad_ranges,
+        )
     )
 
     summary["comparison_to_existing_bad_frames"] = _comparison_to_existing_bad_frames(
@@ -806,8 +860,8 @@ def _comparison_to_existing_bad_frames(
     f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0
     return {
         "path": str(chapters_file),
-        "existing_bad_frames_in_window": int(len(existing_bad_eval)),
-        "predicted_bad_frames": int(len(predicted_bad)),
+        "existing_bad_frames_in_window": len(existing_bad_eval),
+        "predicted_bad_frames": len(predicted_bad),
         "tp": int(tp),
         "fp": int(fp),
         "fn": int(fn),

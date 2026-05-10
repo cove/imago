@@ -163,7 +163,7 @@ def build_parser():
     people_prefill.add_argument("--chapter", required=True, help="Exact chapter title")
     people_prefill.add_argument(
         "--cast-store",
-        default=str((Path(__file__).resolve().parents[2] / "cast" / "data")),
+        default=str(Path(__file__).resolve().parents[2] / "cast" / "data"),
         help="Cast store directory containing people.json and faces.jsonl",
     )
     people_prefill.add_argument(

@@ -12,7 +12,7 @@ can still launch the plain HTML wizard when run directly.
 from __future__ import annotations
 
 from apps.plain_html_wizard.server import run as run_plain_wizard
-from libs.vhs_tuner_core import *  # noqa: F401,F403
+from libs.vhs_tuner_core import *
 
 
 def main() -> int:

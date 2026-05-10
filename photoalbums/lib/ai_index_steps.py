@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 from .ai_prompt_assets import asset_hashes
 from .xmp_sidecar import xmp_datetime_now

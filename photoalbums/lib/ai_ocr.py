@@ -13,9 +13,6 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
-from .model_store import HF_MODEL_CACHE_DIR
-from .ai_model_settings import default_lmstudio_base_url, default_ocr_model, default_ocr_models
-from .image_limits import allow_large_pillow_images
 from ._caption_lmstudio import (
     _decode_lmstudio_text,
     _extract_structured_json_payload,
@@ -23,8 +20,12 @@ from ._caption_lmstudio import (
     _lanczos_resize,
     _normalize_model_name_candidates,
 )
-from ._lmstudio_helpers import emit_prompt_debug as _emit_prompt_debug, single_string_response_format
+from ._lmstudio_helpers import emit_prompt_debug as _emit_prompt_debug
+from ._lmstudio_helpers import single_string_response_format
+from .ai_model_settings import default_lmstudio_base_url, default_ocr_model, default_ocr_models
 from .ai_prompt_assets import load_prompt
+from .image_limits import allow_large_pillow_images
+from .model_store import HF_MODEL_CACHE_DIR
 
 STOPWORDS = {
     "the",
@@ -304,8 +305,8 @@ def _parse_ocr_json_text(text: str, *, finish_reason: str, finish_note: str):
         fixed_text = _fix_json_escaping(text)
         try:
             return json.loads(fixed_text), None
-        except json.JSONDecodeError:
-            pass
+        except json.JSONDecodeError as inner_exc:
+            log.debug("JSON parse failed after escaping fix: %s", inner_exc)
         return None, exc
 
 

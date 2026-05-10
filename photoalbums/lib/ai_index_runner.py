@@ -17,20 +17,85 @@ from .ai_album_titles import (
     _resolve_title_page_album_title,
     _store_album_printed_title_hint,
 )
-from .album_sets import find_archive_set_by_photos_root
 from .ai_caption import (
-    CaptionEngine,
     DEFAULT_LMSTUDIO_MAX_NEW_TOKENS,
+    CaptionEngine,
     normalize_lmstudio_base_url,
     resolve_caption_model,
 )
 from .ai_date import DateEstimateEngine
-from .ai_metadata import MetadataEngine
 from .ai_geocode import NominatimGeocoder
+from .ai_index import (
+    _append_xmp_job_artifact,
+    _apply_shard,
+    _apply_title_page_location_config,
+    _coalesce_archive_processing_files,
+    _compute_people_positions,
+    _date_estimate_input_hash,
+    _dc_date_needs_refresh,
+    _dc_date_value,
+    _display_work_label,
+    _emit_prompt_debug_artifact,
+    _filter_files_by_tree,
+    _format_eta,
+    _format_location_hint_from_state,
+    _format_people_step_label,
+    _format_reprocess_reasons,
+    _has_dc_date,
+    _match_people_with_cast_store_retry,
+    _mirror_page_sidecars,
+    _progress_ticker,
+    _resolve_dc_date,
+    _resolve_upstream_page_sidecar_state,
+    _sidecar_has_lmstudio_caption_error,
+    _sidecar_has_people_to_refresh,
+    discover_images,
+    needs_processing,
+)
+from .ai_index_analysis import (
+    ArchiveScanOCRAuthority,
+    _build_caption_metadata,
+    _estimate_people_from_detections,
+    _get_image_dimensions,
+    _prepare_ai_model_image,
+    _refresh_detection_model_metadata,
+    _resolve_people_count_metadata,
+    _run_image_analysis,
+    _serialize_people_matches,
+)
+from .ai_index_args import (
+    IMAGE_EXTENSIONS,
+    _absolute_cli_path,
+    _explicit_cli_flags,
+    _resolve_caption_prompt,
+    parse_args,
+)
+from .ai_index_engine_cache import (
+    PROCESSOR_SIGNATURE,
+    _init_caption_engine,
+    _init_date_engine,
+    _init_object_detector,
+    _init_people_matcher,
+    _settings_signature,
+)
+from .ai_index_scan import (
+    _bounds_offset,
+    _build_dc_source,
+    _build_flat_page_description,
+    _build_flat_payload,
+    _dc_source_needs_refresh,
+    _hash_text,
+    _page_scan_filenames,
+    _resolve_archive_scan_authoritative_ocr,
+    _scan_group_paths,
+    _scan_group_signature,
+)
+from .ai_index_steps import StepRunner
 from .ai_location import (
     _has_legacy_ai_locations_shown_gps,
     _xmp_gps_to_decimal,
 )
+from .ai_metadata import MetadataEngine
 from .ai_ocr import OCREngine
 from .ai_page_layout import prepare_image_layout
 from .ai_processing_locks import (
@@ -39,6 +104,7 @@ from .ai_processing_locks import (
     _release_batch_processing_lock,
     _release_image_processing_lock,
 )
+from .ai_prompt_assets import load_params
 from .ai_render_settings import (
     find_archive_dir_for_image,
     load_render_settings,
@@ -56,9 +122,10 @@ from .ai_sidecar_state import (
     has_valid_sidecar,
     read_embedded_create_date,
 )
+from .album_sets import find_archive_set_by_photos_root
 from .metadata_resolver import resolve_person_in_image
 from .prompt_debug import PromptDebugSession
-from .ai_prompt_assets import load_params
+from .xmp_review import load_ai_xmp_review
 from .xmp_sidecar import (
     _dedupe,
     _resolve_date_time_original,
@@ -68,74 +135,6 @@ from .xmp_sidecar import (
     read_pipeline_state,
     sidecar_has_expected_ai_fields,
     write_xmp_sidecar,
-)
-from .xmp_review import load_ai_xmp_review
-from .ai_index_steps import StepRunner
-
-from .ai_index_args import (
-    IMAGE_EXTENSIONS,
-    _absolute_cli_path,
-    _explicit_cli_flags,
-    _resolve_caption_prompt,
-    parse_args,
-)
-from .ai_index_engine_cache import (
-    PROCESSOR_SIGNATURE,
-    _init_caption_engine,
-    _init_date_engine,
-    _init_object_detector,
-    _init_people_matcher,
-    _settings_signature,
-)
-from .ai_index_analysis import (
-    ArchiveScanOCRAuthority,
-    _build_caption_metadata,
-    _estimate_people_from_detections,
-    _get_image_dimensions,
-    _prepare_ai_model_image,
-    _refresh_detection_model_metadata,
-    _resolve_people_count_metadata,
-    _run_image_analysis,
-    _serialize_people_matches,
-)
-from .ai_index_scan import (
-    _bounds_offset,
-    _build_dc_source,
-    _build_flat_page_description,
-    _build_flat_payload,
-    _dc_source_needs_refresh,
-    _hash_text,
-    _page_scan_filenames,
-    _resolve_archive_scan_authoritative_ocr,
-    _scan_group_paths,
-    _scan_group_signature,
-)
-from .ai_index import (
-    _apply_title_page_location_config,
-    _match_people_with_cast_store_retry,
-    _compute_people_positions,
-    _format_people_step_label,
-    _mirror_page_sidecars,
-    _append_xmp_job_artifact,
-    _emit_prompt_debug_artifact,
-    discover_images,
-    _coalesce_archive_processing_files,
-    _filter_files_by_tree,
-    _apply_shard,
-    _display_work_label,
-    _format_eta,
-    _progress_ticker,
-    _format_reprocess_reasons,
-    _format_location_hint_from_state,
-    _resolve_upstream_page_sidecar_state,
-    needs_processing,
-    _sidecar_has_lmstudio_caption_error,
-    _sidecar_has_people_to_refresh,
-    _date_estimate_input_hash,
-    _dc_date_value,
-    _has_dc_date,
-    _dc_date_needs_refresh,
-    _resolve_dc_date,
 )
 
 
@@ -256,7 +255,7 @@ def _caption_engine_lower(effective: dict[str, Any], defaults: dict[str, Any]) -
     return str(effective.get("caption_engine", defaults["caption_engine"])).strip().lower()
 
 
-def _is_gps_repair_requested(state: "_ProcessOneState") -> bool:
+def _is_gps_repair_requested(state: _ProcessOneState) -> bool:
     return (
         state.existing_sidecar_current
         and state.existing_sidecar_complete
@@ -617,7 +616,7 @@ def _refresh_write_location(
     return refresh_write_location
 
 
-def _sidecar_matches_stitched_authority(state: "_ProcessOneState", existing_ocr_hash: str) -> bool:
+def _sidecar_matches_stitched_authority(state: _ProcessOneState, existing_ocr_hash: str) -> bool:
     sidecar_state = state.existing_sidecar_state or {}
     sidecar_source = str(sidecar_state.get("ocr_authority_source") or "").strip()
     sidecar_signature = str(sidecar_state.get("ocr_authority_signature") or "").strip()
@@ -1312,13 +1311,13 @@ class IndexRunner:
             if isinstance(state.existing_sidecar_state, dict):
                 self._process_refresh(
                     idx,
-                    state.image_path,
-                    state.sidecar_path,
-                    state.effective,
-                    state.settings_sig,
-                    state.date_estimation_enabled,
-                    state.existing_sidecar_state,
-                    state.current_cast_signature,
+                    image_path=state.image_path,
+                    sidecar_path=state.sidecar_path,
+                    effective=state.effective,
+                    settings_sig=state.settings_sig,
+                    date_estimation_enabled=state.date_estimation_enabled,
+                    existing_sidecar_state=state.existing_sidecar_state,
+                    current_cast_signature=state.current_cast_signature,
                 )
             return
 
@@ -1334,18 +1333,18 @@ class IndexRunner:
 
         self._process_full(
             idx,
-            state.image_path,
-            state.sidecar_path,
-            state.effective,
-            state.settings_sig,
-            state.date_estimation_enabled,
-            state.existing_sidecar_state,
-            state.existing_xmp_people,
-            state.people_matcher,
-            state.current_cast_signature,
-            state.archive_stitched_ocr_required,
-            state.multi_scan_group_paths,
-            state.multi_scan_group_signature,
+            image_path=state.image_path,
+            sidecar_path=state.sidecar_path,
+            effective=state.effective,
+            settings_sig=state.settings_sig,
+            date_estimation_enabled=state.date_estimation_enabled,
+            existing_sidecar_state=state.existing_sidecar_state,
+            existing_xmp_people=state.existing_xmp_people,
+            people_matcher=state.people_matcher,
+            current_cast_signature=state.current_cast_signature,
+            archive_stitched_ocr_required=state.archive_stitched_ocr_required,
+            multi_scan_group_paths=state.multi_scan_group_paths,
+            multi_scan_group_signature=state.multi_scan_group_signature,
             extra_forced_steps=state.extra_forced or None,
         )
 
@@ -1354,6 +1353,7 @@ class IndexRunner:
     def _process_refresh(
         self,
         idx: int,
+        *,
         image_path: Path,
         sidecar_path: Path,
         effective: dict[str, Any],
@@ -1493,6 +1493,7 @@ class IndexRunner:
     def _process_people_update(
         self,
         idx: int,
+        *,
         image_path: Path,
         sidecar_path: Path,
         effective: dict[str, Any],
@@ -1503,7 +1504,6 @@ class IndexRunner:
         people_matcher: Any,
         current_cast_signature: str,
         chain_gps: bool,
-        *,
         preserve_existing_xmp_people: bool = True,
         raise_on_error: bool = False,
     ) -> None:
@@ -1599,7 +1599,7 @@ class IndexRunner:
         image_path: Path,
         effective: dict[str, Any],
         people_matcher: Any,
-        pu_inputs: "_PeopleUpdateInputs",
+        pu_inputs: _PeopleUpdateInputs,
         pu_people_matches: list[Any],
         pu_person_names: list[str],
         pu_album_title: str,
@@ -1693,7 +1693,7 @@ class IndexRunner:
         effective: dict[str, Any],
         date_estimation_enabled: bool,
         pu_album_title: str,
-        pu_inputs: "_PeopleUpdateInputs",
+        pu_inputs: _PeopleUpdateInputs,
         pu_prompt_debug: PromptDebugSession | None,
     ) -> tuple[str, str, str]:
         date_engine = self._refresh_date_engine(effective, date_estimation_enabled, state)
@@ -1718,7 +1718,7 @@ class IndexRunner:
         image_path: Path,
         state: dict,
         pu_updated_det: dict[str, Any],
-        pu_inputs: "_PeopleUpdateInputs",
+        pu_inputs: _PeopleUpdateInputs,
     ) -> tuple[dict[str, Any], str, str]:
         pu_page_like = (
             str((pu_updated_det.get("caption") or {}).get("effective_engine") or "").strip() == "page-summary"
@@ -1748,7 +1748,7 @@ class IndexRunner:
         effective: dict[str, Any],
         date_estimation_enabled: bool,
         people_matcher: Any,
-        pu_inputs: "_PeopleUpdateInputs",
+        pu_inputs: _PeopleUpdateInputs,
         pu_album_title: str,
         pu_person_names: list[str],
         pu_subjects: list[str],
@@ -1840,6 +1840,7 @@ class IndexRunner:
     def _process_full(
         self,
         idx: int,
+        *,
         image_path: Path,
         sidecar_path: Path,
         effective: dict[str, Any],
@@ -1925,7 +1926,7 @@ class IndexRunner:
         print(prefix, flush=True)
         return _progress_ticker(prefix)
 
-    def _init_full_engines(self, effective: dict[str, Any]) -> "_FullEngines":
+    def _init_full_engines(self, effective: dict[str, Any]) -> _FullEngines:
         object_detector = self._get_object_detector(effective) if bool(effective.get("enable_objects", True)) else None
         caption_key = self._caption_key_from_effective(effective)
         caption_engine = self._get_caption_engine_for_key(caption_key, effective, stream=not self.stdout_only)
@@ -2000,7 +2001,7 @@ class IndexRunner:
         image_path: Path,
         sidecar_path: Path,
         effective: dict[str, Any],
-        engines: "_FullEngines",
+        engines: _FullEngines,
         current_cast_signature: str,
         multi_scan_group_signature: str,
         existing_sidecar_state: dict | None,
@@ -2008,6 +2009,8 @@ class IndexRunner:
     ) -> tuple[StepRunner, dict[str, Any]]:
         from .ai_index_propagate import (  # pylint: disable=import-outside-toplevel
             _crop_paths_signature as _cps_fn,
+        )
+        from .ai_index_propagate import (
             _find_crop_paths_for_page,
         )
 
@@ -2045,8 +2048,8 @@ class IndexRunner:
         image_path: Path,
         sidecar_path: Path,
         effective: dict[str, Any],
-        hints: "_FullHints",
-        engines: "_FullEngines",
+        hints: _FullHints,
+        engines: _FullEngines,
         layout: Any,
         scan_ocr_authority: ArchiveScanOCRAuthority | None,
         people_matcher: Any,
@@ -2057,7 +2060,7 @@ class IndexRunner:
         set_step: Any,
         prompt_debug: PromptDebugSession,
         extra_forced_steps: set[str] | None,
-    ) -> "_FullAnalysisOutcome":
+    ) -> _FullAnalysisOutcome:
         scan_filenames = _page_scan_filenames(image_path)
         if not scan_filenames and scan_ocr_authority is not None:
             scan_filenames = [path.name for path in scan_ocr_authority.group_paths]
@@ -2138,7 +2141,7 @@ class IndexRunner:
     @staticmethod
     def _full_resolve_album_and_dates(
         image_path: Path,
-        outcome: "_FullAnalysisOutcome",
+        outcome: _FullAnalysisOutcome,
         existing_sidecar_state: dict | None,
     ) -> tuple[str, str, str]:
         final_album_title = _require_album_title_for_title_page(
@@ -2161,7 +2164,7 @@ class IndexRunner:
     @staticmethod
     def _full_resolve_text_layers(
         image_path: Path,
-        outcome: "_FullAnalysisOutcome",
+        outcome: _FullAnalysisOutcome,
         layout: Any,
         scan_ocr_authority: ArchiveScanOCRAuthority | None,
     ) -> tuple[dict[str, Any], str, str]:
@@ -2194,7 +2197,7 @@ class IndexRunner:
         current_cast_signature: str,
         layout: Any,
         scan_ocr_authority: ArchiveScanOCRAuthority | None,
-        outcome: "_FullAnalysisOutcome",
+        outcome: _FullAnalysisOutcome,
     ) -> None:
         payload = outcome.payload
         analysis = outcome.analysis
@@ -2255,7 +2258,7 @@ class IndexRunner:
             title_page_location=self.title_page_location,
         )
 
-    def _run_propagate_to_crops(self, image_path: Path, outcome: "_FullAnalysisOutcome") -> None:
+    def _run_propagate_to_crops(self, image_path: Path, outcome: _FullAnalysisOutcome) -> None:
         from .ai_index_propagate import run_propagate_to_crops  # pylint: disable=import-outside-toplevel
 
         locations_out = dict(outcome.payload.get("location") or {})
@@ -2270,7 +2273,7 @@ class IndexRunner:
 
         outcome.step_runner.run("propagate-to-crops", _do_propagate)
 
-    def _emit_full_completion(self, idx: int, image_path: Path, outcome: "_FullAnalysisOutcome") -> None:
+    def _emit_full_completion(self, idx: int, image_path: Path, outcome: _FullAnalysisOutcome) -> None:
         if self.stdout_only:
             payload = outcome.payload
             caption_meta = dict(payload.get("caption") or {}) if isinstance(payload, dict) else {}
@@ -2306,16 +2309,16 @@ def refresh_rendered_view_people_metadata(
 
     runner._process_people_update(
         1,
-        rendered_image_path,
-        rendered_sidecar_path,
-        effective,
-        settings_sig,
-        date_estimation_enabled,
-        existing_sidecar_state,
-        read_person_in_image(rendered_sidecar_path),
-        people_matcher,
-        current_cast_signature,
-        False,
+        image_path=rendered_image_path,
+        sidecar_path=rendered_sidecar_path,
+        effective=effective,
+        settings_sig=settings_sig,
+        date_estimation_enabled=date_estimation_enabled,
+        existing_sidecar_state=existing_sidecar_state,
+        existing_xmp_people=read_person_in_image(rendered_sidecar_path),
+        people_matcher=people_matcher,
+        current_cast_signature=current_cast_signature,
+        chain_gps=False,
         preserve_existing_xmp_people=False,
         raise_on_error=True,
     )

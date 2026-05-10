@@ -3,9 +3,8 @@ import sys
 import tempfile
 import unittest
 from contextlib import nullcontext
-from unittest import skip
 from pathlib import Path
-from unittest import mock
+from unittest import mock, skip
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MODULE_ROOT = Path(__file__).resolve().parents[1]

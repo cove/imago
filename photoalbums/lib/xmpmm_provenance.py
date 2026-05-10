@@ -34,8 +34,10 @@ for _prefix, _uri in [
     ET.register_namespace(_prefix, _uri)
 
 # Re-use the shared helper from xmp_sidecar to avoid duplication
-from .xmp_sidecar import (  # noqa: E402
+from .xmp_sidecar import (
     _get_or_create_rdf_desc as _get_or_create_desc,
+)
+from .xmp_sidecar import (
     _read_or_create_xmp_tree as _load_tree,
 )
 

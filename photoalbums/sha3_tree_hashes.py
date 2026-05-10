@@ -1,8 +1,8 @@
 import argparse
 import hashlib
 import os
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
 
 MANIFEST_NAME = "SHA256SUMS"
 TOP_MANIFEST_NAME = "SHA256SUMS"
@@ -25,7 +25,7 @@ def sha256_file(path: Path, chunk_size: int = 1024 * 1024) -> str:
     return h.hexdigest()
 
 
-def write_manifest(manifest_path: Path, entries: List[Tuple[str, Path]]) -> None:
+def write_manifest(manifest_path: Path, entries: list[tuple[str, Path]]) -> None:
     lines = []
     for digest, rel_path in entries:
         # BSD-style format, compatible with tools like rhash
@@ -33,8 +33,8 @@ def write_manifest(manifest_path: Path, entries: List[Tuple[str, Path]]) -> None
     manifest_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def parse_manifest(manifest_path: Path) -> List[Tuple[str, Path]]:
-    entries: List[Tuple[str, Path]] = []
+def parse_manifest(manifest_path: Path) -> list[tuple[str, Path]]:
+    entries: list[tuple[str, Path]] = []
     for line in manifest_path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line:
@@ -47,7 +47,7 @@ def parse_manifest(manifest_path: Path) -> List[Tuple[str, Path]]:
     return entries
 
 
-def album_dirs(base_dir: Path) -> List[Path]:
+def album_dirs(base_dir: Path) -> list[Path]:
     return sorted([p for p in base_dir.iterdir() if p.is_dir()])
 
 
@@ -55,8 +55,8 @@ def should_skip_file(file_path: Path) -> bool:
     return file_path.name in {MANIFEST_NAME, TOP_MANIFEST_NAME, ".DS_Store"} or file_path.is_symlink()
 
 
-def build_album_entries(album_dir: Path) -> List[Tuple[str, Path]]:
-    entries: List[Tuple[str, Path]] = []
+def build_album_entries(album_dir: Path) -> list[tuple[str, Path]]:
+    entries: list[tuple[str, Path]] = []
 
     for file_path in sorted(iter_files(album_dir)):
         if should_skip_file(file_path):
@@ -68,20 +68,20 @@ def build_album_entries(album_dir: Path) -> List[Tuple[str, Path]]:
     return entries
 
 
-def build_album_manifest(album_dir: Path, entries: List[Tuple[str, Path]]) -> Path:
+def build_album_manifest(album_dir: Path, entries: list[tuple[str, Path]]) -> Path:
     manifest_path = album_dir / MANIFEST_NAME
     write_manifest(manifest_path, entries)
     return manifest_path
 
 
-def build_top_manifest(base_dir: Path, entries: List[Tuple[str, Path]]) -> Path:
+def build_top_manifest(base_dir: Path, entries: list[tuple[str, Path]]) -> Path:
     top_manifest_path = base_dir / TOP_MANIFEST_NAME
     write_manifest(top_manifest_path, entries)
     return top_manifest_path
 
 
-def check_manifest(manifest_path: Path, digest_cache: Dict[Path, str]) -> List[str]:
-    errors: List[str] = []
+def check_manifest(manifest_path: Path, digest_cache: dict[Path, str]) -> list[str]:
+    errors: list[str] = []
     for expected_digest, rel_path in parse_manifest(manifest_path):
         target = (manifest_path.parent / rel_path).resolve()
         if not target.exists():
@@ -97,8 +97,8 @@ def check_manifest(manifest_path: Path, digest_cache: Dict[Path, str]) -> List[s
 
 
 def verify_tree(base_dir: Path) -> int:
-    failures: List[str] = []
-    digest_cache: Dict[Path, str] = {}
+    failures: list[str] = []
+    digest_cache: dict[Path, str] = {}
     for album_dir in album_dirs(base_dir):
         manifest_path = album_dir / MANIFEST_NAME
         if not manifest_path.exists():
@@ -152,7 +152,7 @@ def run(argv: list[str] | None = None) -> int:
     if args.verify:
         return verify_tree(base_dir)
 
-    top_entries: List[Tuple[str, Path]] = []
+    top_entries: list[tuple[str, Path]] = []
     for album_dir in album_dirs(base_dir):
         album_entries = build_album_entries(album_dir)
         build_album_manifest(album_dir, album_entries)

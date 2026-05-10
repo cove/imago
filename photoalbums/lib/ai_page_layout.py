@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import tempfile
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator
 
 from ..naming import (
     BASE_PAGE_NAME_RE,
@@ -12,9 +12,9 @@ from ..naming import (
     DERIVED_VIEW_RE,
     SCAN_NAME_RE,
     VIEW_PAGE_RE,
-    VIEW_VC_LEGACY_RE,
     VIEW_RECON_LEGACY_RE,
     VIEW_STITCHED_LEGACY_RE,
+    VIEW_VC_LEGACY_RE,
     is_pages_dir,
 )
 
@@ -154,6 +154,23 @@ def _contains(a: LayoutBounds, b: LayoutBounds, padding: int = 10) -> bool:
     )
 
 
+def _absorb_overlapping(combined: LayoutBounds, candidates: list[LayoutBounds]) -> tuple[LayoutBounds, list[LayoutBounds], bool]:
+    """Merge all boxes in candidates that overlap/touch combined into it. Returns (combined, kept, any_merged)."""
+    kept: list[LayoutBounds] = []
+    any_merged = False
+    for other in candidates:
+        if not (_intersects_or_touches(combined, other) or _contains(combined, other) or _contains(other, combined)):
+            kept.append(other)
+            continue
+        x0 = min(combined.x, other.x)
+        y0 = min(combined.y, other.y)
+        x1 = max(combined.x + combined.width, other.x + other.width)
+        y1 = max(combined.y + combined.height, other.y + other.height)
+        combined = LayoutBounds(x0, y0, x1 - x0, y1 - y0)
+        any_merged = True
+    return combined, kept, any_merged
+
+
 def _merge_boxes(boxes: list[LayoutBounds]) -> list[LayoutBounds]:
     merged = list(boxes)
     changed = True
@@ -162,20 +179,10 @@ def _merge_boxes(boxes: list[LayoutBounds]) -> list[LayoutBounds]:
         next_boxes: list[LayoutBounds] = []
         while merged:
             current = merged.pop(0)
-            combined = current
-            kept: list[LayoutBounds] = []
-            for other in merged:
-                if _intersects_or_touches(combined, other) or _contains(combined, other) or _contains(other, combined):
-                    x0 = min(combined.x, other.x)
-                    y0 = min(combined.y, other.y)
-                    x1 = max(combined.x + combined.width, other.x + other.width)
-                    y1 = max(combined.y + combined.height, other.y + other.height)
-                    combined = LayoutBounds(x0, y0, x1 - x0, y1 - y0)
-                    changed = True
-                else:
-                    kept.append(other)
+            combined, merged, any_merged = _absorb_overlapping(current, merged)
             next_boxes.append(combined)
-            merged = kept
+            if any_merged:
+                changed = True
         merged = next_boxes
     return merged
 

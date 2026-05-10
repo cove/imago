@@ -12,7 +12,8 @@ if str(REPO_ROOT) not in sys.path:
 if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
-from photoalbums.lib import ai_caption, _caption_lmstudio
+from photoalbums.lib import _caption_lmstudio, ai_caption
+from photoalbums.tests.conftest import FakeIterableResponse, FakeLMStudioResponse
 
 
 class TestAICaption(unittest.TestCase):
@@ -183,16 +184,6 @@ class TestAICaption(unittest.TestCase):
             ]
         }
 
-        class _FakeResponse:
-            def __enter__(self):
-                return self
-
-            def __exit__(self, exc_type, exc, tb):
-                return False
-
-            def read(self):
-                return json.dumps(response_payload).encode("utf-8")
-
         def fake_urlopen(request, timeout):
             self.assertEqual(timeout, ai_caption.DEFAULT_LMSTUDIO_TIMEOUT_SECONDS)
             self.assertTrue(request.full_url.endswith("/chat/completions"))
@@ -225,7 +216,7 @@ class TestAICaption(unittest.TestCase):
                 "gps_longitude",
                 payload["response_format"]["json_schema"]["schema"]["properties"],
             )
-            return _FakeResponse()
+            return FakeLMStudioResponse(json.dumps(response_payload).encode("utf-8"))
 
         with tempfile.TemporaryDirectory() as tmp:
             image_path = Path(tmp) / "sample.jpg"
@@ -280,16 +271,6 @@ class TestAICaption(unittest.TestCase):
             ]
         }
 
-        class _FakeResponse:
-            def __enter__(self):
-                return self
-
-            def __exit__(self, exc_type, exc, tb):
-                return False
-
-            def read(self):
-                return json.dumps(response_payload).encode("utf-8")
-
         def fake_urlopen(request, timeout):
             self.assertEqual(timeout, ai_caption.DEFAULT_LMSTUDIO_TIMEOUT_SECONDS)
             self.assertTrue(request.full_url.endswith("/chat/completions"))
@@ -307,7 +288,7 @@ class TestAICaption(unittest.TestCase):
                 payload["messages"][1]["content"][0]["text"],
                 "Count the visible people",
             )
-            return _FakeResponse()
+            return FakeLMStudioResponse(json.dumps(response_payload).encode("utf-8"))
 
         with tempfile.TemporaryDirectory() as tmp:
             image_path = Path(tmp) / "sample.jpg"
@@ -342,29 +323,20 @@ class TestAICaption(unittest.TestCase):
         self.assertEqual(details.estimated_people_count, 4)
 
     def test_lmstudio_stream_tokens_raises_sse_error_message_verbatim(self):
-        class _FakeResponse:
-            def __enter__(self):
-                return self
-
-            def __exit__(self, exc_type, exc, tb):
-                return False
-
-            def __iter__(self):
-                yield b"event: error\n"
-                yield (
-                    b'data: {"error":{"message":"request (4196 tokens) exceeds the available context size '
-                    b'(4096 tokens), try increasing it"},"message":"request (4196 tokens) exceeds the '
-                    b'available context size (4096 tokens), try increasing it"}\n'
-                )
-                yield b"\n"
+        _sse_chunks = [
+            b"event: error\n",
+            b'data: {"error":{"message":"request (4196 tokens) exceeds the available context size '
+            b'(4096 tokens), try increasing it"},"message":"request (4196 tokens) exceeds the '
+            b'available context size (4096 tokens), try increasing it"}\n',
+            b"\n",
+        ]
 
         with mock.patch.object(
             _caption_lmstudio.urllib.request,
             "urlopen",
-            return_value=_FakeResponse(),
-        ):
-            with self.assertRaises(RuntimeError) as exc:
-                list(_caption_lmstudio._lmstudio_stream_tokens("http://127.0.0.1:1234/v1/chat/completions", {}, 30))
+            return_value=FakeIterableResponse(_sse_chunks),
+        ), self.assertRaises(RuntimeError) as exc:
+            list(_caption_lmstudio._lmstudio_stream_tokens("http://127.0.0.1:1234/v1/chat/completions", {}, 30))
 
         self.assertEqual(
             str(exc.exception),
@@ -389,16 +361,6 @@ class TestAICaption(unittest.TestCase):
             ]
         }
 
-        class _FakeResponse:
-            def __enter__(self):
-                return self
-
-            def __exit__(self, exc_type, exc, tb):
-                return False
-
-            def read(self):
-                return json.dumps(response_payload).encode("utf-8")
-
         def fake_urlopen(request, timeout):
             self.assertEqual(timeout, ai_caption.DEFAULT_LMSTUDIO_TIMEOUT_SECONDS)
             self.assertTrue(request.full_url.endswith("/chat/completions"))
@@ -416,7 +378,7 @@ class TestAICaption(unittest.TestCase):
                 payload["messages"][1]["content"][0]["text"],
                 "Resolve the location",
             )
-            return _FakeResponse()
+            return FakeLMStudioResponse(json.dumps(response_payload).encode("utf-8"))
 
         with tempfile.TemporaryDirectory() as tmp:
             image_path = Path(tmp) / "sample.jpg"
@@ -476,16 +438,6 @@ class TestAICaption(unittest.TestCase):
             ]
         }
 
-        class _FakeResponse:
-            def __enter__(self):
-                return self
-
-            def __exit__(self, exc_type, exc, tb):
-                return False
-
-            def read(self):
-                return json.dumps(response_payload).encode("utf-8")
-
         def fake_urlopen(request, timeout):
             self.assertEqual(timeout, ai_caption.DEFAULT_LMSTUDIO_TIMEOUT_SECONDS)
             self.assertTrue(request.full_url.endswith("/chat/completions"))
@@ -513,7 +465,7 @@ class TestAICaption(unittest.TestCase):
                 "EASTERN EUROPE SPAIN AND MOROCCO 1988",
                 payload["messages"][1]["content"][0]["text"],
             )
-            return _FakeResponse()
+            return FakeLMStudioResponse(json.dumps(response_payload).encode("utf-8"))
 
         with tempfile.TemporaryDirectory() as tmp:
             image_path = Path(tmp) / "sample.jpg"

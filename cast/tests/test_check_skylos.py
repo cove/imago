@@ -5,7 +5,6 @@ import json
 import subprocess
 from pathlib import Path
 
-
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "check_skylos.py"
 
 
@@ -47,8 +46,28 @@ def test_check_skylos_runs_each_project_separately(monkeypatch):
 def test_check_skylos_fails_on_all_quality_findings(monkeypatch, capsys):
     module = _load_module()
     payloads = {
-        "photoalbums": {"quality": [{"rule_id": "SKY-C401", "basename": "server.py", "line": 12, "severity": "medium", "message": "Clone group detected"}]},
-        "vhs": {"quality": [{"rule_id": "SKY-C401", "basename": "render.py", "line": 42, "severity": "medium", "message": "Clone group detected"}]},
+        "photoalbums": {
+            "quality": [
+                {
+                    "rule_id": "SKY-C401",
+                    "basename": "server.py",
+                    "line": 12,
+                    "severity": "medium",
+                    "message": "Clone group detected",
+                }
+            ]
+        },
+        "vhs": {
+            "quality": [
+                {
+                    "rule_id": "SKY-C401",
+                    "basename": "render.py",
+                    "line": 42,
+                    "severity": "medium",
+                    "message": "Clone group detected",
+                }
+            ]
+        },
         "cast": {"quality": []},
     }
 
@@ -69,8 +88,28 @@ def test_check_skylos_fails_on_all_quality_findings(monkeypatch, capsys):
 def test_check_skylos_duplicates_only_filters_other_quality_findings(monkeypatch, capsys):
     module = _load_module()
     payloads = {
-        "photoalbums": {"quality": [{"rule_id": "SKY-C401", "basename": "server.py", "line": 12, "severity": "medium", "message": "Clone group detected"}]},
-        "vhs": {"quality": [{"rule_id": "SKY-C401", "basename": "render.py", "line": 42, "severity": "medium", "message": "Clone group detected"}]},
+        "photoalbums": {
+            "quality": [
+                {
+                    "rule_id": "SKY-C401",
+                    "basename": "server.py",
+                    "line": 12,
+                    "severity": "medium",
+                    "message": "Clone group detected",
+                }
+            ]
+        },
+        "vhs": {
+            "quality": [
+                {
+                    "rule_id": "SKY-C401",
+                    "basename": "render.py",
+                    "line": 42,
+                    "severity": "medium",
+                    "message": "Clone group detected",
+                }
+            ]
+        },
         "cast": {"quality": []},
     }
 

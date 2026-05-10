@@ -28,7 +28,6 @@ from photoalbums.lib.ai_photo_crops import (
 from photoalbums.lib.metadata_resolver import location_payload_from_caption, resolve_crop_location
 from photoalbums.lib.xmp_sidecar import read_pipeline_step, read_region_list, write_pipeline_step
 
-
 # ---------------------------------------------------------------------------
 # resolve_region_caption
 # ---------------------------------------------------------------------------
@@ -167,7 +166,7 @@ class TestMetadataResolverHelpers(unittest.TestCase):
 class TestMwgrsNormalisedToPixelRect(unittest.TestCase):
     def test_centre_region(self):
         # cx=0.5, cy=0.5, w=0.5, h=0.5 -> left=250, top=250, right=750, bottom=750
-        left, top, right, bottom = mwgrs_normalised_to_pixel_rect(0.5, 0.5, 0.5, 0.5, 1000, 1000)
+        left, top, right, bottom = mwgrs_normalised_to_pixel_rect(0.5, 0.5, 0.5, 0.5, img_w=1000, img_h=1000)
         self.assertEqual(left, 250)
         self.assertEqual(top, 250)
         self.assertEqual(right, 750)
@@ -175,7 +174,7 @@ class TestMwgrsNormalisedToPixelRect(unittest.TestCase):
 
     def test_edge_touching_region(self):
         # left edge: cx=0.25, cy=0.5, w=0.5, h=1.0 -> left=0, top=0, right=500, bottom=1000
-        left, top, right, bottom = mwgrs_normalised_to_pixel_rect(0.25, 0.5, 0.5, 1.0, 1000, 1000)
+        left, top, right, bottom = mwgrs_normalised_to_pixel_rect(0.25, 0.5, 0.5, 1.0, img_w=1000, img_h=1000)
         self.assertEqual(left, 0)
         self.assertEqual(top, 0)
         self.assertEqual(right, 500)
@@ -184,7 +183,7 @@ class TestMwgrsNormalisedToPixelRect(unittest.TestCase):
     def test_out_of_bounds_region_clamped(self):
         # Extends beyond image bounds: cx=0.9, cy=0.9, w=0.5, h=0.5
         # raw: left=0.65*1000=650, top=650, right=1.15*1000=1150, bottom=1150
-        left, top, right, bottom = mwgrs_normalised_to_pixel_rect(0.9, 0.9, 0.5, 0.5, 1000, 1000)
+        left, top, right, bottom = mwgrs_normalised_to_pixel_rect(0.9, 0.9, 0.5, 0.5, img_w=1000, img_h=1000)
         self.assertEqual(left, 650)
         self.assertEqual(top, 650)
         self.assertEqual(right, 1000)  # clamped to img_w
@@ -596,7 +595,14 @@ class TestWriteCropSidecar(unittest.TestCase):
 
             crop_jpg = photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg"
             crop_jpg.write_bytes(b"placeholder")
-            _write_crop_sidecar(crop_jpg, view_jpg, "Test caption", {}, [], [])
+            _write_crop_sidecar(
+                crop_path=crop_jpg,
+                view_path=view_jpg,
+                caption="Test caption",
+                view_state={},
+                locations_shown=[],
+                person_names=[],
+            )
 
             crop_xmp = crop_jpg.with_suffix(".xmp")
             self.assertTrue(crop_xmp.exists())
@@ -619,7 +625,14 @@ class TestWriteCropSidecar(unittest.TestCase):
 
             crop_jpg = photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg"
             crop_jpg.write_bytes(b"placeholder")
-            _write_crop_sidecar(crop_jpg, view_jpg, "Beautiful sunset", {}, [], [])
+            _write_crop_sidecar(
+                crop_path=crop_jpg,
+                view_path=view_jpg,
+                caption="Beautiful sunset",
+                view_state={},
+                locations_shown=[],
+                person_names=[],
+            )
 
             xml = crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8")
             self.assertIn("Beautiful sunset", xml)
@@ -637,7 +650,9 @@ class TestWriteCropSidecar(unittest.TestCase):
 
             crop_jpg = photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg"
             crop_jpg.write_bytes(b"placeholder")
-            _write_crop_sidecar(crop_jpg, view_jpg, "", {}, [], [])
+            _write_crop_sidecar(
+                crop_path=crop_jpg, view_path=view_jpg, caption="", view_state={}, locations_shown=[], person_names=[]
+            )
 
             xml = crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8")
             self.assertNotIn("dc:description", xml)
@@ -663,7 +678,14 @@ class TestWriteCropSidecar(unittest.TestCase):
             }
             crop_jpg = photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg"
             crop_jpg.write_bytes(b"placeholder")
-            _write_crop_sidecar(crop_jpg, view_jpg, "", view_state, [], [])
+            _write_crop_sidecar(
+                crop_path=crop_jpg,
+                view_path=view_jpg,
+                caption="",
+                view_state=view_state,
+                locations_shown=[],
+                person_names=[],
+            )
 
             xml = crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8")
             self.assertNotIn("Cairo", xml)
@@ -682,7 +704,7 @@ class TestWriteCropSidecar(unittest.TestCase):
             _make_minimal_jpeg(view_jpg, 200, 100)
 
             from photoalbums.lib.ai_photo_crops import _write_crop_sidecar
-            from photoalbums.lib.xmp_sidecar import write_xmp_sidecar, read_ai_sidecar_state
+            from photoalbums.lib.xmp_sidecar import read_ai_sidecar_state, write_xmp_sidecar
             from photoalbums.lib.xmpmm_provenance import assign_document_id
 
             view_xmp = view_jpg.with_suffix(".xmp")
@@ -701,7 +723,14 @@ class TestWriteCropSidecar(unittest.TestCase):
             crop_jpg.write_bytes(b"placeholder")
             view_state = read_ai_sidecar_state(view_xmp)
             assert view_state is not None
-            _write_crop_sidecar(crop_jpg, view_jpg, "Crop caption", view_state, [], [])
+            _write_crop_sidecar(
+                crop_path=crop_jpg,
+                view_path=view_jpg,
+                caption="Crop caption",
+                view_state=view_state,
+                locations_shown=[],
+                person_names=[],
+            )
 
             crop_xmp = crop_jpg.with_suffix(".xmp")
             crop_state = read_ai_sidecar_state(crop_xmp)
@@ -766,7 +795,14 @@ class TestWriteCropSidecar(unittest.TestCase):
             crop_jpg.write_bytes(b"placeholder")
             view_state = read_ai_sidecar_state(view_xmp)
             assert view_state is not None
-            _write_crop_sidecar(crop_jpg, view_jpg, "", view_state, read_locations_shown(view_xmp), [])
+            _write_crop_sidecar(
+                crop_path=crop_jpg,
+                view_path=view_jpg,
+                caption="",
+                view_state=view_state,
+                locations_shown=read_locations_shown(view_xmp),
+                person_names=[],
+            )
 
             crop_state = read_ai_sidecar_state(crop_jpg.with_suffix(".xmp"))
             assert crop_state is not None
@@ -831,12 +867,12 @@ class TestWriteCropSidecar(unittest.TestCase):
             view_state = read_ai_sidecar_state(view_xmp)
             assert view_state is not None
             _write_crop_sidecar(
-                crop_jpg,
-                view_jpg,
-                "Temple visit",
-                view_state,
-                [],
-                [],
+                crop_path=crop_jpg,
+                view_path=view_jpg,
+                caption="Temple visit",
+                view_state=view_state,
+                locations_shown=[],
+                person_names=[],
                 region_location_payload={
                     "gps_latitude": "25.6872",
                     "gps_longitude": "32.6396",
@@ -845,7 +881,9 @@ class TestWriteCropSidecar(unittest.TestCase):
                 },
             )
 
-            crop_state = read_ai_sidecar_state(crop_jpg.with_suffix(".xmp"))
+            crop_state = read_ai_sidecar_state(
+                crop_jpg.with_suffix(".xmp"),
+            )
             assert crop_state is not None
             self.assertEqual(crop_state["location_city"], "Luxor")
             self.assertEqual(crop_state["gps_latitude"], "25.6872")
@@ -895,17 +933,19 @@ class TestWriteCropSidecar(unittest.TestCase):
                 sublocation="Luxor Temple",
             )
             _write_crop_sidecar(
-                crop_jpg,
-                view_jpg,
-                "Temple visit",
-                view_state,
-                [],
-                [],
+                crop_path=crop_jpg,
+                view_path=view_jpg,
+                caption="Temple visit",
+                view_state=view_state,
+                locations_shown=[],
+                person_names=[],
                 region_location_payload={"address": "Luxor Temple"},
                 geocoder=geocoder,
             )
 
-            crop_state = read_ai_sidecar_state(crop_jpg.with_suffix(".xmp"))
+            crop_state = read_ai_sidecar_state(
+                crop_jpg.with_suffix(".xmp"),
+            )
             assert crop_state is not None
             self.assertEqual(crop_state["location_city"], "Luxor")
             self.assertEqual(crop_state["gps_latitude"], "25.7")
@@ -928,11 +968,11 @@ class TestWriteCropSidecar(unittest.TestCase):
             crop_jpg = photos_dir / "EasternEuropeSpainAndMorocco_1988_B00_P03_D01-00_V.jpg"
             crop_jpg.write_bytes(b"placeholder")
             _write_crop_sidecar(
-                crop_jpg,
-                view_jpg,
-                "KARNTEN, AUSTRIA",
-                {"location_city": "Vienna", "location_country": "Austria"},
-                [
+                crop_path=crop_jpg,
+                view_path=view_jpg,
+                caption="KARNTEN, AUSTRIA",
+                view_state={"location_city": "Vienna", "location_country": "Austria"},
+                locations_shown=[
                     {
                         "name": "Karnten, Austria",
                         "city": "Karnten",
@@ -941,10 +981,12 @@ class TestWriteCropSidecar(unittest.TestCase):
                         "gps_longitude": "14.3053",
                     }
                 ],
-                [],
+                person_names=[],
             )
 
-            crop_state = read_ai_sidecar_state(crop_jpg.with_suffix(".xmp"))
+            crop_state = read_ai_sidecar_state(
+                crop_jpg.with_suffix(".xmp"),
+            )
             assert crop_state is not None
             self.assertEqual(crop_state["location_city"], "Karnten")
             self.assertEqual(crop_state["gps_latitude"], "46.6247")
@@ -985,14 +1027,14 @@ class TestWriteCropSidecar(unittest.TestCase):
             crop_jpg = photos_dir / "Portugal_1988_B00_P23_D01-00_V.jpg"
             crop_jpg.write_bytes(b"placeholder")
             _write_crop_sidecar(
-                crop_jpg,
-                view_jpg,
-                "",
-                {
+                crop_path=crop_jpg,
+                view_path=view_jpg,
+                caption="",
+                view_state={
                     "source_text": "Page 23 Scan(s) S01 S02; Portugal_1988_B00_P23_S01.tif; Portugal_1988_B00_P23_S02.tif"
                 },
-                [],
-                [],
+                locations_shown=[],
+                person_names=[],
             )
 
             crop_state = read_ai_sidecar_state(crop_jpg.with_suffix(".xmp"))
@@ -1019,7 +1061,9 @@ class TestWriteCropSidecar(unittest.TestCase):
 
             crop_jpg = photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg"
             crop_jpg.write_bytes(b"placeholder")
-            _write_crop_sidecar(crop_jpg, view_jpg, "", {}, [], [])
+            _write_crop_sidecar(
+                crop_path=crop_jpg, view_path=view_jpg, caption="", view_state={}, locations_shown=[], person_names=[]
+            )
 
             xml = crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8")
             self.assertNotIn("GPSLatitude", xml)
@@ -1038,7 +1082,14 @@ class TestWriteCropSidecar(unittest.TestCase):
 
             crop_jpg = photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg"
             crop_jpg.write_bytes(b"placeholder")
-            _write_crop_sidecar(crop_jpg, view_jpg, "", {}, [], ["Audrey Cordell"])
+            _write_crop_sidecar(
+                crop_path=crop_jpg,
+                view_path=view_jpg,
+                caption="",
+                view_state={},
+                locations_shown=[],
+                person_names=["Audrey Cordell"],
+            )
 
             xml = crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8")
             self.assertIn("Audrey Cordell", xml)
@@ -1058,15 +1109,17 @@ class TestWriteCropSidecar(unittest.TestCase):
             crop_jpg = photos_dir / "EasternEuropeSpainAndMorocco_1988_B00_P03_D05-00_V.jpg"
             crop_jpg.write_bytes(b"placeholder")
             _write_crop_sidecar(
-                crop_jpg,
-                view_jpg,
-                "Temple visit",
-                {"location_city": "Karnten", "location_country": "Austria"},
-                [{"name": "Karnten, Austria"}],
-                ["KARNTEN, AUSTRIA", "Audrey Cordell"],
+                crop_path=crop_jpg,
+                view_path=view_jpg,
+                caption="Temple visit",
+                view_state={"location_city": "Karnten", "location_country": "Austria"},
+                locations_shown=[{"name": "Karnten, Austria"}],
+                person_names=["KARNTEN, AUSTRIA", "Audrey Cordell"],
             )
 
-            xml = crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8")
+            xml = crop_jpg.with_suffix(".xmp").read_text(
+                encoding="utf-8",
+            )
             self.assertNotIn("KARNTEN, AUSTRIA", xml)
             self.assertIn("Audrey Cordell", xml)
 
@@ -1096,7 +1149,14 @@ class TestWriteCropSidecar(unittest.TestCase):
             )
 
             # Rerun crop sidecar write should preserve manual-tag
-            _write_crop_sidecar(crop_jpg, view_jpg, "New caption", {}, [], [])
+            _write_crop_sidecar(
+                crop_path=crop_jpg,
+                view_path=view_jpg,
+                caption="New caption",
+                view_state={},
+                locations_shown=[],
+                person_names=[],
+            )
 
             xml = crop_xmp.read_text(encoding="utf-8")
             self.assertIn("New caption", xml)
@@ -1118,7 +1178,14 @@ class TestWriteCropSidecar(unittest.TestCase):
             crop_jpg = photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg"
             crop_jpg.write_bytes(b"placeholder")
             view_state = {"ocr_text": "Page OCR text here"}
-            _write_crop_sidecar(crop_jpg, view_jpg, "Region caption", view_state, [], [])
+            _write_crop_sidecar(
+                crop_path=crop_jpg,
+                view_path=view_jpg,
+                caption="Region caption",
+                view_state=view_state,
+                locations_shown=[],
+                person_names=[],
+            )
 
             state = read_ai_sidecar_state(crop_jpg.with_suffix(".xmp"))
             xml = crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8")
@@ -1145,7 +1212,14 @@ class TestWriteCropSidecar(unittest.TestCase):
             crop_jpg = photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg"
             crop_jpg.write_bytes(b"placeholder")
             view_state = {"ocr_text": "Scanned page text"}
-            _write_crop_sidecar(crop_jpg, view_jpg, "", view_state, [], [])
+            _write_crop_sidecar(
+                crop_path=crop_jpg,
+                view_path=view_jpg,
+                caption="",
+                view_state=view_state,
+                locations_shown=[],
+                person_names=[],
+            )
 
             state = read_ai_sidecar_state(crop_jpg.with_suffix(".xmp"))
             xml = crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8")
@@ -1171,7 +1245,9 @@ class TestWriteCropSidecar(unittest.TestCase):
 
             crop_jpg = photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg"
             crop_jpg.write_bytes(b"placeholder")
-            _write_crop_sidecar(crop_jpg, view_jpg, "", {}, [], [])
+            _write_crop_sidecar(
+                crop_path=crop_jpg, view_path=view_jpg, caption="", view_state={}, locations_shown=[], person_names=[]
+            )
 
             state = read_ai_sidecar_state(crop_jpg.with_suffix(".xmp"))
             self.assertEqual(state["description"], "")
@@ -1396,8 +1472,8 @@ class TestIntegrationCropPipeline(_NoOpRestorationMixin, unittest.TestCase):
             _, photos_dir, view_jpg, view_xmp = self._setup_album(tmp, img_w, img_h)
 
             # Assign DocumentID to page view (simulates render step)
-            from photoalbums.lib.xmpmm_provenance import assign_document_id
             from photoalbums.lib.xmp_sidecar import write_xmp_sidecar
+            from photoalbums.lib.xmpmm_provenance import assign_document_id
 
             write_xmp_sidecar(
                 view_xmp,

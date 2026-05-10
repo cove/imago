@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import logging
 import sys
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -113,8 +114,8 @@ def open_crop_for_viewing(crop_path: Path) -> None:
 
             os.startfile(str(crop_path))
             print("  [Opening in default viewer...]")
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("failed to open crop in default viewer: %s", exc)
 
 
 def _prompt_for_face(

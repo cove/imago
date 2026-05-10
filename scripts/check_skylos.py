@@ -13,6 +13,14 @@ DEFAULT_PROJECTS = ["photoalbums", "vhs", "cast"]
 SKYLOS_CLONE_RULE_ID = "SKY-C401"
 SKYLOS_DUPES_ONLY_ARG = "--duplicates-only"
 
+# Severity levels in ascending order of importance.
+_SEVERITY_ORDER = {"low": 0, "warn": 1, "medium": 2, "high": 3, "critical": 4}
+_MIN_GATE_SEVERITY = "medium"
+
+# SKY-U005 reports declared deps as unused because skylos scans each sub-project
+# independently, but pyproject.toml is a monorepo-level file shared by all projects.
+_IGNORED_RULE_IDS: frozenset[str] = frozenset({"SKY-U005"})
+
 
 def _skylos_executable() -> Path:
     return Path(sys.executable).with_name("skylos.exe" if sys.platform == "win32" else "skylos")
@@ -22,7 +30,7 @@ def run_skylos(project: str) -> tuple[int, dict[str, Any], str, str]:
     result = subprocess.run(
         [
             str(_skylos_executable()),
-            "--quality",
+            "--all",
             "--json",
             "--no-upload",
             project,
@@ -42,17 +50,34 @@ def run_skylos(project: str) -> tuple[int, dict[str, Any], str, str]:
     return 0, payload, result.stdout, result.stderr
 
 
+def _collect_findings(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Collect findings from all skylos categories (quality, secrets, danger, sca)."""
+    all_findings: list[dict[str, Any]] = []
+    for category in ("quality", "secrets", "danger", "sca"):
+        cat_findings = payload.get(category)
+        if isinstance(cat_findings, list):
+            all_findings.extend(cat_findings)
+    return all_findings
+
+
 def quality_findings(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    findings = payload.get("quality", [])
-    if not isinstance(findings, list):
-        return []
-    return [finding for finding in findings if isinstance(finding, dict)]
+    findings = _collect_findings(payload)
+    min_level = _SEVERITY_ORDER.get(_MIN_GATE_SEVERITY, 0)
+    result = []
+    for finding in findings:
+        if not isinstance(finding, dict):
+            continue
+        if finding.get("rule_id") in _IGNORED_RULE_IDS:
+            continue
+        severity = str(finding.get("severity", "")).lower()
+        if _SEVERITY_ORDER.get(severity, -1) < min_level:
+            continue
+        result.append(finding)
+    return result
 
 
 def clone_findings(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    return [
-        finding for finding in quality_findings(payload) if finding.get("rule_id") == SKYLOS_CLONE_RULE_ID
-    ]
+    return [finding for finding in quality_findings(payload) if finding.get("rule_id") == SKYLOS_CLONE_RULE_ID]
 
 
 def _print_process_failure(project: str, returncode: int, stdout: str, stderr: str) -> None:
@@ -76,17 +101,25 @@ def _print_clone_failure(project: str, findings: list[dict[str, Any]]) -> None:
 
 
 def _print_quality_failure(project: str, findings: list[dict[str, Any]]) -> None:
+    # Group by category for clearer output
+    by_cat: dict[str, list[dict[str, Any]]] = {}
+    for f in findings:
+        cat = str(f.get("category", "quality"))
+        by_cat.setdefault(cat, []).append(f)
+
     print(
-        f"[skylos] {project}: found {len(findings)} quality finding(s)",
+        f"[skylos] {project}: found {len(findings)} finding(s) across {len(by_cat)} categories",
         file=sys.stderr,
     )
-    for finding in findings:
-        rule_id = str(finding.get("rule_id", "SKY-?"))
-        severity = str(finding.get("severity", "?")).upper()
-        file_name = finding.get("basename") or Path(str(finding.get("file", ""))).name or "?"
-        line = finding.get("line", "?")
-        message = str(finding.get("message", "quality issue detected"))
-        print(f"  - {rule_id} {severity} {file_name}:{line} {message}", file=sys.stderr)
+    for cat, cat_findings in sorted(by_cat.items()):
+        print(f"  [{cat}] {len(cat_findings)} finding(s):", file=sys.stderr)
+        for finding in cat_findings:
+            rule_id = str(finding.get("rule_id", "SKY-?"))
+            severity = str(finding.get("severity", "?")).upper()
+            file_name = finding.get("basename") or Path(str(finding.get("file", ""))).name or "?"
+            line = finding.get("line", "?")
+            message = str(finding.get("message", "issue detected"))
+            print(f"    - {rule_id} {severity} {file_name}:{line} {message}", file=sys.stderr)
 
 
 def main(argv: list[str] | None = None) -> int:

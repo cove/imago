@@ -6,6 +6,15 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
+from .metadata_resolver import (
+    location_payload_from_caption,
+    location_shown_from_payload,
+    materialize_location_payload,
+    normalize_location_payload,
+    resolve_crop_location,
+    resolve_crop_locations_shown,
+    resolve_person_in_image,
+)
 from .xmp_sidecar import (
     _dedupe,
     read_ai_sidecar_state,
@@ -14,15 +23,6 @@ from .xmp_sidecar import (
     read_region_list,
     write_xmp_sidecar,
     xmp_datetime_now,
-)
-from .metadata_resolver import (
-    location_shown_from_payload,
-    location_payload_from_caption,
-    materialize_location_payload,
-    normalize_location_payload,
-    resolve_crop_location,
-    resolve_crop_locations_shown,
-    resolve_person_in_image,
 )
 
 
@@ -34,6 +34,7 @@ def _crop_paths_signature(crop_paths: list[Path]) -> str:
 def _get_image_dimensions_safe(image_path: Path) -> tuple[int, int]:
     try:
         from PIL import Image as _PILImage
+
         from .image_limits import allow_large_pillow_images
 
         allow_large_pillow_images(_PILImage)
@@ -153,6 +154,7 @@ def _str_field(d: dict, key: str) -> str:
 def _write_propagated_crop(
     crop_xmp: Path,
     existing_state: dict,
+    *,
     crop_location: dict,
     crop_locations_shown: list,
     new_person_names: list[str],
@@ -198,6 +200,7 @@ def _write_propagated_crop(
 def _propagate_one_crop(
     crop_xmp: Path,
     region_state: dict,
+    *,
     names_from_region: list[str],
     locations_shown: list,
     page_location: dict[str, Any],
@@ -222,10 +225,10 @@ def _propagate_one_crop(
     _write_propagated_crop(
         crop_xmp,
         existing_state,
-        crop_location,
-        crop_locations_shown,
-        new_person_names,
-        step_timestamp,
+        crop_location=crop_location,
+        crop_locations_shown=crop_locations_shown,
+        new_person_names=new_person_names,
+        step_timestamp=step_timestamp,
         region_caption=_region_caption(region_state),
         page_dc_date_values=page_dc_date_values,
     )
@@ -252,6 +255,7 @@ def _propagation_needs_geocoder(locations_shown: list, regions: list) -> bool:
 def _propagate_all_crops(
     crop_paths: list[Path],
     regions: list[dict],
+    *,
     region_person_names: list[list[str]],
     locations_shown: list,
     location_payload: dict[str, Any],
@@ -266,10 +270,10 @@ def _propagate_all_crops(
         if _propagate_one_crop(
             crop_path.with_suffix(".xmp"),
             region_state,
-            names_from_region,
-            locations_shown,
-            location_payload,
-            step_timestamp,
+            names_from_region=names_from_region,
+            locations_shown=locations_shown,
+            page_location=location_payload,
+            step_timestamp=step_timestamp,
             page_dc_date_values=page_dc_date_values,
             geocoder=geocoder,
         ):
@@ -309,11 +313,11 @@ def run_propagate_to_crops(
     crops_updated = _propagate_all_crops(
         crop_paths,
         regions,
-        region_person_names,
-        locations_shown,
-        location_payload,
-        step_timestamp,
-        page_dc_date_values,
-        geocoder,
+        region_person_names=region_person_names,
+        locations_shown=locations_shown,
+        location_payload=location_payload,
+        step_timestamp=step_timestamp,
+        page_dc_date_values=page_dc_date_values,
+        geocoder=geocoder,
     )
     return {"crops_updated": crops_updated}

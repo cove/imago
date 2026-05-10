@@ -34,7 +34,7 @@ def _contains_filter(text, filters):
     return False
 
 
-def find_processed_chapter_mp4(title: str, archive_name: str):
+def find_processed_chapter_mp4(title: str, archive_name: str) -> Path | None:
     chapter_name = f"{safe(title)}.mp4"
     candidates = [videos_dir_for(archive_name) / chapter_name, clips_dir_for(archive_name) / chapter_name]
     for path in candidates:

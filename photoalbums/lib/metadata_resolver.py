@@ -26,6 +26,15 @@ def normalize_location_payload(payload: dict[str, Any] | None) -> dict[str, str]
     return {key: value for key, value in normalized.items() if value}
 
 
+def _merge_normalized_into_geocoded(geocoded: dict[str, Any], normalized: dict[str, str]) -> dict[str, Any]:
+    """Overlay explicit normalized fields onto a geocoded result dict."""
+    merged = dict(geocoded)
+    for key in ("address", "city", "state", "country", "sublocation"):
+        if normalized.get(key):
+            merged[key] = normalized[key]
+    return merged
+
+
 def materialize_location_payload(payload: dict[str, Any] | None, *, geocoder: Any = None) -> dict[str, Any]:
     normalized = normalize_location_payload(payload)
     if not normalized:
@@ -42,11 +51,7 @@ def materialize_location_payload(payload: dict[str, Any] | None, *, geocoder: An
             location_name=address,
         )
         if geocoded:
-            merged = dict(geocoded)
-            for key in ("address", "city", "state", "country", "sublocation"):
-                if normalized.get(key):
-                    merged[key] = normalized[key]
-            return merged
+            return _merge_normalized_into_geocoded(geocoded, normalized)
     return normalized
 
 
@@ -233,10 +238,10 @@ def _score_location_variants(
     location: dict[str, Any],
     payload: dict[str, Any],
     has_gps: bool,
+    *,
     best_score: int,
     best_has_gps: bool,
     best_match: dict[str, Any] | None,
-    *,
     return_row: bool,
 ) -> tuple[dict[str, Any] | None, int, bool]:
     for variant in _location_text_variants(location):
@@ -273,7 +278,8 @@ def _best_location_shown_match(
             continue
         has_gps = bool(payload.get("gps_latitude") and payload.get("gps_longitude"))
         best_match, best_score, best_has_gps = _score_location_variants(
-            normalized_caption, location, payload, has_gps, best_score, best_has_gps, best_match, return_row=return_row
+            normalized_caption, location, payload, has_gps,
+            best_score=best_score, best_has_gps=best_has_gps, best_match=best_match, return_row=return_row,
         )
     return best_match
 

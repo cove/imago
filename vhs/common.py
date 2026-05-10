@@ -8,13 +8,13 @@
 # - Checks if chapter files are done based on size and existence.
 # - Measures media duration via ffprobe.
 #
+import hashlib
 import json
 import logging
 import os
 import shutil
 import subprocess
 import sys
-import hashlib
 from dataclasses import replace as dataclass_replace
 from fractions import Fraction
 from pathlib import Path
@@ -530,9 +530,9 @@ def render_settings_path(archive: str) -> Path:
     return METADATA_DIR / str(archive or "").strip() / "render_settings.json"
 
 
-GAMMA_CORRECTION_DEFAULT_KEY = "gamma_correction_default"  # noqa: SKY-L014
-GAMMA_CORRECTION_RANGES_KEY = "gamma_correction_ranges"  # noqa: SKY-L014
-AUDIO_SYNC_OFFSETS_KEY = "audio_sync_offsets"  # noqa: SKY-L014
+GAMMA_CORRECTION_DEFAULT_KEY = "gamma_correction_default"
+GAMMA_CORRECTION_RANGES_KEY = "gamma_correction_ranges"
+AUDIO_SYNC_OFFSETS_KEY = "audio_sync_offsets"
 
 
 def _render_settings_template() -> dict:

@@ -32,6 +32,7 @@ class TestRestorePhoto(unittest.TestCase):
 
     def test_returns_restored_image(self):
         from PIL import Image
+
         from photoalbums.lib.photo_restoration import restore_photo
 
         original = Image.new("RGB", (10, 10), color=(100, 100, 100))
@@ -67,6 +68,7 @@ class TestRestorePhoto(unittest.TestCase):
 
     def test_import_error_returns_original(self):
         from PIL import Image
+
         from photoalbums.lib.photo_restoration import restore_photo
 
         original = Image.new("RGB", (10, 10))
@@ -79,6 +81,7 @@ class TestRestorePhoto(unittest.TestCase):
 
     def test_import_error_is_no_op_on_subsequent_calls(self):
         from PIL import Image
+
         from photoalbums.lib.photo_restoration import restore_photo
 
         original = Image.new("RGB", (10, 10))
@@ -92,6 +95,7 @@ class TestRestorePhoto(unittest.TestCase):
 
     def test_model_load_refused_when_model_size_meets_or_exceeds_installed_ram(self):
         from PIL import Image
+
         from photoalbums.lib.photo_restoration import restore_photo
 
         original = Image.new("RGB", (10, 10))
@@ -116,6 +120,7 @@ class TestRestorePhoto(unittest.TestCase):
 
     def test_inference_failure_returns_original(self):
         from PIL import Image
+
         from photoalbums.lib.photo_restoration import restore_photo
 
         original = Image.new("RGB", (10, 10))
@@ -142,6 +147,7 @@ class TestRestorePhoto(unittest.TestCase):
 
     def test_cpu_only_setup_uses_cpu_device_without_offload(self):
         from PIL import Image
+
         from photoalbums.lib.photo_restoration import restore_photo
 
         original = Image.new("RGB", (10, 10), color=(100, 100, 100))
@@ -177,6 +183,7 @@ class TestRestorePhoto(unittest.TestCase):
 
     def test_restore_photo_with_result_reports_success(self):
         from PIL import Image
+
         from photoalbums.lib.photo_restoration import REAL_RESTORER_MODEL_NAME, restore_photo_with_result
 
         original = Image.new("RGB", (10, 10), color=(100, 100, 100))
@@ -211,6 +218,7 @@ class TestRestorePhoto(unittest.TestCase):
 
     def test_restore_photo_with_result_reports_unavailable(self):
         from PIL import Image
+
         from photoalbums.lib.photo_restoration import restore_photo_with_result
 
         original = Image.new("RGB", (10, 10))
@@ -224,6 +232,7 @@ class TestRestorePhoto(unittest.TestCase):
 
     def test_restore_photo_with_result_reports_failure(self):
         from PIL import Image
+
         from photoalbums.lib.photo_restoration import restore_photo_with_result
 
         original = Image.new("RGB", (10, 10))

@@ -5,18 +5,17 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from .ai_album_titles import _scan_name_match
-from .ai_ocr import extract_keywords
-from .ai_page_layout import PreparedImageLayout
-from .ai_render_settings import find_archive_dir_for_image
-from .xmp_sidecar import _dedupe
 from ..naming import SCAN_TIFF_RE, parse_album_filename
-
+from .ai_album_titles import _scan_name_match
 from .ai_index_analysis import (
     ArchiveScanOCRAuthority,
     ImageAnalysis,
     _prepare_ai_model_image,
 )
+from .ai_ocr import extract_keywords
+from .ai_page_layout import PreparedImageLayout
+from .ai_render_settings import find_archive_dir_for_image
+from .xmp_sidecar import _dedupe
 
 
 def _hash_text(value: str) -> str:
@@ -81,8 +80,15 @@ def _run_ocr_on_path(
 
 
 def _stitch_and_run_ocr(
-    group_paths: list[Path], build_stitched_image, cv2,
-    stitched_image_dir: Path | None, step_fn, ocr_engine, debug_recorder, debug_step,
+    group_paths: list[Path],
+    build_stitched_image,
+    cv2,
+    *,
+    stitched_image_dir: Path | None,
+    step_fn,
+    ocr_engine,
+    debug_recorder,
+    debug_step,
 ) -> tuple[str, tuple[str, ...], str, Path | None]:
     if step_fn:
         step_fn("stitch")
@@ -120,7 +126,10 @@ def _resolve_archive_scan_authoritative_ocr(
     if cached is not None and cached.signature == group_signature and (ocr_engine is None or bool(cached.ocr_hash)):
         return cached
 
-    from ..stitch_oversized_pages import build_stitched_image, get_view_dirname  # pylint: disable=import-outside-toplevel
+    from ..stitch_oversized_pages import (  # pylint: disable=import-outside-toplevel
+        build_stitched_image,
+        get_view_dirname,
+    )
 
     view_jpg = _archive_scan_view_jpg(image_path, get_view_dirname=get_view_dirname)
 
@@ -133,7 +142,14 @@ def _resolve_archive_scan_authoritative_ocr(
         except Exception as exc:  # pragma: no cover
             raise RuntimeError("opencv-python is required for stitched archive OCR.") from exc
         ocr_text, ocr_keywords, ocr_hash, stitched_cap_path = _stitch_and_run_ocr(
-            group_paths, build_stitched_image, cv2, stitched_image_dir, step_fn, ocr_engine, debug_recorder, debug_step
+            group_paths,
+            build_stitched_image,
+            cv2,
+            stitched_image_dir=stitched_image_dir,
+            step_fn=step_fn,
+            ocr_engine=ocr_engine,
+            debug_recorder=debug_recorder,
+            debug_step=debug_step,
         )
 
     result = ArchiveScanOCRAuthority(
@@ -271,7 +287,7 @@ def _layout_payload(layout: PreparedImageLayout) -> dict[str, Any]:
 
 def _bounds_offset(bounds: Any) -> tuple[int, int]:
     if hasattr(bounds, "x") and hasattr(bounds, "y"):
-        return int(getattr(bounds, "x")), int(getattr(bounds, "y"))
+        return int(bounds.x), int(bounds.y)
     if hasattr(bounds, "as_dict"):
         try:
             payload = dict(bounds.as_dict())

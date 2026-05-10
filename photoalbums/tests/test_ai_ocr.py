@@ -16,6 +16,7 @@ if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
 from photoalbums.lib import ai_ocr
+from photoalbums.tests.conftest import FakeLMStudioResponse
 
 
 class TestAIOcr(unittest.TestCase):
@@ -138,16 +139,6 @@ class TestAIOcr(unittest.TestCase):
             ]
         }
 
-        class _FakeResponse:
-            def __enter__(self):
-                return self
-
-            def __exit__(self, exc_type, exc, tb):
-                return False
-
-            def read(self):
-                return json.dumps(response_payload).encode("utf-8")
-
         with tempfile.TemporaryDirectory() as tmp:
             image_path = Path(tmp) / "sample.jpg"
             Image.new("RGB", (320, 240), color="white").save(image_path)
@@ -167,7 +158,7 @@ class TestAIOcr(unittest.TestCase):
                 mock.patch.object(
                     ai_ocr.urllib.request,
                     "urlopen",
-                    return_value=_FakeResponse(),
+                    return_value=FakeLMStudioResponse(json.dumps(response_payload).encode("utf-8")),
                 ),
             ):
                 ocr = ai_ocr.OCREngine(engine="lmstudio", model_name="qwen2.5-vl")
@@ -195,16 +186,6 @@ class TestAIOcr(unittest.TestCase):
             ]
         }
 
-        class _FakeResponse:
-            def __enter__(self):
-                return self
-
-            def __exit__(self, exc_type, exc, tb):
-                return False
-
-            def read(self):
-                return json.dumps(response_payload).encode("utf-8")
-
         with tempfile.TemporaryDirectory() as tmp:
             image_path = Path(tmp) / "content.png"
             source_path = Path(tmp) / "China_1986_B02_P02_S01.tif"
@@ -225,7 +206,7 @@ class TestAIOcr(unittest.TestCase):
                 mock.patch.object(
                     ai_ocr.urllib.request,
                     "urlopen",
-                    return_value=_FakeResponse(),
+                    return_value=FakeLMStudioResponse(json.dumps(response_payload).encode("utf-8")),
                 ),
             ):
                 ocr = ai_ocr.OCREngine(engine="lmstudio", model_name="qwen2.5-vl")
@@ -278,16 +259,6 @@ class TestAIOcr(unittest.TestCase):
             ]
         }
 
-        class _FakeResponse:
-            def __enter__(self):
-                return self
-
-            def __exit__(self, exc_type, exc, tb):
-                return False
-
-            def read(self):
-                return json.dumps(response_payload).encode("utf-8")
-
         def fake_urlopen(request, timeout):
             self.assertTrue(request.full_url.endswith("/chat/completions"))
             payload = json.loads(request.data.decode("utf-8"))
@@ -295,7 +266,7 @@ class TestAIOcr(unittest.TestCase):
             self.assertEqual(payload["response_format"]["type"], "json_schema")
             self.assertEqual(payload["response_format"]["json_schema"]["name"], "ocr_payload")
             self.assertEqual(payload["response_format"]["json_schema"]["strict"], True)
-            return _FakeResponse()
+            return FakeLMStudioResponse(json.dumps(response_payload).encode("utf-8"))
 
         with tempfile.TemporaryDirectory() as tmp:
             image_path = Path(tmp) / "sample.jpg"

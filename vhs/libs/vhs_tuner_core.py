@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import csv
 import base64
+import csv
 import gzip
 import hashlib
 import io
@@ -15,6 +15,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
 
@@ -350,15 +351,16 @@ def _evict_cache_files(root: Path, cutoff: float, max_bytes: int) -> None:
             continue
         try:
             st = p.stat()
-        except Exception:
+        except Exception as exc:
+            log.debug("skipping cache file that could not be stat'd: %s", exc)
             continue
         mtime = float(st.st_mtime)
         size = int(max(0, st.st_size))
         if mtime < cutoff:
             try:
                 p.unlink()
-            except Exception:
-                pass
+            except Exception as exc:
+                log.debug("could not remove expired cache file %s: %s", p, exc)
             continue
         files.append((mtime, size, p))
         total_bytes += size
@@ -371,7 +373,8 @@ def _evict_cache_files(root: Path, cutoff: float, max_bytes: int) -> None:
             try:
                 p.unlink()
                 total_bytes -= size
-            except Exception:
+            except Exception as exc:
+                log.debug("could not remove oversized cache file %s: %s", p, exc)
                 continue
 
 
@@ -402,7 +405,8 @@ def _cleanup_tuner_cache(force: bool = False) -> None:
     for d in dirs:
         try:
             d.rmdir()
-        except Exception:
+        except Exception as exc:
+            log.debug("could not remove cache directory %s: %s", d, exc)
             continue
 
 
@@ -595,7 +599,8 @@ def _chapter_bad_overrides(
     for fid in bad_frames or []:
         try:
             fi = int(fid)
-        except Exception:
+        except Exception as exc:
+            log.debug("skipping bad frame id that could not be converted to int: %s", exc)
             continue
         if start <= fi < end:
             out[fi] = "bad"
@@ -793,7 +798,8 @@ def _parse_cached_thumbs(thumbs_raw: object) -> dict[int, str]:
             continue
         try:
             fid_i = int(raw_fid)
-        except Exception:
+        except Exception as exc:
+            log.debug("skipping cached thumbnail with non-integer frame id: %s", exc)
             continue
         thumbs[fid_i] = raw_b64
     return thumbs
@@ -850,8 +856,8 @@ def load_cached_signals(
 
     try:
         path.touch()
-    except Exception:
-        pass
+    except Exception as exc:
+        log.debug("could not update mtime on signals cache file %s: %s", path, exc)
     return fids, out_sigs, thumbs
 
 
@@ -871,7 +877,8 @@ def _build_thumbs_out(thumbs_by_fid: dict[int, str] | None, fid_set: set[int]) -
     for raw_fid, raw_b64 in dict(thumbs_by_fid or {}).items():
         try:
             fid_i = int(raw_fid)
-        except Exception:
+        except Exception as exc:
+            log.debug("skipping thumbnail with non-integer frame id in output build: %s", exc)
             continue
         if fid_i not in fid_set:
             continue
@@ -891,8 +898,8 @@ def _write_signals_cache(path: Path, payload: dict) -> bool:
     except Exception:
         try:
             tmp_path.unlink()
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("could not remove signals cache temp file %s: %s", tmp_path, exc)
         return False
 
 
@@ -1000,7 +1007,7 @@ def _process_extracted_frame(
 ) -> None:
     c = cached_lookup.get(fid)
     cached_thumb = str(thumb_lookup.get(fid, "") or "")
-    frame_thumb = _extract_frame_thumb(include_thumbs, cached_thumb, bgr, thumb_lookup, fid, frames_b64)
+    frame_thumb = _extract_frame_thumb(include_thumbs, cached_thumb, bgr, fid, containers=(thumb_lookup, frames_b64))
     ch, no, te, wa = _extract_frame_signals(c, bgr)
     chroma_s.append(ch)
     noise_s.append(no)
@@ -1024,6 +1031,7 @@ def extract_frames(
     start: int,
     end: int,
     n: int,
+    *,
     archive: str,
     ch_title: str,
     frame_ids: list[int] | None = None,
@@ -1125,10 +1133,11 @@ def _extract_frame_thumb(
     include_thumbs: bool,
     cached_thumb: str,
     bgr,
-    thumb_lookup: dict[int, str],
     fid: int,
-    frames_b64: list[str],
+    *,
+    containers: tuple[dict[int, str], list[str]],
 ) -> str:
+    thumb_lookup, frames_b64 = containers
     if not include_thumbs:
         return ""
     frame_thumb = cached_thumb or _bgr_to_jpeg_b64(bgr if bgr is not None else np.zeros((240, 320, 3), dtype=np.uint8))
@@ -1210,15 +1219,20 @@ def _read_extract_frame(
     return cap, read_bgr, ""
 
 
+def _append_cached_fid(all_fids_l, all_sigs_l, fid, i, cached_sigs):
+    """Append a single cached frame id and its signatures to the accumulator lists."""
+    all_fids_l.append(fid)
+    for k, arr in cached_sigs.items():
+        all_sigs_l[k].append(float(arr[i]))
+
+
 def _merge_extract_cache(frame_ids, frame_set, sigs, cached_fids, cached_sigs):
     all_fids_l: list[int] = list(frame_ids)
     all_sigs_l: dict[str, list[float]] = {k: list(v) for k, v in sigs.items()}
     if cached_fids and cached_sigs:
         for i, fid in enumerate(cached_fids):
             if fid not in frame_set:
-                all_fids_l.append(fid)
-                for k, arr in cached_sigs.items():
-                    all_sigs_l[k].append(float(arr[i]))
+                _append_cached_fid(all_fids_l, all_sigs_l, fid, i, cached_sigs)
     order = list(np.argsort(all_fids_l))
     sorted_fids = [all_fids_l[i] for i in order]
     sorted_sigs = {k: np.array([v[i] for i in order]) for k, v in all_sigs_l.items()}
@@ -1230,11 +1244,26 @@ def _merge_extract_cache(frame_ids, frame_set, sigs, cached_fids, cached_sigs):
 # ===============================================================================
 
 
+@dataclass
+class _WeightThreshParams:
+    """Signal weights and threshold parameters bundled for override helpers."""
+
+    wc: float
+    wn: float
+    wt: float
+    ww: float
+    tm: str
+    ik: float
+    tv: float
+    bp: float
+
+
 def toggle_frame_override(
     fid: int,
     fids: list[int],
     sigs: dict[str, np.ndarray],
     overrides: dict[int, str],
+    *,
     wc: float,
     wn: float,
     wt: float,
@@ -1260,11 +1289,35 @@ def toggle_frame_override(
     return out
 
 
+def _toggle_frame_override_wtp(
+    fid: int,
+    fids: list[int],
+    sigs: dict[str, np.ndarray],
+    overrides: dict[int, str],
+    wtp: _WeightThreshParams,
+) -> dict[int, str]:
+    return toggle_frame_override(
+        fid=fid,
+        fids=fids,
+        sigs=sigs,
+        overrides=overrides,
+        wc=wtp.wc,
+        wn=wtp.wn,
+        wt=wtp.wt,
+        ww=wtp.ww,
+        tm=wtp.tm,
+        ik=wtp.ik,
+        tv=wtp.tv,
+        bp=wtp.bp,
+    )
+
+
 def set_frame_override_mode(
     fid: int,
     fids: list[int],
     sigs: dict[str, np.ndarray],
     overrides: dict[int, str],
+    *,
     wc: float,
     wn: float,
     wt: float,
@@ -1539,7 +1592,7 @@ def find_spike_regions(
                 "region_index": i,
                 "start_fid": int(region_fids[0]),
                 "end_fid": int(region_fids[-1]),
-                "frame_count": int(len(region_fids)),
+                "frame_count": len(region_fids),
                 "peak_score": round(float(region_scores[peak_local]), 4),
                 "peak_fid": int(region_fids[peak_local]),
                 "bad_frame_count": bad_in_region,
@@ -1557,8 +1610,8 @@ def estimate_gamma_from_frames(b64_frames: list[str]) -> dict:
     computes the gamma needed to bring median luminance to a target of 0.45
     (normalized). Returns suggested gamma clamped to [0.3, 3.0].
     """
-    import math as _math
     import base64 as _base64
+    import math as _math
 
     TARGET_NORMALIZED = 0.45
     luminances: list[float] = []
@@ -1573,7 +1626,8 @@ def estimate_gamma_from_frames(b64_frames: list[str]) -> dict:
             lab = cv2.cvtColor(bgr, cv2.COLOR_BGR2LAB)
             mean_l = float(np.mean(lab[:, :, 0].astype(np.float32)))
             luminances.append(mean_l)
-        except Exception:
+        except Exception as exc:
+            log.debug("skipping frame sample that could not be decoded for luminance: %s", exc)
             continue
 
     if not luminances:
@@ -1676,11 +1730,10 @@ def build_sparklines_html(
     sigs: dict,
     scores: np.ndarray,
     threshold: float,
-    wc: float,
-    wn: float,
-    wt: float,
-    ww: float,
+    *,
+    weights: tuple[float, float, float, float],
 ) -> tuple[str, str, str, str, str]:
+    wc, wn, wt, ww = weights
     """
     Returns (spark_chroma, spark_noise, spark_tear, spark_wave, spark_score).
 

@@ -85,8 +85,8 @@ class TestRunDoclingPipeline(unittest.TestCase):
                 mock.patch("docling.document_converter.DocumentConverter.convert", return_value=convert_result),
                 mock.patch("photoalbums.lib._docling_pipeline._get_region_result") as mock_rr,
             ):
-                from photoalbums.lib.ai_view_regions import RegionResult
                 from photoalbums.lib._docling_pipeline import run_docling_pipeline
+                from photoalbums.lib.ai_view_regions import RegionResult
 
                 mock_rr.return_value = RegionResult
                 return run_docling_pipeline(
@@ -145,8 +145,8 @@ class TestRunDoclingPipeline(unittest.TestCase):
                 mock.patch("docling.document_converter.DocumentConverter.convert", return_value=convert_result),
                 mock.patch("photoalbums.lib._docling_pipeline._get_region_result") as mock_rr,
             ):
-                from photoalbums.lib.ai_view_regions import RegionResult
                 from photoalbums.lib._docling_pipeline import run_docling_pipeline
+                from photoalbums.lib.ai_view_regions import RegionResult
 
                 mock_rr.return_value = RegionResult
                 result = run_docling_pipeline(
@@ -175,8 +175,8 @@ class TestRunDoclingPipeline(unittest.TestCase):
                 ) as mock_convert,
                 mock.patch("photoalbums.lib._docling_pipeline._get_region_result") as mock_rr,
             ):
-                from photoalbums.lib.ai_view_regions import RegionResult
                 from photoalbums.lib._docling_pipeline import DoclingPipelineRuntimeError, run_docling_pipeline
+                from photoalbums.lib.ai_view_regions import RegionResult
 
                 mock_rr.return_value = RegionResult
                 with self.assertRaises(DoclingPipelineRuntimeError) as exc:

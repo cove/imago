@@ -402,7 +402,7 @@ def _run_watch_group(args, commands) -> int | None:
         try:
             from .scanwatch import WATCHER_STEPS
         except ImportError:
-            from scanwatch import WATCHER_STEPS  # noqa: E402
+            from scanwatch import WATCHER_STEPS
 
         for i, (step_id, label) in enumerate(WATCHER_STEPS, 1):
             print(f"  [{i}] {step_id}  —  {label}")

@@ -1,5 +1,5 @@
-from pathlib import Path
 import shutil
+from pathlib import Path
 
 from common import (
     get_gamma_profile_for_chapter,

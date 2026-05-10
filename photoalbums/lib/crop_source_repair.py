@@ -3,12 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
+from ..naming import DERIVED_VIEW_RE, is_photos_dir, parse_album_filename
 from .ai_index_scan import _build_dc_source, _page_scan_filenames
 from .ai_render_settings import find_archive_dir_for_image
 from .ai_sidecar_state import _effective_sidecar_album_title
 from .caption_layout_migration import _write_tree
 from .xmp_sidecar import DC_NS, IMAGO_NS, _get_rdf_desc, _set_simple_text, read_ai_sidecar_state
-from ..naming import DERIVED_VIEW_RE, is_photos_dir, parse_album_filename
 
 
 def _iter_target_sidecars(photos_root: str | Path, album_id: str = "", page: str | None = None) -> list[Path]:

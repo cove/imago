@@ -90,7 +90,7 @@ def _iter_album_files(root: Path):
             yield dp / fname
 
 
-def _try_vc_to_v_rename(path: Path, stem: str, suffix: str, parent: Path, plan: list[dict], seen_new: set[Path]) -> bool:
+def _try_vc_to_v_rename(path: Path, stem: str, suffix: str, parent: Path, *, plan: list[dict], seen_new: set[Path]) -> bool:
     m = _VC_STEM_RE.match(stem)
     if not m:
         return False
@@ -111,14 +111,17 @@ def _process_v3_rename_file(path: Path, plan: list[dict], seen_new: set[Path]) -
     if not in_view and not in_archive:
         return
     if in_view and suffix_lower in {".jpg", ".jpeg"}:
-        if _try_vc_to_v_rename(path, stem, suffix, parent, plan, seen_new):
+        if _try_vc_to_v_rename(path, stem, suffix, parent, plan=plan, seen_new=seen_new):
             return
     if suffix_lower == ".xmp":
         return
     if in_archive and suffix_lower in {".tif", ".tiff"}:
         if re.search(r"_S\d+$", stem, re.IGNORECASE):
             return
-    _try_derived_hyphen_rename(path, stem, suffix, suffix_lower, parent, in_view, in_archive, plan, seen_new)
+    _try_derived_hyphen_rename(
+        path, stem, suffix, suffix_lower, parent,
+        in_view=in_view, in_archive=in_archive, plan=plan, seen_new=seen_new,
+    )
 
 
 def _album_file_context(parent: Path) -> tuple[bool, bool]:
@@ -132,6 +135,7 @@ def _try_derived_hyphen_rename(
     suffix: str,
     suffix_lower: str,
     parent: Path,
+    *,
     in_view: bool,
     in_archive: bool,
     plan: list[dict],
@@ -207,35 +211,44 @@ def _sha256(path: Path) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _rename_entry(old: Path, new: Path, kind: str) -> bool:
+    """Rename old to new, optionally patching XMP. Returns True if XMP was patched."""
+    xmp_patched = False
+    if kind == "derived_archive_hyphen_xmp":
+        _patch_derived_xmp(old)
+        xmp_patched = True
+    os.rename(old, new)
+    return xmp_patched
+
+
+def _execute_entry(entry: dict) -> dict:
+    """Process a single plan entry and return its result dict."""
+    old = Path(entry["old"])
+    new = Path(entry["new"])
+    result = {
+        "old": entry["old"],
+        "new": entry["new"],
+        "kind": entry["kind"],
+        "status": "ok",
+        "error": "",
+        "xmp_patched": False,
+    }
+    try:
+        if not old.exists():
+            result["status"] = "skipped_missing"
+        elif new.exists() and new != old:
+            result["status"] = "skipped_conflict"
+            result["error"] = f"Target already exists: {new}"
+        else:
+            result["xmp_patched"] = _rename_entry(old, new, entry["kind"])
+    except Exception as exc:
+        result["status"] = "error"
+        result["error"] = str(exc)
+    return result
+
+
 def execute_plan(plan: list[dict], hashes_before: dict[str, str]) -> list[dict]:
-    results: list[dict] = []
-    for entry in plan:
-        old = Path(entry["old"])
-        new = Path(entry["new"])
-        result = {
-            "old": entry["old"],
-            "new": entry["new"],
-            "kind": entry["kind"],
-            "status": "ok",
-            "error": "",
-            "xmp_patched": False,
-        }
-        try:
-            if not old.exists():
-                result["status"] = "skipped_missing"
-            elif new.exists() and new != old:
-                result["status"] = "skipped_conflict"
-                result["error"] = f"Target already exists: {new}"
-            else:
-                if entry["kind"] == "derived_archive_hyphen_xmp":
-                    _patch_derived_xmp(old)
-                    result["xmp_patched"] = True
-                os.rename(old, new)
-        except Exception as exc:
-            result["status"] = "error"
-            result["error"] = str(exc)
-        results.append(result)
-    return results
+    return [_execute_entry(entry) for entry in plan]
 
 
 def _patch_derived_xmp(xmp_path: Path) -> None:

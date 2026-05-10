@@ -4,8 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .ai_page_layout import normalize_page_split_mode
 from ..naming import archive_dir_for_album_dir, is_archive_dir, is_pages_dir, is_photos_dir
+from .ai_page_layout import normalize_page_split_mode
 
 SETTINGS_FILENAME = "render_settings.json"
 OCR_ENGINES = {"none", "local", "lmstudio"}

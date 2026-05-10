@@ -3,8 +3,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .ai_photo_crops import crop_output_path, highest_archive_derived_number
 from ..naming import is_photos_dir, pages_dir_for_album_dir, parse_album_filename
+from .ai_photo_crops import crop_output_path, highest_archive_derived_number
 
 _CROP_STEM_RE = re.compile(r"^(?P<page_prefix>.+)_D(?P<derived>\d+)-00_V$", re.IGNORECASE)
 

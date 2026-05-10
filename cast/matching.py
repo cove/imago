@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import numpy as np
+
+log = logging.getLogger(__name__)
 
 _MAX_SAMPLES_PER_PERSON = 64
 _EXEMPLAR_COUNT = 40
@@ -100,7 +103,8 @@ def _build_person_buckets(
             continue
         try:
             vector = normalize_embedding(parse_embedding(face.get("embedding")))
-        except Exception:
+        except Exception as exc:
+            log.debug("failed to parse/normalize embedding for person %s: %s", person_id, exc)
             continue
         buckets.setdefault(person_id, []).append((_face_quality(face), vector))
     return buckets
@@ -121,7 +125,7 @@ def _prototype_from_pairs(pairs: list[tuple[float, np.ndarray]]) -> dict[str, An
     exemplars = [row[1] for row in ranked[:_EXEMPLAR_COUNT]]
     return {
         "embedding": proto,
-        "count": int(len(ranked)),
+        "count": len(ranked),
         "dimension": int(stacked.shape[1]),
         "exemplars": exemplars,
     }

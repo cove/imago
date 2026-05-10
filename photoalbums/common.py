@@ -5,8 +5,8 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Callable, Iterable, List, Tuple
 
 log = logging.getLogger(__name__)
 
@@ -116,15 +116,15 @@ def configure_imagemagick() -> None:
     os.environ["PATH"] = str(magick_path) + os.pathsep + os.environ["PATH"]
 
 
-def list_archive_dirs(base_dir: Path) -> List[Path]:
+def list_archive_dirs(base_dir: Path) -> list[Path]:
     return sorted([p for p in base_dir.glob("*_Archive") if p.is_dir()])
 
 
 def parse_filename(
     filename: str,
     *patterns: re.Pattern,
-    default: Tuple[str, str, str, str] = ("Unknown", "Unknown", "00", "00"),
-) -> Tuple[str, str, str, str]:
+    default: tuple[str, str, str, str] = ("Unknown", "Unknown", "00", "00"),
+) -> tuple[str, str, str, str]:
     for pattern in patterns:
         m = pattern.search(filename)
         if m:
@@ -140,7 +140,7 @@ def parse_filename(
 def count_totals(
     archive_dirs: Iterable[Path],
     new_name_re: re.Pattern,
-    parse_fn: Callable[[str], Tuple[str, str, str, str]],
+    parse_fn: Callable[[str], tuple[str, str, str, str]],
 ) -> dict:
     totals = {}
 
@@ -235,7 +235,7 @@ def get_next_filename(watch_dir: str | Path, filename_pattern: re.Pattern = FILE
     return f"{prefix}_P{page:02d}_S{scan:02d}.tif"
 
 
-def list_page_scan_groups(directory: str | Path, name_re: re.Pattern) -> List[List[str]]:
+def list_page_scan_groups(directory: str | Path, name_re: re.Pattern) -> list[list[str]]:
     dir_path = Path(directory)
     files = [
         f.name
@@ -243,7 +243,7 @@ def list_page_scan_groups(directory: str | Path, name_re: re.Pattern) -> List[Li
         if f.is_file() and not is_ignored_artifact_name(f.name) and name_re.fullmatch(f.name)
     ]
 
-    def key(name: str) -> Tuple[int, int]:
+    def key(name: str) -> tuple[int, int]:
         m = PAGE_SCAN_RE.search(name)
         if not m:
             return 0, 0
@@ -251,7 +251,7 @@ def list_page_scan_groups(directory: str | Path, name_re: re.Pattern) -> List[Li
 
     files.sort(key=key)
 
-    pages: dict[int, List[str]] = {}
+    pages: dict[int, list[str]] = {}
     for name in files:
         page = key(name)[0]
         pages.setdefault(page, []).append(str(dir_path / name))
@@ -259,7 +259,7 @@ def list_page_scan_groups(directory: str | Path, name_re: re.Pattern) -> List[Li
     return list(pages.values())
 
 
-def list_page_scans_for_page(directory: str | Path, page_num: int) -> List[str]:
+def list_page_scans_for_page(directory: str | Path, page_num: int) -> list[str]:
     dir_path = Path(directory)
     files = []
     for entry in dir_path.iterdir():
@@ -282,7 +282,7 @@ def list_page_scans_for_page(directory: str | Path, page_num: int) -> List[str]:
     return files
 
 
-def open_image_fullscreen(path: str, fallback_to_default: bool = False):
+def open_image_fullscreen(path: str, fallback_to_default: bool = False) -> subprocess.Popen | None:
     if sys.platform.startswith("win"):
         xnview = Path(r"C:\Program Files\XnViewMP\xnviewmp.exe")
         if xnview.exists():
@@ -379,6 +379,28 @@ def validate_pixels(original_path: Path, converted_path: Path) -> bool:
         return False
 
 
+def _replace_tiff_with_retry(
+    tmp_path: Path,
+    tiff_path: Path,
+    *,
+    replace_attempts: int,
+    replace_delay: float,
+    emit: "Callable[[str], None]",
+) -> bool:
+    """Attempt to atomically replace tiff_path with tmp_path, retrying on PermissionError."""
+    for _ in range(replace_attempts):
+        try:
+            tmp_path.replace(tiff_path)
+            return True
+        except PermissionError:
+            time.sleep(replace_delay)
+        except Exception as e:
+            emit(f"{tiff_path.name} replace error: {e}")
+            return False
+    emit(f"{tiff_path.name} replace permission denied")
+    return False
+
+
 def process_tiff_in_place(
     tiff_path: Path,
     *,
@@ -418,18 +440,12 @@ def process_tiff_in_place(
             tmp_path.unlink(missing_ok=True)
             return False
 
-        for _ in range(replace_attempts):
-            try:
-                tmp_path.replace(tiff_path)
-                return True
-            except PermissionError:
-                time.sleep(replace_delay)
-            except Exception as e:
-                emit(f"{tiff_path.name} replace error: {e}")
-                break
-
-        emit(f"{tiff_path.name} replace permission denied")
-        return False
+        return _replace_tiff_with_retry(
+            tmp_path, tiff_path,
+            replace_attempts=replace_attempts,
+            replace_delay=replace_delay,
+            emit=emit,
+        )
 
     except subprocess.CalledProcessError as e:
         emit(f"{tiff_path.name} processing error: {e}")

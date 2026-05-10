@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 
 @dataclass
@@ -16,7 +16,8 @@ class PipelineStep:
 
 
 def _noop_run(**_kwargs: object) -> None:
-    pass
+    """Placeholder run function for pipeline steps wired at call time."""
+    return
 
 
 def _make_steps() -> list[PipelineStep]:

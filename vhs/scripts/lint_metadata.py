@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import argparse
 import glob
+import sys
 from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
-import sys
-from typing import Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -104,7 +104,11 @@ def _lint_render_settings(findings: list[Finding], archive: str, path: Path, req
         findings.append(Finding("INFO", archive, "Missing render_settings.json (created automatically when needed)"))
 
 
-def _lint_chapter_in_sequence(findings, archive, label, ch, previous, simulate_conversion, target_timebase, summary):
+def _lint_chapter_in_sequence(findings, ch, previous, *, ctx: dict, summary: dict):
+    archive = ctx["archive"]
+    label = ctx["label"]
+    simulate_conversion = ctx["simulate_conversion"]
+    target_timebase = ctx["target_timebase"]
     _lint_chapter_required_fields(findings, archive, label, ch)
     try:
         start_raw = int(ch.get("start_raw"))
@@ -114,7 +118,7 @@ def _lint_chapter_in_sequence(findings, archive, label, ch, previous, simulate_c
         return previous, Fraction(0, 1), False
     if end_raw < start_raw:
         findings.append(Finding("ERROR", archive, f"{label}: END ({end_raw}) < START ({start_raw})"))
-    tb = _lint_chapter_timebase(findings, archive, label, ch, summary, target_timebase)
+    tb = _lint_chapter_timebase(findings, (archive, label), ch, summary, target_timebase)
     if tb is None:
         return previous, Fraction(0, 1), False
     _lint_chapter_keys(findings, archive, label, ch)
@@ -122,16 +126,21 @@ def _lint_chapter_in_sequence(findings, archive, label, ch, previous, simulate_c
     if previous is not None:
         prev_start, prev_end, prev_label = previous
         if start_frame < prev_end:
-            findings.append(Finding(
-                "WARN", archive,
-                f"{label}: overlaps {prev_label} "
-                f"(frames {start_frame}-{max(start_frame, end_frame - 1)} "
-                f"vs previous {prev_start}-{max(prev_start, prev_end - 1)})",
-            ))
+            findings.append(
+                Finding(
+                    "WARN",
+                    archive,
+                    f"{label}: overlaps {prev_label} "
+                    f"(frames {start_frame}-{max(start_frame, end_frame - 1)} "
+                    f"vs previous {prev_start}-{max(prev_start, prev_end - 1)})",
+                )
+            )
     drift = Fraction(0, 1)
     mismatched = False
     if simulate_conversion:
-        drift, mismatched = _lint_chapter_conversion(findings, archive, label, start_raw, end_raw, tb, target_timebase)
+        drift, mismatched = _lint_chapter_conversion(
+            findings, (archive, label), (start_raw, end_raw), tb, target_timebase
+        )
     return (start_frame, end_frame, label), drift, mismatched
 
 
@@ -181,7 +190,16 @@ def _lint_archive(
 
     for idx, ch in enumerate(chapters, start=1):
         previous, drift, mismatched = _lint_chapter_in_sequence(
-            findings, archive, f"ch{idx}", ch, previous, simulate_conversion, target_timebase, summary
+            findings,
+            ch,
+            previous,
+            ctx={
+                "archive": archive,
+                "label": f"ch{idx}",
+                "simulate_conversion": simulate_conversion,
+                "target_timebase": target_timebase,
+            },
+            summary=summary,
         )
         conversion_mismatches += int(mismatched)
         max_sec_drift = max(max_sec_drift, drift)
@@ -208,7 +226,7 @@ def _lint_global_metadata(findings: list[Finding], archive: str, ffmeta: dict) -
 
 def _lint_chapter_keys(findings: list[Finding], archive: str, label: str, chapter: dict) -> None:
     unknown_keys: list[str] = []
-    for key in chapter.keys():
+    for key in chapter:
         key_s = str(key)
         if key_s in DERIVED_CHAPTER_KEYS or key_s in CANONICAL_CHAPTER_KEYS or key_s.startswith("recording_"):
             continue
@@ -237,12 +255,12 @@ def _lint_chapter_required_fields(findings: list[Finding], archive: str, label: 
 
 def _lint_chapter_timebase(
     findings: list[Finding],
-    archive: str,
-    label: str,
+    ident: tuple[str, str],
     chapter: dict,
     summary: dict,
     target_timebase: Fraction,
 ) -> Fraction | None:
+    archive, label = ident
     if "timebase" not in chapter:
         findings.append(Finding("WARN", archive, f"{label}: missing TIMEBASE (defaults to 1/1)"))
         tb = Fraction(1, 1)
@@ -261,13 +279,13 @@ def _lint_chapter_timebase(
 
 def _lint_chapter_conversion(
     findings: list[Finding],
-    archive: str,
-    label: str,
-    start_raw: int,
-    end_raw: int,
+    ident: tuple[str, str],
+    raw_range: tuple[int, int],
     tb: Fraction,
     target_timebase: Fraction,
 ) -> tuple[Fraction, bool]:
+    archive, label = ident
+    start_raw, end_raw = raw_range
     converted_start = _round_fraction_nearest_int(Fraction(start_raw) * tb / target_timebase)
     converted_end = _round_fraction_nearest_int(Fraction(end_raw) * tb / target_timebase)
 

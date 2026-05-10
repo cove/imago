@@ -6,6 +6,6 @@ import sys
 if len(sys.argv) == 1:
     sys.argv += ["vhs"]
 
-from pylint import lint  # noqa: E402
+from pylint import lint
 
 lint.Run(sys.argv[1:])

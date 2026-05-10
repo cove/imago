@@ -31,6 +31,7 @@ from photoalbums.lib.xmp_sidecar import (
 
 def _img_dims(image_path: Path) -> tuple[int, int]:
     from PIL import Image
+
     from photoalbums.lib.image_limits import allow_large_pillow_images
 
     allow_large_pillow_images(Image)

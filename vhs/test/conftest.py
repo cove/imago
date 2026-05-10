@@ -52,6 +52,6 @@ def pytest_collect_file(parent, file_path):
     takes precedence.
     """
     if not str(file_path).startswith(_VHS_TEST):
-        return None
+        return
     _ensure_vhs_common_precedence()
-    return None
+    return

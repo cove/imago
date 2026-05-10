@@ -4,9 +4,8 @@ import importlib.util
 import sys
 from pathlib import Path
 
-from photoalbums.lib.xmp_sidecar import read_ai_sidecar_state, write_region_list, write_xmp_sidecar
 from photoalbums.lib.ai_view_regions import RegionResult, RegionWithCaption
-
+from photoalbums.lib.xmp_sidecar import read_ai_sidecar_state, write_region_list, write_xmp_sidecar
 
 SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "repair_crop_placeholder_captions.py"
 SPEC = importlib.util.spec_from_file_location("repair_crop_placeholder_captions_script", SCRIPT_PATH)

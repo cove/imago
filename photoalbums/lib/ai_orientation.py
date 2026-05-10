@@ -4,9 +4,10 @@ import json
 import os
 import tempfile
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Protocol
+from typing import Protocol
 
 from ._caption_lmstudio import (
     DEFAULT_LMSTUDIO_TIMEOUT_SECONDS,
@@ -58,7 +59,9 @@ class OrientationResult:
 class _OrientationEngineProtocol(Protocol):
     effective_model_name: str
 
-    def analyze(self, image_path: Path | str, *, source_path: Path | str | None = ...) -> OrientationResult: ...
+    def analyze(self, image_path: Path | str, *, source_path: Path | str | None = ...) -> OrientationResult:
+        """Analyze image orientation and return an OrientationResult. Implementors must override."""
+        return OrientationResult(error="protocol not implemented")
 
 
 def _parse_orientation_response(value: object, *, finish_reason: str = "") -> OrientationResult:
@@ -221,7 +224,7 @@ def rotate_image_180_in_place(image_path: Path | str) -> None:
     frames = []
     try:
         with Image.open(path) as image:
-            transpose = getattr(getattr(Image, "Transpose", Image), "ROTATE_180")
+            transpose = getattr(Image, "Transpose", Image).ROTATE_180
             frames = [frame.copy().transpose(transpose) for frame in ImageSequence.Iterator(image)]
             if not frames:
                 raise RuntimeError(f"Pillow rotate 180 failed: no image frames in {path}")

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 log = logging.getLogger(__name__)
 
 
-def allow_large_pillow_images(image_module=None):
+def allow_large_pillow_images(image_module=None) -> Any | None:
     try:
         image = image_module
         if image is None:

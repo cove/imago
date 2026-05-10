@@ -15,9 +15,8 @@ if str(REPO_ROOT) not in sys.path:
 if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
-from photoalbums.lib import ai_index_propagate
+from photoalbums.lib import ai_index_propagate, xmp_sidecar
 from photoalbums.lib.ai_index_propagate import _crop_paths_signature, run_propagate_to_crops
-from photoalbums.lib import xmp_sidecar
 
 
 class _FakeGeocodeResult:

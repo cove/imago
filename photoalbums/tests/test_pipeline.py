@@ -13,9 +13,9 @@ if str(REPO_ROOT) not in sys.path:
 if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
+from photoalbums.commands import print_pipeline_plan
 from photoalbums.lib.pipeline import PIPELINE_STEPS, VALID_STEP_IDS, validate_step_ids
 from photoalbums.lib.xmp_sidecar import is_step_stale
-from photoalbums.commands import print_pipeline_plan
 
 
 class TestStepIdValidation(unittest.TestCase):
@@ -135,8 +135,9 @@ class TestRunProcessPipelineSmoke(unittest.TestCase):
     """Integration smoke: run with all steps skipped — verifies orchestrator runs without error."""
 
     def test_all_steps_skipped_returns_0(self):
-        from photoalbums.lib.pipeline import VALID_STEP_IDS
         import tempfile
+
+        from photoalbums.lib.pipeline import VALID_STEP_IDS
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

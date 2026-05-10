@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 # Namespaces copied from photoalbums/lib/xmp_sidecar.py (stdlib only, no cross-project import)
 X_NS = "adobe:ns:meta/"

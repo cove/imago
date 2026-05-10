@@ -7,7 +7,7 @@ import tempfile
 import threading
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ except Exception:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _normalize_path(path: str | Path) -> Path:
@@ -53,8 +53,8 @@ def alert_beep() -> None:
                 ),
                 daemon=True,
             ).start()
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("Windows MessageBox alert unavailable: %s", exc)
         return
 
     print("\a", end="", flush=True)
@@ -100,8 +100,8 @@ def cleanup_preview_file(path: Path, viewer_process=None) -> None:
         if viewer_process is not None:
             try:
                 viewer_process.wait()
-            except Exception:
-                pass
+            except Exception as exc:
+                log.debug("Viewer process wait failed: %s", exc)
             _cleanup_temp_file(path, initial_delay=0.0)
         else:
             _cleanup_temp_file(path)
@@ -122,12 +122,14 @@ def validate_stitch(files: list[str], *, save_preview: bool = True) -> tuple[boo
     for cfg in attempts:
         try:
             result = AffineStitcher(**cfg).stitch(files)
-            if result is not None and getattr(result, "size", 0):
-                if save_preview:
-                    return True, save_stitch_preview(result)
-                return True, None
-        except Exception:
+        except Exception as exc:
+            log.debug("Stitch attempt with config %r failed: %s", cfg, exc)
             continue
+        if result is None or not getattr(result, "size", 0):
+            continue
+        if save_preview:
+            return True, save_stitch_preview(result)
+        return True, None
 
     return False, None
 

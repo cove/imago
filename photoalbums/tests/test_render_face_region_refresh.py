@@ -6,7 +6,6 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock, skip
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MODULE_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -462,9 +461,8 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
                 side_effect=ai_render_face_refresh.FaceRefreshSkipped(
                     "face refresh skipped for Egypt_1975_B00_P09_V.jpg: Cast unavailable"
                 ),
-            ):
-                with self.assertRaises(ai_render_face_refresh.FaceRefreshSkipped):
-                    ai_render_face_refresh.refresh_face_regions(image, sidecar, force=False)
+            ), self.assertRaises(ai_render_face_refresh.FaceRefreshSkipped):
+                ai_render_face_refresh.refresh_face_regions(image, sidecar, force=False)
 
             self.assertEqual(sidecar.read_text(encoding="utf-8"), before)
             self.assertIsNone(xmp_sidecar.read_pipeline_step(sidecar, "face_refresh"))

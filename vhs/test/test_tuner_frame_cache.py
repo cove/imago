@@ -5,9 +5,30 @@ pytest.importorskip("cv2")
 
 from pathlib import Path
 
+import libs.vhs_tuner_core as core
 import numpy as np
 
-import libs.vhs_tuner_core as core
+
+class _FakeCap:
+    def __init__(self, metadata_frames=0, decoding_frames=0):
+        self._metadata_frames = metadata_frames
+        self._remaining = decoding_frames
+        self._opened = True
+
+    def isOpened(self) -> bool:
+        return self._opened
+
+    def get(self, _prop: int) -> int:
+        return self._metadata_frames
+
+    def read(self):
+        if self._remaining <= 0:
+            return False, None
+        self._remaining -= 1
+        return True, object()
+
+    def release(self) -> None:
+        self._opened = False
 
 
 def _sample_sigs() -> dict[str, np.ndarray]:
@@ -180,22 +201,12 @@ def test_video_frame_count_prefers_ffprobe_over_opencv_metadata(
     video = tmp_path / "extract.mkv"
     video.write_bytes(b"x")
 
-    class _Cap:
-        def isOpened(self) -> bool:
-            return True
-
-        def get(self, _prop: int) -> int:
-            return 3018
-
-        def release(self) -> None:
-            return None
-
     def _fake_check_output(cmd: list[str], text: bool, stderr: object) -> str:
         assert str(video) == str(cmd[-1])
         return "nb_frames=3018\nnb_read_frames=3019\n"
 
     monkeypatch.setattr(core.subprocess, "check_output", _fake_check_output)
-    monkeypatch.setattr(core.cv2, "VideoCapture", lambda _path: _Cap())
+    monkeypatch.setattr(core.cv2, "VideoCapture", lambda _path: _FakeCap(metadata_frames=3018))
 
     assert core._video_frame_count(video) == 3019
 
@@ -207,29 +218,10 @@ def test_video_frame_count_decodes_when_probe_and_metadata_are_unavailable(
     video = tmp_path / "extract.mkv"
     video.write_bytes(b"x")
 
-    class _Cap:
-        def __init__(self) -> None:
-            self._remaining = 3
-
-        def isOpened(self) -> bool:
-            return True
-
-        def get(self, _prop: int) -> int:
-            return 0
-
-        def read(self) -> tuple[bool, object | None]:
-            if self._remaining <= 0:
-                return False, None
-            self._remaining -= 1
-            return True, object()
-
-        def release(self) -> None:
-            return None
-
     def _raise_check_output(*_args, **_kwargs):
         raise RuntimeError("ffprobe unavailable")
 
     monkeypatch.setattr(core.subprocess, "check_output", _raise_check_output)
-    monkeypatch.setattr(core.cv2, "VideoCapture", lambda _path: _Cap())
+    monkeypatch.setattr(core.cv2, "VideoCapture", lambda _path: _FakeCap(decoding_frames=3))
 
     assert core._video_frame_count(video) == 3

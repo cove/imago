@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from apps.plain_html_wizard.server import run as run_tuner_server
+
 from vhs_pipeline.checksum import generate_drive_checksum, verify_archive, verify_drive
 from vhs_pipeline.compare import run_comparisons
 from vhs_pipeline.convert import (
@@ -20,7 +22,6 @@ from vhs_pipeline.people_prefill import (
 )
 from vhs_pipeline.proxy import make_proxies
 from vhs_pipeline.render import run_render, run_render_subtitles
-from apps.plain_html_wizard.server import run as run_tuner_server
 
 
 def run_convert_avi(paths):

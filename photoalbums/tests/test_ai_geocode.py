@@ -14,6 +14,7 @@ if str(MODULE_ROOT) not in sys.path:
 
 from photoalbums.lib import ai_geocode
 from photoalbums.lib.ai_location import _resolve_location_payload
+from photoalbums.tests.conftest import FakeLMStudioResponse
 
 
 class TestAIGeocode(unittest.TestCase):
@@ -25,16 +26,6 @@ class TestAIGeocode(unittest.TestCase):
                 "display_name": "Mogao Caves, Dunhuang, Jiuquan, Gansu, China",
             }
         ]
-
-        class _FakeResponse:
-            def __enter__(self):
-                return self
-
-            def __exit__(self, exc_type, exc, tb):
-                return False
-
-            def read(self):
-                return json.dumps(response_payload).encode("utf-8")
 
         with tempfile.TemporaryDirectory() as tmp:
             cache_path = Path(tmp) / "geocode_cache.json"
@@ -50,7 +41,7 @@ class TestAIGeocode(unittest.TestCase):
                     request.headers["User-agent"],
                     ai_geocode.DEFAULT_GEOCODER_USER_AGENT,
                 )
-                return _FakeResponse()
+                return FakeLMStudioResponse(json.dumps(response_payload).encode("utf-8"))
 
             geocoder = ai_geocode.NominatimGeocoder(cache_path=cache_path)
             with mock.patch.object(ai_geocode.urllib.request, "urlopen", side_effect=fake_urlopen):
@@ -102,16 +93,6 @@ class TestAIGeocode(unittest.TestCase):
             }
         ]
 
-        class _FakeResponse:
-            def __enter__(self):
-                return self
-
-            def __exit__(self, exc_type, exc, tb):
-                return False
-
-            def read(self):
-                return json.dumps(response_payload).encode("utf-8")
-
         with tempfile.TemporaryDirectory() as tmp:
             cache_path = Path(tmp) / "geocode_cache.json"
 
@@ -119,7 +100,7 @@ class TestAIGeocode(unittest.TestCase):
                 self.assertEqual(timeout, ai_geocode.DEFAULT_GEOCODER_TIMEOUT_SECONDS)
                 self.assertIn("Oxford%2C+England", request.full_url)
                 self.assertNotIn("The+Oxford%2C+England", request.full_url)
-                return _FakeResponse()
+                return FakeLMStudioResponse(json.dumps(response_payload).encode("utf-8"))
 
             geocoder = ai_geocode.NominatimGeocoder(cache_path=cache_path)
             with mock.patch.object(ai_geocode.urllib.request, "urlopen", side_effect=fake_urlopen):
@@ -143,20 +124,10 @@ class TestAIGeocode(unittest.TestCase):
             }
         ]
 
-        class _FakeResponse:
-            def __enter__(self):
-                return self
-
-            def __exit__(self, exc_type, exc, tb):
-                return False
-
-            def read(self):
-                return json.dumps(response_payload).encode("utf-8")
-
         with tempfile.TemporaryDirectory() as tmp:
             cache_path = Path(tmp) / "geocode_cache.json"
             geocoder = ai_geocode.NominatimGeocoder(cache_path=cache_path)
-            with mock.patch.object(ai_geocode.urllib.request, "urlopen", return_value=_FakeResponse()):
+            with mock.patch.object(ai_geocode.urllib.request, "urlopen", return_value=FakeLMStudioResponse(json.dumps(response_payload).encode("utf-8"))):
                 result = geocoder.geocode("Vienna City Hall, Vienna, Austria")
 
             self.assertIsNotNone(result)

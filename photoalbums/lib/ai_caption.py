@@ -4,9 +4,6 @@ import urllib.request  # noqa: F401 — kept at module level for test patching v
 from dataclasses import dataclass
 from pathlib import Path
 
-from .ai_model_settings import default_caption_model, default_caption_models, default_lmstudio_base_url
-from ._caption_text import clean_text, clean_lines, dedupe, join_human  # noqa: F401
-from ._lmstudio_helpers import emit_prompt_debug as _emit_prompt_debug
 from ._caption_lmstudio import (  # noqa: F401
     DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE,
     DEFAULT_LMSTUDIO_BASE_URL,
@@ -24,21 +21,24 @@ from ._caption_lmstudio import (  # noqa: F401
     _parse_lmstudio_structured_caption_payload,
     _resize_caption_image,
     _select_lmstudio_model,
-    location_system_prompt,
     location_shown_system_prompt,
+    location_system_prompt,
     normalize_lmstudio_base_url,
     people_count_system_prompt,
 )
-from ._caption_prompts import (  # noqa: F401
+from ._caption_prompts import (
+    _build_local_prompt,
     _build_location_prompt,
     _build_people_count_prompt,
-    _build_local_prompt,
     caption_prompt_metadata,
     location_prompt_metadata,
     location_queries_prompt_metadata,
     location_shown_prompt_metadata,
     people_count_prompt_metadata,
 )
+from ._caption_text import clean_lines, clean_text, dedupe, join_human  # noqa: F401
+from ._lmstudio_helpers import emit_prompt_debug as _emit_prompt_debug
+from .ai_model_settings import default_caption_model, default_caption_models, default_lmstudio_base_url
 from .ai_prompt_assets import load_params, params_metadata
 
 
@@ -306,6 +306,7 @@ class CaptionEngine:
         self,
         debug_recorder,
         debug_step: str,
+        *,
         prompt: str,
         source_path: str | Path,
         response: str,

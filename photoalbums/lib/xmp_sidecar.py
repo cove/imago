@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import json
 import logging
-from pathlib import Path
 import xml.etree.ElementTree as ET
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
 
 log = logging.getLogger(__name__)
 
-from ._caption_text import dedupe as _dedupe
 from ..naming import SCAN_NAME_RE, VIEW_PAGE_RE, is_pages_dir, is_photos_dir, parse_album_filename
+from ._caption_text import dedupe as _dedupe
 
 X_NS = "adobe:ns:meta/"
 RDF_NS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
@@ -56,7 +57,7 @@ DESCRIPTION_ROLE_CROP = "crop"
 
 
 def _xmp_datetime_now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _normalize_xmp_datetime(value: str) -> str:
@@ -81,7 +82,8 @@ def _normalize_xmp_datetime(value: str) -> str:
     ):
         try:
             parsed = datetime.strptime(text, fmt)
-        except ValueError:
+        except ValueError as exc:
+            log.debug("datetime parse failed for format %r: %s", fmt, exc)
             continue
         normalized = parsed.replace(microsecond=0).isoformat()
         return normalized.replace("+00:00", "Z")
@@ -579,6 +581,7 @@ def _description_default_text(
 def _add_description_with_text_layers(
     parent: ET.Element,
     tag: str,
+    *,
     description_role: str,
     description: str,
     ocr_text: str,
@@ -705,6 +708,13 @@ def _image_region_is_face(item: ET.Element) -> bool:
     return region_id.startswith("face-")
 
 
+def _remove_face_items_from_bag(bag: ET.Element) -> None:
+    """Remove all face-identified items from an RDF bag element."""
+    for item in list(bag.findall(_RDF_LI)):
+        if _image_region_is_face(item):
+            bag.remove(item)
+
+
 def _replace_iptc_face_regions(
     parent: ET.Element,
     people: list[dict],
@@ -715,9 +725,7 @@ def _replace_iptc_face_regions(
     if field is not None:
         bag = field.find(_RDF_BAG)
         if bag is not None:
-            for item in list(bag.findall(_RDF_LI)):
-                if _image_region_is_face(item):
-                    bag.remove(item)
+            _remove_face_items_from_bag(bag)
             if not list(bag):
                 field.remove(bag)
         if not list(field):
@@ -915,11 +923,11 @@ def build_xmp_tree(
     _add_description_with_text_layers(
         desc,
         f"{{{DC_NS}}}description",
-        description_role,
-        description,
-        ocr_text,
-        author_text,
-        scene_text,
+        description_role=description_role,
+        description=description,
+        ocr_text=ocr_text,
+        author_text=author_text,
+        scene_text=scene_text,
     )
     clean_dc_dates = _normalize_dc_dates(dc_date)
     if clean_dc_dates:
@@ -1063,6 +1071,7 @@ def _set_seq_text(parent: ET.Element, tag: str, value: str | list[str] | tuple[s
 def _set_description_with_text_layers(
     parent: ET.Element,
     tag: str,
+    *,
     description_role: str,
     description: str,
     ocr_text: str,
@@ -1110,8 +1119,8 @@ def _load_or_create_xmp_tree(path: str | Path) -> ET.ElementTree:
     if path.is_file():
         try:
             return ET.parse(path)  # type: ignore[return-value]
-        except ET.ParseError:
-            pass
+        except ET.ParseError as exc:
+            log.debug("XMP parse error in %s, using empty tree: %s", path, exc)
     xmpmeta = ET.Element(f"{{{X_NS}}}xmpmeta")
     xmpmeta.set(f"{{{X_NS}}}xmptk", "imago")
     rdf = ET.SubElement(xmpmeta, _RDF_ROOT)
@@ -1608,6 +1617,7 @@ def _processing_bool(
     desc: ET.Element,
     processing_state: dict,
     processing_meta: dict,
+    *,
     state_key: str,
     meta_key: str,
     tag: str,
@@ -1646,17 +1656,17 @@ def _sidecar_processing_meta_values(
             desc,
             processing_state,
             processing_meta,
-            "people_detected",
-            "people_detected",
-            f"{{{IMAGO_NS}}}PeopleDetected",
+            state_key="people_detected",
+            meta_key="people_detected",
+            tag=f"{{{IMAGO_NS}}}PeopleDetected",
         ),
         "people_identified": _processing_bool(
             desc,
             processing_state,
             processing_meta,
-            "people_identified",
-            "people_identified",
-            f"{{{IMAGO_NS}}}PeopleIdentified",
+            state_key="people_identified",
+            meta_key="people_identified",
+            tag=f"{{{IMAGO_NS}}}PeopleIdentified",
         ),
     }
 
@@ -1675,7 +1685,7 @@ def _sidecar_processing_signature_values(processing_meta: dict) -> dict[str, obj
     }
 
 
-def _optional_xmp_gps_to_decimal():
+def _optional_xmp_gps_to_decimal() -> Any | None:
     try:
         from .ai_location import _xmp_gps_to_decimal  # pylint: disable=import-outside-toplevel
     except Exception as exc:  # pragma: no cover - defensive import fallback
@@ -1751,23 +1761,25 @@ def read_ai_sidecar_state(sidecar_path: str | Path) -> dict[str, object] | None:
         processing_meta=processing_meta,
     )
     result = _sidecar_text_desc_fields(desc, description_role=description_role, dc_date_values=dc_date_values)
-    result.update({
-        "gps_latitude": location_state["gps_latitude"],
-        "gps_longitude": location_state["gps_longitude"],
-        "location_city": location_state["location_city"],
-        "location_state": location_state["location_state"],
-        "location_country": location_state["location_country"],
-        "location_sublocation": location_state["location_sublocation"],
-        "location_created": location_state["location_created"],
-        "ocr_authority_source": processing_values["ocr_authority_source"],
-        "stitch_key": processing_values["stitch_key"],
-        "processing_history": processing_history,
-        "detections": detections_payload,
-        "ocr_ran": processing_values["ocr_ran"],
-        "people_detected": processing_values["people_detected"],
-        "people_identified": processing_values["people_identified"],
-        **_sidecar_processing_signature_values(processing_meta),
-    })
+    result.update(
+        {
+            "gps_latitude": location_state["gps_latitude"],
+            "gps_longitude": location_state["gps_longitude"],
+            "location_city": location_state["location_city"],
+            "location_state": location_state["location_state"],
+            "location_country": location_state["location_country"],
+            "location_sublocation": location_state["location_sublocation"],
+            "location_created": location_state["location_created"],
+            "ocr_authority_source": processing_values["ocr_authority_source"],
+            "stitch_key": processing_values["stitch_key"],
+            "processing_history": processing_history,
+            "detections": detections_payload,
+            "ocr_ran": processing_values["ocr_ran"],
+            "people_detected": processing_values["people_detected"],
+            "people_identified": processing_values["people_identified"],
+            **_sidecar_processing_signature_values(processing_meta),
+        }
+    )
     return result
 
 
@@ -1822,7 +1834,7 @@ def _people_detection_block_is_expected(detections: dict) -> bool:
     return any(isinstance(p, dict) and isinstance(p.get("bbox"), list) and len(p["bbox"]) >= 4 for p in people)
 
 
-def _caption_reasoning_checker():
+def _caption_reasoning_checker() -> Any | None:
     try:
         from .ai_caption import _looks_like_reasoning_or_prompt_echo  # pylint: disable=import-outside-toplevel
     except Exception as exc:  # pragma: no cover - defensive import fallback
@@ -1831,7 +1843,7 @@ def _caption_reasoning_checker():
     return _looks_like_reasoning_or_prompt_echo
 
 
-def _ocr_reasoning_checker():
+def _ocr_reasoning_checker() -> Any | None:
     try:
         from .ai_ocr import _looks_like_ocr_reasoning  # pylint: disable=import-outside-toplevel
     except Exception as exc:  # pragma: no cover - defensive import fallback
@@ -2046,24 +2058,28 @@ def _merged_base_xmp_values(
             list(locations_shown) if locations_shown is not None else _read_locations_shown_from_desc(desc)
         ),
     }
-    result.update(_merged_title_description_fields(
-        desc,
-        title=title,
-        title_source=title_source,
-        description=description,
-        album_title=album_title,
-        description_role=description_role,
-        create_date=create_date,
-    ))
-    result.update(_merged_annotation_fields(
-        desc,
-        source_text=source_text,
-        ocr_lang=ocr_lang,
-        author_text=author_text,
-        scene_text=scene_text,
-        ocr_authority_source=ocr_authority_source,
-        stitch_key=stitch_key,
-    ))
+    result.update(
+        _merged_title_description_fields(
+            desc,
+            title=title,
+            title_source=title_source,
+            description=description,
+            album_title=album_title,
+            description_role=description_role,
+            create_date=create_date,
+        )
+    )
+    result.update(
+        _merged_annotation_fields(
+            desc,
+            source_text=source_text,
+            ocr_lang=ocr_lang,
+            author_text=author_text,
+            scene_text=scene_text,
+            ocr_authority_source=ocr_authority_source,
+            stitch_key=stitch_key,
+        )
+    )
     return result
 
 
@@ -2255,11 +2271,11 @@ def _merge_xmp_tree(
     _set_description_with_text_layers(
         desc,
         f"{{{DC_NS}}}description",
-        description_role,
-        description,
-        ocr_text,
-        author_text,
-        scene_text,
+        description_role=description_role,
+        description=description,
+        ocr_text=ocr_text,
+        author_text=author_text,
+        scene_text=scene_text,
     )
     _set_seq_text(desc, f"{{{DC_NS}}}date", normalized_dc_dates)
     _set_simple_text(desc, f"{{{EXIF_NS}}}DateTimeOriginal", date_time_original)
@@ -2716,8 +2732,8 @@ def _read_or_create_xmp_tree(path: Path) -> ET.ElementTree:
     if path.is_file():
         try:
             return ET.parse(str(path))  # type: ignore[return-value]
-        except ET.ParseError:
-            pass
+        except ET.ParseError as exc:
+            log.debug("XMP parse error in %s, using empty tree: %s", path, exc)
     xmpmeta = ET.Element(f"{{{X_NS}}}xmpmeta")
     xmpmeta.set(f"{{{X_NS}}}xmptk", "imago")
     rdf = ET.SubElement(xmpmeta, _RDF_ROOT)
@@ -2753,7 +2769,7 @@ def _add_mwgrs_region_item(
     pixel_to_mwgrs,
 ) -> None:
     r = rwc.region
-    cx, cy, nw, nh = pixel_to_mwgrs(r.x, r.y, r.width, r.height, img_w, img_h)
+    cx, cy, nw, nh = pixel_to_mwgrs(r.x, r.y, r.width, r.height, img_size=(img_w, img_h))
     existing_region = existing_regions[r.index] if 0 <= int(r.index) < len(existing_regions) else {}
     photo_number = int(getattr(r, "photo_number", 0) or 0) or int(existing_region.get("photo_number") or 0)
     region_caption = _region_caption_text(
@@ -2865,7 +2881,8 @@ def read_region_list(xmp_path: str | Path, img_w: int, img_h: int) -> list[dict]
             cy = float(cy_t)
             nw = float(nw_t)
             nh = float(nh_t)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError) as exc:
+            log.debug("Skipping region with invalid coordinate values: %s", exc)
             continue
         px = max(0, int(round((cx - nw / 2.0) * img_w)))
         py = max(0, int(round((cy - nh / 2.0) * img_h)))

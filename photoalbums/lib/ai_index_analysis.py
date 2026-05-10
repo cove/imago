@@ -7,21 +7,20 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .ai_caption import CaptionEngine
-from .ai_geocode import NominatimGeocoder
-from .ai_location import run_locations_step, _resolve_location_payload
-from .ai_metadata import MetadataEngine
-from .ai_ocr import OCREngine, extract_keywords
-from .ai_index_steps import StepRunner
-from .image_limits import allow_large_pillow_images
-from .prompt_debug import PromptDebugSession
-from .xmp_sidecar import _dedupe
-from .ai_sidecar_state import _is_derived_image_path
-
 from .ai_album_titles import (
     _require_album_title_for_title_page,
     _resolve_title_page_album_title,
 )
+from .ai_caption import CaptionEngine
+from .ai_geocode import NominatimGeocoder
+from .ai_index_steps import StepRunner
+from .ai_location import _resolve_location_payload, run_locations_step
+from .ai_metadata import MetadataEngine
+from .ai_ocr import OCREngine, extract_keywords
+from .ai_sidecar_state import _is_derived_image_path
+from .image_limits import allow_large_pillow_images
+from .prompt_debug import PromptDebugSession
+from .xmp_sidecar import _dedupe
 
 AI_MODEL_MAX_SOURCE_BYTES = 30 * 1024 * 1024
 
@@ -843,6 +842,7 @@ def _metadata_step_location_payload(
 
 def _metadata_step_update_state(
     result: Any,
+    *,
     state: dict[str, Any],
     image_path: Path,
     caption_source_path: Path | None,
@@ -941,7 +941,14 @@ def _run_metadata_analysis_step(
             debug_step="metadata",
         )
         ran["value"] = True
-        _metadata_step_update_state(result, state, image_path, caption_source_path, geocoder, geocode_recorder)
+        _metadata_step_update_state(
+            result,
+            state=state,
+            image_path=image_path,
+            caption_source_path=caption_source_path,
+            geocoder=geocoder,
+            geocode_recorder=geocode_recorder,
+        )
         return _metadata_step_build_output(result, state, metadata_engine)
 
     metadata_output = step_runner.run("metadata", _do_metadata, model=str(metadata_engine.effective_model_name))

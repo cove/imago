@@ -57,7 +57,7 @@ def _configure_render_env(monkeypatch, tmp_path: Path, transcript_mode: str) -> 
 
     def _fake_run(*args, **kwargs):
         run_calls.append((args, kwargs))
-        return None
+        return
 
     monkeypatch.setattr(render_pipeline, "run", _fake_run)
     monkeypatch.setattr(render_pipeline, "assert_expected_frame_count", lambda *args, **kwargs: None)

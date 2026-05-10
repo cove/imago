@@ -1,15 +1,17 @@
+import contextlib
+import io
+import logging
 from pathlib import Path
 from types import SimpleNamespace
-import io
-import contextlib
-
-import numpy as np
 
 import cv2
+import numpy as np
 
 from cast import ingest
 from cast.ingest import FaceIngestor, crop_has_visual_detail
 from cast.storage import TextFaceStore
+
+log = logging.getLogger(__name__)
 
 
 def test_iter_photo_files_scans_view_dirs(tmp_path):
@@ -223,8 +225,8 @@ def test_ingest_photo_rejects_directory_path(tmp_path):
     try:
         ingestor.ingest_photo(image_path=folder)
         assert False, "Expected IsADirectoryError"
-    except IsADirectoryError:
-        pass
+    except IsADirectoryError as exc:
+        log.debug("ingest_photo correctly raised IsADirectoryError: %s", exc)
 
 
 def test_get_insightface_app_suppresses_startup_noise(monkeypatch):

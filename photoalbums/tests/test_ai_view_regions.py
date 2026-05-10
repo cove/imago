@@ -37,7 +37,7 @@ from photoalbums.lib.xmp_sidecar import read_pipeline_step, read_region_list, wr
 
 class TestPixelToMwgrs(unittest.TestCase):
     def test_centre_point_computed_correctly(self):
-        cx, cy, nw, nh = pixel_to_mwgrs(100, 200, 400, 300, 1000, 1000)
+        cx, cy, nw, nh = pixel_to_mwgrs(100, 200, 400, 300, img_size=(1000, 1000))
         self.assertAlmostEqual(cx, 0.3)
         self.assertAlmostEqual(cy, 0.35)
         self.assertAlmostEqual(nw, 0.4)
@@ -277,16 +277,15 @@ class TestRunDetectViewRegions(unittest.TestCase):
             with mock.patch(
                 "photoalbums.lib.album_sets.find_archive_set_by_photos_root",
                 return_value=resolve_archive_set("cordell"),
-            ):
-                with mock.patch("photoalbums.lib.ai_view_regions.detect_regions", return_value=[]) as detect_mock:
-                    from photoalbums.commands import run_detect_view_regions
+            ), mock.patch("photoalbums.lib.ai_view_regions.detect_regions", return_value=[]) as detect_mock:
+                from photoalbums.commands import run_detect_view_regions
 
-                    exit_code = run_detect_view_regions(
-                        album_id="Cordell_1975",
-                        photos_root=str(root),
-                        page=None,
-                        force=False,
-                    )
+                exit_code = run_detect_view_regions(
+                    album_id="Cordell_1975",
+                    photos_root=str(root),
+                    page=None,
+                    force=False,
+                )
 
         self.assertEqual(exit_code, 0)
         kwargs = detect_mock.call_args.kwargs

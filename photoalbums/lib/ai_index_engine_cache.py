@@ -12,7 +12,6 @@ from .ai_caption import (
 from .ai_date import DateEstimateEngine
 from .ai_model_settings import default_lmstudio_base_url
 
-
 PROCESSOR_SIGNATURE = "page_split_v17_people_recovery_any_people"
 
 
@@ -21,7 +20,7 @@ def _init_people_matcher(
     cast_store: Path,
     min_similarity: float,
     min_face_size: int,
-):
+) -> Any | None:
     if cast_store is None:
         return None
     from .ai_people import CastPeopleMatcher
@@ -37,7 +36,7 @@ def _init_object_detector(
     *,
     model_name: str,
     confidence: float,
-):
+) -> Any | None:
     if not str(model_name or "").strip():
         return None
     from .ai_objects import YOLOObjectDetector

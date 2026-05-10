@@ -6,7 +6,7 @@ import logging
 import threading
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 
 
 def utc_now_iso() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _json_default(path: Path) -> Any:
@@ -41,14 +41,15 @@ def _parse_jsonl_text(text: str) -> list[dict]:
             payload = json.loads(stripped)
             if isinstance(payload, list):
                 return [dict(item) for item in payload if isinstance(item, dict)]
-        except json.JSONDecodeError:
-            pass
+        except json.JSONDecodeError as exc:
+            log.debug("json array fallback parse failed: %s", exc)
     return []
 
 
-def _try_json_loads(text: str) -> Any:
+def _try_json_loads(text: str) -> Any | None:
     try:
-        return json.loads(text)
+        result = json.loads(text)
+        return result
     except json.JSONDecodeError as exc:
         log.debug("json parse failed: %s", exc)
         return None
@@ -208,8 +209,8 @@ class TextFaceStore:
                 if isinstance(data, dict):
                     self._face_manifest = {str(k): int(v) for k, v in data.items()}
                     return self._face_manifest
-            except (json.JSONDecodeError, ValueError, TypeError):
-                pass
+            except (json.JSONDecodeError, ValueError, TypeError) as exc:
+                log.debug("manifest parse failed, resetting: %s", exc)
         self._face_manifest = {}
         return self._face_manifest
 
@@ -408,6 +409,13 @@ class TextFaceStore:
                         return normalize_face_record(row)
             return None
 
+    def _rows_matching_source(self, rows: list[Any], source_key: str) -> list[dict[str, Any]]:
+        return [
+            normalize_face_record(row)
+            for row in rows
+            if isinstance(row, dict) and str(row.get("source_path") or "").strip() == source_key
+        ]
+
     def list_faces_for_source(self, source_path: str) -> list[dict[str, Any]]:
         source_key = str(source_path or "").strip()
         if not source_key:
@@ -419,14 +427,10 @@ class TextFaceStore:
             for idx in chunk_indices:
                 chunk_rows = self._read_chunk(idx)
                 if isinstance(chunk_rows, list):
-                    for row in chunk_rows:
-                        if str(row.get("source_path") or "").strip() == source_key:
-                            results.append(normalize_face_record(row))
+                    results.extend(self._rows_matching_source(chunk_rows, source_key))
             queue_rows = self._read_json(self.faces_queue_path)
             if isinstance(queue_rows, list):
-                for row in queue_rows:
-                    if str(row.get("source_path") or "").strip() == source_key:
-                        results.append(normalize_face_record(row))
+                results.extend(self._rows_matching_source(queue_rows, source_key))
             return results
 
     def add_face(
@@ -719,7 +723,7 @@ class TextFaceStore:
             if clean_status == "skipped":
                 self._write_json(self.review_path, kept_reviews + matched_reviews)
                 return {
-                    "updated_reviews": int(len(matched_reviews)),
+                    "updated_reviews": len(matched_reviews),
                     "updated_faces": 0,
                 }
 
@@ -734,7 +738,7 @@ class TextFaceStore:
             self._write_json(self.review_path, kept_reviews + matched_reviews)
             self._write_all_faces(face_rows)
             return {
-                "updated_reviews": int(len(matched_reviews)),
+                "updated_reviews": len(matched_reviews),
                 "updated_faces": int(updated_faces),
             }
 
@@ -864,13 +868,15 @@ class TextFaceStore:
             path = (root / rel).resolve()
             try:
                 path.relative_to(root)
-            except ValueError:
+            except ValueError as exc:
+                log.debug("crop path escapes store root, skipping: %s", exc)
                 continue
             try:
                 if path.exists():
                     path.unlink()
                     removed_crops += 1
-            except Exception:
+            except Exception as exc:
+                log.debug("failed to remove crop file %s: %s", path, exc)
                 continue
         return int(removed_crops)
 
@@ -1036,6 +1042,6 @@ class TextFaceStore:
             "removed_faces": removed_faces,
             "removed_reviews": removed_reviews,
             "removed_crops": removed_crops,
-            "kept_faces": int(len(self.list_faces())),
-            "kept_reviews": int(len(self.list_review_items())),
+            "kept_faces": len(self.list_faces()),
+            "kept_reviews": len(self.list_review_items()),
         }

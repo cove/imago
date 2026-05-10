@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -11,8 +12,8 @@ from ..naming import (
     BASE_PAGE_NAME_RE,
     DERIVED_NAME_RE,
     SCAN_NAME_RE,
-    album_sibling_dir,
     album_dir_suffix,
+    album_sibling_dir,
     parse_album_filename,
 )
 from .ai_caption import clean_text
@@ -88,7 +89,7 @@ def _base_page_name_match(path: str | Path):
     return BASE_PAGE_NAME_RE.fullmatch(Path(path).stem)
 
 
-def _title_page_scan_match(path: str | Path):
+def _title_page_scan_match(path: str | Path) -> re.Match | None:
     match = _scan_name_match(path)
     if match is None:
         return None
@@ -103,7 +104,7 @@ def _title_page_scan_match(path: str | Path):
     return None
 
 
-def _title_page_base_match(path: str | Path):
+def _title_page_base_match(path: str | Path) -> re.Match | None:
     match = _base_page_name_match(path)
     if match is None:
         return None
@@ -162,7 +163,8 @@ def _iter_album_title_page_images(image_path: Path, extensions: set[str]):
     for folder in _album_directory_candidates(image_path):
         try:
             rows = list(folder.iterdir())
-        except FileNotFoundError:
+        except FileNotFoundError as exc:
+            log.debug("Album title candidate folder not found: %s", exc)
             continue
         for candidate in rows:
             if not candidate.is_file():

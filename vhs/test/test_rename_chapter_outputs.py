@@ -4,7 +4,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from apps.plain_html_wizard.server import _rename_chapter_outputs
 from common import safe
 
@@ -35,7 +34,7 @@ def _make_sidecars(dir_: Path, stem: str) -> list[Path]:
 TEST_ARCHIVE = "test_archive"
 
 
-@pytest.fixture()
+@pytest.fixture
 def videos_dir(tmp_path: Path, monkeypatch):
     d = tmp_path / "videos"
     d.mkdir()

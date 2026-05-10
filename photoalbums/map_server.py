@@ -1,15 +1,18 @@
 """HTTP server for map-based XMP location correction."""
 
 import json
+import logging
 import urllib.parse
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import ClassVar
 
-from .lib.xmp_sidecar import read_ai_sidecar_state, write_xmp_sidecar, read_person_in_image, read_locations_shown
+log = logging.getLogger(__name__)
+
 from .lib.ai_geocode import NominatimGeocoder
 from .lib.ai_location import _xmp_gps_to_decimal
+from .lib.xmp_sidecar import read_ai_sidecar_state, read_locations_shown, read_person_in_image, write_xmp_sidecar
 
 # We will store paths here globally for the simple HTTP server to access
 _XMP_PATHS: list[Path] = []
@@ -823,8 +826,8 @@ def _parse_gps_coords(state: dict) -> tuple[float, float]:
     if lat_str and lon_str:
         try:
             return _xmp_gps_to_decimal(lat_str, axis="lat"), _xmp_gps_to_decimal(lon_str, axis="lon")
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("GPS coordinate parse failed for lat=%r lon=%r: %s", lat_str, lon_str, exc)
     return 0.0, 0.0
 
 
@@ -966,6 +969,7 @@ class MapHandler(BaseHTTPRequestHandler):
     @staticmethod
     def _tiff_to_jpeg_bytes(p: Path) -> bytes:
         import io
+
         from PIL import Image
 
         with Image.open(p) as img:
@@ -974,6 +978,17 @@ class MapHandler(BaseHTTPRequestHandler):
             buf = io.BytesIO()
             img.save(buf, format="JPEG", quality=85)
             return buf.getvalue()
+
+    def _serve_tiff_as_jpeg(self, p: Path) -> None:
+        try:
+            data = self._tiff_to_jpeg_bytes(p)
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "image/jpeg")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+        except Exception as e:
+            self._send_json({"error": f"Failed to process TIFF: {e}"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
     def _serve_image(self, query: dict[str, list[str]]) -> None:
         path_values = query.get("path") or []
@@ -1010,17 +1025,8 @@ class MapHandler(BaseHTTPRequestHandler):
             ct = "image/png"
         elif ext in (".tif", ".tiff"):
             # Browsers cannot display TIFF files natively. Convert to JPEG in memory for the web UI.
-            try:
-                data = self._tiff_to_jpeg_bytes(p)
-                self.send_response(HTTPStatus.OK)
-                self.send_header("Content-Type", "image/jpeg")
-                self.send_header("Content-Length", str(len(data)))
-                self.end_headers()
-                self.wfile.write(data)
-                return
-            except Exception as e:
-                self._send_json({"error": f"Failed to process TIFF: {e}"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
-                return
+            self._serve_tiff_as_jpeg(p)
+            return
         else:
             self._send_json({"error": "Unsupported media type"}, status=HTTPStatus.UNSUPPORTED_MEDIA_TYPE)
             return
@@ -1063,6 +1069,7 @@ class MapHandler(BaseHTTPRequestHandler):
         existing: dict,
         locations_shown: list,
         payload: dict,
+        *,
         action: str,
         lat,
         lon,
@@ -1097,7 +1104,7 @@ class MapHandler(BaseHTTPRequestHandler):
         if target_path is None:
             return
 
-        result = self._compute_update_location(existing, locations_shown, payload, action, lat, lon, idx)
+        result = self._compute_update_location(existing, locations_shown, payload, action=action, lat=lat, lon=lon, idx=idx)
         if result is None:
             return
         city, state, country, exif_lat, exif_lon, exif_city, exif_state, exif_country = result
@@ -1135,7 +1142,7 @@ class MapHandler(BaseHTTPRequestHandler):
         )
 
     @staticmethod
-    def _build_nominatim_location(lat: float, lon: float, city: str, state: str, country: str, query: str) -> dict:
+    def _build_nominatim_location(lat: float, lon: float, *, city: str, state: str, country: str, query: str) -> dict:
         loc: dict = {
             "gps_latitude": float(lat),
             "gps_longitude": float(lon),
@@ -1166,6 +1173,7 @@ class MapHandler(BaseHTTPRequestHandler):
         self,
         existing: dict,
         locations_shown: list,
+        *,
         idx: int,
         lat: float,
         lon: float,
@@ -1208,12 +1216,12 @@ class MapHandler(BaseHTTPRequestHandler):
             return
 
         exif_lat, exif_lon, exif_city, exif_state, exif_country = self._resolve_geocode_location_fields(
-            existing, locations_shown, idx, lat, lon, city, state, country, query
+            existing, locations_shown, idx=idx, lat=lat, lon=lon, city=city, state=state, country=country, query=query
         )
 
         updated_detections = dict(existing.get("detections") or {})
         if idx < 0:
-            updated_detections["location"] = self._build_nominatim_location(lat, lon, city, state, country, query)
+            updated_detections["location"] = self._build_nominatim_location(lat, lon, city=city, state=state, country=country, query=query)
 
         _write_location_xmp_sidecar(
             target_path,
@@ -1261,24 +1269,29 @@ class MapHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def log_message(self, _format: str, *args: object) -> None:
-        pass
+        """Suppress HTTP request logging."""
+        return
+
+
+def _collect_xmp_paths(p_str: str) -> list[Path]:
+    """Collect resolved XMP paths from a single path string (file, directory, or glob pattern)."""
+    import glob  # pylint: disable=import-outside-toplevel
+
+    p = Path(p_str)
+    if p.is_file() and p.suffix.lower() == ".xmp":
+        return [p.resolve()]
+    if p.is_dir():
+        return [f.resolve() for f in p.rglob("*.xmp")]
+    return [
+        Path(f_str).resolve()
+        for f_str in glob.glob(str(p_str))
+        if Path(f_str).is_file() and Path(f_str).suffix.lower() == ".xmp"
+    ]
 
 
 def run_server(paths: list[str], port: int = 8095):
-    import glob
-
     for p_str in paths:
-        p = Path(p_str)
-        if p.is_file() and p.suffix.lower() == ".xmp":
-            _XMP_PATHS.append(p.resolve())
-        elif p.is_dir():
-            for f in p.rglob("*.xmp"):
-                _XMP_PATHS.append(f.resolve())
-        else:
-            for f_str in glob.glob(str(p_str)):
-                f_path = Path(f_str)
-                if f_path.is_file() and f_path.suffix.lower() == ".xmp":
-                    _XMP_PATHS.append(f_path.resolve())
+        _XMP_PATHS.extend(_collect_xmp_paths(p_str))
 
     server = ThreadingHTTPServer(("0.0.0.0", port), MapHandler)
     print(f"Map server running at http://localhost:{port}")

@@ -46,6 +46,7 @@ def _next_bennett_number(output_dir: Path) -> int:
 
 def _open_tif_rgb(tif_path: Path):
     from PIL import Image
+
     from .lib.image_limits import allow_large_pillow_images
     allow_large_pillow_images(Image)
     img = Image.open(str(tif_path))
@@ -131,17 +132,21 @@ def watch(*, output_dir: Path | None = None) -> int:
     try:
         while True:
             if incoming.is_file() and _is_file_stable(incoming):
-                try:
-                    written = process_scan(incoming, output_dir)
-                    incoming.unlink()
-                    print(f"Done. Wrote {len(written)} crop(s). Removed {INCOMING_NAME}.")
-                except Exception as exc:
-                    print(f"ERROR processing {INCOMING_NAME} failed due to: {exc}", file=sys.stderr)
+                _process_incoming_scan(incoming, output_dir)
             else:
                 time.sleep(_POLL_INTERVAL_SECONDS)
     except KeyboardInterrupt:
         print("\nStopped.")
     return 0
+
+
+def _process_incoming_scan(incoming: Path, output_dir: Path) -> None:
+    try:
+        written = process_scan(incoming, output_dir)
+        incoming.unlink()
+        print(f"Done. Wrote {len(written)} crop(s). Removed {INCOMING_NAME}.")
+    except Exception as exc:
+        print(f"ERROR processing {INCOMING_NAME} failed due to: {exc}", file=sys.stderr)
 
 
 def _run_process_command(output_dir: Path) -> int:

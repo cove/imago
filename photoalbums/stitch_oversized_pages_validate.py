@@ -45,6 +45,18 @@ def validate_stitch(files, stitcher_factory=None) -> None:
     build_stitched_image(files, stitcher_factory=stitcher_factory)
 
 
+def _validate_group(group: list) -> tuple[bool, Exception | None]:
+    """Validate a single group of scan files. Returns (ok, exc_or_none)."""
+    try:
+        if len(group) > 1:
+            validate_stitch(group)
+        else:
+            validate_single(group[0])
+        return True, None
+    except Exception as exc:
+        return False, exc
+
+
 def main() -> None:
     success = failures = 0
     failed = []
@@ -63,15 +75,11 @@ def main() -> None:
     for archive in archive_dirs:
         groups = list_page_scan_groups(archive, NEW_NAME_RE)
         groups.sort(key=lambda g: max(file_created_ts(p) for p in g), reverse=True)
-
         for group in groups:
-            try:
-                if len(group) > 1:
-                    validate_stitch(group)
-                else:
-                    validate_single(group[0])
+            ok, exc = _validate_group(group)
+            if ok:
                 success += 1
-            except Exception as exc:
+            else:
                 failures += 1
                 failed.append(group)
                 print("Error:", exc)

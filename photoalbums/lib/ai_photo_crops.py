@@ -10,25 +10,43 @@ Entry point: crop_page_regions(view_path, photos_dir, *, force=False)
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
 import os
 import re
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 from ..naming import DERIVED_NAME_RE as ALBUM_DERIVED_NAME_RE
 from ..naming import archive_dir_for_album_dir, is_pages_dir
 from .metadata_resolver import (
     build_location_filter_set as _resolver_build_location_filter_set,
+)
+from .metadata_resolver import (
     filter_location_names_from_people as _resolver_filter_location_names_from_people,
+)
+from .metadata_resolver import (
     location_payload_from_caption as _resolver_location_payload_from_caption,
+)
+from .metadata_resolver import (
     location_shown_from_payload as _resolver_location_shown_from_payload,
-    materialize_location_payload as _resolver_materialize_location_payload,
+)
+from .metadata_resolver import (
     match_caption_to_location_shown as _resolver_match_caption_to_location_shown,
+)
+from .metadata_resolver import (
+    materialize_location_payload as _resolver_materialize_location_payload,
+)
+from .metadata_resolver import (
     normalize_location_payload as _resolver_normalize_location_payload,
+)
+from .metadata_resolver import (
     resolve_crop_location as _resolver_resolve_crop_location,
+)
+from .metadata_resolver import (
     resolve_crop_locations_shown as _resolver_resolve_crop_locations_shown,
+)
+from .metadata_resolver import (
     resolve_person_in_image as _resolver_resolve_person_in_image,
 )
 
@@ -179,9 +197,9 @@ def mwgrs_normalised_to_pixel_rect(
     cy: float,
     w: float,
     h: float,
+    *,
     img_w: int,
     img_h: int,
-    *,
     warn_on_significant_clamp: bool = True,
 ) -> tuple[int, int, int, int]:
     """Convert MWG-RS centre-point normalised coords to a pixel rectangle.
@@ -448,52 +466,57 @@ def _write_crop_provenance(crop_xmp: Path, view_path: Path, view_xmp: Path) -> N
         write_pantry_entry(crop_xmp, view_doc_id, source_path=source_rel)
 
 
+class _CropXmpParams(TypedDict):
+    caption: str
+    view_state: dict
+    view_xmp: Path
+    album_title: str
+    archive_source: str
+    effective_loc: dict
+    locations_shown: list[dict]
+    person_names: list[str]
+    parent_ocr: str
+
+
 def _write_crop_xmp_metadata(
     crop_xmp: Path,
     *,
-    caption: str,
-    view_state: dict,
-    view_xmp: Path,
-    crop_album_title: str,
-    archive_source_text: str,
-    effective_loc: dict,
-    crop_locations_shown: list[dict],
-    resolved_person_names: list[str],
-    parent_ocr_text: str,
+    params: _CropXmpParams,
 ) -> None:
     from .xmp_sidecar import write_xmp_sidecar
 
-    subjects = _merged_crop_subjects(view_xmp, crop_xmp)
+    subjects = _merged_crop_subjects(params["view_xmp"], crop_xmp)
     write_xmp_sidecar(
         crop_xmp,
-        person_names=resolved_person_names,
+        person_names=params["person_names"],
         subjects=subjects,
-        description=caption,
-        album_title=crop_album_title,
-        source_text=archive_source_text,
-        gps_latitude=str(effective_loc.get("gps_latitude") or "").strip(),
-        gps_longitude=str(effective_loc.get("gps_longitude") or "").strip(),
-        location_address=str(effective_loc.get("address") or "").strip(),
-        location_city=str(effective_loc.get("city") or "").strip(),
-        location_state=str(effective_loc.get("state") or "").strip(),
-        location_country=str(effective_loc.get("country") or "").strip(),
-        location_sublocation=str(effective_loc.get("sublocation") or "").strip(),
-        create_date=str(view_state.get("create_date") or "").strip(),
-        dc_date=list(view_state.get("dc_date_values") or []),
-        locations_shown=crop_locations_shown,
-        parent_ocr_text=parent_ocr_text,
+        description=params["caption"],
+        album_title=params["album_title"],
+        source_text=params["archive_source"],
+        gps_latitude=str(params["effective_loc"].get("gps_latitude") or "").strip(),
+        gps_longitude=str(params["effective_loc"].get("gps_longitude") or "").strip(),
+        location_address=str(params["effective_loc"].get("address") or "").strip(),
+        location_city=str(params["effective_loc"].get("city") or "").strip(),
+        location_state=str(params["effective_loc"].get("state") or "").strip(),
+        location_country=str(params["effective_loc"].get("country") or "").strip(),
+        location_sublocation=str(params["effective_loc"].get("sublocation") or "").strip(),
+        create_date=str(params["view_state"].get("create_date") or "").strip(),
+        dc_date=list(params["view_state"].get("dc_date_values") or []),
+        locations_shown=params["locations_shown"],
+        parent_ocr_text=params["parent_ocr"],
         ocr_text="",
-        detections_payload={"location": effective_loc} if effective_loc else None,
+        detections_payload={"location": params["effective_loc"]} if params["effective_loc"] else None,
     )
 
 
 def _write_crop_sidecar(
+    *,
     crop_path: Path,
     view_path: Path,
     caption: str,
     view_state: dict,
     locations_shown: list[dict],
-    person_names: list[str],
+    person_names: list[str] | None = None,
     region_location_payload: dict[str, Any] | None = None,
     region_location_override: dict[str, Any] | None = None,
     geocoder=None,
@@ -504,6 +527,7 @@ def _write_crop_sidecar(
     dc:source, location/date/subject metadata from view_state, and
     PersonInImage. Preserves unrelated existing sidecar fields.
     """
+    person_names = person_names or []
     crop_xmp = crop_path.with_suffix(".xmp")
     view_xmp = view_path.with_suffix(".xmp")
 
@@ -533,15 +557,17 @@ def _write_crop_sidecar(
 
     _write_crop_xmp_metadata(
         crop_xmp,
-        caption=caption,
-        view_state=view_state,
-        view_xmp=view_xmp,
-        crop_album_title=crop_album_title,
-        archive_source_text=archive_source_text,
-        effective_loc=effective_loc,
-        crop_locations_shown=crop_locations_shown,
-        resolved_person_names=resolved_person_names,
-        parent_ocr_text=parent_ocr_text,
+        params={
+            "caption": caption,
+            "view_state": view_state,
+            "view_xmp": view_xmp,
+            "album_title": crop_album_title,
+            "archive_source": archive_source_text,
+            "effective_loc": effective_loc,
+            "locations_shown": crop_locations_shown,
+            "person_names": resolved_person_names,
+            "parent_ocr": parent_ocr_text,
+        },
     )
     _verify_crop_sidecar_metadata(
         crop_xmp,
@@ -594,8 +620,8 @@ def _crop_region_rect(
         region["cy"],
         region["nw"],
         region["nh"],
-        img_w,
-        img_h,
+        img_w=img_w,
+        img_h=img_h,
         warn_on_significant_clamp=False,
     )
     if right > left and bottom > top:
@@ -677,12 +703,12 @@ def _write_page_crop_region(
     crop_img.save(str(output_path), format="JPEG", quality=95)
 
     _write_crop_sidecar(
-        output_path,
-        view_path,
-        caption,
-        view_state,
-        locations_shown,
-        list(region.get("person_names") or []),
+        crop_path=output_path,
+        view_path=view_path,
+        caption=caption,
+        view_state=view_state,
+        locations_shown=locations_shown,
+        person_names=list(region.get("person_names") or []),
         region_location_payload=dict(region.get("location_payload") or {}),
         region_location_override=dict(region.get("location_override") or {}),
         geocoder=geocoder,
@@ -720,14 +746,15 @@ def crop_page_regions(
     Returns the count of crops written.
     """
     from PIL import Image
+
     from .xmp_sidecar import (
         clear_pipeline_steps,
         read_ai_sidecar_state,
         read_locations_shown,
         read_pipeline_step,
         read_region_list,
-        write_region_list,
         write_pipeline_step,
+        write_region_list,
     )
 
     view_path = Path(view_path)

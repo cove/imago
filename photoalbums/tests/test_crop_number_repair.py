@@ -43,7 +43,7 @@ def _build_album(
     crop_doc_ids: dict[int, str] = {}
     for number in crop_numbers:
         crop_image = photos_dir / f"{album_id}_{page_token}_D{number:02d}-00_V.jpg"
-        crop_image.write_bytes(f"crop-{number}".encode("utf-8"))
+        crop_image.write_bytes(f"crop-{number}".encode())
         crop_sidecar = crop_image.with_suffix(".xmp")
         write_xmp_sidecar(
             crop_sidecar,

@@ -3,18 +3,22 @@ from __future__ import annotations
 import base64
 import io
 import json
-import time
+import logging
 import re
+import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Sequence, TypeVar
+from typing import Any, TypeVar
 
-from ._caption_text import clean_text, clean_lines
-from .image_limits import allow_large_pillow_images
+log = logging.getLogger(__name__)
+
+from ._caption_text import clean_lines, clean_text
 from ._lmstudio_helpers import LMStudioModelResolverMixin, _normalize_model_name_candidates
 from .ai_prompt_assets import load_params, load_prompt
+from .image_limits import allow_large_pillow_images
 
 DEFAULT_LMSTUDIO_MAX_NEW_TOKENS = 8129
 DEFAULT_LMSTUDIO_BASE_URL = "http://localhost:1234/v1"
@@ -68,7 +72,7 @@ class CaptionDetails:
     def __contains__(self, item: object) -> bool:
         return str(item or "") in self.text
 
-    def _fields_equal(self, other: "CaptionDetails") -> bool:
+    def _fields_equal(self, other: CaptionDetails) -> bool:
         scalar_match = (
             self.text == other.text
             and self.ocr_text == other.ocr_text
@@ -162,7 +166,8 @@ def _iter_structured_json_payloads(text: str):
             continue
         try:
             payload, _end = decoder.raw_decode(raw[idx:])
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as exc:
+            log.debug("JSON decode attempt failed at index %d: %s", idx, exc)
             continue
         if isinstance(payload, dict):
             yield payload
@@ -188,7 +193,7 @@ def _lanczos_resize(image, new_size: tuple[int, int]):
         try:
             from PIL import Image  # pylint: disable=import-outside-toplevel
 
-            resampling = getattr(getattr(Image, "Resampling", Image), "LANCZOS")
+            resampling = getattr(Image, "Resampling", Image).LANCZOS
         except Exception:  # pragma: no cover - Pillow always present in runtime
             resampling = 1
     return image.resize(new_size, resampling)
@@ -1112,6 +1117,19 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
         attempted = "; ".join(errors)
         raise RuntimeError(f"LM Studio model fallback failed: {attempted}") from last_error
 
+    def _stream_tokens_with_retry(self, url: str, payload: dict) -> list[str]:
+        """Stream tokens from LM Studio with automatic retry on transient errors."""
+        tokens: list[str] = []
+        for attempt in range(1, _LMSTUDIO_RETRY_ATTEMPTS + 1):
+            try:
+                tokens = list(_lmstudio_stream_tokens(url, payload, self.timeout_seconds))
+                break
+            except (RuntimeError, urllib.error.URLError, ConnectionError, TimeoutError):
+                if attempt == _LMSTUDIO_RETRY_ATTEMPTS:
+                    raise
+                time.sleep(min(5 * attempt, 15))
+        return tokens
+
     def _call_chat_completion(
         self,
         image_path: str | Path,
@@ -1152,20 +1170,9 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
                     flush=True,
                 )
                 tokens: list[str] = []
-                for attempt in range(1, _LMSTUDIO_RETRY_ATTEMPTS + 1):
-                    try:
-                        tokens = list(
-                            _lmstudio_stream_tokens(
-                                f"{self.base_url}/chat/completions",
-                                payload,
-                                self.timeout_seconds,
-                            )
-                        )
-                        break
-                    except (RuntimeError, urllib.error.URLError, ConnectionError, TimeoutError):
-                        if attempt == _LMSTUDIO_RETRY_ATTEMPTS:
-                            raise
-                        time.sleep(min(5 * attempt, 15))
+                tokens = self._stream_tokens_with_retry(
+                    f"{self.base_url}/chat/completions", payload
+                )
                 print("\r\033[K", end="", flush=True)
                 self.last_response_text = "".join(tokens)
                 return parse_fn(self.last_response_text)

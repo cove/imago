@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import terminal_images  # noqa: E402
+import terminal_images
 
 
 class TestTerminalImages(unittest.TestCase):

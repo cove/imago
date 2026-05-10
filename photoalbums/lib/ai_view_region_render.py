@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import io
+import logging
 from pathlib import Path
 
 from .image_limits import allow_large_pillow_images
+
+logger = logging.getLogger(__name__)
 
 _MAX_EDGE = 1500
 
@@ -19,6 +22,24 @@ _PALETTE = [
     (255, 255, 255),  # white
     (0, 160, 255),  # deepskyblue
 ]
+
+
+def _load_default_font(ImageFont, size: int):
+    """Load the default PIL font at the requested size, falling back to the no-arg form."""
+    try:
+        return ImageFont.load_default(size=size)
+    except TypeError:
+        return ImageFont.load_default()
+
+
+def _draw_label_background(draw, pos: tuple[int, int], label: str, font) -> None:
+    """Draw a dark background rectangle behind the label text if textbbox is available."""
+    try:
+        bbox = draw.textbbox(pos, label, font=font)
+        draw.rectangle(bbox, fill=(0, 0, 0, 180))
+    except AttributeError:
+        logger.debug("textbbox unavailable in older Pillow; skipping label background")
+        return
 
 
 def _render_regions(
@@ -52,10 +73,7 @@ def _render_regions(
         outline_width = max(2, draw_w // 400)
 
         draw = ImageDraw.Draw(img)
-        try:
-            font = ImageFont.load_default(size=max(12, draw_w // 60))
-        except TypeError:
-            font = ImageFont.load_default()
+        font = _load_default_font(ImageFont, size=max(12, draw_w // 60))
 
         for reg in regions:
             idx = int(reg.get("index") or 0)
@@ -82,12 +100,9 @@ def _render_regions(
                 label += f" {caption[:max_cap]}{'…' if len(caption) > max_cap else ''}"
 
             # Draw label background and text
-            try:
-                bbox = draw.textbbox((x0 + outline_width, y0 + outline_width), label, font=font)
-                draw.rectangle(bbox, fill=(0, 0, 0, 180))
-            except AttributeError:
-                bbox = None
-            draw.text((x0 + outline_width, y0 + outline_width), label, fill=colour, font=font)
+            label_pos = (x0 + outline_width, y0 + outline_width)
+            _draw_label_background(draw, label_pos, label, font)
+            draw.text(label_pos, label, fill=colour, font=font)
 
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=88)

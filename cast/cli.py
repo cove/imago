@@ -87,8 +87,8 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
     if args.command == "label-photos":
-        from .label_photos import run_label_photos
         from .ingest import FaceIngestor
+        from .label_photos import run_label_photos
 
         extensions = tuple(
             e.strip() if e.strip().startswith(".") else f".{e.strip()}"

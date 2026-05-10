@@ -3,12 +3,12 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 log = logging.getLogger(__name__)
 
-from .ai_caption import _normalize_gps_value
 from ._caption_lmstudio import _normalize_location_shown_item as _named_location_query
+from .ai_caption import _normalize_gps_value
 from .ai_geocode import NominatimGeocoder
 from .prompt_debug import PromptDebugSession
 
@@ -491,7 +491,7 @@ def _estimate_locations_shown(
     printed_album_title: str,
     prompt_debug: PromptDebugSession | None,
     debug_step: str,
-):
+) -> Any | None:
     try:
         return estimate_locations_shown(
             image_path=model_image_path,
@@ -550,7 +550,7 @@ def _geocode_location_shown(
 
 def run_locations_step(
     *,
-    caption_engine: "CaptionEngine",
+    caption_engine: CaptionEngine,
     image_path: Path,
     caption_text: str,
     ocr_text: str = "",

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from collections import Counter
 import logging
+from collections import Counter
 from typing import Any
 
 log = logging.getLogger(__name__)
@@ -47,6 +47,21 @@ def _build_similarity_adjacency(vectors: np.ndarray, *, min_similarity: float) -
     return adjacency
 
 
+def _expand_neighbor(neighbor, cluster_id, *, graph: dict):
+    """Visit a neighbor node and expand the cluster stack if it is a core point."""
+    visited = graph["visited"]
+    core_points = graph["core_points"]
+    adjacency = graph["adjacency"]
+    stack = graph["stack"]
+    labels = graph["labels"]
+    if not visited[neighbor]:
+        visited[neighbor] = True
+        if bool(core_points[neighbor]):
+            stack.extend(int(item) for item in np.flatnonzero(adjacency[neighbor]))
+    if labels[neighbor] < 0:
+        labels[neighbor] = cluster_id
+
+
 def _dbscan_labels(adjacency: np.ndarray, *, min_samples: int) -> np.ndarray:
     count = int(adjacency.shape[0])
     labels = np.full(count, -1, dtype=np.int32)
@@ -64,12 +79,17 @@ def _dbscan_labels(adjacency: np.ndarray, *, min_samples: int) -> np.ndarray:
         stack = list(np.flatnonzero(adjacency[index]))
         while stack:
             neighbor = int(stack.pop())
-            if not visited[neighbor]:
-                visited[neighbor] = True
-                if bool(core_points[neighbor]):
-                    stack.extend(int(item) for item in np.flatnonzero(adjacency[neighbor]))
-            if labels[neighbor] < 0:
-                labels[neighbor] = cluster_id
+            _expand_neighbor(
+                neighbor,
+                cluster_id,
+                graph={
+                    "visited": visited,
+                    "core_points": core_points,
+                    "adjacency": adjacency,
+                    "stack": stack,
+                    "labels": labels,
+                },
+            )
         cluster_id += 1
     return labels
 
@@ -291,12 +311,12 @@ def _review_cluster_payload(
     )
     return {
         "cluster_id": str(medoid_member["face_id"]),
-        "size": int(len(members)),
+        "size": len(members),
         "review_ids": [str(item["review_id"]) for item in members if str(item["review_id"])],
         "face_ids": [str(item["face_id"]) for item in members if str(item["face_id"])],
         "representative_face_id": str(medoid_member["face_id"]),
         "sample_face_ids": sample_face_ids,
-        "source_count": int(len(source_paths)),
+        "source_count": len(source_paths),
         "quality_median": float(np.median(quality_values)) if quality_values else 0.0,
         "quality_min": float(np.min(quality_values)) if quality_values else 0.0,
         "max_distance": float(stats["max_distance"]),

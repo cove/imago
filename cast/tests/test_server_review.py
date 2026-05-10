@@ -1,5 +1,5 @@
-import json
 import io
+import json
 import threading
 import time
 from urllib.error import HTTPError

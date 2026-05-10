@@ -3,11 +3,11 @@ from __future__ import annotations
 import logging
 import re
 import sys
+import threading
 import time
 import uuid
-import threading
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 log = logging.getLogger(__name__)
 
@@ -35,8 +35,8 @@ try:
         process_tiff_in_place,
         rename_with_retry,
     )
-    from .terminal_images import display_inline_image
     from .lib.ai_orientation import correct_orientation_after_scan, rotate_image_180_in_place
+    from .terminal_images import display_inline_image
 except ImportError:
     from common import (
         INCOMING_NAME,
@@ -51,29 +51,29 @@ except ImportError:
         process_tiff_in_place,
         rename_with_retry,
     )
-    from terminal_images import display_inline_image
     from lib.ai_orientation import correct_orientation_after_scan, rotate_image_180_in_place
+    from terminal_images import display_inline_image
 
 try:
     from .scanwatch_core import (
         ArchiveState,
         ScanEvent,
+        _normalize_path,
+        _now,
         alert_beep,
         cleanup_preview_file,
         save_stitch_preview,
-        _normalize_path,
-        _now,
         validate_stitch,
     )
 except ImportError:
     from scanwatch_core import (
         ArchiveState,
         ScanEvent,
+        _normalize_path,
+        _now,
         alert_beep,
         cleanup_preview_file,
         save_stitch_preview,
-        _normalize_path,
-        _now,
         validate_stitch,
     )
 
@@ -436,7 +436,7 @@ class ScanWatchService:
                 "new_path": str(new_path),
             }
 
-    def _validate_event_for_apply(self, event_id: str, target_name: str) -> "ScanEvent":
+    def _validate_event_for_apply(self, event_id: str, target_name: str) -> ScanEvent:
         event = self._events.get(event_id)
         if event is None:
             raise ValueError(f"Event {event_id} not found")
@@ -447,8 +447,8 @@ class ScanWatchService:
         return event
 
     def _apply_rename_step(
-        self, event: "ScanEvent", old_path: Path, new_path: Path, target_name: str
-    ) -> "dict[str, object] | None":
+        self, event: ScanEvent, old_path: Path, new_path: Path, target_name: str
+    ) -> dict[str, object] | None:
         self.log_info_fn(f"  [rename] {old_path.name} -> {target_name}")
         if not self.rename_fn(old_path, new_path, log_error=self.log_error_fn):
             with self._lock:
@@ -459,8 +459,8 @@ class ScanWatchService:
         return None
 
     def _apply_process_tiff_step(
-        self, event: "ScanEvent", new_path: Path, target_name: str
-    ) -> "dict[str, object] | None":
+        self, event: ScanEvent, new_path: Path, target_name: str
+    ) -> dict[str, object] | None:
         self.log_info_fn(f"  [process-tiff] {target_name}")
         if not self.process_tiff_fn(new_path, log_error=self.log_error_fn):
             with self._lock:
@@ -472,8 +472,8 @@ class ScanWatchService:
         return None
 
     def _apply_orientation_step(
-        self, event: "ScanEvent", new_path: Path, target_name: str, archive_dir: Path
-    ) -> "dict[str, object] | None":
+        self, event: ScanEvent, new_path: Path, target_name: str, archive_dir: Path
+    ) -> dict[str, object] | None:
         _ori_match = PAGE_SCAN_RE.search(target_name)
         _scan_num = int(_ori_match.group("scan")) if _ori_match else None
         _page_num_key = int(_ori_match.group("page")) if _ori_match else None
@@ -493,7 +493,7 @@ class ScanWatchService:
         return None
 
     def _run_orientation_with_cache(
-        self, new_path: Path, target_name: str, scan_num: "int | None", cache_key: "tuple | None"
+        self, new_path: Path, target_name: str, scan_num: int | None, cache_key: tuple | None
     ) -> None:
         if scan_num is not None and scan_num > 1 and cache_key is not None and cache_key in self._orientation_cache:
             cached_degrees = self._orientation_cache[cache_key]

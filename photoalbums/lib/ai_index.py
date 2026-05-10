@@ -7,46 +7,40 @@ import time
 from pathlib import Path
 from typing import Any
 
+from ..naming import (
+    is_archive_dir,
+    is_pages_dir,
+    is_photos_dir,
+    parse_album_filename,
+)
 from .ai_album_titles import (  # noqa: F401
     _album_identity_key,
     _derived_name_match,
     _expand_album_title_dependencies,
-    _iter_album_cover_sidecars,
     _is_album_title_source_candidate,
+    _iter_album_cover_sidecars,
     _looks_like_album_title_page,
     _resolve_album_printed_title_hint,
     _resolve_album_title_hint,
     _scan_name_match,
 )
 from .ai_date import DateEstimateEngine
-from .ai_render_settings import (
-    find_archive_dir_for_image,
+from .ai_index_analysis import (  # noqa: F401
+    AI_MODEL_MAX_SOURCE_BYTES,
+    ArchiveScanOCRAuthority,
+    ImageAnalysis,
+    _build_caption_metadata,
+    _caption_people_name_score,
+    _estimate_people_from_detections,
+    _get_image_dimensions,
+    _merge_people_estimates,
+    _merge_people_matches,
+    _prepare_ai_model_image,
+    _refresh_detection_model_metadata,
+    _resolve_people_count_metadata,
+    _run_image_analysis,
+    _serialize_people_matches,
 )
-from .ai_sidecar_state import (  # noqa: F401
-    MIN_EXISTING_SIDECAR_BYTES,
-    _compute_xmp_title,
-    _effective_sidecar_location_payload,
-    _effective_sidecar_ocr_text,
-    _resolve_xmp_text_layers,
-    has_current_sidecar,
-    has_valid_sidecar,
-)
-from .ai_location import (  # noqa: F401
-    _has_legacy_ai_locations_shown_gps,
-    _resolve_location_metadata,
-    _resolve_location_payload,
-    _resolve_locations_shown,
-)
-from .prompt_debug import PromptDebugSession
-from ..naming import (
-    parse_album_filename,
-)
-from .xmp_sidecar import (
-    _dedupe,
-    _resolve_date_time_original,
-    read_ai_sidecar_state,
-)
-from ..naming import is_archive_dir, is_pages_dir, is_photos_dir
 
 # Re-exports from extracted modules — keep backward compatibility for tests and callers.
 from .ai_index_args import (  # noqa: F401
@@ -65,22 +59,6 @@ from .ai_index_engine_cache import (  # noqa: F401
     _init_people_matcher,
     _settings_signature,
 )
-from .ai_index_analysis import (  # noqa: F401
-    AI_MODEL_MAX_SOURCE_BYTES,
-    ArchiveScanOCRAuthority,
-    ImageAnalysis,
-    _build_caption_metadata,
-    _caption_people_name_score,
-    _estimate_people_from_detections,
-    _get_image_dimensions,
-    _merge_people_estimates,
-    _merge_people_matches,
-    _prepare_ai_model_image,
-    _refresh_detection_model_metadata,
-    _resolve_people_count_metadata,
-    _run_image_analysis,
-    _serialize_people_matches,
-)
 from .ai_index_scan import (  # noqa: F401
     _aggregate_best_rows,
     _bounds_offset,
@@ -96,6 +74,30 @@ from .ai_index_scan import (  # noqa: F401
     _scan_group_signature,
     _scan_number,
     _scan_page_key,
+)
+from .ai_location import (  # noqa: F401
+    _has_legacy_ai_locations_shown_gps,
+    _resolve_location_metadata,
+    _resolve_location_payload,
+    _resolve_locations_shown,
+)
+from .ai_render_settings import (
+    find_archive_dir_for_image,
+)
+from .ai_sidecar_state import (  # noqa: F401
+    MIN_EXISTING_SIDECAR_BYTES,
+    _compute_xmp_title,
+    _effective_sidecar_location_payload,
+    _effective_sidecar_ocr_text,
+    _resolve_xmp_text_layers,
+    has_current_sidecar,
+    has_valid_sidecar,
+)
+from .prompt_debug import PromptDebugSession
+from .xmp_sidecar import (
+    _dedupe,
+    _resolve_date_time_original,
+    read_ai_sidecar_state,
 )
 
 
@@ -121,7 +123,7 @@ def _progress_ticker(prefix: str, _interval: float = 0.5):
         print(f"  {prefix}  [{name}]", flush=True)
 
     def stop() -> None:
-        pass
+        return
 
     return stop, set_step
 
@@ -163,6 +165,7 @@ def _compute_people_positions(people_matches: list, image_path: Path) -> dict[st
 
     try:
         from PIL import Image as _PILImage  # pylint: disable=import-outside-toplevel
+
         from .image_limits import allow_large_pillow_images  # pylint: disable=import-outside-toplevel
 
         allow_large_pillow_images(_PILImage)

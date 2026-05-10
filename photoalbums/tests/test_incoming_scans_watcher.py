@@ -59,8 +59,9 @@ class TestIncomingScansWatcher(unittest.TestCase):
             self.assertIn("_P01_S01", target_name)
 
     def test_on_created_numbered_scan_applies_backlog_in_numeric_order(self):
-        import incoming_scans_watcher
         import time
+
+        import incoming_scans_watcher
 
         with tempfile.TemporaryDirectory() as tmp:
             watch_dir = Path(tmp) / "Album_Archive"

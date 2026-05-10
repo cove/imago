@@ -11,6 +11,7 @@ log = logging.getLogger(__name__)
 
 import cv2
 import numpy as np
+
 from photoalbums.naming import archive_dir_for_album_dir, is_pages_dir
 
 # Suppress FutureWarnings from insightface internals (third-party library noise).
@@ -27,7 +28,7 @@ warnings.filterwarnings(
     module=r"insightface",
 )
 
-from .storage import TextFaceStore  # noqa: E402
+from .storage import TextFaceStore
 
 CURRENT_FACE_EMBEDDING_MODEL = "insightface.buffalo_l.arcface_512"
 CURRENT_FACE_DETECTOR_MODEL = "insightface.buffalo_l.detector"
@@ -44,7 +45,7 @@ def _timestamp_from_seconds(seconds: float) -> str:
 
 
 def _expand_box(
-    x: int, y: int, w: int, h: int, width: int, height: int, margin: float = 0.22
+    x: int, y: int, w: int, h: int, *, width: int, height: int, margin: float = 0.22
 ) -> tuple[int, int, int, int]:
     grow_w = int(round(float(w) * float(margin)))
     grow_h = int(round(float(h) * float(margin)))
@@ -185,7 +186,85 @@ def _resolve_haarcascade_dir() -> Path:
     )
 
 
-class FaceIngestor:
+class _FaceIngestorMixin:
+    """Detection helper methods extracted to reduce FaceIngestor class size."""
+
+    def _detect(self, image_bgr: np.ndarray, *, min_size: int = 40) -> list[tuple[int, int, int, int]]:
+        if image_bgr is None or image_bgr.size == 0:
+            return []
+        if self._insightface is not None:
+            return self._detect_insightface(image_bgr, min_size=int(min_size))
+        return self._detect_haar(image_bgr, min_size=int(min_size))
+
+    def _detect_insightface(self, image_bgr: np.ndarray, *, min_size: int) -> list[tuple[int, int, int, int]]:
+        h, w = image_bgr.shape[:2]
+        if h < 12 or w < 12:
+            return []
+        try:
+            faces = list(self._insightface.get(image_bgr) or [])
+        except Exception:
+            return []
+        out: list[tuple[int, int, int, int]] = []
+        for face in faces:
+            box = self._insightface_box(face, image_width=w, image_height=h, min_size=min_size)
+            if box is not None:
+                out.append(box)
+        return out
+
+    def _insightface_box(
+        self,
+        face: Any,
+        *,
+        image_width: int,
+        image_height: int,
+        min_size: int,
+    ) -> tuple[int, int, int, int] | None:
+        score = float(getattr(face, "det_score", 0.0) or 0.0)
+        if score < self._insightface_score_threshold:
+            return None
+        try:
+            bbox = np.asarray(face.bbox, dtype=np.float32).reshape(-1)
+        except Exception as exc:
+            log.debug("bbox extraction failed: %s", exc)
+            return None
+        if bbox.size < 4:
+            return None
+        x = int(max(0, min(round(float(bbox[0])), image_width - 1)))
+        y = int(max(0, min(round(float(bbox[1])), image_height - 1)))
+        x2 = int(max(x + 1, min(round(float(bbox[2])), image_width)))
+        y2 = int(max(y + 1, min(round(float(bbox[3])), image_height)))
+        fw, fh = x2 - x, y2 - y
+        if min(fw, fh) < max(1, int(min_size)):
+            return None
+        return x, y, fw, fh
+
+    def _detect_haar(self, image_bgr: np.ndarray, *, min_size: int) -> list[tuple[int, int, int, int]]:
+        h, w = image_bgr.shape[:2]
+        # Haar cascade fallback
+        gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
+        gray = cv2.equalizeHist(gray)
+        side = int(max(1, min_size))
+        if side > min(h, w):
+            return []
+        try:
+            raw = self._cascade.detectMultiScale(
+                gray,
+                scaleFactor=1.1,
+                minNeighbors=5,
+                minSize=(side, side),
+                flags=cv2.CASCADE_SCALE_IMAGE,
+            )
+        except cv2.error:
+            return []
+        if raw is None or np.asarray(raw).size == 0:
+            return []
+        rows = np.asarray(raw)
+        if rows.ndim == 1:
+            rows = rows.reshape(1, -1)
+        return [(int(r[0]), int(r[1]), int(r[2]), int(r[3])) for r in rows if int(r[2]) > 0 and int(r[3]) > 0]
+
+
+class FaceIngestor(_FaceIngestorMixin):
     def __init__(self, store: TextFaceStore, *, require_primary_model: bool = False):
         self.store = store
         self.require_primary_model = bool(require_primary_model)
@@ -247,81 +326,6 @@ class FaceIngestor:
             return False
         aspect = float(w) / float(max(1, h))
         return 0.50 <= aspect <= 2.0
-
-    def _detect(self, image_bgr: np.ndarray, *, min_size: int = 40) -> list[tuple[int, int, int, int]]:
-        if image_bgr is None or image_bgr.size == 0:
-            return []
-        h, w = image_bgr.shape[:2]
-        if self._insightface is not None:
-            return self._detect_insightface(image_bgr, min_size=int(min_size))
-        return self._detect_haar(image_bgr, min_size=int(min_size))
-
-    def _detect_insightface(self, image_bgr: np.ndarray, *, min_size: int) -> list[tuple[int, int, int, int]]:
-        h, w = image_bgr.shape[:2]
-        if h < 12 or w < 12:
-            return []
-        try:
-            faces = list(self._insightface.get(image_bgr) or [])
-        except Exception:
-            return []
-        out: list[tuple[int, int, int, int]] = []
-        for face in faces:
-            box = self._insightface_box(face, image_width=w, image_height=h, min_size=min_size)
-            if box is not None:
-                out.append(box)
-        return out
-
-    def _insightface_box(
-        self,
-        face: Any,
-        *,
-        image_width: int,
-        image_height: int,
-        min_size: int,
-    ) -> tuple[int, int, int, int] | None:
-        score = float(getattr(face, "det_score", 0.0) or 0.0)
-        if score < self._insightface_score_threshold:
-            return None
-        try:
-            bbox = np.asarray(getattr(face, "bbox"), dtype=np.float32).reshape(-1)
-        except Exception as exc:
-            log.debug("bbox extraction failed: %s", exc)
-            return None
-        if bbox.size < 4:
-            return None
-        x = int(max(0, min(round(float(bbox[0])), image_width - 1)))
-        y = int(max(0, min(round(float(bbox[1])), image_height - 1)))
-        x2 = int(max(x + 1, min(round(float(bbox[2])), image_width)))
-        y2 = int(max(y + 1, min(round(float(bbox[3])), image_height)))
-        fw, fh = x2 - x, y2 - y
-        if min(fw, fh) < max(1, int(min_size)):
-            return None
-        return x, y, fw, fh
-
-    def _detect_haar(self, image_bgr: np.ndarray, *, min_size: int) -> list[tuple[int, int, int, int]]:
-        h, w = image_bgr.shape[:2]
-        # Haar cascade fallback
-        gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
-        gray = cv2.equalizeHist(gray)
-        side = int(max(1, min_size))
-        if side > min(h, w):
-            return []
-        try:
-            raw = self._cascade.detectMultiScale(
-                gray,
-                scaleFactor=1.1,
-                minNeighbors=5,
-                minSize=(side, side),
-                flags=cv2.CASCADE_SCALE_IMAGE,
-            )
-        except cv2.error:
-            return []
-        if raw is None or np.asarray(raw).size == 0:
-            return []
-        rows = np.asarray(raw)
-        if rows.ndim == 1:
-            rows = rows.reshape(1, -1)
-        return [(int(r[0]), int(r[1]), int(r[2]), int(r[3])) for r in rows if int(r[2]) > 0 and int(r[3]) > 0]
 
     def _create_face_from_crop(
         self,
@@ -395,7 +399,7 @@ class FaceIngestor:
         source = str(source_path or path)
         created: list[dict[str, Any]] = []
         for x, y, w, h in detections:
-            x0, y0, x1, y1 = _expand_box(x, y, w, h, width, height)
+            x0, y0, x1, y1 = _expand_box(x, y, w, h, width=width, height=height)
             face = self._create_face_from_crop(
                 crop_bgr=image[y0:y1, x0:x1],
                 source_type="photo",
@@ -452,7 +456,7 @@ class FaceIngestor:
         return {
             "faces": created,
             "sampled_frames": int(sampled_frames),
-            "faces_created": int(len(created)),
+            "faces_created": len(created),
             "source_path": str(source_path or path),
         }
 
@@ -500,7 +504,7 @@ class FaceIngestor:
         for x, y, w, h in boxes:
             if max_faces > 0 and len(created) >= max_faces:
                 break
-            x0, y0, x1, y1 = _expand_box(x, y, w, h, width, height)
+            x0, y0, x1, y1 = _expand_box(x, y, w, h, width=width, height=height)
             face = self._create_face_from_crop(
                 crop_bgr=frame[y0:y1, x0:x1],
                 source_type="vhs",
@@ -646,7 +650,7 @@ class FaceIngestor:
                 max_faces=max_faces_per_photo,
             )
             all_faces.extend(created)
-            per_photo.append({"photo_path": str(photo_path), "faces_created": int(len(created))})
+            per_photo.append({"photo_path": str(photo_path), "faces_created": len(created)})
         return all_faces, per_photo
 
     def _build_scan_summary(
@@ -654,20 +658,17 @@ class FaceIngestor:
         photo_files: list[Path],
         all_faces: list[dict[str, Any]],
         per_photo: list[dict[str, Any]],
+        *,
         photo_albums_root: str | Path,
         view_glob: str,
         rescan_existing: bool,
         removed: dict[str, int],
     ) -> dict[str, Any]:
         return {
-            "photo_files_scanned": int(len(photo_files)),
-            "view_files_scanned": int(
-                len([path for path in photo_files if path.suffix.lower() in {".jpg", ".jpeg"}])
-            ),
-            "archive_scan_files_scanned": int(
-                len([path for path in photo_files if path.suffix.lower() in {".tif", ".tiff"}])
-            ),
-            "faces_created": int(len(all_faces)),
+            "photo_files_scanned": len(photo_files),
+            "view_files_scanned": len([path for path in photo_files if path.suffix.lower() in {".jpg", ".jpeg"}]),
+            "archive_scan_files_scanned": len([path for path in photo_files if path.suffix.lower() in {".tif", ".tiff"}]),
+            "faces_created": len(all_faces),
             "faces": all_faces,
             "per_photo": per_photo,
             "photo_albums_root": str(Path(photo_albums_root)),
@@ -700,5 +701,7 @@ class FaceIngestor:
         removed = self._remove_existing_faces_if_rescan(photo_files, rescan_existing)
         all_faces, per_photo = self._ingest_all_photos(photo_files, min_size, max_faces_per_photo)
         return self._build_scan_summary(
-            photo_files, all_faces, per_photo, photo_albums_root, view_glob, rescan_existing, removed
+            photo_files, all_faces, per_photo,
+            photo_albums_root=photo_albums_root, view_glob=view_glob,
+            rescan_existing=rescan_existing, removed=removed,
         )
