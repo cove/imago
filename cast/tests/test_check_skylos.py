@@ -47,17 +47,8 @@ def test_check_skylos_runs_each_project_separately(monkeypatch):
 def test_check_skylos_fails_on_all_quality_findings(monkeypatch, capsys):
     module = _load_module()
     payloads = {
-        "photoalbums": {"quality": [{"rule_id": "SKY-U005", "message": "unused dep"}]},
-        "vhs": {
-            "quality": [
-                {
-                    "rule_id": "SKY-C401",
-                    "basename": "render.py",
-                    "line": 42,
-                    "message": "Clone group detected",
-                }
-            ]
-        },
+        "photoalbums": {"quality": [{"rule_id": "SKY-C401", "basename": "server.py", "line": 12, "severity": "medium", "message": "Clone group detected"}]},
+        "vhs": {"quality": [{"rule_id": "SKY-C401", "basename": "render.py", "line": 42, "severity": "medium", "message": "Clone group detected"}]},
         "cast": {"quality": []},
     }
 
@@ -70,25 +61,16 @@ def test_check_skylos_fails_on_all_quality_findings(monkeypatch, capsys):
 
     err = capsys.readouterr().err
     assert "[skylos] photoalbums: found 1 quality finding(s)" in err
-    assert "SKY-U005 ? ?:? unused dep" in err
+    assert "SKY-C401 MEDIUM server.py:12 Clone group detected" in err
     assert "[skylos] vhs: found 1 quality finding(s)" in err
-    assert "SKY-C401 ? render.py:42 Clone group detected" in err
+    assert "SKY-C401 MEDIUM render.py:42 Clone group detected" in err
 
 
 def test_check_skylos_duplicates_only_filters_other_quality_findings(monkeypatch, capsys):
     module = _load_module()
     payloads = {
-        "photoalbums": {"quality": [{"rule_id": "SKY-U005", "message": "unused dep"}]},
-        "vhs": {
-            "quality": [
-                {
-                    "rule_id": "SKY-C401",
-                    "basename": "render.py",
-                    "line": 42,
-                    "message": "Clone group detected",
-                }
-            ]
-        },
+        "photoalbums": {"quality": [{"rule_id": "SKY-C401", "basename": "server.py", "line": 12, "severity": "medium", "message": "Clone group detected"}]},
+        "vhs": {"quality": [{"rule_id": "SKY-C401", "basename": "render.py", "line": 42, "severity": "medium", "message": "Clone group detected"}]},
         "cast": {"quality": []},
     }
 
@@ -100,6 +82,7 @@ def test_check_skylos_duplicates_only_filters_other_quality_findings(monkeypatch
     assert module.main(["--duplicates-only"]) == 1
 
     err = capsys.readouterr().err
+    assert "[skylos] photoalbums: found 1 duplicate-code finding(s)" in err
+    assert "server.py:12 Clone group detected" in err
     assert "[skylos] vhs: found 1 duplicate-code finding(s)" in err
     assert "render.py:42 Clone group detected" in err
-    assert "photoalbums" not in err

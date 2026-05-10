@@ -111,7 +111,548 @@ class CastHTTPServer(ThreadingHTTPServer):
             self.store._read_chunk(idx)
 
 
-class CastHandler(BaseHTTPRequestHandler):
+class _CastHandlerFaceMixin:
+    """Face/profile related route handlers for CastHandler."""
+
+    def _handle_get_faces(self, query: dict[str, list[str]]) -> None:
+        include_embedding = str((query.get("include_embedding") or ["0"])[0]).strip() == "1"
+        people = self.store.list_people()
+        people_by_id = {str(row.get("person_id")): row for row in people}
+        faces = self.store.list_faces()
+        rows = []
+        for face in faces:
+            entry = self._face_summary(face, people_by_id)
+            if include_embedding:
+                entry["embedding"] = list(face.get("embedding") or [])
+            rows.append(entry)
+        self._send_json({"ok": True, "faces": rows})
+
+    def _handle_create_face(self, payload: dict[str, Any]) -> None:
+        try:
+            embedding = parse_embedding(payload.get("embedding")).astype(float).tolist()
+        except Exception as exc:
+            self._error(str(exc))
+            return
+        try:
+            face = self.store.add_face(
+                embedding=embedding,
+                person_id=str(payload.get("person_id") or "").strip() or None,
+                source_type=str(payload.get("source_type") or "photo"),
+                source_path=str(payload.get("source_path") or ""),
+                timestamp=str(payload.get("timestamp") or ""),
+                bbox=list(payload.get("bbox") or []),
+                quality=payload.get("quality"),
+                metadata=(payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}),
+            )
+        except Exception as exc:
+            self._error(str(exc))
+            return
+        self._send_json({"ok": True, "face": face}, status=HTTPStatus.CREATED)
+
+    def _parse_assign_face_payload(
+        self, payload: dict[str, Any]
+    ) -> tuple[str, str | None, bool | None, str | None]:
+        face_id = str(payload.get("face_id") or "").strip()
+        person_id = str(payload.get("person_id") or "").strip() or None
+        has_reviewed_flag = "reviewed_by_human" in payload
+        reviewed_by_human = _coerce_bool(payload.get("reviewed_by_human"), False) if has_reviewed_flag else None
+        review_status = str(payload.get("review_status") or "").strip().lower() or None
+        return face_id, person_id, reviewed_by_human, review_status
+
+    def _maybe_resolve_reviews_after_assign(
+        self, face_id: str, face: dict[str, Any], reviewed_by_human: bool | None, review_status: str | None
+    ) -> None:
+        if not reviewed_by_human:
+            return
+        pending_status = "accepted" if str(face.get("person_id") or "").strip() else str(review_status or "skipped")
+        self._resolve_pending_reviews_for_face(
+            face_id,
+            status=pending_status,
+            decided_person_id=str(face.get("person_id") or "").strip() or None,
+        )
+
+    def _handle_assign_face(self, payload: dict[str, Any]) -> None:
+        face_id, person_id, reviewed_by_human, review_status = self._parse_assign_face_payload(payload)
+        if not face_id:
+            self._error("face_id is required.")
+            return
+        try:
+            face = self.store.assign_face(
+                face_id,
+                person_id,
+                reviewed_by_human=reviewed_by_human,
+                review_status=review_status,
+            )
+        except Exception as exc:
+            self._error(str(exc))
+            return
+        self._maybe_resolve_reviews_after_assign(face_id, face, reviewed_by_human, review_status)
+        self._send_json({"ok": True, "face": face})
+
+    def _handle_suggest(self, payload: dict[str, Any]) -> None:
+        top_k = max(1, _coerce_int(payload.get("top_k"), 3))
+        min_similarity = _coerce_float(payload.get("min_similarity"), DEFAULT_MIN_SIMILARITY)
+        try:
+            query = parse_embedding(payload.get("embedding"))
+        except Exception as exc:
+            self._error(str(exc))
+            return
+        faces = self.store.list_faces()
+        try:
+            candidates = suggest_people(
+                query_embedding=query,
+                faces=faces,
+                top_k=int(top_k),
+                min_similarity=float(min_similarity),
+                allowed_embedding_model_ids=ACTIVE_EMBEDDING_MODELS,
+            )
+        except Exception as exc:
+            self._error(str(exc))
+            return
+        people = self.store.list_people()
+        people_by_id = {str(row.get("person_id")): row for row in people}
+        for row in candidates:
+            person = people_by_id.get(str(row.get("person_id")), {})
+            row["person_name"] = str(person.get("display_name", ""))
+        self._send_json({"ok": True, "candidates": candidates})
+
+    def _handle_ingest_photo(self, payload: dict[str, Any]) -> None:
+        image_path = payload.get("image_path")
+        source_path = payload.get("source_path")
+        min_size = int(payload.get("min_size") or 40)
+        max_faces = int(payload.get("max_faces") or 50)
+        auto_queue = str(payload.get("auto_queue", "1")).strip() not in {
+            "0",
+            "false",
+            "False",
+        }
+        top_k = max(1, _coerce_int(payload.get("top_k"), 3))
+        policy = self._suggestion_policy_from_payload(payload)
+
+        try:
+            path = self._resolve_media_path(image_path)
+            faces = self.server.ingestor.ingest_photo(
+                image_path=path,
+                source_path=str(source_path or path),
+                min_size=min_size,
+                max_faces=max_faces,
+            )
+        except Exception as exc:
+            self._error(str(exc))
+            return
+
+        reviews_created, reviews_reused = (
+            self._auto_queue_faces(faces, top_k, policy) if auto_queue else (0, 0)
+        )
+        people_by_id = {str(row.get("person_id")): row for row in self.store.list_people()}
+        face_rows = [self._face_summary(face, people_by_id) for face in faces]
+        self._send_json(
+            {
+                "ok": True,
+                "faces": face_rows,
+                "faces_created": len(face_rows),
+                "reviews_created": int(reviews_created),
+                "reviews_reused": int(reviews_reused),
+                "source_path": str(path),
+            },
+            status=HTTPStatus.CREATED,
+        )
+
+    def _handle_ingest_vhs(self, payload: dict[str, Any]) -> None:
+        video_path = payload.get("video_path")
+        source_path = payload.get("source_path")
+        min_size = int(payload.get("min_size") or 40)
+        max_faces = int(payload.get("max_faces") or 120)
+        sample_every_seconds = float(payload.get("sample_every_seconds") or 2.0)
+        max_duration_seconds = float(payload.get("max_duration_seconds") or 0.0)
+        auto_queue = str(payload.get("auto_queue", "1")).strip() not in {
+            "0",
+            "false",
+            "False",
+        }
+        top_k = max(1, _coerce_int(payload.get("top_k"), 3))
+        policy = self._suggestion_policy_from_payload(payload)
+
+        try:
+            path = self._resolve_media_path(video_path)
+            result = self.server.ingestor.ingest_vhs(
+                video_path=path,
+                source_path=str(source_path or path),
+                sample_every_seconds=sample_every_seconds,
+                min_size=min_size,
+                max_faces=max_faces,
+                max_duration_seconds=max_duration_seconds,
+            )
+        except Exception as exc:
+            self._error(str(exc))
+            return
+
+        faces = list(result.get("faces") or [])
+        reviews_created, reviews_reused = (
+            self._auto_queue_faces(faces, top_k, policy) if auto_queue else (0, 0)
+        )
+        people_by_id = {str(row.get("person_id")): row for row in self.store.list_people()}
+        face_rows = [self._face_summary(face, people_by_id) for face in faces]
+        self._send_json(
+            {
+                "ok": True,
+                "faces": face_rows,
+                "faces_created": int(result.get("faces_created", len(face_rows))),
+                "sampled_frames": int(result.get("sampled_frames", 0)),
+                "reviews_created": int(reviews_created),
+                "reviews_reused": int(reviews_reused),
+                "source_path": str(path),
+            },
+            status=HTTPStatus.CREATED,
+        )
+
+    def _handle_ingest_photo_scan(self, payload: dict[str, Any]) -> None:
+        root_dir = payload.get("photo_albums_root") or DEFAULT_PHOTO_ALBUMS_ROOT
+        view_glob = str(payload.get("view_glob") or "*_Pages")
+        recursive = _coerce_bool(payload.get("recursive"), True)
+        min_size = int(payload.get("min_size") or 40)
+        max_faces_per_photo = int(payload.get("max_faces_per_photo") or 50)
+        max_files = int(payload.get("max_files") or 0)
+        auto_queue = _coerce_bool(payload.get("auto_queue"), True)
+        rescan_existing = _coerce_bool(payload.get("rescan_existing"), False)
+        top_k = max(1, _coerce_int(payload.get("top_k"), 3))
+        policy = self._suggestion_policy_from_payload(payload)
+
+        try:
+            result = self.server.ingestor.ingest_photo_album_views(
+                photo_albums_root=self._resolve_media_path(root_dir),
+                view_glob=view_glob,
+                recursive=recursive,
+                min_size=min_size,
+                max_faces_per_photo=max_faces_per_photo,
+                max_files=max_files,
+                rescan_existing=rescan_existing,
+            )
+        except Exception as exc:
+            self._error(str(exc))
+            return
+
+        faces = list(result.get("faces") or [])
+        reviews_created, reviews_reused = (
+            self._auto_queue_faces(faces, top_k, policy) if auto_queue else (0, 0)
+        )
+        top_photos = sorted(
+            list(result.get("per_photo") or []),
+            key=lambda row: int(row.get("faces_created", 0)),
+            reverse=True,
+        )[:10]
+        self._send_json(
+            {
+                "ok": True,
+                "photo_files_scanned": int(result.get("photo_files_scanned", 0)),
+                "view_files_scanned": int(result.get("view_files_scanned", 0)),
+                "archive_scan_files_scanned": int(result.get("archive_scan_files_scanned", 0)),
+                "faces_created": int(result.get("faces_created", len(faces))),
+                "reviews_created": int(reviews_created),
+                "reviews_reused": int(reviews_reused),
+                "photo_albums_root": str(result.get("photo_albums_root", root_dir)),
+                "view_glob": str(result.get("view_glob", view_glob)),
+                "rescan_existing": bool(result.get("rescan_existing", rescan_existing)),
+                "removed_faces": int(result.get("removed_faces", 0)),
+                "removed_reviews": int(result.get("removed_reviews", 0)),
+                "removed_crops": int(result.get("removed_crops", 0)),
+                "top_photos": top_photos,
+            },
+            status=HTTPStatus.CREATED,
+        )
+
+    def _handle_get_face_crop(self, face_id: str) -> None:
+        face = self.store.get_face(str(face_id))
+        if not face:
+            self._not_found()
+            return
+        crop_path = str(face.get("crop_path") or "").strip()
+        if not crop_path:
+            self._not_found()
+            return
+        try:
+            path = self._validate_store_relative_file(crop_path)
+        except Exception as exc:
+            self._error(str(exc), status=HTTPStatus.BAD_REQUEST)
+            return
+        if not path.exists():
+            self._not_found()
+            return
+        try:
+            data = path.read_bytes()
+        except Exception as exc:
+            self._error(
+                f"Unable to read crop image: {exc}",
+                status=HTTPStatus.INTERNAL_SERVER_ERROR,
+            )
+            return
+        self._send_bytes(
+            data,
+            "image/jpeg",
+            status=HTTPStatus.OK,
+        )
+
+    def _handle_get_face_source(self, face_id: str, query: dict[str, list[str]]) -> None:
+        face = self.store.get_face(str(face_id))
+        if not face:
+            self._not_found()
+            return
+        image = self._load_face_source_image(face)
+        if image is None:
+            return
+
+        highlight = str((query.get("highlight") or ["1"])[0]).strip() not in {"0", "false", "False"}
+        try:
+            max_dim = max(256, min(5000, int(str((query.get("max_dim") or ["1800"])[0]).strip())))
+        except Exception:
+            max_dim = 1800
+
+        if highlight:
+            self._draw_face_bbox(image, face)
+
+        h, w = image.shape[:2]
+        if max(w, h) > max_dim:
+            scale = float(max_dim) / float(max(w, h))
+            image = cv2.resize(
+                image, (max(1, int(round(w * scale))), max(1, int(round(h * scale)))), interpolation=cv2.INTER_AREA
+            )
+
+        ok, encoded = cv2.imencode(".jpg", image, [int(cv2.IMWRITE_JPEG_QUALITY), 90])  # type: ignore[arg-type]
+        if not ok:
+            self._error("Failed to encode source image.", status=HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+        self._send_bytes(bytes(encoded), "image/jpeg", status=HTTPStatus.OK)
+
+
+class _CastHandlerReviewMixin:
+    """Review/approval related route handlers for CastHandler."""
+
+    def _handle_get_review(self, query: dict[str, list[str]]) -> None:
+        status_filter = str((query.get("status") or [""])[0]).strip().lower()
+        people = self.store.list_people()
+        faces = self.store.list_faces()
+        reviews = self.store.list_review_items()
+        people_by_id = {str(row.get("person_id")): row for row in people}
+        faces_by_id = {str(row.get("face_id")): row for row in faces}
+        rows = []
+        prototypes = build_person_prototypes(
+            faces,
+            allowed_embedding_model_ids=ACTIVE_EMBEDDING_MODELS,
+        )
+        for item in reviews:
+            status = str(item.get("status") or "").strip().lower()
+            if status_filter and status != status_filter:
+                continue
+            rows.append(
+                self._review_summary(
+                    item,
+                    people_by_id=people_by_id,
+                    faces_by_id=faces_by_id,
+                    prototypes=prototypes,
+                )
+            )
+        self._send_json({"ok": True, "reviews": rows})
+
+    def _handle_review_enqueue(self, payload: dict[str, Any]) -> None:
+        face_id = str(payload.get("face_id") or "").strip()
+        if not face_id:
+            self._error("face_id is required.")
+            return
+        top_k = max(1, _coerce_int(payload.get("top_k"), 3))
+        policy = self._suggestion_policy_from_payload(payload)
+        try:
+            review, existing = self._enqueue_review_for_face(
+                face_id=face_id,
+                top_k=top_k,
+                min_similarity=float(policy["min_similarity"]),
+                min_margin=float(policy["min_margin"]),
+                min_face_quality=float(policy["min_face_quality"]),
+                min_sample_count=int(policy["min_sample_count"]),
+            )
+        except Exception as exc:
+            self._error(str(exc))
+            return
+        status = HTTPStatus.OK if existing else HTTPStatus.CREATED
+        self._send_json({"ok": True, "review": review, "existing": bool(existing)}, status=status)
+
+    def _handle_review_resolve(self, payload: dict[str, Any]) -> None:
+        review_id = str(payload.get("review_id") or "").strip()
+        status = str(payload.get("status") or "").strip().lower()
+        person_id = str(payload.get("person_id") or "").strip() or None
+        if not review_id:
+            self._error("review_id is required.")
+            return
+        review = self._find_review_item(review_id)
+        if not review:
+            self._error("Unknown review_id.")
+            return
+        if status == "accepted":
+            person_id = str(person_id or "").strip() or None
+        try:
+            updated_review, assigned_face = self._apply_review_decision(
+                review=review,
+                status=status,
+                person_id=person_id,
+            )
+        except RequestError as exc:
+            self._error(str(exc), status=exc.status)
+            return
+        self._send_json({"ok": True, "review": updated_review, "face": assigned_face})
+
+    def _handle_bulk_review_resolve(self, payload: dict[str, Any]) -> None:
+        raw_review_ids = payload.get("review_ids")
+        if not isinstance(raw_review_ids, list):
+            self._error("review_ids must be a list.")
+            return
+        review_ids = [str(item or "").strip() for item in raw_review_ids if str(item or "").strip()]
+        if not review_ids:
+            self._error("review_ids is required.")
+            return
+        status = str(payload.get("status") or "").strip().lower()
+        if status not in {"ignored", "rejected", "skipped"}:
+            self._error("status must be one of: ignored, rejected, skipped")
+            return
+        try:
+            summary = self.store.bulk_resolve_reviews(review_ids=review_ids, status=status)
+        except Exception as exc:
+            self._error(str(exc))
+            return
+        self._send_json(
+            {
+                "ok": True,
+                "status": status,
+                "review_ids": review_ids,
+                "updated_reviews": int(summary.get("updated_reviews") or 0),
+                "updated_faces": int(summary.get("updated_faces") or 0),
+            }
+        )
+
+    def _parse_review_ids(self, payload: dict[str, Any]) -> list[str] | None:
+        raw_review_ids = payload.get("review_ids")
+        if not isinstance(raw_review_ids, list):
+            self._error("review_ids must be a list.")
+            return None
+        review_ids = [str(item or "").strip() for item in raw_review_ids if str(item or "").strip()]
+        if not review_ids:
+            self._error("review_ids is required.")
+            return None
+        return review_ids
+
+    def _apply_bulk_assign_loop(
+        self, review_ids: list[str], resolved_person_id: str | None
+    ) -> tuple[int, int] | None:
+        updated_reviews = 0
+        updated_faces = 0
+        for review_id in review_ids:
+            review = self._find_review_item(review_id)
+            if not review:
+                self._error(
+                    f"Bulk assign stopped after {updated_reviews} review(s): Unknown review_id: {review_id}",
+                )
+                return None
+            try:
+                _updated_review, assigned_face = self._apply_review_decision(
+                    review=review,
+                    status="accepted",
+                    person_id=resolved_person_id,
+                )
+            except RequestError as exc:
+                self._error(
+                    f"Bulk assign stopped after {updated_reviews} review(s): {exc}",
+                    status=exc.status,
+                )
+                return None
+            updated_reviews += 1
+            if assigned_face is not None:
+                updated_faces += 1
+        return updated_reviews, updated_faces
+
+    def _handle_bulk_review_assign(self, payload: dict[str, Any]) -> None:
+        review_ids = self._parse_review_ids(payload)
+        if review_ids is None:
+            return
+        try:
+            person, created = self._resolve_or_create_person(
+                person_id=str(payload.get("person_id") or "").strip() or None,
+                display_name=str(payload.get("display_name") or "").strip() or None,
+                aliases=self._parse_aliases(payload.get("aliases")),
+                notes=str(payload.get("notes") or ""),
+            )
+        except RequestError as exc:
+            self._error(str(exc), status=exc.status)
+            return
+
+        resolved_person_id = str(person.get("person_id") or "").strip() or None
+        counts = self._apply_bulk_assign_loop(review_ids, resolved_person_id)
+        if counts is None:
+            return
+        updated_reviews, updated_faces = counts
+
+        self._send_json(
+            {
+                "ok": True,
+                "review_ids": review_ids,
+                "updated_reviews": int(updated_reviews),
+                "updated_faces": int(updated_faces),
+                "person": person,
+                "created_person": bool(created),
+            }
+        )
+
+    def _handle_prune_false_positives(self, payload: dict[str, Any]) -> None:
+        max_items = int(payload.get("max_items") or 0)
+        pending = [
+            row for row in self.store.list_review_items() if str(row.get("status", "")).strip().lower() == "pending"
+        ]
+        if max_items > 0:
+            pending = pending[: int(max_items)]
+
+        pruned = 0
+        checked = 0
+        for review in pending:
+            result = self._prune_single_review(review)
+            if result is None:
+                continue
+            checked += 1
+            if result:
+                pruned += 1
+
+        self._send_json(
+            {
+                "ok": True,
+                "checked": int(checked),
+                "pruned": int(pruned),
+                "remaining_pending": int(
+                    len(
+                        [
+                            row
+                            for row in self.store.list_review_items()
+                            if str(row.get("status", "")).strip().lower() == "pending"
+                        ]
+                    )
+                ),
+            }
+        )
+
+    def _handle_reset_pending_unknown(self, payload: dict[str, Any]) -> None:
+        remove_crops = str(payload.get("remove_crops", "1")).strip() not in {
+            "0",
+            "false",
+            "False",
+        }
+        result = self.store.reset_pending_unknown(remove_crops=remove_crops)
+        state = self._state_payload()
+        self._send_json(
+            {
+                "ok": True,
+                "remove_crops": bool(remove_crops),
+                **result,
+                "counts": state.get("counts", {}),
+            }
+        )
+
+
+class CastHandler(_CastHandlerFaceMixin, _CastHandlerReviewMixin, BaseHTTPRequestHandler):
     server: CastHTTPServer  # type: ignore[assignment]
 
     def log_message(self, _format: str, *args: Any) -> None:
@@ -531,45 +1072,6 @@ class CastHandler(BaseHTTPRequestHandler):
         people = self.store.list_people()
         self._send_json({"ok": True, "people": people})
 
-    def _handle_get_faces(self, query: dict[str, list[str]]) -> None:
-        include_embedding = str((query.get("include_embedding") or ["0"])[0]).strip() == "1"
-        people = self.store.list_people()
-        people_by_id = {str(row.get("person_id")): row for row in people}
-        faces = self.store.list_faces()
-        rows = []
-        for face in faces:
-            entry = self._face_summary(face, people_by_id)
-            if include_embedding:
-                entry["embedding"] = list(face.get("embedding") or [])
-            rows.append(entry)
-        self._send_json({"ok": True, "faces": rows})
-
-    def _handle_get_review(self, query: dict[str, list[str]]) -> None:
-        status_filter = str((query.get("status") or [""])[0]).strip().lower()
-        people = self.store.list_people()
-        faces = self.store.list_faces()
-        reviews = self.store.list_review_items()
-        people_by_id = {str(row.get("person_id")): row for row in people}
-        faces_by_id = {str(row.get("face_id")): row for row in faces}
-        rows = []
-        prototypes = build_person_prototypes(
-            faces,
-            allowed_embedding_model_ids=ACTIVE_EMBEDDING_MODELS,
-        )
-        for item in reviews:
-            status = str(item.get("status") or "").strip().lower()
-            if status_filter and status != status_filter:
-                continue
-            rows.append(
-                self._review_summary(
-                    item,
-                    people_by_id=people_by_id,
-                    faces_by_id=faces_by_id,
-                    prototypes=prototypes,
-                )
-            )
-        self._send_json({"ok": True, "reviews": rows})
-
     def _handle_create_person(self, payload: dict[str, Any]) -> None:
         aliases = self._parse_aliases(payload.get("aliases"))
         person = self.store.add_person(
@@ -600,68 +1102,6 @@ class CastHandler(BaseHTTPRequestHandler):
             self._error(str(exc))
             return
         self._send_json({"ok": True, "person": person})
-
-    def _handle_create_face(self, payload: dict[str, Any]) -> None:
-        try:
-            embedding = parse_embedding(payload.get("embedding")).astype(float).tolist()
-        except Exception as exc:
-            self._error(str(exc))
-            return
-        try:
-            face = self.store.add_face(
-                embedding=embedding,
-                person_id=str(payload.get("person_id") or "").strip() or None,
-                source_type=str(payload.get("source_type") or "photo"),
-                source_path=str(payload.get("source_path") or ""),
-                timestamp=str(payload.get("timestamp") or ""),
-                bbox=list(payload.get("bbox") or []),
-                quality=payload.get("quality"),
-                metadata=(payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}),
-            )
-        except Exception as exc:
-            self._error(str(exc))
-            return
-        self._send_json({"ok": True, "face": face}, status=HTTPStatus.CREATED)
-
-    def _parse_assign_face_payload(
-        self, payload: dict[str, Any]
-    ) -> tuple[str, str | None, bool | None, str | None]:
-        face_id = str(payload.get("face_id") or "").strip()
-        person_id = str(payload.get("person_id") or "").strip() or None
-        has_reviewed_flag = "reviewed_by_human" in payload
-        reviewed_by_human = _coerce_bool(payload.get("reviewed_by_human"), False) if has_reviewed_flag else None
-        review_status = str(payload.get("review_status") or "").strip().lower() or None
-        return face_id, person_id, reviewed_by_human, review_status
-
-    def _maybe_resolve_reviews_after_assign(
-        self, face_id: str, face: dict[str, Any], reviewed_by_human: bool | None, review_status: str | None
-    ) -> None:
-        if not reviewed_by_human:
-            return
-        pending_status = "accepted" if str(face.get("person_id") or "").strip() else str(review_status or "skipped")
-        self._resolve_pending_reviews_for_face(
-            face_id,
-            status=pending_status,
-            decided_person_id=str(face.get("person_id") or "").strip() or None,
-        )
-
-    def _handle_assign_face(self, payload: dict[str, Any]) -> None:
-        face_id, person_id, reviewed_by_human, review_status = self._parse_assign_face_payload(payload)
-        if not face_id:
-            self._error("face_id is required.")
-            return
-        try:
-            face = self.store.assign_face(
-                face_id,
-                person_id,
-                reviewed_by_human=reviewed_by_human,
-                review_status=review_status,
-            )
-        except Exception as exc:
-            self._error(str(exc))
-            return
-        self._maybe_resolve_reviews_after_assign(face_id, face, reviewed_by_human, review_status)
-        self._send_json({"ok": True, "face": face})
 
     def _parse_aliases(self, aliases_raw: Any) -> list[str]:
         if isinstance(aliases_raw, str):
@@ -841,7 +1281,8 @@ class CastHandler(BaseHTTPRequestHandler):
                     status=status,
                     decided_person_id=decided_person_id,
                 )
-            except Exception:
+            except Exception as exc:
+                log.debug("failed to resolve review item %s: %s", row.get("review_id"), exc)
                 continue
 
     def _enqueue_review_for_face(
@@ -1002,8 +1443,8 @@ class CastHandler(BaseHTTPRequestHandler):
             if raw_frame is not None:
                 try:
                     attempts.append(("frame", float(max(0, int(float(raw_frame))))))
-                except Exception:
-                    pass
+                except Exception as exc:
+                    log.debug("failed to parse frame_index %r: %s", raw_frame, exc)
         seconds = self._parse_timestamp_seconds(face.get("timestamp"))
         if seconds is not None:
             attempts.append(("msec", float(seconds) * 1000.0))
@@ -1191,180 +1632,7 @@ class CastHandler(BaseHTTPRequestHandler):
             file=sys.stderr,
         )
 
-    def _handle_suggest(self, payload: dict[str, Any]) -> None:
-        top_k = max(1, _coerce_int(payload.get("top_k"), 3))
-        min_similarity = _coerce_float(payload.get("min_similarity"), DEFAULT_MIN_SIMILARITY)
-        try:
-            query = parse_embedding(payload.get("embedding"))
-        except Exception as exc:
-            self._error(str(exc))
-            return
-        faces = self.store.list_faces()
-        try:
-            candidates = suggest_people(
-                query_embedding=query,
-                faces=faces,
-                top_k=int(top_k),
-                min_similarity=float(min_similarity),
-                allowed_embedding_model_ids=ACTIVE_EMBEDDING_MODELS,
-            )
-        except Exception as exc:
-            self._error(str(exc))
-            return
-        people = self.store.list_people()
-        people_by_id = {str(row.get("person_id")): row for row in people}
-        for row in candidates:
-            person = people_by_id.get(str(row.get("person_id")), {})
-            row["person_name"] = str(person.get("display_name", ""))
-        self._send_json({"ok": True, "candidates": candidates})
-
-    def _handle_review_enqueue(self, payload: dict[str, Any]) -> None:
-        face_id = str(payload.get("face_id") or "").strip()
-        if not face_id:
-            self._error("face_id is required.")
-            return
-        top_k = max(1, _coerce_int(payload.get("top_k"), 3))
-        policy = self._suggestion_policy_from_payload(payload)
-        try:
-            review, existing = self._enqueue_review_for_face(
-                face_id=face_id,
-                top_k=top_k,
-                min_similarity=float(policy["min_similarity"]),
-                min_margin=float(policy["min_margin"]),
-                min_face_quality=float(policy["min_face_quality"]),
-                min_sample_count=int(policy["min_sample_count"]),
-            )
-        except Exception as exc:
-            self._error(str(exc))
-            return
-        status = HTTPStatus.OK if existing else HTTPStatus.CREATED
-        self._send_json({"ok": True, "review": review, "existing": bool(existing)}, status=status)
-
-    def _handle_review_resolve(self, payload: dict[str, Any]) -> None:
-        review_id = str(payload.get("review_id") or "").strip()
-        status = str(payload.get("status") or "").strip().lower()
-        person_id = str(payload.get("person_id") or "").strip() or None
-        if not review_id:
-            self._error("review_id is required.")
-            return
-        review = self._find_review_item(review_id)
-        if not review:
-            self._error("Unknown review_id.")
-            return
-        if status == "accepted":
-            person_id = str(person_id or "").strip() or None
-        try:
-            updated_review, assigned_face = self._apply_review_decision(
-                review=review,
-                status=status,
-                person_id=person_id,
-            )
-        except RequestError as exc:
-            self._error(str(exc), status=exc.status)
-            return
-        self._send_json({"ok": True, "review": updated_review, "face": assigned_face})
-
-    def _handle_bulk_review_resolve(self, payload: dict[str, Any]) -> None:
-        raw_review_ids = payload.get("review_ids")
-        if not isinstance(raw_review_ids, list):
-            self._error("review_ids must be a list.")
-            return
-        review_ids = [str(item or "").strip() for item in raw_review_ids if str(item or "").strip()]
-        if not review_ids:
-            self._error("review_ids is required.")
-            return
-        status = str(payload.get("status") or "").strip().lower()
-        if status not in {"ignored", "rejected", "skipped"}:
-            self._error("status must be one of: ignored, rejected, skipped")
-            return
-        try:
-            summary = self.store.bulk_resolve_reviews(review_ids=review_ids, status=status)
-        except Exception as exc:
-            self._error(str(exc))
-            return
-        self._send_json(
-            {
-                "ok": True,
-                "status": status,
-                "review_ids": review_ids,
-                "updated_reviews": int(summary.get("updated_reviews") or 0),
-                "updated_faces": int(summary.get("updated_faces") or 0),
-            }
-        )
-
-    def _parse_review_ids(self, payload: dict[str, Any]) -> list[str] | None:
-        raw_review_ids = payload.get("review_ids")
-        if not isinstance(raw_review_ids, list):
-            self._error("review_ids must be a list.")
-            return None
-        review_ids = [str(item or "").strip() for item in raw_review_ids if str(item or "").strip()]
-        if not review_ids:
-            self._error("review_ids is required.")
-            return None
-        return review_ids
-
-    def _apply_bulk_assign_loop(
-        self, review_ids: list[str], resolved_person_id: str | None
-    ) -> tuple[int, int] | None:
-        updated_reviews = 0
-        updated_faces = 0
-        for review_id in review_ids:
-            review = self._find_review_item(review_id)
-            if not review:
-                self._error(
-                    f"Bulk assign stopped after {updated_reviews} review(s): Unknown review_id: {review_id}",
-                )
-                return None
-            try:
-                _updated_review, assigned_face = self._apply_review_decision(
-                    review=review,
-                    status="accepted",
-                    person_id=resolved_person_id,
-                )
-            except RequestError as exc:
-                self._error(
-                    f"Bulk assign stopped after {updated_reviews} review(s): {exc}",
-                    status=exc.status,
-                )
-                return None
-            updated_reviews += 1
-            if assigned_face is not None:
-                updated_faces += 1
-        return updated_reviews, updated_faces
-
-    def _handle_bulk_review_assign(self, payload: dict[str, Any]) -> None:
-        review_ids = self._parse_review_ids(payload)
-        if review_ids is None:
-            return
-        try:
-            person, created = self._resolve_or_create_person(
-                person_id=str(payload.get("person_id") or "").strip() or None,
-                display_name=str(payload.get("display_name") or "").strip() or None,
-                aliases=self._parse_aliases(payload.get("aliases")),
-                notes=str(payload.get("notes") or ""),
-            )
-        except RequestError as exc:
-            self._error(str(exc), status=exc.status)
-            return
-
-        resolved_person_id = str(person.get("person_id") or "").strip() or None
-        counts = self._apply_bulk_assign_loop(review_ids, resolved_person_id)
-        if counts is None:
-            return
-        updated_reviews, updated_faces = counts
-
-        self._send_json(
-            {
-                "ok": True,
-                "review_ids": review_ids,
-                "updated_reviews": int(updated_reviews),
-                "updated_faces": int(updated_faces),
-                "person": person,
-                "created_person": bool(created),
-            }
-        )
-
-    def _load_face_crop_image(self, face: dict[str, Any]):
+    def _load_face_crop_image(self, face: dict[str, Any]) -> Any | None:
         crop_rel = str(face.get("crop_path") or "").strip()
         if not crop_rel:
             return None
@@ -1394,58 +1662,6 @@ class CastHandler(BaseHTTPRequestHandler):
         self.store.assign_face(face_id, None, reviewed_by_human=True, review_status="rejected")
         return True
 
-    def _handle_prune_false_positives(self, payload: dict[str, Any]) -> None:
-        max_items = int(payload.get("max_items") or 0)
-        pending = [
-            row for row in self.store.list_review_items() if str(row.get("status", "")).strip().lower() == "pending"
-        ]
-        if max_items > 0:
-            pending = pending[: int(max_items)]
-
-        pruned = 0
-        checked = 0
-        for review in pending:
-            result = self._prune_single_review(review)
-            if result is None:
-                continue
-            checked += 1
-            if result:
-                pruned += 1
-
-        self._send_json(
-            {
-                "ok": True,
-                "checked": int(checked),
-                "pruned": int(pruned),
-                "remaining_pending": int(
-                    len(
-                        [
-                            row
-                            for row in self.store.list_review_items()
-                            if str(row.get("status", "")).strip().lower() == "pending"
-                        ]
-                    )
-                ),
-            }
-        )
-
-    def _handle_reset_pending_unknown(self, payload: dict[str, Any]) -> None:
-        remove_crops = str(payload.get("remove_crops", "1")).strip() not in {
-            "0",
-            "false",
-            "False",
-        }
-        result = self.store.reset_pending_unknown(remove_crops=remove_crops)
-        state = self._state_payload()
-        self._send_json(
-            {
-                "ok": True,
-                "remove_crops": bool(remove_crops),
-                **result,
-                "counts": state.get("counts", {}),
-            }
-        )
-
     def _auto_queue_faces(
         self,
         faces: list[dict[str, Any]],
@@ -1471,187 +1687,12 @@ class CastHandler(BaseHTTPRequestHandler):
                     reviews_reused += 1
                 else:
                     reviews_created += 1
-            except Exception:
+            except Exception as exc:
+                log.debug("failed to create/reuse review for face: %s", exc)
                 continue
         return reviews_created, reviews_reused
 
-    def _handle_ingest_photo(self, payload: dict[str, Any]) -> None:
-        image_path = payload.get("image_path")
-        source_path = payload.get("source_path")
-        min_size = int(payload.get("min_size") or 40)
-        max_faces = int(payload.get("max_faces") or 50)
-        auto_queue = str(payload.get("auto_queue", "1")).strip() not in {
-            "0",
-            "false",
-            "False",
-        }
-        top_k = max(1, _coerce_int(payload.get("top_k"), 3))
-        policy = self._suggestion_policy_from_payload(payload)
-
-        try:
-            path = self._resolve_media_path(image_path)
-            faces = self.server.ingestor.ingest_photo(
-                image_path=path,
-                source_path=str(source_path or path),
-                min_size=min_size,
-                max_faces=max_faces,
-            )
-        except Exception as exc:
-            self._error(str(exc))
-            return
-
-        reviews_created, reviews_reused = (
-            self._auto_queue_faces(faces, top_k, policy) if auto_queue else (0, 0)
-        )
-        people_by_id = {str(row.get("person_id")): row for row in self.store.list_people()}
-        face_rows = [self._face_summary(face, people_by_id) for face in faces]
-        self._send_json(
-            {
-                "ok": True,
-                "faces": face_rows,
-                "faces_created": len(face_rows),
-                "reviews_created": int(reviews_created),
-                "reviews_reused": int(reviews_reused),
-                "source_path": str(path),
-            },
-            status=HTTPStatus.CREATED,
-        )
-
-    def _handle_ingest_vhs(self, payload: dict[str, Any]) -> None:
-        video_path = payload.get("video_path")
-        source_path = payload.get("source_path")
-        min_size = int(payload.get("min_size") or 40)
-        max_faces = int(payload.get("max_faces") or 120)
-        sample_every_seconds = float(payload.get("sample_every_seconds") or 2.0)
-        max_duration_seconds = float(payload.get("max_duration_seconds") or 0.0)
-        auto_queue = str(payload.get("auto_queue", "1")).strip() not in {
-            "0",
-            "false",
-            "False",
-        }
-        top_k = max(1, _coerce_int(payload.get("top_k"), 3))
-        policy = self._suggestion_policy_from_payload(payload)
-
-        try:
-            path = self._resolve_media_path(video_path)
-            result = self.server.ingestor.ingest_vhs(
-                video_path=path,
-                source_path=str(source_path or path),
-                sample_every_seconds=sample_every_seconds,
-                min_size=min_size,
-                max_faces=max_faces,
-                max_duration_seconds=max_duration_seconds,
-            )
-        except Exception as exc:
-            self._error(str(exc))
-            return
-
-        faces = list(result.get("faces") or [])
-        reviews_created, reviews_reused = (
-            self._auto_queue_faces(faces, top_k, policy) if auto_queue else (0, 0)
-        )
-        people_by_id = {str(row.get("person_id")): row for row in self.store.list_people()}
-        face_rows = [self._face_summary(face, people_by_id) for face in faces]
-        self._send_json(
-            {
-                "ok": True,
-                "faces": face_rows,
-                "faces_created": int(result.get("faces_created", len(face_rows))),
-                "sampled_frames": int(result.get("sampled_frames", 0)),
-                "reviews_created": int(reviews_created),
-                "reviews_reused": int(reviews_reused),
-                "source_path": str(path),
-            },
-            status=HTTPStatus.CREATED,
-        )
-
-    def _handle_ingest_photo_scan(self, payload: dict[str, Any]) -> None:
-        root_dir = payload.get("photo_albums_root") or DEFAULT_PHOTO_ALBUMS_ROOT
-        view_glob = str(payload.get("view_glob") or "*_Pages")
-        recursive = _coerce_bool(payload.get("recursive"), True)
-        min_size = int(payload.get("min_size") or 40)
-        max_faces_per_photo = int(payload.get("max_faces_per_photo") or 50)
-        max_files = int(payload.get("max_files") or 0)
-        auto_queue = _coerce_bool(payload.get("auto_queue"), True)
-        rescan_existing = _coerce_bool(payload.get("rescan_existing"), False)
-        top_k = max(1, _coerce_int(payload.get("top_k"), 3))
-        policy = self._suggestion_policy_from_payload(payload)
-
-        try:
-            result = self.server.ingestor.ingest_photo_album_views(
-                photo_albums_root=self._resolve_media_path(root_dir),
-                view_glob=view_glob,
-                recursive=recursive,
-                min_size=min_size,
-                max_faces_per_photo=max_faces_per_photo,
-                max_files=max_files,
-                rescan_existing=rescan_existing,
-            )
-        except Exception as exc:
-            self._error(str(exc))
-            return
-
-        faces = list(result.get("faces") or [])
-        reviews_created, reviews_reused = (
-            self._auto_queue_faces(faces, top_k, policy) if auto_queue else (0, 0)
-        )
-        top_photos = sorted(
-            list(result.get("per_photo") or []),
-            key=lambda row: int(row.get("faces_created", 0)),
-            reverse=True,
-        )[:10]
-        self._send_json(
-            {
-                "ok": True,
-                "photo_files_scanned": int(result.get("photo_files_scanned", 0)),
-                "view_files_scanned": int(result.get("view_files_scanned", 0)),
-                "archive_scan_files_scanned": int(result.get("archive_scan_files_scanned", 0)),
-                "faces_created": int(result.get("faces_created", len(faces))),
-                "reviews_created": int(reviews_created),
-                "reviews_reused": int(reviews_reused),
-                "photo_albums_root": str(result.get("photo_albums_root", root_dir)),
-                "view_glob": str(result.get("view_glob", view_glob)),
-                "rescan_existing": bool(result.get("rescan_existing", rescan_existing)),
-                "removed_faces": int(result.get("removed_faces", 0)),
-                "removed_reviews": int(result.get("removed_reviews", 0)),
-                "removed_crops": int(result.get("removed_crops", 0)),
-                "top_photos": top_photos,
-            },
-            status=HTTPStatus.CREATED,
-        )
-
-    def _handle_get_face_crop(self, face_id: str) -> None:
-        face = self.store.get_face(str(face_id))
-        if not face:
-            self._not_found()
-            return
-        crop_path = str(face.get("crop_path") or "").strip()
-        if not crop_path:
-            self._not_found()
-            return
-        try:
-            path = self._validate_store_relative_file(crop_path)
-        except Exception as exc:
-            self._error(str(exc), status=HTTPStatus.BAD_REQUEST)
-            return
-        if not path.exists():
-            self._not_found()
-            return
-        try:
-            data = path.read_bytes()
-        except Exception as exc:
-            self._error(
-                f"Unable to read crop image: {exc}",
-                status=HTTPStatus.INTERNAL_SERVER_ERROR,
-            )
-            return
-        self._send_bytes(
-            data,
-            "image/jpeg",
-            status=HTTPStatus.OK,
-        )
-
-    def _load_face_source_image(self, face: dict[str, Any]):
+    def _load_face_source_image(self, face: dict[str, Any]) -> Any | None:
         source_ref = self._resolve_face_source_path(face)
         if source_ref is None:
             self._error("Source image is unavailable for this face.", status=HTTPStatus.NOT_FOUND)
@@ -1679,39 +1720,8 @@ class CastHandler(BaseHTTPRequestHandler):
                 x1 = max(x0 + 1, min(x + w, image.shape[1]))
                 y1 = max(y0 + 1, min(y + h, image.shape[0]))
                 cv2.rectangle(image, (x0, y0), (x1, y1), (0, 255, 255), 3)
-        except Exception:
-            pass
-
-    def _handle_get_face_source(self, face_id: str, query: dict[str, list[str]]) -> None:
-        face = self.store.get_face(str(face_id))
-        if not face:
-            self._not_found()
-            return
-        image = self._load_face_source_image(face)
-        if image is None:
-            return
-
-        highlight = str((query.get("highlight") or ["1"])[0]).strip() not in {"0", "false", "False"}
-        try:
-            max_dim = max(256, min(5000, int(str((query.get("max_dim") or ["1800"])[0]).strip())))
-        except Exception:
-            max_dim = 1800
-
-        if highlight:
-            self._draw_face_bbox(image, face)
-
-        h, w = image.shape[:2]
-        if max(w, h) > max_dim:
-            scale = float(max_dim) / float(max(w, h))
-            image = cv2.resize(
-                image, (max(1, int(round(w * scale))), max(1, int(round(h * scale)))), interpolation=cv2.INTER_AREA
-            )
-
-        ok, encoded = cv2.imencode(".jpg", image, [int(cv2.IMWRITE_JPEG_QUALITY), 90])  # type: ignore[arg-type]
-        if not ok:
-            self._error("Failed to encode source image.", status=HTTPStatus.INTERNAL_SERVER_ERROR)
-            return
-        self._send_bytes(bytes(encoded), "image/jpeg", status=HTTPStatus.OK)
+        except Exception as exc:
+            log.debug("failed to draw bounding box on image: %s", exc)
 
     def _handle_get_face_path_routes(
         self, parts: list[str], query: dict[str, list[str]]
