@@ -142,15 +142,17 @@ def test_make_encode_final_x264_maps_clip_chapters_after_subtitle_inputs(
         str(x)
         for x in render_pipeline.make_encode_final_x264(
             qtgmc,
-            [{"path": subtitle, "title": "Dialogue", "forced": False}],
             final_file,
-            "Unit Tester",
-            "Unit Clip",
-            "Unit Archive",
-            "00:00:10",
-            "00:00:20",
-            "2001",
-            "Pasadena, CA",
+            metadata={
+                "author": "Unit Tester",
+                "title": "Unit Clip",
+                "archive_tape_title": "Unit Archive",
+                "start_hms": "00:00:10",
+                "end_hms": "00:00:20",
+                "creation_time": "2001",
+                "location": "Pasadena, CA",
+            },
+            subtitle_tracks=[{"path": subtitle, "title": "Dialogue", "forced": False}],
             chapter_metadata_path=clip_ffmeta,
             include_audio=True,
         )

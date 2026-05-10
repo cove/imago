@@ -9,6 +9,7 @@
 # - Measures media duration via ffprobe.
 #
 import json
+import logging
 import os
 import shutil
 import subprocess
@@ -17,6 +18,8 @@ import hashlib
 from dataclasses import replace as dataclass_replace
 from fractions import Fraction
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------
 # Base Paths
@@ -425,7 +428,8 @@ def parse_bad_frames_csv(text):
             continue
         try:
             fid = int(token)
-        except Exception:
+        except Exception as exc:
+            log.debug("failed to parse frame id token %r: %s", token, exc)
             continue
         if fid < 0 or fid in seen:
             continue
@@ -455,6 +459,7 @@ def combine_signal_scores(
     noise_scores,
     tear_scores,
     wave_scores,
+    *,
     weight_chroma,
     weight_noise,
     weight_tear,
@@ -493,10 +498,10 @@ def combined_score(sigs, wc, wn, wt, ww):
         sigs["noise"],
         sigs["tear"],
         sigs["wave"],
-        wc,
-        wn,
-        wt,
-        ww,
+        weight_chroma=wc,
+        weight_noise=wn,
+        weight_tear=wt,
+        weight_wave=ww,
         include_norm=False,
     )
 
@@ -607,7 +612,8 @@ def _gamma_range_entries(raw_ranges) -> list[tuple[int, int, float, int]]:
         try:
             a = int(start)
             b = int(end)
-        except Exception:
+        except Exception as exc:
+            log.debug("failed to parse gamma entry start/end (%r, %r): %s", start, end, exc)
             continue
         if b <= a:
             continue
@@ -718,7 +724,8 @@ def _migrate_v1_to_v2(data: dict) -> dict:
         for item in list(vals or []):
             try:
                 fid = int(item)
-            except Exception:
+            except Exception as exc:
+                log.debug("failed to parse bad_frames_by_chapter item %r: %s", item, exc)
                 continue
             if fid >= 0:
                 merged.add(fid)
@@ -737,7 +744,8 @@ def _canonicalize_audio_sync_offsets(raw_offsets) -> list[dict]:
             a = int(item["start_frame"])
             b = int(item["end_frame"])
             offset = float(item["offset_seconds"])
-        except Exception:
+        except Exception as exc:
+            log.debug("failed to parse audio sync offset entry %r: %s", item, exc)
             continue
         if b <= a:
             continue
@@ -763,34 +771,42 @@ def _migrate_v2_to_v3(data: dict) -> dict:
     return out
 
 
+def _parse_render_settings_data(data) -> dict | None:
+    """Parse and migrate a raw render settings dict; return None if invalid."""
+    if not isinstance(data, dict):
+        return None
+    version = int(data.get("version") or 1)
+    if version < 2:
+        out = _migrate_v1_to_v2(data)
+    else:
+        out = dict(_render_settings_template())
+        out.update(data)
+    if int(out.get("version") or 2) < 3:
+        out = _migrate_v2_to_v3(out)
+    out["archive_settings"] = dict(out.get("archive_settings") or {})
+    out["archive_settings"][GAMMA_CORRECTION_DEFAULT_KEY] = _gamma_default_from_cfg(
+        out["archive_settings"],
+        default=1.0,
+    )
+    out["archive_settings"][GAMMA_CORRECTION_RANGES_KEY] = _gamma_ranges_from_cfg(
+        out["archive_settings"],
+    )
+    bad = out.get("bad_frames") or []
+    out["bad_frames"] = sorted({int(x) for x in bad if int(x) >= 0})
+    out[AUDIO_SYNC_OFFSETS_KEY] = _canonicalize_audio_sync_offsets(out.get(AUDIO_SYNC_OFFSETS_KEY) or [])
+    return out
+
+
 def load_render_settings(archive: str, create: bool = False) -> tuple[Path, dict]:
     path = render_settings_path(archive)
     if path.exists():
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-            if isinstance(data, dict):
-                version = int(data.get("version") or 1)
-                if version < 2:
-                    out = _migrate_v1_to_v2(data)
-                else:
-                    out = dict(_render_settings_template())
-                    out.update(data)
-                if int(out.get("version") or 2) < 3:
-                    out = _migrate_v2_to_v3(out)
-                out["archive_settings"] = dict(out.get("archive_settings") or {})
-                out["archive_settings"][GAMMA_CORRECTION_DEFAULT_KEY] = _gamma_default_from_cfg(
-                    out["archive_settings"],
-                    default=1.0,
-                )
-                out["archive_settings"][GAMMA_CORRECTION_RANGES_KEY] = _gamma_ranges_from_cfg(
-                    out["archive_settings"],
-                )
-                bad = out.get("bad_frames") or []
-                out["bad_frames"] = sorted({int(x) for x in bad if int(x) >= 0})
-                out[AUDIO_SYNC_OFFSETS_KEY] = _canonicalize_audio_sync_offsets(out.get(AUDIO_SYNC_OFFSETS_KEY) or [])
+            out = _parse_render_settings_data(data)
+            if out is not None:
                 return path, out
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("failed to load render settings from %s: %s", path, exc)
     data = _render_settings_template()
     if create:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -944,7 +960,8 @@ def merge_bad_frames_in_render_settings(archive: str, new_frames) -> Path:
     for item in list(new_frames or []):
         try:
             fid = int(item)
-        except Exception:
+        except Exception as exc:
+            log.debug("failed to parse bad frame item %r: %s", item, exc)
             continue
         if fid >= 0:
             existing.add(fid)
@@ -1114,6 +1131,18 @@ def _normalize_frame_list_key(key):
     return k if k in _FRAME_LIST_KEYS else ""
 
 
+def _insert_frame_list_keys(cleaned, updates, insert_at):
+    """Insert frame-list key lines into a cleaned chapter block at insert_at; return updated index."""
+    for key in _FRAME_LIST_KEYS:
+        if key not in updates:
+            continue
+        csv = format_bad_frames_csv(updates[key])
+        if csv:
+            cleaned.insert(insert_at, f"{key.upper()}={csv}")
+            insert_at += 1
+    return insert_at
+
+
 def update_chapter_frame_lists_in_ffmetadata(path, chapter_frame_lists):
     """
     Update chapter frame-list metadata lines in chapters.ffmetadata in-place.
@@ -1160,13 +1189,7 @@ def update_chapter_frame_lists_in_ffmetadata(path, chapter_frame_lists):
 
         if should_update:
             insert_at = title_idx + 1 if title_idx >= 0 else len(cleaned)
-            for key in _FRAME_LIST_KEYS:
-                if key not in updates:
-                    continue
-                csv = format_bad_frames_csv(updates[key])
-                if csv:
-                    cleaned.insert(insert_at, f"{key.upper()}={csv}")
-                    insert_at += 1
+            insert_at = _insert_frame_list_keys(cleaned, updates, insert_at)
             touched += 1
 
         out.extend(cleaned)
@@ -1379,7 +1402,7 @@ def verify_blake3_manifest(root_dir, manifest_path):
     return r.returncode
 
 
-def detect_manifest_algo(manifest_path):
+def detect_manifest_algo(manifest_path) -> str | None:
     name = Path(manifest_path).name.lower()
     if "blake3" in name:
         return "blake3"

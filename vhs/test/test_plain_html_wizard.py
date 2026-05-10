@@ -834,8 +834,9 @@ def test_handle_load_chapter_populates_session_from_video_and_metadata(
         start_frame,
         end_frame,
         n_frames,
-        archive,
-        chapter_title,
+        *,
+        archive: str,
+        ch_title: str,
         include_thumbs=False,
         frame_read_offset=0,
         progress=None,
@@ -847,7 +848,7 @@ def test_handle_load_chapter_populates_session_from_video_and_metadata(
         assert end_frame == 103
         assert n_frames == 3
         assert archive == archive_name
-        assert chapter_title == chapter
+        assert ch_title == chapter
         assert include_thumbs is False
         assert frame_read_offset == 100
         assert callable(should_cancel)

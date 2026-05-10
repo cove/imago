@@ -114,7 +114,7 @@ def _normalize_hint_text(value: str) -> str:
     return f" {' '.join(text.split())} ".strip() + " "
 
 
-def _add_hint(hints: list, seen_names: set, name: str, person_id, confidence: float, source: str) -> None:
+def _add_hint(hints: list, seen_names: set, name: str, *, person_id, confidence: float, source: str) -> None:
     key = name.casefold()
     if key in seen_names:
         return
@@ -537,17 +537,17 @@ class CastPeopleMatcher:
 
     def _add_sequence_name_hints(
         self, parts: list[str], face_index: int, total_faces: int,
-        source: str, positional_source: str, hints: list, seen_names: set,
+        *, source: str, positional_source: str, hints: list, seen_names: set,
     ) -> None:
         if len(parts) == total_faces:
             name = parts[face_index].title()
             person_id = self._find_person_id_by_name(name)
-            _add_hint(hints, seen_names, name, person_id, 0.85 if person_id else 0.65, positional_source)
+            _add_hint(hints, seen_names, name, person_id=person_id, confidence=0.85 if person_id else 0.65, source=positional_source)
         else:
             for name_raw in parts:
                 name = name_raw.title()
                 person_id = self._find_person_id_by_name(name)
-                _add_hint(hints, seen_names, name, person_id, 0.65 if person_id else 0.45, source)
+                _add_hint(hints, seen_names, name, person_id=person_id, confidence=0.65 if person_id else 0.45, source=source)
 
     def _build_face_name_hints(
         self,
@@ -562,7 +562,7 @@ class CastPeopleMatcher:
         for seq_match in re.finditer(r"\b([a-zA-Z]{2,}(?:-[a-zA-Z]{2,})+)\b", hint_text):
             parts = [p.strip() for p in seq_match.group(0).split("-") if len(p.strip()) >= 2]
             if len(parts) >= 2:
-                self._add_sequence_name_hints(parts, face_index, total_faces, "caption", "positional_caption", hints, seen_names)
+                self._add_sequence_name_hints(parts, face_index, total_faces, source="caption", positional_source="positional_caption", hints=hints, seen_names=seen_names)
 
         normalized = _normalize_hint_text(hint_text)
         for person_id, variants in self._person_variants_by_id.items():
@@ -570,13 +570,13 @@ class CastPeopleMatcher:
                 phrase = _normalize_hint_text(variant).strip()
                 if phrase and f" {phrase} " in normalized:
                     name = self._person_name_by_id.get(person_id, variant)
-                    _add_hint(hints, seen_names, name, person_id, 0.5, "caption")
+                    _add_hint(hints, seen_names, name, person_id=person_id, confidence=0.5, source="caption")
                     break
 
         stem = Path(source_path).stem
         stem_parts = [p.strip() for p in stem.split("-") if re.match(r"^[a-zA-Z]{2,}$", p.strip())]
         if len(stem_parts) >= 2:
-            self._add_sequence_name_hints(stem_parts, face_index, total_faces, "filename", "positional_filename", hints, seen_names)
+            self._add_sequence_name_hints(stem_parts, face_index, total_faces, source="filename", positional_source="positional_filename", hints=hints, seen_names=seen_names)
 
         return hints
 
@@ -659,7 +659,7 @@ class CastPeopleMatcher:
     def _valid_detected_faces(self, image, width: int, height: int) -> list[tuple[int, int, int, int]]:
         valid_faces: list[tuple[int, int, int, int]] = []
         for x, y, ww, hh in sorted(self._detect_faces(image), key=lambda f: f[0]):
-            x0, y0, x1, y1 = self._expand_box(x, y, ww, hh, width, height)
+            x0, y0, x1, y1 = self._expand_box(x, y, ww, hh, width=width, height=height)
             crop = image[y0:y1, x0:x1]
             if crop is None or crop.size == 0:
                 continue
@@ -796,7 +796,7 @@ class CastPeopleMatcher:
         total_valid: int,
         by_name: dict,
     ) -> None:
-        x0, y0, x1, y1 = self._expand_box(x, y, ww, hh, width, height)
+        x0, y0, x1, y1 = self._expand_box(x, y, ww, hh, width=width, height=height)
         crop = image[y0:y1, x0:x1]
         absolute_bbox = _offset_box((x, y, ww, hh), bbox_offset)
         face = self._match_or_create_face_record(
