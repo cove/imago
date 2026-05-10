@@ -17,6 +17,7 @@ uv.lock
 .pytest_cache/
 .ruff_cache/
 .tmp/
+tmp/
 .coverage
 htmlcov/
 .hypothesis/

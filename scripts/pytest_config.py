@@ -34,7 +34,7 @@ def pytest_configure(config):
     elif username:
         temp_root = Path("C:/Users") / username / "AppData" / "Local" / "Temp"
     else:
-        return
+        temp_root = _ROOT / "tmp"
 
     temp_root.mkdir(parents=True, exist_ok=True)
     temp_path = str(temp_root)
