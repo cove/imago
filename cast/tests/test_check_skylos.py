@@ -39,7 +39,7 @@ def test_check_skylos_runs_each_project_separately(monkeypatch):
     assert module.main([]) == 0
     assert [cmd[-1] for cmd in calls] == ["photoalbums", "vhs", "cast"]
     assert all("--json" in cmd for cmd in calls)
-    assert all("--quality" in cmd for cmd in calls)
+    assert all("--all" in cmd for cmd in calls)
     assert all(len(cmd) == 5 for cmd in calls)
 
 
@@ -79,9 +79,10 @@ def test_check_skylos_fails_on_all_quality_findings(monkeypatch, capsys):
     assert module.main([]) == 1
 
     err = capsys.readouterr().err
-    assert "[skylos] photoalbums: found 1 quality finding(s)" in err
+    assert "[skylos] photoalbums: found 1 finding(s) across 1 categories" in err
+    assert "[quality] 1 finding(s)" in err
     assert "SKY-C401 MEDIUM server.py:12 Clone group detected" in err
-    assert "[skylos] vhs: found 1 quality finding(s)" in err
+    assert "[skylos] vhs: found 1 finding(s) across 1 categories" in err
     assert "SKY-C401 MEDIUM render.py:42 Clone group detected" in err
 
 
