@@ -4,7 +4,7 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 
 ## Core Policy
 
-- You use `just dupes`, `just deadcode`, `just complexity`, and `just test` to validate the quality of the code changes.
+- You use `just dupes`, `just deadcode`, `just complexity`, `just lint` and `just test` to validate the quality of the code changes.
 - Prefer stateless and reconstructing state from ground truth and rather than storing data in a database when possible.
 - Limit code file sizes to about 500 lines.
 - Do not use brittle regex and string replaacments to edit AI model responses, improve the prompt instead to get the correct output in JSON.
