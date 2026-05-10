@@ -54,6 +54,9 @@ mcp/jobs/
 # Dagster instance storage
 .dagster/
 
+# Skylos temp output
+skylos_out.json
+
 # Skill eval workspaces
 skills/*-workspace/
 .omx/
