@@ -76,7 +76,6 @@ Directory Notes
 
 - `vhs/metadata/` contains per-archive metadata (`chapters.tsv` master, generated `chapters.ffmetadata`, `render_settings.json`, `people.tsv`, markers, etc.).
 - `vhs_pipeline/` contains command implementations used by `vhs.py`.
-- `legacy_steps/` contains legacy `step_*` entrypoints and historical step docs.
 - `../models/`, `software/`, `manuals/`, `screenshots/` contain model/data/tool references.
 
 Platform Notes
@@ -109,3 +108,53 @@ People Subtitle TSV
 - People labels are merged into chapter subtitle sidecars:
   - `.srt`: appended below dialogue in brackets, e.g. `[Jim | Linda]`
   - `.ass`: appended below dialogue in italics
+
+Historical Capture Guide
+------------------------
+
+The following is the original VHS capture hardware/software reference,
+preserved from the legacy step_1 documentation.
+
+Panasonic AG-1970P VCR settings:
+- Phone Level = Neutral, Picture = Neutral, Hi-fi Rec Level = Neutral
+- Noise Filter = Off, TBC = On, Search Sound = Off, HiFi/NormalMix = Off, Tape Select = T120, Mono = On, MTS = MTS
+- A1 connectors (back of VCR) S-Video out to Osprey 260e S-Video In, A1 connectors Right and Left Audio to Osprey 260e Unbalanced Audio In.
+
+Osprey 260e Analog Capture Card Settings
+Everything set to defaults, except:
+- RefSize -> Horizontal Format: CCIR-601, Source Width: 720
+- Input -> Video Input: S-Video
+- Video Decoder -> Video Standard: NTSC_M
+- Filters -> SimulStream: Unchecked
+
+Software Requirements
+In the software/ directory:
+- Install the UT Video driver
+- Install the Osprey driver
+- Unzip VirtualDub
+
+VirtualDub Capture Software Settings
+1. Set capture framerate to 29.97 FPS in the lower right of the screen.
+2. Set Audio -> Compression to PCM 48.000 kHz 16-bit mono if it's a home video and not stereo. (Mono avoids blank audio track noise from being mixed in.)
+3. Set Video -> Compression "UtVideo YUV422 BT.601.VCM"
+4. Set Capture -> Settings... -> Abort options -> Abort on left mouse button to be unchecked since it's causes errant recording stops, instead press the ESC key to stop recording.
+5. Set Capture -> Timing... -> Internal capture mode synchronization -> no correction
+6. Set Capture -> Stop conditions ... -> Capture time exceeds to 5400 seconds for the maximum of a VHS-C tape on EP mode.
+7. Set File -> Set Capture File... to the output file every time, as that it automatically overwrites the last file by default.
+
+See the screenshots/ directory for what the above settings look like.
+
+Notes:
+
+VirtualDub included in the software/ and encoding with UT Video is the only way I was able to get a reliable correct capture. Specifically it did not write video faster to storage than it could handle, and UT Video kept the color in VHS ranges. Addtionaly it didn't crash.
+
+T2 UtVideo YUV422 BT.601.VCM is faster and also works, but VLC doesn't support the T2 version to validate the capture.
+
+If the VCR automatically stops playing the VHS-C tape in its VHS cassette adapter, this can be due to the battery being low.
+
+The VirtualDub software included is from here:
+https://www.digitalfaq.com/guides/video/capture-avi-virtualdub.htm
+https://www.digitalfaq.com/forum/video-conversion/1727-virtualdub-filters-pre.html
+
+The FFmpeg-QTGMC Easy 2025.01.11 is from here:
+https://forum.videohelp.com/threads/405720-FFmpeg-QTGMC-Easy!#post2656404
