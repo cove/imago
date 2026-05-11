@@ -67,8 +67,8 @@ if sys.platform == "win32":
     MEDIAINFO_BIN = BASE / "software" / "Windows" / "MediaInfo" / "MediaInfo.exe"
 elif sys.platform == "darwin":
     FFMPEG_DIR = BASE / "bin"
-    FFMPEG_BIN = FFMPEG_DIR / "ffmpeg-8.0.1.darwin.arm64"
-    FFPROBE_BIN = FFMPEG_DIR / "ffprobe-8.0.1.darwin.arm64"
+    FFMPEG_BIN = FFMPEG_DIR / "ffmpeg-8.1.1.darwin.arm64"
+    FFPROBE_BIN = FFMPEG_DIR / "ffprobe-8.1.1.darwin.arm64"
     B3SUM_BIN = BASE / "bin" / "b3sum"
     MEDIAINFO_BIN = "mediainfo"
 elif sys.platform.startswith("linux"):
@@ -85,7 +85,7 @@ elif sys.platform.startswith("linux"):
             else None
         )
     else:
-        FFMPEG_BIN, ffmpeg_dir = _resolve_command("ffmpeg", BASE / "bin" / "ffmpeg")
+        FFMPEG_BIN, ffmpeg_dir = _resolve_command("ffmpeg", BASE / "bin" / "ffmpeg-n8.1-linux64")
 
     if ffprobe_override:
         FFPROBE_BIN = Path(ffprobe_override)
@@ -95,7 +95,7 @@ elif sys.platform.startswith("linux"):
             else None
         )
     else:
-        FFPROBE_BIN, ffprobe_dir = _resolve_command("ffprobe", BASE / "bin" / "ffprobe")
+        FFPROBE_BIN, ffprobe_dir = _resolve_command("ffprobe", BASE / "bin" / "ffprobe-n8.1-linux64")
 
     if b3sum_override:
         B3SUM_BIN = Path(b3sum_override)
